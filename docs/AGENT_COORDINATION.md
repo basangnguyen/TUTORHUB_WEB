@@ -35,8 +35,8 @@ Khi thông tin mâu thuẫn: ADR Accepted -> `PROJECT_STATE.md` mới nhất -> 
 |---|---|
 | Phase hoàn thành | Phase 0 |
 | Phase hiện tại | Phase 1 - Engineering foundation |
-| Task hoàn thành gần nhất | Bootstrap repository, P1-01 toolchain và CI GitHub |
-| Task ưu tiên kế tiếp | P1-02 Web shell và phần nền còn lại của P1-04 Core API |
+| Task hoàn thành gần nhất | P1-02 Web shell trên nhánh `codex/p1-02-web-shell` |
+| Task ưu tiên kế tiếp | Review/merge P1-02, sau đó nhận P1-04 Core API foundation |
 | Initial commit | `33af851` - `chore(bootstrap): initialize TutorHub V2 foundation` |
 | CI trên GitHub | `Verify` thành công ngày 2026-07-13 |
 | Cloud staging | Chưa tạo |
@@ -50,7 +50,7 @@ Trước initial push hoặc khi GitHub không khả dụng, dùng bảng dướ
 | Task | Trạng thái | Owner/agent | Branch | Phạm vi tệp dự kiến | Bắt đầu | Ghi chú |
 |---|---|---|---|---|---|---|
 | Bootstrap repository | DONE | Codex | `main` | Toàn bộ baseline ban đầu, GitHub templates và tài liệu điều phối | 2026-07-13 | Commit `33af851`, push `origin/main`, workflow `Verify` thành công |
-| P1-02 Web shell | TODO | Chưa gán | Chưa tạo | `apps/web`, router/i18n/query | - | Nhận sau bootstrap |
+| P1-02 Web shell | REVIEW | Codex | `codex/p1-02-web-shell` | `apps/web/src`, `apps/web/package.json`, `pnpm-lock.yaml`, task docs | 2026-07-13 | Issue #1; router/query/i18n/route states/responsive shell đã verify cục bộ |
 | P1-04 Core API foundation | TODO | Chưa gán | Chưa tạo | `services/core-api`, OpenAPI liên quan | - | Có thể làm song song nếu không sửa cùng contract |
 
 Giá trị trạng thái hợp lệ: `TODO`, `READY`, `IN_PROGRESS`, `BLOCKED`, `REVIEW`, `DONE`.
@@ -64,7 +64,7 @@ Checklist chi tiết có thẩm quyền nằm tại `docs/PHASE_1_BACKLOG.md`. B
 | Workstream | Trạng thái | Điều kiện hoàn thành kế tiếp |
 |---|---|---|
 | P1-01 Repository và toolchain | DONE | Initial commit, push và GitHub Actions Linux đã xanh |
-| P1-02 Web shell | TODO | Router, Query, error boundary, route states, i18n, responsive shell |
+| P1-02 Web shell | REVIEW | Issue #1 và nhánh `codex/p1-02-web-shell`; lint, typecheck, 6 tests, build và UI responsive đã đạt |
 | P1-03 Design system | TODO | Token đầy đủ, component nền, Storybook, accessibility |
 | P1-04 Go Core API | PARTIAL | `/api/v1`, Problem Details, status recorder, config validation, observability |
 | P1-05 Contract và database | PARTIAL | Generated client, migration Neon/PostgreSQL và tenant-scoped repository |
