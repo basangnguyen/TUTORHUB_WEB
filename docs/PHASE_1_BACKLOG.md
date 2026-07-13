@@ -18,11 +18,13 @@ Tạo nền kỹ thuật có thể triển khai staging và chứng minh vertica
 
 ## P1-02 Web shell
 
-- [ ] React + TypeScript strict + Vite.
-- [ ] React Router, TanStack Query; state local trước, chỉ dùng store toàn cục khi cần.
-- [ ] Error boundary, route guards, 404/403/error/offline states.
-- [ ] i18n `vi` và `en` từ đầu.
-- [ ] Layout desktop/tablet/mobile cơ bản.
+- [x] React + TypeScript strict + Vite.
+- [x] React Router, TanStack Query; state local trước, chỉ dùng store toàn cục khi cần.
+- [x] Error boundary, route guards, 404/403/error/offline states.
+- [x] i18n `vi` và `en` từ đầu.
+- [x] Layout desktop/tablet/mobile cơ bản.
+
+**Trạng thái 2026-07-13:** hoàn thành trên nhánh `codex/p1-02-web-shell`, đang chờ review qua Issue #1. Đã kiểm tra lint, TypeScript, 6 Vitest tests, production build và giao diện desktop/mobile với Core API cục bộ.
 
 ## P1-03 Design system
 

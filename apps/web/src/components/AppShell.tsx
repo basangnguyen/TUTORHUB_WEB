@@ -1,0 +1,147 @@
+import { useEffect, useState } from "react";
+import { NavLink, Outlet, useLocation, useNavigation } from "react-router-dom";
+import { navigationItems } from "../app/routes";
+import { useI18n } from "../app/i18n";
+import { useDemoSession } from "../app/session";
+
+function useOnlineStatus() {
+  const [isOnline, setIsOnline] = useState(() => navigator.onLine);
+
+  useEffect(() => {
+    const markOnline = () => setIsOnline(true);
+    const markOffline = () => setIsOnline(false);
+
+    window.addEventListener("online", markOnline);
+    window.addEventListener("offline", markOffline);
+
+    return () => {
+      window.removeEventListener("online", markOnline);
+      window.removeEventListener("offline", markOffline);
+    };
+  }, []);
+
+  return isOnline;
+}
+
+export function AppShell() {
+  const { language, setLanguage, t } = useI18n();
+  const session = useDemoSession();
+  const location = useLocation();
+  const navigation = useNavigation();
+  const isOnline = useOnlineStatus();
+  const [isNavigationOpen, setIsNavigationOpen] = useState(false);
+
+  const currentItem = navigationItems.find((item) =>
+    location.pathname.startsWith(item.to),
+  );
+  const roleLabel = session
+    ? session.role === "teacher"
+      ? t("shell.role.teacher")
+      : t("shell.role.student")
+    : t("shell.role.guest");
+
+  return (
+    <div className="app-shell">
+      <a className="skip-link" href="#main-content">
+        {t("shell.skip")}
+      </a>
+
+      <aside
+        aria-label={t("shell.navigation")}
+        className={`app-sidebar${isNavigationOpen ? " app-sidebar--open" : ""}`}
+      >
+        <div className="app-brand">
+          <span className="app-brand__mark" aria-hidden="true">
+            TH
+          </span>
+          <span>
+            <strong>{t("brand.product")}</strong>
+            <small>{t("brand.version")}</small>
+          </span>
+        </div>
+
+        <nav className="app-navigation" aria-label={t("shell.navigation")}>
+          {navigationItems.map((item) => (
+            <NavLink
+              className={({ isActive }) =>
+                `app-navigation__link${isActive ? " app-navigation__link--active" : ""}`
+              }
+              key={item.to}
+              onClick={() => setIsNavigationOpen(false)}
+              to={item.to}
+            >
+              {t(item.labelKey)}
+            </NavLink>
+          ))}
+        </nav>
+
+        <div className="app-sidebar__footer">
+          <span className="app-sidebar__role">{roleLabel}</span>
+          <strong>{session?.displayName ?? t("shell.profile")}</strong>
+        </div>
+      </aside>
+
+      <div className="app-workspace">
+        <header className="app-topbar">
+          <div className="app-topbar__context">
+            <button
+              aria-expanded={isNavigationOpen}
+              className="menu-toggle"
+              onClick={() => setIsNavigationOpen((open) => !open)}
+              type="button"
+            >
+              {isNavigationOpen
+                ? t("shell.closeNavigation")
+                : t("shell.openNavigation")}
+            </button>
+            <span className="app-topbar__eyebrow">{t("brand.product")}</span>
+            <strong>
+              {currentItem ? t(currentItem.labelKey) : t("nav.home")}
+            </strong>
+          </div>
+
+          <div className="app-topbar__actions">
+            <span
+              className={`connection-status${isOnline ? " connection-status--online" : ""}`}
+              role="status"
+            >
+              {isOnline ? t("shell.online") : t("shell.offline")}
+            </span>
+            <label className="language-select">
+              <span className="visually-hidden">{t("shell.language")}</span>
+              <select
+                aria-label={t("shell.language")}
+                onChange={(event) =>
+                  setLanguage(event.target.value as typeof language)
+                }
+                value={language}
+              >
+                <option value="vi">Tiếng Việt</option>
+                <option value="en">English</option>
+              </select>
+            </label>
+          </div>
+        </header>
+
+        {!isOnline && (
+          <section className="connectivity-notice" role="status">
+            <div>
+              <strong>{t("shell.offline")}</strong>
+              <p>{t("shell.offlineMessage")}</p>
+            </div>
+            <button onClick={() => window.location.reload()} type="button">
+              {t("shell.retryConnection")}
+            </button>
+          </section>
+        )}
+
+        <main id="main-content" tabIndex={-1}>
+          {navigation.state !== "idle" && (
+            <div className="route-progress" aria-live="polite" />
+          )}
+          <Outlet />
+        </main>
+      </div>
+    </div>
+  );
+}

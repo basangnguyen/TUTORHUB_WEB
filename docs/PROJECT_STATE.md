@@ -9,11 +9,11 @@
 | Ngày cập nhật | 2026-07-13 |
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB` |
 | Remote / default branch | `origin` / `main` |
-| Branch | `main` |
+| Branch | `codex/p1-02-web-shell` |
 | Phase hoàn thành | Phase 0 |
 | Phase hiện tại | Phase 1 - Engineering foundation |
-| Task hiện tại | P1-01 hoàn thành và CI đã xác nhận; chuẩn bị phân công P1-02 và P1-04 |
-| Task kế tiếp | Tạo issue/branch cho P1-02 Web shell và P1-04 Core API foundation |
+| Task hiện tại | P1-02 Web shell hoàn thành trên nhánh riêng, chờ review qua Issue #1 |
+| Task kế tiếp | P1-04 Core API foundation; chỉ bắt đầu sau khi xác nhận ownership/branch |
 | Application code V2 | React health app + Go health API |
 | Git commit đầu tiên | `33af851` - `chore(bootstrap): initialize TutorHub V2 foundation` |
 
@@ -34,6 +34,8 @@
 - Xác định `basangnguyen/TUTORHUB_WEB` là repository GitHub chính thức và tạo quy trình điều phối đa-agent tại `docs/AGENT_COORDINATION.md`.
 - Thêm GitHub Issue template và Pull Request template để khóa ownership, ghi phạm vi, test và bàn giao thống nhất giữa nhiều agent.
 - Push initial commit `33af851` lên `origin/main`; GitHub Actions workflow `Verify` đã chạy thành công.
+- Hoàn thành P1-02 Web shell trên `codex/p1-02-web-shell`: React Router, TanStack Query, session guard demo, i18n vi/en, các route trạng thái và layout responsive.
+- Tạo GitHub Issue #1 cho P1-02; 6 Vitest tests, lint, TypeScript, production build và kiểm tra UI desktop/mobile đều đạt cục bộ.
 
 ## Chưa thực hiện
 
@@ -46,17 +48,17 @@
 ## Việc tiếp theo
 
 1. Bật branch protection/status checks sau khi workflow đầu tiên chạy thành công.
-2. Tạo issue và branch ownership cho P1-02: app shell, routing, error boundary và i18n.
+2. Review và merge P1-02 từ Issue #1 trước khi các vertical slice dùng lại web shell.
 3. Tạo issue và branch ownership cho P1-04: Problem Details, status recorder, config validation và observability skeleton.
 4. Chưa kết nối Neon/B2/LiveKit trước khi các nền trên ổn định.
 
 ## Verify gần nhất
 
 - `pnpm verify`: đạt sau khi thêm `.tools\go\bin` vào `PATH`; 20 Turbo tasks.
-- Vitest: 4 tests đạt.
+- Vitest web shell: 6 tests đạt.
 - `go test ./services/core-api/...`: đạt.
 - `go vet ./services/core-api/...`: đạt.
-- Runtime: `http://127.0.0.1:8080/health` và `http://127.0.0.1:5173/api/health` trả `ok`.
+- Runtime: `http://127.0.0.1:8080/health` và `http://localhost:5173/api/health` trả `ok`; desktop/mobile shell hiển thị đúng.
 - GitHub Actions `Verify` cho commit `33af851`: thành công.
 - Docker: chưa cài trên máy; chưa build image HF local.
 
