@@ -35,10 +35,10 @@ Khi thông tin mâu thuẫn: ADR Accepted -> `PROJECT_STATE.md` mới nhất -> 
 |---|---|
 | Phase hoàn thành | Phase 0 |
 | Phase hiện tại | Phase 1 - Engineering foundation |
-| Task hoàn thành gần nhất | P1-01 Repository và toolchain, đã verify cục bộ |
+| Task hoàn thành gần nhất | Bootstrap repository, P1-01 toolchain và CI GitHub |
 | Task ưu tiên kế tiếp | P1-02 Web shell và phần nền còn lại của P1-04 Core API |
-| Initial commit | Chưa tạo |
-| CI trên GitHub | Chưa chạy; cần push đầu tiên |
+| Initial commit | `33af851` - `chore(bootstrap): initialize TutorHub V2 foundation` |
+| CI trên GitHub | `Verify` thành công ngày 2026-07-13 |
 | Cloud staging | Chưa tạo |
 
 ## 4. Ownership công việc đang hoạt động
@@ -49,7 +49,7 @@ Trước initial push hoặc khi GitHub không khả dụng, dùng bảng dướ
 
 | Task | Trạng thái | Owner/agent | Branch | Phạm vi tệp dự kiến | Bắt đầu | Ghi chú |
 |---|---|---|---|---|---|---|
-| Bootstrap repository | IN_PROGRESS | Codex | `main` | Toàn bộ baseline ban đầu, GitHub templates và tài liệu điều phối | 2026-07-13 | Tạo commit đầu tiên, push và xác nhận CI |
+| Bootstrap repository | DONE | Codex | `main` | Toàn bộ baseline ban đầu, GitHub templates và tài liệu điều phối | 2026-07-13 | Commit `33af851`, push `origin/main`, workflow `Verify` thành công |
 | P1-02 Web shell | TODO | Chưa gán | Chưa tạo | `apps/web`, router/i18n/query | - | Nhận sau bootstrap |
 | P1-04 Core API foundation | TODO | Chưa gán | Chưa tạo | `services/core-api`, OpenAPI liên quan | - | Có thể làm song song nếu không sửa cùng contract |
 
