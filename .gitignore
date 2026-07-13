@@ -1,0 +1,39 @@
+# Dependencies and build output
+node_modules/
+.turbo/
+.tools/
+dist/
+build/
+coverage/
+*.tsbuildinfo
+bin/
+tmp/
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+
+# IDE and operating system
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Logs and local databases
+*.log
+*.db
+*.sqlite
+*.sqlite3
+
+# Infrastructure state
+.terraform/
+*.tfstate
+*.tfstate.*
+
+# Local Go workspace files
+go.work.sum

@@ -1,0 +1,85 @@
+name: Task / Workstream
+description: Nhận và theo dõi một task phát triển TutorHub V2
+title: "[TASK-ID] "
+labels:
+  - task
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Đọc `AGENTS.md`, `docs/AGENT_COORDINATION.md` và `docs/PROJECT_STATE.md` trước khi nhận task. Không đưa secret hoặc dữ liệu người dùng vào issue.
+
+  - type: input
+    id: task_id
+    attributes:
+      label: Task ID
+      placeholder: P1-02
+    validations:
+      required: true
+
+  - type: input
+    id: owner
+    attributes:
+      label: Owner / agent
+      placeholder: codex, claude, gemini hoặc tên thành viên
+    validations:
+      required: true
+
+  - type: input
+    id: branch
+    attributes:
+      label: Branch dự kiến
+      placeholder: codex/p1-02-web-shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: objective
+    attributes:
+      label: Mục tiêu và acceptance criteria
+      description: Mô tả hành vi cần đạt, không chỉ liệt kê file cần sửa.
+    validations:
+      required: true
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: Phạm vi file / module dự kiến
+      description: Liệt kê vùng ownership để agent khác tránh sửa trùng.
+      placeholder: |
+        - apps/web/src/routes
+        - apps/web/src/app
+    validations:
+      required: true
+
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Phụ thuộc, contract và migration
+      placeholder: Issue/PR phụ thuộc, OpenAPI, migration hoặc ADR liên quan
+
+  - type: textarea
+    id: verification
+    attributes:
+      label: Kế hoạch kiểm tra
+      placeholder: Unit, component, integration, E2E, accessibility hoặc security test
+    validations:
+      required: true
+
+  - type: textarea
+    id: risks
+    attributes:
+      label: Rủi ro và giới hạn
+      placeholder: Xung đột, rollback, dữ liệu, bảo mật hoặc phần chưa làm
+
+  - type: checkboxes
+    id: coordination
+    attributes:
+      label: Checklist nhận việc
+      options:
+        - label: Tôi đã đồng bộ `main` và kiểm tra task chưa có owner khác.
+          required: true
+        - label: Tôi đã đọc ADR và tài liệu chuyên đề liên quan.
+          required: true
+        - label: Issue không chứa secret, token hoặc dữ liệu nhạy cảm.
+          required: true

@@ -1,0 +1,17 @@
+:root {
+  --color-canvas: #f8f9fb;
+  --color-surface: #ffffff;
+  --color-text: #17191f;
+  --color-text-muted: #626979;
+  --color-border: #e2e5eb;
+  --color-border-strong: #cbd0da;
+  --color-accent: #245fa4;
+  --color-accent-soft: #e9f2fc;
+  --color-success: #157347;
+  --color-success-soft: #e8f7ef;
+  --color-danger: #b42318;
+  --color-danger-soft: #fff0ef;
+  --color-focus: rgb(36 95 164 / 28%);
+  --radius-sm: 6px;
+  --radius-md: 8px;
+}

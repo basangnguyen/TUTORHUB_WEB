@@ -1,0 +1,50 @@
+openapi: 3.1.0
+info:
+  title: TutorHub Core API
+  version: 0.0.1
+  description: Initial contract for the TutorHub V2 engineering foundation.
+servers:
+  - url: http://localhost:8080
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      summary: Return the Core API health status
+      responses:
+        "200":
+          description: Core API is healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+  /live:
+    get:
+      operationId: getLiveness
+      summary: Return process liveness
+      responses:
+        "200":
+          description: Process is alive
+  /ready:
+    get:
+      operationId: getReadiness
+      summary: Return service readiness
+      responses:
+        "200":
+          description: Service is ready
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      additionalProperties: false
+      required: [status, service, environment, timestamp]
+      properties:
+        status:
+          type: string
+          const: ok
+        service:
+          type: string
+        environment:
+          type: string
+        timestamp:
+          type: string
+          format: date-time

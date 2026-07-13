@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Tài liệu điều phối TutorHub V2
+    url: https://github.com/basangnguyen/TUTORHUB_WEB/blob/main/docs/AGENT_COORDINATION.md
+    about: Đọc quy trình nhận việc, Git workflow và bàn giao trước khi tạo issue.

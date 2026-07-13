@@ -1,0 +1,36 @@
+{
+  "name": "tutorhub-v2",
+  "version": "0.0.0",
+  "private": true,
+  "description": "TutorHub V2 web-first learning ecosystem",
+  "packageManager": "pnpm@11.7.0",
+  "engines": {
+    "node": ">=24.14.0 <25",
+    "pnpm": "11.7.x"
+  },
+  "scripts": {
+    "dev": "turbo run dev --parallel",
+    "prepare": "node scripts/setup-git-hooks.mjs",
+    "build": "turbo run build",
+    "lint": "eslint eslint.config.mjs scripts && turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "format": "prettier --write \"apps/**/*.{ts,tsx,css,html,json}\" \"packages/**/*.{ts,tsx,css,json}\" \"scripts/**/*.{js,mjs,ts}\" \"*.{json,yaml,yml,mjs}\" \".github/**/*.{yaml,yml}\" \"openapi/**/*.{yaml,yml}\"",
+    "format:check": "prettier --check \"apps/**/*.{ts,tsx,css,html,json}\" \"packages/**/*.{ts,tsx,css,json}\" \"scripts/**/*.{js,mjs,ts}\" \"*.{json,yaml,yml,mjs}\" \".github/**/*.{yaml,yml}\" \"openapi/**/*.{yaml,yml}\"",
+    "verify:web": "pnpm lint && turbo run typecheck test build",
+    "verify:go": "go test ./services/core-api/... && go vet ./services/core-api/...",
+    "verify": "pnpm format:check && pnpm verify:web && pnpm verify:go"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "24.10.13",
+    "eslint": "10.0.1",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "eslint-plugin-react-refresh": "0.5.3",
+    "globals": "17.7.0",
+    "prettier": "3.9.5",
+    "turbo": "2.10.4",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.63.0"
+  }
+}
