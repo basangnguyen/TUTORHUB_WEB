@@ -4,13 +4,29 @@ import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider, useI18n } from "./app/i18n";
 import { createAppRoutes } from "./app/routes";
-import {
-  DemoSessionProvider,
-  demoSession,
-  type DemoSession,
-} from "./app/session";
+import { SessionProvider } from "./app/session";
+import type { CurrentUser } from "@tutorhub/api-client";
 
-function renderRoute(path: string, session: DemoSession | null = demoSession) {
+const testSession: CurrentUser = {
+  user: {
+    id: "be85eb92-0f18-4163-85ba-50e4d343d632",
+    email: "teacher@example.com",
+    display_name: "TutorHub Teacher",
+    locale: "vi",
+    timezone: "Asia/Ho_Chi_Minh",
+  },
+  active_tenant: {
+    id: "4b18543a-74de-419f-9fe8-d0c3dfc991eb",
+    slug: "tutorhub-test",
+    name: "TutorHub Test",
+    role: "teacher",
+    is_active: true,
+  },
+  memberships: [],
+  permissions: ["class.view"],
+};
+
+function renderRoute(path: string, session: CurrentUser | null = testSession) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
@@ -21,9 +37,9 @@ function renderRoute(path: string, session: DemoSession | null = demoSession) {
   return render(
     <QueryClientProvider client={queryClient}>
       <I18nProvider>
-        <DemoSessionProvider session={session}>
+        <SessionProvider mode={{ kind: "static", currentUser: session }}>
           <RouterProvider router={router} />
-        </DemoSessionProvider>
+        </SessionProvider>
       </I18nProvider>
     </QueryClientProvider>,
   );
@@ -69,12 +85,12 @@ describe("web shell", () => {
     ).toBeInTheDocument();
   });
 
-  it("chuyển route được bảo vệ sang trang forbidden khi chưa có session", async () => {
+  it("chuyển route được bảo vệ sang trang đăng nhập khi chưa có session", async () => {
     renderRoute("/app/home", null);
 
     expect(
       await screen.findByRole("heading", {
-        name: "Bạn chưa có quyền truy cập khu vực này",
+        name: "Đăng nhập vào TutorHub",
       }),
     ).toBeInTheDocument();
   });

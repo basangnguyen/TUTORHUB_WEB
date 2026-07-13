@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/tutorhub-v2/core-api/internal/config"
+	"github.com/tutorhub-v2/core-api/internal/modules/identity"
 	"github.com/tutorhub-v2/core-api/internal/platform/observability"
 )
 
@@ -21,6 +22,7 @@ type Options struct {
 	Tracer    observability.Tracer
 	Readiness []ReadinessCheck
 	Clock     func() time.Time
+	Identity  identity.ServiceAPI
 }
 
 func NewHandler(cfg config.Config, logger *slog.Logger) http.Handler {
@@ -53,6 +55,12 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 		"/api/v1/status",
 		requireMethod(http.MethodGet, apiStatusHandler(cfg, logger, options.Clock)),
 	)
+	auth := newAuthHandlers(cfg, logger, options.Identity, options.Clock)
+	mux.Handle("/api/v1/auth/login", requireMethod(http.MethodGet, http.HandlerFunc(auth.login)))
+	mux.Handle("/api/v1/auth/callback", requireMethod(http.MethodGet, http.HandlerFunc(auth.callback)))
+	mux.Handle("/api/v1/auth/csrf", requireMethod(http.MethodGet, http.HandlerFunc(auth.csrf)))
+	mux.Handle("/api/v1/auth/logout", requireMethod(http.MethodPost, http.HandlerFunc(auth.logout)))
+	mux.Handle("/api/v1/me", requireMethod(http.MethodGet, http.HandlerFunc(auth.me)))
 	mux.Handle("/metrics", requireMethod(http.MethodGet, options.Metrics.Handler()))
 	mux.Handle("/", notFoundHandler())
 

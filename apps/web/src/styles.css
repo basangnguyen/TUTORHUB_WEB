@@ -274,6 +274,22 @@ select:focus-visible {
   color: var(--color-text);
 }
 
+.app-topbar__logout {
+  min-height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.app-topbar__logout:hover {
+  border-color: var(--color-border-strong);
+  background: var(--color-canvas);
+}
+
 .connectivity-notice {
   display: flex;
   align-items: center;
@@ -591,6 +607,12 @@ select:focus-visible {
   margin-top: 24px;
 }
 
+.route-state--auth .route-state__actions button {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: #fff;
+}
+
 @media (max-width: 900px) {
   .app-shell {
     grid-template-columns: 12.75rem minmax(0, 1fr);
@@ -655,6 +677,11 @@ select:focus-visible {
     min-height: 36px;
     max-width: 105px;
     padding-left: 8px;
+  }
+
+  .app-topbar__logout {
+    min-height: 36px;
+    padding: 0 9px;
   }
 
   .connectivity-notice {

@@ -16,6 +16,11 @@
 - MFA/Passkey bắt buộc cho Platform Admin; khuyến nghị cho Org Admin/Teacher.
 - Step-up authentication cho export dữ liệu, đổi quyền, billing và thao tác an toàn cao.
 
+**P1-06 đã triển khai:** state, nonce, browser binding và PKCE `S256`; flow one-time;
+ID token signature/issuer/audience/expiry; verified email; keyed hash session/CSRF;
+idle + absolute timeout; server-side revoke; cookie `__Host-` ở HTTPS và `/me` không
+lộ session ID. MFA/passkey, device history và refresh token rotation vẫn là gate sau.
+
 ## 3. Authorization
 
 - Deny by default; kiểm tra tenant, membership, action và resource ở server.

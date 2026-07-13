@@ -35,8 +35,8 @@ Khi thông tin mâu thuẫn: ADR Accepted -> `PROJECT_STATE.md` mới nhất -> 
 |---|---|
 | Phase hoàn thành | Phase 0 |
 | Phase hiện tại | Phase 1 - Engineering foundation |
-| Task hoàn thành gần nhất | P1-05 Contract và PostgreSQL foundation hoàn thành cục bộ trên branch riêng |
-| Task ưu tiên kế tiếp | Review/commit P1-04 + P1-05, sau đó P1-06 Authentication spike |
+| Task hoàn thành gần nhất | P1-04 + P1-05 checkpoint commit `e9ab598` |
+| Task ưu tiên kế tiếp | Provision ZITADEL clients và browser smoke để đóng P1-06 |
 | Initial commit | `33af851` - `chore(bootstrap): initialize TutorHub V2 foundation` |
 | CI trên GitHub | `Verify` thành công ngày 2026-07-13 |
 | Cloud staging | Chưa tạo |
@@ -53,6 +53,7 @@ Trước initial push hoặc khi GitHub không khả dụng, dùng bảng dướ
 | P1-02 Web shell | DONE | Codex | `codex/p1-02-web-shell` | `apps/web/src`, `apps/web/package.json`, `pnpm-lock.yaml`, task docs | 2026-07-13 | PR #2, merge commit `6e2f98e` |
 | P1-04 Core API foundation | REVIEW | Codex | `codex/p1-04-core-api-foundation` | `services/core-api`, OpenAPI và tài liệu task liên quan | 2026-07-13 | Implementation, unit tests, runtime smoke và `pnpm verify` đều đạt cục bộ |
 | P1-05 Contract và PostgreSQL | REVIEW | Codex | `codex/p1-05-contract-database` | `openapi`, `packages/api-client`, database platform/migrations/repository, CI và tài liệu task | 2026-07-13 | Generated client, migration v3, Neon integration, runtime smoke và `pnpm verify` đạt; credential chỉ đọc từ `.env.local` |
+| P1-06 Authentication | REVIEW | Codex | `codex/p1-06-authentication` | ADR/auth docs, config, identity module/migration, HTTP auth routes, OpenAPI/generated client và web session | 2026-07-13 | Code + migration v4 + Neon integration đạt; chờ provision hai ZITADEL clients và browser smoke |
 
 Giá trị trạng thái hợp lệ: `TODO`, `READY`, `IN_PROGRESS`, `BLOCKED`, `REVIEW`, `DONE`.
 
@@ -69,7 +70,7 @@ Checklist chi tiết có thẩm quyền nằm tại `docs/PHASE_1_BACKLOG.md`. B
 | P1-03 Design system | TODO | Token đầy đủ, component nền, Storybook, accessibility |
 | P1-04 Go Core API | REVIEW | Checklist implementation hoàn thành cục bộ; chờ review/commit |
 | P1-05 Contract và database | REVIEW | Checklist hoàn thành cục bộ; chờ review/commit, runtime/migration role tách ở P1-10 |
-| P1-06 Authentication | TODO | OIDC/BFF, cookie session, CSRF, `/api/v1/me` |
+| P1-06 Authentication | REVIEW | Implementation đạt; còn ZITADEL client provisioning và browser smoke thật |
 | P1-07 LiveKit spike | TODO | Prejoin, token tối thiểu quyền, room/reconnect telemetry |
 | P1-08 CI/CD và security | PARTIAL | CI thực chạy, scan, branch protection, preview/staging deploy |
 | P1-09 Local developer experience | PARTIAL | Docker services, seed, troubleshooting hoàn chỉnh |

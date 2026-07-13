@@ -4,7 +4,7 @@ import { Suspense, useState } from "react";
 import { I18nProvider } from "./app/i18n";
 import { createTutorHubQueryClient } from "./app/queryClient";
 import { createAppRoutes } from "./app/routes";
-import { DemoSessionProvider, demoSession } from "./app/session";
+import { SessionProvider } from "./app/session";
 import { LoadingScreen } from "./pages/RouteStates";
 
 export function App() {
@@ -14,11 +14,11 @@ export function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <I18nProvider>
-        <DemoSessionProvider session={demoSession}>
+        <SessionProvider>
           <Suspense fallback={<LoadingScreen />}>
             <RouterProvider router={router} />
           </Suspense>
-        </DemoSessionProvider>
+        </SessionProvider>
       </I18nProvider>
     </QueryClientProvider>
   );

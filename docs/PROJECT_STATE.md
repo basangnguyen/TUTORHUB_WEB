@@ -9,12 +9,12 @@
 | Ngày cập nhật | 2026-07-13 |
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB` |
 | Remote / default branch | `origin` / `main` |
-| Branch | `codex/p1-05-contract-database` |
+| Branch | `codex/p1-06-authentication` |
 | Phase hoàn thành | Phase 0 |
 | Phase hiện tại | Phase 1 - Engineering foundation |
-| Task hiện tại | P1-05 hoàn thành cục bộ, đang chờ review/commit cùng P1-04 |
-| Task kế tiếp | P1-06 Authentication spike |
-| Application code V2 | React web shell + generated API client + Go Core API/database foundation |
+| Task hiện tại | P1-06 ở REVIEW; chờ provision ZITADEL clients và browser smoke |
+| Task kế tiếp | Đóng P1-06 rồi thực hiện class vertical slice/P1-07 |
+| Application code V2 | React auth-aware web shell + generated API client + Go Core API/OIDC/database foundation |
 | Git commit đầu tiên | `33af851` - `chore(bootstrap): initialize TutorHub V2 foundation` |
 
 ## Đã hoàn thành
@@ -45,12 +45,19 @@
 - Thêm migration runner và schema PostgreSQL cho users, identities, tenants, memberships, sessions, classes và transactional outbox.
 - Thêm pool Neon, readiness database, tenant context bắt buộc và classroom repository luôn lọc tenant.
 - `CreateClass` ghi `class.created` vào outbox cùng transaction; deny test xác nhận không đọc chéo tenant.
-- Neon đã migrate đến version `3`, `dirty=false`; integration test rollback toàn bộ fixture và runtime smoke trả `/ready=ready`.
+- Neon đã migrate đến version `4`, `dirty=false`; classroom và identity integration test rollback toàn bộ fixture.
 - Đồng bộ TypeScript `5.9.3` với peer contract của `openapi-typescript 7.13.0`.
+- Tạo checkpoint cục bộ P1-04/P1-05 tại commit `e9ab598` và tách branch P1-06.
+- Chấp nhận ADR-0008: ZITADEL Cloud cho local/staging, fake OIDC issuer cho test.
+- Hoàn thiện cục bộ P1-06: OIDC Authorization Code + PKCE `S256`, state/nonce/browser binding one-time, verified ID token/email và provider-neutral adapter.
+- Thêm opaque session cookie, keyed session/CSRF hash, idle + absolute timeout, revoke/logout, `/api/v1/me` và secure `__Host-` cookie ở HTTPS.
+- Migration 004 bổ sung auth flow, identity verification và session lifecycle; Neon identity integration test kiểm tra replay, hash token, permission, CSRF và revoke.
+- Đồng bộ OpenAPI/generated TypeScript client; React bỏ demo session mặc định, hydrate `/me`, có sign-in/signed-out/error guard và logout CSRF.
 
 ## Chưa thực hiện
 
-- Chưa chọn OIDC provider, managed Redis hoặc observability provider.
+- Đã chọn ZITADEL nhưng chưa provision hai application `tutorhub-local` và `tutorhub-staging`; chưa browser smoke với IdP thật.
+- Chưa chọn managed Redis hoặc observability provider.
 - Chưa tạo Neon staging tách biệt và runtime/migration role tối thiểu quyền; Neon owner hiện chỉ dùng tạm cho tích hợp P1-05.
 - Chưa tạo B2/HF staging resource cho V2.
 - Chưa deployment V2 lên Cloudflare/HF.
@@ -58,19 +65,19 @@
 
 ## Việc tiếp theo
 
-1. Review/commit P1-04 và P1-05 trên branch `codex/p1-05-contract-database`.
-2. Bắt đầu P1-06: chọn IdP, OIDC Authorization Code + PKCE qua BFF, session cookie/CSRF và `/api/v1/me`.
-3. Thực hiện P1-03 design system song song nếu không sửa cùng vùng auth/app shell.
-4. Chưa xây classroom đầy đủ, QuizHub hoặc Lavie trước khi P1-06 đến P1-07 đạt gate.
+1. Provision hai ZITADEL Web applications theo `docs/AUTHENTICATION.md`, nạp secret ngoài Git và browser smoke local/staging.
+2. Sau browser smoke, chuyển P1-06 từ `REVIEW` sang `DONE` và bắt đầu class vertical slice.
+3. Thực hiện class vertical slice rồi P1-07 LiveKit spike; P1-03 có thể làm song song nếu ownership không trùng app shell.
+4. Chưa xây QuizHub hoặc Lavie trước khi P1-06 đến P1-07 đạt gate.
 
 ## Verify gần nhất
 
 - `pnpm verify`: đạt trên Windows sau khi thêm `.tools\go\bin` vào `PATH`; format, generated contract, lint, typecheck, test, build, Go test/vet đều xanh.
-- Vitest: web shell 6 tests và API client 3 tests đạt.
+- Vitest: web 10 tests và API client 5 tests đạt.
 - `pnpm peers check`: đạt, không còn peer dependency mismatch.
 - `go test ./services/core-api/...` và `go vet ./services/core-api/...`: đạt.
-- Neon migration: version `3`, `dirty=false`; classroom integration test đạt và rollback fixture.
-- Runtime smoke với Neon: `/ready` trả `ready`, `/health` trả `ok`.
+- Neon migration: version `4`, `dirty=false`; classroom và identity integration test đạt, rollback fixture.
+- Runtime smoke với Neon: `/ready=200`, `/health=200`; auth chưa cấu hình trả `503` fail-closed.
 - `pnpm exec prettier --check openapi/tutorhub.yaml`: đạt.
 - GitHub Actions `Verify` cho commit `33af851`: thành công.
 - Docker: chưa cài trên máy; chưa build image HF local.
@@ -87,6 +94,7 @@
 - `docs/AGENT_COORDINATION.md`
 - `docs/PHASE_1_BACKLOG.md`
 - `docs/DATABASE.md`
+- `docs/AUTHENTICATION.md`
 - `docs/DEPLOYMENT_BASELINE.md`
 - `docs/SECURITY_BASELINE.md`
 - `docs/adr/*`

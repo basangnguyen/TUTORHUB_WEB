@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigation } from "react-router-dom";
 import { navigationItems } from "../app/routes";
 import { useI18n } from "../app/i18n";
-import { useDemoSession } from "../app/session";
+import { useSession } from "../app/session";
 
 function useOnlineStatus() {
   const [isOnline, setIsOnline] = useState(() => navigator.onLine);
@@ -25,7 +25,7 @@ function useOnlineStatus() {
 
 export function AppShell() {
   const { language, setLanguage, t } = useI18n();
-  const session = useDemoSession();
+  const session = useSession();
   const location = useLocation();
   const navigation = useNavigation();
   const isOnline = useOnlineStatus();
@@ -34,11 +34,15 @@ export function AppShell() {
   const currentItem = navigationItems.find((item) =>
     location.pathname.startsWith(item.to),
   );
-  const roleLabel = session
-    ? session.role === "teacher"
-      ? t("shell.role.teacher")
-      : t("shell.role.student")
-    : t("shell.role.guest");
+  const role = session.currentUser?.active_tenant?.role ?? "guest";
+  const roleLabel =
+    role === "org_admin"
+      ? t("shell.role.admin")
+      : role === "teacher"
+        ? t("shell.role.teacher")
+        : role === "student"
+          ? t("shell.role.student")
+          : t("shell.role.guest");
 
   return (
     <div className="app-shell">
@@ -77,7 +81,9 @@ export function AppShell() {
 
         <div className="app-sidebar__footer">
           <span className="app-sidebar__role">{roleLabel}</span>
-          <strong>{session?.displayName ?? t("shell.profile")}</strong>
+          <strong>
+            {session.currentUser?.user.display_name ?? t("shell.profile")}
+          </strong>
         </div>
       </aside>
 
@@ -120,6 +126,13 @@ export function AppShell() {
                 <option value="en">English</option>
               </select>
             </label>
+            <button
+              className="app-topbar__logout"
+              onClick={() => void session.signOut()}
+              type="button"
+            >
+              {t("auth.signOut")}
+            </button>
           </div>
         </header>
 

@@ -51,16 +51,24 @@ Tạo nền kỹ thuật có thể triển khai staging và chứng minh vertica
 - [x] Transactional outbox schema và ghi `class.created` cùng transaction.
 
 **Trạng thái 2026-07-13:** hoàn thành cục bộ trên branch
-`codex/p1-05-contract-database`. Neon đã migrate đến version `3`, `dirty=false`;
+`codex/p1-05-contract-database`. Neon đã migrate đến version `4`, `dirty=false` sau
+P1-06; classroom và identity integration test đều rollback fixture;
 integration test có rollback, runtime smoke `/ready` và toàn bộ `pnpm verify` đều đạt.
 Role Neon hiện tại là owner tạm thời; tách runtime/migration role vẫn thuộc P1-10.
 
 ## P1-06 Authentication spike
 
-- [ ] Chọn IdP cho local/staging và tạo OIDC clients tách biệt.
-- [ ] Authorization Code + PKCE qua BFF.
-- [ ] Session cookie, CSRF, logout/revoke và `/api/v1/me`.
-- [ ] Không lưu token trong localStorage.
+- [x] Chọn ZITADEL Cloud cho local/staging và khóa thiết kế hai OIDC clients tách biệt.
+- [ ] Provision `tutorhub-local` và `tutorhub-staging`, rồi browser smoke với IdP thật.
+- [x] Authorization Code + PKCE `S256` qua BFF, state/nonce/browser binding one-time.
+- [x] Session cookie, CSRF, logout/revoke và `/api/v1/me`.
+- [x] Không lưu provider token hoặc session token trong localStorage.
+
+**Trạng thái 2026-07-13:** implementation hoàn thành cục bộ trên branch
+`codex/p1-06-authentication`; migration `4 false`, fake OIDC issuer ký RSA, unit test,
+HTTP test, generated client, web remote-session test và Neon integration test đều đạt.
+Còn bước hạ tầng do chủ dự án provision hai ZITADEL applications và chạy browser
+smoke thật trước khi chuyển từ `REVIEW` sang `DONE`.
 
 ## P1-07 LiveKit spike
 

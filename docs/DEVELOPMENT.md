@@ -41,6 +41,11 @@ Các endpoint nền của Core API:
 | `GET /live` | Liveness của process |
 | `GET /ready` | Readiness và trạng thái dependency |
 | `GET /api/v1/status` | Trạng thái API có version |
+| `GET /api/v1/auth/login` | Bắt đầu OIDC Authorization Code + PKCE |
+| `GET /api/v1/auth/callback` | Hoàn tất OIDC và phát hành TutorHub session |
+| `GET /api/v1/auth/csrf` | Xoay CSRF token gắn với session |
+| `POST /api/v1/auth/logout` | Xác minh CSRF và revoke session |
+| `GET /api/v1/me` | User, tenant context và permissions hiện tại |
 | `GET /metrics` | Metrics Prometheus tối thiểu; phải giới hạn ở ingress trước production |
 
 Core API đọc cấu hình từ environment và dừng ngay nếu giá trị không hợp lệ. Các biến
@@ -72,6 +77,13 @@ pnpm test:integration
 
 Migration không chạy tự động cùng Core API. Hướng dẫn nạp environment, rollback,
 schema và tenant boundary nằm trong [DATABASE.md](DATABASE.md).
+
+## Authentication
+
+Không cấu hình OIDC thì auth endpoints trả `503`, còn health/status vẫn dùng được cho
+development nền. Khi đã có ZITADEL local client, nạp `OIDC_*` và `SESSION_SECRET` từ
+`.env.local`; Core API sẽ fail-fast nếu thiếu hoặc sai một giá trị. Luồng, cookie,
+client setup và test được mô tả tại [AUTHENTICATION.md](AUTHENTICATION.md).
 
 ## Verify
 

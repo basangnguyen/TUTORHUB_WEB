@@ -1,6 +1,8 @@
 package config
 
 import (
+	"bytes"
+	"encoding/base64"
 	"strings"
 	"testing"
 	"time"
@@ -23,6 +25,9 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.WebOrigin != defaultWebOrigin {
 		t.Fatalf("expected default web origin, got %q", cfg.WebOrigin)
 	}
+	if cfg.APIOrigin != defaultAPIOrigin {
+		t.Fatalf("expected default API origin, got %q", cfg.APIOrigin)
+	}
 	if cfg.ReadHeaderTimeout != defaultReadHeaderTimeout ||
 		cfg.ReadTimeout != defaultReadTimeout ||
 		cfg.WriteTimeout != defaultWriteTimeout ||
@@ -39,6 +44,9 @@ func TestLoadDefaults(t *testing.T) {
 		cfg.Database.QueryTimeout != defaultDBQueryTimeout {
 		t.Fatalf("unexpected database defaults: %+v", cfg.Database)
 	}
+	if cfg.Authentication.Enabled {
+		t.Fatal("authentication must remain disabled when no OIDC values are configured locally")
+	}
 }
 
 func TestLoadCustomValues(t *testing.T) {
@@ -48,6 +56,7 @@ func TestLoadCustomValues(t *testing.T) {
 		"APP_ENV":                  " staging ",
 		"PORT":                     "9090",
 		"PUBLIC_WEB_ORIGIN":        "https://staging.tutorhub.example",
+		"PUBLIC_API_ORIGIN":        "https://api.staging.tutorhub.example",
 		"LOG_LEVEL":                "DEBUG",
 		"HTTP_READ_TIMEOUT":        "20s",
 		"HTTP_SHUTDOWN_TIMEOUT":    "25s",
@@ -59,6 +68,13 @@ func TestLoadCustomValues(t *testing.T) {
 		"DATABASE_MAX_CONNECTIONS": "8",
 		"DATABASE_MIN_CONNECTIONS": "2",
 		"DATABASE_QUERY_TIMEOUT":   "9s",
+		"OIDC_ISSUER_URL":          "https://login.staging.tutorhub.example",
+		"OIDC_CLIENT_ID":           "tutorhub-staging",
+		"OIDC_CLIENT_SECRET":       "not-a-real-secret",
+		"SESSION_SECRET":           validSessionSecret(),
+		"SESSION_COOKIE_SECURE":    "true",
+		"SESSION_TTL":              "6h",
+		"SESSION_ABSOLUTE_TTL":     "24h",
 	}))
 	if err != nil {
 		t.Fatalf("load custom values: %v", err)
@@ -81,6 +97,13 @@ func TestLoadCustomValues(t *testing.T) {
 		cfg.Database.MinConnections != 2 ||
 		cfg.Database.QueryTimeout != 9*time.Second {
 		t.Fatalf("unexpected custom database config: %+v", cfg.Database)
+	}
+	if !cfg.Authentication.Enabled ||
+		cfg.Authentication.ClientID != "tutorhub-staging" ||
+		cfg.Authentication.SessionTTL != 6*time.Hour ||
+		!cfg.Authentication.CookieSecure ||
+		len(cfg.Authentication.SessionKey) != 32 {
+		t.Fatalf("unexpected authentication config")
 	}
 }
 
@@ -131,6 +154,50 @@ func TestLoadRequiresDatabaseOutsideLocalEnvironments(t *testing.T) {
 	}
 }
 
+func TestLoadRequiresAuthenticationOutsideLocalEnvironments(t *testing.T) {
+	t.Parallel()
+
+	_, err := load(mapLookup(map[string]string{
+		"APP_ENV":           "staging",
+		"PUBLIC_WEB_ORIGIN": "https://staging.tutorhub.example",
+		"PUBLIC_API_ORIGIN": "https://api.staging.tutorhub.example",
+		"DATABASE_POOL_URL": "postgresql://app:secret@db.example/tutorhub?sslmode=require",
+	}))
+	if err == nil || !strings.Contains(err.Error(), "OIDC_ISSUER_URL is required") {
+		t.Fatalf("expected authentication requirement error, got %v", err)
+	}
+}
+
+func TestLoadRejectsPartialOrWeakAuthenticationConfiguration(t *testing.T) {
+	t.Parallel()
+
+	_, err := load(mapLookup(map[string]string{
+		"OIDC_ISSUER_URL":       "http://localhost:9090",
+		"OIDC_CLIENT_ID":        "local-client",
+		"SESSION_SECRET":        base64.RawURLEncoding.EncodeToString([]byte("too-short")),
+		"SESSION_TTL":           "48h",
+		"SESSION_ABSOLUTE_TTL":  "24h",
+		"AUTH_FLOW_TTL":         "20m",
+		"SESSION_COOKIE_SECURE": "not-a-boolean",
+	}))
+	if err == nil {
+		t.Fatal("expected authentication validation error")
+	}
+
+	message := err.Error()
+	for _, expected := range []string{
+		"OIDC_CLIENT_SECRET",
+		"SESSION_SECRET",
+		"SESSION_TTL",
+		"AUTH_FLOW_TTL",
+		"SESSION_COOKIE_SECURE",
+	} {
+		if !strings.Contains(message, expected) {
+			t.Fatalf("expected auth error to mention %s, got %q", expected, message)
+		}
+	}
+}
+
 func TestLoadRequiresHTTPSOutsideLocalEnvironments(t *testing.T) {
 	t.Parallel()
 
@@ -148,4 +215,8 @@ func mapLookup(values map[string]string) lookupEnv {
 		value, ok := values[key]
 		return value, ok
 	}
+}
+
+func validSessionSecret() string {
+	return base64.RawURLEncoding.EncodeToString(bytes.Repeat([]byte{0x42}, 32))
 }

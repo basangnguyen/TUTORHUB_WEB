@@ -10,12 +10,15 @@ import { AppShell } from "../components/AppShell";
 import { DashboardPage, ModulePage } from "../pages/AppPages";
 import {
   ForbiddenPage,
+  AuthenticationErrorPage,
   LoadingScreen,
   NotFoundPage,
   OfflinePage,
   RouteErrorBoundary,
+  SignInPage,
+  SignedOutPage,
 } from "../pages/RouteStates";
-import { useDemoSession } from "./session";
+import { useSession } from "./session";
 import type { TranslationKey } from "./i18n";
 
 export interface NavigationItem {
@@ -34,15 +37,23 @@ export const navigationItems: readonly NavigationItem[] = [
 ];
 
 function ProtectedRoute() {
-  const session = useDemoSession();
+  const session = useSession();
   const location = useLocation();
 
   if (!navigator.onLine) {
     return <OfflinePage />;
   }
 
-  if (!session) {
-    return <Navigate replace state={{ from: location }} to="/forbidden" />;
+  if (session.status === "loading") {
+    return <LoadingScreen />;
+  }
+
+  if (session.status === "error") {
+    return <AuthenticationErrorPage />;
+  }
+
+  if (session.status === "unauthenticated") {
+    return <Navigate replace state={{ from: location }} to="/sign-in" />;
   }
 
   return <Outlet />;
@@ -103,6 +114,8 @@ export function createAppRoutes(): RouteObject[] {
       ],
     },
     { path: "/forbidden", element: <ForbiddenPage /> },
+    { path: "/sign-in", element: <SignInPage /> },
+    { path: "/signed-out", element: <SignedOutPage /> },
     { path: "/offline", element: <OfflinePage /> },
     { path: "*", element: <NotFoundPage /> },
   ];

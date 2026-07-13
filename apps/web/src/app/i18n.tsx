@@ -32,11 +32,24 @@ const messages = {
     "shell.role.teacher": "Giáo viên",
     "shell.role.student": "Học viên",
     "shell.role.guest": "Khách",
+    "shell.role.admin": "Quản trị tổ chức",
     "shell.online": "Có kết nối",
     "shell.offline": "Đang ngoại tuyến",
     "shell.offlineMessage": "Một số dữ liệu có thể chưa được cập nhật.",
     "shell.retryConnection": "Thử lại kết nối",
     "shell.skip": "Chuyển đến nội dung chính",
+    "auth.signInTitle": "Đăng nhập vào TutorHub",
+    "auth.signInDescription":
+      "Tiếp tục qua nhà cung cấp danh tính được tổ chức phê duyệt. Mật khẩu và token nhà cung cấp không được lưu trong trình duyệt TutorHub.",
+    "auth.signInAction": "Tiếp tục đăng nhập",
+    "auth.signInAgain": "Đăng nhập lại",
+    "auth.signOut": "Đăng xuất",
+    "auth.signedOutTitle": "Bạn đã đăng xuất",
+    "auth.signedOutDescription":
+      "Phiên TutorHub trên thiết bị này đã được thu hồi.",
+    "auth.unavailableTitle": "Chưa thể kiểm tra phiên đăng nhập",
+    "auth.unavailableDescription":
+      "Dịch vụ xác thực hiện không sẵn sàng. Hãy kiểm tra kết nối hoặc thử lại sau.",
     "home.kicker": "Không gian học tập",
     "home.title": "Tổng quan hôm nay",
     "home.description":
@@ -95,11 +108,24 @@ const messages = {
     "shell.role.teacher": "Instructor",
     "shell.role.student": "Learner",
     "shell.role.guest": "Guest",
+    "shell.role.admin": "Organization admin",
     "shell.online": "Online",
     "shell.offline": "Offline",
     "shell.offlineMessage": "Some data may be out of date.",
     "shell.retryConnection": "Retry connection",
     "shell.skip": "Skip to main content",
+    "auth.signInTitle": "Sign in to TutorHub",
+    "auth.signInDescription":
+      "Continue through your organization's approved identity provider. TutorHub does not store provider passwords or tokens in the browser.",
+    "auth.signInAction": "Continue to sign in",
+    "auth.signInAgain": "Sign in again",
+    "auth.signOut": "Sign out",
+    "auth.signedOutTitle": "You are signed out",
+    "auth.signedOutDescription":
+      "The TutorHub session on this device has been revoked.",
+    "auth.unavailableTitle": "We could not verify your session",
+    "auth.unavailableDescription":
+      "Authentication is currently unavailable. Check your connection or try again later.",
     "home.kicker": "Learning workspace",
     "home.title": "Today at a glance",
     "home.description":

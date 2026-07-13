@@ -19,7 +19,7 @@
     "lint": "eslint eslint.config.mjs scripts && turbo run lint",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
-    "test:integration": "go test -tags=integration ./services/core-api/internal/modules/classroom",
+    "test:integration": "go test -count=1 -tags=integration ./services/core-api/internal/modules/classroom && go test -count=1 -tags=integration ./services/core-api/internal/modules/identity",
     "format": "prettier --write \"apps/**/*.{ts,tsx,css,html,json}\" \"packages/**/*.{ts,tsx,css,json}\" \"scripts/**/*.{js,mjs,ts}\" \"*.{json,yaml,yml,mjs}\" \".github/**/*.{yaml,yml}\" \"openapi/**/*.{yaml,yml}\"",
     "format:check": "prettier --check \"apps/**/*.{ts,tsx,css,html,json}\" \"packages/**/*.{ts,tsx,css,json}\" \"scripts/**/*.{js,mjs,ts}\" \"*.{json,yaml,yml,mjs}\" \".github/**/*.{yaml,yml}\" \"openapi/**/*.{yaml,yml}\"",
     "verify:web": "pnpm lint && turbo run typecheck test build",

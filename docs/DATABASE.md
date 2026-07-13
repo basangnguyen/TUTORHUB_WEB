@@ -7,9 +7,9 @@ thay đổi schema, migration hoặc repository phải đọc tài liệu này t
 
 - System of record: Neon PostgreSQL.
 - Schema ứng dụng: `tutorhub`.
-- Migration hiện tại: `3`, trạng thái `dirty=false`.
-- Migration 1-3 đã được chạy và kiểm tra trên Neon ngày 2026-07-13.
-- Integration test repository chạy trong transaction và rollback toàn bộ fixture.
+- Migration hiện tại: `4`, trạng thái `dirty=false`.
+- Migration 1-4 đã được chạy và kiểm tra trên Neon ngày 2026-07-13.
+- Classroom và identity integration test chạy trong transaction và rollback toàn bộ fixture.
 - Core API đã được smoke test với Neon: `/ready` trả `ready` và `/health` trả `ok`.
 
 Neon branch đang được chủ dự án cấp có tên `production`, nhưng trong Phase 1 chỉ
@@ -42,15 +42,16 @@ Core API không tự chạy migration khi khởi động.
 `application_name=tutorhub-core-api` được gắn vào kết nối để quan sát trên Neon.
 Mọi truy vấn mạng/database phải chạy ngoài UI thread ở các client native về sau.
 
-## Schema phiên bản 3
+## Schema phiên bản 4
 
 | Bảng | Vai trò |
 |---|---|
 | `users` | Hồ sơ định danh nội bộ, email chuẩn hóa và trạng thái tài khoản |
-| `identities` | Ánh xạ `(provider, subject)` từ OIDC sang user nội bộ |
+| `identities` | Ánh xạ `(provider, subject)` từ OIDC, verified email và lần xác thực gần nhất |
 | `tenants` | Tổ chức/trường/lớp độc lập ở biên multi-tenant |
 | `memberships` | Quan hệ user-tenant và role `org_admin/teacher/student/guest` |
-| `sessions` | Chỉ lưu hash session/CSRF; không lưu token thô |
+| `sessions` | Hash session/CSRF, identity, idle/absolute expiry, auth time và revoke reason |
+| `auth_flows` | HMAC state/binding/nonce, PKCE verifier mã hóa và one-time consume |
 | `classes` | Lớp học theo tenant; owner bắt buộc là membership cùng tenant |
 | `outbox_events` | Transactional outbox cho sự kiện bền vững và worker tương lai |
 
@@ -89,7 +90,7 @@ pnpm db:migrate
 pnpm db:version
 ```
 
-Kết quả phiên bản hợp lệ hiện tại là `3 false`. Rollback chỉ dùng khi đã đánh giá
+Kết quả phiên bản hợp lệ hiện tại là `4 false`. Rollback chỉ dùng khi đã đánh giá
 mất dữ liệu và có backup/restore plan:
 
 ```powershell
@@ -126,7 +127,7 @@ user, tenant, class hoặc outbox fixture.
 
 ## Việc còn lại
 
-- P1-06 triển khai OIDC/BFF, session rotation, CSRF và `/api/v1/me` trên schema nền.
+- P1-06 đã triển khai OIDC/BFF, session rotation, CSRF và `/api/v1/me`; còn provision IdP thật.
 - P1-10 tạo database/branch staging riêng, runtime role và migration role riêng.
 - Chưa import dữ liệu TutorHub V1; migration V1 sẽ làm theo module/cohort ở phase sau.
 - Chưa có backup/restore drill, PITR gate hoặc connection load test cho pilot.

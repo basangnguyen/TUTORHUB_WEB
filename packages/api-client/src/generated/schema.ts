@@ -4,6 +4,91 @@
  */
 
 export type paths = {
+  readonly "/api/v1/auth/callback": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /** Complete the OIDC callback and issue a TutorHub session */
+    readonly get: operations["completeLogin"];
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/auth/csrf": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /** Rotate and return the CSRF token bound to the current session */
+    readonly get: operations["rotateCSRFToken"];
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/auth/login": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /** Start an OIDC Authorization Code and PKCE flow */
+    readonly get: operations["beginLogin"];
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/auth/logout": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Revoke the current TutorHub session */
+    readonly post: operations["logout"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/me": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /** Return the authenticated user and tenant context */
+    readonly get: operations["getCurrentUser"];
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/api/v1/status": {
     readonly parameters: {
       readonly query?: never;
@@ -85,6 +170,9 @@ export type components = {
       readonly timestamp: string;
       readonly version: string;
     };
+    readonly CSRFResponse: {
+      readonly csrf_token: string;
+    };
     readonly HealthResponse: {
       readonly environment: string;
       readonly service: string;
@@ -98,6 +186,16 @@ export type components = {
       readonly status: "live";
       /** Format: date-time */
       readonly timestamp: string;
+    };
+    readonly LogoutResponse: {
+      /** Format: uri */
+      readonly logout_url?: string;
+    };
+    readonly MeResponse: {
+      readonly active_tenant: components["schemas"]["TenantMembership"] | null;
+      readonly memberships: readonly components["schemas"]["TenantMembership"][];
+      readonly permissions: readonly string[];
+      readonly user: components["schemas"]["User"];
     };
     readonly Problem: {
       readonly detail?: string;
@@ -120,6 +218,24 @@ export type components = {
       /** Format: date-time */
       readonly timestamp: string;
     };
+    readonly TenantMembership: {
+      /** Format: uuid */
+      readonly id: string;
+      readonly is_active: boolean;
+      readonly name: string;
+      /** @enum {string} */
+      readonly role: "org_admin" | "teacher" | "student" | "guest";
+      readonly slug: string;
+    };
+    readonly User: {
+      readonly display_name: string;
+      /** Format: email */
+      readonly email: string;
+      /** Format: uuid */
+      readonly id: string;
+      readonly locale: string;
+      readonly timezone: string;
+    };
   };
   responses: {
     /** @description Request failed with a structured problem response */
@@ -139,6 +255,120 @@ export type components = {
 };
 export type $defs = Record<string, never>;
 export interface operations {
+  readonly completeLogin: {
+    readonly parameters: {
+      readonly query?: {
+        readonly code?: string;
+        readonly error?: string;
+        readonly state?: string;
+      };
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Session created and browser redirected to TutorHub Web */
+      readonly 303: {
+        headers: {
+          readonly Location: string;
+          readonly "Set-Cookie"?: string;
+          readonly [name: string]: unknown;
+        };
+        content?: never;
+      };
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly rotateCSRFToken: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description CSRF token rotated */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["CSRFResponse"];
+        };
+      };
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly beginLogin: {
+    readonly parameters: {
+      readonly query?: {
+        /** @description Internal application path used after successful sign-in */
+        readonly return_to?: string;
+      };
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Redirect to the configured identity provider */
+      readonly 303: {
+        headers: {
+          readonly Location: string;
+          readonly "Set-Cookie"?: string;
+          readonly [name: string]: unknown;
+        };
+        content?: never;
+      };
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly logout: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly "X-CSRF-Token": string;
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Local session revoked */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["LogoutResponse"];
+        };
+      };
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly getCurrentUser: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Current authenticated principal */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["MeResponse"];
+        };
+      };
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
   readonly getAPIStatus: {
     readonly parameters: {
       readonly query?: never;
