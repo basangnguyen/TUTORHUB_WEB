@@ -35,8 +35,8 @@ Khi thông tin mâu thuẫn: ADR Accepted -> `PROJECT_STATE.md` mới nhất -> 
 |---|---|
 | Phase hoàn thành | Phase 0 |
 | Phase hiện tại | Phase 1 - Engineering foundation |
-| Task hoàn thành gần nhất | P1-02 Web shell trên nhánh `codex/p1-02-web-shell` |
-| Task ưu tiên kế tiếp | Review/merge P1-02, sau đó nhận P1-04 Core API foundation |
+| Task hoàn thành gần nhất | P1-05 Contract và PostgreSQL foundation hoàn thành cục bộ trên branch riêng |
+| Task ưu tiên kế tiếp | Review/commit P1-04 + P1-05, sau đó P1-06 Authentication spike |
 | Initial commit | `33af851` - `chore(bootstrap): initialize TutorHub V2 foundation` |
 | CI trên GitHub | `Verify` thành công ngày 2026-07-13 |
 | Cloud staging | Chưa tạo |
@@ -50,8 +50,9 @@ Trước initial push hoặc khi GitHub không khả dụng, dùng bảng dướ
 | Task | Trạng thái | Owner/agent | Branch | Phạm vi tệp dự kiến | Bắt đầu | Ghi chú |
 |---|---|---|---|---|---|---|
 | Bootstrap repository | DONE | Codex | `main` | Toàn bộ baseline ban đầu, GitHub templates và tài liệu điều phối | 2026-07-13 | Commit `33af851`, push `origin/main`, workflow `Verify` thành công |
-| P1-02 Web shell | REVIEW | Codex | `codex/p1-02-web-shell` | `apps/web/src`, `apps/web/package.json`, `pnpm-lock.yaml`, task docs | 2026-07-13 | Issue #1; router/query/i18n/route states/responsive shell đã verify cục bộ |
-| P1-04 Core API foundation | TODO | Chưa gán | Chưa tạo | `services/core-api`, OpenAPI liên quan | - | Có thể làm song song nếu không sửa cùng contract |
+| P1-02 Web shell | DONE | Codex | `codex/p1-02-web-shell` | `apps/web/src`, `apps/web/package.json`, `pnpm-lock.yaml`, task docs | 2026-07-13 | PR #2, merge commit `6e2f98e` |
+| P1-04 Core API foundation | REVIEW | Codex | `codex/p1-04-core-api-foundation` | `services/core-api`, OpenAPI và tài liệu task liên quan | 2026-07-13 | Implementation, unit tests, runtime smoke và `pnpm verify` đều đạt cục bộ |
+| P1-05 Contract và PostgreSQL | REVIEW | Codex | `codex/p1-05-contract-database` | `openapi`, `packages/api-client`, database platform/migrations/repository, CI và tài liệu task | 2026-07-13 | Generated client, migration v3, Neon integration, runtime smoke và `pnpm verify` đạt; credential chỉ đọc từ `.env.local` |
 
 Giá trị trạng thái hợp lệ: `TODO`, `READY`, `IN_PROGRESS`, `BLOCKED`, `REVIEW`, `DONE`.
 
@@ -64,10 +65,10 @@ Checklist chi tiết có thẩm quyền nằm tại `docs/PHASE_1_BACKLOG.md`. B
 | Workstream | Trạng thái | Điều kiện hoàn thành kế tiếp |
 |---|---|---|
 | P1-01 Repository và toolchain | DONE | Initial commit, push và GitHub Actions Linux đã xanh |
-| P1-02 Web shell | REVIEW | Issue #1 và nhánh `codex/p1-02-web-shell`; lint, typecheck, 6 tests, build và UI responsive đã đạt |
+| P1-02 Web shell | DONE | PR #2 đã merge tại `6e2f98e`; lint, typecheck, 6 tests, build và UI responsive đã đạt |
 | P1-03 Design system | TODO | Token đầy đủ, component nền, Storybook, accessibility |
-| P1-04 Go Core API | PARTIAL | `/api/v1`, Problem Details, status recorder, config validation, observability |
-| P1-05 Contract và database | PARTIAL | Generated client, migration Neon/PostgreSQL và tenant-scoped repository |
+| P1-04 Go Core API | REVIEW | Checklist implementation hoàn thành cục bộ; chờ review/commit |
+| P1-05 Contract và database | REVIEW | Checklist hoàn thành cục bộ; chờ review/commit, runtime/migration role tách ở P1-10 |
 | P1-06 Authentication | TODO | OIDC/BFF, cookie session, CSRF, `/api/v1/me` |
 | P1-07 LiveKit spike | TODO | Prejoin, token tối thiểu quyền, room/reconnect telemetry |
 | P1-08 CI/CD và security | PARTIAL | CI thực chạy, scan, branch protection, preview/staging deploy |

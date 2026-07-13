@@ -1,70 +1,45 @@
 # Lộ trình giao hàng Web V2
 
-## Phase 0 - Foundation (hoàn thành)
+> Bản tóm tắt điều hành. Chi tiết work package, dependency, SLO, rủi ro và exit gate nằm trong [MASTER_PLAN.md](MASTER_PLAN.md). Khi có khác biệt, Master Plan phiên bản mới hơn là nguồn có thẩm quyền.
 
-**Đầu ra:** phạm vi, MVP, system context, domain/permission, migration map, security baseline, ADR và backlog Phase 1.
+| Thuộc tính | Trạng thái |
+|---|---|
+| Cập nhật | 2026-07-13 |
+| Phase hiện tại | Phase 1 - Engineering Foundation |
+| Hoàn thành gần nhất | P1-05 Contract và PostgreSQL foundation hoàn thành cục bộ; chờ review/commit |
+| Việc tiếp theo | P1-06 Authentication spike sau khi review branch hiện tại |
+| Phạm vi | Web-first; desktop/mobile/native là track sau |
 
-**Exit gate:** không còn quyết định nền tảng quan trọng chưa ghi nhận; mọi secret V1 đã được lên kế hoạch rotate.
+## Chuỗi phase
 
-## Phase 1 - Engineering foundation (4-6 tuần)
+| Phase | Tên | Thời lượng kế hoạch | Kết quả chính |
+|---:|---|---:|---|
+| 0 | Product và architecture baseline | Hoàn thành | Phạm vi, ADR, security/deployment baseline |
+| 1 | Engineering Foundation | 4-6 tuần | CI, web shell, API, database, auth, LiveKit spike, staging |
+| 2 | Identity, tenant và class core | 4-6 tuần | Multi-tenant, permission, class/enrollment |
+| 3 | Daily learning workspace | 5-7 tuần | Lịch, persistent messaging, notification, file/Drive |
+| 4 | Classroom Media MVP | 6-8 tuần | Prejoin, LiveKit room, moderation, reconnect |
+| 5 | Classroom Collaboration | 8-12 tuần | Whiteboard, quiz nhanh, tools, breakout, recording |
+| 6 | Assessment, Tasks và QuizHub | 8-12 tuần | Assignment, exam, scoring, practice/game |
+| 7 | Content, Social Learning và Lavie | 6-10 tuần | Feed/video có kiểm soát, AI/RAG theo quyền |
+| 8 | Global Readiness | 8-12 tuần trước launch | Production hosting, SLO, DR, security, privacy |
+| 9 | V1 Cutover và Sunset | 4-8 tuần/cohort | Import, reconciliation, rollout và V1 read-only |
 
-- Monorepo, toolchain, lint/typecheck/test và CI.
-- React shell, design tokens, Storybook và accessibility baseline.
-- Go service skeleton, config, log, metrics, health, PostgreSQL migration.
-- OIDC/BFF proof of concept và generated OpenAPI client.
-- Local Docker Compose; staging tối thiểu.
-- Neon staging, Backblaze B2 staging và các Hugging Face Docker Spaces tách biệt.
+## Milestone
 
-## Phase 2 - Identity, tenant và class (4-6 tuần)
+1. Engineering demo: auth -> class -> room spike.
+2. Private alpha: quản lý lớp và classroom cơ bản.
+3. Pilot: lịch, chat, file, media và whiteboard.
+4. Learning beta: assignment, exam và QuizHub.
+5. Public beta: content/AI có quota, SLO và support.
+6. Regional GA: production readiness và cutover cohort đầu.
+7. Global expansion: multi-region và profile webinar/broadcast riêng.
 
-- Session lifecycle, logout/revoke và tenant selector.
-- User profile, membership, policy engine.
-- Class CRUD, enrollment, invite và schedule/session.
-- Authorization matrix tests và admin audit.
+## Nguyên tắc tiến độ
 
-## Phase 3 - Classroom MVP (6-10 tuần)
-
-- LiveKit token service và room policy.
-- Prejoin/device flow.
-- Mic, camera, screen share, participant, active speaker, reconnect.
-- Lobby/admit/remove/mute policy.
-- Chat cơ bản, metrics và E2E classroom path.
-
-## Phase 4 - Classroom collaboration (6-8 tuần)
-
-- Persistent chat và notification.
-- Whiteboard tldraw/Yjs, snapshots và permission.
-- File upload/download, antivirus pipeline và quota.
-- Recording qua server-side egress và retention policy.
-
-## Phase 5 - Learning workflows (8-12 tuần)
-
-- Assignment, question bank, quiz/exam, attempt và grading.
-- QuizHub game mode, scoring deterministic và analytics.
-- Calendar, task và learning progress.
-
-## Phase 6 - Expansion và global readiness
-
-- Lavie AI theo tenant data policy.
-- Social learning/moderation.
-- Billing/subscription, organization admin và support tooling.
-- Multi-region assessment, localization, compliance và disaster recovery.
-
-## Nhánh native song song
-
-- Desktop Tauri chỉ bắt đầu sau khi API và web classroom ổn định.
-- Secure Exam tiếp tục Rust/native, dùng signed exam handoff.
-- Mobile React Native bắt đầu sau khi domain/API và design system đã ổn định.
-
-## Ước lượng nguồn lực
-
-MVP thực tế thường cần khoảng 6-9 tháng với nhóm 5-8 người: tech lead, 2 frontend, 2 backend, QA automation, product/design và DevOps/SRE bán thời gian. Đây là ước lượng kế hoạch, không phải cam kết; phải điều chỉnh sau spike LiveKit và auth.
-
-## Chiến lược phát hành
-
-1. Developer preview nội bộ.
-2. Private alpha với tenant thử nghiệm và dữ liệu giả/giới hạn.
-3. Private beta có telemetry, support và load test.
-4. Review gate hạ tầng Hugging Face; chuyển container host nếu không đạt availability/load.
-5. Public beta theo khu vực.
-6. General availability sau security, DR và legal gates.
+- Không chuyển phase chỉ vì hết thời gian; phải đạt exit gate.
+- Security, observability, accessibility và i18n bắt đầu từ Phase 1.
+- Migration V1 thực hiện theo module/cohort, không big-bang.
+- Hugging Face/Neon/LiveKit free tier chỉ phục vụ phát triển/private alpha.
+- Classroom, webinar và broadcast là các capacity profile khác nhau.
+- Desktop/mobile không làm chậm Web MVP; chỉ chuẩn bị API/domain contract.

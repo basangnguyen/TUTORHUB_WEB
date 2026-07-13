@@ -7,12 +7,19 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "build": "tsc --noEmit",
+    "build": "pnpm generate:check && tsc --noEmit",
+    "generate": "node scripts/generate.mjs",
+    "generate:check": "node scripts/generate.mjs --check",
     "lint": "eslint src",
     "typecheck": "tsc --noEmit --pretty false",
     "test": "vitest run"
   },
   "devDependencies": {
+    "openapi-typescript": "7.13.0",
+    "prettier": "3.9.5",
     "vitest": "4.1.10"
+  },
+  "dependencies": {
+    "openapi-fetch": "0.17.0"
   }
 }

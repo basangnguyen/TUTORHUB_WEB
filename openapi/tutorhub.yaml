@@ -17,6 +17,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
   /live:
     get:
       operationId: getLiveness
@@ -24,6 +26,12 @@ paths:
       responses:
         "200":
           description: Process is alive
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LivenessResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
   /ready:
     get:
       operationId: getReadiness
@@ -31,7 +39,39 @@ paths:
       responses:
         "200":
           description: Service is ready
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadinessResponse"
+        "503":
+          description: At least one required dependency is unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadinessResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/status:
+    get:
+      operationId: getAPIStatus
+      summary: Return versioned Core API status
+      responses:
+        "200":
+          description: Core API is available
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIStatusResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
 components:
+  responses:
+    ProblemResponse:
+      description: Request failed with a structured problem response
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
   schemas:
     HealthResponse:
       type: object
@@ -48,3 +88,76 @@ components:
         timestamp:
           type: string
           format: date-time
+    LivenessResponse:
+      type: object
+      additionalProperties: false
+      required: [status, timestamp]
+      properties:
+        status:
+          type: string
+          const: live
+        timestamp:
+          type: string
+          format: date-time
+    ReadinessCheck:
+      type: object
+      additionalProperties: false
+      required: [name, status]
+      properties:
+        name:
+          type: string
+        status:
+          type: string
+          enum: [ready, not_ready]
+    ReadinessResponse:
+      type: object
+      additionalProperties: false
+      required: [status, checks, timestamp]
+      properties:
+        status:
+          type: string
+          enum: [ready, not_ready]
+        checks:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReadinessCheck"
+        timestamp:
+          type: string
+          format: date-time
+    APIStatusResponse:
+      type: object
+      additionalProperties: false
+      required: [status, service, version, environment, timestamp]
+      properties:
+        status:
+          type: string
+          const: ok
+        service:
+          type: string
+        version:
+          type: string
+        environment:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+    Problem:
+      type: object
+      additionalProperties: false
+      required: [type, title, status]
+      properties:
+        type:
+          type: string
+          format: uri-reference
+        title:
+          type: string
+        status:
+          type: integer
+          minimum: 400
+          maximum: 599
+        detail:
+          type: string
+        instance:
+          type: string
+        request_id:
+          type: string

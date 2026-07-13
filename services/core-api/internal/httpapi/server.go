@@ -1,92 +1,111 @@
 package httpapi
 
 import (
-	"crypto/rand"
-	"encoding/hex"
-	"encoding/json"
+	"context"
+	"io"
 	"log/slog"
 	"net/http"
 	"time"
 
 	"github.com/tutorhub-v2/core-api/internal/config"
+	"github.com/tutorhub-v2/core-api/internal/platform/observability"
 )
 
-type healthResponse struct {
-	Status      string `json:"status"`
-	Service     string `json:"service"`
-	Environment string `json:"environment"`
-	Timestamp   string `json:"timestamp"`
+type ReadinessCheck interface {
+	Name() string
+	Check(context.Context) error
+}
+
+type Options struct {
+	Metrics   *observability.Metrics
+	Tracer    observability.Tracer
+	Readiness []ReadinessCheck
+	Clock     func() time.Time
 }
 
 func NewHandler(cfg config.Config, logger *slog.Logger) http.Handler {
+	return NewHandlerWithOptions(cfg, logger, Options{})
+}
+
+func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Options) http.Handler {
+	logger = normalizeLogger(logger)
+	if options.Metrics == nil {
+		options.Metrics = observability.NewMetrics()
+	}
+	if options.Tracer == nil {
+		options.Tracer = observability.NoopTracer{}
+	}
+	if options.Clock == nil {
+		options.Clock = time.Now
+	}
+
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /health", healthHandler(cfg))
-	mux.HandleFunc("GET /live", statusHandler("live"))
-	mux.HandleFunc("GET /ready", statusHandler("ready"))
+	mux.Handle("/health", requireMethod(http.MethodGet, healthHandler(cfg, logger, options.Clock)))
+	mux.Handle("/live", requireMethod(http.MethodGet, livenessHandler(logger, options.Clock)))
+	mux.Handle(
+		"/ready",
+		requireMethod(
+			http.MethodGet,
+			readinessHandler(logger, options.Clock, options.Readiness),
+		),
+	)
+	mux.Handle(
+		"/api/v1/status",
+		requireMethod(http.MethodGet, apiStatusHandler(cfg, logger, options.Clock)),
+	)
+	mux.Handle("/metrics", requireMethod(http.MethodGet, options.Metrics.Handler()))
+	mux.Handle("/", notFoundHandler())
 
-	return recoverMiddleware(logger, requestLogMiddleware(logger, requestIDMiddleware(mux)))
+	return middlewareStack(logger, options.Metrics, options.Tracer, mux)
 }
 
-func healthHandler(cfg config.Config) http.HandlerFunc {
-	return func(w http.ResponseWriter, _ *http.Request) {
-		writeJSON(w, http.StatusOK, healthResponse{
-			Status:      "ok",
-			Service:     "tutorhub-core-api",
-			Environment: cfg.Environment,
-			Timestamp:   time.Now().UTC().Format(time.RFC3339),
-		})
+func middlewareStack(
+	logger *slog.Logger,
+	metrics observability.HTTPMetrics,
+	tracer observability.Tracer,
+	next http.Handler,
+) http.Handler {
+	handler := recoverMiddleware(logger, metrics, next)
+	handler = requestLogMiddleware(logger, metrics, tracer, handler)
+	handler = requestIDMiddleware(handler)
+
+	return handler
+}
+
+func normalizeLogger(logger *slog.Logger) *slog.Logger {
+	if logger != nil {
+		return logger
 	}
+
+	return slog.New(slog.NewTextHandler(io.Discard, nil))
 }
 
-func statusHandler(status string) http.HandlerFunc {
-	return func(w http.ResponseWriter, _ *http.Request) {
-		writeJSON(w, http.StatusOK, map[string]string{"status": status})
-	}
-}
-
-func writeJSON(w http.ResponseWriter, status int, body any) {
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.WriteHeader(status)
-	if err := json.NewEncoder(w).Encode(body); err != nil {
-		slog.Error("encode response", "error", err)
-	}
-}
-
-func requestIDMiddleware(next http.Handler) http.Handler {
+func requireMethod(method string, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		requestID := r.Header.Get("X-Request-ID")
-		if requestID == "" {
-			requestID = newRequestID()
+		if r.Method == method || (method == http.MethodGet && r.Method == http.MethodHead) {
+			next.ServeHTTP(w, r)
+			return
 		}
-		w.Header().Set("X-Request-ID", requestID)
-		next.ServeHTTP(w, r)
+
+		w.Header().Set("Allow", method)
+		writeProblem(
+			w,
+			r,
+			http.StatusMethodNotAllowed,
+			"Method not allowed",
+			"The requested resource does not support this HTTP method.",
+		)
 	})
 }
 
-func requestLogMiddleware(logger *slog.Logger, next http.Handler) http.Handler {
+func notFoundHandler() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		started := time.Now()
-		next.ServeHTTP(w, r)
-		logger.Info("request completed", "method", r.Method, "path", r.URL.Path, "duration_ms", time.Since(started).Milliseconds())
+		writeProblem(
+			w,
+			r,
+			http.StatusNotFound,
+			"Resource not found",
+			"The requested resource does not exist.",
+		)
 	})
-}
-
-func recoverMiddleware(logger *slog.Logger, next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		defer func() {
-			if recovered := recover(); recovered != nil {
-				logger.Error("request panic", "path", r.URL.Path, "error", recovered)
-				writeJSON(w, http.StatusInternalServerError, map[string]string{"status": "error"})
-			}
-		}()
-		next.ServeHTTP(w, r)
-	})
-}
-
-func newRequestID() string {
-	bytes := make([]byte, 12)
-	if _, err := rand.Read(bytes); err != nil {
-		return time.Now().UTC().Format("20060102T150405.000000000")
-	}
-	return hex.EncodeToString(bytes)
 }

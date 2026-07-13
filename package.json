@@ -9,17 +9,22 @@
     "pnpm": "11.7.x"
   },
   "scripts": {
+    "api:generate": "pnpm --filter @tutorhub/api-client generate",
+    "api:check": "pnpm --filter @tutorhub/api-client generate:check",
+    "db:migrate": "go run ./services/core-api/cmd/migrate up",
+    "db:version": "go run ./services/core-api/cmd/migrate version",
     "dev": "turbo run dev --parallel",
     "prepare": "node scripts/setup-git-hooks.mjs",
     "build": "turbo run build",
     "lint": "eslint eslint.config.mjs scripts && turbo run lint",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
+    "test:integration": "go test -tags=integration ./services/core-api/internal/modules/classroom",
     "format": "prettier --write \"apps/**/*.{ts,tsx,css,html,json}\" \"packages/**/*.{ts,tsx,css,json}\" \"scripts/**/*.{js,mjs,ts}\" \"*.{json,yaml,yml,mjs}\" \".github/**/*.{yaml,yml}\" \"openapi/**/*.{yaml,yml}\"",
     "format:check": "prettier --check \"apps/**/*.{ts,tsx,css,html,json}\" \"packages/**/*.{ts,tsx,css,json}\" \"scripts/**/*.{js,mjs,ts}\" \"*.{json,yaml,yml,mjs}\" \".github/**/*.{yaml,yml}\" \"openapi/**/*.{yaml,yml}\"",
     "verify:web": "pnpm lint && turbo run typecheck test build",
     "verify:go": "go test ./services/core-api/... && go vet ./services/core-api/...",
-    "verify": "pnpm format:check && pnpm verify:web && pnpm verify:go"
+    "verify": "pnpm format:check && pnpm api:check && pnpm verify:web && pnpm verify:go"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
@@ -30,7 +35,7 @@
     "globals": "17.7.0",
     "prettier": "3.9.5",
     "turbo": "2.10.4",
-    "typescript": "6.0.3",
+    "typescript": "5.9.3",
     "typescript-eslint": "8.63.0"
   }
 }

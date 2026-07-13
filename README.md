@@ -10,8 +10,10 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
 
 - Phase 0 đã hoàn thành; hiện đang thực hiện **Phase 1 - Engineering Foundation**.
 - Web MVP đã được khóa ở luồng: đăng nhập -> lớp học -> prejoin -> phòng LiveKit -> rời phòng.
-- P1-01 đã hoàn thành cục bộ: pnpm/Turborepo, React/Vite, shared packages, Go Core API, OpenAPI health contract và CI skeleton.
-- Chưa có initial commit/push; GitHub CI chưa được xác nhận trên Linux.
+- P1-01 và P1-02 đã hoàn thành: toolchain/CI, React web shell, routing, query, i18n và responsive states.
+- P1-02 đã merge vào `main` tại commit `6e2f98e`; P1-04 và P1-05 đã hoàn thành cục bộ, đang chờ review/commit.
+- Task ưu tiên tiếp theo sau review là P1-06 Authentication spike.
+- Master Plan web-first 2.0 đã audit lại kiến trúc, roadmap 90 ngày và các phase chuyển đổi từ V1.
 - Không sao chép secret, token hoặc cấu hình production từ V1.
 
 ## Tài liệu bắt buộc đọc
@@ -29,6 +31,7 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
 11. [Lộ trình giao hàng](docs/DELIVERY_ROADMAP.md)
 12. [Backlog Phase 1](docs/PHASE_1_BACKLOG.md)
 13. [Biên bản hoàn thành Phase 0](docs/PHASE_0_COMPLETION.md)
+14. [Database foundation và migration runbook](docs/DATABASE.md)
 
 Các quyết định kiến trúc đã chấp nhận nằm trong `docs/adr`.
 

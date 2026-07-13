@@ -14,7 +14,7 @@ Tạo nền kỹ thuật có thể triển khai staging và chứng minh vertica
 
 **Done:** clean clone chạy được một lệnh setup và một lệnh verify trên Windows/Linux CI.
 
-**Trạng thái 2026-07-12:** hoàn thành và verify cục bộ trên Windows. Workflow Linux đã tạo nhưng cần lần push đầu tiên để xác nhận trên GitHub Actions.
+**Trạng thái 2026-07-13:** hoàn thành; verify cục bộ trên Windows và workflow `Verify` trên GitHub Actions Linux đều thành công.
 
 ## P1-02 Web shell
 
@@ -24,7 +24,7 @@ Tạo nền kỹ thuật có thể triển khai staging và chứng minh vertica
 - [x] i18n `vi` và `en` từ đầu.
 - [x] Layout desktop/tablet/mobile cơ bản.
 
-**Trạng thái 2026-07-13:** hoàn thành trên nhánh `codex/p1-02-web-shell`, đang chờ review qua Issue #1. Đã kiểm tra lint, TypeScript, 6 Vitest tests, production build và giao diện desktop/mobile với Core API cục bộ.
+**Trạng thái 2026-07-13:** hoàn thành và đã merge vào `main` qua PR #2 tại commit `6e2f98e`. Đã kiểm tra lint, TypeScript, 6 Vitest tests, production build và giao diện desktop/mobile với Core API cục bộ.
 
 ## P1-03 Design system
 
@@ -34,18 +34,26 @@ Tạo nền kỹ thuật có thể triển khai staging và chứng minh vertica
 
 ## P1-04 Go core API
 
-- [ ] Cấu trúc `cmd`, `internal/platform`, `internal/modules` và migration.
-- [ ] Config từ environment, validation lúc khởi động.
-- [ ] Structured JSON log, request ID, panic recovery, metrics, tracing.
-- [ ] Health/live/readiness endpoint.
-- [ ] Error response theo Problem Details và version `/api/v1`.
+**Trạng thái 2026-07-13:** hoàn thành cục bộ trên branch `codex/p1-04-core-api-foundation`; `pnpm verify`, runtime smoke và OpenAPI format đều đạt. Tracing hiện là adapter no-op để gắn provider OpenTelemetry sau khi có ADR.
+
+- [x] Cấu trúc `cmd`, `internal/platform` và `internal/modules`.
+- [x] Config từ environment, validation lúc khởi động.
+- [x] Structured JSON log, request ID, panic recovery, metrics và tracing adapter.
+- [x] Health/live/readiness endpoint.
+- [x] Error response theo Problem Details và version `/api/v1`.
 
 ## P1-05 Contract và database
 
-- [ ] OpenAPI source of truth.
-- [ ] Generate TypeScript API client trong CI.
-- [ ] PostgreSQL migration cho users, tenants, memberships, sessions, classes.
-- [ ] Repository nhận tenant context và integration test bằng database thật trong container.
+- [x] OpenAPI source of truth.
+- [x] Generate TypeScript API client và kiểm tra diff trong CI.
+- [x] PostgreSQL migration cho users, identities, tenants, memberships, sessions và classes.
+- [x] Repository nhận tenant context và integration test bằng PostgreSQL thật trong CI/Neon.
+- [x] Transactional outbox schema và ghi `class.created` cùng transaction.
+
+**Trạng thái 2026-07-13:** hoàn thành cục bộ trên branch
+`codex/p1-05-contract-database`. Neon đã migrate đến version `3`, `dirty=false`;
+integration test có rollback, runtime smoke `/ready` và toàn bộ `pnpm verify` đều đạt.
+Role Neon hiện tại là owner tạm thời; tách runtime/migration role vẫn thuộc P1-10.
 
 ## P1-06 Authentication spike
 

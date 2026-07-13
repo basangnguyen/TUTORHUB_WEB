@@ -12,6 +12,23 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: tutorhub_test
+          POSTGRES_USER: tutorhub
+          POSTGRES_PASSWORD: tutorhub_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U tutorhub -d tutorhub_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_POOL_URL: postgresql://tutorhub:tutorhub_ci@localhost:5432/tutorhub_test?sslmode=disable
+      DATABASE_MIGRATION_URL: postgresql://tutorhub:tutorhub_ci@localhost:5432/tutorhub_test?sslmode=disable
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -35,6 +52,14 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Verify generated API contract
+        run: |
+          pnpm api:generate
+          git diff --exit-code -- packages/api-client/src/generated/schema.ts
+
+      - name: PostgreSQL integration test
+        run: go test -tags=integration ./services/core-api/internal/modules/classroom
 
       - name: Verify
         run: pnpm verify
