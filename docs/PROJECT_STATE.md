@@ -12,7 +12,7 @@
 | Branch | `main` |
 | Phase hoàn thành | Phase 0 |
 | Phase hiện tại | Phase 1 - Engineering foundation |
-| Task hiện tại | P1-01 hoàn thành; chuẩn bị phân công P1-02 và P1-04 |
+| Task hiện tại | P1-01 hoàn thành và CI đã xác nhận; chuẩn bị phân công P1-02 và P1-04 |
 | Task kế tiếp | Tạo issue/branch cho P1-02 Web shell và P1-04 Core API foundation |
 | Application code V2 | React health app + Go health API |
 | Git commit đầu tiên | `33af851` - `chore(bootstrap): initialize TutorHub V2 foundation` |

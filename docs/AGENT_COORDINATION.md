@@ -63,7 +63,7 @@ Checklist chi tiết có thẩm quyền nằm tại `docs/PHASE_1_BACKLOG.md`. B
 
 | Workstream | Trạng thái | Điều kiện hoàn thành kế tiếp |
 |---|---|---|
-| P1-01 Repository và toolchain | DONE_LOCAL | Initial commit, push và CI Linux xanh |
+| P1-01 Repository và toolchain | DONE | Initial commit, push và GitHub Actions Linux đã xanh |
 | P1-02 Web shell | TODO | Router, Query, error boundary, route states, i18n, responsive shell |
 | P1-03 Design system | TODO | Token đầy đủ, component nền, Storybook, accessibility |
 | P1-04 Go Core API | PARTIAL | `/api/v1`, Problem Details, status recorder, config validation, observability |
