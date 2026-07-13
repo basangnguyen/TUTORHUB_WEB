@@ -25,6 +25,7 @@ type OIDCProviderConfig struct {
 type OIDCProvider struct {
 	oauthConfig   oauth2.Config
 	verifier      *oidc.IDTokenVerifier
+	discovery     *oidc.Provider
 	httpClient    *http.Client
 	endSessionURL string
 }
@@ -65,6 +66,7 @@ func NewOIDCProvider(ctx context.Context, cfg OIDCProviderConfig) (*OIDCProvider
 		verifier: provider.Verifier(&oidc.Config{
 			ClientID: cfg.ClientID,
 		}),
+		discovery:  provider,
 		httpClient: httpClient,
 		endSessionURL: buildEndSessionURL(
 			metadata.EndSessionEndpoint,
@@ -110,35 +112,50 @@ func (provider *OIDCProvider) ExchangeAndVerify(
 	if err != nil {
 		return ProviderClaims{}, fmt.Errorf("verify ID token: %w", err)
 	}
-	var claims struct {
-		Email             string `json:"email"`
-		EmailVerified     bool   `json:"email_verified"`
+	var idTokenClaims struct {
+		Nonce    string `json:"nonce"`
+		AuthTime int64  `json:"auth_time"`
+	}
+	if err := idToken.Claims(&idTokenClaims); err != nil {
+		return ProviderClaims{}, fmt.Errorf("decode verified ID token claims: %w", err)
+	}
+
+	userInfo, err := provider.discovery.UserInfo(
+		exchangeContext,
+		oauth2.StaticTokenSource(token),
+	)
+	if err != nil {
+		return ProviderClaims{}, fmt.Errorf("request OIDC user info: %w", err)
+	}
+	if strings.TrimSpace(userInfo.Subject) == "" || userInfo.Subject != idToken.Subject {
+		return ProviderClaims{}, fmt.Errorf("OIDC user info subject does not match ID token")
+	}
+	var userInfoClaims struct {
 		Name              string `json:"name"`
 		PreferredUsername string `json:"preferred_username"`
 		Locale            string `json:"locale"`
-		Nonce             string `json:"nonce"`
-		AuthTime          int64  `json:"auth_time"`
 	}
-	if err := idToken.Claims(&claims); err != nil {
-		return ProviderClaims{}, fmt.Errorf("decode verified ID token claims: %w", err)
+	if err := userInfo.Claims(&userInfoClaims); err != nil {
+		return ProviderClaims{}, fmt.Errorf("decode OIDC user info claims: %w", err)
 	}
-	displayName := strings.TrimSpace(claims.Name)
+
+	displayName := strings.TrimSpace(userInfoClaims.Name)
 	if displayName == "" {
-		displayName = strings.TrimSpace(claims.PreferredUsername)
+		displayName = strings.TrimSpace(userInfoClaims.PreferredUsername)
 	}
 	var authTime time.Time
-	if claims.AuthTime > 0 {
-		authTime = time.Unix(claims.AuthTime, 0).UTC()
+	if idTokenClaims.AuthTime > 0 {
+		authTime = time.Unix(idTokenClaims.AuthTime, 0).UTC()
 	}
 
 	return ProviderClaims{
 		Issuer:        idToken.Issuer,
 		Subject:       idToken.Subject,
-		Email:         claims.Email,
-		EmailVerified: claims.EmailVerified,
+		Email:         userInfo.Email,
+		EmailVerified: userInfo.EmailVerified,
 		DisplayName:   displayName,
-		Locale:        claims.Locale,
-		Nonce:         claims.Nonce,
+		Locale:        userInfoClaims.Locale,
+		Nonce:         idTokenClaims.Nonce,
 		AuthTime:      authTime,
 	}, nil
 }

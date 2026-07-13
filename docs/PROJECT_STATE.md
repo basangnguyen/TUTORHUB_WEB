@@ -6,14 +6,14 @@
 
 | Thuộc tính | Trạng thái |
 |---|---|
-| Ngày cập nhật | 2026-07-13 |
+| Ngày cập nhật | 2026-07-14 |
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB` |
 | Remote / default branch | `origin` / `main` |
 | Branch | `codex/p1-06-authentication` |
 | Phase hoàn thành | Phase 0 |
 | Phase hiện tại | Phase 1 - Engineering foundation |
-| Task hiện tại | P1-06 ở REVIEW; chờ provision ZITADEL clients và browser smoke |
-| Task kế tiếp | Đóng P1-06 rồi thực hiện class vertical slice/P1-07 |
+| Task hiện tại | P1-06 ở REVIEW; local OIDC đã smoke thành công, staging deferred đến P1-10 |
+| Task kế tiếp | Tạo checkpoint P1-06 rồi thực hiện class vertical slice/P1-07 |
 | Application code V2 | React auth-aware web shell + generated API client + Go Core API/OIDC/database foundation |
 | Git commit đầu tiên | `33af851` - `chore(bootstrap): initialize TutorHub V2 foundation` |
 
@@ -49,14 +49,17 @@
 - Đồng bộ TypeScript `5.9.3` với peer contract của `openapi-typescript 7.13.0`.
 - Tạo checkpoint cục bộ P1-04/P1-05 tại commit `e9ab598` và tách branch P1-06.
 - Chấp nhận ADR-0008: ZITADEL Cloud cho local/staging, fake OIDC issuer cho test.
-- Hoàn thiện cục bộ P1-06: OIDC Authorization Code + PKCE `S256`, state/nonce/browser binding one-time, verified ID token/email và provider-neutral adapter.
+- Hoàn thiện cục bộ P1-06: OIDC Authorization Code + PKCE `S256`, state/nonce/browser binding one-time, verified ID token, UserInfo và provider-neutral adapter.
 - Thêm opaque session cookie, keyed session/CSRF hash, idle + absolute timeout, revoke/logout, `/api/v1/me` và secure `__Host-` cookie ở HTTPS.
 - Migration 004 bổ sung auth flow, identity verification và session lifecycle; Neon identity integration test kiểm tra replay, hash token, permission, CSRF và revoke.
 - Đồng bộ OpenAPI/generated TypeScript client; React bỏ demo session mặc định, hydrate `/me`, có sign-in/signed-out/error guard và logout CSRF.
+- Provision ZITADEL application `tutorhub-local`; secret chỉ nằm trong `.env.local` đã Git-ignore.
+- Browser smoke thật đạt login/callback, `/api/v1/me`, reload giữ phiên, CSRF, logout/revoke, post-logout redirect và route guard.
+- Sửa adapter OIDC theo chuẩn ZITADEL: profile/email lấy từ UserInfo sau khi xác minh ID token; `sub` sai khác bị từ chối và có test hồi quy.
 
 ## Chưa thực hiện
 
-- Đã chọn ZITADEL nhưng chưa provision hai application `tutorhub-local` và `tutorhub-staging`; chưa browser smoke với IdP thật.
+- Chưa provision `tutorhub-staging`; việc này thuộc P1-10 sau khi có URL HTTPS staging.
 - Chưa chọn managed Redis hoặc observability provider.
 - Chưa tạo Neon staging tách biệt và runtime/migration role tối thiểu quyền; Neon owner hiện chỉ dùng tạm cho tích hợp P1-05.
 - Chưa tạo B2/HF staging resource cho V2.
@@ -65,9 +68,9 @@
 
 ## Việc tiếp theo
 
-1. Provision hai ZITADEL Web applications theo `docs/AUTHENTICATION.md`, nạp secret ngoài Git và browser smoke local/staging.
-2. Sau browser smoke, chuyển P1-06 từ `REVIEW` sang `DONE` và bắt đầu class vertical slice.
-3. Thực hiện class vertical slice rồi P1-07 LiveKit spike; P1-03 có thể làm song song nếu ownership không trùng app shell.
+1. Tạo checkpoint/review P1-06 và bắt đầu class vertical slice.
+2. Thực hiện class vertical slice rồi P1-07 LiveKit spike; P1-03 có thể làm song song nếu ownership không trùng app shell.
+3. Provision `tutorhub-staging` trong P1-10 bằng URL HTTPS và secret riêng.
 4. Chưa xây QuizHub hoặc Lavie trước khi P1-06 đến P1-07 đạt gate.
 
 ## Verify gần nhất
@@ -77,6 +80,7 @@
 - `pnpm peers check`: đạt, không còn peer dependency mismatch.
 - `go test ./services/core-api/...` và `go vet ./services/core-api/...`: đạt.
 - Neon migration: version `4`, `dirty=false`; classroom và identity integration test đạt, rollback fixture.
+- ZITADEL local browser smoke: callback `303`, `/api/v1/me` `200`, reload giữ phiên; CSRF `200`, logout `200`, sau revoke `/api/v1/me` `401`.
 - Runtime smoke với Neon: `/ready=200`, `/health=200`; auth chưa cấu hình trả `503` fail-closed.
 - `pnpm exec prettier --check openapi/tutorhub.yaml`: đạt.
 - GitHub Actions `Verify` cho commit `33af851`: thành công.

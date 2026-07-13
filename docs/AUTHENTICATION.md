@@ -11,8 +11,8 @@ OpenAPI, kiểm thử và tài liệu này trong cùng task.
 - Mô hình browser: BFF. Trình duyệt chỉ giữ opaque TutorHub session cookie; access
   token, refresh token và ID token của IdP không được chuyển xuống web.
 - Session state và revoke state: Neon PostgreSQL.
-- Automated test: OIDC issuer giả có discovery, JWKS RSA và ID token ký số; test
-  không phụ thuộc tài khoản ZITADEL thật.
+- Automated test: OIDC issuer giả có discovery, JWKS RSA, ID token ký số và
+  UserInfo; test không phụ thuộc tài khoản ZITADEL thật.
 - Hai ứng dụng OIDC bắt buộc tách biệt: `tutorhub-local` và `tutorhub-staging`.
 
 ZITADEL có thể được thay bằng IdP chuẩn OIDC khác qua cấu hình và adapter mà không
@@ -31,14 +31,18 @@ path đăng nhập.
 5. Callback kiểm tra đồng thời state và binding cookie, atomically consume flow,
    đổi authorization code ở backend và xác minh chữ ký, issuer, audience, expiry,
    nonce của ID token.
-6. Chỉ claims có email đã xác minh mới được ánh xạ sang user nội bộ. `(issuer,
+6. Core API dùng access token ở backend để gọi OIDC UserInfo, bắt buộc `sub` phải
+   trùng ID token, rồi mới lấy `email`, `email_verified`, tên và locale. Cách này
+   tương thích với ZITADEL Authorization Code Flow, nơi profile/email không bắt
+   buộc xuất hiện trong ID token.
+7. Chỉ claims có email đã xác minh mới được ánh xạ sang user nội bộ. `(issuer,
    subject)` là khóa identity; verified email chỉ dùng để nối hồ sơ ban đầu từ IdP
    đáng tin cậy đang được cấu hình.
-7. Core API tạo session token và CSRF token mới. PostgreSQL chỉ lưu keyed HMAC;
+8. Core API tạo session token và CSRF token mới. PostgreSQL chỉ lưu keyed HMAC;
    token thô chỉ xuất hiện trong cookie/response tương ứng.
-8. Browser nhận session cookie `HttpOnly` và CSRF cookie đọc được bởi web. Ở HTTPS,
+9. Browser nhận session cookie `HttpOnly` và CSRF cookie đọc được bởi web. Ở HTTPS,
    cookie dùng tiền tố `__Host-`, `Secure`, `Path=/`, không có `Domain`.
-9. Web gọi `/api/v1/me` để hydrate user, active tenant, memberships và permissions.
+10. Web gọi `/api/v1/me` để hydrate user, active tenant, memberships và permissions.
 
 Callback bị replay, nonce sai, binding cookie sai, flow hết hạn hoặc email chưa xác
 minh đều bị từ chối. Provider error và lỗi nội bộ được trả bằng Problem Details,
@@ -142,12 +146,20 @@ rollback toàn bộ fixture.
 ## Trạng thái triển khai
 
 - Code, migration v4, OpenAPI, generated client, unit test và Neon integration test
-  đã hoàn thành cục bộ ngày 2026-07-13.
-- Hai application ZITADEL thật chưa được provision; đây là bước hạ tầng bên ngoài còn
-  lại trước khi P1-06 được đánh dấu `DONE` và smoke test browser thật.
+  đã hoàn thành cục bộ.
+- `tutorhub-local` đã được provision ngày 2026-07-14 trong project `TutorHub V2`,
+  instance `tutorhub-v2-dev`. Secret chỉ nằm trong `.env.local` đã Git-ignore.
+- Browser smoke thật đã đạt: login/callback, `/api/v1/me`, reload giữ phiên,
+  CSRF rotation, logout/revoke, post-logout redirect và route guard sau logout.
+- ZITADEL trả profile/email qua UserInfo trong Authorization Code Flow. Adapter đã
+  được sửa để xác minh ID token trước, gọi UserInfo sau và từ chối khi `sub` không
+  khớp; test hồi quy và `pnpm verify` đều đạt.
+- `tutorhub-staging` chỉ được provision ở P1-10 sau khi có web/API HTTPS staging;
+  không dùng callback giả hoặc dùng lại secret local.
 - Neon role hiện là owner dùng tạm cho tích hợp. P1-10 phải tách migration role và
   runtime role tối thiểu quyền trước khi staging công khai.
 
 Tài liệu chính thức: [ZITADEL OIDC endpoints](https://zitadel.com/docs/apis/openidoauth/endpoints),
+[ZITADEL claims](https://zitadel.com/docs/apis/openidoauth/claims),
 [ZITADEL logout](https://zitadel.com/docs/guides/integrate/login/oidc/logout) và
 [ZITADEL pricing](https://zitadel.com/pricing).

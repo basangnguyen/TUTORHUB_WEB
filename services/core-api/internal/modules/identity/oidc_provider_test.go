@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 
@@ -39,6 +40,7 @@ func TestOIDCProviderUsesDiscoveryPKCEAndVerifiedIDToken(t *testing.T) {
 				"authorization_endpoint":                issuer.URL + "/authorize",
 				"token_endpoint":                        issuer.URL + "/token",
 				"jwks_uri":                              issuer.URL + "/keys",
+				"userinfo_endpoint":                     issuer.URL + "/userinfo",
 				"end_session_endpoint":                  issuer.URL + "/logout",
 				"response_types_supported":              []string{"code"},
 				"subject_types_supported":               []string{"public"},
@@ -57,25 +59,21 @@ func TestOIDCProviderUsesDiscoveryPKCEAndVerifiedIDToken(t *testing.T) {
 				http.Error(w, "bad request", http.StatusBadRequest)
 				return
 			}
-			if r.Form.Get("code") != "valid-code" || r.Form.Get("code_verifier") != "valid-verifier" {
+			code := r.Form.Get("code")
+			if (code != "valid-code" && code != "mismatch-code") || r.Form.Get("code_verifier") != "valid-verifier" {
 				t.Errorf("unexpected token exchange form: %v", r.Form)
 				http.Error(w, "invalid grant", http.StatusBadRequest)
 				return
 			}
 			now := time.Now().UTC()
 			payload, err := json.Marshal(map[string]any{
-				"iss":                issuer.URL,
-				"sub":                "subject-123",
-				"aud":                "web-client",
-				"exp":                now.Add(time.Hour).Unix(),
-				"iat":                now.Unix(),
-				"auth_time":          now.Add(-time.Minute).Unix(),
-				"nonce":              "nonce-123",
-				"email":              "student@example.com",
-				"email_verified":     true,
-				"name":               "Student Nguyen",
-				"preferred_username": "student",
-				"locale":             "vi",
+				"iss":       issuer.URL,
+				"sub":       "subject-123",
+				"aud":       "web-client",
+				"exp":       now.Add(time.Hour).Unix(),
+				"iat":       now.Unix(),
+				"auth_time": now.Add(-time.Minute).Unix(),
+				"nonce":     "nonce-123",
 			})
 			if err != nil {
 				t.Errorf("marshal ID token claims: %v", err)
@@ -94,11 +92,34 @@ func TestOIDCProviderUsesDiscoveryPKCEAndVerifiedIDToken(t *testing.T) {
 				http.Error(w, "server error", http.StatusInternalServerError)
 				return
 			}
+			accessToken := "server-only-token"
+			if code == "mismatch-code" {
+				accessToken = "mismatch-token"
+			}
 			writeTestJSON(t, w, map[string]any{
-				"access_token": "server-only-token",
+				"access_token": accessToken,
 				"token_type":   "Bearer",
 				"expires_in":   3600,
 				"id_token":     compact,
+			})
+		case "/userinfo":
+			authorization := r.Header.Get("Authorization")
+			if authorization != "Bearer server-only-token" && authorization != "Bearer mismatch-token" {
+				t.Errorf("unexpected userinfo authorization header: %q", authorization)
+				http.Error(w, "unauthorized", http.StatusUnauthorized)
+				return
+			}
+			subject := "subject-123"
+			if authorization == "Bearer mismatch-token" {
+				subject = "different-subject"
+			}
+			writeTestJSON(t, w, map[string]any{
+				"sub":                subject,
+				"email":              "student@example.com",
+				"email_verified":     true,
+				"name":               "Student Nguyen",
+				"preferred_username": "student",
+				"locale":             "vi",
 			})
 		default:
 			http.NotFound(w, r)
@@ -146,6 +167,13 @@ func TestOIDCProviderUsesDiscoveryPKCEAndVerifiedIDToken(t *testing.T) {
 		claims.DisplayName != "Student Nguyen" ||
 		claims.Nonce != "nonce-123" {
 		t.Fatalf("unexpected verified claims: %+v", claims)
+	}
+	if _, err := provider.ExchangeAndVerify(
+		context.Background(),
+		"mismatch-code",
+		"valid-verifier",
+	); err == nil || !strings.Contains(err.Error(), "subject") {
+		t.Fatalf("expected mismatched userinfo subject to fail, got %v", err)
 	}
 
 	logoutURL, err := url.Parse(provider.EndSessionURL())

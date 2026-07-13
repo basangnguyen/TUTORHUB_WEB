@@ -59,16 +59,19 @@ Role Neon hiện tại là owner tạm thời; tách runtime/migration role vẫ
 ## P1-06 Authentication spike
 
 - [x] Chọn ZITADEL Cloud cho local/staging và khóa thiết kế hai OIDC clients tách biệt.
-- [ ] Provision `tutorhub-local` và `tutorhub-staging`, rồi browser smoke với IdP thật.
+- [x] Provision `tutorhub-local` và browser smoke đầy đủ với IdP thật.
+- [ ] Provision `tutorhub-staging` khi P1-10 đã có web/API HTTPS staging.
 - [x] Authorization Code + PKCE `S256` qua BFF, state/nonce/browser binding one-time.
+- [x] Xác minh ID token, lấy profile/email qua UserInfo và bắt buộc `sub` khớp.
 - [x] Session cookie, CSRF, logout/revoke và `/api/v1/me`.
 - [x] Không lưu provider token hoặc session token trong localStorage.
 
-**Trạng thái 2026-07-13:** implementation hoàn thành cục bộ trên branch
+**Trạng thái 2026-07-14:** implementation hoàn thành cục bộ trên branch
 `codex/p1-06-authentication`; migration `4 false`, fake OIDC issuer ký RSA, unit test,
 HTTP test, generated client, web remote-session test và Neon integration test đều đạt.
-Còn bước hạ tầng do chủ dự án provision hai ZITADEL applications và chạy browser
-smoke thật trước khi chuyển từ `REVIEW` sang `DONE`.
+`tutorhub-local` đã provision; browser smoke thật đạt login, `/me`, reload giữ phiên,
+CSRF, logout/revoke và route guard. `tutorhub-staging` được hoãn có chủ đích đến
+P1-10 để dùng đúng URL HTTPS và secret riêng; P1-06 vẫn ở `REVIEW` cho đến checkpoint.
 
 ## P1-07 LiveKit spike
 
