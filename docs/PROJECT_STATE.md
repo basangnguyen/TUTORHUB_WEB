@@ -9,12 +9,12 @@
 | Ngày cập nhật | 2026-07-14 |
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB` |
 | Remote / default branch | `origin` / `main` |
-| Branch | `codex/p1-workspace-onboarding` |
+| Branch | `codex/p1-class-vertical-slice` |
 | Phase hoàn thành | Phase 0 |
 | Phase hiện tại | Phase 1 - Engineering foundation |
-| Task hiện tại | P1-06A Workspace onboarding ở REVIEW; implementation và Neon integration test đã đạt |
-| Task kế tiếp | Class vertical slice theo active workspace, sau đó P1-07 LiveKit spike |
-| Application code V2 | React auth-aware multi-tenant web shell + generated API client + Go Core API/OIDC/database foundation |
+| Task hiện tại | P1-06B Class vertical slice hoàn thành cục bộ, đang ở REVIEW |
+| Task kế tiếp | P1-07 LiveKit spike: token backend tối thiểu quyền, prejoin và room test |
+| Application code V2 | React multi-tenant web shell + class workspace UI + generated API client + Go Core API/OIDC/database foundation |
 | Git commit đầu tiên | `33af851` - `chore(bootstrap): initialize TutorHub V2 foundation` |
 
 ## Đã hoàn thành
@@ -61,6 +61,10 @@
 - Thêm API tạo workspace và đổi active workspace với session + double-submit CSRF; cả hai thao tác đều xoay opaque session token và CSRF token.
 - Web có workspace gate, form onboarding, trạng thái chọn workspace, workspace selector ở topbar và cập nhật session/query cache sau mutation.
 - OpenAPI, generated TypeScript client, unit/HTTP/web test và Neon integration test bao phủ tạo workspace, đổi workspace và từ chối truy cập chéo tenant.
+- Hoàn thành P1-06B list/create/detail class; tenant, actor và permission chỉ lấy từ authenticated active session.
+- API tạo lớp dùng strict JSON, double-submit CSRF, permission `class.create`, chuẩn hóa dữ liệu và trả Problem Details cho 400/403/404/409.
+- Web lớp học song ngữ có loading, empty, error, forbidden, not-found, retry và cache key tách theo tenant; create thành công mở trang chi tiết.
+- OpenAPI/generated client và test contract được đồng bộ; Neon tenant-isolation test xác nhận truy vấn lớp không đọc chéo tenant và rollback fixture.
 
 ## Chưa thực hiện
 
@@ -71,23 +75,24 @@
 - Chưa deployment V2 lên Cloudflare/HF.
 - Chưa migrate dữ liệu V1.
 - Chưa thêm audit query/UI cho các thao tác tenant nhạy cảm; audit read model thuộc phase bảo mật/vận hành tiếp theo.
+- Chưa có enrollment, invite code, roster hoặc quyền theo từng lớp; P1-06B mới dùng quyền membership cấp tenant, các phần này thuộc Phase 2.
 
 ## Việc tiếp theo
 
-1. Thực hiện class vertical slice: list/create/detail class luôn lấy tenant từ active session, không nhận tenant tin cậy từ browser.
-2. Hoàn thiện class vertical slice rồi P1-07 LiveKit spike; P1-03 có thể làm song song nếu ownership không trùng app shell.
+1. Review/commit P1-06B rồi bắt đầu P1-07 LiveKit spike.
+2. P1-03 có thể làm song song nếu ownership không trùng app shell hoặc classroom route.
 3. Provision `tutorhub-staging` trong P1-10 bằng URL HTTPS và secret riêng.
 4. Chưa xây QuizHub hoặc Lavie trước khi P1-06 đến P1-07 đạt gate.
 
 ## Verify gần nhất
 
 - `pnpm verify`: đạt trên Windows sau khi thêm `.tools\go\bin` vào `PATH`; format, generated contract, lint, typecheck, test, build, Go test/vet đều xanh.
-- Vitest: web 12 tests và API client 5 tests đạt.
+- Vitest: web 15 tests và API client 6 tests đạt.
 - `pnpm peers check`: đạt, không còn peer dependency mismatch.
 - `go test ./services/core-api/...` và `go vet ./services/core-api/...`: đạt.
-- Neon migration: version `4`, `dirty=false`; classroom và identity integration test đạt, gồm onboarding workspace, session rotation và deny truy cập chéo tenant; toàn bộ fixture được rollback.
+- Neon migration: version `4`, `dirty=false`; classroom và identity integration test đạt, gồm onboarding workspace, session rotation, class create/list/get và deny truy cập chéo tenant; toàn bộ fixture được rollback.
 - ZITADEL local browser smoke: callback `303`, `/api/v1/me` `200`, reload giữ phiên; CSRF `200`, logout `200`, sau revoke `/api/v1/me` `401`.
-- Runtime smoke với Neon/ZITADEL config: web `200`, `/ready=200`, `/health=200`, auth login `303`; tạo tenant khi chưa xác thực bị từ chối `401`.
+- Runtime smoke với Neon/ZITADEL config: web `200`, `/ready=200`, `/health=200`; `GET /api/v1/classes` khi chưa xác thực bị từ chối `401`.
 - `pnpm exec prettier --check openapi/tutorhub.yaml`: đạt.
 - GitHub Actions `Verify` cho commit `33af851`: thành công.
 - Docker: chưa cài trên máy; chưa build image HF local.

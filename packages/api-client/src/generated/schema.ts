@@ -72,6 +72,41 @@ export type paths = {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/api/v1/classes": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /** List classes in the authenticated active workspace */
+    readonly get: operations["listClasses"];
+    readonly put?: never;
+    /** Create a draft class in the authenticated active workspace */
+    readonly post: operations["createClass"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/classes/{class_id}": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /** Return one class from the authenticated active workspace */
+    readonly get: operations["getClass"];
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/api/v1/me": {
     readonly parameters: {
       readonly query?: never;
@@ -203,6 +238,29 @@ export type components = {
       /** Format: date-time */
       readonly timestamp: string;
       readonly version: string;
+    };
+    readonly Class: {
+      readonly code: string;
+      /** Format: date-time */
+      readonly created_at: string;
+      readonly description: string;
+      /** Format: uuid */
+      readonly id: string;
+      /** Format: uuid */
+      readonly owner_user_id: string;
+      /** @enum {string} */
+      readonly status: "draft" | "active" | "archived";
+      readonly title: string;
+      /** Format: date-time */
+      readonly updated_at: string;
+    };
+    readonly ClassListResponse: {
+      readonly items: readonly components["schemas"]["Class"][];
+    };
+    readonly CreateClassRequest: {
+      readonly code: string;
+      readonly description?: string;
+      readonly title: string;
     };
     readonly CreateTenantRequest: {
       readonly name: string;
@@ -385,6 +443,80 @@ export interface operations {
         };
         content: {
           readonly "application/json": components["schemas"]["LogoutResponse"];
+        };
+      };
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly listClasses: {
+    readonly parameters: {
+      readonly query?: {
+        readonly limit?: number;
+      };
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Tenant-scoped class list */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ClassListResponse"];
+        };
+      };
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly createClass: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly "X-CSRF-Token": string;
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["CreateClassRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Class created */
+      readonly 201: {
+        headers: {
+          readonly Location: string;
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["Class"];
+        };
+      };
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly getClass: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path: {
+        readonly class_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Tenant-scoped class detail */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["Class"];
         };
       };
       readonly default: components["responses"]["ProblemResponse"];

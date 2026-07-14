@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tutorhub-v2/core-api/internal/config"
 	"github.com/tutorhub-v2/core-api/internal/httpapi"
+	"github.com/tutorhub-v2/core-api/internal/modules/classroom"
 	"github.com/tutorhub-v2/core-api/internal/modules/identity"
 	"github.com/tutorhub-v2/core-api/internal/platform/database"
 	"github.com/tutorhub-v2/core-api/internal/platform/httpserver"
@@ -57,6 +58,17 @@ func run() int {
 			readiness,
 			database.NewReadinessCheck(pool, cfg.Database.QueryTimeout),
 		)
+	}
+
+	var classroomService classroom.ServiceAPI
+	if pool != nil {
+		classroomService, err = classroom.NewService(
+			classroom.NewPostgresRepository(pool, cfg.Database.QueryTimeout),
+		)
+		if err != nil {
+			logger.Error("initialize classroom service", "error", err)
+			return 1
+		}
 	}
 
 	var identityService identity.ServiceAPI
@@ -110,6 +122,7 @@ func run() int {
 		Tracer:    observability.NoopTracer{},
 		Readiness: readiness,
 		Identity:  identityService,
+		Classroom: classroomService,
 	})
 	server := httpserver.New(cfg, handler)
 

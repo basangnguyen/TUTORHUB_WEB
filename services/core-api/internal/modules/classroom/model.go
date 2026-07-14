@@ -2,11 +2,15 @@ package classroom
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 )
+
+var classCodePattern = regexp.MustCompile(`^[A-Z0-9][A-Z0-9_-]{2,31}$`)
 
 type ClassStatus string
 
@@ -42,13 +46,26 @@ func (params CreateClassParams) normalized() (CreateClassParams, error) {
 	params.Description = strings.TrimSpace(params.Description)
 
 	if params.OwnerUserID == uuid.Nil {
-		return CreateClassParams{}, fmt.Errorf("class owner is required")
+		return CreateClassParams{}, fmt.Errorf("%w: class owner is required", ErrInvalidClassInput)
 	}
-	if len(params.Code) < 3 || len(params.Code) > 32 {
-		return CreateClassParams{}, fmt.Errorf("class code must contain between 3 and 32 characters")
+	if !classCodePattern.MatchString(params.Code) {
+		return CreateClassParams{}, fmt.Errorf(
+			"%w: class code must contain 3 to 32 uppercase letters, numbers, hyphens, or underscores",
+			ErrInvalidClassInput,
+		)
 	}
-	if len(params.Title) < 1 || len(params.Title) > 200 {
-		return CreateClassParams{}, fmt.Errorf("class title must contain between 1 and 200 characters")
+	titleLength := utf8.RuneCountInString(params.Title)
+	if titleLength < 1 || titleLength > 200 {
+		return CreateClassParams{}, fmt.Errorf(
+			"%w: class title must contain between 1 and 200 characters",
+			ErrInvalidClassInput,
+		)
+	}
+	if utf8.RuneCountInString(params.Description) > 4000 {
+		return CreateClassParams{}, fmt.Errorf(
+			"%w: class description cannot exceed 4000 characters",
+			ErrInvalidClassInput,
+		)
 	}
 
 	return params, nil

@@ -9,6 +9,10 @@ import {
 import { AppShell } from "../components/AppShell";
 import { DashboardPage, ModulePage } from "../pages/AppPages";
 import {
+  ClassroomDetailPage,
+  ClassroomListPage,
+} from "../pages/ClassroomPages";
+import {
   WorkspaceOnboardingPage,
   WorkspaceSelectionPage,
 } from "../pages/WorkspacePages";
@@ -109,7 +113,11 @@ export function createAppRoutes(): RouteObject[] {
                 { path: "home", element: <DashboardPage /> },
                 {
                   path: "classrooms",
-                  element: <ModulePage moduleKey="nav.classrooms" />,
+                  element: <ClassroomListPage />,
+                },
+                {
+                  path: "classrooms/:classId",
+                  element: <ClassroomDetailPage />,
                 },
                 {
                   path: "calendar",

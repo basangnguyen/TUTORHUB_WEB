@@ -1,10 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   APIRequestError,
+  createClass,
   createTenant,
+  getClass,
   getCurrentUser,
   getHealth,
   getLoginURL,
+  listClasses,
   logout,
   rotateCSRFToken,
   switchActiveTenant,
@@ -183,6 +186,68 @@ describe("getHealth", () => {
     expect(requests[4]?.headers.get("X-CSRF-Token")).toBe("switch-csrf");
     await expect(requests[4]?.clone().json()).resolves.toEqual({
       tenant_id: "4b18543a-74de-419f-9fe8-d0c3dfc991eb",
+    });
+  });
+
+  it("gọi class list, detail và create theo contract tenant-scoped", async () => {
+    const classItem = {
+      id: "a912f628-f3d2-4c18-84c6-42a9e858dc8d",
+      owner_user_id: "be85eb92-0f18-4163-85ba-50e4d343d632",
+      code: "SEC101",
+      title: "An toàn thông tin",
+      description: "Lớp học kỳ 1",
+      status: "draft" as const,
+      created_at: "2026-07-14T04:00:00Z",
+      updated_at: "2026-07-14T04:00:00Z",
+    };
+    const responses = [
+      new Response(JSON.stringify({ items: [classItem] }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+      new Response(JSON.stringify(classItem), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+      new Response(JSON.stringify(classItem), {
+        status: 201,
+        headers: { "Content-Type": "application/json" },
+      }),
+    ];
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(() => Promise.resolve(responses.shift()));
+    const options = { baseUrl: "http://localhost/api", fetch: fetchMock };
+
+    await expect(listClasses(25, options)).resolves.toEqual({
+      items: [classItem],
+    });
+    await expect(getClass(classItem.id, options)).resolves.toEqual(classItem);
+    await expect(
+      createClass(
+        {
+          code: "SEC101",
+          title: "An toàn thông tin",
+          description: "Lớp học kỳ 1",
+        },
+        "csrf-token",
+        options,
+      ),
+    ).resolves.toEqual(classItem);
+
+    const requests = fetchMock.mock.calls.map((call) => call[0] as Request);
+    expect(requests[0]?.url).toBe(
+      "http://localhost/api/api/v1/classes?limit=25",
+    );
+    expect(requests[1]?.url).toBe(
+      `http://localhost/api/api/v1/classes/${classItem.id}`,
+    );
+    expect(requests[2]?.method).toBe("POST");
+    expect(requests[2]?.headers.get("X-CSRF-Token")).toBe("csrf-token");
+    await expect(requests[2]?.clone().json()).resolves.toEqual({
+      code: "SEC101",
+      title: "An toàn thông tin",
+      description: "Lớp học kỳ 1",
     });
   });
 });

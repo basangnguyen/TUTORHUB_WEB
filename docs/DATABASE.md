@@ -62,6 +62,8 @@ Ràng buộc quan trọng:
 - Repository luôn nhận `tenancy.Context` gồm `tenant_id` và `actor_user_id`.
 - `CreateClass` ghi lớp và sự kiện `class.created` trong cùng một câu lệnh CTE.
 - Get/List luôn lọc `tenant_id`; truy cập chéo tenant trả về not found.
+- HTTP list/create/detail lấy `tenant_id`, actor và permission từ active session; request không có trường tenant hoặc owner.
+- Tạo lớp yêu cầu `class.create` và CSRF; đọc lớp yêu cầu `class.view`.
 
 ## Chạy migration
 
@@ -127,7 +129,8 @@ user, tenant, class hoặc outbox fixture.
 
 ## Việc còn lại
 
-- P1-06 đã triển khai OIDC/BFF, session rotation, CSRF và `/api/v1/me`; còn provision IdP thật.
+- P1-06 đã triển khai OIDC/BFF, session rotation, CSRF và `/api/v1/me`; ZITADEL local đã được provision, client staging thuộc P1-10.
+- P1-06B đã hoàn thành list/create/detail class; enrollment, invite code và roster thuộc Phase 2.
 - P1-10 tạo database/branch staging riêng, runtime role và migration role riêng.
 - Chưa import dữ liệu TutorHub V1; migration V1 sẽ làm theo module/cohort ở phase sau.
 - Chưa có backup/restore drill, PITR gate hoặc connection load test cho pilot.

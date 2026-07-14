@@ -1663,15 +1663,13 @@ Một tính năng chỉ được đánh dấu hoàn thành khi:
 
 ## 36. Việc cần làm ngay
 
-Thứ tự hiện tại, không làm song song các phần phụ thuộc:
+Thứ tự hiện tại, cập nhật ngày 2026-07-14, không làm song song các phần phụ thuộc:
 
-1. Review/commit P1-04 và P1-05 trên branch hiện tại.
-2. Chọn IdP và làm P1-06 Authentication spike.
-3. Làm P1-03 design system song song nếu không chạm auth/app-shell contract.
-4. Hoàn thiện class vertical slice sau auth context.
-5. Làm P1-07 LiveKit spike.
-6. Hoàn thiện cloud staging và Phase 1 gate.
-7. Chỉ sau đó mới bắt đầu UI phòng học đầy đủ.
+1. Review/commit chuỗi P1-04 đến P1-06B đã hoàn thành cục bộ.
+2. Làm P1-07 LiveKit spike: backend token tối thiểu quyền, prejoin, room test và reconnect telemetry.
+3. Làm P1-03 design system song song nếu không chạm auth/app-shell/classroom contract.
+4. Hoàn thiện P1-08 và P1-10 để có CI security scan, HTTPS staging và resource cloud tách biệt.
+5. Đạt Phase 1 exit gate rồi mới bắt đầu domain enrollment/roster và UI phòng học đầy đủ.
 
 Không bắt đầu QuizHub, Lavie, social feed hoặc Secure Exam web trong Phase 1.
 

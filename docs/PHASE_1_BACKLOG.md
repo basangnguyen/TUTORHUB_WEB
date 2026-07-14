@@ -88,6 +88,23 @@ transaction tạo workspace, quyền `org_admin`, session rotation và tenant is
 Không cần migration mới vì schema migration 001/003/004 đã có đủ tenant, membership,
 session và outbox. Task ở `REVIEW` để bàn giao.
 
+## P1-06B Class vertical slice
+
+- [x] Service lớp học chỉ nhận tenant và actor từ authenticated active session.
+- [x] Permission gate server-side cho `class.view` và `class.create`; không tin `tenant_id` hoặc owner từ browser.
+- [x] API list/create/detail, strict JSON, CSRF cho create và RFC 9457 Problem Details.
+- [x] OpenAPI source of truth, generated TypeScript client và contract test.
+- [x] Web list/create/detail song ngữ với loading, empty, error, forbidden, not-found và retry.
+- [x] Cache key chứa tenant ID và được invalidation sau khi tạo lớp.
+- [x] Unit test, HTTP test, web test, API client test, Neon tenant-isolation test và runtime smoke.
+
+**Trạng thái 2026-07-14:** hoàn thành cục bộ trên branch
+`codex/p1-class-vertical-slice`. Không cần migration mới và không thêm dependency;
+schema `classes`/outbox từ P1-05 được tái sử dụng. Neon xác nhận migration `4`,
+`dirty=false`, truy vấn không đọc chéo tenant và fixture được rollback. Enrollment,
+invite code, roster và quyền theo từng lớp chưa nằm trong slice này; chúng thuộc Phase 2.
+Task ở `REVIEW` để bàn giao.
+
 ## P1-07 LiveKit spike
 
 - [ ] Tạo LiveKit project riêng cho staging.

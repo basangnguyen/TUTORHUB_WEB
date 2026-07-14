@@ -8,6 +8,9 @@ export type LogoutResponse = components["schemas"]["LogoutResponse"];
 export type CreateTenantRequest = components["schemas"]["CreateTenantRequest"];
 export type SwitchActiveTenantRequest =
   components["schemas"]["SwitchActiveTenantRequest"];
+export type ClassroomClass = components["schemas"]["Class"];
+export type ClassListResponse = components["schemas"]["ClassListResponse"];
+export type CreateClassRequest = components["schemas"]["CreateClassRequest"];
 export type Problem = components["schemas"]["Problem"];
 
 export class APIRequestError extends Error {
@@ -166,6 +169,68 @@ export async function switchActiveTenant(
 
   return requireData<CurrentUser>(
     data as CurrentUser | undefined,
+    error,
+    response,
+  );
+}
+
+export async function listClasses(
+  limit = 50,
+  options: APIRequestOptions = {},
+): Promise<ClassListResponse> {
+  const { data, error, response } = await createTutorHubClient(options).GET(
+    "/api/v1/classes",
+    {
+      params: { query: { limit } },
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<ClassListResponse>(
+    data as ClassListResponse | undefined,
+    error,
+    response,
+  );
+}
+
+export async function getClass(
+  classID: string,
+  options: APIRequestOptions = {},
+): Promise<ClassroomClass> {
+  const { data, error, response } = await createTutorHubClient(options).GET(
+    "/api/v1/classes/{class_id}",
+    {
+      params: { path: { class_id: classID } },
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<ClassroomClass>(
+    data as ClassroomClass | undefined,
+    error,
+    response,
+  );
+}
+
+export async function createClass(
+  input: CreateClassRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<ClassroomClass> {
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/classes",
+    {
+      params: { header: { "X-CSRF-Token": csrfToken } },
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<ClassroomClass>(
+    data as ClassroomClass | undefined,
     error,
     response,
   );

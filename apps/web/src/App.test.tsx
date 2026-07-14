@@ -272,6 +272,158 @@ describe("web shell", () => {
     ).toHaveValue(secondMembership.id);
   });
 
+  it("tải danh sách lớp theo workspace đang hoạt động", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            items: [
+              {
+                id: "a912f628-f3d2-4c18-84c6-42a9e858dc8d",
+                owner_user_id: testSession.user.id,
+                code: "SEC101",
+                title: "Cơ sở An toàn thông tin",
+                description: "Lớp học kỳ 1",
+                status: "draft",
+                created_at: "2026-07-14T04:00:00Z",
+                updated_at: "2026-07-14T04:00:00Z",
+              },
+            ],
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      ),
+    );
+
+    renderRoute("/app/classrooms");
+
+    expect(
+      await screen.findByRole("heading", { name: "Lớp học" }),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByText("Cơ sở An toàn thông tin"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("SEC101")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Tạo lớp học" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("tạo lớp với CSRF rồi mở trang chi tiết", async () => {
+    const createdClass = {
+      id: "eaf3ae68-53a3-4f39-b34c-2fc3ad462a47",
+      owner_user_id: testSession.user.id,
+      code: "NET201",
+      title: "Mạng máy tính nâng cao",
+      description: "Thực hành theo nhóm",
+      status: "draft",
+      created_at: "2026-07-14T05:00:00Z",
+      updated_at: "2026-07-14T05:00:00Z",
+    };
+    let created = false;
+    const fetchMock = vi.fn().mockImplementation((request: Request) => {
+      if (request.url.endsWith("/api/v1/auth/csrf")) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ csrf_token: "class-csrf" }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }),
+        );
+      }
+      if (
+        request.url.includes("/api/v1/classes") &&
+        request.method === "POST"
+      ) {
+        created = true;
+        return Promise.resolve(
+          new Response(JSON.stringify(createdClass), {
+            status: 201,
+            headers: { "Content-Type": "application/json" },
+          }),
+        );
+      }
+      if (request.url.includes("/api/v1/classes") && request.method === "GET") {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({ items: created ? [createdClass] : [] }),
+            {
+              status: 200,
+              headers: { "Content-Type": "application/json" },
+            },
+          ),
+        );
+      }
+      return Promise.reject(new Error(`Unexpected request: ${request.url}`));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderRoute("/app/classrooms", {
+      ...testSession,
+      permissions: ["class.view", "class.create"],
+    });
+
+    await screen.findByText("Workspace chưa có lớp học");
+    fireEvent.click(screen.getByRole("button", { name: "Tạo lớp học" }));
+    fireEvent.change(screen.getByRole("textbox", { name: /^Mã lớp/ }), {
+      target: { value: "net201" },
+    });
+    fireEvent.change(screen.getByRole("textbox", { name: "Tên lớp" }), {
+      target: { value: "Mạng máy tính nâng cao" },
+    });
+    fireEvent.change(screen.getByRole("textbox", { name: /^Mô tả/ }), {
+      target: { value: "Thực hành theo nhóm" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Tạo lớp" }));
+
+    expect(
+      await screen.findByRole("heading", { name: "Mạng máy tính nâng cao" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("NET201")).toBeInTheDocument();
+
+    const createRequest = fetchMock.mock.calls
+      .map((call) => call[0] as Request)
+      .find(
+        (request) =>
+          request.url.endsWith("/api/v1/classes") && request.method === "POST",
+      );
+    expect(createRequest?.headers.get("X-CSRF-Token")).toBe("class-csrf");
+    await expect(createRequest?.clone().json()).resolves.toEqual({
+      code: "NET201",
+      title: "Mạng máy tính nâng cao",
+      description: "Thực hành theo nhóm",
+    });
+  });
+
+  it("ẩn chi tiết lớp ngoài workspace dưới lỗi không tìm thấy", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            type: "about:blank",
+            title: "Class not found",
+            status: 404,
+            detail: "The class does not exist in the active workspace.",
+          }),
+          {
+            status: 404,
+            headers: { "Content-Type": "application/problem+json" },
+          },
+        ),
+      ),
+    );
+
+    renderRoute("/app/classrooms/a912f628-f3d2-4c18-84c6-42a9e858dc8d");
+
+    expect(
+      await screen.findByText("Không tìm thấy lớp học"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "← Danh sách lớp" }),
+    ).toBeInTheDocument();
+  });
+
   it("hiển thị trang 404 cho route không tồn tại", async () => {
     renderRoute("/khong-ton-tai");
 

@@ -229,6 +229,83 @@ paths:
                 $ref: "#/components/schemas/MeResponse"
         default:
           $ref: "#/components/responses/ProblemResponse"
+  /api/v1/classes:
+    get:
+      operationId: listClasses
+      summary: List classes in the authenticated active workspace
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+      responses:
+        "200":
+          description: Tenant-scoped class list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClassListResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+    post:
+      operationId: createClass
+      summary: Create a draft class in the authenticated active workspace
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateClassRequest"
+      responses:
+        "201":
+          description: Class created
+          headers:
+            Location:
+              required: true
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Class"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/classes/{class_id}:
+    get:
+      operationId: getClass
+      summary: Return one class from the authenticated active workspace
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: class_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Tenant-scoped class detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Class"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
 components:
   securitySchemes:
     SessionCookie:
@@ -401,6 +478,72 @@ components:
           type: array
           items:
             type: string
+    Class:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - owner_user_id
+        - code
+        - title
+        - description
+        - status
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        owner_user_id:
+          type: string
+          format: uuid
+        code:
+          type: string
+          minLength: 3
+          maxLength: 32
+          pattern: "^[A-Z0-9][A-Z0-9_-]{2,31}$"
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 4000
+        status:
+          type: string
+          enum: [draft, active, archived]
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    ClassListResponse:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Class"
+    CreateClassRequest:
+      type: object
+      additionalProperties: false
+      required: [code, title]
+      properties:
+        code:
+          type: string
+          minLength: 3
+          maxLength: 32
+          pattern: "^[A-Za-z0-9][A-Za-z0-9_-]{2,31}$"
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 4000
     Problem:
       type: object
       additionalProperties: false

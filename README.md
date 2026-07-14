@@ -11,9 +11,10 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
 - Phase 0 đã hoàn thành; hiện đang thực hiện **Phase 1 - Engineering Foundation**.
 - Web MVP đã được khóa ở luồng: đăng nhập -> lớp học -> prejoin -> phòng LiveKit -> rời phòng.
 - P1-01 và P1-02 đã hoàn thành: toolchain/CI, React web shell, routing, query, i18n và responsive states.
-- P1-04/P1-05 đã có checkpoint cục bộ; P1-06 Authentication và P1-06A Workspace onboarding đang ở trạng thái review.
+- P1-04/P1-05 đã có checkpoint cục bộ; P1-06 Authentication, P1-06A Workspace onboarding và P1-06B Class vertical slice đang ở trạng thái review.
 - Người dùng mới có thể tạo workspace đầu tiên, nhận quyền `org_admin`; phiên đăng nhập được xoay an toàn khi tạo hoặc đổi workspace.
-- Task ưu tiên tiếp theo là class vertical slice theo active workspace, sau đó P1-07 LiveKit spike.
+- Lớp học đã có luồng list/create/detail theo active workspace, permission server-side, CSRF và giao diện trạng thái đầy đủ.
+- Task ưu tiên tiếp theo là P1-07 LiveKit spike; enrollment/roster thuộc phase domain tiếp theo.
 - Master Plan web-first 2.0 đã audit lại kiến trúc, roadmap 90 ngày và các phase chuyển đổi từ V1.
 - Không sao chép secret, token hoặc cấu hình production từ V1.
 

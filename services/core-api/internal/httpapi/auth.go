@@ -178,18 +178,30 @@ func (handlers authHandlers) me(w http.ResponseWriter, r *http.Request) {
 	if !handlers.available(w, r) {
 		return
 	}
-	sessionToken, ok := handlers.sessionToken(w, r)
+	principal, ok := handlers.authenticatedPrincipal(w, r)
 	if !ok {
-		return
-	}
-	principal, err := handlers.identity.Authenticate(r.Context(), sessionToken)
-	if err != nil {
-		handlers.writeIdentityProblem(w, r, err)
 		return
 	}
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Vary", "Cookie")
 	handlers.writePrincipal(w, http.StatusOK, principal)
+}
+
+func (handlers authHandlers) authenticatedPrincipal(
+	w http.ResponseWriter,
+	r *http.Request,
+) (identity.Principal, bool) {
+	sessionToken, ok := handlers.sessionToken(w, r)
+	if !ok {
+		return identity.Principal{}, false
+	}
+	principal, err := handlers.identity.Authenticate(r.Context(), sessionToken)
+	if err != nil {
+		handlers.writeIdentityProblem(w, r, err)
+		return identity.Principal{}, false
+	}
+
+	return principal, true
 }
 
 func (handlers authHandlers) csrfPrincipal(

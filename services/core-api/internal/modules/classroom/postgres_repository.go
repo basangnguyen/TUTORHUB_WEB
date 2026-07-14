@@ -178,7 +178,11 @@ func (repository *PostgresRepository) List(
 		limit = defaultListLimit
 	}
 	if limit < 1 || limit > maximumListLimit {
-		return nil, fmt.Errorf("class list limit must be between 1 and %d", maximumListLimit)
+		return nil, fmt.Errorf(
+			"%w: class list limit must be between 1 and %d",
+			ErrInvalidListLimit,
+			maximumListLimit,
+		)
 	}
 
 	queryContext, cancel := repository.contextWithTimeout(ctx)

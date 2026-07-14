@@ -46,6 +46,9 @@ Các endpoint nền của Core API:
 | `GET /api/v1/auth/csrf` | Xoay CSRF token gắn với session |
 | `POST /api/v1/auth/logout` | Xác minh CSRF và revoke session |
 | `GET /api/v1/me` | User, tenant context và permissions hiện tại |
+| `GET /api/v1/classes` | Danh sách lớp trong active workspace; yêu cầu `class.view` |
+| `POST /api/v1/classes` | Tạo lớp nháp trong active workspace; yêu cầu CSRF và `class.create` |
+| `GET /api/v1/classes/{class_id}` | Chi tiết lớp trong active workspace; truy cập chéo tenant trả `404` |
 | `GET /metrics` | Metrics Prometheus tối thiểu; phải giới hạn ở ingress trước production |
 
 Core API đọc cấu hình từ environment và dừng ngay nếu giá trị không hợp lệ. Các biến

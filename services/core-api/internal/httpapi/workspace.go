@@ -1,10 +1,6 @@
 package httpapi
 
 import (
-	"encoding/json"
-	"errors"
-	"io"
-	"mime"
 	"net/http"
 	"strings"
 
@@ -37,7 +33,7 @@ func (handlers authHandlers) createTenant(w http.ResponseWriter, r *http.Request
 	}
 
 	var request createTenantRequest
-	if err := decodeWorkspaceRequest(w, r, &request); err != nil {
+	if err := decodeJSONRequest(w, r, &request, maximumWorkspaceRequestBytes); err != nil {
 		writeProblem(
 			w,
 			r,
@@ -77,7 +73,7 @@ func (handlers authHandlers) switchActiveTenant(w http.ResponseWriter, r *http.R
 	}
 
 	var request switchActiveTenantRequest
-	if err := decodeWorkspaceRequest(w, r, &request); err != nil {
+	if err := decodeJSONRequest(w, r, &request, maximumWorkspaceRequestBytes); err != nil {
 		writeProblem(
 			w,
 			r,
@@ -122,26 +118,4 @@ func (handlers authHandlers) setTenantSessionCookies(
 		result.ExpiresAt,
 		false,
 	)
-}
-
-func decodeWorkspaceRequest(
-	w http.ResponseWriter,
-	r *http.Request,
-	destination any,
-) error {
-	mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
-	if err != nil || mediaType != "application/json" {
-		return errors.New("content type must be application/json")
-	}
-
-	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, maximumWorkspaceRequestBytes))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(destination); err != nil {
-		return err
-	}
-	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
-		return errors.New("request must contain one JSON object")
-	}
-
-	return nil
 }

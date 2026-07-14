@@ -75,6 +75,66 @@ const messages = {
       "Chưa thể chuyển workspace. Hãy thử lại hoặc kiểm tra membership.",
     "workspace.switching": "Đang chuyển workspace...",
     "workspace.activeLabel": "Workspace đang hoạt động",
+    "classroom.title": "Lớp học",
+    "classroom.description":
+      "Quản lý các lớp thuộc workspace đang hoạt động và mở thông tin chi tiết của từng lớp.",
+    "classroom.createAction": "Tạo lớp học",
+    "classroom.listTitle": "Danh sách lớp",
+    "classroom.listDescription":
+      "Dữ liệu được giới hạn theo workspace và quyền trong phiên hiện tại.",
+    "classroom.loadingList": "Đang tải danh sách lớp",
+    "classroom.loadingDetail": "Đang tải thông tin lớp học",
+    "classroom.classCount": "{count} lớp",
+    "classroom.createTitle": "Tạo lớp học mới",
+    "classroom.createDescription":
+      "Lớp được tạo ở trạng thái bản nháp trong workspace hiện tại.",
+    "classroom.closeCreate": "Đóng biểu mẫu tạo lớp",
+    "classroom.codeLabel": "Mã lớp",
+    "classroom.codePlaceholder": "Ví dụ: SEC101",
+    "classroom.codeHelp":
+      "Dùng 3–32 chữ cái, chữ số, dấu gạch ngang hoặc gạch dưới.",
+    "classroom.titleLabel": "Tên lớp",
+    "classroom.titlePlaceholder": "Ví dụ: Cơ sở An toàn thông tin",
+    "classroom.descriptionLabel": "Mô tả",
+    "classroom.descriptionPlaceholder":
+      "Thông tin ngắn giúp thành viên nhận biết lớp học.",
+    "classroom.codeError": "Mã lớp chưa đúng định dạng.",
+    "classroom.titleError": "Tên lớp phải có từ 1 đến 200 ký tự.",
+    "classroom.descriptionError": "Mô tả không được vượt quá 4.000 ký tự.",
+    "classroom.duplicateCodeError":
+      "Mã lớp đã tồn tại trong workspace này. Hãy chọn mã khác.",
+    "classroom.createForbiddenError":
+      "Vai trò hiện tại không có quyền tạo lớp học.",
+    "classroom.createError": "Chưa thể tạo lớp học. Hãy thử lại.",
+    "classroom.cancelAction": "Hủy",
+    "classroom.creating": "Đang tạo...",
+    "classroom.createSubmit": "Tạo lớp",
+    "classroom.emptyTitle": "Workspace chưa có lớp học",
+    "classroom.emptyDescription":
+      "Lớp đầu tiên sẽ xuất hiện tại đây sau khi được tạo.",
+    "classroom.createFirstAction": "Tạo lớp đầu tiên",
+    "classroom.noDescription": "Chưa có mô tả",
+    "classroom.statusDraft": "Bản nháp",
+    "classroom.statusActive": "Đang hoạt động",
+    "classroom.statusArchived": "Đã lưu trữ",
+    "classroom.updatedShort": "Cập nhật {date}",
+    "classroom.backToList": "← Danh sách lớp",
+    "classroom.informationTitle": "Thông tin lớp học",
+    "classroom.workspaceLabel": "Workspace",
+    "classroom.ownerLabel": "Người phụ trách",
+    "classroom.ownerYou": "Bạn",
+    "classroom.ownerMember": "Thành viên workspace",
+    "classroom.createdLabel": "Ngày tạo",
+    "classroom.updatedLabel": "Cập nhật gần nhất",
+    "classroom.forbiddenTitle": "Bạn chưa có quyền xem lớp học",
+    "classroom.forbiddenDescription":
+      "Quyền truy cập được xác định từ membership trong workspace hiện tại.",
+    "classroom.notFoundTitle": "Không tìm thấy lớp học",
+    "classroom.notFoundDescription":
+      "Lớp không tồn tại hoặc không thuộc workspace đang hoạt động.",
+    "classroom.errorTitle": "Chưa thể tải dữ liệu lớp học",
+    "classroom.errorDescription":
+      "Kiểm tra kết nối rồi thử lại. Nếu lỗi tiếp diễn, cần kiểm tra Core API.",
     "home.kicker": "Không gian học tập",
     "home.title": "Tổng quan hôm nay",
     "home.description":
@@ -177,6 +237,66 @@ const messages = {
       "We could not switch workspaces. Try again or check your membership.",
     "workspace.switching": "Switching workspace...",
     "workspace.activeLabel": "Active workspace",
+    "classroom.title": "Classrooms",
+    "classroom.description":
+      "Manage classes in the active workspace and open the details for each class.",
+    "classroom.createAction": "Create class",
+    "classroom.listTitle": "Class list",
+    "classroom.listDescription":
+      "Data is limited by the active workspace and current session permissions.",
+    "classroom.loadingList": "Loading the class list",
+    "classroom.loadingDetail": "Loading class information",
+    "classroom.classCount": "{count} classes",
+    "classroom.createTitle": "Create a class",
+    "classroom.createDescription":
+      "The class starts as a draft in the current workspace.",
+    "classroom.closeCreate": "Close the create-class form",
+    "classroom.codeLabel": "Class code",
+    "classroom.codePlaceholder": "Example: SEC101",
+    "classroom.codeHelp": "Use 3–32 letters, numbers, hyphens, or underscores.",
+    "classroom.titleLabel": "Class name",
+    "classroom.titlePlaceholder": "Example: Information Security Foundations",
+    "classroom.descriptionLabel": "Description",
+    "classroom.descriptionPlaceholder":
+      "Add a short note that helps members identify this class.",
+    "classroom.codeError": "The class code format is invalid.",
+    "classroom.titleError": "The class name must contain 1–200 characters.",
+    "classroom.descriptionError":
+      "The description cannot exceed 4,000 characters.",
+    "classroom.duplicateCodeError":
+      "This class code already exists in the workspace. Choose another code.",
+    "classroom.createForbiddenError":
+      "Your current role cannot create classes.",
+    "classroom.createError": "We could not create the class. Try again.",
+    "classroom.cancelAction": "Cancel",
+    "classroom.creating": "Creating...",
+    "classroom.createSubmit": "Create class",
+    "classroom.emptyTitle": "This workspace has no classes",
+    "classroom.emptyDescription":
+      "The first class will appear here after it is created.",
+    "classroom.createFirstAction": "Create the first class",
+    "classroom.noDescription": "No description",
+    "classroom.statusDraft": "Draft",
+    "classroom.statusActive": "Active",
+    "classroom.statusArchived": "Archived",
+    "classroom.updatedShort": "Updated {date}",
+    "classroom.backToList": "← Class list",
+    "classroom.informationTitle": "Class information",
+    "classroom.workspaceLabel": "Workspace",
+    "classroom.ownerLabel": "Owner",
+    "classroom.ownerYou": "You",
+    "classroom.ownerMember": "Workspace member",
+    "classroom.createdLabel": "Created",
+    "classroom.updatedLabel": "Last updated",
+    "classroom.forbiddenTitle": "You cannot view these classes",
+    "classroom.forbiddenDescription":
+      "Access is determined by your membership in the active workspace.",
+    "classroom.notFoundTitle": "Class not found",
+    "classroom.notFoundDescription":
+      "The class does not exist or is outside the active workspace.",
+    "classroom.errorTitle": "We could not load classroom data",
+    "classroom.errorDescription":
+      "Check the connection and retry. If this continues, review the Core API.",
     "home.kicker": "Learning workspace",
     "home.title": "Today at a glance",
     "home.description":

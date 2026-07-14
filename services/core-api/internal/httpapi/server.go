@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/tutorhub-v2/core-api/internal/config"
+	"github.com/tutorhub-v2/core-api/internal/modules/classroom"
 	"github.com/tutorhub-v2/core-api/internal/modules/identity"
 	"github.com/tutorhub-v2/core-api/internal/platform/observability"
 )
@@ -23,6 +24,7 @@ type Options struct {
 	Readiness []ReadinessCheck
 	Clock     func() time.Time
 	Identity  identity.ServiceAPI
+	Classroom classroom.ServiceAPI
 }
 
 func NewHandler(cfg config.Config, logger *slog.Logger) http.Handler {
@@ -66,6 +68,9 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 		"/api/v1/session/active-tenant",
 		requireMethod(http.MethodPut, http.HandlerFunc(auth.switchActiveTenant)),
 	)
+	classes := newClassHandlers(logger, auth, options.Classroom)
+	mux.Handle(classesCollectionPath, http.HandlerFunc(classes.collection))
+	mux.Handle(classesResourcePathPrefix, http.HandlerFunc(classes.detail))
 	mux.Handle("/metrics", requireMethod(http.MethodGet, options.Metrics.Handler()))
 	mux.Handle("/", notFoundHandler())
 

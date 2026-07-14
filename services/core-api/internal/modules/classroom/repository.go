@@ -12,6 +12,9 @@ var (
 	ErrClassNotFound         = errors.New("class not found")
 	ErrDuplicateClassCode    = errors.New("class code already exists in tenant")
 	ErrOwnerMembershipNeeded = errors.New("class owner must be a tenant member")
+	ErrInvalidClassInput     = errors.New("invalid class input")
+	ErrInvalidListLimit      = errors.New("invalid class list limit")
+	ErrClassAccessDenied     = errors.New("classroom access denied")
 )
 
 type Repository interface {
