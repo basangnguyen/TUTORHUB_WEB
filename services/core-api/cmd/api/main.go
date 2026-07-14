@@ -14,6 +14,7 @@ import (
 	"github.com/tutorhub-v2/core-api/internal/httpapi"
 	"github.com/tutorhub-v2/core-api/internal/modules/classroom"
 	"github.com/tutorhub-v2/core-api/internal/modules/identity"
+	"github.com/tutorhub-v2/core-api/internal/modules/media"
 	"github.com/tutorhub-v2/core-api/internal/platform/database"
 	"github.com/tutorhub-v2/core-api/internal/platform/httpserver"
 	"github.com/tutorhub-v2/core-api/internal/platform/observability"
@@ -117,12 +118,58 @@ func run() int {
 		logger.Info("authentication is disabled for this environment")
 	}
 
+	var mediaService media.ServiceAPI
+	var liveKitWebhook media.WebhookVerifier
+	if cfg.LiveKit.Enabled {
+		if pool == nil || classroomService == nil {
+			logger.Error("LiveKit requires a configured database and classroom service")
+			return 1
+		}
+		issuer, err := media.NewLiveKitTokenIssuer(cfg.LiveKit.APIKey, cfg.LiveKit.APISecret)
+		if err != nil {
+			logger.Error("initialize LiveKit token issuer", "error", err)
+			return 1
+		}
+		liveKitWebhook, err = media.NewLiveKitWebhookVerifier(
+			cfg.LiveKit.APIKey,
+			cfg.LiveKit.APISecret,
+		)
+		if err != nil {
+			logger.Error("initialize LiveKit webhook verifier", "error", err)
+			return 1
+		}
+		mediaService, err = media.NewService(
+			classroomService,
+			issuer,
+			media.NewSlogEventSink(logger),
+			media.NewPostgresRepository(pool, cfg.Database.QueryTimeout),
+			media.ServiceConfig{
+				ServerURL: cfg.LiveKit.URL,
+				TokenTTL:  cfg.LiveKit.TokenTTL,
+				Clock:     time.Now,
+			},
+		)
+		if err != nil {
+			logger.Error("initialize classroom media service", "error", err)
+			return 1
+		}
+		logger.Info(
+			"LiveKit classroom media initialized",
+			"server_url", cfg.LiveKit.URL,
+			"token_ttl", cfg.LiveKit.TokenTTL,
+		)
+	} else {
+		logger.Info("LiveKit classroom media is disabled for this environment")
+	}
+
 	handler := httpapi.NewHandlerWithOptions(cfg, logger, httpapi.Options{
-		Metrics:   metrics,
-		Tracer:    observability.NoopTracer{},
-		Readiness: readiness,
-		Identity:  identityService,
-		Classroom: classroomService,
+		Metrics:        metrics,
+		Tracer:         observability.NoopTracer{},
+		Readiness:      readiness,
+		Identity:       identityService,
+		Classroom:      classroomService,
+		Media:          mediaService,
+		LiveKitWebhook: liveKitWebhook,
 	})
 	server := httpserver.New(cfg, handler)
 

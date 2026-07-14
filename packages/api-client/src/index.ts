@@ -11,6 +11,8 @@ export type SwitchActiveTenantRequest =
 export type ClassroomClass = components["schemas"]["Class"];
 export type ClassListResponse = components["schemas"]["ClassListResponse"];
 export type CreateClassRequest = components["schemas"]["CreateClassRequest"];
+export type MediaTokenResponse = components["schemas"]["MediaTokenResponse"];
+export type MediaEventRequest = components["schemas"]["MediaEventRequest"];
 export type Problem = components["schemas"]["Problem"];
 
 export class APIRequestError extends Error {
@@ -234,6 +236,56 @@ export async function createClass(
     error,
     response,
   );
+}
+
+export async function issueClassMediaToken(
+  classID: string,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<MediaTokenResponse> {
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/classes/{class_id}/media-token",
+    {
+      params: {
+        path: { class_id: classID },
+        header: { "X-CSRF-Token": csrfToken },
+      },
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<MediaTokenResponse>(
+    data as MediaTokenResponse | undefined,
+    error,
+    response,
+  );
+}
+
+export async function recordClassMediaEvent(
+  classID: string,
+  input: MediaEventRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<void> {
+  const { error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/classes/{class_id}/media-events",
+    {
+      params: {
+        path: { class_id: classID },
+        header: { "X-CSRF-Token": csrfToken },
+      },
+      body: input,
+      signal: options.signal,
+    },
+  );
+
+  if (!response.ok) {
+    throw new APIRequestError(
+      response.status,
+      isProblem(error) ? error : undefined,
+    );
+  }
 }
 
 function requireData<T>(

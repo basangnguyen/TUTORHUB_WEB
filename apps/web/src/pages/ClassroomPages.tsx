@@ -107,6 +107,9 @@ export function ClassroomDetailPage() {
   }
 
   const classroom = classQuery.data;
+  const canJoin =
+    classroom.status !== "archived" &&
+    (session.currentUser?.permissions.includes("session.join") ?? false);
   const dateFormatter = new Intl.DateTimeFormat(
     language === "vi" ? "vi-VN" : "en-US",
     { dateStyle: "medium", timeStyle: "short" },
@@ -126,6 +129,15 @@ export function ClassroomDetailPage() {
           <h1>{classroom.title}</h1>
           <p>{classroom.description || t("classroom.noDescription")}</p>
         </div>
+        {canJoin && (
+          <Link
+            className="classroom-live-action"
+            to={`/app/classrooms/${classroom.id}/prejoin`}
+          >
+            <span aria-hidden="true" />
+            {t("classroom.joinRoomAction")}
+          </Link>
+        )}
       </header>
 
       <section

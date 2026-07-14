@@ -135,6 +135,61 @@ const messages = {
     "classroom.errorTitle": "Chưa thể tải dữ liệu lớp học",
     "classroom.errorDescription":
       "Kiểm tra kết nối rồi thử lại. Nếu lỗi tiếp diễn, cần kiểm tra Core API.",
+    "classroom.joinRoomAction": "Vào phòng học trực tuyến",
+    "media.prejoin.backToClass": "← Quay lại lớp học",
+    "media.prejoin.kicker": "Kiểm tra trước khi vào phòng",
+    "media.prejoin.title": "Phòng học trực tuyến",
+    "media.prejoin.description":
+      "Kiểm tra camera, micro và loa trước khi kết nối. Thiết lập thiết bị không được lưu trên trình duyệt.",
+    "media.prejoin.classError": "Chưa thể tải thông tin lớp học.",
+    "media.prejoin.unsupported":
+      "Trình duyệt này không cung cấp đầy đủ API camera và micro. Hãy dùng phiên bản Chrome, Edge, Firefox hoặc Safari mới.",
+    "media.prejoin.camera": "Camera",
+    "media.prejoin.microphone": "Micro",
+    "media.prejoin.displayName": "Tên hiển thị",
+    "media.prejoin.join": "Vào phòng học",
+    "media.prejoin.joining": "Đang kết nối...",
+    "media.prejoin.joinError":
+      "Chưa thể cấp quyền vào phòng. Kiểm tra kết nối rồi thử lại.",
+    "media.prejoin.invalidClass": "Đường dẫn lớp học không hợp lệ.",
+    "media.prejoin.cannotJoin": "Chưa thể vào phòng học",
+    "media.prejoin.checkTitle": "Kiểm tra nhanh",
+    "media.prejoin.checkHeading": "Thiết bị và kết nối",
+    "media.prejoin.checkCamera": "Hình ảnh camera hiển thị rõ và đúng chiều.",
+    "media.prejoin.checkMicrophone": "Mức âm thanh thay đổi khi bạn nói.",
+    "media.prejoin.checkNetwork": "Kết nối mạng ổn định trước khi bắt đầu.",
+    "media.prejoin.speakerTest": "Kiểm tra loa",
+    "media.prejoin.speakerPlaying": "Đang phát âm kiểm tra...",
+    "media.prejoin.speakerError": "Trình duyệt chưa thể phát âm kiểm tra.",
+    "media.prejoin.listenOnlyTitle": "Tham gia ở chế độ chỉ nghe",
+    "media.prejoin.listenOnlyDescription":
+      "Vai trò hiện tại có thể xem và nghe phòng học nhưng không được phát camera, micro hoặc chia sẻ màn hình.",
+    "media.prejoin.unavailableTitle": "Phòng học chưa sẵn sàng",
+    "media.room.title": "Phòng học TutorHub",
+    "media.room.participantCount": "{count} người tham gia",
+    "media.room.participantGrid": "Khu vực video người tham gia",
+    "media.room.listenOnly": "Chế độ chỉ nghe",
+    "media.room.connecting": "Đang kết nối",
+    "media.room.connected": "Đã kết nối",
+    "media.room.reconnecting": "Đang khôi phục kết nối",
+    "media.room.disconnected": "Đã ngắt kết nối",
+    "media.room.failed": "Kết nối thất bại",
+    "media.room.connectionError":
+      "Không thể kết nối tới phòng học. Hãy quay lại bước kiểm tra và thử lại.",
+    "media.room.deviceError":
+      "Camera hoặc micro không khả dụng. Kiểm tra quyền của trình duyệt và thiết bị đang dùng.",
+    "media.room.dismiss": "Đóng thông báo",
+    "media.room.credentialMissing":
+      "Thông tin kết nối đã hết hạn hoặc không còn trong bộ nhớ. TutorHub không lưu token phòng học trên trình duyệt.",
+    "media.room.recoveryKicker": "Cần xác nhận lại thiết bị",
+    "media.room.recoveryTitle": "Quay lại bước kiểm tra trước khi vào phòng",
+    "media.room.returnToPrejoin": "Mở kiểm tra thiết bị",
+    "media.room.disconnectedKicker": "Phiên phòng học đã kết thúc",
+    "media.room.disconnectedTitle": "Bạn đã rời phòng học",
+    "media.room.disconnectedDescription":
+      "Bạn có thể vào lại bằng token mới hoặc quay về trang thông tin lớp.",
+    "media.room.rejoin": "Vào lại phòng",
+    "media.room.backToClass": "Quay về lớp học",
     "home.kicker": "Không gian học tập",
     "home.title": "Tổng quan hôm nay",
     "home.description":
@@ -297,6 +352,64 @@ const messages = {
     "classroom.errorTitle": "We could not load classroom data",
     "classroom.errorDescription":
       "Check the connection and retry. If this continues, review the Core API.",
+    "classroom.joinRoomAction": "Join live classroom",
+    "media.prejoin.backToClass": "← Back to classroom",
+    "media.prejoin.kicker": "Prejoin check",
+    "media.prejoin.title": "Live classroom",
+    "media.prejoin.description":
+      "Check your camera, microphone and speaker before connecting. Device choices are not stored in the browser.",
+    "media.prejoin.classError":
+      "Classroom information is temporarily unavailable.",
+    "media.prejoin.unsupported":
+      "This browser does not provide the required camera and microphone APIs. Use a current Chrome, Edge, Firefox or Safari release.",
+    "media.prejoin.camera": "Camera",
+    "media.prejoin.microphone": "Microphone",
+    "media.prejoin.displayName": "Display name",
+    "media.prejoin.join": "Join classroom",
+    "media.prejoin.joining": "Connecting...",
+    "media.prejoin.joinError":
+      "A room credential could not be issued. Check your connection and retry.",
+    "media.prejoin.invalidClass": "The classroom address is invalid.",
+    "media.prejoin.cannotJoin": "Unable to join the classroom",
+    "media.prejoin.checkTitle": "Quick check",
+    "media.prejoin.checkHeading": "Devices and connection",
+    "media.prejoin.checkCamera":
+      "The camera preview is clear and correctly oriented.",
+    "media.prejoin.checkMicrophone": "The audio level changes when you speak.",
+    "media.prejoin.checkNetwork":
+      "Your network is stable before the session starts.",
+    "media.prejoin.speakerTest": "Test speaker",
+    "media.prejoin.speakerPlaying": "Playing test sound...",
+    "media.prejoin.speakerError": "The browser could not play the test sound.",
+    "media.prejoin.listenOnlyTitle": "Join in listen-only mode",
+    "media.prejoin.listenOnlyDescription":
+      "Your current role can watch and listen but cannot publish a camera, microphone or screen share.",
+    "media.prejoin.unavailableTitle": "The classroom is not ready",
+    "media.room.title": "TutorHub classroom",
+    "media.room.participantCount": "{count} participants",
+    "media.room.participantGrid": "Participant video area",
+    "media.room.listenOnly": "Listen-only mode",
+    "media.room.connecting": "Connecting",
+    "media.room.connected": "Connected",
+    "media.room.reconnecting": "Restoring connection",
+    "media.room.disconnected": "Disconnected",
+    "media.room.failed": "Connection failed",
+    "media.room.connectionError":
+      "The classroom could not be reached. Return to the prejoin check and try again.",
+    "media.room.deviceError":
+      "The camera or microphone is unavailable. Check browser permission and the selected device.",
+    "media.room.dismiss": "Dismiss",
+    "media.room.credentialMissing":
+      "The room credential expired or is no longer in memory. TutorHub does not persist room tokens in browser storage.",
+    "media.room.recoveryKicker": "Device confirmation required",
+    "media.room.recoveryTitle": "Return to the prejoin check",
+    "media.room.returnToPrejoin": "Open device check",
+    "media.room.disconnectedKicker": "The classroom session has ended",
+    "media.room.disconnectedTitle": "You left the classroom",
+    "media.room.disconnectedDescription":
+      "You can rejoin with a new token or return to the class information page.",
+    "media.room.rejoin": "Rejoin room",
+    "media.room.backToClass": "Back to classroom",
     "home.kicker": "Learning workspace",
     "home.title": "Today at a glance",
     "home.description":

@@ -7,8 +7,10 @@ import {
   getCurrentUser,
   getHealth,
   getLoginURL,
+  issueClassMediaToken,
   listClasses,
   logout,
+  recordClassMediaEvent,
   rotateCSRFToken,
   switchActiveTenant,
 } from "./index";
@@ -248,6 +250,67 @@ describe("getHealth", () => {
       code: "SEC101",
       title: "An toàn thông tin",
       description: "Lớp học kỳ 1",
+    });
+  });
+
+  it("issues an in-memory media token and records bounded join telemetry", async () => {
+    const classID = "a912f628-f3d2-4c18-84c6-42a9e858dc8d";
+    const attemptID = "16abf9c1-69af-44a7-a844-36a6a19e2db2";
+    const credential = {
+      access_token: "short-lived-livekit-token",
+      server_url: "wss://staging.example.test",
+      room_name: `th_tenant_${classID}`,
+      participant_identity: "u_actor_s_session",
+      participant_name: "Student",
+      attempt_id: attemptID,
+      can_publish: true,
+      expires_at: "2026-07-14T05:05:00Z",
+    };
+    const responses = [
+      new Response(JSON.stringify(credential), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+      new Response(null, { status: 204 }),
+    ];
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(() => Promise.resolve(responses.shift()));
+    const options = { baseUrl: "http://localhost/api", fetch: fetchMock };
+
+    await expect(
+      issueClassMediaToken(classID, "token-csrf", options),
+    ).resolves.toEqual(credential);
+    await expect(
+      recordClassMediaEvent(
+        classID,
+        {
+          attempt_id: attemptID,
+          stage: "connect",
+          outcome: "succeeded",
+          error_code: "",
+          duration_ms: 842,
+        },
+        "event-csrf",
+        options,
+      ),
+    ).resolves.toBeUndefined();
+
+    const requests = fetchMock.mock.calls.map((call) => call[0] as Request);
+    expect(requests[0]?.url).toBe(
+      `http://localhost/api/api/v1/classes/${classID}/media-token`,
+    );
+    expect(requests[0]?.headers.get("X-CSRF-Token")).toBe("token-csrf");
+    expect(requests[1]?.url).toBe(
+      `http://localhost/api/api/v1/classes/${classID}/media-events`,
+    );
+    expect(requests[1]?.headers.get("X-CSRF-Token")).toBe("event-csrf");
+    await expect(requests[1]?.clone().json()).resolves.toEqual({
+      attempt_id: attemptID,
+      stage: "connect",
+      outcome: "succeeded",
+      error_code: "",
+      duration_ms: 842,
     });
   });
 });

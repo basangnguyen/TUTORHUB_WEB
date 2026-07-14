@@ -108,9 +108,18 @@ Task ở `REVIEW` để bàn giao.
 ## P1-07 LiveKit spike
 
 - [ ] Tạo LiveKit project riêng cho staging.
-- [ ] API cấp token từ backend với grant tối thiểu.
-- [ ] Trang prejoin và room test camera/mic/reconnect.
-- [ ] Ghi telemetry join failure; không đưa secret LiveKit vào frontend.
+- [x] API cấp token từ backend với grant tối thiểu, TTL ngắn và tenant/class/session identity.
+- [x] Trang prejoin và room triển khai camera/mic/screen share, listen-only và reconnect state.
+- [ ] Smoke test thật 2-5 người cho camera/mic/screen share/reconnect trên project staging.
+- [x] Ghi telemetry join/reconnect có schema giới hạn; không đưa secret LiveKit vào frontend.
+- [x] Xác minh webhook chính thức và lưu receipt idempotent; Neon migration version `5`, `dirty=false`.
+- [x] OpenAPI, generated client, unit/HTTP/web test, lazy SDK chunk và runbook được cập nhật.
+
+**Trạng thái 2026-07-14:** implementation cục bộ hoàn tất trên branch
+`codex/p1-07-livekit-spike`. Token chỉ được Core API phát sau session + CSRF + permission;
+frontend giữ credential trong React memory và reload phải quay lại prejoin. Local secret file
+chưa có LiveKit credential, vì vậy project/webhook staging và smoke test thật vẫn còn mở;
+task giữ `IN_PROGRESS` cho đến khi đạt ma trận trong `docs/LIVEKIT_SPIKE_RUNBOOK.md`.
 
 ## P1-08 CI/CD và security
 

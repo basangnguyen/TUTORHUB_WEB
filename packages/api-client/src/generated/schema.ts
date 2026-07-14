@@ -107,6 +107,40 @@ export type paths = {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/api/v1/classes/{class_id}/media-events": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Record bounded client-side join and reconnect telemetry */
+    readonly post: operations["recordClassMediaEvent"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/classes/{class_id}/media-token": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Issue a short-lived, least-privilege LiveKit room credential */
+    readonly post: operations["issueClassMediaToken"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/api/v1/me": {
     readonly parameters: {
       readonly query?: never;
@@ -169,6 +203,23 @@ export type paths = {
     readonly put?: never;
     /** Create the authenticated user's first TutorHub workspace */
     readonly post: operations["createTenant"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/webhooks/livekit": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Receive a signed LiveKit server webhook */
+    readonly post: operations["receiveLiveKitWebhook"];
     readonly delete?: never;
     readonly options?: never;
     readonly head?: never;
@@ -286,6 +337,42 @@ export type components = {
     readonly LogoutResponse: {
       /** Format: uri */
       readonly logout_url?: string;
+    };
+    readonly MediaEventRequest: {
+      /** Format: uuid */
+      readonly attempt_id: string;
+      /** Format: int64 */
+      readonly duration_ms: number;
+      readonly error_code?: string;
+      /** @enum {string} */
+      readonly outcome: "started" | "succeeded" | "failed";
+      /** @enum {string} */
+      readonly stage:
+        | "token"
+        | "connect"
+        | "connected"
+        | "media"
+        | "reconnecting"
+        | "reconnected"
+        | "disconnected"
+        | "leave";
+    };
+    readonly MediaTokenResponse: {
+      /** @description Short-lived LiveKit JWT; clients must keep it in memory only. */
+      readonly access_token: string;
+      /** Format: uuid */
+      readonly attempt_id: string;
+      readonly can_publish: boolean;
+      /** Format: date-time */
+      readonly expires_at: string;
+      readonly participant_identity: string;
+      readonly participant_name: string;
+      readonly room_name: string;
+      /**
+       * Format: uri
+       * @description LiveKit WebSocket URL; staging and production require wss://.
+       */
+      readonly server_url: string;
     };
     readonly MeResponse: {
       readonly active_tenant: components["schemas"]["TenantMembership"] | null;
@@ -522,6 +609,59 @@ export interface operations {
       readonly default: components["responses"]["ProblemResponse"];
     };
   };
+  readonly recordClassMediaEvent: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly "X-CSRF-Token": string;
+      };
+      readonly path: {
+        readonly class_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["MediaEventRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Telemetry accepted */
+      readonly 204: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content?: never;
+      };
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly issueClassMediaToken: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly "X-CSRF-Token": string;
+      };
+      readonly path: {
+        readonly class_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Short-lived classroom media credential */
+      readonly 200: {
+        headers: {
+          readonly "Cache-Control"?: "no-store";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["MediaTokenResponse"];
+        };
+      };
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
   readonly getCurrentUser: {
     readonly parameters: {
       readonly query?: never;
@@ -614,6 +754,33 @@ export interface operations {
         content: {
           readonly "application/json": components["schemas"]["MeResponse"];
         };
+      };
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly receiveLiveKitWebhook: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly Authorization: string;
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/webhook+json": {
+          readonly [key: string]: unknown;
+        };
+      };
+    };
+    readonly responses: {
+      /** @description Webhook verified and accepted or already processed */
+      readonly 204: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content?: never;
       };
       readonly default: components["responses"]["ProblemResponse"];
     };

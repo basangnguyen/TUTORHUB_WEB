@@ -32,6 +32,7 @@ const (
 	defaultAuthFlowTTL        = 10 * time.Minute
 	defaultSessionTTL         = 8 * time.Hour
 	defaultSessionAbsoluteTTL = 24 * time.Hour
+	defaultLiveKitTokenTTL    = 5 * time.Minute
 )
 
 var validEnvironments = map[string]struct{}{
@@ -62,6 +63,7 @@ type Config struct {
 	MaxHeaderBytes    int
 	Database          DatabaseConfig
 	Authentication    AuthenticationConfig
+	LiveKit           LiveKitConfig
 }
 
 type DatabaseConfig struct {
@@ -88,6 +90,14 @@ type AuthenticationConfig struct {
 	FlowTTL            time.Duration
 	SessionTTL         time.Duration
 	SessionAbsoluteTTL time.Duration
+}
+
+type LiveKitConfig struct {
+	Enabled   bool
+	URL       string
+	APIKey    string
+	APISecret string
+	TokenTTL  time.Duration
 }
 
 func Load() (Config, error) {
@@ -179,12 +189,66 @@ func load(lookup lookupEnv) (Config, error) {
 		cfg.WebOrigin,
 		&validationErrors,
 	)
+	cfg.LiveKit = liveKitConfig(lookup, cfg.Environment, &validationErrors)
 
 	if err := errors.Join(validationErrors...); err != nil {
 		return Config{}, fmt.Errorf("validate configuration: %w", err)
 	}
 
 	return cfg, nil
+}
+
+func liveKitConfig(
+	lookup lookupEnv,
+	environment string,
+	validationErrors *[]error,
+) LiveKitConfig {
+	liveKitURL := strings.TrimSpace(valueOrDefault(lookup, "LIVEKIT_URL", ""))
+	apiKey := strings.TrimSpace(valueOrDefault(lookup, "LIVEKIT_API_KEY", ""))
+	apiSecret := strings.TrimSpace(valueOrDefault(lookup, "LIVEKIT_API_SECRET", ""))
+	tokenTTL := durationValue(
+		lookup,
+		"LIVEKIT_TOKEN_TTL",
+		defaultLiveKitTokenTTL,
+		validationErrors,
+	)
+	enabled := liveKitURL != "" || apiKey != "" || apiSecret != ""
+	config := LiveKitConfig{
+		Enabled:   enabled,
+		URL:       liveKitURL,
+		APIKey:    apiKey,
+		APISecret: apiSecret,
+		TokenTTL:  tokenTTL,
+	}
+	if !enabled {
+		return config
+	}
+
+	for key, value := range map[string]string{
+		"LIVEKIT_URL":        liveKitURL,
+		"LIVEKIT_API_KEY":    apiKey,
+		"LIVEKIT_API_SECRET": apiSecret,
+	} {
+		if value == "" {
+			*validationErrors = append(
+				*validationErrors,
+				fmt.Errorf("%s is required when LiveKit is enabled", key),
+			)
+		}
+	}
+	if liveKitURL != "" {
+		if err := validateLiveKitURL(environment, liveKitURL); err != nil {
+			*validationErrors = append(*validationErrors, err)
+		}
+	}
+	if tokenTTL < time.Minute || tokenTTL > 15*time.Minute {
+		*validationErrors = append(
+			*validationErrors,
+			fmt.Errorf("LIVEKIT_TOKEN_TTL must be between 1m and 15m"),
+		)
+	}
+
+	return config
 }
 
 func authenticationConfig(
@@ -459,6 +523,27 @@ func validateHTTPSURL(environment string, key string, value string) error {
 	}
 	if (environment == "staging" || environment == "production") && parsedURL.Scheme != "https" {
 		return fmt.Errorf("%s must use https in %s", key, environment)
+	}
+
+	return nil
+}
+
+func validateLiveKitURL(environment string, value string) error {
+	parsedURL, err := url.Parse(value)
+	if err != nil {
+		return fmt.Errorf("LIVEKIT_URL must be a valid WebSocket URL")
+	}
+	if parsedURL.Scheme != "ws" && parsedURL.Scheme != "wss" {
+		return fmt.Errorf("LIVEKIT_URL must use ws or wss")
+	}
+	if parsedURL.Host == "" || parsedURL.User != nil || parsedURL.RawQuery != "" || parsedURL.Fragment != "" {
+		return fmt.Errorf("LIVEKIT_URL must include only a WebSocket scheme and host")
+	}
+	if parsedURL.Path != "" && parsedURL.Path != "/" {
+		return fmt.Errorf("LIVEKIT_URL must not contain a path")
+	}
+	if (environment == "staging" || environment == "production") && parsedURL.Scheme != "wss" {
+		return fmt.Errorf("LIVEKIT_URL must use wss in %s", environment)
 	}
 
 	return nil

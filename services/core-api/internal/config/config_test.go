@@ -47,6 +47,9 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.Authentication.Enabled {
 		t.Fatal("authentication must remain disabled when no OIDC values are configured locally")
 	}
+	if cfg.LiveKit.Enabled || cfg.LiveKit.TokenTTL != defaultLiveKitTokenTTL {
+		t.Fatalf("unexpected LiveKit defaults: %+v", cfg.LiveKit)
+	}
 }
 
 func TestLoadCustomValues(t *testing.T) {
@@ -75,6 +78,10 @@ func TestLoadCustomValues(t *testing.T) {
 		"SESSION_COOKIE_SECURE":    "true",
 		"SESSION_TTL":              "6h",
 		"SESSION_ABSOLUTE_TTL":     "24h",
+		"LIVEKIT_URL":              "wss://tutorhub-staging.livekit.cloud",
+		"LIVEKIT_API_KEY":          "staging-key",
+		"LIVEKIT_API_SECRET":       "not-a-real-livekit-secret",
+		"LIVEKIT_TOKEN_TTL":        "4m",
 	}))
 	if err != nil {
 		t.Fatalf("load custom values: %v", err)
@@ -104,6 +111,11 @@ func TestLoadCustomValues(t *testing.T) {
 		!cfg.Authentication.CookieSecure ||
 		len(cfg.Authentication.SessionKey) != 32 {
 		t.Fatalf("unexpected authentication config")
+	}
+	if !cfg.LiveKit.Enabled ||
+		cfg.LiveKit.URL != "wss://tutorhub-staging.livekit.cloud" ||
+		cfg.LiveKit.TokenTTL != 4*time.Minute {
+		t.Fatalf("unexpected LiveKit config: %+v", cfg.LiveKit)
 	}
 }
 
@@ -207,6 +219,52 @@ func TestLoadRequiresHTTPSOutsideLocalEnvironments(t *testing.T) {
 	}))
 	if err == nil || !strings.Contains(err.Error(), "must use https") {
 		t.Fatalf("expected HTTPS validation error, got %v", err)
+	}
+}
+
+func TestLoadRejectsPartialOrUnsafeLiveKitConfiguration(t *testing.T) {
+	t.Parallel()
+
+	_, err := load(mapLookup(map[string]string{
+		"LIVEKIT_URL":       "https://not-a-websocket.example/path",
+		"LIVEKIT_API_KEY":   "local-key",
+		"LIVEKIT_TOKEN_TTL": "30m",
+	}))
+	if err == nil {
+		t.Fatal("expected LiveKit validation error")
+	}
+
+	message := err.Error()
+	for _, expected := range []string{
+		"LIVEKIT_URL",
+		"LIVEKIT_API_SECRET",
+		"LIVEKIT_TOKEN_TTL",
+	} {
+		if !strings.Contains(message, expected) {
+			t.Fatalf("expected LiveKit error to mention %s, got %q", expected, message)
+		}
+	}
+}
+
+func TestLoadRequiresSecureLiveKitURLOutsideLocalEnvironments(t *testing.T) {
+	t.Parallel()
+
+	_, err := load(mapLookup(map[string]string{
+		"APP_ENV":               "staging",
+		"PUBLIC_WEB_ORIGIN":     "https://staging.tutorhub.example",
+		"PUBLIC_API_ORIGIN":     "https://api.staging.tutorhub.example",
+		"DATABASE_POOL_URL":     "postgresql://app:secret@db.example/tutorhub?sslmode=require",
+		"OIDC_ISSUER_URL":       "https://login.staging.tutorhub.example",
+		"OIDC_CLIENT_ID":        "tutorhub-staging",
+		"OIDC_CLIENT_SECRET":    "not-a-real-secret",
+		"SESSION_SECRET":        validSessionSecret(),
+		"SESSION_COOKIE_SECURE": "true",
+		"LIVEKIT_URL":           "ws://localhost:7880",
+		"LIVEKIT_API_KEY":       "staging-key",
+		"LIVEKIT_API_SECRET":    "not-a-real-livekit-secret",
+	}))
+	if err == nil || !strings.Contains(err.Error(), "LIVEKIT_URL must use wss") {
+		t.Fatalf("expected secure LiveKit URL error, got %v", err)
 	}
 }
 

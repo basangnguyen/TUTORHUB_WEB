@@ -10,6 +10,7 @@ import (
 	"github.com/tutorhub-v2/core-api/internal/config"
 	"github.com/tutorhub-v2/core-api/internal/modules/classroom"
 	"github.com/tutorhub-v2/core-api/internal/modules/identity"
+	"github.com/tutorhub-v2/core-api/internal/modules/media"
 	"github.com/tutorhub-v2/core-api/internal/platform/observability"
 )
 
@@ -19,12 +20,14 @@ type ReadinessCheck interface {
 }
 
 type Options struct {
-	Metrics   *observability.Metrics
-	Tracer    observability.Tracer
-	Readiness []ReadinessCheck
-	Clock     func() time.Time
-	Identity  identity.ServiceAPI
-	Classroom classroom.ServiceAPI
+	Metrics        *observability.Metrics
+	Tracer         observability.Tracer
+	Readiness      []ReadinessCheck
+	Clock          func() time.Time
+	Identity       identity.ServiceAPI
+	Classroom      classroom.ServiceAPI
+	Media          media.ServiceAPI
+	LiveKitWebhook media.WebhookVerifier
 }
 
 func NewHandler(cfg config.Config, logger *slog.Logger) http.Handler {
@@ -69,8 +72,17 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 		requireMethod(http.MethodPut, http.HandlerFunc(auth.switchActiveTenant)),
 	)
 	classes := newClassHandlers(logger, auth, options.Classroom)
+	mediaHandlers := newMediaHandlers(
+		logger,
+		auth,
+		options.Media,
+		options.LiveKitWebhook,
+	)
 	mux.Handle(classesCollectionPath, http.HandlerFunc(classes.collection))
 	mux.Handle(classesResourcePathPrefix, http.HandlerFunc(classes.detail))
+	mux.Handle(mediaTokenPathPattern, http.HandlerFunc(mediaHandlers.issueJoinCredential))
+	mux.Handle(mediaEventsPathPattern, http.HandlerFunc(mediaHandlers.recordClientEvent))
+	mux.Handle(liveKitWebhookPath, http.HandlerFunc(mediaHandlers.receiveWebhook))
 	mux.Handle("/metrics", requireMethod(http.MethodGet, options.Metrics.Handler()))
 	mux.Handle("/", notFoundHandler())
 

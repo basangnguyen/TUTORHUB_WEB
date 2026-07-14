@@ -6,6 +6,7 @@ import {
   type RouteObject,
   useLocation,
 } from "react-router-dom";
+import { lazy } from "react";
 import { AppShell } from "../components/AppShell";
 import { DashboardPage, ModulePage } from "../pages/AppPages";
 import {
@@ -28,6 +29,17 @@ import {
 } from "../pages/RouteStates";
 import { useSession } from "./session";
 import type { TranslationKey } from "./i18n";
+
+const ClassroomPreJoinPage = lazy(() =>
+  import("../pages/LiveKitPages").then((module) => ({
+    default: module.ClassroomPreJoinPage,
+  })),
+);
+const ClassroomRoomPage = lazy(() =>
+  import("../pages/LiveKitPages").then((module) => ({
+    default: module.ClassroomRoomPage,
+  })),
+);
 
 export interface NavigationItem {
   to: string;
@@ -120,6 +132,10 @@ export function createAppRoutes(): RouteObject[] {
                   element: <ClassroomDetailPage />,
                 },
                 {
+                  path: "classrooms/:classId/prejoin",
+                  element: <ClassroomPreJoinPage />,
+                },
+                {
                   path: "calendar",
                   element: <ModulePage moduleKey="nav.calendar" />,
                 },
@@ -145,6 +161,11 @@ export function createAppRoutes(): RouteObject[] {
                   loader: throwSystemError,
                 },
               ],
+            },
+            {
+              path: "classrooms/:classId/room",
+              element: <ClassroomRoomPage />,
+              errorElement: <RouteErrorBoundary />,
             },
           ],
         },

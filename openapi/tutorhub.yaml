@@ -306,6 +306,90 @@ paths:
                 $ref: "#/components/schemas/Class"
         default:
           $ref: "#/components/responses/ProblemResponse"
+  /api/v1/classes/{class_id}/media-token:
+    post:
+      operationId: issueClassMediaToken
+      summary: Issue a short-lived, least-privilege LiveKit room credential
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: class_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Short-lived classroom media credential
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MediaTokenResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/classes/{class_id}/media-events:
+    post:
+      operationId: recordClassMediaEvent
+      summary: Record bounded client-side join and reconnect telemetry
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: class_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MediaEventRequest"
+      responses:
+        "204":
+          description: Telemetry accepted
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/webhooks/livekit:
+    post:
+      operationId: receiveLiveKitWebhook
+      summary: Receive a signed LiveKit server webhook
+      security: []
+      parameters:
+        - name: Authorization
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/webhook+json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "204":
+          description: Webhook verified and accepted or already processed
+        default:
+          $ref: "#/components/responses/ProblemResponse"
 components:
   securitySchemes:
     SessionCookie:
@@ -544,6 +628,77 @@ components:
         description:
           type: string
           maxLength: 4000
+    MediaTokenResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - access_token
+        - server_url
+        - room_name
+        - participant_identity
+        - participant_name
+        - attempt_id
+        - can_publish
+        - expires_at
+      properties:
+        access_token:
+          type: string
+          minLength: 1
+          description: Short-lived LiveKit JWT; clients must keep it in memory only.
+        server_url:
+          type: string
+          format: uri
+          description: LiveKit WebSocket URL; staging and production require wss://.
+        room_name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        participant_identity:
+          type: string
+          minLength: 1
+          maxLength: 255
+        participant_name:
+          type: string
+          maxLength: 200
+        attempt_id:
+          type: string
+          format: uuid
+        can_publish:
+          type: boolean
+        expires_at:
+          type: string
+          format: date-time
+    MediaEventRequest:
+      type: object
+      additionalProperties: false
+      required: [attempt_id, stage, outcome, duration_ms]
+      properties:
+        attempt_id:
+          type: string
+          format: uuid
+        stage:
+          type: string
+          enum:
+            - token
+            - connect
+            - connected
+            - media
+            - reconnecting
+            - reconnected
+            - disconnected
+            - leave
+        outcome:
+          type: string
+          enum: [started, succeeded, failed]
+        error_code:
+          type: string
+          maxLength: 64
+          pattern: "^[a-z0-9][a-z0-9_.-]*$"
+        duration_ms:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 600000
     Problem:
       type: object
       additionalProperties: false
