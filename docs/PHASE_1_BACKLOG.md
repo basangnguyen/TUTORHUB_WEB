@@ -118,7 +118,9 @@ Task ở `REVIEW` để bàn giao.
 **Trạng thái 2026-07-14:** implementation cục bộ hoàn tất trên branch
 `codex/p1-07-livekit-spike`. Token chỉ được Core API phát sau session + CSRF + permission;
 frontend giữ credential trong React memory và reload phải quay lại prejoin. Local secret file
-chưa có LiveKit credential, vì vậy project/webhook staging và smoke test thật vẫn còn mở;
+đã có LiveKit Cloud credential và smoke test xác thực một người dùng đã cấp token, kết nối phòng
+và hiển thị participant thành công. Đã sửa lỗi `LayoutContextProvider` làm room UI bị crash.
+Ma trận 2-5 người, camera/micro/screen share/reconnect và webhook HTTPS staging vẫn còn mở;
 task giữ `IN_PROGRESS` cho đến khi đạt ma trận trong `docs/LIVEKIT_SPIKE_RUNBOOK.md`.
 
 ## P1-08 CI/CD và security

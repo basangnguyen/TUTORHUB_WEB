@@ -3,6 +3,7 @@ import "@livekit/components-styles";
 import {
   ControlBar,
   GridLayout,
+  LayoutContextProvider,
   LiveKitRoom,
   ParticipantTile,
   PreJoin,
@@ -282,15 +283,19 @@ export function ClassroomRoomPage() {
           attemptID={roomState.credential.attempt_id}
           onStatusChange={setStatus}
         />
-        <ConferenceStage
-          canPublish={roomState.credential.can_publish}
-          onDeviceError={(error) => {
-            setRoomError(joinErrorMessage(error, t("media.room.deviceError")));
-            report("media", "failed", mediaErrorCode(error));
-          }}
-          roomName={roomState.credential.room_name}
-          status={status}
-        />
+        <LayoutContextProvider>
+          <ConferenceStage
+            canPublish={roomState.credential.can_publish}
+            onDeviceError={(error) => {
+              setRoomError(
+                joinErrorMessage(error, t("media.room.deviceError")),
+              );
+              report("media", "failed", mediaErrorCode(error));
+            }}
+            roomName={roomState.credential.room_name}
+            status={status}
+          />
+        </LayoutContextProvider>
         <RoomAudioRenderer />
       </LiveKitRoom>
 
