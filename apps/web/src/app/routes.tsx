@@ -9,6 +9,10 @@ import {
 import { AppShell } from "../components/AppShell";
 import { DashboardPage, ModulePage } from "../pages/AppPages";
 import {
+  WorkspaceOnboardingPage,
+  WorkspaceSelectionPage,
+} from "../pages/WorkspacePages";
+import {
   ForbiddenPage,
   AuthenticationErrorPage,
   LoadingScreen,
@@ -59,6 +63,23 @@ function ProtectedRoute() {
   return <Outlet />;
 }
 
+function WorkspaceRoute() {
+  const session = useSession();
+  const currentUser = session.currentUser;
+
+  if (!currentUser) {
+    return <AuthenticationErrorPage />;
+  }
+  if (!currentUser.active_tenant && currentUser.memberships.length === 0) {
+    return <WorkspaceOnboardingPage />;
+  }
+  if (!currentUser.active_tenant) {
+    return <WorkspaceSelectionPage />;
+  }
+
+  return <Outlet />;
+}
+
 function throwSystemError(): never {
   throw new Response("Temporary route error", {
     status: 503,
@@ -78,36 +99,44 @@ export function createAppRoutes(): RouteObject[] {
       hydrateFallbackElement: <LoadingScreen />,
       children: [
         {
-          element: <AppShell />,
-          errorElement: <RouteErrorBoundary />,
+          element: <WorkspaceRoute />,
           children: [
-            { index: true, element: <Navigate replace to="home" /> },
-            { path: "home", element: <DashboardPage /> },
             {
-              path: "classrooms",
-              element: <ModulePage moduleKey="nav.classrooms" />,
-            },
-            {
-              path: "calendar",
-              element: <ModulePage moduleKey="nav.calendar" />,
-            },
-            {
-              path: "messages",
-              element: <ModulePage moduleKey="nav.messages" />,
-            },
-            { path: "tasks", element: <ModulePage moduleKey="nav.tasks" /> },
-            {
-              path: "resources",
-              element: <ModulePage moduleKey="nav.drive" />,
-            },
-            {
-              path: "settings",
-              element: <ModulePage moduleKey="nav.settings" />,
-            },
-            {
-              path: "system-error",
-              element: <div aria-hidden="true" />,
-              loader: throwSystemError,
+              element: <AppShell />,
+              errorElement: <RouteErrorBoundary />,
+              children: [
+                { index: true, element: <Navigate replace to="home" /> },
+                { path: "home", element: <DashboardPage /> },
+                {
+                  path: "classrooms",
+                  element: <ModulePage moduleKey="nav.classrooms" />,
+                },
+                {
+                  path: "calendar",
+                  element: <ModulePage moduleKey="nav.calendar" />,
+                },
+                {
+                  path: "messages",
+                  element: <ModulePage moduleKey="nav.messages" />,
+                },
+                {
+                  path: "tasks",
+                  element: <ModulePage moduleKey="nav.tasks" />,
+                },
+                {
+                  path: "resources",
+                  element: <ModulePage moduleKey="nav.drive" />,
+                },
+                {
+                  path: "settings",
+                  element: <ModulePage moduleKey="nav.settings" />,
+                },
+                {
+                  path: "system-error",
+                  element: <div aria-hidden="true" />,
+                  loader: throwSystemError,
+                },
+              ],
             },
           ],
         },

@@ -5,6 +5,9 @@ export type HealthResponse = components["schemas"]["HealthResponse"];
 export type CurrentUser = components["schemas"]["MeResponse"];
 export type CSRFResponse = components["schemas"]["CSRFResponse"];
 export type LogoutResponse = components["schemas"]["LogoutResponse"];
+export type CreateTenantRequest = components["schemas"]["CreateTenantRequest"];
+export type SwitchActiveTenantRequest =
+  components["schemas"]["SwitchActiveTenantRequest"];
 export type Problem = components["schemas"]["Problem"];
 
 export class APIRequestError extends Error {
@@ -119,6 +122,50 @@ export async function logout(
 
   return requireData<LogoutResponse>(
     data as LogoutResponse | undefined,
+    error,
+    response,
+  );
+}
+
+export async function createTenant(
+  input: CreateTenantRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<CurrentUser> {
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/tenants",
+    {
+      params: { header: { "X-CSRF-Token": csrfToken } },
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<CurrentUser>(
+    data as CurrentUser | undefined,
+    error,
+    response,
+  );
+}
+
+export async function switchActiveTenant(
+  tenantID: string,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<CurrentUser> {
+  const { data, error, response } = await createTutorHubClient(options).PUT(
+    "/api/v1/session/active-tenant",
+    {
+      params: { header: { "X-CSRF-Token": csrfToken } },
+      body: { tenant_id: tenantID },
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<CurrentUser>(
+    data as CurrentUser | undefined,
     error,
     response,
   );

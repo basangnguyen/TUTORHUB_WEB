@@ -35,8 +35,8 @@ Khi thông tin mâu thuẫn: ADR Accepted -> `PROJECT_STATE.md` mới nhất -> 
 |---|---|
 | Phase hoàn thành | Phase 0 |
 | Phase hiện tại | Phase 1 - Engineering foundation |
-| Task hoàn thành gần nhất | P1-06 local OIDC implementation và browser smoke |
-| Task ưu tiên kế tiếp | Checkpoint P1-06, sau đó class vertical slice/P1-07 |
+| Task hoàn thành gần nhất | P1-06A Workspace onboarding implementation và Neon integration test |
+| Task ưu tiên kế tiếp | Class vertical slice theo active workspace, sau đó P1-07 |
 | Initial commit | `33af851` - `chore(bootstrap): initialize TutorHub V2 foundation` |
 | CI trên GitHub | `Verify` thành công ngày 2026-07-13 |
 | Cloud staging | Chưa tạo |
@@ -54,6 +54,7 @@ Trước initial push hoặc khi GitHub không khả dụng, dùng bảng dướ
 | P1-04 Core API foundation | REVIEW | Codex | `codex/p1-04-core-api-foundation` | `services/core-api`, OpenAPI và tài liệu task liên quan | 2026-07-13 | Implementation, unit tests, runtime smoke và `pnpm verify` đều đạt cục bộ |
 | P1-05 Contract và PostgreSQL | REVIEW | Codex | `codex/p1-05-contract-database` | `openapi`, `packages/api-client`, database platform/migrations/repository, CI và tài liệu task | 2026-07-13 | Generated client, migration v3, Neon integration, runtime smoke và `pnpm verify` đạt; credential chỉ đọc từ `.env.local` |
 | P1-06 Authentication | REVIEW | Codex | `codex/p1-06-authentication` | ADR/auth docs, config, identity module/migration, HTTP auth routes, OpenAPI/generated client và web session | 2026-07-13 | `tutorhub-local` provisioned; login/session/reload/CSRF/logout browser smoke đạt; staging deferred đến P1-10 |
+| P1-06A Workspace onboarding | REVIEW | Codex | `codex/p1-workspace-onboarding` | Identity tenant/session service, workspace HTTP routes, OpenAPI/client, web onboarding/selector và tài liệu | 2026-07-14 | Tạo workspace đầu tiên, gán `org_admin`, đổi active tenant và xoay session/CSRF; unit, HTTP, web, Neon integration và runtime smoke đều đạt |
 
 Giá trị trạng thái hợp lệ: `TODO`, `READY`, `IN_PROGRESS`, `BLOCKED`, `REVIEW`, `DONE`.
 
@@ -71,6 +72,7 @@ Checklist chi tiết có thẩm quyền nằm tại `docs/PHASE_1_BACKLOG.md`. B
 | P1-04 Go Core API | REVIEW | Checklist implementation hoàn thành cục bộ; chờ review/commit |
 | P1-05 Contract và database | REVIEW | Checklist hoàn thành cục bộ; chờ review/commit, runtime/migration role tách ở P1-10 |
 | P1-06 Authentication | REVIEW | Local implementation và browser smoke đạt; staging client deferred đến P1-10 |
+| P1-06A Workspace onboarding | REVIEW | Luồng tạo/chọn workspace, tenant isolation và session rotation hoàn thành cục bộ |
 | P1-07 LiveKit spike | TODO | Prejoin, token tối thiểu quyền, room/reconnect telemetry |
 | P1-08 CI/CD và security | PARTIAL | CI thực chạy, scan, branch protection, preview/staging deploy |
 | P1-09 Local developer experience | PARTIAL | Docker services, seed, troubleshooting hoàn chỉnh |

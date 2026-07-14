@@ -154,6 +154,82 @@ func TestSecureAuthenticationCookiesUseHostPrefix(t *testing.T) {
 	}
 }
 
+func TestWorkspaceOnboardingCreatesTenantAndRotatesSession(t *testing.T) {
+	t.Parallel()
+
+	service := &fakeIdentityService{}
+	handler := newAuthTestHandler(service, false)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api/v1/tenants",
+		strings.NewReader(`{"name":"Khoa Công nghệ thông tin","slug":"kma-lab"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set(csrfHeader, "csrf-token")
+	request.AddCookie(&http.Cookie{Name: "tutorhub_session", Value: "session-token"})
+	request.AddCookie(&http.Cookie{Name: "tutorhub_csrf", Value: "csrf-token"})
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusCreated || !service.createTenantCalled {
+		t.Fatalf("unexpected tenant creation: status=%d body=%s", response.Code, response.Body.String())
+	}
+	if service.createTenantInput.Name != "Khoa Công nghệ thông tin" ||
+		service.createTenantInput.Slug != "kma-lab" {
+		t.Fatalf("unexpected tenant input: %+v", service.createTenantInput)
+	}
+	if findCookie(t, response.Result().Cookies(), "tutorhub_session").Value != "rotated-session" ||
+		findCookie(t, response.Result().Cookies(), "tutorhub_csrf").Value != "rotated-csrf" {
+		t.Fatal("tenant creation must rotate both session cookies")
+	}
+	var currentUser meResponse
+	if err := json.NewDecoder(response.Body).Decode(&currentUser); err != nil {
+		t.Fatalf("decode tenant creation response: %v", err)
+	}
+	if currentUser.ActiveTenant == nil || currentUser.ActiveTenant.Role != "org_admin" {
+		t.Fatalf("unexpected tenant creation response: %+v", currentUser)
+	}
+}
+
+func TestWorkspaceMutationRejectsInvalidRequestsAndCrossTenantSwitch(t *testing.T) {
+	t.Parallel()
+
+	service := &fakeIdentityService{}
+	handler := newAuthTestHandler(service, false)
+
+	invalid := httptest.NewRequest(
+		http.MethodPost,
+		"/api/v1/tenants",
+		strings.NewReader(`{"name":"Workspace","slug":"workspace","unexpected":true}`),
+	)
+	invalid.Header.Set("Content-Type", "application/json")
+	invalid.Header.Set(csrfHeader, "csrf-token")
+	invalid.AddCookie(&http.Cookie{Name: "tutorhub_session", Value: "session-token"})
+	invalid.AddCookie(&http.Cookie{Name: "tutorhub_csrf", Value: "csrf-token"})
+	invalidResponse := httptest.NewRecorder()
+	handler.ServeHTTP(invalidResponse, invalid)
+	if invalidResponse.Code != http.StatusBadRequest || service.createTenantCalled {
+		t.Fatalf("unknown JSON fields must be rejected: status=%d", invalidResponse.Code)
+	}
+
+	foreignTenantID := uuid.MustParse("d53466c6-fb22-49bb-8dcb-e0399896a6c8")
+	switchRequest := httptest.NewRequest(
+		http.MethodPut,
+		"/api/v1/session/active-tenant",
+		strings.NewReader(`{"tenant_id":"`+foreignTenantID.String()+`"}`),
+	)
+	switchRequest.Header.Set("Content-Type", "application/json")
+	switchRequest.Header.Set(csrfHeader, "csrf-token")
+	switchRequest.AddCookie(&http.Cookie{Name: "tutorhub_session", Value: "session-token"})
+	switchRequest.AddCookie(&http.Cookie{Name: "tutorhub_csrf", Value: "csrf-token"})
+	switchResponse := httptest.NewRecorder()
+	handler.ServeHTTP(switchResponse, switchRequest)
+	if switchResponse.Code != http.StatusForbidden || service.switchTenantID != foreignTenantID {
+		t.Fatalf("cross-tenant switch must be denied: status=%d body=%s", switchResponse.Code, switchResponse.Body.String())
+	}
+}
+
 func newAuthTestHandler(service identity.ServiceAPI, secure bool) http.Handler {
 	return NewHandlerWithOptions(
 		config.Config{
@@ -185,10 +261,13 @@ func findCookie(t *testing.T, cookies []*http.Cookie, name string) *http.Cookie 
 }
 
 type fakeIdentityService struct {
-	returnTo     string
-	callback     identity.CallbackInput
-	logoutCalled bool
-	principal    identity.Principal
+	returnTo           string
+	callback           identity.CallbackInput
+	logoutCalled       bool
+	createTenantCalled bool
+	createTenantInput  identity.CreateTenantInput
+	switchTenantID     uuid.UUID
+	principal          identity.Principal
 }
 
 func (service *fakeIdentityService) BeginLogin(
@@ -272,4 +351,54 @@ func (service *fakeIdentityService) Logout(
 	}
 	service.logoutCalled = true
 	return "https://identity.example/logout", nil
+}
+
+func (service *fakeIdentityService) CreateTenant(
+	_ context.Context,
+	principal identity.Principal,
+	input identity.CreateTenantInput,
+) (identity.TenantSessionResult, error) {
+	service.createTenantCalled = true
+	service.createTenantInput = input
+	tenant := identity.Tenant{
+		ID:       uuid.MustParse("c91445df-bde0-44f2-83ed-33ec6148bb84"),
+		Slug:     input.Slug,
+		Name:     input.Name,
+		Role:     "org_admin",
+		IsActive: true,
+	}
+	principal.ActiveTenant = &tenant
+	principal.Memberships = []identity.Tenant{tenant}
+	principal.Permissions = []string{"tenant.manage"}
+	service.principal = principal
+
+	return identity.TenantSessionResult{
+		Principal:    principal,
+		SessionToken: "rotated-session",
+		CSRFToken:    "rotated-csrf",
+		ExpiresAt:    fixedTime.Add(8 * time.Hour),
+	}, nil
+}
+
+func (service *fakeIdentityService) SwitchActiveTenant(
+	_ context.Context,
+	principal identity.Principal,
+	tenantID uuid.UUID,
+) (identity.TenantSessionResult, error) {
+	service.switchTenantID = tenantID
+	for index := range principal.Memberships {
+		if principal.Memberships[index].ID == tenantID {
+			principal.Memberships[index].IsActive = true
+			selected := principal.Memberships[index]
+			principal.ActiveTenant = &selected
+			service.principal = principal
+			return identity.TenantSessionResult{
+				Principal:    principal,
+				SessionToken: "rotated-session",
+				CSRFToken:    "rotated-csrf",
+				ExpiresAt:    fixedTime.Add(8 * time.Hour),
+			}, nil
+		}
+	}
+	return identity.TenantSessionResult{}, identity.ErrTenantAccessDenied
 }

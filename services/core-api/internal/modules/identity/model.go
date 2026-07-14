@@ -65,6 +65,18 @@ type Tenant struct {
 	IsActive bool      `json:"is_active"`
 }
 
+type CreateTenantInput struct {
+	Name string
+	Slug string
+}
+
+type TenantSessionResult struct {
+	Principal    Principal
+	SessionToken string
+	CSRFToken    string
+	ExpiresAt    time.Time
+}
+
 type Principal struct {
 	SessionID    uuid.UUID `json:"-"`
 	User         User

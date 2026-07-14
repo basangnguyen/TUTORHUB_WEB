@@ -175,6 +175,60 @@ paths:
                 $ref: "#/components/schemas/MeResponse"
         default:
           $ref: "#/components/responses/ProblemResponse"
+  /api/v1/tenants:
+    post:
+      operationId: createTenant
+      summary: Create the authenticated user's first TutorHub workspace
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTenantRequest"
+      responses:
+        "201":
+          description: Workspace created and activated for the current session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/session/active-tenant:
+    put:
+      operationId: switchActiveTenant
+      summary: Switch the current session to an active tenant membership
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SwitchActiveTenantRequest"
+      responses:
+        "200":
+          description: Active workspace changed and session credentials rotated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
 components:
   securitySchemes:
     SessionCookie:
@@ -306,6 +360,28 @@ components:
           enum: [org_admin, teacher, student, guest]
         is_active:
           type: boolean
+    CreateTenantRequest:
+      type: object
+      additionalProperties: false
+      required: [name, slug]
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 120
+        slug:
+          type: string
+          minLength: 3
+          maxLength: 63
+          pattern: "^[a-z0-9][a-z0-9-]*[a-z0-9]$"
+    SwitchActiveTenantRequest:
+      type: object
+      additionalProperties: false
+      required: [tenant_id]
+      properties:
+        tenant_id:
+          type: string
+          format: uuid
     MeResponse:
       type: object
       additionalProperties: false

@@ -72,9 +72,25 @@ sau đó token phải khớp keyed HMAC của session trong PostgreSQL. Không d
 | `GET /api/v1/auth/csrf` | Xoay CSRF token cho session hiện tại |
 | `POST /api/v1/auth/logout` | Yêu cầu session cookie và `X-CSRF-Token`; revoke phiên |
 | `GET /api/v1/me` | Trả user, active tenant, memberships và permissions |
+| `POST /api/v1/tenants` | Tạo workspace đầu tiên, gán `org_admin`, đặt active tenant và xoay session/CSRF |
+| `PUT /api/v1/session/active-tenant` | Xác minh membership, đổi active tenant và xoay session/CSRF |
 
 Contract có thẩm quyền nằm tại `openapi/tutorhub.yaml`; TypeScript client được sinh ở
 `packages/api-client/src/generated/schema.ts`.
+
+## Workspace onboarding và tenant switching
+
+Sau lần đăng nhập đầu tiên, tài khoản chưa có membership không được đi thẳng vào app
+shell. Web hiển thị onboarding và gửi `POST /api/v1/tenants`. Core API khóa user và
+session hiện tại, sau đó tạo tenant, membership `org_admin`, cập nhật active tenant và
+ghi `tenant.created` vào outbox trong cùng transaction. Nếu một request đồng thời đã tạo
+membership trước, request còn lại bị từ chối để không sinh workspace ngoài ý muốn.
+
+Khi đổi workspace, browser chỉ gửi tenant đích. Backend không tin quyền từ client mà
+kiểm tra membership đang hoạt động trong PostgreSQL trước khi cập nhật session. Cả hai
+thao tác là privilege-context change nên session token và CSRF token đều được xoay; token
+cũ mất hiệu lực ngay sau commit. Endpoint yêu cầu session hợp lệ, CSRF header/cookie và
+CSRF HMAC server-side giống logout.
 
 ## Tạo ứng dụng ZITADEL
 
@@ -140,7 +156,8 @@ pnpm verify
 ```
 
 Integration test chạy migration, tạo identity/session trong transaction bao ngoài,
-kiểm tra one-time flow, hash token, tenant permissions, CSRF rotation và revoke rồi
+kiểm tra one-time flow, hash token, tenant permissions, workspace onboarding, tenant
+switching, CSRF/session rotation và revoke rồi
 rollback toàn bộ fixture.
 
 ## Trạng thái triển khai
@@ -151,6 +168,9 @@ rollback toàn bộ fixture.
   instance `tutorhub-v2-dev`. Secret chỉ nằm trong `.env.local` đã Git-ignore.
 - Browser smoke thật đã đạt: login/callback, `/api/v1/me`, reload giữ phiên,
   CSRF rotation, logout/revoke, post-logout redirect và route guard sau logout.
+- Workspace onboarding và tenant selector đã hoàn thành cục bộ. Unit, HTTP, web và Neon
+  integration test xác nhận tạo workspace đầu tiên, quyền `org_admin`, đổi tenant hợp lệ,
+  từ chối tenant không có membership và vô hiệu hóa token phiên cũ.
 - ZITADEL trả profile/email qua UserInfo trong Authorization Code Flow. Adapter đã
   được sửa để xác minh ID token trước, gọi UserInfo sau và từ chối khi `sub` không
   khớp; test hồi quy và `pnpm verify` đều đạt.

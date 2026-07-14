@@ -24,12 +24,14 @@ body {
 }
 
 button,
-select {
+select,
+input {
   font: inherit;
 }
 
 button,
 select,
+input,
 a {
   -webkit-tap-highlight-color: transparent;
 }
@@ -41,6 +43,11 @@ button {
 button:focus-visible,
 a:focus-visible,
 select:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 3px;
+}
+
+input:focus-visible {
   outline: 3px solid var(--color-focus);
   outline-offset: 3px;
 }
@@ -288,6 +295,342 @@ select:focus-visible {
 .app-topbar__logout:hover {
   border-color: var(--color-border-strong);
   background: var(--color-canvas);
+}
+
+.workspace-select {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+}
+
+.workspace-select span,
+.workspace-select select {
+  max-width: 190px;
+  min-height: 38px;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 13px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-select span {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 11px;
+}
+
+.workspace-select select {
+  padding: 0 30px 0 11px;
+}
+
+.workspace-switch-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 11px 40px;
+  border-bottom: 1px solid #f4c2bd;
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+  font-size: 13px;
+}
+
+.workspace-switch-error button {
+  border: 0;
+  background: transparent;
+  color: currentcolor;
+  font-weight: 700;
+}
+
+.workspace-gate {
+  min-height: 100dvh;
+  background: var(--color-surface);
+}
+
+.workspace-gate__header {
+  display: flex;
+  min-height: 72px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 14px clamp(20px, 4vw, 56px);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.workspace-gate__brand,
+.workspace-gate__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.workspace-gate__brand > span {
+  display: inline-grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border-radius: var(--radius-md);
+  background: var(--color-accent);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.workspace-gate__actions > span {
+  max-width: 180px;
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-gate__actions > button {
+  min-height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.workspace-onboarding {
+  display: grid;
+  width: min(100%, 1080px);
+  min-height: calc(100dvh - 72px);
+  grid-template-columns: minmax(0, 1fr) minmax(340px, 0.8fr);
+  gap: clamp(48px, 8vw, 100px);
+  align-items: center;
+  margin: 0 auto;
+  padding: 56px 40px 72px;
+}
+
+.workspace-onboarding__intro > p,
+.workspace-selection > header p {
+  margin: 0 0 12px;
+  color: var(--color-accent);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.workspace-onboarding__intro h1,
+.workspace-selection > header h1 {
+  margin: 0;
+  font-size: 36px;
+  line-height: 1.16;
+  text-wrap: balance;
+}
+
+.workspace-onboarding__intro > span,
+.workspace-selection > header span {
+  display: block;
+  margin-top: 16px;
+  color: var(--color-text-muted);
+  font-size: 16px;
+  line-height: 1.7;
+}
+
+.workspace-onboarding__intro dl {
+  display: grid;
+  gap: 0;
+  margin: 34px 0 0;
+}
+
+.workspace-onboarding__intro dl div {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 12px;
+  padding: 13px 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.workspace-onboarding__intro dt {
+  color: var(--color-accent);
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.workspace-onboarding__intro dd {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.workspace-form {
+  display: grid;
+  gap: 18px;
+  padding-top: 24px;
+  border-top: 1px solid var(--color-border-strong);
+}
+
+.workspace-form__heading h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.workspace-form__heading p {
+  margin: 8px 0 0;
+  color: var(--color-text-muted);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.workspace-form label {
+  display: grid;
+  gap: 8px;
+  color: var(--color-text);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.workspace-form > label > input,
+.workspace-slug-field {
+  width: 100%;
+  min-height: 46px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.workspace-form > label > input {
+  padding: 0 13px;
+}
+
+.workspace-form > label > input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.workspace-slug-field {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  overflow: hidden;
+}
+
+.workspace-slug-field > span {
+  align-self: stretch;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 0 0 13px;
+  color: var(--color-text-muted);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.workspace-slug-field input {
+  min-width: 0;
+  min-height: 44px;
+  flex: 1;
+  border: 0;
+  padding: 0 13px 0 2px;
+  background: transparent;
+  color: var(--color-text);
+  outline: 0;
+}
+
+.workspace-slug-field:focus-within {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-accent-soft);
+}
+
+.workspace-form > small {
+  margin-top: -10px;
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+
+.workspace-form > button {
+  min-height: 46px;
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-sm);
+  background: var(--color-accent);
+  color: #fff;
+  font-weight: 700;
+}
+
+.workspace-form > button:disabled,
+.workspace-selection__list button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.workspace-form__error {
+  padding: 12px 13px;
+  border-left: 3px solid var(--color-danger);
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.workspace-selection {
+  width: min(100%, 760px);
+  margin: 0 auto;
+  padding: 64px 40px 72px;
+}
+
+.workspace-selection > header {
+  max-width: 620px;
+  margin-bottom: 38px;
+}
+
+.workspace-selection__list {
+  display: grid;
+  gap: 10px;
+  margin: 18px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.workspace-selection__list button {
+  display: flex;
+  width: 100%;
+  min-height: 76px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 14px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  text-align: left;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease;
+}
+
+.workspace-selection__list button:hover {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+}
+
+.workspace-selection__list button > span:first-child {
+  display: grid;
+  gap: 4px;
+}
+
+.workspace-selection__list small,
+.workspace-selection__role,
+.workspace-selection__status {
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+
+.workspace-selection__role {
+  white-space: nowrap;
+}
+
+.workspace-selection__status {
+  margin: 16px 0 0;
 }
 
 .connectivity-notice {
@@ -633,6 +976,12 @@ select:focus-visible {
   .module-list {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .workspace-onboarding {
+    gap: 48px;
+    padding-right: 28px;
+    padding-left: 28px;
+  }
 }
 
 @media (max-width: 680px) {
@@ -671,6 +1020,11 @@ select:focus-visible {
 
   .app-topbar__actions {
     margin-left: auto;
+  }
+
+  .workspace-select span,
+  .workspace-select select {
+    max-width: 116px;
   }
 
   .language-select select {
@@ -717,5 +1071,35 @@ select:focus-visible {
   .service-error {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .workspace-gate__header {
+    align-items: flex-start;
+    padding: 12px 18px;
+  }
+
+  .workspace-gate__actions > span {
+    display: none;
+  }
+
+  .workspace-onboarding {
+    grid-template-columns: 1fr;
+    gap: 42px;
+    padding: 40px 18px 54px;
+  }
+
+  .workspace-onboarding__intro h1,
+  .workspace-selection > header h1 {
+    font-size: 29px;
+  }
+
+  .workspace-selection {
+    padding: 40px 18px 54px;
+  }
+
+  .workspace-selection__list button {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
   }
 }

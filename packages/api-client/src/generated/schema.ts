@@ -89,6 +89,23 @@ export type paths = {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/api/v1/session/active-tenant": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    /** Switch the current session to an active tenant membership */
+    readonly put: operations["switchActiveTenant"];
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/api/v1/status": {
     readonly parameters: {
       readonly query?: never;
@@ -100,6 +117,23 @@ export type paths = {
     readonly get: operations["getAPIStatus"];
     readonly put?: never;
     readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/tenants": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Create the authenticated user's first TutorHub workspace */
+    readonly post: operations["createTenant"];
     readonly delete?: never;
     readonly options?: never;
     readonly head?: never;
@@ -170,6 +204,10 @@ export type components = {
       readonly timestamp: string;
       readonly version: string;
     };
+    readonly CreateTenantRequest: {
+      readonly name: string;
+      readonly slug: string;
+    };
     readonly CSRFResponse: {
       readonly csrf_token: string;
     };
@@ -217,6 +255,10 @@ export type components = {
       readonly status: "ready" | "not_ready";
       /** Format: date-time */
       readonly timestamp: string;
+    };
+    readonly SwitchActiveTenantRequest: {
+      /** Format: uuid */
+      readonly tenant_id: string;
     };
     readonly TenantMembership: {
       /** Format: uuid */
@@ -369,6 +411,33 @@ export interface operations {
       readonly default: components["responses"]["ProblemResponse"];
     };
   };
+  readonly switchActiveTenant: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly "X-CSRF-Token": string;
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["SwitchActiveTenantRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Active workspace changed and session credentials rotated */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["MeResponse"];
+        };
+      };
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
   readonly getAPIStatus: {
     readonly parameters: {
       readonly query?: never;
@@ -385,6 +454,33 @@ export interface operations {
         };
         content: {
           readonly "application/json": components["schemas"]["APIStatusResponse"];
+        };
+      };
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly createTenant: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly "X-CSRF-Token": string;
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["CreateTenantRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Workspace created and activated for the current session */
+      readonly 201: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["MeResponse"];
         };
       };
       readonly default: components["responses"]["ProblemResponse"];

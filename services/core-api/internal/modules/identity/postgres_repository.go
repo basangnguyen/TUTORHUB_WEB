@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 type Database interface {
@@ -339,6 +340,316 @@ WHERE token_hash = $1`,
 
 	if err := transaction.Commit(queryContext); err != nil {
 		return fmt.Errorf("commit session revocation: %w", err)
+	}
+
+	return nil
+}
+
+func (repository *PostgresRepository) CreateTenant(
+	ctx context.Context,
+	sessionID uuid.UUID,
+	userID uuid.UUID,
+	input CreateTenantInput,
+	rotation SessionRotation,
+) (TenantMutationResult, error) {
+	queryContext, cancel := repository.contextWithTimeout(ctx)
+	defer cancel()
+
+	transaction, err := repository.database.Begin(queryContext)
+	if err != nil {
+		return TenantMutationResult{}, fmt.Errorf("begin tenant creation: %w", err)
+	}
+	defer rollback(transaction)
+
+	expiresAt, err := lockTenantMutationSession(
+		queryContext,
+		transaction,
+		sessionID,
+		userID,
+		rotation.RotatedAt,
+	)
+	if err != nil {
+		return TenantMutationResult{}, err
+	}
+	if err := ensureFirstTenantCreation(
+		queryContext,
+		transaction,
+		userID,
+	); err != nil {
+		return TenantMutationResult{}, err
+	}
+
+	var tenantID uuid.UUID
+	if err := transaction.QueryRow(
+		queryContext,
+		`INSERT INTO tutorhub.tenants (slug, name)
+VALUES ($1, $2)
+RETURNING id`,
+		input.Slug,
+		input.Name,
+	).Scan(&tenantID); err != nil {
+		var postgresError *pgconn.PgError
+		if errors.As(err, &postgresError) &&
+			postgresError.ConstraintName == "tenants_slug_unique" {
+			return TenantMutationResult{}, ErrTenantSlugTaken
+		}
+		return TenantMutationResult{}, fmt.Errorf("insert tenant: %w", err)
+	}
+
+	if _, err := transaction.Exec(
+		queryContext,
+		`INSERT INTO tutorhub.memberships (
+    tenant_id,
+    user_id,
+    role,
+    status,
+    joined_at,
+    created_at,
+    updated_at
+)
+VALUES ($1, $2, 'org_admin', 'active', $3, $3, $3)`,
+		tenantID,
+		userID,
+		rotation.RotatedAt,
+	); err != nil {
+		return TenantMutationResult{}, fmt.Errorf("insert tenant owner membership: %w", err)
+	}
+
+	if err := updateTenantSession(
+		queryContext,
+		transaction,
+		sessionID,
+		userID,
+		tenantID,
+		rotation,
+	); err != nil {
+		return TenantMutationResult{}, err
+	}
+
+	if _, err := transaction.Exec(
+		queryContext,
+		`INSERT INTO tutorhub.outbox_events (
+    tenant_id,
+    aggregate_type,
+    aggregate_id,
+    event_type,
+    payload,
+    occurred_at,
+    available_at
+)
+VALUES (
+    $1,
+    'tenant',
+    $1,
+    'tenant.created',
+    jsonb_build_object(
+        'actor_user_id', $2::uuid,
+        'name', $3::text,
+        'slug', $4::text
+    ),
+    $5,
+    $5
+)`,
+		tenantID,
+		userID,
+		input.Name,
+		input.Slug,
+		rotation.RotatedAt,
+	); err != nil {
+		return TenantMutationResult{}, fmt.Errorf("insert tenant creation event: %w", err)
+	}
+
+	principal, err := loadPrincipal(
+		queryContext,
+		transaction,
+		sessionID,
+		userID,
+		tenantID,
+	)
+	if err != nil {
+		return TenantMutationResult{}, err
+	}
+	if err := transaction.Commit(queryContext); err != nil {
+		return TenantMutationResult{}, fmt.Errorf("commit tenant creation: %w", err)
+	}
+
+	return TenantMutationResult{Principal: principal, ExpiresAt: expiresAt}, nil
+}
+
+func (repository *PostgresRepository) SwitchActiveTenant(
+	ctx context.Context,
+	sessionID uuid.UUID,
+	userID uuid.UUID,
+	tenantID uuid.UUID,
+	rotation SessionRotation,
+) (TenantMutationResult, error) {
+	queryContext, cancel := repository.contextWithTimeout(ctx)
+	defer cancel()
+
+	transaction, err := repository.database.Begin(queryContext)
+	if err != nil {
+		return TenantMutationResult{}, fmt.Errorf("begin tenant switch: %w", err)
+	}
+	defer rollback(transaction)
+
+	expiresAt, err := lockTenantMutationSession(
+		queryContext,
+		transaction,
+		sessionID,
+		userID,
+		rotation.RotatedAt,
+	)
+	if err != nil {
+		return TenantMutationResult{}, err
+	}
+
+	var membershipExists bool
+	if err := transaction.QueryRow(
+		queryContext,
+		`SELECT EXISTS (
+    SELECT 1
+    FROM tutorhub.memberships m
+    JOIN tutorhub.tenants t ON t.id = m.tenant_id
+    WHERE m.user_id = $1
+      AND m.tenant_id = $2
+      AND m.status = 'active'
+      AND t.status = 'active'
+)`,
+		userID,
+		tenantID,
+	).Scan(&membershipExists); err != nil {
+		return TenantMutationResult{}, fmt.Errorf("check tenant membership: %w", err)
+	}
+	if !membershipExists {
+		return TenantMutationResult{}, ErrTenantAccessDenied
+	}
+
+	if err := updateTenantSession(
+		queryContext,
+		transaction,
+		sessionID,
+		userID,
+		tenantID,
+		rotation,
+	); err != nil {
+		return TenantMutationResult{}, err
+	}
+	principal, err := loadPrincipal(
+		queryContext,
+		transaction,
+		sessionID,
+		userID,
+		tenantID,
+	)
+	if err != nil {
+		return TenantMutationResult{}, err
+	}
+	if err := transaction.Commit(queryContext); err != nil {
+		return TenantMutationResult{}, fmt.Errorf("commit tenant switch: %w", err)
+	}
+
+	return TenantMutationResult{Principal: principal, ExpiresAt: expiresAt}, nil
+}
+
+func lockTenantMutationSession(
+	ctx context.Context,
+	transaction pgx.Tx,
+	sessionID uuid.UUID,
+	userID uuid.UUID,
+	now time.Time,
+) (time.Time, error) {
+	var expiresAt time.Time
+	if err := transaction.QueryRow(
+		ctx,
+		`SELECT expires_at
+FROM tutorhub.sessions
+WHERE id = $1
+  AND user_id = $2
+  AND revoked_at IS NULL
+  AND expires_at > $3
+  AND absolute_expires_at > $3
+FOR UPDATE`,
+		sessionID,
+		userID,
+		now,
+	).Scan(&expiresAt); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return time.Time{}, ErrSessionNotFound
+		}
+		return time.Time{}, fmt.Errorf("lock tenant session: %w", err)
+	}
+
+	return expiresAt, nil
+}
+
+func ensureFirstTenantCreation(
+	ctx context.Context,
+	transaction pgx.Tx,
+	userID uuid.UUID,
+) error {
+	var lockedUserID uuid.UUID
+	if err := transaction.QueryRow(
+		ctx,
+		`SELECT id FROM tutorhub.users WHERE id = $1 AND status = 'active' FOR UPDATE`,
+		userID,
+	).Scan(&lockedUserID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrSessionNotFound
+		}
+		return fmt.Errorf("lock tenant owner: %w", err)
+	}
+
+	var activeMembershipExists bool
+	if err := transaction.QueryRow(
+		ctx,
+		`SELECT EXISTS (
+    SELECT 1
+    FROM tutorhub.memberships
+    WHERE user_id = $1 AND status = 'active'
+)`,
+		userID,
+	).Scan(&activeMembershipExists); err != nil {
+		return fmt.Errorf("check existing tenant memberships: %w", err)
+	}
+	if activeMembershipExists {
+		return ErrTenantCreationDenied
+	}
+
+	return nil
+}
+
+func updateTenantSession(
+	ctx context.Context,
+	transaction pgx.Tx,
+	sessionID uuid.UUID,
+	userID uuid.UUID,
+	tenantID uuid.UUID,
+	rotation SessionRotation,
+) error {
+	command, err := transaction.Exec(
+		ctx,
+		`UPDATE tutorhub.sessions
+SET active_tenant_id = $3,
+    token_hash = $4,
+    csrf_token_hash = $5,
+    last_seen_at = $6
+WHERE id = $1
+  AND user_id = $2
+  AND revoked_at IS NULL
+  AND expires_at > $6
+  AND absolute_expires_at > $6`,
+		sessionID,
+		userID,
+		tenantID,
+		rotation.TokenHash,
+		rotation.CSRFHash,
+		rotation.RotatedAt,
+	)
+	if err != nil {
+		return fmt.Errorf("rotate active tenant session: %w", err)
+	}
+	if command.RowsAffected() != 1 {
+		return ErrSessionNotFound
 	}
 
 	return nil

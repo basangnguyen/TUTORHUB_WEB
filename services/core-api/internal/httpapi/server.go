@@ -61,6 +61,11 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 	mux.Handle("/api/v1/auth/csrf", requireMethod(http.MethodGet, http.HandlerFunc(auth.csrf)))
 	mux.Handle("/api/v1/auth/logout", requireMethod(http.MethodPost, http.HandlerFunc(auth.logout)))
 	mux.Handle("/api/v1/me", requireMethod(http.MethodGet, http.HandlerFunc(auth.me)))
+	mux.Handle("/api/v1/tenants", requireMethod(http.MethodPost, http.HandlerFunc(auth.createTenant)))
+	mux.Handle(
+		"/api/v1/session/active-tenant",
+		requireMethod(http.MethodPut, http.HandlerFunc(auth.switchActiveTenant)),
+	)
 	mux.Handle("/metrics", requireMethod(http.MethodGet, options.Metrics.Handler()))
 	mux.Handle("/", notFoundHandler())
 

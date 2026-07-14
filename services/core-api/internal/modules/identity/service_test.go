@@ -175,6 +175,94 @@ func TestServiceRejectsInvalidOIDCResults(t *testing.T) {
 	}
 }
 
+func TestServiceCreatesAndSwitchesTenantWithSessionRotation(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, time.July, 14, 8, 0, 0, 0, time.UTC)
+	repository := &memoryRepository{
+		principal: Principal{
+			SessionID: uuid.MustParse("7f3f7634-c04d-4f42-afd5-e52a3bf673cb"),
+			User: User{
+				ID:          uuid.MustParse("ee9b4cdf-e1ee-4d79-aa5b-80b7c3aa7ea3"),
+				Email:       "owner@example.com",
+				DisplayName: "Owner",
+			},
+			Memberships: []Tenant{},
+			Permissions: []string{},
+		},
+		metadata: SessionMetadata{ExpiresAt: now.Add(8 * time.Hour)},
+	}
+	service := newTestService(t, repository, &fakeProvider{}, now)
+
+	created, err := service.CreateTenant(
+		context.Background(),
+		repository.principal,
+		CreateTenantInput{Name: "  Khoa   Công nghệ thông tin ", Slug: "KMA-LAB"},
+	)
+	if err != nil {
+		t.Fatalf("create first tenant: %v", err)
+	}
+	if repository.createdTenant.Name != "Khoa Công nghệ thông tin" ||
+		repository.createdTenant.Slug != "kma-lab" {
+		t.Fatalf("tenant input was not normalized: %+v", repository.createdTenant)
+	}
+	if created.Principal.ActiveTenant == nil ||
+		created.Principal.ActiveTenant.Role != "org_admin" ||
+		!testContainsPermission(created.Principal.Permissions, "tenant.manage") {
+		t.Fatalf("unexpected tenant principal: %+v", created.Principal)
+	}
+	if created.SessionToken == "" || created.CSRFToken == "" ||
+		!created.ExpiresAt.Equal(repository.metadata.ExpiresAt) {
+		t.Fatalf("tenant creation must rotate session credentials: %+v", created)
+	}
+
+	secondTenant := Tenant{
+		ID:   uuid.MustParse("1dcf80d0-b7ab-4a71-98f7-f0f7cd8fef5f"),
+		Slug: "second-workspace",
+		Name: "Second workspace",
+		Role: "teacher",
+	}
+	repository.principal.Memberships = append(repository.principal.Memberships, secondTenant)
+	switched, err := service.SwitchActiveTenant(
+		context.Background(),
+		repository.principal,
+		secondTenant.ID,
+	)
+	if err != nil {
+		t.Fatalf("switch active tenant: %v", err)
+	}
+	if switched.Principal.ActiveTenant == nil ||
+		switched.Principal.ActiveTenant.ID != secondTenant.ID ||
+		switched.SessionToken == created.SessionToken ||
+		switched.CSRFToken == created.CSRFToken {
+		t.Fatalf("unexpected switched tenant result: %+v", switched)
+	}
+
+	if _, err := service.CreateTenant(
+		context.Background(),
+		repository.principal,
+		CreateTenantInput{Name: "Another tenant", Slug: "another-tenant"},
+	); !errors.Is(err, ErrTenantCreationDenied) {
+		t.Fatalf("expected repeat tenant creation to be denied, got %v", err)
+	}
+	if _, err := service.CreateTenant(
+		context.Background(),
+		Principal{SessionID: repository.principal.SessionID, User: repository.principal.User},
+		CreateTenantInput{Name: "Valid name", Slug: "invalid slug"},
+	); !errors.Is(err, ErrInvalidTenant) {
+		t.Fatalf("expected invalid slug to be rejected, got %v", err)
+	}
+}
+
+func testContainsPermission(permissions []string, expected string) bool {
+	for _, permission := range permissions {
+		if permission == expected {
+			return true
+		}
+	}
+	return false
+}
+
 func newTestService(
 	t *testing.T,
 	repository Repository,
@@ -243,14 +331,15 @@ func (*fakeProvider) EndSessionURL() string {
 }
 
 type memoryRepository struct {
-	flow       CreateFlowParams
-	consumed   bool
-	claims     ProviderClaims
-	metadata   SessionMetadata
-	principal  Principal
-	csrfHash   []byte
-	revoked    bool
-	revokeHash []byte
+	flow          CreateFlowParams
+	consumed      bool
+	claims        ProviderClaims
+	metadata      SessionMetadata
+	principal     Principal
+	csrfHash      []byte
+	revoked       bool
+	revokeHash    []byte
+	createdTenant CreateTenantInput
 }
 
 func (repository *memoryRepository) CreateFlow(
@@ -347,4 +436,70 @@ func (repository *memoryRepository) RevokeSession(
 	repository.revoked = true
 	repository.revokeHash = append([]byte(nil), tokenHash...)
 	return nil
+}
+
+func (repository *memoryRepository) CreateTenant(
+	_ context.Context,
+	sessionID uuid.UUID,
+	userID uuid.UUID,
+	input CreateTenantInput,
+	rotation SessionRotation,
+) (TenantMutationResult, error) {
+	if sessionID != repository.principal.SessionID || userID != repository.principal.User.ID {
+		return TenantMutationResult{}, ErrSessionNotFound
+	}
+	if len(repository.principal.Memberships) != 0 {
+		return TenantMutationResult{}, ErrTenantCreationDenied
+	}
+	repository.createdTenant = input
+	tenant := Tenant{
+		ID:       uuid.MustParse("c91445df-bde0-44f2-83ed-33ec6148bb84"),
+		Slug:     input.Slug,
+		Name:     input.Name,
+		Role:     "org_admin",
+		IsActive: true,
+	}
+	repository.principal.ActiveTenant = &tenant
+	repository.principal.Memberships = []Tenant{tenant}
+	repository.principal.Permissions = permissionsForRole(tenant.Role)
+	repository.metadata.TokenHash = append([]byte(nil), rotation.TokenHash...)
+	repository.csrfHash = append([]byte(nil), rotation.CSRFHash...)
+
+	return TenantMutationResult{
+		Principal: repository.principal,
+		ExpiresAt: repository.metadata.ExpiresAt,
+	}, nil
+}
+
+func (repository *memoryRepository) SwitchActiveTenant(
+	_ context.Context,
+	sessionID uuid.UUID,
+	userID uuid.UUID,
+	tenantID uuid.UUID,
+	rotation SessionRotation,
+) (TenantMutationResult, error) {
+	if sessionID != repository.principal.SessionID || userID != repository.principal.User.ID {
+		return TenantMutationResult{}, ErrSessionNotFound
+	}
+	var selected *Tenant
+	for index := range repository.principal.Memberships {
+		repository.principal.Memberships[index].IsActive =
+			repository.principal.Memberships[index].ID == tenantID
+		if repository.principal.Memberships[index].IsActive {
+			membership := repository.principal.Memberships[index]
+			selected = &membership
+		}
+	}
+	if selected == nil {
+		return TenantMutationResult{}, ErrTenantAccessDenied
+	}
+	repository.principal.ActiveTenant = selected
+	repository.principal.Permissions = permissionsForRole(selected.Role)
+	repository.metadata.TokenHash = append([]byte(nil), rotation.TokenHash...)
+	repository.csrfHash = append([]byte(nil), rotation.CSRFHash...)
+
+	return TenantMutationResult{
+		Principal: repository.principal,
+		ExpiresAt: repository.metadata.ExpiresAt,
+	}, nil
 }

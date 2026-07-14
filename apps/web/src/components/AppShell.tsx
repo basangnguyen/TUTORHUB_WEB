@@ -3,6 +3,7 @@ import { NavLink, Outlet, useLocation, useNavigation } from "react-router-dom";
 import { navigationItems } from "../app/routes";
 import { useI18n } from "../app/i18n";
 import { useSession } from "../app/session";
+import { useWorkspaceActions } from "../app/workspaces";
 
 function useOnlineStatus() {
   const [isOnline, setIsOnline] = useState(() => navigator.onLine);
@@ -26,10 +27,18 @@ function useOnlineStatus() {
 export function AppShell() {
   const { language, setLanguage, t } = useI18n();
   const session = useSession();
+  const { switchWorkspace } = useWorkspaceActions();
   const location = useLocation();
   const navigation = useNavigation();
   const isOnline = useOnlineStatus();
   const [isNavigationOpen, setIsNavigationOpen] = useState(false);
+
+  const activeTenant = session.currentUser?.active_tenant;
+  const tenantOptions = session.currentUser?.memberships.length
+    ? session.currentUser.memberships
+    : activeTenant
+      ? [activeTenant]
+      : [];
 
   const currentItem = navigationItems.find((item) =>
     location.pathname.startsWith(item.to),
@@ -107,6 +116,31 @@ export function AppShell() {
           </div>
 
           <div className="app-topbar__actions">
+            <label className="workspace-select">
+              <span className="visually-hidden">
+                {t("workspace.activeLabel")}
+              </span>
+              {tenantOptions.length > 1 ? (
+                <select
+                  aria-label={t("workspace.activeLabel")}
+                  disabled={switchWorkspace.isPending}
+                  onChange={(event) => {
+                    if (event.target.value !== activeTenant?.id) {
+                      switchWorkspace.mutate(event.target.value);
+                    }
+                  }}
+                  value={activeTenant?.id ?? ""}
+                >
+                  {tenantOptions.map((tenant) => (
+                    <option key={tenant.id} value={tenant.id}>
+                      {tenant.name}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <span>{activeTenant?.name}</span>
+              )}
+            </label>
             <span
               className={`connection-status${isOnline ? " connection-status--online" : ""}`}
               role="status"
@@ -135,6 +169,15 @@ export function AppShell() {
             </button>
           </div>
         </header>
+
+        {switchWorkspace.isError && (
+          <section className="workspace-switch-error" role="alert">
+            <span>{t("workspace.selectError")}</span>
+            <button onClick={() => switchWorkspace.reset()} type="button">
+              {t("state.retry")}
+            </button>
+          </section>
+        )}
 
         {!isOnline && (
           <section className="connectivity-notice" role="status">

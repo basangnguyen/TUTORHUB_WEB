@@ -50,6 +50,31 @@ const messages = {
     "auth.unavailableTitle": "Chưa thể kiểm tra phiên đăng nhập",
     "auth.unavailableDescription":
       "Dịch vụ xác thực hiện không sẵn sàng. Hãy kiểm tra kết nối hoặc thử lại sau.",
+    "workspace.kicker": "Thiết lập không gian học tập",
+    "workspace.createTitle": "Tạo workspace đầu tiên",
+    "workspace.createDescription":
+      "Workspace là phạm vi riêng cho thành viên, lớp học và dữ liệu của tổ chức. Bạn sẽ được gán quyền quản trị sau khi tạo.",
+    "workspace.stepIdentity": "Xác lập không gian và quyền quản trị tổ chức.",
+    "workspace.stepClasses": "Tạo lớp học trong đúng phạm vi dữ liệu.",
+    "workspace.stepInvite": "Mời giáo viên và học viên ở bước tiếp theo.",
+    "workspace.detailsTitle": "Thông tin workspace",
+    "workspace.detailsDescription":
+      "Tên có thể thay đổi sau; địa chỉ ngắn dùng để nhận diện workspace.",
+    "workspace.nameLabel": "Tên tổ chức hoặc nhóm học",
+    "workspace.namePlaceholder": "Ví dụ: Khoa Công nghệ thông tin",
+    "workspace.slugLabel": "Địa chỉ workspace",
+    "workspace.slugHelp": "Dùng 3–63 chữ thường, chữ số hoặc dấu gạch ngang.",
+    "workspace.createAction": "Tạo workspace",
+    "workspace.creating": "Đang tạo workspace...",
+    "workspace.createError":
+      "Chưa thể tạo workspace. Hãy kiểm tra lại thông tin.",
+    "workspace.selectTitle": "Chọn workspace để tiếp tục",
+    "workspace.selectDescription":
+      "Mọi lớp học và quyền thao tác sẽ được giới hạn trong workspace đang chọn.",
+    "workspace.selectError":
+      "Chưa thể chuyển workspace. Hãy thử lại hoặc kiểm tra membership.",
+    "workspace.switching": "Đang chuyển workspace...",
+    "workspace.activeLabel": "Workspace đang hoạt động",
     "home.kicker": "Không gian học tập",
     "home.title": "Tổng quan hôm nay",
     "home.description":
@@ -126,6 +151,32 @@ const messages = {
     "auth.unavailableTitle": "We could not verify your session",
     "auth.unavailableDescription":
       "Authentication is currently unavailable. Check your connection or try again later.",
+    "workspace.kicker": "Learning workspace setup",
+    "workspace.createTitle": "Create your first workspace",
+    "workspace.createDescription":
+      "A workspace is the private boundary for your members, classes and organization data. You will become its administrator after creation.",
+    "workspace.stepIdentity":
+      "Establish the organization boundary and admin access.",
+    "workspace.stepClasses": "Create classes inside the correct data boundary.",
+    "workspace.stepInvite": "Invite instructors and learners in the next step.",
+    "workspace.detailsTitle": "Workspace details",
+    "workspace.detailsDescription":
+      "The name can change later; the short address identifies this workspace.",
+    "workspace.nameLabel": "Organization or learning group name",
+    "workspace.namePlaceholder": "Example: School of Information Technology",
+    "workspace.slugLabel": "Workspace address",
+    "workspace.slugHelp": "Use 3–63 lowercase letters, numbers or hyphens.",
+    "workspace.createAction": "Create workspace",
+    "workspace.creating": "Creating workspace...",
+    "workspace.createError":
+      "We could not create the workspace. Check the details and try again.",
+    "workspace.selectTitle": "Choose a workspace to continue",
+    "workspace.selectDescription":
+      "Classes and permissions are always limited to the selected workspace.",
+    "workspace.selectError":
+      "We could not switch workspaces. Try again or check your membership.",
+    "workspace.switching": "Switching workspace...",
+    "workspace.activeLabel": "Active workspace",
     "home.kicker": "Learning workspace",
     "home.title": "Today at a glance",
     "home.description":

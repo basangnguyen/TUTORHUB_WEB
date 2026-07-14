@@ -194,6 +194,204 @@ VALUES ($1, $2, 'teacher', 'active', now())`,
 	}
 }
 
+func TestPostgresRepositoryTenantOnboardingAndSwitchIsolation(t *testing.T) {
+	migrationURL := requireIdentityEnvironment(t, "DATABASE_MIGRATION_URL")
+	poolURL := requireIdentityEnvironment(t, "DATABASE_POOL_URL")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+	if err := migrationrunner.Up(ctx, migrationURL); err != nil {
+		t.Fatalf("apply migrations: %v", err)
+	}
+
+	pool, err := pgxpool.New(ctx, poolURL)
+	if err != nil {
+		t.Fatalf("create integration pool: %v", err)
+	}
+	defer pool.Close()
+	transaction, err := pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		t.Fatalf("begin integration transaction: %v", err)
+	}
+	defer func() { _ = transaction.Rollback(context.Background()) }()
+
+	userID := uuid.New()
+	sessionID := uuid.New()
+	unique := strings.ReplaceAll(uuid.NewString(), "-", "")
+	now := time.Date(2026, time.July, 14, 9, 0, 0, 0, time.UTC)
+	expiresAt := now.Add(8 * time.Hour)
+	if _, err := transaction.Exec(
+		ctx,
+		`INSERT INTO tutorhub.users (id, email, display_name)
+VALUES ($1, $2, 'Workspace owner')`,
+		userID,
+		"workspace-"+unique+"@example.test",
+	); err != nil {
+		t.Fatalf("insert workspace owner: %v", err)
+	}
+	if _, err := transaction.Exec(
+		ctx,
+		`INSERT INTO tutorhub.sessions (
+    id,
+    user_id,
+    token_hash,
+    csrf_token_hash,
+    created_at,
+    last_seen_at,
+    expires_at,
+    absolute_expires_at,
+    auth_time
+)
+VALUES ($1, $2, $3, $4, $5, $5, $6, $7, $5)`,
+		sessionID,
+		userID,
+		bytes.Repeat([]byte{0x10}, 32),
+		bytes.Repeat([]byte{0x11}, 32),
+		now.Add(-time.Minute),
+		expiresAt,
+		now.Add(24*time.Hour),
+	); err != nil {
+		t.Fatalf("insert onboarding session: %v", err)
+	}
+
+	repository := NewPostgresRepository(transaction, 10*time.Second)
+	creationRotation := SessionRotation{
+		TokenHash: bytes.Repeat([]byte{0x20}, 32),
+		CSRFHash:  bytes.Repeat([]byte{0x21}, 32),
+		RotatedAt: now,
+	}
+	created, err := repository.CreateTenant(
+		ctx,
+		sessionID,
+		userID,
+		CreateTenantInput{Name: "Integration Workspace", Slug: "workspace-" + unique},
+		creationRotation,
+	)
+	if err != nil {
+		t.Fatalf("create first tenant: %v", err)
+	}
+	if created.Principal.ActiveTenant == nil ||
+		created.Principal.ActiveTenant.Role != "org_admin" ||
+		len(created.Principal.Memberships) != 1 ||
+		!created.ExpiresAt.Equal(expiresAt) {
+		t.Fatalf("unexpected onboarding principal: %+v", created)
+	}
+
+	var (
+		activeTenantID uuid.UUID
+		persistedToken []byte
+		ownerRole      string
+		eventCount     int
+	)
+	if err := transaction.QueryRow(
+		ctx,
+		`SELECT active_tenant_id, token_hash
+FROM tutorhub.sessions
+WHERE id = $1`,
+		sessionID,
+	).Scan(&activeTenantID, &persistedToken); err != nil {
+		t.Fatalf("read rotated onboarding session: %v", err)
+	}
+	if activeTenantID != created.Principal.ActiveTenant.ID ||
+		!bytes.Equal(persistedToken, creationRotation.TokenHash) {
+		t.Fatal("tenant creation must activate the tenant and replace the session token hash")
+	}
+	if err := transaction.QueryRow(
+		ctx,
+		`SELECT role FROM tutorhub.memberships WHERE tenant_id = $1 AND user_id = $2`,
+		activeTenantID,
+		userID,
+	).Scan(&ownerRole); err != nil || ownerRole != "org_admin" {
+		t.Fatalf("read owner membership: role=%q error=%v", ownerRole, err)
+	}
+	if err := transaction.QueryRow(
+		ctx,
+		`SELECT count(*) FROM tutorhub.outbox_events
+WHERE aggregate_id = $1 AND event_type = 'tenant.created'`,
+		activeTenantID,
+	).Scan(&eventCount); err != nil || eventCount != 1 {
+		t.Fatalf("read tenant outbox event: count=%d error=%v", eventCount, err)
+	}
+
+	if _, err := repository.CreateTenant(
+		ctx,
+		sessionID,
+		userID,
+		CreateTenantInput{Name: "Unexpected Workspace", Slug: "duplicate-" + unique},
+		SessionRotation{
+			TokenHash: bytes.Repeat([]byte{0x22}, 32),
+			CSRFHash:  bytes.Repeat([]byte{0x23}, 32),
+			RotatedAt: now.Add(time.Second),
+		},
+	); !errors.Is(err, ErrTenantCreationDenied) {
+		t.Fatalf("second onboarding tenant must be denied, got %v", err)
+	}
+
+	secondTenantID := uuid.New()
+	if _, err := transaction.Exec(
+		ctx,
+		`INSERT INTO tutorhub.tenants (id, slug, name) VALUES ($1, $2, 'Second Workspace')`,
+		secondTenantID,
+		"second-"+unique,
+	); err != nil {
+		t.Fatalf("insert second tenant: %v", err)
+	}
+	if _, err := transaction.Exec(
+		ctx,
+		`INSERT INTO tutorhub.memberships (tenant_id, user_id, role, status, joined_at)
+VALUES ($1, $2, 'teacher', 'active', $3)`,
+		secondTenantID,
+		userID,
+		now,
+	); err != nil {
+		t.Fatalf("insert second tenant membership: %v", err)
+	}
+	switchRotation := SessionRotation{
+		TokenHash: bytes.Repeat([]byte{0x30}, 32),
+		CSRFHash:  bytes.Repeat([]byte{0x31}, 32),
+		RotatedAt: now.Add(2 * time.Second),
+	}
+	switched, err := repository.SwitchActiveTenant(
+		ctx,
+		sessionID,
+		userID,
+		secondTenantID,
+		switchRotation,
+	)
+	if err != nil {
+		t.Fatalf("switch active tenant: %v", err)
+	}
+	if switched.Principal.ActiveTenant == nil ||
+		switched.Principal.ActiveTenant.ID != secondTenantID ||
+		switched.Principal.ActiveTenant.Role != "teacher" ||
+		!containsPermission(switched.Principal.Permissions, "class.create") {
+		t.Fatalf("unexpected switched principal: %+v", switched.Principal)
+	}
+
+	foreignTenantID := uuid.New()
+	if _, err := transaction.Exec(
+		ctx,
+		`INSERT INTO tutorhub.tenants (id, slug, name) VALUES ($1, $2, 'Foreign Workspace')`,
+		foreignTenantID,
+		"foreign-"+unique,
+	); err != nil {
+		t.Fatalf("insert foreign tenant: %v", err)
+	}
+	if _, err := repository.SwitchActiveTenant(
+		ctx,
+		sessionID,
+		userID,
+		foreignTenantID,
+		SessionRotation{
+			TokenHash: bytes.Repeat([]byte{0x40}, 32),
+			CSRFHash:  bytes.Repeat([]byte{0x41}, 32),
+			RotatedAt: now.Add(3 * time.Second),
+		},
+	); !errors.Is(err, ErrTenantAccessDenied) {
+		t.Fatalf("cross-tenant switch must be denied, got %v", err)
+	}
+}
+
 func containsPermission(permissions []string, expected string) bool {
 	for _, permission := range permissions {
 		if permission == expected {

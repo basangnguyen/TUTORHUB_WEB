@@ -71,7 +71,22 @@ Role Neon hiện tại là owner tạm thời; tách runtime/migration role vẫ
 HTTP test, generated client, web remote-session test và Neon integration test đều đạt.
 `tutorhub-local` đã provision; browser smoke thật đạt login, `/me`, reload giữ phiên,
 CSRF, logout/revoke và route guard. `tutorhub-staging` được hoãn có chủ đích đến
-P1-10 để dùng đúng URL HTTPS và secret riêng; P1-06 vẫn ở `REVIEW` cho đến checkpoint.
+P1-10 để dùng đúng URL HTTPS và secret riêng; P1-06 đang ở `REVIEW` để bàn giao.
+
+## P1-06A Workspace onboarding prerequisite
+
+- [x] Điều hướng tài khoản chưa có membership đến luồng tạo workspace đầu tiên.
+- [x] Tạo tenant, membership `org_admin`, active tenant và `tenant.created` trong một transaction.
+- [x] Chỉ cho phép đổi active tenant sang tenant có membership đang hoạt động.
+- [x] Xoay session token và CSRF token sau khi tạo hoặc đổi workspace.
+- [x] Cập nhật OpenAPI, generated TypeScript client và giao diện onboarding/selector song ngữ.
+- [x] Bao phủ unit test, HTTP test, web test và Neon integration test có rollback.
+
+**Trạng thái 2026-07-14:** hoàn thành cục bộ trên branch
+`codex/p1-workspace-onboarding`. `pnpm verify` đạt; Neon integration test xác nhận
+transaction tạo workspace, quyền `org_admin`, session rotation và tenant isolation.
+Không cần migration mới vì schema migration 001/003/004 đã có đủ tenant, membership,
+session và outbox. Task ở `REVIEW` để bàn giao.
 
 ## P1-07 LiveKit spike
 

@@ -158,14 +158,7 @@ func (handlers authHandlers) logout(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	csrfCookie, err := r.Cookie(handlers.cookieNames.csrf)
-	csrfToken := r.Header.Get(csrfHeader)
-	if err != nil || !constantTimeEqual(csrfCookie.Value, csrfToken) {
-		handlers.writeIdentityProblem(w, r, identity.ErrInvalidCSRFToken)
-		return
-	}
-	if _, err := handlers.identity.ValidateCSRF(r.Context(), sessionToken, csrfToken); err != nil {
-		handlers.writeIdentityProblem(w, r, err)
+	if _, ok := handlers.csrfPrincipal(w, r, sessionToken); !ok {
 		return
 	}
 	logoutURL, err := handlers.identity.Logout(r.Context(), sessionToken)
@@ -196,7 +189,35 @@ func (handlers authHandlers) me(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Vary", "Cookie")
-	writeJSON(handlers.logger, w, http.StatusOK, meResponse{
+	handlers.writePrincipal(w, http.StatusOK, principal)
+}
+
+func (handlers authHandlers) csrfPrincipal(
+	w http.ResponseWriter,
+	r *http.Request,
+	sessionToken string,
+) (identity.Principal, bool) {
+	csrfCookie, err := r.Cookie(handlers.cookieNames.csrf)
+	csrfToken := r.Header.Get(csrfHeader)
+	if err != nil || !constantTimeEqual(csrfCookie.Value, csrfToken) {
+		handlers.writeIdentityProblem(w, r, identity.ErrInvalidCSRFToken)
+		return identity.Principal{}, false
+	}
+	principal, err := handlers.identity.ValidateCSRF(r.Context(), sessionToken, csrfToken)
+	if err != nil {
+		handlers.writeIdentityProblem(w, r, err)
+		return identity.Principal{}, false
+	}
+
+	return principal, true
+}
+
+func (handlers authHandlers) writePrincipal(
+	w http.ResponseWriter,
+	status int,
+	principal identity.Principal,
+) {
+	writeJSON(handlers.logger, w, status, meResponse{
 		User:         principal.User,
 		ActiveTenant: principal.ActiveTenant,
 		Memberships:  principal.Memberships,
@@ -260,6 +281,22 @@ func (handlers authHandlers) writeIdentityProblem(w http.ResponseWriter, r *http
 		status = http.StatusForbidden
 		title = "Request verification failed"
 		detail = "The request verification token is missing or invalid."
+	case errors.Is(err, identity.ErrInvalidTenant):
+		status = http.StatusBadRequest
+		title = "Invalid workspace"
+		detail = "The workspace name, address, or identifier is invalid."
+	case errors.Is(err, identity.ErrTenantSlugTaken):
+		status = http.StatusConflict
+		title = "Workspace address unavailable"
+		detail = "Choose a different workspace address and try again."
+	case errors.Is(err, identity.ErrTenantCreationDenied):
+		status = http.StatusForbidden
+		title = "Workspace creation not allowed"
+		detail = "This onboarding session cannot create another workspace."
+	case errors.Is(err, identity.ErrTenantAccessDenied):
+		status = http.StatusForbidden
+		title = "Workspace access denied"
+		detail = "You do not have an active membership in this workspace."
 	}
 
 	if status >= http.StatusInternalServerError {

@@ -4,8 +4,12 @@ import (
 	"context"
 	"fmt"
 	"net/mail"
+	"regexp"
 	"strings"
 	"time"
+	"unicode/utf8"
+
+	"github.com/google/uuid"
 )
 
 const (
@@ -15,7 +19,13 @@ const (
 	sessionPurpose        = "session-token"
 	csrfPurpose           = "csrf-token"
 	userAgentPurpose      = "session-user-agent"
+	tenantSlugMinimum     = 3
+	tenantSlugMaximum     = 63
+	tenantNameMinimum     = 2
+	tenantNameMaximum     = 120
 )
+
+var tenantSlugPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*[a-z0-9]$`)
 
 type ServiceConfig struct {
 	FlowTTL            time.Duration
@@ -36,6 +46,8 @@ type ServiceAPI interface {
 	RotateCSRF(context.Context, string) (CSRFResult, error)
 	ValidateCSRF(context.Context, string, string) (Principal, error)
 	Logout(context.Context, string) (string, error)
+	CreateTenant(context.Context, Principal, CreateTenantInput) (TenantSessionResult, error)
+	SwitchActiveTenant(context.Context, Principal, uuid.UUID) (TenantSessionResult, error)
 }
 
 type Service struct {
@@ -266,6 +278,93 @@ func (service *Service) Logout(ctx context.Context, sessionToken string) (string
 	return service.provider.EndSessionURL(), nil
 }
 
+func (service *Service) CreateTenant(
+	ctx context.Context,
+	principal Principal,
+	input CreateTenantInput,
+) (TenantSessionResult, error) {
+	if principal.SessionID == uuid.Nil || principal.User.ID == uuid.Nil {
+		return TenantSessionResult{}, ErrSessionNotFound
+	}
+	if len(principal.Memberships) != 0 {
+		return TenantSessionResult{}, ErrTenantCreationDenied
+	}
+
+	normalized, err := normalizeTenantInput(input)
+	if err != nil {
+		return TenantSessionResult{}, err
+	}
+	return service.rotateTenantSession(ctx, principal, normalized, uuid.Nil)
+}
+
+func (service *Service) SwitchActiveTenant(
+	ctx context.Context,
+	principal Principal,
+	tenantID uuid.UUID,
+) (TenantSessionResult, error) {
+	if principal.SessionID == uuid.Nil || principal.User.ID == uuid.Nil {
+		return TenantSessionResult{}, ErrSessionNotFound
+	}
+	if tenantID == uuid.Nil {
+		return TenantSessionResult{}, ErrInvalidTenant
+	}
+	if principal.ActiveTenant != nil && principal.ActiveTenant.ID == tenantID {
+		return TenantSessionResult{}, ErrInvalidTenant
+	}
+
+	return service.rotateTenantSession(ctx, principal, CreateTenantInput{}, tenantID)
+}
+
+func (service *Service) rotateTenantSession(
+	ctx context.Context,
+	principal Principal,
+	createInput CreateTenantInput,
+	tenantID uuid.UUID,
+) (TenantSessionResult, error) {
+	sessionToken, err := service.crypto.RandomToken()
+	if err != nil {
+		return TenantSessionResult{}, fmt.Errorf("rotate session token: %w", err)
+	}
+	csrfToken, err := service.crypto.RandomToken()
+	if err != nil {
+		return TenantSessionResult{}, fmt.Errorf("rotate CSRF token: %w", err)
+	}
+	rotation := SessionRotation{
+		TokenHash: service.crypto.Digest(sessionPurpose, sessionToken),
+		CSRFHash:  service.crypto.Digest(csrfPurpose, csrfToken),
+		RotatedAt: service.clock().UTC(),
+	}
+
+	var mutation TenantMutationResult
+	if tenantID == uuid.Nil {
+		mutation, err = service.repository.CreateTenant(
+			ctx,
+			principal.SessionID,
+			principal.User.ID,
+			createInput,
+			rotation,
+		)
+	} else {
+		mutation, err = service.repository.SwitchActiveTenant(
+			ctx,
+			principal.SessionID,
+			principal.User.ID,
+			tenantID,
+			rotation,
+		)
+	}
+	if err != nil {
+		return TenantSessionResult{}, err
+	}
+
+	return TenantSessionResult{
+		Principal:    mutation.Principal,
+		SessionToken: sessionToken,
+		CSRFToken:    csrfToken,
+		ExpiresAt:    mutation.ExpiresAt,
+	}, nil
+}
+
 func (service *Service) session(
 	ctx context.Context,
 	sessionToken string,
@@ -313,6 +412,31 @@ func normalizeProviderClaims(claims ProviderClaims, now time.Time) (ProviderClai
 	}
 
 	return claims, nil
+}
+
+func normalizeTenantInput(input CreateTenantInput) (CreateTenantInput, error) {
+	input.Name = strings.Join(strings.Fields(input.Name), " ")
+	input.Slug = strings.ToLower(strings.TrimSpace(input.Slug))
+
+	nameLength := utf8.RuneCountInString(input.Name)
+	if nameLength < tenantNameMinimum || nameLength > tenantNameMaximum {
+		return CreateTenantInput{}, fmt.Errorf(
+			"%w: name must contain between %d and %d characters",
+			ErrInvalidTenant,
+			tenantNameMinimum,
+			tenantNameMaximum,
+		)
+	}
+	if len(input.Slug) < tenantSlugMinimum ||
+		len(input.Slug) > tenantSlugMaximum ||
+		!tenantSlugPattern.MatchString(input.Slug) {
+		return CreateTenantInput{}, fmt.Errorf(
+			"%w: slug must contain 3-63 lowercase letters, numbers, or hyphens",
+			ErrInvalidTenant,
+		)
+	}
+
+	return input, nil
 }
 
 func truncateRunes(value string, maximum int) string {

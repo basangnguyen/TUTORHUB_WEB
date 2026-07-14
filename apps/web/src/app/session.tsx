@@ -27,6 +27,8 @@ interface SessionContextValue {
   status: SessionStatus;
   signIn: (returnTo?: string) => void;
   signOut: () => Promise<void>;
+  refresh: () => Promise<void>;
+  replaceCurrentUser: (currentUser: CurrentUser) => void;
 }
 
 export type SessionMode =
@@ -52,21 +54,36 @@ export function SessionProvider({
 }: PropsWithChildren<{ mode?: SessionMode }>) {
   if (mode.kind === "static") {
     return (
-      <SessionContext.Provider
-        value={{
-          currentUser: mode.currentUser,
-          error: null,
-          status: mode.currentUser ? "authenticated" : "unauthenticated",
-          signIn: navigateToLogin,
-          signOut: async () => undefined,
-        }}
-      >
+      <StaticSessionProvider initialCurrentUser={mode.currentUser}>
         {children}
-      </SessionContext.Provider>
+      </StaticSessionProvider>
     );
   }
 
   return <RemoteSessionProvider>{children}</RemoteSessionProvider>;
+}
+
+function StaticSessionProvider({
+  children,
+  initialCurrentUser,
+}: PropsWithChildren<{ initialCurrentUser: CurrentUser | null }>) {
+  const [currentUser, setCurrentUser] = useState(initialCurrentUser);
+  const value = useMemo<SessionContextValue>(
+    () => ({
+      currentUser,
+      error: null,
+      status: currentUser ? "authenticated" : "unauthenticated",
+      signIn: navigateToLogin,
+      signOut: async () => undefined,
+      refresh: async () => undefined,
+      replaceCurrentUser: setCurrentUser,
+    }),
+    [currentUser],
+  );
+
+  return (
+    <SessionContext.Provider value={value}>{children}</SessionContext.Provider>
+  );
 }
 
 function RemoteSessionProvider({ children }: PropsWithChildren) {
@@ -107,6 +124,20 @@ function RemoteSessionProvider({ children }: PropsWithChildren) {
     }
   }, [queryClient]);
 
+  const refresh = useCallback(async () => {
+    const result = await sessionQuery.refetch();
+    if (result.error) {
+      throw result.error;
+    }
+  }, [sessionQuery]);
+
+  const replaceCurrentUser = useCallback(
+    (currentUser: CurrentUser) => {
+      queryClient.setQueryData(["auth", "me"], currentUser);
+    },
+    [queryClient],
+  );
+
   const value = useMemo<SessionContextValue>(() => {
     if (isSigningOut || sessionQuery.isPending) {
       return {
@@ -115,6 +146,8 @@ function RemoteSessionProvider({ children }: PropsWithChildren) {
         status: "loading",
         signIn: navigateToLogin,
         signOut,
+        refresh,
+        replaceCurrentUser,
       };
     }
     if (signOutError) {
@@ -124,6 +157,8 @@ function RemoteSessionProvider({ children }: PropsWithChildren) {
         status: "error",
         signIn: navigateToLogin,
         signOut,
+        refresh,
+        replaceCurrentUser,
       };
     }
     if (sessionQuery.isSuccess) {
@@ -133,6 +168,8 @@ function RemoteSessionProvider({ children }: PropsWithChildren) {
         status: "authenticated",
         signIn: navigateToLogin,
         signOut,
+        refresh,
+        replaceCurrentUser,
       };
     }
     if (
@@ -145,6 +182,8 @@ function RemoteSessionProvider({ children }: PropsWithChildren) {
         status: "unauthenticated",
         signIn: navigateToLogin,
         signOut,
+        refresh,
+        replaceCurrentUser,
       };
     }
     return {
@@ -156,6 +195,8 @@ function RemoteSessionProvider({ children }: PropsWithChildren) {
       status: "error",
       signIn: navigateToLogin,
       signOut,
+      refresh,
+      replaceCurrentUser,
     };
   }, [
     isSigningOut,
@@ -165,6 +206,8 @@ function RemoteSessionProvider({ children }: PropsWithChildren) {
     sessionQuery.isSuccess,
     signOutError,
     signOut,
+    refresh,
+    replaceCurrentUser,
   ]);
 
   return (
