@@ -35,8 +35,8 @@ Khi thông tin mâu thuẫn: ADR Accepted -> `PROJECT_STATE.md` mới nhất -> 
 | ------------------------ | ------------------------------------------------------------------- |
 | Phase hoàn thành         | Phase 0                                                             |
 | Phase hiện tại           | Phase 1 - Engineering foundation                                    |
-| Task hoàn thành gần nhất | P1-06B Class vertical slice và Neon tenant-isolation test           |
-| Task ưu tiên kế tiếp     | Hoàn tất P1-07 bằng LiveKit staging project và smoke test 2-5 người |
+| Task hoàn thành gần nhất | P1-03 Design system                                                  |
+| Task ưu tiên kế tiếp     | P1-08 CI/CD và security                                              |
 | Initial commit           | `33af851` - `chore(bootstrap): initialize TutorHub V2 foundation`   |
 | CI trên GitHub           | `Verify` thành công ngày 2026-07-13                                 |
 | Cloud staging            | Chưa tạo                                                            |
@@ -56,7 +56,8 @@ Trước initial push hoặc khi GitHub không khả dụng, dùng bảng dướ
 | P1-06 Authentication         | REVIEW      | Codex       | `codex/p1-06-authentication`      | ADR/auth docs, config, identity module/migration, HTTP auth routes, OpenAPI/generated client và web session | 2026-07-13 | `tutorhub-local` provisioned; login/session/reload/CSRF/logout browser smoke đạt; staging deferred đến P1-10                                |
 | P1-06A Workspace onboarding  | REVIEW      | Codex       | `codex/p1-workspace-onboarding`   | Identity tenant/session service, workspace HTTP routes, OpenAPI/client, web onboarding/selector và tài liệu | 2026-07-14 | Tạo workspace đầu tiên, gán `org_admin`, đổi active tenant và xoay session/CSRF; unit, HTTP, web, Neon integration và runtime smoke đều đạt |
 | P1-06B Class vertical slice  | REVIEW      | Codex       | `codex/p1-class-vertical-slice`   | Classroom service/policy/repository tests, HTTP API, OpenAPI/client, web list/create/detail và task docs    | 2026-07-14 | Unit/HTTP/client/web/Neon test và runtime smoke đạt; tenant lấy từ authenticated active session; không thêm migration/dependency            |
-| P1-07 LiveKit spike          | IN_PROGRESS | Codex       | `codex/p1-07-livekit-spike`       | Media service/HTTP/migration, OpenAPI/client, web prejoin/room, LiveKit dependencies và runbook             | 2026-07-14 | Local implementation/test/build và Neon migration v5 đạt; chờ staging credential, webhook và smoke thật 2-5 người                           |
+| P1-07 LiveKit spike          | DONE        | Codex       | `codex/p1-07-livekit-spike`       | Media service/HTTP/migration, OpenAPI/client, web prejoin/room, LiveKit dependencies và runbook             | 2026-07-14 | Project staging và smoke test thủ công 2-5 người đạt camera, micro, screen share, reconnect; logic webhook idempotent đã có kiểm thử          |
+| P1-03 Design system          | DONE        | Codex       | `codex/p1-03-design-system`       | `packages/design-tokens`, `packages/ui`, Storybook, tích hợp component nền vào `apps/web` và tài liệu        | 2026-07-14 | Semantic tokens, Radix/Lucide primitives, Storybook, keyboard/focus, contrast, desktop/mobile visual QA và `pnpm verify` đều đạt             |
 
 Giá trị trạng thái hợp lệ: `TODO`, `READY`, `IN_PROGRESS`, `BLOCKED`, `REVIEW`, `DONE`.
 
@@ -70,13 +71,13 @@ Checklist chi tiết có thẩm quyền nằm tại `docs/PHASE_1_BACKLOG.md`. B
 | -------------------------------- | ----------- | -------------------------------------------------------------------------------------------------------- |
 | P1-01 Repository và toolchain    | DONE        | Initial commit, push và GitHub Actions Linux đã xanh                                                     |
 | P1-02 Web shell                  | DONE        | PR #2 đã merge tại `6e2f98e`; lint, typecheck, 6 tests, build và UI responsive đã đạt                    |
-| P1-03 Design system              | TODO        | Token đầy đủ, component nền, Storybook, accessibility                                                    |
+| P1-03 Design system              | DONE        | Token/component catalog, Storybook, accessibility, contrast, visual QA và tích hợp web đã đạt             |
 | P1-04 Go Core API                | REVIEW      | Checklist implementation hoàn thành cục bộ; chờ review/commit                                            |
 | P1-05 Contract và database       | REVIEW      | Checklist hoàn thành cục bộ; chờ review/commit, runtime/migration role tách ở P1-10                      |
 | P1-06 Authentication             | REVIEW      | Local implementation và browser smoke đạt; staging client deferred đến P1-10                             |
 | P1-06A Workspace onboarding      | REVIEW      | Luồng tạo/chọn workspace, tenant isolation và session rotation hoàn thành cục bộ                         |
 | P1-06B Class vertical slice      | REVIEW      | List/create/detail theo active workspace, permission, contract, UI states và deny test hoàn thành cục bộ |
-| P1-07 LiveKit spike              | IN_PROGRESS | Implementation cục bộ đạt; còn LiveKit staging project, webhook và multi-user/reconnect smoke            |
+| P1-07 LiveKit spike              | DONE        | Project staging và smoke test thủ công 2-5 người đạt camera, micro, screen share và reconnect             |
 | P1-08 CI/CD và security          | PARTIAL     | CI thực chạy, scan, branch protection, preview/staging deploy                                            |
 | P1-09 Local developer experience | PARTIAL     | Docker services, seed, troubleshooting hoàn chỉnh                                                        |
 | P1-10 Cloud foundation           | TODO        | Neon/B2/Cloudflare/HF staging và runbook rollback                                                        |

@@ -1068,13 +1068,17 @@ Không dual-write lâu dài nếu chưa có cơ chế consistency chính thức.
 - 403/404/error/offline states.
 - Unit test và production build.
 
-#### P1-03 Design system
+#### P1-03 Design system - HOÀN THÀNH CỤC BỘ
 
 - Token: color, typography, spacing, radius, elevation, motion, breakpoint, z-index.
 - Primitive: button, icon button, field, select, tabs, menu, dialog, drawer, tooltip, toast.
 - State: skeleton, empty, error, forbidden, offline.
 - Storybook và accessibility checks.
 - Theme sáng trước; dark theme không chặn phase.
+
+**Trạng thái 2026-07-14:** semantic tokens, Radix/Lucide primitives, Storybook,
+keyboard/focus, contrast check và tích hợp vào app shell/class vertical slice đã hoàn tất;
+`pnpm verify` và visual QA desktop/mobile đều đạt.
 
 #### P1-04 Go Core API foundation - HOÀN THÀNH CỤC BỘ
 
@@ -1665,10 +1669,10 @@ Một tính năng chỉ được đánh dấu hoàn thành khi:
 
 Thứ tự hiện tại, cập nhật ngày 2026-07-14, không làm song song các phần phụ thuộc:
 
-1. Review/commit chuỗi P1-04 đến P1-06B đã hoàn thành cục bộ.
-2. Làm P1-07 LiveKit spike: backend token tối thiểu quyền, prejoin, room test và reconnect telemetry.
-3. Làm P1-03 design system song song nếu không chạm auth/app-shell/classroom contract.
-4. Hoàn thiện P1-08 và P1-10 để có CI security scan, HTTPS staging và resource cloud tách biệt.
+1. Review/merge P1-03 và chuỗi P1-04 đến P1-06B đã hoàn thành cục bộ.
+2. Hoàn thiện P1-08 để có pipeline đầy đủ, security scan, branch protection và dependency automation.
+3. Hoàn thiện P1-10 để có HTTPS staging, preview web, LiveKit webhook và resource cloud tách biệt.
+4. Hoàn thiện P1-09 local developer experience và runbook xử lý lỗi.
 5. Đạt Phase 1 exit gate rồi mới bắt đầu domain enrollment/roster và UI phòng học đầy đủ.
 
 Không bắt đầu QuizHub, Lavie, social feed hoặc Secure Exam web trong Phase 1.

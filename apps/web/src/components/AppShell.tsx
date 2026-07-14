@@ -1,3 +1,5 @@
+import { Button, IconButton } from "@tutorhub/ui";
+import { LogOut, Menu, RefreshCw, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigation } from "react-router-dom";
 import { navigationItems } from "../app/routes";
@@ -99,16 +101,20 @@ export function AppShell() {
       <div className="app-workspace">
         <header className="app-topbar">
           <div className="app-topbar__context">
-            <button
+            <IconButton
               aria-expanded={isNavigationOpen}
               className="menu-toggle"
+              label={
+                isNavigationOpen
+                  ? t("shell.closeNavigation")
+                  : t("shell.openNavigation")
+              }
               onClick={() => setIsNavigationOpen((open) => !open)}
-              type="button"
+              size="sm"
+              variant="secondary"
             >
-              {isNavigationOpen
-                ? t("shell.closeNavigation")
-                : t("shell.openNavigation")}
-            </button>
+              {isNavigationOpen ? <X /> : <Menu />}
+            </IconButton>
             <span className="app-topbar__eyebrow">{t("brand.product")}</span>
             <strong>
               {currentItem ? t(currentItem.labelKey) : t("nav.home")}
@@ -160,22 +166,28 @@ export function AppShell() {
                 <option value="en">English</option>
               </select>
             </label>
-            <button
+            <Button
               className="app-topbar__logout"
+              leadingIcon={<LogOut />}
               onClick={() => void session.signOut()}
-              type="button"
+              size="sm"
+              variant="secondary"
             >
               {t("auth.signOut")}
-            </button>
+            </Button>
           </div>
         </header>
 
         {switchWorkspace.isError && (
           <section className="workspace-switch-error" role="alert">
             <span>{t("workspace.selectError")}</span>
-            <button onClick={() => switchWorkspace.reset()} type="button">
+            <Button
+              onClick={() => switchWorkspace.reset()}
+              size="sm"
+              variant="secondary"
+            >
               {t("state.retry")}
-            </button>
+            </Button>
           </section>
         )}
 
@@ -185,9 +197,14 @@ export function AppShell() {
               <strong>{t("shell.offline")}</strong>
               <p>{t("shell.offlineMessage")}</p>
             </div>
-            <button onClick={() => window.location.reload()} type="button">
+            <Button
+              leadingIcon={<RefreshCw />}
+              onClick={() => window.location.reload()}
+              size="sm"
+              variant="secondary"
+            >
               {t("shell.retryConnection")}
-            </button>
+            </Button>
           </section>
         )}
 

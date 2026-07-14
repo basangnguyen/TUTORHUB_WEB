@@ -9,11 +9,11 @@
 | Ngày cập nhật           | 2026-07-14                                                                                                                           |
 | Repository chính thức   | `https://github.com/basangnguyen/TUTORHUB_WEB`                                                                                       |
 | Remote / default branch | `origin` / `main`                                                                                                                    |
-| Branch                  | `codex/p1-07-livekit-spike`                                                                                                          |
+| Branch                  | `codex/p1-03-design-system`                                                                                                          |
 | Phase hoàn thành        | Phase 0                                                                                                                              |
 | Phase hiện tại          | Phase 1 - Engineering foundation                                                                                                     |
-| Task hiện tại           | P1-07 LiveKit spike: token và kết nối LiveKit Cloud một người đã đạt, chờ ma trận smoke test thật 2-5 người                           |
-| Task kế tiếp            | Cấu hình webhook HTTPS staging rồi chạy ma trận camera, micro, screen share và reconnect với 2-5 người                               |
+| Task hiện tại           | P1-03 Design system đã hoàn thành cục bộ trên `codex/p1-03-design-system`; chờ review/merge                                           |
+| Task kế tiếp            | P1-08 CI/CD và security: hoàn thiện pipeline, scan, branch protection và preview/staging deployment                                  |
 | Application code V2     | React multi-tenant web shell + classroom/prejoin/LiveKit room UI + generated API client + Go Core API/OIDC/database/media foundation |
 | Git commit đầu tiên     | `33af851` - `chore(bootstrap): initialize TutorHub V2 foundation`                                                                    |
 
@@ -71,6 +71,11 @@
 - OpenAPI/generated client, HTTP/media/web tests và production build đã được cập nhật; Neon đã migrate migration 005 đến version `5`, `dirty=false`.
 - LiveKit Cloud credential đã được cấu hình trong `.env.local` bị Git-ignore; backend cấp token TTL 5 phút và browser smoke xác thực đã kết nối phòng thật với một participant.
 - Sửa room UI bằng `LayoutContextProvider`, loại bỏ lỗi runtime của `GridLayout`/`ParticipantTile`; luồng xác thực local được chuẩn hóa dùng duy nhất hostname `localhost` để giữ đúng browser-binding cookie.
+- Hoàn thành P1-07: project LiveKit staging đã được tạo; chủ dự án xác nhận smoke test thủ công 2-5 người đạt camera, micro, screen share và reconnect ngày 2026-07-14.
+- Hoàn thành P1-03: semantic tokens cho theme sáng/tối, typography, spacing, radius, elevation, motion, z-index và breakpoint được chuẩn hóa trong `packages/design-tokens`.
+- `packages/ui` cung cấp Button/IconButton, Field, Select, Tabs, Menu, Dialog/Drawer, Tooltip, Toast, Skeleton và StateView trên Radix Primitives; icon dùng Lucide và không phụ thuộc tải mạng lúc chạy.
+- Storybook bao phủ foundation, form, navigation, overlay và state; component nền đã được tích hợp vào app shell, route states và class vertical slice mà không đổi contract nghiệp vụ.
+- Accessibility/visual QA đạt cho keyboard navigation, focus trap/restore, Escape, accessible name, tám cặp tương phản WCAG và bố cục không tràn ngang ở desktop/mobile.
 
 ## Chưa thực hiện
 
@@ -82,27 +87,26 @@
 - Chưa migrate dữ liệu V1.
 - Chưa thêm audit query/UI cho các thao tác tenant nhạy cảm; audit read model thuộc phase bảo mật/vận hành tiếp theo.
 - Chưa có enrollment, invite code, roster hoặc quyền theo từng lớp; P1-06B mới dùng quyền membership cấp tenant, các phần này thuộc Phase 2.
-- Chưa chạy ma trận phòng thật 2-5 người; browser thử nghiệm hiện chưa được cấp quyền camera/micro nên mới xác nhận kết nối listen-only, token và participant.
 - Chưa cấu hình webhook LiveKit trên URL HTTPS staging.
 
 ## Việc tiếp theo
 
-1. Cấu hình webhook LiveKit vào URL HTTPS staging và xác nhận receipt đã được lưu idempotent.
-2. Chạy smoke test teacher + student có cấp quyền camera/micro, sau đó mở rộng đến 5 người theo `docs/LIVEKIT_SPIKE_RUNBOOK.md`.
-3. P1-03 có thể làm song song nếu ownership không trùng app shell, classroom hoặc media route.
-4. Provision `tutorhub-staging` trong P1-10 bằng URL HTTPS và secret riêng.
+1. Hoàn thiện P1-08 CI/CD và security: pipeline đầy đủ, secret/dependency/SAST/container scan, branch protection và dependency update automation.
+2. Provision `tutorhub-staging`, preview web và cấu hình webhook HTTPS trong P1-10 bằng URL, secret và resource tách biệt.
+3. Hoàn thiện P1-09 local developer experience để rút ngắn thời gian dựng môi trường và xử lý lỗi.
 
 ## Verify gần nhất
 
-- `pnpm verify`: đạt trên Windows sau khi thêm `.tools\go\bin` vào `PATH`; format, generated contract, lint, typecheck, test, build, Go test/vet đều xanh.
-- Vitest: web 18 tests và API client 7 tests đạt, gồm media browser support, route state, API token/telemetry và recovery state.
+- `pnpm verify`: đạt trên Windows sau khi thêm `.tools\go\bin` vào `PATH`; 15/15 tác vụ workspace, format, generated contract, lint, typecheck, test, build, Storybook static build và Go test/vet đều xanh.
+- Vitest: UI 6 tests, web 18 tests và API client 7 tests đạt; bao phủ keyboard/focus/ARIA của component nền cùng media browser support, route state, API token/telemetry và recovery state.
+- Design token contrast check: 8/8 cặp foreground/background của theme sáng và tối đạt ngưỡng 4.5:1.
 - `pnpm peers check`: đạt, không còn peer dependency mismatch.
 - `go test ./services/core-api/...` và `go vet ./services/core-api/...`: đạt.
 - Neon migration: version `5`, `dirty=false`; classroom, identity và LiveKit webhook receipt integration đạt, gồm onboarding workspace, session rotation, class create/list/get, deny truy cập chéo tenant và idempotency theo event ID; toàn bộ fixture kiểm thử được rollback.
 - ZITADEL local browser smoke: callback `303`, `/api/v1/me` `200`, reload giữ phiên; CSRF `200`, logout `200`, sau revoke `/api/v1/me` `401`.
 - Runtime smoke với Neon/ZITADEL config: web `200`, `/ready=200`, `/health=200`; `GET /api/v1/classes` khi chưa xác thực bị từ chối `401`.
-- LiveKit Cloud browser smoke: đăng nhập ZITADEL, cấp token backend, chuyển từ prejoin vào room, trạng thái `Đã kết nối` và `1 người tham gia`; camera/micro chưa kiểm tra do browser thử nghiệm từ chối quyền thiết bị.
-- Production build tách LiveKit thành lazy chunk riêng; chunk media hiện khoảng `595.50 kB` (`160.05 kB` gzip), cần tiếp tục theo dõi và tối ưu ở giai đoạn performance budget.
+- LiveKit Cloud staging smoke: chủ dự án xác nhận thủ công 2-5 người đã đạt camera, micro, screen share và reconnect; luồng token backend, prejoin, room và participant hoạt động xuyên suốt.
+- Production build tách LiveKit thành lazy chunk riêng; chunk media hiện khoảng `596.54 kB` (`160.39 kB` gzip), cần tiếp tục theo dõi và tối ưu ở giai đoạn performance budget.
 - `pnpm exec prettier --check openapi/tutorhub.yaml`: đạt.
 - GitHub Actions `Verify` cho commit `33af851`: thành công.
 - Docker: chưa cài trên máy; chưa build image HF local.

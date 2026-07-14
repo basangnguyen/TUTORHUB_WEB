@@ -1,0 +1,57 @@
+.story-stack {
+  display: flex;
+  min-width: min(720px, calc(100vw - 64px));
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.story-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.story-form {
+  display: grid;
+  width: min(520px, calc(100vw - 64px));
+  gap: var(--space-4);
+}
+
+.story-panel {
+  min-width: min(560px, calc(100vw - 64px));
+  padding: var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.story-token-grid {
+  display: grid;
+  width: min(760px, calc(100vw - 64px));
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--space-3);
+}
+
+.story-token {
+  display: grid;
+  min-height: 96px;
+  align-content: end;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text);
+}
+
+.story-token strong,
+.story-token small {
+  padding: 2px 5px;
+  border-radius: var(--radius-xs);
+  background: color-mix(in srgb, var(--color-surface) 88%, transparent);
+  width: fit-content;
+}
+
+.story-token small {
+  color: var(--color-text-muted);
+}

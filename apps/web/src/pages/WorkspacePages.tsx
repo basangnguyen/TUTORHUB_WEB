@@ -1,4 +1,6 @@
 import { APIRequestError } from "@tutorhub/api-client";
+import { Button, TextField } from "@tutorhub/ui";
+import { LogOut } from "lucide-react";
 import { useMemo, useState, type FormEvent } from "react";
 import { useI18n } from "../app/i18n";
 import { useSession } from "../app/session";
@@ -49,9 +51,14 @@ function WorkspaceGateHeader() {
             <option value="en">English</option>
           </select>
         </label>
-        <button onClick={() => void session.signOut()} type="button">
+        <Button
+          leadingIcon={<LogOut />}
+          onClick={() => void session.signOut()}
+          size="sm"
+          variant="quiet"
+        >
           {t("auth.signOut")}
-        </button>
+        </Button>
       </div>
     </header>
   );
@@ -107,18 +114,17 @@ export function WorkspaceOnboardingPage() {
             <h2>{t("workspace.detailsTitle")}</h2>
             <p>{t("workspace.detailsDescription")}</p>
           </div>
-          <label>
-            <span>{t("workspace.nameLabel")}</span>
-            <input
-              autoComplete="organization"
-              autoFocus
-              maxLength={120}
-              onChange={(event) => setName(event.target.value)}
-              placeholder={t("workspace.namePlaceholder")}
-              required
-              value={name}
-            />
-          </label>
+          <TextField
+            autoComplete="organization"
+            autoFocus
+            className="workspace-form__field"
+            label={t("workspace.nameLabel")}
+            maxLength={120}
+            onChange={(event) => setName(event.target.value)}
+            placeholder={t("workspace.namePlaceholder")}
+            required
+            value={name}
+          />
           <label>
             <span>{t("workspace.slugLabel")}</span>
             <div className="workspace-slug-field">
@@ -149,14 +155,15 @@ export function WorkspaceOnboardingPage() {
             </div>
           )}
 
-          <button
+          <Button
             disabled={!isValid || createWorkspace.isPending}
+            loading={createWorkspace.isPending}
+            loadingLabel={t("workspace.creating")}
+            size="lg"
             type="submit"
           >
-            {createWorkspace.isPending
-              ? t("workspace.creating")
-              : t("workspace.createAction")}
-          </button>
+            {t("workspace.createAction")}
+          </Button>
         </form>
       </main>
     </div>

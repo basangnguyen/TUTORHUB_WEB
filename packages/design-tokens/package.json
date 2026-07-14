@@ -10,6 +10,6 @@
     "build": "node -e \"console.log('Design tokens are consumed as source CSS.')\"",
     "lint": "node -e \"console.log('No script lint target in design-tokens.')\"",
     "typecheck": "node -e \"console.log('No TypeScript target in design-tokens.')\"",
-    "test": "node -e \"console.log('No tests in design-tokens yet.')\""
+    "test": "node ../../scripts/check-design-token-contrast.mjs"
   }
 }

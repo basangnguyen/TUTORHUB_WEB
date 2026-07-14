@@ -1,3 +1,5 @@
+import { Button } from "@tutorhub/ui";
+import { LogIn, RefreshCw } from "lucide-react";
 import {
   isRouteErrorResponse,
   useLocation,
@@ -38,9 +40,13 @@ function StatusPage({ description, retry = false, title }: StatusPageProps) {
         <div className="route-state__actions">
           <Link to="/app/home">{t("state.goHome")}</Link>
           {retry && (
-            <button onClick={() => window.location.reload()} type="button">
+            <Button
+              leadingIcon={<RefreshCw />}
+              onClick={() => window.location.reload()}
+              variant="secondary"
+            >
               {t("state.retry")}
-            </button>
+            </Button>
           )}
         </div>
       </section>
@@ -74,9 +80,9 @@ export function SignInPage() {
         <h1 id="sign-in-title">{t("auth.signInTitle")}</h1>
         <span>{t("auth.signInDescription")}</span>
         <div className="route-state__actions">
-          <button onClick={() => signIn(returnTo)} type="button">
+          <Button leadingIcon={<LogIn />} onClick={() => signIn(returnTo)}>
             {t("auth.signInAction")}
-          </button>
+          </Button>
         </div>
       </section>
     </main>
@@ -94,9 +100,9 @@ export function SignedOutPage() {
         <h1 id="signed-out-title">{t("auth.signedOutTitle")}</h1>
         <span>{t("auth.signedOutDescription")}</span>
         <div className="route-state__actions">
-          <button onClick={() => signIn()} type="button">
+          <Button leadingIcon={<LogIn />} onClick={() => signIn()}>
             {t("auth.signInAgain")}
-          </button>
+          </Button>
         </div>
       </section>
     </main>

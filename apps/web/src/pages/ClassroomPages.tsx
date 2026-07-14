@@ -1,4 +1,18 @@
 import { APIRequestError, type ClassroomClass } from "@tutorhub/api-client";
+import {
+  Button,
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogTitle,
+  Skeleton,
+  SkeletonGroup,
+  TextAreaField,
+  TextField,
+} from "@tutorhub/ui";
+import { Plus, RotateCw } from "lucide-react";
 import { useMemo, useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useClassDetail, useClassList, useCreateClass } from "../app/classes";
@@ -25,21 +39,20 @@ export function ClassroomListPage() {
           <span>{t("classroom.description")}</span>
         </div>
         {canCreate && (
-          <button
-            aria-controls="create-class-panel"
+          <Button
             aria-expanded={isCreateOpen}
+            aria-haspopup="dialog"
             className="classroom-primary-action"
+            leadingIcon={<Plus />}
             onClick={() => setIsCreateOpen(true)}
-            type="button"
           >
-            <span aria-hidden="true">+</span>
             {t("classroom.createAction")}
-          </button>
+          </Button>
         )}
       </header>
 
-      {isCreateOpen && canCreate && (
-        <CreateClassPanel onClose={() => setIsCreateOpen(false)} />
+      {canCreate && (
+        <CreateClassDialog onOpenChange={setIsCreateOpen} open={isCreateOpen} />
       )}
 
       <section aria-labelledby="class-list-heading" className="classroom-index">
@@ -174,7 +187,13 @@ export function ClassroomDetailPage() {
   );
 }
 
-function CreateClassPanel({ onClose }: { onClose: () => void }) {
+function CreateClassDialog({
+  onOpenChange,
+  open,
+}: {
+  onOpenChange: (open: boolean) => void;
+  open: boolean;
+}) {
   const { t } = useI18n();
   const navigate = useNavigate();
   const session = useSession();
@@ -213,89 +232,78 @@ function CreateClassPanel({ onClose }: { onClose: () => void }) {
         description: description.trim(),
       },
       {
-        onSuccess: (created) => void navigate(`/app/classrooms/${created.id}`),
+        onSuccess: (created) => {
+          onOpenChange(false);
+          void navigate(`/app/classrooms/${created.id}`);
+        },
       },
     );
   };
 
   return (
-    <section
-      aria-labelledby="create-class-heading"
-      className="class-create-panel"
-      id="create-class-panel"
-    >
-      <div className="class-create-panel__heading">
-        <div>
-          <h2 id="create-class-heading">{t("classroom.createTitle")}</h2>
-          <p>{t("classroom.createDescription")}</p>
-        </div>
-        <button
-          aria-label={t("classroom.closeCreate")}
-          className="class-create-panel__close"
-          onClick={onClose}
-          title={t("classroom.closeCreate")}
-          type="button"
-        >
-          ×
-        </button>
-      </div>
+    <Dialog onOpenChange={onOpenChange} open={open}>
+      <DialogContent
+        className="class-create-dialog"
+        closeLabel={t("classroom.closeCreate")}
+      >
+        <DialogTitle>{t("classroom.createTitle")}</DialogTitle>
+        <DialogDescription>
+          {t("classroom.createDescription")}
+        </DialogDescription>
 
-      <form className="class-create-form" onSubmit={submit}>
-        <label>
-          <span>{t("classroom.codeLabel")}</span>
-          <input
-            aria-describedby="class-code-help"
+        <form className="class-create-form" onSubmit={submit}>
+          <TextField
             autoComplete="off"
+            hint={t("classroom.codeHelp")}
+            label={t("classroom.codeLabel")}
             maxLength={32}
             onChange={(event) => setCode(event.target.value.toUpperCase())}
             placeholder={t("classroom.codePlaceholder")}
             required
             value={code}
           />
-          <small id="class-code-help">{t("classroom.codeHelp")}</small>
-        </label>
-        <label>
-          <span>{t("classroom.titleLabel")}</span>
-          <input
+          <TextField
+            label={t("classroom.titleLabel")}
             maxLength={200}
             onChange={(event) => setTitle(event.target.value)}
             placeholder={t("classroom.titlePlaceholder")}
             required
             value={title}
           />
-        </label>
-        <label className="class-create-form__description">
-          <span>{t("classroom.descriptionLabel")}</span>
-          <textarea
+          <TextAreaField
+            className="class-create-form__description"
+            hint={`${Array.from(description).length}/4000`}
+            label={t("classroom.descriptionLabel")}
             maxLength={4000}
             onChange={(event) => setDescription(event.target.value)}
             placeholder={t("classroom.descriptionPlaceholder")}
             rows={4}
             value={description}
           />
-          <small>{Array.from(description).length}/4000</small>
-        </label>
 
-        {(validationError || createClass.isError) && (
-          <p className="class-create-form__error" role="alert">
-            {validationError
-              ? t(validationError)
-              : getCreateErrorMessage(createClass.error, t)}
-          </p>
-        )}
+          {(validationError || createClass.isError) && (
+            <p className="class-create-form__error" role="alert">
+              {validationError
+                ? t(validationError)
+                : getCreateErrorMessage(createClass.error, t)}
+            </p>
+          )}
 
-        <div className="class-create-form__actions">
-          <button onClick={onClose} type="button">
-            {t("classroom.cancelAction")}
-          </button>
-          <button disabled={createClass.isPending} type="submit">
-            {createClass.isPending
-              ? t("classroom.creating")
-              : t("classroom.createSubmit")}
-          </button>
-        </div>
-      </form>
-    </section>
+          <DialogFooter className="class-create-form__actions">
+            <DialogClose asChild>
+              <Button variant="secondary">{t("classroom.cancelAction")}</Button>
+            </DialogClose>
+            <Button
+              loading={createClass.isPending}
+              loadingLabel={t("classroom.creating")}
+              type="submit"
+            >
+              {t("classroom.createSubmit")}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -367,9 +375,9 @@ function ClassroomEmptyState({
       <h3>{t("classroom.emptyTitle")}</h3>
       <p>{t("classroom.emptyDescription")}</p>
       {canCreate && (
-        <button onClick={onCreate} type="button">
+        <Button leadingIcon={<Plus />} onClick={onCreate} size="sm">
           {t("classroom.createFirstAction")}
-        </button>
+        </Button>
       )}
     </div>
   );
@@ -404,9 +412,14 @@ function ClassroomQueryError({
         </p>
       </div>
       {!isNotFound && (
-        <button onClick={onRetry} type="button">
+        <Button
+          leadingIcon={<RotateCw />}
+          onClick={onRetry}
+          size="sm"
+          variant="secondary"
+        >
           {t("state.retry")}
-        </button>
+        </Button>
       )}
     </div>
   );
@@ -415,30 +428,28 @@ function ClassroomQueryError({
 function ClassListSkeleton() {
   const { t } = useI18n();
   return (
-    <div
-      aria-label={t("classroom.loadingList")}
+    <SkeletonGroup
       className="class-list-skeleton"
-      role="status"
+      label={t("classroom.loadingList")}
     >
       {[0, 1, 2].map((item) => (
-        <span key={item} />
+        <Skeleton key={item} />
       ))}
-    </div>
+    </SkeletonGroup>
   );
 }
 
 function ClassDetailSkeleton() {
   const { t } = useI18n();
   return (
-    <div
-      aria-label={t("classroom.loadingDetail")}
+    <SkeletonGroup
       className="class-detail-skeleton"
-      role="status"
+      label={t("classroom.loadingDetail")}
     >
-      <span />
-      <span />
-      <span />
-    </div>
+      <Skeleton />
+      <Skeleton />
+      <Skeleton />
+    </SkeletonGroup>
   );
 }
 

@@ -1,0 +1,15 @@
+body {
+  min-width: 320px;
+  margin: 0;
+  background: var(--color-canvas);
+  color: var(--color-text);
+  font-family: var(--font-family-sans);
+}
+
+.sb-show-main.sb-main-padded {
+  padding: var(--space-8);
+}
+
+.docs-story {
+  background: var(--color-canvas);
+}

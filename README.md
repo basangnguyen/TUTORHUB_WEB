@@ -14,7 +14,8 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
 - P1-04/P1-05 đã có checkpoint cục bộ; P1-06 Authentication, P1-06A Workspace onboarding và P1-06B Class vertical slice đang ở trạng thái review.
 - Người dùng mới có thể tạo workspace đầu tiên, nhận quyền `org_admin`; phiên đăng nhập được xoay an toàn khi tạo hoặc đổi workspace.
 - Lớp học đã có luồng list/create/detail theo active workspace, permission server-side, CSRF và giao diện trạng thái đầy đủ.
-- P1-07 đã có backend token tối thiểu quyền, prejoin/phòng LiveKit lazy-loaded, telemetry và webhook idempotent; còn project staging cùng smoke test thật 2-5 người trước khi đóng task.
+- P1-07 đã hoàn thành: backend token tối thiểu quyền, prejoin/phòng LiveKit lazy-loaded, telemetry, webhook idempotent và smoke test staging 2-5 người cho camera/micro/screen share/reconnect đều đạt.
+- P1-03 đã hoàn thành: semantic tokens, component Radix/Lucide truy cập được, Storybook, contrast/keyboard checks và tích hợp vào các luồng web chính.
 - Master Plan web-first 2.0 đã audit lại kiến trúc, roadmap 90 ngày và các phase chuyển đổi từ V1.
 - Không sao chép secret, token hoặc cấu hình production từ V1.
 
@@ -35,6 +36,7 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
 13. [Biên bản hoàn thành Phase 0](docs/PHASE_0_COMPLETION.md)
 14. [Database foundation và migration runbook](docs/DATABASE.md)
 15. [LiveKit spike và smoke-test runbook](docs/LIVEKIT_SPIKE_RUNBOOK.md)
+16. [Design system và hướng dẫn sử dụng component](docs/DESIGN_SYSTEM.md)
 
 Các quyết định kiến trúc đã chấp nhận nằm trong `docs/adr`.
 

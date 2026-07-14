@@ -1,14 +1,7 @@
 :root {
   color: var(--color-text);
   background: var(--color-canvas);
-  font-family:
-    Inter,
-    ui-sans-serif,
-    system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif;
+  font-family: var(--font-family-sans);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
 }
@@ -979,14 +972,12 @@ textarea:focus-visible {
     transform 160ms ease;
 }
 
-.classroom-primary-action span {
-  font-size: 19px;
-  font-weight: 400;
-  line-height: 1;
+.classroom-primary-action .th-button__icon {
+  font-size: 16px;
 }
 
 .classroom-primary-action:hover {
-  background: #1e528e;
+  background: var(--color-accent-hover);
 }
 
 .classroom-primary-action:active,
@@ -1002,6 +993,10 @@ textarea:focus-visible {
   border-radius: var(--radius-md);
   background: var(--color-surface);
   box-shadow: 0 14px 32px rgb(40 52 72 / 7%);
+}
+
+.class-create-dialog {
+  width: min(680px, calc(100vw - 32px));
 }
 
 .class-create-panel__heading {
@@ -1107,6 +1102,11 @@ textarea:focus-visible {
 }
 
 .class-create-form__description small {
+  justify-self: end;
+  font-variant-numeric: tabular-nums;
+}
+
+.class-create-form__description .th-field__hint {
   justify-self: end;
   font-variant-numeric: tabular-nums;
 }
@@ -2001,7 +2001,7 @@ textarea:focus-visible {
   text-wrap: balance;
 }
 
-.route-state span {
+.route-state > section > span {
   display: block;
   max-width: 60ch;
   margin-top: 14px;

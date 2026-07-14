@@ -28,9 +28,17 @@ Tạo nền kỹ thuật có thể triển khai staging và chứng minh vertica
 
 ## P1-03 Design system
 
-- [ ] Token màu, typography, spacing, radius, shadow, motion, z-index và breakpoint.
-- [ ] Button, icon button, input, select, dialog, drawer, menu, tabs, tooltip, toast, skeleton và empty state.
-- [ ] Storybook, keyboard navigation và contrast check.
+- [x] Token màu, typography, spacing, radius, shadow, motion, z-index và breakpoint.
+- [x] Button, icon button, input, select, dialog, drawer, menu, tabs, tooltip, toast, skeleton và empty state.
+- [x] Storybook, keyboard navigation và contrast check.
+
+**Trạng thái 2026-07-14:** hoàn thành cục bộ trên branch `codex/p1-03-design-system`.
+Design system dùng semantic token cho theme sáng/tối, Radix Primitives cho hành vi truy cập
+được và Lucide cho icon nhất quán. Catalog Storybook bao phủ foundation, form, navigation,
+overlay và state. Sáu kiểm thử component, tám cặp tương phản WCAG, 18 kiểm thử web,
+production build, Storybook static build và toàn bộ `pnpm verify` đều đạt. Visual QA trên
+desktop/mobile xác nhận dialog giữ focus, đóng bằng Escape, trả focus về trigger và không
+phát sinh tràn ngang.
 
 ## P1-04 Go core API
 
@@ -107,10 +115,10 @@ Task ở `REVIEW` để bàn giao.
 
 ## P1-07 LiveKit spike
 
-- [ ] Tạo LiveKit project riêng cho staging.
+- [x] Tạo LiveKit project riêng cho staging.
 - [x] API cấp token từ backend với grant tối thiểu, TTL ngắn và tenant/class/session identity.
 - [x] Trang prejoin và room triển khai camera/mic/screen share, listen-only và reconnect state.
-- [ ] Smoke test thật 2-5 người cho camera/mic/screen share/reconnect trên project staging.
+- [x] Smoke test thật 2-5 người cho camera/mic/screen share/reconnect trên project staging.
 - [x] Ghi telemetry join/reconnect có schema giới hạn; không đưa secret LiveKit vào frontend.
 - [x] Xác minh webhook chính thức và lưu receipt idempotent; Neon migration version `5`, `dirty=false`.
 - [x] OpenAPI, generated client, unit/HTTP/web test, lazy SDK chunk và runbook được cập nhật.
@@ -118,10 +126,11 @@ Task ở `REVIEW` để bàn giao.
 **Trạng thái 2026-07-14:** implementation cục bộ hoàn tất trên branch
 `codex/p1-07-livekit-spike`. Token chỉ được Core API phát sau session + CSRF + permission;
 frontend giữ credential trong React memory và reload phải quay lại prejoin. Local secret file
-đã có LiveKit Cloud credential và smoke test xác thực một người dùng đã cấp token, kết nối phòng
-và hiển thị participant thành công. Đã sửa lỗi `LayoutContextProvider` làm room UI bị crash.
-Ma trận 2-5 người, camera/micro/screen share/reconnect và webhook HTTPS staging vẫn còn mở;
-task giữ `IN_PROGRESS` cho đến khi đạt ma trận trong `docs/LIVEKIT_SPIKE_RUNBOOK.md`.
+đã có LiveKit Cloud credential và project staging riêng. Đã sửa lỗi `LayoutContextProvider`
+làm room UI bị crash. Chủ dự án xác nhận ngày 2026-07-14 rằng smoke test thủ công 2-5 người
+đã đạt cho camera, micro, screen share và reconnect theo ma trận trong
+`docs/LIVEKIT_SPIKE_RUNBOOK.md`. P1-07 hoàn thành; việc gắn webhook vào URL HTTPS triển khai
+thuộc P1-10 Cloud foundation và không làm thay đổi kết quả spike.
 
 ## P1-08 CI/CD và security
 
