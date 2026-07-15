@@ -2,28 +2,28 @@
 
 > Bản tóm tắt điều hành. Chi tiết work package, dependency, SLO, rủi ro và exit gate nằm trong [MASTER_PLAN.md](MASTER_PLAN.md). Khi có khác biệt, Master Plan phiên bản mới hơn là nguồn có thẩm quyền.
 
-| Thuộc tính | Trạng thái |
-|---|---|
-| Cập nhật | 2026-07-13 |
-| Phase hiện tại | Phase 1 - Engineering Foundation |
-| Hoàn thành gần nhất | P1-05 Contract và PostgreSQL foundation hoàn thành cục bộ; chờ review/commit |
-| Việc tiếp theo | P1-06 Authentication spike sau khi review branch hiện tại |
-| Phạm vi | Web-first; desktop/mobile/native là track sau |
+| Thuộc tính          | Trạng thái                                                                         |
+| ------------------- | ---------------------------------------------------------------------------------- |
+| Cập nhật            | 2026-07-15                                                                         |
+| Phase hiện tại      | Phase 1 - Engineering Foundation                                                   |
+| Hoàn thành gần nhất | P1-08A CI/security baseline đã merge cùng nền tảng Phase 1 qua PR #4 tại `82261c6` |
+| Việc tiếp theo      | P1-10 Cloud foundation, sau đó P1-08B preview/staging deployment                   |
+| Phạm vi             | Web-first; desktop/mobile/native là track sau                                      |
 
 ## Chuỗi phase
 
-| Phase | Tên | Thời lượng kế hoạch | Kết quả chính |
-|---:|---|---:|---|
-| 0 | Product và architecture baseline | Hoàn thành | Phạm vi, ADR, security/deployment baseline |
-| 1 | Engineering Foundation | 4-6 tuần | CI, web shell, API, database, auth, LiveKit spike, staging |
-| 2 | Identity, tenant và class core | 4-6 tuần | Multi-tenant, permission, class/enrollment |
-| 3 | Daily learning workspace | 5-7 tuần | Lịch, persistent messaging, notification, file/Drive |
-| 4 | Classroom Media MVP | 6-8 tuần | Prejoin, LiveKit room, moderation, reconnect |
-| 5 | Classroom Collaboration | 8-12 tuần | Whiteboard, quiz nhanh, tools, breakout, recording |
-| 6 | Assessment, Tasks và QuizHub | 8-12 tuần | Assignment, exam, scoring, practice/game |
-| 7 | Content, Social Learning và Lavie | 6-10 tuần | Feed/video có kiểm soát, AI/RAG theo quyền |
-| 8 | Global Readiness | 8-12 tuần trước launch | Production hosting, SLO, DR, security, privacy |
-| 9 | V1 Cutover và Sunset | 4-8 tuần/cohort | Import, reconciliation, rollout và V1 read-only |
+| Phase | Tên                               |    Thời lượng kế hoạch | Kết quả chính                                              |
+| ----: | --------------------------------- | ---------------------: | ---------------------------------------------------------- |
+|     0 | Product và architecture baseline  |             Hoàn thành | Phạm vi, ADR, security/deployment baseline                 |
+|     1 | Engineering Foundation            |               4-6 tuần | CI, web shell, API, database, auth, LiveKit spike, staging |
+|     2 | Identity, tenant và class core    |               4-6 tuần | Multi-tenant, permission, class/enrollment                 |
+|     3 | Daily learning workspace          |               5-7 tuần | Lịch, persistent messaging, notification, file/Drive       |
+|     4 | Classroom Media MVP               |               6-8 tuần | Prejoin, LiveKit room, moderation, reconnect               |
+|     5 | Classroom Collaboration           |              8-12 tuần | Whiteboard, quiz nhanh, tools, breakout, recording         |
+|     6 | Assessment, Tasks và QuizHub      |              8-12 tuần | Assignment, exam, scoring, practice/game                   |
+|     7 | Content, Social Learning và Lavie |              6-10 tuần | Feed/video có kiểm soát, AI/RAG theo quyền                 |
+|     8 | Global Readiness                  | 8-12 tuần trước launch | Production hosting, SLO, DR, security, privacy             |
+|     9 | V1 Cutover và Sunset              |        4-8 tuần/cohort | Import, reconciliation, rollout và V1 read-only            |
 
 ## Milestone
 
