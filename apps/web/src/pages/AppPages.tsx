@@ -4,6 +4,7 @@ import { StatusBadge } from "@tutorhub/ui";
 import { Link } from "react-router-dom";
 import { navigationItems } from "../app/routes";
 import { useI18n, type TranslationKey } from "../app/i18n";
+import { useSession } from "../app/session";
 
 function getApiBaseUrl() {
   return import.meta.env.VITE_API_BASE_URL ?? "/api";
@@ -11,6 +12,16 @@ function getApiBaseUrl() {
 
 export function DashboardPage() {
   const { language, t } = useI18n();
+  const session = useSession();
+  const activeTenant = session.currentUser?.active_tenant;
+  const roleLabel =
+    activeTenant?.role === "org_admin"
+      ? t("shell.role.admin")
+      : activeTenant?.role === "teacher"
+        ? t("shell.role.teacher")
+        : activeTenant?.role === "student"
+          ? t("shell.role.student")
+          : t("shell.role.guest");
   const healthQuery = useQuery({
     queryKey: ["core-api", "health"],
     queryFn: ({ signal }) => getHealth({ baseUrl: getApiBaseUrl(), signal }),
@@ -33,11 +44,11 @@ export function DashboardPage() {
           <dl className="workspace-facts">
             <div>
               <dt>{t("home.workspace")}</dt>
-              <dd>{t("home.workspaceValue")}</dd>
+              <dd>{activeTenant?.name ?? t("home.workspaceValue")}</dd>
             </div>
             <div>
               <dt>{t("home.role")}</dt>
-              <dd>{t("home.roleValue")}</dd>
+              <dd>{roleLabel}</dd>
             </div>
             <div>
               <dt>{t("home.language")}</dt>

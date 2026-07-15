@@ -6,17 +6,40 @@ import {
   type RouteObject,
   useLocation,
 } from "react-router-dom";
+import { lazy } from "react";
 import { AppShell } from "../components/AppShell";
 import { DashboardPage, ModulePage } from "../pages/AppPages";
 import {
+  ClassroomDetailPage,
+  ClassroomListPage,
+} from "../pages/ClassroomPages";
+import {
+  WorkspaceOnboardingPage,
+  WorkspaceSelectionPage,
+} from "../pages/WorkspacePages";
+import {
   ForbiddenPage,
+  AuthenticationErrorPage,
   LoadingScreen,
   NotFoundPage,
   OfflinePage,
   RouteErrorBoundary,
+  SignInPage,
+  SignedOutPage,
 } from "../pages/RouteStates";
-import { useDemoSession } from "./session";
+import { useSession } from "./session";
 import type { TranslationKey } from "./i18n";
+
+const ClassroomPreJoinPage = lazy(() =>
+  import("../pages/LiveKitPages").then((module) => ({
+    default: module.ClassroomPreJoinPage,
+  })),
+);
+const ClassroomRoomPage = lazy(() =>
+  import("../pages/LiveKitPages").then((module) => ({
+    default: module.ClassroomRoomPage,
+  })),
+);
 
 export interface NavigationItem {
   to: string;
@@ -34,15 +57,40 @@ export const navigationItems: readonly NavigationItem[] = [
 ];
 
 function ProtectedRoute() {
-  const session = useDemoSession();
+  const session = useSession();
   const location = useLocation();
 
   if (!navigator.onLine) {
     return <OfflinePage />;
   }
 
-  if (!session) {
-    return <Navigate replace state={{ from: location }} to="/forbidden" />;
+  if (session.status === "loading") {
+    return <LoadingScreen />;
+  }
+
+  if (session.status === "error") {
+    return <AuthenticationErrorPage />;
+  }
+
+  if (session.status === "unauthenticated") {
+    return <Navigate replace state={{ from: location }} to="/sign-in" />;
+  }
+
+  return <Outlet />;
+}
+
+function WorkspaceRoute() {
+  const session = useSession();
+  const currentUser = session.currentUser;
+
+  if (!currentUser) {
+    return <AuthenticationErrorPage />;
+  }
+  if (!currentUser.active_tenant && currentUser.memberships.length === 0) {
+    return <WorkspaceOnboardingPage />;
+  }
+  if (!currentUser.active_tenant) {
+    return <WorkspaceSelectionPage />;
   }
 
   return <Outlet />;
@@ -67,42 +115,65 @@ export function createAppRoutes(): RouteObject[] {
       hydrateFallbackElement: <LoadingScreen />,
       children: [
         {
-          element: <AppShell />,
-          errorElement: <RouteErrorBoundary />,
+          element: <WorkspaceRoute />,
           children: [
-            { index: true, element: <Navigate replace to="home" /> },
-            { path: "home", element: <DashboardPage /> },
             {
-              path: "classrooms",
-              element: <ModulePage moduleKey="nav.classrooms" />,
+              element: <AppShell />,
+              errorElement: <RouteErrorBoundary />,
+              children: [
+                { index: true, element: <Navigate replace to="home" /> },
+                { path: "home", element: <DashboardPage /> },
+                {
+                  path: "classrooms",
+                  element: <ClassroomListPage />,
+                },
+                {
+                  path: "classrooms/:classId",
+                  element: <ClassroomDetailPage />,
+                },
+                {
+                  path: "classrooms/:classId/prejoin",
+                  element: <ClassroomPreJoinPage />,
+                },
+                {
+                  path: "calendar",
+                  element: <ModulePage moduleKey="nav.calendar" />,
+                },
+                {
+                  path: "messages",
+                  element: <ModulePage moduleKey="nav.messages" />,
+                },
+                {
+                  path: "tasks",
+                  element: <ModulePage moduleKey="nav.tasks" />,
+                },
+                {
+                  path: "resources",
+                  element: <ModulePage moduleKey="nav.drive" />,
+                },
+                {
+                  path: "settings",
+                  element: <ModulePage moduleKey="nav.settings" />,
+                },
+                {
+                  path: "system-error",
+                  element: <div aria-hidden="true" />,
+                  loader: throwSystemError,
+                },
+              ],
             },
             {
-              path: "calendar",
-              element: <ModulePage moduleKey="nav.calendar" />,
-            },
-            {
-              path: "messages",
-              element: <ModulePage moduleKey="nav.messages" />,
-            },
-            { path: "tasks", element: <ModulePage moduleKey="nav.tasks" /> },
-            {
-              path: "resources",
-              element: <ModulePage moduleKey="nav.drive" />,
-            },
-            {
-              path: "settings",
-              element: <ModulePage moduleKey="nav.settings" />,
-            },
-            {
-              path: "system-error",
-              element: <div aria-hidden="true" />,
-              loader: throwSystemError,
+              path: "classrooms/:classId/room",
+              element: <ClassroomRoomPage />,
+              errorElement: <RouteErrorBoundary />,
             },
           ],
         },
       ],
     },
     { path: "/forbidden", element: <ForbiddenPage /> },
+    { path: "/sign-in", element: <SignInPage /> },
+    { path: "/signed-out", element: <SignedOutPage /> },
     { path: "/offline", element: <OfflinePage /> },
     { path: "*", element: <NotFoundPage /> },
   ];

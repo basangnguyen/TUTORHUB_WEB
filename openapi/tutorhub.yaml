@@ -17,6 +17,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
   /live:
     get:
       operationId: getLiveness
@@ -24,6 +26,12 @@ paths:
       responses:
         "200":
           description: Process is alive
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LivenessResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
   /ready:
     get:
       operationId: getReadiness
@@ -31,7 +39,371 @@ paths:
       responses:
         "200":
           description: Service is ready
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadinessResponse"
+        "503":
+          description: At least one required dependency is unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadinessResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/status:
+    get:
+      operationId: getAPIStatus
+      summary: Return versioned Core API status
+      responses:
+        "200":
+          description: Core API is available
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIStatusResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/auth/login:
+    get:
+      operationId: beginLogin
+      summary: Start an OIDC Authorization Code and PKCE flow
+      parameters:
+        - name: return_to
+          in: query
+          required: false
+          description: Internal application path used after successful sign-in
+          schema:
+            type: string
+            example: /app/home
+      responses:
+        "303":
+          description: Redirect to the configured identity provider
+          headers:
+            Location:
+              required: true
+              schema:
+                type: string
+                format: uri
+            Set-Cookie:
+              schema:
+                type: string
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/auth/callback:
+    get:
+      operationId: completeLogin
+      summary: Complete the OIDC callback and issue a TutorHub session
+      parameters:
+        - name: state
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: code
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: error
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "303":
+          description: Session created and browser redirected to TutorHub Web
+          headers:
+            Location:
+              required: true
+              schema:
+                type: string
+                format: uri
+            Set-Cookie:
+              schema:
+                type: string
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/auth/csrf:
+    get:
+      operationId: rotateCSRFToken
+      summary: Rotate and return the CSRF token bound to the current session
+      security:
+        - SessionCookie: []
+      responses:
+        "200":
+          description: CSRF token rotated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CSRFResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/auth/logout:
+    post:
+      operationId: logout
+      summary: Revoke the current TutorHub session
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Local session revoked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LogoutResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/me:
+    get:
+      operationId: getCurrentUser
+      summary: Return the authenticated user and tenant context
+      security:
+        - SessionCookie: []
+      responses:
+        "200":
+          description: Current authenticated principal
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/tenants:
+    post:
+      operationId: createTenant
+      summary: Create the authenticated user's first TutorHub workspace
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTenantRequest"
+      responses:
+        "201":
+          description: Workspace created and activated for the current session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/session/active-tenant:
+    put:
+      operationId: switchActiveTenant
+      summary: Switch the current session to an active tenant membership
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SwitchActiveTenantRequest"
+      responses:
+        "200":
+          description: Active workspace changed and session credentials rotated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/classes:
+    get:
+      operationId: listClasses
+      summary: List classes in the authenticated active workspace
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+      responses:
+        "200":
+          description: Tenant-scoped class list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClassListResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+    post:
+      operationId: createClass
+      summary: Create a draft class in the authenticated active workspace
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateClassRequest"
+      responses:
+        "201":
+          description: Class created
+          headers:
+            Location:
+              required: true
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Class"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/classes/{class_id}:
+    get:
+      operationId: getClass
+      summary: Return one class from the authenticated active workspace
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: class_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Tenant-scoped class detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Class"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/classes/{class_id}/media-token:
+    post:
+      operationId: issueClassMediaToken
+      summary: Issue a short-lived, least-privilege LiveKit room credential
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: class_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Short-lived classroom media credential
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MediaTokenResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/classes/{class_id}/media-events:
+    post:
+      operationId: recordClassMediaEvent
+      summary: Record bounded client-side join and reconnect telemetry
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: class_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MediaEventRequest"
+      responses:
+        "204":
+          description: Telemetry accepted
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/webhooks/livekit:
+    post:
+      operationId: receiveLiveKitWebhook
+      summary: Receive a signed LiveKit server webhook
+      security: []
+      parameters:
+        - name: Authorization
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/webhook+json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "204":
+          description: Webhook verified and accepted or already processed
+        default:
+          $ref: "#/components/responses/ProblemResponse"
 components:
+  securitySchemes:
+    SessionCookie:
+      type: apiKey
+      in: cookie
+      name: tutorhub_session
+      description: Opaque TutorHub BFF session cookie; secure deployments use the __Host- prefix.
+  responses:
+    ProblemResponse:
+      description: Request failed with a structured problem response
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
   schemas:
     HealthResponse:
       type: object
@@ -48,3 +420,302 @@ components:
         timestamp:
           type: string
           format: date-time
+    LivenessResponse:
+      type: object
+      additionalProperties: false
+      required: [status, timestamp]
+      properties:
+        status:
+          type: string
+          const: live
+        timestamp:
+          type: string
+          format: date-time
+    ReadinessCheck:
+      type: object
+      additionalProperties: false
+      required: [name, status]
+      properties:
+        name:
+          type: string
+        status:
+          type: string
+          enum: [ready, not_ready]
+    ReadinessResponse:
+      type: object
+      additionalProperties: false
+      required: [status, checks, timestamp]
+      properties:
+        status:
+          type: string
+          enum: [ready, not_ready]
+        checks:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReadinessCheck"
+        timestamp:
+          type: string
+          format: date-time
+    APIStatusResponse:
+      type: object
+      additionalProperties: false
+      required: [status, service, version, environment, timestamp]
+      properties:
+        status:
+          type: string
+          const: ok
+        service:
+          type: string
+        version:
+          type: string
+        environment:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+    CSRFResponse:
+      type: object
+      additionalProperties: false
+      required: [csrf_token]
+      properties:
+        csrf_token:
+          type: string
+    LogoutResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        logout_url:
+          type: string
+          format: uri
+    User:
+      type: object
+      additionalProperties: false
+      required: [id, email, display_name, locale, timezone]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        display_name:
+          type: string
+        locale:
+          type: string
+        timezone:
+          type: string
+    TenantMembership:
+      type: object
+      additionalProperties: false
+      required: [id, slug, name, role, is_active]
+      properties:
+        id:
+          type: string
+          format: uuid
+        slug:
+          type: string
+        name:
+          type: string
+        role:
+          type: string
+          enum: [org_admin, teacher, student, guest]
+        is_active:
+          type: boolean
+    CreateTenantRequest:
+      type: object
+      additionalProperties: false
+      required: [name, slug]
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 120
+        slug:
+          type: string
+          minLength: 3
+          maxLength: 63
+          pattern: "^[a-z0-9][a-z0-9-]*[a-z0-9]$"
+    SwitchActiveTenantRequest:
+      type: object
+      additionalProperties: false
+      required: [tenant_id]
+      properties:
+        tenant_id:
+          type: string
+          format: uuid
+    MeResponse:
+      type: object
+      additionalProperties: false
+      required: [user, active_tenant, memberships, permissions]
+      properties:
+        user:
+          $ref: "#/components/schemas/User"
+        active_tenant:
+          oneOf:
+            - $ref: "#/components/schemas/TenantMembership"
+            - type: "null"
+        memberships:
+          type: array
+          items:
+            $ref: "#/components/schemas/TenantMembership"
+        permissions:
+          type: array
+          items:
+            type: string
+    Class:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - owner_user_id
+        - code
+        - title
+        - description
+        - status
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        owner_user_id:
+          type: string
+          format: uuid
+        code:
+          type: string
+          minLength: 3
+          maxLength: 32
+          pattern: "^[A-Z0-9][A-Z0-9_-]{2,31}$"
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 4000
+        status:
+          type: string
+          enum: [draft, active, archived]
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    ClassListResponse:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Class"
+    CreateClassRequest:
+      type: object
+      additionalProperties: false
+      required: [code, title]
+      properties:
+        code:
+          type: string
+          minLength: 3
+          maxLength: 32
+          pattern: "^[A-Za-z0-9][A-Za-z0-9_-]{2,31}$"
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 4000
+    MediaTokenResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - access_token
+        - server_url
+        - room_name
+        - participant_identity
+        - participant_name
+        - attempt_id
+        - can_publish
+        - expires_at
+      properties:
+        access_token:
+          type: string
+          minLength: 1
+          description: Short-lived LiveKit JWT; clients must keep it in memory only.
+        server_url:
+          type: string
+          format: uri
+          description: LiveKit WebSocket URL; staging and production require wss://.
+        room_name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        participant_identity:
+          type: string
+          minLength: 1
+          maxLength: 255
+        participant_name:
+          type: string
+          maxLength: 200
+        attempt_id:
+          type: string
+          format: uuid
+        can_publish:
+          type: boolean
+        expires_at:
+          type: string
+          format: date-time
+    MediaEventRequest:
+      type: object
+      additionalProperties: false
+      required: [attempt_id, stage, outcome, duration_ms]
+      properties:
+        attempt_id:
+          type: string
+          format: uuid
+        stage:
+          type: string
+          enum:
+            - token
+            - connect
+            - connected
+            - media
+            - reconnecting
+            - reconnected
+            - disconnected
+            - leave
+        outcome:
+          type: string
+          enum: [started, succeeded, failed]
+        error_code:
+          type: string
+          maxLength: 64
+          pattern: "^[a-z0-9][a-z0-9_.-]*$"
+        duration_ms:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 600000
+    Problem:
+      type: object
+      additionalProperties: false
+      required: [type, title, status]
+      properties:
+        type:
+          type: string
+          format: uri-reference
+        title:
+          type: string
+        status:
+          type: integer
+          minimum: 400
+          maximum: 599
+        detail:
+          type: string
+        instance:
+          type: string
+        request_id:
+          type: string

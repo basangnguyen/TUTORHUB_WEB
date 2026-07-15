@@ -5,6 +5,7 @@ node_modules/
 dist/
 build/
 coverage/
+storybook-static/
 *.tsbuildinfo
 bin/
 tmp/

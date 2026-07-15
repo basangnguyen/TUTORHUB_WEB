@@ -4,11 +4,12 @@
   min-height: 32px;
   padding: 6px 10px;
   border: 1px solid var(--color-border);
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background: var(--color-surface);
   color: var(--color-text-muted);
-  font-size: 14px;
-  font-weight: 650;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-heading);
 }
 
 .status-badge::before {
@@ -21,13 +22,25 @@
 }
 
 .status-badge--success {
-  border-color: #b8e1cb;
+  border-color: color-mix(in srgb, var(--color-success) 28%, transparent);
   background: var(--color-success-soft);
   color: var(--color-success);
 }
 
+.status-badge--info {
+  border-color: color-mix(in srgb, var(--color-info) 28%, transparent);
+  background: var(--color-info-soft);
+  color: var(--color-info);
+}
+
+.status-badge--warning {
+  border-color: color-mix(in srgb, var(--color-warning) 30%, transparent);
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
+}
+
 .status-badge--danger {
-  border-color: #f4c2bd;
+  border-color: color-mix(in srgb, var(--color-danger) 28%, transparent);
   background: var(--color-danger-soft);
   color: var(--color-danger);
 }

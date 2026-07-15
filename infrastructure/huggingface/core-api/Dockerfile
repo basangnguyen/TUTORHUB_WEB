@@ -18,4 +18,6 @@ COPY --from=build /out/tutorhub-core-api /app/tutorhub-core-api
 ENV APP_ENV=staging
 ENV PORT=7860
 EXPOSE 7860
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+  CMD wget -q -T 2 -O - http://127.0.0.1:7860/health > /dev/null || exit 1
 ENTRYPOINT ["/app/tutorhub-core-api"]

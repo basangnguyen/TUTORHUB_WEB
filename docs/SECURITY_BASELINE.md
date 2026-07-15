@@ -16,6 +16,11 @@
 - MFA/Passkey bắt buộc cho Platform Admin; khuyến nghị cho Org Admin/Teacher.
 - Step-up authentication cho export dữ liệu, đổi quyền, billing và thao tác an toàn cao.
 
+**P1-06 đã triển khai:** state, nonce, browser binding và PKCE `S256`; flow one-time;
+ID token signature/issuer/audience/expiry; verified email; keyed hash session/CSRF;
+idle + absolute timeout; server-side revoke; cookie `__Host-` ở HTTPS và `/me` không
+lộ session ID. MFA/passkey, device history và refresh token rotation vẫn là gate sau.
+
 ## 3. Authorization
 
 - Deny by default; kiểm tra tenant, membership, action và resource ở server.
@@ -47,6 +52,12 @@
 - CI chạy secret scan, SAST, dependency/container scan và tạo SBOM release.
 - Artifact được ký; deployment dùng short-lived workload identity thay static cloud key.
 - Branch `main` được bảo vệ, PR review và status checks bắt buộc.
+
+**P1-08A đã triển khai:** workflow Verify/Security, action pin bằng full commit SHA, quyền workflow tối thiểu,
+Gitleaks, Dependency Review, CodeQL, Trivy filesystem/container, client-bundle secret guard, CODEOWNERS,
+Dependabot và private vulnerability policy. SBOM, ký artifact, workload identity và deployment gate thuộc
+P1-08B/các phase release; cấu hình ruleset và security switches trên GitHub phải được xác nhận theo
+`docs/CI_SECURITY.md`.
 
 ## 7. Privacy và an toàn giáo dục
 

@@ -2,7 +2,7 @@ import type { PropsWithChildren } from "react";
 import "./status-badge.css";
 
 export interface StatusBadgeProps extends PropsWithChildren {
-  tone: "neutral" | "success" | "danger";
+  tone: "neutral" | "info" | "success" | "warning" | "danger";
 }
 
 export function StatusBadge({ children, tone }: StatusBadgeProps) {

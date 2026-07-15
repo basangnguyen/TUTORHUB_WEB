@@ -1,8 +1,11 @@
+import { Button, IconButton } from "@tutorhub/ui";
+import { LogOut, Menu, RefreshCw, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigation } from "react-router-dom";
 import { navigationItems } from "../app/routes";
 import { useI18n } from "../app/i18n";
-import { useDemoSession } from "../app/session";
+import { useSession } from "../app/session";
+import { useWorkspaceActions } from "../app/workspaces";
 
 function useOnlineStatus() {
   const [isOnline, setIsOnline] = useState(() => navigator.onLine);
@@ -25,20 +28,32 @@ function useOnlineStatus() {
 
 export function AppShell() {
   const { language, setLanguage, t } = useI18n();
-  const session = useDemoSession();
+  const session = useSession();
+  const { switchWorkspace } = useWorkspaceActions();
   const location = useLocation();
   const navigation = useNavigation();
   const isOnline = useOnlineStatus();
   const [isNavigationOpen, setIsNavigationOpen] = useState(false);
 
+  const activeTenant = session.currentUser?.active_tenant;
+  const tenantOptions = session.currentUser?.memberships.length
+    ? session.currentUser.memberships
+    : activeTenant
+      ? [activeTenant]
+      : [];
+
   const currentItem = navigationItems.find((item) =>
     location.pathname.startsWith(item.to),
   );
-  const roleLabel = session
-    ? session.role === "teacher"
-      ? t("shell.role.teacher")
-      : t("shell.role.student")
-    : t("shell.role.guest");
+  const role = session.currentUser?.active_tenant?.role ?? "guest";
+  const roleLabel =
+    role === "org_admin"
+      ? t("shell.role.admin")
+      : role === "teacher"
+        ? t("shell.role.teacher")
+        : role === "student"
+          ? t("shell.role.student")
+          : t("shell.role.guest");
 
   return (
     <div className="app-shell">
@@ -77,23 +92,29 @@ export function AppShell() {
 
         <div className="app-sidebar__footer">
           <span className="app-sidebar__role">{roleLabel}</span>
-          <strong>{session?.displayName ?? t("shell.profile")}</strong>
+          <strong>
+            {session.currentUser?.user.display_name ?? t("shell.profile")}
+          </strong>
         </div>
       </aside>
 
       <div className="app-workspace">
         <header className="app-topbar">
           <div className="app-topbar__context">
-            <button
+            <IconButton
               aria-expanded={isNavigationOpen}
               className="menu-toggle"
+              label={
+                isNavigationOpen
+                  ? t("shell.closeNavigation")
+                  : t("shell.openNavigation")
+              }
               onClick={() => setIsNavigationOpen((open) => !open)}
-              type="button"
+              size="sm"
+              variant="secondary"
             >
-              {isNavigationOpen
-                ? t("shell.closeNavigation")
-                : t("shell.openNavigation")}
-            </button>
+              {isNavigationOpen ? <X /> : <Menu />}
+            </IconButton>
             <span className="app-topbar__eyebrow">{t("brand.product")}</span>
             <strong>
               {currentItem ? t(currentItem.labelKey) : t("nav.home")}
@@ -101,6 +122,31 @@ export function AppShell() {
           </div>
 
           <div className="app-topbar__actions">
+            <label className="workspace-select">
+              <span className="visually-hidden">
+                {t("workspace.activeLabel")}
+              </span>
+              {tenantOptions.length > 1 ? (
+                <select
+                  aria-label={t("workspace.activeLabel")}
+                  disabled={switchWorkspace.isPending}
+                  onChange={(event) => {
+                    if (event.target.value !== activeTenant?.id) {
+                      switchWorkspace.mutate(event.target.value);
+                    }
+                  }}
+                  value={activeTenant?.id ?? ""}
+                >
+                  {tenantOptions.map((tenant) => (
+                    <option key={tenant.id} value={tenant.id}>
+                      {tenant.name}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <span>{activeTenant?.name}</span>
+              )}
+            </label>
             <span
               className={`connection-status${isOnline ? " connection-status--online" : ""}`}
               role="status"
@@ -120,8 +166,30 @@ export function AppShell() {
                 <option value="en">English</option>
               </select>
             </label>
+            <Button
+              className="app-topbar__logout"
+              leadingIcon={<LogOut />}
+              onClick={() => void session.signOut()}
+              size="sm"
+              variant="secondary"
+            >
+              {t("auth.signOut")}
+            </Button>
           </div>
         </header>
+
+        {switchWorkspace.isError && (
+          <section className="workspace-switch-error" role="alert">
+            <span>{t("workspace.selectError")}</span>
+            <Button
+              onClick={() => switchWorkspace.reset()}
+              size="sm"
+              variant="secondary"
+            >
+              {t("state.retry")}
+            </Button>
+          </section>
+        )}
 
         {!isOnline && (
           <section className="connectivity-notice" role="status">
@@ -129,9 +197,14 @@ export function AppShell() {
               <strong>{t("shell.offline")}</strong>
               <p>{t("shell.offlineMessage")}</p>
             </div>
-            <button onClick={() => window.location.reload()} type="button">
+            <Button
+              leadingIcon={<RefreshCw />}
+              onClick={() => window.location.reload()}
+              size="sm"
+              variant="secondary"
+            >
               {t("shell.retryConnection")}
-            </button>
+            </Button>
           </section>
         )}
 

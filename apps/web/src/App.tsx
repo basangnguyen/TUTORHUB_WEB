@@ -1,10 +1,11 @@
 import { QueryClientProvider } from "@tanstack/react-query";
+import { TooltipProvider } from "@tutorhub/ui";
 import { RouterProvider, createBrowserRouter } from "react-router-dom";
 import { Suspense, useState } from "react";
 import { I18nProvider } from "./app/i18n";
 import { createTutorHubQueryClient } from "./app/queryClient";
 import { createAppRoutes } from "./app/routes";
-import { DemoSessionProvider, demoSession } from "./app/session";
+import { SessionProvider } from "./app/session";
 import { LoadingScreen } from "./pages/RouteStates";
 
 export function App() {
@@ -12,14 +13,16 @@ export function App() {
   const [router] = useState(() => createBrowserRouter(createAppRoutes()));
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <I18nProvider>
-        <DemoSessionProvider session={demoSession}>
-          <Suspense fallback={<LoadingScreen />}>
-            <RouterProvider router={router} />
-          </Suspense>
-        </DemoSessionProvider>
-      </I18nProvider>
-    </QueryClientProvider>
+    <TooltipProvider delayDuration={350}>
+      <QueryClientProvider client={queryClient}>
+        <I18nProvider>
+          <SessionProvider>
+            <Suspense fallback={<LoadingScreen />}>
+              <RouterProvider router={router} />
+            </Suspense>
+          </SessionProvider>
+        </I18nProvider>
+      </QueryClientProvider>
+    </TooltipProvider>
   );
 }
