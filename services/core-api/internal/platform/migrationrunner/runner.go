@@ -16,6 +16,7 @@ import (
 )
 
 const (
+	migrationsSchema = "public"
 	migrationsTable  = "tutorhub_schema_migrations"
 	statementTimeout = 2 * time.Minute
 )
@@ -95,6 +96,7 @@ func execute(
 
 	databaseDriver, err := postgres.WithInstance(database, &postgres.Config{
 		MigrationsTable:  migrationsTable,
+		SchemaName:       migrationsSchema,
 		StatementTimeout: statementTimeout,
 	})
 	if err != nil {
