@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/tutorhub-v2/core-api/internal/modules/classroom"
 	"github.com/tutorhub-v2/core-api/internal/modules/identity"
+	"github.com/tutorhub-v2/core-api/internal/platform/logsafe"
 )
 
 const (
@@ -232,8 +233,8 @@ func (handlers classHandlers) writeProblem(w http.ResponseWriter, r *http.Reques
 		handlers.logger.Error(
 			"classroom request failed",
 			"request_id", RequestIDFromContext(r.Context()),
-			"path", r.URL.Path,
-			"error", err,
+			"path", logsafe.String(r.URL.Path),
+			"error", logsafe.Error(err),
 		)
 	}
 	writeProblem(w, r, status, title, detail)

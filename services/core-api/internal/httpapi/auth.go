@@ -10,6 +10,7 @@ import (
 
 	"github.com/tutorhub-v2/core-api/internal/config"
 	"github.com/tutorhub-v2/core-api/internal/modules/identity"
+	"github.com/tutorhub-v2/core-api/internal/platform/logsafe"
 )
 
 const csrfHeader = "X-CSRF-Token"
@@ -76,7 +77,7 @@ func (handlers authHandlers) login(w http.ResponseWriter, r *http.Request) {
 		handlers.writeIdentityProblem(w, r, err)
 		return
 	}
-	handlers.setCookie(w, handlers.cookieNames.flow, start.BrowserBinding, start.ExpiresAt, true)
+	handlers.setCookie(w, handlers.cookieNames.flow, start.BrowserBinding, start.ExpiresAt)
 	w.Header().Set("Cache-Control", "no-store")
 	http.Redirect(w, r, start.AuthorizationURL, http.StatusSeeOther)
 }
@@ -86,7 +87,7 @@ func (handlers authHandlers) callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if providerError := strings.TrimSpace(r.URL.Query().Get("error")); providerError != "" {
-		handlers.clearCookie(w, handlers.cookieNames.flow, true)
+		handlers.clearCookie(w, handlers.cookieNames.flow)
 		writeProblem(
 			w,
 			r,
@@ -109,14 +110,14 @@ func (handlers authHandlers) callback(w http.ResponseWriter, r *http.Request) {
 		UserAgent:      r.UserAgent(),
 		RemoteAddress:  r.RemoteAddr,
 	})
-	handlers.clearCookie(w, handlers.cookieNames.flow, true)
+	handlers.clearCookie(w, handlers.cookieNames.flow)
 	if err != nil {
 		handlers.writeIdentityProblem(w, r, err)
 		return
 	}
 
-	handlers.setCookie(w, handlers.cookieNames.session, result.SessionToken, result.ExpiresAt, true)
-	handlers.setCookie(w, handlers.cookieNames.csrf, result.CSRFToken, result.ExpiresAt, false)
+	handlers.setCookie(w, handlers.cookieNames.session, result.SessionToken, result.ExpiresAt)
+	handlers.setCookie(w, handlers.cookieNames.csrf, result.CSRFToken, result.ExpiresAt)
 	w.Header().Set("Cache-Control", "no-store")
 	http.Redirect(
 		w,
@@ -144,7 +145,6 @@ func (handlers authHandlers) csrf(w http.ResponseWriter, r *http.Request) {
 		handlers.cookieNames.csrf,
 		result.Token,
 		result.ExpiresAt,
-		false,
 	)
 	w.Header().Set("Cache-Control", "no-store")
 	writeJSON(handlers.logger, w, http.StatusOK, csrfResponse{CSRFToken: result.Token})
@@ -167,9 +167,9 @@ func (handlers authHandlers) logout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	handlers.clearCookie(w, handlers.cookieNames.session, true)
-	handlers.clearCookie(w, handlers.cookieNames.csrf, false)
-	handlers.clearCookie(w, handlers.cookieNames.flow, true)
+	handlers.clearCookie(w, handlers.cookieNames.session)
+	handlers.clearCookie(w, handlers.cookieNames.csrf)
+	handlers.clearCookie(w, handlers.cookieNames.flow)
 	w.Header().Set("Cache-Control", "no-store")
 	writeJSON(handlers.logger, w, http.StatusOK, logoutResponse{LogoutURL: logoutURL})
 }
@@ -315,8 +315,8 @@ func (handlers authHandlers) writeIdentityProblem(w http.ResponseWriter, r *http
 		handlers.logger.Error(
 			"identity request failed",
 			"request_id", RequestIDFromContext(r.Context()),
-			"path", r.URL.Path,
-			"error", err,
+			"path", logsafe.String(r.URL.Path),
+			"error", logsafe.Error(err),
 		)
 	}
 	writeProblem(w, r, status, title, detail)
@@ -327,7 +327,6 @@ func (handlers authHandlers) setCookie(
 	name string,
 	value string,
 	expires time.Time,
-	httpOnly bool,
 ) {
 	maxAge := int(expires.Sub(handlers.clock()).Seconds())
 	if maxAge < 1 {
@@ -339,20 +338,20 @@ func (handlers authHandlers) setCookie(
 		Path:     "/",
 		Expires:  expires.UTC(),
 		MaxAge:   maxAge,
-		HttpOnly: httpOnly,
+		HttpOnly: true,
 		Secure:   handlers.config.Authentication.CookieSecure,
 		SameSite: http.SameSiteLaxMode,
 	})
 }
 
-func (handlers authHandlers) clearCookie(w http.ResponseWriter, name string, httpOnly bool) {
+func (handlers authHandlers) clearCookie(w http.ResponseWriter, name string) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     name,
 		Value:    "",
 		Path:     "/",
 		Expires:  time.Unix(1, 0).UTC(),
 		MaxAge:   -1,
-		HttpOnly: httpOnly,
+		HttpOnly: true,
 		Secure:   handlers.config.Authentication.CookieSecure,
 		SameSite: http.SameSiteLaxMode,
 	})

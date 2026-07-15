@@ -391,7 +391,7 @@ func databaseConfig(
 		}
 	}
 
-	maximum := intValue(
+	maximum := int32Value(
 		lookup,
 		"DATABASE_MAX_CONNECTIONS",
 		defaultDBMaxConnections,
@@ -399,7 +399,7 @@ func databaseConfig(
 		100,
 		validationErrors,
 	)
-	minimum := intValue(
+	minimum := int32Value(
 		lookup,
 		"DATABASE_MIN_CONNECTIONS",
 		defaultDBMinConnections,
@@ -416,8 +416,8 @@ func databaseConfig(
 
 	return DatabaseConfig{
 		PoolURL:        poolURL,
-		MaxConnections: int32(maximum),
-		MinConnections: int32(minimum),
+		MaxConnections: maximum,
+		MinConnections: minimum,
 		ConnectTimeout: durationValue(
 			lookup,
 			"DATABASE_CONNECT_TIMEOUT",
@@ -586,6 +586,29 @@ func intValue(
 	}
 
 	return value
+}
+
+func int32Value(
+	lookup lookupEnv,
+	key string,
+	fallback int32,
+	minimum int32,
+	maximum int32,
+	validationErrors *[]error,
+) int32 {
+	raw := strings.TrimSpace(valueOrDefault(lookup, key, strconv.FormatInt(int64(fallback), 10)))
+	value, err := strconv.ParseInt(raw, 10, 32)
+	if err != nil || value < int64(minimum) || value > int64(maximum) {
+		*validationErrors = append(*validationErrors, fmt.Errorf(
+			"%s must be a number between %d and %d",
+			key,
+			minimum,
+			maximum,
+		))
+		return fallback
+	}
+
+	return int32(value)
 }
 
 func boolValue(

@@ -317,10 +317,10 @@ function isProblem(value: unknown): value is Problem {
 }
 
 function resolveBaseUrl(baseUrl: string): string {
-  const normalizedBaseUrl = baseUrl.replace(/\/+$/, "");
+  const normalizedBaseUrl = stripTrailingSlashes(baseUrl);
 
   try {
-    return new URL(normalizedBaseUrl).toString().replace(/\/$/, "");
+    return stripTrailingSlashes(new URL(normalizedBaseUrl).toString());
   } catch {
     const runtimeOrigin = globalThis.location?.origin;
     const origin =
@@ -328,8 +328,17 @@ function resolveBaseUrl(baseUrl: string): string {
         ? runtimeOrigin
         : "http://localhost";
 
-    return new URL(normalizedBaseUrl, `${origin}/`)
-      .toString()
-      .replace(/\/$/, "");
+    return stripTrailingSlashes(
+      new URL(normalizedBaseUrl, `${origin}/`).toString(),
+    );
   }
+}
+
+function stripTrailingSlashes(value: string): string {
+  let end = value.length;
+  while (end > 0 && value.charCodeAt(end - 1) === 47) {
+    end -= 1;
+  }
+
+  return value.slice(0, end);
 }

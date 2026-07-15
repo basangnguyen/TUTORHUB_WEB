@@ -11,6 +11,7 @@ import (
 	"runtime/debug"
 	"time"
 
+	"github.com/tutorhub-v2/core-api/internal/platform/logsafe"
 	"github.com/tutorhub-v2/core-api/internal/platform/observability"
 )
 
@@ -100,8 +101,8 @@ func requestLogMiddleware(
 
 			attributes := []any{
 				"request_id", RequestIDFromContext(traceContext),
-				"method", r.Method,
-				"path", r.URL.Path,
+				"method", logsafe.String(r.Method),
+				"path", logsafe.String(r.URL.Path),
 				"status", recorder.status,
 				"bytes", recorder.bytesWritten,
 				"duration_ms", duration.Milliseconds(),
@@ -136,10 +137,10 @@ func recoverMiddleware(
 			logger.Error(
 				"request panic recovered",
 				"request_id", RequestIDFromContext(r.Context()),
-				"method", r.Method,
-				"path", r.URL.Path,
-				"error", fmt.Sprint(recovered),
-				"stack", string(debug.Stack()),
+				"method", logsafe.String(r.Method),
+				"path", logsafe.String(r.URL.Path),
+				"error", logsafe.String(fmt.Sprint(recovered)),
+				"stack", logsafe.String(string(debug.Stack())),
 			)
 
 			if state, ok := w.(interface{ HeaderWritten() bool }); ok && state.HeaderWritten() {

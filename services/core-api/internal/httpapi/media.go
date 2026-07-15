@@ -12,6 +12,7 @@ import (
 	"github.com/tutorhub-v2/core-api/internal/modules/classroom"
 	"github.com/tutorhub-v2/core-api/internal/modules/identity"
 	"github.com/tutorhub-v2/core-api/internal/modules/media"
+	"github.com/tutorhub-v2/core-api/internal/platform/logsafe"
 )
 
 const (
@@ -157,8 +158,8 @@ func (handlers mediaHandlers) receiveWebhook(w http.ResponseWriter, r *http.Requ
 	handlers.logger.Info(
 		"LiveKit webhook processed",
 		"request_id", RequestIDFromContext(r.Context()),
-		"event_id", event.ID,
-		"event_type", event.EventType,
+		"event_id", logsafe.String(event.ID),
+		"event_type", logsafe.String(event.EventType),
 		"recorded", result.Recorded,
 		"duplicate", result.Duplicate,
 		"ignored", result.Ignored,
@@ -242,8 +243,8 @@ func (handlers mediaHandlers) writeProblem(w http.ResponseWriter, r *http.Reques
 		handlers.logger.Error(
 			"classroom media request failed",
 			"request_id", RequestIDFromContext(r.Context()),
-			"path", r.URL.Path,
-			"error", err,
+			"path", logsafe.String(r.URL.Path),
+			"error", logsafe.Error(err),
 		)
 	}
 	writeProblem(w, r, status, title, detail)

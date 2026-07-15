@@ -3,6 +3,8 @@ package media
 import (
 	"context"
 	"log/slog"
+
+	"github.com/tutorhub-v2/core-api/internal/platform/logsafe"
 )
 
 type SlogEventSink struct {
@@ -19,13 +21,13 @@ func (sink *SlogEventSink) RecordClientEvent(_ context.Context, event ClientEven
 	}
 	sink.logger.Info(
 		"classroom media client event",
-		"tenant_id", event.TenantID,
-		"class_id", event.ClassID,
-		"actor_id", event.ActorID,
-		"attempt_id", event.AttemptID,
-		"stage", event.Stage,
-		"outcome", event.Outcome,
-		"error_code", event.ErrorCode,
+		"tenant_id", logsafe.String(event.TenantID.String()),
+		"class_id", logsafe.String(event.ClassID.String()),
+		"actor_id", logsafe.String(event.ActorID.String()),
+		"attempt_id", logsafe.String(event.AttemptID.String()),
+		"stage", logsafe.String(event.Stage),
+		"outcome", logsafe.String(event.Outcome),
+		"error_code", logsafe.String(event.ErrorCode),
 		"duration_ms", event.DurationMS,
 	)
 }

@@ -73,7 +73,9 @@ func execute(
 		return fmt.Errorf("open migration database: %w", err)
 	}
 	database.SetMaxOpenConns(1)
-	database.SetMaxIdleConns(0)
+	// PostgreSQL advisory locks are session-scoped. Keep the single connection
+	// idle so golang-migrate can unlock on the same database session.
+	database.SetMaxIdleConns(1)
 
 	if err := database.PingContext(ctx); err != nil {
 		_ = database.Close()
@@ -84,6 +86,11 @@ func execute(
 	if err != nil {
 		_ = database.Close()
 		return fmt.Errorf("open embedded migrations: %w", err)
+	}
+	if _, err := sourceDriver.First(); err != nil {
+		_ = sourceDriver.Close()
+		_ = database.Close()
+		return fmt.Errorf("validate embedded migrations: %w", err)
 	}
 
 	databaseDriver, err := postgres.WithInstance(database, &postgres.Config{

@@ -64,6 +64,29 @@ describe("getHealth", () => {
     );
   });
 
+  it("removes every trailing slash from the API base URL", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          status: "ok",
+          service: "tutorhub-core-api",
+          environment: "test",
+          timestamp: "2026-07-12T00:00:00Z",
+        }),
+        { status: 200 },
+      ),
+    );
+
+    await getHealth({
+      baseUrl: "https://api.example.test////",
+      fetch: fetchMock,
+    });
+
+    expect((fetchMock.mock.calls[0]?.[0] as Request).url).toBe(
+      "https://api.example.test/health",
+    );
+  });
+
   it("ném lỗi có status khi response thất bại", async () => {
     vi.stubGlobal(
       "fetch",

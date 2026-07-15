@@ -82,7 +82,7 @@ func TestAuthenticationHTTPFlowSetsAndClearsHardenedCookies(t *testing.T) {
 	if sessionCookie.Value != "session-token" || !sessionCookie.HttpOnly {
 		t.Fatalf("unexpected session cookie: %+v", sessionCookie)
 	}
-	if csrfCookie.Value != "csrf-token" || csrfCookie.HttpOnly {
+	if csrfCookie.Value != "csrf-token" || !csrfCookie.HttpOnly {
 		t.Fatalf("unexpected CSRF cookie: %+v", csrfCookie)
 	}
 

@@ -109,13 +109,11 @@ func (handlers authHandlers) setTenantSessionCookies(
 		handlers.cookieNames.session,
 		result.SessionToken,
 		result.ExpiresAt,
-		true,
 	)
 	handlers.setCookie(
 		w,
 		handlers.cookieNames.csrf,
 		result.CSRFToken,
 		result.ExpiresAt,
-		false,
 	)
 }
