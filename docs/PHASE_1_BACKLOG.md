@@ -134,10 +134,19 @@ thuộc P1-10 Cloud foundation và không làm thay đổi kết quả spike.
 
 ## P1-08 CI/CD và security
 
-- [ ] PR pipeline: format/lint -> typecheck -> unit -> integration -> build -> scan.
-- [ ] Secret, dependency, SAST và container scan.
-- [ ] Preview deployment cho web và staging deployment cho API.
-- [ ] Branch protection, CODEOWNERS, dependency update automation.
+- [x] P1-08A PR pipeline: format/lint -> typecheck -> unit -> integration -> build -> client-bundle scan.
+- [x] P1-08A secret, dependency, SAST, repository và container scan.
+- [x] P1-08A CODEOWNERS, dependency update automation, private disclosure policy và CI/security runbook.
+- [ ] Xác nhận ruleset/branch protection và các GitHub security switches theo checklist quản trị từ `docs/CI_SECURITY.md`.
+- [ ] P1-08B preview deployment cho web và staging deployment cho API sau khi P1-10 cấp resource tách biệt.
+
+**Trạng thái 2026-07-15:** P1-08A hoàn thành về mã nguồn trên branch
+`codex/p1-08a-ci-security`. Workflow `Verify` dùng PostgreSQL thật và chạy toàn bộ quality gate;
+workflow `Security` chạy Gitleaks, Dependency Review, CodeQL JavaScript/TypeScript + Go và Trivy
+filesystem/container. Mọi action ngoài repository được ghim bằng full commit SHA, quyền mặc định là
+`contents: read`, checkout không giữ credential, job có timeout/concurrency. Tám unit test cho policy
+và bundle scanner, `pnpm verify`, classroom/identity Neon integration test đều đạt. GitHub ruleset và
+security switches là bước quản trị một lần cần xác nhận bằng bằng chứng; deployment không nằm trong P1-08A.
 
 ## P1-09 Local developer experience
 

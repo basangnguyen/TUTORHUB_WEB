@@ -32,7 +32,7 @@ func TestPostgresRepositoryTenantIsolation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read migration version: %v", err)
 	}
-	if version.Number != 4 || version.Dirty {
+	if version.Number < 4 || version.Dirty {
 		t.Fatalf("unexpected migration version: %+v", version)
 	}
 

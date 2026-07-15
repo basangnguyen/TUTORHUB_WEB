@@ -22,11 +22,14 @@
     "storybook": "storybook dev -p 6006",
     "storybook:build": "storybook build --output-dir storybook-static",
     "test:integration": "go test -count=1 -tags=integration ./services/core-api/internal/modules/classroom && go test -count=1 -tags=integration ./services/core-api/internal/modules/identity",
+    "security:actions": "node scripts/check-github-actions-security.mjs",
+    "security:bundle": "node scripts/check-client-bundle-security.mjs",
+    "security:test": "node --test scripts/check-github-actions-security.test.mjs scripts/check-client-bundle-security.test.mjs",
     "format": "prettier --write \"apps/**/*.{ts,tsx,css,html,json}\" \"packages/**/*.{ts,tsx,css,json}\" \"scripts/**/*.{js,mjs,ts}\" \".storybook/**/*.{ts,tsx,css}\" \"*.{json,yaml,yml,mjs}\" \".github/**/*.{yaml,yml}\" \"openapi/**/*.{yaml,yml}\"",
     "format:check": "prettier --check \"apps/**/*.{ts,tsx,css,html,json}\" \"packages/**/*.{ts,tsx,css,json}\" \"scripts/**/*.{js,mjs,ts}\" \".storybook/**/*.{ts,tsx,css}\" \"*.{json,yaml,yml,mjs}\" \".github/**/*.{yaml,yml}\" \"openapi/**/*.{yaml,yml}\"",
-    "verify:web": "pnpm lint && turbo run typecheck test build && pnpm storybook:build",
+    "verify:web": "pnpm lint && turbo run typecheck test build && pnpm storybook:build && pnpm security:bundle",
     "verify:go": "go test ./services/core-api/... && go vet ./services/core-api/...",
-    "verify": "pnpm format:check && pnpm api:check && pnpm verify:web && pnpm verify:go"
+    "verify": "pnpm format:check && pnpm api:check && pnpm security:test && pnpm security:actions && pnpm verify:web && pnpm verify:go"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

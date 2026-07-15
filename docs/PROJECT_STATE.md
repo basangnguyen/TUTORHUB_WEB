@@ -6,14 +6,14 @@
 
 | Thuộc tính              | Trạng thái                                                                                                                           |
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| Ngày cập nhật           | 2026-07-14                                                                                                                           |
+| Ngày cập nhật           | 2026-07-15                                                                                                                           |
 | Repository chính thức   | `https://github.com/basangnguyen/TUTORHUB_WEB`                                                                                       |
 | Remote / default branch | `origin` / `main`                                                                                                                    |
-| Branch                  | `codex/p1-03-design-system`                                                                                                          |
+| Branch                  | `codex/p1-08a-ci-security`                                                                                                           |
 | Phase hoàn thành        | Phase 0                                                                                                                              |
 | Phase hiện tại          | Phase 1 - Engineering foundation                                                                                                     |
-| Task hiện tại           | P1-03 Design system đã hoàn thành cục bộ trên `codex/p1-03-design-system`; chờ review/merge                                           |
-| Task kế tiếp            | P1-08 CI/CD và security: hoàn thiện pipeline, scan, branch protection và preview/staging deployment                                  |
+| Task hiện tại           | P1-08A CI/security baseline hoàn thành về mã nguồn; chờ review/workflow GitHub và xác nhận settings quản trị                         |
+| Task kế tiếp            | P1-10 cấp cloud staging tách biệt, sau đó P1-08B preview/staging deployment                                                           |
 | Application code V2     | React multi-tenant web shell + classroom/prejoin/LiveKit room UI + generated API client + Go Core API/OIDC/database/media foundation |
 | Git commit đầu tiên     | `33af851` - `chore(bootstrap): initialize TutorHub V2 foundation`                                                                    |
 
@@ -76,6 +76,10 @@
 - `packages/ui` cung cấp Button/IconButton, Field, Select, Tabs, Menu, Dialog/Drawer, Tooltip, Toast, Skeleton và StateView trên Radix Primitives; icon dùng Lucide và không phụ thuộc tải mạng lúc chạy.
 - Storybook bao phủ foundation, form, navigation, overlay và state; component nền đã được tích hợp vào app shell, route states và class vertical slice mà không đổi contract nghiệp vụ.
 - Accessibility/visual QA đạt cho keyboard navigation, focus trap/restore, Escape, accessible name, tám cặp tương phản WCAG và bố cục không tràn ngang ở desktop/mobile.
+- Hoàn thành P1-08A: workflow `Verify` chạy format/contract/lint/typecheck/unit/integration/build/Storybook, Go test/vet và client-bundle secret guard trên PostgreSQL thật.
+- Thêm workflow `Security` cho Gitleaks, Dependency Review, CodeQL JavaScript/TypeScript + Go, Trivy filesystem và Core API container; action ngoài repository được ghim full SHA và chỉ cấp quyền tối thiểu.
+- Thêm CODEOWNERS, Dependabot cho pnpm/Go/Actions/Docker, `SECURITY.md`, ADR-0010 và `docs/CI_SECURITY.md`; tám unit test bảo vệ workflow policy và bundle scanner đều đạt.
+- Sửa migration guard trong classroom/identity integration test từ version chính xác `4` sang tối thiểu `4`, để schema mới hơn như migration LiveKit `5` vẫn được kiểm thử đúng mà không nới điều kiện `dirty=false`.
 
 ## Chưa thực hiện
 
@@ -88,15 +92,20 @@
 - Chưa thêm audit query/UI cho các thao tác tenant nhạy cảm; audit read model thuộc phase bảo mật/vận hành tiếp theo.
 - Chưa có enrollment, invite code, roster hoặc quyền theo từng lớp; P1-06B mới dùng quyền membership cấp tenant, các phần này thuộc Phase 2.
 - Chưa cấu hình webhook LiveKit trên URL HTTPS staging.
+- Chưa xác nhận ruleset `main`, required checks, secret scanning/push protection, code scanning và private vulnerability reporting trên giao diện quản trị GitHub; checklist nằm trong `docs/CI_SECURITY.md`.
+- Chưa triển khai preview web hoặc staging API; đây là P1-08B sau khi P1-10 cung cấp resource và secret tách biệt.
 
 ## Việc tiếp theo
 
-1. Hoàn thiện P1-08 CI/CD và security: pipeline đầy đủ, secret/dependency/SAST/container scan, branch protection và dependency update automation.
-2. Provision `tutorhub-staging`, preview web và cấu hình webhook HTTPS trong P1-10 bằng URL, secret và resource tách biệt.
-3. Hoàn thiện P1-09 local developer experience để rút ngắn thời gian dựng môi trường và xử lý lỗi.
+1. Xác nhận một lần các GitHub ruleset/security switches trong `docs/CI_SECURITY.md` và kiểm tra workflow P1-08A trên branch/PR.
+2. Hoàn thiện P1-10: provision cloud staging, `tutorhub-staging`, HTTPS URL và secret/resource tách biệt.
+3. Thực hiện P1-08B: preview web, staging API, migration/health/rollback smoke và webhook HTTPS.
+4. Hoàn thiện P1-09 local developer experience để rút ngắn thời gian dựng môi trường và xử lý lỗi.
 
 ## Verify gần nhất
 
+- P1-08A `pnpm verify`: đạt trên Windows với Go SDK ghim tại `.tools/go/bin`; format, OpenAPI generated contract, 8 security unit tests, workflow SHA/permission policy, lint, typecheck, 31 Vitest tests, production build, Storybook, client-bundle scan và Go test/vet đều xanh.
+- P1-08A Neon integration: classroom và identity tagged tests đạt sau migration version `5`, `dirty=false`; fixture tiếp tục rollback.
 - `pnpm verify`: đạt trên Windows sau khi thêm `.tools\go\bin` vào `PATH`; 15/15 tác vụ workspace, format, generated contract, lint, typecheck, test, build, Storybook static build và Go test/vet đều xanh.
 - Vitest: UI 6 tests, web 18 tests và API client 7 tests đạt; bao phủ keyboard/focus/ARIA của component nền cùng media browser support, route state, API token/telemetry và recovery state.
 - Design token contrast check: 8/8 cặp foreground/background của theme sáng và tối đạt ngưỡng 4.5:1.
@@ -126,6 +135,7 @@
 - `docs/AUTHENTICATION.md`
 - `docs/DEPLOYMENT_BASELINE.md`
 - `docs/SECURITY_BASELINE.md`
+- `docs/CI_SECURITY.md`
 - `docs/adr/*`
 
 ## Quy tắc cập nhật

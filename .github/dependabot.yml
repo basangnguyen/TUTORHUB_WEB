@@ -1,0 +1,74 @@
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "03:00"
+      timezone: Asia/Ho_Chi_Minh
+    open-pull-requests-limit: 5
+    reviewers:
+      - basangnguyen
+    groups:
+      pnpm-non-major:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
+
+  - package-ecosystem: gomod
+    directory: /services/core-api
+    schedule:
+      interval: weekly
+      day: monday
+      time: "03:15"
+      timezone: Asia/Ho_Chi_Minh
+    open-pull-requests-limit: 5
+    reviewers:
+      - basangnguyen
+    groups:
+      go-non-major:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "03:30"
+      timezone: Asia/Ho_Chi_Minh
+    open-pull-requests-limit: 5
+    reviewers:
+      - basangnguyen
+    groups:
+      actions-non-major:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
+
+  - package-ecosystem: docker
+    directory: /infrastructure/huggingface/core-api
+    schedule:
+      interval: weekly
+      day: monday
+      time: "03:45"
+      timezone: Asia/Ho_Chi_Minh
+    open-pull-requests-limit: 3
+    reviewers:
+      - basangnguyen
+    groups:
+      container-non-major:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch

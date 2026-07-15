@@ -1,0 +1,15 @@
+# Default reviewer for every change.
+* @basangnguyen
+
+# Security-sensitive delivery and infrastructure surfaces.
+/.github/ @basangnguyen
+/SECURITY.md @basangnguyen
+/scripts/check-*security* @basangnguyen
+/infrastructure/ @basangnguyen
+/services/core-api/internal/platform/ @basangnguyen
+
+# Contracts and durable data changes require explicit review.
+/openapi/ @basangnguyen
+/services/core-api/migrations/ @basangnguyen
+/docs/adr/ @basangnguyen
+/docs/SECURITY_BASELINE.md @basangnguyen

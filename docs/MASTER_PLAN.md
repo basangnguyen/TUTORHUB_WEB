@@ -1128,13 +1128,12 @@ Tách role Neon tối thiểu quyền vẫn thuộc P1-10.
 
 #### P1-08 CI/CD và security
 
-- Full verification pipeline.
-- Secret/dependency/SAST/container scan.
-- Preview web.
-- Staging API.
-- Branch protection/CODEOWNERS.
-- Rollback smoke.
-- No-secret bundle/history check.
+- **P1-08A (hoàn thành mã nguồn 2026-07-15):** full verification pipeline, PostgreSQL integration,
+  Gitleaks, Dependency Review, CodeQL, Trivy repository/container, no-secret bundle/history check,
+  action pin full SHA, least-privilege workflow, CODEOWNERS và Dependabot.
+- **P1-08A (quản trị GitHub):** xác nhận ruleset `main`, required checks, secret scanning/push protection,
+  code scanning và private vulnerability reporting theo `docs/CI_SECURITY.md`.
+- **P1-08B (sau P1-10):** preview web, staging API, migration/health/rollback smoke và deployment concurrency.
 
 #### P1-09 Developer experience
 
@@ -1667,13 +1666,14 @@ Một tính năng chỉ được đánh dấu hoàn thành khi:
 
 ## 36. Việc cần làm ngay
 
-Thứ tự hiện tại, cập nhật ngày 2026-07-14, không làm song song các phần phụ thuộc:
+Thứ tự hiện tại, cập nhật ngày 2026-07-15, không làm song song các phần phụ thuộc:
 
 1. Review/merge P1-03 và chuỗi P1-04 đến P1-06B đã hoàn thành cục bộ.
-2. Hoàn thiện P1-08 để có pipeline đầy đủ, security scan, branch protection và dependency automation.
-3. Hoàn thiện P1-10 để có HTTPS staging, preview web, LiveKit webhook và resource cloud tách biệt.
-4. Hoàn thiện P1-09 local developer experience và runbook xử lý lỗi.
-5. Đạt Phase 1 exit gate rồi mới bắt đầu domain enrollment/roster và UI phòng học đầy đủ.
+2. Review/merge P1-08A và xác nhận GitHub ruleset/security switches theo runbook.
+3. Hoàn thiện P1-10 để có HTTPS staging, LiveKit webhook và resource cloud tách biệt.
+4. Thực hiện P1-08B preview web/staging API cùng migration, health và rollback smoke.
+5. Hoàn thiện P1-09 local developer experience và runbook xử lý lỗi.
+6. Đạt Phase 1 exit gate rồi mới bắt đầu domain enrollment/roster và UI phòng học đầy đủ.
 
 Không bắt đầu QuizHub, Lavie, social feed hoặc Secure Exam web trong Phase 1.
 
