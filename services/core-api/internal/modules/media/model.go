@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/tutorhub-v2/core-api/internal/policy"
 )
 
 var (
@@ -17,12 +18,14 @@ var (
 )
 
 type AccessContext struct {
-	TenantID    uuid.UUID
-	ActorID     uuid.UUID
-	SessionID   uuid.UUID
-	DisplayName string
-	Role        string
-	Permissions []string
+	TenantID          uuid.UUID
+	ActorID           uuid.UUID
+	SessionID         uuid.UUID
+	DisplayName       string
+	Role              string
+	MembershipActive  bool
+	OrganizationRoles []policy.OrganizationRole
+	ClassRoles        []policy.ClassRole
 }
 
 type JoinCredential struct {

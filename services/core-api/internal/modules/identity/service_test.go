@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/tutorhub-v2/core-api/internal/policy"
 )
 
 func TestServiceCompletesOIDCFlowAndManagesSession(t *testing.T) {
@@ -461,7 +462,7 @@ func (repository *memoryRepository) CreateTenant(
 	}
 	repository.principal.ActiveTenant = &tenant
 	repository.principal.Memberships = []Tenant{tenant}
-	repository.principal.Permissions = permissionsForRole(tenant.Role)
+	repository.principal.Permissions = permissionsForOrganizationRole(tenant.Role)
 	repository.metadata.TokenHash = append([]byte(nil), rotation.TokenHash...)
 	repository.csrfHash = append([]byte(nil), rotation.CSRFHash...)
 
@@ -494,7 +495,7 @@ func (repository *memoryRepository) SwitchActiveTenant(
 		return TenantMutationResult{}, ErrTenantAccessDenied
 	}
 	repository.principal.ActiveTenant = selected
-	repository.principal.Permissions = permissionsForRole(selected.Role)
+	repository.principal.Permissions = permissionsForOrganizationRole(selected.Role)
 	repository.metadata.TokenHash = append([]byte(nil), rotation.TokenHash...)
 	repository.csrfHash = append([]byte(nil), rotation.CSRFHash...)
 
@@ -502,4 +503,14 @@ func (repository *memoryRepository) SwitchActiveTenant(
 		Principal: repository.principal,
 		ExpiresAt: repository.metadata.ExpiresAt,
 	}, nil
+}
+
+func permissionsForOrganizationRole(role string) []string {
+	permissions := policy.NewEngine().EffectivePermissions(policy.Subject{
+		ActorID:           uuid.MustParse("11111111-1111-4111-8111-111111111111"),
+		ActiveTenantID:    uuid.MustParse("22222222-2222-4222-8222-222222222222"),
+		MembershipActive:  true,
+		OrganizationRoles: []policy.OrganizationRole{policy.OrganizationRole(role)},
+	})
+	return policy.PermissionStrings(permissions)
 }

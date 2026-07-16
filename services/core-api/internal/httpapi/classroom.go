@@ -12,6 +12,7 @@ import (
 	"github.com/tutorhub-v2/core-api/internal/modules/classroom"
 	"github.com/tutorhub-v2/core-api/internal/modules/identity"
 	"github.com/tutorhub-v2/core-api/internal/platform/logsafe"
+	"github.com/tutorhub-v2/core-api/internal/policy"
 )
 
 const (
@@ -242,11 +243,14 @@ func (handlers classHandlers) writeProblem(w http.ResponseWriter, r *http.Reques
 
 func classAccess(principal identity.Principal) classroom.AccessContext {
 	access := classroom.AccessContext{
-		ActorID:     principal.User.ID,
-		Permissions: append([]string(nil), principal.Permissions...),
+		ActorID: principal.User.ID,
 	}
 	if principal.ActiveTenant != nil {
 		access.TenantID = principal.ActiveTenant.ID
+		access.MembershipActive = true
+		access.OrganizationRoles = []policy.OrganizationRole{
+			policy.OrganizationRole(principal.ActiveTenant.Role),
+		}
 	}
 	return access
 }

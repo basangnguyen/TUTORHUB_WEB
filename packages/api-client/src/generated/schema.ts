@@ -308,6 +308,9 @@ export type components = {
     readonly ClassListResponse: {
       readonly items: readonly components["schemas"]["Class"][];
     };
+    /** @enum {string} */
+    readonly ClassRole:
+      "owner" | "co_teacher" | "teaching_assistant" | "student";
     readonly CreateClassRequest: {
       readonly code: string;
       readonly description?: string;
@@ -377,9 +380,25 @@ export type components = {
     readonly MeResponse: {
       readonly active_tenant: components["schemas"]["TenantMembership"] | null;
       readonly memberships: readonly components["schemas"]["TenantMembership"][];
-      readonly permissions: readonly string[];
+      readonly permissions: readonly components["schemas"]["Permission"][];
       readonly user: components["schemas"]["User"];
     };
+    /** @enum {string} */
+    readonly OrganizationRole: "org_admin" | "teacher" | "student" | "guest";
+    /** @enum {string} */
+    readonly Permission:
+      | "tenant.manage"
+      | "class.create"
+      | "class.update"
+      | "class.view"
+      | "enrollment.manage"
+      | "session.start"
+      | "session.end"
+      | "session.join"
+      | "participant.admit"
+      | "participant.remove"
+      | "media.publish"
+      | "chat.send";
     readonly Problem: {
       readonly detail?: string;
       readonly instance?: string;
@@ -410,8 +429,7 @@ export type components = {
       readonly id: string;
       readonly is_active: boolean;
       readonly name: string;
-      /** @enum {string} */
-      readonly role: "org_admin" | "teacher" | "student" | "guest";
+      readonly role: components["schemas"]["OrganizationRole"];
       readonly slug: string;
     };
     readonly User: {
@@ -425,8 +443,35 @@ export type components = {
     };
   };
   responses: {
+    /** @description The authenticated actor lacks permission in the active workspace */
+    readonly ForbiddenResponse: {
+      headers: {
+        readonly [name: string]: unknown;
+      };
+      content: {
+        readonly "application/problem+json": components["schemas"]["Problem"];
+      };
+    };
+    /** @description The resource is absent or outside the active tenant/class scope */
+    readonly NotFoundResponse: {
+      headers: {
+        readonly [name: string]: unknown;
+      };
+      content: {
+        readonly "application/problem+json": components["schemas"]["Problem"];
+      };
+    };
     /** @description Request failed with a structured problem response */
     readonly ProblemResponse: {
+      headers: {
+        readonly [name: string]: unknown;
+      };
+      content: {
+        readonly "application/problem+json": components["schemas"]["Problem"];
+      };
+    };
+    /** @description Authentication is missing, expired, or invalid */
+    readonly UnauthorizedResponse: {
       headers: {
         readonly [name: string]: unknown;
       };
@@ -555,6 +600,8 @@ export interface operations {
           readonly "application/json": components["schemas"]["ClassListResponse"];
         };
       };
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
       readonly default: components["responses"]["ProblemResponse"];
     };
   };
@@ -583,6 +630,8 @@ export interface operations {
           readonly "application/json": components["schemas"]["Class"];
         };
       };
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
       readonly default: components["responses"]["ProblemResponse"];
     };
   };
@@ -606,6 +655,9 @@ export interface operations {
           readonly "application/json": components["schemas"]["Class"];
         };
       };
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
       readonly default: components["responses"]["ProblemResponse"];
     };
   };
@@ -633,6 +685,9 @@ export interface operations {
         };
         content?: never;
       };
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
       readonly default: components["responses"]["ProblemResponse"];
     };
   };
@@ -659,6 +714,9 @@ export interface operations {
           readonly "application/json": components["schemas"]["MediaTokenResponse"];
         };
       };
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
       readonly default: components["responses"]["ProblemResponse"];
     };
   };

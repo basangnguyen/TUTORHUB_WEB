@@ -27,22 +27,69 @@ erDiagram
     CLASS_SESSION ||--o{ MESSAGE : contains
 ```
 
-## 3. Role và permission MVP
+## 3. Mô hình role và permission
 
-| Permission | Org Admin | Teacher | Student | Guest |
-|---|---:|---:|---:|---:|
-| tenant.manage | Yes | No | No | No |
-| class.create | Yes | Yes | No | No |
-| class.update | Yes | Own/assigned | No | No |
-| class.view | Yes | Member | Enrolled | Invited session |
-| enrollment.manage | Yes | Assigned class | No | No |
-| session.start/end | Yes | Assigned class | No | No |
-| session.join | Yes | Assigned | Enrolled | Valid invite |
-| participant.admit/remove | Yes | Assigned class | No | No |
-| media.publish | Policy | Policy | Policy | Restricted |
-| chat.send | Policy | Policy | Policy | Restricted |
+TutorHub phân biệt hai phạm vi role. Organization role thuộc membership của workspace
+đang hoạt động; class role thuộc enrollment của đúng lớp. Một role ở tenant hoặc lớp
+khác không tham gia quyết định hiện tại.
 
-Không dùng role trực tiếp rải rác trong handler. Handler gọi authorization policy với subject, action, resource và tenant context.
+### 3.1. Organization role
+
+| Permission | `org_admin` | `teacher` | `student` | `guest` |
+|---|:---:|:---:|:---:|:---:|
+| `tenant.manage` | Có | Không | Không | Không |
+| `class.create` | Có | Có | Không | Không |
+| `class.update` | Có | Có | Không | Không |
+| `class.view` | Có | Có | Có | Không |
+| `enrollment.manage` | Có | Có | Không | Không |
+| `session.start` | Có | Có | Không | Không |
+| `session.end` | Có | Có | Không | Không |
+| `session.join` | Có | Có | Có | Có |
+| `participant.admit` | Có | Có | Không | Không |
+| `participant.remove` | Có | Có | Không | Không |
+| `media.publish` | Có | Có | Có | Không |
+| `chat.send` | Có | Có | Có | Có |
+
+Ma trận organization giữ tương thích với các luồng Phase 1. Khi enrollment và roster
+được triển khai ở P2-05/P2-06, class role bổ sung ràng buộc theo đúng lớp thay vì làm
+phát sinh kiểm tra role riêng trong từng module.
+
+### 3.2. Class role
+
+| Permission | `owner` | `co_teacher` | `teaching_assistant` | `student` |
+|---|:---:|:---:|:---:|:---:|
+| `tenant.manage` | Không | Không | Không | Không |
+| `class.create` | Không | Không | Không | Không |
+| `class.update` | Có | Có | Không | Không |
+| `class.view` | Có | Có | Có | Có |
+| `enrollment.manage` | Có | Có | Không | Không |
+| `session.start` | Có | Có | Không | Không |
+| `session.end` | Có | Có | Không | Không |
+| `session.join` | Có | Có | Có | Có |
+| `participant.admit` | Có | Có | Có | Không |
+| `participant.remove` | Có | Có | Không | Không |
+| `media.publish` | Có | Có | Có | Có |
+| `chat.send` | Có | Có | Có | Có |
+
+### 3.3. Effective permission
+
+1. Server chỉ đọc membership active của `active_tenant_id` trong session; tenant ID do
+   client gửi không tạo thêm quyền.
+2. Effective permission là hợp của các organization role hợp lệ trong active tenant và
+   các class role active của đúng resource class. Phép hợp loại trùng và trả thứ tự ổn
+   định để response/cache có tính xác định.
+3. Role không nhận diện, membership không active, actor/tenant thiếu hoặc action không
+   được khai báo đều bị từ chối theo nguyên tắc deny-by-default.
+4. Ràng buộc trạng thái tài nguyên được áp dụng sau phép hợp quyền. Ví dụ lớp archived
+   vẫn được xem nhưng không thể join room hoặc publish media; quyền role không vượt qua
+   state machine.
+5. Quyết định thiếu quyền trong scope trả `403`. Resource ID thuộc tenant/lớp khác hoặc
+   thiếu scope trả `404`, giống resource không tồn tại, nhằm tránh dò tìm định danh.
+
+Authorization input thống nhất gồm actor, active tenant, trạng thái membership,
+organization/class roles, action, resource tenant, resource class và resource state.
+Handler chỉ chuyển principal đã xác thực; `identity`, `classroom` và `media` cùng dùng
+`internal/policy.Authorizer`, không so sánh role hoặc permission cục bộ.
 
 ## 4. Tenant isolation
 

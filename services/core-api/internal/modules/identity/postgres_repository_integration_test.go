@@ -15,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tutorhub-v2/core-api/internal/platform/migrationrunner"
+	"github.com/tutorhub-v2/core-api/internal/policy"
 )
 
 func TestPostgresRepositoryOIDCSessionLifecycle(t *testing.T) {
@@ -85,7 +86,7 @@ VALUES ($1, $2, 'teacher', 'active', now())`,
 	}
 	provider := &fakeProvider{}
 	service, err := NewService(
-		NewPostgresRepository(transaction, 10*time.Second),
+		NewPostgresRepository(transaction, 10*time.Second, policy.NewEngine()),
 		provider,
 		crypto,
 		ServiceConfig{
@@ -254,7 +255,7 @@ VALUES ($1, $2, $3, $4, $5, $5, $6, $7, $5)`,
 		t.Fatalf("insert onboarding session: %v", err)
 	}
 
-	repository := NewPostgresRepository(transaction, 10*time.Second)
+	repository := NewPostgresRepository(transaction, 10*time.Second, policy.NewEngine())
 	creationRotation := SessionRotation{
 		TokenHash: bytes.Repeat([]byte{0x20}, 32),
 		CSRFHash:  bytes.Repeat([]byte{0x21}, 32),

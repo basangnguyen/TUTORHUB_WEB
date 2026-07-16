@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/tutorhub-v2/core-api/internal/policy"
 )
 
 type Database interface {
@@ -19,10 +20,17 @@ type Database interface {
 type PostgresRepository struct {
 	database     Database
 	queryTimeout time.Duration
+	authorizer   policy.Authorizer
 }
 
-func NewPostgresRepository(database Database, queryTimeout time.Duration) *PostgresRepository {
-	return &PostgresRepository{database: database, queryTimeout: queryTimeout}
+func NewPostgresRepository(
+	database Database,
+	queryTimeout time.Duration,
+	authorizer policy.Authorizer,
+) *PostgresRepository {
+	return &PostgresRepository{
+		database: database, queryTimeout: queryTimeout, authorizer: authorizer,
+	}
 }
 
 func (repository *PostgresRepository) CreateFlow(
@@ -192,7 +200,9 @@ RETURNING id`
 		return Principal{}, fmt.Errorf("insert authenticated session: %w", err)
 	}
 
-	principal, err := loadPrincipal(queryContext, transaction, sessionID, userID, activeTenantID)
+	principal, err := repository.loadPrincipal(
+		queryContext, transaction, sessionID, userID, activeTenantID,
+	)
 	if err != nil {
 		return Principal{}, err
 	}
@@ -253,7 +263,9 @@ RETURNING id, user_id, active_tenant_id, csrf_token_hash, expires_at`
 		return SessionRecord{}, fmt.Errorf("refresh session: %w", err)
 	}
 
-	principal, err := loadPrincipal(queryContext, transaction, sessionID, userID, activeTenant.UUID)
+	principal, err := repository.loadPrincipal(
+		queryContext, transaction, sessionID, userID, activeTenant.UUID,
+	)
 	if err != nil {
 		return SessionRecord{}, err
 	}
@@ -459,7 +471,7 @@ VALUES (
 		return TenantMutationResult{}, fmt.Errorf("insert tenant creation event: %w", err)
 	}
 
-	principal, err := loadPrincipal(
+	principal, err := repository.loadPrincipal(
 		queryContext,
 		transaction,
 		sessionID,
@@ -534,7 +546,7 @@ func (repository *PostgresRepository) SwitchActiveTenant(
 	); err != nil {
 		return TenantMutationResult{}, err
 	}
-	principal, err := loadPrincipal(
+	principal, err := repository.loadPrincipal(
 		queryContext,
 		transaction,
 		sessionID,
@@ -818,7 +830,7 @@ LIMIT 1`,
 	return tenantID, nil
 }
 
-func loadPrincipal(
+func (repository *PostgresRepository) loadPrincipal(
 	ctx context.Context,
 	transaction pgx.Tx,
 	sessionID uuid.UUID,
@@ -872,7 +884,18 @@ ORDER BY t.name ASC, t.id ASC`,
 		if membership.IsActive {
 			active := membership
 			principal.ActiveTenant = &active
-			principal.Permissions = permissionsForRole(membership.Role)
+			if repository.authorizer != nil {
+				principal.Permissions = policy.PermissionStrings(
+					repository.authorizer.EffectivePermissions(policy.Subject{
+						ActorID:          principal.User.ID,
+						ActiveTenantID:   membership.ID,
+						MembershipActive: true,
+						OrganizationRoles: []policy.OrganizationRole{
+							policy.OrganizationRole(membership.Role),
+						},
+					}),
+				)
+			}
 		}
 	}
 	if err := rows.Err(); err != nil {
@@ -883,44 +906,6 @@ ORDER BY t.name ASC, t.id ASC`,
 	}
 
 	return principal, nil
-}
-
-func permissionsForRole(role string) []string {
-	switch role {
-	case "org_admin":
-		return []string{
-			"tenant.manage",
-			"class.create",
-			"class.update",
-			"class.view",
-			"enrollment.manage",
-			"session.start",
-			"session.join",
-			"participant.admit",
-			"participant.remove",
-			"media.publish",
-			"chat.send",
-		}
-	case "teacher":
-		return []string{
-			"class.create",
-			"class.update",
-			"class.view",
-			"enrollment.manage",
-			"session.start",
-			"session.join",
-			"participant.admit",
-			"participant.remove",
-			"media.publish",
-			"chat.send",
-		}
-	case "student":
-		return []string{"class.view", "session.join", "media.publish", "chat.send"}
-	case "guest":
-		return []string{"session.join", "chat.send"}
-	default:
-		return []string{}
-	}
 }
 
 func nullUUID(value uuid.UUID) any {

@@ -19,6 +19,7 @@ import (
 	"github.com/tutorhub-v2/core-api/internal/platform/httpserver"
 	"github.com/tutorhub-v2/core-api/internal/platform/objectstorage"
 	"github.com/tutorhub-v2/core-api/internal/platform/observability"
+	"github.com/tutorhub-v2/core-api/internal/policy"
 )
 
 func main() {
@@ -80,10 +81,12 @@ func run() int {
 		logger.Info("object storage is disabled for this environment")
 	}
 
+	authorizer := policy.NewEngine()
 	var classroomService classroom.ServiceAPI
 	if pool != nil {
 		classroomService, err = classroom.NewService(
 			classroom.NewPostgresRepository(pool, cfg.Database.QueryTimeout),
+			authorizer,
 		)
 		if err != nil {
 			logger.Error("initialize classroom service", "error", err)
@@ -118,7 +121,7 @@ func run() int {
 			return 1
 		}
 		identityService, err = identity.NewService(
-			identity.NewPostgresRepository(pool, cfg.Database.QueryTimeout),
+			identity.NewPostgresRepository(pool, cfg.Database.QueryTimeout, authorizer),
 			provider,
 			crypto,
 			identity.ServiceConfig{
@@ -159,6 +162,7 @@ func run() int {
 		}
 		mediaService, err = media.NewService(
 			classroomService,
+			authorizer,
 			issuer,
 			media.NewSlogEventSink(logger),
 			media.NewPostgresRepository(pool, cfg.Database.QueryTimeout),

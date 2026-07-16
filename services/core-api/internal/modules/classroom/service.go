@@ -6,17 +6,15 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/tutorhub-v2/core-api/internal/platform/tenancy"
-)
-
-const (
-	permissionClassCreate = "class.create"
-	permissionClassView   = "class.view"
+	"github.com/tutorhub-v2/core-api/internal/policy"
 )
 
 type AccessContext struct {
-	TenantID    uuid.UUID
-	ActorID     uuid.UUID
-	Permissions []string
+	TenantID          uuid.UUID
+	ActorID           uuid.UUID
+	MembershipActive  bool
+	OrganizationRoles []policy.OrganizationRole
+	ClassRoles        []policy.ClassRole
 }
 
 type CreateClassInput struct {
@@ -33,14 +31,15 @@ type ServiceAPI interface {
 
 type Service struct {
 	repository Repository
+	authorizer policy.Authorizer
 }
 
-func NewService(repository Repository) (*Service, error) {
-	if repository == nil {
-		return nil, fmt.Errorf("classroom repository is required")
+func NewService(repository Repository, authorizer policy.Authorizer) (*Service, error) {
+	if repository == nil || authorizer == nil {
+		return nil, fmt.Errorf("classroom repository and policy authorizer are required")
 	}
 
-	return &Service{repository: repository}, nil
+	return &Service{repository: repository, authorizer: authorizer}, nil
 }
 
 func (service *Service) Create(
@@ -48,7 +47,7 @@ func (service *Service) Create(
 	access AccessContext,
 	input CreateClassInput,
 ) (Class, error) {
-	tenantContext, err := access.authorize(permissionClassCreate)
+	tenantContext, err := service.authorize(access, policy.ActionClassCreate, uuid.Nil)
 	if err != nil {
 		return Class{}, err
 	}
@@ -66,7 +65,10 @@ func (service *Service) Get(
 	access AccessContext,
 	classID uuid.UUID,
 ) (Class, error) {
-	tenantContext, err := access.authorize(permissionClassView)
+	if classID == uuid.Nil {
+		return Class{}, ErrClassNotFound
+	}
+	tenantContext, err := service.authorize(access, policy.ActionClassView, classID)
 	if err != nil {
 		return Class{}, err
 	}
@@ -79,7 +81,7 @@ func (service *Service) List(
 	access AccessContext,
 	limit int,
 ) ([]Class, error) {
-	tenantContext, err := access.authorize(permissionClassView)
+	tenantContext, err := service.authorize(access, policy.ActionClassView, uuid.Nil)
 	if err != nil {
 		return nil, err
 	}
@@ -90,8 +92,27 @@ func (service *Service) List(
 	return service.repository.List(ctx, tenantContext, limit)
 }
 
-func (access AccessContext) authorize(permission string) (tenancy.Context, error) {
-	if !access.hasPermission(permission) {
+func (service *Service) authorize(
+	access AccessContext,
+	action policy.Action,
+	classID uuid.UUID,
+) (tenancy.Context, error) {
+	decision := service.authorizer.Authorize(policy.Input{
+		Subject: policy.Subject{
+			ActorID: access.ActorID, ActiveTenantID: access.TenantID,
+			MembershipActive:  access.MembershipActive,
+			OrganizationRoles: append([]policy.OrganizationRole(nil), access.OrganizationRoles...),
+			ClassRoles:        append([]policy.ClassRole(nil), access.ClassRoles...),
+		},
+		Action: action,
+		Resource: policy.Resource{
+			TenantID: access.TenantID, ClassID: classID, State: policy.ResourceStateUnknown,
+		},
+	})
+	if !decision.Allowed {
+		if decision.ConcealResource {
+			return tenancy.Context{}, ErrClassNotFound
+		}
 		return tenancy.Context{}, ErrClassAccessDenied
 	}
 
@@ -101,14 +122,4 @@ func (access AccessContext) authorize(permission string) (tenancy.Context, error
 	}
 
 	return tenantContext, nil
-}
-
-func (access AccessContext) hasPermission(permission string) bool {
-	for _, candidate := range access.Permissions {
-		if candidate == permission {
-			return true
-		}
-	}
-
-	return false
 }

@@ -12,8 +12,8 @@
 | Quy trình           | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
 | Phase hoàn thành    | Phase 0, Phase 1                                                                      |
 | Phase hiện tại      | Phase 2 - Identity, tenant và class core                                              |
-| Task vừa hoàn thành | Exit gate Phase 1 và backlog Phase 2                                                  |
-| Task kế tiếp        | P2-00 Policy and contract baseline                                                    |
+| Task vừa hoàn thành | P2-00 Policy and contract baseline                                                    |
+| Task kế tiếp        | P2-01 User profile và identity linking                                                |
 
 ## Kiến trúc đang chạy
 
@@ -50,6 +50,10 @@
 - Rà exit gate Phase 1 trên commit `ee597af`: Verify/Security CI, HTTPS staging,
   OIDC, Neon, B2, LiveKit, telemetry và rollback đều đạt.
 - Chấp nhận ADR-0012 cho direct-main có kiểm soát trong giai đoạn một người duy trì.
+- P2-00: policy engine deny-by-default dùng chung cho identity/classroom/media;
+  organization/class role matrix, effective permission, 403/404 concealment,
+  OpenAPI enums/error conventions, policy test helpers và static boundary test.
+- Chấp nhận ADR-0013 cho mô hình role tổ chức/lớp và authorization policy dùng chung.
 
 ## Kết quả acceptance staging ngày 2026-07-16
 
@@ -75,9 +79,9 @@ trước pilot/public beta hoặc khi có người duy trì thứ hai.
 
 Backlog có thẩm quyền: `docs/PHASE_2_BACKLOG.md`.
 
-1. Bắt đầu P2-00: chốt permission matrix và policy layer dùng chung.
-2. Sau P2-00 triển khai song song hợp lý P2-01 profile/identity và P2-02 tenant lifecycle.
-3. Chưa bắt đầu UI admin hoặc enrollment trước khi policy contract ổn định.
+1. P2-00 đã hoàn thành và `pnpm verify` xanh ngày 2026-07-16.
+2. Bắt đầu P2-01 profile/identity; P2-02 tenant lifecycle thực hiện sau vertical slice này.
+3. Chưa bắt đầu UI admin hoặc enrollment trước các contract tương ứng.
 
 ## Rủi ro đã biết
 
@@ -86,7 +90,6 @@ Backlog có thẩm quyền: `docs/PHASE_2_BACKLOG.md`.
 - Direct-main chưa có pre-merge protection; `pnpm verify` và CI hậu kiểm là kiểm soát
   bù tạm thời theo ADR-0012.
 - Chưa chọn managed Redis và observability provider cho quy mô lớn hơn.
-- Permission/role check hiện cần được gom về policy layer trong P2-00.
 - Enrollment, invite code, roster và quyền theo lớp chưa triển khai; thuộc P2-05/P2-06.
 - Dữ liệu V1 chưa được migrate.
 - LiveKit chunk phía web còn lớn và cần performance budget ở phase sau.
@@ -111,3 +114,4 @@ Backlog có thẩm quyền: `docs/PHASE_2_BACKLOG.md`.
 - `docs/CI_SECURITY.md`
 - `docs/adr/0011-render-core-api-staging.md`
 - `docs/adr/0012-single-maintainer-direct-main-governance.md`
+- `docs/adr/0013-shared-organization-class-authorization-policy.md`

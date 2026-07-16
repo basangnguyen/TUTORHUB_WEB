@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/tutorhub-v2/core-api/internal/modules/classroom"
+	"github.com/tutorhub-v2/core-api/internal/policy"
 )
 
 var mediaTestTime = time.Date(2026, 7, 14, 10, 0, 0, 0, time.UTC)
@@ -29,7 +30,8 @@ func TestIssueJoinCredentialUsesTenantClassAndLeastPrivilege(t *testing.T) {
 	credential, err := service.IssueJoinCredential(context.Background(), AccessContext{
 		TenantID: tenantID, ActorID: actorID, SessionID: sessionID,
 		DisplayName: "  Giảng viên An  ", Role: "teacher",
-		Permissions: []string{"class.view", "session.join", "media.publish"},
+		MembershipActive:  true,
+		OrganizationRoles: []policy.OrganizationRole{policy.OrganizationRoleTeacher},
 	}, classID)
 	if err != nil {
 		t.Fatalf("issue join credential: %v", err)
@@ -65,11 +67,13 @@ func TestIssueJoinCredentialCreatesSubscribeOnlyGrantWithoutPublishPermission(t 
 	service := newTestService(t, &fakeClassService{class: classroom.Class{
 		ID: classID, TenantID: tenantID, Status: classroom.ClassStatusDraft,
 	}}, issuer, nil, nil, uuid.New())
+	service.authorizer = denyPublishAuthorizer{Authorizer: policy.NewEngine()}
 
 	credential, err := service.IssueJoinCredential(context.Background(), AccessContext{
 		TenantID: tenantID, ActorID: uuid.New(), SessionID: uuid.New(),
 		DisplayName: "Học viên", Role: "student",
-		Permissions: []string{"class.view", "session.join"},
+		MembershipActive:  true,
+		OrganizationRoles: []policy.OrganizationRole{policy.OrganizationRoleStudent},
 	}, classID)
 	if err != nil {
 		t.Fatalf("issue subscribe-only credential: %v", err)
@@ -91,7 +95,6 @@ func TestIssueJoinCredentialDeniesMissingPermissionAndArchivedClass(t *testing.T
 
 	_, err := service.IssueJoinCredential(context.Background(), AccessContext{
 		TenantID: tenantID, ActorID: uuid.New(), SessionID: uuid.New(),
-		Permissions: []string{"class.view"},
 	}, classID)
 	if !errors.Is(err, ErrAccessDenied) || classes.getCalls != 0 {
 		t.Fatalf("expected deny before class lookup, err=%v calls=%d", err, classes.getCalls)
@@ -99,7 +102,8 @@ func TestIssueJoinCredentialDeniesMissingPermissionAndArchivedClass(t *testing.T
 
 	_, err = service.IssueJoinCredential(context.Background(), AccessContext{
 		TenantID: tenantID, ActorID: uuid.New(), SessionID: uuid.New(),
-		Permissions: []string{"class.view", "session.join"},
+		MembershipActive:  true,
+		OrganizationRoles: []policy.OrganizationRole{policy.OrganizationRoleStudent},
 	}, classID)
 	if !errors.Is(err, ErrClassUnavailable) {
 		t.Fatalf("expected archived class denial, got %v", err)
@@ -117,7 +121,8 @@ func TestRecordClientEventValidatesBoundedTelemetry(t *testing.T) {
 	}}, &fakeTokenIssuer{token: "token"}, sink, nil, uuid.New())
 	access := AccessContext{
 		TenantID: tenantID, ActorID: uuid.New(), SessionID: uuid.New(),
-		Permissions: []string{"class.view", "session.join"},
+		MembershipActive:  true,
+		OrganizationRoles: []policy.OrganizationRole{policy.OrganizationRoleStudent},
 	}
 	attemptID := uuid.New()
 
@@ -196,7 +201,7 @@ func newTestService(
 	attemptID uuid.UUID,
 ) *Service {
 	t.Helper()
-	service, err := NewService(classes, issuer, events, repository, ServiceConfig{
+	service, err := NewService(classes, policy.NewEngine(), issuer, events, repository, ServiceConfig{
 		ServerURL: "wss://test.livekit.cloud",
 		TokenTTL:  5 * time.Minute,
 		Clock:     func() time.Time { return mediaTestTime },
@@ -206,6 +211,17 @@ func newTestService(
 		t.Fatalf("create media service: %v", err)
 	}
 	return service
+}
+
+type denyPublishAuthorizer struct {
+	policy.Authorizer
+}
+
+func (authorizer denyPublishAuthorizer) Authorize(input policy.Input) policy.Decision {
+	if input.Action == policy.ActionMediaPublish {
+		return policy.Decision{Reason: policy.DenialPermission}
+	}
+	return authorizer.Authorizer.Authorize(input)
 }
 
 type fakeTokenIssuer struct {

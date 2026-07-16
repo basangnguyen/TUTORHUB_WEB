@@ -179,7 +179,8 @@ func assertClassAccess(
 	userID uuid.UUID,
 ) {
 	t.Helper()
-	if access.TenantID != tenantID || access.ActorID != userID {
+	if access.TenantID != tenantID || access.ActorID != userID || !access.MembershipActive ||
+		len(access.OrganizationRoles) != 1 || string(access.OrganizationRoles[0]) != "teacher" {
 		t.Fatalf("unexpected classroom access context: %+v", access)
 	}
 }

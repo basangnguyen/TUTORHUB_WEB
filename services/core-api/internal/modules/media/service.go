@@ -10,12 +10,10 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/tutorhub-v2/core-api/internal/modules/classroom"
+	"github.com/tutorhub-v2/core-api/internal/policy"
 )
 
 const (
-	permissionClassView    = "class.view"
-	permissionSessionJoin  = "session.join"
-	permissionMediaPublish = "media.publish"
 	maximumErrorCodeLength = 64
 )
 
@@ -66,6 +64,7 @@ type ServiceConfig struct {
 
 type Service struct {
 	classes           classroom.ServiceAPI
+	authorizer        policy.Authorizer
 	issuer            TokenIssuer
 	events            EventSink
 	webhookRepository WebhookReceiptRepository
@@ -77,13 +76,14 @@ type Service struct {
 
 func NewService(
 	classes classroom.ServiceAPI,
+	authorizer policy.Authorizer,
 	issuer TokenIssuer,
 	events EventSink,
 	webhookRepository WebhookReceiptRepository,
 	config ServiceConfig,
 ) (*Service, error) {
-	if classes == nil {
-		return nil, fmt.Errorf("classroom service is required")
+	if classes == nil || authorizer == nil {
+		return nil, fmt.Errorf("classroom service and policy authorizer are required")
 	}
 	if issuer == nil {
 		return nil, fmt.Errorf("LiveKit token issuer is required")
@@ -103,6 +103,7 @@ func NewService(
 
 	return &Service{
 		classes:           classes,
+		authorizer:        authorizer,
 		issuer:            issuer,
 		events:            events,
 		webhookRepository: webhookRepository,
@@ -128,7 +129,12 @@ func (service *Service) IssueJoinCredential(
 
 	roomName := RoomName(access.TenantID, classID)
 	participantIdentity := ParticipantIdentity(access.ActorID, access.SessionID)
-	canPublish := access.hasPermission(permissionMediaPublish)
+	canPublish := service.authorize(
+		access,
+		policy.ActionMediaPublish,
+		classID,
+		policy.ResourceState(class.Status),
+	).Allowed
 	grant := TokenGrant{
 		RoomName:            roomName,
 		ParticipantIdentity: participantIdentity,
@@ -224,15 +230,23 @@ func (service *Service) authorizedClass(
 	access AccessContext,
 	classID uuid.UUID,
 ) (classroom.Class, error) {
-	if access.TenantID == uuid.Nil || access.ActorID == uuid.Nil || access.SessionID == uuid.Nil ||
-		classID == uuid.Nil || !access.hasPermission(permissionClassView) ||
-		!access.hasPermission(permissionSessionJoin) {
+	if access.SessionID == uuid.Nil || classID == uuid.Nil {
+		return classroom.Class{}, ErrAccessDenied
+	}
+	preflight := service.authorize(
+		access, policy.ActionSessionJoin, classID, policy.ResourceStateUnknown,
+	)
+	if !preflight.Allowed {
+		if preflight.ConcealResource {
+			return classroom.Class{}, classroom.ErrClassNotFound
+		}
 		return classroom.Class{}, ErrAccessDenied
 	}
 	class, err := service.classes.Get(ctx, classroom.AccessContext{
-		TenantID:    access.TenantID,
-		ActorID:     access.ActorID,
-		Permissions: append([]string(nil), access.Permissions...),
+		TenantID: access.TenantID, ActorID: access.ActorID,
+		MembershipActive:  access.MembershipActive,
+		OrganizationRoles: append([]policy.OrganizationRole(nil), access.OrganizationRoles...),
+		ClassRoles:        append([]policy.ClassRole(nil), access.ClassRoles...),
 	}, classID)
 	if err != nil {
 		switch {
@@ -244,18 +258,38 @@ func (service *Service) authorizedClass(
 			return classroom.Class{}, fmt.Errorf("authorize media class: %w", err)
 		}
 	}
+	decision := service.authorize(
+		access, policy.ActionSessionJoin, classID, policy.ResourceState(class.Status),
+	)
+	if !decision.Allowed {
+		if decision.Reason == policy.DenialResourceState {
+			return classroom.Class{}, ErrClassUnavailable
+		}
+		if decision.ConcealResource {
+			return classroom.Class{}, classroom.ErrClassNotFound
+		}
+		return classroom.Class{}, ErrAccessDenied
+	}
 
 	return class, nil
 }
 
-func (access AccessContext) hasPermission(permission string) bool {
-	for _, candidate := range access.Permissions {
-		if candidate == permission {
-			return true
-		}
-	}
-
-	return false
+func (service *Service) authorize(
+	access AccessContext,
+	action policy.Action,
+	classID uuid.UUID,
+	state policy.ResourceState,
+) policy.Decision {
+	return service.authorizer.Authorize(policy.Input{
+		Subject: policy.Subject{
+			ActorID: access.ActorID, ActiveTenantID: access.TenantID,
+			MembershipActive:  access.MembershipActive,
+			OrganizationRoles: append([]policy.OrganizationRole(nil), access.OrganizationRoles...),
+			ClassRoles:        append([]policy.ClassRole(nil), access.ClassRoles...),
+		},
+		Action:   action,
+		Resource: policy.Resource{TenantID: access.TenantID, ClassID: classID, State: state},
+	})
 }
 
 func validateClientEvent(input ClientEventInput) error {

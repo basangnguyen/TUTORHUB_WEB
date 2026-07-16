@@ -13,6 +13,7 @@ import (
 	"github.com/tutorhub-v2/core-api/internal/modules/identity"
 	"github.com/tutorhub-v2/core-api/internal/modules/media"
 	"github.com/tutorhub-v2/core-api/internal/platform/logsafe"
+	"github.com/tutorhub-v2/core-api/internal/policy"
 )
 
 const (
@@ -252,14 +253,16 @@ func (handlers mediaHandlers) writeProblem(w http.ResponseWriter, r *http.Reques
 
 func mediaAccess(principal identity.Principal) media.AccessContext {
 	access := media.AccessContext{
-		ActorID:     principal.User.ID,
-		SessionID:   principal.SessionID,
+		ActorID: principal.User.ID, SessionID: principal.SessionID,
 		DisplayName: strings.TrimSpace(principal.User.DisplayName),
-		Permissions: append([]string(nil), principal.Permissions...),
 	}
 	if principal.ActiveTenant != nil {
 		access.TenantID = principal.ActiveTenant.ID
 		access.Role = principal.ActiveTenant.Role
+		access.MembershipActive = true
+		access.OrganizationRoles = []policy.OrganizationRole{
+			policy.OrganizationRole(principal.ActiveTenant.Role),
+		}
 	}
 
 	return access

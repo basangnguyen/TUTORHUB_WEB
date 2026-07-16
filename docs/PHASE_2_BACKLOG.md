@@ -16,7 +16,9 @@ Tạo nền multi-tenant và quản lý lớp đủ dùng cho pilot nội bộ:
 
 **Thời lượng kế hoạch:** 4-6 tuần tập trung, chia thành 6 sprint kỹ thuật.
 
-**Task bắt đầu:** P2-00 Policy and contract baseline.
+**Task đã hoàn thành:** P2-00 Policy and contract baseline.
+
+**Task kế tiếp:** P2-01 User profile và identity linking.
 
 ## 2. Non-goal
 
@@ -44,7 +46,7 @@ Tạo nền multi-tenant và quản lý lớp đủ dùng cho pilot nội bộ:
 
 | Task  | Nội dung                                | Dependency                 | Trạng thái |
 | ----- | --------------------------------------- | -------------------------- | ---------- |
-| P2-00 | Policy and contract baseline            | Phase 1                    | TODO       |
+| P2-00 | Policy and contract baseline            | Phase 1                    | DONE       |
 | P2-01 | User profile và identity linking        | P2-00                      | TODO       |
 | P2-02 | Tenant lifecycle và workspace switching | P2-00                      | TODO       |
 | P2-03 | Membership invitation/accept/revoke     | P2-02                      | TODO       |
@@ -64,32 +66,32 @@ Tạo nền multi-tenant và quản lý lớp đủ dùng cho pilot nội bộ:
 
 ### Công việc
 
-- [ ] Chốt permission matrix organization/class trong `docs/DOMAIN_MODEL.md`.
-- [ ] Phân biệt organization role và class role:
+- [x] Chốt permission matrix organization/class trong `docs/DOMAIN_MODEL.md`.
+- [x] Phân biệt organization role và class role:
   - organization: `org_admin`, `teacher`, `student`, `guest`;
   - class: `owner`, `co_teacher`, `teaching_assistant`, `student`.
-- [ ] Chốt quy tắc effective permission khi một người có nhiều membership/role.
-- [ ] Tạo policy interface dùng chung cho identity, classroom và media modules.
-- [ ] Di chuyển permission constants/mapping rải rác về policy package.
-- [ ] Định nghĩa authorization input gồm actor, active tenant, resource tenant,
+- [x] Chốt quy tắc effective permission khi một người có nhiều membership/role.
+- [x] Tạo policy interface dùng chung cho identity, classroom và media modules.
+- [x] Di chuyển permission constants/mapping rải rác về policy package.
+- [x] Định nghĩa authorization input gồm actor, active tenant, resource tenant,
       resource class, action và resource state.
-- [ ] Định nghĩa deny-by-default, error mapping `403`/`404` để tránh resource enumeration.
-- [ ] Cập nhật OpenAPI security/error conventions và test helpers.
-- [ ] Viết ADR nếu class role model khác mô hình miền hiện tại.
+- [x] Định nghĩa deny-by-default, error mapping `403`/`404` để tránh resource enumeration.
+- [x] Cập nhật OpenAPI security/error conventions và test helpers.
+- [x] Viết ADR nếu class role model khác mô hình miền hiện tại.
 
 ### Kiểm thử
 
-- Table-driven unit tests cho toàn bộ permission matrix.
-- Deny tests khi thiếu actor, active tenant, membership hoặc resource scope.
-- Regression tests cho class list/create/detail và LiveKit token endpoint hiện có.
-- Static repository search bảo đảm role check không còn nằm ngoài policy layer.
+- [x] Table-driven unit tests cho toàn bộ permission matrix.
+- [x] Deny tests khi thiếu actor, active tenant, membership hoặc resource scope.
+- [x] Regression tests cho class list/create/detail và LiveKit token endpoint hiện có.
+- [x] Static repository search bảo đảm role check không còn nằm ngoài policy layer.
 
 ### Definition of Done
 
-- Permission matrix được tài liệu hóa và có test tương ứng từng hàng.
-- Classroom/identity/media dùng cùng policy interface.
-- Không thay đổi hành vi hợp lệ của Phase 1.
-- `pnpm verify` xanh.
+- [x] Permission matrix được tài liệu hóa và có test tương ứng từng hàng.
+- [x] Classroom/identity/media dùng cùng policy interface.
+- [x] Không thay đổi hành vi hợp lệ của Phase 1.
+- [x] `pnpm verify` xanh ngày 2026-07-16.
 
 ## 6. P2-01 User profile và identity linking
 
@@ -422,8 +424,8 @@ status, expires_at, accepted_at, revoked_at, invited_by, accepted_by, created_at
 
 ## 19. Việc cần làm ngay
 
-1. Bắt đầu P2-00, không bắt đầu từ màn hình admin.
-2. Rà permission constants và role checks hiện có trong identity/classroom/media.
-3. Cập nhật `DOMAIN_MODEL.md` với organization role, class role và transition matrix.
-4. Tạo policy package/interface và regression tests trước khi thêm endpoint mới.
-5. Sau P2-00 mới mở migration/contract cho P2-01 và P2-02.
+1. Bắt đầu P2-01 từ contract profile/identity, chưa mở rộng màn hình admin.
+2. Rà schema `users`, `user_identities`, session và OIDC flow hiện có trước khi tạo migration.
+3. Chốt validation cho display name, locale, timezone và avatar object key.
+4. Triển khai repository/service/API cùng policy, audit và negative tests cho link/unlink identity.
+5. Hoàn thiện web profile vertical slice rồi mới chuyển sang P2-02 tenant lifecycle.

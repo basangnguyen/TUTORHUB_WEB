@@ -7,21 +7,19 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/tutorhub-v2/core-api/internal/platform/tenancy"
+	"github.com/tutorhub-v2/core-api/internal/policy"
+	"github.com/tutorhub-v2/core-api/internal/policy/policytest"
 )
 
 func TestServiceCreateUsesAuthenticatedActorAndTenant(t *testing.T) {
 	t.Parallel()
 
 	repository := &recordingRepository{}
-	service, err := NewService(repository)
+	service, err := NewService(repository, policy.NewEngine())
 	if err != nil {
 		t.Fatalf("create classroom service: %v", err)
 	}
-	access := AccessContext{
-		TenantID:    uuid.New(),
-		ActorID:     uuid.New(),
-		Permissions: []string{permissionClassCreate},
-	}
+	access := accessForOrganizationRole(uuid.New(), uuid.New(), policy.OrganizationRoleTeacher)
 
 	created, err := service.Create(context.Background(), access, CreateClassInput{
 		Code:        " sec-101 ",
@@ -44,7 +42,7 @@ func TestServiceCreateUsesAuthenticatedActorAndTenant(t *testing.T) {
 func TestServiceEnforcesClassPermissions(t *testing.T) {
 	t.Parallel()
 
-	service, err := NewService(&recordingRepository{})
+	service, err := NewService(&recordingRepository{}, policy.NewEngine())
 	if err != nil {
 		t.Fatalf("create classroom service: %v", err)
 	}
@@ -66,13 +64,11 @@ func TestServiceEnforcesClassPermissions(t *testing.T) {
 func TestServiceRejectsInvalidListLimit(t *testing.T) {
 	t.Parallel()
 
-	service, err := NewService(&recordingRepository{})
+	service, err := NewService(&recordingRepository{}, policy.NewEngine())
 	if err != nil {
 		t.Fatalf("create classroom service: %v", err)
 	}
-	access := AccessContext{
-		TenantID: uuid.New(), ActorID: uuid.New(), Permissions: []string{permissionClassView},
-	}
+	access := accessForOrganizationRole(uuid.New(), uuid.New(), policy.OrganizationRoleStudent)
 
 	if _, err := service.List(context.Background(), access, 101); !errors.Is(err, ErrInvalidListLimit) {
 		t.Fatalf("expected invalid limit, got %v", err)
@@ -82,6 +78,19 @@ func TestServiceRejectsInvalidListLimit(t *testing.T) {
 type recordingRepository struct {
 	tenantContext tenancy.Context
 	createParams  CreateClassParams
+}
+
+func accessForOrganizationRole(
+	tenantID uuid.UUID,
+	actorID uuid.UUID,
+	role policy.OrganizationRole,
+) AccessContext {
+	subject := policytest.ActiveOrganizationSubject(actorID, tenantID, role)
+	return AccessContext{
+		TenantID: subject.ActiveTenantID, ActorID: subject.ActorID,
+		MembershipActive:  subject.MembershipActive,
+		OrganizationRoles: subject.OrganizationRoles,
+	}
 }
 
 func (repository *recordingRepository) Create(

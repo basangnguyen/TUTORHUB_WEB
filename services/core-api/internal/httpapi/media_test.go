@@ -227,7 +227,9 @@ func assertMediaAccess(t *testing.T, access media.AccessContext, principal ident
 	t.Helper()
 	if principal.ActiveTenant == nil || access.TenantID != principal.ActiveTenant.ID ||
 		access.ActorID != principal.User.ID || access.SessionID != principal.SessionID ||
-		access.Role != principal.ActiveTenant.Role || access.DisplayName != principal.User.DisplayName {
+		access.Role != principal.ActiveTenant.Role || access.DisplayName != principal.User.DisplayName ||
+		!access.MembershipActive || len(access.OrganizationRoles) != 1 ||
+		string(access.OrganizationRoles[0]) != principal.ActiveTenant.Role {
 		t.Fatalf("unexpected media access: access=%+v principal=%+v", access, principal)
 	}
 }

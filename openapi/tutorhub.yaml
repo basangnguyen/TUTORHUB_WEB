@@ -2,7 +2,12 @@ openapi: 3.1.0
 info:
   title: TutorHub Core API
   version: 0.0.1
-  description: Initial contract for the TutorHub V2 engineering foundation.
+  description: |
+    Contract for TutorHub V2. Authenticated business operations use the active
+    workspace from the server-side session and the shared authorization policy.
+    A 403 response means the actor is known but lacks permission. A 404 response
+    also covers resources outside the active tenant or class scope so identifiers
+    cannot be enumerated across security boundaries.
 servers:
   - url: http://localhost:8080
 paths:
@@ -251,6 +256,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ClassListResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
         default:
           $ref: "#/components/responses/ProblemResponse"
     post:
@@ -282,6 +291,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Class"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
         default:
           $ref: "#/components/responses/ProblemResponse"
   /api/v1/classes/{class_id}:
@@ -304,6 +317,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Class"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
         default:
           $ref: "#/components/responses/ProblemResponse"
   /api/v1/classes/{class_id}/media-token:
@@ -336,6 +355,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MediaTokenResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
         default:
           $ref: "#/components/responses/ProblemResponse"
   /api/v1/classes/{class_id}/media-events:
@@ -365,6 +390,12 @@ paths:
       responses:
         "204":
           description: Telemetry accepted
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
         default:
           $ref: "#/components/responses/ProblemResponse"
   /api/v1/webhooks/livekit:
@@ -404,7 +435,46 @@ components:
         application/problem+json:
           schema:
             $ref: "#/components/schemas/Problem"
+    UnauthorizedResponse:
+      description: Authentication is missing, expired, or invalid
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    ForbiddenResponse:
+      description: The authenticated actor lacks permission in the active workspace
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    NotFoundResponse:
+      description: The resource is absent or outside the active tenant/class scope
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
   schemas:
+    OrganizationRole:
+      type: string
+      enum: [org_admin, teacher, student, guest]
+    ClassRole:
+      type: string
+      enum: [owner, co_teacher, teaching_assistant, student]
+    Permission:
+      type: string
+      enum:
+        - tenant.manage
+        - class.create
+        - class.update
+        - class.view
+        - enrollment.manage
+        - session.start
+        - session.end
+        - session.join
+        - participant.admit
+        - participant.remove
+        - media.publish
+        - chat.send
     HealthResponse:
       type: object
       additionalProperties: false
@@ -517,8 +587,7 @@ components:
         name:
           type: string
         role:
-          type: string
-          enum: [org_admin, teacher, student, guest]
+          $ref: "#/components/schemas/OrganizationRole"
         is_active:
           type: boolean
     CreateTenantRequest:
@@ -561,7 +630,7 @@ components:
         permissions:
           type: array
           items:
-            type: string
+            $ref: "#/components/schemas/Permission"
     Class:
       type: object
       additionalProperties: false
