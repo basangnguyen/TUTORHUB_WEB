@@ -7,18 +7,18 @@ TutorHub V2 là hệ sinh thái học trực tuyến web-first. TutorHub V1 tạ
 ## Trước khi sửa mã
 
 1. Đọc `README.md`, `docs/AGENT_COORDINATION.md`, `docs/PROJECT_STATE.md`, `docs/MASTER_PLAN.md`, backlog phase, tài liệu liên quan và ADR tương ứng.
-2. Kiểm tra trạng thái Git, bảng ownership và branch hiện tại; không nhận phạm vi đang có agent khác giữ hoặc ghi đè thay đổi không thuộc task.
-3. Sau initial push, nhận một GitHub Issue và ghi branch/phạm vi file trước khi sửa mã; trước initial push dùng bảng fallback trong `docs/AGENT_COORDINATION.md`.
-4. Với thay đổi kiến trúc, tạo hoặc cập nhật ADR trước khi triển khai.
-5. Không sao chép secret, token, URL có credential hoặc file cấu hình production từ V1.
+2. Kiểm tra trạng thái Git và các thay đổi cục bộ trước khi sửa; không ghi đè thay đổi chưa được hiểu rõ.
+3. Với thay đổi kiến trúc, tạo hoặc cập nhật ADR trước khi triển khai.
+4. Không sao chép secret, token, URL có credential hoặc file cấu hình production từ V1.
 
 ## Repository và phối hợp
 
 - Repository chính thức: `https://github.com/basangnguyen/TUTORHUB_WEB`.
 - Remote chuẩn: `origin`; nhánh mặc định: `main`.
-- Sau initial bootstrap, mỗi task phải dùng branch riêng theo mẫu `<agent>/<task-id>-<mo-ta-ngan>`.
-- Không force-push `main`, không dùng chung branch cho hai agent đang hoạt động và không giải quyết conflict bằng cách ghi đè toàn bộ một phía.
-- Quy trình nhận việc, bàn giao, checklist và vùng dễ xung đột nằm trong `docs/AGENT_COORDINATION.md` và là bắt buộc.
+- Dự án hiện do một coding agent duy trì; thay đổi được thực hiện và commit trực tiếp vào `main` để giảm thủ tục.
+- GitHub chủ yếu là nơi lưu mã và sao lưu lịch sử. Không bắt buộc tạo Issue, branch hoặc Pull Request cho từng task.
+- Trước mỗi lần push phải chạy kiểm tra phù hợp với phạm vi thay đổi, xem lại diff và xác nhận không có secret.
+- Không force-push `main`; khi cần thử nghiệm rủi ro cao vẫn có thể chủ động dùng branch tạm.
 
 ## Kiến trúc đã chấp nhận
 
@@ -27,7 +27,7 @@ TutorHub V2 là hệ sinh thái học trực tuyến web-first. TutorHub V1 tạ
 - Contract: OpenAPI và generated TypeScript client.
 - Realtime media: LiveKit Cloud trong MVP.
 - Dữ liệu: Neon PostgreSQL; cache/session/rate limit: managed Redis (provider chưa chọn).
-- Server MVP/private beta: các Hugging Face Docker Spaces tách biệt, stateless.
+- Server staging/private alpha: Go Core API stateless chạy OCI container trên Render; Hugging Face chỉ còn là lựa chọn cho dịch vụ AI độc lập.
 - File: Backblaze B2 qua S3-compatible presigned URL do backend cấp.
 - Auth: OIDC Authorization Code + PKCE qua BFF/session cookie.
 
@@ -49,4 +49,4 @@ TutorHub V2 là hệ sinh thái học trực tuyến web-first. TutorHub V1 tạ
 
 ## Cập nhật trạng thái
 
-Sau mỗi task phải cập nhật `docs/PROJECT_STATE.md`, checklist phase và trạng thái ownership trong `docs/AGENT_COORDINATION.md`. Sau mỗi phase phải cập nhật trạng thái/exit gate trong master plan hoặc tài liệu phase tương ứng. Không để lịch sử hội thoại trở thành nguồn thông tin duy nhất.
+Sau mỗi task phải cập nhật `docs/PROJECT_STATE.md` và checklist phase liên quan. Sau mỗi phase phải cập nhật trạng thái/exit gate trong master plan hoặc tài liệu phase tương ứng. Không để lịch sử hội thoại trở thành nguồn thông tin duy nhất.

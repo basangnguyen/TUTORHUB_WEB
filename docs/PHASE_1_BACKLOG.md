@@ -67,18 +67,18 @@ Role Neon hiện tại là owner tạm thời; tách runtime/migration role vẫ
 
 - [x] Chọn ZITADEL Cloud cho local/staging và khóa thiết kế hai OIDC clients tách biệt.
 - [x] Provision `tutorhub-local` và browser smoke đầy đủ với IdP thật.
-- [ ] Provision `tutorhub-staging` khi P1-10 đã có web/API HTTPS staging.
+- [x] Provision `tutorhub-staging` với web/API HTTPS staging và OIDC client riêng.
 - [x] Authorization Code + PKCE `S256` qua BFF, state/nonce/browser binding one-time.
 - [x] Xác minh ID token, lấy profile/email qua UserInfo và bắt buộc `sub` khớp.
 - [x] Session cookie, CSRF, logout/revoke và `/api/v1/me`.
 - [x] Không lưu provider token hoặc session token trong localStorage.
 
-**Trạng thái 2026-07-15:** implementation hoàn thành và đã merge vào `main` qua PR #4;
+**Trạng thái 2026-07-16:** implementation hoàn thành và đã có staging acceptance;
 migration `5 false`, fake OIDC issuer ký RSA, unit test,
 HTTP test, generated client, web remote-session test và Neon integration test đều đạt.
-`tutorhub-local` đã provision; browser smoke thật đạt login, `/me`, reload giữ phiên,
-CSRF, logout/revoke và route guard. `tutorhub-staging` được hoãn có chủ đích đến
-P1-10 để dùng đúng URL HTTPS và secret riêng.
+`tutorhub-local` và `tutorhub-staging` đã provision. Browser smoke thật đạt login,
+callback, `/me`, reload giữ phiên, CSRF, logout/revoke, đăng nhập lại và route guard
+trên URL HTTPS staging.
 
 ## P1-06A Workspace onboarding prerequisite
 
@@ -120,14 +120,14 @@ invite code, roster và quyền theo từng lớp chưa nằm trong slice này; 
 - [x] Xác minh webhook chính thức và lưu receipt idempotent; Neon migration version `5`, `dirty=false`.
 - [x] OpenAPI, generated client, unit/HTTP/web test, lazy SDK chunk và runbook được cập nhật.
 
-**Trạng thái 2026-07-15:** implementation hoàn tất và đã merge vào `main` qua PR #4. Token
+**Trạng thái 2026-07-16:** implementation hoàn tất và đã được kiểm thử trên staging. Token
 chỉ được Core API phát sau session + CSRF + permission;
 frontend giữ credential trong React memory và reload phải quay lại prejoin. Local secret file
 đã có LiveKit Cloud credential và project staging riêng. Đã sửa lỗi `LayoutContextProvider`
 làm room UI bị crash. Chủ dự án xác nhận ngày 2026-07-14 rằng smoke test thủ công 2-5 người
 đã đạt cho camera, micro, screen share và reconnect theo ma trận trong
-`docs/LIVEKIT_SPIKE_RUNBOOK.md`. P1-07 hoàn thành; việc gắn webhook vào URL HTTPS triển khai
-thuộc P1-10 Cloud foundation và không làm thay đổi kết quả spike.
+`docs/LIVEKIT_SPIKE_RUNBOOK.md`. Webhook LiveKit đã trỏ tới Core API trên Render,
+được xác minh chữ ký, lưu idempotent vào Neon và đã phát sinh sự kiện thật khi vào/thoát phòng.
 
 ## P1-08 CI/CD và security
 
@@ -135,16 +135,17 @@ thuộc P1-10 Cloud foundation và không làm thay đổi kết quả spike.
 - [x] P1-08A secret, dependency, SAST, repository và container scan.
 - [x] P1-08A CODEOWNERS, dependency update automation, private disclosure policy và CI/security runbook.
 - [ ] Xác nhận ruleset/branch protection và các GitHub security switches theo checklist quản trị từ `docs/CI_SECURITY.md`.
-- [ ] P1-08B preview deployment cho web và staging deployment cho API sau khi P1-10 cấp resource tách biệt.
+- [x] P1-08B triển khai web trên Cloudflare Pages, Core API trên Render và same-origin edge proxy `/api/*`.
 
-**Trạng thái 2026-07-15:** P1-08A đã merge vào `main` qua PR #4 tại commit `82261c6`.
+**Trạng thái 2026-07-16:** P1-08A và P1-08B đã hoàn thành.
 Workflow `Verify` dùng PostgreSQL thật và chạy toàn bộ quality gate;
 workflow `Security` chạy Gitleaks, Dependency Review, CodeQL JavaScript/TypeScript + Go và Trivy
 filesystem/container. Mọi action ngoài repository được ghim bằng full commit SHA, quyền mặc định là
 `contents: read`, checkout không giữ credential, job có timeout/concurrency. Tám unit test cho policy
 và bundle scanner, `pnpm verify`, classroom/identity Neon integration test đều đạt. Head PR #4
 `90364c6` đã vượt qua cả workflow `Verify` và `Security`. GitHub ruleset và
-security switches là bước quản trị một lần cần xác nhận bằng bằng chứng; deployment không nằm trong P1-08A.
+security switches là bước quản trị một lần còn cần xác nhận bằng bằng chứng. Cloudflare Pages tự động
+triển khai `main`; Pages Function chuyển tiếp same-origin `/api/*` tới Core API trên Render.
 
 ## P1-09 Local developer experience
 
@@ -155,13 +156,20 @@ security switches là bước quản trị một lần cần xác nhận bằng 
 
 ## P1-10 Cloud foundation
 
-- [ ] Tạo Neon project/branch tách biệt cho staging; runtime role và migration role riêng.
-- [ ] Tạo B2 bucket staging, application key tối thiểu quyền và lifecycle policy.
-- [ ] Tạo Cloudflare Pages project cho `tutorhub-web` và Hugging Face Docker Space cho `tutorhub-core-api`.
-- [ ] Lưu credential bằng HF Secrets; xác nhận không xuất hiện trong image/log/frontend bundle.
-- [ ] Thêm health/readiness, graceful shutdown và deploy rollback.
-- [ ] Spike cold start, restart, HTTP concurrency và WebSocket/SSE trên Space thực.
-- [ ] Ghi lại connection budget của Neon và upload/download flow B2.
+- [x] Tạo Neon branch staging; tách runtime role và migration role.
+- [x] Tạo B2 bucket staging, application key tối thiểu quyền và kiểm tra PUT/GET/checksum/DELETE.
+- [x] Triển khai `tutorhub-web` trên Cloudflare Pages và `tutorhub-core-api` trên Render Web Service.
+- [x] Lưu credential bằng Render Environment; xác nhận secret không xuất hiện trong Git, log hoặc frontend bundle.
+- [x] Thêm health/readiness, graceful shutdown và quy trình rollback triển khai.
+- [x] Kiểm tra cold start/restart, same-origin API proxy và khả năng kết nối dịch vụ staging.
+- [x] Ghi lại connection budget Neon, migration/rollback smoke và luồng B2.
+- [x] Cấu hình LiveKit webhook, xác minh chữ ký và lưu receipt idempotent.
+- [x] Provision ZITADEL staging và hoàn thành OIDC smoke end-to-end.
+
+**Trạng thái 2026-07-16:** hoàn thành. `/health` và `/ready` đạt cả trực tiếp trên Render
+và qua Cloudflare Pages; readiness xác nhận PostgreSQL và B2 đều sẵn sàng. Migration/rollback
+smoke, OIDC, LiveKit webhook và lưu trữ B2 đều đã được kiểm thử thực tế. Render Free chỉ được
+dùng cho staging/private alpha do có cold start và spin-down; xem ADR-0011.
 
 ## Thứ tự sprint đề xuất
 
@@ -175,7 +183,7 @@ security switches là bước quản trị một lần cần xác nhận bằng 
 
 - CI xanh từ clean clone.
 - Staging có HTTPS, OIDC và observability tối thiểu.
-- Staging/alpha chạy web trên Cloudflare Pages, API trên HF Space, dùng Neon và B2 tách biệt với production tương lai.
+- Staging/alpha chạy web trên Cloudflare Pages, API trên Render, dùng Neon và B2 tách biệt với production tương lai.
 - Một teacher và một student test có thể đăng nhập và vào cùng phòng LiveKit test.
 - Không có secret trong Git history hoặc frontend bundle.
 - ADR, OpenAPI và runbook được cập nhật.

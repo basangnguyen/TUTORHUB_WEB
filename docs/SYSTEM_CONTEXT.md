@@ -5,8 +5,8 @@
 ```mermaid
 flowchart LR
     U["Người dùng web"] --> CDN["CDN / Edge / WAF"]
-    CDN --> WEB["React Web App\nHugging Face Space"]
-    WEB --> BFF["Go API + BFF\nHugging Face Space"]
+    CDN --> WEB["React Web App\nCloudflare Pages"]
+    WEB --> BFF["Go API + BFF\nRender Web Service"]
     BFF --> IDP["OIDC Identity Provider"]
     BFF --> PG["Neon PostgreSQL"]
     BFF --> REDIS["Managed Redis"]
@@ -55,7 +55,7 @@ Chỉ các module MVP được triển khai ở Phase 1-3; bảng trên giữ ra
 - Mọi bảng nghiệp vụ tenant-scoped có `tenant_id` và index phù hợp.
 - Redis dùng cho session, rate limit, ephemeral coordination và cache có thể tái tạo; không là nguồn dữ liệu duy nhất.
 - Object storage chứa binary; PostgreSQL chỉ giữ metadata, owner, tenant, checksum, trạng thái scan và retention.
-- Backblaze B2 là object storage đã chọn; Hugging Face filesystem không được dùng làm persistent storage.
+- Backblaze B2 là object storage đã chọn; filesystem của container không được dùng làm persistent storage.
 
 ## 6. Môi trường
 
@@ -68,7 +68,10 @@ Chỉ các module MVP được triển khai ở Phase 1-3; bảng trên giữ ra
 
 Mỗi môi trường có database, Redis, storage bucket, OIDC client và LiveKit project/key riêng.
 
-Core API và các server ứng dụng chạy trong các Hugging Face Docker Spaces tách biệt ở MVP/private beta. Kiến trúc phải stateless và portable để chuyển sang managed container platform khác nếu gate availability/load trước public beta không đạt.
+Web staging chạy trên Cloudflare Pages; Core API staging chạy trên Render Web Service.
+Cloudflare Pages Function chuyển tiếp same-origin `/api/*` tới Render. Hugging Face chỉ còn là
+lựa chọn cho dịch vụ AI độc lập. Kiến trúc Core API vẫn stateless và portable; Render Free phải
+được thay thế hoặc nâng cấp trước public beta nếu gate availability/load không đạt.
 
 ## 7. Hướng mở rộng
 

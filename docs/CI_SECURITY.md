@@ -2,7 +2,7 @@
 
 ## 1. Scope
 
-P1-08A establishes deterministic pull-request verification and the repository security baseline. It does not deploy the web application or Core API. Preview and staging deployment remain P1-08B and require the isolated P1-10 cloud resources first.
+P1-08A thiết lập pipeline kiểm tra và baseline bảo mật kho mã. P1-08B và P1-10 đã hoàn thành ngày 2026-07-16: web chạy trên Cloudflare Pages, Core API chạy trên Render, còn Neon, Backblaze B2, LiveKit và ZITADEL dùng resource staging tách biệt.
 
 ## 2. Required workflows
 
@@ -32,7 +32,7 @@ CodeQL and SARIF uploads are not granted write access for untrusted fork pull re
 
 ## 3. Local commands
 
-Run the same gates before opening a pull request:
+Chạy cùng các gate trước khi push trực tiếp lên `main`:
 
 ```powershell
 pnpm install --frozen-lockfile
@@ -71,14 +71,15 @@ These controls are configured in GitHub and cannot be proven by repository files
 
 ### Ruleset for `main`
 
-- Require a pull request before merge and at least one approval.
-- Require review from CODEOWNERS for protected paths.
-- Dismiss stale approvals and require all conversations to be resolved.
-- Require the Verify and Security checks listed above to pass.
-- Block force pushes and branch deletion; require linear history.
-- Permit bypass only for an explicitly documented emergency, followed by retrospective review.
+Dự án hiện do một người duy trì và dùng GitHub làm nơi lưu trữ/lịch sử mã nguồn. Quy trình mặc định là commit và push trực tiếp lên `main`, vì vậy không bật điều kiện bắt buộc pull request hoặc approval.
 
-Record a screenshot or exported ruleset after configuration. Until that evidence exists, branch protection remains a manual P1-08A follow-up rather than a verified automated control.
+- Chạy `pnpm verify` trước mỗi lần push lên `main`.
+- Giữ workflow Verify và Security chạy trên mọi push lên `main` để tạo bằng chứng hậu kiểm.
+- Chặn force push và xóa nhánh `main`; không dùng `git push --force`.
+- Bật dependency graph, Dependabot, code scanning, secret scanning và push protection khi gói GitHub hỗ trợ.
+- Chỉ dùng nhánh tạm/PR cho thay đổi rủi ro cao, migration phá vỡ tương thích hoặc khi cần review độc lập.
+
+Đây là đánh đổi có chủ đích: CI chạy sau push không thể ngăn một commit lỗi đi vào `main` như required checks trước merge. Vì vậy kiểm tra cục bộ là gate bắt buộc. Ảnh chụp hoặc bản xuất cấu hình ruleset/security switches vẫn là bằng chứng quản trị còn phải lưu để đóng toàn bộ P1-08.
 
 ## 6. Triage and exceptions
 
@@ -88,6 +89,15 @@ Record a screenshot or exported ruleset after configuration. Until that evidence
 4. Never suppress a confirmed credential. Revoke and replace it, then remove it from all reachable history and artifacts.
 5. A temporary CI outage may be bypassed only by the repository owner after recording the failed check, risk, approval and follow-up issue.
 
-## 7. P1-08B boundary
+## 7. Trạng thái P1-08B
 
-P1-08B will add web preview deployment, Core API staging deployment, migration/rollback coordination, post-deploy health checks and deployment concurrency. It must not begin until P1-10 provides separate staging URLs, identities and secrets.
+P1-08B đã hoàn thành ngày 2026-07-16 với các bằng chứng sau:
+
+- Cloudflare Pages tự động triển khai web từ `main` và proxy same-origin `/api/*` tới Core API.
+- Render triển khai Core API bằng OCI container; `/health` và `/ready` đạt cả trực tiếp lẫn qua Cloudflare.
+- Migration `up/down/up`, trạng thái `dirty=false`, database/runtime role và migration role tách biệt đã được smoke test trên Neon staging.
+- ZITADEL staging login/callback, `/me`, reload session, logout và đăng nhập lại đều đạt.
+- LiveKit camera, mic, screen share, reconnect 2-5 người và webhook signature/idempotency đều đạt.
+- Backblaze B2 least-privilege key và chu trình PUT/GET/checksum/DELETE đều đạt.
+
+P1-08 chỉ còn lưu bằng chứng cấu hình GitHub ruleset/security switches; P1-08B không còn hạng mục triển khai mở.

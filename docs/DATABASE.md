@@ -7,14 +7,14 @@ thay đổi schema, migration hoặc repository phải đọc tài liệu này t
 
 - System of record: Neon PostgreSQL.
 - Schema ứng dụng: `tutorhub`.
-- Migration hiện tại: `4`, trạng thái `dirty=false`.
-- Migration 1-4 đã được chạy và kiểm tra trên Neon ngày 2026-07-13.
+- Migration hiện tại: `5`, trạng thái `dirty=false`.
+- Migration 1-5 đã được chạy và kiểm tra trên Neon; smoke `5 false -> rollback 4 false -> migrate 5 false` đạt ngày 2026-07-16.
 - Classroom và identity integration test chạy trong transaction và rollback toàn bộ fixture.
 - Core API đã được smoke test với Neon: `/ready` trả `ready` và `/health` trả `ok`.
 
-Neon branch đang được chủ dự án cấp có tên `production`, nhưng trong Phase 1 chỉ
-được xem là cơ sở dữ liệu tích hợp phát triển. P1-10 vẫn phải tạo resource staging
-riêng và tách role tối thiểu quyền trước khi triển khai API công khai.
+Neon có branch `production` và branch staging tách biệt. Core API staging dùng pooled
+runtime role tối thiểu quyền; migration job dùng direct migration role riêng. Kết nối,
+readiness và migration/rollback smoke đều đã đạt.
 
 ## Hai connection URL
 
@@ -24,7 +24,7 @@ riêng và tách role tối thiểu quyền trước khi triển khai API công 
 | `DATABASE_MIGRATION_URL` | CLI/release job | Neon direct, hostname không có `-pooler` | Chỉ cấp cho migration job; không đưa vào API container |
 
 Không dùng URL direct cho traffic ứng dụng thường xuyên. Không cấp URL migration
-cho frontend, browser, Cloudflare Pages hoặc tiến trình Core API trên Hugging Face.
+cho frontend, browser, Cloudflare Pages hoặc tiến trình Core API trên Render.
 Core API không tự chạy migration khi khởi động.
 
 ## Cấu hình pool mặc định
@@ -129,8 +129,8 @@ user, tenant, class hoặc outbox fixture.
 
 ## Việc còn lại
 
-- P1-06 đã triển khai OIDC/BFF, session rotation, CSRF và `/api/v1/me`; ZITADEL local đã được provision, client staging thuộc P1-10.
+- P1-06 đã triển khai OIDC/BFF, session rotation, CSRF và `/api/v1/me`; cả ZITADEL local và staging đã được provision và smoke test.
 - P1-06B đã hoàn thành list/create/detail class; enrollment, invite code và roster thuộc Phase 2.
-- P1-10 tạo database/branch staging riêng, runtime role và migration role riêng.
+- P1-10 đã hoàn thành database/branch staging riêng, runtime role và migration role riêng.
 - Chưa import dữ liệu TutorHub V1; migration V1 sẽ làm theo module/cohort ở phase sau.
 - Chưa có backup/restore drill, PITR gate hoặc connection load test cho pilot.

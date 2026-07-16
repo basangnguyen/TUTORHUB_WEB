@@ -174,10 +174,11 @@ rollback toàn bộ fixture.
 - ZITADEL trả profile/email qua UserInfo trong Authorization Code Flow. Adapter đã
   được sửa để xác minh ID token trước, gọi UserInfo sau và từ chối khi `sub` không
   khớp; test hồi quy và `pnpm verify` đều đạt.
-- `tutorhub-staging` chỉ được provision ở P1-10 sau khi có web/API HTTPS staging;
-  không dùng callback giả hoặc dùng lại secret local.
-- Neon role hiện là owner dùng tạm cho tích hợp. P1-10 phải tách migration role và
-  runtime role tối thiểu quyền trước khi staging công khai.
+- `tutorhub-staging` đã được provision trong project ZITADEL riêng ngày 2026-07-16;
+  callback HTTPS qua Cloudflare/Render, `/me`, reload session, logout và đăng nhập lại
+  đã được smoke test thành công. Secret staging không dùng chung với local.
+- Neon staging đã tách runtime role tối thiểu quyền và migration role. Migration
+  `up/down/up` giữ `dirty=false`; Core API chỉ nhận pooled runtime URL.
 
 Tài liệu chính thức: [ZITADEL OIDC endpoints](https://zitadel.com/docs/apis/openidoauth/endpoints),
 [ZITADEL claims](https://zitadel.com/docs/apis/openidoauth/claims),

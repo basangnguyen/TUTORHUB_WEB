@@ -16,13 +16,15 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
 - Lớp học đã có luồng list/create/detail theo active workspace, permission server-side, CSRF và giao diện trạng thái đầy đủ.
 - P1-07 đã hoàn thành: backend token tối thiểu quyền, prejoin/phòng LiveKit lazy-loaded, telemetry, webhook idempotent và smoke test staging 2-5 người cho camera/micro/screen share/reconnect đều đạt.
 - P1-03 đã hoàn thành: semantic tokens, component Radix/Lucide truy cập được, Storybook, contrast/keyboard checks và tích hợp vào các luồng web chính.
-- P1-08A đã hoàn thành về mã nguồn: pipeline Verify đầy đủ, Gitleaks/Dependency Review/CodeQL/Trivy, action pin theo SHA, bundle secret guard, CODEOWNERS và Dependabot. Preview/staging deploy được tách sang P1-08B sau P1-10.
+- P1-10 và P1-08B đã hoàn thành: web chạy trên Cloudflare Pages, `/api/*` được proxy cùng origin tới Go Core API trên Render, dữ liệu dùng Neon, file dùng Backblaze B2, media dùng LiveKit Cloud và xác thực dùng ZITADEL.
+- Toàn bộ smoke test staging đã đạt: OIDC/session/logout, health/readiness, migration/rollback, B2 PUT/GET/checksum/DELETE, LiveKit camera/micro/screen share/reconnect và webhook idempotent.
+- P1-08A đã hoàn thành pipeline Verify/Security. Phần còn lại của Phase 1 là P1-09 local developer experience và bằng chứng cấu hình bảo vệ `main` trên GitHub.
 - Master Plan web-first 2.0 đã audit lại kiến trúc, roadmap 90 ngày và các phase chuyển đổi từ V1.
 - Không sao chép secret, token hoặc cấu hình production từ V1.
 
 ## Tài liệu bắt buộc đọc
 
-1. [Điều phối đa-agent và checklist](docs/AGENT_COORDINATION.md)
+1. [Quy trình phát triển và checklist](docs/AGENT_COORDINATION.md)
 2. [Trạng thái hiện tại](docs/PROJECT_STATE.md)
 3. [Kế hoạch tổng thể](docs/MASTER_PLAN.md)
 4. [Phạm vi sản phẩm](docs/PRODUCT_SCOPE.md)
@@ -40,6 +42,7 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
 16. [Design system và hướng dẫn sử dụng component](docs/DESIGN_SYSTEM.md)
 17. [CI/CD và security runbook](docs/CI_SECURITY.md)
 18. [Chính sách báo cáo lỗ hổng](SECURITY.md)
+19. [ADR-0011: Render cho Core API staging/private alpha](docs/adr/0011-render-core-api-staging.md)
 
 Các quyết định kiến trúc đã chấp nhận nằm trong `docs/adr`.
 

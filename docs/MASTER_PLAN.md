@@ -53,7 +53,7 @@ Nếu một quyết định trong tài liệu này khác ADR đã chấp nhận,
 
 ### 2.2 Điều chỉnh bắt buộc
 
-1. Hugging Face Docker Space chỉ là host private alpha. API phải stateless và đóng gói OCI để chuyển sang nền tảng container production khi đạt exit trigger.
+1. Render Web Service là host Core API staging/private alpha hiện tại. API phải stateless và đóng gói OCI để có thể chuyển sang nền tảng container production khi đạt exit trigger; Hugging Face chỉ còn là lựa chọn cho dịch vụ AI chuyên biệt.
 2. Kiến trúc phải tách rõ control plane, business data plane, media plane, collaboration plane, asynchronous plane và AI plane.
 3. Phải có transactional outbox và worker trước khi triển khai thông báo, xử lý file, recording, transcript hoặc AI bất đồng bộ.
 4. Chat bền vững phải ghi qua Core API/PostgreSQL; LiveKit DataChannel chỉ dùng cho tín hiệu tạm thời.
@@ -175,7 +175,7 @@ Không mở cấp tiếp theo nếu phase trước chưa đạt exit gate và ch
 | LiveKit Cloud | Phù hợp MVP | Giữ; không tự host trước khi có SRE |
 | Backblaze B2 | Phù hợp object storage | Giữ; thêm scan, metadata, lifecycle và CDN policy |
 | Cloudflare Pages | Phù hợp SPA static | Giữ |
-| Hugging Face cho Core API | Chỉ phù hợp demo/alpha | Giữ tạm; phải có exit trigger |
+| Render cho Core API | Phù hợp staging/private alpha | Giữ tạm; Free tier có cold start và phải có exit trigger trước public beta |
 | Redis ngay từ đầu | Chưa cần | Hoãn tới khi có rate limit phân tán, queue hoặc presence bắt buộc |
 | Microservices/Kubernetes | Quá sớm | Không dùng trong MVP |
 | LiveKit DataChannel cho chat | Không phù hợp dữ liệu bền vững | Chỉ dùng ephemeral events |
@@ -1096,7 +1096,7 @@ keyboard/focus, contrast check và tích hợp vào app shell/class vertical sli
 
 **Trạng thái 2026-07-13:** hoàn thành cục bộ; generated client, migration v3,
 tenant-scoped repository, outbox, PostgreSQL CI integration và Neon smoke test đều đạt.
-Tách role Neon tối thiểu quyền vẫn thuộc P1-10.
+Runtime role và migration role Neon tối thiểu quyền đã được tách trong P1-10.
 
 - OpenAPI `/api/v1`.
 - Generated TypeScript client và CI diff.
@@ -1133,7 +1133,7 @@ Tách role Neon tối thiểu quyền vẫn thuộc P1-10.
   action pin full SHA, least-privilege workflow, CODEOWNERS và Dependabot.
 - **P1-08A (quản trị GitHub):** xác nhận ruleset `main`, required checks, secret scanning/push protection,
   code scanning và private vulnerability reporting theo `docs/CI_SECURITY.md`.
-- **P1-08B (sau P1-10):** preview web, staging API, migration/health/rollback smoke và deployment concurrency.
+- **P1-08B (hoàn thành 2026-07-16):** Cloudflare Pages, Render staging API, same-origin proxy, migration/health/rollback smoke, deployment concurrency và các acceptance smoke đều đạt.
 
 #### P1-09 Developer experience
 
@@ -1146,14 +1146,16 @@ Tách role Neon tối thiểu quyền vẫn thuộc P1-10.
 
 #### P1-10 Cloud foundation
 
-- Neon staging branch/project và roles.
-- B2 staging bucket/key/lifecycle.
-- Cloudflare Pages.
-- HF Core API Space.
-- LiveKit staging.
-- Secret store.
-- Cold-start/restart/concurrency/WebSocket spike.
-- Connection/storage/media quota dashboard.
+- Neon staging branch/project, runtime role và migration role riêng.
+- B2 staging bucket/key tối thiểu quyền; PUT/GET/checksum/DELETE smoke đạt.
+- Cloudflare Pages và same-origin `/api/*` proxy.
+- Render Core API Web Service đóng gói OCI.
+- LiveKit staging, room smoke 2-5 người và webhook signature/idempotency.
+- ZITADEL staging application và secret store tách biệt.
+- Health/readiness, cold-start/restart và deployment concurrency smoke.
+- Migration `up/down/up`, connection/storage/media quota theo dõi được.
+
+**Trạng thái 2026-07-16:** hoàn thành. Render Free chỉ dùng cho staging/private alpha vì có thể spin down và cold start; phải chuyển gói/nền tảng trước public beta khi SLO yêu cầu.
 
 **Deliverable:** teacher và student test đăng nhập, xem cùng lớp và vào cùng LiveKit room trên staging.
 
@@ -1666,14 +1668,13 @@ Một tính năng chỉ được đánh dấu hoàn thành khi:
 
 ## 36. Việc cần làm ngay
 
-Thứ tự hiện tại, cập nhật ngày 2026-07-15, không làm song song các phần phụ thuộc:
+Thứ tự hiện tại, cập nhật ngày 2026-07-16:
 
-1. Review/merge P1-03 và chuỗi P1-04 đến P1-06B đã hoàn thành cục bộ.
-2. Review/merge P1-08A và xác nhận GitHub ruleset/security switches theo runbook.
-3. Hoàn thiện P1-10 để có HTTPS staging, LiveKit webhook và resource cloud tách biệt.
-4. Thực hiện P1-08B preview web/staging API cùng migration, health và rollback smoke.
-5. Hoàn thiện P1-09 local developer experience và runbook xử lý lỗi.
-6. Đạt Phase 1 exit gate rồi mới bắt đầu domain enrollment/roster và UI phòng học đầy đủ.
+1. P1-01 đến P1-08B và P1-10 đã hoàn thành; staging acceptance đã đạt.
+2. Hoàn thiện P1-09 local developer experience, seed data và runbook xử lý lỗi.
+3. Lưu bằng chứng GitHub ruleset/security switches để đóng phần quản trị còn lại của P1-08.
+4. Chạy lại Phase 1 exit gate từ clean clone và ghi kết quả vào `docs/PROJECT_STATE.md`.
+5. Chỉ sau exit gate mới bắt đầu Phase 2: enrollment/roster và UI phòng học đầy đủ.
 
 Không bắt đầu QuizHub, Lavie, social feed hoặc Secure Exam web trong Phase 1.
 

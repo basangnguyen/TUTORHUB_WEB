@@ -4,10 +4,10 @@
 
 | Thuộc tính          | Trạng thái                                                                         |
 | ------------------- | ---------------------------------------------------------------------------------- |
-| Cập nhật            | 2026-07-15                                                                         |
+| Cập nhật            | 2026-07-16                                                                         |
 | Phase hiện tại      | Phase 1 - Engineering Foundation                                                   |
-| Hoàn thành gần nhất | P1-08A CI/security baseline đã merge cùng nền tảng Phase 1 qua PR #4 tại `82261c6` |
-| Việc tiếp theo      | P1-10 Cloud foundation, sau đó P1-08B preview/staging deployment                   |
+| Hoàn thành gần nhất | P1-10 Cloud foundation và P1-08B staging deployment đã đạt acceptance             |
+| Việc tiếp theo      | P1-09 local developer experience và bằng chứng GitHub ruleset                     |
 | Phạm vi             | Web-first; desktop/mobile/native là track sau                                      |
 
 ## Chuỗi phase
@@ -40,6 +40,6 @@
 - Không chuyển phase chỉ vì hết thời gian; phải đạt exit gate.
 - Security, observability, accessibility và i18n bắt đầu từ Phase 1.
 - Migration V1 thực hiện theo module/cohort, không big-bang.
-- Hugging Face/Neon/LiveKit free tier chỉ phục vụ phát triển/private alpha.
+- Render Free, Neon và LiveKit free tier chỉ phục vụ phát triển/private alpha.
 - Classroom, webinar và broadcast là các capacity profile khác nhau.
 - Desktop/mobile không làm chậm Web MVP; chỉ chuẩn bị API/domain contract.

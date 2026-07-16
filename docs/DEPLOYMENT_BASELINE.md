@@ -6,13 +6,13 @@
 flowchart LR
     USER["Web browser"] --> EDGE["DNS / CDN / WAF"]
     EDGE --> WEB["Cloudflare Pages: tutorhub-web"]
-    WEB --> API["HF Space: tutorhub-core-api"]
+    WEB --> API["Render Web Service: tutorhub-core-api"]
     API --> NEON["Neon PostgreSQL"]
     API --> B2["Backblaze B2"]
     USER --> B2
     API --> LK["LiveKit Cloud"]
     USER --> LK
-    API --> AI["HF Space: tutorhub-ai"]
+    API --> AI["Optional AI service: Hugging Face"]
     API -. optional .-> REDIS["Managed Redis - provider TBD"]
 ```
 
@@ -22,11 +22,11 @@ Browser chỉ upload trực tiếp lên B2 sau khi core API kiểm tra quyền v
 
 | Thành phần | Local | Staging | Production |
 |---|---|---|---|
-| Web/API | Local process | Cloudflare Pages + HF API Space | Chưa quyết định; review trước pilot |
+| Web/API | Local process | Cloudflare Pages + Render Web Service | Chưa quyết định; review trước pilot |
 | PostgreSQL | Local container | Neon staging branch/project | Neon production project |
 | Object storage | Local emulator hoặc bucket dev | B2 staging bucket | B2 production bucket |
 | LiveKit | Dev project | Staging project | Production project |
-| Secrets | Local `.env` ignored | HF Secrets staging | HF Secrets production |
+| Secrets | Local `.env` ignored | Render Environment + Cloudflare secrets | Managed secret store production |
 
 Không dùng chung database, bucket, LiveKit key hoặc OIDC client giữa staging và production.
 
@@ -55,7 +55,7 @@ OTEL_EXPORTER_OTLP_ENDPOINT
 SENTRY_DSN
 ```
 
-Redis chỉ được thêm khi Phase 1 xác nhận nhu cầu session/rate-limit coordination và chọn managed provider. Không chạy Redis bền vững bên trong cùng Hugging Face Space.
+Redis chỉ được thêm khi có nhu cầu session/rate-limit coordination đã đo được và chọn managed provider.
 
 ## 4. Quy tắc Neon
 
@@ -67,27 +67,29 @@ Redis chỉ được thêm khi Phase 1 xác nhận nhu cầu session/rate-limit 
 
 ## 5. Quy tắc Backblaze B2
 
-- Binary không đi qua database và không lưu vĩnh viễn trên HF filesystem.
+- Binary không đi qua database và không lưu vĩnh viễn trên filesystem của container.
 - Object key dùng opaque ID; tên file người dùng chỉ là metadata.
 - Presigned upload URL có thời hạn ngắn, giới hạn object key và content length theo policy.
 - Sau upload, backend xác minh size/checksum/type và trạng thái malware scan trước khi công khai file.
 - Download private dùng authorization check và signed URL; không biến bucket riêng tư thành public để đơn giản hóa.
 - Lifecycle policy áp dụng cho multipart chưa hoàn tất, file tạm và retention theo tenant.
 
-## 6. Quy tắc Hugging Face Spaces
+## 6. Quy tắc Core API trên Render
 
 - API stateless; session/state bền vững nằm ở Neon hoặc managed state service.
 - Health endpoint tách liveness/readiness; readiness kiểm tra dependency quan trọng có timeout.
 - Shutdown xử lý graceful, dừng nhận request và đóng connection pool.
-- Background job quan trọng phải idempotent và lưu trạng thái ngoài Space.
+- Background job quan trọng phải idempotent và lưu trạng thái ngoài container.
 - Log gửi ra observability backend; local log chỉ là tạm thời.
-- Mỗi Space có image pin theo digest/tag release và rollback được.
+- Image phải tái lập được; mỗi lần triển khai có health check, migration kiểm soát và đường rollback.
+- Render Free chỉ dùng cho staging/private alpha vì instance có thể spin down và cold start trên 50 giây.
+- Hugging Face chỉ còn là lựa chọn cho dịch vụ AI độc lập, không phải nơi chạy Core API.
 
 ## 7. Gate trước public beta
 
-1. Load test HTTP và WebSocket trên cấu hình Space thực.
-2. Đo cold start/restart và khả năng phục hồi khi Space bị thay thế.
+1. Load test HTTP và WebSocket trên cấu hình hosting production dự kiến.
+2. Đo cold start/restart và khả năng phục hồi khi container bị thay thế.
 3. Xác nhận giới hạn concurrent connection, request timeout và background job.
 4. Kiểm tra Neon connection budget trong peak load.
 5. Kiểm tra B2 multipart upload, signed download và CDN cache behavior.
-6. Có phương án chuyển image sang nền tảng container khác nếu availability/SLA không đạt.
+6. Chuyển khỏi Render Free trước public beta hoặc khi availability/SLA không đạt.
