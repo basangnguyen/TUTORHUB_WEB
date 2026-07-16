@@ -1142,6 +1142,8 @@ Runtime role và migration role Neon tối thiểu quyền đã được tách t
 - Seed tenant/teacher/student.
 - `.env.example` an toàn.
 - Troubleshooting Windows/Linux.
+- **Hoàn thành 2026-07-16:** `local:setup` và `dev:local` điều phối Compose,
+  migration và seed idempotent; CI xác minh fixture trên PostgreSQL/Redis sạch.
 - Test fixture tiếng Việt/UTC/timezone.
 
 #### P1-10 Cloud foundation
@@ -1670,10 +1672,9 @@ Một tính năng chỉ được đánh dấu hoàn thành khi:
 
 Thứ tự hiện tại, cập nhật ngày 2026-07-16:
 
-1. P1-01 đến P1-08B và P1-10 đã hoàn thành; staging acceptance đã đạt.
-2. Hoàn thiện P1-09 local developer experience, seed data và runbook xử lý lỗi.
-3. Lưu bằng chứng GitHub ruleset/security switches để đóng phần quản trị còn lại của P1-08.
-4. Chạy lại Phase 1 exit gate từ clean clone và ghi kết quả vào `docs/PROJECT_STATE.md`.
+1. P1-01 đến P1-10 đã hoàn thành; local và staging acceptance đã đạt.
+2. Lưu bằng chứng GitHub ruleset/security switches để đóng phần quản trị còn lại của P1-08.
+3. Chạy lại Phase 1 exit gate từ clean clone và ghi kết quả vào `docs/PROJECT_STATE.md`.
 5. Chỉ sau exit gate mới bắt đầu Phase 2: enrollment/roster và UI phòng học đầy đủ.
 
 Không bắt đầu QuizHub, Lavie, social feed hoặc Secure Exam web trong Phase 1.

@@ -12,8 +12,8 @@
 | Quy trình | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
 | Phase hoàn thành | Phase 0 |
 | Phase hiện tại | Phase 1 - Engineering Foundation |
-| Task vừa hoàn thành | P1-10 Cloud foundation và P1-08B staging deployment |
-| Task kế tiếp | P1-09 Local developer experience, sau đó rà exit gate Phase 1 |
+| Task vừa hoàn thành | P1-09 Local developer experience |
+| Task kế tiếp | Rà exit gate Phase 1 và lập backlog Phase 2 |
 
 ## Kiến trúc đang chạy
 
@@ -61,9 +61,8 @@
 
 ## Còn lại trong Phase 1
 
-1. P1-09: chuẩn hóa local developer experience, dữ liệu seed và troubleshooting.
-2. Xác nhận bằng chứng cấu hình ruleset/required checks/security switches cho `main`.
-3. Rà lại exit gate Phase 1 và lập backlog Phase 2.
+1. Xác nhận bằng chứng cấu hình ruleset/required checks/security switches cho `main`.
+2. Rà lại exit gate Phase 1 và lập backlog Phase 2.
 
 ## Rủi ro đã biết
 

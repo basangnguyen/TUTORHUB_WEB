@@ -42,11 +42,11 @@ thể xóa.
 | P1-07 LiveKit | DONE | Media flow 2-5 người và webhook staging đều đạt |
 | P1-08A CI/security | DONE | Verify/Security pipeline và secret controls |
 | P1-08B Staging deploy | DONE | Cloudflare Pages + Render + smoke/rollback |
-| P1-09 Local DX | TODO | Task phát triển kế tiếp |
+| P1-09 Local DX | DONE | Compose PostgreSQL/Redis, one-command setup, seed và troubleshooting |
 | P1-10 Cloud foundation | DONE | Neon, B2, Cloudflare, Render, ZITADEL, LiveKit |
 
 P1-08 tổng thể còn một việc quản trị: lưu bằng chứng ruleset/required checks và
-các security switches của `main`. Việc này không chặn phát triển P1-09.
+các security switches của `main`. Việc này được xử lý khi rà exit gate Phase 1.
 
 ## 4. Hạ tầng staging đã chốt
 

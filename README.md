@@ -18,7 +18,8 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
 - P1-03 đã hoàn thành: semantic tokens, component Radix/Lucide truy cập được, Storybook, contrast/keyboard checks và tích hợp vào các luồng web chính.
 - P1-10 và P1-08B đã hoàn thành: web chạy trên Cloudflare Pages, `/api/*` được proxy cùng origin tới Go Core API trên Render, dữ liệu dùng Neon, file dùng Backblaze B2, media dùng LiveKit Cloud và xác thực dùng ZITADEL.
 - Toàn bộ smoke test staging đã đạt: OIDC/session/logout, health/readiness, migration/rollback, B2 PUT/GET/checksum/DELETE, LiveKit camera/micro/screen share/reconnect và webhook idempotent.
-- P1-08A đã hoàn thành pipeline Verify/Security. Phần còn lại của Phase 1 là P1-09 local developer experience và bằng chứng cấu hình bảo vệ `main` trên GitHub.
+- P1-09 đã hoàn thành: PostgreSQL/Redis local bằng Compose, migration + seed idempotent và `dev:local` một lệnh cho Windows/Linux.
+- Phần còn lại của Phase 1 là rà exit gate và lưu bằng chứng cấu hình bảo vệ `main` trên GitHub.
 - Master Plan web-first 2.0 đã audit lại kiến trúc, roadmap 90 ngày và các phase chuyển đổi từ V1.
 - Không sao chép secret, token hoặc cấu hình production từ V1.
 

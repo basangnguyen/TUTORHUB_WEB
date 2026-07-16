@@ -1,110 +1,179 @@
 # Local development
 
-## Toolchain
+## Toolchain bắt buộc
 
-- Node.js `>=24.14.0 <25`
-- pnpm `11.7.x`
-- Go `1.26.5`
-- PostgreSQL 17 local hoặc Neon development branch cho database integration
-- Docker Desktop: không bắt buộc nếu dùng Neon; CI dùng PostgreSQL container tạm thời
+- Node.js `>=24.14.0 <25` và Corepack.
+- pnpm `11.7.x`.
+- Go `1.26.5`.
+- Docker Desktop trên Windows hoặc Docker Engine + Compose plugin trên Linux.
+- Git.
 
-## Setup
+Docker chỉ chạy PostgreSQL 17 và Redis. Core API và Vite chạy trực tiếp trên máy để
+giữ hot reload nhanh. Các cổng container chỉ bind vào `127.0.0.1`, không mở ra mạng LAN.
+
+## Khởi tạo lần đầu
+
+Tại thư mục gốc repository:
 
 ```powershell
 corepack enable
-pnpm install
+corepack pnpm install
+corepack pnpm local:setup
 ```
 
-Nếu Go chưa được cài hệ thống, có thể giải nén bản Go chính thức vào `.tools\go` và thêm `.tools\go\bin` vào `PATH` của terminal hiện tại. `.tools` đã được Git ignore.
+`local:setup` thực hiện tuần tự bốn việc:
 
-## Run
+1. Khởi động PostgreSQL và Redis, chờ health check đạt.
+2. Chạy toàn bộ migration bằng `DATABASE_MIGRATION_URL` local.
+3. Seed dữ liệu phát triển có UUID cố định.
+4. Có thể chạy lại nhiều lần mà không nhân đôi dữ liệu.
 
-Terminal API:
+Lệnh local tự ép `APP_ENV=development`, dùng database loopback và xóa OIDC, B2,
+LiveKit cùng session secret khỏi process con. Vì vậy lệnh seed không thể chạy vào
+staging hoặc production do vô tình kế thừa biến môi trường của terminal.
+
+## Chạy ứng dụng bằng một lệnh
 
 ```powershell
-go run ./services/core-api/cmd/api
+corepack pnpm dev:local
 ```
 
-Terminal web:
+Lệnh này chạy `local:setup`, sau đó khởi động Core API và Vite song song. Dừng cả hai
+bằng `Ctrl+C`.
 
-```powershell
-pnpm --filter @tutorhub/web dev
-```
-
-Mở `http://localhost:5173`. Vite proxy `/api` tới API ở cổng `8080`.
-
-Các endpoint nền của Core API:
-
-| Endpoint | Mục đích |
+| Thành phần | URL local |
 |---|---|
-| `GET /health` | Thông tin health tổng quát, giữ tương thích web shell |
-| `GET /live` | Liveness của process |
-| `GET /ready` | Readiness và trạng thái dependency |
-| `GET /api/v1/status` | Trạng thái API có version |
-| `GET /api/v1/auth/login` | Bắt đầu OIDC Authorization Code + PKCE |
-| `GET /api/v1/auth/callback` | Hoàn tất OIDC và phát hành TutorHub session |
-| `GET /api/v1/auth/csrf` | Xoay CSRF token gắn với session |
-| `POST /api/v1/auth/logout` | Xác minh CSRF và revoke session |
-| `GET /api/v1/me` | User, tenant context và permissions hiện tại |
-| `GET /api/v1/classes` | Danh sách lớp trong active workspace; yêu cầu `class.view` |
-| `POST /api/v1/classes` | Tạo lớp nháp trong active workspace; yêu cầu CSRF và `class.create` |
-| `GET /api/v1/classes/{class_id}` | Chi tiết lớp trong active workspace; truy cập chéo tenant trả `404` |
-| `GET /metrics` | Metrics Prometheus tối thiểu; phải giới hạn ở ingress trước production |
+| Web | `http://localhost:5173` |
+| Core API | `http://localhost:8080` |
+| Health | `http://localhost:8080/health` |
+| Readiness | `http://localhost:8080/ready` |
+| PostgreSQL | `localhost:5432`, database/user `tutorhub` |
+| Redis | `localhost:6379` |
 
-Core API đọc cấu hình từ environment và dừng ngay nếu giá trị không hợp lệ. Các biến
-không nhạy cảm và giá trị local mẫu nằm trong `.env.example`. Ở `staging` và
-`production`, `PUBLIC_WEB_ORIGIN` bắt buộc dùng HTTPS.
+Vite chuyển tiếp `/api` tới Core API ở cổng `8080`. OIDC và object storage được tắt
+trong cấu hình mặc định local; health, status và public web shell vẫn phát triển được
+độc lập.
+
+## Dữ liệu mẫu
+
+Seed chỉ được phép chạy khi `APP_ENV` là `development` hoặc `test`.
+
+| Loại | Dữ liệu |
+|---|---|
+| Tenant | `tutorhub-demo` - Trường học mẫu TutorHub |
+| Giảng viên | `giangvien.demo@tutorhub.local`, múi giờ `Asia/Ho_Chi_Minh` |
+| Học viên | `hocsinh.demo@tutorhub.local`, múi giờ `UTC` |
+| Lớp học | `DEMO-VI-01` - Lớp học trực tuyến mẫu |
+
+Hai múi giờ được giữ có chủ ý để phát hiện lỗi chuyển đổi thời gian giữa Việt Nam
+và UTC ngay trong quá trình phát triển.
+
+## Lệnh quản lý môi trường
+
+```powershell
+corepack pnpm local:status
+corepack pnpm local:down
+corepack pnpm local:reset -- --yes
+```
+
+`local:down` giữ volume. `local:reset` xóa toàn bộ dữ liệu PostgreSQL/Redis local rồi
+migrate và seed lại; script nội bộ yêu cầu cờ `--yes` để tránh xóa nhầm.
+
+Các lệnh database riêng:
+
+```powershell
+corepack pnpm db:version
+corepack pnpm db:migrate
+corepack pnpm db:seed
+corepack pnpm test:integration
+```
+
+Migration không chạy tự động khi Core API khởi động. Quy trình migration, rollback và
+tenant boundary chi tiết nằm trong [DATABASE.md](DATABASE.md).
 
 ## API contract
 
 `openapi/tutorhub.yaml` là nguồn contract. Sau khi sửa contract:
 
 ```powershell
-pnpm api:generate
-pnpm api:check
+corepack pnpm api:generate
+corepack pnpm api:check
 ```
 
-`api:check` thất bại nếu generated TypeScript client khác source OpenAPI và cũng được
-chạy trong CI.
+`api:check` thất bại nếu generated TypeScript client khác nguồn OpenAPI.
 
-## Database
+## Cấu hình xác thực tùy chọn
 
-Tạo `.env.local` từ `.env.example`. Dùng Neon pooled URL cho
-`DATABASE_POOL_URL` và direct URL cho `DATABASE_MIGRATION_URL`; không commit file này.
+Không cấu hình OIDC thì auth endpoints trả `503`, còn health/status vẫn hoạt động.
+Muốn kiểm tra ZITADEL local, chạy API/web thủ công với các biến `OIDC_*` và
+`SESSION_SECRET` trong `.env.local`; không dùng `dev:local` vì lệnh này chủ động tắt
+provider cloud. Health, status và public web shell vẫn dùng được trong chế độ này.
+Chi tiết cấu hình xác thực nằm trong [AUTHENTICATION.md](AUTHENTICATION.md).
+
+## Troubleshooting Windows
+
+### Không kết nối được Docker Desktop
+
+Mở Docker Desktop, chờ trạng thái Engine running rồi kiểm tra:
 
 ```powershell
-pnpm db:version
-pnpm db:migrate
-pnpm test:integration
+docker version
+docker compose version
 ```
 
-Migration không chạy tự động cùng Core API. Hướng dẫn nạp environment, rollback,
-schema và tenant boundary nằm trong [DATABASE.md](DATABASE.md).
+Nếu báo lỗi named pipe, bật WSL 2 backend trong Docker Desktop và khởi động lại Docker.
+Không chạy repository trong filesystem của distro WSL nếu đang dùng terminal Windows.
 
-## Authentication
-
-Không cấu hình OIDC thì auth endpoints trả `503`, còn health/status vẫn dùng được cho
-development nền. Khi đã có ZITADEL local client, nạp `OIDC_*` và `SESSION_SECRET` từ
-`.env.local`; Core API sẽ fail-fast nếu thiếu hoặc sai một giá trị. Luồng, cookie,
-client setup và test được mô tả tại [AUTHENTICATION.md](AUTHENTICATION.md).
-
-## Verify
+### Cổng 5432, 6379, 8080 hoặc 5173 đã được dùng
 
 ```powershell
-pnpm verify
+Get-NetTCPConnection -State Listen |
+  Where-Object LocalPort -In 5432,6379,8080,5173
 ```
 
-Lệnh này kiểm tra format, lint, TypeScript, test, web build, Go test và Go vet.
+Dừng PostgreSQL/Redis/Vite cũ hoặc container xung đột trước khi chạy lại. Không đổi
+cổng trong `.env.example` mà không cập nhật đồng thời `compose.yaml` và script local.
 
-Kiểm tra riêng Core API:
+### Corepack hoặc pnpm không được nhận diện
+
+Đóng terminal sau khi cài Node.js, mở lại rồi chạy `corepack enable`. Có thể dùng đầy
+đủ `corepack pnpm <script>` thay cho `pnpm <script>`.
+
+### Docker volume cũ làm migration sai
+
+Chỉ khi không cần dữ liệu local hiện tại:
 
 ```powershell
-go test -cover ./services/core-api/...
-go vet ./services/core-api/...
+corepack pnpm local:reset -- --yes
 ```
 
-## Security
+## Troubleshooting Linux
 
-- Copy `.env.example` thành `.env.local` cục bộ khi thật sự cần.
-- Không đặt credential thật vào `.env.example` hoặc commit `.env.local`.
+Nếu Docker yêu cầu `sudo`, thêm tài khoản vào nhóm `docker`, đăng xuất rồi đăng nhập lại:
+
+```bash
+sudo usermod -aG docker "$USER"
+docker version
+docker compose version
+```
+
+Kiểm tra cổng bằng `ss -ltnp | grep -E ':(5432|6379|8080|5173)'`. Trên hệ thống có
+PostgreSQL hoặc Redis cài sẵn, dừng service hệ thống trước khi chạy Compose.
+
+## Kiểm tra chất lượng
+
+```powershell
+corepack pnpm verify
+```
+
+Lệnh này kiểm tra format, local orchestrator, workflow security, lint, TypeScript,
+unit test, Storybook build, frontend bundle, Go test và Go vet. CI còn chạy
+`local:setup` hai lần trên container sạch và kiểm tra số lượng fixture để bảo đảm
+migration/seed idempotent.
+
+## Quy tắc bảo mật
+
+- `.env.example` chỉ dùng credential giả cục bộ; không thay bằng secret thật.
+- Secret thật chỉ đặt trong `.env*.local` bị Git-ignore hoặc secret store của provider.
 - Không dùng lại credential từ TutorHub V1.
+- Không chuyển `APP_ENV` của lệnh seed sang `staging` hoặc `production`; code sẽ từ chối.

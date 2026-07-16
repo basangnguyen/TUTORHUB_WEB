@@ -6,8 +6,8 @@
 | ------------------- | ---------------------------------------------------------------------------------- |
 | Cập nhật            | 2026-07-16                                                                         |
 | Phase hiện tại      | Phase 1 - Engineering Foundation                                                   |
-| Hoàn thành gần nhất | P1-10 Cloud foundation và P1-08B staging deployment đã đạt acceptance             |
-| Việc tiếp theo      | P1-09 local developer experience và bằng chứng GitHub ruleset                     |
+| Hoàn thành gần nhất | P1-09 local developer experience                                                    |
+| Việc tiếp theo      | Rà exit gate Phase 1 và lưu bằng chứng GitHub ruleset                               |
 | Phạm vi             | Web-first; desktop/mobile/native là track sau                                      |
 
 ## Chuỗi phase

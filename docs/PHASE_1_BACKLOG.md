@@ -149,10 +149,15 @@ triển khai `main`; Pages Function chuyển tiếp same-origin `/api/*` tới C
 
 ## P1-09 Local developer experience
 
-- [ ] Docker Compose cho PostgreSQL, Redis và service phụ trợ local.
-- [ ] `.env.example` chỉ chứa tên biến và giá trị giả an toàn.
-- [ ] Seed dữ liệu giả có tenant/teacher/student.
-- [ ] `docs/DEVELOPMENT.md` và troubleshooting Windows.
+- [x] Docker Compose cho PostgreSQL, Redis và service phụ trợ local.
+- [x] `.env.example` chỉ chứa tên biến và giá trị giả an toàn.
+- [x] Seed dữ liệu giả có tenant/teacher/student.
+- [x] `docs/DEVELOPMENT.md` và troubleshooting Windows/Linux.
+
+**Trạng thái 2026-07-16:** `local:setup` dựng PostgreSQL 17 + Redis, chờ health,
+chạy migration và seed idempotent; `dev:local` khởi động API/web bằng một lệnh. Seed
+có guard chỉ cho `development`/`test`, fixture Việt Nam + UTC và CI smoke chạy setup
+hai lần trước khi xác nhận tenant, hai user, lớp mẫu và Redis.
 
 ## P1-10 Cloud foundation
 
