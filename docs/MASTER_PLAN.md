@@ -2,18 +2,18 @@
 
 > Nguồn sự thật cấp chiến lược cho việc xây dựng TutorHub V2 theo hướng web-first. Tài liệu này mô tả mục tiêu sản phẩm, kiến trúc, thứ tự triển khai, điều kiện nghiệm thu và lộ trình chuyển đổi từ TutorHub V1.
 
-| Thuộc tính | Giá trị |
-|---|---|
-| Phiên bản tài liệu | 2.0 |
-| Cập nhật | 2026-07-13 |
-| Phạm vi ưu tiên | Web application |
-| Thư mục phát triển | `D:\TutorHub_V2` |
-| Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB` |
-| Dự án V1 tham chiếu | `D:\Ban_sao_du_an`, chỉ đọc |
-| Phase hiện tại | Phase 1 - Engineering Foundation |
-| Trạng thái gần nhất | P1-02 đã merge; P1-04 và P1-05 hoàn thành cục bộ; P1-06 là việc tiếp theo sau review |
-| Kiến trúc nền | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
-| Môi trường miễn phí | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production |
+| Thuộc tính            | Giá trị                                                                                      |
+| --------------------- | -------------------------------------------------------------------------------------------- |
+| Phiên bản tài liệu    | 2.1                                                                                          |
+| Cập nhật              | 2026-07-16                                                                                   |
+| Phạm vi ưu tiên       | Web application                                                                              |
+| Thư mục phát triển    | `D:\TutorHub_V2`                                                                             |
+| Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
+| Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
+| Phase hiện tại        | Phase 2 - Identity, tenant và class core                                                     |
+| Trạng thái gần nhất   | Phase 1 exit gate đạt; P2-00 Policy and contract baseline là việc tiếp theo                  |
+| Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
+| Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 
 ## 1. Mục đích và cách sử dụng
 
@@ -68,14 +68,14 @@ Phần này dựa trên tài liệu công khai chính thức, không tuyên bố
 
 ### 3.1 Những mẫu kiến trúc đáng học
 
-| Nền tảng | Bằng chứng công khai | Bài học cho TutorHub |
-|---|---|---|
-| Zoom | Client chọn Meeting Zone và Multimedia Router phù hợp; có waiting room và host moderation | Tách signaling khỏi media, có prejoin/network test, admission state machine và quyền host rõ ràng |
-| Google Meet | Meeting space tồn tại độc lập với từng conference; participant session tách theo thiết bị; recording/transcript là artifact sau phiên | Mô hình `meeting_space -> session -> participant_session -> artifact`, không đồng nhất lớp học với một kết nối WebRTC |
-| Google Meet Media API | SFU chỉ chuyển các stream liên quan khi số người vượt khả năng hiển thị của client | Dùng adaptive subscription, active speaker, pagination video tile và giới hạn track theo thiết bị |
-| Microsoft Teams | Tách real-time media, signaling và traffic nghiệp vụ; ưu tiên UDP/direct path, dùng relay khi cần | Không proxy media qua Core API; đo network quality; thiết kế reconnect/TURN fallback |
-| Microsoft Teams | Meeting tương tác và event quy mô lớn có role, policy và mức tương tác khác nhau | Tạo capacity profile riêng cho classroom, webinar và broadcast |
-| Cả ba | Có lobby, host/co-host, policy, recording, transcript, audit/event sau cuộc họp | Quyền và vòng đời buổi học là domain server-side, không phải state cục bộ của UI |
+| Nền tảng              | Bằng chứng công khai                                                                                                                  | Bài học cho TutorHub                                                                                                  |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Zoom                  | Client chọn Meeting Zone và Multimedia Router phù hợp; có waiting room và host moderation                                             | Tách signaling khỏi media, có prejoin/network test, admission state machine và quyền host rõ ràng                     |
+| Google Meet           | Meeting space tồn tại độc lập với từng conference; participant session tách theo thiết bị; recording/transcript là artifact sau phiên | Mô hình `meeting_space -> session -> participant_session -> artifact`, không đồng nhất lớp học với một kết nối WebRTC |
+| Google Meet Media API | SFU chỉ chuyển các stream liên quan khi số người vượt khả năng hiển thị của client                                                    | Dùng adaptive subscription, active speaker, pagination video tile và giới hạn track theo thiết bị                     |
+| Microsoft Teams       | Tách real-time media, signaling và traffic nghiệp vụ; ưu tiên UDP/direct path, dùng relay khi cần                                     | Không proxy media qua Core API; đo network quality; thiết kế reconnect/TURN fallback                                  |
+| Microsoft Teams       | Meeting tương tác và event quy mô lớn có role, policy và mức tương tác khác nhau                                                      | Tạo capacity profile riêng cho classroom, webinar và broadcast                                                        |
+| Cả ba                 | Có lobby, host/co-host, policy, recording, transcript, audit/event sau cuộc họp                                                       | Quyền và vòng đời buổi học là domain server-side, không phải state cục bộ của UI                                      |
 
 ### 3.2 Điều không nên sao chép
 
@@ -141,14 +141,14 @@ Vertical slice bắt buộc:
 
 Các con số là planning envelope, không phải cam kết nếu chưa qua benchmark.
 
-| Giai đoạn | Tenant | MAU | Lớp đồng thời | Người/phòng | Mục tiêu chính |
-|---|---:|---:|---:|---:|---|
-| Local/CI | Dữ liệu giả | Dưới 20 | 1 | 2-5 | Phát triển và test tự động |
-| Private alpha miễn phí | 1-3 | Dưới 100 | 1-3 | 2-20 | Xác nhận luồng và UX |
-| Pilot | 3-10 | 100-1.000 | 5-20 | Tối đa 50 | Dữ liệu thật có kiểm soát |
-| Public beta | 10-100 | 1.000-20.000 | 20-200 | 50-150 | SLO, support, billing/quota |
-| Production khu vực | 100+ | 20.000-200.000 | 200+ | Theo capacity profile | HA, DR, compliance |
-| Global | Theo thị trường | 200.000+ | Multi-region | Classroom/webinar/broadcast tách biệt | Geo routing và regional isolation |
+| Giai đoạn              |          Tenant |            MAU | Lớp đồng thời |                           Người/phòng | Mục tiêu chính                    |
+| ---------------------- | --------------: | -------------: | ------------: | ------------------------------------: | --------------------------------- |
+| Local/CI               |     Dữ liệu giả |        Dưới 20 |             1 |                                   2-5 | Phát triển và test tự động        |
+| Private alpha miễn phí |             1-3 |       Dưới 100 |           1-3 |                                  2-20 | Xác nhận luồng và UX              |
+| Pilot                  |            3-10 |      100-1.000 |          5-20 |                             Tối đa 50 | Dữ liệu thật có kiểm soát         |
+| Public beta            |          10-100 |   1.000-20.000 |        20-200 |                                50-150 | SLO, support, billing/quota       |
+| Production khu vực     |            100+ | 20.000-200.000 |          200+ |                 Theo capacity profile | HA, DR, compliance                |
+| Global                 | Theo thị trường |       200.000+ |  Multi-region | Classroom/webinar/broadcast tách biệt | Geo routing và regional isolation |
 
 Không mở cấp tiếp theo nếu phase trước chưa đạt exit gate và chưa có ngân sách phù hợp.
 
@@ -165,23 +165,23 @@ Không mở cấp tiếp theo nếu phase trước chưa đạt exit gate và ch
 
 ## 7. Audit kiến trúc hiện tại
 
-| Hạng mục | Đánh giá | Quyết định |
-|---|---|---|
-| React + TypeScript + Vite | Phù hợp | Giữ |
-| Go modular monolith | Phù hợp | Giữ; module hóa nội bộ và chỉ tách khi có bằng chứng |
-| OpenAPI/generated client | Phù hợp | Bắt buộc |
-| OIDC + BFF cookie | Phù hợp | Giữ |
-| Neon PostgreSQL | Phù hợp alpha/pilot | Giữ; bổ sung pooling, migration role, backup/restore |
-| LiveKit Cloud | Phù hợp MVP | Giữ; không tự host trước khi có SRE |
-| Backblaze B2 | Phù hợp object storage | Giữ; thêm scan, metadata, lifecycle và CDN policy |
-| Cloudflare Pages | Phù hợp SPA static | Giữ |
-| Render cho Core API | Phù hợp staging/private alpha | Giữ tạm; Free tier có cold start và phải có exit trigger trước public beta |
-| Redis ngay từ đầu | Chưa cần | Hoãn tới khi có rate limit phân tán, queue hoặc presence bắt buộc |
-| Microservices/Kubernetes | Quá sớm | Không dùng trong MVP |
-| LiveKit DataChannel cho chat | Không phù hợp dữ liệu bền vững | Chỉ dùng ephemeral events |
-| Worker/job architecture | Còn thiếu | Bổ sung trong Phase 1/2 |
-| Feature flag/quota | Còn thiếu | Bổ sung trước pilot |
-| Multi-region | Chưa cần ngay | Thiết kế ranh giới, triển khai ở Global Readiness |
+| Hạng mục                     | Đánh giá                       | Quyết định                                                                 |
+| ---------------------------- | ------------------------------ | -------------------------------------------------------------------------- |
+| React + TypeScript + Vite    | Phù hợp                        | Giữ                                                                        |
+| Go modular monolith          | Phù hợp                        | Giữ; module hóa nội bộ và chỉ tách khi có bằng chứng                       |
+| OpenAPI/generated client     | Phù hợp                        | Bắt buộc                                                                   |
+| OIDC + BFF cookie            | Phù hợp                        | Giữ                                                                        |
+| Neon PostgreSQL              | Phù hợp alpha/pilot            | Giữ; bổ sung pooling, migration role, backup/restore                       |
+| LiveKit Cloud                | Phù hợp MVP                    | Giữ; không tự host trước khi có SRE                                        |
+| Backblaze B2                 | Phù hợp object storage         | Giữ; thêm scan, metadata, lifecycle và CDN policy                          |
+| Cloudflare Pages             | Phù hợp SPA static             | Giữ                                                                        |
+| Render cho Core API          | Phù hợp staging/private alpha  | Giữ tạm; Free tier có cold start và phải có exit trigger trước public beta |
+| Redis ngay từ đầu            | Chưa cần                       | Hoãn tới khi có rate limit phân tán, queue hoặc presence bắt buộc          |
+| Microservices/Kubernetes     | Quá sớm                        | Không dùng trong MVP                                                       |
+| LiveKit DataChannel cho chat | Không phù hợp dữ liệu bền vững | Chỉ dùng ephemeral events                                                  |
+| Worker/job architecture      | Còn thiếu                      | Bổ sung trong Phase 1/2                                                    |
+| Feature flag/quota           | Còn thiếu                      | Bổ sung trước pilot                                                        |
+| Multi-region                 | Chưa cần ngay                  | Thiết kế ranh giới, triển khai ở Global Readiness                          |
 
 ## 8. Kiến trúc mục tiêu
 
@@ -310,15 +310,15 @@ Route chỉ quyết định khả năng hiển thị ban đầu; mọi API vẫn
 
 ### 10.3 Phân loại state
 
-| Loại state | Công cụ | Ví dụ |
-|---|---|---|
-| Server state | TanStack Query | lớp, lịch, thành viên, tin nhắn |
-| URL state | Router/search params | tab, filter, pagination, deep link |
-| Form state | Component + schema validation | tạo lớp, lên lịch |
-| Ephemeral UI | Component/local store | dialog, hover, toolbar |
-| Media state | Classroom controller | track, device, reconnect, network quality |
-| Collaborative state | Yjs provider | nét vẽ, object bảng trắng |
-| Session | Query + secure cookie | user, tenant, effective permissions |
+| Loại state          | Công cụ                       | Ví dụ                                     |
+| ------------------- | ----------------------------- | ----------------------------------------- |
+| Server state        | TanStack Query                | lớp, lịch, thành viên, tin nhắn           |
+| URL state           | Router/search params          | tab, filter, pagination, deep link        |
+| Form state          | Component + schema validation | tạo lớp, lên lịch                         |
+| Ephemeral UI        | Component/local store         | dialog, hover, toolbar                    |
+| Media state         | Classroom controller          | track, device, reconnect, network quality |
+| Collaborative state | Yjs provider                  | nét vẽ, object bảng trắng                 |
+| Session             | Query + secure cookie         | user, tenant, effective permissions       |
 
 Không sao chép server state vào store toàn cục nếu không có lý do.
 
@@ -348,16 +348,16 @@ Classroom không được triển khai như một component lớn. Tối thiểu
 
 ### 10.6 Performance budget
 
-| Chỉ số | Mục tiêu MVP |
-|---|---:|
-| LCP trang app shell | Dưới 2,5 giây ở profile kiểm thử chuẩn |
-| INP | Dưới 200 ms |
-| Initial JS cho public/login | Dưới 250 KB gzip, chưa gồm vendor auth cần thiết |
-| Classroom route | Lazy load riêng |
-| Route không dùng media SDK | Không tải LiveKit SDK |
-| Ảnh avatar/thumbnail | Responsive, lazy, có kích thước cố định |
-| Long list | Pagination hoặc virtualization |
-| Memory leak sau 10 lần join/leave | Không tăng không giới hạn |
+| Chỉ số                            |                                     Mục tiêu MVP |
+| --------------------------------- | -----------------------------------------------: |
+| LCP trang app shell               |           Dưới 2,5 giây ở profile kiểm thử chuẩn |
+| INP                               |                                      Dưới 200 ms |
+| Initial JS cho public/login       | Dưới 250 KB gzip, chưa gồm vendor auth cần thiết |
+| Classroom route                   |                                  Lazy load riêng |
+| Route không dùng media SDK        |                            Không tải LiveKit SDK |
+| Ảnh avatar/thumbnail              |          Responsive, lazy, có kích thước cố định |
+| Long list                         |                   Pagination hoặc virtualization |
+| Memory leak sau 10 lần join/leave |                        Không tăng không giới hạn |
 
 Budget được đo trong CI hoặc release checklist; không chỉ ghi mục tiêu.
 
@@ -426,16 +426,16 @@ Mỗi module có thể gồm `domain`, `application`, `repository`, `transport`.
 
 ### 11.4 Realtime ngoài media
 
-| Nhu cầu | Kênh |
-|---|---|
-| Camera/mic/screen share | LiveKit WebRTC |
-| Active speaker/network quality | LiveKit event |
-| Hand raise/reaction tạm | LiveKit DataChannel hoặc room metadata |
-| Persistent chat | Core API ghi DB; SSE/WebSocket phát sự kiện |
-| Notification badge | SSE trước, WebSocket khi có nhu cầu hai chiều |
-| Whiteboard | Yjs WebSocket |
-| Job progress | SSE |
-| Admin/audit query | REST |
+| Nhu cầu                        | Kênh                                          |
+| ------------------------------ | --------------------------------------------- |
+| Camera/mic/screen share        | LiveKit WebRTC                                |
+| Active speaker/network quality | LiveKit event                                 |
+| Hand raise/reaction tạm        | LiveKit DataChannel hoặc room metadata        |
+| Persistent chat                | Core API ghi DB; SSE/WebSocket phát sự kiện   |
+| Notification badge             | SSE trước, WebSocket khi có nhu cầu hai chiều |
+| Whiteboard                     | Yjs WebSocket                                 |
+| Job progress                   | SSE                                           |
+| Admin/audit query              | REST                                          |
 
 Không dùng một WebSocket gateway để xử lý cả media, collaboration và dữ liệu nghiệp vụ.
 
@@ -633,13 +633,13 @@ Backend sở hữu trạng thái nghiệp vụ; LiveKit room phản ánh phiên 
 
 ### 14.3 Capacity profile
 
-| Profile | Mục tiêu | Hành vi |
-|---|---|---|
-| Tutorial | 2-10 | Tất cả có thể publish audio/video |
-| Classroom | 11-50 | Adaptive subscription, giới hạn video tile |
-| Large classroom | 51-150 | Teacher/TA publish ưu tiên; student video theo policy |
-| Webinar | 150-1.000 | Stage/presenter tách attendee; Q&A/reaction có kiểm soát |
-| Broadcast | Trên 1.000 | Livestream/CDN hoặc sản phẩm media riêng, không dùng classroom UI nguyên trạng |
+| Profile         | Mục tiêu   | Hành vi                                                                        |
+| --------------- | ---------- | ------------------------------------------------------------------------------ |
+| Tutorial        | 2-10       | Tất cả có thể publish audio/video                                              |
+| Classroom       | 11-50      | Adaptive subscription, giới hạn video tile                                     |
+| Large classroom | 51-150     | Teacher/TA publish ưu tiên; student video theo policy                          |
+| Webinar         | 150-1.000  | Stage/presenter tách attendee; Q&A/reaction có kiểm soát                       |
+| Broadcast       | Trên 1.000 | Livestream/CDN hoặc sản phẩm media riêng, không dùng classroom UI nguyên trạng |
 
 MVP chỉ cam kết Tutorial và Classroom sau benchmark. Các profile lớn cần ADR, quota và load test riêng.
 
@@ -728,21 +728,21 @@ interface ClassroomTool {
 
 Nhóm công cụ và phase:
 
-| Công cụ | Mục đích | Plane chính | Phase |
-|---|---|---|---|
-| Chat/People | Giao tiếp và quản lý người tham gia | Data + media event | 4 |
-| Whiteboard | Vẽ và cộng tác | Collaboration | 5 |
-| Quiz nhanh | Câu hỏi tức thời | Data + ephemeral result | 5 |
-| Files | Chia sẻ tài liệu | B2 + data | 3/5 |
-| YouTube/Video | Co-watch có sync control | Collaboration | 5 |
-| Math | Công thức và input toán | Client/collaboration | 5 |
-| Diagram | Mermaid/diagram editor | Client/collaboration | 5 |
-| Code/Snippet | Soạn và chia sẻ code | Client/data | 5 |
-| Arena | Hoạt động thi đua | Data/realtime | 6 |
-| Breakout | Chia nhóm | Control + media | 5 |
-| Record | Ghi phiên học | Media + async | 5 |
-| Thí nghiệm | Mô phỏng sandbox | Client hoặc isolated service | 7 |
-| Lướt video | Nội dung video được kiểm soát | B2/CDN | 7 |
+| Công cụ       | Mục đích                            | Plane chính                  | Phase |
+| ------------- | ----------------------------------- | ---------------------------- | ----- |
+| Chat/People   | Giao tiếp và quản lý người tham gia | Data + media event           | 4     |
+| Whiteboard    | Vẽ và cộng tác                      | Collaboration                | 5     |
+| Quiz nhanh    | Câu hỏi tức thời                    | Data + ephemeral result      | 5     |
+| Files         | Chia sẻ tài liệu                    | B2 + data                    | 3/5   |
+| YouTube/Video | Co-watch có sync control            | Collaboration                | 5     |
+| Math          | Công thức và input toán             | Client/collaboration         | 5     |
+| Diagram       | Mermaid/diagram editor              | Client/collaboration         | 5     |
+| Code/Snippet  | Soạn và chia sẻ code                | Client/data                  | 5     |
+| Arena         | Hoạt động thi đua                   | Data/realtime                | 6     |
+| Breakout      | Chia nhóm                           | Control + media              | 5     |
+| Record        | Ghi phiên học                       | Media + async                | 5     |
+| Thí nghiệm    | Mô phỏng sandbox                    | Client hoặc isolated service | 7     |
+| Lướt video    | Nội dung video được kiểm soát       | B2/CDN                       | 7     |
 
 Untrusted HTML/code không chạy cùng origin hoặc quyền với TutorHub; phải dùng sandboxed iframe/isolated execution service.
 
@@ -885,15 +885,15 @@ Không chọn Kubernetes mặc định. Chỉ dùng khi số service, yêu cầu
 
 ## 20. Exit trigger của nhà cung cấp
 
-| Thành phần | Giữ khi | Bắt đầu chuyển khi |
-|---|---|---|
-| HF Core API | Alpha nhỏ, stateless, chấp nhận sleep/cold start | Cần SLA, autoscaling, worker bền vững, private network hoặc WebSocket ổn định |
-| Neon Free | Connection/storage/compute trong quota và cold start chấp nhận được | Pilot cần luôn sẵn sàng, vượt quota, cần compliance/region/PITR cao hơn |
-| LiveKit Free | Test/private alpha trong hard cap | Có lớp thật, recording, concurrency hoặc support/SLA |
-| B2 | Cost/region/latency và policy đáp ứng | Data residency, egress path, compliance hoặc latency không đạt |
-| Cloudflare Pages | SPA/static phù hợp | Cần edge compute/SSR phức tạp hoặc policy không đáp ứng |
-| PostgreSQL search | Query và feature đủ | Relevance, indexing volume hoặc latency vượt SLO |
-| Không Redis | Một instance/DB đủ | Cần distributed rate limit, short-lived cache, presence hoặc queue |
+| Thành phần        | Giữ khi                                                             | Bắt đầu chuyển khi                                                            |
+| ----------------- | ------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| HF Core API       | Alpha nhỏ, stateless, chấp nhận sleep/cold start                    | Cần SLA, autoscaling, worker bền vững, private network hoặc WebSocket ổn định |
+| Neon Free         | Connection/storage/compute trong quota và cold start chấp nhận được | Pilot cần luôn sẵn sàng, vượt quota, cần compliance/region/PITR cao hơn       |
+| LiveKit Free      | Test/private alpha trong hard cap                                   | Có lớp thật, recording, concurrency hoặc support/SLA                          |
+| B2                | Cost/region/latency và policy đáp ứng                               | Data residency, egress path, compliance hoặc latency không đạt                |
+| Cloudflare Pages  | SPA/static phù hợp                                                  | Cần edge compute/SSR phức tạp hoặc policy không đáp ứng                       |
+| PostgreSQL search | Query và feature đủ                                                 | Relevance, indexing volume hoặc latency vượt SLO                              |
+| Không Redis       | Một instance/DB đủ                                                  | Cần distributed rate limit, short-lived cache, presence hoặc queue            |
 
 Mọi migration provider phải có interface, export path, dữ liệu ownership và rollback; không trì hoãn đến khi quota đã bị chặn.
 
@@ -911,16 +911,16 @@ Mọi migration provider phải có interface, export path, dữ liệu ownershi
 
 ### 21.2 SLO theo release
 
-| SLI | Alpha | Pilot | Public beta |
-|---|---:|---:|---:|
-| API availability | Best effort | 99,5% giờ cam kết | 99,9% |
-| CRUD API p95 | Dưới 500 ms | Dưới 300 ms | Dưới 300 ms |
-| Login success khi IdP khỏe | 98% | 99,5% | 99,7% |
-| Join room success trên matrix hỗ trợ | 95% | 99% | 99,5% |
-| Time to media p95 | Dưới 15 s | Dưới 10 s | Dưới 8 s |
-| Message persistence success | 99% | 99,9% | 99,95% |
-| Job age p95 | Quan sát | Dưới 5 phút | Theo loại job |
-| Backup restore | Thử thủ công | Drill hàng quý | RPO/RTO đã phê duyệt |
+| SLI                                  |        Alpha |             Pilot |          Public beta |
+| ------------------------------------ | -----------: | ----------------: | -------------------: |
+| API availability                     |  Best effort | 99,5% giờ cam kết |                99,9% |
+| CRUD API p95                         |  Dưới 500 ms |       Dưới 300 ms |          Dưới 300 ms |
+| Login success khi IdP khỏe           |          98% |             99,5% |                99,7% |
+| Join room success trên matrix hỗ trợ |          95% |               99% |                99,5% |
+| Time to media p95                    |    Dưới 15 s |         Dưới 10 s |             Dưới 8 s |
+| Message persistence success          |          99% |             99,9% |               99,95% |
+| Job age p95                          |     Quan sát |       Dưới 5 phút |        Theo loại job |
+| Backup restore                       | Thử thủ công |    Drill hàng quý | RPO/RTO đã phê duyệt |
 
 SLO chỉ được công bố khi có measurement pipeline và định nghĩa denominator rõ.
 
@@ -965,19 +965,19 @@ Web có thể quản lý exam policy, schedule, signed launch token và nhận r
 
 ### 23.1 Test pyramid theo rủi ro
 
-| Lớp | Nội dung |
-|---|---|
-| Unit | Domain rule, policy, mapper, reducer/controller |
-| Component | UI states, keyboard, accessibility |
-| Contract | OpenAPI, generated client, provider adapter |
-| Integration | PostgreSQL, migration, outbox, repository tenant scope |
-| E2E | Login, class, prejoin, room, upload, messaging |
-| Authorization | Role/permission matrix, cross-tenant, IDOR |
-| Media | Device, reconnect, screen share, network impairment |
-| Load | API, DB, join storm, chat, upload, jobs |
-| Security | SAST/DAST, dependency, secret, session/CSRF |
-| Recovery | Backup restore, worker retry, provider outage |
-| Migration | Fixture V1, idempotency, reconciliation |
+| Lớp           | Nội dung                                               |
+| ------------- | ------------------------------------------------------ |
+| Unit          | Domain rule, policy, mapper, reducer/controller        |
+| Component     | UI states, keyboard, accessibility                     |
+| Contract      | OpenAPI, generated client, provider adapter            |
+| Integration   | PostgreSQL, migration, outbox, repository tenant scope |
+| E2E           | Login, class, prejoin, room, upload, messaging         |
+| Authorization | Role/permission matrix, cross-tenant, IDOR             |
+| Media         | Device, reconnect, screen share, network impairment    |
+| Load          | API, DB, join storm, chat, upload, jobs                |
+| Security      | SAST/DAST, dependency, secret, session/CSRF            |
+| Recovery      | Backup restore, worker retry, provider outage          |
+| Migration     | Fixture V1, idempotency, reconciliation                |
 
 ### 23.2 Release gate
 
@@ -991,23 +991,23 @@ Web có thể quản lý exam policy, schedule, signed launch token và nhận r
 
 ## 24. Bản đồ chuyển chức năng V1 sang web
 
-| Khu vực V1 | Đích V2 | Phase | Cách chuyển |
-|---|---|---:|---|
-| Đăng nhập/hồ sơ | Identity/Profile | 2 | Xây mới OIDC/BFF, import mapping user |
-| Bảng tin | Home/Activity | 7 | Chuyển sau core learning |
-| Reels/Locket | Social learning | 7 | Thiết kế mới, không port UI |
-| Tin nhắn/Lavie | Messaging/AI | 3/7 | Persistent message trước, AI sau |
-| Lớp học | Class management | 2/3 | Vertical slice đầu tiên |
-| Phòng học | Classroom | 4/5 | LiveKit + tool modules |
-| Lịch | Schedule | 3 | Domain timezone-aware |
-| Thi/Đề/Câu hỏi | Assessment | 6 | Schema/versioning mới |
-| QuizHub | Quiz practice/game | 6 | Tách engine domain và UI game |
-| Nhiệm vụ | Assignment/Task | 6 | Workflow server-side |
-| Tài liệu/Drive | Files/Content | 3 | Presigned B2 pipeline |
-| Bảng vẽ | Whiteboard | 5 | React/Yjs, snapshot B2 |
-| Lavie Agent | AI assistant | 7 | Permission-filtered RAG |
-| Secure Exam | Native companion | Track riêng | Chỉ contract/handoff từ web |
-| Admin/nâng cấp | Tenant admin/billing | 8 | Sau usage/quota telemetry |
+| Khu vực V1      | Đích V2              |       Phase | Cách chuyển                           |
+| --------------- | -------------------- | ----------: | ------------------------------------- |
+| Đăng nhập/hồ sơ | Identity/Profile     |           2 | Xây mới OIDC/BFF, import mapping user |
+| Bảng tin        | Home/Activity        |           7 | Chuyển sau core learning              |
+| Reels/Locket    | Social learning      |           7 | Thiết kế mới, không port UI           |
+| Tin nhắn/Lavie  | Messaging/AI         |         3/7 | Persistent message trước, AI sau      |
+| Lớp học         | Class management     |         2/3 | Vertical slice đầu tiên               |
+| Phòng học       | Classroom            |         4/5 | LiveKit + tool modules                |
+| Lịch            | Schedule             |           3 | Domain timezone-aware                 |
+| Thi/Đề/Câu hỏi  | Assessment           |           6 | Schema/versioning mới                 |
+| QuizHub         | Quiz practice/game   |           6 | Tách engine domain và UI game         |
+| Nhiệm vụ        | Assignment/Task      |           6 | Workflow server-side                  |
+| Tài liệu/Drive  | Files/Content        |           3 | Presigned B2 pipeline                 |
+| Bảng vẽ         | Whiteboard           |           5 | React/Yjs, snapshot B2                |
+| Lavie Agent     | AI assistant         |           7 | Permission-filtered RAG               |
+| Secure Exam     | Native companion     | Track riêng | Chỉ contract/handoff từ web           |
+| Admin/nâng cấp  | Tenant admin/billing |           8 | Sau usage/quota telemetry             |
 
 Mỗi dòng cần một migration spec riêng trước khi thực thi: behavior inventory, schema mapping, API, permission, UI states, telemetry, test, rollout và rollback.
 
@@ -1045,7 +1045,7 @@ Không dual-write lâu dài nếu chưa có cơ chế consistency chính thức.
 
 **Exit gate:** tài liệu nền có thể giúp một agent mới giải thích đúng sản phẩm, kiến trúc và việc tiếp theo mà không cần lịch sử chat.
 
-### Phase 1 - Engineering Foundation - ĐANG THỰC HIỆN
+### Phase 1 - Engineering Foundation - HOÀN THÀNH 2026-07-16
 
 **Thời lượng kế hoạch:** 4-6 tuần.
 
@@ -1172,11 +1172,20 @@ Runtime role và migration role Neon tối thiểu quyền đã được tách t
 - Có telemetry tối thiểu và rollback.
 - P1-01 đến P1-10 đạt DoD hoặc có ADR giảm scope rõ.
 
-### Phase 2 - Identity, tenant và class core
+**Kết quả:** toàn bộ gate đạt trên commit chuẩn `ee597af`. Verify/Security CI,
+Cloudflare/Render HTTPS, ZITADEL OIDC, Neon migration, B2 readiness, LiveKit room và
+webhook, telemetry và rollback đã có bằng chứng. Repository chưa có ruleset công
+khai; direct-main là ngoại lệ có thời hạn theo ADR-0012, phải thay trước pilot/public
+beta. Xem `docs/PHASE_1_COMPLETION.md`.
+
+### Phase 2 - Identity, tenant và class core - ĐANG THỰC HIỆN
 
 **Thời lượng:** 4-6 tuần.
 
 **Mục tiêu:** có nền multi-tenant và quản lý lớp đủ dùng cho pilot nội bộ.
+
+**Backlog thực thi:** `docs/PHASE_2_BACKLOG.md`. Task đầu tiên là P2-00 Policy and
+contract baseline; authorization phải được thống nhất trước khi mở rộng API/UI.
 
 **Work package:**
 
@@ -1544,15 +1553,15 @@ Global readiness không phải công việc chỉ làm cuối: security, observa
 
 ## 29. Milestone sản phẩm
 
-| Milestone | Phase nguồn | Người dùng | Khả năng chính |
-|---|---|---|---|
-| M0 Engineering demo | 1 | Team | Auth/class/room spike |
-| M1 Private alpha | 2-4 | Nhóm nội bộ | Quản lý lớp và classroom cơ bản |
-| M2 Pilot trường/lớp | 3-5 | Người dùng thật có kiểm soát | Lịch, chat, file, media, whiteboard |
-| M3 Learning beta | 6 | Nhiều lớp | Assignment, exam, QuizHub |
-| M4 Public beta | 7-8 | Đăng ký giới hạn | AI/content, SLO, support, privacy |
-| M5 Regional GA | 8-9 | Thị trường đầu tiên | Production readiness và V1 cutover |
-| M6 Global expansion | Sau GA | Nhiều region | Regional isolation, webinar/broadcast |
+| Milestone           | Phase nguồn | Người dùng                   | Khả năng chính                        |
+| ------------------- | ----------- | ---------------------------- | ------------------------------------- |
+| M0 Engineering demo | 1           | Team                         | Auth/class/room spike                 |
+| M1 Private alpha    | 2-4         | Nhóm nội bộ                  | Quản lý lớp và classroom cơ bản       |
+| M2 Pilot trường/lớp | 3-5         | Người dùng thật có kiểm soát | Lịch, chat, file, media, whiteboard   |
+| M3 Learning beta    | 6           | Nhiều lớp                    | Assignment, exam, QuizHub             |
+| M4 Public beta      | 7-8         | Đăng ký giới hạn             | AI/content, SLO, support, privacy     |
+| M5 Regional GA      | 8-9         | Thị trường đầu tiên          | Production readiness và V1 cutover    |
+| M6 Global expansion | Sau GA      | Nhiều region                 | Regional isolation, webinar/broadcast |
 
 ## 30. Chiến lược release và feature flag
 
@@ -1595,23 +1604,23 @@ Không thể xây nền tảng toàn cầu miễn phí vĩnh viễn; mục tiêu
 
 ## 32. Risk register
 
-| Rủi ro | Xác suất/Tác động | Chủ động giảm thiểu | Trigger hành động |
-|---|---|---|---|
-| HF sleep/cold start | Cao/Cao ở pilot | Stateless OCI, synthetic probe, exit plan | Không đạt availability/time-to-first-byte |
-| Neon connection exhaustion | Trung/Cao | Pool budget, timeout, query review | Pool saturation hoặc timeout tăng |
-| LiveKit quota/chi phí | Cao/Trung | Hard cap, usage dashboard, profile | 75% quota hoặc pilot thật |
-| Media chất lượng kém | Trung/Cao | Prejoin, adaptive, telemetry | Join success/SLO không đạt |
-| Tenant data leak | Thấp/Rất cao | Context/policy/deny tests/audit | Bất kỳ cross-tenant finding |
-| File malware/abuse | Trung/Cao | Scan, quota, pending state | Upload public/pilot |
-| Worker mất job | Trung/Cao | Outbox, lease, idempotency, DLQ | Bắt đầu notification/file job |
-| V1 dữ liệu lỗi encoding | Cao/Trung | Fixture, UTF-8, reconciliation | Dry run import |
-| Scope phình | Cao/Cao | Exit gate, non-goal, feature flag | Task không phục vụ milestone |
-| Microservice quá sớm | Trung/Cao | ADR/evidence gate | Đề xuất tách không có metric |
-| AI vượt quyền/hallucination | Trung/Cao | Permission filter, citation, audit | Trước RAG pilot |
-| Recording/privacy | Trung/Rất cao | Consent/indicator/retention | Trước bật recording |
-| Vendor lock-in | Trung/Trung | Adapter/OCI/export/runbook | Exit trigger provider |
-| Nhiều agent xung đột | Cao/Trung | Ownership, contract, state docs | Trùng vùng file/branch |
-| Không đủ người vận hành | Cao/Cao | Managed services, giới hạn launch | Trước public beta |
+| Rủi ro                      | Xác suất/Tác động | Chủ động giảm thiểu                       | Trigger hành động                         |
+| --------------------------- | ----------------- | ----------------------------------------- | ----------------------------------------- |
+| HF sleep/cold start         | Cao/Cao ở pilot   | Stateless OCI, synthetic probe, exit plan | Không đạt availability/time-to-first-byte |
+| Neon connection exhaustion  | Trung/Cao         | Pool budget, timeout, query review        | Pool saturation hoặc timeout tăng         |
+| LiveKit quota/chi phí       | Cao/Trung         | Hard cap, usage dashboard, profile        | 75% quota hoặc pilot thật                 |
+| Media chất lượng kém        | Trung/Cao         | Prejoin, adaptive, telemetry              | Join success/SLO không đạt                |
+| Tenant data leak            | Thấp/Rất cao      | Context/policy/deny tests/audit           | Bất kỳ cross-tenant finding               |
+| File malware/abuse          | Trung/Cao         | Scan, quota, pending state                | Upload public/pilot                       |
+| Worker mất job              | Trung/Cao         | Outbox, lease, idempotency, DLQ           | Bắt đầu notification/file job             |
+| V1 dữ liệu lỗi encoding     | Cao/Trung         | Fixture, UTF-8, reconciliation            | Dry run import                            |
+| Scope phình                 | Cao/Cao           | Exit gate, non-goal, feature flag         | Task không phục vụ milestone              |
+| Microservice quá sớm        | Trung/Cao         | ADR/evidence gate                         | Đề xuất tách không có metric              |
+| AI vượt quyền/hallucination | Trung/Cao         | Permission filter, citation, audit        | Trước RAG pilot                           |
+| Recording/privacy           | Trung/Rất cao     | Consent/indicator/retention               | Trước bật recording                       |
+| Vendor lock-in              | Trung/Trung       | Adapter/OCI/export/runbook                | Exit trigger provider                     |
+| Nhiều agent xung đột        | Cao/Trung         | Ownership, contract, state docs           | Trùng vùng file/branch                    |
+| Không đủ người vận hành     | Cao/Cao           | Managed services, giới hạn launch         | Trước public beta                         |
 
 ## 33. Quyết định còn mở
 
@@ -1672,12 +1681,13 @@ Một tính năng chỉ được đánh dấu hoàn thành khi:
 
 Thứ tự hiện tại, cập nhật ngày 2026-07-16:
 
-1. P1-01 đến P1-10 đã hoàn thành; local và staging acceptance đã đạt.
-2. Lưu bằng chứng GitHub ruleset/security switches để đóng phần quản trị còn lại của P1-08.
-3. Chạy lại Phase 1 exit gate từ clean clone và ghi kết quả vào `docs/PROJECT_STATE.md`.
-5. Chỉ sau exit gate mới bắt đầu Phase 2: enrollment/roster và UI phòng học đầy đủ.
-
-Không bắt đầu QuizHub, Lavie, social feed hoặc Secure Exam web trong Phase 1.
+1. Phase 1 đã hoàn thành; biên bản nằm tại `docs/PHASE_1_COMPLETION.md`.
+2. Thực hiện P2-00: chốt organization/class role, permission matrix và policy layer.
+3. Sau P2-00 triển khai P2-01 profile/identity và P2-02 tenant lifecycle.
+4. Chỉ mở membership invitation, enrollment, roster và admin UI theo dependency
+   trong `docs/PHASE_2_BACKLOG.md`.
+5. Không bắt đầu QuizHub, Lavie, social feed, Secure Exam web hoặc classroom
+   collaboration trong Phase 2.
 
 ## 37. Quy tắc duy trì Master Plan
 

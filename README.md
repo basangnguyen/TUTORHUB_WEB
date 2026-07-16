@@ -8,19 +8,18 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
 
 ## Trạng thái
 
-- Phase 0 đã hoàn thành; hiện đang thực hiện **Phase 1 - Engineering Foundation**.
-- Web MVP đã được khóa ở luồng: đăng nhập -> lớp học -> prejoin -> phòng LiveKit -> rời phòng.
-- P1-01 và P1-02 đã hoàn thành: toolchain/CI, React web shell, routing, query, i18n và responsive states.
-- P1-04/P1-05 đã có checkpoint cục bộ; P1-06 Authentication, P1-06A Workspace onboarding và P1-06B Class vertical slice đang ở trạng thái review.
-- Người dùng mới có thể tạo workspace đầu tiên, nhận quyền `org_admin`; phiên đăng nhập được xoay an toàn khi tạo hoặc đổi workspace.
-- Lớp học đã có luồng list/create/detail theo active workspace, permission server-side, CSRF và giao diện trạng thái đầy đủ.
-- P1-07 đã hoàn thành: backend token tối thiểu quyền, prejoin/phòng LiveKit lazy-loaded, telemetry, webhook idempotent và smoke test staging 2-5 người cho camera/micro/screen share/reconnect đều đạt.
-- P1-03 đã hoàn thành: semantic tokens, component Radix/Lucide truy cập được, Storybook, contrast/keyboard checks và tích hợp vào các luồng web chính.
-- P1-10 và P1-08B đã hoàn thành: web chạy trên Cloudflare Pages, `/api/*` được proxy cùng origin tới Go Core API trên Render, dữ liệu dùng Neon, file dùng Backblaze B2, media dùng LiveKit Cloud và xác thực dùng ZITADEL.
-- Toàn bộ smoke test staging đã đạt: OIDC/session/logout, health/readiness, migration/rollback, B2 PUT/GET/checksum/DELETE, LiveKit camera/micro/screen share/reconnect và webhook idempotent.
-- P1-09 đã hoàn thành: PostgreSQL/Redis local bằng Compose, migration + seed idempotent và `dev:local` một lệnh cho Windows/Linux.
-- Phần còn lại của Phase 1 là rà exit gate và lưu bằng chứng cấu hình bảo vệ `main` trên GitHub.
-- Master Plan web-first 2.0 đã audit lại kiến trúc, roadmap 90 ngày và các phase chuyển đổi từ V1.
+- Phase 0 và **Phase 1 - Engineering Foundation** đã hoàn thành ngày 2026-07-16.
+- Hiện đang thực hiện **Phase 2 - Identity, tenant và class core**; task kế tiếp là
+  P2-00 Policy and contract baseline.
+- Web MVP nền đã chạy trên staging: Cloudflare Pages -> same-origin `/api/*` -> Go
+  Core API trên Render; dữ liệu dùng Neon, file dùng Backblaze B2, media dùng LiveKit
+  Cloud và xác thực dùng ZITADEL.
+- Exit gate Phase 1 đã đạt cho Verify/Security CI, OIDC/session/logout,
+  health/readiness, migration/rollback, B2, LiveKit 2-5 người, webhook idempotent và
+  local developer experience.
+- Repository hiện do một người duy trì và push trực tiếp `main`; ngoại lệ quản trị
+  này được giới hạn trong development/staging/private alpha theo ADR-0012.
+- Master Plan web-first 2.1 và backlog Phase 2 là nguồn kế hoạch hiện hành.
 - Không sao chép secret, token hoặc cấu hình production từ V1.
 
 ## Tài liệu bắt buộc đọc
@@ -38,12 +37,15 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
 11. [Lộ trình giao hàng](docs/DELIVERY_ROADMAP.md)
 12. [Backlog Phase 1](docs/PHASE_1_BACKLOG.md)
 13. [Biên bản hoàn thành Phase 0](docs/PHASE_0_COMPLETION.md)
-14. [Database foundation và migration runbook](docs/DATABASE.md)
-15. [LiveKit spike và smoke-test runbook](docs/LIVEKIT_SPIKE_RUNBOOK.md)
-16. [Design system và hướng dẫn sử dụng component](docs/DESIGN_SYSTEM.md)
-17. [CI/CD và security runbook](docs/CI_SECURITY.md)
-18. [Chính sách báo cáo lỗ hổng](SECURITY.md)
-19. [ADR-0011: Render cho Core API staging/private alpha](docs/adr/0011-render-core-api-staging.md)
+14. [Biên bản hoàn thành Phase 1](docs/PHASE_1_COMPLETION.md)
+15. [Backlog Phase 2](docs/PHASE_2_BACKLOG.md)
+16. [Database foundation và migration runbook](docs/DATABASE.md)
+17. [LiveKit spike và smoke-test runbook](docs/LIVEKIT_SPIKE_RUNBOOK.md)
+18. [Design system và hướng dẫn sử dụng component](docs/DESIGN_SYSTEM.md)
+19. [CI/CD và security runbook](docs/CI_SECURITY.md)
+20. [Chính sách báo cáo lỗ hổng](SECURITY.md)
+21. [ADR-0011: Render cho Core API staging/private alpha](docs/adr/0011-render-core-api-staging.md)
+22. [ADR-0012: Direct-main khi một người duy trì](docs/adr/0012-single-maintainer-direct-main-governance.md)
 
 Các quyết định kiến trúc đã chấp nhận nằm trong `docs/adr`.
 

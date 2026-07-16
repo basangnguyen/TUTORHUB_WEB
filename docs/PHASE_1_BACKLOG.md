@@ -134,7 +134,9 @@ làm room UI bị crash. Chủ dự án xác nhận ngày 2026-07-14 rằng smok
 - [x] P1-08A PR pipeline: format/lint -> typecheck -> unit -> integration -> build -> client-bundle scan.
 - [x] P1-08A secret, dependency, SAST, repository và container scan.
 - [x] P1-08A CODEOWNERS, dependency update automation, private disclosure policy và CI/security runbook.
-- [ ] Xác nhận ruleset/branch protection và các GitHub security switches theo checklist quản trị từ `docs/CI_SECURITY.md`.
+- [x] Rà trạng thái ruleset/branch protection/security switches và ghi nhận ngoại lệ
+      direct-main có kiểm soát theo ADR-0012. Repository không có ruleset công khai tại
+      thời điểm rà; không mô tả sai là đã bật bảo vệ nhánh.
 - [x] P1-08B triển khai web trên Cloudflare Pages, Core API trên Render và same-origin edge proxy `/api/*`.
 
 **Trạng thái 2026-07-16:** P1-08A và P1-08B đã hoàn thành.
@@ -143,9 +145,11 @@ workflow `Security` chạy Gitleaks, Dependency Review, CodeQL JavaScript/TypeSc
 filesystem/container. Mọi action ngoài repository được ghim bằng full commit SHA, quyền mặc định là
 `contents: read`, checkout không giữ credential, job có timeout/concurrency. Tám unit test cho policy
 và bundle scanner, `pnpm verify`, classroom/identity Neon integration test đều đạt. Head PR #4
-`90364c6` đã vượt qua cả workflow `Verify` và `Security`. GitHub ruleset và
-security switches là bước quản trị một lần còn cần xác nhận bằng bằng chứng. Cloudflare Pages tự động
-triển khai `main`; Pages Function chuyển tiếp same-origin `/api/*` tới Core API trên Render.
+`90364c6` đã vượt qua cả workflow `Verify` và `Security`. Ngày 2026-07-16 đã xác nhận
+repository không có ruleset công khai. Direct-main được chấp nhận có thời hạn theo
+ADR-0012 với `pnpm verify` trước push và Verify/Security hậu kiểm; phải thay bằng
+ruleset trước pilot/public beta. Cloudflare Pages tự động triển khai `main`; Pages
+Function chuyển tiếp same-origin `/api/*` tới Core API trên Render.
 
 ## P1-09 Local developer experience
 
@@ -186,9 +190,16 @@ dùng cho staging/private alpha do có cold start và spin-down; xem ADR-0011.
 
 ## Exit gate Phase 1
 
-- CI xanh từ clean clone.
-- Staging có HTTPS, OIDC và observability tối thiểu.
-- Staging/alpha chạy web trên Cloudflare Pages, API trên Render, dùng Neon và B2 tách biệt với production tương lai.
-- Một teacher và một student test có thể đăng nhập và vào cùng phòng LiveKit test.
-- Không có secret trong Git history hoặc frontend bundle.
-- ADR, OpenAPI và runbook được cập nhật.
+- [x] CI xanh từ clean clone (`Verify` run `29508603407`).
+- [x] Security pipeline xanh (`Security` run `29508603437`).
+- [x] Staging có HTTPS, OIDC và observability tối thiểu.
+- [x] Web chạy trên Cloudflare Pages, API trên Render, Neon/B2 tách resource staging.
+- [x] Teacher/student đăng nhập và vào cùng LiveKit room; smoke 2-5 người đạt.
+- [x] Không có secret trong Git history hoặc frontend bundle.
+- [x] Migration PostgreSQL thật, rollback, telemetry và readiness đạt.
+- [x] ADR, OpenAPI và runbook được cập nhật.
+- [x] Ngoại lệ quản trị GitHub được ghi trong ADR-0012, có trigger hết hiệu lực rõ.
+
+**Kết luận 2026-07-16:** Phase 1 hoàn thành. Xem ma trận bằng chứng và rủi ro
+chuyển tiếp tại `docs/PHASE_1_COMPLETION.md`. Công việc kế tiếp là P2-00 trong
+`docs/PHASE_2_BACKLOG.md`.

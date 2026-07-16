@@ -4,16 +4,16 @@
 
 ## Snapshot
 
-| Thuộc tính | Trạng thái |
-| --- | --- |
-| Ngày cập nhật | 2026-07-16 |
-| Repository | `https://github.com/basangnguyen/TUTORHUB_WEB` |
-| Nhánh làm việc | `main` |
-| Quy trình | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
-| Phase hoàn thành | Phase 0 |
-| Phase hiện tại | Phase 1 - Engineering Foundation |
-| Task vừa hoàn thành | P1-09 Local developer experience |
-| Task kế tiếp | Rà exit gate Phase 1 và lập backlog Phase 2 |
+| Thuộc tính          | Trạng thái                                                                            |
+| ------------------- | ------------------------------------------------------------------------------------- |
+| Ngày cập nhật       | 2026-07-16                                                                            |
+| Repository          | `https://github.com/basangnguyen/TUTORHUB_WEB`                                        |
+| Nhánh làm việc      | `main`                                                                                |
+| Quy trình           | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
+| Phase hoàn thành    | Phase 0, Phase 1                                                                      |
+| Phase hiện tại      | Phase 2 - Identity, tenant và class core                                              |
+| Task vừa hoàn thành | Exit gate Phase 1 và backlog Phase 2                                                  |
+| Task kế tiếp        | P2-00 Policy and contract baseline                                                    |
 
 ## Kiến trúc đang chạy
 
@@ -43,8 +43,13 @@
   Dependabot, CODEOWNERS và bundle secret guard.
 - P1-08B Cloudflare Pages production deployment, same-origin API proxy, Render
   Core API deployment, provider auto-deploy, health/readiness và rollback smoke.
+- P1-09 PostgreSQL/Redis local bằng Compose, migration + seed idempotent,
+  `local:setup` và `dev:local` một lệnh cho Windows/Linux.
 - P1-10 staging resources: Neon, B2, Cloudflare Pages, Render, ZITADEL và LiveKit.
 - Chấp nhận ADR-0011 để thay Hugging Face bằng Render cho Core API staging/private alpha.
+- Rà exit gate Phase 1 trên commit `ee597af`: Verify/Security CI, HTTPS staging,
+  OIDC, Neon, B2, LiveKit, telemetry và rollback đều đạt.
+- Chấp nhận ADR-0012 cho direct-main có kiểm soát trong giai đoạn một người duy trì.
 
 ## Kết quả acceptance staging ngày 2026-07-16
 
@@ -59,17 +64,30 @@
 - Secret chỉ nằm trong file local bị Git-ignore hoặc secret store của provider;
   không xuất hiện trong repository, frontend bundle hoặc log kiểm thử.
 
-## Còn lại trong Phase 1
+## Kết luận Phase 1
 
-1. Xác nhận bằng chứng cấu hình ruleset/required checks/security switches cho `main`.
-2. Rà lại exit gate Phase 1 và lập backlog Phase 2.
+Phase 1 hoàn thành ngày 2026-07-16. Biên bản và ma trận bằng chứng nằm tại
+`docs/PHASE_1_COMPLETION.md`. Repository chưa có ruleset công khai; đây là ngoại lệ
+được ghi nhận trong ADR-0012, không phải kiểm soát đã bật. Ngoại lệ phải hết hiệu lực
+trước pilot/public beta hoặc khi có người duy trì thứ hai.
+
+## Phase 2 đang thực hiện
+
+Backlog có thẩm quyền: `docs/PHASE_2_BACKLOG.md`.
+
+1. Bắt đầu P2-00: chốt permission matrix và policy layer dùng chung.
+2. Sau P2-00 triển khai song song hợp lý P2-01 profile/identity và P2-02 tenant lifecycle.
+3. Chưa bắt đầu UI admin hoặc enrollment trước khi policy contract ổn định.
 
 ## Rủi ro đã biết
 
 - Render Free spin down khi không hoạt động và có thể cold start trên 50 giây;
   chỉ chấp nhận cho staging/private alpha.
+- Direct-main chưa có pre-merge protection; `pnpm verify` và CI hậu kiểm là kiểm soát
+  bù tạm thời theo ADR-0012.
 - Chưa chọn managed Redis và observability provider cho quy mô lớn hơn.
-- Enrollment, invite code, roster và quyền theo lớp thuộc Phase 2.
+- Permission/role check hiện cần được gom về policy layer trong P2-00.
+- Enrollment, invite code, roster và quyền theo lớp chưa triển khai; thuộc P2-05/P2-06.
 - Dữ liệu V1 chưa được migrate.
 - LiveKit chunk phía web còn lớn và cần performance budget ở phase sau.
 
@@ -84,9 +102,12 @@
 
 - `docs/MASTER_PLAN.md`
 - `docs/PHASE_1_BACKLOG.md`
+- `docs/PHASE_1_COMPLETION.md`
+- `docs/PHASE_2_BACKLOG.md`
 - `docs/DEPLOYMENT_BASELINE.md`
 - `docs/DATABASE.md`
 - `docs/AUTHENTICATION.md`
 - `docs/LIVEKIT_SPIKE_RUNBOOK.md`
 - `docs/CI_SECURITY.md`
 - `docs/adr/0011-render-core-api-staging.md`
+- `docs/adr/0012-single-maintainer-direct-main-governance.md`

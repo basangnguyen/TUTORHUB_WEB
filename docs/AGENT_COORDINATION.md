@@ -30,25 +30,37 @@ thể xóa.
 
 ## 3. Trạng thái Phase 1
 
-| Task | Trạng thái | Ghi chú |
-| --- | --- | --- |
-| P1-01 Toolchain | DONE | Monorepo, formatter, lint, test và CI foundation |
-| P1-02 Web shell | DONE | React shell, routing, query, i18n, responsive states |
-| P1-03 Design system | DONE | Tokens, UI primitives, Storybook, accessibility |
-| P1-04 Core API | DONE | Go API, config, middleware, health/readiness |
-| P1-05 Contract/database | DONE | OpenAPI, generated client, migrations, Neon role split |
-| P1-06 Authentication | DONE | ZITADEL local + staging OIDC, BFF session/CSRF/logout |
-| P1-06B Class slice | DONE | List/create/detail, authorization, tenant isolation |
-| P1-07 LiveKit | DONE | Media flow 2-5 người và webhook staging đều đạt |
-| P1-08A CI/security | DONE | Verify/Security pipeline và secret controls |
-| P1-08B Staging deploy | DONE | Cloudflare Pages + Render + smoke/rollback |
-| P1-09 Local DX | DONE | Compose PostgreSQL/Redis, one-command setup, seed và troubleshooting |
-| P1-10 Cloud foundation | DONE | Neon, B2, Cloudflare, Render, ZITADEL, LiveKit |
+| Task                    | Trạng thái | Ghi chú                                                              |
+| ----------------------- | ---------- | -------------------------------------------------------------------- |
+| P1-01 Toolchain         | DONE       | Monorepo, formatter, lint, test và CI foundation                     |
+| P1-02 Web shell         | DONE       | React shell, routing, query, i18n, responsive states                 |
+| P1-03 Design system     | DONE       | Tokens, UI primitives, Storybook, accessibility                      |
+| P1-04 Core API          | DONE       | Go API, config, middleware, health/readiness                         |
+| P1-05 Contract/database | DONE       | OpenAPI, generated client, migrations, Neon role split               |
+| P1-06 Authentication    | DONE       | ZITADEL local + staging OIDC, BFF session/CSRF/logout                |
+| P1-06B Class slice      | DONE       | List/create/detail, authorization, tenant isolation                  |
+| P1-07 LiveKit           | DONE       | Media flow 2-5 người và webhook staging đều đạt                      |
+| P1-08A CI/security      | DONE       | Verify/Security pipeline và secret controls                          |
+| P1-08B Staging deploy   | DONE       | Cloudflare Pages + Render + smoke/rollback                           |
+| P1-09 Local DX          | DONE       | Compose PostgreSQL/Redis, one-command setup, seed và troubleshooting |
+| P1-10 Cloud foundation  | DONE       | Neon, B2, Cloudflare, Render, ZITADEL, LiveKit                       |
 
-P1-08 tổng thể còn một việc quản trị: lưu bằng chứng ruleset/required checks và
-các security switches của `main`. Việc này được xử lý khi rà exit gate Phase 1.
+Phase 1 đã hoàn thành ngày 2026-07-16. Ma trận bằng chứng nằm trong
+`docs/PHASE_1_COMPLETION.md`. Repository chưa có ruleset công khai; direct-main là
+ngoại lệ có thời hạn theo ADR-0012 và không được mô tả như branch protection đã bật.
 
-## 4. Hạ tầng staging đã chốt
+## 4. Trạng thái Phase 2
+
+| Task                           | Trạng thái | Ghi chú                           |
+| ------------------------------ | ---------- | --------------------------------- |
+| P2-00 Policy/contract baseline | NEXT       | Gom authorization về policy layer |
+| P2-01 Profile/identity         | TODO       | Bắt đầu sau P2-00                 |
+| P2-02 Tenant lifecycle         | TODO       | Bắt đầu sau P2-00                 |
+| P2-03 đến P2-12                | TODO       | Theo dependency trong backlog     |
+
+Nguồn thực thi: `docs/PHASE_2_BACKLOG.md`.
+
+## 5. Hạ tầng staging đã chốt
 
 - Web: `https://tutorhub-web.pages.dev`.
 - Core API: `https://tutorhub-core-api.onrender.com`.
@@ -58,7 +70,7 @@ các security switches của `main`. Việc này được xử lý khi rà exit 
 - Media: LiveKit Cloud staging project.
 - Tất cả smoke test acceptance đã đạt ngày 2026-07-16.
 
-## 5. Quy tắc tránh mất mã
+## 6. Quy tắc tránh mất mã
 
 - Push sau mỗi checkpoint hoàn chỉnh, không gom quá nhiều thay đổi không liên quan.
 - File `.env*.local`, token, key và URL chứa credential phải được Git-ignore.

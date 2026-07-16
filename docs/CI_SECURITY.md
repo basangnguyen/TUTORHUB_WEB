@@ -19,14 +19,14 @@ P1-08A thiết lập pipeline kiểm tra và baseline bảo mật kho mã. P1-08
 
 The workflow runs on pull requests, pushes to `main`, manual dispatch and every Monday:
 
-| Check | Purpose | Blocking threshold |
-| --- | --- | --- |
-| `Secret scan` | Scan complete Git history with Gitleaks | Any verified secret finding |
-| `Dependency review` | Inspect dependencies newly introduced by a pull request | New High/Critical advisory |
-| `CodeQL (javascript-typescript)` | SAST for browser and TypeScript code | Code scanning policy in GitHub |
-| `CodeQL (go)` | SAST for the Core API | Code scanning policy in GitHub |
-| `Repository vulnerability scan` | Trivy filesystem dependency, secret and misconfiguration scan | Fixed High/Critical finding |
-| `Core API container scan` | Build and scan the production Docker image | Fixed High/Critical finding |
+| Check                            | Purpose                                                       | Blocking threshold             |
+| -------------------------------- | ------------------------------------------------------------- | ------------------------------ |
+| `Secret scan`                    | Scan complete Git history with Gitleaks                       | Any verified secret finding    |
+| `Dependency review`              | Inspect dependencies newly introduced by a pull request       | New High/Critical advisory     |
+| `CodeQL (javascript-typescript)` | SAST for browser and TypeScript code                          | Code scanning policy in GitHub |
+| `CodeQL (go)`                    | SAST for the Core API                                         | Code scanning policy in GitHub |
+| `Repository vulnerability scan`  | Trivy filesystem dependency, secret and misconfiguration scan | Fixed High/Critical finding    |
+| `Core API container scan`        | Build and scan the production Docker image                    | Fixed High/Critical finding    |
 
 CodeQL and SARIF uploads are not granted write access for untrusted fork pull requests. The workflow never uses `pull_request_target`.
 
@@ -79,7 +79,13 @@ Dự án hiện do một người duy trì và dùng GitHub làm nơi lưu trữ
 - Bật dependency graph, Dependabot, code scanning, secret scanning và push protection khi gói GitHub hỗ trợ.
 - Chỉ dùng nhánh tạm/PR cho thay đổi rủi ro cao, migration phá vỡ tương thích hoặc khi cần review độc lập.
 
-Đây là đánh đổi có chủ đích: CI chạy sau push không thể ngăn một commit lỗi đi vào `main` như required checks trước merge. Vì vậy kiểm tra cục bộ là gate bắt buộc. Ảnh chụp hoặc bản xuất cấu hình ruleset/security switches vẫn là bằng chứng quản trị còn phải lưu để đóng toàn bộ P1-08.
+Đây là đánh đổi có chủ đích: CI chạy sau push không thể ngăn một commit lỗi đi vào
+`main` như required checks trước merge. Vì vậy kiểm tra cục bộ là gate bắt buộc.
+Kiểm tra ngày 2026-07-16 cho thấy repository chưa có ruleset công khai; không có đủ
+bằng chứng để khẳng định các security switch cấp repository đã bật. Trạng thái này
+được chấp nhận có thời hạn trong ADR-0012 cho development/staging/private alpha và
+không còn được ghi như một kiểm soát đã triển khai. Trước pilot/public beta hoặc khi
+có người duy trì thứ hai phải thay bằng ruleset và review độc lập.
 
 ## 6. Triage and exceptions
 
@@ -100,4 +106,5 @@ P1-08B đã hoàn thành ngày 2026-07-16 với các bằng chứng sau:
 - LiveKit camera, mic, screen share, reconnect 2-5 người và webhook signature/idempotency đều đạt.
 - Backblaze B2 least-privilege key và chu trình PUT/GET/checksum/DELETE đều đạt.
 
-P1-08 chỉ còn lưu bằng chứng cấu hình GitHub ruleset/security switches; P1-08B không còn hạng mục triển khai mở.
+P1-08 đã đóng cùng exit gate Phase 1. Phần CI/security kỹ thuật đã đạt; phần quản trị
+GitHub dùng ngoại lệ ADR-0012 và là rủi ro chuyển tiếp phải xử lý trước pilot.

@@ -2,21 +2,21 @@
 
 > Bản tóm tắt điều hành. Chi tiết work package, dependency, SLO, rủi ro và exit gate nằm trong [MASTER_PLAN.md](MASTER_PLAN.md). Khi có khác biệt, Master Plan phiên bản mới hơn là nguồn có thẩm quyền.
 
-| Thuộc tính          | Trạng thái                                                                         |
-| ------------------- | ---------------------------------------------------------------------------------- |
-| Cập nhật            | 2026-07-16                                                                         |
-| Phase hiện tại      | Phase 1 - Engineering Foundation                                                   |
-| Hoàn thành gần nhất | P1-09 local developer experience                                                    |
-| Việc tiếp theo      | Rà exit gate Phase 1 và lưu bằng chứng GitHub ruleset                               |
-| Phạm vi             | Web-first; desktop/mobile/native là track sau                                      |
+| Thuộc tính          | Trạng thái                                    |
+| ------------------- | --------------------------------------------- |
+| Cập nhật            | 2026-07-16                                    |
+| Phase hiện tại      | Phase 2 - Identity, tenant và class core      |
+| Hoàn thành gần nhất | Phase 1 exit gate đạt ngày 2026-07-16         |
+| Việc tiếp theo      | P2-00 Policy and contract baseline            |
+| Phạm vi             | Web-first; desktop/mobile/native là track sau |
 
 ## Chuỗi phase
 
 | Phase | Tên                               |    Thời lượng kế hoạch | Kết quả chính                                              |
 | ----: | --------------------------------- | ---------------------: | ---------------------------------------------------------- |
 |     0 | Product và architecture baseline  |             Hoàn thành | Phạm vi, ADR, security/deployment baseline                 |
-|     1 | Engineering Foundation            |               4-6 tuần | CI, web shell, API, database, auth, LiveKit spike, staging |
-|     2 | Identity, tenant và class core    |               4-6 tuần | Multi-tenant, permission, class/enrollment                 |
+|     1 | Engineering Foundation            |             Hoàn thành | CI, web shell, API, database, auth, LiveKit spike, staging |
+|     2 | Identity, tenant và class core    |         Đang thực hiện | Multi-tenant, permission, class/enrollment                 |
 |     3 | Daily learning workspace          |               5-7 tuần | Lịch, persistent messaging, notification, file/Drive       |
 |     4 | Classroom Media MVP               |               6-8 tuần | Prejoin, LiveKit room, moderation, reconnect               |
 |     5 | Classroom Collaboration           |              8-12 tuần | Whiteboard, quiz nhanh, tools, breakout, recording         |
@@ -43,3 +43,6 @@
 - Render Free, Neon và LiveKit free tier chỉ phục vụ phát triển/private alpha.
 - Classroom, webinar và broadcast là các capacity profile khác nhau.
 - Desktop/mobile không làm chậm Web MVP; chỉ chuẩn bị API/domain contract.
+
+Backlog thực thi Phase 2 nằm tại [PHASE_2_BACKLOG.md](PHASE_2_BACKLOG.md). Biên bản
+đóng Phase 1 nằm tại [PHASE_1_COMPLETION.md](PHASE_1_COMPLETION.md).
