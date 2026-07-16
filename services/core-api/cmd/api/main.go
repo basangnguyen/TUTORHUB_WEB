@@ -17,6 +17,7 @@ import (
 	"github.com/tutorhub-v2/core-api/internal/modules/media"
 	"github.com/tutorhub-v2/core-api/internal/platform/database"
 	"github.com/tutorhub-v2/core-api/internal/platform/httpserver"
+	"github.com/tutorhub-v2/core-api/internal/platform/objectstorage"
 	"github.com/tutorhub-v2/core-api/internal/platform/observability"
 )
 
@@ -43,7 +44,7 @@ func run() int {
 	)
 
 	metrics := observability.NewMetrics()
-	readiness := make([]httpapi.ReadinessCheck, 0, 1)
+	readiness := make([]httpapi.ReadinessCheck, 0, 2)
 	var pool *pgxpool.Pool
 	if cfg.Database.PoolURL == "" {
 		logger.Warn("database is not configured; readiness will fail")
@@ -59,6 +60,24 @@ func run() int {
 			readiness,
 			database.NewReadinessCheck(pool, cfg.Database.QueryTimeout),
 		)
+	}
+
+	if cfg.ObjectStorage.Enabled {
+		storeContext, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		store, err := objectstorage.NewB2(storeContext, cfg.ObjectStorage)
+		cancel()
+		if err != nil {
+			logger.Error("initialize object storage", "error", err)
+			return 1
+		}
+		readiness = append(readiness, objectstorage.NewReadinessCheck(store, 5*time.Second))
+		logger.Info(
+			"object storage initialized",
+			"bucket", cfg.ObjectStorage.Bucket,
+			"region", cfg.ObjectStorage.Region,
+		)
+	} else {
+		logger.Info("object storage is disabled for this environment")
 	}
 
 	var classroomService classroom.ServiceAPI

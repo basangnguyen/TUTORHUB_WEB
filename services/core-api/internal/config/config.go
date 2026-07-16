@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/url"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -64,6 +65,7 @@ type Config struct {
 	Database          DatabaseConfig
 	Authentication    AuthenticationConfig
 	LiveKit           LiveKitConfig
+	ObjectStorage     ObjectStorageConfig
 }
 
 type DatabaseConfig struct {
@@ -99,6 +101,17 @@ type LiveKitConfig struct {
 	APISecret string
 	TokenTTL  time.Duration
 }
+
+type ObjectStorageConfig struct {
+	Enabled        bool
+	Endpoint       string
+	Region         string
+	Bucket         string
+	KeyID          string
+	ApplicationKey string
+}
+
+var objectStorageNamePattern = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9.-]*[a-zA-Z0-9]$`)
 
 func Load() (Config, error) {
 	return load(os.LookupEnv)
@@ -190,12 +203,89 @@ func load(lookup lookupEnv) (Config, error) {
 		&validationErrors,
 	)
 	cfg.LiveKit = liveKitConfig(lookup, cfg.Environment, &validationErrors)
+	cfg.ObjectStorage = objectStorageConfig(lookup, &validationErrors)
 
 	if err := errors.Join(validationErrors...); err != nil {
 		return Config{}, fmt.Errorf("validate configuration: %w", err)
 	}
 
 	return cfg, nil
+}
+
+func LoadObjectStorage() (ObjectStorageConfig, error) {
+	var validationErrors []error
+	cfg := objectStorageConfig(os.LookupEnv, &validationErrors)
+	if err := errors.Join(validationErrors...); err != nil {
+		return ObjectStorageConfig{}, fmt.Errorf("validate object storage configuration: %w", err)
+	}
+
+	return cfg, nil
+}
+
+func objectStorageConfig(
+	lookup lookupEnv,
+	validationErrors *[]error,
+) ObjectStorageConfig {
+	endpoint := strings.TrimRight(strings.TrimSpace(valueOrDefault(lookup, "B2_ENDPOINT", "")), "/")
+	region := strings.TrimSpace(valueOrDefault(lookup, "B2_REGION", ""))
+	bucket := strings.TrimSpace(valueOrDefault(lookup, "B2_BUCKET", ""))
+	keyID := strings.TrimSpace(valueOrDefault(lookup, "B2_KEY_ID", ""))
+	applicationKey := strings.TrimSpace(valueOrDefault(lookup, "B2_APPLICATION_KEY", ""))
+	enabled := endpoint != "" || region != "" || bucket != "" || keyID != "" || applicationKey != ""
+
+	cfg := ObjectStorageConfig{
+		Enabled:        enabled,
+		Endpoint:       endpoint,
+		Region:         region,
+		Bucket:         bucket,
+		KeyID:          keyID,
+		ApplicationKey: applicationKey,
+	}
+	if !enabled {
+		return cfg
+	}
+
+	for key, value := range map[string]string{
+		"B2_ENDPOINT":        endpoint,
+		"B2_REGION":          region,
+		"B2_BUCKET":          bucket,
+		"B2_KEY_ID":          keyID,
+		"B2_APPLICATION_KEY": applicationKey,
+	} {
+		if value == "" {
+			*validationErrors = append(
+				*validationErrors,
+				fmt.Errorf("%s is required when object storage is enabled", key),
+			)
+		}
+	}
+
+	if endpoint != "" {
+		parsedEndpoint, err := url.Parse(endpoint)
+		if err != nil || parsedEndpoint.Scheme != "https" || parsedEndpoint.Host == "" ||
+			parsedEndpoint.User != nil || parsedEndpoint.RawQuery != "" || parsedEndpoint.Fragment != "" ||
+			(parsedEndpoint.Path != "" && parsedEndpoint.Path != "/") {
+			*validationErrors = append(
+				*validationErrors,
+				fmt.Errorf("B2_ENDPOINT must be an HTTPS origin without credentials, query, or path"),
+			)
+		} else if !strings.HasPrefix(parsedEndpoint.Hostname(), "s3.") ||
+			!strings.HasSuffix(parsedEndpoint.Hostname(), ".backblazeb2.com") {
+			*validationErrors = append(
+				*validationErrors,
+				fmt.Errorf("B2_ENDPOINT must be a Backblaze S3-compatible endpoint"),
+			)
+		}
+	}
+
+	if region != "" && !objectStorageNamePattern.MatchString(region) {
+		*validationErrors = append(*validationErrors, fmt.Errorf("B2_REGION contains invalid characters"))
+	}
+	if bucket != "" && !objectStorageNamePattern.MatchString(bucket) {
+		*validationErrors = append(*validationErrors, fmt.Errorf("B2_BUCKET contains invalid characters"))
+	}
+
+	return cfg
 }
 
 func liveKitConfig(
