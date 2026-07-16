@@ -105,7 +105,7 @@ describe("getHealth", () => {
         baseUrl: "https://web.example/api",
       }),
     ).toBe(
-      "https://web.example/api/api/v1/auth/login?return_to=%2Fapp%2Fclasses%3Ffilter%3Dmine",
+      "https://web.example/api/v1/auth/login?return_to=%2Fapp%2Fclasses%3Ffilter%3Dmine",
     );
   });
 
@@ -261,11 +261,9 @@ describe("getHealth", () => {
     ).resolves.toEqual(classItem);
 
     const requests = fetchMock.mock.calls.map((call) => call[0] as Request);
-    expect(requests[0]?.url).toBe(
-      "http://localhost/api/api/v1/classes?limit=25",
-    );
+    expect(requests[0]?.url).toBe("http://localhost/api/v1/classes?limit=25");
     expect(requests[1]?.url).toBe(
-      `http://localhost/api/api/v1/classes/${classItem.id}`,
+      `http://localhost/api/v1/classes/${classItem.id}`,
     );
     expect(requests[2]?.method).toBe("POST");
     expect(requests[2]?.headers.get("X-CSRF-Token")).toBe("csrf-token");
@@ -321,11 +319,11 @@ describe("getHealth", () => {
 
     const requests = fetchMock.mock.calls.map((call) => call[0] as Request);
     expect(requests[0]?.url).toBe(
-      `http://localhost/api/api/v1/classes/${classID}/media-token`,
+      `http://localhost/api/v1/classes/${classID}/media-token`,
     );
     expect(requests[0]?.headers.get("X-CSRF-Token")).toBe("token-csrf");
     expect(requests[1]?.url).toBe(
-      `http://localhost/api/api/v1/classes/${classID}/media-events`,
+      `http://localhost/api/v1/classes/${classID}/media-events`,
     );
     expect(requests[1]?.headers.get("X-CSRF-Token")).toBe("event-csrf");
     await expect(requests[1]?.clone().json()).resolves.toEqual({

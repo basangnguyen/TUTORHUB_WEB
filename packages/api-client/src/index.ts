@@ -38,10 +38,12 @@ export interface APIRequestOptions {
 export type HealthRequestOptions = APIRequestOptions;
 
 export function createTutorHubClient(options: APIRequestOptions = {}) {
+  const baseUrl = resolveBaseUrl(options.baseUrl ?? "/api");
+
   return createClient<paths>({
-    baseUrl: resolveBaseUrl(options.baseUrl ?? "/api"),
+    baseUrl,
     credentials: "include",
-    fetch: options.fetch,
+    fetch: createNormalizedFetch(baseUrl, options.fetch),
   });
 }
 
@@ -50,7 +52,10 @@ export function getLoginURL(
   options: Pick<APIRequestOptions, "baseUrl"> = {},
 ): string {
   const baseUrl = resolveBaseUrl(options.baseUrl ?? "/api");
-  const loginURL = new URL(`${baseUrl}/api/v1/auth/login`);
+  const loginURL = normalizeOverlappingPath(
+    new URL(`${baseUrl}/api/v1/auth/login`),
+    baseUrl,
+  );
   loginURL.searchParams.set("return_to", returnTo);
   return loginURL.toString();
 }
@@ -332,6 +337,100 @@ function resolveBaseUrl(baseUrl: string): string {
       new URL(normalizedBaseUrl, `${origin}/`).toString(),
     );
   }
+}
+
+function createNormalizedFetch(
+  baseUrl: string,
+  fetchImplementation?: (request: Request) => Promise<Response>,
+): (request: Request) => Promise<Response> {
+  const execute =
+    fetchImplementation ?? ((request: Request) => globalThis.fetch(request));
+
+  return (request: Request) => {
+    const normalizedURL = normalizeOverlappingPath(
+      new URL(request.url),
+      baseUrl,
+    );
+
+    if (normalizedURL.toString() === request.url) {
+      return execute(request);
+    }
+
+    return execute(cloneRequestWithURL(request, normalizedURL));
+  };
+}
+
+function cloneRequestWithURL(request: Request, url: URL): Request {
+  const requestInit: RequestInit & { duplex?: "half" } = {
+    method: request.method,
+    headers: request.headers,
+    credentials: request.credentials,
+    mode: request.mode,
+    cache: request.cache,
+    redirect: request.redirect,
+    referrer: request.referrer,
+    referrerPolicy: request.referrerPolicy,
+    integrity: request.integrity,
+    keepalive: request.keepalive,
+    signal: request.signal,
+  };
+
+  if (request.method !== "GET" && request.method !== "HEAD") {
+    requestInit.body = request.clone().body;
+    requestInit.duplex = "half";
+  }
+
+  return new Request(url, requestInit);
+}
+
+function normalizeOverlappingPath(requestURL: URL, baseUrl: string): URL {
+  const baseURL = new URL(baseUrl);
+  if (requestURL.origin !== baseURL.origin) {
+    return requestURL;
+  }
+
+  const baseSegments = splitPathSegments(baseURL.pathname);
+  if (baseSegments.length === 0) {
+    return requestURL;
+  }
+
+  const requestSegments = splitPathSegments(requestURL.pathname);
+  const baseIsPrefix = baseSegments.every(
+    (segment, index) => requestSegments[index] === segment,
+  );
+  if (!baseIsPrefix) {
+    return requestURL;
+  }
+
+  const remainder = requestSegments.slice(baseSegments.length);
+  const maximumOverlap = Math.min(baseSegments.length, remainder.length);
+  let overlap = 0;
+
+  for (let length = maximumOverlap; length > 0; length -= 1) {
+    const baseSuffix = baseSegments.slice(baseSegments.length - length);
+    const requestPrefix = remainder.slice(0, length);
+    if (
+      baseSuffix.every((segment, index) => segment === requestPrefix[index])
+    ) {
+      overlap = length;
+      break;
+    }
+  }
+
+  if (overlap === 0) {
+    return requestURL;
+  }
+
+  const normalizedURL = new URL(requestURL);
+  normalizedURL.pathname = `/${[
+    ...baseSegments,
+    ...remainder.slice(overlap),
+  ].join("/")}`;
+  return normalizedURL;
+}
+
+function splitPathSegments(pathname: string): string[] {
+  return pathname.split("/").filter(Boolean);
 }
 
 function stripTrailingSlashes(value: string): string {
