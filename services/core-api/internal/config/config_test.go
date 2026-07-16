@@ -50,6 +50,9 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.LiveKit.Enabled || cfg.LiveKit.TokenTTL != defaultLiveKitTokenTTL {
 		t.Fatalf("unexpected LiveKit defaults: %+v", cfg.LiveKit)
 	}
+	if cfg.ObjectStorage.Enabled {
+		t.Fatal("object storage must remain disabled when no B2 values are configured")
+	}
 }
 
 func TestLoadCustomValues(t *testing.T) {
@@ -82,6 +85,11 @@ func TestLoadCustomValues(t *testing.T) {
 		"LIVEKIT_API_KEY":          "staging-key",
 		"LIVEKIT_API_SECRET":       "not-a-real-livekit-secret",
 		"LIVEKIT_TOKEN_TTL":        "4m",
+		"B2_ENDPOINT":              "https://s3.us-east-005.backblazeb2.com",
+		"B2_REGION":                "us-east-005",
+		"B2_BUCKET":                "tutorhub-staging",
+		"B2_KEY_ID":                "staging-key-id",
+		"B2_APPLICATION_KEY":       "not-a-real-b2-secret",
 	}))
 	if err != nil {
 		t.Fatalf("load custom values: %v", err)
@@ -116,6 +124,11 @@ func TestLoadCustomValues(t *testing.T) {
 		cfg.LiveKit.URL != "wss://tutorhub-staging.livekit.cloud" ||
 		cfg.LiveKit.TokenTTL != 4*time.Minute {
 		t.Fatalf("unexpected LiveKit config: %+v", cfg.LiveKit)
+	}
+	if !cfg.ObjectStorage.Enabled ||
+		cfg.ObjectStorage.Region != "us-east-005" ||
+		cfg.ObjectStorage.Bucket != "tutorhub-staging" {
+		t.Fatalf("unexpected object storage config")
 	}
 }
 
@@ -265,6 +278,32 @@ func TestLoadRequiresSecureLiveKitURLOutsideLocalEnvironments(t *testing.T) {
 	}))
 	if err == nil || !strings.Contains(err.Error(), "LIVEKIT_URL must use wss") {
 		t.Fatalf("expected secure LiveKit URL error, got %v", err)
+	}
+}
+
+func TestLoadRejectsPartialOrUnsafeObjectStorageConfiguration(t *testing.T) {
+	t.Parallel()
+
+	_, err := load(mapLookup(map[string]string{
+		"B2_ENDPOINT": "http://example.com/path",
+		"B2_REGION":   "invalid region",
+		"B2_BUCKET":   "invalid/bucket",
+		"B2_KEY_ID":   "key-id",
+	}))
+	if err == nil {
+		t.Fatal("expected object storage validation error")
+	}
+
+	message := err.Error()
+	for _, expected := range []string{
+		"B2_ENDPOINT",
+		"B2_REGION",
+		"B2_BUCKET",
+		"B2_APPLICATION_KEY",
+	} {
+		if !strings.Contains(message, expected) {
+			t.Fatalf("expected object storage error to mention %s, got %q", expected, message)
+		}
 	}
 }
 
