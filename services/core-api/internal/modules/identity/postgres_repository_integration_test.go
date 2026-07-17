@@ -31,7 +31,7 @@ func TestPostgresRepositoryOIDCSessionLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read migration version: %v", err)
 	}
-	if version.Number < 4 || version.Dirty {
+	if version.Number < 6 || version.Dirty {
 		t.Fatalf("unexpected migration version: %+v", version)
 	}
 
@@ -390,6 +390,253 @@ VALUES ($1, $2, 'teacher', 'active', $3)`,
 		},
 	); !errors.Is(err, ErrTenantAccessDenied) {
 		t.Fatalf("cross-tenant switch must be denied, got %v", err)
+	}
+}
+
+func TestPostgresRepositoryProfileAndIdentityPersistence(t *testing.T) {
+	migrationURL := requireIdentityEnvironment(t, "DATABASE_MIGRATION_URL")
+	poolURL := requireIdentityEnvironment(t, "DATABASE_POOL_URL")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+	if err := migrationrunner.Up(ctx, migrationURL); err != nil {
+		t.Fatalf("apply migrations: %v", err)
+	}
+
+	pool, err := pgxpool.New(ctx, poolURL)
+	if err != nil {
+		t.Fatalf("create integration pool: %v", err)
+	}
+	defer pool.Close()
+	transaction, err := pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		t.Fatalf("begin integration transaction: %v", err)
+	}
+	defer func() { _ = transaction.Rollback(context.Background()) }()
+
+	userID := uuid.New()
+	foreignUserID := uuid.New()
+	tenantID := uuid.New()
+	sessionID := uuid.New()
+	firstIdentityID := uuid.New()
+	secondIdentityID := uuid.New()
+	foreignIdentityID := uuid.New()
+	unique := strings.ReplaceAll(uuid.NewString(), "-", "")
+	now := time.Date(2026, time.July, 17, 8, 0, 0, 0, time.UTC)
+
+	if _, err := transaction.Exec(
+		ctx,
+		`INSERT INTO tutorhub.users (id, email, display_name)
+VALUES
+    ($1, $2, 'Profile owner'),
+    ($3, $4, 'Foreign identity owner')`,
+		userID,
+		"profile-"+unique+"@example.test",
+		foreignUserID,
+		"foreign-"+unique+"@example.test",
+	); err != nil {
+		t.Fatalf("insert profile users: %v", err)
+	}
+	if _, err := transaction.Exec(
+		ctx,
+		`INSERT INTO tutorhub.tenants (id, slug, name)
+VALUES ($1, $2, 'Profile Tenant')`,
+		tenantID,
+		"profile-"+unique,
+	); err != nil {
+		t.Fatalf("insert profile tenant: %v", err)
+	}
+	if _, err := transaction.Exec(
+		ctx,
+		`INSERT INTO tutorhub.memberships (tenant_id, user_id, role, status, joined_at)
+VALUES ($1, $2, 'teacher', 'active', $3)`,
+		tenantID,
+		userID,
+		now.Add(-time.Hour),
+	); err != nil {
+		t.Fatalf("insert profile membership: %v", err)
+	}
+	if _, err := transaction.Exec(
+		ctx,
+		`INSERT INTO tutorhub.identities (
+    id,
+    user_id,
+    provider,
+    subject,
+    email_at_provider,
+    email_verified,
+    last_authenticated_at,
+    status
+)
+VALUES
+    ($1, $2, 'https://primary.identity.test', $3, $4, true, $5, 'active'),
+    ($6, $2, 'https://backup.identity.test', $7, $4, true, $5, 'active'),
+    ($8, $9, 'https://foreign.identity.test', $10, $11, true, $5, 'active')`,
+		firstIdentityID,
+		userID,
+		"primary-"+unique,
+		"profile-"+unique+"@example.test",
+		now.Add(-time.Minute),
+		secondIdentityID,
+		"backup-"+unique,
+		foreignIdentityID,
+		foreignUserID,
+		"foreign-"+unique,
+		"foreign-"+unique+"@example.test",
+	); err != nil {
+		t.Fatalf("insert profile identities: %v", err)
+	}
+	if _, err := transaction.Exec(
+		ctx,
+		`INSERT INTO tutorhub.sessions (
+    id,
+    user_id,
+    identity_id,
+    active_tenant_id,
+    token_hash,
+    csrf_token_hash,
+    created_at,
+    last_seen_at,
+    expires_at,
+    absolute_expires_at,
+    auth_time
+)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $7, $8, $9, $7)`,
+		sessionID,
+		userID,
+		firstIdentityID,
+		tenantID,
+		bytes.Repeat([]byte{0x51}, 32),
+		bytes.Repeat([]byte{0x52}, 32),
+		now.Add(-time.Minute),
+		now.Add(8*time.Hour),
+		now.Add(24*time.Hour),
+	); err != nil {
+		t.Fatalf("insert profile session: %v", err)
+	}
+
+	repository := NewPostgresRepository(transaction, 10*time.Second, policy.NewEngine())
+	profile, err := repository.GetProfile(ctx, userID)
+	if err != nil {
+		t.Fatalf("get persisted profile: %v", err)
+	}
+	if profile.ID != userID || profile.DisplayName != "Profile owner" || profile.Locale != "vi" {
+		t.Fatalf("unexpected initial profile: %+v", profile)
+	}
+
+	displayName := "Updated Teacher"
+	locale := "en"
+	timezone := "Europe/London"
+	avatarObjectKey := "avatars/" + userID.String() + "/profile.webp"
+	updated, err := repository.UpdateProfile(
+		ctx,
+		sessionID,
+		userID,
+		ProfilePatch{
+			DisplayName:     &displayName,
+			Locale:          &locale,
+			Timezone:        &timezone,
+			AvatarObjectKey: &avatarObjectKey,
+		},
+		now,
+	)
+	if err != nil {
+		t.Fatalf("update persisted profile: %v", err)
+	}
+	if updated.DisplayName != displayName || updated.Locale != locale ||
+		updated.Timezone != timezone || updated.AvatarObjectKey != avatarObjectKey {
+		t.Fatalf("unexpected updated profile: %+v", updated)
+	}
+
+	listed, err := repository.ListIdentities(ctx, userID)
+	if err != nil {
+		t.Fatalf("list persisted identities: %v", err)
+	}
+	if len(listed) != 2 {
+		t.Fatalf("expected two initial identities, got %d", len(listed))
+	}
+
+	linked, err := repository.LinkIdentity(
+		ctx,
+		userID,
+		sessionID,
+		ProviderClaims{
+			Issuer:        "https://linked.identity.test",
+			Subject:       "linked-" + unique,
+			Email:         "linked-" + unique + "@example.test",
+			EmailVerified: true,
+		},
+		now.Add(time.Second),
+	)
+	if err != nil {
+		t.Fatalf("link persisted identity: %v", err)
+	}
+	if linked.ID == uuid.Nil || linked.Provider != "https://linked.identity.test" {
+		t.Fatalf("unexpected linked identity: %+v", linked)
+	}
+
+	if _, err := repository.LinkIdentity(
+		ctx,
+		userID,
+		sessionID,
+		ProviderClaims{
+			Issuer:  "https://foreign.identity.test",
+			Subject: "foreign-" + unique,
+			Email:   "collision-" + unique + "@example.test",
+		},
+		now.Add(2*time.Second),
+	); !errors.Is(err, ErrIdentityConflict) {
+		t.Fatalf("foreign identity collision must fail, got %v", err)
+	}
+
+	if err := repository.UnlinkIdentity(
+		ctx,
+		userID,
+		sessionID,
+		firstIdentityID,
+		now.Add(3*time.Second),
+	); err != nil {
+		t.Fatalf("unlink first identity: %v", err)
+	}
+	if err := repository.UnlinkIdentity(
+		ctx,
+		userID,
+		sessionID,
+		secondIdentityID,
+		now.Add(4*time.Second),
+	); err != nil {
+		t.Fatalf("unlink second identity: %v", err)
+	}
+	if err := repository.UnlinkIdentity(
+		ctx,
+		userID,
+		sessionID,
+		linked.ID,
+		now.Add(5*time.Second),
+	); !errors.Is(err, ErrLastIdentity) {
+		t.Fatalf("last identity unlink must fail, got %v", err)
+	}
+
+	expectedEvents := map[string]int{
+		"identity.profile.updated": 1,
+		"identity.linked":          1,
+		"identity.unlinked":        2,
+	}
+	for eventType, expectedCount := range expectedEvents {
+		var eventCount int
+		if err := transaction.QueryRow(
+			ctx,
+			`SELECT count(*)
+FROM tutorhub.outbox_events
+WHERE aggregate_id = $1 AND event_type = $2`,
+			userID,
+			eventType,
+		).Scan(&eventCount); err != nil {
+			t.Fatalf("read %s outbox event: %v", eventType, err)
+		}
+		if eventCount != expectedCount {
+			t.Fatalf("expected %d %s events, got %d", expectedCount, eventType, eventCount)
+		}
 	}
 }
 

@@ -263,11 +263,18 @@ func findCookie(t *testing.T, cookies []*http.Cookie, name string) *http.Cookie 
 type fakeIdentityService struct {
 	returnTo           string
 	callback           identity.CallbackInput
+	completeLogin      *identity.LoginResult
 	logoutCalled       bool
 	createTenantCalled bool
 	createTenantInput  identity.CreateTenantInput
 	switchTenantID     uuid.UUID
 	principal          identity.Principal
+	profilePatch       identity.ProfilePatch
+	profileError       error
+	identities         []identity.ExternalIdentity
+	identityError      error
+	beginLinkCalled    bool
+	unlinkedIdentityID uuid.UUID
 }
 
 func (service *fakeIdentityService) BeginLogin(
@@ -287,6 +294,9 @@ func (service *fakeIdentityService) CompleteLogin(
 	input identity.CallbackInput,
 ) (identity.LoginResult, error) {
 	service.callback = input
+	if service.completeLogin != nil {
+		return *service.completeLogin, nil
+	}
 	return identity.LoginResult{
 		SessionToken: "session-token",
 		CSRFToken:    "csrf-token",
@@ -401,4 +411,76 @@ func (service *fakeIdentityService) SwitchActiveTenant(
 		}
 	}
 	return identity.TenantSessionResult{}, identity.ErrTenantAccessDenied
+}
+
+func (service *fakeIdentityService) GetProfile(
+	ctx context.Context,
+	principal identity.Principal,
+) (identity.User, error) {
+	if service.profileError != nil {
+		return identity.User{}, service.profileError
+	}
+	if principal.User.ID == uuid.Nil {
+		return identity.User{}, identity.ErrSessionNotFound
+	}
+	return principal.User, nil
+}
+
+func (service *fakeIdentityService) UpdateProfile(
+	_ context.Context,
+	principal identity.Principal,
+	patch identity.ProfilePatch,
+) (identity.User, error) {
+	service.profilePatch = patch
+	if service.profileError != nil {
+		return identity.User{}, service.profileError
+	}
+	if patch.DisplayName != nil {
+		principal.User.DisplayName = *patch.DisplayName
+	}
+	if patch.Locale != nil {
+		principal.User.Locale = *patch.Locale
+	}
+	if patch.Timezone != nil {
+		principal.User.Timezone = *patch.Timezone
+	}
+	if patch.AvatarObjectKey != nil {
+		principal.User.AvatarObjectKey = *patch.AvatarObjectKey
+	}
+	service.principal = principal
+	return principal.User, nil
+}
+
+func (service *fakeIdentityService) ListIdentities(
+	_ context.Context,
+	_ identity.Principal,
+) ([]identity.ExternalIdentity, error) {
+	if service.identityError != nil {
+		return nil, service.identityError
+	}
+	return service.identities, nil
+}
+
+func (service *fakeIdentityService) BeginIdentityLink(
+	_ context.Context,
+	_ identity.Principal,
+) (identity.LoginStart, error) {
+	service.beginLinkCalled = true
+	if service.identityError != nil {
+		return identity.LoginStart{}, service.identityError
+	}
+	return identity.LoginStart{
+		AuthorizationURL: "https://identity.example/link",
+		BrowserBinding:   "link-browser-binding",
+		ExpiresAt:        fixedTime.Add(10 * time.Minute),
+	}, nil
+}
+
+func (service *fakeIdentityService) UnlinkIdentity(
+	_ context.Context,
+	_ identity.Principal,
+	identityID uuid.UUID,
+) error {
+	service.unlinkedIdentityID = identityID
+	return service.identityError
 }

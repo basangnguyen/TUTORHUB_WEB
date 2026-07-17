@@ -16,9 +16,9 @@ Tạo nền multi-tenant và quản lý lớp đủ dùng cho pilot nội bộ:
 
 **Thời lượng kế hoạch:** 4-6 tuần tập trung, chia thành 6 sprint kỹ thuật.
 
-**Task đã hoàn thành:** P2-00 Policy and contract baseline.
+**Task đã hoàn thành:** P2-00 Policy and contract baseline; P2-01 User profile và identity linking.
 
-**Task kế tiếp:** P2-01 User profile và identity linking.
+**Task kế tiếp:** P2-02 Tenant lifecycle và workspace switching.
 
 ## 2. Non-goal
 
@@ -47,7 +47,7 @@ Tạo nền multi-tenant và quản lý lớp đủ dùng cho pilot nội bộ:
 | Task  | Nội dung                                | Dependency                 | Trạng thái |
 | ----- | --------------------------------------- | -------------------------- | ---------- |
 | P2-00 | Policy and contract baseline            | Phase 1                    | DONE       |
-| P2-01 | User profile và identity linking        | P2-00                      | TODO       |
+| P2-01 | User profile và identity linking        | P2-00                      | DONE       |
 | P2-02 | Tenant lifecycle và workspace switching | P2-00                      | TODO       |
 | P2-03 | Membership invitation/accept/revoke     | P2-02                      | TODO       |
 | P2-04 | Class lifecycle, ownership và archive   | P2-00, P2-02               | TODO       |
@@ -107,21 +107,26 @@ Tạo nền multi-tenant và quản lý lớp đủ dùng cho pilot nội bộ:
 
 ### Công việc
 
-- [ ] Bổ sung profile fields tối thiểu: display name, locale, timezone, avatar key.
-- [ ] Chuẩn hóa Unicode, độ dài và locale/timezone allow-list.
-- [ ] Identity unique theo `(issuer, subject)`; không cho một identity gắn hai user.
-- [ ] Link/unlink yêu cầu recent authentication và state/nonce chống CSRF.
-- [ ] Không cho unlink identity cuối cùng nếu không có phương thức đăng nhập thay thế.
-- [ ] Avatar chỉ lưu object key/metadata, không lưu public URL vĩnh viễn.
-- [ ] UI hồ sơ có optimistic state thận trọng, validation và error recovery.
-- [ ] Audit link/unlink identity và thay đổi trường nhạy cảm.
+- [x] Bổ sung profile fields tối thiểu: display name, locale, timezone, avatar key.
+- [x] Chuẩn hóa Unicode, độ dài và locale/timezone allow-list.
+- [x] Identity unique theo `(issuer, subject)`; không cho một identity gắn hai user.
+- [x] Link/unlink yêu cầu recent authentication và state/nonce chống CSRF.
+- [x] Không cho unlink identity cuối cùng nếu không có phương thức đăng nhập thay thế.
+- [x] Avatar chỉ lưu object key/metadata, không lưu public URL vĩnh viễn.
+- [x] UI hồ sơ có optimistic state thận trọng, validation và error recovery.
+- [x] Audit link/unlink identity và thay đổi trường nhạy cảm.
 
 ### Kiểm thử và DoD
 
-- Unit validation, repository integration và OIDC state/nonce negative tests.
-- Cross-user identity collision trả lỗi ổn định, không lộ user khác.
-- Profile cập nhật được qua web và giữ nguyên sau đăng nhập lại.
-- i18n vi/en, keyboard/focus và loading/error states đạt.
+- [x] Unit validation, repository integration và OIDC state/nonce negative tests.
+- [x] Cross-user identity collision trả lỗi ổn định, không lộ user khác.
+- [x] Profile cập nhật được qua web; query cache được đồng bộ sau mutation và dữ liệu
+      được đọc lại từ API khi tải lại phiên.
+- [x] i18n vi/en, keyboard/focus và loading/error states đạt.
+- [x] Migration `000006_user_profiles_and_identity_linking` có cả đường `up` và `down`.
+- [x] OpenAPI, generated TypeScript client, Go API và React settings UI dùng cùng contract.
+- [x] `pnpm verify` xanh ngày 2026-07-17: 23 web tests, 9 API-client tests,
+      Go test/vet, lint, typecheck, production build, Storybook và security checks đều đạt.
 
 ## 7. P2-02 Tenant lifecycle và workspace switching
 
@@ -424,8 +429,8 @@ status, expires_at, accepted_at, revoked_at, invited_by, accepted_by, created_at
 
 ## 19. Việc cần làm ngay
 
-1. Bắt đầu P2-01 từ contract profile/identity, chưa mở rộng màn hình admin.
-2. Rà schema `users`, `user_identities`, session và OIDC flow hiện có trước khi tạo migration.
-3. Chốt validation cho display name, locale, timezone và avatar object key.
-4. Triển khai repository/service/API cùng policy, audit và negative tests cho link/unlink identity.
-5. Hoàn thiện web profile vertical slice rồi mới chuyển sang P2-02 tenant lifecycle.
+1. Bắt đầu P2-02 từ contract tenant lifecycle và workspace switching.
+2. Rà schema tenant/membership, session rotation và workspace selection hiện có.
+3. Chốt quy tắc slug, status, archive và active membership trước khi tạo migration.
+4. Triển khai transaction tạo tenant cùng membership `org_admin`, policy và audit.
+5. Hoàn thiện vertical slice chuyển workspace an toàn trước khi bắt đầu P2-03.

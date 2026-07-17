@@ -158,6 +158,75 @@ export type paths = {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/api/v1/me/identities": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /** List external identities linked to the authenticated user */
+    readonly get: operations["listIdentities"];
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/me/identities/{identity_id}": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    readonly post?: never;
+    /** Unlink an external identity while preserving at least one login method */
+    readonly delete: operations["unlinkIdentity"];
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/me/identities/link": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Begin a recent-authenticated external identity linking flow */
+    readonly post: operations["beginIdentityLink"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/me/profile": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /** Return the authenticated user's editable profile */
+    readonly get: operations["getProfile"];
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    /** Update editable fields on the authenticated user's profile */
+    readonly patch: operations["updateProfile"];
+    readonly trace?: never;
+  };
   readonly "/api/v1/session/active-tenant": {
     readonly parameters: {
       readonly query?: never;
@@ -323,6 +392,18 @@ export type components = {
     readonly CSRFResponse: {
       readonly csrf_token: string;
     };
+    readonly ExternalIdentity: {
+      /** Format: date-time */
+      readonly created_at: string;
+      /** Format: email */
+      readonly email: string;
+      readonly email_verified: boolean;
+      /** Format: uuid */
+      readonly id: string;
+      /** Format: date-time */
+      readonly last_authenticated_at: string;
+      readonly provider: string;
+    };
     readonly HealthResponse: {
       readonly environment: string;
       readonly service: string;
@@ -330,6 +411,13 @@ export type components = {
       readonly status: "ok";
       /** Format: date-time */
       readonly timestamp: string;
+    };
+    readonly IdentityLinkResponse: {
+      /** Format: uri */
+      readonly authorization_url: string;
+    };
+    readonly IdentityListResponse: {
+      readonly identities: readonly components["schemas"]["ExternalIdentity"][];
     };
     readonly LivenessResponse: {
       /** @constant */
@@ -408,6 +496,16 @@ export type components = {
       /** Format: uri-reference */
       readonly type: string;
     };
+    readonly ProfileResponse: {
+      readonly user: components["schemas"]["User"];
+    };
+    readonly ProfileUpdateRequest: {
+      readonly avatar_object_key?: string | null;
+      readonly display_name?: string;
+      /** @enum {string} */
+      readonly locale?: "vi" | "en";
+      readonly timezone?: string;
+    };
     readonly ReadinessCheck: {
       readonly name: string;
       /** @enum {string} */
@@ -433,6 +531,7 @@ export type components = {
       readonly slug: string;
     };
     readonly User: {
+      readonly avatar_object_key?: string;
       readonly display_name: string;
       /** Format: email */
       readonly email: string;
@@ -443,6 +542,15 @@ export type components = {
     };
   };
   responses: {
+    /** @description The requested identity operation conflicts with account safety rules */
+    readonly ConflictResponse: {
+      headers: {
+        readonly [name: string]: unknown;
+      };
+      content: {
+        readonly "application/problem+json": components["schemas"]["Problem"];
+      };
+    };
     /** @description The authenticated actor lacks permission in the active workspace */
     readonly ForbiddenResponse: {
       headers: {
@@ -738,6 +846,133 @@ export interface operations {
           readonly "application/json": components["schemas"]["MeResponse"];
         };
       };
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly listIdentities: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Linked external identities */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["IdentityListResponse"];
+        };
+      };
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly unlinkIdentity: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly "X-CSRF-Token": string;
+      };
+      readonly path: {
+        readonly identity_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Identity unlinked */
+      readonly 204: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content?: never;
+      };
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly beginIdentityLink: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly "X-CSRF-Token": string;
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Provider authorization URL for the one-time linking flow */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["IdentityLinkResponse"];
+        };
+      };
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly getProfile: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Editable user profile */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ProfileResponse"];
+        };
+      };
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly updateProfile: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly "X-CSRF-Token": string;
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["ProfileUpdateRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Updated user profile */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ProfileResponse"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
       readonly default: components["responses"]["ProblemResponse"];
     };
   };

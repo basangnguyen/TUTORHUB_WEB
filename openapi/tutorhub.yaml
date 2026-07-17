@@ -180,6 +180,130 @@ paths:
                 $ref: "#/components/schemas/MeResponse"
         default:
           $ref: "#/components/responses/ProblemResponse"
+  /api/v1/me/profile:
+    get:
+      operationId: getProfile
+      summary: Return the authenticated user's editable profile
+      security:
+        - SessionCookie: []
+      responses:
+        "200":
+          description: Editable user profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProfileResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+    patch:
+      operationId: updateProfile
+      summary: Update editable fields on the authenticated user's profile
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProfileUpdateRequest"
+      responses:
+        "200":
+          description: Updated user profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProfileResponse"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/me/identities:
+    get:
+      operationId: listIdentities
+      summary: List external identities linked to the authenticated user
+      security:
+        - SessionCookie: []
+      responses:
+        "200":
+          description: Linked external identities
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IdentityListResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/me/identities/link:
+    post:
+      operationId: beginIdentityLink
+      summary: Begin a recent-authenticated external identity linking flow
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Provider authorization URL for the one-time linking flow
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IdentityLinkResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/me/identities/{identity_id}:
+    delete:
+      operationId: unlinkIdentity
+      summary: Unlink an external identity while preserving at least one login method
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: identity_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Identity unlinked
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
   /api/v1/tenants:
     post:
       operationId: createTenant
@@ -453,6 +577,12 @@ components:
         application/problem+json:
           schema:
             $ref: "#/components/schemas/Problem"
+    ConflictResponse:
+      description: The requested identity operation conflicts with account safety rules
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
   schemas:
     OrganizationRole:
       type: string
@@ -574,6 +704,80 @@ components:
           type: string
         timezone:
           type: string
+        avatar_object_key:
+          type: string
+    ProfileResponse:
+      type: object
+      additionalProperties: false
+      required: [user]
+      properties:
+        user:
+          $ref: "#/components/schemas/User"
+    ProfileUpdateRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        display_name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        locale:
+          type: string
+          enum: [vi, en]
+        timezone:
+          type: string
+          minLength: 1
+          maxLength: 100
+        avatar_object_key:
+          type:
+            - string
+            - "null"
+          maxLength: 512
+    ExternalIdentity:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - provider
+        - email
+        - email_verified
+        - created_at
+        - last_authenticated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        provider:
+          type: string
+        email:
+          type: string
+          format: email
+        email_verified:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        last_authenticated_at:
+          type: string
+          format: date-time
+    IdentityListResponse:
+      type: object
+      additionalProperties: false
+      required: [identities]
+      properties:
+        identities:
+          type: array
+          items:
+            $ref: "#/components/schemas/ExternalIdentity"
+    IdentityLinkResponse:
+      type: object
+      additionalProperties: false
+      required: [authorization_url]
+      properties:
+        authorization_url:
+          type: string
+          format: uri
     TenantMembership:
       type: object
       additionalProperties: false

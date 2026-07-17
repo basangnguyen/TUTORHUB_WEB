@@ -17,6 +17,7 @@ import {
   WorkspaceOnboardingPage,
   WorkspaceSelectionPage,
 } from "../pages/WorkspacePages";
+import { ProfileSettingsPage } from "../pages/ProfileSettingsPage";
 import {
   ForbiddenPage,
   AuthenticationErrorPage,
@@ -153,7 +154,7 @@ export function createAppRoutes(): RouteObject[] {
                 },
                 {
                   path: "settings",
-                  element: <ModulePage moduleKey="nav.settings" />,
+                  element: <ProfileSettingsPage />,
                 },
                 {
                   path: "system-error",

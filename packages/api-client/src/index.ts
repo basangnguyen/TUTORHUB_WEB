@@ -5,6 +5,15 @@ export type HealthResponse = components["schemas"]["HealthResponse"];
 export type CurrentUser = components["schemas"]["MeResponse"];
 export type CSRFResponse = components["schemas"]["CSRFResponse"];
 export type LogoutResponse = components["schemas"]["LogoutResponse"];
+export type UserProfile = components["schemas"]["User"];
+export type ProfileResponse = components["schemas"]["ProfileResponse"];
+export type ProfileUpdateRequest =
+  components["schemas"]["ProfileUpdateRequest"];
+export type ExternalIdentity = components["schemas"]["ExternalIdentity"];
+export type IdentityListResponse =
+  components["schemas"]["IdentityListResponse"];
+export type IdentityLinkResponse =
+  components["schemas"]["IdentityLinkResponse"];
 export type CreateTenantRequest = components["schemas"]["CreateTenantRequest"];
 export type SwitchActiveTenantRequest =
   components["schemas"]["SwitchActiveTenantRequest"];
@@ -97,6 +106,108 @@ export async function getCurrentUser(
     error,
     response,
   );
+}
+
+export async function getProfile(
+  options: APIRequestOptions = {},
+): Promise<ProfileResponse> {
+  const { data, error, response } = await createTutorHubClient(options).GET(
+    "/api/v1/me/profile",
+    {
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<ProfileResponse>(
+    data as ProfileResponse | undefined,
+    error,
+    response,
+  );
+}
+
+export async function updateProfile(
+  input: ProfileUpdateRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<ProfileResponse> {
+  const { data, error, response } = await createTutorHubClient(options).PATCH(
+    "/api/v1/me/profile",
+    {
+      params: { header: { "X-CSRF-Token": csrfToken } },
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<ProfileResponse>(
+    data as ProfileResponse | undefined,
+    error,
+    response,
+  );
+}
+
+export async function listIdentities(
+  options: APIRequestOptions = {},
+): Promise<IdentityListResponse> {
+  const { data, error, response } = await createTutorHubClient(options).GET(
+    "/api/v1/me/identities",
+    {
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<IdentityListResponse>(
+    data as IdentityListResponse | undefined,
+    error,
+    response,
+  );
+}
+
+export async function beginIdentityLink(
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<IdentityLinkResponse> {
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/me/identities/link",
+    {
+      params: { header: { "X-CSRF-Token": csrfToken } },
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<IdentityLinkResponse>(
+    data as IdentityLinkResponse | undefined,
+    error,
+    response,
+  );
+}
+
+export async function unlinkIdentity(
+  identityID: string,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<void> {
+  const { error, response } = await createTutorHubClient(options).DELETE(
+    "/api/v1/me/identities/{identity_id}",
+    {
+      params: {
+        path: { identity_id: identityID },
+        header: { "X-CSRF-Token": csrfToken },
+      },
+      signal: options.signal,
+    },
+  );
+
+  if (!response.ok) {
+    throw new APIRequestError(
+      response.status,
+      isProblem(error) ? error : undefined,
+    );
+  }
 }
 
 export async function rotateCSRFToken(

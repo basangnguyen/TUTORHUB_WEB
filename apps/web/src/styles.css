@@ -2022,6 +2022,190 @@ textarea:focus-visible {
   color: #fff;
 }
 
+.profile-settings {
+  width: min(100%, 1180px);
+  margin: 0 auto;
+}
+
+.profile-settings__header {
+  max-width: 760px;
+}
+
+.profile-settings__grid {
+  display: grid;
+  gap: 22px;
+  margin-top: 28px;
+}
+
+.profile-panel {
+  padding: 26px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.profile-panel__heading {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+  margin-bottom: 24px;
+}
+
+.profile-panel__heading--actions {
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+}
+
+.profile-panel__heading h2,
+.profile-avatar h3 {
+  margin: 0;
+  color: var(--color-text);
+  font-size: 18px;
+  line-height: 1.35;
+}
+
+.profile-panel__heading p,
+.profile-avatar p {
+  max-width: 72ch;
+  margin: 5px 0 0;
+  color: var(--color-text-muted);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.profile-panel__icon,
+.identity-row__marker {
+  display: inline-flex;
+  width: 44px;
+  height: 44px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-canvas);
+  color: var(--color-accent);
+}
+
+.profile-panel__icon svg,
+.identity-row__marker svg {
+  width: 20px;
+  height: 20px;
+}
+
+.profile-form {
+  display: grid;
+  gap: 22px;
+}
+
+.profile-form__fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(180px, 0.6fr);
+  gap: 18px;
+}
+
+.profile-form__fields > :last-child {
+  grid-column: 1 / -1;
+}
+
+.profile-avatar {
+  display: flex;
+  gap: 24px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 0;
+  border-top: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.profile-avatar__status,
+.profile-form__footer,
+.profile-feedback {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.profile-feedback {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.profile-feedback--success {
+  color: #16734a;
+}
+
+.profile-feedback--error {
+  justify-content: space-between;
+  padding: 12px 14px;
+  border: 1px solid #efb8b0;
+  border-radius: var(--radius-sm);
+  background: #fff6f4;
+  color: #9f2d21;
+}
+
+.identity-list {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.identity-row {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  padding: 18px 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.identity-row:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.identity-row:last-child {
+  padding-bottom: 0;
+}
+
+.identity-row__title {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.identity-row__title strong {
+  color: var(--color-text);
+  font-size: 15px;
+  text-transform: capitalize;
+}
+
+.identity-row__body p {
+  margin: 5px 0 2px;
+  color: var(--color-text);
+  font-size: 14px;
+}
+
+.identity-row__body > span,
+.identity-row__action > span {
+  color: var(--color-text-muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.identity-row__action {
+  display: grid;
+  max-width: 220px;
+  gap: 5px;
+  justify-items: end;
+  text-align: right;
+}
+
 @media (max-width: 900px) {
   .app-shell {
     grid-template-columns: 12.75rem minmax(0, 1fr);
@@ -2060,6 +2244,14 @@ textarea:focus-visible {
     padding-right: 28px;
     padding-left: 28px;
   }
+
+  .profile-form__fields {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-form__fields > :last-child {
+    grid-column: auto;
+  }
 }
 
 @media (max-width: 680px) {
@@ -2084,6 +2276,31 @@ textarea:focus-visible {
     min-height: 70px;
     gap: 12px;
     padding: 12px 18px;
+  }
+
+  .profile-panel {
+    padding: 20px;
+  }
+
+  .profile-panel__heading--actions,
+  .identity-row {
+    grid-template-columns: 44px minmax(0, 1fr);
+  }
+
+  .profile-panel__heading--actions > :last-child,
+  .identity-row__action {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  .identity-row__action {
+    justify-items: start;
+    text-align: left;
+  }
+
+  .profile-avatar {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .menu-toggle {

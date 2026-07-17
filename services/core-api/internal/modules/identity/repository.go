@@ -13,6 +13,9 @@ type CreateFlowParams struct {
 	NonceHash              []byte
 	CodeVerifierCiphertext []byte
 	ReturnTo               string
+	Purpose                string
+	UserID                 uuid.UUID
+	SessionID              uuid.UUID
 	CreatedAt              time.Time
 	ExpiresAt              time.Time
 }
@@ -63,4 +66,27 @@ type Repository interface {
 		tenantID uuid.UUID,
 		rotation SessionRotation,
 	) (TenantMutationResult, error)
+	GetProfile(ctx context.Context, userID uuid.UUID) (User, error)
+	UpdateProfile(
+		ctx context.Context,
+		sessionID uuid.UUID,
+		userID uuid.UUID,
+		patch ProfilePatch,
+		updatedAt time.Time,
+	) (User, error)
+	ListIdentities(ctx context.Context, userID uuid.UUID) ([]ExternalIdentity, error)
+	LinkIdentity(
+		ctx context.Context,
+		userID uuid.UUID,
+		sessionID uuid.UUID,
+		claims ProviderClaims,
+		linkedAt time.Time,
+	) (ExternalIdentity, error)
+	UnlinkIdentity(
+		ctx context.Context,
+		userID uuid.UUID,
+		sessionID uuid.UUID,
+		identityID uuid.UUID,
+		unlinkedAt time.Time,
+	) error
 }

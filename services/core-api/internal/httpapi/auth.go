@@ -116,8 +116,10 @@ func (handlers authHandlers) callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	handlers.setCookie(w, handlers.cookieNames.session, result.SessionToken, result.ExpiresAt)
-	handlers.setCookie(w, handlers.cookieNames.csrf, result.CSRFToken, result.ExpiresAt)
+	if !result.IdentityLinked {
+		handlers.setCookie(w, handlers.cookieNames.session, result.SessionToken, result.ExpiresAt)
+		handlers.setCookie(w, handlers.cookieNames.csrf, result.CSRFToken, result.ExpiresAt)
+	}
 	w.Header().Set("Cache-Control", "no-store")
 	http.Redirect(
 		w,
@@ -309,6 +311,31 @@ func (handlers authHandlers) writeIdentityProblem(w http.ResponseWriter, r *http
 		status = http.StatusForbidden
 		title = "Workspace access denied"
 		detail = "You do not have an active membership in this workspace."
+	case errors.Is(err, identity.ErrInvalidProfile):
+		status = http.StatusBadRequest
+		title = "Invalid profile"
+		detail = "One or more profile fields are invalid."
+	case errors.Is(err, identity.ErrRecentAuthenticationRequired):
+		status = http.StatusForbidden
+		title = "Recent authentication required"
+		detail = "Sign in again before changing linked identities."
+	case errors.Is(err, identity.ErrIdentityConflict),
+		errors.Is(err, identity.ErrIdentityLinkRequired):
+		status = http.StatusConflict
+		title = "Identity already in use"
+		detail = "This identity is already associated with a TutorHub account."
+	case errors.Is(err, identity.ErrIdentityNotFound):
+		status = http.StatusNotFound
+		title = "Identity not found"
+		detail = "The requested linked identity does not exist."
+	case errors.Is(err, identity.ErrLastIdentity):
+		status = http.StatusConflict
+		title = "Identity cannot be removed"
+		detail = "At least one sign-in identity must remain linked to the account."
+	case errors.Is(err, identity.ErrIdentityInactive):
+		status = http.StatusForbidden
+		title = "Identity unavailable"
+		detail = "This sign-in identity is inactive."
 	}
 
 	if status >= http.StatusInternalServerError {

@@ -4,33 +4,46 @@ import (
 	"context"
 	"fmt"
 	"net/mail"
+	"path"
 	"regexp"
 	"strings"
 	"time"
 	"unicode/utf8"
 
 	"github.com/google/uuid"
+	"golang.org/x/text/unicode/norm"
 )
 
 const (
-	statePurpose          = "oidc-state"
-	browserBindingPurpose = "oidc-browser-binding"
-	noncePurpose          = "oidc-nonce"
-	sessionPurpose        = "session-token"
-	csrfPurpose           = "csrf-token"
-	userAgentPurpose      = "session-user-agent"
-	tenantSlugMinimum     = 3
-	tenantSlugMaximum     = 63
-	tenantNameMinimum     = 2
-	tenantNameMaximum     = 120
+	statePurpose            = "oidc-state"
+	browserBindingPurpose   = "oidc-browser-binding"
+	noncePurpose            = "oidc-nonce"
+	sessionPurpose          = "session-token"
+	csrfPurpose             = "csrf-token"
+	userAgentPurpose        = "session-user-agent"
+	tenantSlugMinimum       = 3
+	tenantSlugMaximum       = 63
+	tenantNameMinimum       = 2
+	tenantNameMaximum       = 120
+	profileNameMaximum      = 120
+	avatarKeyMaximum        = 512
+	flowPurposeLogin        = "login"
+	flowPurposeIdentityLink = "identity_link"
+	identityLinkReturnTo    = "/app/settings?identity=linked"
+	defaultRecentAuthTTL    = 10 * time.Minute
 )
 
 var tenantSlugPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*[a-z0-9]$`)
+var supportedProfileLocales = map[string]struct{}{
+	"en": {},
+	"vi": {},
+}
 
 type ServiceConfig struct {
 	FlowTTL            time.Duration
 	SessionTTL         time.Duration
 	SessionAbsoluteTTL time.Duration
+	RecentAuthTTL      time.Duration
 }
 
 type CSRFResult struct {
@@ -48,6 +61,11 @@ type ServiceAPI interface {
 	Logout(context.Context, string) (string, error)
 	CreateTenant(context.Context, Principal, CreateTenantInput) (TenantSessionResult, error)
 	SwitchActiveTenant(context.Context, Principal, uuid.UUID) (TenantSessionResult, error)
+	GetProfile(context.Context, Principal) (User, error)
+	UpdateProfile(context.Context, Principal, ProfilePatch) (User, error)
+	ListIdentities(context.Context, Principal) ([]ExternalIdentity, error)
+	BeginIdentityLink(context.Context, Principal) (LoginStart, error)
+	UnlinkIdentity(context.Context, Principal, uuid.UUID) error
 }
 
 type Service struct {
@@ -77,6 +95,9 @@ func NewService(
 	if config.SessionTTL > config.SessionAbsoluteTTL {
 		return nil, fmt.Errorf("identity session TTL must not exceed absolute TTL")
 	}
+	if config.RecentAuthTTL <= 0 {
+		config.RecentAuthTTL = defaultRecentAuthTTL
+	}
 	if clock == nil {
 		clock = time.Now
 	}
@@ -95,7 +116,22 @@ func (service *Service) BeginLogin(ctx context.Context, returnTo string) (LoginS
 	if err != nil {
 		return LoginStart{}, err
 	}
+	return service.beginFlow(
+		ctx,
+		normalizedReturnTo,
+		flowPurposeLogin,
+		uuid.Nil,
+		uuid.Nil,
+	)
+}
 
+func (service *Service) beginFlow(
+	ctx context.Context,
+	returnTo string,
+	purpose string,
+	userID uuid.UUID,
+	sessionID uuid.UUID,
+) (LoginStart, error) {
 	state, err := service.crypto.RandomToken()
 	if err != nil {
 		return LoginStart{}, fmt.Errorf("generate OIDC state: %w", err)
@@ -123,7 +159,10 @@ func (service *Service) BeginLogin(ctx context.Context, returnTo string) (LoginS
 		BrowserBindingHash:     service.crypto.Digest(browserBindingPurpose, browserBinding),
 		NonceHash:              service.crypto.Digest(noncePurpose, nonce),
 		CodeVerifierCiphertext: encryptedVerifier,
-		ReturnTo:               normalizedReturnTo,
+		ReturnTo:               returnTo,
+		Purpose:                purpose,
+		UserID:                 userID,
+		SessionID:              sessionID,
 		CreatedAt:              now,
 		ExpiresAt:              now.Add(service.config.FlowTTL),
 	}); err != nil {
@@ -178,6 +217,28 @@ func (service *Service) CompleteLogin(
 		return LoginResult{}, err
 	}
 
+	if flow.Purpose == flowPurposeIdentityLink {
+		if flow.UserID == uuid.Nil || flow.SessionID == uuid.Nil {
+			return LoginResult{}, ErrInvalidAuthFlow
+		}
+		if _, err := service.repository.LinkIdentity(
+			ctx,
+			flow.UserID,
+			flow.SessionID,
+			claims,
+			now,
+		); err != nil {
+			return LoginResult{}, err
+		}
+		return LoginResult{
+			ReturnTo:       flow.ReturnTo,
+			IdentityLinked: true,
+		}, nil
+	}
+	if flow.Purpose != "" && flow.Purpose != flowPurposeLogin {
+		return LoginResult{}, ErrInvalidAuthFlow
+	}
+
 	sessionToken, err := service.crypto.RandomToken()
 	if err != nil {
 		return LoginResult{}, fmt.Errorf("generate session token: %w", err)
@@ -208,6 +269,83 @@ func (service *Service) CompleteLogin(
 		ExpiresAt:    expiresAt,
 		ReturnTo:     flow.ReturnTo,
 	}, nil
+}
+
+func (service *Service) GetProfile(
+	ctx context.Context,
+	principal Principal,
+) (User, error) {
+	if err := validatePrincipal(principal); err != nil {
+		return User{}, err
+	}
+	return service.repository.GetProfile(ctx, principal.User.ID)
+}
+
+func (service *Service) UpdateProfile(
+	ctx context.Context,
+	principal Principal,
+	patch ProfilePatch,
+) (User, error) {
+	if err := validatePrincipal(principal); err != nil {
+		return User{}, err
+	}
+	normalized, err := normalizeProfilePatch(principal.User.ID, patch)
+	if err != nil {
+		return User{}, err
+	}
+	return service.repository.UpdateProfile(
+		ctx,
+		principal.SessionID,
+		principal.User.ID,
+		normalized,
+		service.clock().UTC(),
+	)
+}
+
+func (service *Service) ListIdentities(
+	ctx context.Context,
+	principal Principal,
+) ([]ExternalIdentity, error) {
+	if err := validatePrincipal(principal); err != nil {
+		return nil, err
+	}
+	return service.repository.ListIdentities(ctx, principal.User.ID)
+}
+
+func (service *Service) BeginIdentityLink(
+	ctx context.Context,
+	principal Principal,
+) (LoginStart, error) {
+	if err := service.requireRecentAuthentication(principal); err != nil {
+		return LoginStart{}, err
+	}
+	return service.beginFlow(
+		ctx,
+		identityLinkReturnTo,
+		flowPurposeIdentityLink,
+		principal.User.ID,
+		principal.SessionID,
+	)
+}
+
+func (service *Service) UnlinkIdentity(
+	ctx context.Context,
+	principal Principal,
+	identityID uuid.UUID,
+) error {
+	if err := service.requireRecentAuthentication(principal); err != nil {
+		return err
+	}
+	if identityID == uuid.Nil {
+		return ErrIdentityNotFound
+	}
+	return service.repository.UnlinkIdentity(
+		ctx,
+		principal.User.ID,
+		principal.SessionID,
+		identityID,
+		service.clock().UTC(),
+	)
 }
 
 func (service *Service) Authenticate(ctx context.Context, sessionToken string) (Principal, error) {
@@ -378,6 +516,85 @@ func (service *Service) session(
 		service.clock().UTC(),
 		service.config.SessionTTL,
 	)
+}
+
+func (service *Service) requireRecentAuthentication(principal Principal) error {
+	if err := validatePrincipal(principal); err != nil {
+		return err
+	}
+	now := service.clock().UTC()
+	authenticatedAt := principal.AuthenticatedAt.UTC()
+	if authenticatedAt.IsZero() ||
+		authenticatedAt.After(now.Add(time.Minute)) ||
+		now.Sub(authenticatedAt) > service.config.RecentAuthTTL {
+		return ErrRecentAuthenticationRequired
+	}
+	return nil
+}
+
+func validatePrincipal(principal Principal) error {
+	if principal.SessionID == uuid.Nil || principal.User.ID == uuid.Nil {
+		return ErrSessionNotFound
+	}
+	return nil
+}
+
+func normalizeProfilePatch(userID uuid.UUID, patch ProfilePatch) (ProfilePatch, error) {
+	if patch.DisplayName == nil &&
+		patch.Locale == nil &&
+		patch.Timezone == nil &&
+		patch.AvatarObjectKey == nil {
+		return ProfilePatch{}, fmt.Errorf("%w: at least one field is required", ErrInvalidProfile)
+	}
+
+	if patch.DisplayName != nil {
+		value := norm.NFC.String(strings.Join(strings.Fields(*patch.DisplayName), " "))
+		length := utf8.RuneCountInString(value)
+		if length < 1 || length > profileNameMaximum {
+			return ProfilePatch{}, fmt.Errorf(
+				"%w: display_name must contain 1-%d characters",
+				ErrInvalidProfile,
+				profileNameMaximum,
+			)
+		}
+		patch.DisplayName = &value
+	}
+	if patch.Locale != nil {
+		value := strings.ToLower(strings.TrimSpace(*patch.Locale))
+		if _, supported := supportedProfileLocales[value]; !supported {
+			return ProfilePatch{}, fmt.Errorf("%w: unsupported locale", ErrInvalidProfile)
+		}
+		patch.Locale = &value
+	}
+	if patch.Timezone != nil {
+		value := strings.TrimSpace(*patch.Timezone)
+		if value == "" || strings.EqualFold(value, "local") {
+			return ProfilePatch{}, fmt.Errorf("%w: invalid timezone", ErrInvalidProfile)
+		}
+		if _, err := time.LoadLocation(value); err != nil {
+			return ProfilePatch{}, fmt.Errorf("%w: invalid timezone", ErrInvalidProfile)
+		}
+		patch.Timezone = &value
+	}
+	if patch.AvatarObjectKey != nil {
+		value := strings.TrimSpace(*patch.AvatarObjectKey)
+		if value != "" {
+			prefix := "avatars/" + userID.String() + "/"
+			if len(value) > avatarKeyMaximum ||
+				strings.Contains(value, "\\") ||
+				strings.Contains(value, "://") ||
+				path.Clean(value) != value ||
+				!strings.HasPrefix(value, prefix) {
+				return ProfilePatch{}, fmt.Errorf(
+					"%w: avatar_object_key must reference the current user's avatar prefix",
+					ErrInvalidProfile,
+				)
+			}
+		}
+		patch.AvatarObjectKey = &value
+	}
+
+	return patch, nil
 }
 
 func normalizeProviderClaims(claims ProviderClaims, now time.Time) (ProviderClaims, error) {

@@ -35,10 +35,11 @@ type LoginStart struct {
 }
 
 type LoginResult struct {
-	SessionToken string
-	CSRFToken    string
-	ExpiresAt    time.Time
-	ReturnTo     string
+	SessionToken   string
+	CSRFToken      string
+	ExpiresAt      time.Time
+	ReturnTo       string
+	IdentityLinked bool
 }
 
 type CallbackInput struct {
@@ -50,11 +51,28 @@ type CallbackInput struct {
 }
 
 type User struct {
-	ID          uuid.UUID `json:"id"`
-	Email       string    `json:"email"`
-	DisplayName string    `json:"display_name"`
-	Locale      string    `json:"locale"`
-	Timezone    string    `json:"timezone"`
+	ID              uuid.UUID `json:"id"`
+	Email           string    `json:"email"`
+	DisplayName     string    `json:"display_name"`
+	Locale          string    `json:"locale"`
+	Timezone        string    `json:"timezone"`
+	AvatarObjectKey string    `json:"avatar_object_key,omitempty"`
+}
+
+type ProfilePatch struct {
+	DisplayName     *string `json:"display_name"`
+	Locale          *string `json:"locale"`
+	Timezone        *string `json:"timezone"`
+	AvatarObjectKey *string `json:"avatar_object_key"`
+}
+
+type ExternalIdentity struct {
+	ID                  uuid.UUID `json:"id"`
+	Provider            string    `json:"provider"`
+	Email               string    `json:"email"`
+	EmailVerified       bool      `json:"email_verified"`
+	CreatedAt           time.Time `json:"created_at"`
+	LastAuthenticatedAt time.Time `json:"last_authenticated_at"`
 }
 
 type Tenant struct {
@@ -78,17 +96,22 @@ type TenantSessionResult struct {
 }
 
 type Principal struct {
-	SessionID    uuid.UUID `json:"-"`
-	User         User
-	ActiveTenant *Tenant
-	Memberships  []Tenant
-	Permissions  []string
+	SessionID       uuid.UUID `json:"-"`
+	IdentityID      uuid.UUID `json:"-"`
+	AuthenticatedAt time.Time `json:"-"`
+	User            User
+	ActiveTenant    *Tenant
+	Memberships     []Tenant
+	Permissions     []string
 }
 
 type StoredFlow struct {
 	NonceHash              []byte
 	CodeVerifierCiphertext []byte
 	ReturnTo               string
+	Purpose                string
+	UserID                 uuid.UUID
+	SessionID              uuid.UUID
 }
 
 type SessionRecord struct {

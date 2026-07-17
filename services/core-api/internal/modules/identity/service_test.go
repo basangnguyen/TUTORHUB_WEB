@@ -255,6 +255,136 @@ func TestServiceCreatesAndSwitchesTenantWithSessionRotation(t *testing.T) {
 	}
 }
 
+func TestServiceNormalizesAndValidatesProfileUpdates(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, time.July, 17, 9, 0, 0, 0, time.UTC)
+	userID := uuid.MustParse("ee9b4cdf-e1ee-4d79-aa5b-80b7c3aa7ea3")
+	repository := &memoryRepository{
+		principal: Principal{
+			SessionID:       uuid.MustParse("7f3f7634-c04d-4f42-afd5-e52a3bf673cb"),
+			AuthenticatedAt: now,
+			User: User{
+				ID:          userID,
+				Email:       "student@example.com",
+				DisplayName: "Student",
+				Locale:      "vi",
+				Timezone:    "Asia/Ho_Chi_Minh",
+			},
+		},
+	}
+	service := newTestService(t, repository, &fakeProvider{}, now)
+	displayName := "  Nguyá»…n   BÃ¡   SÃ¡ng  "
+	locale := "EN"
+	timezone := "Asia/Ho_Chi_Minh"
+	avatar := "avatars/" + userID.String() + "/profile.webp"
+
+	profile, err := service.UpdateProfile(context.Background(), repository.principal, ProfilePatch{
+		DisplayName:     &displayName,
+		Locale:          &locale,
+		Timezone:        &timezone,
+		AvatarObjectKey: &avatar,
+	})
+	if err != nil {
+		t.Fatalf("update profile: %v", err)
+	}
+	if profile.DisplayName != "Nguyá»…n BÃ¡ SÃ¡ng" || profile.Locale != "en" ||
+		profile.Timezone != timezone || profile.AvatarObjectKey != avatar {
+		t.Fatalf("profile was not normalized: %+v", profile)
+	}
+
+	invalidAvatar := "avatars/another-user/profile.webp"
+	if _, err := service.UpdateProfile(context.Background(), repository.principal, ProfilePatch{
+		AvatarObjectKey: &invalidAvatar,
+	}); !errors.Is(err, ErrInvalidProfile) {
+		t.Fatalf("expected invalid avatar key, got %v", err)
+	}
+	invalidTimezone := "Local"
+	if _, err := service.UpdateProfile(context.Background(), repository.principal, ProfilePatch{
+		Timezone: &invalidTimezone,
+	}); !errors.Is(err, ErrInvalidProfile) {
+		t.Fatalf("expected invalid timezone, got %v", err)
+	}
+}
+
+func TestServiceLinksIdentityWithoutReplacingSession(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, time.July, 17, 9, 15, 0, 0, time.UTC)
+	repository := &memoryRepository{
+		principal: Principal{
+			SessionID:       uuid.MustParse("7f3f7634-c04d-4f42-afd5-e52a3bf673cb"),
+			AuthenticatedAt: now.Add(-time.Minute),
+			User: User{
+				ID:          uuid.MustParse("ee9b4cdf-e1ee-4d79-aa5b-80b7c3aa7ea3"),
+				Email:       "student@example.com",
+				DisplayName: "Student",
+			},
+		},
+	}
+	provider := &fakeProvider{}
+	service := newTestService(t, repository, provider, now)
+
+	start, err := service.BeginIdentityLink(context.Background(), repository.principal)
+	if err != nil {
+		t.Fatalf("begin identity link: %v", err)
+	}
+	if repository.flow.Purpose != flowPurposeIdentityLink ||
+		repository.flow.UserID != repository.principal.User.ID ||
+		repository.flow.SessionID != repository.principal.SessionID {
+		t.Fatalf("unexpected identity link flow: %+v", repository.flow)
+	}
+
+	provider.claims = validClaims(now, provider.nonce)
+	provider.claims.Subject = "second-subject"
+	result, err := service.CompleteLogin(context.Background(), CallbackInput{
+		State:          provider.state,
+		BrowserBinding: start.BrowserBinding,
+		Code:           "identity-link-code",
+	})
+	if err != nil {
+		t.Fatalf("complete identity link: %v", err)
+	}
+	if !result.IdentityLinked || result.SessionToken != "" || result.CSRFToken != "" ||
+		result.ReturnTo != identityLinkReturnTo {
+		t.Fatalf("unexpected identity link result: %+v", result)
+	}
+	if repository.linkedClaims.Subject != "second-subject" {
+		t.Fatalf("linked claims were not persisted: %+v", repository.linkedClaims)
+	}
+}
+
+func TestServiceRequiresRecentAuthenticationForIdentityMutations(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, time.July, 17, 9, 30, 0, 0, time.UTC)
+	repository := &memoryRepository{
+		principal: Principal{
+			SessionID:       uuid.MustParse("7f3f7634-c04d-4f42-afd5-e52a3bf673cb"),
+			AuthenticatedAt: now.Add(-11 * time.Minute),
+			User: User{
+				ID:    uuid.MustParse("ee9b4cdf-e1ee-4d79-aa5b-80b7c3aa7ea3"),
+				Email: "student@example.com",
+			},
+		},
+	}
+	service := newTestService(t, repository, &fakeProvider{}, now)
+
+	if _, err := service.BeginIdentityLink(
+		context.Background(),
+		repository.principal,
+	); !errors.Is(err, ErrRecentAuthenticationRequired) {
+		t.Fatalf("expected recent authentication requirement, got %v", err)
+	}
+	if err := service.UnlinkIdentity(
+		context.Background(),
+		repository.principal,
+		uuid.MustParse("49ef082b-b06a-4f2a-9435-f64f89e9b7d5"),
+	); !errors.Is(err, ErrRecentAuthenticationRequired) {
+		t.Fatalf("expected recent authentication requirement, got %v", err)
+	}
+}
+
 func testContainsPermission(permissions []string, expected string) bool {
 	for _, permission := range permissions {
 		if permission == expected {
@@ -337,6 +467,14 @@ type memoryRepository struct {
 	claims        ProviderClaims
 	metadata      SessionMetadata
 	principal     Principal
+	profile       User
+	identities    []ExternalIdentity
+	linkedClaims  ProviderClaims
+	unlinkedID    uuid.UUID
+	profileErr    error
+	identitiesErr error
+	linkErr       error
+	unlinkErr     error
 	csrfHash      []byte
 	revoked       bool
 	revokeHash    []byte
@@ -368,6 +506,9 @@ func (repository *memoryRepository) ConsumeFlow(
 		NonceHash:              repository.flow.NonceHash,
 		CodeVerifierCiphertext: repository.flow.CodeVerifierCiphertext,
 		ReturnTo:               repository.flow.ReturnTo,
+		Purpose:                repository.flow.Purpose,
+		UserID:                 repository.flow.UserID,
+		SessionID:              repository.flow.SessionID,
 	}, nil
 }
 
@@ -380,7 +521,9 @@ func (repository *memoryRepository) CreateAuthenticatedSession(
 	repository.metadata = metadata
 	repository.csrfHash = metadata.CSRFHash
 	repository.principal = Principal{
-		SessionID: uuid.MustParse("7f3f7634-c04d-4f42-afd5-e52a3bf673cb"),
+		SessionID:       uuid.MustParse("7f3f7634-c04d-4f42-afd5-e52a3bf673cb"),
+		IdentityID:      uuid.MustParse("6d92b682-8f2e-4551-b4d3-0a3ba2f86250"),
+		AuthenticatedAt: claims.AuthTime,
 		User: User{
 			ID:          uuid.MustParse("ee9b4cdf-e1ee-4d79-aa5b-80b7c3aa7ea3"),
 			Email:       claims.Email,
@@ -391,6 +534,109 @@ func (repository *memoryRepository) CreateAuthenticatedSession(
 		Permissions: []string{},
 	}
 	return repository.principal, nil
+}
+
+func (repository *memoryRepository) GetProfile(
+	_ context.Context,
+	userID uuid.UUID,
+) (User, error) {
+	if repository.profileErr != nil {
+		return User{}, repository.profileErr
+	}
+	if userID != repository.principal.User.ID {
+		return User{}, ErrSessionNotFound
+	}
+	if repository.profile.ID == uuid.Nil {
+		return repository.principal.User, nil
+	}
+	return repository.profile, nil
+}
+
+func (repository *memoryRepository) UpdateProfile(
+	_ context.Context,
+	sessionID uuid.UUID,
+	userID uuid.UUID,
+	patch ProfilePatch,
+	_ time.Time,
+) (User, error) {
+	if repository.profileErr != nil {
+		return User{}, repository.profileErr
+	}
+	if sessionID != repository.principal.SessionID || userID != repository.principal.User.ID {
+		return User{}, ErrSessionNotFound
+	}
+	profile := repository.principal.User
+	if patch.DisplayName != nil {
+		profile.DisplayName = *patch.DisplayName
+	}
+	if patch.Locale != nil {
+		profile.Locale = *patch.Locale
+	}
+	if patch.Timezone != nil {
+		profile.Timezone = *patch.Timezone
+	}
+	if patch.AvatarObjectKey != nil {
+		profile.AvatarObjectKey = *patch.AvatarObjectKey
+	}
+	repository.profile = profile
+	repository.principal.User = profile
+	return profile, nil
+}
+
+func (repository *memoryRepository) ListIdentities(
+	_ context.Context,
+	userID uuid.UUID,
+) ([]ExternalIdentity, error) {
+	if repository.identitiesErr != nil {
+		return nil, repository.identitiesErr
+	}
+	if userID != repository.principal.User.ID {
+		return nil, ErrSessionNotFound
+	}
+	return append([]ExternalIdentity(nil), repository.identities...), nil
+}
+
+func (repository *memoryRepository) LinkIdentity(
+	_ context.Context,
+	userID uuid.UUID,
+	sessionID uuid.UUID,
+	claims ProviderClaims,
+	linkedAt time.Time,
+) (ExternalIdentity, error) {
+	if repository.linkErr != nil {
+		return ExternalIdentity{}, repository.linkErr
+	}
+	if sessionID != repository.principal.SessionID || userID != repository.principal.User.ID {
+		return ExternalIdentity{}, ErrSessionNotFound
+	}
+	repository.linkedClaims = claims
+	linked := ExternalIdentity{
+		ID:                  uuid.MustParse("49ef082b-b06a-4f2a-9435-f64f89e9b7d5"),
+		Provider:            claims.Issuer,
+		Email:               claims.Email,
+		EmailVerified:       claims.EmailVerified,
+		CreatedAt:           linkedAt,
+		LastAuthenticatedAt: linkedAt,
+	}
+	repository.identities = append(repository.identities, linked)
+	return linked, nil
+}
+
+func (repository *memoryRepository) UnlinkIdentity(
+	_ context.Context,
+	userID uuid.UUID,
+	sessionID uuid.UUID,
+	identityID uuid.UUID,
+	_ time.Time,
+) error {
+	if repository.unlinkErr != nil {
+		return repository.unlinkErr
+	}
+	if sessionID != repository.principal.SessionID || userID != repository.principal.User.ID {
+		return ErrSessionNotFound
+	}
+	repository.unlinkedID = identityID
+	return nil
 }
 
 func (repository *memoryRepository) GetSession(

@@ -1,18 +1,23 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   APIRequestError,
+  beginIdentityLink,
   createClass,
   createTenant,
   getClass,
   getCurrentUser,
   getHealth,
   getLoginURL,
+  getProfile,
   issueClassMediaToken,
+  listIdentities,
   listClasses,
   logout,
   recordClassMediaEvent,
   rotateCSRFToken,
   switchActiveTenant,
+  unlinkIdentity,
+  updateProfile,
 } from "./index";
 
 describe("getHealth", () => {
@@ -333,5 +338,102 @@ describe("getHealth", () => {
       error_code: "",
       duration_ms: 842,
     });
+  });
+
+  it("manages the current profile and linked identities", async () => {
+    const user = {
+      id: "be85eb92-0f18-4163-85ba-50e4d343d632",
+      email: "student@example.com",
+      display_name: "Nguyen Ba Sang",
+      locale: "vi" as const,
+      timezone: "Asia/Ho_Chi_Minh",
+      avatar_object_key:
+        "avatars/be85eb92-0f18-4163-85ba-50e4d343d632/avatar.webp",
+    };
+    const identity = {
+      id: "f25085c5-e88a-4859-a586-5a232032710a",
+      provider: "zitadel",
+      email: "student@example.com",
+      email_verified: true,
+      created_at: "2026-07-17T01:00:00Z",
+      last_authenticated_at: "2026-07-17T02:00:00Z",
+    };
+    const responses = [
+      new Response(JSON.stringify({ user }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+      new Response(
+        JSON.stringify({ user: { ...user, display_name: "Ba Sang" } }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        },
+      ),
+      new Response(JSON.stringify({ identities: [identity] }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+      new Response(
+        JSON.stringify({
+          authorization_url: "https://identity.example/authorize?state=opaque",
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        },
+      ),
+      new Response(null, { status: 204 }),
+    ];
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(() => Promise.resolve(responses.shift()));
+    const options = { baseUrl: "http://localhost/api", fetch: fetchMock };
+
+    await expect(getProfile(options)).resolves.toEqual({ user });
+    await expect(
+      updateProfile(
+        {
+          display_name: "Ba Sang",
+          locale: "vi",
+          timezone: "Asia/Ho_Chi_Minh",
+          avatar_object_key: null,
+        },
+        "profile-csrf",
+        options,
+      ),
+    ).resolves.toMatchObject({ user: { display_name: "Ba Sang" } });
+    await expect(listIdentities(options)).resolves.toEqual({
+      identities: [identity],
+    });
+    await expect(
+      beginIdentityLink("link-csrf", options),
+    ).resolves.toMatchObject({
+      authorization_url: "https://identity.example/authorize?state=opaque",
+    });
+    await expect(
+      unlinkIdentity(identity.id, "unlink-csrf", options),
+    ).resolves.toBeUndefined();
+
+    const requests = fetchMock.mock.calls.map((call) => call[0] as Request);
+    expect(requests.map((request) => request.url)).toEqual([
+      "http://localhost/api/v1/me/profile",
+      "http://localhost/api/v1/me/profile",
+      "http://localhost/api/v1/me/identities",
+      "http://localhost/api/v1/me/identities/link",
+      `http://localhost/api/v1/me/identities/${identity.id}`,
+    ]);
+    expect(requests[1]?.method).toBe("PATCH");
+    expect(requests[1]?.headers.get("X-CSRF-Token")).toBe("profile-csrf");
+    await expect(requests[1]?.clone().json()).resolves.toEqual({
+      display_name: "Ba Sang",
+      locale: "vi",
+      timezone: "Asia/Ho_Chi_Minh",
+      avatar_object_key: null,
+    });
+    expect(requests[3]?.method).toBe("POST");
+    expect(requests[3]?.headers.get("X-CSRF-Token")).toBe("link-csrf");
+    expect(requests[4]?.method).toBe("DELETE");
+    expect(requests[4]?.headers.get("X-CSRF-Token")).toBe("unlink-csrf");
   });
 });

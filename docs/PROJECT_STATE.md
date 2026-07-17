@@ -6,14 +6,14 @@
 
 | Thuộc tính          | Trạng thái                                                                            |
 | ------------------- | ------------------------------------------------------------------------------------- |
-| Ngày cập nhật       | 2026-07-16                                                                            |
+| Ngày cập nhật       | 2026-07-17                                                                            |
 | Repository          | `https://github.com/basangnguyen/TUTORHUB_WEB`                                        |
 | Nhánh làm việc      | `main`                                                                                |
 | Quy trình           | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
 | Phase hoàn thành    | Phase 0, Phase 1                                                                      |
 | Phase hiện tại      | Phase 2 - Identity, tenant và class core                                              |
-| Task vừa hoàn thành | P2-00 Policy and contract baseline                                                    |
-| Task kế tiếp        | P2-01 User profile và identity linking                                                |
+| Task vừa hoàn thành | P2-01 User profile và identity linking                                                |
+| Task kế tiếp        | P2-02 Tenant lifecycle và workspace switching                                        |
 
 ## Kiến trúc đang chạy
 
@@ -54,6 +54,9 @@
   organization/class role matrix, effective permission, 403/404 concealment,
   OpenAPI enums/error conventions, policy test helpers và static boundary test.
 - Chấp nhận ADR-0013 cho mô hình role tổ chức/lớp và authorization policy dùng chung.
+- P2-01: profile GET/PATCH, identity list/link/unlink, recent-auth + state/nonce,
+  collision protection, last-identity guard, audit/outbox, migration `000006`,
+  OpenAPI/generated client và React settings UI có i18n vi/en.
 
 ## Kết quả acceptance staging ngày 2026-07-16
 
@@ -79,8 +82,8 @@ trước pilot/public beta hoặc khi có người duy trì thứ hai.
 
 Backlog có thẩm quyền: `docs/PHASE_2_BACKLOG.md`.
 
-1. P2-00 đã hoàn thành và `pnpm verify` xanh ngày 2026-07-16.
-2. Bắt đầu P2-01 profile/identity; P2-02 tenant lifecycle thực hiện sau vertical slice này.
+1. P2-00 và P2-01 đã hoàn thành; `pnpm verify` xanh ngày 2026-07-17.
+2. Task kế tiếp là P2-02 tenant lifecycle và workspace switching.
 3. Chưa bắt đầu UI admin hoặc enrollment trước các contract tương ứng.
 
 ## Rủi ro đã biết
