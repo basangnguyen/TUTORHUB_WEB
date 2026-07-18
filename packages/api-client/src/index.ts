@@ -51,8 +51,26 @@ export type ArchiveTenantRequest =
 export type SwitchActiveTenantRequest =
   components["schemas"]["SwitchActiveTenantRequest"];
 export type ClassroomClass = components["schemas"]["Class"];
+export type ClassStatus = components["schemas"]["ClassStatus"];
 export type ClassListResponse = components["schemas"]["ClassListResponse"];
 export type CreateClassRequest = components["schemas"]["CreateClassRequest"];
+type GeneratedUpdateClassRequest = components["schemas"]["UpdateClassRequest"];
+export type UpdateClassRequest = GeneratedUpdateClassRequest &
+  (
+    | Required<Pick<GeneratedUpdateClassRequest, "code">>
+    | Required<Pick<GeneratedUpdateClassRequest, "title">>
+    | Required<Pick<GeneratedUpdateClassRequest, "description">>
+    | Required<Pick<GeneratedUpdateClassRequest, "timezone">>
+    | Required<Pick<GeneratedUpdateClassRequest, "status">>
+  );
+export type ClassVersionRequest = components["schemas"]["ClassVersionRequest"];
+export type TransferClassOwnershipRequest =
+  components["schemas"]["TransferClassOwnershipRequest"];
+export interface ListClassesInput {
+  cursor?: string;
+  limit?: number;
+  status?: ClassStatus;
+}
 export type MediaTokenResponse = components["schemas"]["MediaTokenResponse"];
 export type MediaEventRequest = components["schemas"]["MediaEventRequest"];
 export type Problem = components["schemas"]["Problem"];
@@ -521,13 +539,13 @@ export async function switchActiveTenant(
 }
 
 export async function listClasses(
-  limit = 50,
+  input: ListClassesInput = {},
   options: APIRequestOptions = {},
 ): Promise<ClassListResponse> {
   const { data, error, response } = await createTutorHubClient(options).GET(
     "/api/v1/classes",
     {
-      params: { query: { limit } },
+      params: { query: input },
       headers: { Accept: "application/json" },
       signal: options.signal,
     },
@@ -569,6 +587,110 @@ export async function createClass(
     "/api/v1/classes",
     {
       params: { header: { "X-CSRF-Token": csrfToken } },
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<ClassroomClass>(
+    data as ClassroomClass | undefined,
+    error,
+    response,
+  );
+}
+
+export async function updateClass(
+  classID: string,
+  input: UpdateClassRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<ClassroomClass> {
+  const { data, error, response } = await createTutorHubClient(options).PATCH(
+    "/api/v1/classes/{class_id}",
+    {
+      params: {
+        path: { class_id: classID },
+        header: { "X-CSRF-Token": csrfToken },
+      },
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<ClassroomClass>(
+    data as ClassroomClass | undefined,
+    error,
+    response,
+  );
+}
+
+export async function archiveClass(
+  classID: string,
+  input: ClassVersionRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<ClassroomClass> {
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/classes/{class_id}/archive",
+    {
+      params: {
+        path: { class_id: classID },
+        header: { "X-CSRF-Token": csrfToken },
+      },
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<ClassroomClass>(
+    data as ClassroomClass | undefined,
+    error,
+    response,
+  );
+}
+
+export async function restoreClass(
+  classID: string,
+  input: ClassVersionRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<ClassroomClass> {
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/classes/{class_id}/restore",
+    {
+      params: {
+        path: { class_id: classID },
+        header: { "X-CSRF-Token": csrfToken },
+      },
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<ClassroomClass>(
+    data as ClassroomClass | undefined,
+    error,
+    response,
+  );
+}
+
+export async function transferClassOwnership(
+  classID: string,
+  input: TransferClassOwnershipRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<ClassroomClass> {
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/classes/{class_id}/transfer-ownership",
+    {
+      params: {
+        path: { class_id: classID },
+        header: { "X-CSRF-Token": csrfToken },
+      },
       body: input,
       headers: { Accept: "application/json" },
       signal: options.signal,

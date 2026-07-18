@@ -233,7 +233,7 @@ func (handlers mediaHandlers) writeProblem(w http.ResponseWriter, r *http.Reques
 	case errors.Is(err, media.ErrClassUnavailable):
 		status = http.StatusConflict
 		title = "Classroom media unavailable"
-		detail = "This class is archived and cannot start a media room."
+		detail = "This class is not active and cannot start or continue a media request."
 	case errors.Is(err, media.ErrUnavailable):
 		status = http.StatusServiceUnavailable
 		title = "Media service unavailable"

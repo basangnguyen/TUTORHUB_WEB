@@ -12,8 +12,8 @@
 | Quy trình           | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
 | Phase hoàn thành    | Phase 0, Phase 1                                                                      |
 | Phase hiện tại      | Phase 2 - Identity, tenant và class core                                              |
-| Task vừa hoàn thành | P2-03 Membership invitation, accept và revoke                                        |
-| Task kế tiếp        | P2-04 Class lifecycle, ownership và archive                                           |
+| Task vừa hoàn thành | P2-04 Class lifecycle, ownership và archive                                           |
+| Task kế tiếp        | P2-05 Enrollment và class invite code                                                 |
 
 ## Kiến trúc đang chạy
 
@@ -69,6 +69,16 @@
 - Invitation URL giữ token trong fragment, web xóa fragment ngay và chỉ gửi token trong
   JSON POST body; admin UI có list/create/copy-once/revoke, public UI có đủ loading,
   offline, unavailable, mismatch, retry và success states bằng tiếng Việt/Anh.
+- P2-04: migration `000009` bổ sung class `timezone`, optimistic `version` và
+  `archived_at`; list có status filter cùng opaque keyset cursor, update/archive/restore/
+  transfer ownership dùng `expected_version` CAS và transactional outbox.
+- Class đi từ draft sang active; archive draft/active và restore đúng trạng thái trước.
+  `owner_user_id` là owner implicit cho đến P2-05/P2-06, không tạo enrollment sớm.
+  Chỉ `org_admin` hoặc owner có `class.archive`/`class.transfer_ownership`; target
+  transfer phải là active member cùng tenant đủ điều kiện tạo lớp và actor phải có
+  recent authentication trong 10 phút.
+- Classroom UI đã có create/edit/activate/archive/restore, conflict recovery, status
+  filter và pagination. LiveKit token/telemetry chỉ chấp nhận class active.
 
 ## Kết quả acceptance staging ngày 2026-07-16
 
@@ -94,16 +104,14 @@ trước pilot/public beta hoặc khi có người duy trì thứ hai.
 
 Backlog có thẩm quyền: `docs/PHASE_2_BACKLOG.md`.
 
-1. P2-00 đến P2-02 đã hoàn thành; P2-02 có `pnpm verify` xanh ngày
-   2026-07-18: web 38/38, API client 10/10, UI 6/6, lint/typecheck/build/Storybook,
-   Go test/vet và security checks đều đạt.
-2. P2-03 đã hoàn tất implementation và tài liệu; `pnpm verify` xanh ngày 2026-07-18,
-   gồm web 44/44, API client 11/11, generated-contract check, lint/typecheck/build,
-   Storybook, Go test/vet và security checks.
-3. Identity/migration integration-tag P2-03 compile xanh local; runtime chưa chạy local
-   vì không nạp DB test env. Workflow CI PostgreSQL 17 sẽ xác nhận clean migration và
-   lifecycle/concurrent-accept sau push.
-4. Task kế tiếp là P2-04 class lifecycle, ownership và archive.
+1. P2-00 đến P2-04 đã hoàn thành.
+2. Full `pnpm verify` của P2-04 xanh ngày 2026-07-18: web 55/55, API client 11/11,
+   UI 6/6, generated-contract check, lint/typecheck/build/Storybook, Go test/vet và
+   security checks.
+3. Migration/classroom/identity integration-tag compile xanh local; runtime PostgreSQL
+   chưa chạy local vì không nạp DB test env. Workflow CI PostgreSQL 17 sẽ xác nhận
+   clean migration và integration runtime sau push.
+4. Task kế tiếp là P2-05 enrollment và class invite code.
 
 ## Rủi ro đã biết
 
@@ -116,7 +124,12 @@ Backlog có thẩm quyền: `docs/PHASE_2_BACKLOG.md`.
   `RemoteAddr`; sau Cloudflare/Render có thể gộp client vào proxy bucket. Không tin
   forwarded header khi Render origin còn public; P2-09 phải chốt trusted-proxy/origin
   authentication và distributed limiter trước khi tăng lưu lượng.
-- Enrollment, invite code, roster và quyền theo lớp chưa triển khai; thuộc P2-05/P2-06.
+- Enrollment, class invite code và roster chưa triển khai; thuộc P2-05/P2-06. Guard
+  active/archive cho join mới đã sẵn sàng nhưng hiện chưa có invite code để đóng/revoke.
+- Ownership transfer tái dùng `auth_time` của session theo semantics P2-01; chưa ép
+  OIDC `max_age`/`prompt`, nên recent-auth 10 phút chưa phải step-up tuyệt đối.
+- Archive ngăn cấp LiveKit token/event mới nhưng không thu hồi JWT đã phát hoặc kick
+  participant đang ở trong room.
 - Dữ liệu V1 chưa được migrate.
 - LiveKit chunk phía web còn lớn và cần performance budget ở phase sau.
 

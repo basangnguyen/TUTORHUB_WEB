@@ -104,6 +104,24 @@ export type paths = {
     readonly delete?: never;
     readonly options?: never;
     readonly head?: never;
+    /** Update class metadata or activate a draft class */
+    readonly patch: operations["updateClass"];
+    readonly trace?: never;
+  };
+  readonly "/api/v1/classes/{class_id}/archive": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Archive a class without deleting its history */
+    readonly post: operations["archiveClass"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
     readonly patch?: never;
     readonly trace?: never;
   };
@@ -116,7 +134,7 @@ export type paths = {
     };
     readonly get?: never;
     readonly put?: never;
-    /** Record bounded client-side join and reconnect telemetry */
+    /** Record bounded join telemetry for an active class */
     readonly post: operations["recordClassMediaEvent"];
     readonly delete?: never;
     readonly options?: never;
@@ -133,8 +151,42 @@ export type paths = {
     };
     readonly get?: never;
     readonly put?: never;
-    /** Issue a short-lived, least-privilege LiveKit room credential */
+    /** Issue a short-lived LiveKit credential for an active class */
     readonly post: operations["issueClassMediaToken"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/classes/{class_id}/restore": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Restore an archived class to its previous lifecycle state */
+    readonly post: operations["restoreClass"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/classes/{class_id}/transfer-ownership": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Transfer class ownership after recent authentication */
+    readonly post: operations["transferClassOwnership"];
     readonly delete?: never;
     readonly options?: never;
     readonly head?: never;
@@ -469,6 +521,7 @@ export type components = {
       readonly expected_version: number;
     };
     readonly Class: {
+      readonly archived_at: string | null;
       readonly code: string;
       /** Format: date-time */
       readonly created_at: string;
@@ -477,21 +530,31 @@ export type components = {
       readonly id: string;
       /** Format: uuid */
       readonly owner_user_id: string;
-      /** @enum {string} */
-      readonly status: "draft" | "active" | "archived";
+      readonly status: components["schemas"]["ClassStatus"];
+      readonly timezone: string;
       readonly title: string;
       /** Format: date-time */
       readonly updated_at: string;
+      /** Format: int64 */
+      readonly version: number;
     };
     readonly ClassListResponse: {
       readonly items: readonly components["schemas"]["Class"][];
+      readonly next_cursor: string | null;
     };
     /** @enum {string} */
     readonly ClassRole:
       "owner" | "co_teacher" | "teaching_assistant" | "student";
+    /** @enum {string} */
+    readonly ClassStatus: "draft" | "active" | "archived";
+    readonly ClassVersionRequest: {
+      /** Format: int64 */
+      readonly expected_version: number;
+    };
     readonly CreateClassRequest: {
       readonly code: string;
       readonly description?: string;
+      readonly timezone?: string;
       readonly title: string;
     };
     readonly CreateMembershipInvitationRequest: {
@@ -649,6 +712,8 @@ export type components = {
       | "tenant.manage_members"
       | "class.create"
       | "class.update"
+      | "class.archive"
+      | "class.transfer_ownership"
       | "class.view"
       | "enrollment.manage"
       | "session.start"
@@ -728,6 +793,22 @@ export type components = {
     };
     /** @enum {string} */
     readonly TenantStatus: "active" | "suspended" | "archived";
+    readonly TransferClassOwnershipRequest: {
+      /** Format: int64 */
+      readonly expected_version: number;
+      /** Format: uuid */
+      readonly new_owner_user_id: string;
+    };
+    readonly UpdateClassRequest: {
+      readonly code?: string;
+      readonly description?: string;
+      /** Format: int64 */
+      readonly expected_version: number;
+      /** @enum {string} */
+      readonly status?: "draft" | "active";
+      readonly timezone?: string;
+      readonly title?: string;
+    };
     readonly UpdateTenantRequest: {
       /** Format: int64 */
       readonly expected_version: number;
@@ -898,7 +979,9 @@ export interface operations {
   readonly listClasses: {
     readonly parameters: {
       readonly query?: {
+        readonly cursor?: string;
         readonly limit?: number;
+        readonly status?: components["schemas"]["ClassStatus"];
       };
       readonly header?: never;
       readonly path?: never;
@@ -915,6 +998,7 @@ export interface operations {
           readonly "application/json": components["schemas"]["ClassListResponse"];
         };
       };
+      readonly 400: components["responses"]["ProblemResponse"];
       readonly 401: components["responses"]["UnauthorizedResponse"];
       readonly 403: components["responses"]["ForbiddenResponse"];
       readonly default: components["responses"]["ProblemResponse"];
@@ -945,8 +1029,11 @@ export interface operations {
           readonly "application/json": components["schemas"]["Class"];
         };
       };
+      readonly 400: components["responses"]["ProblemResponse"];
       readonly 401: components["responses"]["UnauthorizedResponse"];
       readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
       readonly default: components["responses"]["ProblemResponse"];
     };
   };
@@ -976,6 +1063,74 @@ export interface operations {
       readonly default: components["responses"]["ProblemResponse"];
     };
   };
+  readonly updateClass: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly "X-CSRF-Token": string;
+      };
+      readonly path: {
+        readonly class_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["UpdateClassRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Class updated */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["Class"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly archiveClass: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly "X-CSRF-Token": string;
+      };
+      readonly path: {
+        readonly class_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["ClassVersionRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Class archived */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["Class"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
   readonly recordClassMediaEvent: {
     readonly parameters: {
       readonly query?: never;
@@ -993,16 +1148,18 @@ export interface operations {
       };
     };
     readonly responses: {
-      /** @description Telemetry accepted */
+      /** @description Telemetry accepted for an active class */
       readonly 204: {
         headers: {
           readonly [name: string]: unknown;
         };
         content?: never;
       };
+      readonly 400: components["responses"]["ProblemResponse"];
       readonly 401: components["responses"]["UnauthorizedResponse"];
       readonly 403: components["responses"]["ForbiddenResponse"];
       readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
       readonly default: components["responses"]["ProblemResponse"];
     };
   };
@@ -1019,7 +1176,7 @@ export interface operations {
     };
     readonly requestBody?: never;
     readonly responses: {
-      /** @description Short-lived classroom media credential */
+      /** @description Short-lived media credential for an active class */
       readonly 200: {
         headers: {
           readonly "Cache-Control"?: "no-store";
@@ -1029,9 +1186,79 @@ export interface operations {
           readonly "application/json": components["schemas"]["MediaTokenResponse"];
         };
       };
+      readonly 400: components["responses"]["ProblemResponse"];
       readonly 401: components["responses"]["UnauthorizedResponse"];
       readonly 403: components["responses"]["ForbiddenResponse"];
       readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly restoreClass: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly "X-CSRF-Token": string;
+      };
+      readonly path: {
+        readonly class_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["ClassVersionRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Class restored */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["Class"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly transferClassOwnership: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly "X-CSRF-Token": string;
+      };
+      readonly path: {
+        readonly class_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["TransferClassOwnershipRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Class ownership transferred */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["Class"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
       readonly default: components["responses"]["ProblemResponse"];
     };
   };

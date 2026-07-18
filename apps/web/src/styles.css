@@ -1186,6 +1186,31 @@ textarea:focus-visible {
   white-space: nowrap;
 }
 
+.classroom-list-controls {
+  display: flex;
+  justify-content: flex-end;
+  margin: 0 0 18px;
+}
+
+.classroom-list-controls .th-field {
+  width: min(100%, 240px);
+}
+
+.classroom-pagination,
+.classroom-pagination-error {
+  display: flex;
+  justify-content: center;
+  padding-top: 22px;
+}
+
+.classroom-pagination-error {
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  color: var(--color-danger);
+  font-size: 13px;
+}
+
 .class-list {
   margin: 0;
   padding: 0;
@@ -1500,6 +1525,136 @@ textarea:focus-visible {
 
 .classroom-live-action:hover {
   background: #1c518e;
+}
+
+.class-management {
+  display: grid;
+  gap: 20px;
+  margin-top: 32px;
+}
+
+.class-management__panel {
+  min-width: 0;
+  padding: 24px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.class-management__panel-heading {
+  margin-bottom: 22px;
+}
+
+.class-management__panel h2,
+.class-management__panel p {
+  margin: 0;
+}
+
+.class-management__panel-heading p,
+.class-management__lifecycle-copy p {
+  margin-top: 7px;
+  color: var(--color-text-muted);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.class-management__form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.class-management__description,
+.class-management__feedback,
+.class-management__success,
+.class-management__form-actions {
+  grid-column: 1 / -1;
+}
+
+.class-management__description .th-field__hint {
+  justify-self: end;
+  font-variant-numeric: tabular-nums;
+}
+
+.class-management__feedback,
+.class-management__success {
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.class-management__feedback {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  border-left: 3px solid var(--color-danger);
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+.class-management__success {
+  border-left: 3px solid var(--color-success);
+  background: var(--color-success-soft);
+  color: var(--color-success);
+}
+
+.class-management__form-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.class-management__panel--danger,
+.class-management__panel:not(.class-management__panel--danger)
+  > .class-management__lifecycle-copy {
+  min-width: 0;
+}
+
+.class-management__panel:has(> .class-management__lifecycle-copy) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.class-management__panel--danger {
+  border-color: color-mix(
+    in srgb,
+    var(--color-danger) 30%,
+    var(--color-border)
+  );
+}
+
+.class-management__lifecycle-warning {
+  margin: 18px 0 !important;
+  padding: 12px 14px;
+  border-left: 3px solid var(--color-warning);
+  background: var(--color-warning-soft);
+  color: var(--color-text);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.media-prejoin-skeleton {
+  display: grid;
+  max-width: 850px;
+  gap: 14px;
+}
+
+.media-prejoin-skeleton span {
+  height: 28px;
+}
+
+.media-prejoin-skeleton span:nth-child(2) {
+  width: min(100%, 620px);
+  height: 48px;
+}
+
+.media-prejoin-skeleton span:last-child {
+  width: min(100%, 760px);
+  height: 180px;
 }
 
 .media-prejoin-page {
@@ -2405,6 +2560,14 @@ textarea:focus-visible {
     flex-direction: column;
   }
 
+  .classroom-list-controls {
+    justify-content: stretch;
+  }
+
+  .classroom-list-controls .th-field {
+    width: 100%;
+  }
+
   .classroom-heading h1,
   .classroom-detail__header h1 {
     font-size: 28px;
@@ -2450,6 +2613,35 @@ textarea:focus-visible {
   .classroom-detail__facts {
     grid-template-columns: 1fr;
     gap: 0;
+  }
+
+  .class-management__form {
+    grid-template-columns: 1fr;
+  }
+
+  .class-management__description,
+  .class-management__feedback,
+  .class-management__success,
+  .class-management__form-actions {
+    grid-column: 1;
+  }
+
+  .class-management__panel:has(> .class-management__lifecycle-copy),
+  .class-management__feedback,
+  .classroom-pagination-error {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .class-management__panel {
+    padding: 20px;
+  }
+
+  .class-management__panel:has(> .class-management__lifecycle-copy) > button,
+  .class-management__feedback > button,
+  .class-management__form-actions button,
+  .classroom-pagination-error button {
+    width: 100%;
   }
 }
 

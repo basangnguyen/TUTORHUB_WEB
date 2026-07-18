@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   APIRequestError,
   acceptMembershipInvitation,
+  archiveClass,
   archiveTenant,
   beginIdentityLink,
   createClass,
@@ -21,18 +22,25 @@ import {
   logout,
   recordClassMediaEvent,
   previewMembershipInvitation,
+  restoreClass,
   revokeMembershipInvitation,
   rotateCSRFToken,
   switchActiveTenant,
+  transferClassOwnership,
   unlinkIdentity,
+  updateClass,
   updateProfile,
   updateTenant,
 } from "./index";
-import type { UpdateTenantRequest } from "./index";
+import type { UpdateClassRequest, UpdateTenantRequest } from "./index";
 
 // @ts-expect-error expected_version alone is not a meaningful tenant mutation.
 const invalidTenantUpdate: UpdateTenantRequest = { expected_version: 1 };
 void invalidTenantUpdate;
+
+// @ts-expect-error expected_version alone is not a meaningful class mutation.
+const invalidClassUpdate: UpdateClassRequest = { expected_version: 1 };
+void invalidClassUpdate;
 
 describe("getHealth", () => {
   afterEach(() => {
@@ -469,19 +477,29 @@ describe("getHealth", () => {
     await expect(requests[4]?.clone().json()).resolves.toEqual({ token });
   });
 
-  it("gọi class list, detail và create theo contract tenant-scoped", async () => {
+  it("gọi class lifecycle APIs theo contract tenant-scoped và versioned", async () => {
     const classItem = {
       id: "a912f628-f3d2-4c18-84c6-42a9e858dc8d",
       owner_user_id: "be85eb92-0f18-4163-85ba-50e4d343d632",
       code: "SEC101",
       title: "An toàn thông tin",
       description: "Lớp học kỳ 1",
+      timezone: "Asia/Ho_Chi_Minh",
       status: "draft" as const,
+      version: 1,
       created_at: "2026-07-14T04:00:00Z",
       updated_at: "2026-07-14T04:00:00Z",
+      archived_at: null,
     };
     const responses = [
-      new Response(JSON.stringify({ items: [classItem] }), {
+      new Response(
+        JSON.stringify({ items: [classItem], next_cursor: "next-page" }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        },
+      ),
+      new Response(JSON.stringify(classItem), {
         status: 200,
         headers: { "Content-Type": "application/json" },
       }),
@@ -493,14 +511,28 @@ describe("getHealth", () => {
         status: 201,
         headers: { "Content-Type": "application/json" },
       }),
+      ...Array.from(
+        { length: 4 },
+        () =>
+          new Response(JSON.stringify(classItem), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }),
+      ),
     ];
     const fetchMock = vi
       .fn()
       .mockImplementation(() => Promise.resolve(responses.shift()));
     const options = { baseUrl: "http://localhost/api", fetch: fetchMock };
 
-    await expect(listClasses(25, options)).resolves.toEqual({
+    await expect(
+      listClasses(
+        { status: "active", limit: 25, cursor: "current-page" },
+        options,
+      ),
+    ).resolves.toEqual({
       items: [classItem],
+      next_cursor: "next-page",
     });
     await expect(getClass(classItem.id, options)).resolves.toEqual(classItem);
     await expect(
@@ -509,23 +541,96 @@ describe("getHealth", () => {
           code: "SEC101",
           title: "An toàn thông tin",
           description: "Lớp học kỳ 1",
+          timezone: "Asia/Ho_Chi_Minh",
         },
-        "csrf-token",
+        "create-csrf",
+        options,
+      ),
+    ).resolves.toEqual(classItem);
+    await expect(
+      updateClass(
+        classItem.id,
+        {
+          expected_version: 1,
+          title: "An toàn thông tin nâng cao",
+          status: "active",
+        },
+        "update-csrf",
+        options,
+      ),
+    ).resolves.toEqual(classItem);
+    await expect(
+      archiveClass(
+        classItem.id,
+        { expected_version: 2 },
+        "archive-csrf",
+        options,
+      ),
+    ).resolves.toEqual(classItem);
+    await expect(
+      restoreClass(
+        classItem.id,
+        { expected_version: 3 },
+        "restore-csrf",
+        options,
+      ),
+    ).resolves.toEqual(classItem);
+    await expect(
+      transferClassOwnership(
+        classItem.id,
+        {
+          expected_version: 4,
+          new_owner_user_id: "0ca09673-415a-447c-90be-4b7639f76838",
+        },
+        "transfer-csrf",
         options,
       ),
     ).resolves.toEqual(classItem);
 
     const requests = fetchMock.mock.calls.map((call) => call[0] as Request);
-    expect(requests[0]?.url).toBe("http://localhost/api/v1/classes?limit=25");
+    const listURL = new URL(requests[0]?.url ?? "");
+    expect(listURL.pathname).toBe("/api/v1/classes");
+    expect(Object.fromEntries(listURL.searchParams)).toEqual({
+      status: "active",
+      limit: "25",
+      cursor: "current-page",
+    });
     expect(requests[1]?.url).toBe(
       `http://localhost/api/v1/classes/${classItem.id}`,
     );
     expect(requests[2]?.method).toBe("POST");
-    expect(requests[2]?.headers.get("X-CSRF-Token")).toBe("csrf-token");
+    expect(requests[2]?.headers.get("X-CSRF-Token")).toBe("create-csrf");
     await expect(requests[2]?.clone().json()).resolves.toEqual({
       code: "SEC101",
       title: "An toàn thông tin",
       description: "Lớp học kỳ 1",
+      timezone: "Asia/Ho_Chi_Minh",
+    });
+    expect(requests.slice(3).map((request) => request.url)).toEqual([
+      `http://localhost/api/v1/classes/${classItem.id}`,
+      `http://localhost/api/v1/classes/${classItem.id}/archive`,
+      `http://localhost/api/v1/classes/${classItem.id}/restore`,
+      `http://localhost/api/v1/classes/${classItem.id}/transfer-ownership`,
+    ]);
+    expect(requests[3]?.method).toBe("PATCH");
+    expect(requests[3]?.headers.get("X-CSRF-Token")).toBe("update-csrf");
+    await expect(requests[3]?.clone().json()).resolves.toEqual({
+      expected_version: 1,
+      title: "An toàn thông tin nâng cao",
+      status: "active",
+    });
+    expect(requests[4]?.headers.get("X-CSRF-Token")).toBe("archive-csrf");
+    await expect(requests[4]?.clone().json()).resolves.toEqual({
+      expected_version: 2,
+    });
+    expect(requests[5]?.headers.get("X-CSRF-Token")).toBe("restore-csrf");
+    await expect(requests[5]?.clone().json()).resolves.toEqual({
+      expected_version: 3,
+    });
+    expect(requests[6]?.headers.get("X-CSRF-Token")).toBe("transfer-csrf");
+    await expect(requests[6]?.clone().json()).resolves.toEqual({
+      expected_version: 4,
+      new_owner_user_id: "0ca09673-415a-447c-90be-4b7639f76838",
     });
   });
 

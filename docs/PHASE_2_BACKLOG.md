@@ -18,9 +18,9 @@ Tạo nền multi-tenant và quản lý lớp đủ dùng cho pilot nội bộ:
 
 **Task đã hoàn thành:** P2-00 Policy and contract baseline; P2-01 User profile và
 identity linking; P2-02 Tenant lifecycle và workspace switching; P2-03 Membership
-invitation, accept và revoke.
+invitation, accept và revoke; P2-04 Class lifecycle, ownership và archive.
 
-**Task kế tiếp:** P2-04 Class lifecycle, ownership và archive.
+**Task kế tiếp:** P2-05 Enrollment và class invite code.
 
 ## 2. Non-goal
 
@@ -52,8 +52,8 @@ invitation, accept và revoke.
 | P2-01 | User profile và identity linking        | P2-00                      | DONE       |
 | P2-02 | Tenant lifecycle và workspace switching | P2-00                      | DONE       |
 | P2-03 | Membership invitation/accept/revoke     | P2-02                      | DONE       |
-| P2-04 | Class lifecycle, ownership và archive   | P2-00, P2-02               | NEXT       |
-| P2-05 | Enrollment và class invite code         | P2-03, P2-04               | TODO       |
+| P2-04 | Class lifecycle, ownership và archive   | P2-00, P2-02               | DONE       |
+| P2-05 | Enrollment và class invite code         | P2-03, P2-04               | NEXT       |
 | P2-06 | Roster và class-level roles             | P2-05                      | TODO       |
 | P2-07 | Audit log cho hành động nhạy cảm        | P2-02 đến P2-06            | TODO       |
 | P2-08 | Admin/teacher UI end-to-end             | P2-02 đến P2-07            | TODO       |
@@ -230,28 +230,53 @@ còn public; trusted-proxy/origin authentication và distributed limiter thuộc
 
 **Mục tiêu:** hoàn thiện class CRUD theo tenant thay cho slice list/create/detail tối thiểu.
 
-### Contract đề xuất
+### Contract triển khai
 
-- Giữ `GET/POST /api/v1/classes` và `GET /api/v1/classes/{classId}`.
-- Bổ sung `PATCH /api/v1/classes/{classId}`.
-- Bổ sung `POST /api/v1/classes/{classId}/archive` và `/restore` nếu policy cho phép.
+- Giữ `GET/POST /api/v1/classes` và `GET /api/v1/classes/{class_id}`.
+- `GET /api/v1/classes` nhận `status`, `limit`, opaque `cursor` và trả `next_cursor`.
+- Bổ sung `PATCH /api/v1/classes/{class_id}`.
+- Bổ sung `POST /api/v1/classes/{class_id}/archive`, `/restore` và
+  `/transfer-ownership`.
 
 ### Công việc
 
-- [ ] Bổ sung class status, code/slug, timezone, description và version.
-- [ ] Creator nhận class role `owner` trong cùng transaction.
-- [ ] Ownership transfer là mutation riêng, yêu cầu recent confirmation.
-- [ ] Archive đóng invite code mới nhưng không xóa roster/audit.
-- [ ] Optimistic concurrency bằng version/ETag hoặc updated-at precondition.
-- [ ] Query list hỗ trợ status, pagination ổn định và deterministic ordering.
-- [ ] UI create/edit/archive/restore có confirm và recovery.
+- [x] Bổ sung class status, code, timezone, description, `version` và `archived_at`
+      qua migration `000009`.
+- [x] Dùng `owner_user_id` làm owner implicit; không tạo enrollment trước P2-05/P2-06.
+- [x] Ownership transfer là mutation riêng, yêu cầu `expected_version`, recent
+      authentication 10 phút và target là active member cùng tenant đủ điều kiện
+      `class.create`; mutation vẫn được phép khi class archived.
+- [x] State machine cho phép draft -> active; archive draft/active và restore chính xác
+      trạng thái trước archive. Invite code chưa tồn tại đến P2-05, nhưng active/archive
+      guard cho join mới đã sẵn sàng.
+- [x] Optimistic concurrency dùng `expected_version` compare-and-swap cho
+      update/archive/restore/transfer.
+- [x] Query list hỗ trợ status, opaque keyset cursor và deterministic ordering theo
+      `(created_at DESC, id DESC)`.
+- [x] Mutation reauthorize membership authoritative trong transaction, khóa tenant/class
+      theo thứ tự ổn định, giữ tenant isolation và ghi lifecycle event qua outbox.
+- [x] Bổ sung `class.archive`/`class.transfer_ownership`; chỉ `org_admin` hoặc owner
+      được lifecycle/transfer, teacher/co-teacher không được suy rộng quyền này.
+- [x] UI create/edit/activate/archive/restore có confirm, stale-version recovery,
+      status filter, pagination và trạng thái lỗi phù hợp.
 
 ### Kiểm thử và DoD
 
-- Hai update đồng thời không ghi đè âm thầm.
-- Non-owner/non-admin không transfer/archive class.
-- Class tenant A không xuất hiện ở tenant B dù đoán đúng ID.
-- Existing classroom/LiveKit route tương thích class active.
+- [x] Hai update đồng thời không ghi đè âm thầm; stale version trả conflict.
+- [x] Non-owner/non-admin không transfer/archive class; target không hợp lệ bị từ chối.
+- [x] Class tenant A không xuất hiện hoặc bị mutate từ tenant B dù đoán đúng ID.
+- [x] Existing classroom/LiveKit route tương thích class active; draft/archived không
+      được cấp media token hoặc nhận media event mới.
+- [x] Full `pnpm verify` xanh ngày 2026-07-18: web 55/55, API client 11/11,
+      UI 6/6, generated contract, lint/typecheck/build/Storybook, Go test/vet và
+      security checks.
+- [x] Migration/classroom/identity integration-tag compile xanh local. Runtime
+      PostgreSQL chưa chạy local vì không nạp DB test env; CI PostgreSQL 17 sẽ xác
+      nhận clean migration và integration runtime sau push.
+
+**Giới hạn đã biết:** recent-auth tái dùng `auth_time` session theo semantics P2-01,
+chưa force OIDC `max_age`/`prompt`. Archive ngăn token/event LiveKit mới nhưng không
+thu hồi JWT đã cấp hoặc kick participant đang trong room.
 
 ## 10. P2-05 Enrollment và class invite code
 
@@ -463,9 +488,10 @@ còn public; trusted-proxy/origin authentication và distributed limiter thuộc
 
 ## 19. Việc cần làm ngay
 
-1. Theo dõi PostgreSQL integration/clean-migration gate của checkpoint P2-03 trên CI.
-2. Bắt đầu P2-04 từ contract class update/archive/restore và optimistic concurrency.
-3. Chốt class ownership transfer, archive/restore state machine và compatibility với
-   classroom/LiveKit route hiện có trước migration.
+1. Theo dõi PostgreSQL integration/clean-migration gate của checkpoint P2-04 trên CI.
+2. Bắt đầu P2-05 từ schema enrollment và class invite code có TTL/usage limit.
+3. Dùng lifecycle guard P2-04 để chặn join/code mới khi class không active; không
+   thay đổi hoặc tạo class owner enrollment ngoài thiết kế P2-05/P2-06.
 4. Giữ notification invitation ở interface/outbox; chưa gửi email thật trong Phase 2.
-5. Không bắt đầu enrollment/roster trước khi P2-04 class lifecycle và deny tests đạt.
+5. Chưa bắt đầu roster/class-level role management của P2-06 trước khi enrollment và
+   invite-code deny tests của P2-05 đạt.

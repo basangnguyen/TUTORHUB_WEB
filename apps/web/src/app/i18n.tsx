@@ -294,7 +294,13 @@ const messages = {
       "Dữ liệu được giới hạn theo workspace và quyền trong phiên hiện tại.",
     "classroom.loadingList": "Đang tải danh sách lớp",
     "classroom.loadingDetail": "Đang tải thông tin lớp học",
-    "classroom.classCount": "{count} lớp",
+    "classroom.classCount": "Đã tải {count} lớp",
+    "classroom.statusFilterLabel": "Lọc theo trạng thái",
+    "classroom.statusFilterAll": "Tất cả trạng thái",
+    "classroom.loadMore": "Tải thêm lớp",
+    "classroom.loadingMore": "Đang tải thêm...",
+    "classroom.loadMoreError":
+      "Chưa thể tải trang tiếp theo. Danh sách hiện tại vẫn được giữ nguyên.",
     "classroom.createTitle": "Tạo lớp học mới",
     "classroom.createDescription":
       "Lớp được tạo ở trạng thái bản nháp trong workspace hiện tại.",
@@ -305,11 +311,14 @@ const messages = {
       "Dùng 3–32 chữ cái, chữ số, dấu gạch ngang hoặc gạch dưới.",
     "classroom.titleLabel": "Tên lớp",
     "classroom.titlePlaceholder": "Ví dụ: Cơ sở An toàn thông tin",
+    "classroom.timezoneLabel": "Múi giờ lớp học",
+    "classroom.timezoneHelp": "Dùng tên múi giờ IANA, ví dụ Asia/Ho_Chi_Minh.",
     "classroom.descriptionLabel": "Mô tả",
     "classroom.descriptionPlaceholder":
       "Thông tin ngắn giúp thành viên nhận biết lớp học.",
     "classroom.codeError": "Mã lớp chưa đúng định dạng.",
     "classroom.titleError": "Tên lớp phải có từ 1 đến 200 ký tự.",
+    "classroom.timezoneError": "Múi giờ chưa đúng định dạng IANA.",
     "classroom.descriptionError": "Mô tả không được vượt quá 4.000 ký tự.",
     "classroom.duplicateCodeError":
       "Mã lớp đã tồn tại trong workspace này. Hãy chọn mã khác.",
@@ -322,6 +331,9 @@ const messages = {
     "classroom.emptyTitle": "Workspace chưa có lớp học",
     "classroom.emptyDescription":
       "Lớp đầu tiên sẽ xuất hiện tại đây sau khi được tạo.",
+    "classroom.emptyFilteredTitle": "Không có lớp phù hợp bộ lọc",
+    "classroom.emptyFilteredDescription":
+      "Chọn trạng thái khác để xem các lớp còn lại trong workspace.",
     "classroom.createFirstAction": "Tạo lớp đầu tiên",
     "classroom.noDescription": "Chưa có mô tả",
     "classroom.statusDraft": "Bản nháp",
@@ -336,6 +348,52 @@ const messages = {
     "classroom.ownerMember": "Thành viên workspace",
     "classroom.createdLabel": "Ngày tạo",
     "classroom.updatedLabel": "Cập nhật gần nhất",
+    "classroom.archivedLabel": "Ngày lưu trữ",
+    "classroom.editTitle": "Chỉnh sửa lớp học",
+    "classroom.editDescription":
+      "Cập nhật thông tin lớp hoặc kích hoạt bản nháp. Thay đổi được bảo vệ bằng phiên bản dữ liệu.",
+    "classroom.statusLabel": "Trạng thái lớp",
+    "classroom.statusHelp":
+      "Lớp đang hoạt động mới có thể cấp quyền vào phòng học trực tuyến.",
+    "classroom.updateAction": "Lưu thay đổi",
+    "classroom.updating": "Đang lưu...",
+    "classroom.updateSuccess": "Đã cập nhật lớp học.",
+    "classroom.updateConflict":
+      "Lớp đã được thay đổi ở nơi khác. Tải bản mới nhất trước khi sửa tiếp.",
+    "classroom.updateForbidden":
+      "Phiên hiện tại không có quyền chỉnh sửa lớp này.",
+    "classroom.updateError": "Chưa thể cập nhật lớp học. Hãy thử lại.",
+    "classroom.reloadLatest": "Tải bản mới nhất",
+    "classroom.archiveTitle": "Lưu trữ lớp học",
+    "classroom.archiveDescription":
+      "Đóng lớp khỏi hoạt động mới nhưng vẫn giữ danh sách thành viên và lịch sử.",
+    "classroom.archiveAction": "Lưu trữ lớp",
+    "classroom.archiveCloseLabel": "Đóng xác nhận lưu trữ lớp",
+    "classroom.archiveConfirmTitle": "Xác nhận lưu trữ lớp",
+    "classroom.archiveConfirmDescription":
+      "Bạn sắp lưu trữ {name}. Thành viên sẽ không thể vào phòng học mới.",
+    "classroom.archiveWarning":
+      "Invite code mới và quyền vào LiveKit sẽ bị đóng cho đến khi lớp được khôi phục.",
+    "classroom.archiveConfirmAction": "Xác nhận lưu trữ",
+    "classroom.archiving": "Đang lưu trữ...",
+    "classroom.archiveError": "Chưa thể lưu trữ lớp. Hãy thử lại.",
+    "classroom.restoreTitle": "Khôi phục lớp học",
+    "classroom.restoreDescription":
+      "Mở lại lớp đã lưu trữ để tiếp tục chỉnh sửa và kích hoạt.",
+    "classroom.restoreAction": "Khôi phục lớp",
+    "classroom.restoreCloseLabel": "Đóng xác nhận khôi phục lớp",
+    "classroom.restoreConfirmTitle": "Xác nhận khôi phục lớp",
+    "classroom.restoreConfirmDescription":
+      "Bạn sắp khôi phục {name} về trạng thái trước khi lưu trữ.",
+    "classroom.restoreWarning":
+      "Quyền vào phòng chỉ mở lại nếu lớp được khôi phục ở trạng thái đang hoạt động.",
+    "classroom.restoreConfirmAction": "Xác nhận khôi phục",
+    "classroom.restoring": "Đang khôi phục...",
+    "classroom.restoreError": "Chưa thể khôi phục lớp. Hãy thử lại.",
+    "classroom.lifecycleConflict":
+      "Trạng thái lớp đã thay đổi. Hãy tải bản mới nhất.",
+    "classroom.lifecycleForbidden":
+      "Chỉ chủ lớp hoặc quản trị viên workspace được thực hiện thao tác này.",
     "classroom.forbiddenTitle": "Bạn chưa có quyền xem lớp học",
     "classroom.forbiddenDescription":
       "Quyền truy cập được xác định từ membership trong workspace hiện tại.",
@@ -351,7 +409,10 @@ const messages = {
     "media.prejoin.title": "Phòng học trực tuyến",
     "media.prejoin.description":
       "Kiểm tra camera, micro và loa trước khi kết nối. Thiết lập thiết bị không được lưu trên trình duyệt.",
+    "media.prejoin.loadingClass": "Đang kiểm tra trạng thái lớp học",
     "media.prejoin.classError": "Chưa thể tải thông tin lớp học.",
+    "media.prejoin.classInactive":
+      "Chỉ lớp đang hoạt động mới có thể mở phòng học trực tuyến.",
     "media.prejoin.unsupported":
       "Trình duyệt này không cung cấp đầy đủ API camera và micro. Hãy dùng phiên bản Chrome, Edge, Firefox hoặc Safari mới.",
     "media.prejoin.camera": "Camera",
@@ -724,7 +785,13 @@ const messages = {
       "Data is limited by the active workspace and current session permissions.",
     "classroom.loadingList": "Loading the class list",
     "classroom.loadingDetail": "Loading class information",
-    "classroom.classCount": "{count} classes",
+    "classroom.classCount": "{count} classes loaded",
+    "classroom.statusFilterLabel": "Filter by status",
+    "classroom.statusFilterAll": "All statuses",
+    "classroom.loadMore": "Load more classes",
+    "classroom.loadingMore": "Loading more...",
+    "classroom.loadMoreError":
+      "The next page could not be loaded. The current list is still available.",
     "classroom.createTitle": "Create a class",
     "classroom.createDescription":
       "The class starts as a draft in the current workspace.",
@@ -734,11 +801,15 @@ const messages = {
     "classroom.codeHelp": "Use 3–32 letters, numbers, hyphens, or underscores.",
     "classroom.titleLabel": "Class name",
     "classroom.titlePlaceholder": "Example: Information Security Foundations",
+    "classroom.timezoneLabel": "Class timezone",
+    "classroom.timezoneHelp":
+      "Use an IANA timezone name, for example Asia/Ho_Chi_Minh.",
     "classroom.descriptionLabel": "Description",
     "classroom.descriptionPlaceholder":
       "Add a short note that helps members identify this class.",
     "classroom.codeError": "The class code format is invalid.",
     "classroom.titleError": "The class name must contain 1–200 characters.",
+    "classroom.timezoneError": "Enter a valid IANA timezone.",
     "classroom.descriptionError":
       "The description cannot exceed 4,000 characters.",
     "classroom.duplicateCodeError":
@@ -752,6 +823,9 @@ const messages = {
     "classroom.emptyTitle": "This workspace has no classes",
     "classroom.emptyDescription":
       "The first class will appear here after it is created.",
+    "classroom.emptyFilteredTitle": "No classes match this filter",
+    "classroom.emptyFilteredDescription":
+      "Choose another status to see the remaining classes in this workspace.",
     "classroom.createFirstAction": "Create the first class",
     "classroom.noDescription": "No description",
     "classroom.statusDraft": "Draft",
@@ -766,6 +840,51 @@ const messages = {
     "classroom.ownerMember": "Workspace member",
     "classroom.createdLabel": "Created",
     "classroom.updatedLabel": "Last updated",
+    "classroom.archivedLabel": "Archived",
+    "classroom.editTitle": "Edit class",
+    "classroom.editDescription":
+      "Update class information or activate a draft. Data versions protect concurrent changes.",
+    "classroom.statusLabel": "Class status",
+    "classroom.statusHelp":
+      "Only active classes can issue live-classroom access.",
+    "classroom.updateAction": "Save changes",
+    "classroom.updating": "Saving...",
+    "classroom.updateSuccess": "The class was updated.",
+    "classroom.updateConflict":
+      "This class changed elsewhere. Load the latest version before continuing.",
+    "classroom.updateForbidden": "Your current session cannot edit this class.",
+    "classroom.updateError": "The class could not be updated. Try again.",
+    "classroom.reloadLatest": "Load latest version",
+    "classroom.archiveTitle": "Archive class",
+    "classroom.archiveDescription":
+      "Close the class to new activity while preserving its roster and history.",
+    "classroom.archiveAction": "Archive class",
+    "classroom.archiveCloseLabel": "Close class archive confirmation",
+    "classroom.archiveConfirmTitle": "Confirm class archive",
+    "classroom.archiveConfirmDescription":
+      "You are about to archive {name}. Members will no longer be able to enter a new room.",
+    "classroom.archiveWarning":
+      "New invite codes and LiveKit access remain closed until the class is restored.",
+    "classroom.archiveConfirmAction": "Confirm archive",
+    "classroom.archiving": "Archiving...",
+    "classroom.archiveError": "The class could not be archived. Try again.",
+    "classroom.restoreTitle": "Restore class",
+    "classroom.restoreDescription":
+      "Reopen an archived class so it can be edited and activated again.",
+    "classroom.restoreAction": "Restore class",
+    "classroom.restoreCloseLabel": "Close class restore confirmation",
+    "classroom.restoreConfirmTitle": "Confirm class restore",
+    "classroom.restoreConfirmDescription":
+      "You are about to restore {name} to its pre-archive state.",
+    "classroom.restoreWarning":
+      "Room access only reopens when the restored class is active.",
+    "classroom.restoreConfirmAction": "Confirm restore",
+    "classroom.restoring": "Restoring...",
+    "classroom.restoreError": "The class could not be restored. Try again.",
+    "classroom.lifecycleConflict":
+      "The class status changed. Load the latest version.",
+    "classroom.lifecycleForbidden":
+      "Only the class owner or a workspace administrator can do this.",
     "classroom.forbiddenTitle": "You cannot view these classes",
     "classroom.forbiddenDescription":
       "Access is determined by your membership in the active workspace.",
@@ -781,8 +900,11 @@ const messages = {
     "media.prejoin.title": "Live classroom",
     "media.prejoin.description":
       "Check your camera, microphone and speaker before connecting. Device choices are not stored in the browser.",
+    "media.prejoin.loadingClass": "Checking classroom status",
     "media.prejoin.classError":
       "Classroom information is temporarily unavailable.",
+    "media.prejoin.classInactive":
+      "Only active classes can open a live classroom.",
     "media.prejoin.unsupported":
       "This browser does not provide the required camera and microphone APIs. Use a current Chrome, Edge, Firefox or Safari release.",
     "media.prejoin.camera": "Camera",

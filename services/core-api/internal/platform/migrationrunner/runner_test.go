@@ -69,3 +69,43 @@ func TestMembershipInvitationMigrationHasSecurityAndRollbackInvariants(t *testin
 		t.Fatal("membership invitation migration must have an explicit rollback")
 	}
 }
+
+func TestClassLifecycleMigrationHasConcurrencyAndRestoreInvariants(t *testing.T) {
+	t.Parallel()
+
+	up, err := migrations.Files.ReadFile("000009_class_lifecycle.up.sql")
+	if err != nil {
+		t.Fatalf("read class lifecycle up migration: %v", err)
+	}
+	down, err := migrations.Files.ReadFile("000009_class_lifecycle.down.sql")
+	if err != nil {
+		t.Fatalf("read class lifecycle down migration: %v", err)
+	}
+
+	upSQL := string(up)
+	for _, required := range []string{
+		"ADD COLUMN timezone text",
+		"ADD COLUMN version bigint NOT NULL DEFAULT 1",
+		"ADD COLUMN archived_from_status text",
+		"SET timezone = tenant.timezone",
+		"CHECK (version > 0)",
+		"archived_from_status IN ('draft', 'active')",
+		"classes_tenant_status_created_id_idx",
+		"created_at DESC, id DESC",
+	} {
+		if !strings.Contains(upSQL, required) {
+			t.Fatalf("class lifecycle migration is missing %q", required)
+		}
+	}
+	downSQL := string(down)
+	for _, required := range []string{
+		"DROP COLUMN IF EXISTS archived_from_status",
+		"DROP COLUMN IF EXISTS version",
+		"DROP COLUMN IF EXISTS timezone",
+		"ADD CONSTRAINT classes_archive_state_valid",
+	} {
+		if !strings.Contains(downSQL, required) {
+			t.Fatalf("class lifecycle rollback is missing %q", required)
+		}
+	}
+}

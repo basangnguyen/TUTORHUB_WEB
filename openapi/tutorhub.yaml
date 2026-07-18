@@ -689,6 +689,11 @@ paths:
       security:
         - SessionCookie: []
       parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/ClassStatus"
         - name: limit
           in: query
           required: false
@@ -697,6 +702,13 @@ paths:
             minimum: 1
             maximum: 100
             default: 50
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 512
       responses:
         "200":
           description: Tenant-scoped class list
@@ -704,6 +716,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ClassListResponse"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
         "401":
           $ref: "#/components/responses/UnauthorizedResponse"
         "403":
@@ -739,10 +753,16 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Class"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
         "401":
           $ref: "#/components/responses/UnauthorizedResponse"
         "403":
           $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
         default:
           $ref: "#/components/responses/ProblemResponse"
   /api/v1/classes/{class_id}:
@@ -773,10 +793,181 @@ paths:
           $ref: "#/components/responses/NotFoundResponse"
         default:
           $ref: "#/components/responses/ProblemResponse"
+    patch:
+      operationId: updateClass
+      summary: Update class metadata or activate a draft class
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: class_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateClassRequest"
+      responses:
+        "200":
+          description: Class updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Class"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/classes/{class_id}/archive:
+    post:
+      operationId: archiveClass
+      summary: Archive a class without deleting its history
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: class_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClassVersionRequest"
+      responses:
+        "200":
+          description: Class archived
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Class"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/classes/{class_id}/restore:
+    post:
+      operationId: restoreClass
+      summary: Restore an archived class to its previous lifecycle state
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: class_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClassVersionRequest"
+      responses:
+        "200":
+          description: Class restored
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Class"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/classes/{class_id}/transfer-ownership:
+    post:
+      operationId: transferClassOwnership
+      summary: Transfer class ownership after recent authentication
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: class_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TransferClassOwnershipRequest"
+      responses:
+        "200":
+          description: Class ownership transferred
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Class"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
   /api/v1/classes/{class_id}/media-token:
     post:
       operationId: issueClassMediaToken
-      summary: Issue a short-lived, least-privilege LiveKit room credential
+      summary: Issue a short-lived LiveKit credential for an active class
       security:
         - SessionCookie: []
       parameters:
@@ -793,7 +984,7 @@ paths:
             type: string
       responses:
         "200":
-          description: Short-lived classroom media credential
+          description: Short-lived media credential for an active class
           headers:
             Cache-Control:
               schema:
@@ -803,18 +994,22 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MediaTokenResponse"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
         "401":
           $ref: "#/components/responses/UnauthorizedResponse"
         "403":
           $ref: "#/components/responses/ForbiddenResponse"
         "404":
           $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
         default:
           $ref: "#/components/responses/ProblemResponse"
   /api/v1/classes/{class_id}/media-events:
     post:
       operationId: recordClassMediaEvent
-      summary: Record bounded client-side join and reconnect telemetry
+      summary: Record bounded join telemetry for an active class
       security:
         - SessionCookie: []
       parameters:
@@ -837,13 +1032,17 @@ paths:
               $ref: "#/components/schemas/MediaEventRequest"
       responses:
         "204":
-          description: Telemetry accepted
+          description: Telemetry accepted for an active class
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
         "401":
           $ref: "#/components/responses/UnauthorizedResponse"
         "403":
           $ref: "#/components/responses/ForbiddenResponse"
         "404":
           $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
         default:
           $ref: "#/components/responses/ProblemResponse"
   /api/v1/webhooks/livekit:
@@ -922,6 +1121,8 @@ components:
         - tenant.manage_members
         - class.create
         - class.update
+        - class.archive
+        - class.transfer_ownership
         - class.view
         - enrollment.manage
         - session.start
@@ -1389,6 +1590,9 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Permission"
+    ClassStatus:
+      type: string
+      enum: [draft, active, archived]
     Class:
       type: object
       additionalProperties: false
@@ -1398,9 +1602,12 @@ components:
         - code
         - title
         - description
+        - timezone
         - status
+        - version
         - created_at
         - updated_at
+        - archived_at
       properties:
         id:
           type: string
@@ -1420,24 +1627,42 @@ components:
         description:
           type: string
           maxLength: 4000
-        status:
+        timezone:
           type: string
-          enum: [draft, active, archived]
+          minLength: 1
+          maxLength: 100
+        status:
+          $ref: "#/components/schemas/ClassStatus"
+        version:
+          type: integer
+          format: int64
+          minimum: 1
         created_at:
           type: string
           format: date-time
         updated_at:
           type: string
           format: date-time
+        archived_at:
+          oneOf:
+            - type: string
+              format: date-time
+            - type: "null"
     ClassListResponse:
       type: object
       additionalProperties: false
-      required: [items]
+      required: [items, next_cursor]
       properties:
         items:
           type: array
           items:
             $ref: "#/components/schemas/Class"
+        next_cursor:
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 512
+            - type: "null"
     CreateClassRequest:
       type: object
       additionalProperties: false
@@ -1455,6 +1680,60 @@ components:
         description:
           type: string
           maxLength: 4000
+        timezone:
+          type: string
+          minLength: 1
+          maxLength: 100
+    UpdateClassRequest:
+      type: object
+      additionalProperties: false
+      required: [expected_version]
+      minProperties: 2
+      properties:
+        expected_version:
+          type: integer
+          format: int64
+          minimum: 1
+        code:
+          type: string
+          minLength: 3
+          maxLength: 32
+          pattern: "^[A-Za-z0-9][A-Za-z0-9_-]{2,31}$"
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 4000
+        timezone:
+          type: string
+          minLength: 1
+          maxLength: 100
+        status:
+          type: string
+          enum: [draft, active]
+    ClassVersionRequest:
+      type: object
+      additionalProperties: false
+      required: [expected_version]
+      properties:
+        expected_version:
+          type: integer
+          format: int64
+          minimum: 1
+    TransferClassOwnershipRequest:
+      type: object
+      additionalProperties: false
+      required: [expected_version, new_owner_user_id]
+      properties:
+        expected_version:
+          type: integer
+          format: int64
+          minimum: 1
+        new_owner_user_id:
+          type: string
+          format: uuid
     MediaTokenResponse:
       type: object
       additionalProperties: false

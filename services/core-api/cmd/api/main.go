@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+	_ "time/tzdata"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tutorhub-v2/core-api/internal/config"
@@ -85,7 +86,7 @@ func run() int {
 	var classroomService classroom.ServiceAPI
 	if pool != nil {
 		classroomService, err = classroom.NewService(
-			classroom.NewPostgresRepository(pool, cfg.Database.QueryTimeout),
+			classroom.NewPostgresRepository(pool, cfg.Database.QueryTimeout, authorizer),
 			authorizer,
 		)
 		if err != nil {

@@ -65,7 +65,7 @@ func TestIssueJoinCredentialCreatesSubscribeOnlyGrantWithoutPublishPermission(t 
 	classID := uuid.New()
 	issuer := &fakeTokenIssuer{token: "signed-token"}
 	service := newTestService(t, &fakeClassService{class: classroom.Class{
-		ID: classID, TenantID: tenantID, Status: classroom.ClassStatusDraft,
+		ID: classID, TenantID: tenantID, Status: classroom.ClassStatusActive,
 	}}, issuer, nil, nil, uuid.New())
 	service.authorizer = denyPublishAuthorizer{Authorizer: policy.NewEngine()}
 
@@ -83,7 +83,7 @@ func TestIssueJoinCredentialCreatesSubscribeOnlyGrantWithoutPublishPermission(t 
 	}
 }
 
-func TestIssueJoinCredentialDeniesMissingPermissionAndArchivedClass(t *testing.T) {
+func TestIssueJoinCredentialDeniesMissingPermissionAndInactiveClass(t *testing.T) {
 	t.Parallel()
 
 	tenantID := uuid.New()
@@ -107,6 +107,16 @@ func TestIssueJoinCredentialDeniesMissingPermissionAndArchivedClass(t *testing.T
 	}, classID)
 	if !errors.Is(err, ErrClassUnavailable) {
 		t.Fatalf("expected archived class denial, got %v", err)
+	}
+
+	classes.class.Status = classroom.ClassStatusDraft
+	_, err = service.IssueJoinCredential(context.Background(), AccessContext{
+		TenantID: tenantID, ActorID: uuid.New(), SessionID: uuid.New(),
+		MembershipActive:  true,
+		OrganizationRoles: []policy.OrganizationRole{policy.OrganizationRoleStudent},
+	}, classID)
+	if !errors.Is(err, ErrClassUnavailable) {
+		t.Fatalf("expected draft class denial, got %v", err)
 	}
 }
 
@@ -194,7 +204,7 @@ func TestRoomNameRoundTrip(t *testing.T) {
 
 func newTestService(
 	t *testing.T,
-	classes classroom.ServiceAPI,
+	classes ClassReader,
 	issuer TokenIssuer,
 	events EventSink,
 	repository WebhookReceiptRepository,

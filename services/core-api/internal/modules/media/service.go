@@ -49,6 +49,10 @@ type WebhookReceiptRepository interface {
 	RecordWebhookReceipt(context.Context, WebhookReceipt) (bool, error)
 }
 
+type ClassReader interface {
+	Get(context.Context, classroom.AccessContext, uuid.UUID) (classroom.Class, error)
+}
+
 type ServiceAPI interface {
 	IssueJoinCredential(context.Context, AccessContext, uuid.UUID) (JoinCredential, error)
 	RecordClientEvent(context.Context, AccessContext, uuid.UUID, ClientEventInput) error
@@ -63,7 +67,7 @@ type ServiceConfig struct {
 }
 
 type Service struct {
-	classes           classroom.ServiceAPI
+	classes           ClassReader
 	authorizer        policy.Authorizer
 	issuer            TokenIssuer
 	events            EventSink
@@ -75,7 +79,7 @@ type Service struct {
 }
 
 func NewService(
-	classes classroom.ServiceAPI,
+	classes ClassReader,
 	authorizer policy.Authorizer,
 	issuer TokenIssuer,
 	events EventSink,
@@ -123,7 +127,7 @@ func (service *Service) IssueJoinCredential(
 	if err != nil {
 		return JoinCredential{}, err
 	}
-	if class.Status == classroom.ClassStatusArchived {
+	if class.Status != classroom.ClassStatusActive {
 		return JoinCredential{}, ErrClassUnavailable
 	}
 

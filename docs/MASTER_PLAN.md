@@ -11,7 +11,7 @@
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
 | Phase hiện tại        | Phase 2 - Identity, tenant và class core                                                     |
-| Trạng thái gần nhất   | P2-03 membership invitation đã triển khai; P2-04 class lifecycle là việc tiếp theo          |
+| Trạng thái gần nhất   | P2-04 class lifecycle đã triển khai; P2-05 enrollment/invite code là việc tiếp theo         |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 
@@ -1184,16 +1184,19 @@ beta. Xem `docs/PHASE_1_COMPLETION.md`.
 
 **Mục tiêu:** có nền multi-tenant và quản lý lớp đủ dùng cho pilot nội bộ.
 
-**Backlog thực thi:** `docs/PHASE_2_BACKLOG.md`. P2-00 đến P2-03 đã triển khai;
-task kế tiếp là P2-04 class lifecycle, ownership và archive.
+**Backlog thực thi:** `docs/PHASE_2_BACKLOG.md`. P2-00 đến P2-04 đã triển khai;
+task kế tiếp là P2-05 enrollment và class invite code.
 
-**Trạng thái 2026-07-18:** P2-03 bổ sung `tenant.manage_members`, migration `000008`,
-invitation token CSPRNG chỉ lưu purpose-bound HMAC, TTL/state machine, transactional
-verified-identity accept idempotent, revoke/re-invite policy và admin/public UI typed.
-Token endpoint dùng POST body, share URL dùng fragment được xóa ngay; full `pnpm verify`
-đã xanh. Identity/migration integration-tag compile local; runtime chưa chạy local vì
-không nạp DB test env. CI PostgreSQL 17 sẽ xác nhận clean migration và PostgreSQL
-lifecycle/concurrent-accept sau push.
+**Trạng thái 2026-07-18:** P2-04 bổ sung migration `000009`, class
+timezone/version/archive lifecycle, status-filtered opaque keyset pagination,
+`expected_version` CAS, ownership transfer/recent-auth, shared-policy
+`class.archive`/`class.transfer_ownership`, transactional outbox và management UI.
+`owner_user_id` là owner implicit, chưa tạo enrollment sớm. LiveKit token/event chỉ
+cho class active. Full `pnpm verify` xanh: web 55/55, API client 11/11, UI 6/6 cùng
+lint/typecheck/build/Storybook, Go test/vet và security checks.
+Migration/classroom/identity integration-tag compile xanh local; runtime PostgreSQL
+chưa chạy local vì không nạp DB test env và sẽ do CI PostgreSQL 17 xác nhận. Không cần
+ADR mới vì ADR-0013 cho phép mở rộng action/matrix cùng OpenAPI và test.
 
 **Work package:**
 
@@ -1690,10 +1693,9 @@ Một tính năng chỉ được đánh dấu hoàn thành khi:
 Thứ tự hiện tại, cập nhật ngày 2026-07-18:
 
 1. Phase 1 đã hoàn thành; biên bản nằm tại `docs/PHASE_1_COMPLETION.md`.
-2. P2-00 policy, P2-01 profile/identity, P2-02 tenant lifecycle và P2-03 invitation
-   flow đã triển khai.
-3. Bắt đầu P2-04 class lifecycle/ownership/archive theo dependency đã chốt.
-4. Chỉ mở enrollment, roster và admin UI theo dependency
+2. P2-00 policy đến P2-04 class lifecycle/ownership/archive đã triển khai.
+3. Bắt đầu P2-05 enrollment và class invite code theo dependency đã chốt.
+4. Chỉ mở roster và class-level role management theo dependency
    trong `docs/PHASE_2_BACKLOG.md`.
 5. Không bắt đầu QuizHub, Lavie, social feed, Secure Exam web hoặc classroom
    collaboration trong Phase 2.
@@ -1743,5 +1745,5 @@ Thứ tự hiện tại, cập nhật ngày 2026-07-18:
 
 ---
 
-**Điểm bắt đầu sau tài liệu này:** đọc `docs/PROJECT_STATE.md` và triển khai P2-04 theo
+**Điểm bắt đầu sau tài liệu này:** đọc `docs/PROJECT_STATE.md` và triển khai P2-05 theo
 `docs/PHASE_2_BACKLOG.md`. Master Plan giữ mục tiêu/exit gate, không thay backlog chi tiết.

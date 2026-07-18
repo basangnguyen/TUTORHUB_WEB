@@ -28,6 +28,8 @@ const (
 	PermissionTenantManageMembers Permission = "tenant.manage_members"
 	PermissionClassCreate         Permission = "class.create"
 	PermissionClassUpdate         Permission = "class.update"
+	PermissionClassArchive        Permission = "class.archive"
+	PermissionClassTransferOwner  Permission = "class.transfer_ownership"
 	PermissionClassView           Permission = "class.view"
 	PermissionEnrollmentManage    Permission = "enrollment.manage"
 	PermissionSessionStart        Permission = "session.start"
@@ -42,20 +44,22 @@ const (
 type Action string
 
 const (
-	ActionTenantView          Action = Action(PermissionTenantView)
-	ActionTenantManage        Action = Action(PermissionTenantManage)
-	ActionTenantManageMembers Action = Action(PermissionTenantManageMembers)
-	ActionClassCreate         Action = Action(PermissionClassCreate)
-	ActionClassUpdate         Action = Action(PermissionClassUpdate)
-	ActionClassView           Action = Action(PermissionClassView)
-	ActionEnrollmentManage    Action = Action(PermissionEnrollmentManage)
-	ActionSessionStart        Action = Action(PermissionSessionStart)
-	ActionSessionEnd          Action = Action(PermissionSessionEnd)
-	ActionSessionJoin         Action = Action(PermissionSessionJoin)
-	ActionParticipantAdmit    Action = Action(PermissionParticipantAdmit)
-	ActionParticipantRemove   Action = Action(PermissionParticipantRemove)
-	ActionMediaPublish        Action = Action(PermissionMediaPublish)
-	ActionChatSend            Action = Action(PermissionChatSend)
+	ActionTenantView             Action = Action(PermissionTenantView)
+	ActionTenantManage           Action = Action(PermissionTenantManage)
+	ActionTenantManageMembers    Action = Action(PermissionTenantManageMembers)
+	ActionClassCreate            Action = Action(PermissionClassCreate)
+	ActionClassUpdate            Action = Action(PermissionClassUpdate)
+	ActionClassArchive           Action = Action(PermissionClassArchive)
+	ActionClassTransferOwnership Action = Action(PermissionClassTransferOwner)
+	ActionClassView              Action = Action(PermissionClassView)
+	ActionEnrollmentManage       Action = Action(PermissionEnrollmentManage)
+	ActionSessionStart           Action = Action(PermissionSessionStart)
+	ActionSessionEnd             Action = Action(PermissionSessionEnd)
+	ActionSessionJoin            Action = Action(PermissionSessionJoin)
+	ActionParticipantAdmit       Action = Action(PermissionParticipantAdmit)
+	ActionParticipantRemove      Action = Action(PermissionParticipantRemove)
+	ActionMediaPublish           Action = Action(PermissionMediaPublish)
+	ActionChatSend               Action = Action(PermissionChatSend)
 )
 
 type ResourceState string
@@ -121,6 +125,8 @@ var permissionOrder = []Permission{
 	PermissionTenantManageMembers,
 	PermissionClassCreate,
 	PermissionClassUpdate,
+	PermissionClassArchive,
+	PermissionClassTransferOwner,
 	PermissionClassView,
 	PermissionEnrollmentManage,
 	PermissionSessionStart,
@@ -165,6 +171,8 @@ var organizationPermissions = map[OrganizationRole][]Permission{
 var classPermissions = map[ClassRole][]Permission{
 	ClassRoleOwner: {
 		PermissionClassUpdate,
+		PermissionClassArchive,
+		PermissionClassTransferOwner,
 		PermissionClassView,
 		PermissionEnrollmentManage,
 		PermissionSessionStart,
@@ -246,18 +254,22 @@ func (engine *Engine) Authorize(input Input) Decision {
 	if actionRequiresClass(input.Action) && input.Resource.ClassID == uuid.Nil {
 		return Decision{Reason: DenialResourceScope, ConcealResource: true}
 	}
-	if input.Resource.State == ResourceStateArchived && actionBlockedWhenArchived(input.Action) {
+	required := Permission(input.Action)
+	hasPermission := false
+	for _, permission := range engine.EffectivePermissions(input.Subject) {
+		if permission == required {
+			hasPermission = true
+			break
+		}
+	}
+	if !hasPermission {
+		return Decision{Reason: DenialPermission}
+	}
+	if actionBlockedForResourceState(input.Action, input.Resource.State) {
 		return Decision{Reason: DenialResourceState}
 	}
 
-	required := Permission(input.Action)
-	for _, permission := range engine.EffectivePermissions(input.Subject) {
-		if permission == required {
-			return Decision{Allowed: true, Reason: DenialNone}
-		}
-	}
-
-	return Decision{Reason: DenialPermission}
+	return Decision{Allowed: true, Reason: DenialNone}
 }
 
 func PermissionStrings(permissions []Permission) []string {
@@ -292,10 +304,25 @@ func actionRequiresClass(action Action) bool {
 	}
 }
 
-func actionBlockedWhenArchived(action Action) bool {
-	switch action {
-	case ActionClassView, ActionClassUpdate:
+func actionBlockedForResourceState(action Action, state ResourceState) bool {
+	switch state {
+	case ResourceStateUnknown, ResourceStateActive:
 		return false
+	case ResourceStateDraft:
+		switch action {
+		case ActionClassView, ActionClassUpdate, ActionClassArchive,
+			ActionClassTransferOwnership:
+			return false
+		default:
+			return actionRequiresClass(action)
+		}
+	case ResourceStateArchived:
+		switch action {
+		case ActionClassView, ActionClassArchive, ActionClassTransferOwnership:
+			return false
+		default:
+			return actionRequiresClass(action)
+		}
 	default:
 		return actionRequiresClass(action)
 	}

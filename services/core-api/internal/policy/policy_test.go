@@ -77,7 +77,8 @@ func TestClassPermissionMatrix(t *testing.T) {
 			name: "owner",
 			role: ClassRoleOwner,
 			want: []Permission{
-				PermissionTenantView, PermissionClassUpdate, PermissionClassView, PermissionEnrollmentManage,
+				PermissionTenantView, PermissionClassUpdate, PermissionClassArchive,
+				PermissionClassTransferOwner, PermissionClassView, PermissionEnrollmentManage,
 				PermissionSessionStart, PermissionSessionEnd, PermissionSessionJoin,
 				PermissionParticipantAdmit, PermissionParticipantRemove,
 				PermissionMediaPublish, PermissionChatSend,
@@ -259,6 +260,117 @@ func TestAuthorizeUsesPermissionAndResourceState(t *testing.T) {
 		Subject: subject, Action: ActionClassView, Resource: resource,
 	}); !decision.Allowed {
 		t.Fatalf("archived class detail should remain visible: %+v", decision)
+	}
+}
+
+func TestClassLifecycleAndOwnershipPermissions(t *testing.T) {
+	t.Parallel()
+
+	engine := NewEngine()
+	tenantID := uuid.New()
+	classID := uuid.New()
+	actorID := uuid.New()
+	resource := Resource{
+		TenantID: tenantID,
+		ClassID:  classID,
+		State:    ResourceStateActive,
+	}
+	tests := []struct {
+		name             string
+		organizationRole OrganizationRole
+		classRoles       []ClassRole
+		action           Action
+		allowed          bool
+	}{
+		{
+			name:             "organization admin archives",
+			organizationRole: OrganizationRoleAdmin,
+			action:           ActionClassArchive,
+			allowed:          true,
+		},
+		{
+			name:             "organization admin transfers ownership",
+			organizationRole: OrganizationRoleAdmin,
+			action:           ActionClassTransferOwnership,
+			allowed:          true,
+		},
+		{
+			name:             "owner archives",
+			organizationRole: OrganizationRoleStudent,
+			classRoles:       []ClassRole{ClassRoleOwner},
+			action:           ActionClassArchive,
+			allowed:          true,
+		},
+		{
+			name:             "owner transfers ownership",
+			organizationRole: OrganizationRoleStudent,
+			classRoles:       []ClassRole{ClassRoleOwner},
+			action:           ActionClassTransferOwnership,
+			allowed:          true,
+		},
+		{
+			name:             "teacher cannot archive another class",
+			organizationRole: OrganizationRoleTeacher,
+			action:           ActionClassArchive,
+		},
+		{
+			name:             "co-teacher cannot transfer ownership",
+			organizationRole: OrganizationRoleStudent,
+			classRoles:       []ClassRole{ClassRoleCoTeacher},
+			action:           ActionClassTransferOwnership,
+		},
+	}
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			decision := engine.Authorize(Input{
+				Subject: Subject{
+					ActorID:           actorID,
+					ActiveTenantID:    tenantID,
+					MembershipActive:  true,
+					OrganizationRoles: []OrganizationRole{test.organizationRole},
+					ClassRoles:        test.classRoles,
+				},
+				Action:   test.action,
+				Resource: resource,
+			})
+			if decision.Allowed != test.allowed {
+				t.Fatalf("unexpected lifecycle decision: %+v", decision)
+			}
+		})
+	}
+}
+
+func TestClassResourceStateRequiresActiveClassForRoomActions(t *testing.T) {
+	t.Parallel()
+
+	engine := NewEngine()
+	subject := validTestSubject()
+	subject.OrganizationRoles = []OrganizationRole{OrganizationRoleAdmin}
+	resource := Resource{
+		TenantID: subject.ActiveTenantID,
+		ClassID:  uuid.New(),
+	}
+
+	for _, state := range []ResourceState{ResourceStateDraft, ResourceStateArchived} {
+		resource.State = state
+		decision := engine.Authorize(Input{
+			Subject: subject, Action: ActionSessionJoin, Resource: resource,
+		})
+		if decision.Allowed || decision.Reason != DenialResourceState {
+			t.Fatalf("room join must be blocked for %s class: %+v", state, decision)
+		}
+	}
+
+	resource.State = ResourceStateArchived
+	for _, action := range []Action{ActionClassArchive, ActionClassTransferOwnership} {
+		decision := engine.Authorize(Input{
+			Subject: subject, Action: action, Resource: resource,
+		})
+		if !decision.Allowed {
+			t.Fatalf("%s must remain available for archived class: %+v", action, decision)
+		}
 	}
 }
 

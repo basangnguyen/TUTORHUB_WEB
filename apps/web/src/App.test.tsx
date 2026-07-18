@@ -527,11 +527,15 @@ describe("web shell", () => {
                 code: "SEC101",
                 title: "Cơ sở An toàn thông tin",
                 description: "Lớp học kỳ 1",
+                timezone: "Asia/Ho_Chi_Minh",
                 status: "draft",
+                version: 1,
+                archived_at: null,
                 created_at: "2026-07-14T04:00:00Z",
                 updated_at: "2026-07-14T04:00:00Z",
               },
             ],
+            next_cursor: null,
           }),
           { status: 200, headers: { "Content-Type": "application/json" } },
         ),
@@ -559,7 +563,10 @@ describe("web shell", () => {
       code: "NET201",
       title: "Mạng máy tính nâng cao",
       description: "Thực hành theo nhóm",
+      timezone: "Asia/Ho_Chi_Minh",
       status: "draft",
+      version: 1,
+      archived_at: null,
       created_at: "2026-07-14T05:00:00Z",
       updated_at: "2026-07-14T05:00:00Z",
     };
@@ -568,6 +575,19 @@ describe("web shell", () => {
       if (request.url.endsWith("/api/v1/auth/csrf")) {
         return Promise.resolve(
           new Response(JSON.stringify({ csrf_token: "class-csrf" }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }),
+        );
+      }
+      if (
+        request.url.endsWith(
+          `/api/v1/tenants/${testSession.active_tenant?.id}`,
+        ) &&
+        request.method === "GET"
+      ) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ timezone: "Asia/Ho_Chi_Minh" }), {
             status: 200,
             headers: { "Content-Type": "application/json" },
           }),
@@ -588,7 +608,10 @@ describe("web shell", () => {
       if (request.url.includes("/api/v1/classes") && request.method === "GET") {
         return Promise.resolve(
           new Response(
-            JSON.stringify({ items: created ? [createdClass] : [] }),
+            JSON.stringify({
+              items: created ? [createdClass] : [],
+              next_cursor: null,
+            }),
             {
               status: 200,
               headers: { "Content-Type": "application/json" },
@@ -634,6 +657,7 @@ describe("web shell", () => {
       code: "NET201",
       title: "Mạng máy tính nâng cao",
       description: "Thực hành theo nhóm",
+      timezone: "Asia/Ho_Chi_Minh",
     });
   });
 

@@ -140,6 +140,7 @@ INSERT INTO tutorhub.classes (
     code,
     title,
     description,
+    timezone,
     status,
     created_at,
     updated_at
@@ -150,6 +151,7 @@ INSERT INTO tutorhub.classes (
     'DEMO-VI-01',
     'Lớp học trực tuyến mẫu',
     'Dữ liệu phát triển cục bộ cho luồng lớp học TutorHub.',
+    'Asia/Ho_Chi_Minh',
     'active',
     '2026-01-01T00:00:00Z',
     '2026-01-01T00:00:00Z'
@@ -158,7 +160,9 @@ ON CONFLICT (tenant_id, code) DO UPDATE SET
     owner_user_id = EXCLUDED.owner_user_id,
     title = EXCLUDED.title,
     description = EXCLUDED.description,
+    timezone = EXCLUDED.timezone,
     status = EXCLUDED.status,
+    archived_from_status = NULL,
     archived_at = NULL,
     updated_at = EXCLUDED.updated_at;
 `

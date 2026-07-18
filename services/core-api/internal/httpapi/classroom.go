@@ -18,9 +18,16 @@ import (
 const (
 	defaultClassListLimit     = 50
 	maximumClassListLimit     = 100
+	maximumClassCursorLength  = 512
 	maximumClassRequestBytes  = 32 * 1024
 	classesCollectionPath     = "/api/v1/classes"
 	classesResourcePathPrefix = "/api/v1/classes/"
+	classArchivePathPattern   = "/api/v1/classes/{class_id}/archive"
+	classRestorePathPattern   = "/api/v1/classes/{class_id}/restore"
+	classTransferPathPattern  = "/api/v1/classes/{class_id}/transfer-ownership"
+	classArchiveRoute         = "archive"
+	classRestoreRoute         = "restore"
+	classTransferRoute        = "transfer-ownership"
 )
 
 type classHandlers struct {
@@ -30,9 +37,28 @@ type classHandlers struct {
 }
 
 type createClassRequest struct {
-	Code        string `json:"code"`
-	Title       string `json:"title"`
-	Description string `json:"description"`
+	Code        string  `json:"code"`
+	Title       string  `json:"title"`
+	Description string  `json:"description"`
+	Timezone    *string `json:"timezone"`
+}
+
+type updateClassRequest struct {
+	Code            *string                `json:"code"`
+	Title           *string                `json:"title"`
+	Description     *string                `json:"description"`
+	Timezone        *string                `json:"timezone"`
+	Status          *classroom.ClassStatus `json:"status"`
+	ExpectedVersion int64                  `json:"expected_version"`
+}
+
+type classVersionRequest struct {
+	ExpectedVersion int64 `json:"expected_version"`
+}
+
+type transferClassOwnershipRequest struct {
+	ExpectedVersion int64     `json:"expected_version"`
+	NewOwnerUserID  uuid.UUID `json:"new_owner_user_id"`
 }
 
 type classResponse struct {
@@ -41,13 +67,22 @@ type classResponse struct {
 	Code        string                `json:"code"`
 	Title       string                `json:"title"`
 	Description string                `json:"description"`
+	Timezone    string                `json:"timezone"`
 	Status      classroom.ClassStatus `json:"status"`
+	Version     int64                 `json:"version"`
 	CreatedAt   time.Time             `json:"created_at"`
 	UpdatedAt   time.Time             `json:"updated_at"`
+	ArchivedAt  *time.Time            `json:"archived_at"`
 }
 
 type classListResponse struct {
-	Items []classResponse `json:"items"`
+	Items      []classResponse `json:"items"`
+	NextCursor *string         `json:"next_cursor"`
+}
+
+type classRoute struct {
+	ID     uuid.UUID
+	Action string
 }
 
 func newClassHandlers(
@@ -77,17 +112,53 @@ func (handlers classHandlers) collection(w http.ResponseWriter, r *http.Request)
 }
 
 func (handlers classHandlers) detail(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet && r.Method != http.MethodHead {
-		w.Header().Set("Allow", "GET, HEAD")
+	route, ok := parseClassRoute(r.URL.Path)
+	if !ok {
+		handlers.writeProblem(w, r, classroom.ErrClassNotFound)
+		return
+	}
+
+	switch route.Action {
+	case "":
+		handlers.classResource(w, r, route.ID)
+	case classArchiveRoute:
+		handlers.classVersionMutation(w, r, route.ID, classArchiveRoute)
+	case classRestoreRoute:
+		handlers.classVersionMutation(w, r, route.ID, classRestoreRoute)
+	case classTransferRoute:
+		handlers.transferOwnership(w, r, route.ID)
+	default:
+		handlers.writeProblem(w, r, classroom.ErrClassNotFound)
+	}
+}
+
+func (handlers classHandlers) classResource(
+	w http.ResponseWriter,
+	r *http.Request,
+	classID uuid.UUID,
+) {
+	switch r.Method {
+	case http.MethodGet, http.MethodHead:
+		handlers.get(w, r, classID)
+	case http.MethodPatch:
+		handlers.update(w, r, classID)
+	default:
+		w.Header().Set("Allow", "GET, HEAD, PATCH")
 		writeProblem(
 			w,
 			r,
 			http.StatusMethodNotAllowed,
 			"Method not allowed",
-			"Class details support GET requests.",
+			"Class details support GET and PATCH requests.",
 		)
-		return
 	}
+}
+
+func (handlers classHandlers) get(
+	w http.ResponseWriter,
+	r *http.Request,
+	classID uuid.UUID,
+) {
 	if !handlers.available(w, r) {
 		return
 	}
@@ -95,13 +166,152 @@ func (handlers classHandlers) detail(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	classID, ok := parseClassID(r.URL.Path)
-	if !ok {
-		handlers.writeProblem(w, r, classroom.ErrClassNotFound)
+
+	class, err := handlers.classes.Get(r.Context(), classAccess(principal), classID)
+	if err != nil {
+		handlers.writeProblem(w, r, err)
 		return
 	}
 
-	class, err := handlers.classes.Get(r.Context(), classAccess(principal), classID)
+	handlers.writeClass(w, http.StatusOK, class)
+}
+
+func (handlers classHandlers) update(
+	w http.ResponseWriter,
+	r *http.Request,
+	classID uuid.UUID,
+) {
+	if !handlers.available(w, r) {
+		return
+	}
+	principal, ok := handlers.csrfPrincipal(w, r)
+	if !ok {
+		return
+	}
+
+	var request updateClassRequest
+	if err := decodeJSONRequest(w, r, &request, maximumClassRequestBytes); err != nil {
+		handlers.writeInvalidMutationProblem(w, r)
+		return
+	}
+	updated, err := handlers.classes.Update(
+		r.Context(),
+		classAccess(principal),
+		classID,
+		classroom.UpdateClassInput{
+			Code:            request.Code,
+			Title:           request.Title,
+			Description:     request.Description,
+			Timezone:        request.Timezone,
+			Status:          request.Status,
+			ExpectedVersion: request.ExpectedVersion,
+		},
+	)
+	if err != nil {
+		handlers.writeProblem(w, r, err)
+		return
+	}
+
+	handlers.writeClass(w, http.StatusOK, updated)
+}
+
+func (handlers classHandlers) classVersionMutation(
+	w http.ResponseWriter,
+	r *http.Request,
+	classID uuid.UUID,
+	action string,
+) {
+	if r.Method != http.MethodPost {
+		w.Header().Set("Allow", http.MethodPost)
+		writeProblem(
+			w,
+			r,
+			http.StatusMethodNotAllowed,
+			"Method not allowed",
+			"Class lifecycle mutations accept POST requests.",
+		)
+		return
+	}
+	if !handlers.available(w, r) {
+		return
+	}
+	principal, ok := handlers.csrfPrincipal(w, r)
+	if !ok {
+		return
+	}
+
+	var request classVersionRequest
+	if err := decodeJSONRequest(w, r, &request, maximumClassRequestBytes); err != nil {
+		handlers.writeInvalidMutationProblem(w, r)
+		return
+	}
+
+	var class classroom.Class
+	var err error
+	switch action {
+	case classArchiveRoute:
+		class, err = handlers.classes.Archive(
+			r.Context(),
+			classAccess(principal),
+			classID,
+			request.ExpectedVersion,
+		)
+	case classRestoreRoute:
+		class, err = handlers.classes.Restore(
+			r.Context(),
+			classAccess(principal),
+			classID,
+			request.ExpectedVersion,
+		)
+	default:
+		err = classroom.ErrClassNotFound
+	}
+	if err != nil {
+		handlers.writeProblem(w, r, err)
+		return
+	}
+
+	handlers.writeClass(w, http.StatusOK, class)
+}
+
+func (handlers classHandlers) transferOwnership(
+	w http.ResponseWriter,
+	r *http.Request,
+	classID uuid.UUID,
+) {
+	if r.Method != http.MethodPost {
+		w.Header().Set("Allow", http.MethodPost)
+		writeProblem(
+			w,
+			r,
+			http.StatusMethodNotAllowed,
+			"Method not allowed",
+			"Class ownership transfer accepts POST requests.",
+		)
+		return
+	}
+	if !handlers.available(w, r) {
+		return
+	}
+	principal, ok := handlers.csrfPrincipal(w, r)
+	if !ok {
+		return
+	}
+
+	var request transferClassOwnershipRequest
+	if err := decodeJSONRequest(w, r, &request, maximumClassRequestBytes); err != nil {
+		handlers.writeInvalidMutationProblem(w, r)
+		return
+	}
+	class, err := handlers.classes.TransferOwnership(
+		r.Context(),
+		classAccess(principal),
+		classID,
+		classroom.TransferClassOwnershipInput{
+			NewOwnerUserID:  request.NewOwnerUserID,
+			ExpectedVersion: request.ExpectedVersion,
+		},
+	)
 	if err != nil {
 		handlers.writeProblem(w, r, err)
 		return
@@ -118,25 +328,32 @@ func (handlers classHandlers) list(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	limit, err := parseClassListLimit(r)
+	input, err := parseClassListInput(r)
 	if err != nil {
 		handlers.writeProblem(w, r, err)
 		return
 	}
 
-	classes, err := handlers.classes.List(r.Context(), classAccess(principal), limit)
+	page, err := handlers.classes.List(r.Context(), classAccess(principal), input)
 	if err != nil {
 		handlers.writeProblem(w, r, err)
 		return
 	}
-	items := make([]classResponse, 0, len(classes))
-	for _, class := range classes {
+	items := make([]classResponse, 0, len(page.Items))
+	for _, class := range page.Items {
 		items = append(items, newClassResponse(class))
+	}
+	var nextCursor *string
+	if page.NextCursor != "" {
+		nextCursor = &page.NextCursor
 	}
 
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Vary", "Cookie")
-	writeJSON(handlers.logger, w, http.StatusOK, classListResponse{Items: items})
+	writeJSON(handlers.logger, w, http.StatusOK, classListResponse{
+		Items:      items,
+		NextCursor: nextCursor,
+	})
 }
 
 func (handlers classHandlers) create(w http.ResponseWriter, r *http.Request) {
@@ -170,6 +387,7 @@ func (handlers classHandlers) create(w http.ResponseWriter, r *http.Request) {
 			Code:        request.Code,
 			Title:       request.Title,
 			Description: request.Description,
+			Timezone:    request.Timezone,
 		},
 	)
 	if err != nil {
@@ -198,6 +416,30 @@ func (handlers classHandlers) available(w http.ResponseWriter, r *http.Request) 
 	return false
 }
 
+func (handlers classHandlers) csrfPrincipal(
+	w http.ResponseWriter,
+	r *http.Request,
+) (identity.Principal, bool) {
+	sessionToken, ok := handlers.auth.sessionToken(w, r)
+	if !ok {
+		return identity.Principal{}, false
+	}
+	return handlers.auth.csrfPrincipal(w, r, sessionToken)
+}
+
+func (handlers classHandlers) writeInvalidMutationProblem(
+	w http.ResponseWriter,
+	r *http.Request,
+) {
+	writeProblem(
+		w,
+		r,
+		http.StatusBadRequest,
+		"Invalid class request",
+		"Provide one JSON object with valid class fields and an expected version.",
+	)
+}
+
 func (handlers classHandlers) writeClass(w http.ResponseWriter, status int, class classroom.Class) {
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Vary", "Cookie")
@@ -211,12 +453,16 @@ func (handlers classHandlers) writeProblem(w http.ResponseWriter, r *http.Reques
 
 	switch {
 	case errors.Is(err, classroom.ErrInvalidClassInput),
-		errors.Is(err, classroom.ErrInvalidListLimit):
+		errors.Is(err, classroom.ErrInvalidListLimit),
+		errors.Is(err, classroom.ErrInvalidClassCursor):
 		status = http.StatusBadRequest
 		title = "Invalid classroom request"
-		detail = "Check the class code, title, description, and list limit."
-	case errors.Is(err, classroom.ErrClassAccessDenied),
-		errors.Is(err, classroom.ErrOwnerMembershipNeeded):
+		detail = "Check the class fields, status filter, cursor, list limit, and expected version."
+	case errors.Is(err, classroom.ErrRecentAuthenticationRequired):
+		status = http.StatusForbidden
+		title = "Recent authentication required"
+		detail = "Sign in again before transferring class ownership."
+	case errors.Is(err, classroom.ErrClassAccessDenied):
 		status = http.StatusForbidden
 		title = "Classroom access denied"
 		detail = "Your active workspace membership does not allow this action."
@@ -228,6 +474,18 @@ func (handlers classHandlers) writeProblem(w http.ResponseWriter, r *http.Reques
 		status = http.StatusConflict
 		title = "Class code already exists"
 		detail = "Choose a different class code in this workspace."
+	case errors.Is(err, classroom.ErrClassVersionConflict):
+		status = http.StatusConflict
+		title = "Class changed"
+		detail = "Reload the latest class before trying this change again."
+	case errors.Is(err, classroom.ErrInvalidClassTransition):
+		status = http.StatusConflict
+		title = "Class state conflict"
+		detail = "The class cannot make that lifecycle transition from its current state."
+	case errors.Is(err, classroom.ErrClassOwnerUnavailable):
+		status = http.StatusConflict
+		title = "Class owner unavailable"
+		detail = "Choose another eligible active member in this workspace."
 	}
 
 	if status >= http.StatusInternalServerError {
@@ -243,7 +501,8 @@ func (handlers classHandlers) writeProblem(w http.ResponseWriter, r *http.Reques
 
 func classAccess(principal identity.Principal) classroom.AccessContext {
 	access := classroom.AccessContext{
-		ActorID: principal.User.ID,
+		ActorID:         principal.User.ID,
+		AuthenticatedAt: principal.AuthenticatedAt,
 	}
 	if principal.ActiveTenant != nil {
 		access.TenantID = principal.ActiveTenant.ID
@@ -262,29 +521,70 @@ func newClassResponse(class classroom.Class) classResponse {
 		Code:        class.Code,
 		Title:       class.Title,
 		Description: class.Description,
+		Timezone:    class.Timezone,
 		Status:      class.Status,
+		Version:     class.Version,
 		CreatedAt:   class.CreatedAt,
 		UpdatedAt:   class.UpdatedAt,
+		ArchivedAt:  class.ArchivedAt,
 	}
 }
 
-func parseClassID(path string) (uuid.UUID, bool) {
+func parseClassRoute(path string) (classRoute, bool) {
 	value := strings.TrimPrefix(path, classesResourcePathPrefix)
-	if value == path || value == "" || strings.Contains(value, "/") {
-		return uuid.Nil, false
+	if value == path || value == "" {
+		return classRoute{}, false
 	}
-	classID, err := uuid.Parse(value)
-	return classID, err == nil && classID != uuid.Nil
+	parts := strings.Split(value, "/")
+	if len(parts) < 1 || len(parts) > 2 || parts[0] == "" {
+		return classRoute{}, false
+	}
+	classID, err := uuid.Parse(parts[0])
+	if err != nil || classID == uuid.Nil {
+		return classRoute{}, false
+	}
+	route := classRoute{ID: classID}
+	if len(parts) == 2 {
+		if parts[1] == "" {
+			return classRoute{}, false
+		}
+		route.Action = parts[1]
+	}
+	return route, true
 }
 
-func parseClassListLimit(r *http.Request) (int, error) {
-	value := strings.TrimSpace(r.URL.Query().Get("limit"))
-	if value == "" {
-		return defaultClassListLimit, nil
+func parseClassListInput(r *http.Request) (classroom.ListClassesInput, error) {
+	query := r.URL.Query()
+	input := classroom.ListClassesInput{Limit: defaultClassListLimit}
+
+	if query.Has("status") {
+		value := classroom.ClassStatus(strings.TrimSpace(query.Get("status")))
+		switch value {
+		case classroom.ClassStatusDraft,
+			classroom.ClassStatusActive,
+			classroom.ClassStatusArchived:
+			input.Status = &value
+		default:
+			return classroom.ListClassesInput{}, classroom.ErrInvalidClassInput
+		}
 	}
-	limit, err := strconv.Atoi(value)
-	if err != nil || limit < 1 || limit > maximumClassListLimit {
-		return 0, classroom.ErrInvalidListLimit
+
+	if query.Has("limit") {
+		value := strings.TrimSpace(query.Get("limit"))
+		limit, err := strconv.Atoi(value)
+		if err != nil || limit < 1 || limit > maximumClassListLimit {
+			return classroom.ListClassesInput{}, classroom.ErrInvalidListLimit
+		}
+		input.Limit = limit
 	}
-	return limit, nil
+
+	if query.Has("cursor") {
+		cursor := strings.TrimSpace(query.Get("cursor"))
+		if cursor == "" || len(cursor) > maximumClassCursorLength {
+			return classroom.ListClassesInput{}, classroom.ErrInvalidClassCursor
+		}
+		input.Cursor = cursor
+	}
+
+	return input, nil
 }

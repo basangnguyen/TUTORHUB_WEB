@@ -14,6 +14,7 @@ import {
   type LocalUserChoices,
 } from "@livekit/components-react";
 import { APIRequestError } from "@tutorhub/api-client";
+import { Skeleton, SkeletonGroup } from "@tutorhub/ui";
 import { Room, RoomEvent, Track } from "livekit-client";
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
@@ -49,7 +50,11 @@ export function ClassroomPreJoinPage() {
   const [joinError, setJoinError] = useState<string | null>(null);
 
   const joinRoom = async (choices: LocalUserChoices) => {
-    if (!classId || joinStatus === "joining") {
+    if (
+      !classId ||
+      classroom.data?.status !== "active" ||
+      joinStatus === "joining"
+    ) {
       return;
     }
     const startedAt = performance.now();
@@ -83,6 +88,48 @@ export function ClassroomPreJoinPage() {
   if (!classId) {
     return <PreJoinFailure message={t("media.prejoin.invalidClass")} />;
   }
+  if (classroom.isPending) {
+    return (
+      <div className="page-content media-prejoin-page">
+        <Link className="classroom-back-link" to={`/app/classrooms/${classId}`}>
+          {t("media.prejoin.backToClass")}
+        </Link>
+        <SkeletonGroup
+          className="media-prejoin-skeleton"
+          label={t("media.prejoin.loadingClass")}
+        >
+          <Skeleton />
+          <Skeleton />
+          <Skeleton />
+        </SkeletonGroup>
+      </div>
+    );
+  }
+  if (classroom.isError) {
+    return (
+      <div className="page-content media-prejoin-page">
+        <Link className="classroom-back-link" to={`/app/classrooms/${classId}`}>
+          {t("media.prejoin.backToClass")}
+        </Link>
+        <section className="media-prejoin-notice" role="alert">
+          <strong>{t("media.prejoin.classError")}</strong>
+          <button onClick={() => void classroom.refetch()} type="button">
+            {t("state.retry")}
+          </button>
+        </section>
+      </div>
+    );
+  }
+  if (classroom.data.status !== "active") {
+    return (
+      <div className="page-content media-prejoin-page">
+        <Link className="classroom-back-link" to={`/app/classrooms/${classId}`}>
+          {t("media.prejoin.backToClass")}
+        </Link>
+        <PreJoinFailure message={t("media.prejoin.classInactive")} />
+      </div>
+    );
+  }
 
   return (
     <div className="page-content media-prejoin-page">
@@ -95,15 +142,6 @@ export function ClassroomPreJoinPage() {
         <h1>{classroom.data?.title ?? t("media.prejoin.title")}</h1>
         <span>{t("media.prejoin.description")}</span>
       </header>
-
-      {classroom.isError && (
-        <section className="media-prejoin-notice" role="alert">
-          <strong>{t("media.prejoin.classError")}</strong>
-          <button onClick={() => void classroom.refetch()} type="button">
-            {t("state.retry")}
-          </button>
-        </section>
-      )}
 
       {!supported && canPublish ? (
         <PreJoinFailure message={t("media.prejoin.unsupported")} />

@@ -34,6 +34,22 @@ Invitation không cấp `org_admin`; accept yêu cầu session, CSRF và active 
 identity khớp exact normalized provider email. Cross-tenant và terminal token đều dùng
 uniform unavailable response để giảm enumeration.
 
+**P2-04 đã triển khai:** `class.archive` và `class.transfer_ownership` chỉ cấp cho
+active `org_admin` hoặc owner implicit từ `owner_user_id` của đúng class; teacher và
+co-teacher không được suy rộng hai quyền lifecycle này. Update/archive/restore/transfer
+dùng `expected_version` CAS, tenant scope server-side, authoritative membership
+reauthorization và transactional outbox trong cùng business transaction. Ownership
+target phải là active member cùng tenant đủ điều kiện `class.create`.
+
+Transfer ownership yêu cầu `auth_time` của principal/session trong 10 phút, tái dùng
+semantics recent-auth P2-01. Luồng hiện chưa force một OIDC authorization mới bằng
+`max_age`/`prompt`, nên đây chưa phải step-up tuyệt đối và phải được tăng cường trước
+các môi trường/rủi ro yêu cầu xác thực lại bắt buộc.
+
+LiveKit token và media event mới chỉ được xử lý khi class active. Archive chặn credential
+mới nhưng không thể thu hồi JWT đã cấp hoặc tự kick participant đang kết nối; TTL ngắn
+và room moderation về sau là các lớp kiểm soát bổ sung.
+
 ## 4. Web security
 
 - CSP nghiêm ngặt, không phụ thuộc inline script/eval.

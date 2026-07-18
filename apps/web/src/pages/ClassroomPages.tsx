@@ -7,17 +7,25 @@ import {
   DialogDescription,
   DialogFooter,
   DialogTitle,
+  SelectField,
   Skeleton,
   SkeletonGroup,
   TextAreaField,
   TextField,
 } from "@tutorhub/ui";
-import { Plus, RotateCw } from "lucide-react";
+import { ChevronDown, Plus, RotateCw } from "lucide-react";
 import { useMemo, useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { useClassDetail, useClassList, useCreateClass } from "../app/classes";
+import {
+  useClassDetail,
+  useClassList,
+  useCreateClass,
+  type ClassStatusFilter,
+} from "../app/classes";
 import { useI18n, type TranslationKey } from "../app/i18n";
 import { useSession } from "../app/session";
+import { useTenantDetail } from "../app/workspaces";
+import { ClassManagementPanel } from "../components/ClassManagementPanel";
 
 const classCodePattern = /^[A-Z0-9][A-Z0-9_-]{2,31}$/;
 
@@ -27,8 +35,20 @@ export function ClassroomListPage() {
   const activeTenant = session.currentUser?.active_tenant;
   const canCreate =
     session.currentUser?.permissions.includes("class.create") ?? false;
-  const classesQuery = useClassList(activeTenant?.id);
+  const [statusFilter, setStatusFilter] = useState<ClassStatusFilter>("all");
+  const classesQuery = useClassList(activeTenant?.id, statusFilter);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const classrooms = useMemo(() => {
+    const byID = new Map<string, ClassroomClass>();
+    for (const page of classesQuery.data?.pages ?? []) {
+      for (const classroom of page.items) {
+        if (!byID.has(classroom.id)) {
+          byID.set(classroom.id, classroom);
+        }
+      }
+    }
+    return [...byID.values()];
+  }, [classesQuery.data?.pages]);
 
   return (
     <div className="page-content classroom-page">
@@ -61,30 +81,75 @@ export function ClassroomListPage() {
             <h2 id="class-list-heading">{t("classroom.listTitle")}</h2>
             <p>{t("classroom.listDescription")}</p>
           </div>
-          {classesQuery.isSuccess && (
+          {classesQuery.data && (
             <span>
               {t("classroom.classCount", {
-                count: classesQuery.data.items.length,
+                count: classrooms.length,
               })}
             </span>
           )}
         </div>
 
+        <div className="classroom-list-controls">
+          <SelectField
+            ariaLabel={t("classroom.statusFilterLabel")}
+            label={t("classroom.statusFilterLabel")}
+            onValueChange={(value) =>
+              setStatusFilter(value as ClassStatusFilter)
+            }
+            options={[
+              { label: t("classroom.statusFilterAll"), value: "all" },
+              { label: t("classroom.statusDraft"), value: "draft" },
+              { label: t("classroom.statusActive"), value: "active" },
+              { label: t("classroom.statusArchived"), value: "archived" },
+            ]}
+            value={statusFilter}
+          />
+        </div>
+
         {classesQuery.isPending && <ClassListSkeleton />}
-        {classesQuery.isError && (
+        {classesQuery.isError && classrooms.length === 0 && (
           <ClassroomQueryError
             error={classesQuery.error}
             onRetry={() => void classesQuery.refetch()}
           />
         )}
-        {classesQuery.isSuccess && classesQuery.data.items.length === 0 && (
+        {classesQuery.data && classrooms.length === 0 && (
           <ClassroomEmptyState
             canCreate={canCreate}
+            filtered={statusFilter !== "all"}
             onCreate={() => setIsCreateOpen(true)}
           />
         )}
-        {classesQuery.isSuccess && classesQuery.data.items.length > 0 && (
-          <ClassList classes={classesQuery.data.items} />
+        {classesQuery.data && classrooms.length > 0 && (
+          <>
+            <ClassList classes={classrooms} />
+            {classesQuery.isFetchNextPageError && (
+              <div className="classroom-pagination-error" role="alert">
+                <span>{t("classroom.loadMoreError")}</span>
+                <Button
+                  onClick={() => void classesQuery.fetchNextPage()}
+                  size="sm"
+                  variant="secondary"
+                >
+                  {t("state.retry")}
+                </Button>
+              </div>
+            )}
+            {classesQuery.hasNextPage && !classesQuery.isFetchNextPageError && (
+              <div className="classroom-pagination">
+                <Button
+                  leadingIcon={<ChevronDown />}
+                  loading={classesQuery.isFetchingNextPage}
+                  loadingLabel={t("classroom.loadingMore")}
+                  onClick={() => void classesQuery.fetchNextPage()}
+                  variant="secondary"
+                >
+                  {t("classroom.loadMore")}
+                </Button>
+              </div>
+            )}
+          </>
         )}
       </section>
     </div>
@@ -121,7 +186,7 @@ export function ClassroomDetailPage() {
 
   const classroom = classQuery.data;
   const canJoin =
-    classroom.status !== "archived" &&
+    classroom.status === "active" &&
     (session.currentUser?.permissions.includes("session.join") ?? false);
   const dateFormatter = new Intl.DateTimeFormat(
     language === "vi" ? "vi-VN" : "en-US",
@@ -174,6 +239,10 @@ export function ClassroomDetailPage() {
             </dd>
           </div>
           <div>
+            <dt>{t("classroom.timezoneLabel")}</dt>
+            <dd>{classroom.timezone}</dd>
+          </div>
+          <div>
             <dt>{t("classroom.createdLabel")}</dt>
             <dd>{dateFormatter.format(new Date(classroom.created_at))}</dd>
           </div>
@@ -181,8 +250,19 @@ export function ClassroomDetailPage() {
             <dt>{t("classroom.updatedLabel")}</dt>
             <dd>{dateFormatter.format(new Date(classroom.updated_at))}</dd>
           </div>
+          {classroom.archived_at && (
+            <div>
+              <dt>{t("classroom.archivedLabel")}</dt>
+              <dd>{dateFormatter.format(new Date(classroom.archived_at))}</dd>
+            </div>
+          )}
         </dl>
       </section>
+
+      <ClassManagementPanel
+        classroom={classroom}
+        onReload={async () => (await classQuery.refetch()).data}
+      />
     </article>
   );
 }
@@ -197,13 +277,23 @@ function CreateClassDialog({
   const { t } = useI18n();
   const navigate = useNavigate();
   const session = useSession();
-  const createClass = useCreateClass(session.currentUser?.active_tenant?.id);
+  const activeTenantID = session.currentUser?.active_tenant?.id;
+  const createClass = useCreateClass(activeTenantID);
+  const activeTenant = useTenantDetail(open ? activeTenantID : undefined);
   const [code, setCode] = useState("");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [timezone, setTimezone] = useState("");
+  const [timezoneTouched, setTimezoneTouched] = useState(false);
   const [validationError, setValidationError] = useState<TranslationKey | null>(
     null,
   );
+
+  const displayedTimezone = timezoneTouched
+    ? timezone
+    : (activeTenant.data?.timezone ??
+      session.currentUser?.user.timezone ??
+      "UTC");
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -223,6 +313,15 @@ function CreateClassDialog({
       setValidationError("classroom.descriptionError");
       return;
     }
+    const normalizedTimezone = displayedTimezone.trim();
+    if (
+      !normalizedTimezone ||
+      normalizedTimezone.length > 100 ||
+      !isValidTimeZone(normalizedTimezone)
+    ) {
+      setValidationError("classroom.timezoneError");
+      return;
+    }
 
     setValidationError(null);
     createClass.mutate(
@@ -230,6 +329,7 @@ function CreateClassDialog({
         code: normalizedCode,
         title: normalizedTitle,
         description: description.trim(),
+        timezone: normalizedTimezone,
       },
       {
         onSuccess: (created) => {
@@ -269,6 +369,18 @@ function CreateClassDialog({
             placeholder={t("classroom.titlePlaceholder")}
             required
             value={title}
+          />
+          <TextField
+            autoComplete="off"
+            hint={t("classroom.timezoneHelp")}
+            label={t("classroom.timezoneLabel")}
+            maxLength={100}
+            onChange={(event) => {
+              setTimezoneTouched(true);
+              setTimezone(event.target.value);
+            }}
+            required
+            value={displayedTimezone}
           />
           <TextAreaField
             className="class-create-form__description"
@@ -363,17 +475,27 @@ function ClassStatus({ status }: { status: ClassroomClass["status"] }) {
 
 function ClassroomEmptyState({
   canCreate,
+  filtered,
   onCreate,
 }: {
   canCreate: boolean;
+  filtered: boolean;
   onCreate: () => void;
 }) {
   const { t } = useI18n();
   return (
     <div className="classroom-empty-state">
       <span aria-hidden="true">01</span>
-      <h3>{t("classroom.emptyTitle")}</h3>
-      <p>{t("classroom.emptyDescription")}</p>
+      <h3>
+        {filtered
+          ? t("classroom.emptyFilteredTitle")
+          : t("classroom.emptyTitle")}
+      </h3>
+      <p>
+        {filtered
+          ? t("classroom.emptyFilteredDescription")
+          : t("classroom.emptyDescription")}
+      </p>
       {canCreate && (
         <Button leadingIcon={<Plus />} onClick={onCreate} size="sm">
           {t("classroom.createFirstAction")}
@@ -464,4 +586,13 @@ function getCreateErrorMessage(
     return t("classroom.createForbiddenError");
   }
   return t("classroom.createError");
+}
+
+function isValidTimeZone(timezone: string) {
+  try {
+    new Intl.DateTimeFormat("en", { timeZone: timezone }).format();
+    return true;
+  } catch {
+    return false;
+  }
 }

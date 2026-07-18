@@ -83,6 +83,11 @@ sau đó token phải khớp keyed HMAC của session trong PostgreSQL. Không d
 | `POST /api/v1/tenants/{tenant_id}/invitations/{invitation_id}/revoke` | Admin revoke invitation pending, idempotent khi revoke lặp lại |
 | `POST /api/v1/membership-invitations/preview` | Anonymous preview tối thiểu; token nằm trong JSON body |
 | `POST /api/v1/membership-invitations/accept` | Session + CSRF; accept bằng verified linked identity khớp email |
+| `GET/POST /api/v1/classes` | List status/cursor hoặc tạo class draft trong active tenant |
+| `GET/PATCH /api/v1/classes/{class_id}` | Đọc hoặc cập nhật metadata/activate với `expected_version` |
+| `POST /api/v1/classes/{class_id}/archive` | Archive draft/active với `class.archive`, CSRF và CAS |
+| `POST /api/v1/classes/{class_id}/restore` | Restore đúng trạng thái trước archive với CSRF và CAS |
+| `POST /api/v1/classes/{class_id}/transfer-ownership` | Transfer owner với CSRF, CAS và recent authentication 10 phút |
 
 Contract có thẩm quyền nằm tại `openapi/tutorhub.yaml`; TypeScript client được sinh ở
 `packages/api-client/src/generated/schema.ts`.
@@ -161,6 +166,34 @@ guard private-alpha, chưa phải distributed quota: Cloudflare/Render có thể
 vào proxy bucket. Không tin forwarded header khi Render origin còn public; trusted
 proxy/origin authentication và limiter phân tán thuộc P2-09.
 
+## Class lifecycle và ownership
+
+P2-04 giữ `owner_user_id` làm owner implicit của class; chưa tạo enrollment trước
+P2-05/P2-06. List class luôn lấy tenant từ active session, hỗ trợ status và opaque
+keyset cursor. Class tạo ở draft; update chỉ cho transition draft -> active. Archive
+nhận draft hoặc active và restore trả chính xác về trạng thái trước archive.
+
+Update/archive/restore/transfer ownership đều nhận `expected_version`; SQL
+compare-and-swap rồi tăng version để stale request không ghi đè mutation mới hơn.
+Repository khóa tenant, class và actor/target membership theo thứ tự ổn định, đọc lại
+membership authoritative rồi dùng shared policy trong transaction. Resource ở tenant
+khác được che như not found. Lifecycle và ownership event được ghi vào transactional
+outbox cùng business mutation.
+
+`class.archive` và `class.transfer_ownership` chỉ thuộc active `org_admin` hoặc owner
+implicit của đúng class. Organization teacher/co-teacher không được suy rộng hai quyền
+này. Target ownership phải là active member cùng tenant có effective permission
+`class.create`; transfer vẫn được phép khi class archived, còn same-owner là no-op khi
+version còn khớp.
+
+Transfer yêu cầu `auth_time` trong principal/session không cũ hơn 10 phút và tái dùng
+recent-auth semantics của P2-01. Hiện login không force OIDC `max_age`/`prompt`; trường
+hợp provider không gửi `auth_time` được chuẩn hóa theo thời điểm login hiện tại. Vì vậy
+guard này chưa phải một OIDC step-up tuyệt đối.
+
+Media token và media event chỉ được chấp nhận khi class active. Archive không thu hồi
+JWT LiveKit đã phát hoặc kick participant đang kết nối.
+
 ## Tạo ứng dụng ZITADEL
 
 Trong một project ZITADEL dành riêng cho TutorHub, tạo hai Web applications. Không
@@ -225,17 +258,19 @@ pnpm test:integration
 pnpm verify
 ```
 
-Integration test chạy migration, tạo identity/session trong transaction bao ngoài,
-kiểm tra one-time flow, hash token, tenant permissions, workspace onboarding, tenant
-list/detail/update/archive, optimistic version, context CAS, switching, invitation
-create/preview/accept/replay/revoke/expiry/concurrent accept, CSRF/session rotation và
-revoke rồi rollback toàn bộ fixture.
+Bộ test unit, HTTP và PostgreSQL integration bao phủ one-time flow, hash token, tenant
+permissions, workspace onboarding, tenant list/detail/update/archive, optimistic
+version, context CAS, switching, invitation create/preview/accept/replay/revoke/expiry/
+concurrent accept, CSRF/session rotation, class list/keyset pagination, update CAS,
+lifecycle/ownership authorization, cross-tenant concealment, recent-auth và outbox.
+Các integration test database chạy migration trong transaction/fixture có cleanup.
 
 ## Trạng thái triển khai
 
 - Nền authentication ban đầu dùng migration `000004`; profile/identity dùng `000006`;
   tenant lifecycle/session-context CAS dùng `000007`; membership invitation dùng
-  `000008`. Các migration này đều có up/down path.
+  `000008`; class lifecycle/ownership dùng `000009`. Các migration này đều có up/down
+  path.
 - `tutorhub-local` đã được provision ngày 2026-07-14 trong project `TutorHub V2`,
   instance `tutorhub-v2-dev`. Secret chỉ nằm trong `.env.local` đã Git-ignore.
 - Browser smoke thật đã đạt: login/callback, `/api/v1/me`, reload giữ phiên,
@@ -253,6 +288,12 @@ revoke rồi rollback toàn bộ fixture.
   `pnpm verify` xanh ngày 2026-07-18; PostgreSQL integration-tag compile local. Runtime
   chưa chạy local vì không nạp DB test env; CI PostgreSQL 17 sẽ xác nhận clean
   migration/lifecycle/concurrent-accept sau push.
+- P2-04 đã bổ sung typed class list/update/archive/restore/ownership contract, CAS,
+  shared-policy lifecycle permissions, transaction/outbox và classroom UI.
+  `pnpm verify` xanh ngày 2026-07-18: web 55/55, API client 11/11, UI 6/6 cùng toàn
+  bộ lint/typecheck/build/Storybook, Go test/vet và security checks.
+  Migration/classroom/identity integration-tag compile xanh local; runtime PostgreSQL
+  chưa chạy local vì không nạp DB test env và sẽ do CI PostgreSQL 17 xác nhận.
 - ZITADEL trả profile/email qua UserInfo trong Authorization Code Flow. Adapter đã
   được sửa để xác minh ID token trước, gọi UserInfo sau và từ chối khi `sub` không
   khớp; test hồi quy và `pnpm verify` đều đạt.
