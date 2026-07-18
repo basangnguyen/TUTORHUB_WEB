@@ -17,9 +17,10 @@ Tạo nền multi-tenant và quản lý lớp đủ dùng cho pilot nội bộ:
 **Thời lượng kế hoạch:** 4-6 tuần tập trung, chia thành 6 sprint kỹ thuật.
 
 **Task đã hoàn thành:** P2-00 Policy and contract baseline; P2-01 User profile và
-identity linking; P2-02 Tenant lifecycle và workspace switching.
+identity linking; P2-02 Tenant lifecycle và workspace switching; P2-03 Membership
+invitation, accept và revoke.
 
-**Task kế tiếp:** P2-03 Membership invitation, accept và revoke.
+**Task kế tiếp:** P2-04 Class lifecycle, ownership và archive.
 
 ## 2. Non-goal
 
@@ -50,8 +51,8 @@ identity linking; P2-02 Tenant lifecycle và workspace switching.
 | P2-00 | Policy and contract baseline            | Phase 1                    | DONE       |
 | P2-01 | User profile và identity linking        | P2-00                      | DONE       |
 | P2-02 | Tenant lifecycle và workspace switching | P2-00                      | DONE       |
-| P2-03 | Membership invitation/accept/revoke     | P2-02                      | NEXT       |
-| P2-04 | Class lifecycle, ownership và archive   | P2-00, P2-02               | TODO       |
+| P2-03 | Membership invitation/accept/revoke     | P2-02                      | DONE       |
+| P2-04 | Class lifecycle, ownership và archive   | P2-00, P2-02               | NEXT       |
 | P2-05 | Enrollment và class invite code         | P2-03, P2-04               | TODO       |
 | P2-06 | Roster và class-level roles             | P2-05                      | TODO       |
 | P2-07 | Audit log cho hành động nhạy cảm        | P2-02 đến P2-06            | TODO       |
@@ -173,35 +174,57 @@ clean migration được workflow CI có PostgreSQL 17 xác nhận sau khi push 
 
 **Mục tiêu:** organization admin mời thành viên vào tenant bằng luồng một lần, có hạn.
 
-### Schema dự kiến
+### Schema triển khai
 
 `membership_invitations`: tenant, normalized email, intended role, token hash,
-status, expires_at, accepted_at, revoked_at, invited_by, accepted_by, created_at.
+status, expires_at, accepted_at, revoked_at, invited_by, accepted_by, revoked_by
+và timestamps; migration `000008` khóa state/timestamp, role và actor membership.
 
-### Contract đề xuất
+### Contract triển khai
 
 - `GET /api/v1/tenants/{tenantId}/invitations`
 - `POST /api/v1/tenants/{tenantId}/invitations`
 - `POST /api/v1/tenants/{tenantId}/invitations/{invitationId}/revoke`
-- `GET /api/v1/membership-invitations/{token}/preview`
-- `POST /api/v1/membership-invitations/{token}/accept`
+- `POST /api/v1/membership-invitations/preview`
+- `POST /api/v1/membership-invitations/accept`
+
+Hai token endpoint nhận `{ "token": "..." }` trong JSON body; share URL dùng
+`/invite#token=...` và web xóa fragment ngay. Không đưa bearer token vào path/query,
+request log, browser history hoặc referrer.
 
 ### Công việc
 
-- [ ] Sinh token CSPRNG, chỉ lưu hash và redaction trong log/audit.
-- [ ] TTL cấu hình được; status state machine `pending/accepted/revoked/expired`.
-- [ ] Accept kiểm tra email/identity policy, transaction và idempotency.
-- [ ] Không tạo membership trùng; re-invite xử lý theo policy rõ ràng.
-- [ ] Role được mời phải nằm trong tập role actor có quyền cấp.
-- [ ] Notification adapter chỉ là interface/outbox; gửi email thật thuộc phase sau.
-- [ ] UI admin list/create/revoke và trang preview/accept.
+- [x] Sinh token CSPRNG 256-bit, chỉ lưu purpose-bound HMAC và redaction trong log/audit.
+- [x] TTL `MEMBERSHIP_INVITATION_TTL` cấu hình 15 phút đến 30 ngày; state machine
+  `pending/accepted/revoked/expired` có invariant DB.
+- [x] Accept yêu cầu session + CSRF và active verified linked identity khớp exact
+  normalized provider email; transaction/idempotency không tự đổi active tenant.
+- [x] Không tạo membership trùng; một pending invitation trên tenant/email, existing
+  membership luôn conflict, revoked/expired address được re-invite.
+- [x] Chỉ `org_admin` có `tenant.manage_members`; flow này chỉ cấp
+  `teacher/student/guest`, không cấp `org_admin`.
+- [x] Notification adapter chỉ là interface/outbox; gửi email thật thuộc phase sau.
+- [x] UI admin list/create/copy-once/revoke và trang preview/accept có i18n vi/en,
+  loading/empty/error/forbidden/offline/retry phù hợp.
 
 ### Kiểm thử và DoD
 
-- Token hết hạn, revoke, reuse, brute-force shape và concurrent accept đều bị chặn.
-- Token thô không xuất hiện trong DB, structured log hoặc audit payload.
-- Accept lặp lại trả kết quả idempotent, không tạo hai membership.
-- Cross-tenant invitation enumeration bị chặn.
+- [x] Token hết hạn, revoke, reuse, malformed/brute-force shape và concurrent accept
+  đều bị chặn; preview/accept có bounded in-process rate limiter theo action/IP prefix.
+- [x] Token thô không xuất hiện trong DB, structured log hoặc audit payload.
+- [x] Accept lặp lại trả kết quả idempotent, không tạo hai membership/event.
+- [x] Cross-tenant invitation enumeration bị chặn bằng active-tenant policy,
+  repository re-authorization và uniform unavailable response.
+
+**Verification:** `pnpm verify` xanh ngày 2026-07-18: web 44/44, API client 11/11,
+generated contract, lint/typecheck/build/Storybook, Go test/vet và security checks.
+Identity/migration integration-tag compile xanh; runtime chưa chạy local vì không nạp
+DB test env. Workflow CI PostgreSQL 17 sẽ xác nhận clean migration và PostgreSQL
+lifecycle/concurrent-accept sau push.
+
+**Giới hạn private alpha:** limiter hiện dùng `RemoteAddr`; Cloudflare/Render có thể
+gộp client vào proxy bucket. Không tin trực tiếp forwarded header khi Render origin
+còn public; trusted-proxy/origin authentication và distributed limiter thuộc P2-09.
 
 ## 9. P2-04 Class lifecycle, ownership và archive
 
@@ -440,8 +463,9 @@ status, expires_at, accepted_at, revoked_at, invited_by, accepted_by, created_at
 
 ## 19. Việc cần làm ngay
 
-1. Theo dõi PostgreSQL integration/clean-migration gate của checkpoint P2-02 trên CI.
-2. Bắt đầu P2-03 từ contract invitation list/create/revoke và preview/accept sau khi CI xanh.
-3. Chốt token hash, TTL, state machine và email/identity policy trước migration.
-4. Giữ notification ở interface/outbox; chưa gửi email thật trong Phase 2.
-5. Không bắt đầu enrollment/roster trước khi invitation transaction và deny tests đạt.
+1. Theo dõi PostgreSQL integration/clean-migration gate của checkpoint P2-03 trên CI.
+2. Bắt đầu P2-04 từ contract class update/archive/restore và optimistic concurrency.
+3. Chốt class ownership transfer, archive/restore state machine và compatibility với
+   classroom/LiveKit route hiện có trước migration.
+4. Giữ notification invitation ở interface/outbox; chưa gửi email thật trong Phase 2.
+5. Không bắt đầu enrollment/roster trước khi P2-04 class lifecycle và deny tests đạt.

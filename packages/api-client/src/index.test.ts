@@ -1,9 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   APIRequestError,
+  acceptMembershipInvitation,
   archiveTenant,
   beginIdentityLink,
   createClass,
+  createMembershipInvitation,
   createTenant,
   getClass,
   getCurrentUser,
@@ -14,9 +16,12 @@ import {
   issueClassMediaToken,
   listIdentities,
   listClasses,
+  listMembershipInvitations,
   listTenants,
   logout,
   recordClassMediaEvent,
+  previewMembershipInvitation,
+  revokeMembershipInvitation,
   rotateCSRFToken,
   switchActiveTenant,
   unlinkIdentity,
@@ -335,6 +340,133 @@ describe("getHealth", () => {
     await expect(requests[3]?.clone().json()).resolves.toEqual({
       expected_version: 4,
     });
+  });
+
+  it("keeps membership invitation tokens in POST bodies and never request URLs", async () => {
+    const tenantID = "4b18543a-74de-419f-9fe8-d0c3dfc991eb";
+    const invitationID = "711ca438-a597-49a3-ab21-e5ae04391883";
+    const token = `thinv1_${"A".repeat(43)}`;
+    const invitation = {
+      id: invitationID,
+      tenant_id: tenantID,
+      email: "teacher@example.com",
+      intended_role: "teacher" as const,
+      status: "pending" as const,
+      expires_at: "2026-07-25T04:00:00Z",
+      accepted_at: null,
+      revoked_at: null,
+      created_at: "2026-07-18T04:00:00Z",
+      updated_at: "2026-07-18T04:00:00Z",
+    };
+    const currentUser = {
+      user: {
+        id: "be85eb92-0f18-4163-85ba-50e4d343d632",
+        email: "teacher@example.com",
+        display_name: "Teacher",
+        locale: "vi",
+        timezone: "Asia/Ho_Chi_Minh",
+      },
+      active_tenant: null,
+      memberships: [],
+      permissions: [],
+    };
+    const responses = [
+      new Response(JSON.stringify({ items: [invitation] }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+      new Response(
+        JSON.stringify({
+          invitation,
+          accept_url: `https://web.example/invite#token=${token}`,
+        }),
+        {
+          status: 201,
+          headers: { "Content-Type": "application/json" },
+        },
+      ),
+      new Response(
+        JSON.stringify({ ...invitation, status: "revoked" as const }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        },
+      ),
+      new Response(
+        JSON.stringify({
+          tenant_name: "TutorHub Test",
+          masked_email: "t*****r@example.com",
+          intended_role: "teacher",
+          status: "pending",
+          expires_at: invitation.expires_at,
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        },
+      ),
+      new Response(
+        JSON.stringify({
+          invitation: {
+            ...invitation,
+            status: "accepted",
+            accepted_at: "2026-07-18T05:00:00Z",
+          },
+          current_user: currentUser,
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        },
+      ),
+    ];
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(() => Promise.resolve(responses.shift()));
+    const options = { baseUrl: "http://localhost/api", fetch: fetchMock };
+
+    await expect(listMembershipInvitations(tenantID, options)).resolves.toEqual(
+      { items: [invitation] },
+    );
+    await expect(
+      createMembershipInvitation(
+        tenantID,
+        { email: invitation.email, intended_role: "teacher" },
+        "create-csrf",
+        options,
+      ),
+    ).resolves.toMatchObject({ invitation: { id: invitationID } });
+    await expect(
+      revokeMembershipInvitation(
+        tenantID,
+        invitationID,
+        "revoke-csrf",
+        options,
+      ),
+    ).resolves.toMatchObject({ status: "revoked" });
+    await expect(
+      previewMembershipInvitation({ token }, options),
+    ).resolves.toMatchObject({ masked_email: "t*****r@example.com" });
+    await expect(
+      acceptMembershipInvitation({ token }, "accept-csrf", options),
+    ).resolves.toMatchObject({ current_user: currentUser });
+
+    const requests = fetchMock.mock.calls.map((call) => call[0] as Request);
+    expect(requests.map((request) => request.url)).toEqual([
+      `http://localhost/api/v1/tenants/${tenantID}/invitations`,
+      `http://localhost/api/v1/tenants/${tenantID}/invitations`,
+      `http://localhost/api/v1/tenants/${tenantID}/invitations/${invitationID}/revoke`,
+      "http://localhost/api/v1/membership-invitations/preview",
+      "http://localhost/api/v1/membership-invitations/accept",
+    ]);
+    expect(requests.every((request) => !request.url.includes(token))).toBe(
+      true,
+    );
+    expect(requests[1]?.headers.get("X-CSRF-Token")).toBe("create-csrf");
+    expect(requests[2]?.headers.get("X-CSRF-Token")).toBe("revoke-csrf");
+    expect(requests[4]?.headers.get("X-CSRF-Token")).toBe("accept-csrf");
+    await expect(requests[3]?.clone().json()).resolves.toEqual({ token });
+    await expect(requests[4]?.clone().json()).resolves.toEqual({ token });
   });
 
   it("gọi class list, detail và create theo contract tenant-scoped", async () => {

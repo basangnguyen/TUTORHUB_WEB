@@ -2785,3 +2785,269 @@ textarea:focus-visible {
     width: 100%;
   }
 }
+
+.membership-invitations__heading {
+  justify-content: space-between;
+}
+
+.membership-invitations__success,
+.membership-invitations__error {
+  margin-bottom: 16px !important;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.membership-invitations__success {
+  border-left: 3px solid var(--color-success);
+  background: var(--color-success-soft);
+  color: var(--color-success);
+}
+
+.membership-invitations__error {
+  border-left: 3px solid var(--color-danger);
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+.membership-invitations__list {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.membership-invitations__list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(190px, auto) auto;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.membership-invitations__identity,
+.membership-invitations__metadata {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+}
+
+.membership-invitations__identity strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.membership-invitations__identity span,
+.membership-invitations__metadata > span {
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+
+.membership-invitations__metadata {
+  justify-items: start;
+}
+
+.membership-invitations__form,
+.membership-invitations__one-time-link {
+  display: grid;
+  gap: 18px;
+  margin-top: 20px;
+}
+
+.membership-invitations__one-time-link > p {
+  margin: 0;
+  color: var(--color-text-muted);
+  line-height: 1.55;
+}
+
+.membership-invitation-page {
+  display: grid;
+  min-height: 100dvh;
+  place-items: center;
+  padding: 40px 20px;
+  background:
+    radial-gradient(
+      circle at top left,
+      var(--color-accent-soft),
+      transparent 38%
+    ),
+    var(--color-canvas);
+}
+
+.membership-invitation-card {
+  width: min(100%, 640px);
+  padding: clamp(24px, 5vw, 44px);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.membership-invitation-card__brand {
+  display: inline-grid;
+  width: 48px;
+  height: 48px;
+  margin-bottom: 18px;
+  place-items: center;
+  border-radius: var(--radius-md);
+  background: var(--color-accent);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.membership-invitation-card__kicker,
+.membership-invitation-card > p {
+  margin: 0 0 8px;
+  color: var(--color-text-muted);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.membership-invitation-card h1 {
+  margin: 0 0 28px;
+  font-size: clamp(28px, 5vw, 40px);
+  letter-spacing: -0.035em;
+  line-height: 1.05;
+}
+
+.membership-invitation-card__content {
+  display: grid;
+  gap: 22px;
+}
+
+.membership-invitation-card__tenant {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 18px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-canvas);
+}
+
+.membership-invitation-card__tenant > div {
+  display: grid;
+  gap: 5px;
+}
+
+.membership-invitation-card__tenant span,
+.membership-invitation-card__facts dt {
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.membership-invitation-card__facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+}
+
+.membership-invitation-card__facts > div {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+.membership-invitation-card__facts dd {
+  overflow: hidden;
+  margin: 6px 0 0;
+  font-size: 14px;
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+
+.membership-invitation-card__action {
+  display: grid;
+  justify-items: start;
+  gap: 12px;
+  padding-top: 4px;
+}
+
+.membership-invitation-card__action p,
+.membership-invitation-card__action small {
+  margin: 0;
+  color: var(--color-text-muted);
+  line-height: 1.55;
+}
+
+.membership-invitation-card__error {
+  padding: 12px 14px;
+  border-left: 3px solid var(--color-danger);
+  background: var(--color-danger-soft);
+  color: var(--color-danger) !important;
+  font-size: 13px;
+}
+
+.membership-invitation-card--success {
+  text-align: center;
+}
+
+.membership-invitation-card--success > svg {
+  width: 52px;
+  height: 52px;
+  margin-bottom: 18px;
+  color: var(--color-success);
+}
+
+.membership-invitation-card--success > p:not(:first-of-type) {
+  margin: 0 auto 24px;
+  color: var(--color-text-muted);
+  font-size: 15px;
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 1.6;
+  text-transform: none;
+}
+
+.membership-invitation-card__continue {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 18px;
+  border-radius: var(--radius-sm);
+  background: var(--color-accent);
+  color: #fff;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.membership-invitation-card__continue:hover {
+  background: var(--color-accent-hover);
+}
+
+@media (max-width: 680px) {
+  .membership-invitations__heading,
+  .membership-invitation-card__tenant {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .membership-invitations__heading > button,
+  .membership-invitation-card__action > button {
+    width: 100%;
+  }
+
+  .membership-invitations__list li {
+    grid-template-columns: 1fr;
+  }
+
+  .membership-invitations__list li > button {
+    width: 100%;
+  }
+
+  .membership-invitation-card__facts {
+    grid-template-columns: 1fr;
+  }
+}

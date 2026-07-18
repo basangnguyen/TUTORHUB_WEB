@@ -19,6 +19,24 @@ export type TenantStatus = components["schemas"]["TenantStatus"];
 export type TenantMembership = components["schemas"]["TenantMembership"];
 export type Tenant = components["schemas"]["Tenant"];
 export type TenantListResponse = components["schemas"]["TenantListResponse"];
+export type MembershipInvitationStatus =
+  components["schemas"]["MembershipInvitationStatus"];
+export type InvitableOrganizationRole =
+  components["schemas"]["InvitableOrganizationRole"];
+export type MembershipInvitation =
+  components["schemas"]["MembershipInvitation"];
+export type MembershipInvitationListResponse =
+  components["schemas"]["MembershipInvitationListResponse"];
+export type CreateMembershipInvitationRequest =
+  components["schemas"]["CreateMembershipInvitationRequest"];
+export type CreateMembershipInvitationResponse =
+  components["schemas"]["CreateMembershipInvitationResponse"];
+export type MembershipInvitationTokenRequest =
+  components["schemas"]["MembershipInvitationTokenRequest"];
+export type MembershipInvitationPreview =
+  components["schemas"]["MembershipInvitationPreview"];
+export type MembershipInvitationAcceptResponse =
+  components["schemas"]["MembershipInvitationAcceptResponse"];
 type GeneratedUpdateTenantRequest =
   components["schemas"]["UpdateTenantRequest"];
 export type UpdateTenantRequest = GeneratedUpdateTenantRequest &
@@ -362,6 +380,119 @@ export async function archiveTenant(
 
   return requireData<CurrentUser>(
     data as CurrentUser | undefined,
+    error,
+    response,
+  );
+}
+
+export async function listMembershipInvitations(
+  tenantID: string,
+  options: APIRequestOptions = {},
+): Promise<MembershipInvitationListResponse> {
+  const { data, error, response } = await createTutorHubClient(options).GET(
+    "/api/v1/tenants/{tenant_id}/invitations",
+    {
+      params: { path: { tenant_id: tenantID } },
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<MembershipInvitationListResponse>(
+    data as MembershipInvitationListResponse | undefined,
+    error,
+    response,
+  );
+}
+
+export async function createMembershipInvitation(
+  tenantID: string,
+  input: CreateMembershipInvitationRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<CreateMembershipInvitationResponse> {
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/tenants/{tenant_id}/invitations",
+    {
+      params: {
+        path: { tenant_id: tenantID },
+        header: { "X-CSRF-Token": csrfToken },
+      },
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<CreateMembershipInvitationResponse>(
+    data as CreateMembershipInvitationResponse | undefined,
+    error,
+    response,
+  );
+}
+
+export async function revokeMembershipInvitation(
+  tenantID: string,
+  invitationID: string,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<MembershipInvitation> {
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/tenants/{tenant_id}/invitations/{invitation_id}/revoke",
+    {
+      params: {
+        path: { tenant_id: tenantID, invitation_id: invitationID },
+        header: { "X-CSRF-Token": csrfToken },
+      },
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<MembershipInvitation>(
+    data as MembershipInvitation | undefined,
+    error,
+    response,
+  );
+}
+
+export async function previewMembershipInvitation(
+  input: MembershipInvitationTokenRequest,
+  options: APIRequestOptions = {},
+): Promise<MembershipInvitationPreview> {
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/membership-invitations/preview",
+    {
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<MembershipInvitationPreview>(
+    data as MembershipInvitationPreview | undefined,
+    error,
+    response,
+  );
+}
+
+export async function acceptMembershipInvitation(
+  input: MembershipInvitationTokenRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<MembershipInvitationAcceptResponse> {
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/membership-invitations/accept",
+    {
+      params: { header: { "X-CSRF-Token": csrfToken } },
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<MembershipInvitationAcceptResponse>(
+    data as MembershipInvitationAcceptResponse | undefined,
     error,
     response,
   );

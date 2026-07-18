@@ -231,12 +231,16 @@ func (handlers authHandlers) writePrincipal(
 	status int,
 	principal identity.Principal,
 ) {
-	writeJSON(handlers.logger, w, status, meResponse{
+	writeJSON(handlers.logger, w, status, newMeResponse(principal))
+}
+
+func newMeResponse(principal identity.Principal) meResponse {
+	return meResponse{
 		User:         principal.User,
 		ActiveTenant: principal.ActiveTenant,
 		Memberships:  principal.Memberships,
 		Permissions:  principal.Permissions,
-	})
+	}
 }
 
 func (handlers authHandlers) available(w http.ResponseWriter, r *http.Request) bool {

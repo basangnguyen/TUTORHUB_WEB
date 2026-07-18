@@ -71,6 +71,7 @@ function jsonResponse(body: unknown, status = 200) {
 function renderPage(
   fetchMock: ReturnType<typeof vi.fn>,
   currentUser: CurrentUser,
+  language: "vi" | "en" = "vi",
 ) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -78,7 +79,7 @@ function renderPage(
   vi.stubGlobal("fetch", fetchMock);
   render(
     <QueryClientProvider client={queryClient}>
-      <I18nProvider>
+      <I18nProvider initialLanguage={language}>
         <SessionProvider mode={{ kind: "static", currentUser }}>
           <WorkspaceManagementPage />
         </SessionProvider>
@@ -126,6 +127,46 @@ describe("WorkspaceManagementPage", () => {
     expect(
       screen.queryByRole("button", { name: "Lưu trữ workspace" }),
     ).not.toBeInTheDocument();
+    expect(screen.queryByText("Lời mời thành viên")).not.toBeInTheDocument();
+  });
+
+  it("loads membership invitations only when the session grants tenant.manage_members", async () => {
+    const fetchMock = vi.fn().mockImplementation((request: Request) => {
+      if (request.url.endsWith(`/api/v1/tenants/${tenantID}/invitations`)) {
+        return Promise.resolve(jsonResponse({ items: [] }));
+      }
+      if (request.url.endsWith(`/api/v1/tenants/${tenantID}`)) {
+        return Promise.resolve(jsonResponse(tenant));
+      }
+      if (request.url.endsWith("/api/v1/tenants")) {
+        return Promise.resolve(jsonResponse({ items: [tenant] }));
+      }
+      return Promise.reject(new Error(`Unexpected request: ${request.url}`));
+    });
+    const admin = sessionFor("org_admin", true);
+
+    renderPage(
+      fetchMock,
+      {
+        ...admin,
+        permissions: [...admin.permissions, "tenant.manage_members"],
+      },
+      "en",
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "Member invitations" }),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "No invitations yet" }),
+    ).toBeInTheDocument();
+    expect(
+      fetchMock.mock.calls.some((call) =>
+        (call[0] as Request).url.endsWith(
+          `/api/v1/tenants/${tenantID}/invitations`,
+        ),
+      ),
+    ).toBe(true);
   });
 
   it("updates metadata with expected_version and synchronizes tenant caches", async () => {

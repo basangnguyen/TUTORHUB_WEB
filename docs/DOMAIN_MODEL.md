@@ -123,6 +123,19 @@ Create, switch và archive là privilege-context mutation. Session dùng
 đều xoay session/CSRF. Archive xóa active tenant khỏi các session liên quan để request
 sau không tiếp tục dùng permission của workspace đã archive.
 
+### Membership invitation
+
+`pending -> accepted/revoked/expired`; terminal state không quay lại `pending`. Re-invite
+tạo row/token mới sau `revoked` hoặc `expired`, không tái kích hoạt row cũ. Mỗi
+tenant/normalized-email chỉ có một row pending; bất kỳ membership row hiện hữu nào của
+email/verified linked identity đều chặn create. Accept replay chỉ idempotent cho chính
+acceptor khi membership active còn đúng intended role.
+
+Chỉ active `org_admin` có `tenant.manage_members`. Invitation flow P2-03 chỉ cấp
+`teacher/student/guest`; grant/promotion `org_admin` là mutation nhạy cảm riêng cần
+step-up policy. Accept yêu cầu active verified linked identity khớp exact normalized
+provider email và không tự đổi active tenant của session.
+
 ### Class
 
 `draft -> active -> archived`

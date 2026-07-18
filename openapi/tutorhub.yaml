@@ -475,6 +475,178 @@ paths:
           $ref: "#/components/responses/ConflictResponse"
         default:
           $ref: "#/components/responses/ProblemResponse"
+  /api/v1/tenants/{tenant_id}/invitations:
+    get:
+      operationId: listMembershipInvitations
+      summary: List membership invitations in the authenticated active workspace
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: tenant_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Tenant-scoped membership invitation list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MembershipInvitationListResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+    post:
+      operationId: createMembershipInvitation
+      summary: Create a one-time membership invitation in the active workspace
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: tenant_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateMembershipInvitationRequest"
+      responses:
+        "201":
+          description: Invitation created; the share URL is returned only in this response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateMembershipInvitationResponse"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/tenants/{tenant_id}/invitations/{invitation_id}/revoke:
+    post:
+      operationId: revokeMembershipInvitation
+      summary: Revoke a pending membership invitation
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: tenant_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: invitation_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Invitation revoked, including an idempotent repeated revoke
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MembershipInvitation"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/membership-invitations/preview:
+    post:
+      operationId: previewMembershipInvitation
+      summary: Preview a pending one-time membership invitation
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MembershipInvitationTokenRequest"
+      responses:
+        "200":
+          description: Minimal invitation details safe to show before authentication
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MembershipInvitationPreview"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "429":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/membership-invitations/accept:
+    post:
+      operationId: acceptMembershipInvitation
+      summary: Accept a membership invitation using a verified linked identity
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MembershipInvitationTokenRequest"
+      responses:
+        "200":
+          description: Invitation accepted without changing the active workspace
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MembershipInvitationAcceptResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "429":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
   /api/v1/session/active-tenant:
     put:
       operationId: switchActiveTenant
@@ -747,6 +919,7 @@ components:
       enum:
         - tenant.view
         - tenant.manage
+        - tenant.manage_members
         - class.create
         - class.update
         - class.view
@@ -1014,6 +1187,132 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Tenant"
+    MembershipInvitationStatus:
+      type: string
+      enum: [pending, accepted, revoked, expired]
+    InvitableOrganizationRole:
+      type: string
+      description: Roles grantable through the Phase 2 membership invitation flow.
+      enum: [teacher, student, guest]
+    MembershipInvitation:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - tenant_id
+        - email
+        - intended_role
+        - status
+        - expires_at
+        - accepted_at
+        - revoked_at
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        intended_role:
+          $ref: "#/components/schemas/InvitableOrganizationRole"
+        status:
+          $ref: "#/components/schemas/MembershipInvitationStatus"
+        expires_at:
+          type: string
+          format: date-time
+        accepted_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+        revoked_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    MembershipInvitationListResponse:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/MembershipInvitation"
+    CreateMembershipInvitationRequest:
+      type: object
+      additionalProperties: false
+      required: [email, intended_role]
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 3
+          maxLength: 320
+        intended_role:
+          $ref: "#/components/schemas/InvitableOrganizationRole"
+    CreateMembershipInvitationResponse:
+      type: object
+      additionalProperties: false
+      required: [invitation, accept_url]
+      properties:
+        invitation:
+          $ref: "#/components/schemas/MembershipInvitation"
+        accept_url:
+          type: string
+          format: uri
+          description: One-time share URL; it is never returned by list or revoke operations.
+    MembershipInvitationTokenRequest:
+      type: object
+      additionalProperties: false
+      required: [token]
+      properties:
+        token:
+          type: string
+          minLength: 50
+          maxLength: 50
+          pattern: "^thinv1_[A-Za-z0-9_-]{43}$"
+    MembershipInvitationPreview:
+      type: object
+      additionalProperties: false
+      required: [tenant_name, masked_email, intended_role, status, expires_at]
+      properties:
+        tenant_name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        masked_email:
+          type: string
+          minLength: 3
+          maxLength: 320
+        intended_role:
+          $ref: "#/components/schemas/InvitableOrganizationRole"
+        status:
+          type: string
+          const: pending
+        expires_at:
+          type: string
+          format: date-time
+    MembershipInvitationAcceptResponse:
+      type: object
+      additionalProperties: false
+      required: [invitation, current_user]
+      properties:
+        invitation:
+          $ref: "#/components/schemas/MembershipInvitation"
+        current_user:
+          $ref: "#/components/schemas/MeResponse"
     CreateTenantRequest:
       type: object
       additionalProperties: false

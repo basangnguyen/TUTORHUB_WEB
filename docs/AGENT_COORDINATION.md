@@ -56,14 +56,17 @@ ngoại lệ có thời hạn theo ADR-0012 và không được mô tả như br
 | P2-00 Policy/contract baseline | DONE       | Policy deny-by-default và role matrix dùng chung           |
 | P2-01 Profile/identity         | DONE       | Profile, identity linking và migration `000006`            |
 | P2-02 Tenant lifecycle         | DONE       | Lifecycle/switch, migration `000007`; `pnpm verify` xanh   |
-| P2-03 Membership invitation    | NEXT       | Task phát triển kế tiếp                                    |
-| P2-04 đến P2-12                | TODO       | Theo dependency trong backlog                              |
+| P2-03 Membership invitation    | DONE       | Invitation/accept/revoke, migration `000008`; verify xanh  |
+| P2-04 Class lifecycle          | NEXT       | Task phát triển kế tiếp                                    |
+| P2-05 đến P2-12                | TODO       | Theo dependency trong backlog                              |
 
 Nguồn thực thi: `docs/PHASE_2_BACKLOG.md`.
 
-Full `pnpm verify` của P2-02 đã xanh ngày 2026-07-18. Integration-tag đã compile local;
-clean migration và PostgreSQL integration được workflow CI có PostgreSQL 17 xác nhận
-sau khi push checkpoint, không dùng secret từ `.env*.local`.
+Full `pnpm verify` của P2-03 đã xanh ngày 2026-07-18: web 44/44, API client 11/11,
+generated contract, lint/typecheck/build/Storybook, Go test/vet và security checks.
+Identity/migration integration-tag compile local; runtime chưa chạy local vì không nạp
+DB test env. Workflow CI PostgreSQL 17 sẽ xác nhận clean migration và PostgreSQL
+lifecycle/concurrent-accept sau khi push checkpoint, không dùng secret từ `.env*.local`.
 
 ## 5. Hạ tầng staging đã chốt
 

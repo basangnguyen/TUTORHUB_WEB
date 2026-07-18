@@ -20,6 +20,10 @@ import {
 import { ProfileSettingsPage } from "../pages/ProfileSettingsPage";
 import { WorkspaceManagementPage } from "../pages/WorkspaceManagementPage";
 import {
+  MembershipInvitationAcceptedPage,
+  MembershipInvitationPage,
+} from "../pages/MembershipInvitationPage";
+import {
   ForbiddenPage,
   AuthenticationErrorPage,
   LoadingScreen,
@@ -179,6 +183,11 @@ export function createAppRoutes(): RouteObject[] {
       ],
     },
     { path: "/forbidden", element: <ForbiddenPage /> },
+    { path: "/invite", element: <MembershipInvitationPage /> },
+    {
+      path: "/invite/accepted",
+      element: <MembershipInvitationAcceptedPage />,
+    },
     { path: "/sign-in", element: <SignInPage /> },
     { path: "/signed-out", element: <SignedOutPage /> },
     { path: "/offline", element: <OfflinePage /> },

@@ -347,24 +347,42 @@ func findCookie(t *testing.T, cookies []*http.Cookie, name string) *http.Cookie 
 }
 
 type fakeIdentityService struct {
-	returnTo           string
-	callback           identity.CallbackInput
-	completeLogin      *identity.LoginResult
-	logoutCalled       bool
-	createTenantCalled bool
-	createTenantInput  identity.CreateTenantInput
-	updatedTenantID    uuid.UUID
-	updateTenantInput  identity.UpdateTenantInput
-	archivedTenantID   uuid.UUID
-	archiveVersion     int64
-	switchTenantID     uuid.UUID
-	principal          identity.Principal
-	profilePatch       identity.ProfilePatch
-	profileError       error
-	identities         []identity.ExternalIdentity
-	identityError      error
-	beginLinkCalled    bool
-	unlinkedIdentityID uuid.UUID
+	returnTo                  string
+	callback                  identity.CallbackInput
+	completeLogin             *identity.LoginResult
+	logoutCalled              bool
+	createTenantCalled        bool
+	createTenantInput         identity.CreateTenantInput
+	updatedTenantID           uuid.UUID
+	updateTenantInput         identity.UpdateTenantInput
+	archivedTenantID          uuid.UUID
+	archiveVersion            int64
+	switchTenantID            uuid.UUID
+	principal                 identity.Principal
+	profilePatch              identity.ProfilePatch
+	profileError              error
+	identities                []identity.ExternalIdentity
+	identityError             error
+	beginLinkCalled           bool
+	unlinkedIdentityID        uuid.UUID
+	invitations               []identity.MembershipInvitation
+	listInvitationsError      error
+	listInvitationsTenantID   uuid.UUID
+	createInvitationResult    identity.CreateMembershipInvitationResult
+	createInvitationError     error
+	createInvitationTenantID  uuid.UUID
+	createInvitationInput     identity.CreateMembershipInvitationInput
+	revokeInvitationResult    identity.MembershipInvitation
+	revokeInvitationError     error
+	revokeInvitationTenantID  uuid.UUID
+	revokeInvitationID        uuid.UUID
+	previewInvitationResult   identity.MembershipInvitationPreview
+	previewInvitationError    error
+	previewInvitationToken    string
+	acceptInvitationResult    identity.AcceptMembershipInvitationResult
+	acceptInvitationError     error
+	acceptInvitationToken     string
+	acceptInvitationPrincipal identity.Principal
 }
 
 func (service *fakeIdentityService) BeginLogin(
@@ -643,4 +661,68 @@ func (service *fakeIdentityService) UnlinkIdentity(
 ) error {
 	service.unlinkedIdentityID = identityID
 	return service.identityError
+}
+
+func (service *fakeIdentityService) ListMembershipInvitations(
+	_ context.Context,
+	_ identity.Principal,
+	tenantID uuid.UUID,
+) ([]identity.MembershipInvitation, error) {
+	service.listInvitationsTenantID = tenantID
+	if service.listInvitationsError != nil {
+		return nil, service.listInvitationsError
+	}
+	return append([]identity.MembershipInvitation(nil), service.invitations...), nil
+}
+
+func (service *fakeIdentityService) CreateMembershipInvitation(
+	_ context.Context,
+	_ identity.Principal,
+	tenantID uuid.UUID,
+	input identity.CreateMembershipInvitationInput,
+) (identity.CreateMembershipInvitationResult, error) {
+	service.createInvitationTenantID = tenantID
+	service.createInvitationInput = input
+	if service.createInvitationError != nil {
+		return identity.CreateMembershipInvitationResult{}, service.createInvitationError
+	}
+	return service.createInvitationResult, nil
+}
+
+func (service *fakeIdentityService) RevokeMembershipInvitation(
+	_ context.Context,
+	_ identity.Principal,
+	tenantID uuid.UUID,
+	invitationID uuid.UUID,
+) (identity.MembershipInvitation, error) {
+	service.revokeInvitationTenantID = tenantID
+	service.revokeInvitationID = invitationID
+	if service.revokeInvitationError != nil {
+		return identity.MembershipInvitation{}, service.revokeInvitationError
+	}
+	return service.revokeInvitationResult, nil
+}
+
+func (service *fakeIdentityService) PreviewMembershipInvitation(
+	_ context.Context,
+	token string,
+) (identity.MembershipInvitationPreview, error) {
+	service.previewInvitationToken = token
+	if service.previewInvitationError != nil {
+		return identity.MembershipInvitationPreview{}, service.previewInvitationError
+	}
+	return service.previewInvitationResult, nil
+}
+
+func (service *fakeIdentityService) AcceptMembershipInvitation(
+	_ context.Context,
+	principal identity.Principal,
+	token string,
+) (identity.AcceptMembershipInvitationResult, error) {
+	service.acceptInvitationPrincipal = principal
+	service.acceptInvitationToken = token
+	if service.acceptInvitationError != nil {
+		return identity.AcceptMembershipInvitationResult{}, service.acceptInvitationError
+	}
+	return service.acceptInvitationResult, nil
 }

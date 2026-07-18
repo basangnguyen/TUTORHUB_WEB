@@ -14,26 +14,27 @@ import (
 )
 
 const (
-	defaultPort               = "8080"
-	defaultWebOrigin          = "http://localhost:5173"
-	defaultAPIOrigin          = "http://localhost:8080"
-	defaultReadHeaderTimeout  = 5 * time.Second
-	defaultReadTimeout        = 15 * time.Second
-	defaultWriteTimeout       = 30 * time.Second
-	defaultIdleTimeout        = 60 * time.Second
-	defaultShutdownTimeout    = 10 * time.Second
-	defaultMaxHeaderBytes     = 1 << 20
-	defaultDBMaxConnections   = 4
-	defaultDBMinConnections   = 0
-	defaultDBConnectTimeout   = 10 * time.Second
-	defaultDBQueryTimeout     = 5 * time.Second
-	defaultDBMaxLifetime      = 30 * time.Minute
-	defaultDBMaxIdleTime      = 5 * time.Minute
-	defaultDBHealthPeriod     = time.Minute
-	defaultAuthFlowTTL        = 10 * time.Minute
-	defaultSessionTTL         = 8 * time.Hour
-	defaultSessionAbsoluteTTL = 24 * time.Hour
-	defaultLiveKitTokenTTL    = 5 * time.Minute
+	defaultPort                    = "8080"
+	defaultWebOrigin               = "http://localhost:5173"
+	defaultAPIOrigin               = "http://localhost:8080"
+	defaultReadHeaderTimeout       = 5 * time.Second
+	defaultReadTimeout             = 15 * time.Second
+	defaultWriteTimeout            = 30 * time.Second
+	defaultIdleTimeout             = 60 * time.Second
+	defaultShutdownTimeout         = 10 * time.Second
+	defaultMaxHeaderBytes          = 1 << 20
+	defaultDBMaxConnections        = 4
+	defaultDBMinConnections        = 0
+	defaultDBConnectTimeout        = 10 * time.Second
+	defaultDBQueryTimeout          = 5 * time.Second
+	defaultDBMaxLifetime           = 30 * time.Minute
+	defaultDBMaxIdleTime           = 5 * time.Minute
+	defaultDBHealthPeriod          = time.Minute
+	defaultAuthFlowTTL             = 10 * time.Minute
+	defaultSessionTTL              = 8 * time.Hour
+	defaultSessionAbsoluteTTL      = 24 * time.Hour
+	defaultMembershipInvitationTTL = 168 * time.Hour
+	defaultLiveKitTokenTTL         = 5 * time.Minute
 )
 
 var validEnvironments = map[string]struct{}{
@@ -80,18 +81,19 @@ type DatabaseConfig struct {
 }
 
 type AuthenticationConfig struct {
-	Enabled            bool
-	IssuerURL          string
-	ClientID           string
-	ClientSecret       string
-	CallbackURL        string
-	PostLogoutURL      string
-	Scopes             []string
-	SessionKey         []byte
-	CookieSecure       bool
-	FlowTTL            time.Duration
-	SessionTTL         time.Duration
-	SessionAbsoluteTTL time.Duration
+	Enabled                 bool
+	IssuerURL               string
+	ClientID                string
+	ClientSecret            string
+	CallbackURL             string
+	PostLogoutURL           string
+	Scopes                  []string
+	SessionKey              []byte
+	CookieSecure            bool
+	FlowTTL                 time.Duration
+	SessionTTL              time.Duration
+	SessionAbsoluteTTL      time.Duration
+	MembershipInvitationTTL time.Duration
 }
 
 type LiveKitConfig struct {
@@ -394,21 +396,34 @@ func authenticationConfig(
 		defaultSessionAbsoluteTTL,
 		validationErrors,
 	)
+	invitationTTL := durationValue(
+		lookup,
+		"MEMBERSHIP_INVITATION_TTL",
+		defaultMembershipInvitationTTL,
+		validationErrors,
+	)
 
 	config := AuthenticationConfig{
-		Enabled:            enabled,
-		IssuerURL:          issuerURL,
-		ClientID:           clientID,
-		ClientSecret:       clientSecret,
-		CallbackURL:        callbackURL,
-		PostLogoutURL:      postLogoutURL,
-		Scopes:             scopes,
-		CookieSecure:       cookieSecure,
-		FlowTTL:            flowTTL,
-		SessionTTL:         sessionTTL,
-		SessionAbsoluteTTL: absoluteTTL,
+		Enabled:                 enabled,
+		IssuerURL:               issuerURL,
+		ClientID:                clientID,
+		ClientSecret:            clientSecret,
+		CallbackURL:             callbackURL,
+		PostLogoutURL:           postLogoutURL,
+		Scopes:                  scopes,
+		CookieSecure:            cookieSecure,
+		FlowTTL:                 flowTTL,
+		SessionTTL:              sessionTTL,
+		SessionAbsoluteTTL:      absoluteTTL,
+		MembershipInvitationTTL: invitationTTL,
 	}
 
+	if invitationTTL < 15*time.Minute || invitationTTL > 720*time.Hour {
+		*validationErrors = append(
+			*validationErrors,
+			fmt.Errorf("MEMBERSHIP_INVITATION_TTL must be between 15m and 720h"),
+		)
+	}
 	if !enabled {
 		return config
 	}

@@ -11,7 +11,7 @@
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
 | Phase hiện tại        | Phase 2 - Identity, tenant và class core                                                     |
-| Trạng thái gần nhất   | P2-02 tenant lifecycle đã triển khai; P2-03 membership invitation là việc tiếp theo          |
+| Trạng thái gần nhất   | P2-03 membership invitation đã triển khai; P2-04 class lifecycle là việc tiếp theo          |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 
@@ -1184,14 +1184,16 @@ beta. Xem `docs/PHASE_1_COMPLETION.md`.
 
 **Mục tiêu:** có nền multi-tenant và quản lý lớp đủ dùng cho pilot nội bộ.
 
-**Backlog thực thi:** `docs/PHASE_2_BACKLOG.md`. P2-00 đến P2-02 đã triển khai;
-task kế tiếp là P2-03 membership invitation, accept và revoke.
+**Backlog thực thi:** `docs/PHASE_2_BACKLOG.md`. P2-00 đến P2-03 đã triển khai;
+task kế tiếp là P2-04 class lifecycle, ownership và archive.
 
-**Trạng thái 2026-07-18:** P2-02 bổ sung tenant list/detail/create/update/archive,
-`tenant.view`/`tenant.manage`, optimistic version, session-context CAS, session/CSRF
-rotation, success event durable qua outbox và cache invalidation khi đổi workspace.
-Full `pnpm verify` đã xanh ngày 2026-07-18; clean migration và PostgreSQL integration
-được workflow CI có PostgreSQL 17 xác nhận sau khi push checkpoint.
+**Trạng thái 2026-07-18:** P2-03 bổ sung `tenant.manage_members`, migration `000008`,
+invitation token CSPRNG chỉ lưu purpose-bound HMAC, TTL/state machine, transactional
+verified-identity accept idempotent, revoke/re-invite policy và admin/public UI typed.
+Token endpoint dùng POST body, share URL dùng fragment được xóa ngay; full `pnpm verify`
+đã xanh. Identity/migration integration-tag compile local; runtime chưa chạy local vì
+không nạp DB test env. CI PostgreSQL 17 sẽ xác nhận clean migration và PostgreSQL
+lifecycle/concurrent-accept sau push.
 
 **Work package:**
 
@@ -1688,8 +1690,9 @@ Một tính năng chỉ được đánh dấu hoàn thành khi:
 Thứ tự hiện tại, cập nhật ngày 2026-07-18:
 
 1. Phase 1 đã hoàn thành; biên bản nằm tại `docs/PHASE_1_COMPLETION.md`.
-2. P2-00 policy, P2-01 profile/identity và P2-02 tenant lifecycle đã triển khai.
-3. Bắt đầu P2-03 invitation flow theo dependency đã chốt.
+2. P2-00 policy, P2-01 profile/identity, P2-02 tenant lifecycle và P2-03 invitation
+   flow đã triển khai.
+3. Bắt đầu P2-04 class lifecycle/ownership/archive theo dependency đã chốt.
 4. Chỉ mở enrollment, roster và admin UI theo dependency
    trong `docs/PHASE_2_BACKLOG.md`.
 5. Không bắt đầu QuizHub, Lavie, social feed, Secure Exam web hoặc classroom
@@ -1740,5 +1743,5 @@ Thứ tự hiện tại, cập nhật ngày 2026-07-18:
 
 ---
 
-**Điểm bắt đầu sau tài liệu này:** đọc `docs/PROJECT_STATE.md` và triển khai P2-03 theo
+**Điểm bắt đầu sau tài liệu này:** đọc `docs/PROJECT_STATE.md` và triển khai P2-04 theo
 `docs/PHASE_2_BACKLOG.md`. Master Plan giữ mục tiêu/exit gate, không thay backlog chi tiết.

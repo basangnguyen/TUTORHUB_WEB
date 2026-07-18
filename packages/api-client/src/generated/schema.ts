@@ -227,6 +227,40 @@ export type paths = {
     readonly patch: operations["updateProfile"];
     readonly trace?: never;
   };
+  readonly "/api/v1/membership-invitations/accept": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Accept a membership invitation using a verified linked identity */
+    readonly post: operations["acceptMembershipInvitation"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/membership-invitations/preview": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Preview a pending one-time membership invitation */
+    readonly post: operations["previewMembershipInvitation"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/api/v1/session/active-tenant": {
     readonly parameters: {
       readonly query?: never;
@@ -308,6 +342,41 @@ export type paths = {
     readonly put?: never;
     /** Archive an active workspace and rotate the current session context */
     readonly post: operations["archiveTenant"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/tenants/{tenant_id}/invitations": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /** List membership invitations in the authenticated active workspace */
+    readonly get: operations["listMembershipInvitations"];
+    readonly put?: never;
+    /** Create a one-time membership invitation in the active workspace */
+    readonly post: operations["createMembershipInvitation"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/tenants/{tenant_id}/invitations/{invitation_id}/revoke": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Revoke a pending membership invitation */
+    readonly post: operations["revokeMembershipInvitation"];
     readonly delete?: never;
     readonly options?: never;
     readonly head?: never;
@@ -425,6 +494,19 @@ export type components = {
       readonly description?: string;
       readonly title: string;
     };
+    readonly CreateMembershipInvitationRequest: {
+      /** Format: email */
+      readonly email: string;
+      readonly intended_role: components["schemas"]["InvitableOrganizationRole"];
+    };
+    readonly CreateMembershipInvitationResponse: {
+      /**
+       * Format: uri
+       * @description One-time share URL; it is never returned by list or revoke operations.
+       */
+      readonly accept_url: string;
+      readonly invitation: components["schemas"]["MembershipInvitation"];
+    };
     readonly CreateTenantRequest: {
       readonly name: string;
       readonly slug: string;
@@ -459,6 +541,11 @@ export type components = {
     readonly IdentityListResponse: {
       readonly identities: readonly components["schemas"]["ExternalIdentity"][];
     };
+    /**
+     * @description Roles grantable through the Phase 2 membership invitation flow.
+     * @enum {string}
+     */
+    readonly InvitableOrganizationRole: "teacher" | "student" | "guest";
     readonly LivenessResponse: {
       /** @constant */
       readonly status: "live";
@@ -505,6 +592,48 @@ export type components = {
        */
       readonly server_url: string;
     };
+    readonly MembershipInvitation: {
+      /** Format: date-time */
+      readonly accepted_at: string | null;
+      /** Format: date-time */
+      readonly created_at: string;
+      /** Format: email */
+      readonly email: string;
+      /** Format: date-time */
+      readonly expires_at: string;
+      /** Format: uuid */
+      readonly id: string;
+      readonly intended_role: components["schemas"]["InvitableOrganizationRole"];
+      /** Format: date-time */
+      readonly revoked_at: string | null;
+      readonly status: components["schemas"]["MembershipInvitationStatus"];
+      /** Format: uuid */
+      readonly tenant_id: string;
+      /** Format: date-time */
+      readonly updated_at: string;
+    };
+    readonly MembershipInvitationAcceptResponse: {
+      readonly current_user: components["schemas"]["MeResponse"];
+      readonly invitation: components["schemas"]["MembershipInvitation"];
+    };
+    readonly MembershipInvitationListResponse: {
+      readonly items: readonly components["schemas"]["MembershipInvitation"][];
+    };
+    readonly MembershipInvitationPreview: {
+      /** Format: date-time */
+      readonly expires_at: string;
+      readonly intended_role: components["schemas"]["InvitableOrganizationRole"];
+      readonly masked_email: string;
+      /** @constant */
+      readonly status: "pending";
+      readonly tenant_name: string;
+    };
+    /** @enum {string} */
+    readonly MembershipInvitationStatus:
+      "pending" | "accepted" | "revoked" | "expired";
+    readonly MembershipInvitationTokenRequest: {
+      readonly token: string;
+    };
     readonly MeResponse: {
       readonly active_tenant: components["schemas"]["TenantMembership"] | null;
       readonly memberships: readonly components["schemas"]["TenantMembership"][];
@@ -517,6 +646,7 @@ export type components = {
     readonly Permission:
       | "tenant.view"
       | "tenant.manage"
+      | "tenant.manage_members"
       | "class.create"
       | "class.update"
       | "class.view"
@@ -1053,6 +1183,65 @@ export interface operations {
       readonly default: components["responses"]["ProblemResponse"];
     };
   };
+  readonly acceptMembershipInvitation: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly "X-CSRF-Token": string;
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["MembershipInvitationTokenRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Invitation accepted without changing the active workspace */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["MembershipInvitationAcceptResponse"];
+        };
+      };
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 429: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly previewMembershipInvitation: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["MembershipInvitationTokenRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Minimal invitation details safe to show before authentication */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["MembershipInvitationPreview"];
+        };
+      };
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 429: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
   readonly switchActiveTenant: {
     readonly parameters: {
       readonly query?: never;
@@ -1247,6 +1436,96 @@ export interface operations {
         };
       };
       readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly listMembershipInvitations: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path: {
+        readonly tenant_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Tenant-scoped membership invitation list */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["MembershipInvitationListResponse"];
+        };
+      };
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly createMembershipInvitation: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly "X-CSRF-Token": string;
+      };
+      readonly path: {
+        readonly tenant_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["CreateMembershipInvitationRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Invitation created; the share URL is returned only in this response */
+      readonly 201: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["CreateMembershipInvitationResponse"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly revokeMembershipInvitation: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly "X-CSRF-Token": string;
+      };
+      readonly path: {
+        readonly invitation_id: string;
+        readonly tenant_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Invitation revoked, including an idempotent repeated revoke */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["MembershipInvitation"];
+        };
+      };
       readonly 401: components["responses"]["UnauthorizedResponse"];
       readonly 403: components["responses"]["ForbiddenResponse"];
       readonly 404: components["responses"]["NotFoundResponse"];

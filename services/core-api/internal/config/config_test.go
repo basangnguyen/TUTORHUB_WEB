@@ -47,6 +47,13 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.Authentication.Enabled {
 		t.Fatal("authentication must remain disabled when no OIDC values are configured locally")
 	}
+	if cfg.Authentication.MembershipInvitationTTL != defaultMembershipInvitationTTL {
+		t.Fatalf(
+			"expected membership invitation TTL %s, got %s",
+			defaultMembershipInvitationTTL,
+			cfg.Authentication.MembershipInvitationTTL,
+		)
+	}
 	if cfg.LiveKit.Enabled || cfg.LiveKit.TokenTTL != defaultLiveKitTokenTTL {
 		t.Fatalf("unexpected LiveKit defaults: %+v", cfg.LiveKit)
 	}
@@ -59,37 +66,38 @@ func TestLoadCustomValues(t *testing.T) {
 	t.Parallel()
 
 	cfg, err := load(mapLookup(map[string]string{
-		"APP_ENV":                  " staging ",
-		"PORT":                     "9090",
-		"PUBLIC_WEB_ORIGIN":        "https://staging.tutorhub.example",
-		"PUBLIC_API_ORIGIN":        "https://api.staging.tutorhub.example",
-		"LOG_LEVEL":                "DEBUG",
-		"HTTP_READ_TIMEOUT":        "20s",
-		"HTTP_SHUTDOWN_TIMEOUT":    "25s",
-		"HTTP_MAX_HEADER_BYTES":    "2097152",
-		"HTTP_WRITE_TIMEOUT":       "45s",
-		"HTTP_IDLE_TIMEOUT":        "2m",
-		"HTTP_READ_HEADER_TIMEOUT": "7s",
-		"DATABASE_POOL_URL":        "postgresql://app:secret@db.example/tutorhub?sslmode=require",
-		"DATABASE_MAX_CONNECTIONS": "8",
-		"DATABASE_MIN_CONNECTIONS": "2",
-		"DATABASE_QUERY_TIMEOUT":   "9s",
-		"OIDC_ISSUER_URL":          "https://login.staging.tutorhub.example",
-		"OIDC_CLIENT_ID":           "tutorhub-staging",
-		"OIDC_CLIENT_SECRET":       "not-a-real-secret",
-		"SESSION_SECRET":           validSessionSecret(),
-		"SESSION_COOKIE_SECURE":    "true",
-		"SESSION_TTL":              "6h",
-		"SESSION_ABSOLUTE_TTL":     "24h",
-		"LIVEKIT_URL":              "wss://tutorhub-staging.livekit.cloud",
-		"LIVEKIT_API_KEY":          "staging-key",
-		"LIVEKIT_API_SECRET":       "not-a-real-livekit-secret",
-		"LIVEKIT_TOKEN_TTL":        "4m",
-		"B2_ENDPOINT":              "https://s3.us-east-005.backblazeb2.com",
-		"B2_REGION":                "us-east-005",
-		"B2_BUCKET":                "tutorhub-staging",
-		"B2_KEY_ID":                "staging-key-id",
-		"B2_APPLICATION_KEY":       "not-a-real-b2-secret",
+		"APP_ENV":                   " staging ",
+		"PORT":                      "9090",
+		"PUBLIC_WEB_ORIGIN":         "https://staging.tutorhub.example",
+		"PUBLIC_API_ORIGIN":         "https://api.staging.tutorhub.example",
+		"LOG_LEVEL":                 "DEBUG",
+		"HTTP_READ_TIMEOUT":         "20s",
+		"HTTP_SHUTDOWN_TIMEOUT":     "25s",
+		"HTTP_MAX_HEADER_BYTES":     "2097152",
+		"HTTP_WRITE_TIMEOUT":        "45s",
+		"HTTP_IDLE_TIMEOUT":         "2m",
+		"HTTP_READ_HEADER_TIMEOUT":  "7s",
+		"DATABASE_POOL_URL":         "postgresql://app:secret@db.example/tutorhub?sslmode=require",
+		"DATABASE_MAX_CONNECTIONS":  "8",
+		"DATABASE_MIN_CONNECTIONS":  "2",
+		"DATABASE_QUERY_TIMEOUT":    "9s",
+		"OIDC_ISSUER_URL":           "https://login.staging.tutorhub.example",
+		"OIDC_CLIENT_ID":            "tutorhub-staging",
+		"OIDC_CLIENT_SECRET":        "not-a-real-secret",
+		"SESSION_SECRET":            validSessionSecret(),
+		"SESSION_COOKIE_SECURE":     "true",
+		"SESSION_TTL":               "6h",
+		"SESSION_ABSOLUTE_TTL":      "24h",
+		"MEMBERSHIP_INVITATION_TTL": "336h",
+		"LIVEKIT_URL":               "wss://tutorhub-staging.livekit.cloud",
+		"LIVEKIT_API_KEY":           "staging-key",
+		"LIVEKIT_API_SECRET":        "not-a-real-livekit-secret",
+		"LIVEKIT_TOKEN_TTL":         "4m",
+		"B2_ENDPOINT":               "https://s3.us-east-005.backblazeb2.com",
+		"B2_REGION":                 "us-east-005",
+		"B2_BUCKET":                 "tutorhub-staging",
+		"B2_KEY_ID":                 "staging-key-id",
+		"B2_APPLICATION_KEY":        "not-a-real-b2-secret",
 	}))
 	if err != nil {
 		t.Fatalf("load custom values: %v", err)
@@ -116,6 +124,7 @@ func TestLoadCustomValues(t *testing.T) {
 	if !cfg.Authentication.Enabled ||
 		cfg.Authentication.ClientID != "tutorhub-staging" ||
 		cfg.Authentication.SessionTTL != 6*time.Hour ||
+		cfg.Authentication.MembershipInvitationTTL != 336*time.Hour ||
 		!cfg.Authentication.CookieSecure ||
 		len(cfg.Authentication.SessionKey) != 32 {
 		t.Fatalf("unexpected authentication config")
@@ -219,6 +228,19 @@ func TestLoadRejectsPartialOrWeakAuthenticationConfiguration(t *testing.T) {
 	} {
 		if !strings.Contains(message, expected) {
 			t.Fatalf("expected auth error to mention %s, got %q", expected, message)
+		}
+	}
+}
+
+func TestLoadRejectsMembershipInvitationTTLOutsideBounds(t *testing.T) {
+	t.Parallel()
+
+	for _, ttl := range []string{"14m", "721h"} {
+		_, err := load(mapLookup(map[string]string{
+			"MEMBERSHIP_INVITATION_TTL": ttl,
+		}))
+		if err == nil || !strings.Contains(err.Error(), "MEMBERSHIP_INVITATION_TTL") {
+			t.Fatalf("expected invitation TTL validation for %s, got %v", ttl, err)
 		}
 	}
 }

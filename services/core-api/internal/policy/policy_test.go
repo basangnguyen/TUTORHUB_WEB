@@ -262,6 +262,42 @@ func TestAuthorizeUsesPermissionAndResourceState(t *testing.T) {
 	}
 }
 
+func TestOnlyOrganizationAdminCanManageTenantMembers(t *testing.T) {
+	t.Parallel()
+
+	tenantID := uuid.New()
+	actorID := uuid.New()
+	engine := NewEngine()
+	for _, test := range []struct {
+		role    OrganizationRole
+		allowed bool
+	}{
+		{role: OrganizationRoleAdmin, allowed: true},
+		{role: OrganizationRoleTeacher},
+		{role: OrganizationRoleStudent},
+		{role: OrganizationRoleGuest},
+	} {
+		decision := engine.Authorize(Input{
+			Subject: Subject{
+				ActorID:          actorID,
+				ActiveTenantID:   tenantID,
+				MembershipActive: true,
+				OrganizationRoles: []OrganizationRole{
+					test.role,
+				},
+			},
+			Action: ActionTenantManageMembers,
+			Resource: Resource{
+				TenantID: tenantID,
+				State:    ResourceStateActive,
+			},
+		})
+		if decision.Allowed != test.allowed {
+			t.Fatalf("unexpected member-management decision for %s: %+v", test.role, decision)
+		}
+	}
+}
+
 func validTestSubject() Subject {
 	return Subject{
 		ActorID:           uuid.MustParse("11111111-1111-4111-8111-111111111111"),

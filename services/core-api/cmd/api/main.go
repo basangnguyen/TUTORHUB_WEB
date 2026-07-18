@@ -126,9 +126,10 @@ func run() int {
 			crypto,
 			authorizer,
 			identity.ServiceConfig{
-				FlowTTL:            cfg.Authentication.FlowTTL,
-				SessionTTL:         cfg.Authentication.SessionTTL,
-				SessionAbsoluteTTL: cfg.Authentication.SessionAbsoluteTTL,
+				FlowTTL:                 cfg.Authentication.FlowTTL,
+				SessionTTL:              cfg.Authentication.SessionTTL,
+				SessionAbsoluteTTL:      cfg.Authentication.SessionAbsoluteTTL,
+				MembershipInvitationTTL: cfg.Authentication.MembershipInvitationTTL,
 			},
 			time.Now,
 		)

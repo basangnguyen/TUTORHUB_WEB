@@ -79,6 +79,10 @@ sau đó token phải khớp keyed HMAC của session trong PostgreSQL. Không d
 | `PATCH /api/v1/tenants/{tenant_id}` | Cập nhật metadata với `tenant.manage`, CSRF và `expected_version` |
 | `POST /api/v1/tenants/{tenant_id}/archive` | Archive mềm, xóa active context và xoay session/CSRF |
 | `PUT /api/v1/session/active-tenant` | Xác minh membership, đổi active tenant và xoay session/CSRF |
+| `GET/POST /api/v1/tenants/{tenant_id}/invitations` | Admin list hoặc tạo membership invitation trong active tenant |
+| `POST /api/v1/tenants/{tenant_id}/invitations/{invitation_id}/revoke` | Admin revoke invitation pending, idempotent khi revoke lặp lại |
+| `POST /api/v1/membership-invitations/preview` | Anonymous preview tối thiểu; token nằm trong JSON body |
+| `POST /api/v1/membership-invitations/accept` | Session + CSRF; accept bằng verified linked identity khớp email |
 
 Contract có thẩm quyền nằm tại `openapi/tutorhub.yaml`; TypeScript client được sinh ở
 `packages/api-client/src/generated/schema.ts`.
@@ -123,6 +127,39 @@ Các mutation thành công ghi `tenant.created`, `tenant.updated`, `tenant.archi
 actor, from/to tenant và version cần thiết; audit query và failure event đầy đủ thuộc
 P2-07. Web áp dụng principal trả về ngay, hủy request cũ và xóa cache tenant-scoped để
 không hiển thị dữ liệu workspace trước sau create/switch/archive.
+
+## Membership invitation
+
+P2-03 thêm permission `tenant.manage_members`; chỉ active `org_admin` có quyền
+list/create/revoke trong đúng active tenant. Flow này chỉ cấp `teacher`, `student`
+hoặc `guest`; cấp `org_admin` cần mutation/step-up riêng ở task sau. Repository khóa
+tenant và membership actor rồi reauthorize policy trong transaction để không tin
+permission snapshot cũ.
+
+Create chuẩn hóa email, sinh token CSPRNG 256-bit có prefix phiên bản `thinv1_` và chỉ
+lưu purpose-bound HMAC 32 byte. Raw token chỉ được trả một lần trong `accept_url` dạng
+`/invite#token=...`; web consume fragment, gọi `history.replaceState` ngay và giữ token
+trong memory. Preview/accept đều là POST JSON body nên token không vào API path/query,
+browser history, referrer, structured log hoặc TanStack Query key/cache data.
+
+TTL mặc định 168 giờ, cấu hình bằng `MEMBERSHIP_INVITATION_TTL` trong khoảng 15 phút
+đến 720 giờ. Một tenant/email chỉ có một invitation `pending`; existing membership
+ở bất kỳ status nào làm create conflict. Invitation `revoked` hoặc `expired` cho phép
+re-invite; revoke lặp lại là idempotent. State `pending/accepted/revoked/expired` và
+timestamp hợp lệ được khóa thêm bằng constraint PostgreSQL.
+
+Anonymous preview chỉ trả tenant name, masked email, intended role và expiry. Accept
+yêu cầu session hợp lệ, CSRF và ít nhất một linked identity active có
+`email_verified=true` với normalized provider email khớp chính xác invitation; chỉ
+`users.email` không đủ. Transaction tuần tự hóa theo tenant, session, identity-user,
+membership rồi invitation, tạo tối đa một membership/event và cho cùng acceptor replay
+idempotent. Accept không tự chuyển active tenant hoặc xoay session; principal trả về có
+membership mới để user chủ động switch sau đó.
+
+Preview/accept có bounded in-process limiter theo action và `RemoteAddr` prefix. Đây là
+guard private-alpha, chưa phải distributed quota: Cloudflare/Render có thể gộp client
+vào proxy bucket. Không tin forwarded header khi Render origin còn public; trusted
+proxy/origin authentication và limiter phân tán thuộc P2-09.
 
 ## Tạo ứng dụng ZITADEL
 
@@ -169,6 +206,7 @@ OIDC_CLIENT_SECRET=
 OIDC_CALLBACK_URL=http://localhost:8080/api/v1/auth/callback
 OIDC_POST_LOGOUT_URL=http://localhost:5173/signed-out
 OIDC_SCOPES=openid profile email
+MEMBERSHIP_INVITATION_TTL=168h
 SESSION_COOKIE_SECURE=false
 ```
 
@@ -189,13 +227,15 @@ pnpm verify
 
 Integration test chạy migration, tạo identity/session trong transaction bao ngoài,
 kiểm tra one-time flow, hash token, tenant permissions, workspace onboarding, tenant
-list/detail/update/archive, optimistic version, context CAS, switching,
-CSRF/session rotation và revoke rồi rollback toàn bộ fixture.
+list/detail/update/archive, optimistic version, context CAS, switching, invitation
+create/preview/accept/replay/revoke/expiry/concurrent accept, CSRF/session rotation và
+revoke rồi rollback toàn bộ fixture.
 
 ## Trạng thái triển khai
 
 - Nền authentication ban đầu dùng migration `000004`; profile/identity dùng `000006`;
-  tenant lifecycle và session-context CAS dùng migration `000007` có cả up/down path.
+  tenant lifecycle/session-context CAS dùng `000007`; membership invitation dùng
+  `000008`. Các migration này đều có up/down path.
 - `tutorhub-local` đã được provision ngày 2026-07-14 trong project `TutorHub V2`,
   instance `tutorhub-v2-dev`. Secret chỉ nằm trong `.env.local` đã Git-ignore.
 - Browser smoke thật đã đạt: login/callback, `/api/v1/me`, reload giữ phiên,
@@ -208,6 +248,11 @@ CSRF/session rotation và revoke rồi rollback toàn bộ fixture.
   states. `pnpm verify` xanh ngày 2026-07-18; integration-tag của migration/classroom/
   identity biên dịch xanh. Clean migration và PostgreSQL integration được CI dùng
   PostgreSQL 17 xác nhận sau khi push checkpoint.
+- P2-03 đã bổ sung invitation HMAC/TTL/state machine, verified-identity accept
+  transaction idempotent, revoke/re-invite policy, typed client và admin/public UI.
+  `pnpm verify` xanh ngày 2026-07-18; PostgreSQL integration-tag compile local. Runtime
+  chưa chạy local vì không nạp DB test env; CI PostgreSQL 17 sẽ xác nhận clean
+  migration/lifecycle/concurrent-accept sau push.
 - ZITADEL trả profile/email qua UserInfo trong Authorization Code Flow. Adapter đã
   được sửa để xác minh ID token trước, gọi UserInfo sau và từ chối khi `sub` không
   khớp; test hồi quy và `pnpm verify` đều đạt.

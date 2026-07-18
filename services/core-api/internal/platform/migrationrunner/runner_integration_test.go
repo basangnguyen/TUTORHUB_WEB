@@ -29,7 +29,7 @@ func TestUpPinsMigrationHistoryToPublicSchema(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read migration version: %v", err)
 	}
-	if version.Number < 5 || version.Dirty {
+	if version.Number < 8 || version.Dirty {
 		t.Fatalf("unexpected migration version: %+v", version)
 	}
 
@@ -39,12 +39,13 @@ func TestUpPinsMigrationHistoryToPublicSchema(t *testing.T) {
 	}
 	defer database.Close()
 
-	var publicHistory, applicationHistory sql.NullString
+	var publicHistory, applicationHistory, invitationTable sql.NullString
 	if err := database.QueryRowContext(
 		ctx,
 		`SELECT to_regclass('public.tutorhub_schema_migrations'),
-                to_regclass('tutorhub.tutorhub_schema_migrations')`,
-	).Scan(&publicHistory, &applicationHistory); err != nil {
+                to_regclass('tutorhub.tutorhub_schema_migrations'),
+                to_regclass('tutorhub.membership_invitations')`,
+	).Scan(&publicHistory, &applicationHistory, &invitationTable); err != nil {
 		t.Fatalf("inspect migration history tables: %v", err)
 	}
 	if !publicHistory.Valid {
@@ -52,5 +53,8 @@ func TestUpPinsMigrationHistoryToPublicSchema(t *testing.T) {
 	}
 	if applicationHistory.Valid {
 		t.Fatal("migration history table must not follow the role-named application schema")
+	}
+	if !invitationTable.Valid {
+		t.Fatal("membership invitation migration must be applied at version 8")
 	}
 }

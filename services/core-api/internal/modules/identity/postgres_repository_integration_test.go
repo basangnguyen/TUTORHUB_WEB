@@ -32,7 +32,7 @@ func TestPostgresRepositoryOIDCSessionLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read migration version: %v", err)
 	}
-	if version.Number < 7 || version.Dirty {
+	if version.Number < 8 || version.Dirty {
 		t.Fatalf("unexpected migration version: %+v", version)
 	}
 

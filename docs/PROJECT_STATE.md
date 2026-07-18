@@ -12,8 +12,8 @@
 | Quy trình           | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
 | Phase hoàn thành    | Phase 0, Phase 1                                                                      |
 | Phase hiện tại      | Phase 2 - Identity, tenant và class core                                              |
-| Task vừa hoàn thành | P2-02 Tenant lifecycle và workspace switching                                        |
-| Task kế tiếp        | P2-03 Membership invitation, accept và revoke                                        |
+| Task vừa hoàn thành | P2-03 Membership invitation, accept và revoke                                        |
+| Task kế tiếp        | P2-04 Class lifecycle, ownership và archive                                           |
 
 ## Kiến trúc đang chạy
 
@@ -63,6 +63,12 @@
 - Workspace UI áp dụng principal mới ngay sau create/switch/archive, hủy và xóa cache
   tenant-scoped để không flash dữ liệu workspace cũ; list/detail/update/archive có query,
   mutation và trạng thái lỗi phù hợp với contract typed.
+- P2-03: permission `tenant.manage_members`, migration `000008`, invitation CSPRNG chỉ
+  lưu purpose-bound HMAC, TTL/state machine, list/create/revoke và preview/accept bằng
+  verified linked identity trong transaction idempotent; accept không tự đổi active tenant.
+- Invitation URL giữ token trong fragment, web xóa fragment ngay và chỉ gửi token trong
+  JSON POST body; admin UI có list/create/copy-once/revoke, public UI có đủ loading,
+  offline, unavailable, mismatch, retry và success states bằng tiếng Việt/Anh.
 
 ## Kết quả acceptance staging ngày 2026-07-16
 
@@ -88,13 +94,16 @@ trước pilot/public beta hoặc khi có người duy trì thứ hai.
 
 Backlog có thẩm quyền: `docs/PHASE_2_BACKLOG.md`.
 
-1. P2-00 và P2-01 đã hoàn thành; `pnpm verify` xanh ngày 2026-07-17.
-2. P2-02 đã hoàn tất phạm vi implementation và tài liệu. `pnpm verify` xanh ngày
+1. P2-00 đến P2-02 đã hoàn thành; P2-02 có `pnpm verify` xanh ngày
    2026-07-18: web 38/38, API client 10/10, UI 6/6, lint/typecheck/build/Storybook,
    Go test/vet và security checks đều đạt.
-3. Integration-tag của migration/classroom/identity compile xanh local; clean migration
-   và PostgreSQL integration được workflow CI có PostgreSQL 17 xác nhận sau push.
-4. Task kế tiếp là P2-03 membership invitation, accept và revoke sau khi CI xanh.
+2. P2-03 đã hoàn tất implementation và tài liệu; `pnpm verify` xanh ngày 2026-07-18,
+   gồm web 44/44, API client 11/11, generated-contract check, lint/typecheck/build,
+   Storybook, Go test/vet và security checks.
+3. Identity/migration integration-tag P2-03 compile xanh local; runtime chưa chạy local
+   vì không nạp DB test env. Workflow CI PostgreSQL 17 sẽ xác nhận clean migration và
+   lifecycle/concurrent-accept sau push.
+4. Task kế tiếp là P2-04 class lifecycle, ownership và archive.
 
 ## Rủi ro đã biết
 
@@ -103,6 +112,10 @@ Backlog có thẩm quyền: `docs/PHASE_2_BACKLOG.md`.
 - Direct-main chưa có pre-merge protection; `pnpm verify` và CI hậu kiểm là kiểm soát
   bù tạm thời theo ADR-0012.
 - Chưa chọn managed Redis và observability provider cho quy mô lớn hơn.
+- Invitation preview/accept limiter P2-03 hiện là bounded in-process limiter theo
+  `RemoteAddr`; sau Cloudflare/Render có thể gộp client vào proxy bucket. Không tin
+  forwarded header khi Render origin còn public; P2-09 phải chốt trusted-proxy/origin
+  authentication và distributed limiter trước khi tăng lưu lượng.
 - Enrollment, invite code, roster và quyền theo lớp chưa triển khai; thuộc P2-05/P2-06.
 - Dữ liệu V1 chưa được migrate.
 - LiveKit chunk phía web còn lớn và cần performance budget ở phase sau.

@@ -39,6 +39,7 @@ type TenantArchiveMutationResult struct {
 }
 
 type Repository interface {
+	MembershipInvitationRepository
 	CreateFlow(ctx context.Context, params CreateFlowParams) error
 	ConsumeFlow(
 		ctx context.Context,

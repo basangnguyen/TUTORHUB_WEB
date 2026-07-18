@@ -42,10 +42,11 @@ var supportedProfileLocales = map[string]struct{}{
 }
 
 type ServiceConfig struct {
-	FlowTTL            time.Duration
-	SessionTTL         time.Duration
-	SessionAbsoluteTTL time.Duration
-	RecentAuthTTL      time.Duration
+	FlowTTL                 time.Duration
+	SessionTTL              time.Duration
+	SessionAbsoluteTTL      time.Duration
+	RecentAuthTTL           time.Duration
+	MembershipInvitationTTL time.Duration
 }
 
 type CSRFResult struct {
@@ -55,6 +56,7 @@ type CSRFResult struct {
 }
 
 type ServiceAPI interface {
+	MembershipInvitationServiceAPI
 	BeginLogin(context.Context, string) (LoginStart, error)
 	CompleteLogin(context.Context, CallbackInput) (LoginResult, error)
 	Authenticate(context.Context, string) (Principal, error)
@@ -105,6 +107,17 @@ func NewService(
 	}
 	if config.RecentAuthTTL <= 0 {
 		config.RecentAuthTTL = defaultRecentAuthTTL
+	}
+	if config.MembershipInvitationTTL == 0 {
+		config.MembershipInvitationTTL = defaultMembershipInvitationTTL
+	}
+	if config.MembershipInvitationTTL < minimumMembershipInvitationTTL ||
+		config.MembershipInvitationTTL > maximumMembershipInvitationTTL {
+		return nil, fmt.Errorf(
+			"membership invitation TTL must be between %s and %s",
+			minimumMembershipInvitationTTL,
+			maximumMembershipInvitationTTL,
+		)
 	}
 	if clock == nil {
 		clock = time.Now

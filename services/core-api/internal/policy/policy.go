@@ -23,37 +23,39 @@ const (
 type Permission string
 
 const (
-	PermissionTenantView        Permission = "tenant.view"
-	PermissionTenantManage      Permission = "tenant.manage"
-	PermissionClassCreate       Permission = "class.create"
-	PermissionClassUpdate       Permission = "class.update"
-	PermissionClassView         Permission = "class.view"
-	PermissionEnrollmentManage  Permission = "enrollment.manage"
-	PermissionSessionStart      Permission = "session.start"
-	PermissionSessionEnd        Permission = "session.end"
-	PermissionSessionJoin       Permission = "session.join"
-	PermissionParticipantAdmit  Permission = "participant.admit"
-	PermissionParticipantRemove Permission = "participant.remove"
-	PermissionMediaPublish      Permission = "media.publish"
-	PermissionChatSend          Permission = "chat.send"
+	PermissionTenantView          Permission = "tenant.view"
+	PermissionTenantManage        Permission = "tenant.manage"
+	PermissionTenantManageMembers Permission = "tenant.manage_members"
+	PermissionClassCreate         Permission = "class.create"
+	PermissionClassUpdate         Permission = "class.update"
+	PermissionClassView           Permission = "class.view"
+	PermissionEnrollmentManage    Permission = "enrollment.manage"
+	PermissionSessionStart        Permission = "session.start"
+	PermissionSessionEnd          Permission = "session.end"
+	PermissionSessionJoin         Permission = "session.join"
+	PermissionParticipantAdmit    Permission = "participant.admit"
+	PermissionParticipantRemove   Permission = "participant.remove"
+	PermissionMediaPublish        Permission = "media.publish"
+	PermissionChatSend            Permission = "chat.send"
 )
 
 type Action string
 
 const (
-	ActionTenantView        Action = Action(PermissionTenantView)
-	ActionTenantManage      Action = Action(PermissionTenantManage)
-	ActionClassCreate       Action = Action(PermissionClassCreate)
-	ActionClassUpdate       Action = Action(PermissionClassUpdate)
-	ActionClassView         Action = Action(PermissionClassView)
-	ActionEnrollmentManage  Action = Action(PermissionEnrollmentManage)
-	ActionSessionStart      Action = Action(PermissionSessionStart)
-	ActionSessionEnd        Action = Action(PermissionSessionEnd)
-	ActionSessionJoin       Action = Action(PermissionSessionJoin)
-	ActionParticipantAdmit  Action = Action(PermissionParticipantAdmit)
-	ActionParticipantRemove Action = Action(PermissionParticipantRemove)
-	ActionMediaPublish      Action = Action(PermissionMediaPublish)
-	ActionChatSend          Action = Action(PermissionChatSend)
+	ActionTenantView          Action = Action(PermissionTenantView)
+	ActionTenantManage        Action = Action(PermissionTenantManage)
+	ActionTenantManageMembers Action = Action(PermissionTenantManageMembers)
+	ActionClassCreate         Action = Action(PermissionClassCreate)
+	ActionClassUpdate         Action = Action(PermissionClassUpdate)
+	ActionClassView           Action = Action(PermissionClassView)
+	ActionEnrollmentManage    Action = Action(PermissionEnrollmentManage)
+	ActionSessionStart        Action = Action(PermissionSessionStart)
+	ActionSessionEnd          Action = Action(PermissionSessionEnd)
+	ActionSessionJoin         Action = Action(PermissionSessionJoin)
+	ActionParticipantAdmit    Action = Action(PermissionParticipantAdmit)
+	ActionParticipantRemove   Action = Action(PermissionParticipantRemove)
+	ActionMediaPublish        Action = Action(PermissionMediaPublish)
+	ActionChatSend            Action = Action(PermissionChatSend)
 )
 
 type ResourceState string
@@ -116,6 +118,7 @@ func NewEngine() *Engine {
 var permissionOrder = []Permission{
 	PermissionTenantView,
 	PermissionTenantManage,
+	PermissionTenantManageMembers,
 	PermissionClassCreate,
 	PermissionClassUpdate,
 	PermissionClassView,
@@ -281,7 +284,8 @@ func validAction(action Action) bool {
 
 func actionRequiresClass(action Action) bool {
 	switch action {
-	case ActionTenantView, ActionTenantManage, ActionClassCreate, ActionClassView:
+	case ActionTenantView, ActionTenantManage, ActionTenantManageMembers,
+		ActionClassCreate, ActionClassView:
 		return false
 	default:
 		return true

@@ -202,6 +202,89 @@ const messages = {
     "workspace.listEmptyDescription":
       "Workspace sẽ xuất hiện tại đây sau khi membership được tạo.",
     "workspace.activeShort": "Đang chọn",
+    "invitation.adminTitle": "Lời mời thành viên",
+    "invitation.adminDescription":
+      "Mời thành viên vào workspace bằng liên kết dùng một lần có thời hạn.",
+    "invitation.createAction": "Mời thành viên",
+    "invitation.createTitle": "Tạo lời mời thành viên",
+    "invitation.createDescription":
+      "Chọn email và vai trò. Liên kết chấp nhận chỉ được hiển thị sau khi tạo.",
+    "invitation.emailLabel": "Email người được mời",
+    "invitation.emailValidation": "Hãy nhập một địa chỉ email hợp lệ.",
+    "invitation.roleLabel": "Vai trò trong workspace",
+    "invitation.createConfirmAction": "Tạo lời mời",
+    "invitation.creating": "Đang tạo lời mời...",
+    "invitation.createSuccess":
+      "Đã tạo lời mời. Hãy sao chép liên kết trước khi đóng cửa sổ này.",
+    "invitation.acceptURLLabel": "Liên kết chấp nhận dùng một lần",
+    "invitation.copyAction": "Sao chép liên kết",
+    "invitation.copySuccess": "Đã sao chép liên kết.",
+    "invitation.copyManual":
+      "Trình duyệt không cho phép sao chép tự động. Liên kết đã được chọn để bạn sao chép thủ công.",
+    "invitation.listLoading": "Đang tải danh sách lời mời",
+    "invitation.listEmptyTitle": "Chưa có lời mời",
+    "invitation.listEmptyDescription":
+      "Tạo lời mời đầu tiên để thêm giáo viên, học viên hoặc khách vào workspace.",
+    "invitation.listErrorTitle": "Chưa thể tải lời mời",
+    "invitation.listErrorDescription":
+      "Kiểm tra kết nối rồi thử tải lại danh sách lời mời.",
+    "invitation.listForbiddenTitle": "Bạn không còn quyền xem lời mời",
+    "invitation.listForbiddenDescription":
+      "Phiên hiện tại không có quyền quản lý thành viên của workspace này.",
+    "invitation.statusPending": "Đang chờ",
+    "invitation.statusAccepted": "Đã chấp nhận",
+    "invitation.statusRevoked": "Đã thu hồi",
+    "invitation.statusExpired": "Đã hết hạn",
+    "invitation.expiresLabel": "Hết hạn:",
+    "invitation.revokeAction": "Thu hồi",
+    "invitation.revokeFor": "Thu hồi lời mời của {email}",
+    "invitation.revokeConfirmTitle": "Thu hồi lời mời?",
+    "invitation.revokeConfirmDescription":
+      "Liên kết dành cho {email} sẽ không thể được sử dụng sau khi thu hồi.",
+    "invitation.revokeConfirmAction": "Xác nhận thu hồi",
+    "invitation.revoking": "Đang thu hồi...",
+    "invitation.revokeSuccess": "Đã thu hồi lời mời của {email}.",
+    "invitation.cancelAction": "Hủy",
+    "invitation.dialogCloseLabel": "Đóng cửa sổ lời mời",
+    "invitation.mutationForbidden":
+      "Bạn không còn quyền thực hiện thao tác này.",
+    "invitation.mutationConflict":
+      "Trạng thái lời mời đã thay đổi hoặc email này đã có lời mời đang chờ. Hãy tải lại danh sách.",
+    "invitation.mutationRateLimited":
+      "Đã tạo quá nhiều lời mời trong thời gian ngắn. Hãy thử lại sau.",
+    "invitation.mutationError":
+      "Chưa thể hoàn tất thao tác lời mời. Hãy thử lại.",
+    "invitation.publicTitle": "Lời mời tham gia workspace",
+    "invitation.publicLoading": "Đang kiểm tra lời mời",
+    "invitation.publicWorkspaceLabel": "Workspace",
+    "invitation.publicEmailLabel": "Email được mời",
+    "invitation.publicCheckingSession": "Đang kiểm tra phiên đăng nhập...",
+    "invitation.publicSignInDescription":
+      "Bạn cần đăng nhập bằng tài khoản phù hợp trước khi chấp nhận lời mời.",
+    "invitation.publicSignInAction": "Đăng nhập TutorHub",
+    "invitation.publicReopenLink":
+      "Vì lý do bảo mật, hãy mở lại liên kết lời mời sau khi đăng nhập.",
+    "invitation.publicAcceptAction": "Chấp nhận lời mời",
+    "invitation.publicAccepting": "Đang chấp nhận...",
+    "invitation.publicRetryAccept": "Thử chấp nhận lại",
+    "invitation.publicMismatch":
+      "Tài khoản đang đăng nhập không khớp với email của lời mời này.",
+    "invitation.publicSessionExpired":
+      "Phiên đăng nhập đã hết hạn. Hãy đăng nhập rồi mở lại liên kết lời mời.",
+    "invitation.publicAcceptError": "Chưa thể chấp nhận lời mời. Hãy thử lại.",
+    "invitation.publicUnavailableTitle": "Lời mời không còn khả dụng",
+    "invitation.publicUnavailableDescription":
+      "Liên kết không hợp lệ, đã hết hạn, đã được dùng hoặc đã bị thu hồi.",
+    "invitation.publicLoadErrorTitle": "Chưa thể kiểm tra lời mời",
+    "invitation.publicLoadErrorDescription":
+      "Kiểm tra kết nối rồi thử tải lại lời mời.",
+    "invitation.publicOfflineDescription":
+      "Kết nối mạng để kiểm tra và chấp nhận lời mời này.",
+    "invitation.publicAcceptedTitle": "Đã tham gia workspace",
+    "invitation.publicAcceptedDescription":
+      "Tài khoản của bạn đã được thêm vào {tenant}. Bạn có thể tiếp tục vào TutorHub và chọn workspace này.",
+    "invitation.publicWorkspaceFallback": "workspace được mời",
+    "invitation.publicContinueAction": "Tiếp tục vào TutorHub",
     "classroom.title": "Lớp học",
     "classroom.description":
       "Quản lý các lớp thuộc workspace đang hoạt động và mở thông tin chi tiết của từng lớp.",
@@ -548,6 +631,90 @@ const messages = {
     "workspace.listEmptyDescription":
       "Workspaces appear here after a membership is created.",
     "workspace.activeShort": "Selected",
+    "invitation.adminTitle": "Member invitations",
+    "invitation.adminDescription":
+      "Invite members to the workspace with an expiring one-time link.",
+    "invitation.createAction": "Invite member",
+    "invitation.createTitle": "Create member invitation",
+    "invitation.createDescription":
+      "Choose an email and role. The acceptance link is shown only after creation.",
+    "invitation.emailLabel": "Invitee email",
+    "invitation.emailValidation": "Enter a valid email address.",
+    "invitation.roleLabel": "Workspace role",
+    "invitation.createConfirmAction": "Create invitation",
+    "invitation.creating": "Creating invitation...",
+    "invitation.createSuccess":
+      "Invitation created. Copy the link before closing this dialog.",
+    "invitation.acceptURLLabel": "One-time acceptance link",
+    "invitation.copyAction": "Copy link",
+    "invitation.copySuccess": "Link copied.",
+    "invitation.copyManual":
+      "Automatic copy is unavailable. The link is selected so you can copy it manually.",
+    "invitation.listLoading": "Loading member invitations",
+    "invitation.listEmptyTitle": "No invitations yet",
+    "invitation.listEmptyDescription":
+      "Create the first invitation to add a teacher, student, or guest to this workspace.",
+    "invitation.listErrorTitle": "Invitations unavailable",
+    "invitation.listErrorDescription":
+      "Check the connection and retry loading the invitation list.",
+    "invitation.listForbiddenTitle": "You can no longer view invitations",
+    "invitation.listForbiddenDescription":
+      "The current session cannot manage members in this workspace.",
+    "invitation.statusPending": "Pending",
+    "invitation.statusAccepted": "Accepted",
+    "invitation.statusRevoked": "Revoked",
+    "invitation.statusExpired": "Expired",
+    "invitation.expiresLabel": "Expires:",
+    "invitation.revokeAction": "Revoke",
+    "invitation.revokeFor": "Revoke invitation for {email}",
+    "invitation.revokeConfirmTitle": "Revoke invitation?",
+    "invitation.revokeConfirmDescription":
+      "The link issued to {email} cannot be used after it is revoked.",
+    "invitation.revokeConfirmAction": "Confirm revoke",
+    "invitation.revoking": "Revoking...",
+    "invitation.revokeSuccess": "Invitation for {email} revoked.",
+    "invitation.cancelAction": "Cancel",
+    "invitation.dialogCloseLabel": "Close invitation dialog",
+    "invitation.mutationForbidden":
+      "You no longer have permission to perform this action.",
+    "invitation.mutationConflict":
+      "The invitation changed or this email already has a pending invitation. Reload the list.",
+    "invitation.mutationRateLimited":
+      "Too many invitations were created recently. Try again later.",
+    "invitation.mutationError":
+      "The invitation action could not be completed. Try again.",
+    "invitation.publicTitle": "Workspace invitation",
+    "invitation.publicLoading": "Checking invitation",
+    "invitation.publicWorkspaceLabel": "Workspace",
+    "invitation.publicEmailLabel": "Invited email",
+    "invitation.publicCheckingSession": "Checking sign-in status...",
+    "invitation.publicSignInDescription":
+      "Sign in with the matching account before accepting this invitation.",
+    "invitation.publicSignInAction": "Sign in to TutorHub",
+    "invitation.publicReopenLink":
+      "For security, reopen the invitation link after signing in.",
+    "invitation.publicAcceptAction": "Accept invitation",
+    "invitation.publicAccepting": "Accepting...",
+    "invitation.publicRetryAccept": "Retry acceptance",
+    "invitation.publicMismatch":
+      "The signed-in account does not match this invitation's email.",
+    "invitation.publicSessionExpired":
+      "Your session expired. Sign in, then reopen the invitation link.",
+    "invitation.publicAcceptError":
+      "The invitation could not be accepted. Try again.",
+    "invitation.publicUnavailableTitle": "Invitation unavailable",
+    "invitation.publicUnavailableDescription":
+      "The link is invalid, expired, already used, or revoked.",
+    "invitation.publicLoadErrorTitle": "Invitation check unavailable",
+    "invitation.publicLoadErrorDescription":
+      "Check the connection and retry loading the invitation.",
+    "invitation.publicOfflineDescription":
+      "Connect to the internet to check and accept this invitation.",
+    "invitation.publicAcceptedTitle": "Workspace joined",
+    "invitation.publicAcceptedDescription":
+      "Your account was added to {tenant}. Continue to TutorHub and select this workspace.",
+    "invitation.publicWorkspaceFallback": "the invited workspace",
+    "invitation.publicContinueAction": "Continue to TutorHub",
     "classroom.title": "Classrooms",
     "classroom.description":
       "Manage classes in the active workspace and open the details for each class.",

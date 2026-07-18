@@ -21,6 +21,7 @@ import { Archive, Building2, RefreshCw, Save } from "lucide-react";
 import { useMemo, useState, type FormEvent } from "react";
 import { useI18n, type TranslationKey } from "../app/i18n";
 import { useSession } from "../app/session";
+import { MembershipInvitationPanel } from "../components/MembershipInvitationPanel";
 import {
   useArchiveTenant,
   useTenantDetail,
@@ -148,6 +149,8 @@ export function WorkspaceManagementPage() {
   const tenantDetail = useTenantDetail(activeTenantID);
   const canManage =
     session.currentUser?.permissions.includes("tenant.manage") ?? false;
+  const canManageMembers =
+    session.currentUser?.permissions.includes("tenant.manage_members") ?? false;
   const dateFormatter = useMemo(
     () =>
       new Intl.DateTimeFormat(language === "vi" ? "vi-VN" : "en-US", {
@@ -262,6 +265,10 @@ export function WorkspaceManagementPage() {
               </div>
             </dl>
           </section>
+
+          {canManageMembers && (
+            <MembershipInvitationPanel tenantID={tenant.id} />
+          )}
 
           {canManage ? (
             <WorkspaceEditForm

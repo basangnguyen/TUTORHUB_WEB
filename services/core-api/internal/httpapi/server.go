@@ -20,14 +20,15 @@ type ReadinessCheck interface {
 }
 
 type Options struct {
-	Metrics        *observability.Metrics
-	Tracer         observability.Tracer
-	Readiness      []ReadinessCheck
-	Clock          func() time.Time
-	Identity       identity.ServiceAPI
-	Classroom      classroom.ServiceAPI
-	Media          media.ServiceAPI
-	LiveKitWebhook media.WebhookVerifier
+	Metrics               *observability.Metrics
+	Tracer                observability.Tracer
+	Readiness             []ReadinessCheck
+	Clock                 func() time.Time
+	Identity              identity.ServiceAPI
+	Classroom             classroom.ServiceAPI
+	Media                 media.ServiceAPI
+	LiveKitWebhook        media.WebhookVerifier
+	InvitationRateLimiter InvitationRateLimiter
 }
 
 func NewHandler(cfg config.Config, logger *slog.Logger) http.Handler {
@@ -45,6 +46,9 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 	if options.Clock == nil {
 		options.Clock = time.Now
 	}
+	if options.InvitationRateLimiter == nil {
+		options.InvitationRateLimiter = newDefaultInvitationRateLimiter()
+	}
 
 	mux := http.NewServeMux()
 	mux.Handle("/health", requireMethod(http.MethodGet, healthHandler(cfg, logger, options.Clock)))
@@ -61,6 +65,14 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 		requireMethod(http.MethodGet, apiStatusHandler(cfg, logger, options.Clock)),
 	)
 	auth := newAuthHandlers(cfg, logger, options.Identity, options.Clock)
+	invitations := newMembershipInvitationHandlers(
+		cfg,
+		logger,
+		auth,
+		options.Identity,
+		options.InvitationRateLimiter,
+		options.Clock,
+	)
 	mux.Handle("/api/v1/auth/login", requireMethod(http.MethodGet, http.HandlerFunc(auth.login)))
 	mux.Handle("/api/v1/auth/callback", requireMethod(http.MethodGet, http.HandlerFunc(auth.callback)))
 	mux.Handle("/api/v1/auth/csrf", requireMethod(http.MethodGet, http.HandlerFunc(auth.csrf)))
@@ -78,6 +90,34 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 	mux.Handle(identityResourcePathPrefix, http.HandlerFunc(auth.identityResource))
 	mux.Handle(tenantsCollectionPath, http.HandlerFunc(auth.tenantCollection))
 	mux.Handle(tenantsResourcePathPrefix, http.HandlerFunc(auth.tenantResource))
+	mux.Handle(
+		membershipInvitationsAdminCollectionPattern,
+		membershipInvitationResponseHeaders(
+			true,
+			http.HandlerFunc(invitations.adminCollection),
+		),
+	)
+	mux.Handle(
+		membershipInvitationsAdminRevokePattern,
+		membershipInvitationResponseHeaders(
+			true,
+			http.HandlerFunc(invitations.adminRevoke),
+		),
+	)
+	mux.Handle(
+		membershipInvitationPreviewPath,
+		membershipInvitationResponseHeaders(
+			false,
+			requireMethod(http.MethodPost, http.HandlerFunc(invitations.preview)),
+		),
+	)
+	mux.Handle(
+		membershipInvitationAcceptPath,
+		membershipInvitationResponseHeaders(
+			true,
+			requireMethod(http.MethodPost, http.HandlerFunc(invitations.accept)),
+		),
+	)
 	mux.Handle(
 		"/api/v1/session/active-tenant",
 		requireMethod(http.MethodPut, http.HandlerFunc(auth.switchActiveTenant)),

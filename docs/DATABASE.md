@@ -7,13 +7,13 @@ thay đổi schema, migration hoặc repository phải đọc tài liệu này t
 
 - System of record: Neon PostgreSQL.
 - Schema ứng dụng: `tutorhub`.
-- Migration mới nhất trong source: `000007_tenant_lifecycle`.
+- Migration mới nhất trong source: `000008_membership_invitations`.
 - Migration 1-5 đã được chạy và kiểm tra trên Neon; smoke
   `5 false -> rollback 4 false -> migrate 5 false` đạt ngày 2026-07-16.
-- Migration `000006` và `000007` đều có up/down path. Integration-tag compile xanh;
-  clean migration và PostgreSQL integration được workflow CI xác nhận sau push. Smoke
-  `7 false -> rollback 6 false -> migrate 7 false` chưa chạy trên staging; tài liệu này
-  không khẳng định staging đã nâng lên 7.
+- Migration `000006` đến `000008` đều có up/down path. Integration-tag compile xanh;
+  runtime `000008` chưa chạy local vì không nạp DB test env và sẽ do workflow CI xác
+  nhận sau push. Smoke `8 false -> rollback 7 false -> migrate 8 false` chưa chạy trên
+  staging; tài liệu này không khẳng định staging đã nâng lên 8.
 - Classroom và identity integration test chạy trong transaction và rollback toàn bộ fixture.
 - Core API đã được smoke test với Neon: `/ready` trả `ready` và `/health` trả `ok`.
 
@@ -47,7 +47,7 @@ Core API không tự chạy migration khi khởi động.
 `application_name=tutorhub-core-api` được gắn vào kết nối để quan sát trên Neon.
 Mọi truy vấn mạng/database phải chạy ngoài UI thread ở các client native về sau.
 
-## Schema phiên bản 7
+## Schema phiên bản 8
 
 | Bảng | Vai trò |
 |---|---|
@@ -58,6 +58,7 @@ Mọi truy vấn mạng/database phải chạy ngoài UI thread ở các client 
 | `sessions` | Hash session/CSRF, active tenant, `context_version`, idle/absolute expiry và revoke state |
 | `auth_flows` | HMAC state/binding/nonce, PKCE verifier mã hóa và one-time consume |
 | `classes` | Lớp học theo tenant; owner bắt buộc là membership cùng tenant |
+| `membership_invitations` | Lời mời tenant một lần: normalized email, role, HMAC token, TTL và terminal state |
 | `outbox_events` | Transactional outbox cho sự kiện bền vững và worker tương lai |
 
 Ràng buộc quan trọng:
@@ -82,6 +83,13 @@ Ràng buộc quan trọng:
   khi xoay session/CSRF. Archive xóa active context của các session còn trỏ tenant đó.
 - Success event `tenant.created/updated/archived/switched` được ghi vào outbox trong
   cùng transaction; payload không chứa token, cookie hoặc session secret.
+- Invitation token chỉ lưu purpose-bound HMAC 32 byte unique; một tenant/email chỉ có
+  một row `pending`, TTL tối đa 30 ngày và state/timestamp bị khóa bằng CHECK constraint.
+- Composite FK buộc invited/accepted/revoked actor có membership cùng tenant. Create,
+  revoke và accept ghi lifecycle event trong business transaction; payload allowlist
+  không chứa raw token, token hash, email hoặc session identifier.
+- Accept khóa tenant/session/identity-user/membership/invitation theo thứ tự ổn định,
+  yêu cầu verified linked identity khớp email và tạo tối đa một membership/event.
 
 ## Chạy migration
 
@@ -110,7 +118,7 @@ pnpm db:migrate
 pnpm db:version
 ```
 
-Sau khi áp dụng toàn bộ migration trong source, kết quả mong đợi là `7 false`. Chỉ ghi
+Sau khi áp dụng toàn bộ migration trong source, kết quả mong đợi là `8 false`. Chỉ ghi
 đó là kết quả môi trường khi lệnh thực tế đã chạy; bằng chứng staging gần nhất hiện vẫn
 là `5 false` ngày 2026-07-16. Rollback chỉ dùng khi đã đánh giá mất dữ liệu và có
 backup/restore plan:
@@ -133,12 +141,14 @@ Integration test bằng PostgreSQL thật:
 pnpm test:integration
 ```
 
-Với P2-02, cần kiểm tra riêng migrate 6 -> 7, rollback 7 -> 6, migrate lại 6 -> 7,
-tenant version conflict, cross-tenant concealment, session-context CAS và outbox events.
+Với P2-03, cần kiểm tra riêng migrate 7 -> 8, rollback 8 -> 7, migrate lại 7 -> 8,
+invitation HMAC/state invariants, pending duplicate/existing membership conflict,
+verified-identity mismatch, revoke/expiry/re-invite, idempotent và concurrent accept,
+cross-tenant concealment cùng outbox redaction.
 
 CI tạo PostgreSQL 17 tạm thời, chạy migration từ database sạch rồi chạy integration
 test. Bài test Neon cục bộ dùng transaction bao ngoài và rollback nên không để lại
-user, tenant, class hoặc outbox fixture.
+user, tenant, class, invitation, membership hoặc outbox fixture.
 
 ## Quy tắc thay đổi schema
 
@@ -155,7 +165,7 @@ user, tenant, class hoặc outbox fixture.
 - P1-06 đã triển khai OIDC/BFF, session rotation, CSRF và `/api/v1/me`; cả ZITADEL local và staging đã được provision và smoke test.
 - P1-06B đã hoàn thành list/create/detail class; enrollment, invite code và roster thuộc Phase 2.
 - P1-10 đã hoàn thành database/branch staging riêng, runtime role và migration role riêng.
-- P2-02 đã bổ sung tenant lifecycle và migration `000007`; task kế tiếp là P2-03
-  membership invitation/accept/revoke.
+- P2-03 đã bổ sung membership invitation/accept/revoke và migration `000008`; task
+  kế tiếp là P2-04 class lifecycle, ownership và archive.
 - Chưa import dữ liệu TutorHub V1; migration V1 sẽ làm theo module/cohort ở phase sau.
 - Chưa có backup/restore drill, PITR gate hoặc connection load test cho pilot.
