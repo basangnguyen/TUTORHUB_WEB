@@ -54,6 +54,8 @@ func TestPostgresRepositoryOIDCSessionLifecycle(t *testing.T) {
 	tenantID := uuid.New()
 	unique := strings.ReplaceAll(uuid.NewString(), "-", "")
 	email := "identity-" + unique + "@example.test"
+	providerIssuer := "https://identity.integration.example"
+	providerSubject := "subject-" + unique
 	if _, err := transaction.Exec(
 		ctx,
 		`INSERT INTO tutorhub.users (id, email, display_name) VALUES ($1, $2, 'Pending profile')`,
@@ -78,6 +80,26 @@ VALUES ($1, $2, 'teacher', 'active', now())`,
 		userID,
 	); err != nil {
 		t.Fatalf("insert identity membership: %v", err)
+	}
+	// Existing users must already own the provider/subject link; verified email alone
+	// must not claim an account after P2-01 collision protection.
+	if _, err := transaction.Exec(
+		ctx,
+		`INSERT INTO tutorhub.identities (
+    user_id,
+    provider,
+    subject,
+    email_at_provider,
+    email_verified,
+    status
+)
+VALUES ($1, $2, $3, $4, true, 'active')`,
+		userID,
+		providerIssuer,
+		providerSubject,
+		email,
+	); err != nil {
+		t.Fatalf("insert linked login identity: %v", err)
 	}
 
 	now := time.Date(2026, time.July, 13, 15, 0, 0, 0, time.UTC)
@@ -107,8 +129,8 @@ VALUES ($1, $2, 'teacher', 'active', now())`,
 		t.Fatalf("begin OIDC flow: %v", err)
 	}
 	provider.claims = ProviderClaims{
-		Issuer:        "https://identity.integration.example",
-		Subject:       "subject-" + unique,
+		Issuer:        providerIssuer,
+		Subject:       providerSubject,
 		Email:         email,
 		EmailVerified: true,
 		DisplayName:   "Integration Teacher",

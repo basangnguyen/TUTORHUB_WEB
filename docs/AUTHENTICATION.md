@@ -36,8 +36,9 @@ path đăng nhập.
    tương thích với ZITADEL Authorization Code Flow, nơi profile/email không bắt
    buộc xuất hiện trong ID token.
 7. Chỉ claims có email đã xác minh mới được ánh xạ sang user nội bộ. `(issuer,
-   subject)` là khóa identity; verified email chỉ dùng để nối hồ sơ ban đầu từ IdP
-   đáng tin cậy đang được cấu hình.
+   subject)` là khóa identity; verified email chỉ được bootstrap user mới. Nếu email
+   đã thuộc user hiện hữu thì identity mới phải đi qua explicit authenticated link flow,
+   không được tự động merge tài khoản chỉ theo email.
 8. Core API tạo session token và CSRF token mới. PostgreSQL chỉ lưu keyed HMAC;
    token thô chỉ xuất hiện trong cookie/response tương ứng.
 9. Browser nhận session cookie `HttpOnly` và CSRF cookie đọc được bởi web. Ở HTTPS,
