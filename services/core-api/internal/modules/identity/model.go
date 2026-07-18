@@ -76,16 +76,31 @@ type ExternalIdentity struct {
 }
 
 type Tenant struct {
-	ID       uuid.UUID `json:"id"`
-	Slug     string    `json:"slug"`
-	Name     string    `json:"name"`
-	Role     string    `json:"role"`
-	IsActive bool      `json:"is_active"`
+	ID         uuid.UUID  `json:"id"`
+	Slug       string     `json:"slug"`
+	Name       string     `json:"name"`
+	Locale     string     `json:"-"`
+	Timezone   string     `json:"-"`
+	Status     string     `json:"status"`
+	Version    int64      `json:"version"`
+	Role       string     `json:"role"`
+	IsActive   bool       `json:"is_active"`
+	CreatedAt  time.Time  `json:"-"`
+	UpdatedAt  time.Time  `json:"-"`
+	ArchivedAt *time.Time `json:"-"`
 }
 
 type CreateTenantInput struct {
 	Name string
 	Slug string
+}
+
+type UpdateTenantInput struct {
+	Name            *string
+	Slug            *string
+	Locale          *string
+	Timezone        *string
+	ExpectedVersion int64
 }
 
 type TenantSessionResult struct {
@@ -95,8 +110,16 @@ type TenantSessionResult struct {
 	ExpiresAt    time.Time
 }
 
+type TenantArchiveResult struct {
+	Principal    Principal
+	SessionToken string
+	CSRFToken    string
+	ExpiresAt    time.Time
+}
+
 type Principal struct {
 	SessionID       uuid.UUID `json:"-"`
+	ContextVersion  int64     `json:"-"`
 	IdentityID      uuid.UUID `json:"-"`
 	AuthenticatedAt time.Time `json:"-"`
 	User            User

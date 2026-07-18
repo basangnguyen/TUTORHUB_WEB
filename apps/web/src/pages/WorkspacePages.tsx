@@ -174,6 +174,10 @@ export function WorkspaceSelectionPage() {
   const { t } = useI18n();
   const session = useSession();
   const { switchWorkspace } = useWorkspaceActions();
+  const activeMemberships =
+    session.currentUser?.memberships.filter(
+      (membership) => membership.status === "active",
+    ) ?? [];
 
   return (
     <div className="workspace-gate">
@@ -192,7 +196,7 @@ export function WorkspaceSelectionPage() {
         )}
 
         <ul className="workspace-selection__list">
-          {session.currentUser?.memberships.map((membership) => (
+          {activeMemberships.map((membership) => (
             <li key={membership.id}>
               <button
                 disabled={switchWorkspace.isPending}
@@ -216,6 +220,11 @@ export function WorkspaceSelectionPage() {
             </li>
           ))}
         </ul>
+        {activeMemberships.length === 0 && (
+          <p className="workspace-selection__status" role="status">
+            {t("workspace.noActive")}
+          </p>
+        )}
         {switchWorkspace.isPending && (
           <p className="workspace-selection__status" role="status">
             {t("workspace.switching")}

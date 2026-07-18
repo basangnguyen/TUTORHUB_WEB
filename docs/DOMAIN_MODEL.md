@@ -37,6 +37,7 @@ khác không tham gia quyết định hiện tại.
 
 | Permission | `org_admin` | `teacher` | `student` | `guest` |
 |---|:---:|:---:|:---:|:---:|
+| `tenant.view` | Có | Có | Có | Có |
 | `tenant.manage` | Có | Không | Không | Không |
 | `class.create` | Có | Có | Không | Không |
 | `class.update` | Có | Có | Không | Không |
@@ -54,10 +55,15 @@ Ma trận organization giữ tương thích với các luồng Phase 1. Khi enro
 được triển khai ở P2-05/P2-06, class role bổ sung ràng buộc theo đúng lớp thay vì làm
 phát sinh kiểm tra role riêng trong từng module.
 
+`tenant.view` cho phép mọi membership active đọc metadata của chính active tenant;
+`tenant.manage` chỉ dành cho `org_admin` để update/archive. Danh sách workspace là
+user-membership scoped để vẫn chọn được tenant khi session chưa có active tenant.
+
 ### 3.2. Class role
 
 | Permission | `owner` | `co_teacher` | `teaching_assistant` | `student` |
 |---|:---:|:---:|:---:|:---:|
+| `tenant.view` | Không | Không | Không | Không |
 | `tenant.manage` | Không | Không | Không | Không |
 | `class.create` | Không | Không | Không | Không |
 | `class.update` | Có | Có | Không | Không |
@@ -95,12 +101,27 @@ Handler chỉ chuyển principal đã xác thực; `identity`, `classroom` và `
 
 - `tenant_id` được lấy từ session/context đã xác thực, không tin giá trị tùy ý từ body.
 - Repository bắt buộc nhận tenant context cho truy vấn tenant-scoped.
+- Tenant list chỉ dựa trên user ID đã xác thực và membership active; tenant detail,
+  update và archive bắt buộc resource tenant trùng active tenant trong session.
 - Unique constraint thường gồm `tenant_id`.
 - File path/key không dựa vào tên file người dùng; dùng opaque object ID.
 - Background job mang tenant context và actor/service identity.
 - Platform Admin là luồng riêng, có step-up authentication và audit bắt buộc.
 
 ## 5. Trạng thái quan trọng
+
+### Tenant
+
+Luồng quản trị thông thường là `active -> archived`; `suspended` dành cho policy/platform
+operation, không được PATCH trực tiếp từ tenant API. Update/archive yêu cầu
+`expected_version`, tăng `version` atomic và trả conflict khi client dùng dữ liệu stale.
+Archive là soft state transition, giữ membership/class/outbox history và bị chặn nếu
+actor không còn tenant active khác với role `org_admin`.
+
+Create, switch và archive là privilege-context mutation. Session dùng
+`context_version` compare-and-swap; mọi switch hợp lệ, kể cả chọn lại tenant hiện tại,
+đều xoay session/CSRF. Archive xóa active tenant khỏi các session liên quan để request
+sau không tiếp tục dùng permission của workspace đã archive.
 
 ### Class
 

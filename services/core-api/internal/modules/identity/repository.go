@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/tutorhub-v2/core-api/internal/platform/tenancy"
 )
 
 type CreateFlowParams struct {
@@ -21,12 +22,18 @@ type CreateFlowParams struct {
 }
 
 type SessionRotation struct {
-	TokenHash []byte
-	CSRFHash  []byte
-	RotatedAt time.Time
+	TokenHash              []byte
+	CSRFHash               []byte
+	ExpectedContextVersion int64
+	RotatedAt              time.Time
 }
 
 type TenantMutationResult struct {
+	Principal Principal
+	ExpiresAt time.Time
+}
+
+type TenantArchiveMutationResult struct {
 	Principal Principal
 	ExpiresAt time.Time
 }
@@ -56,6 +63,7 @@ type Repository interface {
 		ctx context.Context,
 		sessionID uuid.UUID,
 		userID uuid.UUID,
+		authorizedSourceTenantID uuid.UUID,
 		input CreateTenantInput,
 		rotation SessionRotation,
 	) (TenantMutationResult, error)
@@ -66,6 +74,21 @@ type Repository interface {
 		tenantID uuid.UUID,
 		rotation SessionRotation,
 	) (TenantMutationResult, error)
+	ListTenants(ctx context.Context, userID uuid.UUID) ([]Tenant, error)
+	GetTenant(ctx context.Context, tenantContext tenancy.Context) (Tenant, error)
+	UpdateTenant(
+		ctx context.Context,
+		tenantContext tenancy.Context,
+		input UpdateTenantInput,
+		updatedAt time.Time,
+	) (Tenant, error)
+	ArchiveTenant(
+		ctx context.Context,
+		tenantContext tenancy.Context,
+		sessionID uuid.UUID,
+		expectedVersion int64,
+		rotation SessionRotation,
+	) (TenantArchiveMutationResult, error)
 	GetProfile(ctx context.Context, userID uuid.UUID) (User, error)
 	UpdateProfile(
 		ctx context.Context,

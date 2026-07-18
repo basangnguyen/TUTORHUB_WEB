@@ -15,6 +15,21 @@ export type IdentityListResponse =
 export type IdentityLinkResponse =
   components["schemas"]["IdentityLinkResponse"];
 export type CreateTenantRequest = components["schemas"]["CreateTenantRequest"];
+export type TenantStatus = components["schemas"]["TenantStatus"];
+export type TenantMembership = components["schemas"]["TenantMembership"];
+export type Tenant = components["schemas"]["Tenant"];
+export type TenantListResponse = components["schemas"]["TenantListResponse"];
+type GeneratedUpdateTenantRequest =
+  components["schemas"]["UpdateTenantRequest"];
+export type UpdateTenantRequest = GeneratedUpdateTenantRequest &
+  (
+    | Required<Pick<GeneratedUpdateTenantRequest, "name">>
+    | Required<Pick<GeneratedUpdateTenantRequest, "slug">>
+    | Required<Pick<GeneratedUpdateTenantRequest, "locale">>
+    | Required<Pick<GeneratedUpdateTenantRequest, "timezone">>
+  );
+export type ArchiveTenantRequest =
+  components["schemas"]["ArchiveTenantRequest"];
 export type SwitchActiveTenantRequest =
   components["schemas"]["SwitchActiveTenantRequest"];
 export type ClassroomClass = components["schemas"]["Class"];
@@ -257,6 +272,88 @@ export async function createTenant(
     "/api/v1/tenants",
     {
       params: { header: { "X-CSRF-Token": csrfToken } },
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<CurrentUser>(
+    data as CurrentUser | undefined,
+    error,
+    response,
+  );
+}
+
+export async function listTenants(
+  options: APIRequestOptions = {},
+): Promise<TenantListResponse> {
+  const { data, error, response } = await createTutorHubClient(options).GET(
+    "/api/v1/tenants",
+    {
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<TenantListResponse>(
+    data as TenantListResponse | undefined,
+    error,
+    response,
+  );
+}
+
+export async function getTenant(
+  tenantID: string,
+  options: APIRequestOptions = {},
+): Promise<Tenant> {
+  const { data, error, response } = await createTutorHubClient(options).GET(
+    "/api/v1/tenants/{tenant_id}",
+    {
+      params: { path: { tenant_id: tenantID } },
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<Tenant>(data as Tenant | undefined, error, response);
+}
+
+export async function updateTenant(
+  tenantID: string,
+  input: UpdateTenantRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<Tenant> {
+  const { data, error, response } = await createTutorHubClient(options).PATCH(
+    "/api/v1/tenants/{tenant_id}",
+    {
+      params: {
+        path: { tenant_id: tenantID },
+        header: { "X-CSRF-Token": csrfToken },
+      },
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<Tenant>(data as Tenant | undefined, error, response);
+}
+
+export async function archiveTenant(
+  tenantID: string,
+  input: ArchiveTenantRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<CurrentUser> {
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/tenants/{tenant_id}/archive",
+    {
+      params: {
+        path: { tenant_id: tenantID },
+        header: { "X-CSRF-Token": csrfToken },
+      },
       body: input,
       headers: { Accept: "application/json" },
       signal: options.signal,

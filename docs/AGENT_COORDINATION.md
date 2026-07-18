@@ -51,14 +51,19 @@ ngoại lệ có thời hạn theo ADR-0012 và không được mô tả như br
 
 ## 4. Trạng thái Phase 2
 
-| Task                           | Trạng thái | Ghi chú                           |
-| ------------------------------ | ---------- | --------------------------------- |
-| P2-00 Policy/contract baseline | NEXT       | Gom authorization về policy layer |
-| P2-01 Profile/identity         | TODO       | Bắt đầu sau P2-00                 |
-| P2-02 Tenant lifecycle         | TODO       | Bắt đầu sau P2-00                 |
-| P2-03 đến P2-12                | TODO       | Theo dependency trong backlog     |
+| Task                           | Trạng thái | Ghi chú                                                    |
+| ------------------------------ | ---------- | ---------------------------------------------------------- |
+| P2-00 Policy/contract baseline | DONE       | Policy deny-by-default và role matrix dùng chung           |
+| P2-01 Profile/identity         | DONE       | Profile, identity linking và migration `000006`            |
+| P2-02 Tenant lifecycle         | DONE       | Lifecycle/switch, migration `000007`; `pnpm verify` xanh   |
+| P2-03 Membership invitation    | NEXT       | Task phát triển kế tiếp                                    |
+| P2-04 đến P2-12                | TODO       | Theo dependency trong backlog                              |
 
 Nguồn thực thi: `docs/PHASE_2_BACKLOG.md`.
+
+Full `pnpm verify` của P2-02 đã xanh ngày 2026-07-18. Integration-tag đã compile local;
+clean migration và PostgreSQL integration được workflow CI có PostgreSQL 17 xác nhận
+sau khi push checkpoint, không dùng secret từ `.env*.local`.
 
 ## 5. Hạ tầng staging đã chốt
 

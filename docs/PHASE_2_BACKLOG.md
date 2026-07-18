@@ -16,9 +16,10 @@ Tạo nền multi-tenant và quản lý lớp đủ dùng cho pilot nội bộ:
 
 **Thời lượng kế hoạch:** 4-6 tuần tập trung, chia thành 6 sprint kỹ thuật.
 
-**Task đã hoàn thành:** P2-00 Policy and contract baseline; P2-01 User profile và identity linking.
+**Task đã hoàn thành:** P2-00 Policy and contract baseline; P2-01 User profile và
+identity linking; P2-02 Tenant lifecycle và workspace switching.
 
-**Task kế tiếp:** P2-02 Tenant lifecycle và workspace switching.
+**Task kế tiếp:** P2-03 Membership invitation, accept và revoke.
 
 ## 2. Non-goal
 
@@ -48,8 +49,8 @@ Tạo nền multi-tenant và quản lý lớp đủ dùng cho pilot nội bộ:
 | ----- | --------------------------------------- | -------------------------- | ---------- |
 | P2-00 | Policy and contract baseline            | Phase 1                    | DONE       |
 | P2-01 | User profile và identity linking        | P2-00                      | DONE       |
-| P2-02 | Tenant lifecycle và workspace switching | P2-00                      | TODO       |
-| P2-03 | Membership invitation/accept/revoke     | P2-02                      | TODO       |
+| P2-02 | Tenant lifecycle và workspace switching | P2-00                      | DONE       |
+| P2-03 | Membership invitation/accept/revoke     | P2-02                      | NEXT       |
 | P2-04 | Class lifecycle, ownership và archive   | P2-00, P2-02               | TODO       |
 | P2-05 | Enrollment và class invite code         | P2-03, P2-04               | TODO       |
 | P2-06 | Roster và class-level roles             | P2-05                      | TODO       |
@@ -136,27 +137,37 @@ Tạo nền multi-tenant và quản lý lớp đủ dùng cho pilot nội bộ:
 
 - `GET /api/v1/tenants`
 - `POST /api/v1/tenants`
-- `GET /api/v1/tenants/{tenantId}`
-- `PATCH /api/v1/tenants/{tenantId}`
-- `POST /api/v1/tenants/{tenantId}/archive`
+- `GET /api/v1/tenants/{tenant_id}`
+- `PATCH /api/v1/tenants/{tenant_id}`
+- `POST /api/v1/tenants/{tenant_id}/archive`
 - Giữ endpoint select/switch hiện có và chuẩn hóa response/session rotation.
 
 ### Công việc
 
-- [ ] Bổ sung tenant slug, display name, status và metadata có version.
-- [ ] Tenant create tạo membership `org_admin` trong cùng transaction.
-- [ ] Switch chỉ chấp nhận tenant có membership active và xoay session/CSRF.
-- [ ] Archive từ chối khi không đủ quyền; không hard-delete dữ liệu nghiệp vụ.
-- [ ] Chặn archive active tenant cuối cùng nếu làm user mất đường quản trị.
-- [ ] Repository/query bắt buộc active tenant context sau switch.
-- [ ] UI workspace switcher xử lý stale cache và invalidate query đúng scope.
+- [x] Bổ sung slug/name, locale, timezone, status, `version` và `archived_at` cho tenant.
+- [x] Tenant create tạo membership `org_admin` trong cùng transaction.
+- [x] Switch chỉ chấp nhận tenant có membership active và xoay session/CSRF.
+- [x] Archive từ chối khi không đủ quyền; không hard-delete dữ liệu nghiệp vụ.
+- [x] Chặn archive active tenant cuối cùng nếu làm user mất đường quản trị.
+- [x] Repository/query bắt buộc active tenant context; `context_version` CAS chặn
+      concurrent session-context mutation ghi đè nhau.
+- [x] UI workspace switcher áp dụng response mới, hủy/xóa cache tenant-scoped và có
+      loading/error/retry states.
 
 ### Kiểm thử và DoD
 
-- Concurrent create/switch và retry không tạo duplicate membership.
-- Tenant A không đọc/sửa/archive tenant B.
-- Reload sau switch giữ đúng workspace và không hiện cache của tenant trước.
-- Audit create/update/archive/switch có actor và tenant chính xác.
+- [x] Concurrent create/switch và retry không tạo duplicate membership hoặc để response
+      cũ ghi đè active workspace mới hơn.
+- [x] Tenant A không đọc/sửa/archive tenant B; `tenant.view` và `tenant.manage` đi qua
+      shared policy với 403/404 concealment.
+- [x] Reload sau switch giữ đúng workspace và không hiện cache của tenant trước.
+- [x] Success event create/update/archive/switch có actor, tenant và version chính xác,
+      ghi durable qua outbox; audit query/failure event đầy đủ vẫn thuộc P2-07.
+
+**Verification:** `pnpm verify` xanh ngày 2026-07-18, gồm web 38/38, API client
+10/10, UI 6/6, lint/typecheck/build/Storybook, Go test/vet và security checks.
+Integration-tag của migration/classroom/identity compile xanh; PostgreSQL execution và
+clean migration được workflow CI có PostgreSQL 17 xác nhận sau khi push checkpoint.
 
 ## 8. P2-03 Membership invitation, accept và revoke
 
@@ -429,8 +440,8 @@ status, expires_at, accepted_at, revoked_at, invited_by, accepted_by, created_at
 
 ## 19. Việc cần làm ngay
 
-1. Bắt đầu P2-02 từ contract tenant lifecycle và workspace switching.
-2. Rà schema tenant/membership, session rotation và workspace selection hiện có.
-3. Chốt quy tắc slug, status, archive và active membership trước khi tạo migration.
-4. Triển khai transaction tạo tenant cùng membership `org_admin`, policy và audit.
-5. Hoàn thiện vertical slice chuyển workspace an toàn trước khi bắt đầu P2-03.
+1. Theo dõi PostgreSQL integration/clean-migration gate của checkpoint P2-02 trên CI.
+2. Bắt đầu P2-03 từ contract invitation list/create/revoke và preview/accept sau khi CI xanh.
+3. Chốt token hash, TTL, state machine và email/identity policy trước migration.
+4. Giữ notification ở interface/outbox; chưa gửi email thật trong Phase 2.
+5. Không bắt đầu enrollment/roster trước khi invitation transaction và deny tests đạt.

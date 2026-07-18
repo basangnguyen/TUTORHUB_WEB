@@ -5,13 +5,13 @@
 | Thuộc tính            | Giá trị                                                                                      |
 | --------------------- | -------------------------------------------------------------------------------------------- |
 | Phiên bản tài liệu    | 2.1                                                                                          |
-| Cập nhật              | 2026-07-16                                                                                   |
+| Cập nhật              | 2026-07-18                                                                                   |
 | Phạm vi ưu tiên       | Web application                                                                              |
 | Thư mục phát triển    | `D:\TutorHub_V2`                                                                             |
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
 | Phase hiện tại        | Phase 2 - Identity, tenant và class core                                                     |
-| Trạng thái gần nhất   | Phase 1 exit gate đạt; P2-00 Policy and contract baseline là việc tiếp theo                  |
+| Trạng thái gần nhất   | P2-02 tenant lifecycle đã triển khai; P2-03 membership invitation là việc tiếp theo          |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 
@@ -1184,13 +1184,19 @@ beta. Xem `docs/PHASE_1_COMPLETION.md`.
 
 **Mục tiêu:** có nền multi-tenant và quản lý lớp đủ dùng cho pilot nội bộ.
 
-**Backlog thực thi:** `docs/PHASE_2_BACKLOG.md`. Task đầu tiên là P2-00 Policy and
-contract baseline; authorization phải được thống nhất trước khi mở rộng API/UI.
+**Backlog thực thi:** `docs/PHASE_2_BACKLOG.md`. P2-00 đến P2-02 đã triển khai;
+task kế tiếp là P2-03 membership invitation, accept và revoke.
+
+**Trạng thái 2026-07-18:** P2-02 bổ sung tenant list/detail/create/update/archive,
+`tenant.view`/`tenant.manage`, optimistic version, session-context CAS, session/CSRF
+rotation, success event durable qua outbox và cache invalidation khi đổi workspace.
+Full `pnpm verify` đã xanh ngày 2026-07-18; clean migration và PostgreSQL integration
+được workflow CI có PostgreSQL 17 xác nhận sau khi push checkpoint.
 
 **Work package:**
 
 1. User/profile và identity linking.
-2. Tenant create/select/switch.
+2. Tenant list/create/detail/update/archive và workspace switch.
 3. Membership invitation, accept, revoke.
 4. Role/policy/effective permission.
 5. Class CRUD, archive, ownership.
@@ -1679,12 +1685,12 @@ Một tính năng chỉ được đánh dấu hoàn thành khi:
 
 ## 36. Việc cần làm ngay
 
-Thứ tự hiện tại, cập nhật ngày 2026-07-16:
+Thứ tự hiện tại, cập nhật ngày 2026-07-18:
 
 1. Phase 1 đã hoàn thành; biên bản nằm tại `docs/PHASE_1_COMPLETION.md`.
-2. Thực hiện P2-00: chốt organization/class role, permission matrix và policy layer.
-3. Sau P2-00 triển khai P2-01 profile/identity và P2-02 tenant lifecycle.
-4. Chỉ mở membership invitation, enrollment, roster và admin UI theo dependency
+2. P2-00 policy, P2-01 profile/identity và P2-02 tenant lifecycle đã triển khai.
+3. Bắt đầu P2-03 invitation flow theo dependency đã chốt.
+4. Chỉ mở enrollment, roster và admin UI theo dependency
    trong `docs/PHASE_2_BACKLOG.md`.
 5. Không bắt đầu QuizHub, Lavie, social feed, Secure Exam web hoặc classroom
    collaboration trong Phase 2.
@@ -1734,4 +1740,5 @@ Thứ tự hiện tại, cập nhật ngày 2026-07-16:
 
 ---
 
-**Điểm bắt đầu sau tài liệu này:** review P1-04/P1-05 rồi triển khai P1-06 Authentication spike. Master Plan không thay backlog triển khai; `docs/PHASE_1_BACKLOG.md` là checklist chi tiết của phase hiện tại.
+**Điểm bắt đầu sau tài liệu này:** đọc `docs/PROJECT_STATE.md` và triển khai P2-03 theo
+`docs/PHASE_2_BACKLOG.md`. Master Plan giữ mục tiêu/exit gate, không thay backlog chi tiết.

@@ -124,6 +124,7 @@ func run() int {
 			identity.NewPostgresRepository(pool, cfg.Database.QueryTimeout, authorizer),
 			provider,
 			crypto,
+			authorizer,
 			identity.ServiceConfig{
 				FlowTTL:            cfg.Authentication.FlowTTL,
 				SessionTTL:         cfg.Authentication.SessionTTL,

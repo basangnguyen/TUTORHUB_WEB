@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   APIRequestError,
+  archiveTenant,
   beginIdentityLink,
   createClass,
   createTenant,
@@ -9,16 +10,24 @@ import {
   getHealth,
   getLoginURL,
   getProfile,
+  getTenant,
   issueClassMediaToken,
   listIdentities,
   listClasses,
+  listTenants,
   logout,
   recordClassMediaEvent,
   rotateCSRFToken,
   switchActiveTenant,
   unlinkIdentity,
   updateProfile,
+  updateTenant,
 } from "./index";
+import type { UpdateTenantRequest } from "./index";
+
+// @ts-expect-error expected_version alone is not a meaningful tenant mutation.
+const invalidTenantUpdate: UpdateTenantRequest = { expected_version: 1 };
+void invalidTenantUpdate;
 
 describe("getHealth", () => {
   afterEach(() => {
@@ -216,6 +225,115 @@ describe("getHealth", () => {
     expect(requests[4]?.headers.get("X-CSRF-Token")).toBe("switch-csrf");
     await expect(requests[4]?.clone().json()).resolves.toEqual({
       tenant_id: "4b18543a-74de-419f-9fe8-d0c3dfc991eb",
+    });
+  });
+
+  it("gọi tenant lifecycle APIs với path, version và CSRF chính xác", async () => {
+    const tenantID = "4b18543a-74de-419f-9fe8-d0c3dfc991eb";
+    const tenant = {
+      id: tenantID,
+      slug: "tutorhub-test",
+      name: "TutorHub Test",
+      locale: "vi",
+      timezone: "Asia/Ho_Chi_Minh",
+      status: "active" as const,
+      version: 3,
+      role: "org_admin" as const,
+      is_active: true,
+      created_at: "2026-07-18T01:00:00Z",
+      updated_at: "2026-07-18T02:00:00Z",
+      archived_at: null,
+    };
+    const updatedTenant = {
+      ...tenant,
+      slug: "tutorhub-engineering",
+      name: "TutorHub Engineering",
+      locale: "en",
+      timezone: "Asia/Singapore",
+      version: 4,
+      updated_at: "2026-07-18T03:00:00Z",
+    };
+    const archivedPrincipal = {
+      user: {
+        id: "be85eb92-0f18-4163-85ba-50e4d343d632",
+        email: "owner@example.com",
+        display_name: "Owner",
+        locale: "vi",
+        timezone: "Asia/Ho_Chi_Minh",
+      },
+      active_tenant: null,
+      memberships: [],
+      permissions: [],
+    };
+    const responses = [
+      new Response(JSON.stringify({ items: [tenant] }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+      new Response(JSON.stringify(tenant), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+      new Response(JSON.stringify(updatedTenant), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+      new Response(JSON.stringify(archivedPrincipal), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    ];
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(() => Promise.resolve(responses.shift()));
+    const options = { baseUrl: "http://localhost/api", fetch: fetchMock };
+
+    await expect(listTenants(options)).resolves.toEqual({ items: [tenant] });
+    await expect(getTenant(tenantID, options)).resolves.toEqual(tenant);
+    await expect(
+      updateTenant(
+        tenantID,
+        {
+          expected_version: 3,
+          name: "TutorHub Engineering",
+          slug: "tutorhub-engineering",
+          locale: "en",
+          timezone: "Asia/Singapore",
+        },
+        "update-csrf",
+        options,
+      ),
+    ).resolves.toEqual(updatedTenant);
+    await expect(
+      archiveTenant(tenantID, { expected_version: 4 }, "archive-csrf", options),
+    ).resolves.toEqual(archivedPrincipal);
+
+    const requests = fetchMock.mock.calls.map((call) => call[0] as Request);
+    expect(requests[0]?.method).toBe("GET");
+    expect(requests[0]?.url).toBe("http://localhost/api/v1/tenants");
+    expect(requests[1]?.method).toBe("GET");
+    expect(requests[1]?.url).toBe(
+      `http://localhost/api/v1/tenants/${tenantID}`,
+    );
+    expect(requests[2]?.method).toBe("PATCH");
+    expect(requests[2]?.url).toBe(
+      `http://localhost/api/v1/tenants/${tenantID}`,
+    );
+    expect(requests[2]?.headers.get("X-CSRF-Token")).toBe("update-csrf");
+    await expect(requests[2]?.clone().json()).resolves.toEqual({
+      expected_version: 3,
+      name: "TutorHub Engineering",
+      slug: "tutorhub-engineering",
+      locale: "en",
+      timezone: "Asia/Singapore",
+    });
+    expect(requests[3]?.method).toBe("POST");
+    expect(requests[3]?.url).toBe(
+      `http://localhost/api/v1/tenants/${tenantID}/archive`,
+    );
+    expect(requests[3]?.headers.get("X-CSRF-Token")).toBe("archive-csrf");
+    await expect(requests[3]?.clone().json()).resolves.toEqual({
+      expected_version: 4,
     });
   });
 

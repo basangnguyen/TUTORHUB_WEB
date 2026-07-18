@@ -23,6 +23,7 @@ const (
 type Permission string
 
 const (
+	PermissionTenantView        Permission = "tenant.view"
 	PermissionTenantManage      Permission = "tenant.manage"
 	PermissionClassCreate       Permission = "class.create"
 	PermissionClassUpdate       Permission = "class.update"
@@ -40,6 +41,7 @@ const (
 type Action string
 
 const (
+	ActionTenantView        Action = Action(PermissionTenantView)
 	ActionTenantManage      Action = Action(PermissionTenantManage)
 	ActionClassCreate       Action = Action(PermissionClassCreate)
 	ActionClassUpdate       Action = Action(PermissionClassUpdate)
@@ -112,6 +114,7 @@ func NewEngine() *Engine {
 }
 
 var permissionOrder = []Permission{
+	PermissionTenantView,
 	PermissionTenantManage,
 	PermissionClassCreate,
 	PermissionClassUpdate,
@@ -129,6 +132,7 @@ var permissionOrder = []Permission{
 var organizationPermissions = map[OrganizationRole][]Permission{
 	OrganizationRoleAdmin: append([]Permission(nil), permissionOrder...),
 	OrganizationRoleTeacher: {
+		PermissionTenantView,
 		PermissionClassCreate,
 		PermissionClassUpdate,
 		PermissionClassView,
@@ -142,12 +146,14 @@ var organizationPermissions = map[OrganizationRole][]Permission{
 		PermissionChatSend,
 	},
 	OrganizationRoleStudent: {
+		PermissionTenantView,
 		PermissionClassView,
 		PermissionSessionJoin,
 		PermissionMediaPublish,
 		PermissionChatSend,
 	},
 	OrganizationRoleGuest: {
+		PermissionTenantView,
 		PermissionSessionJoin,
 		PermissionChatSend,
 	},
@@ -275,7 +281,7 @@ func validAction(action Action) bool {
 
 func actionRequiresClass(action Action) bool {
 	switch action {
-	case ActionTenantManage, ActionClassCreate, ActionClassView:
+	case ActionTenantView, ActionTenantManage, ActionClassCreate, ActionClassView:
 		return false
 	default:
 		return true

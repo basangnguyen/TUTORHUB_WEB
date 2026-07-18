@@ -306,11 +306,27 @@ func (handlers authHandlers) writeIdentityProblem(w http.ResponseWriter, r *http
 	case errors.Is(err, identity.ErrTenantCreationDenied):
 		status = http.StatusForbidden
 		title = "Workspace creation not allowed"
-		detail = "This onboarding session cannot create another workspace."
+		detail = "Only an organization administrator can create another workspace."
 	case errors.Is(err, identity.ErrTenantAccessDenied):
 		status = http.StatusForbidden
 		title = "Workspace access denied"
-		detail = "You do not have an active membership in this workspace."
+		detail = "Your active workspace membership does not allow this action."
+	case errors.Is(err, identity.ErrTenantNotFound):
+		status = http.StatusNotFound
+		title = "Workspace not found"
+		detail = "The workspace does not exist in the active tenant scope."
+	case errors.Is(err, identity.ErrTenantVersionConflict):
+		status = http.StatusConflict
+		title = "Workspace changed"
+		detail = "Reload the workspace metadata before trying this change again."
+	case errors.Is(err, identity.ErrLastManagedTenant):
+		status = http.StatusConflict
+		title = "Workspace cannot be archived"
+		detail = "Keep at least one other active workspace that you administer."
+	case errors.Is(err, identity.ErrSessionContextConflict):
+		status = http.StatusConflict
+		title = "Workspace context changed"
+		detail = "Reload the current session before changing workspace again."
 	case errors.Is(err, identity.ErrInvalidProfile):
 		status = http.StatusBadRequest
 		title = "Invalid profile"

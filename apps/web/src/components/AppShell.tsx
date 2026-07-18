@@ -1,7 +1,13 @@
 import { Button, IconButton } from "@tutorhub/ui";
 import { LogOut, Menu, RefreshCw, X } from "lucide-react";
 import { useEffect, useState } from "react";
-import { NavLink, Outlet, useLocation, useNavigation } from "react-router-dom";
+import {
+  NavLink,
+  Outlet,
+  useLocation,
+  useNavigate,
+  useNavigation,
+} from "react-router-dom";
 import { navigationItems } from "../app/routes";
 import { useI18n } from "../app/i18n";
 import { useSession } from "../app/session";
@@ -29,16 +35,23 @@ function useOnlineStatus() {
 export function AppShell() {
   const { language, setLanguage, t } = useI18n();
   const session = useSession();
-  const { switchWorkspace } = useWorkspaceActions();
+  const navigate = useNavigate();
+  const { switchWorkspace } = useWorkspaceActions({
+    onSwitchSuccess: () => navigate("/app/home", { replace: true }),
+  });
   const location = useLocation();
   const navigation = useNavigation();
   const isOnline = useOnlineStatus();
   const [isNavigationOpen, setIsNavigationOpen] = useState(false);
 
   const activeTenant = session.currentUser?.active_tenant;
-  const tenantOptions = session.currentUser?.memberships.length
-    ? session.currentUser.memberships
-    : activeTenant
+  const activeMemberships =
+    session.currentUser?.memberships.filter(
+      (membership) => membership.status === "active",
+    ) ?? [];
+  const tenantOptions = activeMemberships.length
+    ? activeMemberships
+    : activeTenant?.status === "active"
       ? [activeTenant]
       : [];
 
@@ -129,9 +142,13 @@ export function AppShell() {
               {tenantOptions.length > 1 ? (
                 <select
                   aria-label={t("workspace.activeLabel")}
+                  aria-busy={switchWorkspace.isPending || undefined}
                   disabled={switchWorkspace.isPending}
                   onChange={(event) => {
-                    if (event.target.value !== activeTenant?.id) {
+                    if (
+                      !switchWorkspace.isPending &&
+                      event.target.value !== activeTenant?.id
+                    ) {
                       switchWorkspace.mutate(event.target.value);
                     }
                   }}
@@ -178,11 +195,22 @@ export function AppShell() {
           </div>
         </header>
 
+        {switchWorkspace.isPending && (
+          <p className="visually-hidden" role="status">
+            {t("workspace.switching")}
+          </p>
+        )}
+
         {switchWorkspace.isError && (
           <section className="workspace-switch-error" role="alert">
             <span>{t("workspace.selectError")}</span>
             <Button
-              onClick={() => switchWorkspace.reset()}
+              disabled={!switchWorkspace.variables}
+              onClick={() => {
+                if (switchWorkspace.variables) {
+                  switchWorkspace.mutate(switchWorkspace.variables);
+                }
+              }}
               size="sm"
               variant="secondary"
             >

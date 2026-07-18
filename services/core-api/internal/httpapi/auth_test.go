@@ -175,6 +175,9 @@ func TestWorkspaceOnboardingCreatesTenantAndRotatesSession(t *testing.T) {
 	if response.Code != http.StatusCreated || !service.createTenantCalled {
 		t.Fatalf("unexpected tenant creation: status=%d body=%s", response.Code, response.Body.String())
 	}
+	if response.Header().Get("Location") != "/api/v1/tenants/c91445df-bde0-44f2-83ed-33ec6148bb84" {
+		t.Fatalf("unexpected tenant location: %q", response.Header().Get("Location"))
+	}
 	if service.createTenantInput.Name != "Khoa Công nghệ thông tin" ||
 		service.createTenantInput.Slug != "kma-lab" {
 		t.Fatalf("unexpected tenant input: %+v", service.createTenantInput)
@@ -230,6 +233,89 @@ func TestWorkspaceMutationRejectsInvalidRequestsAndCrossTenantSwitch(t *testing.
 	}
 }
 
+func TestWorkspaceLifecycleHTTPContract(t *testing.T) {
+	t.Parallel()
+
+	tenantID := uuid.MustParse("c91445df-bde0-44f2-83ed-33ec6148bb84")
+	tenant := identity.Tenant{
+		ID: tenantID, Slug: "tutorhub-test", Name: "TutorHub Test",
+		Locale: "vi", Timezone: "Asia/Ho_Chi_Minh", Status: "active", Version: 3,
+		Role: "org_admin", IsActive: true,
+		CreatedAt: fixedTime.Add(-24 * time.Hour), UpdatedAt: fixedTime,
+	}
+	service := &fakeIdentityService{principal: identity.Principal{
+		SessionID: uuid.MustParse("e27001f3-76db-4169-9dc0-bf451060ddf0"),
+		User: identity.User{
+			ID:    uuid.MustParse("be85eb92-0f18-4163-85ba-50e4d343d632"),
+			Email: "admin@example.com", DisplayName: "Admin", Locale: "vi",
+			Timezone: "Asia/Ho_Chi_Minh",
+		},
+		ActiveTenant: &tenant, Memberships: []identity.Tenant{tenant},
+		Permissions: []string{"tenant.view", "tenant.manage"},
+	}}
+	handler := newAuthTestHandler(service, false)
+
+	listRequest := httptest.NewRequest(http.MethodGet, "/api/v1/tenants", nil)
+	listRequest.AddCookie(&http.Cookie{Name: "tutorhub_session", Value: "session-token"})
+	listResponse := httptest.NewRecorder()
+	handler.ServeHTTP(listResponse, listRequest)
+	if listResponse.Code != http.StatusOK {
+		t.Fatalf("list tenants: status=%d body=%s", listResponse.Code, listResponse.Body.String())
+	}
+	var listed tenantListResponse
+	if err := json.NewDecoder(listResponse.Body).Decode(&listed); err != nil ||
+		len(listed.Items) != 1 || listed.Items[0].Version != 3 {
+		t.Fatalf("unexpected tenant list: items=%+v error=%v", listed.Items, err)
+	}
+
+	detailRequest := httptest.NewRequest(
+		http.MethodGet,
+		"/api/v1/tenants/"+tenantID.String(),
+		nil,
+	)
+	detailRequest.AddCookie(&http.Cookie{Name: "tutorhub_session", Value: "session-token"})
+	detailResponse := httptest.NewRecorder()
+	handler.ServeHTTP(detailResponse, detailRequest)
+	if detailResponse.Code != http.StatusOK {
+		t.Fatalf("get tenant: status=%d body=%s", detailResponse.Code, detailResponse.Body.String())
+	}
+
+	patchRequest := httptest.NewRequest(
+		http.MethodPatch,
+		"/api/v1/tenants/"+tenantID.String(),
+		strings.NewReader(`{"name":"TutorHub Academy","expected_version":3}`),
+	)
+	patchRequest.Header.Set("Content-Type", "application/json")
+	patchRequest.Header.Set(csrfHeader, "csrf-token")
+	patchRequest.AddCookie(&http.Cookie{Name: "tutorhub_session", Value: "session-token"})
+	patchRequest.AddCookie(&http.Cookie{Name: "tutorhub_csrf", Value: "csrf-token"})
+	patchResponse := httptest.NewRecorder()
+	handler.ServeHTTP(patchResponse, patchRequest)
+	if patchResponse.Code != http.StatusOK || service.updatedTenantID != tenantID ||
+		service.updateTenantInput.ExpectedVersion != 3 {
+		t.Fatalf("update tenant: status=%d input=%+v body=%s", patchResponse.Code, service.updateTenantInput, patchResponse.Body.String())
+	}
+
+	archiveRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/api/v1/tenants/"+tenantID.String()+"/archive",
+		strings.NewReader(`{"expected_version":4}`),
+	)
+	archiveRequest.Header.Set("Content-Type", "application/json")
+	archiveRequest.Header.Set(csrfHeader, "csrf-token")
+	archiveRequest.AddCookie(&http.Cookie{Name: "tutorhub_session", Value: "session-token"})
+	archiveRequest.AddCookie(&http.Cookie{Name: "tutorhub_csrf", Value: "csrf-token"})
+	archiveResponse := httptest.NewRecorder()
+	handler.ServeHTTP(archiveResponse, archiveRequest)
+	if archiveResponse.Code != http.StatusOK || service.archivedTenantID != tenantID ||
+		service.archiveVersion != 4 {
+		t.Fatalf("archive tenant: status=%d version=%d body=%s", archiveResponse.Code, service.archiveVersion, archiveResponse.Body.String())
+	}
+	if findCookie(t, archiveResponse.Result().Cookies(), "tutorhub_session").Value != "rotated-session" {
+		t.Fatal("archive must rotate the session cookie")
+	}
+}
+
 func newAuthTestHandler(service identity.ServiceAPI, secure bool) http.Handler {
 	return NewHandlerWithOptions(
 		config.Config{
@@ -267,6 +353,10 @@ type fakeIdentityService struct {
 	logoutCalled       bool
 	createTenantCalled bool
 	createTenantInput  identity.CreateTenantInput
+	updatedTenantID    uuid.UUID
+	updateTenantInput  identity.UpdateTenantInput
+	archivedTenantID   uuid.UUID
+	archiveVersion     int64
 	switchTenantID     uuid.UUID
 	principal          identity.Principal
 	profilePatch       identity.ProfilePatch
@@ -374,6 +464,10 @@ func (service *fakeIdentityService) CreateTenant(
 		ID:       uuid.MustParse("c91445df-bde0-44f2-83ed-33ec6148bb84"),
 		Slug:     input.Slug,
 		Name:     input.Name,
+		Locale:   "vi",
+		Timezone: "Asia/Ho_Chi_Minh",
+		Status:   "active",
+		Version:  1,
 		Role:     "org_admin",
 		IsActive: true,
 	}
@@ -383,6 +477,72 @@ func (service *fakeIdentityService) CreateTenant(
 	service.principal = principal
 
 	return identity.TenantSessionResult{
+		Principal:    principal,
+		SessionToken: "rotated-session",
+		CSRFToken:    "rotated-csrf",
+		ExpiresAt:    fixedTime.Add(8 * time.Hour),
+	}, nil
+}
+
+func (service *fakeIdentityService) ListTenants(
+	_ context.Context,
+	principal identity.Principal,
+) ([]identity.Tenant, error) {
+	return append([]identity.Tenant(nil), principal.Memberships...), nil
+}
+
+func (service *fakeIdentityService) GetTenant(
+	_ context.Context,
+	principal identity.Principal,
+	tenantID uuid.UUID,
+) (identity.Tenant, error) {
+	for _, tenant := range principal.Memberships {
+		if tenant.ID == tenantID && tenant.Status == "active" {
+			return tenant, nil
+		}
+	}
+	return identity.Tenant{}, identity.ErrTenantNotFound
+}
+
+func (service *fakeIdentityService) UpdateTenant(
+	_ context.Context,
+	principal identity.Principal,
+	tenantID uuid.UUID,
+	input identity.UpdateTenantInput,
+) (identity.Tenant, error) {
+	service.updatedTenantID = tenantID
+	service.updateTenantInput = input
+	for index := range principal.Memberships {
+		tenant := &principal.Memberships[index]
+		if tenant.ID != tenantID {
+			continue
+		}
+		if input.Name != nil {
+			tenant.Name = *input.Name
+		}
+		if input.Slug != nil {
+			tenant.Slug = *input.Slug
+		}
+		tenant.Version++
+		service.principal = principal
+		return *tenant, nil
+	}
+	return identity.Tenant{}, identity.ErrTenantNotFound
+}
+
+func (service *fakeIdentityService) ArchiveTenant(
+	_ context.Context,
+	principal identity.Principal,
+	tenantID uuid.UUID,
+	expectedVersion int64,
+) (identity.TenantArchiveResult, error) {
+	service.archivedTenantID = tenantID
+	service.archiveVersion = expectedVersion
+	principal.ActiveTenant = nil
+	principal.Memberships = []identity.Tenant{}
+	principal.Permissions = []string{}
+	service.principal = principal
+	return identity.TenantArchiveResult{
 		Principal:    principal,
 		SessionToken: "rotated-session",
 		CSRFToken:    "rotated-csrf",

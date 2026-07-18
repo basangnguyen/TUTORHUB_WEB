@@ -1,7 +1,11 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { SessionProvider, useSession } from "./session";
+import {
+  clearPrivateSessionCache,
+  SessionProvider,
+  useSession,
+} from "./session";
 
 function SessionProbe() {
   const session = useSession();
@@ -115,5 +119,17 @@ describe("remote session provider", () => {
     expect(
       await screen.findByText("error:student@example.com"),
     ).toBeInTheDocument();
+  });
+
+  it("clears cached authenticated data after a successful sign-out boundary", async () => {
+    const queryClient = new QueryClient();
+    queryClient.setQueryData(["auth", "me"], { user: "student" });
+    queryClient.setQueryData(["profile", "detail"], { name: "Student" });
+    queryClient.setQueryData(["classes", "tenant-a", "list"], ["class-a"]);
+
+    await clearPrivateSessionCache(queryClient);
+
+    expect(queryClient.getQueryCache().getAll()).toHaveLength(0);
+    expect(queryClient.getMutationCache().getAll()).toHaveLength(0);
   });
 });

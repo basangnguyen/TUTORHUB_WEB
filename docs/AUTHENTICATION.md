@@ -72,7 +72,11 @@ sau đó token phải khớp keyed HMAC của session trong PostgreSQL. Không d
 | `GET /api/v1/auth/csrf` | Xoay CSRF token cho session hiện tại |
 | `POST /api/v1/auth/logout` | Yêu cầu session cookie và `X-CSRF-Token`; revoke phiên |
 | `GET /api/v1/me` | Trả user, active tenant, memberships và permissions |
-| `POST /api/v1/tenants` | Tạo workspace đầu tiên, gán `org_admin`, đặt active tenant và xoay session/CSRF |
+| `GET /api/v1/tenants` | Trả các tenant active mà user có membership active |
+| `POST /api/v1/tenants` | Tạo workspace cho user chưa có membership hoặc `org_admin`, gán owner, đặt active tenant và xoay session/CSRF |
+| `GET /api/v1/tenants/{tenant_id}` | Đọc tenant trong active scope với `tenant.view` |
+| `PATCH /api/v1/tenants/{tenant_id}` | Cập nhật metadata với `tenant.manage`, CSRF và `expected_version` |
+| `POST /api/v1/tenants/{tenant_id}/archive` | Archive mềm, xóa active context và xoay session/CSRF |
 | `PUT /api/v1/session/active-tenant` | Xác minh membership, đổi active tenant và xoay session/CSRF |
 
 Contract có thẩm quyền nằm tại `openapi/tutorhub.yaml`; TypeScript client được sinh ở
@@ -81,16 +85,43 @@ Contract có thẩm quyền nằm tại `openapi/tutorhub.yaml`; TypeScript clie
 ## Workspace onboarding và tenant switching
 
 Sau lần đăng nhập đầu tiên, tài khoản chưa có membership không được đi thẳng vào app
-shell. Web hiển thị onboarding và gửi `POST /api/v1/tenants`. Core API khóa user và
-session hiện tại, sau đó tạo tenant, membership `org_admin`, cập nhật active tenant và
-ghi `tenant.created` vào outbox trong cùng transaction. Nếu một request đồng thời đã tạo
-membership trước, request còn lại bị từ chối để không sinh workspace ngoài ý muốn.
+shell. Web hiển thị onboarding và gửi `POST /api/v1/tenants`. Core API khóa session rồi
+user, kiểm tra lại user vẫn chưa có membership active trong tenant active, sau đó tạo tenant,
+membership `org_admin`, cập nhật active tenant và ghi `tenant.created` vào outbox trong cùng
+transaction. User lock tuần tự hóa các session onboarding; nếu request trước đã tạo membership
+thì request còn lại bị từ chối để không sinh workspace ngoài ý muốn.
 
 Khi đổi workspace, browser chỉ gửi tenant đích. Backend không tin quyền từ client mà
 kiểm tra membership đang hoạt động trong PostgreSQL trước khi cập nhật session. Cả hai
 thao tác là privilege-context change nên session token và CSRF token đều được xoay; token
 cũ mất hiệu lực ngay sau commit. Endpoint yêu cầu session hợp lệ, CSRF header/cookie và
 CSRF HMAC server-side giống logout.
+
+P2-02 mở rộng luồng thành lifecycle tenant đầy đủ. List chỉ trả tenant active có
+membership active của user; detail yêu cầu `tenant.view`, còn update/archive yêu cầu
+`tenant.manage` trong đúng active tenant. Update và archive bắt buộc `expected_version`;
+SQL chỉ ghi khi version còn khớp rồi tăng version, vì vậy stale mutation trả conflict
+thay vì âm thầm ghi đè. Status không được PATCH trực tiếp.
+
+Create từ workspace hiện hữu và switch khóa tenant/membership trước session; create đối
+chiếu active tenant authoritative của session với tenant đã được service authorize rồi chạy
+lại shared policy trên role hiện tại. Update/archive cũng khóa membership và reauthorize trong
+transaction. Vì vậy revoke/demotion đồng thời không thể lọt qua authorization snapshot cũ.
+Lock order của archive là tenant/membership, session hiện tại, các session liên quan rồi user
+để không tạo chu kỳ với profile update.
+
+Mỗi session có `context_version`. Create, switch và archive khóa session rồi dùng
+compare-and-swap trên version này trước khi thay active tenant và token hash, ngăn hai
+response đồng thời cài lại context cũ. Mọi switch hợp lệ, kể cả chọn lại tenant hiện tại,
+đều xoay session/CSRF. Archive xóa active tenant khỏi mọi session liên quan, xoay
+credential của phiên thực hiện và bị từ chối nếu actor không còn tenant active khác với
+role `org_admin`.
+
+Các mutation thành công ghi `tenant.created`, `tenant.updated`, `tenant.archived` hoặc
+`tenant.switched` vào transactional outbox cùng business transaction. Payload chỉ giữ
+actor, from/to tenant và version cần thiết; audit query và failure event đầy đủ thuộc
+P2-07. Web áp dụng principal trả về ngay, hủy request cũ và xóa cache tenant-scoped để
+không hiển thị dữ liệu workspace trước sau create/switch/archive.
 
 ## Tạo ứng dụng ZITADEL
 
@@ -157,13 +188,13 @@ pnpm verify
 
 Integration test chạy migration, tạo identity/session trong transaction bao ngoài,
 kiểm tra one-time flow, hash token, tenant permissions, workspace onboarding, tenant
-switching, CSRF/session rotation và revoke rồi
-rollback toàn bộ fixture.
+list/detail/update/archive, optimistic version, context CAS, switching,
+CSRF/session rotation và revoke rồi rollback toàn bộ fixture.
 
 ## Trạng thái triển khai
 
-- Code, migration v4, OpenAPI, generated client, unit test và Neon integration test
-  đã hoàn thành cục bộ.
+- Nền authentication ban đầu dùng migration `000004`; profile/identity dùng `000006`;
+  tenant lifecycle và session-context CAS dùng migration `000007` có cả up/down path.
 - `tutorhub-local` đã được provision ngày 2026-07-14 trong project `TutorHub V2`,
   instance `tutorhub-v2-dev`. Secret chỉ nằm trong `.env.local` đã Git-ignore.
 - Browser smoke thật đã đạt: login/callback, `/api/v1/me`, reload giữ phiên,
@@ -171,6 +202,11 @@ rollback toàn bộ fixture.
 - Workspace onboarding và tenant selector đã hoàn thành cục bộ. Unit, HTTP, web và Neon
   integration test xác nhận tạo workspace đầu tiên, quyền `org_admin`, đổi tenant hợp lệ,
   từ chối tenant không có membership và vô hiệu hóa token phiên cũ.
+- P2-02 đã bổ sung typed OpenAPI/client, tenant list/detail/update/archive, optimistic
+  version, `tenant.view`/`tenant.manage`, durable success events và cache invalidation/UI
+  states. `pnpm verify` xanh ngày 2026-07-18; integration-tag của migration/classroom/
+  identity biên dịch xanh. Clean migration và PostgreSQL integration được CI dùng
+  PostgreSQL 17 xác nhận sau khi push checkpoint.
 - ZITADEL trả profile/email qua UserInfo trong Authorization Code Flow. Adapter đã
   được sửa để xác minh ID token trước, gọi UserInfo sau và từ chối khi `sub` không
   khớp; test hồi quy và `pnpm verify` đều đạt.

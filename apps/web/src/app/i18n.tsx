@@ -23,6 +23,7 @@ const messages = {
     "nav.messages": "Tin nhắn",
     "nav.tasks": "Nhiệm vụ",
     "nav.drive": "Tài liệu",
+    "nav.workspace": "Workspace",
     "nav.settings": "Thiết lập",
     "profile.kicker": "Tài khoản cá nhân",
     "profile.title": "Hồ sơ và danh tính",
@@ -130,6 +131,77 @@ const messages = {
       "Chưa thể chuyển workspace. Hãy thử lại hoặc kiểm tra membership.",
     "workspace.switching": "Đang chuyển workspace...",
     "workspace.activeLabel": "Workspace đang hoạt động",
+    "workspace.noActive": "Bạn chưa có workspace đang hoạt động để chọn.",
+    "workspace.managementLoading": "Đang tải thông tin workspace",
+    "workspace.managementForbiddenTitle": "Bạn chưa thể xem workspace này",
+    "workspace.managementForbiddenDescription":
+      "Membership hiện tại không có quyền xem workspace đang hoạt động.",
+    "workspace.managementLoadErrorTitle": "Chưa thể tải workspace",
+    "workspace.managementLoadErrorDescription":
+      "Kiểm tra kết nối rồi thử tải lại thông tin workspace.",
+    "workspace.managementKicker": "Phạm vi tổ chức",
+    "workspace.managementTitle": "Thông tin workspace",
+    "workspace.managementDescription":
+      "Xem phạm vi dữ liệu đang hoạt động, vai trò của bạn và cấu hình tổ chức.",
+    "workspace.statusActive": "Đang hoạt động",
+    "workspace.statusSuspended": "Tạm ngưng",
+    "workspace.statusArchived": "Đã lưu trữ",
+    "workspace.overviewTitle": "Tổng quan workspace",
+    "workspace.overviewDescription":
+      "Thông tin này được Core API giới hạn theo workspace đang hoạt động.",
+    "workspace.localeLabel": "Ngôn ngữ mặc định",
+    "workspace.timezoneLabel": "Múi giờ mặc định",
+    "workspace.timezoneHelp": "Dùng tên múi giờ IANA, ví dụ Asia/Ho_Chi_Minh.",
+    "workspace.roleLabel": "Vai trò của bạn",
+    "workspace.updatedLabel": "Cập nhật gần nhất",
+    "workspace.manageRestrictedTitle": "Chỉ quản trị viên được chỉnh sửa",
+    "workspace.manageRestrictedDescription":
+      "Bạn vẫn có thể xem thông tin workspace; thay đổi và lưu trữ cần quyền quản trị tổ chức.",
+    "workspace.editTitle": "Cấu hình workspace",
+    "workspace.editDescription":
+      "Cập nhật tên, địa chỉ ngắn, ngôn ngữ và múi giờ mặc định.",
+    "workspace.nameValidation": "Tên phải có từ 2 đến 120 ký tự.",
+    "workspace.slugValidation":
+      "Địa chỉ phải có 3–63 chữ thường, chữ số hoặc dấu gạch ngang.",
+    "workspace.timezoneValidation": "Hãy nhập một múi giờ IANA hợp lệ.",
+    "workspace.updateAction": "Lưu cấu hình",
+    "workspace.updating": "Đang lưu...",
+    "workspace.updateSuccess": "Đã cập nhật workspace.",
+    "workspace.updateError": "Chưa thể cập nhật workspace. Hãy thử lại.",
+    "workspace.updateForbidden":
+      "Phiên hiện tại không còn quyền cập nhật workspace này.",
+    "workspace.updateConflict":
+      "Workspace đã được thay đổi ở nơi khác. Tải bản mới nhất trước khi lưu lại.",
+    "workspace.reloadLatest": "Tải bản mới nhất",
+    "workspace.archiveTitle": "Lưu trữ workspace",
+    "workspace.archiveDescription":
+      "Lưu trữ sẽ chặn thao tác nghiệp vụ mới nhưng không xóa dữ liệu lịch sử.",
+    "workspace.archiveAction": "Lưu trữ workspace",
+    "workspace.archiveCloseLabel": "Đóng xác nhận lưu trữ",
+    "workspace.archiveConfirmTitle": "Xác nhận lưu trữ workspace",
+    "workspace.archiveConfirmDescription":
+      "Bạn sắp lưu trữ {name}. Hành động này sẽ xoay phiên và bỏ workspace khỏi phạm vi đang hoạt động.",
+    "workspace.archiveWarning":
+      "Bạn phải còn ít nhất một workspace đang hoạt động khác mà mình quản trị.",
+    "workspace.archiveConfirmAction": "Xác nhận lưu trữ",
+    "workspace.archiving": "Đang lưu trữ...",
+    "workspace.archiveError": "Chưa thể lưu trữ workspace. Hãy thử lại.",
+    "workspace.archiveForbidden":
+      "Phiên hiện tại không có quyền lưu trữ workspace này.",
+    "workspace.archiveConflict":
+      "Workspace đã thay đổi hoặc đây là workspace quản trị cuối cùng. Tải dữ liệu mới nhất để kiểm tra.",
+    "workspace.cancelAction": "Hủy",
+    "workspace.listTitle": "Workspace của bạn",
+    "workspace.listDescription":
+      "Danh sách membership và trạng thái workspace thuộc tài khoản hiện tại.",
+    "workspace.listLoading": "Đang tải danh sách workspace",
+    "workspace.listErrorTitle": "Chưa thể tải danh sách workspace",
+    "workspace.listErrorDescription":
+      "Danh sách membership hiện không sẵn sàng. Hãy thử lại.",
+    "workspace.listEmptyTitle": "Chưa có workspace",
+    "workspace.listEmptyDescription":
+      "Workspace sẽ xuất hiện tại đây sau khi membership được tạo.",
+    "workspace.activeShort": "Đang chọn",
     "classroom.title": "Lớp học",
     "classroom.description":
       "Quản lý các lớp thuộc workspace đang hoạt động và mở thông tin chi tiết của từng lớp.",
@@ -294,6 +366,7 @@ const messages = {
     "nav.messages": "Messages",
     "nav.tasks": "Tasks",
     "nav.drive": "Resources",
+    "nav.workspace": "Workspace",
     "nav.settings": "Settings",
     "profile.kicker": "Personal account",
     "profile.title": "Profile and identities",
@@ -403,6 +476,78 @@ const messages = {
       "We could not switch workspaces. Try again or check your membership.",
     "workspace.switching": "Switching workspace...",
     "workspace.activeLabel": "Active workspace",
+    "workspace.noActive": "You do not have an active workspace to select.",
+    "workspace.managementLoading": "Loading workspace information",
+    "workspace.managementForbiddenTitle": "You cannot view this workspace",
+    "workspace.managementForbiddenDescription":
+      "Your current membership cannot view the active workspace.",
+    "workspace.managementLoadErrorTitle": "Workspace unavailable",
+    "workspace.managementLoadErrorDescription":
+      "Check the connection and retry loading the workspace information.",
+    "workspace.managementKicker": "Organization boundary",
+    "workspace.managementTitle": "Workspace information",
+    "workspace.managementDescription":
+      "Review the active data boundary, your role, and organization settings.",
+    "workspace.statusActive": "Active",
+    "workspace.statusSuspended": "Suspended",
+    "workspace.statusArchived": "Archived",
+    "workspace.overviewTitle": "Workspace overview",
+    "workspace.overviewDescription":
+      "Core API limits this information to the active workspace.",
+    "workspace.localeLabel": "Default language",
+    "workspace.timezoneLabel": "Default timezone",
+    "workspace.timezoneHelp":
+      "Use an IANA timezone, for example Europe/London.",
+    "workspace.roleLabel": "Your role",
+    "workspace.updatedLabel": "Last updated",
+    "workspace.manageRestrictedTitle": "Administrators manage this workspace",
+    "workspace.manageRestrictedDescription":
+      "You can still view workspace information; editing and archiving require organization administrator access.",
+    "workspace.editTitle": "Workspace settings",
+    "workspace.editDescription":
+      "Update the name, short address, default language, and timezone.",
+    "workspace.nameValidation": "The name must contain 2–120 characters.",
+    "workspace.slugValidation":
+      "The address must use 3–63 lowercase letters, numbers, or hyphens.",
+    "workspace.timezoneValidation": "Enter a valid IANA timezone.",
+    "workspace.updateAction": "Save settings",
+    "workspace.updating": "Saving...",
+    "workspace.updateSuccess": "Workspace updated.",
+    "workspace.updateError": "The workspace could not be updated. Try again.",
+    "workspace.updateForbidden":
+      "Your current session can no longer update this workspace.",
+    "workspace.updateConflict":
+      "The workspace changed elsewhere. Load the latest version before saving again.",
+    "workspace.reloadLatest": "Load latest version",
+    "workspace.archiveTitle": "Archive workspace",
+    "workspace.archiveDescription":
+      "Archiving blocks new business activity without deleting historical data.",
+    "workspace.archiveAction": "Archive workspace",
+    "workspace.archiveCloseLabel": "Close archive confirmation",
+    "workspace.archiveConfirmTitle": "Confirm workspace archive",
+    "workspace.archiveConfirmDescription":
+      "You are about to archive {name}. This rotates the session and removes the workspace from the active context.",
+    "workspace.archiveWarning":
+      "You must retain at least one other active workspace that you administer.",
+    "workspace.archiveConfirmAction": "Confirm archive",
+    "workspace.archiving": "Archiving...",
+    "workspace.archiveError": "The workspace could not be archived. Try again.",
+    "workspace.archiveForbidden":
+      "Your current session cannot archive this workspace.",
+    "workspace.archiveConflict":
+      "The workspace changed or it is your final managed workspace. Load the latest data to check.",
+    "workspace.cancelAction": "Cancel",
+    "workspace.listTitle": "Your workspaces",
+    "workspace.listDescription":
+      "Memberships and workspace statuses associated with your account.",
+    "workspace.listLoading": "Loading workspace list",
+    "workspace.listErrorTitle": "Workspace list unavailable",
+    "workspace.listErrorDescription":
+      "Your membership list is currently unavailable. Try again.",
+    "workspace.listEmptyTitle": "No workspaces",
+    "workspace.listEmptyDescription":
+      "Workspaces appear here after a membership is created.",
+    "workspace.activeShort": "Selected",
     "classroom.title": "Classrooms",
     "classroom.description":
       "Manage classes in the active workspace and open the details for each class.",

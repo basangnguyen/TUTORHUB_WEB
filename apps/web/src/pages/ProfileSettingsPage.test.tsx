@@ -47,6 +47,8 @@ const session: CurrentUser = {
     name: "TutorHub Test",
     role: "teacher",
     is_active: true,
+    status: "active",
+    version: 1,
   },
   memberships: [],
   permissions: [],

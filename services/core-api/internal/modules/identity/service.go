@@ -11,6 +11,8 @@ import (
 	"unicode/utf8"
 
 	"github.com/google/uuid"
+	"github.com/tutorhub-v2/core-api/internal/platform/tenancy"
+	"github.com/tutorhub-v2/core-api/internal/policy"
 	"golang.org/x/text/unicode/norm"
 )
 
@@ -60,6 +62,10 @@ type ServiceAPI interface {
 	ValidateCSRF(context.Context, string, string) (Principal, error)
 	Logout(context.Context, string) (string, error)
 	CreateTenant(context.Context, Principal, CreateTenantInput) (TenantSessionResult, error)
+	ListTenants(context.Context, Principal) ([]Tenant, error)
+	GetTenant(context.Context, Principal, uuid.UUID) (Tenant, error)
+	UpdateTenant(context.Context, Principal, uuid.UUID, UpdateTenantInput) (Tenant, error)
+	ArchiveTenant(context.Context, Principal, uuid.UUID, int64) (TenantArchiveResult, error)
 	SwitchActiveTenant(context.Context, Principal, uuid.UUID) (TenantSessionResult, error)
 	GetProfile(context.Context, Principal) (User, error)
 	UpdateProfile(context.Context, Principal, ProfilePatch) (User, error)
@@ -72,6 +78,7 @@ type Service struct {
 	repository Repository
 	provider   Provider
 	crypto     *Crypto
+	authorizer policy.Authorizer
 	config     ServiceConfig
 	clock      func() time.Time
 }
@@ -80,10 +87,11 @@ func NewService(
 	repository Repository,
 	provider Provider,
 	crypto *Crypto,
+	authorizer policy.Authorizer,
 	config ServiceConfig,
 	clock func() time.Time,
 ) (*Service, error) {
-	if repository == nil || provider == nil || crypto == nil {
+	if repository == nil || provider == nil || crypto == nil || authorizer == nil {
 		return nil, fmt.Errorf("identity service dependencies must be configured")
 	}
 	if config.FlowTTL <= 0 || config.SessionTTL <= 0 || config.SessionAbsoluteTTL <= 0 {
@@ -106,6 +114,7 @@ func NewService(
 		repository: repository,
 		provider:   provider,
 		crypto:     crypto,
+		authorizer: authorizer,
 		config:     config,
 		clock:      clock,
 	}, nil
@@ -424,15 +433,134 @@ func (service *Service) CreateTenant(
 	if principal.SessionID == uuid.Nil || principal.User.ID == uuid.Nil {
 		return TenantSessionResult{}, ErrSessionNotFound
 	}
+	authorizedSourceTenantID := uuid.Nil
 	if len(principal.Memberships) != 0 {
-		return TenantSessionResult{}, ErrTenantCreationDenied
+		if principal.ActiveTenant == nil {
+			return TenantSessionResult{}, ErrTenantCreationDenied
+		}
+		if _, err := service.authorizeTenant(
+			principal,
+			principal.ActiveTenant.ID,
+			policy.ActionTenantManage,
+		); err != nil {
+			return TenantSessionResult{}, ErrTenantCreationDenied
+		}
+		authorizedSourceTenantID = principal.ActiveTenant.ID
 	}
 
 	normalized, err := normalizeTenantInput(input)
 	if err != nil {
 		return TenantSessionResult{}, err
 	}
-	return service.rotateTenantSession(ctx, principal, normalized, uuid.Nil)
+	return service.rotateTenantSession(
+		ctx,
+		principal,
+		normalized,
+		authorizedSourceTenantID,
+		uuid.Nil,
+	)
+}
+
+func (service *Service) ListTenants(
+	ctx context.Context,
+	principal Principal,
+) ([]Tenant, error) {
+	if err := validatePrincipal(principal); err != nil {
+		return nil, err
+	}
+	tenants, err := service.repository.ListTenants(ctx, principal.User.ID)
+	if err != nil {
+		return nil, err
+	}
+	if principal.ActiveTenant != nil {
+		for index := range tenants {
+			tenants[index].IsActive = tenants[index].ID == principal.ActiveTenant.ID
+		}
+	}
+	return tenants, nil
+}
+
+func (service *Service) GetTenant(
+	ctx context.Context,
+	principal Principal,
+	tenantID uuid.UUID,
+) (Tenant, error) {
+	tenantContext, err := service.authorizeTenant(
+		principal,
+		tenantID,
+		policy.ActionTenantView,
+	)
+	if err != nil {
+		return Tenant{}, err
+	}
+	return service.repository.GetTenant(ctx, tenantContext)
+}
+
+func (service *Service) UpdateTenant(
+	ctx context.Context,
+	principal Principal,
+	tenantID uuid.UUID,
+	input UpdateTenantInput,
+) (Tenant, error) {
+	tenantContext, err := service.authorizeTenant(
+		principal,
+		tenantID,
+		policy.ActionTenantManage,
+	)
+	if err != nil {
+		return Tenant{}, err
+	}
+	normalized, err := normalizeTenantUpdate(input)
+	if err != nil {
+		return Tenant{}, err
+	}
+	return service.repository.UpdateTenant(
+		ctx,
+		tenantContext,
+		normalized,
+		service.clock().UTC(),
+	)
+}
+
+func (service *Service) ArchiveTenant(
+	ctx context.Context,
+	principal Principal,
+	tenantID uuid.UUID,
+	expectedVersion int64,
+) (TenantArchiveResult, error) {
+	tenantContext, err := service.authorizeTenant(
+		principal,
+		tenantID,
+		policy.ActionTenantManage,
+	)
+	if err != nil {
+		return TenantArchiveResult{}, err
+	}
+	if expectedVersion < 1 {
+		return TenantArchiveResult{}, ErrInvalidTenant
+	}
+
+	sessionToken, csrfToken, rotation, err := service.newTenantSessionRotation(principal)
+	if err != nil {
+		return TenantArchiveResult{}, err
+	}
+	mutation, err := service.repository.ArchiveTenant(
+		ctx,
+		tenantContext,
+		principal.SessionID,
+		expectedVersion,
+		rotation,
+	)
+	if err != nil {
+		return TenantArchiveResult{}, err
+	}
+
+	return TenantArchiveResult{
+		Principal:    mutation.Principal,
+		SessionToken: sessionToken,
+		CSRFToken:    csrfToken,
+		ExpiresAt:    mutation.ExpiresAt,
+	}, nil
 }
 
 func (service *Service) SwitchActiveTenant(
@@ -446,31 +574,26 @@ func (service *Service) SwitchActiveTenant(
 	if tenantID == uuid.Nil {
 		return TenantSessionResult{}, ErrInvalidTenant
 	}
-	if principal.ActiveTenant != nil && principal.ActiveTenant.ID == tenantID {
-		return TenantSessionResult{}, ErrInvalidTenant
-	}
 
-	return service.rotateTenantSession(ctx, principal, CreateTenantInput{}, tenantID)
+	return service.rotateTenantSession(
+		ctx,
+		principal,
+		CreateTenantInput{},
+		uuid.Nil,
+		tenantID,
+	)
 }
 
 func (service *Service) rotateTenantSession(
 	ctx context.Context,
 	principal Principal,
 	createInput CreateTenantInput,
+	authorizedSourceTenantID uuid.UUID,
 	tenantID uuid.UUID,
 ) (TenantSessionResult, error) {
-	sessionToken, err := service.crypto.RandomToken()
+	sessionToken, csrfToken, rotation, err := service.newTenantSessionRotation(principal)
 	if err != nil {
-		return TenantSessionResult{}, fmt.Errorf("rotate session token: %w", err)
-	}
-	csrfToken, err := service.crypto.RandomToken()
-	if err != nil {
-		return TenantSessionResult{}, fmt.Errorf("rotate CSRF token: %w", err)
-	}
-	rotation := SessionRotation{
-		TokenHash: service.crypto.Digest(sessionPurpose, sessionToken),
-		CSRFHash:  service.crypto.Digest(csrfPurpose, csrfToken),
-		RotatedAt: service.clock().UTC(),
+		return TenantSessionResult{}, err
 	}
 
 	var mutation TenantMutationResult
@@ -479,6 +602,7 @@ func (service *Service) rotateTenantSession(
 			ctx,
 			principal.SessionID,
 			principal.User.ID,
+			authorizedSourceTenantID,
 			createInput,
 			rotation,
 		)
@@ -501,6 +625,26 @@ func (service *Service) rotateTenantSession(
 		CSRFToken:    csrfToken,
 		ExpiresAt:    mutation.ExpiresAt,
 	}, nil
+}
+
+func (service *Service) newTenantSessionRotation(
+	principal Principal,
+) (string, string, SessionRotation, error) {
+	sessionToken, err := service.crypto.RandomToken()
+	if err != nil {
+		return "", "", SessionRotation{}, fmt.Errorf("rotate session token: %w", err)
+	}
+	csrfToken, err := service.crypto.RandomToken()
+	if err != nil {
+		return "", "", SessionRotation{}, fmt.Errorf("rotate CSRF token: %w", err)
+	}
+	rotation := SessionRotation{
+		TokenHash:              service.crypto.Digest(sessionPurpose, sessionToken),
+		CSRFHash:               service.crypto.Digest(csrfPurpose, csrfToken),
+		ExpectedContextVersion: principal.ContextVersion,
+		RotatedAt:              service.clock().UTC(),
+	}
+	return sessionToken, csrfToken, rotation, nil
 }
 
 func (service *Service) session(
@@ -537,6 +681,48 @@ func validatePrincipal(principal Principal) error {
 		return ErrSessionNotFound
 	}
 	return nil
+}
+
+func (service *Service) authorizeTenant(
+	principal Principal,
+	tenantID uuid.UUID,
+	action policy.Action,
+) (tenancy.Context, error) {
+	if err := validatePrincipal(principal); err != nil {
+		return tenancy.Context{}, err
+	}
+	if tenantID == uuid.Nil {
+		return tenancy.Context{}, ErrTenantNotFound
+	}
+
+	subject := policy.Subject{ActorID: principal.User.ID}
+	if principal.ActiveTenant != nil {
+		subject.ActiveTenantID = principal.ActiveTenant.ID
+		subject.MembershipActive = principal.ActiveTenant.Status == "active"
+		subject.OrganizationRoles = []policy.OrganizationRole{
+			policy.OrganizationRole(principal.ActiveTenant.Role),
+		}
+	}
+	decision := service.authorizer.Authorize(policy.Input{
+		Subject: subject,
+		Action:  action,
+		Resource: policy.Resource{
+			TenantID: tenantID,
+			State:    policy.ResourceStateActive,
+		},
+	})
+	if !decision.Allowed {
+		if decision.ConcealResource {
+			return tenancy.Context{}, ErrTenantNotFound
+		}
+		return tenancy.Context{}, ErrTenantAccessDenied
+	}
+
+	tenantContext, err := tenancy.New(tenantID, principal.User.ID)
+	if err != nil {
+		return tenancy.Context{}, ErrTenantAccessDenied
+	}
+	return tenantContext, nil
 }
 
 func normalizeProfilePatch(userID uuid.UUID, patch ProfilePatch) (ProfilePatch, error) {
@@ -632,28 +818,84 @@ func normalizeProviderClaims(claims ProviderClaims, now time.Time) (ProviderClai
 }
 
 func normalizeTenantInput(input CreateTenantInput) (CreateTenantInput, error) {
-	input.Name = strings.Join(strings.Fields(input.Name), " ")
-	input.Slug = strings.ToLower(strings.TrimSpace(input.Slug))
+	name, err := normalizeTenantName(input.Name)
+	if err != nil {
+		return CreateTenantInput{}, err
+	}
+	slug, err := normalizeTenantSlug(input.Slug)
+	if err != nil {
+		return CreateTenantInput{}, err
+	}
+	return CreateTenantInput{Name: name, Slug: slug}, nil
+}
 
-	nameLength := utf8.RuneCountInString(input.Name)
-	if nameLength < tenantNameMinimum || nameLength > tenantNameMaximum {
-		return CreateTenantInput{}, fmt.Errorf(
+func normalizeTenantUpdate(input UpdateTenantInput) (UpdateTenantInput, error) {
+	if input.ExpectedVersion < 1 ||
+		(input.Name == nil && input.Slug == nil && input.Locale == nil && input.Timezone == nil) {
+		return UpdateTenantInput{}, fmt.Errorf(
+			"%w: expected_version and at least one mutable field are required",
+			ErrInvalidTenant,
+		)
+	}
+	if input.Name != nil {
+		value, err := normalizeTenantName(*input.Name)
+		if err != nil {
+			return UpdateTenantInput{}, err
+		}
+		input.Name = &value
+	}
+	if input.Slug != nil {
+		value, err := normalizeTenantSlug(*input.Slug)
+		if err != nil {
+			return UpdateTenantInput{}, err
+		}
+		input.Slug = &value
+	}
+	if input.Locale != nil {
+		value := strings.ToLower(strings.TrimSpace(*input.Locale))
+		if _, supported := supportedProfileLocales[value]; !supported {
+			return UpdateTenantInput{}, fmt.Errorf("%w: unsupported locale", ErrInvalidTenant)
+		}
+		input.Locale = &value
+	}
+	if input.Timezone != nil {
+		value := strings.TrimSpace(*input.Timezone)
+		if value == "" || strings.EqualFold(value, "local") {
+			return UpdateTenantInput{}, fmt.Errorf("%w: invalid timezone", ErrInvalidTenant)
+		}
+		if _, err := time.LoadLocation(value); err != nil {
+			return UpdateTenantInput{}, fmt.Errorf("%w: invalid timezone", ErrInvalidTenant)
+		}
+		input.Timezone = &value
+	}
+	return input, nil
+}
+
+func normalizeTenantName(value string) (string, error) {
+	value = norm.NFC.String(strings.Join(strings.Fields(value), " "))
+	length := utf8.RuneCountInString(value)
+	if length < tenantNameMinimum || length > tenantNameMaximum {
+		return "", fmt.Errorf(
 			"%w: name must contain between %d and %d characters",
 			ErrInvalidTenant,
 			tenantNameMinimum,
 			tenantNameMaximum,
 		)
 	}
-	if len(input.Slug) < tenantSlugMinimum ||
-		len(input.Slug) > tenantSlugMaximum ||
-		!tenantSlugPattern.MatchString(input.Slug) {
-		return CreateTenantInput{}, fmt.Errorf(
+	return value, nil
+}
+
+func normalizeTenantSlug(value string) (string, error) {
+	value = strings.ToLower(strings.TrimSpace(value))
+	if len(value) < tenantSlugMinimum ||
+		len(value) > tenantSlugMaximum ||
+		!tenantSlugPattern.MatchString(value) {
+		return "", fmt.Errorf(
 			"%w: slug must contain 3-63 lowercase letters, numbers, or hyphens",
 			ErrInvalidTenant,
 		)
 	}
-
-	return input, nil
+	return value, nil
 }
 
 func truncateRunes(value string, maximum int) string {

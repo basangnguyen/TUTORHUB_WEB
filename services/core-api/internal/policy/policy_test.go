@@ -26,7 +26,7 @@ func TestOrganizationPermissionMatrix(t *testing.T) {
 			name: "teacher",
 			role: OrganizationRoleTeacher,
 			want: []Permission{
-				PermissionClassCreate, PermissionClassUpdate, PermissionClassView,
+				PermissionTenantView, PermissionClassCreate, PermissionClassUpdate, PermissionClassView,
 				PermissionEnrollmentManage, PermissionSessionStart, PermissionSessionEnd,
 				PermissionSessionJoin, PermissionParticipantAdmit,
 				PermissionParticipantRemove, PermissionMediaPublish, PermissionChatSend,
@@ -36,14 +36,14 @@ func TestOrganizationPermissionMatrix(t *testing.T) {
 			name: "student",
 			role: OrganizationRoleStudent,
 			want: []Permission{
-				PermissionClassView, PermissionSessionJoin, PermissionMediaPublish,
+				PermissionTenantView, PermissionClassView, PermissionSessionJoin, PermissionMediaPublish,
 				PermissionChatSend,
 			},
 		},
 		{
 			name: "guest",
 			role: OrganizationRoleGuest,
-			want: []Permission{PermissionSessionJoin, PermissionChatSend},
+			want: []Permission{PermissionTenantView, PermissionSessionJoin, PermissionChatSend},
 		},
 	}
 
@@ -77,7 +77,7 @@ func TestClassPermissionMatrix(t *testing.T) {
 			name: "owner",
 			role: ClassRoleOwner,
 			want: []Permission{
-				PermissionClassUpdate, PermissionClassView, PermissionEnrollmentManage,
+				PermissionTenantView, PermissionClassUpdate, PermissionClassView, PermissionEnrollmentManage,
 				PermissionSessionStart, PermissionSessionEnd, PermissionSessionJoin,
 				PermissionParticipantAdmit, PermissionParticipantRemove,
 				PermissionMediaPublish, PermissionChatSend,
@@ -87,7 +87,7 @@ func TestClassPermissionMatrix(t *testing.T) {
 			name: "co-teacher",
 			role: ClassRoleCoTeacher,
 			want: []Permission{
-				PermissionClassUpdate, PermissionClassView, PermissionEnrollmentManage,
+				PermissionTenantView, PermissionClassUpdate, PermissionClassView, PermissionEnrollmentManage,
 				PermissionSessionStart, PermissionSessionEnd, PermissionSessionJoin,
 				PermissionParticipantAdmit, PermissionParticipantRemove,
 				PermissionMediaPublish, PermissionChatSend,
@@ -97,7 +97,7 @@ func TestClassPermissionMatrix(t *testing.T) {
 			name: "teaching assistant",
 			role: ClassRoleTeachingAssistant,
 			want: []Permission{
-				PermissionClassView, PermissionSessionJoin, PermissionParticipantAdmit,
+				PermissionTenantView, PermissionClassView, PermissionSessionJoin, PermissionParticipantAdmit,
 				PermissionMediaPublish, PermissionChatSend,
 			},
 		},
@@ -105,7 +105,7 @@ func TestClassPermissionMatrix(t *testing.T) {
 			name: "student",
 			role: ClassRoleStudent,
 			want: []Permission{
-				PermissionClassView, PermissionSessionJoin, PermissionMediaPublish,
+				PermissionTenantView, PermissionClassView, PermissionSessionJoin, PermissionMediaPublish,
 				PermissionChatSend,
 			},
 		},
@@ -136,6 +136,7 @@ func TestEffectivePermissionsUnionsMultipleRolesDeterministically(t *testing.T) 
 	subject.ClassRoles = []ClassRole{ClassRoleTeachingAssistant, ClassRoleStudent}
 
 	want := []Permission{
+		PermissionTenantView,
 		PermissionClassView,
 		PermissionSessionJoin,
 		PermissionParticipantAdmit,

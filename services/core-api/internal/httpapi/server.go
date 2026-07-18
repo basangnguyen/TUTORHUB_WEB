@@ -76,7 +76,8 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 		requireMethod(http.MethodPost, http.HandlerFunc(auth.beginIdentityLink)),
 	)
 	mux.Handle(identityResourcePathPrefix, http.HandlerFunc(auth.identityResource))
-	mux.Handle("/api/v1/tenants", requireMethod(http.MethodPost, http.HandlerFunc(auth.createTenant)))
+	mux.Handle(tenantsCollectionPath, http.HandlerFunc(auth.tenantCollection))
+	mux.Handle(tenantsResourcePathPrefix, http.HandlerFunc(auth.tenantResource))
 	mux.Handle(
 		"/api/v1/session/active-tenant",
 		requireMethod(http.MethodPut, http.HandlerFunc(auth.switchActiveTenant)),

@@ -305,9 +305,25 @@ paths:
         default:
           $ref: "#/components/responses/ProblemResponse"
   /api/v1/tenants:
+    get:
+      operationId: listTenants
+      summary: List workspaces available to the authenticated user
+      security:
+        - SessionCookie: []
+      responses:
+        "200":
+          description: Membership-scoped workspace list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantListResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
     post:
       operationId: createTenant
-      summary: Create the authenticated user's first TutorHub workspace
+      summary: Create and activate a TutorHub workspace for an eligible user
       security:
         - SessionCookie: []
       parameters:
@@ -325,10 +341,138 @@ paths:
       responses:
         "201":
           description: Workspace created and activated for the current session
+          headers:
+            Location:
+              required: true
+              schema:
+                type: string
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/MeResponse"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/tenants/{tenant_id}:
+    get:
+      operationId: getTenant
+      summary: Return one workspace from the authenticated active scope
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: tenant_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Active-scope workspace detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tenant"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+    patch:
+      operationId: updateTenant
+      summary: Update mutable workspace metadata using optimistic concurrency
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: tenant_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTenantRequest"
+      responses:
+        "200":
+          description: Updated workspace
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tenant"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/tenants/{tenant_id}/archive:
+    post:
+      operationId: archiveTenant
+      summary: Archive an active workspace and rotate the current session context
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: tenant_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ArchiveTenantRequest"
+      responses:
+        "200":
+          description: Workspace archived and session credentials rotated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeResponse"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
         default:
           $ref: "#/components/responses/ProblemResponse"
   /api/v1/session/active-tenant:
@@ -356,6 +500,14 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MeResponse"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
         default:
           $ref: "#/components/responses/ProblemResponse"
   /api/v1/classes:
@@ -578,7 +730,7 @@ components:
           schema:
             $ref: "#/components/schemas/Problem"
     ConflictResponse:
-      description: The requested identity operation conflicts with account safety rules
+      description: The request conflicts with the current resource state or version
       content:
         application/problem+json:
           schema:
@@ -593,6 +745,7 @@ components:
     Permission:
       type: string
       enum:
+        - tenant.view
         - tenant.manage
         - class.create
         - class.update
@@ -778,10 +931,13 @@ components:
         authorization_url:
           type: string
           format: uri
+    TenantStatus:
+      type: string
+      enum: [active, suspended, archived]
     TenantMembership:
       type: object
       additionalProperties: false
-      required: [id, slug, name, role, is_active]
+      required: [id, slug, name, role, status, version, is_active]
       properties:
         id:
           type: string
@@ -792,8 +948,72 @@ components:
           type: string
         role:
           $ref: "#/components/schemas/OrganizationRole"
+        status:
+          $ref: "#/components/schemas/TenantStatus"
+        version:
+          type: integer
+          format: int64
+          minimum: 1
         is_active:
           type: boolean
+    Tenant:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - slug
+        - name
+        - locale
+        - timezone
+        - status
+        - version
+        - role
+        - is_active
+        - created_at
+        - updated_at
+        - archived_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        slug:
+          type: string
+        name:
+          type: string
+        locale:
+          type: string
+        timezone:
+          type: string
+        status:
+          $ref: "#/components/schemas/TenantStatus"
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+        role:
+          $ref: "#/components/schemas/OrganizationRole"
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        archived_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+    TenantListResponse:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Tenant"
     CreateTenantRequest:
       type: object
       additionalProperties: false
@@ -808,6 +1028,41 @@ components:
           minLength: 3
           maxLength: 63
           pattern: "^[a-z0-9][a-z0-9-]*[a-z0-9]$"
+    UpdateTenantRequest:
+      type: object
+      additionalProperties: false
+      required: [expected_version]
+      minProperties: 2
+      properties:
+        expected_version:
+          type: integer
+          format: int64
+          minimum: 1
+        name:
+          type: string
+          minLength: 2
+          maxLength: 120
+        slug:
+          type: string
+          minLength: 3
+          maxLength: 63
+          pattern: "^[a-z0-9][a-z0-9-]*[a-z0-9]$"
+        locale:
+          type: string
+          enum: [vi, en]
+        timezone:
+          type: string
+          minLength: 1
+          maxLength: 100
+    ArchiveTenantRequest:
+      type: object
+      additionalProperties: false
+      required: [expected_version]
+      properties:
+        expected_version:
+          type: integer
+          format: int64
+          minimum: 1
     SwitchActiveTenantRequest:
       type: object
       additionalProperties: false

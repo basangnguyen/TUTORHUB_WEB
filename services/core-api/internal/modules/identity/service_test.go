@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/tutorhub-v2/core-api/internal/platform/tenancy"
 	"github.com/tutorhub-v2/core-api/internal/policy"
 )
 
@@ -207,6 +208,9 @@ func TestServiceCreatesAndSwitchesTenantWithSessionRotation(t *testing.T) {
 		repository.createdTenant.Slug != "kma-lab" {
 		t.Fatalf("tenant input was not normalized: %+v", repository.createdTenant)
 	}
+	if repository.createSource != uuid.Nil {
+		t.Fatalf("bootstrap creation must not authorize from a tenant, got %s", repository.createSource)
+	}
 	if created.Principal.ActiveTenant == nil ||
 		created.Principal.ActiveTenant.Role != "org_admin" ||
 		!testContainsPermission(created.Principal.Permissions, "tenant.manage") {
@@ -239,6 +243,21 @@ func TestServiceCreatesAndSwitchesTenantWithSessionRotation(t *testing.T) {
 		t.Fatalf("unexpected switched tenant result: %+v", switched)
 	}
 
+	reselected, err := service.SwitchActiveTenant(
+		context.Background(),
+		repository.principal,
+		secondTenant.ID,
+	)
+	if err != nil {
+		t.Fatalf("reselect active tenant: %v", err)
+	}
+	if reselected.Principal.ActiveTenant == nil ||
+		reselected.Principal.ActiveTenant.ID != secondTenant.ID ||
+		reselected.SessionToken == switched.SessionToken ||
+		reselected.CSRFToken == switched.CSRFToken {
+		t.Fatalf("reselecting the active tenant must rotate credentials: %+v", reselected)
+	}
+
 	if _, err := service.CreateTenant(
 		context.Background(),
 		repository.principal,
@@ -252,6 +271,126 @@ func TestServiceCreatesAndSwitchesTenantWithSessionRotation(t *testing.T) {
 		CreateTenantInput{Name: "Valid name", Slug: "invalid slug"},
 	); !errors.Is(err, ErrInvalidTenant) {
 		t.Fatalf("expected invalid slug to be rejected, got %v", err)
+	}
+}
+
+func TestServiceLetsActiveOrganizationAdminCreateAnotherTenant(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, time.July, 18, 9, 0, 0, 0, time.UTC)
+	active := Tenant{
+		ID:   uuid.MustParse("6d08191c-bcd4-49ee-9587-79d92042c79f"),
+		Slug: "primary-workspace", Name: "Primary Workspace", Status: "active",
+		Version: 1, Role: "org_admin", IsActive: true,
+	}
+	repository := &memoryRepository{
+		principal: Principal{
+			SessionID:      uuid.MustParse("9e8e3439-aaf7-420e-86c2-ceb40e322653"),
+			ContextVersion: 2,
+			User: User{
+				ID: uuid.MustParse("5dedc9fd-5250-4666-bf8d-448ec3d25603"),
+			},
+			ActiveTenant: &active,
+			Memberships:  []Tenant{active},
+			Permissions:  permissionsForOrganizationRole("org_admin"),
+		},
+		metadata: SessionMetadata{ExpiresAt: now.Add(8 * time.Hour)},
+	}
+	service := newTestService(t, repository, &fakeProvider{}, now)
+
+	created, err := service.CreateTenant(
+		context.Background(),
+		repository.principal,
+		CreateTenantInput{Name: "Second Managed Workspace", Slug: "second-managed"},
+	)
+	if err != nil {
+		t.Fatalf("create another managed tenant: %v", err)
+	}
+	if repository.createSource != active.ID {
+		t.Fatalf(
+			"managed creation must carry its authorized source tenant: got %s want %s",
+			repository.createSource,
+			active.ID,
+		)
+	}
+	if created.Principal.ActiveTenant == nil ||
+		created.Principal.ActiveTenant.Name != "Second Managed Workspace" ||
+		created.Principal.ActiveTenant.Role != "org_admin" ||
+		created.Principal.ContextVersion != 3 ||
+		len(created.Principal.Memberships) != 2 {
+		t.Fatalf("unexpected additional tenant principal: %+v", created.Principal)
+	}
+}
+
+func TestServiceAuthorizesVersionedTenantLifecycle(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, time.July, 18, 8, 0, 0, 0, time.UTC)
+	active := Tenant{
+		ID:   uuid.MustParse("c91445df-bde0-44f2-83ed-33ec6148bb84"),
+		Slug: "primary-workspace", Name: "Primary Workspace", Locale: "vi",
+		Timezone: "Asia/Ho_Chi_Minh", Status: "active", Version: 2,
+		Role: "org_admin", IsActive: true,
+	}
+	backup := Tenant{
+		ID:   uuid.MustParse("1dcf80d0-b7ab-4a71-98f7-f0f7cd8fef5f"),
+		Slug: "backup-workspace", Name: "Backup Workspace", Locale: "en",
+		Timezone: "UTC", Status: "active", Version: 1, Role: "org_admin",
+	}
+	repository := &memoryRepository{
+		principal: Principal{
+			SessionID:      uuid.MustParse("7f3f7634-c04d-4f42-afd5-e52a3bf673cb"),
+			ContextVersion: 4,
+			User:           User{ID: uuid.MustParse("ee9b4cdf-e1ee-4d79-aa5b-80b7c3aa7ea3")},
+			ActiveTenant:   &active, Memberships: []Tenant{active, backup},
+			Permissions: permissionsForOrganizationRole("org_admin"),
+		},
+		metadata: SessionMetadata{ExpiresAt: now.Add(8 * time.Hour)},
+	}
+	service := newTestService(t, repository, &fakeProvider{}, now)
+
+	listed, err := service.ListTenants(context.Background(), repository.principal)
+	if err != nil || len(listed) != 2 || !listed[0].IsActive {
+		t.Fatalf("list active memberships: tenants=%+v error=%v", listed, err)
+	}
+	if _, err := service.GetTenant(context.Background(), repository.principal, backup.ID); !errors.Is(err, ErrTenantNotFound) {
+		t.Fatalf("cross-active-tenant detail must be concealed, got %v", err)
+	}
+	if _, err := service.UpdateTenant(
+		context.Background(),
+		repository.principal,
+		active.ID,
+		UpdateTenantInput{ExpectedVersion: 2},
+	); !errors.Is(err, ErrInvalidTenant) {
+		t.Fatalf("workspace update requires a mutable field, got %v", err)
+	}
+	newName := "Primary Academy"
+	updated, err := service.UpdateTenant(
+		context.Background(),
+		repository.principal,
+		active.ID,
+		UpdateTenantInput{Name: &newName, ExpectedVersion: 2},
+	)
+	if err != nil || updated.Name != newName || updated.Version != 3 {
+		t.Fatalf("update tenant metadata: tenant=%+v error=%v", updated, err)
+	}
+	if _, err := service.UpdateTenant(
+		context.Background(),
+		repository.principal,
+		active.ID,
+		UpdateTenantInput{Name: &newName, ExpectedVersion: 2},
+	); !errors.Is(err, ErrTenantVersionConflict) {
+		t.Fatalf("stale tenant update must conflict, got %v", err)
+	}
+
+	principal := repository.principal
+	archived, err := service.ArchiveTenant(context.Background(), principal, active.ID, 3)
+	if err != nil {
+		t.Fatalf("archive managed tenant: %v", err)
+	}
+	if archived.Principal.ActiveTenant != nil || len(archived.Principal.Memberships) != 1 ||
+		archived.SessionToken == "" || archived.CSRFToken == "" {
+		t.Fatalf("archive must clear active context and rotate credentials: %+v", archived)
 	}
 }
 
@@ -406,7 +545,7 @@ func newTestService(
 	if err != nil {
 		t.Fatalf("create crypto: %v", err)
 	}
-	service, err := NewService(repository, provider, crypto, ServiceConfig{
+	service, err := NewService(repository, provider, crypto, policy.NewEngine(), ServiceConfig{
 		FlowTTL:            10 * time.Minute,
 		SessionTTL:         8 * time.Hour,
 		SessionAbsoluteTTL: 24 * time.Hour,
@@ -479,6 +618,7 @@ type memoryRepository struct {
 	revoked       bool
 	revokeHash    []byte
 	createdTenant CreateTenantInput
+	createSource  uuid.UUID
 }
 
 func (repository *memoryRepository) CreateFlow(
@@ -522,6 +662,7 @@ func (repository *memoryRepository) CreateAuthenticatedSession(
 	repository.csrfHash = metadata.CSRFHash
 	repository.principal = Principal{
 		SessionID:       uuid.MustParse("7f3f7634-c04d-4f42-afd5-e52a3bf673cb"),
+		ContextVersion:  1,
 		IdentityID:      uuid.MustParse("6d92b682-8f2e-4551-b4d3-0a3ba2f86250"),
 		AuthenticatedAt: claims.AuthTime,
 		User: User{
@@ -689,26 +830,34 @@ func (repository *memoryRepository) CreateTenant(
 	_ context.Context,
 	sessionID uuid.UUID,
 	userID uuid.UUID,
+	authorizedSourceTenantID uuid.UUID,
 	input CreateTenantInput,
 	rotation SessionRotation,
 ) (TenantMutationResult, error) {
 	if sessionID != repository.principal.SessionID || userID != repository.principal.User.ID {
 		return TenantMutationResult{}, ErrSessionNotFound
 	}
-	if len(repository.principal.Memberships) != 0 {
-		return TenantMutationResult{}, ErrTenantCreationDenied
+	if rotation.ExpectedContextVersion != repository.principal.ContextVersion {
+		return TenantMutationResult{}, ErrSessionContextConflict
 	}
+	repository.createSource = authorizedSourceTenantID
 	repository.createdTenant = input
+	for index := range repository.principal.Memberships {
+		repository.principal.Memberships[index].IsActive = false
+	}
 	tenant := Tenant{
 		ID:       uuid.MustParse("c91445df-bde0-44f2-83ed-33ec6148bb84"),
 		Slug:     input.Slug,
 		Name:     input.Name,
+		Status:   "active",
+		Version:  1,
 		Role:     "org_admin",
 		IsActive: true,
 	}
 	repository.principal.ActiveTenant = &tenant
-	repository.principal.Memberships = []Tenant{tenant}
+	repository.principal.Memberships = append(repository.principal.Memberships, tenant)
 	repository.principal.Permissions = permissionsForOrganizationRole(tenant.Role)
+	repository.principal.ContextVersion++
 	repository.metadata.TokenHash = append([]byte(nil), rotation.TokenHash...)
 	repository.csrfHash = append([]byte(nil), rotation.CSRFHash...)
 
@@ -728,6 +877,9 @@ func (repository *memoryRepository) SwitchActiveTenant(
 	if sessionID != repository.principal.SessionID || userID != repository.principal.User.ID {
 		return TenantMutationResult{}, ErrSessionNotFound
 	}
+	if rotation.ExpectedContextVersion != repository.principal.ContextVersion {
+		return TenantMutationResult{}, ErrSessionContextConflict
+	}
 	var selected *Tenant
 	for index := range repository.principal.Memberships {
 		repository.principal.Memberships[index].IsActive =
@@ -742,10 +894,123 @@ func (repository *memoryRepository) SwitchActiveTenant(
 	}
 	repository.principal.ActiveTenant = selected
 	repository.principal.Permissions = permissionsForOrganizationRole(selected.Role)
+	repository.principal.ContextVersion++
 	repository.metadata.TokenHash = append([]byte(nil), rotation.TokenHash...)
 	repository.csrfHash = append([]byte(nil), rotation.CSRFHash...)
 
 	return TenantMutationResult{
+		Principal: repository.principal,
+		ExpiresAt: repository.metadata.ExpiresAt,
+	}, nil
+}
+
+func (repository *memoryRepository) ListTenants(
+	_ context.Context,
+	userID uuid.UUID,
+) ([]Tenant, error) {
+	if userID != repository.principal.User.ID {
+		return nil, ErrSessionNotFound
+	}
+	return append([]Tenant(nil), repository.principal.Memberships...), nil
+}
+
+func (repository *memoryRepository) GetTenant(
+	_ context.Context,
+	tenantContext tenancy.Context,
+) (Tenant, error) {
+	for _, tenant := range repository.principal.Memberships {
+		if tenant.ID == tenantContext.TenantID && tenant.Status == "active" {
+			return tenant, nil
+		}
+	}
+	return Tenant{}, ErrTenantNotFound
+}
+
+func (repository *memoryRepository) UpdateTenant(
+	_ context.Context,
+	tenantContext tenancy.Context,
+	input UpdateTenantInput,
+	updatedAt time.Time,
+) (Tenant, error) {
+	for index := range repository.principal.Memberships {
+		tenant := &repository.principal.Memberships[index]
+		if tenant.ID != tenantContext.TenantID || tenant.Status != "active" {
+			continue
+		}
+		if tenant.Version != input.ExpectedVersion {
+			return Tenant{}, ErrTenantVersionConflict
+		}
+		if input.Name != nil {
+			tenant.Name = *input.Name
+		}
+		if input.Slug != nil {
+			tenant.Slug = *input.Slug
+		}
+		if input.Locale != nil {
+			tenant.Locale = *input.Locale
+		}
+		if input.Timezone != nil {
+			tenant.Timezone = *input.Timezone
+		}
+		tenant.Version++
+		tenant.UpdatedAt = updatedAt
+		if tenant.IsActive {
+			active := *tenant
+			repository.principal.ActiveTenant = &active
+		}
+		return *tenant, nil
+	}
+	return Tenant{}, ErrTenantNotFound
+}
+
+func (repository *memoryRepository) ArchiveTenant(
+	_ context.Context,
+	tenantContext tenancy.Context,
+	sessionID uuid.UUID,
+	expectedVersion int64,
+	rotation SessionRotation,
+) (TenantArchiveMutationResult, error) {
+	if sessionID != repository.principal.SessionID ||
+		tenantContext.ActorID != repository.principal.User.ID {
+		return TenantArchiveMutationResult{}, ErrSessionNotFound
+	}
+	if rotation.ExpectedContextVersion != repository.principal.ContextVersion {
+		return TenantArchiveMutationResult{}, ErrSessionContextConflict
+	}
+	otherManaged := false
+	for _, tenant := range repository.principal.Memberships {
+		if tenant.ID != tenantContext.TenantID && tenant.Status == "active" && tenant.Role == "org_admin" {
+			otherManaged = true
+		}
+	}
+	if !otherManaged {
+		return TenantArchiveMutationResult{}, ErrLastManagedTenant
+	}
+	for index := range repository.principal.Memberships {
+		tenant := &repository.principal.Memberships[index]
+		if tenant.ID != tenantContext.TenantID {
+			continue
+		}
+		if tenant.Version != expectedVersion {
+			return TenantArchiveMutationResult{}, ErrTenantVersionConflict
+		}
+		tenant.Status = "archived"
+		tenant.Version++
+		tenant.IsActive = false
+	}
+	activeMemberships := make([]Tenant, 0, len(repository.principal.Memberships))
+	for _, tenant := range repository.principal.Memberships {
+		if tenant.Status == "active" {
+			activeMemberships = append(activeMemberships, tenant)
+		}
+	}
+	repository.principal.Memberships = activeMemberships
+	repository.principal.ActiveTenant = nil
+	repository.principal.Permissions = []string{}
+	repository.principal.ContextVersion++
+	repository.metadata.TokenHash = append([]byte(nil), rotation.TokenHash...)
+	repository.csrfHash = append([]byte(nil), rotation.CSRFHash...)
+	return TenantArchiveMutationResult{
 		Principal: repository.principal,
 		ExpiresAt: repository.metadata.ExpiresAt,
 	}, nil

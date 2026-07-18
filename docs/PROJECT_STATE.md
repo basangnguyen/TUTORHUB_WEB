@@ -6,14 +6,14 @@
 
 | Thuộc tính          | Trạng thái                                                                            |
 | ------------------- | ------------------------------------------------------------------------------------- |
-| Ngày cập nhật       | 2026-07-17                                                                            |
+| Ngày cập nhật       | 2026-07-18                                                                            |
 | Repository          | `https://github.com/basangnguyen/TUTORHUB_WEB`                                        |
 | Nhánh làm việc      | `main`                                                                                |
 | Quy trình           | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
 | Phase hoàn thành    | Phase 0, Phase 1                                                                      |
 | Phase hiện tại      | Phase 2 - Identity, tenant và class core                                              |
-| Task vừa hoàn thành | P2-01 User profile và identity linking                                                |
-| Task kế tiếp        | P2-02 Tenant lifecycle và workspace switching                                        |
+| Task vừa hoàn thành | P2-02 Tenant lifecycle và workspace switching                                        |
+| Task kế tiếp        | P2-03 Membership invitation, accept và revoke                                        |
 
 ## Kiến trúc đang chạy
 
@@ -57,6 +57,12 @@
 - P2-01: profile GET/PATCH, identity list/link/unlink, recent-auth + state/nonce,
   collision protection, last-identity guard, audit/outbox, migration `000006`,
   OpenAPI/generated client và React settings UI có i18n vi/en.
+- P2-02: tenant list/detail/create/update/archive, permission `tenant.view`/`tenant.manage`,
+  optimistic version, session-context CAS, session/CSRF rotation và migration `000007`;
+  success event `tenant.created/updated/archived/switched` được ghi durable qua outbox.
+- Workspace UI áp dụng principal mới ngay sau create/switch/archive, hủy và xóa cache
+  tenant-scoped để không flash dữ liệu workspace cũ; list/detail/update/archive có query,
+  mutation và trạng thái lỗi phù hợp với contract typed.
 
 ## Kết quả acceptance staging ngày 2026-07-16
 
@@ -83,8 +89,12 @@ trước pilot/public beta hoặc khi có người duy trì thứ hai.
 Backlog có thẩm quyền: `docs/PHASE_2_BACKLOG.md`.
 
 1. P2-00 và P2-01 đã hoàn thành; `pnpm verify` xanh ngày 2026-07-17.
-2. Task kế tiếp là P2-02 tenant lifecycle và workspace switching.
-3. Chưa bắt đầu UI admin hoặc enrollment trước các contract tương ứng.
+2. P2-02 đã hoàn tất phạm vi implementation và tài liệu. `pnpm verify` xanh ngày
+   2026-07-18: web 38/38, API client 10/10, UI 6/6, lint/typecheck/build/Storybook,
+   Go test/vet và security checks đều đạt.
+3. Integration-tag của migration/classroom/identity compile xanh local; clean migration
+   và PostgreSQL integration được workflow CI có PostgreSQL 17 xác nhận sau push.
+4. Task kế tiếp là P2-03 membership invitation, accept và revoke sau khi CI xanh.
 
 ## Rủi ro đã biết
 

@@ -7,8 +7,13 @@ thay đổi schema, migration hoặc repository phải đọc tài liệu này t
 
 - System of record: Neon PostgreSQL.
 - Schema ứng dụng: `tutorhub`.
-- Migration hiện tại: `5`, trạng thái `dirty=false`.
-- Migration 1-5 đã được chạy và kiểm tra trên Neon; smoke `5 false -> rollback 4 false -> migrate 5 false` đạt ngày 2026-07-16.
+- Migration mới nhất trong source: `000007_tenant_lifecycle`.
+- Migration 1-5 đã được chạy và kiểm tra trên Neon; smoke
+  `5 false -> rollback 4 false -> migrate 5 false` đạt ngày 2026-07-16.
+- Migration `000006` và `000007` đều có up/down path. Integration-tag compile xanh;
+  clean migration và PostgreSQL integration được workflow CI xác nhận sau push. Smoke
+  `7 false -> rollback 6 false -> migrate 7 false` chưa chạy trên staging; tài liệu này
+  không khẳng định staging đã nâng lên 7.
 - Classroom và identity integration test chạy trong transaction và rollback toàn bộ fixture.
 - Core API đã được smoke test với Neon: `/ready` trả `ready` và `/health` trả `ok`.
 
@@ -42,15 +47,15 @@ Core API không tự chạy migration khi khởi động.
 `application_name=tutorhub-core-api` được gắn vào kết nối để quan sát trên Neon.
 Mọi truy vấn mạng/database phải chạy ngoài UI thread ở các client native về sau.
 
-## Schema phiên bản 4
+## Schema phiên bản 7
 
 | Bảng | Vai trò |
 |---|---|
 | `users` | Hồ sơ định danh nội bộ, email chuẩn hóa và trạng thái tài khoản |
 | `identities` | Ánh xạ `(provider, subject)` từ OIDC, verified email và lần xác thực gần nhất |
-| `tenants` | Tổ chức/trường/lớp độc lập ở biên multi-tenant |
+| `tenants` | Workspace với slug/name, locale/timezone, status, optimistic `version` và `archived_at` |
 | `memberships` | Quan hệ user-tenant và role `org_admin/teacher/student/guest` |
-| `sessions` | Hash session/CSRF, identity, idle/absolute expiry, auth time và revoke reason |
+| `sessions` | Hash session/CSRF, active tenant, `context_version`, idle/absolute expiry và revoke state |
 | `auth_flows` | HMAC state/binding/nonce, PKCE verifier mã hóa và one-time consume |
 | `classes` | Lớp học theo tenant; owner bắt buộc là membership cùng tenant |
 | `outbox_events` | Transactional outbox cho sự kiện bền vững và worker tương lai |
@@ -64,6 +69,19 @@ Ràng buộc quan trọng:
 - Get/List luôn lọc `tenant_id`; truy cập chéo tenant trả về not found.
 - HTTP list/create/detail lấy `tenant_id`, actor và permission từ active session; request không có trường tenant hoặc owner.
 - Tạo lớp yêu cầu `class.create` và CSRF; đọc lớp yêu cầu `class.view`.
+- Tenant list được giới hạn bởi user membership active; detail/update/archive bắt buộc
+  tenant path trùng active tenant context.
+- Đọc tenant yêu cầu `tenant.view`; update/archive yêu cầu `tenant.manage` và CSRF.
+- Update/archive dùng `expected_version` và SQL compare-and-swap rồi tăng version;
+  stale request không ghi đè dữ liệu mới hơn.
+- Create từ workspace hiện hữu, switch, update và archive khóa membership row; create,
+  update và archive reauthorize qua shared policy trong transaction để concurrent
+  revoke/demotion không giữ quyền từ snapshot cũ. Bootstrap khóa user rồi kiểm tra lại
+  không có membership active trước khi insert để tuần tự hóa nhiều session onboarding.
+- Create/switch/archive dùng `sessions.context_version` để CAS privilege context trước
+  khi xoay session/CSRF. Archive xóa active context của các session còn trỏ tenant đó.
+- Success event `tenant.created/updated/archived/switched` được ghi vào outbox trong
+  cùng transaction; payload không chứa token, cookie hoặc session secret.
 
 ## Chạy migration
 
@@ -92,8 +110,10 @@ pnpm db:migrate
 pnpm db:version
 ```
 
-Kết quả phiên bản hợp lệ hiện tại là `4 false`. Rollback chỉ dùng khi đã đánh giá
-mất dữ liệu và có backup/restore plan:
+Sau khi áp dụng toàn bộ migration trong source, kết quả mong đợi là `7 false`. Chỉ ghi
+đó là kết quả môi trường khi lệnh thực tế đã chạy; bằng chứng staging gần nhất hiện vẫn
+là `5 false` ngày 2026-07-16. Rollback chỉ dùng khi đã đánh giá mất dữ liệu và có
+backup/restore plan:
 
 ```powershell
 go run ./services/core-api/cmd/migrate down -steps 1
@@ -112,6 +132,9 @@ Integration test bằng PostgreSQL thật:
 ```powershell
 pnpm test:integration
 ```
+
+Với P2-02, cần kiểm tra riêng migrate 6 -> 7, rollback 7 -> 6, migrate lại 6 -> 7,
+tenant version conflict, cross-tenant concealment, session-context CAS và outbox events.
 
 CI tạo PostgreSQL 17 tạm thời, chạy migration từ database sạch rồi chạy integration
 test. Bài test Neon cục bộ dùng transaction bao ngoài và rollback nên không để lại
@@ -132,5 +155,7 @@ user, tenant, class hoặc outbox fixture.
 - P1-06 đã triển khai OIDC/BFF, session rotation, CSRF và `/api/v1/me`; cả ZITADEL local và staging đã được provision và smoke test.
 - P1-06B đã hoàn thành list/create/detail class; enrollment, invite code và roster thuộc Phase 2.
 - P1-10 đã hoàn thành database/branch staging riêng, runtime role và migration role riêng.
+- P2-02 đã bổ sung tenant lifecycle và migration `000007`; task kế tiếp là P2-03
+  membership invitation/accept/revoke.
 - Chưa import dữ liệu TutorHub V1; migration V1 sẽ làm theo module/cohort ở phase sau.
 - Chưa có backup/restore drill, PITR gate hoặc connection load test cho pilot.

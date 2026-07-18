@@ -18,6 +18,7 @@ import {
   WorkspaceSelectionPage,
 } from "../pages/WorkspacePages";
 import { ProfileSettingsPage } from "../pages/ProfileSettingsPage";
+import { WorkspaceManagementPage } from "../pages/WorkspaceManagementPage";
 import {
   ForbiddenPage,
   AuthenticationErrorPage,
@@ -54,6 +55,7 @@ export const navigationItems: readonly NavigationItem[] = [
   { to: "/app/messages", labelKey: "nav.messages" },
   { to: "/app/tasks", labelKey: "nav.tasks" },
   { to: "/app/resources", labelKey: "nav.drive" },
+  { to: "/app/workspace", labelKey: "nav.workspace" },
   { to: "/app/settings", labelKey: "nav.settings" },
 ];
 
@@ -155,6 +157,10 @@ export function createAppRoutes(): RouteObject[] {
                 {
                   path: "settings",
                   element: <ProfileSettingsPage />,
+                },
+                {
+                  path: "workspace",
+                  element: <WorkspaceManagementPage />,
                 },
                 {
                   path: "system-error",

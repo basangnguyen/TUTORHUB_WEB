@@ -268,10 +268,46 @@ export type paths = {
       readonly path?: never;
       readonly cookie?: never;
     };
+    /** List workspaces available to the authenticated user */
+    readonly get: operations["listTenants"];
+    readonly put?: never;
+    /** Create and activate a TutorHub workspace for an eligible user */
+    readonly post: operations["createTenant"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/tenants/{tenant_id}": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /** Return one workspace from the authenticated active scope */
+    readonly get: operations["getTenant"];
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    /** Update mutable workspace metadata using optimistic concurrency */
+    readonly patch: operations["updateTenant"];
+    readonly trace?: never;
+  };
+  readonly "/api/v1/tenants/{tenant_id}/archive": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
     readonly get?: never;
     readonly put?: never;
-    /** Create the authenticated user's first TutorHub workspace */
-    readonly post: operations["createTenant"];
+    /** Archive an active workspace and rotate the current session context */
+    readonly post: operations["archiveTenant"];
     readonly delete?: never;
     readonly options?: never;
     readonly head?: never;
@@ -358,6 +394,10 @@ export type components = {
       /** Format: date-time */
       readonly timestamp: string;
       readonly version: string;
+    };
+    readonly ArchiveTenantRequest: {
+      /** Format: int64 */
+      readonly expected_version: number;
     };
     readonly Class: {
       readonly code: string;
@@ -475,6 +515,7 @@ export type components = {
     readonly OrganizationRole: "org_admin" | "teacher" | "student" | "guest";
     /** @enum {string} */
     readonly Permission:
+      | "tenant.view"
       | "tenant.manage"
       | "class.create"
       | "class.update"
@@ -522,6 +563,28 @@ export type components = {
       /** Format: uuid */
       readonly tenant_id: string;
     };
+    readonly Tenant: {
+      /** Format: date-time */
+      readonly archived_at: string | null;
+      /** Format: date-time */
+      readonly created_at: string;
+      /** Format: uuid */
+      readonly id: string;
+      readonly is_active: boolean;
+      readonly locale: string;
+      readonly name: string;
+      readonly role: components["schemas"]["OrganizationRole"];
+      readonly slug: string;
+      readonly status: components["schemas"]["TenantStatus"];
+      readonly timezone: string;
+      /** Format: date-time */
+      readonly updated_at: string;
+      /** Format: int64 */
+      readonly version: number;
+    };
+    readonly TenantListResponse: {
+      readonly items: readonly components["schemas"]["Tenant"][];
+    };
     readonly TenantMembership: {
       /** Format: uuid */
       readonly id: string;
@@ -529,6 +592,20 @@ export type components = {
       readonly name: string;
       readonly role: components["schemas"]["OrganizationRole"];
       readonly slug: string;
+      readonly status: components["schemas"]["TenantStatus"];
+      /** Format: int64 */
+      readonly version: number;
+    };
+    /** @enum {string} */
+    readonly TenantStatus: "active" | "suspended" | "archived";
+    readonly UpdateTenantRequest: {
+      /** Format: int64 */
+      readonly expected_version: number;
+      /** @enum {string} */
+      readonly locale?: "vi" | "en";
+      readonly name?: string;
+      readonly slug?: string;
+      readonly timezone?: string;
     };
     readonly User: {
       readonly avatar_object_key?: string;
@@ -542,7 +619,7 @@ export type components = {
     };
   };
   responses: {
-    /** @description The requested identity operation conflicts with account safety rules */
+    /** @description The request conflicts with the current resource state or version */
     readonly ConflictResponse: {
       headers: {
         readonly [name: string]: unknown;
@@ -1000,6 +1077,10 @@ export interface operations {
           readonly "application/json": components["schemas"]["MeResponse"];
         };
       };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
       readonly default: components["responses"]["ProblemResponse"];
     };
   };
@@ -1024,6 +1105,28 @@ export interface operations {
       readonly default: components["responses"]["ProblemResponse"];
     };
   };
+  readonly listTenants: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Membership-scoped workspace list */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["TenantListResponse"];
+        };
+      };
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
   readonly createTenant: {
     readonly parameters: {
       readonly query?: never;
@@ -1042,12 +1145,112 @@ export interface operations {
       /** @description Workspace created and activated for the current session */
       readonly 201: {
         headers: {
+          readonly Location: string;
           readonly [name: string]: unknown;
         };
         content: {
           readonly "application/json": components["schemas"]["MeResponse"];
         };
       };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly getTenant: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path: {
+        readonly tenant_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Active-scope workspace detail */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["Tenant"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly updateTenant: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly "X-CSRF-Token": string;
+      };
+      readonly path: {
+        readonly tenant_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["UpdateTenantRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Updated workspace */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["Tenant"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly archiveTenant: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly "X-CSRF-Token": string;
+      };
+      readonly path: {
+        readonly tenant_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["ArchiveTenantRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Workspace archived and session credentials rotated */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["MeResponse"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
       readonly default: components["responses"]["ProblemResponse"];
     };
   };

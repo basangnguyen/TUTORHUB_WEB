@@ -1,6 +1,10 @@
 /* eslint-disable react-refresh/only-export-components -- This context module intentionally exports its hook and session contract. */
 
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useQuery,
+  useQueryClient,
+  type QueryClient,
+} from "@tanstack/react-query";
 import {
   APIRequestError,
   getCurrentUser,
@@ -46,6 +50,11 @@ function navigateToLogin(returnTo = "/app/home") {
       baseUrl: getApiBaseUrl(),
     }),
   );
+}
+
+export async function clearPrivateSessionCache(queryClient: QueryClient) {
+  await queryClient.cancelQueries();
+  queryClient.clear();
 }
 
 export function SessionProvider({
@@ -111,7 +120,7 @@ function RemoteSessionProvider({ children }: PropsWithChildren) {
       const result = await logout(csrf.csrf_token, {
         baseUrl: getApiBaseUrl(),
       });
-      queryClient.removeQueries({ queryKey: ["auth"] });
+      await clearPrivateSessionCache(queryClient);
       window.location.assign(result.logout_url ?? "/signed-out");
     } catch (error) {
       setSignOutError(
