@@ -285,6 +285,118 @@ const messages = {
       "Tài khoản của bạn đã được thêm vào {tenant}. Bạn có thể tiếp tục vào TutorHub và chọn workspace này.",
     "invitation.publicWorkspaceFallback": "workspace được mời",
     "invitation.publicContinueAction": "Tiếp tục vào TutorHub",
+    "classInvitation.title": "Tham gia lớp học",
+    "classInvitation.description":
+      "Liên kết bảo mật này cho phép bạn tham gia một lớp trong workspace đang hoạt động.",
+    "classInvitation.checkingSession": "Đang kiểm tra phiên đăng nhập",
+    "classInvitation.signInDescription":
+      "Đăng nhập trước khi tham gia lớp. Vì lý do bảo mật, hãy mở lại liên kết sau khi đăng nhập.",
+    "classInvitation.signInAction": "Đăng nhập TutorHub",
+    "classInvitation.reopenLink":
+      "TutorHub không lưu mã mời trong trình duyệt hoặc đưa mã vào URL đăng nhập.",
+    "classInvitation.workspaceRequired":
+      "Hãy chọn workspace phù hợp, sau đó mở lại liên kết mời.",
+    "classInvitation.joinAction": "Tham gia lớp",
+    "classInvitation.joining": "Đang tham gia...",
+    "classInvitation.retryJoin": "Thử tham gia lại",
+    "classInvitation.sessionExpired":
+      "Phiên đăng nhập đã hết hạn. Hãy đăng nhập rồi mở lại liên kết.",
+    "classInvitation.forbidden":
+      "Workspace hiện tại không cho phép bạn dùng liên kết này.",
+    "classInvitation.rateLimited":
+      "Bạn đã thử quá nhiều lần. Hãy đợi một lúc rồi thử lại.",
+    "classInvitation.joinError":
+      "Chưa thể tham gia lớp. Hãy kiểm tra kết nối rồi thử lại.",
+    "classInvitation.unavailableTitle": "Liên kết tham gia không khả dụng",
+    "classInvitation.unavailableDescription":
+      "Liên kết không hợp lệ, đã hết hạn, bị thu hồi, đã hết lượt hoặc lớp không còn hoạt động.",
+    "classInvitation.offlineDescription":
+      "Kết nối Internet để kiểm tra và tham gia lớp học.",
+    "classEnrollment.title": "Thành viên và mã mời",
+    "classEnrollment.description":
+      "Thêm học viên đang có trong workspace hoặc tạo liên kết tham gia có giới hạn.",
+    "classEnrollment.inactiveDescription":
+      "Kích hoạt lớp để thêm học viên hoặc tạo mã mời mới.",
+    "classEnrollment.directTitle": "Thêm học viên trực tiếp",
+    "classEnrollment.directDescription":
+      "Nhập email của một thành viên đang hoạt động trong workspace.",
+    "classEnrollment.emailLabel": "Email thành viên",
+    "classEnrollment.emailValidation": "Hãy nhập một địa chỉ email hợp lệ.",
+    "classEnrollment.enrollAction": "Thêm vào lớp",
+    "classEnrollment.enrolling": "Đang thêm...",
+    "classEnrollment.enrollSuccess": "Đã thêm học viên vào lớp.",
+    "classEnrollment.inviteTitle": "Liên kết tham gia",
+    "classEnrollment.inviteDescription":
+      "Mỗi liên kết có thời hạn và số lượt sử dụng hữu hạn.",
+    "classEnrollment.createAction": "Tạo liên kết",
+    "classEnrollment.createTitle": "Tạo liên kết tham gia lớp",
+    "classEnrollment.createDescription":
+      "TutorHub chỉ hiển thị liên kết đầy đủ một lần sau khi tạo.",
+    "classEnrollment.ttlLabel": "Thời hạn",
+    "classEnrollment.ttlOneDay": "1 ngày",
+    "classEnrollment.ttlSevenDays": "7 ngày",
+    "classEnrollment.ttlThirtyDays": "30 ngày",
+    "classEnrollment.usageLabel": "Số lượt sử dụng tối đa",
+    "classEnrollment.usageValidation": "Số lượt phải từ 1 đến 1.000.",
+    "classEnrollment.createConfirm": "Tạo liên kết",
+    "classEnrollment.creating": "Đang tạo...",
+    "classEnrollment.createSuccess":
+      "Liên kết đã được tạo. Hãy sao chép trước khi đóng cửa sổ.",
+    "classEnrollment.linkLabel":
+      "Liên kết tham gia (chỉ hiển thị trong lần này)",
+    "classEnrollment.copyAction": "Sao chép liên kết",
+    "classEnrollment.copySuccess": "Đã sao chép liên kết.",
+    "classEnrollment.copyManual":
+      "Không thể sao chép tự động. Liên kết đã được chọn để bạn sao chép thủ công.",
+    "classEnrollment.listLoading": "Đang tải mã mời",
+    "classEnrollment.listEmptyTitle": "Chưa có liên kết tham gia",
+    "classEnrollment.listEmptyDescription":
+      "Tạo liên kết đầu tiên khi cần mời học viên vào lớp.",
+    "classEnrollment.listErrorTitle": "Chưa thể tải mã mời",
+    "classEnrollment.listErrorDescription":
+      "Kiểm tra kết nối hoặc quyền truy cập rồi thử lại.",
+    "classEnrollment.listForbiddenTitle": "Bạn không còn quyền quản lý lớp",
+    "classEnrollment.listForbiddenDescription":
+      "Quyền quản lý thành viên của lớp đã thay đổi.",
+    "classEnrollment.statusActive": "Đang hoạt động",
+    "classEnrollment.statusExhausted": "Đã hết lượt",
+    "classEnrollment.statusExpired": "Đã hết hạn",
+    "classEnrollment.statusRevoked": "Đã thu hồi",
+    "classEnrollment.usageCount": "Đã dùng {used}/{limit} lượt",
+    "classEnrollment.expiresLabel": "Hết hạn:",
+    "classEnrollment.revokeAction": "Thu hồi",
+    "classEnrollment.revokeCodeAction":
+      "Thu hồi liên kết hết hạn lúc {expires}",
+    "classEnrollment.revokeConfirmTitle": "Thu hồi liên kết?",
+    "classEnrollment.revokeConfirmDescription":
+      "Học viên chưa tham gia sẽ không thể tiếp tục dùng liên kết này.",
+    "classEnrollment.revokeConfirm": "Xác nhận thu hồi",
+    "classEnrollment.revoking": "Đang thu hồi...",
+    "classEnrollment.revokeSuccess": "Đã thu hồi liên kết tham gia.",
+    "classEnrollment.cancelAction": "Hủy",
+    "classEnrollment.closeDialog": "Đóng cửa sổ quản lý liên kết",
+    "classEnrollment.mutationForbidden":
+      "Bạn không còn quyền quản lý thành viên của lớp.",
+    "classEnrollment.mutationConflict":
+      "Trạng thái lớp, học viên hoặc mã mời đã thay đổi. Hãy tải lại.",
+    "classEnrollment.mutationNotFound":
+      "Không tìm thấy thành viên hoặc mã mời trong lớp hiện tại.",
+    "classEnrollment.mutationRateLimited":
+      "Bạn đã thao tác quá nhanh. Hãy đợi rồi thử lại.",
+    "classEnrollment.mutationError": "Chưa thể hoàn tất thao tác. Hãy thử lại.",
+    "classEnrollment.leaveAction": "Rời lớp",
+    "classEnrollment.leaveTitle": "Rời lớp học?",
+    "classEnrollment.leaveDescription":
+      "Lớp sẽ biến mất khỏi danh sách của bạn. Bạn cần liên kết còn hiệu lực hoặc giáo viên thêm lại để tham gia lại.",
+    "classEnrollment.leaveConfirm": "Xác nhận rời lớp",
+    "classEnrollment.leaving": "Đang rời lớp...",
+    "classEnrollment.leaveForbidden":
+      "Bạn không còn quyền rời lớp trong workspace hiện tại.",
+    "classEnrollment.leaveNotFound":
+      "Không tìm thấy enrollment đang hoạt động của bạn trong lớp.",
+    "classEnrollment.leaveConflict":
+      "Trạng thái enrollment đã thay đổi. Hãy tải lại lớp rồi thử lại.",
+    "classEnrollment.leaveError": "Chưa thể rời lớp. Hãy thử lại.",
     "classroom.title": "Lớp học",
     "classroom.description":
       "Quản lý các lớp thuộc workspace đang hoạt động và mở thông tin chi tiết của từng lớp.",
@@ -776,6 +888,118 @@ const messages = {
       "Your account was added to {tenant}. Continue to TutorHub and select this workspace.",
     "invitation.publicWorkspaceFallback": "the invited workspace",
     "invitation.publicContinueAction": "Continue to TutorHub",
+    "classInvitation.title": "Join a class",
+    "classInvitation.description":
+      "This secure link lets you join a class in your active workspace.",
+    "classInvitation.checkingSession": "Checking sign-in status",
+    "classInvitation.signInDescription":
+      "Sign in before joining. For security, reopen this link after sign-in.",
+    "classInvitation.signInAction": "Sign in to TutorHub",
+    "classInvitation.reopenLink":
+      "TutorHub does not store the invite token or place it in the sign-in URL.",
+    "classInvitation.workspaceRequired":
+      "Select the matching workspace, then reopen the invitation link.",
+    "classInvitation.joinAction": "Join class",
+    "classInvitation.joining": "Joining...",
+    "classInvitation.retryJoin": "Retry joining",
+    "classInvitation.sessionExpired":
+      "Your session expired. Sign in, then reopen the link.",
+    "classInvitation.forbidden":
+      "Your current workspace does not allow this invitation.",
+    "classInvitation.rateLimited":
+      "Too many attempts were made. Wait a moment and retry.",
+    "classInvitation.joinError":
+      "The class could not be joined. Check the connection and retry.",
+    "classInvitation.unavailableTitle": "Class invitation unavailable",
+    "classInvitation.unavailableDescription":
+      "The link is invalid, expired, revoked, exhausted, or the class is no longer active.",
+    "classInvitation.offlineDescription":
+      "Connect to the internet to check and join the class.",
+    "classEnrollment.title": "Members and invite links",
+    "classEnrollment.description":
+      "Add an existing workspace member or create a bounded class join link.",
+    "classEnrollment.inactiveDescription":
+      "Activate the class before adding learners or creating a new link.",
+    "classEnrollment.directTitle": "Add a learner directly",
+    "classEnrollment.directDescription":
+      "Enter the email of an active member in this workspace.",
+    "classEnrollment.emailLabel": "Member email",
+    "classEnrollment.emailValidation": "Enter a valid email address.",
+    "classEnrollment.enrollAction": "Add to class",
+    "classEnrollment.enrolling": "Adding...",
+    "classEnrollment.enrollSuccess": "The learner was added to the class.",
+    "classEnrollment.inviteTitle": "Join links",
+    "classEnrollment.inviteDescription":
+      "Every link has a finite lifetime and usage limit.",
+    "classEnrollment.createAction": "Create link",
+    "classEnrollment.createTitle": "Create a class join link",
+    "classEnrollment.createDescription":
+      "TutorHub shows the complete link only once after creation.",
+    "classEnrollment.ttlLabel": "Lifetime",
+    "classEnrollment.ttlOneDay": "1 day",
+    "classEnrollment.ttlSevenDays": "7 days",
+    "classEnrollment.ttlThirtyDays": "30 days",
+    "classEnrollment.usageLabel": "Maximum uses",
+    "classEnrollment.usageValidation":
+      "The usage limit must be between 1 and 1,000.",
+    "classEnrollment.createConfirm": "Create link",
+    "classEnrollment.creating": "Creating...",
+    "classEnrollment.createSuccess":
+      "The link is ready. Copy it before closing this dialog.",
+    "classEnrollment.linkLabel": "Class join link (shown only this time)",
+    "classEnrollment.copyAction": "Copy link",
+    "classEnrollment.copySuccess": "Link copied.",
+    "classEnrollment.copyManual":
+      "Automatic copy is unavailable. The link is selected for manual copy.",
+    "classEnrollment.listLoading": "Loading invite codes",
+    "classEnrollment.listEmptyTitle": "No class join links",
+    "classEnrollment.listEmptyDescription":
+      "Create the first link when learners need to join this class.",
+    "classEnrollment.listErrorTitle": "Invite codes unavailable",
+    "classEnrollment.listErrorDescription":
+      "Check the connection or your access, then retry.",
+    "classEnrollment.listForbiddenTitle": "You can no longer manage this class",
+    "classEnrollment.listForbiddenDescription":
+      "Your class enrollment-management access changed.",
+    "classEnrollment.statusActive": "Active",
+    "classEnrollment.statusExhausted": "Exhausted",
+    "classEnrollment.statusExpired": "Expired",
+    "classEnrollment.statusRevoked": "Revoked",
+    "classEnrollment.usageCount": "{used}/{limit} uses consumed",
+    "classEnrollment.expiresLabel": "Expires:",
+    "classEnrollment.revokeAction": "Revoke",
+    "classEnrollment.revokeCodeAction": "Revoke link expiring at {expires}",
+    "classEnrollment.revokeConfirmTitle": "Revoke this link?",
+    "classEnrollment.revokeConfirmDescription":
+      "Learners who have not joined will no longer be able to use it.",
+    "classEnrollment.revokeConfirm": "Confirm revoke",
+    "classEnrollment.revoking": "Revoking...",
+    "classEnrollment.revokeSuccess": "The class join link was revoked.",
+    "classEnrollment.cancelAction": "Cancel",
+    "classEnrollment.closeDialog": "Close class invitation dialog",
+    "classEnrollment.mutationForbidden":
+      "You can no longer manage class enrollments.",
+    "classEnrollment.mutationConflict":
+      "The class, enrollment, or invite-code state changed. Reload and retry.",
+    "classEnrollment.mutationNotFound":
+      "The member or invite code was not found in this class.",
+    "classEnrollment.mutationRateLimited":
+      "Actions are being made too quickly. Wait, then retry.",
+    "classEnrollment.mutationError":
+      "The action could not be completed. Please retry.",
+    "classEnrollment.leaveAction": "Leave class",
+    "classEnrollment.leaveTitle": "Leave this class?",
+    "classEnrollment.leaveDescription":
+      "The class will disappear from your list. You will need an active link or a teacher to add you again.",
+    "classEnrollment.leaveConfirm": "Confirm leave",
+    "classEnrollment.leaving": "Leaving...",
+    "classEnrollment.leaveForbidden":
+      "You can no longer leave this class in the active workspace.",
+    "classEnrollment.leaveNotFound":
+      "Your active enrollment could not be found in this class.",
+    "classEnrollment.leaveConflict":
+      "Your enrollment state changed. Reload the class, then retry.",
+    "classEnrollment.leaveError": "The class could not be left. Please retry.",
     "classroom.title": "Classrooms",
     "classroom.description":
       "Manage classes in the active workspace and open the details for each class.",

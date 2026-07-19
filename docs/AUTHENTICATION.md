@@ -51,14 +51,14 @@ không trả authorization code, token hoặc chi tiết nhạy cảm.
 
 ## Session và CSRF
 
-| Thành phần | Thuộc tính chính |
-|---|---|
-| Session cookie | Opaque, `HttpOnly`, `SameSite=Lax`, `Secure` ở staging/production |
-| CSRF cookie | Opaque, `SameSite=Lax`, web gửi lại bằng header `X-CSRF-Token` |
-| Flow cookie | Browser binding, `HttpOnly`, hết hạn cùng OIDC flow và bị xóa ở callback |
-| Idle timeout | Mặc định 8 giờ; mỗi `/me`/request xác thực cập nhật `last_seen_at` |
-| Absolute timeout | Mặc định 24 giờ, không được kéo dài bởi idle refresh |
-| Logout | Xác minh CSRF, revoke session server-side, xóa cookie rồi trả IdP logout URL |
+| Thành phần       | Thuộc tính chính                                                             |
+| ---------------- | ---------------------------------------------------------------------------- |
+| Session cookie   | Opaque, `HttpOnly`, `SameSite=Lax`, `Secure` ở staging/production            |
+| CSRF cookie      | Opaque, `SameSite=Lax`, web gửi lại bằng header `X-CSRF-Token`               |
+| Flow cookie      | Browser binding, `HttpOnly`, hết hạn cùng OIDC flow và bị xóa ở callback     |
+| Idle timeout     | Mặc định 8 giờ; mỗi `/me`/request xác thực cập nhật `last_seen_at`           |
+| Absolute timeout | Mặc định 24 giờ, không được kéo dài bởi idle refresh                         |
+| Logout           | Xác minh CSRF, revoke session server-side, xóa cookie rồi trả IdP logout URL |
 
 CSRF được kiểm tra theo ba giá trị: header phải khớp cookie bằng constant-time compare,
 sau đó token phải khớp keyed HMAC của session trong PostgreSQL. Không dùng
@@ -66,28 +66,35 @@ sau đó token phải khớp keyed HMAC của session trong PostgreSQL. Không d
 
 ## HTTP contract
 
-| Endpoint | Hành vi |
-|---|---|
-| `GET /api/v1/auth/login` | Tạo flow và redirect sang IdP |
-| `GET /api/v1/auth/callback` | Xác minh callback, tạo session và redirect về web |
-| `GET /api/v1/auth/csrf` | Xoay CSRF token cho session hiện tại |
-| `POST /api/v1/auth/logout` | Yêu cầu session cookie và `X-CSRF-Token`; revoke phiên |
-| `GET /api/v1/me` | Trả user, active tenant, memberships và permissions |
-| `GET /api/v1/tenants` | Trả các tenant active mà user có membership active |
-| `POST /api/v1/tenants` | Tạo workspace cho user chưa có membership hoặc `org_admin`, gán owner, đặt active tenant và xoay session/CSRF |
-| `GET /api/v1/tenants/{tenant_id}` | Đọc tenant trong active scope với `tenant.view` |
-| `PATCH /api/v1/tenants/{tenant_id}` | Cập nhật metadata với `tenant.manage`, CSRF và `expected_version` |
-| `POST /api/v1/tenants/{tenant_id}/archive` | Archive mềm, xóa active context và xoay session/CSRF |
-| `PUT /api/v1/session/active-tenant` | Xác minh membership, đổi active tenant và xoay session/CSRF |
-| `GET/POST /api/v1/tenants/{tenant_id}/invitations` | Admin list hoặc tạo membership invitation trong active tenant |
-| `POST /api/v1/tenants/{tenant_id}/invitations/{invitation_id}/revoke` | Admin revoke invitation pending, idempotent khi revoke lặp lại |
-| `POST /api/v1/membership-invitations/preview` | Anonymous preview tối thiểu; token nằm trong JSON body |
-| `POST /api/v1/membership-invitations/accept` | Session + CSRF; accept bằng verified linked identity khớp email |
-| `GET/POST /api/v1/classes` | List status/cursor hoặc tạo class draft trong active tenant |
-| `GET/PATCH /api/v1/classes/{class_id}` | Đọc hoặc cập nhật metadata/activate với `expected_version` |
-| `POST /api/v1/classes/{class_id}/archive` | Archive draft/active với `class.archive`, CSRF và CAS |
-| `POST /api/v1/classes/{class_id}/restore` | Restore đúng trạng thái trước archive với CSRF và CAS |
-| `POST /api/v1/classes/{class_id}/transfer-ownership` | Transfer owner với CSRF, CAS và recent authentication 10 phút |
+| Endpoint                                                              | Hành vi                                                                                                       |
+| --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `GET /api/v1/auth/login`                                              | Tạo flow và redirect sang IdP                                                                                 |
+| `GET /api/v1/auth/callback`                                           | Xác minh callback, tạo session và redirect về web                                                             |
+| `GET /api/v1/auth/csrf`                                               | Xoay CSRF token cho session hiện tại                                                                          |
+| `POST /api/v1/auth/logout`                                            | Yêu cầu session cookie và `X-CSRF-Token`; revoke phiên                                                        |
+| `GET /api/v1/me`                                                      | Trả user, active tenant, memberships và permissions                                                           |
+| `GET /api/v1/tenants`                                                 | Trả các tenant active mà user có membership active                                                            |
+| `POST /api/v1/tenants`                                                | Tạo workspace cho user chưa có membership hoặc `org_admin`, gán owner, đặt active tenant và xoay session/CSRF |
+| `GET /api/v1/tenants/{tenant_id}`                                     | Đọc tenant trong active scope với `tenant.view`                                                               |
+| `PATCH /api/v1/tenants/{tenant_id}`                                   | Cập nhật metadata với `tenant.manage`, CSRF và `expected_version`                                             |
+| `POST /api/v1/tenants/{tenant_id}/archive`                            | Archive mềm, xóa active context và xoay session/CSRF                                                          |
+| `PUT /api/v1/session/active-tenant`                                   | Xác minh membership, đổi active tenant và xoay session/CSRF                                                   |
+| `GET/POST /api/v1/tenants/{tenant_id}/invitations`                    | Admin list hoặc tạo membership invitation trong active tenant                                                 |
+| `POST /api/v1/tenants/{tenant_id}/invitations/{invitation_id}/revoke` | Admin revoke invitation pending, idempotent khi revoke lặp lại                                                |
+| `POST /api/v1/membership-invitations/preview`                         | Anonymous preview tối thiểu; token nằm trong JSON body                                                        |
+| `POST /api/v1/membership-invitations/accept`                          | Session + CSRF; accept bằng verified linked identity khớp email                                               |
+| `GET/POST /api/v1/classes`                                            | List status/cursor hoặc tạo class draft trong active tenant                                                   |
+| `GET/PATCH /api/v1/classes/{class_id}`                                | Đọc hoặc cập nhật metadata/activate với `expected_version`                                                    |
+| `POST /api/v1/classes/{class_id}/archive`                             | Archive draft/active với `class.archive`, CSRF và CAS                                                         |
+| `POST /api/v1/classes/{class_id}/restore`                             | Restore đúng trạng thái trước archive với CSRF và CAS                                                         |
+| `POST /api/v1/classes/{class_id}/transfer-ownership`                  | Transfer owner với CSRF, CAS và recent authentication 10 phút                                                 |
+| `POST /api/v1/classes/{class_id}/enrollments`                         | Manager direct-enroll active tenant member theo normalized email; CSRF bắt buộc                               |
+| `POST /api/v1/classes/{class_id}/enrollments/{user_id}/suspend`       | Manager suspend active enrollment; CSRF bắt buộc                                                              |
+| `POST /api/v1/classes/{class_id}/enrollments/{user_id}/remove`        | Manager remove enrollment hợp lệ; CSRF bắt buộc                                                               |
+| `GET/POST /api/v1/classes/{class_id}/invite-codes`                    | Manager list metadata hoặc tạo invite code có TTL/usage limit; raw token chỉ trả khi create                   |
+| `POST /api/v1/classes/{class_id}/invite-codes/{code_id}/revoke`       | Manager revoke code active; CSRF bắt buộc                                                                     |
+| `POST /api/v1/class-invitations/join`                                 | Session + CSRF; nhận class invite token trong JSON body và join/rejoin atomically                             |
+| `POST /api/v1/classes/{class_id}/leave`                               | Active enrollee tự rời lớp; CSRF bắt buộc và replay idempotent                                                |
 
 Contract có thẩm quyền nằm tại `openapi/tutorhub.yaml`; TypeScript client được sinh ở
 `packages/api-client/src/generated/schema.ts`.
@@ -168,10 +175,10 @@ proxy/origin authentication và limiter phân tán thuộc P2-09.
 
 ## Class lifecycle và ownership
 
-P2-04 giữ `owner_user_id` làm owner implicit của class; chưa tạo enrollment trước
-P2-05/P2-06. List class luôn lấy tenant từ active session, hỗ trợ status và opaque
-keyset cursor. Class tạo ở draft; update chỉ cho transition draft -> active. Archive
-nhận draft hoặc active và restore trả chính xác về trạng thái trước archive.
+P2-04 giữ `owner_user_id` làm owner implicit của class; P2-05 không tạo enrollment riêng
+cho owner. List class luôn lấy tenant từ active session, hỗ trợ status và opaque keyset
+cursor. Class tạo ở draft; update chỉ cho transition draft -> active. Archive nhận draft
+hoặc active và restore trả chính xác về trạng thái trước archive.
 
 Update/archive/restore/transfer ownership đều nhận `expected_version`; SQL
 compare-and-swap rồi tăng version để stale request không ghi đè mutation mới hơn.
@@ -191,8 +198,40 @@ recent-auth semantics của P2-01. Hiện login không force OIDC `max_age`/`pro
 hợp provider không gửi `auth_time` được chuẩn hóa theo thời điểm login hiện tại. Vì vậy
 guard này chưa phải một OIDC step-up tuyệt đối.
 
-Media token và media event chỉ được chấp nhận khi class active. Archive không thu hồi
-JWT LiveKit đã phát hoặc kick participant đang kết nối.
+Class list/detail trả `viewer_access` do server tính từ class, organization role và
+enrollment persisted hiện tại. Chỉ enrollment `active` được nạp thành class role; session
+hoặc browser không được tự khai class role. Media token/event chỉ được chấp nhận khi
+class active và policy cho phép join/publish từ projection authoritative này. Archive
+không thu hồi JWT LiveKit đã phát hoặc kick participant đang kết nối.
+
+## Class enrollment và invite code
+
+P2-05 lưu một enrollment tenant-scoped cho mỗi cặp class/user với class role
+`co_teacher`, `teaching_assistant` hoặc `student` và state
+`invited/active/suspended/left/removed`. Lát cắt hiện tại direct-enroll active tenant
+member theo normalized email vào role `student`; active replay là no-op. Manager có
+`enrollment.manage` có thể suspend/remove hoặc direct-reactivate, còn active enrollee có
+`enrollment.leave` có thể tự chuyển sang `left`. Suspended/removed không thể tự phục hồi
+bằng invite code; `left`/`invited` student có thể rejoin.
+
+Create invite code chỉ chạy trên class active, nhận TTL 900-2.592.000 giây và usage
+limit 1-1000. Backend sinh token CSPRNG 256-bit với prefix `thciv1_`, digest bằng purpose
+`class-invite-code-v1` và chỉ lưu HMAC 32 byte. Raw token chỉ xuất hiện một lần trong
+`join_url` dạng `/class-invite#token=...`; web xóa fragment bằng `history.replaceState`
+ngay khi đọc, giữ token trong memory và gửi `POST /api/v1/class-invitations/join` bằng
+JSON body. Token không nằm trong path/query, browser storage hoặc TanStack Query key/data.
+
+Join yêu cầu session, CSRF, active tenant membership và active class. Transaction khóa
+scope, membership, enrollment và invite row; join mới/rejoin tăng usage đúng một lần và
+lượt cuối chuyển code sang `exhausted`. Active enrollment replay và principal đã có quyền
+quản lý không tiêu thụ lượt. Malformed, expired, exhausted, revoked, suspended/removed
+hoặc cross-scope token dùng unavailable response thống nhất để giảm enumeration.
+
+Archive chặn direct enrollment, create code, join và media request mới nhưng không xóa
+lịch sử. Manager vẫn list/revoke code; active enrollee vẫn có thể leave. Restore không
+tự phát lại token, thay đổi usage hay chuyển enrollment. Join có bounded in-process
+limiter theo action và `RemoteAddr` prefix; đây chỉ là guard private-alpha với cùng hạn
+chế trusted-proxy/distributed quota như membership invitation, cần hoàn thiện ở P2-09.
 
 ## Tạo ứng dụng ZITADEL
 
@@ -262,15 +301,17 @@ Bộ test unit, HTTP và PostgreSQL integration bao phủ one-time flow, hash to
 permissions, workspace onboarding, tenant list/detail/update/archive, optimistic
 version, context CAS, switching, invitation create/preview/accept/replay/revoke/expiry/
 concurrent accept, CSRF/session rotation, class list/keyset pagination, update CAS,
-lifecycle/ownership authorization, cross-tenant concealment, recent-auth và outbox.
+lifecycle/ownership authorization, enrollment transitions, invite-code HMAC/TTL/usage,
+same-user/concurrent join, active enrollment projection, archive guard, cross-tenant
+concealment, recent-auth và outbox.
 Các integration test database chạy migration trong transaction/fixture có cleanup.
 
 ## Trạng thái triển khai
 
 - Nền authentication ban đầu dùng migration `000004`; profile/identity dùng `000006`;
   tenant lifecycle/session-context CAS dùng `000007`; membership invitation dùng
-  `000008`; class lifecycle/ownership dùng `000009`. Các migration này đều có up/down
-  path.
+  `000008`; class lifecycle/ownership dùng `000009`; class enrollment/invite code dùng
+  `000010`. Các migration này đều có up/down path.
 - `tutorhub-local` đã được provision ngày 2026-07-14 trong project `TutorHub V2`,
   instance `tutorhub-v2-dev`. Secret chỉ nằm trong `.env.local` đã Git-ignore.
 - Browser smoke thật đã đạt: login/callback, `/api/v1/me`, reload giữ phiên,
@@ -294,6 +335,11 @@ Các integration test database chạy migration trong transaction/fixture có cl
   bộ lint/typecheck/build/Storybook, Go test/vet và security checks.
   Migration/classroom/identity integration-tag compile xanh local; runtime PostgreSQL
   chưa chạy local vì không nạp DB test env và sẽ do CI PostgreSQL 17 xác nhận.
+- P2-05 đã bổ sung typed enrollment/invite-code contract, purpose-bound HMAC, bounded
+  TTL/usage, atomic join/rejoin/leave, authoritative per-class access projection,
+  archive guard và transactional outbox. Migration/classroom/identity integration-tag
+  compile xanh local; runtime migration `000010` và PostgreSQL integration chưa chạy
+  local vì không nạp DB test env. Tài liệu này không tuyên bố staging đã áp dụng `000010`.
 - ZITADEL trả profile/email qua UserInfo trong Authorization Code Flow. Adapter đã
   được sửa để xác minh ID token trước, gọi UserInfo sau và từ chối khi `sub` không
   khớp; test hồi quy và `pnpm verify` đều đạt.

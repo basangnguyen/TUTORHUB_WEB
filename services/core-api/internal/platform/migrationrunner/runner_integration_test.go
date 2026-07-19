@@ -29,7 +29,7 @@ func TestUpPinsMigrationHistoryToPublicSchema(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read migration version: %v", err)
 	}
-	if version.Number < 9 || version.Dirty {
+	if version.Number < 10 || version.Dirty {
 		t.Fatalf("unexpected migration version: %+v", version)
 	}
 
@@ -40,12 +40,15 @@ func TestUpPinsMigrationHistoryToPublicSchema(t *testing.T) {
 	defer database.Close()
 
 	var publicHistory, applicationHistory, invitationTable sql.NullString
+	var classEnrollmentTable, classInviteCodeTable sql.NullString
 	var classTimezone, classVersion, archivedFromStatus sql.NullString
 	if err := database.QueryRowContext(
 		ctx,
 		`SELECT to_regclass('public.tutorhub_schema_migrations'),
                 to_regclass('tutorhub.tutorhub_schema_migrations'),
                 to_regclass('tutorhub.membership_invitations'),
+                to_regclass('tutorhub.class_enrollments'),
+                to_regclass('tutorhub.class_invite_codes'),
                 (
                     SELECT data_type
                     FROM information_schema.columns
@@ -71,6 +74,8 @@ func TestUpPinsMigrationHistoryToPublicSchema(t *testing.T) {
 		&publicHistory,
 		&applicationHistory,
 		&invitationTable,
+		&classEnrollmentTable,
+		&classInviteCodeTable,
 		&classTimezone,
 		&classVersion,
 		&archivedFromStatus,
@@ -88,5 +93,8 @@ func TestUpPinsMigrationHistoryToPublicSchema(t *testing.T) {
 	}
 	if !classTimezone.Valid || !classVersion.Valid || !archivedFromStatus.Valid {
 		t.Fatal("class lifecycle migration must be applied at version 9")
+	}
+	if !classEnrollmentTable.Valid || !classInviteCodeTable.Valid {
+		t.Fatal("class enrollment migration must be applied at version 10")
 	}
 }

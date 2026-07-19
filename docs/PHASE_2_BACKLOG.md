@@ -18,9 +18,10 @@ Tạo nền multi-tenant và quản lý lớp đủ dùng cho pilot nội bộ:
 
 **Task đã hoàn thành:** P2-00 Policy and contract baseline; P2-01 User profile và
 identity linking; P2-02 Tenant lifecycle và workspace switching; P2-03 Membership
-invitation, accept và revoke; P2-04 Class lifecycle, ownership và archive.
+invitation, accept và revoke; P2-04 Class lifecycle, ownership và archive; P2-05
+Enrollment và class invite code.
 
-**Task kế tiếp:** P2-05 Enrollment và class invite code.
+**Task kế tiếp:** P2-06 Roster và class-level roles.
 
 ## 2. Non-goal
 
@@ -53,8 +54,8 @@ invitation, accept và revoke; P2-04 Class lifecycle, ownership và archive.
 | P2-02 | Tenant lifecycle và workspace switching | P2-00                      | DONE       |
 | P2-03 | Membership invitation/accept/revoke     | P2-02                      | DONE       |
 | P2-04 | Class lifecycle, ownership và archive   | P2-00, P2-02               | DONE       |
-| P2-05 | Enrollment và class invite code         | P2-03, P2-04               | NEXT       |
-| P2-06 | Roster và class-level roles             | P2-05                      | TODO       |
+| P2-05 | Enrollment và class invite code         | P2-03, P2-04               | DONE       |
+| P2-06 | Roster và class-level roles             | P2-05                      | NEXT       |
 | P2-07 | Audit log cho hành động nhạy cảm        | P2-02 đến P2-06            | TODO       |
 | P2-08 | Admin/teacher UI end-to-end             | P2-02 đến P2-07            | TODO       |
 | P2-09 | Feature flag và quota framework         | P2-00, P2-02               | TODO       |
@@ -293,29 +294,46 @@ thu hồi JWT đã cấp hoặc kick participant đang trong room.
 - Enrollment: `invited -> active -> suspended/left/removed`.
 - Invite code: `active -> exhausted/expired/revoked`.
 
-### Contract đề xuất
+### Contract triển khai
 
-- `POST /api/v1/classes/{classId}/enrollments`
-- `POST /api/v1/classes/{classId}/invite-codes`
-- `GET /api/v1/classes/{classId}/invite-codes`
-- `POST /api/v1/classes/{classId}/invite-codes/{codeId}/revoke`
-- `POST /api/v1/class-invitations/{code}/join`
-- `POST /api/v1/classes/{classId}/leave`
+- `POST /api/v1/classes/{class_id}/enrollments`
+- `POST /api/v1/classes/{class_id}/enrollments/{user_id}/suspend`
+- `POST /api/v1/classes/{class_id}/enrollments/{user_id}/remove`
+- `POST /api/v1/classes/{class_id}/invite-codes`
+- `GET /api/v1/classes/{class_id}/invite-codes`
+- `POST /api/v1/classes/{class_id}/invite-codes/{code_id}/revoke`
+- `POST /api/v1/class-invitations/join`; opaque token chỉ nằm trong JSON body.
+- `POST /api/v1/classes/{class_id}/leave`
 
 ### Công việc
 
-- [ ] Code đủ entropy, lưu hash, có TTL và usage limit atomic.
-- [ ] Join transaction khóa/cập nhật usage count an toàn khi đồng thời.
-- [ ] Idempotent join cho user đã active; không tiêu usage lần hai.
-- [ ] Policy self-leave, teacher remove, suspend và rejoin được ghi rõ.
-- [ ] Room token chỉ cấp khi enrollment active hoặc actor có quyền quản trị.
+- [x] Code 256-bit CSPRNG có prefix `thciv1_`, chỉ lưu purpose-bound HMAC, TTL
+      15 phút-30 ngày và usage limit 1-1000.
+- [x] Join transaction khóa/cập nhật usage count an toàn khi đồng thời; lượt cuối
+      chuyển code sang `exhausted` atomically.
+- [x] Idempotent join cho user đã active và manager/owner; không tiêu usage lần hai.
+- [x] Policy self-leave, manager remove/suspend, direct-reactivate và rejoin đã được
+      ghi rõ trong domain model/ADR-0013 và kiểm tra ở service/repository.
+- [x] Class detail/list và room token/event chỉ dùng owner, organization manager hoặc
+      enrollment active được resolve authoritative; browser/session không tự khai role.
 
 ### Kiểm thử và DoD
 
-- Race test usage limit, expired/revoked/exhausted code.
-- Guessing/enumeration không lộ class hoặc tenant.
-- Enrollment active là điều kiện thống nhất cho class detail/room access.
-- Audit đầy đủ create/revoke/join/leave/remove/suspend.
+- [x] Có PostgreSQL integration test cho usage-limit race, same-user replay và
+      expired/revoked/exhausted code.
+- [x] Malformed/cross-scope/unavailable token trả cùng 404, không lộ class hoặc tenant;
+      token không nằm trong path/query/log/cache/browser storage.
+- [x] Enrollment active là điều kiện thống nhất cho class detail/list/room access;
+      `viewer_access` tách rõ join và publish.
+- [x] Transactional outbox ghi create/reactivate/revoke/join/rejoin/leave/remove/
+      suspend/expire/exhaust bằng payload allowlist không chứa token/hash/email.
+
+**Hoàn thành 2026-07-19:** migration `000010` thêm schema/constraint/index tenant-scoped;
+OpenAPI/generated client và web có direct enroll, copy-once invite, revoke, join, leave
+cùng loading/empty/error/forbidden/retry states. Web 69/69, API client 13/13, UI 6/6,
+Go unit/HTTP tests, integration-tag compile, lint/typecheck/build/Storybook và security
+checks đều xanh qua `pnpm verify`. PostgreSQL runtime cho migration/test `000010` chưa
+chạy local vì không nạp DB test env; CI PostgreSQL 17 sẽ xác nhận sau khi push.
 
 ## 11. P2-06 Roster và class-level roles
 
@@ -488,10 +506,8 @@ thu hồi JWT đã cấp hoặc kick participant đang trong room.
 
 ## 19. Việc cần làm ngay
 
-1. Theo dõi PostgreSQL integration/clean-migration gate của checkpoint P2-04 trên CI.
-2. Bắt đầu P2-05 từ schema enrollment và class invite code có TTL/usage limit.
-3. Dùng lifecycle guard P2-04 để chặn join/code mới khi class không active; không
-   thay đổi hoặc tạo class owner enrollment ngoài thiết kế P2-05/P2-06.
-4. Giữ notification invitation ở interface/outbox; chưa gửi email thật trong Phase 2.
-5. Chưa bắt đầu roster/class-level role management của P2-06 trước khi enrollment và
-   invite-code deny tests của P2-05 đạt.
+1. Theo dõi PostgreSQL integration/clean-migration gate của checkpoint P2-05 trên CI.
+2. Bắt đầu P2-06 từ roster query tenant/class-scoped có pagination, search và filter.
+3. Khóa role-transition matrix owner/co-teacher/TA/student trước khi mở mutation UI.
+4. Giữ owner implicit ở `classes.owner_user_id`; không tạo owner enrollment.
+5. Giữ notification invitation ở interface/outbox; chưa gửi email thật trong Phase 2.

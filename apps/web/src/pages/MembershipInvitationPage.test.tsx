@@ -118,6 +118,7 @@ describe("MembershipInvitationPage", () => {
     window.history.replaceState(null, "", "/");
     window.localStorage.clear();
     window.sessionStorage.clear();
+    vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
 
@@ -216,6 +217,36 @@ describe("MembershipInvitationPage", () => {
       screen.getByRole("heading", { name: "Invitation unavailable" }),
     ).toBeInTheDocument();
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps the consumed token when retrying the preview after an offline state", async () => {
+    const rawToken = "thinv1_offline-retry-token";
+    window.history.replaceState(null, "", `/invite#token=${rawToken}`);
+    const online = vi
+      .spyOn(window.navigator, "onLine", "get")
+      .mockReturnValue(false);
+    const fetchMock = vi.fn().mockImplementation((request: Request) => {
+      if (request.url.endsWith("/preview")) {
+        return Promise.resolve(jsonResponse(preview));
+      }
+      return Promise.reject(new Error(`Unexpected request: ${request.url}`));
+    });
+    renderInvitationPage(fetchMock);
+
+    expect(screen.getByText("You are offline")).toBeInTheDocument();
+    expect(window.location.hash).toBe("");
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    online.mockReturnValue(true);
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+
+    expect(await screen.findByText("TutorHub Test")).toBeInTheDocument();
+    const previewRequest = fetchMock.mock.calls
+      .map((call) => call[0] as Request)
+      .find((request) => request.url.endsWith("/preview"));
+    await expect(previewRequest?.clone().json()).resolves.toEqual({
+      token: rawToken,
+    });
   });
 
   it("shows an account mismatch as a recoverable acceptance error", async () => {

@@ -41,14 +41,24 @@ dùng `expected_version` CAS, tenant scope server-side, authoritative membership
 reauthorization và transactional outbox trong cùng business transaction. Ownership
 target phải là active member cùng tenant đủ điều kiện `class.create`.
 
+**P2-05 đã triển khai:** owner vẫn là implicit từ `owner_user_id`; mọi class role khác
+được resolve từ `class_enrollments` persisted và chỉ state `active` mới cấp quyền.
+`viewer_access` được server project cho từng class, nên browser/session không được tự
+khai role hoặc suy quyền media từ tenant membership. Suspended/left/removed không giữ
+class/media privilege; organization role và owner exception vẫn đi qua shared policy.
+Direct enroll, suspend/remove, invite-code join và leave đều reauthorize tenant/class/
+membership authoritative trong transaction và ghi success event bằng outbox.
+
 Transfer ownership yêu cầu `auth_time` của principal/session trong 10 phút, tái dùng
 semantics recent-auth P2-01. Luồng hiện chưa force một OIDC authorization mới bằng
 `max_age`/`prompt`, nên đây chưa phải step-up tuyệt đối và phải được tăng cường trước
 các môi trường/rủi ro yêu cầu xác thực lại bắt buộc.
 
-LiveKit token và media event mới chỉ được xử lý khi class active. Archive chặn credential
-mới nhưng không thể thu hồi JWT đã cấp hoặc tự kick participant đang kết nối; TTL ngắn
-và room moderation về sau là các lớp kiểm soát bổ sung.
+LiveKit token và media event mới chỉ được xử lý khi class active và class access
+authoritative cho phép join/publish. Archive chặn direct enrollment, create/join invite
+code và credential/media request mới nhưng vẫn cho list/revoke code lịch sử và leave;
+nó không thể thu hồi JWT đã cấp hoặc tự kick participant đang kết nối. TTL ngắn và room
+moderation về sau là các lớp kiểm soát bổ sung.
 
 ## 4. Web security
 
@@ -65,6 +75,15 @@ và trả `Cache-Control: no-store`, `Referrer-Policy: no-referrer`. Bounded loc
 theo action/`RemoteAddr` là guard private-alpha; P2-09 phải bổ sung trusted-proxy/origin
 authentication và distributed limiter trước khi tăng lưu lượng.
 
+Class invite code áp dụng cùng boundary nhưng dùng prefix `thciv1_` và purpose HMAC
+`class-invite-code-v1`. Raw token chỉ trả một lần trong fragment `/class-invite#token=...`;
+web xóa fragment ngay, giữ token trong memory và chỉ gửi qua POST JSON body có session +
+CSRF. Token không được đưa vào path/query, browser storage, Query key/cache hoặc log.
+TTL bị giới hạn 15 phút-30 ngày, usage 1-1000; transaction lock và conditional update
+bảo đảm lượt cuối atomically chuyển `exhausted`, còn active replay không tiêu thụ lượt.
+Join dùng bounded local limiter theo action/`RemoteAddr`; trusted proxy và distributed
+limiter vẫn là gate P2-09 trước khi tăng lưu lượng.
+
 ## 5. Dữ liệu và secret
 
 - Secret nằm trong secret manager/KMS; repository chỉ có `.env.example` chứa tên biến.
@@ -74,10 +93,10 @@ authentication và distributed limiter trước khi tăng lưu lượng.
 - Backup mã hóa, có retention và restore test định kỳ.
 - Signed URL ngắn hạn; file upload kiểm tra kích thước, MIME thực, checksum và malware.
 
-Invitation database chỉ giữ purpose-bound HMAC 32 byte, không giữ raw token. Outbox
-payload dùng allowlist actor/status/role/expiry/membership ID, không chứa email, token,
-token hash hoặc session identifier; structured-log regression test kiểm tra raw token
-không xuất hiện.
+Membership invitation và class invite code trong database chỉ giữ purpose-bound HMAC
+32 byte, không giữ raw token. Outbox payload dùng allowlist actor/status/role/expiry/
+usage/membership ID, không chứa email, token, token hash hoặc session identifier;
+structured-log regression test kiểm tra raw token không xuất hiện.
 
 ## 6. Chuỗi cung ứng
 
@@ -103,12 +122,12 @@ P1-08B/các phase release; cấu hình ruleset và security switches trên GitHu
 
 ## 8. Security gates
 
-| Gate | Điều kiện |
-|---|---|
-| Merge | Không có secret; test authorization pass; SAST/dependency scan không có lỗi chặn |
-| Staging | Threat model cập nhật; migration/rollback hợp lệ; DAST smoke pass |
-| Public beta | Không Critical/High chưa xử lý; pentest các flow quan trọng; incident runbook có người chịu trách nhiệm |
-| Production scale | Restore/DR drill, key rotation, audit review, privacy retention và abuse monitoring hoạt động |
+| Gate             | Điều kiện                                                                                               |
+| ---------------- | ------------------------------------------------------------------------------------------------------- |
+| Merge            | Không có secret; test authorization pass; SAST/dependency scan không có lỗi chặn                        |
+| Staging          | Threat model cập nhật; migration/rollback hợp lệ; DAST smoke pass                                       |
+| Public beta      | Không Critical/High chưa xử lý; pentest các flow quan trọng; incident runbook có người chịu trách nhiệm |
+| Production scale | Restore/DR drill, key rotation, audit review, privacy retention và abuse monitoring hoạt động           |
 
 ## 9. Hành động khẩn cấp từ V1
 

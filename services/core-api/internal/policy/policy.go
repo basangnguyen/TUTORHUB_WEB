@@ -32,6 +32,7 @@ const (
 	PermissionClassTransferOwner  Permission = "class.transfer_ownership"
 	PermissionClassView           Permission = "class.view"
 	PermissionEnrollmentManage    Permission = "enrollment.manage"
+	PermissionEnrollmentLeave     Permission = "enrollment.leave"
 	PermissionSessionStart        Permission = "session.start"
 	PermissionSessionEnd          Permission = "session.end"
 	PermissionSessionJoin         Permission = "session.join"
@@ -53,6 +54,7 @@ const (
 	ActionClassTransferOwnership Action = Action(PermissionClassTransferOwner)
 	ActionClassView              Action = Action(PermissionClassView)
 	ActionEnrollmentManage       Action = Action(PermissionEnrollmentManage)
+	ActionEnrollmentLeave        Action = Action(PermissionEnrollmentLeave)
 	ActionSessionStart           Action = Action(PermissionSessionStart)
 	ActionSessionEnd             Action = Action(PermissionSessionEnd)
 	ActionSessionJoin            Action = Action(PermissionSessionJoin)
@@ -129,6 +131,7 @@ var permissionOrder = []Permission{
 	PermissionClassTransferOwner,
 	PermissionClassView,
 	PermissionEnrollmentManage,
+	PermissionEnrollmentLeave,
 	PermissionSessionStart,
 	PermissionSessionEnd,
 	PermissionSessionJoin,
@@ -156,15 +159,9 @@ var organizationPermissions = map[OrganizationRole][]Permission{
 	},
 	OrganizationRoleStudent: {
 		PermissionTenantView,
-		PermissionClassView,
-		PermissionSessionJoin,
-		PermissionMediaPublish,
-		PermissionChatSend,
 	},
 	OrganizationRoleGuest: {
 		PermissionTenantView,
-		PermissionSessionJoin,
-		PermissionChatSend,
 	},
 }
 
@@ -175,6 +172,7 @@ var classPermissions = map[ClassRole][]Permission{
 		PermissionClassTransferOwner,
 		PermissionClassView,
 		PermissionEnrollmentManage,
+		PermissionEnrollmentLeave,
 		PermissionSessionStart,
 		PermissionSessionEnd,
 		PermissionSessionJoin,
@@ -187,6 +185,7 @@ var classPermissions = map[ClassRole][]Permission{
 		PermissionClassUpdate,
 		PermissionClassView,
 		PermissionEnrollmentManage,
+		PermissionEnrollmentLeave,
 		PermissionSessionStart,
 		PermissionSessionEnd,
 		PermissionSessionJoin,
@@ -197,6 +196,7 @@ var classPermissions = map[ClassRole][]Permission{
 	},
 	ClassRoleTeachingAssistant: {
 		PermissionClassView,
+		PermissionEnrollmentLeave,
 		PermissionSessionJoin,
 		PermissionParticipantAdmit,
 		PermissionMediaPublish,
@@ -204,6 +204,7 @@ var classPermissions = map[ClassRole][]Permission{
 	},
 	ClassRoleStudent: {
 		PermissionClassView,
+		PermissionEnrollmentLeave,
 		PermissionSessionJoin,
 		PermissionMediaPublish,
 		PermissionChatSend,
@@ -319,6 +320,8 @@ func actionBlockedForResourceState(action Action, state ResourceState) bool {
 	case ResourceStateArchived:
 		switch action {
 		case ActionClassView, ActionClassArchive, ActionClassTransferOwnership:
+			return false
+		case ActionEnrollmentManage, ActionEnrollmentLeave:
 			return false
 		default:
 			return actionRequiresClass(action)

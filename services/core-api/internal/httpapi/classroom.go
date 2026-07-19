@@ -62,17 +62,27 @@ type transferClassOwnershipRequest struct {
 }
 
 type classResponse struct {
-	ID          uuid.UUID             `json:"id"`
-	OwnerUserID uuid.UUID             `json:"owner_user_id"`
-	Code        string                `json:"code"`
-	Title       string                `json:"title"`
-	Description string                `json:"description"`
-	Timezone    string                `json:"timezone"`
-	Status      classroom.ClassStatus `json:"status"`
-	Version     int64                 `json:"version"`
-	CreatedAt   time.Time             `json:"created_at"`
-	UpdatedAt   time.Time             `json:"updated_at"`
-	ArchivedAt  *time.Time            `json:"archived_at"`
+	ID           uuid.UUID             `json:"id"`
+	OwnerUserID  uuid.UUID             `json:"owner_user_id"`
+	Code         string                `json:"code"`
+	Title        string                `json:"title"`
+	Description  string                `json:"description"`
+	Timezone     string                `json:"timezone"`
+	Status       classroom.ClassStatus `json:"status"`
+	Version      int64                 `json:"version"`
+	CreatedAt    time.Time             `json:"created_at"`
+	UpdatedAt    time.Time             `json:"updated_at"`
+	ArchivedAt   *time.Time            `json:"archived_at"`
+	ViewerAccess classViewerAccess     `json:"viewer_access"`
+}
+
+type classViewerAccess struct {
+	ClassRole            *policy.ClassRole           `json:"class_role"`
+	EnrollmentStatus     *classroom.EnrollmentStatus `json:"enrollment_status"`
+	CanManageEnrollments bool                        `json:"can_manage_enrollments"`
+	CanJoinRoom          bool                        `json:"can_join_room"`
+	CanPublishMedia      bool                        `json:"can_publish_media"`
+	CanLeave             bool                        `json:"can_leave"`
 }
 
 type classListResponse struct {
@@ -527,6 +537,14 @@ func newClassResponse(class classroom.Class) classResponse {
 		CreatedAt:   class.CreatedAt,
 		UpdatedAt:   class.UpdatedAt,
 		ArchivedAt:  class.ArchivedAt,
+		ViewerAccess: classViewerAccess{
+			ClassRole:            class.ViewerAccess.ClassRole,
+			EnrollmentStatus:     class.ViewerAccess.EnrollmentStatus,
+			CanManageEnrollments: class.ViewerAccess.CanManageEnrollments,
+			CanJoinRoom:          class.ViewerAccess.CanJoinRoom,
+			CanPublishMedia:      class.ViewerAccess.CanPublishMedia,
+			CanLeave:             class.ViewerAccess.CanLeave,
+		},
 	}
 }
 

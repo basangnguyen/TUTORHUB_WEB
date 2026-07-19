@@ -17,37 +17,14 @@ import {
   useAcceptMembershipInvitation,
   useMembershipInvitationPreview,
 } from "../app/invitations";
+import {
+  clearFragmentTokenEscrow,
+  consumeFragmentToken,
+} from "../app/fragmentToken";
 import { useI18n, type TranslationKey } from "../app/i18n";
 import { useSession } from "../app/session";
 
-interface TokenEscrow {
-  cleanURL: string;
-  token: string | null;
-}
-
-// React Strict Mode invokes state initializers twice in development. This
-// short-lived escrow preserves the consumed fragment only until the page is
-// committed; it is never persisted in browser storage or a query response.
-let strictModeTokenEscrow: TokenEscrow | undefined;
-
-function consumeInvitationToken() {
-  const cleanURL = `${window.location.pathname}${window.location.search}`;
-  const hash = window.location.hash.startsWith("#")
-    ? window.location.hash.slice(1)
-    : window.location.hash;
-  if (hash) {
-    const candidate = new URLSearchParams(hash).get("token")?.trim() ?? "";
-    const token =
-      candidate.length > 0 && candidate.length <= 512 ? candidate : null;
-    strictModeTokenEscrow = { cleanURL, token };
-    window.history.replaceState(window.history.state, "", cleanURL);
-    return token;
-  }
-  if (strictModeTokenEscrow?.cleanURL === cleanURL) {
-    return strictModeTokenEscrow.token;
-  }
-  return null;
-}
+const membershipInvitationEscrowKey = "membership-invitation";
 
 function useOnlineStatus() {
   const [isOnline, setIsOnline] = useState(() => navigator.onLine);
@@ -63,7 +40,10 @@ function useOnlineStatus() {
     };
   }, []);
 
-  return isOnline;
+  return {
+    isOnline,
+    refresh: () => setIsOnline(navigator.onLine),
+  };
 }
 
 function previewRoleKey(
@@ -98,8 +78,10 @@ export function MembershipInvitationPage() {
   const { language, t } = useI18n();
   const session = useSession();
   const navigate = useNavigate();
-  const [token] = useState(consumeInvitationToken);
-  const isOnline = useOnlineStatus();
+  const [token] = useState(() =>
+    consumeFragmentToken(membershipInvitationEscrowKey),
+  );
+  const { isOnline, refresh: refreshOnlineStatus } = useOnlineStatus();
   const preview = useMembershipInvitationPreview(token, isOnline);
   const acceptInvitation = useAcceptMembershipInvitation(token);
   const dateFormatter = useMemo(
@@ -113,7 +95,7 @@ export function MembershipInvitationPage() {
 
   useEffect(
     () => () => {
-      strictModeTokenEscrow = undefined;
+      clearFragmentTokenEscrow(membershipInvitationEscrowKey);
     },
     [],
   );
@@ -154,7 +136,7 @@ export function MembershipInvitationPage() {
             actions={
               <Button
                 leadingIcon={<RefreshCw />}
-                onClick={() => window.location.reload()}
+                onClick={refreshOnlineStatus}
                 variant="secondary"
               >
                 {t("state.retry")}

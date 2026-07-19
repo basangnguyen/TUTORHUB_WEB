@@ -44,6 +44,10 @@ func TestServiceCreateUsesAuthenticatedActorAndTenant(t *testing.T) {
 		created.Timezone != timezone || created.Version != 1 {
 		t.Fatalf("unexpected normalized class: %+v", created)
 	}
+	if created.ViewerAccess.ClassRole == nil ||
+		*created.ViewerAccess.ClassRole != policy.ClassRoleOwner {
+		t.Fatalf("created class must project the implicit owner: %+v", created.ViewerAccess)
+	}
 }
 
 func TestServiceEnforcesClassPermissions(t *testing.T) {
@@ -70,6 +74,122 @@ func TestServiceEnforcesClassPermissions(t *testing.T) {
 		Code: "SEC101", Title: "Class",
 	}); !errors.Is(err, ErrClassAccessDenied) {
 		t.Fatalf("create without class.create must be denied, got %v", err)
+	}
+}
+
+func TestServiceGetRequiresAuthoritativeActiveEnrollmentForStudent(t *testing.T) {
+	t.Parallel()
+
+	tenantID := uuid.New()
+	actorID := uuid.New()
+	classID := uuid.New()
+	repository := &recordingRepository{class: Class{
+		ID:          classID,
+		TenantID:    tenantID,
+		OwnerUserID: uuid.New(),
+		Status:      ClassStatusActive,
+	}}
+	service := newClassroomTestService(t, repository)
+	access := accessForOrganizationRole(tenantID, actorID, policy.OrganizationRoleStudent)
+
+	if _, err := service.Get(context.Background(), access, classID); !errors.Is(
+		err,
+		ErrClassAccessDenied,
+	) {
+		t.Fatalf("unenrolled student must not read class detail, got %v", err)
+	}
+	repository.enrollment = &Enrollment{
+		ID: uuid.New(), TenantID: tenantID, ClassID: classID, UserID: actorID,
+		ClassRole: policy.ClassRoleStudent, Status: EnrollmentStatusActive,
+	}
+	class, err := service.Get(context.Background(), access, classID)
+	if err != nil {
+		t.Fatalf("read enrolled class: %v", err)
+	}
+	if class.ViewerAccess.ClassRole == nil ||
+		*class.ViewerAccess.ClassRole != policy.ClassRoleStudent ||
+		class.ViewerAccess.EnrollmentStatus == nil ||
+		*class.ViewerAccess.EnrollmentStatus != EnrollmentStatusActive ||
+		!class.ViewerAccess.CanJoinRoom || !class.ViewerAccess.CanPublishMedia ||
+		!class.ViewerAccess.CanLeave ||
+		class.ViewerAccess.CanManageEnrollments {
+		t.Fatalf("unexpected enrolled viewer projection: %+v", class.ViewerAccess)
+	}
+
+	repository.enrollment.Status = EnrollmentStatusSuspended
+	if _, err := service.Get(context.Background(), access, classID); !errors.Is(
+		err,
+		ErrClassAccessDenied,
+	) {
+		t.Fatalf("suspended enrollment must not grant detail access, got %v", err)
+	}
+}
+
+func TestServiceProjectsGlobalManagerAndImplicitOwnerAccess(t *testing.T) {
+	t.Parallel()
+
+	tenantID := uuid.New()
+	classID := uuid.New()
+	managerID := uuid.New()
+	repository := &recordingRepository{class: Class{
+		ID: classID, TenantID: tenantID, OwnerUserID: uuid.New(), Status: ClassStatusActive,
+	}}
+	service := newClassroomTestService(t, repository)
+
+	managerClass, err := service.Get(
+		context.Background(),
+		accessForOrganizationRole(tenantID, managerID, policy.OrganizationRoleTeacher),
+		classID,
+	)
+	if err != nil {
+		t.Fatalf("teacher manager reads class: %v", err)
+	}
+	if !managerClass.ViewerAccess.CanManageEnrollments ||
+		!managerClass.ViewerAccess.CanJoinRoom ||
+		!managerClass.ViewerAccess.CanPublishMedia ||
+		managerClass.ViewerAccess.CanLeave ||
+		managerClass.ViewerAccess.ClassRole != nil {
+		t.Fatalf("unexpected manager projection: %+v", managerClass.ViewerAccess)
+	}
+	repository.class.Status = ClassStatusArchived
+	archivedManagerClass, err := service.AuthorizeClass(
+		context.Background(),
+		accessForOrganizationRole(tenantID, managerID, policy.OrganizationRoleTeacher),
+		classID,
+		policy.ActionEnrollmentManage,
+	)
+	if err != nil {
+		t.Fatalf("manager must inspect or revoke enrollment artifacts on archived class: %v", err)
+	}
+	if !archivedManagerClass.ViewerAccess.CanManageEnrollments ||
+		archivedManagerClass.ViewerAccess.CanJoinRoom ||
+		archivedManagerClass.ViewerAccess.CanPublishMedia {
+		t.Fatalf("unexpected archived manager projection: %+v", archivedManagerClass.ViewerAccess)
+	}
+
+	ownerID := uuid.New()
+	repository.class.OwnerUserID = ownerID
+	repository.class.Status = ClassStatusActive
+	repository.enrollment = &Enrollment{
+		ID: uuid.New(), TenantID: tenantID, ClassID: classID, UserID: ownerID,
+		ClassRole: policy.ClassRoleStudent, Status: EnrollmentStatusActive,
+	}
+	ownerClass, err := service.Get(
+		context.Background(),
+		accessForOrganizationRole(tenantID, ownerID, policy.OrganizationRoleStudent),
+		classID,
+	)
+	if err != nil {
+		t.Fatalf("implicit owner reads class: %v", err)
+	}
+	if ownerClass.ViewerAccess.ClassRole == nil ||
+		*ownerClass.ViewerAccess.ClassRole != policy.ClassRoleOwner ||
+		ownerClass.ViewerAccess.EnrollmentStatus == nil ||
+		*ownerClass.ViewerAccess.EnrollmentStatus != EnrollmentStatusActive ||
+		!ownerClass.ViewerAccess.CanManageEnrollments ||
+		!ownerClass.ViewerAccess.CanJoinRoom ||
+		!ownerClass.ViewerAccess.CanPublishMedia || ownerClass.ViewerAccess.CanLeave {
+		t.Fatalf("unexpected owner projection: %+v", ownerClass.ViewerAccess)
 	}
 }
 
@@ -174,6 +294,42 @@ func TestServiceRequiresRecentAuthenticationForOwnershipTransfer(t *testing.T) {
 		repository.transferParams.NewOwnerUserID != targetID ||
 		repository.transferParams.ExpectedVersion != 2 {
 		t.Fatalf("unexpected transfer params: %+v", repository)
+	}
+}
+
+func TestServiceTransferOwnershipReprojectsPreviousOwnerAccess(t *testing.T) {
+	t.Parallel()
+
+	tenantID := uuid.New()
+	actorID := uuid.New()
+	classID := uuid.New()
+	targetID := uuid.New()
+	repository := &recordingRepository{class: Class{
+		ID:          classID,
+		TenantID:    tenantID,
+		OwnerUserID: actorID,
+		Status:      ClassStatusActive,
+		Version:     2,
+	}}
+	service := newClassroomTestService(t, repository)
+	access := accessForOrganizationRole(tenantID, actorID, policy.OrganizationRoleStudent)
+
+	transferred, err := service.TransferOwnership(
+		context.Background(),
+		access,
+		classID,
+		TransferClassOwnershipInput{NewOwnerUserID: targetID, ExpectedVersion: 2},
+	)
+	if err != nil {
+		t.Fatalf("transfer implicit ownership: %v", err)
+	}
+	if transferred.OwnerUserID != targetID ||
+		transferred.ViewerAccess.ClassRole != nil ||
+		transferred.ViewerAccess.CanManageEnrollments ||
+		transferred.ViewerAccess.CanJoinRoom ||
+		transferred.ViewerAccess.CanPublishMedia ||
+		transferred.ViewerAccess.CanLeave {
+		t.Fatalf("previous owner retained stale viewer access: %+v", transferred)
 	}
 }
 
@@ -283,18 +439,37 @@ func newClassroomTestService(t *testing.T, repository Repository) *Service {
 }
 
 type recordingRepository struct {
-	tenantContext  tenancy.Context
-	class          Class
-	getErr         error
-	createParams   CreateClassParams
-	listParams     ListClassesParams
-	listResult     ListClassesResult
-	updateParams   UpdateClassParams
-	transferParams TransferClassOwnershipParams
-	archiveVersion int64
-	restoreVersion int64
-	updatedAt      time.Time
-	transferCalled bool
+	tenantContext   tenancy.Context
+	class           Class
+	getErr          error
+	createParams    CreateClassParams
+	listParams      ListClassesParams
+	listResult      ListClassesResult
+	updateParams    UpdateClassParams
+	transferParams  TransferClassOwnershipParams
+	archiveVersion  int64
+	restoreVersion  int64
+	updatedAt       time.Time
+	transferCalled  bool
+	enrollment      *Enrollment
+	enrollmentErr   error
+	listEnrollments []Enrollment
+}
+
+func (repository *recordingRepository) FindActorEnrollment(
+	_ context.Context,
+	_ tenancy.Context,
+	_ uuid.UUID,
+) (*Enrollment, error) {
+	return repository.enrollment, repository.enrollmentErr
+}
+
+func (repository *recordingRepository) ListActorEnrollments(
+	_ context.Context,
+	_ tenancy.Context,
+	_ []uuid.UUID,
+) ([]Enrollment, error) {
+	return append([]Enrollment(nil), repository.listEnrollments...), repository.enrollmentErr
 }
 
 func accessForOrganizationRole(
@@ -378,10 +553,11 @@ func (repository *recordingRepository) Update(
 	repository.tenantContext = tenantContext
 	repository.updateParams = params
 	repository.updatedAt = updatedAt
-	return Class{
-		ID: classID, TenantID: tenantContext.TenantID,
-		Version: params.ExpectedVersion + 1,
-	}, nil
+	class := repository.class
+	class.ID = classID
+	class.TenantID = tenantContext.TenantID
+	class.Version = params.ExpectedVersion + 1
+	return class, nil
 }
 
 func (repository *recordingRepository) Archive(
@@ -394,10 +570,12 @@ func (repository *recordingRepository) Archive(
 	repository.tenantContext = tenantContext
 	repository.archiveVersion = expectedVersion
 	repository.updatedAt = updatedAt
-	return Class{
-		ID: classID, TenantID: tenantContext.TenantID,
-		Status: ClassStatusArchived, Version: expectedVersion + 1,
-	}, nil
+	class := repository.class
+	class.ID = classID
+	class.TenantID = tenantContext.TenantID
+	class.Status = ClassStatusArchived
+	class.Version = expectedVersion + 1
+	return class, nil
 }
 
 func (repository *recordingRepository) Restore(
@@ -410,10 +588,12 @@ func (repository *recordingRepository) Restore(
 	repository.tenantContext = tenantContext
 	repository.restoreVersion = expectedVersion
 	repository.updatedAt = updatedAt
-	return Class{
-		ID: classID, TenantID: tenantContext.TenantID,
-		Status: ClassStatusActive, Version: expectedVersion + 1,
-	}, nil
+	class := repository.class
+	class.ID = classID
+	class.TenantID = tenantContext.TenantID
+	class.Status = ClassStatusActive
+	class.Version = expectedVersion + 1
+	return class, nil
 }
 
 func (repository *recordingRepository) TransferOwnership(
@@ -427,8 +607,10 @@ func (repository *recordingRepository) TransferOwnership(
 	repository.transferCalled = true
 	repository.transferParams = params
 	repository.updatedAt = updatedAt
-	return Class{
-		ID: classID, TenantID: tenantContext.TenantID,
-		OwnerUserID: params.NewOwnerUserID, Version: params.ExpectedVersion + 1,
-	}, nil
+	class := repository.class
+	class.ID = classID
+	class.TenantID = tenantContext.TenantID
+	class.OwnerUserID = params.NewOwnerUserID
+	class.Version = params.ExpectedVersion + 1
+	return class, nil
 }

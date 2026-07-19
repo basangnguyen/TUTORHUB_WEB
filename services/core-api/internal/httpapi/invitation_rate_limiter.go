@@ -10,8 +10,9 @@ import (
 type InvitationRateLimitAction string
 
 const (
-	InvitationRateLimitPreview InvitationRateLimitAction = "preview"
-	InvitationRateLimitAccept  InvitationRateLimitAction = "accept"
+	InvitationRateLimitPreview   InvitationRateLimitAction = "preview"
+	InvitationRateLimitAccept    InvitationRateLimitAction = "accept"
+	InvitationRateLimitClassJoin InvitationRateLimitAction = "class_join"
 )
 
 type InvitationRateLimitDecision struct {
@@ -56,8 +57,9 @@ func newDefaultInvitationRateLimiter() InvitationRateLimiter {
 	return newFixedWindowInvitationRateLimiter(
 		4096,
 		map[InvitationRateLimitAction]invitationRateLimitPolicy{
-			InvitationRateLimitPreview: {Limit: 30, Window: time.Minute},
-			InvitationRateLimitAccept:  {Limit: 10, Window: time.Minute},
+			InvitationRateLimitPreview:   {Limit: 30, Window: time.Minute},
+			InvitationRateLimitAccept:    {Limit: 10, Window: time.Minute},
+			InvitationRateLimitClassJoin: {Limit: 10, Window: time.Minute},
 		},
 	)
 }

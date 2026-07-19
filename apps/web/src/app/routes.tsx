@@ -23,6 +23,7 @@ import {
   MembershipInvitationAcceptedPage,
   MembershipInvitationPage,
 } from "../pages/MembershipInvitationPage";
+import { ClassInvitationPage } from "../pages/ClassInvitationPage";
 import {
   ForbiddenPage,
   AuthenticationErrorPage,
@@ -183,6 +184,7 @@ export function createAppRoutes(): RouteObject[] {
       ],
     },
     { path: "/forbidden", element: <ForbiddenPage /> },
+    { path: "/class-invite", element: <ClassInvitationPage /> },
     { path: "/invite", element: <MembershipInvitationPage /> },
     {
       path: "/invite/accepted",

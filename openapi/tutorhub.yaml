@@ -964,6 +964,312 @@ paths:
           $ref: "#/components/responses/ConflictResponse"
         default:
           $ref: "#/components/responses/ProblemResponse"
+  /api/v1/classes/{class_id}/enrollments:
+    post:
+      operationId: createClassEnrollment
+      summary: Directly enroll an active workspace member as a class student
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: class_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateClassEnrollmentRequest"
+      responses:
+        "201":
+          description: Enrollment created, reactivated, or returned idempotently
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClassEnrollment"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/classes/{class_id}/enrollments/{user_id}/suspend:
+    post:
+      operationId: suspendClassEnrollment
+      summary: Suspend a class enrollment
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: class_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Enrollment suspended, including an idempotent repeated suspension
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClassEnrollment"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/classes/{class_id}/enrollments/{user_id}/remove:
+    post:
+      operationId: removeClassEnrollment
+      summary: Remove a class enrollment
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: class_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Enrollment removed, including an idempotent repeated removal
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClassEnrollment"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/classes/{class_id}/invite-codes:
+    get:
+      operationId: listClassInviteCodes
+      summary: List class invite-code metadata without bearer tokens
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: class_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Class-scoped invite-code metadata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClassInviteCodeListResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+    post:
+      operationId: createClassInviteCode
+      summary: Create a bounded class invite code and return its share URL once
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: class_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateClassInviteCodeRequest"
+      responses:
+        "201":
+          description: Invite code created; the share URL is returned only in this response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateClassInviteCodeResponse"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/classes/{class_id}/invite-codes/{code_id}/revoke:
+    post:
+      operationId: revokeClassInviteCode
+      summary: Revoke a class invite code
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: class_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: code_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Invite code revoked, including an idempotent repeated revoke
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClassInviteCode"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/class-invitations/join:
+    post:
+      operationId: joinClassInvitation
+      summary: Join a class with an opaque invite token supplied only in the request body
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClassInvitationTokenRequest"
+      responses:
+        "200":
+          description: Class joined or an existing active enrollment returned idempotently
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JoinClassInvitationResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "429":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/classes/{class_id}/leave:
+    post:
+      operationId: leaveClass
+      summary: Leave a class enrollment as the authenticated actor
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: class_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Enrollment left, including an idempotent repeated leave
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClassEnrollment"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
   /api/v1/classes/{class_id}/media-token:
     post:
       operationId: issueClassMediaToken
@@ -1125,6 +1431,7 @@ components:
         - class.transfer_ownership
         - class.view
         - enrollment.manage
+        - enrollment.leave
         - session.start
         - session.end
         - session.join
@@ -1593,6 +1900,36 @@ components:
     ClassStatus:
       type: string
       enum: [draft, active, archived]
+    ClassEnrollmentStatus:
+      type: string
+      enum: [invited, active, suspended, left, removed]
+    ClassViewerAccess:
+      type: object
+      additionalProperties: false
+      required:
+        - class_role
+        - enrollment_status
+        - can_manage_enrollments
+        - can_join_room
+        - can_publish_media
+        - can_leave
+      properties:
+        class_role:
+          oneOf:
+            - $ref: "#/components/schemas/ClassRole"
+            - type: "null"
+        enrollment_status:
+          oneOf:
+            - $ref: "#/components/schemas/ClassEnrollmentStatus"
+            - type: "null"
+        can_manage_enrollments:
+          type: boolean
+        can_join_room:
+          type: boolean
+        can_publish_media:
+          type: boolean
+        can_leave:
+          type: boolean
     Class:
       type: object
       additionalProperties: false
@@ -1605,6 +1942,7 @@ components:
         - timezone
         - status
         - version
+        - viewer_access
         - created_at
         - updated_at
         - archived_at
@@ -1637,6 +1975,8 @@ components:
           type: integer
           format: int64
           minimum: 1
+        viewer_access:
+          $ref: "#/components/schemas/ClassViewerAccess"
         created_at:
           type: string
           format: date-time
@@ -1734,6 +2074,182 @@ components:
         new_owner_user_id:
           type: string
           format: uuid
+    ClassEnrollment:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - class_id
+        - user_id
+        - class_role
+        - status
+        - enrolled_by
+        - joined_at
+        - suspended_at
+        - left_at
+        - removed_at
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        class_id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        class_role:
+          $ref: "#/components/schemas/ClassRole"
+        status:
+          $ref: "#/components/schemas/ClassEnrollmentStatus"
+        enrolled_by:
+          type: string
+          format: uuid
+        joined_at:
+          oneOf:
+            - type: string
+              format: date-time
+            - type: "null"
+        suspended_at:
+          oneOf:
+            - type: string
+              format: date-time
+            - type: "null"
+        left_at:
+          oneOf:
+            - type: string
+              format: date-time
+            - type: "null"
+        removed_at:
+          oneOf:
+            - type: string
+              format: date-time
+            - type: "null"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    CreateClassEnrollmentRequest:
+      type: object
+      additionalProperties: false
+      required: [member_email]
+      properties:
+        member_email:
+          type: string
+          format: email
+          minLength: 3
+          maxLength: 320
+    ClassInviteCodeStatus:
+      type: string
+      enum: [active, exhausted, expired, revoked]
+    ClassInviteCode:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - class_id
+        - status
+        - expires_at
+        - usage_limit
+        - usage_count
+        - created_by
+        - revoked_at
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        class_id:
+          type: string
+          format: uuid
+        status:
+          $ref: "#/components/schemas/ClassInviteCodeStatus"
+        expires_at:
+          type: string
+          format: date-time
+        usage_limit:
+          type: integer
+          minimum: 1
+          maximum: 1000
+        usage_count:
+          type: integer
+          minimum: 0
+          maximum: 1000
+        created_by:
+          type: string
+          format: uuid
+        revoked_at:
+          oneOf:
+            - type: string
+              format: date-time
+            - type: "null"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    ClassInviteCodeListResponse:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ClassInviteCode"
+    CreateClassInviteCodeRequest:
+      type: object
+      additionalProperties: false
+      required: [expires_in_seconds, usage_limit]
+      properties:
+        expires_in_seconds:
+          type: integer
+          minimum: 900
+          maximum: 2592000
+        usage_limit:
+          type: integer
+          minimum: 1
+          maximum: 1000
+    CreateClassInviteCodeResponse:
+      type: object
+      additionalProperties: false
+      required: [invite_code, join_url]
+      properties:
+        invite_code:
+          $ref: "#/components/schemas/ClassInviteCode"
+        join_url:
+          type: string
+          format: uri
+          description: Copy-once share URL containing the bearer token in its fragment; it is displayed only in this create response.
+    ClassInvitationTokenRequest:
+      type: object
+      additionalProperties: false
+      required: [token]
+      properties:
+        token:
+          type: string
+          minLength: 50
+          maxLength: 50
+          pattern: "^thciv1_[A-Za-z0-9_-]{43}$"
+    JoinClassInvitationResponse:
+      type: object
+      additionalProperties: false
+      required: [classroom, enrollment, joined]
+      properties:
+        classroom:
+          $ref: "#/components/schemas/Class"
+        enrollment:
+          oneOf:
+            - $ref: "#/components/schemas/ClassEnrollment"
+            - type: "null"
+        joined:
+          type: boolean
     MediaTokenResponse:
       type: object
       additionalProperties: false

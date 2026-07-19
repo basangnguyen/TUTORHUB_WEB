@@ -26,6 +26,7 @@ type Options struct {
 	Clock                 func() time.Time
 	Identity              identity.ServiceAPI
 	Classroom             classroom.ServiceAPI
+	Enrollment            classroom.EnrollmentServiceAPI
 	Media                 media.ServiceAPI
 	LiveKitWebhook        media.WebhookVerifier
 	InvitationRateLimiter InvitationRateLimiter
@@ -123,6 +124,14 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 		requireMethod(http.MethodPut, http.HandlerFunc(auth.switchActiveTenant)),
 	)
 	classes := newClassHandlers(logger, auth, options.Classroom)
+	classEnrollments := newClassEnrollmentHandlers(
+		cfg,
+		logger,
+		auth,
+		options.Enrollment,
+		options.InvitationRateLimiter,
+		options.Clock,
+	)
 	mediaHandlers := newMediaHandlers(
 		logger,
 		auth,
@@ -134,6 +143,48 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 	mux.Handle(classArchivePathPattern, http.HandlerFunc(classes.detail))
 	mux.Handle(classRestorePathPattern, http.HandlerFunc(classes.detail))
 	mux.Handle(classTransferPathPattern, http.HandlerFunc(classes.detail))
+	mux.Handle(
+		classEnrollmentsPattern,
+		classEnrollmentResponseHeaders(
+			http.HandlerFunc(classEnrollments.directEnrollment),
+		),
+	)
+	mux.Handle(
+		classEnrollmentSuspendPattern,
+		classEnrollmentResponseHeaders(
+			classEnrollments.enrollmentStateMutation("suspend"),
+		),
+	)
+	mux.Handle(
+		classEnrollmentRemovePattern,
+		classEnrollmentResponseHeaders(
+			classEnrollments.enrollmentStateMutation("remove"),
+		),
+	)
+	mux.Handle(
+		classInviteCodesPattern,
+		classEnrollmentResponseHeaders(
+			http.HandlerFunc(classEnrollments.inviteCodeCollection),
+		),
+	)
+	mux.Handle(
+		classInviteCodeRevokePattern,
+		classEnrollmentResponseHeaders(
+			http.HandlerFunc(classEnrollments.revokeInviteCode),
+		),
+	)
+	mux.Handle(
+		classInvitationJoinPath,
+		classEnrollmentResponseHeaders(
+			http.HandlerFunc(classEnrollments.joinByInviteCode),
+		),
+	)
+	mux.Handle(
+		classLeavePattern,
+		classEnrollmentResponseHeaders(
+			http.HandlerFunc(classEnrollments.leaveClass),
+		),
+	)
 	mux.Handle(mediaTokenPathPattern, http.HandlerFunc(mediaHandlers.issueJoinCredential))
 	mux.Handle(mediaEventsPathPattern, http.HandlerFunc(mediaHandlers.recordClientEvent))
 	mux.Handle(liveKitWebhookPath, http.HandlerFunc(mediaHandlers.receiveWebhook))

@@ -3243,3 +3243,169 @@ textarea:focus-visible {
     grid-template-columns: 1fr;
   }
 }
+
+.class-enrollments {
+  display: grid;
+  gap: 20px;
+}
+
+.class-enrollments__heading,
+.class-enrollments__subheading,
+.classroom-leave {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.class-enrollments__heading p,
+.class-enrollments__subheading p,
+.class-enrollments__direct p,
+.classroom-leave p {
+  max-width: 70ch;
+  margin: 6px 0 0;
+  color: var(--color-text-muted);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.class-enrollments__subheading h3,
+.class-enrollments__direct h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.class-enrollments__notice,
+.class-enrollments__success,
+.class-enrollments__error {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.class-enrollments__notice {
+  border-left: 3px solid var(--color-warning);
+  background: var(--color-warning-soft);
+  color: var(--color-text);
+}
+
+.class-enrollments__success {
+  border-left: 3px solid var(--color-success);
+  background: var(--color-success-soft);
+  color: var(--color-success);
+}
+
+.class-enrollments__error {
+  border-left: 3px solid var(--color-danger);
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+.class-enrollments__direct {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-canvas);
+}
+
+.class-enrollments__direct form {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto;
+  align-items: end;
+  gap: 12px;
+}
+
+.class-enrollments__list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.class-enrollments__list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(210px, auto) auto;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.class-enrollments__list li > div {
+  display: grid;
+  justify-items: start;
+  gap: 6px;
+}
+
+.class-enrollments__list li span {
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+
+.class-enrollments__create-form,
+.class-enrollments__one-time-link {
+  display: grid;
+  gap: 18px;
+  margin-top: 20px;
+}
+
+.class-enrollments__one-time-link > p {
+  margin: 0;
+  color: var(--color-text-muted);
+  line-height: 1.55;
+}
+
+.classroom-leave {
+  padding-bottom: 8px;
+}
+
+.class-invitation-card__icon {
+  display: inline-grid;
+  width: 48px;
+  height: 48px;
+  margin-bottom: 18px;
+  place-items: center;
+  border-radius: var(--radius-md);
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+}
+
+.class-invitation-card__icon svg {
+  width: 24px;
+  height: 24px;
+}
+
+.class-invitation-card > p:not(.membership-invitation-card__kicker) {
+  margin: -16px 0 24px;
+  color: var(--color-text-muted);
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 1.6;
+  text-transform: none;
+}
+
+@media (max-width: 680px) {
+  .class-enrollments__heading,
+  .class-enrollments__subheading,
+  .classroom-leave {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .class-enrollments__heading > button,
+  .classroom-leave > button,
+  .class-enrollments__direct form > button,
+  .class-enrollments__list li > button {
+    width: 100%;
+  }
+
+  .class-enrollments__direct form,
+  .class-enrollments__list li {
+    grid-template-columns: 1fr;
+  }
+}

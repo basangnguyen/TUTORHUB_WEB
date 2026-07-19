@@ -6,14 +6,14 @@
 
 | Thuộc tính          | Trạng thái                                                                            |
 | ------------------- | ------------------------------------------------------------------------------------- |
-| Ngày cập nhật       | 2026-07-18                                                                            |
+| Ngày cập nhật       | 2026-07-19                                                                            |
 | Repository          | `https://github.com/basangnguyen/TUTORHUB_WEB`                                        |
 | Nhánh làm việc      | `main`                                                                                |
 | Quy trình           | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
 | Phase hoàn thành    | Phase 0, Phase 1                                                                      |
 | Phase hiện tại      | Phase 2 - Identity, tenant và class core                                              |
-| Task vừa hoàn thành | P2-04 Class lifecycle, ownership và archive                                           |
-| Task kế tiếp        | P2-05 Enrollment và class invite code                                                 |
+| Task vừa hoàn thành | P2-05 Enrollment và class invite code                                                 |
+| Task kế tiếp        | P2-06 Roster và class-level roles                                                     |
 
 ## Kiến trúc đang chạy
 
@@ -79,6 +79,20 @@
   recent authentication trong 10 phút.
 - Classroom UI đã có create/edit/activate/archive/restore, conflict recovery, status
   filter và pagination. LiveKit token/telemetry chỉ chấp nhận class active.
+- P2-05: migration `000010` thêm enrollment lifecycle
+  `invited -> active -> suspended/left/removed`, class invite code có TTL/usage limit
+  và index/constraint tenant-scoped; owner tiếp tục là implicit ở `classes.owner_user_id`.
+- Invite code dùng CSPRNG 256-bit và purpose-bound HMAC; raw token chỉ trả một lần
+  trong create response, nằm trong URL fragment rồi được web xóa ngay. Join truyền
+  token trong JSON body, khóa/cập nhật usage atomically và không tiêu thêm lượt khi
+  active member, owner hoặc organization manager gọi lại.
+- Direct enrollment, suspend, remove, revoke, join/rejoin và self-leave đều đi qua
+  shared policy cùng repository tenant-scoped; outbox payload dùng allowlist và không
+  chứa token, hash hoặc email.
+- Class detail/list và LiveKit token/event dùng `viewer_access` do server resolve từ
+  owner, organization manager hoặc enrollment active. Web có management panel,
+  copy-once invite, public join và self-leave với đầy đủ loading/empty/error/
+  forbidden/retry states bằng tiếng Việt/Anh.
 
 ## Kết quả acceptance staging ngày 2026-07-16
 
@@ -104,14 +118,14 @@ trước pilot/public beta hoặc khi có người duy trì thứ hai.
 
 Backlog có thẩm quyền: `docs/PHASE_2_BACKLOG.md`.
 
-1. P2-00 đến P2-04 đã hoàn thành.
-2. Full `pnpm verify` của P2-04 xanh ngày 2026-07-18: web 55/55, API client 11/11,
+1. P2-00 đến P2-05 đã hoàn thành.
+2. Full `pnpm verify` của P2-05 xanh ngày 2026-07-19: web 69/69, API client 13/13,
    UI 6/6, generated-contract check, lint/typecheck/build/Storybook, Go test/vet và
    security checks.
-3. Migration/classroom/identity integration-tag compile xanh local; runtime PostgreSQL
-   chưa chạy local vì không nạp DB test env. Workflow CI PostgreSQL 17 sẽ xác nhận
-   clean migration và integration runtime sau push.
-4. Task kế tiếp là P2-05 enrollment và class invite code.
+3. Full integration-tag compile, classroom/media/policy và HTTP security tests đều
+   xanh local. Runtime PostgreSQL cho migration/test `000010` chưa chạy local vì
+   không nạp DB test env; workflow CI PostgreSQL 17 sẽ xác nhận sau push.
+4. Task kế tiếp là P2-06 roster và class-level roles.
 
 ## Rủi ro đã biết
 
@@ -120,12 +134,14 @@ Backlog có thẩm quyền: `docs/PHASE_2_BACKLOG.md`.
 - Direct-main chưa có pre-merge protection; `pnpm verify` và CI hậu kiểm là kiểm soát
   bù tạm thời theo ADR-0012.
 - Chưa chọn managed Redis và observability provider cho quy mô lớn hơn.
-- Invitation preview/accept limiter P2-03 hiện là bounded in-process limiter theo
-  `RemoteAddr`; sau Cloudflare/Render có thể gộp client vào proxy bucket. Không tin
-  forwarded header khi Render origin còn public; P2-09 phải chốt trusted-proxy/origin
-  authentication và distributed limiter trước khi tăng lưu lượng.
-- Enrollment, class invite code và roster chưa triển khai; thuộc P2-05/P2-06. Guard
-  active/archive cho join mới đã sẵn sàng nhưng hiện chưa có invite code để đóng/revoke.
+- Membership invitation preview/accept và class invite join hiện dùng bounded
+  in-process limiter theo `RemoteAddr`; sau Cloudflare/Render có thể gộp client vào
+  proxy bucket. Không tin forwarded header khi Render origin còn public; P2-09 phải
+  chốt trusted-proxy/origin authentication và distributed limiter trước khi tăng tải.
+- Roster query và class-level role mutation chưa triển khai; thuộc P2-06. P2-05 mới
+  hỗ trợ student enrollment lifecycle và giữ owner implicit, chưa có co-teacher/TA.
+- Runtime PostgreSQL cho migration/test `000010` chưa được chạy local; integration-tag
+  compile đã xanh nhưng clean migration và concurrency runtime cần CI/staging xác nhận.
 - Ownership transfer tái dùng `auth_time` của session theo semantics P2-01; chưa ép
   OIDC `max_age`/`prompt`, nên recent-auth 10 phút chưa phải step-up tuyệt đối.
 - Archive ngăn cấp LiveKit token/event mới nhưng không thu hồi JWT đã phát hoặc kick

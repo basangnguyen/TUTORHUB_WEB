@@ -29,6 +29,14 @@ const classroom: ClassroomClass = {
   archived_at: null,
   created_at: "2026-07-18T01:00:00Z",
   updated_at: "2026-07-18T02:00:00Z",
+  viewer_access: {
+    class_role: null,
+    enrollment_status: null,
+    can_manage_enrollments: true,
+    can_join_room: true,
+    can_publish_media: true,
+    can_leave: false,
+  },
 };
 
 function currentUser({

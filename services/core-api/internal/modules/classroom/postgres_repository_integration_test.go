@@ -58,6 +58,8 @@ func TestPostgresRepositoryClassLifecycleAndTenantIsolation(t *testing.T) {
 	tenantB, ownerB := seedTenantOwner(t, ctx, transaction, "b")
 	nextOwner := seedTenantMember(t, ctx, transaction, tenantA, "next-owner", "teacher")
 	ineligibleOwner := seedTenantMember(t, ctx, transaction, tenantA, "student-owner", "student")
+	enrolledStudent := seedTenantMember(t, ctx, transaction, tenantA, "enrolled-student", "student")
+	unenrolledStudent := seedTenantMember(t, ctx, transaction, tenantA, "unenrolled-student", "student")
 	contextA := mustTenantContext(t, tenantA, ownerA)
 	contextB := mustTenantContext(t, tenantB, ownerB)
 	nextOwnerContext := mustTenantContext(t, tenantA, nextOwner)
@@ -279,6 +281,64 @@ WHERE tenant_id = $1 AND user_id = $2`,
 	)
 	if err != nil {
 		t.Fatalf("activate second class: %v", err)
+	}
+	if _, err := transaction.Exec(
+		ctx,
+		`INSERT INTO tutorhub.class_enrollments (
+    tenant_id, class_id, user_id, class_role, status, enrolled_by, joined_at
+)
+VALUES ($1, $2, $3, 'student', 'active', $4, now())`,
+		tenantA,
+		created.ID,
+		enrolledStudent,
+		ownerA,
+	); err != nil {
+		t.Fatalf("insert active student enrollment: %v", err)
+	}
+	classService, err := NewService(repository, policy.NewEngine())
+	if err != nil {
+		t.Fatalf("create integrated classroom service: %v", err)
+	}
+	enrolledAccess := accessForOrganizationRole(
+		tenantA,
+		enrolledStudent,
+		policy.OrganizationRoleStudent,
+	)
+	enrolledClass, err := classService.Get(ctx, enrolledAccess, created.ID)
+	if err != nil {
+		t.Fatalf("active enrollment must grant class detail: %v", err)
+	}
+	if enrolledClass.ViewerAccess.ClassRole == nil ||
+		*enrolledClass.ViewerAccess.ClassRole != policy.ClassRoleStudent ||
+		!enrolledClass.ViewerAccess.CanJoinRoom ||
+		!enrolledClass.ViewerAccess.CanPublishMedia ||
+		!enrolledClass.ViewerAccess.CanLeave {
+		t.Fatalf("unexpected integrated viewer access: %+v", enrolledClass.ViewerAccess)
+	}
+	unenrolledAccess := accessForOrganizationRole(
+		tenantA,
+		unenrolledStudent,
+		policy.OrganizationRoleStudent,
+	)
+	if _, err := classService.Get(ctx, unenrolledAccess, created.ID); !errors.Is(
+		err,
+		ErrClassAccessDenied,
+	) {
+		t.Fatalf("unenrolled student class detail must be denied, got %v", err)
+	}
+	enrolledPage, err := classService.List(ctx, enrolledAccess, ListClassesInput{Limit: 10})
+	if err != nil {
+		t.Fatalf("list enrolled student's classes: %v", err)
+	}
+	if len(enrolledPage.Items) != 1 || enrolledPage.Items[0].ID != created.ID {
+		t.Fatalf("student list must contain only active enrollments: %+v", enrolledPage)
+	}
+	unenrolledPage, err := classService.List(ctx, unenrolledAccess, ListClassesInput{Limit: 10})
+	if err != nil {
+		t.Fatalf("list unenrolled student's classes: %v", err)
+	}
+	if len(unenrolledPage.Items) != 0 {
+		t.Fatalf("unenrolled student list must be empty: %+v", unenrolledPage)
 	}
 
 	activeFilter := ClassStatusActive

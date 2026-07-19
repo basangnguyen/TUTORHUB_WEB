@@ -35,15 +35,12 @@ func TestOrganizationPermissionMatrix(t *testing.T) {
 		{
 			name: "student",
 			role: OrganizationRoleStudent,
-			want: []Permission{
-				PermissionTenantView, PermissionClassView, PermissionSessionJoin, PermissionMediaPublish,
-				PermissionChatSend,
-			},
+			want: []Permission{PermissionTenantView},
 		},
 		{
 			name: "guest",
 			role: OrganizationRoleGuest,
-			want: []Permission{PermissionTenantView, PermissionSessionJoin, PermissionChatSend},
+			want: []Permission{PermissionTenantView},
 		},
 	}
 
@@ -79,6 +76,7 @@ func TestClassPermissionMatrix(t *testing.T) {
 			want: []Permission{
 				PermissionTenantView, PermissionClassUpdate, PermissionClassArchive,
 				PermissionClassTransferOwner, PermissionClassView, PermissionEnrollmentManage,
+				PermissionEnrollmentLeave,
 				PermissionSessionStart, PermissionSessionEnd, PermissionSessionJoin,
 				PermissionParticipantAdmit, PermissionParticipantRemove,
 				PermissionMediaPublish, PermissionChatSend,
@@ -89,6 +87,7 @@ func TestClassPermissionMatrix(t *testing.T) {
 			role: ClassRoleCoTeacher,
 			want: []Permission{
 				PermissionTenantView, PermissionClassUpdate, PermissionClassView, PermissionEnrollmentManage,
+				PermissionEnrollmentLeave,
 				PermissionSessionStart, PermissionSessionEnd, PermissionSessionJoin,
 				PermissionParticipantAdmit, PermissionParticipantRemove,
 				PermissionMediaPublish, PermissionChatSend,
@@ -98,7 +97,8 @@ func TestClassPermissionMatrix(t *testing.T) {
 			name: "teaching assistant",
 			role: ClassRoleTeachingAssistant,
 			want: []Permission{
-				PermissionTenantView, PermissionClassView, PermissionSessionJoin, PermissionParticipantAdmit,
+				PermissionTenantView, PermissionClassView, PermissionEnrollmentLeave,
+				PermissionSessionJoin, PermissionParticipantAdmit,
 				PermissionMediaPublish, PermissionChatSend,
 			},
 		},
@@ -106,7 +106,8 @@ func TestClassPermissionMatrix(t *testing.T) {
 			name: "student",
 			role: ClassRoleStudent,
 			want: []Permission{
-				PermissionTenantView, PermissionClassView, PermissionSessionJoin, PermissionMediaPublish,
+				PermissionTenantView, PermissionClassView, PermissionEnrollmentLeave,
+				PermissionSessionJoin, PermissionMediaPublish,
 				PermissionChatSend,
 			},
 		},
@@ -139,6 +140,7 @@ func TestEffectivePermissionsUnionsMultipleRolesDeterministically(t *testing.T) 
 	want := []Permission{
 		PermissionTenantView,
 		PermissionClassView,
+		PermissionEnrollmentLeave,
 		PermissionSessionJoin,
 		PermissionParticipantAdmit,
 		PermissionMediaPublish,
@@ -241,8 +243,14 @@ func TestAuthorizeUsesPermissionAndResourceState(t *testing.T) {
 
 	if decision := engine.Authorize(Input{
 		Subject: subject, Action: ActionSessionJoin, Resource: resource,
+	}); decision.Allowed || decision.Reason != DenialPermission {
+		t.Fatalf("unenrolled student session join must be denied: %+v", decision)
+	}
+	subject.ClassRoles = []ClassRole{ClassRoleStudent}
+	if decision := engine.Authorize(Input{
+		Subject: subject, Action: ActionSessionJoin, Resource: resource,
 	}); !decision.Allowed {
-		t.Fatalf("student session join should be allowed: %+v", decision)
+		t.Fatalf("enrolled student session join should be allowed: %+v", decision)
 	}
 	if decision := engine.Authorize(Input{
 		Subject: subject, Action: ActionParticipantRemove, Resource: resource,
@@ -260,6 +268,11 @@ func TestAuthorizeUsesPermissionAndResourceState(t *testing.T) {
 		Subject: subject, Action: ActionClassView, Resource: resource,
 	}); !decision.Allowed {
 		t.Fatalf("archived class detail should remain visible: %+v", decision)
+	}
+	if decision := engine.Authorize(Input{
+		Subject: subject, Action: ActionEnrollmentLeave, Resource: resource,
+	}); !decision.Allowed {
+		t.Fatalf("active enrollment role should be allowed to leave an archived class: %+v", decision)
 	}
 }
 
@@ -364,7 +377,11 @@ func TestClassResourceStateRequiresActiveClassForRoomActions(t *testing.T) {
 	}
 
 	resource.State = ResourceStateArchived
-	for _, action := range []Action{ActionClassArchive, ActionClassTransferOwnership} {
+	for _, action := range []Action{
+		ActionClassArchive,
+		ActionClassTransferOwnership,
+		ActionEnrollmentManage,
+	} {
 		decision := engine.Authorize(Input{
 			Subject: subject, Action: action, Resource: resource,
 		})

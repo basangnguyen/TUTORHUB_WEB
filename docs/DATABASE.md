@@ -7,14 +7,14 @@ thay đổi schema, migration hoặc repository phải đọc tài liệu này t
 
 - System of record: Neon PostgreSQL.
 - Schema ứng dụng: `tutorhub`.
-- Migration mới nhất trong source: `000009_class_lifecycle`.
+- Migration mới nhất trong source: `000010_class_enrollments`.
 - Migration 1-5 đã được chạy và kiểm tra trên Neon; smoke
   `5 false -> rollback 4 false -> migrate 5 false` đạt ngày 2026-07-16.
-- Migration `000006` đến `000009` đều có up/down path. Migration/classroom/identity
-  integration-tag compile xanh; runtime `000009` chưa chạy local vì không nạp DB test
-  env và sẽ do workflow CI xác nhận sau push. Smoke
-  `9 false -> rollback 8 false -> migrate 9 false` chưa chạy trên staging; tài liệu
-  này không khẳng định staging đã nâng lên 9.
+- Migration `000006` đến `000010` đều có up/down path. Migration/classroom/identity
+  integration-tag compile xanh local; runtime `000010` chưa chạy local vì không nạp
+  DB test env và sẽ do workflow CI xác nhận sau push. Smoke
+  `10 false -> rollback 9 false -> migrate 10 false` chưa chạy trên staging; tài liệu
+  này không khẳng định staging đã nâng lên 10.
 - Classroom và identity integration test chạy trong transaction và rollback toàn bộ fixture.
 - Core API đã được smoke test với Neon: `/ready` trả `ready` và `/health` trả `ok`.
 
@@ -24,10 +24,10 @@ readiness và migration/rollback smoke đều đã đạt.
 
 ## Hai connection URL
 
-| Biến | Đối tượng sử dụng | Loại URL | Quy tắc |
-|---|---|---|---|
-| `DATABASE_POOL_URL` | Core API đang chạy | Neon pooled, hostname có `-pooler` | Chỉ quyền runtime; cấu hình pool nhỏ để phù hợp free tier |
-| `DATABASE_MIGRATION_URL` | CLI/release job | Neon direct, hostname không có `-pooler` | Chỉ cấp cho migration job; không đưa vào API container |
+| Biến                     | Đối tượng sử dụng  | Loại URL                                 | Quy tắc                                                   |
+| ------------------------ | ------------------ | ---------------------------------------- | --------------------------------------------------------- |
+| `DATABASE_POOL_URL`      | Core API đang chạy | Neon pooled, hostname có `-pooler`       | Chỉ quyền runtime; cấu hình pool nhỏ để phù hợp free tier |
+| `DATABASE_MIGRATION_URL` | CLI/release job    | Neon direct, hostname không có `-pooler` | Chỉ cấp cho migration job; không đưa vào API container    |
 
 Không dùng URL direct cho traffic ứng dụng thường xuyên. Không cấp URL migration
 cho frontend, browser, Cloudflare Pages hoặc tiến trình Core API trên Render.
@@ -35,40 +35,62 @@ Core API không tự chạy migration khi khởi động.
 
 ## Cấu hình pool mặc định
 
-| Biến | Mặc định | Ý nghĩa |
-|---|---:|---|
-| `DATABASE_MAX_CONNECTIONS` | `4` | Giới hạn kết nối của một Core API instance |
-| `DATABASE_MIN_CONNECTIONS` | `0` | Cho phép scale-to-zero khi rảnh |
-| `DATABASE_CONNECT_TIMEOUT` | `10s` | Giới hạn thời gian mở/ping kết nối |
-| `DATABASE_QUERY_TIMEOUT` | `5s` | Timeout dùng cho readiness/repository operation |
-| `DATABASE_MAX_CONNECTION_LIFETIME` | `30m` | Làm mới kết nối dài hạn |
-| `DATABASE_MAX_CONNECTION_IDLE_TIME` | `5m` | Thu hồi kết nối rảnh |
-| `DATABASE_HEALTH_CHECK_PERIOD` | `1m` | Chu kỳ kiểm tra pool |
+| Biến                                | Mặc định | Ý nghĩa                                         |
+| ----------------------------------- | -------: | ----------------------------------------------- |
+| `DATABASE_MAX_CONNECTIONS`          |      `4` | Giới hạn kết nối của một Core API instance      |
+| `DATABASE_MIN_CONNECTIONS`          |      `0` | Cho phép scale-to-zero khi rảnh                 |
+| `DATABASE_CONNECT_TIMEOUT`          |    `10s` | Giới hạn thời gian mở/ping kết nối              |
+| `DATABASE_QUERY_TIMEOUT`            |     `5s` | Timeout dùng cho readiness/repository operation |
+| `DATABASE_MAX_CONNECTION_LIFETIME`  |    `30m` | Làm mới kết nối dài hạn                         |
+| `DATABASE_MAX_CONNECTION_IDLE_TIME` |     `5m` | Thu hồi kết nối rảnh                            |
+| `DATABASE_HEALTH_CHECK_PERIOD`      |     `1m` | Chu kỳ kiểm tra pool                            |
 
 `application_name=tutorhub-core-api` được gắn vào kết nối để quan sát trên Neon.
 Mọi truy vấn mạng/database phải chạy ngoài UI thread ở các client native về sau.
 
-## Schema phiên bản 9
+## Schema phiên bản 10
 
-| Bảng | Vai trò |
-|---|---|
-| `users` | Hồ sơ định danh nội bộ, email chuẩn hóa và trạng thái tài khoản |
-| `identities` | Ánh xạ `(provider, subject)` từ OIDC, verified email và lần xác thực gần nhất |
-| `tenants` | Workspace với slug/name, locale/timezone, status, optimistic `version` và `archived_at` |
-| `memberships` | Quan hệ user-tenant và role `org_admin/teacher/student/guest` |
-| `sessions` | Hash session/CSRF, active tenant, `context_version`, idle/absolute expiry và revoke state |
-| `auth_flows` | HMAC state/binding/nonce, PKCE verifier mã hóa và one-time consume |
-| `classes` | Lớp học theo tenant; owner cùng tenant, timezone, lifecycle, optimistic version và archive state |
-| `membership_invitations` | Lời mời tenant một lần: normalized email, role, HMAC token, TTL và terminal state |
-| `outbox_events` | Transactional outbox cho sự kiện bền vững và worker tương lai |
+| Bảng                     | Vai trò                                                                                          |
+| ------------------------ | ------------------------------------------------------------------------------------------------ |
+| `users`                  | Hồ sơ định danh nội bộ, email chuẩn hóa và trạng thái tài khoản                                  |
+| `identities`             | Ánh xạ `(provider, subject)` từ OIDC, verified email và lần xác thực gần nhất                    |
+| `tenants`                | Workspace với slug/name, locale/timezone, status, optimistic `version` và `archived_at`          |
+| `memberships`            | Quan hệ user-tenant và role `org_admin/teacher/student/guest`                                    |
+| `sessions`               | Hash session/CSRF, active tenant, `context_version`, idle/absolute expiry và revoke state        |
+| `auth_flows`             | HMAC state/binding/nonce, PKCE verifier mã hóa và one-time consume                               |
+| `classes`                | Lớp học theo tenant; owner cùng tenant, timezone, lifecycle, optimistic version và archive state |
+| `class_enrollments`      | Quan hệ user-class theo tenant, class role, trạng thái tham gia và các mốc lifecycle             |
+| `class_invite_codes`     | Mã mời lớp chỉ lưu HMAC, TTL, giới hạn lượt dùng, trạng thái và actor lifecycle                  |
+| `membership_invitations` | Lời mời tenant một lần: normalized email, role, HMAC token, TTL và terminal state                |
+| `outbox_events`          | Transactional outbox cho sự kiện bền vững và worker tương lai                                    |
 
 Ràng buộc quan trọng:
 
 - Mã lớp chỉ duy nhất trong từng tenant.
 - Foreign key tổng hợp chặn owner/member thuộc tenant khác.
 - Repository luôn nhận `tenancy.Context` gồm `tenant_id` và `actor_user_id`.
-- Class dùng `owner_user_id` làm owner implicit trong P2-04; enrollment/roster chỉ được
-  tạo từ P2-05/P2-06.
+- Class tiếp tục dùng `owner_user_id` làm owner implicit, không tạo enrollment riêng
+  cho owner. `class_enrollments` giữ các role `co_teacher`, `teaching_assistant`,
+  `student` với state `invited/active/suspended/left/removed`; mỗi user chỉ có một row
+  trong một class và mọi foreign key actor/user đều bị khóa theo tenant.
+- Chỉ enrollment `active` được nạp thành class role authoritative cho class/media.
+  Enrollment inactive không cấp quyền; owner implicit và quyền organization vẫn được
+  shared policy đánh giá độc lập. HTTP trả projection `viewer_access` do server tính,
+  không tin class role do session hoặc browser tự khai.
+- Direct enrollment chỉ tìm active tenant member theo normalized email, tạo/reactivate
+  role `student` và không tạo owner/manager trùng. Suspend/remove/leave dùng transition
+  có điều kiện; suspended/removed không thể tự join lại bằng invite code, còn manager
+  có thể direct-reactivate theo policy.
+- Class invite token có prefix `thciv1_`, entropy 256-bit và database chỉ giữ unique
+  purpose-bound HMAC 32 byte. TTL bị chặn trong khoảng 15 phút đến 30 ngày; usage limit
+  từ 1 đến 1000 và `usage_count` không được vượt giới hạn.
+- Join invite khóa class, tenant membership, enrollment và invite code trong transaction.
+  Join mới/rejoin từ `invited` hoặc `left` tăng usage đúng một lần; replay của active
+  enrollment và principal đã có quyền quản lý không tiêu thụ lượt. Lượt cuối atomically
+  chuyển code sang `exhausted`; expired/revoked/exhausted/cross-scope đều unavailable.
+- Archive chặn direct enrollment, create code, join mới và media request mới, nhưng giữ
+  enrollment/code lịch sử; manager vẫn list/revoke code và active enrollee vẫn có thể
+  leave. Restore không tự phát lại credential hay thay đổi enrollment/code state.
 - Class có `timezone`, `version > 0`, `archived_at` và `archived_from_status`; archive
   draft/active rồi restore chính xác trạng thái trước, còn update chỉ cho draft -> active.
 - `CreateClass` ghi lớp draft và sự kiện `class.created` trong cùng transaction.
@@ -85,9 +107,11 @@ Ràng buộc quan trọng:
 - Chỉ `org_admin` hoặc owner implicit có `class.archive` và
   `class.transfer_ownership`. Transfer target phải là active member cùng tenant đủ điều
   kiện `class.create` và actor có recent authentication trong 10 phút.
-- Success event class create/update/archive/restore/ownership transfer được ghi vào
+- Success event class create/update/archive/restore/ownership transfer, enrollment
+  create/reactivate/suspend/remove/join/rejoin/leave và invite-code
+  create/revoke/expire/exhaust được ghi vào
   transactional outbox cùng business mutation; payload không chứa description, token
-  hoặc session secret.
+  thô, token hash hoặc session secret.
 - Tenant list được giới hạn bởi user membership active; detail/update/archive bắt buộc
   tenant path trùng active tenant context.
 - Đọc tenant yêu cầu `tenant.view`; update/archive yêu cầu `tenant.manage` và CSRF.
@@ -136,7 +160,7 @@ pnpm db:migrate
 pnpm db:version
 ```
 
-Sau khi áp dụng toàn bộ migration trong source, kết quả mong đợi là `9 false`. Chỉ ghi
+Sau khi áp dụng toàn bộ migration trong source, kết quả mong đợi là `10 false`. Chỉ ghi
 đó là kết quả môi trường khi lệnh thực tế đã chạy; bằng chứng staging gần nhất hiện vẫn
 là `5 false` ngày 2026-07-16. Rollback chỉ dùng khi đã đánh giá mất dữ liệu và có
 backup/restore plan:
@@ -159,15 +183,16 @@ Integration test bằng PostgreSQL thật:
 pnpm test:integration
 ```
 
-Với P2-04, cần kiểm tra riêng migrate 8 -> 9, rollback 9 -> 8, migrate lại 8 -> 9;
-timezone/version/archive constraints; status-filtered và all-status keyset pagination;
-concurrent update CAS; archive/restore draft hoặc active; owner/admin/teacher deny
-matrix; ownership target/recent-auth; authoritative membership reauthorization;
-cross-tenant concealment và transactional outbox.
+Với P2-05, cần kiểm tra riêng migrate 9 -> 10, rollback 10 -> 9, migrate lại 9 -> 10;
+tenant-scoped FK/unique/state constraints; direct enroll và các transition; same-user
+replay; concurrent join ở usage limit; atomic exhausted/expired state; archive guard;
+active enrollment projection cho class/media; cross-tenant concealment và
+transactional outbox. Local hiện mới compile integration-tag vì không nạp DB test env;
+không coi đó là bằng chứng runtime PostgreSQL đã chạy.
 
 CI tạo PostgreSQL 17 tạm thời, chạy migration từ database sạch rồi chạy integration
 test. Bài test Neon cục bộ dùng transaction bao ngoài và rollback nên không để lại
-user, tenant, class, invitation, membership hoặc outbox fixture.
+user, tenant, class, enrollment, invite code, invitation, membership hoặc outbox fixture.
 
 ## Quy tắc thay đổi schema
 
@@ -182,11 +207,10 @@ user, tenant, class, invitation, membership hoặc outbox fixture.
 ## Việc còn lại
 
 - P1-06 đã triển khai OIDC/BFF, session rotation, CSRF và `/api/v1/me`; cả ZITADEL local và staging đã được provision và smoke test.
-- P1-06B đã hoàn thành list/create/detail class; enrollment, invite code và roster thuộc Phase 2.
+- P1-06B đã hoàn thành list/create/detail class; các lát cắt enrollment, invite code và roster thuộc Phase 2.
 - P1-10 đã hoàn thành database/branch staging riêng, runtime role và migration role riêng.
-- P2-04 đã bổ sung class lifecycle/ownership/archive và migration `000009`; task kế
-  tiếp là P2-05 enrollment và class invite code.
-- Invite code chưa tồn tại trước P2-05; class active/archive guard đã sẵn sàng để chặn
-  join mới mà không tạo enrollment sớm.
+- P2-04 đã bổ sung class lifecycle/ownership/archive và migration `000009`.
+- P2-05 đã bổ sung enrollment, class invite code và migration `000010`; roster search,
+  phân trang và UI đổi class role đầy đủ vẫn thuộc P2-06.
 - Chưa import dữ liệu TutorHub V1; migration V1 sẽ làm theo module/cohort ở phase sau.
 - Chưa có backup/restore drill, PITR gate hoặc connection load test cho pilot.

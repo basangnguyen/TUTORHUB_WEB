@@ -41,8 +41,7 @@ export function ClassroomPreJoinPage() {
   const session = useSession();
   const activeTenant = session.currentUser?.active_tenant;
   const classroom = useClassDetail(activeTenant?.id, classId);
-  const canPublish =
-    session.currentUser?.permissions.includes("media.publish") ?? false;
+  const canPublish = classroom.data?.viewer_access.can_publish_media ?? false;
   const supported = hasMediaDeviceSupport(
     typeof navigator === "undefined" ? undefined : navigator,
   );

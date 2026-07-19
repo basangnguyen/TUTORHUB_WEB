@@ -533,6 +533,14 @@ describe("web shell", () => {
                 archived_at: null,
                 created_at: "2026-07-14T04:00:00Z",
                 updated_at: "2026-07-14T04:00:00Z",
+                viewer_access: {
+                  class_role: null,
+                  enrollment_status: null,
+                  can_manage_enrollments: true,
+                  can_join_room: false,
+                  can_publish_media: false,
+                  can_leave: false,
+                },
               },
             ],
             next_cursor: null,
@@ -569,6 +577,14 @@ describe("web shell", () => {
       archived_at: null,
       created_at: "2026-07-14T05:00:00Z",
       updated_at: "2026-07-14T05:00:00Z",
+      viewer_access: {
+        class_role: null,
+        enrollment_status: null,
+        can_manage_enrollments: true,
+        can_join_room: false,
+        can_publish_media: false,
+        can_leave: false,
+      },
     };
     let created = false;
     const fetchMock = vi.fn().mockImplementation((request: Request) => {

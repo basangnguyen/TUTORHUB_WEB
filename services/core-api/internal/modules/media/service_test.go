@@ -23,6 +23,7 @@ func TestIssueJoinCredentialUsesTenantClassAndLeastPrivilege(t *testing.T) {
 	attemptID := uuid.New()
 	classes := &fakeClassService{class: classroom.Class{
 		ID: classID, TenantID: tenantID, Status: classroom.ClassStatusActive,
+		ViewerAccess: classroom.ViewerAccess{CanPublishMedia: true},
 	}}
 	issuer := &fakeTokenIssuer{token: "signed-token"}
 	service := newTestService(t, classes, issuer, nil, nil, attemptID)
@@ -66,8 +67,8 @@ func TestIssueJoinCredentialCreatesSubscribeOnlyGrantWithoutPublishPermission(t 
 	issuer := &fakeTokenIssuer{token: "signed-token"}
 	service := newTestService(t, &fakeClassService{class: classroom.Class{
 		ID: classID, TenantID: tenantID, Status: classroom.ClassStatusActive,
+		ViewerAccess: activeStudentViewerAccess(false),
 	}}, issuer, nil, nil, uuid.New())
-	service.authorizer = denyPublishAuthorizer{Authorizer: policy.NewEngine()}
 
 	credential, err := service.IssueJoinCredential(context.Background(), AccessContext{
 		TenantID: tenantID, ActorID: uuid.New(), SessionID: uuid.New(),
@@ -89,17 +90,28 @@ func TestIssueJoinCredentialDeniesMissingPermissionAndInactiveClass(t *testing.T
 	tenantID := uuid.New()
 	classID := uuid.New()
 	classes := &fakeClassService{class: classroom.Class{
-		ID: classID, TenantID: tenantID, Status: classroom.ClassStatusArchived,
+		ID: classID, TenantID: tenantID, Status: classroom.ClassStatusActive,
 	}}
 	service := newTestService(t, classes, &fakeTokenIssuer{token: "token"}, nil, nil, uuid.New())
 
 	_, err := service.IssueJoinCredential(context.Background(), AccessContext{
 		TenantID: tenantID, ActorID: uuid.New(), SessionID: uuid.New(),
 	}, classID)
-	if !errors.Is(err, ErrAccessDenied) || classes.getCalls != 0 {
-		t.Fatalf("expected deny before class lookup, err=%v calls=%d", err, classes.getCalls)
+	if !errors.Is(err, ErrAccessDenied) || classes.getCalls != 1 {
+		t.Fatalf("expected authoritative class denial, err=%v calls=%d", err, classes.getCalls)
 	}
 
+	_, err = service.IssueJoinCredential(context.Background(), AccessContext{
+		TenantID: tenantID, ActorID: uuid.New(), SessionID: uuid.New(),
+		MembershipActive:  true,
+		OrganizationRoles: []policy.OrganizationRole{policy.OrganizationRoleStudent},
+	}, classID)
+	if !errors.Is(err, ErrAccessDenied) {
+		t.Fatalf("expected unenrolled student denial, got %v", err)
+	}
+
+	classes.class.Status = classroom.ClassStatusArchived
+	classes.class.ViewerAccess = activeStudentViewerAccess(true)
 	_, err = service.IssueJoinCredential(context.Background(), AccessContext{
 		TenantID: tenantID, ActorID: uuid.New(), SessionID: uuid.New(),
 		MembershipActive:  true,
@@ -128,6 +140,7 @@ func TestRecordClientEventValidatesBoundedTelemetry(t *testing.T) {
 	sink := &fakeEventSink{}
 	service := newTestService(t, &fakeClassService{class: classroom.Class{
 		ID: classID, TenantID: tenantID, Status: classroom.ClassStatusActive,
+		ViewerAccess: activeStudentViewerAccess(true),
 	}}, &fakeTokenIssuer{token: "token"}, sink, nil, uuid.New())
 	access := AccessContext{
 		TenantID: tenantID, ActorID: uuid.New(), SessionID: uuid.New(),
@@ -223,17 +236,6 @@ func newTestService(
 	return service
 }
 
-type denyPublishAuthorizer struct {
-	policy.Authorizer
-}
-
-func (authorizer denyPublishAuthorizer) Authorize(input policy.Input) policy.Decision {
-	if input.Action == policy.ActionMediaPublish {
-		return policy.Decision{Reason: policy.DenialPermission}
-	}
-	return authorizer.Authorizer.Authorize(input)
-}
-
 type fakeTokenIssuer struct {
 	token string
 	err   error
@@ -272,6 +274,56 @@ func (service *fakeClassService) Get(
 	return service.class, service.err
 }
 
+func (service *fakeClassService) AuthorizeClass(
+	_ context.Context,
+	access classroom.AccessContext,
+	classID uuid.UUID,
+	action policy.Action,
+) (classroom.Class, error) {
+	service.getCalls++
+	service.access = access
+	service.classID = classID
+	if service.err != nil {
+		return classroom.Class{}, service.err
+	}
+	roles := []policy.ClassRole{}
+	viewer := service.class.ViewerAccess
+	if viewer.ClassRole != nil &&
+		(*viewer.ClassRole == policy.ClassRoleOwner ||
+			(viewer.EnrollmentStatus != nil &&
+				*viewer.EnrollmentStatus == classroom.EnrollmentStatusActive)) {
+		roles = append(roles, *viewer.ClassRole)
+	}
+	decision := policy.NewEngine().Authorize(policy.Input{
+		Subject: policy.Subject{
+			ActorID: access.ActorID, ActiveTenantID: access.TenantID,
+			MembershipActive: access.MembershipActive,
+			OrganizationRoles: append(
+				[]policy.OrganizationRole(nil),
+				access.OrganizationRoles...,
+			),
+			ClassRoles: roles,
+		},
+		Action: action,
+		Resource: policy.Resource{
+			TenantID: service.class.TenantID,
+			ClassID:  service.class.ID,
+			State:    policy.ResourceState(service.class.Status),
+		},
+	})
+	if !decision.Allowed {
+		if decision.Reason == policy.DenialResourceState {
+			return classroom.Class{}, classroom.ErrInvalidClassTransition
+		}
+		return classroom.Class{}, classroom.ErrClassAccessDenied
+	}
+	authorized := service.class
+	if action == policy.ActionSessionJoin {
+		authorized.ViewerAccess.CanJoinRoom = true
+	}
+	return authorized, nil
+}
+
 func (service *fakeClassService) List(
 	context.Context,
 	classroom.AccessContext,
@@ -282,6 +334,15 @@ func (service *fakeClassService) List(
 
 type fakeEventSink struct {
 	event ClientEvent
+}
+
+func activeStudentViewerAccess(canPublish bool) classroom.ViewerAccess {
+	role := policy.ClassRoleStudent
+	status := classroom.EnrollmentStatusActive
+	return classroom.ViewerAccess{
+		ClassRole: &role, EnrollmentStatus: &status,
+		CanJoinRoom: true, CanPublishMedia: canPublish, CanLeave: true,
+	}
 }
 
 func (sink *fakeEventSink) RecordClientEvent(_ context.Context, event ClientEvent) {

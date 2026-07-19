@@ -66,6 +66,25 @@ export type UpdateClassRequest = GeneratedUpdateClassRequest &
 export type ClassVersionRequest = components["schemas"]["ClassVersionRequest"];
 export type TransferClassOwnershipRequest =
   components["schemas"]["TransferClassOwnershipRequest"];
+export type ClassEnrollmentStatus =
+  components["schemas"]["ClassEnrollmentStatus"];
+export type ClassViewerAccess = components["schemas"]["ClassViewerAccess"];
+export type ClassEnrollment = components["schemas"]["ClassEnrollment"];
+export type CreateClassEnrollmentRequest =
+  components["schemas"]["CreateClassEnrollmentRequest"];
+export type ClassInviteCodeStatus =
+  components["schemas"]["ClassInviteCodeStatus"];
+export type ClassInviteCode = components["schemas"]["ClassInviteCode"];
+export type ClassInviteCodeListResponse =
+  components["schemas"]["ClassInviteCodeListResponse"];
+export type CreateClassInviteCodeRequest =
+  components["schemas"]["CreateClassInviteCodeRequest"];
+export type CreateClassInviteCodeResponse =
+  components["schemas"]["CreateClassInviteCodeResponse"];
+export type ClassInvitationTokenRequest =
+  components["schemas"]["ClassInvitationTokenRequest"];
+export type JoinClassInvitationResponse =
+  components["schemas"]["JoinClassInvitationResponse"];
 export interface ListClassesInput {
   cursor?: string;
   limit?: number;
@@ -699,6 +718,199 @@ export async function transferClassOwnership(
 
   return requireData<ClassroomClass>(
     data as ClassroomClass | undefined,
+    error,
+    response,
+  );
+}
+
+export async function createClassEnrollment(
+  classID: string,
+  input: CreateClassEnrollmentRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<ClassEnrollment> {
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/classes/{class_id}/enrollments",
+    {
+      params: {
+        path: { class_id: classID },
+        header: { "X-CSRF-Token": csrfToken },
+      },
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<ClassEnrollment>(
+    data as ClassEnrollment | undefined,
+    error,
+    response,
+  );
+}
+
+export async function suspendClassEnrollment(
+  classID: string,
+  userID: string,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<ClassEnrollment> {
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/classes/{class_id}/enrollments/{user_id}/suspend",
+    {
+      params: {
+        path: { class_id: classID, user_id: userID },
+        header: { "X-CSRF-Token": csrfToken },
+      },
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<ClassEnrollment>(
+    data as ClassEnrollment | undefined,
+    error,
+    response,
+  );
+}
+
+export async function removeClassEnrollment(
+  classID: string,
+  userID: string,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<ClassEnrollment> {
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/classes/{class_id}/enrollments/{user_id}/remove",
+    {
+      params: {
+        path: { class_id: classID, user_id: userID },
+        header: { "X-CSRF-Token": csrfToken },
+      },
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<ClassEnrollment>(
+    data as ClassEnrollment | undefined,
+    error,
+    response,
+  );
+}
+
+export async function listClassInviteCodes(
+  classID: string,
+  options: APIRequestOptions = {},
+): Promise<ClassInviteCodeListResponse> {
+  const { data, error, response } = await createTutorHubClient(options).GET(
+    "/api/v1/classes/{class_id}/invite-codes",
+    {
+      params: { path: { class_id: classID } },
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<ClassInviteCodeListResponse>(
+    data as ClassInviteCodeListResponse | undefined,
+    error,
+    response,
+  );
+}
+
+export async function createClassInviteCode(
+  classID: string,
+  input: CreateClassInviteCodeRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<CreateClassInviteCodeResponse> {
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/classes/{class_id}/invite-codes",
+    {
+      params: {
+        path: { class_id: classID },
+        header: { "X-CSRF-Token": csrfToken },
+      },
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<CreateClassInviteCodeResponse>(
+    data as CreateClassInviteCodeResponse | undefined,
+    error,
+    response,
+  );
+}
+
+export async function revokeClassInviteCode(
+  classID: string,
+  codeID: string,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<ClassInviteCode> {
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/classes/{class_id}/invite-codes/{code_id}/revoke",
+    {
+      params: {
+        path: { class_id: classID, code_id: codeID },
+        header: { "X-CSRF-Token": csrfToken },
+      },
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<ClassInviteCode>(
+    data as ClassInviteCode | undefined,
+    error,
+    response,
+  );
+}
+
+export async function joinClassInvitation(
+  input: ClassInvitationTokenRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<JoinClassInvitationResponse> {
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/class-invitations/join",
+    {
+      params: { header: { "X-CSRF-Token": csrfToken } },
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<JoinClassInvitationResponse>(
+    data as JoinClassInvitationResponse | undefined,
+    error,
+    response,
+  );
+}
+
+export async function leaveClass(
+  classID: string,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<ClassEnrollment> {
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/classes/{class_id}/leave",
+    {
+      params: {
+        path: { class_id: classID },
+        header: { "X-CSRF-Token": csrfToken },
+      },
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<ClassEnrollment>(
+    data as ClassEnrollment | undefined,
     error,
     response,
   );

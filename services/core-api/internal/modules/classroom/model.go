@@ -8,6 +8,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/google/uuid"
+	"github.com/tutorhub-v2/core-api/internal/policy"
 )
 
 var classCodePattern = regexp.MustCompile(`^[A-Z0-9][A-Z0-9_-]{2,31}$`)
@@ -21,18 +22,31 @@ const (
 )
 
 type Class struct {
-	ID          uuid.UUID
-	TenantID    uuid.UUID
-	OwnerUserID uuid.UUID
-	Code        string
-	Title       string
-	Description string
-	Timezone    string
-	Status      ClassStatus
-	Version     int64
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
-	ArchivedAt  *time.Time
+	ID           uuid.UUID
+	TenantID     uuid.UUID
+	OwnerUserID  uuid.UUID
+	Code         string
+	Title        string
+	Description  string
+	Timezone     string
+	Status       ClassStatus
+	Version      int64
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+	ArchivedAt   *time.Time
+	ViewerAccess ViewerAccess
+}
+
+// ViewerAccess is a server-derived projection for the authenticated actor. It
+// is never accepted as mutation input and must be rebuilt from authoritative
+// membership, ownership, and enrollment state for every request.
+type ViewerAccess struct {
+	ClassRole            *policy.ClassRole
+	EnrollmentStatus     *EnrollmentStatus
+	CanManageEnrollments bool
+	CanJoinRoom          bool
+	CanPublishMedia      bool
+	CanLeave             bool
 }
 
 type CreateClassParams struct {

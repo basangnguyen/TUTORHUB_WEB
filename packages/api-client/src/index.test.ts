@@ -6,6 +6,8 @@ import {
   archiveTenant,
   beginIdentityLink,
   createClass,
+  createClassEnrollment,
+  createClassInviteCode,
   createMembershipInvitation,
   createTenant,
   getClass,
@@ -15,6 +17,9 @@ import {
   getProfile,
   getTenant,
   issueClassMediaToken,
+  joinClassInvitation,
+  leaveClass,
+  listClassInviteCodes,
   listIdentities,
   listClasses,
   listMembershipInvitations,
@@ -22,17 +27,27 @@ import {
   logout,
   recordClassMediaEvent,
   previewMembershipInvitation,
+  removeClassEnrollment,
   restoreClass,
+  revokeClassInviteCode,
   revokeMembershipInvitation,
   rotateCSRFToken,
   switchActiveTenant,
+  suspendClassEnrollment,
   transferClassOwnership,
   unlinkIdentity,
   updateClass,
   updateProfile,
   updateTenant,
 } from "./index";
-import type { UpdateClassRequest, UpdateTenantRequest } from "./index";
+import type {
+  ClassEnrollment,
+  ClassInviteCode,
+  ClassroomClass,
+  CurrentUser,
+  UpdateClassRequest,
+  UpdateTenantRequest,
+} from "./index";
 
 // @ts-expect-error expected_version alone is not a meaningful tenant mutation.
 const invalidTenantUpdate: UpdateTenantRequest = { expected_version: 1 };
@@ -41,6 +56,9 @@ void invalidTenantUpdate;
 // @ts-expect-error expected_version alone is not a meaningful class mutation.
 const invalidClassUpdate: UpdateClassRequest = { expected_version: 1 };
 void invalidClassUpdate;
+
+const enrollmentLeavePermission: CurrentUser["permissions"][number] =
+  "enrollment.leave";
 
 describe("getHealth", () => {
   afterEach(() => {
@@ -167,7 +185,7 @@ describe("getHealth", () => {
           },
           active_tenant: null,
           memberships: [],
-          permissions: [],
+          permissions: [enrollmentLeavePermission],
         }),
         { status: 200, headers: { "Content-Type": "application/json" } },
       ),
@@ -194,7 +212,10 @@ describe("getHealth", () => {
 
     await expect(
       getCurrentUser({ baseUrl: "http://localhost/api", fetch: fetchMock }),
-    ).resolves.toMatchObject({ user: { email: "student@example.com" } });
+    ).resolves.toMatchObject({
+      user: { email: "student@example.com" },
+      permissions: ["enrollment.leave"],
+    });
     await expect(
       rotateCSRFToken({ baseUrl: "http://localhost/api", fetch: fetchMock }),
     ).resolves.toEqual({ csrf_token: "csrf-token" });
@@ -478,7 +499,7 @@ describe("getHealth", () => {
   });
 
   it("gọi class lifecycle APIs theo contract tenant-scoped và versioned", async () => {
-    const classItem = {
+    const classItem: ClassroomClass = {
       id: "a912f628-f3d2-4c18-84c6-42a9e858dc8d",
       owner_user_id: "be85eb92-0f18-4163-85ba-50e4d343d632",
       code: "SEC101",
@@ -487,6 +508,14 @@ describe("getHealth", () => {
       timezone: "Asia/Ho_Chi_Minh",
       status: "draft" as const,
       version: 1,
+      viewer_access: {
+        class_role: "owner",
+        enrollment_status: null,
+        can_manage_enrollments: true,
+        can_join_room: false,
+        can_publish_media: false,
+        can_leave: false,
+      },
       created_at: "2026-07-14T04:00:00Z",
       updated_at: "2026-07-14T04:00:00Z",
       archived_at: null,
@@ -632,6 +661,226 @@ describe("getHealth", () => {
       expected_version: 4,
       new_owner_user_id: "0ca09673-415a-447c-90be-4b7639f76838",
     });
+  });
+
+  it("manages direct enrollment transitions and self-leave with CSRF", async () => {
+    const classID = "a912f628-f3d2-4c18-84c6-42a9e858dc8d";
+    const userID = "1d7d65eb-904e-4a0d-bd24-a8ec1b453d64";
+    const activeEnrollment: ClassEnrollment = {
+      id: "63af7268-58db-4d40-a96f-c4f473a92350",
+      class_id: classID,
+      user_id: userID,
+      class_role: "student",
+      status: "active",
+      enrolled_by: "be85eb92-0f18-4163-85ba-50e4d343d632",
+      joined_at: "2026-07-19T02:00:00Z",
+      suspended_at: null,
+      left_at: null,
+      removed_at: null,
+      created_at: "2026-07-19T02:00:00Z",
+      updated_at: "2026-07-19T02:00:00Z",
+    };
+    const suspendedEnrollment: ClassEnrollment = {
+      ...activeEnrollment,
+      status: "suspended",
+      suspended_at: "2026-07-19T03:00:00Z",
+      updated_at: "2026-07-19T03:00:00Z",
+    };
+    const removedEnrollment: ClassEnrollment = {
+      ...activeEnrollment,
+      status: "removed",
+      removed_at: "2026-07-19T04:00:00Z",
+      updated_at: "2026-07-19T04:00:00Z",
+    };
+    const leftEnrollment: ClassEnrollment = {
+      ...activeEnrollment,
+      status: "left",
+      left_at: "2026-07-19T05:00:00Z",
+      updated_at: "2026-07-19T05:00:00Z",
+    };
+    const responses = [
+      new Response(JSON.stringify(activeEnrollment), {
+        status: 201,
+        headers: { "Content-Type": "application/json" },
+      }),
+      new Response(JSON.stringify(suspendedEnrollment), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+      new Response(JSON.stringify(removedEnrollment), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+      new Response(JSON.stringify(leftEnrollment), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    ];
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(() => Promise.resolve(responses.shift()));
+    const options = { baseUrl: "http://localhost/api", fetch: fetchMock };
+
+    await expect(
+      createClassEnrollment(
+        classID,
+        { member_email: "student@example.com" },
+        "enroll-csrf",
+        options,
+      ),
+    ).resolves.toEqual(activeEnrollment);
+    await expect(
+      suspendClassEnrollment(classID, userID, "suspend-csrf", options),
+    ).resolves.toEqual(suspendedEnrollment);
+    await expect(
+      removeClassEnrollment(classID, userID, "remove-csrf", options),
+    ).resolves.toEqual(removedEnrollment);
+    await expect(leaveClass(classID, "leave-csrf", options)).resolves.toEqual(
+      leftEnrollment,
+    );
+
+    const requests = fetchMock.mock.calls.map((call) => call[0] as Request);
+    expect(requests.map((request) => request.url)).toEqual([
+      `http://localhost/api/v1/classes/${classID}/enrollments`,
+      `http://localhost/api/v1/classes/${classID}/enrollments/${userID}/suspend`,
+      `http://localhost/api/v1/classes/${classID}/enrollments/${userID}/remove`,
+      `http://localhost/api/v1/classes/${classID}/leave`,
+    ]);
+    expect(
+      requests.map((request) => request.headers.get("X-CSRF-Token")),
+    ).toEqual(["enroll-csrf", "suspend-csrf", "remove-csrf", "leave-csrf"]);
+    await expect(requests[0]?.clone().json()).resolves.toEqual({
+      member_email: "student@example.com",
+    });
+  });
+
+  it("keeps class invite bearer tokens in the join body and out of request URLs", async () => {
+    const classID = "a912f628-f3d2-4c18-84c6-42a9e858dc8d";
+    const codeID = "72299f70-e556-4878-b66d-c2dab2a2492f";
+    const userID = "1d7d65eb-904e-4a0d-bd24-a8ec1b453d64";
+    const token = `thciv1_${"B".repeat(43)}`;
+    const inviteCode: ClassInviteCode = {
+      id: codeID,
+      class_id: classID,
+      status: "active",
+      expires_at: "2026-07-26T02:00:00Z",
+      usage_limit: 25,
+      usage_count: 0,
+      created_by: "be85eb92-0f18-4163-85ba-50e4d343d632",
+      revoked_at: null,
+      created_at: "2026-07-19T02:00:00Z",
+      updated_at: "2026-07-19T02:00:00Z",
+    };
+    const enrollment: ClassEnrollment = {
+      id: "63af7268-58db-4d40-a96f-c4f473a92350",
+      class_id: classID,
+      user_id: userID,
+      class_role: "student",
+      status: "active",
+      enrolled_by: userID,
+      joined_at: "2026-07-19T03:00:00Z",
+      suspended_at: null,
+      left_at: null,
+      removed_at: null,
+      created_at: "2026-07-19T03:00:00Z",
+      updated_at: "2026-07-19T03:00:00Z",
+    };
+    const classroom: ClassroomClass = {
+      id: classID,
+      owner_user_id: "be85eb92-0f18-4163-85ba-50e4d343d632",
+      code: "SEC101",
+      title: "Information Security",
+      description: "Class joined with a bearer invite token.",
+      timezone: "Asia/Ho_Chi_Minh",
+      status: "active",
+      version: 2,
+      viewer_access: {
+        class_role: "student",
+        enrollment_status: "active",
+        can_manage_enrollments: false,
+        can_join_room: true,
+        can_publish_media: true,
+        can_leave: true,
+      },
+      created_at: "2026-07-18T02:00:00Z",
+      updated_at: "2026-07-19T03:00:00Z",
+      archived_at: null,
+    };
+    const responses = [
+      new Response(JSON.stringify({ items: [inviteCode] }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+      new Response(
+        JSON.stringify({
+          invite_code: inviteCode,
+          join_url: `https://web.example/class-invite#token=${token}`,
+        }),
+        {
+          status: 201,
+          headers: { "Content-Type": "application/json" },
+        },
+      ),
+      new Response(
+        JSON.stringify({
+          ...inviteCode,
+          status: "revoked",
+          revoked_at: "2026-07-19T04:00:00Z",
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        },
+      ),
+      new Response(JSON.stringify({ classroom, enrollment, joined: true }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    ];
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(() => Promise.resolve(responses.shift()));
+    const options = { baseUrl: "http://localhost/api", fetch: fetchMock };
+
+    await expect(listClassInviteCodes(classID, options)).resolves.toEqual({
+      items: [inviteCode],
+    });
+    await expect(
+      createClassInviteCode(
+        classID,
+        { expires_in_seconds: 604800, usage_limit: 25 },
+        "create-code-csrf",
+        options,
+      ),
+    ).resolves.toMatchObject({ invite_code: inviteCode });
+    await expect(
+      revokeClassInviteCode(classID, codeID, "revoke-code-csrf", options),
+    ).resolves.toMatchObject({ status: "revoked" });
+    await expect(
+      joinClassInvitation({ token }, "join-csrf", options),
+    ).resolves.toEqual({ classroom, enrollment, joined: true });
+
+    const requests = fetchMock.mock.calls.map((call) => call[0] as Request);
+    expect(requests.map((request) => request.url)).toEqual([
+      `http://localhost/api/v1/classes/${classID}/invite-codes`,
+      `http://localhost/api/v1/classes/${classID}/invite-codes`,
+      `http://localhost/api/v1/classes/${classID}/invite-codes/${codeID}/revoke`,
+      "http://localhost/api/v1/class-invitations/join",
+    ]);
+    expect(requests.every((request) => !request.url.includes(token))).toBe(
+      true,
+    );
+    expect(requests[0]?.headers.get("X-CSRF-Token")).toBeNull();
+    expect(requests[1]?.headers.get("X-CSRF-Token")).toBe("create-code-csrf");
+    expect(requests[2]?.headers.get("X-CSRF-Token")).toBe("revoke-code-csrf");
+    expect(requests[3]?.headers.get("X-CSRF-Token")).toBe("join-csrf");
+    await expect(requests[1]?.clone().json()).resolves.toEqual({
+      expires_in_seconds: 604800,
+      usage_limit: 25,
+    });
+    await expect(requests[3]?.clone().json()).resolves.toEqual({ token });
+    expect(JSON.stringify(inviteCode)).not.toContain(token);
+    expect(JSON.stringify(inviteCode)).not.toContain("hash");
   });
 
   it("issues an in-memory media token and records bounded join telemetry", async () => {

@@ -83,19 +83,28 @@ func run() int {
 	}
 
 	authorizer := policy.NewEngine()
+	var classroomRepository *classroom.PostgresRepository
+	var classroomAuthorizer *classroom.Service
 	var classroomService classroom.ServiceAPI
 	if pool != nil {
-		classroomService, err = classroom.NewService(
-			classroom.NewPostgresRepository(pool, cfg.Database.QueryTimeout, authorizer),
+		classroomRepository = classroom.NewPostgresRepository(
+			pool,
+			cfg.Database.QueryTimeout,
+			authorizer,
+		)
+		classroomAuthorizer, err = classroom.NewService(
+			classroomRepository,
 			authorizer,
 		)
 		if err != nil {
 			logger.Error("initialize classroom service", "error", err)
 			return 1
 		}
+		classroomService = classroomAuthorizer
 	}
 
 	var identityService identity.ServiceAPI
+	var enrollmentService classroom.EnrollmentServiceAPI
 	if cfg.Authentication.Enabled {
 		if pool == nil {
 			logger.Error("authentication requires a configured database")
@@ -136,6 +145,17 @@ func run() int {
 		)
 		if err != nil {
 			logger.Error("initialize identity service", "error", err)
+			return 1
+		}
+		enrollmentService, err = classroom.NewEnrollmentService(
+			classroomRepository,
+			classroomAuthorizer,
+			authorizer,
+			crypto,
+			time.Now,
+		)
+		if err != nil {
+			logger.Error("initialize class enrollment service", "error", err)
 			return 1
 		}
 		logger.Info("authentication initialized", "issuer", cfg.Authentication.IssuerURL)
@@ -194,6 +214,7 @@ func run() int {
 		Readiness:      readiness,
 		Identity:       identityService,
 		Classroom:      classroomService,
+		Enrollment:     enrollmentService,
 		Media:          mediaService,
 		LiveKitWebhook: liveKitWebhook,
 	})

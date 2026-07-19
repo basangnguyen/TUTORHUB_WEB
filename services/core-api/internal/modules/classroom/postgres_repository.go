@@ -193,6 +193,27 @@ func (repository *PostgresRepository) List(
 
 	queryContext, cancel := repository.contextWithTimeout(ctx)
 	defer cancel()
+	organizationRole, err := repository.loadActiveOrganizationRole(
+		queryContext,
+		tenantContext,
+	)
+	if err != nil {
+		return ListClassesResult{}, err
+	}
+	listAccess := AccessContext{
+		TenantID:          tenantContext.TenantID,
+		ActorID:           tenantContext.ActorID,
+		MembershipActive:  true,
+		OrganizationRoles: []policy.OrganizationRole{organizationRole},
+	}
+	includeAll := repository.authorizer != nil && repository.authorizer.Authorize(policy.Input{
+		Subject: viewerSubject(listAccess),
+		Action:  policy.ActionClassView,
+		Resource: policy.Resource{
+			TenantID: tenantContext.TenantID,
+			State:    policy.ResourceStateUnknown,
+		},
+	}).Allowed
 
 	var status any
 	if params.Status != nil {
@@ -215,12 +236,27 @@ WHERE tenant_id = $1
       $3::timestamptz IS NULL
       OR (created_at, id) < ($3::timestamptz, $4::uuid)
   )
+  AND (
+      $5::boolean
+      OR owner_user_id = $6
+      OR EXISTS (
+          SELECT 1
+          FROM tutorhub.class_enrollments AS enrollment
+          WHERE enrollment.tenant_id = tutorhub.classes.tenant_id
+            AND enrollment.class_id = tutorhub.classes.id
+            AND enrollment.user_id = $6
+            AND enrollment.status = $7
+      )
+  )
 ORDER BY created_at DESC, id DESC
-LIMIT $5`,
+LIMIT $8`,
 		tenantContext.TenantID,
 		status,
 		afterCreatedAt,
 		afterID,
+		includeAll,
+		tenantContext.ActorID,
+		EnrollmentStatusActive,
 		params.Limit+1,
 	)
 	if err != nil {
@@ -239,13 +275,68 @@ LIMIT $5`,
 	if err := rows.Err(); err != nil {
 		return ListClassesResult{}, fmt.Errorf("iterate class list: %w", err)
 	}
+	rows.Close()
 
 	result := ListClassesResult{Items: classes}
 	if len(classes) > params.Limit {
 		result.HasMore = true
 		result.Items = classes[:params.Limit]
 	}
+	classIDs := make([]uuid.UUID, 0, len(result.Items))
+	for _, class := range result.Items {
+		classIDs = append(classIDs, class.ID)
+	}
+	enrollments, err := repository.ListActorEnrollments(
+		queryContext,
+		tenantContext,
+		classIDs,
+	)
+	if err != nil {
+		return ListClassesResult{}, fmt.Errorf("list actor class enrollments: %w", err)
+	}
+	enrollmentByClassID := make(map[uuid.UUID]*Enrollment, len(enrollments))
+	for index := range enrollments {
+		enrollment := &enrollments[index]
+		enrollmentByClassID[enrollment.ClassID] = enrollment
+	}
+	for index := range result.Items {
+		result.Items[index], _ = projectClassViewerAccess(
+			repository.authorizer,
+			listAccess,
+			result.Items[index],
+			enrollmentByClassID[result.Items[index].ID],
+		)
+	}
 	return result, nil
+}
+
+func (repository *PostgresRepository) loadActiveOrganizationRole(
+	ctx context.Context,
+	tenantContext tenancy.Context,
+) (policy.OrganizationRole, error) {
+	if repository.authorizer == nil {
+		return "", ErrClassAccessDenied
+	}
+	var role policy.OrganizationRole
+	err := repository.database.QueryRow(
+		ctx,
+		`SELECT membership.role
+FROM tutorhub.memberships AS membership
+JOIN tutorhub.tenants AS tenant ON tenant.id = membership.tenant_id
+WHERE membership.tenant_id = $1
+  AND membership.user_id = $2
+  AND membership.status = 'active'
+  AND tenant.status = 'active'`,
+		tenantContext.TenantID,
+		tenantContext.ActorID,
+	).Scan(&role)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", ErrClassAccessDenied
+	}
+	if err != nil {
+		return "", fmt.Errorf("load active class-list membership: %w", err)
+	}
+	return role, nil
 }
 
 func (repository *PostgresRepository) Update(
@@ -282,7 +373,7 @@ func (repository *PostgresRepository) Update(
 	}
 	if err := repository.authorizeLockedClass(
 		tenantContext,
-		membership.Role,
+		membership,
 		locked.Class,
 		policy.ActionClassUpdate,
 	); err != nil {
@@ -411,7 +502,7 @@ func (repository *PostgresRepository) changeArchiveState(
 	}
 	if err := repository.authorizeLockedClass(
 		tenantContext,
-		membership.Role,
+		membership,
 		locked.Class,
 		policy.ActionClassArchive,
 	); err != nil {
@@ -551,9 +642,19 @@ func (repository *PostgresRepository) TransferOwnership(
 	if !actorFound || !actorMembership.Active {
 		return Class{}, ErrClassAccessDenied
 	}
+	actorMembership.ClassRole, err = lockActiveClassEnrollmentRole(
+		queryContext,
+		transaction,
+		tenantContext.TenantID,
+		classID,
+		tenantContext.ActorID,
+	)
+	if err != nil {
+		return Class{}, err
+	}
 	if err := repository.authorizeLockedClass(
 		tenantContext,
-		actorMembership.Role,
+		actorMembership,
 		locked.Class,
 		policy.ActionClassTransferOwnership,
 	); err != nil {
@@ -626,8 +727,9 @@ type lockedClass struct {
 }
 
 type lockedClassMembership struct {
-	Role   string
-	Active bool
+	Role      string
+	Active    bool
+	ClassRole *policy.ClassRole
 }
 
 func (repository *PostgresRepository) lockClassMutation(
@@ -659,7 +761,48 @@ func (repository *PostgresRepository) lockClassMutation(
 	if !found || !membership.Active {
 		return lockedClass{}, lockedClassMembership{}, ErrClassAccessDenied
 	}
+	membership.ClassRole, err = lockActiveClassEnrollmentRole(
+		ctx,
+		transaction,
+		tenantContext.TenantID,
+		classID,
+		tenantContext.ActorID,
+	)
+	if err != nil {
+		return lockedClass{}, lockedClassMembership{}, err
+	}
 	return class, membership, nil
+}
+
+func lockActiveClassEnrollmentRole(
+	ctx context.Context,
+	transaction pgx.Tx,
+	tenantID uuid.UUID,
+	classID uuid.UUID,
+	userID uuid.UUID,
+) (*policy.ClassRole, error) {
+	var role policy.ClassRole
+	var status EnrollmentStatus
+	err := transaction.QueryRow(
+		ctx,
+		`SELECT class_role, status
+FROM tutorhub.class_enrollments
+WHERE tenant_id = $1 AND class_id = $2 AND user_id = $3
+FOR SHARE`,
+		tenantID,
+		classID,
+		userID,
+	).Scan(&role, &status)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("lock class enrollment role: %w", err)
+	}
+	if status != EnrollmentStatusActive {
+		return nil, nil
+	}
+	return &role, nil
 }
 
 func lockActiveClassTenant(
@@ -815,7 +958,7 @@ func (repository *PostgresRepository) authorizeLockedClassCreation(
 
 func (repository *PostgresRepository) authorizeLockedClass(
 	tenantContext tenancy.Context,
-	role string,
+	membership lockedClassMembership,
 	class Class,
 	action policy.Action,
 ) error {
@@ -826,13 +969,16 @@ func (repository *PostgresRepository) authorizeLockedClass(
 	if class.OwnerUserID == tenantContext.ActorID {
 		classRoles = append(classRoles, policy.ClassRoleOwner)
 	}
+	if membership.ClassRole != nil {
+		classRoles = append(classRoles, *membership.ClassRole)
+	}
 	decision := repository.authorizer.Authorize(policy.Input{
 		Subject: policy.Subject{
 			ActorID:          tenantContext.ActorID,
 			ActiveTenantID:   tenantContext.TenantID,
 			MembershipActive: true,
 			OrganizationRoles: []policy.OrganizationRole{
-				policy.OrganizationRole(role),
+				policy.OrganizationRole(membership.Role),
 			},
 			ClassRoles: classRoles,
 		},

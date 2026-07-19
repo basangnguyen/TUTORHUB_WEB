@@ -22,12 +22,27 @@ import {
   useCreateClass,
   type ClassStatusFilter,
 } from "../app/classes";
+import { useLeaveClass } from "../app/classEnrollments";
 import { useI18n, type TranslationKey } from "../app/i18n";
 import { useSession } from "../app/session";
 import { useTenantDetail } from "../app/workspaces";
+import { ClassEnrollmentPanel } from "../components/ClassEnrollmentPanel";
 import { ClassManagementPanel } from "../components/ClassManagementPanel";
 
 const classCodePattern = /^[A-Z0-9][A-Z0-9_-]{2,31}$/;
+
+function leaveClassErrorKey(error: Error | null): TranslationKey {
+  if (error instanceof APIRequestError && error.status === 403) {
+    return "classEnrollment.leaveForbidden";
+  }
+  if (error instanceof APIRequestError && error.status === 404) {
+    return "classEnrollment.leaveNotFound";
+  }
+  if (error instanceof APIRequestError && error.status === 409) {
+    return "classEnrollment.leaveConflict";
+  }
+  return "classEnrollment.leaveError";
+}
 
 export function ClassroomListPage() {
   const { t } = useI18n();
@@ -186,8 +201,7 @@ export function ClassroomDetailPage() {
 
   const classroom = classQuery.data;
   const canJoin =
-    classroom.status === "active" &&
-    (session.currentUser?.permissions.includes("session.join") ?? false);
+    classroom.status === "active" && classroom.viewer_access.can_join_room;
   const dateFormatter = new Intl.DateTimeFormat(
     language === "vi" ? "vi-VN" : "en-US",
     { dateStyle: "medium", timeStyle: "short" },
@@ -263,7 +277,89 @@ export function ClassroomDetailPage() {
         classroom={classroom}
         onReload={async () => (await classQuery.refetch()).data}
       />
+      <ClassEnrollmentPanel classroom={classroom} />
+      {classroom.viewer_access.can_leave && (
+        <LeaveClassAction classroom={classroom} />
+      )}
     </article>
+  );
+}
+
+function LeaveClassAction({ classroom }: { classroom: ClassroomClass }) {
+  const { t } = useI18n();
+  const navigate = useNavigate();
+  const session = useSession();
+  const leaveClass = useLeaveClass();
+  const [open, setOpen] = useState(false);
+  const tenantID = session.currentUser?.active_tenant?.id;
+
+  const leave = () => {
+    if (!tenantID) {
+      return;
+    }
+    leaveClass.mutate(
+      { classID: classroom.id, tenantID },
+      {
+        onSuccess: () => {
+          setOpen(false);
+          navigate("/app/classrooms", { replace: true });
+        },
+      },
+    );
+  };
+
+  return (
+    <section
+      aria-labelledby="classroom-leave-title"
+      className="classroom-detail__section classroom-leave"
+    >
+      <div>
+        <h2 id="classroom-leave-title">{t("classEnrollment.leaveAction")}</h2>
+        <p>{t("classEnrollment.leaveDescription")}</p>
+      </div>
+      <Button onClick={() => setOpen(true)} variant="danger">
+        {t("classEnrollment.leaveAction")}
+      </Button>
+
+      <Dialog
+        onOpenChange={(nextOpen) => {
+          if (!leaveClass.isPending) {
+            setOpen(nextOpen);
+            if (!nextOpen) {
+              leaveClass.reset();
+            }
+          }
+        }}
+        open={open}
+      >
+        <DialogContent closeLabel={t("classEnrollment.closeDialog")}>
+          <DialogTitle>{t("classEnrollment.leaveTitle")}</DialogTitle>
+          <DialogDescription>
+            {t("classEnrollment.leaveDescription")}
+          </DialogDescription>
+          {leaveClass.isError && (
+            <p className="class-enrollments__error" role="alert">
+              {t(leaveClassErrorKey(leaveClass.error))}
+            </p>
+          )}
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button disabled={leaveClass.isPending} variant="secondary">
+                {t("classEnrollment.cancelAction")}
+              </Button>
+            </DialogClose>
+            <Button
+              loading={leaveClass.isPending}
+              loadingLabel={t("classEnrollment.leaving")}
+              onClick={leave}
+              variant="danger"
+            >
+              {t("classEnrollment.leaveConfirm")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </section>
   );
 }
 

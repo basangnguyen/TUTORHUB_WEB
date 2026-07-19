@@ -67,8 +67,7 @@ type ServiceConfig struct {
 }
 
 type Service struct {
-	classes           ClassReader
-	authorizer        policy.Authorizer
+	classes           classroom.ClassActionAuthorizer
 	issuer            TokenIssuer
 	events            EventSink
 	webhookRepository WebhookReceiptRepository
@@ -89,6 +88,10 @@ func NewService(
 	if classes == nil || authorizer == nil {
 		return nil, fmt.Errorf("classroom service and policy authorizer are required")
 	}
+	classAuthorizer, ok := classes.(classroom.ClassActionAuthorizer)
+	if !ok {
+		return nil, fmt.Errorf("classroom service must authorize class-scoped actions")
+	}
 	if issuer == nil {
 		return nil, fmt.Errorf("LiveKit token issuer is required")
 	}
@@ -106,8 +109,7 @@ func NewService(
 	}
 
 	return &Service{
-		classes:           classes,
-		authorizer:        authorizer,
+		classes:           classAuthorizer,
 		issuer:            issuer,
 		events:            events,
 		webhookRepository: webhookRepository,
@@ -133,12 +135,7 @@ func (service *Service) IssueJoinCredential(
 
 	roomName := RoomName(access.TenantID, classID)
 	participantIdentity := ParticipantIdentity(access.ActorID, access.SessionID)
-	canPublish := service.authorize(
-		access,
-		policy.ActionMediaPublish,
-		classID,
-		policy.ResourceState(class.Status),
-	).Allowed
+	canPublish := class.ViewerAccess.CanPublishMedia
 	grant := TokenGrant{
 		RoomName:            roomName,
 		ParticipantIdentity: participantIdentity,
@@ -237,63 +234,28 @@ func (service *Service) authorizedClass(
 	if access.SessionID == uuid.Nil || classID == uuid.Nil {
 		return classroom.Class{}, ErrAccessDenied
 	}
-	preflight := service.authorize(
-		access, policy.ActionSessionJoin, classID, policy.ResourceStateUnknown,
-	)
-	if !preflight.Allowed {
-		if preflight.ConcealResource {
-			return classroom.Class{}, classroom.ErrClassNotFound
-		}
-		return classroom.Class{}, ErrAccessDenied
-	}
-	class, err := service.classes.Get(ctx, classroom.AccessContext{
+	class, err := service.classes.AuthorizeClass(ctx, classroom.AccessContext{
 		TenantID: access.TenantID, ActorID: access.ActorID,
 		MembershipActive:  access.MembershipActive,
 		OrganizationRoles: append([]policy.OrganizationRole(nil), access.OrganizationRoles...),
-		ClassRoles:        append([]policy.ClassRole(nil), access.ClassRoles...),
-	}, classID)
+	}, classID, policy.ActionSessionJoin)
 	if err != nil {
 		switch {
 		case errors.Is(err, classroom.ErrClassNotFound):
 			return classroom.Class{}, classroom.ErrClassNotFound
 		case errors.Is(err, classroom.ErrClassAccessDenied):
 			return classroom.Class{}, ErrAccessDenied
+		case errors.Is(err, classroom.ErrInvalidClassTransition):
+			return classroom.Class{}, ErrClassUnavailable
 		default:
 			return classroom.Class{}, fmt.Errorf("authorize media class: %w", err)
 		}
 	}
-	decision := service.authorize(
-		access, policy.ActionSessionJoin, classID, policy.ResourceState(class.Status),
-	)
-	if !decision.Allowed {
-		if decision.Reason == policy.DenialResourceState {
-			return classroom.Class{}, ErrClassUnavailable
-		}
-		if decision.ConcealResource {
-			return classroom.Class{}, classroom.ErrClassNotFound
-		}
+	if !class.ViewerAccess.CanJoinRoom {
 		return classroom.Class{}, ErrAccessDenied
 	}
 
 	return class, nil
-}
-
-func (service *Service) authorize(
-	access AccessContext,
-	action policy.Action,
-	classID uuid.UUID,
-	state policy.ResourceState,
-) policy.Decision {
-	return service.authorizer.Authorize(policy.Input{
-		Subject: policy.Subject{
-			ActorID: access.ActorID, ActiveTenantID: access.TenantID,
-			MembershipActive:  access.MembershipActive,
-			OrganizationRoles: append([]policy.OrganizationRole(nil), access.OrganizationRoles...),
-			ClassRoles:        append([]policy.ClassRole(nil), access.ClassRoles...),
-		},
-		Action:   action,
-		Resource: policy.Resource{TenantID: access.TenantID, ClassID: classID, State: state},
-	})
 }
 
 func validateClientEvent(input ClientEventInput) error {

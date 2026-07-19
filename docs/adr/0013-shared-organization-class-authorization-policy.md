@@ -2,6 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-07-16
+- P2-05 amendment: 2026-07-19
 
 ## Context
 
@@ -29,20 +30,37 @@ classroom and media.
   server-side principal; modules ask the shared policy and repositories retain
   tenant-scoped queries.
 
-The organization matrix initially preserves Phase 1 behavior. P2-05 and P2-06 will
-load persisted class enrollment roles into the same policy input without changing
-the module interface.
+Starting in P2-05, organization `student` and `guest` grant only tenant-scoped
+access. They do not grant `class.view`, `session.join`, `media.publish`, or
+`chat.send` across every class in the tenant. Those permissions come from an
+active persisted enrollment for the target class. Organization `org_admin` and
+`teacher` remain global class managers, while `classes.owner_user_id` remains the
+implicit owner role. Classroom reads resolve this state authoritatively for each
+request and expose a server-derived viewer projection; session-supplied class
+roles are never trusted.
+
+`enrollment.leave` remains in the complete `org_admin` permission union and is
+also granted through every class role. The domain capability and repository still
+require a persisted active enrollment for the actor, so an organization admin or
+implicit owner without that enrollment cannot self-leave. The action remains
+state-eligible for an archived class so an enrolled member can leave without
+restoring the class. `enrollment.manage` also remains state-eligible on archived
+classes so managers can inspect and revoke invitation artifacts; domain transition
+guards still reject new enrollment, invite creation, suspend, or remove operations
+unless the class is active.
 
 ## Consequences
 
 - Permission constants and role mappings have one source of truth and table-driven
   tests.
-- Identity can still return the existing `permissions` list while using the same
-  engine as classroom and LiveKit media authorization.
+- Identity can still return organization-scoped `permissions`; class-scoped
+  permissions are resolved only with the target class and current enrollment.
 - Adding a role or action requires a policy change, matrix documentation, OpenAPI
   update, and tests; unknown values have no permissions.
 - Class-scoped enforcement becomes stricter once enrollment persistence is wired,
-  but no Phase 1 endpoint behavior changes in P2-00.
+  so an unenrolled student cannot enumerate class detail or obtain a media token.
+- Class list filtering and class detail/media authorization share the same
+  owner/enrollment projection, reducing permission drift between modules.
 - A static test rejects reintroduction of local permission helpers in domain modules.
 
 ## Alternatives rejected

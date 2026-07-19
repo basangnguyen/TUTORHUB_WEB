@@ -78,16 +78,24 @@ type ServiceAPI interface {
 	) (Class, error)
 }
 
+// ClassActionAuthorizer is the narrow cross-module boundary used by media and
+// other class-scoped capabilities. Implementations must resolve persisted
+// enrollment state instead of trusting class roles supplied by an HTTP session.
+type ClassActionAuthorizer interface {
+	AuthorizeClass(context.Context, AccessContext, uuid.UUID, policy.Action) (Class, error)
+}
+
 type ServiceConfig struct {
 	RecentAuthTTL time.Duration
 	Clock         func() time.Time
 }
 
 type Service struct {
-	repository    Repository
-	authorizer    policy.Authorizer
-	recentAuthTTL time.Duration
-	clock         func() time.Time
+	repository       Repository
+	enrollmentLookup EnrollmentLookup
+	authorizer       policy.Authorizer
+	recentAuthTTL    time.Duration
+	clock            func() time.Time
 }
 
 func NewService(
@@ -97,6 +105,10 @@ func NewService(
 ) (*Service, error) {
 	if repository == nil || authorizer == nil {
 		return nil, fmt.Errorf("classroom repository and policy authorizer are required")
+	}
+	enrollmentLookup, ok := repository.(EnrollmentLookup)
+	if !ok {
+		return nil, fmt.Errorf("classroom repository must resolve class enrollments")
 	}
 	if len(configurations) > 1 {
 		return nil, fmt.Errorf("only one classroom service configuration is supported")
@@ -113,10 +125,11 @@ func NewService(
 	}
 
 	return &Service{
-		repository:    repository,
-		authorizer:    authorizer,
-		recentAuthTTL: config.RecentAuthTTL,
-		clock:         config.Clock,
+		repository:       repository,
+		enrollmentLookup: enrollmentLookup,
+		authorizer:       authorizer,
+		recentAuthTTL:    config.RecentAuthTTL,
+		clock:            config.Clock,
 	}, nil
 }
 
@@ -135,13 +148,18 @@ func (service *Service) Create(
 		return Class{}, err
 	}
 
-	return service.repository.Create(ctx, tenantContext, CreateClassParams{
+	created, err := service.repository.Create(ctx, tenantContext, CreateClassParams{
 		OwnerUserID: access.ActorID,
 		Code:        input.Code,
 		Title:       input.Title,
 		Description: input.Description,
 		Timezone:    input.Timezone,
 	})
+	if err != nil {
+		return Class{}, err
+	}
+	created, _ = projectClassViewerAccess(service.authorizer, access, created, nil)
+	return created, nil
 }
 
 func (service *Service) Get(
@@ -149,20 +167,55 @@ func (service *Service) Get(
 	access AccessContext,
 	classID uuid.UUID,
 ) (Class, error) {
+	return service.AuthorizeClass(ctx, access, classID, policy.ActionClassView)
+}
+
+func (service *Service) AuthorizeClass(
+	ctx context.Context,
+	access AccessContext,
+	classID uuid.UUID,
+	action policy.Action,
+) (Class, error) {
 	if classID == uuid.Nil {
 		return Class{}, ErrClassNotFound
 	}
 	tenantContext, err := service.authorize(
 		access,
-		policy.ActionClassView,
-		classID,
+		policy.ActionTenantView,
+		uuid.Nil,
 		policy.ResourceStateUnknown,
 	)
 	if err != nil {
 		return Class{}, err
 	}
+	class, err := service.repository.Get(ctx, tenantContext, classID)
+	if err != nil {
+		return Class{}, err
+	}
+	enrollment, err := service.enrollmentLookup.FindActorEnrollment(
+		ctx,
+		tenantContext,
+		classID,
+	)
+	if err != nil {
+		return Class{}, fmt.Errorf("resolve class enrollment: %w", err)
+	}
 
-	return service.repository.Get(ctx, tenantContext, classID)
+	class, resolvedAccess := projectClassViewerAccess(
+		service.authorizer,
+		access,
+		class,
+		enrollment,
+	)
+	if _, err := service.authorize(
+		resolvedAccess,
+		action,
+		classID,
+		policy.ResourceState(class.Status),
+	); err != nil {
+		return Class{}, err
+	}
+	return class, nil
 }
 
 func (service *Service) List(
@@ -172,7 +225,7 @@ func (service *Service) List(
 ) (ClassPage, error) {
 	tenantContext, err := service.authorize(
 		access,
-		policy.ActionClassView,
+		policy.ActionTenantView,
 		uuid.Nil,
 		policy.ResourceStateUnknown,
 	)
@@ -228,13 +281,17 @@ func (service *Service) Update(
 	if err != nil {
 		return Class{}, err
 	}
-	return service.repository.Update(
+	updated, err := service.repository.Update(
 		ctx,
 		tenantContext,
 		classID,
 		params,
 		service.clock().UTC(),
 	)
+	if err != nil {
+		return Class{}, err
+	}
+	return service.projectActorClass(ctx, access, tenantContext, updated)
 }
 
 func (service *Service) Archive(
@@ -255,13 +312,17 @@ func (service *Service) Archive(
 	if expectedVersion < 1 {
 		return Class{}, fmt.Errorf("%w: expected version is required", ErrInvalidClassInput)
 	}
-	return service.repository.Archive(
+	archived, err := service.repository.Archive(
 		ctx,
 		tenantContext,
 		classID,
 		expectedVersion,
 		service.clock().UTC(),
 	)
+	if err != nil {
+		return Class{}, err
+	}
+	return service.projectActorClass(ctx, access, tenantContext, archived)
 }
 
 func (service *Service) Restore(
@@ -282,13 +343,17 @@ func (service *Service) Restore(
 	if expectedVersion < 1 {
 		return Class{}, fmt.Errorf("%w: expected version is required", ErrInvalidClassInput)
 	}
-	return service.repository.Restore(
+	restored, err := service.repository.Restore(
 		ctx,
 		tenantContext,
 		classID,
 		expectedVersion,
 		service.clock().UTC(),
 	)
+	if err != nil {
+		return Class{}, err
+	}
+	return service.projectActorClass(ctx, access, tenantContext, restored)
 }
 
 func (service *Service) TransferOwnership(
@@ -316,13 +381,40 @@ func (service *Service) TransferOwnership(
 	if err != nil {
 		return Class{}, err
 	}
-	return service.repository.TransferOwnership(
+	transferred, err := service.repository.TransferOwnership(
 		ctx,
 		tenantContext,
 		classID,
 		params,
 		service.clock().UTC(),
 	)
+	if err != nil {
+		return Class{}, err
+	}
+	return service.projectActorClass(ctx, access, tenantContext, transferred)
+}
+
+func (service *Service) projectActorClass(
+	ctx context.Context,
+	access AccessContext,
+	tenantContext tenancy.Context,
+	class Class,
+) (Class, error) {
+	enrollment, err := service.enrollmentLookup.FindActorEnrollment(
+		ctx,
+		tenantContext,
+		class.ID,
+	)
+	if err != nil {
+		return Class{}, fmt.Errorf("resolve class enrollment projection: %w", err)
+	}
+	class, _ = projectClassViewerAccess(
+		service.authorizer,
+		access,
+		class,
+		enrollment,
+	)
+	return class, nil
 }
 
 func (service *Service) authorizeClassMutation(
@@ -334,46 +426,77 @@ func (service *Service) authorizeClassMutation(
 	if classID == uuid.Nil {
 		return tenancy.Context{}, ErrClassNotFound
 	}
-	tenantContext, err := service.authorize(
-		access,
-		policy.ActionTenantView,
-		uuid.Nil,
-		policy.ResourceStateUnknown,
-	)
-	if err != nil {
+	if _, err := service.AuthorizeClass(ctx, access, classID, action); err != nil {
 		return tenancy.Context{}, err
 	}
-	class, err := service.repository.Get(ctx, tenantContext, classID)
+	tenantContext, err := tenancy.New(access.TenantID, access.ActorID)
 	if err != nil {
-		return tenancy.Context{}, err
+		return tenancy.Context{}, ErrClassAccessDenied
 	}
+	return tenantContext, nil
+}
 
-	authorizedAccess := access
-	authorizedAccess.ClassRoles = make(
-		[]policy.ClassRole,
-		0,
-		len(access.ClassRoles)+1,
-	)
-	for _, role := range access.ClassRoles {
-		if role != policy.ClassRoleOwner {
-			authorizedAccess.ClassRoles = append(authorizedAccess.ClassRoles, role)
+func projectClassViewerAccess(
+	authorizer policy.Authorizer,
+	access AccessContext,
+	class Class,
+	enrollment *Enrollment,
+) (Class, AccessContext) {
+	resolved := access
+	resolved.ClassRoles = nil
+	class.ViewerAccess = ViewerAccess{}
+
+	if enrollment != nil {
+		status := enrollment.Status
+		role := enrollment.ClassRole
+		class.ViewerAccess.EnrollmentStatus = &status
+		class.ViewerAccess.ClassRole = &role
+		if status == EnrollmentStatusActive {
+			resolved.ClassRoles = append(resolved.ClassRoles, role)
 		}
 	}
 	if class.OwnerUserID == access.ActorID {
-		authorizedAccess.ClassRoles = append(
-			authorizedAccess.ClassRoles,
-			policy.ClassRoleOwner,
-		)
+		role := policy.ClassRoleOwner
+		class.ViewerAccess.ClassRole = &role
+		resolved.ClassRoles = append(resolved.ClassRoles, role)
 	}
-	if _, err := service.authorize(
-		authorizedAccess,
-		action,
-		classID,
-		policy.ResourceState(class.Status),
-	); err != nil {
-		return tenancy.Context{}, err
+
+	resource := policy.Resource{
+		TenantID: class.TenantID,
+		ClassID:  class.ID,
+		State:    policy.ResourceState(class.Status),
 	}
-	return tenantContext, nil
+	class.ViewerAccess.CanManageEnrollments = authorizer.Authorize(policy.Input{
+		Subject: viewerSubject(resolved), Action: policy.ActionEnrollmentManage,
+		Resource: resource,
+	}).Allowed
+	class.ViewerAccess.CanJoinRoom = authorizer.Authorize(policy.Input{
+		Subject: viewerSubject(resolved), Action: policy.ActionSessionJoin,
+		Resource: resource,
+	}).Allowed
+	class.ViewerAccess.CanPublishMedia = authorizer.Authorize(policy.Input{
+		Subject: viewerSubject(resolved), Action: policy.ActionMediaPublish,
+		Resource: resource,
+	}).Allowed
+	class.ViewerAccess.CanLeave = class.OwnerUserID != access.ActorID &&
+		enrollment != nil &&
+		enrollment.Status == EnrollmentStatusActive &&
+		authorizer.Authorize(policy.Input{
+			Subject: viewerSubject(resolved), Action: policy.ActionEnrollmentLeave,
+			Resource: resource,
+		}).Allowed
+
+	return class, resolved
+}
+
+func viewerSubject(access AccessContext) policy.Subject {
+	return policy.Subject{
+		ActorID:           access.ActorID,
+		ActiveTenantID:    access.TenantID,
+		MembershipActive:  access.MembershipActive,
+		OrganizationRoles: append([]policy.OrganizationRole(nil), access.OrganizationRoles...),
+		ClassRoles:        append([]policy.ClassRole(nil), access.ClassRoles...),
+	}
 }
 
 func (service *Service) authorize(

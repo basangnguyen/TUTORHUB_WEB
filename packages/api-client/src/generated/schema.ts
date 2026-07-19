@@ -72,6 +72,23 @@ export type paths = {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/api/v1/class-invitations/join": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Join a class with an opaque invite token supplied only in the request body */
+    readonly post: operations["joinClassInvitation"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/api/v1/classes": {
     readonly parameters: {
       readonly query?: never;
@@ -119,6 +136,109 @@ export type paths = {
     readonly put?: never;
     /** Archive a class without deleting its history */
     readonly post: operations["archiveClass"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/classes/{class_id}/enrollments": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Directly enroll an active workspace member as a class student */
+    readonly post: operations["createClassEnrollment"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/classes/{class_id}/enrollments/{user_id}/remove": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Remove a class enrollment */
+    readonly post: operations["removeClassEnrollment"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/classes/{class_id}/enrollments/{user_id}/suspend": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Suspend a class enrollment */
+    readonly post: operations["suspendClassEnrollment"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/classes/{class_id}/invite-codes": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /** List class invite-code metadata without bearer tokens */
+    readonly get: operations["listClassInviteCodes"];
+    readonly put?: never;
+    /** Create a bounded class invite code and return its share URL once */
+    readonly post: operations["createClassInviteCode"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/classes/{class_id}/invite-codes/{code_id}/revoke": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Revoke a class invite code */
+    readonly post: operations["revokeClassInviteCode"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/classes/{class_id}/leave": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Leave a class enrollment as the authenticated actor */
+    readonly post: operations["leaveClass"];
     readonly delete?: never;
     readonly options?: never;
     readonly head?: never;
@@ -537,7 +657,58 @@ export type components = {
       readonly updated_at: string;
       /** Format: int64 */
       readonly version: number;
+      readonly viewer_access: components["schemas"]["ClassViewerAccess"];
     };
+    readonly ClassEnrollment: {
+      /** Format: uuid */
+      readonly class_id: string;
+      readonly class_role: components["schemas"]["ClassRole"];
+      /** Format: date-time */
+      readonly created_at: string;
+      /** Format: uuid */
+      readonly enrolled_by: string;
+      /** Format: uuid */
+      readonly id: string;
+      readonly joined_at: string | null;
+      readonly left_at: string | null;
+      readonly removed_at: string | null;
+      readonly status: components["schemas"]["ClassEnrollmentStatus"];
+      readonly suspended_at: string | null;
+      /** Format: date-time */
+      readonly updated_at: string;
+      /** Format: uuid */
+      readonly user_id: string;
+    };
+    /** @enum {string} */
+    readonly ClassEnrollmentStatus:
+      "invited" | "active" | "suspended" | "left" | "removed";
+    readonly ClassInvitationTokenRequest: {
+      readonly token: string;
+    };
+    readonly ClassInviteCode: {
+      /** Format: uuid */
+      readonly class_id: string;
+      /** Format: date-time */
+      readonly created_at: string;
+      /** Format: uuid */
+      readonly created_by: string;
+      /** Format: date-time */
+      readonly expires_at: string;
+      /** Format: uuid */
+      readonly id: string;
+      readonly revoked_at: string | null;
+      readonly status: components["schemas"]["ClassInviteCodeStatus"];
+      /** Format: date-time */
+      readonly updated_at: string;
+      readonly usage_count: number;
+      readonly usage_limit: number;
+    };
+    readonly ClassInviteCodeListResponse: {
+      readonly items: readonly components["schemas"]["ClassInviteCode"][];
+    };
+    /** @enum {string} */
+    readonly ClassInviteCodeStatus:
+      "active" | "exhausted" | "expired" | "revoked";
     readonly ClassListResponse: {
       readonly items: readonly components["schemas"]["Class"][];
       readonly next_cursor: string | null;
@@ -550,6 +721,31 @@ export type components = {
     readonly ClassVersionRequest: {
       /** Format: int64 */
       readonly expected_version: number;
+    };
+    readonly ClassViewerAccess: {
+      readonly can_join_room: boolean;
+      readonly can_leave: boolean;
+      readonly can_manage_enrollments: boolean;
+      readonly can_publish_media: boolean;
+      readonly class_role: components["schemas"]["ClassRole"] | null;
+      readonly enrollment_status:
+        components["schemas"]["ClassEnrollmentStatus"] | null;
+    };
+    readonly CreateClassEnrollmentRequest: {
+      /** Format: email */
+      readonly member_email: string;
+    };
+    readonly CreateClassInviteCodeRequest: {
+      readonly expires_in_seconds: number;
+      readonly usage_limit: number;
+    };
+    readonly CreateClassInviteCodeResponse: {
+      readonly invite_code: components["schemas"]["ClassInviteCode"];
+      /**
+       * Format: uri
+       * @description Copy-once share URL containing the bearer token in its fragment; it is displayed only in this create response.
+       */
+      readonly join_url: string;
     };
     readonly CreateClassRequest: {
       readonly code: string;
@@ -609,6 +805,11 @@ export type components = {
      * @enum {string}
      */
     readonly InvitableOrganizationRole: "teacher" | "student" | "guest";
+    readonly JoinClassInvitationResponse: {
+      readonly classroom: components["schemas"]["Class"];
+      readonly enrollment: components["schemas"]["ClassEnrollment"] | null;
+      readonly joined: boolean;
+    };
     readonly LivenessResponse: {
       /** @constant */
       readonly status: "live";
@@ -716,6 +917,7 @@ export type components = {
       | "class.transfer_ownership"
       | "class.view"
       | "enrollment.manage"
+      | "enrollment.leave"
       | "session.start"
       | "session.end"
       | "session.join"
@@ -976,6 +1178,37 @@ export interface operations {
       readonly default: components["responses"]["ProblemResponse"];
     };
   };
+  readonly joinClassInvitation: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly "X-CSRF-Token": string;
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["ClassInvitationTokenRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Class joined or an existing active enrollment returned idempotently */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["JoinClassInvitationResponse"];
+        };
+      };
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 429: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
   readonly listClasses: {
     readonly parameters: {
       readonly query?: {
@@ -1124,6 +1357,219 @@ export interface operations {
         };
       };
       readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly createClassEnrollment: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly "X-CSRF-Token": string;
+      };
+      readonly path: {
+        readonly class_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["CreateClassEnrollmentRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Enrollment created, reactivated, or returned idempotently */
+      readonly 201: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ClassEnrollment"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly removeClassEnrollment: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly "X-CSRF-Token": string;
+      };
+      readonly path: {
+        readonly class_id: string;
+        readonly user_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Enrollment removed, including an idempotent repeated removal */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ClassEnrollment"];
+        };
+      };
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly suspendClassEnrollment: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly "X-CSRF-Token": string;
+      };
+      readonly path: {
+        readonly class_id: string;
+        readonly user_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Enrollment suspended, including an idempotent repeated suspension */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ClassEnrollment"];
+        };
+      };
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly listClassInviteCodes: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path: {
+        readonly class_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Class-scoped invite-code metadata */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ClassInviteCodeListResponse"];
+        };
+      };
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly createClassInviteCode: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly "X-CSRF-Token": string;
+      };
+      readonly path: {
+        readonly class_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["CreateClassInviteCodeRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Invite code created; the share URL is returned only in this response */
+      readonly 201: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["CreateClassInviteCodeResponse"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly revokeClassInviteCode: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly "X-CSRF-Token": string;
+      };
+      readonly path: {
+        readonly class_id: string;
+        readonly code_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Invite code revoked, including an idempotent repeated revoke */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ClassInviteCode"];
+        };
+      };
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly leaveClass: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly "X-CSRF-Token": string;
+      };
+      readonly path: {
+        readonly class_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Enrollment left, including an idempotent repeated leave */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ClassEnrollment"];
+        };
+      };
       readonly 401: components["responses"]["UnauthorizedResponse"];
       readonly 403: components["responses"]["ForbiddenResponse"];
       readonly 404: components["responses"]["NotFoundResponse"];

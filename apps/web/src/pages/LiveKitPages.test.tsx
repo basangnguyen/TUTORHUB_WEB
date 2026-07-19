@@ -22,6 +22,14 @@ const classroom: ClassroomClass = {
   archived_at: null,
   created_at: "2026-07-18T01:00:00Z",
   updated_at: "2026-07-18T02:00:00Z",
+  viewer_access: {
+    class_role: null,
+    enrollment_status: null,
+    can_manage_enrollments: true,
+    can_join_room: true,
+    can_publish_media: true,
+    can_leave: false,
+  },
 };
 
 const currentUser: CurrentUser = {
@@ -48,6 +56,7 @@ const currentUser: CurrentUser = {
 function renderPreJoin(
   classValue: ClassroomClass,
   fetchMock: ReturnType<typeof vi.fn>,
+  currentUserValue: CurrentUser = currentUser,
 ) {
   vi.stubGlobal("fetch", fetchMock);
   const queryClient = new QueryClient({
@@ -56,7 +65,9 @@ function renderPreJoin(
   render(
     <QueryClientProvider client={queryClient}>
       <I18nProvider initialLanguage="vi">
-        <SessionProvider mode={{ kind: "static", currentUser }}>
+        <SessionProvider
+          mode={{ kind: "static", currentUser: currentUserValue }}
+        >
           <MemoryRouter
             initialEntries={[`/app/classrooms/${classValue.id}/prejoin`]}
           >
@@ -111,14 +122,25 @@ describe("ClassroomPreJoinPage class lifecycle guard", () => {
   );
 
   it("keeps the active-class listen-only prejoin route available", async () => {
+    const listenOnlyClass = {
+      ...classroom,
+      viewer_access: {
+        ...classroom.viewer_access,
+        can_publish_media: false,
+      },
+    };
+    const tenantPublisher = {
+      ...currentUser,
+      permissions: [...currentUser.permissions, "media.publish" as const],
+    };
     const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify(classroom), {
+      new Response(JSON.stringify(listenOnlyClass), {
         status: 200,
         headers: { "Content-Type": "application/json" },
       }),
     );
 
-    renderPreJoin(classroom, fetchMock);
+    renderPreJoin(listenOnlyClass, fetchMock, tenantPublisher);
 
     expect(
       await screen.findByRole("heading", {
@@ -128,5 +150,32 @@ describe("ClassroomPreJoinPage class lifecycle guard", () => {
     expect(
       screen.getByRole("button", { name: "Vào phòng học" }),
     ).toBeInTheDocument();
+  });
+
+  it("uses per-class publish access for an enrolled student without a tenant media permission", async () => {
+    const enrolledStudent: CurrentUser = {
+      ...currentUser,
+      active_tenant: currentUser.active_tenant
+        ? { ...currentUser.active_tenant, role: "student" }
+        : null,
+      permissions: ["tenant.view", "enrollment.leave"],
+    };
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(classroom), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+
+    renderPreJoin(classroom, fetchMock, enrolledStudent);
+
+    expect(
+      await screen.findByText(
+        /Trình duyệt này không cung cấp đầy đủ API camera/,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "Tham gia ở chế độ chỉ nghe" }),
+    ).not.toBeInTheDocument();
   });
 });
