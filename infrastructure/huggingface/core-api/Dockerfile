@@ -10,7 +10,7 @@ COPY services/core-api services/core-api
 WORKDIR /src/services/core-api
 RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/tutorhub-core-api ./cmd/api
 
-FROM alpine:3.23
+FROM alpine:3.24
 RUN addgroup -S tutorhub && adduser -S -G tutorhub tutorhub
 USER tutorhub
 WORKDIR /app
