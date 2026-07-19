@@ -21,6 +21,7 @@ import {
   type UpdateTenantRequest,
 } from "@tutorhub/api-client";
 import { useEffect, useRef } from "react";
+import { invalidateTenantAudit } from "./audit";
 import { useSession } from "./session";
 
 function getApiBaseUrl() {
@@ -116,6 +117,7 @@ function principalWithTenant(
 
 export function useWorkspaceActions(options: WorkspaceActionOptions = {}) {
   const applyPrincipal = useTenantBoundaryPrincipal();
+  const queryClient = useQueryClient();
   const latestSwitchGeneration = useRef(0);
   const highestAppliedSwitchGeneration = useRef(0);
   const switchOutcomes = useRef(
@@ -199,6 +201,8 @@ export function useWorkspaceActions(options: WorkspaceActionOptions = {}) {
       });
     },
     onSuccess: (currentUser) => applyPrincipal(currentUser),
+    onSettled: (currentUser) =>
+      invalidateTenantAudit(queryClient, currentUser?.active_tenant?.id),
   });
 
   const switchWorkspace = useMutation({
@@ -227,6 +231,8 @@ export function useWorkspaceActions(options: WorkspaceActionOptions = {}) {
       switchOutcomes.current.set(context.generation, { status: "failed" });
       await reconcileSwitchOutcomes();
     },
+    onSettled: (_currentUser, _error, tenantID) =>
+      invalidateTenantAudit(queryClient, tenantID),
   });
 
   return { createWorkspace, switchWorkspace };
@@ -303,6 +309,8 @@ export function useUpdateTenant() {
         });
       }
     },
+    onSettled: (_tenant, _error, variables) =>
+      invalidateTenantAudit(queryClient, variables.tenantID),
   });
 }
 
@@ -313,6 +321,7 @@ interface ArchiveTenantVariables {
 
 export function useArchiveTenant() {
   const applyPrincipal = useTenantBoundaryPrincipal();
+  const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({ input, tenantID }: ArchiveTenantVariables) => {
@@ -322,5 +331,7 @@ export function useArchiveTenant() {
       });
     },
     onSuccess: (currentUser) => applyPrincipal(currentUser),
+    onSettled: (_currentUser, _error, variables) =>
+      invalidateTenantAudit(queryClient, variables.tenantID),
   });
 }

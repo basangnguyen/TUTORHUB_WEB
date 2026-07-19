@@ -6,9 +6,10 @@ import {
   type RouteObject,
   useLocation,
 } from "react-router-dom";
+import type { CurrentUser } from "@tutorhub/api-client";
 import { lazy } from "react";
 import { AppShell } from "../components/AppShell";
-import { DashboardPage, ModulePage } from "../pages/AppPages";
+import { DashboardPage } from "../pages/AppPages";
 import {
   ClassroomDetailPage,
   ClassroomListPage,
@@ -52,18 +53,28 @@ const ClassroomRoomPage = lazy(() =>
 export interface NavigationItem {
   to: string;
   labelKey: TranslationKey;
+  requiredPermission?: CurrentUser["permissions"][number];
 }
 
 export const navigationItems: readonly NavigationItem[] = [
   { to: "/app/home", labelKey: "nav.home" },
   { to: "/app/classrooms", labelKey: "nav.classrooms" },
-  { to: "/app/calendar", labelKey: "nav.calendar" },
-  { to: "/app/messages", labelKey: "nav.messages" },
-  { to: "/app/tasks", labelKey: "nav.tasks" },
-  { to: "/app/resources", labelKey: "nav.drive" },
-  { to: "/app/workspace", labelKey: "nav.workspace" },
+  {
+    to: "/app/workspace",
+    labelKey: "nav.workspace",
+    requiredPermission: "tenant.view",
+  },
   { to: "/app/settings", labelKey: "nav.settings" },
 ];
+
+export function getVisibleNavigationItems(
+  permissions: CurrentUser["permissions"],
+) {
+  return navigationItems.filter(
+    (item) =>
+      !item.requiredPermission || permissions.includes(item.requiredPermission),
+  );
+}
 
 function ProtectedRoute() {
   const session = useSession();
@@ -100,6 +111,20 @@ function WorkspaceRoute() {
   }
   if (!currentUser.active_tenant) {
     return <WorkspaceSelectionPage />;
+  }
+
+  return <Outlet />;
+}
+
+function PermissionRoute({
+  permission,
+}: {
+  permission: CurrentUser["permissions"][number];
+}) {
+  const session = useSession();
+
+  if (!session.currentUser?.permissions.includes(permission)) {
+    return <Navigate replace to="/forbidden" />;
   }
 
   return <Outlet />;
@@ -145,22 +170,6 @@ export function createAppRoutes(): RouteObject[] {
                   element: <ClassroomPreJoinPage />,
                 },
                 {
-                  path: "calendar",
-                  element: <ModulePage moduleKey="nav.calendar" />,
-                },
-                {
-                  path: "messages",
-                  element: <ModulePage moduleKey="nav.messages" />,
-                },
-                {
-                  path: "tasks",
-                  element: <ModulePage moduleKey="nav.tasks" />,
-                },
-                {
-                  path: "resources",
-                  element: <ModulePage moduleKey="nav.drive" />,
-                },
-                {
                   path: "settings",
                   element: <ProfileSettingsPage />,
                 },
@@ -169,8 +178,13 @@ export function createAppRoutes(): RouteObject[] {
                   element: <WorkspaceManagementPage />,
                 },
                 {
-                  path: "workspace/audit",
-                  element: <AuditLogPage />,
+                  element: <PermissionRoute permission="audit.view" />,
+                  children: [
+                    {
+                      path: "workspace/audit",
+                      element: <AuditLogPage />,
+                    },
+                  ],
                 },
                 {
                   path: "system-error",

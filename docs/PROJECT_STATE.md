@@ -6,14 +6,15 @@
 
 | Thuộc tính          | Trạng thái                                                                            |
 | ------------------- | ------------------------------------------------------------------------------------- |
-| Ngày cập nhật       | 2026-07-19                                                                            |
+| Ngày cập nhật       | 2026-07-20                                                                            |
 | Repository          | `https://github.com/basangnguyen/TUTORHUB_WEB`                                        |
 | Nhánh làm việc      | `main`                                                                                |
 | Quy trình           | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
 | Phase hoàn thành    | Phase 0, Phase 1                                                                      |
 | Phase hiện tại      | Phase 2 - Identity, tenant và class core                                              |
 | Task vừa hoàn thành | P2-07 Audit log cho hành động nhạy cảm                                                |
-| Task kế tiếp        | P2-08 Admin và teacher UI end-to-end                                                  |
+| Task đang xác minh  | P2-08 Admin và teacher UI end-to-end                                                  |
+| Task sau P2-08      | P2-09 Feature flag và quota framework                                                 |
 
 ## Kiến trúc đang chạy
 
@@ -149,15 +150,20 @@ trước pilot/public beta hoặc khi có người duy trì thứ hai.
 
 Backlog có thẩm quyền: `docs/PHASE_2_BACKLOG.md`.
 
-1. P2-00 đến P2-07 đã hoàn thành.
-2. Full `pnpm verify` của P2-07 xanh ngày 2026-07-19: web 79/79, API client 15/15,
-   UI 6/6, generated-contract check, lint/typecheck/build/Storybook, Go test/vet và
-   security checks.
-3. Full integration-tag compile và focused audit/request metadata/policy/HTTP/classroom/
-   identity tests đều xanh local. Runtime PostgreSQL migration `000011` và audit
-   integration chưa chạy vì không nạp DB test env; workflow CI PostgreSQL 17 sẽ xác
-   nhận sau push.
-4. Task kế tiếp là P2-08 Admin và teacher UI end-to-end.
+1. P2-00 đến P2-07 đã hoàn thành; P2-08 có implementation checkpoint và đang ở
+   trạng thái `VERIFY`.
+2. P2-08 nối các contract workspace/invitation/class/roster/audit thành luồng UI
+   org admin, teacher và student; capability guard, cache tenant/class, trạng thái
+   forbidden/retry và navigation đã được chuẩn hóa.
+3. Full `pnpm verify` xanh ngày 2026-07-20: web 130/130, API client 15/15, UI 6/6,
+   E2E infrastructure 7/7, generated-contract check, lint/typecheck/build/Storybook,
+   Go test/vet và security checks. Full integration-tag compile cũng xanh.
+4. Playwright có một scenario ba role, fake OIDC loopback/PKCE và job Browser E2E
+   PostgreSQL 17 + Chromium. Visual QA thủ công đạt tại 1440x900, 1024x768 và
+   390x844. Full browser scenario chưa chạy local vì máy không có Docker/PostgreSQL;
+   CI sẽ xác nhận runtime sau push và chưa có staging acceptance.
+5. Không chuyển P2-08 sang `DONE` hoặc bắt đầu P2-09 cho tới khi Browser E2E
+   local/staging đạt hoặc có waiver được ghi rõ.
 
 ## Rủi ro đã biết
 
@@ -173,6 +179,9 @@ Backlog có thẩm quyền: `docs/PHASE_2_BACKLOG.md`.
 - Runtime PostgreSQL cho migration/test `000011`, audit append-only và các repository
   đã gắn atomic audit chưa được chạy local; integration-tag compile đã xanh nhưng clean
   migration/concurrency runtime cần CI/staging xác nhận.
+- Browser E2E P2-08 đã có fixture/UI orchestration và static gate nhưng chưa chạy
+  runtime local trên host hiện tại do thiếu Docker/PostgreSQL; job CI PostgreSQL 17 là
+  gate kế tiếp.
 - Production retention/export, privacy erasure, partitioning và dedicated maintenance
   role cho audit được hoãn tới Phase 8. Audit của tenant archived được giữ nhưng chưa có
   recovery/export UI ngoài active-tenant API.
@@ -202,6 +211,7 @@ Backlog có thẩm quyền: `docs/PHASE_2_BACKLOG.md`.
 - `docs/DEPLOYMENT_BASELINE.md`
 - `docs/DATABASE.md`
 - `docs/AUTHENTICATION.md`
+- `docs/E2E_TESTING.md`
 - `docs/LIVEKIT_SPIKE_RUNBOOK.md`
 - `docs/CI_SECURITY.md`
 - `docs/adr/0011-render-core-api-staging.md`

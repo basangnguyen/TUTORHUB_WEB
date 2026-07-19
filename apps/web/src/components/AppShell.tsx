@@ -8,7 +8,7 @@ import {
   useNavigate,
   useNavigation,
 } from "react-router-dom";
-import { navigationItems } from "../app/routes";
+import { getVisibleNavigationItems, navigationItems } from "../app/routes";
 import { useI18n } from "../app/i18n";
 import { useSession } from "../app/session";
 import { useWorkspaceActions } from "../app/workspaces";
@@ -43,6 +43,9 @@ export function AppShell() {
   const navigation = useNavigation();
   const isOnline = useOnlineStatus();
   const [isNavigationOpen, setIsNavigationOpen] = useState(false);
+  const visibleNavigationItems = getVisibleNavigationItems(
+    session.currentUser?.permissions ?? [],
+  );
 
   const activeTenant = session.currentUser?.active_tenant;
   const activeMemberships =
@@ -89,7 +92,7 @@ export function AppShell() {
         </div>
 
         <nav className="app-navigation" aria-label={t("shell.navigation")}>
-          {navigationItems.map((item) => (
+          {visibleNavigationItems.map((item) => (
             <NavLink
               className={({ isActive }) =>
                 `app-navigation__link${isActive ? " app-navigation__link--active" : ""}`
@@ -184,6 +187,7 @@ export function AppShell() {
               </select>
             </label>
             <Button
+              aria-label={t("auth.signOut")}
               className="app-topbar__logout"
               leadingIcon={<LogOut />}
               onClick={() => void session.signOut()}

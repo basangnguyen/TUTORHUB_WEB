@@ -1,4 +1,4 @@
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, type QueryClient } from "@tanstack/react-query";
 import {
   APIRequestError,
   listAuditEvents,
@@ -53,6 +53,18 @@ export const auditQueryKeys = {
     ] as const;
   },
 };
+
+export function invalidateTenantAudit(
+  queryClient: QueryClient,
+  tenantID: string | undefined,
+) {
+  if (!tenantID) {
+    return Promise.resolve();
+  }
+  return queryClient.invalidateQueries({
+    queryKey: auditQueryKeys.tenant(tenantID),
+  });
+}
 
 function shouldRetryAuditQuery(failureCount: number, error: Error) {
   return (

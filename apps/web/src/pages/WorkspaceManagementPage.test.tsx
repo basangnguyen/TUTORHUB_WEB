@@ -6,6 +6,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import type { CurrentUser, Tenant } from "@tutorhub/api-client";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -130,6 +131,9 @@ describe("WorkspaceManagementPage", () => {
     expect(
       screen.queryByRole("button", { name: "Lưu trữ workspace" }),
     ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Tạo workspace" }),
+    ).not.toBeInTheDocument();
     expect(screen.queryByText("Lời mời thành viên")).not.toBeInTheDocument();
   });
 
@@ -186,6 +190,115 @@ describe("WorkspaceManagementPage", () => {
     expect(auditLink).toHaveAttribute("href", "/app/workspace/audit");
   });
 
+  it("lets an authenticated member create another workspace from a dialog", async () => {
+    const createdTenantID = "2d474692-a0df-44fb-96af-46d742753daa";
+    const createdTenant: Tenant = {
+      ...tenant,
+      id: createdTenantID,
+      slug: "product-design",
+      name: "Product Design",
+      version: 1,
+      created_at: "2026-07-19T04:00:00Z",
+      updated_at: "2026-07-19T04:00:00Z",
+    };
+    const admin = sessionFor("org_admin", true);
+    const createdCurrentUser: CurrentUser = {
+      ...admin,
+      active_tenant: {
+        id: createdTenant.id,
+        is_active: true,
+        name: createdTenant.name,
+        role: "org_admin",
+        slug: createdTenant.slug,
+        status: "active",
+        version: createdTenant.version,
+      },
+      memberships: [
+        { ...admin.memberships[0]!, is_active: false },
+        {
+          id: createdTenant.id,
+          is_active: true,
+          name: createdTenant.name,
+          role: "org_admin",
+          slug: createdTenant.slug,
+          status: "active",
+          version: createdTenant.version,
+        },
+      ],
+    };
+    const fetchMock = vi.fn().mockImplementation((request: Request) => {
+      if (
+        request.url.endsWith(`/api/v1/tenants/${tenantID}`) &&
+        request.method === "GET"
+      ) {
+        return Promise.resolve(jsonResponse(tenant));
+      }
+      if (
+        request.url.endsWith(`/api/v1/tenants/${createdTenantID}`) &&
+        request.method === "GET"
+      ) {
+        return Promise.resolve(jsonResponse(createdTenant));
+      }
+      if (request.url.endsWith("/api/v1/tenants") && request.method === "GET") {
+        return Promise.resolve(
+          jsonResponse({ items: [tenant, createdTenant] }),
+        );
+      }
+      if (request.url.endsWith("/api/v1/auth/csrf")) {
+        return Promise.resolve(jsonResponse({ csrf_token: "csrf-create" }));
+      }
+      if (
+        request.url.endsWith("/api/v1/tenants") &&
+        request.method === "POST"
+      ) {
+        return Promise.resolve(jsonResponse(createdCurrentUser, 201));
+      }
+      return Promise.reject(new Error(`Unexpected request: ${request.url}`));
+    });
+    renderPage(fetchMock, admin, "en");
+
+    await screen.findByRole("heading", { name: "Workspace overview" });
+    fireEvent.click(screen.getByRole("button", { name: "Create workspace" }));
+    const dialog = screen.getByRole("dialog", {
+      name: "Create another workspace",
+    });
+    expect(dialog).toBeInTheDocument();
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Create workspace" }),
+    );
+    const nameField = within(dialog).getByRole("textbox", {
+      name: "Organization or learning group name",
+    });
+    expect(nameField).toHaveAttribute("aria-invalid", "true");
+    expect(nameField).toHaveFocus();
+    expect(
+      within(dialog).getByText("The name must contain 2–120 characters."),
+    ).toBeInTheDocument();
+    fireEvent.change(nameField, { target: { value: "Product Design" } });
+    expect(
+      screen.getByRole("textbox", { name: "Workspace address" }),
+    ).toHaveValue("product-design");
+    fireEvent.click(screen.getByRole("button", { name: "Create workspace" }));
+
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("dialog", { name: "Create another workspace" }),
+      ).not.toBeInTheDocument(),
+    );
+    expect(await screen.findAllByText("Product Design")).not.toHaveLength(0);
+    const createRequest = fetchMock.mock.calls
+      .map((call) => call[0] as Request)
+      .find(
+        (request) =>
+          request.method === "POST" && request.url.endsWith("/api/v1/tenants"),
+      );
+    expect(createRequest?.headers.get("X-CSRF-Token")).toBe("csrf-create");
+    await expect(createRequest?.clone().json()).resolves.toEqual({
+      name: "Product Design",
+      slug: "product-design",
+    });
+  });
+
   it("updates metadata with expected_version and synchronizes tenant caches", async () => {
     const updatedTenant: Tenant = {
       ...tenant,
@@ -215,6 +328,14 @@ describe("WorkspaceManagementPage", () => {
       return Promise.reject(new Error(`Unexpected request: ${request.url}`));
     });
     const queryClient = renderPage(fetchMock, sessionFor("org_admin", true));
+    const targetAuditKey = ["audit", tenantID, "list"] as const;
+    const otherAuditKey = [
+      "audit",
+      "8d08d79d-5b50-4ddf-bbe7-87b13654c908",
+      "list",
+    ] as const;
+    queryClient.setQueryData(targetAuditKey, ["target-event"]);
+    queryClient.setQueryData(otherAuditKey, ["other-event"]);
 
     const nameInput = await screen.findByRole("textbox", {
       name: "Tên tổ chức hoặc nhóm học",
@@ -233,6 +354,8 @@ describe("WorkspaceManagementPage", () => {
     expect(queryClient.getQueryData(tenantQueryKeys.detail(tenantID))).toEqual(
       updatedTenant,
     );
+    expect(queryClient.getQueryState(targetAuditKey)?.isInvalidated).toBe(true);
+    expect(queryClient.getQueryState(otherAuditKey)?.isInvalidated).toBe(false);
     const updateRequest = fetchMock.mock.calls
       .map((call) => call[0] as Request)
       .find((request) => request.method === "PATCH");
@@ -381,4 +504,68 @@ describe("WorkspaceManagementPage", () => {
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Thử lại" })).toBeVisible();
   });
+
+  it.each([401, 403, 404])(
+    "conceals cached workspace-list names when refresh returns %s",
+    async (status) => {
+      const otherTenant: Tenant = {
+        ...tenant,
+        id: "8d08d79d-5b50-4ddf-bbe7-87b13654c908",
+        is_active: false,
+        name: "Private Partner Workspace",
+        role: "student",
+        slug: "private-partner",
+      };
+      let listReads = 0;
+      const fetchMock = vi.fn().mockImplementation((request: Request) => {
+        if (
+          request.url.endsWith(`/api/v1/tenants/${tenantID}`) &&
+          request.method === "GET"
+        ) {
+          return Promise.resolve(jsonResponse(tenant));
+        }
+        if (
+          request.url.endsWith("/api/v1/tenants") &&
+          request.method === "GET"
+        ) {
+          listReads += 1;
+          return Promise.resolve(
+            listReads === 1
+              ? jsonResponse({ items: [tenant, otherTenant] })
+              : jsonResponse(
+                  {
+                    title: "Workspace list unavailable",
+                    status,
+                  },
+                  status,
+                ),
+          );
+        }
+        return Promise.reject(new Error(`Unexpected request: ${request.url}`));
+      });
+      const queryClient = renderPage(
+        fetchMock,
+        sessionFor("student", false),
+        "en",
+      );
+
+      expect(
+        await screen.findByText("Private Partner Workspace"),
+      ).toBeInTheDocument();
+      await queryClient.refetchQueries({
+        exact: true,
+        queryKey: tenantQueryKeys.list,
+      });
+
+      await waitFor(() =>
+        expect(
+          screen.queryByText("Private Partner Workspace"),
+        ).not.toBeInTheDocument(),
+      );
+      expect(screen.queryByText("private-partner")).not.toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "Try again" }),
+      ).toBeInTheDocument();
+    },
+  );
 });

@@ -5,13 +5,13 @@
 | Thuộc tính            | Giá trị                                                                                      |
 | --------------------- | -------------------------------------------------------------------------------------------- |
 | Phiên bản tài liệu    | 2.1                                                                                          |
-| Cập nhật              | 2026-07-19                                                                                   |
+| Cập nhật              | 2026-07-20                                                                                   |
 | Phạm vi ưu tiên       | Web application                                                                              |
 | Thư mục phát triển    | `D:\TutorHub_V2`                                                                             |
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
 | Phase hiện tại        | Phase 2 - Identity, tenant và class core                                                     |
-| Trạng thái gần nhất   | P2-07 audit log đã triển khai; P2-08 Admin/teacher UI end-to-end là việc tiếp theo           |
+| Trạng thái gần nhất   | P2-08 đã triển khai và đang VERIFY; Browser E2E local/staging còn mở                      |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 
@@ -1184,8 +1184,9 @@ beta. Xem `docs/PHASE_1_COMPLETION.md`.
 
 **Mục tiêu:** có nền multi-tenant và quản lý lớp đủ dùng cho pilot nội bộ.
 
-**Backlog thực thi:** `docs/PHASE_2_BACKLOG.md`. P2-00 đến P2-07 đã triển khai;
-task kế tiếp là P2-08 Admin và teacher UI end-to-end.
+**Backlog thực thi:** `docs/PHASE_2_BACKLOG.md`. P2-00 đến P2-07 đã hoàn thành;
+P2-08 có implementation checkpoint và đang chờ Browser E2E local/staging trước
+P2-09.
 
 **Trạng thái 2026-07-19:** P2-07 bổ sung ADR-0014, migration `000011` và module audit
 append-only tách khỏi outbox nhưng ghi atomic cùng business mutation/outbox khi thay đổi
@@ -1198,6 +1199,20 @@ client 15/15, UI 6/6 cùng lint/typecheck/build/Storybook, Go test/vet và secur
 Full integration-tag compile cùng focused audit/request metadata/policy/HTTP/classroom/
 identity tests xanh local; runtime PostgreSQL migration/audit chưa chạy vì không nạp DB
 test env và sẽ do CI PostgreSQL 17 xác nhận. ADR-0013 được amend cho `audit.view`.
+
+**Trạng thái P2-08 ngày 2026-07-20:** các contract workspace, membership
+invitation, class lifecycle/invite, roster và audit đã nối thành luồng UI xuyên
+suốt cho org admin, teacher và student. Navigation/capability guard cùng cache
+tenant/class xử lý stale permission và workspace switch đã được chuẩn hóa. Một
+scenario Playwright dùng ba browser context, fake OIDC loopback/PKCE và fixture
+tạo hoàn toàn qua UI; CI có job PostgreSQL 17 + Chromium. Full `pnpm verify`
+xanh: web 130/130, API client 15/15, UI 6/6, E2E infrastructure 7/7 cùng
+lint/typecheck/build/Storybook, Go test/vet và security checks. Integration-tag
+compile và Playwright discovery xanh; visual QA thủ công đạt tại 1440x900,
+1024x768 và 390x844. Full browser runtime chưa chạy local vì host thiếu
+Docker/PostgreSQL, chờ job CI sau push; chưa coi đây là staging acceptance.
+Do gate E2E local/staging trong backlog còn mở, trạng thái có thẩm quyền của P2-08
+là `VERIFY`, chưa phải `DONE`.
 
 **Work package:**
 
@@ -1691,13 +1706,14 @@ Một tính năng chỉ được đánh dấu hoàn thành khi:
 
 ## 36. Việc cần làm ngay
 
-Thứ tự hiện tại, cập nhật ngày 2026-07-19:
+Thứ tự hiện tại, cập nhật ngày 2026-07-20:
 
 1. Phase 1 đã hoàn thành; biên bản nằm tại `docs/PHASE_1_COMPLETION.md`.
-2. P2-00 policy đến P2-07 audit log đã triển khai.
-3. Bắt đầu P2-08 bằng rà soát end-to-end các luồng org admin, teacher và student.
-4. Chuẩn hóa navigation, capability guard, mutation/refetch behavior và E2E fixture
-   theo `docs/PHASE_2_BACKLOG.md`.
+2. P2-00 policy đến P2-07 audit log đã hoàn thành; P2-08 đã có implementation
+   checkpoint.
+3. Chạy Browser E2E local/CI và staging acceptance để đóng DoD P2-08.
+4. Chỉ sau đó bắt đầu P2-09 feature override/quota theo
+   `docs/PHASE_2_BACKLOG.md`.
 5. Không bắt đầu QuizHub, Lavie, social feed, Secure Exam web hoặc classroom
    collaboration trong Phase 2.
 
@@ -1746,5 +1762,6 @@ Thứ tự hiện tại, cập nhật ngày 2026-07-19:
 
 ---
 
-**Điểm bắt đầu sau tài liệu này:** đọc `docs/PROJECT_STATE.md` và triển khai P2-08 theo
-`docs/PHASE_2_BACKLOG.md`. Master Plan giữ mục tiêu/exit gate, không thay backlog chi tiết.
+**Điểm bắt đầu sau tài liệu này:** đọc `docs/PROJECT_STATE.md` và hoàn tất Browser
+E2E local/staging của P2-08 theo `docs/PHASE_2_BACKLOG.md`. Master Plan giữ mục
+tiêu/exit gate, không thay backlog chi tiết.

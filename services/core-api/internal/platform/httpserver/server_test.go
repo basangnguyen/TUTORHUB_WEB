@@ -17,6 +17,7 @@ func TestNewAppliesServerLimits(t *testing.T) {
 
 	cfg := config.Config{
 		Port:              "9090",
+		ListenHost:        "127.0.0.1",
 		ReadHeaderTimeout: 2 * time.Second,
 		ReadTimeout:       3 * time.Second,
 		WriteTimeout:      4 * time.Second,
@@ -26,7 +27,7 @@ func TestNewAppliesServerLimits(t *testing.T) {
 	handler := http.HandlerFunc(func(http.ResponseWriter, *http.Request) {})
 	server := New(cfg, handler)
 
-	if server.Addr != ":9090" ||
+	if server.Addr != "127.0.0.1:9090" ||
 		server.Handler == nil ||
 		server.ReadHeaderTimeout != 2*time.Second ||
 		server.ReadTimeout != 3*time.Second ||

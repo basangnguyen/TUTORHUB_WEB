@@ -250,32 +250,50 @@ describe("AuditLogPage", () => {
     ).toBeInTheDocument();
   });
 
-  it("hides cached audit events when a refresh reveals revoked permission", async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce(jsonResponse({ items: [firstEvent] }))
-      .mockResolvedValueOnce(
-        jsonResponse(
-          { title: "Forbidden", status: 403, detail: "access denied" },
-          403,
-        ),
+  it.each([401, 403, 404])(
+    "hides cached audit PII and identifiers when refresh returns %s",
+    async (status) => {
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce(jsonResponse({ items: [firstEvent] }))
+        .mockResolvedValueOnce(
+          jsonResponse(
+            {
+              title: "Audit history unavailable",
+              status,
+              detail: "access boundary changed",
+            },
+            status,
+          ),
+        );
+      renderPage(fetchMock);
+
+      expect(await screen.findByText("req-audit-first")).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+
+      await waitFor(() =>
+        expect(screen.queryByText("req-audit-first")).not.toBeInTheDocument(),
       );
-    renderPage(fetchMock);
-
-    expect(await screen.findByText("req-audit-first")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
-
-    expect(
-      await screen.findByRole("heading", {
-        name: "Audit history is restricted to administrators",
-      }),
-    ).toBeInTheDocument();
-    expect(screen.queryByText("req-audit-first")).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("table", { name: "Workspace audit event list" }),
-    ).not.toBeInTheDocument();
-    expect(screen.queryByText("1 events loaded")).not.toBeInTheDocument();
-  });
+      expect(screen.queryByText("Admin User")).not.toBeInTheDocument();
+      expect(screen.queryByText(currentUser.user.id)).not.toBeInTheDocument();
+      expect(screen.queryByText(classID)).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("table", { name: "Workspace audit event list" }),
+      ).not.toBeInTheDocument();
+      expect(screen.queryByText("1 events loaded")).not.toBeInTheDocument();
+      if (status === 403) {
+        expect(
+          screen.getByRole("heading", {
+            name: "Audit history is restricted to administrators",
+          }),
+        ).toBeInTheDocument();
+      } else {
+        expect(
+          screen.getByRole("button", { name: "Try again" }),
+        ).toBeInTheDocument();
+      }
+    },
+  );
 
   it("keeps cached events visible with a warning when refresh fails", async () => {
     const fetchMock = vi

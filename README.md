@@ -10,7 +10,8 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
 
 - Phase 0 và **Phase 1 - Engineering Foundation** đã hoàn thành ngày 2026-07-16.
 - Hiện đang thực hiện **Phase 2 - Identity, tenant và class core**; P2-00 đến P2-07
-  đã được triển khai và task kế tiếp là P2-08 Admin/teacher UI end-to-end.
+  đã hoàn thành. P2-08 đã có implementation checkpoint và đang chờ Browser E2E
+  local/staging trước khi chuyển sang P2-09 Feature flag và quota framework.
 - Web MVP nền đã chạy trên staging: Cloudflare Pages -> same-origin `/api/*` -> Go
   Core API trên Render; dữ liệu dùng Neon, file dùng Backblaze B2, media dùng LiveKit
   Cloud và xác thực dùng ZITADEL.
@@ -43,11 +44,12 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
 17. [LiveKit spike và smoke-test runbook](docs/LIVEKIT_SPIKE_RUNBOOK.md)
 18. [Design system và hướng dẫn sử dụng component](docs/DESIGN_SYSTEM.md)
 19. [CI/CD và security runbook](docs/CI_SECURITY.md)
-20. [Chính sách báo cáo lỗ hổng](SECURITY.md)
-21. [ADR-0011: Render cho Core API staging/private alpha](docs/adr/0011-render-core-api-staging.md)
-22. [ADR-0012: Direct-main khi một người duy trì](docs/adr/0012-single-maintainer-direct-main-governance.md)
-23. [ADR-0013: Shared organization/class authorization policy](docs/adr/0013-shared-organization-class-authorization-policy.md)
-24. [ADR-0014: Append-only tenant audit log](docs/adr/0014-append-only-tenant-audit-log.md)
+20. [Browser E2E local/staging](docs/E2E_TESTING.md)
+21. [Chính sách báo cáo lỗ hổng](SECURITY.md)
+22. [ADR-0011: Render cho Core API staging/private alpha](docs/adr/0011-render-core-api-staging.md)
+23. [ADR-0012: Direct-main khi một người duy trì](docs/adr/0012-single-maintainer-direct-main-governance.md)
+24. [ADR-0013: Shared organization/class authorization policy](docs/adr/0013-shared-organization-class-authorization-policy.md)
+25. [ADR-0014: Append-only tenant audit log](docs/adr/0014-append-only-tenant-audit-log.md)
 
 Các quyết định kiến trúc đã chấp nhận nằm trong `docs/adr`.
 

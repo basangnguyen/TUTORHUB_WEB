@@ -29,6 +29,7 @@ import {
   type InvitableOrganizationRole,
 } from "../app/invitations";
 import { useI18n, type TranslationKey } from "../app/i18n";
+import { shouldConcealTenantScopedData } from "../app/tenantDataAccess";
 
 interface MembershipInvitationPanelProps {
   tenantID: string;
@@ -96,6 +97,9 @@ export function MembershipInvitationPanel({
 }: MembershipInvitationPanelProps) {
   const { language, t } = useI18n();
   const invitationList = useMembershipInvitationList(tenantID);
+  const invitationDataConcealed = shouldConcealTenantScopedData(
+    invitationList.error,
+  );
   const revokeInvitation = useRevokeMembershipInvitation();
   const [revokeTarget, setRevokeTarget] = useState<MembershipInvitation | null>(
     null,
@@ -135,6 +139,45 @@ export function MembershipInvitationPanel({
     );
   };
 
+  if (invitationDataConcealed) {
+    return (
+      <section
+        aria-labelledby="membership-invitations-title"
+        className="workspace-management__panel membership-invitations"
+      >
+        <div className="workspace-management__panel-heading membership-invitations__heading">
+          <div>
+            <h2 id="membership-invitations-title">
+              {t("invitation.adminTitle")}
+            </h2>
+            <p>{t("invitation.adminDescription")}</p>
+          </div>
+        </div>
+        {isForbidden(invitationList.error) ? (
+          <ForbiddenState
+            description={t("invitation.listForbiddenDescription")}
+            title={t("invitation.listForbiddenTitle")}
+          />
+        ) : (
+          <ErrorState
+            actions={
+              <Button
+                leadingIcon={<RefreshCw />}
+                onClick={() => void invitationList.refetch()}
+                size="sm"
+                variant="secondary"
+              >
+                {t("state.retry")}
+              </Button>
+            }
+            description={t("invitation.listErrorDescription")}
+            title={t("invitation.listErrorTitle")}
+          />
+        )}
+      </section>
+    );
+  }
+
   return (
     <section
       aria-labelledby="membership-invitations-title"
@@ -163,28 +206,22 @@ export function MembershipInvitationPanel({
         </SkeletonGroup>
       )}
 
-      {invitationList.isError &&
-        (isForbidden(invitationList.error) ? (
-          <ForbiddenState
-            description={t("invitation.listForbiddenDescription")}
-            title={t("invitation.listForbiddenTitle")}
-          />
-        ) : (
-          <ErrorState
-            actions={
-              <Button
-                leadingIcon={<RefreshCw />}
-                onClick={() => void invitationList.refetch()}
-                size="sm"
-                variant="secondary"
-              >
-                {t("state.retry")}
-              </Button>
-            }
-            description={t("invitation.listErrorDescription")}
-            title={t("invitation.listErrorTitle")}
-          />
-        ))}
+      {invitationList.isError && (
+        <ErrorState
+          actions={
+            <Button
+              leadingIcon={<RefreshCw />}
+              onClick={() => void invitationList.refetch()}
+              size="sm"
+              variant="secondary"
+            >
+              {t("state.retry")}
+            </Button>
+          }
+          description={t("invitation.listErrorDescription")}
+          title={t("invitation.listErrorTitle")}
+        />
+      )}
 
       {invitationList.isSuccess && invitationList.data.items.length === 0 && (
         <EmptyState

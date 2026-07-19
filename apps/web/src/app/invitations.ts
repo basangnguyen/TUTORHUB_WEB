@@ -14,6 +14,7 @@ import {
   type MembershipInvitationListResponse,
   type MembershipInvitationPreview,
 } from "@tutorhub/api-client";
+import { invalidateTenantAudit } from "./audit";
 import { useSession } from "./session";
 
 export type { InvitableOrganizationRole } from "@tutorhub/api-client";
@@ -77,21 +78,35 @@ export function useCreateMembershipInvitation() {
         { baseUrl: getApiBaseUrl() },
       );
     },
-    onSuccess: ({ invitation }, { tenantID }) => {
+    onSuccess: async ({ invitation }, { tenantID }) => {
       const queryKey = membershipInvitationQueryKeys.tenantList(tenantID);
-      const current =
-        queryClient.getQueryData<MembershipInvitationListResponse>(queryKey);
-      if (!current) {
-        void queryClient.invalidateQueries({ queryKey, exact: true });
-        return;
-      }
-      queryClient.setQueryData<MembershipInvitationListResponse>(queryKey, {
-        ...current,
-        items: [
-          invitation,
-          ...current.items.filter((item) => item.id !== invitation.id),
-        ],
-      });
+      await queryClient.cancelQueries({ exact: true, queryKey });
+      queryClient.setQueryData<MembershipInvitationListResponse>(
+        queryKey,
+        (current) => ({
+          ...current,
+          items: [
+            invitation,
+            ...(current?.items ?? []).filter(
+              (item) => item.id !== invitation.id,
+            ),
+          ],
+        }),
+      );
+      await queryClient.invalidateQueries({ exact: true, queryKey });
+    },
+    onSettled: async (_response, error, variables) => {
+      await Promise.all([
+        error
+          ? queryClient.invalidateQueries({
+              exact: true,
+              queryKey: membershipInvitationQueryKeys.tenantList(
+                variables.tenantID,
+              ),
+            })
+          : Promise.resolve(),
+        invalidateTenantAudit(queryClient, variables.tenantID),
+      ]);
     },
     retry: false,
   });
@@ -119,8 +134,9 @@ export function useRevokeMembershipInvitation() {
         { baseUrl: getApiBaseUrl() },
       );
     },
-    onSuccess: (invitation, { tenantID }) => {
+    onSuccess: async (invitation, { tenantID }) => {
       const queryKey = membershipInvitationQueryKeys.tenantList(tenantID);
+      await queryClient.cancelQueries({ exact: true, queryKey });
       queryClient.setQueryData<MembershipInvitationListResponse>(
         queryKey,
         (current) =>
@@ -131,8 +147,22 @@ export function useRevokeMembershipInvitation() {
                   item.id === invitation.id ? invitation : item,
                 ),
               }
-            : current,
+            : { items: [invitation] },
       );
+      await queryClient.invalidateQueries({ exact: true, queryKey });
+    },
+    onSettled: async (_invitation, error, variables) => {
+      await Promise.all([
+        error
+          ? queryClient.invalidateQueries({
+              exact: true,
+              queryKey: membershipInvitationQueryKeys.tenantList(
+                variables.tenantID,
+              ),
+            })
+          : Promise.resolve(),
+        invalidateTenantAudit(queryClient, variables.tenantID),
+      ]);
     },
     retry: false,
   });
@@ -179,6 +209,8 @@ export function useAcceptMembershipInvitation(token: string | null) {
       queryClient.removeQueries({ queryKey: ["tenants"] });
       session.replaceCurrentUser(currentUser);
     },
+    onSettled: (response) =>
+      invalidateTenantAudit(queryClient, response?.invitation.tenant_id),
     retry: false,
   });
 }

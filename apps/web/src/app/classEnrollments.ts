@@ -15,6 +15,8 @@ import {
   type CreateClassInviteCodeResponse,
   type JoinClassInvitationResponse,
 } from "@tutorhub/api-client";
+import { useRef } from "react";
+import { invalidateTenantAudit } from "./audit";
 import { classQueryKeys } from "./classes";
 import { useSession } from "./session";
 
@@ -24,14 +26,14 @@ function getApiBaseUrl() {
 
 export const classEnrollmentQueryKeys = {
   rosters: (tenantID: string, classID: string) =>
-    ["classes", tenantID, "detail", classID, "roster"] as const,
+    classQueryKeys.rosterData(tenantID, classID),
   roster: (tenantID: string, classID: string, search: string, status: string) =>
     [
       ...classEnrollmentQueryKeys.rosters(tenantID, classID),
       { search, status },
     ] as const,
   inviteCodes: (tenantID: string, classID: string) =>
-    ["classes", tenantID, "detail", classID, "invite-codes"] as const,
+    classQueryKeys.inviteCodes(tenantID, classID),
 };
 
 function shouldRetryEnrollmentQuery(failureCount: number, error: Error) {
@@ -84,13 +86,22 @@ export function useDirectClassEnrollment(tenantID: string | undefined) {
         { baseUrl: getApiBaseUrl() },
       );
     },
-    onSuccess: async (_, { classID }) => {
+    onSettled: async (_enrollment, error, { classID }) => {
       if (!tenantID) {
         return;
       }
-      await queryClient.invalidateQueries({
-        queryKey: classEnrollmentQueryKeys.rosters(tenantID, classID),
-      });
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: classEnrollmentQueryKeys.rosters(tenantID, classID),
+        }),
+        error
+          ? queryClient.invalidateQueries({
+              exact: true,
+              queryKey: classEnrollmentQueryKeys.inviteCodes(tenantID, classID),
+            })
+          : Promise.resolve(),
+        invalidateTenantAudit(queryClient, tenantID),
+      ]);
     },
     retry: false,
   });
@@ -117,8 +128,9 @@ export function useCreateClassInviteCode() {
         baseUrl: getApiBaseUrl(),
       });
     },
-    onSuccess: ({ invite_code: inviteCode }, { classID, tenantID }) => {
+    onSuccess: async ({ invite_code: inviteCode }, { classID, tenantID }) => {
       const queryKey = classEnrollmentQueryKeys.inviteCodes(tenantID, classID);
+      await queryClient.cancelQueries({ exact: true, queryKey });
       queryClient.setQueryData<ClassInviteCodeListResponse>(
         queryKey,
         (current) =>
@@ -129,9 +141,17 @@ export function useCreateClassInviteCode() {
                   ...current.items.filter((item) => item.id !== inviteCode.id),
                 ],
               }
-            : current,
+            : { items: [inviteCode] },
       );
+      await queryClient.invalidateQueries({ exact: true, queryKey });
     },
+    onError: (_, { classID, tenantID }) =>
+      queryClient.invalidateQueries({
+        exact: true,
+        queryKey: classEnrollmentQueryKeys.inviteCodes(tenantID, classID),
+      }),
+    onSettled: (_, __, { tenantID }) =>
+      invalidateTenantAudit(queryClient, tenantID),
     retry: false,
   });
 }
@@ -152,8 +172,9 @@ export function useRevokeClassInviteCode() {
         baseUrl: getApiBaseUrl(),
       });
     },
-    onSuccess: (inviteCode, { classID, tenantID }) => {
+    onSuccess: async (inviteCode, { classID, tenantID }) => {
       const queryKey = classEnrollmentQueryKeys.inviteCodes(tenantID, classID);
+      await queryClient.cancelQueries({ exact: true, queryKey });
       queryClient.setQueryData<ClassInviteCodeListResponse>(
         queryKey,
         (current) =>
@@ -163,20 +184,38 @@ export function useRevokeClassInviteCode() {
                   item.id === inviteCode.id ? inviteCode : item,
                 ),
               }
-            : current,
+            : { items: [inviteCode] },
       );
+      await queryClient.invalidateQueries({ exact: true, queryKey });
     },
+    onError: (_, { classID, tenantID }) =>
+      queryClient.invalidateQueries({
+        exact: true,
+        queryKey: classEnrollmentQueryKeys.inviteCodes(tenantID, classID),
+      }),
+    onSettled: (_, __, { tenantID }) =>
+      invalidateTenantAudit(queryClient, tenantID),
     retry: false,
   });
 }
 
-export function useJoinClassInvitation(token: string | null) {
+type ClassInvitationTokenSource = string | null | (() => string | null);
+
+export function useJoinClassInvitation(
+  tokenSource: ClassInvitationTokenSource,
+  tenantID?: string,
+) {
   const queryClient = useQueryClient();
   const session = useSession();
+  const tenantIDAtMutation = useRef<string | undefined>(undefined);
 
   return useMutation<JoinClassInvitationResponse, Error, void>({
     gcTime: 0,
     mutationFn: async () => {
+      tenantIDAtMutation.current =
+        tenantID ?? session.currentUser?.active_tenant?.id;
+      const token =
+        typeof tokenSource === "function" ? tokenSource() : tokenSource;
       if (!token) {
         throw new Error("The class invitation token is unavailable.");
       }
@@ -186,17 +225,28 @@ export function useJoinClassInvitation(token: string | null) {
       });
     },
     onSuccess: async ({ classroom }) => {
-      const tenantID = session.currentUser?.active_tenant?.id;
-      if (!tenantID) {
+      const targetTenantID = tenantIDAtMutation.current;
+      if (!targetTenantID) {
         return;
       }
+      await queryClient.cancelQueries({
+        queryKey: classQueryKeys.lists(targetTenantID),
+      });
       queryClient.setQueryData(
-        classQueryKeys.detail(tenantID, classroom.id),
+        classQueryKeys.detail(targetTenantID, classroom.id),
         classroom,
       );
       await queryClient.invalidateQueries({
-        queryKey: classQueryKeys.lists(tenantID),
+        queryKey: classQueryKeys.lists(targetTenantID),
+        refetchType: "all",
       });
+    },
+    onSettled: async () => {
+      try {
+        await invalidateTenantAudit(queryClient, tenantIDAtMutation.current);
+      } finally {
+        tenantIDAtMutation.current = undefined;
+      }
     },
     retry: false,
   });
@@ -226,10 +276,15 @@ export function useLeaveClass() {
         queryKey: classEnrollmentQueryKeys.inviteCodes(tenantID, classID),
         exact: true,
       });
+      queryClient.removeQueries({
+        queryKey: classEnrollmentQueryKeys.rosters(tenantID, classID),
+      });
       await queryClient.invalidateQueries({
         queryKey: classQueryKeys.lists(tenantID),
       });
     },
+    onSettled: (_, __, { tenantID }) =>
+      invalidateTenantAudit(queryClient, tenantID),
     retry: false,
   });
 }

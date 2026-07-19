@@ -31,6 +31,7 @@ import {
 } from "../app/classEnrollments";
 import { useI18n, type TranslationKey } from "../app/i18n";
 import { useSession } from "../app/session";
+import { shouldConcealTenantScopedData } from "../app/tenantDataAccess";
 
 function isForbidden(error: Error | null) {
   return error instanceof APIRequestError && error.status === 403;
@@ -85,6 +86,9 @@ export function ClassEnrollmentPanel({
   const tenantID = session.currentUser?.active_tenant?.id;
   const canManage = classroom.viewer_access.can_manage_enrollments;
   const inviteCodes = useClassInviteCodes(tenantID, classroom.id, canManage);
+  const inviteCodeDataConcealed = shouldConcealTenantScopedData(
+    inviteCodes.error,
+  );
   const revokeInviteCode = useRevokeClassInviteCode();
   const [revokeTarget, setRevokeTarget] = useState<ClassInviteCode | null>(
     null,
@@ -133,29 +137,35 @@ export function ClassEnrollmentPanel({
           <h2 id="class-enrollment-title">{t("classEnrollment.title")}</h2>
           <p>{t("classEnrollment.description")}</p>
         </div>
-        <CreateInviteCodeDialog classroom={classroom} tenantID={tenantID} />
+        {!inviteCodeDataConcealed && (
+          <CreateInviteCodeDialog classroom={classroom} tenantID={tenantID} />
+        )}
       </div>
 
-      {classroom.status !== "active" && (
+      {!inviteCodeDataConcealed && classroom.status !== "active" && (
         <p className="class-enrollments__notice">
           {t("classEnrollment.inactiveDescription")}
         </p>
       )}
 
-      <DirectEnrollmentForm
-        classroom={classroom}
-        onFeedback={setFeedback}
-        tenantID={tenantID}
-      />
+      {!inviteCodeDataConcealed && (
+        <DirectEnrollmentForm
+          classroom={classroom}
+          onFeedback={setFeedback}
+          tenantID={tenantID}
+        />
+      )}
 
-      <div className="class-enrollments__subheading">
-        <div>
-          <h3>{t("classEnrollment.inviteTitle")}</h3>
-          <p>{t("classEnrollment.inviteDescription")}</p>
+      {!inviteCodeDataConcealed && (
+        <div className="class-enrollments__subheading">
+          <div>
+            <h3>{t("classEnrollment.inviteTitle")}</h3>
+            <p>{t("classEnrollment.inviteDescription")}</p>
+          </div>
         </div>
-      </div>
+      )}
 
-      {feedback && (
+      {!inviteCodeDataConcealed && feedback && (
         <p className="class-enrollments__success" role="status">
           {feedback}
         </p>
@@ -191,91 +201,100 @@ export function ClassEnrollmentPanel({
           />
         ))}
 
-      {inviteCodes.isSuccess && inviteCodes.data.items.length === 0 && (
-        <EmptyState
-          description={t("classEnrollment.listEmptyDescription")}
-          title={t("classEnrollment.listEmptyTitle")}
-        />
-      )}
+      {!inviteCodeDataConcealed &&
+        inviteCodes.isSuccess &&
+        inviteCodes.data.items.length === 0 && (
+          <EmptyState
+            description={t("classEnrollment.listEmptyDescription")}
+            title={t("classEnrollment.listEmptyTitle")}
+          />
+        )}
 
-      {inviteCodes.data && inviteCodes.data.items.length > 0 && (
-        <ul className="class-enrollments__list">
-          {inviteCodes.data.items.map((code) => (
-            <li key={code.id}>
-              <div>
-                <StatusBadge tone={inviteStatusTone(code.status)}>
-                  {t(inviteStatusKey(code.status))}
-                </StatusBadge>
+      {!inviteCodeDataConcealed &&
+        inviteCodes.data &&
+        inviteCodes.data.items.length > 0 && (
+          <ul className="class-enrollments__list">
+            {inviteCodes.data.items.map((code) => (
+              <li key={code.id}>
+                <div>
+                  <StatusBadge tone={inviteStatusTone(code.status)}>
+                    {t(inviteStatusKey(code.status))}
+                  </StatusBadge>
+                  <span>
+                    {t("classEnrollment.usageCount", {
+                      used: code.usage_count,
+                      limit: code.usage_limit,
+                    })}
+                  </span>
+                </div>
                 <span>
-                  {t("classEnrollment.usageCount", {
-                    used: code.usage_count,
-                    limit: code.usage_limit,
-                  })}
+                  {t("classEnrollment.expiresLabel")}{" "}
+                  <time dateTime={code.expires_at}>
+                    {dateFormatter.format(new Date(code.expires_at))}
+                  </time>
                 </span>
-              </div>
-              <span>
-                {t("classEnrollment.expiresLabel")}{" "}
-                <time dateTime={code.expires_at}>
-                  {dateFormatter.format(new Date(code.expires_at))}
-                </time>
-              </span>
-              {code.status === "active" && (
-                <Button
-                  aria-label={t("classEnrollment.revokeCodeAction", {
-                    expires: dateFormatter.format(new Date(code.expires_at)),
-                  })}
-                  leadingIcon={<XCircle />}
-                  onClick={() => {
-                    revokeInviteCode.reset();
-                    setRevokeTarget(code);
-                  }}
-                  size="sm"
-                  variant="danger"
-                >
-                  {t("classEnrollment.revokeAction")}
-                </Button>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
+                {code.status === "active" && (
+                  <Button
+                    aria-label={t("classEnrollment.revokeCodeAction", {
+                      expires: dateFormatter.format(new Date(code.expires_at)),
+                    })}
+                    leadingIcon={<XCircle />}
+                    onClick={() => {
+                      revokeInviteCode.reset();
+                      setRevokeTarget(code);
+                    }}
+                    size="sm"
+                    variant="danger"
+                  >
+                    {t("classEnrollment.revokeAction")}
+                  </Button>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
 
-      <Dialog
-        onOpenChange={(open) => {
-          if (!open && !revokeInviteCode.isPending) {
-            setRevokeTarget(null);
-            revokeInviteCode.reset();
-          }
-        }}
-        open={Boolean(revokeTarget)}
-      >
-        <DialogContent closeLabel={t("classEnrollment.closeDialog")}>
-          <DialogTitle>{t("classEnrollment.revokeConfirmTitle")}</DialogTitle>
-          <DialogDescription>
-            {t("classEnrollment.revokeConfirmDescription")}
-          </DialogDescription>
-          {revokeInviteCode.isError && (
-            <p className="class-enrollments__error" role="alert">
-              {t(mutationErrorKey(revokeInviteCode.error))}
-            </p>
-          )}
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button disabled={revokeInviteCode.isPending} variant="secondary">
-                {t("classEnrollment.cancelAction")}
+      {!inviteCodeDataConcealed && (
+        <Dialog
+          onOpenChange={(open) => {
+            if (!open && !revokeInviteCode.isPending) {
+              setRevokeTarget(null);
+              revokeInviteCode.reset();
+            }
+          }}
+          open={Boolean(revokeTarget)}
+        >
+          <DialogContent closeLabel={t("classEnrollment.closeDialog")}>
+            <DialogTitle>{t("classEnrollment.revokeConfirmTitle")}</DialogTitle>
+            <DialogDescription>
+              {t("classEnrollment.revokeConfirmDescription")}
+            </DialogDescription>
+            {revokeInviteCode.isError && (
+              <p className="class-enrollments__error" role="alert">
+                {t(mutationErrorKey(revokeInviteCode.error))}
+              </p>
+            )}
+            <DialogFooter>
+              <DialogClose asChild>
+                <Button
+                  disabled={revokeInviteCode.isPending}
+                  variant="secondary"
+                >
+                  {t("classEnrollment.cancelAction")}
+                </Button>
+              </DialogClose>
+              <Button
+                loading={revokeInviteCode.isPending}
+                loadingLabel={t("classEnrollment.revoking")}
+                onClick={revoke}
+                variant="danger"
+              >
+                {t("classEnrollment.revokeConfirm")}
               </Button>
-            </DialogClose>
-            <Button
-              loading={revokeInviteCode.isPending}
-              loadingLabel={t("classEnrollment.revoking")}
-              onClick={revoke}
-              variant="danger"
-            >
-              {t("classEnrollment.revokeConfirm")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </section>
   );
 }

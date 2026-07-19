@@ -22,6 +22,9 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.Address() != ":8080" {
 		t.Fatalf("expected :8080 address, got %q", cfg.Address())
 	}
+	if cfg.ListenHost != "" {
+		t.Fatalf("expected empty default listen host, got %q", cfg.ListenHost)
+	}
 	if cfg.WebOrigin != defaultWebOrigin {
 		t.Fatalf("expected default web origin, got %q", cfg.WebOrigin)
 	}
@@ -62,12 +65,50 @@ func TestLoadDefaults(t *testing.T) {
 	}
 }
 
+func TestLoadLoopbackListenHost(t *testing.T) {
+	t.Parallel()
+
+	cfg, err := load(mapLookup(map[string]string{
+		"HTTP_LISTEN_HOST": " 127.0.0.1 ",
+	}))
+	if err != nil {
+		t.Fatalf("load loopback listen host: %v", err)
+	}
+
+	if cfg.ListenHost != "127.0.0.1" || cfg.Address() != "127.0.0.1:8080" {
+		t.Fatalf("expected loopback address, got %q", cfg.Address())
+	}
+}
+
+func TestLoadRejectsInvalidListenHost(t *testing.T) {
+	t.Parallel()
+
+	for _, value := range []string{
+		"localhost",
+		"127.0.0.1:8080",
+		"http://127.0.0.1",
+	} {
+		value := value
+		t.Run(value, func(t *testing.T) {
+			t.Parallel()
+
+			_, err := load(mapLookup(map[string]string{
+				"HTTP_LISTEN_HOST": value,
+			}))
+			if err == nil || !strings.Contains(err.Error(), "HTTP_LISTEN_HOST") {
+				t.Fatalf("expected listen host validation error, got %v", err)
+			}
+		})
+	}
+}
+
 func TestLoadCustomValues(t *testing.T) {
 	t.Parallel()
 
 	cfg, err := load(mapLookup(map[string]string{
 		"APP_ENV":                   " staging ",
 		"PORT":                      "9090",
+		"HTTP_LISTEN_HOST":          " 127.0.0.1 ",
 		"PUBLIC_WEB_ORIGIN":         "https://staging.tutorhub.example",
 		"PUBLIC_API_ORIGIN":         "https://api.staging.tutorhub.example",
 		"LOG_LEVEL":                 "DEBUG",
@@ -105,6 +146,9 @@ func TestLoadCustomValues(t *testing.T) {
 
 	if cfg.Environment != "staging" || cfg.Port != "9090" || cfg.LogLevel != "debug" {
 		t.Fatalf("unexpected custom configuration: %+v", cfg)
+	}
+	if cfg.ListenHost != "127.0.0.1" || cfg.Address() != "127.0.0.1:9090" {
+		t.Fatalf("unexpected custom listen address: %q", cfg.Address())
 	}
 	if cfg.ReadTimeout != 20*time.Second ||
 		cfg.ShutdownTimeout != 25*time.Second ||
@@ -147,6 +191,7 @@ func TestLoadRejectsInvalidValues(t *testing.T) {
 	_, err := load(mapLookup(map[string]string{
 		"APP_ENV":                  "unknown",
 		"PORT":                     "70000",
+		"HTTP_LISTEN_HOST":         "127.0.0.1:8080",
 		"PUBLIC_WEB_ORIGIN":        "ftp://example.com/path",
 		"LOG_LEVEL":                "verbose",
 		"HTTP_READ_TIMEOUT":        "0s",
@@ -163,6 +208,7 @@ func TestLoadRejectsInvalidValues(t *testing.T) {
 	for _, expected := range []string{
 		"APP_ENV",
 		"PORT",
+		"HTTP_LISTEN_HOST",
 		"PUBLIC_WEB_ORIGIN",
 		"LOG_LEVEL",
 		"HTTP_READ_TIMEOUT",

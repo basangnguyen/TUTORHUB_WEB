@@ -25,8 +25,10 @@ import {
 import { useLeaveClass } from "../app/classEnrollments";
 import { useI18n, type TranslationKey } from "../app/i18n";
 import { useSession } from "../app/session";
+import { shouldConcealTenantScopedData } from "../app/tenantDataAccess";
 import { useTenantDetail } from "../app/workspaces";
 import { ClassEnrollmentPanel } from "../components/ClassEnrollmentPanel";
+import { ClassJoinDialog } from "../components/ClassJoinDialog";
 import { ClassManagementPanel } from "../components/ClassManagementPanel";
 import { ClassRosterPanel } from "../components/ClassRosterPanel";
 
@@ -54,6 +56,10 @@ export function ClassroomListPage() {
   const [statusFilter, setStatusFilter] = useState<ClassStatusFilter>("all");
   const classesQuery = useClassList(activeTenant?.id, statusFilter);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [joinedClass, setJoinedClass] = useState<{
+    classroom: ClassroomClass;
+    tenantID: string;
+  } | null>(null);
   const classrooms = useMemo(() => {
     const byID = new Map<string, ClassroomClass>();
     for (const page of classesQuery.data?.pages ?? []) {
@@ -65,6 +71,7 @@ export function ClassroomListPage() {
     }
     return [...byID.values()];
   }, [classesQuery.data?.pages]);
+  const classesConcealed = shouldConcealTenantScopedData(classesQuery.error);
 
   return (
     <div className="page-content classroom-page">
@@ -74,22 +81,50 @@ export function ClassroomListPage() {
           <h1>{t("classroom.title")}</h1>
           <span>{t("classroom.description")}</span>
         </div>
-        {canCreate && (
-          <Button
-            aria-expanded={isCreateOpen}
-            aria-haspopup="dialog"
-            className="classroom-primary-action"
-            leadingIcon={<Plus />}
-            onClick={() => setIsCreateOpen(true)}
-          >
-            {t("classroom.createAction")}
-          </Button>
+        {!classesConcealed && (
+          <div className="classroom-heading__actions">
+            {activeTenant && (
+              <ClassJoinDialog
+                onJoined={(classroom, tenantID) => {
+                  setStatusFilter("all");
+                  setJoinedClass({ classroom, tenantID });
+                }}
+                tenantID={activeTenant.id}
+              />
+            )}
+            {canCreate && (
+              <Button
+                aria-expanded={isCreateOpen}
+                aria-haspopup="dialog"
+                className="classroom-primary-action"
+                leadingIcon={<Plus />}
+                onClick={() => setIsCreateOpen(true)}
+              >
+                {t("classroom.createAction")}
+              </Button>
+            )}
+          </div>
         )}
       </header>
 
-      {canCreate && (
+      {!classesConcealed && canCreate && (
         <CreateClassDialog onOpenChange={setIsCreateOpen} open={isCreateOpen} />
       )}
+
+      {!classesConcealed &&
+        joinedClass &&
+        joinedClass.tenantID === activeTenant?.id && (
+          <p className="classroom-join-feedback" role="status">
+            <span>
+              {t("classInvitation.joinedSuccess", {
+                title: joinedClass.classroom.title,
+              })}
+            </span>
+            <Link to={`/app/classrooms/${joinedClass.classroom.id}`}>
+              {t("classInvitation.openJoinedClass")}
+            </Link>
+          </p>
+        )}
 
       <section aria-labelledby="class-list-heading" className="classroom-index">
         <div className="classroom-index__heading">
@@ -97,7 +132,7 @@ export function ClassroomListPage() {
             <h2 id="class-list-heading">{t("classroom.listTitle")}</h2>
             <p>{t("classroom.listDescription")}</p>
           </div>
-          {classesQuery.data && (
+          {!classesConcealed && classesQuery.data && (
             <span>
               {t("classroom.classCount", {
                 count: classrooms.length,
@@ -106,38 +141,41 @@ export function ClassroomListPage() {
           )}
         </div>
 
-        <div className="classroom-list-controls">
-          <SelectField
-            ariaLabel={t("classroom.statusFilterLabel")}
-            label={t("classroom.statusFilterLabel")}
-            onValueChange={(value) =>
-              setStatusFilter(value as ClassStatusFilter)
-            }
-            options={[
-              { label: t("classroom.statusFilterAll"), value: "all" },
-              { label: t("classroom.statusDraft"), value: "draft" },
-              { label: t("classroom.statusActive"), value: "active" },
-              { label: t("classroom.statusArchived"), value: "archived" },
-            ]}
-            value={statusFilter}
-          />
-        </div>
+        {!classesConcealed && (
+          <div className="classroom-list-controls">
+            <SelectField
+              ariaLabel={t("classroom.statusFilterLabel")}
+              label={t("classroom.statusFilterLabel")}
+              onValueChange={(value) =>
+                setStatusFilter(value as ClassStatusFilter)
+              }
+              options={[
+                { label: t("classroom.statusFilterAll"), value: "all" },
+                { label: t("classroom.statusDraft"), value: "draft" },
+                { label: t("classroom.statusActive"), value: "active" },
+                { label: t("classroom.statusArchived"), value: "archived" },
+              ]}
+              value={statusFilter}
+            />
+          </div>
+        )}
 
         {classesQuery.isPending && <ClassListSkeleton />}
-        {classesQuery.isError && classrooms.length === 0 && (
-          <ClassroomQueryError
-            error={classesQuery.error}
-            onRetry={() => void classesQuery.refetch()}
-          />
-        )}
-        {classesQuery.data && classrooms.length === 0 && (
+        {classesQuery.isError &&
+          (classesConcealed || classrooms.length === 0) && (
+            <ClassroomQueryError
+              error={classesQuery.error}
+              onRetry={() => void classesQuery.refetch()}
+            />
+          )}
+        {!classesConcealed && classesQuery.data && classrooms.length === 0 && (
           <ClassroomEmptyState
             canCreate={canCreate}
             filtered={statusFilter !== "all"}
             onCreate={() => setIsCreateOpen(true)}
           />
         )}
-        {classesQuery.data && classrooms.length > 0 && (
+        {!classesConcealed && classesQuery.data && classrooms.length > 0 && (
           <>
             <ClassList classes={classrooms} />
             {classesQuery.isFetchNextPageError && (

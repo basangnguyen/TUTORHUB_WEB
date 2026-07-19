@@ -2,8 +2,8 @@ import { useQuery } from "@tanstack/react-query";
 import { getHealth } from "@tutorhub/api-client";
 import { StatusBadge } from "@tutorhub/ui";
 import { Link } from "react-router-dom";
-import { navigationItems } from "../app/routes";
-import { useI18n, type TranslationKey } from "../app/i18n";
+import { getVisibleNavigationItems } from "../app/routes";
+import { useI18n } from "../app/i18n";
 import { useSession } from "../app/session";
 
 function getApiBaseUrl() {
@@ -13,6 +13,9 @@ function getApiBaseUrl() {
 export function DashboardPage() {
   const { language, t } = useI18n();
   const session = useSession();
+  const visibleNavigationItems = getVisibleNavigationItems(
+    session.currentUser?.permissions ?? [],
+  );
   const activeTenant = session.currentUser?.active_tenant;
   const roleLabel =
     activeTenant?.role === "org_admin"
@@ -87,7 +90,7 @@ export function DashboardPage() {
           <p>{t("home.nextDescription")}</p>
         </div>
         <ul className="module-list">
-          {navigationItems
+          {visibleNavigationItems
             .filter((item) => item.to !== "/app/home")
             .map((item) => (
               <li key={item.to}>
@@ -125,21 +128,4 @@ function HealthStatus() {
   }
 
   return <StatusBadge tone="danger">{t("home.serviceError")}</StatusBadge>;
-}
-
-export function ModulePage({ moduleKey }: { moduleKey: TranslationKey }) {
-  const { t } = useI18n();
-
-  return (
-    <div className="page-content page-content--module">
-      <header className="page-heading">
-        <p>{t("page.comingSoon")}</p>
-        <h1>{t(moduleKey)}</h1>
-      </header>
-      <section className="module-placeholder">
-        <p>{t("page.moduleDescription")}</p>
-        <Link to="/app/home">{t("page.backToHome")}</Link>
-      </section>
-    </div>
-  );
 }

@@ -22,7 +22,10 @@ invitation, accept và revoke; P2-04 Class lifecycle, ownership và archive; P2-
 Enrollment và class invite code; P2-06 Roster và class-level roles; P2-07 Audit log
 cho hành động nhạy cảm.
 
-**Task kế tiếp:** P2-08 Admin và teacher UI end-to-end.
+**Task đang xác minh:** P2-08 Admin và teacher UI end-to-end. Implementation đã
+có; còn Browser E2E local/staging acceptance.
+
+**Task sau khi P2-08 đạt DoD:** P2-09 Feature flag và quota framework.
 
 ## 2. Non-goal
 
@@ -58,7 +61,7 @@ cho hành động nhạy cảm.
 | P2-05 | Enrollment và class invite code         | P2-03, P2-04               | DONE       |
 | P2-06 | Roster và class-level roles             | P2-05                      | DONE       |
 | P2-07 | Audit log cho hành động nhạy cảm        | P2-02 đến P2-06            | DONE       |
-| P2-08 | Admin/teacher UI end-to-end             | P2-02 đến P2-07            | NEXT       |
+| P2-08 | Admin/teacher UI end-to-end             | P2-02 đến P2-07            | VERIFY     |
 | P2-09 | Feature flag và quota framework         | P2-00, P2-02               | TODO       |
 | P2-10 | Tenant isolation/IDOR security suite    | Xuyên suốt; chốt sau P2-09 | TODO       |
 | P2-11 | V1 fixture import idempotent            | Schema ổn định sau P2-06   | TODO       |
@@ -407,12 +410,12 @@ xanh; runtime PostgreSQL chưa chạy local vì không nạp DB test env.
 
 ### Luồng bắt buộc
 
-- [ ] Org admin tạo/chỉnh workspace và mời/revoke thành viên.
-- [ ] Người dùng preview/accept invitation và chuyển workspace.
-- [ ] Teacher tạo/chỉnh/archive lớp và tạo/revoke invite code.
-- [ ] Student join class bằng code và thấy class trong danh sách.
-- [ ] Teacher xem roster, đổi role hợp lệ và remove/suspend thành viên.
-- [ ] Org admin xem audit cơ bản.
+- [x] Org admin tạo/chỉnh workspace và mời/revoke thành viên.
+- [x] Người dùng preview/accept invitation và chuyển workspace.
+- [x] Teacher tạo/chỉnh/archive lớp và tạo/revoke invite code.
+- [x] Student join class bằng code và thấy class trong danh sách.
+- [x] Teacher xem roster, đổi role hợp lệ và remove/suspend thành viên.
+- [x] Org admin xem audit cơ bản.
 
 ### Chất lượng UI
 
@@ -423,9 +426,27 @@ xanh; runtime PostgreSQL chưa chạy local vì không nạp DB test env.
 
 ### Definition of Done
 
-- E2E chính chạy được bằng teacher/student fixtures local và staging.
-- Không cần dùng SQL/manual API để hoàn thành deliverable Phase 2.
-- Visual QA ở viewport laptop nhỏ, desktop và mobile đạt.
+- [ ] E2E chính chạy được bằng teacher/student fixtures local và staging.
+- [x] Không cần dùng SQL/manual API để hoàn thành deliverable Phase 2.
+- [x] Visual QA ở viewport laptop nhỏ, desktop và mobile đạt.
+
+**Implementation checkpoint 2026-07-20:** navigation đã thu gọn theo capability;
+org admin có luồng tạo/chỉnh workspace, invitation và audit; invitation accept
+chuyển được đúng workspace; teacher/student có class join, lifecycle, invite và
+roster role/suspend/remove xuyên suốt. Cache tenant/class được cancel, che hoặc
+invalidate theo quyền để không flash dữ liệu cũ.
+
+Playwright có một scenario ba browser context admin/teacher/student, fake OIDC
+loopback dùng Authorization Code + PKCE và job CI PostgreSQL 17 + Chromium. Guard
+database chỉ chấp nhận database `tutorhub_e2e` trên loopback với query duy nhất
+`sslmode=disable`; process tree được dừng có chờ trên Windows và Unix. Full
+`pnpm verify` xanh: web 130/130, API client 15/15, UI 6/6, E2E infrastructure 7/7,
+lint/typecheck/build/Storybook, Go test/vet và security checks. Integration-tag
+compile xanh; Playwright discovery thấy đúng một scenario. Visual QA thủ công đạt
+ở 1440x900, 1024x768 và 390x844. Full browser scenario chưa chạy local vì máy hiện
+không có Docker/PostgreSQL; job Browser E2E trên CI sẽ xác nhận runtime sau push,
+và chưa ghi nhận đây là staging acceptance. Vì gate đầu tiên của DoD còn mở, P2-08
+giữ trạng thái `VERIFY`, chưa phải `DONE`.
 
 ## 14. P2-09 Feature flag và quota framework
 
@@ -525,8 +546,8 @@ xanh; runtime PostgreSQL chưa chạy local vì không nạp DB test env.
 
 ## 19. Việc cần làm ngay
 
-1. Theo dõi PostgreSQL integration/clean-migration gate của migration `000011` trên CI.
-2. Bắt đầu P2-08 bằng cách rà các luồng org admin/teacher/student xuyên suốt UI hiện có.
-3. Chuẩn hóa navigation, capability guard, optimistic/refetch behavior và E2E fixtures.
+1. Chạy Browser E2E PostgreSQL 17 trên CI và local/staging acceptance của P2-08.
+2. Chỉ chuyển P2-08 sang `DONE` sau khi gate trên xanh hoặc có waiver được ghi rõ.
+3. Sau đó bắt đầu P2-09 bằng typed feature catalog và quota server-authoritative.
 4. Giữ audit append-only, tenant-scoped và không log token, session ID hoặc PII thừa.
 5. Giữ notification invitation ở interface/outbox; chưa gửi email thật trong Phase 2.

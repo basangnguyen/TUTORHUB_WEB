@@ -33,17 +33,17 @@ import {
   useUpdateClassRosterRole,
   type RosterStatusFilter,
 } from "../app/classRoster";
+import {
+  intersectRosterBulkChoices,
+  type RosterBulkChoice,
+} from "../app/classRosterCapabilities";
 import { useI18n, type TranslationKey } from "../app/i18n";
 import { useSession } from "../app/session";
+import { shouldConcealTenantScopedData } from "../app/tenantDataAccess";
 
 const maximumBulkSelection = 50;
 
-type BulkChoice =
-  | "suspend"
-  | "remove"
-  | "role:co_teacher"
-  | "role:teaching_assistant"
-  | "role:student";
+type BulkChoice = RosterBulkChoice;
 
 interface PendingRosterOperation {
   action: ClassRosterBulkAction;
@@ -109,6 +109,21 @@ function mutationErrorKey(error: Error | null): TranslationKey {
   return "classRoster.mutationError";
 }
 
+function bulkChoiceLabelKey(choice: BulkChoice): TranslationKey {
+  switch (choice) {
+    case "suspend":
+      return "classRoster.suspendAction";
+    case "remove":
+      return "classRoster.removeAction";
+    case "role:co_teacher":
+      return "classRoster.assignCoTeacher";
+    case "role:teaching_assistant":
+      return "classRoster.assignTeachingAssistant";
+    default:
+      return "classRoster.assignStudent";
+  }
+}
+
 function bulkChoiceOperation(choice: BulkChoice, userIDs: string[]) {
   if (choice !== "suspend" && choice !== "remove") {
     return {
@@ -145,6 +160,7 @@ export function ClassRosterPanel({ classroom }: { classroom: ClassroomClass }) {
   );
   const updateRole = useUpdateClassRosterRole(tenantID, classroom.id);
   const bulkMutate = useBulkMutateClassRoster(tenantID, classroom.id);
+  const rosterDataConcealed = shouldConcealTenantScopedData(roster.error);
 
   const members = useMemo(() => {
     const byUserID = new Map<string, ClassRosterMember>();
@@ -158,11 +174,60 @@ export function ClassRosterPanel({ classroom }: { classroom: ClassroomClass }) {
     return [...byUserID.values()];
   }, [roster.data?.pages]);
   const classOwner = roster.data?.pages[0]?.class_owner;
+  const selectedMembers = useMemo(
+    () => members.filter((member) => selected.has(member.user.id)),
+    [members, selected],
+  );
+  const availableBulkChoices = useMemo(
+    () => intersectRosterBulkChoices(selectedMembers),
+    [selectedMembers],
+  );
+  const selectedBulkChoice = availableBulkChoices.includes(bulkChoice)
+    ? bulkChoice
+    : availableBulkChoices[0];
   const mutation = pending?.isSingleRoleUpdate ? updateRole : bulkMutate;
   const mutationPending = updateRole.isPending || bulkMutate.isPending;
 
   if (!canManage || !tenantID) {
     return null;
+  }
+
+  if (rosterDataConcealed) {
+    return (
+      <section
+        aria-labelledby="class-roster-title"
+        className="classroom-detail__section class-roster"
+      >
+        <div className="class-roster__heading">
+          <div>
+            <h2 id="class-roster-title">{t("classRoster.title")}</h2>
+            <p>{t("classRoster.description")}</p>
+          </div>
+        </div>
+        {roster.error instanceof APIRequestError &&
+        roster.error.status === 403 ? (
+          <ForbiddenState
+            description={t("classRoster.forbiddenDescription")}
+            title={t("classRoster.forbiddenTitle")}
+          />
+        ) : (
+          <ErrorState
+            actions={
+              <Button
+                leadingIcon={<RefreshCw />}
+                onClick={() => void roster.refetch()}
+                size="sm"
+                variant="secondary"
+              >
+                {t("state.retry")}
+              </Button>
+            }
+            description={t("classRoster.errorDescription")}
+            title={t("classRoster.errorTitle")}
+          />
+        )}
+      </section>
+    );
   }
 
   const submitSearch = (event: FormEvent<HTMLFormElement>) => {
@@ -174,7 +239,10 @@ export function ClassRosterPanel({ classroom }: { classroom: ClassroomClass }) {
   const toggleSelected = (userID: string, checked: boolean) => {
     setFeedback(null);
     setSelected((current) => {
-      const next = new Set(current);
+      const visibleUserIDs = new Set(members.map((member) => member.user.id));
+      const next = new Set(
+        [...current].filter((currentID) => visibleUserIDs.has(currentID)),
+      );
       if (checked) {
         if (next.size >= maximumBulkSelection) {
           return current;
@@ -222,13 +290,22 @@ export function ClassRosterPanel({ classroom }: { classroom: ClassroomClass }) {
   };
 
   const openBulk = () => {
-    if (selected.size === 0) {
+    if (
+      selectedMembers.length === 0 ||
+      !selectedBulkChoice ||
+      classroom.status !== "active"
+    ) {
       return;
     }
     updateRole.reset();
     bulkMutate.reset();
     setFeedback(null);
-    setPending(bulkChoiceOperation(bulkChoice, [...selected]));
+    setPending(
+      bulkChoiceOperation(
+        selectedBulkChoice,
+        selectedMembers.map((member) => member.user.id),
+      ),
+    );
   };
 
   const finishBulk = (result: ClassRosterBulkResponse) => {
@@ -246,7 +323,7 @@ export function ClassRosterPanel({ classroom }: { classroom: ClassroomClass }) {
   };
 
   const confirmPending = () => {
-    if (!pending) {
+    if (!pending || classroom.status !== "active") {
       return;
     }
     if (pending.isSingleRoleUpdate && pending.classRole) {
@@ -362,29 +439,22 @@ export function ClassRosterPanel({ classroom }: { classroom: ClassroomClass }) {
         </SkeletonGroup>
       )}
 
-      {roster.isError &&
-        (roster.error instanceof APIRequestError &&
-        roster.error.status === 403 ? (
-          <ForbiddenState
-            description={t("classRoster.forbiddenDescription")}
-            title={t("classRoster.forbiddenTitle")}
-          />
-        ) : (
-          <ErrorState
-            actions={
-              <Button
-                leadingIcon={<RefreshCw />}
-                onClick={() => void roster.refetch()}
-                size="sm"
-                variant="secondary"
-              >
-                {t("state.retry")}
-              </Button>
-            }
-            description={t("classRoster.errorDescription")}
-            title={t("classRoster.errorTitle")}
-          />
-        ))}
+      {roster.isError && (
+        <ErrorState
+          actions={
+            <Button
+              leadingIcon={<RefreshCw />}
+              onClick={() => void roster.refetch()}
+              size="sm"
+              variant="secondary"
+            >
+              {t("state.retry")}
+            </Button>
+          }
+          description={t("classRoster.errorDescription")}
+          title={t("classRoster.errorTitle")}
+        />
+      )}
 
       {roster.data && classOwner && (
         <div className="class-roster__owner">
@@ -417,40 +487,40 @@ export function ClassRosterPanel({ classroom }: { classroom: ClassroomClass }) {
             aria-label={t("classRoster.bulkTitle")}
           >
             <span aria-live="polite">
-              {t("classRoster.selectedCount", { count: selected.size })}
+              {t("classRoster.selectedCount", {
+                count: selectedMembers.length,
+              })}
             </span>
-            <Select
-              ariaLabel={t("classRoster.bulkActionLabel")}
-              disabled={classroom.status !== "active"}
-              onValueChange={(value) => setBulkChoice(value as BulkChoice)}
-              options={[
-                { label: t("classRoster.suspendAction"), value: "suspend" },
-                { label: t("classRoster.removeAction"), value: "remove" },
-                {
-                  label: t("classRoster.assignCoTeacher"),
-                  value: "role:co_teacher",
-                },
-                {
-                  label: t("classRoster.assignTeachingAssistant"),
-                  value: "role:teaching_assistant",
-                },
-                {
-                  label: t("classRoster.assignStudent"),
-                  value: "role:student",
-                },
-              ]}
-              value={bulkChoice}
-            />
+            {selectedBulkChoice ? (
+              <Select
+                ariaLabel={t("classRoster.bulkActionLabel")}
+                disabled={
+                  classroom.status !== "active" || selectedMembers.length === 0
+                }
+                onValueChange={(value) => setBulkChoice(value as BulkChoice)}
+                options={availableBulkChoices.map((choice) => ({
+                  label: t(bulkChoiceLabelKey(choice)),
+                  value: choice,
+                }))}
+                value={selectedBulkChoice}
+              />
+            ) : (
+              <span role="status">{t("classRoster.noActions")}</span>
+            )}
             <Button
-              disabled={selected.size === 0 || classroom.status !== "active"}
+              disabled={
+                selectedMembers.length === 0 ||
+                classroom.status !== "active" ||
+                !selectedBulkChoice
+              }
               onClick={openBulk}
               size="sm"
-              variant={bulkChoice === "remove" ? "danger" : "secondary"}
+              variant={selectedBulkChoice === "remove" ? "danger" : "secondary"}
             >
               {t("classRoster.applyBulk")}
             </Button>
           </div>
-          {selected.size >= maximumBulkSelection && (
+          {selectedMembers.length >= maximumBulkSelection && (
             <p className="class-roster__selection-limit" role="status">
               {t("classRoster.selectionLimit")}
             </p>
@@ -534,6 +604,7 @@ export function ClassRosterPanel({ classroom }: { classroom: ClassroomClass }) {
                         <div className="class-roster__row-actions">
                           {member.actions.can_suspend && (
                             <Button
+                              disabled={classroom.status !== "active"}
                               onClick={() =>
                                 openSingleStatus(member, "suspend")
                               }
@@ -545,6 +616,7 @@ export function ClassRosterPanel({ classroom }: { classroom: ClassroomClass }) {
                           )}
                           {member.actions.can_remove && (
                             <Button
+                              disabled={classroom.status !== "active"}
                               onClick={() => openSingleStatus(member, "remove")}
                               size="sm"
                               variant="danger"
@@ -630,6 +702,7 @@ export function ClassRosterPanel({ classroom }: { classroom: ClassroomClass }) {
               </Button>
             </DialogClose>
             <Button
+              disabled={classroom.status !== "active"}
               loading={mutationPending}
               loadingLabel={t("classRoster.applying")}
               onClick={confirmPending}

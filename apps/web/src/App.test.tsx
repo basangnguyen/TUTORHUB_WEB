@@ -6,11 +6,12 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider, useI18n } from "./app/i18n";
-import { createAppRoutes } from "./app/routes";
+import { createAppRoutes, getVisibleNavigationItems } from "./app/routes";
 import { SessionProvider } from "./app/session";
 import type { CurrentUser, Tenant } from "@tutorhub/api-client";
 
@@ -34,7 +35,7 @@ const testSession: CurrentUser = {
   },
   active_tenant: activeMembership,
   memberships: [activeMembership],
-  permissions: ["class.view"],
+  permissions: ["tenant.view", "class.view"],
 };
 
 function renderRoute(path: string, session: CurrentUser | null = testSession) {
@@ -72,6 +73,54 @@ describe("web shell", () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
+  });
+
+  it("keeps primary navigation focused on the four Phase 2 journeys", () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            status: "ok",
+            service: "tutorhub-core-api",
+            environment: "test",
+            timestamp: "2026-07-19T00:00:00Z",
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      ),
+    );
+
+    renderRoute("/app/home");
+
+    const navigation = screen.getByRole("navigation", {
+      name: "Điều hướng chính",
+    });
+    expect(within(navigation).getAllByRole("link")).toHaveLength(4);
+    expect(within(navigation).getByRole("link", { name: "Tổng quan" }));
+    expect(within(navigation).getByRole("link", { name: "Lớp học" }));
+    expect(within(navigation).getByRole("link", { name: "Workspace" }));
+    expect(within(navigation).getByRole("link", { name: "Thiết lập" }));
+    expect(within(navigation).queryByRole("link", { name: "Lịch" })).toBeNull();
+    expect(getVisibleNavigationItems([]).map((item) => item.to)).toEqual([
+      "/app/home",
+      "/app/classrooms",
+      "/app/settings",
+    ]);
+  });
+
+  it("blocks the audit route before rendering it when audit.view is absent", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderRoute("/app/workspace/audit");
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "Bạn chưa có quyền truy cập khu vực này",
+      }),
+    ).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("hiển thị trạng thái Core API từ TanStack Query", async () => {
@@ -338,7 +387,7 @@ describe("web shell", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    renderRoute("/app/calendar", {
+    renderRoute("/app/home", {
       ...testSession,
       memberships: [activeMembership, secondMembership],
     });

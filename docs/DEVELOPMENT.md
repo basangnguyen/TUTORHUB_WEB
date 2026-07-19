@@ -171,6 +171,25 @@ unit test, Storybook build, frontend bundle, Go test và Go vet. CI còn chạy
 `local:setup` hai lần trên container sạch và kiểm tra số lượng fixture để bảo đảm
 migration/seed idempotent.
 
+## Browser E2E
+
+Cài Chromium một lần rồi chạy scenario P2-08 qua ba browser context
+admin/teacher/student:
+
+```powershell
+corepack pnpm e2e:install
+corepack pnpm e2e
+```
+
+Lệnh tự dựng fake OIDC chỉ dành cho `APP_ENV=test`, Core API, Vite và database
+loopback tách biệt `tutorhub_e2e`; fixture nghiệp vụ được tạo hoàn toàn qua UI,
+không seed, SQL hoặc manual API. Máy local cần Docker/PostgreSQL và các cổng
+`5173`, `8080`, `9091` cùng `5432` còn trống.
+
+CI chạy cùng scenario trên PostgreSQL 17 + Chromium. Cấu hình staging, guard
+mutation và quy tắc bảo vệ storage state nằm tại
+[E2E_TESTING.md](E2E_TESTING.md).
+
 ## Quy tắc bảo mật
 
 - `.env.example` chỉ dùng credential giả cục bộ; không thay bằng secret thật.

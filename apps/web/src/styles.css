@@ -930,6 +930,14 @@ textarea:focus-visible {
   max-width: 700px;
 }
 
+.classroom-heading__actions {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
 .classroom-heading p {
   margin: 0 0 9px;
   color: var(--color-accent);
@@ -997,6 +1005,38 @@ textarea:focus-visible {
 
 .class-create-dialog {
   width: min(680px, calc(100vw - 32px));
+}
+
+.class-join-form {
+  display: grid;
+  gap: 18px;
+  padding-top: 18px;
+}
+
+.class-join-form__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 9px;
+}
+
+.classroom-join-feedback {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 0 0 20px;
+  padding: 13px 15px;
+  border-left: 3px solid var(--color-success);
+  border-radius: var(--radius-sm);
+  background: var(--color-success-soft);
+  color: var(--color-success);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.classroom-join-feedback a {
+  color: inherit;
+  font-weight: 700;
 }
 
 .class-create-panel__heading {
@@ -2555,9 +2595,25 @@ textarea:focus-visible {
 
   .classroom-heading,
   .classroom-index__heading,
+  .classroom-join-feedback,
   .classroom-error {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .classroom-heading__actions,
+  .classroom-heading__actions > button,
+  .classroom-join-feedback a {
+    width: 100%;
+  }
+
+  .class-join-form__actions {
+    align-items: stretch;
+    flex-direction: column-reverse;
+  }
+
+  .class-join-form__actions button {
+    width: 100%;
   }
 
   .classroom-list-controls {
@@ -2718,6 +2774,31 @@ textarea:focus-visible {
   }
 }
 
+@media (max-width: 480px) {
+  .app-topbar__context > strong {
+    display: none;
+  }
+
+  .workspace-select span,
+  .workspace-select select {
+    max-width: 90px;
+  }
+
+  .language-select select {
+    max-width: 86px;
+  }
+
+  .app-topbar__logout {
+    width: 38px;
+    padding: 0;
+    justify-content: center;
+  }
+
+  .app-topbar__logout > span:last-child {
+    display: none;
+  }
+}
+
 .workspace-management__header {
   display: flex;
   align-items: flex-end;
@@ -2727,6 +2808,25 @@ textarea:focus-visible {
 
 .workspace-management__header > div {
   max-width: 760px;
+}
+
+.workspace-management__header-actions {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.workspace-create-dialog__form {
+  display: grid;
+  gap: 18px;
+  padding-top: 18px;
+}
+
+.workspace-create-dialog__form > [role="alert"] {
+  margin: 0;
 }
 
 .workspace-management__layout {
@@ -2975,7 +3075,7 @@ textarea:focus-visible {
   font-weight: 650;
 }
 
-@media (max-width: 980px) {
+@media (max-width: 1180px) {
   .workspace-management__layout {
     grid-template-columns: 1fr;
   }
@@ -2991,6 +3091,16 @@ textarea:focus-visible {
   .workspace-management__feedback {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .workspace-management__header-actions {
+    width: 100%;
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .workspace-management__header-actions button {
+    width: 100%;
   }
 
   .workspace-management__facts,
@@ -3218,6 +3328,13 @@ textarea:focus-visible {
   line-height: 1.55;
 }
 
+.membership-invitation-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+}
+
 .membership-invitation-card__error {
   padding: 12px 14px;
   border-left: 3px solid var(--color-danger);
@@ -3269,6 +3386,15 @@ textarea:focus-visible {
   .membership-invitation-card__tenant {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .membership-invitation-card__actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .membership-invitation-card__actions > * {
+    width: 100%;
   }
 
   .membership-invitations__heading > button,

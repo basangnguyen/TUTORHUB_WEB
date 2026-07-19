@@ -6,6 +6,10 @@ dist/
 build/
 coverage/
 storybook-static/
+playwright-report/
+test-results/
+blob-report/
+e2e/.auth/
 *.tsbuildinfo
 bin/
 tmp/

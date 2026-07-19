@@ -9,6 +9,8 @@ import {
 import type { ClassroomClass, CurrentUser } from "@tutorhub/api-client";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { classEnrollmentQueryKeys } from "../app/classEnrollments";
+import { classQueryKeys } from "../app/classes";
 import { I18nProvider } from "../app/i18n";
 import { SessionProvider } from "../app/session";
 import { ClassroomDetailPage, ClassroomListPage } from "./ClassroomPages";
@@ -195,6 +197,55 @@ describe("ClassroomPages P2-04", () => {
       ).toBe(true);
     });
   });
+
+  it.each([401, 403, 404])(
+    "hides cached class data and actions after a refreshed %s",
+    async (status) => {
+      let reads = 0;
+      const fetchMock = vi.fn().mockImplementation((request: Request) => {
+        if (
+          new URL(request.url).pathname.endsWith("/api/v1/classes") &&
+          request.method === "GET"
+        ) {
+          reads += 1;
+          return Promise.resolve(
+            reads === 1
+              ? jsonResponse({ items: [classroom], next_cursor: null })
+              : jsonResponse(
+                  {
+                    type: "urn:tutorhub:problem:access-boundary",
+                    title: "Class list unavailable",
+                    status,
+                  },
+                  status,
+                ),
+          );
+        }
+        return Promise.reject(new Error(`Unexpected request: ${request.url}`));
+      });
+      const queryClient = renderClassRoute("/app/classrooms", fetchMock);
+
+      expect(await screen.findByText(classroom.title)).toBeInTheDocument();
+      await queryClient.refetchQueries({
+        exact: true,
+        queryKey: classQueryKeys.list(tenantID, "all"),
+      });
+
+      await waitFor(() =>
+        expect(screen.queryByText(classroom.title)).not.toBeInTheDocument(),
+      );
+      expect(screen.getByRole("alert")).toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: "Tạo lớp học" }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: "Tham gia bằng mã" }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("combobox", { name: "Lọc theo trạng thái" }),
+      ).not.toBeInTheDocument();
+    },
+  );
 
   it("uses the active workspace timezone when creating a draft class", async () => {
     const created = {
@@ -451,7 +502,19 @@ describe("ClassroomPages P2-04", () => {
       return Promise.reject(new Error(`Unexpected request: ${request.url}`));
     });
 
-    renderClassRoute(`/app/classrooms/${classID}`, fetchMock);
+    const queryClient = renderClassRoute(
+      `/app/classrooms/${classID}`,
+      fetchMock,
+    );
+    const inviteKey = classEnrollmentQueryKeys.inviteCodes(tenantID, classID);
+    const rosterKey = classEnrollmentQueryKeys.roster(
+      tenantID,
+      classID,
+      "",
+      "all",
+    );
+    queryClient.setQueryData(inviteKey, { items: [] });
+    queryClient.setQueryData(rosterKey, { pageParams: [], pages: [] });
 
     expect(
       await screen.findByRole("link", {
@@ -479,7 +542,11 @@ describe("ClassroomPages P2-04", () => {
     await expect(archiveRequest?.clone().json()).resolves.toEqual({
       expected_version: 3,
     });
+    expect(queryClient.getQueryState(inviteKey)?.isInvalidated).toBe(true);
+    expect(queryClient.getQueryState(rosterKey)?.isInvalidated).toBe(true);
 
+    queryClient.setQueryData(inviteKey, { items: [] });
+    queryClient.setQueryData(rosterKey, { pageParams: [], pages: [] });
     fireEvent.click(screen.getByRole("button", { name: "Khôi phục lớp" }));
     fireEvent.click(
       await screen.findByRole("button", { name: "Xác nhận khôi phục" }),
@@ -494,6 +561,8 @@ describe("ClassroomPages P2-04", () => {
     await expect(restoreRequest?.clone().json()).resolves.toEqual({
       expected_version: 4,
     });
+    expect(queryClient.getQueryState(inviteKey)?.isInvalidated).toBe(true);
+    expect(queryClient.getQueryState(rosterKey)?.isInvalidated).toBe(true);
   });
 
   it("does not expose archive or restore to a non-owner teacher", async () => {

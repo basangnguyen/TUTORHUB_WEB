@@ -124,6 +124,12 @@ const messages = {
     "workspace.creating": "Đang tạo workspace...",
     "workspace.createError":
       "Chưa thể tạo workspace. Hãy kiểm tra lại thông tin.",
+    "workspace.createAnotherAction": "Tạo workspace mới",
+    "workspace.createAnotherTitle": "Tạo thêm workspace",
+    "workspace.createAnotherDescription":
+      "Tạo một phạm vi tổ chức độc lập. Bạn sẽ trở thành quản trị viên và được chuyển sang workspace mới sau khi hoàn tất.",
+    "workspace.createAnotherSuccess": "Đã tạo và chuyển sang workspace mới.",
+    "workspace.createCloseLabel": "Đóng biểu mẫu tạo workspace",
     "workspace.selectTitle": "Chọn workspace để tiếp tục",
     "workspace.selectDescription":
       "Mọi lớp học và quyền thao tác sẽ được giới hạn trong workspace đang chọn.",
@@ -366,10 +372,14 @@ const messages = {
     "invitation.publicAcceptAction": "Chấp nhận lời mời",
     "invitation.publicAccepting": "Đang chấp nhận...",
     "invitation.publicRetryAccept": "Thử chấp nhận lại",
+    "invitation.publicSwitchAction": "Chuyển sang workspace này",
+    "invitation.publicUseAnotherAccount": "Dùng tài khoản khác",
     "invitation.publicMismatch":
       "Tài khoản đang đăng nhập không khớp với email của lời mời này.",
     "invitation.publicSessionExpired":
       "Phiên đăng nhập đã hết hạn. Hãy đăng nhập rồi mở lại liên kết lời mời.",
+    "invitation.publicAcceptedSessionExpired":
+      "Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại để chọn workspace vừa tham gia.",
     "invitation.publicAcceptError": "Chưa thể chấp nhận lời mời. Hãy thử lại.",
     "invitation.publicUnavailableTitle": "Lời mời không còn khả dụng",
     "invitation.publicUnavailableDescription":
@@ -398,6 +408,16 @@ const messages = {
     "classInvitation.joinAction": "Tham gia lớp",
     "classInvitation.joining": "Đang tham gia...",
     "classInvitation.retryJoin": "Thử tham gia lại",
+    "classInvitation.openDialog": "Tham gia bằng mã",
+    "classInvitation.closeDialog": "Đóng biểu mẫu tham gia lớp",
+    "classInvitation.tokenLabel": "Mã hoặc liên kết tham gia",
+    "classInvitation.tokenHint":
+      "Dán mã bắt đầu bằng thciv1_ hoặc liên kết TutorHub có mã trong phần #token. Mã chỉ được gửi trong nội dung yêu cầu và không được lưu trong trình duyệt.",
+    "classInvitation.tokenPlaceholder": "thciv1_… hoặc liên kết tham gia",
+    "classInvitation.tokenValidation":
+      "Mã hoặc liên kết tham gia chưa đúng định dạng.",
+    "classInvitation.joinedSuccess": "Đã tham gia lớp {title}.",
+    "classInvitation.openJoinedClass": "Mở lớp vừa tham gia",
     "classInvitation.sessionExpired":
       "Phiên đăng nhập đã hết hạn. Hãy đăng nhập rồi mở lại liên kết.",
     "classInvitation.forbidden":
@@ -897,6 +917,13 @@ const messages = {
     "workspace.creating": "Creating workspace...",
     "workspace.createError":
       "We could not create the workspace. Check the details and try again.",
+    "workspace.createAnotherAction": "Create workspace",
+    "workspace.createAnotherTitle": "Create another workspace",
+    "workspace.createAnotherDescription":
+      "Create an independent organization boundary. You will become its administrator and switch to it when creation finishes.",
+    "workspace.createAnotherSuccess":
+      "The new workspace was created and selected.",
+    "workspace.createCloseLabel": "Close the create-workspace form",
     "workspace.selectTitle": "Choose a workspace to continue",
     "workspace.selectDescription":
       "Classes and permissions are always limited to the selected workspace.",
@@ -1140,10 +1167,14 @@ const messages = {
     "invitation.publicAcceptAction": "Accept invitation",
     "invitation.publicAccepting": "Accepting...",
     "invitation.publicRetryAccept": "Retry acceptance",
+    "invitation.publicSwitchAction": "Switch to this workspace",
+    "invitation.publicUseAnotherAccount": "Use another account",
     "invitation.publicMismatch":
       "The signed-in account does not match this invitation's email.",
     "invitation.publicSessionExpired":
       "Your session expired. Sign in, then reopen the invitation link.",
+    "invitation.publicAcceptedSessionExpired":
+      "Your session expired. Sign in again to choose the workspace you joined.",
     "invitation.publicAcceptError":
       "The invitation could not be accepted. Try again.",
     "invitation.publicUnavailableTitle": "Invitation unavailable",
@@ -1173,6 +1204,15 @@ const messages = {
     "classInvitation.joinAction": "Join class",
     "classInvitation.joining": "Joining...",
     "classInvitation.retryJoin": "Retry joining",
+    "classInvitation.openDialog": "Join with a code",
+    "classInvitation.closeDialog": "Close the join-class form",
+    "classInvitation.tokenLabel": "Join code or link",
+    "classInvitation.tokenHint":
+      "Paste a code beginning with thciv1_ or a TutorHub link whose fragment contains #token. The code is sent only in the request body and is never stored by the browser.",
+    "classInvitation.tokenPlaceholder": "thciv1_… or a join link",
+    "classInvitation.tokenValidation": "Enter a valid join code or link.",
+    "classInvitation.joinedSuccess": "You joined {title}.",
+    "classInvitation.openJoinedClass": "Open the joined class",
     "classInvitation.sessionExpired":
       "Your session expired. Sign in, then reopen the link.",
     "classInvitation.forbidden":

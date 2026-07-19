@@ -14,6 +14,7 @@ import type {
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { classQueryKeys } from "../app/classes";
+import { classEnrollmentQueryKeys } from "../app/classEnrollments";
 import { I18nProvider } from "../app/i18n";
 import { SessionProvider } from "../app/session";
 import { ClassroomDetailPage } from "./ClassroomPages";
@@ -150,6 +151,13 @@ describe("Classroom self-leave action", () => {
       return Promise.reject(new Error(`Unexpected request: ${request.url}`));
     });
     const queryClient = renderDetail(fetchMock);
+    queryClient.setQueryData(
+      classEnrollmentQueryKeys.roster(tenantID, classID, "", "all"),
+      {
+        pageParams: [undefined],
+        pages: [{ class_owner: null, items: [], next_cursor: null }],
+      },
+    );
 
     expect(
       await screen.findByRole("heading", { name: classroom.title }),
@@ -172,5 +180,10 @@ describe("Classroom self-leave action", () => {
     expect(
       queryClient.getQueryData(classQueryKeys.detail(tenantID, classID)),
     ).toBeUndefined();
+    expect(
+      queryClient.getQueriesData({
+        queryKey: classEnrollmentQueryKeys.rosters(tenantID, classID),
+      }),
+    ).toHaveLength(0);
   });
 });

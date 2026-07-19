@@ -17,17 +17,26 @@ import {
   StatusBadge,
   TextField,
 } from "@tutorhub/ui";
-import { Archive, Building2, RefreshCw, Save, ScrollText } from "lucide-react";
-import { useMemo, useState, type FormEvent } from "react";
+import {
+  Archive,
+  Building2,
+  Plus,
+  RefreshCw,
+  Save,
+  ScrollText,
+} from "lucide-react";
+import { useMemo, useRef, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { useI18n, type TranslationKey } from "../app/i18n";
 import { useSession } from "../app/session";
+import { shouldConcealTenantScopedData } from "../app/tenantDataAccess";
 import { MembershipInvitationPanel } from "../components/MembershipInvitationPanel";
 import {
   useArchiveTenant,
   useTenantDetail,
   useTenantList,
   useUpdateTenant,
+  useWorkspaceActions,
 } from "../app/workspaces";
 
 type EditableLocale = "vi" | "en";
@@ -142,6 +151,13 @@ function roleKey(role: Tenant["role"]): TranslationKey {
         : "shell.role.guest";
 }
 
+function mutationMessage(error: unknown, fallback: string) {
+  if (error instanceof APIRequestError) {
+    return error.problem?.detail ?? error.message;
+  }
+  return error instanceof Error ? error.message : fallback;
+}
+
 export function WorkspaceManagementPage() {
   const { language, t } = useI18n();
   const session = useSession();
@@ -219,9 +235,12 @@ export function WorkspaceManagementPage() {
           <h1>{t("workspace.managementTitle")}</h1>
           <span>{t("workspace.managementDescription")}</span>
         </div>
-        <StatusBadge tone={tenantStatusTone(tenant.status)}>
-          {t(tenantStatusKey(tenant.status))}
-        </StatusBadge>
+        <div className="workspace-management__header-actions">
+          <StatusBadge tone={tenantStatusTone(tenant.status)}>
+            {t(tenantStatusKey(tenant.status))}
+          </StatusBadge>
+          {canManage && <WorkspaceCreateDialog />}
+        </div>
       </header>
 
       <div className="workspace-management__layout">
@@ -312,6 +331,142 @@ export function WorkspaceManagementPage() {
         />
       </div>
     </div>
+  );
+}
+
+function WorkspaceCreateDialog() {
+  const { t } = useI18n();
+  const { createWorkspace } = useWorkspaceActions();
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [slugOverride, setSlugOverride] = useState<string | null>(null);
+  const [submitted, setSubmitted] = useState(false);
+  const nameInput = useRef<HTMLInputElement>(null);
+  const slugInput = useRef<HTMLInputElement>(null);
+  const slug = slugOverride ?? normalizeWorkspaceSlug(name);
+  const normalizedName = name.trim();
+  const nameLength = Array.from(normalizedName).length;
+  const validName = nameLength >= 2 && nameLength <= 120;
+  const validSlug = /^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/.test(slug);
+  const valid = validName && validSlug;
+
+  const reset = () => {
+    setName("");
+    setSlugOverride(null);
+    setSubmitted(false);
+    createWorkspace.reset();
+  };
+
+  const submit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setSubmitted(true);
+    if (!valid || createWorkspace.isPending) {
+      if (!validName) {
+        nameInput.current?.focus();
+      } else if (!validSlug) {
+        slugInput.current?.focus();
+      }
+      return;
+    }
+    createWorkspace.mutate(
+      { name: normalizedName, slug },
+      {
+        onSuccess: () => {
+          setOpen(false);
+          reset();
+        },
+      },
+    );
+  };
+
+  return (
+    <Dialog
+      onOpenChange={(nextOpen) => {
+        if (createWorkspace.isPending) {
+          return;
+        }
+        setOpen(nextOpen);
+        if (!nextOpen) {
+          reset();
+        }
+      }}
+      open={open}
+    >
+      <DialogTrigger asChild>
+        <Button leadingIcon={<Plus />} size="sm" variant="secondary">
+          {t("workspace.createAnotherAction")}
+        </Button>
+      </DialogTrigger>
+      <DialogContent closeLabel={t("workspace.createCloseLabel")}>
+        <DialogTitle>{t("workspace.createAnotherTitle")}</DialogTitle>
+        <DialogDescription>
+          {t("workspace.createAnotherDescription")}
+        </DialogDescription>
+        <form
+          className="workspace-create-dialog__form"
+          noValidate
+          onSubmit={submit}
+        >
+          <TextField
+            autoComplete="organization"
+            autoFocus
+            error={
+              submitted && !validName
+                ? t("workspace.nameValidation")
+                : undefined
+            }
+            label={t("workspace.nameLabel")}
+            maxLength={120}
+            onChange={(event) => setName(event.target.value)}
+            placeholder={t("workspace.namePlaceholder")}
+            ref={nameInput}
+            required
+            value={name}
+          />
+          <TextField
+            autoCapitalize="none"
+            autoComplete="off"
+            error={
+              submitted && !validSlug
+                ? t("workspace.slugValidation")
+                : undefined
+            }
+            hint={t("workspace.slugHelp")}
+            label={t("workspace.slugLabel")}
+            maxLength={63}
+            onChange={(event) =>
+              setSlugOverride(normalizeWorkspaceSlug(event.target.value))
+            }
+            required
+            ref={slugInput}
+            spellCheck={false}
+            value={slug}
+          />
+          {createWorkspace.isError && (
+            <p className="workspace-management__feedback" role="alert">
+              {mutationMessage(
+                createWorkspace.error,
+                t("workspace.createError"),
+              )}
+            </p>
+          )}
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button disabled={createWorkspace.isPending} variant="secondary">
+                {t("workspace.cancelAction")}
+              </Button>
+            </DialogClose>
+            <Button
+              loading={createWorkspace.isPending}
+              loadingLabel={t("workspace.creating")}
+              type="submit"
+            >
+              {t("workspace.createAction")}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -612,6 +767,7 @@ function WorkspaceListPanel({
   query: ReturnType<typeof useTenantList>;
 }) {
   const { t } = useI18n();
+  const tenantListDataConcealed = shouldConcealTenantScopedData(query.error);
 
   return (
     <aside
@@ -648,35 +804,39 @@ function WorkspaceListPanel({
         />
       )}
 
-      {query.isSuccess && query.data.items.length === 0 && (
-        <EmptyState
-          description={t("workspace.listEmptyDescription")}
-          title={t("workspace.listEmptyTitle")}
-        />
-      )}
+      {!tenantListDataConcealed &&
+        query.isSuccess &&
+        query.data.items.length === 0 && (
+          <EmptyState
+            description={t("workspace.listEmptyDescription")}
+            title={t("workspace.listEmptyTitle")}
+          />
+        )}
 
-      {query.data && query.data.items.length > 0 && (
-        <ul className="workspace-management__list">
-          {query.data.items.map((tenant) => (
-            <li key={tenant.id}>
-              <div>
-                <strong>{tenant.name}</strong>
-                <small>{tenant.slug}</small>
-              </div>
-              <div>
-                {tenant.id === activeTenantID && (
-                  <span className="workspace-management__active-label">
-                    {t("workspace.activeShort")}
-                  </span>
-                )}
-                <StatusBadge tone={tenantStatusTone(tenant.status)}>
-                  {t(tenantStatusKey(tenant.status))}
-                </StatusBadge>
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
+      {!tenantListDataConcealed &&
+        query.data &&
+        query.data.items.length > 0 && (
+          <ul className="workspace-management__list">
+            {query.data.items.map((tenant) => (
+              <li key={tenant.id}>
+                <div>
+                  <strong>{tenant.name}</strong>
+                  <small>{tenant.slug}</small>
+                </div>
+                <div>
+                  {tenant.id === activeTenantID && (
+                    <span className="workspace-management__active-label">
+                      {t("workspace.activeShort")}
+                    </span>
+                  )}
+                  <StatusBadge tone={tenantStatusTone(tenant.status)}>
+                    {t(tenantStatusKey(tenant.status))}
+                  </StatusBadge>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
     </aside>
   );
 }

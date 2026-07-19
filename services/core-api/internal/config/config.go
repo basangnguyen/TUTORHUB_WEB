@@ -54,6 +54,7 @@ var validLogLevels = map[string]struct{}{
 type Config struct {
 	Environment       string
 	Port              string
+	ListenHost        string
 	WebOrigin         string
 	APIOrigin         string
 	LogLevel          string
@@ -120,7 +121,7 @@ func Load() (Config, error) {
 }
 
 func (cfg Config) Address() string {
-	return net.JoinHostPort("", cfg.Port)
+	return net.JoinHostPort(cfg.ListenHost, cfg.Port)
 }
 
 type lookupEnv func(string) (string, bool)
@@ -129,6 +130,7 @@ func load(lookup lookupEnv) (Config, error) {
 	cfg := Config{
 		Environment: strings.ToLower(strings.TrimSpace(valueOrDefault(lookup, "APP_ENV", "development"))),
 		Port:        strings.TrimSpace(valueOrDefault(lookup, "PORT", defaultPort)),
+		ListenHost:  strings.TrimSpace(valueOrDefault(lookup, "HTTP_LISTEN_HOST", "")),
 		WebOrigin:   strings.TrimSpace(valueOrDefault(lookup, "PUBLIC_WEB_ORIGIN", defaultWebOrigin)),
 		APIOrigin:   strings.TrimSpace(valueOrDefault(lookup, "PUBLIC_API_ORIGIN", defaultAPIOrigin)),
 		LogLevel:    strings.ToLower(strings.TrimSpace(valueOrDefault(lookup, "LOG_LEVEL", "info"))),
@@ -142,6 +144,9 @@ func load(lookup lookupEnv) (Config, error) {
 	}
 
 	if err := validatePort(cfg.Port); err != nil {
+		validationErrors = append(validationErrors, err)
+	}
+	if err := validateListenHost(cfg.ListenHost); err != nil {
 		validationErrors = append(validationErrors, err)
 	}
 
@@ -584,6 +589,17 @@ func validatePort(value string) error {
 	port, err := strconv.Atoi(value)
 	if err != nil || port < 1 || port > 65535 {
 		return fmt.Errorf("PORT must be a number between 1 and 65535")
+	}
+
+	return nil
+}
+
+func validateListenHost(value string) error {
+	if value == "" {
+		return nil
+	}
+	if net.ParseIP(value) == nil {
+		return fmt.Errorf("HTTP_LISTEN_HOST must be an IP address without a port")
 	}
 
 	return nil

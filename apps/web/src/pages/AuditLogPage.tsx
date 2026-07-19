@@ -21,6 +21,7 @@ import { Link } from "react-router-dom";
 import { useAuditEvents, type AuditFilters } from "../app/audit";
 import { useI18n, type TranslationKey } from "../app/i18n";
 import { useSession } from "../app/session";
+import { shouldConcealTenantScopedData } from "../app/tenantDataAccess";
 
 type AuditActionChoice = "all" | AuditAction;
 type AuditOutcomeChoice = "all" | AuditOutcome;
@@ -175,10 +176,12 @@ export function AuditLogPage() {
   );
   const hasActiveFilters = Object.values(filters).some(Boolean);
   const auditAccessDenied = auditQuery.isError && isForbidden(auditQuery.error);
+  const auditDataConcealed =
+    auditQuery.isError && shouldConcealTenantScopedData(auditQuery.error);
   const hasStaleRefreshError =
     auditQuery.isError &&
     events.length > 0 &&
-    !auditAccessDenied &&
+    !auditDataConcealed &&
     !auditQuery.isFetchNextPageError;
 
   const submitFilters = (event: FormEvent<HTMLFormElement>) => {
@@ -395,7 +398,7 @@ export function AuditLogPage() {
                 <h2 id="audit-results-title">{t("audit.resultsTitle")}</h2>
                 <p>{t("audit.resultsDescription")}</p>
               </div>
-              {!auditAccessDenied && (
+              {!auditDataConcealed && (
                 <span aria-live="polite">
                   {t("audit.loadedCount", { count: events.length })}
                 </span>
@@ -418,7 +421,7 @@ export function AuditLogPage() {
             )}
 
             {auditQuery.isError &&
-              events.length === 0 &&
+              (events.length === 0 || auditDataConcealed) &&
               !auditAccessDenied && (
                 <ErrorState
                   actions={
@@ -465,7 +468,7 @@ export function AuditLogPage() {
               />
             )}
 
-            {events.length > 0 && !auditAccessDenied && (
+            {events.length > 0 && !auditDataConcealed && (
               <>
                 <div className="audit-log__table-wrap">
                   <table className="audit-log__table">

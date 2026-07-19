@@ -15,6 +15,7 @@ import {
   type ClassRosterBulkResponse,
   type ClassRosterMutationResponse,
 } from "@tutorhub/api-client";
+import { invalidateTenantAudit } from "./audit";
 import { classEnrollmentQueryKeys } from "./classEnrollments";
 
 const rosterPageSize = 25;
@@ -104,9 +105,12 @@ export function useUpdateClassRosterRole(
       if (!tenantID) {
         return;
       }
-      await queryClient.invalidateQueries({
-        queryKey: classEnrollmentQueryKeys.rosters(tenantID, classID),
-      });
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: classEnrollmentQueryKeys.rosters(tenantID, classID),
+        }),
+        invalidateTenantAudit(queryClient, tenantID),
+      ]);
     },
     retry: false,
   });
@@ -133,9 +137,12 @@ export function useBulkMutateClassRoster(
       if (!tenantID) {
         return;
       }
-      await queryClient.invalidateQueries({
-        queryKey: classEnrollmentQueryKeys.rosters(tenantID, classID),
-      });
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: classEnrollmentQueryKeys.rosters(tenantID, classID),
+        }),
+        invalidateTenantAudit(queryClient, tenantID),
+      ]);
     },
     retry: false,
   });

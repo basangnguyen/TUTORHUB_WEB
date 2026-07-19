@@ -13,6 +13,7 @@ import type {
 } from "@tutorhub/api-client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../app/i18n";
+import { intersectRosterBulkChoices } from "../app/classRosterCapabilities";
 import { SessionProvider } from "../app/session";
 import { ClassRosterPanel } from "./ClassRosterPanel";
 
@@ -108,6 +109,7 @@ const rosterPage: ClassRosterPage = {
   ],
   next_cursor: null,
 };
+const rosterMember = rosterPage.items[0]!;
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -119,7 +121,10 @@ function jsonResponse(body: unknown, status = 200) {
   });
 }
 
-function renderPanel(fetchMock: ReturnType<typeof vi.fn>) {
+function renderPanel(
+  fetchMock: ReturnType<typeof vi.fn>,
+  value: ClassroomClass = classroom,
+) {
   vi.stubGlobal("fetch", fetchMock);
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -131,11 +136,12 @@ function renderPanel(fetchMock: ReturnType<typeof vi.fn>) {
     <QueryClientProvider client={queryClient}>
       <I18nProvider initialLanguage="en">
         <SessionProvider mode={{ kind: "static", currentUser }}>
-          <ClassRosterPanel classroom={classroom} />
+          <ClassRosterPanel classroom={value} />
         </SessionProvider>
       </I18nProvider>
     </QueryClientProvider>,
   );
+  return queryClient;
 }
 
 function requestFrom(call: unknown[]) {
@@ -279,4 +285,104 @@ describe("ClassRosterPanel P2-06", () => {
       user_ids: [studentID],
     });
   });
+
+  it("offers only the intersection of server-derived target capabilities", () => {
+    const secondMember: ClassRosterPage["items"][number] = {
+      ...rosterMember,
+      user: {
+        id: "9f45639d-ac6f-4f82-8465-7679dfcd4018",
+        display_name: "Student Two",
+        email: "student-two@example.test",
+      },
+      actions: {
+        assignable_roles: ["co_teacher"],
+        can_remove: true,
+        can_suspend: false,
+      },
+    };
+
+    expect(intersectRosterBulkChoices([rosterMember, secondMember])).toEqual([
+      "remove",
+    ]);
+  });
+
+  it("disables every row mutation for an archived class", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(rosterPage));
+    renderPanel(fetchMock, {
+      ...classroom,
+      archived_at: "2026-07-19T04:00:00Z",
+      status: "archived",
+    });
+
+    expect(
+      await screen.findByRole("checkbox", { name: "Select Student One" }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("combobox", {
+        name: "Change the class role for Student One",
+      }),
+    ).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Suspend" })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Remove from class" }),
+    ).toBeDisabled();
+  });
+
+  it.each([401, 403, 404])(
+    "hides cached roster PII and controls after a refreshed %s",
+    async (status) => {
+      let reads = 0;
+      const fetchMock = vi.fn().mockImplementation((request: Request) => {
+        if (
+          new URL(request.url).pathname.endsWith(
+            `/api/v1/classes/${classID}/roster`,
+          )
+        ) {
+          reads += 1;
+          return Promise.resolve(
+            reads === 1
+              ? jsonResponse(rosterPage)
+              : jsonResponse(
+                  {
+                    type: "urn:tutorhub:problem:access-boundary",
+                    title: "Roster unavailable",
+                    status,
+                  },
+                  status,
+                ),
+          );
+        }
+        return Promise.reject(new Error(`Unexpected request: ${request.url}`));
+      });
+      const queryClient = renderPanel(fetchMock);
+
+      expect(await screen.findByText("Student One")).toBeInTheDocument();
+      await queryClient.refetchQueries({
+        queryKey: ["classes", tenantID, "detail", classID, "roster"],
+      });
+
+      await waitFor(() =>
+        expect(screen.queryByText("Student One")).not.toBeInTheDocument(),
+      );
+      expect(screen.queryByText("Owner Teacher")).not.toBeInTheDocument();
+      expect(screen.queryByText("owner@example.test")).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("searchbox", { name: "Find a member" }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: "Suspend" }),
+      ).not.toBeInTheDocument();
+      if (status === 403) {
+        expect(
+          screen.getByRole("heading", {
+            name: "You can no longer view this roster",
+          }),
+        ).toBeInTheDocument();
+      } else {
+        expect(
+          screen.getByRole("button", { name: "Try again" }),
+        ).toBeInTheDocument();
+      }
+    },
+  );
 });

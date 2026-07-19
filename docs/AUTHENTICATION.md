@@ -321,6 +321,7 @@ go test ./services/core-api/internal/httpapi
 pnpm --filter @tutorhub/api-client test
 pnpm --filter @tutorhub/web test
 pnpm test:integration
+pnpm e2e
 pnpm verify
 ```
 
@@ -332,6 +333,17 @@ lifecycle/ownership authorization, enrollment transitions, invite-code HMAC/TTL/
 same-user/concurrent join, active enrollment projection, archive guard, cross-tenant
 concealment, recent-auth và outbox.
 Các integration test database chạy migration trong transaction/fixture có cleanup.
+
+Browser E2E P2-08 dùng một fake OIDC issuer chuẩn discovery/JWKS, Authorization
+Code + PKCE `S256`, nonce, confidential-client token exchange và UserInfo. Provider
+chỉ chấp nhận `APP_ENV=test`, địa chỉ/URL loopback và secret tạm thời; khóa ký,
+authorization code cùng access token chỉ tồn tại trong memory. Scenario vẫn đi
+qua login/callback/session/CSRF thật của Core API, không có auth bypass.
+
+Local E2E dùng database `tutorhub_e2e` tách biệt và không seed. Staging dùng ba
+storage state ngắn hạn cho admin/teacher/student và yêu cầu xác nhận mutation rõ
+ràng. Xem [E2E_TESTING.md](E2E_TESTING.md); không commit hoặc upload storage
+state, trace, video, screenshot hay invitation token.
 
 ## Trạng thái triển khai
 

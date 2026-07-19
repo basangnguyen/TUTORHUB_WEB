@@ -17,10 +17,12 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type PropsWithChildren,
 } from "react";
+import { clearExpiredSessionCaches } from "./queryClient";
 
 export type SessionStatus =
   "loading" | "authenticated" | "unauthenticated" | "error";
@@ -218,6 +220,12 @@ function RemoteSessionProvider({ children }: PropsWithChildren) {
     refresh,
     replaceCurrentUser,
   ]);
+
+  useEffect(() => {
+    if (sessionQuery.isError) {
+      clearExpiredSessionCaches(queryClient);
+    }
+  }, [queryClient, sessionQuery.isError]);
 
   return (
     <SessionContext.Provider value={value}>{children}</SessionContext.Provider>

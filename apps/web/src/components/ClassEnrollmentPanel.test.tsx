@@ -158,12 +158,15 @@ describe("ClassEnrollmentPanel", () => {
     const token = `thciv1_${"C".repeat(43)}`;
     const joinURL = `https://web.example/class-invite#token=${token}`;
     let csrfRequests = 0;
+    let wasCreated = false;
     const fetchMock = vi.fn().mockImplementation((request: Request) => {
       if (
         request.url.endsWith(`/api/v1/classes/${classID}/invite-codes`) &&
         request.method === "GET"
       ) {
-        return Promise.resolve(jsonResponse({ items: [] }));
+        return Promise.resolve(
+          jsonResponse({ items: wasCreated ? [inviteCode] : [] }),
+        );
       }
       if (request.url.endsWith("/api/v1/auth/csrf")) {
         csrfRequests += 1;
@@ -181,6 +184,7 @@ describe("ClassEnrollmentPanel", () => {
         request.url.endsWith(`/api/v1/classes/${classID}/invite-codes`) &&
         request.method === "POST"
       ) {
+        wasCreated = true;
         return Promise.resolve(
           jsonResponse({ invite_code: inviteCode, join_url: joinURL }, 201),
         );
@@ -266,6 +270,60 @@ describe("ClassEnrollmentPanel", () => {
     );
   });
 
+  it("initializes invite metadata while the first list request is still pending", async () => {
+    const joinURL = `https://web.example/class-invite#token=thciv1_${"D".repeat(43)}`;
+    let reads = 0;
+    const fetchMock = vi.fn().mockImplementation((request: Request) => {
+      if (
+        request.url.endsWith(`/api/v1/classes/${classID}/invite-codes`) &&
+        request.method === "GET"
+      ) {
+        reads += 1;
+        if (reads === 1) {
+          return new Promise<Response>((resolve) => {
+            request.signal.addEventListener(
+              "abort",
+              () => resolve(jsonResponse({ items: [] })),
+              { once: true },
+            );
+          });
+        }
+        return Promise.resolve(jsonResponse({ items: [inviteCode] }));
+      }
+      if (request.url.endsWith("/api/v1/auth/csrf")) {
+        return Promise.resolve(jsonResponse({ csrf_token: "create-csrf" }));
+      }
+      if (
+        request.url.endsWith(`/api/v1/classes/${classID}/invite-codes`) &&
+        request.method === "POST"
+      ) {
+        return Promise.resolve(
+          jsonResponse({ invite_code: inviteCode, join_url: joinURL }, 201),
+        );
+      }
+      return Promise.reject(new Error(`Unexpected request: ${request.url}`));
+    });
+    const queryClient = renderPanel(fetchMock);
+
+    await waitFor(() => expect(reads).toBe(1));
+    fireEvent.click(screen.getByRole("button", { name: "Create link" }));
+    fireEvent.click(
+      within(
+        screen.getByRole("dialog", {
+          name: "Create a class join link",
+        }),
+      ).getByRole("button", { name: "Create link" }),
+    );
+
+    expect(await screen.findByDisplayValue(joinURL)).toBeInTheDocument();
+    expect(reads).toBeGreaterThanOrEqual(2);
+    expect(
+      queryClient.getQueryData(
+        classEnrollmentQueryKeys.inviteCodes(tenantID, classID),
+      ),
+    ).toEqual({ items: [inviteCode] });
+  });
+
   it("confirms revocation and replaces the cached invite-code metadata", async () => {
     const revokedCode: ClassInviteCode = {
       ...inviteCode,
@@ -273,12 +331,13 @@ describe("ClassEnrollmentPanel", () => {
       revoked_at: "2026-07-19T04:00:00Z",
       updated_at: "2026-07-19T04:00:00Z",
     };
+    let currentCode = inviteCode;
     const fetchMock = vi.fn().mockImplementation((request: Request) => {
       if (
         request.url.endsWith(`/api/v1/classes/${classID}/invite-codes`) &&
         request.method === "GET"
       ) {
-        return Promise.resolve(jsonResponse({ items: [inviteCode] }));
+        return Promise.resolve(jsonResponse({ items: [currentCode] }));
       }
       if (request.url.endsWith("/api/v1/auth/csrf")) {
         return Promise.resolve(jsonResponse({ csrf_token: "revoke-csrf" }));
@@ -289,6 +348,7 @@ describe("ClassEnrollmentPanel", () => {
         ) &&
         request.method === "POST"
       ) {
+        currentCode = revokedCode;
         return Promise.resolve(jsonResponse(revokedCode));
       }
       return Promise.reject(new Error(`Unexpected request: ${request.url}`));
@@ -321,5 +381,146 @@ describe("ClassEnrollmentPanel", () => {
       .map((call) => call[0] as Request)
       .find((request) => request.url.endsWith("/revoke"));
     expect(revokeRequest?.headers.get("X-CSRF-Token")).toBe("revoke-csrf");
+  });
+
+  it.each([401, 403, 404])(
+    "hides cached invite data and all mutation controls after a refreshed %s",
+    async (status) => {
+      let reads = 0;
+      const fetchMock = vi.fn().mockImplementation((request: Request) => {
+        if (
+          request.url.endsWith(`/api/v1/classes/${classID}/invite-codes`) &&
+          request.method === "GET"
+        ) {
+          reads += 1;
+          return Promise.resolve(
+            reads === 1
+              ? jsonResponse({ items: [inviteCode] })
+              : jsonResponse(
+                  {
+                    type: "urn:tutorhub:problem:access-boundary",
+                    title: "Invite codes unavailable",
+                    status,
+                  },
+                  status,
+                ),
+          );
+        }
+        return Promise.reject(new Error(`Unexpected request: ${request.url}`));
+      });
+      const queryClient = renderPanel(fetchMock);
+
+      expect(await screen.findByText("0/12 uses consumed")).toBeInTheDocument();
+      await queryClient.refetchQueries({
+        exact: true,
+        queryKey: classEnrollmentQueryKeys.inviteCodes(tenantID, classID),
+      });
+
+      await waitFor(() =>
+        expect(
+          screen.queryByText("0/12 uses consumed"),
+        ).not.toBeInTheDocument(),
+      );
+      expect(
+        screen.queryByRole("button", { name: "Create link" }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("textbox", { name: "Member email" }),
+      ).not.toBeInTheDocument();
+      if (status === 403) {
+        expect(
+          screen.getByRole("heading", {
+            name: "You can no longer manage this class",
+          }),
+        ).toBeInTheDocument();
+      } else {
+        expect(
+          screen.getByRole("button", { name: "Try again" }),
+        ).toBeInTheDocument();
+      }
+    },
+  );
+
+  it("refetches protected data after direct enrollment loses permission", async () => {
+    let inviteReads = 0;
+    const fetchMock = vi.fn().mockImplementation((request: Request) => {
+      if (
+        request.url.endsWith(`/api/v1/classes/${classID}/invite-codes`) &&
+        request.method === "GET"
+      ) {
+        inviteReads += 1;
+        return Promise.resolve(
+          inviteReads === 1
+            ? jsonResponse({ items: [inviteCode] })
+            : jsonResponse(
+                {
+                  type: "urn:tutorhub:problem:http-403",
+                  title: "Class enrollment access denied",
+                  status: 403,
+                },
+                403,
+              ),
+        );
+      }
+      if (request.url.endsWith("/api/v1/auth/csrf")) {
+        return Promise.resolve(jsonResponse({ csrf_token: "stale-csrf" }));
+      }
+      if (
+        request.url.endsWith(`/api/v1/classes/${classID}/enrollments`) &&
+        request.method === "POST"
+      ) {
+        return Promise.resolve(
+          jsonResponse(
+            {
+              type: "urn:tutorhub:problem:http-403",
+              title: "Class enrollment access denied",
+              status: 403,
+            },
+            403,
+          ),
+        );
+      }
+      return Promise.reject(new Error(`Unexpected request: ${request.url}`));
+    });
+    renderPanel(fetchMock);
+
+    expect(await screen.findByText("0/12 uses consumed")).toBeInTheDocument();
+    fireEvent.change(screen.getByRole("textbox", { name: "Member email" }), {
+      target: { value: "student@example.com" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add to class" }));
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "You can no longer manage this class",
+      }),
+    ).toBeInTheDocument();
+    expect(inviteReads).toBeGreaterThanOrEqual(2);
+    expect(screen.queryByText("0/12 uses consumed")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("textbox", { name: "Member email" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("keeps revocation available while archived creation and direct enrollment stay locked", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(jsonResponse({ items: [inviteCode] }));
+    renderPanel(fetchMock, {
+      ...classroom,
+      archived_at: "2026-07-19T04:00:00Z",
+      status: "archived",
+    });
+
+    expect(
+      await screen.findByRole("button", {
+        name: /^Revoke link expiring at /,
+      }),
+    ).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Create link" })).toBeDisabled();
+    expect(
+      screen.getByRole("textbox", { name: "Member email" }),
+    ).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Add to class" })).toBeDisabled();
   });
 });

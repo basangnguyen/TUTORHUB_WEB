@@ -20,6 +20,7 @@ import {
   type CreateClassRequest,
   type UpdateClassRequest,
 } from "@tutorhub/api-client";
+import { invalidateTenantAudit } from "./audit";
 
 const classPageSize = 20;
 
@@ -37,6 +38,10 @@ export const classQueryKeys = {
     ["classes", tenantID, "list", status] as const,
   detail: (tenantID: string, classID: string) =>
     ["classes", tenantID, "detail", classID] as const,
+  rosterData: (tenantID: string, classID: string) =>
+    [...classQueryKeys.detail(tenantID, classID), "roster"] as const,
+  inviteCodes: (tenantID: string, classID: string) =>
+    [...classQueryKeys.detail(tenantID, classID), "invite-codes"] as const,
 };
 
 function shouldRetryClassQuery(failureCount: number, error: Error) {
@@ -94,17 +99,38 @@ async function synchronizeClass(
   queryClient: QueryClient,
   tenantID: string,
   classroom: ClassroomClass,
+  invalidateEnrollmentData = false,
 ) {
-  await queryClient.cancelQueries({
-    queryKey: classQueryKeys.tenant(tenantID),
-  });
+  await Promise.all([
+    queryClient.cancelQueries({
+      queryKey: classQueryKeys.lists(tenantID),
+    }),
+    queryClient.cancelQueries({
+      exact: true,
+      queryKey: classQueryKeys.detail(tenantID, classroom.id),
+    }),
+  ]);
   queryClient.setQueryData(
     classQueryKeys.detail(tenantID, classroom.id),
     classroom,
   );
-  await queryClient.invalidateQueries({
-    queryKey: classQueryKeys.lists(tenantID),
-  });
+  const invalidations = [
+    queryClient.invalidateQueries({
+      queryKey: classQueryKeys.lists(tenantID),
+    }),
+  ];
+  if (invalidateEnrollmentData) {
+    invalidations.push(
+      queryClient.invalidateQueries({
+        queryKey: classQueryKeys.rosterData(tenantID, classroom.id),
+      }),
+      queryClient.invalidateQueries({
+        exact: true,
+        queryKey: classQueryKeys.inviteCodes(tenantID, classroom.id),
+      }),
+    );
+  }
+  await Promise.all(invalidations);
 }
 
 export function useCreateClass(tenantID: string | undefined) {
@@ -123,6 +149,7 @@ export function useCreateClass(tenantID: string | undefined) {
       }
       await synchronizeClass(queryClient, tenantID, created);
     },
+    onSettled: () => invalidateTenantAudit(queryClient, tenantID),
     retry: false,
   });
 }
@@ -148,6 +175,16 @@ export function useUpdateClass(tenantID: string | undefined) {
       }
       await synchronizeClass(queryClient, tenantID, updated);
     },
+    onSettled: (_updated, error, { classID }) =>
+      Promise.all([
+        error && tenantID
+          ? queryClient.invalidateQueries({
+              exact: true,
+              queryKey: classQueryKeys.detail(tenantID, classID),
+            })
+          : Promise.resolve(),
+        invalidateTenantAudit(queryClient, tenantID),
+      ]),
     retry: false,
   });
 }
@@ -171,8 +208,18 @@ export function useArchiveClass(tenantID: string | undefined) {
       if (!tenantID) {
         return;
       }
-      await synchronizeClass(queryClient, tenantID, archived);
+      await synchronizeClass(queryClient, tenantID, archived, true);
     },
+    onSettled: (_archived, error, { classID }) =>
+      Promise.all([
+        error && tenantID
+          ? queryClient.invalidateQueries({
+              exact: true,
+              queryKey: classQueryKeys.detail(tenantID, classID),
+            })
+          : Promise.resolve(),
+        invalidateTenantAudit(queryClient, tenantID),
+      ]),
     retry: false,
   });
 }
@@ -191,8 +238,18 @@ export function useRestoreClass(tenantID: string | undefined) {
       if (!tenantID) {
         return;
       }
-      await synchronizeClass(queryClient, tenantID, restored);
+      await synchronizeClass(queryClient, tenantID, restored, true);
     },
+    onSettled: (_restored, error, { classID }) =>
+      Promise.all([
+        error && tenantID
+          ? queryClient.invalidateQueries({
+              exact: true,
+              queryKey: classQueryKeys.detail(tenantID, classID),
+            })
+          : Promise.resolve(),
+        invalidateTenantAudit(queryClient, tenantID),
+      ]),
     retry: false,
   });
 }

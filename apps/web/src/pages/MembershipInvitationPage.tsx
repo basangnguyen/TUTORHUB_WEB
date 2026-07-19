@@ -23,6 +23,7 @@ import {
 } from "../app/fragmentToken";
 import { useI18n, type TranslationKey } from "../app/i18n";
 import { useSession } from "../app/session";
+import { useWorkspaceActions } from "../app/workspaces";
 
 const membershipInvitationEscrowKey = "membership-invitation";
 
@@ -59,7 +60,7 @@ function previewRoleKey(
 }
 
 function publicInvitationErrorKey(error: Error | null): TranslationKey {
-  if (error instanceof APIRequestError && error.status === 403) {
+  if (isAccountMismatch(error)) {
     return "invitation.publicMismatch";
   }
   if (
@@ -74,6 +75,20 @@ function publicInvitationErrorKey(error: Error | null): TranslationKey {
   return "invitation.publicAcceptError";
 }
 
+function isAccountMismatch(error: Error | null) {
+  return (
+    error instanceof APIRequestError &&
+    error.status === 403 &&
+    error.problem?.title === "Invitation identity mismatch"
+  );
+}
+
+function isTerminalInvitationError(error: Error | null) {
+  return (
+    error instanceof APIRequestError && [404, 409, 410].includes(error.status)
+  );
+}
+
 export function MembershipInvitationPage() {
   const { language, t } = useI18n();
   const session = useSession();
@@ -84,6 +99,10 @@ export function MembershipInvitationPage() {
   const { isOnline, refresh: refreshOnlineStatus } = useOnlineStatus();
   const preview = useMembershipInvitationPreview(token, isOnline);
   const acceptInvitation = useAcceptMembershipInvitation(token);
+  const previewDataConcealed =
+    preview.isError &&
+    preview.error instanceof APIRequestError &&
+    [400, 404, 410].includes(preview.error.status);
   const dateFormatter = useMemo(
     () =>
       new Intl.DateTimeFormat(language === "vi" ? "vi-VN" : "en-US", {
@@ -105,10 +124,13 @@ export function MembershipInvitationPage() {
       return;
     }
     try {
-      await acceptInvitation.mutateAsync();
+      const response = await acceptInvitation.mutateAsync();
       navigate("/invite/accepted", {
         replace: true,
-        state: { tenantName: preview.data.tenant_name },
+        state: {
+          tenantID: response.invitation.tenant_id,
+          tenantName: preview.data.tenant_name,
+        },
       });
     } catch {
       // The mutation exposes a recoverable error below the invitation facts.
@@ -158,8 +180,7 @@ export function MembershipInvitationPage() {
         {token &&
           isOnline &&
           preview.isError &&
-          (preview.error instanceof APIRequestError &&
-          [400, 404, 410].includes(preview.error.status) ? (
+          (previewDataConcealed ? (
             <InvalidInvitationState />
           ) : (
             <ErrorState
@@ -177,7 +198,7 @@ export function MembershipInvitationPage() {
             />
           ))}
 
-        {preview.data && (
+        {preview.data && !previewDataConcealed && (
           <div className="membership-invitation-card__content">
             <div className="membership-invitation-card__tenant">
               <div>
@@ -249,16 +270,33 @@ export function MembershipInvitationPage() {
                     {t(publicInvitationErrorKey(acceptInvitation.error))}
                   </p>
                 )}
-                <Button
-                  leadingIcon={<UserPlus />}
-                  loading={acceptInvitation.isPending}
-                  loadingLabel={t("invitation.publicAccepting")}
-                  onClick={() => void accept()}
-                >
-                  {acceptInvitation.isError
-                    ? t("invitation.publicRetryAccept")
-                    : t("invitation.publicAcceptAction")}
-                </Button>
+                {isAccountMismatch(acceptInvitation.error) ? (
+                  <Button
+                    onClick={() => void session.signOut()}
+                    size="sm"
+                    variant="secondary"
+                  >
+                    {t("invitation.publicUseAnotherAccount")}
+                  </Button>
+                ) : isTerminalInvitationError(acceptInvitation.error) ? (
+                  <Link
+                    className="membership-invitation-card__continue"
+                    to="/app/home"
+                  >
+                    {t("invitation.publicContinueAction")}
+                  </Link>
+                ) : (
+                  <Button
+                    leadingIcon={<UserPlus />}
+                    loading={acceptInvitation.isPending}
+                    loadingLabel={t("invitation.publicAccepting")}
+                    onClick={() => void accept()}
+                  >
+                    {acceptInvitation.isError
+                      ? t("invitation.publicRetryAccept")
+                      : t("invitation.publicAcceptAction")}
+                  </Button>
+                )}
               </div>
             )}
           </div>
@@ -272,6 +310,11 @@ function InvalidInvitationState() {
   const { t } = useI18n();
   return (
     <ErrorState
+      actions={
+        <Link className="membership-invitation-card__continue" to="/app/home">
+          {t("invitation.publicContinueAction")}
+        </Link>
+      }
       description={t("invitation.publicUnavailableDescription")}
       title={t("invitation.publicUnavailableTitle")}
     />
@@ -281,7 +324,31 @@ function InvalidInvitationState() {
 export function MembershipInvitationAcceptedPage() {
   const { t } = useI18n();
   const location = useLocation();
-  const state = location.state as { tenantName?: string } | null;
+  const navigate = useNavigate();
+  const session = useSession();
+  const state = location.state as {
+    tenantID?: string;
+    tenantName?: string;
+  } | null;
+  const { switchWorkspace } = useWorkspaceActions({
+    onSwitchSuccess: () => navigate("/app/home", { replace: true }),
+  });
+  const alreadyActive =
+    Boolean(state?.tenantID) &&
+    session.currentUser?.active_tenant?.id === state?.tenantID;
+  const switchSessionExpired =
+    switchWorkspace.error instanceof APIRequestError &&
+    switchWorkspace.error.status === 401;
+
+  if (!state?.tenantID) {
+    return (
+      <main className="membership-invitation-page">
+        <section className="membership-invitation-card">
+          <InvalidInvitationState />
+        </section>
+      </main>
+    );
+  }
 
   return (
     <main className="membership-invitation-page">
@@ -300,9 +367,55 @@ export function MembershipInvitationAcceptedPage() {
               state?.tenantName ?? t("invitation.publicWorkspaceFallback"),
           })}
         </p>
-        <Link className="membership-invitation-card__continue" to="/app/home">
-          {t("invitation.publicContinueAction")}
-        </Link>
+        {(session.status === "unauthenticated" || switchSessionExpired) && (
+          <p className="membership-invitation-card__error" role="alert">
+            {t("invitation.publicAcceptedSessionExpired")}
+          </p>
+        )}
+        {session.status === "error" && (
+          <p className="membership-invitation-card__error" role="alert">
+            {t("auth.unavailableDescription")}
+          </p>
+        )}
+        {switchWorkspace.isError && !switchSessionExpired && (
+          <p className="membership-invitation-card__error" role="alert">
+            {t("workspace.selectError")}
+          </p>
+        )}
+        <div className="membership-invitation-card__actions">
+          {session.status === "loading" && (
+            <Button disabled>{t("invitation.publicCheckingSession")}</Button>
+          )}
+          {session.status === "error" && (
+            <Button
+              onClick={() => void session.refresh().catch(() => undefined)}
+              variant="secondary"
+            >
+              {t("state.retry")}
+            </Button>
+          )}
+          {(session.status === "unauthenticated" || switchSessionExpired) && (
+            <Button onClick={() => session.signIn("/app/home")}>
+              {t("invitation.publicSignInAction")}
+            </Button>
+          )}
+          {session.status === "authenticated" &&
+            !switchSessionExpired &&
+            !alreadyActive && (
+              <Button
+                loading={switchWorkspace.isPending}
+                loadingLabel={t("workspace.switching")}
+                onClick={() => switchWorkspace.mutate(state.tenantID ?? "")}
+              >
+                {switchWorkspace.isError
+                  ? t("state.retry")
+                  : t("invitation.publicSwitchAction")}
+              </Button>
+            )}
+          <Link className="membership-invitation-card__continue" to="/app/home">
+            {t("invitation.publicContinueAction")}
+          </Link>
+        </div>
       </section>
     </main>
   );
