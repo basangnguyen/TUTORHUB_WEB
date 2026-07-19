@@ -57,6 +57,9 @@ const classroom: ClassroomClass = {
   viewer_access: {
     class_role: "owner",
     enrollment_status: null,
+    can_update_class: true,
+    can_archive_class: true,
+    can_transfer_ownership: true,
     can_manage_enrollments: true,
     can_join_room: true,
     can_publish_media: true,

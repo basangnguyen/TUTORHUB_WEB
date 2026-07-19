@@ -115,15 +115,9 @@ export function ClassManagementPanel({
   classroom: ClassroomClass;
   onReload: () => Promise<ClassroomClass | undefined>;
 }) {
-  const session = useSession();
-  const currentUser = session.currentUser;
-  const isOwner = classroom.owner_user_id === currentUser?.user.id;
-  const canAdministerLifecycle =
-    currentUser?.permissions.includes("class.archive") ?? false;
   const canEdit =
-    classroom.status !== "archived" &&
-    (isOwner || (currentUser?.permissions.includes("class.update") ?? false));
-  const canManageLifecycle = isOwner || canAdministerLifecycle;
+    classroom.status !== "archived" && classroom.viewer_access.can_update_class;
+  const canManageLifecycle = classroom.viewer_access.can_archive_class;
 
   if (!canEdit && !canManageLifecycle) {
     return null;

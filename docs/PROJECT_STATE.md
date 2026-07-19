@@ -12,8 +12,8 @@
 | Quy trình           | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
 | Phase hoàn thành    | Phase 0, Phase 1                                                                      |
 | Phase hiện tại      | Phase 2 - Identity, tenant và class core                                              |
-| Task vừa hoàn thành | P2-05 Enrollment và class invite code                                                 |
-| Task kế tiếp        | P2-06 Roster và class-level roles                                                     |
+| Task vừa hoàn thành | P2-06 Roster và class-level roles                                                     |
+| Task kế tiếp        | P2-07 Audit log cho hành động nhạy cảm                                                |
 
 ## Kiến trúc đang chạy
 
@@ -93,6 +93,21 @@
   owner, organization manager hoặc enrollment active. Web có management panel,
   copy-once invite, public join và self-leave với đầy đủ loading/empty/error/
   forbidden/retry states bằng tiếng Việt/Anh.
+- P2-06: manager-only roster API có owner implicit ghim riêng, normalized search theo
+  display name/email, status filter và opaque keyset pagination bind đúng tenant/class/
+  filter. Shared policy áp dụng hierarchy `org_admin > owner > teacher/co_teacher >
+  teaching_assistant > student/guest`, chặn self/peer/owner mutation và chỉ ownership
+  transfer mới đổi owner.
+- Single role update và bulk `update_role/suspend/remove` tối đa 50 user ID có ordered
+  updated/unchanged/failed outcomes. Bulk commit từng item độc lập; web refetch cả khi
+  mutation thành công hoặc lỗi hạ tầng. Role-changed outbox payload dùng allowlist và
+  không chứa email/display name/token.
+- Roster UI có search/status, infinite pagination, row/bulk confirmation, selection
+  bằng keyboard, partial-failure summary và loading/empty/error/forbidden/archived
+  states. Class management dùng class-scoped lifecycle capabilities từ server.
+- LiveKit grant mới lấy class role authoritative và ghi effective/organization/class
+  role attributes; token cấp sau mutation phản ánh role mới. JWT/participant đã tồn tại
+  không được sửa hoặc thu hồi retroactively.
 
 ## Kết quả acceptance staging ngày 2026-07-16
 
@@ -118,14 +133,15 @@ trước pilot/public beta hoặc khi có người duy trì thứ hai.
 
 Backlog có thẩm quyền: `docs/PHASE_2_BACKLOG.md`.
 
-1. P2-00 đến P2-05 đã hoàn thành.
-2. Full `pnpm verify` của P2-05 xanh ngày 2026-07-19: web 69/69, API client 13/13,
+1. P2-00 đến P2-06 đã hoàn thành.
+2. Full `pnpm verify` của P2-06 xanh ngày 2026-07-19: web 71/71, API client 14/14,
    UI 6/6, generated-contract check, lint/typecheck/build/Storybook, Go test/vet và
    security checks.
-3. Full integration-tag compile, classroom/media/policy và HTTP security tests đều
-   xanh local. Runtime PostgreSQL cho migration/test `000010` chưa chạy local vì
-   không nạp DB test env; workflow CI PostgreSQL 17 sẽ xác nhận sau push.
-4. Task kế tiếp là P2-06 roster và class-level roles.
+3. Full integration-tag compile và focused classroom/media/policy/HTTP roster tests
+   đều xanh local. P2-06 không có migration mới; runtime PostgreSQL roster integration
+   chưa chạy local vì không nạp DB test env và workflow CI PostgreSQL 17 sẽ xác nhận
+   sau push.
+4. Task kế tiếp là P2-07 audit log cho hành động nhạy cảm.
 
 ## Rủi ro đã biết
 
@@ -138,14 +154,16 @@ Backlog có thẩm quyền: `docs/PHASE_2_BACKLOG.md`.
   in-process limiter theo `RemoteAddr`; sau Cloudflare/Render có thể gộp client vào
   proxy bucket. Không tin forwarded header khi Render origin còn public; P2-09 phải
   chốt trusted-proxy/origin authentication và distributed limiter trước khi tăng tải.
-- Roster query và class-level role mutation chưa triển khai; thuộc P2-06. P2-05 mới
-  hỗ trợ student enrollment lifecycle và giữ owner implicit, chưa có co-teacher/TA.
-- Runtime PostgreSQL cho migration/test `000010` chưa được chạy local; integration-tag
-  compile đã xanh nhưng clean migration và concurrency runtime cần CI/staging xác nhận.
+- Runtime PostgreSQL cho migration/test `000010` và P2-06 roster repository chưa được
+  chạy local; integration-tag compile đã xanh nhưng clean migration/concurrency runtime
+  cần CI/staging xác nhận.
+- Roster role update hiện dùng last-write-wins, chưa có enrollment version/CAS. Client
+  refetch sau mutation; nếu concurrent editing trở thành rủi ro thực tế thì cần ADR và
+  migration riêng.
 - Ownership transfer tái dùng `auth_time` của session theo semantics P2-01; chưa ép
   OIDC `max_age`/`prompt`, nên recent-auth 10 phút chưa phải step-up tuyệt đối.
-- Archive ngăn cấp LiveKit token/event mới nhưng không thu hồi JWT đã phát hoặc kick
-  participant đang ở trong room.
+- Archive hoặc roster role mutation ngăn/đổi credential LiveKit cấp mới nhưng không
+  thu hồi JWT đã phát hoặc kick/cập nhật participant đang ở trong room.
 - Dữ liệu V1 chưa được migrate.
 - LiveKit chunk phía web còn lớn và cần performance budget ở phase sau.
 

@@ -28,6 +28,7 @@ import { useSession } from "../app/session";
 import { useTenantDetail } from "../app/workspaces";
 import { ClassEnrollmentPanel } from "../components/ClassEnrollmentPanel";
 import { ClassManagementPanel } from "../components/ClassManagementPanel";
+import { ClassRosterPanel } from "../components/ClassRosterPanel";
 
 const classCodePattern = /^[A-Z0-9][A-Z0-9_-]{2,31}$/;
 
@@ -277,6 +278,7 @@ export function ClassroomDetailPage() {
         classroom={classroom}
         onReload={async () => (await classQuery.refetch()).data}
       />
+      <ClassRosterPanel classroom={classroom} />
       <ClassEnrollmentPanel classroom={classroom} />
       {classroom.viewer_access.can_leave && (
         <LeaveClassAction classroom={classroom} />

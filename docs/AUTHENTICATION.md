@@ -233,6 +233,33 @@ tự phát lại token, thay đổi usage hay chuyển enrollment. Join có boun
 limiter theo action và `RemoteAddr` prefix; đây chỉ là guard private-alpha với cùng hạn
 chế trusted-proxy/distributed quota như membership invitation, cần hoàn thiện ở P2-09.
 
+## Class roster và class-level role
+
+P2-06 thêm manager-only `GET /api/v1/classes/{class_id}/roster`, CSRF-protected
+`PATCH /api/v1/classes/{class_id}/roster/{user_id}` và
+`POST /api/v1/classes/{class_id}/roster/bulk`. Handler chỉ dùng tenant/actor từ session;
+repository khóa và đọc lại tenant membership, class, actor/target enrollment rồi áp dụng
+shared policy. Cross-tenant/cross-class ID bị che, còn thiếu quyền trong đúng scope bị
+từ chối.
+
+Sau `enrollment.manage`, mutation phải qua hierarchy `org_admin > owner >
+teacher/co_teacher > teaching_assistant > student/guest`. Actor phải cao hơn target và
+role muốn cấp; không self-mutation, không mutation/gán owner. Owner tiếp tục là implicit,
+được trả riêng khỏi page enrollment và chỉ thay đổi qua ownership transfer. Archived
+class vẫn đọc roster lịch sử nhưng mọi row action bị tắt và mutation bị conflict.
+
+Search display name/email được chuẩn hóa Unicode NFC, whitespace và lowercase; `%`/`_`
+là literal. Opaque cursor không chứa tên/email và bind tenant, class, search, status.
+Bulk nhận một action cho tối đa 50 user ID duy nhất, commit từng item độc lập và trả kết
+quả theo request order. Domain failure dự kiến nằm trong item; lỗi hạ tầng trả 5xx nên
+web luôn invalidate/refetch trước retry. Role update dùng last-write-wins ở P2-06.
+
+`viewer_access` bổ sung `can_update_class`, `can_archive_class` và
+`can_transfer_ownership`; class management UI chỉ dùng capability class-scoped này.
+LiveKit grant mới ghi organization/class/effective role từ projection authoritative,
+vì vậy token cấp sau roster mutation phản ánh role mới. JWT đã cấp và participant đang
+kết nối không được cập nhật hoặc thu hồi retroactively.
+
 ## Tạo ứng dụng ZITADEL
 
 Trong một project ZITADEL dành riêng cho TutorHub, tạo hai Web applications. Không
@@ -340,6 +367,11 @@ Các integration test database chạy migration trong transaction/fixture có cl
   archive guard và transactional outbox. Migration/classroom/identity integration-tag
   compile xanh local; runtime migration `000010` và PostgreSQL integration chưa chạy
   local vì không nạp DB test env. Tài liệu này không tuyên bố staging đã áp dụng `000010`.
+- P2-06 đã bổ sung typed roster list/single/bulk contract, hierarchy policy, owner
+  projection, class-scoped lifecycle capabilities và authoritative LiveKit role
+  attributes. Full `pnpm verify` xanh ngày 2026-07-19: web 71/71, API client 14/14,
+  UI 6/6, Go test/vet và security checks. PostgreSQL integration-tag compile xanh;
+  runtime roster integration chưa chạy local vì không nạp DB test env.
 - ZITADEL trả profile/email qua UserInfo trong Authorization Code Flow. Adapter đã
   được sửa để xác minh ID token trước, gọi UserInfo sau và từ chối khi `sub` không
   khớp; test hồi quy và `pnpm verify` đều đạt.

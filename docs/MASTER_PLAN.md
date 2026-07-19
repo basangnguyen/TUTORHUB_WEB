@@ -11,7 +11,7 @@
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
 | Phase hiện tại        | Phase 2 - Identity, tenant và class core                                                     |
-| Trạng thái gần nhất   | P2-05 enrollment/invite code đã triển khai; P2-06 roster/class roles là việc tiếp theo      |
+| Trạng thái gần nhất   | P2-06 roster/class roles đã triển khai; P2-07 audit log là việc tiếp theo                   |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 
@@ -1184,20 +1184,19 @@ beta. Xem `docs/PHASE_1_COMPLETION.md`.
 
 **Mục tiêu:** có nền multi-tenant và quản lý lớp đủ dùng cho pilot nội bộ.
 
-**Backlog thực thi:** `docs/PHASE_2_BACKLOG.md`. P2-00 đến P2-05 đã triển khai;
-task kế tiếp là P2-06 roster và class-level roles.
+**Backlog thực thi:** `docs/PHASE_2_BACKLOG.md`. P2-00 đến P2-06 đã triển khai;
+task kế tiếp là P2-07 audit log cho hành động nhạy cảm.
 
-**Trạng thái 2026-07-19:** P2-05 bổ sung migration `000010`, enrollment lifecycle,
-class invite code dùng CSPRNG/HMAC có TTL và usage limit atomic, direct enrollment,
-suspend/remove/revoke/join/rejoin/self-leave cùng transactional outbox đã redaction.
-`owner_user_id` tiếp tục là owner implicit. Class detail/list và LiveKit token/event
-dùng `viewer_access` server-derived để thống nhất quyền join/publish; web có management
-panel, copy-once link và public join flow. Full `pnpm verify` xanh: web 69/69, API
-client 13/13, UI 6/6 cùng lint/typecheck/build/Storybook, Go test/vet và security
-checks. Full integration-tag compile cùng focused classroom/media/policy/HTTP security
-tests xanh local; runtime PostgreSQL cho migration/test `000010` chưa chạy vì không
-nạp DB test env và sẽ do CI PostgreSQL 17 xác nhận. Không cần ADR mới vì ADR-0013 cho
-phép mở rộng action/matrix cùng OpenAPI và test.
+**Trạng thái 2026-07-19:** P2-06 bổ sung manager roster có owner implicit ghim riêng,
+normalized search/status filter/keyset pagination, hierarchy policy và single/bulk role,
+suspend/remove mutation. Web có row/bulk confirmation, partial-failure handling và đầy
+đủ loading/empty/error/forbidden/archived states. Class lifecycle capability và
+LiveKit role attributes đều lấy từ projection authoritative. Full `pnpm verify` xanh:
+web 71/71, API client 14/14, UI 6/6 cùng lint/typecheck/build/Storybook, Go test/vet và
+security checks. Full integration-tag compile cùng focused classroom/media/policy/HTTP
+roster tests xanh local; runtime PostgreSQL roster integration chưa chạy vì không nạp
+DB test env và sẽ do CI PostgreSQL 17 xác nhận. P2-06 không cần migration/ADR mới;
+ADR-0013 được amend để khóa hierarchy, bulk và LiveKit semantics.
 
 **Work package:**
 
@@ -1694,10 +1693,10 @@ Một tính năng chỉ được đánh dấu hoàn thành khi:
 Thứ tự hiện tại, cập nhật ngày 2026-07-19:
 
 1. Phase 1 đã hoàn thành; biên bản nằm tại `docs/PHASE_1_COMPLETION.md`.
-2. P2-00 policy đến P2-05 enrollment/class invite code đã triển khai.
-3. Bắt đầu P2-06 roster và class-level role management theo dependency đã chốt.
-4. Giữ owner implicit, khóa role-transition matrix và authorization tests trước khi
-   mở mutation UI theo `docs/PHASE_2_BACKLOG.md`.
+2. P2-00 policy đến P2-06 roster/class roles đã triển khai.
+3. Bắt đầu P2-07 audit log theo event taxonomy, redaction và tenant-scope đã chốt.
+4. Tái sử dụng transactional outbox; khóa schema/query authorization trước khi mở UI
+   audit theo `docs/PHASE_2_BACKLOG.md`.
 5. Không bắt đầu QuizHub, Lavie, social feed, Secure Exam web hoặc classroom
    collaboration trong Phase 2.
 
@@ -1746,5 +1745,5 @@ Thứ tự hiện tại, cập nhật ngày 2026-07-19:
 
 ---
 
-**Điểm bắt đầu sau tài liệu này:** đọc `docs/PROJECT_STATE.md` và triển khai P2-06 theo
+**Điểm bắt đầu sau tài liệu này:** đọc `docs/PROJECT_STATE.md` và triển khai P2-07 theo
 `docs/PHASE_2_BACKLOG.md`. Master Plan giữ mục tiêu/exit gate, không thay backlog chi tiết.

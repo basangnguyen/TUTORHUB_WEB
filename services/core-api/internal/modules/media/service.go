@@ -136,11 +136,22 @@ func (service *Service) IssueJoinCredential(
 	roomName := RoomName(access.TenantID, classID)
 	participantIdentity := ParticipantIdentity(access.ActorID, access.SessionID)
 	canPublish := class.ViewerAccess.CanPublishMedia
+	organizationRole := strings.TrimSpace(access.Role)
+	classRole := ""
+	if class.ViewerAccess.ClassRole != nil {
+		classRole = strings.TrimSpace(string(*class.ViewerAccess.ClassRole))
+	}
+	effectiveRole := classRole
+	if effectiveRole == "" {
+		effectiveRole = organizationRole
+	}
 	grant := TokenGrant{
 		RoomName:            roomName,
 		ParticipantIdentity: participantIdentity,
 		ParticipantName:     strings.TrimSpace(access.DisplayName),
-		Role:                strings.TrimSpace(access.Role),
+		Role:                effectiveRole,
+		OrganizationRole:    organizationRole,
+		ClassRole:           classRole,
 		CanPublish:          canPublish,
 		CanPublishData:      false,
 		CanSubscribe:        true,

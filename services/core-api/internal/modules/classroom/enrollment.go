@@ -114,6 +114,7 @@ type EnrollmentLookup interface {
 
 type EnrollmentRepository interface {
 	EnrollmentLookup
+	RosterRepository
 	DirectEnroll(
 		context.Context,
 		tenancy.Context,

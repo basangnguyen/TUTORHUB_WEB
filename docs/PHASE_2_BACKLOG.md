@@ -19,9 +19,9 @@ Tạo nền multi-tenant và quản lý lớp đủ dùng cho pilot nội bộ:
 **Task đã hoàn thành:** P2-00 Policy and contract baseline; P2-01 User profile và
 identity linking; P2-02 Tenant lifecycle và workspace switching; P2-03 Membership
 invitation, accept và revoke; P2-04 Class lifecycle, ownership và archive; P2-05
-Enrollment và class invite code.
+Enrollment và class invite code; P2-06 Roster và class-level roles.
 
-**Task kế tiếp:** P2-06 Roster và class-level roles.
+**Task kế tiếp:** P2-07 Audit log cho hành động nhạy cảm.
 
 ## 2. Non-goal
 
@@ -55,8 +55,8 @@ Enrollment và class invite code.
 | P2-03 | Membership invitation/accept/revoke     | P2-02                      | DONE       |
 | P2-04 | Class lifecycle, ownership và archive   | P2-00, P2-02               | DONE       |
 | P2-05 | Enrollment và class invite code         | P2-03, P2-04               | DONE       |
-| P2-06 | Roster và class-level roles             | P2-05                      | NEXT       |
-| P2-07 | Audit log cho hành động nhạy cảm        | P2-02 đến P2-06            | TODO       |
+| P2-06 | Roster và class-level roles             | P2-05                      | DONE       |
+| P2-07 | Audit log cho hành động nhạy cảm        | P2-02 đến P2-06            | NEXT       |
 | P2-08 | Admin/teacher UI end-to-end             | P2-02 đến P2-07            | TODO       |
 | P2-09 | Feature flag và quota framework         | P2-00, P2-02               | TODO       |
 | P2-10 | Tenant isolation/IDOR security suite    | Xuyên suốt; chốt sau P2-09 | TODO       |
@@ -341,25 +341,35 @@ chạy local vì không nạp DB test env; CI PostgreSQL 17 sẽ xác nhận sau
 
 ### Contract đề xuất
 
-- `GET /api/v1/classes/{classId}/roster`
-- `PATCH /api/v1/classes/{classId}/roster/{userId}`
-- `DELETE /api/v1/classes/{classId}/roster/{userId}` hoặc mutation remove rõ nghĩa.
+- `GET /api/v1/classes/{class_id}/roster`
+- `PATCH /api/v1/classes/{class_id}/roster/{user_id}`
+- `POST /api/v1/classes/{class_id}/roster/bulk`
 
 ### Công việc
 
-- [ ] Pagination, search theo normalized display name/email và status filter.
-- [ ] Role transition matrix owner/co-teacher/TA/student.
-- [ ] Không cho xóa/demote owner cuối cùng.
-- [ ] TA không được tự nâng quyền hoặc cấp quyền cao hơn.
-- [ ] Bulk action có giới hạn kích thước, partial-failure contract rõ ràng.
-- [ ] UI roster hỗ trợ keyboard, confirm mutation và empty/loading/error states.
+- [x] Pagination, search theo normalized display name/email và status filter.
+- [x] Role transition matrix owner/co-teacher/TA/student.
+- [x] Không cho xóa/demote owner cuối cùng.
+- [x] TA không được tự nâng quyền hoặc cấp quyền cao hơn.
+- [x] Bulk action có giới hạn kích thước, partial-failure contract rõ ràng.
+- [x] UI roster hỗ trợ keyboard, confirm mutation và empty/loading/error states.
 
 ### Kiểm thử và DoD
 
-- Table-driven role transition tests.
-- Cross-class/cross-tenant roster mutation đều bị từ chối.
-- Pagination không lặp/mất item khi dữ liệu không đổi.
-- Quyền LiveKit/class APIs phản ánh role mới ngay sau mutation.
+- [x] Table-driven role transition tests.
+- [x] Cross-class/cross-tenant roster mutation đều bị từ chối.
+- [x] Pagination không lặp/mất item khi dữ liệu không đổi.
+- [x] Quyền LiveKit/class APIs phản ánh role mới ngay sau mutation.
+
+**Hoàn thành 2026-07-19:** owner vẫn implicit và được ghim riêng khỏi page enrollment;
+hierarchy shared-policy chặn self/peer/owner mutation. Search Unicode NFC/literal,
+status filter, cursor bind scope/filter, single role update và bulk một action cho 1-50
+user ID đã có OpenAPI/generated client, Go API/repository/service và React roster UI.
+Bulk commit từng item, trả ordered `updated/unchanged/failed`; client refetch sau mọi
+outcome. Viewer lifecycle capability và LiveKit role attributes đều lấy từ projection
+authoritative. Full `pnpm verify` xanh: web 71/71, API client 14/14, UI 6/6 cùng
+lint/typecheck/build/Storybook, Go test/vet và security checks. Integration-tag compile
+xanh; runtime PostgreSQL roster integration chưa chạy local vì không nạp DB test env.
 
 ## 12. P2-07 Audit log hành động nhạy cảm
 
@@ -506,8 +516,8 @@ chạy local vì không nạp DB test env; CI PostgreSQL 17 sẽ xác nhận sau
 
 ## 19. Việc cần làm ngay
 
-1. Theo dõi PostgreSQL integration/clean-migration gate của checkpoint P2-05 trên CI.
-2. Bắt đầu P2-06 từ roster query tenant/class-scoped có pagination, search và filter.
-3. Khóa role-transition matrix owner/co-teacher/TA/student trước khi mở mutation UI.
-4. Giữ owner implicit ở `classes.owner_user_id`; không tạo owner enrollment.
+1. Theo dõi PostgreSQL integration/clean-migration gate của checkpoint P2-05/P2-06 trên CI.
+2. Bắt đầu P2-07 từ schema/event taxonomy audit append-only và redaction allowlist.
+3. Giữ audit query tenant-scoped, có cursor/filter và authorization tests chống IDOR.
+4. Tái sử dụng transactional outbox hiện có; không log token, session ID hoặc PII thừa.
 5. Giữ notification invitation ở interface/outbox; chưa gửi email thật trong Phase 2.

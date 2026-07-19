@@ -112,6 +112,24 @@ organization/class roles, action, resource tenant, resource class và resource s
 Handler chỉ chuyển principal đã xác thực; `identity`, `classroom` và `media` cùng dùng
 `internal/policy.Authorizer`, không so sánh role hoặc permission cục bộ.
 
+### 3.4. Roster target hierarchy
+
+P2-06 áp dụng lớp kiểm tra thứ hai sau `enrollment.manage` để một manager không thể
+thay đổi peer hoặc cấp quyền bằng/cao hơn chính mình:
+
+| Mức | Role hiệu lực cho roster |
+| ---: | --- |
+| 4 | organization `org_admin` |
+| 3 | class `owner` implicit |
+| 2 | organization `teacher` hoặc class `co_teacher` active |
+| 1 | class `teaching_assistant` active |
+| 0 | organization `student`/`guest` hoặc class `student` active |
+
+Actor phải cao hơn cả target hiện tại và role muốn cấp. Không cho self-mutation,
+mutation owner, gán `owner` hoặc dùng role không nhận diện. Owner chỉ thay đổi qua
+ownership-transfer endpoint. Các role persisted của enrollment tiếp tục chỉ gồm
+`co_teacher`, `teaching_assistant` và `student`.
+
 ## 4. Tenant isolation
 
 - `tenant_id` được lấy từ session/context đã xác thực, không tin giá trị tùy ý từ body.
@@ -178,11 +196,15 @@ tục là định danh thân thiện, không thêm `slug` trùng nghĩa.
   và được ghi vào transactional outbox cùng thay đổi business.
 - Class detail, media token và media event dùng cùng projection viewer authoritative:
   owner implicit, organization manager hoặc enrollment active. Projection gồm class
-  role/status enrollment và các capability `can_manage_enrollments`, `can_join_room`,
-  `can_publish_media`, `can_leave`; client không được tự khai các giá trị này hoặc
-  suy `session.join` thành quyền publish.
+  role/status enrollment và các capability `can_update_class`, `can_archive_class`,
+  `can_transfer_ownership`, `can_manage_enrollments`, `can_join_room`,
+  `can_publish_media`, `can_leave`; client không được tự khai các giá trị này, dùng
+  global session permission thay cho class scope hoặc suy `session.join` thành quyền
+  publish.
 - Media token và media event mới chỉ hợp lệ khi class active. Archive không thể thu hồi
-  JWT LiveKit đã cấp hoặc tự kick participant đang kết nối.
+  JWT LiveKit đã cấp hoặc tự kick participant đang kết nối. Role roster mới được phản
+  ánh ở API và token LiveKit cấp sau mutation; JWT/participant đã tồn tại không đổi
+  ngược thời gian.
 
 Class invite code P2-05 có lifecycle `active -> exhausted/expired/revoked`. Code mới chỉ
 được tạo và sử dụng để join khi class active; hết usage limit chuyển `exhausted`, quá hạn
@@ -198,5 +220,18 @@ Class invite code P2-05 có lifecycle `active -> exhausted/expired/revoked`. Cod
 role vào policy. Self-leave chuyển `active -> left`, vẫn được phép khi class archived;
 owner implicit không có enrollment nên không thể self-leave. Enrollment suspended hoặc
 removed không thể tự kích hoạt lại bằng invite code.
+
+Roster trả owner implicit như projection ghim riêng và không đưa owner vào pagination
+enrollment. Danh sách dùng keyset ổn định theo normalized display name và user ID;
+search display name/email chuẩn hóa Unicode NFC, gộp whitespace, lowercase và coi `%`/
+`_` là ký tự literal. Cursor không chứa tên/email và bị ràng buộc với tenant, class,
+search cùng status filter.
+
+Đổi class role và suspend chỉ áp dụng target enrollment/membership active trong class
+active. Remove nhận active/suspended/left và replay target đã removed là no-op. Role
+mutation P2-06 dùng last-write-wins, không thêm enrollment version; client refetch sau
+mutation. Bulk nhận một action đồng nhất cho 1-50 user ID duy nhất, giữ thứ tự kết quả
+và commit từng item độc lập. Domain failure dự kiến trả theo item; lỗi hạ tầng trả 5xx,
+vì vậy client phải refetch trước khi retry idempotent.
 
 Mọi chuyển trạng thái phải được kiểm tra trong domain service, không cho controller cập nhật status tùy ý.

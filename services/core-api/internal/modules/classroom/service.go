@@ -466,6 +466,18 @@ func projectClassViewerAccess(
 		ClassID:  class.ID,
 		State:    policy.ResourceState(class.Status),
 	}
+	class.ViewerAccess.CanUpdateClass = authorizer.Authorize(policy.Input{
+		Subject: viewerSubject(resolved), Action: policy.ActionClassUpdate,
+		Resource: resource,
+	}).Allowed
+	class.ViewerAccess.CanArchiveClass = authorizer.Authorize(policy.Input{
+		Subject: viewerSubject(resolved), Action: policy.ActionClassArchive,
+		Resource: resource,
+	}).Allowed
+	class.ViewerAccess.CanTransferOwnership = authorizer.Authorize(policy.Input{
+		Subject: viewerSubject(resolved), Action: policy.ActionClassTransferOwnership,
+		Resource: resource,
+	}).Allowed
 	class.ViewerAccess.CanManageEnrollments = authorizer.Authorize(policy.Input{
 		Subject: viewerSubject(resolved), Action: policy.ActionEnrollmentManage,
 		Resource: resource,

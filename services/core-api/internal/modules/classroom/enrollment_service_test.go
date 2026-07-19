@@ -67,6 +67,22 @@ func (stub *enrollmentServiceTokenCodecStub) Digest(
 }
 
 type enrollmentServiceRepositoryStub struct {
+	listRosterResult ListRosterResult
+	listRosterErr    error
+	listRosterCalls  int
+	listRosterTenant tenancy.Context
+	listRosterClass  uuid.UUID
+	listRosterParams ListRosterParams
+
+	updateRoleResult EnrollmentMutationResult
+	updateRoleErr    error
+	updateRoleCalls  int
+	updateRoleTenant tenancy.Context
+	updateRoleClass  uuid.UUID
+	updateRoleUser   uuid.UUID
+	updateRoleParams UpdateRosterRoleParams
+	updateRoleFunc   func(uuid.UUID, UpdateRosterRoleParams) (EnrollmentMutationResult, error)
+
 	directResult EnrollmentMutationResult
 	directErr    error
 	directCalls  int
@@ -81,6 +97,7 @@ type enrollmentServiceRepositoryStub struct {
 	suspendClass  uuid.UUID
 	suspendUser   uuid.UUID
 	suspendAt     time.Time
+	suspendFunc   func(uuid.UUID, time.Time) (EnrollmentMutationResult, error)
 
 	removeResult EnrollmentMutationResult
 	removeErr    error
@@ -89,6 +106,7 @@ type enrollmentServiceRepositoryStub struct {
 	removeClass  uuid.UUID
 	removeUser   uuid.UUID
 	removeAt     time.Time
+	removeFunc   func(uuid.UUID, time.Time) (EnrollmentMutationResult, error)
 
 	createCodeResult ClassInviteCode
 	createCodeErr    error
@@ -143,6 +161,37 @@ func (stub *enrollmentServiceRepositoryStub) ListActorEnrollments(
 	return []Enrollment{}, nil
 }
 
+func (stub *enrollmentServiceRepositoryStub) ListRoster(
+	_ context.Context,
+	tenantContext tenancy.Context,
+	classID uuid.UUID,
+	params ListRosterParams,
+) (ListRosterResult, error) {
+	stub.listRosterCalls++
+	stub.listRosterTenant = tenantContext
+	stub.listRosterClass = classID
+	stub.listRosterParams = params
+	return stub.listRosterResult, stub.listRosterErr
+}
+
+func (stub *enrollmentServiceRepositoryStub) UpdateRosterRole(
+	_ context.Context,
+	tenantContext tenancy.Context,
+	classID uuid.UUID,
+	userID uuid.UUID,
+	params UpdateRosterRoleParams,
+) (EnrollmentMutationResult, error) {
+	stub.updateRoleCalls++
+	stub.updateRoleTenant = tenantContext
+	stub.updateRoleClass = classID
+	stub.updateRoleUser = userID
+	stub.updateRoleParams = params
+	if stub.updateRoleFunc != nil {
+		return stub.updateRoleFunc(userID, params)
+	}
+	return stub.updateRoleResult, stub.updateRoleErr
+}
+
 func (stub *enrollmentServiceRepositoryStub) DirectEnroll(
 	_ context.Context,
 	tenantContext tenancy.Context,
@@ -168,6 +217,9 @@ func (stub *enrollmentServiceRepositoryStub) SuspendEnrollment(
 	stub.suspendClass = classID
 	stub.suspendUser = userID
 	stub.suspendAt = changedAt
+	if stub.suspendFunc != nil {
+		return stub.suspendFunc(userID, changedAt)
+	}
 	return stub.suspendResult, stub.suspendErr
 }
 
@@ -183,6 +235,9 @@ func (stub *enrollmentServiceRepositoryStub) RemoveEnrollment(
 	stub.removeClass = classID
 	stub.removeUser = userID
 	stub.removeAt = changedAt
+	if stub.removeFunc != nil {
+		return stub.removeFunc(userID, changedAt)
+	}
 	return stub.removeResult, stub.removeErr
 }
 

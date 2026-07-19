@@ -46,7 +46,8 @@ func TestIssueJoinCredentialUsesTenantClassAndLeastPrivilege(t *testing.T) {
 		t.Fatalf("unexpected server-derived identifiers: %+v", credential)
 	}
 	if !credential.CanPublish || !issuer.grant.CanPublish || !issuer.grant.CanSubscribe ||
-		issuer.grant.CanPublishData || issuer.grant.Role != "teacher" {
+		issuer.grant.CanPublishData || issuer.grant.Role != "teacher" ||
+		issuer.grant.OrganizationRole != "teacher" || issuer.grant.ClassRole != "" {
 		t.Fatalf("unexpected least-privilege grant: %+v", issuer.grant)
 	}
 	if issuer.grant.ParticipantName != "Giảng viên An" ||
@@ -56,6 +57,38 @@ func TestIssueJoinCredentialUsesTenantClassAndLeastPrivilege(t *testing.T) {
 	if classes.access.TenantID != tenantID || classes.access.ActorID != actorID ||
 		classes.classID != classID {
 		t.Fatalf("class authorization did not use active tenant: %+v", classes)
+	}
+}
+
+func TestIssueJoinCredentialUsesAuthoritativeClassRoleImmediately(t *testing.T) {
+	t.Parallel()
+
+	tenantID := uuid.New()
+	classID := uuid.New()
+	role := policy.ClassRoleTeachingAssistant
+	status := classroom.EnrollmentStatusActive
+	issuer := &fakeTokenIssuer{token: "signed-token"}
+	service := newTestService(t, &fakeClassService{class: classroom.Class{
+		ID: classID, TenantID: tenantID, Status: classroom.ClassStatusActive,
+		ViewerAccess: classroom.ViewerAccess{
+			ClassRole: &role, EnrollmentStatus: &status,
+			CanJoinRoom: true, CanPublishMedia: true,
+		},
+	}}, issuer, nil, nil, uuid.New())
+
+	_, err := service.IssueJoinCredential(context.Background(), AccessContext{
+		TenantID: tenantID, ActorID: uuid.New(), SessionID: uuid.New(),
+		DisplayName: "Learner promoted in class", Role: "student",
+		MembershipActive:  true,
+		OrganizationRoles: []policy.OrganizationRole{policy.OrganizationRoleStudent},
+	}, classID)
+	if err != nil {
+		t.Fatalf("issue class-role credential: %v", err)
+	}
+	if issuer.grant.Role != string(policy.ClassRoleTeachingAssistant) ||
+		issuer.grant.ClassRole != string(policy.ClassRoleTeachingAssistant) ||
+		issuer.grant.OrganizationRole != string(policy.OrganizationRoleStudent) {
+		t.Fatalf("token grant did not use authoritative class role: %+v", issuer.grant)
 	}
 }
 

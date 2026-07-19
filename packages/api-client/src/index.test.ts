@@ -5,6 +5,7 @@ import {
   archiveClass,
   archiveTenant,
   beginIdentityLink,
+  bulkMutateClassRoster,
   createClass,
   createClassEnrollment,
   createClassInviteCode,
@@ -20,6 +21,7 @@ import {
   joinClassInvitation,
   leaveClass,
   listClassInviteCodes,
+  listClassRoster,
   listIdentities,
   listClasses,
   listMembershipInvitations,
@@ -37,6 +39,7 @@ import {
   transferClassOwnership,
   unlinkIdentity,
   updateClass,
+  updateClassRosterRole,
   updateProfile,
   updateTenant,
 } from "./index";
@@ -511,6 +514,9 @@ describe("getHealth", () => {
       viewer_access: {
         class_role: "owner",
         enrollment_status: null,
+        can_update_class: true,
+        can_archive_class: true,
+        can_transfer_ownership: true,
         can_manage_enrollments: true,
         can_join_room: false,
         can_publish_media: false,
@@ -797,6 +803,9 @@ describe("getHealth", () => {
       viewer_access: {
         class_role: "student",
         enrollment_status: "active",
+        can_update_class: false,
+        can_archive_class: false,
+        can_transfer_ownership: false,
         can_manage_enrollments: false,
         can_join_room: true,
         can_publish_media: true,
@@ -881,6 +890,142 @@ describe("getHealth", () => {
     await expect(requests[3]?.clone().json()).resolves.toEqual({ token });
     expect(JSON.stringify(inviteCode)).not.toContain(token);
     expect(JSON.stringify(inviteCode)).not.toContain("hash");
+  });
+
+  it("lists and mutates a class roster through the tenant-bound contract", async () => {
+    const classID = "a912f628-f3d2-4c18-84c6-42a9e858dc8d";
+    const ownerID = "be85eb92-0f18-4163-85ba-50e4d343d632";
+    const userID = "1d7d65eb-904e-4a0d-bd24-a8ec1b453d64";
+    const enrollment: ClassEnrollment = {
+      id: "63af7268-58db-4d40-a96f-c4f473a92350",
+      class_id: classID,
+      user_id: userID,
+      class_role: "student",
+      status: "active",
+      enrolled_by: ownerID,
+      joined_at: "2026-07-19T03:00:00Z",
+      suspended_at: null,
+      left_at: null,
+      removed_at: null,
+      created_at: "2026-07-19T03:00:00Z",
+      updated_at: "2026-07-19T03:00:00Z",
+    };
+    const page = {
+      class_owner: {
+        user: {
+          id: ownerID,
+          display_name: "Owner",
+          email: "owner@example.test",
+        },
+        class_role: "owner" as const,
+      },
+      items: [
+        {
+          user: {
+            id: userID,
+            display_name: "Student",
+            email: "student@example.test",
+          },
+          enrollment,
+          actions: {
+            assignable_roles: ["teaching_assistant" as const],
+            can_suspend: true,
+            can_remove: true,
+          },
+        },
+      ],
+      next_cursor: "thro1_next",
+    };
+    const updatedEnrollment = {
+      ...enrollment,
+      class_role: "teaching_assistant" as const,
+    };
+    const bulkResponse = {
+      action: "suspend" as const,
+      items: [
+        {
+          user_id: userID,
+          outcome: "failed" as const,
+          enrollment: null,
+          failure: { code: "conflict" as const, detail: "State changed." },
+        },
+      ],
+      requested_count: 1,
+      updated_count: 0,
+      unchanged_count: 0,
+      failed_count: 1,
+    };
+    const responses = [
+      new Response(JSON.stringify(page), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+      new Response(
+        JSON.stringify({ outcome: "updated", enrollment: updatedEnrollment }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+      new Response(JSON.stringify(bulkResponse), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    ];
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(() => Promise.resolve(responses.shift()));
+    const options = { baseUrl: "http://localhost/api", fetch: fetchMock };
+
+    await expect(
+      listClassRoster(
+        classID,
+        {
+          cursor: "thro1_current",
+          limit: 25,
+          search: "student one",
+          status: "active",
+        },
+        options,
+      ),
+    ).resolves.toEqual(page);
+    await expect(
+      updateClassRosterRole(
+        classID,
+        userID,
+        { class_role: "teaching_assistant" },
+        "role-csrf",
+        options,
+      ),
+    ).resolves.toMatchObject({ outcome: "updated" });
+    await expect(
+      bulkMutateClassRoster(
+        classID,
+        { action: "suspend", user_ids: [userID] },
+        "bulk-csrf",
+        options,
+      ),
+    ).resolves.toEqual(bulkResponse);
+
+    const requests = fetchMock.mock.calls.map((call) => call[0] as Request);
+    const rosterURL = new URL(requests[0]?.url ?? "http://invalid");
+    expect(rosterURL.pathname).toBe(`/api/v1/classes/${classID}/roster`);
+    expect(Object.fromEntries(rosterURL.searchParams)).toEqual({
+      cursor: "thro1_current",
+      limit: "25",
+      search: "student one",
+      status: "active",
+    });
+    expect(requests[1]?.method).toBe("PATCH");
+    expect(requests[1]?.headers.get("X-CSRF-Token")).toBe("role-csrf");
+    await expect(requests[1]?.clone().json()).resolves.toEqual({
+      class_role: "teaching_assistant",
+    });
+    expect(requests[2]?.url).toBe(
+      `http://localhost/api/v1/classes/${classID}/roster/bulk`,
+    );
+    expect(requests[2]?.headers.get("X-CSRF-Token")).toBe("bulk-csrf");
+    await expect(requests[2]?.clone().json()).resolves.toEqual({
+      action: "suspend",
+      user_ids: [userID],
+    });
   });
 
   it("issues an in-memory media token and records bounded join telemetry", async () => {

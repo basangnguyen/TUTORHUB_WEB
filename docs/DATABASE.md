@@ -77,6 +77,14 @@ Ràng buộc quan trọng:
   Enrollment inactive không cấp quyền; owner implicit và quyền organization vẫn được
   shared policy đánh giá độc lập. HTTP trả projection `viewer_access` do server tính,
   không tin class role do session hoặc browser tự khai.
+- P2-06 không thêm migration `000011`: roster dùng schema/index tenant-class-role-status
+  của `000010`. Owner được đọc riêng từ `classes.owner_user_id`, ghim trong projection
+  và bị loại khỏi page enrollment. Search display name/email tenant/class-scoped dùng
+  Unicode NFC, collapsed whitespace, lowercase và literal matching cho `%`/`_`; keyset
+  ổn định theo normalized display name rồi `user_id`.
+- Opaque roster cursor chỉ mang user ID cùng hash scope/filter, không mang display name
+  hoặc email; hash ràng buộc tenant, class, normalized search và status. Role update
+  P2-06 là last-write-wins có refetch, chưa thêm version/CAS cho enrollment.
 - Direct enrollment chỉ tìm active tenant member theo normalized email, tạo/reactivate
   role `student` và không tạo owner/manager trùng. Suspend/remove/leave dùng transition
   có điều kiện; suspended/removed không thể tự join lại bằng invite code, còn manager
@@ -108,10 +116,11 @@ Ràng buộc quan trọng:
   `class.transfer_ownership`. Transfer target phải là active member cùng tenant đủ điều
   kiện `class.create` và actor có recent authentication trong 10 phút.
 - Success event class create/update/archive/restore/ownership transfer, enrollment
-  create/reactivate/suspend/remove/join/rejoin/leave và invite-code
+  create/reactivate/suspend/remove/join/rejoin/leave/role-changed và invite-code
   create/revoke/expire/exhaust được ghi vào
   transactional outbox cùng business mutation; payload không chứa description, token
-  thô, token hash hoặc session secret.
+  thô, token hash, email, display name hoặc session secret. Event
+  `class.enrollment.role_changed` chỉ giữ ID, role trước/sau, status và source allowlist.
 - Tenant list được giới hạn bởi user membership active; detail/update/archive bắt buộc
   tenant path trùng active tenant context.
 - Đọc tenant yêu cầu `tenant.view`; update/archive yêu cầu `tenant.manage` và CSRF.
@@ -190,6 +199,12 @@ active enrollment projection cho class/media; cross-tenant concealment và
 transactional outbox. Local hiện mới compile integration-tag vì không nạp DB test env;
 không coi đó là bằng chứng runtime PostgreSQL đã chạy.
 
+P2-06 không đổi schema. PostgreSQL integration test bổ sung owner dedupe, pagination
+không lặp/mất, UUID tie-break cho tên trùng, Unicode/literal-wildcard search, status
+filter, role hierarchy/outbox redaction, projection API sau mutation, archived-class
+guards và cross-class/cross-tenant denial. Integration-tag compile xanh local; runtime
+chưa chạy vì không nạp DB test env và sẽ do CI PostgreSQL 17 xác nhận sau push.
+
 CI tạo PostgreSQL 17 tạm thời, chạy migration từ database sạch rồi chạy integration
 test. Bài test Neon cục bộ dùng transaction bao ngoài và rollback nên không để lại
 user, tenant, class, enrollment, invite code, invitation, membership hoặc outbox fixture.
@@ -210,7 +225,8 @@ user, tenant, class, enrollment, invite code, invitation, membership hoặc outb
 - P1-06B đã hoàn thành list/create/detail class; các lát cắt enrollment, invite code và roster thuộc Phase 2.
 - P1-10 đã hoàn thành database/branch staging riêng, runtime role và migration role riêng.
 - P2-04 đã bổ sung class lifecycle/ownership/archive và migration `000009`.
-- P2-05 đã bổ sung enrollment, class invite code và migration `000010`; roster search,
-  phân trang và UI đổi class role đầy đủ vẫn thuộc P2-06.
+- P2-05 đã bổ sung enrollment, class invite code và migration `000010`.
+- P2-06 đã bổ sung roster search/filter/keyset pagination, role hierarchy, single/bulk
+  mutation, outbox và UI mà không cần migration mới; migration mới nhất vẫn là `000010`.
 - Chưa import dữ liệu TutorHub V1; migration V1 sẽ làm theo module/cohort ở phase sau.
 - Chưa có backup/restore drill, PITR gate hoặc connection load test cho pilot.

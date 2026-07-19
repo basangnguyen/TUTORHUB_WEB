@@ -112,7 +112,9 @@ func TestServiceGetRequiresAuthoritativeActiveEnrollmentForStudent(t *testing.T)
 		*class.ViewerAccess.EnrollmentStatus != EnrollmentStatusActive ||
 		!class.ViewerAccess.CanJoinRoom || !class.ViewerAccess.CanPublishMedia ||
 		!class.ViewerAccess.CanLeave ||
-		class.ViewerAccess.CanManageEnrollments {
+		class.ViewerAccess.CanManageEnrollments ||
+		class.ViewerAccess.CanUpdateClass || class.ViewerAccess.CanArchiveClass ||
+		class.ViewerAccess.CanTransferOwnership {
 		t.Fatalf("unexpected enrolled viewer projection: %+v", class.ViewerAccess)
 	}
 
@@ -144,7 +146,10 @@ func TestServiceProjectsGlobalManagerAndImplicitOwnerAccess(t *testing.T) {
 	if err != nil {
 		t.Fatalf("teacher manager reads class: %v", err)
 	}
-	if !managerClass.ViewerAccess.CanManageEnrollments ||
+	if !managerClass.ViewerAccess.CanUpdateClass ||
+		managerClass.ViewerAccess.CanArchiveClass ||
+		managerClass.ViewerAccess.CanTransferOwnership ||
+		!managerClass.ViewerAccess.CanManageEnrollments ||
 		!managerClass.ViewerAccess.CanJoinRoom ||
 		!managerClass.ViewerAccess.CanPublishMedia ||
 		managerClass.ViewerAccess.CanLeave ||
@@ -186,6 +191,9 @@ func TestServiceProjectsGlobalManagerAndImplicitOwnerAccess(t *testing.T) {
 		*ownerClass.ViewerAccess.ClassRole != policy.ClassRoleOwner ||
 		ownerClass.ViewerAccess.EnrollmentStatus == nil ||
 		*ownerClass.ViewerAccess.EnrollmentStatus != EnrollmentStatusActive ||
+		!ownerClass.ViewerAccess.CanUpdateClass ||
+		!ownerClass.ViewerAccess.CanArchiveClass ||
+		!ownerClass.ViewerAccess.CanTransferOwnership ||
 		!ownerClass.ViewerAccess.CanManageEnrollments ||
 		!ownerClass.ViewerAccess.CanJoinRoom ||
 		!ownerClass.ViewerAccess.CanPublishMedia || ownerClass.ViewerAccess.CanLeave {

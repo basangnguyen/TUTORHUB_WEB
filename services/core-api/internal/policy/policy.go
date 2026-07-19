@@ -110,6 +110,48 @@ type Decision struct {
 	ConcealResource bool
 }
 
+// RosterMutationAction identifies a target-aware class enrollment mutation. Class
+// lifecycle and enrollment state transitions remain domain concerns; this type
+// only answers whether the actor may exercise management authority over the
+// target role.
+type RosterMutationAction string
+
+const (
+	RosterMutationUpdateRole RosterMutationAction = "update_role"
+	RosterMutationSuspend    RosterMutationAction = "suspend"
+	RosterMutationRemove     RosterMutationAction = "remove"
+)
+
+type RosterMutationDenialReason string
+
+const (
+	RosterMutationDenialNone               RosterMutationDenialReason = ""
+	RosterMutationDenialManagementRequired RosterMutationDenialReason = "management_required"
+	RosterMutationDenialInvalidInput       RosterMutationDenialReason = "invalid_input"
+	RosterMutationDenialSelf               RosterMutationDenialReason = "self_mutation"
+	RosterMutationDenialProtectedOwner     RosterMutationDenialReason = "protected_owner"
+	RosterMutationDenialUnknownRole        RosterMutationDenialReason = "unknown_role"
+	RosterMutationDenialHierarchy          RosterMutationDenialReason = "hierarchy"
+)
+
+type RosterMutationInput struct {
+	ManagementGranted       bool
+	Action                  RosterMutationAction
+	ActorID                 uuid.UUID
+	TargetUserID            uuid.UUID
+	ActorOrganizationRoles  []OrganizationRole
+	ActorClassRoles         []ClassRole
+	TargetOrganizationRoles []OrganizationRole
+	TargetClassRole         ClassRole
+	TargetIsOwner           bool
+	DesiredClassRole        ClassRole
+}
+
+type RosterMutationDecision struct {
+	Allowed bool
+	Reason  RosterMutationDenialReason
+}
+
 type Authorizer interface {
 	EffectivePermissions(Subject) []Permission
 	Authorize(Input) Decision
@@ -279,6 +321,137 @@ func PermissionStrings(permissions []Permission) []string {
 		values = append(values, string(permission))
 	}
 	return values
+}
+
+// CanMutateRoster applies the class roster hierarchy after the caller
+// has obtained enrollment.manage through the regular Authorizer. Authority is
+// strictly hierarchical: an actor cannot mutate a peer or grant a role at or
+// above the actor's own level. Owner changes remain exclusive to the dedicated
+// ownership-transfer boundary.
+func CanMutateRoster(input RosterMutationInput) RosterMutationDecision {
+	if !input.ManagementGranted {
+		return RosterMutationDecision{Reason: RosterMutationDenialManagementRequired}
+	}
+	if !validRosterMutationAction(input.Action) || input.ActorID == uuid.Nil ||
+		input.TargetUserID == uuid.Nil {
+		return RosterMutationDecision{Reason: RosterMutationDenialInvalidInput}
+	}
+	if input.ActorID == input.TargetUserID {
+		return RosterMutationDecision{Reason: RosterMutationDenialSelf}
+	}
+	if input.TargetIsOwner || input.TargetClassRole == ClassRoleOwner {
+		return RosterMutationDecision{Reason: RosterMutationDenialProtectedOwner}
+	}
+
+	actorLevel, actorRolesValid := rosterAuthorityLevel(
+		input.ActorOrganizationRoles,
+		input.ActorClassRoles,
+		true,
+	)
+	targetLevel, targetRolesValid := rosterAuthorityLevel(
+		input.TargetOrganizationRoles,
+		[]ClassRole{input.TargetClassRole},
+		true,
+	)
+	if !actorRolesValid || !targetRolesValid {
+		return RosterMutationDecision{Reason: RosterMutationDenialUnknownRole}
+	}
+	if actorLevel <= targetLevel {
+		return RosterMutationDecision{Reason: RosterMutationDenialHierarchy}
+	}
+
+	switch input.Action {
+	case RosterMutationUpdateRole:
+		desiredLevel, valid := persistedClassRoleLevel(input.DesiredClassRole)
+		if !valid {
+			return RosterMutationDecision{Reason: RosterMutationDenialUnknownRole}
+		}
+		if actorLevel <= desiredLevel {
+			return RosterMutationDecision{Reason: RosterMutationDenialHierarchy}
+		}
+	case RosterMutationSuspend, RosterMutationRemove:
+		if input.DesiredClassRole != "" {
+			return RosterMutationDecision{Reason: RosterMutationDenialInvalidInput}
+		}
+	}
+
+	return RosterMutationDecision{Allowed: true, Reason: RosterMutationDenialNone}
+}
+
+func validRosterMutationAction(action RosterMutationAction) bool {
+	switch action {
+	case RosterMutationUpdateRole, RosterMutationSuspend, RosterMutationRemove:
+		return true
+	default:
+		return false
+	}
+}
+
+func rosterAuthorityLevel(
+	organizationRoles []OrganizationRole,
+	classRoles []ClassRole,
+	requireOrganizationRole bool,
+) (int, bool) {
+	if requireOrganizationRole && len(organizationRoles) == 0 {
+		return 0, false
+	}
+	level := 0
+	for _, role := range organizationRoles {
+		roleLevel, valid := organizationRosterLevel(role)
+		if !valid {
+			return 0, false
+		}
+		if roleLevel > level {
+			level = roleLevel
+		}
+	}
+	for _, role := range classRoles {
+		roleLevel, valid := classRosterLevel(role)
+		if !valid {
+			return 0, false
+		}
+		if roleLevel > level {
+			level = roleLevel
+		}
+	}
+	return level, true
+}
+
+func organizationRosterLevel(role OrganizationRole) (int, bool) {
+	switch role {
+	case OrganizationRoleAdmin:
+		return 4, true
+	case OrganizationRoleTeacher:
+		return 2, true
+	case OrganizationRoleStudent, OrganizationRoleGuest:
+		return 0, true
+	default:
+		return 0, false
+	}
+}
+
+func classRosterLevel(role ClassRole) (int, bool) {
+	switch role {
+	case ClassRoleOwner:
+		return 3, true
+	case ClassRoleCoTeacher:
+		return 2, true
+	case ClassRoleTeachingAssistant:
+		return 1, true
+	case ClassRoleStudent:
+		return 0, true
+	default:
+		return 0, false
+	}
+}
+
+func persistedClassRoleLevel(role ClassRole) (int, bool) {
+	switch role {
+	case ClassRoleCoTeacher, ClassRoleTeachingAssistant, ClassRoleStudent:
+		return classRosterLevel(role)
+	default:
+		return 0, false
+	}
 }
 
 func validSubject(subject Subject) bool {

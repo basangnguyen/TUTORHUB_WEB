@@ -23,6 +23,13 @@ function getApiBaseUrl() {
 }
 
 export const classEnrollmentQueryKeys = {
+  rosters: (tenantID: string, classID: string) =>
+    ["classes", tenantID, "detail", classID, "roster"] as const,
+  roster: (tenantID: string, classID: string, search: string, status: string) =>
+    [
+      ...classEnrollmentQueryKeys.rosters(tenantID, classID),
+      { search, status },
+    ] as const,
   inviteCodes: (tenantID: string, classID: string) =>
     ["classes", tenantID, "detail", classID, "invite-codes"] as const,
 };
@@ -64,7 +71,9 @@ interface DirectEnrollVariables {
   memberEmail: string;
 }
 
-export function useDirectClassEnrollment() {
+export function useDirectClassEnrollment(tenantID: string | undefined) {
+  const queryClient = useQueryClient();
+
   return useMutation<ClassEnrollment, Error, DirectEnrollVariables>({
     mutationFn: async ({ classID, memberEmail }) => {
       const csrf = await rotateCSRFToken({ baseUrl: getApiBaseUrl() });
@@ -74,6 +83,14 @@ export function useDirectClassEnrollment() {
         csrf.csrf_token,
         { baseUrl: getApiBaseUrl() },
       );
+    },
+    onSuccess: async (_, { classID }) => {
+      if (!tenantID) {
+        return;
+      }
+      await queryClient.invalidateQueries({
+        queryKey: classEnrollmentQueryKeys.rosters(tenantID, classID),
+      });
     },
     retry: false,
   });

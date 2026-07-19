@@ -43,6 +43,9 @@ type Class struct {
 type ViewerAccess struct {
 	ClassRole            *policy.ClassRole
 	EnrollmentStatus     *EnrollmentStatus
+	CanUpdateClass       bool
+	CanArchiveClass      bool
+	CanTransferOwnership bool
 	CanManageEnrollments bool
 	CanJoinRoom          bool
 	CanPublishMedia      bool

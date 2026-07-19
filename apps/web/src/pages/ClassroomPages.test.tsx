@@ -32,7 +32,10 @@ const classroom: ClassroomClass = {
   viewer_access: {
     class_role: null,
     enrollment_status: null,
-    can_manage_enrollments: true,
+    can_update_class: true,
+    can_archive_class: true,
+    can_transfer_ownership: true,
+    can_manage_enrollments: false,
     can_join_room: true,
     can_publish_media: true,
     can_leave: false,
@@ -494,7 +497,15 @@ describe("ClassroomPages P2-04", () => {
   });
 
   it("does not expose archive or restore to a non-owner teacher", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(classroom));
+    const teacherView = {
+      ...classroom,
+      viewer_access: {
+        ...classroom.viewer_access,
+        can_archive_class: false,
+        can_transfer_ownership: false,
+      },
+    };
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(teacherView));
     renderClassRoute(
       `/app/classrooms/${classID}`,
       fetchMock,

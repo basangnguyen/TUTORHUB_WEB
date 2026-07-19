@@ -302,6 +302,19 @@ func newClassEnrollmentTestHandler(
 
 type fakeClassEnrollmentService struct {
 	access                  classroom.AccessContext
+	listRosterClassID       uuid.UUID
+	listRosterInput         classroom.ListRosterInput
+	listRosterResult        classroom.RosterPage
+	listRosterError         error
+	updateRosterClassID     uuid.UUID
+	updateRosterUserID      uuid.UUID
+	updateRosterInput       classroom.UpdateRosterRoleInput
+	updateRosterResult      classroom.EnrollmentMutationResult
+	updateRosterError       error
+	bulkRosterClassID       uuid.UUID
+	bulkRosterInput         classroom.BulkRosterInput
+	bulkRosterResult        classroom.BulkRosterResult
+	bulkRosterError         error
 	createInviteCodeClassID uuid.UUID
 	createInviteCodeInput   classroom.CreateClassInviteCodeInput
 	createInviteCodeResult  classroom.CreateClassInviteCodeResult
@@ -309,6 +322,44 @@ type fakeClassEnrollmentService struct {
 	joinToken               string
 	joinResult              classroom.JoinClassInvitationResult
 	joinError               error
+}
+
+func (service *fakeClassEnrollmentService) ListRoster(
+	_ context.Context,
+	access classroom.AccessContext,
+	classID uuid.UUID,
+	input classroom.ListRosterInput,
+) (classroom.RosterPage, error) {
+	service.access = access
+	service.listRosterClassID = classID
+	service.listRosterInput = input
+	return service.listRosterResult, service.listRosterError
+}
+
+func (service *fakeClassEnrollmentService) UpdateRosterRole(
+	_ context.Context,
+	access classroom.AccessContext,
+	classID uuid.UUID,
+	userID uuid.UUID,
+	input classroom.UpdateRosterRoleInput,
+) (classroom.EnrollmentMutationResult, error) {
+	service.access = access
+	service.updateRosterClassID = classID
+	service.updateRosterUserID = userID
+	service.updateRosterInput = input
+	return service.updateRosterResult, service.updateRosterError
+}
+
+func (service *fakeClassEnrollmentService) BulkMutateRoster(
+	_ context.Context,
+	access classroom.AccessContext,
+	classID uuid.UUID,
+	input classroom.BulkRosterInput,
+) (classroom.BulkRosterResult, error) {
+	service.access = access
+	service.bulkRosterClassID = classID
+	service.bulkRosterInput = input
+	return service.bulkRosterResult, service.bulkRosterError
 }
 
 func (service *fakeClassEnrollmentService) DirectEnroll(

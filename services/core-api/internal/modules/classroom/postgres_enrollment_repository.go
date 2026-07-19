@@ -443,12 +443,25 @@ func (repository *PostgresRepository) changeManagedEnrollmentStatus(
 	if targetEnrollment == nil {
 		return EnrollmentMutationResult{}, ErrEnrollmentNotFound
 	}
-	if class.OwnerUserID == userID || (targetMembership.Active &&
-		repository.hasEnrollmentManagerPrivilege(
-			userID, tenantContext.TenantID, targetMembership,
-			targetEnrollment, class,
-		)) {
-		return EnrollmentMutationResult{}, ErrEnrollmentConflict
+	mutationAction := policy.RosterMutationRemove
+	if targetStatus == EnrollmentStatusSuspended {
+		mutationAction = policy.RosterMutationSuspend
+		if !targetMembership.Active {
+			return EnrollmentMutationResult{}, ErrEnrollmentConflict
+		}
+	}
+	if err := repository.authorizeRosterTargetMutation(
+		tenantContext,
+		class,
+		actorMembership,
+		actorEnrollment,
+		userID,
+		targetMembership,
+		targetEnrollment,
+		mutationAction,
+		"",
+	); err != nil {
+		return EnrollmentMutationResult{}, err
 	}
 	if targetEnrollment.Status == targetStatus {
 		if err := transaction.Commit(queryContext); err != nil {

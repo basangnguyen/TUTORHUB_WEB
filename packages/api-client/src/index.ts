@@ -68,6 +68,7 @@ export type TransferClassOwnershipRequest =
   components["schemas"]["TransferClassOwnershipRequest"];
 export type ClassEnrollmentStatus =
   components["schemas"]["ClassEnrollmentStatus"];
+export type ClassEnrollmentRole = components["schemas"]["ClassEnrollmentRole"];
 export type ClassViewerAccess = components["schemas"]["ClassViewerAccess"];
 export type ClassEnrollment = components["schemas"]["ClassEnrollment"];
 export type CreateClassEnrollmentRequest =
@@ -85,10 +86,30 @@ export type ClassInvitationTokenRequest =
   components["schemas"]["ClassInvitationTokenRequest"];
 export type JoinClassInvitationResponse =
   components["schemas"]["JoinClassInvitationResponse"];
+export type ClassRosterUser = components["schemas"]["ClassRosterUser"];
+export type ClassRosterOwner = components["schemas"]["ClassRosterOwner"];
+export type ClassRosterMember = components["schemas"]["ClassRosterMember"];
+export type ClassRosterPage = components["schemas"]["ClassRosterPage"];
+export type ClassRosterMutationResponse =
+  components["schemas"]["ClassRosterMutationResponse"];
+export type UpdateClassRosterRoleRequest =
+  components["schemas"]["UpdateClassRosterRoleRequest"];
+export type ClassRosterBulkAction =
+  components["schemas"]["ClassRosterBulkAction"];
+export type ClassRosterBulkRequest =
+  components["schemas"]["ClassRosterBulkRequest"];
+export type ClassRosterBulkResponse =
+  components["schemas"]["ClassRosterBulkResponse"];
 export interface ListClassesInput {
   cursor?: string;
   limit?: number;
   status?: ClassStatus;
+}
+export interface ListClassRosterInput {
+  cursor?: string;
+  limit?: number;
+  search?: string;
+  status?: ClassEnrollmentStatus;
 }
 export type MediaTokenResponse = components["schemas"]["MediaTokenResponse"];
 export type MediaEventRequest = components["schemas"]["MediaEventRequest"];
@@ -794,6 +815,80 @@ export async function removeClassEnrollment(
 
   return requireData<ClassEnrollment>(
     data as ClassEnrollment | undefined,
+    error,
+    response,
+  );
+}
+
+export async function listClassRoster(
+  classID: string,
+  input: ListClassRosterInput = {},
+  options: APIRequestOptions = {},
+): Promise<ClassRosterPage> {
+  const { data, error, response } = await createTutorHubClient(options).GET(
+    "/api/v1/classes/{class_id}/roster",
+    {
+      params: { path: { class_id: classID }, query: input },
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<ClassRosterPage>(
+    data as ClassRosterPage | undefined,
+    error,
+    response,
+  );
+}
+
+export async function updateClassRosterRole(
+  classID: string,
+  userID: string,
+  input: UpdateClassRosterRoleRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<ClassRosterMutationResponse> {
+  const { data, error, response } = await createTutorHubClient(options).PATCH(
+    "/api/v1/classes/{class_id}/roster/{user_id}",
+    {
+      params: {
+        path: { class_id: classID, user_id: userID },
+        header: { "X-CSRF-Token": csrfToken },
+      },
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<ClassRosterMutationResponse>(
+    data as ClassRosterMutationResponse | undefined,
+    error,
+    response,
+  );
+}
+
+export async function bulkMutateClassRoster(
+  classID: string,
+  input: ClassRosterBulkRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<ClassRosterBulkResponse> {
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/classes/{class_id}/roster/bulk",
+    {
+      params: {
+        path: { class_id: classID },
+        header: { "X-CSRF-Token": csrfToken },
+      },
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<ClassRosterBulkResponse>(
+    data as ClassRosterBulkResponse | undefined,
     error,
     response,
   );

@@ -79,6 +79,9 @@ type classResponse struct {
 type classViewerAccess struct {
 	ClassRole            *policy.ClassRole           `json:"class_role"`
 	EnrollmentStatus     *classroom.EnrollmentStatus `json:"enrollment_status"`
+	CanUpdateClass       bool                        `json:"can_update_class"`
+	CanArchiveClass      bool                        `json:"can_archive_class"`
+	CanTransferOwnership bool                        `json:"can_transfer_ownership"`
 	CanManageEnrollments bool                        `json:"can_manage_enrollments"`
 	CanJoinRoom          bool                        `json:"can_join_room"`
 	CanPublishMedia      bool                        `json:"can_publish_media"`
@@ -540,6 +543,9 @@ func newClassResponse(class classroom.Class) classResponse {
 		ViewerAccess: classViewerAccess{
 			ClassRole:            class.ViewerAccess.ClassRole,
 			EnrollmentStatus:     class.ViewerAccess.EnrollmentStatus,
+			CanUpdateClass:       class.ViewerAccess.CanUpdateClass,
+			CanArchiveClass:      class.ViewerAccess.CanArchiveClass,
+			CanTransferOwnership: class.ViewerAccess.CanTransferOwnership,
 			CanManageEnrollments: class.ViewerAccess.CanManageEnrollments,
 			CanJoinRoom:          class.ViewerAccess.CanJoinRoom,
 			CanPublishMedia:      class.ViewerAccess.CanPublishMedia,

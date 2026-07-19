@@ -562,7 +562,8 @@ func (handlers classEnrollmentHandlers) writeProblem(
 	}
 
 	switch {
-	case errors.Is(err, classroom.ErrInvalidEnrollmentInput):
+	case errors.Is(err, classroom.ErrInvalidEnrollmentInput),
+		errors.Is(err, classroom.ErrInvalidRosterCursor):
 		status = http.StatusBadRequest
 		title = "Invalid class enrollment request"
 		detail = "Check the member email, invite-code lifetime, and usage limit."

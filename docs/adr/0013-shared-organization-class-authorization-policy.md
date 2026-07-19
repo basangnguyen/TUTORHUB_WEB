@@ -3,6 +3,7 @@
 - Status: Accepted
 - Date: 2026-07-16
 - P2-05 amendment: 2026-07-19
+- P2-06 amendment: 2026-07-19
 
 ## Context
 
@@ -49,6 +50,44 @@ classes so managers can inspect and revoke invitation artifacts; domain transiti
 guards still reject new enrollment, invite creation, suspend, or remove operations
 unless the class is active.
 
+Starting in P2-06, roster target mutations apply an additional deterministic hierarchy
+after the actor has obtained `enrollment.manage`:
+
+| Authority level | Effective role |
+| ---: | --- |
+| 4 | organization `org_admin` |
+| 3 | implicit class `owner` |
+| 2 | organization `teacher` or active class `co_teacher` |
+| 1 | active class `teaching_assistant` |
+| 0 | organization `student`/`guest` or active class `student` |
+
+The actor must be strictly above both the target's effective level and the desired
+persisted class role. Self-mutation, owner mutation, assigning `owner`, and unknown
+roles are denied. Owner changes remain exclusive to the dedicated ownership-transfer
+endpoint. Role changes and suspension require an active class and active target
+membership/enrollment; removal accepts active, suspended, or left enrollment and an
+already removed target is an idempotent no-op.
+
+The owner is returned as a pinned, implicit roster projection and is excluded from
+enrollment pagination. Search is normalized as Unicode NFC, collapsed whitespace and
+lowercase, while `%` and `_` stay literal. The opaque keyset cursor contains no name or
+email and is bound to tenant, class, normalized search, and status filter. Roster role
+updates deliberately use last-write-wins semantics for P2-06; clients refetch after
+mutation and no enrollment version column is introduced.
+
+One bulk request carries one homogeneous `update_role`, `suspend`, or `remove` action
+for 1-50 unique users. Items are processed in request order and committed in independent
+transactions. Expected domain failures are returned per item alongside `updated` and
+`unchanged` outcomes. Infrastructure failure returns a 5xx response; because earlier
+items may already be committed, clients must refetch before an idempotent retry.
+
+Class responses expose server-derived `can_update_class`, `can_archive_class`, and
+`can_transfer_ownership` capabilities in addition to enrollment/media capabilities.
+The web must use these class-scoped values rather than global session permissions.
+New LiveKit grants derive role attributes from the same authoritative class projection,
+so subsequent token issuance reflects a roster role change. An already issued JWT or
+connected LiveKit participant is not changed retroactively.
+
 ## Consequences
 
 - Permission constants and role mappings have one source of truth and table-driven
@@ -61,6 +100,10 @@ unless the class is active.
   so an unenrolled student cannot enumerate class detail or obtain a media token.
 - Class list filtering and class detail/media authorization share the same
   owner/enrollment projection, reducing permission drift between modules.
+- Roster mutation authority is centralized and table-tested instead of being inferred
+  independently by handlers or UI controls.
+- Bulk mutation is intentionally not all-or-nothing; callers must consume ordered item
+  outcomes and refetch after an infrastructure error.
 - A static test rejects reintroduction of local permission helpers in domain modules.
 
 ## Alternatives rejected

@@ -150,6 +150,24 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 		),
 	)
 	mux.Handle(
+		classRosterPattern,
+		classEnrollmentResponseHeaders(
+			http.HandlerFunc(classEnrollments.rosterCollection),
+		),
+	)
+	mux.Handle(
+		classRosterBulkPattern,
+		classEnrollmentResponseHeaders(
+			http.HandlerFunc(classEnrollments.rosterBulk),
+		),
+	)
+	mux.Handle(
+		classRosterUserPattern,
+		classEnrollmentResponseHeaders(
+			http.HandlerFunc(classEnrollments.rosterUser),
+		),
+	)
+	mux.Handle(
 		classEnrollmentSuspendPattern,
 		classEnrollmentResponseHeaders(
 			classEnrollments.enrollmentStateMutation("suspend"),

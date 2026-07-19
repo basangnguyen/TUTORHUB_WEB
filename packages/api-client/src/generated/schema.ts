@@ -296,6 +296,60 @@ export type paths = {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/api/v1/classes/{class_id}/roster": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /** List the manager-only class roster with an implicit owner projection */
+    readonly get: operations["listClassRoster"];
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/classes/{class_id}/roster/{user_id}": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    /** Change one active enrollment's class-level role */
+    readonly patch: operations["updateClassRosterRole"];
+    readonly trace?: never;
+  };
+  readonly "/api/v1/classes/{class_id}/roster/bulk": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Apply one bounded roster action and return ordered per-user outcomes
+     * @description Domain failures are reported per item. Infrastructure failures return a normal 5xx Problem response; clients must refetch before an idempotent retry because earlier independently committed items may already be visible.
+     */
+    readonly post: operations["bulkMutateClassRoster"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/api/v1/classes/{class_id}/transfer-ownership": {
     readonly parameters: {
       readonly query?: never;
@@ -662,7 +716,7 @@ export type components = {
     readonly ClassEnrollment: {
       /** Format: uuid */
       readonly class_id: string;
-      readonly class_role: components["schemas"]["ClassRole"];
+      readonly class_role: components["schemas"]["ClassEnrollmentRole"];
       /** Format: date-time */
       readonly created_at: string;
       /** Format: uuid */
@@ -679,6 +733,12 @@ export type components = {
       /** Format: uuid */
       readonly user_id: string;
     };
+    /**
+     * @description Persisted enrollment roles; class owner remains implicit in classes.owner_user_id.
+     * @enum {string}
+     */
+    readonly ClassEnrollmentRole:
+      "co_teacher" | "teaching_assistant" | "student";
     /** @enum {string} */
     readonly ClassEnrollmentStatus:
       "invited" | "active" | "suspended" | "left" | "removed";
@@ -717,16 +777,83 @@ export type components = {
     readonly ClassRole:
       "owner" | "co_teacher" | "teaching_assistant" | "student";
     /** @enum {string} */
+    readonly ClassRosterBulkAction: "update_role" | "suspend" | "remove";
+    readonly ClassRosterBulkFailure: {
+      readonly code: components["schemas"]["ClassRosterBulkFailureCode"];
+      readonly detail: string;
+    };
+    /** @enum {string} */
+    readonly ClassRosterBulkFailureCode:
+      "invalid" | "access_denied" | "not_found" | "conflict";
+    readonly ClassRosterBulkItemResult: {
+      readonly enrollment: components["schemas"]["ClassEnrollment"] | null;
+      readonly failure: components["schemas"]["ClassRosterBulkFailure"] | null;
+      readonly outcome: components["schemas"]["ClassRosterMutationOutcome"];
+      /** Format: uuid */
+      readonly user_id: string;
+    };
+    readonly ClassRosterBulkRequest: {
+      readonly action: components["schemas"]["ClassRosterBulkAction"];
+      /** @description Required only for update_role and forbidden for suspend/remove. */
+      readonly class_role?: components["schemas"]["ClassEnrollmentRole"];
+      readonly user_ids: readonly string[];
+    };
+    readonly ClassRosterBulkResponse: {
+      readonly action: components["schemas"]["ClassRosterBulkAction"];
+      readonly failed_count: number;
+      readonly items: readonly components["schemas"]["ClassRosterBulkItemResult"][];
+      readonly requested_count: number;
+      readonly unchanged_count: number;
+      readonly updated_count: number;
+    };
+    readonly ClassRosterMember: {
+      readonly actions: components["schemas"]["ClassRosterMemberActions"];
+      readonly enrollment: components["schemas"]["ClassEnrollment"];
+      readonly user: components["schemas"]["ClassRosterUser"];
+    };
+    readonly ClassRosterMemberActions: {
+      readonly assignable_roles: readonly components["schemas"]["ClassEnrollmentRole"][];
+      readonly can_remove: boolean;
+      readonly can_suspend: boolean;
+    };
+    /** @enum {string} */
+    readonly ClassRosterMutationOutcome: "updated" | "unchanged" | "failed";
+    readonly ClassRosterMutationResponse: {
+      readonly enrollment: components["schemas"]["ClassEnrollment"];
+      /** @enum {string} */
+      readonly outcome: "updated" | "unchanged";
+    };
+    readonly ClassRosterOwner: {
+      /** @constant */
+      readonly class_role: "owner";
+      readonly user: components["schemas"]["ClassRosterUser"];
+    };
+    readonly ClassRosterPage: {
+      readonly class_owner: components["schemas"]["ClassRosterOwner"];
+      readonly items: readonly components["schemas"]["ClassRosterMember"][];
+      readonly next_cursor: string | null;
+    };
+    readonly ClassRosterUser: {
+      readonly display_name: string;
+      /** Format: email */
+      readonly email: string;
+      /** Format: uuid */
+      readonly id: string;
+    };
+    /** @enum {string} */
     readonly ClassStatus: "draft" | "active" | "archived";
     readonly ClassVersionRequest: {
       /** Format: int64 */
       readonly expected_version: number;
     };
     readonly ClassViewerAccess: {
+      readonly can_archive_class: boolean;
       readonly can_join_room: boolean;
       readonly can_leave: boolean;
       readonly can_manage_enrollments: boolean;
       readonly can_publish_media: boolean;
+      readonly can_transfer_ownership: boolean;
+      readonly can_update_class: boolean;
       readonly class_role: components["schemas"]["ClassRole"] | null;
       readonly enrollment_status:
         components["schemas"]["ClassEnrollmentStatus"] | null;
@@ -1010,6 +1137,9 @@ export type components = {
       readonly status?: "draft" | "active";
       readonly timezone?: string;
       readonly title?: string;
+    };
+    readonly UpdateClassRosterRoleRequest: {
+      readonly class_role: components["schemas"]["ClassEnrollmentRole"];
     };
     readonly UpdateTenantRequest: {
       /** Format: int64 */
@@ -1664,6 +1794,109 @@ export interface operations {
         };
         content: {
           readonly "application/json": components["schemas"]["Class"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly listClassRoster: {
+    readonly parameters: {
+      readonly query?: {
+        readonly cursor?: string;
+        readonly limit?: number;
+        /** @description Unicode NFC, collapsed-whitespace and lowercase literal search over display name or normalized email */
+        readonly search?: string;
+        readonly status?: components["schemas"]["ClassEnrollmentStatus"];
+      };
+      readonly header?: never;
+      readonly path: {
+        readonly class_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Owner plus a stable keyset page of enrollment-backed roster items */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ClassRosterPage"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly updateClassRosterRole: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly "X-CSRF-Token": string;
+      };
+      readonly path: {
+        readonly class_id: string;
+        readonly user_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["UpdateClassRosterRoleRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Enrollment role updated or returned unchanged idempotently */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ClassRosterMutationResponse"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly bulkMutateClassRoster: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly "X-CSRF-Token": string;
+      };
+      readonly path: {
+        readonly class_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["ClassRosterBulkRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Ordered updated, unchanged, or expected domain-failure outcomes */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ClassRosterBulkResponse"];
         };
       };
       readonly 400: components["responses"]["ProblemResponse"];

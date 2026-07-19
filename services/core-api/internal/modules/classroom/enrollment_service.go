@@ -34,6 +34,25 @@ type CreateClassInviteCodeResult struct {
 }
 
 type EnrollmentServiceAPI interface {
+	ListRoster(
+		context.Context,
+		AccessContext,
+		uuid.UUID,
+		ListRosterInput,
+	) (RosterPage, error)
+	UpdateRosterRole(
+		context.Context,
+		AccessContext,
+		uuid.UUID,
+		uuid.UUID,
+		UpdateRosterRoleInput,
+	) (EnrollmentMutationResult, error)
+	BulkMutateRoster(
+		context.Context,
+		AccessContext,
+		uuid.UUID,
+		BulkRosterInput,
+	) (BulkRosterResult, error)
 	DirectEnroll(
 		context.Context,
 		AccessContext,

@@ -17,7 +17,8 @@ func TestLiveKitTokenIssuerSignsExplicitLeastPrivilegeGrant(t *testing.T) {
 	}
 	token, err := issuer.Issue(TokenGrant{
 		RoomName: "room", ParticipantIdentity: "participant", ParticipantName: "Teacher",
-		Role: "teacher", CanPublish: true, CanPublishData: false, CanSubscribe: true,
+		Role: "co_teacher", OrganizationRole: "teacher", ClassRole: "co_teacher",
+		CanPublish: true, CanPublishData: false, CanSubscribe: true,
 		ValidFor: 5 * time.Minute,
 	})
 	if err != nil {
@@ -32,7 +33,9 @@ func TestLiveKitTokenIssuerSignsExplicitLeastPrivilegeGrant(t *testing.T) {
 		t.Fatalf("verify token: %v", err)
 	}
 	if verifier.APIKey() != "test-api-key" || verifier.Identity() != "participant" ||
-		claims.Name != "Teacher" || claims.Attributes["tutorhub.role"] != "teacher" {
+		claims.Name != "Teacher" || claims.Attributes["tutorhub.role"] != "co_teacher" ||
+		claims.Attributes["tutorhub.organization_role"] != "teacher" ||
+		claims.Attributes["tutorhub.class_role"] != "co_teacher" {
 		t.Fatalf("unexpected token identity claims: %+v", claims)
 	}
 	if registered.ExpiresAt == nil || registered.IssuedAt == nil ||

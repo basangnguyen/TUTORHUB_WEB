@@ -38,10 +38,17 @@ func (issuer *LiveKitTokenIssuer) Issue(grant TokenGrant) (string, error) {
 		})
 	}
 
+	attributes := map[string]string{"tutorhub.role": grant.Role}
+	if grant.OrganizationRole != "" {
+		attributes["tutorhub.organization_role"] = grant.OrganizationRole
+	}
+	if grant.ClassRole != "" {
+		attributes["tutorhub.class_role"] = grant.ClassRole
+	}
 	accessToken := auth.NewAccessToken(issuer.apiKey, issuer.apiSecret).
 		SetIdentity(grant.ParticipantIdentity).
 		SetName(grant.ParticipantName).
-		SetAttributes(map[string]string{"tutorhub.role": grant.Role}).
+		SetAttributes(attributes).
 		SetVideoGrant(videoGrant).
 		SetValidFor(grant.ValidFor)
 	token, err := accessToken.ToJWT()

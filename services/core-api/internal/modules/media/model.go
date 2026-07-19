@@ -44,6 +44,8 @@ type TokenGrant struct {
 	ParticipantIdentity string
 	ParticipantName     string
 	Role                string
+	OrganizationRole    string
+	ClassRole           string
 	CanPublish          bool
 	CanPublishData      bool
 	CanSubscribe        bool

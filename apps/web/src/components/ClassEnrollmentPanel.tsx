@@ -142,7 +142,11 @@ export function ClassEnrollmentPanel({
         </p>
       )}
 
-      <DirectEnrollmentForm classroom={classroom} onFeedback={setFeedback} />
+      <DirectEnrollmentForm
+        classroom={classroom}
+        onFeedback={setFeedback}
+        tenantID={tenantID}
+      />
 
       <div className="class-enrollments__subheading">
         <div>
@@ -279,12 +283,14 @@ export function ClassEnrollmentPanel({
 function DirectEnrollmentForm({
   classroom,
   onFeedback,
+  tenantID,
 }: {
   classroom: ClassroomClass;
   onFeedback: (message: string | null) => void;
+  tenantID: string;
 }) {
   const { t } = useI18n();
-  const directEnrollment = useDirectClassEnrollment();
+  const directEnrollment = useDirectClassEnrollment(tenantID);
   const [email, setEmail] = useState("");
   const [emailError, setEmailError] = useState<string | undefined>();
 

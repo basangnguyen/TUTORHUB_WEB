@@ -49,6 +49,20 @@ class/media privilege; organization role và owner exception vẫn đi qua share
 Direct enroll, suspend/remove, invite-code join và leave đều reauthorize tenant/class/
 membership authoritative trong transaction và ghi success event bằng outbox.
 
+**P2-06 đã triển khai:** roster list/single/bulk API tiếp tục tenant/class-scoped và
+reauthorize membership/enrollment authoritative trong transaction. Sau
+`enrollment.manage`, shared policy bắt buộc hierarchy nghiêm ngặt `org_admin > owner >
+teacher/co_teacher > teaching_assistant > student/guest`; actor không thể mutate chính
+mình, peer, cấp role bằng/cao hơn hoặc mutate/gán owner. Owner chỉ đổi qua ownership
+transfer. Server trả action/capability projection; UI không tự suy quyền từ role hoặc
+global session permission.
+
+Roster cursor không chứa display name/email và được bind với tenant, class, normalized
+search và status để chặn reuse khác scope/filter. Search coi `%`/`_` là literal. Bulk
+giới hạn 50 user ID duy nhất, một action mỗi request và trả domain failure theo item;
+item commit độc lập nên client bắt buộc refetch sau 5xx trước khi retry. Archived class
+chỉ đọc roster lịch sử, không cho mutation.
+
 Transfer ownership yêu cầu `auth_time` của principal/session trong 10 phút, tái dùng
 semantics recent-auth P2-01. Luồng hiện chưa force một OIDC authorization mới bằng
 `max_age`/`prompt`, nên đây chưa phải step-up tuyệt đối và phải được tăng cường trước
@@ -58,7 +72,8 @@ LiveKit token và media event mới chỉ được xử lý khi class active và
 authoritative cho phép join/publish. Archive chặn direct enrollment, create/join invite
 code và credential/media request mới nhưng vẫn cho list/revoke code lịch sử và leave;
 nó không thể thu hồi JWT đã cấp hoặc tự kick participant đang kết nối. TTL ngắn và room
-moderation về sau là các lớp kiểm soát bổ sung.
+moderation về sau là các lớp kiểm soát bổ sung. Role roster mới được áp dụng cho token
+cấp sau mutation; JWT đã phát và participant đang kết nối không đổi retroactively.
 
 ## 4. Web security
 
@@ -97,6 +112,9 @@ Membership invitation và class invite code trong database chỉ giữ purpose-b
 32 byte, không giữ raw token. Outbox payload dùng allowlist actor/status/role/expiry/
 usage/membership ID, không chứa email, token, token hash hoặc session identifier;
 structured-log regression test kiểm tra raw token không xuất hiện.
+
+Event `class.enrollment.role_changed` chỉ lưu tenant/aggregate/class/user/actor ID,
+role trước/sau, status và source allowlist; không lưu display name, email hay token.
 
 ## 6. Chuỗi cung ứng
 
