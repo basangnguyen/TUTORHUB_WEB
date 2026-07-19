@@ -13,13 +13,12 @@ import (
 
 	"github.com/tutorhub-v2/core-api/internal/platform/logsafe"
 	"github.com/tutorhub-v2/core-api/internal/platform/observability"
+	"github.com/tutorhub-v2/core-api/internal/platform/requestmeta"
 )
 
 const requestIDHeader = "X-Request-ID"
 
 var validRequestID = regexp.MustCompile(`^[A-Za-z0-9._-]{1,128}$`)
-
-type requestIDContextKey struct{}
 
 type statusRecorder struct {
 	http.ResponseWriter
@@ -57,8 +56,7 @@ func (recorder *statusRecorder) HeaderWritten() bool {
 }
 
 func RequestIDFromContext(ctx context.Context) string {
-	requestID, _ := ctx.Value(requestIDContextKey{}).(string)
-	return requestID
+	return requestmeta.RequestID(ctx)
 }
 
 func requestIDMiddleware(next http.Handler) http.Handler {
@@ -69,7 +67,13 @@ func requestIDMiddleware(next http.Handler) http.Handler {
 		}
 
 		w.Header().Set(requestIDHeader, requestID)
-		ctx := context.WithValue(r.Context(), requestIDContextKey{}, requestID)
+		ctx, _ := requestmeta.New(
+			r.Context(),
+			requestID,
+			r.RemoteAddr,
+			r.UserAgent(),
+			time.Now(),
+		)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }

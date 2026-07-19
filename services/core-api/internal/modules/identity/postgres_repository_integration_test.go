@@ -866,6 +866,23 @@ WHERE aggregate_id = $1 AND event_type = $2`,
 	if containsForbiddenPayload {
 		t.Fatal("tenant event payload must contain only actor/from/to/version metadata")
 	}
+	if err := transaction.QueryRow(
+		ctx,
+		`SELECT EXISTS (
+    SELECT 1
+    FROM tutorhub.audit_events
+    WHERE tenant_id IN ($1, $2)
+      AND action = 'tenant.switch'
+      AND metadata ?| ARRAY['from_tenant_id', 'to_tenant_id']
+)`,
+		activeTenantID,
+		secondTenantID,
+	).Scan(&containsForbiddenPayload); err != nil {
+		t.Fatalf("inspect tenant switch audit metadata: %v", err)
+	}
+	if containsForbiddenPayload {
+		t.Fatal("tenant switch audit metadata must not disclose another tenant identifier")
+	}
 }
 
 func TestPostgresRepositoryProfileAndIdentityPersistence(t *testing.T) {

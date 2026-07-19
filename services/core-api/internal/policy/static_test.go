@@ -16,6 +16,10 @@ func TestAuthorizationChecksStayInPolicyLayer(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolve policy root: %v", err)
 	}
+	auditCatalog, err := filepath.Abs("../modules/audit/model.go")
+	if err != nil {
+		t.Fatalf("resolve audit action catalog: %v", err)
+	}
 
 	banned := []string{
 		"permissionsForRole(",
@@ -55,6 +59,16 @@ func TestAuthorizationChecksStayInPolicyLayer(t *testing.T) {
 			return nil
 		}
 		if entry.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
+			return nil
+		}
+		absolutePath, resolveErr := filepath.Abs(path)
+		if resolveErr != nil {
+			return resolveErr
+		}
+		// Audit intent names deliberately overlap a few permission names, but the
+		// catalog contains no authorization decision. Policy remains the only place
+		// that grants or checks those permissions.
+		if filepath.Clean(absolutePath) == filepath.Clean(auditCatalog) {
 			return nil
 		}
 

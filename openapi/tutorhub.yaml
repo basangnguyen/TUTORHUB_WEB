@@ -475,6 +475,91 @@ paths:
           $ref: "#/components/responses/ConflictResponse"
         default:
           $ref: "#/components/responses/ProblemResponse"
+  /api/v1/tenants/{tenant_id}/audit-events:
+    get:
+      operationId: listAuditEvents
+      summary: List append-only security audit history for the active workspace
+      description: Only an active organization administrator may query this tenant-scoped history. Results use descending keyset pagination and never include raw tokens, sessions, email addresses, request bodies, or unredacted outbox payloads.
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: tenant_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: occurred_from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: occurred_to
+          in: query
+          description: Exclusive upper timestamp bound.
+          schema:
+            type: string
+            format: date-time
+        - name: action
+          in: query
+          schema:
+            $ref: "#/components/schemas/AuditAction"
+        - name: resource_type
+          in: query
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 80
+            pattern: "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$"
+        - name: resource_id
+          in: query
+          description: Requires resource_type to be present.
+          schema:
+            type: string
+            format: uuid
+        - name: outcome
+          in: query
+          schema:
+            $ref: "#/components/schemas/AuditOutcome"
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 25
+        - name: cursor
+          in: query
+          description: Opaque cursor bound to the active tenant and all filters.
+          schema:
+            type: string
+            maxLength: 1024
+      responses:
+        "200":
+          description: Tenant-scoped audit page ordered by occurred_at and id descending
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+            Referrer-Policy:
+              schema:
+                type: string
+                const: no-referrer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuditEventPage"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
   /api/v1/tenants/{tenant_id}/invitations:
     get:
       operationId: listMembershipInvitations
@@ -1595,6 +1680,7 @@ components:
         - participant.remove
         - media.publish
         - chat.send
+        - audit.view
     HealthResponse:
       type: object
       additionalProperties: false
@@ -1854,6 +1940,121 @@ components:
     MembershipInvitationStatus:
       type: string
       enum: [pending, accepted, revoked, expired]
+    AuditAction:
+      type: string
+      enum:
+        - tenant.create
+        - tenant.update
+        - tenant.archive
+        - tenant.switch
+        - membership.invitation.create
+        - membership.invitation.revoke
+        - membership.invitation.accept
+        - membership.invitation.expire
+        - class.create
+        - class.update
+        - class.archive
+        - class.restore
+        - class.transfer_ownership
+        - class.enrollment.enroll
+        - class.enrollment.suspend
+        - class.enrollment.remove
+        - class.enrollment.join
+        - class.enrollment.leave
+        - class.enrollment.update_role
+        - class.roster.bulk
+        - class.invite_code.create
+        - class.invite_code.revoke
+        - class.invite_code.expire
+        - class.invite_code.exhaust
+    AuditOutcome:
+      type: string
+      enum: [succeeded, denied, failed]
+    AuditActor:
+      type: object
+      additionalProperties: false
+      required: [type, user_id, display_name]
+      properties:
+        type:
+          type: string
+          enum: [user, system]
+        user_id:
+          type:
+            - string
+            - "null"
+          format: uuid
+        display_name:
+          type:
+            - string
+            - "null"
+          maxLength: 200
+    AuditResource:
+      type: object
+      additionalProperties: false
+      required: [type, id]
+      properties:
+        type:
+          type: string
+          minLength: 1
+          maxLength: 80
+        id:
+          type:
+            - string
+            - "null"
+          format: uuid
+    AuditEvent:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - tenant_id
+        - actor
+        - action
+        - resource
+        - outcome
+        - request_id
+        - metadata
+        - occurred_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        actor:
+          $ref: "#/components/schemas/AuditActor"
+        action:
+          $ref: "#/components/schemas/AuditAction"
+        resource:
+          $ref: "#/components/schemas/AuditResource"
+        outcome:
+          $ref: "#/components/schemas/AuditOutcome"
+        request_id:
+          type: string
+          minLength: 1
+          maxLength: 128
+        metadata:
+          type: object
+          description: Flat, server-generated, redacted string metadata.
+          additionalProperties:
+            type: string
+            maxLength: 256
+        occurred_at:
+          type: string
+          format: date-time
+    AuditEventPage:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/AuditEvent"
+        next_cursor:
+          type: string
+          maxLength: 1024
     InvitableOrganizationRole:
       type: string
       description: Roles grantable through the Phase 2 membership invitation flow.

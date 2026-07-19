@@ -40,6 +40,7 @@ const (
 	PermissionParticipantRemove   Permission = "participant.remove"
 	PermissionMediaPublish        Permission = "media.publish"
 	PermissionChatSend            Permission = "chat.send"
+	PermissionAuditView           Permission = "audit.view"
 )
 
 type Action string
@@ -62,6 +63,7 @@ const (
 	ActionParticipantRemove      Action = Action(PermissionParticipantRemove)
 	ActionMediaPublish           Action = Action(PermissionMediaPublish)
 	ActionChatSend               Action = Action(PermissionChatSend)
+	ActionAuditView              Action = Action(PermissionAuditView)
 )
 
 type ResourceState string
@@ -181,6 +183,7 @@ var permissionOrder = []Permission{
 	PermissionParticipantRemove,
 	PermissionMediaPublish,
 	PermissionChatSend,
+	PermissionAuditView,
 }
 
 var organizationPermissions = map[OrganizationRole][]Permission{
@@ -471,7 +474,7 @@ func validAction(action Action) bool {
 func actionRequiresClass(action Action) bool {
 	switch action {
 	case ActionTenantView, ActionTenantManage, ActionTenantManageMembers,
-		ActionClassCreate, ActionClassView:
+		ActionClassCreate, ActionClassView, ActionAuditView:
 		return false
 	default:
 		return true

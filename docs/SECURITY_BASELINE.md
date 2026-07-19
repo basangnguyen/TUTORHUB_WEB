@@ -63,6 +63,15 @@ giới hạn 50 user ID duy nhất, một action mỗi request và trả domain 
 item commit độc lập nên client bắt buộc refetch sau 5xx trước khi retry. Archived class
 chỉ đọc roster lịch sử, không cho mutation.
 
+**P2-07 đã triển khai:** `audit.view` chỉ cấp cho active `org_admin`; query audit reload
+tenant/membership authoritative, bắt buộc path tenant trùng active tenant và dùng 404
+concealment cho cross-scope. `audit_events` tách khỏi mutable outbox, tenant-owned và có
+trigger `ALWAYS` từ chối update/delete/truncate. Changed success được append cùng
+business transaction/outbox; authenticated no-op, denial, domain failure và panic có
+fallback audit theo server-generated request-instance. Invitation accept chỉ bind target
+tenant sau lookup token authoritative; bulk roster bind thêm target user server-owned để
+dedupe từng item sau commit không chắc chắn. Không có update/delete API.
+
 Transfer ownership yêu cầu `auth_time` của principal/session trong 10 phút, tái dùng
 semantics recent-auth P2-01. Luồng hiện chưa force một OIDC authorization mới bằng
 `max_age`/`prompt`, nên đây chưa phải step-up tuyệt đối và phải được tăng cường trước
@@ -115,6 +124,18 @@ structured-log regression test kiểm tra raw token không xuất hiện.
 
 Event `class.enrollment.role_changed` chỉ lưu tenant/aggregate/class/user/actor ID,
 role trước/sau, status và source allowlist; không lưu display name, email hay token.
+
+Audit metadata chỉ nhận object phẳng do server tạo, key/value bounded và chặn token,
+secret, password, cookie, session, email, name, description, payload, request body,
+SQL, stack, raw error và hash. `source_ip_prefix` giảm còn IPv4 `/24` hoặc IPv6 `/56`;
+user agent chỉ giữ SHA-256; cả hai không được trả qua API. Public projection chỉ chứa
+actor ID/display name hiện hành, action/resource/outcome, request ID, redacted metadata
+và timestamp, đồng thời trả `Cache-Control: no-store`/`Referrer-Policy: no-referrer`.
+
+Nếu PostgreSQL không khả dụng thì failed attempt không thể ghi durable; Core API giữ
+response gốc và phát structured `audit_write_failed` chỉ có request ID/action/status,
+không log raw database error. Retention, privacy erasure, partitioning, export vận hành
+và dedicated maintenance role là gate Phase 8 trước production scale.
 
 ## 6. Chuỗi cung ứng
 

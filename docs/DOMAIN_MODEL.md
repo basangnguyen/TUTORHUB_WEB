@@ -2,16 +2,16 @@
 
 ## 1. Aggregate chính
 
-| Aggregate | Entity chính | Ghi chú |
-|---|---|---|
-| Identity | User, ExternalIdentity, Session | User toàn cục; identity provider có thể thay đổi |
-| Tenancy | Tenant, Membership, RoleAssignment | Membership nối user với tenant |
-| Classroom | Class, Enrollment, Invitation | Class luôn thuộc một tenant |
-| Scheduling | ClassSession | Phiên học có trạng thái scheduled/live/ended/cancelled |
-| Media | MediaRoom, Recording | Mapping phiên học với LiveKit room |
-| Messaging | Conversation, Message | Tin nhắn bền vững, có moderation/audit |
-| Content | FileObject, Folder, ShareGrant | Binary ở object storage |
-| Assessment | QuestionBank, Question, Exam, Attempt, Result | Chưa thuộc MVP đầu tiên |
+| Aggregate  | Entity chính                                  | Ghi chú                                                |
+| ---------- | --------------------------------------------- | ------------------------------------------------------ |
+| Identity   | User, ExternalIdentity, Session               | User toàn cục; identity provider có thể thay đổi       |
+| Tenancy    | Tenant, Membership, RoleAssignment            | Membership nối user với tenant                         |
+| Classroom  | Class, Enrollment, Invitation                 | Class luôn thuộc một tenant                            |
+| Scheduling | ClassSession                                  | Phiên học có trạng thái scheduled/live/ended/cancelled |
+| Media      | MediaRoom, Recording                          | Mapping phiên học với LiveKit room                     |
+| Messaging  | Conversation, Message                         | Tin nhắn bền vững, có moderation/audit                 |
+| Content    | FileObject, Folder, ShareGrant                | Binary ở object storage                                |
+| Assessment | QuestionBank, Question, Exam, Attempt, Result | Chưa thuộc MVP đầu tiên                                |
 
 ## 2. Quan hệ lõi
 
@@ -37,24 +37,26 @@ gia quyết định hiện tại.
 
 ### 3.1. Organization role
 
-| Permission | `org_admin` | `teacher` | `student` | `guest` |
-|---|:---:|:---:|:---:|:---:|
-| `tenant.view` | Có | Có | Có | Có |
-| `tenant.manage` | Có | Không | Không | Không |
-| `class.create` | Có | Có | Không | Không |
-| `class.update` | Có | Có | Không | Không |
-| `class.view` | Có | Có | Không | Không |
-| `class.archive` | Có | Không | Không | Không |
-| `class.transfer_ownership` | Có | Không | Không | Không |
-| `enrollment.manage` | Có | Có | Không | Không |
-| `enrollment.leave` | Có | Không | Không | Không |
-| `session.start` | Có | Có | Không | Không |
-| `session.end` | Có | Có | Không | Không |
-| `session.join` | Có | Có | Không | Không |
-| `participant.admit` | Có | Có | Không | Không |
-| `participant.remove` | Có | Có | Không | Không |
-| `media.publish` | Có | Có | Không | Không |
-| `chat.send` | Có | Có | Không | Không |
+| Permission                 | `org_admin` | `teacher` | `student` | `guest` |
+| -------------------------- | :---------: | :-------: | :-------: | :-----: |
+| `tenant.view`              |     Có      |    Có     |    Có     |   Có    |
+| `tenant.manage`            |     Có      |   Không   |   Không   |  Không  |
+| `tenant.manage_members`    |     Có      |   Không   |   Không   |  Không  |
+| `audit.view`               |     Có      |   Không   |   Không   |  Không  |
+| `class.create`             |     Có      |    Có     |   Không   |  Không  |
+| `class.update`             |     Có      |    Có     |   Không   |  Không  |
+| `class.view`               |     Có      |    Có     |   Không   |  Không  |
+| `class.archive`            |     Có      |   Không   |   Không   |  Không  |
+| `class.transfer_ownership` |     Có      |   Không   |   Không   |  Không  |
+| `enrollment.manage`        |     Có      |    Có     |   Không   |  Không  |
+| `enrollment.leave`         |     Có      |   Không   |   Không   |  Không  |
+| `session.start`            |     Có      |    Có     |   Không   |  Không  |
+| `session.end`              |     Có      |    Có     |   Không   |  Không  |
+| `session.join`             |     Có      |    Có     |   Không   |  Không  |
+| `participant.admit`        |     Có      |    Có     |   Không   |  Không  |
+| `participant.remove`       |     Có      |    Có     |   Không   |  Không  |
+| `media.publish`            |     Có      |    Có     |   Không   |  Không  |
+| `chat.send`                |     Có      |    Có     |   Không   |  Không  |
 
 Từ P2-05, organization `student` và `guest` chỉ có quyền tenant-scoped. Quyền đọc,
 join, media và chat của một lớp phải đến từ enrollment active của đúng lớp đó.
@@ -69,27 +71,31 @@ self-leave.
 `tenant.view` cho phép mọi membership active đọc metadata của chính active tenant;
 `tenant.manage` chỉ dành cho `org_admin` để update/archive. Danh sách workspace là
 user-membership scoped để vẫn chọn được tenant khi session chưa có active tenant.
+`audit.view` chỉ dành cho active `org_admin`; class role không cấp quyền xem lịch sử
+audit của workspace.
 
 ### 3.2. Class role
 
-| Permission | `owner` | `co_teacher` | `teaching_assistant` | `student` |
-|---|:---:|:---:|:---:|:---:|
-| `tenant.view` | Không | Không | Không | Không |
-| `tenant.manage` | Không | Không | Không | Không |
-| `class.create` | Không | Không | Không | Không |
-| `class.update` | Có | Có | Không | Không |
-| `class.view` | Có | Có | Có | Có |
-| `class.archive` | Có | Không | Không | Không |
-| `class.transfer_ownership` | Có | Không | Không | Không |
-| `enrollment.manage` | Có | Có | Không | Không |
-| `enrollment.leave` | Có | Có | Có | Có |
-| `session.start` | Có | Có | Không | Không |
-| `session.end` | Có | Có | Không | Không |
-| `session.join` | Có | Có | Có | Có |
-| `participant.admit` | Có | Có | Có | Không |
-| `participant.remove` | Có | Có | Không | Không |
-| `media.publish` | Có | Có | Có | Có |
-| `chat.send` | Có | Có | Có | Có |
+| Permission                 | `owner` | `co_teacher` | `teaching_assistant` | `student` |
+| -------------------------- | :-----: | :----------: | :------------------: | :-------: |
+| `tenant.view`              |  Không  |    Không     |        Không         |   Không   |
+| `tenant.manage`            |  Không  |    Không     |        Không         |   Không   |
+| `tenant.manage_members`    |  Không  |    Không     |        Không         |   Không   |
+| `audit.view`               |  Không  |    Không     |        Không         |   Không   |
+| `class.create`             |  Không  |    Không     |        Không         |   Không   |
+| `class.update`             |   Có    |      Có      |        Không         |   Không   |
+| `class.view`               |   Có    |      Có      |          Có          |    Có     |
+| `class.archive`            |   Có    |    Không     |        Không         |   Không   |
+| `class.transfer_ownership` |   Có    |    Không     |        Không         |   Không   |
+| `enrollment.manage`        |   Có    |      Có      |        Không         |   Không   |
+| `enrollment.leave`         |   Có    |      Có      |          Có          |    Có     |
+| `session.start`            |   Có    |      Có      |        Không         |   Không   |
+| `session.end`              |   Có    |      Có      |        Không         |   Không   |
+| `session.join`             |   Có    |      Có      |          Có          |    Có     |
+| `participant.admit`        |   Có    |      Có      |          Có          |   Không   |
+| `participant.remove`       |   Có    |      Có      |        Không         |   Không   |
+| `media.publish`            |   Có    |      Có      |          Có          |    Có     |
+| `chat.send`                |   Có    |      Có      |          Có          |    Có     |
 
 ### 3.3. Effective permission
 
@@ -117,13 +123,13 @@ Handler chỉ chuyển principal đã xác thực; `identity`, `classroom` và `
 P2-06 áp dụng lớp kiểm tra thứ hai sau `enrollment.manage` để một manager không thể
 thay đổi peer hoặc cấp quyền bằng/cao hơn chính mình:
 
-| Mức | Role hiệu lực cho roster |
-| ---: | --- |
-| 4 | organization `org_admin` |
-| 3 | class `owner` implicit |
-| 2 | organization `teacher` hoặc class `co_teacher` active |
-| 1 | class `teaching_assistant` active |
-| 0 | organization `student`/`guest` hoặc class `student` active |
+| Mức | Role hiệu lực cho roster                                   |
+| --: | ---------------------------------------------------------- |
+|   4 | organization `org_admin`                                   |
+|   3 | class `owner` implicit                                     |
+|   2 | organization `teacher` hoặc class `co_teacher` active      |
+|   1 | class `teaching_assistant` active                          |
+|   0 | organization `student`/`guest` hoặc class `student` active |
 
 Actor phải cao hơn cả target hiện tại và role muốn cấp. Không cho self-mutation,
 mutation owner, gán `owner` hoặc dùng role không nhận diện. Owner chỉ thay đổi qua

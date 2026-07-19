@@ -113,6 +113,8 @@ const (
 	RosterBulkFailureAccessDenied RosterBulkFailureCode = "access_denied"
 	RosterBulkFailureNotFound     RosterBulkFailureCode = "not_found"
 	RosterBulkFailureConflict     RosterBulkFailureCode = "conflict"
+	RosterBulkFailureInternal     RosterBulkFailureCode = "internal_failure"
+	RosterBulkFailureNotAttempted RosterBulkFailureCode = "not_attempted"
 )
 
 type RosterBulkFailure struct {

@@ -27,7 +27,12 @@ function getApiBaseUrl() {
   return import.meta.env.VITE_API_BASE_URL ?? "/api";
 }
 
-const tenantScopedQueryRoots = new Set(["classes", "media", "tenants"]);
+const tenantScopedQueryRoots = new Set([
+  "audit",
+  "classes",
+  "media",
+  "tenants",
+]);
 
 export const tenantQueryKeys = {
   all: ["tenants"] as const,

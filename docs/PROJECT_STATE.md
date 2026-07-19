@@ -12,8 +12,8 @@
 | Quy trình           | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
 | Phase hoàn thành    | Phase 0, Phase 1                                                                      |
 | Phase hiện tại      | Phase 2 - Identity, tenant và class core                                              |
-| Task vừa hoàn thành | P2-06 Roster và class-level roles                                                     |
-| Task kế tiếp        | P2-07 Audit log cho hành động nhạy cảm                                                |
+| Task vừa hoàn thành | P2-07 Audit log cho hành động nhạy cảm                                                |
+| Task kế tiếp        | P2-08 Admin và teacher UI end-to-end                                                  |
 
 ## Kiến trúc đang chạy
 
@@ -96,7 +96,7 @@
 - P2-06: manager-only roster API có owner implicit ghim riêng, normalized search theo
   display name/email, status filter và opaque keyset pagination bind đúng tenant/class/
   filter. Shared policy áp dụng hierarchy `org_admin > owner > teacher/co_teacher >
-  teaching_assistant > student/guest`, chặn self/peer/owner mutation và chỉ ownership
+teaching_assistant > student/guest`, chặn self/peer/owner mutation và chỉ ownership
   transfer mới đổi owner.
 - Single role update và bulk `update_role/suspend/remove` tối đa 50 user ID có ordered
   updated/unchanged/failed outcomes. Bulk commit từng item độc lập; web refetch cả khi
@@ -108,6 +108,22 @@
 - LiveKit grant mới lấy class role authoritative và ghi effective/organization/class
   role attributes; token cấp sau mutation phản ánh role mới. JWT/participant đã tồn tại
   không được sửa hoặc thu hồi retroactively.
+- P2-07 chấp nhận ADR-0014 và migration `000011`: `audit_events` tenant-owned,
+  append-only bằng trigger `ALWAYS`, actor user/system, action/resource/outcome,
+  request correlation, privacy-reduced source hints và flat metadata allowlist.
+- Success audit của mutation P2-02 đến P2-06 được ghi cùng business transaction và
+  outbox; authenticated no-op/denied/failed attempt dùng fallback transaction có
+  server-generated request-instance ID để không ghi sai sau post-commit failure. Panic
+  ở sensitive handler vẫn được audit rồi chuyển tiếp tới recovery middleware. Accept
+  invitation bind tenant đích do server resolve; bulk roster dedupe từng target và ghi
+  cả item lỗi hạ tầng/chưa được thực hiện.
+- Permission `audit.view` chỉ cấp cho active `org_admin`. API
+  `GET /api/v1/tenants/{tenant_id}/audit-events` reload membership authoritative,
+  khóa path theo active tenant, hỗ trợ time/action/resource/outcome filter cùng opaque
+  filter-bound keyset cursor và trả `no-store` projection không có IP/UA hash.
+- Web có route `/app/workspace/audit`, permission gate, tenant-scoped infinite query,
+  cache isolation khi switch/archive, filter validation, pagination và đầy đủ loading/
+  empty/filtered-empty/error/forbidden/stale-refresh states bằng tiếng Việt/Anh.
 
 ## Kết quả acceptance staging ngày 2026-07-16
 
@@ -133,15 +149,15 @@ trước pilot/public beta hoặc khi có người duy trì thứ hai.
 
 Backlog có thẩm quyền: `docs/PHASE_2_BACKLOG.md`.
 
-1. P2-00 đến P2-06 đã hoàn thành.
-2. Full `pnpm verify` của P2-06 xanh ngày 2026-07-19: web 71/71, API client 14/14,
+1. P2-00 đến P2-07 đã hoàn thành.
+2. Full `pnpm verify` của P2-07 xanh ngày 2026-07-19: web 79/79, API client 15/15,
    UI 6/6, generated-contract check, lint/typecheck/build/Storybook, Go test/vet và
    security checks.
-3. Full integration-tag compile và focused classroom/media/policy/HTTP roster tests
-   đều xanh local. P2-06 không có migration mới; runtime PostgreSQL roster integration
-   chưa chạy local vì không nạp DB test env và workflow CI PostgreSQL 17 sẽ xác nhận
-   sau push.
-4. Task kế tiếp là P2-07 audit log cho hành động nhạy cảm.
+3. Full integration-tag compile và focused audit/request metadata/policy/HTTP/classroom/
+   identity tests đều xanh local. Runtime PostgreSQL migration `000011` và audit
+   integration chưa chạy vì không nạp DB test env; workflow CI PostgreSQL 17 sẽ xác
+   nhận sau push.
+4. Task kế tiếp là P2-08 Admin và teacher UI end-to-end.
 
 ## Rủi ro đã biết
 
@@ -154,9 +170,12 @@ Backlog có thẩm quyền: `docs/PHASE_2_BACKLOG.md`.
   in-process limiter theo `RemoteAddr`; sau Cloudflare/Render có thể gộp client vào
   proxy bucket. Không tin forwarded header khi Render origin còn public; P2-09 phải
   chốt trusted-proxy/origin authentication và distributed limiter trước khi tăng tải.
-- Runtime PostgreSQL cho migration/test `000010` và P2-06 roster repository chưa được
-  chạy local; integration-tag compile đã xanh nhưng clean migration/concurrency runtime
-  cần CI/staging xác nhận.
+- Runtime PostgreSQL cho migration/test `000011`, audit append-only và các repository
+  đã gắn atomic audit chưa được chạy local; integration-tag compile đã xanh nhưng clean
+  migration/concurrency runtime cần CI/staging xác nhận.
+- Production retention/export, privacy erasure, partitioning và dedicated maintenance
+  role cho audit được hoãn tới Phase 8. Audit của tenant archived được giữ nhưng chưa có
+  recovery/export UI ngoài active-tenant API.
 - Roster role update hiện dùng last-write-wins, chưa có enrollment version/CAS. Client
   refetch sau mutation; nếu concurrent editing trở thành rủi ro thực tế thì cần ADR và
   migration riêng.
@@ -188,3 +207,4 @@ Backlog có thẩm quyền: `docs/PHASE_2_BACKLOG.md`.
 - `docs/adr/0011-render-core-api-staging.md`
 - `docs/adr/0012-single-maintainer-direct-main-governance.md`
 - `docs/adr/0013-shared-organization-class-authorization-policy.md`
+- `docs/adr/0014-append-only-tenant-audit-log.md`

@@ -259,7 +259,7 @@ func TestRosterServiceBulkValidationOrderingAndPartialFailures(t *testing.T) {
 		}
 		return EnrollmentMutationResult{}, infrastructureError
 	}
-	_, err = service.BulkMutateRoster(
+	partial, err := service.BulkMutateRoster(
 		context.Background(), access, classID,
 		BulkRosterInput{
 			Action: RosterBulkActionUpdateRole, ClassRole: &role,
@@ -268,5 +268,16 @@ func TestRosterServiceBulkValidationOrderingAndPartialFailures(t *testing.T) {
 	)
 	if !errors.Is(err, infrastructureError) || repository.updateRoleCalls != 2 {
 		t.Fatalf("infrastructure failure did not stop the batch: calls=%d error=%v", repository.updateRoleCalls, err)
+	}
+	if len(partial.Items) != 3 || partial.Items[0].UserID != first ||
+		!partial.Items[0].Changed || partial.Items[1].UserID != second ||
+		partial.Items[1].Failure == nil ||
+		partial.Items[1].Failure.Code != RosterBulkFailureInternal ||
+		!errors.Is(partial.Items[1].Failure.Cause, infrastructureError) ||
+		partial.Items[2].UserID != third || partial.Items[2].Failure == nil ||
+		partial.Items[2].Failure.Code != RosterBulkFailureNotAttempted ||
+		partial.SucceededCount != 1 || partial.UnchangedCount != 0 ||
+		partial.FailedCount != 2 {
+		t.Fatalf("infrastructure failure lost committed partial result: %+v", partial)
 	}
 }

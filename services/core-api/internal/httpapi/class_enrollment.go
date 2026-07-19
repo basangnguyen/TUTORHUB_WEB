@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/tutorhub-v2/core-api/internal/config"
+	"github.com/tutorhub-v2/core-api/internal/modules/audit"
 	"github.com/tutorhub-v2/core-api/internal/modules/classroom"
 	"github.com/tutorhub-v2/core-api/internal/modules/identity"
 	"github.com/tutorhub-v2/core-api/internal/platform/logsafe"
@@ -34,6 +35,7 @@ type classEnrollmentHandlers struct {
 	webOrigin   string
 	rateLimiter InvitationRateLimiter
 	clock       func() time.Time
+	audit       audit.ServiceAPI
 }
 
 type directClassEnrollmentRequest struct {
@@ -106,6 +108,7 @@ func newClassEnrollmentHandlers(
 	service classroom.EnrollmentServiceAPI,
 	rateLimiter InvitationRateLimiter,
 	clock func() time.Time,
+	auditService audit.ServiceAPI,
 ) classEnrollmentHandlers {
 	return classEnrollmentHandlers{
 		auth:        auth,
@@ -114,6 +117,7 @@ func newClassEnrollmentHandlers(
 		webOrigin:   strings.TrimRight(cfg.WebOrigin, "/"),
 		rateLimiter: rateLimiter,
 		clock:       clock,
+		audit:       auditService,
 	}
 }
 

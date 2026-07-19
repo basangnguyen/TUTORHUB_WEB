@@ -237,6 +237,21 @@ ORDER BY occurred_at DESC LIMIT 1`,
 		strings.Contains(payloadText, "email") || strings.Contains(payloadText, "display_name") {
 		t.Fatalf("unexpected role-changed payload: %s", payloadText)
 	}
+	var auditMetadata json.RawMessage
+	if err := pool.QueryRow(
+		ctx,
+		`SELECT metadata FROM tutorhub.audit_events
+WHERE tenant_id = $1 AND resource_id = $2
+  AND action = 'class.enrollment.update_role'
+ORDER BY occurred_at DESC LIMIT 1`,
+		tenantID,
+		roleChanged.Enrollment.ID,
+	).Scan(&auditMetadata); err != nil {
+		t.Fatalf("read role-changed audit event: %v", err)
+	}
+	if !strings.Contains(string(auditMetadata), `"target_user_id": "`+firstID.String()+`"`) {
+		t.Fatalf("role-changed audit metadata lost stable target: %s", auditMetadata)
+	}
 
 	classService, err := NewService(repository, policy.NewEngine())
 	if err != nil {

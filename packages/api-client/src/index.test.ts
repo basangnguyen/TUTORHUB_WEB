@@ -22,6 +22,7 @@ import {
   leaveClass,
   listClassInviteCodes,
   listClassRoster,
+  listAuditEvents,
   listIdentities,
   listClasses,
   listMembershipInvitations,
@@ -62,6 +63,85 @@ void invalidClassUpdate;
 
 const enrollmentLeavePermission: CurrentUser["permissions"][number] =
   "enrollment.leave";
+const auditViewPermission: CurrentUser["permissions"][number] = "audit.view";
+void auditViewPermission;
+
+describe("listAuditEvents", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("binds tenant, filters, cursor, and abort signal to the generated contract", async () => {
+    const controller = new AbortController();
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          items: [
+            {
+              id: "8f28f833-bc0e-47ce-b291-73aa0a926a36",
+              tenant_id: "4b18543a-74de-419f-9fe8-d0c3dfc991eb",
+              actor: {
+                type: "user",
+                user_id: "be85eb92-0f18-4163-85ba-50e4d343d632",
+                display_name: "Admin",
+              },
+              action: "class.enrollment.update_role",
+              resource: {
+                type: "class_enrollment",
+                id: "20e36f1b-0b74-47d9-a942-3af1b3ee6356",
+              },
+              outcome: "succeeded",
+              request_id: "request-123",
+              metadata: { effect: "updated" },
+              occurred_at: "2026-07-19T08:00:00Z",
+            },
+          ],
+          next_cursor: "next-page",
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+
+    await expect(
+      listAuditEvents(
+        "4b18543a-74de-419f-9fe8-d0c3dfc991eb",
+        {
+          occurredFrom: "2026-07-01T00:00:00Z",
+          occurredTo: "2026-08-01T00:00:00Z",
+          action: "class.enrollment.update_role",
+          resourceType: "class_enrollment",
+          resourceID: "20e36f1b-0b74-47d9-a942-3af1b3ee6356",
+          outcome: "succeeded",
+          limit: 25,
+          cursor: "page-one",
+        },
+        {
+          baseUrl: "http://localhost/api",
+          fetch: fetchMock,
+          signal: controller.signal,
+        },
+      ),
+    ).resolves.toMatchObject({ next_cursor: "next-page" });
+
+    const request = fetchMock.mock.calls[0]?.[0] as Request;
+    const url = new URL(request.url);
+    expect(url.pathname).toBe(
+      "/api/v1/tenants/4b18543a-74de-419f-9fe8-d0c3dfc991eb/audit-events",
+    );
+    expect(Object.fromEntries(url.searchParams)).toEqual({
+      occurred_from: "2026-07-01T00:00:00Z",
+      occurred_to: "2026-08-01T00:00:00Z",
+      action: "class.enrollment.update_role",
+      resource_type: "class_enrollment",
+      resource_id: "20e36f1b-0b74-47d9-a942-3af1b3ee6356",
+      outcome: "succeeded",
+      limit: "25",
+      cursor: "page-one",
+    });
+    controller.abort();
+    expect(request.signal.aborted).toBe(true);
+  });
+});
 
 describe("getHealth", () => {
   afterEach(() => {

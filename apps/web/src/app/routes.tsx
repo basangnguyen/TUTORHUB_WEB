@@ -19,6 +19,7 @@ import {
 } from "../pages/WorkspacePages";
 import { ProfileSettingsPage } from "../pages/ProfileSettingsPage";
 import { WorkspaceManagementPage } from "../pages/WorkspaceManagementPage";
+import { AuditLogPage } from "../pages/AuditLogPage";
 import {
   MembershipInvitationAcceptedPage,
   MembershipInvitationPage,
@@ -166,6 +167,10 @@ export function createAppRoutes(): RouteObject[] {
                 {
                   path: "workspace",
                   element: <WorkspaceManagementPage />,
+                },
+                {
+                  path: "workspace/audit",
+                  element: <AuditLogPage />,
                 },
                 {
                   path: "system-error",

@@ -9,6 +9,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/tutorhub-v2/core-api/internal/modules/audit"
+	"github.com/tutorhub-v2/core-api/internal/platform/requestmeta"
 	"github.com/tutorhub-v2/core-api/internal/platform/tenancy"
 	"github.com/tutorhub-v2/core-api/internal/policy"
 )
@@ -415,6 +417,7 @@ func (repository *PostgresRepository) AcceptMembershipInvitation(
 	if err != nil {
 		return AcceptMembershipInvitationResult{}, err
 	}
+	requestmeta.SetAuditTenant(queryContext, tenantID)
 	if _, err := lockActiveInvitationTenant(queryContext, transaction, tenantID); err != nil {
 		return AcceptMembershipInvitationResult{}, err
 	}
@@ -653,35 +656,17 @@ func expireTenantMembershipInvitations(
 	tenantID uuid.UUID,
 	now time.Time,
 ) error {
-	if _, err := transaction.Exec(
+	return expireMembershipInvitations(
 		ctx,
-		`WITH expired AS (
-    UPDATE tutorhub.membership_invitations
-    SET status = 'expired', updated_at = $2
-    WHERE tenant_id = $1 AND status = 'pending' AND expires_at <= $2
-    RETURNING id, tenant_id, intended_role, expires_at
-)
-INSERT INTO tutorhub.outbox_events (
-    tenant_id, aggregate_type, aggregate_id, event_type, payload, occurred_at, available_at
-)
-SELECT tenant_id,
-       'membership_invitation',
-       id,
-       'membership.invitation.expired',
-       jsonb_build_object(
-           'status', 'expired',
-           'intended_role', intended_role,
-           'expires_at', expires_at
-       ),
-       $2,
-       $2
-FROM expired`,
+		transaction,
+		`UPDATE tutorhub.membership_invitations
+SET status = 'expired', updated_at = $2
+WHERE tenant_id = $1 AND status = 'pending' AND expires_at <= $2
+RETURNING `+membershipInvitationSelectColumns,
+		now,
 		tenantID,
 		now,
-	); err != nil {
-		return fmt.Errorf("expire tenant membership invitations: %w", err)
-	}
-	return nil
+	)
 }
 
 func expireTenantMembershipInvitationEmail(
@@ -691,34 +676,58 @@ func expireTenantMembershipInvitationEmail(
 	email string,
 	now time.Time,
 ) error {
-	if _, err := transaction.Exec(
+	return expireMembershipInvitations(
 		ctx,
-		`WITH expired AS (
-    UPDATE tutorhub.membership_invitations
-    SET status = 'expired', updated_at = $3
-    WHERE tenant_id = $1 AND email = $2 AND status = 'pending' AND expires_at <= $3
-    RETURNING id, tenant_id, intended_role, expires_at
-)
-INSERT INTO tutorhub.outbox_events (
-    tenant_id, aggregate_type, aggregate_id, event_type, payload, occurred_at, available_at
-)
-SELECT tenant_id,
-       'membership_invitation',
-       id,
-       'membership.invitation.expired',
-       jsonb_build_object(
-           'status', 'expired',
-           'intended_role', intended_role,
-           'expires_at', expires_at
-       ),
-       $3,
-       $3
-FROM expired`,
+		transaction,
+		`UPDATE tutorhub.membership_invitations
+SET status = 'expired', updated_at = $3
+WHERE tenant_id = $1 AND email = $2 AND status = 'pending' AND expires_at <= $3
+RETURNING `+membershipInvitationSelectColumns,
+		now,
 		tenantID,
 		email,
 		now,
-	); err != nil {
-		return fmt.Errorf("expire membership invitation email: %w", err)
+	)
+}
+
+func expireMembershipInvitations(
+	ctx context.Context,
+	transaction pgx.Tx,
+	query string,
+	now time.Time,
+	arguments ...any,
+) error {
+	rows, err := transaction.Query(ctx, query, arguments...)
+	if err != nil {
+		return fmt.Errorf("expire membership invitations: %w", err)
+	}
+	expired := make([]MembershipInvitation, 0)
+	for rows.Next() {
+		var invitation MembershipInvitation
+		if err := scanMembershipInvitation(rows, &invitation); err != nil {
+			rows.Close()
+			return fmt.Errorf("scan expired membership invitation: %w", err)
+		}
+		expired = append(expired, invitation)
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return fmt.Errorf("iterate expired membership invitations: %w", err)
+	}
+	rows.Close()
+
+	for _, invitation := range expired {
+		if err := insertMembershipInvitationEvent(
+			ctx,
+			transaction,
+			invitation,
+			"membership.invitation.expired",
+			uuid.Nil,
+			uuid.Nil,
+			now,
+		); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -984,7 +993,41 @@ VALUES (
 	); err != nil {
 		return fmt.Errorf("insert %s event: %w", eventType, err)
 	}
+	metadata := audit.Metadata{
+		"effect":        invitationEventEffect(eventType),
+		"status":        string(invitation.Status),
+		"intended_role": invitation.IntendedRole,
+	}
+	if membershipID != uuid.Nil {
+		metadata["membership_id"] = membershipID.String()
+	}
+	if err := audit.AppendDomainEvent(ctx, transaction, audit.DomainEvent{
+		TenantID:      invitation.TenantID,
+		ActorID:       actorID,
+		EventType:     eventType,
+		AggregateType: "membership_invitation",
+		AggregateID:   invitation.ID,
+		Metadata:      metadata,
+		OccurredAt:    occurredAt,
+	}); err != nil {
+		return fmt.Errorf("insert %s audit event: %w", eventType, err)
+	}
 	return nil
+}
+
+func invitationEventEffect(eventType string) string {
+	switch eventType {
+	case "membership.invitation.created":
+		return "created"
+	case "membership.invitation.revoked":
+		return "revoked"
+	case "membership.invitation.accepted":
+		return "accepted"
+	case "membership.invitation.expired":
+		return "expired"
+	default:
+		return "updated"
+	}
 }
 
 func scanMembershipInvitation(row scanner, invitation *MembershipInvitation) error {

@@ -9,6 +9,7 @@ import {
 } from "@testing-library/react";
 import type { CurrentUser, Tenant } from "@tutorhub/api-client";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { MemoryRouter } from "react-router-dom";
 import { I18nProvider } from "../app/i18n";
 import { SessionProvider } from "../app/session";
 import { tenantQueryKeys } from "../app/workspaces";
@@ -81,7 +82,9 @@ function renderPage(
     <QueryClientProvider client={queryClient}>
       <I18nProvider initialLanguage={language}>
         <SessionProvider mode={{ kind: "static", currentUser }}>
-          <WorkspaceManagementPage />
+          <MemoryRouter>
+            <WorkspaceManagementPage />
+          </MemoryRouter>
         </SessionProvider>
       </I18nProvider>
     </QueryClientProvider>,
@@ -167,6 +170,20 @@ describe("WorkspaceManagementPage", () => {
         ),
       ),
     ).toBe(true);
+  });
+
+  it("shows an audit-history link only when the session grants audit.view", async () => {
+    const admin = sessionFor("org_admin", true);
+    renderPage(
+      successfulReads(),
+      { ...admin, permissions: [...admin.permissions, "audit.view"] },
+      "en",
+    );
+
+    const auditLink = await screen.findByRole("link", {
+      name: /View audit log/,
+    });
+    expect(auditLink).toHaveAttribute("href", "/app/workspace/audit");
   });
 
   it("updates metadata with expected_version and synchronizes tenant caches", async () => {

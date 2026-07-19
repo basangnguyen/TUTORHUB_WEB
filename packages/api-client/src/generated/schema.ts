@@ -574,6 +574,26 @@ export type paths = {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/api/v1/tenants/{tenant_id}/audit-events": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /**
+     * List append-only security audit history for the active workspace
+     * @description Only an active organization administrator may query this tenant-scoped history. Results use descending keyset pagination and never include raw tokens, sessions, email addresses, request bodies, or unredacted outbox payloads.
+     */
+    readonly get: operations["listAuditEvents"];
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/api/v1/tenants/{tenant_id}/invitations": {
     readonly parameters: {
       readonly query?: never;
@@ -693,6 +713,67 @@ export type components = {
     readonly ArchiveTenantRequest: {
       /** Format: int64 */
       readonly expected_version: number;
+    };
+    /** @enum {string} */
+    readonly AuditAction:
+      | "tenant.create"
+      | "tenant.update"
+      | "tenant.archive"
+      | "tenant.switch"
+      | "membership.invitation.create"
+      | "membership.invitation.revoke"
+      | "membership.invitation.accept"
+      | "membership.invitation.expire"
+      | "class.create"
+      | "class.update"
+      | "class.archive"
+      | "class.restore"
+      | "class.transfer_ownership"
+      | "class.enrollment.enroll"
+      | "class.enrollment.suspend"
+      | "class.enrollment.remove"
+      | "class.enrollment.join"
+      | "class.enrollment.leave"
+      | "class.enrollment.update_role"
+      | "class.roster.bulk"
+      | "class.invite_code.create"
+      | "class.invite_code.revoke"
+      | "class.invite_code.expire"
+      | "class.invite_code.exhaust";
+    readonly AuditActor: {
+      readonly display_name: string | null;
+      /** @enum {string} */
+      readonly type: "user" | "system";
+      /** Format: uuid */
+      readonly user_id: string | null;
+    };
+    readonly AuditEvent: {
+      readonly action: components["schemas"]["AuditAction"];
+      readonly actor: components["schemas"]["AuditActor"];
+      /** Format: uuid */
+      readonly id: string;
+      /** @description Flat, server-generated, redacted string metadata. */
+      readonly metadata: {
+        readonly [key: string]: string;
+      };
+      /** Format: date-time */
+      readonly occurred_at: string;
+      readonly outcome: components["schemas"]["AuditOutcome"];
+      readonly request_id: string;
+      readonly resource: components["schemas"]["AuditResource"];
+      /** Format: uuid */
+      readonly tenant_id: string;
+    };
+    readonly AuditEventPage: {
+      readonly items: readonly components["schemas"]["AuditEvent"][];
+      readonly next_cursor?: string;
+    };
+    /** @enum {string} */
+    readonly AuditOutcome: "succeeded" | "denied" | "failed";
+    readonly AuditResource: {
+      /** Format: uuid */
+      readonly id: string | null;
+      readonly type: string;
     };
     readonly Class: {
       readonly archived_at: string | null;
@@ -1051,7 +1132,8 @@ export type components = {
       | "participant.admit"
       | "participant.remove"
       | "media.publish"
-      | "chat.send";
+      | "chat.send"
+      | "audit.view";
     readonly Problem: {
       readonly detail?: string;
       readonly instance?: string;
@@ -2346,6 +2428,47 @@ export interface operations {
       readonly 403: components["responses"]["ForbiddenResponse"];
       readonly 404: components["responses"]["NotFoundResponse"];
       readonly 409: components["responses"]["ConflictResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly listAuditEvents: {
+    readonly parameters: {
+      readonly query?: {
+        readonly action?: components["schemas"]["AuditAction"];
+        /** @description Opaque cursor bound to the active tenant and all filters. */
+        readonly cursor?: string;
+        readonly limit?: number;
+        readonly occurred_from?: string;
+        /** @description Exclusive upper timestamp bound. */
+        readonly occurred_to?: string;
+        readonly outcome?: components["schemas"]["AuditOutcome"];
+        /** @description Requires resource_type to be present. */
+        readonly resource_id?: string;
+        readonly resource_type?: string;
+      };
+      readonly header?: never;
+      readonly path: {
+        readonly tenant_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Tenant-scoped audit page ordered by occurred_at and id descending */
+      readonly 200: {
+        headers: {
+          readonly "Cache-Control"?: "no-store";
+          readonly "Referrer-Policy"?: "no-referrer";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["AuditEventPage"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
       readonly default: components["responses"]["ProblemResponse"];
     };
   };

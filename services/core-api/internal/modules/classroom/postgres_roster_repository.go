@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/tutorhub-v2/core-api/internal/modules/audit"
 	"github.com/tutorhub-v2/core-api/internal/platform/tenancy"
 	"github.com/tutorhub-v2/core-api/internal/policy"
 )
@@ -571,6 +572,24 @@ VALUES (
 		occurredAt,
 	); err != nil {
 		return fmt.Errorf("insert class enrollment role-changed event: %w", err)
+	}
+	if err := audit.AppendDomainEvent(ctx, transaction, audit.DomainEvent{
+		TenantID:      enrollment.TenantID,
+		ActorID:       actorID,
+		EventType:     "class.enrollment.role_changed",
+		AggregateType: "class_enrollment",
+		AggregateID:   enrollment.ID,
+		Metadata: audit.Metadata{
+			"effect":                      "updated",
+			"previous_class_role":         string(previousRole),
+			"class_role":                  string(enrollment.ClassRole),
+			"status":                      string(enrollment.Status),
+			"source":                      source,
+			audit.MetadataKeyTargetUserID: enrollment.UserID.String(),
+		},
+		OccurredAt: occurredAt,
+	}); err != nil {
+		return fmt.Errorf("insert class enrollment role-changed audit event: %w", err)
 	}
 	return nil
 }

@@ -17,8 +17,9 @@ import {
   StatusBadge,
   TextField,
 } from "@tutorhub/ui";
-import { Archive, Building2, RefreshCw, Save } from "lucide-react";
+import { Archive, Building2, RefreshCw, Save, ScrollText } from "lucide-react";
 import { useMemo, useState, type FormEvent } from "react";
+import { Link } from "react-router-dom";
 import { useI18n, type TranslationKey } from "../app/i18n";
 import { useSession } from "../app/session";
 import { MembershipInvitationPanel } from "../components/MembershipInvitationPanel";
@@ -151,6 +152,8 @@ export function WorkspaceManagementPage() {
     session.currentUser?.permissions.includes("tenant.manage") ?? false;
   const canManageMembers =
     session.currentUser?.permissions.includes("tenant.manage_members") ?? false;
+  const canViewAudit =
+    session.currentUser?.permissions.includes("audit.view") ?? false;
   const dateFormatter = useMemo(
     () =>
       new Intl.DateTimeFormat(language === "vi" ? "vi-VN" : "en-US", {
@@ -264,6 +267,19 @@ export function WorkspaceManagementPage() {
                 <dd>{dateFormatter.format(new Date(tenant.updated_at))}</dd>
               </div>
             </dl>
+            {canViewAudit && (
+              <Link
+                className="workspace-management__audit-link"
+                to="/app/workspace/audit"
+              >
+                <ScrollText aria-hidden="true" />
+                <span>
+                  <strong>{t("workspace.auditLink")}</strong>
+                  <small>{t("workspace.auditLinkDescription")}</small>
+                </span>
+                <span aria-hidden="true">→</span>
+              </Link>
+            )}
           </section>
 
           {canManageMembers && (

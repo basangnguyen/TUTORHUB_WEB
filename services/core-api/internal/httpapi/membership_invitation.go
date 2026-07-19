@@ -12,6 +12,7 @@ import (
 	"github.com/tutorhub-v2/core-api/internal/config"
 	"github.com/tutorhub-v2/core-api/internal/modules/identity"
 	"github.com/tutorhub-v2/core-api/internal/platform/logsafe"
+	"github.com/tutorhub-v2/core-api/internal/platform/requestmeta"
 )
 
 const maximumMembershipInvitationRequestBytes = 16 * 1024
@@ -366,6 +367,7 @@ func (handlers membershipInvitationHandlers) accept(
 		handlers.writeProblem(w, r, err, membershipInvitationTokenProblem)
 		return
 	}
+	requestmeta.SetAuditTenant(r.Context(), result.Invitation.TenantID)
 	writeJSON(handlers.logger, w, http.StatusOK, acceptMembershipInvitationResponse{
 		Invitation:  newMembershipInvitationResponse(result.Invitation),
 		CurrentUser: newMeResponse(result.Principal),

@@ -1,11 +1,13 @@
 package httpapi
 
 import (
+	"context"
 	"net/http"
 	"strconv"
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/tutorhub-v2/core-api/internal/modules/audit"
 	"github.com/tutorhub-v2/core-api/internal/modules/classroom"
 	"github.com/tutorhub-v2/core-api/internal/policy"
 )
@@ -263,9 +265,11 @@ func (handlers classEnrollmentHandlers) rosterBulk(
 		r.Context(), classAccess(principal), classID, input,
 	)
 	if err != nil {
+		handlers.recordBulkAuditItems(r, classID, result)
 		handlers.writeProblem(w, r, err, classEnrollmentAdminProblem)
 		return
 	}
+	handlers.recordBulkAuditResults(r, classID, result)
 
 	items := make([]classRosterBulkItemResponse, 0, len(result.Items))
 	for _, item := range result.Items {
@@ -299,6 +303,130 @@ func (handlers classEnrollmentHandlers) rosterBulk(
 			FailedCount:    result.FailedCount,
 		},
 	)
+}
+
+func (handlers classEnrollmentHandlers) recordBulkAuditResults(
+	r *http.Request,
+	classID uuid.UUID,
+	result classroom.BulkRosterResult,
+) {
+	if handlers.audit == nil {
+		return
+	}
+	handlers.recordBulkAuditItems(r, classID, result)
+	handlers.recordBulkAuditDraft(r, audit.Draft{
+		Action:       audit.ActionClassRosterBulk,
+		ResourceType: "class",
+		ResourceID:   classID,
+		Outcome:      audit.OutcomeSucceeded,
+		Metadata: audit.Metadata{
+			"effect":          "completed",
+			"bulk_action":     string(result.Action),
+			"requested_count": strconv.Itoa(len(result.Items)),
+			"succeeded_count": strconv.Itoa(result.SucceededCount),
+			"unchanged_count": strconv.Itoa(result.UnchangedCount),
+			"failed_count":    strconv.Itoa(result.FailedCount),
+		},
+	})
+}
+
+func (handlers classEnrollmentHandlers) recordBulkAuditItems(
+	r *http.Request,
+	classID uuid.UUID,
+	result classroom.BulkRosterResult,
+) {
+	if handlers.audit == nil {
+		return
+	}
+	action := bulkRosterAuditAction(result.Action)
+	for _, item := range result.Items {
+		if item.Changed {
+			continue
+		}
+		draft := audit.Draft{
+			Action:       action,
+			ResourceType: "class_member",
+			ResourceID:   item.UserID,
+			Outcome:      audit.OutcomeSucceeded,
+			Metadata: audit.Metadata{
+				"effect":                      "unchanged",
+				"bulk_action":                 string(result.Action),
+				"class_id":                    classID.String(),
+				audit.MetadataKeyTargetUserID: item.UserID.String(),
+			},
+		}
+		if item.Failure != nil {
+			draft.Outcome = audit.OutcomeFailed
+			draft.Metadata["reason_code"] = bulkRosterAuditReason(item.Failure.Code)
+			if item.Failure.Code == classroom.RosterBulkFailureAccessDenied ||
+				item.Failure.Code == classroom.RosterBulkFailureNotFound {
+				draft.Outcome = audit.OutcomeDenied
+			}
+			delete(draft.Metadata, "effect")
+		}
+		handlers.recordBulkAuditItemDraft(r, item.UserID, draft)
+	}
+}
+
+func (handlers classEnrollmentHandlers) recordBulkAuditItemDraft(
+	r *http.Request,
+	targetUserID uuid.UUID,
+	draft audit.Draft,
+) {
+	if err := handlers.audit.RecordItemFallback(
+		context.WithoutCancel(r.Context()),
+		targetUserID,
+		draft,
+	); err != nil {
+		handlers.logger.Error(
+			"audit_write_failed",
+			"request_id", RequestIDFromContext(r.Context()),
+			"action", draft.Action,
+			"reason", "persistence_failed",
+		)
+	}
+}
+
+func (handlers classEnrollmentHandlers) recordBulkAuditDraft(
+	r *http.Request,
+	draft audit.Draft,
+) {
+	if err := handlers.audit.Record(context.WithoutCancel(r.Context()), draft); err != nil {
+		handlers.logger.Error(
+			"audit_write_failed",
+			"request_id", RequestIDFromContext(r.Context()),
+			"action", draft.Action,
+			"reason", "persistence_failed",
+		)
+	}
+}
+
+func bulkRosterAuditAction(action classroom.RosterBulkAction) audit.Action {
+	switch action {
+	case classroom.RosterBulkActionSuspend:
+		return audit.ActionClassEnrollmentSuspend
+	case classroom.RosterBulkActionRemove:
+		return audit.ActionClassEnrollmentRemove
+	default:
+		return audit.ActionClassEnrollmentUpdateRole
+	}
+}
+
+func bulkRosterAuditReason(code classroom.RosterBulkFailureCode) string {
+	switch code {
+	case classroom.RosterBulkFailureAccessDenied:
+		return "forbidden"
+	case classroom.RosterBulkFailureNotFound:
+		return "resource_unavailable"
+	case classroom.RosterBulkFailureConflict:
+		return "conflict"
+	case classroom.RosterBulkFailureInternal:
+		return "internal_failure"
+	case classroom.RosterBulkFailureNotAttempted:
+		return "not_attempted"
+	default:
+		return "invalid_request"
+	}
 }
 
 func parseClassRosterResource(r *http.Request) (uuid.UUID, uuid.UUID, bool) {

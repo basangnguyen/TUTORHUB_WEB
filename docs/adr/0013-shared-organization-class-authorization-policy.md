@@ -4,6 +4,7 @@
 - Date: 2026-07-16
 - P2-05 amendment: 2026-07-19
 - P2-06 amendment: 2026-07-19
+- P2-07 amendment: 2026-07-19
 
 ## Context
 
@@ -88,6 +89,11 @@ New LiveKit grants derive role attributes from the same authoritative class proj
 so subsequent token issuance reflects a roster role change. An already issued JWT or
 connected LiveKit participant is not changed retroactively.
 
+Starting in P2-07, `audit.view` is a tenant-scoped organization permission granted
+only to an active `org_admin`. No class role contributes this permission. The audit
+query reloads tenant and membership state authoritatively before asking the shared
+policy, so a stale session permission cannot preserve access after demotion or revoke.
+
 ## Consequences
 
 - Permission constants and role mappings have one source of truth and table-driven
@@ -104,6 +110,8 @@ connected LiveKit participant is not changed retroactively.
   independently by handlers or UI controls.
 - Bulk mutation is intentionally not all-or-nothing; callers must consume ordered item
   outcomes and refetch after an infrastructure error.
+- Tenant audit visibility remains an organization-policy decision and is reauthorized
+  from current database state for every query.
 - A static test rejects reintroduction of local permission helpers in domain modules.
 
 ## Alternatives rejected

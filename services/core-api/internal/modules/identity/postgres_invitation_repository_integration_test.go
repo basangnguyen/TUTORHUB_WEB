@@ -15,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tutorhub-v2/core-api/internal/platform/migrationrunner"
+	"github.com/tutorhub-v2/core-api/internal/platform/requestmeta"
 	"github.com/tutorhub-v2/core-api/internal/policy"
 )
 
@@ -102,8 +103,10 @@ WHERE id = $1 AND tenant_id = $2`,
 		t.Fatalf("unexpected persisted invitation preview: %+v", preview)
 	}
 
+	acceptContext, _ := requestmeta.New(ctx, "accept-invitation", "", "", now)
+	requestmeta.SetPrincipal(acceptContext, fixture.invitee.User.ID, uuid.Nil)
 	accepted, err := service.AcceptMembershipInvitation(
-		ctx,
+		acceptContext,
 		fixture.invitee,
 		created.Token,
 	)
@@ -122,15 +125,19 @@ WHERE id = $1 AND tenant_id = $2`,
 		accepted.Principal.Memberships[0].IsActive {
 		t.Fatalf("accept must add membership without switching workspace: %+v", accepted.Principal)
 	}
+	assertResolvedInvitationAuditTenant(t, acceptContext, fixture.tenantID)
 
+	repeatContext, _ := requestmeta.New(ctx, "repeat-accept-invitation", "", "", now)
+	requestmeta.SetPrincipal(repeatContext, fixture.invitee.User.ID, uuid.Nil)
 	repeated, err := service.AcceptMembershipInvitation(
-		ctx,
+		repeatContext,
 		fixture.invitee,
 		created.Token,
 	)
 	if err != nil || repeated.Invitation.ID != created.Invitation.ID {
 		t.Fatalf("repeat acceptance must be idempotent: result=%+v error=%v", repeated, err)
 	}
+	assertResolvedInvitationAuditTenant(t, repeatContext, fixture.tenantID)
 	if _, err := service.PreviewMembershipInvitation(
 		ctx,
 		created.Token,
@@ -199,12 +206,28 @@ WHERE aggregate_id = $1 AND event_type = 'membership.invitation.accepted'`,
 	if err != nil {
 		t.Fatalf("create identity-mismatch invitation: %v", err)
 	}
+	mismatchContext, _ := requestmeta.New(ctx, "mismatch-accept-invitation", "", "", now)
+	requestmeta.SetPrincipal(mismatchContext, fixture.invitee.User.ID, uuid.Nil)
 	if _, err := service.AcceptMembershipInvitation(
-		ctx,
+		mismatchContext,
 		fixture.invitee,
 		mismatch.Token,
 	); !errors.Is(err, ErrMembershipInvitationIdentityMismatch) {
 		t.Fatalf("expected verified identity mismatch, got %v", err)
+	}
+	assertResolvedInvitationAuditTenant(t, mismatchContext, fixture.tenantID)
+
+	unresolvedContext, _ := requestmeta.New(ctx, "unknown-accept-invitation", "", "", now)
+	requestmeta.SetPrincipal(unresolvedContext, fixture.invitee.User.ID, uuid.Nil)
+	if _, err := service.AcceptMembershipInvitation(
+		unresolvedContext,
+		fixture.invitee,
+		membershipInvitationTestToken(0x7f),
+	); !errors.Is(err, ErrMembershipInvitationUnavailable) {
+		t.Fatalf("expected unknown invitation token to be unavailable, got %v", err)
+	}
+	if snapshot := requestmeta.SnapshotFromContext(unresolvedContext); snapshot.AuditTenantResolved || snapshot.AuditTenantID != uuid.Nil {
+		t.Fatalf("unknown token must not resolve a durable audit tenant: %#v", snapshot)
 	}
 
 	revocable, err := service.CreateMembershipInvitation(
@@ -311,6 +334,22 @@ WHERE aggregate_id = $1 AND event_type = 'membership.invitation.expired'`,
 			"unexpected expiration transition: status=%s events=%d",
 			expiredStatus,
 			expirationEventCount,
+		)
+	}
+}
+
+func assertResolvedInvitationAuditTenant(
+	t *testing.T,
+	ctx context.Context,
+	wantTenantID uuid.UUID,
+) {
+	t.Helper()
+	snapshot := requestmeta.SnapshotFromContext(ctx)
+	if !snapshot.AuditTenantResolved || snapshot.AuditTenantID != wantTenantID {
+		t.Fatalf(
+			"invitation acceptance did not retain authoritative audit tenant: got=%#v want=%s",
+			snapshot,
+			wantTenantID,
 		)
 	}
 }
@@ -648,6 +687,18 @@ func cleanupInvitationIntegrationFixture(
 
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
+	var retainedAudit bool
+	if err := pool.QueryRow(
+		ctx,
+		`SELECT EXISTS (SELECT 1 FROM tutorhub.audit_events WHERE tenant_id = $1)`,
+		tenantID,
+	).Scan(&retainedAudit); err != nil {
+		t.Errorf("inspect retained invitation audit fixture: %v", err)
+		return
+	}
+	if retainedAudit {
+		return
+	}
 	if _, err := pool.Exec(
 		ctx,
 		`DELETE FROM tutorhub.tenants WHERE id = $1`,

@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/tutorhub-v2/core-api/internal/config"
 	"github.com/tutorhub-v2/core-api/internal/modules/identity"
+	"github.com/tutorhub-v2/core-api/internal/platform/requestmeta"
 )
 
 func TestAuthenticationRoutesAreUnavailableWithoutIdentityService(t *testing.T) {
@@ -347,42 +348,43 @@ func findCookie(t *testing.T, cookies []*http.Cookie, name string) *http.Cookie 
 }
 
 type fakeIdentityService struct {
-	returnTo                  string
-	callback                  identity.CallbackInput
-	completeLogin             *identity.LoginResult
-	logoutCalled              bool
-	createTenantCalled        bool
-	createTenantInput         identity.CreateTenantInput
-	updatedTenantID           uuid.UUID
-	updateTenantInput         identity.UpdateTenantInput
-	archivedTenantID          uuid.UUID
-	archiveVersion            int64
-	switchTenantID            uuid.UUID
-	principal                 identity.Principal
-	profilePatch              identity.ProfilePatch
-	profileError              error
-	identities                []identity.ExternalIdentity
-	identityError             error
-	beginLinkCalled           bool
-	unlinkedIdentityID        uuid.UUID
-	invitations               []identity.MembershipInvitation
-	listInvitationsError      error
-	listInvitationsTenantID   uuid.UUID
-	createInvitationResult    identity.CreateMembershipInvitationResult
-	createInvitationError     error
-	createInvitationTenantID  uuid.UUID
-	createInvitationInput     identity.CreateMembershipInvitationInput
-	revokeInvitationResult    identity.MembershipInvitation
-	revokeInvitationError     error
-	revokeInvitationTenantID  uuid.UUID
-	revokeInvitationID        uuid.UUID
-	previewInvitationResult   identity.MembershipInvitationPreview
-	previewInvitationError    error
-	previewInvitationToken    string
-	acceptInvitationResult    identity.AcceptMembershipInvitationResult
-	acceptInvitationError     error
-	acceptInvitationToken     string
-	acceptInvitationPrincipal identity.Principal
+	returnTo                      string
+	callback                      identity.CallbackInput
+	completeLogin                 *identity.LoginResult
+	logoutCalled                  bool
+	createTenantCalled            bool
+	createTenantInput             identity.CreateTenantInput
+	updatedTenantID               uuid.UUID
+	updateTenantInput             identity.UpdateTenantInput
+	archivedTenantID              uuid.UUID
+	archiveVersion                int64
+	switchTenantID                uuid.UUID
+	principal                     identity.Principal
+	profilePatch                  identity.ProfilePatch
+	profileError                  error
+	identities                    []identity.ExternalIdentity
+	identityError                 error
+	beginLinkCalled               bool
+	unlinkedIdentityID            uuid.UUID
+	invitations                   []identity.MembershipInvitation
+	listInvitationsError          error
+	listInvitationsTenantID       uuid.UUID
+	createInvitationResult        identity.CreateMembershipInvitationResult
+	createInvitationError         error
+	createInvitationTenantID      uuid.UUID
+	createInvitationInput         identity.CreateMembershipInvitationInput
+	revokeInvitationResult        identity.MembershipInvitation
+	revokeInvitationError         error
+	revokeInvitationTenantID      uuid.UUID
+	revokeInvitationID            uuid.UUID
+	previewInvitationResult       identity.MembershipInvitationPreview
+	previewInvitationError        error
+	previewInvitationToken        string
+	acceptInvitationResult        identity.AcceptMembershipInvitationResult
+	acceptInvitationError         error
+	acceptInvitationToken         string
+	acceptInvitationPrincipal     identity.Principal
+	acceptInvitationAuditTenantID uuid.UUID
 }
 
 func (service *fakeIdentityService) BeginLogin(
@@ -715,12 +717,15 @@ func (service *fakeIdentityService) PreviewMembershipInvitation(
 }
 
 func (service *fakeIdentityService) AcceptMembershipInvitation(
-	_ context.Context,
+	ctx context.Context,
 	principal identity.Principal,
 	token string,
 ) (identity.AcceptMembershipInvitationResult, error) {
 	service.acceptInvitationPrincipal = principal
 	service.acceptInvitationToken = token
+	if service.acceptInvitationAuditTenantID != uuid.Nil {
+		requestmeta.SetAuditTenant(ctx, service.acceptInvitationAuditTenantID)
+	}
 	if service.acceptInvitationError != nil {
 		return identity.AcceptMembershipInvitationResult{}, service.acceptInvitationError
 	}

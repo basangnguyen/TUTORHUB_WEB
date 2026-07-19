@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tutorhub-v2/core-api/internal/config"
 	"github.com/tutorhub-v2/core-api/internal/httpapi"
+	"github.com/tutorhub-v2/core-api/internal/modules/audit"
 	"github.com/tutorhub-v2/core-api/internal/modules/classroom"
 	"github.com/tutorhub-v2/core-api/internal/modules/identity"
 	"github.com/tutorhub-v2/core-api/internal/modules/media"
@@ -83,6 +84,19 @@ func run() int {
 	}
 
 	authorizer := policy.NewEngine()
+	var auditService audit.ServiceAPI
+	if pool != nil {
+		auditService, err = audit.NewService(
+			pool,
+			cfg.Database.QueryTimeout,
+			authorizer,
+			time.Now,
+		)
+		if err != nil {
+			logger.Error("initialize audit service", "error", err)
+			return 1
+		}
+	}
 	var classroomRepository *classroom.PostgresRepository
 	var classroomAuthorizer *classroom.Service
 	var classroomService classroom.ServiceAPI
@@ -215,6 +229,7 @@ func run() int {
 		Identity:       identityService,
 		Classroom:      classroomService,
 		Enrollment:     enrollmentService,
+		Audit:          auditService,
 		Media:          mediaService,
 		LiveKitWebhook: liveKitWebhook,
 	})

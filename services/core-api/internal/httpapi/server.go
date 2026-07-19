@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/tutorhub-v2/core-api/internal/config"
+	"github.com/tutorhub-v2/core-api/internal/modules/audit"
 	"github.com/tutorhub-v2/core-api/internal/modules/classroom"
 	"github.com/tutorhub-v2/core-api/internal/modules/identity"
 	"github.com/tutorhub-v2/core-api/internal/modules/media"
@@ -27,6 +28,7 @@ type Options struct {
 	Identity              identity.ServiceAPI
 	Classroom             classroom.ServiceAPI
 	Enrollment            classroom.EnrollmentServiceAPI
+	Audit                 audit.ServiceAPI
 	Media                 media.ServiceAPI
 	LiveKitWebhook        media.WebhookVerifier
 	InvitationRateLimiter InvitationRateLimiter
@@ -66,6 +68,15 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 		requireMethod(http.MethodGet, apiStatusHandler(cfg, logger, options.Clock)),
 	)
 	auth := newAuthHandlers(cfg, logger, options.Identity, options.Clock)
+	auditMutation := func(resolve auditMutationResolver, next http.Handler) http.Handler {
+		return auditMutationMiddleware(logger, options.Audit, resolve, next)
+	}
+	auditResolvedTenantMutation := func(
+		resolve auditMutationResolver,
+		next http.Handler,
+	) http.Handler {
+		return auditResolvedTenantMutationMiddleware(logger, options.Audit, resolve, next)
+	}
 	invitations := newMembershipInvitationHandlers(
 		cfg,
 		logger,
@@ -89,20 +100,45 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 		requireMethod(http.MethodPost, http.HandlerFunc(auth.beginIdentityLink)),
 	)
 	mux.Handle(identityResourcePathPrefix, http.HandlerFunc(auth.identityResource))
-	mux.Handle(tenantsCollectionPath, http.HandlerFunc(auth.tenantCollection))
-	mux.Handle(tenantsResourcePathPrefix, http.HandlerFunc(auth.tenantResource))
+	mux.Handle(
+		tenantsCollectionPath,
+		auditMutation(
+			staticAuditMutation(http.MethodPost, audit.ActionTenantCreate, "tenant", nil),
+			http.HandlerFunc(auth.tenantCollection),
+		),
+	)
+	mux.Handle(
+		tenantsResourcePathPrefix,
+		auditMutation(tenantResourceAuditMutation, http.HandlerFunc(auth.tenantResource)),
+	)
 	mux.Handle(
 		membershipInvitationsAdminCollectionPattern,
 		membershipInvitationResponseHeaders(
 			true,
-			http.HandlerFunc(invitations.adminCollection),
+			auditMutation(
+				staticAuditMutation(
+					http.MethodPost,
+					audit.ActionMembershipInvitationCreate,
+					"membership_invitation",
+					nil,
+				),
+				http.HandlerFunc(invitations.adminCollection),
+			),
 		),
 	)
 	mux.Handle(
 		membershipInvitationsAdminRevokePattern,
 		membershipInvitationResponseHeaders(
 			true,
-			http.HandlerFunc(invitations.adminRevoke),
+			auditMutation(
+				staticAuditMutation(
+					http.MethodPost,
+					audit.ActionMembershipInvitationRevoke,
+					"membership_invitation",
+					pathValueAuditResource("invitationId"),
+				),
+				http.HandlerFunc(invitations.adminRevoke),
+			),
 		),
 	)
 	mux.Handle(
@@ -116,12 +152,23 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 		membershipInvitationAcceptPath,
 		membershipInvitationResponseHeaders(
 			true,
-			requireMethod(http.MethodPost, http.HandlerFunc(invitations.accept)),
+			auditResolvedTenantMutation(
+				staticAuditMutation(
+					http.MethodPost,
+					audit.ActionMembershipInvitationAccept,
+					"membership_invitation",
+					nil,
+				),
+				requireMethod(http.MethodPost, http.HandlerFunc(invitations.accept)),
+			),
 		),
 	)
 	mux.Handle(
 		"/api/v1/session/active-tenant",
-		requireMethod(http.MethodPut, http.HandlerFunc(auth.switchActiveTenant)),
+		auditMutation(
+			staticAuditMutation(http.MethodPut, audit.ActionTenantSwitch, "tenant", nil),
+			requireMethod(http.MethodPut, http.HandlerFunc(auth.switchActiveTenant)),
+		),
 	)
 	classes := newClassHandlers(logger, auth, options.Classroom)
 	classEnrollments := newClassEnrollmentHandlers(
@@ -131,6 +178,7 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 		options.Enrollment,
 		options.InvitationRateLimiter,
 		options.Clock,
+		options.Audit,
 	)
 	mediaHandlers := newMediaHandlers(
 		logger,
@@ -138,15 +186,59 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 		options.Media,
 		options.LiveKitWebhook,
 	)
-	mux.Handle(classesCollectionPath, http.HandlerFunc(classes.collection))
-	mux.Handle(classesResourcePathPrefix, http.HandlerFunc(classes.detail))
-	mux.Handle(classArchivePathPattern, http.HandlerFunc(classes.detail))
-	mux.Handle(classRestorePathPattern, http.HandlerFunc(classes.detail))
-	mux.Handle(classTransferPathPattern, http.HandlerFunc(classes.detail))
+	mux.Handle(
+		classesCollectionPath,
+		auditMutation(
+			staticAuditMutation(http.MethodPost, audit.ActionClassCreate, "class", nil),
+			http.HandlerFunc(classes.collection),
+		),
+	)
+	mux.Handle(
+		classesResourcePathPrefix,
+		auditMutation(classResourceUpdateAuditMutation, http.HandlerFunc(classes.detail)),
+	)
+	mux.Handle(
+		classArchivePathPattern,
+		auditMutation(
+			staticAuditMutation(
+				http.MethodPost, audit.ActionClassArchive, "class", pathValueAuditResource("class_id"),
+			),
+			http.HandlerFunc(classes.detail),
+		),
+	)
+	mux.Handle(
+		classRestorePathPattern,
+		auditMutation(
+			staticAuditMutation(
+				http.MethodPost, audit.ActionClassRestore, "class", pathValueAuditResource("class_id"),
+			),
+			http.HandlerFunc(classes.detail),
+		),
+	)
+	mux.Handle(
+		classTransferPathPattern,
+		auditMutation(
+			staticAuditMutation(
+				http.MethodPost,
+				audit.ActionClassTransferOwnership,
+				"class",
+				pathValueAuditResource("class_id"),
+			),
+			http.HandlerFunc(classes.detail),
+		),
+	)
 	mux.Handle(
 		classEnrollmentsPattern,
 		classEnrollmentResponseHeaders(
-			http.HandlerFunc(classEnrollments.directEnrollment),
+			auditMutation(
+				staticAuditMutation(
+					http.MethodPost,
+					audit.ActionClassEnrollmentEnroll,
+					"class",
+					pathValueAuditResource("class_id"),
+				),
+				http.HandlerFunc(classEnrollments.directEnrollment),
+			),
 		),
 	)
 	mux.Handle(
@@ -158,50 +250,119 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 	mux.Handle(
 		classRosterBulkPattern,
 		classEnrollmentResponseHeaders(
-			http.HandlerFunc(classEnrollments.rosterBulk),
+			auditMutation(
+				staticAuditMutation(
+					http.MethodPost,
+					audit.ActionClassRosterBulk,
+					"class",
+					pathValueAuditResource("class_id"),
+				),
+				http.HandlerFunc(classEnrollments.rosterBulk),
+			),
 		),
 	)
 	mux.Handle(
 		classRosterUserPattern,
 		classEnrollmentResponseHeaders(
-			http.HandlerFunc(classEnrollments.rosterUser),
+			auditMutation(
+				staticAuditMutation(
+					http.MethodPatch,
+					audit.ActionClassEnrollmentUpdateRole,
+					"class",
+					pathValueAuditResource("class_id"),
+				),
+				http.HandlerFunc(classEnrollments.rosterUser),
+			),
 		),
 	)
 	mux.Handle(
 		classEnrollmentSuspendPattern,
 		classEnrollmentResponseHeaders(
-			classEnrollments.enrollmentStateMutation("suspend"),
+			auditMutation(
+				staticAuditMutation(
+					http.MethodPost,
+					audit.ActionClassEnrollmentSuspend,
+					"class",
+					pathValueAuditResource("class_id"),
+				),
+				classEnrollments.enrollmentStateMutation("suspend"),
+			),
 		),
 	)
 	mux.Handle(
 		classEnrollmentRemovePattern,
 		classEnrollmentResponseHeaders(
-			classEnrollments.enrollmentStateMutation("remove"),
+			auditMutation(
+				staticAuditMutation(
+					http.MethodPost,
+					audit.ActionClassEnrollmentRemove,
+					"class",
+					pathValueAuditResource("class_id"),
+				),
+				classEnrollments.enrollmentStateMutation("remove"),
+			),
 		),
 	)
 	mux.Handle(
 		classInviteCodesPattern,
 		classEnrollmentResponseHeaders(
-			http.HandlerFunc(classEnrollments.inviteCodeCollection),
+			auditMutation(
+				staticAuditMutation(
+					http.MethodPost,
+					audit.ActionClassInviteCodeCreate,
+					"class",
+					pathValueAuditResource("class_id"),
+				),
+				http.HandlerFunc(classEnrollments.inviteCodeCollection),
+			),
 		),
 	)
 	mux.Handle(
 		classInviteCodeRevokePattern,
 		classEnrollmentResponseHeaders(
-			http.HandlerFunc(classEnrollments.revokeInviteCode),
+			auditMutation(
+				staticAuditMutation(
+					http.MethodPost,
+					audit.ActionClassInviteCodeRevoke,
+					"class_invite_code",
+					pathValueAuditResource("code_id"),
+				),
+				http.HandlerFunc(classEnrollments.revokeInviteCode),
+			),
 		),
 	)
 	mux.Handle(
 		classInvitationJoinPath,
 		classEnrollmentResponseHeaders(
-			http.HandlerFunc(classEnrollments.joinByInviteCode),
+			auditMutation(
+				staticAuditMutation(
+					http.MethodPost,
+					audit.ActionClassEnrollmentJoin,
+					"class_enrollment",
+					nil,
+				),
+				http.HandlerFunc(classEnrollments.joinByInviteCode),
+			),
 		),
 	)
 	mux.Handle(
 		classLeavePattern,
 		classEnrollmentResponseHeaders(
-			http.HandlerFunc(classEnrollments.leaveClass),
+			auditMutation(
+				staticAuditMutation(
+					http.MethodPost,
+					audit.ActionClassEnrollmentLeave,
+					"class",
+					pathValueAuditResource("class_id"),
+				),
+				http.HandlerFunc(classEnrollments.leaveClass),
+			),
 		),
+	)
+	audits := newAuditHandlers(logger, auth, options.Audit)
+	mux.Handle(
+		auditEventsPattern,
+		auditResponseHeaders(http.HandlerFunc(audits.list)),
 	)
 	mux.Handle(mediaTokenPathPattern, http.HandlerFunc(mediaHandlers.issueJoinCredential))
 	mux.Handle(mediaEventsPathPattern, http.HandlerFunc(mediaHandlers.recordClientEvent))

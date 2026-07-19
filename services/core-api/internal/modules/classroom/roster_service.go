@@ -126,7 +126,7 @@ func (service *EnrollmentService) BulkMutateRoster(
 		Action: input.Action,
 		Items:  make([]RosterBulkItemResult, 0, len(input.UserIDs)),
 	}
-	for _, userID := range input.UserIDs {
+	for index, userID := range input.UserIDs {
 		var mutation EnrollmentMutationResult
 		switch input.Action {
 		case RosterBulkActionUpdateRole:
@@ -157,7 +157,21 @@ func (service *EnrollmentService) BulkMutateRoster(
 		if err != nil {
 			item.Failure = rosterBulkFailure(err)
 			if item.Failure == nil {
-				return BulkRosterResult{}, fmt.Errorf("apply class roster bulk mutation: %w", err)
+				item.Failure = &RosterBulkFailure{
+					Code:  RosterBulkFailureInternal,
+					Cause: err,
+				}
+				result.Items = append(result.Items, item)
+				for _, pendingUserID := range input.UserIDs[index+1:] {
+					result.Items = append(result.Items, RosterBulkItemResult{
+						UserID: pendingUserID,
+						Failure: &RosterBulkFailure{
+							Code: RosterBulkFailureNotAttempted,
+						},
+					})
+				}
+				result.FailedCount += len(input.UserIDs) - index
+				return result, fmt.Errorf("apply class roster bulk mutation: %w", err)
 			}
 			result.FailedCount++
 		} else {

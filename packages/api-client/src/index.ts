@@ -19,6 +19,12 @@ export type TenantStatus = components["schemas"]["TenantStatus"];
 export type TenantMembership = components["schemas"]["TenantMembership"];
 export type Tenant = components["schemas"]["Tenant"];
 export type TenantListResponse = components["schemas"]["TenantListResponse"];
+export type AuditAction = components["schemas"]["AuditAction"];
+export type AuditOutcome = components["schemas"]["AuditOutcome"];
+export type AuditActor = components["schemas"]["AuditActor"];
+export type AuditResource = components["schemas"]["AuditResource"];
+export type AuditEvent = components["schemas"]["AuditEvent"];
+export type AuditEventPage = components["schemas"]["AuditEventPage"];
 export type MembershipInvitationStatus =
   components["schemas"]["MembershipInvitationStatus"];
 export type InvitableOrganizationRole =
@@ -110,6 +116,16 @@ export interface ListClassRosterInput {
   limit?: number;
   search?: string;
   status?: ClassEnrollmentStatus;
+}
+export interface ListAuditEventsInput {
+  occurredFrom?: string;
+  occurredTo?: string;
+  action?: AuditAction;
+  resourceType?: string;
+  resourceID?: string;
+  outcome?: AuditOutcome;
+  limit?: number;
+  cursor?: string;
 }
 export type MediaTokenResponse = components["schemas"]["MediaTokenResponse"];
 export type MediaEventRequest = components["schemas"]["MediaEventRequest"];
@@ -438,6 +454,39 @@ export async function archiveTenant(
 
   return requireData<CurrentUser>(
     data as CurrentUser | undefined,
+    error,
+    response,
+  );
+}
+
+export async function listAuditEvents(
+  tenantID: string,
+  input: ListAuditEventsInput = {},
+  options: APIRequestOptions = {},
+): Promise<AuditEventPage> {
+  const { data, error, response } = await createTutorHubClient(options).GET(
+    "/api/v1/tenants/{tenant_id}/audit-events",
+    {
+      params: {
+        path: { tenant_id: tenantID },
+        query: {
+          occurred_from: input.occurredFrom,
+          occurred_to: input.occurredTo,
+          action: input.action,
+          resource_type: input.resourceType,
+          resource_id: input.resourceID,
+          outcome: input.outcome,
+          limit: input.limit,
+          cursor: input.cursor,
+        },
+      },
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<AuditEventPage>(
+    data as AuditEventPage | undefined,
     error,
     response,
   );

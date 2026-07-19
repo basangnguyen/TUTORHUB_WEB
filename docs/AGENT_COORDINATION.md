@@ -60,18 +60,19 @@ ngoại lệ có thời hạn theo ADR-0012 và không được mô tả như br
 | P2-04 Class lifecycle          | DONE       | Lifecycle/ownership, migration `000009`; verify xanh       |
 | P2-05 Enrollment/invite code   | DONE       | Enrollment/invite, migration `000010`; verify xanh         |
 | P2-06 Roster/class roles       | DONE       | Roster/hierarchy/single-bulk UI; verify xanh               |
-| P2-07 Audit log                | NEXT       | Task phát triển kế tiếp                                    |
-| P2-08 đến P2-12                | TODO       | Theo dependency trong backlog                              |
+| P2-07 Audit log                | DONE       | Append-only audit, query/UI org admin, migration `000011`  |
+| P2-08 Admin/teacher E2E UI     | NEXT       | Task phát triển kế tiếp                                    |
+| P2-09 đến P2-12                | TODO       | Theo dependency trong backlog                              |
 
 Nguồn thực thi: `docs/PHASE_2_BACKLOG.md`.
 
-Full `pnpm verify` của P2-06 đã xanh ngày 2026-07-19: web 71/71, API client 14/14,
+Full `pnpm verify` của P2-07 đã xanh ngày 2026-07-19: web 79/79, API client 15/15,
 UI 6/6, generated contract, lint/typecheck/build/Storybook, Go test/vet và security
-checks. Full integration-tag compile và focused classroom/media/policy/HTTP roster
-tests xanh local. P2-06 không thêm migration; runtime PostgreSQL cho migration
-`000010` và roster repository chưa chạy vì không nạp DB test env. Workflow CI
-PostgreSQL 17 sẽ xác nhận clean migration và integration runtime sau khi push
-checkpoint, không dùng secret từ `.env*.local`.
+checks. Focused audit/request metadata/policy/HTTP/classroom/identity tests cùng full
+integration-tag compile đều xanh local. Runtime PostgreSQL cho migration `000011` và
+audit integration chưa chạy vì không nạp DB test env; workflow CI PostgreSQL 17 sẽ
+xác nhận clean migration và integration runtime sau khi push checkpoint, không dùng
+secret từ `.env*.local`.
 
 ## 5. Hạ tầng staging đã chốt
 

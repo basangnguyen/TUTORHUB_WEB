@@ -4,11 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/tutorhub-v2/core-api/internal/modules/audit"
 	"github.com/tutorhub-v2/core-api/internal/platform/tenancy"
 	"github.com/tutorhub-v2/core-api/internal/policy"
 )
@@ -1109,6 +1111,34 @@ VALUES (
 		occurredAt,
 	); err != nil {
 		return fmt.Errorf("insert %s outbox event: %w", eventType, err)
+	}
+	metadata := audit.Metadata{
+		"effect":  strings.TrimPrefix(eventType, "class."),
+		"status":  string(class.Status),
+		"version": fmt.Sprintf("%d", class.Version),
+	}
+	if details.PreviousOwnerUserID != uuid.Nil {
+		metadata["previous_owner_user_id"] = details.PreviousOwnerUserID.String()
+	}
+	if details.OwnerUserID != uuid.Nil {
+		metadata["owner_user_id"] = details.OwnerUserID.String()
+	}
+	if details.FromStatus != "" {
+		metadata["from_status"] = string(details.FromStatus)
+	}
+	if details.ToStatus != "" {
+		metadata["to_status"] = string(details.ToStatus)
+	}
+	if err := audit.AppendDomainEvent(ctx, transaction, audit.DomainEvent{
+		TenantID:      class.TenantID,
+		ActorID:       actorID,
+		EventType:     eventType,
+		AggregateType: "class",
+		AggregateID:   class.ID,
+		Metadata:      metadata,
+		OccurredAt:    occurredAt,
+	}); err != nil {
+		return fmt.Errorf("insert %s audit event: %w", eventType, err)
 	}
 	return nil
 }

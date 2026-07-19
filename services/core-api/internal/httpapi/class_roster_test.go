@@ -2,12 +2,16 @@ package httpapi
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
+	"github.com/tutorhub-v2/core-api/internal/config"
+	"github.com/tutorhub-v2/core-api/internal/modules/audit"
 	"github.com/tutorhub-v2/core-api/internal/modules/classroom"
 	"github.com/tutorhub-v2/core-api/internal/policy"
 )
@@ -208,6 +212,104 @@ func TestClassRosterBulkPreservesOrderAndSerializesPartialFailures(t *testing.T)
 		body.Items[1].Outcome != "failed" || body.Items[1].Failure == nil ||
 		body.Items[1].Failure.Code != "conflict" {
 		t.Fatalf("unexpected ordered bulk response: %+v", body)
+	}
+}
+
+func TestClassRosterBulkInfrastructureFailureAuditsEveryAbortedTarget(t *testing.T) {
+	t.Parallel()
+
+	tenantID := uuid.New()
+	actorID := uuid.New()
+	classID := uuid.New()
+	first := uuid.New()
+	second := uuid.New()
+	third := uuid.New()
+	service := &fakeClassEnrollmentService{
+		bulkRosterResult: classroom.BulkRosterResult{
+			Action: classroom.RosterBulkActionSuspend,
+			Items: []classroom.RosterBulkItemResult{
+				{UserID: first, Changed: true},
+				{UserID: second, Failure: &classroom.RosterBulkFailure{
+					Code: classroom.RosterBulkFailureInternal,
+				}},
+				{UserID: third, Failure: &classroom.RosterBulkFailure{
+					Code: classroom.RosterBulkFailureNotAttempted,
+				}},
+			},
+			SucceededCount: 1,
+			FailedCount:    2,
+		},
+		bulkRosterError: errors.New("database unavailable"),
+	}
+	auditService := &fakeAuditService{}
+	handler := NewHandlerWithOptions(
+		config.Config{
+			Environment: "test",
+			Port:        "8080",
+			WebOrigin:   "http://localhost:5173",
+			Authentication: config.AuthenticationConfig{
+				SessionTTL: 8 * time.Hour,
+			},
+		},
+		discardLogger(),
+		Options{
+			Clock:      func() time.Time { return fixedTime },
+			Identity:   classIdentityService(tenantID, actorID, []string{"enrollment.manage"}),
+			Enrollment: service,
+			Audit:      auditService,
+		},
+	)
+	request := newClassEnrollmentMutationRequest(
+		classRosterPath(classID)+"/bulk",
+		`{"action":"suspend","user_ids":["`+first.String()+`","`+
+			second.String()+`","`+third.String()+`"]}`,
+	)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusInternalServerError {
+		t.Fatalf("unexpected infrastructure failure response: status=%d body=%s", response.Code, response.Body.String())
+	}
+	if auditService.recordCalls != 0 || auditService.itemFallbackAttempts != 2 ||
+		len(auditService.recordedItemDrafts) != 2 {
+		t.Fatalf(
+			"aborted targets must each have an item fallback: records=%d attempts=%d drafts=%#v",
+			auditService.recordCalls,
+			auditService.itemFallbackAttempts,
+			auditService.recordedItemDrafts,
+		)
+	}
+	wants := []struct {
+		resourceID uuid.UUID
+		reason     string
+	}{
+		{resourceID: second, reason: "internal_failure"},
+		{resourceID: third, reason: "not_attempted"},
+	}
+	for index, want := range wants {
+		draft := auditService.recordedItemDrafts[index]
+		if draft.Action != audit.ActionClassEnrollmentSuspend ||
+			draft.ResourceType != "class_member" || draft.ResourceID != want.resourceID ||
+			draft.Outcome != audit.OutcomeFailed ||
+			draft.Metadata["reason_code"] != want.reason ||
+			draft.Metadata["bulk_action"] != "suspend" ||
+			draft.Metadata["class_id"] != classID.String() ||
+			draft.Metadata[audit.MetadataKeyTargetUserID] != want.resourceID.String() {
+			t.Fatalf("unexpected aborted-target audit draft %d: %#v", index, draft)
+		}
+	}
+	if auditService.fallbackAttempts != 1 || len(auditService.recordedFallbackDrafts) != 1 {
+		t.Fatalf(
+			"bulk infrastructure failure needs one overall fallback audit: attempts=%d drafts=%#v",
+			auditService.fallbackAttempts,
+			auditService.recordedFallbackDrafts,
+		)
+	}
+	overall := auditService.recordedFallbackDrafts[0]
+	if overall.Action != audit.ActionClassRosterBulk || overall.ResourceType != "class" ||
+		overall.ResourceID != classID || overall.Outcome != audit.OutcomeFailed ||
+		overall.Metadata["reason_code"] != "internal_failure" {
+		t.Fatalf("unexpected overall bulk audit draft: %#v", overall)
 	}
 }
 

@@ -19,9 +19,10 @@ Tạo nền multi-tenant và quản lý lớp đủ dùng cho pilot nội bộ:
 **Task đã hoàn thành:** P2-00 Policy and contract baseline; P2-01 User profile và
 identity linking; P2-02 Tenant lifecycle và workspace switching; P2-03 Membership
 invitation, accept và revoke; P2-04 Class lifecycle, ownership và archive; P2-05
-Enrollment và class invite code; P2-06 Roster và class-level roles.
+Enrollment và class invite code; P2-06 Roster và class-level roles; P2-07 Audit log
+cho hành động nhạy cảm.
 
-**Task kế tiếp:** P2-07 Audit log cho hành động nhạy cảm.
+**Task kế tiếp:** P2-08 Admin và teacher UI end-to-end.
 
 ## 2. Non-goal
 
@@ -56,8 +57,8 @@ Enrollment và class invite code; P2-06 Roster và class-level roles.
 | P2-04 | Class lifecycle, ownership và archive   | P2-00, P2-02               | DONE       |
 | P2-05 | Enrollment và class invite code         | P2-03, P2-04               | DONE       |
 | P2-06 | Roster và class-level roles             | P2-05                      | DONE       |
-| P2-07 | Audit log cho hành động nhạy cảm        | P2-02 đến P2-06            | NEXT       |
-| P2-08 | Admin/teacher UI end-to-end             | P2-02 đến P2-07            | TODO       |
+| P2-07 | Audit log cho hành động nhạy cảm        | P2-02 đến P2-06            | DONE       |
+| P2-08 | Admin/teacher UI end-to-end             | P2-02 đến P2-07            | NEXT       |
 | P2-09 | Feature flag và quota framework         | P2-00, P2-02               | TODO       |
 | P2-10 | Tenant isolation/IDOR security suite    | Xuyên suốt; chốt sau P2-09 | TODO       |
 | P2-11 | V1 fixture import idempotent            | Schema ổn định sau P2-06   | TODO       |
@@ -164,7 +165,7 @@ Enrollment và class invite code; P2-06 Roster và class-level roles.
       shared policy với 403/404 concealment.
 - [x] Reload sau switch giữ đúng workspace và không hiện cache của tenant trước.
 - [x] Success event create/update/archive/switch có actor, tenant và version chính xác,
-      ghi durable qua outbox; audit query/failure event đầy đủ vẫn thuộc P2-07.
+      ghi durable qua outbox; audit query/failure event đầy đủ đã hoàn tất ở P2-07.
 
 **Verification:** `pnpm verify` xanh ngày 2026-07-18, gồm web 38/38, API client
 10/10, UI 6/6, lint/typecheck/build/Storybook, Go test/vet và security checks.
@@ -197,25 +198,25 @@ request log, browser history hoặc referrer.
 
 - [x] Sinh token CSPRNG 256-bit, chỉ lưu purpose-bound HMAC và redaction trong log/audit.
 - [x] TTL `MEMBERSHIP_INVITATION_TTL` cấu hình 15 phút đến 30 ngày; state machine
-  `pending/accepted/revoked/expired` có invariant DB.
+      `pending/accepted/revoked/expired` có invariant DB.
 - [x] Accept yêu cầu session + CSRF và active verified linked identity khớp exact
-  normalized provider email; transaction/idempotency không tự đổi active tenant.
+      normalized provider email; transaction/idempotency không tự đổi active tenant.
 - [x] Không tạo membership trùng; một pending invitation trên tenant/email, existing
-  membership luôn conflict, revoked/expired address được re-invite.
+      membership luôn conflict, revoked/expired address được re-invite.
 - [x] Chỉ `org_admin` có `tenant.manage_members`; flow này chỉ cấp
-  `teacher/student/guest`, không cấp `org_admin`.
+      `teacher/student/guest`, không cấp `org_admin`.
 - [x] Notification adapter chỉ là interface/outbox; gửi email thật thuộc phase sau.
 - [x] UI admin list/create/copy-once/revoke và trang preview/accept có i18n vi/en,
-  loading/empty/error/forbidden/offline/retry phù hợp.
+      loading/empty/error/forbidden/offline/retry phù hợp.
 
 ### Kiểm thử và DoD
 
 - [x] Token hết hạn, revoke, reuse, malformed/brute-force shape và concurrent accept
-  đều bị chặn; preview/accept có bounded in-process rate limiter theo action/IP prefix.
+      đều bị chặn; preview/accept có bounded in-process rate limiter theo action/IP prefix.
 - [x] Token thô không xuất hiện trong DB, structured log hoặc audit payload.
 - [x] Accept lặp lại trả kết quả idempotent, không tạo hai membership/event.
 - [x] Cross-tenant invitation enumeration bị chặn bằng active-tenant policy,
-  repository re-authorization và uniform unavailable response.
+      repository re-authorization và uniform unavailable response.
 
 **Verification:** `pnpm verify` xanh ngày 2026-07-18: web 44/44, API client 11/11,
 generated contract, lint/typecheck/build/Storybook, Go test/vet và security checks.
@@ -377,20 +378,28 @@ xanh; runtime PostgreSQL roster integration chưa chạy local vì không nạp 
 
 ### Công việc
 
-- [ ] Schema append-only gồm actor, tenant, action, resource type/id, outcome,
+- [x] Schema append-only gồm actor, tenant, action, resource type/id, outcome,
       request ID, timestamp và metadata đã redaction.
-- [ ] Ghi audit trong cùng transaction/outbox boundary phù hợp.
-- [ ] Query API tenant-scoped có pagination/time/action/resource filter.
-- [ ] Không lưu token, secret, session ID thô hoặc PII không cần thiết.
-- [ ] Retention/export interface; policy production chốt ở Phase 8.
-- [ ] UI audit tối thiểu cho org admin.
+- [x] Ghi audit trong cùng transaction/outbox boundary phù hợp.
+- [x] Query API tenant-scoped có pagination/time/action/resource filter.
+- [x] Không lưu token, secret, session ID thô hoặc PII không cần thiết.
+- [x] Retention/export interface; policy production chốt ở Phase 8.
+- [x] UI audit tối thiểu cho org admin.
 
 ### Kiểm thử và DoD
 
-- Mọi mutation nhạy cảm P2-02 đến P2-06 có success/failure audit phù hợp.
-- Audit tenant A không thể được query từ tenant B.
-- Audit append-only qua runtime role; không có update/delete API.
-- Request ID liên kết được structured log với audit record.
+- [x] Mọi mutation nhạy cảm P2-02 đến P2-06 có success/failure audit phù hợp.
+- [x] Audit tenant A không thể được query từ tenant B.
+- [x] Audit append-only qua runtime role; không có update/delete API.
+- [x] Request ID liên kết được structured log với audit record.
+
+**Verification:** migration `000011`, trigger append-only, allowlist metadata, atomic
+success audit và failure/no-op fallback có unit/static/integration test; invitation
+accept bind tenant do server resolve và bulk roster dedupe/ghi đủ từng target. API cursor
+bind tenant/filter, authorization `audit.view`, cache isolation và UI states đã được
+kiểm tra. Full `pnpm verify` xanh ngày 2026-07-19: web 79/79, API client 15/15, UI 6/6,
+lint/typecheck/build/Storybook, Go test/vet và security checks. Integration-tag compile
+xanh; runtime PostgreSQL chưa chạy local vì không nạp DB test env.
 
 ## 13. P2-08 Admin và teacher UI end-to-end
 
@@ -516,8 +525,8 @@ xanh; runtime PostgreSQL roster integration chưa chạy local vì không nạp 
 
 ## 19. Việc cần làm ngay
 
-1. Theo dõi PostgreSQL integration/clean-migration gate của checkpoint P2-05/P2-06 trên CI.
-2. Bắt đầu P2-07 từ schema/event taxonomy audit append-only và redaction allowlist.
-3. Giữ audit query tenant-scoped, có cursor/filter và authorization tests chống IDOR.
-4. Tái sử dụng transactional outbox hiện có; không log token, session ID hoặc PII thừa.
+1. Theo dõi PostgreSQL integration/clean-migration gate của migration `000011` trên CI.
+2. Bắt đầu P2-08 bằng cách rà các luồng org admin/teacher/student xuyên suốt UI hiện có.
+3. Chuẩn hóa navigation, capability guard, optimistic/refetch behavior và E2E fixtures.
+4. Giữ audit append-only, tenant-scoped và không log token, session ID hoặc PII thừa.
 5. Giữ notification invitation ở interface/outbox; chưa gửi email thật trong Phase 2.

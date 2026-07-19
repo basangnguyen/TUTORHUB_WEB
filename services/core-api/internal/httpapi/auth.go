@@ -8,9 +8,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/tutorhub-v2/core-api/internal/config"
 	"github.com/tutorhub-v2/core-api/internal/modules/identity"
 	"github.com/tutorhub-v2/core-api/internal/platform/logsafe"
+	"github.com/tutorhub-v2/core-api/internal/platform/requestmeta"
 )
 
 const csrfHeader = "X-CSRF-Token"
@@ -202,6 +204,7 @@ func (handlers authHandlers) authenticatedPrincipal(
 		handlers.writeIdentityProblem(w, r, err)
 		return identity.Principal{}, false
 	}
+	handlers.attachRequestPrincipal(r, principal)
 
 	return principal, true
 }
@@ -222,8 +225,20 @@ func (handlers authHandlers) csrfPrincipal(
 		handlers.writeIdentityProblem(w, r, err)
 		return identity.Principal{}, false
 	}
+	handlers.attachRequestPrincipal(r, principal)
 
 	return principal, true
+}
+
+func (handlers authHandlers) attachRequestPrincipal(
+	r *http.Request,
+	principal identity.Principal,
+) {
+	tenantID := uuid.Nil
+	if principal.ActiveTenant != nil {
+		tenantID = principal.ActiveTenant.ID
+	}
+	requestmeta.SetPrincipal(r.Context(), principal.User.ID, tenantID)
 }
 
 func (handlers authHandlers) writePrincipal(

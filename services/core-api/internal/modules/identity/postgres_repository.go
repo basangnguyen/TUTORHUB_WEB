@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/tutorhub-v2/core-api/internal/modules/audit"
 	"github.com/tutorhub-v2/core-api/internal/platform/tenancy"
 	"github.com/tutorhub-v2/core-api/internal/policy"
 )
@@ -1249,6 +1250,21 @@ VALUES (
 		occurredAt,
 	); err != nil {
 		return fmt.Errorf("insert %s event: %w", eventType, err)
+	}
+	metadata := audit.Metadata{
+		"effect":  strings.TrimPrefix(eventType, "tenant."),
+		"version": fmt.Sprintf("%d", version),
+	}
+	if err := audit.AppendDomainEvent(ctx, transaction, audit.DomainEvent{
+		TenantID:      tenantID,
+		ActorID:       actorID,
+		EventType:     eventType,
+		AggregateType: "tenant",
+		AggregateID:   tenantID,
+		Metadata:      metadata,
+		OccurredAt:    occurredAt,
+	}); err != nil {
+		return fmt.Errorf("insert %s audit event: %w", eventType, err)
 	}
 	return nil
 }

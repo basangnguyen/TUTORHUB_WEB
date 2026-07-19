@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/tutorhub-v2/core-api/internal/modules/audit"
 	"github.com/tutorhub-v2/core-api/internal/platform/tenancy"
 	"github.com/tutorhub-v2/core-api/internal/policy"
 )
@@ -1388,6 +1389,23 @@ VALUES (
 	); err != nil {
 		return fmt.Errorf("insert %s outbox event: %w", eventType, err)
 	}
+	if err := audit.AppendDomainEvent(ctx, transaction, audit.DomainEvent{
+		TenantID:      enrollment.TenantID,
+		ActorID:       actorID,
+		EventType:     eventType,
+		AggregateType: "class_enrollment",
+		AggregateID:   enrollment.ID,
+		Metadata: audit.Metadata{
+			"effect":                      enrollmentEventEffect(eventType),
+			"class_role":                  string(enrollment.ClassRole),
+			"status":                      string(enrollment.Status),
+			"source":                      source,
+			audit.MetadataKeyTargetUserID: enrollment.UserID.String(),
+		},
+		OccurredAt: occurredAt,
+	}); err != nil {
+		return fmt.Errorf("insert %s audit event: %w", eventType, err)
+	}
 	return nil
 }
 
@@ -1430,7 +1448,59 @@ VALUES (
 	); err != nil {
 		return fmt.Errorf("insert %s outbox event: %w", eventType, err)
 	}
+	if err := audit.AppendDomainEvent(ctx, transaction, audit.DomainEvent{
+		TenantID:      code.TenantID,
+		ActorID:       actorID,
+		EventType:     eventType,
+		AggregateType: "class_invite_code",
+		AggregateID:   code.ID,
+		Metadata: audit.Metadata{
+			"effect":      inviteCodeEventEffect(eventType),
+			"status":      string(code.Status),
+			"usage_limit": fmt.Sprintf("%d", code.UsageLimit),
+			"usage_count": fmt.Sprintf("%d", code.UsageCount),
+		},
+		OccurredAt: occurredAt,
+	}); err != nil {
+		return fmt.Errorf("insert %s audit event: %w", eventType, err)
+	}
 	return nil
+}
+
+func enrollmentEventEffect(eventType string) string {
+	switch eventType {
+	case "class.enrollment.created":
+		return "created"
+	case "class.enrollment.reactivated":
+		return "reactivated"
+	case "class.enrollment.suspended":
+		return "suspended"
+	case "class.enrollment.removed":
+		return "removed"
+	case "class.enrollment.joined":
+		return "joined"
+	case "class.enrollment.rejoined":
+		return "rejoined"
+	case "class.enrollment.left":
+		return "left"
+	default:
+		return "updated"
+	}
+}
+
+func inviteCodeEventEffect(eventType string) string {
+	switch eventType {
+	case "class.invite_code.created":
+		return "created"
+	case "class.invite_code.revoked":
+		return "revoked"
+	case "class.invite_code.expired":
+		return "expired"
+	case "class.invite_code.exhausted":
+		return "exhausted"
+	default:
+		return "updated"
+	}
 }
 
 type enrollmentRowScanner interface {

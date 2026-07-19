@@ -7,15 +7,17 @@ thay đổi schema, migration hoặc repository phải đọc tài liệu này t
 
 - System of record: Neon PostgreSQL.
 - Schema ứng dụng: `tutorhub`.
-- Migration mới nhất trong source: `000010_class_enrollments`.
+- Migration mới nhất trong source: `000011_audit_events`.
 - Migration 1-5 đã được chạy và kiểm tra trên Neon; smoke
   `5 false -> rollback 4 false -> migrate 5 false` đạt ngày 2026-07-16.
-- Migration `000006` đến `000010` đều có up/down path. Migration/classroom/identity
-  integration-tag compile xanh local; runtime `000010` chưa chạy local vì không nạp
-  DB test env và sẽ do workflow CI xác nhận sau push. Smoke
-  `10 false -> rollback 9 false -> migrate 10 false` chưa chạy trên staging; tài liệu
-  này không khẳng định staging đã nâng lên 10.
-- Classroom và identity integration test chạy trong transaction và rollback toàn bộ fixture.
+- Migration `000006` đến `000011` đều có up/down path. Migration/audit/classroom/
+  identity integration-tag compile xanh local; runtime `000011` chưa chạy local vì
+  không nạp DB test env và sẽ do workflow CI xác nhận sau push. Smoke
+  `11 false -> rollback 10 false -> migrate 11 false` chưa chạy trên staging; tài liệu
+  này không khẳng định staging đã nâng lên 11.
+- Phần lớn integration test rollback bằng transaction. Một số concurrency test commit
+  qua pool và giữ fixture có ID duy nhất khi audit history đã tồn tại, vì append-only FK
+  cố ý chặn xóa; CI dùng database tạm thời, không chạy suite này trên database dùng chung.
 - Core API đã được smoke test với Neon: `/ready` trả `ready` và `/health` trả `ok`.
 
 Neon có branch `production` và branch staging tách biệt. Core API staging dùng pooled
@@ -48,7 +50,7 @@ Core API không tự chạy migration khi khởi động.
 `application_name=tutorhub-core-api` được gắn vào kết nối để quan sát trên Neon.
 Mọi truy vấn mạng/database phải chạy ngoài UI thread ở các client native về sau.
 
-## Schema phiên bản 10
+## Schema phiên bản 11
 
 | Bảng                     | Vai trò                                                                                          |
 | ------------------------ | ------------------------------------------------------------------------------------------------ |
@@ -63,6 +65,7 @@ Mọi truy vấn mạng/database phải chạy ngoài UI thread ở các client 
 | `class_invite_codes`     | Mã mời lớp chỉ lưu HMAC, TTL, giới hạn lượt dùng, trạng thái và actor lifecycle                  |
 | `membership_invitations` | Lời mời tenant một lần: normalized email, role, HMAC token, TTL và terminal state                |
 | `outbox_events`          | Transactional outbox cho sự kiện bền vững và worker tương lai                                    |
+| `audit_events`           | Lịch sử tenant append-only cho actor/action/resource/outcome và request correlation              |
 
 Ràng buộc quan trọng:
 
@@ -77,11 +80,22 @@ Ràng buộc quan trọng:
   Enrollment inactive không cấp quyền; owner implicit và quyền organization vẫn được
   shared policy đánh giá độc lập. HTTP trả projection `viewer_access` do server tính,
   không tin class role do session hoặc browser tự khai.
-- P2-06 không thêm migration `000011`: roster dùng schema/index tenant-class-role-status
-  của `000010`. Owner được đọc riêng từ `classes.owner_user_id`, ghim trong projection
-  và bị loại khỏi page enrollment. Search display name/email tenant/class-scoped dùng
-  Unicode NFC, collapsed whitespace, lowercase và literal matching cho `%`/`_`; keyset
-  ổn định theo normalized display name rồi `user_id`.
+- P2-06 dùng schema/index tenant-class-role-status của `000010`. P2-07 thêm migration
+  `000011` riêng cho audit. Owner roster vẫn được đọc từ `classes.owner_user_id`, ghim
+  trong projection và bị loại khỏi page enrollment. Search display name/email tenant/
+  class-scoped dùng Unicode NFC, collapsed whitespace, lowercase và literal matching
+  cho `%`/`_`; keyset ổn định theo normalized display name rồi `user_id`.
+- `audit_events` luôn có `tenant_id`, actor user hoặc system nhất quán, action/resource
+  đã validate, outcome `succeeded/denied/failed`, request ID và UUID request-instance.
+  User actor tham chiếu user authoritative nhưng không bắt buộc đã là member của tenant:
+  accept invitation có thể xác định target tenant hợp lệ trước khi actor gia nhập; target
+  này phải do server resolve từ token, không nhận tenant scope do client tự khai.
+  Bulk roster gắn `target_user_id` server-owned để fallback từng item dedupe đúng với
+  atomic audit nếu phản hồi commit bị lỗi hoặc không chắc chắn.
+  Trigger `ENABLE ALWAYS` từ chối update/delete/truncate; public API chỉ có list.
+  Source IP chỉ giữ IPv4 `/24` hoặc IPv6 `/56`, user agent chỉ giữ SHA-256 và hai trường
+  này không xuất hiện trong API projection. Metadata là object phẳng, bounded, string
+  allowlist; constraint chặn key liên quan token/secret/session/email/name/payload/error.
 - Opaque roster cursor chỉ mang user ID cùng hash scope/filter, không mang display name
   hoặc email; hash ràng buộc tenant, class, normalized search và status. Role update
   P2-06 là last-write-wins có refetch, chưa thêm version/CAS cho enrollment.
@@ -134,6 +148,10 @@ Ràng buộc quan trọng:
   khi xoay session/CSRF. Archive xóa active context của các session còn trỏ tenant đó.
 - Success event `tenant.created/updated/archived/switched` được ghi vào outbox trong
   cùng transaction; payload không chứa token, cookie hoặc session secret.
+- Success mutation tenant/membership/class/enrollment/roster/invite-code P2-02 đến
+  P2-06 đồng thời append audit trong cùng business transaction và outbox boundary;
+  audit insert lỗi sẽ rollback mutation. Authenticated no-op/denied/failed attempt ghi
+  bằng transaction riêng và dedupe theo server-generated request-instance/action.
 - Invitation token chỉ lưu purpose-bound HMAC 32 byte unique; một tenant/email chỉ có
   một row `pending`, TTL tối đa 30 ngày và state/timestamp bị khóa bằng CHECK constraint.
 - Composite FK buộc invited/accepted/revoked actor có membership cùng tenant. Create,
@@ -169,7 +187,7 @@ pnpm db:migrate
 pnpm db:version
 ```
 
-Sau khi áp dụng toàn bộ migration trong source, kết quả mong đợi là `10 false`. Chỉ ghi
+Sau khi áp dụng toàn bộ migration trong source, kết quả mong đợi là `11 false`. Chỉ ghi
 đó là kết quả môi trường khi lệnh thực tế đã chạy; bằng chứng staging gần nhất hiện vẫn
 là `5 false` ngày 2026-07-16. Rollback chỉ dùng khi đã đánh giá mất dữ liệu và có
 backup/restore plan:
@@ -205,9 +223,16 @@ filter, role hierarchy/outbox redaction, projection API sau mutation, archived-c
 guards và cross-class/cross-tenant denial. Integration-tag compile xanh local; runtime
 chưa chạy vì không nạp DB test env và sẽ do CI PostgreSQL 17 xác nhận sau push.
 
+P2-07 cần kiểm tra migrate 10 -> 11, rollback 11 -> 10, migrate lại 10 -> 11; trigger
+append-only cho update/delete/truncate; metadata/IP/UA constraints; actor/tenant FK;
+atomic business/outbox/audit; tenant A không query được audit tenant B; cursor bind mọi
+filter và authoritative `audit.view`. Integration-tag compile xanh local; runtime
+PostgreSQL chưa chạy vì không nạp DB test env.
+
 CI tạo PostgreSQL 17 tạm thời, chạy migration từ database sạch rồi chạy integration
-test. Bài test Neon cục bộ dùng transaction bao ngoài và rollback nên không để lại
-user, tenant, class, enrollment, invite code, invitation, membership hoặc outbox fixture.
+test. Test có transaction bao ngoài sẽ rollback toàn bộ. Concurrency test commit thật có
+thể giữ fixture audit duy nhất đến khi database test tạm bị hủy; đây là hệ quả có chủ ý
+của lịch sử append-only và không phải quy trình cleanup cho staging/production.
 
 ## Quy tắc thay đổi schema
 
@@ -227,6 +252,8 @@ user, tenant, class, enrollment, invite code, invitation, membership hoặc outb
 - P2-04 đã bổ sung class lifecycle/ownership/archive và migration `000009`.
 - P2-05 đã bổ sung enrollment, class invite code và migration `000010`.
 - P2-06 đã bổ sung roster search/filter/keyset pagination, role hierarchy, single/bulk
-  mutation, outbox và UI mà không cần migration mới; migration mới nhất vẫn là `000010`.
+  mutation, outbox và UI mà không cần migration mới.
+- P2-07 đã bổ sung audit append-only, migration `000011`, atomic writer, tenant query
+  API và UI org admin; retention/erasure/partitioning production chốt ở Phase 8.
 - Chưa import dữ liệu TutorHub V1; migration V1 sẽ làm theo module/cohort ở phase sau.
 - Chưa có backup/restore drill, PITR gate hoặc connection load test cho pilot.

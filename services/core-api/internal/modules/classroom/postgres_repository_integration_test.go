@@ -690,6 +690,21 @@ func cleanupClassIntegrationFixture(
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
+	var retainedAudit bool
+	if err := pool.QueryRow(
+		ctx,
+		`SELECT EXISTS (SELECT 1 FROM tutorhub.audit_events WHERE tenant_id = $1)`,
+		tenantID,
+	).Scan(&retainedAudit); err != nil {
+		t.Errorf("inspect retained class audit fixture: %v", err)
+		return
+	}
+	// P2-07 intentionally prevents runtime deletion of tenant/user rows that own
+	// audit history. CI databases are ephemeral and fixture identifiers are unique,
+	// so an exercised audit fixture remains available for inspection.
+	if retainedAudit {
+		return
+	}
 	if _, err := pool.Exec(ctx, `DELETE FROM tutorhub.tenants WHERE id = $1`, tenantID); err != nil {
 		t.Errorf("delete class integration tenant: %v", err)
 	}
