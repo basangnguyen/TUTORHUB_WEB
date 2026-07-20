@@ -164,9 +164,15 @@ Backlog có thẩm quyền: `docs/PHASE_2_BACKLOG.md`.
    1440x900, 1024x768 và 390x844.
    [Security #54](https://github.com/basangnguyen/TUTORHUB_WEB/actions/runs/29716888233)
    cùng commit cũng xanh.
-5. Host hiện tại thiếu Docker/PostgreSQL để lặp lại browser runtime ngoài CI. Staging
-   acceptance chưa chạy; không chuyển P2-08 sang `DONE` hoặc bắt đầu P2-09 cho tới
-   khi gate này đạt hoặc có waiver được ghi rõ.
+5. Acceptance staging P2-08 đã được chạy ngày 2026-07-20 bằng một session
+   organization admin. Health/readiness/status đều xanh, nhưng luồng ứng dụng bị
+   chặn: workspace không tải được sau retry, audit chuyển tới `/forbidden`, tạo
+   class trả lỗi chung và class detail lỗi vì projection runtime thiếu
+   `viewer_access`.
+6. Các dấu hiệu trên cho thấy web và Core API/session permission projection trên
+   staging chưa đồng bộ với contract hiện tại. Không có class test nào được tạo.
+   P2-08 giữ trạng thái `VERIFY`, P2-09 chưa bắt đầu; cần đồng bộ deployment,
+   migration và configuration rồi chạy lại acceptance admin/teacher/student.
 
 ## Rủi ro đã biết
 
@@ -179,9 +185,11 @@ Backlog có thẩm quyền: `docs/PHASE_2_BACKLOG.md`.
   in-process limiter theo `RemoteAddr`; sau Cloudflare/Render có thể gộp client vào
   proxy bucket. Không tin forwarded header khi Render origin còn public; P2-09 phải
   chốt trusted-proxy/origin authentication và distributed limiter trước khi tăng tải.
-- Verify #59 đã xác nhận PostgreSQL runtime, migration/integration và Browser E2E trên
-  CI; staging vẫn có thể khác về OIDC, proxy/cookie, latency và dữ liệu fixture nên cần
-  acceptance riêng trước khi đóng P2-08.
+- Verify #59 đã xác nhận PostgreSQL runtime, migration/integration và Browser E2E
+  trên CI. Acceptance staging P2-08 ngày 2026-07-20 xác nhận hạ tầng vẫn ready
+  nhưng phát hiện web/Core API contract drift ở permission projection và
+  `viewer_access`; gate staging đang bị chặn cho tới khi deployment được đồng bộ
+  và acceptance chạy lại.
 - Host hiện tại thiếu Docker/PostgreSQL nên không thể lặp lại full browser scenario
   ngoài CI; nếu CI không sẵn có thì đây vẫn là hạn chế chẩn đoán cục bộ.
 - Production retention/export, privacy erasure, partitioning và dedicated maintenance

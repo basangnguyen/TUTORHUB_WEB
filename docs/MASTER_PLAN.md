@@ -11,7 +11,7 @@
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
 | Phase hiện tại        | Phase 2 - Identity, tenant và class core                                                     |
-| Trạng thái gần nhất   | P2-08 đang VERIFY; CI Browser E2E xanh, staging acceptance còn mở                        |
+| Trạng thái gần nhất   | P2-08 đang VERIFY; staging bị chặn bởi web/Core API contract mismatch                   |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 
@@ -1213,9 +1213,11 @@ environment smoke; scenario đi hết workspace/invitation/class/roster/archive/
 [Security #54](https://github.com/basangnguyen/TUTORHUB_WEB/actions/runs/29716888233)
 cùng commit cũng xanh. Web 130/130, API client
 15/15, UI 6/6, E2E infrastructure 8/8 và visual QA tại 1440x900, 1024x768,
-390x844 tiếp tục đạt. Host hiện tại thiếu Docker/PostgreSQL để lặp lại browser
-runtime ngoài CI; staging acceptance chưa chạy. Do gate staging trong backlog còn
-mở, trạng thái có thẩm quyền của P2-08 là `VERIFY`, chưa phải `DONE`.
+390x844 tiếp tục đạt. Acceptance staging đã chạy cùng ngày: health/readiness/status
+xanh nhưng workspace và class mutation thất bại, audit bị forbidden và class detail
+nhận projection thiếu `viewer_access`. Đây là deployment/contract drift cần được
+đối chiếu, không phải thay đổi kiến trúc đã chấp nhận. P2-08 giữ `VERIFY`, chưa phải
+`DONE`, và P2-09 chưa bắt đầu.
 
 **Work package:**
 
@@ -1714,10 +1716,11 @@ Thứ tự hiện tại, cập nhật ngày 2026-07-20:
 1. Phase 1 đã hoàn thành; biên bản nằm tại `docs/PHASE_1_COMPLETION.md`.
 2. P2-00 policy đến P2-07 audit log đã hoàn thành; P2-08 đã có implementation
    checkpoint.
-3. Chạy staging acceptance trên fixture dùng một lần để đóng DoD P2-08.
-4. Chỉ sau đó bắt đầu P2-09 feature override/quota theo
+3. Đồng bộ commit/image, migration và configuration của web/Core API staging.
+4. Chạy lại acceptance P2-08 trên fixture dùng một lần để đóng DoD.
+5. Chỉ sau đó bắt đầu P2-09 feature override/quota theo
    `docs/PHASE_2_BACKLOG.md`.
-5. Không bắt đầu QuizHub, Lavie, social feed, Secure Exam web hoặc classroom
+6. Không bắt đầu QuizHub, Lavie, social feed, Secure Exam web hoặc classroom
    collaboration trong Phase 2.
 
 ## 37. Quy tắc duy trì Master Plan
@@ -1765,6 +1768,7 @@ Thứ tự hiện tại, cập nhật ngày 2026-07-20:
 
 ---
 
-**Điểm bắt đầu sau tài liệu này:** đọc `docs/PROJECT_STATE.md` và hoàn tất staging
-acceptance của P2-08 theo `docs/PHASE_2_BACKLOG.md` cùng `docs/E2E_TESTING.md`.
+**Điểm bắt đầu sau tài liệu này:** đọc `docs/PROJECT_STATE.md`, khắc phục blocker
+deployment/contract và chạy lại staging acceptance P2-08 theo
+`docs/PHASE_2_BACKLOG.md` cùng `docs/E2E_TESTING.md`.
 Master Plan giữ mục tiêu/exit gate, không thay backlog chi tiết.

@@ -23,7 +23,8 @@ Enrollment và class invite code; P2-06 Roster và class-level roles; P2-07 Audi
 cho hành động nhạy cảm.
 
 **Task đang xác minh:** P2-08 Admin và teacher UI end-to-end. Implementation và
-Browser E2E loopback trên CI đã xanh; còn staging acceptance.
+Browser E2E loopback trên CI đã xanh; staging acceptance ngày 2026-07-20 đã chạy
+nhưng bị chặn bởi web/Core API contract mismatch.
 
 **Task sau khi P2-08 đạt DoD:** P2-09 Feature flag và quota framework.
 
@@ -449,9 +450,17 @@ roster/archive/audit.
 [Security #54](https://github.com/basangnguyen/TUTORHUB_WEB/actions/runs/29716888233)
 cùng commit cũng xanh. Web
 130/130, API client 15/15, UI 6/6, E2E infrastructure 8/8 và visual QA tại 1440x900,
-1024x768, 390x844 tiếp tục đạt. Host hiện tại thiếu Docker/PostgreSQL để lặp lại
-browser runtime ngoài CI; staging acceptance chưa chạy. Vì gate staging của DoD còn
-mở, P2-08 giữ trạng thái `VERIFY`, chưa phải `DONE`.
+1024x768, 390x844 tiếp tục đạt.
+
+**Staging checkpoint 2026-07-20:** kiểm tra browser bằng session organization
+admin xác nhận health/readiness/status đều xanh. Tuy nhiên workspace không tải
+được sau retry, audit bị chuyển tới `/forbidden`, class create trả lỗi chung và
+class detail lỗi `Cannot read properties of undefined (reading 'can_leave')`,
+cho thấy projection runtime thiếu `viewer_access`. Không có class test nào được
+tạo và các luồng teacher/student chưa thể tiếp tục. Staging web và Core
+API/session permission projection chưa đồng bộ với contract đã kiểm tra trên CI;
+cần đối chiếu deployment/migration/configuration trước khi chạy lại. DoD staging
+vẫn mở, P2-08 giữ `VERIFY` và P2-09 chưa bắt đầu.
 
 ## 14. P2-09 Feature flag và quota framework
 
@@ -551,8 +560,11 @@ mở, P2-08 giữ trạng thái `VERIFY`, chưa phải `DONE`.
 
 ## 19. Việc cần làm ngay
 
-1. Chạy staging acceptance P2-08 theo `docs/E2E_TESTING.md` trên fixture dùng một lần.
-2. Chỉ chuyển P2-08 sang `DONE` sau khi staging gate xanh hoặc có waiver được ghi rõ.
-3. Sau đó bắt đầu P2-09 bằng typed feature catalog và quota server-authoritative.
-4. Giữ audit append-only, tenant-scoped và không log token, session ID hoặc PII thừa.
-5. Giữ notification invitation ở interface/outbox; chưa gửi email thật trong Phase 2.
+1. Đối chiếu commit/image đang chạy, migration version và projection `/me`,
+   tenant/class API; đồng bộ web và Core API staging.
+2. Chạy lại staging acceptance P2-08 theo `docs/E2E_TESTING.md` bằng fixture dùng
+   một lần cho đủ admin/teacher/student.
+3. Chỉ chuyển P2-08 sang `DONE` sau khi staging gate xanh hoặc có waiver được ghi rõ.
+4. Sau đó bắt đầu P2-09 bằng typed feature catalog và quota server-authoritative.
+5. Giữ audit append-only, tenant-scoped và không log token, session ID hoặc PII thừa.
+6. Giữ notification invitation ở interface/outbox; chưa gửi email thật trong Phase 2.

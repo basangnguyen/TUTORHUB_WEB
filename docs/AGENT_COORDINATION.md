@@ -61,7 +61,7 @@ ngoại lệ có thời hạn theo ADR-0012 và không được mô tả như br
 | P2-05 Enrollment/invite code   | DONE       | Enrollment/invite, migration `000010`; verify xanh         |
 | P2-06 Roster/class roles       | DONE       | Roster/hierarchy/single-bulk UI; verify xanh               |
 | P2-07 Audit log                | DONE       | Append-only audit, query/UI org admin, migration `000011`  |
-| P2-08 Admin/teacher E2E UI     | VERIFY     | CI Browser E2E xanh; chờ staging acceptance                |
+| P2-08 Admin/teacher E2E UI     | VERIFY     | CI xanh; staging bị chặn do web/Core API contract drift    |
 | P2-09 Feature flag/quota       | TODO       | Bắt đầu sau khi P2-08 đạt DoD                              |
 | P2-10 đến P2-12                | TODO       | Theo dependency trong backlog                              |
 
@@ -74,9 +74,12 @@ Playwright ba role đã chạy xuyên suốt workspace/invitation/class/roster/a
 [Security #54](https://github.com/basangnguyen/TUTORHUB_WEB/actions/runs/29716888233)
 cùng commit cũng xanh. Web 130/130, API client 15/15, UI 6/6 và E2E
 infrastructure 8/8 tiếp tục đạt; visual QA thủ công đạt ở desktop, laptop nhỏ và mobile.
-Host hiện tại vẫn thiếu Docker/PostgreSQL để lặp lại browser runtime ngoài CI. Staging
-acceptance chưa chạy, không dùng secret từ `.env*.local`; vì vậy P2-08 giữ trạng thái
-`VERIFY`, chưa được ghi `DONE` và P2-09 chưa bắt đầu.
+Acceptance staging đã chạy ngày 2026-07-20. Hạ tầng health/readiness xanh nhưng
+workspace, audit, class create và class detail không khớp contract hiện tại;
+runtime class projection thiếu `viewer_access`. Chi tiết nằm trong
+`docs/PROJECT_STATE.md` và `docs/PHASE_2_BACKLOG.md`. P2-08 tiếp tục ở `VERIFY`,
+P2-09 chưa bắt đầu; bước tiếp theo là đồng bộ deployment/migration/configuration
+rồi chạy lại acceptance ba role.
 
 ## 5. Hạ tầng staging đã chốt
 
