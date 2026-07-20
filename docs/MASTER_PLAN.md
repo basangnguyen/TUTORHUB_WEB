@@ -11,7 +11,7 @@
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
 | Phase hiện tại        | Phase 2 - Identity, tenant và class core                                                     |
-| Trạng thái gần nhất   | P2-08 đang VERIFY; staging bị chặn bởi web/Core API contract mismatch                   |
+| Trạng thái gần nhất   | P2-08 DONE; P2-09 Feature flag và quota framework là task tiếp theo                    |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 
@@ -1184,9 +1184,8 @@ beta. Xem `docs/PHASE_1_COMPLETION.md`.
 
 **Mục tiêu:** có nền multi-tenant và quản lý lớp đủ dùng cho pilot nội bộ.
 
-**Backlog thực thi:** `docs/PHASE_2_BACKLOG.md`. P2-00 đến P2-07 đã hoàn thành;
-P2-08 có implementation checkpoint, CI Browser E2E đã xanh và đang chờ staging
-acceptance trước P2-09.
+**Backlog thực thi:** `docs/PHASE_2_BACKLOG.md`. P2-00 đến P2-08 đã hoàn thành;
+P2-09 Feature flag và quota framework là task tiếp theo.
 
 **Trạng thái 2026-07-19:** P2-07 bổ sung ADR-0014, migration `000011` và module audit
 append-only tách khỏi outbox nhưng ghi atomic cùng business mutation/outbox khi thay đổi
@@ -1201,7 +1200,7 @@ identity tests xanh local; runtime PostgreSQL migration/audit không chạy trê
 nhưng sau đó đã được Verify #59 xác nhận với PostgreSQL 17 trên CI. ADR-0013 được amend
 cho `audit.view`.
 
-**Trạng thái P2-08 ngày 2026-07-20:** các contract workspace, membership
+**Trạng thái P2-08 ngày 2026-07-20: DONE.** Các contract workspace, membership
 invitation, class lifecycle/invite, roster và audit đã nối thành luồng UI xuyên
 suốt cho org admin, teacher và student. Navigation/capability guard cùng cache
 tenant/class xử lý stale permission và workspace switch đã được chuẩn hóa. Một
@@ -1213,11 +1212,13 @@ environment smoke; scenario đi hết workspace/invitation/class/roster/archive/
 [Security #54](https://github.com/basangnguyen/TUTORHUB_WEB/actions/runs/29716888233)
 cùng commit cũng xanh. Web 130/130, API client
 15/15, UI 6/6, E2E infrastructure 8/8 và visual QA tại 1440x900, 1024x768,
-390x844 tiếp tục đạt. Acceptance staging đã chạy cùng ngày: health/readiness/status
-xanh nhưng workspace và class mutation thất bại, audit bị forbidden và class detail
-nhận projection thiếu `viewer_access`. Đây là deployment/contract drift cần được
-đối chiếu, không phải thay đổi kiến trúc đã chấp nhận. P2-08 giữ `VERIFY`, chưa phải
-`DONE`, và P2-09 chưa bắt đầu.
+390x844 tiếp tục đạt. Acceptance UI staging được chạy lại cùng ngày trên fixture
+dùng một lần với ba identity ZITADEL đã xác minh riêng biệt. Sáu bước runbook đều
+đạt: workspace và invitation lifecycle, teacher class lifecycle/join link, student
+join, role/suspend/remove, link revoke/archive và audit đúng actor/request/resource.
+Không dùng SQL/manual API và không lưu token, secret hoặc storage state vào
+repository/artifact. Deployment/contract drift của lượt kiểm tra trước đã được đồng
+bộ; P2-09 là task tiếp theo.
 
 **Work package:**
 
@@ -1714,12 +1715,12 @@ Một tính năng chỉ được đánh dấu hoàn thành khi:
 Thứ tự hiện tại, cập nhật ngày 2026-07-20:
 
 1. Phase 1 đã hoàn thành; biên bản nằm tại `docs/PHASE_1_COMPLETION.md`.
-2. P2-00 policy đến P2-07 audit log đã hoàn thành; P2-08 đã có implementation
-   checkpoint.
-3. Đồng bộ commit/image, migration và configuration của web/Core API staging.
-4. Chạy lại acceptance P2-08 trên fixture dùng một lần để đóng DoD.
-5. Chỉ sau đó bắt đầu P2-09 feature override/quota theo
-   `docs/PHASE_2_BACKLOG.md`.
+2. P2-00 policy đến P2-08 UI end-to-end đã hoàn thành; P2-09 là task tiếp theo.
+3. Bắt đầu P2-09 bằng typed feature catalog, default an toàn và source precedence.
+4. Thiết kế feature override/quota server-authoritative, có audit và metric cho
+   quota rejection theo `docs/PHASE_2_BACKLOG.md`.
+5. Trước mỗi acceptance staging vẫn đối chiếu commit/image, migration và
+   configuration của web/Core API.
 6. Không bắt đầu QuizHub, Lavie, social feed, Secure Exam web hoặc classroom
    collaboration trong Phase 2.
 
@@ -1768,7 +1769,7 @@ Thứ tự hiện tại, cập nhật ngày 2026-07-20:
 
 ---
 
-**Điểm bắt đầu sau tài liệu này:** đọc `docs/PROJECT_STATE.md`, khắc phục blocker
-deployment/contract và chạy lại staging acceptance P2-08 theo
-`docs/PHASE_2_BACKLOG.md` cùng `docs/E2E_TESTING.md`.
+**Điểm bắt đầu sau tài liệu này:** đọc `docs/PROJECT_STATE.md` và
+`docs/PHASE_2_BACKLOG.md`, sau đó bắt đầu P2-09 bằng typed feature catalog và quota
+server-authoritative.
 Master Plan giữ mục tiêu/exit gate, không thay backlog chi tiết.

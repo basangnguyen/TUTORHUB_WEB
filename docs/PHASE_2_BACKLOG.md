@@ -20,13 +20,9 @@ Tạo nền multi-tenant và quản lý lớp đủ dùng cho pilot nội bộ:
 identity linking; P2-02 Tenant lifecycle và workspace switching; P2-03 Membership
 invitation, accept và revoke; P2-04 Class lifecycle, ownership và archive; P2-05
 Enrollment và class invite code; P2-06 Roster và class-level roles; P2-07 Audit log
-cho hành động nhạy cảm.
+cho hành động nhạy cảm; P2-08 Admin và teacher UI end-to-end.
 
-**Task đang xác minh:** P2-08 Admin và teacher UI end-to-end. Implementation và
-Browser E2E loopback trên CI đã xanh; staging acceptance ngày 2026-07-20 đã chạy
-nhưng bị chặn bởi web/Core API contract mismatch.
-
-**Task sau khi P2-08 đạt DoD:** P2-09 Feature flag và quota framework.
+**Task tiếp theo:** P2-09 Feature flag và quota framework.
 
 ## 2. Non-goal
 
@@ -62,7 +58,7 @@ nhưng bị chặn bởi web/Core API contract mismatch.
 | P2-05 | Enrollment và class invite code         | P2-03, P2-04               | DONE       |
 | P2-06 | Roster và class-level roles             | P2-05                      | DONE       |
 | P2-07 | Audit log cho hành động nhạy cảm        | P2-02 đến P2-06            | DONE       |
-| P2-08 | Admin/teacher UI end-to-end             | P2-02 đến P2-07            | VERIFY     |
+| P2-08 | Admin/teacher UI end-to-end             | P2-02 đến P2-07            | DONE       |
 | P2-09 | Feature flag và quota framework         | P2-00, P2-02               | TODO       |
 | P2-10 | Tenant isolation/IDOR security suite    | Xuyên suốt; chốt sau P2-09 | TODO       |
 | P2-11 | V1 fixture import idempotent            | Schema ổn định sau P2-06   | TODO       |
@@ -429,7 +425,7 @@ với PostgreSQL 17 trên CI.
 
 ### Definition of Done
 
-- [ ] E2E chính chạy được bằng teacher/student fixtures local và staging.
+- [x] E2E chính chạy được bằng teacher/student fixtures local và staging.
 - [x] Không cần dùng SQL/manual API để hoàn thành deliverable Phase 2.
 - [x] Visual QA ở viewport laptop nhỏ, desktop và mobile đạt.
 
@@ -452,15 +448,15 @@ cùng commit cũng xanh. Web
 130/130, API client 15/15, UI 6/6, E2E infrastructure 8/8 và visual QA tại 1440x900,
 1024x768, 390x844 tiếp tục đạt.
 
-**Staging checkpoint 2026-07-20:** kiểm tra browser bằng session organization
-admin xác nhận health/readiness/status đều xanh. Tuy nhiên workspace không tải
-được sau retry, audit bị chuyển tới `/forbidden`, class create trả lỗi chung và
-class detail lỗi `Cannot read properties of undefined (reading 'can_leave')`,
-cho thấy projection runtime thiếu `viewer_access`. Không có class test nào được
-tạo và các luồng teacher/student chưa thể tiếp tục. Staging web và Core
-API/session permission projection chưa đồng bộ với contract đã kiểm tra trên CI;
-cần đối chiếu deployment/migration/configuration trước khi chạy lại. DoD staging
-vẫn mở, P2-08 giữ `VERIFY` và P2-09 chưa bắt đầu.
+**Staging acceptance 2026-07-20:** lượt chạy lại qua UI thật trên fixture dùng một
+lần với ba identity ZITADEL đã xác minh riêng biệt cho org admin, teacher và student
+đã xanh. Admin tạo/chỉnh/chuyển workspace, tạo và thu hồi invitation; teacher và
+student preview/accept invitation rồi chuyển workspace; teacher tạo/chỉnh/kích hoạt
+lớp và tạo join link; student join và thấy lớp; teacher đổi role, suspend, remove,
+thu hồi link và archive lớp. Admin xác minh audit đúng actor, request ID và resource
+cho chuỗi thao tác. Không dùng SQL/manual API và không lưu storage state, token hay
+secret vào repository/artifact. Deployment/contract drift của lượt kiểm tra trước
+đã được đồng bộ; P2-08 chuyển `DONE`, P2-09 là task tiếp theo.
 
 ## 14. P2-09 Feature flag và quota framework
 
@@ -560,11 +556,10 @@ vẫn mở, P2-08 giữ `VERIFY` và P2-09 chưa bắt đầu.
 
 ## 19. Việc cần làm ngay
 
-1. Đối chiếu commit/image đang chạy, migration version và projection `/me`,
-   tenant/class API; đồng bộ web và Core API staging.
-2. Chạy lại staging acceptance P2-08 theo `docs/E2E_TESTING.md` bằng fixture dùng
-   một lần cho đủ admin/teacher/student.
-3. Chỉ chuyển P2-08 sang `DONE` sau khi staging gate xanh hoặc có waiver được ghi rõ.
-4. Sau đó bắt đầu P2-09 bằng typed feature catalog và quota server-authoritative.
+1. Bắt đầu P2-09 bằng typed feature catalog, default an toàn và source precedence.
+2. Thiết kế tenant override và quota members/active classes/invite rate theo hướng
+   server-authoritative; UI chỉ hiển thị capability response.
+3. Ghi audit thay đổi flag/quota và metric cho quota rejection.
+4. Trước mỗi acceptance staging, đối chiếu commit/image, migration và configuration.
 5. Giữ audit append-only, tenant-scoped và không log token, session ID hoặc PII thừa.
 6. Giữ notification invitation ở interface/outbox; chưa gửi email thật trong Phase 2.

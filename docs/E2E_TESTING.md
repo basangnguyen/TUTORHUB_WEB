@@ -99,6 +99,19 @@ Không chạy staging mutation trên production hoặc tenant chứa dữ liệu
 Scenario dùng tên duy nhất theo thời gian nhưng không tự xóa fixture sau khi
 chạy.
 
+### Kết quả staging P2-08 (2026-07-20)
+
+Acceptance được chạy qua UI staging thật trên fixture dùng một lần với ba tài khoản
+ZITADEL đã xác minh riêng biệt cho org admin, teacher và student. Cả sáu bước runbook
+đều đạt: workspace/invitation lifecycle; teacher class lifecycle và join link;
+student join; role/suspend/remove; revoke link và archive; audit đúng actor, request
+ID và resource.
+
+Lượt nghiệm thu này không dùng SQL/manual API, không tạo hoặc lưu storage state và
+không ghi invitation token, cookie hay secret vào repository, log hoặc artifact. Đây
+là acceptance UI staging thực tế; lệnh `corepack pnpm e2e` ở mode staging không được
+chạy trong lượt này. Scenario Playwright tương ứng đã xanh riêng trên CI Verify #59.
+
 ## Bảo vệ credential và artifact
 
 - Không đặt storage state, token hoặc secret trong source, command history hay

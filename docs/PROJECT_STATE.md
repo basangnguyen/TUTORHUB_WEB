@@ -12,9 +12,8 @@
 | Quy trình           | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
 | Phase hoàn thành    | Phase 0, Phase 1                                                                      |
 | Phase hiện tại      | Phase 2 - Identity, tenant và class core                                              |
-| Task vừa hoàn thành | P2-07 Audit log cho hành động nhạy cảm                                                |
-| Task đang xác minh  | P2-08 Admin và teacher UI end-to-end                                                  |
-| Task sau P2-08      | P2-09 Feature flag và quota framework                                                 |
+| Task vừa hoàn thành | P2-08 Admin và teacher UI end-to-end                                                  |
+| Task tiếp theo      | P2-09 Feature flag và quota framework                                                 |
 
 ## Kiến trúc đang chạy
 
@@ -150,8 +149,7 @@ trước pilot/public beta hoặc khi có người duy trì thứ hai.
 
 Backlog có thẩm quyền: `docs/PHASE_2_BACKLOG.md`.
 
-1. P2-00 đến P2-07 đã hoàn thành; P2-08 có implementation checkpoint và đang ở
-   trạng thái `VERIFY`.
+1. P2-00 đến P2-08 đã hoàn thành; P2-09 là task tiếp theo.
 2. P2-08 nối các contract workspace/invitation/class/roster/audit thành luồng UI
    org admin, teacher và student; capability guard, cache tenant/class, trạng thái
    forbidden/retry và navigation đã được chuẩn hóa.
@@ -164,15 +162,16 @@ Backlog có thẩm quyền: `docs/PHASE_2_BACKLOG.md`.
    1440x900, 1024x768 và 390x844.
    [Security #54](https://github.com/basangnguyen/TUTORHUB_WEB/actions/runs/29716888233)
    cùng commit cũng xanh.
-5. Acceptance staging P2-08 đã được chạy ngày 2026-07-20 bằng một session
-   organization admin. Health/readiness/status đều xanh, nhưng luồng ứng dụng bị
-   chặn: workspace không tải được sau retry, audit chuyển tới `/forbidden`, tạo
-   class trả lỗi chung và class detail lỗi vì projection runtime thiếu
-   `viewer_access`.
-6. Các dấu hiệu trên cho thấy web và Core API/session permission projection trên
-   staging chưa đồng bộ với contract hiện tại. Không có class test nào được tạo.
-   P2-08 giữ trạng thái `VERIFY`, P2-09 chưa bắt đầu; cần đồng bộ deployment,
-   migration và configuration rồi chạy lại acceptance admin/teacher/student.
+5. Acceptance UI staging P2-08 được chạy lại ngày 2026-07-20 trên fixture dùng một
+   lần với ba identity ZITADEL đã xác minh riêng biệt cho org admin, teacher và
+   student. Luồng tạo/chỉnh/chuyển workspace; tạo/thu hồi/chấp nhận invitation;
+   teacher tạo/chỉnh/kích hoạt lớp và tạo join link; student join; teacher đổi role,
+   suspend, remove, thu hồi link và archive lớp đều đạt.
+6. Org admin xem được audit đúng actor, action, resource, outcome và request ID cho
+   toàn bộ chuỗi thao tác. Lượt nghiệm thu không dùng SQL/manual API và không lưu
+   storage state, token hay secret vào repository hoặc artifact. Deployment/contract
+   drift ghi nhận ở lượt kiểm tra trước đã được đồng bộ; P2-08 chuyển `DONE` và P2-09
+   là task tiếp theo.
 
 ## Rủi ro đã biết
 
@@ -186,10 +185,9 @@ Backlog có thẩm quyền: `docs/PHASE_2_BACKLOG.md`.
   proxy bucket. Không tin forwarded header khi Render origin còn public; P2-09 phải
   chốt trusted-proxy/origin authentication và distributed limiter trước khi tăng tải.
 - Verify #59 đã xác nhận PostgreSQL runtime, migration/integration và Browser E2E
-  trên CI. Acceptance staging P2-08 ngày 2026-07-20 xác nhận hạ tầng vẫn ready
-  nhưng phát hiện web/Core API contract drift ở permission projection và
-  `viewer_access`; gate staging đang bị chặn cho tới khi deployment được đồng bộ
-  và acceptance chạy lại.
+  trên CI. Acceptance UI staging P2-08 ngày 2026-07-20 đã xanh sau khi web/Core API
+  được đồng bộ; các lần nghiệm thu sau vẫn phải đối chiếu commit/image, migration và
+  configuration trước khi kết luận lỗi contract.
 - Host hiện tại thiếu Docker/PostgreSQL nên không thể lặp lại full browser scenario
   ngoài CI; nếu CI không sẵn có thì đây vẫn là hạn chế chẩn đoán cục bộ.
 - Production retention/export, privacy erasure, partitioning và dedicated maintenance
