@@ -246,7 +246,13 @@ test("P2-08 connects admin, instructor, and learner workflows through the real U
         await adminPage
           .getByRole("button", { name: "Create workspace" })
           .click();
-        await expect(adminPage).toHaveURL(/\/app\/home$/);
+        await expect(onboarding).toBeHidden();
+        await expect(
+          adminPage.getByRole("navigation", { name: "Primary navigation" }),
+        ).toBeVisible();
+        await expect(adminPage.locator(".workspace-select")).toContainText(
+          workspaceName,
+        );
       } else {
         await adminPage.goto("/app/workspace");
         await useEnglish(adminPage);
@@ -265,6 +271,14 @@ test("P2-08 connects admin, instructor, and learner workflows through the real U
         await primaryWorkspaceDialog
           .getByRole("button", { name: "Create workspace" })
           .click();
+        const primaryWorkspaceSelector = adminPage.getByRole("combobox", {
+          name: "Active workspace",
+        });
+        await expect(primaryWorkspaceDialog).toBeHidden();
+        await expect(primaryWorkspaceSelector).toBeVisible();
+        await expect(
+          primaryWorkspaceSelector.locator("option:checked"),
+        ).toHaveText(workspaceName);
       }
 
       await adminPage.goto("/app/workspace");
@@ -297,6 +311,9 @@ test("P2-08 connects admin, instructor, and learner workflows through the real U
         name: "Active workspace",
       });
       await expect(workspaceSelector).toBeVisible();
+      await expect(workspaceSelector.locator("option:checked")).toHaveText(
+        alternateWorkspaceName,
+      );
       await workspaceSelector.selectOption({ label: updatedWorkspaceName });
       await expect(adminPage).toHaveURL(/\/app\/home$/);
       await expect(workspaceSelector.locator("option:checked")).toHaveText(

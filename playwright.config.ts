@@ -41,6 +41,7 @@ export default defineConfig({
   forbidOnly: Boolean(process.env.CI),
   reporter: [["line"]],
   use: {
+    actionTimeout: 15_000,
     baseURL,
     locale: "vi-VN",
     screenshot: "off",
