@@ -522,7 +522,7 @@ test("P2-08 connects admin, instructor, and learner workflows through the real U
         .click();
       await teacherPage
         .getByRole("dialog", { name: "Confirm roster change" })
-        .getByRole("button", { name: "Confirm" })
+        .getByRole("button", { name: "Confirm", exact: true })
         .click();
       await expect(
         teacherPage
@@ -536,7 +536,7 @@ test("P2-08 connects admin, instructor, and learner workflows through the real U
       await studentRow.getByRole("button", { name: "Suspend" }).click();
       await teacherPage
         .getByRole("dialog", { name: "Confirm roster change" })
-        .getByRole("button", { name: "Confirm" })
+        .getByRole("button", { name: "Confirm", exact: true })
         .click();
       await expect(
         studentRow.getByText("Suspended", { exact: true }),
