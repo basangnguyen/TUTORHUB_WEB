@@ -143,11 +143,13 @@ async function openSecretFragmentURL(
   );
   await expect
     .poll(
-      () =>
-        page.evaluate(() => ({
-          fragmentScrubbed: window.location.hash === "",
-          pathname: window.location.pathname,
-        })),
+      () => {
+        const currentURL = new URL(page.url());
+        return {
+          fragmentScrubbed: currentURL.hash === "",
+          pathname: currentURL.pathname,
+        };
+      },
       {
         message: `expected navigation to settle at ${expectedPath} with the secret fragment scrubbed`,
       },
