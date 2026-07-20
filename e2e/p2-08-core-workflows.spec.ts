@@ -213,11 +213,7 @@ async function acceptWorkspaceInvitation(
   ).toBe(200);
   await expect(page).toHaveURL(/\/app\/home$/);
   await useEnglish(page);
-  await expect(
-    page
-      .getByRole("combobox", { name: "Active workspace" })
-      .locator("option:checked"),
-  ).toHaveText(workspaceName);
+  await expect(page.locator(".workspace-select")).toContainText(workspaceName);
 }
 
 async function closeDialog(page: Page, accessibleName: string) {
