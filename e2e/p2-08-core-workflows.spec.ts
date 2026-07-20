@@ -113,6 +113,7 @@ async function createMemberInvitation(
   await expect(link).toBeVisible();
   const invitationURL = await link.inputValue();
   await dialog.getByRole("button", { name: "Close invitation dialog" }).click();
+  await expect(dialog).toBeHidden();
   return invitationURL;
 }
 
@@ -169,11 +170,23 @@ async function acceptWorkspaceInvitation(
     }),
   ).toBeVisible();
   await expect(page.getByText(workspaceName, { exact: true })).toBeVisible();
+  const acceptResponse = page.waitForResponse((candidate) => {
+    const request = candidate.request();
+    return (
+      request.method() === "POST" &&
+      new URL(candidate.url()).pathname ===
+        "/api/v1/membership-invitations/accept"
+    );
+  });
   await page
     .getByRole("button", {
       name: /^(?:Chấp nhận lời mời|Accept invitation)$/,
     })
     .click();
+  expect(
+    (await acceptResponse).status(),
+    "POST /api/v1/membership-invitations/accept should return HTTP 200",
+  ).toBe(200);
   await expect(
     page.getByRole("heading", {
       name: /^(?:Đã tham gia workspace|Workspace joined)$/,
@@ -183,17 +196,26 @@ async function acceptWorkspaceInvitation(
   const switchAction = page.getByRole("button", {
     name: /^(?:Chuyển sang workspace này|Switch to this workspace)$/,
   });
-  if (await switchAction.isVisible()) {
-    await switchAction.click();
-  } else {
-    await page
-      .getByRole("link", {
-        name: /^(?:Tiếp tục vào TutorHub|Continue to TutorHub)$/,
-      })
-      .click();
-  }
+  await expect(switchAction).toBeVisible();
+  const switchResponse = page.waitForResponse((candidate) => {
+    const request = candidate.request();
+    return (
+      request.method() === "PUT" &&
+      new URL(candidate.url()).pathname === "/api/v1/session/active-tenant"
+    );
+  });
+  await switchAction.click();
+  expect(
+    (await switchResponse).status(),
+    "PUT /api/v1/session/active-tenant should return HTTP 200",
+  ).toBe(200);
   await expect(page).toHaveURL(/\/app\/home$/);
   await useEnglish(page);
+  await expect(
+    page
+      .getByRole("combobox", { name: "Active workspace" })
+      .locator("option:checked"),
+  ).toHaveText(workspaceName);
 }
 
 async function closeDialog(page: Page, accessibleName: string) {
@@ -509,6 +531,9 @@ test("P2-08 connects admin, instructor, and learner workflows through the real U
           .getByRole("status")
           .filter({ hasText: "The class role was updated." }),
       ).toBeVisible();
+      await expect(studentRow.getByRole("combobox")).toHaveText(
+        "Teaching assistant",
+      );
 
       await studentRow.getByRole("button", { name: "Suspend" }).click();
       await teacherPage
@@ -555,7 +580,9 @@ test("P2-08 connects admin, instructor, and learner workflows through the real U
         .getByRole("button", { name: "Confirm archive" })
         .click();
       await expect(
-        teacherPage.getByText("Archived", { exact: true }).first(),
+        teacherPage.locator(
+          '.classroom-detail__identity .class-status[data-status="archived"]',
+        ),
       ).toBeVisible();
     });
 
