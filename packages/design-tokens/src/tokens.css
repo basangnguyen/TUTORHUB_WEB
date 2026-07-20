@@ -92,6 +92,7 @@
   --z-dropdown: 400;
   --z-overlay: 700;
   --z-modal: 800;
+  --z-popover: 900;
   --z-toast: 1000;
 
   /* Documented responsive thresholds. CSS custom properties cannot be used
