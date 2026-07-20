@@ -108,11 +108,13 @@ type accessGrant struct {
 // Provider implements only the OIDC surface required by TutorHub's BFF. It is
 // deliberately constrained to APP_ENV=test and loopback URLs.
 type Provider struct {
-	config       Config
-	privateKey   *rsa.PrivateKey
-	keyID        string
-	accounts     map[string]Account
-	accountOrder []Account
+	config         Config
+	callbackOrigin string
+	webOrigin      string
+	privateKey     *rsa.PrivateKey
+	keyID          string
+	accounts       map[string]Account
+	accountOrder   []Account
 
 	mu       sync.Mutex
 	pending  map[string]authorizationRequest
@@ -125,6 +127,14 @@ type Provider struct {
 func New(config Config) (*Provider, error) {
 	if err := validateConfig(config); err != nil {
 		return nil, err
+	}
+	callbackURL, err := url.Parse(config.RedirectURL)
+	if err != nil {
+		return nil, fmt.Errorf("%w: parse callback URL", errInvalidConfiguration)
+	}
+	postLogoutURL, err := url.Parse(config.PostLogoutURL)
+	if err != nil {
+		return nil, fmt.Errorf("%w: parse post-logout URL", errInvalidConfiguration)
 	}
 	if config.Clock == nil {
 		config.Clock = time.Now
@@ -152,14 +162,16 @@ func New(config Config) (*Provider, error) {
 	}
 
 	return &Provider{
-		config:       config,
-		privateKey:   privateKey,
-		keyID:        keyID,
-		accounts:     accounts,
-		accountOrder: accountOrder,
-		pending:      make(map[string]authorizationRequest),
-		codes:        make(map[string]authorizationCode),
-		accesses:     make(map[string]accessGrant),
+		config:         config,
+		callbackOrigin: callbackURL.Scheme + "://" + callbackURL.Host,
+		webOrigin:      postLogoutURL.Scheme + "://" + postLogoutURL.Host,
+		privateKey:     privateKey,
+		keyID:          keyID,
+		accounts:       accounts,
+		accountOrder:   accountOrder,
+		pending:        make(map[string]authorizationRequest),
+		codes:          make(map[string]authorizationCode),
+		accesses:       make(map[string]accessGrant),
 	}, nil
 }
 
@@ -175,7 +187,9 @@ func (provider *Provider) Handler() http.Handler {
 	mux.HandleFunc("GET /logout", provider.logout)
 	mux.HandleFunc("GET /healthz", provider.health)
 
-	return securityHeaders(mux)
+	// Chromium enforces form-action across the complete redirect chain, so the
+	// chooser must explicitly allow the validated API callback and web origins.
+	return securityHeaders(mux, provider.callbackOrigin, provider.webOrigin)
 }
 
 func (provider *Provider) discovery(writer http.ResponseWriter, _ *http.Request) {
@@ -605,10 +619,17 @@ func contains(values []string, target string) bool {
 	return false
 }
 
-func securityHeaders(next http.Handler) http.Handler {
+func securityHeaders(
+	next http.Handler,
+	callbackOrigin string,
+	webOrigin string,
+) http.Handler {
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		writer.Header().Set("Cache-Control", "no-store")
-		writer.Header().Set("Content-Security-Policy", "default-src 'none'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'")
+		writer.Header().Set(
+			"Content-Security-Policy",
+			"default-src 'none'; form-action 'self' "+callbackOrigin+" "+webOrigin+"; frame-ancestors 'none'; base-uri 'none'",
+		)
 		writer.Header().Set("Referrer-Policy", "no-referrer")
 		writer.Header().Set("X-Content-Type-Options", "nosniff")
 		next.ServeHTTP(writer, request)

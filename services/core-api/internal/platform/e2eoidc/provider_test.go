@@ -63,6 +63,10 @@ func TestProviderCompletesDiscoveryPKCEAndOneTimeCodeFlow(t *testing.T) {
 		!strings.Contains(string(body), "Sign in as E2E Administrator") {
 		t.Fatalf("unexpected authorization chooser: status=%d body=%s", authorizationResponse.StatusCode, body)
 	}
+	expectedPolicy := "default-src 'none'; form-action 'self' http://127.0.0.1:8080 http://127.0.0.1:5173; frame-ancestors 'none'; base-uri 'none'"
+	if policy := authorizationResponse.Header.Get("Content-Security-Policy"); policy != expectedPolicy {
+		t.Fatalf("authorization chooser must allow its validated redirect origins: %q", policy)
+	}
 
 	form := url.Values{
 		"request_id": {string(requestIDMatch[1])},
