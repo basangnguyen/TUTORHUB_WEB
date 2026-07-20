@@ -203,20 +203,49 @@ async function closeDialog(page: Page, accessibleName: string) {
 }
 
 async function submitWorkspaceCreate(page: Page, button: Locator) {
-  const [response] = await Promise.all([
-    page.waitForResponse((candidate) => {
+  const csrfResponse = page.waitForResponse((candidate) => {
+    const request = candidate.request();
+    return (
+      request.method() === "GET" &&
+      new URL(candidate.url()).pathname === "/api/v1/auth/csrf"
+    );
+  });
+  const createResponse = page
+    .waitForResponse((candidate) => {
       const request = candidate.request();
       return (
         request.method() === "POST" &&
         new URL(candidate.url()).pathname === "/api/v1/tenants"
       );
-    }),
-    button.click(),
-  ]);
+    })
+    .then(
+      (response) => ({ response, status: "fulfilled" as const }),
+      (error: Error) => ({ error, status: "rejected" as const }),
+    );
 
-  expect(response.status(), "POST /api/v1/tenants should return HTTP 201").toBe(
-    201,
-  );
+  await button.click();
+  const csrf = await csrfResponse;
+  expect(
+    csrf.status(),
+    "GET /api/v1/auth/csrf should return HTTP 200 before workspace creation",
+  ).toBe(200);
+
+  const result = await createResponse;
+  if (result.status === "rejected") {
+    const formError = page.locator(".workspace-form__error");
+    const message = (await formError.isVisible())
+      ? (await formError.textContent())?.trim()
+      : undefined;
+    throw new Error(
+      `POST /api/v1/tenants was not observed after CSRF HTTP 200. ${message ?? "No form error was visible."}`,
+      { cause: result.error },
+    );
+  }
+
+  expect(
+    result.response.status(),
+    "POST /api/v1/tenants should return HTTP 201",
+  ).toBe(201);
 }
 
 test("P2-08 connects admin, instructor, and learner workflows through the real UI", async ({
