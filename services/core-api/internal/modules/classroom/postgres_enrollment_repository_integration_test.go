@@ -45,6 +45,9 @@ func TestPostgresEnrollmentInviteUsageIsAtomicAndIdempotent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("begin enrollment fixture: %v", err)
 	}
+	defer func() {
+		_ = setup.Rollback(context.Background())
+	}()
 	tenantID, ownerID := seedTenantOwner(t, ctx, setup, "enrollment-race")
 	sameUserID := seedTenantMember(t, ctx, setup, tenantID, "same", "student")
 	firstUserID := seedTenantMember(t, ctx, setup, tenantID, "first", "student")
@@ -405,6 +408,9 @@ func TestPostgresInviteScopeAndArchivedLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("begin archived fixture: %v", err)
 	}
+	defer func() {
+		_ = setup.Rollback(context.Background())
+	}()
 	tenantID, ownerID := seedTenantOwner(t, ctx, setup, "archived-invite")
 	studentID := seedTenantMember(t, ctx, setup, tenantID, "archived-student", "student")
 	otherTenantID, otherOwnerID := seedTenantOwner(t, ctx, setup, "other-invite")

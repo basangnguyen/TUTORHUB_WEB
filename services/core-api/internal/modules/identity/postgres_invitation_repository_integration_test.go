@@ -374,6 +374,9 @@ func TestPostgresMembershipInvitationConcurrentAcceptIsIdempotent(t *testing.T) 
 	if err != nil {
 		t.Fatalf("begin invitation fixture transaction: %v", err)
 	}
+	defer func() {
+		_ = setup.Rollback(context.Background())
+	}()
 	fixture := insertInvitationIntegrationFixture(t, ctx, setup, now)
 	if err := setup.Commit(ctx); err != nil {
 		t.Fatalf("commit invitation fixture: %v", err)

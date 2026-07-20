@@ -438,14 +438,30 @@ async function runServers(environment) {
     stopPromise ??= stopChildren(children);
     return stopPromise;
   };
+  let resolveSignalStop;
+  const signalStopPromise = new Promise((resolve) => {
+    resolveSignalStop = resolve;
+  });
+  signalStopHandler = () => {
+    // The finalizer awaits the same promise and surfaces cleanup failures.
+    void stop().then(resolveSignalStop, resolveSignalStop);
+  };
+  process.once("SIGINT", signalStopHandler);
+  process.once("SIGTERM", signalStopHandler);
   try {
     const oidc = startChild(binaries.oidcBinary, [], environment);
     children.push(oidc);
     await waitForEndpoint(`${localOrigins.issuer}/healthz`, oidc);
+    if (stopping) {
+      return;
+    }
 
     const api = startChild(binaries.apiBinary, [], environment);
     children.push(api);
     await waitForEndpoint(`${localOrigins.api}/ready`, api);
+    if (stopping) {
+      return;
+    }
 
     const webCommand = buildWebServerCommand();
     const web = startChild(
@@ -456,14 +472,13 @@ async function runServers(environment) {
     );
     children.push(web);
     await waitForEndpoint(`${localOrigins.web}/sign-in`, web);
+    if (stopping) {
+      return;
+    }
     process.stdout.write("TutorHub loopback E2E services are ready.\n");
 
     await new Promise((resolve, reject) => {
-      signalStopHandler = () => {
-        void stop().then(resolve, reject);
-      };
-      process.once("SIGINT", signalStopHandler);
-      process.once("SIGTERM", signalStopHandler);
+      void signalStopPromise.then(resolve);
       for (const child of children) {
         child.once("error", reject);
         child.once("exit", (code) => {

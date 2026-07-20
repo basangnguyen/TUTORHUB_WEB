@@ -68,7 +68,7 @@ ngoại lệ có thời hạn theo ADR-0012 và không được mô tả như br
 Nguồn thực thi: `docs/PHASE_2_BACKLOG.md`.
 
 Full `pnpm verify` của P2-08 đã xanh ngày 2026-07-20: web 130/130, API client 15/15,
-UI 6/6, E2E infrastructure 7/7, generated contract, lint/typecheck/build/Storybook,
+UI 6/6, E2E infrastructure 8/8, generated contract, lint/typecheck/build/Storybook,
 Go test/vet và security checks. Full integration-tag compile và Playwright discovery
 đều xanh; visual QA thủ công đạt ở desktop, laptop nhỏ và mobile. Runtime PostgreSQL
 cho migration/audit và full browser scenario chưa chạy local vì host thiếu

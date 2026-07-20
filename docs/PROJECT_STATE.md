@@ -156,7 +156,7 @@ Backlog có thẩm quyền: `docs/PHASE_2_BACKLOG.md`.
    org admin, teacher và student; capability guard, cache tenant/class, trạng thái
    forbidden/retry và navigation đã được chuẩn hóa.
 3. Full `pnpm verify` xanh ngày 2026-07-20: web 130/130, API client 15/15, UI 6/6,
-   E2E infrastructure 7/7, generated-contract check, lint/typecheck/build/Storybook,
+   E2E infrastructure 8/8, generated-contract check, lint/typecheck/build/Storybook,
    Go test/vet và security checks. Full integration-tag compile cũng xanh.
 4. Playwright có một scenario ba role, fake OIDC loopback/PKCE và job Browser E2E
    PostgreSQL 17 + Chromium. Visual QA thủ công đạt tại 1440x900, 1024x768 và

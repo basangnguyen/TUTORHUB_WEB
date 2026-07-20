@@ -43,6 +43,9 @@ func TestPostgresRosterScopePaginationHierarchyAndProjection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("begin roster fixture: %v", err)
 	}
+	defer func() {
+		_ = setup.Rollback(context.Background())
+	}()
 	tenantID, ownerID := seedTenantOwner(t, ctx, setup, "roster")
 	coTeacherID := seedTenantMember(t, ctx, setup, tenantID, "roster-co", "student")
 	firstID := seedTenantMember(t, ctx, setup, tenantID, "roster-first", "student")

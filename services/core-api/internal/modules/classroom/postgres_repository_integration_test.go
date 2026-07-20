@@ -492,6 +492,9 @@ func TestPostgresRepositoryConcurrentUpdateUsesOptimisticVersion(t *testing.T) {
 	if err != nil {
 		t.Fatalf("begin concurrent fixture: %v", err)
 	}
+	defer func() {
+		_ = setup.Rollback(context.Background())
+	}()
 	tenantID, ownerID := seedTenantOwner(t, ctx, setup, "concurrent")
 	if err := setup.Commit(ctx); err != nil {
 		t.Fatalf("commit concurrent fixture: %v", err)
@@ -609,7 +612,9 @@ func seedTenantOwner(
 	tenantID := uuid.New()
 	unique := strings.ReplaceAll(uuid.NewString(), "-", "")
 	email := fmt.Sprintf("integration-%s-%s@example.test", suffix, unique)
-	slug := fmt.Sprintf("integration-%s-%s", suffix, unique)
+	// Keep the unique tenant slug independent from the human-readable fixture
+	// label so a descriptive suffix cannot exceed the schema's 63-char limit.
+	slug := "integration-" + unique
 
 	if _, err := transaction.Exec(
 		ctx,

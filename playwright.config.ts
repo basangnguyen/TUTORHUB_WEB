@@ -59,6 +59,10 @@ export default defineConfig({
     mode === "local"
       ? {
           command: "node scripts/e2e-local.mjs serve",
+          gracefulShutdown: {
+            signal: "SIGTERM",
+            timeout: 15_000,
+          },
           url: `${baseURL}/sign-in`,
           reuseExistingServer: false,
           timeout: 180_000,

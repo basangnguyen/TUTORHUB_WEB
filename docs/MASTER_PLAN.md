@@ -1206,7 +1206,7 @@ suốt cho org admin, teacher và student. Navigation/capability guard cùng cac
 tenant/class xử lý stale permission và workspace switch đã được chuẩn hóa. Một
 scenario Playwright dùng ba browser context, fake OIDC loopback/PKCE và fixture
 tạo hoàn toàn qua UI; CI có job PostgreSQL 17 + Chromium. Full `pnpm verify`
-xanh: web 130/130, API client 15/15, UI 6/6, E2E infrastructure 7/7 cùng
+xanh: web 130/130, API client 15/15, UI 6/6, E2E infrastructure 8/8 cùng
 lint/typecheck/build/Storybook, Go test/vet và security checks. Integration-tag
 compile và Playwright discovery xanh; visual QA thủ công đạt tại 1440x900,
 1024x768 và 390x844. Full browser runtime chưa chạy local vì host thiếu

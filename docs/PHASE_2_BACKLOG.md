@@ -440,7 +440,7 @@ Playwright có một scenario ba browser context admin/teacher/student, fake OID
 loopback dùng Authorization Code + PKCE và job CI PostgreSQL 17 + Chromium. Guard
 database chỉ chấp nhận database `tutorhub_e2e` trên loopback với query duy nhất
 `sslmode=disable`; process tree được dừng có chờ trên Windows và Unix. Full
-`pnpm verify` xanh: web 130/130, API client 15/15, UI 6/6, E2E infrastructure 7/7,
+`pnpm verify` xanh: web 130/130, API client 15/15, UI 6/6, E2E infrastructure 8/8,
 lint/typecheck/build/Storybook, Go test/vet và security checks. Integration-tag
 compile xanh; Playwright discovery thấy đúng một scenario. Visual QA thủ công đạt
 ở 1440x900, 1024x768 và 390x844. Full browser scenario chưa chạy local vì máy hiện

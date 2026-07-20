@@ -173,3 +173,15 @@ test("Vite proxies API requests to the same IPv4 loopback boundary", () => {
   assert.match(viteConfig, /target:\s*"http:\/\/127\.0\.0\.1:8080"/);
   assert.doesNotMatch(viteConfig, /target:\s*"http:\/\/localhost:8080"/);
 });
+
+test("Playwright gives the local orchestrator a graceful shutdown window", () => {
+  const playwrightConfig = readFileSync(
+    new URL("../playwright.config.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(
+    playwrightConfig,
+    /gracefulShutdown:\s*{\s*signal:\s*"SIGTERM",\s*timeout:\s*15_000,?\s*}/,
+  );
+});
