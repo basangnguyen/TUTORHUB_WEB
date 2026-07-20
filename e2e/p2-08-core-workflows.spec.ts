@@ -3,6 +3,7 @@ import {
   test,
   type Browser,
   type BrowserContext,
+  type Locator,
   type Page,
 } from "@playwright/test";
 
@@ -201,6 +202,23 @@ async function closeDialog(page: Page, accessibleName: string) {
   await page.getByRole("button", { name: accessibleName }).click();
 }
 
+async function submitWorkspaceCreate(page: Page, button: Locator) {
+  const [response] = await Promise.all([
+    page.waitForResponse((candidate) => {
+      const request = candidate.request();
+      return (
+        request.method() === "POST" &&
+        new URL(candidate.url()).pathname === "/api/v1/tenants"
+      );
+    }),
+    button.click(),
+  ]);
+
+  expect(response.status(), "POST /api/v1/tenants should return HTTP 201").toBe(
+    201,
+  );
+}
+
 test("P2-08 connects admin, instructor, and learner workflows through the real UI", async ({
   browser,
 }) => {
@@ -243,9 +261,10 @@ test("P2-08 connects admin, instructor, and learner workflows through the real U
           .getByLabel("Organization or learning group name")
           .fill(workspaceName);
         await adminPage.getByLabel("Workspace address").fill(workspaceSlug);
-        await adminPage
-          .getByRole("button", { name: "Create workspace" })
-          .click();
+        await submitWorkspaceCreate(
+          adminPage,
+          adminPage.getByRole("button", { name: "Create workspace" }),
+        );
         await expect(onboarding).toBeHidden();
         await expect(
           adminPage.getByRole("navigation", { name: "Primary navigation" }),
@@ -268,9 +287,12 @@ test("P2-08 connects admin, instructor, and learner workflows through the real U
         await primaryWorkspaceDialog
           .getByLabel("Workspace address")
           .fill(workspaceSlug);
-        await primaryWorkspaceDialog
-          .getByRole("button", { name: "Create workspace" })
-          .click();
+        await submitWorkspaceCreate(
+          adminPage,
+          primaryWorkspaceDialog.getByRole("button", {
+            name: "Create workspace",
+          }),
+        );
         const primaryWorkspaceSelector = adminPage.getByRole("combobox", {
           name: "Active workspace",
         });
@@ -304,9 +326,10 @@ test("P2-08 connects admin, instructor, and learner workflows through the real U
       await createDialog
         .getByLabel("Workspace address")
         .fill(`p2-08-alt-${runID}`);
-      await createDialog
-        .getByRole("button", { name: "Create workspace" })
-        .click();
+      await submitWorkspaceCreate(
+        adminPage,
+        createDialog.getByRole("button", { name: "Create workspace" }),
+      );
       const workspaceSelector = adminPage.getByRole("combobox", {
         name: "Active workspace",
       });
