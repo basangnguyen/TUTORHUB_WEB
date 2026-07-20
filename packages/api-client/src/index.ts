@@ -1163,7 +1163,7 @@ function createNormalizedFetch(
   const execute =
     fetchImplementation ?? ((request: Request) => globalThis.fetch(request));
 
-  return (request: Request) => {
+  return async (request: Request) => {
     const normalizedURL = normalizeOverlappingPath(
       new URL(request.url),
       baseUrl,
@@ -1173,12 +1173,15 @@ function createNormalizedFetch(
       return execute(request);
     }
 
-    return execute(cloneRequestWithURL(request, normalizedURL));
+    return execute(await cloneRequestWithURL(request, normalizedURL));
   };
 }
 
-function cloneRequestWithURL(request: Request, url: URL): Request {
-  const requestInit: RequestInit & { duplex?: "half" } = {
+async function cloneRequestWithURL(
+  request: Request,
+  url: URL,
+): Promise<Request> {
+  const requestInit: RequestInit = {
     method: request.method,
     headers: request.headers,
     credentials: request.credentials,
@@ -1192,9 +1195,14 @@ function cloneRequestWithURL(request: Request, url: URL): Request {
     signal: request.signal,
   };
 
-  if (request.method !== "GET" && request.method !== "HEAD") {
-    requestInit.body = request.clone().body;
-    requestInit.duplex = "half";
+  if (
+    request.body !== null &&
+    request.method !== "GET" &&
+    request.method !== "HEAD"
+  ) {
+    // Keep the rewritten request byte-identical without turning a bounded API
+    // payload into a streamed upload, which Chromium rejects over HTTP/1.1.
+    requestInit.body = await request.clone().arrayBuffer();
   }
 
   return new Request(url, requestInit);
