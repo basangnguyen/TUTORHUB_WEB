@@ -82,9 +82,7 @@ async function signIn(page: Page, role: UserRole) {
 }
 
 async function useEnglish(page: Page) {
-  const language = page.getByRole("combobox", {
-    name: /Ngôn ngữ|Language/,
-  });
+  const language = page.locator(".language-select select");
   await expect(language).toBeVisible();
   await language.selectOption("en");
   await expect(language).toHaveValue("en");
