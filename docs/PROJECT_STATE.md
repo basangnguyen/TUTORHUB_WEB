@@ -155,15 +155,18 @@ Backlog có thẩm quyền: `docs/PHASE_2_BACKLOG.md`.
 2. P2-08 nối các contract workspace/invitation/class/roster/audit thành luồng UI
    org admin, teacher và student; capability guard, cache tenant/class, trạng thái
    forbidden/retry và navigation đã được chuẩn hóa.
-3. Full `pnpm verify` xanh ngày 2026-07-20: web 130/130, API client 15/15, UI 6/6,
-   E2E infrastructure 8/8, generated-contract check, lint/typecheck/build/Storybook,
-   Go test/vet và security checks. Full integration-tag compile cũng xanh.
-4. Playwright có một scenario ba role, fake OIDC loopback/PKCE và job Browser E2E
-   PostgreSQL 17 + Chromium. Visual QA thủ công đạt tại 1440x900, 1024x768 và
-   390x844. Full browser scenario chưa chạy local vì máy không có Docker/PostgreSQL;
-   CI sẽ xác nhận runtime sau push và chưa có staging acceptance.
-5. Không chuyển P2-08 sang `DONE` hoặc bắt đầu P2-09 cho tới khi Browser E2E
-   local/staging đạt hoặc có waiver được ghi rõ.
+3. [Verify #59](https://github.com/basangnguyen/TUTORHUB_WEB/actions/runs/29716888239)
+   (`836ae7e`) xanh ngày 2026-07-20: Quality/integration, Browser E2E
+   PostgreSQL 17 + Chromium và Local environment smoke đều đạt. Web 130/130, API
+   client 15/15, UI 6/6 và E2E infrastructure 8/8 tiếp tục xanh.
+4. Scenario Playwright ba role với fake OIDC loopback/PKCE đã chạy xuyên suốt
+   workspace/invitation/class/roster/archive/audit trên CI. Visual QA thủ công đạt tại
+   1440x900, 1024x768 và 390x844.
+   [Security #54](https://github.com/basangnguyen/TUTORHUB_WEB/actions/runs/29716888233)
+   cùng commit cũng xanh.
+5. Host hiện tại thiếu Docker/PostgreSQL để lặp lại browser runtime ngoài CI. Staging
+   acceptance chưa chạy; không chuyển P2-08 sang `DONE` hoặc bắt đầu P2-09 cho tới
+   khi gate này đạt hoặc có waiver được ghi rõ.
 
 ## Rủi ro đã biết
 
@@ -176,12 +179,11 @@ Backlog có thẩm quyền: `docs/PHASE_2_BACKLOG.md`.
   in-process limiter theo `RemoteAddr`; sau Cloudflare/Render có thể gộp client vào
   proxy bucket. Không tin forwarded header khi Render origin còn public; P2-09 phải
   chốt trusted-proxy/origin authentication và distributed limiter trước khi tăng tải.
-- Runtime PostgreSQL cho migration/test `000011`, audit append-only và các repository
-  đã gắn atomic audit chưa được chạy local; integration-tag compile đã xanh nhưng clean
-  migration/concurrency runtime cần CI/staging xác nhận.
-- Browser E2E P2-08 đã có fixture/UI orchestration và static gate nhưng chưa chạy
-  runtime local trên host hiện tại do thiếu Docker/PostgreSQL; job CI PostgreSQL 17 là
-  gate kế tiếp.
+- Verify #59 đã xác nhận PostgreSQL runtime, migration/integration và Browser E2E trên
+  CI; staging vẫn có thể khác về OIDC, proxy/cookie, latency và dữ liệu fixture nên cần
+  acceptance riêng trước khi đóng P2-08.
+- Host hiện tại thiếu Docker/PostgreSQL nên không thể lặp lại full browser scenario
+  ngoài CI; nếu CI không sẵn có thì đây vẫn là hạn chế chẩn đoán cục bộ.
 - Production retention/export, privacy erasure, partitioning và dedicated maintenance
   role cho audit được hoãn tới Phase 8. Audit của tenant archived được giữ nhưng chưa có
   recovery/export UI ngoài active-tenant API.

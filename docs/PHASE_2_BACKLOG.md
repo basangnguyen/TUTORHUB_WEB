@@ -22,8 +22,8 @@ invitation, accept và revoke; P2-04 Class lifecycle, ownership và archive; P2-
 Enrollment và class invite code; P2-06 Roster và class-level roles; P2-07 Audit log
 cho hành động nhạy cảm.
 
-**Task đang xác minh:** P2-08 Admin và teacher UI end-to-end. Implementation đã
-có; còn Browser E2E local/staging acceptance.
+**Task đang xác minh:** P2-08 Admin và teacher UI end-to-end. Implementation và
+Browser E2E loopback trên CI đã xanh; còn staging acceptance.
 
 **Task sau khi P2-08 đạt DoD:** P2-09 Feature flag và quota framework.
 
@@ -173,7 +173,7 @@ có; còn Browser E2E local/staging acceptance.
 **Verification:** `pnpm verify` xanh ngày 2026-07-18, gồm web 38/38, API client
 10/10, UI 6/6, lint/typecheck/build/Storybook, Go test/vet và security checks.
 Integration-tag của migration/classroom/identity compile xanh; PostgreSQL execution và
-clean migration được workflow CI có PostgreSQL 17 xác nhận sau khi push checkpoint.
+clean migration sau đó được Verify #59 có PostgreSQL 17 xác nhận.
 
 ## 8. P2-03 Membership invitation, accept và revoke
 
@@ -224,8 +224,8 @@ request log, browser history hoặc referrer.
 **Verification:** `pnpm verify` xanh ngày 2026-07-18: web 44/44, API client 11/11,
 generated contract, lint/typecheck/build/Storybook, Go test/vet và security checks.
 Identity/migration integration-tag compile xanh; runtime chưa chạy local vì không nạp
-DB test env. Workflow CI PostgreSQL 17 sẽ xác nhận clean migration và PostgreSQL
-lifecycle/concurrent-accept sau push.
+DB test env. Clean migration và PostgreSQL lifecycle/concurrent-accept sau đó được
+Verify #59 có PostgreSQL 17 xác nhận.
 
 **Giới hạn private alpha:** limiter hiện dùng `RemoteAddr`; Cloudflare/Render có thể
 gộp client vào proxy bucket. Không tin trực tiếp forwarded header khi Render origin
@@ -276,8 +276,8 @@ còn public; trusted-proxy/origin authentication và distributed limiter thuộc
       UI 6/6, generated contract, lint/typecheck/build/Storybook, Go test/vet và
       security checks.
 - [x] Migration/classroom/identity integration-tag compile xanh local. Runtime
-      PostgreSQL chưa chạy local vì không nạp DB test env; CI PostgreSQL 17 sẽ xác
-      nhận clean migration và integration runtime sau push.
+      PostgreSQL chưa chạy local vì không nạp DB test env; clean migration và
+      integration runtime sau đó được Verify #59 có PostgreSQL 17 xác nhận.
 
 **Giới hạn đã biết:** recent-auth tái dùng `auth_time` session theo semantics P2-01,
 chưa force OIDC `max_age`/`prompt`. Archive ngăn token/event LiveKit mới nhưng không
@@ -337,7 +337,7 @@ OpenAPI/generated client và web có direct enroll, copy-once invite, revoke, jo
 cùng loading/empty/error/forbidden/retry states. Web 69/69, API client 13/13, UI 6/6,
 Go unit/HTTP tests, integration-tag compile, lint/typecheck/build/Storybook và security
 checks đều xanh qua `pnpm verify`. PostgreSQL runtime cho migration/test `000010` chưa
-chạy local vì không nạp DB test env; CI PostgreSQL 17 sẽ xác nhận sau khi push.
+chạy local vì không nạp DB test env; Verify #59 có PostgreSQL 17 đã xác nhận trên CI.
 
 ## 11. P2-06 Roster và class-level roles
 
@@ -373,7 +373,8 @@ Bulk commit từng item, trả ordered `updated/unchanged/failed`; client refetc
 outcome. Viewer lifecycle capability và LiveKit role attributes đều lấy từ projection
 authoritative. Full `pnpm verify` xanh: web 71/71, API client 14/14, UI 6/6 cùng
 lint/typecheck/build/Storybook, Go test/vet và security checks. Integration-tag compile
-xanh; runtime PostgreSQL roster integration chưa chạy local vì không nạp DB test env.
+xanh; roster integration không chạy trên host local nhưng đã được Verify #59 xác nhận
+với PostgreSQL 17 trên CI.
 
 ## 12. P2-07 Audit log hành động nhạy cảm
 
@@ -402,7 +403,8 @@ accept bind tenant do server resolve và bulk roster dedupe/ghi đủ từng tar
 bind tenant/filter, authorization `audit.view`, cache isolation và UI states đã được
 kiểm tra. Full `pnpm verify` xanh ngày 2026-07-19: web 79/79, API client 15/15, UI 6/6,
 lint/typecheck/build/Storybook, Go test/vet và security checks. Integration-tag compile
-xanh; runtime PostgreSQL chưa chạy local vì không nạp DB test env.
+xanh; runtime PostgreSQL không chạy trên host local nhưng đã được Verify #59 xác nhận
+với PostgreSQL 17 trên CI.
 
 ## 13. P2-08 Admin và teacher UI end-to-end
 
@@ -439,14 +441,17 @@ invalidate theo quyền để không flash dữ liệu cũ.
 Playwright có một scenario ba browser context admin/teacher/student, fake OIDC
 loopback dùng Authorization Code + PKCE và job CI PostgreSQL 17 + Chromium. Guard
 database chỉ chấp nhận database `tutorhub_e2e` trên loopback với query duy nhất
-`sslmode=disable`; process tree được dừng có chờ trên Windows và Unix. Full
-`pnpm verify` xanh: web 130/130, API client 15/15, UI 6/6, E2E infrastructure 8/8,
-lint/typecheck/build/Storybook, Go test/vet và security checks. Integration-tag
-compile xanh; Playwright discovery thấy đúng một scenario. Visual QA thủ công đạt
-ở 1440x900, 1024x768 và 390x844. Full browser scenario chưa chạy local vì máy hiện
-không có Docker/PostgreSQL; job Browser E2E trên CI sẽ xác nhận runtime sau push,
-và chưa ghi nhận đây là staging acceptance. Vì gate đầu tiên của DoD còn mở, P2-08
-giữ trạng thái `VERIFY`, chưa phải `DONE`.
+`sslmode=disable`; process tree được dừng có chờ trên Windows và Unix.
+[Verify #59](https://github.com/basangnguyen/TUTORHUB_WEB/actions/runs/29716888239)
+(`836ae7e`) xanh ngày 2026-07-20: Quality/integration, Browser
+E2E và Local environment smoke đều đạt; scenario đi hết workspace/invitation/class/
+roster/archive/audit.
+[Security #54](https://github.com/basangnguyen/TUTORHUB_WEB/actions/runs/29716888233)
+cùng commit cũng xanh. Web
+130/130, API client 15/15, UI 6/6, E2E infrastructure 8/8 và visual QA tại 1440x900,
+1024x768, 390x844 tiếp tục đạt. Host hiện tại thiếu Docker/PostgreSQL để lặp lại
+browser runtime ngoài CI; staging acceptance chưa chạy. Vì gate staging của DoD còn
+mở, P2-08 giữ trạng thái `VERIFY`, chưa phải `DONE`.
 
 ## 14. P2-09 Feature flag và quota framework
 
@@ -546,8 +551,8 @@ giữ trạng thái `VERIFY`, chưa phải `DONE`.
 
 ## 19. Việc cần làm ngay
 
-1. Chạy Browser E2E PostgreSQL 17 trên CI và local/staging acceptance của P2-08.
-2. Chỉ chuyển P2-08 sang `DONE` sau khi gate trên xanh hoặc có waiver được ghi rõ.
+1. Chạy staging acceptance P2-08 theo `docs/E2E_TESTING.md` trên fixture dùng một lần.
+2. Chỉ chuyển P2-08 sang `DONE` sau khi staging gate xanh hoặc có waiver được ghi rõ.
 3. Sau đó bắt đầu P2-09 bằng typed feature catalog và quota server-authoritative.
 4. Giữ audit append-only, tenant-scoped và không log token, session ID hoặc PII thừa.
 5. Giữ notification invitation ở interface/outbox; chưa gửi email thật trong Phase 2.

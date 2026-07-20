@@ -61,20 +61,22 @@ ngoại lệ có thời hạn theo ADR-0012 và không được mô tả như br
 | P2-05 Enrollment/invite code   | DONE       | Enrollment/invite, migration `000010`; verify xanh         |
 | P2-06 Roster/class roles       | DONE       | Roster/hierarchy/single-bulk UI; verify xanh               |
 | P2-07 Audit log                | DONE       | Append-only audit, query/UI org admin, migration `000011`  |
-| P2-08 Admin/teacher E2E UI     | VERIFY     | Implementation có; chờ Browser E2E local/staging           |
+| P2-08 Admin/teacher E2E UI     | VERIFY     | CI Browser E2E xanh; chờ staging acceptance                |
 | P2-09 Feature flag/quota       | TODO       | Bắt đầu sau khi P2-08 đạt DoD                              |
 | P2-10 đến P2-12                | TODO       | Theo dependency trong backlog                              |
 
 Nguồn thực thi: `docs/PHASE_2_BACKLOG.md`.
 
-Full `pnpm verify` của P2-08 đã xanh ngày 2026-07-20: web 130/130, API client 15/15,
-UI 6/6, E2E infrastructure 8/8, generated contract, lint/typecheck/build/Storybook,
-Go test/vet và security checks. Full integration-tag compile và Playwright discovery
-đều xanh; visual QA thủ công đạt ở desktop, laptop nhỏ và mobile. Runtime PostgreSQL
-cho migration/audit và full browser scenario chưa chạy local vì host thiếu
-Docker/PostgreSQL; workflow CI PostgreSQL 17 sẽ xác nhận sau khi push checkpoint,
-không dùng secret từ `.env*.local`. P2-08 vì vậy giữ trạng thái `VERIFY`; chưa
-được ghi `DONE` và P2-09 chưa bắt đầu.
+[Verify #59](https://github.com/basangnguyen/TUTORHUB_WEB/actions/runs/29716888239)
+tại commit `836ae7e` đã xanh ngày 2026-07-20: Quality/integration,
+Browser E2E PostgreSQL 17 + Chromium và Local environment smoke đều đạt. Scenario
+Playwright ba role đã chạy xuyên suốt workspace/invitation/class/roster/archive/audit;
+[Security #54](https://github.com/basangnguyen/TUTORHUB_WEB/actions/runs/29716888233)
+cùng commit cũng xanh. Web 130/130, API client 15/15, UI 6/6 và E2E
+infrastructure 8/8 tiếp tục đạt; visual QA thủ công đạt ở desktop, laptop nhỏ và mobile.
+Host hiện tại vẫn thiếu Docker/PostgreSQL để lặp lại browser runtime ngoài CI. Staging
+acceptance chưa chạy, không dùng secret từ `.env*.local`; vì vậy P2-08 giữ trạng thái
+`VERIFY`, chưa được ghi `DONE` và P2-09 chưa bắt đầu.
 
 ## 5. Hạ tầng staging đã chốt
 
