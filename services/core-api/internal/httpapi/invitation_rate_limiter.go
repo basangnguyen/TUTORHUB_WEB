@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"math"
 	"strconv"
 	"sync"
@@ -18,12 +19,14 @@ const (
 type InvitationRateLimitDecision struct {
 	Allowed    bool
 	RetryAfter time.Duration
+	Err        error
 }
 
 // InvitationRateLimiter deliberately receives only an action and an IP prefix.
 // Raw invitation tokens must never be used as limiter keys or retained in memory.
 type InvitationRateLimiter interface {
 	Allow(
+		ctx context.Context,
 		action InvitationRateLimitAction,
 		clientPrefix string,
 		now time.Time,
@@ -83,6 +86,7 @@ func newFixedWindowInvitationRateLimiter(
 }
 
 func (limiter *fixedWindowInvitationRateLimiter) Allow(
+	_ context.Context,
 	action InvitationRateLimitAction,
 	clientPrefix string,
 	now time.Time,

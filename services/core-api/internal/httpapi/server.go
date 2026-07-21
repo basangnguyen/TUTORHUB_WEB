@@ -10,6 +10,7 @@ import (
 	"github.com/tutorhub-v2/core-api/internal/config"
 	"github.com/tutorhub-v2/core-api/internal/modules/audit"
 	"github.com/tutorhub-v2/core-api/internal/modules/classroom"
+	"github.com/tutorhub-v2/core-api/internal/modules/featurecontrol"
 	"github.com/tutorhub-v2/core-api/internal/modules/identity"
 	"github.com/tutorhub-v2/core-api/internal/modules/media"
 	"github.com/tutorhub-v2/core-api/internal/platform/observability"
@@ -29,9 +30,11 @@ type Options struct {
 	Classroom             classroom.ServiceAPI
 	Enrollment            classroom.EnrollmentServiceAPI
 	Audit                 audit.ServiceAPI
+	FeatureControls       featurecontrol.ServiceAPI
 	Media                 media.ServiceAPI
 	LiveKitWebhook        media.WebhookVerifier
 	InvitationRateLimiter InvitationRateLimiter
+	RemoteAddressResolver RemoteAddressResolver
 }
 
 func NewHandler(cfg config.Config, logger *slog.Logger) http.Handler {
@@ -110,6 +113,27 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 	mux.Handle(
 		tenantsResourcePathPrefix,
 		auditMutation(tenantResourceAuditMutation, http.HandlerFunc(auth.tenantResource)),
+	)
+	featureControls := newFeatureControlHandlers(logger, auth, options.FeatureControls)
+	mux.Handle(
+		tenantCapabilitiesPattern,
+		featureControlResponseHeaders(
+			requireMethod(http.MethodGet, http.HandlerFunc(featureControls.capabilities)),
+		),
+	)
+	mux.Handle(
+		tenantFeatureControlsPattern,
+		featureControlResponseHeaders(
+			auditMutation(
+				staticAuditMutation(
+					http.MethodPut,
+					audit.ActionTenantFeatureControlUpdate,
+					"tenant_feature_control",
+					pathValueAuditResource("tenant_id"),
+				),
+				requireMethod(http.MethodPut, http.HandlerFunc(featureControls.update)),
+			),
+		),
 	)
 	mux.Handle(
 		membershipInvitationsAdminCollectionPattern,
@@ -370,7 +394,13 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 	mux.Handle("/metrics", requireMethod(http.MethodGet, options.Metrics.Handler()))
 	mux.Handle("/", notFoundHandler())
 
-	return middlewareStack(logger, options.Metrics, options.Tracer, mux)
+	return middlewareStack(
+		logger,
+		options.Metrics,
+		options.Tracer,
+		mux,
+		options.RemoteAddressResolver,
+	)
 }
 
 func middlewareStack(
@@ -378,10 +408,11 @@ func middlewareStack(
 	metrics observability.HTTPMetrics,
 	tracer observability.Tracer,
 	next http.Handler,
+	resolvers ...RemoteAddressResolver,
 ) http.Handler {
 	handler := recoverMiddleware(logger, metrics, next)
 	handler = requestLogMiddleware(logger, metrics, tracer, handler)
-	handler = requestIDMiddleware(handler)
+	handler = requestIDMiddleware(handler, resolvers...)
 
 	return handler
 }

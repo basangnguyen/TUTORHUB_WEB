@@ -63,6 +63,14 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.ObjectStorage.Enabled {
 		t.Fatal("object storage must remain disabled when no B2 values are configured")
 	}
+	if cfg.EdgeContext.Enabled || cfg.EdgeContext.MaxSkew != defaultEdgeContextMaxSkew {
+		t.Fatalf("unexpected edge context defaults: %+v", cfg.EdgeContext)
+	}
+	if cfg.FeatureControls.MaxMembers != defaultFeatureMemberLimit ||
+		cfg.FeatureControls.MaxActiveClasses != defaultFeatureClassLimit ||
+		cfg.FeatureControls.MaxInviteCreationsPerHour != defaultFeatureInviteRateLimit {
+		t.Fatalf("unexpected feature control defaults: %+v", cfg.FeatureControls)
+	}
 }
 
 func TestLoadLoopbackListenHost(t *testing.T) {
@@ -139,6 +147,14 @@ func TestLoadCustomValues(t *testing.T) {
 		"B2_BUCKET":                 "tutorhub-staging",
 		"B2_KEY_ID":                 "staging-key-id",
 		"B2_APPLICATION_KEY":        "not-a-real-b2-secret",
+		"EDGE_CONTEXT_SECRET":       validSessionSecret(),
+		"EDGE_CONTEXT_MAX_SKEW":     "90s",
+		"FEATURE_CONTROL_DISABLE_MEMBERSHIP_INVITATIONS": "true",
+		"FEATURE_CONTROL_DISABLE_CLASS_MANAGEMENT":       "true",
+		"FEATURE_CONTROL_DISABLE_CLASS_INVITE_LINKS":     "true",
+		"FEATURE_CONTROL_MAX_MEMBERS":                    "5000",
+		"FEATURE_CONTROL_MAX_ACTIVE_CLASSES":             "500",
+		"FEATURE_CONTROL_MAX_INVITE_CREATIONS_PER_HOUR":  "5000",
 	}))
 	if err != nil {
 		t.Fatalf("load custom values: %v", err)
@@ -182,6 +198,65 @@ func TestLoadCustomValues(t *testing.T) {
 		cfg.ObjectStorage.Region != "us-east-005" ||
 		cfg.ObjectStorage.Bucket != "tutorhub-staging" {
 		t.Fatalf("unexpected object storage config")
+	}
+	if !cfg.EdgeContext.Enabled || len(cfg.EdgeContext.Key) != 32 ||
+		cfg.EdgeContext.MaxSkew != 90*time.Second {
+		t.Fatalf("unexpected edge context config: %+v", cfg.EdgeContext)
+	}
+	if !cfg.FeatureControls.DisableMembershipInvitations ||
+		!cfg.FeatureControls.DisableClassManagement ||
+		!cfg.FeatureControls.DisableClassInviteLinks ||
+		cfg.FeatureControls.MaxMembers != 5000 ||
+		cfg.FeatureControls.MaxActiveClasses != 500 ||
+		cfg.FeatureControls.MaxInviteCreationsPerHour != 5000 {
+		t.Fatalf("unexpected feature control config: %+v", cfg.FeatureControls)
+	}
+}
+
+func TestLoadRequiresEdgeContextSecretInHostedEnvironments(t *testing.T) {
+	t.Parallel()
+
+	_, err := load(mapLookup(map[string]string{
+		"APP_ENV": "production",
+	}))
+	if err == nil || !strings.Contains(err.Error(), "EDGE_CONTEXT_SECRET is required") {
+		t.Fatalf("expected edge context secret requirement error, got %v", err)
+	}
+}
+
+func TestLoadRejectsEdgeContextSkewAboveMaximum(t *testing.T) {
+	t.Parallel()
+
+	_, err := load(mapLookup(map[string]string{
+		"EDGE_CONTEXT_MAX_SKEW": "5m1s",
+	}))
+	if err == nil || !strings.Contains(err.Error(), "EDGE_CONTEXT_MAX_SKEW must not exceed 5m0s") {
+		t.Fatalf("expected edge context max skew validation error, got %v", err)
+	}
+}
+
+func TestLoadRejectsInvalidFeatureControlGuardrails(t *testing.T) {
+	t.Parallel()
+
+	_, err := load(mapLookup(map[string]string{
+		"FEATURE_CONTROL_DISABLE_CLASS_MANAGEMENT":      "sometimes",
+		"FEATURE_CONTROL_MAX_MEMBERS":                   "10001",
+		"FEATURE_CONTROL_MAX_ACTIVE_CLASSES":            "0",
+		"FEATURE_CONTROL_MAX_INVITE_CREATIONS_PER_HOUR": "not-a-number",
+	}))
+	if err == nil {
+		t.Fatal("expected feature control guardrail validation errors")
+	}
+	message := err.Error()
+	for _, expected := range []string{
+		"FEATURE_CONTROL_DISABLE_CLASS_MANAGEMENT",
+		"FEATURE_CONTROL_MAX_MEMBERS",
+		"FEATURE_CONTROL_MAX_ACTIVE_CLASSES",
+		"FEATURE_CONTROL_MAX_INVITE_CREATIONS_PER_HOUR",
+	} {
+		if !strings.Contains(message, expected) {
+			t.Fatalf("expected error to mention %s, got %q", expected, message)
+		}
 	}
 }
 

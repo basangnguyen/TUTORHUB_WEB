@@ -17,6 +17,7 @@ import {
   getLoginURL,
   getProfile,
   getTenant,
+  getTenantCapabilities,
   issueClassMediaToken,
   joinClassInvitation,
   leaveClass,
@@ -43,13 +44,16 @@ import {
   updateClassRosterRole,
   updateProfile,
   updateTenant,
+  updateTenantFeatureControls,
 } from "./index";
 import type {
   ClassEnrollment,
   ClassInviteCode,
   ClassroomClass,
   CurrentUser,
+  TenantCapabilities,
   UpdateClassRequest,
+  UpdateTenantFeatureControlsRequest,
   UpdateTenantRequest,
 } from "./index";
 
@@ -452,6 +456,142 @@ describe("getHealth", () => {
     await expect(requests[3]?.clone().json()).resolves.toEqual({
       expected_version: 4,
     });
+  });
+
+  it("gets tenant capabilities and updates feature controls with CSRF", async () => {
+    const tenantID = "4b18543a-74de-419f-9fe8-d0c3dfc991eb";
+    const capabilities: TenantCapabilities = {
+      tenant_id: tenantID,
+      version: 7,
+      can_manage_overrides: true,
+      features: {
+        membership_invitations: { enabled: true },
+        class_management: { enabled: true },
+        class_invite_links: { enabled: false },
+      },
+      quotas: {
+        members: { limit: 100, used: 12, remaining: 88 },
+        active_classes: { limit: 20, used: 4, remaining: 16 },
+        invite_creations_per_hour: {
+          limit: 30,
+          used: 30,
+          remaining: 0,
+          reset_at: "2026-07-20T12:00:00Z",
+        },
+      },
+      operations: {
+        create_membership_invitation: {
+          available: false,
+          reason: "rate_limited",
+        },
+        accept_membership_invitation: {
+          available: true,
+          reason: "available",
+        },
+        create_class: { available: true, reason: "available" },
+        activate_class: { available: true, reason: "available" },
+        restore_active_class: { available: true, reason: "available" },
+        create_class_invite_link: {
+          available: false,
+          reason: "feature_disabled",
+        },
+        join_class_invite_link: {
+          available: false,
+          reason: "feature_disabled",
+        },
+      },
+    };
+    const input: UpdateTenantFeatureControlsRequest = {
+      expected_version: 7,
+      features: {
+        membership_invitations: true,
+        class_management: true,
+        class_invite_links: true,
+      },
+      quotas: {
+        members: 120,
+        active_classes: 25,
+        invite_creations_per_hour: 40,
+      },
+    };
+    const updatedCapabilities: TenantCapabilities = {
+      ...capabilities,
+      version: 8,
+      features: {
+        ...capabilities.features,
+        class_invite_links: { enabled: true },
+      },
+      quotas: {
+        members: { limit: 120, used: 12, remaining: 108 },
+        active_classes: { limit: 25, used: 4, remaining: 21 },
+        invite_creations_per_hour: {
+          limit: 40,
+          used: 30,
+          remaining: 10,
+          reset_at: "2026-07-20T12:00:00Z",
+        },
+      },
+      operations: {
+        ...capabilities.operations,
+        create_membership_invitation: {
+          available: true,
+          reason: "available",
+        },
+        create_class_invite_link: {
+          available: true,
+          reason: "available",
+        },
+        join_class_invite_link: {
+          available: true,
+          reason: "available",
+        },
+      },
+    };
+    const responses = [
+      new Response(JSON.stringify(capabilities), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+      new Response(JSON.stringify(updatedCapabilities), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    ];
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(() => Promise.resolve(responses.shift()));
+    const options = { baseUrl: "http://localhost/api", fetch: fetchMock };
+
+    await expect(getTenantCapabilities(tenantID, options)).resolves.toEqual(
+      capabilities,
+    );
+    await expect(
+      updateTenantFeatureControls(
+        tenantID,
+        input,
+        "feature-controls-csrf",
+        options,
+      ),
+    ).resolves.toEqual(updatedCapabilities);
+
+    const requests = fetchMock.mock.calls.map((call) => call[0] as Request);
+    expect(requests.map((request) => request.credentials)).toEqual([
+      "include",
+      "include",
+    ]);
+    expect(requests[0]?.method).toBe("GET");
+    expect(requests[0]?.url).toBe(
+      `http://localhost/api/v1/tenants/${tenantID}/capabilities`,
+    );
+    expect(requests[0]?.headers.get("X-CSRF-Token")).toBeNull();
+    expect(requests[1]?.method).toBe("PUT");
+    expect(requests[1]?.url).toBe(
+      `http://localhost/api/v1/tenants/${tenantID}/feature-controls`,
+    );
+    expect(requests[1]?.headers.get("X-CSRF-Token")).toBe(
+      "feature-controls-csrf",
+    );
+    await expect(requests[1]?.clone().json()).resolves.toEqual(input);
   });
 
   it("keeps membership invitation tokens in POST bodies and never request URLs", async () => {

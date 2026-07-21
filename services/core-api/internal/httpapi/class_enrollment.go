@@ -511,6 +511,7 @@ func (handlers classEnrollmentHandlers) allowClassJoin(
 		clientPrefix = "unknown"
 	}
 	decision := handlers.rateLimiter.Allow(
+		r.Context(),
 		InvitationRateLimitClassJoin,
 		clientPrefix,
 		handlers.clock().UTC(),
@@ -518,11 +519,29 @@ func (handlers classEnrollmentHandlers) allowClassJoin(
 	if decision.Allowed {
 		return true
 	}
+	if decision.Err != nil {
+		handlers.logger.Error(
+			"class invitation rate limiter unavailable",
+			"request_id", RequestIDFromContext(r.Context()),
+			"path", logsafe.String(r.URL.Path),
+			"error_class", "rate_limit_unavailable",
+		)
+		writeCodedProblem(
+			w,
+			r,
+			http.StatusServiceUnavailable,
+			"rate_limit_unavailable",
+			"Class invitation rate limit unavailable",
+			"The class invitation safety check is temporarily unavailable. Try again later.",
+		)
+		return false
+	}
 	w.Header().Set("Retry-After", retryAfterSeconds(decision.RetryAfter))
-	writeProblem(
+	writeCodedProblem(
 		w,
 		r,
 		http.StatusTooManyRequests,
+		"rate_limit_exceeded",
 		"Too many class invitation requests",
 		"Wait before trying to join a class again.",
 	)
@@ -550,6 +569,9 @@ func (handlers classEnrollmentHandlers) writeProblem(
 	err error,
 	scope classEnrollmentProblemScope,
 ) {
+	if writeFeatureControlEnforcementProblem(w, r, err) {
+		return
+	}
 	status := http.StatusInternalServerError
 	title := "Class enrollment request failed"
 	detail := "The class enrollment request could not be completed."

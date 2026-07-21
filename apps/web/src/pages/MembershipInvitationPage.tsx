@@ -60,6 +60,20 @@ function previewRoleKey(
 }
 
 function publicInvitationErrorKey(error: Error | null): TranslationKey {
+  if (
+    error instanceof APIRequestError &&
+    error.problem?.code === "feature_disabled"
+  ) {
+    return "capabilities.reasonFeatureDisabled";
+  }
+  if (
+    error instanceof APIRequestError &&
+    error.problem?.code === "quota_exceeded"
+  ) {
+    return error.status === 429
+      ? "capabilities.reasonRateLimited"
+      : "capabilities.reasonQuotaExhausted";
+  }
   if (isAccountMismatch(error)) {
     return "invitation.publicMismatch";
   }

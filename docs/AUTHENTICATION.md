@@ -168,10 +168,13 @@ membership rồi invitation, tạo tối đa một membership/event và cho cùn
 idempotent. Accept không tự chuyển active tenant hoặc xoay session; principal trả về có
 membership mới để user chủ động switch sau đó.
 
-Preview/accept có bounded in-process limiter theo action và `RemoteAddr` prefix. Đây là
-guard private-alpha, chưa phải distributed quota: Cloudflare/Render có thể gộp client
-vào proxy bucket. Không tin forwarded header khi Render origin còn public; trusted
-proxy/origin authentication và limiter phân tán thuộc P2-09.
+Preview/accept dùng shared PostgreSQL fixed-window limiter theo action và client prefix.
+Prefix chỉ được chấp nhận từ edge context do Cloudflare Pages ký, bind timestamp,
+method và path; Core API không tin forwarded header từ request trực tiếp. Skew chữ ký
+mặc định `2m`, hard maximum `5m`; cấu hình vượt giới hạn làm Core API fail fast.
+Assertion không hợp lệ fallback về direct peer prefix, còn storage lỗi chặn request.
+Database chỉ giữ SHA-256 bucket domain-separated theo limiter version, purpose và
+canonical prefix; cột purpose/window không thay thế việc bind purpose vào digest.
 
 ## Class lifecycle và ownership
 
@@ -229,9 +232,9 @@ hoặc cross-scope token dùng unavailable response thống nhất để giảm 
 
 Archive chặn direct enrollment, create code, join và media request mới nhưng không xóa
 lịch sử. Manager vẫn list/revoke code; active enrollee vẫn có thể leave. Restore không
-tự phát lại token, thay đổi usage hay chuyển enrollment. Join có bounded in-process
-limiter theo action và `RemoteAddr` prefix; đây chỉ là guard private-alpha với cùng hạn
-chế trusted-proxy/distributed quota như membership invitation, cần hoàn thiện ở P2-09.
+tự phát lại token, thay đổi usage hay chuyển enrollment. Join dùng cùng signed edge
+context và shared PostgreSQL limiter theo purpose riêng; bucket không dùng chung với
+membership preview/accept và không chứa raw token/client address.
 
 ## Class roster và class-level role
 

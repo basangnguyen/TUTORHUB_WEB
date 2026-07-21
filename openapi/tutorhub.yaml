@@ -432,6 +432,99 @@ paths:
           $ref: "#/components/responses/ConflictResponse"
         default:
           $ref: "#/components/responses/ProblemResponse"
+  /api/v1/tenants/{tenant_id}/capabilities:
+    get:
+      operationId: getTenantCapabilities
+      summary: Return server-evaluated feature, quota, and operation capabilities
+      description: Any active member of the authenticated active tenant may read this same-tenant snapshot. The response contains effective controls for that tenant; operation availability reflects feature and quota controls only and must be combined with actor/resource permissions. An actor allowed to manage overrides also receives configured edit values, but never another tenant's configuration or deployment guardrail source/ceiling.
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: tenant_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Effective capability snapshot for the authenticated active tenant
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantCapabilities"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "429":
+          $ref: "#/components/responses/ProblemResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/tenants/{tenant_id}/feature-controls:
+    put:
+      operationId: updateTenantFeatureControls
+      summary: Replace tenant feature overrides and quota limits
+      description: Only an active organization administrator in the authenticated active tenant may replace these controls. expected_version provides optimistic concurrency; the returned capability snapshot is re-evaluated for the caller.
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: tenant_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTenantFeatureControlsRequest"
+      responses:
+        "200":
+          description: Updated controls and re-evaluated capability snapshot
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantCapabilities"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "429":
+          $ref: "#/components/responses/ProblemResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
   /api/v1/tenants/{tenant_id}/archive:
     post:
       operationId: archiveTenant
@@ -1666,6 +1759,7 @@ components:
         - tenant.view
         - tenant.manage
         - tenant.manage_members
+        - tenant.manage_features
         - class.create
         - class.update
         - class.archive
@@ -1937,6 +2031,175 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Tenant"
+    FeatureCapability:
+      type: object
+      additionalProperties: false
+      required: [enabled]
+      properties:
+        enabled:
+          type: boolean
+        configured_enabled:
+          type: boolean
+          description: Configured tenant value before deployment guardrails; present only when can_manage_overrides is true.
+    QuotaCapability:
+      type: object
+      additionalProperties: false
+      required: [limit, used, remaining]
+      properties:
+        limit:
+          type: integer
+          minimum: 1
+        configured_limit:
+          type: integer
+          minimum: 1
+          description: Configured tenant limit before deployment guardrails; present only when can_manage_overrides is true.
+        used:
+          type: integer
+          minimum: 0
+        remaining:
+          type: integer
+          minimum: 0
+        reset_at:
+          type: string
+          format: date-time
+    OperationCapability:
+      type: object
+      additionalProperties: false
+      required: [available, reason]
+      properties:
+        available:
+          type: boolean
+        reason:
+          type: string
+          enum:
+            - available
+            - feature_disabled
+            - quota_exhausted
+            - rate_limited
+    TenantFeatureCapabilities:
+      type: object
+      additionalProperties: false
+      required:
+        - membership_invitations
+        - class_management
+        - class_invite_links
+      properties:
+        membership_invitations:
+          $ref: "#/components/schemas/FeatureCapability"
+        class_management:
+          $ref: "#/components/schemas/FeatureCapability"
+        class_invite_links:
+          $ref: "#/components/schemas/FeatureCapability"
+    TenantQuotaCapabilities:
+      type: object
+      additionalProperties: false
+      required:
+        - members
+        - active_classes
+        - invite_creations_per_hour
+      properties:
+        members:
+          $ref: "#/components/schemas/QuotaCapability"
+        active_classes:
+          $ref: "#/components/schemas/QuotaCapability"
+        invite_creations_per_hour:
+          $ref: "#/components/schemas/QuotaCapability"
+    TenantOperationCapabilities:
+      type: object
+      additionalProperties: false
+      required:
+        - create_membership_invitation
+        - accept_membership_invitation
+        - create_class
+        - activate_class
+        - restore_active_class
+        - create_class_invite_link
+        - join_class_invite_link
+      properties:
+        create_membership_invitation:
+          $ref: "#/components/schemas/OperationCapability"
+        accept_membership_invitation:
+          $ref: "#/components/schemas/OperationCapability"
+        create_class:
+          $ref: "#/components/schemas/OperationCapability"
+        activate_class:
+          $ref: "#/components/schemas/OperationCapability"
+        restore_active_class:
+          $ref: "#/components/schemas/OperationCapability"
+        create_class_invite_link:
+          $ref: "#/components/schemas/OperationCapability"
+        join_class_invite_link:
+          $ref: "#/components/schemas/OperationCapability"
+    TenantCapabilities:
+      type: object
+      additionalProperties: false
+      required:
+        - tenant_id
+        - version
+        - can_manage_overrides
+        - features
+        - quotas
+        - operations
+      properties:
+        tenant_id:
+          type: string
+          format: uuid
+        version:
+          type: integer
+          format: int64
+          minimum: 0
+        can_manage_overrides:
+          type: boolean
+        features:
+          $ref: "#/components/schemas/TenantFeatureCapabilities"
+        quotas:
+          $ref: "#/components/schemas/TenantQuotaCapabilities"
+        operations:
+          $ref: "#/components/schemas/TenantOperationCapabilities"
+    TenantFeatureControlValues:
+      type: object
+      additionalProperties: false
+      required:
+        - membership_invitations
+        - class_management
+        - class_invite_links
+      properties:
+        membership_invitations:
+          type: boolean
+        class_management:
+          type: boolean
+        class_invite_links:
+          type: boolean
+    TenantQuotaControlValues:
+      type: object
+      additionalProperties: false
+      required:
+        - members
+        - active_classes
+        - invite_creations_per_hour
+      properties:
+        members:
+          type: integer
+          minimum: 1
+        active_classes:
+          type: integer
+          minimum: 1
+        invite_creations_per_hour:
+          type: integer
+          minimum: 1
+    UpdateTenantFeatureControlsRequest:
+      type: object
+      additionalProperties: false
+      required: [expected_version, features, quotas]
+      properties:
+        expected_version:
+          type: integer
+          format: int64
+          minimum: 0
+        features:
+          $ref: "#/components/schemas/TenantFeatureControlValues"
+        quotas:
+          $ref: "#/components/schemas/TenantQuotaControlValues"
     MembershipInvitationStatus:
       type: string
       enum: [pending, accepted, revoked, expired]
@@ -1947,6 +2210,7 @@ components:
         - tenant.update
         - tenant.archive
         - tenant.switch
+        - tenant.feature_control.update
         - membership.invitation.create
         - membership.invitation.revoke
         - membership.invitation.accept
@@ -2876,6 +3140,11 @@ components:
           type: integer
           minimum: 400
           maximum: 599
+        code:
+          type: string
+          description: Stable machine-readable failure code such as feature_disabled, quota_exceeded, or feature_control_unavailable.
+          maxLength: 64
+          pattern: "^[a-z][a-z0-9_]*$"
         detail:
           type: string
         instance:

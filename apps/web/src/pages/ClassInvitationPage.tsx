@@ -16,6 +16,11 @@ import {
 } from "../app/fragmentToken";
 import { useI18n, type TranslationKey } from "../app/i18n";
 import { useSession } from "../app/session";
+import {
+  tenantOperationAvailability,
+  useTenantCapabilities,
+} from "../app/tenantCapabilities";
+import { TenantOperationNotice } from "../components/TenantOperationNotice";
 
 const classInvitationEscrowKey = "class-invitation";
 
@@ -40,6 +45,20 @@ function useOnlineStatus() {
 }
 
 function joinErrorKey(error: Error | null): TranslationKey {
+  if (
+    error instanceof APIRequestError &&
+    error.problem?.code === "feature_disabled"
+  ) {
+    return "capabilities.reasonFeatureDisabled";
+  }
+  if (
+    error instanceof APIRequestError &&
+    error.problem?.code === "quota_exceeded"
+  ) {
+    return error.status === 429
+      ? "capabilities.reasonRateLimited"
+      : "capabilities.reasonQuotaExhausted";
+  }
   if (error instanceof APIRequestError && error.status === 401) {
     return "classInvitation.sessionExpired";
   }
@@ -67,6 +86,15 @@ export function ClassInvitationPage() {
     consumeFragmentToken(classInvitationEscrowKey),
   );
   const joinInvitation = useJoinClassInvitation(token);
+  const activeTenantID = session.currentUser?.active_tenant?.id;
+  const capabilitiesQuery = useTenantCapabilities(
+    activeTenantID,
+    session.status === "authenticated",
+  );
+  const joinAvailability = tenantOperationAvailability(
+    capabilitiesQuery,
+    "join_class_invite_link",
+  );
 
   useEffect(
     () => () => {
@@ -76,6 +104,9 @@ export function ClassInvitationPage() {
   );
 
   const join = async () => {
+    if (!joinAvailability.available) {
+      return;
+    }
     try {
       const result = await joinInvitation.mutateAsync();
       navigate(`/app/classrooms/${result.classroom.id}`, { replace: true });
@@ -161,13 +192,23 @@ export function ClassInvitationPage() {
                 {t("classInvitation.workspaceRequired")}
               </p>
             )}
+            {session.currentUser?.active_tenant && (
+              <TenantOperationNotice
+                availability={joinAvailability}
+                label={t("capabilities.operationJoinClass")}
+                onRetry={() => void capabilitiesQuery.refetch()}
+              />
+            )}
             {joinInvitation.isError && (
               <p className="membership-invitation-card__error" role="alert">
                 {t(joinErrorKey(joinInvitation.error))}
               </p>
             )}
             <Button
-              disabled={!session.currentUser?.active_tenant}
+              disabled={
+                !session.currentUser?.active_tenant ||
+                !joinAvailability.available
+              }
               leadingIcon={<UserPlus />}
               loading={joinInvitation.isPending}
               loadingLabel={t("classInvitation.joining")}

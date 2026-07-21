@@ -594,6 +594,46 @@ export type paths = {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/api/v1/tenants/{tenant_id}/capabilities": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /**
+     * Return server-evaluated feature, quota, and operation capabilities
+     * @description Any active member of the authenticated active tenant may read this same-tenant snapshot. The response contains effective controls for that tenant; operation availability reflects feature and quota controls only and must be combined with actor/resource permissions. An actor allowed to manage overrides also receives configured edit values, but never another tenant's configuration or deployment guardrail source/ceiling.
+     */
+    readonly get: operations["getTenantCapabilities"];
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/tenants/{tenant_id}/feature-controls": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    /**
+     * Replace tenant feature overrides and quota limits
+     * @description Only an active organization administrator in the authenticated active tenant may replace these controls. expected_version provides optimistic concurrency; the returned capability snapshot is re-evaluated for the caller.
+     */
+    readonly put: operations["updateTenantFeatureControls"];
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/api/v1/tenants/{tenant_id}/invitations": {
     readonly parameters: {
       readonly query?: never;
@@ -720,6 +760,7 @@ export type components = {
       | "tenant.update"
       | "tenant.archive"
       | "tenant.switch"
+      | "tenant.feature_control.update"
       | "membership.invitation.create"
       | "membership.invitation.revoke"
       | "membership.invitation.accept"
@@ -993,6 +1034,11 @@ export type components = {
       readonly last_authenticated_at: string;
       readonly provider: string;
     };
+    readonly FeatureCapability: {
+      /** @description Configured tenant value before deployment guardrails; present only when can_manage_overrides is true. */
+      readonly configured_enabled?: boolean;
+      readonly enabled: boolean;
+    };
     readonly HealthResponse: {
       readonly environment: string;
       readonly service: string;
@@ -1112,6 +1158,12 @@ export type components = {
       readonly permissions: readonly components["schemas"]["Permission"][];
       readonly user: components["schemas"]["User"];
     };
+    readonly OperationCapability: {
+      readonly available: boolean;
+      /** @enum {string} */
+      readonly reason:
+        "available" | "feature_disabled" | "quota_exhausted" | "rate_limited";
+    };
     /** @enum {string} */
     readonly OrganizationRole: "org_admin" | "teacher" | "student" | "guest";
     /** @enum {string} */
@@ -1119,6 +1171,7 @@ export type components = {
       | "tenant.view"
       | "tenant.manage"
       | "tenant.manage_members"
+      | "tenant.manage_features"
       | "class.create"
       | "class.update"
       | "class.archive"
@@ -1135,6 +1188,8 @@ export type components = {
       | "chat.send"
       | "audit.view";
     readonly Problem: {
+      /** @description Stable machine-readable failure code such as feature_disabled, quota_exceeded, or feature_control_unavailable. */
+      readonly code?: string;
       readonly detail?: string;
       readonly instance?: string;
       readonly request_id?: string;
@@ -1152,6 +1207,15 @@ export type components = {
       /** @enum {string} */
       readonly locale?: "vi" | "en";
       readonly timezone?: string;
+    };
+    readonly QuotaCapability: {
+      /** @description Configured tenant limit before deployment guardrails; present only when can_manage_overrides is true. */
+      readonly configured_limit?: number;
+      readonly limit: number;
+      readonly remaining: number;
+      /** Format: date-time */
+      readonly reset_at?: string;
+      readonly used: number;
     };
     readonly ReadinessCheck: {
       readonly name: string;
@@ -1188,6 +1252,26 @@ export type components = {
       /** Format: int64 */
       readonly version: number;
     };
+    readonly TenantCapabilities: {
+      readonly can_manage_overrides: boolean;
+      readonly features: components["schemas"]["TenantFeatureCapabilities"];
+      readonly operations: components["schemas"]["TenantOperationCapabilities"];
+      readonly quotas: components["schemas"]["TenantQuotaCapabilities"];
+      /** Format: uuid */
+      readonly tenant_id: string;
+      /** Format: int64 */
+      readonly version: number;
+    };
+    readonly TenantFeatureCapabilities: {
+      readonly class_invite_links: components["schemas"]["FeatureCapability"];
+      readonly class_management: components["schemas"]["FeatureCapability"];
+      readonly membership_invitations: components["schemas"]["FeatureCapability"];
+    };
+    readonly TenantFeatureControlValues: {
+      readonly class_invite_links: boolean;
+      readonly class_management: boolean;
+      readonly membership_invitations: boolean;
+    };
     readonly TenantListResponse: {
       readonly items: readonly components["schemas"]["Tenant"][];
     };
@@ -1201,6 +1285,25 @@ export type components = {
       readonly status: components["schemas"]["TenantStatus"];
       /** Format: int64 */
       readonly version: number;
+    };
+    readonly TenantOperationCapabilities: {
+      readonly accept_membership_invitation: components["schemas"]["OperationCapability"];
+      readonly activate_class: components["schemas"]["OperationCapability"];
+      readonly create_class: components["schemas"]["OperationCapability"];
+      readonly create_class_invite_link: components["schemas"]["OperationCapability"];
+      readonly create_membership_invitation: components["schemas"]["OperationCapability"];
+      readonly join_class_invite_link: components["schemas"]["OperationCapability"];
+      readonly restore_active_class: components["schemas"]["OperationCapability"];
+    };
+    readonly TenantQuotaCapabilities: {
+      readonly active_classes: components["schemas"]["QuotaCapability"];
+      readonly invite_creations_per_hour: components["schemas"]["QuotaCapability"];
+      readonly members: components["schemas"]["QuotaCapability"];
+    };
+    readonly TenantQuotaControlValues: {
+      readonly active_classes: number;
+      readonly invite_creations_per_hour: number;
+      readonly members: number;
     };
     /** @enum {string} */
     readonly TenantStatus: "active" | "suspended" | "archived";
@@ -1222,6 +1325,12 @@ export type components = {
     };
     readonly UpdateClassRosterRoleRequest: {
       readonly class_role: components["schemas"]["ClassEnrollmentRole"];
+    };
+    readonly UpdateTenantFeatureControlsRequest: {
+      /** Format: int64 */
+      readonly expected_version: number;
+      readonly features: components["schemas"]["TenantFeatureControlValues"];
+      readonly quotas: components["schemas"]["TenantQuotaControlValues"];
     };
     readonly UpdateTenantRequest: {
       /** Format: int64 */
@@ -2469,6 +2578,73 @@ export interface operations {
       readonly 401: components["responses"]["UnauthorizedResponse"];
       readonly 403: components["responses"]["ForbiddenResponse"];
       readonly 404: components["responses"]["NotFoundResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly getTenantCapabilities: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path: {
+        readonly tenant_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Effective capability snapshot for the authenticated active tenant */
+      readonly 200: {
+        headers: {
+          readonly "Cache-Control"?: "no-store";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["TenantCapabilities"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 429: components["responses"]["ProblemResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly updateTenantFeatureControls: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly "X-CSRF-Token": string;
+      };
+      readonly path: {
+        readonly tenant_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["UpdateTenantFeatureControlsRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Updated controls and re-evaluated capability snapshot */
+      readonly 200: {
+        headers: {
+          readonly "Cache-Control"?: "no-store";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["TenantCapabilities"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 429: components["responses"]["ProblemResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
       readonly default: components["responses"]["ProblemResponse"];
     };
   };

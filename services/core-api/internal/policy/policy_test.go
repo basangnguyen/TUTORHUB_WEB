@@ -427,6 +427,40 @@ func TestOnlyOrganizationAdminCanManageTenantMembers(t *testing.T) {
 	}
 }
 
+func TestOnlyOrganizationAdminCanManageTenantFeatures(t *testing.T) {
+	t.Parallel()
+
+	tenantID := uuid.New()
+	actorID := uuid.New()
+	engine := NewEngine()
+	for _, test := range []struct {
+		role    OrganizationRole
+		allowed bool
+	}{
+		{role: OrganizationRoleAdmin, allowed: true},
+		{role: OrganizationRoleTeacher},
+		{role: OrganizationRoleStudent},
+		{role: OrganizationRoleGuest},
+	} {
+		decision := engine.Authorize(Input{
+			Subject: Subject{
+				ActorID:           actorID,
+				ActiveTenantID:    tenantID,
+				MembershipActive:  true,
+				OrganizationRoles: []OrganizationRole{test.role},
+			},
+			Action: ActionTenantManageFeatures,
+			Resource: Resource{
+				TenantID: tenantID,
+				State:    ResourceStateActive,
+			},
+		})
+		if decision.Allowed != test.allowed {
+			t.Fatalf("unexpected feature-management decision for %s: %+v", test.role, decision)
+		}
+	}
+}
+
 func TestOnlyOrganizationAdminCanViewTenantAudit(t *testing.T) {
 	t.Parallel()
 

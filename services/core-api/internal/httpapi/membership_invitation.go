@@ -384,18 +384,41 @@ func (handlers membershipInvitationHandlers) allow(
 	if clientPrefix == "" {
 		clientPrefix = "unknown"
 	}
-	decision := handlers.rateLimiter.Allow(action, clientPrefix, handlers.clock().UTC())
+	decision := handlers.rateLimiter.Allow(
+		r.Context(),
+		action,
+		clientPrefix,
+		handlers.clock().UTC(),
+	)
 	if decision.Allowed {
 		return true
 	}
 	if varyCookie {
 		w.Header().Set("Vary", "Cookie")
 	}
+	if decision.Err != nil {
+		handlers.logger.Error(
+			"membership invitation rate limiter unavailable",
+			"request_id", RequestIDFromContext(r.Context()),
+			"path", logsafe.String(r.URL.Path),
+			"error_class", "rate_limit_unavailable",
+		)
+		writeCodedProblem(
+			w,
+			r,
+			http.StatusServiceUnavailable,
+			"rate_limit_unavailable",
+			"Invitation rate limit unavailable",
+			"The invitation safety check is temporarily unavailable. Try again later.",
+		)
+		return false
+	}
 	w.Header().Set("Retry-After", retryAfterSeconds(decision.RetryAfter))
-	writeProblem(
+	writeCodedProblem(
 		w,
 		r,
 		http.StatusTooManyRequests,
+		"rate_limit_exceeded",
 		"Too many invitation requests",
 		"Wait before trying this invitation action again.",
 	)
@@ -408,6 +431,9 @@ func (handlers membershipInvitationHandlers) writeProblem(
 	err error,
 	scope membershipInvitationProblemScope,
 ) {
+	if writeFeatureControlEnforcementProblem(w, r, err) {
+		return
+	}
 	status := http.StatusInternalServerError
 	title := "Invitation request failed"
 	detail := "The membership invitation request could not be completed."

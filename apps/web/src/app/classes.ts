@@ -21,6 +21,7 @@ import {
   type UpdateClassRequest,
 } from "@tutorhub/api-client";
 import { invalidateTenantAudit } from "./audit";
+import { invalidateTenantCapabilities } from "./tenantCapabilities";
 
 const classPageSize = 20;
 
@@ -149,7 +150,11 @@ export function useCreateClass(tenantID: string | undefined) {
       }
       await synchronizeClass(queryClient, tenantID, created);
     },
-    onSettled: () => invalidateTenantAudit(queryClient, tenantID),
+    onSettled: () =>
+      Promise.all([
+        invalidateTenantAudit(queryClient, tenantID),
+        invalidateTenantCapabilities(queryClient, tenantID),
+      ]),
     retry: false,
   });
 }
@@ -184,6 +189,7 @@ export function useUpdateClass(tenantID: string | undefined) {
             })
           : Promise.resolve(),
         invalidateTenantAudit(queryClient, tenantID),
+        invalidateTenantCapabilities(queryClient, tenantID),
       ]),
     retry: false,
   });
@@ -219,6 +225,7 @@ export function useArchiveClass(tenantID: string | undefined) {
             })
           : Promise.resolve(),
         invalidateTenantAudit(queryClient, tenantID),
+        invalidateTenantCapabilities(queryClient, tenantID),
       ]),
     retry: false,
   });
@@ -249,6 +256,7 @@ export function useRestoreClass(tenantID: string | undefined) {
             })
           : Promise.resolve(),
         invalidateTenantAudit(queryClient, tenantID),
+        invalidateTenantCapabilities(queryClient, tenantID),
       ]),
     retry: false,
   });

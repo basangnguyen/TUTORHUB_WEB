@@ -17,6 +17,7 @@ const (
 	ActionTenantUpdate               Action = "tenant.update"
 	ActionTenantArchive              Action = "tenant.archive"
 	ActionTenantSwitch               Action = "tenant.switch"
+	ActionTenantFeatureControlUpdate Action = "tenant.feature_control.update"
 	ActionMembershipInvitationCreate Action = "membership.invitation.create"
 	ActionMembershipInvitationRevoke Action = "membership.invitation.revoke"
 	ActionMembershipInvitationAccept Action = "membership.invitation.accept"
@@ -150,6 +151,7 @@ var forbiddenMetadataKeyPattern = regexp.MustCompile(
 
 var actionCatalog = map[Action]struct{}{
 	ActionTenantCreate: {}, ActionTenantUpdate: {}, ActionTenantArchive: {}, ActionTenantSwitch: {},
+	ActionTenantFeatureControlUpdate: {},
 	ActionMembershipInvitationCreate: {}, ActionMembershipInvitationRevoke: {},
 	ActionMembershipInvitationAccept: {}, ActionMembershipInvitationExpire: {},
 	ActionClassCreate: {}, ActionClassUpdate: {}, ActionClassArchive: {}, ActionClassRestore: {},
@@ -163,31 +165,32 @@ var actionCatalog = map[Action]struct{}{
 }
 
 var domainEventActions = map[string]Action{
-	"tenant.created":                 ActionTenantCreate,
-	"tenant.updated":                 ActionTenantUpdate,
-	"tenant.archived":                ActionTenantArchive,
-	"tenant.switched":                ActionTenantSwitch,
-	"membership.invitation.created":  ActionMembershipInvitationCreate,
-	"membership.invitation.revoked":  ActionMembershipInvitationRevoke,
-	"membership.invitation.accepted": ActionMembershipInvitationAccept,
-	"membership.invitation.expired":  ActionMembershipInvitationExpire,
-	"class.created":                  ActionClassCreate,
-	"class.updated":                  ActionClassUpdate,
-	"class.archived":                 ActionClassArchive,
-	"class.restored":                 ActionClassRestore,
-	"class.ownership_transferred":    ActionClassTransferOwnership,
-	"class.enrollment.created":       ActionClassEnrollmentEnroll,
-	"class.enrollment.reactivated":   ActionClassEnrollmentEnroll,
-	"class.enrollment.suspended":     ActionClassEnrollmentSuspend,
-	"class.enrollment.removed":       ActionClassEnrollmentRemove,
-	"class.enrollment.joined":        ActionClassEnrollmentJoin,
-	"class.enrollment.rejoined":      ActionClassEnrollmentJoin,
-	"class.enrollment.left":          ActionClassEnrollmentLeave,
-	"class.enrollment.role_changed":  ActionClassEnrollmentUpdateRole,
-	"class.invite_code.created":      ActionClassInviteCodeCreate,
-	"class.invite_code.revoked":      ActionClassInviteCodeRevoke,
-	"class.invite_code.expired":      ActionClassInviteCodeExpire,
-	"class.invite_code.exhausted":    ActionClassInviteCodeExhaust,
+	"tenant.created":                  ActionTenantCreate,
+	"tenant.updated":                  ActionTenantUpdate,
+	"tenant.archived":                 ActionTenantArchive,
+	"tenant.switched":                 ActionTenantSwitch,
+	"tenant.feature_controls.updated": ActionTenantFeatureControlUpdate,
+	"membership.invitation.created":   ActionMembershipInvitationCreate,
+	"membership.invitation.revoked":   ActionMembershipInvitationRevoke,
+	"membership.invitation.accepted":  ActionMembershipInvitationAccept,
+	"membership.invitation.expired":   ActionMembershipInvitationExpire,
+	"class.created":                   ActionClassCreate,
+	"class.updated":                   ActionClassUpdate,
+	"class.archived":                  ActionClassArchive,
+	"class.restored":                  ActionClassRestore,
+	"class.ownership_transferred":     ActionClassTransferOwnership,
+	"class.enrollment.created":        ActionClassEnrollmentEnroll,
+	"class.enrollment.reactivated":    ActionClassEnrollmentEnroll,
+	"class.enrollment.suspended":      ActionClassEnrollmentSuspend,
+	"class.enrollment.removed":        ActionClassEnrollmentRemove,
+	"class.enrollment.joined":         ActionClassEnrollmentJoin,
+	"class.enrollment.rejoined":       ActionClassEnrollmentJoin,
+	"class.enrollment.left":           ActionClassEnrollmentLeave,
+	"class.enrollment.role_changed":   ActionClassEnrollmentUpdateRole,
+	"class.invite_code.created":       ActionClassInviteCodeCreate,
+	"class.invite_code.revoked":       ActionClassInviteCodeRevoke,
+	"class.invite_code.expired":       ActionClassInviteCodeExpire,
+	"class.invite_code.exhausted":     ActionClassInviteCodeExhaust,
 }
 
 func ActionForDomainEvent(eventType string) (Action, bool) {

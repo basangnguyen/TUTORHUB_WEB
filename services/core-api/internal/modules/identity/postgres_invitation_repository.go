@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/tutorhub-v2/core-api/internal/modules/audit"
+	"github.com/tutorhub-v2/core-api/internal/modules/featurecontrol"
 	"github.com/tutorhub-v2/core-api/internal/platform/requestmeta"
 	"github.com/tutorhub-v2/core-api/internal/platform/tenancy"
 	"github.com/tutorhub-v2/core-api/internal/policy"
@@ -110,6 +111,25 @@ func (repository *PostgresRepository) CreateMembershipInvitation(
 		return MembershipInvitation{}, fmt.Errorf("begin membership invitation creation: %w", err)
 	}
 	defer rollback(transaction)
+
+	if repository.controls != nil {
+		if err := repository.controls.RequireFeature(
+			queryContext,
+			transaction,
+			tenantContext.TenantID,
+			featurecontrol.FeatureMembershipInvitations,
+		); err != nil {
+			return MembershipInvitation{}, err
+		}
+		if _, err := repository.controls.ConsumeInviteCreation(
+			queryContext,
+			transaction,
+			tenantContext.TenantID,
+			params.CreatedAt,
+		); err != nil {
+			return MembershipInvitation{}, err
+		}
+	}
 
 	if err := repository.lockAndAuthorizeInvitationAdmin(
 		queryContext,
@@ -349,7 +369,7 @@ func (repository *PostgresRepository) PreviewMembershipInvitation(
 	}
 	defer rollback(transaction)
 
-	tenantID, err := lookupMembershipInvitationTenant(
+	tenantID, _, err := lookupMembershipInvitationScope(
 		queryContext,
 		transaction,
 		tokenHash,
@@ -409,7 +429,7 @@ func (repository *PostgresRepository) AcceptMembershipInvitation(
 	}
 	defer rollback(transaction)
 
-	tenantID, err := lookupMembershipInvitationTenant(
+	tenantID, preflightStatus, err := lookupMembershipInvitationScope(
 		queryContext,
 		transaction,
 		params.TokenHash,
@@ -418,6 +438,31 @@ func (repository *PostgresRepository) AcceptMembershipInvitation(
 		return AcceptMembershipInvitationResult{}, err
 	}
 	requestmeta.SetAuditTenant(queryContext, tenantID)
+	if repository.controls != nil && preflightStatus == MembershipInvitationPending {
+		controlErr := repository.controls.RequireFeature(
+			queryContext,
+			transaction,
+			tenantID,
+			featurecontrol.FeatureMembershipInvitations,
+		)
+		if controlErr != nil {
+			// Accepted invitations are immutable. A concurrent acceptance may have
+			// committed while this request waited for the tenant control lock, so
+			// re-read before applying a newly disabled feature to an idempotent replay.
+			if !errors.Is(controlErr, featurecontrol.ErrFeatureDisabled) {
+				return AcceptMembershipInvitationResult{}, controlErr
+			}
+			freshTenantID, freshStatus, lookupErr := lookupMembershipInvitationScope(
+				queryContext,
+				transaction,
+				params.TokenHash,
+			)
+			if lookupErr != nil || freshTenantID != tenantID ||
+				freshStatus != MembershipInvitationAccepted {
+				return AcceptMembershipInvitationResult{}, controlErr
+			}
+		}
+	}
 	if _, err := lockActiveInvitationTenant(queryContext, transaction, tenantID); err != nil {
 		return AcceptMembershipInvitationResult{}, err
 	}
@@ -512,6 +557,15 @@ func (repository *PostgresRepository) AcceptMembershipInvitation(
 	}
 
 	if membershipID == uuid.Nil {
+		if repository.controls != nil {
+			if err := repository.controls.RequireMemberCapacity(
+				queryContext,
+				transaction,
+				tenantID,
+			); err != nil {
+				return AcceptMembershipInvitationResult{}, err
+			}
+		}
 		if err := transaction.QueryRow(
 			queryContext,
 			`INSERT INTO tutorhub.memberships (
@@ -732,23 +786,24 @@ func expireMembershipInvitations(
 	return nil
 }
 
-func lookupMembershipInvitationTenant(
+func lookupMembershipInvitationScope(
 	ctx context.Context,
 	transaction pgx.Tx,
 	tokenHash []byte,
-) (uuid.UUID, error) {
+) (uuid.UUID, MembershipInvitationStatus, error) {
 	var tenantID uuid.UUID
+	var status MembershipInvitationStatus
 	if err := transaction.QueryRow(
 		ctx,
-		`SELECT tenant_id FROM tutorhub.membership_invitations WHERE token_hash = $1`,
+		`SELECT tenant_id, status FROM tutorhub.membership_invitations WHERE token_hash = $1`,
 		tokenHash,
-	).Scan(&tenantID); err != nil {
+	).Scan(&tenantID, &status); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return uuid.Nil, ErrMembershipInvitationUnavailable
+			return uuid.Nil, "", ErrMembershipInvitationUnavailable
 		}
-		return uuid.Nil, fmt.Errorf("locate membership invitation tenant: %w", err)
+		return uuid.Nil, "", fmt.Errorf("locate membership invitation tenant: %w", err)
 	}
-	return tenantID, nil
+	return tenantID, status, nil
 }
 
 func lockActiveInvitationTenant(

@@ -94,6 +94,13 @@ only to an active `org_admin`. No class role contributes this permission. The au
 query reloads tenant and membership state authoritatively before asking the shared
 policy, so a stale session permission cannot preserve access after demotion or revoke.
 
+Starting in P2-09, `tenant.manage_features` is granted only to an active `org_admin`
+in the active tenant. Reading an effective same-tenant capability projection still
+requires `tenant.view`; changing tenant overrides requires `tenant.manage_features`,
+CSRF protection, and authoritative membership reauthorization inside the same
+transaction. A handler must not infer this authority from cached `/me` data or a
+client-provided tenant ID.
+
 ## Consequences
 
 - Permission constants and role mappings have one source of truth and table-driven

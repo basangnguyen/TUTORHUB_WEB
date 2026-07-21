@@ -23,24 +23,25 @@ const (
 type Permission string
 
 const (
-	PermissionTenantView          Permission = "tenant.view"
-	PermissionTenantManage        Permission = "tenant.manage"
-	PermissionTenantManageMembers Permission = "tenant.manage_members"
-	PermissionClassCreate         Permission = "class.create"
-	PermissionClassUpdate         Permission = "class.update"
-	PermissionClassArchive        Permission = "class.archive"
-	PermissionClassTransferOwner  Permission = "class.transfer_ownership"
-	PermissionClassView           Permission = "class.view"
-	PermissionEnrollmentManage    Permission = "enrollment.manage"
-	PermissionEnrollmentLeave     Permission = "enrollment.leave"
-	PermissionSessionStart        Permission = "session.start"
-	PermissionSessionEnd          Permission = "session.end"
-	PermissionSessionJoin         Permission = "session.join"
-	PermissionParticipantAdmit    Permission = "participant.admit"
-	PermissionParticipantRemove   Permission = "participant.remove"
-	PermissionMediaPublish        Permission = "media.publish"
-	PermissionChatSend            Permission = "chat.send"
-	PermissionAuditView           Permission = "audit.view"
+	PermissionTenantView           Permission = "tenant.view"
+	PermissionTenantManage         Permission = "tenant.manage"
+	PermissionTenantManageMembers  Permission = "tenant.manage_members"
+	PermissionTenantManageFeatures Permission = "tenant.manage_features"
+	PermissionClassCreate          Permission = "class.create"
+	PermissionClassUpdate          Permission = "class.update"
+	PermissionClassArchive         Permission = "class.archive"
+	PermissionClassTransferOwner   Permission = "class.transfer_ownership"
+	PermissionClassView            Permission = "class.view"
+	PermissionEnrollmentManage     Permission = "enrollment.manage"
+	PermissionEnrollmentLeave      Permission = "enrollment.leave"
+	PermissionSessionStart         Permission = "session.start"
+	PermissionSessionEnd           Permission = "session.end"
+	PermissionSessionJoin          Permission = "session.join"
+	PermissionParticipantAdmit     Permission = "participant.admit"
+	PermissionParticipantRemove    Permission = "participant.remove"
+	PermissionMediaPublish         Permission = "media.publish"
+	PermissionChatSend             Permission = "chat.send"
+	PermissionAuditView            Permission = "audit.view"
 )
 
 type Action string
@@ -49,6 +50,7 @@ const (
 	ActionTenantView             Action = Action(PermissionTenantView)
 	ActionTenantManage           Action = Action(PermissionTenantManage)
 	ActionTenantManageMembers    Action = Action(PermissionTenantManageMembers)
+	ActionTenantManageFeatures   Action = Action(PermissionTenantManageFeatures)
 	ActionClassCreate            Action = Action(PermissionClassCreate)
 	ActionClassUpdate            Action = Action(PermissionClassUpdate)
 	ActionClassArchive           Action = Action(PermissionClassArchive)
@@ -169,6 +171,7 @@ var permissionOrder = []Permission{
 	PermissionTenantView,
 	PermissionTenantManage,
 	PermissionTenantManageMembers,
+	PermissionTenantManageFeatures,
 	PermissionClassCreate,
 	PermissionClassUpdate,
 	PermissionClassArchive,
@@ -474,6 +477,7 @@ func validAction(action Action) bool {
 func actionRequiresClass(action Action) bool {
 	switch action {
 	case ActionTenantView, ActionTenantManage, ActionTenantManageMembers,
+		ActionTenantManageFeatures,
 		ActionClassCreate, ActionClassView, ActionAuditView:
 		return false
 	default:

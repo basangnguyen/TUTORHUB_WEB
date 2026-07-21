@@ -16,6 +16,7 @@ import {
 } from "@tutorhub/api-client";
 import { invalidateTenantAudit } from "./audit";
 import { useSession } from "./session";
+import { invalidateTenantCapabilities } from "./tenantCapabilities";
 
 export type { InvitableOrganizationRole } from "@tutorhub/api-client";
 
@@ -106,6 +107,7 @@ export function useCreateMembershipInvitation() {
             })
           : Promise.resolve(),
         invalidateTenantAudit(queryClient, variables.tenantID),
+        invalidateTenantCapabilities(queryClient, variables.tenantID),
       ]);
     },
     retry: false,
@@ -210,7 +212,13 @@ export function useAcceptMembershipInvitation(token: string | null) {
       session.replaceCurrentUser(currentUser);
     },
     onSettled: (response) =>
-      invalidateTenantAudit(queryClient, response?.invitation.tenant_id),
+      Promise.all([
+        invalidateTenantAudit(queryClient, response?.invitation.tenant_id),
+        invalidateTenantCapabilities(
+          queryClient,
+          response?.invitation.tenant_id,
+        ),
+      ]),
     retry: false,
   });
 }

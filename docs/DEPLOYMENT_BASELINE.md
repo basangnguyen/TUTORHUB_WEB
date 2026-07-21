@@ -53,9 +53,38 @@ LIVEKIT_API_KEY
 LIVEKIT_API_SECRET
 OTEL_EXPORTER_OTLP_ENDPOINT
 SENTRY_DSN
+EDGE_CONTEXT_SECRET
+EDGE_CONTEXT_MAX_SKEW
+FEATURE_CONTROL_DISABLE_MEMBERSHIP_INVITATIONS
+FEATURE_CONTROL_DISABLE_CLASS_MANAGEMENT
+FEATURE_CONTROL_DISABLE_CLASS_INVITE_LINKS
+FEATURE_CONTROL_MAX_MEMBERS
+FEATURE_CONTROL_MAX_ACTIVE_CLASSES
+FEATURE_CONTROL_MAX_INVITE_CREATIONS_PER_HOUR
 ```
 
 Redis chỉ được thêm khi có nhu cầu session/rate-limit coordination đã đo được và chọn managed provider.
+
+### P2-09 feature/quota và edge context
+
+- `EDGE_CONTEXT_SECRET` là key base64 ngẫu nhiên, phải giống nhau ở Cloudflare Pages
+  Function và Render Core API nhưng chỉ nằm trong secret store của từng provider.
+- `EDGE_CONTEXT_MAX_SKEW` giới hạn tuổi chữ ký; staging mặc định `2m` và Core API từ
+  chối khởi động nếu giá trị lớn hơn hard maximum `5m`. Core API fail fast ngoài local
+  khi thiếu/sai secret. Assertion thiếu/sai/quá hạn không được tin; request dùng direct
+  peer prefix và vẫn đi qua shared limiter.
+- Ba `FEATURE_CONTROL_DISABLE_*` là global emergency switch. Tenant override không
+  được phép bật lại feature đã bị global switch tắt.
+- Ba `FEATURE_CONTROL_MAX_*` là default đồng thời là safety ceiling. Override tenant
+  phải nằm trong ceiling; thay đổi giá trị phải qua review capacity và rollback plan.
+- P2-09 dùng PostgreSQL shared fixed-window limiter để nhiều Render instance có cùng
+  state. Bucket hash phải domain-separate theo limiter version, purpose và canonical
+  client prefix; không dùng cùng digest cho hai purpose dù cột `purpose` khác nhau.
+  Redis vẫn chưa phải dependency; chỉ xem xét lại sau số liệu contention/load.
+- Trình tự staging bắt buộc: migration `000012` -> runtime grants/retention theo
+  `docs/DATABASE.md` -> cấu hình Cloudflare/Render -> deploy Core API -> deploy web ->
+  health/readiness/capability/limiter smoke -> acceptance. Không deploy code mới trước
+  migration/grants vì limiter và evaluator được thiết kế fail closed.
 
 ## 4. Quy tắc Neon
 

@@ -460,6 +460,9 @@ func (handlers classHandlers) writeClass(w http.ResponseWriter, status int, clas
 }
 
 func (handlers classHandlers) writeProblem(w http.ResponseWriter, r *http.Request, err error) {
+	if writeFeatureControlEnforcementProblem(w, r, err) {
+		return
+	}
 	status := http.StatusInternalServerError
 	title := "Classroom request failed"
 	detail := "The classroom request could not be completed."

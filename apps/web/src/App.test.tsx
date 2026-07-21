@@ -13,6 +13,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider, useI18n } from "./app/i18n";
 import { createAppRoutes, getVisibleNavigationItems } from "./app/routes";
 import { SessionProvider } from "./app/session";
+import { tenantCapabilityQueryKeys } from "./app/tenantCapabilities";
+import {
+  availableTenantCapabilities,
+  withAvailableTenantCapabilities,
+} from "./test/tenantCapabilities";
 import type { CurrentUser, Tenant } from "@tutorhub/api-client";
 
 const activeMembership = {
@@ -42,6 +47,17 @@ function renderRoute(path: string, session: CurrentUser | null = testSession) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
+  const tenantID = session?.active_tenant?.id;
+  if (tenantID) {
+    queryClient.setQueryData(
+      tenantCapabilityQueryKeys.detail(tenantID),
+      availableTenantCapabilities(tenantID),
+    );
+    vi.stubGlobal(
+      "fetch",
+      withAvailableTenantCapabilities(globalThis.fetch, tenantID),
+    );
+  }
   const router = createMemoryRouter(createAppRoutes(), {
     initialEntries: [path],
   });

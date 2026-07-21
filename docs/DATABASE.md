@@ -7,14 +7,14 @@ thay đổi schema, migration hoặc repository phải đọc tài liệu này t
 
 - System of record: Neon PostgreSQL.
 - Schema ứng dụng: `tutorhub`.
-- Migration mới nhất trong source: `000011_audit_events`.
+- Migration mới nhất trong source: `000012_tenant_feature_controls`.
 - Migration 1-5 đã được chạy và kiểm tra trên Neon; smoke
   `5 false -> rollback 4 false -> migrate 5 false` đạt ngày 2026-07-16.
-- Migration `000006` đến `000011` đều có up/down path. Migration/audit/classroom/
-  identity integration-tag compile xanh local; runtime `000011` chưa chạy local vì
-  không nạp DB test env và sẽ do workflow CI xác nhận sau push. Smoke
-  `11 false -> rollback 10 false -> migrate 11 false` chưa chạy trên staging; tài liệu
-  này không khẳng định staging đã nâng lên 11.
+- Migration `000006` đến `000012` đều có up/down path. Migration/audit/classroom/
+  identity/feature-control integration-tag compile xanh local; runtime `000012` chưa
+  chạy local vì không nạp DB test env. Smoke
+  `12 false -> rollback 11 false -> migrate 12 false` chưa chạy trên staging; tài liệu
+  này không khẳng định staging đã nâng lên 12.
 - Phần lớn integration test rollback bằng transaction. Một số concurrency test commit
   qua pool và giữ fixture có ID duy nhất khi audit history đã tồn tại, vì append-only FK
   cố ý chặn xóa; CI dùng database tạm thời, không chạy suite này trên database dùng chung.
@@ -50,7 +50,7 @@ Core API không tự chạy migration khi khởi động.
 `application_name=tutorhub-core-api` được gắn vào kết nối để quan sát trên Neon.
 Mọi truy vấn mạng/database phải chạy ngoài UI thread ở các client native về sau.
 
-## Schema phiên bản 11
+## Schema phiên bản 12
 
 | Bảng                     | Vai trò                                                                                          |
 | ------------------------ | ------------------------------------------------------------------------------------------------ |
@@ -66,6 +66,11 @@ Mọi truy vấn mạng/database phải chạy ngoài UI thread ở các client 
 | `membership_invitations` | Lời mời tenant một lần: normalized email, role, HMAC token, TTL và terminal state                |
 | `outbox_events`          | Transactional outbox cho sự kiện bền vững và worker tương lai                                    |
 | `audit_events`           | Lịch sử tenant append-only cho actor/action/resource/outcome và request correlation              |
+| `tenant_feature_control_revisions` | Phiên bản optimistic của override feature/quota theo tenant                         |
+| `tenant_feature_overrides` | Override feature typed theo tenant; global disable vẫn có quyền ưu tiên                          |
+| `tenant_quota_overrides` | Override hard limit typed cho member, active class và invitation rate                              |
+| `tenant_quota_windows`   | Bộ đếm fixed-window tenant-scoped cho quota invitation                                              |
+| `rate_limit_windows`     | Bộ đếm anonymous shared; lưu purpose và SHA-256 đã domain-separate theo version/purpose/prefix       |
 
 Ràng buộc quan trọng:
 
@@ -159,6 +164,74 @@ Ràng buộc quan trọng:
   không chứa raw token, token hash, email hoặc session identifier.
 - Accept khóa tenant/session/identity-user/membership/invitation theo thứ tự ổn định,
   yêu cầu verified linked identity khớp email và tạo tối đa một membership/event.
+- Feature/quota override khóa tenant bằng advisory transaction lock, dùng revision
+  compare-and-swap và không thể vượt global safety ceiling. Capacity member/class được
+  kiểm tra trong cùng transaction với mutation; invitation rate dùng fixed window.
+- `rate_limit_windows` không lưu địa chỉ client thô. Bucket là SHA-256 có domain
+  separation theo limiter version, purpose và prefix đã được edge xác thực; purpose
+  vẫn là một phần khóa window nhưng không thay thế việc bind purpose vào digest.
+  Storage lỗi làm anonymous flow fail closed.
+
+## Runtime grants và retention cho migration 000012
+
+Migration không hardcode tên role vì mỗi môi trường có thể dùng runtime role khác.
+Ngay sau `pnpm db:migrate`, migration owner phải thay `tutorhub_runtime` trong ví dụ
+dưới đây bằng runtime role thực tế rồi cấp đúng quyền tối thiểu:
+
+```sql
+GRANT USAGE ON SCHEMA tutorhub TO tutorhub_runtime;
+GRANT SELECT, INSERT, UPDATE
+  ON tutorhub.tenant_feature_control_revisions,
+     tutorhub.tenant_quota_windows,
+     tutorhub.rate_limit_windows
+  TO tutorhub_runtime;
+GRANT SELECT, INSERT, UPDATE, DELETE
+  ON tutorhub.tenant_feature_overrides,
+     tutorhub.tenant_quota_overrides
+  TO tutorhub_runtime;
+```
+
+Kết nối bằng runtime URL và xác nhận `has_table_privilege` cho đúng ma trận trên;
+runtime role không được là superuser, owner bảng hoặc có `TRUNCATE`. Core API chỉ được
+deploy sau khi smoke capability read, feature-control update và limiter read/write đạt.
+
+Hai bảng window là dữ liệu vận hành có thời hạn, không phải lịch sử nghiệp vụ. Chạy
+cleanup bằng migration/maintenance role, theo lô tối đa 10.000 row, ít nhất mỗi ngày;
+không cấp `DELETE` hai bảng này cho Core API chỉ để dọn dữ liệu:
+
+```sql
+WITH expired AS (
+  SELECT purpose, bucket_hash, window_started_at
+  FROM tutorhub.rate_limit_windows
+  WHERE window_ends_at < now() - interval '24 hours'
+  ORDER BY window_ends_at
+  LIMIT 10000
+  FOR UPDATE SKIP LOCKED
+)
+DELETE FROM tutorhub.rate_limit_windows target
+USING expired
+WHERE target.purpose = expired.purpose
+  AND target.bucket_hash = expired.bucket_hash
+  AND target.window_started_at = expired.window_started_at;
+
+WITH expired AS (
+  SELECT tenant_id, quota_key, window_started_at
+  FROM tutorhub.tenant_quota_windows
+  WHERE window_ends_at < now() - interval '7 days'
+  ORDER BY window_ends_at
+  LIMIT 10000
+  FOR UPDATE SKIP LOCKED
+)
+DELETE FROM tutorhub.tenant_quota_windows target
+USING expired
+WHERE target.tenant_id = expired.tenant_id
+  AND target.quota_key = expired.quota_key
+  AND target.window_started_at = expired.window_started_at;
+```
+
+Lặp mỗi statement cho tới khi `DELETE 0`, ghi metric row count/duration nhưng không log
+bucket hash. Trước pilot phải chuyển hai statement thành maintenance job có owner và
+alert; index expiry của migration `000012` hỗ trợ đường quét này.
 
 ## Chạy migration
 
@@ -187,7 +260,7 @@ pnpm db:migrate
 pnpm db:version
 ```
 
-Sau khi áp dụng toàn bộ migration trong source, kết quả mong đợi là `11 false`. Chỉ ghi
+Sau khi áp dụng toàn bộ migration trong source, kết quả mong đợi là `12 false`. Chỉ ghi
 đó là kết quả môi trường khi lệnh thực tế đã chạy; bằng chứng staging gần nhất hiện vẫn
 là `5 false` ngày 2026-07-16. Rollback chỉ dùng khi đã đánh giá mất dữ liệu và có
 backup/restore plan:

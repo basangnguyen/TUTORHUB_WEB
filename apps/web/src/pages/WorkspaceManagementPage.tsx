@@ -29,8 +29,13 @@ import { useMemo, useRef, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { useI18n, type TranslationKey } from "../app/i18n";
 import { useSession } from "../app/session";
+import {
+  tenantOperationAvailability,
+  useTenantCapabilities,
+} from "../app/tenantCapabilities";
 import { shouldConcealTenantScopedData } from "../app/tenantDataAccess";
 import { MembershipInvitationPanel } from "../components/MembershipInvitationPanel";
+import { TenantFeatureControlsPanel } from "../components/TenantFeatureControlsPanel";
 import {
   useArchiveTenant,
   useTenantDetail,
@@ -164,6 +169,7 @@ export function WorkspaceManagementPage() {
   const activeTenantID = session.currentUser?.active_tenant?.id;
   const tenantList = useTenantList();
   const tenantDetail = useTenantDetail(activeTenantID);
+  const tenantCapabilities = useTenantCapabilities(activeTenantID);
   const canManage =
     session.currentUser?.permissions.includes("tenant.manage") ?? false;
   const canManageMembers =
@@ -301,8 +307,20 @@ export function WorkspaceManagementPage() {
             )}
           </section>
 
+          <TenantFeatureControlsPanel
+            capabilities={tenantCapabilities}
+            tenantID={tenant.id}
+          />
+
           {canManageMembers && (
-            <MembershipInvitationPanel tenantID={tenant.id} />
+            <MembershipInvitationPanel
+              createAvailability={tenantOperationAvailability(
+                tenantCapabilities,
+                "create_membership_invitation",
+              )}
+              onRetryCapabilities={() => void tenantCapabilities.refetch()}
+              tenantID={tenant.id}
+            />
           )}
 
           {canManage ? (

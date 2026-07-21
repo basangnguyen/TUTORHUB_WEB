@@ -19,6 +19,22 @@ export type TenantStatus = components["schemas"]["TenantStatus"];
 export type TenantMembership = components["schemas"]["TenantMembership"];
 export type Tenant = components["schemas"]["Tenant"];
 export type TenantListResponse = components["schemas"]["TenantListResponse"];
+export type FeatureCapability = components["schemas"]["FeatureCapability"];
+export type QuotaCapability = components["schemas"]["QuotaCapability"];
+export type OperationCapability = components["schemas"]["OperationCapability"];
+export type TenantFeatureCapabilities =
+  components["schemas"]["TenantFeatureCapabilities"];
+export type TenantQuotaCapabilities =
+  components["schemas"]["TenantQuotaCapabilities"];
+export type TenantOperationCapabilities =
+  components["schemas"]["TenantOperationCapabilities"];
+export type TenantCapabilities = components["schemas"]["TenantCapabilities"];
+export type TenantFeatureControlValues =
+  components["schemas"]["TenantFeatureControlValues"];
+export type TenantQuotaControlValues =
+  components["schemas"]["TenantQuotaControlValues"];
+export type UpdateTenantFeatureControlsRequest =
+  components["schemas"]["UpdateTenantFeatureControlsRequest"];
 export type AuditAction = components["schemas"]["AuditAction"];
 export type AuditOutcome = components["schemas"]["AuditOutcome"];
 export type AuditActor = components["schemas"]["AuditActor"];
@@ -409,6 +425,52 @@ export async function getTenant(
   );
 
   return requireData<Tenant>(data as Tenant | undefined, error, response);
+}
+
+export async function getTenantCapabilities(
+  tenantID: string,
+  options: APIRequestOptions = {},
+): Promise<TenantCapabilities> {
+  const { data, error, response } = await createTutorHubClient(options).GET(
+    "/api/v1/tenants/{tenant_id}/capabilities",
+    {
+      params: { path: { tenant_id: tenantID } },
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<TenantCapabilities>(
+    data as TenantCapabilities | undefined,
+    error,
+    response,
+  );
+}
+
+export async function updateTenantFeatureControls(
+  tenantID: string,
+  input: UpdateTenantFeatureControlsRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<TenantCapabilities> {
+  const { data, error, response } = await createTutorHubClient(options).PUT(
+    "/api/v1/tenants/{tenant_id}/feature-controls",
+    {
+      params: {
+        path: { tenant_id: tenantID },
+        header: { "X-CSRF-Token": csrfToken },
+      },
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<TenantCapabilities>(
+    data as TenantCapabilities | undefined,
+    error,
+    response,
+  );
 }
 
 export async function updateTenant(

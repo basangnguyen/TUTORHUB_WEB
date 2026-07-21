@@ -13,6 +13,11 @@ import { classEnrollmentQueryKeys } from "../app/classEnrollments";
 import { classQueryKeys } from "../app/classes";
 import { I18nProvider } from "../app/i18n";
 import { SessionProvider } from "../app/session";
+import { tenantCapabilityQueryKeys } from "../app/tenantCapabilities";
+import {
+  availableTenantCapabilities,
+  withAvailableTenantCapabilities,
+} from "../test/tenantCapabilities";
 import { ClassroomDetailPage, ClassroomListPage } from "./ClassroomPages";
 
 const tenantID = "4b18543a-74de-419f-9fe8-d0c3dfc991eb";
@@ -98,7 +103,11 @@ function renderClassRoute(
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
-  vi.stubGlobal("fetch", fetchMock);
+  queryClient.setQueryData(
+    tenantCapabilityQueryKeys.detail(tenantID),
+    availableTenantCapabilities(tenantID),
+  );
+  vi.stubGlobal("fetch", withAvailableTenantCapabilities(fetchMock, tenantID));
   render(
     <QueryClientProvider client={queryClient}>
       <I18nProvider initialLanguage="vi">

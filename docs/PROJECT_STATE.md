@@ -13,7 +13,8 @@
 | Phase hoàn thành    | Phase 0, Phase 1                                                                      |
 | Phase hiện tại      | Phase 2 - Identity, tenant và class core                                              |
 | Task vừa hoàn thành | P2-08 Admin và teacher UI end-to-end                                                  |
-| Task tiếp theo      | P2-09 Feature flag và quota framework                                                 |
+| Task đang xác minh  | P2-09 Feature flag và quota framework (`VERIFY`)                                      |
+| Task tiếp theo      | P2-10 Tenant isolation/IDOR security suite, sau staging gate P2-09                    |
 
 ## Kiến trúc đang chạy
 
@@ -149,7 +150,8 @@ trước pilot/public beta hoặc khi có người duy trì thứ hai.
 
 Backlog có thẩm quyền: `docs/PHASE_2_BACKLOG.md`.
 
-1. P2-00 đến P2-08 đã hoàn thành; P2-09 là task tiếp theo.
+1. P2-00 đến P2-08 đã hoàn thành; P2-09 đã có implementation checkpoint và đang
+   ở `VERIFY` trước acceptance staging.
 2. P2-08 nối các contract workspace/invitation/class/roster/audit thành luồng UI
    org admin, teacher và student; capability guard, cache tenant/class, trạng thái
    forbidden/retry và navigation đã được chuẩn hóa.
@@ -170,8 +172,16 @@ Backlog có thẩm quyền: `docs/PHASE_2_BACKLOG.md`.
 6. Org admin xem được audit đúng actor, action, resource, outcome và request ID cho
    toàn bộ chuỗi thao tác. Lượt nghiệm thu không dùng SQL/manual API và không lưu
    storage state, token hay secret vào repository hoặc artifact. Deployment/contract
-   drift ghi nhận ở lượt kiểm tra trước đã được đồng bộ; P2-08 chuyển `DONE` và P2-09
-   là task tiếp theo.
+   drift ghi nhận ở lượt kiểm tra trước đã được đồng bộ; P2-08 chuyển `DONE`.
+7. P2-09 chấp nhận ADR-0015, migration `000012`, typed catalog với global safety
+   ceiling và tenant override có optimistic version. Quota member/active class/
+   invitation được enforce transactionally ở server; capability API/UI fail-closed,
+   thay đổi override có audit và quota rejection có metric.
+8. Anonymous invitation preview/accept và class join dùng signed edge context cùng
+   shared PostgreSQL limiter. Web 139/139, API client 16/16, root format/lint/
+   typecheck/build/test/security bundle cùng full Go non-integration suite và `go vet`
+   đều xanh cục bộ. Chưa có bằng chứng staging cho migration/config mới nên P2-09
+   chưa chuyển `DONE`.
 
 ## Rủi ro đã biết
 
@@ -180,10 +190,17 @@ Backlog có thẩm quyền: `docs/PHASE_2_BACKLOG.md`.
 - Direct-main chưa có pre-merge protection; `pnpm verify` và CI hậu kiểm là kiểm soát
   bù tạm thời theo ADR-0012.
 - Chưa chọn managed Redis và observability provider cho quy mô lớn hơn.
-- Membership invitation preview/accept và class invite join hiện dùng bounded
-  in-process limiter theo `RemoteAddr`; sau Cloudflare/Render có thể gộp client vào
-  proxy bucket. Không tin forwarded header khi Render origin còn public; P2-09 phải
-  chốt trusted-proxy/origin authentication và distributed limiter trước khi tăng tải.
+- P2-09 thay limiter theo process bằng fixed-window PostgreSQL và chỉ tin client prefix
+  do Cloudflare Pages ký. Staging phải dùng cùng `EDGE_CONTEXT_SECRET` ở edge/Core API;
+  assertion không hợp lệ fallback về direct peer prefix và vẫn bị shared limiter.
+  Redis vẫn hoãn cho tới khi có số liệu tải.
+- Migration `000012` không hardcode runtime role theo môi trường. Trước deploy phải
+  cấp grants tối thiểu và thiết lập bounded cleanup cho `tenant_quota_windows` cùng
+  `rate_limit_windows` theo `docs/DATABASE.md`.
+- Class projection chưa lộ `archived_from_status`, nên web chỉ dùng feature gate khi
+  hiển thị restore; quota active-class vẫn được server enforce transactionally. Khi
+  quota đã hết, restore lớp từng active có thể nhận 409 sau submit; bổ sung projection
+  class-specific nếu UX này trở thành vấn đề thực tế.
 - Verify #59 đã xác nhận PostgreSQL runtime, migration/integration và Browser E2E
   trên CI. Acceptance UI staging P2-08 ngày 2026-07-20 đã xanh sau khi web/Core API
   được đồng bộ; các lần nghiệm thu sau vẫn phải đối chiếu commit/image, migration và
@@ -226,3 +243,4 @@ Backlog có thẩm quyền: `docs/PHASE_2_BACKLOG.md`.
 - `docs/adr/0012-single-maintainer-direct-main-governance.md`
 - `docs/adr/0013-shared-organization-class-authorization-policy.md`
 - `docs/adr/0014-append-only-tenant-audit-log.md`
+- `docs/adr/0015-server-evaluated-feature-controls-and-quotas.md`

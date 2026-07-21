@@ -11,7 +11,7 @@
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
 | Phase hiện tại        | Phase 2 - Identity, tenant và class core                                                     |
-| Trạng thái gần nhất   | P2-08 DONE; P2-09 Feature flag và quota framework là task tiếp theo                    |
+| Trạng thái gần nhất   | P2-08 DONE; P2-09 feature flag/quota đang VERIFY trước acceptance staging              |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 
@@ -1185,7 +1185,7 @@ beta. Xem `docs/PHASE_1_COMPLETION.md`.
 **Mục tiêu:** có nền multi-tenant và quản lý lớp đủ dùng cho pilot nội bộ.
 
 **Backlog thực thi:** `docs/PHASE_2_BACKLOG.md`. P2-00 đến P2-08 đã hoàn thành;
-P2-09 Feature flag và quota framework là task tiếp theo.
+P2-09 Feature flag và quota framework đang ở `VERIFY` trước acceptance staging.
 
 **Trạng thái 2026-07-19:** P2-07 bổ sung ADR-0014, migration `000011` và module audit
 append-only tách khỏi outbox nhưng ghi atomic cùng business mutation/outbox khi thay đổi
@@ -1218,7 +1218,18 @@ dùng một lần với ba identity ZITADEL đã xác minh riêng biệt. Sáu b
 join, role/suspend/remove, link revoke/archive và audit đúng actor/request/resource.
 Không dùng SQL/manual API và không lưu token, secret hoặc storage state vào
 repository/artifact. Deployment/contract drift của lượt kiểm tra trước đã được đồng
-bộ; P2-09 là task tiếp theo.
+bộ; P2-08 chuyển `DONE`.
+
+**Trạng thái P2-09 ngày 2026-07-20: VERIFY.** ADR-0015, migration `000012`, typed
+feature/quota catalog, global safety ceiling, tenant override versioned, transactional
+quota enforcement và capability projection đã được triển khai. Server chặn direct API;
+web chỉ dùng projection để hiển thị/degrade fail-closed. Override ghi audit, quota
+rejection có metric; anonymous invitation flows dùng signed Cloudflare edge context
+và shared PostgreSQL limiter. Web 139/139, API client 16/16, root format/lint/
+typecheck/build/test/security bundle cùng full Go non-integration suite và `go vet`
+đều xanh cục bộ. P2-09 chỉ chuyển `DONE` sau khi staging áp
+dụng migration/grants, đồng bộ cấu hình edge/Core API, chạy cleanup window và đạt các
+acceptance test trong backlog.
 
 **Work package:**
 
@@ -1715,10 +1726,11 @@ Một tính năng chỉ được đánh dấu hoàn thành khi:
 Thứ tự hiện tại, cập nhật ngày 2026-07-20:
 
 1. Phase 1 đã hoàn thành; biên bản nằm tại `docs/PHASE_1_COMPLETION.md`.
-2. P2-00 policy đến P2-08 UI end-to-end đã hoàn thành; P2-09 là task tiếp theo.
-3. Bắt đầu P2-09 bằng typed feature catalog, default an toàn và source precedence.
-4. Thiết kế feature override/quota server-authoritative, có audit và metric cho
-   quota rejection theo `docs/PHASE_2_BACKLOG.md`.
+2. P2-00 policy đến P2-08 UI end-to-end đã hoàn thành; P2-09 đang ở `VERIFY`.
+3. Hoàn tất P2-09 staging gate: migration `000012`, runtime grants, shared edge
+   secret, feature-control config và bounded cleanup cho window đã hết hạn.
+4. Chạy acceptance feature disabled, concurrent quota, tenant isolation, audit và
+   metric; sau khi P2-09 `DONE` mới bắt đầu P2-10.
 5. Trước mỗi acceptance staging vẫn đối chiếu commit/image, migration và
    configuration của web/Core API.
 6. Không bắt đầu QuizHub, Lavie, social feed, Secure Exam web hoặc classroom
@@ -1770,6 +1782,6 @@ Thứ tự hiện tại, cập nhật ngày 2026-07-20:
 ---
 
 **Điểm bắt đầu sau tài liệu này:** đọc `docs/PROJECT_STATE.md` và
-`docs/PHASE_2_BACKLOG.md`, sau đó bắt đầu P2-09 bằng typed feature catalog và quota
-server-authoritative.
+`docs/PHASE_2_BACKLOG.md`, hoàn tất staging gate P2-09 rồi bắt đầu P2-10 tenant
+isolation/IDOR security suite.
 Master Plan giữ mục tiêu/exit gate, không thay backlog chi tiết.

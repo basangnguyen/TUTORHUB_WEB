@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/tutorhub-v2/core-api/internal/modules/audit"
+	"github.com/tutorhub-v2/core-api/internal/modules/featurecontrol"
 	"github.com/tutorhub-v2/core-api/internal/platform/tenancy"
 	"github.com/tutorhub-v2/core-api/internal/policy"
 )
@@ -540,6 +541,25 @@ func (repository *PostgresRepository) CreateInviteCode(
 	}
 	defer rollbackClassTransaction(transaction)
 
+	if repository.controls != nil {
+		if err := repository.controls.RequireFeature(
+			queryContext,
+			transaction,
+			tenantContext.TenantID,
+			featurecontrol.FeatureClassInviteLinks,
+		); err != nil {
+			return ClassInviteCode{}, err
+		}
+		if _, err := repository.controls.ConsumeInviteCreation(
+			queryContext,
+			transaction,
+			tenantContext.TenantID,
+			createdAt,
+		); err != nil {
+			return ClassInviteCode{}, err
+		}
+	}
+
 	class, actorMembership, actorEnrollment, err := repository.lockEnrollmentManagerContext(
 		queryContext, transaction, tenantContext, classID,
 	)
@@ -754,6 +774,17 @@ func (repository *PostgresRepository) JoinByInviteCode(
 		return JoinClassInvitationResult{}, fmt.Errorf("begin class invite code join: %w", err)
 	}
 	defer rollbackClassTransaction(transaction)
+
+	if repository.controls != nil {
+		if err := repository.controls.RequireFeature(
+			queryContext,
+			transaction,
+			tenantContext.TenantID,
+			featurecontrol.FeatureClassInviteLinks,
+		); err != nil {
+			return JoinClassInvitationResult{}, err
+		}
+	}
 
 	classID, err := lookupInviteCodeScope(
 		queryContext, transaction, tenantContext.TenantID, codeHash,

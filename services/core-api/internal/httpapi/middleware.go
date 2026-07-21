@@ -27,6 +27,10 @@ type statusRecorder struct {
 	wroteHeader  bool
 }
 
+type RemoteAddressResolver interface {
+	ResolveRemoteAddress(*http.Request) string
+}
+
 func (recorder *statusRecorder) WriteHeader(status int) {
 	if recorder.wroteHeader {
 		return
@@ -59,8 +63,15 @@ func RequestIDFromContext(ctx context.Context) string {
 	return requestmeta.RequestID(ctx)
 }
 
-func requestIDMiddleware(next http.Handler) http.Handler {
+func requestIDMiddleware(next http.Handler, resolvers ...RemoteAddressResolver) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if len(resolvers) > 0 && resolvers[0] != nil {
+			resolved := resolvers[0].ResolveRemoteAddress(r)
+			if resolved != "" && resolved != r.RemoteAddr {
+				r = r.Clone(r.Context())
+				r.RemoteAddr = resolved
+			}
+		}
 		requestID := r.Header.Get(requestIDHeader)
 		if !validRequestID.MatchString(requestID) {
 			requestID = newRequestID()

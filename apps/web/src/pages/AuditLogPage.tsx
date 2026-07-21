@@ -55,6 +55,7 @@ const auditActions = [
   "tenant.update",
   "tenant.archive",
   "tenant.switch",
+  "tenant.feature_control.update",
   "membership.invitation.create",
   "membership.invitation.revoke",
   "membership.invitation.accept",
@@ -82,6 +83,7 @@ const actionKeys: Record<AuditAction, TranslationKey> = {
   "tenant.update": "audit.action.tenantUpdate",
   "tenant.archive": "audit.action.tenantArchive",
   "tenant.switch": "audit.action.tenantSwitch",
+  "tenant.feature_control.update": "audit.action.tenantFeatureControlUpdate",
   "membership.invitation.create": "audit.action.membershipInvitationCreate",
   "membership.invitation.revoke": "audit.action.membershipInvitationRevoke",
   "membership.invitation.accept": "audit.action.membershipInvitationAccept",
@@ -111,6 +113,7 @@ const resourceTypeKeys: Readonly<Record<string, TranslationKey>> = {
   class_enrollment: "audit.resource.classEnrollment",
   class_invite_code: "audit.resource.classInviteCode",
   class_member: "audit.resource.classMember",
+  tenant_feature_control: "audit.resource.tenantFeatureControl",
 };
 
 const uuidPattern =

@@ -23,8 +23,10 @@ import {
   useRestoreClass,
   useUpdateClass,
 } from "../app/classes";
-import { useI18n } from "../app/i18n";
+import { useI18n, type TranslationKey } from "../app/i18n";
 import { useSession } from "../app/session";
+import type { TenantOperationAvailability } from "../app/tenantCapabilities";
+import { TenantOperationNotice } from "./TenantOperationNotice";
 
 const classCodePattern = /^[A-Z0-9][A-Z0-9_-]{2,31}$/;
 type EditableClassStatus = Extract<ClassStatus, "draft" | "active">;
@@ -93,7 +95,11 @@ function isValidTimeZone(timezone: string) {
 }
 
 function isConflict(error: Error | null) {
-  return error instanceof APIRequestError && error.status === 409;
+  return (
+    error instanceof APIRequestError &&
+    error.status === 409 &&
+    error.problem?.code !== "quota_exceeded"
+  );
 }
 
 function isDuplicateCode(error: Error | null) {
@@ -108,12 +114,36 @@ function isForbidden(error: Error | null) {
   return error instanceof APIRequestError && error.status === 403;
 }
 
+function expansionControlErrorKey(error: Error | null): TranslationKey | null {
+  if (
+    error instanceof APIRequestError &&
+    error.problem?.code === "feature_disabled"
+  ) {
+    return "capabilities.reasonFeatureDisabled";
+  }
+  if (
+    error instanceof APIRequestError &&
+    error.problem?.code === "quota_exceeded"
+  ) {
+    return error.status === 429
+      ? "capabilities.reasonRateLimited"
+      : "capabilities.reasonQuotaExhausted";
+  }
+  return null;
+}
+
 export function ClassManagementPanel({
+  activateAvailability,
   classroom,
   onReload,
+  onRetryCapabilities,
+  restoreAvailability,
 }: {
+  activateAvailability: TenantOperationAvailability;
   classroom: ClassroomClass;
   onReload: () => Promise<ClassroomClass | undefined>;
+  onRetryCapabilities: () => void;
+  restoreAvailability: TenantOperationAvailability;
 }) {
   const canEdit =
     classroom.status !== "archived" && classroom.viewer_access.can_update_class;
@@ -125,20 +155,36 @@ export function ClassManagementPanel({
 
   return (
     <div className="class-management">
-      {canEdit && <ClassEditPanel classroom={classroom} onReload={onReload} />}
+      {canEdit && (
+        <ClassEditPanel
+          activateAvailability={activateAvailability}
+          classroom={classroom}
+          onReload={onReload}
+          onRetryCapabilities={onRetryCapabilities}
+        />
+      )}
       {canManageLifecycle && (
-        <ClassLifecyclePanel classroom={classroom} onReload={onReload} />
+        <ClassLifecyclePanel
+          classroom={classroom}
+          onReload={onReload}
+          onRetryCapabilities={onRetryCapabilities}
+          restoreAvailability={restoreAvailability}
+        />
       )}
     </div>
   );
 }
 
 function ClassEditPanel({
+  activateAvailability,
   classroom,
   onReload,
+  onRetryCapabilities,
 }: {
+  activateAvailability: TenantOperationAvailability;
   classroom: ClassroomClass;
   onReload: () => Promise<ClassroomClass | undefined>;
+  onRetryCapabilities: () => void;
 }) {
   const { t } = useI18n();
   const activeTenantID = useSession().currentUser?.active_tenant?.id;
@@ -153,6 +199,8 @@ function ClassEditPanel({
       ? draftOverride
       : classDraft(classroom);
   const changed = classDraftChanged(draft);
+  const activatesClass =
+    draft.base.status === "draft" && draft.status === "active";
 
   const updateDraft = (change: Partial<Omit<ClassDraft, "base">>) => {
     setDraftOverride((current) => {
@@ -192,7 +240,11 @@ function ClassEditPanel({
 
     setErrors(nextErrors);
     setFeedback(null);
-    if (Object.keys(nextErrors).length > 0 || !changed) {
+    if (
+      Object.keys(nextErrors).length > 0 ||
+      !changed ||
+      (activatesClass && !activateAvailability.available)
+    ) {
       return;
     }
 
@@ -271,19 +323,30 @@ function ClassEditPanel({
           value={draft.timezone}
         />
         {classroom.status === "draft" && (
-          <SelectField
-            ariaLabel={t("classroom.statusLabel")}
-            hint={t("classroom.statusHelp")}
-            label={t("classroom.statusLabel")}
-            onValueChange={(value) =>
-              updateDraft({ status: value as EditableClassStatus })
-            }
-            options={[
-              { label: t("classroom.statusDraft"), value: "draft" },
-              { label: t("classroom.statusActive"), value: "active" },
-            ]}
-            value={draft.status}
-          />
+          <>
+            <SelectField
+              ariaLabel={t("classroom.statusLabel")}
+              hint={t("classroom.statusHelp")}
+              label={t("classroom.statusLabel")}
+              onValueChange={(value) =>
+                updateDraft({ status: value as EditableClassStatus })
+              }
+              options={[
+                { label: t("classroom.statusDraft"), value: "draft" },
+                {
+                  disabled: !activateAvailability.available,
+                  label: t("classroom.statusActive"),
+                  value: "active",
+                },
+              ]}
+              value={draft.status}
+            />
+            <TenantOperationNotice
+              availability={activateAvailability}
+              label={t("capabilities.operationActivateClass")}
+              onRetry={onRetryCapabilities}
+            />
+          </>
         )}
         <TextAreaField
           className="class-management__description"
@@ -299,13 +362,15 @@ function ClassEditPanel({
         {updateClass.isError && (
           <div className="class-management__feedback" role="alert">
             <span>
-              {isDuplicateCode(updateClass.error)
-                ? t("classroom.duplicateCodeError")
-                : isConflict(updateClass.error)
-                  ? t("classroom.updateConflict")
-                  : isForbidden(updateClass.error)
-                    ? t("classroom.updateForbidden")
-                    : t("classroom.updateError")}
+              {expansionControlErrorKey(updateClass.error)
+                ? t(expansionControlErrorKey(updateClass.error)!)
+                : isDuplicateCode(updateClass.error)
+                  ? t("classroom.duplicateCodeError")
+                  : isConflict(updateClass.error)
+                    ? t("classroom.updateConflict")
+                    : isForbidden(updateClass.error)
+                      ? t("classroom.updateForbidden")
+                      : t("classroom.updateError")}
             </span>
             {isConflict(updateClass.error) &&
               !isDuplicateCode(updateClass.error) && (
@@ -328,7 +393,9 @@ function ClassEditPanel({
 
         <div className="class-management__form-actions">
           <Button
-            disabled={!changed}
+            disabled={
+              !changed || (activatesClass && !activateAvailability.available)
+            }
             leadingIcon={<Save />}
             loading={updateClass.isPending}
             loadingLabel={t("classroom.updating")}
@@ -345,9 +412,13 @@ function ClassEditPanel({
 function ClassLifecyclePanel({
   classroom,
   onReload,
+  onRetryCapabilities,
+  restoreAvailability,
 }: {
   classroom: ClassroomClass;
   onReload: () => Promise<ClassroomClass | undefined>;
+  onRetryCapabilities: () => void;
+  restoreAvailability: TenantOperationAvailability;
 }) {
   const { t } = useI18n();
   const activeTenantID = useSession().currentUser?.active_tenant?.id;
@@ -365,6 +436,9 @@ function ClassLifecyclePanel({
   };
 
   const mutate = () => {
+    if (isRestore && !restoreAvailability.available) {
+      return;
+    }
     const variables = {
       classID: classroom.id,
       input: { expected_version: classroom.version },
@@ -399,6 +473,14 @@ function ClassLifecyclePanel({
         </p>
       </div>
 
+      {isRestore && (
+        <TenantOperationNotice
+          availability={restoreAvailability}
+          label={t("capabilities.operationRestoreClass")}
+          onRetry={onRetryCapabilities}
+        />
+      )}
+
       <Dialog
         onOpenChange={(nextOpen) => {
           if (!mutation.isPending) {
@@ -413,6 +495,7 @@ function ClassLifecyclePanel({
       >
         <DialogTrigger asChild>
           <Button
+            disabled={isRestore && !restoreAvailability.available}
             leadingIcon={isRestore ? <RotateCcw /> : <Archive />}
             variant={isRestore ? "secondary" : "danger"}
           >
@@ -451,13 +534,15 @@ function ClassLifecyclePanel({
           {mutation.isError && (
             <div className="class-management__feedback" role="alert">
               <span>
-                {isConflict(mutation.error)
-                  ? t("classroom.lifecycleConflict")
-                  : isForbidden(mutation.error)
-                    ? t("classroom.lifecycleForbidden")
-                    : isRestore
-                      ? t("classroom.restoreError")
-                      : t("classroom.archiveError")}
+                {expansionControlErrorKey(mutation.error)
+                  ? t(expansionControlErrorKey(mutation.error)!)
+                  : isConflict(mutation.error)
+                    ? t("classroom.lifecycleConflict")
+                    : isForbidden(mutation.error)
+                      ? t("classroom.lifecycleForbidden")
+                      : isRestore
+                        ? t("classroom.restoreError")
+                        : t("classroom.archiveError")}
               </span>
               {isConflict(mutation.error) && (
                 <Button
@@ -478,6 +563,7 @@ function ClassLifecyclePanel({
               </Button>
             </DialogClose>
             <Button
+              disabled={isRestore && !restoreAvailability.available}
               loading={mutation.isPending}
               loadingLabel={
                 isRestore ? t("classroom.restoring") : t("classroom.archiving")

@@ -22,7 +22,8 @@ invitation, accept và revoke; P2-04 Class lifecycle, ownership và archive; P2-
 Enrollment và class invite code; P2-06 Roster và class-level roles; P2-07 Audit log
 cho hành động nhạy cảm; P2-08 Admin và teacher UI end-to-end.
 
-**Task tiếp theo:** P2-09 Feature flag và quota framework.
+**Task hiện tại:** P2-09 Feature flag và quota framework ở `VERIFY`; P2-10 bắt đầu
+sau khi hoàn tất staging gate của P2-09.
 
 ## 2. Non-goal
 
@@ -59,7 +60,7 @@ cho hành động nhạy cảm; P2-08 Admin và teacher UI end-to-end.
 | P2-06 | Roster và class-level roles             | P2-05                      | DONE       |
 | P2-07 | Audit log cho hành động nhạy cảm        | P2-02 đến P2-06            | DONE       |
 | P2-08 | Admin/teacher UI end-to-end             | P2-02 đến P2-07            | DONE       |
-| P2-09 | Feature flag và quota framework         | P2-00, P2-02               | TODO       |
+| P2-09 | Feature flag và quota framework         | P2-00, P2-02               | VERIFY     |
 | P2-10 | Tenant isolation/IDOR security suite    | Xuyên suốt; chốt sau P2-09 | TODO       |
 | P2-11 | V1 fixture import idempotent            | Schema ổn định sau P2-06   | TODO       |
 | P2-12 | Staging acceptance và đóng phase        | P2-01 đến P2-11            | TODO       |
@@ -456,7 +457,7 @@ lớp và tạo join link; student join và thấy lớp; teacher đổi role, s
 thu hồi link và archive lớp. Admin xác minh audit đúng actor, request ID và resource
 cho chuỗi thao tác. Không dùng SQL/manual API và không lưu storage state, token hay
 secret vào repository/artifact. Deployment/contract drift của lượt kiểm tra trước
-đã được đồng bộ; P2-08 chuyển `DONE`, P2-09 là task tiếp theo.
+đã được đồng bộ; P2-08 chuyển `DONE` và mở P2-09.
 
 ## 14. P2-09 Feature flag và quota framework
 
@@ -464,18 +465,31 @@ secret vào repository/artifact. Deployment/contract drift của lượt kiểm 
 
 ### Công việc
 
-- [ ] Định nghĩa feature catalog typed, default an toàn và source precedence.
-- [ ] Tenant feature override chỉ do org/platform admin có quyền.
-- [ ] Quota tối thiểu: members, active classes, invite creation rate.
-- [ ] Server là nguồn quyết định; UI chỉ dùng capability response để hiển thị.
-- [ ] Audit thay đổi flag/quota; metric cho quota rejection.
-- [ ] Không xây billing trong Phase 2.
+- [x] Định nghĩa feature catalog typed, default an toàn và source precedence.
+- [x] Tenant feature override chỉ do org/platform admin có quyền.
+- [x] Quota tối thiểu: members, active classes, invite creation rate.
+- [x] Server là nguồn quyết định; UI chỉ dùng capability response để hiển thị.
+- [x] Audit thay đổi flag/quota; metric cho quota rejection.
+- [x] Không xây billing trong Phase 2.
 
 ### Kiểm thử và DoD
 
 - Disabled feature bị chặn server-side dù gọi API trực tiếp.
 - Quota concurrent mutation không vượt giới hạn.
 - Capability response không lộ cấu hình tenant khác.
+
+**Implementation checkpoint 2026-07-20:** ADR-0015 và migration `000012` bổ sung
+typed catalog, global safety ceiling, tenant override có optimistic version, quota
+transactional cho member/active class/invitation, capability projection và admin UI
+fail-closed. Mutation trực tiếp được enforce server-side; thay đổi override ghi audit,
+quota rejection có metric. Anonymous invitation flows dùng signed edge context và
+shared PostgreSQL fixed-window limiter thay cho limiter theo process. Web 139/139,
+API client 16/16, root format/lint/typecheck/build/test/security bundle cùng full Go
+non-integration suite và `go vet` đều xanh cục bộ.
+
+P2-09 giữ trạng thái `VERIFY` cho tới khi staging áp dụng migration `000012`, cấp
+runtime grants theo `docs/DATABASE.md`, cấu hình cùng `EDGE_CONTEXT_SECRET` ở
+Cloudflare/Render, chạy cleanup window theo runbook và hoàn tất acceptance nêu trên.
 
 ## 15. P2-10 Tenant isolation và IDOR security suite
 
@@ -556,10 +570,11 @@ secret vào repository/artifact. Deployment/contract drift của lượt kiểm 
 
 ## 19. Việc cần làm ngay
 
-1. Bắt đầu P2-09 bằng typed feature catalog, default an toàn và source precedence.
-2. Thiết kế tenant override và quota members/active classes/invite rate theo hướng
-   server-authoritative; UI chỉ hiển thị capability response.
-3. Ghi audit thay đổi flag/quota và metric cho quota rejection.
+1. Hoàn tất P2-09 staging gate: migration `000012`, runtime grants, shared edge secret,
+   feature-control config và bounded cleanup cho các window đã hết hạn.
+2. Chạy acceptance staging cho feature disabled, concurrent quota, tenant isolation,
+   audit override và quota rejection metric; chỉ sau đó chuyển P2-09 sang `DONE`.
+3. Bắt đầu P2-10 tenant isolation/IDOR security suite sau khi P2-09 đạt DoD.
 4. Trước mỗi acceptance staging, đối chiếu commit/image, migration và configuration.
 5. Giữ audit append-only, tenant-scoped và không log token, session ID hoặc PII thừa.
 6. Giữ notification invitation ở interface/outbox; chưa gửi email thật trong Phase 2.

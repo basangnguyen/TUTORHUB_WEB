@@ -15,9 +15,11 @@ import (
 	"github.com/tutorhub-v2/core-api/internal/httpapi"
 	"github.com/tutorhub-v2/core-api/internal/modules/audit"
 	"github.com/tutorhub-v2/core-api/internal/modules/classroom"
+	"github.com/tutorhub-v2/core-api/internal/modules/featurecontrol"
 	"github.com/tutorhub-v2/core-api/internal/modules/identity"
 	"github.com/tutorhub-v2/core-api/internal/modules/media"
 	"github.com/tutorhub-v2/core-api/internal/platform/database"
+	"github.com/tutorhub-v2/core-api/internal/platform/edgecontext"
 	"github.com/tutorhub-v2/core-api/internal/platform/httpserver"
 	"github.com/tutorhub-v2/core-api/internal/platform/objectstorage"
 	"github.com/tutorhub-v2/core-api/internal/platform/observability"
@@ -47,8 +49,21 @@ func run() int {
 	)
 
 	metrics := observability.NewMetrics()
+	var remoteAddressResolver httpapi.RemoteAddressResolver
+	if cfg.EdgeContext.Enabled {
+		remoteAddressResolver, err = edgecontext.New(
+			cfg.EdgeContext.Key,
+			edgecontext.Config{MaxSkew: cfg.EdgeContext.MaxSkew},
+		)
+		if err != nil {
+			logger.Error("initialize trusted edge context", "error", err)
+			return 1
+		}
+		logger.Info("trusted edge context initialized", "max_skew", cfg.EdgeContext.MaxSkew)
+	}
 	readiness := make([]httpapi.ReadinessCheck, 0, 2)
 	var pool *pgxpool.Pool
+	var invitationRateLimiter httpapi.InvitationRateLimiter
 	if cfg.Database.PoolURL == "" {
 		logger.Warn("database is not configured; readiness will fail")
 		readiness = append(readiness, database.UnconfiguredReadinessCheck{})
@@ -63,6 +78,14 @@ func run() int {
 			readiness,
 			database.NewReadinessCheck(pool, cfg.Database.QueryTimeout),
 		)
+		invitationRateLimiter, err = httpapi.NewPostgresInvitationRateLimiter(
+			pool,
+			cfg.Database.QueryTimeout,
+		)
+		if err != nil {
+			logger.Error("initialize shared invitation rate limiter", "error", err)
+			return 1
+		}
 	}
 
 	if cfg.ObjectStorage.Enabled {
@@ -84,6 +107,38 @@ func run() int {
 	}
 
 	authorizer := policy.NewEngine()
+	var featureControlService featurecontrol.ServiceAPI
+	var featureControlEnforcer featurecontrol.Enforcer
+	if pool != nil {
+		catalog, err := featurecontrol.NewCatalog(featureControlGuardrails(cfg.FeatureControls))
+		if err != nil {
+			logger.Error("initialize feature control catalog", "error", err)
+			return 1
+		}
+		featureControlRepository, err := featurecontrol.NewPostgresRepository(
+			pool,
+			cfg.Database.QueryTimeout,
+			authorizer,
+			catalog,
+		)
+		if err != nil {
+			logger.Error("initialize feature control repository", "error", err)
+			return 1
+		}
+		featureControlService, err = featurecontrol.NewService(
+			featureControlRepository,
+			catalog,
+			time.Now,
+		)
+		if err != nil {
+			logger.Error("initialize feature control service", "error", err)
+			return 1
+		}
+		featureControlEnforcer = observability.ObserveFeatureControlEnforcer(
+			featureControlRepository,
+			metrics,
+		)
+	}
 	var auditService audit.ServiceAPI
 	if pool != nil {
 		auditService, err = audit.NewService(
@@ -105,6 +160,7 @@ func run() int {
 			pool,
 			cfg.Database.QueryTimeout,
 			authorizer,
+			featureControlEnforcer,
 		)
 		classroomAuthorizer, err = classroom.NewService(
 			classroomRepository,
@@ -145,7 +201,12 @@ func run() int {
 			return 1
 		}
 		identityService, err = identity.NewService(
-			identity.NewPostgresRepository(pool, cfg.Database.QueryTimeout, authorizer),
+			identity.NewPostgresRepository(
+				pool,
+				cfg.Database.QueryTimeout,
+				authorizer,
+				featureControlEnforcer,
+			),
 			provider,
 			crypto,
 			authorizer,
@@ -223,15 +284,18 @@ func run() int {
 	}
 
 	handler := httpapi.NewHandlerWithOptions(cfg, logger, httpapi.Options{
-		Metrics:        metrics,
-		Tracer:         observability.NoopTracer{},
-		Readiness:      readiness,
-		Identity:       identityService,
-		Classroom:      classroomService,
-		Enrollment:     enrollmentService,
-		Audit:          auditService,
-		Media:          mediaService,
-		LiveKitWebhook: liveKitWebhook,
+		Metrics:               metrics,
+		Tracer:                observability.NoopTracer{},
+		Readiness:             readiness,
+		Identity:              identityService,
+		Classroom:             classroomService,
+		Enrollment:            enrollmentService,
+		Audit:                 auditService,
+		FeatureControls:       featureControlService,
+		InvitationRateLimiter: invitationRateLimiter,
+		Media:                 mediaService,
+		LiveKitWebhook:        liveKitWebhook,
+		RemoteAddressResolver: remoteAddressResolver,
 	})
 	server := httpserver.New(cfg, handler)
 
@@ -254,4 +318,26 @@ func run() int {
 	}
 
 	return 0
+}
+
+func featureControlGuardrails(configuration config.FeatureControlConfig) featurecontrol.Guardrails {
+	forcedOff := make(map[featurecontrol.FeatureKey]bool, 3)
+	if configuration.DisableMembershipInvitations {
+		forcedOff[featurecontrol.FeatureMembershipInvitations] = true
+	}
+	if configuration.DisableClassManagement {
+		forcedOff[featurecontrol.FeatureClassManagement] = true
+	}
+	if configuration.DisableClassInviteLinks {
+		forcedOff[featurecontrol.FeatureClassInviteLinks] = true
+	}
+
+	return featurecontrol.Guardrails{
+		ForcedOffFeatures: forcedOff,
+		QuotaCeilings: map[featurecontrol.QuotaKey]int64{
+			featurecontrol.QuotaMembers:                int64(configuration.MaxMembers),
+			featurecontrol.QuotaActiveClasses:          int64(configuration.MaxActiveClasses),
+			featurecontrol.QuotaInviteCreationsPerHour: int64(configuration.MaxInviteCreationsPerHour),
+		},
+	}
 }

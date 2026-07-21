@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/tutorhub-v2/core-api/internal/modules/audit"
+	"github.com/tutorhub-v2/core-api/internal/modules/featurecontrol"
 	"github.com/tutorhub-v2/core-api/internal/platform/tenancy"
 	"github.com/tutorhub-v2/core-api/internal/policy"
 )
@@ -26,16 +27,22 @@ type PostgresRepository struct {
 	database     DBTX
 	queryTimeout time.Duration
 	authorizer   policy.Authorizer
+	controls     featurecontrol.Enforcer
 }
 
 func NewPostgresRepository(
 	database DBTX,
 	queryTimeout time.Duration,
 	authorizer policy.Authorizer,
+	controls ...featurecontrol.Enforcer,
 ) *PostgresRepository {
-	return &PostgresRepository{
+	repository := &PostgresRepository{
 		database: database, queryTimeout: queryTimeout, authorizer: authorizer,
 	}
+	if len(controls) > 0 {
+		repository.controls = controls[0]
+	}
+	return repository
 }
 
 func (repository *PostgresRepository) Create(
@@ -62,6 +69,17 @@ func (repository *PostgresRepository) Create(
 		return Class{}, fmt.Errorf("begin class creation: %w", err)
 	}
 	defer rollbackClassTransaction(transaction)
+
+	if repository.controls != nil {
+		if err := repository.controls.RequireFeature(
+			queryContext,
+			transaction,
+			tenantContext.TenantID,
+			featurecontrol.FeatureClassManagement,
+		); err != nil {
+			return Class{}, err
+		}
+	}
 
 	tenantTimezone, err := lockActiveClassTenant(
 		queryContext,
@@ -364,6 +382,33 @@ func (repository *PostgresRepository) Update(
 	}
 	defer rollbackClassTransaction(transaction)
 
+	activating := false
+	if repository.controls != nil && params.Status != nil &&
+		*params.Status == ClassStatusActive {
+		if err := transaction.QueryRow(
+			queryContext,
+			`SELECT EXISTS (
+    SELECT 1
+    FROM tutorhub.classes
+    WHERE tenant_id = $1 AND id = $2 AND status = 'draft'
+)`,
+			tenantContext.TenantID,
+			classID,
+		).Scan(&activating); err != nil {
+			return Class{}, fmt.Errorf("preflight class activation: %w", err)
+		}
+		if activating {
+			if err := repository.controls.RequireFeature(
+				queryContext,
+				transaction,
+				tenantContext.TenantID,
+				featurecontrol.FeatureClassManagement,
+			); err != nil {
+				return Class{}, err
+			}
+		}
+	}
+
 	locked, membership, err := repository.lockClassMutation(
 		queryContext,
 		transaction,
@@ -386,6 +431,15 @@ func (repository *PostgresRepository) Update(
 	}
 	if params.Status != nil {
 		if err := validateDirectStatusTransition(locked.Class.Status, *params.Status); err != nil {
+			return Class{}, err
+		}
+	}
+	if activating && locked.Class.Status == ClassStatusDraft {
+		if err := repository.controls.RequireActiveClassCapacity(
+			queryContext,
+			transaction,
+			tenantContext.TenantID,
+		); err != nil {
 			return Class{}, err
 		}
 	}
@@ -493,6 +547,17 @@ func (repository *PostgresRepository) changeArchiveState(
 	}
 	defer rollbackClassTransaction(transaction)
 
+	if !archive && repository.controls != nil {
+		if err := repository.controls.RequireFeature(
+			queryContext,
+			transaction,
+			tenantContext.TenantID,
+			featurecontrol.FeatureClassManagement,
+		); err != nil {
+			return Class{}, err
+		}
+	}
+
 	locked, membership, err := repository.lockClassMutation(
 		queryContext,
 		transaction,
@@ -550,6 +615,15 @@ RETURNING id, tenant_id, owner_user_id, code, title, description, timezone,
 		}
 		fromStatus = ClassStatusArchived
 		toStatus = *locked.ArchivedFromStatus
+		if toStatus == ClassStatusActive && repository.controls != nil {
+			if err := repository.controls.RequireActiveClassCapacity(
+				queryContext,
+				transaction,
+				tenantContext.TenantID,
+			); err != nil {
+				return Class{}, err
+			}
+		}
 		eventType = "class.restored"
 		class, err = scanClass(transaction.QueryRow(
 			queryContext,

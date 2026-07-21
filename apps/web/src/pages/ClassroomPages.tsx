@@ -25,12 +25,17 @@ import {
 import { useLeaveClass } from "../app/classEnrollments";
 import { useI18n, type TranslationKey } from "../app/i18n";
 import { useSession } from "../app/session";
+import {
+  tenantOperationAvailability,
+  useTenantCapabilities,
+} from "../app/tenantCapabilities";
 import { shouldConcealTenantScopedData } from "../app/tenantDataAccess";
 import { useTenantDetail } from "../app/workspaces";
 import { ClassEnrollmentPanel } from "../components/ClassEnrollmentPanel";
 import { ClassJoinDialog } from "../components/ClassJoinDialog";
 import { ClassManagementPanel } from "../components/ClassManagementPanel";
 import { ClassRosterPanel } from "../components/ClassRosterPanel";
+import { TenantOperationNotice } from "../components/TenantOperationNotice";
 
 const classCodePattern = /^[A-Z0-9][A-Z0-9_-]{2,31}$/;
 
@@ -55,6 +60,15 @@ export function ClassroomListPage() {
     session.currentUser?.permissions.includes("class.create") ?? false;
   const [statusFilter, setStatusFilter] = useState<ClassStatusFilter>("all");
   const classesQuery = useClassList(activeTenant?.id, statusFilter);
+  const capabilitiesQuery = useTenantCapabilities(activeTenant?.id);
+  const createAvailability = tenantOperationAvailability(
+    capabilitiesQuery,
+    "create_class",
+  );
+  const joinAvailability = tenantOperationAvailability(
+    capabilitiesQuery,
+    "join_class_invite_link",
+  );
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [joinedClass, setJoinedClass] = useState<{
     classroom: ClassroomClass;
@@ -85,6 +99,7 @@ export function ClassroomListPage() {
           <div className="classroom-heading__actions">
             {activeTenant && (
               <ClassJoinDialog
+                availability={joinAvailability}
                 onJoined={(classroom, tenantID) => {
                   setStatusFilter("all");
                   setJoinedClass({ classroom, tenantID });
@@ -97,6 +112,7 @@ export function ClassroomListPage() {
                 aria-expanded={isCreateOpen}
                 aria-haspopup="dialog"
                 className="classroom-primary-action"
+                disabled={!createAvailability.available}
                 leadingIcon={<Plus />}
                 onClick={() => setIsCreateOpen(true)}
               >
@@ -107,8 +123,29 @@ export function ClassroomListPage() {
         )}
       </header>
 
+      {!classesConcealed && activeTenant && (
+        <div className="tenant-operation-notices">
+          <TenantOperationNotice
+            availability={joinAvailability}
+            label={t("capabilities.operationJoinClass")}
+            onRetry={() => void capabilitiesQuery.refetch()}
+          />
+          {canCreate && (
+            <TenantOperationNotice
+              availability={createAvailability}
+              label={t("capabilities.operationCreateClass")}
+              onRetry={() => void capabilitiesQuery.refetch()}
+            />
+          )}
+        </div>
+      )}
+
       {!classesConcealed && canCreate && (
-        <CreateClassDialog onOpenChange={setIsCreateOpen} open={isCreateOpen} />
+        <CreateClassDialog
+          available={createAvailability.available}
+          onOpenChange={setIsCreateOpen}
+          open={isCreateOpen}
+        />
       )}
 
       {!classesConcealed &&
@@ -170,7 +207,7 @@ export function ClassroomListPage() {
           )}
         {!classesConcealed && classesQuery.data && classrooms.length === 0 && (
           <ClassroomEmptyState
-            canCreate={canCreate}
+            canCreate={canCreate && createAvailability.available}
             filtered={statusFilter !== "all"}
             onCreate={() => setIsCreateOpen(true)}
           />
@@ -216,6 +253,7 @@ export function ClassroomDetailPage() {
   const session = useSession();
   const activeTenant = session.currentUser?.active_tenant;
   const classQuery = useClassDetail(activeTenant?.id, classId);
+  const capabilitiesQuery = useTenantCapabilities(activeTenant?.id);
 
   if (classQuery.isPending) {
     return (
@@ -313,11 +351,27 @@ export function ClassroomDetailPage() {
       </section>
 
       <ClassManagementPanel
+        activateAvailability={tenantOperationAvailability(
+          capabilitiesQuery,
+          "activate_class",
+        )}
         classroom={classroom}
         onReload={async () => (await classQuery.refetch()).data}
+        onRetryCapabilities={() => void capabilitiesQuery.refetch()}
+        restoreAvailability={tenantOperationAvailability(
+          capabilitiesQuery,
+          "create_class",
+        )}
       />
       <ClassRosterPanel classroom={classroom} />
-      <ClassEnrollmentPanel classroom={classroom} />
+      <ClassEnrollmentPanel
+        classroom={classroom}
+        createInviteAvailability={tenantOperationAvailability(
+          capabilitiesQuery,
+          "create_class_invite_link",
+        )}
+        onRetryCapabilities={() => void capabilitiesQuery.refetch()}
+      />
       {classroom.viewer_access.can_leave && (
         <LeaveClassAction classroom={classroom} />
       )}
@@ -404,9 +458,11 @@ function LeaveClassAction({ classroom }: { classroom: ClassroomClass }) {
 }
 
 function CreateClassDialog({
+  available,
   onOpenChange,
   open,
 }: {
+  available: boolean;
   onOpenChange: (open: boolean) => void;
   open: boolean;
 }) {
@@ -433,6 +489,9 @@ function CreateClassDialog({
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (!available) {
+      return;
+    }
     const normalizedCode = code.trim().toUpperCase();
     const normalizedTitle = title.trim();
 
@@ -542,6 +601,7 @@ function CreateClassDialog({
               <Button variant="secondary">{t("classroom.cancelAction")}</Button>
             </DialogClose>
             <Button
+              disabled={!available}
               loading={createClass.isPending}
               loadingLabel={t("classroom.creating")}
               type="submit"
@@ -715,6 +775,12 @@ function getCreateErrorMessage(
   error: Error | null,
   t: (key: TranslationKey) => string,
 ) {
+  if (
+    error instanceof APIRequestError &&
+    error.problem?.code === "feature_disabled"
+  ) {
+    return t("capabilities.reasonFeatureDisabled");
+  }
   if (error instanceof APIRequestError && error.status === 409) {
     return t("classroom.duplicateCodeError");
   }

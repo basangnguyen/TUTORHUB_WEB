@@ -211,6 +211,61 @@ const messages = {
     "workspace.auditLink": "Xem nhật ký kiểm toán",
     "workspace.auditLinkDescription":
       "Theo dõi các thao tác quản trị nhạy cảm trong workspace này.",
+    "capabilities.title": "Tính năng và hạn mức",
+    "capabilities.description":
+      "Giá trị hiệu lực do Core API quyết định cho workspace hiện tại; giao diện không tự suy đoán quyền hoặc hạn mức.",
+    "capabilities.loading": "Đang tải tính năng và hạn mức",
+    "capabilities.refreshing": "Đang đồng bộ giá trị mới nhất từ máy chủ...",
+    "capabilities.errorTitle": "Chưa thể tải tính năng và hạn mức",
+    "capabilities.errorDescription":
+      "Các thao tác mở rộng được khóa an toàn cho đến khi tải lại cấu hình từ máy chủ.",
+    "capabilities.forbiddenTitle": "Không thể xem cấu hình workspace",
+    "capabilities.forbiddenDescription":
+      "Membership hiện tại không còn quyền đọc capability của workspace này.",
+    "capabilities.enabled": "Đang bật",
+    "capabilities.disabled": "Đang tắt",
+    "capabilities.featureMembershipInvitations": "Lời mời thành viên",
+    "capabilities.featureClassManagement": "Quản lý lớp học",
+    "capabilities.featureClassInviteLinks": "Liên kết mời vào lớp",
+    "capabilities.quotaMembers": "Thành viên workspace",
+    "capabilities.quotaActiveClasses": "Lớp đang hoạt động",
+    "capabilities.quotaInviteCreations": "Lượt tạo lời mời mỗi giờ",
+    "capabilities.quotaUsage": "{used}/{limit} đã dùng",
+    "capabilities.quotaRemaining": "Còn lại {remaining}",
+    "capabilities.quotaReset": "Đặt lại lúc {date}",
+    "capabilities.readonlyDescription":
+      "Chỉ quản trị viên tổ chức được phép thay đổi các giá trị này.",
+    "capabilities.featuresLegend": "Điều khiển tính năng",
+    "capabilities.quotasLegend": "Giới hạn workspace",
+    "capabilities.quotaValidation": "Hạn mức phải là số nguyên từ 1 trở lên.",
+    "capabilities.updateAction": "Lưu tính năng và hạn mức",
+    "capabilities.updating": "Đang lưu...",
+    "capabilities.updateSuccess": "Đã cập nhật tính năng và hạn mức.",
+    "capabilities.updateError":
+      "Chưa thể cập nhật cấu hình. Hãy kiểm tra kết nối rồi thử lại.",
+    "capabilities.updateInvalid":
+      "Một giá trị nằm ngoài giới hạn an toàn mà máy chủ cho phép.",
+    "capabilities.updateForbidden":
+      "Phiên hiện tại không còn quyền quản lý tính năng của workspace.",
+    "capabilities.updateConflict":
+      "Cấu hình đã thay đổi ở nơi khác. Tải phiên bản mới nhất trước khi lưu lại.",
+    "capabilities.reloadLatest": "Tải cấu hình mới nhất",
+    "capabilities.reasonLoading":
+      "Đang kiểm tra capability; thao tác tạm thời bị khóa.",
+    "capabilities.reasonUnavailable":
+      "Chưa thể xác minh capability từ máy chủ; thao tác bị khóa an toàn.",
+    "capabilities.reasonFeatureDisabled":
+      "Tính năng này đang bị tắt cho workspace hiện tại.",
+    "capabilities.reasonQuotaExhausted":
+      "Workspace đã dùng hết hạn mức cho thao tác này.",
+    "capabilities.reasonRateLimited":
+      "Đã đạt giới hạn tạo lời mời trong cửa sổ hiện tại. Hãy thử lại sau.",
+    "capabilities.operationCreateClass": "Tạo lớp",
+    "capabilities.operationActivateClass": "Kích hoạt lớp",
+    "capabilities.operationRestoreClass": "Khôi phục lớp hoạt động",
+    "capabilities.operationCreateClassInvite": "Tạo liên kết mời lớp",
+    "capabilities.operationJoinClass": "Tham gia bằng liên kết lớp",
+    "capabilities.operationAcceptInvitation": "Chấp nhận lời mời workspace",
     "audit.backToWorkspace": "← Quay lại workspace",
     "audit.kicker": "Bảo mật workspace",
     "audit.title": "Nhật ký hoạt động",
@@ -283,10 +338,13 @@ const messages = {
     "audit.resource.classEnrollment": "Enrollment lớp",
     "audit.resource.classInviteCode": "Mã mời lớp",
     "audit.resource.classMember": "Thành viên lớp",
+    "audit.resource.tenantFeatureControl": "Điều khiển tính năng workspace",
     "audit.action.tenantCreate": "Tạo workspace",
     "audit.action.tenantUpdate": "Cập nhật workspace",
     "audit.action.tenantArchive": "Lưu trữ workspace",
     "audit.action.tenantSwitch": "Chuyển workspace đang hoạt động",
+    "audit.action.tenantFeatureControlUpdate":
+      "Cập nhật tính năng và hạn mức workspace",
     "audit.action.membershipInvitationCreate": "Tạo lời mời thành viên",
     "audit.action.membershipInvitationRevoke": "Thu hồi lời mời thành viên",
     "audit.action.membershipInvitationAccept": "Chấp nhận lời mời thành viên",
@@ -1006,6 +1064,62 @@ const messages = {
     "workspace.auditLink": "View audit log",
     "workspace.auditLinkDescription":
       "Review security-sensitive administrative actions in this workspace.",
+    "capabilities.title": "Features and quotas",
+    "capabilities.description":
+      "These effective values come from the Core API for the active workspace; the UI never invents permissions or limits.",
+    "capabilities.loading": "Loading features and quotas",
+    "capabilities.refreshing": "Refreshing the latest server values...",
+    "capabilities.errorTitle": "Features and quotas unavailable",
+    "capabilities.errorDescription":
+      "Expansion actions stay safely locked until the server configuration can be loaded.",
+    "capabilities.forbiddenTitle": "Workspace configuration unavailable",
+    "capabilities.forbiddenDescription":
+      "The current membership can no longer read capabilities for this workspace.",
+    "capabilities.enabled": "Enabled",
+    "capabilities.disabled": "Disabled",
+    "capabilities.featureMembershipInvitations": "Member invitations",
+    "capabilities.featureClassManagement": "Class management",
+    "capabilities.featureClassInviteLinks": "Class invitation links",
+    "capabilities.quotaMembers": "Workspace members",
+    "capabilities.quotaActiveClasses": "Active classes",
+    "capabilities.quotaInviteCreations": "Invitation creations per hour",
+    "capabilities.quotaUsage": "{used}/{limit} used",
+    "capabilities.quotaRemaining": "{remaining} remaining",
+    "capabilities.quotaReset": "Resets at {date}",
+    "capabilities.readonlyDescription":
+      "Only organization administrators can change these values.",
+    "capabilities.featuresLegend": "Feature controls",
+    "capabilities.quotasLegend": "Workspace limits",
+    "capabilities.quotaValidation":
+      "The quota must be a whole number greater than or equal to 1.",
+    "capabilities.updateAction": "Save features and quotas",
+    "capabilities.updating": "Saving...",
+    "capabilities.updateSuccess": "Features and quotas updated.",
+    "capabilities.updateError":
+      "The configuration could not be updated. Check the connection and retry.",
+    "capabilities.updateInvalid":
+      "A value is outside the safe range accepted by the server.",
+    "capabilities.updateForbidden":
+      "Your current session can no longer manage workspace features.",
+    "capabilities.updateConflict":
+      "The configuration changed elsewhere. Load the latest version before saving again.",
+    "capabilities.reloadLatest": "Load latest configuration",
+    "capabilities.reasonLoading":
+      "Capabilities are being checked; this action is temporarily locked.",
+    "capabilities.reasonUnavailable":
+      "The server capability could not be verified, so this action is safely locked.",
+    "capabilities.reasonFeatureDisabled":
+      "This feature is disabled for the active workspace.",
+    "capabilities.reasonQuotaExhausted":
+      "The workspace has exhausted the quota for this action.",
+    "capabilities.reasonRateLimited":
+      "The invitation-creation window is full. Try again later.",
+    "capabilities.operationCreateClass": "Create class",
+    "capabilities.operationActivateClass": "Activate class",
+    "capabilities.operationRestoreClass": "Restore active class",
+    "capabilities.operationCreateClassInvite": "Create class invitation link",
+    "capabilities.operationJoinClass": "Join with a class invitation",
+    "capabilities.operationAcceptInvitation": "Accept workspace invitation",
     "audit.backToWorkspace": "← Back to workspace",
     "audit.kicker": "Workspace security",
     "audit.title": "Activity audit log",
@@ -1078,10 +1192,13 @@ const messages = {
     "audit.resource.classEnrollment": "Class enrollment",
     "audit.resource.classInviteCode": "Class invitation code",
     "audit.resource.classMember": "Class member",
+    "audit.resource.tenantFeatureControl": "Workspace feature controls",
     "audit.action.tenantCreate": "Create workspace",
     "audit.action.tenantUpdate": "Update workspace",
     "audit.action.tenantArchive": "Archive workspace",
     "audit.action.tenantSwitch": "Switch active workspace",
+    "audit.action.tenantFeatureControlUpdate":
+      "Update workspace features and quotas",
     "audit.action.membershipInvitationCreate": "Create member invitation",
     "audit.action.membershipInvitationRevoke": "Revoke member invitation",
     "audit.action.membershipInvitationAccept": "Accept member invitation",

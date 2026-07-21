@@ -31,13 +31,29 @@ import {
 } from "../app/classEnrollments";
 import { useI18n, type TranslationKey } from "../app/i18n";
 import { useSession } from "../app/session";
+import type { TenantOperationAvailability } from "../app/tenantCapabilities";
 import { shouldConcealTenantScopedData } from "../app/tenantDataAccess";
+import { TenantOperationNotice } from "./TenantOperationNotice";
 
 function isForbidden(error: Error | null) {
   return error instanceof APIRequestError && error.status === 403;
 }
 
 function mutationErrorKey(error: Error | null): TranslationKey {
+  if (
+    error instanceof APIRequestError &&
+    error.problem?.code === "feature_disabled"
+  ) {
+    return "capabilities.reasonFeatureDisabled";
+  }
+  if (
+    error instanceof APIRequestError &&
+    error.problem?.code === "quota_exceeded"
+  ) {
+    return error.status === 429
+      ? "capabilities.reasonRateLimited"
+      : "capabilities.reasonQuotaExhausted";
+  }
   if (error instanceof APIRequestError && error.status === 403) {
     return "classEnrollment.mutationForbidden";
   }
@@ -78,8 +94,12 @@ function inviteStatusTone(status: ClassInviteCode["status"]) {
 
 export function ClassEnrollmentPanel({
   classroom,
+  createInviteAvailability,
+  onRetryCapabilities,
 }: {
   classroom: ClassroomClass;
+  createInviteAvailability: TenantOperationAvailability;
+  onRetryCapabilities: () => void;
 }) {
   const { language, t } = useI18n();
   const session = useSession();
@@ -138,7 +158,11 @@ export function ClassEnrollmentPanel({
           <p>{t("classEnrollment.description")}</p>
         </div>
         {!inviteCodeDataConcealed && (
-          <CreateInviteCodeDialog classroom={classroom} tenantID={tenantID} />
+          <CreateInviteCodeDialog
+            classroom={classroom}
+            createAvailability={createInviteAvailability}
+            tenantID={tenantID}
+          />
         )}
       </div>
 
@@ -146,6 +170,14 @@ export function ClassEnrollmentPanel({
         <p className="class-enrollments__notice">
           {t("classEnrollment.inactiveDescription")}
         </p>
+      )}
+
+      {!inviteCodeDataConcealed && classroom.status === "active" && (
+        <TenantOperationNotice
+          availability={createInviteAvailability}
+          label={t("capabilities.operationCreateClassInvite")}
+          onRetry={onRetryCapabilities}
+        />
       )}
 
       {!inviteCodeDataConcealed && (
@@ -377,9 +409,11 @@ function DirectEnrollmentForm({
 
 function CreateInviteCodeDialog({
   classroom,
+  createAvailability,
   tenantID,
 }: {
   classroom: ClassroomClass;
+  createAvailability: TenantOperationAvailability;
   tenantID: string;
 }) {
   const { t } = useI18n();
@@ -405,6 +439,9 @@ function CreateInviteCodeDialog({
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (!createAvailability.available) {
+      return;
+    }
     const limit = Number(usageLimit);
     if (!Number.isInteger(limit) || limit < 1 || limit > 1000) {
       setUsageError(t("classEnrollment.usageValidation"));
@@ -460,7 +497,9 @@ function CreateInviteCodeDialog({
     >
       <DialogTrigger asChild>
         <Button
-          disabled={classroom.status !== "active"}
+          disabled={
+            classroom.status !== "active" || !createAvailability.available
+          }
           leadingIcon={<Link2 />}
           size="sm"
         >
@@ -543,6 +582,7 @@ function CreateInviteCodeDialog({
                 </Button>
               </DialogClose>
               <Button
+                disabled={!createAvailability.available}
                 loading={createInviteCode.isPending}
                 loadingLabel={t("classEnrollment.creating")}
                 type="submit"

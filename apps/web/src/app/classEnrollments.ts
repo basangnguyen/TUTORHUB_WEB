@@ -19,6 +19,7 @@ import { useRef } from "react";
 import { invalidateTenantAudit } from "./audit";
 import { classQueryKeys } from "./classes";
 import { useSession } from "./session";
+import { invalidateTenantCapabilities } from "./tenantCapabilities";
 
 function getApiBaseUrl() {
   return import.meta.env.VITE_API_BASE_URL ?? "/api";
@@ -151,7 +152,10 @@ export function useCreateClassInviteCode() {
         queryKey: classEnrollmentQueryKeys.inviteCodes(tenantID, classID),
       }),
     onSettled: (_, __, { tenantID }) =>
-      invalidateTenantAudit(queryClient, tenantID),
+      Promise.all([
+        invalidateTenantAudit(queryClient, tenantID),
+        invalidateTenantCapabilities(queryClient, tenantID),
+      ]),
     retry: false,
   });
 }

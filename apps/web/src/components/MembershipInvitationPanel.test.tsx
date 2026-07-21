@@ -17,6 +17,7 @@ import { MembershipInvitationPanel } from "./MembershipInvitationPanel";
 
 const tenantID = "4b18543a-74de-419f-9fe8-d0c3dfc991eb";
 const invitationID = "3b3becce-96d1-456b-afd4-dc17ed2a5240";
+const availableOperation = { available: true, reason: "available" } as const;
 
 const pendingInvitation: MembershipInvitation = {
   id: invitationID,
@@ -52,7 +53,11 @@ function renderPanel(fetchMock: ReturnType<typeof vi.fn>) {
   render(
     <QueryClientProvider client={queryClient}>
       <I18nProvider initialLanguage="en">
-        <MembershipInvitationPanel tenantID={tenantID} />
+        <MembershipInvitationPanel
+          createAvailability={availableOperation}
+          onRetryCapabilities={() => undefined}
+          tenantID={tenantID}
+        />
       </I18nProvider>
     </QueryClientProvider>,
   );

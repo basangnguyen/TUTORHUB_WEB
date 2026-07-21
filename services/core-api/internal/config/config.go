@@ -35,6 +35,11 @@ const (
 	defaultSessionAbsoluteTTL      = 24 * time.Hour
 	defaultMembershipInvitationTTL = 168 * time.Hour
 	defaultLiveKitTokenTTL         = 5 * time.Minute
+	defaultEdgeContextMaxSkew      = 2 * time.Minute
+	maximumEdgeContextMaxSkew      = 5 * time.Minute
+	defaultFeatureMemberLimit      = 10_000
+	defaultFeatureClassLimit       = 1_000
+	defaultFeatureInviteRateLimit  = 10_000
 )
 
 var validEnvironments = map[string]struct{}{
@@ -68,6 +73,8 @@ type Config struct {
 	Authentication    AuthenticationConfig
 	LiveKit           LiveKitConfig
 	ObjectStorage     ObjectStorageConfig
+	EdgeContext       EdgeContextConfig
+	FeatureControls   FeatureControlConfig
 }
 
 type DatabaseConfig struct {
@@ -112,6 +119,21 @@ type ObjectStorageConfig struct {
 	Bucket         string
 	KeyID          string
 	ApplicationKey string
+}
+
+type EdgeContextConfig struct {
+	Enabled bool
+	Key     []byte
+	MaxSkew time.Duration
+}
+
+type FeatureControlConfig struct {
+	DisableMembershipInvitations bool
+	DisableClassManagement       bool
+	DisableClassInviteLinks      bool
+	MaxMembers                   int
+	MaxActiveClasses             int
+	MaxInviteCreationsPerHour    int
 }
 
 var objectStorageNamePattern = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9.-]*[a-zA-Z0-9]$`)
@@ -211,12 +233,110 @@ func load(lookup lookupEnv) (Config, error) {
 	)
 	cfg.LiveKit = liveKitConfig(lookup, cfg.Environment, &validationErrors)
 	cfg.ObjectStorage = objectStorageConfig(lookup, &validationErrors)
+	cfg.EdgeContext = edgeContextConfig(lookup, cfg.Environment, &validationErrors)
+	cfg.FeatureControls = featureControlConfig(lookup, &validationErrors)
 
 	if err := errors.Join(validationErrors...); err != nil {
 		return Config{}, fmt.Errorf("validate configuration: %w", err)
 	}
 
 	return cfg, nil
+}
+
+func edgeContextConfig(
+	lookup lookupEnv,
+	environment string,
+	validationErrors *[]error,
+) EdgeContextConfig {
+	secret := strings.TrimSpace(valueOrDefault(lookup, "EDGE_CONTEXT_SECRET", ""))
+	required := environment == "staging" || environment == "production"
+	config := EdgeContextConfig{
+		Enabled: secret != "" || required,
+		MaxSkew: durationValue(
+			lookup,
+			"EDGE_CONTEXT_MAX_SKEW",
+			defaultEdgeContextMaxSkew,
+			validationErrors,
+		),
+	}
+	if config.MaxSkew > maximumEdgeContextMaxSkew {
+		*validationErrors = append(
+			*validationErrors,
+			fmt.Errorf(
+				"EDGE_CONTEXT_MAX_SKEW must not exceed %s",
+				maximumEdgeContextMaxSkew,
+			),
+		)
+		config.MaxSkew = defaultEdgeContextMaxSkew
+	}
+	if secret == "" {
+		if required {
+			*validationErrors = append(
+				*validationErrors,
+				fmt.Errorf("EDGE_CONTEXT_SECRET is required in %s", environment),
+			)
+		}
+		return config
+	}
+
+	key, err := decodeBase64Key("EDGE_CONTEXT_SECRET", secret)
+	if err != nil {
+		*validationErrors = append(*validationErrors, err)
+		return config
+	}
+	config.Key = key
+
+	return config
+}
+
+func featureControlConfig(
+	lookup lookupEnv,
+	validationErrors *[]error,
+) FeatureControlConfig {
+	return FeatureControlConfig{
+		DisableMembershipInvitations: boolValue(
+			lookup,
+			"FEATURE_CONTROL_DISABLE_MEMBERSHIP_INVITATIONS",
+			false,
+			validationErrors,
+		),
+		DisableClassManagement: boolValue(
+			lookup,
+			"FEATURE_CONTROL_DISABLE_CLASS_MANAGEMENT",
+			false,
+			validationErrors,
+		),
+		DisableClassInviteLinks: boolValue(
+			lookup,
+			"FEATURE_CONTROL_DISABLE_CLASS_INVITE_LINKS",
+			false,
+			validationErrors,
+		),
+		MaxMembers: intValue(
+			lookup,
+			"FEATURE_CONTROL_MAX_MEMBERS",
+			defaultFeatureMemberLimit,
+			1,
+			defaultFeatureMemberLimit,
+			validationErrors,
+		),
+		MaxActiveClasses: intValue(
+			lookup,
+			"FEATURE_CONTROL_MAX_ACTIVE_CLASSES",
+			defaultFeatureClassLimit,
+			1,
+			defaultFeatureClassLimit,
+			validationErrors,
+		),
+		MaxInviteCreationsPerHour: intValue(
+			lookup,
+			"FEATURE_CONTROL_MAX_INVITE_CREATIONS_PER_HOUR",
+			defaultFeatureInviteRateLimit,
+			1,
+			defaultFeatureInviteRateLimit,
+			validationErrors,
+		),
+	}
 }
 
 func LoadObjectStorage() (ObjectStorageConfig, error) {
@@ -773,6 +893,10 @@ func containsString(values []string, expected string) bool {
 }
 
 func decodeSessionKey(value string) ([]byte, error) {
+	return decodeBase64Key("SESSION_SECRET", value)
+}
+
+func decodeBase64Key(key string, value string) ([]byte, error) {
 	encodings := []*base64.Encoding{
 		base64.RawURLEncoding,
 		base64.URLEncoding,
@@ -784,13 +908,13 @@ func decodeSessionKey(value string) ([]byte, error) {
 		decoded, err := encoding.DecodeString(value)
 		if err == nil {
 			if len(decoded) < 32 {
-				return nil, fmt.Errorf("SESSION_SECRET must decode to at least 32 bytes")
+				return nil, fmt.Errorf("%s must decode to at least 32 bytes", key)
 			}
 			return decoded, nil
 		}
 	}
 
-	return nil, fmt.Errorf("SESSION_SECRET must be valid base64 or base64url")
+	return nil, fmt.Errorf("%s must be valid base64 or base64url", key)
 }
 
 func valueOrDefault(lookup lookupEnv, key string, fallback string) string {

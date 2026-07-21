@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"sync"
 	"testing"
 	"time"
@@ -19,11 +20,12 @@ func TestFixedWindowInvitationRateLimiterIsScopedByActionAndPrefix(t *testing.T)
 	)
 
 	for attempt := 1; attempt <= 2; attempt++ {
-		if decision := limiter.Allow(InvitationRateLimitPreview, "203.0.113.0/24", now); !decision.Allowed {
+		if decision := limiter.Allow(context.Background(), InvitationRateLimitPreview, "203.0.113.0/24", now); !decision.Allowed {
 			t.Fatalf("expected preview attempt %d to be allowed: %+v", attempt, decision)
 		}
 	}
 	denied := limiter.Allow(
+		context.Background(),
 		InvitationRateLimitPreview,
 		"203.0.113.0/24",
 		now.Add(20*time.Second),
@@ -33,6 +35,7 @@ func TestFixedWindowInvitationRateLimiterIsScopedByActionAndPrefix(t *testing.T)
 	}
 
 	if decision := limiter.Allow(
+		context.Background(),
 		InvitationRateLimitPreview,
 		"198.51.100.0/24",
 		now.Add(20*time.Second),
@@ -40,6 +43,7 @@ func TestFixedWindowInvitationRateLimiterIsScopedByActionAndPrefix(t *testing.T)
 		t.Fatalf("a different prefix must have an independent budget: %+v", decision)
 	}
 	if decision := limiter.Allow(
+		context.Background(),
 		InvitationRateLimitAccept,
 		"203.0.113.0/24",
 		now.Add(20*time.Second),
@@ -59,10 +63,11 @@ func TestFixedWindowInvitationRateLimiterResetsAtBoundaryAndClockRollback(t *tes
 		},
 	)
 
-	if decision := limiter.Allow(InvitationRateLimitPreview, "203.0.113.0/24", now); !decision.Allowed {
+	if decision := limiter.Allow(context.Background(), InvitationRateLimitPreview, "203.0.113.0/24", now); !decision.Allowed {
 		t.Fatalf("expected first request to be allowed: %+v", decision)
 	}
 	if decision := limiter.Allow(
+		context.Background(),
 		InvitationRateLimitPreview,
 		"203.0.113.0/24",
 		now.Add(time.Minute-time.Nanosecond),
@@ -70,6 +75,7 @@ func TestFixedWindowInvitationRateLimiterResetsAtBoundaryAndClockRollback(t *tes
 		t.Fatalf("request before boundary must be denied: %+v", decision)
 	}
 	if decision := limiter.Allow(
+		context.Background(),
 		InvitationRateLimitPreview,
 		"203.0.113.0/24",
 		now.Add(time.Minute),
@@ -77,6 +83,7 @@ func TestFixedWindowInvitationRateLimiterResetsAtBoundaryAndClockRollback(t *tes
 		t.Fatalf("request at boundary must start a new window: %+v", decision)
 	}
 	if decision := limiter.Allow(
+		context.Background(),
 		InvitationRateLimitPreview,
 		"203.0.113.0/24",
 		now.Add(-time.Second),
@@ -96,9 +103,9 @@ func TestFixedWindowInvitationRateLimiterKeepsBoundedState(t *testing.T) {
 		},
 	)
 
-	limiter.Allow(InvitationRateLimitPreview, "192.0.2.0/24", now)
-	limiter.Allow(InvitationRateLimitPreview, "198.51.100.0/24", now.Add(time.Second))
-	limiter.Allow(InvitationRateLimitPreview, "203.0.113.0/24", now.Add(2*time.Second))
+	limiter.Allow(context.Background(), InvitationRateLimitPreview, "192.0.2.0/24", now)
+	limiter.Allow(context.Background(), InvitationRateLimitPreview, "198.51.100.0/24", now.Add(time.Second))
+	limiter.Allow(context.Background(), InvitationRateLimitPreview, "203.0.113.0/24", now.Add(2*time.Second))
 	if len(limiter.entries) != 2 {
 		t.Fatalf("expected bounded map with 2 entries, got %d", len(limiter.entries))
 	}
@@ -109,7 +116,7 @@ func TestFixedWindowInvitationRateLimiterKeepsBoundedState(t *testing.T) {
 		t.Fatal("expected least recently seen entry to be evicted")
 	}
 
-	limiter.Allow(InvitationRateLimitPreview, "192.0.2.0/24", now.Add(2*time.Minute))
+	limiter.Allow(context.Background(), InvitationRateLimitPreview, "192.0.2.0/24", now.Add(2*time.Minute))
 	if len(limiter.entries) > 2 {
 		t.Fatalf("expired cleanup must preserve the state bound, got %d", len(limiter.entries))
 	}
@@ -137,6 +144,7 @@ func TestFixedWindowInvitationRateLimiterEnforcesLimitConcurrently(t *testing.T)
 		go func() {
 			defer waitGroup.Done()
 			results <- limiter.Allow(
+				context.Background(),
 				InvitationRateLimitAccept,
 				"203.0.113.0/24",
 				now,
@@ -168,15 +176,15 @@ func TestFixedWindowInvitationRateLimiterFailsOpenForUnconfiguredPolicy(t *testi
 		},
 	)
 
-	if decision := limiter.Allow(InvitationRateLimitPreview, "unknown", now); !decision.Allowed {
+	if decision := limiter.Allow(context.Background(), InvitationRateLimitPreview, "unknown", now); !decision.Allowed {
 		t.Fatalf("invalid policy must not block traffic: %+v", decision)
 	}
-	if decision := limiter.Allow(InvitationRateLimitAction("unknown"), "unknown", now); !decision.Allowed {
+	if decision := limiter.Allow(context.Background(), InvitationRateLimitAction("unknown"), "unknown", now); !decision.Allowed {
 		t.Fatalf("unconfigured action must not block traffic: %+v", decision)
 	}
 
 	var nilLimiter *fixedWindowInvitationRateLimiter
-	if decision := nilLimiter.Allow(InvitationRateLimitPreview, "unknown", now); !decision.Allowed {
+	if decision := nilLimiter.Allow(context.Background(), InvitationRateLimitPreview, "unknown", now); !decision.Allowed {
 		t.Fatalf("nil limiter must fail open: %+v", decision)
 	}
 }

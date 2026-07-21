@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/tutorhub-v2/core-api/internal/modules/audit"
+	"github.com/tutorhub-v2/core-api/internal/modules/featurecontrol"
 	"github.com/tutorhub-v2/core-api/internal/platform/tenancy"
 	"github.com/tutorhub-v2/core-api/internal/policy"
 )
@@ -23,16 +24,22 @@ type PostgresRepository struct {
 	database     Database
 	queryTimeout time.Duration
 	authorizer   policy.Authorizer
+	controls     featurecontrol.Enforcer
 }
 
 func NewPostgresRepository(
 	database Database,
 	queryTimeout time.Duration,
 	authorizer policy.Authorizer,
+	controls ...featurecontrol.Enforcer,
 ) *PostgresRepository {
-	return &PostgresRepository{
+	repository := &PostgresRepository{
 		database: database, queryTimeout: queryTimeout, authorizer: authorizer,
 	}
+	if len(controls) > 0 {
+		repository.controls = controls[0]
+	}
+	return repository
 }
 
 func (repository *PostgresRepository) CreateFlow(

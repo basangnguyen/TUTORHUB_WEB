@@ -23,6 +23,7 @@ const tenantID = "4b18543a-74de-419f-9fe8-d0c3dfc991eb";
 const classID = "a912f628-f3d2-4c18-84c6-42a9e858dc8d";
 const ownerID = "be85eb92-0f18-4163-85ba-50e4d343d632";
 const studentID = "1d7d65eb-904e-4a0d-bd24-a8ec1b453d64";
+const availableOperation = { available: true, reason: "available" } as const;
 
 const currentUser: CurrentUser = {
   user: {
@@ -123,7 +124,11 @@ function renderPanel(
     <QueryClientProvider client={queryClient}>
       <I18nProvider initialLanguage="en">
         <SessionProvider mode={{ kind: "static", currentUser }}>
-          <ClassEnrollmentPanel classroom={value} />
+          <ClassEnrollmentPanel
+            classroom={value}
+            createInviteAvailability={availableOperation}
+            onRetryCapabilities={() => undefined}
+          />
         </SessionProvider>
       </I18nProvider>
     </QueryClientProvider>,

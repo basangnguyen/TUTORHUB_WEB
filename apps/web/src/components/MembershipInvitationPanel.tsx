@@ -29,9 +29,13 @@ import {
   type InvitableOrganizationRole,
 } from "../app/invitations";
 import { useI18n, type TranslationKey } from "../app/i18n";
+import type { TenantOperationAvailability } from "../app/tenantCapabilities";
 import { shouldConcealTenantScopedData } from "../app/tenantDataAccess";
+import { TenantOperationNotice } from "./TenantOperationNotice";
 
 interface MembershipInvitationPanelProps {
+  createAvailability: TenantOperationAvailability;
+  onRetryCapabilities: () => void;
   tenantID: string;
 }
 
@@ -80,6 +84,20 @@ function isForbidden(error: Error | null) {
 }
 
 function invitationMutationErrorKey(error: Error | null): TranslationKey {
+  if (
+    error instanceof APIRequestError &&
+    error.problem?.code === "feature_disabled"
+  ) {
+    return "capabilities.reasonFeatureDisabled";
+  }
+  if (
+    error instanceof APIRequestError &&
+    error.problem?.code === "quota_exceeded"
+  ) {
+    return error.status === 429
+      ? "capabilities.reasonRateLimited"
+      : "capabilities.reasonQuotaExhausted";
+  }
   if (error instanceof APIRequestError && error.status === 403) {
     return "invitation.mutationForbidden";
   }
@@ -93,6 +111,8 @@ function invitationMutationErrorKey(error: Error | null): TranslationKey {
 }
 
 export function MembershipInvitationPanel({
+  createAvailability,
+  onRetryCapabilities,
   tenantID,
 }: MembershipInvitationPanelProps) {
   const { language, t } = useI18n();
@@ -190,8 +210,16 @@ export function MembershipInvitationPanel({
           </h2>
           <p>{t("invitation.adminDescription")}</p>
         </div>
-        <CreateInvitationDialog tenantID={tenantID} />
+        <CreateInvitationDialog
+          availability={createAvailability}
+          tenantID={tenantID}
+        />
       </div>
+
+      <TenantOperationNotice
+        availability={createAvailability}
+        onRetry={onRetryCapabilities}
+      />
 
       {feedback && (
         <p className="membership-invitations__success" role="status">
@@ -311,7 +339,13 @@ export function MembershipInvitationPanel({
   );
 }
 
-function CreateInvitationDialog({ tenantID }: { tenantID: string }) {
+function CreateInvitationDialog({
+  availability,
+  tenantID,
+}: {
+  availability: TenantOperationAvailability;
+  tenantID: string;
+}) {
   const { t } = useI18n();
   const createInvitation = useCreateMembershipInvitation();
   const [open, setOpen] = useState(false);
@@ -336,6 +370,9 @@ function CreateInvitationDialog({ tenantID }: { tenantID: string }) {
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (!availability.available) {
+      return;
+    }
     const normalizedEmail = email.trim().toLowerCase();
     if (
       normalizedEmail.length > 320 ||
@@ -390,7 +427,11 @@ function CreateInvitationDialog({ tenantID }: { tenantID: string }) {
       open={open}
     >
       <DialogTrigger asChild>
-        <Button leadingIcon={<MailPlus />} size="sm">
+        <Button
+          disabled={!availability.available}
+          leadingIcon={<MailPlus />}
+          size="sm"
+        >
           {t("invitation.createAction")}
         </Button>
       </DialogTrigger>
@@ -464,6 +505,7 @@ function CreateInvitationDialog({ tenantID }: { tenantID: string }) {
                 </Button>
               </DialogClose>
               <Button
+                disabled={!availability.available}
                 loading={createInvitation.isPending}
                 loadingLabel={t("invitation.creating")}
                 type="submit"

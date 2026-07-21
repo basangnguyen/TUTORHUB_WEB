@@ -15,8 +15,23 @@ import { useRef, useState, type FormEvent } from "react";
 import { parseClassInvitationToken } from "../app/classInvitationToken";
 import { useJoinClassInvitation } from "../app/classEnrollments";
 import { useI18n, type TranslationKey } from "../app/i18n";
+import type { TenantOperationAvailability } from "../app/tenantCapabilities";
 
 function joinErrorKey(error: Error | null): TranslationKey {
+  if (
+    error instanceof APIRequestError &&
+    error.problem?.code === "feature_disabled"
+  ) {
+    return "capabilities.reasonFeatureDisabled";
+  }
+  if (
+    error instanceof APIRequestError &&
+    error.problem?.code === "quota_exceeded"
+  ) {
+    return error.status === 429
+      ? "capabilities.reasonRateLimited"
+      : "capabilities.reasonQuotaExhausted";
+  }
   if (error instanceof APIRequestError && error.status === 401) {
     return "classInvitation.sessionExpired";
   }
@@ -36,9 +51,11 @@ function joinErrorKey(error: Error | null): TranslationKey {
 }
 
 export function ClassJoinDialog({
+  availability,
   onJoined,
   tenantID,
 }: {
+  availability: TenantOperationAvailability;
   onJoined: (classroom: ClassroomClass, tenantID: string) => void;
   tenantID: string;
 }) {
@@ -63,6 +80,9 @@ export function ClassJoinDialog({
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (!availability.available) {
+      return;
+    }
     const parsedToken = input
       ? parseClassInvitationToken(input)
       : token.current;
@@ -99,7 +119,11 @@ export function ClassJoinDialog({
       open={open}
     >
       <DialogTrigger asChild>
-        <Button leadingIcon={<UserPlus />} variant="secondary">
+        <Button
+          disabled={!availability.available}
+          leadingIcon={<UserPlus />}
+          variant="secondary"
+        >
           {t("classInvitation.openDialog")}
         </Button>
       </DialogTrigger>
@@ -142,6 +166,7 @@ export function ClassJoinDialog({
               </Button>
             </DialogClose>
             <Button
+              disabled={!availability.available}
               loading={joinInvitation.isPending}
               loadingLabel={t("classInvitation.joining")}
               type="submit"

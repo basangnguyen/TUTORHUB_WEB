@@ -9,6 +9,7 @@ import (
 
 type Problem struct {
 	Type      string `json:"type"`
+	Code      string `json:"code,omitempty"`
 	Title     string `json:"title"`
 	Status    int    `json:"status"`
 	Detail    string `json:"detail,omitempty"`
@@ -23,10 +24,22 @@ func writeProblem(
 	title string,
 	detail string,
 ) {
+	writeCodedProblem(w, r, status, "", title, detail)
+}
+
+func writeCodedProblem(
+	w http.ResponseWriter,
+	r *http.Request,
+	status int,
+	code string,
+	title string,
+	detail string,
+) {
 	w.Header().Set("Content-Type", "application/problem+json; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
 	writeJSONBytes(w, status, Problem{
 		Type:      problemType(status),
+		Code:      code,
 		Title:     title,
 		Status:    status,
 		Detail:    detail,

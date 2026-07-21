@@ -42,6 +42,7 @@ gia quyết định hiện tại.
 | `tenant.view`              |     Có      |    Có     |    Có     |   Có    |
 | `tenant.manage`            |     Có      |   Không   |   Không   |  Không  |
 | `tenant.manage_members`    |     Có      |   Không   |   Không   |  Không  |
+| `tenant.manage_features`   |     Có      |   Không   |   Không   |  Không  |
 | `audit.view`               |     Có      |   Không   |   Không   |  Không  |
 | `class.create`             |     Có      |    Có     |   Không   |  Không  |
 | `class.update`             |     Có      |    Có     |   Không   |  Không  |
@@ -81,6 +82,7 @@ audit của workspace.
 | `tenant.view`              |  Không  |    Không     |        Không         |   Không   |
 | `tenant.manage`            |  Không  |    Không     |        Không         |   Không   |
 | `tenant.manage_members`    |  Không  |    Không     |        Không         |   Không   |
+| `tenant.manage_features`   |  Không  |    Không     |        Không         |   Không   |
 | `audit.view`               |  Không  |    Không     |        Không         |   Không   |
 | `class.create`             |  Không  |    Không     |        Không         |   Không   |
 | `class.update`             |   Có    |      Có      |        Không         |   Không   |

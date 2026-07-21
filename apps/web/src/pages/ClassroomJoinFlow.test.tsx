@@ -12,6 +12,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { I18nProvider } from "../app/i18n";
 import { SessionProvider } from "../app/session";
+import { tenantCapabilityQueryKeys } from "../app/tenantCapabilities";
+import {
+  availableTenantCapabilities,
+  withAvailableTenantCapabilities,
+} from "../test/tenantCapabilities";
 import { ClassroomListPage } from "./ClassroomPages";
 
 const tenantID = "4b18543a-74de-419f-9fe8-d0c3dfc991eb";
@@ -142,7 +147,14 @@ describe("class-list invitation journey", () => {
         queries: { retry: false },
       },
     });
-    vi.stubGlobal("fetch", fetchMock);
+    queryClient.setQueryData(
+      tenantCapabilityQueryKeys.detail(tenantID),
+      availableTenantCapabilities(tenantID),
+    );
+    vi.stubGlobal(
+      "fetch",
+      withAvailableTenantCapabilities(fetchMock, tenantID),
+    );
 
     render(
       <QueryClientProvider client={queryClient}>

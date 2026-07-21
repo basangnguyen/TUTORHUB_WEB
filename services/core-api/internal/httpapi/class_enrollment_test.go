@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
@@ -263,6 +264,38 @@ func TestClassInvitationJoinRateLimitUsesOnlyActionAndIPPrefix(t *testing.T) {
 	}
 }
 
+func TestClassInvitationJoinRateLimiterFailureIsUnavailable(t *testing.T) {
+	t.Parallel()
+
+	service := &fakeClassEnrollmentService{}
+	limiter := &classJoinRecordingLimiter{
+		decision: InvitationRateLimitDecision{Err: errors.New("database unavailable")},
+	}
+	handler := newClassEnrollmentTestHandler(
+		classIdentityService(uuid.New(), uuid.New(), []string{"tenant.view"}),
+		service,
+		limiter,
+	)
+	request := newClassEnrollmentMutationRequest(
+		classInvitationJoinPath,
+		`{"token":"thciv1_rate-limit-placeholder"}`,
+	)
+	request.RemoteAddr = "203.0.113.45:54321"
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusServiceUnavailable {
+		t.Fatalf("expected 503 response, got %d: %s", response.Code, response.Body.String())
+	}
+	var problem Problem
+	if err := json.NewDecoder(response.Body).Decode(&problem); err != nil {
+		t.Fatalf("decode problem: %v", err)
+	}
+	if problem.Code != "rate_limit_unavailable" || service.joinCalled {
+		t.Fatalf("unexpected limiter failure response: problem=%+v called=%t", problem, service.joinCalled)
+	}
+}
+
 func classInviteCodesPath(classID uuid.UUID) string {
 	return "/api/v1/classes/" + classID.String() + "/invite-codes"
 }
@@ -457,6 +490,7 @@ type classJoinRecordingLimiter struct {
 }
 
 func (limiter *classJoinRecordingLimiter) Allow(
+	_ context.Context,
 	action InvitationRateLimitAction,
 	clientPrefix string,
 	_ time.Time,

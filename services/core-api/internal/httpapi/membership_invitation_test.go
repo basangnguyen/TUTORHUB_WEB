@@ -2,6 +2,8 @@ package httpapi
 
 import (
 	"bytes"
+	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"log/slog"
@@ -565,6 +567,41 @@ func TestMembershipInvitationRateLimitUsesOnlyClientPrefixAndAction(t *testing.T
 	}
 }
 
+func TestMembershipInvitationRateLimiterFailureIsUnavailable(t *testing.T) {
+	t.Parallel()
+
+	limiter := &recordingInvitationRateLimiter{
+		decision: InvitationRateLimitDecision{Err: errors.New("database unavailable")},
+	}
+	service := &fakeIdentityService{}
+	response := performMembershipInvitationRequest(
+		newMembershipInvitationTestHandler(service, limiter, nil),
+		http.MethodPost,
+		membershipInvitationPreviewPath,
+		`{"token":"`+membershipInvitationToken+`"}`,
+		false,
+		false,
+		"203.0.113.27:4123",
+	)
+
+	if response.Code != http.StatusServiceUnavailable {
+		t.Fatalf("expected 503 response, got %d: %s", response.Code, response.Body.String())
+	}
+	var problem Problem
+	if err := json.NewDecoder(response.Body).Decode(&problem); err != nil {
+		t.Fatalf("decode problem: %v", err)
+	}
+	if problem.Code != "rate_limit_unavailable" {
+		t.Fatalf("expected typed limiter problem, got %+v", problem)
+	}
+	if response.Header().Get("Retry-After") != "" {
+		t.Fatalf("storage failure must not claim a fixed retry delay: %q", response.Header().Get("Retry-After"))
+	}
+	if service.previewInvitationToken != "" {
+		t.Fatal("request must not reach the identity service when the limiter is unavailable")
+	}
+}
+
 func TestMembershipInvitationRawTokenIsAbsentFromStructuredLogs(t *testing.T) {
 	t.Parallel()
 
@@ -609,6 +646,7 @@ type recordedInvitationRateLimitCall struct {
 }
 
 func (limiter *recordingInvitationRateLimiter) Allow(
+	_ context.Context,
 	action InvitationRateLimitAction,
 	clientPrefix string,
 	now time.Time,
