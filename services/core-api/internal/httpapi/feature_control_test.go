@@ -145,6 +145,13 @@ func TestFeatureControlHandlersHideCrossTenantAndReplaceTypedAggregate(t *testin
 	if crossResponse.Code != http.StatusNotFound || service.getContext.TenantID != uuid.Nil {
 		t.Fatalf("cross-tenant request must be hidden before service call: %d %+v", crossResponse.Code, service.getContext)
 	}
+	var crossProblem Problem
+	if err := json.Unmarshal(crossResponse.Body.Bytes(), &crossProblem); err != nil {
+		t.Fatalf("decode cross-tenant problem: %v", err)
+	}
+	if crossProblem.Code != "tenant_not_found" {
+		t.Fatalf("unexpected cross-tenant problem: %+v", crossProblem)
+	}
 
 	body := `{"expected_version":3,"features":{"membership_invitations":false,"class_management":true,"class_invite_links":false},"quotas":{"members":90,"active_classes":20,"invite_creations_per_hour":40}}`
 	request := httptest.NewRequest(
@@ -295,6 +302,30 @@ func TestFeatureControlQuotaProblemUsesBoundedCodeAndRetryAfter(t *testing.T) {
 		t.Fatalf("decode problem: %v", err)
 	}
 	if problem.Code != "quota_exceeded" || !errors.Is(service.err, featurecontrol.ErrQuotaExceeded) {
+		t.Fatalf("unexpected problem: %+v", problem)
+	}
+}
+
+func TestFeatureControlEnforcementProblemMapsFeatureDisabled(t *testing.T) {
+	t.Parallel()
+
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/classes", nil)
+	response := httptest.NewRecorder()
+	if !writeFeatureControlEnforcementProblem(
+		response,
+		request,
+		&featurecontrol.FeatureDisabledError{Feature: featurecontrol.FeatureClassManagement},
+	) {
+		t.Fatal("expected disabled feature error to be handled")
+	}
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("expected 403, got %d: %s", response.Code, response.Body.String())
+	}
+	var problem Problem
+	if err := json.Unmarshal(response.Body.Bytes(), &problem); err != nil {
+		t.Fatalf("decode problem: %v", err)
+	}
+	if problem.Code != "feature_disabled" {
 		t.Fatalf("unexpected problem: %+v", problem)
 	}
 }

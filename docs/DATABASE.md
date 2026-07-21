@@ -10,14 +10,13 @@ thay đổi schema, migration hoặc repository phải đọc tài liệu này t
 - Migration mới nhất trong source: `000012_tenant_feature_controls`.
 - Migration 1-5 đã được chạy và kiểm tra trên Neon; smoke
   `5 false -> rollback 4 false -> migrate 5 false` đạt ngày 2026-07-16.
-- Migration `000006` đến `000012` đều có up/down path. Migration/audit/classroom/
-  identity/feature-control integration-tag compile xanh local; runtime `000012` chưa
-  chạy local vì không nạp DB test env. Smoke
-  `12 false -> rollback 11 false -> migrate 12 false` chưa chạy trên staging; tài liệu
-  này không khẳng định staging đã nâng lên 12.
-- Phần lớn integration test rollback bằng transaction. Một số concurrency test commit
-  qua pool và giữ fixture có ID duy nhất khi audit history đã tồn tại, vì append-only FK
-  cố ý chặn xóa; CI dùng database tạm thời, không chạy suite này trên database dùng chung.
+- Migration `000006` đến `000012` đều có up/down path. Neon staging đã áp dụng
+  `000012` và xác nhận `12 false` ngày 2026-07-21. Focused feature-control integration
+  chạy bằng runtime role trên staging đã đạt; migration/runtime grants và role safety
+  được kiểm tra trước deploy commit `096620a`.
+- Phần lớn integration test rollback bằng transaction. Chỉ focused P2-09 suite có
+  fixture tự dọn hoàn toàn được chạy trên staging ngày 2026-07-21; các suite concurrency
+  có thể để lại audit append-only vẫn chỉ chạy trên database CI tạm thời.
 - Core API đã được smoke test với Neon: `/ready` trả `ready` và `/health` trả `ok`.
 
 Neon có branch `production` và branch staging tách biệt. Core API staging dùng pooled
@@ -328,5 +327,8 @@ của lịch sử append-only và không phải quy trình cleanup cho staging/p
   mutation, outbox và UI mà không cần migration mới.
 - P2-07 đã bổ sung audit append-only, migration `000011`, atomic writer, tenant query
   API và UI org admin; retention/erasure/partitioning production chốt ở Phase 8.
+- P2-09 đã áp dụng migration `000012` trên staging, cấp grants runtime tối thiểu và
+  chạy bounded cleanup `rate_limit_windows=0`, `tenant_quota_windows=0` ngày
+  2026-07-21; maintenance định kỳ tiếp tục theo runbook ở trên.
 - Chưa import dữ liệu TutorHub V1; migration V1 sẽ làm theo module/cohort ở phase sau.
 - Chưa có backup/restore drill, PITR gate hoặc connection load test cho pilot.

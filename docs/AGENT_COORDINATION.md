@@ -62,8 +62,9 @@ ngoại lệ có thời hạn theo ADR-0012 và không được mô tả như br
 | P2-06 Roster/class roles       | DONE       | Roster/hierarchy/single-bulk UI; verify xanh               |
 | P2-07 Audit log                | DONE       | Append-only audit, query/UI org admin, migration `000011`  |
 | P2-08 Admin/teacher E2E UI     | DONE       | CI và acceptance staging ba role đều xanh                  |
-| P2-09 Feature flag/quota       | VERIFY     | Code/test xanh; chờ migration/config và staging acceptance |
-| P2-10 đến P2-12                | TODO       | Theo dependency trong backlog                              |
+| P2-09 Feature flag/quota       | DONE       | Staging migration/config/acceptance đều đạt                 |
+| P2-10 Tenant isolation/IDOR    | NEXT       | Task tiếp theo; theo actor/resource matrix                  |
+| P2-11 đến P2-12                | TODO       | Theo dependency trong backlog                              |
 
 Nguồn thực thi: `docs/PHASE_2_BACKLOG.md`.
 
@@ -75,11 +76,11 @@ Playwright ba role đã chạy xuyên suốt workspace/invitation/class/roster/a
 cùng commit cũng xanh. Web 130/130, API client 15/15, UI 6/6 và E2E
 infrastructure 8/8 tiếp tục đạt; visual QA thủ công đạt ở desktop, laptop nhỏ và mobile.
 Acceptance staging P2-08 đã được chạy lại ngày 2026-07-20 và xanh toàn bộ ba role;
-deployment/contract drift trước đó đã được đồng bộ. P2-09 hiện ở `VERIFY`: typed
-catalog, tenant override, quota server-authoritative, capability UI, audit/metric,
-shared PostgreSQL limiter và signed edge context đã có test cục bộ. Bước tiếp theo
-là áp dụng migration `000012`, cấp quyền runtime tối thiểu, đồng bộ cấu hình
-Cloudflare/Render và chạy acceptance staging trước khi chuyển `DONE`.
+deployment/contract drift trước đó đã được đồng bộ. P2-09 chuyển `DONE` ngày
+2026-07-21 trên commit `096620a`: migration `12 false`, grants/role safety, cấu hình
+Cloudflare/Render, public health/edge limiter, focused Neon integration cho feature/
+quota/isolation/audit, HTTP/metric regression và bounded cleanup `0/0` đều đạt. Task
+tiếp theo là P2-10 tenant isolation/IDOR security suite.
 
 ## 5. Hạ tầng staging đã chốt
 

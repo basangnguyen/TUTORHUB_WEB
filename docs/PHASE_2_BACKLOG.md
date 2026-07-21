@@ -20,10 +20,10 @@ Tạo nền multi-tenant và quản lý lớp đủ dùng cho pilot nội bộ:
 identity linking; P2-02 Tenant lifecycle và workspace switching; P2-03 Membership
 invitation, accept và revoke; P2-04 Class lifecycle, ownership và archive; P2-05
 Enrollment và class invite code; P2-06 Roster và class-level roles; P2-07 Audit log
-cho hành động nhạy cảm; P2-08 Admin và teacher UI end-to-end.
+cho hành động nhạy cảm; P2-08 Admin và teacher UI end-to-end; P2-09 Feature flag và
+quota framework.
 
-**Task hiện tại:** P2-09 Feature flag và quota framework ở `VERIFY`; P2-10 bắt đầu
-sau khi hoàn tất staging gate của P2-09.
+**Task hiện tại:** P2-10 Tenant isolation/IDOR security suite.
 
 ## 2. Non-goal
 
@@ -60,7 +60,7 @@ sau khi hoàn tất staging gate của P2-09.
 | P2-06 | Roster và class-level roles             | P2-05                      | DONE       |
 | P2-07 | Audit log cho hành động nhạy cảm        | P2-02 đến P2-06            | DONE       |
 | P2-08 | Admin/teacher UI end-to-end             | P2-02 đến P2-07            | DONE       |
-| P2-09 | Feature flag và quota framework         | P2-00, P2-02               | VERIFY     |
+| P2-09 | Feature flag và quota framework         | P2-00, P2-02               | DONE       |
 | P2-10 | Tenant isolation/IDOR security suite    | Xuyên suốt; chốt sau P2-09 | TODO       |
 | P2-11 | V1 fixture import idempotent            | Schema ổn định sau P2-06   | TODO       |
 | P2-12 | Staging acceptance và đóng phase        | P2-01 đến P2-11            | TODO       |
@@ -474,9 +474,9 @@ secret vào repository/artifact. Deployment/contract drift của lượt kiểm 
 
 ### Kiểm thử và DoD
 
-- Disabled feature bị chặn server-side dù gọi API trực tiếp.
-- Quota concurrent mutation không vượt giới hạn.
-- Capability response không lộ cấu hình tenant khác.
+- [x] Disabled feature bị chặn server-side dù gọi API trực tiếp.
+- [x] Quota concurrent mutation không vượt giới hạn.
+- [x] Capability response không lộ cấu hình tenant khác.
 
 **Implementation checkpoint 2026-07-20:** ADR-0015 và migration `000012` bổ sung
 typed catalog, global safety ceiling, tenant override có optimistic version, quota
@@ -487,9 +487,16 @@ shared PostgreSQL fixed-window limiter thay cho limiter theo process. Web 139/13
 API client 16/16, root format/lint/typecheck/build/test/security bundle cùng full Go
 non-integration suite và `go vet` đều xanh cục bộ.
 
-P2-09 giữ trạng thái `VERIFY` cho tới khi staging áp dụng migration `000012`, cấp
-runtime grants theo `docs/DATABASE.md`, cấu hình cùng `EDGE_CONTEXT_SECRET` ở
-Cloudflare/Render, chạy cleanup window theo runbook và hoàn tất acceptance nêu trên.
+**Staging acceptance 2026-07-21: DONE.** Render và Cloudflare cùng deploy commit
+`096620a`; health/readiness/status trực tiếp và qua Pages đều đạt. Neon staging ở
+`12 false`, runtime role có đúng grants tối thiểu, không sở hữu bảng/không có quyền
+nguy hiểm. Signed edge/public limiter trả 404 cho token giả và ghi window active với
+`used_count=1`. Focused integration acceptance bằng runtime role trên Neon xác nhận
+feature disabled, cross-tenant denial, audit/outbox và concurrent member/class/invite
+quota; HTTP/observability regression xác nhận `403 feature_disabled`,
+`404 tenant_not_found`, `429 quota_exceeded` cùng bounded quota metric. Cleanup theo runbook
+xóa `0` hàng `rate_limit_windows` và `0` hàng `tenant_quota_windows`. Không lưu secret,
+connection URL hoặc fixture credential vào repository/artifact.
 
 ## 15. P2-10 Tenant isolation và IDOR security suite
 
@@ -570,11 +577,9 @@ Cloudflare/Render, chạy cleanup window theo runbook và hoàn tất acceptance
 
 ## 19. Việc cần làm ngay
 
-1. Hoàn tất P2-09 staging gate: migration `000012`, runtime grants, shared edge secret,
-   feature-control config và bounded cleanup cho các window đã hết hạn.
-2. Chạy acceptance staging cho feature disabled, concurrent quota, tenant isolation,
-   audit override và quota rejection metric; chỉ sau đó chuyển P2-09 sang `DONE`.
-3. Bắt đầu P2-10 tenant isolation/IDOR security suite sau khi P2-09 đạt DoD.
+1. Bắt đầu P2-10 bằng actor/resource matrix cho toàn bộ endpoint tenant/class.
+2. Ưu tiên cross-tenant IDOR, stale session, cursor tamper và invite-token abuse tests.
+3. Đưa integration security suite vào workflow `Verify` và chạy scan trên head Phase 2.
 4. Trước mỗi acceptance staging, đối chiếu commit/image, migration và configuration.
 5. Giữ audit append-only, tenant-scoped và không log token, session ID hoặc PII thừa.
 6. Giữ notification invitation ở interface/outbox; chưa gửi email thật trong Phase 2.

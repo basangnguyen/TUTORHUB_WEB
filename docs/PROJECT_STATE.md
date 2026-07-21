@@ -6,15 +6,15 @@
 
 | Thuộc tính          | Trạng thái                                                                            |
 | ------------------- | ------------------------------------------------------------------------------------- |
-| Ngày cập nhật       | 2026-07-20                                                                            |
+| Ngày cập nhật       | 2026-07-21                                                                            |
 | Repository          | `https://github.com/basangnguyen/TUTORHUB_WEB`                                        |
 | Nhánh làm việc      | `main`                                                                                |
 | Quy trình           | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
 | Phase hoàn thành    | Phase 0, Phase 1                                                                      |
 | Phase hiện tại      | Phase 2 - Identity, tenant và class core                                              |
-| Task vừa hoàn thành | P2-08 Admin và teacher UI end-to-end                                                  |
-| Task đang xác minh  | P2-09 Feature flag và quota framework (`VERIFY`)                                      |
-| Task tiếp theo      | P2-10 Tenant isolation/IDOR security suite, sau staging gate P2-09                    |
+| Task vừa hoàn thành | P2-09 Feature flag và quota framework                                                 |
+| Task hiện tại       | P2-10 Tenant isolation/IDOR security suite                                            |
+| Task tiếp theo      | P2-11 V1 fixture import idempotent                                                    |
 
 ## Kiến trúc đang chạy
 
@@ -150,8 +150,8 @@ trước pilot/public beta hoặc khi có người duy trì thứ hai.
 
 Backlog có thẩm quyền: `docs/PHASE_2_BACKLOG.md`.
 
-1. P2-00 đến P2-08 đã hoàn thành; P2-09 đã có implementation checkpoint và đang
-   ở `VERIFY` trước acceptance staging.
+1. P2-00 đến P2-09 đã hoàn thành; task tiếp theo là P2-10 tenant isolation/IDOR
+   security suite.
 2. P2-08 nối các contract workspace/invitation/class/roster/audit thành luồng UI
    org admin, teacher và student; capability guard, cache tenant/class, trạng thái
    forbidden/retry và navigation đã được chuẩn hóa.
@@ -180,8 +180,18 @@ Backlog có thẩm quyền: `docs/PHASE_2_BACKLOG.md`.
 8. Anonymous invitation preview/accept và class join dùng signed edge context cùng
    shared PostgreSQL limiter. Web 139/139, API client 16/16, root format/lint/
    typecheck/build/test/security bundle cùng full Go non-integration suite và `go vet`
-   đều xanh cục bộ. Chưa có bằng chứng staging cho migration/config mới nên P2-09
-   chưa chuyển `DONE`.
+   đều xanh cục bộ.
+9. Acceptance P2-09 ngày 2026-07-21 đạt trên commit `096620a`: Render và Cloudflare
+   cùng chạy head này; health/readiness/status trực tiếp và qua Pages đều trả 200.
+   Neon staging ở migration `12 false`, runtime grants đúng ma trận tối thiểu và role
+   không sở hữu bảng/không có quyền nguy hiểm. Signed edge/public limiter trả 404 cho
+   token giả và ghi window active với `used_count=1`.
+10. Hai integration test feature-control chạy bằng runtime role trên Neon staging đã
+    đạt: feature disabled, tenant isolation, audit/outbox và concurrent member/class/
+    invitation quota đều giữ invariant. HTTP regression xác nhận
+    `403 feature_disabled`, `404 tenant_not_found`, `429 quota_exceeded`; metric quota
+    rejection dùng label bounded. Bounded cleanup xóa `0` rate-limit window và `0`
+    tenant-quota window; P2-09 chuyển `DONE`.
 
 ## Rủi ro đã biết
 
@@ -191,12 +201,12 @@ Backlog có thẩm quyền: `docs/PHASE_2_BACKLOG.md`.
   bù tạm thời theo ADR-0012.
 - Chưa chọn managed Redis và observability provider cho quy mô lớn hơn.
 - P2-09 thay limiter theo process bằng fixed-window PostgreSQL và chỉ tin client prefix
-  do Cloudflare Pages ký. Staging phải dùng cùng `EDGE_CONTEXT_SECRET` ở edge/Core API;
-  assertion không hợp lệ fallback về direct peer prefix và vẫn bị shared limiter.
-  Redis vẫn hoãn cho tới khi có số liệu tải.
-- Migration `000012` không hardcode runtime role theo môi trường. Trước deploy phải
-  cấp grants tối thiểu và thiết lập bounded cleanup cho `tenant_quota_windows` cùng
-  `rate_limit_windows` theo `docs/DATABASE.md`.
+  do Cloudflare Pages ký. Staging đã đồng bộ `EDGE_CONTEXT_SECRET` ở edge/Core API và
+  public limiter smoke đã đạt; assertion không hợp lệ vẫn fallback về direct peer
+  prefix. Redis tiếp tục hoãn cho tới khi có số liệu tải.
+- Migration `000012` không hardcode runtime role theo môi trường. Staging đã cấp grants
+  tối thiểu và chạy bounded cleanup cho `tenant_quota_windows` cùng
+  `rate_limit_windows`; maintenance định kỳ vẫn phải theo `docs/DATABASE.md`.
 - Class projection chưa lộ `archived_from_status`, nên web chỉ dùng feature gate khi
   hiển thị restore; quota active-class vẫn được server enforce transactionally. Khi
   quota đã hết, restore lớp từng active có thể nhận 409 sau submit; bổ sung projection
