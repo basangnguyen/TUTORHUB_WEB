@@ -64,7 +64,7 @@ ngoại lệ có thời hạn theo ADR-0012 và không được mô tả như br
 | P2-08 Admin/teacher E2E UI     | DONE       | CI và acceptance staging ba role đều xanh                  |
 | P2-09 Feature flag/quota       | DONE       | Staging migration/config/acceptance đều đạt                 |
 | P2-10 Tenant isolation/IDOR    | DONE       | Commit `c4205b9`; Verify/Security CI đều xanh               |
-| P2-11 V1 fixture import        | VERIFY     | Code/test đã có; chờ PostgreSQL CI và branch reset           |
+| P2-11 V1 fixture import        | DONE       | Commit `f07d05d`; PostgreSQL 17 Verify/Security đều xanh    |
 | P2-12 Staging closure          | TODO       | Theo dependency trong backlog                              |
 
 Nguồn thực thi: `docs/PHASE_2_BACKLOG.md`.
@@ -86,11 +86,12 @@ security fixture. Commit `c4205b9` đạt
 [Verify](https://github.com/basangnguyen/TUTORHUB_WEB/actions/runs/29884539891), gồm
 PostgreSQL 17 security matrix, và
 [Security](https://github.com/basangnguyen/TUTORHUB_WEB/actions/runs/29884539912), gồm
-CodeQL, Trivy repository/container cùng secret scan. P2-10 đã chuyển `DONE`; P2-11 là
-task hiện tại. ADR-0016, migration `000013`, fixture ẩn danh, CLI dry-run/apply,
-checkpoint/resume, mapping và reconciliation đã được triển khai ngày 2026-07-22;
-targeted unit test xanh và PostgreSQL integration đã nối workflow Verify. Chỉ chuyển
-P2-11 `DONE` sau CI PostgreSQL 17 và rollback/reset trên branch tạm.
+CodeQL, Trivy repository/container cùng secret scan. P2-10 đã chuyển `DONE`.
+P2-11 hoàn thành ngày 2026-07-22 trên commit `f07d05d`: ADR-0016, migration `000013`,
+fixture ẩn danh, CLI dry-run/apply, checkpoint/resume, mapping và reconciliation đều
+được xác minh. PostgreSQL 17 local tạm và Verify chạy xanh migration `13 -> 12 -> 13`,
+apply/rerun, resume cùng cleanup/reset; Security cùng commit cũng xanh. P2-12 là task
+hiện tại.
 
 ## 5. Hạ tầng staging đã chốt
 

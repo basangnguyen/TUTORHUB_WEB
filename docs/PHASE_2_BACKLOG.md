@@ -23,7 +23,7 @@ Enrollment và class invite code; P2-06 Roster và class-level roles; P2-07 Audi
 cho hành động nhạy cảm; P2-08 Admin và teacher UI end-to-end; P2-09 Feature flag và
 quota framework; P2-10 Tenant isolation/IDOR security suite.
 
-**Task hiện tại:** P2-11 V1 fixture import idempotent (`VERIFY`).
+**Task hiện tại:** P2-12 Staging acceptance và đóng phase (`TODO`).
 
 ## 2. Non-goal
 
@@ -62,7 +62,7 @@ quota framework; P2-10 Tenant isolation/IDOR security suite.
 | P2-08 | Admin/teacher UI end-to-end             | P2-02 đến P2-07            | DONE       |
 | P2-09 | Feature flag và quota framework         | P2-00, P2-02               | DONE       |
 | P2-10 | Tenant isolation/IDOR security suite    | Xuyên suốt; chốt sau P2-09 | DONE       |
-| P2-11 | V1 fixture import idempotent            | Schema ổn định sau P2-06   | VERIFY     |
+| P2-11 | V1 fixture import idempotent            | Schema ổn định sau P2-06   | DONE       |
 | P2-12 | Staging acceptance và đóng phase        | P2-01 đến P2-11            | TODO       |
 
 ## 5. P2-00 Policy and contract baseline
@@ -558,9 +558,9 @@ scope; containment tests phải tiếp tục được giữ.
 
 ### Kiểm thử và DoD
 
-- Import fixture hai lần cho cùng kết quả.
-- Rollback/reset test trên Neon branch tạm.
-- User, membership, class và ownership sau import khớp mapping đã duyệt.
+- [x] Import fixture hai lần cho cùng kết quả.
+- [x] Rollback/reset test trên PostgreSQL 17 database tạm.
+- [x] User, membership, class và ownership sau import khớp mapping đã duyệt.
 
 **Implementation checkpoint 2026-07-22:** ADR-0016 chốt fixture-only importer trong Go
 modular monolith. Migration `000013` tạo run/item/mapping ledger chỉ dành cho migration
@@ -568,9 +568,11 @@ role; CLI chặn production và chỉ nhận strict JSON `anonymized=true` với
 Fixture đại diện có 12 record user/tenant/membership/class, Unicode tiếng Việt, UTC,
 Asia/Ho_Chi_Minh, America/Los_Angeles, archived state và hai skip có reason code.
 Dry-run rollback, apply theo record, checkpoint/resume, natural-key fail-closed và
-reconciliation JSON dùng cùng transform/upsert path. Unit test mục tiêu và integration-tag
-compile xanh; task ở `VERIFY` cho tới khi Verify chạy PostgreSQL 17, import hai lần/resume
-đạt và rollback/reset được xác nhận trên branch tạm.
+reconciliation JSON dùng cùng transform/upsert path. PostgreSQL 17 local tạm và
+[Verify](https://github.com/basangnguyen/TUTORHUB_WEB/actions/runs/29891333712) tại
+commit `f07d05d` xác nhận migration `13 -> 12 -> 13`, dry-run, apply/rerun,
+checkpoint/resume, mapping/ownership và cleanup/reset; Security cùng commit cũng xanh.
+P2-11 chuyển `DONE` ngày 2026-07-22.
 
 ## 17. P2-12 Staging acceptance và đóng phase
 

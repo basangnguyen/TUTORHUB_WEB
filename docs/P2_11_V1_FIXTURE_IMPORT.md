@@ -66,3 +66,13 @@ CLI in reconciliation JSON ra stdout. Không in database URL hoặc nội dung s
 5. Inject failure sau checkpoint, resume và cho kết quả giống clean import.
 6. Reconciliation không có failed record; skip đúng dữ liệu ngoài mapping.
 7. Reset/rollback được kiểm tra trên database/Neon branch tạm trước khi P2-11 `DONE`.
+
+## 7. Kết quả xác minh
+
+Ngày 2026-07-22, PostgreSQL 17 database tạm cục bộ đã chạy xanh toàn bộ chuỗi
+migration, importer, classroom, identity, audit, feature-control và security integration.
+Commit `f07d05d` tiếp tục đạt
+[Verify](https://github.com/basangnguyen/TUTORHUB_WEB/actions/runs/29891333712) và
+[Security](https://github.com/basangnguyen/TUTORHUB_WEB/actions/runs/29891333728).
+Migration `13 -> 12 -> 13`, dry-run không ghi, apply/rerun idempotent,
+checkpoint/resume, reconciliation, ownership mapping và cleanup/reset đều đạt.

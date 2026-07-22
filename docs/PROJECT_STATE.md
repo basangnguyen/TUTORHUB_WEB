@@ -12,9 +12,9 @@
 | Quy trình           | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
 | Phase hoàn thành    | Phase 0, Phase 1                                                                      |
 | Phase hiện tại      | Phase 2 - Identity, tenant và class core                                              |
-| Task vừa hoàn thành | P2-10 Tenant isolation/IDOR security suite                                            |
-| Task hiện tại       | P2-11 V1 fixture import idempotent - VERIFY                                           |
-| Task tiếp theo      | P2-12 Staging acceptance và đóng phase                                                |
+| Task vừa hoàn thành | P2-11 V1 fixture import idempotent                                                    |
+| Task hiện tại       | P2-12 Staging acceptance và đóng phase                                                |
+| Task tiếp theo      | Phase 3 backlog sau khi Phase 2 đạt exit gate                                        |
 
 ## Kiến trúc đang chạy
 
@@ -150,7 +150,7 @@ trước pilot/public beta hoặc khi có người duy trì thứ hai.
 
 Backlog có thẩm quyền: `docs/PHASE_2_BACKLOG.md`.
 
-1. P2-00 đến P2-10 đã hoàn thành; P2-11 V1 fixture import idempotent đang ở `VERIFY`.
+1. P2-00 đến P2-11 đã hoàn thành; P2-12 staging acceptance và đóng phase là task hiện tại.
 2. P2-08 nối các contract workspace/invitation/class/roster/audit thành luồng UI
    org admin, teacher và student; capability guard, cache tenant/class, trạng thái
    forbidden/retry và navigation đã được chuẩn hóa.
@@ -206,9 +206,12 @@ Backlog có thẩm quyền: `docs/PHASE_2_BACKLOG.md`.
 12. P2-11 đã chấp nhận ADR-0016 và bổ sung migration `000013`, fixture JSON ẩn danh,
     CLI `v1-fixture-import`, external-ID mapping, per-record checkpoint/resume và
     reconciliation report. Importer chặn production, từ chối payload không strict hoặc
-    email ngoài `.invalid`, không đọc dữ liệu/configuration V1 thật. Unit test mục tiêu
-    xanh; integration suite đã nối Verify và chờ PostgreSQL 17 cùng rollback/reset branch
-    tạm trước khi chuyển `DONE`.
+    email ngoài `.invalid`, không đọc dữ liệu/configuration V1 thật. PostgreSQL 17 local
+    tạm xác nhận full integration; commit `f07d05d` đạt
+    [Verify](https://github.com/basangnguyen/TUTORHUB_WEB/actions/runs/29891333712) và
+    [Security](https://github.com/basangnguyen/TUTORHUB_WEB/actions/runs/29891333728).
+    Migration `13 -> 12 -> 13`, dry-run, apply/rerun, checkpoint/resume, reconciliation
+    và cleanup/reset database tạm đều đạt; P2-11 chuyển `DONE`.
 
 ## Rủi ro đã biết
 
