@@ -3,6 +3,7 @@
 package securitysuite
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"net/url"
@@ -105,12 +106,14 @@ func newSecurityFixture(t *testing.T) *securityFixture {
 
 	f := &securityFixture{
 		tx: tx, pool: pool, ctx: ctx, cancel: cancel,
-		now:    time.Date(2026, 7, 22, 9, 0, 0, 0, time.UTC),
+		// Keep mutation timestamps slightly ahead of database defaults created
+		// during fixture setup without coupling this suite to a calendar date.
+		now:    time.Now().UTC().Truncate(time.Microsecond).Add(30 * time.Second),
 		actors: make(map[string]*securityActor),
 	}
 	t.Cleanup(f.close)
 	f.policy = policy.NewEngine()
-	f.crypto, err = identity.NewCrypto([]byte("security-suite-integration-key-0123456789"))
+	f.crypto, err = identity.NewCrypto(bytes.Repeat([]byte{0x37}, 32))
 	if err != nil {
 		t.Fatalf("create fixture crypto: %v", err)
 	}
@@ -379,6 +382,11 @@ func (f *securityFixture) seedClassesAndRoster(t *testing.T) {
 		MemberEmail: f.actors["foreign_student_b"].Email,
 	}); err != nil {
 		t.Fatalf("enroll foreign student in class B: %v", err)
+	}
+	if _, err := f.enrollment.DirectEnroll(f.ctx, ownerB.Access, f.classB.ID, classroom.DirectEnrollmentInput{
+		MemberEmail: f.actors["switcher"].Email,
+	}); err != nil {
+		t.Fatalf("enroll workspace switcher in class B: %v", err)
 	}
 	invite, err := f.enrollment.CreateInviteCode(f.ctx, ownerB.Access, f.classB.ID, classroom.CreateClassInviteCodeInput{
 		ExpiresInSeconds: 3600, UsageLimit: 5,

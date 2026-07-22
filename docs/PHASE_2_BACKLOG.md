@@ -524,9 +524,10 @@ connection URL hoặc fixture credential vào repository/artifact.
 và outer transaction rollback; suite phủ role projection, exact foreign class/user/code,
 denied-mutation snapshots, cursor replay, membership revoke và workspace switch. HTTP
 boundary từ chối mass assignment, duplicate field kể cả khác hoa/thường, trailing JSON,
-payload không phải object/oversized và UUID alias. Class cursor v2 bind tenant/filter;
-class/roster/audit cursor dùng strict decoder. Bảy bounded fuzz target đã xanh và full
-`corepack pnpm verify` xanh cục bộ. Host không có PostgreSQL/Docker nên trạng thái còn
+payload không phải object/oversized; resource UUID path/query từ chối alias. Class cursor
+v2 bind tenant/filter; class/roster/audit cursor dùng strict decoder. Chín fuzz function
+và full `corepack pnpm verify` đã xanh cục bộ. Host không có PostgreSQL/Docker nên
+trạng thái còn
 `VERIFY`; chỉ chuyển `DONE` sau khi Verify chạy matrix trên PostgreSQL 17 và Security
 workflow xác nhận dependency/CodeQL/Trivy/container/secret scan trên cùng head.
 

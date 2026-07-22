@@ -115,7 +115,8 @@ invitation, tách purpose để không dùng chung bucket. Render origin vẫn k
 
 P2-10 áp strict JSON object cho toàn bộ mutation: unknown field, duplicate field kể cả
 khác hoa/thường, trailing JSON, payload không phải object và body vượt giới hạn đều bị
-từ chối trước service. UUID ở path/query/body nhạy cảm chỉ nhận dạng canonical, non-nil.
+từ chối trước service. Resource UUID ở path/query nhạy cảm chỉ nhận dạng canonical,
+non-nil; UUID trong mutation body vẫn phải qua DTO strict và authorization server-side.
 Class cursor v2 bind active tenant cùng filter; class/roster/audit decoder từ chối unknown
 hoặc trailing payload. Cursor vẫn là untrusted pagination anchor và không thay thế
 tenant/class predicate trong SQL. Scope hash hiện không phải chữ ký HMAC; đây là finding

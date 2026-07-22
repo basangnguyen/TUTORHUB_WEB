@@ -1237,8 +1237,9 @@ typed `403/404/429` cùng bounded rejection counter. P2-09 đạt toàn bộ DoD
 đã được lập; PostgreSQL security suite kiểm tra role projection, exact foreign IDs,
 denied-mutation invariants, stale membership và token rotation khi switch workspace.
 HTTP boundary được siết bằng strict JSON object, duplicate/unknown/trailing/size checks
-và canonical UUID; class cursor v2 bind tenant/filter, các cursor decoder strict. Bảy
-fuzz target cho JSON/UUID/token/cursor và full `corepack pnpm verify` đều xanh cục bộ.
+và canonical resource UUID ở path/query; class cursor v2 bind tenant/filter, các cursor
+decoder strict. Chín fuzz function cho JSON/UUID/token/cursor/search/media và full
+`corepack pnpm verify` đều xanh cục bộ.
 Integration suite đã nối vào workflow Verify. Host không có PostgreSQL/Docker nên task
 chỉ chuyển `DONE` sau Verify PostgreSQL 17 và Security workflow trên cùng head.
 

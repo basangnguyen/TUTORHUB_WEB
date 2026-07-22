@@ -243,7 +243,8 @@ tuyệt đối.
 
 ### 8.2 Actor/resource matrix
 
-- [x] Table-driven test đủ chín actor của mục 5 trên từng route group.
+- [x] Policy matrix hiện có cùng PostgreSQL class projection test đủ chín actor của
+  mục 5; route-specific tests ở mục 9 cung cấp coverage cho các route group còn lại.
 - [x] Guest/student không enrolled không thấy class trong list và không get exact ID.
 - [x] TA join/publish/admit theo policy nhưng không manage enrollment/roster.
 - [x] Teacher quản lý mọi class cùng tenant nhưng chỉ archive/restore/transfer class do
@@ -301,7 +302,8 @@ request phải bị từ chối, không silently ignore:
 
 ### 8.7 Fuzz checklist
 
-- [x] Fuzz UUID path/query/body: empty, nil UUID, truncated, overlong và Unicode.
+- [x] Fuzz resource UUID ở path/query: empty, nil UUID, truncated, overlong,
+  alias không canonical và Unicode; body mutation được phủ riêng bởi strict JSON tests.
 - [x] Fuzz membership invitation token normalizer/digest boundary.
 - [x] Fuzz class invite token normalizer/digest boundary.
 - [x] Fuzz class, roster và audit cursor decoders; không panic, allocation có giới hạn.
@@ -354,7 +356,7 @@ integration test vì fake service không chứng minh SQL tenant predicate.
 | ID | Severity | Finding | Ảnh hưởng và quyết định P2-10 |
 |---|---|---|---|
 | P2-10-F01 | Low - fixed | Class cursor v1 chỉ là base64 JSON của `created_at`, `id`, `status`; chưa bind `tenant_id` và dùng decoder cho phép unknown field. | Đã thay bằng prefix v2, bind tenant/filter, strict decode và regression unit + PostgreSQL cursor replay tenant B -> A. Cursor cũ bị từ chối fail-closed. |
-| P2-10-F02 | Low / follow-up | Roster/audit cursor bind scope bằng SHA-256 không có secret; client có thể tự tính hash và forge anchor. | Containment tests đã đạt: cursor chỉ ảnh hưởng pagination trong đúng tenant/class/filter và không cấp quyền hay mutate state. HMAC/versioned signing được ghi follow-up trong backlog/ADR riêng nếu threat model P2-12 yêu cầu. |
+| P2-10-F02 | Low / follow-up | Class/roster/audit cursor bind scope bằng SHA-256 không có secret; client có thể tự tính hash và forge anchor. | Containment tests đã đạt: cursor chỉ ảnh hưởng pagination trong đúng tenant/class/filter và không cấp quyền hay mutate state. HMAC/versioned signing được ghi follow-up trong backlog/ADR riêng nếu threat model P2-12 yêu cầu. |
 | P2-10-F03 | Informational | Membership revoke loại active tenant khỏi principal nhưng không revoke toàn bộ identity session. | Đây là semantics có chủ ý nếu self endpoints và membership tenant khác vẫn dùng được. P2-10 phải test mất workspace permission ngay request kế tiếp và ghi rõ không kỳ vọng global `401`. |
 | P2-10-F04 | Informational | Signed LiveKit webhook lấy tenant/class từ room name rồi dựa vào composite FK để bác mismatched pair. | Không phải user-controlled IDOR khi signature verification đúng. Bổ sung test malformed/mismatched signed room không ghi receipt; cân nhắc map FK failure sang ignored/controlled error để tránh availability noise. |
 
@@ -364,7 +366,8 @@ Kết luận cuối cùng vẫn chờ Verify PostgreSQL và Security workflow tr
 ## 12. Exit criteria P2-10
 
 - [x] Actor/resource matrix được encode thành automated tests, không chỉ review thủ công.
-- [x] Exact foreign-ID suite phủ route inventory qua suite mới và integration test đã trace.
+- [x] Route inventory đã được đối chiếu với test trace hiện có; PostgreSQL suite mới
+  bổ sung exact foreign class/user/code IDs và denied-mutation snapshots.
 - [x] Membership revoke và workspace-switch suite đạt ở mức compile/local fixture;
   runtime PostgreSQL chờ CI.
 - [x] Mass-assignment, cursor tamper, invitation abuse và fuzz suite đạt cục bộ.
