@@ -10,11 +10,11 @@
 | Repository          | `https://github.com/basangnguyen/TUTORHUB_WEB`                                        |
 | Nhánh làm việc      | `main`                                                                                |
 | Quy trình           | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
-| Phase hoàn thành    | Phase 0, Phase 1                                                                      |
-| Phase hiện tại      | Phase 2 - Identity, tenant và class core                                              |
-| Task vừa hoàn thành | P2-11 V1 fixture import idempotent                                                    |
-| Task hiện tại       | P2-12 Staging acceptance và đóng phase (`VERIFY/IN PROGRESS`)                         |
-| Task tiếp theo      | Phase 3 backlog sau khi Phase 2 đạt exit gate                                        |
+| Phase hoàn thành    | Phase 0, Phase 1, Phase 2                                                             |
+| Phase hiện tại      | Chưa bắt đầu Phase 3                                                                 |
+| Task vừa hoàn thành | P2-12 Staging acceptance và đóng Phase 2                                            |
+| Task hiện tại       | Chưa chọn task Phase 3                                                               |
+| Task tiếp theo      | Chốt backlog và task mở đầu Phase 3                                                 |
 
 ## Kiến trúc đang chạy
 
@@ -146,12 +146,12 @@ Phase 1 hoàn thành ngày 2026-07-16. Biên bản và ma trận bằng chứng 
 được ghi nhận trong ADR-0012, không phải kiểm soát đã bật. Ngoại lệ phải hết hiệu lực
 trước pilot/public beta hoặc khi có người duy trì thứ hai.
 
-## Phase 2 đang thực hiện
+## Phase 2 đã hoàn thành ngày 2026-07-22
 
 Backlog có thẩm quyền: `docs/PHASE_2_BACKLOG.md`.
 
-1. P2-00 đến P2-11 đã hoàn thành; P2-12 staging acceptance và đóng phase đang ở
-   `VERIFY/IN PROGRESS`, chưa đạt exit gate Phase 2.
+1. P2-00 đến P2-12 đã hoàn thành; biên bản staging và đóng phase đã đạt exit gate,
+   product/engineering owner sign-off ngày 2026-07-22.
 2. P2-08 nối các contract workspace/invitation/class/roster/audit thành luồng UI
    org admin, teacher và student; capability guard, cache tenant/class, trạng thái
    forbidden/retry và navigation đã được chuẩn hóa.
@@ -240,9 +240,25 @@ Backlog có thẩm quyền: `docs/PHASE_2_BACKLOG.md`.
 16. Sau staging migration, Render đã live release candidate full SHA
     `3c48964e3900b2a262c4026abf0174b3c39c5d93` qua deploy
     `dep-d9gaiturnols73c75qp0`. Public health/readiness/status trực tiếp Render và qua
-    Pages proxy đều HTTP 200 (6/6), readiness báo database/object storage ready. P2-12
-    vẫn ở `VERIFY`: còn phải chạy/chốt 7 UI scenarios S01-S07; S09 provider
-    rollback/redeploy và product/engineering sign-off.
+    Pages proxy đều HTTP 200 (6/6), readiness báo database/object storage ready.
+17. Lượt UI staging S01-S07 chạy khoảng 19:06-19:36 ngày 2026-07-22 trên workspace
+    `P2-12 Acceptance 202607221900`, class
+    `f61e3344-251f-42eb-b3bc-90fd9f9cff5d`, đã đạt. Admin tạo workspace/mời hai role;
+    teacher/student accept, login và switch; teacher tạo class active cùng link 1 ngày,
+    2 lượt (`0/2 -> 1/2`); student join; roster đổi Trợ giảng, suspend, remove và refresh
+    vẫn giữ `Đã xóa`. Cross-tenant UI conceal exact class và exact audit filter ở `KMA`
+    trả 0; exact foreign roster/media-token tiếp tục dùng P2-10 automated baseline,
+    không có direct staging POST room-token trong lượt này. Archive chặn identity chưa
+    enroll join qua link còn `1/2` và vẫn giữ roster history. Audit workspace có 22 event,
+    exact class có 5 event create/update/roster/archive, actor/resource/request ID đầy đủ
+    và denied join cũng được audit.
+18. S09 provider closure đạt khoảng 19:39-19:43 ngày 2026-07-22. Render live latest
+    `0be98bb`, application rollback bằng `Deploy a specific commit` về `3c48964`, rồi
+    forward lại `0be98bb`; mỗi bước đều đạt 6/6 probe direct Render và qua Pages. Native
+    Rollback được cancel an toàn vì cảnh báo không tải được cấu hình live; không có thay
+    đổi cấu hình được tuyên bố. Phiên Admin/audit vẫn hoạt động sau forward deploy.
+19. Owner đã sign-off P2-12. Closure-record docs-only phải được hậu kiểm Verify/Security
+    sau push; nếu một workflow thất bại thì mở lại P2-12 và khắc phục regression.
 
 ## Rủi ro đã biết
 
@@ -268,10 +284,10 @@ Backlog có thẩm quyền: `docs/PHASE_2_BACKLOG.md`.
   configuration trước khi kết luận lỗi contract.
 - Host hiện tại thiếu Docker/PostgreSQL nên không thể lặp lại full browser scenario
   ngoài CI; nếu CI không sẵn có thì đây vẫn là hạn chế chẩn đoán cục bộ.
-- P2-12 chưa được đóng: CI/Cloudflare/Render/Neon/importer/public probe đã đạt checkpoint
-  nhưng không thay thế UI staging acceptance. Cần chạy/chốt 7 UI scenarios S01-S07 và
-  S09 provider rollback/redeploy trước sign-off. Rollback đã được hủy an toàn khi Render
-  cảnh báo không tải được cấu hình live hiện tại và có nguy cơ thay đổi cấu hình ngoài dự kiến.
+- P2-12 đã đóng sau khi CI/Cloudflare/Render/Neon/importer/public probe, UI staging
+  S01-S07 và S09 application rollback/redeploy đều đạt. Native Rollback không được dùng
+  vì Render cảnh báo không tải được cấu hình live; application rollback giữ config hiện
+  tại là bằng chứng phục hồi đã chấp nhận. Closure-record CI sau push là hậu kiểm bắt buộc.
 - Class/roster/audit cursor vẫn là payload client đọc được; scope hash ngăn replay sai
   tenant/filter nhưng không phải chữ ký bí mật. SQL luôn giữ tenant/class predicate nên
   finding hiện được xếp Low; quyết định HMAC toàn bộ cursor được hoãn sang backlog/ADR

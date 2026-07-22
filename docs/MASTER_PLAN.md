@@ -10,8 +10,8 @@
 | Thư mục phát triển    | `D:\TutorHub_V2`                                                                             |
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
-| Phase hiện tại        | Phase 2 - Identity, tenant và class core                                                     |
-| Trạng thái gần nhất   | P2-11 DONE; P2-12 staging acceptance và đóng phase đang ở VERIFY                            |
+| Phase hiện tại        | Chưa bắt đầu Phase 3                                                                         |
+| Trạng thái gần nhất   | Phase 2/P2-12 DONE ngày 2026-07-22; chuẩn bị chọn task mở đầu Phase 3                        |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 
@@ -1178,14 +1178,14 @@ webhook, telemetry và rollback đã có bằng chứng. Repository chưa có ru
 khai; direct-main là ngoại lệ có thời hạn theo ADR-0012, phải thay trước pilot/public
 beta. Xem `docs/PHASE_1_COMPLETION.md`.
 
-### Phase 2 - Identity, tenant và class core - ĐANG THỰC HIỆN
+### Phase 2 - Identity, tenant và class core - HOÀN THÀNH 2026-07-22
 
 **Thời lượng:** 4-6 tuần.
 
 **Mục tiêu:** có nền multi-tenant và quản lý lớp đủ dùng cho pilot nội bộ.
 
-**Backlog thực thi:** `docs/PHASE_2_BACKLOG.md`. P2-00 đến P2-11 đã hoàn thành;
-P2-12 staging acceptance và đóng phase là task hiện tại.
+**Backlog thực thi:** `docs/PHASE_2_BACKLOG.md`. P2-00 đến P2-12 đã hoàn thành;
+biên bản đóng phase nằm tại `docs/PHASE_2_COMPLETION.md`.
 
 **Trạng thái 2026-07-19:** P2-07 bổ sung ADR-0014, migration `000011` và module audit
 append-only tách khỏi outbox nhưng ghi atomic cùng business mutation/outbox khi thay đổi
@@ -1255,7 +1255,7 @@ timezone, archived state và dependency skip. PostgreSQL 17 local tạm cùng
 `f07d05d` xác nhận migration `13 -> 12 -> 13`, dry-run, apply/rerun, checkpoint/resume,
 reconciliation, mapping/ownership và cleanup/reset. Security cùng commit cũng xanh.
 
-**Trạng thái P2-12 ngày 2026-07-22: VERIFY.** Scenario Playwright ba identity đã bổ
+**Trạng thái P2-12 ngày 2026-07-22: DONE.** Scenario Playwright ba identity đã bổ
 sung kiểm tra usage link `0/2 -> 1/2`, archive giữ roster/link lịch sử nhưng chặn join
 mới, và audit đối chiếu actor/resource/request ID. Các backend integration suite hiện
 có tiếp tục phủ usage atomic, expiry/revoke/exhaustion, cross-tenant invariants và
@@ -1265,9 +1265,10 @@ archive retention. Checkpoint `3c48964` đã đạt Verify `29912093175`, Securi
 đạt `13 false` với role split/default ACL/future-table probe least-privilege. Public
 Render/Pages health, readiness và status đều HTTP 200. Render đã live release candidate
 `3c48964` qua deploy `dep-d9gaiturnols73c75qp0`; 6/6 public probe sau deploy đều đạt.
-Chưa chuyển Phase 2 sang hoàn thành cho đến khi 7 UI scenarios S01-S07; S09 provider
-rollback/redeploy và owner sign-off cùng đạt. Bằng chứng chuẩn hóa
-nằm trong `docs/P2_12_STAGING_ACCEPTANCE.md` và `docs/PHASE_2_COMPLETION.md`.
+S01-S07 đạt trên staging; S09 application rollback `0be98bb -> 3c48964 -> 0be98bb`
+giữ config hiện tại và mỗi bước đều đạt 6/6 probe. Owner sign-off ngày 2026-07-22.
+Bằng chứng chuẩn hóa nằm trong `docs/P2_12_STAGING_ACCEPTANCE.md` và
+`docs/PHASE_2_COMPLETION.md`; closure-record CI sau push là hậu kiểm bắt buộc.
 
 **Work package:**
 
@@ -1764,15 +1765,11 @@ Một tính năng chỉ được đánh dấu hoàn thành khi:
 Thứ tự hiện tại, cập nhật ngày 2026-07-22:
 
 1. Phase 1 đã hoàn thành; biên bản nằm tại `docs/PHASE_1_COMPLETION.md`.
-2. P2-00 policy đến P2-10 tenant isolation/IDOR đã hoàn thành.
-3. P2-11 đã hoàn thành trên PostgreSQL 17: migration `13 -> 12 -> 13`,
-   dry-run/apply/rerun, resume, reconciliation và cleanup/reset đều đạt.
-4. Hoàn tất Verify/Security cho candidate P2-12 và sửa mọi regression trước khi nghiệm thu.
-5. Đối chiếu commit/image web/Core API, Neon `13 false` và quyền runtime/migration;
-   sau đó chạy importer idempotency cùng migration/rollback smoke trên fixture staging.
-6. Chỉ ký `PHASE_2_COMPLETION.md` khi mọi gate trong biên bản staging đều đạt.
-7. Không bắt đầu QuizHub, Lavie, social feed, Secure Exam web hoặc classroom
-   collaboration trong Phase 2.
+2. Phase 2/P2-00 đến P2-12 đã hoàn thành; biên bản exit gate được sign-off ngày 2026-07-22.
+3. Hậu kiểm Verify/Security cho closure-record docs-only sau push; mở lại P2-12 nếu lỗi.
+4. Chốt backlog Phase 3 và chọn task mở đầu theo dependency trong master plan.
+5. Không xóa thêm Neon branch theo quyết định hiện tại của owner.
+6. Không khởi động QuizHub, Lavie, social feed hoặc Secure Exam ngoài phase đã quy hoạch.
 
 ## 37. Quy tắc duy trì Master Plan
 
@@ -1819,7 +1816,7 @@ Thứ tự hiện tại, cập nhật ngày 2026-07-22:
 
 ---
 
-**Điểm bắt đầu sau tài liệu này:** đọc `docs/PROJECT_STATE.md` và
-`docs/PHASE_2_BACKLOG.md`; P2-11 đã hoàn thành, P2-12 đang `VERIFY` và chưa được phép
-đóng Phase 2 cho đến khi CI cùng staging acceptance đều xanh.
-Master Plan giữ mục tiêu/exit gate, không thay backlog chi tiết.
+**Điểm bắt đầu sau tài liệu này:** đọc `docs/PROJECT_STATE.md`, biên bản
+`docs/PHASE_2_COMPLETION.md` và backlog Phase 3. Phase 2/P2-12 đã hoàn thành; bước tiếp
+theo là chọn task mở đầu Phase 3. Master Plan giữ mục tiêu/exit gate, không thay backlog
+chi tiết.

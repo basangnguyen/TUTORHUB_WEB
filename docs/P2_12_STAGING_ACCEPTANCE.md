@@ -6,16 +6,18 @@
 | --- | --- |
 | Ngày lập biên bản | 2026-07-22 |
 | Phạm vi | P2-12 Staging acceptance và đóng Phase 2 |
-| Trạng thái | **VERIFY / IN PROGRESS - chưa đủ điều kiện đóng Phase 2** |
+| Trạng thái | **DONE - Phase 2 đã được nghiệm thu và đóng** |
 | Release candidate SHA | `3c48964e3900b2a262c4026abf0174b3c39c5d93` - cây application/E2E dùng cho provider acceptance |
-| Closure-record SHA | **PENDING** - commit docs-only ghi bằng chứng sau cùng, không tự tham chiếu vào chính nội dung biên bản |
+| Closure-record SHA | Commit docs-only chứa biên bản này; SHA được giải quyết bằng Git history sau commit, không tự tham chiếu trong nội dung |
+| Owner sign-off | **ĐẠT** - product/engineering owner xác nhận hoàn tất P2-12 ngày 2026-07-22 |
 | Môi trường | Cloudflare Pages, Render Core API, Neon PostgreSQL và ZITADEL staging |
 
-Biên bản này là worksheet nghiệm thu có kiểm soát, không phải tuyên bố Phase 2 đã hoàn
-thành. Bằng chứng tự động của P2-00 đến P2-11 được tái sử dụng khi còn đúng với candidate
-hiện tại; mọi kết quả phụ thuộc provider phải được chạy trên release candidate ở trên.
-Closure-record là commit tài liệu tạo sau khi thu đủ evidence: commit này phải đạt CI,
-nhưng provider không phải redeploy nếu diff chỉ chứa tài liệu và không đổi runtime artifact.
+Biên bản này ghi quyết định nghiệm thu P2-12 và đóng Phase 2. Bằng chứng tự động của
+P2-00 đến P2-11 được tái sử dụng khi còn đúng với candidate hiện tại; mọi kết quả phụ
+thuộc provider đã được chạy trên chuỗi release candidate/rollback/forward nêu bên dưới.
+Closure-record là chính commit docs-only chứa evidence cuối. Commit này phải đạt CI và
+operator sẽ xác nhận ngay sau khi push; nếu hậu kiểm thất bại, P2-12 phải được mở lại.
+Provider không phải redeploy khi diff chỉ chứa tài liệu và không đổi runtime artifact.
 
 Không ghi token, cookie, connection string, storage state, password hoặc nội dung file
 `.env*.local` vào tài liệu, command output, log CI hay artifact. Các thao tác phá hủy dữ
@@ -35,17 +37,31 @@ liệu chỉ được chạy trên branch/database staging dùng một lần.
 
 | ID | Scenario bắt buộc | Bằng chứng tự động hiện có | Bằng chứng/kết quả staging | Trạng thái |
 | --- | --- | --- | --- | --- |
-| P2-12-S01 | Admin tạo tenant và mời teacher/student | Scenario `P2-12 closes admin, instructor, and learner workflows through the real UI` trong `e2e/p2-08-core-workflows.spec.ts` tạo/chỉnh/switch workspace, tạo hai invitation và revoke invitation thứ ba. Luồng nền tương ứng đã xanh ở P2-08 Verify #59. | Chạy lại qua UI staging với ba identity ZITADEL riêng biệt trên fixture dùng một lần; ghi commit web/API và thời điểm chạy, không ghi invitation token. | **AUTO CANDIDATE ĐẠT / STAGING PENDING** |
-| P2-12-S02 | Teacher/student accept invitation, login và switch đúng workspace | Cùng scenario Playwright dùng ba browser context độc lập, preview/accept invitation và xác nhận active workspace; PostgreSQL invitation integration kiểm tra accept lặp lại idempotent. | Xác nhận login/callback, accept, switch, reload session và quyền hiển thị đúng trên release candidate deployment. | **AUTO CANDIDATE ĐẠT / STAGING PENDING** |
-| P2-12-S03 | Teacher tạo class và invite code có TTL/usage limit | Playwright tạo class active, link lifetime `1 day`, limit `2`, kiểm tra `0/2` rồi `1/2`. `TestPostgresEnrollmentInviteUsageIsAtomicAndIdempotent` cùng enrollment service tests bao phủ expiry, revoke, exhaustion và concurrent usage. | Tạo link staging với TTL/limit hữu hạn; xác nhận usage tăng đúng sau một lần join và link hết hạn/hết lượt bị từ chối mà không tăng sai counter. | **AUTO CANDIDATE ĐẠT / STAGING PENDING** |
-| P2-12-S04 | Student join class; teacher thấy roster và đổi role hợp lệ | Playwright xác nhận class xuất hiện ngay cho learner, teacher thấy learner, đổi thành teaching assistant, suspend rồi remove. Roster repository/service tests kiểm tra scope, hierarchy, pagination và mutation. | Chạy lại toàn bộ join/role/suspend/remove qua UI staging và xác nhận roster sau refresh. | **AUTO CANDIDATE ĐẠT / STAGING PENDING** |
-| P2-12-S05 | User tenant khác không đọc/ghi class, roster, audit hoặc room token | P2-10 `TestSecurityActorResourceMatrix` và `TestSecurityForeignResourceIDsDoNotMutate` kiểm tra exact foreign class/user/invite IDs, concealment và snapshot không đổi; audit integration kiểm tra cross-tenant query. Media authorization có unit/service boundary tests. | Chạy negative smoke bằng identity tenant B đối với exact class/roster/audit của tenant A và request room token. Phải nhận deny/conceal phù hợp, không có business row/audit ngoài dự kiến bị thay đổi. | **AUTO BASELINE ĐẠT / STAGING PENDING** |
-| P2-12-S06 | Archive class chặn join mới nhưng giữ audit/roster lịch sử | Playwright giữ link còn active ở `1/2`, archive class, xác nhận roster `Removed`, rồi dùng admin chưa enroll thử join và nhận lỗi class không còn active. `TestPostgresInviteScopeAndArchivedLifecycle` kiểm tra archive làm link unavailable; roster/audit integration kiểm tra dữ liệu lịch sử và append-only. | Trên staging, archive khi link vẫn còn TTL/lượt; thử join bằng identity chưa enroll; kiểm tra roster/audit vẫn truy vấn được sau refresh. | **AUTO CANDIDATE ĐẠT / STAGING PENDING** |
-| P2-12-S07 | Audit query trả đúng actor/request/resource | Playwright tìm đúng hàng `Create class`, actor UUID không phải `Unavailable user`, resource class UUID và request ID không rỗng; đồng thời thấy suspend/remove. `TestPostgresAuditEventsAreTenantScopedAndAppendOnly` kiểm tra projection, tenant scope, redaction và chống update/delete/truncate. | Org admin đối chiếu actor, action, outcome, resource và request ID của chính chuỗi staging; kiểm tra không lộ token/session/email thừa. | **AUTO CANDIDATE ĐẠT / STAGING PENDING** |
+| P2-12-S01 | Admin tạo tenant và mời teacher/student | Scenario `P2-12 closes admin, instructor, and learner workflows through the real UI` trong `e2e/p2-08-core-workflows.spec.ts` tạo/chỉnh/switch workspace, tạo hai invitation và revoke invitation thứ ba. Luồng nền tương ứng đã xanh ở P2-08 Verify #59. | Admin tạo workspace `P2-12 Acceptance 202607221900` và tạo hai invitation riêng cho teacher/student qua UI staging; không ghi invitation token vào biên bản. | **ĐẠT** |
+| P2-12-S02 | Teacher/student accept invitation, login và switch đúng workspace | Cùng scenario Playwright dùng ba browser context độc lập, preview/accept invitation và xác nhận active workspace; PostgreSQL invitation integration kiểm tra accept lặp lại idempotent. | Cả teacher và student đều login ZITADEL, accept invitation và switch/reload đúng workspace nghiệm thu trên deployment release candidate. | **ĐẠT** |
+| P2-12-S03 | Teacher tạo class và invite code có TTL/usage limit | Playwright tạo class active, link lifetime `1 day`, limit `2`, kiểm tra `0/2` rồi `1/2`. `TestPostgresEnrollmentInviteUsageIsAtomicAndIdempotent` cùng enrollment service tests bao phủ expiry, revoke, exhaustion và concurrent usage. | Teacher tạo class active `f61e3344-251f-42eb-b3bc-90fd9f9cff5d`, tạo link TTL `1 day`, giới hạn `2`; UI xác nhận usage chuyển đúng `0/2 -> 1/2` sau một lần join. | **ĐẠT** |
+| P2-12-S04 | Student join class; teacher thấy roster và đổi role hợp lệ | Playwright xác nhận class xuất hiện ngay cho learner, teacher thấy learner, đổi thành teaching assistant, suspend rồi remove. Roster repository/service tests kiểm tra scope, hierarchy, pagination và mutation. | Student join thành công; teacher thấy roster, đổi role sang Trợ giảng, suspend rồi remove. Sau refresh, hàng lịch sử vẫn còn với trạng thái `Đã xóa`. | **ĐẠT** |
+| P2-12-S05 | User tenant khác không đọc/ghi class, roster, audit hoặc room token | P2-10 `TestSecurityActorResourceMatrix` và `TestSecurityForeignResourceIDsDoNotMutate` kiểm tra exact foreign class/user/invite IDs, concealment và snapshot không đổi; audit integration kiểm tra cross-tenant query. Media authorization có unit/service boundary tests. | Khi active tenant là `KMA`, truy cập exact class của workspace nghiệm thu bị conceal; audit filter theo exact class trả `0`. Exact foreign roster/media-token tiếp tục dựa trên automated baseline ở cột trước; lượt này **không** thực hiện hoặc tuyên bố direct staging POST room-token. | **ĐẠT (STAGING UI + AUTO SECURITY BASELINE)** |
+| P2-12-S06 | Archive class chặn join mới nhưng giữ audit/roster lịch sử | Playwright giữ link còn active ở `1/2`, archive class, xác nhận roster `Removed`, rồi dùng admin chưa enroll thử join và nhận lỗi class không còn active. `TestPostgresInviteScopeAndArchivedLifecycle` kiểm tra archive làm link unavailable; roster/audit integration kiểm tra dữ liệu lịch sử và append-only. | Teacher archive class khi link vẫn ở `1/2`; student chưa enroll tại thời điểm thử join bị từ chối. Sau refresh, roster history vẫn giữ nguyên và có thể đối chiếu. | **ĐẠT** |
+| P2-12-S07 | Audit query trả đúng actor/request/resource | Playwright tìm đúng hàng `Create class`, actor UUID không phải `Unavailable user`, resource class UUID và request ID không rỗng; đồng thời thấy suspend/remove. `TestPostgresAuditEventsAreTenantScopedAndAppendOnly` kiểm tra projection, tenant scope, redaction và chống update/delete/truncate. | Audit workspace nghiệm thu trả `22` event; filter exact class trả `5` event bao phủ create/update/roster/archive. Actor UUID, resource UUID và request ID đều có giá trị; denied join cũng được audit, không thấy token/session trong projection UI. | **ĐẠT** |
 | P2-12-S08 | V1 fixture import dry-run + apply + rerun đạt idempotency | Source baseline `f07d05d`: `TestFixtureImportIsIdempotentAndResumable`, fixture parser/plan tests và PostgreSQL 17 CI xác nhận dry-run, apply/rerun, checkpoint/resume, reconciliation, mapping/ownership và cleanup/reset. Closure RC là `3c48964`. | Operator: coding agent dưới ủy quyền của owner; ngày 2026-07-22; Neon disposable `p2-12-closure-20260722` (`br-still-base-aobr6mrt`). Dry-run lập kế hoạch 12 record; apply nhập 10, skip 2, fail 0; rerun giữ 10 record unchanged, không duplicate. Reconciliation có 2 run, 10 mapping, 24 item; toàn bộ target link tồn tại. Branch đã bị xóa sau kiểm tra, trước yêu cầu sau đó của owner về việc giữ nguyên các branch còn lại; không lưu credential/source payload. | **ĐẠT** |
-| P2-12-S09 | Deploy, migration up/down/up và rollback smoke đạt trên staging | P2-11 đã có PostgreSQL 17 `13 -> 12 -> 13`; health/readiness/status direct Render và qua Pages proxy đã trả HTTP 200 trong lượt kiểm tra P2-12 ban đầu. | Neon disposable đạt `12 false -> 13 false -> 12 false -> 13 false`; Neon staging thật đã forward `12 false -> 13 false`. Render đã live full SHA `3c48964e3900b2a262c4026abf0174b3c39c5d93` qua deploy `dep-d9gaiturnols73c75qp0` lúc 18:30 ngày 2026-07-22 (Asia/Saigon); 6/6 public probe sau deploy đều HTTP 200. Provider rollback/redeploy còn pending vì Render cảnh báo không tải được cấu hình của live deploy hiện tại và rollback có thể gây thay đổi cấu hình ngoài dự kiến; thao tác đã được hủy an toàn. | **MIGRATION/DEPLOY/PROBE ĐẠT / ROLLBACK PENDING** |
+| P2-12-S09 | Deploy, migration up/down/up và rollback smoke đạt trên staging | P2-11 đã có PostgreSQL 17 `13 -> 12 -> 13`; health/readiness/status direct Render và qua Pages proxy đã trả HTTP 200 trong lượt kiểm tra P2-12 ban đầu. | Neon disposable đạt `12 false -> 13 false -> 12 false -> 13 false`; Neon staging thật đã forward `12 false -> 13 false`. Render deploy `0be98bb` qua `dep-d9gbjq7aqgkc73ffftm0` live khoảng 19:39; 6/6 probe đạt. Native Rollback về deploy `3c48964` tiếp tục cảnh báo không tải được config nên được cancel an toàn. Application rollback dùng `Deploy a specific commit`, giữ config hiện tại: `dep-d9gbl47lk1mc739t86rg` chạy `3c48964`, live khoảng 19:42 và 6/6 probe đạt. Forward deploy lại `0be98bb` qua `dep-d9gbllupbkes73cda040`, live khoảng 19:43; 6/6 probe đạt và phiên Admin/audit vẫn hoạt động. Auto-Deploy được quan sát là `Off`; không tuyên bố đã đổi hoặc restore vì baseline trước smoke không được ghi chắc chắn. | **ĐẠT - APPLICATION ROLLBACK/REDEPLOY** |
 
-## 4. Release candidate CI hiện có và closure-record CI còn thiếu
+### 3.1 Lượt UI staging S01-S07
+
+- Thời gian: khoảng 19:06-19:36 ngày 2026-07-22 (Asia/Saigon).
+- Fixture: workspace `P2-12 Acceptance 202607221900`; class
+  `f61e3344-251f-42eb-b3bc-90fd9f9cff5d`.
+- Cách chạy: thao tác UI staging với ba phiên ZITADEL admin/teacher/student riêng biệt;
+  người dùng tự nhập mật khẩu tại điểm handoff. Không đọc/lưu password, cookie, token
+  mời hoặc browser storage.
+- Kết quả: S01-S04 và S06-S07 đạt trực tiếp qua UI. S05 đạt bằng staging UI exact-class/
+  exact-audit concealment kết hợp P2-10 automated baseline cho exact foreign roster và
+  media-token; không có direct staging POST room-token trong lượt này.
+- Audit: workspace có 22 event; filter exact class có 5 event và denied join được ghi;
+  các hàng kiểm tra có actor UUID, resource UUID và request ID.
+
+## 4. Release candidate CI và hậu kiểm closure-record
 
 ### Baseline đã xanh
 
@@ -70,9 +86,10 @@ liệu chỉ được chạy trên branch/database staging dùng một lần.
   [Security #29912093166](https://github.com/basangnguyen/TUTORHUB_WEB/actions/runs/29912093166).
   Cloudflare Pages check suite cùng full SHA hoàn tất với kết quả success.
 
-Không được dùng Security xanh riêng lẻ hoặc các baseline P2-10/P2-11 để đánh dấu P2-12
-`DONE`. Provider parity phải bám release candidate. Closure-record docs-only phải đạt
-Verify/Security sau khi ghi evidence nhưng không tạo yêu cầu provider redeploy giả tạo.
+P2-12 được đóng dựa trên toàn bộ CI, provider, database, UI, rollback và owner sign-off,
+không dựa riêng vào Security hay baseline P2-10/P2-11. Closure-record docs-only phải đạt
+Verify/Security sau push nhưng không tạo yêu cầu provider redeploy giả tạo; operator xác
+nhận hai workflow ngay khi có kết quả và mở lại P2-12 nếu một gate thất bại.
 
 ## 5. Provider parity và database gate
 
@@ -88,7 +105,18 @@ Verify/Security sau khi ghi evidence nhưng không tạo yêu cầu provider red
 - [x] Ba endpoint tương ứng qua same-origin `/api/*` trên Pages trả HTTP 200 trong
       cùng lượt probe.
 - [x] Readiness báo `database=ready` và `object_storage=ready`.
-- [ ] Rollback/redeploy smoke không làm sai contract, session hoặc migration state.
+- [x] Render deploy latest `0be98bb` qua `dep-d9gbjq7aqgkc73ffftm0` live khoảng 19:39;
+      direct Render + Pages đạt 6/6 probe HTTP 200.
+- [x] Native Rollback về deploy `3c48964` cảnh báo không tải được configuration hiện tại
+      nên được cancel an toàn, không override configuration.
+- [x] Application rollback bằng `Deploy a specific commit` giữ config hiện tại:
+      `dep-d9gbl47lk1mc739t86rg` chạy `3c48964`, live khoảng 19:42; 6/6 probe đạt.
+- [x] Forward deploy lại `0be98bb` qua `dep-d9gbllupbkes73cda040`, live khoảng 19:43;
+      6/6 probe đạt và phiên Admin/audit tiếp tục hoạt động.
+- [x] Rollback/redeploy smoke không làm sai contract, session hoặc migration state.
+
+Auto-Deploy được quan sát là `Off` sau smoke. Baseline trước rollback không được ghi chắc
+chắn, vì vậy biên bản không tuyên bố coding agent đã đổi hoặc restore setting này.
 
 ### 5.2 Neon PostgreSQL
 
@@ -121,34 +149,35 @@ bảng tương lai đều đạt trên staging. Không ghi giá trị credential
 
 | Bằng chứng | Giá trị phải ghi | Trạng thái |
 | --- | --- | --- |
-| Release candidate SHA | `3c48964e3900b2a262c4026abf0174b3c39c5d93` | **CI/PROVIDER PARITY ĐẠT; UI/ROLLBACK PENDING** |
-| Closure-record SHA | Docs-only commit tạo sau khi hoàn tất evidence; chưa tồn tại tại thời điểm ghi | **PENDING** |
+| Release candidate SHA | `3c48964e3900b2a262c4026abf0174b3c39c5d93` | **CI/PROVIDER PARITY/UI S01-S07/S09 ĐẠT** |
+| Closure-record SHA | Commit docs-only chứa biên bản này; tra bằng Git history, không ghi hash tự tham chiếu | **RESOLVED BY GIT HISTORY; XÁC NHẬN CI SAU PUSH** |
 | Verify workflow | `29912093175` xanh tại `3c48964` | **ĐẠT CHECKPOINT** |
 | Security workflow | `29912093166` xanh tại `3c48964` | **ĐẠT CHECKPOINT** |
 | Cloudflare deployment | Check suite success tại full SHA `3c48964e3900b2a262c4026abf0174b3c39c5d93` | **ĐẠT CHECKPOINT** |
-| Render deployment | `dep-d9gaiturnols73c75qp0` live full SHA `3c48964e3900b2a262c4026abf0174b3c39c5d93` lúc 18:30 ngày 2026-07-22 (Asia/Saigon) | **ĐẠT** |
-| Public health/readiness/status | 6/6 endpoint HTTP 200 sau Render deploy; database/object storage ready ngày 2026-07-22 | **ĐẠT** |
+| Render deployment | Latest `0be98bb` live qua `dep-d9gbjq7aqgkc73ffftm0`; application rollback `3c48964` qua `dep-d9gbl47lk1mc739t86rg`; forward `0be98bb` qua `dep-d9gbllupbkes73cda040` | **ĐẠT** |
+| Public health/readiness/status | Mỗi bước latest/rollback/forward đều đạt 6/6 endpoint HTTP 200 direct Render + Pages; database/object storage ready ngày 2026-07-22 | **ĐẠT** |
 | Neon migration | Disposable `12→13→12→13`, staging `12→13`; mọi checkpoint `dirty=false` | **ĐẠT** |
 | Neon role parity | Runtime safe flags; ledger privilege/default ACL leak `0`; audit contract đạt; future-table probe đạt | **ĐẠT** |
 | Importer staging | 12 planned; apply 10/2/0; rerun 10 unchanged; branch cleanup | **ĐẠT** |
-| 7 UI scenarios S01-S07; S09 provider closure | Người chạy, thời điểm, kết quả từng ID; S08 importer đã đạt riêng | **PENDING** |
-| Rollback smoke | Database up/down/up đạt; provider rollback/redeploy chưa chạy | **PARTIAL / PENDING** |
+| 7 UI scenarios S01-S07; S09 provider closure | S01-S07 đạt khoảng 19:06-19:36 ngày 2026-07-22 trên workspace/class fixture nêu ở mục 3.1; S08 importer đạt; S09 application rollback/redeploy đạt khoảng 19:39-19:43 | **ĐẠT** |
+| Rollback smoke | Database up/down/up đạt; Render application rollback/forward deploy đạt. Native config rollback không dùng vì warning và đã cancel an toàn | **ĐẠT** |
+| Product/engineering owner sign-off | Owner xác nhận hoàn tất P2-12 ngày 2026-07-22 | **ĐẠT** |
 
-## 7. Điều kiện chuyển trạng thái
+## 7. Quyết định chuyển trạng thái
 
-P2-12 chỉ được chuyển `DONE` khi:
+Các điều kiện chuyển P2-12 sang `DONE` đã được đáp ứng:
 
 1. Cả 7 UI scenarios P2-12-S01 đến S07 có staging evidence trên release candidate;
    S09 provider closure cũng đạt và S08 importer tiếp tục giữ bằng chứng ở trên.
-2. Verify và Security xanh trên release candidate; closure-record docs-only cũng xanh
-   sau khi ghi đủ bằng chứng.
+2. Verify và Security xanh trên release candidate; closure-record docs-only được nhận
+   diện bằng Git history và phải được operator xác nhận CI ngay sau push.
 3. Cloudflare Pages, Render và Neon parity được xác nhận; migration `13 false`.
 4. Runtime/migration role split đạt, đặc biệt các bảng import và audit giữ least privilege.
 5. Rollback smoke và cleanup fixture hoàn tất; không xóa thêm Neon branch theo quyết định
    hiện tại của owner.
-6. `docs/PHASE_2_COMPLETION.md` được cập nhật từ `PENDING` sang quyết định đóng phase.
+6. `docs/PHASE_2_COMPLETION.md` đã ghi quyết định đóng phase và owner sign-off ngày
+   2026-07-22.
 
-**Kết luận hiện tại: VERIFY - CI, Cloudflare/Render parity, Neon
-migration/least-privilege, importer và public probe đã đạt; 7 UI scenarios S01-S07;
-S09 provider rollback/redeploy và owner sign-off còn pending. Không bắt đầu Phase 3 dựa
-trên biên bản này.**
+**Kết luận: DONE - P2-12 và Phase 2 hoàn thành ngày 2026-07-22. Phase 3 có thể bắt đầu.
+CI của closure-record docs-only là hậu kiểm bắt buộc ngay sau push; kết quả thất bại sẽ
+mở lại P2-12 thay vì bị che giấu.**

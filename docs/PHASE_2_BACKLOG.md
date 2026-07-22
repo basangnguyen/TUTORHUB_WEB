@@ -22,9 +22,9 @@ invitation, accept và revoke; P2-04 Class lifecycle, ownership và archive; P2-
 Enrollment và class invite code; P2-06 Roster và class-level roles; P2-07 Audit log
 cho hành động nhạy cảm; P2-08 Admin và teacher UI end-to-end; P2-09 Feature flag và
 quota framework; P2-10 Tenant isolation/IDOR security suite.
-P2-11 V1 fixture import idempotent.
+P2-11 V1 fixture import idempotent; P2-12 Staging acceptance và đóng phase.
 
-**Task hiện tại:** P2-12 Staging acceptance và đóng phase (`VERIFY`).
+**Trạng thái phase:** `DONE` ngày 2026-07-22. Task tiếp theo thuộc Phase 3.
 
 ## 2. Non-goal
 
@@ -64,7 +64,7 @@ P2-11 V1 fixture import idempotent.
 | P2-09 | Feature flag và quota framework         | P2-00, P2-02               | DONE       |
 | P2-10 | Tenant isolation/IDOR security suite    | Xuyên suốt; chốt sau P2-09 | DONE       |
 | P2-11 | V1 fixture import idempotent            | Schema ổn định sau P2-06   | DONE       |
-| P2-12 | Staging acceptance và đóng phase        | P2-01 đến P2-11            | VERIFY     |
+| P2-12 | Staging acceptance và đóng phase        | P2-01 đến P2-11            | DONE       |
 
 ## 5. P2-00 Policy and contract baseline
 
@@ -579,15 +579,17 @@ P2-11 chuyển `DONE` ngày 2026-07-22.
 
 ### Acceptance scenarios
 
-- [ ] Admin tạo tenant và mời teacher/student.
-- [ ] Teacher/student accept invitation, login và switch đúng workspace.
-- [ ] Teacher tạo class và invite code có TTL/usage limit.
-- [ ] Student join class; teacher thấy roster và đổi role hợp lệ.
-- [ ] Student tenant khác không đọc/ghi class, roster, audit hoặc room token.
-- [ ] Archive class chặn join mới nhưng giữ audit/roster lịch sử.
-- [ ] Audit query trả đúng actor/request/resource.
+- [x] Admin tạo tenant và mời teacher/student.
+- [x] Teacher/student accept invitation, login và switch đúng workspace.
+- [x] Teacher tạo class và invite code có TTL/usage limit.
+- [x] Student join class; teacher thấy roster và đổi role hợp lệ.
+- [x] Identity tenant khác không đọc/ghi class, roster, audit hoặc room token; staging UI
+      xác nhận exact class/audit concealment, exact roster/media-token giữ automated
+      security baseline và không được ghi nhận như direct staging POST.
+- [x] Archive class chặn join mới nhưng giữ audit/roster lịch sử.
+- [x] Audit query trả đúng actor/request/resource.
 - [x] V1 fixture import dry-run + apply + rerun đạt idempotency.
-- [ ] Deploy, migration up/down/up và rollback smoke đạt trên staging.
+- [x] Deploy, migration up/down/up và application rollback/redeploy smoke đạt trên staging.
 
 ### Exit gate Phase 2
 
@@ -605,8 +607,8 @@ mở rộng cho link có TTL/giới hạn `0/2 -> 1/2`, roster lịch sử sau a
 hiển thị active nhưng join mới bị backend từ chối, và audit đối chiếu actor UUID,
 class resource UUID cùng request ID. Backend PostgreSQL integration tiếp tục chứng
 minh usage atomic/idempotent, expired/revoked/exhausted, cross-tenant invariant và
-archive giữ roster/audit. Biên bản staging và biên bản đóng phase đã được tạo ở trạng
-thái chờ nghiệm thu. Candidate `6fb4f84` đã đạt Verify `29910962433` (gồm Browser
+archive giữ roster/audit. Biên bản staging và biên bản đóng phase đã được tạo, cập nhật
+theo evidence cuối và owner sign-off. Candidate `6fb4f84` đã đạt Verify `29910962433` (gồm Browser
 E2E PostgreSQL 17 + Chromium) và Security `29910962424`; public health/readiness/status
 trực tiếp Render và qua Pages proxy đều HTTP 200. P2-12 chỉ chuyển `DONE` sau khi commit
 đóng phase cũng xanh và staging xác nhận deployment parity, Neon `13 false`, tách quyền
@@ -617,8 +619,18 @@ Cloudflare Pages deployment check cùng full SHA. Neon disposable đạt
 `12 -> 13 -> 12 -> 13`, importer apply/rerun idempotent và đã cleanup; Neon staging
 thật đạt `13 false`, role split/default ACL/future-table probe đều least-privilege.
 Render đã live release candidate `3c48964` qua deploy `dep-d9gaiturnols73c75qp0`; 6/6
-public probe sau deploy đều HTTP 200. Bảy UI scenarios S01-S07; S09 provider
-rollback/redeploy và owner sign-off vẫn là gate bắt buộc trước khi chuyển `DONE`.
+public probe sau deploy đều HTTP 200. Bảy UI scenarios S01-S07 đã đạt trên staging từ
+19:06 đến 19:36 ngày 2026-07-22 với workspace `P2-12 Acceptance 202607221900` và class
+`f61e3344-251f-42eb-b3bc-90fd9f9cff5d`. Chuỗi đạt create/invite/accept/switch,
+`0/2 -> 1/2`, join/roster/Trợ giảng/suspend/remove, cross-tenant concealment,
+archive join guard và audit 22 event/5 exact-class event có đủ correlation. S09 provider
+application rollback/redeploy cũng đã đạt khoảng 19:39-19:43: latest `0be98bb`, rollback
+`3c48964`, rồi forward lại `0be98bb`; mỗi bước đều có 6/6 probe direct Render + Pages.
+Native Rollback đã được cancel an toàn do warning không tải được config; `Deploy a
+specific commit` giữ config hiện tại được dùng thay thế. Auto-Deploy được quan sát `Off`,
+không tuyên bố đã đổi/restore vì thiếu baseline trước smoke. Owner sign-off ngày
+2026-07-22; closure-record docs-only phải được hậu kiểm Verify/Security sau push và P2-12
+phải mở lại nếu một workflow thất bại.
 
 ## 18. Thứ tự sprint
 
@@ -633,12 +645,12 @@ rollback/redeploy và owner sign-off vẫn là gate bắt buộc trước khi ch
 
 ## 19. Việc cần làm ngay
 
-1. P2-00 đến P2-11 đã `DONE`; P2-12 đang ở `VERIFY`.
-2. Checkpoint `3c48964` đã xanh Verify/Security và Cloudflare; chạy lại hai workflow sau
-   commit closure cuối.
+1. P2-00 đến P2-12 đã `DONE`; Phase 2 hoàn thành ngày 2026-07-22.
+2. Checkpoint `3c48964` đã xanh Verify/Security và Cloudflare; hậu kiểm hai workflow trên
+   commit closure-record docs-only sau push.
 3. Neon `13 false`, role split/ledger ACL và importer/up-down-up trên disposable branch
    đã đạt; branch đã cleanup.
-4. Render full SHA đã khớp; chạy/chốt đủ 7 UI scenarios S01-S07 cùng S09 provider
-   rollback/redeploy; ghi kết quả vào `P2_12_STAGING_ACCEPTANCE.md`.
-5. Chỉ chuyển P2-12/Phase 2 sang `DONE` khi toàn bộ gate trên có bằng chứng; giữ audit
-   append-only, tenant-scoped và không ghi token, session ID hoặc PII thừa.
+4. Render full SHA, 7 UI scenarios S01-S07 và S09 application rollback/redeploy đã đạt.
+5. Product/engineering owner đã sign-off; không xóa thêm Neon branch theo quyết định hiện tại.
+6. Chuẩn bị backlog Phase 3. Giữ audit append-only, tenant-scoped và không ghi token,
+   session ID hoặc PII thừa; mở lại P2-12 nếu closure-record CI hậu kiểm thất bại.
