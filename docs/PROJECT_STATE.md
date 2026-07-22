@@ -222,10 +222,27 @@ Backlog có thẩm quyền: `docs/PHASE_2_BACKLOG.md`.
     [Verify](https://github.com/basangnguyen/TUTORHUB_WEB/actions/runs/29910962433), gồm
     Browser E2E PostgreSQL 17 + Chromium, và
     [Security](https://github.com/basangnguyen/TUTORHUB_WEB/actions/runs/29910962424).
-    Public health/readiness/status trực tiếp Render và qua Pages proxy đều HTTP 200,
-    readiness báo database/object storage ready. Parity full commit Cloudflare
-    Pages/Render và Neon staging migration `13`, `dirty=false` cùng role split
-    runtime/migration vẫn phải được xác minh trước khi chuyển P2-12 sang `DONE`.
+    Checkpoint `3c48964e3900b2a262c4026abf0174b3c39c5d93` tiếp tục đạt
+    [Verify](https://github.com/basangnguyen/TUTORHUB_WEB/actions/runs/29912093175)
+    và [Security](https://github.com/basangnguyen/TUTORHUB_WEB/actions/runs/29912093166);
+    Cloudflare Pages check suite cùng full SHA cũng success.
+14. Neon P2-12 ngày 2026-07-22 đã chạy trên branch dùng một lần từ staging:
+    `12 false -> 13 false -> 12 false -> 13 false`. Importer dry-run lập kế hoạch 12
+    record; apply nhập 10, skip 2, fail 0; rerun giữ 10 unchanged, không duplicate;
+    reconciliation có 2 run, 10 mapping và 24 item, sau đó branch được xóa. Neon staging
+    thật được forward `12 false -> 13 false`.
+15. Lượt provider audit phát hiện default ACL cũ của Neon owner tự cấp CRUD cho runtime
+    trên bảng mới. Provisioning đã thu hồi default table ACL global/schema-scoped và
+    grant materialized trên ba ledger. Kết quả cuối: default ACL leak `0`,
+    effective/direct ledger privilege `0`, runtime không owner/superuser/bypass RLS,
+    schema `USAGE=true`, `CREATE=false`, audit chỉ `SELECT/INSERT`, future-table probe
+    không có quyền. Không sửa migration lịch sử `000013` hoặc re-grant khi rollback.
+16. Sau staging migration, Render đã live release candidate full SHA
+    `3c48964e3900b2a262c4026abf0174b3c39c5d93` qua deploy
+    `dep-d9gaiturnols73c75qp0`. Public health/readiness/status trực tiếp Render và qua
+    Pages proxy đều HTTP 200 (6/6), readiness báo database/object storage ready. P2-12
+    vẫn ở `VERIFY`: còn phải chạy/chốt 7 UI scenarios S01-S07; S09 provider
+    rollback/redeploy và product/engineering sign-off.
 
 ## Rủi ro đã biết
 
@@ -251,10 +268,10 @@ Backlog có thẩm quyền: `docs/PHASE_2_BACKLOG.md`.
   configuration trước khi kết luận lỗi contract.
 - Host hiện tại thiếu Docker/PostgreSQL nên không thể lặp lại full browser scenario
   ngoài CI; nếu CI không sẵn có thì đây vẫn là hạn chế chẩn đoán cục bộ.
-- P2-12 chưa được đóng: automated acceptance xanh ở candidate `6fb4f84` không thay thế
-  staging acceptance. Cần đối chiếu đúng full commit đang chạy ở Cloudflare Pages và
-  Render, rồi xác nhận Neon ở migration `13`, `dirty=false` với
-  runtime role không truy cập ledger import và migration role có quyền cần thiết.
+- P2-12 chưa được đóng: CI/Cloudflare/Render/Neon/importer/public probe đã đạt checkpoint
+  nhưng không thay thế UI staging acceptance. Cần chạy/chốt 7 UI scenarios S01-S07 và
+  S09 provider rollback/redeploy trước sign-off. Rollback đã được hủy an toàn khi Render
+  cảnh báo không tải được cấu hình live hiện tại và có nguy cơ thay đổi cấu hình ngoài dự kiến.
 - Class/roster/audit cursor vẫn là payload client đọc được; scope hash ngăn replay sai
   tenant/filter nhưng không phải chữ ký bí mật. SQL luôn giữ tenant/class predicate nên
   finding hiện được xếp Low; quyết định HMAC toàn bộ cursor được hoãn sang backlog/ADR

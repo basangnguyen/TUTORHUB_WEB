@@ -12,9 +12,10 @@ thay đổi schema, migration hoặc repository phải đọc tài liệu này t
   `5 false -> rollback 4 false -> migrate 5 false` đạt ngày 2026-07-16.
 - Migration `000006` đến `000013` đều có up/down path. Source và PostgreSQL 17 CI
   của P2-11 đã xác nhận `000013` qua migrate `13 -> 12 -> 13`, dry-run, apply/rerun,
-  checkpoint/resume và reset. Neon staging mới có bằng chứng `000012` với `12 false`
-  ngày 2026-07-21; migrate `12 -> 13 -> 12 -> 13` và kiểm tra tách quyền migration/
-  runtime cuối cho ba bảng `legacy_import_*` vẫn `PENDING` trong P2-12.
+  checkpoint/resume và reset. P2-12 ngày 2026-07-22 đã xác nhận branch Neon dùng một
+  lần qua `12 false -> 13 false -> 12 false -> 13 false`; staging thật đã forward tới
+  `13 false`. Role split, default/effective/direct ledger ACL và future-table probe
+  đều đạt least-privilege sau remediation provisioning.
 - Phần lớn integration test rollback bằng transaction. Chỉ focused P2-09 suite có
   fixture tự dọn hoàn toàn được chạy trên staging ngày 2026-07-21; các suite concurrency
   có thể để lại audit append-only vẫn chỉ chạy trên database CI tạm thời.
@@ -22,8 +23,8 @@ thay đổi schema, migration hoặc repository phải đọc tài liệu này t
 
 Neon có branch `production` và branch staging tách biệt. Core API staging dùng pooled
 runtime role tối thiểu quyền; migration job dùng direct migration role riêng. Kết nối,
-readiness và smoke đến migration `000012` đã đạt; không suy diễn kết quả đó thành bằng
-chứng migration `000013` hoặc role split cuối trước khi các kiểm tra P2-12 thực sự chạy.
+readiness và smoke sau migration `000013` đã đạt ngày 2026-07-22. Các giá trị credential
+không được ghi vào runbook hoặc artifact.
 
 ## Hai connection URL
 
@@ -249,6 +250,107 @@ record cùng mapping/checkpoint để lỗi không làm mất vị trí resume. 
 nhưng chưa có mapping bị từ chối fail-closed; tool không tự gộp identity/tenant/class.
 Chi tiết contract và reset nằm tại `docs/P2_11_V1_FIXTURE_IMPORT.md`.
 
+### Remediation default ACL Neon cho P2-12
+
+Nếu migration owner đã có default table ACL cấp quyền cho runtime role, `CREATE TABLE`
+sẽ materialize grant đó trên cả bảng nội bộ mới. `REVOKE ... FROM PUBLIC` trong migration
+không thu hồi grant trực tiếp này. Không sửa migration `000013` đã chạy và không hardcode
+tên role môi trường vào migration lịch sử. Thay `neondb_owner` và `tutorhub_runtime` dưới
+đây bằng hai role thực tế và chạy bằng migration owner trên branch dùng một lần trước:
+
+```sql
+ALTER DEFAULT PRIVILEGES FOR ROLE neondb_owner
+  REVOKE ALL PRIVILEGES ON TABLES FROM tutorhub_runtime;
+ALTER DEFAULT PRIVILEGES FOR ROLE neondb_owner IN SCHEMA tutorhub
+  REVOKE ALL PRIVILEGES ON TABLES FROM tutorhub_runtime;
+
+REVOKE ALL PRIVILEGES ON TABLE
+  tutorhub.legacy_import_runs,
+  tutorhub.legacy_import_mappings,
+  tutorhub.legacy_import_run_items
+FROM tutorhub_runtime;
+
+REVOKE CREATE ON SCHEMA tutorhub FROM tutorhub_runtime;
+GRANT USAGE ON SCHEMA tutorhub TO tutorhub_runtime;
+```
+
+Hai câu `ALTER DEFAULT PRIVILEGES` xử lý riêng default ACL global và ACL scoped trong
+schema; câu `REVOKE` tiếp theo dọn các grant đã materialize. Ba bảng này không dùng
+sequence/identity nên không cần cấp hoặc thu hồi sequence privilege. Sau khi remediation
+và toàn bộ assertion đạt trên branch dùng một lần, áp dụng cùng remediation lên staging
+đích bằng migration owner rồi chạy lại toàn bộ assertion trước khi forward migration.
+Không suy diễn kết quả disposable thành kết quả staging. Chạy assertion bằng migration
+connection mà không ghi URL/password vào output:
+
+```sql
+WITH ledger(table_name) AS (
+  VALUES
+    ('legacy_import_runs'),
+    ('legacy_import_mappings'),
+    ('legacy_import_run_items')
+), privileges(privilege_name) AS (
+  VALUES
+    ('SELECT'), ('INSERT'), ('UPDATE'), ('DELETE'),
+    ('TRUNCATE'), ('REFERENCES'), ('TRIGGER')
+)
+SELECT count(*) AS effective_privilege_count
+FROM ledger
+CROSS JOIN privileges
+WHERE has_table_privilege(
+  'tutorhub_runtime',
+  format('tutorhub.%I', ledger.table_name),
+  privileges.privilege_name
+);
+
+SELECT count(*) AS direct_acl_count
+FROM pg_class c
+JOIN pg_namespace n ON n.oid = c.relnamespace
+CROSS JOIN LATERAL aclexplode(COALESCE(c.relacl, ARRAY[]::aclitem[])) acl
+WHERE n.nspname = 'tutorhub'
+  AND c.relname IN (
+    'legacy_import_runs',
+    'legacy_import_mappings',
+    'legacy_import_run_items'
+  )
+  AND acl.grantee = 'tutorhub_runtime'::regrole;
+
+SELECT count(*) AS default_table_acl_count
+FROM pg_default_acl d
+CROSS JOIN LATERAL aclexplode(d.defaclacl) acl
+WHERE d.defaclrole = 'neondb_owner'::regrole
+  AND d.defaclobjtype = 'r'
+  AND (
+    d.defaclnamespace = 0
+    OR d.defaclnamespace = 'tutorhub'::regnamespace
+  )
+  AND acl.grantee = 'tutorhub_runtime'::regrole;
+
+SELECT
+  has_schema_privilege('tutorhub_runtime', 'tutorhub', 'USAGE') AS schema_usage,
+  has_schema_privilege('tutorhub_runtime', 'tutorhub', 'CREATE') AS schema_create;
+```
+
+Kết quả bắt buộc lần lượt là `0`, `0`, `0`, rồi `schema_usage=true` và
+`schema_create=false`. Cuối cùng tạo bảng probe trong transaction; kết quả phải là `0`
+và `ROLLBACK` phải xóa bảng:
+
+```sql
+BEGIN;
+CREATE TABLE tutorhub.p2_12_acl_probe (id uuid PRIMARY KEY DEFAULT gen_random_uuid());
+SELECT count(*) AS probe_effective_privilege_count
+FROM unnest(ARRAY[
+  'SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER'
+]) AS permissions(privilege_name)
+WHERE has_table_privilege(
+  'tutorhub_runtime', 'tutorhub.p2_12_acl_probe', permissions.privilege_name
+);
+ROLLBACK;
+SELECT to_regclass('tutorhub.p2_12_acl_probe') IS NULL AS probe_removed;
+```
+
+Đây là security remediation không được đảo ngược: rollback schema hoặc ứng dụng không
+được re-grant runtime vào ledger hay khôi phục default ACL rộng.
+
 ## Chạy migration
 
 Tạo `.env.local` từ `.env.example` và điền hai URL. File này đã được Git ignore;
@@ -277,10 +379,10 @@ pnpm db:version
 ```
 
 Sau khi áp dụng toàn bộ migration trong source, kết quả mong đợi là `13 false`. Chỉ ghi
-đó là kết quả môi trường khi lệnh thực tế đã chạy; bằng chứng Neon staging gần nhất hiện
-vẫn là `12 false` ngày 2026-07-21. Migration `000013` up/down/up và xác nhận runtime role
-không có quyền trên `legacy_import_*` vẫn `PENDING`. Rollback chỉ dùng khi đã đánh giá
-mất dữ liệu và có backup/restore plan:
+đó là kết quả môi trường khi lệnh thực tế đã chạy. Neon disposable đã đạt up/down/up và
+staging thật ở `13 false` ngày 2026-07-22; runtime không có quyền trên
+`legacy_import_*`. Rollback chỉ dùng khi đã đánh giá mất dữ liệu và có backup/restore
+plan:
 
 ```powershell
 go run ./services/core-api/cmd/migrate down -steps 1
@@ -349,7 +451,7 @@ của lịch sử append-only và không phải quy trình cleanup cho staging/p
   chạy bounded cleanup `rate_limit_windows=0`, `tenant_quota_windows=0` ngày
   2026-07-21; maintenance định kỳ tiếp tục theo runbook ở trên.
 - P2-11 đã hoàn tất source và PostgreSQL 17 CI cho fixture V1 ẩn danh
-  user/tenant/membership/class bằng migration `000013`; Neon staging migration 13 và
-  kiểm tra role split cuối vẫn thuộc acceptance P2-12. Production data/cohort migration
-  vẫn thuộc discovery/cutover phase sau.
+  user/tenant/membership/class bằng migration `000013`. P2-12 đã xác nhận Neon staging
+  migration 13, role split/default ACL và importer idempotency trên disposable branch;
+  production data/cohort migration vẫn thuộc discovery/cutover phase sau.
 - Chưa có backup/restore drill, PITR gate hoặc connection load test cho pilot.

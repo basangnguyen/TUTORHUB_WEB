@@ -12,9 +12,11 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
 - Hiện đang thực hiện **Phase 2 - Identity, tenant và class core**; P2-00 đến P2-11
   đã hoàn thành. P2-12 staging acceptance và đóng phase đang ở `VERIFY/IN PROGRESS`:
   Playwright acceptance đã bổ sung kiểm tra usage của invite link, archive chặn join
-  mới và audit actor/resource/request ID. Candidate `6fb4f84` đã đạt Verify/Security;
-  parity commit giữa staging providers và Neon migration `13` với role split
-  runtime/migration vẫn đang chờ xác minh.
+  mới và audit actor/resource/request ID. Checkpoint `3c48964` đã đạt Verify/Security
+  và Cloudflare deployment check; Neon staging đã ở `13 false`, role split/default ACL,
+  importer idempotency và public probe đều đạt. Render đã live release candidate
+  `3c48964` (deploy `dep-d9gaiturnols73c75qp0`) và 6/6 public probe sau deploy đạt.
+  7 UI scenarios S01-S07; S09 provider rollback/redeploy và owner sign-off vẫn đang chờ.
 - Web MVP nền đã chạy trên staging: Cloudflare Pages -> same-origin `/api/*` -> Go
   Core API trên Render; dữ liệu dùng Neon, file dùng Backblaze B2, media dùng LiveKit
   Cloud và xác thực dùng ZITADEL.

@@ -1259,11 +1259,14 @@ reconciliation, mapping/ownership và cleanup/reset. Security cùng commit cũng
 sung kiểm tra usage link `0/2 -> 1/2`, archive giữ roster/link lịch sử nhưng chặn join
 mới, và audit đối chiếu actor/resource/request ID. Các backend integration suite hiện
 có tiếp tục phủ usage atomic, expiry/revoke/exhaustion, cross-tenant invariants và
-archive retention. Chưa chuyển Phase 2 sang hoàn thành cho đến khi Verify/Security
-xanh trên commit đóng phase và staging xác nhận web/API parity, Neon `13 false`, tách
-runtime/migration role, importer idempotent cùng rollback smoke. Candidate `6fb4f84`
-đã đạt Verify `29910962433` và Security `29910962424`; public Render/Pages health,
-readiness và status đều HTTP 200. Bằng chứng chuẩn hóa
+archive retention. Checkpoint `3c48964` đã đạt Verify `29912093175`, Security
+`29912093166` và Cloudflare Pages full-SHA check. Neon disposable đã đạt
+`12 -> 13 -> 12 -> 13`, importer apply/rerun idempotent và cleanup; Neon staging thật
+đạt `13 false` với role split/default ACL/future-table probe least-privilege. Public
+Render/Pages health, readiness và status đều HTTP 200. Render đã live release candidate
+`3c48964` qua deploy `dep-d9gaiturnols73c75qp0`; 6/6 public probe sau deploy đều đạt.
+Chưa chuyển Phase 2 sang hoàn thành cho đến khi 7 UI scenarios S01-S07; S09 provider
+rollback/redeploy và owner sign-off cùng đạt. Bằng chứng chuẩn hóa
 nằm trong `docs/P2_12_STAGING_ACCEPTANCE.md` và `docs/PHASE_2_COMPLETION.md`.
 
 **Work package:**

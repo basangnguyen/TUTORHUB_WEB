@@ -48,5 +48,6 @@ Backlog thực thi Phase 2 nằm tại [PHASE_2_BACKLOG.md](PHASE_2_BACKLOG.md).
 đóng Phase 1 nằm tại [PHASE_1_COMPLETION.md](PHASE_1_COMPLETION.md). P2-12 đang ở
 `VERIFY`; ma trận staging và biên bản đóng phase lần lượt nằm tại
 [P2_12_STAGING_ACCEPTANCE.md](P2_12_STAGING_ACCEPTANCE.md) và
-[PHASE_2_COMPLETION.md](PHASE_2_COMPLETION.md). Phase 3 chỉ bắt đầu sau khi các gate
-CI, deployment parity, Neon role split, importer và rollback smoke đều có bằng chứng.
+[PHASE_2_COMPLETION.md](PHASE_2_COMPLETION.md). CI/Cloudflare/Neon/importer đã đạt
+checkpoint P2-12; Render parity đã đạt. Phase 3 chỉ bắt đầu sau khi 7 UI scenarios
+S01-S07; S09 provider rollback/redeploy và owner sign-off đều có bằng chứng.

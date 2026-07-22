@@ -586,7 +586,7 @@ P2-11 chuyển `DONE` ngày 2026-07-22.
 - [ ] Student tenant khác không đọc/ghi class, roster, audit hoặc room token.
 - [ ] Archive class chặn join mới nhưng giữ audit/roster lịch sử.
 - [ ] Audit query trả đúng actor/request/resource.
-- [ ] V1 fixture import dry-run + apply + rerun đạt idempotency.
+- [x] V1 fixture import dry-run + apply + rerun đạt idempotency.
 - [ ] Deploy, migration up/down/up và rollback smoke đạt trên staging.
 
 ### Exit gate Phase 2
@@ -612,6 +612,14 @@ trực tiếp Render và qua Pages proxy đều HTTP 200. P2-12 chỉ chuyển `
 đóng phase cũng xanh và staging xác nhận deployment parity, Neon `13 false`, tách quyền
 runtime/migration, importer cùng rollback smoke.
 
+Checkpoint `3c48964` đã đạt Verify `29912093175`, Security `29912093166` và
+Cloudflare Pages deployment check cùng full SHA. Neon disposable đạt
+`12 -> 13 -> 12 -> 13`, importer apply/rerun idempotent và đã cleanup; Neon staging
+thật đạt `13 false`, role split/default ACL/future-table probe đều least-privilege.
+Render đã live release candidate `3c48964` qua deploy `dep-d9gaiturnols73c75qp0`; 6/6
+public probe sau deploy đều HTTP 200. Bảy UI scenarios S01-S07; S09 provider
+rollback/redeploy và owner sign-off vẫn là gate bắt buộc trước khi chuyển `DONE`.
+
 ## 18. Thứ tự sprint
 
 | Sprint | Task chính          | Kết quả demo                                  |
@@ -626,11 +634,11 @@ runtime/migration, importer cùng rollback smoke.
 ## 19. Việc cần làm ngay
 
 1. P2-00 đến P2-11 đã `DONE`; P2-12 đang ở `VERIFY`.
-2. Candidate automation `6fb4f84` đã xanh; chạy lại Verify/Security trên commit đóng
-   phase sau khi cập nhật đủ biên bản.
-3. Trên staging, đối chiếu cùng commit/image cho web và API, rồi xác nhận Neon
-   `13 false`, runtime role không truy cập ledger import và migration role chạy được.
-4. Chạy importer dry-run/apply/rerun cùng migration up/down/up và rollback smoke trên
-   fixture staging dùng một lần; ghi kết quả vào `P2_12_STAGING_ACCEPTANCE.md`.
+2. Checkpoint `3c48964` đã xanh Verify/Security và Cloudflare; chạy lại hai workflow sau
+   commit closure cuối.
+3. Neon `13 false`, role split/ledger ACL và importer/up-down-up trên disposable branch
+   đã đạt; branch đã cleanup.
+4. Render full SHA đã khớp; chạy/chốt đủ 7 UI scenarios S01-S07 cùng S09 provider
+   rollback/redeploy; ghi kết quả vào `P2_12_STAGING_ACCEPTANCE.md`.
 5. Chỉ chuyển P2-12/Phase 2 sang `DONE` khi toàn bộ gate trên có bằng chứng; giữ audit
    append-only, tenant-scoped và không ghi token, session ID hoặc PII thừa.
