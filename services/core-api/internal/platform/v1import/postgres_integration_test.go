@@ -57,7 +57,10 @@ func TestFixtureImportIsIdempotentAndResumable(t *testing.T) {
 	}
 
 	resumeFixture := parsed
+	resumeFixture.Fixture.SourceSystem = "tutorhub-v1-resume"
 	resumeFixture.Fixture.FixtureKey = "p2-11-resume-test"
+	resumeCleanup := connectCleanup(t, ctx, databaseURL, resumeFixture.Fixture.SourceSystem)
+	defer resumeCleanup()
 	failed, err := Execute(ctx, databaseURL, "test", resumeFixture, ModeApply, Options{StopAfter: 3})
 	if !errors.Is(err, ErrInjectedInterruption) {
 		t.Fatalf("expected injected interruption, got report=%+v err=%v", failed, err)

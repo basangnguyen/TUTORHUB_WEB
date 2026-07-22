@@ -1,0 +1,12 @@
+title = "TutorHub test fixture secret-scan configuration"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Deterministic test-only values are not credentials"
+paths = [
+  '''^services/core-api/testdata/v1import/p2-11-anonymized\.json$''',
+  '''^scripts/e2e-local\.test\.mjs$''',
+  '''^services/core-api/internal/httpapi/class_enrollment_test\.go$''',
+]
