@@ -10,8 +10,8 @@
 | Thư mục phát triển    | `D:\TutorHub_V2`                                                                             |
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
-| Phase hiện tại        | Chưa bắt đầu Phase 3                                                                         |
-| Trạng thái gần nhất   | Phase 2/P2-12 DONE ngày 2026-07-22; chuẩn bị chọn task mở đầu Phase 3                        |
+| Phase hiện tại        | Phase 3 - Daily learning workspace                                                           |
+| Trạng thái gần nhất   | P3-00 DONE; P3-01 scheduling/timezone READY ngày 2026-07-22                                 |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 
@@ -1300,6 +1300,11 @@ Bằng chứng chuẩn hóa nằm trong `docs/P2_12_STAGING_ACCEPTANCE.md` và
 
 **Thời lượng:** 5-7 tuần.
 
+**Backlog thực thi:** `docs/PHASE_3_BACKLOG.md`. P3-00 backlog/architecture baseline
+đã `DONE`; P3-01 course session scheduling/timezone là task implementation hiện tại
+ở trạng thái `READY`. ADR-0017 chốt civil time/DST; ADR-0018 chốt worker production
+shape trước các consumer side effect.
+
 **Mục tiêu:** trước khi có classroom phức tạp, người dùng đã quản lý được lịch, tin nhắn và tài liệu.
 
 **Work package:**
@@ -1766,10 +1771,13 @@ Thứ tự hiện tại, cập nhật ngày 2026-07-22:
 
 1. Phase 1 đã hoàn thành; biên bản nằm tại `docs/PHASE_1_COMPLETION.md`.
 2. Phase 2/P2-00 đến P2-12 đã hoàn thành; biên bản exit gate được sign-off ngày 2026-07-22.
-3. Hậu kiểm Verify/Security cho closure-record docs-only sau push; mở lại P2-12 nếu lỗi.
-4. Chốt backlog Phase 3 và chọn task mở đầu theo dependency trong master plan.
-5. Không xóa thêm Neon branch theo quyết định hiện tại của owner.
-6. Không khởi động QuizHub, Lavie, social feed hoặc Secure Exam ngoài phase đã quy hoạch.
+3. P3-00 đã hoàn thành: backlog Phase 3, ADR scheduling/civil time và ADR worker/outbox.
+4. Bắt đầu P3-01 contract-first: migration, policy, OpenAPI/client, backend, UI tối thiểu
+   và test timezone/DST/tenant isolation.
+5. Không đưa recurrence, reminder, worker hoặc calendar tổng hợp vào P3-01; triển khai
+   P3-03 worker trước mọi consumer side effect.
+6. Không xóa thêm Neon branch theo quyết định hiện tại của owner.
+7. Không khởi động QuizHub, Lavie, social feed hoặc Secure Exam ngoài phase đã quy hoạch.
 
 ## 37. Quy tắc duy trì Master Plan
 
@@ -1816,7 +1824,7 @@ Thứ tự hiện tại, cập nhật ngày 2026-07-22:
 
 ---
 
-**Điểm bắt đầu sau tài liệu này:** đọc `docs/PROJECT_STATE.md`, biên bản
-`docs/PHASE_2_COMPLETION.md` và backlog Phase 3. Phase 2/P2-12 đã hoàn thành; bước tiếp
-theo là chọn task mở đầu Phase 3. Master Plan giữ mục tiêu/exit gate, không thay backlog
-chi tiết.
+**Điểm bắt đầu sau tài liệu này:** đọc `docs/PROJECT_STATE.md`,
+`docs/PHASE_3_BACKLOG.md`, ADR-0017 và ADR-0018. Phase 2/P2-12 đã hoàn thành; P3-00 đã
+`DONE` và P3-01 scheduling/timezone đang `READY`. Master Plan giữ mục tiêu/exit gate,
+không thay backlog chi tiết.

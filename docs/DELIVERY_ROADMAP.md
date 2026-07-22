@@ -5,9 +5,9 @@
 | Thuộc tính          | Trạng thái                                    |
 | ------------------- | --------------------------------------------- |
 | Cập nhật            | 2026-07-22                                    |
-| Phase hiện tại      | Phase 2 - Identity, tenant và class core      |
-| Hoàn thành gần nhất | P2-11 V1 fixture import ngày 2026-07-22       |
-| Việc tiếp theo      | P2-12 staging acceptance và đóng Phase 2      |
+| Phase hiện tại      | Phase 3 - Daily learning workspace            |
+| Hoàn thành gần nhất | P3-00 backlog/architecture ngày 2026-07-22    |
+| Việc tiếp theo      | P3-01 session scheduling và timezone          |
 | Phạm vi             | Web-first; desktop/mobile/native là track sau |
 
 ## Chuỗi phase
@@ -16,8 +16,8 @@
 | ----: | --------------------------------- | ---------------------: | ---------------------------------------------------------- |
 |     0 | Product và architecture baseline  |             Hoàn thành | Phạm vi, ADR, security/deployment baseline                 |
 |     1 | Engineering Foundation            |             Hoàn thành | CI, web shell, API, database, auth, LiveKit spike, staging |
-|     2 | Identity, tenant và class core    |         Đang thực hiện | Multi-tenant, permission, class/enrollment                 |
-|     3 | Daily learning workspace          |               5-7 tuần | Lịch, persistent messaging, notification, file/Drive       |
+|     2 | Identity, tenant và class core    |             Hoàn thành | Multi-tenant, permission, class/enrollment                 |
+|     3 | Daily learning workspace          |         Đang thực hiện | Lịch, persistent messaging, notification, file/Drive       |
 |     4 | Classroom Media MVP               |               6-8 tuần | Prejoin, LiveKit room, moderation, reconnect               |
 |     5 | Classroom Collaboration           |              8-12 tuần | Whiteboard, quiz nhanh, tools, breakout, recording         |
 |     6 | Assessment, Tasks và QuizHub      |              8-12 tuần | Assignment, exam, scoring, practice/game                   |
@@ -44,10 +44,8 @@
 - Classroom, webinar và broadcast là các capacity profile khác nhau.
 - Desktop/mobile không làm chậm Web MVP; chỉ chuẩn bị API/domain contract.
 
-Backlog thực thi Phase 2 nằm tại [PHASE_2_BACKLOG.md](PHASE_2_BACKLOG.md). Biên bản
-đóng Phase 1 nằm tại [PHASE_1_COMPLETION.md](PHASE_1_COMPLETION.md). P2-12 đang ở
-`VERIFY`; ma trận staging và biên bản đóng phase lần lượt nằm tại
+Phase 2 đã hoàn thành; ma trận staging và biên bản đóng phase nằm tại
 [P2_12_STAGING_ACCEPTANCE.md](P2_12_STAGING_ACCEPTANCE.md) và
-[PHASE_2_COMPLETION.md](PHASE_2_COMPLETION.md). CI/Cloudflare/Neon/importer đã đạt
-checkpoint P2-12; Render parity đã đạt. Phase 3 chỉ bắt đầu sau khi 7 UI scenarios
-S01-S07; S09 provider rollback/redeploy và owner sign-off đều có bằng chứng.
+[PHASE_2_COMPLETION.md](PHASE_2_COMPLETION.md). Backlog thực thi hiện hành là
+[PHASE_3_BACKLOG.md](PHASE_3_BACKLOG.md): P3-00 đã `DONE`, P3-01 scheduling/timezone
+đang `READY`; các task sau phải tuân dependency và exit gate trong backlog.

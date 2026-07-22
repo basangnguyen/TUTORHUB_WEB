@@ -11,10 +11,10 @@
 | Nhánh làm việc      | `main`                                                                                |
 | Quy trình           | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
 | Phase hoàn thành    | Phase 0, Phase 1, Phase 2                                                             |
-| Phase hiện tại      | Chưa bắt đầu Phase 3                                                                 |
-| Task vừa hoàn thành | P2-12 Staging acceptance và đóng Phase 2                                            |
-| Task hiện tại       | Chưa chọn task Phase 3                                                               |
-| Task tiếp theo      | Chốt backlog và task mở đầu Phase 3                                                 |
+| Phase hiện tại      | Phase 3 - Daily learning workspace                                                  |
+| Task vừa hoàn thành | P3-00 Backlog và architecture/contract baseline                                     |
+| Task hiện tại       | P3-01 Course session scheduling và timezone (`READY`)                               |
+| Task tiếp theo      | Triển khai P3-01 contract-first                                                     |
 
 ## Kiến trúc đang chạy
 
@@ -260,7 +260,26 @@ Backlog có thẩm quyền: `docs/PHASE_2_BACKLOG.md`.
 19. Owner đã sign-off P2-12. Closure-record docs-only phải được hậu kiểm Verify/Security
     sau push; nếu một workflow thất bại thì mở lại P2-12 và khắc phục regression.
 
+## Phase 3 bắt đầu ngày 2026-07-22
+
+Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
+
+1. P3-00 đã tạo task ID/dependency/acceptance/exit gate cho daily learning workspace.
+2. ADR-0017 chốt P3-01 session một lần: instant UTC + IANA timezone, DST gap/overlap,
+   optimistic version, tenant/class policy và boundary với recurrence/Phase 4 media.
+3. ADR-0018 chốt worker process riêng trong cùng Go modular monolith: PostgreSQL lease
+   có fencing token, at-least-once, retry/backoff, idempotency và dead-letter; chưa thêm
+   Redis/NATS/Kafka hoặc provider mới.
+4. P3-01 là vertical slice implementation đầu tiên và đang `READY`. Scope không gồm
+   recurrence, reminder, calendar tổng hợp, worker runtime hoặc media lifecycle.
+
 ## Rủi ro đã biết
+
+- P3-01 mới có backlog/ADR, chưa có migration/API/UI; không được mô tả scheduling như
+  chức năng đã chạy cho tới khi implementation, test và staging acceptance đạt.
+- Outbox hiện mới là writer-side queue, chưa có lease/fencing/dead-letter hoặc
+  `cmd/worker`. P3-03 phải hoàn thành trước notification, message/file processing hoặc
+  reminder side effect; Render Free web service không được xem là durable worker.
 
 - Render Free spin down khi không hoạt động và có thể cold start trên 50 giây;
   chỉ chấp nhận cho staging/private alpha.
@@ -320,6 +339,7 @@ Backlog có thẩm quyền: `docs/PHASE_2_BACKLOG.md`.
 - `docs/PHASE_2_BACKLOG.md`
 - `docs/P2_12_STAGING_ACCEPTANCE.md`
 - `docs/PHASE_2_COMPLETION.md`
+- `docs/PHASE_3_BACKLOG.md`
 - `docs/DEPLOYMENT_BASELINE.md`
 - `docs/DATABASE.md`
 - `docs/AUTHENTICATION.md`
@@ -332,3 +352,5 @@ Backlog có thẩm quyền: `docs/PHASE_2_BACKLOG.md`.
 - `docs/adr/0014-append-only-tenant-audit-log.md`
 - `docs/adr/0015-server-evaluated-feature-controls-and-quotas.md`
 - `docs/adr/0016-idempotent-v1-fixture-import.md`
+- `docs/adr/0017-class-session-scheduling-and-civil-time.md`
+- `docs/adr/0018-postgresql-leased-outbox-worker.md`

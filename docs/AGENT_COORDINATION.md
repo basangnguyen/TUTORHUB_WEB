@@ -65,43 +65,30 @@ ngoại lệ có thời hạn theo ADR-0012 và không được mô tả như br
 | P2-09 Feature flag/quota       | DONE       | Staging migration/config/acceptance đều đạt                 |
 | P2-10 Tenant isolation/IDOR    | DONE       | Commit `c4205b9`; Verify/Security CI đều xanh               |
 | P2-11 V1 fixture import        | DONE       | Commit `f07d05d`; PostgreSQL 17 Verify/Security đều xanh    |
-| P2-12 Staging closure          | VERIFY     | CI/Cloudflare/Neon/Render đạt; UI/rollback/sign-off chờ     |
+| P2-12 Staging closure          | DONE       | UI, rollback/redeploy, sign-off và exit gate đều đạt         |
 
 Nguồn thực thi: `docs/PHASE_2_BACKLOG.md`.
 
-[Verify #59](https://github.com/basangnguyen/TUTORHUB_WEB/actions/runs/29716888239)
-tại commit `836ae7e` đã xanh ngày 2026-07-20: Quality/integration,
-Browser E2E PostgreSQL 17 + Chromium và Local environment smoke đều đạt. Scenario
-Playwright ba role đã chạy xuyên suốt workspace/invitation/class/roster/archive/audit;
-[Security #54](https://github.com/basangnguyen/TUTORHUB_WEB/actions/runs/29716888233)
-cùng commit cũng xanh. Web 130/130, API client 15/15, UI 6/6 và E2E
-infrastructure 8/8 tiếp tục đạt; visual QA thủ công đạt ở desktop, laptop nhỏ và mobile.
-Acceptance staging P2-08 đã được chạy lại ngày 2026-07-20 và xanh toàn bộ ba role;
-deployment/contract drift trước đó đã được đồng bộ. P2-09 chuyển `DONE` ngày
-2026-07-21 trên commit `096620a`: migration `12 false`, grants/role safety, cấu hình
-Cloudflare/Render, public health/edge limiter, focused Neon integration cho feature/
-quota/isolation/audit, HTTP/metric regression và bounded cleanup `0/0` đều đạt. Task
-P2-10 đã có matrix, strict request/UUID/cursor boundary, fuzz suite và PostgreSQL
-security fixture. Commit `c4205b9` đạt
-[Verify](https://github.com/basangnguyen/TUTORHUB_WEB/actions/runs/29884539891), gồm
-PostgreSQL 17 security matrix, và
-[Security](https://github.com/basangnguyen/TUTORHUB_WEB/actions/runs/29884539912), gồm
-CodeQL, Trivy repository/container cùng secret scan. P2-10 đã chuyển `DONE`.
-P2-11 hoàn thành ngày 2026-07-22 trên commit `f07d05d`: ADR-0016, migration `000013`,
-fixture ẩn danh, CLI dry-run/apply, checkpoint/resume, mapping và reconciliation đều
-được xác minh. PostgreSQL 17 local tạm và Verify chạy xanh migration `13 -> 12 -> 13`,
-apply/rerun, resume cùng cleanup/reset; Security cùng commit cũng xanh. P2-12 đã bổ
-sung acceptance Playwright cho TTL/usage, archive join guard, roster history và audit
-actor/resource/request. Task vẫn ở `VERIFY`: không được ghi `DONE` trước khi staging
-closure đầy đủ. Checkpoint `3c48964` đã đạt Verify `29912093175`, Security
-`29912093166` và Cloudflare Pages full-SHA check. Neon staging đã ở `13 false`; role
-split/default ACL, importer idempotency, disposable up/down/up và public Render/Pages
-health/readiness/status đều đạt. Render đã live release candidate `3c48964` qua deploy
-`dep-d9gaiturnols73c75qp0`; 6/6 public probe sau deploy đều HTTP 200. Bảy UI scenarios
-S01-S07; S09 provider rollback/redeploy và owner sign-off vẫn còn pending. Hai biên bản theo dõi là
-`docs/P2_12_STAGING_ACCEPTANCE.md` và `docs/PHASE_2_COMPLETION.md`.
+Phase 2 đã hoàn thành ngày 2026-07-22. CI/Cloudflare/Neon/importer/Render, UI staging
+ba role, tenant/IDOR probes và S09 application rollback/redeploy đều đạt; owner đã
+sign-off. Native Render Rollback không được dùng do cảnh báo không tải được cấu hình
+live; rollback bằng specific commit giữ cấu hình hiện tại là bằng chứng phục hồi đã
+được chấp nhận. Hồ sơ nằm tại `docs/P2_12_STAGING_ACCEPTANCE.md` và
+`docs/PHASE_2_COMPLETION.md`.
 
-## 5. Hạ tầng staging đã chốt
+## 5. Trạng thái Phase 3
+
+| Task                                 | Trạng thái | Ghi chú                                 |
+| ------------------------------------ | ---------- | --------------------------------------- |
+| P3-00 Backlog/architecture baseline  | DONE       | Backlog, ADR scheduling và ADR worker   |
+| P3-01 Session scheduling và timezone | READY      | Vertical slice implementation đầu tiên  |
+| P3-02 đến P3-14                      | TODO       | Theo dependency trong backlog           |
+
+Nguồn thực thi: `docs/PHASE_3_BACKLOG.md`. Trước khi code P3-01 phải đọc ADR-0017;
+mọi notification/message/file side effect phải chờ worker foundation P3-03 theo
+ADR-0018. P3-01 không gồm recurrence, calendar tổng hợp, reminder hoặc media lifecycle.
+
+## 6. Hạ tầng staging đã chốt
 
 - Web: `https://tutorhub-web.pages.dev`.
 - Core API: `https://tutorhub-core-api.onrender.com`.
@@ -111,7 +98,7 @@ S01-S07; S09 provider rollback/redeploy và owner sign-off vẫn còn pending. H
 - Media: LiveKit Cloud staging project.
 - Tất cả smoke test acceptance đã đạt ngày 2026-07-16.
 
-## 6. Quy tắc tránh mất mã
+## 7. Quy tắc tránh mất mã
 
 - Push sau mỗi checkpoint hoàn chỉnh, không gom quá nhiều thay đổi không liên quan.
 - File `.env*.local`, token, key và URL chứa credential phải được Git-ignore.
