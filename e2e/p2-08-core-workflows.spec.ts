@@ -628,7 +628,7 @@ test("P2-12 closes admin, instructor, and learner workflows through the real UI"
         auditTable.getByRole("cell", { name: "Create class", exact: true }),
       ).toBeVisible();
       const createClassAuditRow = auditTable.getByRole("row").filter({
-        has: auditTable.getByRole("cell", {
+        has: adminPage.getByRole("cell", {
           name: "Create class",
           exact: true,
         }),
