@@ -358,12 +358,20 @@ integration test vì fake service không chứng minh SQL tenant predicate.
 | ID | Severity | Finding | Ảnh hưởng và quyết định P2-10 |
 |---|---|---|---|
 | P2-10-F01 | Low - fixed | Class cursor v1 chỉ là base64 JSON của `created_at`, `id`, `status`; chưa bind `tenant_id` và dùng decoder cho phép unknown field. | Đã thay bằng prefix v2, bind tenant/filter, strict decode và regression unit + PostgreSQL cursor replay tenant B -> A. Cursor cũ bị từ chối fail-closed. |
-| P2-10-F02 | Low / follow-up | Class/roster/audit cursor bind scope bằng SHA-256 không có secret; client có thể tự tính hash và forge anchor. | Containment tests đã đạt: cursor chỉ ảnh hưởng pagination trong đúng tenant/class/filter và không cấp quyền hay mutate state. HMAC/versioned signing được ghi follow-up trong backlog/ADR riêng nếu threat model P2-12 yêu cầu. |
+| P2-10-F02 | Low - accepted/deferred | Class/roster/audit cursor bind scope bằng SHA-256 không có secret; client có thể tự tính hash và forge anchor. | Chấp nhận rủi ro cho Phase 2 vì containment tests chứng minh cursor chỉ ảnh hưởng pagination trong đúng tenant/class/filter, không cấp quyền hay mutate state. Chuyển versioned HMAC signing sang Phase 3 security hardening với owner và trigger bắt buộc ghi dưới bảng; quyết định này không còn phụ thuộc P2-12. |
 | P2-10-F03 | Informational | Membership revoke loại active tenant khỏi principal nhưng không revoke toàn bộ identity session. | Đây là semantics có chủ ý nếu self endpoints và membership tenant khác vẫn dùng được. P2-10 phải test mất workspace permission ngay request kế tiếp và ghi rõ không kỳ vọng global `401`. |
 | P2-10-F04 | Informational | Signed LiveKit webhook lấy tenant/class từ room name rồi dựa vào composite FK để bác mismatched pair. | Không phải user-controlled IDOR khi signature verification đúng. Bổ sung test malformed/mismatched signed room không ghi receipt; cân nhắc map FK failure sang ignored/controlled error để tránh availability noise. |
 
 Không có finding High hoặc Critical chưa xử lý. PostgreSQL matrix cùng các gate CI đã
 đạt trên commit `c4205b9`.
+
+**Risk acceptance P2-10-F02:** owner là maintainer Backend/Security của TutorHub.
+Rủi ro được chấp nhận đến Phase 3 và phải được mở lại trước public beta hoặc trước khi
+cursor trở thành giá trị được lưu/chia sẻ ngoài phiên phân trang ngắn hạn, tùy mốc nào
+đến trước. Trigger yêu cầu tạo ADR và triển khai versioned HMAC signing thống nhất cho
+class, roster và audit cursor, giữ strict decode, scope/filter binding và containment
+regression tests hiện có. Finding chỉ được đóng hoàn toàn khi cursor giả mạo bị từ chối
+và migration version có đường tương thích/thu hồi rõ ràng.
 
 ## 12. Exit criteria P2-10
 
@@ -373,7 +381,9 @@ Không có finding High hoặc Critical chưa xử lý. PostgreSQL matrix cùng 
 - [x] Membership revoke và workspace-switch suite đạt trên PostgreSQL 17 trong CI.
 - [x] Mass-assignment, cursor tamper, invitation abuse và fuzz suite đạt cục bộ.
 - [x] P2-10-F01 đã được sửa và có regression test.
-- [x] P2-10-F02 có containment tests và signed-cursor follow-up được ghi backlog.
+- [x] P2-10-F02 có containment tests; Low risk được owner Backend/Security chấp nhận
+  cho Phase 2 và defer sang Phase 3 với trigger bắt buộc trước public beta hoặc trước
+  khi cursor được lưu/chia sẻ ngoài phiên phân trang ngắn hạn.
 - [x] Denied mutation suite chụp snapshot/counter để chứng minh không đổi business row.
 - [x] API unit tests, generated contract checks và `corepack pnpm verify` đạt cục bộ.
 - [x] PostgreSQL actor/foreign-ID/stale-session matrix xanh trong workflow `Verify`.

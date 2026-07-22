@@ -10,11 +10,11 @@ thay đổi schema, migration hoặc repository phải đọc tài liệu này t
 - Migration mới nhất trong source: `000013_legacy_fixture_import`.
 - Migration 1-5 đã được chạy và kiểm tra trên Neon; smoke
   `5 false -> rollback 4 false -> migrate 5 false` đạt ngày 2026-07-16.
-- Migration `000006` đến `000013` đều có up/down path. Neon staging đã áp dụng
-  `000012` và xác nhận `12 false` ngày 2026-07-21. Focused feature-control integration
-  chạy bằng runtime role trên staging đã đạt; migration/runtime grants và role safety
-  được kiểm tra trước deploy commit `096620a`. Migration `000013` đang chờ Verify CI
-  và reset/rollback acceptance trên branch tạm của P2-11.
+- Migration `000006` đến `000013` đều có up/down path. Source và PostgreSQL 17 CI
+  của P2-11 đã xác nhận `000013` qua migrate `13 -> 12 -> 13`, dry-run, apply/rerun,
+  checkpoint/resume và reset. Neon staging mới có bằng chứng `000012` với `12 false`
+  ngày 2026-07-21; migrate `12 -> 13 -> 12 -> 13` và kiểm tra tách quyền migration/
+  runtime cuối cho ba bảng `legacy_import_*` vẫn `PENDING` trong P2-12.
 - Phần lớn integration test rollback bằng transaction. Chỉ focused P2-09 suite có
   fixture tự dọn hoàn toàn được chạy trên staging ngày 2026-07-21; các suite concurrency
   có thể để lại audit append-only vẫn chỉ chạy trên database CI tạm thời.
@@ -22,7 +22,8 @@ thay đổi schema, migration hoặc repository phải đọc tài liệu này t
 
 Neon có branch `production` và branch staging tách biệt. Core API staging dùng pooled
 runtime role tối thiểu quyền; migration job dùng direct migration role riêng. Kết nối,
-readiness và migration/rollback smoke đều đã đạt.
+readiness và smoke đến migration `000012` đã đạt; không suy diễn kết quả đó thành bằng
+chứng migration `000013` hoặc role split cuối trước khi các kiểm tra P2-12 thực sự chạy.
 
 ## Hai connection URL
 
@@ -275,10 +276,11 @@ pnpm db:migrate
 pnpm db:version
 ```
 
-Sau khi áp dụng toàn bộ migration trong source, kết quả mong đợi là `12 false`. Chỉ ghi
-đó là kết quả môi trường khi lệnh thực tế đã chạy; bằng chứng staging gần nhất hiện vẫn
-là `5 false` ngày 2026-07-16. Rollback chỉ dùng khi đã đánh giá mất dữ liệu và có
-backup/restore plan:
+Sau khi áp dụng toàn bộ migration trong source, kết quả mong đợi là `13 false`. Chỉ ghi
+đó là kết quả môi trường khi lệnh thực tế đã chạy; bằng chứng Neon staging gần nhất hiện
+vẫn là `12 false` ngày 2026-07-21. Migration `000013` up/down/up và xác nhận runtime role
+không có quyền trên `legacy_import_*` vẫn `PENDING`. Rollback chỉ dùng khi đã đánh giá
+mất dữ liệu và có backup/restore plan:
 
 ```powershell
 go run ./services/core-api/cmd/migrate down -steps 1
@@ -346,6 +348,8 @@ của lịch sử append-only và không phải quy trình cleanup cho staging/p
 - P2-09 đã áp dụng migration `000012` trên staging, cấp grants runtime tối thiểu và
   chạy bounded cleanup `rate_limit_windows=0`, `tenant_quota_windows=0` ngày
   2026-07-21; maintenance định kỳ tiếp tục theo runbook ở trên.
-- P2-11 chỉ import fixture V1 ẩn danh cho user/tenant/membership/class bằng migration
-  `000013`; production data/cohort migration vẫn thuộc discovery/cutover phase sau.
+- P2-11 đã hoàn tất source và PostgreSQL 17 CI cho fixture V1 ẩn danh
+  user/tenant/membership/class bằng migration `000013`; Neon staging migration 13 và
+  kiểm tra role split cuối vẫn thuộc acceptance P2-12. Production data/cohort migration
+  vẫn thuộc discovery/cutover phase sau.
 - Chưa có backup/restore drill, PITR gate hoặc connection load test cho pilot.

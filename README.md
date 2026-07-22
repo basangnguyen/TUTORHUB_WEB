@@ -9,10 +9,12 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
 ## Trạng thái
 
 - Phase 0 và **Phase 1 - Engineering Foundation** đã hoàn thành ngày 2026-07-16.
-- Hiện đang thực hiện **Phase 2 - Identity, tenant và class core**; P2-00 đến P2-10
-  đã hoàn thành. P2-11 V1 fixture import idempotent đã có ADR, migration `000013`,
-  fixture ẩn danh và CLI dry-run/apply; task đang ở `VERIFY` chờ PostgreSQL CI và
-  acceptance reset trên branch tạm.
+- Hiện đang thực hiện **Phase 2 - Identity, tenant và class core**; P2-00 đến P2-11
+  đã hoàn thành. P2-12 staging acceptance và đóng phase đang ở `VERIFY/IN PROGRESS`:
+  Playwright acceptance đã bổ sung kiểm tra usage của invite link, archive chặn join
+  mới và audit actor/resource/request ID. Candidate `6fb4f84` đã đạt Verify/Security;
+  parity commit giữa staging providers và Neon migration `13` với role split
+  runtime/migration vẫn đang chờ xác minh.
 - Web MVP nền đã chạy trên staging: Cloudflare Pages -> same-origin `/api/*` -> Go
   Core API trên Render; dữ liệu dùng Neon, file dùng Backblaze B2, media dùng LiveKit
   Cloud và xác thực dùng ZITADEL.
@@ -46,11 +48,15 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
 18. [Design system và hướng dẫn sử dụng component](docs/DESIGN_SYSTEM.md)
 19. [CI/CD và security runbook](docs/CI_SECURITY.md)
 20. [Browser E2E local/staging](docs/E2E_TESTING.md)
-21. [Chính sách báo cáo lỗ hổng](SECURITY.md)
-22. [ADR-0011: Render cho Core API staging/private alpha](docs/adr/0011-render-core-api-staging.md)
-23. [ADR-0012: Direct-main khi một người duy trì](docs/adr/0012-single-maintainer-direct-main-governance.md)
-24. [ADR-0013: Shared organization/class authorization policy](docs/adr/0013-shared-organization-class-authorization-policy.md)
-25. [ADR-0014: Append-only tenant audit log](docs/adr/0014-append-only-tenant-audit-log.md)
+21. [P2-12 staging acceptance](docs/P2_12_STAGING_ACCEPTANCE.md)
+22. [Biên bản Phase 2 (chỉ chốt khi exit gate đạt)](docs/PHASE_2_COMPLETION.md)
+23. [Chính sách báo cáo lỗ hổng](SECURITY.md)
+24. [ADR-0011: Render cho Core API staging/private alpha](docs/adr/0011-render-core-api-staging.md)
+25. [ADR-0012: Direct-main khi một người duy trì](docs/adr/0012-single-maintainer-direct-main-governance.md)
+26. [ADR-0013: Shared organization/class authorization policy](docs/adr/0013-shared-organization-class-authorization-policy.md)
+27. [ADR-0014: Append-only tenant audit log](docs/adr/0014-append-only-tenant-audit-log.md)
+28. [ADR-0015: Server-evaluated feature controls và quotas](docs/adr/0015-server-evaluated-feature-controls-and-quotas.md)
+29. [ADR-0016: Idempotent V1 fixture import](docs/adr/0016-idempotent-v1-fixture-import.md)
 
 Các quyết định kiến trúc đã chấp nhận nằm trong `docs/adr`.
 

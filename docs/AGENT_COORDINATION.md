@@ -65,7 +65,7 @@ ngoại lệ có thời hạn theo ADR-0012 và không được mô tả như br
 | P2-09 Feature flag/quota       | DONE       | Staging migration/config/acceptance đều đạt                 |
 | P2-10 Tenant isolation/IDOR    | DONE       | Commit `c4205b9`; Verify/Security CI đều xanh               |
 | P2-11 V1 fixture import        | DONE       | Commit `f07d05d`; PostgreSQL 17 Verify/Security đều xanh    |
-| P2-12 Staging closure          | TODO       | Theo dependency trong backlog                              |
+| P2-12 Staging closure          | VERIFY     | CI closure và staging parity/Neon gate đang chờ            |
 
 Nguồn thực thi: `docs/PHASE_2_BACKLOG.md`.
 
@@ -90,8 +90,14 @@ CodeQL, Trivy repository/container cùng secret scan. P2-10 đã chuyển `DONE`
 P2-11 hoàn thành ngày 2026-07-22 trên commit `f07d05d`: ADR-0016, migration `000013`,
 fixture ẩn danh, CLI dry-run/apply, checkpoint/resume, mapping và reconciliation đều
 được xác minh. PostgreSQL 17 local tạm và Verify chạy xanh migration `13 -> 12 -> 13`,
-apply/rerun, resume cùng cleanup/reset; Security cùng commit cũng xanh. P2-12 là task
-hiện tại.
+apply/rerun, resume cùng cleanup/reset; Security cùng commit cũng xanh. P2-12 đã bổ
+sung acceptance Playwright cho TTL/usage, archive join guard, roster history và audit
+actor/resource/request. Task vẫn ở `VERIFY`: không được ghi `DONE` trước khi CI xanh
+trên commit đóng phase và staging xác nhận deployment parity, Neon `13 false`, role
+split, importer idempotency cùng rollback smoke. Candidate `6fb4f84` đã đạt Verify
+`29910962433` và Security `29910962424`; public Render/Pages health, readiness và
+status đều HTTP 200. Hai biên bản theo dõi là
+`docs/P2_12_STAGING_ACCEPTANCE.md` và `docs/PHASE_2_COMPLETION.md`.
 
 ## 5. Hạ tầng staging đã chốt
 

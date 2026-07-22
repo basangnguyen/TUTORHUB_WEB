@@ -22,8 +22,9 @@ invitation, accept và revoke; P2-04 Class lifecycle, ownership và archive; P2-
 Enrollment và class invite code; P2-06 Roster và class-level roles; P2-07 Audit log
 cho hành động nhạy cảm; P2-08 Admin và teacher UI end-to-end; P2-09 Feature flag và
 quota framework; P2-10 Tenant isolation/IDOR security suite.
+P2-11 V1 fixture import idempotent.
 
-**Task hiện tại:** P2-12 Staging acceptance và đóng phase (`TODO`).
+**Task hiện tại:** P2-12 Staging acceptance và đóng phase (`VERIFY`).
 
 ## 2. Non-goal
 
@@ -63,7 +64,7 @@ quota framework; P2-10 Tenant isolation/IDOR security suite.
 | P2-09 | Feature flag và quota framework         | P2-00, P2-02               | DONE       |
 | P2-10 | Tenant isolation/IDOR security suite    | Xuyên suốt; chốt sau P2-09 | DONE       |
 | P2-11 | V1 fixture import idempotent            | Schema ổn định sau P2-06   | DONE       |
-| P2-12 | Staging acceptance và đóng phase        | P2-01 đến P2-11            | TODO       |
+| P2-12 | Staging acceptance và đóng phase        | P2-01 đến P2-11            | VERIFY     |
 
 ## 5. P2-00 Policy and contract baseline
 
@@ -599,6 +600,18 @@ P2-11 chuyển `DONE` ngày 2026-07-22.
 - `pnpm verify`, Security workflow và staging acceptance đều xanh.
 - Biên bản `PHASE_2_COMPLETION.md` được tạo trước khi sang Phase 3.
 
+**Implementation checkpoint 2026-07-22:** scenario Playwright ba identity đã được
+mở rộng cho link có TTL/giới hạn `0/2 -> 1/2`, roster lịch sử sau archive, link còn
+hiển thị active nhưng join mới bị backend từ chối, và audit đối chiếu actor UUID,
+class resource UUID cùng request ID. Backend PostgreSQL integration tiếp tục chứng
+minh usage atomic/idempotent, expired/revoked/exhausted, cross-tenant invariant và
+archive giữ roster/audit. Biên bản staging và biên bản đóng phase đã được tạo ở trạng
+thái chờ nghiệm thu. Candidate `6fb4f84` đã đạt Verify `29910962433` (gồm Browser
+E2E PostgreSQL 17 + Chromium) và Security `29910962424`; public health/readiness/status
+trực tiếp Render và qua Pages proxy đều HTTP 200. P2-12 chỉ chuyển `DONE` sau khi commit
+đóng phase cũng xanh và staging xác nhận deployment parity, Neon `13 false`, tách quyền
+runtime/migration, importer cùng rollback smoke.
+
 ## 18. Thứ tự sprint
 
 | Sprint | Task chính          | Kết quả demo                                  |
@@ -612,10 +625,12 @@ P2-11 chuyển `DONE` ngày 2026-07-22.
 
 ## 19. Việc cần làm ngay
 
-1. P2-10 đã `DONE` trên commit `c4205b9`; Verify và Security workflow đều xanh.
-2. P2-11 implementation đã xong; xác nhận PostgreSQL 17 CI cho dry-run/apply/rerun,
-   checkpoint resume và reconciliation.
-3. Chạy migration 12 -> 13 -> 12 -> 13 cùng reset trên branch tạm trước khi chuyển DONE.
-4. Trước mỗi acceptance staging, đối chiếu commit/image, migration và configuration.
-5. Giữ audit append-only, tenant-scoped và không log token, session ID hoặc PII thừa.
-6. Giữ notification invitation ở interface/outbox; chưa gửi email thật trong Phase 2.
+1. P2-00 đến P2-11 đã `DONE`; P2-12 đang ở `VERIFY`.
+2. Candidate automation `6fb4f84` đã xanh; chạy lại Verify/Security trên commit đóng
+   phase sau khi cập nhật đủ biên bản.
+3. Trên staging, đối chiếu cùng commit/image cho web và API, rồi xác nhận Neon
+   `13 false`, runtime role không truy cập ledger import và migration role chạy được.
+4. Chạy importer dry-run/apply/rerun cùng migration up/down/up và rollback smoke trên
+   fixture staging dùng một lần; ghi kết quả vào `P2_12_STAGING_ACCEPTANCE.md`.
+5. Chỉ chuyển P2-12/Phase 2 sang `DONE` khi toàn bộ gate trên có bằng chứng; giữ audit
+   append-only, tenant-scoped và không ghi token, session ID hoặc PII thừa.

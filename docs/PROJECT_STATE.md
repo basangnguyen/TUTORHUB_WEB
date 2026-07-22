@@ -13,7 +13,7 @@
 | Phase hoàn thành    | Phase 0, Phase 1                                                                      |
 | Phase hiện tại      | Phase 2 - Identity, tenant và class core                                              |
 | Task vừa hoàn thành | P2-11 V1 fixture import idempotent                                                    |
-| Task hiện tại       | P2-12 Staging acceptance và đóng phase                                                |
+| Task hiện tại       | P2-12 Staging acceptance và đóng phase (`VERIFY/IN PROGRESS`)                         |
 | Task tiếp theo      | Phase 3 backlog sau khi Phase 2 đạt exit gate                                        |
 
 ## Kiến trúc đang chạy
@@ -150,7 +150,8 @@ trước pilot/public beta hoặc khi có người duy trì thứ hai.
 
 Backlog có thẩm quyền: `docs/PHASE_2_BACKLOG.md`.
 
-1. P2-00 đến P2-11 đã hoàn thành; P2-12 staging acceptance và đóng phase là task hiện tại.
+1. P2-00 đến P2-11 đã hoàn thành; P2-12 staging acceptance và đóng phase đang ở
+   `VERIFY/IN PROGRESS`, chưa đạt exit gate Phase 2.
 2. P2-08 nối các contract workspace/invitation/class/roster/audit thành luồng UI
    org admin, teacher và student; capability guard, cache tenant/class, trạng thái
    forbidden/retry và navigation đã được chuẩn hóa.
@@ -212,6 +213,19 @@ Backlog có thẩm quyền: `docs/PHASE_2_BACKLOG.md`.
     [Security](https://github.com/basangnguyen/TUTORHUB_WEB/actions/runs/29891333728).
     Migration `13 -> 12 -> 13`, dry-run, apply/rerun, checkpoint/resume, reconciliation
     và cleanup/reset database tạm đều đạt; P2-11 chuyển `DONE`.
+13. P2-12 đã mở rộng scenario Playwright ba role để kiểm tra class invite link đi từ
+    `0/2` sang `1/2` lượt dùng, roster vẫn được giữ sau archive, invite link còn active
+    không thể dùng để join lớp đã archive, và audit create-class có actor, resource ID
+    cùng request ID. Implementation nằm ở commit `bf30605`; các commit `7563ed1` và
+    `6fb4f84` thu hẹp locator audit để tránh match nhầm action có tiền tố giống nhau.
+    Candidate `6fb4f84` đã đạt
+    [Verify](https://github.com/basangnguyen/TUTORHUB_WEB/actions/runs/29910962433), gồm
+    Browser E2E PostgreSQL 17 + Chromium, và
+    [Security](https://github.com/basangnguyen/TUTORHUB_WEB/actions/runs/29910962424).
+    Public health/readiness/status trực tiếp Render và qua Pages proxy đều HTTP 200,
+    readiness báo database/object storage ready. Parity full commit Cloudflare
+    Pages/Render và Neon staging migration `13`, `dirty=false` cùng role split
+    runtime/migration vẫn phải được xác minh trước khi chuyển P2-12 sang `DONE`.
 
 ## Rủi ro đã biết
 
@@ -237,6 +251,10 @@ Backlog có thẩm quyền: `docs/PHASE_2_BACKLOG.md`.
   configuration trước khi kết luận lỗi contract.
 - Host hiện tại thiếu Docker/PostgreSQL nên không thể lặp lại full browser scenario
   ngoài CI; nếu CI không sẵn có thì đây vẫn là hạn chế chẩn đoán cục bộ.
+- P2-12 chưa được đóng: automated acceptance xanh ở candidate `6fb4f84` không thay thế
+  staging acceptance. Cần đối chiếu đúng full commit đang chạy ở Cloudflare Pages và
+  Render, rồi xác nhận Neon ở migration `13`, `dirty=false` với
+  runtime role không truy cập ledger import và migration role có quyền cần thiết.
 - Class/roster/audit cursor vẫn là payload client đọc được; scope hash ngăn replay sai
   tenant/filter nhưng không phải chữ ký bí mật. SQL luôn giữ tenant/class predicate nên
   finding hiện được xếp Low; quyết định HMAC toàn bộ cursor được hoãn sang backlog/ADR
@@ -267,6 +285,8 @@ Backlog có thẩm quyền: `docs/PHASE_2_BACKLOG.md`.
 - `docs/PHASE_1_BACKLOG.md`
 - `docs/PHASE_1_COMPLETION.md`
 - `docs/PHASE_2_BACKLOG.md`
+- `docs/P2_12_STAGING_ACCEPTANCE.md`
+- `docs/PHASE_2_COMPLETION.md`
 - `docs/DEPLOYMENT_BASELINE.md`
 - `docs/DATABASE.md`
 - `docs/AUTHENTICATION.md`
@@ -278,3 +298,4 @@ Backlog có thẩm quyền: `docs/PHASE_2_BACKLOG.md`.
 - `docs/adr/0013-shared-organization-class-authorization-policy.md`
 - `docs/adr/0014-append-only-tenant-audit-log.md`
 - `docs/adr/0015-server-evaluated-feature-controls-and-quotas.md`
+- `docs/adr/0016-idempotent-v1-fixture-import.md`

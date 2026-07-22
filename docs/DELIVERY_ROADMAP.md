@@ -4,10 +4,10 @@
 
 | Thuộc tính          | Trạng thái                                    |
 | ------------------- | --------------------------------------------- |
-| Cập nhật            | 2026-07-16                                    |
+| Cập nhật            | 2026-07-22                                    |
 | Phase hiện tại      | Phase 2 - Identity, tenant và class core      |
-| Hoàn thành gần nhất | Phase 1 exit gate đạt ngày 2026-07-16         |
-| Việc tiếp theo      | P2-00 Policy and contract baseline            |
+| Hoàn thành gần nhất | P2-11 V1 fixture import ngày 2026-07-22       |
+| Việc tiếp theo      | P2-12 staging acceptance và đóng Phase 2      |
 | Phạm vi             | Web-first; desktop/mobile/native là track sau |
 
 ## Chuỗi phase
@@ -45,4 +45,8 @@
 - Desktop/mobile không làm chậm Web MVP; chỉ chuẩn bị API/domain contract.
 
 Backlog thực thi Phase 2 nằm tại [PHASE_2_BACKLOG.md](PHASE_2_BACKLOG.md). Biên bản
-đóng Phase 1 nằm tại [PHASE_1_COMPLETION.md](PHASE_1_COMPLETION.md).
+đóng Phase 1 nằm tại [PHASE_1_COMPLETION.md](PHASE_1_COMPLETION.md). P2-12 đang ở
+`VERIFY`; ma trận staging và biên bản đóng phase lần lượt nằm tại
+[P2_12_STAGING_ACCEPTANCE.md](P2_12_STAGING_ACCEPTANCE.md) và
+[PHASE_2_COMPLETION.md](PHASE_2_COMPLETION.md). Phase 3 chỉ bắt đầu sau khi các gate
+CI, deployment parity, Neon role split, importer và rollback smoke đều có bằng chứng.

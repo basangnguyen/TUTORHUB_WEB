@@ -2,18 +2,23 @@
 
 ## Phạm vi
 
-P2-08 có một scenario Playwright đi xuyên suốt giao diện thật với ba browser
-context độc lập:
+Scenario Playwright khởi tạo từ P2-08 và được mở rộng cho closure P2-12, đi xuyên
+suốt giao diện thật với ba browser context độc lập:
 
 1. Org admin tạo, chỉnh và chuyển workspace; mời teacher/student và revoke một
    invitation.
 2. Teacher/student preview, accept invitation rồi chuyển vào workspace mới.
-3. Teacher tạo, chỉnh và activate class; tạo class join link.
-4. Student nhập link trong UI, join và thấy class xuất hiện trong danh sách.
-5. Teacher đổi class role, suspend rồi remove student, revoke link và archive
-   class.
-6. Org admin kiểm tra audit log; scenario smoke AppShell ở desktop, laptop nhỏ
-   và mobile. Visual QA thủ công bao phủ thêm workspace, class, join dialog và
+3. Teacher tạo, chỉnh và activate class; tạo class join link TTL một ngày, giới
+   hạn hai lượt và xác nhận bộ đếm ban đầu `0/2`.
+4. Student nhập link trong UI, join, thấy class xuất hiện trong danh sách và
+   teacher thấy bộ đếm chuyển thành `1/2`.
+5. Teacher đổi class role, suspend rồi remove student, sau đó archive class mà
+   không revoke link. Trang class archived vẫn giữ roster lịch sử và link đang
+   active với bộ đếm `1/2`.
+6. Một actor cùng tenant nhưng chưa enrolled thử dùng link còn active sau archive
+   và phải nhận lỗi unavailable chung; org admin kiểm tra audit đúng actor,
+   request ID và resource. Scenario smoke AppShell ở desktop, laptop nhỏ và
+   mobile; visual QA thủ công bao phủ thêm workspace, class, join dialog và
    roster tại cả ba viewport.
 
 Scenario không seed fixture nghiệp vụ, không gọi API trực tiếp và không yêu cầu
@@ -111,6 +116,18 @@ Lượt nghiệm thu này không dùng SQL/manual API, không tạo hoặc lưu 
 không ghi invitation token, cookie hay secret vào repository, log hoặc artifact. Đây
 là acceptance UI staging thực tế; lệnh `corepack pnpm e2e` ở mode staging không được
 chạy trong lượt này. Scenario Playwright tương ứng đã xanh riêng trên CI Verify #59.
+
+### Trạng thái closure P2-12 (2026-07-22)
+
+Source scenario đã được mở rộng để kiểm tra `0/2 -> 1/2`, retention của roster/link
+sau archive và archive guard đối với lượt join mới. Sau khi sửa locator audit để chỉ
+chọn action `Create class`, commit `6fb4f84` đã đạt
+[Verify](https://github.com/basangnguyen/TUTORHUB_WEB/actions/runs/29910962433), gồm
+Browser E2E PostgreSQL 17 + Chromium, và
+[Security](https://github.com/basangnguyen/TUTORHUB_WEB/actions/runs/29910962424).
+Kết quả staging P2-08 ở trên là bằng chứng lịch sử và không thay thế lượt acceptance
+cuối của P2-12. Không đánh dấu Phase 2 hoàn tất cho đến khi commit đóng phase cùng
+staging acceptance cuối đều đạt.
 
 ## Bảo vệ credential và artifact
 
