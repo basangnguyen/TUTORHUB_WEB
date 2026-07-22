@@ -9,10 +9,10 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
 ## Trạng thái
 
 - Phase 0 và **Phase 1 - Engineering Foundation** đã hoàn thành ngày 2026-07-16.
-- Hiện đang thực hiện **Phase 2 - Identity, tenant và class core**; P2-00 đến P2-08
-  đã hoàn thành. P2-09 Feature flag và quota framework đã có implementation
-  checkpoint và kiểm thử cục bộ xanh; task đang ở `VERIFY` cho tới khi migration
-  `000012`, quyền runtime, cấu hình edge/Core API và acceptance staging được xác nhận.
+- Hiện đang thực hiện **Phase 2 - Identity, tenant và class core**; P2-00 đến P2-10
+  đã hoàn thành. P2-11 V1 fixture import idempotent đã có ADR, migration `000013`,
+  fixture ẩn danh và CLI dry-run/apply; task đang ở `VERIFY` chờ PostgreSQL CI và
+  acceptance reset trên branch tạm.
 - Web MVP nền đã chạy trên staging: Cloudflare Pages -> same-origin `/api/*` -> Go
   Core API trên Render; dữ liệu dùng Neon, file dùng Backblaze B2, media dùng LiveKit
   Cloud và xác thực dùng ZITADEL.

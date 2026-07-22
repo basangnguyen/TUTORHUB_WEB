@@ -67,6 +67,17 @@ Audit phát hiện V1 có cấu hình endpoint phân tán, một số giá trị
 6. Dual-read chỉ dùng tạm thời; tránh dual-write kéo dài.
 7. Cutover bằng feature flag theo tenant và có rollback window.
 
+### P2-11 fixture checkpoint
+
+P2-11 chỉ chứng minh aggregate `user -> tenant -> membership -> class` bằng fixture
+versioned đã ẩn danh trong repository. ADR-0016 và migration `000013` thêm external-ID
+mapping, run/item ledger, dry-run rollback, per-record checkpoint/resume và reconciliation.
+CLI chặn production, email ngoài `.invalid` và natural-key collision chưa có mapping.
+Chi tiết tại `docs/P2_11_V1_FIXTURE_IMPORT.md`.
+
+Checkpoint này không xác minh chất lượng production data V1 và không cấp quyền đọc
+`D:\Ban_sao_du_an`; production cohort import vẫn phải theo đủ 12 bước ở Master Plan.
+
 ## 5. Anti-corruption layer
 
 Trong giai đoạn V1 và V2 cùng chạy, adapter legacy chuyển packet/model cũ sang contract V2. Domain V2 không import class Java, tên packet hoặc schema legacy. Mọi fallback phải có ngày loại bỏ và telemetry đo số lần sử dụng.

@@ -11,7 +11,7 @@
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
 | Phase hiện tại        | Phase 2 - Identity, tenant và class core                                                     |
-| Trạng thái gần nhất   | P2-10 tenant isolation/IDOR DONE; P2-11 V1 fixture import là task tiếp theo                  |
+| Trạng thái gần nhất   | P2-10 DONE; P2-11 V1 fixture import đang VERIFY                                              |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 
@@ -1185,7 +1185,7 @@ beta. Xem `docs/PHASE_1_COMPLETION.md`.
 **Mục tiêu:** có nền multi-tenant và quản lý lớp đủ dùng cho pilot nội bộ.
 
 **Backlog thực thi:** `docs/PHASE_2_BACKLOG.md`. P2-00 đến P2-10 đã hoàn thành;
-P2-11 V1 fixture import idempotent là task tiếp theo.
+P2-11 V1 fixture import idempotent đang ở `VERIFY`.
 
 **Trạng thái 2026-07-19:** P2-07 bổ sung ADR-0014, migration `000011` và module audit
 append-only tách khỏi outbox nhưng ghi atomic cùng business mutation/outbox khi thay đổi
@@ -1245,6 +1245,13 @@ PostgreSQL 17 matrix, và
 [Security](https://github.com/basangnguyen/TUTORHUB_WEB/actions/runs/29884539912), gồm
 CodeQL, Trivy repository/container cùng secret scan. Không có finding High/Critical
 chưa xử lý; Dependency Review được skip đúng thiết kế trên push trực tiếp `main`.
+
+**Trạng thái P2-11 ngày 2026-07-22: VERIFY.** ADR-0016 và migration `000013` bổ sung
+ledger run/item/mapping migration-role-only. CLI Go chỉ nhận fixture strict đã ẩn danh,
+chặn production, hỗ trợ dry-run rollback, apply theo record, checkpoint/resume,
+natural-key conflict fail-closed và reconciliation JSON. Fixture đại diện phủ Unicode,
+timezone, archived state và dependency skip; targeted unit test xanh, integration test
+đã nối Verify. Còn chờ PostgreSQL 17 CI và rollback/reset trên branch tạm để chuyển DONE.
 
 **Work package:**
 
@@ -1742,9 +1749,9 @@ Thứ tự hiện tại, cập nhật ngày 2026-07-22:
 
 1. Phase 1 đã hoàn thành; biên bản nằm tại `docs/PHASE_1_COMPLETION.md`.
 2. P2-00 policy đến P2-10 tenant isolation/IDOR đã hoàn thành.
-3. Bắt đầu P2-11 V1 fixture import idempotent bằng mapping và fixture đã ẩn danh;
-   không đọc secret hoặc production data từ V1.
-4. Chứng minh dry-run/apply/rerun idempotent, resume và reconciliation trước P2-12.
+3. P2-11 implementation đã hoàn tất; xác nhận PostgreSQL CI cho dry-run/apply/rerun,
+   resume và reconciliation, không đọc secret hoặc production data từ V1.
+4. Chạy rollback/reset migration `000013` trên branch tạm trước P2-12.
 5. Trước mỗi acceptance staging vẫn đối chiếu commit/image, migration và
    configuration của web/Core API.
 6. Không bắt đầu QuizHub, Lavie, social feed, Secure Exam web hoặc classroom
@@ -1796,6 +1803,6 @@ Thứ tự hiện tại, cập nhật ngày 2026-07-22:
 ---
 
 **Điểm bắt đầu sau tài liệu này:** đọc `docs/PROJECT_STATE.md` và
-`docs/PHASE_2_BACKLOG.md`; P2-10 đã hoàn thành, bắt đầu P2-11 V1 fixture import
-idempotent.
+`docs/PHASE_2_BACKLOG.md`; P2-10 đã hoàn thành, tiếp tục verify P2-11 V1 fixture import
+idempotent trên PostgreSQL 17 và branch tạm.
 Master Plan giữ mục tiêu/exit gate, không thay backlog chi tiết.

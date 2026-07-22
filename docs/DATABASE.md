@@ -7,13 +7,14 @@ thay đổi schema, migration hoặc repository phải đọc tài liệu này t
 
 - System of record: Neon PostgreSQL.
 - Schema ứng dụng: `tutorhub`.
-- Migration mới nhất trong source: `000012_tenant_feature_controls`.
+- Migration mới nhất trong source: `000013_legacy_fixture_import`.
 - Migration 1-5 đã được chạy và kiểm tra trên Neon; smoke
   `5 false -> rollback 4 false -> migrate 5 false` đạt ngày 2026-07-16.
-- Migration `000006` đến `000012` đều có up/down path. Neon staging đã áp dụng
+- Migration `000006` đến `000013` đều có up/down path. Neon staging đã áp dụng
   `000012` và xác nhận `12 false` ngày 2026-07-21. Focused feature-control integration
   chạy bằng runtime role trên staging đã đạt; migration/runtime grants và role safety
-  được kiểm tra trước deploy commit `096620a`.
+  được kiểm tra trước deploy commit `096620a`. Migration `000013` đang chờ Verify CI
+  và reset/rollback acceptance trên branch tạm của P2-11.
 - Phần lớn integration test rollback bằng transaction. Chỉ focused P2-09 suite có
   fixture tự dọn hoàn toàn được chạy trên staging ngày 2026-07-21; các suite concurrency
   có thể để lại audit append-only vẫn chỉ chạy trên database CI tạm thời.
@@ -49,7 +50,7 @@ Core API không tự chạy migration khi khởi động.
 `application_name=tutorhub-core-api` được gắn vào kết nối để quan sát trên Neon.
 Mọi truy vấn mạng/database phải chạy ngoài UI thread ở các client native về sau.
 
-## Schema phiên bản 12
+## Schema phiên bản 13
 
 | Bảng                     | Vai trò                                                                                          |
 | ------------------------ | ------------------------------------------------------------------------------------------------ |
@@ -70,6 +71,9 @@ Mọi truy vấn mạng/database phải chạy ngoài UI thread ở các client 
 | `tenant_quota_overrides` | Override hard limit typed cho member, active class và invitation rate                              |
 | `tenant_quota_windows`   | Bộ đếm fixed-window tenant-scoped cho quota invitation                                              |
 | `rate_limit_windows`     | Bộ đếm anonymous shared; lưu purpose và SHA-256 đã domain-separate theo version/purpose/prefix       |
+| `legacy_import_runs`     | Ledger migration-role-only cho checksum, trạng thái và checkpoint fixture V1                         |
+| `legacy_import_run_items` | Outcome/reason code bounded theo record để reconciliation và resume                                  |
+| `legacy_import_mappings` | Mapping bền `(source_system, entity_type, external_id) -> target_id`; không chứa source payload        |
 
 Ràng buộc quan trọng:
 
@@ -232,6 +236,18 @@ Lặp mỗi statement cho tới khi `DELETE 0`, ghi metric row count/duration nh
 bucket hash. Trước pilot phải chuyển hai statement thành maintenance job có owner và
 alert; index expiry của migration `000012` hỗ trợ đường quét này.
 
+## Ledger fixture V1 của migration 000013
+
+Ba bảng `legacy_import_*` chỉ dành cho CLI chạy bằng migration role. Không cấp quyền
+cho `tutorhub_runtime`, frontend, Pages Function hoặc API container. Ledger chỉ lưu
+external key bounded, UUID V2, checksum SHA-256, outcome/reason code và checkpoint;
+không lưu source JSON, email, token, password hoặc connection URL.
+
+Dry-run dùng cùng transform/upsert path trong transaction rollback. Apply commit từng
+record cùng mapping/checkpoint để lỗi không làm mất vị trí resume. Natural key đã tồn tại
+nhưng chưa có mapping bị từ chối fail-closed; tool không tự gộp identity/tenant/class.
+Chi tiết contract và reset nằm tại `docs/P2_11_V1_FIXTURE_IMPORT.md`.
+
 ## Chạy migration
 
 Tạo `.env.local` từ `.env.example` và điền hai URL. File này đã được Git ignore;
@@ -330,5 +346,6 @@ của lịch sử append-only và không phải quy trình cleanup cho staging/p
 - P2-09 đã áp dụng migration `000012` trên staging, cấp grants runtime tối thiểu và
   chạy bounded cleanup `rate_limit_windows=0`, `tenant_quota_windows=0` ngày
   2026-07-21; maintenance định kỳ tiếp tục theo runbook ở trên.
-- Chưa import dữ liệu TutorHub V1; migration V1 sẽ làm theo module/cohort ở phase sau.
+- P2-11 chỉ import fixture V1 ẩn danh cho user/tenant/membership/class bằng migration
+  `000013`; production data/cohort migration vẫn thuộc discovery/cutover phase sau.
 - Chưa có backup/restore drill, PITR gate hoặc connection load test cho pilot.

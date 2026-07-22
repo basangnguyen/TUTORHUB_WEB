@@ -29,7 +29,7 @@ func TestUpPinsMigrationHistoryToPublicSchema(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read migration version: %v", err)
 	}
-	if version.Number < 11 || version.Dirty {
+	if version.Number < 13 || version.Dirty {
 		t.Fatalf("unexpected migration version: %+v", version)
 	}
 
@@ -41,6 +41,7 @@ func TestUpPinsMigrationHistoryToPublicSchema(t *testing.T) {
 
 	var publicHistory, applicationHistory, invitationTable sql.NullString
 	var classEnrollmentTable, classInviteCodeTable, auditEventTable sql.NullString
+	var legacyImportRunsTable, legacyImportMappingsTable, legacyImportItemsTable sql.NullString
 	var classTimezone, classVersion, archivedFromStatus sql.NullString
 	if err := database.QueryRowContext(
 		ctx,
@@ -50,6 +51,9 @@ func TestUpPinsMigrationHistoryToPublicSchema(t *testing.T) {
                 to_regclass('tutorhub.class_enrollments'),
                 to_regclass('tutorhub.class_invite_codes'),
                 to_regclass('tutorhub.audit_events'),
+                to_regclass('tutorhub.legacy_import_runs'),
+                to_regclass('tutorhub.legacy_import_mappings'),
+                to_regclass('tutorhub.legacy_import_run_items'),
                 (
                     SELECT data_type
                     FROM information_schema.columns
@@ -78,6 +82,9 @@ func TestUpPinsMigrationHistoryToPublicSchema(t *testing.T) {
 		&classEnrollmentTable,
 		&classInviteCodeTable,
 		&auditEventTable,
+		&legacyImportRunsTable,
+		&legacyImportMappingsTable,
+		&legacyImportItemsTable,
 		&classTimezone,
 		&classVersion,
 		&archivedFromStatus,
@@ -101,5 +108,8 @@ func TestUpPinsMigrationHistoryToPublicSchema(t *testing.T) {
 	}
 	if !auditEventTable.Valid {
 		t.Fatal("audit events migration must be applied at version 11")
+	}
+	if !legacyImportRunsTable.Valid || !legacyImportMappingsTable.Valid || !legacyImportItemsTable.Valid {
+		t.Fatal("legacy fixture import migration must be applied at version 13")
 	}
 }

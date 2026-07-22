@@ -1,0 +1,140 @@
+{
+  "fixture_version": 1,
+  "fixture_key": "p2-11-anonymized",
+  "source_system": "tutorhub-v1-fixture",
+  "anonymized": true,
+  "exported_at": "2026-07-22T00:00:00Z",
+  "users": [
+    {
+      "external_id": "u-admin",
+      "email": "admin.v1@example.invalid",
+      "display_name": "Nguyễn Ánh Dương",
+      "locale": "vi",
+      "timezone": "Asia/Ho_Chi_Minh",
+      "status": "active",
+      "created_at": "2026-01-02T03:04:05Z",
+      "updated_at": "2026-01-02T03:04:05Z"
+    },
+    {
+      "external_id": "u-teacher",
+      "email": "teacher.v1@example.invalid",
+      "display_name": "Lê Minh Quân",
+      "locale": "vi",
+      "timezone": "UTC",
+      "status": "active",
+      "created_at": "2026-01-02T03:05:05Z",
+      "updated_at": "2026-01-02T03:05:05Z"
+    },
+    {
+      "external_id": "u-student",
+      "email": "student.v1@example.invalid",
+      "display_name": "Trần Gia Hân",
+      "locale": "vi",
+      "timezone": "America/Los_Angeles",
+      "status": "active",
+      "created_at": "2026-01-02T03:06:05Z",
+      "updated_at": "2026-01-02T03:06:05Z"
+    },
+    {
+      "external_id": "u-deleted",
+      "email": "deleted.v1@example.invalid",
+      "display_name": "Bản ghi đã ẩn danh",
+      "locale": "en",
+      "timezone": "UTC",
+      "status": "deleted",
+      "created_at": "2026-01-02T03:07:05Z",
+      "updated_at": "2026-01-02T03:07:05Z"
+    }
+  ],
+  "tenants": [
+    {
+      "external_id": "t-kma",
+      "slug": "v1-kma-demo",
+      "name": "Học viện Kỹ thuật Mẫu",
+      "locale": "vi",
+      "timezone": "Asia/Ho_Chi_Minh",
+      "status": "active",
+      "created_at": "2026-01-02T03:00:00Z",
+      "updated_at": "2026-01-02T03:00:00Z"
+    },
+    {
+      "external_id": "t-archive",
+      "slug": "v1-archive-demo",
+      "name": "Workspace lưu trữ mẫu",
+      "locale": "en",
+      "timezone": "UTC",
+      "status": "archived",
+      "created_at": "2026-01-02T03:01:00Z",
+      "updated_at": "2026-01-02T03:08:00Z",
+      "archived_at": "2026-01-02T03:08:00Z"
+    }
+  ],
+  "memberships": [
+    {
+      "external_id": "m-admin",
+      "tenant_external_id": "t-kma",
+      "user_external_id": "u-admin",
+      "role": "administrator",
+      "status": "active",
+      "joined_at": "2026-01-02T03:10:00Z",
+      "created_at": "2026-01-02T03:10:00Z",
+      "updated_at": "2026-01-02T03:10:00Z"
+    },
+    {
+      "external_id": "m-teacher",
+      "tenant_external_id": "t-kma",
+      "user_external_id": "u-teacher",
+      "role": "instructor",
+      "status": "active",
+      "joined_at": "2026-01-02T03:11:00Z",
+      "created_at": "2026-01-02T03:11:00Z",
+      "updated_at": "2026-01-02T03:11:00Z"
+    },
+    {
+      "external_id": "m-student",
+      "tenant_external_id": "t-kma",
+      "user_external_id": "u-student",
+      "role": "learner",
+      "status": "active",
+      "joined_at": "2026-01-02T03:12:00Z",
+      "created_at": "2026-01-02T03:12:00Z",
+      "updated_at": "2026-01-02T03:12:00Z"
+    },
+    {
+      "external_id": "m-deleted-user",
+      "tenant_external_id": "t-kma",
+      "user_external_id": "u-deleted",
+      "role": "learner",
+      "status": "removed",
+      "created_at": "2026-01-02T03:13:00Z",
+      "updated_at": "2026-01-02T03:13:00Z"
+    }
+  ],
+  "classes": [
+    {
+      "external_id": "c-math-10",
+      "tenant_external_id": "t-kma",
+      "owner_user_external_id": "u-teacher",
+      "code": "TOAN10A",
+      "title": "Toán 10 — Đại số nền tảng",
+      "description": "Fixture ẩn danh cho kiểm thử import và đối soát.",
+      "timezone": "Asia/Ho_Chi_Minh",
+      "status": "open",
+      "created_at": "2026-01-02T04:00:00Z",
+      "updated_at": "2026-01-02T04:00:00Z"
+    },
+    {
+      "external_id": "c-history",
+      "tenant_external_id": "t-kma",
+      "owner_user_external_id": "u-teacher",
+      "code": "SU10-OLD",
+      "title": "Lịch sử — lớp đã lưu trữ",
+      "description": "Bản ghi edge case archived và timezone UTC.",
+      "timezone": "UTC",
+      "status": "closed",
+      "created_at": "2026-01-02T04:01:00Z",
+      "updated_at": "2026-01-02T04:02:00Z",
+      "archived_at": "2026-01-02T04:02:00Z"
+    }
+  ]
+}

@@ -23,7 +23,7 @@ Enrollment và class invite code; P2-06 Roster và class-level roles; P2-07 Audi
 cho hành động nhạy cảm; P2-08 Admin và teacher UI end-to-end; P2-09 Feature flag và
 quota framework; P2-10 Tenant isolation/IDOR security suite.
 
-**Task hiện tại:** P2-11 V1 fixture import idempotent (`NEXT`).
+**Task hiện tại:** P2-11 V1 fixture import idempotent (`VERIFY`).
 
 ## 2. Non-goal
 
@@ -62,7 +62,7 @@ quota framework; P2-10 Tenant isolation/IDOR security suite.
 | P2-08 | Admin/teacher UI end-to-end             | P2-02 đến P2-07            | DONE       |
 | P2-09 | Feature flag và quota framework         | P2-00, P2-02               | DONE       |
 | P2-10 | Tenant isolation/IDOR security suite    | Xuyên suốt; chốt sau P2-09 | DONE       |
-| P2-11 | V1 fixture import idempotent            | Schema ổn định sau P2-06   | NEXT       |
+| P2-11 | V1 fixture import idempotent            | Schema ổn định sau P2-06   | VERIFY     |
 | P2-12 | Staging acceptance và đóng phase        | P2-01 đến P2-11            | TODO       |
 
 ## 5. P2-00 Policy and contract baseline
@@ -548,19 +548,29 @@ scope; containment tests phải tiếp tục được giữ.
 
 ### Công việc
 
-- [ ] Chốt mapping V1 -> V2 và dữ liệu không thể ánh xạ.
-- [ ] Fixture đã ẩn danh gồm Unicode tiếng Việt, timezone và edge cases.
-- [ ] Dry-run report trước khi ghi.
-- [ ] Import có external/source key, upsert policy và checkpoint.
-- [ ] Chạy lặp lại không tạo duplicate; lỗi giữa chừng có thể resume.
-- [ ] Reconciliation report đếm source/imported/skipped/failed.
-- [ ] Không đọc secret/production data từ `D:\Ban_sao_du_an`.
+- [x] Chốt mapping V1 -> V2 và dữ liệu không thể ánh xạ.
+- [x] Fixture đã ẩn danh gồm Unicode tiếng Việt, timezone và edge cases.
+- [x] Dry-run report trước khi ghi.
+- [x] Import có external/source key, upsert policy và checkpoint.
+- [x] Chạy lặp lại không tạo duplicate; lỗi giữa chừng có thể resume.
+- [x] Reconciliation report đếm source/imported/skipped/failed.
+- [x] Không đọc secret/production data từ `D:\Ban_sao_du_an`.
 
 ### Kiểm thử và DoD
 
 - Import fixture hai lần cho cùng kết quả.
 - Rollback/reset test trên Neon branch tạm.
 - User, membership, class và ownership sau import khớp mapping đã duyệt.
+
+**Implementation checkpoint 2026-07-22:** ADR-0016 chốt fixture-only importer trong Go
+modular monolith. Migration `000013` tạo run/item/mapping ledger chỉ dành cho migration
+role; CLI chặn production và chỉ nhận strict JSON `anonymized=true` với email `.invalid`.
+Fixture đại diện có 12 record user/tenant/membership/class, Unicode tiếng Việt, UTC,
+Asia/Ho_Chi_Minh, America/Los_Angeles, archived state và hai skip có reason code.
+Dry-run rollback, apply theo record, checkpoint/resume, natural-key fail-closed và
+reconciliation JSON dùng cùng transform/upsert path. Unit test mục tiêu và integration-tag
+compile xanh; task ở `VERIFY` cho tới khi Verify chạy PostgreSQL 17, import hai lần/resume
+đạt và rollback/reset được xác nhận trên branch tạm.
 
 ## 17. P2-12 Staging acceptance và đóng phase
 
@@ -601,9 +611,9 @@ scope; containment tests phải tiếp tục được giữ.
 ## 19. Việc cần làm ngay
 
 1. P2-10 đã `DONE` trên commit `c4205b9`; Verify và Security workflow đều xanh.
-2. Bắt đầu P2-11 bằng mapping V1 -> V2 và fixture đã ẩn danh; tuyệt đối không đọc secret
-   hoặc production data từ V1.
-3. Chứng minh dry-run/apply/rerun idempotent, resume sau lỗi và reconciliation report.
+2. P2-11 implementation đã xong; xác nhận PostgreSQL 17 CI cho dry-run/apply/rerun,
+   checkpoint resume và reconciliation.
+3. Chạy migration 12 -> 13 -> 12 -> 13 cùng reset trên branch tạm trước khi chuyển DONE.
 4. Trước mỗi acceptance staging, đối chiếu commit/image, migration và configuration.
 5. Giữ audit append-only, tenant-scoped và không log token, session ID hoặc PII thừa.
 6. Giữ notification invitation ở interface/outbox; chưa gửi email thật trong Phase 2.
