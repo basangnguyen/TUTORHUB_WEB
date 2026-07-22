@@ -6,9 +6,11 @@ Tài liệu này là đặc tả thực thi cho P2-10. Nó định nghĩa bề m
 ma trận actor/resource, mã phản hồi kỳ vọng và danh sách test phải bổ sung để chốt
 tenant isolation/IDOR của Phase 2.
 
-**Trạng thái 2026-07-22: VERIFY.** Implementation và local verification đã hoàn tất;
-PostgreSQL runtime matrix cùng Security workflow trên head mới vẫn là gate bắt buộc
-trước khi P2-10 được chuyển `DONE`. Không suy ra trạng thái CI green từ kết quả local.
+**Trạng thái 2026-07-22: DONE.** Implementation/local verification và PostgreSQL
+runtime matrix đều đạt trên commit `c4205b9`. Workflow
+[Verify](https://github.com/basangnguyen/TUTORHUB_WEB/actions/runs/29884539891) và
+[Security](https://github.com/basangnguyen/TUTORHUB_WEB/actions/runs/29884539912) đều
+hoàn tất với kết quả `success`.
 
 Phạm vi:
 
@@ -360,22 +362,22 @@ integration test vì fake service không chứng minh SQL tenant predicate.
 | P2-10-F03 | Informational | Membership revoke loại active tenant khỏi principal nhưng không revoke toàn bộ identity session. | Đây là semantics có chủ ý nếu self endpoints và membership tenant khác vẫn dùng được. P2-10 phải test mất workspace permission ngay request kế tiếp và ghi rõ không kỳ vọng global `401`. |
 | P2-10-F04 | Informational | Signed LiveKit webhook lấy tenant/class từ room name rồi dựa vào composite FK để bác mismatched pair. | Không phải user-controlled IDOR khi signature verification đúng. Bổ sung test malformed/mismatched signed room không ghi receipt; cân nhắc map FK failure sang ignored/controlled error để tránh availability noise. |
 
-Không có finding High hoặc Critical trong implementation/local verification hiện tại.
-Kết luận cuối cùng vẫn chờ Verify PostgreSQL và Security workflow trên cùng head.
+Không có finding High hoặc Critical chưa xử lý. PostgreSQL matrix cùng các gate CI đã
+đạt trên commit `c4205b9`.
 
 ## 12. Exit criteria P2-10
 
 - [x] Actor/resource matrix được encode thành automated tests, không chỉ review thủ công.
 - [x] Route inventory đã được đối chiếu với test trace hiện có; PostgreSQL suite mới
   bổ sung exact foreign class/user/code IDs và denied-mutation snapshots.
-- [x] Membership revoke và workspace-switch suite đạt ở mức compile/local fixture;
-  runtime PostgreSQL chờ CI.
+- [x] Membership revoke và workspace-switch suite đạt trên PostgreSQL 17 trong CI.
 - [x] Mass-assignment, cursor tamper, invitation abuse và fuzz suite đạt cục bộ.
 - [x] P2-10-F01 đã được sửa và có regression test.
 - [x] P2-10-F02 có containment tests và signed-cursor follow-up được ghi backlog.
 - [x] Denied mutation suite chụp snapshot/counter để chứng minh không đổi business row.
 - [x] API unit tests, generated contract checks và `corepack pnpm verify` đạt cục bộ.
-- [ ] PostgreSQL actor/foreign-ID/stale-session matrix xanh trong workflow `Verify`.
-- [ ] Security/dependency/secret scans theo CI hiện hành không có finding chưa xử lý.
-- [ ] Chỉ sau các bước trên mới cập nhật `docs/PROJECT_STATE.md`,
-  `docs/PHASE_2_BACKLOG.md` và exit gate liên quan thành DONE/green.
+- [x] PostgreSQL actor/foreign-ID/stale-session matrix xanh trong workflow `Verify`.
+- [x] Security workflow gồm CodeQL, Trivy repository/container và secret scan đã xanh;
+  Dependency Review theo thiết kế chỉ chạy trên pull request nên được skip trên push.
+- [x] `docs/PROJECT_STATE.md`, `docs/PHASE_2_BACKLOG.md` và exit gate liên quan đã
+  được cập nhật thành DONE/green sau khi các gate trên đạt.

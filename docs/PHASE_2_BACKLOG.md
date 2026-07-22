@@ -21,9 +21,9 @@ identity linking; P2-02 Tenant lifecycle và workspace switching; P2-03 Membersh
 invitation, accept và revoke; P2-04 Class lifecycle, ownership và archive; P2-05
 Enrollment và class invite code; P2-06 Roster và class-level roles; P2-07 Audit log
 cho hành động nhạy cảm; P2-08 Admin và teacher UI end-to-end; P2-09 Feature flag và
-quota framework.
+quota framework; P2-10 Tenant isolation/IDOR security suite.
 
-**Task hiện tại:** P2-10 Tenant isolation/IDOR security suite (`VERIFY`).
+**Task hiện tại:** P2-11 V1 fixture import idempotent (`NEXT`).
 
 ## 2. Non-goal
 
@@ -61,8 +61,8 @@ quota framework.
 | P2-07 | Audit log cho hành động nhạy cảm        | P2-02 đến P2-06            | DONE       |
 | P2-08 | Admin/teacher UI end-to-end             | P2-02 đến P2-07            | DONE       |
 | P2-09 | Feature flag và quota framework         | P2-00, P2-02               | DONE       |
-| P2-10 | Tenant isolation/IDOR security suite    | Xuyên suốt; chốt sau P2-09 | VERIFY     |
-| P2-11 | V1 fixture import idempotent            | Schema ổn định sau P2-06   | TODO       |
+| P2-10 | Tenant isolation/IDOR security suite    | Xuyên suốt; chốt sau P2-09 | DONE       |
+| P2-11 | V1 fixture import idempotent            | Schema ổn định sau P2-06   | NEXT       |
 | P2-12 | Staging acceptance và đóng phase        | P2-01 đến P2-11            | TODO       |
 
 ## 5. P2-00 Policy and contract baseline
@@ -511,7 +511,8 @@ connection URL hoặc fixture credential vào repository/artifact.
 - [x] Test mass assignment, pagination cursor tamper và invite token abuse.
 - [x] Fuzz parser/validation cho token/code và resource IDs quan trọng.
 - [x] Thêm integration suite vào workflow `Verify`.
-- [ ] Chạy dependency/SAST/container scan trên head Phase 2.
+- [x] Chạy SAST/repository/container/secret scan trên head Phase 2; Dependency Review
+      theo thiết kế chỉ chạy trên pull request và được skip trên push trực tiếp `main`.
 
 ### Definition of Done
 
@@ -526,10 +527,15 @@ denied-mutation snapshots, cursor replay, membership revoke và workspace switch
 boundary từ chối mass assignment, duplicate field kể cả khác hoa/thường, trailing JSON,
 payload không phải object/oversized; resource UUID path/query từ chối alias. Class cursor
 v2 bind tenant/filter; class/roster/audit cursor dùng strict decoder. Chín fuzz function
-và full `corepack pnpm verify` đã xanh cục bộ. Host không có PostgreSQL/Docker nên
-trạng thái còn
-`VERIFY`; chỉ chuyển `DONE` sau khi Verify chạy matrix trên PostgreSQL 17 và Security
-workflow xác nhận dependency/CodeQL/Trivy/container/secret scan trên cùng head.
+và full `corepack pnpm verify` đã xanh cục bộ.
+
+**CI closure 2026-07-22: DONE.** Commit `c4205b9` đạt
+[Verify](https://github.com/basangnguyen/TUTORHUB_WEB/actions/runs/29884539891), gồm
+PostgreSQL 17 security matrix, Browser E2E và local smoke; đồng thời đạt
+[Security](https://github.com/basangnguyen/TUTORHUB_WEB/actions/runs/29884539912), gồm
+CodeQL Go/JavaScript-TypeScript, Trivy repository/container và secret scan. Không có
+finding High/Critical chưa xử lý; Dependency Review được skip đúng thiết kế vì đây là
+push trực tiếp lên `main`, không phải pull request.
 
 **Follow-up Low, không chặn P2-10:** đánh giá HMAC/versioned signing chung cho class,
 roster và audit cursor trong một ADR riêng nếu threat model P2-12 yêu cầu chống giả mạo
@@ -594,9 +600,10 @@ scope; containment tests phải tiếp tục được giữ.
 
 ## 19. Việc cần làm ngay
 
-1. Đẩy head P2-10 và xác nhận Verify chạy matrix trên PostgreSQL 17.
-2. Xác nhận Security workflow không có High/Critical chưa xử lý trên cùng commit.
-3. Chuyển P2-10 sang `DONE`, rồi bắt đầu P2-11 fixture import idempotent.
+1. P2-10 đã `DONE` trên commit `c4205b9`; Verify và Security workflow đều xanh.
+2. Bắt đầu P2-11 bằng mapping V1 -> V2 và fixture đã ẩn danh; tuyệt đối không đọc secret
+   hoặc production data từ V1.
+3. Chứng minh dry-run/apply/rerun idempotent, resume sau lỗi và reconciliation report.
 4. Trước mỗi acceptance staging, đối chiếu commit/image, migration và configuration.
 5. Giữ audit append-only, tenant-scoped và không log token, session ID hoặc PII thừa.
 6. Giữ notification invitation ở interface/outbox; chưa gửi email thật trong Phase 2.

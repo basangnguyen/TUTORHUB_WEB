@@ -11,7 +11,7 @@
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
 | Phase hiện tại        | Phase 2 - Identity, tenant và class core                                                     |
-| Trạng thái gần nhất   | P2-10 tenant isolation/IDOR ở VERIFY; chờ PostgreSQL CI và Security workflow                 |
+| Trạng thái gần nhất   | P2-10 tenant isolation/IDOR DONE; P2-11 V1 fixture import là task tiếp theo                  |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 
@@ -1184,8 +1184,8 @@ beta. Xem `docs/PHASE_1_COMPLETION.md`.
 
 **Mục tiêu:** có nền multi-tenant và quản lý lớp đủ dùng cho pilot nội bộ.
 
-**Backlog thực thi:** `docs/PHASE_2_BACKLOG.md`. P2-00 đến P2-09 đã hoàn thành;
-P2-10 Tenant isolation/IDOR security suite đang ở `VERIFY`.
+**Backlog thực thi:** `docs/PHASE_2_BACKLOG.md`. P2-00 đến P2-10 đã hoàn thành;
+P2-11 V1 fixture import idempotent là task tiếp theo.
 
 **Trạng thái 2026-07-19:** P2-07 bổ sung ADR-0014, migration `000011` và module audit
 append-only tách khỏi outbox nhưng ghi atomic cùng business mutation/outbox khi thay đổi
@@ -1233,15 +1233,18 @@ hai bảng window trả `0/0`. Focused staging integration xác nhận feature d
 tenant isolation, audit/outbox và quota concurrency; HTTP/metric regression xác nhận
 typed `403/404/429` cùng bounded rejection counter. P2-09 đạt toàn bộ DoD.
 
-**Trạng thái P2-10 ngày 2026-07-22: VERIFY.** Actor/resource matrix và finding register
+**Trạng thái P2-10 ngày 2026-07-22: DONE.** Actor/resource matrix và finding register
 đã được lập; PostgreSQL security suite kiểm tra role projection, exact foreign IDs,
 denied-mutation invariants, stale membership và token rotation khi switch workspace.
 HTTP boundary được siết bằng strict JSON object, duplicate/unknown/trailing/size checks
 và canonical resource UUID ở path/query; class cursor v2 bind tenant/filter, các cursor
 decoder strict. Chín fuzz function cho JSON/UUID/token/cursor/search/media và full
-`corepack pnpm verify` đều xanh cục bộ.
-Integration suite đã nối vào workflow Verify. Host không có PostgreSQL/Docker nên task
-chỉ chuyển `DONE` sau Verify PostgreSQL 17 và Security workflow trên cùng head.
+`corepack pnpm verify` đều xanh cục bộ. Commit `c4205b9` đạt
+[Verify](https://github.com/basangnguyen/TUTORHUB_WEB/actions/runs/29884539891), gồm
+PostgreSQL 17 matrix, và
+[Security](https://github.com/basangnguyen/TUTORHUB_WEB/actions/runs/29884539912), gồm
+CodeQL, Trivy repository/container cùng secret scan. Không có finding High/Critical
+chưa xử lý; Dependency Review được skip đúng thiết kế trên push trực tiếp `main`.
 
 **Work package:**
 
@@ -1738,10 +1741,10 @@ Một tính năng chỉ được đánh dấu hoàn thành khi:
 Thứ tự hiện tại, cập nhật ngày 2026-07-22:
 
 1. Phase 1 đã hoàn thành; biên bản nằm tại `docs/PHASE_1_COMPLETION.md`.
-2. P2-00 policy đến P2-09 feature flag/quota đã hoàn thành.
-3. P2-10 đã hoàn tất implementation/local verify; xác nhận PostgreSQL matrix và
-   Security workflow trên cùng head để chuyển `DONE`.
-4. Sau khi P2-10 xanh, bắt đầu P2-11 V1 fixture import idempotent.
+2. P2-00 policy đến P2-10 tenant isolation/IDOR đã hoàn thành.
+3. Bắt đầu P2-11 V1 fixture import idempotent bằng mapping và fixture đã ẩn danh;
+   không đọc secret hoặc production data từ V1.
+4. Chứng minh dry-run/apply/rerun idempotent, resume và reconciliation trước P2-12.
 5. Trước mỗi acceptance staging vẫn đối chiếu commit/image, migration và
    configuration của web/Core API.
 6. Không bắt đầu QuizHub, Lavie, social feed, Secure Exam web hoặc classroom
@@ -1793,6 +1796,6 @@ Thứ tự hiện tại, cập nhật ngày 2026-07-22:
 ---
 
 **Điểm bắt đầu sau tài liệu này:** đọc `docs/PROJECT_STATE.md` và
-`docs/PHASE_2_BACKLOG.md`, hoàn tất staging gate P2-09 rồi bắt đầu P2-10 tenant
-isolation/IDOR security suite.
+`docs/PHASE_2_BACKLOG.md`; P2-10 đã hoàn thành, bắt đầu P2-11 V1 fixture import
+idempotent.
 Master Plan giữ mục tiêu/exit gate, không thay backlog chi tiết.

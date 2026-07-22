@@ -12,9 +12,9 @@
 | Quy trình           | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
 | Phase hoàn thành    | Phase 0, Phase 1                                                                      |
 | Phase hiện tại      | Phase 2 - Identity, tenant và class core                                              |
-| Task vừa hoàn thành | P2-09 Feature flag và quota framework                                                 |
-| Task hiện tại       | P2-10 Tenant isolation/IDOR security suite - VERIFY                                   |
-| Task tiếp theo      | P2-11 V1 fixture import idempotent                                                    |
+| Task vừa hoàn thành | P2-10 Tenant isolation/IDOR security suite                                            |
+| Task hiện tại       | P2-11 V1 fixture import idempotent - NEXT                                             |
+| Task tiếp theo      | P2-12 Staging acceptance và đóng phase                                                |
 
 ## Kiến trúc đang chạy
 
@@ -150,8 +150,7 @@ trước pilot/public beta hoặc khi có người duy trì thứ hai.
 
 Backlog có thẩm quyền: `docs/PHASE_2_BACKLOG.md`.
 
-1. P2-00 đến P2-09 đã hoàn thành; P2-10 tenant isolation/IDOR security suite đang ở
-   trạng thái `VERIFY`, chờ PostgreSQL integration và Security workflow trên head mới.
+1. P2-00 đến P2-10 đã hoàn thành; P2-11 V1 fixture import idempotent là task tiếp theo.
 2. P2-08 nối các contract workspace/invitation/class/roster/audit thành luồng UI
    org admin, teacher và student; capability guard, cache tenant/class, trạng thái
    forbidden/retry và navigation đã được chuẩn hóa.
@@ -192,16 +191,18 @@ Backlog có thẩm quyền: `docs/PHASE_2_BACKLOG.md`.
     `403 feature_disabled`, `404 tenant_not_found`, `429 quota_exceeded`; metric quota
     rejection dùng label bounded. Bounded cleanup xóa `0` rate-limit window và `0`
     tenant-quota window; P2-09 chuyển `DONE`.
-11. Implementation P2-10 ngày 2026-07-22 đã bổ sung actor/resource matrix, PostgreSQL
+11. P2-10 ngày 2026-07-22 đã bổ sung actor/resource matrix, PostgreSQL
     security fixture có rollback, exact foreign class/user/invite ID invariants, stale
     membership và workspace-switch token rotation. HTTP mutation dùng strict JSON object,
     từ chối unknown/duplicate/trailing/oversized payload; resource UUID ở path/query chỉ
     nhận dạng canonical. Class cursor v2 bind tenant/filter và class/roster cursor dùng
     strict decoder. Chín fuzz function cho JSON, UUID, invitation token, cursor, roster
-    search và media identifier đều đạt; `corepack pnpm verify`, full Go test và `go vet`
-    xanh cục bộ. Host không có
-    PostgreSQL/Docker nên runtime matrix cùng dependency/SAST/container scan phải được
-    Verify/Security workflow xác nhận trước khi chuyển P2-10 sang `DONE`.
+    search và media identifier đều đạt. Commit `c4205b9` đã xanh trên
+    [Verify](https://github.com/basangnguyen/TUTORHUB_WEB/actions/runs/29884539891), gồm
+    PostgreSQL 17 matrix, và
+    [Security](https://github.com/basangnguyen/TUTORHUB_WEB/actions/runs/29884539912),
+    gồm CodeQL, Trivy repository/container cùng secret scan. Không có finding
+    High/Critical chưa xử lý; P2-10 chuyển `DONE`.
 
 ## Rủi ro đã biết
 
