@@ -67,8 +67,19 @@ jobs:
       - name: Check workflow security policy
         run: pnpm security:actions
 
-      - name: PostgreSQL integration, security and P2-11 import tests
-        run: pnpm test:integration
+      - name: PostgreSQL migration integration
+        run: go test -count=1 -tags=integration ./services/core-api/internal/platform/migrationrunner
+
+      - name: P2-11 fixture import integration
+        run: go test -count=1 -tags=integration ./services/core-api/internal/platform/v1import
+
+      - name: PostgreSQL module and security integration
+        run: |
+          go test -count=1 -tags=integration ./services/core-api/internal/modules/classroom
+          go test -count=1 -tags=integration ./services/core-api/internal/modules/identity
+          go test -count=1 -tags=integration ./services/core-api/internal/modules/audit
+          go test -count=1 -tags=integration ./services/core-api/internal/modules/featurecontrol
+          pnpm test:security:integration
 
       - name: Verify repository
         run: pnpm verify
