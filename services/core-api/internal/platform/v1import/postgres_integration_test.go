@@ -26,7 +26,7 @@ func TestFixtureImportIsIdempotentAndResumable(t *testing.T) {
 	}
 	parsed := loadTestFixture(t)
 	cleanup := connectCleanup(t, ctx, databaseURL, parsed.Fixture.SourceSystem)
-	defer cleanup()
+	defer func() { cleanup() }()
 
 	first, err := Execute(ctx, databaseURL, "test", parsed, ModeApply, Options{})
 	if err != nil {
@@ -55,6 +55,9 @@ func TestFixtureImportIsIdempotentAndResumable(t *testing.T) {
 	if beforeDryRun != afterDryRun {
 		t.Fatalf("dry-run changed database state: before=%d after=%d", beforeDryRun, afterDryRun)
 	}
+
+	cleanup()
+	cleanup = func() {}
 
 	resumeFixture := parsed
 	resumeFixture.Fixture.SourceSystem = "tutorhub-v1-resume"

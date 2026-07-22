@@ -112,4 +112,48 @@ func TestUpPinsMigrationHistoryToPublicSchema(t *testing.T) {
 	if !legacyImportRunsTable.Valid || !legacyImportMappingsTable.Valid || !legacyImportItemsTable.Valid {
 		t.Fatal("legacy fixture import migration must be applied at version 13")
 	}
+
+	if err := Down(ctx, databaseURL, 1); err != nil {
+		t.Fatalf("roll back legacy fixture import migration: %v", err)
+	}
+	rolledBackVersion, err := CurrentVersion(ctx, databaseURL)
+	if err != nil {
+		t.Fatalf("read rolled-back migration version: %v", err)
+	}
+	if rolledBackVersion.Number != 12 || rolledBackVersion.Dirty {
+		t.Fatalf("unexpected rolled-back migration version: %+v", rolledBackVersion)
+	}
+	assertLegacyImportTables(t, ctx, database, false)
+
+	if err := Up(ctx, databaseURL); err != nil {
+		t.Fatalf("reapply legacy fixture import migration: %v", err)
+	}
+	reappliedVersion, err := CurrentVersion(ctx, databaseURL)
+	if err != nil {
+		t.Fatalf("read reapplied migration version: %v", err)
+	}
+	if reappliedVersion.Number != 13 || reappliedVersion.Dirty {
+		t.Fatalf("unexpected reapplied migration version: %+v", reappliedVersion)
+	}
+	assertLegacyImportTables(t, ctx, database, true)
+}
+
+func assertLegacyImportTables(t *testing.T, ctx context.Context, database *sql.DB, expected bool) {
+	t.Helper()
+	var runs, mappings, items sql.NullString
+	if err := database.QueryRowContext(ctx, `
+SELECT to_regclass('tutorhub.legacy_import_runs'),
+       to_regclass('tutorhub.legacy_import_mappings'),
+       to_regclass('tutorhub.legacy_import_run_items')`).Scan(&runs, &mappings, &items); err != nil {
+		t.Fatalf("inspect legacy fixture import tables: %v", err)
+	}
+	if runs.Valid != expected || mappings.Valid != expected || items.Valid != expected {
+		t.Fatalf(
+			"unexpected legacy fixture table state: expected=%t runs=%t mappings=%t items=%t",
+			expected,
+			runs.Valid,
+			mappings.Valid,
+			items.Valid,
+		)
+	}
 }
