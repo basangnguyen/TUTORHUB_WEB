@@ -5,13 +5,13 @@
 | Thuộc tính            | Giá trị                                                                                      |
 | --------------------- | -------------------------------------------------------------------------------------------- |
 | Phiên bản tài liệu    | 2.1                                                                                          |
-| Cập nhật              | 2026-07-21                                                                                   |
+| Cập nhật              | 2026-07-22                                                                                   |
 | Phạm vi ưu tiên       | Web application                                                                              |
 | Thư mục phát triển    | `D:\TutorHub_V2`                                                                             |
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
 | Phase hiện tại        | Phase 2 - Identity, tenant và class core                                                     |
-| Trạng thái gần nhất   | P2-09 feature flag/quota DONE; P2-10 tenant isolation/IDOR là task tiếp theo                 |
+| Trạng thái gần nhất   | P2-10 tenant isolation/IDOR ở VERIFY; chờ PostgreSQL CI và Security workflow                 |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 
@@ -1185,7 +1185,7 @@ beta. Xem `docs/PHASE_1_COMPLETION.md`.
 **Mục tiêu:** có nền multi-tenant và quản lý lớp đủ dùng cho pilot nội bộ.
 
 **Backlog thực thi:** `docs/PHASE_2_BACKLOG.md`. P2-00 đến P2-09 đã hoàn thành;
-P2-10 Tenant isolation/IDOR security suite là task tiếp theo.
+P2-10 Tenant isolation/IDOR security suite đang ở `VERIFY`.
 
 **Trạng thái 2026-07-19:** P2-07 bổ sung ADR-0014, migration `000011` và module audit
 append-only tách khỏi outbox nhưng ghi atomic cùng business mutation/outbox khi thay đổi
@@ -1232,6 +1232,15 @@ limiter smoke đạt. Neon staging ở `12 false`, runtime grants/role safety đ
 hai bảng window trả `0/0`. Focused staging integration xác nhận feature disabled,
 tenant isolation, audit/outbox và quota concurrency; HTTP/metric regression xác nhận
 typed `403/404/429` cùng bounded rejection counter. P2-09 đạt toàn bộ DoD.
+
+**Trạng thái P2-10 ngày 2026-07-22: VERIFY.** Actor/resource matrix và finding register
+đã được lập; PostgreSQL security suite kiểm tra role projection, exact foreign IDs,
+denied-mutation invariants, stale membership và token rotation khi switch workspace.
+HTTP boundary được siết bằng strict JSON object, duplicate/unknown/trailing/size checks
+và canonical UUID; class cursor v2 bind tenant/filter, các cursor decoder strict. Bảy
+fuzz target cho JSON/UUID/token/cursor và full `corepack pnpm verify` đều xanh cục bộ.
+Integration suite đã nối vào workflow Verify. Host không có PostgreSQL/Docker nên task
+chỉ chuyển `DONE` sau Verify PostgreSQL 17 và Security workflow trên cùng head.
 
 **Work package:**
 
@@ -1725,13 +1734,13 @@ Một tính năng chỉ được đánh dấu hoàn thành khi:
 
 ## 36. Việc cần làm ngay
 
-Thứ tự hiện tại, cập nhật ngày 2026-07-21:
+Thứ tự hiện tại, cập nhật ngày 2026-07-22:
 
 1. Phase 1 đã hoàn thành; biên bản nằm tại `docs/PHASE_1_COMPLETION.md`.
 2. P2-00 policy đến P2-09 feature flag/quota đã hoàn thành.
-3. Bắt đầu P2-10 tenant isolation/IDOR security suite bằng actor/resource matrix.
-4. Ưu tiên cross-tenant, stale-session, cursor-tamper và invite-token abuse tests,
-   sau đó đưa integration security suite vào workflow `Verify`.
+3. P2-10 đã hoàn tất implementation/local verify; xác nhận PostgreSQL matrix và
+   Security workflow trên cùng head để chuyển `DONE`.
+4. Sau khi P2-10 xanh, bắt đầu P2-11 V1 fixture import idempotent.
 5. Trước mỗi acceptance staging vẫn đối chiếu commit/image, migration và
    configuration của web/Core API.
 6. Không bắt đầu QuizHub, Lavie, social feed, Secure Exam web hoặc classroom

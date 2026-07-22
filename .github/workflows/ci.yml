@@ -67,7 +67,7 @@ jobs:
       - name: Check workflow security policy
         run: pnpm security:actions
 
-      - name: PostgreSQL integration tests
+      - name: PostgreSQL integration and P2-10 security tests
         run: pnpm test:integration
 
       - name: Verify repository

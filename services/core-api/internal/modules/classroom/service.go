@@ -2,6 +2,7 @@ package classroom
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -17,7 +18,7 @@ const (
 	defaultListLimit          = 50
 	maximumListLimit          = 100
 	maximumClassCursorLength  = 512
-	classCursorPrefix         = "thcl1_"
+	classCursorPrefix         = "thcl2_"
 	defaultRecentAuthTTL      = 10 * time.Minute
 	recentAuthFutureTolerance = time.Minute
 )
@@ -232,7 +233,7 @@ func (service *Service) List(
 	if err != nil {
 		return ClassPage{}, err
 	}
-	params, err := normalizeListClassesInput(input)
+	params, err := normalizeListClassesInput(input, tenantContext.TenantID)
 	if err != nil {
 		return ClassPage{}, err
 	}
@@ -246,6 +247,7 @@ func (service *Service) List(
 		last := result.Items[len(result.Items)-1]
 		page.NextCursor, err = encodeClassCursor(
 			ClassCursor{CreatedAt: last.CreatedAt, ID: last.ID},
+			tenantContext.TenantID,
 			params.Status,
 		)
 		if err != nil {
@@ -562,9 +564,13 @@ type classCursorPayload struct {
 	CreatedAt string `json:"created_at"`
 	ID        string `json:"id"`
 	Status    string `json:"status"`
+	ScopeHash string `json:"scope_hash"`
 }
 
-func normalizeListClassesInput(input ListClassesInput) (ListClassesParams, error) {
+func normalizeListClassesInput(
+	input ListClassesInput,
+	tenantID uuid.UUID,
+) (ListClassesParams, error) {
 	if input.Limit == 0 {
 		input.Limit = defaultListLimit
 	}
@@ -584,14 +590,18 @@ func normalizeListClassesInput(input ListClassesInput) (ListClassesParams, error
 		}
 		status = &value
 	}
-	after, err := decodeClassCursor(strings.TrimSpace(input.Cursor), status)
+	after, err := decodeClassCursor(strings.TrimSpace(input.Cursor), tenantID, status)
 	if err != nil {
 		return ListClassesParams{}, err
 	}
 	return ListClassesParams{Status: status, Limit: input.Limit, After: after}, nil
 }
 
-func encodeClassCursor(cursor ClassCursor, status *ClassStatus) (string, error) {
+func encodeClassCursor(
+	cursor ClassCursor,
+	tenantID uuid.UUID,
+	status *ClassStatus,
+) (string, error) {
 	statusValue := ""
 	if status != nil {
 		statusValue = string(*status)
@@ -600,6 +610,7 @@ func encodeClassCursor(cursor ClassCursor, status *ClassStatus) (string, error) 
 		CreatedAt: cursor.CreatedAt.UTC().Format(time.RFC3339Nano),
 		ID:        cursor.ID.String(),
 		Status:    statusValue,
+		ScopeHash: classListScopeHash(tenantID, status),
 	})
 	if err != nil {
 		return "", err
@@ -607,7 +618,11 @@ func encodeClassCursor(cursor ClassCursor, status *ClassStatus) (string, error) 
 	return classCursorPrefix + base64.RawURLEncoding.EncodeToString(contents), nil
 }
 
-func decodeClassCursor(value string, status *ClassStatus) (*ClassCursor, error) {
+func decodeClassCursor(
+	value string,
+	tenantID uuid.UUID,
+	status *ClassStatus,
+) (*ClassCursor, error) {
 	if value == "" {
 		return nil, nil
 	}
@@ -619,14 +634,15 @@ func decodeClassCursor(value string, status *ClassStatus) (*ClassCursor, error) 
 		return nil, ErrInvalidClassCursor
 	}
 	var payload classCursorPayload
-	if err := json.Unmarshal(contents, &payload); err != nil {
+	if err := decodeStrictCursorJSON(contents, &payload); err != nil {
 		return nil, ErrInvalidClassCursor
 	}
 	expectedStatus := ""
 	if status != nil {
 		expectedStatus = string(*status)
 	}
-	if payload.Status != expectedStatus {
+	if payload.Status != expectedStatus ||
+		payload.ScopeHash != classListScopeHash(tenantID, status) {
 		return nil, ErrInvalidClassCursor
 	}
 	createdAt, err := time.Parse(time.RFC3339Nano, payload.CreatedAt)
@@ -638,4 +654,13 @@ func decodeClassCursor(value string, status *ClassStatus) (*ClassCursor, error) 
 		return nil, ErrInvalidClassCursor
 	}
 	return &ClassCursor{CreatedAt: createdAt.UTC(), ID: classID}, nil
+}
+
+func classListScopeHash(tenantID uuid.UUID, status *ClassStatus) string {
+	statusValue := ""
+	if status != nil {
+		statusValue = string(*status)
+	}
+	digest := sha256.Sum256([]byte(tenantID.String() + "\x00" + statusValue))
+	return base64.RawURLEncoding.EncodeToString(digest[:])
 }

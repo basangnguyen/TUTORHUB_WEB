@@ -6,14 +6,14 @@
 
 | Thuộc tính          | Trạng thái                                                                            |
 | ------------------- | ------------------------------------------------------------------------------------- |
-| Ngày cập nhật       | 2026-07-21                                                                            |
+| Ngày cập nhật       | 2026-07-22                                                                            |
 | Repository          | `https://github.com/basangnguyen/TUTORHUB_WEB`                                        |
 | Nhánh làm việc      | `main`                                                                                |
 | Quy trình           | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
 | Phase hoàn thành    | Phase 0, Phase 1                                                                      |
 | Phase hiện tại      | Phase 2 - Identity, tenant và class core                                              |
 | Task vừa hoàn thành | P2-09 Feature flag và quota framework                                                 |
-| Task hiện tại       | P2-10 Tenant isolation/IDOR security suite                                            |
+| Task hiện tại       | P2-10 Tenant isolation/IDOR security suite - VERIFY                                   |
 | Task tiếp theo      | P2-11 V1 fixture import idempotent                                                    |
 
 ## Kiến trúc đang chạy
@@ -150,8 +150,8 @@ trước pilot/public beta hoặc khi có người duy trì thứ hai.
 
 Backlog có thẩm quyền: `docs/PHASE_2_BACKLOG.md`.
 
-1. P2-00 đến P2-09 đã hoàn thành; task tiếp theo là P2-10 tenant isolation/IDOR
-   security suite.
+1. P2-00 đến P2-09 đã hoàn thành; P2-10 tenant isolation/IDOR security suite đang ở
+   trạng thái `VERIFY`, chờ PostgreSQL integration và Security workflow trên head mới.
 2. P2-08 nối các contract workspace/invitation/class/roster/audit thành luồng UI
    org admin, teacher và student; capability guard, cache tenant/class, trạng thái
    forbidden/retry và navigation đã được chuẩn hóa.
@@ -192,6 +192,15 @@ Backlog có thẩm quyền: `docs/PHASE_2_BACKLOG.md`.
     `403 feature_disabled`, `404 tenant_not_found`, `429 quota_exceeded`; metric quota
     rejection dùng label bounded. Bounded cleanup xóa `0` rate-limit window và `0`
     tenant-quota window; P2-09 chuyển `DONE`.
+11. Implementation P2-10 ngày 2026-07-22 đã bổ sung actor/resource matrix, PostgreSQL
+    security fixture có rollback, exact foreign class/user/invite ID invariants, stale
+    membership và workspace-switch token rotation. HTTP mutation dùng strict JSON object,
+    từ chối unknown/duplicate/trailing/oversized payload; resource UUID chỉ nhận dạng
+    canonical. Class cursor v2 bind tenant/filter và class/roster cursor dùng strict
+    decoder. Bảy fuzz target cho JSON, UUID, invitation token và cursor đều đạt; full
+    `corepack pnpm verify`, full Go test và `go vet` xanh cục bộ. Host không có
+    PostgreSQL/Docker nên runtime matrix cùng dependency/SAST/container scan phải được
+    Verify/Security workflow xác nhận trước khi chuyển P2-10 sang `DONE`.
 
 ## Rủi ro đã biết
 
@@ -217,6 +226,10 @@ Backlog có thẩm quyền: `docs/PHASE_2_BACKLOG.md`.
   configuration trước khi kết luận lỗi contract.
 - Host hiện tại thiếu Docker/PostgreSQL nên không thể lặp lại full browser scenario
   ngoài CI; nếu CI không sẵn có thì đây vẫn là hạn chế chẩn đoán cục bộ.
+- Class/roster/audit cursor vẫn là payload client đọc được; scope hash ngăn replay sai
+  tenant/filter nhưng không phải chữ ký bí mật. SQL luôn giữ tenant/class predicate nên
+  finding hiện được xếp Low; quyết định HMAC toàn bộ cursor được hoãn sang backlog/ADR
+  riêng sau P2-10 nếu threat model yêu cầu cursor chống giả mạo.
 - Production retention/export, privacy erasure, partitioning và dedicated maintenance
   role cho audit được hoãn tới Phase 8. Audit của tenant archived được giữ nhưng chưa có
   recovery/export UI ngoài active-tenant API.

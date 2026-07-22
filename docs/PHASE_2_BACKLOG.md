@@ -23,7 +23,7 @@ Enrollment và class invite code; P2-06 Roster và class-level roles; P2-07 Audi
 cho hành động nhạy cảm; P2-08 Admin và teacher UI end-to-end; P2-09 Feature flag và
 quota framework.
 
-**Task hiện tại:** P2-10 Tenant isolation/IDOR security suite.
+**Task hiện tại:** P2-10 Tenant isolation/IDOR security suite (`VERIFY`).
 
 ## 2. Non-goal
 
@@ -61,7 +61,7 @@ quota framework.
 | P2-07 | Audit log cho hành động nhạy cảm        | P2-02 đến P2-06            | DONE       |
 | P2-08 | Admin/teacher UI end-to-end             | P2-02 đến P2-07            | DONE       |
 | P2-09 | Feature flag và quota framework         | P2-00, P2-02               | DONE       |
-| P2-10 | Tenant isolation/IDOR security suite    | Xuyên suốt; chốt sau P2-09 | TODO       |
+| P2-10 | Tenant isolation/IDOR security suite    | Xuyên suốt; chốt sau P2-09 | VERIFY     |
 | P2-11 | V1 fixture import idempotent            | Schema ổn định sau P2-06   | TODO       |
 | P2-12 | Staging acceptance và đóng phase        | P2-01 đến P2-11            | TODO       |
 
@@ -504,13 +504,13 @@ connection URL hoặc fixture credential vào repository/artifact.
 
 ### Công việc
 
-- [ ] Xây actor/resource matrix cho anonymous, guest, student, TA, teacher,
+- [x] Xây actor/resource matrix cho anonymous, guest, student, TA, teacher,
       co-teacher, owner và org admin.
-- [ ] Test ID đoán đúng nhưng tenant khác cho từng endpoint đọc/ghi.
-- [ ] Test stale session sau membership revoke hoặc workspace switch.
-- [ ] Test mass assignment, pagination cursor tamper và invite token abuse.
-- [ ] Fuzz parser/validation cho token/code và resource IDs quan trọng.
-- [ ] Thêm integration suite vào workflow `Verify`.
+- [x] Test ID đoán đúng nhưng tenant khác cho từng endpoint đọc/ghi.
+- [x] Test stale session sau membership revoke hoặc workspace switch.
+- [x] Test mass assignment, pagination cursor tamper và invite token abuse.
+- [x] Fuzz parser/validation cho token/code và resource IDs quan trọng.
+- [x] Thêm integration suite vào workflow `Verify`.
 - [ ] Chạy dependency/SAST/container scan trên head Phase 2.
 
 ### Definition of Done
@@ -518,6 +518,22 @@ connection URL hoặc fixture credential vào repository/artifact.
 - Toàn bộ matrix xanh trên PostgreSQL thật.
 - Không endpoint nào dựa duy nhất vào ID do client gửi để xác định tenant.
 - Finding High/Critical được sửa hoặc có exception có owner/expiry.
+
+**Implementation checkpoint 2026-07-22:** ma trận và finding register nằm tại
+`docs/P2_10_SECURITY_MATRIX.md`. Security suite dùng PostgreSQL thật, migration hiện hành
+và outer transaction rollback; suite phủ role projection, exact foreign class/user/code,
+denied-mutation snapshots, cursor replay, membership revoke và workspace switch. HTTP
+boundary từ chối mass assignment, duplicate field kể cả khác hoa/thường, trailing JSON,
+payload không phải object/oversized và UUID alias. Class cursor v2 bind tenant/filter;
+class/roster/audit cursor dùng strict decoder. Bảy bounded fuzz target đã xanh và full
+`corepack pnpm verify` xanh cục bộ. Host không có PostgreSQL/Docker nên trạng thái còn
+`VERIFY`; chỉ chuyển `DONE` sau khi Verify chạy matrix trên PostgreSQL 17 và Security
+workflow xác nhận dependency/CodeQL/Trivy/container/secret scan trên cùng head.
+
+**Follow-up Low, không chặn P2-10:** đánh giá HMAC/versioned signing chung cho class,
+roster và audit cursor trong một ADR riêng nếu threat model P2-12 yêu cầu chống giả mạo
+pagination anchor. Hiện tại cursor không cấp quyền và mọi SQL vẫn bắt buộc tenant/class
+scope; containment tests phải tiếp tục được giữ.
 
 ## 16. P2-11 V1 fixture import idempotent
 
@@ -577,9 +593,9 @@ connection URL hoặc fixture credential vào repository/artifact.
 
 ## 19. Việc cần làm ngay
 
-1. Bắt đầu P2-10 bằng actor/resource matrix cho toàn bộ endpoint tenant/class.
-2. Ưu tiên cross-tenant IDOR, stale session, cursor tamper và invite-token abuse tests.
-3. Đưa integration security suite vào workflow `Verify` và chạy scan trên head Phase 2.
+1. Đẩy head P2-10 và xác nhận Verify chạy matrix trên PostgreSQL 17.
+2. Xác nhận Security workflow không có High/Critical chưa xử lý trên cùng commit.
+3. Chuyển P2-10 sang `DONE`, rồi bắt đầu P2-11 fixture import idempotent.
 4. Trước mỗi acceptance staging, đối chiếu commit/image, migration và configuration.
 5. Giữ audit append-only, tenant-scoped và không log token, session ID hoặc PII thừa.
 6. Giữ notification invitation ở interface/outbox; chưa gửi email thật trong Phase 2.

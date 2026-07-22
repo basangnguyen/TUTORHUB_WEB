@@ -301,7 +301,9 @@ func ParseRoomName(roomName string) (uuid.UUID, uuid.UUID, bool) {
 	}
 	tenantID, tenantErr := uuid.Parse(parts[1])
 	classID, classErr := uuid.Parse(parts[2])
-	if tenantErr != nil || classErr != nil || tenantID == uuid.Nil || classID == uuid.Nil {
+	if tenantErr != nil || classErr != nil || tenantID == uuid.Nil || classID == uuid.Nil ||
+		!strings.EqualFold(parts[1], tenantID.String()) ||
+		!strings.EqualFold(parts[2], classID.String()) {
 		return uuid.Nil, uuid.Nil, false
 	}
 

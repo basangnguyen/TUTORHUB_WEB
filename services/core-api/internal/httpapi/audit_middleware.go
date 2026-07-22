@@ -147,7 +147,7 @@ func staticAuditMutation(
 
 func pathValueAuditResource(name string) func(*http.Request) uuid.UUID {
 	return func(r *http.Request) uuid.UUID {
-		value, _ := uuid.Parse(r.PathValue(name))
+		value, _ := parseResourceUUID(r.PathValue(name))
 		return value
 	}
 }

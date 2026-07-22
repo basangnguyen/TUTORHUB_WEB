@@ -252,6 +252,19 @@ func TestServiceUsesStableStatusBoundClassCursor(t *testing.T) {
 	}); !errors.Is(err, ErrInvalidClassCursor) {
 		t.Fatalf("cursor reused across filters must fail, got %v", err)
 	}
+	otherAccess := access
+	otherAccess.TenantID = uuid.New()
+	listCallsBeforeForeignCursor := repository.listCalls
+	if _, err := service.List(context.Background(), otherAccess, ListClassesInput{
+		Status: &status,
+		Limit:  25,
+		Cursor: page.NextCursor,
+	}); !errors.Is(err, ErrInvalidClassCursor) {
+		t.Fatalf("cursor reused across tenants must fail, got %v", err)
+	}
+	if repository.listCalls != listCallsBeforeForeignCursor {
+		t.Fatal("foreign-tenant cursor must fail before repository pagination")
+	}
 	if _, err := service.List(context.Background(), access, ListClassesInput{
 		Limit: 101,
 	}); !errors.Is(err, ErrInvalidListLimit) {
@@ -453,6 +466,7 @@ type recordingRepository struct {
 	createParams    CreateClassParams
 	listParams      ListClassesParams
 	listResult      ListClassesResult
+	listCalls       int
 	updateParams    UpdateClassParams
 	transferParams  TransferClassOwnershipParams
 	archiveVersion  int64
@@ -548,6 +562,7 @@ func (repository *recordingRepository) List(
 ) (ListClassesResult, error) {
 	repository.tenantContext = tenantContext
 	repository.listParams = params
+	repository.listCalls++
 	return repository.listResult, nil
 }
 

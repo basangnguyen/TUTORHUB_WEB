@@ -4,7 +4,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/google/uuid"
 	"github.com/tutorhub-v2/core-api/internal/modules/identity"
 )
 
@@ -171,8 +170,8 @@ func (handlers authHandlers) identityResource(w http.ResponseWriter, r *http.Req
 		)
 		return
 	}
-	identityID, err := uuid.Parse(rawIdentityID)
-	if err != nil || identityID == uuid.Nil {
+	identityID, ok := parseResourceUUID(rawIdentityID)
+	if !ok {
 		handlers.writeIdentityProblem(w, r, identity.ErrIdentityNotFound)
 		return
 	}

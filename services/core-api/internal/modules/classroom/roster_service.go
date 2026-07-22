@@ -264,7 +264,7 @@ func decodeRosterCursor(
 		return nil, ErrInvalidRosterCursor
 	}
 	var payload rosterCursorPayload
-	if err := json.Unmarshal(contents, &payload); err != nil ||
+	if err := decodeStrictCursorJSON(contents, &payload); err != nil ||
 		payload.FilterHash != rosterFilterHash(tenantID, classID, search, status) {
 		return nil, ErrInvalidRosterCursor
 	}

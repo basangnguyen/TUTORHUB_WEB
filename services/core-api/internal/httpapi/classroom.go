@@ -566,8 +566,8 @@ func parseClassRoute(path string) (classRoute, bool) {
 	if len(parts) < 1 || len(parts) > 2 || parts[0] == "" {
 		return classRoute{}, false
 	}
-	classID, err := uuid.Parse(parts[0])
-	if err != nil || classID == uuid.Nil {
+	classID, ok := parseResourceUUID(parts[0])
+	if !ok {
 		return classRoute{}, false
 	}
 	route := classRoute{ID: classID}

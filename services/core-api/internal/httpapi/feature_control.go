@@ -218,8 +218,8 @@ func activeTenantContext(
 	principal identity.Principal,
 	rawTenantID string,
 ) (tenancy.Context, bool) {
-	tenantID, err := uuid.Parse(rawTenantID)
-	if err != nil || principal.ActiveTenant == nil || principal.ActiveTenant.ID != tenantID {
+	tenantID, ok := parseResourceUUID(rawTenantID)
+	if !ok || principal.ActiveTenant == nil || principal.ActiveTenant.ID != tenantID {
 		return tenancy.Context{}, false
 	}
 	tenantContext, err := tenancy.New(tenantID, principal.User.ID)

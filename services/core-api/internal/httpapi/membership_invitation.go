@@ -517,8 +517,7 @@ func newMembershipInvitationResponse(
 }
 
 func parseInvitationPathUUID(value string) (uuid.UUID, bool) {
-	identifier, err := uuid.Parse(value)
-	return identifier, err == nil && identifier != uuid.Nil
+	return parseResourceUUID(value)
 }
 
 func membershipInvitationErrorClass(err error) string {

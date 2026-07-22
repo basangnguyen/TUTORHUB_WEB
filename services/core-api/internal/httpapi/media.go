@@ -188,8 +188,8 @@ func (handlers mediaHandlers) authorizedRequest(
 	if !ok {
 		return identity.Principal{}, uuid.Nil, false
 	}
-	classID, err := uuid.Parse(r.PathValue("class_id"))
-	if err != nil || classID == uuid.Nil {
+	classID, ok := parseResourceUUID(r.PathValue("class_id"))
+	if !ok {
 		handlers.writeProblem(w, r, media.ErrInvalidRequest)
 		return identity.Principal{}, uuid.Nil, false
 	}

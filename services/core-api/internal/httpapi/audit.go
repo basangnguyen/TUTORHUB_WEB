@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/tutorhub-v2/core-api/internal/modules/audit"
 	"github.com/tutorhub-v2/core-api/internal/modules/identity"
 	"github.com/tutorhub-v2/core-api/internal/platform/tenancy"
@@ -64,8 +63,8 @@ func (handlers auditHandlers) list(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	tenantID, err := uuid.Parse(r.PathValue("tenantId"))
-	if err != nil {
+	tenantID, ok := parseResourceUUID(r.PathValue("tenantId"))
+	if !ok {
 		handlers.writeProblem(w, r, audit.ErrNotFound)
 		return
 	}
@@ -118,8 +117,8 @@ func parseAuditFilter(r *http.Request) (audit.Filter, error) {
 		filter.OccurredTo = &parsed
 	}
 	if value := strings.TrimSpace(query.Get("resource_id")); value != "" {
-		resourceID, err := uuid.Parse(value)
-		if err != nil {
+		resourceID, ok := parseResourceUUID(value)
+		if !ok {
 			return audit.Filter{}, audit.ErrInvalidFilter
 		}
 		filter.ResourceID = resourceID

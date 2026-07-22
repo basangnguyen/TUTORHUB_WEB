@@ -311,8 +311,8 @@ func (handlers authHandlers) switchActiveTenant(w http.ResponseWriter, r *http.R
 		)
 		return
 	}
-	tenantID, err := uuid.Parse(strings.TrimSpace(request.TenantID))
-	if err != nil || tenantID == uuid.Nil {
+	tenantID, ok := parseResourceUUID(strings.TrimSpace(request.TenantID))
+	if !ok {
 		handlers.writeIdentityProblem(w, r, identity.ErrInvalidTenant)
 		return
 	}
@@ -381,8 +381,8 @@ func parseTenantResourcePath(path string) (uuid.UUID, bool, bool) {
 	if len(parts) < 1 || len(parts) > 2 || parts[0] == "" {
 		return uuid.Nil, false, false
 	}
-	tenantID, err := uuid.Parse(parts[0])
-	if err != nil || tenantID == uuid.Nil {
+	tenantID, ok := parseResourceUUID(parts[0])
+	if !ok {
 		return uuid.Nil, false, false
 	}
 	if len(parts) == 1 {
