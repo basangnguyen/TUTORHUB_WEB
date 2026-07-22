@@ -627,9 +627,12 @@ test("P2-12 closes admin, instructor, and learner workflows through the real UI"
       await expect(
         auditTable.getByRole("cell", { name: "Create class", exact: true }),
       ).toBeVisible();
-      const createClassAuditRow = auditTable
-        .getByRole("row")
-        .filter({ hasText: "Create class" });
+      const createClassAuditRow = auditTable.getByRole("row").filter({
+        has: auditTable.getByRole("cell", {
+          name: "Create class",
+          exact: true,
+        }),
+      });
       await expect(
         createClassAuditRow.locator("td").nth(1).locator("strong"),
       ).not.toHaveText("Unavailable user");
