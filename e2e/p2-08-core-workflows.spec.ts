@@ -266,7 +266,7 @@ async function submitWorkspaceCreate(page: Page, button: Locator) {
   ).toBe(201);
 }
 
-test("P2-08 connects admin, instructor, and learner workflows through the real UI", async ({
+test("P2-12 closes admin, instructor, and learner workflows through the real UI", async ({
   browser,
 }) => {
   test.skip(
@@ -481,6 +481,8 @@ test("P2-08 connects admin, instructor, and learner workflows through the real U
       const linkDialog = teacherPage.getByRole("dialog", {
         name: "Create a class join link",
       });
+      await chooseRadixOption(teacherPage, "Lifetime", "1 day");
+      await linkDialog.getByLabel("Maximum uses").fill("2");
       await linkDialog.getByRole("button", { name: "Create link" }).click();
       const linkField = linkDialog.getByLabel(
         "Class join link (shown only this time)",
@@ -488,6 +490,11 @@ test("P2-08 connects admin, instructor, and learner workflows through the real U
       await expect(linkField).toBeVisible();
       classJoinURL = await linkField.inputValue();
       await closeDialog(teacherPage, "Close class invitation dialog");
+      await expect(
+        teacherPage
+          .getByRole("region", { name: "Members and invite links" })
+          .getByText("0/2 uses consumed", { exact: true }),
+      ).toBeVisible();
     });
 
     await test.step("learner joins by link and immediately sees the class list update", async () => {
@@ -512,6 +519,11 @@ test("P2-08 connects admin, instructor, and learner workflows through the real U
     await test.step("instructor updates the learner role, then suspends and removes the learner", async () => {
       await teacherPage.reload();
       await useEnglish(teacherPage);
+      await expect(
+        teacherPage
+          .getByRole("region", { name: "Members and invite links" })
+          .getByText("1/2 uses consumed", { exact: true }),
+      ).toBeVisible();
       const studentRow = teacherPage
         .getByRole("row")
         .filter({ hasText: accountEmails.student });
@@ -554,19 +566,15 @@ test("P2-08 connects admin, instructor, and learner workflows through the real U
       ).toBeVisible();
     });
 
-    await test.step("instructor revokes the link and archives the class", async () => {
+    await test.step("archive retains roster history and blocks an otherwise-valid link", async () => {
       const inviteRegion = teacherPage.getByRole("region", {
         name: "Members and invite links",
       });
-      await inviteRegion
-        .getByRole("button", { name: /Revoke link expiring at/ })
-        .click();
-      await teacherPage
-        .getByRole("dialog", { name: "Revoke this link?" })
-        .getByRole("button", { name: "Confirm revoke" })
-        .click();
       await expect(
-        inviteRegion.getByText("Revoked", { exact: true }),
+        inviteRegion.getByText("Active", { exact: true }),
+      ).toBeVisible();
+      await expect(
+        inviteRegion.getByText("1/2 uses consumed", { exact: true }),
       ).toBeVisible();
 
       await teacherPage
@@ -582,6 +590,31 @@ test("P2-08 connects admin, instructor, and learner workflows through the real U
           '.classroom-detail__identity .class-status[data-status="archived"]',
         ),
       ).toBeVisible();
+      await expect(
+        teacherPage
+          .getByRole("row")
+          .filter({ hasText: accountEmails.student })
+          .getByText("Removed", { exact: true }),
+      ).toBeVisible();
+      await expect(
+        inviteRegion.getByText("Active", { exact: true }),
+      ).toBeVisible();
+
+      await adminPage.goto("/app/classrooms");
+      await useEnglish(adminPage);
+      await adminPage.getByRole("button", { name: "Join with a code" }).click();
+      const joinDialog = adminPage.getByRole("dialog", {
+        name: "Join a class",
+      });
+      await joinDialog.getByLabel("Join code or link").fill(classJoinURL);
+      await joinDialog.getByRole("button", { name: "Join class" }).click();
+      await expect(
+        joinDialog.getByRole("alert").filter({
+          hasText:
+            "The link is invalid, expired, revoked, exhausted, or the class is no longer active.",
+        }),
+      ).toBeVisible();
+      await closeDialog(adminPage, "Close the join-class form");
     });
 
     await test.step("administrator reviews the resulting audit history responsively", async () => {
@@ -594,6 +627,26 @@ test("P2-08 connects admin, instructor, and learner workflows through the real U
       await expect(
         auditTable.getByRole("cell", { name: "Create class", exact: true }),
       ).toBeVisible();
+      const createClassAuditRow = auditTable
+        .getByRole("row")
+        .filter({ hasText: "Create class" });
+      await expect(
+        createClassAuditRow.locator("td").nth(1).locator("strong"),
+      ).not.toHaveText("Unavailable user");
+      await expect(
+        createClassAuditRow.locator("td").nth(1).locator("code"),
+      ).toHaveText(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+      );
+      await expect(createClassAuditRow).toContainText("Class");
+      await expect(
+        createClassAuditRow.locator("td").nth(3).locator("code"),
+      ).toHaveText(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+      );
+      await expect(
+        createClassAuditRow.locator("td").nth(5).locator("code"),
+      ).not.toBeEmpty();
       await expect(
         auditTable.getByRole("cell", {
           name: "Suspend class member",
