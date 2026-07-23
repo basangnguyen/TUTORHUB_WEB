@@ -85,18 +85,29 @@ live; rollback bằng specific commit giữ cấu hình hiện tại là bằng 
 | P3-CAL-00B Calendar re-baseline      | DONE       | Tài liệu only; chưa có theme/email runtime   |
 | P3-CAL-01 Spike + ADR-0019           | READY      | Renderer, recurrence, conflict gate          |
 | P3-01 Session scheduling và timezone | READY      | Vertical slice implementation đầu tiên       |
-| P3-CAL-02 Email/ICS + ADR-0020       | TODO       | Invitation, RSVP, provider/deliverability    |
-| P3-02 đến P3-14                      | TODO       | Theo dependency trong backlog                |
+| P3-CAL-02 Email/ICS + ADR-0020       | TODO       | AWS SES target, RSVP, ICS, deliverability    |
+| P3-02D Native Availability Poll      | TODO       | Native poll, secure sharing, Study Meeting   |
+| P3-02A/B/C, P3-03 đến P3-14          | TODO       | Theo dependency trong backlog                |
 
 Nguồn thực thi: `docs/PHASE_3_BACKLOG.md`. Trước khi code calendar phải đọc
 `docs/CALENDAR_PRODUCT_TECHNICAL_DESIGN.md` và ADR-0017; P3-02 recurrence phải chờ
-P3-CAL-01/ADR-0019; invitation/RSVP/iCalendar/provider phải chờ P3-CAL-02/ADR-0020.
+P3-CAL-01/ADR-0019; invitation/RSVP/iCalendar/AWS SES adapter phải chờ
+P3-CAL-02/ADR-0020. AWS SES mới là provider target do owner chọn, chưa được cấu hình hay
+chấp nhận làm runtime: trước domain chỉ dùng owner-controlled verified identities trong
+SES sandbox; production vẫn cần domain/DNS, SPF/DKIM/DMARC và deliverability gate.
+P3-02D tuân ADR-0021 và chỉ bắt đầu sau calendar conflict/participant foundation
+P3-02B/C. Poll là module native của TutorHub; không iframe, scrape, fork hoặc phụ thuộc
+runtime When2meet.
 Mọi notification/email/ICS/reminder/message/file side effect phải chờ worker foundation
 P3-03 theo ADR-0018. P3-01 không gồm recurrence, calendar tổng hợp, email, reminder
 hoặc media lifecycle.
+Mọi active authenticated member có thể tạo/quản lý poll và Study Meeting của mình; chỉ
+actor có `session.schedule` mới tạo ClassSession. Full LiveKit token/lobby/moderation/
+room lifecycle vẫn thuộc Phase 4.
 P3-CAL-02 có thể chạy trước P3-03 vì chỉ là ADR và test renderer/provider sandbox cô lập;
-không nối Core API, outbox hoặc gửi tới người thật. Đường gửi runtime chỉ nằm ở P3-05
-sau khi P3-03 đạt gate.
+không nối Core API/outbox hoặc gửi business email tới end user. SES sandbox chỉ được
+dùng với identity thử nghiệm do owner kiểm soát và đã verify. Đường gửi runtime chỉ nằm
+ở P3-05 sau khi P3-03 đạt gate.
 
 ## 6. Hạ tầng staging đã chốt
 

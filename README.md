@@ -17,6 +17,15 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
   Teams/Google, Calendar cream theme và email/ICS/RSVP trong Phase 3, nhưng chưa triển
   khai runtime. P3-CAL-01 renderer/recurrence/theme spike + ADR-0019 vẫn là task hiện
   tại ở trạng thái `READY`, sau đó triển khai P3-01 theo thứ tự làm việc đã chọn.
+- ADR-0021 đã `Accepted` để P3-02D xây Native Availability Poll do TutorHub sở hữu:
+  active member gồm student có thể tạo poll/Study Meeting của mình; secure public link
+  không phải booking và không phụ thuộc When2meet. Đây mới là architecture/backlog,
+  chưa có runtime.
+- AWS SES đã được owner chọn làm transactional email provider target cho Phase 3.
+  P3-CAL-02/ADR-0020 vẫn phải xác minh account/region/sandbox/quota, adapter, webhook và
+  deliverability; trước khi có domain chỉ được thử bằng identity cá nhân do owner kiểm
+  soát và đã verify trong SES sandbox. Production vẫn chờ domain/DNS cùng
+  SPF/DKIM/DMARC; chưa có email runtime.
 - Web MVP nền đã chạy trên staging: Cloudflare Pages -> same-origin `/api/*` -> Go
   Core API trên Render; dữ liệu dùng Neon, file dùng Backblaze B2, media dùng LiveKit
   Cloud và xác thực dùng ZITADEL.
@@ -25,7 +34,7 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
   local developer experience.
 - Repository hiện do một người duy trì và push trực tiếp `main`; ngoại lệ quản trị
   này được giới hạn trong development/staging/private alpha theo ADR-0012.
-- Master Plan web-first 2.1 và backlog Phase 3 là nguồn kế hoạch hiện hành.
+- Master Plan web-first 2.2 và backlog Phase 3 là nguồn kế hoạch hiện hành.
 - Không sao chép secret, token hoặc cấu hình production từ V1.
 
 ## Tài liệu bắt buộc đọc
@@ -63,6 +72,7 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
 31. [ADR-0016: Idempotent V1 fixture import](docs/adr/0016-idempotent-v1-fixture-import.md)
 32. [ADR-0017: Class session scheduling và civil time](docs/adr/0017-class-session-scheduling-and-civil-time.md)
 33. [ADR-0018: PostgreSQL leased outbox worker](docs/adr/0018-postgresql-leased-outbox-worker.md)
+34. [ADR-0021: Native Availability Poll và member-owned Study Meeting](docs/adr/0021-native-availability-polls-and-member-owned-study-meetings.md)
 
 Các quyết định kiến trúc đã chấp nhận nằm trong `docs/adr`.
 

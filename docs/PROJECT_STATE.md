@@ -12,7 +12,7 @@
 | Quy trình           | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
 | Phase hoàn thành    | Phase 0, Phase 1, Phase 2                                                             |
 | Phase hiện tại      | Phase 3 - Daily learning workspace                                                   |
-| Task vừa hoàn thành | P3-CAL-00B parity/visual/email re-baseline cho tab Lịch                              |
+| Task vừa hoàn thành | P3 decisions re-baseline: ADR-0021/P3-02D + AWS SES target (docs-only)               |
 | Task hiện tại       | P3-CAL-01 renderer/recurrence/theme spike + ADR-0019 (`READY`)                       |
 | Task tiếp theo      | Chạy P3-CAL-01/ADR-0019, sau đó triển khai P3-01 contract-first                      |
 
@@ -288,9 +288,19 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
    IA/editor, Warm Academic cream palette và professional everyday parity. Không sao
    chép asset/font/trade dress và chưa đổi runtime token.
 10. Invitation/update/cancellation/reminder email, ICS và RSVP đã được đưa vào Phase 3
-    exit gate. P3-CAL-02/ADR-0020 phải chốt provider/iTIP/iMIP/deliverability; mọi
-    effect chỉ chạy sau commit qua P3-03 worker. Đây là re-baseline tài liệu, chưa phải
-    chức năng đã chạy.
+    exit gate. Owner đã chọn AWS SES làm provider target; P3-CAL-02/ADR-0020 vẫn phải
+    xác minh account/region/sandbox/quota, adapter, webhook, iTIP/iMIP và deliverability.
+    Trước khi có domain chỉ thử bằng owner-controlled verified identities trong SES
+    sandbox; production vẫn cần domain/DNS cùng SPF/DKIM/DMARC. Mọi effect runtime chỉ
+    chạy sau commit qua P3-03 worker. Đây là re-baseline tài liệu, chưa phải chức năng
+    đã chạy.
+11. ADR-0021 đã `Accepted` và chốt P3-02D Native Availability Poll: mọi active
+    authenticated tenant member, gồm student, được tạo/quản lý poll và Study Meeting của
+    mình theo feature/quota. Poll có class-only, invited-only và explicit anyone-link;
+    public capability chỉ lưu hash, có expiry/revoke/scope/rate limit và không lộ roster/
+    email/individual availability. Chỉ actor có `session.schedule` mới finalize thành
+    ClassSession; actor khác chỉ tạo Study Meeting. When2meet chỉ là comparator, không
+    phải runtime/API/iframe/fork/code dependency.
 
 ## Rủi ro đã biết
 
@@ -298,10 +308,20 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
   chức năng đã chạy cho tới khi implementation, test và staging acceptance đạt.
 - Báo cáo Calendar là `PROPOSED`; FullCalendar và recurrence library chưa được chấp nhận
   thành dependency. Không code P3-02 recurrence trước ADR-0019 và technical spike.
-- Email provider/sending domain chưa được chọn; SPF/DKIM/DMARC, signed webhook,
-  bounce/complaint/suppression và cross-client ICS chưa được kiểm thử. Không gửi tới
-  người thật trước P3-CAL-02/ADR-0020 và P3-03 worker gate.
+- AWS SES đã được chọn làm provider target nhưng chưa được cấu hình/xác minh và sending
+  domain chưa có. Pre-domain chỉ cho phép owner-controlled verified identities trong
+  SES sandbox; không được coi là production readiness. SPF/DKIM/DMARC, signed webhook,
+  bounce/complaint/suppression và cross-client ICS chưa được kiểm thử. Không gửi
+  business email tới end user trước P3-CAL-02/ADR-0020 và P3-03 worker gate.
 - Warm Academic mới là visual direction; `tokens.css` và Calendar UI chưa được đổi.
+- P3-02D hiện mới có ADR/backlog/design, chưa có schema/API/UI/capability exchange hoặc
+  authorization test; không được mô tả Availability Poll/Study Meeting như chức năng đã
+  chạy.
+- External poll link có rủi ro token/PII leak và abuse. Implementation phải đạt token
+  entropy cao, hash-at-rest, fragment exchange, expiry/revoke/rate limit, log redaction
+  và privacy-safe aggregate theo ADR-0021.
+- Quyền tạo instant study room đã được chốt làm authorization target, nhưng LiveKit
+  token, lobby, moderation và media lifecycle vẫn thuộc Phase 4.
 - Outbox hiện mới là writer-side queue, chưa có lease/fencing/dead-letter hoặc
   `cmd/worker`. P3-03 phải hoàn thành trước notification, email/ICS, reminder hoặc
   message/file processing side effect; Render Free web service không được xem là
@@ -366,6 +386,7 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
 - `docs/P2_12_STAGING_ACCEPTANCE.md`
 - `docs/PHASE_2_COMPLETION.md`
 - `docs/PHASE_3_BACKLOG.md`
+- `docs/CALENDAR_PRODUCT_TECHNICAL_DESIGN.md`
 - `docs/DEPLOYMENT_BASELINE.md`
 - `docs/DATABASE.md`
 - `docs/AUTHENTICATION.md`
@@ -380,3 +401,4 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
 - `docs/adr/0016-idempotent-v1-fixture-import.md`
 - `docs/adr/0017-class-session-scheduling-and-civil-time.md`
 - `docs/adr/0018-postgresql-leased-outbox-worker.md`
+- `docs/adr/0021-native-availability-polls-and-member-owned-study-meetings.md`

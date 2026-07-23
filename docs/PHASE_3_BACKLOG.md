@@ -13,15 +13,19 @@ Xây daily learning workspace đủ dùng cho pilot có kiểm soát:
 4. file lớn upload/download trực tiếp với Backblaze B2, không đi xuyên Core API;
 5. worker xử lý outbox theo at-least-once, retry idempotent và dead-letter;
 6. calendar gửi invitation/update/cancellation/reminder email kèm ICS và theo dõi RSVP;
-7. home, calendar, search và Class Files có đủ trạng thái vận hành.
+7. teacher, student và active member khác tạo Availability Poll native, chia sẻ an toàn
+   và chốt thành buổi học chính thức hoặc Study Meeting đúng quyền;
+8. home, calendar, search và Class Files có đủ trạng thái vận hành.
 
-**Thời lượng re-baseline:** 12–15 tuần cho toàn Phase 3 khi một agent làm tuần tự trên
-`main`; milestone Calendar chuyên nghiệp + email khoảng 7–9 tuần tính từ P3-CAL-01.
-DNS/provider approval có thể chạy song song nhưng không được tính `DONE` trước
-interoperability gate.
+**Thời lượng re-baseline:** 13–17 tuần cho toàn Phase 3 khi một agent làm tuần tự trên
+`main`; milestone Calendar chuyên nghiệp + email + Availability Poll khoảng 8–10 tuần
+tính từ P3-CAL-01.
+Domain/DNS, SES sandbox và production-access approval có thể chuẩn bị song song nhưng
+không được tính `DONE` trước interoperability gate.
 
-**Task vừa hoàn thành:** P3-CAL-00B re-research Teams/Google, Vauliys visual direction
-và Phase 3 email/ICS/RSVP re-baseline.
+**Task vừa hoàn thành:** docs re-baseline chốt ADR-0021/P3-02D Native Availability Poll,
+member-owned Study Meeting và AWS SES làm transactional email provider target. Chưa có
+runtime; P3-CAL-02/ADR-0020 vẫn phải xác minh SES và deliverability.
 
 **Task hiện tại:** P3-CAL-01 technical spike + ADR recurrence/conflict (`READY`), sau đó
 P3-01 Course session scheduling và timezone.
@@ -40,6 +44,9 @@ trước là thứ tự làm việc đã chọn để tránh renderer/recurrence
 - Lavie AI, social feed và search nâng cao thuộc Phase 7.
 - Google/Microsoft two-way sync, public booking, enterprise room/resource federation và
   organization-wide calendar ACL không nằm trong Phase 3.
+- Link `anyone_with_link` của Availability Poll chỉ cấp quyền xem/trả lời khảo sát tối
+  thiểu; nó không phải public booking, không giữ chỗ, thanh toán, auto-confirm hoặc tự
+  tạo session/meeting.
 - Mobile push, marketing/bulk email, inbound mailbox, billing và full production SLO
   không nằm trong Phase 3. Transactional Calendar email/ICS thuộc Phase 3.
 - Không tự xây message broker, object storage, virus engine hoặc thumbnail service.
@@ -59,6 +66,8 @@ trước là thứ tự làm việc đã chọn để tránh renderer/recurrence
 - File chưa `ready` không được chia sẻ hoặc tải như artifact hợp lệ.
 - Log, metric, audit và outbox không chứa token, cookie, signed URL, raw file content,
   message content không cần thiết hoặc PII thừa.
+- Public capability dùng opaque token entropy cao, chỉ lưu hash, có expiry/revoke/scope/
+  rate limit; raw token không nằm trong query, referrer, log hoặc analytics.
 - Mỗi UI slice có loading, empty, filtered-empty, error, forbidden, offline/degraded và retry.
 
 ## 4. Trạng thái tổng hợp
@@ -70,11 +79,12 @@ trước là thứ tự làm việc đã chọn để tránh renderer/recurrence
 | P3-CAL-00B | Teams/Google parity + visual/email re-baseline  | P3-CAL-00                       | DONE       |
 | P3-CAL-01  | Renderer/recurrence/theme spike + ADR-0019      | P3-CAL-00B                      | READY      |
 | P3-01      | Course session scheduling và timezone           | P3-00, P3-CAL-00B               | READY      |
-| P3-CAL-02  | Invitation/RSVP/iCalendar/provider + ADR-0020   | P3-CAL-01, P3-01                | TODO       |
-| P3-02      | Calendar views/recurrence/attendee/free-busy    | P3-01, P3-CAL-01, P3-CAL-02     | TODO       |
+| P3-CAL-02  | Invitation/RSVP/iCalendar/AWS SES + ADR-0020    | P3-CAL-01, P3-01                | TODO       |
+| P3-02A/B/C | Calendar shell/recurrence/conflict/attendee/RSVP | P3-01, P3-CAL-01, P3-CAL-02     | TODO       |
+| P3-02D     | Native Availability Poll + Study Meeting        | P3-02B/C, ADR-0021               | TODO       |
 | P3-03      | PostgreSQL outbox worker production shape       | P3-00                           | TODO       |
 | P3-04      | In-app notification và preference               | P3-03                           | TODO       |
-| P3-05      | Email/ICS/external-response/reminder delivery   | P3-02, P3-CAL-02, P3-03, P3-04 | TODO       |
+| P3-05      | Email/ICS/external-response/reminder delivery   | P3-02D, P3-CAL-02, P3-03, P3-04 | TODO       |
 | P3-06      | Direct/class conversation                       | P3-00, Phase 2 policy           | TODO       |
 | P3-07      | Persistent message, unread và read receipt      | P3-03, P3-06                    | TODO       |
 | P3-08      | File metadata, upload intent và finalize        | P3-00, B2 baseline              | TODO       |
@@ -82,7 +92,7 @@ trước là thứ tự làm việc đã chọn để tránh renderer/recurrence
 | P3-10      | Scan/metadata/thumbnail processing              | P3-03, P3-09                    | TODO       |
 | P3-11      | Class Files UI                                  | P3-09, P3-10                    | TODO       |
 | P3-12      | Home dashboard và PostgreSQL search cơ bản      | P3-01, P3-04, P3-07, P3-11     | TODO       |
-| P3-13      | Offline/retry drafts và Phase 3 quota closure   | P3-02, P3-07, P3-11             | TODO       |
+| P3-13      | Offline/retry drafts và Phase 3 quota closure   | P3-02D, P3-07, P3-11            | TODO       |
 | P3-14      | Staging acceptance và đóng Phase 3              | P3-CAL-02, P3-05, P3-12, P3-13 | TODO       |
 
 ## 5. Dependency graph
@@ -100,10 +110,11 @@ flowchart LR
     P300 --> P303["P3-03 Worker"]
     P300 --> P306["P3-06 Conversations"]
     P300 --> P308["P3-08 File metadata"]
-    P301 --> P302["P3-02 Calendar/recurrence"]
+    P301 --> P302["P3-02A/B/C Calendar foundation"]
+    P302 --> P302D["P3-02D Native availability poll"]
     P303 --> P304["P3-04 Notifications"]
     PC02 --> P305["P3-05 Email/ICS/external response/reminders"]
-    P302 --> P305
+    P302D --> P305
     P303 --> P305
     P304 --> P305
     P306 --> P307["P3-07 Messages"]
@@ -117,7 +128,7 @@ flowchart LR
     P304 --> P312
     P307 --> P312
     P311 --> P312
-    P302 --> P313["P3-13 Offline/quota"]
+    P302D --> P313["P3-13 Offline/quota"]
     P307 --> P313
     P311 --> P313
     P305 --> P314["P3-14 Closure"]
@@ -127,7 +138,8 @@ flowchart LR
 
 P3-01 và P3-03 có thể triển khai tuần tự trên `main`; không cần chạy đồng thời để đạt
 tiến độ. P3-04/P3-05/P3-07/P3-10 không được bypass worker foundation. P3-05 không được
-bypass ADR-0020/provider/deliverability gate.
+bypass ADR-0020/provider/deliverability gate. P3-02D theo ADR-0021 chỉ bắt đầu sau
+calendar conflict/participant foundation P3-02B/C; nó không phụ thuộc runtime When2meet.
 
 ## 6. P3-00 Backlog và architecture/contract baseline
 
@@ -204,6 +216,8 @@ không thêm FullCalendar hoặc recurrence; dependency chỉ được thêm sau
   guest permissions, show-as/visibility và RSVP accept/tentative/decline.
 - Scheduling Assistant/Find a time, working hours và privacy-safe free/busy; external
   attendee chưa sync hiển thị unknown.
+- Availability Poll là native P3-02D: all active authenticated member có thể tạo poll
+  của mình; public capability chỉ trả projection tối thiểu và không phải booking.
 - Drag/resize có keyboard alternative, optimistic revert, undo và stale-version handling.
 - Conflict class/teacher authoritative ở backend; free/busy không lộ private detail.
 - DST gap/overlap, month boundary, leap day và timezone switch có golden tests.
@@ -239,24 +253,63 @@ không thêm FullCalendar hoặc recurrence; dependency chỉ được thêm sau
 
 ### P3-CAL-02 invitation/RSVP/iCalendar/provider gate
 
-- [ ] Mở ADR-0020 và chốt organizer, roster snapshot, required/optional/external attendee,
-      guest permission và RSVP state/source of truth.
+- [ ] Mở ADR-0020, ghi AWS SES là provider target owner đã chọn và chốt organizer,
+      roster snapshot, required/optional/external attendee, guest permission cùng RSVP
+      state/source of truth.
 - [ ] Chốt RFC 5545/5546/6047 subset: globally unique stable UID, monotonic `SEQUENCE`,
       `TZID`, `RRULE/RECURRENCE-ID/EXDATE`, `METHOD:REQUEST/CANCEL`.
 - [ ] Ở runtime, email/ICS chỉ phát sau commit qua ADR-0018 worker; effect dedupe theo
       invitation/recipient/effect/sequence/channel. Renderer/provider spike bên dưới chỉ
       dùng sandbox/sink cô lập và không phải đường gửi runtime.
-- [ ] Chọn provider qua adapter từ cost/quota/region/idempotency/webhook evidence.
+- [ ] Xác minh AWS SES qua provider adapter bằng cost/quota/region/idempotency/webhook/
+      suppression evidence; domain code không import AWS SDK trực tiếp.
 - [ ] Sending domain, SPF/DKIM/DMARC, signed webhook, bounce/complaint/suppression,
       secret rotation và incident runbook được chốt.
+- [ ] Trước khi có domain, chỉ test sandbox bằng personal sender/recipient email identity
+      đã verify. Không coi đây là production readiness hoặc nới exit gate domain/DNS.
 - [ ] External RSVP capability có scope/expiry/revoke/rate limit, chỉ lưu token hash.
 - [ ] CTA TutorHub là RSVP source mặc định và ICS dùng `RSVP=FALSE`; chỉ bật
       `RSVP=TRUE`/inbound `METHOD:REPLY` nếu ADR bổ sung parser và security gate.
 - [ ] Gmail/Google Calendar, Outlook và Apple Calendar spike đạt create/update/cancel;
       không thêm production dependency trước khi ADR-0020 được chấp nhận.
 - [ ] Spike dùng deterministic fixture và provider sandbox/sink cô lập; không nối Core API,
-      không consume outbox và không gửi tới người thật. Runtime delivery vẫn phải chờ
+      không consume outbox và không gửi business email tới end user. SES sandbox chỉ
+      dùng owner-controlled verified identities. Runtime delivery vẫn phải chờ
       P3-03/P3-05.
+
+### P3-02D Native Availability Poll và Study Meeting
+
+- [x] ADR-0021 chốt native ownership, permission, share mode, capability security và
+      ranh giới Phase 3/Phase 4 trước implementation.
+- [ ] TutorHub tự xây poll bằng React + Go modular monolith + PostgreSQL; không iframe,
+      scrape, API không chính thức, fork, code copy hoặc runtime dependency When2meet.
+- [ ] Mọi active authenticated tenant member có `availability.poll.create`,
+      `availability.poll.manage_own` và `study_meeting.schedule_own` theo feature/quota;
+      external/anonymous responder không được tạo poll/meeting.
+- [ ] Poll chỉ được bind `class_id` khi creator là active class member có `class.read`;
+      class foreign/inaccessible bị conceal `404`.
+- [ ] Có `class_members` mặc định cho poll gắn lớp, `invited_only` với token riêng từng
+      recipient và `anyone_with_link` phải bật rõ ràng; đổi mode revoke/rotate token cũ.
+- [ ] Poll có title, optional class/participants, timezone IANA, date range, working
+      hours, duration, slot granularity, deadline, version và lifecycle.
+- [ ] Response normalized theo slot: `preferred`, `available`, `unavailable`; chưa trả
+      lời là `unknown`, không dùng JSON/string như V1.
+- [ ] Desktop có drag/paint heatmap; mobile dùng list/card; keyboard, screen reader và
+      forced-colors có action/label tương đương, không truyền nghĩa chỉ bằng màu.
+- [ ] Participant thường chỉ thấy response của mình và aggregate privacy-safe. Organizer
+      hoặc teacher/admin đủ capability mới thấy individual response; public projection
+      không lộ roster, email, class detail hay lịch riêng.
+- [ ] External link dùng high-entropy token hash-at-rest, expiry/revoke/scope/rate limit,
+      URL fragment exchange, `history.replaceState`, `no-referrer`, `no-store`, `noindex`
+      và log/analytics redaction.
+- [ ] Ranking deterministic, giải thích bounded; frontend preview không phải authority.
+      Finalize luôn recheck conflict, dùng expected version và idempotency key.
+- [ ] Actor có `session.schedule` trên class đích mới được finalize thành `ClassSession`;
+      actor khác chỉ tạo `StudyMeeting` của mình. External responder không được finalize.
+- [ ] Study Meeting trong Phase 3 là scheduling/room intent, không phải LiveKit room
+      runtime; token, lobby, moderation, reconnect và media lifecycle thuộc Phase 4.
+- [ ] Open/share/cancel/finalize ghi audit + outbox trong transaction; P3-05 phân phối
+      email sau commit và provider failure không rollback nghiệp vụ.
 
 ## 9. P3-03 PostgreSQL outbox worker production shape
 
@@ -303,6 +356,8 @@ không thêm FullCalendar hoặc recurrence; dependency chỉ được thêm sau
 - Signed provider webhook idempotent; bounce/complaint tạo suppression theo policy.
 - Gmail/Google Calendar, Outlook và Apple Calendar staging acceptance đạt phạm vi
   ADR-0020; inbound email `METHOD:REPLY` không được tuyên bố nếu chưa triển khai parser.
+- Poll opened/deadline/cancelled/finalized được fan-out sau commit, một effect/recipient;
+  invitation/ICS chỉ gửi khi outcome session/meeting có delivery contract hợp lệ.
 
 ## 12. P3-06 Direct/class conversation
 
@@ -359,7 +414,8 @@ không thêm FullCalendar hoặc recurrence; dependency chỉ được thêm sau
 
 - Chỉ draft không nhạy cảm được lưu client; không lưu token/signed URL/message đã gửi.
 - Retry mutation dùng idempotency key khi có khả năng submit lại tự động.
-- Mở rộng feature catalog/quota cho scheduling, message và file bằng server enforcement.
+- Mở rộng feature catalog/quota cho scheduling, Availability Poll, message và file bằng
+  server enforcement; poll có hard cap ngày/slot/participant/open poll/capability fan-out.
 - Quota rejection có typed problem, bounded metric và cleanup path; không xóa dữ liệu cũ.
 
 ## 20. P3-14 Staging acceptance và exit gate
@@ -374,6 +430,16 @@ không thêm FullCalendar hoặc recurrence; dependency chỉ được thêm sau
       không dùng asset/font Vauliys hoặc nhận diện Teams/Google.
 - [ ] Teacher chọn required/optional attendee, xem privacy-safe free/busy/conflict;
       student/external guest RSVP đúng quyền và organizer thấy trạng thái sau reload.
+- [ ] Student và active member khác tạo, mở/chia sẻ và quản lý poll của mình;
+      class-only, invited-only và explicit anyone-link đều đúng authorization,
+      expiry/revoke/rate limit. Fan-out tới roster vẫn cần capability riêng.
+- [ ] Desktop drag/paint heatmap, mobile list/card, keyboard/screen reader/forced-colors
+      đạt; public responder chỉ thấy projection/aggregate tối thiểu, không roster/email/
+      individual availability.
+- [ ] Student thiếu `session.schedule` chỉ finalize thành Study Meeting; teacher đủ quyền
+      có thể finalize thành ClassSession. Cả hai recheck conflict và retry không tạo đôi.
+- [ ] Network/referrer/log test chứng minh raw poll token không rò; poll link không có
+      booking/hold/payment/auto-confirm và runtime không gọi When2meet.
 - [ ] Publish gửi invitation `.ics`; update giữ UID/tăng sequence; cancel cùng UID
       không tạo calendar item mới trên client mục tiêu.
 - [ ] Gmail/Google Calendar, Outlook và Apple Calendar smoke đạt; provider timeout,
@@ -399,6 +465,8 @@ không thêm FullCalendar hoặc recurrence; dependency chỉ được thêm sau
 - Calendar professional DoD đạt đủ views, responsive, keyboard, screen reader và
   recurrence/conflict semantics.
 - Attendee/free-busy/guest permission/RSVP semantics đạt authorization và privacy tests.
+- Native Availability Poll đạt share-mode/capability/privacy/concurrency/a11y tests;
+  public link không lộ roster/PII và official session không thể bypass `session.schedule`.
 - Email invitation/update/cancel/reminder + ICS đạt UID/SEQUENCE/idempotency và
   cross-client gate; notification/provider failure không rollback nghiệp vụ.
 - Sending domain SPF/DKIM/DMARC, webhook verification, bounce/complaint/suppression và
@@ -415,17 +483,18 @@ không thêm FullCalendar hoặc recurrence; dependency chỉ được thêm sau
 | C1     | P3-CAL-01              | Renderer/recurrence/theme spike + ADR-0019        |
 | 1      | P3-01                  | Session một lần contract-first                    |
 | C2     | P3-CAL-02              | Invitation/iCalendar/provider spike + ADR-0020    |
-| 2-4    | P3-02                  | Shell/editor, recurrence, attendee/free-busy/RSVP |
-| 5      | P3-03                  | Durable PostgreSQL leased worker                  |
-| 6      | P3-04                  | In-app notification + channel preferences         |
-| 7-8    | P3-05                  | Email/ICS/reminder + provider acceptance          |
-| 9      | P3-06, P3-07           | Conversation và persistent message               |
-| 10-12  | P3-08 đến P3-11        | B2 transfer, processing và Class Files            |
-| 13     | P3-12, P3-13           | Home/search, quota và offline                     |
-| 14     | P3-14                  | Staging acceptance/closure                        |
+| 2-4    | P3-02A/B/C             | Shell, recurrence, attendee/free-busy/RSVP        |
+| 5      | P3-02D                 | Native poll, secure sharing và Study Meeting      |
+| 6      | P3-03                  | Durable PostgreSQL leased worker                  |
+| 7      | P3-04                  | In-app notification + channel preferences         |
+| 8-9    | P3-05                  | Email/ICS/reminder + provider acceptance          |
+| 10     | P3-06, P3-07           | Conversation và persistent message               |
+| 11-13  | P3-08 đến P3-11        | B2 transfer, processing và Class Files            |
+| 14     | P3-12, P3-13           | Home/search, quota và offline                     |
+| 15     | P3-14                  | Staging acceptance/closure                        |
 
 Các nhãn `C0/C1/C2` là decision gate nằm trong chặng kế cận, không phải ba sprint cộng
-thêm vào 12–15 tuần. Các dải `2–4`, `7–8`, `10–12` thể hiện work package nhiều tuần;
+thêm vào 13–17 tuần. Các dải `2–4`, `8–9`, `11–13` thể hiện work package nhiều tuần;
 số thứ tự là trình tự dự kiến, không phải cam kết mỗi hàng đúng một tuần.
 
 ## 22. Việc cần làm ngay
@@ -434,7 +503,10 @@ số thứ tự là trình tự dự kiến, không phải cam kết mỗi hàng
 2. Thực hiện P3-CAL-01 spike + ADR-0019; chưa thêm dependency vào production trước gate.
 3. Thực hiện P3-01 contract-first: migration `000014`, policy, OpenAPI/client, backend,
     minimal UI và test timezone/DST/tenant isolation.
-4. Thực hiện P3-CAL-02/ADR-0020 trước participant/email/ICS production implementation.
+4. Thực hiện P3-CAL-02/ADR-0020 để validate AWS SES target trước participant/email/ICS
+   production implementation; pre-domain chỉ dùng verified-email sandbox.
 5. Không đưa recurrence, reminder, worker, email hoặc calendar tổng hợp vào P3-01.
 6. Thực hiện P3-03 trước notification/email/ICS/reminder side effect.
-7. Giữ file cá nhân ngoài scope và không đọc/commit `.env*.local`.
+7. ADR-0021 đã `Accepted`; triển khai P3-02D sau P3-02B/C, không đổi thứ tự hiện tại
+   P3-CAL-01 -> P3-01 và không phụ thuộc When2meet.
+8. Giữ file cá nhân ngoài scope và không đọc/commit `.env*.local`.
