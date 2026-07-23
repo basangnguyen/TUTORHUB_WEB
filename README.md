@@ -12,9 +12,9 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
 - **Phase 2 - Identity, tenant và class core** đã hoàn thành và được owner sign-off
   ngày 2026-07-22. P2-00 đến P2-12, staging acceptance, application rollback/redeploy
   và exit gate đều đạt.
-- Hiện đang thực hiện **Phase 3 - Daily learning workspace**. P3-00 backlog và
-  architecture baseline đã `DONE`; P3-01 course session scheduling/timezone là task
-  implementation hiện tại ở trạng thái `READY`.
+- Hiện đang thực hiện **Phase 3 - Daily learning workspace**. P3-00 và P3-CAL-00 đã
+  `DONE`; P3-CAL-01 renderer/recurrence spike + ADR-0019 là task hiện tại ở trạng thái
+  `READY`, sau đó triển khai P3-01 course session scheduling/timezone.
 - Web MVP nền đã chạy trên staging: Cloudflare Pages -> same-origin `/api/*` -> Go
   Core API trên Render; dữ liệu dùng Neon, file dùng Backblaze B2, media dùng LiveKit
   Cloud và xác thực dùng ZITADEL.
@@ -51,15 +51,16 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
 21. [P2-12 staging acceptance](docs/P2_12_STAGING_ACCEPTANCE.md)
 22. [Biên bản hoàn thành Phase 2](docs/PHASE_2_COMPLETION.md)
 23. [Backlog Phase 3](docs/PHASE_3_BACKLOG.md)
-24. [Chính sách báo cáo lỗ hổng](SECURITY.md)
-25. [ADR-0011: Render cho Core API staging/private alpha](docs/adr/0011-render-core-api-staging.md)
-26. [ADR-0012: Direct-main khi một người duy trì](docs/adr/0012-single-maintainer-direct-main-governance.md)
-27. [ADR-0013: Shared organization/class authorization policy](docs/adr/0013-shared-organization-class-authorization-policy.md)
-28. [ADR-0014: Append-only tenant audit log](docs/adr/0014-append-only-tenant-audit-log.md)
-29. [ADR-0015: Server-evaluated feature controls và quotas](docs/adr/0015-server-evaluated-feature-controls-and-quotas.md)
-30. [ADR-0016: Idempotent V1 fixture import](docs/adr/0016-idempotent-v1-fixture-import.md)
-31. [ADR-0017: Class session scheduling và civil time](docs/adr/0017-class-session-scheduling-and-civil-time.md)
-32. [ADR-0018: PostgreSQL leased outbox worker](docs/adr/0018-postgresql-leased-outbox-worker.md)
+24. [Nghiên cứu và thiết kế product/technical tab Lịch](docs/CALENDAR_PRODUCT_TECHNICAL_DESIGN.md)
+25. [Chính sách báo cáo lỗ hổng](SECURITY.md)
+26. [ADR-0011: Render cho Core API staging/private alpha](docs/adr/0011-render-core-api-staging.md)
+27. [ADR-0012: Direct-main khi một người duy trì](docs/adr/0012-single-maintainer-direct-main-governance.md)
+28. [ADR-0013: Shared organization/class authorization policy](docs/adr/0013-shared-organization-class-authorization-policy.md)
+29. [ADR-0014: Append-only tenant audit log](docs/adr/0014-append-only-tenant-audit-log.md)
+30. [ADR-0015: Server-evaluated feature controls và quotas](docs/adr/0015-server-evaluated-feature-controls-and-quotas.md)
+31. [ADR-0016: Idempotent V1 fixture import](docs/adr/0016-idempotent-v1-fixture-import.md)
+32. [ADR-0017: Class session scheduling và civil time](docs/adr/0017-class-session-scheduling-and-civil-time.md)
+33. [ADR-0018: PostgreSQL leased outbox worker](docs/adr/0018-postgresql-leased-outbox-worker.md)
 
 Các quyết định kiến trúc đã chấp nhận nằm trong `docs/adr`.
 

@@ -81,12 +81,16 @@ live; rollback bằng specific commit giữ cấu hình hiện tại là bằng 
 | Task                                 | Trạng thái | Ghi chú                                 |
 | ------------------------------------ | ---------- | --------------------------------------- |
 | P3-00 Backlog/architecture baseline  | DONE       | Backlog, ADR scheduling và ADR worker   |
+| P3-CAL-00 Calendar research/design   | DONE       | Product/UX/technical/V1/OSS report      |
+| P3-CAL-01 Spike + ADR-0019           | READY      | Renderer, recurrence, conflict gate     |
 | P3-01 Session scheduling và timezone | READY      | Vertical slice implementation đầu tiên  |
 | P3-02 đến P3-14                      | TODO       | Theo dependency trong backlog           |
 
-Nguồn thực thi: `docs/PHASE_3_BACKLOG.md`. Trước khi code P3-01 phải đọc ADR-0017;
-mọi notification/message/file side effect phải chờ worker foundation P3-03 theo
-ADR-0018. P3-01 không gồm recurrence, calendar tổng hợp, reminder hoặc media lifecycle.
+Nguồn thực thi: `docs/PHASE_3_BACKLOG.md`. Trước khi code calendar phải đọc
+`docs/CALENDAR_PRODUCT_TECHNICAL_DESIGN.md` và ADR-0017; P3-02 recurrence phải chờ
+P3-CAL-01/ADR-0019. Mọi notification/message/file side effect phải chờ worker
+foundation P3-03 theo ADR-0018. P3-01 không gồm recurrence, calendar tổng hợp,
+reminder hoặc media lifecycle.
 
 ## 6. Hạ tầng staging đã chốt
 

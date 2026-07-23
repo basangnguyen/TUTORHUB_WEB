@@ -5,13 +5,13 @@
 | Thuộc tính            | Giá trị                                                                                      |
 | --------------------- | -------------------------------------------------------------------------------------------- |
 | Phiên bản tài liệu    | 2.1                                                                                          |
-| Cập nhật              | 2026-07-22                                                                                   |
+| Cập nhật              | 2026-07-23                                                                                   |
 | Phạm vi ưu tiên       | Web application                                                                              |
 | Thư mục phát triển    | `D:\TutorHub_V2`                                                                             |
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
 | Phase hiện tại        | Phase 3 - Daily learning workspace                                                           |
-| Trạng thái gần nhất   | P3-00 DONE; P3-01 scheduling/timezone READY ngày 2026-07-22                                 |
+| Trạng thái gần nhất   | P3-CAL-00 design DONE; P3-CAL-01 spike/ADR READY ngày 2026-07-23                            |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 
@@ -1298,19 +1298,22 @@ Bằng chứng chuẩn hóa nằm trong `docs/P2_12_STAGING_ACCEPTANCE.md` và
 
 ### Phase 3 - Daily learning workspace
 
-**Thời lượng:** 5-7 tuần.
+**Thời lượng tạm tính:** 7-9 tuần; re-baseline sau P3-CAL-01 vì phạm vi đã nâng từ
+calendar nền thành learning operations hub chuyên nghiệp.
 
-**Backlog thực thi:** `docs/PHASE_3_BACKLOG.md`. P3-00 backlog/architecture baseline
-đã `DONE`; P3-01 course session scheduling/timezone là task implementation hiện tại
-ở trạng thái `READY`. ADR-0017 chốt civil time/DST; ADR-0018 chốt worker production
-shape trước các consumer side effect.
+**Backlog thực thi:** `docs/PHASE_3_BACKLOG.md`. P3-00 backlog/architecture baseline và
+P3-CAL-00 calendar research/design đã `DONE`; P3-CAL-01 technical spike/ADR-0019 là
+gate hiện tại trước calendar recurrence. Thiết kế chi tiết nằm tại
+`docs/CALENDAR_PRODUCT_TECHNICAL_DESIGN.md`. P3-01 course session scheduling/timezone
+vẫn `READY`. ADR-0017 chốt civil time/DST; ADR-0018 chốt worker production shape trước
+các consumer side effect.
 
 **Mục tiêu:** trước khi có classroom phức tạp, người dùng đã quản lý được lịch, tin nhắn và tài liệu.
 
 **Work package:**
 
 1. Course session scheduling và timezone.
-2. Calendar day/week/month và reminder.
+2. Professional Calendar day/work-week/week/month/agenda, recurrence, conflict và reminder.
 3. Direct/class conversation.
 4. Persistent messages, pagination, unread/read receipt.
 5. In-app notification và preference.
@@ -1767,17 +1770,20 @@ Một tính năng chỉ được đánh dấu hoàn thành khi:
 
 ## 36. Việc cần làm ngay
 
-Thứ tự hiện tại, cập nhật ngày 2026-07-22:
+Thứ tự hiện tại, cập nhật ngày 2026-07-23:
 
 1. Phase 1 đã hoàn thành; biên bản nằm tại `docs/PHASE_1_COMPLETION.md`.
 2. Phase 2/P2-00 đến P2-12 đã hoàn thành; biên bản exit gate được sign-off ngày 2026-07-22.
 3. P3-00 đã hoàn thành: backlog Phase 3, ADR scheduling/civil time và ADR worker/outbox.
-4. Bắt đầu P3-01 contract-first: migration, policy, OpenAPI/client, backend, UI tối thiểu
+4. P3-CAL-00 đã hoàn thành: benchmark đối thủ/OSS, audit V1 và thiết kế product/technical.
+5. Thực hiện P3-CAL-01 FullCalendar/recurrence spike và ADR-0019; chưa thêm dependency
+   production trước khi accessibility/performance/license/security gate đạt.
+6. Bắt đầu P3-01 contract-first: migration, policy, OpenAPI/client, backend, UI tối thiểu
    và test timezone/DST/tenant isolation.
-5. Không đưa recurrence, reminder, worker hoặc calendar tổng hợp vào P3-01; triển khai
+7. Không đưa recurrence, reminder, worker hoặc calendar tổng hợp vào P3-01; triển khai
    P3-03 worker trước mọi consumer side effect.
-6. Không xóa thêm Neon branch theo quyết định hiện tại của owner.
-7. Không khởi động QuizHub, Lavie, social feed hoặc Secure Exam ngoài phase đã quy hoạch.
+8. Không xóa thêm Neon branch theo quyết định hiện tại của owner.
+9. Không khởi động QuizHub, Lavie, social feed hoặc Secure Exam ngoài phase đã quy hoạch.
 
 ## 37. Quy tắc duy trì Master Plan
 
@@ -1825,6 +1831,7 @@ Thứ tự hiện tại, cập nhật ngày 2026-07-22:
 ---
 
 **Điểm bắt đầu sau tài liệu này:** đọc `docs/PROJECT_STATE.md`,
-`docs/PHASE_3_BACKLOG.md`, ADR-0017 và ADR-0018. Phase 2/P2-12 đã hoàn thành; P3-00 đã
-`DONE` và P3-01 scheduling/timezone đang `READY`. Master Plan giữ mục tiêu/exit gate,
-không thay backlog chi tiết.
+`docs/PHASE_3_BACKLOG.md`, `docs/CALENDAR_PRODUCT_TECHNICAL_DESIGN.md`, ADR-0017 và
+ADR-0018. Phase 2/P2-12 đã hoàn thành; P3-CAL-00 đã `DONE`, P3-CAL-01 đang `READY` và
+P3-01 scheduling/timezone vẫn `READY`. Master Plan giữ mục tiêu/exit gate, không thay
+backlog chi tiết.

@@ -6,15 +6,15 @@
 
 | Thuộc tính          | Trạng thái                                                                            |
 | ------------------- | ------------------------------------------------------------------------------------- |
-| Ngày cập nhật       | 2026-07-22                                                                            |
+| Ngày cập nhật       | 2026-07-23                                                                            |
 | Repository          | `https://github.com/basangnguyen/TUTORHUB_WEB`                                        |
 | Nhánh làm việc      | `main`                                                                                |
 | Quy trình           | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
 | Phase hoàn thành    | Phase 0, Phase 1, Phase 2                                                             |
 | Phase hiện tại      | Phase 3 - Daily learning workspace                                                  |
-| Task vừa hoàn thành | P3-00 Backlog và architecture/contract baseline                                     |
-| Task hiện tại       | P3-01 Course session scheduling và timezone (`READY`)                               |
-| Task tiếp theo      | Triển khai P3-01 contract-first                                                     |
+| Task vừa hoàn thành | P3-CAL-00 nghiên cứu và thiết kế product/technical tab Lịch                         |
+| Task hiện tại       | P3-CAL-01 renderer/recurrence spike + ADR-0019 (`READY`)                            |
+| Task tiếp theo      | Review báo cáo, chạy spike rồi triển khai P3-01 contract-first                      |
 
 ## Kiến trúc đang chạy
 
@@ -272,11 +272,25 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
    Redis/NATS/Kafka hoặc provider mới.
 4. P3-01 là vertical slice implementation đầu tiên và đang `READY`. Scope không gồm
    recurrence, reminder, calendar tổng hợp, worker runtime hoặc media lifecycle.
+5. P3-CAL-00 đã audit Google Calendar, Microsoft Teams, Zoom, ClassIn, các lựa chọn
+   mã nguồn mở và TutorHub V1; kết quả nằm tại
+   `docs/CALENDAR_PRODUCT_TECHNICAL_DESIGN.md`.
+6. Đề xuất calendar-first dùng FullCalendar Standard chỉ làm renderer sau spike; domain,
+   quyền, recurrence, conflict, reminder và LiveKit vẫn do TutorHub sở hữu. Chưa thêm
+   dependency hoặc runtime code trong P3-CAL-00.
+7. V1 chỉ được giữ làm nguồn nghiệp vụ: event/task/availability poll, quick create và
+   panel agenda. Không port CalendarFX/DAO/model vì V1 hard-code user, JDBC trực tiếp,
+   thiếu tenant/timezone/DST/version/audit và nhiều control chỉ là vỏ UI.
+8. P3-CAL-01 phải chốt ADR-0019 về series/exception/occurrence, recurrence DST và
+   conflict policy; dependency renderer/recurrence chỉ được pin sau performance,
+   accessibility, license và security spike.
 
 ## Rủi ro đã biết
 
 - P3-01 mới có backlog/ADR, chưa có migration/API/UI; không được mô tả scheduling như
   chức năng đã chạy cho tới khi implementation, test và staging acceptance đạt.
+- Báo cáo Calendar là `PROPOSED`; FullCalendar và recurrence library chưa được chấp nhận
+  thành dependency. Không code P3-02 recurrence trước ADR-0019 và technical spike.
 - Outbox hiện mới là writer-side queue, chưa có lease/fencing/dead-letter hoặc
   `cmd/worker`. P3-03 phải hoàn thành trước notification, message/file processing hoặc
   reminder side effect; Render Free web service không được xem là durable worker.

@@ -14,11 +14,16 @@ Xây daily learning workspace đủ dùng cho pilot có kiểm soát:
 5. worker xử lý outbox theo at-least-once, retry idempotent và dead-letter;
 6. home, calendar, search và Class Files có đủ trạng thái vận hành.
 
-**Thời lượng kế hoạch:** 5-7 tuần, chia theo dependency thay vì chạy song song mọi miền.
+**Thời lượng tạm tính:** 7-9 tuần, gồm calendar research/spike và staging closure; phải
+re-baseline sau P3-CAL-01 thay vì ép các miền chạy song song.
 
-**Task vừa hoàn thành:** P3-00 Phase 3 backlog và architecture/contract baseline.
+**Task vừa hoàn thành:** P3-CAL-00 nghiên cứu và product/technical design cho tab Lịch.
 
-**Task hiện tại:** P3-01 Course session scheduling và timezone (`READY`).
+**Task hiện tại:** P3-CAL-01 technical spike + ADR recurrence/conflict (`READY`), sau đó
+P3-01 Course session scheduling và timezone.
+
+**Thiết kế Calendar có thẩm quyền:**
+[`CALENDAR_PRODUCT_TECHNICAL_DESIGN.md`](CALENDAR_PRODUCT_TECHNICAL_DESIGN.md).
 
 ## 2. Non-goal
 
@@ -48,29 +53,34 @@ Xây daily learning workspace đủ dùng cho pilot có kiểm soát:
 
 ## 4. Trạng thái tổng hợp
 
-| Task  | Nội dung                                      | Dependency                  | Trạng thái |
-| ----- | --------------------------------------------- | --------------------------- | ---------- |
-| P3-00 | Backlog + architecture/contract baseline      | Phase 2                     | DONE       |
-| P3-01 | Course session scheduling và timezone         | P3-00                       | READY      |
-| P3-02 | Calendar day/week/month và recurring series   | P3-01                       | TODO       |
-| P3-03 | PostgreSQL outbox worker production shape     | P3-00                       | TODO       |
-| P3-04 | In-app notification và preference             | P3-03                       | TODO       |
-| P3-05 | Session reminder dispatch                     | P3-01, P3-03, P3-04         | TODO       |
-| P3-06 | Direct/class conversation                     | P3-00, Phase 2 policy       | TODO       |
-| P3-07 | Persistent message, unread và read receipt    | P3-03, P3-06                | TODO       |
-| P3-08 | File metadata, upload intent và finalize      | P3-00, B2 baseline          | TODO       |
-| P3-09 | Presigned B2 upload/download                  | P3-08                       | TODO       |
-| P3-10 | Scan/metadata/thumbnail processing            | P3-03, P3-09                | TODO       |
-| P3-11 | Class Files UI                                | P3-09, P3-10                | TODO       |
-| P3-12 | Home dashboard và PostgreSQL search cơ bản    | P3-01, P3-04, P3-07, P3-11 | TODO       |
-| P3-13 | Offline/retry drafts và Phase 3 quota closure | P3-02, P3-07, P3-11         | TODO       |
-| P3-14 | Staging acceptance và đóng Phase 3            | P3-01 đến P3-13             | TODO       |
+| Task      | Nội dung                                      | Dependency                  | Trạng thái |
+| --------- | --------------------------------------------- | --------------------------- | ---------- |
+| P3-00     | Backlog + architecture/contract baseline      | Phase 2                     | DONE       |
+| P3-CAL-00 | Calendar research + product/technical design  | P3-00                       | DONE       |
+| P3-CAL-01 | Renderer/recurrence spike + ADR-0019          | P3-CAL-00                   | READY      |
+| P3-01     | Course session scheduling và timezone         | P3-00, P3-CAL-00            | READY      |
+| P3-02     | Calendar professional views + recurrence      | P3-01, P3-CAL-01            | TODO       |
+| P3-03     | PostgreSQL outbox worker production shape     | P3-00                       | TODO       |
+| P3-04     | In-app notification và preference             | P3-03                       | TODO       |
+| P3-05     | Session reminder dispatch                     | P3-01, P3-03, P3-04         | TODO       |
+| P3-06     | Direct/class conversation                     | P3-00, Phase 2 policy       | TODO       |
+| P3-07     | Persistent message, unread và read receipt    | P3-03, P3-06                | TODO       |
+| P3-08     | File metadata, upload intent và finalize      | P3-00, B2 baseline          | TODO       |
+| P3-09     | Presigned B2 upload/download                  | P3-08                       | TODO       |
+| P3-10     | Scan/metadata/thumbnail processing            | P3-03, P3-09                | TODO       |
+| P3-11     | Class Files UI                                | P3-09, P3-10                | TODO       |
+| P3-12     | Home dashboard và PostgreSQL search cơ bản    | P3-01, P3-04, P3-07, P3-11 | TODO       |
+| P3-13     | Offline/retry drafts và Phase 3 quota closure | P3-02, P3-07, P3-11         | TODO       |
+| P3-14     | Staging acceptance và đóng Phase 3            | P3-01 đến P3-13             | TODO       |
 
 ## 5. Dependency graph
 
 ```mermaid
 flowchart LR
-    P300["P3-00 Baseline"] --> P301["P3-01 Scheduling"]
+    P300 --> PC00["P3-CAL-00 Research/design"]
+    PC00 --> PC01["P3-CAL-01 Spike/ADR"]
+    PC00 --> P301["P3-01 Scheduling"]
+    PC01 --> P302
     P300 --> P303["P3-03 Worker"]
     P300 --> P306["P3-06 Conversations"]
     P300 --> P308["P3-08 File metadata"]
@@ -92,7 +102,9 @@ flowchart LR
     P302 --> P313["P3-13 Offline/quota"]
     P307 --> P313
     P311 --> P313
-    P313 --> P314["P3-14 Closure"]
+    P305 --> P314["P3-14 Closure"]
+    P312 --> P314
+    P313 --> P314
 ```
 
 P3-01 và P3-03 có thể triển khai tuần tự trên `main`; không cần chạy đồng thời để đạt
@@ -116,6 +128,10 @@ tiến độ. P3-04/P3-05/P3-07/P3-10 không được bypass worker foundation.
 
 **User outcome:** teacher lên lịch một buổi học; người có quyền xem lớp thấy đúng thời
 gian; teacher có thể sửa hoặc hủy mà không làm lẫn tenant/lớp.
+
+Trước implementation phải đọc
+[`CALENDAR_PRODUCT_TECHNICAL_DESIGN.md`](CALENDAR_PRODUCT_TECHNICAL_DESIGN.md). P3-01
+không thêm FullCalendar hoặc recurrence; dependency chỉ được thêm sau P3-CAL-01.
 
 ### Scope
 
@@ -156,12 +172,36 @@ gian; teacher có thể sửa hoặc hủy mà không làm lẫn tenant/lớp.
 
 ## 8. P3-02 Calendar day/week/month và recurring series
 
+- Thực thi UX/architecture trong `CALENDAR_PRODUCT_TECHNICAL_DESIGN.md`.
+- Top-level route có Day/Work week/Week/Month/Agenda; mobile mặc định Agenda.
 - Calendar tổng hợp theo viewer timezone nhưng hiển thị class timezone khi khác biệt.
 - Bounded date range, server-side query và URL state cho day/week/month.
 - Recurrence là series + occurrence, không clone vô hạn; edit-one/edit-future/cancel có
-  semantics và ADR bổ sung trước implementation.
+  semantics và ADR-0019 trước implementation.
+- Quick create, full editor, detail drawer, class/type/status filter và role-aware CTA.
+- Drag/resize có keyboard alternative, optimistic revert, undo và stale-version handling.
+- Conflict class/teacher authoritative ở backend; free/busy không lộ private detail.
 - DST gap/overlap, month boundary, leap day và timezone switch có golden tests.
 - Reminder không nằm trong transaction lịch; P3-05 tiêu thụ event sau commit.
+
+### P3-CAL-00 research/design gate
+
+- [x] Nghiên cứu Google Calendar, Microsoft Teams, Zoom và ClassIn bằng nguồn chính thức.
+- [x] Audit read-only tab Lịch TutorHub V1, gồm UI, model/DAO, threading và security.
+- [x] So sánh FullCalendar, Schedule-X, React Big Calendar, TOAST UI, Cal.diy và RRULE.
+- [x] Chốt đề xuất UX, domain/read model, API, backend, security, a11y, test và rollout.
+- [x] Ghi giới hạn nguồn và phân biệt fact/inference.
+
+### P3-CAL-01 technical spike/ADR gate
+
+- [ ] Mở ADR-0019 ở trạng thái `PROPOSED`, ghi alternatives và tiêu chí quyết định.
+- [ ] FullCalendar Standard spike đạt React/Vite/strict/bundle/performance.
+- [ ] Keyboard, NVDA/Axe, mobile Agenda và drag alternative đạt.
+- [ ] DST/drag/revert với fixture `Asia/Ho_Chi_Minh` và `America/New_York` đạt.
+- [ ] Go recurrence candidate đạt RFC subset/golden/property test hoặc bị loại.
+- [ ] ADR-0019 được cập nhật từ kết quả spike và chấp nhận series/exception/occurrence
+      identity, DST recurrence, conflict policy và dependency decision.
+- [ ] Dependency/license/security review; không kéo Premium/telemetry ngoài ý muốn.
 
 ## 9. P3-03 PostgreSQL outbox worker production shape
 
@@ -257,7 +297,9 @@ gian; teacher có thể sửa hoặc hủy mà không làm lẫn tenant/lớp.
 ### Acceptance scenarios
 
 - [ ] Teacher tạo/sửa/hủy session; student thấy đúng timezone qua reload.
-- [ ] Calendar day/week/month và recurrence vượt DST đúng semantics.
+- [ ] Calendar Day/Work week/Week/Month/Agenda và recurrence vượt DST đúng semantics.
+- [ ] Calendar đạt keyboard-only, screen reader/Axe và mobile Agenda acceptance; drag
+      luôn có action thay thế không cần pointer.
 - [ ] Message không mất sau reconnect/reload; unread/read đúng user.
 - [ ] Business mutation vẫn thành công khi notification delivery tạm lỗi.
 - [ ] Worker crash/reclaim, retry và dead-letter không tạo duplicate effect.
@@ -273,6 +315,8 @@ gian; teacher có thể sửa hoặc hủy mà không làm lẫn tenant/lớp.
 - File chưa `ready` không được chia sẻ/tải.
 - Worker retry/idempotency/dead-letter được test trên PostgreSQL thật.
 - Timezone/DST tests và staging smoke đạt.
+- Calendar professional DoD đạt đủ views, responsive, keyboard, screen reader và
+  recurrence/conflict semantics.
 - Notification failure không rollback nghiệp vụ.
 - Verify, Security, provider parity và staging acceptance đều xanh.
 - Biên bản `PHASE_3_COMPLETION.md` được sign-off trước khi chuyển phase.
@@ -282,18 +326,22 @@ gian; teacher có thể sửa hoặc hủy mà không làm lẫn tenant/lớp.
 | Sprint | Task chính             | Kết quả demo                                      |
 | ------ | ---------------------- | ------------------------------------------------- |
 | 0      | P3-00                  | Backlog + ADR baseline                            |
-| 1      | P3-01, P3-03           | Session một lần + worker PostgreSQL               |
-| 2      | P3-02, P3-04, P3-05    | Calendar, notification và reminder               |
-| 3      | P3-06, P3-07           | Conversation và persistent message               |
-| 4      | P3-08, P3-09           | Upload intent/finalize + B2 direct transfer       |
-| 5      | P3-10, P3-11           | File processing + Class Files UI                  |
-| 6      | P3-12, P3-13, P3-14    | Home/search, quota/offline và staging closure     |
+| C0     | P3-CAL-00              | Báo cáo Calendar product/technical design         |
+| C1     | P3-CAL-01              | Renderer/recurrence spike + ADR-0019              |
+| 1      | P3-01                  | Session một lần contract-first                    |
+| 2      | P3-02                  | Calendar chuyên nghiệp + recurrence/conflict      |
+| 3      | P3-03, P3-04, P3-05    | Worker, notification và reminder                  |
+| 4      | P3-06, P3-07           | Conversation và persistent message               |
+| 5      | P3-08, P3-09           | Upload intent/finalize + B2 direct transfer       |
+| 6      | P3-10, P3-11           | File processing + Class Files UI                  |
+| 7      | P3-12, P3-13, P3-14    | Home/search, quota/offline và staging closure     |
 
 ## 22. Việc cần làm ngay
 
-1. P3-00 đã `DONE`; Phase 3 bắt đầu ngày 2026-07-22.
-2. Thực hiện P3-01 contract-first: migration `000014`, policy, OpenAPI/client, backend,
+1. P3-CAL-00 đã `DONE`; đọc và review báo cáo Calendar.
+2. Thực hiện P3-CAL-01 spike + ADR-0019; chưa thêm dependency vào production trước gate.
+3. Thực hiện P3-01 contract-first: migration `000014`, policy, OpenAPI/client, backend,
    minimal UI và test timezone/DST/tenant isolation.
-3. Không đưa recurrence, reminder, worker hoặc calendar tổng hợp vào P3-01.
-4. Sau P3-01, thực hiện P3-03 trước notification, message side-effect hoặc file processing.
-5. Giữ file cá nhân ngoài scope và không đọc/commit `.env*.local`.
+4. Không đưa recurrence, reminder, worker hoặc calendar tổng hợp vào P3-01.
+5. Sau P3-01/P3-02, thực hiện P3-03 trước notification/reminder side-effect.
+6. Giữ file cá nhân ngoài scope và không đọc/commit `.env*.local`.
