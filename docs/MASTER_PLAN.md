@@ -11,7 +11,7 @@
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
 | Phase hiện tại        | Phase 3 - Daily learning workspace                                                           |
-| Trạng thái gần nhất   | ADR-0021/P3-02D + AWS SES target đã chốt; P3-CAL-01 spike/ADR READY ngày 2026-07-23        |
+| Trạng thái gần nhất   | P3-CAL-00C readiness review đã DONE; P3-CAL-01 spike/ADR READY ngày 2026-07-23            |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 
@@ -494,7 +494,7 @@ HF free Space không phù hợp worker bền vững; private alpha chỉ chạy 
 
 Không kiểm tra bằng chuỗi role rải rác. Dùng permission cụ thể như:
 
-- `class.read`, `class.manage`.
+- `class.view`, `class.update`, `class.archive`.
 - `session.schedule`, `session.start`.
 - `availability.poll.create`, `availability.poll.manage_own`,
   `availability.poll.publish_to_class`.
@@ -1306,17 +1306,19 @@ Bằng chứng chuẩn hóa nằm trong `docs/P2_12_STAGING_ACCEPTANCE.md` và
 từ P3-CAL-01.
 
 **Backlog thực thi:** `docs/PHASE_3_BACKLOG.md`. P3-00 backlog/architecture baseline và
-P3-CAL-00/P3-CAL-00B calendar research/re-baseline đã `DONE`; P3-CAL-01 technical
-spike/ADR-0019 là gate hiện tại trước calendar recurrence. AWS SES đã được owner chọn làm
-transactional email provider target; P3-CAL-02/ADR-0020 sẽ xác minh
-invitation/RSVP/iCalendar, SES account/region/sandbox/quota, adapter, webhook và
-deliverability trước P3-02/P3-05. Trước domain chỉ dùng owner-controlled verified
-identities trong SES sandbox; production vẫn chờ domain/DNS và SPF/DKIM/DMARC. Thiết kế chi tiết nằm tại
+P3-CAL-00/P3-CAL-00B/P3-CAL-00C calendar research/re-baseline/readiness review đã
+`DONE`; P3-CAL-01 technical spike/ADR-0019 là gate hiện tại trước calendar recurrence.
+AWS SES đã được owner chọn làm transactional email provider target;
+P3-CAL-02/ADR-0020 sẽ xác minh invitation/RSVP/iCalendar, SES
+account/region/sandbox/quota, adapter, event transport và deliverability trước
+P3-02C/P3-05A. Trước domain chỉ dùng owner-controlled verified identities trong SES
+sandbox; production vẫn chờ domain/DNS và SPF/DKIM/DMARC. Thiết kế chi tiết nằm tại
 `docs/CALENDAR_PRODUCT_TECHNICAL_DESIGN.md`. P3-01 course session scheduling/timezone
 vẫn `READY`. ADR-0017 chốt civil time/DST; ADR-0018 chốt worker production shape trước
-các consumer side effect. ADR-0021 đã chốt Native Availability Poll, secure sharing,
-member-owned Study Meeting và permission boundary cho P3-02D; quyết định này không đổi
-gate hiện tại P3-CAL-01 rồi P3-01.
+các consumer side effect. P3-03 vì vậy phải được triển khai ngay sau P3-01, không để tới
+sau email/notification consumer. ADR-0021 đã chốt Native Availability Poll, secure
+sharing, member-owned Study Meeting và permission boundary cho P3-02D; quyết định này
+không đổi gate hiện tại P3-CAL-01 rồi P3-01.
 
 **Mục tiêu:** trước khi có classroom phức tạp, người dùng đã quản lý được lịch, tin nhắn và tài liệu.
 
@@ -1367,8 +1369,8 @@ tạo Study Meeting của mình. Người dùng đồng thời trao đổi với
 - Invitation/update/cancel/reminder email + ICS giữ UID/SEQUENCE, không tạo duplicate
   application effect; provider duplicate được đo/reconcile và đạt ngưỡng ADR-0020 cùng
   Gmail/Outlook/Apple interoperability.
-- SPF/DKIM/DMARC, signed webhook, bounce/complaint/suppression và runbook đạt; provider
-  failure không rollback nghiệp vụ.
+- SPF/DKIM/DMARC, SES event ingress được xác minh theo topology ADR-0020,
+  bounce/complaint/suppression và runbook đạt; provider failure không rollback nghiệp vụ.
 
 ### Phase 4 - Classroom Media MVP
 
@@ -1741,9 +1743,9 @@ Không thể xây nền tảng toàn cầu miễn phí vĩnh viễn; mục tiêu
 | Tenant data leak            | Thấp/Rất cao      | Context/policy/deny tests/audit           | Bất kỳ cross-tenant finding               |
 | File malware/abuse          | Trung/Cao         | Scan, quota, pending state                | Upload public/pilot                       |
 | Worker mất job              | Trung/Cao         | Outbox, lease, idempotency, DLQ           | Bắt đầu notification/file job             |
-| Email lịch spam/không tới   | Trung/Cao         | Rate limit, SPF/DKIM/DMARC, suppression   | Trước P3-05 gửi tới người thật            |
+| Email lịch spam/không tới   | Trung/Cao         | Rate limit, SPF/DKIM/DMARC, suppression   | Trước P3-05A gửi tới người thật           |
 | Calendar lẫn trade dress    | Thấp/Cao          | Asset gốc, token/a11y/license gate        | Trước P3-02 visual acceptance             |
-| Public poll leak/abuse      | Trung/Cao         | Hash token, fragment exchange, expiry/revoke, rate limit, minimal projection | Trước P3-02D external rollout |
+| Public poll leak/abuse      | Trung/Cao         | Hash token, fragment exchange, expiry/revoke, rate limit, coarse aggregate; không hứa one-human-one-response | Trước P3-02D external rollout |
 | V1 dữ liệu lỗi encoding     | Cao/Trung         | Fixture, UTF-8, reconciliation            | Dry run import                            |
 | Scope phình                 | Cao/Cao           | Exit gate, non-goal, feature flag         | Task không phục vụ milestone              |
 | Microservice quá sớm        | Trung/Cao         | ADR/evidence gate                         | Đề xuất tách không có metric              |
@@ -1766,7 +1768,8 @@ Phải giải quyết bằng spike/ADR đúng phase:
 7. Whiteboard engine/provider topology.
 8. Virus scanning/transcode runtime.
 9. AWS SES target đã chọn; P3-CAL-02 còn phải chốt account/region/sandbox/quota,
-   production access, sending domain/DNS, adapter/webhook/suppression và deliverability.
+   production access, sending domain/DNS, adapter/event-ingress/suppression và
+   deliverability.
    Mobile push provider ở phase sau.
 10. Initial launch region và data residency.
 11. Browser/device matrix chính thức.
@@ -1822,21 +1825,22 @@ Thứ tự hiện tại, cập nhật ngày 2026-07-23:
 2. Phase 2/P2-00 đến P2-12 đã hoàn thành; biên bản exit gate được sign-off ngày 2026-07-22.
 3. P3-00 đã hoàn thành: backlog Phase 3, ADR scheduling/civil time và ADR worker/outbox.
 4. P3-CAL-00 đã hoàn thành: benchmark đối thủ/OSS, audit V1 và thiết kế product/technical.
-5. P3-CAL-00B đã hoàn thành: Teams/Google parity, Warm Academic visual direction và
-   Phase 3 email/ICS/RSVP re-baseline; chưa phải runtime.
+5. P3-CAL-00B/00C đã hoàn thành: Teams/Google parity, Warm Academic visual direction,
+   Phase 3 email/ICS/RSVP re-baseline và readiness review cuối; chưa phải runtime.
 6. Thực hiện P3-CAL-01 FullCalendar/recurrence/theme spike và ADR-0019; chưa thêm dependency
    production trước khi accessibility/performance/license/security gate đạt.
 7. Bắt đầu P3-01 contract-first: migration, policy, OpenAPI/client, backend, UI tối thiểu
    và test timezone/DST/tenant isolation.
-8. Thực hiện P3-CAL-02/ADR-0020 để xác minh AWS SES target trước
-   participant/email/ICS provider implementation; pre-domain chỉ dùng owner-controlled
-   verified identities trong SES sandbox.
-9. Không đưa recurrence, reminder, worker, email hoặc calendar tổng hợp vào P3-01; triển
-   khai P3-03 worker trước mọi consumer side effect.
-10. ADR-0021 đã `Accepted`; triển khai P3-02D sau P3-02B/C, không đổi thứ tự hiện tại
-    P3-CAL-01 -> P3-01 và không phụ thuộc When2meet.
-11. Không xóa thêm Neon branch theo quyết định hiện tại của owner.
-12. Không khởi động QuizHub, Lavie, social feed hoặc Secure Exam ngoài phase đã quy hoạch.
+8. Triển khai P3-03 durable worker ngay sau P3-01 và trước mọi consumer side effect.
+9. Sau khi P3-CAL-01 và P3-01 cùng đạt gate, thực hiện P3-CAL-02/ADR-0020 trong sandbox
+   cô lập để xác minh AWS SES target trước participant/email/ICS provider implementation;
+   pre-domain chỉ dùng owner-controlled verified identities, runtime delivery chờ P3-03.
+10. Triển khai P3-02A, P3-02B/P3-02C, P3-04 và P3-05A theo dependency đã khóa; không
+    đưa recurrence, reminder, worker, email hoặc calendar tổng hợp vào P3-01.
+11. ADR-0021 đã `Accepted`; triển khai P3-02D sau P3-02B/C và P3-03 rồi P3-05B, không
+    phụ thuộc When2meet.
+12. Không xóa thêm Neon branch theo quyết định hiện tại của owner.
+13. Không khởi động QuizHub, Lavie, social feed hoặc Secure Exam ngoài phase đã quy hoạch.
 
 ## 37. Quy tắc duy trì Master Plan
 
@@ -1885,8 +1889,9 @@ Thứ tự hiện tại, cập nhật ngày 2026-07-23:
 
 **Điểm bắt đầu sau tài liệu này:** đọc `docs/PROJECT_STATE.md`,
 `docs/PHASE_3_BACKLOG.md`, `docs/CALENDAR_PRODUCT_TECHNICAL_DESIGN.md`, ADR-0017 và
-ADR-0018 cùng ADR-0021. Phase 2/P2-12 đã hoàn thành; P3-CAL-00/P3-CAL-00B đã `DONE`,
-P3-CAL-01 đang `READY` và P3-01 scheduling/timezone vẫn `READY`. P3-02D/ADR-0021 mới là
+ADR-0018 cùng ADR-0021. Phase 2/P2-12 đã hoàn thành;
+P3-CAL-00/P3-CAL-00B/P3-CAL-00C đã `DONE`, P3-CAL-01 đang `READY` và P3-01
+scheduling/timezone vẫn `READY`. P3-02D/ADR-0021 mới là
 architecture/backlog, chưa có runtime. AWS SES đã được chọn làm provider target nhưng
 P3-CAL-02/ADR-0020 vẫn là gate email/ICS chưa triển khai; chưa có domain hoặc production
 delivery. Master Plan giữ mục tiêu/exit gate, không thay backlog chi tiết.

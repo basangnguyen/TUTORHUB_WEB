@@ -1,8 +1,10 @@
 # Báo cáo nghiên cứu và thiết kế tab Lịch TutorHub V2
 
-- Trạng thái: `PROPOSED v3` với ADR-0021 đã `Accepted`
+- Trạng thái: `PROPOSED v5`, final pre-code readiness audit đã hoàn tất; ADR-0021 đã
+  `Accepted`
 - Ngày nghiên cứu: 2026-07-22 đến 2026-07-23
-- Phạm vi: Phase 3, P3-CAL-00B/P3-CAL-01/P3-CAL-02, P3-01 đến P3-05 và khả
+- Phạm vi: Phase 3, P3-CAL-00B/P3-CAL-00C/P3-CAL-01/P3-CAL-02, P3-01 đến
+  P3-05A/P3-05B và khả
   năng mở rộng về sau
 - Nguồn: tài liệu chính thức Google, Microsoft, Zoom, ClassIn; RFC/WCAG; mã nguồn mở;
   source và ảnh TutorHub V1; ảnh Teams/Google do owner cung cấp; website/CSS Vauliys;
@@ -13,11 +15,12 @@
   [ADR-0021](adr/0021-native-availability-polls-and-member-owned-study-meetings.md)
 
 > Đây là báo cáo thiết kế và đề xuất, chưa phải bằng chứng tính năng đã được triển khai.
-> Bản v2 tích hợp chỉ đạo ngày 2026-07-23: professional-core parity Teams/Google,
+> Bản v4 tích hợp chỉ đạo ngày 2026-07-23: professional-core parity Teams/Google,
 > visual direction kem lấy cảm hứng từ Vauliys và email/ICS/RSVP trong Phase 3. Những
 > quyết định mới về recurrence, conflict, thư viện và email provider phải được chốt bằng
 > ADR/spike trước khi sửa runtime. Native Availability Poll, share mode và permission
-> boundary đã được chốt bằng ADR-0021; đây vẫn là kế hoạch, chưa phải runtime.
+> boundary đã được chốt bằng ADR-0021. Readiness review này chỉ làm rõ contract, gate và
+> dependency; đây vẫn là kế hoạch, chưa phải runtime.
 
 ## 1. Kết luận điều hành
 
@@ -62,7 +65,7 @@ Quyết định đề xuất:
   `METHOD:REQUEST`, UID ổn định, `SEQUENCE` tăng và `METHOD:CANCEL`. Tất cả chạy sau
   commit qua outbox/worker idempotent.
 - AWS SES là transactional email provider target đã được owner chọn. P3-CAL-02/ADR-0020
-  vẫn phải validate region/account/sandbox/quota/adapter/webhook/suppression. Trước khi
+  vẫn phải validate region/account/sandbox/quota/adapter/event-ingress/suppression. Trước khi
   có domain chỉ dùng personal email identity đã verify cho sandbox; production exit gate
   vẫn cần domain cùng SPF/DKIM/DMARC.
 - Phase 3 chỉ đồng bộ lịch nội bộ. Google/Microsoft two-way sync, public booking page và
@@ -72,6 +75,35 @@ Quyết định đề xuất:
   `session.schedule` mới được finalize thành ClassSession.
 - Poll học mental model link + drag/paint heatmap, nhưng không gọi/nhúng/scrape/fork
   When2meet. `anyone_with_link` chỉ là response capability, không phải public booking.
+
+### 1.1 Kết quả readiness review cuối trước khi code
+
+Kết luận ngày 2026-07-23:
+
+- **Được phép bắt đầu:** P3-CAL-01 technical spike/ADR-0019 và P3-01 one-time
+  ClassSession contract-first.
+- **Chưa được code production:** recurrence trước khi ADR-0019 `Accepted`;
+  participant/RSVP/email trước ADR-0020; mọi consumer side effect trước P3-03 worker.
+- **Chưa được gọi production-ready:** SES sandbox dùng personal verified identities,
+  Calendar UI chưa đạt cross-client/a11y/performance gate hoặc chưa có sending domain
+  cùng SPF/DKIM/DMARC.
+- Triển khai theo vertical slice: contract/domain đi trước một nhịp, UI interaction spike
+  chạy rất sớm, sau đó hoàn thiện từng luồng end-to-end. Không làm xong toàn bộ frontend
+  rồi mới nối backend, cũng không xây toàn bộ backend khi chưa kiểm chứng interaction.
+
+| Điểm phải khóa | Nơi quyết định | Điều kiện pass/fail |
+| --- | --- | --- |
+| FullCalendar major/package/license/fallback và numeric bundle/render budget | P3-CAL-01 + ADR-0019 | Spike React 19/Vite/strict/a11y/performance xanh; pin exact version; dependency tree không có Premium/telemetry |
+| Recurrence subset, DST, exception khi split “following”, occurrence/ICS identity và engine Go | P3-CAL-01 + ADR-0019 | Golden/property/conformance xanh; preview không âm thầm mất exception; hard cap/range/deadline có số cụ thể |
+| Working schedule, free/busy privacy và suggested-time ranking | ADR-0019 + P3-02C OpenAPI | IANA zone, nhiều interval/ngày, exception/OOO, unknown semantics, deterministic tie-break và reason code được chốt |
+| Audience diff, organizer lifecycle, RSVP boundary và iCalendar/MIME | P3-CAL-02 + ADR-0020 | Ma trận added/removed/unchanged/role-change; UID/SEQUENCE/RECURRENCE-ID; CTA-only được mô tả đúng, không hứa native reply |
+| SES ambiguous timeout, event transport, suppression và deliverability | P3-CAL-02 + ADR-0020 | App effect ledger; `outcome_unknown`; SNS/EventBridge topology được chọn và xác minh; domain gate giữ nguyên |
+| Worker hosting/lease/retry/dead-letter | P3-03 + ADR-0018 | Process bền vững không spin-down, crash/reclaim test và operational runbook đạt |
+| Poll/Study Meeting lifecycle, privacy, quota và anti-abuse | ADR-0021 + P3-02D | Close/reopen/edit rules, direct meeting API, response identity/dedupe, aggregate suppression và hard cap có acceptance |
+
+Mỗi gate phải ghi quyết định, bằng chứng, con số giới hạn và rollback trong ADR/backlog.
+Không dùng từ “parity đầy đủ” cho chức năng deferred như two-way provider sync, native
+email RSVP, Year view, Exchange federation, assignment/exam projection hoặc Phase 4 media.
 
 ## 2. Phương pháp và giới hạn nghiên cứu
 
@@ -127,7 +159,8 @@ Quyết định đề xuất:
 - Tỷ lệ mutation lịch thành công và tỷ lệ `409` conflict/stale.
 - Số xung đột được phát hiện trước khi lưu.
 - Reminder đúng hạn, trùng, muộn và dead-letter.
-- Invitation/update/cancellation email sent/delivered/bounced/complained/suppressed.
+- Invitation/update/cancellation email accepted/delivered-to-recipient-server/bounced/
+  complained/suppressed; không diễn giải provider delivery là “đã vào inbox”.
 - RSVP accept/tentative/decline, thời gian phản hồi và duplicate/out-of-order delivery.
 - Tỷ lệ người dùng tìm được thời gian không xung đột bằng Scheduling Assistant.
 - Thời gian tải view p50/p95 và số item trên visible range.
@@ -320,7 +353,7 @@ UI lịch dữ liệu dày tiếp tục dùng font sans hệ thống và motion 
 
 | Dự án | License/phạm vi | Điểm mạnh | Rủi ro | Kết luận |
 | --- | --- | --- | --- | --- |
-| [FullCalendar](https://github.com/fullcalendar/fullcalendar) | Standard MIT cho phép dùng thương mại nếu giữ copyright header; Premium cần commercial license, trừ khi cả frontend/backend tuân AGPLv3 | React tốt, Day/Week/Month/List, range fetch, drag/resize, constraints, a11y docs | Resource timeline Premium; phải kiểm tra keyboard, CSS, bundle và major mới | Lựa chọn số 1 cho renderer |
+| [FullCalendar](https://github.com/fullcalendar/fullcalendar) | Standard MIT cho phép dùng thương mại nếu giữ copyright header; Premium cần commercial license, trừ khi cả frontend/backend tuân AGPLv3 | React tốt, Day/Week/Month/List, range fetch, drag/resize, constraints, a11y docs | Latest quan sát ngày 2026-07-23 là v7.0.1, cần `temporal-polyfill`; Resource/Timeline/print optimization là Premium; phải kiểm tra keyboard, CSS, bundle và major mới | Lựa chọn số 1 cho renderer sau spike |
 | [Schedule-X](https://github.com/schedule-x/schedule-x) | Core MIT; drag/drop và resize đã chuyển Premium ở dòng mới | API hiện đại, React, Temporal, responsive, component slots | Chức năng chỉnh lịch chuyên nghiệp tạo license/vendor dependency | Chỉ dùng comparator |
 | [React Big Calendar](https://github.com/jquense/react-big-calendar) | MIT | React-native mental model, controlled state, DnD addon | Tự làm nhiều recurrence/timezone/a11y; localizer/CSS burden | Phương án dự phòng |
 | [TOAST UI Calendar](https://github.com/nhn/tui.calendar) | MIT | Week/month, popup, drag/resize | Release/wrapper cũ, a11y/timezone/recurrence yếu; cần tắt usage statistics | Không chọn cho greenfield |
@@ -333,8 +366,9 @@ UI lịch dữ liệu dày tiếp tục dùng font sans hệ thống và motion 
 
 Adopt:
 
-- `@fullcalendar/react`;
-- Standard plugins cần thiết: `daygrid`, `timegrid`, `list`, `interaction`;
+- candidate `@fullcalendar/react` v7.0.1 và `temporal-polyfill`; exact version chỉ được
+  pin sau spike, có v6.1.x làm fallback stability nếu v7 không đạt;
+- Standard plugins allowlist: `daygrid`, `timegrid`, `list`, `interaction`;
 - locale vi/en;
 - lazy-loaded chỉ ở route Calendar.
 
@@ -355,6 +389,8 @@ Không làm:
 - lưu FullCalendar Event Object vào database;
 - cho FullCalendar tự là source of truth;
 - import Premium package vô tình;
+- import `@fullcalendar/react-scheduler`, `fullcalendar-scheduler`, resource/timeline hoặc
+  adaptive/print Premium khi chưa có ADR và commercial-license approval;
 - dùng `rrule.js` làm authority phía server;
 - fork Cal.diy hoặc Nextcloud Calendar vào monorepo.
 
@@ -372,19 +408,33 @@ Nguồn:
 Spike là task riêng, không đưa code thử vào production route cho tới khi đạt:
 
 1. React 19, TypeScript strict, Vite và StrictMode.
-2. Lazy chunk; đo bundle trước/sau, không kéo Premium hoặc telemetry.
-3. 500, 1.000 và 2.000 item trong visible range.
-4. Locale Việt/Anh, tuần bắt đầu thứ Hai, 12/24 giờ.
-5. Timed, all-day, multi-day, qua nửa đêm.
-6. `Asia/Ho_Chi_Minh`, `America/New_York` gap/overlap và secondary timezone.
-7. Drag/resize optimistic, API `409`, `revert()` và undo.
-8. Keyboard-only, NVDA, Axe, focus order và live announcement.
-9. Desktop/tablet/mobile; Agenda không phụ thuộc time-grid.
-10. Theme bằng design token, không fork CSS lõi.
-11. Dependency/license/security review và pin exact version.
+2. So sánh v7.0.1 với fallback v6.1.x về package topology, Temporal/timezone, CSS/theme,
+   stability và bundle; pin exact version từ bằng chứng.
+3. Lazy chunk; đo bundle trước/sau, kiểm tra license tree; không kéo Premium hoặc
+   telemetry.
+4. 500, 1.000 và 2.000 item trong visible range; ghi p50/p95, long task, memory và
+   numeric pass budget vào ADR.
+5. Locale Việt/Anh, tuần bắt đầu thứ Hai, 12/24 giờ.
+6. Timed, all-day display, multi-day và qua nửa đêm.
+7. `Asia/Ho_Chi_Minh`, `America/New_York` gap/overlap và secondary timezone.
+8. Drag/resize optimistic, API `409`, `revert()` và undo.
+9. Keyboard-only, NVDA, Axe, zoom, forced-colors, focus order và live announcement;
+   `eventInteractive` phải được kiểm chứng, không suy WCAG từ claim của thư viện.
+10. Desktop/tablet/mobile; Agenda không phụ thuộc time-grid.
+11. Theme bằng design token, không fork CSS lõi.
+12. Dependency/license/security review, exact-version pin và CI guard cấm Premium.
 
 Nếu một tiêu chí bắt buộc không đạt, thử React Big Calendar hoặc build surface giới hạn;
 không hạ tiêu chuẩn accessibility để giữ thư viện.
+
+Go recurrence candidate luôn nằm sau interface adapter. Với `rrule-go`, spike phải kiểm
+tra maintenance/open issue và không gọi `.All()`. Rule nhận từ người dùng phải đi qua
+iterator do adapter kiểm soát được `context`, deadline và item cap giữa từng occurrence;
+`Between()` chỉ được dùng sau khi validator chứng minh upper bound nhỏ hơn hard cap vì
+hàm này tạo cả slice trước khi caller có thể ngắt. Phase 3 không hỗ trợ
+`SECONDLY/MINUTELY/HOURLY`; monthly/yearly chỉ mở khi golden/conformance xanh. Nếu
+candidate không cho hủy an toàn hoặc sai subset bắt buộc, chọn restricted engine/fork đã
+review thay vì vá sai lệch ở UI.
 
 ## 6. Audit TutorHub V1
 
@@ -504,7 +554,8 @@ port model, DAO, CalendarFX hoặc threading; chỉ chuyển các user job đã 
 - conflict engine;
 - worker runtime/reminder delivery;
 - attendee/invitation/RSVP domain và availability query;
-- iCalendar renderer, email provider adapter, delivery ledger, webhook và suppression;
+- iCalendar renderer, email provider adapter, delivery ledger, provider-event ingress và
+  suppression;
 - Calendar semantic token warm-academic;
 - calendar UI và test.
 
@@ -558,8 +609,11 @@ Nguyên tắc:
 | Calendar surface | All-day row, time ruler, current-time line, today highlight và một trong năm view |
 | Detail/editor | Drawer khi xem; modal/page hai cột khi tạo/sửa |
 
-`Mới` chỉ hiện lựa chọn đã có domain/capability: buổi học và office hour trước; deadline,
-exam, organization event hoặc poll chỉ xuất hiện khi source domain tương ứng đã chạy.
+`Mới` chỉ hiện lựa chọn đã có domain/capability. P3-01 chỉ có `Buổi học`; Availability
+Poll và Study Meeting chỉ xuất hiện sau P3-02D. `Office hour` chỉ được bật nếu P3-01/
+ADR-0019 chốt một `ClassSession.kind` typed và policy tương ứng; deadline, exam,
+organization event hoặc all-day item chỉ xuất hiện khi source domain tương ứng đã chạy.
+Không dùng một form “event chung” để lén tạo generic source domain.
 Detail drawer không làm grid co quá hẹp; ở tablet/mobile nó thành overlay, bottom sheet
 hoặc page.
 
@@ -644,11 +698,12 @@ kiểu Google:
 | Vùng | Nội dung |
 | --- | --- |
 | Header/command | Event type, repeat, show-as, reminder, visibility, close, `Lên lịch và gửi` |
-| Cột chính 68–72% | Class/title; required/optional attendee; date/time/all-day/timezone; location/online room; description; materials; guest permissions; reminder |
+| Cột chính 68–72% | Class/title; required/optional attendee; date/time/timezone; location; online intent/deep link khi source contract có thật; description; materials; guest permissions; reminder |
 | Cột phải 28–32% | Mini day preview, conflict, working hours và Scheduling Assistant |
 
 Tab/section `Chi tiết` và `Tìm thời gian` dùng chung một source of truth. Free/busy chỉ
-trả interval `free/tentative/busy/out_of_office`; không lộ title/description khi viewer
+trả canonical status `free/tentative/busy/out_of_office/unknown`; không lộ
+title/description khi viewer
 không có quyền. External email chưa có calendar sync hiển thị `Không rõ`, không giả là
 rảnh. Suggested time phải giải thích timezone, working-hours và conflict; backend mới là
 authority ở thời điểm lưu.
@@ -661,12 +716,32 @@ Nguyên tắc recipient:
 - teacher/co-teacher/TA/student, required/optional và guest permission là field khác nhau;
 - một recipient trùng roster/manual phải được normalize và deduplicate.
 
+ADR-0020 phải chốt audience-diff matrix thay vì luôn gửi lại toàn bộ:
+
+| Diff | Business/RSVP | Email/iCalendar effect |
+| --- | --- | --- |
+| Added | Tạo attendee `needs_action` | Recipient mới nhận `REQUEST` revision hiện tại |
+| Removed | Revoke capability, giữ audit/history | Recipient bị xóa nhận recipient-specific `CANCEL` |
+| Unchanged | Giữ RSVP nếu nội dung không yêu cầu reset | Chỉ nhận update khi revision có attendee-visible change |
+| Required ↔ optional | Giữ response nhưng đổi role có audit | Nhận `REQUEST` sequence mới |
+| Roster join/leave sau publish | Không tự mutate snapshot | Chỉ đổi khi organizer chạy explicit audience-update command |
+
+ADR cũng phải chốt organizer bị disable/rời class, transfer organizer, archived class,
+resend-to-changed-only so với resend-all và revision stale. Không để worker đọc roster
+hiện tại rồi tự quyết định.
+
 Form có unsaved-change guard, validation summary, recurrence scope prompt và preview
 occurrence/timezone. Phase 3 không tuyên bố persisted server draft cho tới khi ADR chốt
 lifecycle; `Lên lịch và gửi` commit nghiệp vụ rồi enqueue notification. Reschedule dùng
 `Cập nhật và gửi`; cancel published event dùng `Hủy và thông báo`. Không cho published
 session biến mất âm thầm bằng lựa chọn “không gửi”, trừ repair/admin command có policy,
 reason và audit riêng.
+
+ClassSession và StudyMeeting authoring trong Phase 3 là **timed**. Renderer vẫn phải hiển
+thị all-day item đúng chuẩn cho holiday/announcement projection tương lai, nhưng không
+hiện all-day toggle nếu chưa có authoritative source domain. Online-room field trong
+Phase 3 chỉ được hiện khi có typed intent/deep-link contract; LiveKit room, token,
+lobby/moderation và join lifecycle vẫn thuộc Phase 4.
 
 ### 8.7 Detail drawer và CTA theo lifecycle
 
@@ -776,16 +851,19 @@ Quy tắc:
 
 - **Shell/views:** top-level route; Teams-inspired sidebar/command bar; mini-calendar;
   Day/Work week/Week/Month/Agenda; all-day/current-time; persisted URL view; search và
-  class/type/status filters.
-- **Create/edit:** quick create; full editor hai cột; detail drawer; timed/all-day;
-  location; online room toggle/projection; description; material link; drag, resize,
-  revert và undo. Class Files picker/projection chỉ bật sau khi P3-11 có domain/API thật;
-  milestone Calendar + email không bị block bởi placeholder attachment.
+  class/type/status filters; saved view preference và density/time-scale preference.
+- **Create/edit:** quick create; full editor hai cột; detail drawer; timed authoring và
+  all-day projection rendering;
+  `location`, all-day authoring, online intent và material link chỉ hiện khi typed source
+  contract có thật; drag, resize, revert và undo. ClassSession/StudyMeeting Phase 3 là
+  timed. Class Files picker/projection chỉ bật sau khi P3-11 có domain/API thật; milestone
+  Calendar + email không bị block bởi placeholder attachment.
 - **Participants:** organizer, teacher/co-teacher/TA/student; roster-derived audience;
   required/optional attendee; external guest có tenant policy; guest list permission,
   visibility và show-as.
-- **Availability:** Scheduling Assistant/Find a time; working hours; privacy-safe
-  free/tentative/busy/out-of-office; hard class/teacher conflict, student warning và
+- **Availability:** Scheduling Assistant/Find a time; versioned working schedule; viewer
+  và attendee timezone/dual-zone khi khác nhau; privacy-safe canonical status
+  `free/tentative/busy/out_of_office/unknown`; hard class/teacher conflict, student warning và
   admin override có reason/audit.
 - **Availability Poll:** mọi active authenticated member tạo poll native; response
   preferred/available/unavailable; class-only/invited/public link có kiểm soát; aggregate
@@ -810,8 +888,8 @@ Quy tắc:
 ### 9.2 Nên có ngay sau core nếu còn ngân sách Phase 3
 
 - Year và custom multi-day view;
-- multiple calendars, combined/split view, saved views và density/time-scale preference;
-- secondary timezone và start/end timezone khác nhau cho travel event;
+- multiple calendars và combined/split view;
+- start/end timezone khác nhau cho travel event;
 - admin batch schedule/import template;
 - suggested-time explanation, propose-new-time, office hours và out-of-office auto-decline;
 - read-only ICS export/feed có capability rotate/revoke;
@@ -846,9 +924,10 @@ Quy tắc:
   `session.schedule`; student vẫn được tạo poll và Study Meeting của mình.
 - Không lưu token calendar provider trong browser/localStorage.
 - Không để frontend tự cấp LiveKit room/token.
-- Không gửi email tới người thật trước khi provider, sending domain, SPF/DKIM/DMARC,
-  webhook verification, suppression và runbook đạt gate; hoàn thành gate này là công
-  việc Phase 3, không phải lý do defer email khỏi phase.
+- Không gửi business/end-user email trước khi provider, sending domain, SPF/DKIM/DMARC,
+  provider-event ingress verification, suppression và runbook đạt gate. Trước domain chỉ
+  được gửi deterministic fixture giữa sender/recipient identity do owner kiểm soát và đã
+  verify trong SES sandbox; đây không phải business delivery hay production readiness.
 - Không làm marketing/bulk email platform, inbound mailbox hoặc mobile push trong Phase 3.
 - Không hỗ trợ recurrence vô hạn ở private alpha; yêu cầu end date hoặc bounded count.
 
@@ -955,6 +1034,26 @@ version
 
 `CalendarItem` không nhận mutation chung; client gọi endpoint của source domain.
 
+#### CalendarDisplayPreference và WorkingSchedule
+
+Calendar module sở hữu preference hiển thị và lịch làm việc của từng user, không sở hữu
+event nghiệp vụ:
+
+- `CalendarDisplayPreference`: viewer IANA timezone, locale, first-day-of-week,
+  12/24-hour, default/saved view, density/time scale và optional secondary timezone;
+- `WorkingSchedule` versioned gồm nhiều interval không chồng lấn cho mỗi weekday, IANA
+  timezone và date exception như nghỉ/OOO/giờ đặc biệt;
+- tenant có default; user override theo policy; update dùng expected version;
+- mức chia sẻ tách riêng: owner thấy chi tiết, Scheduling Assistant chỉ nhận interval
+  free/tentative/busy/out_of_office/unknown đã privacy-filter;
+- unknown không được coi là free; absence của preference dùng default có nhãn rõ.
+
+P3-02A phải có migration/OpenAPI/UI tối thiểu cho `CalendarDisplayPreference` trước khi
+tuyên bố saved/default view bền vững. P3-02C sở hữu migration/OpenAPI/UI cho
+`WorkingSchedule` trước khi tuyên bố working hours hoặc suggested time. Exact range,
+participant, interval và candidate cap được chốt trong ADR/OpenAPI, không để endpoint
+unbounded.
+
 #### SessionAttendee và CalendarInvitation
 
 Thiết kế chi tiết phải được chốt trong ADR-0020, nhưng contract tối thiểu gồm:
@@ -972,9 +1071,12 @@ Thiết kế chi tiết phải được chốt trong ADR-0020, nhưng contract t
 
 External RSVP capability chỉ lưu purpose-bound token hash, scope, expiry, revoke/replay
 state; raw token không vào database, audit, log hoặc analytics. Delivery ledger giữ
-effect key, template/locale, provider reference, attempt/retry và
-`sent/delivered/bounced/complained/suppressed/dead_letter`, không dùng email làm metric
-label.
+effect key, template/locale, provider reference, attempt/retry và đúng một state machine:
+`pending`, `sending`, `accepted`, `outcome_unknown`, `retry_wait`,
+`delivered_to_recipient_server`, `bounced`, `complained`, `suppressed`, `dead_letter`
+hoặc `superseded`. `accepted` chỉ là SES nhận request;
+`delivered_to_recipient_server` chỉ là mail server đích chấp nhận, không chứng minh email
+vào inbox. Không dùng email làm metric label.
 
 #### AvailabilityPoll
 
@@ -993,6 +1095,10 @@ label.
 - optional `source_poll_id`;
 - không mang attendance/grade/official-class semantics;
 - calendar read projection có Prepare/Join chỉ khi Phase 4 room lifecycle cấp capability.
+- active member có `study_meeting.schedule_own` được tạo trực tiếp hoặc từ poll; owner
+  sửa/hủy, safety admin chỉ recovery/revoke có reason/audit;
+- Phase 3 có create/list/detail/update/cancel scheduling API và conflict check tối thiểu;
+  invitation/RSVP chỉ bật khi ADR-0020 định nghĩa audience/delivery contract cho loại này.
 
 ### 10.3 Vì sao không dùng một bảng `calendar_events`
 
@@ -1087,6 +1193,13 @@ Server serialize canonical RRULE để tương thích ICS, nhưng API form dùng
 - tạo series mới với metadata/rule mới;
 - link `split_from_series_id`;
 - giữ past history và audit.
+- trước commit, server trả preview số future exception/RSVP/reminder bị ảnh hưởng;
+- không âm thầm reset exception tương lai. ADR-0019 phải chốt và test từng loại
+  carry/rebase/discard; khi không map one-to-one, organizer chọn rõ hoặc mutation bị từ
+  chối;
+- internal semantics là split-series, không tuyên bố hỗ trợ iCalendar
+  `RANGE=THISANDFUTURE`. ADR-0020 phải chốt old/new UID, sequence và fan-out lifecycle
+  cho external client.
 
 #### Toàn bộ chuỗi
 
@@ -1127,6 +1240,11 @@ kể cả khi tzdata về sau thay đổi cách civil time được ánh xạ sa
 - Cache theo tenant/viewer/range/filter/version.
 - Không gọi `all()` trên recurrence không bounded.
 - Server authority; client chỉ preview bằng cùng test vector.
+- Typed rule không cho cả `COUNT` và `UNTIL`; `UNTIL` type/UTC semantics, `EXDATE`
+  precedence và duplicate collapse phải theo subset ADR-0019.
+- Moved occurrence giữ original occurrence tuple/`RECURRENCE-ID`.
+- Ngày 29/30/31, leap day, malformed/complex rule, fuzz/resource exhaustion và tzdata
+  version đều có fixture.
 
 ## 13. Conflict và availability
 
@@ -1135,7 +1253,7 @@ kể cả khi tzdata về sau thay đổi cách civil time được ánh xạ sa
 | Conflict | Mặc định | Ghi chú |
 | --- | --- | --- |
 | Cùng class có hai session trùng | Hard block | Trừ admin override có reason nếu policy cho |
-| Teacher/co-teacher bị trùng | Hard block hoặc admin override | Phải kiểm tra participant authoritative |
+| Teacher/co-teacher bị trùng | Hard block hoặc admin override | Chỉ bật sau P3-02C khi teacher assignment/attendee authoritative tồn tại |
 | Student có hai lớp trùng | Soft warning | Không lộ title lớp người khác |
 | Room/resource trùng | Hard block khi resource domain có | Phase sau |
 | External calendar busy | Warning | Chỉ sau provider sync |
@@ -1146,7 +1264,7 @@ kể cả khi tzdata về sau thay đổi cách civil time được ánh xạ sa
 
 Free/busy projection chỉ trả:
 
-- busy/tentative/free;
+- canonical status `free | tentative | busy | out_of_office | unknown`;
 - range;
 - resource opaque;
 - override capability.
@@ -1157,6 +1275,9 @@ Không trả title, class, attendee hoặc description nếu viewer không có q
 
 - Frontend preview không phải authority.
 - Backend recheck trong transaction.
+- Mọi interval dùng half-open `[start, end)`; hai buổi chạm biên không overlap.
+- Cancelled hoặc `show_as=free` không block; tentative/busy/OOO và override policy phải
+  được ADR-0019 liệt kê, không suy từ màu UI.
 - Mutation có expected version và idempotency key.
 - Lock/order theo tenant + class + teacher resource để hai request đồng thời không cùng
   vượt qua check.
@@ -1192,6 +1313,45 @@ ADR-0021 đã chốt Availability Poll là P3-02D native, không phải future p
   moderation, reconnect và media lifecycle vẫn thuộc Phase 4;
 - production không gọi/nhúng/scrape/fork/copy When2meet.
 
+### 13.5 Suggested-time contract
+
+P3-02C không dùng một “điểm AI” mơ hồ. Request phải nêu participant required/optional,
+bounded range, scheduling IANA timezone, duration, step/granularity, working-hours policy
+và `max_candidates`. Slot có hard conflict của organizer hoặc required resource bị loại
+trừ khi actor có override capability và gửi reason. Các slot còn lại được sort theo tuple
+lexicographic tăng dần:
+
+```text
+(
+  required_out_of_office,
+  required_busy,
+  required_unknown,
+  required_tentative,
+  required_outside_working_schedule,
+  optional_out_of_office,
+  optional_busy,
+  optional_unknown,
+  optional_tentative,
+  optional_outside_working_schedule,
+  start_instant,
+  stable_slot_key
+)
+```
+
+Vì vậy thứ tự chất lượng cho từng người là
+`free > tentative > unknown > busy > out_of_office`; một required attendee chắc chắn bận
+không thể thắng slot chỉ `unknown` do tie-break sai thứ tự. Candidate grid được dựng theo
+civil time của scheduling timezone: label rơi vào DST gap bị bỏ; overlap tạo hai instant
+khác offset, sort theo instant và dedupe bằng `(start_instant, end_instant)`. Grid start
+không được sinh bằng cách bước trên UTC rồi gắn nhãn local. Sau khi một start civil hợp lệ
+được resolve thành `start_instant`, tính `end_instant = start_instant + elapsed_duration`
+trên timeline; vì vậy meeting vẫn dài đúng số phút thực qua DST.
+
+Response trả reason code/breakdown bounded cho từng candidate và
+`empty_suggestions_reason`; không lộ lịch/title nguồn. External/no-sync participant là
+`unknown`, không được cộng như free. ADR/OpenAPI phải ghi exact max range, participant,
+step và candidate cap trước implementation.
+
 ## 14. Authorization và privacy
 
 ### 14.1 Quyền
@@ -1199,7 +1359,7 @@ ADR-0021 đã chốt Availability Poll là P3-02D native, không phải future p
 - `session.schedule`: create/update/cancel theo shared policy.
 - `availability.poll.create`: mọi active authenticated tenant member, gồm student/guest
   có account, được tạo poll nếu feature/quota cho phép.
-- Poll chỉ được bind `class_id` khi creator là active class member có `class.read`;
+- Poll chỉ được bind `class_id` khi creator là active class member có `class.view`;
   foreign/inaccessible class bị conceal `404`.
 - `availability.poll.manage_own`: owner sửa/open/share/close/cancel/finalize/revoke link
   của poll mình; safety admin có capability riêng và audit.
@@ -1260,12 +1420,26 @@ can_create_instant_room
   `Referrer-Policy: no-referrer` và không chạy analytics trước capability exchange.
 - Broad public poll token không làm identity chung để sửa response người khác; anonymous
   responder nhận response handle/edit secret riêng, chỉ lưu hash.
+- Capability dùng tối thiểu 128-bit CSPRNG, versioned HMAC/hash-at-rest và constant-time
+  comparison. URL chỉ dựng từ canonical HTTPS origin, không tin `Host`/
+  `X-Forwarded-Host`.
+- Landing/GET và security-scanner prefetch không được accept/decline/vote/finalize.
+  Mutation chỉ sau explicit POST + confirm; short-lived handle dùng Secure/HttpOnly/
+  SameSite cookie hoặc memory-only handle cùng Origin/CSRF protection phù hợp.
+- Share token có thể multi-use; responder edit token và recipient-bound RSVP token là
+  purpose/scope/revision riêng. Stale/cancelled invitation không mutate revision mới.
+- Public aggregate mặc định chỉ hiện sau khi responder đã gửi và đạt minimum cohort theo
+  tenant policy; dưới ngưỡng trả “chưa đủ phản hồi”. Đây chỉ là biện pháp giảm rủi ro,
+  không thể bảo đảm chống differencing/Sybil. Public view dùng coarse bucket và không lộ
+  exact responder count; exact count/individual response chỉ cho organizer/capability nội
+  bộ. Anonymous dedupe chỉ bảo đảm retry idempotent theo response handle, không tuyên bố
+  “một người thật chỉ phản hồi một lần”.
 - Chặn invitation bombing/recipient enumeration bằng tenant policy, maximum audience,
   rate limit và typed error không tiết lộ tài khoản tồn tại.
 - HTML/subject/ICS phải escape, chống header/property injection và chỉ cho URL scheme/
   domain đã duyệt.
-- Provider webhook xác minh signature, timestamp và replay ID; bounce/complaint luôn đưa
-  recipient vào suppression theo policy.
+- Provider event ingress xác minh transport signature/identity, timestamp và replay ID;
+  bounce/complaint luôn đưa recipient vào suppression theo policy.
 - RSVP token có entropy đủ, purpose/scope/expiry/revoke và rate limit; không nằm ở URL
   analytics, log hoặc referrer ngoài ý muốn.
 
@@ -1351,6 +1525,10 @@ role hoặc quyết định ai có quyền nhận dữ liệu lớp.
 ### 15.4 Free/busy, attendee, RSVP và invitation API
 
 ```http
+GET  /api/v1/calendar/preferences
+PATCH /api/v1/calendar/preferences
+GET  /api/v1/calendar/working-schedule
+PUT  /api/v1/calendar/working-schedule
 POST /api/v1/calendar/availability/query
 GET  /api/v1/classes/{class_id}/sessions/{session_id}/attendees
 POST /api/v1/classes/{class_id}/sessions/{session_id}/responses
@@ -1358,16 +1536,20 @@ POST /api/v1/classes/{class_id}/sessions/{session_id}/resend-invitations
 GET  /api/v1/classes/{class_id}/sessions/{session_id}/ical
 POST /api/v1/calendar/invitations/resolve
 POST /api/v1/calendar/invitations/respond
-POST /api/v1/webhooks/email/{provider}
 ```
 
 Đây là route proposal cho ADR/OpenAPI review, chưa phải contract đã triển khai. Public
 invitation link đặt capability ở URL fragment để browser không gửi token trong HTTP
-request/referrer; SPA xóa fragment bằng `history.replaceState` rồi gửi token trong JSON
-body tới `resolve/respond`. Endpoint chỉ trả projection allowlist, không lộ class
-roster/guest list. Route này đặt `Referrer-Policy: no-referrer`, tắt analytics trước
-exchange và bắt buộc app/proxy log redaction. Provider webhook route có adapter cụ thể
-sau ADR-0020.
+request/referrer. SPA đọc token vào biến memory, xóa fragment đồng bộ bằng
+`history.replaceState` **trước network call**, rồi POST token từ memory trong JSON tới
+`resolve/respond` và xóa biến ngay sau exchange. Endpoint chỉ trả projection allowlist,
+không lộ class roster/guest list. Route đặt `Referrer-Policy: no-referrer`,
+`Cache-Control: no-store`, `X-Robots-Tag: noindex` và CSP chặt
+(`default-src 'none'`, chỉ allow self script/style/connect cần thiết, `base-uri 'none'`,
+`form-action 'none'`, `frame-ancestors 'none'`); không tải third-party subresource hay
+analytics trước exchange và bắt buộc app/proxy log redaction. Provider-event ingress là
+internal topology-specific boundary, không phải public Calendar API; ADR-0020 chọn toàn
+bộ durable path và định nghĩa adapter/verification tương ứng.
 
 ### 15.5 Native Availability Poll API
 
@@ -1378,12 +1560,19 @@ POST  /api/v1/calendar/availability-polls
 GET   /api/v1/calendar/availability-polls/{poll_id}
 PATCH /api/v1/calendar/availability-polls/{poll_id}
 POST  /api/v1/calendar/availability-polls/{poll_id}/open
+POST  /api/v1/calendar/availability-polls/{poll_id}/close
+POST  /api/v1/calendar/availability-polls/{poll_id}/reopen
 PUT   /api/v1/calendar/availability-polls/{poll_id}/responses/me
 GET   /api/v1/calendar/availability-polls/{poll_id}/summary
 POST  /api/v1/calendar/availability-polls/{poll_id}/finalize
 POST  /api/v1/calendar/availability-polls/{poll_id}/cancel
 POST  /api/v1/calendar/availability-polls/{poll_id}/capabilities
 POST  /api/v1/calendar/availability-polls/{poll_id}/capabilities/{capability_id}/revoke
+GET   /api/v1/calendar/study-meetings
+POST  /api/v1/calendar/study-meetings
+GET   /api/v1/calendar/study-meetings/{meeting_id}
+PATCH /api/v1/calendar/study-meetings/{meeting_id}
+POST  /api/v1/calendar/study-meetings/{meeting_id}/cancel
 ```
 
 External proposal:
@@ -1396,6 +1585,12 @@ POST /api/v1/calendar/availability-polls/respond
 OpenAPI review có thể tinh chỉnh path/name nhưng không đổi semantics ADR-0021. Secret
 không nằm trong path/query; external endpoint nhận token/response handle trong JSON và
 chỉ trả projection allowlist. Public route dùng `public_id` không mang authority.
+
+Poll slot/timezone/duration được sửa tự do ở `draft`; sau khi `open` và có response, các
+field làm đổi meaning của answer là immutable. Organizer phải đóng/cancel và tạo revision
+mới. Deadline có thể auto-close idempotent qua worker. `closed -> open` chỉ được phép khi
+chưa finalized/cancelled, deadline mới hợp lệ, slot không đổi; response được giữ và
+transition ghi version/audit/outbox.
 
 ### 15.6 Problem types
 
@@ -1526,11 +1721,14 @@ class_session.occurrence_overridden.v1
 class_session.participants_changed.v1
 class_session.response_recorded.v1
 availability_poll.opened.v1
+availability_poll.reopened.v1
 availability_poll.response_recorded.v1
 availability_poll.closed.v1
 availability_poll.cancelled.v1
 availability_poll.finalized.v1
 study_meeting.scheduled.v1
+study_meeting.rescheduled.v1
+study_meeting.cancelled.v1
 ```
 
 Payload chỉ có ID, tenant/class context tối thiểu, timestamps/version và actor ID nếu cần;
@@ -1646,20 +1844,23 @@ sequenceDiagram
     participant W as Worker
     participant R as Renderer
     participant E as Email provider
+    participant T as Durable event transport
+    participant C as Provider event consumer
 
     U->>API: Publish/reschedule/cancel
     API->>DB: Business row + recipient snapshot + audit + outbox
     DB-->>API: Commit
     API-->>U: Saved; delivery pending
     W->>DB: Claim with lease/fencing
-    W->>DB: Load committed snapshot + claim idempotent delivery
+    W->>DB: Persist/claim unique application effect + attempt
     W->>R: Render localized text/HTML/iCalendar
     R-->>W: Deterministic MIME payload
-    W->>E: Send with provider idempotency
-    E-->>W: Accepted/provider reference
-    W->>DB: Ack/retry/dead-letter + delivery state
-    E-->>API: Signed delivery/bounce/complaint webhook
-    API->>DB: Idempotent delivery/suppression update
+    W->>E: SES SendEmail (one recipient; no caller idempotency token)
+    E-->>W: Accepted + MessageId (not proof of delivery)
+    W->>DB: accepted / outcome_unknown / retry / dead-letter
+    E-->>T: Configuration-set provider event
+    T-->>C: Claim/retry normalized event
+    C->>DB: Inbox dedupe + idempotent state/suppression update
 ```
 
 Provider call ở runtime/production luôn sau commit. Một provider lỗi không làm schedule
@@ -1668,6 +1869,30 @@ rollback; UI hiển thị
 Audience/recipient snapshot được resolve và persist trong business transaction; worker
 không đọc roster hiện tại để tự quyết định người nhận. Roster đổi sau publish chỉ ảnh
 hưởng invitation khi organizer chạy command cập nhật audience có audit/version rõ.
+
+SES v2 `SendEmail` không có caller idempotency token. Application effect có unique key
+`(invitation_id, recipient_id, effect_type, ical_sequence, channel)`; attempt được persist
+trước provider call. Timeout sau khi request có thể đã rời process là
+`outcome_unknown`, không được retry tức thì như lỗi chắc chắn. Worker dùng grace/reconcile,
+opaque effect tag và configuration-set event để correlate; external duplicate hiếm vẫn
+phải có SLO/metric/runbook vì không thể hứa exactly-once qua SMTP.
+
+Canonical transition của delivery effect là:
+
+```text
+pending/retry_wait -> sending
+sending -> accepted | outcome_unknown | retry_wait | suppressed | dead_letter
+accepted -> delivered_to_recipient_server | bounced | complained
+delivered_to_recipient_server -> complained
+outcome_unknown -> accepted | delivered_to_recipient_server | bounced | complained
+                   | retry_wait | dead_letter
+pending/retry_wait -> superseded
+```
+
+Mọi transition dùng expected version và provider-event inbox idempotent. Event đến trễ
+được lưu vào history rồi project theo transition hợp lệ, không đơn giản “last timestamp
+wins”. `complained` có thể đến sau `delivered_to_recipient_server`; projection phải giữ
+complaint/suppression severity thay vì hạ cấp về delivery.
 
 ### 18.2 Reminder và notification model
 
@@ -1680,6 +1905,9 @@ hưởng invitation khi organizer chạy command cập nhật audience có audit
 - preference được áp dụng lúc delivery; transactional cancellation không bị biến thành
   marketing opt-out;
 - late policy bounded: gửi trễ có ích hay bỏ + audit/metric;
+- per-user reminder là private preference, tách khỏi change notification của organizer;
+- in-app reminder có `snooze`, `dismiss` và `join/open`; snooze có maximum horizon/count,
+  event đã cancel/ended hoặc quá late threshold thì supersede/expire;
 - không gửi hàng trăm notification không kiểm soát khi sửa series; fan-out có quota,
   batching/digest chỉ khi không phá semantics recipient.
 
@@ -1689,6 +1917,8 @@ hưởng invitation khi organizer chạy command cập nhật audience có audit
   Mặc định file ICS chỉ có organizer và chính recipient đó trong `ATTENDEE`; chỉ thêm
   attendee khác khi `can_see_guest_list` được server cho phép và ADR-0020 chứng minh
   client interoperability không làm lộ roster.
+- Mỗi `VCALENDAR` bắt buộc có `PRODID`, `VERSION:2.0`, `CALSCALE:GREGORIAN` và đúng một
+  `METHOD`; fixture khóa giá trị `PRODID` stable của TutorHub.
 - Create/publish: `METHOD:REQUEST`.
 - Update/reschedule: giữ UID, tăng `SEQUENCE`, gửi `METHOD:REQUEST`.
 - Cancel: cùng UID/sequence mới, `METHOD:CANCEL` + `STATUS:CANCELLED`.
@@ -1698,8 +1928,16 @@ hưởng invitation khi organizer chạy command cập nhật audience có audit
   recipient-specific `ATTENDEE` + `ROLE/PARTSTAT`, `LOCATION`, deep link và description
   allowlist. CTA-only mode phát `RSVP=FALSE`; chỉ phát `RSVP=TRUE` khi inbound
   `METHOD:REPLY` đã được ADR-0020 đưa vào scope, xác thực và test end-to-end.
-- MIME có text/plain, escaped HTML, `text/calendar` và `.ics`; renderer dùng persisted
-  canonical snapshot, không ghép chuỗi từ outbox payload tự do.
+- Phase 3 dùng một `multipart/alternative` có đúng ba part theo thứ tự: `text/plain`,
+  escaped `text/html`, rồi **một** `text/calendar; method=...; charset=UTF-8` với
+  `Content-Disposition: inline; filename="invite.ics"` và transfer encoding được ADR-0020
+  khóa. Không đính kèm thêm bản `.ics` thứ hai để tránh client xử lý trùng; nếu spike bắt
+  buộc hierarchy/disposition khác cho một client thì ADR phải chọn một calendar part
+  authoritative duy nhất. MIME `method` phải khớp `VCALENDAR METHOD`. Renderer phát CRLF,
+  fold 75 octet không cắt UTF-8, escape text đúng RFC và transfer-encoding an toàn; dùng
+  persisted canonical snapshot/bytes hash, không ghép chuỗi từ outbox payload tự do hoặc
+  đổi `DTSTAMP` khi retry cùng revision. Golden bytes riêng cho create/update/cancel phải
+  kiểm cả header MIME lẫn nội dung VCALENDAR.
 - RSVP trong app/email CTA là source được hỗ trợ Phase 3. Email phải nói rõ “Phản hồi
   trong TutorHub”; không hứa thao tác Accept/Decline native của Google/Outlook cập nhật
   TutorHub. Inbound `METHOD:REPLY` chỉ được tuyên bố nếu ADR-0020 thêm inbound parser,
@@ -1714,25 +1952,51 @@ AWS SES là provider target đã chọn, nhưng ADR-0020 chỉ được chấp n
 spike; không hard-code AWS SDK vào domain. Gate gồm:
 
 - adapter interface, AWS account/region/sandbox, cost/quota/rate limit và provider
-  idempotency;
+  timeout/ambiguous-acceptance semantics; không hard-code pricing snapshot cũ;
+- invitation/update/cancel dùng SES v2 `SendEmail` với `Content.Raw`/`RawMessage` chứa
+  chính canonical MIME bytes đã persist/hash; adapter không tái tạo bằng Simple/Template
+  content rồi làm đổi header, boundary hoặc calendar bytes;
+- pin một SES region; identity, sandbox/quota, suppression và event configuration được
+  kiểm chứng theo region; mỗi call chỉ có một recipient, không CC/BCC;
 - pre-domain test chỉ dùng sender/recipient email identity đã verify trong SES sandbox;
   không gọi sandbox là production readiness;
-- sending domain, SPF, DKIM và DMARC;
-- signed webhook, timestamp/replay protection;
+- sending domain dùng Easy DKIM; DMARC pass/alignment được chứng minh bằng aligned DKIM
+  hoặc SPF. Nếu dựa vào SPF alignment thì cấu hình custom MAIL FROM cùng organizational
+  domain; không coi SPF của default SES MAIL FROM là aligned;
+- chốt **toàn bộ durable topology**, ưu tiên
+  `Configuration Set -> EventBridge -> SQS + DLQ -> P3-03 provider-event consumer ->
+  PostgreSQL inbox`. Phương án `SNS HTTPS -> verified ingress -> PostgreSQL inbox` chỉ
+  được chọn nếu endpoint trả `2xx` sau khi inbox commit và retry/DLQ/recovery được chứng
+  minh. Nếu dùng SNS HTTPS, topic phải cấu hình `SignatureVersion=2`; ingress reject
+  version khác, verify SHA-256 signature/certificate chain qua HTTPS, allowlist
+  TopicArn/account/region, timestamp/replay và SubscriptionConfirmation an toàn; không
+  gọi chung chung là “SES signed webhook”;
+- provider inbox dedupe theo hash canonical của
+  `(provider_message_id, event_type, recipient, event_timestamp, provider_event_id nếu có)`.
+  Out-of-order event được append history rồi project bằng state machine/sequence severity,
+  không overwrite mù theo arrival time;
 - bounce/complaint/suppression và resend policy;
 - retry/backoff/dead-letter, out-of-order sequence protection;
 - localized template, header/HTML/ICS injection tests;
 - no secret/token/raw email/body/provider payload trong log, metric hoặc outbox;
+- tắt open/click tracking cho RSVP/poll capability vì link rewrite có thể phá security
+  contract; test href nhận được sau provider;
+- UI/metric gọi `delivered_to_recipient_server` là “máy chủ nhận đã chấp nhận”, không
+  hiển thị “đã vào inbox”;
 - runbook rotate key, pause send, inspect/replay có authorization/audit.
+
+SPF/DKIM/DMARC là domain authentication/deliverability, không tương đương S/MIME và
+không đủ để tuyên bố full RFC 6047 security conformance.
 
 ### 18.5 Operational requirements
 
 - backlog age, due lag, render/send/provider latency và success/retry/dead-letter;
-- sent/delivered/bounced/complained/suppressed và duplicate prevented;
+- accepted/delivered-to-recipient-server/bounced/complained/suppressed và duplicate
+  prevented;
 - RSVP outcome/latency chỉ ở bounded aggregate, không làm metric label theo user/class;
 - lease reclaim, duplicate delivery, cancel-before-invite và out-of-order tests;
 - Render Free web spin-down không được xem là durable worker;
-- durable worker hosting ở P3-03; provider/interoperability ở P3-CAL-02/P3-05.
+- durable worker hosting ở P3-03; provider/interoperability ở P3-CAL-02/P3-05A/P3-05B.
 
 ## 19. External calendar interoperability
 
@@ -1900,6 +2164,8 @@ resolution và replay UX đầy đủ.
 - month “31” behavior;
 - timezone switch;
 - series edit one/following/all;
+- future exception carry/rebase/discard preview khi split following;
+- COUNT xor UNTIL, EXDATE precedence và moved original RECURRENCE-ID;
 - tzdata regression fixtures.
 
 ### 22.3 Property/conformance
@@ -1940,7 +2206,7 @@ resolution và replay UX đầy đủ.
 - no token/PII in log/audit/outbox;
 - rate/quota abuse với range, recurrence và invitation fan-out;
 - unauthorized resend, recipient enumeration và cross-class guest-list leak;
-- forged/replayed provider webhook và RSVP capability;
+- forged/replayed provider-event ingress và RSVP capability;
 - poll fragment exchange không rò token qua query/referrer/log/analytics;
 - public projection không lộ roster/email/individual availability; broad link không sửa
   response của người khác;
@@ -1951,7 +2217,8 @@ resolution và replay UX đầy đủ.
 
 - component tests cho states/form/drawer/agenda;
 - Playwright teacher create/reschedule/cancel và student view/join;
-- editor hai cột, required/optional attendee, Scheduling Assistant privacy và RSVP;
+- quick/full editor, recurrence-scope dialog, required/optional attendee, Scheduling
+  Assistant privacy, RSVP, reminder snooze/dismiss và mobile screen-reader;
 - poll editor + desktop drag/paint heatmap + mobile list/card; preferred/available/
   unavailable có text/icon, keyboard/NVDA/forced-colors;
 - class-only/invited/public external response, expiry/revoke và no-booking behavior;
@@ -1976,7 +2243,7 @@ resolution và replay UX đầy đủ.
 - provider sandbox create/update/cancel dùng cùng UID, sequence tăng và application
   effect dedupe đúng;
 - Gmail/Google Calendar, Outlook và Apple Calendar interoperability smoke;
-- internal/external RSVP; bounce/complaint/suppression và signed webhook;
+- internal/external RSVP; bounce/complaint/suppression và verified SES event ingress;
 - student/member tạo poll; external trả lời mà không thấy roster; teacher/student
   finalize đúng loại outcome và duplicate finalize không tạo đôi;
 - network/referrer/log evidence chứng minh poll token không rò; runtime không request/
@@ -1995,7 +2262,8 @@ Metrics bounded:
 - stale version;
 - reminder due lag/success/retry/dead-letter;
 - worker backlog age;
-- invitation rendered/sent/delivered/bounced/complained/suppressed;
+- invitation rendered/accepted/delivered-to-recipient-server/bounced/complained/
+  suppressed;
 - email provider latency/error và duplicate prevented;
 - RSVP outcome/latency, token invalid/expired/rate-limited ở bounded aggregate;
 - poll opened/responded/finalized/cancelled, slot/participant limit và capability
@@ -2018,13 +2286,20 @@ PII và nội dung lớp bị redacted.
   re-baseline theo chỉ đạo owner ngày 2026-07-23.
 - [x] ADR-0021 chốt native Availability Poll, permission/share mode, secure capability
   và Study Meeting boundary theo chỉ đạo owner ngày 2026-07-23.
+- [x] Final implementation-readiness review khóa working schedule/suggested-time,
+  recurrence exception, audience diff, SES ambiguous timeout, task dependency và
+  poll/StudyMeeting lifecycle ngày 2026-07-23.
 
 ### Gate C1 — Technical spike
 
 - Mở ADR-0019 ở trạng thái `PROPOSED`, ghi alternatives và tiêu chí spike.
-- FullCalendar Standard prototype không nối production API.
-- A11y, performance, bundle, timezone, drag/revert.
-- Go recurrence candidate conformance/maintenance spike.
+- FullCalendar Standard v7.0.1 prototype không nối production API; so sánh fallback
+  v6.1.x, Temporal/package/license tree và pin exact version.
+- A11y, performance, bundle, timezone, drag/revert có numeric pass budget.
+- Go recurrence candidate qua adapter, bounded conformance/maintenance/resource-
+  exhaustion spike.
+- WorkingSchedule/suggested-time contract, teacher-resource dependency và exact cap được
+  ghi vào ADR/OpenAPI plan.
 - Cập nhật và chấp nhận ADR-0019 từ bằng chứng spike.
 - Chốt component/recurrence dependency hoặc phương án tự xây; chưa code production
   recurrence khi ADR vẫn `PROPOSED`.
@@ -2032,13 +2307,20 @@ PII và nội dung lớp bị redacted.
 ### Gate C2 — Email/iCalendar/provider spike
 
 - Mở ADR-0020 về participant/invitation/RSVP/iTIP/iMIP/provider/deliverability.
-- Spike deterministic MIME/ICS renderer và Gmail/Outlook/Apple create/update/cancel.
-- Validate AWS SES adapter từ cost/quota/region/idempotency/webhook/suppression evidence.
+- Spike deterministic MIME/ICS renderer có required VCALENDAR fields, đúng một
+  authoritative calendar part và Gmail/Outlook/Apple create/update/cancel.
+- Validate AWS SES adapter từ cost/quota/region/idempotency/event-ingress/suppression
+  evidence.
+- Ghi rõ SES không có caller idempotency token; spike `accepted`/`outcome_unknown`,
+  effect-tag reconciliation và external duplicate SLO.
+- Chọn full durable Configuration Set event topology đến queue/inbox/consumer, khóa
+  signature version, dedupe/out-of-order key và security contract.
 - Khi chưa có domain, spike chỉ dùng personal sender/recipient identity đã verify trong
   SES sandbox; production gate vẫn chờ domain/DNS.
-- Chốt sending domain, SPF/DKIM/DMARC, secret rotation, webhook và incident runbook.
+- Chốt sending domain, SPF/DKIM/DMARC, secret rotation, provider-event ingress và incident
+  runbook.
 - Spike chỉ dùng fixture và provider sandbox/sink cô lập; không nối Core API, consume
-  outbox hoặc phát business side effect. Runtime delivery phải chờ P3-03/P3-05.
+  outbox hoặc phát business side effect. Runtime delivery phải chờ P3-03/P3-05A.
 - Không gửi business email tới end user hoặc thêm production dependency trước khi
   ADR-0020 được chấp nhận và provider sandbox gate đạt. Pre-domain sandbox chỉ dùng
   owner-controlled verified identities.
@@ -2056,6 +2338,7 @@ PII và nội dung lớp bị redacted.
 - top-level route/navigation;
 - Day/Work week/Week/Month/Agenda;
 - range query/filter/URL state;
+- saved view, density/time-scale preference và dual-zone badge;
 - Teams-inspired sidebar/command bar, quick create/detail/editor hai cột;
 - Warm Academic semantic token + responsive visual regression;
 - responsive/a11y/state coverage.
@@ -2063,8 +2346,10 @@ PII và nội dung lớp bị redacted.
 ### P3-02B — Recurrence và conflict
 
 - series/exception migration/contract;
-- one/following/all;
+- one/following/all, future-exception preview/policy;
 - backend expansion/conflict;
+- class conflict trước; teacher/student conflict chỉ bật khi P3-02C có assignment/
+  attendee authoritative;
 - drag/resize/revert/undo;
 - golden/property/integration/E2E tests.
 
@@ -2072,12 +2357,15 @@ PII và nội dung lớp bị redacted.
 
 - roster audience + required/optional/external attendee policy;
 - show-as, visibility, guest permissions;
-- Scheduling Assistant/Find a time và privacy-safe availability;
+- WorkingSchedule (display preference đã thuộc P3-02A), Scheduling Assistant/Find a time,
+  deterministic suggested-time ranking và privacy-safe availability;
 - RSVP domain/API/UI accept/tentative/decline, organizer summary và token security.
 
 ### P3-02D — Native Availability Poll và Study Meeting
 
 - normalized poll/slot/participant/response/capability schema và tenant policy;
+- explicit close/reopen/edit-after-response lifecycle; deadline auto-close;
+- direct create/list/detail/update/cancel StudyMeeting scheduling API;
 - class-only, invited-only và explicit anyone-link share mode;
 - desktop drag/paint heatmap, mobile list/card, keyboard/screen-reader/forced-colors;
 - preferred/available/unavailable, privacy-safe aggregate và deterministic ranking;
@@ -2086,16 +2374,19 @@ PII và nội dung lớp bị redacted.
 - audit/outbox/idempotency/conflict recheck, anti-abuse/quota và external projection tests;
 - không có When2meet runtime/API/iframe/scrape/fork/code dependency.
 
-### P3-03/P3-04/P3-05 — Worker, notification, email và reminder
+### P3-03/P3-04/P3-05A/P3-05B — Worker, notification, email và reminder
 
 - worker production shape;
 - in-app projection/preference;
-- invitation/update/cancellation fan-out + HTML/text/ICS;
+- P3-05A session invitation/update/cancellation/reminder + HTML/text/ICS;
 - external capability/CTA delivery gọi lại RSVP command của P3-02C, không tạo response
   source of truth riêng;
-- provider webhook, delivery ledger, bounce/complaint/suppression;
-- reminder materialization/delivery/supersede;
-- poll opened/deadline/cancelled/finalized fan-out theo recipient;
+- verified provider-event transport, delivery ledger, ambiguous-timeout reconciliation,
+  bounce/complaint/suppression;
+- reminder materialization/delivery/supersede/snooze/dismiss;
+- P3-05B poll opened/reopened/deadline/cancelled/finalized và direct Study Meeting
+  scheduled/rescheduled/cancelled fan-out theo recipient; manual close không broadcast
+  mặc định;
 - staging failure/retry/dead-letter và cross-client acceptance.
 
 ### Sau calendar core
@@ -2113,29 +2404,36 @@ Trước P3-02B phải chốt:
 1. schema series/exception/occurrence materialization;
 2. recurrence subset và giới hạn;
 3. DST gap/overlap cho recurrence;
-4. edit one/following/all và history đã live;
+4. edit one/following/all, future exception carry/rebase/discard và history đã live;
 5. stable occurrence identity;
-6. hard/soft conflict và admin override;
+6. half-open overlap, cancelled/show-as, class/teacher/student resource foundation,
+   hard/soft conflict, lock strategy và admin override;
 7. recurrence engine Go sau conformance spike;
-8. FullCalendar dependency sau UI spike;
+8. FullCalendar v7/fallback dependency, Temporal/package/license tree sau UI spike;
 9. all-day scope;
-10. ICS/export boundary.
+10. ICS/export boundary, split-series UID/sequence policy;
+11. CalendarDisplayPreference/WorkingSchedule và deterministic suggested-time contract;
+12. exact range/item/occurrence/participant/deadline cap và numeric performance budget.
 
 Không đổi ADR-0017: P3-01 vẫn session một lần và `classroom` vẫn sở hữu mutation.
 
 ### 25.2 ADR-0020 — Invitation, RSVP, iCalendar và email provider
 
-Trước P3-02C/P3-05 phải chốt:
+Trước P3-02C/P3-05A phải chốt:
 
 1. organizer/creator, attendee required/optional và roster audience snapshot;
+   added/removed/unchanged/role-change diff, organizer transfer/disable/archive và RSVP
+   retention/reset policy;
 2. RSVP source of truth, external capability và CTA-only `RSVP=FALSE` mặc định; chỉ bật
    inbound `METHOD:REPLY`/`RSVP=TRUE` khi parser và security gate được đưa vào scope;
 3. globally unique stable UID generation, sequence ownership, recurrence identity và
    iTIP/iMIP subset;
 4. AWS SES qua provider abstraction, account/region/sandbox, sending domain,
    SPF/DKIM/DMARC;
-5. delivery effect idempotency, order/supersede và provider timeout semantics;
-6. webhook verify, bounce/complaint/suppression và resend policy;
+5. application effect idempotency, SES `accepted`/`outcome_unknown`, order/supersede,
+   grace/reconcile và external duplicate SLO;
+6. Configuration Set -> SNS/EventBridge topology, ingress verification,
+   bounce/complaint/suppression và resend policy;
 7. external guest policy, retention/PII và abuse/rate/quota;
 8. Gmail/Outlook/Apple compatibility và rollout/rollback/runbook.
 
@@ -2180,14 +2478,14 @@ Chỉ được dùng cụm này khi:
 - public poll không có booking/hold/payment/auto-confirm và runtime không phụ thuộc
   When2meet;
 - publish tạo đúng một logical invitation effect cho mỗi recipient/revision; retry dùng
-  application dedupe và provider idempotency khi có, còn duplicate delivery bên ngoài
-  được đo/reconcile theo ngưỡng ADR-0020;
+  application dedupe. SES không có caller idempotency token; ambiguous acceptance và
+  duplicate delivery bên ngoài được đo/reconcile theo ngưỡng ADR-0020;
 - reschedule giữ UID/tăng sequence; cancel gửi `METHOD:CANCEL` không sinh calendar item
   mới;
 - reminder/email async idempotent, localized và đúng viewer timezone;
 - provider failure không rollback lịch; bounce/complaint/suppression và retry/dead-letter
   có thể quan sát/khắc phục;
-- RSVP token, webhook, rate limit và SPF/DKIM/DMARC gate đạt;
+- RSVP token, provider-event ingress, rate limit và SPF/DKIM/DMARC gate đạt;
 - Gmail/Google Calendar, Outlook và Apple interoperability đạt phạm vi ADR-0020;
 - loading/empty/error/forbidden/offline/stale đầy đủ;
 - keyboard/screen reader/mobile đạt;
@@ -2236,7 +2534,17 @@ không phải lịch production.
 - [View multiple calendars](https://support.microsoft.com/en-US/teams/meetings/view-multiple-calendars-in-microsoft-teams)
 - [Graph Calendar](https://learn.microsoft.com/en-us/graph/outlook-calendar-concept-overview)
 - [Graph calendarView](https://learn.microsoft.com/en-us/graph/api/calendar-list-calendarview?view=graph-rest-1.0)
+- [Graph scheduleInformation/workingHours](https://learn.microsoft.com/en-us/graph/api/resources/scheduleinformation?view=graph-rest-1.0)
+- [Graph findMeetingTimes](https://learn.microsoft.com/en-us/graph/api/user-findmeetingtimes?view=graph-rest-1.0)
 - [Graph delta events](https://learn.microsoft.com/en-us/graph/delta-query-events)
+
+### AWS SES và event ingress
+
+- [SES v2 SendEmail API](https://docs.aws.amazon.com/ses/latest/APIReference-V2/API_SendEmail.html)
+- [SES event publishing](https://docs.aws.amazon.com/ses/latest/dg/monitor-using-event-publishing.html)
+- [SES DMARC và alignment](https://docs.aws.amazon.com/ses/latest/dg/send-email-authentication-dmarc.html)
+- [SNS message signature verification](https://docs.aws.amazon.com/sns/latest/dg/sns-verify-signature-of-message.html)
+- [EventBridge targets](https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-targets.html)
 
 ### Zoom
 
@@ -2270,6 +2578,7 @@ API/white-label/SLA của dịch vụ và không dùng nó làm runtime/source d
 ### Open source
 
 - [FullCalendar](https://github.com/fullcalendar/fullcalendar)
+- [FullCalendar React v7](https://fullcalendar.io/docs/react)
 - [FullCalendar license](https://fullcalendar.io/license)
 - [Schedule-X](https://github.com/schedule-x/schedule-x)
 - [React Big Calendar](https://github.com/jquense/react-big-calendar)
@@ -2280,12 +2589,21 @@ API/white-label/SLA của dịch vụ và không dùng nó làm runtime/source d
 
 ## 28. Bước tiếp theo được khuyến nghị
 
-1. P3-CAL-00B đã hoàn tất re-research và re-baseline tài liệu; đây chưa phải runtime.
-2. Thực hiện P3-CAL-01: mở ADR-0019 và chạy FullCalendar/Go recurrence/theme/a11y spike.
-3. Finalize ADR-0019 và dependency decision từ bằng chứng spike.
-4. Triển khai P3-01 contract-first.
-5. Thực hiện P3-CAL-02 và ADR-0020 để xác minh AWS SES target cho
-   email/iCalendar/provider/deliverability; pre-domain chỉ dùng owner-controlled
-   verified identities trong SES sandbox.
-6. Triển khai P3-02A/B/C rồi P3-02D theo ADR-0021; sau đó P3-03/P3-04/P3-05 theo
-   dependency, không bypass worker hoặc gửi email tới người thật trước provider gate.
+1. P3-CAL-00B/00C đã hoàn tất re-research, re-baseline và readiness review; đây chưa
+   phải runtime.
+2. Thực hiện P3-CAL-01: mở ADR-0019 và chạy FullCalendar/Go
+   recurrence/theme/a11y/performance/license spike; chỉ pin dependency khi gate đạt.
+3. Triển khai P3-01 one-time ClassSession contract-first. P3-CAL-01 và P3-01 có thể tiến
+   song song, nhưng P3-02A chờ cả hai hoàn tất.
+4. Triển khai P3-03 durable worker ngay sau P3-01 và trước mọi consumer side effect.
+5. Triển khai P3-02A Calendar shell/read projection sau P3-01 và ADR-0019; không chờ
+   email provider.
+6. Chạy P3-CAL-02/ADR-0020 trong sandbox cô lập sau khi **cả P3-CAL-01 và P3-01**
+   đạt gate để khóa audience diff, iCalendar/MIME, AWS SES adapter, ambiguous acceptance,
+   durable event transport và deliverability. Pre-domain chỉ dùng owner-controlled
+   verified identities; runtime delivery vẫn chờ P3-03.
+7. Triển khai P3-02B recurrence/conflict và P3-02C WorkingSchedule,
+   attendee/free-busy/RSVP theo gate tương ứng.
+8. Triển khai P3-04 rồi P3-05A cho notification và ClassSession email/ICS/reminder.
+9. Sau professional session core, triển khai P3-02D theo ADR-0021 rồi P3-05B cho
+   Availability Poll/StudyMeeting delivery; không bypass worker hoặc provider gate.

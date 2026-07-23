@@ -12,7 +12,7 @@
 | Quy trình           | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
 | Phase hoàn thành    | Phase 0, Phase 1, Phase 2                                                             |
 | Phase hiện tại      | Phase 3 - Daily learning workspace                                                   |
-| Task vừa hoàn thành | P3 decisions re-baseline: ADR-0021/P3-02D + AWS SES target (docs-only)               |
+| Task vừa hoàn thành | P3-CAL-00C Calendar implementation-readiness review (docs-only)                       |
 | Task hiện tại       | P3-CAL-01 renderer/recurrence/theme spike + ADR-0019 (`READY`)                       |
 | Task tiếp theo      | Chạy P3-CAL-01/ADR-0019, sau đó triển khai P3-01 contract-first                      |
 
@@ -289,7 +289,8 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
    chép asset/font/trade dress và chưa đổi runtime token.
 10. Invitation/update/cancellation/reminder email, ICS và RSVP đã được đưa vào Phase 3
     exit gate. Owner đã chọn AWS SES làm provider target; P3-CAL-02/ADR-0020 vẫn phải
-    xác minh account/region/sandbox/quota, adapter, webhook, iTIP/iMIP và deliverability.
+    xác minh account/region/sandbox/quota, adapter, provider-event ingress, iTIP/iMIP và
+    deliverability.
     Trước khi có domain chỉ thử bằng owner-controlled verified identities trong SES
     sandbox; production vẫn cần domain/DNS cùng SPF/DKIM/DMARC. Mọi effect runtime chỉ
     chạy sau commit qua P3-03 worker. Đây là re-baseline tài liệu, chưa phải chức năng
@@ -301,17 +302,31 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
     email/individual availability. Chỉ actor có `session.schedule` mới finalize thành
     ClassSession; actor khác chỉ tạo Study Meeting. When2meet chỉ là comparator, không
     phải runtime/API/iframe/fork/code dependency.
+12. P3-CAL-00C đã rà soát readiness lần cuối bằng nguồn chính thức và upstream: tách
+    P3-02A/B/C cùng P3-05A/B, kéo P3-03 lên trước consumer side effect, bổ sung
+    WorkingSchedule/suggested-time contract, audience diff, reminder lifecycle,
+    split-exception preview, direct StudyMeeting API, poll close/reopen và hardening
+    capability link. SES không có caller idempotency token; timeout mơ hồ dùng app effect
+    ledger + trạng thái `outcome_unknown`; canonical delivery state không gọi
+    mail-server acceptance là inbox. Kế hoạch đã khóa required VCALENDAR/MIME một calendar
+    part, full durable provider-event path tới inbox/consumer, iterator recurrence có
+    cancellation/cap, DST suggested-time total order và giới hạn đúng mức của public-poll
+    cohort/dedupe. Vòng hậu kiểm đã tách `CalendarDisplayPreference` về P3-02A,
+    `WorkingSchedule` về P3-02C; buộc P3-02D phụ thuộc P3-03 cho deadline auto-close và
+    khóa P3-05B cho poll reopen cùng direct StudyMeeting lifecycle. Đây vẫn là tài liệu,
+    chưa có Calendar runtime.
 
 ## Rủi ro đã biết
 
 - P3-01 mới có backlog/ADR, chưa có migration/API/UI; không được mô tả scheduling như
   chức năng đã chạy cho tới khi implementation, test và staging acceptance đạt.
 - Báo cáo Calendar là `PROPOSED`; FullCalendar và recurrence library chưa được chấp nhận
-  thành dependency. Không code P3-02 recurrence trước ADR-0019 và technical spike.
+  thành dependency. Không code P3-02B recurrence trước ADR-0019 và technical spike.
 - AWS SES đã được chọn làm provider target nhưng chưa được cấu hình/xác minh và sending
   domain chưa có. Pre-domain chỉ cho phép owner-controlled verified identities trong
-  SES sandbox; không được coi là production readiness. SPF/DKIM/DMARC, signed webhook,
-  bounce/complaint/suppression và cross-client ICS chưa được kiểm thử. Không gửi
+  SES sandbox; không được coi là production readiness. SPF/DKIM/DMARC, SES event ingress
+  theo topology ADR-0020, bounce/complaint/suppression và cross-client ICS chưa được
+  kiểm thử. Không gửi
   business email tới end user trước P3-CAL-02/ADR-0020 và P3-03 worker gate.
 - Warm Academic mới là visual direction; `tokens.css` và Calendar UI chưa được đổi.
 - P3-02D hiện mới có ADR/backlog/design, chưa có schema/API/UI/capability exchange hoặc
@@ -319,7 +334,8 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
   chạy.
 - External poll link có rủi ro token/PII leak và abuse. Implementation phải đạt token
   entropy cao, hash-at-rest, fragment exchange, expiry/revoke/rate limit, log redaction
-  và privacy-safe aggregate theo ADR-0021.
+  và privacy-safe aggregate theo ADR-0021. Minimum cohort/coarse bucket chỉ giảm rủi ro
+  differencing/Sybil; anonymous link không thể hứa one-human-one-response.
 - Quyền tạo instant study room đã được chốt làm authorization target, nhưng LiveKit
   token, lobby, moderation và media lifecycle vẫn thuộc Phase 4.
 - Outbox hiện mới là writer-side queue, chưa có lease/fencing/dead-letter hoặc

@@ -83,6 +83,7 @@ live; rollback bằng specific commit giữ cấu hình hiện tại là bằng 
 | P3-00 Backlog/architecture baseline  | DONE       | Backlog, ADR scheduling và ADR worker        |
 | P3-CAL-00 Calendar research/design   | DONE       | Product/UX/technical/V1/OSS report           |
 | P3-CAL-00B Calendar re-baseline      | DONE       | Tài liệu only; chưa có theme/email runtime   |
+| P3-CAL-00C Calendar readiness review | DONE       | Gate/dependency/contract đã được harden      |
 | P3-CAL-01 Spike + ADR-0019           | READY      | Renderer, recurrence, conflict gate          |
 | P3-01 Session scheduling và timezone | READY      | Vertical slice implementation đầu tiên       |
 | P3-CAL-02 Email/ICS + ADR-0020       | TODO       | AWS SES target, RSVP, ICS, deliverability    |
@@ -90,7 +91,7 @@ live; rollback bằng specific commit giữ cấu hình hiện tại là bằng 
 | P3-02A/B/C, P3-03 đến P3-14          | TODO       | Theo dependency trong backlog                |
 
 Nguồn thực thi: `docs/PHASE_3_BACKLOG.md`. Trước khi code calendar phải đọc
-`docs/CALENDAR_PRODUCT_TECHNICAL_DESIGN.md` và ADR-0017; P3-02 recurrence phải chờ
+`docs/CALENDAR_PRODUCT_TECHNICAL_DESIGN.md` và ADR-0017; P3-02B recurrence phải chờ
 P3-CAL-01/ADR-0019; invitation/RSVP/iCalendar/AWS SES adapter phải chờ
 P3-CAL-02/ADR-0020. AWS SES mới là provider target do owner chọn, chưa được cấu hình hay
 chấp nhận làm runtime: trước domain chỉ dùng owner-controlled verified identities trong
@@ -104,10 +105,10 @@ hoặc media lifecycle.
 Mọi active authenticated member có thể tạo/quản lý poll và Study Meeting của mình; chỉ
 actor có `session.schedule` mới tạo ClassSession. Full LiveKit token/lobby/moderation/
 room lifecycle vẫn thuộc Phase 4.
-P3-CAL-02 có thể chạy trước P3-03 vì chỉ là ADR và test renderer/provider sandbox cô lập;
-không nối Core API/outbox hoặc gửi business email tới end user. SES sandbox chỉ được
-dùng với identity thử nghiệm do owner kiểm soát và đã verify. Đường gửi runtime chỉ nằm
-ở P3-05 sau khi P3-03 đạt gate.
+Sau khi P3-CAL-01 và P3-01 cùng đạt gate, P3-CAL-02 có thể chạy trước P3-03 vì chỉ là
+ADR và test renderer/provider sandbox cô lập; không nối Core API/outbox hoặc gửi business
+email tới end user. SES sandbox chỉ được dùng với identity thử nghiệm do owner kiểm soát
+và đã verify. Đường gửi runtime chỉ nằm ở P3-05A/P3-05B sau khi P3-03 đạt gate.
 
 ## 6. Hạ tầng staging đã chốt
 

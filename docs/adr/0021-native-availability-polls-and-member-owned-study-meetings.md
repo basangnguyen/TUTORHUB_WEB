@@ -2,7 +2,8 @@
 
 - Trạng thái: Accepted
 - Ngày: 2026-07-23
-- Phạm vi: P3-02D, P3-05 và contract tích hợp Classroom Media ở Phase 4
+- Làm rõ sau readiness review: 2026-07-23
+- Phạm vi: P3-02D, P3-05B và contract tích hợp Classroom Media ở Phase 4
 
 ## Bối cảnh
 
@@ -77,7 +78,7 @@ active membership.
 
 Quyền sở hữu poll không nâng quyền:
 
-- poll chỉ được bind `class_id` khi creator là active member của class và có `class.read`;
+- poll chỉ được bind `class_id` khi creator là active member của class và có `class.view`;
   foreign/inaccessible class bị conceal `404`;
 - organizer thiếu `session.schedule` chỉ finalize thành `StudyMeeting`;
 - organizer có `session.schedule` và quyền trên class đích mới được chọn
@@ -129,9 +130,22 @@ Lifecycle là:
 
 ```text
 draft -> open -> closed -> finalized
-                 \-----> cancelled
-open ------------------> cancelled
+draft -------------> cancelled
+open --------------> cancelled
+closed ------------> cancelled
+closed ------------> open
 ```
+
+`close` có thể do owner/safety admin hoặc deadline worker chạy idempotent. `reopen` chỉ
+được phép khi chưa finalized/cancelled, deadline mới hợp lệ và tập slot không đổi; giữ
+response, tăng version và ghi audit/outbox. Slot/timezone/duration sửa tự do ở draft;
+sau khi poll open và có response thì các field làm đổi nghĩa answer là immutable. Muốn
+đổi phải đóng/cancel và tạo revision mới.
+
+`cancel` là command idempotent từ `draft`, `open` hoặc `closed` bởi owner/safety admin;
+`finalized` không chuyển ngược thành `cancelled`. Muốn hủy outcome đã finalize phải dùng
+command cancel riêng của ClassSession/StudyMeeting để giữ audit, invitation và delivery
+semantics đúng nguồn.
 
 Response cho mỗi slot là `preferred`, `available` hoặc `unavailable`; chưa trả lời là
 `unknown`, không được tự suy thành unavailable. Instant UTC và civil-time intent tuân
@@ -145,6 +159,16 @@ Participant thông thường thấy response của mình và aggregate privacy-s
 teacher/admin đủ capability có thể xem individual response trong phạm vi poll; public
 projection không trả roster, email, class detail, file, individual availability hoặc
 calendar private detail.
+
+Với `anyone_with_link`, aggregate chỉ hiện sau explicit response và đạt minimum cohort
+theo tenant policy; dưới ngưỡng trả trạng thái chưa đủ phản hồi. Đây là mitigation, không
+thể bảo đảm chống differencing/Sybil. Public projection dùng coarse bucket và không lộ
+exact responder count; exact count/individual response chỉ dành cho organizer hoặc
+capability nội bộ. Anonymous identity dùng response handle/edit capability hash riêng;
+broad share token không sửa response của người khác. Dedupe chỉ bảo đảm retry idempotent
+theo response handle/idempotency key, không thể tuyên bố one-human-one-response.
+Retention/purge, prefix/token/poll rate limit, abuse signal và uniform error phải được
+chốt cùng hard cap ở P3-02D.
 
 ### 6. Persistence
 
@@ -166,6 +190,8 @@ và conceal foreign resource bằng `404`.
 Capability chỉ lưu hash, purpose, scope, expiry, revoked state và metadata tối thiểu.
 Raw token chỉ trả một lần. Feature catalog/quota theo ADR-0015 phải giới hạn ít nhất số
 ngày, slot, participant, poll đang mở, capability/invitation tạo theo giờ và fan-out.
+Flag, hard cap và kill switch phải được thêm ngay trong P3-02D; P3-13 chỉ hợp nhất
+catalog/dashboard, không trì hoãn enforcement của poll.
 
 ### 7. Public capability exchange
 
@@ -177,19 +203,30 @@ Link bên ngoài có dạng:
 
 Fragment không được gửi trong HTTP request/referrer. SPA:
 
-1. đọc fragment;
-2. POST token trong JSON tới endpoint exchange;
-3. nhận short-lived, purpose-bound response session/handle;
-4. xóa fragment bằng `history.replaceState`;
-5. không lưu token trong `localStorage`.
+1. đọc token từ fragment vào biến memory;
+2. xóa fragment đồng bộ bằng `history.replaceState` trước mọi network call;
+3. POST token từ memory trong JSON tới endpoint exchange;
+4. xóa biến token ngay sau exchange và nhận short-lived, purpose-bound response
+   session/handle;
+5. không lưu token trong `localStorage`, session storage hoặc IndexedDB.
 
 Route đặt `Referrer-Policy: no-referrer`, `Cache-Control: no-store`, `noindex`; không chạy
-analytics/click tracking trước exchange. App, proxy, audit, outbox, metric và error không
-được chứa raw token, public link secret, raw email hay response detail.
+analytics/click tracking trước exchange. Landing dùng CSP chặt:
+`default-src 'none'`, chỉ allow self script/style/connect cần thiết,
+`base-uri 'none'`, `form-action 'none'`, `frame-ancestors 'none'`; không tải third-party
+script/resource trước exchange. App, proxy, audit, outbox, metric và error không được chứa
+raw token, public link secret, raw email hay response detail.
 
 Token phải có entropy cao, expiry, revoke, purpose/scope binding, rate limit và replay
 policy. Broad public token không làm identity chung để sửa response người khác; anonymous
 responder nhận response handle/edit secret riêng và database chỉ lưu hash.
+
+Tối thiểu dùng 128-bit CSPRNG, token versioned, HMAC/hash-at-rest và constant-time
+comparison. Link dựng từ canonical HTTPS origin, không tin `Host`/`X-Forwarded-Host`.
+Landing GET/security-scanner prefetch không được vote/finalize; mutation chỉ sau explicit
+POST + confirm. Short-lived handle dùng Secure/HttpOnly/SameSite cookie hoặc memory-only
+handle cùng Origin/CSRF protection phù hợp. Không chạy analytics, service worker hoặc
+email click tracking trước capability exchange.
 
 ### 8. API boundary
 
@@ -200,12 +237,19 @@ POST  /api/v1/calendar/availability-polls
 GET   /api/v1/calendar/availability-polls/{poll_id}
 PATCH /api/v1/calendar/availability-polls/{poll_id}
 POST  /api/v1/calendar/availability-polls/{poll_id}/open
+POST  /api/v1/calendar/availability-polls/{poll_id}/close
+POST  /api/v1/calendar/availability-polls/{poll_id}/reopen
 PUT   /api/v1/calendar/availability-polls/{poll_id}/responses/me
 GET   /api/v1/calendar/availability-polls/{poll_id}/summary
 POST  /api/v1/calendar/availability-polls/{poll_id}/finalize
 POST  /api/v1/calendar/availability-polls/{poll_id}/cancel
 POST  /api/v1/calendar/availability-polls/{poll_id}/capabilities
 POST  /api/v1/calendar/availability-polls/{poll_id}/capabilities/{capability_id}/revoke
+GET   /api/v1/calendar/study-meetings
+POST  /api/v1/calendar/study-meetings
+GET   /api/v1/calendar/study-meetings/{meeting_id}
+PATCH /api/v1/calendar/study-meetings/{meeting_id}
+POST  /api/v1/calendar/study-meetings/{meeting_id}/cancel
 ```
 
 External exchange/respond contract dự kiến:
@@ -218,6 +262,11 @@ POST /api/v1/calendar/availability-polls/respond
 Đây là architecture boundary; OpenAPI review có thể tinh chỉnh path/name mà không đổi
 semantics. Token không nằm trong query/path. External response chỉ nhận projection
 allowlist và không thể dùng client-supplied tenant/class/role.
+
+Active member có `study_meeting.schedule_own` được tạo StudyMeeting trực tiếp hoặc từ
+poll. Owner được update/cancel; safety admin chỉ recovery/revoke với reason/audit.
+StudyMeeting Phase 3 là timed scheduling intent, có version/conflict check và không tự
+mint LiveKit token. Audience/RSVP/email chỉ bật sau ADR-0020 có contract tương ứng.
 
 ### 9. Finalize, transaction và side effect
 
@@ -234,17 +283,22 @@ Finalize:
 Hai request finalize đồng thời hoặc retry không được tạo hai outcome. Frontend preview và
 ranking không phải authority. Poll được finalized/cancelled không nhận response mới.
 
-P3-05 gửi sau commit:
+P3-05B gửi sau commit:
 
 - poll opened;
+- poll reopened với recipient snapshot và deadline/version mới;
 - deadline reminder;
 - poll cancelled;
 - poll finalized;
+- direct StudyMeeting scheduled/rescheduled/cancelled;
 - invitation/ICS nếu outcome là session/meeting có delivery contract phù hợp.
 
-Mỗi recipient có một effect và capability riêng để không lộ roster. Provider failure
-không rollback poll/session/meeting; retry/dead-letter/idempotency tuân ADR-0018,
-deliverability và suppression tuân ADR-0020.
+Manual close mặc định chỉ ghi audit + in-app organizer, không tự broadcast. Deadline
+auto-close phải do durable worker P3-03 claim theo due time và phát đúng một lifecycle
+event. Mỗi recipient có một effect và capability riêng để không lộ roster; effect dedupe
+theo `(source_type, source_id, recipient_id, effect_type, source_version, channel)`.
+Provider failure không rollback poll/session/meeting; retry/dead-letter/idempotency tuân
+ADR-0018, deliverability và suppression tuân ADR-0020.
 
 ## Hệ quả
 
@@ -295,7 +349,7 @@ Loại vì poll ownership không phải quyền quản lý class và sẽ phá s
 - Class-only link từ external bị từ chối; invited/public capability chỉ nhận projection
   tối thiểu.
 - Creator không thể bind poll vào class mà mình không phải active member/không có
-  `class.read`; foreign/inaccessible `class_id` bị conceal `404`.
+  `class.view`; foreign/inaccessible `class_id` bị conceal `404`.
 - Link expired/revoked/rate-limited không dùng lại được; đổi share mode rotate token.
 - Public view không lộ roster/email/individual availability/private calendar detail.
 - Hai responder đồng thời không ghi đè nhau; broad link không sửa response người khác.
@@ -306,4 +360,12 @@ Loại vì poll ownership không phải quyền quản lý class và sẽ phá s
 - Raw token không xuất hiện trong query, referrer, application/proxy log hoặc analytics.
 - Email/provider lỗi không rollback nghiệp vụ và retry không tạo effect thứ hai.
 - Heatmap đạt desktop drag/paint, mobile, keyboard, screen reader và forced-colors.
+- Close/deadline-auto-close/reopen/edit-after-response tuân state machine và không làm
+  mất hoặc tái diễn giải response âm thầm.
+- Active member tạo/update/cancel StudyMeeting trực tiếp hoặc từ poll; student không thể
+  nâng nó thành ClassSession/attendance.
+- Public aggregate dưới minimum cohort bị suppress; trên ngưỡng chỉ trả coarse bucket/
+  không lộ exact responder count. Tài liệu/UI nói rõ đây là mitigation, không bảo đảm
+  chống differencing/Sybil hoặc one-human-one-response; retention, purge, rate/quota và
+  abuse/load test đạt.
 - Production bundle/runtime không có request, iframe, scrape hay code copy từ When2meet.
