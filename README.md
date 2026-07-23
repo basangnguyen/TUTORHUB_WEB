@@ -12,9 +12,11 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
 - **Phase 2 - Identity, tenant và class core** đã hoàn thành và được owner sign-off
   ngày 2026-07-22. P2-00 đến P2-12, staging acceptance, application rollback/redeploy
   và exit gate đều đạt.
-- Hiện đang thực hiện **Phase 3 - Daily learning workspace**. P3-00 và P3-CAL-00 đã
-  `DONE`; P3-CAL-01 renderer/recurrence spike + ADR-0019 là task hiện tại ở trạng thái
-  `READY`, sau đó triển khai P3-01 course session scheduling/timezone.
+- Hiện đang thực hiện **Phase 3 - Daily learning workspace**. P3-00, P3-CAL-00 và
+  P3-CAL-00B đã `DONE`; bản re-baseline tài liệu đã chốt professional parity
+  Teams/Google, Calendar cream theme và email/ICS/RSVP trong Phase 3, nhưng chưa triển
+  khai runtime. P3-CAL-01 renderer/recurrence/theme spike + ADR-0019 vẫn là task hiện
+  tại ở trạng thái `READY`, sau đó triển khai P3-01 theo thứ tự làm việc đã chọn.
 - Web MVP nền đã chạy trên staging: Cloudflare Pages -> same-origin `/api/*` -> Go
   Core API trên Render; dữ liệu dùng Neon, file dùng Backblaze B2, media dùng LiveKit
   Cloud và xác thực dùng ZITADEL.

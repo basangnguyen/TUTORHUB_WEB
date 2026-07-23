@@ -35,6 +35,35 @@ import "./styles.css";
 - Font hệ thống Aptos/Segoe UI Variable để tải nhanh, rõ tiếng Việt và không phụ thuộc CDN.
 - Motion 80-280 ms, chỉ mô tả thay đổi trạng thái; không dùng animation gây dịch layout.
 
+### 3.1 Calendar visual direction Phase 3
+
+Calendar dùng **Teams-inspired information architecture** nhưng không sao chép component,
+icon hoặc nhận diện Microsoft. Visual direction riêng của route là **Warm Academic**, lấy
+cảm hứng từ palette public của [Vauliys](https://vauliys.com/):
+
+| Vai trò đề xuất | Tham chiếu |
+| --- | --- |
+| Canvas ivory | `#FDFDF5` |
+| Sidebar/surface cream | `#EFEEDC` |
+| Soft green accent | `#C5DE9B` |
+| Mint information fill | `#DDEDEB` |
+| Warm brown/gold | `#8C6A49` |
+| Primary ink | `#282828` |
+| Dark olive/inverse | `#343831` |
+
+Đây là hướng thiết kế `PROPOSED`, chưa phải token/runtime đã triển khai. Khi thực hiện
+P3-02, các màu phải được map thành semantic token Calendar, có light/dark/forced-colors,
+test contrast và visual regression; không hard-code rải trong component. Dùng chữ tối
+trên green/mint, giữ success/warning/danger/info tách khỏi màu thương hiệu và chỉ dùng
+texture/doodle ở empty/low-density surface. Grid, time, form tiếp tục dùng sans hệ thống.
+Editorial serif chỉ dùng cho heading nếu là font open-source tự host có glyph tiếng Việt
+và qua license/performance review. Không dùng font Henriette, logo, illustration,
+texture, custom cursor hoặc branded asset Vauliys nếu chưa có giấy phép.
+Soft green trên cream không đủ 3:1 để tự biểu thị selection, nên selected date/view phải
+có thêm outline/underline/icon hoặc text ink tối. Control boundary dẫn xuất phải đạt
+non-text contrast 3:1; giá trị đề xuất hiện tại là `#838276` trên cream, không dùng
+`#8B8A7E` sát ngưỡng.
+
 ## 4. Token
 
 Feature chỉ dùng token semantic như `--color-text`, `--color-surface`,

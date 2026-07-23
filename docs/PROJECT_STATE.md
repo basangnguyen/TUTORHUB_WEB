@@ -11,10 +11,10 @@
 | Nhánh làm việc      | `main`                                                                                |
 | Quy trình           | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
 | Phase hoàn thành    | Phase 0, Phase 1, Phase 2                                                             |
-| Phase hiện tại      | Phase 3 - Daily learning workspace                                                  |
-| Task vừa hoàn thành | P3-CAL-00 nghiên cứu và thiết kế product/technical tab Lịch                         |
-| Task hiện tại       | P3-CAL-01 renderer/recurrence spike + ADR-0019 (`READY`)                            |
-| Task tiếp theo      | Review báo cáo, chạy spike rồi triển khai P3-01 contract-first                      |
+| Phase hiện tại      | Phase 3 - Daily learning workspace                                                   |
+| Task vừa hoàn thành | P3-CAL-00B parity/visual/email re-baseline cho tab Lịch                              |
+| Task hiện tại       | P3-CAL-01 renderer/recurrence/theme spike + ADR-0019 (`READY`)                       |
+| Task tiếp theo      | Chạy P3-CAL-01/ADR-0019, sau đó triển khai P3-01 contract-first                      |
 
 ## Kiến trúc đang chạy
 
@@ -284,6 +284,13 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
 8. P3-CAL-01 phải chốt ADR-0019 về series/exception/occurrence, recurrence DST và
    conflict policy; dependency renderer/recurrence chỉ được pin sau performance,
    accessibility, license và security spike.
+9. P3-CAL-00B đã nghiên cứu lại Teams/Google và CSS live Vauliys; chốt Teams-inspired
+   IA/editor, Warm Academic cream palette và professional everyday parity. Không sao
+   chép asset/font/trade dress và chưa đổi runtime token.
+10. Invitation/update/cancellation/reminder email, ICS và RSVP đã được đưa vào Phase 3
+    exit gate. P3-CAL-02/ADR-0020 phải chốt provider/iTIP/iMIP/deliverability; mọi
+    effect chỉ chạy sau commit qua P3-03 worker. Đây là re-baseline tài liệu, chưa phải
+    chức năng đã chạy.
 
 ## Rủi ro đã biết
 
@@ -291,9 +298,14 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
   chức năng đã chạy cho tới khi implementation, test và staging acceptance đạt.
 - Báo cáo Calendar là `PROPOSED`; FullCalendar và recurrence library chưa được chấp nhận
   thành dependency. Không code P3-02 recurrence trước ADR-0019 và technical spike.
+- Email provider/sending domain chưa được chọn; SPF/DKIM/DMARC, signed webhook,
+  bounce/complaint/suppression và cross-client ICS chưa được kiểm thử. Không gửi tới
+  người thật trước P3-CAL-02/ADR-0020 và P3-03 worker gate.
+- Warm Academic mới là visual direction; `tokens.css` và Calendar UI chưa được đổi.
 - Outbox hiện mới là writer-side queue, chưa có lease/fencing/dead-letter hoặc
-  `cmd/worker`. P3-03 phải hoàn thành trước notification, message/file processing hoặc
-  reminder side effect; Render Free web service không được xem là durable worker.
+  `cmd/worker`. P3-03 phải hoàn thành trước notification, email/ICS, reminder hoặc
+  message/file processing side effect; Render Free web service không được xem là
+  durable worker. P3-CAL-02 trước đó chỉ được chạy renderer/provider sandbox cô lập.
 
 - Render Free spin down khi không hoạt động và có thể cold start trên 50 giây;
   chỉ chấp nhận cho staging/private alpha.

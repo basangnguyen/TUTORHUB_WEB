@@ -2,13 +2,13 @@
 
 > Bản tóm tắt điều hành. Chi tiết work package, dependency, SLO, rủi ro và exit gate nằm trong [MASTER_PLAN.md](MASTER_PLAN.md). Khi có khác biệt, Master Plan phiên bản mới hơn là nguồn có thẩm quyền.
 
-| Thuộc tính          | Trạng thái                                    |
-| ------------------- | --------------------------------------------- |
-| Cập nhật            | 2026-07-22                                    |
-| Phase hiện tại      | Phase 3 - Daily learning workspace            |
-| Hoàn thành gần nhất | P3-00 backlog/architecture ngày 2026-07-22    |
-| Việc tiếp theo      | P3-01 session scheduling và timezone          |
-| Phạm vi             | Web-first; desktop/mobile/native là track sau |
+| Thuộc tính          | Trạng thái                                       |
+| ------------------- | ------------------------------------------------ |
+| Cập nhật            | 2026-07-23                                       |
+| Phase hiện tại      | Phase 3 - Daily learning workspace               |
+| Hoàn thành gần nhất | P3-CAL-00B Calendar re-baseline ngày 2026-07-23 |
+| Việc tiếp theo      | P3-CAL-01 renderer/recurrence/theme spike        |
+| Phạm vi             | Web-first; desktop/mobile/native là track sau    |
 
 ## Chuỗi phase
 
@@ -17,7 +17,7 @@
 |     0 | Product và architecture baseline  |             Hoàn thành | Phạm vi, ADR, security/deployment baseline                 |
 |     1 | Engineering Foundation            |             Hoàn thành | CI, web shell, API, database, auth, LiveKit spike, staging |
 |     2 | Identity, tenant và class core    |             Hoàn thành | Multi-tenant, permission, class/enrollment                 |
-|     3 | Daily learning workspace          |         Đang thực hiện | Lịch, persistent messaging, notification, file/Drive       |
+|     3 | Daily learning workspace          |             12–15 tuần | Lịch, persistent messaging, notification, file/Drive       |
 |     4 | Classroom Media MVP               |               6-8 tuần | Prejoin, LiveKit room, moderation, reconnect               |
 |     5 | Classroom Collaboration           |              8-12 tuần | Whiteboard, quiz nhanh, tools, breakout, recording         |
 |     6 | Assessment, Tasks và QuizHub      |              8-12 tuần | Assignment, exam, scoring, practice/game                   |
@@ -47,5 +47,9 @@
 Phase 2 đã hoàn thành; ma trận staging và biên bản đóng phase nằm tại
 [P2_12_STAGING_ACCEPTANCE.md](P2_12_STAGING_ACCEPTANCE.md) và
 [PHASE_2_COMPLETION.md](PHASE_2_COMPLETION.md). Backlog thực thi hiện hành là
-[PHASE_3_BACKLOG.md](PHASE_3_BACKLOG.md): P3-00 đã `DONE`, P3-01 scheduling/timezone
-đang `READY`; các task sau phải tuân dependency và exit gate trong backlog.
+[PHASE_3_BACKLOG.md](PHASE_3_BACKLOG.md): P3-00/P3-CAL-00/P3-CAL-00B đã `DONE`,
+P3-CAL-01 là task hiện tại `READY`; P3-01 cũng `READY` nhưng triển khai sau gate.
+Calendar professional core và transactional email/ICS/RSVP thuộc Phase 3; các task sau
+phải tuân dependency và exit gate trong backlog.
+P3-CAL-01 không phải dependency kỹ thuật của session một lần P3-01; hoàn tất spike trước
+là thứ tự làm việc đã chọn để tránh UI/recurrence design drift.

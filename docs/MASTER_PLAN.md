@@ -11,7 +11,7 @@
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
 | Phase hiện tại        | Phase 3 - Daily learning workspace                                                           |
-| Trạng thái gần nhất   | P3-CAL-00 design DONE; P3-CAL-01 spike/ADR READY ngày 2026-07-23                            |
+| Trạng thái gần nhất   | P3-CAL-00B re-baseline DONE; P3-CAL-01 spike/ADR READY ngày 2026-07-23                      |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 
@@ -1298,12 +1298,13 @@ Bằng chứng chuẩn hóa nằm trong `docs/P2_12_STAGING_ACCEPTANCE.md` và
 
 ### Phase 3 - Daily learning workspace
 
-**Thời lượng tạm tính:** 7-9 tuần; re-baseline sau P3-CAL-01 vì phạm vi đã nâng từ
-calendar nền thành learning operations hub chuyên nghiệp.
+**Thời lượng re-baseline:** 12–15 tuần cho toàn Phase 3 khi một agent làm tuần tự trên
+`main`; milestone Calendar chuyên nghiệp + email khoảng 7–9 tuần từ P3-CAL-01.
 
 **Backlog thực thi:** `docs/PHASE_3_BACKLOG.md`. P3-00 backlog/architecture baseline và
-P3-CAL-00 calendar research/design đã `DONE`; P3-CAL-01 technical spike/ADR-0019 là
-gate hiện tại trước calendar recurrence. Thiết kế chi tiết nằm tại
+P3-CAL-00/P3-CAL-00B calendar research/re-baseline đã `DONE`; P3-CAL-01 technical
+spike/ADR-0019 là gate hiện tại trước calendar recurrence. P3-CAL-02/ADR-0020 sẽ chốt
+invitation/RSVP/iCalendar/email provider trước P3-02/P3-05. Thiết kế chi tiết nằm tại
 `docs/CALENDAR_PRODUCT_TECHNICAL_DESIGN.md`. P3-01 course session scheduling/timezone
 vẫn `READY`. ADR-0017 chốt civil time/DST; ADR-0018 chốt worker production shape trước
 các consumer side effect.
@@ -1313,11 +1314,12 @@ các consumer side effect.
 **Work package:**
 
 1. Course session scheduling và timezone.
-2. Professional Calendar day/work-week/week/month/agenda, recurrence, conflict và reminder.
+2. Professional Calendar day/work-week/week/month/agenda, Teams-inspired shell/editor,
+   Warm Academic theme, recurrence, attendee/free-busy/conflict và RSVP.
 3. Direct/class conversation.
 4. Persistent messages, pagination, unread/read receipt.
-5. In-app notification và preference.
-6. Outbox + worker production shape.
+5. Outbox + worker production shape.
+6. In-app/email notification, invitation/update/cancellation, reminder và preference.
 7. File upload intent/finalize.
 8. B2 direct upload/download.
 9. Scan/metadata/thumbnail status.
@@ -1327,7 +1329,9 @@ các consumer side effect.
 13. Offline/retry cho draft phù hợp.
 14. Quota theo tenant.
 
-**Deliverable:** teacher lên lịch, trao đổi với lớp, tải/chia sẻ file; student nhận thông báo và truy cập tài liệu đúng quyền.
+**Deliverable:** teacher lên lịch, tìm giờ phù hợp, gửi email/ICS và theo dõi RSVP, trao
+đổi với lớp, tải/chia sẻ file; student nhận invitation/reminder và truy cập tài liệu
+đúng quyền.
 
 **Exit gate:**
 
@@ -1336,7 +1340,13 @@ các consumer side effect.
 - File chưa `ready` không được chia sẻ.
 - Worker retry/idempotency/dead-letter được test.
 - Timezone/DST tests đạt.
-- Notification failure không rollback nghiệp vụ.
+- Calendar đạt professional core: views, recurrence, attendee/free-busy, RSVP,
+  accessibility/responsive và Warm Academic visual regression.
+- Invitation/update/cancel/reminder email + ICS giữ UID/SEQUENCE, không tạo duplicate
+  application effect; provider duplicate được đo/reconcile và đạt ngưỡng ADR-0020 cùng
+  Gmail/Outlook/Apple interoperability.
+- SPF/DKIM/DMARC, signed webhook, bounce/complaint/suppression và runbook đạt; provider
+  failure không rollback nghiệp vụ.
 
 ### Phase 4 - Classroom Media MVP
 
@@ -1704,6 +1714,8 @@ Không thể xây nền tảng toàn cầu miễn phí vĩnh viễn; mục tiêu
 | Tenant data leak            | Thấp/Rất cao      | Context/policy/deny tests/audit           | Bất kỳ cross-tenant finding               |
 | File malware/abuse          | Trung/Cao         | Scan, quota, pending state                | Upload public/pilot                       |
 | Worker mất job              | Trung/Cao         | Outbox, lease, idempotency, DLQ           | Bắt đầu notification/file job             |
+| Email lịch spam/không tới   | Trung/Cao         | Rate limit, SPF/DKIM/DMARC, suppression   | Trước P3-05 gửi tới người thật            |
+| Calendar lẫn trade dress    | Thấp/Cao          | Asset gốc, token/a11y/license gate        | Trước P3-02 visual acceptance             |
 | V1 dữ liệu lỗi encoding     | Cao/Trung         | Fixture, UTF-8, reconciliation            | Dry run import                            |
 | Scope phình                 | Cao/Cao           | Exit gate, non-goal, feature flag         | Task không phục vụ milestone              |
 | Microservice quá sớm        | Trung/Cao         | ADR/evidence gate                         | Đề xuất tách không có metric              |
@@ -1725,7 +1737,7 @@ Phải giải quyết bằng spike/ADR đúng phase:
 6. Redis provider và thời điểm thực sự cần.
 7. Whiteboard engine/provider topology.
 8. Virus scanning/transcode runtime.
-9. Email/push provider.
+9. Calendar transactional email provider ở P3-CAL-02; mobile push provider ở phase sau.
 10. Initial launch region và data residency.
 11. Browser/device matrix chính thức.
 12. Capacity target trả phí cho classroom.
@@ -1776,14 +1788,17 @@ Thứ tự hiện tại, cập nhật ngày 2026-07-23:
 2. Phase 2/P2-00 đến P2-12 đã hoàn thành; biên bản exit gate được sign-off ngày 2026-07-22.
 3. P3-00 đã hoàn thành: backlog Phase 3, ADR scheduling/civil time và ADR worker/outbox.
 4. P3-CAL-00 đã hoàn thành: benchmark đối thủ/OSS, audit V1 và thiết kế product/technical.
-5. Thực hiện P3-CAL-01 FullCalendar/recurrence spike và ADR-0019; chưa thêm dependency
+5. P3-CAL-00B đã hoàn thành: Teams/Google parity, Warm Academic visual direction và
+   Phase 3 email/ICS/RSVP re-baseline; chưa phải runtime.
+6. Thực hiện P3-CAL-01 FullCalendar/recurrence/theme spike và ADR-0019; chưa thêm dependency
    production trước khi accessibility/performance/license/security gate đạt.
-6. Bắt đầu P3-01 contract-first: migration, policy, OpenAPI/client, backend, UI tối thiểu
+7. Bắt đầu P3-01 contract-first: migration, policy, OpenAPI/client, backend, UI tối thiểu
    và test timezone/DST/tenant isolation.
-7. Không đưa recurrence, reminder, worker hoặc calendar tổng hợp vào P3-01; triển khai
-   P3-03 worker trước mọi consumer side effect.
-8. Không xóa thêm Neon branch theo quyết định hiện tại của owner.
-9. Không khởi động QuizHub, Lavie, social feed hoặc Secure Exam ngoài phase đã quy hoạch.
+8. Thực hiện P3-CAL-02/ADR-0020 trước participant/email/ICS provider implementation.
+9. Không đưa recurrence, reminder, worker, email hoặc calendar tổng hợp vào P3-01; triển
+   khai P3-03 worker trước mọi consumer side effect.
+10. Không xóa thêm Neon branch theo quyết định hiện tại của owner.
+11. Không khởi động QuizHub, Lavie, social feed hoặc Secure Exam ngoài phase đã quy hoạch.
 
 ## 37. Quy tắc duy trì Master Plan
 
@@ -1832,6 +1847,7 @@ Thứ tự hiện tại, cập nhật ngày 2026-07-23:
 
 **Điểm bắt đầu sau tài liệu này:** đọc `docs/PROJECT_STATE.md`,
 `docs/PHASE_3_BACKLOG.md`, `docs/CALENDAR_PRODUCT_TECHNICAL_DESIGN.md`, ADR-0017 và
-ADR-0018. Phase 2/P2-12 đã hoàn thành; P3-CAL-00 đã `DONE`, P3-CAL-01 đang `READY` và
-P3-01 scheduling/timezone vẫn `READY`. Master Plan giữ mục tiêu/exit gate, không thay
-backlog chi tiết.
+ADR-0018. Phase 2/P2-12 đã hoàn thành; P3-CAL-00/P3-CAL-00B đã `DONE`, P3-CAL-01 đang
+`READY` và P3-01 scheduling/timezone vẫn `READY`. P3-CAL-02/ADR-0020 là gate email/ICS
+đã lên kế hoạch, chưa triển khai. Master Plan giữ mục tiêu/exit gate, không thay backlog
+chi tiết.

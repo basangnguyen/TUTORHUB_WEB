@@ -78,19 +78,25 @@ live; rollback bằng specific commit giữ cấu hình hiện tại là bằng 
 
 ## 5. Trạng thái Phase 3
 
-| Task                                 | Trạng thái | Ghi chú                                 |
-| ------------------------------------ | ---------- | --------------------------------------- |
-| P3-00 Backlog/architecture baseline  | DONE       | Backlog, ADR scheduling và ADR worker   |
-| P3-CAL-00 Calendar research/design   | DONE       | Product/UX/technical/V1/OSS report      |
-| P3-CAL-01 Spike + ADR-0019           | READY      | Renderer, recurrence, conflict gate     |
-| P3-01 Session scheduling và timezone | READY      | Vertical slice implementation đầu tiên  |
-| P3-02 đến P3-14                      | TODO       | Theo dependency trong backlog           |
+| Task                                 | Trạng thái | Ghi chú                                      |
+| ------------------------------------ | ---------- | -------------------------------------------- |
+| P3-00 Backlog/architecture baseline  | DONE       | Backlog, ADR scheduling và ADR worker        |
+| P3-CAL-00 Calendar research/design   | DONE       | Product/UX/technical/V1/OSS report           |
+| P3-CAL-00B Calendar re-baseline      | DONE       | Tài liệu only; chưa có theme/email runtime   |
+| P3-CAL-01 Spike + ADR-0019           | READY      | Renderer, recurrence, conflict gate          |
+| P3-01 Session scheduling và timezone | READY      | Vertical slice implementation đầu tiên       |
+| P3-CAL-02 Email/ICS + ADR-0020       | TODO       | Invitation, RSVP, provider/deliverability    |
+| P3-02 đến P3-14                      | TODO       | Theo dependency trong backlog                |
 
 Nguồn thực thi: `docs/PHASE_3_BACKLOG.md`. Trước khi code calendar phải đọc
 `docs/CALENDAR_PRODUCT_TECHNICAL_DESIGN.md` và ADR-0017; P3-02 recurrence phải chờ
-P3-CAL-01/ADR-0019. Mọi notification/message/file side effect phải chờ worker
-foundation P3-03 theo ADR-0018. P3-01 không gồm recurrence, calendar tổng hợp,
-reminder hoặc media lifecycle.
+P3-CAL-01/ADR-0019; invitation/RSVP/iCalendar/provider phải chờ P3-CAL-02/ADR-0020.
+Mọi notification/email/ICS/reminder/message/file side effect phải chờ worker foundation
+P3-03 theo ADR-0018. P3-01 không gồm recurrence, calendar tổng hợp, email, reminder
+hoặc media lifecycle.
+P3-CAL-02 có thể chạy trước P3-03 vì chỉ là ADR và test renderer/provider sandbox cô lập;
+không nối Core API, outbox hoặc gửi tới người thật. Đường gửi runtime chỉ nằm ở P3-05
+sau khi P3-03 đạt gate.
 
 ## 6. Hạ tầng staging đã chốt
 
