@@ -85,7 +85,7 @@ live; rollback bằng specific commit giữ cấu hình hiện tại là bằng 
 | P3-CAL-00B Calendar re-baseline      | DONE        | Tài liệu only; chưa có theme/email runtime    |
 | P3-CAL-00C Calendar readiness review | DONE        | Gate/dependency/contract đã được harden       |
 | P3-CAL-01 Spike + ADR-0019           | IN PROGRESS | Automated spike xanh; manual/E2E gate còn mở  |
-| P3-01 Session scheduling và timezone | VERIFY      | Staging infra xanh; browser acceptance còn mở |
+| P3-01 Session scheduling và timezone | DONE        | One-time session staging acceptance đạt       |
 | P3-CAL-02 Email/ICS + ADR-0020       | TODO        | AWS SES target, RSVP, ICS, deliverability     |
 | P3-02D Native Availability Poll      | TODO        | Native poll, secure sharing, Study Meeting    |
 | P3-02A/B/C, P3-03 đến P3-14          | TODO        | Theo dependency trong backlog                 |
@@ -102,10 +102,10 @@ runtime When2meet.
 Mọi notification/email/ICS/reminder/message/file side effect phải chờ worker foundation
 P3-03 theo ADR-0018. P3-01 không gồm recurrence, calendar tổng hợp, email, reminder
 hoặc media lifecycle.
-P3-01 hiện đã có Neon `14 false`, runtime grants tối thiểu, Render/Cloudflare deployment
-và public health/readiness xanh. Chỉ đổi sang `DONE` sau browser acceptance Teacher
-create/update/cancel, Student read-only và foreign-ID conceal `404`; không mô tả lượt
-browser thủ công là Playwright staging.
+P3-01 đã `DONE` ngày 2026-07-24: Neon `14 false`, runtime grants tối thiểu,
+Render/Cloudflare deployment/public probes và browser acceptance Teacher
+create/update/cancel, Student read-only, foreign-ID conceal `404` đều đạt. Lượt browser
+thủ công không được mô tả là Playwright staging.
 Mọi active authenticated member có thể tạo/quản lý poll và Study Meeting của mình; chỉ
 actor có `session.schedule` mới tạo ClassSession. Full LiveKit token/lobby/moderation/
 room lifecycle vẫn thuộc Phase 4.

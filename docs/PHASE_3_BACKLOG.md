@@ -23,17 +23,15 @@ tính từ P3-CAL-01.
 Domain/DNS, SES sandbox và production-access approval có thể chuẩn bị song song nhưng
 không được tính `DONE` trước interoperability gate.
 
-**Task vừa hoàn thành implementation/staging infrastructure:** P3-01 Course session
-scheduling/timezone đã có migration, contract, backend, feature/policy, generated client,
-class-detail UI và test local. Neon staging đã ở `14 false`, runtime grants đúng ma trận
-tối thiểu; Render/Cloudflare đã phục vụ bản có P3-01 và public health/readiness đều xanh.
-Task chưa `DONE` vì browser acceptance Teacher/Student/IDOR trên deployment mới chưa
-hoàn tất đầy đủ.
+**Task vừa hoàn thành:** P3-01 Course session scheduling/timezone đã `DONE`: migration,
+contract, backend, feature/policy, generated client, class-detail UI, test local, Neon
+`14 false`, runtime grants tối thiểu, deploy/public probes và browser acceptance
+Teacher/Student/IDOR đều đạt. Biên bản nằm tại `docs/P3_01_STAGING_ACCEPTANCE.md`.
 
-**Task hiện tại:** P3-01 staging acceptance (`VERIFY`) và phần browser/manual evidence còn
-lại của P3-CAL-01/ADR-0019 (`IN PROGRESS`).
+**Task hiện tại:** phần browser/manual evidence còn lại của P3-CAL-01/ADR-0019
+(`IN PROGRESS`).
 
-**Task tiếp theo sau acceptance:** P3-03 PostgreSQL outbox worker production shape.
+**Task tiếp theo:** P3-03 PostgreSQL outbox worker production shape.
 P3-CAL-02/P3-02A chỉ bắt đầu khi dependency gate tương ứng đạt.
 
 **Thiết kế Calendar có thẩm quyền:**
@@ -82,7 +80,7 @@ P3-CAL-02/P3-02A chỉ bắt đầu khi dependency gate tương ứng đạt.
 | P3-CAL-00B | Teams/Google parity + visual/email re-baseline  | P3-CAL-00                       | DONE       |
 | P3-CAL-00C | Final implementation-readiness review           | P3-CAL-00B                      | DONE       |
 | P3-CAL-01  | Renderer/recurrence/theme spike + ADR-0019      | P3-CAL-00C                      | IN PROGRESS |
-| P3-01      | Course session scheduling và timezone           | P3-00, P3-CAL-00C               | VERIFY     |
+| P3-01      | Course session scheduling và timezone           | P3-00, P3-CAL-00C               | DONE       |
 | P3-CAL-02  | Invitation/RSVP/iCalendar/AWS SES + ADR-0020    | P3-CAL-01, P3-01                | TODO       |
 | P3-02A     | Professional Calendar shell/read projection     | P3-01, P3-CAL-01                | TODO       |
 | P3-02B     | Recurrence + class conflict                     | P3-02A, ADR-0019                 | TODO       |
@@ -225,18 +223,19 @@ không thêm FullCalendar hoặc recurrence; dependency chỉ được thêm sau
 
 - [x] Migration `000014`, model/repository/service/HTTP, policy/feature control,
       OpenAPI/generated client và class-detail UI đã được triển khai.
-- [x] Web typecheck, 143 test và production build; API client typecheck cùng 17 test đạt.
+- [x] Web typecheck, 144 test và production build; API client typecheck cùng 17 test đạt.
 - [x] Các Go package liên quan `httpapi`, `classroom`, `featurecontrol`, `audit`,
       `policy`, `config` và recurrence spike đạt test local.
 - [x] Timezone resolver từ chối DST gap và yêu cầu chọn offset cho overlap; unit test
       dùng `Asia/Ho_Chi_Minh` và `America/New_York`.
 - [x] Neon staging migrate `13 -> 14`, runtime grant tối thiểu và version `14 false`.
-- [x] Feature commit `b58666c` cùng security patch `a5741a1` đã được deploy; Render direct
-      và Cloudflare same-origin health/readiness/status public probes đều xanh.
-- [ ] Browser acceptance Teacher create/update/cancel, Student read-only và foreign-ID
+- [x] Feature commit `b58666c`, security patch `a5741a1` và web acceptance fix `e7dc161`
+      đã được deploy; Render direct cùng Cloudflare same-origin health/readiness/status
+      public probes đều xanh.
+- [x] Browser acceptance Teacher create/update/cancel, Student read-only và foreign-ID
       conceal `404` đạt trên staging. Lượt browser thủ công không được ghi thành
       Playwright staging.
-- [ ] Chỉ chuyển P3-01 sang `DONE` sau mục browser acceptance bên trên.
+- [x] P3-01 chuyển `VERIFY -> DONE` sau khi toàn bộ gate trên đạt ngày 2026-07-24.
 
 ## 8. P3-02 Calendar day/week/month và recurring series
 
