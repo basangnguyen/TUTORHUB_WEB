@@ -11,7 +11,7 @@
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
 | Phase hiện tại        | Phase 3 - Daily learning workspace                                                           |
-| Trạng thái gần nhất   | P3-01 DONE sau staging acceptance; P3-CAL-01 evidence vẫn IN PROGRESS                      |
+| Trạng thái gần nhất   | P3-CAL-01/ADR-0019 và P3-01 DONE; task hiện tại P3-03                                        |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 
@@ -1307,9 +1307,21 @@ từ P3-CAL-01.
 
 **Backlog thực thi:** `docs/PHASE_3_BACKLOG.md`. P3-00 backlog/architecture baseline và
 P3-CAL-00/P3-CAL-00B/P3-CAL-00C calendar research/re-baseline/readiness review đã
-`DONE`; P3-CAL-01 technical spike đã đạt các gate unit/build/guard/Go recurrence local
-nhưng ADR-0019 vẫn `PROPOSED` vì browser E2E/Axe, performance nhiều lần và manual
-keyboard/NVDA còn mở.
+`DONE`; P3-CAL-01 technical spike cũng `DONE` ở cấp decision. ADR-0019 được
+`Accepted with explicit manual NVDA gate`, chấp nhận FullCalendar Standard v7.0.1,
+adapter/domain boundary, Warm Academic theme và recurrence Go bounded. V7 đã đạt
+interaction/Axe/performance 500/1.000/2.000 cùng license/security gate; full rerun hậu
+fix đạt `9 passed (23.6s)`. Comparator parity-config v6 đạt `4 passed` nhưng bị loại vì
+render 500 và long-task 2.000 vượt absolute budget, dù bundle/heap nhỏ hơn. Agenda mở
+progressive toàn bộ item, Axe waiver khóa exact node/count/scope. Manual NVDA vẫn chặn
+việc nối renderer vào route production nên kết quả này không được mô tả là Calendar
+runtime production-ready.
+Recurrence cap đã khóa ở query window `366 ngày`, series horizon `730 ngày`,
+`512 occurrence/series`, `2.000 occurrence/request`, deadline `250 ms`; COUNT phải
+validate occurrence cuối trong horizon và YEARLY golden đã đạt. Budget
+render/navigation/long-task cho 500/1.000/2.000 item lần lượt là
+`500/900/1.800`, `350/500/800` và `200/300/400 ms`; final v7/v6 summary, bundle và heap nằm
+trong `docs/calendar/P3_CAL_01_SPIKE_EVIDENCE.md`.
 AWS SES đã được owner chọn làm transactional email provider target;
 P3-CAL-02/ADR-0020 sẽ xác minh invitation/RSVP/iCalendar, SES
 account/region/sandbox/quota, adapter, event transport và deliverability trước
@@ -1318,11 +1330,11 @@ sandbox; production vẫn chờ domain/DNS và SPF/DKIM/DMARC. Thiết kế chi 
 `docs/CALENDAR_PRODUCT_TECHNICAL_DESIGN.md`. P3-01 course session scheduling/timezone
 đã `DONE` sau implementation/test local, migration/grants/deploy/public probes và browser
 acceptance Teacher/Student/IDOR trên staging. ADR-0017 chốt civil time/DST; ADR-0018 chốt
-worker production shape trước các consumer side effect. P3-03 vì vậy phải được triển
-khai ngay sau P3-01, không để tới
+worker production shape trước các consumer side effect. P3-03 vì vậy là task hiện tại,
+phải được triển khai ngay sau P3-01, không để tới
 sau email/notification consumer. ADR-0021 đã chốt Native Availability Poll, secure
 sharing, member-owned Study Meeting và permission boundary cho P3-02D; quyết định này
-không đổi gate hiện tại P3-CAL-01 rồi P3-01.
+không cho phép P3-02D bypass P3-02B/C hoặc P3-03.
 
 **Mục tiêu:** trước khi có classroom phức tạp, người dùng đã quản lý được lịch, tin nhắn và tài liệu.
 
@@ -1738,26 +1750,26 @@ Không thể xây nền tảng toàn cầu miễn phí vĩnh viễn; mục tiêu
 
 ## 32. Risk register
 
-| Rủi ro                      | Xác suất/Tác động | Chủ động giảm thiểu                       | Trigger hành động                         |
-| --------------------------- | ----------------- | ----------------------------------------- | ----------------------------------------- |
-| HF sleep/cold start         | Cao/Cao ở pilot   | Stateless OCI, synthetic probe, exit plan | Không đạt availability/time-to-first-byte |
-| Neon connection exhaustion  | Trung/Cao         | Pool budget, timeout, query review        | Pool saturation hoặc timeout tăng         |
-| LiveKit quota/chi phí       | Cao/Trung         | Hard cap, usage dashboard, profile        | 75% quota hoặc pilot thật                 |
-| Media chất lượng kém        | Trung/Cao         | Prejoin, adaptive, telemetry              | Join success/SLO không đạt                |
-| Tenant data leak            | Thấp/Rất cao      | Context/policy/deny tests/audit           | Bất kỳ cross-tenant finding               |
-| File malware/abuse          | Trung/Cao         | Scan, quota, pending state                | Upload public/pilot                       |
-| Worker mất job              | Trung/Cao         | Outbox, lease, idempotency, DLQ           | Bắt đầu notification/file job             |
-| Email lịch spam/không tới   | Trung/Cao         | Rate limit, SPF/DKIM/DMARC, suppression   | Trước P3-05A gửi tới người thật           |
-| Calendar lẫn trade dress    | Thấp/Cao          | Asset gốc, token/a11y/license gate        | Trước P3-02 visual acceptance             |
-| Public poll leak/abuse      | Trung/Cao         | Hash token, fragment exchange, expiry/revoke, rate limit, coarse aggregate; không hứa one-human-one-response | Trước P3-02D external rollout |
-| V1 dữ liệu lỗi encoding     | Cao/Trung         | Fixture, UTF-8, reconciliation            | Dry run import                            |
-| Scope phình                 | Cao/Cao           | Exit gate, non-goal, feature flag         | Task không phục vụ milestone              |
-| Microservice quá sớm        | Trung/Cao         | ADR/evidence gate                         | Đề xuất tách không có metric              |
-| AI vượt quyền/hallucination | Trung/Cao         | Permission filter, citation, audit        | Trước RAG pilot                           |
-| Recording/privacy           | Trung/Rất cao     | Consent/indicator/retention               | Trước bật recording                       |
-| Vendor lock-in              | Trung/Trung       | Adapter/OCI/export/runbook                | Exit trigger provider                     |
-| Nhiều agent xung đột        | Cao/Trung         | Ownership, contract, state docs           | Trùng vùng file/branch                    |
-| Không đủ người vận hành     | Cao/Cao           | Managed services, giới hạn launch         | Trước public beta                         |
+| Rủi ro                      | Xác suất/Tác động | Chủ động giảm thiểu                                                                                          | Trigger hành động                         |
+| --------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------ | ----------------------------------------- |
+| HF sleep/cold start         | Cao/Cao ở pilot   | Stateless OCI, synthetic probe, exit plan                                                                    | Không đạt availability/time-to-first-byte |
+| Neon connection exhaustion  | Trung/Cao         | Pool budget, timeout, query review                                                                           | Pool saturation hoặc timeout tăng         |
+| LiveKit quota/chi phí       | Cao/Trung         | Hard cap, usage dashboard, profile                                                                           | 75% quota hoặc pilot thật                 |
+| Media chất lượng kém        | Trung/Cao         | Prejoin, adaptive, telemetry                                                                                 | Join success/SLO không đạt                |
+| Tenant data leak            | Thấp/Rất cao      | Context/policy/deny tests/audit                                                                              | Bất kỳ cross-tenant finding               |
+| File malware/abuse          | Trung/Cao         | Scan, quota, pending state                                                                                   | Upload public/pilot                       |
+| Worker mất job              | Trung/Cao         | Outbox, lease, idempotency, DLQ                                                                              | Bắt đầu notification/file job             |
+| Email lịch spam/không tới   | Trung/Cao         | Rate limit, SPF/DKIM/DMARC, suppression                                                                      | Trước P3-05A gửi tới người thật           |
+| Calendar lẫn trade dress    | Thấp/Cao          | Asset gốc, token/a11y/license gate                                                                           | Trước P3-02 visual acceptance             |
+| Public poll leak/abuse      | Trung/Cao         | Hash token, fragment exchange, expiry/revoke, rate limit, coarse aggregate; không hứa one-human-one-response | Trước P3-02D external rollout             |
+| V1 dữ liệu lỗi encoding     | Cao/Trung         | Fixture, UTF-8, reconciliation                                                                               | Dry run import                            |
+| Scope phình                 | Cao/Cao           | Exit gate, non-goal, feature flag                                                                            | Task không phục vụ milestone              |
+| Microservice quá sớm        | Trung/Cao         | ADR/evidence gate                                                                                            | Đề xuất tách không có metric              |
+| AI vượt quyền/hallucination | Trung/Cao         | Permission filter, citation, audit                                                                           | Trước RAG pilot                           |
+| Recording/privacy           | Trung/Rất cao     | Consent/indicator/retention                                                                                  | Trước bật recording                       |
+| Vendor lock-in              | Trung/Trung       | Adapter/OCI/export/runbook                                                                                   | Exit trigger provider                     |
+| Nhiều agent xung đột        | Cao/Trung         | Ownership, contract, state docs                                                                              | Trùng vùng file/branch                    |
+| Không đủ người vận hành     | Cao/Cao           | Managed services, giới hạn launch                                                                            | Trước public beta                         |
 
 ## 33. Quyết định còn mở
 
@@ -1831,14 +1843,15 @@ Thứ tự hiện tại, cập nhật ngày 2026-07-24:
 4. P3-CAL-00 đã hoàn thành: benchmark đối thủ/OSS, audit V1 và thiết kế product/technical.
 5. P3-CAL-00B/00C đã hoàn thành: Teams/Google parity, Warm Academic visual direction,
    Phase 3 email/ICS/RSVP re-baseline và readiness review cuối; chưa phải runtime.
-6. P3-CAL-01 đã đạt automated local unit/build/guard và Go recurrence; hoàn tất browser
-   E2E/Axe, performance nhiều lần cùng manual keyboard/NVDA trước khi accept ADR-0019
-   hoặc nối FullCalendar vào route production.
+6. P3-CAL-01 đã `DONE`; ADR-0019 được chấp nhận với explicit manual NVDA rollout gate.
+   V7 full E2E hậu fix đạt 9/9; v6 parity comparator fail hai absolute budget. Agenda
+   progressive, Axe exact waiver, COUNT occurrence-last/YEARLY golden và Go recurrence
+   caps `366 ngày/730 ngày/512/2.000/250 ms` đã có evidence. Chưa nối FullCalendar
+   vào route production khi marker NVDA chưa được reviewer đóng.
 7. P3-01 đã `DONE`: implementation/test local, Neon `14 false`, runtime grants, deploy,
    public probes và browser acceptance Teacher/Student/IDOR trên staging đều đạt. Không
    gọi lượt browser thủ công là Playwright staging.
-8. Triển khai P3-03 durable worker ngay sau P3-01 và trước
-   mọi consumer side effect.
+8. Triển khai P3-03 durable worker ngay bây giờ và trước mọi consumer side effect.
 9. Sau khi P3-CAL-01 và P3-01 cùng đạt gate, thực hiện P3-CAL-02/ADR-0020 trong sandbox
    cô lập để xác minh AWS SES target trước participant/email/ICS provider implementation;
    pre-domain chỉ dùng owner-controlled verified identities, runtime delivery chờ P3-03.
@@ -1897,9 +1910,9 @@ Thứ tự hiện tại, cập nhật ngày 2026-07-24:
 **Điểm bắt đầu sau tài liệu này:** đọc `docs/PROJECT_STATE.md`,
 `docs/PHASE_3_BACKLOG.md`, `docs/CALENDAR_PRODUCT_TECHNICAL_DESIGN.md`, ADR-0017 và
 ADR-0018 cùng ADR-0021. Phase 2/P2-12 đã hoàn thành;
-P3-CAL-00/P3-CAL-00B/P3-CAL-00C đã `DONE`; P3-CAL-01 đang `IN PROGRESS` với
-ADR-0019 `PROPOSED`; P3-01 scheduling/timezone đã `DONE` sau browser acceptance
-Teacher/Student/IDOR trên staging.
+P3-CAL-00/P3-CAL-00B/P3-CAL-00C, P3-CAL-01 và P3-01 đã `DONE`. ADR-0019 là
+`Accepted with explicit manual NVDA gate`; marker này phải được đóng trước khi
+renderer đi vào route production. Task hiện tại là P3-03 durable PostgreSQL worker.
 P3-02D/ADR-0021 mới là
 architecture/backlog, chưa có runtime. AWS SES đã được chọn làm provider target nhưng
 P3-CAL-02/ADR-0020 vẫn là gate email/ICS chưa triển khai; chưa có domain hoặc production

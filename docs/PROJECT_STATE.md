@@ -12,9 +12,9 @@
 | Quy trình           | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
 | Phase hoàn thành    | Phase 0, Phase 1, Phase 2                                                             |
 | Phase hiện tại      | Phase 3 - Daily learning workspace                                                   |
-| Task vừa hoàn thành | P3-01 Course session scheduling/timezone đã `DONE` sau staging acceptance             |
-| Task hiện tại       | P3-CAL-01 manual/E2E evidence (`IN PROGRESS`)                                         |
-| Task tiếp theo      | P3-03 PostgreSQL outbox worker production shape                                      |
+| Task vừa hoàn thành | P3-CAL-01 decision spike/ADR-0019 và P3-01 đều `DONE`                                 |
+| Task hiện tại       | P3-03 PostgreSQL outbox worker production shape                                      |
+| Task tiếp theo      | P3-CAL-02 sandbox/ADR-0020 và P3-02A theo dependency gate                             |
 
 ## Kiến trúc đang chạy
 
@@ -283,9 +283,9 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
 7. V1 chỉ được giữ làm nguồn nghiệp vụ: event/task/availability poll, quick create và
    panel agenda. Không port CalendarFX/DAO/model vì V1 hard-code user, JDBC trực tiếp,
    thiếu tenant/timezone/DST/version/audit và nhiều control chỉ là vỏ UI.
-8. P3-CAL-01 phải chốt ADR-0019 về series/exception/occurrence, recurrence DST và
-   conflict policy; dependency renderer/recurrence chỉ được pin sau performance,
-   accessibility, license và security spike.
+8. P3-CAL-01 đã chốt ADR-0019 về series/exception/occurrence, recurrence DST,
+   conflict policy và exact dependency pin sau performance, accessibility automated,
+   license và security spike. Manual NVDA được giữ làm explicit production-route gate.
 9. P3-CAL-00B đã nghiên cứu lại Teams/Google và CSS live Vauliys; chốt Teams-inspired
    IA/editor, Warm Academic cream palette và professional everyday parity. Không sao
    chép asset/font/trade dress và chưa đổi runtime token.
@@ -317,13 +317,21 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
     `WorkingSchedule` về P3-02C; buộc P3-02D phụ thuộc P3-03 cho deadline auto-close và
     khóa P3-05B cho poll reopen cùng direct StudyMeeting lifecycle. Đây vẫn là tài liệu,
     chưa có Calendar runtime.
-13. P3-CAL-01 đã có spike cô lập `apps/calendar-spike` với FullCalendar Standard
-    `7.0.1`, Temporal `1.0.1`, Warm Academic theme, adapter boundary, DST fixture,
-    optimistic revert và dependency/license guard. Go recurrence candidate được bọc
-    trong `internal/spikes/calendarrecurrence` với bounded subset/cap/fuzz/benchmark.
-    Typecheck, unit, build, guard và Go tests đều xanh local; browser E2E/Axe,
-    performance nhiều lần và keyboard/NVDA manual vẫn chưa hoàn tất nên ADR-0019 giữ
-    `PROPOSED` và FullCalendar chưa được nối vào route production.
+13. P3-CAL-01 đã `DONE` ở cấp decision spike. FullCalendar Standard `7.0.1`,
+    Temporal `1.0.1`, Warm Academic theme và adapter boundary nằm trong
+    `apps/calendar-spike`; comparator v6.1.21 nằm riêng ở `apps/calendar-spike-v6`.
+    Typecheck/lint, 8 unit/DOM test, build, dependency/license guard 3/3 và grouped
+    Playwright interaction/a11y/performance đều đạt. Full rerun v7 hậu fix đạt
+    `9 passed (23.6s)`, exit 0; Axe critical/serious bằng 0, waiver upstream
+    `empty-table-header` bị khóa exact một node/target/HTML/scope.
+    V7 render p95 `152/164/201 ms`, navigation p95 `204/327/548 ms`, long-task max
+    `79/198/315 ms` ở 500/1.000/2.000 item, heap delta 2.000 item `26,34 MiB`,
+    JS/CSS gzip `155.15/5.37 KiB`. Comparator parity-config v6 full run đạt
+    `4 passed (17.5s)` và heap nhỏ hơn `7,44 MiB`, nhưng fail render 500
+    `1.492 > 500 ms` cùng long-task 2.000 `404 > 400 ms`, nên bị loại. Agenda
+    progressive `24 -> 48 -> 51` đạt keyboard/mobile automated evidence. ADR-0019 được
+    `Accepted with explicit manual NVDA gate`; FullCalendar vẫn chưa nối route
+    production cho tới khi marker NVDA được reviewer đóng.
 14. P3-01 local verification ngày 2026-07-24 đạt web typecheck/test/build, API-client
     typecheck/test và các Go package liên quan. Contract chỉ hỗ trợ session một lần,
     lifecycle public `scheduled -> cancelled`, bounded list/range/duration, optimistic
@@ -337,15 +345,25 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
     session nhưng không có create/edit/cancel, và exact foreign class ID trả trạng thái
     `404` không lộ tên lớp/session. P3-01 chuyển `VERIFY -> DONE`; biên bản tại
     `docs/P3_01_STAGING_ACCEPTANCE.md`. Lượt browser này không được mô tả là Playwright.
+17. Go recurrence spike đã khóa query window `366 ngày`, series horizon `730 ngày`,
+    `512 occurrence/series`, `2.000 occurrence/request` và deadline `250 ms`.
+    COUNT compile validate occurrence cuối trong horizon, boundary test bao phủ
+    DAILY/WEEKLY/MONTHLY/YEARLY và YEARLY golden đã đạt. Lượt post-fix unit PASS; hai
+    fuzz target 10 giây đạt `238.755`/`199.088` executions. Benchmark 366 occurrence
+    count=5 đạt `706.580 ns/op` UTC, `674.220 ns/op` Ho Chi Minh và `984.380 ns/op`
+    New York. Adapter vẫn ở `internal/spikes`; P3-02B phải lặp lại integration/load gate
+    khi đưa vào production module.
 
 ## Rủi ro đã biết
 
 - P3-01 đã `DONE` cho phạm vi one-time ClassSession trên staging/private alpha. Kết quả
   này không mở rộng phạm vi sang recurrence, reminder, calendar tổng hợp, email/ICS,
   durable worker hoặc Phase 4 media lifecycle.
-- Báo cáo Calendar là `PROPOSED`; FullCalendar chỉ nằm trong spike và recurrence library
-  chưa được chấp nhận vào production domain. Browser E2E/Axe, performance nhiều lần và
-  manual keyboard/NVDA còn mở; không code P3-02B trước khi ADR-0019 đạt gate.
+- ADR-0019 đã chấp nhận decision dùng FullCalendar v7 và recurrence bounded, nhưng chỉ
+  ở mức `Accepted with explicit manual NVDA gate`. FullCalendar vẫn chỉ nằm trong
+  spike, recurrence library chưa được import vào production domain và manual NVDA chưa
+  được suy diễn từ Axe. Không nối renderer vào route thật trước khi đóng marker; P3-02A/
+  P3-02B vẫn phải đạt contract, authorization, integration/E2E và staging gate riêng.
 - AWS SES đã được chọn làm provider target nhưng chưa được cấu hình/xác minh và sending
   domain chưa có. Pre-domain chỉ cho phép owner-controlled verified identities trong
   SES sandbox; không được coi là production readiness. SPF/DKIM/DMARC, SES event ingress
@@ -427,6 +445,7 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
 - `docs/PHASE_2_COMPLETION.md`
 - `docs/PHASE_3_BACKLOG.md`
 - `docs/CALENDAR_PRODUCT_TECHNICAL_DESIGN.md`
+- `docs/calendar/P3_CAL_01_SPIKE_EVIDENCE.md`
 - `docs/DEPLOYMENT_BASELINE.md`
 - `docs/DATABASE.md`
 - `docs/AUTHENTICATION.md`
@@ -441,4 +460,5 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
 - `docs/adr/0016-idempotent-v1-fixture-import.md`
 - `docs/adr/0017-class-session-scheduling-and-civil-time.md`
 - `docs/adr/0018-postgresql-leased-outbox-worker.md`
+- `docs/adr/0019-calendar-renderer-recurrence-and-conflict.md`
 - `docs/adr/0021-native-availability-polls-and-member-owned-study-meetings.md`

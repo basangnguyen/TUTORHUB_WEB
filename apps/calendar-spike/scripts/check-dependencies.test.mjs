@@ -10,6 +10,16 @@ async function createPackage(packageJson, source = 'export const clean = "ok";')
   const directory = await mkdtemp(join(tmpdir(), "tutorhub-calendar-guard-"));
   await mkdir(join(directory, "src"));
   await writeFile(join(directory, "package.json"), JSON.stringify(packageJson), "utf8");
+  await writeFile(
+    join(directory, "THIRD_PARTY_NOTICES.md"),
+    [
+      "FullCalendar Standard 7.0.1",
+      "Temporal Polyfill 1.0.1",
+      "github.com/teambition/rrule-go v1.8.2",
+      "MIT License",
+    ].join("\n"),
+    "utf8",
+  );
   await writeFile(join(directory, "src", "main.ts"), source, "utf8");
   return directory;
 }
@@ -43,6 +53,24 @@ test("rejects Premium/resource packages and remote telemetry", async () => {
     const issues = (await checkCalendarDependencies(directory)).issues.join("\n");
     assert.match(issues, /Premium\/resource dependency/);
     assert.match(issues, /remote asset reference/);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("requires reviewed third-party notices", async () => {
+  const directory = await createPackage({
+    dependencies: {
+      "@fullcalendar/react": "7.0.1",
+      "temporal-polyfill": "1.0.1",
+    },
+  });
+  try {
+    await rm(join(directory, "THIRD_PARTY_NOTICES.md"));
+    assert.match(
+      (await checkCalendarDependencies(directory)).issues.join("\n"),
+      /THIRD_PARTY_NOTICES\.md is required/,
+    );
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

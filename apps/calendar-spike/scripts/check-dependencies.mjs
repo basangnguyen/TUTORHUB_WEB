@@ -33,6 +33,7 @@ export async function checkCalendarDependencies(packageRoot) {
   const issues = [];
   const packageJsonPath = resolve(packageRoot, "package.json");
   const packageJson = JSON.parse(await readFile(packageJsonPath, "utf8"));
+  const noticePath = resolve(packageRoot, "THIRD_PARTY_NOTICES.md");
   const allDependencies = {
     ...(packageJson.dependencies ?? {}),
     ...(packageJson.devDependencies ?? {}),
@@ -43,6 +44,22 @@ export async function checkCalendarDependencies(packageRoot) {
     if (allDependencies[name] !== version) {
       issues.push(`${name} must be pinned to ${version}`);
     }
+  }
+
+  try {
+    const notice = await readFile(noticePath, "utf8");
+    for (const requiredNotice of [
+      "FullCalendar Standard 7.0.1",
+      "Temporal Polyfill 1.0.1",
+      "github.com/teambition/rrule-go v1.8.2",
+      "MIT License",
+    ]) {
+      if (!notice.includes(requiredNotice)) {
+        issues.push(`Third-party notice is missing: ${requiredNotice}`);
+      }
+    }
+  } catch {
+    issues.push("THIRD_PARTY_NOTICES.md is required");
   }
 
   for (const name of Object.keys(allDependencies)) {

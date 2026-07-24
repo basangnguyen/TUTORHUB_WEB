@@ -19,8 +19,10 @@ import (
 const (
 	// MaxOccurrences is the hard per-expansion item limit.
 	MaxOccurrences = 512
-	// MaxWindowDays bounds the query and civil-time calculation horizon.
-	MaxWindowDays = 730
+	// MaxQueryWindowDays bounds a single read/expansion request.
+	MaxQueryWindowDays = 366
+	// MaxSeriesHorizonDays bounds recurrence intent from DTSTART.
+	MaxSeriesHorizonDays = 730
 	// MaxIterations limits calls to the candidate iterator.
 	MaxIterations = 2048
 	// ExecutionBudget is the adapter-owned deadline for a single expansion.
@@ -262,10 +264,14 @@ func validateWindow(plan *Plan, window Window) error {
 	if window.Start.IsZero() || window.End.IsZero() || !window.Start.Before(window.End) {
 		return fmt.Errorf("%w: expected a non-empty half-open interval", ErrInvalidWindow)
 	}
-	if window.End.Sub(window.Start) > (MaxWindowDays*24+2)*time.Hour {
-		return fmt.Errorf("%w: maximum query span is %d civil days", ErrInvalidWindow, MaxWindowDays)
+	if window.End.Sub(window.Start) > (MaxQueryWindowDays*24+2)*time.Hour {
+		return fmt.Errorf(
+			"%w: maximum query span is %d civil days",
+			ErrInvalidWindow,
+			MaxQueryWindowDays,
+		)
 	}
-	horizon := plan.start.AddDate(0, 0, MaxWindowDays)
+	horizon := plan.start.AddDate(0, 0, MaxSeriesHorizonDays)
 	if window.End.After(horizon) {
 		return fmt.Errorf(
 			"%w: window end %s is after %s",

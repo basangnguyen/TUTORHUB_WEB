@@ -85,15 +85,15 @@ func TestWindowAndSeriesHorizonCaps(t *testing.T) {
 			name: "query_span",
 			window: Window{
 				Start: plan.start.AddDate(0, 0, -1),
-				End:   plan.start.AddDate(0, 0, MaxWindowDays+1),
+				End:   plan.start.AddDate(0, 0, MaxQueryWindowDays+1),
 			},
 			want: ErrInvalidWindow,
 		},
 		{
 			name: "series_horizon",
 			window: Window{
-				Start: plan.start.AddDate(0, 0, MaxWindowDays-1),
-				End:   plan.start.AddDate(0, 0, MaxWindowDays+1),
+				Start: plan.start.AddDate(0, 0, MaxSeriesHorizonDays-1),
+				End:   plan.start.AddDate(0, 0, MaxSeriesHorizonDays+1),
 			},
 			want: ErrSeriesHorizonExceeded,
 		},
@@ -105,6 +105,74 @@ func TestWindowAndSeriesHorizonCaps(t *testing.T) {
 			_, err := plan.Expand(context.Background(), test.window, ExpandOptions{})
 			if !errors.Is(err, test.want) {
 				t.Fatalf("expected %v, got %v", test.want, err)
+			}
+		})
+	}
+}
+
+func TestCountSeriesHorizonCaps(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		rule    string
+		wantErr error
+	}{
+		{
+			name: "daily_exact_boundary",
+			rule: "FREQ=DAILY;INTERVAL=2;COUNT=366",
+		},
+		{
+			name:    "daily_beyond_boundary",
+			rule:    "FREQ=DAILY;INTERVAL=2;COUNT=367",
+			wantErr: ErrSeriesHorizonExceeded,
+		},
+		{
+			name: "weekly_with_byday_inside_boundary",
+			rule: "FREQ=WEEKLY;BYDAY=TH;COUNT=105",
+		},
+		{
+			name:    "weekly_with_byday_beyond_boundary",
+			rule:    "FREQ=WEEKLY;BYDAY=TH;COUNT=106",
+			wantErr: ErrSeriesHorizonExceeded,
+		},
+		{
+			name: "monthly_with_bymonthday_exact_boundary",
+			rule: "FREQ=MONTHLY;BYMONTHDAY=1;COUNT=25",
+		},
+		{
+			name:    "monthly_with_bymonthday_beyond_boundary",
+			rule:    "FREQ=MONTHLY;BYMONTHDAY=1;COUNT=26",
+			wantErr: ErrSeriesHorizonExceeded,
+		},
+		{
+			name: "yearly_with_bymonth_exact_boundary",
+			rule: "FREQ=YEARLY;BYMONTH=1;BYMONTHDAY=1;COUNT=3",
+		},
+		{
+			name:    "yearly_with_bymonth_beyond_boundary",
+			rule:    "FREQ=YEARLY;BYMONTH=1;BYMONTHDAY=1;COUNT=4",
+			wantErr: ErrSeriesHorizonExceeded,
+		},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			_, err := Compile(Series{
+				ID:            "series-count-horizon-" + test.name,
+				StartLocal:    "2026-01-01T09:00:00",
+				TimeZone:      "UTC",
+				Duration:      time.Hour,
+				Rule:          test.rule,
+				OverlapPolicy: OverlapReject,
+			})
+			if test.wantErr == nil && err != nil {
+				t.Fatalf("expected rule within horizon, got %v", err)
+			}
+			if test.wantErr != nil && !errors.Is(err, test.wantErr) {
+				t.Fatalf("expected %v, got %v", test.wantErr, err)
 			}
 		})
 	}
@@ -151,7 +219,10 @@ func FuzzExpandStaysWithinCap(f *testing.F) {
 		if err != nil {
 			t.Fatalf("compile generated valid rule: %v", err)
 		}
-		window := Window{Start: plan.start, End: plan.start.AddDate(0, 0, MaxWindowDays)}
+		window := Window{
+			Start: plan.start,
+			End:   plan.start.AddDate(0, 0, MaxQueryWindowDays),
+		}
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
 		occurrences, expandErr := plan.Expand(ctx, window, ExpandOptions{MaxOccurrences: itemCap})

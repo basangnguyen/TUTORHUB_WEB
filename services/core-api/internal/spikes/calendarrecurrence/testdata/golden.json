@@ -142,5 +142,20 @@
       "2026-07-21T08:00:00+07:00",
       "2026-07-22T08:00:00+07:00"
     ]
+  },
+  {
+    "name": "yearly_with_explicit_month_and_day",
+    "series_id": "series-yearly",
+    "start_local": "2026-07-20T08:00:00",
+    "time_zone": "Asia/Ho_Chi_Minh",
+    "duration_minutes": 60,
+    "rule": "FREQ=YEARLY;BYMONTH=7;BYMONTHDAY=20;COUNT=2",
+    "overlap_policy": "reject",
+    "window_start": "2026-07-20T00:00:00+07:00",
+    "window_end": "2027-07-21T00:00:00+07:00",
+    "expected_starts": [
+      "2026-07-20T08:00:00+07:00",
+      "2027-07-20T08:00:00+07:00"
+    ]
   }
 ]

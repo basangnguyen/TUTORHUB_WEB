@@ -12,11 +12,15 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
 - **Phase 2 - Identity, tenant và class core** đã hoàn thành và được owner sign-off
   ngày 2026-07-22. P2-00 đến P2-12, staging acceptance, application rollback/redeploy
   và exit gate đều đạt.
-- Hiện đang thực hiện **Phase 3 - Daily learning workspace**. P3-00, P3-CAL-00 và
-  P3-CAL-00B đã `DONE`; bản re-baseline tài liệu đã chốt professional parity
-  Teams/Google, Calendar cream theme và email/ICS/RSVP trong Phase 3, nhưng chưa triển
-  khai runtime. P3-CAL-01 renderer/recurrence/theme spike + ADR-0019 vẫn là task hiện
-  tại ở trạng thái `READY`, sau đó triển khai P3-01 theo thứ tự làm việc đã chọn.
+- Hiện đang thực hiện **Phase 3 - Daily learning workspace**. P3-00,
+  P3-CAL-00/00B/00C, P3-CAL-01 và P3-01 đã `DONE`. ADR-0019 chấp nhận
+  FullCalendar Standard v7.0.1 qua adapter, recurrence Go bounded
+  `366/730/512/2.000/250 ms`, COUNT occurrence-last horizon validation, YEARLY golden
+  và Warm Academic theme. Full v7 E2E hậu fix đạt `9 passed (23.6s)`; comparator parity v6
+  `4 passed` nhưng fail absolute budget ở render 500/long-task 2.000. NVDA vẫn là
+  explicit rollout gate trước khi renderer được nối vào route production, nên chưa
+  được mô tả Calendar như chức năng runtime. Task triển khai tiếp theo là P3-03
+  PostgreSQL outbox worker.
 - ADR-0021 đã `Accepted` để P3-02D xây Native Availability Poll do TutorHub sở hữu:
   active member gồm student có thể tạo poll/Study Meeting của mình; secure public link
   không phải booking và không phụ thuộc When2meet. Đây mới là architecture/backlog,
@@ -72,7 +76,8 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
 31. [ADR-0016: Idempotent V1 fixture import](docs/adr/0016-idempotent-v1-fixture-import.md)
 32. [ADR-0017: Class session scheduling và civil time](docs/adr/0017-class-session-scheduling-and-civil-time.md)
 33. [ADR-0018: PostgreSQL leased outbox worker](docs/adr/0018-postgresql-leased-outbox-worker.md)
-34. [ADR-0021: Native Availability Poll và member-owned Study Meeting](docs/adr/0021-native-availability-polls-and-member-owned-study-meetings.md)
+34. [ADR-0019: Calendar renderer, bounded recurrence và conflict authority](docs/adr/0019-calendar-renderer-recurrence-and-conflict.md)
+35. [ADR-0021: Native Availability Poll và member-owned Study Meeting](docs/adr/0021-native-availability-polls-and-member-owned-study-meetings.md)
 
 Các quyết định kiến trúc đã chấp nhận nằm trong `docs/adr`.
 

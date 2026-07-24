@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-func BenchmarkExpand500Occurrences(b *testing.B) {
+func BenchmarkExpandMaxQueryWindow(b *testing.B) {
 	benchmarks := []struct {
 		name   string
 		zone   string
@@ -20,11 +20,11 @@ func BenchmarkExpand500Occurrences(b *testing.B) {
 		benchmark := benchmark
 		b.Run(benchmark.name, func(b *testing.B) {
 			plan, err := Compile(Series{
-				ID:            "benchmark-500",
+				ID:            "benchmark-max-query-window",
 				StartLocal:    "2026-01-01T12:00:00",
 				TimeZone:      benchmark.zone,
 				Duration:      time.Hour,
-				Rule:          "FREQ=DAILY;COUNT=500",
+				Rule:          "FREQ=DAILY;COUNT=366",
 				OverlapPolicy: benchmark.policy,
 			})
 			if err != nil {
@@ -32,7 +32,7 @@ func BenchmarkExpand500Occurrences(b *testing.B) {
 			}
 			window := Window{
 				Start: plan.start,
-				End:   plan.start.AddDate(0, 0, 501),
+				End:   plan.start.AddDate(0, 0, MaxQueryWindowDays),
 			}
 			b.ReportAllocs()
 			b.ResetTimer()
@@ -41,8 +41,8 @@ func BenchmarkExpand500Occurrences(b *testing.B) {
 				if expandErr != nil {
 					b.Fatalf("expand: %v", expandErr)
 				}
-				if len(occurrences) != 500 {
-					b.Fatalf("expected 500 occurrences, got %d", len(occurrences))
+				if len(occurrences) != 366 {
+					b.Fatalf("expected 366 occurrences, got %d", len(occurrences))
 				}
 			}
 		})

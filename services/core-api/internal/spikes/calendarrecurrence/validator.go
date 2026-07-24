@@ -75,8 +75,10 @@ func parseAndValidateRule(
 			ErrInvalidRule,
 		)
 	}
+	count := 0
 	if hasCount {
-		if _, err := boundedPositiveInteger("COUNT", countValue, MaxOccurrences); err != nil {
+		count, err = boundedPositiveInteger("COUNT", countValue, MaxOccurrences)
+		if err != nil {
 			return parsedRule{}, err
 		}
 	}
@@ -87,6 +89,10 @@ func parseAndValidateRule(
 	}
 	option.Dtstart = start
 
+	maxUntil, err := seriesHorizon(startCivil, location, overlapPolicy)
+	if err != nil {
+		return parsedRule{}, fmt.Errorf("%w: calculate series horizon: %v", ErrInvalidRule, err)
+	}
 	if hasUntil {
 		until, err := parseUntil(untilValue, location, overlapPolicy)
 		if err != nil {
@@ -95,31 +101,64 @@ func parseAndValidateRule(
 		if until.Before(start) {
 			return parsedRule{}, fmt.Errorf("%w: UNTIL is before DTSTART", ErrInvalidRule)
 		}
-		maxUntilCivil := time.Date(
-			startCivil.Year,
-			startCivil.Month,
-			startCivil.Day,
-			startCivil.Hour,
-			startCivil.Minute,
-			startCivil.Second,
-			0,
-			time.UTC,
-		).AddDate(0, 0, MaxWindowDays)
-		maxUntil, err := resolveCivil(civilFromTime(maxUntilCivil), location, overlapPolicy)
-		if err != nil {
-			return parsedRule{}, fmt.Errorf("%w: calculate series horizon: %v", ErrInvalidRule, err)
-		}
 		if until.After(maxUntil) {
 			return parsedRule{}, fmt.Errorf(
 				"%w: UNTIL exceeds %d-day horizon",
 				ErrSeriesHorizonExceeded,
-				MaxWindowDays,
+				MaxSeriesHorizonDays,
 			)
 		}
 		option.Until = until
 	}
+	if hasCount {
+		if err := validateCountHorizon(*option, count, maxUntil); err != nil {
+			return parsedRule{}, err
+		}
+	}
 
 	return parsedRule{option: *option}, nil
+}
+
+func seriesHorizon(
+	startCivil civilDateTime,
+	location *time.Location,
+	overlapPolicy OverlapPolicy,
+) (time.Time, error) {
+	horizonCivil := time.Date(
+		startCivil.Year,
+		startCivil.Month,
+		startCivil.Day,
+		startCivil.Hour,
+		startCivil.Minute,
+		startCivil.Second,
+		0,
+		time.UTC,
+	).AddDate(0, 0, MaxSeriesHorizonDays)
+	return resolveCivil(civilFromTime(horizonCivil), location, overlapPolicy)
+}
+
+// validateCountHorizon proves that the complete COUNT-bounded recurrence fits
+// inside the accepted civil-time horizon. Adding UNTIL to this temporary
+// candidate bounds the library iterator even for sparse BY* combinations.
+func validateCountHorizon(option rrule.ROption, count int, horizon time.Time) error {
+	bounded := cloneOption(option)
+	bounded.Until = horizon
+
+	candidate, err := rrule.NewRRule(bounded)
+	if err != nil {
+		return fmt.Errorf("%w: candidate rejected bounded COUNT rule: %v", ErrInvalidRule, err)
+	}
+	next := candidate.Iterator()
+	for occurrence := 0; occurrence < count; occurrence++ {
+		if _, ok := next(); !ok {
+			return fmt.Errorf(
+				"%w: COUNT cannot be satisfied within %d-day horizon",
+				ErrSeriesHorizonExceeded,
+				MaxSeriesHorizonDays,
+			)
+		}
+	}
+	return nil
 }
 
 func parseProperties(raw string) (string, map[string]string, error) {

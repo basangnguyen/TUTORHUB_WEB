@@ -23,15 +23,15 @@ tính từ P3-CAL-01.
 Domain/DNS, SES sandbox và production-access approval có thể chuẩn bị song song nhưng
 không được tính `DONE` trước interoperability gate.
 
-**Task vừa hoàn thành:** P3-01 Course session scheduling/timezone đã `DONE`: migration,
-contract, backend, feature/policy, generated client, class-detail UI, test local, Neon
-`14 false`, runtime grants tối thiểu, deploy/public probes và browser acceptance
-Teacher/Student/IDOR đều đạt. Biên bản nằm tại `docs/P3_01_STAGING_ACCEPTANCE.md`.
+**Task vừa hoàn thành:** P3-CAL-01 decision spike và P3-01 đều `DONE`. P3-CAL-01
+chấp nhận FullCalendar Standard v7.0.1, adapter/domain boundary, Warm Academic theme và
+recurrence Go bounded; manual NVDA vẫn là explicit rollout gate trước khi nối renderer
+vào route production. P3-01 đã đạt migration, contract, backend, feature/policy,
+generated client, class-detail UI, Neon `14 false`, deploy/public probes và browser
+acceptance Teacher/Student/IDOR. Biên bản P3-01 nằm tại
+`docs/P3_01_STAGING_ACCEPTANCE.md`.
 
-**Task hiện tại:** phần browser/manual evidence còn lại của P3-CAL-01/ADR-0019
-(`IN PROGRESS`).
-
-**Task tiếp theo:** P3-03 PostgreSQL outbox worker production shape.
+**Task hiện tại/tiếp theo:** P3-03 PostgreSQL outbox worker production shape.
 P3-CAL-02/P3-02A chỉ bắt đầu khi dependency gate tương ứng đạt.
 
 **Thiết kế Calendar có thẩm quyền:**
@@ -73,32 +73,32 @@ P3-CAL-02/P3-02A chỉ bắt đầu khi dependency gate tương ứng đạt.
 
 ## 4. Trạng thái tổng hợp
 
-| Task       | Nội dung                                        | Dependency                      | Trạng thái |
-| ---------- | ----------------------------------------------- | ------------------------------- | ---------- |
-| P3-00      | Backlog + architecture/contract baseline        | Phase 2                         | DONE       |
-| P3-CAL-00  | Calendar research + product/technical design    | P3-00                           | DONE       |
-| P3-CAL-00B | Teams/Google parity + visual/email re-baseline  | P3-CAL-00                       | DONE       |
-| P3-CAL-00C | Final implementation-readiness review           | P3-CAL-00B                      | DONE       |
-| P3-CAL-01  | Renderer/recurrence/theme spike + ADR-0019      | P3-CAL-00C                      | IN PROGRESS |
-| P3-01      | Course session scheduling và timezone           | P3-00, P3-CAL-00C               | DONE       |
-| P3-CAL-02  | Invitation/RSVP/iCalendar/AWS SES + ADR-0020    | P3-CAL-01, P3-01                | TODO       |
-| P3-02A     | Professional Calendar shell/read projection     | P3-01, P3-CAL-01                | TODO       |
-| P3-02B     | Recurrence + class conflict                     | P3-02A, ADR-0019                 | TODO       |
-| P3-02C     | Working hours/attendee/free-busy/RSVP           | P3-02A, P3-CAL-02                | TODO       |
-| P3-02D     | Native Availability Poll + Study Meeting        | P3-02B, P3-02C, P3-03, ADR-0021  | TODO       |
-| P3-03      | PostgreSQL outbox worker production shape       | P3-01                           | TODO       |
-| P3-04      | In-app notification và preference               | P3-03                           | TODO       |
-| P3-05A     | Session email/ICS/external RSVP/reminder        | P3-02C, P3-CAL-02, P3-03, P3-04 | TODO       |
-| P3-05B     | Poll/Study Meeting lifecycle delivery           | P3-02D, P3-05A                  | TODO       |
-| P3-06      | Direct/class conversation                       | P3-00, Phase 2 policy           | TODO       |
-| P3-07      | Persistent message, unread và read receipt      | P3-03, P3-06                    | TODO       |
-| P3-08      | File metadata, upload intent và finalize        | P3-00, B2 baseline              | TODO       |
-| P3-09      | Presigned B2 upload/download                    | P3-08                           | TODO       |
-| P3-10      | Scan/metadata/thumbnail processing              | P3-03, P3-09                    | TODO       |
-| P3-11      | Class Files UI                                  | P3-09, P3-10                    | TODO       |
-| P3-12      | Home dashboard và PostgreSQL search cơ bản      | P3-01, P3-04, P3-07, P3-11     | TODO       |
-| P3-13      | Offline/retry drafts và Phase 3 quota closure   | P3-02D, P3-07, P3-11            | TODO       |
-| P3-14      | Staging acceptance và đóng Phase 3              | P3-CAL-02, P3-05B, P3-12, P3-13 | TODO       |
+| Task       | Nội dung                                       | Dependency                      | Trạng thái |
+| ---------- | ---------------------------------------------- | ------------------------------- | ---------- |
+| P3-00      | Backlog + architecture/contract baseline       | Phase 2                         | DONE       |
+| P3-CAL-00  | Calendar research + product/technical design   | P3-00                           | DONE       |
+| P3-CAL-00B | Teams/Google parity + visual/email re-baseline | P3-CAL-00                       | DONE       |
+| P3-CAL-00C | Final implementation-readiness review          | P3-CAL-00B                      | DONE       |
+| P3-CAL-01  | Renderer/recurrence/theme spike + ADR-0019     | P3-CAL-00C                      | DONE       |
+| P3-01      | Course session scheduling và timezone          | P3-00, P3-CAL-00C               | DONE       |
+| P3-CAL-02  | Invitation/RSVP/iCalendar/AWS SES + ADR-0020   | P3-CAL-01, P3-01                | TODO       |
+| P3-02A     | Professional Calendar shell/read projection    | P3-01, P3-CAL-01                | TODO       |
+| P3-02B     | Recurrence + class conflict                    | P3-02A, ADR-0019                | TODO       |
+| P3-02C     | Working hours/attendee/free-busy/RSVP          | P3-02A, P3-CAL-02               | TODO       |
+| P3-02D     | Native Availability Poll + Study Meeting       | P3-02B, P3-02C, P3-03, ADR-0021 | TODO       |
+| P3-03      | PostgreSQL outbox worker production shape      | P3-01                           | TODO       |
+| P3-04      | In-app notification và preference              | P3-03                           | TODO       |
+| P3-05A     | Session email/ICS/external RSVP/reminder       | P3-02C, P3-CAL-02, P3-03, P3-04 | TODO       |
+| P3-05B     | Poll/Study Meeting lifecycle delivery          | P3-02D, P3-05A                  | TODO       |
+| P3-06      | Direct/class conversation                      | P3-00, Phase 2 policy           | TODO       |
+| P3-07      | Persistent message, unread và read receipt     | P3-03, P3-06                    | TODO       |
+| P3-08      | File metadata, upload intent và finalize       | P3-00, B2 baseline              | TODO       |
+| P3-09      | Presigned B2 upload/download                   | P3-08                           | TODO       |
+| P3-10      | Scan/metadata/thumbnail processing             | P3-03, P3-09                    | TODO       |
+| P3-11      | Class Files UI                                 | P3-09, P3-10                    | TODO       |
+| P3-12      | Home dashboard và PostgreSQL search cơ bản     | P3-01, P3-04, P3-07, P3-11      | TODO       |
+| P3-13      | Offline/retry drafts và Phase 3 quota closure  | P3-02D, P3-07, P3-11            | TODO       |
+| P3-14      | Staging acceptance và đóng Phase 3             | P3-CAL-02, P3-05B, P3-12, P3-13 | TODO       |
 
 `VERIFY` nghĩa là implementation và kiểm tra local đã đạt, nhưng migration/deployment
 và acceptance trên staging chưa hoàn tất. Trạng thái này không đồng nghĩa `DONE`.
@@ -110,7 +110,7 @@ flowchart LR
     P300 --> PC00["P3-CAL-00 Research/design"]
     PC00 --> PC00B["P3-CAL-00B Re-baseline"]
     PC00B --> PC00C["P3-CAL-00C Readiness review"]
-    PC00C --> PC01["P3-CAL-01 Current spike/ADR"]
+    PC00C --> PC01["P3-CAL-01 Spike/ADR"]
     PC00C --> P301["P3-01 Scheduling"]
     PC01 --> PC02["P3-CAL-02 Email/ICS ADR"]
     P301 --> PC02
@@ -296,25 +296,40 @@ không thêm FullCalendar hoặc recurrence; dependency chỉ được thêm sau
 
 ### P3-CAL-01 technical spike/ADR gate
 
-- [x] Mở ADR-0019 ở trạng thái `PROPOSED`, ghi alternatives và tiêu chí quyết định.
-- [ ] FullCalendar Standard v7.0.1 spike đạt React/Vite/strict/bundle/performance; so sánh
-      v6.1.x fallback, Temporal/package/CSS/theme và pin exact version từ bằng chứng.
-- [ ] Keyboard, NVDA/Axe, mobile Agenda và drag alternative đạt.
+- [x] ADR-0019 ghi alternatives/criteria và chuyển
+      `Accepted with explicit manual NVDA gate`.
+- [x] FullCalendar Standard v7.0.1 spike đạt React/Vite/strict/bundle/performance; đã
+      so sánh v6.1.21 fallback, Temporal/package/CSS/theme và pin exact version.
+- [x] Keyboard, Axe critical/serious=0, mobile Agenda, pointer drag/resize, drag
+      alternative, zoom 200%, forced-colors và reduced-motion đạt automated evidence;
+      Agenda mở progressive `24 -> 48 -> 51`, Axe waiver khóa exact node/count/scope.
+- [ ] `PENDING_NVDA_REVIEW`: manual NVDA phải đạt trước khi P3-02A nối renderer vào
+      route production. Đây là explicit rollout gate của ADR, không phải tuyên bố đã
+      kiểm tra hoặc production-ready.
 - [x] DST/drag/revert contract unit với fixture `Asia/Ho_Chi_Minh` và
       `America/New_York` đạt; browser interaction evidence vẫn thuộc mục trên.
 - [x] Go recurrence candidate qua adapter đạt bounded RFC subset/golden/property/
-      resource-exhaustion test hoặc bị loại; cấm `.All()` và hourly/minutely/secondly.
-- [ ] ADR-0019 được cập nhật từ kết quả spike và chấp nhận series/exception/occurrence
+      resource-exhaustion test hoặc bị loại; COUNT occurrence-last phải nằm trong
+      horizon 730 ngày, YEARLY golden đã đạt; cấm `.All()` và hourly/minutely/secondly.
+- [x] ADR-0019 được cập nhật từ kết quả spike và chấp nhận series/exception/occurrence
       identity, DST recurrence, split-exception policy, WorkingSchedule/suggested-time,
       class/teacher resource dependency, exact cap và dependency decision.
 - [x] Dependency/license/security guard và root lock review đạt; không kéo
       Premium/telemetry ngoài ý muốn.
 
-Automated local evidence đã đạt typecheck, 8 unit/DOM test, build, dependency guard và
-Go test/fuzz/benchmark. Calendar JS gzip là `154.94 KiB`, CSS gzip `5.35 KiB`. Playwright
-Chromium hiện treo ở navigation/teardown trong môi trường local nên không được ghi pass;
-Axe, browser performance nhiều lần, keyboard/NVDA, 200% zoom và forced-colors vẫn là
-gate mở. ADR-0019 vì vậy tiếp tục `PROPOSED`.
+Automated local evidence đã đạt typecheck, lint, 8 unit/DOM test, build, dependency
+guard 3/3, full v7 Playwright hậu fix `9 passed (23.6s)` và Go
+unit/fuzz/benchmark. Calendar v7 JS/CSS gzip là `155.15/5.37 KiB`; heap 2.000 item
+tăng `26,34 MiB`. Render p95 `152/164/201 ms`, navigation p95 `204/327/548 ms` và
+long-task max `79/198/315 ms` ở 500/1.000/2.000 item, đạt budget tương ứng
+`500/900/1.800`, `350/500/800` và `200/300/400 ms`.
+Comparator parity-config v6 full run `4 passed (17.5s)`, JS gzip `139.00 KiB`, heap
+`7,44 MiB`; vẫn không được chọn vì render 500 `1.492 > 500 ms` và long-task 2.000
+`404 > 400 ms`. Recurrence hard cap là query window `366 ngày`, series horizon
+`730 ngày`, `512 occurrence/series`, `2.000 occurrence/request` và deadline `250 ms`;
+COUNT occurrence-last/YEARLY golden đạt. Axe chỉ có waiver upstream exact
+`empty-table-header`, impact minor, một node/target/HTML/scope; critical/serious bằng 0. ADR-0019 được chấp nhận ở cấp decision spike, nhưng manual NVDA marker vẫn chặn
+production route.
 
 ### P3-CAL-02 invitation/RSVP/iCalendar/provider gate
 
@@ -376,8 +391,9 @@ P3-01 qua một projection thống nhất; chưa hứa recurrence, attendee/RSVP
 - [ ] Quick create/full editor ở task này chỉ tạo/sửa timed one-time ClassSession đã có
       contract P3-01; all-day, room/material và source chưa có field phải source-gated/
       hidden, không lưu placeholder.
-- [ ] FullCalendar Standard chỉ được pin sau P3-CAL-01/ADR-0019; CI deny Premium package,
-      telemetry và unreviewed CSS/assets.
+- [ ] Dùng exact pin FullCalendar Standard đã được ADR-0019 chấp nhận; đóng manual NVDA
+      marker trước production route. CI deny Premium package, telemetry và unreviewed
+      CSS/assets.
 - [ ] Warm Academic semantic token, Teams-inspired IA và editor hai cột đạt visual
       regression ở desktop/tablet/mobile nhưng không sao chép icon/font/trade dress.
 - [ ] Drag/resize one-time có expected version, optimistic revert, undo và keyboard
@@ -696,25 +712,25 @@ bộ đáng tin cậy; P3-05A chỉ phân phối email/ICS, không sở hữu bu
 
 ## 22. Thứ tự chặng triển khai
 
-| Chặng  | Task chính             | Kết quả demo                                      |
-| ------ | ---------------------- | ------------------------------------------------- |
-| 0      | P3-00                  | Backlog + ADR baseline                            |
-| C0     | P3-CAL-00/00B/00C      | Research, re-baseline và readiness review         |
-| C1     | P3-CAL-01              | Renderer/recurrence/theme spike + ADR-0019        |
-| 1      | P3-01                  | Session một lần contract-first                    |
-| 2      | P3-03                  | Durable PostgreSQL leased worker                  |
-| 3      | P3-02A                 | Professional shell/read projection               |
-| C2     | P3-CAL-02              | Invitation/iCalendar/provider spike + ADR-0020    |
-| 4      | P3-02B                 | Recurrence + class conflict                       |
-| 5      | P3-02C                 | Working hours, attendee/free-busy/RSVP            |
-| 6      | P3-04                  | In-app notification + channel preferences         |
-| 7      | P3-05A                 | Session email/ICS/reminder + provider acceptance  |
-| 8      | P3-02D                 | Native poll, secure sharing và Study Meeting      |
-| 9      | P3-05B                 | Poll/StudyMeeting lifecycle delivery              |
-| 10     | P3-06, P3-07           | Conversation và persistent message               |
-| 11-13  | P3-08 đến P3-11        | B2 transfer, processing và Class Files            |
-| 14     | P3-12, P3-13           | Home/search, quota và offline                     |
-| 15     | P3-14                  | Staging acceptance/closure                        |
+| Chặng | Task chính        | Kết quả demo                                     |
+| ----- | ----------------- | ------------------------------------------------ |
+| 0     | P3-00             | Backlog + ADR baseline                           |
+| C0    | P3-CAL-00/00B/00C | Research, re-baseline và readiness review        |
+| C1    | P3-CAL-01         | Renderer/recurrence/theme spike + ADR-0019       |
+| 1     | P3-01             | Session một lần contract-first                   |
+| 2     | P3-03             | Durable PostgreSQL leased worker                 |
+| 3     | P3-02A            | Professional shell/read projection               |
+| C2    | P3-CAL-02         | Invitation/iCalendar/provider spike + ADR-0020   |
+| 4     | P3-02B            | Recurrence + class conflict                      |
+| 5     | P3-02C            | Working hours, attendee/free-busy/RSVP           |
+| 6     | P3-04             | In-app notification + channel preferences        |
+| 7     | P3-05A            | Session email/ICS/reminder + provider acceptance |
+| 8     | P3-02D            | Native poll, secure sharing và Study Meeting     |
+| 9     | P3-05B            | Poll/StudyMeeting lifecycle delivery             |
+| 10    | P3-06, P3-07      | Conversation và persistent message               |
+| 11-13 | P3-08 đến P3-11   | B2 transfer, processing và Class Files           |
+| 14    | P3-12, P3-13      | Home/search, quota và offline                    |
+| 15    | P3-14             | Staging acceptance/closure                       |
 
 Các nhãn `C0/C1/C2` là decision gate nằm trong chặng kế cận, không phải ba sprint cộng
 thêm vào 13–17 tuần. C2 có thể chạy sandbox cô lập song song với P3-02A sau khi
@@ -724,11 +740,12 @@ là dependency/ưu tiên, không phải cam kết mỗi hàng đúng một tuầ
 ## 23. Việc cần làm ngay
 
 1. P3-CAL-00/00B/00C đã `DONE`; đây là research/readiness, chưa phải runtime.
-2. Thực hiện P3-CAL-01 spike + ADR-0019; chưa thêm dependency vào production trước gate.
-3. Thực hiện P3-01 contract-first: migration `000014`, policy, OpenAPI/client, backend,
-    minimal UI và test timezone/DST/tenant isolation.
-4. Thực hiện P3-03 ngay sau P3-01, trước mọi notification/email/ICS/reminder side effect.
-5. P3-CAL-02/ADR-0020 chỉ spike sandbox cô lập sau khi cả P3-CAL-01 và P3-01 đạt gate;
+2. P3-CAL-01 đã `DONE` ở cấp decision spike; ADR-0019 đã được chấp nhận với explicit
+   manual NVDA rollout gate. Chưa nối renderer vào production route khi marker còn mở.
+3. P3-01 đã `DONE` sau local/staging acceptance; không mở rộng one-time slice thành
+   recurrence/reminder/calendar aggregate.
+4. Thực hiện P3-03 ngay bây giờ, trước mọi notification/email/ICS/reminder side effect.
+5. P3-CAL-02/ADR-0020 chỉ spike sandbox cô lập vì P3-CAL-01 và P3-01 đã đạt gate;
    pre-domain chỉ dùng verified-email sandbox và chưa bật business delivery.
 6. Triển khai P3-02A, rồi P3-02B và P3-02C theo gate; teacher conflict chỉ bật khi
    assignment/attendee authoritative đã có.

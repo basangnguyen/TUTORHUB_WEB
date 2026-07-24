@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import FullCalendar, {
   type CalendarOptions,
   type CalendarRef,
@@ -33,6 +33,8 @@ const PLUGINS = [
   interactionPlugin,
   classicThemePlugin,
 ];
+
+const AGENDA_PAGE_SIZE = 24;
 
 const VIEW_LABELS: ReadonlyArray<{
   view: CalendarView;
@@ -84,7 +86,28 @@ export function FullCalendarSurface({
   onSelectedEvent,
 }: FullCalendarSurfaceProps) {
   const calendarRef = useRef<CalendarRef>(null);
+  const [visibleAgendaCount, setVisibleAgendaCount] = useState(() =>
+    Math.min(AGENDA_PAGE_SIZE, items.length),
+  );
   const surfaceEvents = useMemo(() => toSurfaceEvents(items), [items]);
+  const itemsById = useMemo(
+    () => new Map(items.map((item) => [item.id, item])),
+    [items],
+  );
+  const visibleAgendaItems = items.slice(0, visibleAgendaCount);
+  const remainingAgendaCount = Math.max(
+    0,
+    items.length - visibleAgendaItems.length,
+  );
+
+  useEffect(() => {
+    setVisibleAgendaCount((current) =>
+      Math.min(
+        items.length,
+        Math.max(current, Math.min(AGENDA_PAGE_SIZE, items.length)),
+      ),
+    );
+  }, [items.length]);
 
   const changeView = useCallback(
     (nextView: CalendarView) => {
@@ -134,6 +157,7 @@ export function FullCalendarSurface({
     initialDate: "2026-07-23",
     initialView: view,
     headerToolbar: false,
+    allDaySlot: false,
     height: "auto",
     contentHeight: 560,
     expandRows: true,
@@ -147,7 +171,13 @@ export function FullCalendarSurface({
     dragRevertDuration: 140,
     eventDisplay: "block",
     eventOrder: "start,title",
+    dayMaxEventRows: 6,
+    eventMaxStack: 6,
+    moreLinkClick: "popover",
     events: surfaceEvents,
+    datesSet: (info) => {
+      document.body.dataset.calendarRenderedView = info.view.type;
+    },
     eventDrop: handleDrop,
     eventResize: handleResize,
     eventClick: (info) => {
@@ -155,7 +185,7 @@ export function FullCalendarSurface({
       onSelectedEvent(info.event.id);
     },
     eventDidMount: (info) => {
-      const item = items.find((candidate) => candidate.id === info.event.id);
+      const item = itemsById.get(info.event.id);
       info.el.dataset.calendarEventId = info.event.id;
       info.el.setAttribute(
         "aria-label",
@@ -166,7 +196,7 @@ export function FullCalendarSurface({
       }
     },
     eventClass: (info) => {
-      const item = items.find((candidate) => candidate.id === info.event.id);
+      const item = itemsById.get(info.event.id);
       return (
         item
           ? [
@@ -214,17 +244,22 @@ export function FullCalendarSurface({
       </div>
       <div className="calendar-spike__agenda-alternative">
         <div className="calendar-spike__agenda-heading">
-          <h2>Chương trình thay thế cho thao tác kéo</h2>
-          <span aria-label={`${Math.min(items.length, 24)} mục hiển thị`}>
-            {items.length} mục
+          <h2 id="calendar-spike-agenda-heading">
+            Chương trình thay thế cho thao tác kéo
+          </h2>
+          <span aria-live="polite" data-testid="agenda-count">
+            Hiển thị {visibleAgendaItems.length}/{items.length} mục
           </span>
         </div>
         <p className="calendar-spike__helper">
           Dùng nút bên dưới để dời lịch mà không cần chuột. Đây là đường tương
           đương cho bàn phím và thiết bị hỗ trợ.
         </p>
-        <ol aria-label="Danh sách lịch có thể thao tác bằng bàn phím">
-          {items.slice(0, 24).map((item) => (
+        <ol
+          aria-labelledby="calendar-spike-agenda-heading"
+          id="calendar-spike-agenda-list"
+        >
+          {visibleAgendaItems.map((item) => (
             <AgendaItem
               item={item}
               key={item.id}
@@ -234,6 +269,25 @@ export function FullCalendarSurface({
             />
           ))}
         </ol>
+        {remainingAgendaCount > 0 ? (
+          <div className="calendar-spike__agenda-pagination">
+            <button
+              aria-controls="calendar-spike-agenda-list"
+              onClick={() =>
+                setVisibleAgendaCount((current) =>
+                  Math.min(items.length, current + AGENDA_PAGE_SIZE),
+                )
+              }
+              type="button"
+            >
+              Hiển thị thêm {Math.min(AGENDA_PAGE_SIZE, remainingAgendaCount)}{" "}
+              mục
+            </button>
+            <span>
+              Còn {remainingAgendaCount} mục trong chương trình bàn phím
+            </span>
+          </div>
+        ) : null}
       </div>
     </section>
   );
