@@ -59,7 +59,7 @@
     "prettier": "3.9.5",
     "storybook": "10.5.0",
     "turbo": "2.10.4",
-    "typescript": "5.9.3",
+    "typescript": "7.0.2",
     "typescript-eslint": "8.63.0"
   }
 }
