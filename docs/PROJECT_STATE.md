@@ -6,15 +6,15 @@
 
 | Thuộc tính          | Trạng thái                                                                            |
 | ------------------- | ------------------------------------------------------------------------------------- |
-| Ngày cập nhật       | 2026-07-23                                                                            |
+| Ngày cập nhật       | 2026-07-24                                                                            |
 | Repository          | `https://github.com/basangnguyen/TUTORHUB_WEB`                                        |
 | Nhánh làm việc      | `main`                                                                                |
 | Quy trình           | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
 | Phase hoàn thành    | Phase 0, Phase 1, Phase 2                                                             |
 | Phase hiện tại      | Phase 3 - Daily learning workspace                                                   |
-| Task vừa hoàn thành | P3-CAL-00C Calendar implementation-readiness review (docs-only)                       |
-| Task hiện tại       | P3-CAL-01 renderer/recurrence/theme spike + ADR-0019 (`READY`)                       |
-| Task tiếp theo      | Chạy P3-CAL-01/ADR-0019, sau đó triển khai P3-01 contract-first                      |
+| Task vừa hoàn thành | P3-01 scheduling/timezone vertical slice đã hoàn tất implementation và kiểm tra local |
+| Task hiện tại       | P3-01 staging acceptance (`VERIFY`) + P3-CAL-01 manual/E2E evidence (`IN PROGRESS`)   |
+| Task tiếp theo      | Apply migration/grants và nghiệm thu P3-01 trên staging; sau đó bắt đầu P3-03 worker |
 
 ## Kiến trúc đang chạy
 
@@ -270,7 +270,9 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
 3. ADR-0018 chốt worker process riêng trong cùng Go modular monolith: PostgreSQL lease
    có fencing token, at-least-once, retry/backoff, idempotency và dead-letter; chưa thêm
    Redis/NATS/Kafka hoặc provider mới.
-4. P3-01 là vertical slice implementation đầu tiên và đang `READY`. Scope không gồm
+4. P3-01 đã hoàn tất vertical slice local: migration `000014_class_sessions`,
+   permission/feature control, OpenAPI/generated client, Go repository/service/HTTP,
+   timezone/DST validation và UI tối thiểu trên class detail. Scope không gồm
    recurrence, reminder, calendar tổng hợp, worker runtime hoặc media lifecycle.
 5. P3-CAL-00 đã audit Google Calendar, Microsoft Teams, Zoom, ClassIn, các lựa chọn
    mã nguồn mở và TutorHub V1; kết quả nằm tại
@@ -315,13 +317,28 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
     `WorkingSchedule` về P3-02C; buộc P3-02D phụ thuộc P3-03 cho deadline auto-close và
     khóa P3-05B cho poll reopen cùng direct StudyMeeting lifecycle. Đây vẫn là tài liệu,
     chưa có Calendar runtime.
+13. P3-CAL-01 đã có spike cô lập `apps/calendar-spike` với FullCalendar Standard
+    `7.0.1`, Temporal `1.0.1`, Warm Academic theme, adapter boundary, DST fixture,
+    optimistic revert và dependency/license guard. Go recurrence candidate được bọc
+    trong `internal/spikes/calendarrecurrence` với bounded subset/cap/fuzz/benchmark.
+    Typecheck, unit, build, guard và Go tests đều xanh local; browser E2E/Axe,
+    performance nhiều lần và keyboard/NVDA manual vẫn chưa hoàn tất nên ADR-0019 giữ
+    `PROPOSED` và FullCalendar chưa được nối vào route production.
+14. P3-01 local verification ngày 2026-07-24 đạt web typecheck/test/build, API-client
+    typecheck/test và các Go package liên quan. Contract chỉ hỗ trợ session một lần,
+    lifecycle public `scheduled -> cancelled`, bounded list/range/duration, optimistic
+    version, audit/outbox và feature kill switch. Neon staging vẫn ở migration `13 false`;
+    chưa chạy migration/grants `000014`, deploy hoặc Playwright teacher/student trên
+    staging nên task giữ `VERIFY`, chưa được gọi production-ready.
 
 ## Rủi ro đã biết
 
-- P3-01 mới có backlog/ADR, chưa có migration/API/UI; không được mô tả scheduling như
-  chức năng đã chạy cho tới khi implementation, test và staging acceptance đạt.
-- Báo cáo Calendar là `PROPOSED`; FullCalendar và recurrence library chưa được chấp nhận
-  thành dependency. Không code P3-02B recurrence trước ADR-0019 và technical spike.
+- P3-01 đã có implementation local nhưng chưa được migrate/deploy/nghiệm thu staging.
+  Không mô tả scheduling là chức năng đang chạy cho người dùng cho tới khi migration
+  `14 false`, runtime grants, health/readiness và Playwright teacher/student đạt.
+- Báo cáo Calendar là `PROPOSED`; FullCalendar chỉ nằm trong spike và recurrence library
+  chưa được chấp nhận vào production domain. Browser E2E/Axe, performance nhiều lần và
+  manual keyboard/NVDA còn mở; không code P3-02B trước khi ADR-0019 đạt gate.
 - AWS SES đã được chọn làm provider target nhưng chưa được cấu hình/xác minh và sending
   domain chưa có. Pre-domain chỉ cho phép owner-controlled verified identities trong
   SES sandbox; không được coi là production readiness. SPF/DKIM/DMARC, SES event ingress

@@ -47,6 +47,7 @@ type ViewerAccess struct {
 	CanArchiveClass      bool
 	CanTransferOwnership bool
 	CanManageEnrollments bool
+	CanScheduleSessions  bool
 	CanJoinRoom          bool
 	CanPublishMedia      bool
 	CanLeave             bool

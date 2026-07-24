@@ -92,6 +92,26 @@ export type ClassEnrollmentStatus =
   components["schemas"]["ClassEnrollmentStatus"];
 export type ClassEnrollmentRole = components["schemas"]["ClassEnrollmentRole"];
 export type ClassViewerAccess = components["schemas"]["ClassViewerAccess"];
+export type ClassSessionStatus = components["schemas"]["ClassSessionStatus"];
+export type ClassSessionViewerAccess =
+  components["schemas"]["ClassSessionViewerAccess"];
+export type ClassSession = components["schemas"]["ClassSession"];
+export type ClassSessionListResponse =
+  components["schemas"]["ClassSessionListResponse"];
+export type CreateClassSessionRequest =
+  components["schemas"]["CreateClassSessionRequest"];
+type GeneratedUpdateClassSessionRequest =
+  components["schemas"]["UpdateClassSessionRequest"];
+export type UpdateClassSessionRequest = GeneratedUpdateClassSessionRequest &
+  (
+    | Required<Pick<GeneratedUpdateClassSessionRequest, "title">>
+    | Required<Pick<GeneratedUpdateClassSessionRequest, "description">>
+    | Required<Pick<GeneratedUpdateClassSessionRequest, "starts_at">>
+    | Required<Pick<GeneratedUpdateClassSessionRequest, "ends_at">>
+    | Required<Pick<GeneratedUpdateClassSessionRequest, "timezone">>
+  );
+export type CancelClassSessionRequest =
+  components["schemas"]["CancelClassSessionRequest"];
 export type ClassEnrollment = components["schemas"]["ClassEnrollment"];
 export type CreateClassEnrollmentRequest =
   components["schemas"]["CreateClassEnrollmentRequest"];
@@ -126,6 +146,12 @@ export interface ListClassesInput {
   cursor?: string;
   limit?: number;
   status?: ClassStatus;
+}
+export interface ListClassSessionsInput {
+  range_start: string;
+  range_end: string;
+  cursor?: string;
+  limit?: number;
 }
 export interface ListClassRosterInput {
   cursor?: string;
@@ -850,6 +876,133 @@ export async function transferClassOwnership(
 
   return requireData<ClassroomClass>(
     data as ClassroomClass | undefined,
+    error,
+    response,
+  );
+}
+
+export async function listClassSessions(
+  classID: string,
+  input: ListClassSessionsInput,
+  options: APIRequestOptions = {},
+): Promise<ClassSessionListResponse> {
+  const { data, error, response } = await createTutorHubClient(options).GET(
+    "/api/v1/classes/{class_id}/sessions",
+    {
+      params: {
+        path: { class_id: classID },
+        query: input,
+      },
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<ClassSessionListResponse>(
+    data as ClassSessionListResponse | undefined,
+    error,
+    response,
+  );
+}
+
+export async function getClassSession(
+  classID: string,
+  sessionID: string,
+  options: APIRequestOptions = {},
+): Promise<ClassSession> {
+  const { data, error, response } = await createTutorHubClient(options).GET(
+    "/api/v1/classes/{class_id}/sessions/{session_id}",
+    {
+      params: {
+        path: { class_id: classID, session_id: sessionID },
+      },
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<ClassSession>(
+    data as ClassSession | undefined,
+    error,
+    response,
+  );
+}
+
+export async function createClassSession(
+  classID: string,
+  input: CreateClassSessionRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<ClassSession> {
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/classes/{class_id}/sessions",
+    {
+      params: {
+        path: { class_id: classID },
+        header: { "X-CSRF-Token": csrfToken },
+      },
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<ClassSession>(
+    data as ClassSession | undefined,
+    error,
+    response,
+  );
+}
+
+export async function updateClassSession(
+  classID: string,
+  sessionID: string,
+  input: UpdateClassSessionRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<ClassSession> {
+  const { data, error, response } = await createTutorHubClient(options).PATCH(
+    "/api/v1/classes/{class_id}/sessions/{session_id}",
+    {
+      params: {
+        path: { class_id: classID, session_id: sessionID },
+        header: { "X-CSRF-Token": csrfToken },
+      },
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<ClassSession>(
+    data as ClassSession | undefined,
+    error,
+    response,
+  );
+}
+
+export async function cancelClassSession(
+  classID: string,
+  sessionID: string,
+  input: CancelClassSessionRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<ClassSession> {
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/classes/{class_id}/sessions/{session_id}/cancel",
+    {
+      params: {
+        path: { class_id: classID, session_id: sessionID },
+        header: { "X-CSRF-Token": csrfToken },
+      },
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<ClassSession>(
+    data as ClassSession | undefined,
     error,
     response,
   );

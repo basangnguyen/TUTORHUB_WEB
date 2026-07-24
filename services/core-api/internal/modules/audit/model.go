@@ -38,6 +38,9 @@ const (
 	ActionClassInviteCodeRevoke      Action = "class.invite_code.revoke"
 	ActionClassInviteCodeExpire      Action = "class.invite_code.expire"
 	ActionClassInviteCodeExhaust     Action = "class.invite_code.exhaust"
+	ActionClassSessionCreate         Action = "class.session.create"
+	ActionClassSessionUpdate         Action = "class.session.update"
+	ActionClassSessionCancel         Action = "class.session.cancel"
 )
 
 type Outcome string
@@ -162,6 +165,9 @@ var actionCatalog = map[Action]struct{}{
 	ActionClassRosterBulk:       {},
 	ActionClassInviteCodeRevoke: {}, ActionClassInviteCodeExpire: {},
 	ActionClassInviteCodeExhaust: {},
+	ActionClassSessionCreate:     {},
+	ActionClassSessionUpdate:     {},
+	ActionClassSessionCancel:     {},
 }
 
 var domainEventActions = map[string]Action{
@@ -191,6 +197,9 @@ var domainEventActions = map[string]Action{
 	"class.invite_code.revoked":       ActionClassInviteCodeRevoke,
 	"class.invite_code.expired":       ActionClassInviteCodeExpire,
 	"class.invite_code.exhausted":     ActionClassInviteCodeExhaust,
+	"class_session.scheduled.v1":      ActionClassSessionCreate,
+	"class_session.rescheduled.v1":    ActionClassSessionUpdate,
+	"class_session.cancelled.v1":      ActionClassSessionCancel,
 }
 
 func ActionForDomainEvent(eventType string) (Action, bool) {

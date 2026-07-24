@@ -6,12 +6,15 @@ import {
   archiveTenant,
   beginIdentityLink,
   bulkMutateClassRoster,
+  cancelClassSession,
   createClass,
+  createClassSession,
   createClassEnrollment,
   createClassInviteCode,
   createMembershipInvitation,
   createTenant,
   getClass,
+  getClassSession,
   getCurrentUser,
   getHealth,
   getLoginURL,
@@ -26,6 +29,7 @@ import {
   listAuditEvents,
   listIdentities,
   listClasses,
+  listClassSessions,
   listMembershipInvitations,
   listTenants,
   logout,
@@ -41,6 +45,7 @@ import {
   transferClassOwnership,
   unlinkIdentity,
   updateClass,
+  updateClassSession,
   updateClassRosterRole,
   updateProfile,
   updateTenant,
@@ -49,10 +54,12 @@ import {
 import type {
   ClassEnrollment,
   ClassInviteCode,
+  ClassSession,
   ClassroomClass,
   CurrentUser,
   TenantCapabilities,
   UpdateClassRequest,
+  UpdateClassSessionRequest,
   UpdateTenantFeatureControlsRequest,
   UpdateTenantRequest,
 } from "./index";
@@ -65,9 +72,18 @@ void invalidTenantUpdate;
 const invalidClassUpdate: UpdateClassRequest = { expected_version: 1 };
 void invalidClassUpdate;
 
+// @ts-expect-error expected_version alone is not a meaningful session mutation.
+const invalidClassSessionUpdate: UpdateClassSessionRequest = {
+  expected_version: 1,
+};
+void invalidClassSessionUpdate;
+
 const enrollmentLeavePermission: CurrentUser["permissions"][number] =
   "enrollment.leave";
+const sessionSchedulePermission: CurrentUser["permissions"][number] =
+  "session.schedule";
 const auditViewPermission: CurrentUser["permissions"][number] = "audit.view";
+void sessionSchedulePermission;
 void auditViewPermission;
 
 describe("listAuditEvents", () => {
@@ -468,6 +484,7 @@ describe("getHealth", () => {
         membership_invitations: { enabled: true },
         class_management: { enabled: true },
         class_invite_links: { enabled: false },
+        class_session_scheduling: { enabled: true },
       },
       quotas: {
         members: { limit: 100, used: 12, remaining: 88 },
@@ -499,6 +516,10 @@ describe("getHealth", () => {
           available: false,
           reason: "feature_disabled",
         },
+        schedule_class_session: {
+          available: true,
+          reason: "available",
+        },
       },
     };
     const input: UpdateTenantFeatureControlsRequest = {
@@ -507,6 +528,7 @@ describe("getHealth", () => {
         membership_invitations: true,
         class_management: true,
         class_invite_links: true,
+        class_session_scheduling: true,
       },
       quotas: {
         members: 120,
@@ -738,6 +760,7 @@ describe("getHealth", () => {
         can_archive_class: true,
         can_transfer_ownership: true,
         can_manage_enrollments: true,
+        can_schedule_sessions: true,
         can_join_room: false,
         can_publish_media: false,
         can_leave: false,
@@ -889,6 +912,137 @@ describe("getHealth", () => {
     });
   });
 
+  it("calls bounded one-time class session APIs with CSRF and versions", async () => {
+    const classID = "a912f628-f3d2-4c18-84c6-42a9e858dc8d";
+    const session: ClassSession = {
+      id: "83c304d0-3abc-45ca-99ec-8ef1088bbf5a",
+      class_id: classID,
+      title: "Ôn tập giữa kỳ",
+      description: "Chuẩn bị câu hỏi trước buổi học.",
+      starts_at: "2026-11-01T01:30:00Z",
+      ends_at: "2026-11-01T03:00:00Z",
+      timezone: "America/New_York",
+      status: "scheduled",
+      version: 1,
+      created_by: "be85eb92-0f18-4163-85ba-50e4d343d632",
+      updated_by: "be85eb92-0f18-4163-85ba-50e4d343d632",
+      cancelled_at: null,
+      cancelled_by: null,
+      created_at: "2026-10-20T04:00:00Z",
+      updated_at: "2026-10-20T04:00:00Z",
+      viewer_access: { can_update: true, can_cancel: true },
+    };
+    const cancelled: ClassSession = {
+      ...session,
+      status: "cancelled",
+      version: 3,
+      cancelled_at: "2026-10-21T04:00:00Z",
+      cancelled_by: "be85eb92-0f18-4163-85ba-50e4d343d632",
+      viewer_access: { can_update: false, can_cancel: false },
+    };
+    const responses = [
+      new Response(
+        JSON.stringify({ items: [session], next_cursor: "session-page-2" }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+      new Response(JSON.stringify(session), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+      new Response(JSON.stringify(session), {
+        status: 201,
+        headers: { "Content-Type": "application/json" },
+      }),
+      new Response(JSON.stringify({ ...session, version: 2 }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+      new Response(JSON.stringify(cancelled), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    ];
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(() => Promise.resolve(responses.shift()));
+    const options = { baseUrl: "http://localhost/api", fetch: fetchMock };
+    const range = {
+      range_start: "2026-10-01T00:00:00Z",
+      range_end: "2026-12-31T00:00:00Z",
+      limit: 50,
+      cursor: "session-page-1",
+    };
+
+    await expect(listClassSessions(classID, range, options)).resolves.toEqual({
+      items: [session],
+      next_cursor: "session-page-2",
+    });
+    await expect(
+      getClassSession(classID, session.id, options),
+    ).resolves.toEqual(session);
+    await expect(
+      createClassSession(
+        classID,
+        {
+          title: session.title,
+          description: session.description,
+          starts_at: "2026-11-01T01:30:00-04:00",
+          ends_at: "2026-11-01T03:00:00-05:00",
+          timezone: session.timezone,
+        },
+        "create-session-csrf",
+        options,
+      ),
+    ).resolves.toEqual(session);
+    await expect(
+      updateClassSession(
+        classID,
+        session.id,
+        { expected_version: 1, title: "Ôn tập giữa kỳ - cập nhật" },
+        "update-session-csrf",
+        options,
+      ),
+    ).resolves.toMatchObject({ version: 2 });
+    await expect(
+      cancelClassSession(
+        classID,
+        session.id,
+        { expected_version: 2 },
+        "cancel-session-csrf",
+        options,
+      ),
+    ).resolves.toEqual(cancelled);
+
+    const requests = fetchMock.mock.calls.map((call) => call[0] as Request);
+    const listURL = new URL(requests[0]?.url ?? "");
+    expect(listURL.pathname).toBe(`/api/v1/classes/${classID}/sessions`);
+    expect(Object.fromEntries(listURL.searchParams)).toEqual({
+      range_start: range.range_start,
+      range_end: range.range_end,
+      limit: "50",
+      cursor: "session-page-1",
+    });
+    expect(requests.map((request) => request.method)).toEqual([
+      "GET",
+      "GET",
+      "POST",
+      "PATCH",
+      "POST",
+    ]);
+    expect(requests[2]?.headers.get("X-CSRF-Token")).toBe(
+      "create-session-csrf",
+    );
+    expect(requests[3]?.headers.get("X-CSRF-Token")).toBe(
+      "update-session-csrf",
+    );
+    expect(requests[4]?.headers.get("X-CSRF-Token")).toBe(
+      "cancel-session-csrf",
+    );
+    await expect(requests[4]?.clone().json()).resolves.toEqual({
+      expected_version: 2,
+    });
+  });
+
   it("manages direct enrollment transitions and self-leave with CSRF", async () => {
     const classID = "a912f628-f3d2-4c18-84c6-42a9e858dc8d";
     const userID = "1d7d65eb-904e-4a0d-bd24-a8ec1b453d64";
@@ -1027,6 +1181,7 @@ describe("getHealth", () => {
         can_archive_class: false,
         can_transfer_ownership: false,
         can_manage_enrollments: false,
+        can_schedule_sessions: false,
         can_join_room: true,
         can_publish_media: true,
         can_leave: true,

@@ -23,16 +23,16 @@ tính từ P3-CAL-01.
 Domain/DNS, SES sandbox và production-access approval có thể chuẩn bị song song nhưng
 không được tính `DONE` trước interoperability gate.
 
-**Task vừa hoàn thành:** P3-CAL-00C final implementation-readiness review đã sửa
-dependency/gate và khóa các khoảng trống working schedule, recurrence exception,
-audience diff, SES ambiguous timeout cùng poll/StudyMeeting lifecycle. Chưa có runtime;
-P3-CAL-01/ADR-0019 và P3-CAL-02/ADR-0020 vẫn phải tạo bằng chứng.
+**Task vừa hoàn thành local:** P3-01 Course session scheduling/timezone đã có migration,
+contract, backend, feature/policy, generated client, class-detail UI và test local.
+Task chưa `DONE` vì Neon staging chưa lên migration `14`, chưa cấp runtime grants và chưa
+chạy acceptance teacher/student trên deployment mới.
 
-**Task hiện tại:** P3-CAL-01 technical spike + ADR recurrence/conflict (`READY`), sau đó
-P3-01 Course session scheduling và timezone.
+**Task hiện tại:** P3-01 staging acceptance (`VERIFY`) và phần browser/manual evidence còn
+lại của P3-CAL-01/ADR-0019 (`IN PROGRESS`).
 
-P3-01 không phụ thuộc kỹ thuật vào P3-CAL-01; cả hai đang `READY`. Hoàn thành spike
-trước là thứ tự làm việc đã chọn để tránh renderer/recurrence/theme design drift.
+**Task tiếp theo sau acceptance:** P3-03 PostgreSQL outbox worker production shape.
+P3-CAL-02/P3-02A chỉ bắt đầu khi dependency gate tương ứng đạt.
 
 **Thiết kế Calendar có thẩm quyền:**
 [`CALENDAR_PRODUCT_TECHNICAL_DESIGN.md`](CALENDAR_PRODUCT_TECHNICAL_DESIGN.md).
@@ -79,8 +79,8 @@ trước là thứ tự làm việc đã chọn để tránh renderer/recurrence
 | P3-CAL-00  | Calendar research + product/technical design    | P3-00                           | DONE       |
 | P3-CAL-00B | Teams/Google parity + visual/email re-baseline  | P3-CAL-00                       | DONE       |
 | P3-CAL-00C | Final implementation-readiness review           | P3-CAL-00B                      | DONE       |
-| P3-CAL-01  | Renderer/recurrence/theme spike + ADR-0019      | P3-CAL-00C                      | READY      |
-| P3-01      | Course session scheduling và timezone           | P3-00, P3-CAL-00C               | READY      |
+| P3-CAL-01  | Renderer/recurrence/theme spike + ADR-0019      | P3-CAL-00C                      | IN PROGRESS |
+| P3-01      | Course session scheduling và timezone           | P3-00, P3-CAL-00C               | VERIFY     |
 | P3-CAL-02  | Invitation/RSVP/iCalendar/AWS SES + ADR-0020    | P3-CAL-01, P3-01                | TODO       |
 | P3-02A     | Professional Calendar shell/read projection     | P3-01, P3-CAL-01                | TODO       |
 | P3-02B     | Recurrence + class conflict                     | P3-02A, ADR-0019                 | TODO       |
@@ -99,6 +99,9 @@ trước là thứ tự làm việc đã chọn để tránh renderer/recurrence
 | P3-12      | Home dashboard và PostgreSQL search cơ bản      | P3-01, P3-04, P3-07, P3-11     | TODO       |
 | P3-13      | Offline/retry drafts và Phase 3 quota closure   | P3-02D, P3-07, P3-11            | TODO       |
 | P3-14      | Staging acceptance và đóng Phase 3              | P3-CAL-02, P3-05B, P3-12, P3-13 | TODO       |
+
+`VERIFY` nghĩa là implementation và kiểm tra local đã đạt, nhưng migration/deployment
+và acceptance trên staging chưa hoàn tất. Trạng thái này không đồng nghĩa `DONE`.
 
 ## 5. Dependency graph
 
@@ -216,6 +219,19 @@ không thêm FullCalendar hoặc recurrence; dependency chỉ được thêm sau
 - Rollback application không cần down migration; down chỉ chạy trên disposable branch.
 - Không xóa row session để rollback UI; endpoint mới có thể tắt qua feature control.
 
+### Bằng chứng implementation local ngày 2026-07-24
+
+- [x] Migration `000014`, model/repository/service/HTTP, policy/feature control,
+      OpenAPI/generated client và class-detail UI đã được triển khai.
+- [x] Web typecheck, 143 test và production build; API client typecheck cùng 17 test đạt.
+- [x] Các Go package liên quan `httpapi`, `classroom`, `featurecontrol`, `audit`,
+      `policy`, `config` và recurrence spike đạt test local.
+- [x] Timezone resolver từ chối DST gap và yêu cầu chọn offset cho overlap; unit test
+      dùng `Asia/Ho_Chi_Minh` và `America/New_York`.
+- [ ] Neon staging migrate `13 -> 14`, runtime grant tối thiểu và version `14 false`.
+- [ ] Deploy cùng full commit SHA, health/readiness và Playwright teacher/student/IDOR.
+- [ ] Chỉ chuyển P3-01 sang `DONE` sau hai mục staging bên trên.
+
 ## 8. P3-02 Calendar day/week/month và recurring series
 
 - Thực thi UX/architecture trong `CALENDAR_PRODUCT_TECHNICAL_DESIGN.md`.
@@ -275,17 +291,25 @@ không thêm FullCalendar hoặc recurrence; dependency chỉ được thêm sau
 
 ### P3-CAL-01 technical spike/ADR gate
 
-- [ ] Mở ADR-0019 ở trạng thái `PROPOSED`, ghi alternatives và tiêu chí quyết định.
+- [x] Mở ADR-0019 ở trạng thái `PROPOSED`, ghi alternatives và tiêu chí quyết định.
 - [ ] FullCalendar Standard v7.0.1 spike đạt React/Vite/strict/bundle/performance; so sánh
       v6.1.x fallback, Temporal/package/CSS/theme và pin exact version từ bằng chứng.
 - [ ] Keyboard, NVDA/Axe, mobile Agenda và drag alternative đạt.
-- [ ] DST/drag/revert với fixture `Asia/Ho_Chi_Minh` và `America/New_York` đạt.
-- [ ] Go recurrence candidate qua adapter đạt bounded RFC subset/golden/property/
+- [x] DST/drag/revert contract unit với fixture `Asia/Ho_Chi_Minh` và
+      `America/New_York` đạt; browser interaction evidence vẫn thuộc mục trên.
+- [x] Go recurrence candidate qua adapter đạt bounded RFC subset/golden/property/
       resource-exhaustion test hoặc bị loại; cấm `.All()` và hourly/minutely/secondly.
 - [ ] ADR-0019 được cập nhật từ kết quả spike và chấp nhận series/exception/occurrence
       identity, DST recurrence, split-exception policy, WorkingSchedule/suggested-time,
       class/teacher resource dependency, exact cap và dependency decision.
-- [ ] Dependency/license/security review; không kéo Premium/telemetry ngoài ý muốn.
+- [x] Dependency/license/security guard và root lock review đạt; không kéo
+      Premium/telemetry ngoài ý muốn.
+
+Automated local evidence đã đạt typecheck, 8 unit/DOM test, build, dependency guard và
+Go test/fuzz/benchmark. Calendar JS gzip là `154.94 KiB`, CSS gzip `5.35 KiB`. Playwright
+Chromium hiện treo ở navigation/teardown trong môi trường local nên không được ghi pass;
+Axe, browser performance nhiều lần, keyboard/NVDA, 200% zoom và forced-colors vẫn là
+gate mở. ADR-0019 vì vậy tiếp tục `PROPOSED`.
 
 ### P3-CAL-02 invitation/RSVP/iCalendar/provider gate
 

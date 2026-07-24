@@ -43,6 +43,7 @@ const classroom: ClassroomClass = {
     can_archive_class: true,
     can_transfer_ownership: true,
     can_manage_enrollments: false,
+    can_schedule_sessions: true,
     can_join_room: true,
     can_publish_media: true,
     can_leave: false,

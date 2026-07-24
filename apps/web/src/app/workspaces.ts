@@ -30,6 +30,7 @@ function getApiBaseUrl() {
 
 const tenantScopedQueryRoots = new Set([
   "audit",
+  "class-sessions",
   "classes",
   "media",
   "tenants",

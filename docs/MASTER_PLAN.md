@@ -5,13 +5,13 @@
 | Thuộc tính            | Giá trị                                                                                      |
 | --------------------- | -------------------------------------------------------------------------------------------- |
 | Phiên bản tài liệu    | 2.2                                                                                          |
-| Cập nhật              | 2026-07-23                                                                                   |
+| Cập nhật              | 2026-07-24                                                                                   |
 | Phạm vi ưu tiên       | Web application                                                                              |
 | Thư mục phát triển    | `D:\TutorHub_V2`                                                                             |
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
 | Phase hiện tại        | Phase 3 - Daily learning workspace                                                           |
-| Trạng thái gần nhất   | P3-CAL-00C readiness review đã DONE; P3-CAL-01 spike/ADR READY ngày 2026-07-23            |
+| Trạng thái gần nhất   | P3-01 local implementation đang VERIFY; P3-CAL-01 evidence đang IN PROGRESS                 |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 
@@ -1307,15 +1307,19 @@ từ P3-CAL-01.
 
 **Backlog thực thi:** `docs/PHASE_3_BACKLOG.md`. P3-00 backlog/architecture baseline và
 P3-CAL-00/P3-CAL-00B/P3-CAL-00C calendar research/re-baseline/readiness review đã
-`DONE`; P3-CAL-01 technical spike/ADR-0019 là gate hiện tại trước calendar recurrence.
+`DONE`; P3-CAL-01 technical spike đã đạt các gate unit/build/guard/Go recurrence local
+nhưng ADR-0019 vẫn `PROPOSED` vì browser E2E/Axe, performance nhiều lần và manual
+keyboard/NVDA còn mở.
 AWS SES đã được owner chọn làm transactional email provider target;
 P3-CAL-02/ADR-0020 sẽ xác minh invitation/RSVP/iCalendar, SES
 account/region/sandbox/quota, adapter, event transport và deliverability trước
 P3-02C/P3-05A. Trước domain chỉ dùng owner-controlled verified identities trong SES
 sandbox; production vẫn chờ domain/DNS và SPF/DKIM/DMARC. Thiết kế chi tiết nằm tại
 `docs/CALENDAR_PRODUCT_TECHNICAL_DESIGN.md`. P3-01 course session scheduling/timezone
-vẫn `READY`. ADR-0017 chốt civil time/DST; ADR-0018 chốt worker production shape trước
-các consumer side effect. P3-03 vì vậy phải được triển khai ngay sau P3-01, không để tới
+đã hoàn tất implementation và test local, đang `VERIFY` cho migration/grants/deploy/
+teacher-student acceptance trên staging. ADR-0017 chốt civil time/DST; ADR-0018 chốt
+worker production shape trước các consumer side effect. P3-03 vì vậy phải được triển
+khai ngay sau P3-01, không để tới
 sau email/notification consumer. ADR-0021 đã chốt Native Availability Poll, secure
 sharing, member-owned Study Meeting và permission boundary cho P3-02D; quyết định này
 không đổi gate hiện tại P3-CAL-01 rồi P3-01.
@@ -1819,7 +1823,7 @@ Một tính năng chỉ được đánh dấu hoàn thành khi:
 
 ## 36. Việc cần làm ngay
 
-Thứ tự hiện tại, cập nhật ngày 2026-07-23:
+Thứ tự hiện tại, cập nhật ngày 2026-07-24:
 
 1. Phase 1 đã hoàn thành; biên bản nằm tại `docs/PHASE_1_COMPLETION.md`.
 2. Phase 2/P2-00 đến P2-12 đã hoàn thành; biên bản exit gate được sign-off ngày 2026-07-22.
@@ -1827,11 +1831,13 @@ Thứ tự hiện tại, cập nhật ngày 2026-07-23:
 4. P3-CAL-00 đã hoàn thành: benchmark đối thủ/OSS, audit V1 và thiết kế product/technical.
 5. P3-CAL-00B/00C đã hoàn thành: Teams/Google parity, Warm Academic visual direction,
    Phase 3 email/ICS/RSVP re-baseline và readiness review cuối; chưa phải runtime.
-6. Thực hiện P3-CAL-01 FullCalendar/recurrence/theme spike và ADR-0019; chưa thêm dependency
-   production trước khi accessibility/performance/license/security gate đạt.
-7. Bắt đầu P3-01 contract-first: migration, policy, OpenAPI/client, backend, UI tối thiểu
-   và test timezone/DST/tenant isolation.
-8. Triển khai P3-03 durable worker ngay sau P3-01 và trước mọi consumer side effect.
+6. P3-CAL-01 đã đạt automated local unit/build/guard và Go recurrence; hoàn tất browser
+   E2E/Axe, performance nhiều lần cùng manual keyboard/NVDA trước khi accept ADR-0019
+   hoặc nối FullCalendar vào route production.
+7. P3-01 đã hoàn tất implementation/test local; chạy migration `000014`, runtime grants,
+   deploy và acceptance teacher/student/IDOR trên staging để chuyển `VERIFY -> DONE`.
+8. Triển khai P3-03 durable worker ngay sau khi P3-01 staging acceptance đạt và trước
+   mọi consumer side effect.
 9. Sau khi P3-CAL-01 và P3-01 cùng đạt gate, thực hiện P3-CAL-02/ADR-0020 trong sandbox
    cô lập để xác minh AWS SES target trước participant/email/ICS provider implementation;
    pre-domain chỉ dùng owner-controlled verified identities, runtime delivery chờ P3-03.
@@ -1890,8 +1896,9 @@ Thứ tự hiện tại, cập nhật ngày 2026-07-23:
 **Điểm bắt đầu sau tài liệu này:** đọc `docs/PROJECT_STATE.md`,
 `docs/PHASE_3_BACKLOG.md`, `docs/CALENDAR_PRODUCT_TECHNICAL_DESIGN.md`, ADR-0017 và
 ADR-0018 cùng ADR-0021. Phase 2/P2-12 đã hoàn thành;
-P3-CAL-00/P3-CAL-00B/P3-CAL-00C đã `DONE`, P3-CAL-01 đang `READY` và P3-01
-scheduling/timezone vẫn `READY`. P3-02D/ADR-0021 mới là
+P3-CAL-00/P3-CAL-00B/P3-CAL-00C đã `DONE`; P3-CAL-01 đang `IN PROGRESS` với
+ADR-0019 `PROPOSED`, còn P3-01 scheduling/timezone đang `VERIFY` chờ staging.
+P3-02D/ADR-0021 mới là
 architecture/backlog, chưa có runtime. AWS SES đã được chọn làm provider target nhưng
 P3-CAL-02/ADR-0020 vẫn là gate email/ICS chưa triển khai; chưa có domain hoặc production
 delivery. Master Plan giữ mục tiêu/exit gate, không thay backlog chi tiết.

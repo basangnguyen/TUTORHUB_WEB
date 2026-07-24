@@ -11,6 +11,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.10.0
 	github.com/livekit/protocol v1.49.0
+	github.com/teambition/rrule-go v1.8.2
 	golang.org/x/oauth2 v0.36.0
 )
 

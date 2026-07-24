@@ -7,7 +7,7 @@ thay đổi schema, migration hoặc repository phải đọc tài liệu này t
 
 - System of record: Neon PostgreSQL.
 - Schema ứng dụng: `tutorhub`.
-- Migration mới nhất trong source: `000013_legacy_fixture_import`.
+- Migration mới nhất trong source: `000014_class_sessions`.
 - Migration 1-5 đã được chạy và kiểm tra trên Neon; smoke
   `5 false -> rollback 4 false -> migrate 5 false` đạt ngày 2026-07-16.
 - Migration `000006` đến `000013` đều có up/down path. Source và PostgreSQL 17 CI
@@ -16,6 +16,9 @@ thay đổi schema, migration hoặc repository phải đọc tài liệu này t
   lần qua `12 false -> 13 false -> 12 false -> 13 false`; staging thật đã forward tới
   `13 false`. Role split, default/effective/direct ledger ACL và future-table probe
   đều đạt least-privilege sau remediation provisioning.
+- Migration `000014` có forward/down path và test local, nhưng chưa được chạy trên
+  Neon staging. Staging được xác nhận gần nhất vẫn ở `13 false`; chỉ ghi `14 false`
+  sau khi migration job thực tế, runtime grants và smoke test đạt.
 - Phần lớn integration test rollback bằng transaction. Chỉ focused P2-09 suite có
   fixture tự dọn hoàn toàn được chạy trên staging ngày 2026-07-21; các suite concurrency
   có thể để lại audit append-only vẫn chỉ chạy trên database CI tạm thời.
@@ -23,8 +26,8 @@ thay đổi schema, migration hoặc repository phải đọc tài liệu này t
 
 Neon có branch `production` và branch staging tách biệt. Core API staging dùng pooled
 runtime role tối thiểu quyền; migration job dùng direct migration role riêng. Kết nối,
-readiness và smoke sau migration `000013` đã đạt ngày 2026-07-22. Các giá trị credential
-không được ghi vào runbook hoặc artifact.
+readiness và smoke sau migration `000013` đã đạt ngày 2026-07-22. P3-01 chưa thay đổi
+trạng thái môi trường này. Các giá trị credential không được ghi vào runbook hoặc artifact.
 
 ## Hai connection URL
 
@@ -351,6 +354,48 @@ SELECT to_regclass('tutorhub.p2_12_acl_probe') IS NULL AS probe_removed;
 Đây là security remediation không được đảo ngược: rollback schema hoặc ứng dụng không
 được re-grant runtime vào ledger hay khôi phục default ACL rộng.
 
+## Runtime grant cho migration 000014
+
+Default ACL đã được thu hồi có chủ ý nên migration owner tạo bảng
+`tutorhub.class_sessions` nhưng runtime role không tự nhận quyền. Sau khi migration
+`000014` chạy bằng direct migration URL, migration owner phải cấp đúng quyền mà
+repository P3-01 dùng:
+
+```sql
+REVOKE ALL PRIVILEGES
+ON TABLE tutorhub.class_sessions
+FROM tutorhub_runtime;
+
+GRANT SELECT, INSERT, UPDATE
+ON TABLE tutorhub.class_sessions
+TO tutorhub_runtime;
+```
+
+Không cấp `DELETE`, `TRUNCATE`, `REFERENCES`, `TRIGGER`, ownership hoặc schema
+`CREATE`. Xác minh effective privilege bằng migration connection:
+
+```sql
+SELECT
+  has_table_privilege(
+    'tutorhub_runtime', 'tutorhub.class_sessions', 'SELECT'
+  ) AS runtime_select,
+  has_table_privilege(
+    'tutorhub_runtime', 'tutorhub.class_sessions', 'INSERT'
+  ) AS runtime_insert,
+  has_table_privilege(
+    'tutorhub_runtime', 'tutorhub.class_sessions', 'UPDATE'
+  ) AS runtime_update,
+  has_table_privilege(
+    'tutorhub_runtime', 'tutorhub.class_sessions', 'DELETE'
+  ) AS runtime_delete,
+  has_table_privilege(
+    'tutorhub_runtime', 'tutorhub.class_sessions', 'TRUNCATE'
+  ) AS runtime_truncate;
+```
+
+Kết quả bắt buộc là `true, true, true, false, false`. Sau đó dùng runtime connection
+chạy focused integration/smoke; không in connection string ra terminal hoặc artifact.
+
 ## Chạy migration
 
 Tạo `.env.local` từ `.env.example` và điền hai URL. File này đã được Git ignore;
@@ -378,11 +423,11 @@ pnpm db:migrate
 pnpm db:version
 ```
 
-Sau khi áp dụng toàn bộ migration trong source, kết quả mong đợi là `13 false`. Chỉ ghi
-đó là kết quả môi trường khi lệnh thực tế đã chạy. Neon disposable đã đạt up/down/up và
-staging thật ở `13 false` ngày 2026-07-22; runtime không có quyền trên
-`legacy_import_*`. Rollback chỉ dùng khi đã đánh giá mất dữ liệu và có backup/restore
-plan:
+Sau khi áp dụng toàn bộ migration trong source hiện tại, kết quả mong đợi là
+`14 false`. Chỉ ghi đó là kết quả môi trường khi lệnh thực tế đã chạy. Neon staging
+được xác nhận gần nhất vẫn ở `13 false` ngày 2026-07-22; runtime không có quyền trên
+`legacy_import_*` và chưa được cấp quyền cho `class_sessions`. Rollback chỉ dùng khi
+đã đánh giá mất dữ liệu và có backup/restore plan:
 
 ```powershell
 go run ./services/core-api/cmd/migrate down -steps 1

@@ -83,6 +83,7 @@ type classViewerAccess struct {
 	CanArchiveClass      bool                        `json:"can_archive_class"`
 	CanTransferOwnership bool                        `json:"can_transfer_ownership"`
 	CanManageEnrollments bool                        `json:"can_manage_enrollments"`
+	CanScheduleSessions  bool                        `json:"can_schedule_sessions"`
 	CanJoinRoom          bool                        `json:"can_join_room"`
 	CanPublishMedia      bool                        `json:"can_publish_media"`
 	CanLeave             bool                        `json:"can_leave"`
@@ -550,6 +551,7 @@ func newClassResponse(class classroom.Class) classResponse {
 			CanArchiveClass:      class.ViewerAccess.CanArchiveClass,
 			CanTransferOwnership: class.ViewerAccess.CanTransferOwnership,
 			CanManageEnrollments: class.ViewerAccess.CanManageEnrollments,
+			CanScheduleSessions:  class.ViewerAccess.CanScheduleSessions,
 			CanJoinRoom:          class.ViewerAccess.CanJoinRoom,
 			CanPublishMedia:      class.ViewerAccess.CanPublishMedia,
 			CanLeave:             class.ViewerAccess.CanLeave,

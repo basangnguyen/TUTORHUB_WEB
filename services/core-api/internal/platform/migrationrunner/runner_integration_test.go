@@ -29,7 +29,7 @@ func TestUpPinsMigrationHistoryToPublicSchema(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read migration version: %v", err)
 	}
-	if version.Number < 13 || version.Dirty {
+	if version.Number < 14 || version.Dirty {
 		t.Fatalf("unexpected migration version: %+v", version)
 	}
 
@@ -42,6 +42,7 @@ func TestUpPinsMigrationHistoryToPublicSchema(t *testing.T) {
 	var publicHistory, applicationHistory, invitationTable sql.NullString
 	var classEnrollmentTable, classInviteCodeTable, auditEventTable sql.NullString
 	var legacyImportRunsTable, legacyImportMappingsTable, legacyImportItemsTable sql.NullString
+	var classSessionsTable sql.NullString
 	var classTimezone, classVersion, archivedFromStatus sql.NullString
 	if err := database.QueryRowContext(
 		ctx,
@@ -54,6 +55,7 @@ func TestUpPinsMigrationHistoryToPublicSchema(t *testing.T) {
                 to_regclass('tutorhub.legacy_import_runs'),
                 to_regclass('tutorhub.legacy_import_mappings'),
                 to_regclass('tutorhub.legacy_import_run_items'),
+                to_regclass('tutorhub.class_sessions'),
                 (
                     SELECT data_type
                     FROM information_schema.columns
@@ -85,6 +87,7 @@ func TestUpPinsMigrationHistoryToPublicSchema(t *testing.T) {
 		&legacyImportRunsTable,
 		&legacyImportMappingsTable,
 		&legacyImportItemsTable,
+		&classSessionsTable,
 		&classTimezone,
 		&classVersion,
 		&archivedFromStatus,
@@ -112,30 +115,48 @@ func TestUpPinsMigrationHistoryToPublicSchema(t *testing.T) {
 	if !legacyImportRunsTable.Valid || !legacyImportMappingsTable.Valid || !legacyImportItemsTable.Valid {
 		t.Fatal("legacy fixture import migration must be applied at version 13")
 	}
+	if !classSessionsTable.Valid {
+		t.Fatal("class session migration must be applied at version 14")
+	}
 
 	if err := Down(ctx, databaseURL, 1); err != nil {
-		t.Fatalf("roll back legacy fixture import migration: %v", err)
+		t.Fatalf("roll back class session migration: %v", err)
 	}
 	rolledBackVersion, err := CurrentVersion(ctx, databaseURL)
 	if err != nil {
 		t.Fatalf("read rolled-back migration version: %v", err)
 	}
-	if rolledBackVersion.Number != 12 || rolledBackVersion.Dirty {
+	if rolledBackVersion.Number != 13 || rolledBackVersion.Dirty {
 		t.Fatalf("unexpected rolled-back migration version: %+v", rolledBackVersion)
 	}
-	assertLegacyImportTables(t, ctx, database, false)
+	assertLegacyImportTables(t, ctx, database, true)
+	assertClassSessionTable(t, ctx, database, false)
 
 	if err := Up(ctx, databaseURL); err != nil {
-		t.Fatalf("reapply legacy fixture import migration: %v", err)
+		t.Fatalf("reapply class session migration: %v", err)
 	}
 	reappliedVersion, err := CurrentVersion(ctx, databaseURL)
 	if err != nil {
 		t.Fatalf("read reapplied migration version: %v", err)
 	}
-	if reappliedVersion.Number != 13 || reappliedVersion.Dirty {
+	if reappliedVersion.Number != 14 || reappliedVersion.Dirty {
 		t.Fatalf("unexpected reapplied migration version: %+v", reappliedVersion)
 	}
 	assertLegacyImportTables(t, ctx, database, true)
+	assertClassSessionTable(t, ctx, database, true)
+}
+
+func assertClassSessionTable(t *testing.T, ctx context.Context, database *sql.DB, expected bool) {
+	t.Helper()
+	var table sql.NullString
+	if err := database.QueryRowContext(
+		ctx, `SELECT to_regclass('tutorhub.class_sessions')`,
+	).Scan(&table); err != nil {
+		t.Fatalf("inspect class session table: %v", err)
+	}
+	if table.Valid != expected {
+		t.Fatalf("unexpected class session table state: expected=%t actual=%t", expected, table.Valid)
+	}
 }
 
 func assertLegacyImportTables(t *testing.T, ctx context.Context, database *sql.DB, expected bool) {

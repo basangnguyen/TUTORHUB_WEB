@@ -13,6 +13,8 @@ e2e/.auth/
 *.tsbuildinfo
 bin/
 tmp/
+.tmp/
+**/.tmp-cache/
 
 # Local configuration and secrets
 .env

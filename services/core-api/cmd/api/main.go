@@ -155,6 +155,7 @@ func run() int {
 	var classroomRepository *classroom.PostgresRepository
 	var classroomAuthorizer *classroom.Service
 	var classroomService classroom.ServiceAPI
+	var classSessionService classroom.SessionServiceAPI
 	if pool != nil {
 		classroomRepository = classroom.NewPostgresRepository(
 			pool,
@@ -171,6 +172,15 @@ func run() int {
 			return 1
 		}
 		classroomService = classroomAuthorizer
+		classSessionService, err = classroom.NewSessionService(
+			classroomRepository,
+			classroomAuthorizer,
+			classroom.SessionServiceConfig{Clock: time.Now},
+		)
+		if err != nil {
+			logger.Error("initialize class session service", "error", err)
+			return 1
+		}
 	}
 
 	var identityService identity.ServiceAPI
@@ -289,6 +299,7 @@ func run() int {
 		Readiness:             readiness,
 		Identity:              identityService,
 		Classroom:             classroomService,
+		ClassSessions:         classSessionService,
 		Enrollment:            enrollmentService,
 		Audit:                 auditService,
 		FeatureControls:       featureControlService,
@@ -321,7 +332,7 @@ func run() int {
 }
 
 func featureControlGuardrails(configuration config.FeatureControlConfig) featurecontrol.Guardrails {
-	forcedOff := make(map[featurecontrol.FeatureKey]bool, 3)
+	forcedOff := make(map[featurecontrol.FeatureKey]bool, 4)
 	if configuration.DisableMembershipInvitations {
 		forcedOff[featurecontrol.FeatureMembershipInvitations] = true
 	}
@@ -330,6 +341,9 @@ func featureControlGuardrails(configuration config.FeatureControlConfig) feature
 	}
 	if configuration.DisableClassInviteLinks {
 		forcedOff[featurecontrol.FeatureClassInviteLinks] = true
+	}
+	if configuration.DisableClassSessionScheduling {
+		forcedOff[featurecontrol.FeatureClassSessionScheduling] = true
 	}
 
 	return featurecontrol.Guardrails{

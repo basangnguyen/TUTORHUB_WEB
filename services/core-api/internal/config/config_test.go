@@ -149,12 +149,13 @@ func TestLoadCustomValues(t *testing.T) {
 		"B2_APPLICATION_KEY":        "not-a-real-b2-secret",
 		"EDGE_CONTEXT_SECRET":       validSessionSecret(),
 		"EDGE_CONTEXT_MAX_SKEW":     "90s",
-		"FEATURE_CONTROL_DISABLE_MEMBERSHIP_INVITATIONS": "true",
-		"FEATURE_CONTROL_DISABLE_CLASS_MANAGEMENT":       "true",
-		"FEATURE_CONTROL_DISABLE_CLASS_INVITE_LINKS":     "true",
-		"FEATURE_CONTROL_MAX_MEMBERS":                    "5000",
-		"FEATURE_CONTROL_MAX_ACTIVE_CLASSES":             "500",
-		"FEATURE_CONTROL_MAX_INVITE_CREATIONS_PER_HOUR":  "5000",
+		"FEATURE_CONTROL_DISABLE_MEMBERSHIP_INVITATIONS":   "true",
+		"FEATURE_CONTROL_DISABLE_CLASS_MANAGEMENT":         "true",
+		"FEATURE_CONTROL_DISABLE_CLASS_INVITE_LINKS":       "true",
+		"FEATURE_CONTROL_DISABLE_CLASS_SESSION_SCHEDULING": "true",
+		"FEATURE_CONTROL_MAX_MEMBERS":                      "5000",
+		"FEATURE_CONTROL_MAX_ACTIVE_CLASSES":               "500",
+		"FEATURE_CONTROL_MAX_INVITE_CREATIONS_PER_HOUR":    "5000",
 	}))
 	if err != nil {
 		t.Fatalf("load custom values: %v", err)
@@ -206,6 +207,7 @@ func TestLoadCustomValues(t *testing.T) {
 	if !cfg.FeatureControls.DisableMembershipInvitations ||
 		!cfg.FeatureControls.DisableClassManagement ||
 		!cfg.FeatureControls.DisableClassInviteLinks ||
+		!cfg.FeatureControls.DisableClassSessionScheduling ||
 		cfg.FeatureControls.MaxMembers != 5000 ||
 		cfg.FeatureControls.MaxActiveClasses != 500 ||
 		cfg.FeatureControls.MaxInviteCreationsPerHour != 5000 {

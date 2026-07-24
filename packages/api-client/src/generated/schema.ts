@@ -350,6 +350,59 @@ export type paths = {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/api/v1/classes/{class_id}/sessions": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /** List one-time sessions that overlap a bounded class time range */
+    readonly get: operations["listClassSessions"];
+    readonly put?: never;
+    /** Schedule one non-recurring class session */
+    readonly post: operations["createClassSession"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/classes/{class_id}/sessions/{session_id}": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /** Return one tenant- and class-scoped session */
+    readonly get: operations["getClassSession"];
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    /** Update one scheduled non-recurring class session */
+    readonly patch: operations["updateClassSession"];
+    readonly trace?: never;
+  };
+  readonly "/api/v1/classes/{class_id}/sessions/{session_id}/cancel": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Idempotently cancel one scheduled class session */
+    readonly post: operations["cancelClassSession"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/api/v1/classes/{class_id}/transfer-ownership": {
     readonly parameters: {
       readonly query?: never;
@@ -816,6 +869,10 @@ export type components = {
       readonly id: string | null;
       readonly type: string;
     };
+    readonly CancelClassSessionRequest: {
+      /** Format: int64 */
+      readonly expected_version: number;
+    };
     readonly Class: {
       readonly archived_at: string | null;
       readonly code: string;
@@ -962,6 +1019,53 @@ export type components = {
       /** Format: uuid */
       readonly id: string;
     };
+    readonly ClassSession: {
+      readonly cancelled_at: string | null;
+      readonly cancelled_by: string | null;
+      /** Format: uuid */
+      readonly class_id: string;
+      /** Format: date-time */
+      readonly created_at: string;
+      /** Format: uuid */
+      readonly created_by: string;
+      readonly description: string;
+      /**
+       * Format: date-time
+       * @description UTC-normalized instant serialized as RFC 3339.
+       */
+      readonly ends_at: string;
+      /** Format: uuid */
+      readonly id: string;
+      /**
+       * Format: date-time
+       * @description UTC-normalized instant serialized as RFC 3339.
+       */
+      readonly starts_at: string;
+      readonly status: components["schemas"]["ClassSessionStatus"];
+      /** @description IANA timezone used to create and display the civil time. */
+      readonly timezone: string;
+      readonly title: string;
+      /** Format: date-time */
+      readonly updated_at: string;
+      /** Format: uuid */
+      readonly updated_by: string;
+      /** Format: int64 */
+      readonly version: number;
+      readonly viewer_access: components["schemas"]["ClassSessionViewerAccess"];
+    };
+    readonly ClassSessionListResponse: {
+      readonly items: readonly components["schemas"]["ClassSession"][];
+      readonly next_cursor: string | null;
+    };
+    /**
+     * @description P3-01 exposes only the one-time scheduled-to-cancelled lifecycle.
+     * @enum {string}
+     */
+    readonly ClassSessionStatus: "scheduled" | "cancelled";
+    readonly ClassSessionViewerAccess: {
+      readonly can_cancel: boolean;
+      readonly can_update: boolean;
+    };
     /** @enum {string} */
     readonly ClassStatus: "draft" | "active" | "archived";
     readonly ClassVersionRequest: {
@@ -974,6 +1078,7 @@ export type components = {
       readonly can_leave: boolean;
       readonly can_manage_enrollments: boolean;
       readonly can_publish_media: boolean;
+      readonly can_schedule_sessions: boolean;
       readonly can_transfer_ownership: boolean;
       readonly can_update_class: boolean;
       readonly class_role: components["schemas"]["ClassRole"] | null;
@@ -1000,6 +1105,22 @@ export type components = {
       readonly code: string;
       readonly description?: string;
       readonly timezone?: string;
+      readonly title: string;
+    };
+    readonly CreateClassSessionRequest: {
+      readonly description?: string;
+      /**
+       * Format: date-time
+       * @description RFC 3339 civil timestamp with an explicit numeric offset.
+       */
+      readonly ends_at: string;
+      /**
+       * Format: date-time
+       * @description RFC 3339 civil timestamp with an explicit numeric offset.
+       */
+      readonly starts_at: string;
+      /** @description IANA timezone whose rules must match both supplied offsets. */
+      readonly timezone: string;
       readonly title: string;
     };
     readonly CreateMembershipInvitationRequest: {
@@ -1179,6 +1300,7 @@ export type components = {
       | "class.view"
       | "enrollment.manage"
       | "enrollment.leave"
+      | "session.schedule"
       | "session.start"
       | "session.end"
       | "session.join"
@@ -1265,11 +1387,13 @@ export type components = {
     readonly TenantFeatureCapabilities: {
       readonly class_invite_links: components["schemas"]["FeatureCapability"];
       readonly class_management: components["schemas"]["FeatureCapability"];
+      readonly class_session_scheduling: components["schemas"]["FeatureCapability"];
       readonly membership_invitations: components["schemas"]["FeatureCapability"];
     };
     readonly TenantFeatureControlValues: {
       readonly class_invite_links: boolean;
       readonly class_management: boolean;
+      readonly class_session_scheduling: boolean;
       readonly membership_invitations: boolean;
     };
     readonly TenantListResponse: {
@@ -1294,6 +1418,7 @@ export type components = {
       readonly create_membership_invitation: components["schemas"]["OperationCapability"];
       readonly join_class_invite_link: components["schemas"]["OperationCapability"];
       readonly restore_active_class: components["schemas"]["OperationCapability"];
+      readonly schedule_class_session: components["schemas"]["OperationCapability"];
     };
     readonly TenantQuotaCapabilities: {
       readonly active_classes: components["schemas"]["QuotaCapability"];
@@ -1325,6 +1450,24 @@ export type components = {
     };
     readonly UpdateClassRosterRoleRequest: {
       readonly class_role: components["schemas"]["ClassEnrollmentRole"];
+    };
+    readonly UpdateClassSessionRequest: {
+      readonly description?: string;
+      /**
+       * Format: date-time
+       * @description RFC 3339 civil timestamp with an explicit numeric offset.
+       */
+      readonly ends_at?: string;
+      /** Format: int64 */
+      readonly expected_version: number;
+      /**
+       * Format: date-time
+       * @description RFC 3339 civil timestamp with an explicit numeric offset.
+       */
+      readonly starts_at?: string;
+      /** @description IANA timezone whose rules must match supplied offsets. */
+      readonly timezone?: string;
+      readonly title?: string;
     };
     readonly UpdateTenantFeatureControlsRequest: {
       /** Format: int64 */
@@ -2088,6 +2231,170 @@ export interface operations {
         };
         content: {
           readonly "application/json": components["schemas"]["ClassRosterBulkResponse"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly listClassSessions: {
+    readonly parameters: {
+      readonly query: {
+        readonly cursor?: string;
+        readonly limit?: number;
+        readonly range_end: string;
+        readonly range_start: string;
+      };
+      readonly header?: never;
+      readonly path: {
+        readonly class_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Tenant- and class-scoped one-time session list */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ClassSessionListResponse"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly createClassSession: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly "X-CSRF-Token": string;
+      };
+      readonly path: {
+        readonly class_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["CreateClassSessionRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description One-time class session scheduled */
+      readonly 201: {
+        headers: {
+          readonly Location: string;
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ClassSession"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly getClassSession: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path: {
+        readonly class_id: string;
+        readonly session_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description One-time class session detail */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ClassSession"];
+        };
+      };
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly updateClassSession: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly "X-CSRF-Token": string;
+      };
+      readonly path: {
+        readonly class_id: string;
+        readonly session_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["UpdateClassSessionRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description One-time class session updated */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ClassSession"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly cancelClassSession: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly "X-CSRF-Token": string;
+      };
+      readonly path: {
+        readonly class_id: string;
+        readonly session_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["CancelClassSessionRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Current cancelled class session; repeated requests are no-op successes */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ClassSession"];
         };
       };
       readonly 400: components["responses"]["ProblemResponse"];

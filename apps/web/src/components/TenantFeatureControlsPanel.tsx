@@ -23,6 +23,7 @@ const featureKeys = [
   "membership_invitations",
   "class_management",
   "class_invite_links",
+  "class_session_scheduling",
 ] as const satisfies readonly FeatureKey[];
 
 const quotaKeys = [
@@ -33,6 +34,7 @@ const quotaKeys = [
 
 const featureLabelKeys: Record<FeatureKey, TranslationKey> = {
   class_invite_links: "capabilities.featureClassInviteLinks",
+  class_session_scheduling: "capabilities.featureClassSessionScheduling",
   class_management: "capabilities.featureClassManagement",
   membership_invitations: "capabilities.featureMembershipInvitations",
 };
@@ -73,6 +75,10 @@ function controlsDraft(capabilities: TenantCapabilities): ControlsDraft {
     },
     features: {
       class_invite_links: configuredFeature(capabilities, "class_invite_links"),
+      class_session_scheduling: configuredFeature(
+        capabilities,
+        "class_session_scheduling",
+      ),
       class_management: configuredFeature(capabilities, "class_management"),
       membership_invitations: configuredFeature(
         capabilities,

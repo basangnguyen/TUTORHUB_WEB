@@ -484,6 +484,10 @@ func projectClassViewerAccess(
 		Subject: viewerSubject(resolved), Action: policy.ActionEnrollmentManage,
 		Resource: resource,
 	}).Allowed
+	class.ViewerAccess.CanScheduleSessions = authorizer.Authorize(policy.Input{
+		Subject: viewerSubject(resolved), Action: policy.ActionSessionSchedule,
+		Resource: resource,
+	}).Allowed
 	class.ViewerAccess.CanJoinRoom = authorizer.Authorize(policy.Input{
 		Subject: viewerSubject(resolved), Action: policy.ActionSessionJoin,
 		Resource: resource,

@@ -34,6 +34,7 @@ const (
 	PermissionClassView            Permission = "class.view"
 	PermissionEnrollmentManage     Permission = "enrollment.manage"
 	PermissionEnrollmentLeave      Permission = "enrollment.leave"
+	PermissionSessionSchedule      Permission = "session.schedule"
 	PermissionSessionStart         Permission = "session.start"
 	PermissionSessionEnd           Permission = "session.end"
 	PermissionSessionJoin          Permission = "session.join"
@@ -58,6 +59,7 @@ const (
 	ActionClassView              Action = Action(PermissionClassView)
 	ActionEnrollmentManage       Action = Action(PermissionEnrollmentManage)
 	ActionEnrollmentLeave        Action = Action(PermissionEnrollmentLeave)
+	ActionSessionSchedule        Action = Action(PermissionSessionSchedule)
 	ActionSessionStart           Action = Action(PermissionSessionStart)
 	ActionSessionEnd             Action = Action(PermissionSessionEnd)
 	ActionSessionJoin            Action = Action(PermissionSessionJoin)
@@ -179,6 +181,7 @@ var permissionOrder = []Permission{
 	PermissionClassView,
 	PermissionEnrollmentManage,
 	PermissionEnrollmentLeave,
+	PermissionSessionSchedule,
 	PermissionSessionStart,
 	PermissionSessionEnd,
 	PermissionSessionJoin,
@@ -197,6 +200,7 @@ var organizationPermissions = map[OrganizationRole][]Permission{
 		PermissionClassUpdate,
 		PermissionClassView,
 		PermissionEnrollmentManage,
+		PermissionSessionSchedule,
 		PermissionSessionStart,
 		PermissionSessionEnd,
 		PermissionSessionJoin,
@@ -221,6 +225,7 @@ var classPermissions = map[ClassRole][]Permission{
 		PermissionClassView,
 		PermissionEnrollmentManage,
 		PermissionEnrollmentLeave,
+		PermissionSessionSchedule,
 		PermissionSessionStart,
 		PermissionSessionEnd,
 		PermissionSessionJoin,
@@ -234,6 +239,7 @@ var classPermissions = map[ClassRole][]Permission{
 		PermissionClassView,
 		PermissionEnrollmentManage,
 		PermissionEnrollmentLeave,
+		PermissionSessionSchedule,
 		PermissionSessionStart,
 		PermissionSessionEnd,
 		PermissionSessionJoin,

@@ -17,6 +17,7 @@ func TestCatalogDefaultsAndStableOrder(t *testing.T) {
 	if got, want := featureKeys(features), []FeatureKey{
 		FeatureClassInviteLinks,
 		FeatureClassManagement,
+		FeatureClassSessionScheduling,
 		FeatureMembershipInvitations,
 	}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("feature catalog order = %v, want %v", got, want)

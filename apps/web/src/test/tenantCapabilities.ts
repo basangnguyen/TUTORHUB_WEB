@@ -15,6 +15,10 @@ export function availableTenantCapabilities(
       },
       class_management: { configured_enabled: true, enabled: true },
       class_invite_links: { configured_enabled: true, enabled: true },
+      class_session_scheduling: {
+        configured_enabled: true,
+        enabled: true,
+      },
     },
     quotas: {
       members: {
@@ -44,6 +48,7 @@ export function availableTenantCapabilities(
       restore_active_class: available,
       create_class_invite_link: available,
       join_class_invite_link: available,
+      schedule_class_session: available,
     },
   };
 }

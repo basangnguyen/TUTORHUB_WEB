@@ -35,6 +35,7 @@ import { ClassEnrollmentPanel } from "../components/ClassEnrollmentPanel";
 import { ClassJoinDialog } from "../components/ClassJoinDialog";
 import { ClassManagementPanel } from "../components/ClassManagementPanel";
 import { ClassRosterPanel } from "../components/ClassRosterPanel";
+import { ClassSessionPanel } from "../components/ClassSessionPanel";
 import { TenantOperationNotice } from "../components/TenantOperationNotice";
 
 const classCodePattern = /^[A-Z0-9][A-Z0-9_-]{2,31}$/;
@@ -350,6 +351,13 @@ export function ClassroomDetailPage() {
         </dl>
       </section>
 
+      <ClassSessionPanel
+        classroom={classroom}
+        schedulingAvailability={tenantOperationAvailability(
+          capabilitiesQuery,
+          "schedule_class_session",
+        )}
+      />
       <ClassManagementPanel
         activateAvailability={tenantOperationAvailability(
           capabilitiesQuery,

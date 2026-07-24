@@ -28,6 +28,7 @@ type Options struct {
 	Clock                 func() time.Time
 	Identity              identity.ServiceAPI
 	Classroom             classroom.ServiceAPI
+	ClassSessions         classroom.SessionServiceAPI
 	Enrollment            classroom.EnrollmentServiceAPI
 	Audit                 audit.ServiceAPI
 	FeatureControls       featurecontrol.ServiceAPI
@@ -195,6 +196,7 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 		),
 	)
 	classes := newClassHandlers(logger, auth, options.Classroom)
+	classSessions := newClassSessionHandlers(logger, auth, options.ClassSessions)
 	classEnrollments := newClassEnrollmentHandlers(
 		cfg,
 		logger,
@@ -220,6 +222,37 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 	mux.Handle(
 		classesResourcePathPrefix,
 		auditMutation(classResourceUpdateAuditMutation, http.HandlerFunc(classes.detail)),
+	)
+	mux.Handle(
+		classSessionsCollectionPattern,
+		auditMutation(
+			staticAuditMutation(
+				http.MethodPost,
+				audit.ActionClassSessionCreate,
+				"class_session",
+				pathValueAuditResource("class_id"),
+			),
+			http.HandlerFunc(classSessions.collection),
+		),
+	)
+	mux.Handle(
+		classSessionResourcePattern,
+		auditMutation(
+			classSessionResourceAuditMutation,
+			http.HandlerFunc(classSessions.resource),
+		),
+	)
+	mux.Handle(
+		classSessionCancelPattern,
+		auditMutation(
+			staticAuditMutation(
+				http.MethodPost,
+				audit.ActionClassSessionCancel,
+				"class_session",
+				pathValueAuditResource("session_id"),
+			),
+			http.HandlerFunc(classSessions.cancel),
+		),
 	)
 	mux.Handle(
 		classArchivePathPattern,

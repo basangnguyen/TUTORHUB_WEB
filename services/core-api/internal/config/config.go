@@ -128,12 +128,13 @@ type EdgeContextConfig struct {
 }
 
 type FeatureControlConfig struct {
-	DisableMembershipInvitations bool
-	DisableClassManagement       bool
-	DisableClassInviteLinks      bool
-	MaxMembers                   int
-	MaxActiveClasses             int
-	MaxInviteCreationsPerHour    int
+	DisableMembershipInvitations  bool
+	DisableClassManagement        bool
+	DisableClassInviteLinks       bool
+	DisableClassSessionScheduling bool
+	MaxMembers                    int
+	MaxActiveClasses              int
+	MaxInviteCreationsPerHour     int
 }
 
 var objectStorageNamePattern = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9.-]*[a-zA-Z0-9]$`)
@@ -309,6 +310,12 @@ func featureControlConfig(
 		DisableClassInviteLinks: boolValue(
 			lookup,
 			"FEATURE_CONTROL_DISABLE_CLASS_INVITE_LINKS",
+			false,
+			validationErrors,
+		),
+		DisableClassSessionScheduling: boolValue(
+			lookup,
+			"FEATURE_CONTROL_DISABLE_CLASS_SESSION_SCHEDULING",
 			false,
 			validationErrors,
 		),

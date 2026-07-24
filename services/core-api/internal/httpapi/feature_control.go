@@ -43,9 +43,10 @@ type operationCapabilityResponse struct {
 }
 
 type tenantFeatureCapabilitiesResponse struct {
-	MembershipInvitations featureCapabilityResponse `json:"membership_invitations"`
-	ClassManagement       featureCapabilityResponse `json:"class_management"`
-	ClassInviteLinks      featureCapabilityResponse `json:"class_invite_links"`
+	MembershipInvitations  featureCapabilityResponse `json:"membership_invitations"`
+	ClassManagement        featureCapabilityResponse `json:"class_management"`
+	ClassInviteLinks       featureCapabilityResponse `json:"class_invite_links"`
+	ClassSessionScheduling featureCapabilityResponse `json:"class_session_scheduling"`
 }
 
 type tenantQuotaCapabilitiesResponse struct {
@@ -62,6 +63,7 @@ type tenantOperationCapabilitiesResponse struct {
 	RestoreActiveClass         operationCapabilityResponse `json:"restore_active_class"`
 	CreateClassInviteLink      operationCapabilityResponse `json:"create_class_invite_link"`
 	JoinClassInviteLink        operationCapabilityResponse `json:"join_class_invite_link"`
+	ScheduleClassSession       operationCapabilityResponse `json:"schedule_class_session"`
 }
 
 type tenantCapabilitiesResponse struct {
@@ -80,9 +82,10 @@ type updateTenantFeatureControlsRequest struct {
 }
 
 type updateTenantFeatureControlValuesRequest struct {
-	MembershipInvitations *bool `json:"membership_invitations"`
-	ClassManagement       *bool `json:"class_management"`
-	ClassInviteLinks      *bool `json:"class_invite_links"`
+	MembershipInvitations  *bool `json:"membership_invitations"`
+	ClassManagement        *bool `json:"class_management"`
+	ClassInviteLinks       *bool `json:"class_invite_links"`
+	ClassSessionScheduling *bool `json:"class_session_scheduling"`
 }
 
 type updateTenantQuotaControlValuesRequest struct {
@@ -96,6 +99,7 @@ func (request updateTenantFeatureControlsRequest) complete() bool {
 		request.Features.MembershipInvitations != nil &&
 		request.Features.ClassManagement != nil &&
 		request.Features.ClassInviteLinks != nil &&
+		request.Features.ClassSessionScheduling != nil &&
 		request.Quotas != nil && request.Quotas.Members != nil &&
 		request.Quotas.ActiveClasses != nil &&
 		request.Quotas.InviteCreationsPerHour != nil
@@ -179,6 +183,7 @@ func (handlers featureControlHandlers) update(w http.ResponseWriter, r *http.Req
 				{Key: featurecontrol.FeatureMembershipInvitations, Enabled: *request.Features.MembershipInvitations},
 				{Key: featurecontrol.FeatureClassManagement, Enabled: *request.Features.ClassManagement},
 				{Key: featurecontrol.FeatureClassInviteLinks, Enabled: *request.Features.ClassInviteLinks},
+				{Key: featurecontrol.FeatureClassSessionScheduling, Enabled: *request.Features.ClassSessionScheduling},
 			},
 			QuotaOverrides: []featurecontrol.QuotaOverride{
 				{Key: featurecontrol.QuotaMembers, Limit: *request.Quotas.Members},
@@ -316,10 +321,12 @@ func mapTenantCapabilities(
 	membershipFeature, membershipOK := features[featurecontrol.FeatureMembershipInvitations]
 	classFeature, classOK := features[featurecontrol.FeatureClassManagement]
 	inviteFeature, inviteOK := features[featurecontrol.FeatureClassInviteLinks]
+	sessionFeature, sessionOK := features[featurecontrol.FeatureClassSessionScheduling]
 	membersQuota, membersOK := quotas[featurecontrol.QuotaMembers]
 	classesQuota, classesOK := quotas[featurecontrol.QuotaActiveClasses]
 	invitesQuota, invitesOK := quotas[featurecontrol.QuotaInviteCreationsPerHour]
-	if !membershipOK || !classOK || !inviteOK || !membersOK || !classesOK || !invitesOK {
+	if !membershipOK || !classOK || !inviteOK || !sessionOK ||
+		!membersOK || !classesOK || !invitesOK {
 		return tenantCapabilitiesResponse{}, errors.New("feature control snapshot is incomplete")
 	}
 	response := tenantCapabilitiesResponse{
@@ -327,9 +334,10 @@ func mapTenantCapabilities(
 		Version:            capabilities.Version,
 		CanManageOverrides: capabilities.AllowedAction.ManageControls,
 		Features: tenantFeatureCapabilitiesResponse{
-			MembershipInvitations: mapFeatureCapability(membershipFeature, capabilities.AllowedAction.ManageControls),
-			ClassManagement:       mapFeatureCapability(classFeature, capabilities.AllowedAction.ManageControls),
-			ClassInviteLinks:      mapFeatureCapability(inviteFeature, capabilities.AllowedAction.ManageControls),
+			MembershipInvitations:  mapFeatureCapability(membershipFeature, capabilities.AllowedAction.ManageControls),
+			ClassManagement:        mapFeatureCapability(classFeature, capabilities.AllowedAction.ManageControls),
+			ClassInviteLinks:       mapFeatureCapability(inviteFeature, capabilities.AllowedAction.ManageControls),
+			ClassSessionScheduling: mapFeatureCapability(sessionFeature, capabilities.AllowedAction.ManageControls),
 		},
 		Quotas: tenantQuotaCapabilitiesResponse{
 			Members:                mapQuotaCapability(membersQuota, capabilities.AllowedAction.ManageControls),
@@ -345,6 +353,7 @@ func mapTenantCapabilities(
 		RestoreActiveClass:         combineOperation(classFeature.Enabled, classesQuota, false),
 		CreateClassInviteLink:      combineOperation(inviteFeature.Enabled, invitesQuota, true),
 		JoinClassInviteLink:        featureOperation(inviteFeature.Enabled),
+		ScheduleClassSession:       featureOperation(sessionFeature.Enabled),
 	}
 	return response, nil
 }

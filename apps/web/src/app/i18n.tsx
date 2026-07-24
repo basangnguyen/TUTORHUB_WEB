@@ -227,6 +227,7 @@ const messages = {
     "capabilities.featureMembershipInvitations": "Lời mời thành viên",
     "capabilities.featureClassManagement": "Quản lý lớp học",
     "capabilities.featureClassInviteLinks": "Liên kết mời vào lớp",
+    "capabilities.featureClassSessionScheduling": "Lên lịch buổi học trong lớp",
     "capabilities.quotaMembers": "Thành viên workspace",
     "capabilities.quotaActiveClasses": "Lớp đang hoạt động",
     "capabilities.quotaInviteCreations": "Lượt tạo lời mời mỗi giờ",
@@ -766,6 +767,67 @@ const messages = {
     "classroom.errorDescription":
       "Kiểm tra kết nối rồi thử lại. Nếu lỗi tiếp diễn, cần kiểm tra Core API.",
     "classroom.joinRoomAction": "Vào phòng học trực tuyến",
+    "classSession.title": "Lịch buổi học",
+    "classSession.description":
+      "Các buổi học một lần của lớp, hiển thị theo múi giờ của bạn.",
+    "classSession.scheduleAction": "Lên lịch buổi học",
+    "classSession.loading": "Đang tải lịch buổi học",
+    "classSession.emptyTitle": "Chưa có buổi học nào",
+    "classSession.emptyDescription":
+      "Khi được lên lịch, buổi học sẽ xuất hiện ở đây.",
+    "classSession.loadErrorTitle": "Chưa thể tải lịch buổi học",
+    "classSession.loadErrorDescription":
+      "Kiểm tra kết nối rồi thử lại. Dữ liệu cũ sẽ không được giữ nếu quyền truy cập đã thay đổi.",
+    "classSession.forbiddenTitle": "Bạn chưa có quyền xem lịch lớp",
+    "classSession.forbiddenDescription":
+      "Chỉ thành viên đang hoạt động của lớp mới có thể xem các buổi học.",
+    "classSession.notFoundTitle": "Không tìm thấy lịch lớp",
+    "classSession.notFoundDescription":
+      "Lớp hoặc lịch buổi học không còn thuộc workspace hiện tại.",
+    "classSession.createTitle": "Lên lịch buổi học",
+    "classSession.editTitle": "Chỉnh sửa buổi học",
+    "classSession.formDescription":
+      "Thời gian phải có offset RFC3339 khớp với múi giờ IANA đã chọn.",
+    "classSession.titleLabel": "Tên buổi học",
+    "classSession.descriptionLabel": "Mô tả",
+    "classSession.startsAtLabel": "Bắt đầu",
+    "classSession.endsAtLabel": "Kết thúc",
+    "classSession.timezoneLabel": "Múi giờ",
+    "classSession.overlapLabel": "Khi giờ bị lặp",
+    "classSession.overlapEarlier": "Chọn lần xuất hiện sớm hơn",
+    "classSession.overlapLater": "Chọn lần xuất hiện muộn hơn",
+    "classSession.save": "Lưu buổi học",
+    "classSession.saving": "Đang lưu...",
+    "classSession.cancel": "Hủy",
+    "classSession.cancelAction": "Hủy buổi học",
+    "classSession.cancelConfirmTitle": "Hủy buổi học này?",
+    "classSession.cancelConfirmDescription":
+      "Buổi học vẫn hiển thị trong lịch sử nhưng không còn có thể chỉnh sửa.",
+    "classSession.cancelConfirm": "Xác nhận hủy",
+    "classSession.cancelling": "Đang hủy...",
+    "classSession.cancelled": "Đã hủy",
+    "classSession.scheduled": "Đã lên lịch",
+    "classSession.updated": "Đã cập nhật buổi học.",
+    "classSession.created": "Đã lên lịch buổi học.",
+    "classSession.cancelledSuccess": "Đã hủy buổi học.",
+    "classSession.timeGap":
+      "Giờ này nằm trong khoảng chuyển giờ mùa hè và không tồn tại.",
+    "classSession.timeOverlap":
+      "Giờ này bị lặp. Hãy chọn lần xuất hiện sớm hơn hoặc muộn hơn.",
+    "classSession.invalidRange":
+      "Thời gian kết thúc phải sau thời gian bắt đầu.",
+    "classSession.formError":
+      "Chưa thể lưu buổi học. Hãy kiểm tra lại dữ liệu.",
+    "classSession.conflict":
+      "Buổi học đã được người khác cập nhật. Hãy tải bản mới nhất rồi thử lại.",
+    "classSession.mutationForbidden":
+      "Bạn không có quyền thay đổi buổi học này.",
+    "classSession.loadMore": "Tải thêm buổi học",
+    "classSession.loadingMore": "Đang tải thêm...",
+    "classSession.loadMoreError": "Chưa thể tải thêm buổi học.",
+    "classSession.viewerTime": "Theo múi giờ của bạn",
+    "classSession.classTime": "Theo múi giờ lớp: {timezone}",
+    "classSession.closeDialog": "Đóng biểu mẫu buổi học",
     "media.prejoin.backToClass": "← Quay lại lớp học",
     "media.prejoin.kicker": "Kiểm tra trước khi vào phòng",
     "media.prejoin.title": "Phòng học trực tuyến",
@@ -1080,6 +1142,7 @@ const messages = {
     "capabilities.featureMembershipInvitations": "Member invitations",
     "capabilities.featureClassManagement": "Class management",
     "capabilities.featureClassInviteLinks": "Class invitation links",
+    "capabilities.featureClassSessionScheduling": "Class session scheduling",
     "capabilities.quotaMembers": "Workspace members",
     "capabilities.quotaActiveClasses": "Active classes",
     "capabilities.quotaInviteCreations": "Invitation creations per hour",
@@ -1620,6 +1683,64 @@ const messages = {
     "classroom.errorDescription":
       "Check the connection and retry. If this continues, review the Core API.",
     "classroom.joinRoomAction": "Join live classroom",
+    "classSession.title": "Class sessions",
+    "classSession.description":
+      "One-time class sessions shown in your preferred timezone.",
+    "classSession.scheduleAction": "Schedule session",
+    "classSession.loading": "Loading class sessions",
+    "classSession.emptyTitle": "No sessions yet",
+    "classSession.emptyDescription": "Scheduled sessions will appear here.",
+    "classSession.loadErrorTitle": "Could not load class sessions",
+    "classSession.loadErrorDescription":
+      "Check your connection and try again. Cached rows are hidden when access changes.",
+    "classSession.forbiddenTitle": "You cannot view this class schedule",
+    "classSession.forbiddenDescription":
+      "Only active class members can view sessions.",
+    "classSession.notFoundTitle": "Class schedule not found",
+    "classSession.notFoundDescription":
+      "The class or session is not in the active workspace.",
+    "classSession.createTitle": "Schedule a session",
+    "classSession.editTitle": "Edit session",
+    "classSession.formDescription":
+      "The timestamp offset must match the selected IANA timezone.",
+    "classSession.titleLabel": "Session title",
+    "classSession.descriptionLabel": "Description",
+    "classSession.startsAtLabel": "Starts",
+    "classSession.endsAtLabel": "Ends",
+    "classSession.timezoneLabel": "Timezone",
+    "classSession.overlapLabel": "When the clock repeats",
+    "classSession.overlapEarlier": "Choose the earlier occurrence",
+    "classSession.overlapLater": "Choose the later occurrence",
+    "classSession.save": "Save session",
+    "classSession.saving": "Saving...",
+    "classSession.cancel": "Cancel",
+    "classSession.cancelAction": "Cancel session",
+    "classSession.cancelConfirmTitle": "Cancel this session?",
+    "classSession.cancelConfirmDescription":
+      "The session remains in history but can no longer be edited.",
+    "classSession.cancelConfirm": "Confirm cancellation",
+    "classSession.cancelling": "Cancelling...",
+    "classSession.cancelled": "Cancelled",
+    "classSession.scheduled": "Scheduled",
+    "classSession.updated": "Session updated.",
+    "classSession.created": "Session scheduled.",
+    "classSession.cancelledSuccess": "Session cancelled.",
+    "classSession.timeGap":
+      "This time is inside a daylight-saving gap and does not exist.",
+    "classSession.timeOverlap":
+      "This time repeats. Choose the earlier or later occurrence.",
+    "classSession.invalidRange": "The end must be after the start.",
+    "classSession.formError":
+      "Could not save the session. Check the fields and try again.",
+    "classSession.conflict":
+      "Someone else updated this session. Reload the latest version and try again.",
+    "classSession.mutationForbidden": "You cannot change this session.",
+    "classSession.loadMore": "Load more sessions",
+    "classSession.loadingMore": "Loading more...",
+    "classSession.loadMoreError": "Could not load more sessions.",
+    "classSession.viewerTime": "Your timezone",
+    "classSession.classTime": "Class timezone: {timezone}",
+    "classSession.closeDialog": "Close session form",
     "media.prejoin.backToClass": "← Back to classroom",
     "media.prejoin.kicker": "Prejoin check",
     "media.prejoin.title": "Live classroom",

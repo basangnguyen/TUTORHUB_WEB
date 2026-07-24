@@ -153,7 +153,7 @@ func TestFeatureControlHandlersHideCrossTenantAndReplaceTypedAggregate(t *testin
 		t.Fatalf("unexpected cross-tenant problem: %+v", crossProblem)
 	}
 
-	body := `{"expected_version":3,"features":{"membership_invitations":false,"class_management":true,"class_invite_links":false},"quotas":{"members":90,"active_classes":20,"invite_creations_per_hour":40}}`
+	body := `{"expected_version":3,"features":{"membership_invitations":false,"class_management":true,"class_invite_links":false,"class_session_scheduling":true},"quotas":{"members":90,"active_classes":20,"invite_creations_per_hour":40}}`
 	request := httptest.NewRequest(
 		http.MethodPut,
 		"/api/v1/tenants/"+tenantID.String()+"/feature-controls",
@@ -170,7 +170,7 @@ func TestFeatureControlHandlersHideCrossTenantAndReplaceTypedAggregate(t *testin
 		t.Fatalf("expected 200, got %d: %s", response.Code, response.Body.String())
 	}
 	if service.putContext.TenantID != tenantID || service.putInput.ExpectedVersion != 3 ||
-		len(service.putInput.FeatureOverrides) != 3 || len(service.putInput.QuotaOverrides) != 3 {
+		len(service.putInput.FeatureOverrides) != 4 || len(service.putInput.QuotaOverrides) != 3 {
 		t.Fatalf("unexpected typed override input: %+v %+v", service.putContext, service.putInput)
 	}
 }
@@ -384,6 +384,7 @@ func completeFeatureCapabilities(tenantID uuid.UUID) featurecontrol.Capabilities
 			{EffectiveFeature: featurecontrol.EffectiveFeature{Key: featurecontrol.FeatureMembershipInvitations, Enabled: true}, ConfiguredEnabled: true},
 			{EffectiveFeature: featurecontrol.EffectiveFeature{Key: featurecontrol.FeatureClassManagement, Enabled: true}, ConfiguredEnabled: true},
 			{EffectiveFeature: featurecontrol.EffectiveFeature{Key: featurecontrol.FeatureClassInviteLinks, Enabled: true}, ConfiguredEnabled: true},
+			{EffectiveFeature: featurecontrol.EffectiveFeature{Key: featurecontrol.FeatureClassSessionScheduling, Enabled: true}, ConfiguredEnabled: true},
 		},
 		Quotas: []featurecontrol.QuotaCapability{
 			{EffectiveQuota: featurecontrol.EffectiveQuota{Key: featurecontrol.QuotaMembers, Limit: 100}, ConfiguredLimit: 100, Used: 100, Remaining: 0},

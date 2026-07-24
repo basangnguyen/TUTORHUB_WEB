@@ -8,9 +8,10 @@ import (
 type FeatureKey string
 
 const (
-	FeatureMembershipInvitations FeatureKey = "membership_invitations"
-	FeatureClassManagement       FeatureKey = "class_management"
-	FeatureClassInviteLinks      FeatureKey = "class_invite_links"
+	FeatureMembershipInvitations  FeatureKey = "membership_invitations"
+	FeatureClassManagement        FeatureKey = "class_management"
+	FeatureClassInviteLinks       FeatureKey = "class_invite_links"
+	FeatureClassSessionScheduling FeatureKey = "class_session_scheduling"
 )
 
 type QuotaKey string
@@ -60,6 +61,9 @@ var featureDefinitions = map[FeatureKey]FeatureDefinition{
 	},
 	FeatureClassInviteLinks: {
 		Key: FeatureClassInviteLinks, DefaultEnabled: true,
+	},
+	FeatureClassSessionScheduling: {
+		Key: FeatureClassSessionScheduling, DefaultEnabled: true,
 	},
 }
 
