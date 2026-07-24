@@ -78,17 +78,17 @@ live; rollback bằng specific commit giữ cấu hình hiện tại là bằng 
 
 ## 5. Trạng thái Phase 3
 
-| Task                                 | Trạng thái | Ghi chú                                      |
-| ------------------------------------ | ---------- | -------------------------------------------- |
-| P3-00 Backlog/architecture baseline  | DONE       | Backlog, ADR scheduling và ADR worker        |
-| P3-CAL-00 Calendar research/design   | DONE       | Product/UX/technical/V1/OSS report           |
-| P3-CAL-00B Calendar re-baseline      | DONE       | Tài liệu only; chưa có theme/email runtime   |
-| P3-CAL-00C Calendar readiness review | DONE       | Gate/dependency/contract đã được harden      |
-| P3-CAL-01 Spike + ADR-0019           | READY      | Renderer, recurrence, conflict gate          |
-| P3-01 Session scheduling và timezone | READY      | Vertical slice implementation đầu tiên       |
-| P3-CAL-02 Email/ICS + ADR-0020       | TODO       | AWS SES target, RSVP, ICS, deliverability    |
-| P3-02D Native Availability Poll      | TODO       | Native poll, secure sharing, Study Meeting   |
-| P3-02A/B/C, P3-03 đến P3-14          | TODO       | Theo dependency trong backlog                |
+| Task                                 | Trạng thái  | Ghi chú                                       |
+| ------------------------------------ | ----------- | --------------------------------------------- |
+| P3-00 Backlog/architecture baseline  | DONE        | Backlog, ADR scheduling và ADR worker         |
+| P3-CAL-00 Calendar research/design   | DONE        | Product/UX/technical/V1/OSS report            |
+| P3-CAL-00B Calendar re-baseline      | DONE        | Tài liệu only; chưa có theme/email runtime    |
+| P3-CAL-00C Calendar readiness review | DONE        | Gate/dependency/contract đã được harden       |
+| P3-CAL-01 Spike + ADR-0019           | IN PROGRESS | Automated spike xanh; manual/E2E gate còn mở  |
+| P3-01 Session scheduling và timezone | VERIFY      | Staging infra xanh; browser acceptance còn mở |
+| P3-CAL-02 Email/ICS + ADR-0020       | TODO        | AWS SES target, RSVP, ICS, deliverability     |
+| P3-02D Native Availability Poll      | TODO        | Native poll, secure sharing, Study Meeting    |
+| P3-02A/B/C, P3-03 đến P3-14          | TODO        | Theo dependency trong backlog                 |
 
 Nguồn thực thi: `docs/PHASE_3_BACKLOG.md`. Trước khi code calendar phải đọc
 `docs/CALENDAR_PRODUCT_TECHNICAL_DESIGN.md` và ADR-0017; P3-02B recurrence phải chờ
@@ -102,6 +102,10 @@ runtime When2meet.
 Mọi notification/email/ICS/reminder/message/file side effect phải chờ worker foundation
 P3-03 theo ADR-0018. P3-01 không gồm recurrence, calendar tổng hợp, email, reminder
 hoặc media lifecycle.
+P3-01 hiện đã có Neon `14 false`, runtime grants tối thiểu, Render/Cloudflare deployment
+và public health/readiness xanh. Chỉ đổi sang `DONE` sau browser acceptance Teacher
+create/update/cancel, Student read-only và foreign-ID conceal `404`; không mô tả lượt
+browser thủ công là Playwright staging.
 Mọi active authenticated member có thể tạo/quản lý poll và Study Meeting của mình; chỉ
 actor có `session.schedule` mới tạo ClassSession. Full LiveKit token/lobby/moderation/
 room lifecycle vẫn thuộc Phase 4.

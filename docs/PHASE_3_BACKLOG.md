@@ -23,10 +23,12 @@ tính từ P3-CAL-01.
 Domain/DNS, SES sandbox và production-access approval có thể chuẩn bị song song nhưng
 không được tính `DONE` trước interoperability gate.
 
-**Task vừa hoàn thành local:** P3-01 Course session scheduling/timezone đã có migration,
-contract, backend, feature/policy, generated client, class-detail UI và test local.
-Task chưa `DONE` vì Neon staging chưa lên migration `14`, chưa cấp runtime grants và chưa
-chạy acceptance teacher/student trên deployment mới.
+**Task vừa hoàn thành implementation/staging infrastructure:** P3-01 Course session
+scheduling/timezone đã có migration, contract, backend, feature/policy, generated client,
+class-detail UI và test local. Neon staging đã ở `14 false`, runtime grants đúng ma trận
+tối thiểu; Render/Cloudflare đã phục vụ bản có P3-01 và public health/readiness đều xanh.
+Task chưa `DONE` vì browser acceptance Teacher/Student/IDOR trên deployment mới chưa
+hoàn tất đầy đủ.
 
 **Task hiện tại:** P3-01 staging acceptance (`VERIFY`) và phần browser/manual evidence còn
 lại của P3-CAL-01/ADR-0019 (`IN PROGRESS`).
@@ -228,9 +230,13 @@ không thêm FullCalendar hoặc recurrence; dependency chỉ được thêm sau
       `policy`, `config` và recurrence spike đạt test local.
 - [x] Timezone resolver từ chối DST gap và yêu cầu chọn offset cho overlap; unit test
       dùng `Asia/Ho_Chi_Minh` và `America/New_York`.
-- [ ] Neon staging migrate `13 -> 14`, runtime grant tối thiểu và version `14 false`.
-- [ ] Deploy cùng full commit SHA, health/readiness và Playwright teacher/student/IDOR.
-- [ ] Chỉ chuyển P3-01 sang `DONE` sau hai mục staging bên trên.
+- [x] Neon staging migrate `13 -> 14`, runtime grant tối thiểu và version `14 false`.
+- [x] Feature commit `b58666c` cùng security patch `a5741a1` đã được deploy; Render direct
+      và Cloudflare same-origin health/readiness/status public probes đều xanh.
+- [ ] Browser acceptance Teacher create/update/cancel, Student read-only và foreign-ID
+      conceal `404` đạt trên staging. Lượt browser thủ công không được ghi thành
+      Playwright staging.
+- [ ] Chỉ chuyển P3-01 sang `DONE` sau mục browser acceptance bên trên.
 
 ## 8. P3-02 Calendar day/week/month và recurring series
 

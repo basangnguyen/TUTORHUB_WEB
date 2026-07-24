@@ -12,9 +12,9 @@
 | Quy trình           | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
 | Phase hoàn thành    | Phase 0, Phase 1, Phase 2                                                             |
 | Phase hiện tại      | Phase 3 - Daily learning workspace                                                   |
-| Task vừa hoàn thành | P3-01 scheduling/timezone vertical slice đã hoàn tất implementation và kiểm tra local |
+| Task vừa hoàn thành | P3-01 implementation, migration/grants, deploy và public probes đã hoàn tất           |
 | Task hiện tại       | P3-01 staging acceptance (`VERIFY`) + P3-CAL-01 manual/E2E evidence (`IN PROGRESS`)   |
-| Task tiếp theo      | Apply migration/grants và nghiệm thu P3-01 trên staging; sau đó bắt đầu P3-03 worker |
+| Task tiếp theo      | Hoàn tất browser acceptance Teacher/Student/IDOR; sau đó bắt đầu P3-03 worker         |
 
 ## Kiến trúc đang chạy
 
@@ -327,15 +327,20 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
 14. P3-01 local verification ngày 2026-07-24 đạt web typecheck/test/build, API-client
     typecheck/test và các Go package liên quan. Contract chỉ hỗ trợ session một lần,
     lifecycle public `scheduled -> cancelled`, bounded list/range/duration, optimistic
-    version, audit/outbox và feature kill switch. Neon staging vẫn ở migration `13 false`;
-    chưa chạy migration/grants `000014`, deploy hoặc Playwright teacher/student trên
-    staging nên task giữ `VERIFY`, chưa được gọi production-ready.
+    version, audit/outbox và feature kill switch.
+15. Neon staging đã migrate `13 -> 14` và trả `14 false`; runtime role có
+    `SELECT/INSERT/UPDATE` nhưng không có `DELETE/TRUNCATE`. Feature commit `b58666c`
+    cùng security patch `a5741a1` đã được deploy; Render direct và Cloudflare same-origin
+    health/readiness/status public probes đều xanh. Browser acceptance Teacher/Student/
+    IDOR vẫn phải hoàn tất trước khi chuyển task khỏi `VERIFY`; bằng chứng browser thủ
+    công không được mô tả là Playwright staging.
 
 ## Rủi ro đã biết
 
-- P3-01 đã có implementation local nhưng chưa được migrate/deploy/nghiệm thu staging.
-  Không mô tả scheduling là chức năng đang chạy cho người dùng cho tới khi migration
-  `14 false`, runtime grants, health/readiness và Playwright teacher/student đạt.
+- P3-01 đã được migrate/deploy trên staging nhưng browser acceptance Teacher/Student/
+  IDOR chưa hoàn tất đầy đủ. Không mô tả scheduling là production-ready hoặc task
+  `DONE` cho tới khi Teacher create/update/cancel, Student read-only và foreign-ID
+  conceal `404` đều đạt; lượt browser thủ công không thay thế Playwright E2E.
 - Báo cáo Calendar là `PROPOSED`; FullCalendar chỉ nằm trong spike và recurrence library
   chưa được chấp nhận vào production domain. Browser E2E/Axe, performance nhiều lần và
   manual keyboard/NVDA còn mở; không code P3-02B trước khi ADR-0019 đạt gate.

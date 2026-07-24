@@ -330,42 +330,49 @@ export function ClassSessionPanel({
         </div>
       )}
 
-      <SessionDialog
-        classroom={classroom}
-        error={createMutation.error ?? updateMutation.error ?? null}
-        initial={editing}
-        onOpenChange={(open) => {
-          if (!open && !createMutation.isPending && !updateMutation.isPending) {
-            setFormOpen(false);
-            createMutation.reset();
-            updateMutation.reset();
-          }
-        }}
-        onCreate={(input) => {
-          createMutation.mutate(
-            { classID: classroom.id, input },
-            {
-              onSuccess: () => setFormOpen(false),
-            },
-          );
-        }}
-        onUpdate={(input) => {
-          if (!editing) {
-            return;
-          }
-          updateMutation.mutate(
-            { classID: classroom.id, sessionID: editing.id, input },
-            {
-              onSuccess: () => {
-                setFormOpen(false);
-                setEditing(null);
+      {formOpen && (
+        <SessionDialog
+          classroom={classroom}
+          error={createMutation.error ?? updateMutation.error ?? null}
+          initial={editing}
+          key={editing?.id ?? "create"}
+          onOpenChange={(open) => {
+            if (
+              !open &&
+              !createMutation.isPending &&
+              !updateMutation.isPending
+            ) {
+              setFormOpen(false);
+              createMutation.reset();
+              updateMutation.reset();
+            }
+          }}
+          onCreate={(input) => {
+            createMutation.mutate(
+              { classID: classroom.id, input },
+              {
+                onSuccess: () => setFormOpen(false),
               },
-            },
-          );
-        }}
-        open={formOpen}
-        pending={createMutation.isPending || updateMutation.isPending}
-      />
+            );
+          }}
+          onUpdate={(input) => {
+            if (!editing) {
+              return;
+            }
+            updateMutation.mutate(
+              { classID: classroom.id, sessionID: editing.id, input },
+              {
+                onSuccess: () => {
+                  setFormOpen(false);
+                  setEditing(null);
+                },
+              },
+            );
+          }}
+          open={formOpen}
+          pending={createMutation.isPending || updateMutation.isPending}
+        />
+      )}
 
       <Dialog
         onOpenChange={(open) => {
@@ -444,28 +451,20 @@ function SessionDialog({
   pending,
 }: SessionDialogProps) {
   const { t } = useI18n();
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [startsAt, setStartsAt] = useState("");
-  const [endsAt, setEndsAt] = useState("");
-  const [timezone, setTimezone] = useState(classroom.timezone);
+  const [title, setTitle] = useState(initial?.title ?? classroom.title);
+  const [description, setDescription] = useState(initial?.description ?? "");
+  const [startsAt, setStartsAt] = useState(
+    initial ? civilInputFromInstant(initial.starts_at, initial.timezone) : "",
+  );
+  const [endsAt, setEndsAt] = useState(
+    initial ? civilInputFromInstant(initial.ends_at, initial.timezone) : "",
+  );
+  const [timezone, setTimezone] = useState(
+    initial?.timezone ?? classroom.timezone,
+  );
   const [overlapChoice, setOverlapChoice] = useState<OverlapChoice | "">("");
   const [formError, setFormError] = useState<TranslationKey | null>(null);
   const isEditing = Boolean(initial);
-
-  const syncInitial = () => {
-    setTitle(initial?.title ?? classroom.title);
-    setDescription(initial?.description ?? "");
-    setTimezone(initial?.timezone ?? classroom.timezone);
-    setStartsAt(
-      initial ? civilInputFromInstant(initial.starts_at, initial.timezone) : "",
-    );
-    setEndsAt(
-      initial ? civilInputFromInstant(initial.ends_at, initial.timezone) : "",
-    );
-    setOverlapChoice("");
-    setFormError(null);
-  };
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -516,15 +515,7 @@ function SessionDialog({
   };
 
   return (
-    <Dialog
-      onOpenChange={(nextOpen) => {
-        if (nextOpen) {
-          syncInitial();
-        }
-        onOpenChange(nextOpen);
-      }}
-      open={open}
-    >
+    <Dialog onOpenChange={onOpenChange} open={open}>
       <DialogContent closeLabel={t("classSession.closeDialog")}>
         <DialogTitle>
           {isEditing
