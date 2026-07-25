@@ -8,6 +8,7 @@ flowchart LR
     EDGE --> WEB["Cloudflare Pages: tutorhub-web"]
     WEB --> API["Render Web Service: tutorhub-core-api"]
     API --> NEON["Neon PostgreSQL"]
+    WORKER["Durable Worker: tutorhub-worker"] --> NEON
     API --> B2["Backblaze B2"]
     USER --> B2
     API --> LK["LiveKit Cloud"]
@@ -18,11 +19,16 @@ flowchart LR
 
 Browser chỉ upload trực tiếp lên B2 sau khi core API kiểm tra quyền và cấp presigned URL. Browser kết nối LiveKit sau khi core API cấp room token giới hạn quyền.
 
+Core API và outbox worker dùng cùng OCI image nhưng là hai process và hai database
+credential riêng. Worker phải chạy trên host bền vững không spin-down; Render Free Web
+Service không đáp ứng điều kiện này.
+
 ## 2. Tách môi trường
 
 | Thành phần | Local | Staging | Production |
 |---|---|---|---|
 | Web/API | Local process | Cloudflare Pages + Render Web Service | Chưa quyết định; review trước pilot |
+| Outbox worker | Local process riêng | Durable non-spin-down host, provider chờ duyệt | Review capacity/SLA trước pilot |
 | PostgreSQL | Local container | Neon staging branch/project | Neon production project |
 | Object storage | Local emulator hoặc bucket dev | B2 staging bucket | B2 production bucket |
 | LiveKit | Dev project | Staging project | Production project |
@@ -39,6 +45,7 @@ APP_ENV
 PUBLIC_WEB_ORIGIN
 DATABASE_URL
 DATABASE_POOL_URL
+DATABASE_WORKER_URL
 SESSION_SECRET
 OIDC_ISSUER_URL
 OIDC_CLIENT_ID
@@ -61,6 +68,19 @@ FEATURE_CONTROL_DISABLE_CLASS_INVITE_LINKS
 FEATURE_CONTROL_MAX_MEMBERS
 FEATURE_CONTROL_MAX_ACTIVE_CLASSES
 FEATURE_CONTROL_MAX_INVITE_CREATIONS_PER_HOUR
+FEATURE_CONTROL_ENABLE_IN_APP_NOTIFICATIONS
+OUTBOX_ENABLE_IN_APP_NOTIFICATION_CANARY
+OUTBOX_WORKER_ID
+OUTBOX_WORKER_POLL_INTERVAL
+OUTBOX_WORKER_LEASE_DURATION
+OUTBOX_WORKER_BATCH_SIZE
+OUTBOX_WORKER_CONCURRENCY
+OUTBOX_WORKER_MAX_ATTEMPTS
+OUTBOX_WORKER_RETRY_BASE_DELAY
+OUTBOX_WORKER_RETRY_MAX_DELAY
+OUTBOX_WORKER_HANDLER_TIMEOUT
+OUTBOX_WORKER_SHUTDOWN_TIMEOUT
+OUTBOX_WORKER_METRICS_ADDR
 ```
 
 Redis chỉ được thêm khi có nhu cầu session/rate-limit coordination đã đo được và chọn managed provider.
@@ -113,6 +133,22 @@ Redis chỉ được thêm khi có nhu cầu session/rate-limit coordination đ�
 - Image phải tái lập được; mỗi lần triển khai có health check, migration kiểm soát và đường rollback.
 - Render Free chỉ dùng cho staging/private alpha vì instance có thể spin down và cold start trên 50 giây.
 - Hugging Face chỉ còn là lựa chọn cho dịch vụ AI độc lập, không phải nơi chạy Core API.
+
+### P3-03/P3-04 outbox worker và notification canary
+
+- `tutorhub-core-api` và `tutorhub-worker` không dùng chung database login. API role chỉ
+  có quyền feed/read-state/preference cần thiết; worker role chỉ có exact outbox lease
+  grants và column-level `INSERT` cho effect đang bật.
+- Thứ tự rollout bắt buộc: dừng worker -> migration `000015` rồi `000016` -> direct
+  grants theo `docs/DATABASE.md` -> chạy capability probe bằng đúng worker/API login ->
+  bật riêng canary gate -> khởi động worker -> nghiệm thu duplicate và crash/reclaim.
+- Product gate `FEATURE_CONTROL_ENABLE_IN_APP_NOTIFICATIONS` vẫn `false` trong canary.
+  Chỉ bật sau khi P3-03B và acceptance P3-04 đạt; API feed luôn loại system canary.
+- Rollback: đặt cả hai gate về `false` -> dừng worker -> revoke notification effect grant
+  -> khởi động lại worker với exact P3-03 ACL. Không xóa projection để rollback code.
+- Render Free có thể tiếp tục chạy Core API staging/private alpha, nhưng không được dùng
+  làm durable worker. Chi tiết lệnh grant/probe/canary nằm trong `docs/DATABASE.md` và
+  `docs/P3_03_OUTBOX_WORKER_RUNBOOK.md`.
 
 ## 7. Gate trước public beta
 

@@ -39,6 +39,17 @@ var integrationWorkerUpdateColumns = []string{
 	"dead_lettered_at",
 }
 
+var integrationNotificationInsertColumns = []string{
+	"tenant_id",
+	"recipient_user_id",
+	"source_outbox_event_id",
+	"effect_key",
+	"kind",
+	"template_key",
+	"context",
+	"occurred_at",
+}
+
 func TestPostgresOutboxRuntimeRolesEnforceLeastPrivilegeSplit(t *testing.T) {
 	ctx, migrationPool, _ := openLocalOutboxIntegrationStore(t)
 	requireIntegrationRoleAdministration(t, ctx, migrationPool)
@@ -83,9 +94,9 @@ func TestPostgresOutboxRuntimeRolesEnforceLeastPrivilegeSplit(t *testing.T) {
 		databaseCreate:  false,
 	})
 	assertExactIntegrationColumnPrivilege(
-		t, ctx, apiPool, "INSERT", integrationAPIInsertColumns,
+		t, ctx, apiPool, "outbox_events", "INSERT", integrationAPIInsertColumns,
 	)
-	assertExactIntegrationColumnPrivilege(t, ctx, apiPool, "UPDATE", nil)
+	assertExactIntegrationColumnPrivilege(t, ctx, apiPool, "outbox_events", "UPDATE", nil)
 	if err := VerifyDatabaseCapabilities(ctx, apiPool, 3*time.Second); !errors.Is(
 		err,
 		ErrUnsafeDatabaseCapabilities,
@@ -108,12 +119,110 @@ func TestPostgresOutboxRuntimeRolesEnforceLeastPrivilegeSplit(t *testing.T) {
 		schemaCreate:    false,
 		databaseCreate:  false,
 	})
-	assertExactIntegrationColumnPrivilege(t, ctx, workerPool, "INSERT", nil)
+	assertExactIntegrationColumnPrivilege(t, ctx, workerPool, "outbox_events", "INSERT", nil)
 	assertExactIntegrationColumnPrivilege(
-		t, ctx, workerPool, "UPDATE", integrationWorkerUpdateColumns,
+		t, ctx, workerPool, "outbox_events", "UPDATE", integrationWorkerUpdateColumns,
 	)
 	if err := VerifyDatabaseCapabilities(ctx, workerPool, 3*time.Second); err != nil {
 		t.Fatalf("direct worker role capability probe rejected exact ACL: %v", err)
+	}
+
+	canaryContract := CapabilityContract{EnableInAppNotificationCanary: true}
+	if err := VerifyDatabaseCapabilities(
+		ctx,
+		workerPool,
+		3*time.Second,
+		canaryContract,
+	); !errors.Is(err, ErrUnsafeDatabaseCapabilities) {
+		t.Fatalf("gate-on probe accepted missing notification sink grant: %v", err)
+	}
+	grantNotificationCanaryWorkerCapabilities(t, ctx, migrationPool, workerRole)
+	assertExactIntegrationColumnPrivilege(
+		t,
+		ctx,
+		workerPool,
+		"notifications",
+		"INSERT",
+		integrationNotificationInsertColumns,
+	)
+	if err := VerifyDatabaseCapabilities(ctx, workerPool, 3*time.Second); !errors.Is(
+		err,
+		ErrUnsafeDatabaseCapabilities,
+	) {
+		t.Fatalf("gate-off probe accepted notification sink grant: %v", err)
+	}
+	if err := VerifyDatabaseCapabilities(
+		ctx,
+		workerPool,
+		3*time.Second,
+		canaryContract,
+	); err != nil {
+		t.Fatalf("gate-on probe rejected exact notification sink ACL: %v", err)
+	}
+
+	grantTemporaryIntegrationPrivilege(
+		t,
+		ctx,
+		migrationPool,
+		`INSERT (read_at) ON TABLE tutorhub.notifications`,
+		workerRole,
+	)
+	if err := VerifyDatabaseCapabilities(
+		ctx,
+		workerPool,
+		3*time.Second,
+		canaryContract,
+	); !errors.Is(err, ErrUnsafeDatabaseCapabilities) {
+		t.Fatalf("gate-on probe accepted excess notification column: %v", err)
+	}
+	revokeTemporaryIntegrationPrivilege(
+		t,
+		ctx,
+		migrationPool,
+		`INSERT (read_at) ON TABLE tutorhub.notifications`,
+		workerRole,
+	)
+	if err := VerifyDatabaseCapabilities(
+		ctx,
+		workerPool,
+		3*time.Second,
+		canaryContract,
+	); err != nil {
+		t.Fatalf("gate-on probe did not recover after excess column revoke: %v", err)
+	}
+	grantTemporaryIntegrationPrivilege(
+		t,
+		ctx,
+		migrationPool,
+		`INSERT ON TABLE tutorhub.notifications`,
+		workerRole,
+	)
+	if err := VerifyDatabaseCapabilities(
+		ctx,
+		workerPool,
+		3*time.Second,
+		canaryContract,
+	); !errors.Is(err, ErrUnsafeDatabaseCapabilities) {
+		t.Fatalf("gate-on probe accepted table-level notification INSERT: %v", err)
+	}
+	revokeTemporaryIntegrationPrivilege(
+		t,
+		ctx,
+		migrationPool,
+		`INSERT ON TABLE tutorhub.notifications`,
+		workerRole,
+	)
+	if err := VerifyDatabaseCapabilities(
+		ctx,
+		workerPool,
+		3*time.Second,
+		canaryContract,
+	); err != nil {
+		t.Fatalf("gate-on probe did not recover after table-level INSERT revoke: %v", err)
+	}
+	revokeNotificationCanaryWorkerCapabilities(t, ctx, migrationPool, workerRole)
+	if err := VerifyDatabaseCapabilities(ctx, workerPool, 3*time.Second); err != nil {
+		t.Fatalf("gate-off probe did not recover after notification grant revoke: %v", err)
 	}
 
 	grantTemporaryIntegrationPrivilege(
@@ -432,6 +541,42 @@ TO `+roleIdentifier,
 	}
 }
 
+func grantNotificationCanaryWorkerCapabilities(
+	t *testing.T,
+	ctx context.Context,
+	pool *pgxpool.Pool,
+	roleName string,
+) {
+	t.Helper()
+
+	if _, err := pool.Exec(
+		ctx,
+		`GRANT INSERT (`+sanitizeIntegrationColumnList(integrationNotificationInsertColumns)+`)
+ON TABLE tutorhub.notifications
+TO `+pgx.Identifier{roleName}.Sanitize(),
+	); err != nil {
+		t.Fatalf("grant exact notification canary insert columns: %v", err)
+	}
+}
+
+func revokeNotificationCanaryWorkerCapabilities(
+	t *testing.T,
+	ctx context.Context,
+	pool *pgxpool.Pool,
+	roleName string,
+) {
+	t.Helper()
+
+	if _, err := pool.Exec(
+		ctx,
+		`REVOKE INSERT (`+sanitizeIntegrationColumnList(integrationNotificationInsertColumns)+`)
+ON TABLE tutorhub.notifications
+FROM `+pgx.Identifier{roleName}.Sanitize(),
+	); err != nil {
+		t.Fatalf("revoke exact notification canary insert columns: %v", err)
+	}
+}
+
 func sanitizeIntegrationColumnList(columns []string) string {
 	identifiers := make([]string, 0, len(columns))
 	for _, column := range columns {
@@ -550,6 +695,7 @@ func assertExactIntegrationColumnPrivilege(
 	database interface {
 		Query(context.Context, string, ...any) (pgx.Rows, error)
 	},
+	tableName string,
 	privilege string,
 	allowedColumns []string,
 ) {
@@ -564,7 +710,7 @@ func assertExactIntegrationColumnPrivilege(
 SELECT attribute.attname,
        has_column_privilege(
            current_user,
-           'tutorhub.outbox_events',
+           format('%I.%I', 'tutorhub', $2::text),
            attribute.attname,
            $1
        )
@@ -574,10 +720,10 @@ JOIN pg_catalog.pg_class AS relation
 JOIN pg_catalog.pg_namespace AS namespace
   ON namespace.oid = relation.relnamespace
 WHERE namespace.nspname = 'tutorhub'
-  AND relation.relname = 'outbox_events'
+  AND relation.relname = $2
   AND attribute.attnum > 0
   AND NOT attribute.attisdropped
-ORDER BY attribute.attnum`, privilege)
+ORDER BY attribute.attnum`, privilege, tableName)
 	if err != nil {
 		t.Fatalf("query exact %s column privileges: %v", privilege, err)
 	}
@@ -593,8 +739,9 @@ ORDER BY attribute.attnum`, privilege)
 		_, expected := allowed[column]
 		if granted != expected {
 			t.Fatalf(
-				"%s privilege on outbox column %q = %t, want %t",
+				"%s privilege on %s column %q = %t, want %t",
 				privilege,
+				tableName,
 				column,
 				granted,
 				expected,
@@ -607,7 +754,7 @@ ORDER BY attribute.attnum`, privilege)
 	}
 	for column := range allowed {
 		if _, exists := seen[column]; !exists {
-			t.Fatalf("expected outbox column %q does not exist", column)
+			t.Fatalf("expected %s column %q does not exist", tableName, column)
 		}
 	}
 }

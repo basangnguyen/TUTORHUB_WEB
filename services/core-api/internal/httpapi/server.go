@@ -13,6 +13,7 @@ import (
 	"github.com/tutorhub-v2/core-api/internal/modules/featurecontrol"
 	"github.com/tutorhub-v2/core-api/internal/modules/identity"
 	"github.com/tutorhub-v2/core-api/internal/modules/media"
+	"github.com/tutorhub-v2/core-api/internal/modules/notification"
 	"github.com/tutorhub-v2/core-api/internal/platform/observability"
 )
 
@@ -33,6 +34,7 @@ type Options struct {
 	Audit                 audit.ServiceAPI
 	FeatureControls       featurecontrol.ServiceAPI
 	Media                 media.ServiceAPI
+	Notifications         notification.ServiceAPI
 	LiveKitWebhook        media.WebhookVerifier
 	InvitationRateLimiter InvitationRateLimiter
 	RemoteAddressResolver RemoteAddressResolver
@@ -116,6 +118,7 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 		auditMutation(tenantResourceAuditMutation, http.HandlerFunc(auth.tenantResource)),
 	)
 	featureControls := newFeatureControlHandlers(logger, auth, options.FeatureControls)
+	notifications := newNotificationHandlers(logger, auth, options.Notifications)
 	mux.Handle(
 		tenantCapabilitiesPattern,
 		featureControlResponseHeaders(
@@ -135,6 +138,34 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 				requireMethod(http.MethodPut, http.HandlerFunc(featureControls.update)),
 			),
 		),
+	)
+	mux.Handle(
+		notificationsCollectionPath,
+		notificationResponseHeaders(
+			requireMethod(http.MethodGet, http.HandlerFunc(notifications.list)),
+		),
+	)
+	mux.Handle(
+		notificationUnreadCountPath,
+		notificationResponseHeaders(
+			requireMethod(http.MethodGet, http.HandlerFunc(notifications.unreadCount)),
+		),
+	)
+	mux.Handle(
+		notificationReadPattern,
+		notificationResponseHeaders(
+			requireMethod(http.MethodPost, http.HandlerFunc(notifications.markRead)),
+		),
+	)
+	mux.Handle(
+		notificationReadAllPath,
+		notificationResponseHeaders(
+			requireMethod(http.MethodPost, http.HandlerFunc(notifications.markAllRead)),
+		),
+	)
+	mux.Handle(
+		notificationPreferencePath,
+		notificationResponseHeaders(http.HandlerFunc(notifications.preference)),
 	)
 	mux.Handle(
 		membershipInvitationsAdminCollectionPattern,

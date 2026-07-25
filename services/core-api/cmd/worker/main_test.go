@@ -12,19 +12,52 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/tutorhub-v2/core-api/internal/config"
+	"github.com/tutorhub-v2/core-api/internal/modules/notification"
 	"github.com/tutorhub-v2/core-api/internal/platform/outboxworker"
 )
 
 func TestWorkerRegistryStartsWithAnExactEmptyAllowlist(t *testing.T) {
 	t.Parallel()
 
-	registry := newWorkerRegistry()
+	registry, err := newWorkerRegistry(false, nil)
+	if err != nil {
+		t.Fatalf("initialize gate-off registry: %v", err)
+	}
 	if allowlist := registry.Allowlist(); len(allowlist) != 0 {
 		t.Fatalf("P3-03 must not claim historical events, got allowlist %v", allowlist)
 	}
 	historicalType := outboxworker.MustEventType("class_session.scheduled", 1)
 	if _, registered := registry.Resolve(historicalType); registered {
 		t.Fatal("P3-03 must not register a consumer before its owning task")
+	}
+}
+
+func TestWorkerRegistryRegistersOnlyExactCanaryEventWhenEnabled(t *testing.T) {
+	t.Parallel()
+
+	registry, err := newWorkerRegistry(true, canaryProjectorStub{})
+	if err != nil {
+		t.Fatalf("initialize gate-on registry: %v", err)
+	}
+	allowlist := registry.Allowlist()
+	if len(allowlist) != 1 || allowlist[0] != notification.CanaryEventType.String() {
+		t.Fatalf("gate-on allowlist = %v, want exact notification canary", allowlist)
+	}
+	if _, registered := registry.Resolve(notification.CanaryEventType); !registered {
+		t.Fatal("notification canary handler is not registered")
+	}
+	if _, registered := registry.Resolve(
+		outboxworker.MustEventType("class_session.scheduled", 1),
+	); registered {
+		t.Fatal("notification canary gate must not claim historical class-session events")
+	}
+}
+
+func TestWorkerRegistryRejectsEnabledCanaryWithoutProjector(t *testing.T) {
+	t.Parallel()
+
+	if _, err := newWorkerRegistry(true, nil); err == nil {
+		t.Fatal("expected enabled canary registry to require a projector")
 	}
 }
 
@@ -35,6 +68,7 @@ func TestWorkerRunnerStopsWithoutTouchingStoreWhenRegistryIsEmpty(t *testing.T) 
 	runner, err := newWorkerRunner(
 		validWorkerConfig(),
 		store,
+		nil,
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		uuid.New(),
 	)
@@ -62,6 +96,7 @@ func TestEmptyWorkerEmitsPeriodicHeartbeatWithoutTouchingStore(t *testing.T) {
 	runner, err := newWorkerRunner(
 		cfg,
 		store,
+		nil,
 		slog.New(slog.NewTextHandler(&logs, nil)),
 		uuid.New(),
 	)
@@ -80,6 +115,15 @@ func TestEmptyWorkerEmitsPeriodicHeartbeatWithoutTouchingStore(t *testing.T) {
 	if calls := store.calls.Load(); calls != 0 {
 		t.Fatalf("empty allowlist must not access the outbox store, got %d calls", calls)
 	}
+}
+
+type canaryProjectorStub struct{}
+
+func (canaryProjectorStub) ProjectCanary(
+	context.Context,
+	notification.CanaryProjection,
+) error {
+	return nil
 }
 
 func TestDatabaseCapabilityErrorCodeDistinguishesACLFromProbeFailure(t *testing.T) {

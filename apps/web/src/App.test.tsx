@@ -43,15 +43,32 @@ const testSession: CurrentUser = {
   permissions: ["tenant.view", "class.view"],
 };
 
-function renderRoute(path: string, session: CurrentUser | null = testSession) {
+function renderRoute(
+  path: string,
+  session: CurrentUser | null = testSession,
+  notificationsEnabled = false,
+  seedCapabilities = true,
+) {
   const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
+    defaultOptions: { queries: { retry: false, retryDelay: 0 } },
   });
   const tenantID = session?.active_tenant?.id;
-  if (tenantID) {
+  if (tenantID && seedCapabilities) {
+    const capabilities = availableTenantCapabilities(tenantID);
     queryClient.setQueryData(
       tenantCapabilityQueryKeys.detail(tenantID),
-      availableTenantCapabilities(tenantID),
+      notificationsEnabled
+        ? {
+            ...capabilities,
+            features: {
+              ...capabilities.features,
+              in_app_notifications: {
+                configured_enabled: true,
+                enabled: true,
+              },
+            },
+          }
+        : capabilities,
     );
     vi.stubGlobal(
       "fetch",
@@ -137,6 +154,89 @@ describe("web shell", () => {
       }),
     ).toBeInTheDocument();
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("fails closed before mounting notification queries when the feature is disabled", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderRoute("/app/notifications");
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "Bạn chưa có quyền truy cập khu vực này",
+      }),
+    ).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("shows a retryable error when notification capabilities are unavailable", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          type: "https://tutorhub.dev/problems/service-unavailable",
+          title: "Service unavailable",
+          status: 503,
+          detail: "Capabilities are temporarily unavailable.",
+        }),
+        {
+          status: 503,
+          headers: { "Content-Type": "application/problem+json" },
+        },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderRoute("/app/notifications", testSession, false, false);
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "Chưa thể kiểm tra trạng thái thông báo",
+      }),
+    ).toBeInTheDocument();
+    const attemptsBeforeRetry = fetchMock.mock.calls.length;
+
+    fireEvent.click(screen.getByRole("button", { name: "Thử lại" }));
+
+    await waitFor(() => {
+      expect(fetchMock.mock.calls.length).toBeGreaterThan(attemptsBeforeRetry);
+    });
+  });
+
+  it("mounts the notification bell only after the feature becomes effective", async () => {
+    const fetchMock = vi.fn().mockImplementation((request: Request) => {
+      if (request.url.endsWith("/api/v1/notifications/unread-count")) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ count: 3, is_capped: false }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }),
+        );
+      }
+      if (request.url.endsWith("/health")) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              status: "ok",
+              service: "tutorhub-core-api",
+              environment: "test",
+              timestamp: "2026-07-25T00:00:00Z",
+            }),
+            { status: 200, headers: { "Content-Type": "application/json" } },
+          ),
+        );
+      }
+      return Promise.reject(new Error(`Unexpected request: ${request.url}`));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderRoute("/app/home", testSession, true);
+
+    expect(
+      await screen.findByRole("link", {
+        name: "Mở trung tâm thông báo, 3 chưa đọc",
+      }),
+    ).toHaveAttribute("href", "/app/notifications");
   });
 
   it("hiển thị trạng thái Core API từ TanStack Query", async () => {

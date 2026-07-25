@@ -34,6 +34,25 @@ var workerUpdateColumns = []string{
 	"published_at",
 }
 
+// notificationCanaryInsertColumns is the complete notification projection
+// surface available to the worker while the controlled P3-04 canary is
+// enabled. The worker must not acquire read or mutation capabilities on any
+// other notification column or TutorHub business relation.
+var notificationCanaryInsertColumns = []string{
+	"tenant_id",
+	"recipient_user_id",
+	"source_outbox_event_id",
+	"effect_key",
+	"kind",
+	"template_key",
+	"context",
+	"occurred_at",
+}
+
+type CapabilityContract struct {
+	EnableInAppNotificationCanary bool
+}
+
 type capabilityDatabase interface {
 	QueryRow(context.Context, string, ...any) pgx.Row
 }
@@ -50,12 +69,20 @@ func VerifyDatabaseCapabilities(
 	ctx context.Context,
 	database capabilityDatabase,
 	queryTimeout time.Duration,
+	contracts ...CapabilityContract,
 ) error {
 	if database == nil {
 		return fmt.Errorf("%w: database is required", ErrDatabaseCapabilityProbeFailed)
 	}
 	if queryTimeout <= 0 {
 		return fmt.Errorf("%w: query timeout must be positive", ErrDatabaseCapabilityProbeFailed)
+	}
+	if len(contracts) > 1 {
+		return fmt.Errorf("%w: at most one capability contract is allowed", ErrDatabaseCapabilityProbeFailed)
+	}
+	contract := CapabilityContract{}
+	if len(contracts) == 1 {
+		contract = contracts[0]
 	}
 
 	queryContext, cancel := context.WithTimeout(ctx, queryTimeout)
@@ -66,6 +93,8 @@ func VerifyDatabaseCapabilities(
 		queryContext,
 		workerCapabilityProbeSQL,
 		workerUpdateColumns,
+		contract.EnableInAppNotificationCanary,
+		notificationCanaryInsertColumns,
 	).Scan(&capabilitiesSafe); err != nil {
 		return ErrDatabaseCapabilityProbeFailed
 	}
@@ -148,6 +177,103 @@ column_contract AS (
            AND COALESCE(bool_and(NOT can_insert), false) AS capabilities_safe
     FROM column_capabilities
 ),
+notification_column_capabilities AS (
+    SELECT column_name,
+           has_column_privilege(
+               current_user,
+               'tutorhub.notifications',
+               column_name,
+               'SELECT'
+           ) AS can_select,
+           has_column_privilege(
+               current_user,
+               'tutorhub.notifications',
+               column_name,
+               'INSERT'
+           ) AS can_insert,
+           has_column_privilege(
+               current_user,
+               'tutorhub.notifications',
+               column_name,
+               'UPDATE'
+           ) AS can_update,
+           has_column_privilege(
+               current_user,
+               'tutorhub.notifications',
+               column_name,
+               'REFERENCES'
+           ) AS can_reference
+    FROM information_schema.columns
+    WHERE table_schema = 'tutorhub'
+      AND table_name = 'notifications'
+),
+notification_column_contract AS (
+    SELECT CASE
+        WHEN NOT $2::boolean THEN true
+        ELSE count(*) FILTER (
+                 WHERE column_name = ANY($3::text[])
+             ) = cardinality($3::text[])
+             AND COALESCE(
+                 bool_and(
+                     can_insert = (column_name = ANY($3::text[]))
+                 ),
+                 false
+             )
+             AND COALESCE(bool_and(NOT can_select), false)
+             AND COALESCE(bool_and(NOT can_update), false)
+             AND COALESCE(bool_and(NOT can_reference), false)
+        END AS capabilities_safe
+    FROM notification_column_capabilities
+),
+notification_relation_contract AS (
+    SELECT CASE
+        WHEN NOT $2::boolean THEN true
+        ELSE EXISTS (
+            SELECT 1
+            FROM pg_catalog.pg_class AS relation_definition
+            JOIN pg_catalog.pg_namespace AS schema_definition
+              ON schema_definition.oid = relation_definition.relnamespace
+            CROSS JOIN principal
+            WHERE schema_definition.nspname = 'tutorhub'
+              AND relation_definition.relname = 'notifications'
+              AND relation_definition.relkind IN ('r', 'p')
+              AND relation_definition.relowner <> principal.oid
+              AND NOT has_table_privilege(
+                  current_user, relation_definition.oid, 'SELECT'
+              )
+              AND NOT has_table_privilege(
+                  current_user, relation_definition.oid, 'INSERT'
+              )
+              AND NOT has_table_privilege(
+                  current_user, relation_definition.oid, 'UPDATE'
+              )
+              AND NOT has_table_privilege(
+                  current_user, relation_definition.oid, 'DELETE'
+              )
+              AND NOT has_table_privilege(
+                  current_user, relation_definition.oid, 'TRUNCATE'
+              )
+              AND NOT has_table_privilege(
+                  current_user, relation_definition.oid, 'REFERENCES'
+              )
+              AND NOT has_table_privilege(
+                  current_user, relation_definition.oid, 'TRIGGER'
+              )
+              AND NOT has_any_column_privilege(
+                  current_user, relation_definition.oid, 'SELECT'
+              )
+              AND has_any_column_privilege(
+                  current_user, relation_definition.oid, 'INSERT'
+              )
+              AND NOT has_any_column_privilege(
+                  current_user, relation_definition.oid, 'UPDATE'
+              )
+              AND NOT has_any_column_privilege(
+                  current_user, relation_definition.oid, 'REFERENCES'
+              )
+        )
+        END AS capabilities_safe
+),
 other_relation_contract AS (
     SELECT NOT EXISTS (
         SELECT 1
@@ -156,6 +282,10 @@ other_relation_contract AS (
           ON schema_definition.oid = relation_definition.relnamespace
         WHERE schema_definition.nspname = 'tutorhub'
           AND relation_definition.relname <> 'outbox_events'
+          AND (
+              NOT $2::boolean
+              OR relation_definition.relname <> 'notifications'
+          )
           AND relation_definition.relkind IN ('r', 'p', 'v', 'm', 'f')
           AND (
               has_table_privilege(current_user, relation_definition.oid, 'SELECT')
@@ -218,8 +348,12 @@ SELECT has_schema_privilege(current_user, 'tutorhub', 'USAGE')
        AND role_contract.capabilities_safe
        AND resource_contract.capabilities_safe
        AND column_contract.capabilities_safe
+       AND notification_column_contract.capabilities_safe
+       AND notification_relation_contract.capabilities_safe
        AND other_relation_contract.capabilities_safe
 FROM role_contract
 CROSS JOIN resource_contract
 CROSS JOIN column_contract
+CROSS JOIN notification_column_contract
+CROSS JOIN notification_relation_contract
 CROSS JOIN other_relation_contract`

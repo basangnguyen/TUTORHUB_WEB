@@ -7,6 +7,8 @@ import {
   useLocation,
 } from "react-router-dom";
 import type { CurrentUser } from "@tutorhub/api-client";
+import { Button, ErrorState } from "@tutorhub/ui";
+import { RefreshCw } from "lucide-react";
 import { lazy } from "react";
 import { AppShell } from "../components/AppShell";
 import { DashboardPage } from "../pages/AppPages";
@@ -21,6 +23,8 @@ import {
 import { ProfileSettingsPage } from "../pages/ProfileSettingsPage";
 import { WorkspaceManagementPage } from "../pages/WorkspaceManagementPage";
 import { AuditLogPage } from "../pages/AuditLogPage";
+import { NotificationCenterPage } from "../pages/NotificationCenterPage";
+import { NotificationPreferencesPage } from "../pages/NotificationPreferencesPage";
 import {
   MembershipInvitationAcceptedPage,
   MembershipInvitationPage,
@@ -37,7 +41,8 @@ import {
   SignedOutPage,
 } from "../pages/RouteStates";
 import { useSession } from "./session";
-import type { TranslationKey } from "./i18n";
+import { useI18n, type TranslationKey } from "./i18n";
+import { useTenantCapabilities } from "./tenantCapabilities";
 
 const ClassroomPreJoinPage = lazy(() =>
   import("../pages/LiveKitPages").then((module) => ({
@@ -54,10 +59,16 @@ export interface NavigationItem {
   to: string;
   labelKey: TranslationKey;
   requiredPermission?: CurrentUser["permissions"][number];
+  showInSidebar?: boolean;
 }
 
 export const navigationItems: readonly NavigationItem[] = [
   { to: "/app/home", labelKey: "nav.home" },
+  {
+    to: "/app/notifications",
+    labelKey: "nav.notifications",
+    showInSidebar: false,
+  },
   { to: "/app/classrooms", labelKey: "nav.classrooms" },
   {
     to: "/app/workspace",
@@ -72,7 +83,9 @@ export function getVisibleNavigationItems(
 ) {
   return navigationItems.filter(
     (item) =>
-      !item.requiredPermission || permissions.includes(item.requiredPermission),
+      item.showInSidebar !== false &&
+      (!item.requiredPermission ||
+        permissions.includes(item.requiredPermission)),
   );
 }
 
@@ -130,6 +143,41 @@ function PermissionRoute({
   return <Outlet />;
 }
 
+function NotificationFeatureRoute() {
+  const { t } = useI18n();
+  const session = useSession();
+  const tenantID = session.currentUser?.active_tenant?.id;
+  const capabilities = useTenantCapabilities(tenantID, Boolean(tenantID));
+
+  if (capabilities.isPending) {
+    return <LoadingScreen />;
+  }
+  if (capabilities.isError) {
+    return (
+      <div className="page-content notification-center">
+        <ErrorState
+          actions={
+            <Button
+              leadingIcon={<RefreshCw />}
+              onClick={() => void capabilities.refetch()}
+              variant="secondary"
+            >
+              {t("state.retry")}
+            </Button>
+          }
+          description={t("notifications.capabilitiesErrorDescription")}
+          title={t("notifications.capabilitiesErrorTitle")}
+        />
+      </div>
+    );
+  }
+  if (capabilities.data?.features.in_app_notifications.enabled !== true) {
+    return <Navigate replace to="/forbidden" />;
+  }
+
+  return <Outlet />;
+}
+
 function throwSystemError(): never {
   throw new Response("Temporary route error", {
     status: 503,
@@ -172,6 +220,19 @@ export function createAppRoutes(): RouteObject[] {
                 {
                   path: "settings",
                   element: <ProfileSettingsPage />,
+                },
+                {
+                  element: <NotificationFeatureRoute />,
+                  children: [
+                    {
+                      path: "notifications",
+                      element: <NotificationCenterPage />,
+                    },
+                    {
+                      path: "notifications/preferences",
+                      element: <NotificationPreferencesPage />,
+                    },
+                  ],
                 },
                 {
                   path: "workspace",

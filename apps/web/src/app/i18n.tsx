@@ -25,6 +25,110 @@ const messages = {
     "nav.drive": "Tài liệu",
     "nav.workspace": "Workspace",
     "nav.settings": "Thiết lập",
+    "nav.notifications": "Thông báo",
+    "notificationBell.open": "Mở trung tâm thông báo",
+    "notificationBell.openUnread": "Mở trung tâm thông báo, {count} chưa đọc",
+    "notificationBell.openUnreadCapped":
+      "Mở trung tâm thông báo, ít nhất {count} chưa đọc",
+    "notificationBell.unreadChanged": "Bạn có {count} thông báo chưa đọc",
+    "notificationBell.unreadChangedCapped":
+      "Bạn có ít nhất {count} thông báo chưa đọc",
+    "notifications.kicker": "Trung tâm hoạt động",
+    "notifications.title": "Thông báo",
+    "notifications.description":
+      "Theo dõi các cập nhật trong workspace đang hoạt động.",
+    "notifications.preferencesAction": "Tùy chọn thông báo",
+    "notifications.refresh": "Làm mới",
+    "notifications.refreshing": "Đang làm mới...",
+    "notifications.filterLabel": "Bộ lọc thông báo",
+    "notifications.filterAll": "Tất cả",
+    "notifications.filterUnread": "Chưa đọc",
+    "notifications.loading": "Đang tải thông báo",
+    "notifications.loadedCount": "Đã tải {count} thông báo",
+    "notifications.emptyTitle": "Chưa có thông báo",
+    "notifications.emptyDescription":
+      "Thông báo mới trong workspace sẽ xuất hiện tại đây.",
+    "notifications.unreadEmptyTitle": "Bạn đã đọc hết thông báo",
+    "notifications.unreadEmptyDescription":
+      "Không còn thông báo chưa đọc trong workspace này.",
+    "notifications.errorTitle": "Chưa thể tải thông báo",
+    "notifications.errorDescription":
+      "Kết nối tới dịch vụ thông báo tạm thời chưa sẵn sàng.",
+    "notifications.capabilitiesErrorTitle":
+      "Chưa thể kiểm tra trạng thái thông báo",
+    "notifications.capabilitiesErrorDescription":
+      "Không thể tải cấu hình tính năng của workspace. Hãy thử lại.",
+    "notifications.forbiddenTitle": "Chưa thể mở trung tâm thông báo",
+    "notifications.forbiddenDescription":
+      "Tính năng chưa được bật hoặc phiên hiện tại không có quyền truy cập.",
+    "notifications.refreshError":
+      "Không thể làm mới. Danh sách đã tải vẫn được giữ lại.",
+    "notifications.markRead": "Đánh dấu đã đọc",
+    "notifications.markingRead": "Đang cập nhật...",
+    "notifications.markAllRead": "Đánh dấu tất cả đã đọc",
+    "notifications.markingAllRead": "Đang cập nhật...",
+    "notifications.markError":
+      "Không thể cập nhật trạng thái đọc. Hãy thử lại.",
+    "notifications.loadMore": "Tải thêm thông báo",
+    "notifications.loadingMore": "Đang tải thêm...",
+    "notifications.loadMoreError":
+      "Không thể tải trang tiếp theo. Danh sách hiện tại vẫn được giữ lại.",
+    "notifications.openTarget": "Mở nội dung liên quan",
+    "notifications.noTarget": "Không có liên kết đính kèm",
+    "notifications.unread": "Chưa đọc",
+    "notifications.read": "Đã đọc",
+    "notifications.template.classFallback": "lớp học",
+    "notifications.template.sessionScheduledTitle": "Lịch học mới",
+    "notifications.template.sessionScheduledBody":
+      "{className} có lịch học mới {startsAt}.",
+    "notifications.template.sessionUpdatedTitle": "Lịch học đã thay đổi",
+    "notifications.template.sessionUpdatedBody":
+      "Lịch học của {className} đã được cập nhật {startsAt}.",
+    "notifications.template.sessionCancelledTitle": "Lịch học đã hủy",
+    "notifications.template.sessionCancelledBody":
+      "Một lịch học của {className} đã được hủy.",
+    "notifications.template.sessionReminderTitle": "Sắp đến giờ học",
+    "notifications.template.sessionReminderBody":
+      "Lịch học của {className} sẽ bắt đầu {startsAt}.",
+    "notifications.template.unknownTitle": "Cập nhật mới",
+    "notifications.template.unknownBody":
+      "Workspace của bạn vừa có một cập nhật mới.",
+    "notificationPreferences.back": "← Quay lại thông báo",
+    "notificationPreferences.kicker": "Tùy chọn cá nhân",
+    "notificationPreferences.title": "Tùy chọn thông báo",
+    "notificationPreferences.description":
+      "Điều chỉnh kênh nhận, nhắc lịch và giờ yên lặng trong workspace này.",
+    "notificationPreferences.loading": "Đang tải tùy chọn thông báo",
+    "notificationPreferences.errorTitle": "Chưa thể tải tùy chọn",
+    "notificationPreferences.errorDescription":
+      "Tùy chọn thông báo tạm thời chưa sẵn sàng.",
+    "notificationPreferences.inAppLabel": "Thông báo trong ứng dụng",
+    "notificationPreferences.inAppHint":
+      "Hiển thị cập nhật trong trung tâm thông báo TutorHub.",
+    "notificationPreferences.emailLabel": "Thông báo qua email",
+    "notificationPreferences.emailHint":
+      "Tùy chọn này được áp dụng khi email được kích hoạt ở P3-05A.",
+    "notificationPreferences.reminderLabel": "Nhắc trước lịch học",
+    "notificationPreferences.reminderHint":
+      "Lưu khoảng thời gian nhắc mặc định; lịch nhắc sẽ được gửi khi delivery P3-05A được kích hoạt.",
+    "notificationPreferences.reminderMinutes": "Trước {count} phút",
+    "notificationPreferences.reminderDay": "Trước 1 ngày",
+    "notificationPreferences.quietHoursLabel": "Bật giờ yên lặng",
+    "notificationPreferences.quietHoursHint":
+      "Lưu khung giờ yên lặng; cơ chế giữ thông báo sẽ được áp dụng khi delivery P3-05A được kích hoạt.",
+    "notificationPreferences.quietStartLabel": "Bắt đầu",
+    "notificationPreferences.quietEndLabel": "Kết thúc",
+    "notificationPreferences.timezone": "Múi giờ: {timezone}",
+    "notificationPreferences.quietRangeError":
+      "Giờ bắt đầu và kết thúc phải khác nhau.",
+    "notificationPreferences.save": "Lưu tùy chọn",
+    "notificationPreferences.saving": "Đang lưu...",
+    "notificationPreferences.saved": "Đã lưu tùy chọn thông báo.",
+    "notificationPreferences.saveError":
+      "Không thể lưu tùy chọn thông báo. Hãy thử lại.",
+    "notificationPreferences.conflict":
+      "Tùy chọn đã thay đổi ở nơi khác. Hãy tải bản mới nhất.",
+    "notificationPreferences.reload": "Tải bản mới nhất",
     "profile.kicker": "Tài khoản cá nhân",
     "profile.title": "Hồ sơ và danh tính",
     "profile.description":
@@ -228,6 +332,7 @@ const messages = {
     "capabilities.featureClassManagement": "Quản lý lớp học",
     "capabilities.featureClassInviteLinks": "Liên kết mời vào lớp",
     "capabilities.featureClassSessionScheduling": "Lên lịch buổi học trong lớp",
+    "capabilities.featureInAppNotifications": "Thông báo trong ứng dụng",
     "capabilities.quotaMembers": "Thành viên workspace",
     "capabilities.quotaActiveClasses": "Lớp đang hoạt động",
     "capabilities.quotaInviteCreations": "Lượt tạo lời mời mỗi giờ",
@@ -936,6 +1041,107 @@ const messages = {
     "nav.drive": "Resources",
     "nav.workspace": "Workspace",
     "nav.settings": "Settings",
+    "nav.notifications": "Notifications",
+    "notificationBell.open": "Open notification center",
+    "notificationBell.openUnread": "Open notification center, {count} unread",
+    "notificationBell.openUnreadCapped":
+      "Open notification center, at least {count} unread",
+    "notificationBell.unreadChanged": "You have {count} unread notifications",
+    "notificationBell.unreadChangedCapped":
+      "You have at least {count} unread notifications",
+    "notifications.kicker": "Activity center",
+    "notifications.title": "Notifications",
+    "notifications.description": "Follow updates in the active workspace.",
+    "notifications.preferencesAction": "Notification preferences",
+    "notifications.refresh": "Refresh",
+    "notifications.refreshing": "Refreshing...",
+    "notifications.filterLabel": "Notification filters",
+    "notifications.filterAll": "All",
+    "notifications.filterUnread": "Unread",
+    "notifications.loading": "Loading notifications",
+    "notifications.loadedCount": "{count} notifications loaded",
+    "notifications.emptyTitle": "No notifications yet",
+    "notifications.emptyDescription":
+      "New workspace notifications will appear here.",
+    "notifications.unreadEmptyTitle": "You are all caught up",
+    "notifications.unreadEmptyDescription":
+      "There are no unread notifications in this workspace.",
+    "notifications.errorTitle": "Notifications unavailable",
+    "notifications.errorDescription":
+      "The notification service is temporarily unavailable.",
+    "notifications.capabilitiesErrorTitle": "Notification status unavailable",
+    "notifications.capabilitiesErrorDescription":
+      "The workspace feature configuration could not be loaded. Try again.",
+    "notifications.forbiddenTitle": "Notification center unavailable",
+    "notifications.forbiddenDescription":
+      "The feature is not enabled or this session cannot access it.",
+    "notifications.refreshError":
+      "The list could not be refreshed. Previously loaded items are still available.",
+    "notifications.markRead": "Mark as read",
+    "notifications.markingRead": "Updating...",
+    "notifications.markAllRead": "Mark all as read",
+    "notifications.markingAllRead": "Updating...",
+    "notifications.markError": "Read status could not be updated. Try again.",
+    "notifications.loadMore": "Load more notifications",
+    "notifications.loadingMore": "Loading more...",
+    "notifications.loadMoreError":
+      "The next page could not be loaded. The current list is still available.",
+    "notifications.openTarget": "Open related content",
+    "notifications.noTarget": "No related link",
+    "notifications.unread": "Unread",
+    "notifications.read": "Read",
+    "notifications.template.classFallback": "your class",
+    "notifications.template.sessionScheduledTitle": "New class session",
+    "notifications.template.sessionScheduledBody":
+      "{className} has a new session {startsAt}.",
+    "notifications.template.sessionUpdatedTitle": "Class session updated",
+    "notifications.template.sessionUpdatedBody":
+      "A session for {className} was updated {startsAt}.",
+    "notifications.template.sessionCancelledTitle": "Class session cancelled",
+    "notifications.template.sessionCancelledBody":
+      "A session for {className} was cancelled.",
+    "notifications.template.sessionReminderTitle": "Class starts soon",
+    "notifications.template.sessionReminderBody":
+      "A session for {className} starts {startsAt}.",
+    "notifications.template.unknownTitle": "New update",
+    "notifications.template.unknownBody":
+      "There is a new update in your workspace.",
+    "notificationPreferences.back": "← Back to notifications",
+    "notificationPreferences.kicker": "Personal preferences",
+    "notificationPreferences.title": "Notification preferences",
+    "notificationPreferences.description":
+      "Adjust delivery channels, schedule reminders, and quiet hours for this workspace.",
+    "notificationPreferences.loading": "Loading notification preferences",
+    "notificationPreferences.errorTitle": "Preferences unavailable",
+    "notificationPreferences.errorDescription":
+      "Notification preferences are temporarily unavailable.",
+    "notificationPreferences.inAppLabel": "In-app notifications",
+    "notificationPreferences.inAppHint":
+      "Show updates in the TutorHub notification center.",
+    "notificationPreferences.emailLabel": "Email notifications",
+    "notificationPreferences.emailHint":
+      "This preference takes effect when email is enabled in P3-05A.",
+    "notificationPreferences.reminderLabel": "Class reminder",
+    "notificationPreferences.reminderHint":
+      "Save the default lead time; reminders will be delivered when P3-05A delivery is enabled.",
+    "notificationPreferences.reminderMinutes": "{count} minutes before",
+    "notificationPreferences.reminderDay": "1 day before",
+    "notificationPreferences.quietHoursLabel": "Enable quiet hours",
+    "notificationPreferences.quietHoursHint":
+      "Save this quiet-hours interval; holding delivery takes effect when P3-05A delivery is enabled.",
+    "notificationPreferences.quietStartLabel": "Starts",
+    "notificationPreferences.quietEndLabel": "Ends",
+    "notificationPreferences.timezone": "Timezone: {timezone}",
+    "notificationPreferences.quietRangeError":
+      "Quiet hours must start and end at different times.",
+    "notificationPreferences.save": "Save preferences",
+    "notificationPreferences.saving": "Saving...",
+    "notificationPreferences.saved": "Notification preferences saved.",
+    "notificationPreferences.saveError":
+      "Notification preferences could not be saved. Try again.",
+    "notificationPreferences.conflict":
+      "These preferences changed elsewhere. Load the latest version.",
+    "notificationPreferences.reload": "Load latest version",
     "profile.kicker": "Personal account",
     "profile.title": "Profile and identities",
     "profile.description":
@@ -1143,6 +1349,7 @@ const messages = {
     "capabilities.featureClassManagement": "Class management",
     "capabilities.featureClassInviteLinks": "Class invitation links",
     "capabilities.featureClassSessionScheduling": "Class session scheduling",
+    "capabilities.featureInAppNotifications": "In-app notifications",
     "capabilities.quotaMembers": "Workspace members",
     "capabilities.quotaActiveClasses": "Active classes",
     "capabilities.quotaInviteCreations": "Invitation creations per hour",

@@ -31,11 +31,11 @@ generated client, class-detail UI, Neon `14 false`, deploy/public probes và bro
 acceptance Teacher/Student/IDOR. Biên bản P3-01 nằm tại
 `docs/P3_01_STAGING_ACCEPTANCE.md`.
 
-**Task hiện tại:** P3-03A repository/runtime foundation đã đạt `VERIFY`; P3-03B còn
-migration/grants staging, durable host không spin-down và crash/reclaim acceptance.
-**Task implementation tiếp theo có thể chạy song song:** P3-CAL-02/ADR-0020, P3-02A,
-hoặc P3-04 handler đầu tiên sau registration/feature gate mặc định tắt để làm controlled
-canary. Mọi side effect tới end user vẫn chờ P3-03B đạt và umbrella P3-03 chuyển `DONE`.
+**Task hiện tại:** P3-03A và P3-04 repository implementation đã đạt `VERIFY`; P3-03B
+còn migration/grants staging, durable host không spin-down và duplicate/crash/reclaim
+acceptance. **Task implementation tiếp theo có thể chạy song song:** P3-CAL-02/ADR-0020
+hoặc P3-02A. Mọi side effect tới end user vẫn chờ P3-03B đạt; hai gate P3-04 tiếp tục
+giữ `false` cho tới acceptance.
 
 **Thiết kế Calendar có thẩm quyền:**
 [`CALENDAR_PRODUCT_TECHNICAL_DESIGN.md`](CALENDAR_PRODUCT_TECHNICAL_DESIGN.md).
@@ -90,7 +90,7 @@ canary. Mọi side effect tới end user vẫn chờ P3-03B đạt và umbrella 
 | P3-02C     | Working hours/attendee/free-busy/RSVP          | P3-02A, P3-CAL-02               | TODO       |
 | P3-02D     | Native Availability Poll + Study Meeting       | P3-02B, P3-02C, P3-03, ADR-0021 | TODO       |
 | P3-03      | PostgreSQL outbox worker production shape      | P3-01                           | VERIFY     |
-| P3-04      | In-app notification và preference              | P3-03A; P3-03B trước activation | TODO       |
+| P3-04      | In-app notification và preference              | P3-03A; P3-03B trước activation | VERIFY     |
 | P3-05A     | Session email/ICS/external RSVP/reminder       | P3-02C, P3-CAL-02, P3-03, P3-04 | TODO       |
 | P3-05B     | Poll/Study Meeting lifecycle delivery          | P3-02D, P3-05A                  | TODO       |
 | P3-06      | Direct/class conversation                      | P3-00, Phase 2 policy           | TODO       |
@@ -521,8 +521,8 @@ bộ đáng tin cậy; P3-05A chỉ phân phối email/ICS, không sở hữu bu
 độc lập, exact allowlist/typed registry, lease + fencing, bounded claim concurrency,
 retry/backoff/dead-letter, graceful shutdown, bounded structured metrics, startup ACL
 probe, OCI image chung, CI PostgreSQL integration và runbook. Registry runtime để rỗng
-có chủ ý cho tới controlled-canary handler P3-04, nên không đụng event lịch sử; registry
-rỗng vẫn phát heartbeat định kỳ nhưng không claim. Local unit/compile gate
+theo mặc định; P3-04 chỉ đăng ký exact controlled-canary handler khi worker gate bật,
+nên không đụng event lịch sử. Registry gate-off vẫn phát heartbeat định kỳ nhưng không claim. Local unit/compile gate
 đạt; PostgreSQL runtime suite chạy ở CI. Chưa provision host trả phí, chưa áp dụng role/
 grant staging và chưa có crash/reclaim acceptance, vì vậy tuyệt đối chưa chuyển `DONE`.
 
@@ -545,19 +545,43 @@ grant staging và chưa có crash/reclaim acceptance, vì vậy tuyệt đối c
   dụng trên staging, API/worker direct-LOGIN grants cùng exact ACL probes và startup smoke
   đạt, một hosting target không spin-down/cron-loss được chọn/deploy, và crash/reclaim
   acceptance đạt.
-- P3-04 implementation được phép bắt đầu sau P3-03A `VERIFY` để cung cấp handler canary,
-  nhưng registration/feature gate phải mặc định tắt và không có end-user activation trước
-  P3-03B.
+- P3-04 implementation đã đạt local `VERIFY` sau P3-03A, nhưng worker registration và
+  product-visibility gate đều mặc định tắt; không có end-user activation trước P3-03B.
 
 ## 10. P3-04 In-app notification và preference
 
-- Tenant/user-scoped notification projection, unread/read và preference versioned.
-- Worker tạo notification từ event đã commit; lỗi delivery không rollback business row.
-- API list keyset pagination, unread count, mark one/all read và update preference.
-- Preference có channel in-app/email, reminder offset và quiet-hours semantics; calendar
-  cancellation/update transactional vẫn tuân safety policy của ADR-0020.
-- P3-04 không tự gọi provider; email adapter chỉ kích hoạt ở P3-05A sau ADR/provider gate.
-- Realtime ban đầu có thể dùng bounded polling; SSE chỉ thêm khi contract/failure mode rõ.
+**Trạng thái 2026-07-26:** `VERIFY`. Implementation repository đã hoàn thiện và local gate
+đạt; staging vẫn ở version được xác nhận gần nhất `14 false`, durable worker chưa provision,
+exact grants/canary/crash-reclaim chưa nghiệm thu và cả hai gate phải giữ false. Không mô tả
+notification là chức năng runtime đã bật.
+
+- [x] ADR-0022 chốt tenant/user projection, recipient snapshot boundary, idempotency,
+      preference, least privilege, polling và controlled-canary activation gate.
+- [x] Migration `000016` tạo `notifications`, `notification_preferences`, constraint/index
+      tenant-scoped và feature key `in_app_notifications`; up/down và schema tests có trong repo.
+- [x] Worker chỉ đăng ký `notification.in_app_canary.requested.v1` khi
+      `OUTBOX_ENABLE_IN_APP_NOTIFICATION_CANARY=true`; mặc định false, payload strict,
+      tenant required, source event dedupe và không claim event lịch sử.
+- [x] Canary dùng kind `system.worker_canary`, exact column-level INSERT và luôn bị API
+      feed loại; không có public endpoint enqueue canary và worker không đọc roster.
+- [x] API list keyset, unread bounded, mark one/all read và preference GET/PUT versioned;
+      scope lấy từ authenticated session. Header `X-TutorHub-Expected-Tenant-ID` bắt buộc
+      chỉ là cache/workspace assertion và không chọn tenant/cấp quyền.
+- [x] IDOR/cursor-scope/foreign ID fail closed, mutation dùng CSRF, response `no-store`,
+      mark-read idempotent và preference optimistic conflict được test.
+- [x] Web có bell, notification center, preference, loading/empty/filtered-empty/error/
+      forbidden/retry; polling 30 giây bounded, không polling nền và không mount khi feature tắt.
+- [x] Product visibility `FEATURE_CONTROL_ENABLE_IN_APP_NOTIFICATIONS=false` mặc định;
+      deployment guardrail không cho tenant override bật lại feature.
+- [x] Preference lưu in-app/email, reminder offset và quiet-hours IANA; P3-04 không gọi
+      provider hoặc gửi email. Email adapter/delivery chỉ thuộc P3-05A sau ADR-0020 gate.
+- [x] Unit/HTTP/module/worker/config/API-client/web tests, typecheck và build liên quan đạt local.
+- [ ] Áp migration `000015 -> 000016` và exact API/worker grants trên Neon staging;
+      xác minh bằng direct LOGIN positive/negative ACL probes, không ghi credential.
+- [ ] Provision durable worker không spin-down, chạy controlled canary duplicate cùng
+      crash/lease-expiry/reclaim acceptance và lưu evidence redacted.
+- [ ] Chỉ sau hai gate trên mới nghiệm thu product visibility/tenant feature activation;
+      giữ P3-03B và P3-04 ở `VERIFY` cho tới khi toàn bộ acceptance đạt.
 
 ## 11. P3-05A Session email/ICS, external response và reminder delivery
 

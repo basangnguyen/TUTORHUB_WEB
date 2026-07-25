@@ -19,6 +19,10 @@ export function availableTenantCapabilities(
         configured_enabled: true,
         enabled: true,
       },
+      in_app_notifications: {
+        configured_enabled: false,
+        enabled: false,
+      },
     },
     quotas: {
       members: {

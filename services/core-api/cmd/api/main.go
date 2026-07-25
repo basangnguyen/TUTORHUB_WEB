@@ -18,6 +18,7 @@ import (
 	"github.com/tutorhub-v2/core-api/internal/modules/featurecontrol"
 	"github.com/tutorhub-v2/core-api/internal/modules/identity"
 	"github.com/tutorhub-v2/core-api/internal/modules/media"
+	"github.com/tutorhub-v2/core-api/internal/modules/notification"
 	"github.com/tutorhub-v2/core-api/internal/platform/database"
 	"github.com/tutorhub-v2/core-api/internal/platform/edgecontext"
 	"github.com/tutorhub-v2/core-api/internal/platform/httpserver"
@@ -149,6 +150,23 @@ func run() int {
 		)
 		if err != nil {
 			logger.Error("initialize audit service", "error", err)
+			return 1
+		}
+	}
+	var notificationService notification.ServiceAPI
+	if pool != nil {
+		notificationRepository, err := notification.NewPostgresRepository(
+			pool,
+			cfg.Database.QueryTimeout,
+			featureControlEnforcer,
+		)
+		if err != nil {
+			logger.Error("initialize notification repository", "error", err)
+			return 1
+		}
+		notificationService, err = notification.NewService(notificationRepository, time.Now)
+		if err != nil {
+			logger.Error("initialize notification service", "error", err)
 			return 1
 		}
 	}
@@ -303,6 +321,7 @@ func run() int {
 		Enrollment:            enrollmentService,
 		Audit:                 auditService,
 		FeatureControls:       featureControlService,
+		Notifications:         notificationService,
 		InvitationRateLimiter: invitationRateLimiter,
 		Media:                 mediaService,
 		LiveKitWebhook:        liveKitWebhook,
@@ -344,6 +363,9 @@ func featureControlGuardrails(configuration config.FeatureControlConfig) feature
 	}
 	if configuration.DisableClassSessionScheduling {
 		forcedOff[featurecontrol.FeatureClassSessionScheduling] = true
+	}
+	if !configuration.EnableInAppNotifications {
+		forcedOff[featurecontrol.FeatureInAppNotifications] = true
 	}
 
 	return featurecontrol.Guardrails{

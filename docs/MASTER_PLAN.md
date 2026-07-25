@@ -11,7 +11,7 @@
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
 | Phase hiện tại        | Phase 3 - Daily learning workspace                                                           |
-| Trạng thái gần nhất   | P3-03A repo VERIFY; P3-03B durable/staging còn mở, P3-CAL-01/P3-01 DONE                      |
+| Trạng thái gần nhất   | P3-04 local VERIFY; P3-03B/P3-04 staging gates mở, P3-CAL-01/P3-01 DONE                     |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 
@@ -1332,8 +1332,10 @@ sandbox; production vẫn chờ domain/DNS và SPF/DKIM/DMARC. Thiết kế chi 
 acceptance Teacher/Student/IDOR trên staging. ADR-0017 chốt civil time/DST; ADR-0018 chốt
 worker production shape trước các consumer side effect. P3-03A repository/runtime
 foundation đã đạt `VERIFY`; P3-03B durable-host/staging acceptance còn mở và phải đóng
-trước end-user activation. P3-04 chỉ được triển khai handler controlled-canary sau gate
-mặc định tắt. ADR-0021 đã chốt Native Availability Poll, secure
+trước end-user activation. P3-04 implementation đã đạt local `VERIFY` theo ADR-0022 với
+migration `000016`, notification API/preference/UI và controlled-canary handler; worker
+registration cùng product visibility vẫn mặc định tắt, chưa được kích hoạt trên staging.
+ADR-0021 đã chốt Native Availability Poll, secure
 sharing, member-owned Study Meeting và permission boundary cho P3-02D; quyết định này
 không cho phép P3-02D bypass P3-02B/C hoặc P3-03.
 
@@ -1854,11 +1856,13 @@ Thứ tự hiện tại, cập nhật ngày 2026-07-25:
    gọi lượt browser thủ công là Playwright staging.
 8. P3-03A repository/runtime foundation đã đạt `VERIFY`; hoàn tất P3-03B migration/grants,
    durable host không spin-down và staging crash/reclaim acceptance trước mọi side effect
-   tới end user. P3-04 handler canary có thể được code sau gate mặc định tắt.
+   tới end user. P3-04 implementation đã đạt local `VERIFY`, nhưng migration `000016`,
+   exact notification grants, canary duplicate/reclaim và activation gate chưa nghiệm thu.
 9. Sau khi P3-CAL-01 và P3-01 cùng đạt gate, thực hiện P3-CAL-02/ADR-0020 trong sandbox
    cô lập để xác minh AWS SES target trước participant/email/ICS provider implementation;
    pre-domain chỉ dùng owner-controlled verified identities, runtime delivery chờ P3-03.
-10. Triển khai P3-02A, P3-02B/P3-02C, P3-04 và P3-05A theo dependency đã khóa; không
+10. Triển khai P3-02A, P3-02B/P3-02C và P3-05A theo dependency đã khóa; hoàn tất staging
+    gate P3-04 cùng P3-03B trước activation. Không
     đưa recurrence, reminder, worker, email hoặc calendar tổng hợp vào P3-01.
 11. ADR-0021 đã `Accepted`; triển khai P3-02D sau P3-02B/C và P3-03 rồi P3-05B, không
     phụ thuộc When2meet.
@@ -1915,10 +1919,12 @@ Thứ tự hiện tại, cập nhật ngày 2026-07-25:
 ADR-0018 cùng ADR-0021. Phase 2/P2-12 đã hoàn thành;
 P3-CAL-00/P3-CAL-00B/P3-CAL-00C, P3-CAL-01 và P3-01 đã `DONE`. ADR-0019 là
 `Accepted with explicit manual NVDA gate`; marker này phải được đóng trước khi
-renderer đi vào route production. P3-03A repository/runtime foundation đã đạt `VERIFY`;
-task hiện tại là P3-03B durable-host/staging migration-grant/crash-reclaim acceptance.
-Trong khi chờ owner duyệt hạ tầng trả phí, P3-CAL-02, P3-02A hoặc P3-04 controlled-canary
-sau gate mặc định tắt là lát cắt độc lập kế tiếp.
+renderer đi vào route production. P3-03A và P3-04 implementation đã đạt `VERIFY`;
+task hạ tầng hiện tại là P3-03B/P3-04 durable-host, staging migration-grant và
+canary crash/reclaim acceptance. Cả
+`OUTBOX_ENABLE_IN_APP_NOTIFICATION_CANARY` và
+`FEATURE_CONTROL_ENABLE_IN_APP_NOTIFICATIONS` vẫn mặc định false; trong khi chờ owner
+duyệt hạ tầng trả phí, P3-CAL-02 hoặc P3-02A là lát cắt implementation độc lập kế tiếp.
 P3-02D/ADR-0021 mới là
 architecture/backlog, chưa có runtime. AWS SES đã được chọn làm provider target nhưng
 P3-CAL-02/ADR-0020 vẫn là gate email/ICS chưa triển khai; chưa có domain hoặc production

@@ -33,6 +33,7 @@ const tenantScopedQueryRoots = new Set([
   "class-sessions",
   "classes",
   "media",
+  "notifications",
   "tenants",
 ]);
 

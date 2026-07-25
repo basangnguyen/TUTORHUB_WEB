@@ -525,6 +525,283 @@ paths:
           $ref: "#/components/responses/ProblemResponse"
         default:
           $ref: "#/components/responses/ProblemResponse"
+  /api/v1/notifications:
+    get:
+      operationId: listNotifications
+      summary: List notifications for the authenticated user in the active tenant
+      description: Returns a keyset-paginated, user-scoped feed. System worker canaries are never exposed. Tenant and recipient identifiers come only from the server-side session.
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: X-TutorHub-Expected-Tenant-ID
+          in: header
+          required: true
+          description: Client cache-scope assertion; authorization still comes only from the server-side active session.
+          schema:
+            type: string
+            format: uuid
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 25
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 1024
+        - name: unread_only
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+      responses:
+        "200":
+          description: Notification feed for the current active tenant and user
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationPage"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/notifications/unread-count:
+    get:
+      operationId: getNotificationUnreadCount
+      summary: Return the bounded unread notification count for the current user
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: X-TutorHub-Expected-Tenant-ID
+          in: header
+          required: true
+          description: Client cache-scope assertion; authorization still comes only from the server-side active session.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Bounded unread count
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationUnreadCount"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/notifications/{notification_id}/read:
+    post:
+      operationId: markNotificationRead
+      summary: Mark one notification read in the current tenant and user scope
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: notification_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+        - name: X-TutorHub-Expected-Tenant-ID
+          in: header
+          required: true
+          description: Client cache-scope assertion; authorization still comes only from the server-side active session.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Updated notification
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Notification"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/notifications/read-all:
+    post:
+      operationId: markAllNotificationsRead
+      summary: Mark every unread notification read in the current tenant and user scope
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+        - name: X-TutorHub-Expected-Tenant-ID
+          in: header
+          required: true
+          description: Client cache-scope assertion; authorization still comes only from the server-side active session.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Number of rows changed
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarkAllNotificationsReadResponse"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/notification-preferences:
+    get:
+      operationId: getNotificationPreference
+      summary: Return notification preferences for the current tenant and user
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: X-TutorHub-Expected-Tenant-ID
+          in: header
+          required: true
+          description: Client cache-scope assertion; authorization still comes only from the server-side active session.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Current effective notification preference
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationPreference"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+    put:
+      operationId: updateNotificationPreference
+      summary: Replace notification preferences using optimistic concurrency
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+        - name: X-TutorHub-Expected-Tenant-ID
+          in: header
+          required: true
+          description: Client cache-scope assertion; authorization still comes only from the server-side active session.
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateNotificationPreferenceRequest"
+      responses:
+        "200":
+          description: Updated notification preference
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationPreference"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
   /api/v1/tenants/{tenant_id}/archive:
     post:
       operationId: archiveTenant
@@ -2320,6 +2597,7 @@ components:
         - class_management
         - class_invite_links
         - class_session_scheduling
+        - in_app_notifications
       properties:
         membership_invitations:
           $ref: "#/components/schemas/FeatureCapability"
@@ -2328,6 +2606,8 @@ components:
         class_invite_links:
           $ref: "#/components/schemas/FeatureCapability"
         class_session_scheduling:
+          $ref: "#/components/schemas/FeatureCapability"
+        in_app_notifications:
           $ref: "#/components/schemas/FeatureCapability"
     TenantQuotaCapabilities:
       type: object
@@ -2406,6 +2686,7 @@ components:
         - class_management
         - class_invite_links
         - class_session_scheduling
+        - in_app_notifications
       properties:
         membership_invitations:
           type: boolean
@@ -2415,6 +2696,178 @@ components:
           type: boolean
         class_session_scheduling:
           type: boolean
+        in_app_notifications:
+          type: boolean
+    Notification:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - effect_key
+        - template_key
+        - context
+        - occurred_at
+        - read_at
+        - created_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        effect_key:
+          type: string
+          minLength: 1
+          maxLength: 100
+          pattern: "^[a-z][a-z0-9_.-]{0,99}$"
+        template_key:
+          type: string
+          minLength: 3
+          maxLength: 100
+          pattern: '^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$'
+        resource_type:
+          type: string
+          minLength: 1
+          maxLength: 64
+          pattern: "^[a-z][a-z0-9_]*$"
+        resource_id:
+          type: string
+          format: uuid
+        context:
+          type: object
+          additionalProperties:
+            type: string
+        occurred_at:
+          type: string
+          format: date-time
+        read_at:
+          oneOf:
+            - type: string
+              format: date-time
+            - type: "null"
+        created_at:
+          type: string
+          format: date-time
+    NotificationPage:
+      type: object
+      additionalProperties: false
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Notification"
+        next_cursor:
+          oneOf:
+            - type: string
+              maxLength: 1024
+            - type: "null"
+    NotificationUnreadCount:
+      type: object
+      additionalProperties: false
+      required: [count, is_capped]
+      properties:
+        count:
+          type: integer
+          minimum: 0
+          maximum: 1000
+        is_capped:
+          type: boolean
+    MarkAllNotificationsReadResponse:
+      type: object
+      additionalProperties: false
+      required: [updated_count]
+      properties:
+        updated_count:
+          type: integer
+          format: int64
+          minimum: 0
+    NotificationPreference:
+      type: object
+      additionalProperties: false
+      required:
+        - in_app_enabled
+        - email_enabled
+        - reminder_offset_minutes
+        - quiet_hours_enabled
+        - quiet_hours_start
+        - quiet_hours_end
+        - quiet_hours_timezone
+        - version
+        - updated_at
+      properties:
+        in_app_enabled:
+          type: boolean
+        email_enabled:
+          type: boolean
+          description: Stored for P3-05A; provider delivery remains disabled in P3-04.
+        reminder_offset_minutes:
+          type: integer
+          minimum: 0
+          maximum: 40320
+        quiet_hours_enabled:
+          type: boolean
+        quiet_hours_start:
+          oneOf:
+            - type: string
+              pattern: "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"
+            - type: "null"
+        quiet_hours_end:
+          oneOf:
+            - type: string
+              pattern: "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"
+            - type: "null"
+        quiet_hours_timezone:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: IANA timezone identifier; the value local is rejected.
+        version:
+          type: integer
+          format: int64
+          minimum: 0
+        updated_at:
+          type: string
+          format: date-time
+    UpdateNotificationPreferenceRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - in_app_enabled
+        - email_enabled
+        - reminder_offset_minutes
+        - quiet_hours_enabled
+        - quiet_hours_start
+        - quiet_hours_end
+        - quiet_hours_timezone
+        - expected_version
+      properties:
+        in_app_enabled:
+          type: boolean
+        email_enabled:
+          type: boolean
+        reminder_offset_minutes:
+          type: integer
+          minimum: 0
+          maximum: 40320
+        quiet_hours_enabled:
+          type: boolean
+        quiet_hours_start:
+          oneOf:
+            - type: string
+              pattern: "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"
+            - type: "null"
+        quiet_hours_end:
+          oneOf:
+            - type: string
+              pattern: "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"
+            - type: "null"
+        quiet_hours_timezone:
+          type: string
+          minLength: 1
+          maxLength: 100
+        expected_version:
+          type: integer
+          format: int64
+          minimum: 0
     TenantQuotaControlValues:
       type: object
       additionalProperties: false

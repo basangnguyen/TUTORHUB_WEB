@@ -21,6 +21,7 @@ func TestVerifyDatabaseCapabilitiesAcceptsExactLeastPrivilegeContract(t *testing
 		context.Background(),
 		database,
 		time.Second,
+		CapabilityContract{},
 	); err != nil {
 		t.Fatalf("verify exact capabilities: %v", err)
 	}
@@ -44,6 +45,10 @@ func TestVerifyDatabaseCapabilitiesAcceptsExactLeastPrivilegeContract(t *testing
 		"schema_definition.nspowner <> principal.oid",
 		"table_definition.relowner <> principal.oid",
 		"relation_definition.relname <> 'outbox_events'",
+		"relation_definition.relname <> 'notifications'",
+		"'tutorhub.notifications'",
+		"notification_column_contract.capabilities_safe",
+		"notification_relation_contract.capabilities_safe",
 		"relation_definition.relkind IN ('r', 'p', 'v', 'm', 'f')",
 		"NOT has_schema_privilege(current_user, 'public', 'CREATE')",
 		"has_any_column_privilege",
@@ -57,8 +62,8 @@ func TestVerifyDatabaseCapabilitiesAcceptsExactLeastPrivilegeContract(t *testing
 	if strings.Contains(database.query, "tutorhub_runtime") {
 		t.Fatal("capability probe must not assume a database role name")
 	}
-	if len(database.args) != 1 {
-		t.Fatalf("query arguments = %d, want 1", len(database.args))
+	if len(database.args) != 3 {
+		t.Fatalf("query arguments = %d, want 3", len(database.args))
 	}
 	columns, ok := database.args[0].([]string)
 	if !ok {
@@ -66,6 +71,21 @@ func TestVerifyDatabaseCapabilitiesAcceptsExactLeastPrivilegeContract(t *testing
 	}
 	if !reflect.DeepEqual(columns, workerUpdateColumns) {
 		t.Fatalf("update columns = %v, want %v", columns, workerUpdateColumns)
+	}
+	canaryEnabled, ok := database.args[1].(bool)
+	if !ok || canaryEnabled {
+		t.Fatalf("canary gate argument = %#v, want false", database.args[1])
+	}
+	notificationColumns, ok := database.args[2].([]string)
+	if !ok {
+		t.Fatalf("notification-column argument type = %T, want []string", database.args[2])
+	}
+	if !reflect.DeepEqual(notificationColumns, notificationCanaryInsertColumns) {
+		t.Fatalf(
+			"notification insert columns = %v, want %v",
+			notificationColumns,
+			notificationCanaryInsertColumns,
+		)
 	}
 	if database.deadlineRemaining <= 0 || database.deadlineRemaining > time.Second {
 		t.Fatalf("query deadline remaining = %s", database.deadlineRemaining)
@@ -81,6 +101,7 @@ func TestVerifyDatabaseCapabilitiesRejectsUnsafeContract(t *testing.T) {
 			row: capabilityRowStub{capabilitiesSafe: false},
 		},
 		time.Second,
+		CapabilityContract{},
 	)
 	if !errors.Is(err, ErrUnsafeDatabaseCapabilities) {
 		t.Fatalf("error = %v, want unsafe-capabilities sentinel", err)
@@ -97,6 +118,7 @@ func TestVerifyDatabaseCapabilitiesRedactsProbeFailure(t *testing.T) {
 			row: capabilityRowStub{err: errors.New(sensitiveError)},
 		},
 		time.Second,
+		CapabilityContract{},
 	)
 	if !errors.Is(err, ErrDatabaseCapabilityProbeFailed) {
 		t.Fatalf("error = %v, want probe-failed sentinel", err)
@@ -132,11 +154,54 @@ func TestVerifyDatabaseCapabilitiesValidatesDependencies(t *testing.T) {
 				context.Background(),
 				test.database,
 				test.timeout,
+				CapabilityContract{},
 			)
 			if !errors.Is(err, ErrDatabaseCapabilityProbeFailed) {
 				t.Fatalf("error = %v, want probe-failed sentinel", err)
 			}
 		})
+	}
+}
+
+func TestVerifyDatabaseCapabilitiesPassesCanaryContractToProbe(t *testing.T) {
+	t.Parallel()
+
+	database := &capabilityDatabaseStub{
+		row: capabilityRowStub{capabilitiesSafe: true},
+	}
+	if err := VerifyDatabaseCapabilities(
+		context.Background(),
+		database,
+		time.Second,
+		CapabilityContract{EnableInAppNotificationCanary: true},
+	); err != nil {
+		t.Fatalf("verify canary capabilities: %v", err)
+	}
+
+	enabled, ok := database.args[1].(bool)
+	if !ok || !enabled {
+		t.Fatalf("canary gate argument = %#v, want true", database.args[1])
+	}
+}
+
+func TestVerifyDatabaseCapabilitiesRejectsAmbiguousContracts(t *testing.T) {
+	t.Parallel()
+
+	database := &capabilityDatabaseStub{
+		row: capabilityRowStub{capabilitiesSafe: true},
+	}
+	err := VerifyDatabaseCapabilities(
+		context.Background(),
+		database,
+		time.Second,
+		CapabilityContract{},
+		CapabilityContract{EnableInAppNotificationCanary: true},
+	)
+	if !errors.Is(err, ErrDatabaseCapabilityProbeFailed) {
+		t.Fatalf("error = %v, want probe-failed sentinel", err)
+	}
+	if database.queryCalls != 0 {
+		t.Fatalf("query calls = %d, want 0", database.queryCalls)
 	}
 }
 

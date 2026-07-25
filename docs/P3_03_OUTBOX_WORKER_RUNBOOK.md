@@ -14,12 +14,13 @@ Trong thay đổi hiện tại:
 - không thay đổi live Render/Neon, secret, database role hoặc migration.
 - worker chỉ claim tối đa `min(OUTBOX_BATCH_SIZE, OUTBOX_CONCURRENCY)` để không giữ lease
   cho event còn chờ semaphore;
-- `OUTBOX_METRICS_INTERVAL` điều khiển heartbeat/metric log có label bounded; registry rỗng
-  vẫn phát heartbeat định kỳ nhưng không claim event.
+- `OUTBOX_METRICS_INTERVAL` điều khiển heartbeat/metric log có label bounded; registry
+  gate-off rỗng vẫn phát heartbeat định kỳ nhưng không claim event.
 
-P3-03A là repository/runtime foundation và dừng ở `VERIFY`. Sau gate này, P3-04 được phép
-triển khai handler đầu tiên sau registration/feature gate mặc định tắt để làm controlled
-canary. P3-03B chỉ được chuyển umbrella task sang `DONE` sau khi migration `000015` đã áp
+P3-03A là repository/runtime foundation và dừng ở `VERIFY`. P3-04 implementation cũng đang
+ở `VERIFY`: migration `000016`, handler canary, notification API/preference/UI và hai gate
+mặc định tắt đã có trong repository nhưng chưa được bật trên staging/production. P3-03B
+chỉ được chuyển umbrella task sang `DONE` sau khi migration `000015` đã áp
 dụng trên staging, API/worker direct-LOGIN grants cùng exact ACL probes và startup smoke
 đạt, durable-host gate được duyệt, worker được triển khai và crash/reclaim acceptance bên
 dưới có bằng chứng đạt.
@@ -35,6 +36,12 @@ Không bật side effect tới end user khi P3-03B còn mở.
 | `OUTBOX_HANDLER_TIMEOUT` | `20s` | Deadline tối đa của một handler |
 | `DATABASE_QUERY_TIMEOUT` | `5s` | Deadline cho một thao tác database |
 | `OUTBOX_SHUTDOWN_TIMEOUT` | `30s` | Deadline drain khi nhận shutdown |
+| `OUTBOX_ENABLE_IN_APP_NOTIFICATION_CANARY` | `false` | Đăng ký đúng handler canary P3-04 và đổi exact worker ACL contract |
+
+`FEATURE_CONTROL_ENABLE_IN_APP_NOTIFICATIONS=false` là guardrail visibility của Core API/
+web, không phải worker config. Giữ cả hai gate false ngoài cửa sổ acceptance cho tới khi
+P3-03B và P3-04 staging gate đạt; tenant override không được bật lại feature khi deployment
+guardrail đang tắt.
 
 Validation fail-closed yêu cầu lease bao phủ ít nhất handler timeout + database query
 timeout + safety margin 5 giây; shutdown timeout phải bao phủ handler + database query.
@@ -192,12 +199,15 @@ hoặc lease/retry semantics.
 1. Build, test và scan **đúng commit**; xác nhận image chứa cả hai binary.
 2. Xác nhận Core API provider health path trước khi deploy image không có Docker
    `HEALTHCHECK`.
-3. Áp dụng migration bằng migration role theo runbook database.
-4. Áp dụng và chạy positive/negative privilege tests cho API/worker role.
+3. Áp dụng migration `000015`, rồi `000016` nếu nghiệm thu P3-04, bằng migration role
+   theo runbook database.
+4. Áp dụng và chạy positive/negative privilege tests cho API/worker role. Khi canary gate
+   tắt, worker phải không có quyền notification.
 5. Set `DATABASE_WORKER_URL` trực tiếp trong secret store của provider, không in giá trị.
 6. Deploy Core API và worker từ cùng commit/image; worker dùng command override.
 7. Ghi lại immutable commit/deploy IDs và worker instance ID đã redaction.
-8. Xác nhận startup fail-fast, metrics và backlog không xử lý event type/version chưa đăng ký.
+8. Xác nhận startup fail-fast, metrics và backlog không xử lý event type/version chưa đăng ký;
+   giữ `FEATURE_CONTROL_ENABLE_IN_APP_NOTIFICATIONS=false`.
 9. Chạy crash/reclaim acceptance. Chỉ sau khi đạt mới cân nhắc P3-03 DONE.
 
 Migration runner preflight trước khi down qua version 15. Nếu có bất kỳ row mang retained
@@ -214,12 +224,88 @@ timeout/cancel và có test timeout riêng. Go không thể kill an toàn một 
 context; supervisor/provider shutdown delay là lớp cưỡng bức cuối cùng, còn event chưa
 ack sẽ được reclaim sau lease expiry.
 
+## Controlled canary P3-04
+
+Canary chỉ kiểm tra leased worker và idempotent projection; nó không phải notification
+nghiệp vụ và không được hiển thị cho người dùng. Event duy nhất được đăng ký là
+`notification.in_app_canary.requested.v1`, aggregate `notification_intent`, tenant bắt
+buộc, payload strict gồm `recipient_user_id` và kind `system.worker_canary`. Không có API
+public để phát canary và worker không được đọc roster để tự suy diễn người nhận.
+
+### Chuyển exact ACL state
+
+Không thay gate khi worker còn chạy. Trình tự bật canary:
+
+1. dừng worker và xác nhận không còn process dùng worker credential;
+2. xác nhận staging đã ở `16 false`, API grant của `000016` đạt và product visibility
+   vẫn false;
+3. cấp đúng column-level notification `INSERT` trong `docs/DATABASE.md`, không cấp
+   table-level hoặc quyền preference;
+4. đặt `OUTBOX_ENABLE_IN_APP_NOTIFICATION_CANARY=true` trong secret/config store;
+5. khởi động worker và yêu cầu startup ACL probe đạt trước khi enqueue event.
+
+Gate false với notification grant còn tồn tại phải fail vì quyền dư; gate true trước grant
+phải fail vì thiếu quyền. Khi tắt canary: dừng worker, revoke toàn bộ worker privilege trên
+hai bảng notification, đặt gate false rồi khởi động lại và xác nhận registry rỗng.
+
+### Enqueue và kiểm tra
+
+Chọn một active membership fixture do operator kiểm soát. Thay hai placeholder UUID trong
+SQL dưới đây trong migration-owner console; không dùng email, token hoặc credential làm
+evidence:
+
+```sql
+WITH canary_scope AS (
+  SELECT
+    '<STAGING_TENANT_UUID>'::uuid AS tenant_id,
+    '<ACTIVE_RECIPIENT_USER_UUID>'::uuid AS recipient_user_id
+)
+INSERT INTO tutorhub.outbox_events (
+  tenant_id,
+  aggregate_type,
+  aggregate_id,
+  event_type,
+  payload,
+  occurred_at,
+  available_at
+)
+SELECT
+  tenant_id,
+  'notification_intent',
+  recipient_user_id,
+  'notification.in_app_canary.requested.v1',
+  jsonb_build_object(
+    'recipient_user_id', recipient_user_id::text,
+    'kind', 'system.worker_canary'
+  ),
+  now(),
+  now()
+FROM canary_scope
+RETURNING id;
+```
+
+Chỉ lưu opaque returned event ID. Sau xử lý/reclaim, migration owner xác minh chính event
+đó tạo đúng một projection row và outbox ở terminal success; duplicate/redelivery không
+được tăng số row:
+
+```sql
+SELECT count(*) AS projection_count
+FROM tutorhub.notifications
+WHERE source_outbox_event_id = '<OPAQUE_OUTBOX_EVENT_UUID>'::uuid
+  AND kind = 'system.worker_canary';
+```
+
+Kết quả bắt buộc là `1`. API feed/list/unread vẫn phải loại canary, notification bell/query
+không được mount khi product visibility gate false. Không bật
+`FEATURE_CONTROL_ENABLE_IN_APP_NOTIFICATIONS` trong lượt crash/reclaim này.
+
 ## Crash/reclaim acceptance
 
 ### Tiền điều kiện
 
-- Dùng staging tenant và handler đầu tiên của P3-04 đã đăng ký sau controlled-canary gate;
-  registration/feature gate mặc định tắt ngoài cửa sổ acceptance.
+- Dùng staging tenant và handler đầu tiên của P3-04 đã đăng ký bằng
+  `OUTBOX_ENABLE_IN_APP_NOTIFICATION_CANARY=true`; worker gate mặc định tắt ngoài cửa sổ
+  acceptance và product visibility gate vẫn tắt trong toàn bộ lượt này.
 - Handler/sink của probe phải an toàn, idempotent và quan sát được.
 - Không publish hàng loạt các row lịch sử từ Phase 1/2.
 - Có cách giữ handler đủ lâu hoặc failpoint chỉ bật trong acceptance để kill process sau

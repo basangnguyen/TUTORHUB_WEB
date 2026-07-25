@@ -18,6 +18,8 @@ import {
   getCurrentUser,
   getHealth,
   getLoginURL,
+  getNotificationPreference,
+  getNotificationUnreadCount,
   getProfile,
   getTenant,
   getTenantCapabilities,
@@ -31,8 +33,11 @@ import {
   listClasses,
   listClassSessions,
   listMembershipInvitations,
+  listNotifications,
   listTenants,
   logout,
+  markAllNotificationsRead,
+  markNotificationRead,
   recordClassMediaEvent,
   previewMembershipInvitation,
   removeClassEnrollment,
@@ -48,6 +53,7 @@ import {
   updateClassSession,
   updateClassRosterRole,
   updateProfile,
+  updateNotificationPreference,
   updateTenant,
   updateTenantFeatureControls,
 } from "./index";
@@ -57,7 +63,10 @@ import type {
   ClassSession,
   ClassroomClass,
   CurrentUser,
+  Notification,
+  NotificationPreference,
   TenantCapabilities,
+  UpdateNotificationPreferenceRequest,
   UpdateClassRequest,
   UpdateClassSessionRequest,
   UpdateTenantFeatureControlsRequest,
@@ -485,6 +494,7 @@ describe("getHealth", () => {
         class_management: { enabled: true },
         class_invite_links: { enabled: false },
         class_session_scheduling: { enabled: true },
+        in_app_notifications: { enabled: true },
       },
       quotas: {
         members: { limit: 100, used: 12, remaining: 88 },
@@ -529,6 +539,7 @@ describe("getHealth", () => {
         class_management: true,
         class_invite_links: true,
         class_session_scheduling: true,
+        in_app_notifications: true,
       },
       quotas: {
         members: 120,
@@ -614,6 +625,219 @@ describe("getHealth", () => {
       "feature-controls-csrf",
     );
     await expect(requests[1]?.clone().json()).resolves.toEqual(input);
+  });
+
+  it("reads the active-tenant notification feed with exact keyset query and no CSRF header", async () => {
+    const tenantID = "4b18543a-74de-419f-9fe8-d0c3dfc991eb";
+    const notification: Notification = {
+      id: "7f0af0b8-e168-4f37-84fb-2b3f76abcc9c",
+      effect_key: "class_session_updated_7f0af0b8",
+      template_key: "class_session.updated",
+      resource_type: "class_session",
+      resource_id: "2b9c25a4-b01b-4b5b-9e87-a782675ed511",
+      context: {
+        class_title: "Mathematics 10",
+        session_title: "Algebra review",
+      },
+      occurred_at: "2026-07-25T08:00:00Z",
+      read_at: null,
+      created_at: "2026-07-25T08:00:01Z",
+    };
+    const preference: NotificationPreference = {
+      in_app_enabled: true,
+      email_enabled: false,
+      reminder_offset_minutes: 30,
+      quiet_hours_enabled: true,
+      quiet_hours_start: "22:00",
+      quiet_hours_end: "07:00",
+      quiet_hours_timezone: "Asia/Ho_Chi_Minh",
+      version: 3,
+      updated_at: "2026-07-25T07:00:00Z",
+    };
+    const responses = [
+      new Response(
+        JSON.stringify({ items: [notification], next_cursor: "next+/cursor" }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        },
+      ),
+      new Response(JSON.stringify({ count: 1000, is_capped: true }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+      new Response(JSON.stringify(preference), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    ];
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(() => Promise.resolve(responses.shift()));
+    const options = { baseUrl: "http://localhost/api", fetch: fetchMock };
+
+    await expect(
+      listNotifications(
+        tenantID,
+        { cursor: "page+/cursor", limit: 25, unreadOnly: true },
+        options,
+      ),
+    ).resolves.toEqual({ items: [notification], next_cursor: "next+/cursor" });
+    await expect(
+      getNotificationUnreadCount(tenantID, options),
+    ).resolves.toEqual({ count: 1000, is_capped: true });
+    await expect(getNotificationPreference(tenantID, options)).resolves.toEqual(
+      preference,
+    );
+
+    const requests = fetchMock.mock.calls.map((call) => call[0] as Request);
+    expect(requests.map((request) => request.credentials)).toEqual([
+      "include",
+      "include",
+      "include",
+    ]);
+    expect(requests.map((request) => request.method)).toEqual([
+      "GET",
+      "GET",
+      "GET",
+    ]);
+    expect(
+      requests.map((request) => request.headers.get("X-CSRF-Token")),
+    ).toEqual([null, null, null]);
+    expect(
+      requests.map((request) =>
+        request.headers.get("X-TutorHub-Expected-Tenant-ID"),
+      ),
+    ).toEqual([tenantID, tenantID, tenantID]);
+    expect(requests[0]?.url).toBe(
+      "http://localhost/api/v1/notifications?cursor=page%2B%2Fcursor&limit=25&unread_only=true",
+    );
+    expect(requests[1]?.url).toBe(
+      "http://localhost/api/v1/notifications/unread-count",
+    );
+    expect(requests[2]?.url).toBe(
+      "http://localhost/api/v1/notification-preferences",
+    );
+  });
+
+  it("writes notification state only through CSRF-protected mutation routes", async () => {
+    const tenantID = "4b18543a-74de-419f-9fe8-d0c3dfc991eb";
+    const notificationID = "7f0af0b8-e168-4f37-84fb-2b3f76abcc9c";
+    const readNotification: Notification = {
+      id: notificationID,
+      effect_key: "class_session_updated_7f0af0b8",
+      template_key: "class_session.updated",
+      resource_type: "class_session",
+      resource_id: "2b9c25a4-b01b-4b5b-9e87-a782675ed511",
+      context: { session_title: "Algebra review" },
+      occurred_at: "2026-07-25T08:00:00Z",
+      read_at: "2026-07-25T08:05:00Z",
+      created_at: "2026-07-25T08:00:01Z",
+    };
+    const input: UpdateNotificationPreferenceRequest = {
+      in_app_enabled: true,
+      email_enabled: false,
+      reminder_offset_minutes: 15,
+      quiet_hours_enabled: false,
+      quiet_hours_start: null,
+      quiet_hours_end: null,
+      quiet_hours_timezone: "Asia/Ho_Chi_Minh",
+      expected_version: 3,
+    };
+    const updatedPreference: NotificationPreference = {
+      in_app_enabled: input.in_app_enabled,
+      email_enabled: input.email_enabled,
+      reminder_offset_minutes: input.reminder_offset_minutes,
+      quiet_hours_enabled: input.quiet_hours_enabled,
+      quiet_hours_start: input.quiet_hours_start,
+      quiet_hours_end: input.quiet_hours_end,
+      quiet_hours_timezone: input.quiet_hours_timezone,
+      version: 4,
+      updated_at: "2026-07-25T08:06:00Z",
+    };
+    const responses = [
+      new Response(JSON.stringify(readNotification), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+      new Response(JSON.stringify({ updated_count: 8 }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+      new Response(JSON.stringify(updatedPreference), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    ];
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(() => Promise.resolve(responses.shift()));
+    const options = { baseUrl: "http://localhost/api", fetch: fetchMock };
+
+    await expect(
+      markNotificationRead(tenantID, notificationID, "read-csrf", options),
+    ).resolves.toEqual(readNotification);
+    await expect(
+      markAllNotificationsRead(tenantID, "read-all-csrf", options),
+    ).resolves.toEqual({ updated_count: 8 });
+    await expect(
+      updateNotificationPreference(tenantID, input, "preference-csrf", options),
+    ).resolves.toEqual(updatedPreference);
+
+    const requests = fetchMock.mock.calls.map((call) => call[0] as Request);
+    expect(requests.map((request) => request.credentials)).toEqual([
+      "include",
+      "include",
+      "include",
+    ]);
+    expect(requests.map((request) => request.method)).toEqual([
+      "POST",
+      "POST",
+      "PUT",
+    ]);
+    expect(requests.map((request) => request.url)).toEqual([
+      `http://localhost/api/v1/notifications/${notificationID}/read`,
+      "http://localhost/api/v1/notifications/read-all",
+      "http://localhost/api/v1/notification-preferences",
+    ]);
+    expect(
+      requests.map((request) => request.headers.get("X-CSRF-Token")),
+    ).toEqual(["read-csrf", "read-all-csrf", "preference-csrf"]);
+    expect(
+      requests.map((request) =>
+        request.headers.get("X-TutorHub-Expected-Tenant-ID"),
+      ),
+    ).toEqual([tenantID, tenantID, tenantID]);
+    expect(requests[0]?.body).toBeNull();
+    expect(requests[1]?.body).toBeNull();
+    await expect(requests[2]?.clone().json()).resolves.toEqual(input);
+  });
+
+  it("surfaces structured notification API failures", async () => {
+    const problem = {
+      type: "https://tutorhub.dev/problems/feature-disabled",
+      title: "Feature disabled",
+      status: 403,
+      detail: "In-app notifications are not enabled for this workspace.",
+    };
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(problem), {
+        status: 403,
+        headers: { "Content-Type": "application/problem+json" },
+      }),
+    );
+
+    const request = getNotificationUnreadCount(
+      "4b18543a-74de-419f-9fe8-d0c3dfc991eb",
+      { baseUrl: "http://localhost/api", fetch: fetchMock },
+    );
+
+    await expect(request).rejects.toBeInstanceOf(APIRequestError);
+    await expect(request).rejects.toMatchObject({
+      status: 403,
+      message: problem.detail,
+      problem,
+    });
   });
 
   it("keeps membership invitation tokens in POST bodies and never request URLs", async () => {

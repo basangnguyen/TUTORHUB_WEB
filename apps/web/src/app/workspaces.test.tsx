@@ -204,6 +204,10 @@ describe("workspace actions", () => {
     queryClient.setQueryData(["classes", tenantA.id, "list"], ["class-a"]);
     queryClient.setQueryData(["media", tenantA.id, "room"], "room-a");
     queryClient.setQueryData(["audit", tenantA.id, "list"], ["event-a"]);
+    queryClient.setQueryData(["notifications", tenantA.id, "unread-count"], {
+      count: 2,
+      is_capped: false,
+    });
     queryClient.setQueryData(["tenants", "mine"], [tenantA]);
     queryClient.setQueryData(["profile", "detail"], user);
     queryClient.setQueryData(["core-api", "health"], { status: "ok" });
@@ -237,6 +241,9 @@ describe("workspace actions", () => {
     ).toBeUndefined();
     expect(
       queryClient.getQueryData(["audit", tenantA.id, "list"]),
+    ).toBeUndefined();
+    expect(
+      queryClient.getQueryData(["notifications", tenantA.id, "unread-count"]),
     ).toBeUndefined();
     expect(queryClient.getQueryData(["tenants", "mine"])).toBeUndefined();
     expect(queryClient.getQueryData(["profile", "detail"])).toEqual(user);
@@ -505,6 +512,10 @@ describe("workspace actions", () => {
     queryClient.setQueryData(["classes", tenantA.id, "list"], ["class-a"]);
     queryClient.setQueryData(["media", tenantA.id, "room"], "room-a");
     queryClient.setQueryData(["audit", tenantA.id, "list"], ["event-a"]);
+    queryClient.setQueryData(["notifications", tenantA.id, "unread-count"], {
+      count: 2,
+      is_capped: false,
+    });
     queryClient.setQueryData(["profile", "detail"], user);
     const archivedPrincipal: CurrentUser = {
       ...sessionFor(null),
@@ -554,6 +565,9 @@ describe("workspace actions", () => {
     ).toBeUndefined();
     expect(
       queryClient.getQueryData(["audit", tenantA.id, "list"]),
+    ).toBeUndefined();
+    expect(
+      queryClient.getQueryData(["notifications", tenantA.id, "unread-count"]),
     ).toBeUndefined();
     expect(queryClient.getQueryData(["profile", "detail"])).toEqual(user);
   });

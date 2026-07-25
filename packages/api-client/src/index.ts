@@ -35,6 +35,16 @@ export type TenantQuotaControlValues =
   components["schemas"]["TenantQuotaControlValues"];
 export type UpdateTenantFeatureControlsRequest =
   components["schemas"]["UpdateTenantFeatureControlsRequest"];
+export type Notification = components["schemas"]["Notification"];
+export type NotificationPage = components["schemas"]["NotificationPage"];
+export type NotificationUnreadCount =
+  components["schemas"]["NotificationUnreadCount"];
+export type NotificationPreference =
+  components["schemas"]["NotificationPreference"];
+export type UpdateNotificationPreferenceRequest =
+  components["schemas"]["UpdateNotificationPreferenceRequest"];
+export type MarkAllNotificationsReadResponse =
+  components["schemas"]["MarkAllNotificationsReadResponse"];
 export type AuditAction = components["schemas"]["AuditAction"];
 export type AuditOutcome = components["schemas"]["AuditOutcome"];
 export type AuditActor = components["schemas"]["AuditActor"];
@@ -168,6 +178,11 @@ export interface ListAuditEventsInput {
   outcome?: AuditOutcome;
   limit?: number;
   cursor?: string;
+}
+export interface ListNotificationsInput {
+  cursor?: string;
+  limit?: number;
+  unreadOnly?: boolean;
 }
 export type MediaTokenResponse = components["schemas"]["MediaTokenResponse"];
 export type MediaEventRequest = components["schemas"]["MediaEventRequest"];
@@ -494,6 +509,166 @@ export async function updateTenantFeatureControls(
 
   return requireData<TenantCapabilities>(
     data as TenantCapabilities | undefined,
+    error,
+    response,
+  );
+}
+
+export async function listNotifications(
+  tenantID: string,
+  input: ListNotificationsInput = {},
+  options: APIRequestOptions = {},
+): Promise<NotificationPage> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).GET(
+    "/api/v1/notifications",
+    {
+      params: {
+        header: { "X-TutorHub-Expected-Tenant-ID": tenantID },
+        query: {
+          cursor: input.cursor,
+          limit: input.limit,
+          unread_only: input.unreadOnly,
+        },
+      },
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<NotificationPage>(
+    data as NotificationPage | undefined,
+    error,
+    response,
+  );
+}
+
+export async function getNotificationUnreadCount(
+  tenantID: string,
+  options: APIRequestOptions = {},
+): Promise<NotificationUnreadCount> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).GET(
+    "/api/v1/notifications/unread-count",
+    {
+      params: {
+        header: { "X-TutorHub-Expected-Tenant-ID": tenantID },
+      },
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<NotificationUnreadCount>(
+    data as NotificationUnreadCount | undefined,
+    error,
+    response,
+  );
+}
+
+export async function markNotificationRead(
+  tenantID: string,
+  notificationID: string,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<Notification> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/notifications/{notification_id}/read",
+    {
+      params: {
+        path: { notification_id: notificationID },
+        header: {
+          "X-CSRF-Token": csrfToken,
+          "X-TutorHub-Expected-Tenant-ID": tenantID,
+        },
+      },
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<Notification>(
+    data as Notification | undefined,
+    error,
+    response,
+  );
+}
+
+export async function markAllNotificationsRead(
+  tenantID: string,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<MarkAllNotificationsReadResponse> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/notifications/read-all",
+    {
+      params: {
+        header: {
+          "X-CSRF-Token": csrfToken,
+          "X-TutorHub-Expected-Tenant-ID": tenantID,
+        },
+      },
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<MarkAllNotificationsReadResponse>(
+    data as MarkAllNotificationsReadResponse | undefined,
+    error,
+    response,
+  );
+}
+
+export async function getNotificationPreference(
+  tenantID: string,
+  options: APIRequestOptions = {},
+): Promise<NotificationPreference> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).GET(
+    "/api/v1/notification-preferences",
+    {
+      params: {
+        header: { "X-TutorHub-Expected-Tenant-ID": tenantID },
+      },
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<NotificationPreference>(
+    data as NotificationPreference | undefined,
+    error,
+    response,
+  );
+}
+
+export async function updateNotificationPreference(
+  tenantID: string,
+  input: UpdateNotificationPreferenceRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<NotificationPreference> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).PUT(
+    "/api/v1/notification-preferences",
+    {
+      params: {
+        header: {
+          "X-CSRF-Token": csrfToken,
+          "X-TutorHub-Expected-Tenant-ID": tenantID,
+        },
+      },
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<NotificationPreference>(
+    data as NotificationPreference | undefined,
     error,
     response,
   );
@@ -1338,6 +1513,12 @@ function requireData<T>(
   }
 
   return data;
+}
+
+function requireTenantScope(tenantID: string): void {
+  if (tenantID.trim() === "") {
+    throw new TypeError("An active tenant ID is required.");
+  }
 }
 
 function isProblem(value: unknown): value is Problem {

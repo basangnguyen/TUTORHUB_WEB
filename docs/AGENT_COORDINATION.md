@@ -89,7 +89,8 @@ live; rollback bằng specific commit giữ cấu hình hiện tại là bằng 
 | P3-CAL-02 Email/ICS + ADR-0020       | TODO        | AWS SES target, RSVP, ICS, deliverability     |
 | P3-02D Native Availability Poll      | TODO        | Native poll, secure sharing, Study Meeting    |
 | P3-03 PostgreSQL leased worker       | VERIFY      | P3-03A đạt; P3-03B durable/staging còn mở     |
-| P3-02A/B/C, P3-04 đến P3-14          | TODO        | Theo dependency trong backlog                 |
+| P3-04 In-app notification            | VERIFY      | Local implementation đạt; staging gates mở    |
+| P3-02A/B/C, P3-05 đến P3-14          | TODO        | Theo dependency trong backlog                 |
 
 Nguồn thực thi: `docs/PHASE_3_BACKLOG.md`. Trước khi code calendar phải đọc
 `docs/CALENDAR_PRODUCT_TECHNICAL_DESIGN.md` và ADR-0017; P3-02B recurrence phải chờ
@@ -100,9 +101,13 @@ SES sandbox; production vẫn cần domain/DNS, SPF/DKIM/DMARC và deliverabilit
 P3-02D tuân ADR-0021 và chỉ bắt đầu sau calendar conflict/participant foundation
 P3-02B/C. Poll là module native của TutorHub; không iframe, scrape, fork hoặc phụ thuộc
 runtime When2meet.
-Mọi side effect tới end user phải chờ P3-03B theo ADR-0018. P3-04 được phép triển khai
-handler đầu tiên sau registration/feature gate mặc định tắt để làm controlled canary;
-không được coi đó là runtime activation. P3-01 không gồm recurrence, calendar tổng hợp, email, reminder
+Mọi side effect tới end user phải chờ P3-03B theo ADR-0018. P3-04 implementation đã đạt
+local `VERIFY` theo ADR-0022, nhưng không được coi đó là runtime activation. Worker chỉ
+đăng ký canary khi `OUTBOX_ENABLE_IN_APP_NOTIFICATION_CANARY=true`; product visibility chỉ
+mở khi `FEATURE_CONTROL_ENABLE_IN_APP_NOTIFICATIONS=true`. Cả hai mặc định false và phải
+giữ false cho tới staging migration/grants, durable host cùng crash/reclaim acceptance.
+`X-TutorHub-Expected-Tenant-ID` chỉ là assertion chống workspace/cache race; authorization
+vẫn lấy từ active tenant của session. P3-01 không gồm recurrence, calendar tổng hợp, email, reminder
 hoặc media lifecycle.
 P3-01 đã `DONE` ngày 2026-07-24: Neon `14 false`, runtime grants tối thiểu,
 Render/Cloudflare deployment/public probes và browser acceptance Teacher
@@ -130,9 +135,11 @@ P3-03A repository/runtime foundation đã đạt `VERIFY`: migration `000015`, w
 lease/fencing/retry/dead-letter, startup ACL probe, CI integration và runbook đã có.
 Không chuyển umbrella P3-03 sang `DONE` hoặc bật end-user side effect trước khi P3-03B
 staging migration/grants, durable host không spin-down và crash/reclaim acceptance đạt.
-Trong khi chờ owner duyệt hạ tầng, task implementation tiếp theo có thể là P3-CAL-02,
-P3-02A hoặc P3-04 controlled-canary sau gate mặc định tắt
-theo rollout gate.
+P3-04 chưa `DONE`: Neon staging vẫn được xác nhận gần nhất ở `14 false`; migration
+`000015/000016`, exact API/worker grants, durable worker và canary duplicate/crash-reclaim
+chưa được nghiệm thu. Khi đổi worker gate phải dừng process và đổi exact notification
+grant cùng lúc; quyền dư/thiếu đều phải làm startup probe fail closed. Trong khi chờ owner
+duyệt hạ tầng, task implementation tiếp theo có thể là P3-CAL-02 hoặc P3-02A theo rollout gate.
 
 ## 6. Hạ tầng staging đã chốt
 

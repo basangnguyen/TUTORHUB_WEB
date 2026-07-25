@@ -12,6 +12,8 @@ import { getVisibleNavigationItems, navigationItems } from "../app/routes";
 import { useI18n } from "../app/i18n";
 import { useSession } from "../app/session";
 import { useWorkspaceActions } from "../app/workspaces";
+import { useTenantCapabilities } from "../app/tenantCapabilities";
+import { NotificationBell } from "./NotificationBell";
 
 function useOnlineStatus() {
   const [isOnline, setIsOnline] = useState(() => navigator.onLine);
@@ -48,6 +50,12 @@ export function AppShell() {
   );
 
   const activeTenant = session.currentUser?.active_tenant;
+  const tenantCapabilities = useTenantCapabilities(
+    activeTenant?.id,
+    Boolean(activeTenant?.id),
+  );
+  const notificationEnabled =
+    tenantCapabilities.data?.features.in_app_notifications.enabled === true;
   const activeMemberships =
     session.currentUser?.memberships.filter(
       (membership) => membership.status === "active",
@@ -167,6 +175,9 @@ export function AppShell() {
                 <span>{activeTenant?.name}</span>
               )}
             </label>
+            {notificationEnabled && activeTenant && (
+              <NotificationBell tenantID={activeTenant.id} />
+            )}
             <span
               className={`connection-status${isOnline ? " connection-status--online" : ""}`}
               role="status"

@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/tutorhub-v2/core-api/internal/config"
+	"github.com/tutorhub-v2/core-api/internal/modules/notification"
 	"github.com/tutorhub-v2/core-api/internal/platform/database"
 	"github.com/tutorhub-v2/core-api/internal/platform/observability"
 	"github.com/tutorhub-v2/core-api/internal/platform/outboxworker"
@@ -67,6 +68,9 @@ func run() int {
 		ctx,
 		pool,
 		cfg.Database.QueryTimeout,
+		outboxworker.CapabilityContract{
+			EnableInAppNotificationCanary: cfg.EnableInAppNotificationCanary,
+		},
 	); err != nil {
 		logger.Error(
 			"verify outbox worker database capabilities",
@@ -80,7 +84,21 @@ func run() int {
 		logger.Error("initialize outbox store", "error_code", "store_initialization_failed")
 		return 1
 	}
-	runner, err := newWorkerRunner(cfg, store, logger, uuid.New())
+	var canaryProjector notification.CanaryProjector
+	if cfg.EnableInAppNotificationCanary {
+		canaryProjector, err = notification.NewPostgresCanaryProjector(
+			pool,
+			cfg.Database.QueryTimeout,
+		)
+		if err != nil {
+			logger.Error(
+				"initialize notification canary projector",
+				"error_code", "notification_projector_initialization_failed",
+			)
+			return 1
+		}
+	}
+	runner, err := newWorkerRunner(cfg, store, canaryProjector, logger, uuid.New())
 	if err != nil {
 		logger.Error("initialize outbox runner", "error_code", "runner_initialization_failed")
 		return 1
@@ -101,20 +119,36 @@ func databaseCapabilityErrorCode(err error) string {
 	return "database_capability_probe_failed"
 }
 
-func newWorkerRegistry() *outboxworker.Registry {
-	// P3-03 establishes the durable worker runtime only. Consumer registrations
-	// are added by their owning tasks, beginning with P3-04. An empty exact
-	// allowlist deliberately leaves every historical Phase 1/2 event untouched.
-	return outboxworker.NewRegistry()
+func newWorkerRegistry(
+	enableInAppNotificationCanary bool,
+	canaryProjector notification.CanaryProjector,
+) (*outboxworker.Registry, error) {
+	registry := outboxworker.NewRegistry()
+	if !enableInAppNotificationCanary {
+		// A disabled registration gate must leave the exact allowlist empty. In
+		// particular, historical class-session facts are never claimed here.
+		return registry, nil
+	}
+	if err := notification.RegisterCanaryHandler(registry, canaryProjector); err != nil {
+		return nil, err
+	}
+	return registry, nil
 }
 
 func newWorkerRunner(
 	cfg config.WorkerConfig,
 	store outboxworker.Store,
+	canaryProjector notification.CanaryProjector,
 	logger *slog.Logger,
 	ownerID uuid.UUID,
 ) (*outboxworker.Runner, error) {
-	registry := newWorkerRegistry()
+	registry, err := newWorkerRegistry(
+		cfg.EnableInAppNotificationCanary,
+		canaryProjector,
+	)
+	if err != nil {
+		return nil, err
+	}
 	backoff, err := outboxworker.NewBackoff(
 		cfg.RetryBaseDelay,
 		cfg.RetryMaxDelay,

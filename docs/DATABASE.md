@@ -7,7 +7,7 @@ thay đổi schema, migration hoặc repository phải đọc tài liệu này t
 
 - System of record: Neon PostgreSQL.
 - Schema ứng dụng: `tutorhub`.
-- Migration mới nhất trong source: `000015_outbox_worker`.
+- Migration mới nhất trong source: `000016_notifications`.
 - Migration 1-5 đã được chạy và kiểm tra trên Neon; smoke
   `5 false -> rollback 4 false -> migrate 5 false` đạt ngày 2026-07-16.
 - Migration `000006` đến `000013` đều có up/down path. Source và PostgreSQL 17 CI
@@ -18,8 +18,10 @@ thay đổi schema, migration hoặc repository phải đọc tài liệu này t
   đều đạt least-privilege sau remediation provisioning.
 - Migration `000014` đã được chạy trên Neon staging và xác nhận `14 false` trong
   P3-01. Migration `000015` mở rộng in-place `outbox_events` cho lease/fencing/retry/
-  dead-letter, có forward/down fail-closed nhưng chưa được chạy trên staging; chỉ ghi
-  `15 false` sau khi migration job, role grants và worker smoke thực tế đạt.
+  dead-letter; migration `000016` tạo notification projection/preference và mở rộng
+  feature-control key. Cả hai đã có source/test nhưng chưa được chạy trên staging;
+  chỉ ghi `15 false` hoặc `16 false` sau khi migration job, role grants và smoke thực tế
+  của đúng version đạt.
 - Phần lớn integration test rollback bằng transaction. Chỉ focused P2-09 suite có
   fixture tự dọn hoàn toàn được chạy trên staging ngày 2026-07-21; các suite concurrency
   có thể để lại audit append-only vẫn chỉ chạy trên database CI tạm thời.
@@ -59,7 +61,7 @@ process không tự chạy migration khi khởi động.
 `tutorhub-outbox-worker` để quan sát trên Neon. Mọi truy vấn mạng/database phải chạy
 ngoài UI thread ở các client native về sau.
 
-## Schema source phiên bản 15
+## Schema source phiên bản 16
 
 | Bảng                     | Vai trò                                                                                          |
 | ------------------------ | ------------------------------------------------------------------------------------------------ |
@@ -76,6 +78,8 @@ ngoài UI thread ở các client native về sau.
 | `outbox_events`          | Transactional outbox có exact versioned event type, lease/fencing, retry và retained dead-letter |
 | `audit_events`           | Lịch sử tenant append-only cho actor/action/resource/outcome và request correlation              |
 | `class_sessions`         | Buổi học một lần theo class, UTC instant/IANA timezone, lifecycle và optimistic version          |
+| `notifications`          | Projection tenant/user-scoped, idempotent theo source/recipient/effect và trạng thái read          |
+| `notification_preferences` | Preference in-app/email, reminder, quiet-hours IANA và optimistic version                         |
 | `tenant_feature_control_revisions` | Phiên bản optimistic của override feature/quota theo tenant                         |
 | `tenant_feature_overrides` | Override feature typed theo tenant; global disable vẫn có quyền ưu tiên                          |
 | `tenant_quota_overrides` | Override hard limit typed cho member, active class và invitation rate                              |
@@ -578,6 +582,116 @@ dead-letter thành published. Nếu đã có dead-letter cần inspect/replay/pu
 `last_error -> legacy_error_redacted` là security cleanup có chủ ý và không được khôi
 phục arbitrary legacy text trong down migration.
 
+## Notification projection và role grants cho migration 000016
+
+Migration `000016` tạo hai bảng tenant/user-scoped:
+
+- `tutorhub.notifications`: projection idempotent theo
+  `(source_outbox_event_id, recipient_user_id, effect_key)`, chỉ cho phép thay đổi
+  `read_at` sau khi row được tạo;
+- `tutorhub.notification_preferences`: preference self-scoped, full replacement bằng
+  optimistic `version` và quiet-hours theo IANA timezone.
+
+Migration không hardcode role môi trường và chỉ `REVOKE ... FROM PUBLIC`. Sau khi chạy
+bằng migration owner, thu hồi grant cũ rồi cấp đúng bề mặt Core API cần dùng:
+
+```sql
+REVOKE ALL PRIVILEGES
+ON TABLE tutorhub.notifications, tutorhub.notification_preferences
+FROM tutorhub_runtime;
+
+GRANT SELECT
+ON TABLE tutorhub.notifications
+TO tutorhub_runtime;
+
+GRANT UPDATE (read_at)
+ON TABLE tutorhub.notifications
+TO tutorhub_runtime;
+
+GRANT SELECT
+ON TABLE tutorhub.notification_preferences
+TO tutorhub_runtime;
+
+GRANT INSERT (
+  tenant_id,
+  user_id,
+  in_app_enabled,
+  email_enabled,
+  reminder_offset_minutes,
+  quiet_hours_enabled,
+  quiet_hours_start,
+  quiet_hours_end,
+  quiet_hours_timezone,
+  version,
+  created_at,
+  updated_at
+)
+ON TABLE tutorhub.notification_preferences
+TO tutorhub_runtime;
+
+GRANT UPDATE (
+  in_app_enabled,
+  email_enabled,
+  reminder_offset_minutes,
+  quiet_hours_enabled,
+  quiet_hours_start,
+  quiet_hours_end,
+  quiet_hours_timezone,
+  version,
+  updated_at
+)
+ON TABLE tutorhub.notification_preferences
+TO tutorhub_runtime;
+```
+
+API role không được `INSERT` notification, cập nhật cột notification ngoài `read_at`,
+hoặc có `DELETE/TRUNCATE/REFERENCES/TRIGGER` trên hai bảng. Repository vẫn bắt buộc
+membership authoritative và predicate tenant/user; grant không thay authorization.
+
+Worker có hai exact ACL state đi cùng
+`OUTBOX_ENABLE_IN_APP_NOTIFICATION_CANARY`:
+
+1. **Gate tắt (mặc định):** worker không có bất kỳ table/column privilege nào trên
+   `notifications` hoặc `notification_preferences`.
+2. **Gate bật cho controlled canary:** ngoài exact outbox ACL của `000015`, worker chỉ
+   có column-level `INSERT` vào tám cột projection dưới đây và không có quyền trên
+   `notification_preferences`.
+
+```sql
+REVOKE ALL PRIVILEGES
+ON TABLE tutorhub.notifications, tutorhub.notification_preferences
+FROM tutorhub_worker;
+
+GRANT INSERT (
+  tenant_id,
+  recipient_user_id,
+  source_outbox_event_id,
+  effect_key,
+  kind,
+  template_key,
+  context,
+  occurred_at
+)
+ON TABLE tutorhub.notifications
+TO tutorhub_worker;
+```
+
+Không cấp table-level `INSERT`: startup probe yêu cầu chính xác tám column grant trên
+và từ chối mọi `SELECT/UPDATE/DELETE/TRUNCATE/REFERENCES/TRIGGER`, ownership, membership,
+DDL hoặc quyền bảng nghiệp vụ khác. Gate và grant phải chuyển cùng nhau khi worker đã
+dừng: grant nhưng vẫn chạy gate tắt là quyền dư; bật gate trước khi grant là thiếu quyền;
+cả hai trường hợp đều phải fail startup. Rollback canary làm ngược lại: dừng worker,
+revoke notification grant, đặt gate false rồi mới khởi động lại.
+
+`FEATURE_CONTROL_ENABLE_IN_APP_NOTIFICATIONS` là product-visibility guardrail độc lập,
+không thay database ACL và phải giữ `false` trên staging/production cho tới khi P3-03B
+cùng P3-04 acceptance đạt. Canary `system.worker_canary` luôn bị API feed loại bỏ.
+
+Down `16 -> 15` xóa cả hai projection table và override key
+`in_app_notifications`; chỉ dùng trên disposable/test hoặc sau khi worker đã dừng và
+notification state được đánh giá. Application rollback giữ schema 16 là đường ưu tiên;
+không chạy down chỉ để tắt feature.
+
 ## Chạy migration
 
 Tạo `.env.local` từ `.env.example` và điền direct migration URL cùng hai pooled URL
@@ -607,12 +721,13 @@ pnpm db:version
 ```
 
 Sau khi áp dụng toàn bộ migration trong source hiện tại, kết quả mong đợi là
-`15 false`. Chỉ ghi đó là kết quả môi trường khi lệnh thực tế đã chạy. Neon staging
-được xác nhận gần nhất ở `14 false` trong P3-01; chưa được coi là version 15 và chưa có
-worker role/grant cho tới khi provisioning cùng smoke thực tế đạt. Application rollback
-giữ schema 15. Database rollback chỉ dùng khi đã dừng worker, đánh giá dữ liệu và có
-backup/restore plan; runner preflight trước khi migration metadata đổi và từ chối khi còn
-retained lease/dead-letter, nên blocked rollback phải giữ `15 false`:
+`16 false`. Chỉ ghi đó là kết quả môi trường khi lệnh thực tế đã chạy. Neon staging
+được xác nhận gần nhất ở `14 false` trong P3-01; chưa được coi là version 15/16 và chưa
+có worker/notification role grants cho tới khi provisioning cùng smoke thực tế đạt.
+Application rollback giữ schema 16. Database rollback chỉ dùng khi đã dừng worker,
+đánh giá dữ liệu và có backup/restore plan. Down `16 -> 15` xóa notification projection;
+down tiếp `15 -> 14` chạy preflight retained lease/dead-letter trước khi metadata đổi và
+phải giữ `15 false` nếu bị chặn:
 
 ```powershell
 go run ./services/core-api/cmd/migrate down -steps 1
@@ -632,9 +747,10 @@ Integration test bằng PostgreSQL thật:
 pnpm test:integration
 ```
 
-P3-03 phải kiểm tra riêng migrate `14 -> 15`, rollback `15 -> 14`, rollback tiếp
-`14 -> 13`, rồi migrate lại tới `15`; nullable `tenant_id` và writer insert shape cũ
-phải còn tương thích. PostgreSQL worker suite phải chứng minh nhiều replica claim bằng
+P3-03/P3-04 phải kiểm tra riêng migrate `14 -> 15 -> 16`, rollback `16 -> 15`, rollback
+tiếp `15 -> 14`, rồi migrate lại tới `16`; nullable `tenant_id`, writer insert shape cũ
+và feature-control constraint qua mỗi version phải còn tương thích. PostgreSQL worker
+suite phải chứng minh nhiều replica claim bằng
 `FOR UPDATE SKIP LOCKED`, fencing token chặn stale owner, crash/lease-expiry reclaim,
 retry/backoff, duplicate idempotency, permanent/max-attempt dead-letter và graceful
 shutdown. Không dùng database down để test dead-letter bằng cách biến row terminal thành
@@ -693,4 +809,7 @@ của lịch sử append-only và không phải quy trình cleanup cho staging/p
   user/tenant/membership/class bằng migration `000013`. P2-12 đã xác nhận Neon staging
   migration 13, role split/default ACL và importer idempotency trên disposable branch;
   production data/cohort migration vẫn thuộc discovery/cutover phase sau.
+- P3-03A/P3-04 đã bổ sung source migration `000015` và `000016` cùng test/grant contract;
+  Neon staging vẫn được xác nhận gần nhất ở `14 false`. Migration, exact API/worker ACL,
+  durable-host và controlled-canary/crash-reclaim acceptance còn là gate bên ngoài.
 - Chưa có backup/restore drill, PITR gate hoặc connection load test cho pilot.

@@ -6,16 +6,16 @@
 
 | Thuộc tính          | Trạng thái                                                                            |
 | ------------------- | ------------------------------------------------------------------------------------- |
-| Ngày cập nhật       | 2026-07-25                                                                            |
+| Ngày cập nhật       | 2026-07-26                                                                            |
 | Repository          | `https://github.com/basangnguyen/TUTORHUB_WEB`                                        |
 | Nhánh làm việc      | `main`                                                                                |
 | Quy trình           | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
 | Phase hoàn thành    | Phase 0, Phase 1, Phase 2                                                             |
 | Phase hiện tại      | Phase 3 - Daily learning workspace                                                   |
 | Task `DONE` gần nhất | P3-CAL-01 và P3-01                                                                  |
-| Mốc repository mới | P3-03A repository/runtime foundation đạt `VERIFY`                                    |
-| Task hiện tại       | P3-03B durable-host, staging migration/grants và crash/reclaim acceptance            |
-| Task tiếp theo      | P3-CAL-02, P3-02A hoặc P3-04 controlled-canary implementation                       |
+| Mốc repository mới | P3-04 in-app notification implementation đạt local `VERIFY`                         |
+| Task hiện tại       | P3-03B/P3-04 staging migration-grants, durable-host và canary crash/reclaim gate    |
+| Task tiếp theo      | P3-CAL-02 hoặc P3-02A trong khi chờ hạ tầng P3-03B                                 |
 
 ## Kiến trúc đang chạy
 
@@ -362,11 +362,22 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
     hoặc có INSERT/DELETE/TRUNCATE/REFERENCES/TRIGGER dư thừa.
     Unit test, integration compile gate, duplicate/poison/shutdown PostgreSQL fixtures,
     CI PostgreSQL step, OCI image chung và `docs/P3_03_OUTBOX_WORKER_RUNBOOK.md` đã có.
-    Registry production rỗng có chủ ý và vẫn phát heartbeat định kỳ. P3-04 được phép
-    triển khai handler đầu tiên sau gate mặc định tắt để làm controlled canary, nhưng
-    không bật side effect tới end user trước P3-03B. Máy local không có Docker/psql hoặc
+    Registry production gate-off rỗng có chủ ý và vẫn phát heartbeat định kỳ. Máy local không có Docker/psql hoặc
     migration URL nên PostgreSQL runtime suite phải chạy ở CI; migration/grants, paid
     durable host và staging crash/reclaim vẫn là gate bên ngoài trước `DONE`.
+19. P3-04 implementation đạt local `VERIFY` theo ADR-0022. Migration `000016` tạo
+    notification projection và preference tenant/user-scoped. Worker chỉ đăng ký exact
+    `notification.in_app_canary.requested.v1` khi
+    `OUTBOX_ENABLE_IN_APP_NOTIFICATION_CANARY=true`; gate mặc định false, sink idempotent
+    và `system.worker_canary` luôn bị API feed loại. API có list keyset, unread bounded,
+    mark one/all read và preference GET/PUT CAS; scope authoritative lấy từ session,
+    `X-TutorHub-Expected-Tenant-ID` chỉ là assertion chống workspace/cache race.
+    Web có bell, center, preference và bounded polling 30 giây, không polling nền.
+    `FEATURE_CONTROL_ENABLE_IN_APP_NOTIFICATIONS=false` ép visibility tắt mặc định.
+    Tests/module/HTTP/config/worker/API-client/web liên quan đạt local; không gọi email
+    provider. Neon staging vẫn được xác nhận gần nhất ở `14 false`; chưa áp migration
+    `000015/000016`, exact grants, durable host hoặc canary/crash-reclaim acceptance, nên
+    cả P3-03B và P3-04 vẫn `VERIFY` và chưa có end-user activation.
 
 ## Rủi ro đã biết
 
@@ -394,12 +405,15 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
   differencing/Sybil; anonymous link không thể hứa one-human-one-response.
 - Quyền tạo instant study room đã được chốt làm authorization target, nhưng LiveKit
   token, lobby, moderation và media lifecycle vẫn thuộc Phase 4.
-- P3-03A mới ở `VERIFY`: lease/fencing/dead-letter, worker binary, ACL probe và test đã
+- P3-03A/P3-04 mới ở `VERIFY`: lease/fencing/dead-letter, worker binary, notification
+  projection/API/UI, ACL probe và test đã
   có trong repository nhưng chưa chạy như durable service trên staging. Render Free web
   service không được xem là durable worker; owner chưa duyệt chi phí Background Worker.
   Không bật notification, email/ICS, reminder hoặc message/file side effect tới end user
-  trước khi migration/grants, non-spin-down host và crash/reclaim acceptance đạt. P3-04
-  chỉ được code handler controlled-canary sau gate mặc định tắt. P3-CAL-02 chỉ
+  trước khi migration `000015/000016`, exact grants, non-spin-down host và crash/reclaim
+  acceptance đạt. Hai P3-04 gate phải giữ false; grant worker notification và worker gate
+  phải chuyển cùng nhau khi process đã dừng, nếu không startup probe sẽ fail closed.
+  P3-CAL-02 chỉ
   được chạy renderer/provider sandbox cô lập trong lúc gate này còn mở.
 
 - Render Free spin down khi không hoạt động và có thể cold start trên 50 giây;
@@ -461,6 +475,7 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
 - `docs/P2_12_STAGING_ACCEPTANCE.md`
 - `docs/PHASE_2_COMPLETION.md`
 - `docs/PHASE_3_BACKLOG.md`
+- `docs/P3_03_OUTBOX_WORKER_RUNBOOK.md`
 - `docs/CALENDAR_PRODUCT_TECHNICAL_DESIGN.md`
 - `docs/calendar/P3_CAL_01_SPIKE_EVIDENCE.md`
 - `docs/DEPLOYMENT_BASELINE.md`
@@ -479,3 +494,4 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
 - `docs/adr/0018-postgresql-leased-outbox-worker.md`
 - `docs/adr/0019-calendar-renderer-recurrence-and-conflict.md`
 - `docs/adr/0021-native-availability-polls-and-member-owned-study-meetings.md`
+- `docs/adr/0022-tenant-scoped-in-app-notification-projection.md`

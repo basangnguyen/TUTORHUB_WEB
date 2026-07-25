@@ -540,6 +540,95 @@ export type paths = {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/api/v1/notification-preferences": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /** Return notification preferences for the current tenant and user */
+    readonly get: operations["getNotificationPreference"];
+    /** Replace notification preferences using optimistic concurrency */
+    readonly put: operations["updateNotificationPreference"];
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/notifications": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /**
+     * List notifications for the authenticated user in the active tenant
+     * @description Returns a keyset-paginated, user-scoped feed. System worker canaries are never exposed. Tenant and recipient identifiers come only from the server-side session.
+     */
+    readonly get: operations["listNotifications"];
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/notifications/{notification_id}/read": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Mark one notification read in the current tenant and user scope */
+    readonly post: operations["markNotificationRead"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/notifications/read-all": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Mark every unread notification read in the current tenant and user scope */
+    readonly post: operations["markAllNotificationsRead"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/notifications/unread-count": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /** Return the bounded unread notification count for the current user */
+    readonly get: operations["getNotificationUnreadCount"];
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/api/v1/session/active-tenant": {
     readonly parameters: {
       readonly query?: never;
@@ -1195,6 +1284,10 @@ export type components = {
       /** Format: uri */
       readonly logout_url?: string;
     };
+    readonly MarkAllNotificationsReadResponse: {
+      /** Format: int64 */
+      readonly updated_count: number;
+    };
     readonly MediaEventRequest: {
       /** Format: uuid */
       readonly attempt_id: string;
@@ -1278,6 +1371,46 @@ export type components = {
       readonly memberships: readonly components["schemas"]["TenantMembership"][];
       readonly permissions: readonly components["schemas"]["Permission"][];
       readonly user: components["schemas"]["User"];
+    };
+    readonly Notification: {
+      readonly context: {
+        readonly [key: string]: string;
+      };
+      /** Format: date-time */
+      readonly created_at: string;
+      readonly effect_key: string;
+      /** Format: uuid */
+      readonly id: string;
+      /** Format: date-time */
+      readonly occurred_at: string;
+      readonly read_at: string | null;
+      /** Format: uuid */
+      readonly resource_id?: string;
+      readonly resource_type?: string;
+      readonly template_key: string;
+    };
+    readonly NotificationPage: {
+      readonly items: readonly components["schemas"]["Notification"][];
+      readonly next_cursor: string | null;
+    };
+    readonly NotificationPreference: {
+      /** @description Stored for P3-05A; provider delivery remains disabled in P3-04. */
+      readonly email_enabled: boolean;
+      readonly in_app_enabled: boolean;
+      readonly quiet_hours_enabled: boolean;
+      readonly quiet_hours_end: string | null;
+      readonly quiet_hours_start: string | null;
+      /** @description IANA timezone identifier; the value local is rejected. */
+      readonly quiet_hours_timezone: string;
+      readonly reminder_offset_minutes: number;
+      /** Format: date-time */
+      readonly updated_at: string;
+      /** Format: int64 */
+      readonly version: number;
+    };
+    readonly NotificationUnreadCount: {
+      readonly count: number;
+      readonly is_capped: boolean;
     };
     readonly OperationCapability: {
       readonly available: boolean;
@@ -1388,12 +1521,14 @@ export type components = {
       readonly class_invite_links: components["schemas"]["FeatureCapability"];
       readonly class_management: components["schemas"]["FeatureCapability"];
       readonly class_session_scheduling: components["schemas"]["FeatureCapability"];
+      readonly in_app_notifications: components["schemas"]["FeatureCapability"];
       readonly membership_invitations: components["schemas"]["FeatureCapability"];
     };
     readonly TenantFeatureControlValues: {
       readonly class_invite_links: boolean;
       readonly class_management: boolean;
       readonly class_session_scheduling: boolean;
+      readonly in_app_notifications: boolean;
       readonly membership_invitations: boolean;
     };
     readonly TenantListResponse: {
@@ -1468,6 +1603,17 @@ export type components = {
       /** @description IANA timezone whose rules must match supplied offsets. */
       readonly timezone?: string;
       readonly title?: string;
+    };
+    readonly UpdateNotificationPreferenceRequest: {
+      readonly email_enabled: boolean;
+      /** Format: int64 */
+      readonly expected_version: number;
+      readonly in_app_enabled: boolean;
+      readonly quiet_hours_enabled: boolean;
+      readonly quiet_hours_end: string | null;
+      readonly quiet_hours_start: string | null;
+      readonly quiet_hours_timezone: string;
+      readonly reminder_offset_minutes: number;
     };
     readonly UpdateTenantFeatureControlsRequest: {
       /** Format: int64 */
@@ -2643,6 +2789,200 @@ export interface operations {
       };
       readonly 404: components["responses"]["NotFoundResponse"];
       readonly 429: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly getNotificationPreference: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Client cache-scope assertion; authorization still comes only from the server-side active session. */
+        readonly "X-TutorHub-Expected-Tenant-ID": string;
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Current effective notification preference */
+      readonly 200: {
+        headers: {
+          readonly "Cache-Control"?: "no-store";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["NotificationPreference"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly updateNotificationPreference: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly "X-CSRF-Token": string;
+        /** @description Client cache-scope assertion; authorization still comes only from the server-side active session. */
+        readonly "X-TutorHub-Expected-Tenant-ID": string;
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["UpdateNotificationPreferenceRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Updated notification preference */
+      readonly 200: {
+        headers: {
+          readonly "Cache-Control"?: "no-store";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["NotificationPreference"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly listNotifications: {
+    readonly parameters: {
+      readonly query?: {
+        readonly cursor?: string;
+        readonly limit?: number;
+        readonly unread_only?: boolean;
+      };
+      readonly header: {
+        /** @description Client cache-scope assertion; authorization still comes only from the server-side active session. */
+        readonly "X-TutorHub-Expected-Tenant-ID": string;
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Notification feed for the current active tenant and user */
+      readonly 200: {
+        headers: {
+          readonly "Cache-Control"?: "no-store";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["NotificationPage"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly markNotificationRead: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly "X-CSRF-Token": string;
+        /** @description Client cache-scope assertion; authorization still comes only from the server-side active session. */
+        readonly "X-TutorHub-Expected-Tenant-ID": string;
+      };
+      readonly path: {
+        readonly notification_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Updated notification */
+      readonly 200: {
+        headers: {
+          readonly "Cache-Control"?: "no-store";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["Notification"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly markAllNotificationsRead: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly "X-CSRF-Token": string;
+        /** @description Client cache-scope assertion; authorization still comes only from the server-side active session. */
+        readonly "X-TutorHub-Expected-Tenant-ID": string;
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Number of rows changed */
+      readonly 200: {
+        headers: {
+          readonly "Cache-Control"?: "no-store";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["MarkAllNotificationsReadResponse"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly getNotificationUnreadCount: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Client cache-scope assertion; authorization still comes only from the server-side active session. */
+        readonly "X-TutorHub-Expected-Tenant-ID": string;
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Bounded unread count */
+      readonly 200: {
+        headers: {
+          readonly "Cache-Control"?: "no-store";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["NotificationUnreadCount"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
       readonly default: components["responses"]["ProblemResponse"];
     };
   };

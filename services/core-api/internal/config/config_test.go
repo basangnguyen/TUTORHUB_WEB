@@ -66,7 +66,8 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.EdgeContext.Enabled || cfg.EdgeContext.MaxSkew != defaultEdgeContextMaxSkew {
 		t.Fatalf("unexpected edge context defaults: %+v", cfg.EdgeContext)
 	}
-	if cfg.FeatureControls.MaxMembers != defaultFeatureMemberLimit ||
+	if cfg.FeatureControls.EnableInAppNotifications ||
+		cfg.FeatureControls.MaxMembers != defaultFeatureMemberLimit ||
 		cfg.FeatureControls.MaxActiveClasses != defaultFeatureClassLimit ||
 		cfg.FeatureControls.MaxInviteCreationsPerHour != defaultFeatureInviteRateLimit {
 		t.Fatalf("unexpected feature control defaults: %+v", cfg.FeatureControls)
@@ -153,6 +154,7 @@ func TestLoadCustomValues(t *testing.T) {
 		"FEATURE_CONTROL_DISABLE_CLASS_MANAGEMENT":         "true",
 		"FEATURE_CONTROL_DISABLE_CLASS_INVITE_LINKS":       "true",
 		"FEATURE_CONTROL_DISABLE_CLASS_SESSION_SCHEDULING": "true",
+		"FEATURE_CONTROL_ENABLE_IN_APP_NOTIFICATIONS":      "true",
 		"FEATURE_CONTROL_MAX_MEMBERS":                      "5000",
 		"FEATURE_CONTROL_MAX_ACTIVE_CLASSES":               "500",
 		"FEATURE_CONTROL_MAX_INVITE_CREATIONS_PER_HOUR":    "5000",
@@ -208,6 +210,7 @@ func TestLoadCustomValues(t *testing.T) {
 		!cfg.FeatureControls.DisableClassManagement ||
 		!cfg.FeatureControls.DisableClassInviteLinks ||
 		!cfg.FeatureControls.DisableClassSessionScheduling ||
+		!cfg.FeatureControls.EnableInAppNotifications ||
 		cfg.FeatureControls.MaxMembers != 5000 ||
 		cfg.FeatureControls.MaxActiveClasses != 500 ||
 		cfg.FeatureControls.MaxInviteCreationsPerHour != 5000 {
@@ -242,6 +245,7 @@ func TestLoadRejectsInvalidFeatureControlGuardrails(t *testing.T) {
 
 	_, err := load(mapLookup(map[string]string{
 		"FEATURE_CONTROL_DISABLE_CLASS_MANAGEMENT":      "sometimes",
+		"FEATURE_CONTROL_ENABLE_IN_APP_NOTIFICATIONS":   "sometimes",
 		"FEATURE_CONTROL_MAX_MEMBERS":                   "10001",
 		"FEATURE_CONTROL_MAX_ACTIVE_CLASSES":            "0",
 		"FEATURE_CONTROL_MAX_INVITE_CREATIONS_PER_HOUR": "not-a-number",
@@ -252,6 +256,7 @@ func TestLoadRejectsInvalidFeatureControlGuardrails(t *testing.T) {
 	message := err.Error()
 	for _, expected := range []string{
 		"FEATURE_CONTROL_DISABLE_CLASS_MANAGEMENT",
+		"FEATURE_CONTROL_ENABLE_IN_APP_NOTIFICATIONS",
 		"FEATURE_CONTROL_MAX_MEMBERS",
 		"FEATURE_CONTROL_MAX_ACTIVE_CLASSES",
 		"FEATURE_CONTROL_MAX_INVITE_CREATIONS_PER_HOUR",

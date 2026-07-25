@@ -20,11 +20,15 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
   `4 passed` nhưng fail absolute budget ở render 500/long-task 2.000. NVDA vẫn là
   explicit rollout gate trước khi renderer được nối vào route production, nên chưa
   được mô tả Calendar như chức năng runtime. P3-03A PostgreSQL leased outbox worker đã
-  đạt `VERIFY` trong repository/runtime foundation: schema `000015`, fencing/lease, retry/dead-letter,
-  typed registry, worker process, least-privilege startup probe, test/CI và runbook đã
-  có. P3-04 được phép code handler controlled-canary sau gate mặc định tắt, nhưng task
-  chưa `DONE` và không bật end-user side effect cho tới khi P3-03B áp dụng migration/grants,
-  durable host không spin-down được duyệt và staging crash/reclaim acceptance đạt.
+  đạt `VERIFY` trong repository/runtime foundation: schema `000015`, fencing/lease,
+  retry/dead-letter, typed registry, worker process, least-privilege startup probe,
+  test/CI và runbook đã có. P3-04 đã hoàn tất phần repository ở mức `VERIFY`: schema
+  `000016`, notification projection/preference tenant-user scoped, API/client/UI,
+  exact worker ACL probe và handler controlled-canary đều đã có. Hai gate
+  `OUTBOX_ENABLE_IN_APP_NOTIFICATION_CANARY` và
+  `FEATURE_CONTROL_ENABLE_IN_APP_NOTIFICATIONS` vẫn mặc định `false`; không bật
+  end-user side effect cho tới khi P3-03B áp dụng migration/grants, durable host không
+  spin-down được duyệt và staging duplicate/crash/reclaim acceptance đạt.
 - ADR-0021 đã `Accepted` để P3-02D xây Native Availability Poll do TutorHub sở hữu:
   active member gồm student có thể tạo poll/Study Meeting của mình; secure public link
   không phải booking và không phụ thuộc When2meet. Đây mới là architecture/backlog,
@@ -82,6 +86,7 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
 33. [ADR-0018: PostgreSQL leased outbox worker](docs/adr/0018-postgresql-leased-outbox-worker.md)
 34. [ADR-0019: Calendar renderer, bounded recurrence và conflict authority](docs/adr/0019-calendar-renderer-recurrence-and-conflict.md)
 35. [ADR-0021: Native Availability Poll và member-owned Study Meeting](docs/adr/0021-native-availability-polls-and-member-owned-study-meetings.md)
+36. [ADR-0022: Tenant-scoped in-app notification projection và preference](docs/adr/0022-tenant-scoped-in-app-notification-projection.md)
 
 Các quyết định kiến trúc đã chấp nhận nằm trong `docs/adr`.
 

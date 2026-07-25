@@ -132,6 +132,7 @@ type FeatureControlConfig struct {
 	DisableClassManagement        bool
 	DisableClassInviteLinks       bool
 	DisableClassSessionScheduling bool
+	EnableInAppNotifications      bool
 	MaxMembers                    int
 	MaxActiveClasses              int
 	MaxInviteCreationsPerHour     int
@@ -316,6 +317,12 @@ func featureControlConfig(
 		DisableClassSessionScheduling: boolValue(
 			lookup,
 			"FEATURE_CONTROL_DISABLE_CLASS_SESSION_SCHEDULING",
+			false,
+			validationErrors,
+		),
+		EnableInAppNotifications: boolValue(
+			lookup,
+			"FEATURE_CONTROL_ENABLE_IN_APP_NOTIFICATIONS",
 			false,
 			validationErrors,
 		),

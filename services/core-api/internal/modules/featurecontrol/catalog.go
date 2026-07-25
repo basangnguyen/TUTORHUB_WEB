@@ -12,6 +12,7 @@ const (
 	FeatureClassManagement        FeatureKey = "class_management"
 	FeatureClassInviteLinks       FeatureKey = "class_invite_links"
 	FeatureClassSessionScheduling FeatureKey = "class_session_scheduling"
+	FeatureInAppNotifications     FeatureKey = "in_app_notifications"
 )
 
 type QuotaKey string
@@ -64,6 +65,9 @@ var featureDefinitions = map[FeatureKey]FeatureDefinition{
 	},
 	FeatureClassSessionScheduling: {
 		Key: FeatureClassSessionScheduling, DefaultEnabled: true,
+	},
+	FeatureInAppNotifications: {
+		Key: FeatureInAppNotifications, DefaultEnabled: true,
 	},
 }
 

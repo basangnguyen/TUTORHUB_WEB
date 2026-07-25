@@ -18,9 +18,12 @@ func TestFeatureControlGuardrailsOmitFeaturesThatAreNotForcedOff(t *testing.T) {
 	}
 	guardrails := featureControlGuardrails(configuration)
 
-	if len(guardrails.ForcedOffFeatures) != 1 ||
+	if len(guardrails.ForcedOffFeatures) != 2 ||
 		!guardrails.ForcedOffFeatures[featurecontrol.FeatureClassManagement] {
 		t.Fatalf("unexpected forced-off feature map: %+v", guardrails.ForcedOffFeatures)
+	}
+	if !guardrails.ForcedOffFeatures[featurecontrol.FeatureInAppNotifications] {
+		t.Fatalf("notification visibility must fail closed by default: %+v", guardrails.ForcedOffFeatures)
 	}
 	if _, err := featurecontrol.NewCatalog(guardrails); err != nil {
 		t.Fatalf("valid runtime configuration must initialize the catalog: %v", err)

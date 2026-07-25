@@ -25,20 +25,21 @@ const (
 )
 
 type WorkerConfig struct {
-	Environment     string
-	LogLevel        string
-	Database        DatabaseConfig
-	BatchSize       int
-	Concurrency     int
-	PollInterval    time.Duration
-	MetricsInterval time.Duration
-	LeaseDuration   time.Duration
-	HandlerTimeout  time.Duration
-	ShutdownTimeout time.Duration
-	MaxAttempts     int
-	RetryBaseDelay  time.Duration
-	RetryMaxDelay   time.Duration
-	RetryJitter     float64
+	Environment                   string
+	LogLevel                      string
+	Database                      DatabaseConfig
+	EnableInAppNotificationCanary bool
+	BatchSize                     int
+	Concurrency                   int
+	PollInterval                  time.Duration
+	MetricsInterval               time.Duration
+	LeaseDuration                 time.Duration
+	HandlerTimeout                time.Duration
+	ShutdownTimeout               time.Duration
+	MaxAttempts                   int
+	RetryBaseDelay                time.Duration
+	RetryMaxDelay                 time.Duration
+	RetryJitter                   float64
 }
 
 func LoadWorker() (WorkerConfig, error) {
@@ -64,6 +65,12 @@ func loadWorker(lookup lookupEnv) (WorkerConfig, error) {
 	}
 
 	cfg.Database = workerDatabaseConfig(lookup, cfg.Environment, &validationErrors)
+	cfg.EnableInAppNotificationCanary = boolValue(
+		lookup,
+		"OUTBOX_ENABLE_IN_APP_NOTIFICATION_CANARY",
+		false,
+		&validationErrors,
+	)
 	cfg.BatchSize = intValue(
 		lookup, "OUTBOX_BATCH_SIZE", defaultWorkerBatchSize, 1, 100, &validationErrors,
 	)

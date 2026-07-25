@@ -18,6 +18,9 @@ func TestLoadWorkerDefaults(t *testing.T) {
 	if cfg.Environment != "development" || cfg.LogLevel != "info" {
 		t.Fatalf("unexpected worker identity config: %+v", cfg)
 	}
+	if cfg.EnableInAppNotificationCanary {
+		t.Fatal("in-app notification canary must default to disabled")
+	}
 	if cfg.Database.MaxConnections != defaultWorkerDBMaxConns || cfg.Database.MinConnections != 0 {
 		t.Fatalf("unexpected worker database defaults: %+v", cfg.Database)
 	}
@@ -37,32 +40,49 @@ func TestLoadWorkerCustomValues(t *testing.T) {
 	t.Parallel()
 
 	cfg, err := loadWorker(mapLookup(map[string]string{
-		"APP_ENV":                     "staging",
-		"LOG_LEVEL":                   "debug",
-		"DATABASE_WORKER_URL":         "postgresql://worker:secret@db.example/tutorhub?sslmode=require",
-		"DATABASE_MAX_CONNECTIONS":    "3",
-		"OUTBOX_BATCH_SIZE":           "50",
-		"OUTBOX_CONCURRENCY":          "6",
-		"OUTBOX_POLL_INTERVAL":        "3s",
-		"OUTBOX_METRICS_INTERVAL":     "45s",
-		"OUTBOX_LEASE_DURATION":       "45s",
-		"OUTBOX_HANDLER_TIMEOUT":      "30s",
-		"OUTBOX_SHUTDOWN_TIMEOUT":     "35s",
-		"OUTBOX_MAX_ATTEMPTS":         "12",
-		"OUTBOX_RETRY_BASE_DELAY":     "2s",
-		"OUTBOX_RETRY_MAX_DELAY":      "30m",
-		"OUTBOX_RETRY_JITTER_PERCENT": "35",
+		"APP_ENV":                  "staging",
+		"LOG_LEVEL":                "debug",
+		"DATABASE_WORKER_URL":      "postgresql://worker:secret@db.example/tutorhub?sslmode=require",
+		"DATABASE_MAX_CONNECTIONS": "3",
+		"OUTBOX_ENABLE_IN_APP_NOTIFICATION_CANARY": "true",
+		"OUTBOX_BATCH_SIZE":                        "50",
+		"OUTBOX_CONCURRENCY":                       "6",
+		"OUTBOX_POLL_INTERVAL":                     "3s",
+		"OUTBOX_METRICS_INTERVAL":                  "45s",
+		"OUTBOX_LEASE_DURATION":                    "45s",
+		"OUTBOX_HANDLER_TIMEOUT":                   "30s",
+		"OUTBOX_SHUTDOWN_TIMEOUT":                  "35s",
+		"OUTBOX_MAX_ATTEMPTS":                      "12",
+		"OUTBOX_RETRY_BASE_DELAY":                  "2s",
+		"OUTBOX_RETRY_MAX_DELAY":                   "30m",
+		"OUTBOX_RETRY_JITTER_PERCENT":              "35",
 	}))
 	if err != nil {
 		t.Fatalf("load custom worker config: %v", err)
 	}
-	if cfg.BatchSize != 50 || cfg.Concurrency != 6 || cfg.Database.MaxConnections != 3 ||
+	if !cfg.EnableInAppNotificationCanary ||
+		cfg.BatchSize != 50 || cfg.Concurrency != 6 || cfg.Database.MaxConnections != 3 ||
 		cfg.PollInterval != 3*time.Second || cfg.MetricsInterval != 45*time.Second ||
 		cfg.LeaseDuration != 45*time.Second ||
 		cfg.HandlerTimeout != 30*time.Second || cfg.ShutdownTimeout != 35*time.Second ||
 		cfg.MaxAttempts != 12 || cfg.RetryBaseDelay != 2*time.Second ||
 		cfg.RetryMaxDelay != 30*time.Minute || cfg.RetryJitter != 0.35 {
 		t.Fatalf("unexpected custom worker config: %+v", cfg)
+	}
+}
+
+func TestLoadWorkerRejectsInvalidInAppNotificationCanaryGate(t *testing.T) {
+	t.Parallel()
+
+	_, err := loadWorker(mapLookup(map[string]string{
+		"DATABASE_WORKER_URL":                      "postgresql://worker:secret@localhost/tutorhub?sslmode=disable",
+		"OUTBOX_ENABLE_IN_APP_NOTIFICATION_CANARY": "enabled",
+	}))
+	if err == nil || !strings.Contains(
+		err.Error(),
+		"OUTBOX_ENABLE_IN_APP_NOTIFICATION_CANARY must be true or false",
+	) {
+		t.Fatalf("expected strict canary gate validation, got %v", err)
 	}
 }
 
