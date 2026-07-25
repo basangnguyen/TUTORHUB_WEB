@@ -689,23 +689,27 @@ func databaseConfig(
 }
 
 func validateDatabaseURL(environment string, value string) error {
+	return validatePostgresURL(environment, "DATABASE_POOL_URL", value)
+}
+
+func validatePostgresURL(environment string, key string, value string) error {
 	databaseURL, err := url.Parse(value)
 	if err != nil {
-		return fmt.Errorf("DATABASE_POOL_URL must be a valid PostgreSQL URL")
+		return fmt.Errorf("%s must be a valid PostgreSQL URL", key)
 	}
 	if databaseURL.Scheme != "postgres" && databaseURL.Scheme != "postgresql" {
-		return fmt.Errorf("DATABASE_POOL_URL must use postgres or postgresql")
+		return fmt.Errorf("%s must use postgres or postgresql", key)
 	}
 	if databaseURL.Hostname() == "" || databaseURL.User == nil {
-		return fmt.Errorf("DATABASE_POOL_URL must include host and credentials")
+		return fmt.Errorf("%s must include host and credentials", key)
 	}
 	if databaseURL.Fragment != "" {
-		return fmt.Errorf("DATABASE_POOL_URL must not include a fragment")
+		return fmt.Errorf("%s must not include a fragment", key)
 	}
 	if environment == "staging" || environment == "production" {
 		sslMode := databaseURL.Query().Get("sslmode")
 		if sslMode != "require" && sslMode != "verify-full" {
-			return fmt.Errorf("DATABASE_POOL_URL must require TLS in %s", environment)
+			return fmt.Errorf("%s must require TLS in %s", key, environment)
 		}
 	}
 

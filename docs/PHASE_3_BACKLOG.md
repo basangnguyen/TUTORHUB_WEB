@@ -31,8 +31,11 @@ generated client, class-detail UI, Neon `14 false`, deploy/public probes và bro
 acceptance Teacher/Student/IDOR. Biên bản P3-01 nằm tại
 `docs/P3_01_STAGING_ACCEPTANCE.md`.
 
-**Task hiện tại/tiếp theo:** P3-03 PostgreSQL outbox worker production shape.
-P3-CAL-02/P3-02A chỉ bắt đầu khi dependency gate tương ứng đạt.
+**Task hiện tại:** P3-03A repository/runtime foundation đã đạt `VERIFY`; P3-03B còn
+migration/grants staging, durable host không spin-down và crash/reclaim acceptance.
+**Task implementation tiếp theo có thể chạy song song:** P3-CAL-02/ADR-0020, P3-02A,
+hoặc P3-04 handler đầu tiên sau registration/feature gate mặc định tắt để làm controlled
+canary. Mọi side effect tới end user vẫn chờ P3-03B đạt và umbrella P3-03 chuyển `DONE`.
 
 **Thiết kế Calendar có thẩm quyền:**
 [`CALENDAR_PRODUCT_TECHNICAL_DESIGN.md`](CALENDAR_PRODUCT_TECHNICAL_DESIGN.md).
@@ -86,8 +89,8 @@ P3-CAL-02/P3-02A chỉ bắt đầu khi dependency gate tương ứng đạt.
 | P3-02B     | Recurrence + class conflict                    | P3-02A, ADR-0019                | TODO       |
 | P3-02C     | Working hours/attendee/free-busy/RSVP          | P3-02A, P3-CAL-02               | TODO       |
 | P3-02D     | Native Availability Poll + Study Meeting       | P3-02B, P3-02C, P3-03, ADR-0021 | TODO       |
-| P3-03      | PostgreSQL outbox worker production shape      | P3-01                           | TODO       |
-| P3-04      | In-app notification và preference              | P3-03                           | TODO       |
+| P3-03      | PostgreSQL outbox worker production shape      | P3-01                           | VERIFY     |
+| P3-04      | In-app notification và preference              | P3-03A; P3-03B trước activation | TODO       |
 | P3-05A     | Session email/ICS/external RSVP/reminder       | P3-02C, P3-CAL-02, P3-03, P3-04 | TODO       |
 | P3-05B     | Poll/Study Meeting lifecycle delivery          | P3-02D, P3-05A                  | TODO       |
 | P3-06      | Direct/class conversation                      | P3-00, Phase 2 policy           | TODO       |
@@ -114,7 +117,7 @@ flowchart LR
     PC00C --> P301["P3-01 Scheduling"]
     PC01 --> PC02["P3-CAL-02 Email/ICS ADR"]
     P301 --> PC02
-    P301 --> P303["P3-03 Worker"]
+    P301 --> P303A["P3-03A Worker foundation"]
     P300 --> P306["P3-06 Conversations"]
     P300 --> P308["P3-08 File metadata"]
     P301 --> P302A["P3-02A Calendar shell"]
@@ -124,19 +127,20 @@ flowchart LR
     PC02 --> P302C
     P302B --> P302D["P3-02D Native availability poll"]
     P302C --> P302D
-    P303 --> P302D
-    P303 --> P304["P3-04 Notifications"]
+    P303A --> P304["P3-04 Notifications (gate off)"]
+    P304 --> P303B["P3-03B Durable staging gate"]
+    P303B --> P302D
     P302C --> P305A["P3-05A Session email/ICS/reminders"]
     PC02 --> P305A
-    P303 --> P305A
+    P303B --> P305A
     P304 --> P305A
     P302D --> P305B["P3-05B Poll lifecycle delivery"]
     P305A --> P305B
     P306 --> P307["P3-07 Messages"]
-    P303 --> P307
+    P303B --> P307
     P308 --> P309["P3-09 B2 transfer"]
     P309 --> P310["P3-10 File processing"]
-    P303 --> P310
+    P303B --> P310
     P309 --> P311["P3-11 Class Files"]
     P310 --> P311
     P301 --> P312["P3-12 Home/search"]
@@ -151,8 +155,10 @@ flowchart LR
     P313 --> P314
 ```
 
-P3-03 được kéo lên ngay sau P3-01 để kiểm chứng worker sớm; không cần chờ poll.
-P3-04/P3-05A/P3-05B/P3-07/P3-10 không được bypass worker foundation. P3-05A không
+P3-03A được kéo lên ngay sau P3-01 để kiểm chứng worker sớm; không cần chờ poll. P3-04
+được code handler canary sau P3-03A với registration/feature gate mặc định tắt; canary
+đóng P3-03B rồi mới được activation tới end user. P3-05A/P3-05B/P3-07/P3-10 không được
+bypass P3-03B durable staging gate. P3-05A không
 được bypass ADR-0020/provider/deliverability gate. Session delivery không bị P3-02D
 chặn; P3-05B chỉ bổ sung poll/StudyMeeting lifecycle sau P3-02D. P3-02D theo ADR-0021
 chỉ bắt đầu sau P3-02B/C và không phụ thuộc runtime When2meet.
@@ -511,12 +517,23 @@ bộ đáng tin cậy; P3-05A chỉ phân phối email/ICS, không sở hữu bu
 
 ## 9. P3-03 PostgreSQL outbox worker production shape
 
+**Trạng thái 2026-07-25:** `VERIFY`. Repository đã có migration `000015`, worker binary
+độc lập, exact allowlist/typed registry, lease + fencing, bounded claim concurrency,
+retry/backoff/dead-letter, graceful shutdown, bounded structured metrics, startup ACL
+probe, OCI image chung, CI PostgreSQL integration và runbook. Registry runtime để rỗng
+có chủ ý cho tới controlled-canary handler P3-04, nên không đụng event lịch sử; registry
+rỗng vẫn phát heartbeat định kỳ nhưng không claim. Local unit/compile gate
+đạt; PostgreSQL runtime suite chạy ở CI. Chưa provision host trả phí, chưa áp dụng role/
+grant staging và chưa có crash/reclaim acceptance, vì vậy tuyệt đối chưa chuyển `DONE`.
+
 - Thực thi ADR-0018 bằng `services/core-api/cmd/worker` trong cùng modular monolith/image.
 - Lease batch bằng `FOR UPDATE SKIP LOCKED` cùng fencing token; stale owner không thể
   ack/retry/dead-letter sau khi lease bị reclaim.
 - At-least-once, exponential backoff có cap/jitter, max attempts và dead-letter retained.
 - Handler registry typed; downstream effect idempotent theo `source_outbox_event_id`.
 - Worker dùng database role tối thiểu riêng; API runtime chỉ cần `INSERT` outbox.
+- Startup probe yêu cầu direct LOGIN exact ACL, không membership/ownership/DDL/quyền bảng
+  nghiệp vụ khác và chặn cả REFERENCES/TRIGGER dư thừa.
 - Không ép `tenant_id` thành `NOT NULL`; identity/system event global phải có context an toàn.
 - Event Phase 1/2 không bị blanket mark published; chỉ claim event type/version allowlist.
 - Graceful shutdown không nhận lease mới và không đánh dấu success khi handler chưa xong.
@@ -524,8 +541,13 @@ bộ đáng tin cậy; P3-05A chỉ phân phối email/ICS, không sở hữu bu
 - Unit, PostgreSQL integration, crash/reclaim, duplicate delivery và poison-event tests.
 - P3-03 chỉ chốt durable worker runtime/hosting; email-provider decision thuộc
   P3-CAL-02/P3-05A. Không nhét worker loop vào HTTP API và không xem Render Free web
-  service có spin-down là durable worker. Task chỉ `DONE` khi một hosting target không
-  spin-down/cron-loss được chọn, deploy và crash/reclaim acceptance đạt.
+  service có spin-down là durable worker. Task chỉ `DONE` khi migration `000015` đã áp
+  dụng trên staging, API/worker direct-LOGIN grants cùng exact ACL probes và startup smoke
+  đạt, một hosting target không spin-down/cron-loss được chọn/deploy, và crash/reclaim
+  acceptance đạt.
+- P3-04 implementation được phép bắt đầu sau P3-03A `VERIFY` để cung cấp handler canary,
+  nhưng registration/feature gate phải mặc định tắt và không có end-user activation trước
+  P3-03B.
 
 ## 10. P3-04 In-app notification và preference
 
@@ -744,7 +766,9 @@ là dependency/ưu tiên, không phải cam kết mỗi hàng đúng một tuầ
    manual NVDA rollout gate. Chưa nối renderer vào production route khi marker còn mở.
 3. P3-01 đã `DONE` sau local/staging acceptance; không mở rộng one-time slice thành
    recurrence/reminder/calendar aggregate.
-4. Thực hiện P3-03 ngay bây giờ, trước mọi notification/email/ICS/reminder side effect.
+4. P3-03A repository implementation đã đạt `VERIFY`; hoàn tất P3-03B durable-host,
+   staging migration/grants và crash/reclaim gate trước mọi side effect tới end user.
+   P3-04 chỉ được triển khai handler canary sau gate mặc định tắt để đóng acceptance.
 5. P3-CAL-02/ADR-0020 chỉ spike sandbox cô lập vì P3-CAL-01 và P3-01 đã đạt gate;
    pre-domain chỉ dùng verified-email sandbox và chưa bật business delivery.
 6. Triển khai P3-02A, rồi P3-02B và P3-02C theo gate; teacher conflict chỉ bật khi

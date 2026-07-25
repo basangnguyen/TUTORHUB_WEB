@@ -19,8 +19,12 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
   và Warm Academic theme. Full v7 E2E hậu fix đạt `9 passed (23.6s)`; comparator parity v6
   `4 passed` nhưng fail absolute budget ở render 500/long-task 2.000. NVDA vẫn là
   explicit rollout gate trước khi renderer được nối vào route production, nên chưa
-  được mô tả Calendar như chức năng runtime. Task triển khai tiếp theo là P3-03
-  PostgreSQL outbox worker.
+  được mô tả Calendar như chức năng runtime. P3-03A PostgreSQL leased outbox worker đã
+  đạt `VERIFY` trong repository/runtime foundation: schema `000015`, fencing/lease, retry/dead-letter,
+  typed registry, worker process, least-privilege startup probe, test/CI và runbook đã
+  có. P3-04 được phép code handler controlled-canary sau gate mặc định tắt, nhưng task
+  chưa `DONE` và không bật end-user side effect cho tới khi P3-03B áp dụng migration/grants,
+  durable host không spin-down được duyệt và staging crash/reclaim acceptance đạt.
 - ADR-0021 đã `Accepted` để P3-02D xây Native Availability Poll do TutorHub sở hữu:
   active member gồm student có thể tạo poll/Study Meeting của mình; secure public link
   không phải booking và không phụ thuộc When2meet. Đây mới là architecture/backlog,

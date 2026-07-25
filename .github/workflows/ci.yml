@@ -70,6 +70,9 @@ jobs:
       - name: PostgreSQL migration integration
         run: go test -count=1 -tags=integration ./services/core-api/internal/platform/migrationrunner
 
+      - name: P3-03 outbox worker integration
+        run: go test -count=1 -tags=integration ./services/core-api/internal/platform/outboxworker
+
       - name: P2-11 fixture import integration
         run: go test -count=1 -tags=integration ./services/core-api/internal/platform/v1import
 

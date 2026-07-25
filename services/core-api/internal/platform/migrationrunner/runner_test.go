@@ -26,6 +26,83 @@ func TestDownRequiresPositiveStepCount(t *testing.T) {
 	}
 }
 
+func TestOutboxWorkerMigrationHasLeaseFencingAndFailClosedRollback(t *testing.T) {
+	t.Parallel()
+
+	up, err := migrations.Files.ReadFile("000015_outbox_worker.up.sql")
+	if err != nil {
+		t.Fatalf("read outbox worker up migration: %v", err)
+	}
+	down, err := migrations.Files.ReadFile("000015_outbox_worker.down.sql")
+	if err != nil {
+		t.Fatalf("read outbox worker down migration: %v", err)
+	}
+
+	upSQL := string(up)
+	for _, required := range []string{
+		"ADD COLUMN lease_owner uuid",
+		"ADD COLUMN lease_token bigint NOT NULL DEFAULT 0",
+		"ADD COLUMN leased_at timestamptz",
+		"ADD COLUMN leased_until timestamptz",
+		"ADD COLUMN dead_lettered_at timestamptz",
+		"outbox_lease_token_non_negative",
+		"outbox_lease_state_valid",
+		"lease_token > 0",
+		"leased_until > leased_at",
+		"outbox_terminal_state_exclusive",
+		"outbox_terminal_has_no_lease",
+		"UPDATE tutorhub.outbox_events",
+		"SET last_error = 'legacy_error_redacted'",
+		"WHERE last_error IS NOT NULL",
+		"outbox_last_error_code_valid",
+		"length(last_error) BETWEEN 1 AND 100",
+		"last_error ~ '^[a-z][a-z0-9._-]{0,99}$'",
+		"outbox_dead_letter_state_valid",
+		"attempts > 0",
+		"CREATE INDEX outbox_ready_claim_idx",
+		"event_type, available_at, occurred_at, id",
+		"CREATE INDEX outbox_expired_lease_claim_idx",
+		"event_type, leased_until, occurred_at, id",
+		"CREATE INDEX outbox_pending_age_idx",
+		"CREATE INDEX outbox_dead_lettered_idx",
+		"DROP INDEX tutorhub.outbox_pending_idx",
+		"REVOKE ALL ON tutorhub.outbox_events FROM PUBLIC",
+	} {
+		if !strings.Contains(upSQL, required) {
+			t.Fatalf("outbox worker migration is missing %q", required)
+		}
+	}
+	if strings.Contains(strings.ToLower(upSQL), "event_version") {
+		t.Fatal("outbox event version must remain encoded in the exact event_type")
+	}
+	sanitizeAt := strings.Index(upSQL, "UPDATE tutorhub.outbox_events")
+	errorConstraintAt := strings.Index(upSQL, "ADD CONSTRAINT outbox_last_error_code_valid")
+	if sanitizeAt < 0 || errorConstraintAt < 0 || sanitizeAt > errorConstraintAt {
+		t.Fatal("legacy last_error text must be redacted before the bounded-code constraint")
+	}
+
+	downSQL := string(down)
+	for _, required := range []string{
+		"LOCK TABLE tutorhub.outbox_events IN ACCESS EXCLUSIVE MODE",
+		"lease_owner IS NOT NULL",
+		"dead_lettered_at IS NOT NULL",
+		"cannot roll back outbox worker schema while retained lease or dead-letter state exists",
+		"CREATE INDEX outbox_pending_idx",
+		"DROP COLUMN dead_lettered_at",
+		"DROP COLUMN leased_until",
+		"DROP COLUMN leased_at",
+		"DROP COLUMN lease_token",
+		"DROP COLUMN lease_owner",
+	} {
+		if !strings.Contains(downSQL, required) {
+			t.Fatalf("outbox worker rollback is missing %q", required)
+		}
+	}
+	if strings.Contains(strings.ToUpper(downSQL), "UPDATE TUTORHUB.OUTBOX_EVENTS") {
+		t.Fatal("outbox worker rollback must not disguise dead-letter rows as published")
+	}
+}
+
 func TestMembershipInvitationMigrationHasSecurityAndRollbackInvariants(t *testing.T) {
 	t.Parallel()
 

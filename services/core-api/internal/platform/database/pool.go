@@ -12,18 +12,18 @@ import (
 const applicationName = "tutorhub-core-api"
 
 func Open(ctx context.Context, cfg config.DatabaseConfig) (*pgxpool.Pool, error) {
-	poolConfig, err := pgxpool.ParseConfig(cfg.PoolURL)
-	if err != nil {
-		return nil, fmt.Errorf("parse database pool configuration: %w", err)
-	}
+	return OpenNamed(ctx, cfg, applicationName)
+}
 
-	poolConfig.MaxConns = cfg.MaxConnections
-	poolConfig.MinConns = cfg.MinConnections
-	poolConfig.MaxConnLifetime = cfg.MaxConnectionLifetime
-	poolConfig.MaxConnIdleTime = cfg.MaxConnectionIdleTime
-	poolConfig.HealthCheckPeriod = cfg.HealthCheckPeriod
-	poolConfig.ConnConfig.ConnectTimeout = cfg.ConnectTimeout
-	poolConfig.ConnConfig.RuntimeParams["application_name"] = applicationName
+func OpenNamed(
+	ctx context.Context,
+	cfg config.DatabaseConfig,
+	applicationName string,
+) (*pgxpool.Pool, error) {
+	poolConfig, err := PoolConfig(cfg, applicationName)
+	if err != nil {
+		return nil, err
+	}
 
 	connectContext, cancel := context.WithTimeout(ctx, cfg.ConnectTimeout)
 	defer cancel()
@@ -38,6 +38,30 @@ func Open(ctx context.Context, cfg config.DatabaseConfig) (*pgxpool.Pool, error)
 	}
 
 	return pool, nil
+}
+
+func PoolConfig(
+	cfg config.DatabaseConfig,
+	applicationName string,
+) (*pgxpool.Config, error) {
+	if applicationName == "" {
+		return nil, fmt.Errorf("database application name is required")
+	}
+
+	poolConfig, err := pgxpool.ParseConfig(cfg.PoolURL)
+	if err != nil {
+		return nil, fmt.Errorf("parse database pool configuration: %w", err)
+	}
+
+	poolConfig.MaxConns = cfg.MaxConnections
+	poolConfig.MinConns = cfg.MinConnections
+	poolConfig.MaxConnLifetime = cfg.MaxConnectionLifetime
+	poolConfig.MaxConnIdleTime = cfg.MaxConnectionIdleTime
+	poolConfig.HealthCheckPeriod = cfg.HealthCheckPeriod
+	poolConfig.ConnConfig.ConnectTimeout = cfg.ConnectTimeout
+	poolConfig.ConnConfig.RuntimeParams["application_name"] = applicationName
+
+	return poolConfig, nil
 }
 
 type Pinger interface {

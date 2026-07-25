@@ -4,10 +4,11 @@
 
 | Thuộc tính          | Trạng thái                                      |
 | ------------------- | ----------------------------------------------- |
-| Cập nhật            | 2026-07-24                                      |
+| Cập nhật            | 2026-07-25                                      |
 | Phase hiện tại      | Phase 3 - Daily learning workspace              |
-| Hoàn thành gần nhất | P3-CAL-01/ADR-0019 và P3-01                     |
-| Việc tiếp theo      | P3-03 PostgreSQL outbox worker production shape |
+| Hoàn thành gần nhất | P3-CAL-01 và P3-01 `DONE`                       |
+| Mốc repository mới | P3-03A repository/runtime foundation `VERIFY`   |
+| Việc tiếp theo      | P3-03B external gate; P3-CAL-02/P3-02A/P3-04 canary |
 | Phạm vi             | Web-first; desktop/mobile/native là track sau   |
 
 ## Chuỗi phase
@@ -55,7 +56,10 @@ COUNT phải giữ occurrence cuối trong horizon và YEARLY golden đã đạt
 fix đạt `9 passed (23.6s)`; comparator parity v6 đạt `4 passed` nhưng fail render 500 và
 long-task 2.000 absolute budget. Agenda/Axe hardening đạt automated gate; renderer chưa
 được nối route production cho tới khi manual NVDA marker được đóng.
-P3-03 durable PostgreSQL worker là task triển khai hiện tại.
+P3-03A repository/runtime foundation đã `VERIFY`; P3-03B còn migration/grants staging,
+durable host và crash/reclaim acceptance. P3-04 được phép triển khai handler đầu tiên
+sau registration/feature gate mặc định tắt để làm controlled canary, nhưng không bật
+side effect tới end user trước khi P3-03B đạt.
 ADR-0021 đã chốt P3-02D Native Availability Poll, member-owned Study Meeting và quyền
 cho active member gồm student; đây mới là architecture/backlog, chưa có runtime. AWS SES
 đã được chọn làm transactional email provider target nhưng P3-CAL-02/ADR-0020 vẫn phải

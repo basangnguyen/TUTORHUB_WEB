@@ -7,7 +7,7 @@ thay đổi schema, migration hoặc repository phải đọc tài liệu này t
 
 - System of record: Neon PostgreSQL.
 - Schema ứng dụng: `tutorhub`.
-- Migration mới nhất trong source: `000014_class_sessions`.
+- Migration mới nhất trong source: `000015_outbox_worker`.
 - Migration 1-5 đã được chạy và kiểm tra trên Neon; smoke
   `5 false -> rollback 4 false -> migrate 5 false` đạt ngày 2026-07-16.
 - Migration `000006` đến `000013` đều có up/down path. Source và PostgreSQL 17 CI
@@ -16,9 +16,10 @@ thay đổi schema, migration hoặc repository phải đọc tài liệu này t
   lần qua `12 false -> 13 false -> 12 false -> 13 false`; staging thật đã forward tới
   `13 false`. Role split, default/effective/direct ledger ACL và future-table probe
   đều đạt least-privilege sau remediation provisioning.
-- Migration `000014` có forward/down path và test local, nhưng chưa được chạy trên
-  Neon staging. Staging được xác nhận gần nhất vẫn ở `13 false`; chỉ ghi `14 false`
-  sau khi migration job thực tế, runtime grants và smoke test đạt.
+- Migration `000014` đã được chạy trên Neon staging và xác nhận `14 false` trong
+  P3-01. Migration `000015` mở rộng in-place `outbox_events` cho lease/fencing/retry/
+  dead-letter, có forward/down fail-closed nhưng chưa được chạy trên staging; chỉ ghi
+  `15 false` sau khi migration job, role grants và worker smoke thực tế đạt.
 - Phần lớn integration test rollback bằng transaction. Chỉ focused P2-09 suite có
   fixture tự dọn hoàn toàn được chạy trên staging ngày 2026-07-21; các suite concurrency
   có thể để lại audit append-only vẫn chỉ chạy trên database CI tạm thời.
@@ -26,19 +27,21 @@ thay đổi schema, migration hoặc repository phải đọc tài liệu này t
 
 Neon có branch `production` và branch staging tách biệt. Core API staging dùng pooled
 runtime role tối thiểu quyền; migration job dùng direct migration role riêng. Kết nối,
-readiness và smoke sau migration `000013` đã đạt ngày 2026-07-22. P3-01 chưa thay đổi
-trạng thái môi trường này. Các giá trị credential không được ghi vào runbook hoặc artifact.
+readiness và smoke sau migration `000014` đã đạt trong P3-01. Các giá trị credential
+không được ghi vào runbook hoặc artifact.
 
-## Hai connection URL
+## Ba connection URL
 
-| Biến                     | Đối tượng sử dụng  | Loại URL                                 | Quy tắc                                                   |
-| ------------------------ | ------------------ | ---------------------------------------- | --------------------------------------------------------- |
-| `DATABASE_POOL_URL`      | Core API đang chạy | Neon pooled, hostname có `-pooler`       | Chỉ quyền runtime; cấu hình pool nhỏ để phù hợp free tier |
-| `DATABASE_MIGRATION_URL` | CLI/release job    | Neon direct, hostname không có `-pooler` | Chỉ cấp cho migration job; không đưa vào API container    |
+| Biến                     | Đối tượng sử dụng | Loại URL                                 | Quy tắc                                                |
+| ------------------------ | ----------------- | ---------------------------------------- | ------------------------------------------------------ |
+| `DATABASE_POOL_URL`      | Core API          | Neon pooled, hostname có `-pooler`       | Chỉ API runtime role; pool nhỏ theo connection budget  |
+| `DATABASE_WORKER_URL`    | Outbox worker     | Neon pooled, hostname có `-pooler`       | Chỉ worker role; không fallback sang API/migration URL |
+| `DATABASE_MIGRATION_URL` | CLI/release job   | Neon direct, hostname không có `-pooler` | Chỉ migration owner; không đưa vào runtime container   |
 
-Không dùng URL direct cho traffic ứng dụng thường xuyên. Không cấp URL migration
-cho frontend, browser, Cloudflare Pages hoặc tiến trình Core API trên Render.
-Core API không tự chạy migration khi khởi động.
+Không dùng URL direct cho traffic ứng dụng thường xuyên. Không chia sẻ credential giữa
+API và worker, không cho worker fallback sang `DATABASE_POOL_URL`, và không cấp URL
+migration cho frontend, browser, Cloudflare Pages, Core API hoặc worker. Hai runtime
+process không tự chạy migration khi khởi động.
 
 ## Cấu hình pool mặc định
 
@@ -52,10 +55,11 @@ Core API không tự chạy migration khi khởi động.
 | `DATABASE_MAX_CONNECTION_IDLE_TIME` |     `5m` | Thu hồi kết nối rảnh                            |
 | `DATABASE_HEALTH_CHECK_PERIOD`      |     `1m` | Chu kỳ kiểm tra pool                            |
 
-`application_name=tutorhub-core-api` được gắn vào kết nối để quan sát trên Neon.
-Mọi truy vấn mạng/database phải chạy ngoài UI thread ở các client native về sau.
+`application_name=tutorhub-core-api` được gắn cho API và worker phải dùng tên riêng
+`tutorhub-outbox-worker` để quan sát trên Neon. Mọi truy vấn mạng/database phải chạy
+ngoài UI thread ở các client native về sau.
 
-## Schema phiên bản 13
+## Schema source phiên bản 15
 
 | Bảng                     | Vai trò                                                                                          |
 | ------------------------ | ------------------------------------------------------------------------------------------------ |
@@ -69,8 +73,9 @@ Mọi truy vấn mạng/database phải chạy ngoài UI thread ở các client 
 | `class_enrollments`      | Quan hệ user-class theo tenant, class role, trạng thái tham gia và các mốc lifecycle             |
 | `class_invite_codes`     | Mã mời lớp chỉ lưu HMAC, TTL, giới hạn lượt dùng, trạng thái và actor lifecycle                  |
 | `membership_invitations` | Lời mời tenant một lần: normalized email, role, HMAC token, TTL và terminal state                |
-| `outbox_events`          | Transactional outbox cho sự kiện bền vững và worker tương lai                                    |
+| `outbox_events`          | Transactional outbox có exact versioned event type, lease/fencing, retry và retained dead-letter |
 | `audit_events`           | Lịch sử tenant append-only cho actor/action/resource/outcome và request correlation              |
+| `class_sessions`         | Buổi học một lần theo class, UTC instant/IANA timezone, lifecycle và optimistic version          |
 | `tenant_feature_control_revisions` | Phiên bản optimistic của override feature/quota theo tenant                         |
 | `tenant_feature_overrides` | Override feature typed theo tenant; global disable vẫn có quyền ưu tiên                          |
 | `tenant_quota_overrides` | Override hard limit typed cho member, active class và invitation rate                              |
@@ -396,10 +401,188 @@ SELECT
 Kết quả bắt buộc là `true, true, true, false, false`. Sau đó dùng runtime connection
 chạy focused integration/smoke; không in connection string ra terminal hoặc artifact.
 
+## Lease schema và role grants cho migration 000015
+
+Migration `000015` mở rộng bảng `outbox_events` hiện hữu, không tạo queue hoặc bảng
+dead-letter thứ hai. `lease_token` là fencing generation `bigint` theo từng event, bắt
+đầu từ `0` và phải tăng atomically mỗi lần claim. Một lease active giữ đồng thời
+`lease_owner`, `lease_token > 0`, `leased_at` và `leased_until`; ack/retry/dead-letter
+phải compare-and-set theo `(id, lease_owner, lease_token)`. `attempts` tiếp tục chỉ đếm
+lần xử lý thất bại, còn `available_at` giữ lịch retry/backoff. Dead-letter là terminal
+state bằng `dead_lettered_at`, vẫn giữ row gốc để inspect/replay có kiểm soát và không
+bị claim hoặc cleanup như published event.
+
+`last_error` chỉ được lưu error **code** đã redact, lowercase và tối đa 100 ký tự; không
+lưu error message, stack trace, provider response, token, signed URL hoặc nội dung riêng
+tư. Khi migrate, giá trị legacy không đạt format này được thay bằng một code cố định
+`legacy_error_redacted` trước khi constraint được bật; không làm migration fail hoặc giữ
+lại arbitrary text có thể chứa dữ liệu nhạy cảm. Version contract tiếp tục nằm trong exact `event_type`, ví dụ
+`class_session.scheduled.v1`; không có cột `event_version` thứ hai. `tenant_id` tiếp tục
+nullable cho event global/system và handler phải tự validate context của type đã đăng ký.
+Worker chỉ claim exact event type allowlist; event Phase 1/2 unversioned hoặc historical
+không được tự mark published/dead-letter.
+
+Foreign key `tenant_id` vẫn giữ hành vi `ON DELETE CASCADE` từ migration `000003` để
+không đổi lifecycle ngoài phạm vi P3-03; API hiện chỉ archive tenant. Trước khi bổ sung
+physical tenant delete phải có retention/erasure decision và drain/reconcile outbox,
+vì hard delete hiện có thể xóa cả pending/dead-letter thuộc tenant đó.
+
+Migration dùng `ALTER TABLE` và build B-tree index trong transaction theo runner hiện
+tại (`statement_timeout=2m`), nên sẽ chặn writer trong cửa sổ DDL. Trước staging phải
+đo row count/index-build time trên branch disposable cùng cỡ dữ liệu và chọn release
+window ngắn. Nếu table vượt budget, tạo migration online/concurrent mới được review;
+không sửa file `000015` sau khi đã chạy và không tăng timeout mù.
+
+Tên role phụ thuộc môi trường nên không hardcode vào migration. Sau khi migrate bằng
+migration owner, thay hai placeholder dưới đây bằng API runtime role và worker role thật,
+rồi thu hồi grant cũ trước khi cấp lại:
+
+```sql
+REVOKE ALL PRIVILEGES
+ON TABLE tutorhub.outbox_events
+FROM tutorhub_runtime;
+
+REVOKE ALL PRIVILEGES
+ON TABLE tutorhub.outbox_events
+FROM tutorhub_worker;
+
+REVOKE ALL PRIVILEGES
+ON ALL TABLES IN SCHEMA tutorhub
+FROM tutorhub_worker;
+
+REVOKE ALL PRIVILEGES
+ON ALL SEQUENCES IN SCHEMA tutorhub
+FROM tutorhub_worker;
+
+REVOKE CREATE ON SCHEMA tutorhub, public FROM tutorhub_worker;
+
+GRANT USAGE ON SCHEMA tutorhub TO tutorhub_runtime, tutorhub_worker;
+
+GRANT INSERT (
+  tenant_id,
+  aggregate_type,
+  aggregate_id,
+  event_type,
+  payload,
+  occurred_at,
+  available_at
+)
+ON TABLE tutorhub.outbox_events
+TO tutorhub_runtime;
+
+GRANT SELECT
+ON TABLE tutorhub.outbox_events
+TO tutorhub_worker;
+
+GRANT UPDATE (
+  attempts,
+  available_at,
+  published_at,
+  last_error,
+  lease_owner,
+  lease_token,
+  leased_at,
+  leased_until,
+  dead_lettered_at
+)
+ON TABLE tutorhub.outbox_events
+TO tutorhub_worker;
+```
+
+API role không có `SELECT/UPDATE/DELETE/TRUNCATE`; worker role không có
+`INSERT/DELETE/TRUNCATE/REFERENCES/TRIGGER`, không được update event identity, tenant,
+aggregate, type, payload hoặc occurred time và không có table/column privilege trên bảng
+nghiệp vụ khác. Worker phải là direct LOGIN (`session_user = current_user`), không
+superuser/create-role/create-db/replication/bypass-RLS, không có membership và không sở
+hữu database/schema/table. Cả hai role không có schema `CREATE` và không dùng chung URL.
+Vì `outbox_events` là bảng
+có sẵn, `REVOKE ... FROM PUBLIC` trong migration không thu hồi direct/inherited grant
+của role môi trường; bước provisioning trên là bắt buộc. Nếu role từng có column-level
+ACL riêng, phải liệt kê `information_schema.column_privileges` và revoke ACL legacy đó
+trước khi grant allowlist mới; negative effective-privilege probe bên dưới là authority.
+
+Xác minh grant sơ bộ bằng migration connection, không in credential:
+
+```sql
+SELECT
+  has_schema_privilege('tutorhub_runtime', 'tutorhub', 'USAGE') AS api_schema_usage,
+  has_schema_privilege('tutorhub_runtime', 'tutorhub', 'CREATE') AS api_schema_create,
+  has_any_column_privilege(
+    'tutorhub_runtime', 'tutorhub.outbox_events', 'INSERT'
+  ) AS api_insert,
+  has_table_privilege(
+    'tutorhub_runtime', 'tutorhub.outbox_events', 'SELECT'
+  ) AS api_select,
+  has_any_column_privilege(
+    'tutorhub_runtime', 'tutorhub.outbox_events', 'UPDATE'
+  ) AS api_update,
+  has_table_privilege(
+    'tutorhub_runtime', 'tutorhub.outbox_events', 'DELETE'
+  ) AS api_delete,
+  has_table_privilege(
+    'tutorhub_runtime', 'tutorhub.outbox_events', 'TRUNCATE'
+  ) AS api_truncate,
+  has_schema_privilege('tutorhub_worker', 'tutorhub', 'USAGE') AS worker_schema_usage,
+  has_schema_privilege('tutorhub_worker', 'tutorhub', 'CREATE') AS worker_schema_create,
+  has_table_privilege(
+    'tutorhub_worker', 'tutorhub.outbox_events', 'SELECT'
+  ) AS worker_select,
+  has_any_column_privilege(
+    'tutorhub_worker', 'tutorhub.outbox_events', 'UPDATE'
+  ) AS worker_update,
+  has_table_privilege(
+    'tutorhub_worker', 'tutorhub.outbox_events', 'INSERT'
+  ) AS worker_insert,
+  has_table_privilege(
+    'tutorhub_worker', 'tutorhub.outbox_events', 'DELETE'
+  ) AS worker_delete,
+  has_table_privilege(
+    'tutorhub_worker', 'tutorhub.outbox_events', 'TRUNCATE'
+  ) AS worker_truncate,
+  has_any_column_privilege(
+    'tutorhub_worker', 'tutorhub.outbox_events', 'REFERENCES'
+  ) AS worker_references,
+  has_table_privilege(
+    'tutorhub_worker', 'tutorhub.outbox_events', 'TRIGGER'
+  ) AS worker_trigger;
+```
+
+Các cột positive phải `true`; mọi cột mang nghĩa CREATE/quyền dư phải `false`. Sau đó
+khởi động worker bằng chính `DATABASE_WORKER_URL`: startup probe mới là authority cho
+direct-login, membership, ownership, exact column allowlist và quyền trên bảng khác.
+Negative test phải cấp tạm SELECT một bảng nghiệp vụ hoặc CREATE schema rồi chứng minh
+probe từ chối, sau đó revoke. API không được insert `published_at/lease_*/dead_lettered_at`;
+worker không được update `tenant_id/event_type/payload`.
+
+Local compose không tự tạo credential worker. Sau migration, migration owner có thể tạo
+role development riêng (password dưới đây chỉ là placeholder local đã có trong
+`.env.example`, tuyệt đối không dùng ở hosted environment), rồi chạy grant block trên:
+
+```sql
+CREATE ROLE tutorhub_worker
+  LOGIN PASSWORD 'tutorhub_worker_local'
+  NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS;
+```
+
+Nếu PostgreSQL local cũ còn cho `PUBLIC` tạo object trong schema `public`, harden local
+bằng `REVOKE CREATE ON SCHEMA public FROM PUBLIC;`; chỉ revoke trực tiếp từ worker không
+thể triệt quyền thừa kế qua `PUBLIC`.
+
+Rollback ứng dụng phải dừng worker và giữ schema `15`; API phiên bản cũ vẫn tương thích
+vì các writer hiện hữu chỉ insert cột cũ và cột lease có default/null an toàn. Database
+down `15 -> 14` chỉ dành cho disposable/test hoặc tình huống đã reconcile: migration lấy
+`ACCESS EXCLUSIVE`, fail nếu còn bất kỳ retained lease state hoặc dead-letter, và không tự biến
+dead-letter thành published. Nếu đã có dead-letter cần inspect/replay/purge theo runbook
+được phê duyệt; không bypass guard hay blanket mark published để ép rollback. Role grant
+đã thu hẹp không được re-grant rộng khi rollback. Redaction
+`last_error -> legacy_error_redacted` là security cleanup có chủ ý và không được khôi
+phục arbitrary legacy text trong down migration.
+
 ## Chạy migration
 
-Tạo `.env.local` từ `.env.example` và điền hai URL. File này đã được Git ignore;
-không in URL ra terminal, issue, log hoặc tài liệu.
+Tạo `.env.local` từ `.env.example` và điền direct migration URL cùng hai pooled URL
+đúng role cho API/worker. File này đã được Git ignore; không in URL ra terminal, issue,
+log hoặc tài liệu.
 
 Nạp biến môi trường trong PowerShell mà không in giá trị:
 
@@ -424,10 +607,12 @@ pnpm db:version
 ```
 
 Sau khi áp dụng toàn bộ migration trong source hiện tại, kết quả mong đợi là
-`14 false`. Chỉ ghi đó là kết quả môi trường khi lệnh thực tế đã chạy. Neon staging
-được xác nhận gần nhất vẫn ở `13 false` ngày 2026-07-22; runtime không có quyền trên
-`legacy_import_*` và chưa được cấp quyền cho `class_sessions`. Rollback chỉ dùng khi
-đã đánh giá mất dữ liệu và có backup/restore plan:
+`15 false`. Chỉ ghi đó là kết quả môi trường khi lệnh thực tế đã chạy. Neon staging
+được xác nhận gần nhất ở `14 false` trong P3-01; chưa được coi là version 15 và chưa có
+worker role/grant cho tới khi provisioning cùng smoke thực tế đạt. Application rollback
+giữ schema 15. Database rollback chỉ dùng khi đã dừng worker, đánh giá dữ liệu và có
+backup/restore plan; runner preflight trước khi migration metadata đổi và từ chối khi còn
+retained lease/dead-letter, nên blocked rollback phải giữ `15 false`:
 
 ```powershell
 go run ./services/core-api/cmd/migrate down -steps 1
@@ -446,6 +631,15 @@ Integration test bằng PostgreSQL thật:
 ```powershell
 pnpm test:integration
 ```
+
+P3-03 phải kiểm tra riêng migrate `14 -> 15`, rollback `15 -> 14`, rollback tiếp
+`14 -> 13`, rồi migrate lại tới `15`; nullable `tenant_id` và writer insert shape cũ
+phải còn tương thích. PostgreSQL worker suite phải chứng minh nhiều replica claim bằng
+`FOR UPDATE SKIP LOCKED`, fencing token chặn stale owner, crash/lease-expiry reclaim,
+retry/backoff, duplicate idempotency, permanent/max-attempt dead-letter và graceful
+shutdown. Không dùng database down để test dead-letter bằng cách biến row terminal thành
+pending; rollback guard được verify riêng và fixture worker phải chạy trên database CI
+tạm thời.
 
 Với P2-05, cần kiểm tra riêng migrate 9 -> 10, rollback 10 -> 9, migrate lại 9 -> 10;
 tenant-scoped FK/unique/state constraints; direct enroll và các transition; same-user

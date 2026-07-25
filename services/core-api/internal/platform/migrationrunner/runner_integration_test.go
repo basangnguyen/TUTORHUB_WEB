@@ -5,6 +5,7 @@ package migrationrunner
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"os"
 	"strings"
 	"testing"
@@ -29,7 +30,7 @@ func TestUpPinsMigrationHistoryToPublicSchema(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read migration version: %v", err)
 	}
-	if version.Number < 14 || version.Dirty {
+	if version.Number != 15 || version.Dirty {
 		t.Fatalf("unexpected migration version: %+v", version)
 	}
 
@@ -118,32 +119,335 @@ func TestUpPinsMigrationHistoryToPublicSchema(t *testing.T) {
 	if !classSessionsTable.Valid {
 		t.Fatal("class session migration must be applied at version 14")
 	}
+	assertOutboxWorkerSchema(t, ctx, database, true)
+	assertOutboxWriterCompatibility(t, ctx, database)
+	blockedRollbackEventID := insertBlockedOutboxRollbackFixture(t, ctx, database)
+	if err := Down(ctx, databaseURL, 1); !errors.Is(err, ErrOutboxWorkerRollbackBlocked) {
+		t.Fatalf("guarded outbox worker rollback error = %v", err)
+	}
+	guardedVersion, err := CurrentVersion(ctx, databaseURL)
+	if err != nil {
+		t.Fatalf("read version after guarded rollback: %v", err)
+	}
+	if guardedVersion.Number != 15 || guardedVersion.Dirty {
+		t.Fatalf("guarded rollback dirtied migration history: %+v", guardedVersion)
+	}
+
+	if _, err := database.ExecContext(
+		ctx,
+		`DELETE FROM tutorhub.outbox_events WHERE id = $1::uuid`,
+		blockedRollbackEventID,
+	); err != nil {
+		t.Fatalf("delete guarded rollback fixture: %v", err)
+	}
 
 	if err := Down(ctx, databaseURL, 1); err != nil {
-		t.Fatalf("roll back class session migration: %v", err)
+		t.Fatalf("roll back outbox worker migration: %v", err)
 	}
 	rolledBackVersion, err := CurrentVersion(ctx, databaseURL)
 	if err != nil {
 		t.Fatalf("read rolled-back migration version: %v", err)
 	}
-	if rolledBackVersion.Number != 13 || rolledBackVersion.Dirty {
+	if rolledBackVersion.Number != 14 || rolledBackVersion.Dirty {
 		t.Fatalf("unexpected rolled-back migration version: %+v", rolledBackVersion)
 	}
 	assertLegacyImportTables(t, ctx, database, true)
-	assertClassSessionTable(t, ctx, database, false)
+	assertClassSessionTable(t, ctx, database, true)
+	assertOutboxWorkerSchema(t, ctx, database, false)
+	legacyOutboxEventID := insertLegacyOutboxError(t, ctx, database)
 
 	if err := Up(ctx, databaseURL); err != nil {
-		t.Fatalf("reapply class session migration: %v", err)
+		t.Fatalf("reapply outbox worker migration over legacy error text: %v", err)
+	}
+	legacyReappliedVersion, err := CurrentVersion(ctx, databaseURL)
+	if err != nil {
+		t.Fatalf("read legacy-error reapplied migration version: %v", err)
+	}
+	if legacyReappliedVersion.Number != 15 || legacyReappliedVersion.Dirty {
+		t.Fatalf("unexpected legacy-error reapplied version: %+v", legacyReappliedVersion)
+	}
+	assertLegacyOutboxErrorRedacted(t, ctx, database, legacyOutboxEventID)
+	if _, err := database.ExecContext(
+		ctx,
+		`DELETE FROM tutorhub.outbox_events WHERE id = $1::uuid`,
+		legacyOutboxEventID,
+	); err != nil {
+		t.Fatalf("delete legacy outbox compatibility fixture: %v", err)
+	}
+
+	if err := Down(ctx, databaseURL, 1); err != nil {
+		t.Fatalf("roll back reapplied outbox worker migration: %v", err)
+	}
+	legacyCheckVersion, err := CurrentVersion(ctx, databaseURL)
+	if err != nil {
+		t.Fatalf("read post-legacy-check migration version: %v", err)
+	}
+	if legacyCheckVersion.Number != 14 || legacyCheckVersion.Dirty {
+		t.Fatalf("unexpected post-legacy-check migration version: %+v", legacyCheckVersion)
+	}
+	assertOutboxWorkerSchema(t, ctx, database, false)
+
+	if err := Down(ctx, databaseURL, 1); err != nil {
+		t.Fatalf("roll back class session migration: %v", err)
+	}
+	classSessionRolledBackVersion, err := CurrentVersion(ctx, databaseURL)
+	if err != nil {
+		t.Fatalf("read class-session rolled-back migration version: %v", err)
+	}
+	if classSessionRolledBackVersion.Number != 13 || classSessionRolledBackVersion.Dirty {
+		t.Fatalf(
+			"unexpected class-session rolled-back migration version: %+v",
+			classSessionRolledBackVersion,
+		)
+	}
+	assertLegacyImportTables(t, ctx, database, true)
+	assertClassSessionTable(t, ctx, database, false)
+	assertOutboxWorkerSchema(t, ctx, database, false)
+
+	if err := Up(ctx, databaseURL); err != nil {
+		t.Fatalf("reapply class session and outbox worker migrations: %v", err)
 	}
 	reappliedVersion, err := CurrentVersion(ctx, databaseURL)
 	if err != nil {
 		t.Fatalf("read reapplied migration version: %v", err)
 	}
-	if reappliedVersion.Number != 14 || reappliedVersion.Dirty {
+	if reappliedVersion.Number != 15 || reappliedVersion.Dirty {
 		t.Fatalf("unexpected reapplied migration version: %+v", reappliedVersion)
 	}
 	assertLegacyImportTables(t, ctx, database, true)
 	assertClassSessionTable(t, ctx, database, true)
+	assertOutboxWorkerSchema(t, ctx, database, true)
+	assertOutboxWriterCompatibility(t, ctx, database)
+}
+
+func insertBlockedOutboxRollbackFixture(
+	t *testing.T,
+	ctx context.Context,
+	database *sql.DB,
+) string {
+	t.Helper()
+
+	var eventID string
+	if err := database.QueryRowContext(ctx, `
+INSERT INTO tutorhub.outbox_events (
+    aggregate_type,
+    aggregate_id,
+    event_type,
+    payload,
+    attempts,
+    last_error,
+    dead_lettered_at
+)
+VALUES (
+    'migration_probe',
+    gen_random_uuid(),
+    'migration.rollback_guard.v1',
+    '{}'::jsonb,
+    1,
+    'rollback_guard_probe',
+    clock_timestamp()
+)
+RETURNING id::text`).Scan(&eventID); err != nil {
+		t.Fatalf("insert guarded rollback fixture: %v", err)
+	}
+	return eventID
+}
+
+func assertOutboxWorkerSchema(
+	t *testing.T,
+	ctx context.Context,
+	database *sql.DB,
+	expected bool,
+) {
+	t.Helper()
+
+	var columnCount int
+	if err := database.QueryRowContext(ctx, `
+SELECT count(*)
+FROM information_schema.columns
+WHERE table_schema = 'tutorhub'
+  AND table_name = 'outbox_events'
+  AND column_name IN (
+      'lease_owner',
+      'lease_token',
+      'leased_at',
+      'leased_until',
+      'dead_lettered_at'
+  )`).Scan(&columnCount); err != nil {
+		t.Fatalf("inspect outbox worker columns: %v", err)
+	}
+	var constraintCount int
+	if err := database.QueryRowContext(ctx, `
+SELECT count(*)
+FROM pg_constraint constraint_definition
+JOIN pg_class table_definition
+  ON table_definition.oid = constraint_definition.conrelid
+JOIN pg_namespace schema_definition
+  ON schema_definition.oid = table_definition.relnamespace
+WHERE schema_definition.nspname = 'tutorhub'
+  AND table_definition.relname = 'outbox_events'
+  AND constraint_definition.conname IN (
+      'outbox_lease_token_non_negative',
+      'outbox_lease_state_valid',
+      'outbox_terminal_state_exclusive',
+      'outbox_terminal_has_no_lease',
+      'outbox_last_error_code_valid',
+      'outbox_dead_letter_state_valid'
+  )`).Scan(&constraintCount); err != nil {
+		t.Fatalf("inspect outbox worker constraints: %v", err)
+	}
+
+	var readyClaim, expiredLeaseClaim, pendingAge, deadLettered, legacyPending sql.NullString
+	if err := database.QueryRowContext(ctx, `
+SELECT to_regclass('tutorhub.outbox_ready_claim_idx'),
+       to_regclass('tutorhub.outbox_expired_lease_claim_idx'),
+       to_regclass('tutorhub.outbox_pending_age_idx'),
+       to_regclass('tutorhub.outbox_dead_lettered_idx'),
+       to_regclass('tutorhub.outbox_pending_idx')`).Scan(
+		&readyClaim,
+		&expiredLeaseClaim,
+		&pendingAge,
+		&deadLettered,
+		&legacyPending,
+	); err != nil {
+		t.Fatalf("inspect outbox worker indexes: %v", err)
+	}
+
+	if expected {
+		if columnCount != 5 || constraintCount != 6 || !readyClaim.Valid || !expiredLeaseClaim.Valid ||
+			!pendingAge.Valid || !deadLettered.Valid || legacyPending.Valid {
+			t.Fatalf(
+				"unexpected migrated outbox schema: columns=%d constraints=%d ready=%t expired=%t age=%t dead=%t legacy=%t",
+				columnCount,
+				constraintCount,
+				readyClaim.Valid,
+				expiredLeaseClaim.Valid,
+				pendingAge.Valid,
+				deadLettered.Valid,
+				legacyPending.Valid,
+			)
+		}
+	} else if columnCount != 0 || constraintCount != 0 || readyClaim.Valid || expiredLeaseClaim.Valid ||
+		pendingAge.Valid || deadLettered.Valid || !legacyPending.Valid {
+		t.Fatalf(
+			"unexpected rolled-back outbox schema: columns=%d constraints=%d ready=%t expired=%t age=%t dead=%t legacy=%t",
+			columnCount,
+			constraintCount,
+			readyClaim.Valid,
+			expiredLeaseClaim.Valid,
+			pendingAge.Valid,
+			deadLettered.Valid,
+			legacyPending.Valid,
+		)
+	}
+
+	var tenantNullable string
+	if err := database.QueryRowContext(ctx, `
+SELECT is_nullable
+FROM information_schema.columns
+WHERE table_schema = 'tutorhub'
+  AND table_name = 'outbox_events'
+  AND column_name = 'tenant_id'`).Scan(&tenantNullable); err != nil {
+		t.Fatalf("inspect outbox tenant nullability: %v", err)
+	}
+	if tenantNullable != "YES" {
+		t.Fatalf("outbox tenant_id must remain nullable, got %q", tenantNullable)
+	}
+}
+
+func insertLegacyOutboxError(t *testing.T, ctx context.Context, database *sql.DB) string {
+	t.Helper()
+
+	var eventID string
+	if err := database.QueryRowContext(ctx, `
+INSERT INTO tutorhub.outbox_events (
+    aggregate_type,
+    aggregate_id,
+    event_type,
+    payload,
+    attempts,
+    last_error
+)
+VALUES (
+    'migration_probe',
+    gen_random_uuid(),
+    'migration.legacy_error.v1',
+    '{}'::jsonb,
+    1,
+    'legacy free-form error that must not survive migration'
+)
+RETURNING id::text`).Scan(&eventID); err != nil {
+		t.Fatalf("insert legacy outbox error fixture: %v", err)
+	}
+	return eventID
+}
+
+func assertLegacyOutboxErrorRedacted(
+	t *testing.T,
+	ctx context.Context,
+	database *sql.DB,
+	eventID string,
+) {
+	t.Helper()
+
+	var lastError string
+	if err := database.QueryRowContext(ctx, `
+SELECT last_error
+FROM tutorhub.outbox_events
+WHERE id = $1::uuid`, eventID).Scan(&lastError); err != nil {
+		t.Fatalf("read migrated legacy outbox error: %v", err)
+	}
+	if lastError != "legacy_error_redacted" {
+		t.Fatalf("legacy outbox error was not redacted: %q", lastError)
+	}
+}
+
+func assertOutboxWriterCompatibility(t *testing.T, ctx context.Context, database *sql.DB) {
+	t.Helper()
+
+	transaction, err := database.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatalf("begin outbox compatibility transaction: %v", err)
+	}
+	defer transaction.Rollback()
+
+	var tenantID, leaseOwner, leasedAt, leasedUntil, deadLetteredAt sql.NullString
+	var leaseToken int64
+	if err := transaction.QueryRowContext(ctx, `
+INSERT INTO tutorhub.outbox_events (
+    aggregate_type,
+    aggregate_id,
+    event_type,
+    payload
+)
+VALUES ('migration_probe', gen_random_uuid(), 'migration.probe.v1', '{}'::jsonb)
+RETURNING tenant_id::text,
+          lease_owner::text,
+          lease_token,
+          leased_at::text,
+          leased_until::text,
+          dead_lettered_at::text`).Scan(
+		&tenantID,
+		&leaseOwner,
+		&leaseToken,
+		&leasedAt,
+		&leasedUntil,
+		&deadLetteredAt,
+	); err != nil {
+		t.Fatalf("insert outbox event through the pre-worker writer shape: %v", err)
+	}
+	if tenantID.Valid || leaseOwner.Valid || leaseToken != 0 || leasedAt.Valid ||
+		leasedUntil.Valid || deadLetteredAt.Valid {
+		t.Fatalf(
+			"unexpected new outbox defaults: tenant=%v owner=%v token=%d leased_at=%v leased_until=%v dead=%v",
+			tenantID,
+			leaseOwner,
+			leaseToken,
+			leasedAt,
+			leasedUntil,
+			deadLetteredAt,
+		)
+	}
 }
 
 func assertClassSessionTable(t *testing.T, ctx context.Context, database *sql.DB, expected bool) {

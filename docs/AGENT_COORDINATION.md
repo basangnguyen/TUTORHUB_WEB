@@ -88,7 +88,8 @@ live; rollback bằng specific commit giữ cấu hình hiện tại là bằng 
 | P3-01 Session scheduling và timezone | DONE        | One-time session staging acceptance đạt       |
 | P3-CAL-02 Email/ICS + ADR-0020       | TODO        | AWS SES target, RSVP, ICS, deliverability     |
 | P3-02D Native Availability Poll      | TODO        | Native poll, secure sharing, Study Meeting    |
-| P3-02A/B/C, P3-03 đến P3-14          | TODO        | Theo dependency trong backlog                 |
+| P3-03 PostgreSQL leased worker       | VERIFY      | P3-03A đạt; P3-03B durable/staging còn mở     |
+| P3-02A/B/C, P3-04 đến P3-14          | TODO        | Theo dependency trong backlog                 |
 
 Nguồn thực thi: `docs/PHASE_3_BACKLOG.md`. Trước khi code calendar phải đọc
 `docs/CALENDAR_PRODUCT_TECHNICAL_DESIGN.md` và ADR-0017; P3-02B recurrence phải chờ
@@ -99,8 +100,9 @@ SES sandbox; production vẫn cần domain/DNS, SPF/DKIM/DMARC và deliverabilit
 P3-02D tuân ADR-0021 và chỉ bắt đầu sau calendar conflict/participant foundation
 P3-02B/C. Poll là module native của TutorHub; không iframe, scrape, fork hoặc phụ thuộc
 runtime When2meet.
-Mọi notification/email/ICS/reminder/message/file side effect phải chờ worker foundation
-P3-03 theo ADR-0018. P3-01 không gồm recurrence, calendar tổng hợp, email, reminder
+Mọi side effect tới end user phải chờ P3-03B theo ADR-0018. P3-04 được phép triển khai
+handler đầu tiên sau registration/feature gate mặc định tắt để làm controlled canary;
+không được coi đó là runtime activation. P3-01 không gồm recurrence, calendar tổng hợp, email, reminder
 hoặc media lifecycle.
 P3-01 đã `DONE` ngày 2026-07-24: Neon `14 false`, runtime grants tối thiểu,
 Render/Cloudflare deployment/public probes và browser acceptance Teacher
@@ -124,7 +126,13 @@ Sau khi P3-CAL-01 và P3-01 cùng đạt gate, P3-CAL-02 có thể chạy trư�
 ADR và test renderer/provider sandbox cô lập; không nối Core API/outbox hoặc gửi business
 email tới end user. SES sandbox chỉ được dùng với identity thử nghiệm do owner kiểm soát
 và đã verify. Đường gửi runtime chỉ nằm ở P3-05A/P3-05B sau khi P3-03 đạt gate.
-Task implementation tiếp theo là P3-03.
+P3-03A repository/runtime foundation đã đạt `VERIFY`: migration `000015`, worker process,
+lease/fencing/retry/dead-letter, startup ACL probe, CI integration và runbook đã có.
+Không chuyển umbrella P3-03 sang `DONE` hoặc bật end-user side effect trước khi P3-03B
+staging migration/grants, durable host không spin-down và crash/reclaim acceptance đạt.
+Trong khi chờ owner duyệt hạ tầng, task implementation tiếp theo có thể là P3-CAL-02,
+P3-02A hoặc P3-04 controlled-canary sau gate mặc định tắt
+theo rollout gate.
 
 ## 6. Hạ tầng staging đã chốt
 

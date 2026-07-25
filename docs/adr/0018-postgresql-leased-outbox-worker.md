@@ -37,9 +37,11 @@ phải chạy nhiều replica an toàn, phục hồi sau crash và xử lý pois
 7. Graceful shutdown ngừng nhận lease mới, chờ handler đang chạy trong deadline và
    không đánh dấu success nếu handler chưa hoàn tất. Lease hết hạn được process khác
    reclaim.
-8. Worker dùng database role riêng có `SELECT/UPDATE` tối thiểu trên outbox; API runtime
-   chỉ cần `INSERT`. Migration không ép `tenant_id` thành `NOT NULL` vì identity/system
-   event hiện hữu có thể là global và phải được xử lý bằng event context an toàn.
+8. Worker dùng database LOGIN role riêng, đăng nhập trực tiếp, không có membership/owner/
+   DDL hay quyền trên bảng nghiệp vụ khác; chỉ có `SELECT` và UPDATE đúng allowlist cột
+   outbox. API runtime chỉ cần INSERT đúng allowlist cột. Migration không ép `tenant_id`
+   thành `NOT NULL` vì identity/system event hiện hữu có thể là global và phải được xử lý
+   bằng event context an toàn.
 9. Metrics dùng label bounded `event_type`, `handler`, `outcome`; có counters cho claim,
    success, retry, dead-letter và gauges/age cho backlog. Correlation dùng request/event
    ID, không dùng PII làm label.
@@ -51,6 +53,13 @@ phải chạy nhiều replica an toàn, phục hồi sau crash và xử lý pois
 12. Provider deployment/feasibility được xác minh trong P3-03. Render Free web service
     có spin-down không được xem là durable worker. ADR này không tuyên bố
     Render hiện đã chạy worker và không thêm provider/library mới ở P3-00.
+13. P3-03 có hai gate: repository/runtime foundation đạt `VERIFY`, sau đó durable staging
+    acceptance mới cho phép `DONE`. Sau gate repository, P3-04 được phép triển khai handler
+    đầu tiên sau registration/feature gate mặc định tắt để làm controlled canary; không bật
+    side effect tới end user trước khi durable acceptance đạt.
+14. Rollback qua version 15 phải preflight trước khi migration metadata đổi. Bất kỳ retained
+    lease state hoặc dead-letter nào đều chặn rollback và phải giữ version `15 false`; không
+    cung cấp lệnh force/repair tự động để hợp thức hóa schema không khớp lịch sử migration.
 
 ## Hệ quả
 

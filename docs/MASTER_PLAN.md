@@ -5,13 +5,13 @@
 | Thuộc tính            | Giá trị                                                                                      |
 | --------------------- | -------------------------------------------------------------------------------------------- |
 | Phiên bản tài liệu    | 2.2                                                                                          |
-| Cập nhật              | 2026-07-24                                                                                   |
+| Cập nhật              | 2026-07-25                                                                                   |
 | Phạm vi ưu tiên       | Web application                                                                              |
 | Thư mục phát triển    | `D:\TutorHub_V2`                                                                             |
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
 | Phase hiện tại        | Phase 3 - Daily learning workspace                                                           |
-| Trạng thái gần nhất   | P3-CAL-01/ADR-0019 và P3-01 DONE; task hiện tại P3-03                                        |
+| Trạng thái gần nhất   | P3-03A repo VERIFY; P3-03B durable/staging còn mở, P3-CAL-01/P3-01 DONE                      |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 
@@ -1330,9 +1330,10 @@ sandbox; production vẫn chờ domain/DNS và SPF/DKIM/DMARC. Thiết kế chi 
 `docs/CALENDAR_PRODUCT_TECHNICAL_DESIGN.md`. P3-01 course session scheduling/timezone
 đã `DONE` sau implementation/test local, migration/grants/deploy/public probes và browser
 acceptance Teacher/Student/IDOR trên staging. ADR-0017 chốt civil time/DST; ADR-0018 chốt
-worker production shape trước các consumer side effect. P3-03 vì vậy là task hiện tại,
-phải được triển khai ngay sau P3-01, không để tới
-sau email/notification consumer. ADR-0021 đã chốt Native Availability Poll, secure
+worker production shape trước các consumer side effect. P3-03A repository/runtime
+foundation đã đạt `VERIFY`; P3-03B durable-host/staging acceptance còn mở và phải đóng
+trước end-user activation. P3-04 chỉ được triển khai handler controlled-canary sau gate
+mặc định tắt. ADR-0021 đã chốt Native Availability Poll, secure
 sharing, member-owned Study Meeting và permission boundary cho P3-02D; quyết định này
 không cho phép P3-02D bypass P3-02B/C hoặc P3-03.
 
@@ -1835,7 +1836,7 @@ Một tính năng chỉ được đánh dấu hoàn thành khi:
 
 ## 36. Việc cần làm ngay
 
-Thứ tự hiện tại, cập nhật ngày 2026-07-24:
+Thứ tự hiện tại, cập nhật ngày 2026-07-25:
 
 1. Phase 1 đã hoàn thành; biên bản nằm tại `docs/PHASE_1_COMPLETION.md`.
 2. Phase 2/P2-00 đến P2-12 đã hoàn thành; biên bản exit gate được sign-off ngày 2026-07-22.
@@ -1851,7 +1852,9 @@ Thứ tự hiện tại, cập nhật ngày 2026-07-24:
 7. P3-01 đã `DONE`: implementation/test local, Neon `14 false`, runtime grants, deploy,
    public probes và browser acceptance Teacher/Student/IDOR trên staging đều đạt. Không
    gọi lượt browser thủ công là Playwright staging.
-8. Triển khai P3-03 durable worker ngay bây giờ và trước mọi consumer side effect.
+8. P3-03A repository/runtime foundation đã đạt `VERIFY`; hoàn tất P3-03B migration/grants,
+   durable host không spin-down và staging crash/reclaim acceptance trước mọi side effect
+   tới end user. P3-04 handler canary có thể được code sau gate mặc định tắt.
 9. Sau khi P3-CAL-01 và P3-01 cùng đạt gate, thực hiện P3-CAL-02/ADR-0020 trong sandbox
    cô lập để xác minh AWS SES target trước participant/email/ICS provider implementation;
    pre-domain chỉ dùng owner-controlled verified identities, runtime delivery chờ P3-03.
@@ -1912,7 +1915,10 @@ Thứ tự hiện tại, cập nhật ngày 2026-07-24:
 ADR-0018 cùng ADR-0021. Phase 2/P2-12 đã hoàn thành;
 P3-CAL-00/P3-CAL-00B/P3-CAL-00C, P3-CAL-01 và P3-01 đã `DONE`. ADR-0019 là
 `Accepted with explicit manual NVDA gate`; marker này phải được đóng trước khi
-renderer đi vào route production. Task hiện tại là P3-03 durable PostgreSQL worker.
+renderer đi vào route production. P3-03A repository/runtime foundation đã đạt `VERIFY`;
+task hiện tại là P3-03B durable-host/staging migration-grant/crash-reclaim acceptance.
+Trong khi chờ owner duyệt hạ tầng trả phí, P3-CAL-02, P3-02A hoặc P3-04 controlled-canary
+sau gate mặc định tắt là lát cắt độc lập kế tiếp.
 P3-02D/ADR-0021 mới là
 architecture/backlog, chưa có runtime. AWS SES đã được chọn làm provider target nhưng
 P3-CAL-02/ADR-0020 vẫn là gate email/ICS chưa triển khai; chưa có domain hoặc production

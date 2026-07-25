@@ -83,7 +83,7 @@ Kết luận ngày 2026-07-23:
 - **Được phép bắt đầu:** P3-CAL-01 technical spike/ADR-0019 và P3-01 one-time
   ClassSession contract-first.
 - **Chưa được code production:** recurrence trước khi ADR-0019 `Accepted`;
-  participant/RSVP/email trước ADR-0020; mọi consumer side effect trước P3-03 worker.
+  participant/RSVP/email trước ADR-0020; mọi consumer runtime activation trước P3-03B.
 - **Chưa được gọi production-ready:** SES sandbox dùng personal verified identities,
   Calendar UI chưa đạt cross-client/a11y/performance gate hoặc chưa có sending domain
   cùng SPF/DKIM/DMARC.
@@ -2595,7 +2595,8 @@ API/white-label/SLA của dịch vụ và không dùng nó làm runtime/source d
    recurrence/theme/a11y/performance/license spike; chỉ pin dependency khi gate đạt.
 3. Triển khai P3-01 one-time ClassSession contract-first. P3-CAL-01 và P3-01 có thể tiến
    song song, nhưng P3-02A chờ cả hai hoàn tất.
-4. Triển khai P3-03 durable worker ngay sau P3-01 và trước mọi consumer side effect.
+4. Triển khai P3-03A foundation sau P3-01; đóng P3-03B durable acceptance trước mọi
+   consumer side effect tới end user. P3-04 handler canary phải mặc định tắt.
 5. Triển khai P3-02A Calendar shell/read projection sau P3-01 và ADR-0019; không chờ
    email provider.
 6. Chạy P3-CAL-02/ADR-0020 trong sandbox cô lập sau khi **cả P3-CAL-01 và P3-01**

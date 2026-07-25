@@ -16,9 +16,11 @@ import (
 )
 
 const (
-	migrationsSchema = "public"
-	migrationsTable  = "tutorhub_schema_migrations"
-	statementTimeout = 2 * time.Minute
+	migrationsSchema             = "public"
+	migrationsTable              = "tutorhub_schema_migrations"
+	statementTimeout             = 2 * time.Minute
+	downPreflightTimeout         = 10 * time.Second
+	outboxWorkerMigrationVersion = uint(15)
 )
 
 type Version struct {
@@ -26,8 +28,14 @@ type Version struct {
 	Dirty  bool
 }
 
+var (
+	ErrOutboxWorkerRollbackBlocked = errors.New(
+		"outbox worker rollback is blocked by retained lease or dead-letter state",
+	)
+)
+
 func Up(ctx context.Context, databaseURL string) error {
-	return execute(ctx, databaseURL, func(instance *migrate.Migrate) error {
+	return execute(ctx, databaseURL, func(instance *migrate.Migrate, _ *sql.DB) error {
 		return instance.Up()
 	})
 }
@@ -37,14 +45,24 @@ func Down(ctx context.Context, databaseURL string, steps int) error {
 		return fmt.Errorf("migration down steps must be greater than zero")
 	}
 
-	return execute(ctx, databaseURL, func(instance *migrate.Migrate) error {
+	return execute(ctx, databaseURL, func(instance *migrate.Migrate, database *sql.DB) error {
+		number, _, err := instance.Version()
+		if err != nil && !errors.Is(err, migrate.ErrNilVersion) {
+			return err
+		}
+		if err == nil && number >= outboxWorkerMigrationVersion &&
+			int64(number)-int64(steps) < int64(outboxWorkerMigrationVersion) {
+			if err := preflightOutboxWorkerDown(ctx, database); err != nil {
+				return err
+			}
+		}
 		return instance.Steps(-steps)
 	})
 }
 
 func CurrentVersion(ctx context.Context, databaseURL string) (Version, error) {
 	var result Version
-	err := execute(ctx, databaseURL, func(instance *migrate.Migrate) error {
+	err := execute(ctx, databaseURL, func(instance *migrate.Migrate, _ *sql.DB) error {
 		number, dirty, err := instance.Version()
 		if errors.Is(err, migrate.ErrNilVersion) {
 			return nil
@@ -63,7 +81,7 @@ func CurrentVersion(ctx context.Context, databaseURL string) (Version, error) {
 func execute(
 	ctx context.Context,
 	databaseURL string,
-	operation func(*migrate.Migrate) error,
+	operation func(*migrate.Migrate, *sql.DB) error,
 ) error {
 	if strings.TrimSpace(databaseURL) == "" {
 		return fmt.Errorf("DATABASE_MIGRATION_URL is required")
@@ -112,7 +130,7 @@ func execute(
 		return fmt.Errorf("create migration runner: %w", err)
 	}
 
-	operationErr := operation(instance)
+	operationErr := operation(instance, database)
 	if errors.Is(operationErr, migrate.ErrNoChange) {
 		operationErr = nil
 	}
@@ -122,5 +140,25 @@ func execute(
 		return fmt.Errorf("run database migration: %w", err)
 	}
 
+	return nil
+}
+
+func preflightOutboxWorkerDown(ctx context.Context, database *sql.DB) error {
+	preflightContext, cancel := context.WithTimeout(ctx, downPreflightTimeout)
+	defer cancel()
+
+	var blocked bool
+	if err := database.QueryRowContext(preflightContext, `
+SELECT EXISTS (
+    SELECT 1
+    FROM tutorhub.outbox_events
+    WHERE lease_owner IS NOT NULL
+       OR dead_lettered_at IS NOT NULL
+)`).Scan(&blocked); err != nil {
+		return fmt.Errorf("preflight outbox worker rollback: %w", err)
+	}
+	if blocked {
+		return ErrOutboxWorkerRollbackBlocked
+	}
 	return nil
 }

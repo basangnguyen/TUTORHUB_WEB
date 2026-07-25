@@ -6,15 +6,16 @@
 
 | Thuộc tính          | Trạng thái                                                                            |
 | ------------------- | ------------------------------------------------------------------------------------- |
-| Ngày cập nhật       | 2026-07-24                                                                            |
+| Ngày cập nhật       | 2026-07-25                                                                            |
 | Repository          | `https://github.com/basangnguyen/TUTORHUB_WEB`                                        |
 | Nhánh làm việc      | `main`                                                                                |
 | Quy trình           | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
 | Phase hoàn thành    | Phase 0, Phase 1, Phase 2                                                             |
 | Phase hiện tại      | Phase 3 - Daily learning workspace                                                   |
-| Task vừa hoàn thành | P3-CAL-01 decision spike/ADR-0019 và P3-01 đều `DONE`                                 |
-| Task hiện tại       | P3-03 PostgreSQL outbox worker production shape                                      |
-| Task tiếp theo      | P3-CAL-02 sandbox/ADR-0020 và P3-02A theo dependency gate                             |
+| Task `DONE` gần nhất | P3-CAL-01 và P3-01                                                                  |
+| Mốc repository mới | P3-03A repository/runtime foundation đạt `VERIFY`                                    |
+| Task hiện tại       | P3-03B durable-host, staging migration/grants và crash/reclaim acceptance            |
+| Task tiếp theo      | P3-CAL-02, P3-02A hoặc P3-04 controlled-canary implementation                       |
 
 ## Kiến trúc đang chạy
 
@@ -353,6 +354,19 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
     count=5 đạt `706.580 ns/op` UTC, `674.220 ns/op` Ho Chi Minh và `984.380 ns/op`
     New York. Adapter vẫn ở `internal/spikes`; P3-02B phải lặp lại integration/load gate
     khi đưa vào production module.
+18. P3-03A repository/runtime foundation đã đạt `VERIFY`: migration `000015` bổ sung lease,
+    fencing token và retained dead-letter; `cmd/worker` dùng credential riêng, exact
+    typed registry, bounded claim concurrency, retry/backoff, graceful shutdown và
+    structured heartbeat/metric. Startup ACL probe fail-closed nếu worker role không có
+    đúng direct-LOGIN exact ACL, có membership/ownership/DDL/quyền bảng nghiệp vụ khác,
+    hoặc có INSERT/DELETE/TRUNCATE/REFERENCES/TRIGGER dư thừa.
+    Unit test, integration compile gate, duplicate/poison/shutdown PostgreSQL fixtures,
+    CI PostgreSQL step, OCI image chung và `docs/P3_03_OUTBOX_WORKER_RUNBOOK.md` đã có.
+    Registry production rỗng có chủ ý và vẫn phát heartbeat định kỳ. P3-04 được phép
+    triển khai handler đầu tiên sau gate mặc định tắt để làm controlled canary, nhưng
+    không bật side effect tới end user trước P3-03B. Máy local không có Docker/psql hoặc
+    migration URL nên PostgreSQL runtime suite phải chạy ở CI; migration/grants, paid
+    durable host và staging crash/reclaim vẫn là gate bên ngoài trước `DONE`.
 
 ## Rủi ro đã biết
 
@@ -380,10 +394,13 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
   differencing/Sybil; anonymous link không thể hứa one-human-one-response.
 - Quyền tạo instant study room đã được chốt làm authorization target, nhưng LiveKit
   token, lobby, moderation và media lifecycle vẫn thuộc Phase 4.
-- Outbox hiện mới là writer-side queue, chưa có lease/fencing/dead-letter hoặc
-  `cmd/worker`. P3-03 phải hoàn thành trước notification, email/ICS, reminder hoặc
-  message/file processing side effect; Render Free web service không được xem là
-  durable worker. P3-CAL-02 trước đó chỉ được chạy renderer/provider sandbox cô lập.
+- P3-03A mới ở `VERIFY`: lease/fencing/dead-letter, worker binary, ACL probe và test đã
+  có trong repository nhưng chưa chạy như durable service trên staging. Render Free web
+  service không được xem là durable worker; owner chưa duyệt chi phí Background Worker.
+  Không bật notification, email/ICS, reminder hoặc message/file side effect tới end user
+  trước khi migration/grants, non-spin-down host và crash/reclaim acceptance đạt. P3-04
+  chỉ được code handler controlled-canary sau gate mặc định tắt. P3-CAL-02 chỉ
+  được chạy renderer/provider sandbox cô lập trong lúc gate này còn mở.
 
 - Render Free spin down khi không hoạt động và có thể cold start trên 50 giây;
   chỉ chấp nhận cho staging/private alpha.
