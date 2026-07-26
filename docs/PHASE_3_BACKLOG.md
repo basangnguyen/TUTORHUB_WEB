@@ -86,7 +86,7 @@ P3-03B đạt; hai gate P3-04 tiếp tục giữ `false` cho tới acceptance.
 | P3-CAL-00C | Final implementation-readiness review          | P3-CAL-00B                      | DONE       |
 | P3-CAL-01  | Renderer/recurrence/theme spike + ADR-0019     | P3-CAL-00C                      | DONE       |
 | P3-01      | Course session scheduling và timezone          | P3-00, P3-CAL-00C               | DONE       |
-| P3-CAL-02  | Invitation/RSVP/iCalendar/AWS SES + ADR-0020   | P3-CAL-01, P3-01                | TODO       |
+| P3-CAL-02  | Invitation/RSVP/iCalendar/AWS SES + ADR-0020   | P3-CAL-01, P3-01                | VERIFY     |
 | P3-02A     | Professional Calendar shell/read projection    | P3-01, P3-CAL-01                | DONE       |
 | P3-02B     | Recurrence + class conflict                    | P3-02A, ADR-0019                | TODO       |
 | P3-02C     | Working hours/attendee/free-busy/RSVP          | P3-02A, P3-CAL-02               | TODO       |
@@ -336,46 +336,48 @@ Comparator parity-config v6 full run `4 passed (17.5s)`, JS gzip `139.00 KiB`, h
 `404 > 400 ms`. Recurrence hard cap là query window `366 ngày`, series horizon
 `730 ngày`, `512 occurrence/series`, `2.000 occurrence/request` và deadline `250 ms`;
 COUNT occurrence-last/YEARLY golden đạt. Axe chỉ có waiver upstream exact
-`empty-table-header`, impact minor, một node/target/HTML/scope; critical/serious bằng 0. ADR-0019 được chấp nhận ở cấp decision spike, nhưng manual NVDA marker vẫn chặn
-production route.
+`empty-table-header`, impact minor, một node/target/HTML/scope; critical/serious bằng 0.
+ADR-0019 được chấp nhận ở cấp decision spike; manual NVDA gate đã PASS và production
+route đã được nghiệm thu trong P3-02A.
 
 ### P3-CAL-02 invitation/RSVP/iCalendar/provider gate
 
-- [ ] Mở ADR-0020, ghi AWS SES là provider target owner đã chọn và chốt organizer,
+- [x] Mở ADR-0020, ghi AWS SES là provider target owner đã chọn và chốt organizer,
       roster snapshot, required/optional/external attendee, guest permission cùng RSVP
       state/source of truth.
-- [ ] Chốt RFC 5545/5546/6047 subset: globally unique stable UID, monotonic `SEQUENCE`,
+- [x] Chốt RFC 5545/5546/6047 subset: globally unique stable UID, monotonic `SEQUENCE`,
       required `PRODID`/`VERSION:2.0`, `CALSCALE:GREGORIAN`, `TZID`,
       `RRULE/RECURRENCE-ID/EXDATE`, `METHOD:REQUEST/CANCEL`.
-- [ ] Ở runtime, email/ICS chỉ phát sau commit qua ADR-0018 worker; effect dedupe theo
+- [x] Ở runtime, email/ICS chỉ phát sau commit qua ADR-0018 worker; effect dedupe theo
       invitation/recipient/effect/sequence/channel. Renderer/provider spike bên dưới chỉ
       dùng sandbox/sink cô lập và không phải đường gửi runtime.
 - [ ] Xác minh AWS SES qua provider adapter bằng cost/quota/region/idempotency,
       event-transport và suppression evidence; phải ghi rõ không có caller idempotency
       token, `accepted` không phải inbox/delivery, `outcome_unknown`/grace/reconcile và
-      external duplicate SLO; domain code không import AWS SDK trực tiếp.
-- [ ] Sending domain, Easy DKIM, SPF/DMARC alignment và custom MAIL FROM decision được
+      external duplicate SLO; domain code không import AWS SDK trực tiếp. Adapter local,
+      error mapping và SDK no-retry đã PASS; account/quota/topology live vẫn `BLOCKED`.
+- [x] Sending domain, Easy DKIM, SPF/DMARC alignment và custom MAIL FROM decision được
       chốt; `delivered_to_recipient_server` không được hiển thị là “đã vào inbox”.
-- [ ] Chọn full durable path Configuration Set -> EventBridge -> SQS/DLQ -> worker ->
+- [x] Chọn full durable path Configuration Set -> EventBridge -> SQS/DLQ -> worker ->
       PostgreSQL inbox, hoặc SNS HTTPS -> verified ingress -> PostgreSQL inbox; khóa
       signature version, dedupe/out-of-order key, bounce/complaint/suppression, secret
       rotation và incident runbook.
-- [ ] Trước khi có domain, chỉ test sandbox bằng personal sender/recipient email identity
+- [x] Trước khi có domain, chỉ test sandbox bằng personal sender/recipient email identity
       đã verify. Không coi đây là production readiness hoặc nới exit gate domain/DNS.
-- [ ] External RSVP capability có scope/expiry/revoke/rate limit, chỉ lưu token hash.
-- [ ] CTA TutorHub là RSVP source mặc định và ICS dùng `RSVP=FALSE`; chỉ bật
+- [x] External RSVP capability có scope/expiry/revoke/rate limit, chỉ lưu token hash.
+- [x] CTA TutorHub là RSVP source mặc định và ICS dùng `RSVP=FALSE`; chỉ bật
       `RSVP=TRUE`/inbound `METHOD:REPLY` nếu ADR bổ sung parser và security gate.
-- [ ] Audience diff added/removed/unchanged/role-change, organizer transfer/disable/
+- [x] Audience diff added/removed/unchanged/role-change, organizer transfer/disable/
       archive và RSVP retain/reset policy được chốt.
-- [ ] Deterministic MIME/ICS có đúng một calendar part authoritative; đạt CRLF,
+- [x] Deterministic MIME/ICS có đúng một calendar part authoritative; đạt CRLF,
       75-octet folding, UTF-8/escaping/encoding, required VCALENDAR fields,
       MIME/VCALENDAR METHOD match và canonical retry bytes; tracking off cho capability.
-- [ ] Invitation/update/cancel qua SES v2 `SendEmail` bắt buộc dùng `Content.Raw`/
+- [x] Invitation/update/cancel qua SES v2 `SendEmail` bắt buộc dùng `Content.Raw`/
       `RawMessage` từ canonical MIME bytes đã persist; không dùng `Simple` hoặc `Template`
       cho flow có iCalendar.
 - [ ] Gmail/Google Calendar, Outlook và Apple Calendar spike đạt create/update/cancel;
       không thêm production dependency trước khi ADR-0020 được chấp nhận.
-- [ ] Spike dùng deterministic fixture và provider sandbox/sink cô lập; không nối Core API,
+- [x] Spike dùng deterministic fixture và provider sandbox/sink cô lập; không nối Core API,
       không consume outbox và không gửi business email tới end user. SES sandbox chỉ
       dùng owner-controlled verified identities. Runtime delivery vẫn phải chờ
       P3-03/P3-05A.
@@ -828,8 +830,10 @@ là dependency/ưu tiên, không phải cam kết mỗi hàng đúng một tuầ
 4. P3-03A repository implementation đã đạt `VERIFY`; hoàn tất P3-03B durable-host,
    staging migration/grants và crash/reclaim gate trước mọi side effect tới end user.
    P3-04 chỉ được triển khai handler canary sau gate mặc định tắt để đóng acceptance.
-5. P3-CAL-02/ADR-0020 chỉ spike sandbox cô lập vì P3-CAL-01 và P3-01 đã đạt gate;
-   pre-domain chỉ dùng verified-email sandbox và chưa bật business delivery.
+5. P3-CAL-02/ADR-0020 đã đạt local `VERIFY`: contract, deterministic renderer,
+   7 golden lineage, sink và SES v2 Raw adapter/no-retry đều xanh trong package spike
+   cô lập. ADR vẫn `Proposed`; SES sandbox live, EventBridge/SQS/DLQ, sending domain/DNS
+   và Gmail/Outlook/Apple matrix còn `BLOCKED/VERIFY`, chưa bật business delivery.
 6. P3-02A đã `DONE`; tiếp tục P3-02B rồi P3-02C theo gate. Teacher conflict chỉ bật khi
    assignment/attendee authoritative đã có.
 7. P3-05A không chờ poll; P3-02D/P3-05B bổ sung poll/StudyMeeting sau core session.

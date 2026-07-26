@@ -86,7 +86,7 @@ live; rollback bằng specific commit giữ cấu hình hiện tại là bằng 
 | P3-CAL-00C Calendar readiness review | DONE        | Gate/dependency/contract đã được harden       |
 | P3-CAL-01 Spike + ADR-0019           | DONE        | V7 được chấp nhận; manual NVDA gate PASS      |
 | P3-01 Session scheduling và timezone | DONE        | One-time session staging acceptance đạt       |
-| P3-CAL-02 Email/ICS + ADR-0020       | TODO        | AWS SES target, RSVP, ICS, deliverability     |
+| P3-CAL-02 Email/ICS + ADR-0020       | VERIFY      | Local renderer/sink/SES adapter; live gates mở |
 | P3-02D Native Availability Poll      | TODO        | Native poll, secure sharing, Study Meeting    |
 | P3-03 PostgreSQL leased worker       | VERIFY      | P3-03A đạt; worker role/host/crash gate mở    |
 | P3-04 In-app notification            | VERIFY      | API ACL staging xanh; worker/canary gate mở   |
@@ -96,9 +96,10 @@ live; rollback bằng specific commit giữ cấu hình hiện tại là bằng 
 Nguồn thực thi: `docs/PHASE_3_BACKLOG.md`. Trước khi code calendar phải đọc
 `docs/CALENDAR_PRODUCT_TECHNICAL_DESIGN.md` và ADR-0017; P3-02B recurrence phải chờ
 P3-CAL-01/ADR-0019; invitation/RSVP/iCalendar/AWS SES adapter phải chờ
-P3-CAL-02/ADR-0020. AWS SES mới là provider target do owner chọn, chưa được cấu hình hay
-chấp nhận làm runtime: trước domain chỉ dùng owner-controlled verified identities trong
-SES sandbox; production vẫn cần domain/DNS, SPF/DKIM/DMARC và deliverability gate.
+P3-CAL-02/ADR-0020. Local adapter/renderer contract đã đạt trong spike cô lập; AWS SES
+mới là provider target do owner chọn, chưa được live-configure hay chấp nhận làm runtime:
+trước domain chỉ dùng owner-controlled verified identities trong SES sandbox; production
+vẫn cần domain/DNS, SPF/DKIM/DMARC và deliverability gate.
 P3-02D tuân ADR-0021 và chỉ bắt đầu sau calendar conflict/participant foundation
 P3-02B/C. Poll là module native của TutorHub; không iframe, scrape, fork hoặc phụ thuộc
 runtime When2meet.
@@ -127,14 +128,18 @@ Manual NVDA gate đã PASS. P3-02A đã nối exact FullCalendar Standard v7.0.1
 production cùng drag/resize expected-version, optimistic revert, undo và keyboard Agenda.
 Production-route Playwright 8/8, numeric benchmark 500/1.000/2.000 item, visual
 desktop/tablet/mobile và staging/browser acceptance đều đạt ngày 2026-07-26; P3-02A đã
-`DONE`. Recurrence, participant/RSVP, email/ICS và Availability Poll vẫn thuộc task sau.
+`DONE`. Recurrence, participant/RSVP, runtime email/ICS và Availability Poll vẫn thuộc
+task sau.
 Mọi active authenticated member có thể tạo/quản lý poll và Study Meeting của mình; chỉ
 actor có `session.schedule` mới tạo ClassSession. Full LiveKit token/lobby/moderation/
 room lifecycle vẫn thuộc Phase 4.
 Sau khi P3-CAL-01 và P3-01 cùng đạt gate, P3-CAL-02 có thể chạy trước P3-03 vì chỉ là
 ADR và test renderer/provider sandbox cô lập; không nối Core API/outbox hoặc gửi business
-email tới end user. SES sandbox chỉ được dùng với identity thử nghiệm do owner kiểm soát
-và đã verify. Đường gửi runtime chỉ nằm ở P3-05A/P3-05B sau khi P3-03 đạt gate.
+email tới end user. Local gate đã đạt `VERIFY` ngày 2026-07-26 với deterministic
+audience/iCalendar/MIME, 7 golden lineage, sink và SES v2 Raw adapter/no-retry; ADR-0020
+giữ `Proposed`. SES sandbox chỉ được dùng với identity thử nghiệm do owner kiểm soát và
+đã verify; account/quota/topology/domain/cross-client live evidence còn mở. Đường gửi
+runtime chỉ nằm ở P3-05A/P3-05B sau khi P3-03B và P3-02C đạt gate.
 P3-03A repository/runtime foundation đã đạt `VERIFY`: migration `000015`, worker process,
 lease/fencing/retry/dead-letter, startup ACL probe, CI integration và runbook đã có.
 Không chuyển umbrella P3-03 sang `DONE` hoặc bật end-user side effect trước khi P3-03B
@@ -143,8 +148,8 @@ P3-04 chưa `DONE`: Neon staging đã ở `17 false` và exact API runtime grant
 worker role/worker grants, durable worker và canary duplicate/crash-reclaim chưa được nghiệm
 thu. Khi đổi worker gate phải dừng process và đổi exact notification
 grant cùng lúc; quyền dư/thiếu đều phải làm startup probe fail closed. Trong khi chờ owner
-duyệt hạ tầng, task implementation độc lập tiếp theo là P3-CAL-02/ADR-0020; sau đó
-P3-02B recurrence/conflict theo dependency.
+duyệt hạ tầng, task implementation độc lập tiếp theo là P3-02B recurrence/conflict.
+P3-CAL-02 tiếp tục giữ live SES/domain/interoperability gate song song, không bật runtime.
 
 ## 6. Hạ tầng staging đã chốt
 

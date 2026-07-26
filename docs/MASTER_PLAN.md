@@ -11,7 +11,7 @@
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
 | Phase hiện tại        | Phase 3 - Daily learning workspace                                                           |
-| Trạng thái gần nhất   | P3-02A DONE; P3-03B/P3-04 durable-worker staging gates vẫn mở                               |
+| Trạng thái gần nhất   | P3-CAL-02 local VERIFY; SES/domain/client live gates và P3-03B/P3-04 vẫn mở                 |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 
@@ -1326,11 +1326,13 @@ validate occurrence cuối trong horizon và YEARLY golden đã đạt. Budget
 render/navigation/long-task cho 500/1.000/2.000 item lần lượt là
 `500/900/1.800`, `350/500/800` và `200/300/400 ms`; final v7/v6 summary, bundle và heap nằm
 trong `docs/calendar/P3_CAL_01_SPIKE_EVIDENCE.md`.
-AWS SES đã được owner chọn làm transactional email provider target;
-P3-CAL-02/ADR-0020 sẽ xác minh invitation/RSVP/iCalendar, SES
-account/region/sandbox/quota, adapter, event transport và deliverability trước
-P3-02C/P3-05A. Trước domain chỉ dùng owner-controlled verified identities trong SES
-sandbox; production vẫn chờ domain/DNS và SPF/DKIM/DMARC. Thiết kế chi tiết nằm tại
+AWS SES đã được owner chọn làm transactional email provider target.
+P3-CAL-02 đã đạt local `VERIFY`: ADR-0020 `Proposed`, deterministic audience/iCalendar/
+MIME renderer, 7 golden lineage, isolated sink và SES v2 `Content.Raw` adapter/no-retry
+đều đạt. SES account/region/sandbox/quota, EventBridge/SQS/DLQ/inbox,
+bounce/complaint/suppression, cross-client interoperability và deliverability vẫn là
+live gate trước P3-05A. Trước domain chỉ dùng owner-controlled verified identities trong
+SES sandbox; production vẫn chờ domain/DNS và SPF/DKIM/DMARC. Thiết kế chi tiết nằm tại
 `docs/CALENDAR_PRODUCT_TECHNICAL_DESIGN.md`. P3-01 course session scheduling/timezone
 đã `DONE` sau implementation/test local, migration/grants/deploy/public probes và browser
 acceptance Teacher/Student/IDOR trên staging. ADR-0017 chốt civil time/DST; ADR-0018 chốt
@@ -1790,9 +1792,9 @@ Phải giải quyết bằng spike/ADR đúng phase:
 6. Redis provider và thời điểm thực sự cần.
 7. Whiteboard engine/provider topology.
 8. Virus scanning/transcode runtime.
-9. AWS SES target đã chọn; P3-CAL-02 còn phải chốt account/region/sandbox/quota,
-   production access, sending domain/DNS, adapter/event-ingress/suppression và
-   deliverability.
+9. AWS SES target và local adapter/contract P3-CAL-02 đã chốt ở trạng thái `VERIFY`;
+   account/region/sandbox/quota live, production access, sending domain/DNS,
+   event-ingress/suppression và deliverability còn phải nghiệm thu.
    Mobile push provider ở phase sau.
 10. Initial launch region và data residency.
 11. Browser/device matrix chính thức.
@@ -1864,10 +1866,11 @@ Thứ tự hiện tại, cập nhật ngày 2026-07-26:
    exact notification grants, canary duplicate/reclaim và activation gate chưa nghiệm thu.
 9. P3-02A đã `DONE`: production-route Playwright 8/8, numeric performance,
    visual desktop/tablet/mobile, public probes và browser staging acceptance đều đạt.
-10. Thực hiện P3-CAL-02/ADR-0020 trong sandbox
-   cô lập để xác minh AWS SES target trước participant/email/ICS provider implementation;
-   pre-domain chỉ dùng owner-controlled verified identities, runtime delivery chờ P3-03.
-11. Triển khai P3-02B/P3-02C và P3-05A theo dependency đã khóa; hoàn tất staging
+10. P3-CAL-02/ADR-0020 đã đạt local `VERIFY` trong package spike cô lập; ADR giữ
+    `Proposed` cho tới khi SES sandbox, provider-event topology, cross-client matrix và
+    domain/DNS gate có evidence. Pre-domain chỉ dùng owner-controlled verified identities;
+    runtime delivery chờ P3-03B/P3-02C/P3-05A.
+11. Tiếp tục P3-02B, rồi P3-02C và P3-05A theo dependency đã khóa; hoàn tất staging
     gate P3-04 cùng P3-03B trước activation. Không đưa recurrence, reminder, worker,
     email hoặc calendar tổng hợp vào P3-01.
 12. ADR-0021 đã `Accepted`; triển khai P3-02D sau P3-02B/C và P3-03 rồi P3-05B, không
@@ -1927,12 +1930,13 @@ P3-CAL-00/P3-CAL-00B/P3-CAL-00C, P3-CAL-01 và P3-01 đã `DONE`. ADR-0019 là
 `Accepted; manual NVDA gate PASS`; P3-02A đã `DONE` sau khi exact renderer, numeric
 performance, visual và staging/browser gates đều đạt.
 P3-03A và P3-04 implementation đã đạt `VERIFY`;
-task hạ tầng hiện tại là P3-03B/P3-04 durable-host, staging migration-grant và
-canary crash/reclaim acceptance. Cả
+task hạ tầng hiện tại là P3-03B/P3-04 durable-host và canary crash/reclaim acceptance.
+Cả
 `OUTBOX_ENABLE_IN_APP_NOTIFICATION_CANARY` và
-`FEATURE_CONTROL_ENABLE_IN_APP_NOTIFICATIONS` vẫn mặc định false; trong khi chờ owner
-duyệt hạ tầng trả phí, bước độc lập kế tiếp là P3-CAL-02/ADR-0020; sau đó P3-02B.
+`FEATURE_CONTROL_ENABLE_IN_APP_NOTIFICATIONS` vẫn mặc định false. P3-CAL-02/ADR-0020
+đã đạt local `VERIFY` với renderer/golden/sink/SES adapter cô lập; bước implementation
+độc lập tiếp theo là P3-02B.
 P3-02D/ADR-0021 mới là
 architecture/backlog, chưa có runtime. AWS SES đã được chọn làm provider target nhưng
-P3-CAL-02/ADR-0020 vẫn là gate email/ICS chưa triển khai; chưa có domain hoặc production
-delivery. Master Plan giữ mục tiêu/exit gate, không thay backlog chi tiết.
+P3-CAL-02/ADR-0020 vẫn giữ các gate live email/ICS chưa nghiệm thu; chưa có domain hoặc
+production delivery. Master Plan giữ mục tiêu/exit gate, không thay backlog chi tiết.

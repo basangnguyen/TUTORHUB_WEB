@@ -13,9 +13,9 @@
 | Phase hoàn thành    | Phase 0, Phase 1, Phase 2                                                             |
 | Phase hiện tại      | Phase 3 - Daily learning workspace                                                   |
 | Task `DONE` gần nhất | P3-02A Professional Calendar shell/read projection                                  |
-| Mốc repository mới | Route E2E/performance/visual và staging acceptance của P3-02A đã đạt                 |
-| Task hiện tại       | P3-03B/P3-04 durable worker gate đang chờ hạ tầng không spin-down                    |
-| Task tiếp theo      | P3-CAL-02/ADR-0020 email/ICS/provider spike; sau đó P3-02B recurrence/conflict       |
+| Mốc repository mới | P3-CAL-02 local decision spike đạt deterministic renderer/golden/SES adapter gate    |
+| Task hiện tại       | P3-CAL-02 ở `VERIFY`; các SES/domain/client live gate vẫn mở                         |
+| Task tiếp theo      | P3-02B recurrence/conflict; song song giữ P3-03B/P3-04 durable-host gate             |
 
 ## Kiến trúc đang chạy
 
@@ -431,6 +431,20 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
     staging Admin xác nhận empty-state, Agenda URL state, Preference drawer và Quick Create
     no-class state, không tạo mutation. Biên bản:
     `docs/P3_02A_STAGING_ACCEPTANCE.md`.
+27. P3-CAL-02 đạt local `VERIFY` ngày 2026-07-26. ADR-0020 khóa audience/organizer/RSVP,
+    stable UID + monotonic sequence, RFC 5545/5546/6047 outbound subset, CTA-only
+    `RSVP=FALSE`, one-recipient privacy, deterministic canonical payload, SES ambiguous
+    outcome và đường provider event
+    `Configuration Set -> EventBridge -> SQS/DLQ -> worker -> PostgreSQL inbox`.
+    Package cô lập `internal/spikes/calendarinvitation` có audience diff, bounded
+    iCalendar/VTIMEZONE/MIME renderer, trusted CTA origin/tzdata policy, opaque effect
+    identity, deterministic sink và SES v2 `Content.Raw` adapter pin sender/configuration
+    set với SDK retry tắt. Bảy golden lineage create/update/reschedule/role/override/
+    split/cancel, focused coverage `85,4%/81,0%`, fuzz 10 giây hơn 1,28 triệu lượt,
+    focused/full Core API test và vet đều đạt. Spike không được import vào runtime,
+    không consume outbox và không gửi business email. ADR giữ `Proposed` vì SES sandbox,
+    EventBridge/SQS/DLQ/inbox, bounce/complaint/suppression, sending domain/DNS và
+    Gmail/Outlook/Apple interoperability chưa có live evidence.
 
 ## Rủi ro đã biết
 
@@ -441,12 +455,14 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
   đã PASS. P3-02A shell/read projection đã đạt route/staging gate, nhưng recurrence library
   chưa được import vào production domain và P3-02B vẫn phải đạt contract, authorization,
   integration/E2E cùng staging gate riêng.
-- AWS SES đã được chọn làm provider target nhưng chưa được cấu hình/xác minh và sending
-  domain chưa có. Pre-domain chỉ cho phép owner-controlled verified identities trong
-  SES sandbox; không được coi là production readiness. SPF/DKIM/DMARC, SES event ingress
-  theo topology ADR-0020, bounce/complaint/suppression và cross-client ICS chưa được
-  kiểm thử. Không gửi
-  business email tới end user trước P3-CAL-02/ADR-0020 và P3-03 worker gate.
+- AWS SES đã được chọn làm provider target; local SES v2 Raw adapter, deterministic
+  renderer/sink và error semantics đã đạt trong spike cô lập, nhưng provider account/
+  region/sandbox/quota chưa được live-verify và sending domain chưa có. Pre-domain chỉ
+  cho phép owner-controlled verified identities trong SES sandbox; không được coi là
+  production readiness. SPF/DKIM/DMARC, provider-event topology ADR-0020,
+  bounce/complaint/suppression và cross-client ICS chưa được nghiệm thu. Không gửi
+  business email tới end user trước khi các live gate của ADR-0020, P3-03B, P3-02C và
+  P3-05A đạt.
 - Warm Academic calendar shell, semantic Agenda, FullCalendar renderer và visual
   desktop/tablet/mobile đã được nghiệm thu trong phạm vi P3-02A. Recurrence, participant/
   RSVP, email/ICS và Availability Poll vẫn thuộc P3-02B/C/D, P3-CAL-02 và P3-05A/B;
