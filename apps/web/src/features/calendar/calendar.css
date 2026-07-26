@@ -395,6 +395,13 @@
   margin-top: 0.25rem;
 }
 
+.calendar-agenda-item__actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
 .calendar-agenda-item__actions a {
   align-items: center;
   color: var(--color-calendar-link, #6f5037);
@@ -413,6 +420,29 @@
 .calendar-agenda-item__actions a:focus-visible {
   outline: 3px solid var(--calendar-focus);
   outline-offset: 2px;
+}
+
+.calendar-session-context {
+  align-items: end;
+  display: flex;
+  gap: 0.75rem;
+}
+
+.calendar-session-context label {
+  display: grid;
+  flex: 1;
+  font-size: 0.86rem;
+  font-weight: 700;
+  gap: 0.4rem;
+}
+
+.calendar-session-context select {
+  background: var(--calendar-surface, #fffdf6);
+  border: 1px solid var(--calendar-border);
+  border-radius: 0.55rem;
+  color: inherit;
+  min-height: 2.75rem;
+  padding: 0.55rem 0.7rem;
 }
 
 .calendar-surface--compact .calendar-agenda-item {

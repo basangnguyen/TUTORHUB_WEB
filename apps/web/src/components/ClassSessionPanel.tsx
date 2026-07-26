@@ -24,7 +24,7 @@ import {
   TextField,
 } from "@tutorhub/ui";
 import { CalendarClock, Pencil, Plus, RotateCw, X } from "lucide-react";
-import { useMemo, useState, type FormEvent } from "react";
+import { useMemo, useState, type FormEvent, type ReactNode } from "react";
 import {
   civilInputFromInstant,
   isOrderedSessionRange,
@@ -331,8 +331,9 @@ export function ClassSessionPanel({
       )}
 
       {formOpen && (
-        <SessionDialog
-          classroom={classroom}
+        <ClassSessionEditorDialog
+          classTitle={classroom.title}
+          classTimezone={classroom.timezone}
           error={createMutation.error ?? updateMutation.error ?? null}
           initial={editing}
           key={editing?.id ?? "create"}
@@ -429,8 +430,10 @@ export function ClassSessionPanel({
   );
 }
 
-interface SessionDialogProps {
-  classroom: ClassroomClass;
+export interface ClassSessionEditorDialogProps {
+  classTitle: string;
+  classTimezone: string;
+  context?: ReactNode;
   error: Error | null;
   initial: ClassSession | null;
   onCreate: (input: CreateClassSessionRequest) => void;
@@ -440,8 +443,10 @@ interface SessionDialogProps {
   pending: boolean;
 }
 
-function SessionDialog({
-  classroom,
+export function ClassSessionEditorDialog({
+  classTitle,
+  classTimezone,
+  context,
   error,
   initial,
   onCreate,
@@ -449,9 +454,9 @@ function SessionDialog({
   onUpdate,
   open,
   pending,
-}: SessionDialogProps) {
+}: ClassSessionEditorDialogProps) {
   const { t } = useI18n();
-  const [title, setTitle] = useState(initial?.title ?? classroom.title);
+  const [title, setTitle] = useState(initial?.title ?? classTitle);
   const [description, setDescription] = useState(initial?.description ?? "");
   const [startsAt, setStartsAt] = useState(
     initial ? civilInputFromInstant(initial.starts_at, initial.timezone) : "",
@@ -459,9 +464,7 @@ function SessionDialog({
   const [endsAt, setEndsAt] = useState(
     initial ? civilInputFromInstant(initial.ends_at, initial.timezone) : "",
   );
-  const [timezone, setTimezone] = useState(
-    initial?.timezone ?? classroom.timezone,
-  );
+  const [timezone, setTimezone] = useState(initial?.timezone ?? classTimezone);
   const [overlapChoice, setOverlapChoice] = useState<OverlapChoice | "">("");
   const [formError, setFormError] = useState<TranslationKey | null>(null);
   const isEditing = Boolean(initial);
@@ -525,6 +528,7 @@ function SessionDialog({
         <DialogDescription>
           {t("classSession.formDescription")}
         </DialogDescription>
+        {context}
         <form className="class-session-form" onSubmit={submit}>
           <TextField
             id="class-session-title"

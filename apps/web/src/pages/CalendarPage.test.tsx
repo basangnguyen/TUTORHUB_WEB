@@ -9,12 +9,15 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type {
   CalendarDisplayPreference,
   CalendarItem,
+  ClassSession,
+  ClassroomClass,
   CurrentUser,
 } from "@tutorhub/api-client";
 import { I18nProvider } from "../app/i18n";
@@ -96,6 +99,51 @@ const item: CalendarItem = {
     can_reschedule: true,
     can_view: true,
   },
+};
+
+const classroom: ClassroomClass = {
+  archived_at: null,
+  code: "MATH101",
+  created_at: "2026-07-20T02:00:00Z",
+  description: "Calendar editor regression class.",
+  id: classID,
+  owner_user_id: userID,
+  status: "active",
+  timezone: "Asia/Ho_Chi_Minh",
+  title: "Advanced Mathematics",
+  updated_at: "2026-07-20T02:00:00Z",
+  version: 2,
+  viewer_access: {
+    can_archive_class: true,
+    can_join_room: true,
+    can_leave: false,
+    can_manage_enrollments: true,
+    can_publish_media: true,
+    can_schedule_sessions: true,
+    can_transfer_ownership: true,
+    can_update_class: true,
+    class_role: "owner",
+    enrollment_status: null,
+  },
+};
+
+const classSession: ClassSession = {
+  cancelled_at: null,
+  cancelled_by: null,
+  class_id: classID,
+  created_at: "2026-07-20T02:00:00Z",
+  created_by: userID,
+  description: "Calendar editor regression session.",
+  ends_at: item.ends_at,
+  id: item.source_id,
+  starts_at: item.starts_at,
+  status: "scheduled",
+  timezone: "Asia/Ho_Chi_Minh",
+  title: item.title,
+  updated_at: "2026-07-20T02:00:00Z",
+  updated_by: userID,
+  version: item.version,
+  viewer_access: { can_cancel: true, can_update: true },
 };
 
 function jsonResponse(body: unknown, status = 200) {
@@ -288,6 +336,169 @@ describe("CalendarPage", () => {
     await expect(updateRequest?.clone().json()).resolves.toMatchObject({
       expected_version: 3,
       viewer_timezone: "UTC",
+    });
+  });
+
+  it("creates a one-time class session from the calendar", async () => {
+    const requests: Request[] = [];
+    let created = false;
+    const fetchMock = vi.fn().mockImplementation((request: Request) => {
+      requests.push(request);
+      const url = new URL(request.url);
+      if (url.pathname.endsWith("/api/v1/auth/csrf")) {
+        return Promise.resolve(jsonResponse({ csrf_token: "calendar-csrf" }));
+      }
+      if (url.pathname.endsWith("/api/v1/calendar/preferences/display")) {
+        return Promise.resolve(jsonResponse(preference));
+      }
+      if (url.pathname.endsWith("/api/v1/calendar/items")) {
+        return Promise.resolve(
+          jsonResponse({ items: created ? [item] : [], next_cursor: null }),
+        );
+      }
+      if (url.pathname.endsWith("/api/v1/classes")) {
+        return Promise.resolve(
+          jsonResponse({ items: [classroom], next_cursor: null }),
+        );
+      }
+      if (
+        request.method === "POST" &&
+        url.pathname.endsWith(`/api/v1/classes/${classID}/sessions`)
+      ) {
+        created = true;
+        return request
+          .clone()
+          .json()
+          .then((body) =>
+            jsonResponse({
+              ...classSession,
+              ...(body as object),
+              version: 1,
+            }),
+          );
+      }
+      return Promise.reject(new Error(`Unexpected request: ${request.url}`));
+    });
+    renderCalendar(fetchMock);
+
+    await screen.findByRole("heading", {
+      name: "Nothing scheduled in this range",
+    });
+    fireEvent.click(screen.getByRole("button", { name: "New session" }));
+    await screen.findByLabelText("Starts");
+    const dialog = screen.getByRole("dialog", {
+      name: "Schedule a session",
+    });
+    fireEvent.change(within(dialog).getByLabelText("Starts"), {
+      target: { value: "2026-07-30T09:00" },
+    });
+    fireEvent.change(within(dialog).getByLabelText("Ends"), {
+      target: { value: "2026-07-30T10:00" },
+    });
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Save session" }),
+    );
+
+    await waitFor(() =>
+      expect(
+        requests.some(
+          (request) =>
+            request.method === "POST" &&
+            new URL(request.url).pathname.endsWith(
+              `/api/v1/classes/${classID}/sessions`,
+            ),
+        ),
+      ).toBe(true),
+    );
+    const createRequest = requests.find(
+      (request) =>
+        request.method === "POST" &&
+        new URL(request.url).pathname.endsWith(
+          `/api/v1/classes/${classID}/sessions`,
+        ),
+    );
+    expect(createRequest?.headers.get("X-CSRF-Token")).toBe("calendar-csrf");
+    await expect(createRequest?.clone().json()).resolves.toMatchObject({
+      timezone: "Asia/Ho_Chi_Minh",
+      title: classroom.title,
+    });
+    expect(
+      await screen.findByRole("heading", { name: item.title }),
+    ).toBeVisible();
+  });
+
+  it("edits a one-time session with its latest optimistic version", async () => {
+    const requests: Request[] = [];
+    const fetchMock = vi.fn().mockImplementation((request: Request) => {
+      requests.push(request);
+      const url = new URL(request.url);
+      if (url.pathname.endsWith("/api/v1/auth/csrf")) {
+        return Promise.resolve(jsonResponse({ csrf_token: "calendar-csrf" }));
+      }
+      if (url.pathname.endsWith("/api/v1/calendar/preferences/display")) {
+        return Promise.resolve(jsonResponse(preference));
+      }
+      if (url.pathname.endsWith("/api/v1/calendar/items")) {
+        return Promise.resolve(
+          jsonResponse({ items: [item], next_cursor: null }),
+        );
+      }
+      if (
+        request.method === "GET" &&
+        url.pathname.endsWith(
+          `/api/v1/classes/${classID}/sessions/${item.source_id}`,
+        )
+      ) {
+        return Promise.resolve(jsonResponse(classSession));
+      }
+      if (
+        request.method === "PATCH" &&
+        url.pathname.endsWith(
+          `/api/v1/classes/${classID}/sessions/${item.source_id}`,
+        )
+      ) {
+        return request
+          .clone()
+          .json()
+          .then((body) =>
+            jsonResponse({
+              ...classSession,
+              ...(body as object),
+              version: classSession.version + 1,
+            }),
+          );
+      }
+      return Promise.reject(new Error(`Unexpected request: ${request.url}`));
+    });
+    renderCalendar(fetchMock);
+
+    await screen.findByRole("heading", { name: item.title });
+    fireEvent.click(screen.getByRole("button", { name: "Edit session" }));
+    await screen.findByRole("textbox", { name: "Session title" });
+    const dialog = screen.getByRole("dialog", { name: "Edit session" });
+    fireEvent.change(
+      within(dialog).getByRole("textbox", { name: "Session title" }),
+      { target: { value: "Updated linear algebra" } },
+    );
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Save session" }),
+    );
+
+    const updateRequest = await waitFor(() => {
+      const request = requests.find(
+        (candidate) =>
+          candidate.method === "PATCH" &&
+          new URL(candidate.url).pathname.endsWith(
+            `/api/v1/classes/${classID}/sessions/${item.source_id}`,
+          ),
+      );
+      expect(request).toBeDefined();
+      return request;
+    });
+    expect(updateRequest?.headers.get("X-CSRF-Token")).toBe("calendar-csrf");
+    await expect(updateRequest?.clone().json()).resolves.toMatchObject({
+      expected_version: item.version,
+      title: "Updated linear algebra",
     });
   });
 

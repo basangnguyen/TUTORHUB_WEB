@@ -90,7 +90,7 @@ live; rollback bằng specific commit giữ cấu hình hiện tại là bằng 
 | P3-02D Native Availability Poll      | TODO        | Native poll, secure sharing, Study Meeting    |
 | P3-03 PostgreSQL leased worker       | VERIFY      | P3-03A đạt; worker role/host/crash gate mở    |
 | P3-04 In-app notification            | VERIFY      | API ACL staging xanh; worker/canary gate mở   |
-| P3-02A Calendar shell/read projection | VERIFY    | Staging 17 false + API ACL xanh; UX gates mở  |
+| P3-02A Calendar shell/read projection | VERIFY    | Quick/full one-time editor nối xong; UX gates mở  |
 | P3-02B/C, P3-05 đến P3-14             | TODO      | Theo dependency trong backlog                 |
 
 Nguồn thực thi: `docs/PHASE_3_BACKLOG.md`. Trước khi code calendar phải đọc

@@ -14,6 +14,10 @@ import { useI18n } from "../app/i18n";
 import { useSession } from "../app/session";
 import { shouldConcealTenantScopedData } from "../app/tenantDataAccess";
 import { CalendarPreferencesDrawer } from "../features/calendar/CalendarPreferencesDrawer";
+import {
+  CalendarQuickCreate,
+  CalendarSessionEdit,
+} from "../features/calendar/CalendarSessionEditors";
 import { CalendarSidebar } from "../features/calendar/CalendarSidebar";
 import { CalendarSurface } from "../features/calendar/CalendarSurface";
 import { CalendarToolbar } from "../features/calendar/CalendarToolbar";
@@ -28,6 +32,7 @@ import {
   stableCalendarItemOrder,
   type CalendarDisplayPreferenceViewModel,
   type CalendarFilters,
+  type CalendarItemViewModel,
   type CalendarRouteState,
   type CalendarView,
 } from "../features/calendar/model";
@@ -145,6 +150,10 @@ export function CalendarPage() {
   const [preferencesPrincipal, setPreferencesPrincipal] = useState<
     string | null
   >(null);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<CalendarItemViewModel | null>(
+    null,
+  );
   const online = useOnlineStatus();
   const mobile = useMobileCalendarDefault();
   const tenantID = session.currentUser?.active_tenant?.id;
@@ -242,6 +251,7 @@ export function CalendarPage() {
 
         <section className="calendar-main">
           <CalendarToolbar
+            onCreateSession={() => setCreateOpen(true)}
             onNext={() =>
               navigate({
                 ...routeState,
@@ -383,6 +393,7 @@ export function CalendarPage() {
                 <CalendarSurface
                   items={items}
                   locale={preference.locale}
+                  onEditItem={setEditingItem}
                   preference={preference}
                   view={routeState.view}
                 />
@@ -418,6 +429,18 @@ export function CalendarPage() {
         preferenceQuery={preferenceQuery}
         tenantID={tenantID}
         userID={userID}
+      />
+      <CalendarQuickCreate
+        onOpenChange={setCreateOpen}
+        onSaved={() => void itemsQuery.refetch()}
+        open={createOpen}
+        tenantID={tenantID}
+      />
+      <CalendarSessionEdit
+        item={editingItem}
+        onClose={() => setEditingItem(null)}
+        onSaved={() => void itemsQuery.refetch()}
+        tenantID={tenantID}
       />
     </div>
   );

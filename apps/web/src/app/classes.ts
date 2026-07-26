@@ -59,6 +59,7 @@ function shouldRetryClassQuery(failureCount: number, error: Error) {
 export function useClassList(
   tenantID: string | undefined,
   status: ClassStatusFilter = "all",
+  enabled = true,
 ) {
   return useInfiniteQuery({
     queryKey: classQueryKeys.list(tenantID ?? "inactive", status),
@@ -71,7 +72,7 @@ export function useClassList(
         },
         { baseUrl: getApiBaseUrl(), signal },
       ),
-    enabled: Boolean(tenantID),
+    enabled: enabled && Boolean(tenantID),
     getNextPageParam: (lastPage) => lastPage.next_cursor ?? undefined,
     initialPageParam: undefined as string | undefined,
     retry: shouldRetryClassQuery,

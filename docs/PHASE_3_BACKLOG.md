@@ -396,7 +396,7 @@ P3-01 qua một projection thống nhất; chưa hứa recurrence, attendee/RSVP
 - [x] Migration/OpenAPI/UI cho `CalendarDisplayPreference` lưu viewer timezone, locale,
       12/24h, week start, default view, density/time scale và secondary timezone; update
       dùng optimistic version và luôn tenant/user-scoped.
-- [ ] Quick create/full editor ở task này chỉ tạo/sửa timed one-time ClassSession đã có
+- [x] Quick create/full editor ở task này chỉ tạo/sửa timed one-time ClassSession đã có
       contract P3-01; all-day, room/material và source chưa có field phải source-gated/
       hidden, không lưu placeholder.
 - [ ] Dùng exact pin FullCalendar Standard đã được ADR-0019 chấp nhận; đóng manual NVDA
@@ -417,13 +417,14 @@ P3-01 qua một projection thống nhất; chưa hứa recurrence, attendee/RSVP
 
 **Local VERIFY 2026-07-26:** source migration `000017`, Go projection/repository/service,
 HTTP/OpenAPI/generated client, preference CAS và Calendar shell semantic đã có. Toàn bộ
-Go test + vet, integration-tag compile, API client 22/22, web 173/173 + build, security
+Go test + vet, integration-tag compile, API client 22/22, web 175/175 + build, security
 19/19, Calendar production guard và 20 cặp token contrast đều đạt. PostgreSQL integration
 thật không chạy vì process không có `DATABASE_MIGRATION_URL`/`DATABASE_POOL_URL`; không
 đọc `.env*.local`. Marker `PENDING_NVDA_REVIEW` vẫn mở nên route thật không import hoặc
-mount FullCalendar. Quick/full editor, drag/resize/undo, numeric 500/1.000/2.000 route
-benchmark, manual accessibility/visual review và staging/browser acceptance vẫn là gate
-trước `DONE`.
+mount FullCalendar. Quick create/full editor timed one-time ClassSession đã được nối vào
+projection và có test create/update với CSRF + expected version; drag/resize/undo, numeric
+500/1.000/2.000 route benchmark, manual accessibility/visual review và staging/browser
+acceptance vẫn là gate trước `DONE`.
 
 **Staging rollout 2026-07-26:** backup branch `p3-calendar-pre-migration-20260726` (auto-delete
 7 ngày) đã được tạo trước rollout. Neon staging direct migration `14 false -> 17 false` thành

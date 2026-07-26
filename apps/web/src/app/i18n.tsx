@@ -28,6 +28,21 @@ const messages = {
     "calendar.previous": "Khoảng trước",
     "calendar.next": "Khoảng tiếp theo",
     "calendar.settings": "Tùy chọn hiển thị",
+    "calendar.createSession": "Tạo buổi học",
+    "calendar.editSession": "Chỉnh sửa",
+    "calendar.classLabel": "Lớp học",
+    "calendar.loadingClasses": "Đang tải các lớp có thể lên lịch",
+    "calendar.loadMoreClasses": "Tải thêm lớp",
+    "calendar.classesErrorTitle": "Chưa thể tải danh sách lớp",
+    "calendar.classesErrorDescription":
+      "Hãy thử lại trước khi tạo buổi học từ lịch.",
+    "calendar.noSchedulableClassTitle": "Không có lớp có thể lên lịch",
+    "calendar.noSchedulableClassDescription":
+      "Bạn cần quyền lên lịch trong ít nhất một lớp đang hoạt động.",
+    "calendar.loadingSession": "Đang tải chi tiết buổi học",
+    "calendar.sessionErrorTitle": "Chưa thể mở buổi học",
+    "calendar.sessionErrorDescription":
+      "Chi tiết buổi học không tải được. Hãy thử lại.",
     "calendar.viewLabel": "Chế độ xem lịch",
     "calendar.view.day": "Ngày",
     "calendar.view.work_week": "Tuần làm việc",
@@ -1140,6 +1155,21 @@ const messages = {
     "calendar.previous": "Previous range",
     "calendar.next": "Next range",
     "calendar.settings": "Display preferences",
+    "calendar.createSession": "New session",
+    "calendar.editSession": "Edit session",
+    "calendar.classLabel": "Class",
+    "calendar.loadingClasses": "Loading classes you can schedule",
+    "calendar.loadMoreClasses": "Load more classes",
+    "calendar.classesErrorTitle": "Could not load classes",
+    "calendar.classesErrorDescription":
+      "Try again before creating a session from the calendar.",
+    "calendar.noSchedulableClassTitle": "No schedulable classes",
+    "calendar.noSchedulableClassDescription":
+      "You need scheduling access in at least one active class.",
+    "calendar.loadingSession": "Loading session details",
+    "calendar.sessionErrorTitle": "Could not open session",
+    "calendar.sessionErrorDescription":
+      "Session details could not be loaded. Try again.",
     "calendar.viewLabel": "Calendar view",
     "calendar.view.day": "Day",
     "calendar.view.work_week": "Work week",

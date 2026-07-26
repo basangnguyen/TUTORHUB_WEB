@@ -1,5 +1,10 @@
 import { Button, IconButton, Select } from "@tutorhub/ui";
-import { ChevronLeft, ChevronRight, SlidersHorizontal } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Plus,
+  SlidersHorizontal,
+} from "lucide-react";
 import { useI18n, type TranslationKey } from "../../app/i18n";
 import { calendarViews, type CalendarView } from "./model";
 
@@ -16,6 +21,7 @@ interface CalendarToolbarProps {
   view: CalendarView;
   preferencesDisabled?: boolean;
   onNext: () => void;
+  onCreateSession: () => void;
   onOpenPreferences: () => void;
   onPrevious: () => void;
   onToday: () => void;
@@ -23,6 +29,7 @@ interface CalendarToolbarProps {
 }
 
 export function CalendarToolbar({
+  onCreateSession,
   onNext,
   onOpenPreferences,
   onPrevious,
@@ -66,6 +73,9 @@ export function CalendarToolbar({
       </div>
 
       <div className="calendar-toolbar__actions">
+        <Button leadingIcon={<Plus />} onClick={onCreateSession} size="sm">
+          {t("calendar.createSession")}
+        </Button>
         <div className="calendar-toolbar__view-buttons">
           {calendarViews.map((value) => (
             <Button

@@ -395,12 +395,13 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
     Warm Academic calendar tokens cùng production guard fail-closed không cho import
     FullCalendar/Premium/telemetry khi `PENDING_NVDA_REVIEW` còn mở.
 22. Local verification P3-02A đạt toàn bộ Go test + vet và integration-tag compile;
-    API client 22/22; web 173/173 + lint/typecheck/build; format, security 19/19,
+    API client 22/22; web 175/175 + lint/typecheck/build; format, security 19/19,
     production Calendar guard và 20 cặp contrast đều xanh. PostgreSQL integration thật
     không chạy vì process không có hai biến database và agent không đọc `.env*.local`.
-    Task chưa `DONE`: còn manual NVDA, FullCalendar production renderer, quick/full editor,
-    drag/resize/undo, numeric route benchmark, manual accessibility/visual review và
-    browser/E2E acceptance.
+    Task chưa `DONE`: quick create/full editor timed one-time ClassSession đã nối vào
+    projection và có test CSRF + expected-version; còn manual NVDA, FullCalendar
+    production renderer, drag/resize/undo, numeric route benchmark, manual accessibility/
+    visual review và browser/E2E acceptance.
 23. P3-02A staging rollout ngày 2026-07-26: tạo backup branch Neon
     `p3-calendar-pre-migration-20260726` (auto-delete 7 ngày, parent `staging`), rồi migrate
     direct staging `14 false -> 17 false`. Exact runtime ACL probe đạt: schema

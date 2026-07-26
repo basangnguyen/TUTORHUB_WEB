@@ -1,6 +1,7 @@
 import {
   useInfiniteQuery,
   useMutation,
+  useQuery,
   useQueryClient,
   type QueryClient,
 } from "@tanstack/react-query";
@@ -8,6 +9,7 @@ import {
   APIRequestError,
   cancelClassSession as requestClassSessionCancel,
   createClassSession,
+  getClassSession,
   listClassSessions,
   rotateCSRFToken,
   updateClassSession as requestClassSessionUpdate,
@@ -86,6 +88,28 @@ export function useClassSessionList(
     enabled: Boolean(tenantID && classID && rangeStart && rangeEnd),
     getNextPageParam: (lastPage) => lastPage.next_cursor ?? undefined,
     initialPageParam: undefined as string | undefined,
+    retry: shouldRetrySessionQuery,
+    staleTime: 20_000,
+  });
+}
+
+export function useClassSessionDetail(
+  tenantID: string | undefined,
+  classID: string | undefined,
+  sessionID: string | undefined,
+) {
+  return useQuery({
+    queryKey: classSessionQueryKeys.detail(
+      tenantID ?? "inactive",
+      classID ?? "invalid",
+      sessionID ?? "invalid",
+    ),
+    queryFn: ({ signal }) =>
+      getClassSession(classID ?? "", sessionID ?? "", {
+        baseUrl: getApiBaseUrl(),
+        signal,
+      }),
+    enabled: Boolean(tenantID && classID && sessionID),
     retry: shouldRetrySessionQuery,
     staleTime: 20_000,
   });

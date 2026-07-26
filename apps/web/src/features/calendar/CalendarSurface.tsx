@@ -10,6 +10,7 @@ import { CalendarAgenda } from "./CalendarAgenda";
 interface CalendarSurfaceProps {
   items: readonly CalendarItemViewModel[];
   locale: string;
+  onEditItem?: (item: CalendarItemViewModel) => void;
   preference: CalendarDisplayPreferenceViewModel;
   view: CalendarView;
 }
@@ -17,6 +18,7 @@ interface CalendarSurfaceProps {
 export function CalendarSurface({
   items,
   locale,
+  onEditItem,
   preference,
   view,
 }: CalendarSurfaceProps) {
@@ -40,6 +42,7 @@ export function CalendarSurface({
         hourCycle={preference.hourCycle}
         items={items}
         locale={locale}
+        onEditItem={onEditItem}
         secondaryTimezone={preference.secondaryTimezone}
         timezone={preference.viewerTimezone}
       />

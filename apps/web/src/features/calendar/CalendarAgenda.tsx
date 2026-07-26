@@ -1,5 +1,5 @@
 import { Button, StatusBadge } from "@tutorhub/ui";
-import { CalendarClock, ExternalLink } from "lucide-react";
+import { CalendarClock, ExternalLink, Pencil } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Temporal } from "temporal-polyfill";
@@ -37,6 +37,7 @@ interface CalendarAgendaProps {
   hourCycle: CalendarHourCycle;
   items: readonly CalendarItemViewModel[];
   locale: string;
+  onEditItem?: (item: CalendarItemViewModel) => void;
   secondaryTimezone: string | null;
   timezone: string;
 }
@@ -45,6 +46,7 @@ export function CalendarAgenda({
   hourCycle,
   items,
   locale,
+  onEditItem,
   secondaryTimezone,
   timezone,
 }: CalendarAgendaProps) {
@@ -183,6 +185,16 @@ export function CalendarAgenda({
                   </div>
                   {classLink && (
                     <div className="calendar-agenda-item__actions">
+                      {item.canEdit && onEditItem && (
+                        <Button
+                          leadingIcon={<Pencil />}
+                          onClick={() => onEditItem(item)}
+                          size="sm"
+                          variant="secondary"
+                        >
+                          {t("calendar.editSession")}
+                        </Button>
+                      )}
                       <Link to={classLink}>
                         <ExternalLink aria-hidden="true" />
                         {item.canEdit || item.canCancel
