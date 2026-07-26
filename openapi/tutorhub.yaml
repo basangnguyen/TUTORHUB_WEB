@@ -3793,6 +3793,146 @@ components:
       type: string
       description: P3-01 exposes only the one-time scheduled-to-cancelled lifecycle.
       enum: [scheduled, cancelled]
+    ClassSessionRecurrenceFrequency:
+      type: string
+      description: Bounded recurrence frequencies accepted by the P3-02B typed boundary.
+      enum: [daily, weekly, monthly, yearly]
+    ClassSessionRecurrenceWeekday:
+      type: string
+      enum: [MO, TU, WE, TH, FR, SA, SU]
+    ClassSessionRecurrenceEnd:
+      oneOf:
+        - type: object
+          additionalProperties: false
+          required: [type, count]
+          properties:
+            type:
+              type: string
+              const: after_count
+            count:
+              type: integer
+              minimum: 1
+              maximum: 512
+        - type: object
+          additionalProperties: false
+          required: [type, date]
+          properties:
+            type:
+              type: string
+              const: on_date
+            date:
+              type: string
+              format: date
+      description: Exactly one bounded recurrence terminator is required.
+    ClassSessionRecurrenceRule:
+      type: object
+      additionalProperties: false
+      required: [frequency, interval, ends]
+      properties:
+        frequency:
+          $ref: "#/components/schemas/ClassSessionRecurrenceFrequency"
+        interval:
+          type: integer
+          minimum: 1
+          maximum: 366
+        weekdays:
+          type: array
+          uniqueItems: true
+          maxItems: 7
+          items:
+            $ref: "#/components/schemas/ClassSessionRecurrenceWeekday"
+        month_days:
+          type: array
+          uniqueItems: true
+          maxItems: 31
+          items:
+            type: integer
+            minimum: -31
+            maximum: 31
+            not:
+              const: 0
+        months:
+          type: array
+          uniqueItems: true
+          maxItems: 12
+          items:
+            type: integer
+            minimum: 1
+            maximum: 12
+        ends:
+          $ref: "#/components/schemas/ClassSessionRecurrenceEnd"
+      description: |
+        Typed RFC 5545 subset. Raw RRULE strings, unbounded rules and
+        secondly/minutely/hourly frequencies are not accepted at the API boundary.
+    ClassSessionOccurrenceScope:
+      type: string
+      enum: [this_occurrence, this_and_following, entire_series]
+    ClassSessionFollowingExceptionPolicy:
+      type: string
+      enum: [carry, rebase, discard]
+    ClassSessionOccurrenceMutationRequest:
+      type: object
+      additionalProperties: false
+      required: [scope, occurrence_key, expected_version, idempotency_key]
+      properties:
+        scope:
+          $ref: "#/components/schemas/ClassSessionOccurrenceScope"
+        occurrence_key:
+          type: string
+          minLength: 8
+          maxLength: 128
+          description: Opaque stable identity derived from the original civil tuple.
+        expected_version:
+          type: integer
+          format: int64
+          minimum: 1
+        idempotency_key:
+          type: string
+          minLength: 16
+          maxLength: 128
+        following_exception_policy:
+          $ref: "#/components/schemas/ClassSessionFollowingExceptionPolicy"
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 4000
+        starts_at:
+          type: string
+          format: date-time
+        ends_at:
+          type: string
+          format: date-time
+        timezone:
+          type: string
+          minLength: 1
+          maxLength: 100
+      description: |
+        Scope is explicit for every recurring drag, resize, edit or cancel.
+        this_and_following requires an explicit future-exception policy before mutation.
+    ClassScheduleConflict:
+      type: object
+      additionalProperties: false
+      required: [class_id, starts_at, ends_at]
+      properties:
+        class_id:
+          type: string
+          format: uuid
+        occurrence_key:
+          type: string
+          minLength: 8
+          maxLength: 128
+        starts_at:
+          type: string
+          format: date-time
+        ends_at:
+          type: string
+          format: date-time
+      description: |
+        Privacy-safe hard class conflict. Teacher/student free-busy is deliberately
+        absent until P3-02C owns authoritative assignment and attendee data.
     ClassSessionViewerAccess:
       type: object
       additionalProperties: false

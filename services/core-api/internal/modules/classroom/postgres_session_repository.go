@@ -61,6 +61,17 @@ func (repository *PostgresRepository) CreateSession(
 	); err != nil {
 		return ClassSession{}, err
 	}
+	if err := requireNoClassSessionConflict(
+		queryContext,
+		transaction,
+		tenantContext.TenantID,
+		classID,
+		uuid.Nil,
+		params.StartsAt,
+		params.EndsAt,
+	); err != nil {
+		return ClassSession{}, err
+	}
 
 	session, err := scanClassSession(transaction.QueryRow(
 		queryContext,
@@ -259,6 +270,19 @@ func (repository *PostgresRepository) UpdateSession(
 	}
 	if current.Version != params.ExpectedVersion {
 		return ClassSession{}, ErrSessionVersionConflict
+	}
+	if params.StartsAt != nil {
+		if err := requireNoClassSessionConflict(
+			queryContext,
+			transaction,
+			tenantContext.TenantID,
+			classID,
+			sessionID,
+			*params.StartsAt,
+			*params.EndsAt,
+		); err != nil {
+			return ClassSession{}, err
+		}
 	}
 
 	session, err := scanClassSession(transaction.QueryRow(
@@ -477,6 +501,48 @@ FOR UPDATE`,
 		return ClassSession{}, fmt.Errorf("lock class session: %w", err)
 	}
 	return session, nil
+}
+
+// requireNoClassSessionConflict runs after lockClassMutation has serialized
+// class schedule writers. The SQL uses the same half-open semantics as the
+// Calendar domain: [start,end) conflicts only when start < otherEnd and
+// otherStart < end.
+func requireNoClassSessionConflict(
+	ctx context.Context,
+	transaction pgx.Tx,
+	tenantID uuid.UUID,
+	classID uuid.UUID,
+	excludedSessionID uuid.UUID,
+	startsAt time.Time,
+	endsAt time.Time,
+) error {
+	var conflictingID uuid.UUID
+	err := transaction.QueryRow(
+		ctx,
+		`SELECT id
+FROM tutorhub.class_sessions
+WHERE tenant_id = $1
+  AND class_id = $2
+  AND status IN ('scheduled', 'live')
+  AND starts_at < $4
+  AND ends_at > $3
+  AND ($5::uuid = '00000000-0000-0000-0000-000000000000' OR id <> $5)
+ORDER BY starts_at ASC, id ASC
+LIMIT 1
+FOR UPDATE`,
+		tenantID,
+		classID,
+		startsAt.UTC(),
+		endsAt.UTC(),
+		excludedSessionID,
+	).Scan(&conflictingID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("check class session conflict: %w", err)
+	}
+	return ErrSessionScheduleConflict
 }
 
 func scanClassSession(row rowScanner) (ClassSession, error) {

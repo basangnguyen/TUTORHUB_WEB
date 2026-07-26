@@ -13,9 +13,9 @@
 | Phase hoàn thành    | Phase 0, Phase 1, Phase 2                                                             |
 | Phase hiện tại      | Phase 3 - Daily learning workspace                                                   |
 | Task `DONE` gần nhất | P3-02A Professional Calendar shell/read projection                                  |
-| Mốc repository mới | P3-CAL-02 local decision spike đạt deterministic renderer/golden/SES adapter gate    |
-| Task hiện tại       | P3-CAL-02 ở `VERIFY`; các SES/domain/client live gate vẫn mở                         |
-| Task tiếp theo      | P3-02B recurrence/conflict; song song giữ P3-03B/P3-04 durable-host gate             |
+| Mốc repository mới | P3-02B recurrence/conflict foundation: typed adapter, migration, scope preview và hard conflict |
+| Task hiện tại       | P3-02B `IN PROGRESS`; P3-CAL-02 vẫn `VERIFY`, các SES/domain/client live gate vẫn mở |
+| Task tiếp theo      | Hoàn thiện P3-02B series/occurrence mutation; song song giữ P3-03B/P3-04 durable-host gate |
 
 ## Kiến trúc đang chạy
 
@@ -352,8 +352,8 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
     DAILY/WEEKLY/MONTHLY/YEARLY và YEARLY golden đã đạt. Lượt post-fix unit PASS; hai
     fuzz target 10 giây đạt `238.755`/`199.088` executions. Benchmark 366 occurrence
     count=5 đạt `706.580 ns/op` UTC, `674.220 ns/op` Ho Chi Minh và `984.380 ns/op`
-    New York. Adapter vẫn ở `internal/spikes`; P3-02B phải lặp lại integration/load gate
-    khi đưa vào production module.
+    New York. P3-02B đã đưa adapter typed vào production boundary, nhưng vẫn phải đạt
+    integration/load/staging gate khi nối persistence và occurrence API.
 18. P3-03A repository/runtime foundation đã đạt `VERIFY`: migration `000015` bổ sung lease,
     fencing token và retained dead-letter; `cmd/worker` dùng credential riêng, exact
     typed registry, bounded claim concurrency, retry/backoff, graceful shutdown và
@@ -445,6 +445,13 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
     không consume outbox và không gửi business email. ADR giữ `Proposed` vì SES sandbox,
     EventBridge/SQS/DLQ/inbox, bounce/complaint/suppression, sending domain/DNS và
     Gmail/Outlook/Apple interoperability chưa có live evidence.
+28. P3-02B bắt đầu ngày 2026-07-26 ở trạng thái `IN PROGRESS`: typed recurrence
+    boundary, scope preview, migration `000018`, OpenAPI/generated client và
+    authoritative one-time class conflict đã có. Local package tests, HTTP/classroom
+    tests, `go vet`, migration-fragment checks, integration-tag compile, API client
+    22/22 và format check đạt. Chưa có recurring series repository/service/HTTP,
+    exception overlay, split/cancel/idempotency/audit/outbox, override capability,
+    recurring UI hoặc staging migration; không được mô tả P3-02B là `DONE`.
 
 ## Rủi ro đã biết
 
@@ -452,8 +459,8 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
   này không mở rộng phạm vi sang recurrence, reminder, calendar tổng hợp, email/ICS,
   durable worker hoặc Phase 4 media lifecycle.
 - ADR-0019 đã chấp nhận decision dùng FullCalendar v7 và recurrence bounded; manual NVDA
-  đã PASS. P3-02A shell/read projection đã đạt route/staging gate, nhưng recurrence library
-  chưa được import vào production domain và P3-02B vẫn phải đạt contract, authorization,
+  đã PASS. P3-02A shell/read projection đã đạt route/staging gate; P3-02B mới chỉ có
+  typed recurrence/conflict foundation và vẫn phải đạt contract mutation, authorization,
   integration/E2E cùng staging gate riêng.
 - AWS SES đã được chọn làm provider target; local SES v2 Raw adapter, deterministic
   renderer/sink và error semantics đã đạt trong spike cô lập, nhưng provider account/

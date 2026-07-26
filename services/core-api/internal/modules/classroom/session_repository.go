@@ -20,6 +20,7 @@ var (
 	ErrInvalidSessionCursor          = errors.New("invalid class session cursor")
 	ErrSessionAccessDenied           = errors.New("class session access denied")
 	ErrSessionVersionConflict        = errors.New("class session version is stale")
+	ErrSessionScheduleConflict       = errors.New("class session overlaps another class session")
 	ErrInvalidSessionTransition      = errors.New("invalid class session state transition")
 )
 

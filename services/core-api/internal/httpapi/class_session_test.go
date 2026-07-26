@@ -133,6 +133,37 @@ func TestClassSessionHandlersEnforceCSRFAndExposeVersionedContract(t *testing.T)
 	}
 }
 
+func TestClassSessionHandlersMapAuthoritativeScheduleConflict(t *testing.T) {
+	t.Parallel()
+	tenantID, userID, classID := uuid.New(), uuid.New(), uuid.New()
+	handler := NewHandlerWithOptions(
+		config.Config{
+			Environment: "test", Port: "8080", WebOrigin: "http://localhost:5173",
+			Authentication: config.AuthenticationConfig{SessionTTL: 8 * time.Hour},
+		},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Options{
+			Clock: func() time.Time { return fixedTime },
+			Identity: classIdentityService(tenantID, userID, []string{
+				"class.view", "class.update", "class.create",
+			}),
+			ClassSessions: &fakeSessionService{
+				requestError: classroom.ErrSessionScheduleConflict,
+			},
+		},
+	)
+	response := performClassMutation(
+		handler,
+		http.MethodPost,
+		"/api/v1/classes/"+classID.String()+"/sessions",
+		`{"title":"Conflict","starts_at":"2026-07-24T10:00:00+07:00","ends_at":"2026-07-24T11:00:00+07:00","timezone":"Asia/Ho_Chi_Minh"}`,
+	)
+	if response.Code != http.StatusConflict ||
+		!strings.Contains(response.Body.String(), "class_session_schedule_conflict") {
+		t.Fatalf("schedule conflict response: status=%d body=%s", response.Code, response.Body.String())
+	}
+}
+
 type fakeSessionService struct {
 	session       classroom.ClassSession
 	listInput     classroom.ListSessionsInput

@@ -447,6 +447,10 @@ func (handlers classSessionHandlers) writeProblem(
 		status, code, title, detail = http.StatusConflict,
 			"class_session_conflict", "Class session changed",
 			"Reload the latest session before trying this change again."
+	case errors.Is(err, classroom.ErrSessionScheduleConflict):
+		status, code, title, detail = http.StatusConflict,
+			"class_session_schedule_conflict", "Class schedule conflict",
+			"Another session for this class overlaps the requested half-open time range."
 	case errors.Is(err, classroom.ErrInvalidSessionTransition):
 		status, code, title, detail = http.StatusConflict,
 			"class_session_state_conflict", "Class session state conflict",

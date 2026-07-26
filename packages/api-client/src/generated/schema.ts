@@ -1210,6 +1210,19 @@ export type components = {
       /** Format: uuid */
       readonly id: string;
     };
+    /**
+     * @description Privacy-safe hard class conflict. Teacher/student free-busy is deliberately
+     *     absent until P3-02C owns authoritative assignment and attendee data.
+     */
+    readonly ClassScheduleConflict: {
+      /** Format: uuid */
+      readonly class_id: string;
+      /** Format: date-time */
+      readonly ends_at: string;
+      readonly occurrence_key?: string;
+      /** Format: date-time */
+      readonly starts_at: string;
+    };
     readonly ClassSession: {
       readonly cancelled_at: string | null;
       readonly cancelled_by: string | null;
@@ -1244,10 +1257,70 @@ export type components = {
       readonly version: number;
       readonly viewer_access: components["schemas"]["ClassSessionViewerAccess"];
     };
+    /** @enum {string} */
+    readonly ClassSessionFollowingExceptionPolicy:
+      "carry" | "rebase" | "discard";
     readonly ClassSessionListResponse: {
       readonly items: readonly components["schemas"]["ClassSession"][];
       readonly next_cursor: string | null;
     };
+    /**
+     * @description Scope is explicit for every recurring drag, resize, edit or cancel.
+     *     this_and_following requires an explicit future-exception policy before mutation.
+     */
+    readonly ClassSessionOccurrenceMutationRequest: {
+      readonly description?: string;
+      /** Format: date-time */
+      readonly ends_at?: string;
+      /** Format: int64 */
+      readonly expected_version: number;
+      readonly following_exception_policy?: components["schemas"]["ClassSessionFollowingExceptionPolicy"];
+      readonly idempotency_key: string;
+      /** @description Opaque stable identity derived from the original civil tuple. */
+      readonly occurrence_key: string;
+      readonly scope: components["schemas"]["ClassSessionOccurrenceScope"];
+      /** Format: date-time */
+      readonly starts_at?: string;
+      readonly timezone?: string;
+      readonly title?: string;
+    };
+    /** @enum {string} */
+    readonly ClassSessionOccurrenceScope:
+      "this_occurrence" | "this_and_following" | "entire_series";
+    /** @description Exactly one bounded recurrence terminator is required. */
+    readonly ClassSessionRecurrenceEnd:
+      | {
+          readonly count: number;
+          /** @constant */
+          readonly type: "after_count";
+        }
+      | {
+          /** Format: date */
+          readonly date: string;
+          /** @constant */
+          readonly type: "on_date";
+        };
+    /**
+     * @description Bounded recurrence frequencies accepted by the P3-02B typed boundary.
+     * @enum {string}
+     */
+    readonly ClassSessionRecurrenceFrequency:
+      "daily" | "weekly" | "monthly" | "yearly";
+    /**
+     * @description Typed RFC 5545 subset. Raw RRULE strings, unbounded rules and
+     *     secondly/minutely/hourly frequencies are not accepted at the API boundary.
+     */
+    readonly ClassSessionRecurrenceRule: {
+      readonly ends: components["schemas"]["ClassSessionRecurrenceEnd"];
+      readonly frequency: components["schemas"]["ClassSessionRecurrenceFrequency"];
+      readonly interval: number;
+      readonly month_days?: readonly number[];
+      readonly months?: readonly number[];
+      readonly weekdays?: readonly components["schemas"]["ClassSessionRecurrenceWeekday"][];
+    };
+    /** @enum {string} */
+    readonly ClassSessionRecurrenceWeekday:
+      "MO" | "TU" | "WE" | "TH" | "FR" | "SA" | "SU";
     /**
      * @description P3-01 exposes only the one-time scheduled-to-cancelled lifecycle.
      * @enum {string}

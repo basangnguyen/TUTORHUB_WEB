@@ -84,6 +84,29 @@ INSERT INTO tutorhub.classes (
 	if created.Status != SessionStatusScheduled || created.Version != 1 {
 		t.Fatalf("unexpected created session: %+v", created)
 	}
+	touching, err := repository.CreateSession(
+		ctx, tenantContext, classID,
+		CreateSessionParams{
+			Title: "Geometry", Description: "Half-open boundary",
+			StartsAt: now.Add(time.Hour), EndsAt: now.Add(2 * time.Hour),
+			Timezone: "Asia/Ho_Chi_Minh", CreatedBy: ownerID,
+		},
+		now,
+	)
+	if err != nil {
+		t.Fatalf("touching half-open session must be allowed: %v", err)
+	}
+	if _, err := repository.CreateSession(
+		ctx, tenantContext, classID,
+		CreateSessionParams{
+			Title: "Conflict", StartsAt: now.Add(30 * time.Minute),
+			EndsAt:   now.Add(90 * time.Minute),
+			Timezone: "Asia/Ho_Chi_Minh", CreatedBy: ownerID,
+		},
+		now,
+	); !errors.Is(err, ErrSessionScheduleConflict) {
+		t.Fatalf("overlapping create must conflict, got %v", err)
+	}
 	if _, err := repository.GetSession(ctx, otherContext, classID, created.ID); !errors.Is(
 		err, ErrSessionNotFound,
 	) {
@@ -100,6 +123,17 @@ INSERT INTO tutorhub.classes (
 	}
 	if updated.Title != updatedTitle || updated.Version != 2 {
 		t.Fatalf("unexpected updated session: %+v", updated)
+	}
+	conflictStart, conflictEnd, timezone := now.Add(90*time.Minute), now.Add(150*time.Minute), "Asia/Ho_Chi_Minh"
+	if _, err := repository.UpdateSession(
+		ctx, tenantContext, classID, created.ID,
+		UpdateSessionParams{
+			StartsAt: &conflictStart, EndsAt: &conflictEnd, Timezone: &timezone,
+			ExpectedVersion: 2,
+		},
+		now.Add(90*time.Second),
+	); !errors.Is(err, ErrSessionScheduleConflict) {
+		t.Fatalf("overlapping update must conflict, got %v", err)
 	}
 	if _, err := repository.UpdateSession(
 		ctx, tenantContext, classID, created.ID,
@@ -138,5 +172,8 @@ INSERT INTO tutorhub.classes (
 	}
 	if eventCount != 3 {
 		t.Fatalf("expected three session events, got %d", eventCount)
+	}
+	if touching.Version != 1 {
+		t.Fatalf("touching session was unexpectedly mutated: %+v", touching)
 	}
 }

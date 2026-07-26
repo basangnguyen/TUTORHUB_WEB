@@ -88,7 +88,7 @@ P3-03B đạt; hai gate P3-04 tiếp tục giữ `false` cho tới acceptance.
 | P3-01      | Course session scheduling và timezone          | P3-00, P3-CAL-00C               | DONE       |
 | P3-CAL-02  | Invitation/RSVP/iCalendar/AWS SES + ADR-0020   | P3-CAL-01, P3-01                | VERIFY     |
 | P3-02A     | Professional Calendar shell/read projection    | P3-01, P3-CAL-01                | DONE       |
-| P3-02B     | Recurrence + class conflict                    | P3-02A, ADR-0019                | TODO       |
+| P3-02B     | Recurrence + class conflict                    | P3-02A, ADR-0019                | IN PROGRESS |
 | P3-02C     | Working hours/attendee/free-busy/RSVP          | P3-02A, P3-CAL-02               | TODO       |
 | P3-02D     | Native Availability Poll + Study Meeting       | P3-02B, P3-02C, P3-03, ADR-0021 | TODO       |
 | P3-03      | PostgreSQL outbox worker production shape      | P3-01                           | VERIFY     |
@@ -474,6 +474,26 @@ one/following/all minh bạch; conflict authoritative nằm ở backend.
       và resource-exhaustion test được thêm ngay trong task.
 - [ ] Integration/E2E bao phủ concurrent edit, `409`, split series, exception retention,
       cross-tenant concealment và query plan theo bounded range.
+
+**IN PROGRESS 2026-07-26 — production foundation:** typed recurrence boundary đã được
+đưa vào `internal/modules/calendar/recurrence`, bọc engine bounded của ADR-0019 và
+không nhận raw RRULE từ caller. Rule đã có frequency/interval, weekday/month filters,
+`COUNT` hoặc date-only `UNTIL`, overlap policy và cap/horizon/deadline; scope preview
+đã buộc chọn `carry/rebase/discard` cho edit following và giữ occurrence identity.
+Migration `000018` đã chuẩn bị `class_session_series`, `class_session_exceptions` và
+identity columns/index trên `class_sessions`; OpenAPI/generated client đã có typed
+recurrence, scope và privacy-safe conflict schemas. One-time ClassSession create/update
+đã có class-scoped half-open hard-conflict check sau class-row lock, trong cùng
+transaction, trả HTTP `409 class_session_schedule_conflict`; touching intervals vẫn
+được phép. Unit, package HTTP/classroom, migration-fragment và integration-tag compile
+đã đạt local.
+
+Phần còn lại bắt buộc trước `DONE`: repository/service/HTTP cho series và occurrence
+mutation (create, expand/read overlay, edit one/following/all, cancel occurrence/series),
+split-series persistence với exception carry/rebase/discard, stable UID/sequence +
+audit/outbox/idempotency, admin override capability + reason, recurring drag/resize
+dialog và E2E/authorization/concurrency/load/staging gates. Teacher/student free-busy
+không được thêm vào P3-02B; thuộc P3-02C.
 
 ### P3-02C Working schedule, attendee/free-busy và RSVP
 
