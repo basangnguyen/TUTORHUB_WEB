@@ -50,12 +50,12 @@ Phase 2 đã hoàn thành; ma trận staging và biên bản đóng phase nằm 
 [PHASE_2_COMPLETION.md](PHASE_2_COMPLETION.md). Backlog thực thi hiện hành là
 [PHASE_3_BACKLOG.md](PHASE_3_BACKLOG.md): P3-00/P3-CAL-00/00B/00C,
 P3-CAL-01 và P3-01 đã `DONE`. ADR-0019 được
-`Accepted with explicit manual NVDA gate`: FullCalendar Standard v7.0.1 cùng recurrence
+`Accepted; manual NVDA gate PASS`: FullCalendar Standard v7.0.1 cùng recurrence
 caps `366 ngày/730 ngày/512/2.000/250 ms` được chấp nhận ở cấp decision spike, nhưng
 COUNT phải giữ occurrence cuối trong horizon và YEARLY golden đã đạt. Full v7 E2E hậu
 fix đạt `9 passed (23.6s)`; comparator parity v6 đạt `4 passed` nhưng fail render 500 và
-long-task 2.000 absolute budget. Agenda/Axe hardening đạt automated gate; renderer chưa
-được nối route production cho tới khi manual NVDA marker được đóng.
+long-task 2.000 absolute budget. Agenda/Axe hardening và NVDA đạt gate; renderer chưa
+được nối route production vì còn route-level authorization/range/bundle/a11y gate.
 P3-03A repository/runtime foundation đã `VERIFY`; P3-03B còn migration/grants staging,
 durable host và crash/reclaim acceptance. P3-04 được phép triển khai handler đầu tiên
 sau registration/feature gate mặc định tắt để làm controlled canary, nhưng không bật

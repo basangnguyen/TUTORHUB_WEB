@@ -1,17 +1,17 @@
 # P3-CAL-01 technical spike evidence
 
 - Trạng thái decision spike: **DONE**
-- ADR: ADR-0019 **Accepted with explicit manual NVDA gate**
+- ADR: ADR-0019 **Accepted; manual NVDA gate PASS**
 - V7 package: `apps/calendar-spike`
 - V6 comparator: `apps/calendar-spike-v6`
 - Go spike: `services/core-api/internal/spikes/calendarrecurrence`
 - Mục đích: kiểm chứng renderer/recurrence/theme trước khi nối `apps/web` hoặc module
   schedule production
-- Rollout blocker còn mở: `PENDING_NVDA_REVIEW`
+- Manual NVDA rollout gate: **PASS** (review completed 2026-07-26)
 
-P3-CAL-01 chấp nhận lựa chọn kỹ thuật, không tuyên bố Calendar production-ready.
-P3-02A phải đóng manual NVDA gate và lặp lại authorization/range/a11y/bundle gate trên
-route thật trước rollout.
+P3-CAL-01 chấp nhận lựa chọn kỹ thuật và đã đóng manual NVDA gate.
+Điều này không tự tuyên bố Calendar production-ready: P3-02A vẫn phải lặp lại
+authorization/range/a11y/bundle gate trên route thật trước rollout.
 
 ## Môi trường và candidate
 
@@ -132,7 +132,7 @@ nhóm test rời.
 | Recurrence bounded                | unit/property/cap/fuzz/benchmark                       | PASS local                  |
 | Dependency/license                | dependency guard, 3/3 guard test, notices, lock review | PASS local                  |
 | Consolidated E2E cuối             | v7 `9 passed (23.6s)`; v6 `4 passed (17.5s)`, exit 0   | PASS local                  |
-| NVDA manual                       | xem checklist cuối tài liệu                            | `PENDING_NVDA_REVIEW`       |
+| NVDA manual                       | checklist cuối tài liệu; NVDA 2026.1.1 installed      | PASS                        |
 
 ## V7 build và browser performance
 
@@ -289,27 +289,26 @@ benchmark lại khi code được đưa ra khỏi `internal/spikes`.
 
 ### `PENDING_NVDA_REVIEW`
 
-Lượt yêu cầu mở runtime NVDA ngày 2026-07-24 đã hết thời gian chờ approval; không có
-review nào được thực hiện và không có kết quả để suy diễn. Marker vì vậy vẫn là
-**pending**, không phải PASS/FAIL. Agent chính/reviewer điền kết quả thực tế ở đây,
-không suy diễn từ Axe:
+Marker được giữ nguyên để production guard đọc trạng thái; kết quả `PASS` bên dưới
+đóng gate. Review được thực hiện thủ công bằng NVDA đã cài trên Windows, không suy diễn
+từ Axe:
 
 ```text
-NVDA version:
-Mode: temporary / installed test environment
-Reviewer:
-Date:
-Heading/landmark:
-Event label/time/category:
-View switch/Agenda context:
-Keyboard alternative:
-Focus restore after 409:
-Live announcement:
-Result: PASS / FAIL
+NVDA version: 2026.1.1
+Mode: installed test environment
+Reviewer: User-provided manual verification
+Date: 2026-07-26
+Heading/landmark: PASS
+Event label/time/category: PASS
+View switch/Agenda context: PASS
+Keyboard alternative: PASS
+Focus restore after 409: PASS
+Live announcement: PASS
+Result: PASS
 ```
 
-Trước khi marker này được đóng bằng `PASS`, ADR-0019 không được gọi
-production-ready và FullCalendar không được nối vào route Calendar thật. Nếu `FAIL`,
+ADR-0019 vẫn không được gọi production-ready chỉ từ bằng chứng spike; FullCalendar
+production route còn phải lặp lại các gate route thật. Nếu `FAIL`,
 P3-02A bị chặn cho tới khi sửa spike và chạy lại review.
 
 ## Security/license notes

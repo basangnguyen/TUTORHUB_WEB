@@ -14,7 +14,7 @@
 | Phase hiện tại      | Phase 3 - Daily learning workspace                                                   |
 | Task `DONE` gần nhất | P3-CAL-01 và P3-01                                                                   |
 | Mốc repository mới | P3-02A Calendar read projection/shell đạt local `VERIFY`                            |
-| Task hiện tại       | P3-02A manual NVDA/renderer/editor/performance/browser gate; P3-03B/P3-04 worker gate |
+| Task hiện tại       | P3-02A renderer/editor/performance/browser gate; P3-03B/P3-04 worker gate             |
 | Task tiếp theo      | Đóng phần còn lại P3-02A; sau đó P3-02B recurrence/conflict                       |
 
 ## Kiến trúc đang chạy
@@ -331,8 +331,8 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
     `4 passed (17.5s)` và heap nhỏ hơn `7,44 MiB`, nhưng fail render 500
     `1.492 > 500 ms` cùng long-task 2.000 `404 > 400 ms`, nên bị loại. Agenda
     progressive `24 -> 48 -> 51` đạt keyboard/mobile automated evidence. ADR-0019 được
-    `Accepted with explicit manual NVDA gate`; FullCalendar vẫn chưa nối route
-    production cho tới khi marker NVDA được reviewer đóng.
+    `Accepted; manual NVDA gate PASS`; FullCalendar vẫn chưa nối route production vì
+    còn route-level authorization/range/bundle/a11y gate.
 14. P3-01 local verification ngày 2026-07-24 đạt web typecheck/test/build, API-client
     typecheck/test và các Go package liên quan. Contract chỉ hỗ trợ session một lần,
     lifecycle public `scheduled -> cancelled`, bounded list/range/duration, optimistic
@@ -393,15 +393,15 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
     Mutation preference dùng principal generation để chặn response cũ ghi lại cache sau
     switch/logout; drawer remount theo tenant/user và Agenda giữ đúng local date ở UTC+14.
     Warm Academic calendar tokens cùng production guard fail-closed không cho import
-    FullCalendar/Premium/telemetry khi `PENDING_NVDA_REVIEW` còn mở.
+    FullCalendar/Premium/telemetry khi gate route production chưa đủ điều kiện.
 22. Local verification P3-02A đạt toàn bộ Go test + vet và integration-tag compile;
     API client 22/22; web 175/175 + lint/typecheck/build; format, security 19/19,
     production Calendar guard và 20 cặp contrast đều xanh. PostgreSQL integration thật
     không chạy vì process không có hai biến database và agent không đọc `.env*.local`.
     Task chưa `DONE`: quick create/full editor timed one-time ClassSession đã nối vào
-    projection và có test CSRF + expected-version; còn manual NVDA, FullCalendar
-    production renderer, drag/resize/undo, numeric route benchmark, manual accessibility/
-    visual review và browser/E2E acceptance.
+    projection và có test CSRF + expected-version; manual NVDA đã PASS, còn FullCalendar
+    production renderer, drag/resize/undo, numeric route benchmark, visual review và
+    browser/E2E acceptance.
 23. P3-02A staging rollout ngày 2026-07-26: tạo backup branch Neon
     `p3-calendar-pre-migration-20260726` (auto-delete 7 ngày, parent `staging`), rồi migrate
     direct staging `14 false -> 17 false`. Exact runtime ACL probe đạt: schema
@@ -411,16 +411,21 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
     `false`. `tutorhub_worker` chưa tồn tại nên worker ACL và durable-worker gate vẫn để
     P3-03B; public health/ready Render và Cloudflare đều HTTP 200.
 
+24. Manual NVDA review P3-CAL-01 đã PASS ngày 2026-07-26 với NVDA 2026.1.1 trên môi
+    trường cài đặt. Người dùng xác nhận PASS cho heading/landmark, event label/time/
+    category, view switch/Agenda, keyboard alternative, focus restore sau 409 và live
+    announcement. Đây là bằng chứng đóng NVDA gate; không thay thế route-level
+    authorization/range/a11y/bundle, visual hoặc browser acceptance của P3-02A.
+
 ## Rủi ro đã biết
 
 - P3-01 đã `DONE` cho phạm vi one-time ClassSession trên staging/private alpha. Kết quả
   này không mở rộng phạm vi sang recurrence, reminder, calendar tổng hợp, email/ICS,
   durable worker hoặc Phase 4 media lifecycle.
-- ADR-0019 đã chấp nhận decision dùng FullCalendar v7 và recurrence bounded, nhưng chỉ
-  ở mức `Accepted with explicit manual NVDA gate`. FullCalendar vẫn chỉ nằm trong
-  spike, recurrence library chưa được import vào production domain và manual NVDA chưa
-  được suy diễn từ Axe. Không nối renderer vào route thật trước khi đóng marker; P3-02A/
-  P3-02B vẫn phải đạt contract, authorization, integration/E2E và staging gate riêng.
+- ADR-0019 đã chấp nhận decision dùng FullCalendar v7 và recurrence bounded; manual NVDA
+  đã PASS. FullCalendar vẫn chỉ nằm trong spike, recurrence library chưa được import vào
+  production domain và P3-02A/P3-02B vẫn phải đạt contract, authorization, integration/
+  E2E và staging gate riêng trước khi nối renderer vào route thật.
 - AWS SES đã được chọn làm provider target nhưng chưa được cấu hình/xác minh và sending
   domain chưa có. Pre-domain chỉ cho phép owner-controlled verified identities trong
   SES sandbox; không được coi là production readiness. SPF/DKIM/DMARC, SES event ingress

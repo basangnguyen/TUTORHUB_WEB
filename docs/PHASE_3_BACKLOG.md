@@ -25,18 +25,18 @@ không được tính `DONE` trước interoperability gate.
 
 **Task `DONE` vừa hoàn thành:** P3-CAL-01 decision spike và P3-01. P3-CAL-01
 chấp nhận FullCalendar Standard v7.0.1, adapter/domain boundary, Warm Academic theme và
-recurrence Go bounded; manual NVDA vẫn là explicit rollout gate trước khi nối renderer
-vào route production. P3-01 đã đạt migration, contract, backend, feature/policy,
+recurrence Go bounded; manual NVDA gate đã PASS trước khi nối renderer vào route
+production. P3-01 đã đạt migration, contract, backend, feature/policy,
 generated client, class-detail UI, Neon `14 false`, deploy/public probes và browser
 acceptance Teacher/Student/IDOR. Biên bản P3-01 nằm tại
 `docs/P3_01_STAGING_ACCEPTANCE.md`.
 
 **Task hiện tại:** P3-02A read projection, preference và semantic Calendar shell đã đạt
 local `VERIFY`; staging đã migrate sạch `14 false -> 17 false` và exact API runtime grants
-đã probe xanh. P3-03A/P3-04 vẫn `VERIFY` vì `tutorhub_worker` chưa provision, durable host
-không spin-down và duplicate/crash/reclaim acceptance còn thiếu. P3-02A còn manual NVDA,
-renderer FullCalendar production, editor/drag, numeric performance, manual accessibility/
-visual review và browser/E2E acceptance. Mọi side effect tới end user vẫn chờ P3-03B đạt;
+đã probe xanh. Manual NVDA gate P3-CAL-01 đã PASS. P3-03A/P3-04 vẫn `VERIFY` vì
+`tutorhub_worker` chưa provision, durable host không spin-down và duplicate/crash/reclaim
+acceptance còn thiếu. P3-02A còn renderer FullCalendar production, editor/drag, numeric
+performance, visual review và browser/E2E acceptance. Mọi side effect tới end user vẫn chờ P3-03B đạt;
 hai gate P3-04 tiếp tục giữ `false` cho tới acceptance.
 
 **Thiết kế Calendar có thẩm quyền:**
@@ -305,15 +305,15 @@ không thêm FullCalendar hoặc recurrence; dependency chỉ được thêm sau
 ### P3-CAL-01 technical spike/ADR gate
 
 - [x] ADR-0019 ghi alternatives/criteria và chuyển
-      `Accepted with explicit manual NVDA gate`.
+      `Accepted; manual NVDA gate PASS`.
 - [x] FullCalendar Standard v7.0.1 spike đạt React/Vite/strict/bundle/performance; đã
       so sánh v6.1.21 fallback, Temporal/package/CSS/theme và pin exact version.
 - [x] Keyboard, Axe critical/serious=0, mobile Agenda, pointer drag/resize, drag
       alternative, zoom 200%, forced-colors và reduced-motion đạt automated evidence;
       Agenda mở progressive `24 -> 48 -> 51`, Axe waiver khóa exact node/count/scope.
-- [ ] `PENDING_NVDA_REVIEW`: manual NVDA phải đạt trước khi P3-02A nối renderer vào
-      route production. Đây là explicit rollout gate của ADR, không phải tuyên bố đã
-      kiểm tra hoặc production-ready.
+- [x] `PENDING_NVDA_REVIEW`: manual NVDA đã PASS ngày 2026-07-26 trên NVDA 2026.1.1;
+      marker được giữ để production guard đọc trạng thái. Đây là gate accessibility
+      của ADR, không tự thay thế các gate route production.
 - [x] DST/drag/revert contract unit với fixture `Asia/Ho_Chi_Minh` và
       `America/New_York` đạt; browser interaction evidence vẫn thuộc mục trên.
 - [x] Go recurrence candidate qua adapter đạt bounded RFC subset/golden/property/
@@ -399,9 +399,10 @@ P3-01 qua một projection thống nhất; chưa hứa recurrence, attendee/RSVP
 - [x] Quick create/full editor ở task này chỉ tạo/sửa timed one-time ClassSession đã có
       contract P3-01; all-day, room/material và source chưa có field phải source-gated/
       hidden, không lưu placeholder.
-- [ ] Dùng exact pin FullCalendar Standard đã được ADR-0019 chấp nhận; đóng manual NVDA
-      marker trước production route. CI deny Premium package, telemetry và unreviewed
-      CSS/assets.
+- [x] Đóng manual NVDA marker bằng checklist PASS của ADR-0019; CI vẫn deny Premium
+      package, telemetry và unreviewed CSS/assets.
+- [ ] Dùng exact pin FullCalendar Standard đã được ADR-0019 chấp nhận và nối production
+      route sau khi route thật lặp lại authorization/range/a11y/bundle gate.
 - [ ] Warm Academic semantic token, Teams-inspired IA và editor hai cột đạt visual
       regression ở desktop/tablet/mobile nhưng không sao chép icon/font/trade dress.
 - [ ] Drag/resize one-time có expected version, optimistic revert, undo và keyboard
@@ -420,10 +421,10 @@ HTTP/OpenAPI/generated client, preference CAS và Calendar shell semantic đã c
 Go test + vet, integration-tag compile, API client 22/22, web 175/175 + build, security
 19/19, Calendar production guard và 20 cặp token contrast đều đạt. PostgreSQL integration
 thật không chạy vì process không có `DATABASE_MIGRATION_URL`/`DATABASE_POOL_URL`; không
-đọc `.env*.local`. Marker `PENDING_NVDA_REVIEW` vẫn mở nên route thật không import hoặc
-mount FullCalendar. Quick create/full editor timed one-time ClassSession đã được nối vào
+đọc `.env*.local`. Marker `PENDING_NVDA_REVIEW` đã có kết quả PASS; route thật vẫn chưa
+import hoặc mount FullCalendar vì route-level gate còn mở. Quick create/full editor timed one-time ClassSession đã được nối vào
 projection và có test create/update với CSRF + expected version; drag/resize/undo, numeric
-500/1.000/2.000 route benchmark, manual accessibility/visual review và staging/browser
+500/1.000/2.000 route benchmark, visual review và staging/browser
 acceptance vẫn là gate trước `DONE`.
 
 **Staging rollout 2026-07-26:** backup branch `p3-calendar-pre-migration-20260726` (auto-delete

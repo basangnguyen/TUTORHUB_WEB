@@ -1,12 +1,13 @@
 # ADR-0019: Calendar renderer, bounded recurrence và conflict authority
 
-- Trạng thái: **Accepted with explicit manual NVDA gate**
+- Trạng thái: **Accepted; manual NVDA gate PASS**
 - Ngày chấp nhận quyết định: 2026-07-24
 - Phạm vi: P3-CAL-01, P3-02A, P3-02B, P3-02C và các consumer Calendar về sau
 - Bằng chứng kỹ thuật:
   [`docs/calendar/P3_CAL_01_SPIKE_EVIDENCE.md`](../calendar/P3_CAL_01_SPIKE_EVIDENCE.md)
-- Điều kiện rollout còn mở: marker `PENDING_NVDA_REVIEW` trong tài liệu bằng chứng
-  phải được reviewer đóng trước khi nối renderer vào route Calendar production.
+- Manual NVDA gate đã được reviewer đóng bằng kết quả `PASS` trong tài liệu bằng chứng
+  ngày 2026-07-26. Renderer vẫn phải lặp lại authorization/range/a11y/bundle gate trên
+  route Calendar production trước rollout.
 
 ## Bối cảnh
 
@@ -92,8 +93,8 @@ editor, policy, read model và recurrence/conflict authority.
 - Route Calendar phải lazy-load; initial Home không được kéo renderer.
 - `temporal-polyfill@1.0.1` có thể dùng trong domain civil-time adapter, nhưng kiểu
   FullCalendar không được rò vào production domain/API.
-- Renderer chỉ được nối vào `apps/web` sau khi marker `PENDING_NVDA_REVIEW` được đóng
-  và P3-02A lặp lại authorization/range/bundle/a11y gate trên route thật.
+- Renderer chỉ được nối vào `apps/web` sau khi marker `PENDING_NVDA_REVIEW` có kết quả
+  `PASS` (đã đạt) và P3-02A lặp lại authorization/range/bundle/a11y gate trên route thật.
 
 ### 2. Theme/IA/a11y
 
@@ -232,13 +233,8 @@ verification của thay đổi, không thay đổi decision.
 
 ## Explicit manual NVDA gate
 
-ADR chấp nhận renderer/recurrence decision nhưng **không tuyên bố production-ready**
-cho tới khi reviewer đóng `PENDING_NVDA_REVIEW`. Review phải chạy NVDA tạm thời hoặc
-môi trường NVDA đã kiểm soát, kiểm tra:
-
-Lượt yêu cầu mở runtime cho review ngày 2026-07-24 đã hết thời gian chờ approval, nên
-không tạo được bằng chứng NVDA. Đây là trạng thái **pending**, không phải PASS hoặc FAIL,
-và không được thay bằng Axe result.
+ADR chấp nhận renderer/recurrence decision và manual NVDA gate đã **PASS** trong môi
+trường NVDA đã cài. Kết quả không được suy diễn từ Axe; các mục đã kiểm tra là:
 
 1. heading/landmark và tên vùng Calendar;
 2. event label, time, category và trạng thái;
@@ -246,8 +242,9 @@ và không được thay bằng Axe result.
 4. keyboard drag alternative và focus restore sau revert;
 5. live announcement khi server trả 409.
 
-Nếu review fail, P3-02A không được nối renderer vào route thật; phải sửa spike và cập
-nhật ADR/evidence. Cross-client ICS/email vẫn là gate riêng P3-CAL-02/P3-05A.
+Nếu review fail trong một lần lặp lại, P3-02A không được nối renderer vào route thật;
+phải sửa spike và cập nhật ADR/evidence. Cross-client ICS/email vẫn là gate riêng
+P3-CAL-02/P3-05A.
 
 ## Hệ quả
 

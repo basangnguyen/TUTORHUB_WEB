@@ -1308,14 +1308,14 @@ từ P3-CAL-01.
 **Backlog thực thi:** `docs/PHASE_3_BACKLOG.md`. P3-00 backlog/architecture baseline và
 P3-CAL-00/P3-CAL-00B/P3-CAL-00C calendar research/re-baseline/readiness review đã
 `DONE`; P3-CAL-01 technical spike cũng `DONE` ở cấp decision. ADR-0019 được
-`Accepted with explicit manual NVDA gate`, chấp nhận FullCalendar Standard v7.0.1,
+`Accepted; manual NVDA gate PASS`, chấp nhận FullCalendar Standard v7.0.1,
 adapter/domain boundary, Warm Academic theme và recurrence Go bounded. V7 đã đạt
 interaction/Axe/performance 500/1.000/2.000 cùng license/security gate; full rerun hậu
 fix đạt `9 passed (23.6s)`. Comparator parity-config v6 đạt `4 passed` nhưng bị loại vì
 render 500 và long-task 2.000 vượt absolute budget, dù bundle/heap nhỏ hơn. Agenda mở
-progressive toàn bộ item, Axe waiver khóa exact node/count/scope. Manual NVDA vẫn chặn
-việc nối renderer vào route production nên kết quả này không được mô tả là Calendar
-runtime production-ready.
+progressive toàn bộ item, Axe waiver khóa exact node/count/scope. Renderer vẫn chưa được
+nối vào route production vì còn route-level authorization/range/bundle/a11y gate; kết quả
+này chưa được mô tả là Calendar runtime production-ready.
 Recurrence cap đã khóa ở query window `366 ngày`, series horizon `730 ngày`,
 `512 occurrence/series`, `2.000 occurrence/request`, deadline `250 ms`; COUNT phải
 validate occurrence cuối trong horizon và YEARLY golden đã đạt. Budget
@@ -1918,8 +1918,8 @@ Thứ tự hiện tại, cập nhật ngày 2026-07-25:
 `docs/PHASE_3_BACKLOG.md`, `docs/CALENDAR_PRODUCT_TECHNICAL_DESIGN.md`, ADR-0017 và
 ADR-0018 cùng ADR-0021. Phase 2/P2-12 đã hoàn thành;
 P3-CAL-00/P3-CAL-00B/P3-CAL-00C, P3-CAL-01 và P3-01 đã `DONE`. ADR-0019 là
-`Accepted with explicit manual NVDA gate`; marker này phải được đóng trước khi
-renderer đi vào route production. P3-03A và P3-04 implementation đã đạt `VERIFY`;
+`Accepted; manual NVDA gate PASS`; renderer vẫn phải qua route-level gates trước khi
+đi vào route production. P3-03A và P3-04 implementation đã đạt `VERIFY`;
 task hạ tầng hiện tại là P3-03B/P3-04 durable-host, staging migration-grant và
 canary crash/reclaim acceptance. Cả
 `OUTBOX_ENABLE_IN_APP_NOTIFICATION_CANARY` và
