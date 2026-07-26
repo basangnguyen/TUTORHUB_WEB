@@ -32,11 +32,12 @@ acceptance Teacher/Student/IDOR. Biên bản P3-01 nằm tại
 `docs/P3_01_STAGING_ACCEPTANCE.md`.
 
 **Task hiện tại:** P3-02A read projection, preference và semantic Calendar shell đã đạt
-local `VERIFY`; P3-03A/P3-04 cũng đang ở `VERIFY`. P3-02A còn manual NVDA, renderer
-FullCalendar production, editor/drag, numeric performance, PostgreSQL integration thật,
-staging migration/grants và browser/E2E acceptance. P3-03B còn migration/grants staging,
-durable host không spin-down và duplicate/crash/reclaim acceptance. Mọi side effect tới
-end user vẫn chờ P3-03B đạt; hai gate P3-04 tiếp tục giữ `false` cho tới acceptance.
+local `VERIFY`; staging đã migrate sạch `14 false -> 17 false` và exact API runtime grants
+đã probe xanh. P3-03A/P3-04 vẫn `VERIFY` vì `tutorhub_worker` chưa provision, durable host
+không spin-down và duplicate/crash/reclaim acceptance còn thiếu. P3-02A còn manual NVDA,
+renderer FullCalendar production, editor/drag, numeric performance, manual accessibility/
+visual review và browser/E2E acceptance. Mọi side effect tới end user vẫn chờ P3-03B đạt;
+hai gate P3-04 tiếp tục giữ `false` cho tới acceptance.
 
 **Thiết kế Calendar có thẩm quyền:**
 [`CALENDAR_PRODUCT_TECHNICAL_DESIGN.md`](CALENDAR_PRODUCT_TECHNICAL_DESIGN.md).
@@ -424,6 +425,13 @@ mount FullCalendar. Quick/full editor, drag/resize/undo, numeric 500/1.000/2.000
 benchmark, manual accessibility/visual review và staging/browser acceptance vẫn là gate
 trước `DONE`.
 
+**Staging rollout 2026-07-26:** backup branch `p3-calendar-pre-migration-20260726` (auto-delete
+7 ngày) đã được tạo trước rollout. Neon staging direct migration `14 false -> 17 false` thành
+công. Exact runtime ACL probe đạt schema usage/no-create, outbox column INSERT, notification
+read/read-at update, preference allowlist và calendar preference SELECT/INSERT/UPDATE; mọi
+DELETE/TRUNCATE ngoài allowlist đều bị từ chối. Worker role chưa tồn tại nên worker/canary gate
+vẫn mở và chưa bật feature.
+
 ### P3-02B Recurrence và class conflict authority
 
 **Outcome:** ClassSession recurring series chạy bounded, đúng DST và có edit
@@ -534,8 +542,9 @@ retry/backoff/dead-letter, graceful shutdown, bounded structured metrics, startu
 probe, OCI image chung, CI PostgreSQL integration và runbook. Registry runtime để rỗng
 theo mặc định; P3-04 chỉ đăng ký exact controlled-canary handler khi worker gate bật,
 nên không đụng event lịch sử. Registry gate-off vẫn phát heartbeat định kỳ nhưng không claim. Local unit/compile gate
-đạt; PostgreSQL runtime suite chạy ở CI. Chưa provision host trả phí, chưa áp dụng role/
-grant staging và chưa có crash/reclaim acceptance, vì vậy tuyệt đối chưa chuyển `DONE`.
+đạt; PostgreSQL runtime suite chạy ở CI. Neon staging đã áp migration và API runtime ACL;
+worker role/ACL, host trả phí và crash/reclaim acceptance vẫn chưa có, vì vậy tuyệt đối chưa
+chuyển `DONE`.
 
 - Thực thi ADR-0018 bằng `services/core-api/cmd/worker` trong cùng modular monolith/image.
 - Lease batch bằng `FOR UPDATE SKIP LOCKED` cùng fencing token; stale owner không thể
@@ -562,8 +571,8 @@ grant staging và chưa có crash/reclaim acceptance, vì vậy tuyệt đối c
 ## 10. P3-04 In-app notification và preference
 
 **Trạng thái 2026-07-26:** `VERIFY`. Implementation repository đã hoàn thiện và local gate
-đạt; staging vẫn ở version được xác nhận gần nhất `14 false`, durable worker chưa provision,
-exact grants/canary/crash-reclaim chưa nghiệm thu và cả hai gate phải giữ false. Không mô tả
+đạt; staging đã ở `17 false`, exact API runtime grants đã probe xanh nhưng durable worker chưa
+provision, worker ACL/canary/crash-reclaim chưa nghiệm thu và cả hai gate phải giữ false. Không mô tả
 notification là chức năng runtime đã bật.
 
 - [x] ADR-0022 chốt tenant/user projection, recipient snapshot boundary, idempotency,
@@ -587,8 +596,10 @@ notification là chức năng runtime đã bật.
 - [x] Preference lưu in-app/email, reminder offset và quiet-hours IANA; P3-04 không gọi
       provider hoặc gửi email. Email adapter/delivery chỉ thuộc P3-05A sau ADR-0020 gate.
 - [x] Unit/HTTP/module/worker/config/API-client/web tests, typecheck và build liên quan đạt local.
-- [ ] Áp migration `000015 -> 000016` và exact API/worker grants trên Neon staging;
-      xác minh bằng direct LOGIN positive/negative ACL probes, không ghi credential.
+- [x] Áp migration `000015 -> 000016` và exact API runtime grants trên Neon staging;
+      migration ledger `17 false`, direct LOGIN positive/negative ACL probes xanh, không ghi credential.
+- [ ] Provision `tutorhub_worker` và áp exact worker grants trên staging; role hiện chưa tồn tại
+      nên chưa bật worker/canary.
 - [ ] Provision durable worker không spin-down, chạy controlled canary duplicate cùng
       crash/lease-expiry/reclaim acceptance và lưu evidence redacted.
 - [ ] Chỉ sau hai gate trên mới nghiệm thu product visibility/tenant feature activation;

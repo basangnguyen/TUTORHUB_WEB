@@ -14,8 +14,8 @@
 | Phase hiện tại      | Phase 3 - Daily learning workspace                                                   |
 | Task `DONE` gần nhất | P3-CAL-01 và P3-01                                                                   |
 | Mốc repository mới | P3-02A Calendar read projection/shell đạt local `VERIFY`                            |
-| Task hiện tại       | P3-02A NVDA/renderer/editor/performance/staging gate; P3-03B/P3-04 external gate   |
-| Task tiếp theo      | Đóng phần còn lại P3-02A; P3-CAL-02 có thể spike độc lập khi chờ external gate    |
+| Task hiện tại       | P3-02A manual NVDA/renderer/editor/performance/browser gate; P3-03B/P3-04 worker gate |
+| Task tiếp theo      | Đóng phần còn lại P3-02A; sau đó P3-02B recurrence/conflict                       |
 
 ## Kiến trúc đang chạy
 
@@ -375,9 +375,10 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
     Web có bell, center, preference và bounded polling 30 giây, không polling nền.
     `FEATURE_CONTROL_ENABLE_IN_APP_NOTIFICATIONS=false` ép visibility tắt mặc định.
     Tests/module/HTTP/config/worker/API-client/web liên quan đạt local; không gọi email
-    provider. Neon staging vẫn được xác nhận gần nhất ở `14 false`; chưa áp migration
-    `000015/000016`, exact grants, durable host hoặc canary/crash-reclaim acceptance, nên
-    cả P3-03B và P3-04 vẫn `VERIFY` và chưa có end-user activation.
+    provider. Neon staging đã ở `17 false` sau khi áp `000015 -> 000016 -> 000017`;
+    API runtime exact grants đã được probe xanh, nhưng `tutorhub_worker` chưa provision nên
+    durable host/canary/crash-reclaim acceptance chưa có. Vì vậy P3-03B và P3-04 vẫn
+    `VERIFY` và chưa có end-user activation.
 20. P3-02A read foundation đạt local `VERIFY` ngày 2026-07-26. Migration `000017` thêm
     bounded-read index cho ClassSession và `calendar_display_preferences` theo
     tenant/user. Go API có projection ổn định, overlap half-open, range tối đa 366 ngày,
@@ -398,8 +399,16 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
     production Calendar guard và 20 cặp contrast đều xanh. PostgreSQL integration thật
     không chạy vì process không có hai biến database và agent không đọc `.env*.local`.
     Task chưa `DONE`: còn manual NVDA, FullCalendar production renderer, quick/full editor,
-    drag/resize/undo, numeric route benchmark, manual accessibility/visual review,
-    migration `000017` + exact runtime grants staging và browser/E2E acceptance.
+    drag/resize/undo, numeric route benchmark, manual accessibility/visual review và
+    browser/E2E acceptance.
+23. P3-02A staging rollout ngày 2026-07-26: tạo backup branch Neon
+    `p3-calendar-pre-migration-20260726` (auto-delete 7 ngày, parent `staging`), rồi migrate
+    direct staging `14 false -> 17 false`. Exact runtime ACL probe đạt: schema
+    `USAGE=true/CREATE=false`; outbox chỉ column INSERT; notifications chỉ SELECT +
+    UPDATE(read_at); notification preferences SELECT + allowlist INSERT/UPDATE; calendar
+    display preferences SELECT/INSERT/UPDATE; mọi quyền DELETE/TRUNCATE ngoài allowlist đều
+    `false`. `tutorhub_worker` chưa tồn tại nên worker ACL và durable-worker gate vẫn để
+    P3-03B; public health/ready Render và Cloudflare đều HTTP 200.
 
 ## Rủi ro đã biết
 

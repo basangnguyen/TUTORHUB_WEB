@@ -88,9 +88,10 @@ live; rollback bằng specific commit giữ cấu hình hiện tại là bằng 
 | P3-01 Session scheduling và timezone | DONE        | One-time session staging acceptance đạt       |
 | P3-CAL-02 Email/ICS + ADR-0020       | TODO        | AWS SES target, RSVP, ICS, deliverability     |
 | P3-02D Native Availability Poll      | TODO        | Native poll, secure sharing, Study Meeting    |
-| P3-03 PostgreSQL leased worker       | VERIFY      | P3-03A đạt; P3-03B durable/staging còn mở     |
-| P3-04 In-app notification            | VERIFY      | Local implementation đạt; staging gates mở    |
-| P3-02A/B/C, P3-05 đến P3-14          | TODO        | Theo dependency trong backlog                 |
+| P3-03 PostgreSQL leased worker       | VERIFY      | P3-03A đạt; worker role/host/crash gate mở    |
+| P3-04 In-app notification            | VERIFY      | API ACL staging xanh; worker/canary gate mở   |
+| P3-02A Calendar shell/read projection | VERIFY    | Staging 17 false + API ACL xanh; UX gates mở  |
+| P3-02B/C, P3-05 đến P3-14             | TODO      | Theo dependency trong backlog                 |
 
 Nguồn thực thi: `docs/PHASE_3_BACKLOG.md`. Trước khi code calendar phải đọc
 `docs/CALENDAR_PRODUCT_TECHNICAL_DESIGN.md` và ADR-0017; P3-02B recurrence phải chờ
@@ -135,9 +136,9 @@ P3-03A repository/runtime foundation đã đạt `VERIFY`: migration `000015`, w
 lease/fencing/retry/dead-letter, startup ACL probe, CI integration và runbook đã có.
 Không chuyển umbrella P3-03 sang `DONE` hoặc bật end-user side effect trước khi P3-03B
 staging migration/grants, durable host không spin-down và crash/reclaim acceptance đạt.
-P3-04 chưa `DONE`: Neon staging vẫn được xác nhận gần nhất ở `14 false`; migration
-`000015/000016`, exact API/worker grants, durable worker và canary duplicate/crash-reclaim
-chưa được nghiệm thu. Khi đổi worker gate phải dừng process và đổi exact notification
+P3-04 chưa `DONE`: Neon staging đã ở `17 false` và exact API runtime grants đã probe xanh;
+worker role/worker grants, durable worker và canary duplicate/crash-reclaim chưa được nghiệm
+thu. Khi đổi worker gate phải dừng process và đổi exact notification
 grant cùng lúc; quyền dư/thiếu đều phải làm startup probe fail closed. Trong khi chờ owner
 duyệt hạ tầng, task implementation tiếp theo có thể là P3-CAL-02 hoặc P3-02A theo rollout gate.
 
