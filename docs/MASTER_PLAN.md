@@ -5,13 +5,13 @@
 | Thuộc tính            | Giá trị                                                                                      |
 | --------------------- | -------------------------------------------------------------------------------------------- |
 | Phiên bản tài liệu    | 2.2                                                                                          |
-| Cập nhật              | 2026-07-25                                                                                   |
+| Cập nhật              | 2026-07-26                                                                                   |
 | Phạm vi ưu tiên       | Web application                                                                              |
 | Thư mục phát triển    | `D:\TutorHub_V2`                                                                             |
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
 | Phase hiện tại        | Phase 3 - Daily learning workspace                                                           |
-| Trạng thái gần nhất   | P3-04 local VERIFY; P3-03B/P3-04 staging gates mở, P3-CAL-01/P3-01 DONE                     |
+| Trạng thái gần nhất   | P3-02A DONE; P3-03B/P3-04 durable-worker staging gates vẫn mở                               |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 
@@ -1315,9 +1315,11 @@ fix đạt `9 passed (23.6s)`. Comparator parity-config v6 đạt `4 passed` nh�
 render 500 và long-task 2.000 vượt absolute budget, dù bundle/heap nhỏ hơn. Agenda mở
 progressive toàn bộ item, Axe waiver khóa exact node/count/scope. Exact FullCalendar
 Standard v7.0.1 đã được nối vào route production cho Day/Work week/Week/Month cùng
-drag/resize expected-version, optimistic revert, undo và keyboard Agenda. Numeric route
-benchmark, visual regression và staging/browser acceptance vẫn mở nên kết quả này chưa
-được mô tả là Calendar runtime production-ready.
+drag/resize expected-version, optimistic revert, undo và keyboard Agenda. P3-02A đã
+`DONE` ngày 2026-07-26 sau production-route Playwright 8/8, numeric benchmark
+500/1.000/2.000 item, visual regression desktop/tablet/mobile và staging/browser
+acceptance. Kết quả này chỉ đóng professional shell/read projection; recurrence,
+participant/RSVP, email/ICS và Availability Poll vẫn theo các task phụ thuộc.
 Recurrence cap đã khóa ở query window `366 ngày`, series horizon `730 ngày`,
 `512 occurrence/series`, `2.000 occurrence/request`, deadline `250 ms`; COUNT phải
 validate occurrence cuối trong horizon và YEARLY golden đã đạt. Budget
@@ -1840,7 +1842,7 @@ Một tính năng chỉ được đánh dấu hoàn thành khi:
 
 ## 36. Việc cần làm ngay
 
-Thứ tự hiện tại, cập nhật ngày 2026-07-25:
+Thứ tự hiện tại, cập nhật ngày 2026-07-26:
 
 1. Phase 1 đã hoàn thành; biên bản nằm tại `docs/PHASE_1_COMPLETION.md`.
 2. Phase 2/P2-00 đến P2-12 đã hoàn thành; biên bản exit gate được sign-off ngày 2026-07-22.
@@ -1851,8 +1853,8 @@ Thứ tự hiện tại, cập nhật ngày 2026-07-25:
 6. P3-CAL-01 đã `DONE`; ADR-0019 được chấp nhận với explicit manual NVDA rollout gate.
    V7 full E2E hậu fix đạt 9/9; v6 parity comparator fail hai absolute budget. Agenda
    progressive, Axe exact waiver, COUNT occurrence-last/YEARLY golden và Go recurrence
-   caps `366 ngày/730 ngày/512/2.000/250 ms` đã có evidence. Chưa nối FullCalendar
-   vào route production khi marker NVDA chưa được reviewer đóng.
+   caps `366 ngày/730 ngày/512/2.000/250 ms` đã có evidence. FullCalendar Standard v7.0.1
+   đã được nối vào route production sau khi manual NVDA gate PASS.
 7. P3-01 đã `DONE`: implementation/test local, Neon `14 false`, runtime grants, deploy,
    public probes và browser acceptance Teacher/Student/IDOR trên staging đều đạt. Không
    gọi lượt browser thủ công là Playwright staging.
@@ -1860,16 +1862,18 @@ Thứ tự hiện tại, cập nhật ngày 2026-07-25:
    durable host không spin-down và staging crash/reclaim acceptance trước mọi side effect
    tới end user. P3-04 implementation đã đạt local `VERIFY`, nhưng migration `000016`,
    exact notification grants, canary duplicate/reclaim và activation gate chưa nghiệm thu.
-9. Sau khi P3-CAL-01 và P3-01 cùng đạt gate, thực hiện P3-CAL-02/ADR-0020 trong sandbox
+9. P3-02A đã `DONE`: production-route Playwright 8/8, numeric performance,
+   visual desktop/tablet/mobile, public probes và browser staging acceptance đều đạt.
+10. Thực hiện P3-CAL-02/ADR-0020 trong sandbox
    cô lập để xác minh AWS SES target trước participant/email/ICS provider implementation;
    pre-domain chỉ dùng owner-controlled verified identities, runtime delivery chờ P3-03.
-10. Triển khai P3-02A, P3-02B/P3-02C và P3-05A theo dependency đã khóa; hoàn tất staging
-    gate P3-04 cùng P3-03B trước activation. Không
-    đưa recurrence, reminder, worker, email hoặc calendar tổng hợp vào P3-01.
-11. ADR-0021 đã `Accepted`; triển khai P3-02D sau P3-02B/C và P3-03 rồi P3-05B, không
-    phụ thuộc When2meet.
-12. Không xóa thêm Neon branch theo quyết định hiện tại của owner.
-13. Không khởi động QuizHub, Lavie, social feed hoặc Secure Exam ngoài phase đã quy hoạch.
+11. Triển khai P3-02B/P3-02C và P3-05A theo dependency đã khóa; hoàn tất staging
+    gate P3-04 cùng P3-03B trước activation. Không đưa recurrence, reminder, worker,
+    email hoặc calendar tổng hợp vào P3-01.
+12. ADR-0021 đã `Accepted`; triển khai P3-02D sau P3-02B/C và P3-03 rồi P3-05B, không
+     phụ thuộc When2meet.
+13. Không xóa thêm Neon branch theo quyết định hiện tại của owner.
+14. Không khởi động QuizHub, Lavie, social feed hoặc Secure Exam ngoài phase đã quy hoạch.
 
 ## 37. Quy tắc duy trì Master Plan
 
@@ -1920,14 +1924,14 @@ Thứ tự hiện tại, cập nhật ngày 2026-07-25:
 `docs/PHASE_3_BACKLOG.md`, `docs/CALENDAR_PRODUCT_TECHNICAL_DESIGN.md`, ADR-0017 và
 ADR-0018 cùng ADR-0021. Phase 2/P2-12 đã hoàn thành;
 P3-CAL-00/P3-CAL-00B/P3-CAL-00C, P3-CAL-01 và P3-01 đã `DONE`. ADR-0019 là
-`Accepted; manual NVDA gate PASS`; exact renderer đã vào route production nhưng vẫn phải
-qua numeric performance, visual và staging/browser gates trước khi P3-02A `DONE`.
+`Accepted; manual NVDA gate PASS`; P3-02A đã `DONE` sau khi exact renderer, numeric
+performance, visual và staging/browser gates đều đạt.
 P3-03A và P3-04 implementation đã đạt `VERIFY`;
 task hạ tầng hiện tại là P3-03B/P3-04 durable-host, staging migration-grant và
 canary crash/reclaim acceptance. Cả
 `OUTBOX_ENABLE_IN_APP_NOTIFICATION_CANARY` và
 `FEATURE_CONTROL_ENABLE_IN_APP_NOTIFICATIONS` vẫn mặc định false; trong khi chờ owner
-duyệt hạ tầng trả phí, bước độc lập kế tiếp là đóng P3-02A hoặc bắt đầu P3-CAL-02.
+duyệt hạ tầng trả phí, bước độc lập kế tiếp là P3-CAL-02/ADR-0020; sau đó P3-02B.
 P3-02D/ADR-0021 mới là
 architecture/backlog, chưa có runtime. AWS SES đã được chọn làm provider target nhưng
 P3-CAL-02/ADR-0020 vẫn là gate email/ICS chưa triển khai; chưa có domain hoặc production

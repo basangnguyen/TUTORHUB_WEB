@@ -90,7 +90,7 @@ live; rollback bằng specific commit giữ cấu hình hiện tại là bằng 
 | P3-02D Native Availability Poll      | TODO        | Native poll, secure sharing, Study Meeting    |
 | P3-03 PostgreSQL leased worker       | VERIFY      | P3-03A đạt; worker role/host/crash gate mở    |
 | P3-04 In-app notification            | VERIFY      | API ACL staging xanh; worker/canary gate mở   |
-| P3-02A Calendar shell/read projection | VERIFY    | Renderer/drag đạt; perf/visual/E2E gates mở   |
+| P3-02A Calendar shell/read projection | DONE      | Route E2E/perf/visual/staging gates đạt        |
 | P3-02B/C, P3-05 đến P3-14             | TODO      | Theo dependency trong backlog                 |
 
 Nguồn thực thi: `docs/PHASE_3_BACKLOG.md`. Trước khi code calendar phải đọc
@@ -124,9 +124,10 @@ automated, dependency/license và Go fuzz/benchmark; full rerun hậu fix đạt
 COUNT phải chứng minh occurrence cuối nằm trong horizon 730 ngày; YEARLY golden đã có.
 Agenda mở progressive `24 -> 48 -> toàn bộ`, Axe waiver khóa exact node/count/scope.
 Manual NVDA gate đã PASS. P3-02A đã nối exact FullCalendar Standard v7.0.1 vào route
-production cùng drag/resize expected-version, optimistic revert, undo và keyboard Agenda;
-numeric route benchmark, visual desktop/tablet/mobile và staging/browser acceptance vẫn
-phải đạt trước khi gọi Calendar production-ready.
+production cùng drag/resize expected-version, optimistic revert, undo và keyboard Agenda.
+Production-route Playwright 8/8, numeric benchmark 500/1.000/2.000 item, visual
+desktop/tablet/mobile và staging/browser acceptance đều đạt ngày 2026-07-26; P3-02A đã
+`DONE`. Recurrence, participant/RSVP, email/ICS và Availability Poll vẫn thuộc task sau.
 Mọi active authenticated member có thể tạo/quản lý poll và Study Meeting của mình; chỉ
 actor có `session.schedule` mới tạo ClassSession. Full LiveKit token/lobby/moderation/
 room lifecycle vẫn thuộc Phase 4.
@@ -142,7 +143,8 @@ P3-04 chưa `DONE`: Neon staging đã ở `17 false` và exact API runtime grant
 worker role/worker grants, durable worker và canary duplicate/crash-reclaim chưa được nghiệm
 thu. Khi đổi worker gate phải dừng process và đổi exact notification
 grant cùng lúc; quyền dư/thiếu đều phải làm startup probe fail closed. Trong khi chờ owner
-duyệt hạ tầng, task implementation tiếp theo có thể là P3-CAL-02 hoặc P3-02A theo rollout gate.
+duyệt hạ tầng, task implementation độc lập tiếp theo là P3-CAL-02/ADR-0020; sau đó
+P3-02B recurrence/conflict theo dependency.
 
 ## 6. Hạ tầng staging đã chốt
 

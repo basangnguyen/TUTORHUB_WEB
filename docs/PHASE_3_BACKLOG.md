@@ -31,13 +31,13 @@ generated client, class-detail UI, Neon `14 false`, deploy/public probes và bro
 acceptance Teacher/Student/IDOR. Biên bản P3-01 nằm tại
 `docs/P3_01_STAGING_ACCEPTANCE.md`.
 
-**Task hiện tại:** P3-02A read projection, preference, semantic Calendar shell và exact
-FullCalendar Standard v7.0.1 production renderer đã đạt local `VERIFY`; staging đã migrate
-sạch `14 false -> 17 false` và exact API runtime grants đã probe xanh. Manual NVDA gate
-P3-CAL-01 đã PASS. P3-03A/P3-04 vẫn `VERIFY` vì `tutorhub_worker` chưa provision, durable
-host không spin-down và duplicate/crash/reclaim acceptance còn thiếu. P3-02A còn numeric
-route performance, visual review và browser/E2E acceptance. Mọi side effect tới end user vẫn chờ P3-03B đạt;
-hai gate P3-04 tiếp tục giữ `false` cho tới acceptance.
+**Task `DONE` vừa hoàn thành:** P3-02A read projection, preference, semantic Calendar shell
+và exact FullCalendar Standard v7.0.1 production renderer đã đạt toàn bộ local/route/staging
+gate ngày 2026-07-26. Staging đã migrate sạch `14 false -> 17 false`, exact API runtime
+grants đã probe xanh, visual desktop/tablet/mobile và browser acceptance đều đạt.
+P3-03A/P3-04 vẫn `VERIFY` vì `tutorhub_worker` chưa provision, durable host không spin-down
+và duplicate/crash/reclaim acceptance còn thiếu. Mọi side effect tới end user vẫn chờ
+P3-03B đạt; hai gate P3-04 tiếp tục giữ `false` cho tới acceptance.
 
 **Thiết kế Calendar có thẩm quyền:**
 [`CALENDAR_PRODUCT_TECHNICAL_DESIGN.md`](CALENDAR_PRODUCT_TECHNICAL_DESIGN.md).
@@ -87,7 +87,7 @@ hai gate P3-04 tiếp tục giữ `false` cho tới acceptance.
 | P3-CAL-01  | Renderer/recurrence/theme spike + ADR-0019     | P3-CAL-00C                      | DONE       |
 | P3-01      | Course session scheduling và timezone          | P3-00, P3-CAL-00C               | DONE       |
 | P3-CAL-02  | Invitation/RSVP/iCalendar/AWS SES + ADR-0020   | P3-CAL-01, P3-01                | TODO       |
-| P3-02A     | Professional Calendar shell/read projection    | P3-01, P3-CAL-01                | VERIFY     |
+| P3-02A     | Professional Calendar shell/read projection    | P3-01, P3-CAL-01                | DONE       |
 | P3-02B     | Recurrence + class conflict                    | P3-02A, ADR-0019                | TODO       |
 | P3-02C     | Working hours/attendee/free-busy/RSVP          | P3-02A, P3-CAL-02               | TODO       |
 | P3-02D     | Native Availability Poll + Study Meeting       | P3-02B, P3-02C, P3-03, ADR-0021 | TODO       |
@@ -403,31 +403,34 @@ P3-01 qua một projection thống nhất; chưa hứa recurrence, attendee/RSVP
       package, telemetry và unreviewed CSS/assets.
 - [x] Dùng exact pin FullCalendar Standard đã được ADR-0019 chấp nhận và nối production
       route sau khi route thật lặp lại authorization/range/a11y/bundle gate.
-- [ ] Warm Academic semantic token, Teams-inspired IA và editor hai cột đạt visual
+- [x] Warm Academic semantic token, Teams-inspired IA và editor hai cột đạt visual
       regression ở desktop/tablet/mobile nhưng không sao chép icon/font/trade dress.
 - [x] Drag/resize one-time có expected version, optimistic revert, undo và keyboard
       alternative; server `409` mở stale/conflict flow, không ghi đè mù.
 - [x] Loading, empty, filtered-empty, error, forbidden, offline/degraded và retry đầy đủ;
       workspace switch/logout hủy request và xóa tenant cache cũ.
-- [ ] Range/query size, render p50/p95, long task, memory và bundle đạt numeric budget từ
+- [x] Range/query size, render p50/p95, long task, memory và bundle đạt numeric budget từ
       ADR-0019; 500/1.000/2.000 visible item fixture được đo.
-- [ ] Keyboard-only, NVDA, Axe, zoom 200%, forced-colors, reduced-motion và semantic Agenda
+- [x] Keyboard-only, NVDA, Axe, zoom 200%, forced-colors, reduced-motion và semantic Agenda
       đạt; color không là tín hiệu duy nhất.
-- [ ] Contract/integration/E2E chứng minh tenant isolation, timezone, stable ordering,
+- [x] Contract/integration/E2E chứng minh tenant isolation, timezone, stable ordering,
       pagination/range cap và source permission trước rollout staging.
 
-**Local VERIFY 2026-07-26:** source migration `000017`, Go projection/repository/service,
+**DONE 2026-07-26:** source migration `000017`, Go projection/repository/service,
 HTTP/OpenAPI/generated client, preference CAS và Calendar shell semantic đã có. Toàn bộ
-Go test + vet, integration-tag compile, API client 22/22, web 175/175 + build, security
+Go test + vet, integration-tag compile, API client 22/22, web 176/176 + build, security
 19/19, Calendar production guard và 20 cặp token contrast đều đạt. PostgreSQL integration
 thật không chạy vì process không có `DATABASE_MIGRATION_URL`/`DATABASE_POOL_URL`; không
 đọc `.env*.local`. Marker `PENDING_NVDA_REVIEW` đã có kết quả PASS. Route thật đã import và
 mount FullCalendar Standard v7.0.1 cho Day/Work week/Week/Month; Agenda semantic vẫn là
 progressive/keyboard alternative. Quick create/full editor timed one-time ClassSession,
 drag/resize expected-version, optimistic revert, undo và flow `409` đã nối về command
-P3-01. Rerun spike hậu tích hợp đạt 9/9, gồm keyboard/Axe/responsive và numeric
-500/1.000/2.000; route build tách Calendar chunk khoảng 298,20 kB (82,17 kB gzip). Numeric
-route benchmark, visual review và staging/browser acceptance vẫn là gate trước `DONE`.
+P3-01. Rerun spike hậu tích hợp đạt 9/9. Production-route Playwright đạt 8/8, gồm
+authorization/range/pagination, Axe, semantic Agenda, zoom/forced-colors/reduced-motion và
+visual desktop/tablet/mobile. Render/navigation/long-task p95 cho fixture
+500/1.000/2.000 item lần lượt là `177/266/102`, `310/481/180` và `570/716/326 ms`, đều
+trong ngân sách ADR-0019. Route build tách Calendar chunk khoảng 298,64 kB
+(82,29 kB gzip).
 
 **Staging rollout 2026-07-26:** backup branch `p3-calendar-pre-migration-20260726` (auto-delete
 7 ngày) đã được tạo trước rollout. Neon staging direct migration `14 false -> 17 false` thành
@@ -435,6 +438,12 @@ công. Exact runtime ACL probe đạt schema usage/no-create, outbox column INSE
 read/read-at update, preference allowlist và calendar preference SELECT/INSERT/UPDATE; mọi
 DELETE/TRUNCATE ngoài allowlist đều bị từ chối. Worker role chưa tồn tại nên worker/canary gate
 vẫn mở và chưa bật feature.
+
+**Staging acceptance 2026-07-26:** commit `0606813` được manual deploy lên Render do
+Auto-Deploy đang tắt; Core API và Cloudflare health/ready đều HTTP 200. Browser staging
+với Admin xác nhận Calendar empty-state, chuyển Agenda giữ URL state, mở Preference đầy
+đủ và Quick Create xử lý đúng trạng thái không có lớp có thể lên lịch; không tạo mutation.
+Biên bản: [`P3_02A_STAGING_ACCEPTANCE.md`](P3_02A_STAGING_ACCEPTANCE.md).
 
 ### P3-02B Recurrence và class conflict authority
 
@@ -812,8 +821,8 @@ là dependency/ưu tiên, không phải cam kết mỗi hàng đúng một tuầ
 ## 23. Việc cần làm ngay
 
 1. P3-CAL-00/00B/00C đã `DONE`; đây là research/readiness, chưa phải runtime.
-2. P3-CAL-01 đã `DONE` ở cấp decision spike; ADR-0019 đã được chấp nhận với explicit
-   manual NVDA rollout gate. Chưa nối renderer vào production route khi marker còn mở.
+2. P3-CAL-01 đã `DONE` ở cấp decision spike; ADR-0019 đã được chấp nhận và manual NVDA
+   rollout gate đã PASS. Exact renderer đã được nối vào production route trong P3-02A.
 3. P3-01 đã `DONE` sau local/staging acceptance; không mở rộng one-time slice thành
    recurrence/reminder/calendar aggregate.
 4. P3-03A repository implementation đã đạt `VERIFY`; hoàn tất P3-03B durable-host,
@@ -821,7 +830,7 @@ là dependency/ưu tiên, không phải cam kết mỗi hàng đúng một tuầ
    P3-04 chỉ được triển khai handler canary sau gate mặc định tắt để đóng acceptance.
 5. P3-CAL-02/ADR-0020 chỉ spike sandbox cô lập vì P3-CAL-01 và P3-01 đã đạt gate;
    pre-domain chỉ dùng verified-email sandbox và chưa bật business delivery.
-6. Triển khai P3-02A, rồi P3-02B và P3-02C theo gate; teacher conflict chỉ bật khi
+6. P3-02A đã `DONE`; tiếp tục P3-02B rồi P3-02C theo gate. Teacher conflict chỉ bật khi
    assignment/attendee authoritative đã có.
 7. P3-05A không chờ poll; P3-02D/P3-05B bổ sung poll/StudyMeeting sau core session.
 8. Không đưa recurrence, reminder, worker, email hoặc calendar tổng hợp vào P3-01.
