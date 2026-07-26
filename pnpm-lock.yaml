@@ -156,6 +156,9 @@ importers:
 
   apps/web:
     dependencies:
+      "@fullcalendar/react":
+        specifier: 7.0.1
+        version: 7.0.1(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(temporal-polyfill@1.0.1)
       "@livekit/components-react":
         specifier: 2.9.23
         version: 2.9.23(livekit-client@2.20.1(@types/dom-mediacapture-record@1.0.22))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(tslib@2.8.1)

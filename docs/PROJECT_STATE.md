@@ -13,9 +13,9 @@
 | Phase hoàn thành    | Phase 0, Phase 1, Phase 2                                                             |
 | Phase hiện tại      | Phase 3 - Daily learning workspace                                                   |
 | Task `DONE` gần nhất | P3-CAL-01 và P3-01                                                                   |
-| Mốc repository mới | P3-02A Calendar read projection/shell đạt local `VERIFY`                            |
-| Task hiện tại       | P3-02A renderer/editor/performance/browser gate; P3-03B/P3-04 worker gate             |
-| Task tiếp theo      | Đóng phần còn lại P3-02A; sau đó P3-02B recurrence/conflict                       |
+| Mốc repository mới | P3-02A FullCalendar production renderer + reschedule/undo đạt local `VERIFY`          |
+| Task hiện tại       | P3-02A performance/visual/browser gate; P3-03B/P3-04 worker gate                     |
+| Task tiếp theo      | Đóng gate nghiệm thu P3-02A; sau đó P3-02B recurrence/conflict                     |
 
 ## Kiến trúc đang chạy
 
@@ -392,16 +392,16 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
     filtered-empty, error, forbidden, offline/degraded, retry và pagination đã có.
     Mutation preference dùng principal generation để chặn response cũ ghi lại cache sau
     switch/logout; drawer remount theo tenant/user và Agenda giữ đúng local date ở UTC+14.
-    Warm Academic calendar tokens cùng production guard fail-closed không cho import
-    FullCalendar/Premium/telemetry khi gate route production chưa đủ điều kiện.
+    Warm Academic calendar tokens cùng production guard fail-closed chỉ cho exact
+    FullCalendar Standard v7.0.1 đã duyệt; Premium, telemetry và CSS/assets ngoài allowlist
+    vẫn bị chặn.
 22. Local verification P3-02A đạt toàn bộ Go test + vet và integration-tag compile;
     API client 22/22; web 175/175 + lint/typecheck/build; format, security 19/19,
     production Calendar guard và 20 cặp contrast đều xanh. PostgreSQL integration thật
     không chạy vì process không có hai biến database và agent không đọc `.env*.local`.
-    Task chưa `DONE`: quick create/full editor timed one-time ClassSession đã nối vào
-    projection và có test CSRF + expected-version; manual NVDA đã PASS, còn FullCalendar
-    production renderer, drag/resize/undo, numeric route benchmark, visual review và
-    browser/E2E acceptance.
+    Task chưa `DONE`: quick create/full editor timed one-time ClassSession, production
+    renderer và drag/resize/undo đã nối; manual NVDA đã PASS. Numeric route benchmark,
+    visual review và browser/E2E acceptance còn mở.
 23. P3-02A staging rollout ngày 2026-07-26: tạo backup branch Neon
     `p3-calendar-pre-migration-20260726` (auto-delete 7 ngày, parent `staging`), rồi migrate
     direct staging `14 false -> 17 false`. Exact runtime ACL probe đạt: schema
@@ -416,6 +416,14 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
     category, view switch/Agenda, keyboard alternative, focus restore sau 409 và live
     announcement. Đây là bằng chứng đóng NVDA gate; không thay thế route-level
     authorization/range/a11y/bundle, visual hoặc browser acceptance của P3-02A.
+25. P3-02A renderer/editor integration ngày 2026-07-26: exact pin
+    `@fullcalendar/react@7.0.1` đã được nối vào `/app/calendar` cho Day/Work week/Week/Month;
+    Agenda semantic được giữ làm mobile view và keyboard alternative. Drag/resize one-time
+    gọi lại command ClassSession với expected version, optimistic revert, undo và thông báo
+    live-region khi server trả `409`. Route unit integration, web lint/typecheck/test/build,
+    production Calendar guard và rerun spike 9/9 đều đạt. Calendar lazy chunk khoảng
+    298,20 kB (82,17 kB gzip). P3-02A vẫn `VERIFY` cho tới khi numeric benchmark trên route,
+    visual desktop/tablet/mobile và staging/browser acceptance đạt.
 
 ## Rủi ro đã biết
 
@@ -423,18 +431,18 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
   này không mở rộng phạm vi sang recurrence, reminder, calendar tổng hợp, email/ICS,
   durable worker hoặc Phase 4 media lifecycle.
 - ADR-0019 đã chấp nhận decision dùng FullCalendar v7 và recurrence bounded; manual NVDA
-  đã PASS. FullCalendar vẫn chỉ nằm trong spike, recurrence library chưa được import vào
-  production domain và P3-02A/P3-02B vẫn phải đạt contract, authorization, integration/
-  E2E và staging gate riêng trước khi nối renderer vào route thật.
+  đã PASS. FullCalendar Standard đã vào route production nhưng recurrence library chưa
+  được import vào production domain; P3-02A/P3-02B vẫn phải đạt contract, authorization,
+  integration/E2E và staging gate riêng trước khi coi Calendar production-ready.
 - AWS SES đã được chọn làm provider target nhưng chưa được cấu hình/xác minh và sending
   domain chưa có. Pre-domain chỉ cho phép owner-controlled verified identities trong
   SES sandbox; không được coi là production readiness. SPF/DKIM/DMARC, SES event ingress
   theo topology ADR-0020, bounce/complaint/suppression và cross-client ICS chưa được
   kiểm thử. Không gửi
   business email tới end user trước P3-CAL-02/ADR-0020 và P3-03 worker gate.
-- Warm Academic đã có calendar-scoped semantic token và semantic Agenda shell, nhưng
-  FullCalendar renderer/editor hai cột cùng visual regression desktop/tablet/mobile chưa
-  được nối hoặc nghiệm thu. Không coi local shell là giao diện Calendar cuối cùng.
+- Warm Academic đã có calendar-scoped semantic token, semantic Agenda shell và
+  FullCalendar renderer. Editor hai cột cùng visual regression desktop/tablet/mobile chưa
+  được nghiệm thu. Không coi local shell là giao diện Calendar cuối cùng.
 - P3-02D hiện mới có ADR/backlog/design, chưa có schema/API/UI/capability exchange hoặc
   authorization test; không được mô tả Availability Poll/Study Meeting như chức năng đã
   chạy.

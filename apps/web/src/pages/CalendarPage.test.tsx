@@ -267,6 +267,14 @@ describe("CalendarPage", () => {
     );
     await waitFor(() =>
       expect(
+        document.querySelector(
+          '[data-calendar-renderer="fullcalendar-standard"]',
+        ),
+      ).not.toBeNull(),
+    );
+    expect(screen.getByText("Open keyboard-friendly agenda")).toBeVisible();
+    await waitFor(() =>
+      expect(
         requests.filter((request) =>
           new URL(request.url).pathname.endsWith("/api/v1/calendar/items"),
         ),

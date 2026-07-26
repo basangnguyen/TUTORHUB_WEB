@@ -11,6 +11,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@fullcalendar/react": "7.0.1",
     "@livekit/components-react": "2.9.23",
     "@livekit/components-styles": "1.2.0",
     "@tanstack/react-query": "^5.101.2",

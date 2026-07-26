@@ -8,8 +8,9 @@ import {
   SkeletonGroup,
 } from "@tutorhub/ui";
 import { RefreshCw } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { useUpdateClassSession } from "../app/classSessions";
 import { useI18n } from "../app/i18n";
 import { useSession } from "../app/session";
 import { shouldConcealTenantScopedData } from "../app/tenantDataAccess";
@@ -20,6 +21,7 @@ import {
 } from "../features/calendar/CalendarSessionEditors";
 import { CalendarSidebar } from "../features/calendar/CalendarSidebar";
 import { CalendarSurface } from "../features/calendar/CalendarSurface";
+import type { CalendarRescheduleInput } from "../features/calendar/FullCalendarProjection";
 import { CalendarToolbar } from "../features/calendar/CalendarToolbar";
 import {
   calendarRangeForView,
@@ -166,8 +168,45 @@ export function CalendarPage() {
     "UTC";
   const interfaceLocale = language === "vi" ? "vi-VN" : "en-US";
   const preferenceQuery = useCalendarDisplayPreference(tenantID, userID);
+  const updateSession = useUpdateClassSession(tenantID);
   const preference =
     preferenceQuery.data ?? fallbackPreference(userTimezone, interfaceLocale);
+
+  const rescheduleSession = useCallback(
+    async ({
+      endsAt,
+      expectedVersion,
+      item,
+      startsAt,
+    }: CalendarRescheduleInput) => {
+      if (!item.classID || !item.canReschedule) {
+        throw new Error("This calendar item cannot be rescheduled.");
+      }
+      const updated = await updateSession.mutateAsync({
+        classID: item.classID,
+        input: {
+          ends_at: endsAt,
+          expected_version: expectedVersion,
+          starts_at: startsAt,
+          timezone: item.displayTimezone,
+        },
+        sessionID: item.sourceID,
+      });
+      return {
+        ...item,
+        canCancel: updated.viewer_access.can_cancel,
+        canEdit: updated.viewer_access.can_update,
+        canReschedule: updated.viewer_access.can_update,
+        displayTimezone: updated.timezone,
+        endsAt: updated.ends_at,
+        startsAt: updated.starts_at,
+        status: updated.status,
+        title: updated.title,
+        version: updated.version,
+      };
+    },
+    [updateSession],
+  );
   const defaultView: CalendarView = mobile ? "agenda" : preference.defaultView;
   const routeState = parseCalendarRouteState(searchParams, {
     date: calendarToday(preference.viewerTimezone),
@@ -391,9 +430,11 @@ export function CalendarPage() {
             {items.length > 0 && !preferenceConcealed && !itemsConcealed && (
               <>
                 <CalendarSurface
+                  date={routeState.date}
                   items={items}
                   locale={preference.locale}
                   onEditItem={setEditingItem}
+                  onReschedule={rescheduleSession}
                   preference={preference}
                   view={routeState.view}
                 />

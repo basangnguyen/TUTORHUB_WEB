@@ -1313,9 +1313,11 @@ adapter/domain boundary, Warm Academic theme và recurrence Go bounded. V7 đã 
 interaction/Axe/performance 500/1.000/2.000 cùng license/security gate; full rerun hậu
 fix đạt `9 passed (23.6s)`. Comparator parity-config v6 đạt `4 passed` nhưng bị loại vì
 render 500 và long-task 2.000 vượt absolute budget, dù bundle/heap nhỏ hơn. Agenda mở
-progressive toàn bộ item, Axe waiver khóa exact node/count/scope. Renderer vẫn chưa được
-nối vào route production vì còn route-level authorization/range/bundle/a11y gate; kết quả
-này chưa được mô tả là Calendar runtime production-ready.
+progressive toàn bộ item, Axe waiver khóa exact node/count/scope. Exact FullCalendar
+Standard v7.0.1 đã được nối vào route production cho Day/Work week/Week/Month cùng
+drag/resize expected-version, optimistic revert, undo và keyboard Agenda. Numeric route
+benchmark, visual regression và staging/browser acceptance vẫn mở nên kết quả này chưa
+được mô tả là Calendar runtime production-ready.
 Recurrence cap đã khóa ở query window `366 ngày`, series horizon `730 ngày`,
 `512 occurrence/series`, `2.000 occurrence/request`, deadline `250 ms`; COUNT phải
 validate occurrence cuối trong horizon và YEARLY golden đã đạt. Budget
@@ -1918,13 +1920,14 @@ Thứ tự hiện tại, cập nhật ngày 2026-07-25:
 `docs/PHASE_3_BACKLOG.md`, `docs/CALENDAR_PRODUCT_TECHNICAL_DESIGN.md`, ADR-0017 và
 ADR-0018 cùng ADR-0021. Phase 2/P2-12 đã hoàn thành;
 P3-CAL-00/P3-CAL-00B/P3-CAL-00C, P3-CAL-01 và P3-01 đã `DONE`. ADR-0019 là
-`Accepted; manual NVDA gate PASS`; renderer vẫn phải qua route-level gates trước khi
-đi vào route production. P3-03A và P3-04 implementation đã đạt `VERIFY`;
+`Accepted; manual NVDA gate PASS`; exact renderer đã vào route production nhưng vẫn phải
+qua numeric performance, visual và staging/browser gates trước khi P3-02A `DONE`.
+P3-03A và P3-04 implementation đã đạt `VERIFY`;
 task hạ tầng hiện tại là P3-03B/P3-04 durable-host, staging migration-grant và
 canary crash/reclaim acceptance. Cả
 `OUTBOX_ENABLE_IN_APP_NOTIFICATION_CANARY` và
 `FEATURE_CONTROL_ENABLE_IN_APP_NOTIFICATIONS` vẫn mặc định false; trong khi chờ owner
-duyệt hạ tầng trả phí, P3-CAL-02 hoặc P3-02A là lát cắt implementation độc lập kế tiếp.
+duyệt hạ tầng trả phí, bước độc lập kế tiếp là đóng P3-02A hoặc bắt đầu P3-CAL-02.
 P3-02D/ADR-0021 mới là
 architecture/backlog, chưa có runtime. AWS SES đã được chọn làm provider target nhưng
 P3-CAL-02/ADR-0020 vẫn là gate email/ICS chưa triển khai; chưa có domain hoặc production

@@ -31,12 +31,12 @@ generated client, class-detail UI, Neon `14 false`, deploy/public probes và bro
 acceptance Teacher/Student/IDOR. Biên bản P3-01 nằm tại
 `docs/P3_01_STAGING_ACCEPTANCE.md`.
 
-**Task hiện tại:** P3-02A read projection, preference và semantic Calendar shell đã đạt
-local `VERIFY`; staging đã migrate sạch `14 false -> 17 false` và exact API runtime grants
-đã probe xanh. Manual NVDA gate P3-CAL-01 đã PASS. P3-03A/P3-04 vẫn `VERIFY` vì
-`tutorhub_worker` chưa provision, durable host không spin-down và duplicate/crash/reclaim
-acceptance còn thiếu. P3-02A còn renderer FullCalendar production, editor/drag, numeric
-performance, visual review và browser/E2E acceptance. Mọi side effect tới end user vẫn chờ P3-03B đạt;
+**Task hiện tại:** P3-02A read projection, preference, semantic Calendar shell và exact
+FullCalendar Standard v7.0.1 production renderer đã đạt local `VERIFY`; staging đã migrate
+sạch `14 false -> 17 false` và exact API runtime grants đã probe xanh. Manual NVDA gate
+P3-CAL-01 đã PASS. P3-03A/P3-04 vẫn `VERIFY` vì `tutorhub_worker` chưa provision, durable
+host không spin-down và duplicate/crash/reclaim acceptance còn thiếu. P3-02A còn numeric
+route performance, visual review và browser/E2E acceptance. Mọi side effect tới end user vẫn chờ P3-03B đạt;
 hai gate P3-04 tiếp tục giữ `false` cho tới acceptance.
 
 **Thiết kế Calendar có thẩm quyền:**
@@ -401,11 +401,11 @@ P3-01 qua một projection thống nhất; chưa hứa recurrence, attendee/RSVP
       hidden, không lưu placeholder.
 - [x] Đóng manual NVDA marker bằng checklist PASS của ADR-0019; CI vẫn deny Premium
       package, telemetry và unreviewed CSS/assets.
-- [ ] Dùng exact pin FullCalendar Standard đã được ADR-0019 chấp nhận và nối production
+- [x] Dùng exact pin FullCalendar Standard đã được ADR-0019 chấp nhận và nối production
       route sau khi route thật lặp lại authorization/range/a11y/bundle gate.
 - [ ] Warm Academic semantic token, Teams-inspired IA và editor hai cột đạt visual
       regression ở desktop/tablet/mobile nhưng không sao chép icon/font/trade dress.
-- [ ] Drag/resize one-time có expected version, optimistic revert, undo và keyboard
+- [x] Drag/resize one-time có expected version, optimistic revert, undo và keyboard
       alternative; server `409` mở stale/conflict flow, không ghi đè mù.
 - [x] Loading, empty, filtered-empty, error, forbidden, offline/degraded và retry đầy đủ;
       workspace switch/logout hủy request và xóa tenant cache cũ.
@@ -421,11 +421,13 @@ HTTP/OpenAPI/generated client, preference CAS và Calendar shell semantic đã c
 Go test + vet, integration-tag compile, API client 22/22, web 175/175 + build, security
 19/19, Calendar production guard và 20 cặp token contrast đều đạt. PostgreSQL integration
 thật không chạy vì process không có `DATABASE_MIGRATION_URL`/`DATABASE_POOL_URL`; không
-đọc `.env*.local`. Marker `PENDING_NVDA_REVIEW` đã có kết quả PASS; route thật vẫn chưa
-import hoặc mount FullCalendar vì route-level gate còn mở. Quick create/full editor timed one-time ClassSession đã được nối vào
-projection và có test create/update với CSRF + expected version; drag/resize/undo, numeric
-500/1.000/2.000 route benchmark, visual review và staging/browser
-acceptance vẫn là gate trước `DONE`.
+đọc `.env*.local`. Marker `PENDING_NVDA_REVIEW` đã có kết quả PASS. Route thật đã import và
+mount FullCalendar Standard v7.0.1 cho Day/Work week/Week/Month; Agenda semantic vẫn là
+progressive/keyboard alternative. Quick create/full editor timed one-time ClassSession,
+drag/resize expected-version, optimistic revert, undo và flow `409` đã nối về command
+P3-01. Rerun spike hậu tích hợp đạt 9/9, gồm keyboard/Axe/responsive và numeric
+500/1.000/2.000; route build tách Calendar chunk khoảng 298,20 kB (82,17 kB gzip). Numeric
+route benchmark, visual review và staging/browser acceptance vẫn là gate trước `DONE`.
 
 **Staging rollout 2026-07-26:** backup branch `p3-calendar-pre-migration-20260726` (auto-delete
 7 ngày) đã được tạo trước rollout. Neon staging direct migration `14 false -> 17 false` thành

@@ -89,6 +89,9 @@ const messages = {
     "calendar.fallbackTitle": "Chế độ lịch biểu dễ đọc",
     "calendar.fallbackDescription":
       "Đang hiển thị lịch biểu dễ đọc với đầy đủ nội dung trong khoảng đã chọn.",
+    "calendar.keyboardAlternative": "Mở lịch biểu thay thế cho bàn phím",
+    "calendar.undoAvailable": "Đã lưu thay đổi thời gian.",
+    "calendar.undo": "Hoàn tác",
     "calendar.agendaTitle": "Lịch biểu",
     "calendar.agendaCount": "Đang hiển thị {count} mục lịch",
     "calendar.sessionType": "Buổi học",
@@ -1217,6 +1220,9 @@ const messages = {
     "calendar.fallbackTitle": "Accessible agenda view",
     "calendar.fallbackDescription":
       "Showing an accessible agenda with the complete content for the selected range.",
+    "calendar.keyboardAlternative": "Open keyboard-friendly agenda",
+    "calendar.undoAvailable": "Time change saved.",
+    "calendar.undo": "Undo",
     "calendar.agendaTitle": "Agenda",
     "calendar.agendaCount": "Showing {count} calendar items",
     "calendar.sessionType": "Class session",

@@ -90,7 +90,7 @@ live; rollback bằng specific commit giữ cấu hình hiện tại là bằng 
 | P3-02D Native Availability Poll      | TODO        | Native poll, secure sharing, Study Meeting    |
 | P3-03 PostgreSQL leased worker       | VERIFY      | P3-03A đạt; worker role/host/crash gate mở    |
 | P3-04 In-app notification            | VERIFY      | API ACL staging xanh; worker/canary gate mở   |
-| P3-02A Calendar shell/read projection | VERIFY    | NVDA PASS; route/drag/perf/visual/E2E gates mở |
+| P3-02A Calendar shell/read projection | VERIFY    | Renderer/drag đạt; perf/visual/E2E gates mở   |
 | P3-02B/C, P3-05 đến P3-14             | TODO      | Theo dependency trong backlog                 |
 
 Nguồn thực thi: `docs/PHASE_3_BACKLOG.md`. Trước khi code calendar phải đọc
@@ -123,8 +123,10 @@ automated, dependency/license và Go fuzz/benchmark; full rerun hậu fix đạt
 500 item `1.492 > 500 ms` và long-task 2.000 item `404 > 400 ms`, dù heap nhỏ hơn.
 COUNT phải chứng minh occurrence cuối nằm trong horizon 730 ngày; YEARLY golden đã có.
 Agenda mở progressive `24 -> 48 -> toàn bộ`, Axe waiver khóa exact node/count/scope.
-Manual NVDA gate đã PASS; P3-02A vẫn phải nối renderer và lặp lại route-level gates
-trước khi gọi Calendar production-ready.
+Manual NVDA gate đã PASS. P3-02A đã nối exact FullCalendar Standard v7.0.1 vào route
+production cùng drag/resize expected-version, optimistic revert, undo và keyboard Agenda;
+numeric route benchmark, visual desktop/tablet/mobile và staging/browser acceptance vẫn
+phải đạt trước khi gọi Calendar production-ready.
 Mọi active authenticated member có thể tạo/quản lý poll và Study Meeting của mình; chỉ
 actor có `session.schedule` mới tạo ClassSession. Full LiveKit token/lobby/moderation/
 room lifecycle vẫn thuộc Phase 4.
