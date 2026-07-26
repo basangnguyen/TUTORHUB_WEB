@@ -1,9 +1,24 @@
 import { MutationObserver } from "@tanstack/react-query";
 import { APIRequestError } from "@tutorhub/api-client";
 import { describe, expect, it, vi } from "vitest";
-import { createTutorHubQueryClient } from "./queryClient";
+import {
+  advancePrincipalGeneration,
+  createTutorHubQueryClient,
+  currentPrincipalGeneration,
+} from "./queryClient";
 
 describe("TutorHub query client session boundary", () => {
+  it("keeps a monotonic principal generation outside the query cache", () => {
+    const queryClient = createTutorHubQueryClient();
+
+    expect(currentPrincipalGeneration(queryClient)).toBe(0);
+    expect(advancePrincipalGeneration(queryClient)).toBe(1);
+
+    queryClient.clear();
+
+    expect(currentPrincipalGeneration(queryClient)).toBe(1);
+  });
+
   it("purges inactive private queries after a query 401 without retrying it", async () => {
     const queryClient = createTutorHubQueryClient();
     const attempts = vi.fn();

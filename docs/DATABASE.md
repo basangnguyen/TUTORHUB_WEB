@@ -7,7 +7,7 @@ thay đổi schema, migration hoặc repository phải đọc tài liệu này t
 
 - System of record: Neon PostgreSQL.
 - Schema ứng dụng: `tutorhub`.
-- Migration mới nhất trong source: `000016_notifications`.
+- Migration mới nhất trong source: `000017_calendar_read_projection`.
 - Migration 1-5 đã được chạy và kiểm tra trên Neon; smoke
   `5 false -> rollback 4 false -> migrate 5 false` đạt ngày 2026-07-16.
 - Migration `000006` đến `000013` đều có up/down path. Source và PostgreSQL 17 CI
@@ -19,9 +19,10 @@ thay đổi schema, migration hoặc repository phải đọc tài liệu này t
 - Migration `000014` đã được chạy trên Neon staging và xác nhận `14 false` trong
   P3-01. Migration `000015` mở rộng in-place `outbox_events` cho lease/fencing/retry/
   dead-letter; migration `000016` tạo notification projection/preference và mở rộng
-  feature-control key. Cả hai đã có source/test nhưng chưa được chạy trên staging;
-  chỉ ghi `15 false` hoặc `16 false` sau khi migration job, role grants và smoke thực tế
-  của đúng version đạt.
+  feature-control key; migration `000017` thêm index đọc Calendar tổng hợp cùng
+  `calendar_display_preferences`. Ba migration này đã có source/test nhưng chưa được
+  chạy trên staging; chỉ ghi version mới sau khi migration job, role grants và smoke
+  thực tế của đúng version đạt.
 - Phần lớn integration test rollback bằng transaction. Chỉ focused P2-09 suite có
   fixture tự dọn hoàn toàn được chạy trên staging ngày 2026-07-21; các suite concurrency
   có thể để lại audit append-only vẫn chỉ chạy trên database CI tạm thời.
@@ -61,7 +62,7 @@ process không tự chạy migration khi khởi động.
 `tutorhub-outbox-worker` để quan sát trên Neon. Mọi truy vấn mạng/database phải chạy
 ngoài UI thread ở các client native về sau.
 
-## Schema source phiên bản 16
+## Schema source phiên bản 17
 
 | Bảng                     | Vai trò                                                                                          |
 | ------------------------ | ------------------------------------------------------------------------------------------------ |
@@ -80,6 +81,7 @@ ngoài UI thread ở các client native về sau.
 | `class_sessions`         | Buổi học một lần theo class, UTC instant/IANA timezone, lifecycle và optimistic version          |
 | `notifications`          | Projection tenant/user-scoped, idempotent theo source/recipient/effect và trạng thái read          |
 | `notification_preferences` | Preference in-app/email, reminder, quiet-hours IANA và optimistic version                         |
+| `calendar_display_preferences` | Preference Calendar tenant/user-scoped cho timezone, locale, view, density và optimistic version |
 | `tenant_feature_control_revisions` | Phiên bản optimistic của override feature/quota theo tenant                         |
 | `tenant_feature_overrides` | Override feature typed theo tenant; global disable vẫn có quyền ưu tiên                          |
 | `tenant_quota_overrides` | Override hard limit typed cho member, active class và invitation rate                              |
@@ -692,6 +694,56 @@ Down `16 -> 15` xóa cả hai projection table và override key
 notification state được đánh giá. Application rollback giữ schema 16 là đường ưu tiên;
 không chạy down chỉ để tắt feature.
 
+## Calendar read projection và runtime grant cho migration 000017
+
+Migration `000017` không tạo một domain Event thứ hai. Nó chỉ thêm index bounded-read
+cho `class_sessions` và bảng preference riêng theo `(tenant_id, user_id)`. Calendar API
+vẫn kiểm tra active tenant/member ở server, chỉ đọc những ClassSession mà actor có quyền
+theo source policy, và dùng overlap half-open `starts_at < to AND ends_at > from`.
+
+Default ACL đã bị thu hồi có chủ ý nên sau khi chạy migration bằng direct migration
+role, migration owner phải cấp đúng quyền cần cho Core API runtime:
+
+```sql
+REVOKE ALL PRIVILEGES
+ON TABLE tutorhub.calendar_display_preferences
+FROM tutorhub_runtime;
+
+GRANT SELECT, INSERT, UPDATE
+ON TABLE tutorhub.calendar_display_preferences
+TO tutorhub_runtime;
+```
+
+Không cấp `DELETE`, `TRUNCATE`, `REFERENCES`, `TRIGGER`, ownership hoặc schema `CREATE`.
+Runtime đã có `SELECT` trên các bảng nguồn `tenants`, `memberships`, `users`, `classes`,
+`class_enrollments` và `class_sessions` từ các migration trước; không mở rộng thêm quyền
+ghi lên source chỉ để phục vụ Calendar. Xác minh exact privilege sau grant:
+
+```sql
+SELECT
+  has_table_privilege(
+    'tutorhub_runtime', 'tutorhub.calendar_display_preferences', 'SELECT'
+  ) AS runtime_select,
+  has_table_privilege(
+    'tutorhub_runtime', 'tutorhub.calendar_display_preferences', 'INSERT'
+  ) AS runtime_insert,
+  has_table_privilege(
+    'tutorhub_runtime', 'tutorhub.calendar_display_preferences', 'UPDATE'
+  ) AS runtime_update,
+  has_table_privilege(
+    'tutorhub_runtime', 'tutorhub.calendar_display_preferences', 'DELETE'
+  ) AS runtime_delete,
+  has_table_privilege(
+    'tutorhub_runtime', 'tutorhub.calendar_display_preferences', 'TRUNCATE'
+  ) AS runtime_truncate;
+```
+
+Kết quả bắt buộc là `true, true, true, false, false`. Smoke tiếp theo phải chứng minh
+read projection bị giới hạn tenant/source permission và preference update CAS trả `409`
+khi version cũ. Application rollback giữ schema 17 là đường ưu tiên. Down `17 -> 16`
+xóa preference Calendar và index đọc; chỉ chạy trên disposable/test hoặc sau khi đánh
+giá mất dữ liệu preference.
+
 ## Chạy migration
 
 Tạo `.env.local` từ `.env.example` và điền direct migration URL cùng hai pooled URL
@@ -721,13 +773,14 @@ pnpm db:version
 ```
 
 Sau khi áp dụng toàn bộ migration trong source hiện tại, kết quả mong đợi là
-`16 false`. Chỉ ghi đó là kết quả môi trường khi lệnh thực tế đã chạy. Neon staging
-được xác nhận gần nhất ở `14 false` trong P3-01; chưa được coi là version 15/16 và chưa
-có worker/notification role grants cho tới khi provisioning cùng smoke thực tế đạt.
-Application rollback giữ schema 16. Database rollback chỉ dùng khi đã dừng worker,
-đánh giá dữ liệu và có backup/restore plan. Down `16 -> 15` xóa notification projection;
-down tiếp `15 -> 14` chạy preflight retained lease/dead-letter trước khi metadata đổi và
-phải giữ `15 false` nếu bị chặn:
+`17 false`. Chỉ ghi đó là kết quả môi trường khi lệnh thực tế đã chạy. Neon staging
+được xác nhận gần nhất ở `14 false` trong P3-01; chưa được coi là version 15/16/17 và
+chưa có worker/notification/calendar role grants cho tới khi provisioning cùng smoke
+thực tế đạt. Application rollback giữ schema 17. Database rollback chỉ dùng khi đã dừng
+worker, đánh giá dữ liệu và có backup/restore plan. Down `17 -> 16` xóa Calendar
+preference/index; down tiếp `16 -> 15` xóa notification projection; down `15 -> 14`
+chạy preflight retained lease/dead-letter trước khi metadata đổi và phải giữ `15 false`
+nếu bị chặn:
 
 ```powershell
 go run ./services/core-api/cmd/migrate down -steps 1
@@ -747,9 +800,10 @@ Integration test bằng PostgreSQL thật:
 pnpm test:integration
 ```
 
-P3-03/P3-04 phải kiểm tra riêng migrate `14 -> 15 -> 16`, rollback `16 -> 15`, rollback
-tiếp `15 -> 14`, rồi migrate lại tới `16`; nullable `tenant_id`, writer insert shape cũ
-và feature-control constraint qua mỗi version phải còn tương thích. PostgreSQL worker
+P3-03/P3-04/P3-02A phải kiểm tra riêng migrate `14 -> 15 -> 16 -> 17`, rollback
+`17 -> 16`, rollback `16 -> 15`, rollback tiếp `15 -> 14`, rồi migrate lại tới `17`;
+nullable `tenant_id`, writer insert shape cũ và feature-control constraint qua mỗi
+version phải còn tương thích. PostgreSQL worker
 suite phải chứng minh nhiều replica claim bằng
 `FOR UPDATE SKIP LOCKED`, fencing token chặn stale owner, crash/lease-expiry reclaim,
 retry/backoff, duplicate idempotency, permanent/max-attempt dead-letter và graceful
@@ -812,4 +866,7 @@ của lịch sử append-only và không phải quy trình cleanup cho staging/p
 - P3-03A/P3-04 đã bổ sung source migration `000015` và `000016` cùng test/grant contract;
   Neon staging vẫn được xác nhận gần nhất ở `14 false`. Migration, exact API/worker ACL,
   durable-host và controlled-canary/crash-reclaim acceptance còn là gate bên ngoài.
+- P3-02A đã bổ sung source migration `000017` cho Calendar bounded-read index và display
+  preference tenant/user-scoped. Neon staging chưa chạy migration/grant/smoke này; không
+  mô tả Calendar production-ready trước khi exact ACL và authorization acceptance đạt.
 - Chưa có backup/restore drill, PITR gate hoặc connection load test cho pilot.

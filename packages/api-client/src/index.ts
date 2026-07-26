@@ -43,6 +43,15 @@ export type NotificationPreference =
   components["schemas"]["NotificationPreference"];
 export type UpdateNotificationPreferenceRequest =
   components["schemas"]["UpdateNotificationPreferenceRequest"];
+export type CalendarItem = components["schemas"]["CalendarItem"];
+export type CalendarItemStatus = components["schemas"]["CalendarItemStatus"];
+export type CalendarSourceType = components["schemas"]["CalendarSourceType"];
+export type CalendarItemListResponse =
+  components["schemas"]["CalendarItemListResponse"];
+export type CalendarDisplayPreference =
+  components["schemas"]["CalendarDisplayPreference"];
+export type UpdateCalendarDisplayPreferenceRequest =
+  components["schemas"]["UpdateCalendarDisplayPreferenceRequest"];
 export type MarkAllNotificationsReadResponse =
   components["schemas"]["MarkAllNotificationsReadResponse"];
 export type AuditAction = components["schemas"]["AuditAction"];
@@ -183,6 +192,17 @@ export interface ListNotificationsInput {
   cursor?: string;
   limit?: number;
   unreadOnly?: boolean;
+}
+export interface ListCalendarItemsInput {
+  from: string;
+  to: string;
+  viewer_timezone: string;
+  types?: readonly CalendarSourceType[];
+  class_ids?: readonly string[];
+  statuses?: readonly CalendarItemStatus[];
+  search?: string;
+  cursor?: string;
+  limit?: number;
 }
 export type MediaTokenResponse = components["schemas"]["MediaTokenResponse"];
 export type MediaEventRequest = components["schemas"]["MediaEventRequest"];
@@ -669,6 +689,83 @@ export async function updateNotificationPreference(
 
   return requireData<NotificationPreference>(
     data as NotificationPreference | undefined,
+    error,
+    response,
+  );
+}
+
+export async function listCalendarItems(
+  tenantID: string,
+  input: ListCalendarItemsInput,
+  options: APIRequestOptions = {},
+): Promise<CalendarItemListResponse> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).GET(
+    "/api/v1/calendar/items",
+    {
+      params: {
+        query: input,
+        header: { "X-TutorHub-Expected-Tenant-ID": tenantID },
+      },
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<CalendarItemListResponse>(
+    data as CalendarItemListResponse | undefined,
+    error,
+    response,
+  );
+}
+
+export async function getCalendarDisplayPreference(
+  tenantID: string,
+  options: APIRequestOptions = {},
+): Promise<CalendarDisplayPreference> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).GET(
+    "/api/v1/calendar/preferences/display",
+    {
+      params: {
+        header: { "X-TutorHub-Expected-Tenant-ID": tenantID },
+      },
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<CalendarDisplayPreference>(
+    data as CalendarDisplayPreference | undefined,
+    error,
+    response,
+  );
+}
+
+export async function updateCalendarDisplayPreference(
+  tenantID: string,
+  input: UpdateCalendarDisplayPreferenceRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<CalendarDisplayPreference> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).PUT(
+    "/api/v1/calendar/preferences/display",
+    {
+      params: {
+        header: {
+          "X-CSRF-Token": csrfToken,
+          "X-TutorHub-Expected-Tenant-ID": tenantID,
+        },
+      },
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<CalendarDisplayPreference>(
+    data as CalendarDisplayPreference | undefined,
     error,
     response,
   );

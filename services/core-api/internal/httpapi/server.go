@@ -9,6 +9,7 @@ import (
 
 	"github.com/tutorhub-v2/core-api/internal/config"
 	"github.com/tutorhub-v2/core-api/internal/modules/audit"
+	"github.com/tutorhub-v2/core-api/internal/modules/calendar"
 	"github.com/tutorhub-v2/core-api/internal/modules/classroom"
 	"github.com/tutorhub-v2/core-api/internal/modules/featurecontrol"
 	"github.com/tutorhub-v2/core-api/internal/modules/identity"
@@ -30,6 +31,7 @@ type Options struct {
 	Identity              identity.ServiceAPI
 	Classroom             classroom.ServiceAPI
 	ClassSessions         classroom.SessionServiceAPI
+	Calendar              calendar.ServiceAPI
 	Enrollment            classroom.EnrollmentServiceAPI
 	Audit                 audit.ServiceAPI
 	FeatureControls       featurecontrol.ServiceAPI
@@ -119,6 +121,7 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 	)
 	featureControls := newFeatureControlHandlers(logger, auth, options.FeatureControls)
 	notifications := newNotificationHandlers(logger, auth, options.Notifications)
+	calendarHandlers := newCalendarHandlers(logger, auth, options.Calendar)
 	mux.Handle(
 		tenantCapabilitiesPattern,
 		featureControlResponseHeaders(
@@ -166,6 +169,16 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 	mux.Handle(
 		notificationPreferencePath,
 		notificationResponseHeaders(http.HandlerFunc(notifications.preference)),
+	)
+	mux.Handle(
+		calendarItemsPath,
+		calendarResponseHeaders(
+			requireMethod(http.MethodGet, http.HandlerFunc(calendarHandlers.listItems)),
+		),
+	)
+	mux.Handle(
+		calendarPreferencePath,
+		calendarResponseHeaders(http.HandlerFunc(calendarHandlers.preference)),
 	)
 	mux.Handle(
 		membershipInvitationsAdminCollectionPattern,

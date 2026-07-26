@@ -204,6 +204,10 @@ describe("workspace actions", () => {
     queryClient.setQueryData(["classes", tenantA.id, "list"], ["class-a"]);
     queryClient.setQueryData(["media", tenantA.id, "room"], "room-a");
     queryClient.setQueryData(["audit", tenantA.id, "list"], ["event-a"]);
+    queryClient.setQueryData(
+      ["calendar", tenantA.id, user.id, "items"],
+      ["session-a"],
+    );
     queryClient.setQueryData(["notifications", tenantA.id, "unread-count"], {
       count: 2,
       is_capped: false,
@@ -241,6 +245,9 @@ describe("workspace actions", () => {
     ).toBeUndefined();
     expect(
       queryClient.getQueryData(["audit", tenantA.id, "list"]),
+    ).toBeUndefined();
+    expect(
+      queryClient.getQueryData(["calendar", tenantA.id, user.id, "items"]),
     ).toBeUndefined();
     expect(
       queryClient.getQueryData(["notifications", tenantA.id, "unread-count"]),
@@ -512,6 +519,10 @@ describe("workspace actions", () => {
     queryClient.setQueryData(["classes", tenantA.id, "list"], ["class-a"]);
     queryClient.setQueryData(["media", tenantA.id, "room"], "room-a");
     queryClient.setQueryData(["audit", tenantA.id, "list"], ["event-a"]);
+    queryClient.setQueryData(
+      ["calendar", tenantA.id, user.id, "items"],
+      ["session-a"],
+    );
     queryClient.setQueryData(["notifications", tenantA.id, "unread-count"], {
       count: 2,
       is_capped: false,
@@ -565,6 +576,9 @@ describe("workspace actions", () => {
     ).toBeUndefined();
     expect(
       queryClient.getQueryData(["audit", tenantA.id, "list"]),
+    ).toBeUndefined();
+    expect(
+      queryClient.getQueryData(["calendar", tenantA.id, user.id, "items"]),
     ).toBeUndefined();
     expect(
       queryClient.getQueryData(["notifications", tenantA.id, "unread-count"]),

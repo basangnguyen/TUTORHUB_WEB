@@ -108,7 +108,7 @@ describe("web shell", () => {
     vi.unstubAllGlobals();
   });
 
-  it("keeps primary navigation focused on the four Phase 2 journeys", () => {
+  it("adds Calendar to the primary workspace navigation", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue(
@@ -129,15 +129,16 @@ describe("web shell", () => {
     const navigation = screen.getByRole("navigation", {
       name: "Điều hướng chính",
     });
-    expect(within(navigation).getAllByRole("link")).toHaveLength(4);
+    expect(within(navigation).getAllByRole("link")).toHaveLength(5);
     expect(within(navigation).getByRole("link", { name: "Tổng quan" }));
     expect(within(navigation).getByRole("link", { name: "Lớp học" }));
     expect(within(navigation).getByRole("link", { name: "Workspace" }));
     expect(within(navigation).getByRole("link", { name: "Thiết lập" }));
-    expect(within(navigation).queryByRole("link", { name: "Lịch" })).toBeNull();
+    expect(within(navigation).getByRole("link", { name: "Lịch" }));
     expect(getVisibleNavigationItems([]).map((item) => item.to)).toEqual([
       "/app/home",
       "/app/classrooms",
+      "/app/calendar",
       "/app/settings",
     ]);
   });

@@ -12,10 +12,10 @@
 | Quy trình           | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
 | Phase hoàn thành    | Phase 0, Phase 1, Phase 2                                                             |
 | Phase hiện tại      | Phase 3 - Daily learning workspace                                                   |
-| Task `DONE` gần nhất | P3-CAL-01 và P3-01                                                                  |
-| Mốc repository mới | P3-04 in-app notification implementation đạt local `VERIFY`                         |
-| Task hiện tại       | P3-03B/P3-04 staging migration-grants, durable-host và canary crash/reclaim gate    |
-| Task tiếp theo      | P3-CAL-02 hoặc P3-02A trong khi chờ hạ tầng P3-03B                                 |
+| Task `DONE` gần nhất | P3-CAL-01 và P3-01                                                                   |
+| Mốc repository mới | P3-02A Calendar read projection/shell đạt local `VERIFY`                            |
+| Task hiện tại       | P3-02A NVDA/renderer/editor/performance/staging gate; P3-03B/P3-04 external gate   |
+| Task tiếp theo      | Đóng phần còn lại P3-02A; P3-CAL-02 có thể spike độc lập khi chờ external gate    |
 
 ## Kiến trúc đang chạy
 
@@ -378,6 +378,28 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
     provider. Neon staging vẫn được xác nhận gần nhất ở `14 false`; chưa áp migration
     `000015/000016`, exact grants, durable host hoặc canary/crash-reclaim acceptance, nên
     cả P3-03B và P3-04 vẫn `VERIFY` và chưa có end-user activation.
+20. P3-02A read foundation đạt local `VERIFY` ngày 2026-07-26. Migration `000017` thêm
+    bounded-read index cho ClassSession và `calendar_display_preferences` theo
+    tenant/user. Go API có projection ổn định, overlap half-open, range tối đa 366 ngày,
+    filter/search/keyset cursor bind tenant/actor/range/filter/timezone, source-policy
+    capability và preference full-replacement CAS. HTTP yêu cầu expected-tenant assertion,
+    PUT yêu cầu CSRF; OpenAPI/generated client đã đồng bộ.
+21. Web có top-level `/app/calendar`, năm URL view Day/Work week/Week/Month/Agenda,
+    mobile mặc định Agenda, mini month, filter/search, preference drawer, secondary
+    timezone badge và semantic Agenda progressive. Cache key gồm tenant/user/timezone/
+    range/filter; workspace switch/logout hủy/xóa calendar cache. Loading, empty,
+    filtered-empty, error, forbidden, offline/degraded, retry và pagination đã có.
+    Mutation preference dùng principal generation để chặn response cũ ghi lại cache sau
+    switch/logout; drawer remount theo tenant/user và Agenda giữ đúng local date ở UTC+14.
+    Warm Academic calendar tokens cùng production guard fail-closed không cho import
+    FullCalendar/Premium/telemetry khi `PENDING_NVDA_REVIEW` còn mở.
+22. Local verification P3-02A đạt toàn bộ Go test + vet và integration-tag compile;
+    API client 22/22; web 173/173 + lint/typecheck/build; format, security 19/19,
+    production Calendar guard và 20 cặp contrast đều xanh. PostgreSQL integration thật
+    không chạy vì process không có hai biến database và agent không đọc `.env*.local`.
+    Task chưa `DONE`: còn manual NVDA, FullCalendar production renderer, quick/full editor,
+    drag/resize/undo, numeric route benchmark, manual accessibility/visual review,
+    migration `000017` + exact runtime grants staging và browser/E2E acceptance.
 
 ## Rủi ro đã biết
 
@@ -395,7 +417,9 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
   theo topology ADR-0020, bounce/complaint/suppression và cross-client ICS chưa được
   kiểm thử. Không gửi
   business email tới end user trước P3-CAL-02/ADR-0020 và P3-03 worker gate.
-- Warm Academic mới là visual direction; `tokens.css` và Calendar UI chưa được đổi.
+- Warm Academic đã có calendar-scoped semantic token và semantic Agenda shell, nhưng
+  FullCalendar renderer/editor hai cột cùng visual regression desktop/tablet/mobile chưa
+  được nối hoặc nghiệm thu. Không coi local shell là giao diện Calendar cuối cùng.
 - P3-02D hiện mới có ADR/backlog/design, chưa có schema/API/UI/capability exchange hoặc
   authorization test; không được mô tả Availability Poll/Study Meeting như chức năng đã
   chạy.

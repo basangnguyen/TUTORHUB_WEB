@@ -22,6 +22,7 @@ import {
 } from "@tutorhub/api-client";
 import { useEffect, useRef } from "react";
 import { invalidateTenantAudit } from "./audit";
+import { advancePrincipalGeneration } from "./queryClient";
 import { useSession } from "./session";
 
 function getApiBaseUrl() {
@@ -30,6 +31,7 @@ function getApiBaseUrl() {
 
 const tenantScopedQueryRoots = new Set([
   "audit",
+  "calendar",
   "class-sessions",
   "classes",
   "media",
@@ -69,6 +71,9 @@ function useTenantBoundaryPrincipal() {
     if (!isCurrent()) {
       return false;
     }
+    // Invalidate mutation snapshots synchronously before the first awaited
+    // cancellation so a late response cannot repopulate the previous tenant.
+    advancePrincipalGeneration(queryClient);
     await cancelWorkspaceReaders(queryClient);
     if (!isCurrent()) {
       return false;

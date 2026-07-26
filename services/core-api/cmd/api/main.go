@@ -14,6 +14,7 @@ import (
 	"github.com/tutorhub-v2/core-api/internal/config"
 	"github.com/tutorhub-v2/core-api/internal/httpapi"
 	"github.com/tutorhub-v2/core-api/internal/modules/audit"
+	"github.com/tutorhub-v2/core-api/internal/modules/calendar"
 	"github.com/tutorhub-v2/core-api/internal/modules/classroom"
 	"github.com/tutorhub-v2/core-api/internal/modules/featurecontrol"
 	"github.com/tutorhub-v2/core-api/internal/modules/identity"
@@ -174,6 +175,7 @@ func run() int {
 	var classroomAuthorizer *classroom.Service
 	var classroomService classroom.ServiceAPI
 	var classSessionService classroom.SessionServiceAPI
+	var calendarService calendar.ServiceAPI
 	if pool != nil {
 		classroomRepository = classroom.NewPostgresRepository(
 			pool,
@@ -197,6 +199,20 @@ func run() int {
 		)
 		if err != nil {
 			logger.Error("initialize class session service", "error", err)
+			return 1
+		}
+		calendarRepository, err := calendar.NewPostgresRepository(
+			pool,
+			cfg.Database.QueryTimeout,
+			authorizer,
+		)
+		if err != nil {
+			logger.Error("initialize calendar repository", "error", err)
+			return 1
+		}
+		calendarService, err = calendar.NewService(calendarRepository, time.Now)
+		if err != nil {
+			logger.Error("initialize calendar service", "error", err)
 			return 1
 		}
 	}
@@ -318,6 +334,7 @@ func run() int {
 		Identity:              identityService,
 		Classroom:             classroomService,
 		ClassSessions:         classSessionService,
+		Calendar:              calendarService,
 		Enrollment:            enrollmentService,
 		Audit:                 auditService,
 		FeatureControls:       featureControlService,

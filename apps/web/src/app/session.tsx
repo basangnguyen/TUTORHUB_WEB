@@ -22,7 +22,10 @@ import {
   useState,
   type PropsWithChildren,
 } from "react";
-import { clearExpiredSessionCaches } from "./queryClient";
+import {
+  advancePrincipalGeneration,
+  clearExpiredSessionCaches,
+} from "./queryClient";
 
 export type SessionStatus =
   "loading" | "authenticated" | "unauthenticated" | "error";
@@ -55,6 +58,7 @@ function navigateToLogin(returnTo = "/app/home") {
 }
 
 export async function clearPrivateSessionCache(queryClient: QueryClient) {
+  advancePrincipalGeneration(queryClient);
   await queryClient.cancelQueries();
   queryClient.clear();
 }

@@ -23,7 +23,7 @@ tính từ P3-CAL-01.
 Domain/DNS, SES sandbox và production-access approval có thể chuẩn bị song song nhưng
 không được tính `DONE` trước interoperability gate.
 
-**Task vừa hoàn thành:** P3-CAL-01 decision spike và P3-01 đều `DONE`. P3-CAL-01
+**Task `DONE` vừa hoàn thành:** P3-CAL-01 decision spike và P3-01. P3-CAL-01
 chấp nhận FullCalendar Standard v7.0.1, adapter/domain boundary, Warm Academic theme và
 recurrence Go bounded; manual NVDA vẫn là explicit rollout gate trước khi nối renderer
 vào route production. P3-01 đã đạt migration, contract, backend, feature/policy,
@@ -31,11 +31,12 @@ generated client, class-detail UI, Neon `14 false`, deploy/public probes và bro
 acceptance Teacher/Student/IDOR. Biên bản P3-01 nằm tại
 `docs/P3_01_STAGING_ACCEPTANCE.md`.
 
-**Task hiện tại:** P3-03A và P3-04 repository implementation đã đạt `VERIFY`; P3-03B
-còn migration/grants staging, durable host không spin-down và duplicate/crash/reclaim
-acceptance. **Task implementation tiếp theo có thể chạy song song:** P3-CAL-02/ADR-0020
-hoặc P3-02A. Mọi side effect tới end user vẫn chờ P3-03B đạt; hai gate P3-04 tiếp tục
-giữ `false` cho tới acceptance.
+**Task hiện tại:** P3-02A read projection, preference và semantic Calendar shell đã đạt
+local `VERIFY`; P3-03A/P3-04 cũng đang ở `VERIFY`. P3-02A còn manual NVDA, renderer
+FullCalendar production, editor/drag, numeric performance, PostgreSQL integration thật,
+staging migration/grants và browser/E2E acceptance. P3-03B còn migration/grants staging,
+durable host không spin-down và duplicate/crash/reclaim acceptance. Mọi side effect tới
+end user vẫn chờ P3-03B đạt; hai gate P3-04 tiếp tục giữ `false` cho tới acceptance.
 
 **Thiết kế Calendar có thẩm quyền:**
 [`CALENDAR_PRODUCT_TECHNICAL_DESIGN.md`](CALENDAR_PRODUCT_TECHNICAL_DESIGN.md).
@@ -85,7 +86,7 @@ giữ `false` cho tới acceptance.
 | P3-CAL-01  | Renderer/recurrence/theme spike + ADR-0019     | P3-CAL-00C                      | DONE       |
 | P3-01      | Course session scheduling và timezone          | P3-00, P3-CAL-00C               | DONE       |
 | P3-CAL-02  | Invitation/RSVP/iCalendar/AWS SES + ADR-0020   | P3-CAL-01, P3-01                | TODO       |
-| P3-02A     | Professional Calendar shell/read projection    | P3-01, P3-CAL-01                | TODO       |
+| P3-02A     | Professional Calendar shell/read projection    | P3-01, P3-CAL-01                | VERIFY     |
 | P3-02B     | Recurrence + class conflict                    | P3-02A, ADR-0019                | TODO       |
 | P3-02C     | Working hours/attendee/free-busy/RSVP          | P3-02A, P3-CAL-02               | TODO       |
 | P3-02D     | Native Availability Poll + Study Meeting       | P3-02B, P3-02C, P3-03, ADR-0021 | TODO       |
@@ -383,15 +384,15 @@ production route.
 **Outcome:** người dùng có top-level Calendar chuyên nghiệp, đọc được session một lần từ
 P3-01 qua một projection thống nhất; chưa hứa recurrence, attendee/RSVP hoặc email.
 
-- [ ] Thêm route/navigation Calendar với Day, Work week, Week, Month và Agenda; mobile
+- [x] Thêm route/navigation Calendar với Day, Work week, Week, Month và Agenda; mobile
       mặc định Agenda, browser back/forward giữ đúng URL state.
-- [ ] Calendar read endpoint/query model nhận bounded range, source/type/class/status,
+- [x] Calendar read endpoint/query model nhận bounded range, source/type/class/status,
       search cursor và viewer timezone; cache key luôn có tenant/user/filter/range.
-- [ ] `CalendarItem` chỉ là read projection có stable source identity/version; mutation
+- [x] `CalendarItem` chỉ là read projection có stable source identity/version; mutation
       vẫn gọi command của ClassSession/StudyMeeting nguồn, không tạo domain Event thứ hai.
-- [ ] Mini calendar, Today/prev/next, view switcher, filter/search, saved default view,
+- [x] Mini calendar, Today/prev/next, view switcher, filter/search, saved default view,
       density/time scale, 12/24h, week start và secondary timezone badge đạt.
-- [ ] Migration/OpenAPI/UI cho `CalendarDisplayPreference` lưu viewer timezone, locale,
+- [x] Migration/OpenAPI/UI cho `CalendarDisplayPreference` lưu viewer timezone, locale,
       12/24h, week start, default view, density/time scale và secondary timezone; update
       dùng optimistic version và luôn tenant/user-scoped.
 - [ ] Quick create/full editor ở task này chỉ tạo/sửa timed one-time ClassSession đã có
@@ -404,7 +405,7 @@ P3-01 qua một projection thống nhất; chưa hứa recurrence, attendee/RSVP
       regression ở desktop/tablet/mobile nhưng không sao chép icon/font/trade dress.
 - [ ] Drag/resize one-time có expected version, optimistic revert, undo và keyboard
       alternative; server `409` mở stale/conflict flow, không ghi đè mù.
-- [ ] Loading, empty, filtered-empty, error, forbidden, offline/degraded và retry đầy đủ;
+- [x] Loading, empty, filtered-empty, error, forbidden, offline/degraded và retry đầy đủ;
       workspace switch/logout hủy request và xóa tenant cache cũ.
 - [ ] Range/query size, render p50/p95, long task, memory và bundle đạt numeric budget từ
       ADR-0019; 500/1.000/2.000 visible item fixture được đo.
@@ -412,6 +413,16 @@ P3-01 qua một projection thống nhất; chưa hứa recurrence, attendee/RSVP
       đạt; color không là tín hiệu duy nhất.
 - [ ] Contract/integration/E2E chứng minh tenant isolation, timezone, stable ordering,
       pagination/range cap và source permission trước rollout staging.
+
+**Local VERIFY 2026-07-26:** source migration `000017`, Go projection/repository/service,
+HTTP/OpenAPI/generated client, preference CAS và Calendar shell semantic đã có. Toàn bộ
+Go test + vet, integration-tag compile, API client 22/22, web 173/173 + build, security
+19/19, Calendar production guard và 20 cặp token contrast đều đạt. PostgreSQL integration
+thật không chạy vì process không có `DATABASE_MIGRATION_URL`/`DATABASE_POOL_URL`; không
+đọc `.env*.local`. Marker `PENDING_NVDA_REVIEW` vẫn mở nên route thật không import hoặc
+mount FullCalendar. Quick/full editor, drag/resize/undo, numeric 500/1.000/2.000 route
+benchmark, manual accessibility/visual review và staging/browser acceptance vẫn là gate
+trước `DONE`.
 
 ### P3-02B Recurrence và class conflict authority
 

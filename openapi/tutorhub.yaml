@@ -716,6 +716,208 @@ paths:
           $ref: "#/components/responses/ProblemResponse"
         default:
           $ref: "#/components/responses/ProblemResponse"
+  /api/v1/calendar/items:
+    get:
+      operationId: listCalendarItems
+      summary: List authorized calendar projections that overlap a bounded range
+      description: |
+        Returns a server-owned read projection. Source-domain mutations continue
+        to use the source resource endpoint. The opaque cursor is bound to the
+        active tenant, current user, viewer timezone, range, and normalized filters.
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: X-TutorHub-Expected-Tenant-ID
+          in: header
+          required: true
+          description: Client cache-scope assertion; authorization still comes only from the server-side active session.
+          schema:
+            type: string
+            format: uuid
+        - name: from
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          required: true
+          description: Exclusive range end; the maximum range is 366 days.
+          schema:
+            type: string
+            format: date-time
+        - name: viewer_timezone
+          in: query
+          required: true
+          description: Valid IANA timezone used by the viewer for display and cursor scope.
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 100
+        - name: types
+          in: query
+          required: false
+          style: form
+          explode: false
+          schema:
+            type: array
+            uniqueItems: true
+            items:
+              $ref: "#/components/schemas/CalendarSourceType"
+        - name: class_ids
+          in: query
+          required: false
+          style: form
+          explode: false
+          schema:
+            type: array
+            maxItems: 100
+            uniqueItems: true
+            items:
+              type: string
+              format: uuid
+        - name: statuses
+          in: query
+          required: false
+          style: form
+          explode: false
+          schema:
+            type: array
+            uniqueItems: true
+            items:
+              $ref: "#/components/schemas/CalendarItemStatus"
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 200
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 2048
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 100
+      responses:
+        "200":
+          description: Tenant-, user-, range-, and permission-scoped calendar page
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: private, no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalendarItemListResponse"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/calendar/preferences/display:
+    get:
+      operationId: getCalendarDisplayPreference
+      summary: Return the effective calendar display preference for the current user and tenant
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: X-TutorHub-Expected-Tenant-ID
+          in: header
+          required: true
+          description: Client cache-scope assertion; authorization still comes only from the server-side active session.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Current effective calendar display preference; version zero means no override is stored yet
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: private, no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalendarDisplayPreference"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+    put:
+      operationId: updateCalendarDisplayPreference
+      summary: Replace calendar display preferences using optimistic concurrency
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+        - name: X-TutorHub-Expected-Tenant-ID
+          in: header
+          required: true
+          description: Client cache-scope assertion; authorization still comes only from the server-side active session.
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCalendarDisplayPreferenceRequest"
+      responses:
+        "200":
+          description: Updated calendar display preference
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: private, no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalendarDisplayPreference"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
   /api/v1/notification-preferences:
     get:
       operationId: getNotificationPreference
@@ -3384,6 +3586,209 @@ components:
         status:
           type: string
           enum: [draft, active]
+    CalendarSourceType:
+      type: string
+      enum: [class_session]
+    CalendarItemStatus:
+      type: string
+      enum: [scheduled, cancelled, live, ended]
+    CalendarViewerCapabilities:
+      type: object
+      additionalProperties: false
+      required: [can_view, can_edit, can_cancel, can_reschedule]
+      properties:
+        can_view:
+          type: boolean
+          const: true
+        can_edit:
+          type: boolean
+        can_cancel:
+          type: boolean
+        can_reschedule:
+          type: boolean
+    CalendarItem:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - source_type
+        - source_id
+        - occurrence_key
+        - title
+        - starts_at
+        - ends_at
+        - all_day
+        - display_timezone
+        - class_id
+        - class_title
+        - status
+        - color_token
+        - viewer_capabilities
+        - version
+      properties:
+        id:
+          type: string
+          minLength: 1
+          maxLength: 128
+          description: Stable projection key; currently class_session followed by the source UUID.
+        source_type:
+          $ref: "#/components/schemas/CalendarSourceType"
+        source_id:
+          type: string
+          format: uuid
+        occurrence_key:
+          type: string
+          minLength: 1
+          maxLength: 128
+          description: Stable source occurrence identity; one-time sessions use their UUID.
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        starts_at:
+          type: string
+          format: date-time
+        ends_at:
+          type: string
+          format: date-time
+        all_day:
+          type: boolean
+          const: false
+        display_timezone:
+          type: string
+          minLength: 1
+          maxLength: 100
+        class_id:
+          type: string
+          format: uuid
+        class_title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        status:
+          $ref: "#/components/schemas/CalendarItemStatus"
+        color_token:
+          type: string
+          enum: [class_session]
+        viewer_capabilities:
+          $ref: "#/components/schemas/CalendarViewerCapabilities"
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+    CalendarItemListResponse:
+      type: object
+      additionalProperties: false
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/CalendarItem"
+        next_cursor:
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 2048
+            - type: "null"
+    CalendarDisplayPreference:
+      type: object
+      additionalProperties: false
+      required:
+        - viewer_timezone
+        - locale
+        - time_format
+        - week_start
+        - default_view
+        - density
+        - time_scale_minutes
+        - secondary_timezone
+        - version
+        - updated_at
+      properties:
+        viewer_timezone:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: Valid IANA timezone.
+        locale:
+          type: string
+          enum: [vi-VN, en-US]
+        time_format:
+          type: string
+          enum: [12h, 24h]
+        week_start:
+          type: string
+          enum: [monday, sunday]
+        default_view:
+          type: string
+          enum: [day, work_week, week, month, agenda]
+        density:
+          type: string
+          enum: [comfortable, compact]
+        time_scale_minutes:
+          type: integer
+          enum: [15, 30, 60]
+        secondary_timezone:
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 100
+            - type: "null"
+        version:
+          type: integer
+          format: int64
+          minimum: 0
+        updated_at:
+          type: string
+          format: date-time
+    UpdateCalendarDisplayPreferenceRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - viewer_timezone
+        - locale
+        - time_format
+        - week_start
+        - default_view
+        - density
+        - time_scale_minutes
+        - secondary_timezone
+        - expected_version
+      properties:
+        viewer_timezone:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: Valid IANA timezone.
+        locale:
+          type: string
+          enum: [vi-VN, en-US]
+        time_format:
+          type: string
+          enum: [12h, 24h]
+        week_start:
+          type: string
+          enum: [monday, sunday]
+        default_view:
+          type: string
+          enum: [day, work_week, week, month, agenda]
+        density:
+          type: string
+          enum: [comfortable, compact]
+        time_scale_minutes:
+          type: integer
+          enum: [15, 30, 60]
+        secondary_timezone:
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 100
+            - type: "null"
+        expected_version:
+          type: integer
+          format: int64
+          minimum: 0
     ClassSessionStatus:
       type: string
       description: P3-01 exposes only the one-time scheduled-to-cancelled lifecycle.

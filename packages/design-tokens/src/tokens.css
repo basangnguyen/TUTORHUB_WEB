@@ -73,6 +73,22 @@
   --color-info-soft: #e4f3f7;
   --color-focus: rgb(24 93 152 / 32%);
 
+  /* Calendar - Warm Academic semantic palette. These tokens are scoped by
+     meaning so the Calendar feature does not depend on physical color names. */
+  --color-calendar-canvas: #fdfdf5;
+  --color-calendar-surface-alt: #efeedc;
+  --color-calendar-ink: #282828;
+  --color-calendar-brand-ink: #343831;
+  --color-calendar-accent-fill: #c5de9b;
+  --color-calendar-info-fill: #ddedeb;
+  --color-calendar-gold: #8c6a49;
+  --color-calendar-link: #6f5037;
+  --color-calendar-muted: #65655d;
+  --color-calendar-border: #d8d6c5;
+  --color-calendar-border-strong: #838276;
+  --color-calendar-focus: #343831;
+  --color-calendar-selected-indicator: #343831;
+
   /* Elevation */
   --shadow-sm: 0 1px 2px rgb(22 27 36 / 7%);
   --shadow-md: 0 8px 24px rgb(22 27 36 / 10%);
@@ -130,6 +146,19 @@
   --color-info: #75c5dc;
   --color-info-soft: #183b47;
   --color-focus: rgb(121 184 232 / 42%);
+  --color-calendar-canvas: #171813;
+  --color-calendar-surface-alt: #23251e;
+  --color-calendar-ink: #f4f3e7;
+  --color-calendar-brand-ink: #e9f0dc;
+  --color-calendar-accent-fill: #52683d;
+  --color-calendar-info-fill: #29484a;
+  --color-calendar-gold: #d7b790;
+  --color-calendar-link: #e1c19e;
+  --color-calendar-muted: #c0c0b4;
+  --color-calendar-border: #44463d;
+  --color-calendar-border-strong: #929487;
+  --color-calendar-focus: #d9edbd;
+  --color-calendar-selected-indicator: #d9edbd;
   --shadow-sm: 0 1px 2px rgb(0 0 0 / 28%);
   --shadow-md: 0 8px 24px rgb(0 0 0 / 34%);
   --shadow-lg: 0 18px 48px rgb(0 0 0 / 44%);

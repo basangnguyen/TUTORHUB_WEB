@@ -49,6 +49,11 @@ const ClassroomPreJoinPage = lazy(() =>
     default: module.ClassroomPreJoinPage,
   })),
 );
+const CalendarPage = lazy(() =>
+  import("../pages/CalendarPage").then((module) => ({
+    default: module.CalendarPage,
+  })),
+);
 const ClassroomRoomPage = lazy(() =>
   import("../pages/LiveKitPages").then((module) => ({
     default: module.ClassroomRoomPage,
@@ -70,6 +75,7 @@ export const navigationItems: readonly NavigationItem[] = [
     showInSidebar: false,
   },
   { to: "/app/classrooms", labelKey: "nav.classrooms" },
+  { to: "/app/calendar", labelKey: "nav.calendar" },
   {
     to: "/app/workspace",
     labelKey: "nav.workspace",
@@ -216,6 +222,10 @@ export function createAppRoutes(): RouteObject[] {
                 {
                   path: "classrooms/:classId/prejoin",
                   element: <ClassroomPreJoinPage />,
+                },
+                {
+                  path: "calendar",
+                  element: <CalendarPage />,
                 },
                 {
                   path: "settings",

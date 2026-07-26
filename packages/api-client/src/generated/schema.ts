@@ -72,6 +72,46 @@ export type paths = {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/api/v1/calendar/items": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /**
+     * List authorized calendar projections that overlap a bounded range
+     * @description Returns a server-owned read projection. Source-domain mutations continue
+     *     to use the source resource endpoint. The opaque cursor is bound to the
+     *     active tenant, current user, viewer timezone, range, and normalized filters.
+     */
+    readonly get: operations["listCalendarItems"];
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/calendar/preferences/display": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /** Return the effective calendar display preference for the current user and tenant */
+    readonly get: operations["getCalendarDisplayPreference"];
+    /** Replace calendar display preferences using optimistic concurrency */
+    readonly put: operations["updateCalendarDisplayPreference"];
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/api/v1/class-invitations/join": {
     readonly parameters: {
       readonly query?: never;
@@ -958,6 +998,68 @@ export type components = {
       readonly id: string | null;
       readonly type: string;
     };
+    readonly CalendarDisplayPreference: {
+      /** @enum {string} */
+      readonly default_view: "day" | "work_week" | "week" | "month" | "agenda";
+      /** @enum {string} */
+      readonly density: "comfortable" | "compact";
+      /** @enum {string} */
+      readonly locale: "vi-VN" | "en-US";
+      readonly secondary_timezone: string | null;
+      /** @enum {string} */
+      readonly time_format: "12h" | "24h";
+      /** @enum {integer} */
+      readonly time_scale_minutes: 15 | 30 | 60;
+      /** Format: date-time */
+      readonly updated_at: string;
+      /** Format: int64 */
+      readonly version: number;
+      /** @description Valid IANA timezone. */
+      readonly viewer_timezone: string;
+      /** @enum {string} */
+      readonly week_start: "monday" | "sunday";
+    };
+    readonly CalendarItem: {
+      /** @constant */
+      readonly all_day: false;
+      /** Format: uuid */
+      readonly class_id: string;
+      readonly class_title: string;
+      /** @enum {string} */
+      readonly color_token: "class_session";
+      readonly display_timezone: string;
+      /** Format: date-time */
+      readonly ends_at: string;
+      /** @description Stable projection key; currently class_session followed by the source UUID. */
+      readonly id: string;
+      /** @description Stable source occurrence identity; one-time sessions use their UUID. */
+      readonly occurrence_key: string;
+      /** Format: uuid */
+      readonly source_id: string;
+      readonly source_type: components["schemas"]["CalendarSourceType"];
+      /** Format: date-time */
+      readonly starts_at: string;
+      readonly status: components["schemas"]["CalendarItemStatus"];
+      readonly title: string;
+      /** Format: int64 */
+      readonly version: number;
+      readonly viewer_capabilities: components["schemas"]["CalendarViewerCapabilities"];
+    };
+    readonly CalendarItemListResponse: {
+      readonly items: readonly components["schemas"]["CalendarItem"][];
+      readonly next_cursor: string | null;
+    };
+    /** @enum {string} */
+    readonly CalendarItemStatus: "scheduled" | "cancelled" | "live" | "ended";
+    /** @enum {string} */
+    readonly CalendarSourceType: "class_session";
+    readonly CalendarViewerCapabilities: {
+      readonly can_cancel: boolean;
+      readonly can_edit: boolean;
+      readonly can_reschedule: boolean;
+      /** @constant */
+      readonly can_view: true;
+    };
     readonly CancelClassSessionRequest: {
       /** Format: int64 */
       readonly expected_version: number;
@@ -1573,6 +1675,25 @@ export type components = {
       /** Format: uuid */
       readonly new_owner_user_id: string;
     };
+    readonly UpdateCalendarDisplayPreferenceRequest: {
+      /** @enum {string} */
+      readonly default_view: "day" | "work_week" | "week" | "month" | "agenda";
+      /** @enum {string} */
+      readonly density: "comfortable" | "compact";
+      /** Format: int64 */
+      readonly expected_version: number;
+      /** @enum {string} */
+      readonly locale: "vi-VN" | "en-US";
+      readonly secondary_timezone: string | null;
+      /** @enum {string} */
+      readonly time_format: "12h" | "24h";
+      /** @enum {integer} */
+      readonly time_scale_minutes: 15 | 30 | 60;
+      /** @description Valid IANA timezone. */
+      readonly viewer_timezone: string;
+      /** @enum {string} */
+      readonly week_start: "monday" | "sunday";
+    };
     readonly UpdateClassRequest: {
       readonly code?: string;
       readonly description?: string;
@@ -1785,6 +1906,113 @@ export interface operations {
           readonly "application/json": components["schemas"]["LogoutResponse"];
         };
       };
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly listCalendarItems: {
+    readonly parameters: {
+      readonly query: {
+        readonly class_ids?: readonly string[];
+        readonly cursor?: string;
+        readonly from: string;
+        readonly limit?: number;
+        readonly search?: string;
+        readonly statuses?: readonly components["schemas"]["CalendarItemStatus"][];
+        /** @description Exclusive range end; the maximum range is 366 days. */
+        readonly to: string;
+        readonly types?: readonly components["schemas"]["CalendarSourceType"][];
+        /** @description Valid IANA timezone used by the viewer for display and cursor scope. */
+        readonly viewer_timezone: string;
+      };
+      readonly header: {
+        /** @description Client cache-scope assertion; authorization still comes only from the server-side active session. */
+        readonly "X-TutorHub-Expected-Tenant-ID": string;
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Tenant-, user-, range-, and permission-scoped calendar page */
+      readonly 200: {
+        headers: {
+          readonly "Cache-Control"?: "private, no-store";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["CalendarItemListResponse"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly getCalendarDisplayPreference: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Client cache-scope assertion; authorization still comes only from the server-side active session. */
+        readonly "X-TutorHub-Expected-Tenant-ID": string;
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Current effective calendar display preference; version zero means no override is stored yet */
+      readonly 200: {
+        headers: {
+          readonly "Cache-Control"?: "private, no-store";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["CalendarDisplayPreference"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly updateCalendarDisplayPreference: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly "X-CSRF-Token": string;
+        /** @description Client cache-scope assertion; authorization still comes only from the server-side active session. */
+        readonly "X-TutorHub-Expected-Tenant-ID": string;
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["UpdateCalendarDisplayPreferenceRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Updated calendar display preference */
+      readonly 200: {
+        headers: {
+          readonly "Cache-Control"?: "private, no-store";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["CalendarDisplayPreference"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
       readonly default: components["responses"]["ProblemResponse"];
     };
   };

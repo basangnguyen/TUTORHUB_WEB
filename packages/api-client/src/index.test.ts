@@ -13,6 +13,7 @@ import {
   createClassInviteCode,
   createMembershipInvitation,
   createTenant,
+  getCalendarDisplayPreference,
   getClass,
   getClassSession,
   getCurrentUser,
@@ -27,6 +28,7 @@ import {
   joinClassInvitation,
   leaveClass,
   listClassInviteCodes,
+  listCalendarItems,
   listClassRoster,
   listAuditEvents,
   listIdentities,
@@ -50,6 +52,7 @@ import {
   transferClassOwnership,
   unlinkIdentity,
   updateClass,
+  updateCalendarDisplayPreference,
   updateClassSession,
   updateClassRosterRole,
   updateProfile,
@@ -58,6 +61,8 @@ import {
   updateTenantFeatureControls,
 } from "./index";
 import type {
+  CalendarDisplayPreference,
+  CalendarItem,
   ClassEnrollment,
   ClassInviteCode,
   ClassSession,
@@ -67,11 +72,156 @@ import type {
   NotificationPreference,
   TenantCapabilities,
   UpdateNotificationPreferenceRequest,
+  UpdateCalendarDisplayPreferenceRequest,
   UpdateClassRequest,
   UpdateClassSessionRequest,
   UpdateTenantFeatureControlsRequest,
   UpdateTenantRequest,
 } from "./index";
+
+describe("calendar API client", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("binds calendar range, filters, tenant scope, and display timezone", async () => {
+    const tenantID = "4b18543a-74de-419f-9fe8-d0c3dfc991eb";
+    const item: CalendarItem = {
+      id: "class_session:2b9c25a4-b01b-4b5b-9e87-a782675ed511",
+      source_type: "class_session",
+      source_id: "2b9c25a4-b01b-4b5b-9e87-a782675ed511",
+      occurrence_key: "2b9c25a4-b01b-4b5b-9e87-a782675ed511",
+      title: "Algebra review",
+      starts_at: "2026-07-27T01:00:00Z",
+      ends_at: "2026-07-27T02:00:00Z",
+      all_day: false,
+      display_timezone: "Asia/Ho_Chi_Minh",
+      class_id: "1dcf37ff-4450-49ff-90aa-74dfbd551da2",
+      class_title: "Algebra 101",
+      status: "scheduled",
+      color_token: "class_session",
+      viewer_capabilities: {
+        can_view: true,
+        can_edit: true,
+        can_cancel: true,
+        can_reschedule: true,
+      },
+      version: 2,
+    };
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ items: [item], next_cursor: "next" }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+
+    await expect(
+      listCalendarItems(
+        tenantID,
+        {
+          from: "2026-07-01T00:00:00Z",
+          to: "2026-08-01T00:00:00Z",
+          viewer_timezone: "Asia/Ho_Chi_Minh",
+          types: ["class_session"],
+          class_ids: [item.class_id],
+          statuses: ["scheduled"],
+          search: "Algebra",
+          cursor: "page+/one",
+          limit: 500,
+        },
+        { baseUrl: "http://localhost/api", fetch: fetchMock },
+      ),
+    ).resolves.toEqual({ items: [item], next_cursor: "next" });
+
+    const request = fetchMock.mock.calls[0]?.[0] as Request;
+    const url = new URL(request.url);
+    expect(request.method).toBe("GET");
+    expect(request.credentials).toBe("include");
+    expect(request.headers.get("X-TutorHub-Expected-Tenant-ID")).toBe(tenantID);
+    expect(url.pathname).toBe("/api/v1/calendar/items");
+    expect(url.searchParams.get("from")).toBe("2026-07-01T00:00:00Z");
+    expect(url.searchParams.get("to")).toBe("2026-08-01T00:00:00Z");
+    expect(url.searchParams.get("viewer_timezone")).toBe("Asia/Ho_Chi_Minh");
+    expect(url.searchParams.get("types")).toContain("class_session");
+    expect(url.searchParams.get("class_ids")).toContain(item.class_id);
+    expect(url.searchParams.get("statuses")).toContain("scheduled");
+    expect(url.searchParams.get("cursor")).toBe("page+/one");
+  });
+
+  it("reads and replaces display preferences with CAS and CSRF", async () => {
+    const tenantID = "4b18543a-74de-419f-9fe8-d0c3dfc991eb";
+    const preference: CalendarDisplayPreference = {
+      viewer_timezone: "Asia/Ho_Chi_Minh",
+      locale: "vi-VN",
+      time_format: "24h",
+      week_start: "monday",
+      default_view: "work_week",
+      density: "comfortable",
+      time_scale_minutes: 30,
+      secondary_timezone: null,
+      version: 3,
+      updated_at: "2026-07-26T08:00:00Z",
+    };
+    const input: UpdateCalendarDisplayPreferenceRequest = {
+      viewer_timezone: preference.viewer_timezone,
+      locale: preference.locale,
+      time_format: preference.time_format,
+      week_start: preference.week_start,
+      default_view: "week",
+      density: "compact",
+      time_scale_minutes: 15,
+      secondary_timezone: "UTC",
+      expected_version: preference.version,
+    };
+    const updated = {
+      ...preference,
+      ...input,
+      version: 4,
+      updated_at: "2026-07-26T08:01:00Z",
+    };
+    const responses = [
+      new Response(JSON.stringify(preference), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+      new Response(JSON.stringify(updated), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    ];
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(() => Promise.resolve(responses.shift()));
+    const options = { baseUrl: "http://localhost/api", fetch: fetchMock };
+
+    await expect(
+      getCalendarDisplayPreference(tenantID, options),
+    ).resolves.toEqual(preference);
+    await expect(
+      updateCalendarDisplayPreference(
+        tenantID,
+        input,
+        "calendar-csrf",
+        options,
+      ),
+    ).resolves.toEqual(updated);
+
+    const requests = fetchMock.mock.calls.map((call) => call[0] as Request);
+    expect(requests.map((request) => request.method)).toEqual(["GET", "PUT"]);
+    expect(requests.map((request) => request.url)).toEqual([
+      "http://localhost/api/v1/calendar/preferences/display",
+      "http://localhost/api/v1/calendar/preferences/display",
+    ]);
+    expect(
+      requests.map((request) =>
+        request.headers.get("X-TutorHub-Expected-Tenant-ID"),
+      ),
+    ).toEqual([tenantID, tenantID]);
+    expect(requests[0]?.headers.get("X-CSRF-Token")).toBeNull();
+    expect(requests[1]?.headers.get("X-CSRF-Token")).toBe("calendar-csrf");
+    await expect(requests[1]?.clone().json()).resolves.toEqual(input);
+  });
+});
 
 // @ts-expect-error expected_version alone is not a meaningful tenant mutation.
 const invalidTenantUpdate: UpdateTenantRequest = { expected_version: 1 };
