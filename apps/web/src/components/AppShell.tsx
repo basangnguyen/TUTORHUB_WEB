@@ -55,7 +55,7 @@ export function AppShell() {
     Boolean(activeTenant?.id),
   );
   const notificationEnabled =
-    tenantCapabilities.data?.features.in_app_notifications.enabled === true;
+    tenantCapabilities.data?.features.in_app_notifications?.enabled === true;
   const activeMemberships =
     session.currentUser?.memberships.filter(
       (membership) => membership.status === "active",

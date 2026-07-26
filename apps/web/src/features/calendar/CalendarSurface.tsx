@@ -31,6 +31,7 @@ export function CalendarSurface({
   view,
 }: CalendarSurfaceProps) {
   const { t } = useI18n();
+  const [agendaAlternativeOpen, setAgendaAlternativeOpen] = useState(false);
   const itemsKey = useMemo(
     () => items.map((item) => `${item.id}:${item.version}`).join("|"),
     [items],
@@ -77,16 +78,23 @@ export function CalendarSurface({
             preference={preference}
             view={view}
           />
-          <details className="calendar-agenda-alternative">
+          <details
+            className="calendar-agenda-alternative"
+            onToggle={(event) =>
+              setAgendaAlternativeOpen(event.currentTarget.open)
+            }
+          >
             <summary>{t("calendar.keyboardAlternative")}</summary>
-            <CalendarAgenda
-              hourCycle={preference.hourCycle}
-              items={surfaceItems}
-              locale={locale}
-              onEditItem={onEditItem}
-              secondaryTimezone={preference.secondaryTimezone}
-              timezone={preference.viewerTimezone}
-            />
+            {agendaAlternativeOpen && (
+              <CalendarAgenda
+                hourCycle={preference.hourCycle}
+                items={surfaceItems}
+                locale={locale}
+                onEditItem={onEditItem}
+                secondaryTimezone={preference.secondaryTimezone}
+                timezone={preference.viewerTimezone}
+              />
+            )}
           </details>
         </>
       )}

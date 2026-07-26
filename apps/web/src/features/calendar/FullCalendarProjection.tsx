@@ -235,7 +235,6 @@ export function FullCalendarProjection({
       })),
     [items],
   );
-
   const options: CalendarOptions = {
     allDaySlot: false,
     contentHeight: "auto",
@@ -255,6 +254,9 @@ export function FullCalendarProjection({
       }
       info.el.dataset.calendarEventId = item.id;
       info.el.dataset.calendarEventCategory = "class_session";
+      info.el.dataset.calendarEventReschedulable = String(
+        item.canReschedule && item.status === "scheduled",
+      );
       info.el.setAttribute(
         "aria-label",
         calendarEventLabel(item, locale, preference.hourCycle),
@@ -286,11 +288,24 @@ export function FullCalendarProjection({
     initialView: fullCalendarViews[view],
     datesSet: (info) => {
       document.body.dataset.calendarRenderedView = info.view.type;
+      const renderedView = info.view.type;
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          if (document.body.dataset.calendarRenderedView === renderedView) {
+            document.body.dataset.calendarNavigationReadyAt = String(
+              performance.now(),
+            );
+          }
+        });
+      });
     },
     eventsSet: (visibleEvents) => {
       document.body.dataset.calendarVisibleEvents = String(
         visibleEvents.length,
       );
+      if (visibleEvents.length === items.length) {
+        document.body.dataset.calendarRenderReadyAt = String(performance.now());
+      }
     },
   };
 

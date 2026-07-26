@@ -105,7 +105,6 @@
 
 .calendar-mini-month__day--outside {
   color: var(--calendar-muted);
-  opacity: 0.7;
 }
 
 .calendar-mini-month__day--selected {
@@ -674,13 +673,27 @@
 
   .calendar-toolbar__navigation,
   .calendar-toolbar__actions {
-    justify-content: space-between;
+    justify-content: flex-start;
+  }
+
+  .calendar-toolbar__navigation {
+    display: grid;
+    grid-template-columns: auto auto auto;
   }
 
   .calendar-toolbar__range {
-    flex: 1;
-    margin-left: 0.2rem;
-    text-align: center;
+    grid-column: 1 / -1;
+    margin: 0.2rem 0 0;
+    overflow-wrap: anywhere;
+    text-align: left;
+  }
+
+  .calendar-toolbar__actions {
+    flex-wrap: wrap;
+  }
+
+  .calendar-toolbar__actions > button:last-child {
+    max-width: 100%;
   }
 
   .calendar-content {
@@ -722,7 +735,9 @@
 
   .calendar-mini-month__day--selected,
   .calendar-toolbar__view--active {
+    background: Highlight;
     border: 2px solid Highlight;
+    color: HighlightText;
   }
 
   .calendar-agenda-item__marker {

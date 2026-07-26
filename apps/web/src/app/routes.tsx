@@ -177,7 +177,7 @@ function NotificationFeatureRoute() {
       </div>
     );
   }
-  if (capabilities.data?.features.in_app_notifications.enabled !== true) {
+  if (capabilities.data?.features.in_app_notifications?.enabled !== true) {
     return <Navigate replace to="/forbidden" />;
   }
 

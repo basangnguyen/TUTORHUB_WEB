@@ -48,6 +48,7 @@ function renderRoute(
   session: CurrentUser | null = testSession,
   notificationsEnabled = false,
   seedCapabilities = true,
+  capabilitiesOverride?: unknown,
 ) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false, retryDelay: 0 } },
@@ -57,18 +58,19 @@ function renderRoute(
     const capabilities = availableTenantCapabilities(tenantID);
     queryClient.setQueryData(
       tenantCapabilityQueryKeys.detail(tenantID),
-      notificationsEnabled
-        ? {
-            ...capabilities,
-            features: {
-              ...capabilities.features,
-              in_app_notifications: {
-                configured_enabled: true,
-                enabled: true,
+      capabilitiesOverride ??
+        (notificationsEnabled
+          ? {
+              ...capabilities,
+              features: {
+                ...capabilities.features,
+                in_app_notifications: {
+                  configured_enabled: true,
+                  enabled: true,
+                },
               },
-            },
-          }
-        : capabilities,
+            }
+          : capabilities),
     );
     vi.stubGlobal(
       "fetch",
@@ -162,6 +164,27 @@ describe("web shell", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     renderRoute("/app/notifications");
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "Bạn chưa có quyền truy cập khu vực này",
+      }),
+    ).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("fails closed without crashing when an older capability response omits notifications", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const capabilities = availableTenantCapabilities(activeMembership.id);
+    const { in_app_notifications: _notificationFeature, ...legacyFeatures } =
+      capabilities.features;
+    expect(_notificationFeature).toBeDefined();
+
+    renderRoute("/app/notifications", testSession, false, true, {
+      ...capabilities,
+      features: legacyFeatures,
+    });
 
     expect(
       await screen.findByRole("heading", {

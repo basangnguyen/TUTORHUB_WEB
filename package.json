@@ -19,6 +19,7 @@
     "dev": "turbo run dev --parallel",
     "dev:local": "node scripts/local-dev.mjs dev",
     "e2e": "playwright test",
+    "e2e:calendar": "pnpm --filter @tutorhub/web build && playwright test --config apps/web/playwright.calendar.config.ts",
     "e2e:infra:test": "node --test scripts/e2e-local.test.mjs",
     "e2e:install": "playwright install chromium",
     "e2e:typecheck": "tsc -p tsconfig.e2e.json --pretty false",
@@ -47,6 +48,7 @@
     "verify": "pnpm format:check && pnpm api:check && pnpm local:test && pnpm e2e:infra:test && pnpm security:test && pnpm security:actions && pnpm verify:web && pnpm verify:go"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.12.1",
     "@eslint/js": "10.0.1",
     "@playwright/test": "1.61.1",
     "@storybook/addon-a11y": "10.5.0",

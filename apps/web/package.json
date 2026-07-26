@@ -6,8 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "lint": "eslint src vite.config.ts",
-    "typecheck": "tsc -b --pretty false",
+    "lint": "eslint src e2e vite.config.ts playwright.calendar.config.ts",
+    "typecheck": "tsc -b --pretty false && tsc -p tsconfig.e2e.json --pretty false",
     "test": "vitest run"
   },
   "dependencies": {
