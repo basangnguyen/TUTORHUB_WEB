@@ -1695,6 +1695,7 @@ export type components = {
     readonly TenantFeatureCapabilities: {
       readonly class_invite_links: components["schemas"]["FeatureCapability"];
       readonly class_management: components["schemas"]["FeatureCapability"];
+      readonly class_session_recurrence: components["schemas"]["FeatureCapability"];
       readonly class_session_scheduling: components["schemas"]["FeatureCapability"];
       readonly in_app_notifications: components["schemas"]["FeatureCapability"];
       readonly membership_invitations: components["schemas"]["FeatureCapability"];
@@ -1702,6 +1703,7 @@ export type components = {
     readonly TenantFeatureControlValues: {
       readonly class_invite_links: boolean;
       readonly class_management: boolean;
+      readonly class_session_recurrence: boolean;
       readonly class_session_scheduling: boolean;
       readonly in_app_notifications: boolean;
       readonly membership_invitations: boolean;

@@ -132,6 +132,7 @@ type FeatureControlConfig struct {
 	DisableClassManagement        bool
 	DisableClassInviteLinks       bool
 	DisableClassSessionScheduling bool
+	EnableClassSessionRecurrence  bool
 	EnableInAppNotifications      bool
 	MaxMembers                    int
 	MaxActiveClasses              int
@@ -317,6 +318,12 @@ func featureControlConfig(
 		DisableClassSessionScheduling: boolValue(
 			lookup,
 			"FEATURE_CONTROL_DISABLE_CLASS_SESSION_SCHEDULING",
+			false,
+			validationErrors,
+		),
+		EnableClassSessionRecurrence: boolValue(
+			lookup,
+			"FEATURE_CONTROL_ENABLE_CLASS_SESSION_RECURRENCE",
 			false,
 			validationErrors,
 		),

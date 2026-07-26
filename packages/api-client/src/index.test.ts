@@ -644,6 +644,7 @@ describe("getHealth", () => {
         class_management: { enabled: true },
         class_invite_links: { enabled: false },
         class_session_scheduling: { enabled: true },
+        class_session_recurrence: { enabled: false },
         in_app_notifications: { enabled: true },
       },
       quotas: {
@@ -689,6 +690,7 @@ describe("getHealth", () => {
         class_management: true,
         class_invite_links: true,
         class_session_scheduling: true,
+        class_session_recurrence: false,
         in_app_notifications: true,
       },
       quotas: {

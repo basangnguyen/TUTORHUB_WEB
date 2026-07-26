@@ -47,6 +47,7 @@ type tenantFeatureCapabilitiesResponse struct {
 	ClassManagement        featureCapabilityResponse `json:"class_management"`
 	ClassInviteLinks       featureCapabilityResponse `json:"class_invite_links"`
 	ClassSessionScheduling featureCapabilityResponse `json:"class_session_scheduling"`
+	ClassSessionRecurrence featureCapabilityResponse `json:"class_session_recurrence"`
 	InAppNotifications     featureCapabilityResponse `json:"in_app_notifications"`
 }
 
@@ -87,6 +88,7 @@ type updateTenantFeatureControlValuesRequest struct {
 	ClassManagement        *bool `json:"class_management"`
 	ClassInviteLinks       *bool `json:"class_invite_links"`
 	ClassSessionScheduling *bool `json:"class_session_scheduling"`
+	ClassSessionRecurrence *bool `json:"class_session_recurrence"`
 	InAppNotifications     *bool `json:"in_app_notifications"`
 }
 
@@ -102,6 +104,7 @@ func (request updateTenantFeatureControlsRequest) complete() bool {
 		request.Features.ClassManagement != nil &&
 		request.Features.ClassInviteLinks != nil &&
 		request.Features.ClassSessionScheduling != nil &&
+		request.Features.ClassSessionRecurrence != nil &&
 		request.Features.InAppNotifications != nil &&
 		request.Quotas != nil && request.Quotas.Members != nil &&
 		request.Quotas.ActiveClasses != nil &&
@@ -187,6 +190,7 @@ func (handlers featureControlHandlers) update(w http.ResponseWriter, r *http.Req
 				{Key: featurecontrol.FeatureClassManagement, Enabled: *request.Features.ClassManagement},
 				{Key: featurecontrol.FeatureClassInviteLinks, Enabled: *request.Features.ClassInviteLinks},
 				{Key: featurecontrol.FeatureClassSessionScheduling, Enabled: *request.Features.ClassSessionScheduling},
+				{Key: featurecontrol.FeatureClassSessionRecurrence, Enabled: *request.Features.ClassSessionRecurrence},
 				{Key: featurecontrol.FeatureInAppNotifications, Enabled: *request.Features.InAppNotifications},
 			},
 			QuotaOverrides: []featurecontrol.QuotaOverride{
@@ -326,11 +330,12 @@ func mapTenantCapabilities(
 	classFeature, classOK := features[featurecontrol.FeatureClassManagement]
 	inviteFeature, inviteOK := features[featurecontrol.FeatureClassInviteLinks]
 	sessionFeature, sessionOK := features[featurecontrol.FeatureClassSessionScheduling]
+	recurrenceFeature, recurrenceOK := features[featurecontrol.FeatureClassSessionRecurrence]
 	notificationFeature, notificationOK := features[featurecontrol.FeatureInAppNotifications]
 	membersQuota, membersOK := quotas[featurecontrol.QuotaMembers]
 	classesQuota, classesOK := quotas[featurecontrol.QuotaActiveClasses]
 	invitesQuota, invitesOK := quotas[featurecontrol.QuotaInviteCreationsPerHour]
-	if !membershipOK || !classOK || !inviteOK || !sessionOK || !notificationOK ||
+	if !membershipOK || !classOK || !inviteOK || !sessionOK || !recurrenceOK || !notificationOK ||
 		!membersOK || !classesOK || !invitesOK {
 		return tenantCapabilitiesResponse{}, errors.New("feature control snapshot is incomplete")
 	}
@@ -343,6 +348,7 @@ func mapTenantCapabilities(
 			ClassManagement:        mapFeatureCapability(classFeature, capabilities.AllowedAction.ManageControls),
 			ClassInviteLinks:       mapFeatureCapability(inviteFeature, capabilities.AllowedAction.ManageControls),
 			ClassSessionScheduling: mapFeatureCapability(sessionFeature, capabilities.AllowedAction.ManageControls),
+			ClassSessionRecurrence: mapFeatureCapability(recurrenceFeature, capabilities.AllowedAction.ManageControls),
 			InAppNotifications:     mapFeatureCapability(notificationFeature, capabilities.AllowedAction.ManageControls),
 		},
 		Quotas: tenantQuotaCapabilitiesResponse{

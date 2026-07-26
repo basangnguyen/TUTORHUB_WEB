@@ -381,6 +381,9 @@ func featureControlGuardrails(configuration config.FeatureControlConfig) feature
 	if configuration.DisableClassSessionScheduling {
 		forcedOff[featurecontrol.FeatureClassSessionScheduling] = true
 	}
+	if !configuration.EnableClassSessionRecurrence {
+		forcedOff[featurecontrol.FeatureClassSessionRecurrence] = true
+	}
 	if !configuration.EnableInAppNotifications {
 		forcedOff[featurecontrol.FeatureInAppNotifications] = true
 	}

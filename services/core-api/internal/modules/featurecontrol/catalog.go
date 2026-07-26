@@ -12,6 +12,7 @@ const (
 	FeatureClassManagement        FeatureKey = "class_management"
 	FeatureClassInviteLinks       FeatureKey = "class_invite_links"
 	FeatureClassSessionScheduling FeatureKey = "class_session_scheduling"
+	FeatureClassSessionRecurrence FeatureKey = "class_session_recurrence"
 	FeatureInAppNotifications     FeatureKey = "in_app_notifications"
 )
 
@@ -65,6 +66,9 @@ var featureDefinitions = map[FeatureKey]FeatureDefinition{
 	},
 	FeatureClassSessionScheduling: {
 		Key: FeatureClassSessionScheduling, DefaultEnabled: true,
+	},
+	FeatureClassSessionRecurrence: {
+		Key: FeatureClassSessionRecurrence, DefaultEnabled: true,
 	},
 	FeatureInAppNotifications: {
 		Key: FeatureInAppNotifications, DefaultEnabled: true,

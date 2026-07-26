@@ -486,7 +486,14 @@ recurrence, scope và privacy-safe conflict schemas. One-time ClassSession creat
 đã có class-scoped half-open hard-conflict check sau class-row lock, trong cùng
 transaction, trả HTTP `409 class_session_schedule_conflict`; touching intervals vẫn
 được phép. Unit, package HTTP/classroom, migration-fragment và integration-tag compile
-đã đạt local.
+đã đạt local. Feature catalog/OpenAPI/generated client/UI đã có
+`class_session_recurrence`; deployment guardrail
+`FEATURE_CONTROL_ENABLE_CLASS_SESSION_RECURRENCE=false` mặc định ép tắt fail-closed và
+tenant override không thể tự bật khi chưa mở canary.
+Read-overlay domain building block cũng đã có: expansion bounded và exception
+`cancel/override` được áp dụng thuần, giữ occurrence key gốc, resolve lại civil time
+qua adapter khi đổi local/timezone/duration và sort ổn định; SQL authorization/query
+chưa nối vào đường đọc production.
 
 Phần còn lại bắt buộc trước `DONE`: repository/service/HTTP cho series và occurrence
 mutation (create, expand/read overlay, edit one/following/all, cancel occurrence/series),

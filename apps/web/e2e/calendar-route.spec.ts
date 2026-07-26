@@ -55,6 +55,7 @@ function capabilities() {
       class_invite_links: { enabled: true },
       class_management: { enabled: true },
       class_session_scheduling: { enabled: true },
+      class_session_recurrence: { enabled: false },
       in_app_notifications: { enabled: false },
       membership_invitations: { enabled: true },
     },

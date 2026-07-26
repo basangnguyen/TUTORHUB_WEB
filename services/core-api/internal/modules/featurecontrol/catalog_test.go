@@ -17,6 +17,7 @@ func TestCatalogDefaultsAndStableOrder(t *testing.T) {
 	if got, want := featureKeys(features), []FeatureKey{
 		FeatureClassInviteLinks,
 		FeatureClassManagement,
+		FeatureClassSessionRecurrence,
 		FeatureClassSessionScheduling,
 		FeatureInAppNotifications,
 		FeatureMembershipInvitations,

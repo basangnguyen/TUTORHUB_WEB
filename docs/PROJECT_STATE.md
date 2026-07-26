@@ -452,6 +452,13 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
     22/22 và format check đạt. Chưa có recurring series repository/service/HTTP,
     exception overlay, split/cancel/idempotency/audit/outbox, override capability,
     recurring UI hoặc staging migration; không được mô tả P3-02B là `DONE`.
+29. Feature key `class_session_recurrence` đã nhất quán từ migration/catalog/config/
+    guardrail tới tenant capability OpenAPI/generated client và UI.
+    `FEATURE_CONTROL_ENABLE_CLASS_SESSION_RECURRENCE=false` mặc định fail-closed;
+    Go package/config/HTTP tests, API check, web typecheck và 176 web tests đều xanh.
+    Domain read-overlay building block đã có bounded expansion + cancel/override và
+    DST/civil-time test; series repository/mutation/HTTP và SQL read overlay vẫn
+    chưa được bật.
 
 ## Rủi ro đã biết
 

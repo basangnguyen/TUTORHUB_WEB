@@ -24,6 +24,7 @@ const featureKeys = [
   "class_management",
   "class_invite_links",
   "class_session_scheduling",
+  "class_session_recurrence",
   "in_app_notifications",
 ] as const satisfies readonly FeatureKey[];
 
@@ -36,6 +37,7 @@ const quotaKeys = [
 const featureLabelKeys: Record<FeatureKey, TranslationKey> = {
   class_invite_links: "capabilities.featureClassInviteLinks",
   class_session_scheduling: "capabilities.featureClassSessionScheduling",
+  class_session_recurrence: "capabilities.featureClassSessionRecurrence",
   class_management: "capabilities.featureClassManagement",
   in_app_notifications: "capabilities.featureInAppNotifications",
   membership_invitations: "capabilities.featureMembershipInvitations",
@@ -80,6 +82,10 @@ function controlsDraft(capabilities: TenantCapabilities): ControlsDraft {
       class_session_scheduling: configuredFeature(
         capabilities,
         "class_session_scheduling",
+      ),
+      class_session_recurrence: configuredFeature(
+        capabilities,
+        "class_session_recurrence",
       ),
       class_management: configuredFeature(capabilities, "class_management"),
       in_app_notifications: configuredFeature(

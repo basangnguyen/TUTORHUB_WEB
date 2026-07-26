@@ -154,6 +154,7 @@ func TestLoadCustomValues(t *testing.T) {
 		"FEATURE_CONTROL_DISABLE_CLASS_MANAGEMENT":         "true",
 		"FEATURE_CONTROL_DISABLE_CLASS_INVITE_LINKS":       "true",
 		"FEATURE_CONTROL_DISABLE_CLASS_SESSION_SCHEDULING": "true",
+		"FEATURE_CONTROL_ENABLE_CLASS_SESSION_RECURRENCE":  "true",
 		"FEATURE_CONTROL_ENABLE_IN_APP_NOTIFICATIONS":      "true",
 		"FEATURE_CONTROL_MAX_MEMBERS":                      "5000",
 		"FEATURE_CONTROL_MAX_ACTIVE_CLASSES":               "500",
@@ -210,6 +211,7 @@ func TestLoadCustomValues(t *testing.T) {
 		!cfg.FeatureControls.DisableClassManagement ||
 		!cfg.FeatureControls.DisableClassInviteLinks ||
 		!cfg.FeatureControls.DisableClassSessionScheduling ||
+		!cfg.FeatureControls.EnableClassSessionRecurrence ||
 		!cfg.FeatureControls.EnableInAppNotifications ||
 		cfg.FeatureControls.MaxMembers != 5000 ||
 		cfg.FeatureControls.MaxActiveClasses != 500 ||
@@ -244,11 +246,12 @@ func TestLoadRejectsInvalidFeatureControlGuardrails(t *testing.T) {
 	t.Parallel()
 
 	_, err := load(mapLookup(map[string]string{
-		"FEATURE_CONTROL_DISABLE_CLASS_MANAGEMENT":      "sometimes",
-		"FEATURE_CONTROL_ENABLE_IN_APP_NOTIFICATIONS":   "sometimes",
-		"FEATURE_CONTROL_MAX_MEMBERS":                   "10001",
-		"FEATURE_CONTROL_MAX_ACTIVE_CLASSES":            "0",
-		"FEATURE_CONTROL_MAX_INVITE_CREATIONS_PER_HOUR": "not-a-number",
+		"FEATURE_CONTROL_DISABLE_CLASS_MANAGEMENT":        "sometimes",
+		"FEATURE_CONTROL_ENABLE_CLASS_SESSION_RECURRENCE": "sometimes",
+		"FEATURE_CONTROL_ENABLE_IN_APP_NOTIFICATIONS":     "sometimes",
+		"FEATURE_CONTROL_MAX_MEMBERS":                     "10001",
+		"FEATURE_CONTROL_MAX_ACTIVE_CLASSES":              "0",
+		"FEATURE_CONTROL_MAX_INVITE_CREATIONS_PER_HOUR":   "not-a-number",
 	}))
 	if err == nil {
 		t.Fatal("expected feature control guardrail validation errors")
@@ -256,6 +259,7 @@ func TestLoadRejectsInvalidFeatureControlGuardrails(t *testing.T) {
 	message := err.Error()
 	for _, expected := range []string{
 		"FEATURE_CONTROL_DISABLE_CLASS_MANAGEMENT",
+		"FEATURE_CONTROL_ENABLE_CLASS_SESSION_RECURRENCE",
 		"FEATURE_CONTROL_ENABLE_IN_APP_NOTIFICATIONS",
 		"FEATURE_CONTROL_MAX_MEMBERS",
 		"FEATURE_CONTROL_MAX_ACTIVE_CLASSES",

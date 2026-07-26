@@ -263,6 +263,55 @@ func Expand(ctx context.Context, definition Definition, window Window, maxOccurr
 	return plan.Expand(ctx, window, maxOccurrences)
 }
 
+// ResolveOccurrence resolves one civil occurrence with the same bounded
+// overlap/DST rules as series expansion. It is used for exception overrides;
+// the returned occurrence key is intentionally ignored by callers because an
+// override must retain the original occurrence identity.
+func ResolveOccurrence(
+	ctx context.Context,
+	definition Definition,
+	originalLocal string,
+) (Occurrence, error) {
+	originalLocal = strings.TrimSpace(originalLocal)
+	if originalLocal == "" {
+		return Occurrence{}, fmt.Errorf("%w: original local time is required", ErrInvalidSeries)
+	}
+	location, err := time.LoadLocation(strings.TrimSpace(definition.TimeZone))
+	if err != nil {
+		return Occurrence{}, fmt.Errorf("%w: invalid time zone: %v", ErrInvalidSeries, err)
+	}
+	local, err := time.ParseInLocation("2006-01-02T15:04:05", originalLocal, location)
+	if err != nil {
+		return Occurrence{}, fmt.Errorf("%w: original local time: %v", ErrInvalidSeries, err)
+	}
+	single := definition
+	single.StartLocal = originalLocal
+	single.Rule = Rule{
+		Frequency: FrequencyDaily,
+		Interval:  1,
+		End:       End{Type: EndAfterCount, Count: 1},
+	}
+	// A civil timestamp can move by an offset change around DST. A two-day
+	// instant envelope is deliberately wider than all IANA transitions while
+	// remaining bounded by the adapter's normal query-window contract.
+	window := Window{
+		Start: local.UTC().Add(-48 * time.Hour),
+		End:   local.UTC().Add(48 * time.Hour),
+	}
+	occurrences, err := Expand(ctx, single, window, 1)
+	if err != nil {
+		return Occurrence{}, err
+	}
+	if len(occurrences) != 1 || occurrences[0].OriginalLocal != originalLocal {
+		return Occurrence{}, fmt.Errorf(
+			"%w: occurrence %q was not resolved",
+			ErrInvalidSeries,
+			originalLocal,
+		)
+	}
+	return occurrences[0], nil
+}
+
 func (plan *Plan) Expand(ctx context.Context, window Window, maxOccurrences int) ([]Occurrence, error) {
 	if plan == nil || plan.delegate == nil {
 		return nil, ErrInvalidSeries
