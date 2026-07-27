@@ -19,6 +19,10 @@ import {
   CalendarQuickCreate,
   CalendarSessionEdit,
 } from "../features/calendar/CalendarSessionEditors";
+import {
+  RecurringScopeDialog,
+  type RecurringScopeRequest,
+} from "../features/calendar/RecurringScopeDialog";
 import { CalendarSidebar } from "../features/calendar/CalendarSidebar";
 import { CalendarSurface } from "../features/calendar/CalendarSurface";
 import type { CalendarRescheduleInput } from "../features/calendar/FullCalendarProjection";
@@ -156,6 +160,8 @@ export function CalendarPage() {
   const [editingItem, setEditingItem] = useState<CalendarItemViewModel | null>(
     null,
   );
+  const [recurringScopeRequest, setRecurringScopeRequest] =
+    useState<RecurringScopeRequest | null>(null);
   const online = useOnlineStatus();
   const mobile = useMobileCalendarDefault();
   const tenantID = session.currentUser?.active_tenant?.id;
@@ -182,6 +188,24 @@ export function CalendarPage() {
       if (!item.classID || !item.canReschedule) {
         throw new Error("This calendar item cannot be rescheduled.");
       }
+      if (item.seriesID && item.occurrenceKey && tenantID) {
+        return await new Promise<CalendarItemViewModel>((resolve, reject) => {
+          setRecurringScopeRequest({
+            item,
+            startsAt,
+            endsAt,
+            tenantID,
+            onCancel: () => {
+              setRecurringScopeRequest(null);
+              reject(new Error("Recurring schedule change cancelled."));
+            },
+            onSuccess: (updatedItem) => {
+              setRecurringScopeRequest(null);
+              resolve(updatedItem);
+            },
+          });
+        });
+      }
       const updated = await updateSession.mutateAsync({
         classID: item.classID,
         input: {
@@ -205,7 +229,7 @@ export function CalendarPage() {
         version: updated.version,
       };
     },
-    [updateSession],
+    [tenantID, updateSession],
   );
   const defaultView: CalendarView = mobile ? "agenda" : preference.defaultView;
   const routeState = parseCalendarRouteState(searchParams, {
@@ -479,9 +503,38 @@ export function CalendarPage() {
       />
       <CalendarSessionEdit
         item={editingItem}
+        onCancelRecurring={(item) => {
+          if (!tenantID) {
+            return;
+          }
+          setEditingItem(null);
+          setRecurringScopeRequest({
+            item,
+            operation: "cancel",
+            tenantID,
+            onCancel: () => setRecurringScopeRequest(null),
+            onSuccess: () => {
+              setRecurringScopeRequest(null);
+              void itemsQuery.refetch();
+            },
+          });
+        }}
         onClose={() => setEditingItem(null)}
         onSaved={() => void itemsQuery.refetch()}
         tenantID={tenantID}
+      />
+      <RecurringScopeDialog
+        key={
+          recurringScopeRequest
+            ? [
+                recurringScopeRequest.item.id,
+                recurringScopeRequest.operation ?? "update",
+                recurringScopeRequest.startsAt ?? "",
+                recurringScopeRequest.endsAt ?? "",
+              ].join(":")
+            : "closed"
+        }
+        request={recurringScopeRequest}
       />
     </div>
   );

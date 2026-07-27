@@ -31,6 +31,7 @@ type Options struct {
 	Identity              identity.ServiceAPI
 	Classroom             classroom.ServiceAPI
 	ClassSessions         classroom.SessionServiceAPI
+	ClassSessionSeries    classroom.SessionSeriesServiceAPI
 	Calendar              calendar.ServiceAPI
 	Enrollment            classroom.EnrollmentServiceAPI
 	Audit                 audit.ServiceAPI
@@ -241,6 +242,9 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 	)
 	classes := newClassHandlers(logger, auth, options.Classroom)
 	classSessions := newClassSessionHandlers(logger, auth, options.ClassSessions)
+	classSessionSeries := newClassSessionSeriesHandlers(
+		auth, options.ClassSessionSeries, classSessions,
+	)
 	classEnrollments := newClassEnrollmentHandlers(
 		cfg,
 		logger,
@@ -296,6 +300,40 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 				pathValueAuditResource("session_id"),
 			),
 			http.HandlerFunc(classSessions.cancel),
+		),
+	)
+	mux.Handle(
+		classSessionSeriesCollectionPattern,
+		auditMutation(
+			staticAuditMutation(
+				http.MethodPost,
+				audit.ActionClassSessionCreate,
+				"class_session_series",
+				pathValueAuditResource("class_id"),
+			),
+			http.HandlerFunc(classSessionSeries.collection),
+		),
+	)
+	mux.Handle(
+		classSessionSeriesResourcePattern,
+		http.HandlerFunc(classSessionSeries.resource),
+	)
+	mux.Handle(
+		classSessionSeriesPreviewPattern,
+		requireMethod(http.MethodPost, http.HandlerFunc(classSessionSeries.preview)),
+	)
+	mux.Handle(
+		classSessionSeriesMutationPattern,
+		auditMutation(
+			classSessionSeriesResourceAuditMutation,
+			http.HandlerFunc(classSessionSeries.update),
+		),
+	)
+	mux.Handle(
+		classSessionSeriesCancelPattern,
+		auditMutation(
+			classSessionSeriesResourceAuditMutation,
+			http.HandlerFunc(classSessionSeries.cancel),
 		),
 	)
 	mux.Handle(

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/tutorhub-v2/core-api/internal/modules/calendar/recurrence"
 )
 
 func TestParseSessionTimestampValidatesZoneAndDST(t *testing.T) {
@@ -57,5 +58,24 @@ func TestSessionParamsEnforceBoundsAndCompleteTimeTriplet(t *testing.T) {
 		StartsAt: &now, ExpectedVersion: 1,
 	}).normalized(); !errors.Is(err, ErrInvalidSessionInput) {
 		t.Fatalf("partial time update error = %v", err)
+	}
+}
+
+func TestSeriesMutationNormalizationDistinguishesCancelPreviewShape(t *testing.T) {
+	t.Parallel()
+	input := OccurrenceMutationInput{
+		Scope:           recurrence.ScopeThisOccurrence,
+		OccurrenceKey:   "20260727T030000Z",
+		ExpectedVersion: 2,
+		IdempotencyKey:  "preview:series-1234",
+	}
+	if _, err := normalizeSeriesMutationInput(input, uuid.New(), "cancel"); err != nil {
+		t.Fatalf("cancel preview shape should be valid: %v", err)
+	}
+	if _, err := normalizeSeriesMutationInput(input, uuid.New(), "update"); !errors.Is(
+		err,
+		ErrInvalidSessionInput,
+	) {
+		t.Fatalf("empty update error = %v, want %v", err, ErrInvalidSessionInput)
 	}
 }

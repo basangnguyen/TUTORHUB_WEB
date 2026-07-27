@@ -19,6 +19,7 @@ const item: CalendarItemViewModel = {
   id: "class-session:session-1:2026-07-27T02:00:00Z",
   occurrenceKey: "2026-07-27T02:00:00Z",
   sourceID: "session-1",
+  seriesID: null,
   sourceType: "class_session",
   startsAt: "2026-07-27T02:00:00Z",
   status: "scheduled",

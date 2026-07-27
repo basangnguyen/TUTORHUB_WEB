@@ -1870,9 +1870,10 @@ Thứ tự hiện tại, cập nhật ngày 2026-07-26:
     `Proposed` cho tới khi SES sandbox, provider-event topology, cross-client matrix và
     domain/DNS gate có evidence. Pre-domain chỉ dùng owner-controlled verified identities;
     runtime delivery chờ P3-03B/P3-02C/P3-05A.
-11. Tiếp tục P3-02B, rồi P3-02C và P3-05A theo dependency đã khóa; hoàn tất staging
-    gate P3-04 cùng P3-03B trước activation. Không đưa recurrence, reminder, worker,
-    email hoặc calendar tổng hợp vào P3-01.
+11. Chạy staging verification P3-02B (migration `000018/000019`, exact runtime grants,
+    canary, concurrent/authorization/query-plan smoke), rồi tiếp tục P3-02C và P3-05A
+    theo dependency đã khóa; hoàn tất staging gate P3-04 cùng P3-03B trước activation.
+    Không đưa recurrence, reminder, worker, email hoặc calendar tổng hợp vào P3-01.
 12. ADR-0021 đã `Accepted`; triển khai P3-02D sau P3-02B/C và P3-03 rồi P3-05B, không
      phụ thuộc When2meet.
 13. Không xóa thêm Neon branch theo quyết định hiện tại của owner.

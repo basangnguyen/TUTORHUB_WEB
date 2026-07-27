@@ -447,14 +447,38 @@ func (handlers classSessionHandlers) writeProblem(
 		status, code, title, detail = http.StatusConflict,
 			"class_session_conflict", "Class session changed",
 			"Reload the latest session before trying this change again."
+	case errors.Is(err, classroom.ErrSeriesVersionConflict):
+		status, code, title, detail = http.StatusConflict,
+			"class_session_series_conflict", "Recurring session changed",
+			"Reload the latest recurring series before trying this change again."
+	case errors.Is(err, classroom.ErrSeriesIdempotencyConflict):
+		status, code, title, detail = http.StatusConflict,
+			"class_session_idempotency_conflict", "Mutation key already used",
+			"Use a new idempotency key for a different recurring-session request."
+	case errors.Is(err, classroom.ErrSeriesExceptionConflict):
+		status, code, title, detail = http.StatusConflict,
+			"class_session_exception_conflict", "Future exceptions need a policy",
+			"Choose carry, rebase, or discard before changing this and following occurrences."
 	case errors.Is(err, classroom.ErrSessionScheduleConflict):
 		status, code, title, detail = http.StatusConflict,
 			"class_session_schedule_conflict", "Class schedule conflict",
 			"Another session for this class overlaps the requested half-open time range."
+	case errors.Is(err, classroom.ErrConflictOverrideDenied):
+		status, code, title, detail = http.StatusForbidden,
+			"class_session_override_forbidden", "Conflict override denied",
+			"Only an authorized administrator can override a schedule conflict with a reason."
+	case errors.Is(err, classroom.ErrSeriesLimitExceeded):
+		status, code, title, detail = http.StatusTooManyRequests,
+			"class_session_series_limit", "Recurring series limit reached",
+			"This class has reached the bounded recurring-series limit."
 	case errors.Is(err, classroom.ErrInvalidSessionTransition):
 		status, code, title, detail = http.StatusConflict,
 			"class_session_state_conflict", "Class session state conflict",
 			"The class session cannot make that lifecycle transition."
+	case errors.Is(err, classroom.ErrSeriesNotFound):
+		status, code, title, detail = http.StatusNotFound,
+			"class_session_series_not_found", "Recurring session not found",
+			"The recurring session series does not exist in the active workspace."
 	}
 	if status >= http.StatusInternalServerError {
 		handlers.logger.Error(

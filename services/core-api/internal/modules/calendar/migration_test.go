@@ -60,3 +60,29 @@ func TestCalendarRecurrenceMigrationContainsSeriesExceptionAndIdentityGuards(t *
 		}
 	}
 }
+
+func TestCalendarRecurrenceMutationMigrationContainsIdentityAndReceiptGuards(t *testing.T) {
+	t.Parallel()
+	contents, err := os.ReadFile(filepath.Join(
+		"..", "..", "..", "migrations", "000019_class_session_recurrence_mutations.up.sql",
+	))
+	if err != nil {
+		t.Fatal(err)
+	}
+	sql := string(contents)
+	for _, fragment := range []string{
+		"ADD COLUMN ical_uid text",
+		"class_session_series_tenant_ical_uid_unique",
+		"CREATE TABLE tutorhub.class_session_mutation_receipts",
+		"class_session_mutation_receipts_series_fk",
+		"class_session_mutation_receipts_result_series_fk",
+		"class_session_mutation_receipts_key_valid",
+		"class_session_mutation_receipts_operation_valid",
+		"operation IN ('update', 'cancel')",
+		"REVOKE ALL ON tutorhub.class_session_mutation_receipts FROM PUBLIC",
+	} {
+		if !strings.Contains(sql, fragment) {
+			t.Fatalf("calendar recurrence mutation migration missing %q", fragment)
+		}
+	}
+}

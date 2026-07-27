@@ -106,8 +106,29 @@ type Window = spike.Window
 
 type Occurrence = spike.Occurrence
 
+// ExpansionObserver receives bounded, aggregate-only telemetry. Implementations
+// must not attach tenant, class, user or occurrence identities as metric labels.
+type ExpansionObserver interface {
+	ObserveRecurrenceExpansion(time.Duration, int, error)
+}
+
+type expansionObserverContextKey struct{}
+
 type Plan struct {
 	delegate *spike.Plan
+}
+
+func WithExpansionObserver(ctx context.Context, observer ExpansionObserver) context.Context {
+	if observer == nil {
+		return ctx
+	}
+	return context.WithValue(ctx, expansionObserverContextKey{}, observer)
+}
+
+// NormalizeRule returns the canonical persisted representation for the typed
+// subset. HTTP and service callers never accept or construct raw RRULE text.
+func NormalizeRule(rule Rule) (string, error) {
+	return rule.canonicalRRULE()
 }
 
 func (rule Rule) canonicalRRULE() (string, error) {
@@ -255,7 +276,22 @@ func Compile(definition Definition) (*Plan, error) {
 	return &Plan{delegate: compiled}, nil
 }
 
-func Expand(ctx context.Context, definition Definition, window Window, maxOccurrences int) ([]Occurrence, error) {
+func Expand(
+	ctx context.Context,
+	definition Definition,
+	window Window,
+	maxOccurrences int,
+) (occurrences []Occurrence, err error) {
+	startedAt := time.Now()
+	if observer, ok := ctx.Value(expansionObserverContextKey{}).(ExpansionObserver); ok {
+		defer func() {
+			observer.ObserveRecurrenceExpansion(
+				time.Since(startedAt),
+				len(occurrences),
+				err,
+			)
+		}()
+	}
 	plan, err := Compile(definition)
 	if err != nil {
 		return nil, err

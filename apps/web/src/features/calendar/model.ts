@@ -33,6 +33,7 @@ export interface CalendarItemViewModel {
   id: string;
   sourceType: string;
   sourceID: string;
+  seriesID: string | null;
   occurrenceKey: string | null;
   title: string;
   startsAt: string;

@@ -16,23 +16,31 @@ type HTTPMetrics interface {
 }
 
 type Metrics struct {
-	startedAt        time.Time
-	requestsTotal    atomic.Int64
-	requestsInFlight atomic.Int64
-	durationNanos    atomic.Int64
-	panicsTotal      atomic.Int64
-	responses        [6]atomic.Int64
-	quotaRejections  [3]atomic.Int64
+	startedAt               time.Time
+	requestsTotal           atomic.Int64
+	requestsInFlight        atomic.Int64
+	durationNanos           atomic.Int64
+	panicsTotal             atomic.Int64
+	responses               [6]atomic.Int64
+	quotaRejections         [3]atomic.Int64
+	recurrenceExpansions    atomic.Int64
+	recurrenceOccurrences   atomic.Int64
+	recurrenceRejections    atomic.Int64
+	recurrenceDurationNanos atomic.Int64
 }
 
 type MetricsSnapshot struct {
-	Uptime           time.Duration
-	RequestsTotal    int64
-	RequestsInFlight int64
-	Duration         time.Duration
-	PanicsTotal      int64
-	Responses        [6]int64
-	QuotaRejections  [3]int64
+	Uptime                time.Duration
+	RequestsTotal         int64
+	RequestsInFlight      int64
+	Duration              time.Duration
+	PanicsTotal           int64
+	Responses             [6]int64
+	QuotaRejections       [3]int64
+	RecurrenceExpansions  int64
+	RecurrenceOccurrences int64
+	RecurrenceRejections  int64
+	RecurrenceDuration    time.Duration
 }
 
 func NewMetrics() *Metrics {
@@ -62,13 +70,32 @@ func (metrics *Metrics) QuotaRejected(quota string) {
 	metrics.quotaRejections[index].Add(1)
 }
 
+func (metrics *Metrics) ObserveRecurrenceExpansion(
+	duration time.Duration,
+	occurrenceCount int,
+	err error,
+) {
+	metrics.recurrenceExpansions.Add(1)
+	metrics.recurrenceDurationNanos.Add(duration.Nanoseconds())
+	if occurrenceCount > 0 {
+		metrics.recurrenceOccurrences.Add(int64(occurrenceCount))
+	}
+	if err != nil {
+		metrics.recurrenceRejections.Add(1)
+	}
+}
+
 func (metrics *Metrics) Snapshot() MetricsSnapshot {
 	snapshot := MetricsSnapshot{
-		Uptime:           time.Since(metrics.startedAt),
-		RequestsTotal:    metrics.requestsTotal.Load(),
-		RequestsInFlight: metrics.requestsInFlight.Load(),
-		Duration:         time.Duration(metrics.durationNanos.Load()),
-		PanicsTotal:      metrics.panicsTotal.Load(),
+		Uptime:                time.Since(metrics.startedAt),
+		RequestsTotal:         metrics.requestsTotal.Load(),
+		RequestsInFlight:      metrics.requestsInFlight.Load(),
+		Duration:              time.Duration(metrics.durationNanos.Load()),
+		PanicsTotal:           metrics.panicsTotal.Load(),
+		RecurrenceExpansions:  metrics.recurrenceExpansions.Load(),
+		RecurrenceOccurrences: metrics.recurrenceOccurrences.Load(),
+		RecurrenceRejections:  metrics.recurrenceRejections.Load(),
+		RecurrenceDuration:    time.Duration(metrics.recurrenceDurationNanos.Load()),
 	}
 	for index := range metrics.responses {
 		snapshot.Responses[index] = metrics.responses[index].Load()
@@ -126,6 +153,18 @@ func (metrics *Metrics) Handler() http.Handler {
 				),
 			)
 		}
+		writeMetric(w, "# HELP tutorhub_calendar_recurrence_expansions_total Bounded recurrence expansions attempted.\n")
+		writeMetric(w, "# TYPE tutorhub_calendar_recurrence_expansions_total counter\n")
+		writeMetric(w, "tutorhub_calendar_recurrence_expansions_total "+strconv.FormatInt(snapshot.RecurrenceExpansions, 10)+"\n")
+		writeMetric(w, "# HELP tutorhub_calendar_recurrence_occurrences_total Occurrences produced by bounded recurrence expansion.\n")
+		writeMetric(w, "# TYPE tutorhub_calendar_recurrence_occurrences_total counter\n")
+		writeMetric(w, "tutorhub_calendar_recurrence_occurrences_total "+strconv.FormatInt(snapshot.RecurrenceOccurrences, 10)+"\n")
+		writeMetric(w, "# HELP tutorhub_calendar_recurrence_rejections_total Recurrence expansions rejected by validation or resource bounds.\n")
+		writeMetric(w, "# TYPE tutorhub_calendar_recurrence_rejections_total counter\n")
+		writeMetric(w, "tutorhub_calendar_recurrence_rejections_total "+strconv.FormatInt(snapshot.RecurrenceRejections, 10)+"\n")
+		writeMetric(w, "# HELP tutorhub_calendar_recurrence_duration_seconds_sum Total bounded recurrence expansion duration in seconds.\n")
+		writeMetric(w, "# TYPE tutorhub_calendar_recurrence_duration_seconds_sum counter\n")
+		writeMetric(w, "tutorhub_calendar_recurrence_duration_seconds_sum "+formatFloat(snapshot.RecurrenceDuration.Seconds())+"\n")
 	})
 }
 

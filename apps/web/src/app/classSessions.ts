@@ -9,11 +9,20 @@ import {
   APIRequestError,
   cancelClassSession as requestClassSessionCancel,
   createClassSession,
+  createClassSessionSeries,
+  getClassSessionSeries,
   getClassSession,
   listClassSessions,
+  previewClassSessionSeriesMutation,
   rotateCSRFToken,
+  cancelClassSessionSeriesOccurrence,
+  updateClassSessionSeriesOccurrence,
   updateClassSession as requestClassSessionUpdate,
   type CancelClassSessionRequest,
+  type ClassSessionOccurrenceMutationRequest,
+  type ClassSessionSeriesMutationResponse,
+  type ClassSessionSeriesScopePreview,
+  type CreateClassSessionSeriesRequest,
   type ClassSession,
   type CreateClassSessionRequest,
   type UpdateClassSessionRequest,
@@ -48,6 +57,22 @@ export const classSessionQueryKeys = {
     ] as const,
   detail: (tenantID: string, classID: string, sessionID: string) =>
     ["class-sessions", tenantID, classID, "detail", sessionID] as const,
+  series: (tenantID: string, classID: string, seriesID: string) =>
+    ["class-session-series", tenantID, classID, seriesID] as const,
+  seriesPreview: (
+    tenantID: string,
+    classID: string,
+    seriesID: string,
+    input: ClassSessionOccurrenceMutationRequest,
+  ) =>
+    [
+      "class-session-series",
+      tenantID,
+      classID,
+      seriesID,
+      "preview",
+      input,
+    ] as const,
 };
 
 function shouldRetrySessionQuery(failureCount: number, error: Error) {
@@ -247,4 +272,163 @@ export function useCancelClassSession(tenantID: string | undefined) {
       ]),
     retry: false,
   });
+}
+
+async function invalidateCalendarAndSeries(
+  queryClient: QueryClient,
+  tenantID: string | undefined,
+) {
+  await Promise.all([
+    queryClient.invalidateQueries({ queryKey: ["calendar"] }),
+    invalidateTenantAudit(queryClient, tenantID),
+    invalidateTenantCapabilities(queryClient, tenantID),
+  ]);
+}
+
+export function useClassSessionSeriesDetail(
+  tenantID: string | undefined,
+  classID: string | undefined,
+  seriesID: string | undefined,
+) {
+  return useQuery({
+    queryKey: classSessionQueryKeys.series(
+      tenantID ?? "inactive",
+      classID ?? "invalid",
+      seriesID ?? "invalid",
+    ),
+    queryFn: ({ signal }) =>
+      getClassSessionSeries(classID ?? "", seriesID ?? "", {
+        baseUrl: getApiBaseUrl(),
+        signal,
+      }),
+    enabled: Boolean(tenantID && classID && seriesID),
+    retry: shouldRetrySessionQuery,
+    staleTime: 20_000,
+  });
+}
+
+export function useCreateClassSessionSeries(tenantID: string | undefined) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      classID,
+      input,
+    }: {
+      classID: string;
+      input: CreateClassSessionSeriesRequest;
+    }) => {
+      const csrf = await rotateCSRFToken({ baseUrl: getApiBaseUrl() });
+      return createClassSessionSeries(classID, input, csrf.csrf_token, {
+        baseUrl: getApiBaseUrl(),
+      });
+    },
+    onSuccess: (series) => {
+      queryClient.setQueryData(
+        classSessionQueryKeys.series(
+          tenantID ?? "inactive",
+          series.class_id,
+          series.id,
+        ),
+        series,
+      );
+    },
+    onSettled: () => invalidateCalendarAndSeries(queryClient, tenantID),
+    retry: false,
+  });
+}
+
+export function useClassSessionSeriesMutationPreview(
+  tenantID: string | undefined,
+  classID: string | undefined,
+  seriesID: string | undefined,
+  input: ClassSessionOccurrenceMutationRequest | null,
+) {
+  return useQuery<ClassSessionSeriesScopePreview>({
+    queryKey: classSessionQueryKeys.seriesPreview(
+      tenantID ?? "inactive",
+      classID ?? "invalid",
+      seriesID ?? "invalid",
+      input ?? {
+        expected_version: 1,
+        idempotency_key: "inactive-preview-key",
+        occurrence_key: "inactive",
+        scope: "this_occurrence",
+      },
+    ),
+    queryFn: async ({ signal }) => {
+      if (!input) {
+        throw new Error("Recurring mutation preview is inactive.");
+      }
+      const csrf = await rotateCSRFToken({
+        baseUrl: getApiBaseUrl(),
+        signal,
+      });
+      return previewClassSessionSeriesMutation(
+        classID ?? "",
+        seriesID ?? "",
+        input,
+        csrf.csrf_token,
+        { baseUrl: getApiBaseUrl(), signal },
+      );
+    },
+    enabled: Boolean(tenantID && classID && seriesID && input),
+    refetchOnWindowFocus: false,
+    retry: false,
+    staleTime: 0,
+  });
+}
+
+function useSeriesMutation(
+  tenantID: string | undefined,
+  operation: "update" | "cancel",
+) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      classID,
+      seriesID,
+      input,
+    }: {
+      classID: string;
+      seriesID: string;
+      input: ClassSessionOccurrenceMutationRequest;
+    }): Promise<ClassSessionSeriesMutationResponse> => {
+      const csrf = await rotateCSRFToken({ baseUrl: getApiBaseUrl() });
+      return operation === "update"
+        ? updateClassSessionSeriesOccurrence(
+            classID,
+            seriesID,
+            input,
+            csrf.csrf_token,
+            { baseUrl: getApiBaseUrl() },
+          )
+        : cancelClassSessionSeriesOccurrence(
+            classID,
+            seriesID,
+            input,
+            csrf.csrf_token,
+            { baseUrl: getApiBaseUrl() },
+          );
+    },
+    onSuccess: (result, variables) => {
+      queryClient.setQueryData(
+        classSessionQueryKeys.series(
+          tenantID ?? "inactive",
+          variables.classID,
+          result.series.id,
+        ),
+        result.series,
+      );
+    },
+    onSettled: () => invalidateCalendarAndSeries(queryClient, tenantID),
+    retry: false,
+  });
+}
+
+export function useUpdateClassSessionSeries(tenantID: string | undefined) {
+  return useSeriesMutation(tenantID, "update");
+}
+
+export function useCancelClassSessionSeries(tenantID: string | undefined) {
+  return useSeriesMutation(tenantID, "cancel");
 }

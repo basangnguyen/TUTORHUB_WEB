@@ -88,7 +88,7 @@ P3-03B đạt; hai gate P3-04 tiếp tục giữ `false` cho tới acceptance.
 | P3-01      | Course session scheduling và timezone          | P3-00, P3-CAL-00C               | DONE       |
 | P3-CAL-02  | Invitation/RSVP/iCalendar/AWS SES + ADR-0020   | P3-CAL-01, P3-01                | VERIFY     |
 | P3-02A     | Professional Calendar shell/read projection    | P3-01, P3-CAL-01                | DONE       |
-| P3-02B     | Recurrence + class conflict                    | P3-02A, ADR-0019                | IN PROGRESS |
+| P3-02B     | Recurrence + class conflict                    | P3-02A, ADR-0019                | VERIFY      |
 | P3-02C     | Working hours/attendee/free-busy/RSVP          | P3-02A, P3-CAL-02               | TODO       |
 | P3-02D     | Native Availability Poll + Study Meeting       | P3-02B, P3-02C, P3-03, ADR-0021 | TODO       |
 | P3-03      | PostgreSQL outbox worker production shape      | P3-01                           | VERIFY     |
@@ -452,30 +452,30 @@ Biên bản: [`P3_02A_STAGING_ACCEPTANCE.md`](P3_02A_STAGING_ACCEPTANCE.md).
 **Outcome:** ClassSession recurring series chạy bounded, đúng DST và có edit
 one/following/all minh bạch; conflict authoritative nằm ở backend.
 
-- [ ] Chỉ bắt đầu sau ADR-0019 `Accepted`; migration/OpenAPI khóa series, exception,
+- [x] Chỉ bắt đầu sau ADR-0019 `Accepted`; migration/OpenAPI khóa series, exception,
       occurrence identity, optimistic version và ICS identity mapping.
-- [ ] Engine Go qua adapter iterator có context/deadline/item cap; cấm `.All()` và chỉ
+- [x] Engine Go qua adapter iterator có context/deadline/item cap; cấm `.All()` và chỉ
       dùng `Between()` khi validator chứng minh upper bound nhỏ hơn hard cap.
-- [ ] RFC subset/frequency/count/until/by-day/month policy, exact range/occurrence cap và
+- [x] RFC subset/frequency/count/until/by-day/month policy, exact range/occurrence cap và
       unsupported-rule error được contract hóa; không clone occurrence vô hạn.
-- [ ] Expansion dùng civil-time intent + IANA zone; gap/overlap, leap day, month-end,
+- [x] Expansion dùng civil-time intent + IANA zone; gap/overlap, leap day, month-end,
       timezone change và all supported recurrence combinations có golden/property tests.
-- [ ] Edit one tạo exception; edit following preview số occurrence/exception bị tác động
+- [x] Edit one tạo exception; edit following preview số occurrence/exception bị tác động
       và bắt chọn carry/rebase/discard hợp lệ; edit all không âm thầm mất exception.
-- [ ] Cancel occurrence/series giữ tombstone/audit/outbox/UID/sequence semantics; stale
+- [x] Cancel occurrence/series giữ tombstone/audit/outbox/UID/sequence semantics; stale
       replay idempotent và không hồi sinh occurrence cũ.
-- [ ] Class/resource conflict được kiểm tra trong cùng transaction mutation/finalize,
+- [x] Class/resource conflict được kiểm tra trong cùng transaction mutation/finalize,
       dùng half-open interval; override cần capability + reason + audit.
-- [ ] Teacher conflict chỉ bật khi assignment/attendee authority đã tồn tại; trước đó UI
+- [x] Teacher conflict chỉ bật khi assignment/attendee authority đã tồn tại; trước đó UI
       và API không tuyên bố teacher-free, student conflict chỉ là private suggestion.
-- [ ] Drag/resize recurrence bắt actor chọn one/following/all, có preview/revert/undo và
+- [x] Drag/resize recurrence bắt actor chọn one/following/all, có preview/revert/undo và
       không mutate series khi dialog bị hủy.
-- [ ] Feature flag, exact hard cap, kill switch, metric expansion duration/count/rejection
+- [x] Feature flag, exact hard cap, kill switch, metric expansion duration/count/rejection
       và resource-exhaustion test được thêm ngay trong task.
-- [ ] Integration/E2E bao phủ concurrent edit, `409`, split series, exception retention,
+- [ ] Staging integration/E2E bao phủ concurrent edit, `409`, split series, exception retention,
       cross-tenant concealment và query plan theo bounded range.
 
-**IN PROGRESS 2026-07-26 — production foundation:** typed recurrence boundary đã được
+**VERIFY 2026-07-27 — implementation complete:** typed recurrence boundary đã được
 đưa vào `internal/modules/calendar/recurrence`, bọc engine bounded của ADR-0019 và
 không nhận raw RRULE từ caller. Rule đã có frequency/interval, weekday/month filters,
 `COUNT` hoặc date-only `UNTIL`, overlap policy và cap/horizon/deadline; scope preview
@@ -490,17 +490,20 @@ transaction, trả HTTP `409 class_session_schedule_conflict`; touching interval
 `class_session_recurrence`; deployment guardrail
 `FEATURE_CONTROL_ENABLE_CLASS_SESSION_RECURRENCE=false` mặc định ép tắt fail-closed và
 tenant override không thể tự bật khi chưa mở canary.
-Read-overlay domain building block cũng đã có: expansion bounded và exception
-`cancel/override` được áp dụng thuần, giữ occurrence key gốc, resolve lại civil time
-qua adapter khi đổi local/timezone/duration và sort ổn định; SQL authorization/query
-chưa nối vào đường đọc production.
+Read-overlay domain đã nối vào Calendar projection production; repository/service/HTTP
+có create/get/preview/update/cancel, split-series và carry/rebase/discard exception,
+stable occurrence key + iCal UID/sequence, audit/outbox/idempotency, same-transaction
+half-open conflict, admin override + reason, recurrence drag/resize/cancel dialog,
+undo/revert, cross-tenant concealment và metrics expansion bounded. Teacher/student
+free-busy không được thêm vào P3-02B; thuộc P3-02C.
 
-Phần còn lại bắt buộc trước `DONE`: repository/service/HTTP cho series và occurrence
-mutation (create, expand/read overlay, edit one/following/all, cancel occurrence/series),
-split-series persistence với exception carry/rebase/discard, stable UID/sequence +
-audit/outbox/idempotency, admin override capability + reason, recurring drag/resize
-dialog và E2E/authorization/concurrency/load/staging gates. Teacher/student free-busy
-không được thêm vào P3-02B; thuộc P3-02C.
+Code gate đã đạt local: Go unit/HTTP/classroom, integration-tag compile, web
+typecheck/lint và 176 web tests; API client generate-check/build và 22/22 tests; metrics
+rejection/duration/count; migration fragment checks. P3-02B chỉ chuyển `DONE` sau khi
+chạy migration `000018/000019`, exact runtime grants, feature canary, focused staging
+smoke và concurrent/authorization/query-plan acceptance trên Neon branch disposable.
+Runbook và mẫu ghi bằng chứng:
+[`P3_02B_STAGING_ACCEPTANCE.md`](P3_02B_STAGING_ACCEPTANCE.md).
 
 ### P3-02C Working schedule, attendee/free-busy và RSVP
 

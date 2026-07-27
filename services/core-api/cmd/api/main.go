@@ -175,6 +175,7 @@ func run() int {
 	var classroomAuthorizer *classroom.Service
 	var classroomService classroom.ServiceAPI
 	var classSessionService classroom.SessionServiceAPI
+	var classSessionSeriesService classroom.SessionSeriesServiceAPI
 	var calendarService calendar.ServiceAPI
 	if pool != nil {
 		classroomRepository = classroom.NewPostgresRepository(
@@ -182,7 +183,7 @@ func run() int {
 			cfg.Database.QueryTimeout,
 			authorizer,
 			featureControlEnforcer,
-		)
+		).WithRecurrenceObserver(metrics)
 		classroomAuthorizer, err = classroom.NewService(
 			classroomRepository,
 			authorizer,
@@ -201,6 +202,15 @@ func run() int {
 			logger.Error("initialize class session service", "error", err)
 			return 1
 		}
+		classSessionSeriesService, err = classroom.NewSessionSeriesService(
+			classroomRepository,
+			classroomAuthorizer,
+			time.Now,
+		)
+		if err != nil {
+			logger.Error("initialize recurring class session service", "error", err)
+			return 1
+		}
 		calendarRepository, err := calendar.NewPostgresRepository(
 			pool,
 			cfg.Database.QueryTimeout,
@@ -210,6 +220,7 @@ func run() int {
 			logger.Error("initialize calendar repository", "error", err)
 			return 1
 		}
+		calendarRepository.WithRecurrenceObserver(metrics)
 		calendarService, err = calendar.NewService(calendarRepository, time.Now)
 		if err != nil {
 			logger.Error("initialize calendar service", "error", err)
@@ -334,6 +345,7 @@ func run() int {
 		Identity:              identityService,
 		Classroom:             classroomService,
 		ClassSessions:         classSessionService,
+		ClassSessionSeries:    classSessionSeriesService,
 		Calendar:              calendarService,
 		Enrollment:            enrollmentService,
 		Audit:                 auditService,

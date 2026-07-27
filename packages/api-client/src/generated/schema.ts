@@ -390,6 +390,94 @@ export type paths = {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/api/v1/classes/{class_id}/session-series": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Schedule a bounded recurring class-session series */
+    readonly post: operations["createClassSessionSeries"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/classes/{class_id}/session-series/{series_id}": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /** Return one recurring class-session series */
+    readonly get: operations["getClassSessionSeries"];
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/classes/{class_id}/session-series/{series_id}/occurrence": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    /** Update a recurring occurrence with explicit scope */
+    readonly patch: operations["updateClassSessionSeriesOccurrence"];
+    readonly trace?: never;
+  };
+  readonly "/api/v1/classes/{class_id}/session-series/{series_id}/occurrence/cancel": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Cancel a recurring occurrence with explicit scope */
+    readonly post: operations["cancelClassSessionSeriesOccurrence"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/classes/{class_id}/session-series/{series_id}/preview": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Preview a recurring edit scope and conflicts without mutation
+     * @description Send the proposed replacement fields for an edit preview. For a cancellation preview, omit all replacement fields; the server still validates the scope and version but does not mutate data.
+     */
+    readonly post: operations["previewClassSessionSeriesMutation"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/api/v1/classes/{class_id}/sessions": {
     readonly parameters: {
       readonly query?: never;
@@ -1034,6 +1122,7 @@ export type components = {
       readonly id: string;
       /** @description Stable source occurrence identity; one-time sessions use their UUID. */
       readonly occurrence_key: string;
+      readonly series_id?: string | null;
       /** Format: uuid */
       readonly source_id: string;
       readonly source_type: components["schemas"]["CalendarSourceType"];
@@ -1220,6 +1309,7 @@ export type components = {
       /** Format: date-time */
       readonly ends_at: string;
       readonly occurrence_key?: string;
+      readonly series_id?: string | null;
       /** Format: date-time */
       readonly starts_at: string;
     };
@@ -1278,6 +1368,11 @@ export type components = {
       readonly idempotency_key: string;
       /** @description Opaque stable identity derived from the original civil tuple. */
       readonly occurrence_key: string;
+      /** @enum {string} */
+      readonly overlap_policy?: "reject" | "earlier" | "later";
+      readonly override_schedule_conflict?: boolean;
+      readonly rule?: components["schemas"]["ClassSessionRecurrenceRule"];
+      readonly schedule_conflict_reason?: string;
       readonly scope: components["schemas"]["ClassSessionOccurrenceScope"];
       /** Format: date-time */
       readonly starts_at?: string;
@@ -1321,6 +1416,53 @@ export type components = {
     /** @enum {string} */
     readonly ClassSessionRecurrenceWeekday:
       "MO" | "TU" | "WE" | "TH" | "FR" | "SA" | "SU";
+    readonly ClassSessionSeries: {
+      readonly cancelled_at: string | null;
+      readonly cancelled_by: string | null;
+      /** Format: uuid */
+      readonly class_id: string;
+      /** Format: date-time */
+      readonly created_at: string;
+      /** Format: uuid */
+      readonly created_by: string;
+      readonly description: string;
+      readonly duration_minutes: number;
+      readonly ical_uid: string;
+      /** Format: uuid */
+      readonly id: string;
+      readonly local_start: string;
+      /** @enum {string} */
+      readonly overlap_policy: "reject" | "earlier" | "later";
+      readonly rule: components["schemas"]["ClassSessionRecurrenceRule"];
+      /** Format: int64 */
+      readonly sequence: number;
+      readonly split_from_series_id?: string | null;
+      readonly status: components["schemas"]["ClassSessionStatus"];
+      readonly timezone: string;
+      readonly title: string;
+      /** Format: date-time */
+      readonly updated_at: string;
+      /** Format: uuid */
+      readonly updated_by: string;
+      /** Format: int64 */
+      readonly version: number;
+      readonly viewer_access: components["schemas"]["ClassSessionViewerAccess"];
+    };
+    readonly ClassSessionSeriesMutationResponse: {
+      readonly replay: boolean;
+      readonly series: components["schemas"]["ClassSessionSeries"];
+    };
+    readonly ClassSessionSeriesScopePreview: {
+      readonly affected_occurrence_count: number;
+      readonly boundary_occurrence_key: string;
+      readonly boundary_original_local: string;
+      readonly conflicts: readonly components["schemas"]["ClassScheduleConflict"][];
+      readonly discarded_exception_count: number;
+      readonly future_exception_count: number;
+      readonly future_exception_policy: components["schemas"]["ClassSessionFollowingExceptionPolicy"];
+      readonly retained_exception_count: number;
+      readonly scope: components["schemas"]["ClassSessionOccurrenceScope"];
+    };
     /**
      * @description P3-01 exposes only the one-time scheduled-to-cancelled lifecycle.
      * @enum {string}
@@ -1384,6 +1526,18 @@ export type components = {
        */
       readonly starts_at: string;
       /** @description IANA timezone whose rules must match both supplied offsets. */
+      readonly timezone: string;
+      readonly title: string;
+    };
+    readonly CreateClassSessionSeriesRequest: {
+      readonly description?: string;
+      /** Format: date-time */
+      readonly ends_at: string;
+      /** @enum {string} */
+      readonly overlap_policy?: "reject" | "earlier" | "later";
+      readonly rule: components["schemas"]["ClassSessionRecurrenceRule"];
+      /** Format: date-time */
+      readonly starts_at: string;
       readonly timezone: string;
       readonly title: string;
     };
@@ -2687,6 +2841,173 @@ export interface operations {
       readonly 403: components["responses"]["ForbiddenResponse"];
       readonly 404: components["responses"]["NotFoundResponse"];
       readonly 409: components["responses"]["ConflictResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly createClassSessionSeries: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly "X-CSRF-Token": string;
+      };
+      readonly path: {
+        readonly class_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["CreateClassSessionSeriesRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Recurring series scheduled */
+      readonly 201: {
+        headers: {
+          readonly Location: string;
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ClassSessionSeries"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 429: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly getClassSessionSeries: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path: {
+        readonly class_id: string;
+        readonly series_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Recurring series */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ClassSessionSeries"];
+        };
+      };
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly updateClassSessionSeriesOccurrence: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly "X-CSRF-Token": string;
+      };
+      readonly path: {
+        readonly class_id: string;
+        readonly series_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["ClassSessionOccurrenceMutationRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Updated recurring series or replacement series */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ClassSessionSeriesMutationResponse"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 429: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly cancelClassSessionSeriesOccurrence: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly "X-CSRF-Token": string;
+      };
+      readonly path: {
+        readonly class_id: string;
+        readonly series_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["ClassSessionOccurrenceMutationRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Recurring occurrence cancelled */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ClassSessionSeriesMutationResponse"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly previewClassSessionSeriesMutation: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly "X-CSRF-Token": string;
+      };
+      readonly path: {
+        readonly class_id: string;
+        readonly series_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["ClassSessionOccurrenceMutationRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Scope preview and schedule conflicts */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ClassSessionSeriesScopePreview"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
       readonly default: components["responses"]["ProblemResponse"];
     };
   };

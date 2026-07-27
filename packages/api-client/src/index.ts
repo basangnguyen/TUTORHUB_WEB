@@ -131,6 +131,17 @@ export type UpdateClassSessionRequest = GeneratedUpdateClassSessionRequest &
   );
 export type CancelClassSessionRequest =
   components["schemas"]["CancelClassSessionRequest"];
+export type ClassSessionRecurrenceRule =
+  components["schemas"]["ClassSessionRecurrenceRule"];
+export type ClassSessionSeries = components["schemas"]["ClassSessionSeries"];
+export type CreateClassSessionSeriesRequest =
+  components["schemas"]["CreateClassSessionSeriesRequest"];
+export type ClassSessionOccurrenceMutationRequest =
+  components["schemas"]["ClassSessionOccurrenceMutationRequest"];
+export type ClassSessionSeriesMutationResponse =
+  components["schemas"]["ClassSessionSeriesMutationResponse"];
+export type ClassSessionSeriesScopePreview =
+  components["schemas"]["ClassSessionSeriesScopePreview"];
 export type ClassEnrollment = components["schemas"]["ClassEnrollment"];
 export type CreateClassEnrollmentRequest =
   components["schemas"]["CreateClassEnrollmentRequest"];
@@ -1275,6 +1286,129 @@ export async function cancelClassSession(
 
   return requireData<ClassSession>(
     data as ClassSession | undefined,
+    error,
+    response,
+  );
+}
+
+export async function createClassSessionSeries(
+  classID: string,
+  input: CreateClassSessionSeriesRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<ClassSessionSeries> {
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/classes/{class_id}/session-series",
+    {
+      params: {
+        path: { class_id: classID },
+        header: { "X-CSRF-Token": csrfToken },
+      },
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+  return requireData<ClassSessionSeries>(
+    data as ClassSessionSeries | undefined,
+    error,
+    response,
+  );
+}
+
+export async function getClassSessionSeries(
+  classID: string,
+  seriesID: string,
+  options: APIRequestOptions = {},
+): Promise<ClassSessionSeries> {
+  const { data, error, response } = await createTutorHubClient(options).GET(
+    "/api/v1/classes/{class_id}/session-series/{series_id}",
+    {
+      params: { path: { class_id: classID, series_id: seriesID } },
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+  return requireData<ClassSessionSeries>(
+    data as ClassSessionSeries | undefined,
+    error,
+    response,
+  );
+}
+
+export async function previewClassSessionSeriesMutation(
+  classID: string,
+  seriesID: string,
+  input: ClassSessionOccurrenceMutationRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<ClassSessionSeriesScopePreview> {
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/classes/{class_id}/session-series/{series_id}/preview",
+    {
+      params: {
+        path: { class_id: classID, series_id: seriesID },
+        header: { "X-CSRF-Token": csrfToken },
+      },
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+  return requireData<ClassSessionSeriesScopePreview>(
+    data as ClassSessionSeriesScopePreview | undefined,
+    error,
+    response,
+  );
+}
+
+export async function updateClassSessionSeriesOccurrence(
+  classID: string,
+  seriesID: string,
+  input: ClassSessionOccurrenceMutationRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<ClassSessionSeriesMutationResponse> {
+  const { data, error, response } = await createTutorHubClient(options).PATCH(
+    "/api/v1/classes/{class_id}/session-series/{series_id}/occurrence",
+    {
+      params: {
+        path: { class_id: classID, series_id: seriesID },
+        header: { "X-CSRF-Token": csrfToken },
+      },
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+  return requireData<ClassSessionSeriesMutationResponse>(
+    data as ClassSessionSeriesMutationResponse | undefined,
+    error,
+    response,
+  );
+}
+
+export async function cancelClassSessionSeriesOccurrence(
+  classID: string,
+  seriesID: string,
+  input: ClassSessionOccurrenceMutationRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<ClassSessionSeriesMutationResponse> {
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/classes/{class_id}/session-series/{series_id}/occurrence/cancel",
+    {
+      params: {
+        path: { class_id: classID, series_id: seriesID },
+        header: { "X-CSRF-Token": csrfToken },
+      },
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+  return requireData<ClassSessionSeriesMutationResponse>(
+    data as ClassSessionSeriesMutationResponse | undefined,
     error,
     response,
   );

@@ -13,6 +13,125 @@
   padding: clamp(1rem, 2vw, 2rem);
 }
 
+.calendar-recurring-create,
+.calendar-recurring-scope {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0.75rem 0;
+}
+
+.calendar-recurring-create {
+  grid-template-columns: auto 1fr;
+  align-items: center;
+}
+
+.calendar-recurring-create__fields {
+  display: grid;
+  gap: 0.6rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0.5rem 0 0.8rem;
+}
+
+.calendar-recurring-create__fields label {
+  display: grid;
+  gap: 0.25rem;
+  font-size: 0.82rem;
+}
+
+.calendar-recurring-scope {
+  border: 1px solid var(--th-color-border, #d7d0c4);
+  border-radius: 0.7rem;
+  padding: 0.75rem;
+}
+
+.calendar-recurring-scope legend {
+  font-weight: 700;
+  padding: 0 0.25rem;
+}
+
+.calendar-recurring-scope label {
+  align-items: center;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.calendar-recurring-scope__actions {
+  display: flex;
+  gap: 0.6rem;
+  justify-content: flex-end;
+  margin-top: 1rem;
+}
+
+.calendar-recurring-scope__error {
+  color: var(--th-color-danger, #a12828);
+  margin: 0.7rem 0 0;
+}
+
+.calendar-recurring-preview {
+  background: var(--th-color-surface-subtle, #f7f1e7);
+  border: 1px solid var(--th-color-border, #d7d0c4);
+  border-radius: 0.7rem;
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+}
+
+.calendar-recurring-preview h3 {
+  font-size: 0.95rem;
+  margin: 0 0 0.55rem;
+}
+
+.calendar-recurring-preview dl {
+  display: grid;
+  gap: 0.4rem;
+  margin: 0;
+}
+
+.calendar-recurring-preview dl div {
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.calendar-recurring-preview dd {
+  font-weight: 700;
+  margin: 0;
+}
+
+.calendar-recurring-override-reason {
+  align-items: stretch !important;
+  display: grid !important;
+}
+
+.calendar-recurring-override-reason textarea {
+  border: 1px solid var(--th-color-border, #d7d0c4);
+  border-radius: 0.55rem;
+  font: inherit;
+  padding: 0.55rem;
+  resize: vertical;
+}
+
+.calendar-series-summary {
+  display: grid;
+  gap: 0.6rem;
+  margin: 1rem 0;
+}
+
+.calendar-series-summary div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.calendar-series-summary dt {
+  color: var(--th-color-muted, #756d61);
+}
+
+.calendar-series-summary dd {
+  font-weight: 650;
+  margin: 0;
+  text-align: right;
+}
+
 .calendar-page__header {
   align-items: end;
   display: flex;

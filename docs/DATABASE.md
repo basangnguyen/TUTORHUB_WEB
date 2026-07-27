@@ -7,7 +7,7 @@ thay đổi schema, migration hoặc repository phải đọc tài liệu này t
 
 - System of record: Neon PostgreSQL.
 - Schema ứng dụng: `tutorhub`.
-- Migration mới nhất trong source: `000017_calendar_read_projection`.
+- Migration mới nhất trong source: `000019_class_session_recurrence_mutations`.
 - Migration 1-5 đã được chạy và kiểm tra trên Neon; smoke
   `5 false -> rollback 4 false -> migrate 5 false` đạt ngày 2026-07-16.
 - Migration `000006` đến `000013` đều có up/down path. Source và PostgreSQL 17 CI
@@ -20,9 +20,11 @@ thay đổi schema, migration hoặc repository phải đọc tài liệu này t
   P3-01. Migration `000015` mở rộng in-place `outbox_events` cho lease/fencing/retry/
   dead-letter; migration `000016` tạo notification projection/preference và mở rộng
   feature-control key; migration `000017` thêm index đọc Calendar tổng hợp cùng
-  `calendar_display_preferences`. Ba migration này đã có source/test nhưng chưa được
-  chạy trên staging; chỉ ghi version mới sau khi migration job, role grants và smoke
-  thực tế của đúng version đạt.
+  `calendar_display_preferences`; migration `000018` tạo bounded recurring series/
+  exception overlay và migration `000019` bổ sung iCal identity cùng idempotency
+  receipts. Các migration mới hơn `000014` đã có source/test nhưng chưa được chạy
+  trên staging; chỉ ghi version mới sau khi migration job, role grants và smoke thực
+  tế của đúng version đạt.
 - Phần lớn integration test rollback bằng transaction. Chỉ focused P2-09 suite có
   fixture tự dọn hoàn toàn được chạy trên staging ngày 2026-07-21; các suite concurrency
   có thể để lại audit append-only vẫn chỉ chạy trên database CI tạm thời.
@@ -62,7 +64,7 @@ process không tự chạy migration khi khởi động.
 `tutorhub-outbox-worker` để quan sát trên Neon. Mọi truy vấn mạng/database phải chạy
 ngoài UI thread ở các client native về sau.
 
-## Schema source phiên bản 17
+## Schema source phiên bản 19
 
 | Bảng                     | Vai trò                                                                                          |
 | ------------------------ | ------------------------------------------------------------------------------------------------ |
@@ -79,6 +81,9 @@ ngoài UI thread ở các client native về sau.
 | `outbox_events`          | Transactional outbox có exact versioned event type, lease/fencing, retry và retained dead-letter |
 | `audit_events`           | Lịch sử tenant append-only cho actor/action/resource/outcome và request correlation              |
 | `class_sessions`         | Buổi học một lần theo class, UTC instant/IANA timezone, lifecycle và optimistic version          |
+| `class_session_series`   | Recurrence bounded theo class, civil-time/IANA timezone, stable iCal UID, sequence và optimistic version |
+| `class_session_exceptions` | Tombstone/override occurrence theo stable key, retention policy và optimistic version             |
+| `class_session_mutation_receipts` | Idempotency fingerprint cho update/cancel, tenant-scoped và append-only                         |
 | `notifications`          | Projection tenant/user-scoped, idempotent theo source/recipient/effect và trạng thái read          |
 | `notification_preferences` | Preference in-app/email, reminder, quiet-hours IANA và optimistic version                         |
 | `calendar_display_preferences` | Preference Calendar tenant/user-scoped cho timezone, locale, view, density và optimistic version |
@@ -743,6 +748,71 @@ read projection bị giới hạn tenant/source permission và preference update
 khi version cũ. Application rollback giữ schema 17 là đường ưu tiên. Down `17 -> 16`
 xóa preference Calendar và index đọc; chỉ chạy trên disposable/test hoặc sau khi đánh
 giá mất dữ liệu preference.
+
+## Recurrence series, exception và runtime grants cho migration 000018/000019
+
+Migration `000018` tạo `class_session_series` và `class_session_exceptions`, đồng thời
+gắn `series_id`, `occurrence_key` và civil-time identity vào `class_sessions`.
+Migration `000019` thêm `ical_uid`/`sequence` contract và
+`class_session_mutation_receipts`. Cả ba bảng mới đều `REVOKE ALL FROM PUBLIC`; source
+không hardcode tên runtime role.
+
+Sau khi chạy migration bằng direct migration role, thay `tutorhub_runtime` bằng role
+runtime thực tế rồi cấp đúng ma trận dưới đây:
+
+```sql
+REVOKE ALL PRIVILEGES
+ON TABLE
+  tutorhub.class_session_series,
+  tutorhub.class_session_exceptions,
+  tutorhub.class_session_mutation_receipts
+FROM tutorhub_runtime;
+
+GRANT SELECT, INSERT, UPDATE
+ON TABLE
+  tutorhub.class_session_series,
+  tutorhub.class_session_exceptions
+TO tutorhub_runtime;
+
+GRANT SELECT, INSERT
+ON TABLE tutorhub.class_session_mutation_receipts
+TO tutorhub_runtime;
+```
+
+Không cấp `DELETE`, `TRUNCATE`, `REFERENCES`, `TRIGGER`, ownership hoặc schema
+`CREATE`. Cancel occurrence/series là tombstone hoặc `UPDATE`; receipt là append-only
+để replay idempotent. Cleanup exception/receipt và hard delete series không thuộc quyền
+Core API runtime.
+
+Xác minh effective privilege bằng migration connection; kết quả bắt buộc theo thứ tự
+là `true,true,true,false,false` cho series và exceptions, và
+`true,true,false,false,false` cho receipts:
+
+```sql
+SELECT
+  has_table_privilege('tutorhub_runtime', 'tutorhub.class_session_series', 'SELECT') AS series_select,
+  has_table_privilege('tutorhub_runtime', 'tutorhub.class_session_series', 'INSERT') AS series_insert,
+  has_table_privilege('tutorhub_runtime', 'tutorhub.class_session_series', 'UPDATE') AS series_update,
+  has_table_privilege('tutorhub_runtime', 'tutorhub.class_session_series', 'DELETE') AS series_delete,
+  has_table_privilege('tutorhub_runtime', 'tutorhub.class_session_series', 'TRUNCATE') AS series_truncate,
+  has_table_privilege('tutorhub_runtime', 'tutorhub.class_session_exceptions', 'SELECT') AS exception_select,
+  has_table_privilege('tutorhub_runtime', 'tutorhub.class_session_exceptions', 'INSERT') AS exception_insert,
+  has_table_privilege('tutorhub_runtime', 'tutorhub.class_session_exceptions', 'UPDATE') AS exception_update,
+  has_table_privilege('tutorhub_runtime', 'tutorhub.class_session_exceptions', 'DELETE') AS exception_delete,
+  has_table_privilege('tutorhub_runtime', 'tutorhub.class_session_exceptions', 'TRUNCATE') AS exception_truncate,
+  has_table_privilege('tutorhub_runtime', 'tutorhub.class_session_mutation_receipts', 'SELECT') AS receipt_select,
+  has_table_privilege('tutorhub_runtime', 'tutorhub.class_session_mutation_receipts', 'INSERT') AS receipt_insert,
+  has_table_privilege('tutorhub_runtime', 'tutorhub.class_session_mutation_receipts', 'UPDATE') AS receipt_update,
+  has_table_privilege('tutorhub_runtime', 'tutorhub.class_session_mutation_receipts', 'DELETE') AS receipt_delete,
+  has_table_privilege('tutorhub_runtime', 'tutorhub.class_session_mutation_receipts', 'TRUNCATE') AS receipt_truncate;
+```
+
+Sau grant phải chạy focused recurring integration/smoke bằng runtime URL: create series,
+read overlay, edit one/following/all, cancel tombstone, stale `409`, changed-payload
+idempotency conflict, cross-tenant concealment và one-time/recurring half-open conflict.
+Không in connection string, token hoặc dữ liệu fixture ra terminal/artifact. Application
+rollback giữ schema 19 là đường ưu tiên; down `19 -> 18` chỉ chạy trên disposable/test
+và sau khi đã đánh giá mất receipt/UID.
 
 ## Chạy migration
 

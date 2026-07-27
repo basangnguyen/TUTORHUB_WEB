@@ -72,6 +72,12 @@ func (repository *PostgresRepository) CreateSession(
 	); err != nil {
 		return ClassSession{}, err
 	}
+	if err := repository.requireNoRecurringClassSessionConflict(
+		queryContext, transaction, tenantContext.TenantID, classID,
+		params.StartsAt, params.EndsAt,
+	); err != nil {
+		return ClassSession{}, err
+	}
 
 	session, err := scanClassSession(transaction.QueryRow(
 		queryContext,
@@ -280,6 +286,12 @@ func (repository *PostgresRepository) UpdateSession(
 			sessionID,
 			*params.StartsAt,
 			*params.EndsAt,
+		); err != nil {
+			return ClassSession{}, err
+		}
+		if err := repository.requireNoRecurringClassSessionConflict(
+			queryContext, transaction, tenantContext.TenantID, classID,
+			*params.StartsAt, *params.EndsAt,
 		); err != nil {
 			return ClassSession{}, err
 		}

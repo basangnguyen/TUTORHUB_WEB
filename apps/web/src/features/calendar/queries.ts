@@ -113,6 +113,7 @@ export function mapCalendarItem(item: CalendarItem): CalendarItemViewModel {
     id: item.id,
     occurrenceKey: item.occurrence_key,
     sourceID: item.source_id,
+    seriesID: item.series_id ?? null,
     sourceType: item.source_type,
     startsAt: item.starts_at,
     status: item.status,

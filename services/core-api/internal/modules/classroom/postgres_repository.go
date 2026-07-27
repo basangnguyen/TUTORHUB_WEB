@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/tutorhub-v2/core-api/internal/modules/audit"
+	"github.com/tutorhub-v2/core-api/internal/modules/calendar/recurrence"
 	"github.com/tutorhub-v2/core-api/internal/modules/featurecontrol"
 	"github.com/tutorhub-v2/core-api/internal/platform/tenancy"
 	"github.com/tutorhub-v2/core-api/internal/policy"
@@ -24,10 +25,11 @@ type DBTX interface {
 }
 
 type PostgresRepository struct {
-	database     DBTX
-	queryTimeout time.Duration
-	authorizer   policy.Authorizer
-	controls     featurecontrol.Enforcer
+	database           DBTX
+	queryTimeout       time.Duration
+	authorizer         policy.Authorizer
+	controls           featurecontrol.Enforcer
+	recurrenceObserver recurrence.ExpansionObserver
 }
 
 func NewPostgresRepository(
@@ -42,6 +44,13 @@ func NewPostgresRepository(
 	if len(controls) > 0 {
 		repository.controls = controls[0]
 	}
+	return repository
+}
+
+func (repository *PostgresRepository) WithRecurrenceObserver(
+	observer recurrence.ExpansionObserver,
+) *PostgresRepository {
+	repository.recurrenceObserver = observer
 	return repository
 }
 
@@ -1248,10 +1257,17 @@ func nullableClassUUID(value uuid.UUID) any {
 func (repository *PostgresRepository) contextWithTimeout(
 	ctx context.Context,
 ) (context.Context, context.CancelFunc) {
+	var queryContext context.Context
+	var cancel context.CancelFunc
 	if repository.queryTimeout <= 0 {
-		return context.WithCancel(ctx)
+		queryContext, cancel = context.WithCancel(ctx)
+	} else {
+		queryContext, cancel = context.WithTimeout(ctx, repository.queryTimeout)
 	}
-	return context.WithTimeout(ctx, repository.queryTimeout)
+	return recurrence.WithExpansionObserver(
+		queryContext,
+		repository.recurrenceObserver,
+	), cancel
 }
 
 func mapClassPostgresError(operation string, err error) error {

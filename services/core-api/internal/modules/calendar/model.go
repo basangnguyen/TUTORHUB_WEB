@@ -40,6 +40,7 @@ type Item struct {
 	ID                 string             `json:"id"`
 	SourceType         string             `json:"source_type"`
 	SourceID           uuid.UUID          `json:"source_id"`
+	SeriesID           *uuid.UUID         `json:"series_id,omitempty"`
 	OccurrenceKey      string             `json:"occurrence_key"`
 	Title              string             `json:"title"`
 	StartsAt           time.Time          `json:"starts_at"`

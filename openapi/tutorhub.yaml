@@ -1856,6 +1856,236 @@ paths:
           $ref: "#/components/responses/ConflictResponse"
         default:
           $ref: "#/components/responses/ProblemResponse"
+  /api/v1/classes/{class_id}/session-series:
+    post:
+      operationId: createClassSessionSeries
+      summary: Schedule a bounded recurring class-session series
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: class_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateClassSessionSeriesRequest"
+      responses:
+        "201":
+          description: Recurring series scheduled
+          headers:
+            Location:
+              required: true
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClassSessionSeries"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "429":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/classes/{class_id}/session-series/{series_id}:
+    get:
+      operationId: getClassSessionSeries
+      summary: Return one recurring class-session series
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: class_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: series_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Recurring series
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClassSessionSeries"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/classes/{class_id}/session-series/{series_id}/preview:
+    post:
+      operationId: previewClassSessionSeriesMutation
+      summary: Preview a recurring edit scope and conflicts without mutation
+      description: Send the proposed replacement fields for an edit preview. For a cancellation preview, omit all replacement fields; the server still validates the scope and version but does not mutate data.
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: class_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: series_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClassSessionOccurrenceMutationRequest"
+      responses:
+        "200":
+          description: Scope preview and schedule conflicts
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClassSessionSeriesScopePreview"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/classes/{class_id}/session-series/{series_id}/occurrence:
+    patch:
+      operationId: updateClassSessionSeriesOccurrence
+      summary: Update a recurring occurrence with explicit scope
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: class_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: series_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClassSessionOccurrenceMutationRequest"
+      responses:
+        "200":
+          description: Updated recurring series or replacement series
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClassSessionSeriesMutationResponse"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "429":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/classes/{class_id}/session-series/{series_id}/occurrence/cancel:
+    post:
+      operationId: cancelClassSessionSeriesOccurrence
+      summary: Cancel a recurring occurrence with explicit scope
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: class_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: series_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClassSessionOccurrenceMutationRequest"
+      responses:
+        "200":
+          description: Recurring occurrence cancelled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClassSessionSeriesMutationResponse"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
   /api/v1/classes/{class_id}/enrollments:
     post:
       operationId: createClassEnrollment
@@ -3642,6 +3872,11 @@ components:
         source_id:
           type: string
           format: uuid
+        series_id:
+          oneOf:
+            - type: string
+              format: uuid
+            - type: "null"
         occurrence_key:
           type: string
           minLength: 1
@@ -3915,9 +4150,181 @@ components:
           type: string
           minLength: 1
           maxLength: 100
+        rule:
+          $ref: "#/components/schemas/ClassSessionRecurrenceRule"
+        overlap_policy:
+          type: string
+          enum: [reject, earlier, later]
+        override_schedule_conflict:
+          type: boolean
+        schedule_conflict_reason:
+          type: string
+          minLength: 3
+          maxLength: 500
       description: |
         Scope is explicit for every recurring drag, resize, edit or cancel.
         this_and_following requires an explicit future-exception policy before mutation.
+    CreateClassSessionSeriesRequest:
+      type: object
+      additionalProperties: false
+      required: [title, starts_at, ends_at, timezone, rule]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 4000
+        starts_at:
+          type: string
+          format: date-time
+        ends_at:
+          type: string
+          format: date-time
+        timezone:
+          type: string
+          minLength: 1
+          maxLength: 100
+        rule:
+          $ref: "#/components/schemas/ClassSessionRecurrenceRule"
+        overlap_policy:
+          type: string
+          enum: [reject, earlier, later]
+    ClassSessionSeries:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          class_id,
+          title,
+          description,
+          local_start,
+          timezone,
+          duration_minutes,
+          rule,
+          overlap_policy,
+          status,
+          version,
+          sequence,
+          ical_uid,
+          created_by,
+          updated_by,
+          cancelled_at,
+          cancelled_by,
+          created_at,
+          updated_at,
+          viewer_access,
+        ]
+      properties:
+        id:
+          type: string
+          format: uuid
+        class_id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+        local_start:
+          type: string
+        timezone:
+          type: string
+        duration_minutes:
+          type: integer
+          minimum: 1
+          maximum: 1440
+        rule:
+          $ref: "#/components/schemas/ClassSessionRecurrenceRule"
+        overlap_policy:
+          type: string
+          enum: [reject, earlier, later]
+        status:
+          $ref: "#/components/schemas/ClassSessionStatus"
+        version:
+          type: integer
+          format: int64
+        sequence:
+          type: integer
+          format: int64
+        ical_uid:
+          type: string
+        split_from_series_id:
+          oneOf:
+            - type: string
+              format: uuid
+            - type: "null"
+        created_by:
+          type: string
+          format: uuid
+        updated_by:
+          type: string
+          format: uuid
+        cancelled_at:
+          oneOf:
+            - type: string
+              format: date-time
+            - type: "null"
+        cancelled_by:
+          oneOf:
+            - type: string
+              format: uuid
+            - type: "null"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        viewer_access:
+          $ref: "#/components/schemas/ClassSessionViewerAccess"
+    ClassSessionSeriesMutationResponse:
+      type: object
+      additionalProperties: false
+      required: [series, replay]
+      properties:
+        series:
+          $ref: "#/components/schemas/ClassSessionSeries"
+        replay:
+          type: boolean
+    ClassSessionSeriesScopePreview:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          scope,
+          boundary_occurrence_key,
+          boundary_original_local,
+          affected_occurrence_count,
+          future_exception_count,
+          retained_exception_count,
+          discarded_exception_count,
+          future_exception_policy,
+          conflicts,
+        ]
+      properties:
+        scope:
+          $ref: "#/components/schemas/ClassSessionOccurrenceScope"
+        boundary_occurrence_key:
+          type: string
+        boundary_original_local:
+          type: string
+        affected_occurrence_count:
+          type: integer
+        future_exception_count:
+          type: integer
+        retained_exception_count:
+          type: integer
+        discarded_exception_count:
+          type: integer
+        future_exception_policy:
+          $ref: "#/components/schemas/ClassSessionFollowingExceptionPolicy"
+        conflicts:
+          type: array
+          items:
+            $ref: "#/components/schemas/ClassScheduleConflict"
     ClassScheduleConflict:
       type: object
       additionalProperties: false
@@ -3930,6 +4337,11 @@ components:
           type: string
           minLength: 8
           maxLength: 128
+        series_id:
+          oneOf:
+            - type: string
+              format: uuid
+            - type: "null"
         starts_at:
           type: string
           format: date-time

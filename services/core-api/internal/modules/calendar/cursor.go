@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/tutorhub-v2/core-api/internal/platform/tenancy"
 )
 
@@ -66,14 +65,14 @@ func decodeCursor(
 	if err != nil || startsAt.IsZero() {
 		return listCursor{}, ErrInvalidCursor
 	}
-	occurrenceID, err := uuid.Parse(payload.OccurrenceKey)
-	if err != nil || occurrenceID == uuid.Nil {
+	occurrenceKey := strings.TrimSpace(payload.OccurrenceKey)
+	if len(occurrenceKey) < 8 || len(occurrenceKey) > 128 {
 		return listCursor{}, ErrInvalidCursor
 	}
 	return listCursor{
 		StartsAt:      startsAt.UTC(),
 		SourceType:    payload.SourceType,
-		OccurrenceKey: occurrenceID.String(),
+		OccurrenceKey: occurrenceKey,
 	}, nil
 }
 

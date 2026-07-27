@@ -6,16 +6,16 @@
 
 | Thuộc tính          | Trạng thái                                                                            |
 | ------------------- | ------------------------------------------------------------------------------------- |
-| Ngày cập nhật       | 2026-07-26                                                                            |
+| Ngày cập nhật       | 2026-07-27                                                                            |
 | Repository          | `https://github.com/basangnguyen/TUTORHUB_WEB`                                        |
 | Nhánh làm việc      | `main`                                                                                |
 | Quy trình           | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
 | Phase hoàn thành    | Phase 0, Phase 1, Phase 2                                                             |
 | Phase hiện tại      | Phase 3 - Daily learning workspace                                                   |
 | Task `DONE` gần nhất | P3-02A Professional Calendar shell/read projection                                  |
-| Mốc repository mới | P3-02B recurrence/conflict foundation: typed adapter, migration, scope preview và hard conflict |
-| Task hiện tại       | P3-02B `IN PROGRESS`; P3-CAL-02 vẫn `VERIFY`, các SES/domain/client live gate vẫn mở |
-| Task tiếp theo      | Hoàn thiện P3-02B series/occurrence mutation; song song giữ P3-03B/P3-04 durable-host gate |
+| Mốc repository mới | P3-02B recurrence/conflict implementation: series/exception mutation, preview, UI và metrics |
+| Task hiện tại       | P3-02B `VERIFY`; P3-CAL-02 vẫn `VERIFY`, các SES/domain/client live gate vẫn mở |
+| Task tiếp theo      | Chạy migration/grants/canary và staging acceptance P3-02B; sau đó P3-02C |
 
 ## Kiến trúc đang chạy
 
@@ -445,20 +445,22 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
     không consume outbox và không gửi business email. ADR giữ `Proposed` vì SES sandbox,
     EventBridge/SQS/DLQ/inbox, bounce/complaint/suppression, sending domain/DNS và
     Gmail/Outlook/Apple interoperability chưa có live evidence.
-28. P3-02B bắt đầu ngày 2026-07-26 ở trạng thái `IN PROGRESS`: typed recurrence
-    boundary, scope preview, migration `000018`, OpenAPI/generated client và
-    authoritative one-time class conflict đã có. Local package tests, HTTP/classroom
-    tests, `go vet`, migration-fragment checks, integration-tag compile, API client
-    22/22 và format check đạt. Chưa có recurring series repository/service/HTTP,
-    exception overlay, split/cancel/idempotency/audit/outbox, override capability,
-    recurring UI hoặc staging migration; không được mô tả P3-02B là `DONE`.
+28. P3-02B chuyển `IN PROGRESS -> VERIFY` ngày 2026-07-27: typed recurrence boundary,
+    migration `000018/000019`, series/exception repository/service/HTTP, scope preview,
+    split/cancel/idempotency/audit/outbox, override capability, recurring UI và
+    recurrence metrics đã có. Local package tests, HTTP/classroom tests, `go vet`,
+    migration-fragment checks, integration-tag compile, API client 22/22, web
+    typecheck/lint/176 tests và format check đạt. Neon migration/grants, canary,
+    focused staging smoke và query-plan/concurrency acceptance vẫn mở; chưa mô tả
+    P3-02B là `DONE`. Runbook nghiệm thu nằm tại
+    `docs/P3_02B_STAGING_ACCEPTANCE.md`.
 29. Feature key `class_session_recurrence` đã nhất quán từ migration/catalog/config/
     guardrail tới tenant capability OpenAPI/generated client và UI.
     `FEATURE_CONTROL_ENABLE_CLASS_SESSION_RECURRENCE=false` mặc định fail-closed;
     Go package/config/HTTP tests, API check, web typecheck và 176 web tests đều xanh.
-    Domain read-overlay building block đã có bounded expansion + cancel/override và
-    DST/civil-time test; series repository/mutation/HTTP và SQL read overlay vẫn
-    chưa được bật.
+    Domain read-overlay đã có bounded expansion + cancel/override và DST/civil-time
+    test; series repository/mutation/HTTP nối vào SQL Calendar projection nhưng feature
+    gate vẫn fail-closed cho tới canary.
 
 ## Rủi ro đã biết
 
@@ -466,9 +468,9 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
   này không mở rộng phạm vi sang recurrence, reminder, calendar tổng hợp, email/ICS,
   durable worker hoặc Phase 4 media lifecycle.
 - ADR-0019 đã chấp nhận decision dùng FullCalendar v7 và recurrence bounded; manual NVDA
-  đã PASS. P3-02A shell/read projection đã đạt route/staging gate; P3-02B mới chỉ có
-  typed recurrence/conflict foundation và vẫn phải đạt contract mutation, authorization,
-  integration/E2E cùng staging gate riêng.
+  đã PASS. P3-02A shell/read projection đã đạt route/staging gate; P3-02B đã đạt
+  implementation/contract/local quality gate và đang chờ migration/grant/canary,
+  authorization, integration/E2E cùng staging gate riêng.
 - AWS SES đã được chọn làm provider target; local SES v2 Raw adapter, deterministic
   renderer/sink và error semantics đã đạt trong spike cô lập, nhưng provider account/
   region/sandbox/quota chưa được live-verify và sending domain chưa có. Pre-domain chỉ
