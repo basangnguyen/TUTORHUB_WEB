@@ -471,14 +471,22 @@ export function ClassSessionEditorDialog({
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const submittedTitle = String(formData.get("title") ?? title);
+    const submittedDescription = String(
+      formData.get("description") ?? description,
+    );
+    const submittedStartsAt = String(formData.get("startsAt") ?? startsAt);
+    const submittedEndsAt = String(formData.get("endsAt") ?? endsAt);
+    const submittedTimezone = String(formData.get("timezone") ?? timezone);
     const start = resolveCivilDateTime(
-      startsAt,
-      timezone,
+      submittedStartsAt,
+      submittedTimezone,
       overlapChoice || undefined,
     );
     const end = resolveCivilDateTime(
-      endsAt,
-      timezone,
+      submittedEndsAt,
+      submittedTimezone,
       overlapChoice || undefined,
     );
     if (start.kind === "overlap" || end.kind === "overlap") {
@@ -499,21 +507,21 @@ export function ClassSessionEditorDialog({
     setFormError(null);
     if (isEditing && initial) {
       onUpdate({
-        description,
+        description: submittedDescription,
         ends_at: end.value,
         expected_version: initial.version,
         starts_at: start.value,
-        timezone,
-        title: title.trim(),
+        timezone: submittedTimezone,
+        title: submittedTitle.trim(),
       });
       return;
     }
     onCreate({
-      description,
+      description: submittedDescription,
       ends_at: end.value,
       starts_at: start.value,
-      timezone,
-      title: title.trim(),
+      timezone: submittedTimezone,
+      title: submittedTitle.trim(),
     });
   };
 
@@ -534,6 +542,7 @@ export function ClassSessionEditorDialog({
             id="class-session-title"
             label={t("classSession.titleLabel")}
             maxLength={200}
+            name="title"
             onChange={(event) => setTitle(event.target.value)}
             required
             value={title}
@@ -542,6 +551,7 @@ export function ClassSessionEditorDialog({
             id="class-session-description"
             label={t("classSession.descriptionLabel")}
             maxLength={4000}
+            name="description"
             onChange={(event) => setDescription(event.target.value)}
             value={description}
           />
@@ -549,6 +559,7 @@ export function ClassSessionEditorDialog({
             <TextField
               id="class-session-starts"
               label={t("classSession.startsAtLabel")}
+              name="startsAt"
               onChange={(event) => setStartsAt(event.target.value)}
               onInput={(event) => setStartsAt(event.currentTarget.value)}
               required
@@ -558,6 +569,7 @@ export function ClassSessionEditorDialog({
             <TextField
               id="class-session-ends"
               label={t("classSession.endsAtLabel")}
+              name="endsAt"
               onChange={(event) => setEndsAt(event.target.value)}
               onInput={(event) => setEndsAt(event.currentTarget.value)}
               required
@@ -569,6 +581,7 @@ export function ClassSessionEditorDialog({
             id="class-session-timezone"
             label={t("classSession.timezoneLabel")}
             maxLength={100}
+            name="timezone"
             onChange={(event) => setTimezone(event.target.value)}
             required
             value={timezone}
