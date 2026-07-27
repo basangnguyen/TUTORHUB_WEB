@@ -397,10 +397,10 @@ describe("CalendarPage", () => {
     const dialog = screen.getByRole("dialog", {
       name: "Schedule a session",
     });
-    fireEvent.change(within(dialog).getByLabelText("Starts"), {
+    fireEvent.input(within(dialog).getByLabelText("Starts"), {
       target: { value: "2026-07-30T09:00" },
     });
-    fireEvent.change(within(dialog).getByLabelText("Ends"), {
+    fireEvent.input(within(dialog).getByLabelText("Ends"), {
       target: { value: "2026-07-30T10:00" },
     });
     fireEvent.click(

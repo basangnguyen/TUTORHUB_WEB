@@ -550,6 +550,7 @@ export function ClassSessionEditorDialog({
               id="class-session-starts"
               label={t("classSession.startsAtLabel")}
               onChange={(event) => setStartsAt(event.target.value)}
+              onInput={(event) => setStartsAt(event.currentTarget.value)}
               required
               type="datetime-local"
               value={startsAt}
@@ -558,6 +559,7 @@ export function ClassSessionEditorDialog({
               id="class-session-ends"
               label={t("classSession.endsAtLabel")}
               onChange={(event) => setEndsAt(event.target.value)}
+              onInput={(event) => setEndsAt(event.currentTarget.value)}
               required
               type="datetime-local"
               value={endsAt}
