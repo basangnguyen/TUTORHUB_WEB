@@ -272,7 +272,10 @@ func validateWindow(plan *Plan, window Window) error {
 		)
 	}
 	horizon := plan.start.AddDate(0, 0, MaxSeriesHorizonDays)
-	if window.End.After(horizon) {
+	// Window is half-open. Permit one nanosecond beyond the inclusive series
+	// horizon so an occurrence starting exactly on the accepted boundary can
+	// be returned without widening the actual recurrence horizon.
+	if window.End.After(horizon.Add(time.Nanosecond)) {
 		return fmt.Errorf(
 			"%w: window end %s is after %s",
 			ErrSeriesHorizonExceeded,

@@ -283,20 +283,60 @@ func expandCompleteSeries(
 	ctx context.Context,
 	definition recurrence.Definition,
 ) ([]recurrence.Occurrence, error) {
-	location := mustLocation(definition.TimeZone)
-	local, err := time.ParseInLocation(civilDateTimeLayout, definition.StartLocal, location)
-	if err != nil {
-		return nil, ErrInvalidSessionInput
-	}
-	occurrences, err := recurrence.Expand(ctx, definition, recurrence.Window{
-		Start: local.UTC().Add(-48 * time.Hour),
-		End:   local.UTC().Add((recurrence.MaxSeriesHorizonDays + 2) * 24 * time.Hour),
-	}, recurrence.MaxOccurrences)
+	first, err := recurrence.ResolveOccurrence(ctx, definition, definition.StartLocal)
 	if err != nil {
 		return nil, mapRecurrenceError(err)
 	}
+
+	// The recurrence adapter deliberately limits one query to 366 days while
+	// allowing a series horizon of 730 days. Expand the complete write model in
+	// bounded chunks so creation never bypasses the adapter's resource guards.
+	horizonEnd := first.StartsAt.
+		AddDate(0, 0, recurrence.MaxSeriesHorizonDays).
+		Add(time.Nanosecond)
+	windowStart := first.StartsAt
+	const chunkDuration = time.Duration(recurrence.MaxQueryWindowDays) * 24 * time.Hour
+
+	occurrences := make([]recurrence.Occurrence, 0, min(
+		definition.Rule.End.Count,
+		recurrence.MaxOccurrences,
+	))
+	seen := make(map[string]struct{}, recurrence.MaxOccurrences)
+	for windowStart.Before(horizonEnd) {
+		windowEnd := windowStart.Add(chunkDuration)
+		if windowEnd.After(horizonEnd) {
+			windowEnd = horizonEnd
+		}
+		chunk, expandErr := recurrence.Expand(ctx, definition, recurrence.Window{
+			Start: windowStart,
+			End:   windowEnd,
+		}, recurrence.MaxOccurrences)
+		if expandErr != nil {
+			return nil, mapRecurrenceError(expandErr)
+		}
+		for _, occurrence := range chunk {
+			if _, duplicate := seen[occurrence.Key]; duplicate {
+				continue
+			}
+			if len(occurrences) == recurrence.MaxOccurrences {
+				return nil, mapRecurrenceError(recurrence.ErrOccurrenceLimit)
+			}
+			seen[occurrence.Key] = struct{}{}
+			occurrences = append(occurrences, occurrence)
+		}
+		windowStart = windowEnd
+	}
 	if len(occurrences) == 0 {
 		return nil, ErrInvalidSessionInput
+	}
+	if definition.Rule.End.Type == recurrence.EndAfterCount &&
+		len(occurrences) != definition.Rule.End.Count {
+		return nil, fmt.Errorf(
+			"%w: expanded %d of %d expected occurrences",
+			ErrInvalidSessionInput,
+			len(occurrences),
+			definition.Rule.End.Count,
+		)
 	}
 	return occurrences, nil
 }

@@ -178,6 +178,33 @@ func TestCountSeriesHorizonCaps(t *testing.T) {
 	}
 }
 
+func TestExpandIncludesOccurrenceOnExactSeriesHorizon(t *testing.T) {
+	t.Parallel()
+
+	plan, err := Compile(Series{
+		ID:            "series-exact-horizon",
+		StartLocal:    "2026-01-01T09:00:00",
+		TimeZone:      "UTC",
+		Duration:      time.Hour,
+		Rule:          "FREQ=YEARLY;BYMONTH=1;BYMONTHDAY=1;COUNT=3",
+		OverlapPolicy: OverlapReject,
+	})
+	if err != nil {
+		t.Fatalf("compile: %v", err)
+	}
+	horizon := plan.start.AddDate(0, 0, MaxSeriesHorizonDays)
+	occurrences, err := plan.Expand(context.Background(), Window{
+		Start: horizon.Add(-24 * time.Hour),
+		End:   horizon.Add(time.Nanosecond),
+	}, ExpandOptions{})
+	if err != nil {
+		t.Fatalf("expand exact horizon: %v", err)
+	}
+	if len(occurrences) != 1 || !occurrences[0].StartsAt.Equal(horizon) {
+		t.Fatalf("occurrences = %#v, want one at %s", occurrences, horizon)
+	}
+}
+
 func FuzzCompileNeverPanics(f *testing.F) {
 	seeds := []string{
 		"FREQ=DAILY;COUNT=2",
