@@ -6,15 +6,19 @@ import {
   screen,
   within,
 } from "@testing-library/react";
-import type {
-  ClassSession,
-  ClassroomClass,
-  CurrentUser,
+import {
+  APIRequestError,
+  type ClassSession,
+  type ClassroomClass,
+  type CurrentUser,
 } from "@tutorhub/api-client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../app/i18n";
 import { SessionProvider } from "../app/session";
-import { ClassSessionPanel } from "./ClassSessionPanel";
+import {
+  ClassSessionEditorDialog,
+  ClassSessionPanel,
+} from "./ClassSessionPanel";
 
 const tenantID = "4b18543a-74de-419f-9fe8-d0c3dfc991eb";
 const classID = "a912f628-f3d2-4c18-84c6-42a9e858dc8d";
@@ -160,5 +164,34 @@ describe("ClassSessionPanel", () => {
     expect(
       within(dialog).getByRole("textbox", { name: "Timezone" }),
     ).toHaveValue(classSession.timezone);
+  });
+
+  it("distinguishes a hard schedule conflict from a stale-version conflict", () => {
+    render(
+      <I18nProvider initialLanguage="en">
+        <ClassSessionEditorDialog
+          classTitle={classroom.title}
+          classTimezone={classroom.timezone}
+          error={
+            new APIRequestError(409, {
+              type: "urn:tutorhub:problem:http-409",
+              code: "class_session_schedule_conflict",
+              title: "Class schedule conflict",
+              status: 409,
+            })
+          }
+          initial={null}
+          onCreate={() => undefined}
+          onOpenChange={() => undefined}
+          onUpdate={() => undefined}
+          open
+          pending={false}
+        />
+      </I18nProvider>,
+    );
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "This class already has a session at that time. Choose another time.",
+    );
   });
 });

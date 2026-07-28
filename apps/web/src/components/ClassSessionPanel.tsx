@@ -59,6 +59,12 @@ function sessionErrorKey(error: Error | null): TranslationKey {
   if (error instanceof APIRequestError && error.status === 403) {
     return "classSession.mutationForbidden";
   }
+  if (
+    error instanceof APIRequestError &&
+    error.problem?.code === "class_session_schedule_conflict"
+  ) {
+    return "classSession.scheduleConflict";
+  }
   if (error instanceof APIRequestError && error.status === 409) {
     return "classSession.conflict";
   }

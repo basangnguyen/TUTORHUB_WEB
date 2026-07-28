@@ -1040,6 +1040,8 @@ const messages = {
       "Chưa thể lưu buổi học. Hãy kiểm tra lại dữ liệu.",
     "classSession.conflict":
       "Buổi học đã được người khác cập nhật. Hãy tải bản mới nhất rồi thử lại.",
+    "classSession.scheduleConflict":
+      "Lớp này đã có một buổi học trùng thời gian. Hãy chọn khung giờ khác.",
     "classSession.mutationForbidden":
       "Bạn không có quyền thay đổi buổi học này.",
     "classSession.loadMore": "Tải thêm buổi học",
@@ -2173,6 +2175,8 @@ const messages = {
       "Could not save the session. Check the fields and try again.",
     "classSession.conflict":
       "Someone else updated this session. Reload the latest version and try again.",
+    "classSession.scheduleConflict":
+      "This class already has a session at that time. Choose another time.",
     "classSession.mutationForbidden": "You cannot change this session.",
     "classSession.loadMore": "Load more sessions",
     "classSession.loadingMore": "Loading more...",

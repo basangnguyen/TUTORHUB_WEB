@@ -15,6 +15,19 @@ function serialize(zoned: Temporal.ZonedDateTime) {
   });
 }
 
+export function instantInTimezone(
+  instant: string,
+  timezone: string,
+): string | null {
+  try {
+    return serialize(
+      Temporal.Instant.from(instant).toZonedDateTimeISO(timezone),
+    );
+  } catch {
+    return null;
+  }
+}
+
 export function resolveCivilDateTime(
   value: string,
   timezone: string,

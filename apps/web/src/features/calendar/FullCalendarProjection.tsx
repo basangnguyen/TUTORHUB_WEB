@@ -17,6 +17,7 @@ import "@fullcalendar/react/themes/classic/palette.css";
 import { Undo2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@tutorhub/ui";
+import { instantInTimezone } from "../../app/classSessionTime";
 import { useI18n } from "../../app/i18n";
 import type {
   CalendarDisplayPreferenceViewModel,
@@ -102,9 +103,16 @@ function eventMutation(
   itemsByID: ReadonlyMap<string, CalendarItemViewModel>,
 ) {
   const item = itemsByID.get(info.event.id);
-  const startsAt = info.event.start?.toISOString();
-  const endsAt = info.event.end?.toISOString();
-  if (!item || !startsAt || !endsAt || !item.canReschedule) {
+  if (!item || !item.canReschedule) {
+    return null;
+  }
+  const startsAt = info.event.start
+    ? instantInTimezone(info.event.start.toISOString(), item.displayTimezone)
+    : null;
+  const endsAt = info.event.end
+    ? instantInTimezone(info.event.end.toISOString(), item.displayTimezone)
+    : null;
+  if (!startsAt || !endsAt) {
     return null;
   }
   return { endsAt, item, startsAt };
