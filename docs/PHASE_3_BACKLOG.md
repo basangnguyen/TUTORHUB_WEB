@@ -505,6 +505,15 @@ smoke và concurrent/authorization/query-plan acceptance trên Neon branch dispo
 Runbook và mẫu ghi bằng chứng:
 [`P3_02B_STAGING_ACCEPTANCE.md`](P3_02B_STAGING_ACCEPTANCE.md).
 
+**Staging checkpoint 2026-07-28:** Neon staging đạt `19 false`; exact runtime ACL giữ
+series/exception `SELECT/INSERT/UPDATE`, receipt append-only `SELECT/INSERT` và từ chối
+`DELETE/TRUNCATE`. Render đã deploy commit `c622244`; lỗi receipt lookup đòi `UPDATE`
+do `FOR UPDATE` thừa đã được sửa mà không nới quyền. Teacher drag occurrence 2026-07-30
+`13:00–14:00 -> 11:30–12:30` theo scope `this_occurrence` lưu thành công, giữ nguyên sau
+reload; occurrence 2026-08-06 và 2026-08-13 vẫn `13:00–14:00`. Bốn recurrence metrics
+hiện diện và có số liệu. Checkbox staging vẫn mở cho concurrent/idempotency, split +
+exception retention, Student/Admin authorization, cross-tenant và query-plan evidence.
+
 ### P3-02C Working schedule, attendee/free-busy và RSVP
 
 **Outcome:** Calendar có Scheduling Assistant/Find a time, audience/attendee và RSVP nội

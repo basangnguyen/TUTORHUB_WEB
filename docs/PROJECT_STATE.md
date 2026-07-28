@@ -6,16 +6,16 @@
 
 | Thuộc tính          | Trạng thái                                                                            |
 | ------------------- | ------------------------------------------------------------------------------------- |
-| Ngày cập nhật       | 2026-07-27                                                                            |
+| Ngày cập nhật       | 2026-07-28                                                                            |
 | Repository          | `https://github.com/basangnguyen/TUTORHUB_WEB`                                        |
 | Nhánh làm việc      | `main`                                                                                |
 | Quy trình           | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
 | Phase hoàn thành    | Phase 0, Phase 1, Phase 2                                                             |
 | Phase hiện tại      | Phase 3 - Daily learning workspace                                                   |
 | Task `DONE` gần nhất | P3-02A Professional Calendar shell/read projection                                  |
-| Mốc repository mới | P3-02B recurrence/conflict implementation: series/exception mutation, preview, UI và metrics |
+| Mốc repository mới | P3-02B staging Teacher mutation/ACL/metrics checkpoint tại commit `c622244` |
 | Task hiện tại       | P3-02B `VERIFY`; P3-CAL-02 vẫn `VERIFY`, các SES/domain/client live gate vẫn mở |
-| Task tiếp theo      | Chạy migration/grants/canary và staging acceptance P3-02B; sau đó P3-02C |
+| Task tiếp theo      | Đóng concurrent/auth/cross-tenant/query-plan gate P3-02B; sau đó P3-02C |
 
 ## Kiến trúc đang chạy
 
@@ -450,17 +450,26 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
     split/cancel/idempotency/audit/outbox, override capability, recurring UI và
     recurrence metrics đã có. Local package tests, HTTP/classroom tests, `go vet`,
     migration-fragment checks, integration-tag compile, API client 22/22, web
-    typecheck/lint/176 tests và format check đạt. Neon migration/grants, canary,
-    focused staging smoke và query-plan/concurrency acceptance vẫn mở; chưa mô tả
-    P3-02B là `DONE`. Runbook nghiệm thu nằm tại
+    typecheck/lint/176 tests và format check đạt. Neon migration/grants, tenant canary
+    và focused Teacher staging smoke đã đạt ngày 2026-07-28; query-plan/concurrency,
+    authorization và cross-tenant acceptance vẫn mở nên chưa mô tả P3-02B là `DONE`.
+    Runbook nghiệm thu nằm tại
     `docs/P3_02B_STAGING_ACCEPTANCE.md`.
 29. Feature key `class_session_recurrence` đã nhất quán từ migration/catalog/config/
     guardrail tới tenant capability OpenAPI/generated client và UI.
     `FEATURE_CONTROL_ENABLE_CLASS_SESSION_RECURRENCE=false` mặc định fail-closed;
     Go package/config/HTTP tests, API check, web typecheck và 176 web tests đều xanh.
     Domain read-overlay đã có bounded expansion + cancel/override và DST/civil-time
-    test; series repository/mutation/HTTP nối vào SQL Calendar projection nhưng feature
-    gate vẫn fail-closed cho tới canary.
+    test; series repository/mutation/HTTP nối vào SQL Calendar projection. Deployment
+    guardrail toàn cục vẫn fail-closed; staging chỉ mở bằng tenant override cho canary.
+30. P3-02B staging checkpoint ngày 2026-07-28 đã đạt migration `19 false`, exact runtime
+    ACL và Teacher UI mutation. Receipt append-only giữ `SELECT/INSERT`; commit `c622244`
+    bỏ `FOR UPDATE` thừa khỏi receipt lookup thay vì cấp thêm `UPDATE`, toàn bộ Go test
+    đạt và Render health `200`. Drag occurrence 2026-07-30 sang `11:30–12:30` theo
+    `this_occurrence` giữ nguyên sau reload; hai tuần sau vẫn `13:00–14:00`. Bốn
+    recurrence metrics hiện diện và có số liệu. P3-02B tiếp tục `VERIFY` cho concurrent/
+    idempotency, split/exception retention, Student/Admin authorization, cross-tenant và
+    bounded query-plan evidence; biên bản tại `docs/P3_02B_STAGING_ACCEPTANCE.md`.
 
 ## Rủi ro đã biết
 
@@ -469,8 +478,8 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
   durable worker hoặc Phase 4 media lifecycle.
 - ADR-0019 đã chấp nhận decision dùng FullCalendar v7 và recurrence bounded; manual NVDA
   đã PASS. P3-02A shell/read projection đã đạt route/staging gate; P3-02B đã đạt
-  implementation/contract/local quality gate và đang chờ migration/grant/canary,
-  authorization, integration/E2E cùng staging gate riêng.
+  implementation/contract/local quality gate cùng Teacher mutation/ACL/metrics staging
+  checkpoint và đang chờ concurrent, authorization, cross-tenant và query-plan gate.
 - AWS SES đã được chọn làm provider target; local SES v2 Raw adapter, deterministic
   renderer/sink và error semantics đã đạt trong spike cô lập, nhưng provider account/
   region/sandbox/quota chưa được live-verify và sending domain chưa có. Pre-domain chỉ

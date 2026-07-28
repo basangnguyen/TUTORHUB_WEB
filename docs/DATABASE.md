@@ -16,15 +16,14 @@ thay đổi schema, migration hoặc repository phải đọc tài liệu này t
   lần qua `12 false -> 13 false -> 12 false -> 13 false`; staging thật đã forward tới
   `13 false`. Role split, default/effective/direct ledger ACL và future-table probe
   đều đạt least-privilege sau remediation provisioning.
-- Migration `000014` đã được chạy trên Neon staging và xác nhận `14 false` trong
-  P3-01. Migration `000015` mở rộng in-place `outbox_events` cho lease/fencing/retry/
+- Neon staging đã được forward và xác nhận `19 false` ngày 2026-07-28. Migration
+  `000015` mở rộng in-place `outbox_events` cho lease/fencing/retry/
   dead-letter; migration `000016` tạo notification projection/preference và mở rộng
   feature-control key; migration `000017` thêm index đọc Calendar tổng hợp cùng
   `calendar_display_preferences`; migration `000018` tạo bounded recurring series/
   exception overlay và migration `000019` bổ sung iCal identity cùng idempotency
-  receipts. Các migration mới hơn `000014` đã có source/test nhưng chưa được chạy
-  trên staging; chỉ ghi version mới sau khi migration job, role grants và smoke thực
-  tế của đúng version đạt.
+  receipts. Exact Core API runtime grants tới migration `000019` đã được probe; quyền
+  worker, durable-host và các acceptance gate riêng của P3-03/P3-04 vẫn chưa đạt.
 - Phần lớn integration test rollback bằng transaction. Chỉ focused P2-09 suite có
   fixture tự dọn hoàn toàn được chạy trên staging ngày 2026-07-21; các suite concurrency
   có thể để lại audit append-only vẫn chỉ chạy trên database CI tạm thời.
@@ -784,6 +783,10 @@ Không cấp `DELETE`, `TRUNCATE`, `REFERENCES`, `TRIGGER`, ownership hoặc sch
 để replay idempotent. Cleanup exception/receipt và hard delete series không thuộc quyền
 Core API runtime.
 
+Runtime không được đọc receipt bằng `SELECT ... FOR UPDATE` vì PostgreSQL yêu cầu quyền
+`UPDATE` cho khóa hàng này. Mutation cùng series được tuần tự hóa bằng khóa trên series
+row; primary key của receipt tiếp tục chặn idempotency collision.
+
 Xác minh effective privilege bằng migration connection; kết quả bắt buộc theo thứ tự
 là `true,true,true,false,false` cho series và exceptions, và
 `true,true,false,false,false` cho receipts:
@@ -933,10 +936,12 @@ của lịch sử append-only và không phải quy trình cleanup cho staging/p
   user/tenant/membership/class bằng migration `000013`. P2-12 đã xác nhận Neon staging
   migration 13, role split/default ACL và importer idempotency trên disposable branch;
   production data/cohort migration vẫn thuộc discovery/cutover phase sau.
-- P3-03A/P3-04 đã bổ sung source migration `000015` và `000016` cùng test/grant contract;
-  Neon staging vẫn được xác nhận gần nhất ở `14 false`. Migration, exact API/worker ACL,
-  durable-host và controlled-canary/crash-reclaim acceptance còn là gate bên ngoài.
-- P3-02A đã bổ sung source migration `000017` cho Calendar bounded-read index và display
-  preference tenant/user-scoped. Neon staging chưa chạy migration/grant/smoke này; không
-  mô tả Calendar production-ready trước khi exact ACL và authorization acceptance đạt.
+- P3-03A/P3-04 đã bổ sung migration `000015`/`000016`; P3-02A/P3-02B bổ sung
+  `000017`/`000018`/`000019`. Neon staging hiện ở `19 false` và exact Core API runtime
+  ACL đã được probe. Exact worker ACL, durable-host và controlled-canary/crash-reclaim
+  acceptance của P3-03/P3-04 vẫn là gate bên ngoài.
+- P3-02A Calendar shell/read projection đã đạt staging gate. P3-02B đã đạt Teacher
+  mutation/ACL/metrics checkpoint nhưng vẫn chờ concurrent/idempotency,
+  split/exception retention, Student/Admin authorization, cross-tenant và bounded
+  query-plan evidence; không mô tả Calendar recurrence production-ready trước các gate.
 - Chưa có backup/restore drill, PITR gate hoặc connection load test cho pilot.

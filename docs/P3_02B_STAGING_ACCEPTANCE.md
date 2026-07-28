@@ -33,9 +33,11 @@ chuyển P3-02B từ `VERIFY` sang `DONE`. Không chạy checklist này trên pr
 4. Áp dụng exact runtime grants của migration `000018/000019` theo
    [DATABASE.md](DATABASE.md#recurrence-series-exception-và-runtime-grants-cho-migration-000018000019).
 5. Xác nhận `tutorhub_runtime`:
-   - có `SELECT/INSERT/UPDATE` trên `class_session_series`,
-     `class_session_exceptions`, `class_session_mutation_receipts`;
-   - không có `DELETE/TRUNCATE`;
+   - có `SELECT/INSERT/UPDATE` trên `class_session_series` và
+     `class_session_exceptions`;
+   - chỉ có `SELECT/INSERT` trên append-only `class_session_mutation_receipts`;
+   - không có `DELETE/TRUNCATE` trên ba bảng và không có `UPDATE` trên
+     `class_session_mutation_receipts`;
    - không phải superuser, owner hoặc member của `neondb_owner`.
 
 ## API và authorization smoke
@@ -91,14 +93,30 @@ P3-02B chỉ chuyển `DONE` khi:
 - metrics hiện diện;
 - commit và URL deployment được ghi lại trong tài liệu này.
 
-Sau nghiệm thu, bổ sung ngày, commit, URL và kết quả PASS vào phần dưới:
+## Kết quả chạy 2026-07-28
 
-```text
-Ngày:
-Commit:
-Neon branch:
-Render deployment:
-Cloudflare deployment:
-Database/API/UI/Observability: PASS | FAIL
-Ghi chú:
-```
+- Commit Core API: `c622244` (`fix(calendar): preserve append-only receipt permissions`).
+- Commit web timezone/drag: `f67ace26`.
+- Neon branch: `staging` (`br-royal-hill-aoqn7igi`).
+- Render deployment:
+  `https://dashboard.render.com/web/srv-d9c1tmmrnols73dkl5g0/deploys/dep-d9k2ik1t0dsc738qoh7g`
+  chạy commit `c622244`; `/health` trả `200`.
+- Cloudflare deployment: `https://tutorhub-web.pages.dev`.
+- Database gate: **PASS** cho migration `19 false`, runtime role không phải owner/superuser,
+  exact ACL series/exception `SELECT/INSERT/UPDATE`, receipt append-only `SELECT/INSERT`,
+  và không có `DELETE/TRUNCATE`.
+- UI smoke Teacher: **PASS** cho quick create chuỗi ba buổi, projection Week/Agenda,
+  preview `this_occurrence`/`this_and_following`/`entire_series`, cancel/revert, hard
+  conflict, thông báo/focus `409` và drag theo scope.
+- Mutation persistence: **PASS**. Kéo buổi 2026-07-30 từ `13:00–14:00` sang
+  `11:30–12:30`, chọn `this_occurrence`, lưu thành công và vẫn đúng sau reload; hai
+  occurrence 2026-08-06 và 2026-08-13 vẫn `13:00–14:00`.
+- Observability: **PASS**. `/metrics` trả `200` với
+  `expansions_total=15`, `occurrences_total=17`, `rejections_total=0` và
+  `duration_seconds_sum=0.001345`.
+- Lỗi staging đã đóng: receipt lookup từng dùng `SELECT ... FOR UPDATE`, làm PostgreSQL
+  đòi quyền `UPDATE` trái với ACL append-only. Core API hiện khóa series row, đọc receipt
+  không khóa và vẫn dựa vào receipt primary key để chặn idempotency collision.
+- Trạng thái tổng: **VERIFY**. Còn phải ghi bằng chứng concurrent edit/idempotency,
+  split + exception retention, Student/Admin authorization, cross-tenant concealment và
+  bounded-range query plan trước khi chuyển P3-02B sang `DONE`.
