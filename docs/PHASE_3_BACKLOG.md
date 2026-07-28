@@ -88,7 +88,7 @@ P3-03B đạt; hai gate P3-04 tiếp tục giữ `false` cho tới acceptance.
 | P3-01      | Course session scheduling và timezone          | P3-00, P3-CAL-00C               | DONE       |
 | P3-CAL-02  | Invitation/RSVP/iCalendar/AWS SES + ADR-0020   | P3-CAL-01, P3-01                | VERIFY     |
 | P3-02A     | Professional Calendar shell/read projection    | P3-01, P3-CAL-01                | DONE       |
-| P3-02B     | Recurrence + class conflict                    | P3-02A, ADR-0019                | VERIFY      |
+| P3-02B     | Recurrence + class conflict                    | P3-02A, ADR-0019                | DONE       |
 | P3-02C     | Working hours/attendee/free-busy/RSVP          | P3-02A, P3-CAL-02               | TODO       |
 | P3-02D     | Native Availability Poll + Study Meeting       | P3-02B, P3-02C, P3-03, ADR-0021 | TODO       |
 | P3-03      | PostgreSQL outbox worker production shape      | P3-01                           | VERIFY     |
@@ -472,7 +472,7 @@ one/following/all minh bạch; conflict authoritative nằm ở backend.
       không mutate series khi dialog bị hủy.
 - [x] Feature flag, exact hard cap, kill switch, metric expansion duration/count/rejection
       và resource-exhaustion test được thêm ngay trong task.
-- [ ] Staging integration/E2E bao phủ concurrent edit, `409`, split series, exception retention,
+- [x] Staging integration/E2E bao phủ concurrent edit, `409`, split series, exception retention,
       cross-tenant concealment và query plan theo bounded range.
 
 **VERIFY 2026-07-27 — implementation complete:** typed recurrence boundary đã được
@@ -511,8 +511,16 @@ series/exception `SELECT/INSERT/UPDATE`, receipt append-only `SELECT/INSERT` và
 do `FOR UPDATE` thừa đã được sửa mà không nới quyền. Teacher drag occurrence 2026-07-30
 `13:00–14:00 -> 11:30–12:30` theo scope `this_occurrence` lưu thành công, giữ nguyên sau
 reload; occurrence 2026-08-06 và 2026-08-13 vẫn `13:00–14:00`. Bốn recurrence metrics
-hiện diện và có số liệu. Checkbox staging vẫn mở cho concurrent/idempotency, split +
-exception retention, Student/Admin authorization, cross-tenant và query-plan evidence.
+hiện diện và có số liệu.
+
+**DONE 2026-07-28:** acceptance commit `734d2b6` bổ sung fixture PostgreSQL thực cho
+concurrent idempotent replay, competing stale-version edit, Student/Teacher/Admin
+authorization, conflict override có reason, cross-tenant concealment, split/carry
+exception retention và bounded class query-plan index. Test chạy trên Neon disposable
+branch `p3-calendar-pre-migration-20260726` (`br-silent-math-aozfo2ci`) đạt trong
+`25,75s`; migration version literal `19 false`. Full Core API test và vet đều xanh.
+Không tạo/xóa Neon branch mới. P3-02B chuyển `VERIFY -> DONE`; phạm vi free-busy/RSVP
+không bị kéo vào task này và tiếp tục ở P3-02C.
 
 ### P3-02C Working schedule, attendee/free-busy và RSVP
 

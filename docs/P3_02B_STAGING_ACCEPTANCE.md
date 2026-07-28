@@ -117,6 +117,26 @@ P3-02B chỉ chuyển `DONE` khi:
 - Lỗi staging đã đóng: receipt lookup từng dùng `SELECT ... FOR UPDATE`, làm PostgreSQL
   đòi quyền `UPDATE` trái với ACL append-only. Core API hiện khóa series row, đọc receipt
   không khóa và vẫn dựa vào receipt primary key để chặn idempotency collision.
-- Trạng thái tổng: **VERIFY**. Còn phải ghi bằng chứng concurrent edit/idempotency,
-  split + exception retention, Student/Admin authorization, cross-tenant concealment và
-  bounded-range query plan trước khi chuyển P3-02B sang `DONE`.
+- Neon disposable acceptance branch:
+  `p3-calendar-pre-migration-20260726` (`br-silent-math-aozfo2ci`), parent `staging`.
+  Không tạo hoặc xóa thêm branch; branch này đã có expiration do Neon quản lý.
+- Database version sau migration trên disposable branch: literal **`19 false`**.
+- Automated PostgreSQL acceptance tại commit `734d2b6`: **PASS** trong `25,75s` cho
+  `TestPostgresClassSessionSeriesLifecycleConflictAndTenantScope`.
+  - Hai request đồng thời cùng key/payload tạo đúng một mutation và một replay; hai
+    request khác key cùng `expected_version` tạo đúng một success và một stale-version
+    conflict, không nhân đôi exception/receipt.
+  - Student enrollment active đọc được projection read-only nhưng bị từ chối
+    create/preview/update/cancel. Teacher không được dùng conflict override;
+    Organization Admin chỉ override thành công khi có reason hợp lệ.
+  - Read và mutation chéo tenant trả concealment, không mutate tài nguyên tenant khác.
+  - Split `this_and_following` giữ exception trước boundary trên parent và carry đủ ba
+    exception từ boundary về sau sang child series.
+  - `EXPLAIN` của query class-scoped có `LIMIT 129` xác nhận index viability qua
+    `class_session_series_class_start_idx`; recurrence expansion tiếp tục bị chặn bởi
+    window/occurrence/deadline cap của ADR-0019.
+- Full Core API regression `go test ./services/core-api/...` và
+  `go vet ./services/core-api/...`: **PASS**.
+- Trạng thái tổng: **DONE**. Tất cả database/API/UI/authorization/idempotency/conflict/
+  metrics gate của phạm vi P3-02B đã có bằng chứng. Working hours, attendee/free-busy và
+  RSVP vẫn thuộc P3-02C; email/ICS provider delivery vẫn thuộc P3-05A/P3-CAL-02.

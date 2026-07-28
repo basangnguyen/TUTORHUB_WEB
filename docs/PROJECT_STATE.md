@@ -12,10 +12,10 @@
 | Quy trình           | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
 | Phase hoàn thành    | Phase 0, Phase 1, Phase 2                                                             |
 | Phase hiện tại      | Phase 3 - Daily learning workspace                                                   |
-| Task `DONE` gần nhất | P3-02A Professional Calendar shell/read projection                                  |
-| Mốc repository mới | P3-02B staging Teacher mutation/ACL/metrics checkpoint tại commit `c622244` |
-| Task hiện tại       | P3-02B `VERIFY`; P3-CAL-02 vẫn `VERIFY`, các SES/domain/client live gate vẫn mở |
-| Task tiếp theo      | Đóng concurrent/auth/cross-tenant/query-plan gate P3-02B; sau đó P3-02C |
+| Task `DONE` gần nhất | P3-02B Recurrence + class conflict                                                   |
+| Mốc repository mới | P3-02B PostgreSQL acceptance tại commit `734d2b6`                                    |
+| Task hiện tại       | P3-02C `TODO`; P3-03/P3-04/P3-CAL-02 vẫn `VERIFY`                                   |
+| Task tiếp theo      | P3-02C Working hours/attendee/free-busy/RSVP                                        |
 
 ## Kiến trúc đang chạy
 
@@ -470,6 +470,15 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
     recurrence metrics hiện diện và có số liệu. P3-02B tiếp tục `VERIFY` cho concurrent/
     idempotency, split/exception retention, Student/Admin authorization, cross-tenant và
     bounded query-plan evidence; biên bản tại `docs/P3_02B_STAGING_ACCEPTANCE.md`.
+31. P3-02B chuyển `VERIFY -> DONE` ngày 2026-07-28 tại acceptance commit `734d2b6`.
+    Neon disposable branch `p3-calendar-pre-migration-20260726`
+    (`br-silent-math-aozfo2ci`) đạt literal `19 false` và automated PostgreSQL test
+    trong `25,75s`: concurrent identical replay 1/1, competing edit success/conflict
+    1/1, Student read-only, Teacher override bị từ chối, Organization Admin override
+    có reason, cross-tenant concealment, split giữ exception trước boundary và carry
+    đủ exception tương lai. Query class-scoped bị chặn `LIMIT 129` và dùng được index
+    `class_session_series_class_start_idx`. Full Core API test và vet đều xanh; không
+    tạo/xóa Neon branch mới. P3-02C là bước nghiệp vụ Calendar tiếp theo.
 
 ## Rủi ro đã biết
 
@@ -477,9 +486,8 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
   này không mở rộng phạm vi sang recurrence, reminder, calendar tổng hợp, email/ICS,
   durable worker hoặc Phase 4 media lifecycle.
 - ADR-0019 đã chấp nhận decision dùng FullCalendar v7 và recurrence bounded; manual NVDA
-  đã PASS. P3-02A shell/read projection đã đạt route/staging gate; P3-02B đã đạt
-  implementation/contract/local quality gate cùng Teacher mutation/ACL/metrics staging
-  checkpoint và đang chờ concurrent, authorization, cross-tenant và query-plan gate.
+  đã PASS. P3-02A shell/read projection và P3-02B recurrence/class conflict đã `DONE`;
+  working hours, attendee/free-busy và RSVP vẫn là phạm vi P3-02C chưa triển khai.
 - AWS SES đã được chọn làm provider target; local SES v2 Raw adapter, deterministic
   renderer/sink và error semantics đã đạt trong spike cô lập, nhưng provider account/
   region/sandbox/quota chưa được live-verify và sending domain chưa có. Pre-domain chỉ
