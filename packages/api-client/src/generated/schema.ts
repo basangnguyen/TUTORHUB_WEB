@@ -72,6 +72,31 @@ export type paths = {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/api/v1/calendar/availability/query": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Return privacy-filtered attendee availability and deterministic suggested times
+     * @description Evaluates at most 31 days, 50 distinct required/optional participants, 2,000
+     *     candidate starts, and 20 returned candidates within a 250 ms execution budget.
+     *     Participant rows contain only canonical status/range and working intervals; they
+     *     never contain source event title, description, class, file, or roster detail.
+     *     An external guest or an allowlisted participant without synchronized data is
+     *     returned as unknown, never free. Ranking and conflict authority remain server-side.
+     */
+    readonly post: operations["queryCalendarAvailability"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/api/v1/calendar/items": {
     readonly parameters: {
       readonly query?: never;
@@ -105,6 +130,34 @@ export type paths = {
     readonly get: operations["getCalendarDisplayPreference"];
     /** Replace calendar display preferences using optimistic concurrency */
     readonly put: operations["updateCalendarDisplayPreference"];
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/calendar/working-schedule": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /**
+     * Return the effective working schedule for the current user and tenant
+     * @description Returns the authenticated user's override or the effective tenant default.
+     *     Version zero with source tenant_default means no user override is stored.
+     *     Detailed working intervals are self-scoped and are not a general free/busy API.
+     */
+    readonly get: operations["getCalendarWorkingSchedule"];
+    /**
+     * Replace the current user's working schedule using optimistic concurrency
+     * @description Stores one full user override. Weekly and special-hours intervals use local civil
+     *     HH:mm values in the supplied IANA timezone. The server validates the eight-per-day
+     *     interval cap, 366-exception cap, overlap, range, timezone, and expected version.
+     */
+    readonly put: operations["updateCalendarWorkingSchedule"];
     readonly post?: never;
     readonly delete?: never;
     readonly options?: never;
@@ -1086,6 +1139,89 @@ export type components = {
       readonly id: string | null;
       readonly type: string;
     };
+    /** @enum {string} */
+    readonly CalendarAvailabilityEmptySuggestionsReason: "no_valid_civil_slots";
+    /** @enum {string} */
+    readonly CalendarAvailabilityParticipantKind:
+      "internal_user" | "external_guest";
+    readonly CalendarAvailabilityParticipantReference: {
+      /**
+       * Format: uuid
+       * @description Same-tenant user ID or a server-issued opaque external-guest ID; it is never a raw email address.
+       */
+      readonly id: string;
+      readonly kind: components["schemas"]["CalendarAvailabilityParticipantKind"];
+    };
+    /** @enum {string} */
+    readonly CalendarAvailabilityParticipationRole: "required" | "optional";
+    /**
+     * @description Required and optional together must contain between 1 and 50 distinct references.
+     *     A reference must not appear in both arrays. The server evaluates at most 2,000
+     *     civil candidate starts within a 250 ms execution budget.
+     */
+    readonly CalendarAvailabilityQueryRequest: {
+      /**
+       * Format: uuid
+       * @description Authoritative same-tenant class scope; inaccessible IDs are concealed as not found.
+       */
+      readonly class_id: string;
+      readonly duration_minutes: number;
+      /** Format: date-time */
+      readonly from: string;
+      /** @default 10 */
+      readonly max_candidates: number;
+      readonly optional: readonly components["schemas"]["CalendarAvailabilityParticipantReference"][];
+      readonly required: readonly components["schemas"]["CalendarAvailabilityParticipantReference"][];
+      /** @enum {integer} */
+      readonly step_minutes: 15 | 30 | 60;
+      /** @description IANA timezone used to construct the civil candidate grid. */
+      readonly timezone: string;
+      /**
+       * Format: date-time
+       * @description Exclusive range end. The range must be positive and no longer than 31 days.
+       */
+      readonly to: string;
+    };
+    readonly CalendarAvailabilityQueryResponse: {
+      readonly empty_suggestions_reason:
+        | components["schemas"]["CalendarAvailabilityEmptySuggestionsReason"]
+        | null;
+      readonly participants: readonly components["schemas"]["CalendarParticipantAvailability"][];
+      readonly suggestions: readonly components["schemas"]["CalendarSuggestedTime"][];
+      readonly timezone: string;
+    };
+    /** @enum {string} */
+    readonly CalendarAvailabilityStatus:
+      "free" | "tentative" | "busy" | "out_of_office" | "unknown";
+    /** @description Privacy-filtered half-open status interval with no source event detail. */
+    readonly CalendarAvailabilityStatusInterval: {
+      /** Format: date-time */
+      readonly ends_at: string;
+      /** Format: date-time */
+      readonly starts_at: string;
+      readonly status: components["schemas"]["CalendarAvailabilityStatus"];
+    };
+    /** @description Privacy-filtered half-open working interval in the requested range. */
+    readonly CalendarAvailabilityWorkingInterval: {
+      /** Format: date-time */
+      readonly ends_at: string;
+      /** Format: date-time */
+      readonly starts_at: string;
+    };
+    readonly CalendarCivilTimeInterval: {
+      /** @description Exclusive local civil end in HH:mm form; it must be after starts_at on the same day. */
+      readonly ends_at: string;
+      /** @description Inclusive local civil start in HH:mm form. */
+      readonly starts_at: string;
+    };
+    readonly CalendarClosedWorkingScheduleException: {
+      /** Format: date */
+      readonly date: string;
+      /** @description Closed-day exceptions must contain an empty interval array. */
+      readonly intervals: readonly components["schemas"]["CalendarCivilTimeInterval"][];
+      /** @enum {string} */
+      readonly kind: "holiday" | "out_of_office";
+    };
     readonly CalendarDisplayPreference: {
       /** @enum {string} */
       readonly default_view: "day" | "work_week" | "week" | "month" | "agenda";
@@ -1140,8 +1276,44 @@ export type components = {
     };
     /** @enum {string} */
     readonly CalendarItemStatus: "scheduled" | "cancelled" | "live" | "ended";
+    readonly CalendarParticipantAvailability: {
+      /** @description Status-only intervals. External/no-sync participants cover the query range as unknown. */
+      readonly intervals: readonly components["schemas"]["CalendarAvailabilityStatusInterval"][];
+      readonly participant: components["schemas"]["CalendarAvailabilityParticipantReference"];
+      readonly role: components["schemas"]["CalendarAvailabilityParticipationRole"];
+      readonly working_intervals: readonly components["schemas"]["CalendarAvailabilityWorkingInterval"][];
+    };
     /** @enum {string} */
     readonly CalendarSourceType: "class_session";
+    readonly CalendarSpecialHoursWorkingScheduleException: {
+      /** Format: date */
+      readonly date: string;
+      /** @description Full replacement for the weekly intervals on this local date; intervals must not overlap. */
+      readonly intervals: readonly components["schemas"]["CalendarCivilTimeInterval"][];
+      /** @constant */
+      readonly kind: "special_hours";
+    };
+    readonly CalendarSuggestedTime: {
+      /** Format: date-time */
+      readonly ends_at: string;
+      readonly reason_breakdown: components["schemas"]["CalendarSuggestedTimeReasonBreakdown"];
+      readonly stable_slot_key: string;
+      /** Format: date-time */
+      readonly starts_at: string;
+    };
+    /** @description Lexicographic sort tuple prefix; lower values rank first. */
+    readonly CalendarSuggestedTimeReasonBreakdown: {
+      readonly optional_busy: number;
+      readonly optional_out_of_office: number;
+      readonly optional_outside_working: number;
+      readonly optional_tentative: number;
+      readonly optional_unknown: number;
+      readonly required_busy: number;
+      readonly required_out_of_office: number;
+      readonly required_outside_working: number;
+      readonly required_tentative: number;
+      readonly required_unknown: number;
+    };
     readonly CalendarViewerCapabilities: {
       readonly can_cancel: boolean;
       readonly can_edit: boolean;
@@ -1149,6 +1321,42 @@ export type components = {
       /** @constant */
       readonly can_view: true;
     };
+    /** @enum {string} */
+    readonly CalendarWeekday:
+      | "monday"
+      | "tuesday"
+      | "wednesday"
+      | "thursday"
+      | "friday"
+      | "saturday"
+      | "sunday";
+    readonly CalendarWeeklyWorkingInterval: {
+      /** @description Exclusive local civil end in HH:mm form; it must be after starts_at on the same day. */
+      readonly ends_at: string;
+      /** @description Inclusive local civil start in HH:mm form. */
+      readonly starts_at: string;
+      readonly weekday: components["schemas"]["CalendarWeekday"];
+    };
+    readonly CalendarWorkingSchedule: {
+      readonly exceptions: readonly components["schemas"]["CalendarWorkingScheduleException"][];
+      readonly source: components["schemas"]["CalendarWorkingScheduleSource"];
+      /** @description Valid canonical IANA timezone. */
+      readonly timezone: string;
+      /** Format: date-time */
+      readonly updated_at: string;
+      /**
+       * Format: int64
+       * @description Version zero with tenant_default means no user override is stored.
+       */
+      readonly version: number;
+      /** @description At most eight non-overlapping half-open intervals per weekday. */
+      readonly weekly_intervals: readonly components["schemas"]["CalendarWeeklyWorkingInterval"][];
+    };
+    readonly CalendarWorkingScheduleException:
+      | components["schemas"]["CalendarClosedWorkingScheduleException"]
+      | components["schemas"]["CalendarSpecialHoursWorkingScheduleException"];
+    /** @enum {string} */
+    readonly CalendarWorkingScheduleSource: "tenant_default" | "user_override";
     readonly CancelClassSessionRequest: {
       /** Format: int64 */
       readonly expected_version: number;
@@ -1923,6 +2131,15 @@ export type components = {
       /** @enum {string} */
       readonly week_start: "monday" | "sunday";
     };
+    readonly UpdateCalendarWorkingScheduleRequest: {
+      readonly exceptions: readonly components["schemas"]["CalendarWorkingScheduleException"][];
+      /** Format: int64 */
+      readonly expected_version: number;
+      /** @description Valid canonical IANA timezone. */
+      readonly timezone: string;
+      /** @description At most eight non-overlapping half-open intervals per weekday. */
+      readonly weekly_intervals: readonly components["schemas"]["CalendarWeeklyWorkingInterval"][];
+    };
     readonly UpdateClassRequest: {
       readonly code?: string;
       readonly description?: string;
@@ -2138,6 +2355,43 @@ export interface operations {
       readonly default: components["responses"]["ProblemResponse"];
     };
   };
+  readonly queryCalendarAvailability: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly "X-CSRF-Token": string;
+        /** @description Client cache-scope assertion; authorization still comes only from the server-side active session. */
+        readonly "X-TutorHub-Expected-Tenant-ID": string;
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["CalendarAvailabilityQueryRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Privacy-filtered availability rows and server-ranked suggestions */
+      readonly 200: {
+        headers: {
+          readonly "Cache-Control"?: "private, no-store";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["CalendarAvailabilityQueryResponse"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 429: components["responses"]["ProblemResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
   readonly listCalendarItems: {
     readonly parameters: {
       readonly query: {
@@ -2241,6 +2495,72 @@ export interface operations {
       readonly 401: components["responses"]["UnauthorizedResponse"];
       readonly 403: components["responses"]["ForbiddenResponse"];
       readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly getCalendarWorkingSchedule: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Client cache-scope assertion; authorization still comes only from the server-side active session. */
+        readonly "X-TutorHub-Expected-Tenant-ID": string;
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Effective self-scoped working schedule */
+      readonly 200: {
+        headers: {
+          readonly "Cache-Control"?: "private, no-store";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["CalendarWorkingSchedule"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly updateCalendarWorkingSchedule: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly "X-CSRF-Token": string;
+        /** @description Client cache-scope assertion; authorization still comes only from the server-side active session. */
+        readonly "X-TutorHub-Expected-Tenant-ID": string;
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["UpdateCalendarWorkingScheduleRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Updated user working-schedule override */
+      readonly 200: {
+        headers: {
+          readonly "Cache-Control"?: "private, no-store";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["CalendarWorkingSchedule"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 429: components["responses"]["ProblemResponse"];
       readonly 503: components["responses"]["ProblemResponse"];
       readonly default: components["responses"]["ProblemResponse"];
     };

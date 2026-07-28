@@ -1,5 +1,5 @@
 import { Button, StatusBadge } from "@tutorhub/ui";
-import { CalendarClock, ExternalLink, Pencil } from "lucide-react";
+import { CalendarClock, ExternalLink, Eye } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Temporal } from "temporal-polyfill";
@@ -37,7 +37,7 @@ interface CalendarAgendaProps {
   hourCycle: CalendarHourCycle;
   items: readonly CalendarItemViewModel[];
   locale: string;
-  onEditItem?: (item: CalendarItemViewModel) => void;
+  onOpenItem?: (item: CalendarItemViewModel) => void;
   secondaryTimezone: string | null;
   timezone: string;
 }
@@ -46,7 +46,7 @@ export function CalendarAgenda({
   hourCycle,
   items,
   locale,
-  onEditItem,
+  onOpenItem,
   secondaryTimezone,
   timezone,
 }: CalendarAgendaProps) {
@@ -183,24 +183,26 @@ export function CalendarAgenda({
                       </small>
                     )}
                   </div>
-                  {classLink && (
+                  {((item.canView && onOpenItem) || classLink) && (
                     <div className="calendar-agenda-item__actions">
-                      {item.canEdit && onEditItem && (
+                      {item.canView && onOpenItem && (
                         <Button
-                          leadingIcon={<Pencil />}
-                          onClick={() => onEditItem(item)}
+                          leadingIcon={<Eye />}
+                          onClick={() => onOpenItem(item)}
                           size="sm"
                           variant="secondary"
                         >
-                          {t("calendar.editSession")}
+                          {t("calendar.openSessionDetails")}
                         </Button>
                       )}
-                      <Link to={classLink}>
-                        <ExternalLink aria-hidden="true" />
-                        {item.canEdit || item.canCancel
-                          ? t("calendar.manageInClass")
-                          : t("calendar.openClass")}
-                      </Link>
+                      {classLink && (
+                        <Link to={classLink}>
+                          <ExternalLink aria-hidden="true" />
+                          {item.canEdit || item.canCancel
+                            ? t("calendar.manageInClass")
+                            : t("calendar.openClass")}
+                        </Link>
+                      )}
                     </div>
                   )}
                 </li>

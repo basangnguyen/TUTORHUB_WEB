@@ -8,15 +8,22 @@ import {
 import {
   APIRequestError,
   getCalendarDisplayPreference,
+  getCalendarWorkingSchedule,
   listCalendarItems,
+  queryCalendarAvailability,
   rotateCSRFToken,
   updateCalendarDisplayPreference,
+  updateCalendarWorkingSchedule,
+  type CalendarAvailabilityQueryRequest,
+  type CalendarAvailabilityQueryResponse,
   type CalendarDisplayPreference,
   type CalendarItem,
   type CalendarItemStatus,
   type CalendarSourceType,
+  type CalendarWorkingSchedule,
   type CurrentUser,
   type UpdateCalendarDisplayPreferenceRequest,
+  type UpdateCalendarWorkingScheduleRequest,
 } from "@tutorhub/api-client";
 import { currentPrincipalGeneration } from "../../app/queryClient";
 import type {
@@ -85,6 +92,8 @@ export const calendarQueryKeys = {
     ["calendar", tenantID, userID, "items"] as const,
   preference: (tenantID: string, userID: string) =>
     ["calendar", tenantID, userID, "display-preference"] as const,
+  workingSchedule: (tenantID: string, userID: string) =>
+    ["calendar", tenantID, userID, "working-schedule"] as const,
 };
 
 function shouldRetryCalendarQuery(failureCount: number, error: Error) {
@@ -221,6 +230,27 @@ export function useCalendarDisplayPreference(
   });
 }
 
+export function useCalendarWorkingSchedule(
+  tenantID: string | undefined,
+  userID: string | undefined,
+  enabled = true,
+) {
+  return useQuery({
+    queryKey: calendarQueryKeys.workingSchedule(
+      tenantID ?? "inactive",
+      userID ?? "anonymous",
+    ),
+    queryFn: ({ signal }) =>
+      getCalendarWorkingSchedule(tenantID ?? "", {
+        baseUrl: getApiBaseUrl(),
+        signal,
+      }),
+    enabled: enabled && Boolean(tenantID && userID),
+    retry: shouldRetryCalendarQuery,
+    staleTime: 60_000,
+  });
+}
+
 function preferenceRequest(
   draft: CalendarDisplayPreferenceDraft,
 ): UpdateCalendarDisplayPreferenceRequest {
@@ -348,4 +378,102 @@ export function useUpdateCalendarDisplayPreference(
       return result.preference;
     },
   };
+}
+
+export function useUpdateCalendarWorkingSchedule(
+  tenantID: string | undefined,
+  userID: string | undefined,
+) {
+  const queryClient = useQueryClient();
+
+  interface MutationVariables extends CalendarPrincipalSnapshot {
+    input: UpdateCalendarWorkingScheduleRequest;
+  }
+
+  interface MutationResult extends Omit<MutationVariables, "input"> {
+    schedule: CalendarWorkingSchedule;
+  }
+
+  const mutation = useMutation<MutationResult, Error, MutationVariables>({
+    mutationFn: async ({ generation, input, tenantID, userID }) => {
+      const csrf = await rotateCSRFToken({ baseUrl: getApiBaseUrl() });
+      const schedule = await updateCalendarWorkingSchedule(
+        tenantID,
+        input,
+        csrf.csrf_token,
+        { baseUrl: getApiBaseUrl() },
+      );
+      return { generation, schedule, tenantID, userID };
+    },
+    onSuccess: (result) => {
+      if (!isCurrentCalendarPrincipal(queryClient, result)) {
+        queryClient.removeQueries({
+          queryKey: calendarQueryKeys.principal(result.tenantID, result.userID),
+        });
+        return;
+      }
+      queryClient.setQueryData(
+        calendarQueryKeys.workingSchedule(result.tenantID, result.userID),
+        result.schedule,
+      );
+    },
+    onSettled: (_result, error, variables) => {
+      if (!error) {
+        return Promise.resolve();
+      }
+      if (!isCurrentCalendarPrincipal(queryClient, variables)) {
+        queryClient.removeQueries({
+          queryKey: calendarQueryKeys.principal(
+            variables.tenantID,
+            variables.userID,
+          ),
+        });
+        return Promise.resolve();
+      }
+      return queryClient.invalidateQueries({
+        exact: true,
+        queryKey: calendarQueryKeys.workingSchedule(
+          variables.tenantID,
+          variables.userID,
+        ),
+      });
+    },
+    retry: false,
+  });
+
+  return {
+    ...mutation,
+    data: mutation.data?.schedule,
+    save: async (input: UpdateCalendarWorkingScheduleRequest) => {
+      if (!tenantID || !userID) {
+        throw new Error("Calendar working-schedule principal is unavailable.");
+      }
+      const result = await mutation.mutateAsync({
+        generation: currentPrincipalGeneration(queryClient),
+        input,
+        tenantID,
+        userID,
+      });
+      return result.schedule;
+    },
+  };
+}
+
+export function useCalendarAvailabilityQuery(tenantID: string | undefined) {
+  return useMutation<
+    CalendarAvailabilityQueryResponse,
+    Error,
+    CalendarAvailabilityQueryRequest
+  >({
+    mutationFn: async (input) => {
+      if (!tenantID) {
+        throw new Error("Calendar availability tenant is unavailable.");
+      }
+      const csrf = await rotateCSRFToken({ baseUrl: getApiBaseUrl() });
+      return queryCalendarAvailability(tenantID, input, csrf.csrf_token, {
+        baseUrl: getApiBaseUrl(),
+      });
+    },
+    retry: false,
+  });
 }

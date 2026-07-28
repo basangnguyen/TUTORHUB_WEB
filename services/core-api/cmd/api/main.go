@@ -177,6 +177,7 @@ func run() int {
 	var classSessionService classroom.SessionServiceAPI
 	var classSessionSeriesService classroom.SessionSeriesServiceAPI
 	var calendarService calendar.ServiceAPI
+	var calendarSchedulingService calendar.SchedulingServiceAPI
 	if pool != nil {
 		classroomRepository = classroom.NewPostgresRepository(
 			pool,
@@ -224,6 +225,24 @@ func run() int {
 		calendarService, err = calendar.NewService(calendarRepository, time.Now)
 		if err != nil {
 			logger.Error("initialize calendar service", "error", err)
+			return 1
+		}
+		calendarSchedulingRepository, err := calendar.NewPostgresSchedulingRepository(
+			pool,
+			cfg.Database.QueryTimeout,
+			authorizer,
+			featureControlEnforcer,
+		)
+		if err != nil {
+			logger.Error("initialize calendar scheduling repository", "error", err)
+			return 1
+		}
+		calendarSchedulingService, err = calendar.NewSchedulingService(
+			calendarSchedulingRepository,
+			time.Now,
+		)
+		if err != nil {
+			logger.Error("initialize calendar scheduling service", "error", err)
 			return 1
 		}
 	}
@@ -347,6 +366,7 @@ func run() int {
 		ClassSessions:         classSessionService,
 		ClassSessionSeries:    classSessionSeriesService,
 		Calendar:              calendarService,
+		CalendarScheduling:    calendarSchedulingService,
 		Enrollment:            enrollmentService,
 		Audit:                 auditService,
 		FeatureControls:       featureControlService,

@@ -52,6 +52,22 @@ export type CalendarDisplayPreference =
   components["schemas"]["CalendarDisplayPreference"];
 export type UpdateCalendarDisplayPreferenceRequest =
   components["schemas"]["UpdateCalendarDisplayPreferenceRequest"];
+export type CalendarWorkingSchedule =
+  components["schemas"]["CalendarWorkingSchedule"];
+export type UpdateCalendarWorkingScheduleRequest =
+  components["schemas"]["UpdateCalendarWorkingScheduleRequest"];
+export type CalendarAvailabilityQueryRequest =
+  components["schemas"]["CalendarAvailabilityQueryRequest"];
+export type CalendarAvailabilityQueryResponse =
+  components["schemas"]["CalendarAvailabilityQueryResponse"];
+export type CalendarAvailabilityParticipantReference =
+  components["schemas"]["CalendarAvailabilityParticipantReference"];
+export type CalendarAvailabilityStatus =
+  components["schemas"]["CalendarAvailabilityStatus"];
+export type CalendarParticipantAvailability =
+  components["schemas"]["CalendarParticipantAvailability"];
+export type CalendarSuggestedTime =
+  components["schemas"]["CalendarSuggestedTime"];
 export type MarkAllNotificationsReadResponse =
   components["schemas"]["MarkAllNotificationsReadResponse"];
 export type AuditAction = components["schemas"]["AuditAction"];
@@ -777,6 +793,87 @@ export async function updateCalendarDisplayPreference(
 
   return requireData<CalendarDisplayPreference>(
     data as CalendarDisplayPreference | undefined,
+    error,
+    response,
+  );
+}
+
+export async function getCalendarWorkingSchedule(
+  tenantID: string,
+  options: APIRequestOptions = {},
+): Promise<CalendarWorkingSchedule> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).GET(
+    "/api/v1/calendar/working-schedule",
+    {
+      params: {
+        header: { "X-TutorHub-Expected-Tenant-ID": tenantID },
+      },
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<CalendarWorkingSchedule>(
+    data as CalendarWorkingSchedule | undefined,
+    error,
+    response,
+  );
+}
+
+export async function updateCalendarWorkingSchedule(
+  tenantID: string,
+  input: UpdateCalendarWorkingScheduleRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<CalendarWorkingSchedule> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).PUT(
+    "/api/v1/calendar/working-schedule",
+    {
+      params: {
+        header: {
+          "X-CSRF-Token": csrfToken,
+          "X-TutorHub-Expected-Tenant-ID": tenantID,
+        },
+      },
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<CalendarWorkingSchedule>(
+    data as CalendarWorkingSchedule | undefined,
+    error,
+    response,
+  );
+}
+
+export async function queryCalendarAvailability(
+  tenantID: string,
+  input: CalendarAvailabilityQueryRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<CalendarAvailabilityQueryResponse> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/calendar/availability/query",
+    {
+      params: {
+        header: {
+          "X-CSRF-Token": csrfToken,
+          "X-TutorHub-Expected-Tenant-ID": tenantID,
+        },
+      },
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<CalendarAvailabilityQueryResponse>(
+    data as CalendarAvailabilityQueryResponse | undefined,
     error,
     response,
   );

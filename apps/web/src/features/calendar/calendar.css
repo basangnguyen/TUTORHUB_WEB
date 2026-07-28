@@ -424,7 +424,7 @@
 }
 
 .calendar-event--readonly {
-  cursor: default;
+  cursor: pointer;
 }
 
 .calendar-event:focus-visible {
@@ -696,6 +696,51 @@
   width: 100%;
 }
 
+.calendar-session-detail {
+  --calendar-border: var(--color-calendar-border, #d8d6c5);
+  --calendar-muted: var(--color-calendar-muted, #65655d);
+  background: var(--calendar-canvas, #fdfdf5);
+  color: var(--color-calendar-ink, #282828);
+  overflow-y: auto;
+}
+
+.calendar-session-detail__summary {
+  display: grid;
+  gap: 1rem;
+  margin: 1.5rem 0 0;
+}
+
+.calendar-session-detail__summary > div {
+  border-bottom: 1px solid var(--calendar-border);
+  display: grid;
+  gap: 0.35rem;
+  padding-bottom: 1rem;
+}
+
+.calendar-session-detail__summary dt {
+  color: var(--calendar-muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.035em;
+  text-transform: uppercase;
+}
+
+.calendar-session-detail__summary dd {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0;
+}
+
+.calendar-session-detail__summary small {
+  color: var(--calendar-muted);
+}
+
+.calendar-session-detail__actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 1.5rem;
+}
+
 .calendar-preferences__form {
   display: grid;
   gap: 1rem;
@@ -723,6 +768,129 @@
   gap: 0.65rem;
   justify-content: flex-end;
   margin-top: 0.5rem;
+}
+
+.calendar-working-schedule {
+  --calendar-border: var(--color-calendar-border, #d8d6c5);
+  --calendar-muted: var(--color-calendar-muted, #65655d);
+  background: var(--calendar-canvas, #fdfdf5);
+  color: var(--color-calendar-ink, #282828);
+  max-width: min(46rem, 100vw);
+  overflow-y: auto;
+  width: 100%;
+}
+
+.calendar-working-schedule__form {
+  display: grid;
+  gap: 1.5rem;
+  margin-top: 1.25rem;
+}
+
+.calendar-working-schedule__form section {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.calendar-working-schedule__form h3,
+.calendar-working-schedule__form p {
+  margin: 0;
+}
+
+.calendar-working-schedule__form section > p,
+.calendar-working-schedule__days fieldset > p {
+  color: var(--calendar-muted);
+  font-size: 0.86rem;
+}
+
+.calendar-working-schedule__days {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.calendar-working-schedule__days fieldset,
+.calendar-working-schedule__exception {
+  background: var(--calendar-surface, #fffdf6);
+  border: 1px solid var(--calendar-border);
+  border-radius: 0.8rem;
+  display: grid;
+  gap: 0.65rem;
+  margin: 0;
+  padding: 0.85rem;
+}
+
+.calendar-working-schedule__days legend {
+  font-weight: 800;
+  padding-inline: 0.35rem;
+}
+
+.calendar-working-schedule__interval {
+  align-items: end;
+  display: grid;
+  gap: 0.65rem;
+  grid-template-columns: minmax(7rem, 1fr) minmax(7rem, 1fr) auto;
+}
+
+.calendar-working-schedule__interval label,
+.calendar-working-schedule__exception > label {
+  display: grid;
+  font-size: 0.82rem;
+  font-weight: 700;
+  gap: 0.35rem;
+}
+
+.calendar-working-schedule input,
+.calendar-working-schedule select {
+  background: var(--calendar-canvas, #fdfdf5);
+  border: 1px solid var(--calendar-border);
+  border-radius: 0.55rem;
+  color: inherit;
+  min-height: 2.6rem;
+  padding: 0.45rem 0.6rem;
+}
+
+.calendar-working-schedule__section-heading {
+  align-items: end;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.calendar-working-schedule__section-heading > div {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.calendar-working-schedule__exception {
+  grid-template-columns: minmax(9rem, 1fr) minmax(10rem, 1fr) auto;
+}
+
+.calendar-working-schedule__special-hours {
+  display: grid;
+  gap: 0.55rem;
+  grid-column: 1 / -1;
+}
+
+.calendar-working-schedule__feedback {
+  align-items: center;
+  background: var(--color-danger-soft, #fbe9e7);
+  border-radius: 0.6rem;
+  display: flex;
+  gap: 0.65rem;
+  justify-content: space-between;
+  margin: 0;
+  padding: 0.75rem;
+}
+
+.calendar-working-schedule__saved {
+  color: var(--color-success-strong, #17683a);
+  font-weight: 700;
+  margin: 0;
+}
+
+.calendar-working-schedule__actions {
+  display: flex;
+  gap: 0.65rem;
+  justify-content: flex-end;
 }
 
 @media (max-width: 72rem) {
@@ -813,6 +981,15 @@
 
   .calendar-toolbar__actions > button:last-child {
     max-width: 100%;
+  }
+
+  .calendar-working-schedule__interval,
+  .calendar-working-schedule__exception {
+    grid-template-columns: 1fr;
+  }
+
+  .calendar-working-schedule__special-hours {
+    grid-column: auto;
   }
 
   .calendar-content {

@@ -86,3 +86,76 @@ func TestCalendarRecurrenceMutationMigrationContainsIdentityAndReceiptGuards(t *
 		}
 	}
 }
+
+func TestCalendarAvailabilityParticipationMigrationContainsPrivacyAndBoundGuards(t *testing.T) {
+	t.Parallel()
+	contents, err := os.ReadFile(filepath.Join(
+		"..", "..", "..", "migrations", "000020_calendar_availability_participation.up.sql",
+	))
+	if err != nil {
+		t.Fatal(err)
+	}
+	sql := string(contents)
+	for _, fragment := range []string{
+		"CREATE TABLE tutorhub.calendar_working_schedules",
+		"CREATE TABLE tutorhub.calendar_working_schedule_intervals",
+		"CREATE TABLE tutorhub.calendar_working_schedule_exceptions",
+		"existing_count >= 8",
+		"existing_count >= 366",
+		"calendar_working_schedule_intervals_no_overlap",
+		"ADD COLUMN organizer_user_id uuid",
+		"ADD COLUMN audience_revision bigint NOT NULL DEFAULT 0",
+		"'urn:uuid:' || id::text",
+		"CREATE TABLE tutorhub.calendar_external_recipients",
+		"delivery_address_ciphertext bytea NOT NULL",
+		"CREATE TABLE tutorhub.class_session_attendees",
+		"class_session_attendees_source_scope_valid",
+		"class_session_attendees_identity_scope_valid",
+		"CREATE INDEX class_session_attendees_external_class_active_idx",
+		"existing_count >= 128",
+		"CREATE TABLE tutorhub.calendar_invitation_revisions",
+		"CREATE TABLE tutorhub.calendar_invitation_recipients",
+		"calendar invitation snapshots are append-only",
+		"ENABLE ALWAYS TRIGGER calendar_invitation_revisions_immutable_rows",
+		"ENABLE ALWAYS TRIGGER calendar_invitation_recipients_immutable_rows",
+		"CREATE TABLE tutorhub.calendar_rsvp_capabilities",
+		"octet_length(token_digest) = 32",
+		"CREATE TABLE tutorhub.calendar_participation_mutation_receipts",
+		"octet_length(request_fingerprint) = 32",
+		"REVOKE ALL ON tutorhub.calendar_rsvp_capabilities FROM PUBLIC",
+	} {
+		if !strings.Contains(sql, fragment) {
+			t.Fatalf("calendar availability/participation migration missing %q", fragment)
+		}
+	}
+	for _, forbidden := range []string{
+		"email text",
+		"raw_token",
+		"token text",
+	} {
+		if strings.Contains(strings.ToLower(sql), forbidden) {
+			t.Fatalf("calendar availability/participation migration contains forbidden plaintext field %q", forbidden)
+		}
+	}
+
+	downContents, err := os.ReadFile(filepath.Join(
+		"..", "..", "..", "migrations", "000020_calendar_availability_participation.down.sql",
+	))
+	if err != nil {
+		t.Fatal(err)
+	}
+	downSQL := string(downContents)
+	for _, fragment := range []string{
+		"DROP TABLE tutorhub.calendar_participation_mutation_receipts",
+		"DROP TABLE tutorhub.calendar_rsvp_capabilities",
+		"DROP TABLE tutorhub.calendar_invitation_recipients",
+		"DROP TABLE tutorhub.calendar_invitation_revisions",
+		"DROP TABLE tutorhub.class_session_attendees",
+		"DROP TABLE tutorhub.calendar_external_recipients",
+		"DROP TABLE tutorhub.calendar_working_schedules",
+	} {
+		if !strings.Contains(downSQL, fragment) {
+			t.Fatalf("calendar availability/participation down migration missing %q", fragment)
+		}
+	}
+}

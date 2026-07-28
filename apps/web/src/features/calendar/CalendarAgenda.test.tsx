@@ -1,6 +1,6 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../../app/i18n";
 import type { CalendarItemViewModel } from "./model";
 import { CalendarAgenda } from "./CalendarAgenda";
@@ -78,6 +78,36 @@ describe("CalendarAgenda", () => {
     expect(screen.getByRole("listitem")).toHaveClass(
       "calendar-agenda-item--cancelled",
     );
+  });
+
+  it("opens details for a viewable session without edit capability", () => {
+    const onOpenItem = vi.fn();
+    const readOnlyItem = {
+      ...item,
+      canEdit: false,
+      canReschedule: false,
+    };
+    render(
+      <MemoryRouter>
+        <I18nProvider initialLanguage="en">
+          <CalendarAgenda
+            hourCycle="h23"
+            items={[readOnlyItem]}
+            locale="en-US"
+            onOpenItem={onOpenItem}
+            secondaryTimezone={null}
+            timezone="Asia/Ho_Chi_Minh"
+          />
+        </I18nProvider>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "View details" }));
+
+    expect(onOpenItem).toHaveBeenCalledWith(readOnlyItem);
+    expect(
+      screen.queryByRole("button", { name: "Edit session" }),
+    ).not.toBeInTheDocument();
   });
 
   it("keeps the viewer-local civil date for extreme positive offsets", () => {

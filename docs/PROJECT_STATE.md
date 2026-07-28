@@ -14,7 +14,7 @@
 | Phase hiện tại      | Phase 3 - Daily learning workspace                                                   |
 | Task `DONE` gần nhất | P3-02B Recurrence + class conflict                                                   |
 | Mốc repository mới | P3-02B PostgreSQL acceptance tại commit `734d2b6`                                    |
-| Task hiện tại       | P3-02C `TODO`; P3-03/P3-04/P3-CAL-02 vẫn `VERIFY`                                   |
+| Task hiện tại       | P3-02C `IN PROGRESS`; P3-03/P3-04/P3-CAL-02 vẫn `VERIFY`                            |
 | Task tiếp theo      | P3-02C Working hours/attendee/free-busy/RSVP                                        |
 
 ## Kiến trúc đang chạy
@@ -479,6 +479,20 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
     đủ exception tương lai. Query class-scoped bị chặn `LIMIT 129` và dùng được index
     `class_session_series_class_start_idx`. Full Core API test và vet đều xanh; không
     tạo/xóa Neon branch mới. P3-02C là bước nghiệp vụ Calendar tiếp theo.
+32. P3-02C chuyển `TODO -> IN PROGRESS` ngày 2026-07-28 với lát cắt working schedule
+    và privacy-safe availability đầu tiên. Migration `000020` thêm lịch làm việc theo
+    tenant/user (nhiều interval/ngày, holiday/OOO/special hours, IANA timezone, CAS),
+    attendee/audience persistence foundation và RSVP-capability foundation. Core API có
+    `GET/PUT /api/v1/calendar/working-schedule` cùng
+    `POST /api/v1/calendar/availability/query`; PostgreSQL repository fail-closed theo
+    feature `class_session_scheduling`, tenant/class authorization và participant scope
+    server-side (class owner/active roster hoặc external audience đã gắn class); ID không
+    đủ scope bị conceal 404 và không project title/description/email/roster. Availability
+    bị chặn ở 31 ngày lịch theo scheduling timezone/50 người/2.000 start/250 ms;
+    external/no-sync là `unknown`; grid civil-time xử lý DST gap/overlap. Web
+    có drawer Working hours với CAS/conflict recovery và accessibility cơ bản. Chưa đánh
+    dấu task `DONE`: audience command, RSVP domain/API/UI, Scheduling Assistant gắn vào
+    session editor và PostgreSQL staging acceptance vẫn còn lại.
 
 ## Rủi ro đã biết
 
@@ -486,8 +500,9 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
   này không mở rộng phạm vi sang recurrence, reminder, calendar tổng hợp, email/ICS,
   durable worker hoặc Phase 4 media lifecycle.
 - ADR-0019 đã chấp nhận decision dùng FullCalendar v7 và recurrence bounded; manual NVDA
-  đã PASS. P3-02A shell/read projection và P3-02B recurrence/class conflict đã `DONE`;
-  working hours, attendee/free-busy và RSVP vẫn là phạm vi P3-02C chưa triển khai.
+  đã PASS. P3-02A shell/read projection và P3-02B recurrence/class conflict đã `DONE`.
+  P3-02C đang có working-hours/free-busy slice local; attendee, RSVP và staging
+  acceptance chưa hoàn thành nên không được coi là hoàn tất Calendar professional core.
 - AWS SES đã được chọn làm provider target; local SES v2 Raw adapter, deterministic
   renderer/sink và error semantics đã đạt trong spike cô lập, nhưng provider account/
   region/sandbox/quota chưa được live-verify và sending domain chưa có. Pre-domain chỉ
@@ -597,5 +612,7 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
 - `docs/adr/0017-class-session-scheduling-and-civil-time.md`
 - `docs/adr/0018-postgresql-leased-outbox-worker.md`
 - `docs/adr/0019-calendar-renderer-recurrence-and-conflict.md`
+- `docs/adr/0020-session-audience-ics-and-ses-delivery-boundary.md`
 - `docs/adr/0021-native-availability-polls-and-member-owned-study-meetings.md`
 - `docs/adr/0022-tenant-scoped-in-app-notification-projection.md`
+- `docs/adr/0023-calendar-working-schedule-free-busy-and-rsvp-authority.md`

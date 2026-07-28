@@ -56,7 +56,7 @@ interface FullCalendarProjectionProps {
   date: string;
   items: readonly CalendarItemViewModel[];
   locale: string;
-  onEditItem?: (item: CalendarItemViewModel) => void;
+  onOpenItem?: (item: CalendarItemViewModel) => void;
   onItemChanged: (item: CalendarItemViewModel) => void;
   onReschedule: CalendarReschedule;
   preference: CalendarDisplayPreferenceViewModel;
@@ -122,7 +122,7 @@ export function FullCalendarProjection({
   date,
   items,
   locale,
-  onEditItem,
+  onOpenItem,
   onItemChanged,
   onReschedule,
   preference,
@@ -251,8 +251,8 @@ export function FullCalendarProjection({
     eventClick: (info) => {
       info.jsEvent.preventDefault();
       const item = itemsByID.get(info.event.id);
-      if (item?.canEdit) {
-        onEditItem?.(item);
+      if (item?.canView) {
+        onOpenItem?.(item);
       }
     },
     eventDidMount: (info) => {

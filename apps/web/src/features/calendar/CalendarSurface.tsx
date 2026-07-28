@@ -15,7 +15,7 @@ interface CalendarSurfaceProps {
   date: string;
   items: readonly CalendarItemViewModel[];
   locale: string;
-  onEditItem?: (item: CalendarItemViewModel) => void;
+  onOpenItem?: (item: CalendarItemViewModel) => void;
   onReschedule: CalendarReschedule;
   preference: CalendarDisplayPreferenceViewModel;
   view: CalendarView;
@@ -25,7 +25,7 @@ export function CalendarSurface({
   date,
   items,
   locale,
-  onEditItem,
+  onOpenItem,
   onReschedule,
   preference,
   view,
@@ -62,7 +62,7 @@ export function CalendarSurface({
           hourCycle={preference.hourCycle}
           items={surfaceItems}
           locale={locale}
-          onEditItem={onEditItem}
+          onOpenItem={onOpenItem}
           secondaryTimezone={preference.secondaryTimezone}
           timezone={preference.viewerTimezone}
         />
@@ -72,7 +72,7 @@ export function CalendarSurface({
             date={date}
             items={surfaceItems}
             locale={locale}
-            onEditItem={onEditItem}
+            onOpenItem={onOpenItem}
             onItemChanged={updateSurfaceItem}
             onReschedule={onReschedule}
             preference={preference}
@@ -90,7 +90,7 @@ export function CalendarSurface({
                 hourCycle={preference.hourCycle}
                 items={surfaceItems}
                 locale={locale}
-                onEditItem={onEditItem}
+                onOpenItem={onOpenItem}
                 secondaryTimezone={preference.secondaryTimezone}
                 timezone={preference.viewerTimezone}
               />

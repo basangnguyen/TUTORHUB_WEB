@@ -89,7 +89,7 @@ P3-03B đạt; hai gate P3-04 tiếp tục giữ `false` cho tới acceptance.
 | P3-CAL-02  | Invitation/RSVP/iCalendar/AWS SES + ADR-0020   | P3-CAL-01, P3-01                | VERIFY     |
 | P3-02A     | Professional Calendar shell/read projection    | P3-01, P3-CAL-01                | DONE       |
 | P3-02B     | Recurrence + class conflict                    | P3-02A, ADR-0019                | DONE       |
-| P3-02C     | Working hours/attendee/free-busy/RSVP          | P3-02A, P3-CAL-02               | TODO       |
+| P3-02C     | Working hours/attendee/free-busy/RSVP          | P3-02A, P3-CAL-02, ADR-0023     | IN PROGRESS |
 | P3-02D     | Native Availability Poll + Study Meeting       | P3-02B, P3-02C, P3-03, ADR-0021 | TODO       |
 | P3-03      | PostgreSQL outbox worker production shape      | P3-01                           | VERIFY     |
 | P3-04      | In-app notification và preference              | P3-03A; P3-03B trước activation | VERIFY     |
@@ -527,17 +527,26 @@ không bị kéo vào task này và tiếp tục ở P3-02C.
 **Outcome:** Calendar có Scheduling Assistant/Find a time, audience/attendee và RSVP nội
 bộ đáng tin cậy; P3-05A chỉ phân phối email/ICS, không sở hữu business response.
 
-- [ ] Migration/OpenAPI cho `WorkingSchedule` nhiều interval/ngày, exception/holiday/OOO
+- [x] ADR-0023 được chấp nhận để khóa WorkingSchedule/free-busy/RSVP authority mà không
+      đổi ADR-0020 khỏi `Proposed`; Calendar sở hữu schedule/projection/ranking, source
+      domain sở hữu session/series/occurrence audience và business lifecycle.
+- [x] Contract hard cap đã chốt: availability tối đa 31 ngày/50 participant, duration
+      15–480 phút, step 15/30/60, trả 20 candidate, đánh giá 2.000 start/deadline 250 ms;
+      audience tối đa 128 recipient; WorkingSchedule tối đa 8 interval/ngày và 366
+      exception.
+- [x] Rollout contract tái sử dụng `class_session_scheduling` và
+      `FEATURE_CONTROL_DISABLE_CLASS_SESSION_SCHEDULING`; không thêm feature key mới.
+- [x] Migration/OpenAPI cho `WorkingSchedule` nhiều interval/ngày, exception/holiday/OOO
       và IANA timezone; validate overlap, range và optimistic version. Display preference
       đã thuộc P3-02A, không tạo model preference trùng ở task này.
 - [ ] Attendee/audience có organizer, required/optional/internal/external, roster/manual
       source, show-as/visibility, guest permission và invitation snapshot theo ADR-0020.
 - [ ] Audience update tính added/removed/unchanged/role-change; RSVP retain/reset,
       organizer disable/transfer và class archive policy không do worker tự suy.
-- [ ] Free/busy endpoint trả canonical status
+- [x] Free/busy endpoint trả canonical status
       `free/tentative/busy/out_of_office/unknown`; không trả title, description,
       class/file/roster detail và không coi external/no-sync là free.
-- [ ] Suggested-time dùng total-order tuple đã khóa, bounded range/participant/step/
+- [x] Suggested-time dùng total-order tuple đã khóa, bounded range/participant/step/
       candidate cap và DST grid policy; response có reason breakdown/empty reason ổn định.
 - [ ] Scheduling Assistant hiển thị working hours, unknown, dual timezone, conflict reason
       và keyboard/screen-reader equivalent; không truyền nghĩa chỉ bằng heatmap color.
@@ -551,6 +560,13 @@ bộ đáng tin cậy; P3-05A chỉ phân phối email/ICS, không sở hữu bu
       task này; không chờ P3-13.
 - [ ] Unit/integration/E2E bao phủ unknown vs busy ordering, DST gap/overlap, working-hour
       exception, concurrent RSVP, audience diff và cross-tenant/cross-class authorization.
+
+**Implementation checkpoint 2026-07-28:** migration `000020`, typed OpenAPI client,
+working-hours UI, authenticated HTTP handlers và PostgreSQL repository cho `WorkingSchedule`
+và availability đã có local test coverage. Execution budget 250 ms áp dụng end-to-end;
+candidate grid vượt 2.000 trả `429`, không cắt im lặng. Chưa chạy migration/ACL trên Neon
+và không đánh dấu `DONE` trước attendee/audience command, RSVP domain/API/UI, Scheduling
+Assistant và các acceptance tests còn lại.
 
 ### P3-02D Native Availability Poll và Study Meeting
 

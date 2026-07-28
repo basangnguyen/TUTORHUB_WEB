@@ -26,7 +26,9 @@ import {
 import { CalendarSidebar } from "../features/calendar/CalendarSidebar";
 import { CalendarSurface } from "../features/calendar/CalendarSurface";
 import type { CalendarRescheduleInput } from "../features/calendar/FullCalendarProjection";
+import { SessionDetailDrawer } from "../features/calendar/SessionDetailDrawer";
 import { CalendarToolbar } from "../features/calendar/CalendarToolbar";
+import { WorkingScheduleDrawer } from "../features/calendar/WorkingScheduleDrawer";
 import {
   calendarRangeForView,
   calendarRangeTitle,
@@ -45,7 +47,9 @@ import {
 import {
   useCalendarDisplayPreference,
   useCalendarItems,
+  useCalendarWorkingSchedule,
   useUpdateCalendarDisplayPreference,
+  useUpdateCalendarWorkingSchedule,
 } from "../features/calendar/queries";
 import {
   calendarRouteSearch,
@@ -149,6 +153,45 @@ function CalendarPreferencesController({
   );
 }
 
+interface WorkingScheduleControllerProps {
+  onOpenChange: (open: boolean) => void;
+  open: boolean;
+  tenantID: string | undefined;
+  userID: string | undefined;
+}
+
+function WorkingScheduleController({
+  onOpenChange,
+  open,
+  tenantID,
+  userID,
+}: WorkingScheduleControllerProps) {
+  const scheduleQuery = useCalendarWorkingSchedule(tenantID, userID, open);
+  const updateSchedule = useUpdateCalendarWorkingSchedule(tenantID, userID);
+
+  return (
+    <WorkingScheduleDrawer
+      error={updateSchedule.error ?? scheduleQuery.error}
+      loading={scheduleQuery.isPending || scheduleQuery.isFetching}
+      onOpenChange={(nextOpen) => {
+        onOpenChange(nextOpen);
+        if (!nextOpen && !updateSchedule.isPending) {
+          updateSchedule.reset();
+        }
+      }}
+      onReload={async () => {
+        const result = await scheduleQuery.refetch();
+        updateSchedule.reset();
+        return result.data;
+      }}
+      onSave={(input) => updateSchedule.save(input)}
+      open={open}
+      pending={updateSchedule.isPending}
+      schedule={scheduleQuery.data}
+    />
+  );
+}
+
 export function CalendarPage() {
   const { language, t } = useI18n();
   const session = useSession();
@@ -156,10 +199,15 @@ export function CalendarPage() {
   const [preferencesPrincipal, setPreferencesPrincipal] = useState<
     string | null
   >(null);
+  const [workingSchedulePrincipal, setWorkingSchedulePrincipal] = useState<
+    string | null
+  >(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<CalendarItemViewModel | null>(
     null,
   );
+  const [selectedItem, setSelectedItem] =
+    useState<CalendarItemViewModel | null>(null);
   const [recurringScopeRequest, setRecurringScopeRequest] =
     useState<RecurringScopeRequest | null>(null);
   const online = useOnlineStatus();
@@ -168,6 +216,7 @@ export function CalendarPage() {
   const userID = session.currentUser?.user.id;
   const principalKey = `${tenantID ?? "inactive"}:${userID ?? "anonymous"}`;
   const preferencesOpen = preferencesPrincipal === principalKey;
+  const workingScheduleOpen = workingSchedulePrincipal === principalKey;
   const userTimezone =
     session.currentUser?.user.timezone ||
     Intl.DateTimeFormat().resolvedOptions().timeZone ||
@@ -322,6 +371,9 @@ export function CalendarPage() {
               })
             }
             onOpenPreferences={() => setPreferencesPrincipal(principalKey)}
+            onOpenWorkingSchedule={() =>
+              setWorkingSchedulePrincipal(principalKey)
+            }
             onPrevious={() =>
               navigate({
                 ...routeState,
@@ -338,6 +390,7 @@ export function CalendarPage() {
             preferencesDisabled={!preferenceQuery.isSuccess}
             rangeTitle={rangeTitle}
             view={routeState.view}
+            workingScheduleDisabled={!tenantID || !userID}
           />
 
           {items.length > 0 &&
@@ -457,7 +510,7 @@ export function CalendarPage() {
                   date={routeState.date}
                   items={items}
                   locale={preference.locale}
-                  onEditItem={setEditingItem}
+                  onOpenItem={setSelectedItem}
                   onReschedule={rescheduleSession}
                   preference={preference}
                   view={routeState.view}
@@ -494,6 +547,25 @@ export function CalendarPage() {
         preferenceQuery={preferenceQuery}
         tenantID={tenantID}
         userID={userID}
+      />
+      <WorkingScheduleController
+        key={`working-schedule:${principalKey}`}
+        onOpenChange={(open) => {
+          setWorkingSchedulePrincipal(open ? principalKey : null);
+        }}
+        open={workingScheduleOpen}
+        tenantID={tenantID}
+        userID={userID}
+      />
+      <SessionDetailDrawer
+        hourCycle={preference.hourCycle}
+        item={selectedItem}
+        locale={preference.locale}
+        onClose={() => setSelectedItem(null)}
+        onEdit={(item) => {
+          setSelectedItem(null);
+          setEditingItem(item);
+        }}
       />
       <CalendarQuickCreate
         onOpenChange={setCreateOpen}

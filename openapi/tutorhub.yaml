@@ -918,6 +918,162 @@ paths:
           $ref: "#/components/responses/ProblemResponse"
         default:
           $ref: "#/components/responses/ProblemResponse"
+  /api/v1/calendar/working-schedule:
+    get:
+      operationId: getCalendarWorkingSchedule
+      summary: Return the effective working schedule for the current user and tenant
+      description: |
+        Returns the authenticated user's override or the effective tenant default.
+        Version zero with source tenant_default means no user override is stored.
+        Detailed working intervals are self-scoped and are not a general free/busy API.
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: X-TutorHub-Expected-Tenant-ID
+          in: header
+          required: true
+          description: Client cache-scope assertion; authorization still comes only from the server-side active session.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Effective self-scoped working schedule
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: private, no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalendarWorkingSchedule"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+    put:
+      operationId: updateCalendarWorkingSchedule
+      summary: Replace the current user's working schedule using optimistic concurrency
+      description: |
+        Stores one full user override. Weekly and special-hours intervals use local civil
+        HH:mm values in the supplied IANA timezone. The server validates the eight-per-day
+        interval cap, 366-exception cap, overlap, range, timezone, and expected version.
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+        - name: X-TutorHub-Expected-Tenant-ID
+          in: header
+          required: true
+          description: Client cache-scope assertion; authorization still comes only from the server-side active session.
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCalendarWorkingScheduleRequest"
+      responses:
+        "200":
+          description: Updated user working-schedule override
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: private, no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalendarWorkingSchedule"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "429":
+          $ref: "#/components/responses/ProblemResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/calendar/availability/query:
+    post:
+      operationId: queryCalendarAvailability
+      summary: Return privacy-filtered attendee availability and deterministic suggested times
+      description: |
+        Evaluates at most 31 days, 50 distinct required/optional participants, 2,000
+        candidate starts, and 20 returned candidates within a 250 ms execution budget.
+        Participant rows contain only canonical status/range and working intervals; they
+        never contain source event title, description, class, file, or roster detail.
+        An external guest or an allowlisted participant without synchronized data is
+        returned as unknown, never free. Ranking and conflict authority remain server-side.
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+        - name: X-TutorHub-Expected-Tenant-ID
+          in: header
+          required: true
+          description: Client cache-scope assertion; authorization still comes only from the server-side active session.
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CalendarAvailabilityQueryRequest"
+      responses:
+        "200":
+          description: Privacy-filtered availability rows and server-ranked suggestions
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: private, no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalendarAvailabilityQueryResponse"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "429":
+          $ref: "#/components/responses/ProblemResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
   /api/v1/notification-preferences:
     get:
       operationId: getNotificationPreference
@@ -4030,6 +4186,363 @@ components:
           type: integer
           format: int64
           minimum: 0
+    CalendarWeekday:
+      type: string
+      enum: [monday, tuesday, wednesday, thursday, friday, saturday, sunday]
+    CalendarCivilTimeInterval:
+      type: object
+      additionalProperties: false
+      required: [starts_at, ends_at]
+      properties:
+        starts_at:
+          type: string
+          pattern: "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"
+          description: Inclusive local civil start in HH:mm form.
+        ends_at:
+          type: string
+          pattern: "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"
+          description: Exclusive local civil end in HH:mm form; it must be after starts_at on the same day.
+    CalendarWeeklyWorkingInterval:
+      type: object
+      additionalProperties: false
+      required: [weekday, starts_at, ends_at]
+      properties:
+        weekday:
+          $ref: "#/components/schemas/CalendarWeekday"
+        starts_at:
+          type: string
+          pattern: "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"
+          description: Inclusive local civil start in HH:mm form.
+        ends_at:
+          type: string
+          pattern: "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"
+          description: Exclusive local civil end in HH:mm form; it must be after starts_at on the same day.
+    CalendarClosedWorkingScheduleException:
+      type: object
+      additionalProperties: false
+      required: [date, kind, intervals]
+      properties:
+        date:
+          type: string
+          format: date
+        kind:
+          type: string
+          enum: [holiday, out_of_office]
+        intervals:
+          type: array
+          maxItems: 0
+          items:
+            $ref: "#/components/schemas/CalendarCivilTimeInterval"
+          description: Closed-day exceptions must contain an empty interval array.
+    CalendarSpecialHoursWorkingScheduleException:
+      type: object
+      additionalProperties: false
+      required: [date, kind, intervals]
+      properties:
+        date:
+          type: string
+          format: date
+        kind:
+          type: string
+          const: special_hours
+        intervals:
+          type: array
+          minItems: 1
+          maxItems: 8
+          items:
+            $ref: "#/components/schemas/CalendarCivilTimeInterval"
+          description: Full replacement for the weekly intervals on this local date; intervals must not overlap.
+    CalendarWorkingScheduleException:
+      oneOf:
+        - $ref: "#/components/schemas/CalendarClosedWorkingScheduleException"
+        - $ref: "#/components/schemas/CalendarSpecialHoursWorkingScheduleException"
+    CalendarWorkingScheduleSource:
+      type: string
+      enum: [tenant_default, user_override]
+    CalendarWorkingSchedule:
+      type: object
+      additionalProperties: false
+      required:
+        - timezone
+        - weekly_intervals
+        - exceptions
+        - source
+        - version
+        - updated_at
+      properties:
+        timezone:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: Valid canonical IANA timezone.
+        weekly_intervals:
+          type: array
+          maxItems: 56
+          items:
+            $ref: "#/components/schemas/CalendarWeeklyWorkingInterval"
+          description: At most eight non-overlapping half-open intervals per weekday.
+        exceptions:
+          type: array
+          maxItems: 366
+          items:
+            $ref: "#/components/schemas/CalendarWorkingScheduleException"
+        source:
+          $ref: "#/components/schemas/CalendarWorkingScheduleSource"
+        version:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Version zero with tenant_default means no user override is stored.
+        updated_at:
+          type: string
+          format: date-time
+    UpdateCalendarWorkingScheduleRequest:
+      type: object
+      additionalProperties: false
+      required: [timezone, weekly_intervals, exceptions, expected_version]
+      properties:
+        timezone:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: Valid canonical IANA timezone.
+        weekly_intervals:
+          type: array
+          maxItems: 56
+          items:
+            $ref: "#/components/schemas/CalendarWeeklyWorkingInterval"
+          description: At most eight non-overlapping half-open intervals per weekday.
+        exceptions:
+          type: array
+          maxItems: 366
+          items:
+            $ref: "#/components/schemas/CalendarWorkingScheduleException"
+        expected_version:
+          type: integer
+          format: int64
+          minimum: 0
+    CalendarAvailabilityParticipantKind:
+      type: string
+      enum: [internal_user, external_guest]
+    CalendarAvailabilityParticipantReference:
+      type: object
+      additionalProperties: false
+      required: [kind, id]
+      properties:
+        kind:
+          $ref: "#/components/schemas/CalendarAvailabilityParticipantKind"
+        id:
+          type: string
+          format: uuid
+          description: Same-tenant user ID or a server-issued opaque external-guest ID; it is never a raw email address.
+    CalendarAvailabilityQueryRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - class_id
+        - from
+        - to
+        - timezone
+        - duration_minutes
+        - step_minutes
+        - required
+        - optional
+      properties:
+        class_id:
+          type: string
+          format: uuid
+          description: Authoritative same-tenant class scope; inaccessible IDs are concealed as not found.
+        from:
+          type: string
+          format: date-time
+        to:
+          type: string
+          format: date-time
+          description: Exclusive range end. The range must be positive and no longer than 31 days.
+        timezone:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: IANA timezone used to construct the civil candidate grid.
+        duration_minutes:
+          type: integer
+          minimum: 15
+          maximum: 480
+        step_minutes:
+          type: integer
+          enum: [15, 30, 60]
+        max_candidates:
+          type: integer
+          minimum: 1
+          maximum: 20
+          default: 10
+        required:
+          type: array
+          maxItems: 50
+          uniqueItems: true
+          items:
+            $ref: "#/components/schemas/CalendarAvailabilityParticipantReference"
+        optional:
+          type: array
+          maxItems: 50
+          uniqueItems: true
+          items:
+            $ref: "#/components/schemas/CalendarAvailabilityParticipantReference"
+      description: |
+        Required and optional together must contain between 1 and 50 distinct references.
+        A reference must not appear in both arrays. The server evaluates at most 2,000
+        civil candidate starts within a 250 ms execution budget.
+    CalendarAvailabilityStatus:
+      type: string
+      enum: [free, tentative, busy, out_of_office, unknown]
+    CalendarAvailabilityStatusInterval:
+      type: object
+      additionalProperties: false
+      required: [starts_at, ends_at, status]
+      properties:
+        starts_at:
+          type: string
+          format: date-time
+        ends_at:
+          type: string
+          format: date-time
+        status:
+          $ref: "#/components/schemas/CalendarAvailabilityStatus"
+      description: Privacy-filtered half-open status interval with no source event detail.
+    CalendarAvailabilityWorkingInterval:
+      type: object
+      additionalProperties: false
+      required: [starts_at, ends_at]
+      properties:
+        starts_at:
+          type: string
+          format: date-time
+        ends_at:
+          type: string
+          format: date-time
+      description: Privacy-filtered half-open working interval in the requested range.
+    CalendarAvailabilityParticipationRole:
+      type: string
+      enum: [required, optional]
+    CalendarParticipantAvailability:
+      type: object
+      additionalProperties: false
+      required: [participant, role, intervals, working_intervals]
+      properties:
+        participant:
+          $ref: "#/components/schemas/CalendarAvailabilityParticipantReference"
+        role:
+          $ref: "#/components/schemas/CalendarAvailabilityParticipationRole"
+        intervals:
+          type: array
+          maxItems: 2000
+          items:
+            $ref: "#/components/schemas/CalendarAvailabilityStatusInterval"
+          description: Status-only intervals. External/no-sync participants cover the query range as unknown.
+        working_intervals:
+          type: array
+          maxItems: 248
+          items:
+            $ref: "#/components/schemas/CalendarAvailabilityWorkingInterval"
+    CalendarSuggestedTimeReasonBreakdown:
+      type: object
+      additionalProperties: false
+      required:
+        - required_out_of_office
+        - required_busy
+        - required_unknown
+        - required_tentative
+        - required_outside_working
+        - optional_out_of_office
+        - optional_busy
+        - optional_unknown
+        - optional_tentative
+        - optional_outside_working
+      properties:
+        required_out_of_office:
+          type: integer
+          minimum: 0
+          maximum: 50
+        required_busy:
+          type: integer
+          minimum: 0
+          maximum: 50
+        required_unknown:
+          type: integer
+          minimum: 0
+          maximum: 50
+        required_tentative:
+          type: integer
+          minimum: 0
+          maximum: 50
+        required_outside_working:
+          type: integer
+          minimum: 0
+          maximum: 50
+        optional_out_of_office:
+          type: integer
+          minimum: 0
+          maximum: 50
+        optional_busy:
+          type: integer
+          minimum: 0
+          maximum: 50
+        optional_unknown:
+          type: integer
+          minimum: 0
+          maximum: 50
+        optional_tentative:
+          type: integer
+          minimum: 0
+          maximum: 50
+        optional_outside_working:
+          type: integer
+          minimum: 0
+          maximum: 50
+      description: Lexicographic sort tuple prefix; lower values rank first.
+    CalendarSuggestedTime:
+      type: object
+      additionalProperties: false
+      required: [starts_at, ends_at, stable_slot_key, reason_breakdown]
+      properties:
+        starts_at:
+          type: string
+          format: date-time
+        ends_at:
+          type: string
+          format: date-time
+        stable_slot_key:
+          type: string
+          pattern: "^slot_[a-f0-9]{24}$"
+        reason_breakdown:
+          $ref: "#/components/schemas/CalendarSuggestedTimeReasonBreakdown"
+    CalendarAvailabilityEmptySuggestionsReason:
+      type: string
+      enum: [no_valid_civil_slots]
+    CalendarAvailabilityQueryResponse:
+      type: object
+      additionalProperties: false
+      required: [timezone, participants, suggestions, empty_suggestions_reason]
+      properties:
+        timezone:
+          type: string
+          minLength: 1
+          maxLength: 100
+        participants:
+          type: array
+          minItems: 1
+          maxItems: 50
+          items:
+            $ref: "#/components/schemas/CalendarParticipantAvailability"
+        suggestions:
+          type: array
+          maxItems: 20
+          items:
+            $ref: "#/components/schemas/CalendarSuggestedTime"
+        empty_suggestions_reason:
+          oneOf:
+            - $ref: "#/components/schemas/CalendarAvailabilityEmptySuggestionsReason"
+            - type: "null"
     ClassSessionStatus:
       type: string
       description: P3-01 exposes only the one-time scheduled-to-cancelled lifecycle.

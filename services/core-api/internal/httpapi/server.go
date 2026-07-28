@@ -33,6 +33,7 @@ type Options struct {
 	ClassSessions         classroom.SessionServiceAPI
 	ClassSessionSeries    classroom.SessionSeriesServiceAPI
 	Calendar              calendar.ServiceAPI
+	CalendarScheduling    calendar.SchedulingServiceAPI
 	Enrollment            classroom.EnrollmentServiceAPI
 	Audit                 audit.ServiceAPI
 	FeatureControls       featurecontrol.ServiceAPI
@@ -123,6 +124,11 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 	featureControls := newFeatureControlHandlers(logger, auth, options.FeatureControls)
 	notifications := newNotificationHandlers(logger, auth, options.Notifications)
 	calendarHandlers := newCalendarHandlers(logger, auth, options.Calendar)
+	calendarScheduling := newCalendarSchedulingHandlers(
+		logger,
+		auth,
+		options.CalendarScheduling,
+	)
 	mux.Handle(
 		tenantCapabilitiesPattern,
 		featureControlResponseHeaders(
@@ -180,6 +186,14 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 	mux.Handle(
 		calendarPreferencePath,
 		calendarResponseHeaders(http.HandlerFunc(calendarHandlers.preference)),
+	)
+	mux.Handle(
+		calendarWorkingSchedulePath,
+		calendarScheduling.workingScheduleHandler(),
+	)
+	mux.Handle(
+		calendarAvailabilityQueryPath,
+		calendarScheduling.availabilityQueryHandler(),
 	)
 	mux.Handle(
 		membershipInvitationsAdminCollectionPattern,

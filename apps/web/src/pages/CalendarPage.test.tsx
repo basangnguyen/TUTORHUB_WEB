@@ -479,7 +479,13 @@ describe("CalendarPage", () => {
     renderCalendar(fetchMock);
 
     await screen.findByRole("heading", { name: item.title });
-    fireEvent.click(screen.getByRole("button", { name: "Edit session" }));
+    fireEvent.click(screen.getByRole("button", { name: "View details" }));
+    const detailDrawer = await screen.findByRole("dialog", {
+      name: item.title,
+    });
+    fireEvent.click(
+      within(detailDrawer).getByRole("button", { name: "Edit session" }),
+    );
     await screen.findByRole("textbox", { name: "Session title" });
     const dialog = screen.getByRole("dialog", { name: "Edit session" });
     fireEvent.change(
@@ -506,6 +512,54 @@ describe("CalendarPage", () => {
       expected_version: item.version,
       title: "Updated linear algebra",
     });
+  });
+
+  it("opens projection details for a read-only calendar item", async () => {
+    const readOnlyItem: CalendarItem = {
+      ...item,
+      viewer_capabilities: {
+        can_cancel: false,
+        can_edit: false,
+        can_reschedule: false,
+        can_view: true,
+      },
+    };
+    const requests: Request[] = [];
+    const fetchMock = vi.fn().mockImplementation((request: Request) => {
+      requests.push(request);
+      const url = new URL(request.url);
+      if (url.pathname.endsWith("/api/v1/calendar/preferences/display")) {
+        return Promise.resolve(jsonResponse(preference));
+      }
+      if (url.pathname.endsWith("/api/v1/calendar/items")) {
+        return Promise.resolve(
+          jsonResponse({ items: [readOnlyItem], next_cursor: null }),
+        );
+      }
+      return Promise.reject(new Error(`Unexpected request: ${request.url}`));
+    });
+    renderCalendar(fetchMock);
+
+    await screen.findByRole("heading", { name: readOnlyItem.title });
+    fireEvent.click(screen.getByRole("button", { name: "View details" }));
+
+    const detailDrawer = await screen.findByRole("dialog", {
+      name: readOnlyItem.title,
+    });
+    expect(
+      within(detailDrawer).getByText(readOnlyItem.class_title),
+    ).toBeVisible();
+    expect(within(detailDrawer).getByText("Scheduled")).toBeVisible();
+    expect(
+      within(detailDrawer).queryByRole("button", { name: "Edit session" }),
+    ).not.toBeInTheDocument();
+    expect(
+      requests.some((request) =>
+        new URL(request.url).pathname.endsWith(
+          `/api/v1/classes/${classID}/sessions/${item.source_id}`,
+        ),
+      ),
+    ).toBe(false);
   });
 
   it("warns when cached calendar items are displayed while offline", async () => {

@@ -2,6 +2,7 @@ import { Button, IconButton, Select } from "@tutorhub/ui";
 import {
   ChevronLeft,
   ChevronRight,
+  Clock3,
   Plus,
   SlidersHorizontal,
 } from "lucide-react";
@@ -20,9 +21,11 @@ interface CalendarToolbarProps {
   rangeTitle: string;
   view: CalendarView;
   preferencesDisabled?: boolean;
+  workingScheduleDisabled?: boolean;
   onNext: () => void;
   onCreateSession: () => void;
   onOpenPreferences: () => void;
+  onOpenWorkingSchedule: () => void;
   onPrevious: () => void;
   onToday: () => void;
   onViewChange: (view: CalendarView) => void;
@@ -32,10 +35,12 @@ export function CalendarToolbar({
   onCreateSession,
   onNext,
   onOpenPreferences,
+  onOpenWorkingSchedule,
   onPrevious,
   onToday,
   onViewChange,
   preferencesDisabled = false,
+  workingScheduleDisabled = false,
   rangeTitle,
   view,
 }: CalendarToolbarProps) {
@@ -100,6 +105,15 @@ export function CalendarToolbar({
             value={view}
           />
         </div>
+        <Button
+          disabled={workingScheduleDisabled}
+          leadingIcon={<Clock3 />}
+          onClick={onOpenWorkingSchedule}
+          size="sm"
+          variant="secondary"
+        >
+          {t("calendar.workingSchedule.action")}
+        </Button>
         <Button
           disabled={preferencesDisabled}
           leadingIcon={<SlidersHorizontal />}

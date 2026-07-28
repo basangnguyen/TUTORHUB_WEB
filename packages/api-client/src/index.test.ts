@@ -14,6 +14,7 @@ import {
   createMembershipInvitation,
   createTenant,
   getCalendarDisplayPreference,
+  getCalendarWorkingSchedule,
   getClass,
   getClassSession,
   getCurrentUser,
@@ -42,6 +43,7 @@ import {
   markNotificationRead,
   recordClassMediaEvent,
   previewMembershipInvitation,
+  queryCalendarAvailability,
   removeClassEnrollment,
   restoreClass,
   revokeClassInviteCode,
@@ -53,6 +55,7 @@ import {
   unlinkIdentity,
   updateClass,
   updateCalendarDisplayPreference,
+  updateCalendarWorkingSchedule,
   updateClassSession,
   updateClassRosterRole,
   updateProfile,
@@ -61,8 +64,11 @@ import {
   updateTenantFeatureControls,
 } from "./index";
 import type {
+  CalendarAvailabilityQueryRequest,
+  CalendarAvailabilityQueryResponse,
   CalendarDisplayPreference,
   CalendarItem,
+  CalendarWorkingSchedule,
   ClassEnrollment,
   ClassInviteCode,
   ClassSession,
@@ -73,6 +79,7 @@ import type {
   TenantCapabilities,
   UpdateNotificationPreferenceRequest,
   UpdateCalendarDisplayPreferenceRequest,
+  UpdateCalendarWorkingScheduleRequest,
   UpdateClassRequest,
   UpdateClassSessionRequest,
   UpdateTenantFeatureControlsRequest,
@@ -220,6 +227,166 @@ describe("calendar API client", () => {
     expect(requests[0]?.headers.get("X-CSRF-Token")).toBeNull();
     expect(requests[1]?.headers.get("X-CSRF-Token")).toBe("calendar-csrf");
     await expect(requests[1]?.clone().json()).resolves.toEqual(input);
+  });
+
+  it("binds working schedules and privacy-filtered availability to tenant and CSRF scope", async () => {
+    const tenantID = "4b18543a-74de-419f-9fe8-d0c3dfc991eb";
+    const schedule: CalendarWorkingSchedule = {
+      timezone: "Asia/Ho_Chi_Minh",
+      weekly_intervals: [
+        { weekday: "monday", starts_at: "08:00", ends_at: "17:00" },
+      ],
+      exceptions: [{ date: "2026-09-02", kind: "holiday", intervals: [] }],
+      source: "user_override",
+      version: 2,
+      updated_at: "2026-07-28T08:00:00Z",
+    };
+    const scheduleInput: UpdateCalendarWorkingScheduleRequest = {
+      timezone: schedule.timezone,
+      weekly_intervals: [
+        { weekday: "monday", starts_at: "08:30", ends_at: "17:30" },
+      ],
+      exceptions: schedule.exceptions,
+      expected_version: schedule.version,
+    };
+    const updatedSchedule: CalendarWorkingSchedule = {
+      timezone: scheduleInput.timezone,
+      weekly_intervals: scheduleInput.weekly_intervals,
+      exceptions: scheduleInput.exceptions,
+      source: "user_override",
+      version: 3,
+      updated_at: "2026-07-28T08:01:00Z",
+    };
+    const availabilityInput: CalendarAvailabilityQueryRequest = {
+      class_id: "1dcf37ff-4450-49ff-90aa-74dfbd551da2",
+      from: "2026-07-29T00:00:00Z",
+      to: "2026-07-30T00:00:00Z",
+      timezone: "Asia/Ho_Chi_Minh",
+      duration_minutes: 60,
+      step_minutes: 30,
+      max_candidates: 10,
+      required: [
+        {
+          kind: "internal_user",
+          id: "a9082628-f44c-4ec1-982c-e7745a1cba80",
+        },
+      ],
+      optional: [
+        {
+          kind: "external_guest",
+          id: "e870c07a-2bd1-45f0-b6ab-75a91cfe35fe",
+        },
+      ],
+    };
+    const availability: CalendarAvailabilityQueryResponse = {
+      timezone: availabilityInput.timezone,
+      participants: [
+        {
+          participant: availabilityInput.required[0]!,
+          role: "required",
+          intervals: [
+            {
+              starts_at: availabilityInput.from,
+              ends_at: availabilityInput.to,
+              status: "free",
+            },
+          ],
+          working_intervals: [
+            {
+              starts_at: "2026-07-29T01:00:00Z",
+              ends_at: "2026-07-29T10:00:00Z",
+            },
+          ],
+        },
+        {
+          participant: availabilityInput.optional[0]!,
+          role: "optional",
+          intervals: [
+            {
+              starts_at: availabilityInput.from,
+              ends_at: availabilityInput.to,
+              status: "unknown",
+            },
+          ],
+          working_intervals: [],
+        },
+      ],
+      suggestions: [
+        {
+          starts_at: "2026-07-29T01:00:00Z",
+          ends_at: "2026-07-29T02:00:00Z",
+          stable_slot_key: "2026-07-29T08:00:00+07:00/PT60M",
+          reason_breakdown: {
+            required_busy: 0,
+            required_out_of_office: 0,
+            required_outside_working: 0,
+            required_tentative: 0,
+            required_unknown: 0,
+            optional_busy: 0,
+            optional_out_of_office: 0,
+            optional_outside_working: 0,
+            optional_tentative: 0,
+            optional_unknown: 1,
+          },
+        },
+      ],
+      empty_suggestions_reason: null,
+    };
+    const responses = [schedule, updatedSchedule, availability].map(
+      (body) =>
+        new Response(JSON.stringify(body), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+    );
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(() => Promise.resolve(responses.shift()));
+    const options = { baseUrl: "http://localhost/api", fetch: fetchMock };
+
+    await expect(
+      getCalendarWorkingSchedule(tenantID, options),
+    ).resolves.toEqual(schedule);
+    await expect(
+      updateCalendarWorkingSchedule(
+        tenantID,
+        scheduleInput,
+        "working-schedule-csrf",
+        options,
+      ),
+    ).resolves.toEqual(updatedSchedule);
+    await expect(
+      queryCalendarAvailability(
+        tenantID,
+        availabilityInput,
+        "availability-csrf",
+        options,
+      ),
+    ).resolves.toEqual(availability);
+
+    const requests = fetchMock.mock.calls.map((call) => call[0] as Request);
+    expect(requests.map((request) => request.method)).toEqual([
+      "GET",
+      "PUT",
+      "POST",
+    ]);
+    expect(requests.map((request) => request.url)).toEqual([
+      "http://localhost/api/v1/calendar/working-schedule",
+      "http://localhost/api/v1/calendar/working-schedule",
+      "http://localhost/api/v1/calendar/availability/query",
+    ]);
+    expect(
+      requests.map((request) =>
+        request.headers.get("X-TutorHub-Expected-Tenant-ID"),
+      ),
+    ).toEqual([tenantID, tenantID, tenantID]);
+    expect(
+      requests.map((request) => request.headers.get("X-CSRF-Token")),
+    ).toEqual([null, "working-schedule-csrf", "availability-csrf"]);
+    await expect(requests[1]?.clone().json()).resolves.toEqual(scheduleInput);
+    await expect(requests[2]?.clone().json()).resolves.toEqual(
+      availabilityInput,
+    );
   });
 });
 
