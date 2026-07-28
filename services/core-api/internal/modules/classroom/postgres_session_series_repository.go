@@ -987,6 +987,10 @@ const selectClassSessionSeriesSQL = `SELECT
     series.created_at, series.updated_at
 FROM tutorhub.class_session_series AS series`
 
+const loadSeriesMutationReceiptSQL = `SELECT request_fingerprint, operation, result_series_id
+FROM tutorhub.class_session_mutation_receipts
+WHERE tenant_id = $1 AND idempotency_key = $2`
+
 func lockClassSessionSeries(
 	ctx context.Context,
 	transaction pgx.Tx,
@@ -1385,10 +1389,10 @@ func loadSeriesMutationReceipt(
 	var resultSeriesID uuid.UUID
 	err := transaction.QueryRow(
 		ctx,
-		`SELECT request_fingerprint, operation, result_series_id
-FROM tutorhub.class_session_mutation_receipts
-WHERE tenant_id = $1 AND idempotency_key = $2
-FOR UPDATE`,
+		// mutateSeries already locks the target series row. The receipt primary key
+		// serializes cross-series key collisions, so this read must remain compatible
+		// with the append-only runtime role (SELECT + INSERT, without UPDATE).
+		loadSeriesMutationReceiptSQL,
 		tenantID, idempotencyKey,
 	).Scan(&storedFingerprint, &storedOperation, &resultSeriesID)
 	if errors.Is(err, pgx.ErrNoRows) {
