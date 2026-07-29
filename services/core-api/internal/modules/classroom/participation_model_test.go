@@ -84,6 +84,13 @@ func TestReplaceAudienceInputRejectsInvalidOrConflictingAudience(t *testing.T) {
 			},
 		},
 		{
+			name: "postgres text NUL",
+			input: ReplaceAudienceInput{
+				ExpectedAudienceRevision: 0,
+				IdempotencyKey:           "audience\x00replace-0002",
+			},
+		},
+		{
 			name: "nil user",
 			input: ReplaceAudienceInput{
 				ExpectedAudienceRevision: 0,

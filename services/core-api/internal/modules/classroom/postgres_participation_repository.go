@@ -1162,7 +1162,7 @@ func lockParticipationIdempotency(
 	tenantID uuid.UUID,
 	idempotencyKey string,
 ) error {
-	lockKey := tenantID.String() + "\x00" + idempotencyKey
+	lockKey := participationIdempotencyAdvisoryLockKey(tenantID, idempotencyKey)
 	if _, err := transaction.Exec(
 		ctx,
 		`SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0))`,
@@ -1171,6 +1171,19 @@ func lockParticipationIdempotency(
 		return fmt.Errorf("lock session participation idempotency key: %w", err)
 	}
 	return nil
+}
+
+func participationIdempotencyAdvisoryLockKey(
+	tenantID uuid.UUID,
+	idempotencyKey string,
+) string {
+	const namespace = "tutorhub:calendar:participation:idempotency:v1"
+	payload := make([]byte, 0, len(namespace)+len(tenantID)+len(idempotencyKey))
+	payload = append(payload, namespace...)
+	payload = append(payload, tenantID[:]...)
+	payload = append(payload, idempotencyKey...)
+	digest := sha256.Sum256(payload)
+	return hex.EncodeToString(digest[:])
 }
 
 func findParticipationReplay(

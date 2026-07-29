@@ -452,7 +452,8 @@ func normalizeInternalAudienceAttendees(
 
 func normalizeParticipationIdempotencyKey(value string) (string, error) {
 	key := strings.TrimSpace(value)
-	if !utf8.ValidString(key) ||
+	if strings.ContainsRune(key, '\x00') ||
+		!utf8.ValidString(key) ||
 		utf8.RuneCountInString(key) < minimumParticipationIdempotencyKey ||
 		utf8.RuneCountInString(key) > maximumParticipationIdempotencyKey {
 		return "", fmt.Errorf(
