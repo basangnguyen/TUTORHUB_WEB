@@ -231,13 +231,19 @@ Chạy trên commit cần nghiệm thu:
 
 ```powershell
 corepack pnpm verify
-corepack pnpm test:integration
+corepack pnpm e2e:calendar
 ```
 
-Ghi kết quả vào bảng cuối tài liệu. `corepack pnpm e2e:calendar` hiện chỉ là
-regression của calendar shell/P3-02A; nó **không** thay thế scenario browser
-P3-02C. Cho đến khi scenario P3-02C được nối vào Playwright, phải chạy checklist
-UI staging thủ công trong tài liệu này và giữ trạng thái `VERIFY`.
+Chỉ chạy `corepack pnpm test:integration` với PostgreSQL **disposable/local** có tên database
+dành cho test. Không chạy integration suite có mutation hoặc migration `down` trên shared
+staging. Với shared staging, dùng migration version/ACL probe ở trên và các smoke test có
+phạm vi được kiểm soát ở phần dưới.
+
+Ghi kết quả vào bảng cuối tài liệu. `corepack pnpm e2e:calendar` bao gồm regression
+P3-02C cho working schedule CAS/exception, Scheduling Assistant privacy reason,
+internal RSVP `409` focus recovery và public RSVP fragment scrubbing/explicit confirm.
+Mock E2E này không thay thế live staging: vẫn phải chạy checklist UI/authorization,
+public capability và NVDA trên deployment đúng commit.
 
 ## API và authorization smoke
 
@@ -308,10 +314,36 @@ Checklist:
 - [ ] Sau audience remove, organizer transfer, cancel hoặc archive, capability cũ
       không còn dùng được.
 
-Hiện API chưa có authenticated capability-issuance endpoint dành cho người dùng;
-P3-05A sẽ tạo delivery link. Nếu không có fixture/tool server-side kiểm soát để
-phát hành capability khi nghiệm thu, đánh dấu gate này `BLOCKED/NOT RUN`, không
-tự tạo token bằng SQL và chưa chuyển P3-02C sang `DONE`.
+API không mở capability-issuance endpoint cho người dùng; P3-05A mới tạo delivery
+link trong luồng business. Riêng nghiệm thu staging dùng binary kiểm soát trong
+container Core API và tuyệt đối không tự tạo token bằng SQL:
+
+```sh
+P3_02C_STAGING_FIXTURE_ENABLED=true /app/tutorhub-calendar-rsvp-fixture \
+  --tenant-id <staging-tenant-uuid> \
+  --actor-id <authorized-teacher-or-admin-uuid> \
+  --class-id <staging-class-uuid> \
+  --invitation-revision-id <immutable-revision-uuid> \
+  --invitation-recipient-id <external-recipient-uuid> \
+  --confirm ISSUE-P3-02C-STAGING-CAPABILITIES
+```
+
+Guard vận hành:
+
+- chỉ chạy trong Render Shell của deployment staging với `APP_ENV=staging`; binary
+  từ chối development/test/production, mặc định vẫn bất hoạt nếu thiếu opt-in tạm thời
+  `P3_02C_STAGING_FIXTURE_ENABLED=true`, và không đọc file `.env*.local`;
+- actor, tenant, class, revision và recipient phải là fixture staging do operator
+  kiểm soát; role của actor được đọc từ active membership trong database (không nhận
+  role từ cờ CLI), rồi service vẫn authorize `session.schedule` và feature control;
+- lệnh chỉ in đúng một link `/calendar/respond#resolve_token=...&respond_token=...`
+  lên stdout sau khi cả hai capability được phát hành; database chỉ giữ digest;
+- copy link trực tiếp sang cửa sổ nghiệm thu. Không paste link/token vào chat, tài liệu,
+  screenshot, command history, ticket, log hoặc artifact;
+- nếu lệnh lỗi, stdout không chứa link. Có thể chạy lại với cùng source IDs: issuance
+  mới rotate capability cùng purpose; raw token của lượt lỗi không thể khôi phục;
+- sau nghiệm thu phải kiểm tra remove/transfer/cancel/archive revoke link cũ và không
+  ghi link thật vào bảng bằng chứng. Chỉ ghi `PASS/FAIL`, UTC, commit và mã lỗi an toàn.
 
 ## Organizer, cancellation và archive
 

@@ -6,12 +6,17 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"net"
+	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/tutorhub-v2/core-api/migrations"
 )
 
 func TestUpPinsMigrationHistoryToPublicSchema(t *testing.T) {
@@ -30,7 +35,8 @@ func TestUpPinsMigrationHistoryToPublicSchema(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read migration version: %v", err)
 	}
-	if version.Number != 15 || version.Dirty {
+	latestVersion := latestEmbeddedMigrationVersion(t)
+	if version.Number != latestVersion || version.Dirty {
 		t.Fatalf("unexpected migration version: %+v", version)
 	}
 
@@ -121,6 +127,65 @@ func TestUpPinsMigrationHistoryToPublicSchema(t *testing.T) {
 	}
 	assertOutboxWorkerSchema(t, ctx, database, true)
 	assertOutboxWriterCompatibility(t, ctx, database)
+}
+
+func TestOutboxWorkerMigrationRollbackGuardAndCompatibility(t *testing.T) {
+	databaseURL := strings.TrimSpace(os.Getenv("DATABASE_MIGRATION_URL"))
+	if databaseURL == "" {
+		t.Fatal("DATABASE_MIGRATION_URL is required for integration tests")
+	}
+	requireDisposableMigrationDatabase(t, databaseURL)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+
+	if err := Up(ctx, databaseURL); err != nil {
+		t.Fatalf("apply migrations before destructive compatibility test: %v", err)
+	}
+	latestVersion := latestEmbeddedMigrationVersion(t)
+	if latestVersion <= outboxWorkerMigrationVersion {
+		t.Fatalf(
+			"latest migration version %d must be newer than outbox worker migration %d",
+			latestVersion,
+			outboxWorkerMigrationVersion,
+		)
+	}
+
+	t.Cleanup(func() {
+		cleanupContext, cleanupCancel := context.WithTimeout(context.Background(), 90*time.Second)
+		defer cleanupCancel()
+		if err := Up(cleanupContext, databaseURL); err != nil {
+			t.Errorf("restore latest migrations after destructive compatibility test: %v", err)
+		}
+	})
+
+	if err := Down(
+		ctx,
+		databaseURL,
+		int(latestVersion-outboxWorkerMigrationVersion),
+	); err != nil {
+		t.Fatalf(
+			"roll back latest migrations to outbox worker migration %d: %v",
+			outboxWorkerMigrationVersion,
+			err,
+		)
+	}
+	version, err := CurrentVersion(ctx, databaseURL)
+	if err != nil {
+		t.Fatalf("read outbox worker migration version: %v", err)
+	}
+	if version.Number != outboxWorkerMigrationVersion || version.Dirty {
+		t.Fatalf("unexpected outbox worker migration version: %+v", version)
+	}
+
+	database, err := sql.Open("pgx", databaseURL)
+	if err != nil {
+		t.Fatalf("open migration database: %v", err)
+	}
+	defer database.Close()
+
+	assertOutboxWorkerSchema(t, ctx, database, true)
+	assertOutboxWriterCompatibility(t, ctx, database)
 	blockedRollbackEventID := insertBlockedOutboxRollbackFixture(t, ctx, database)
 	if err := Down(ctx, databaseURL, 1); !errors.Is(err, ErrOutboxWorkerRollbackBlocked) {
 		t.Fatalf("guarded outbox worker rollback error = %v", err)
@@ -129,7 +194,7 @@ func TestUpPinsMigrationHistoryToPublicSchema(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read version after guarded rollback: %v", err)
 	}
-	if guardedVersion.Number != 15 || guardedVersion.Dirty {
+	if guardedVersion.Number != outboxWorkerMigrationVersion || guardedVersion.Dirty {
 		t.Fatalf("guarded rollback dirtied migration history: %+v", guardedVersion)
 	}
 
@@ -148,7 +213,7 @@ func TestUpPinsMigrationHistoryToPublicSchema(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read rolled-back migration version: %v", err)
 	}
-	if rolledBackVersion.Number != 14 || rolledBackVersion.Dirty {
+	if rolledBackVersion.Number != outboxWorkerMigrationVersion-1 || rolledBackVersion.Dirty {
 		t.Fatalf("unexpected rolled-back migration version: %+v", rolledBackVersion)
 	}
 	assertLegacyImportTables(t, ctx, database, true)
@@ -156,14 +221,15 @@ func TestUpPinsMigrationHistoryToPublicSchema(t *testing.T) {
 	assertOutboxWorkerSchema(t, ctx, database, false)
 	legacyOutboxEventID := insertLegacyOutboxError(t, ctx, database)
 
-	if err := Up(ctx, databaseURL); err != nil {
+	if err := migrateToVersion(ctx, databaseURL, outboxWorkerMigrationVersion); err != nil {
 		t.Fatalf("reapply outbox worker migration over legacy error text: %v", err)
 	}
 	legacyReappliedVersion, err := CurrentVersion(ctx, databaseURL)
 	if err != nil {
 		t.Fatalf("read legacy-error reapplied migration version: %v", err)
 	}
-	if legacyReappliedVersion.Number != 15 || legacyReappliedVersion.Dirty {
+	if legacyReappliedVersion.Number != outboxWorkerMigrationVersion ||
+		legacyReappliedVersion.Dirty {
 		t.Fatalf("unexpected legacy-error reapplied version: %+v", legacyReappliedVersion)
 	}
 	assertLegacyOutboxErrorRedacted(t, ctx, database, legacyOutboxEventID)
@@ -182,7 +248,7 @@ func TestUpPinsMigrationHistoryToPublicSchema(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read post-legacy-check migration version: %v", err)
 	}
-	if legacyCheckVersion.Number != 14 || legacyCheckVersion.Dirty {
+	if legacyCheckVersion.Number != outboxWorkerMigrationVersion-1 || legacyCheckVersion.Dirty {
 		t.Fatalf("unexpected post-legacy-check migration version: %+v", legacyCheckVersion)
 	}
 	assertOutboxWorkerSchema(t, ctx, database, false)
@@ -194,7 +260,8 @@ func TestUpPinsMigrationHistoryToPublicSchema(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read class-session rolled-back migration version: %v", err)
 	}
-	if classSessionRolledBackVersion.Number != 13 || classSessionRolledBackVersion.Dirty {
+	if classSessionRolledBackVersion.Number != outboxWorkerMigrationVersion-2 ||
+		classSessionRolledBackVersion.Dirty {
 		t.Fatalf(
 			"unexpected class-session rolled-back migration version: %+v",
 			classSessionRolledBackVersion,
@@ -211,13 +278,75 @@ func TestUpPinsMigrationHistoryToPublicSchema(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read reapplied migration version: %v", err)
 	}
-	if reappliedVersion.Number != 15 || reappliedVersion.Dirty {
+	if reappliedVersion.Number != latestVersion || reappliedVersion.Dirty {
 		t.Fatalf("unexpected reapplied migration version: %+v", reappliedVersion)
 	}
 	assertLegacyImportTables(t, ctx, database, true)
 	assertClassSessionTable(t, ctx, database, true)
 	assertOutboxWorkerSchema(t, ctx, database, true)
 	assertOutboxWriterCompatibility(t, ctx, database)
+}
+
+func latestEmbeddedMigrationVersion(t *testing.T) uint {
+	t.Helper()
+
+	entries, err := migrations.Files.ReadDir(".")
+	if err != nil {
+		t.Fatalf("read embedded migrations: %v", err)
+	}
+
+	var latest uint64
+	for _, entry := range entries {
+		name := entry.Name()
+		if entry.IsDir() || !strings.HasSuffix(name, ".up.sql") {
+			continue
+		}
+		versionText, _, found := strings.Cut(name, "_")
+		if !found {
+			t.Fatalf("migration filename has no version prefix: %q", name)
+		}
+		version, err := strconv.ParseUint(versionText, 10, 32)
+		if err != nil {
+			t.Fatalf("parse migration version from %q: %v", name, err)
+		}
+		if version > latest {
+			latest = version
+		}
+	}
+	if latest == 0 {
+		t.Fatal("no embedded up migrations found")
+	}
+	return uint(latest)
+}
+
+func requireDisposableMigrationDatabase(t *testing.T, databaseURL string) {
+	t.Helper()
+
+	parsed, err := url.Parse(databaseURL)
+	if err != nil {
+		t.Fatalf("parse DATABASE_MIGRATION_URL for destructive-test safety: %v", err)
+	}
+	host := strings.ToLower(parsed.Hostname())
+	ip := net.ParseIP(host)
+	isLoopback := host == "localhost" || (ip != nil && ip.IsLoopback())
+	databaseName := strings.ToLower(strings.Trim(parsed.Path, "/"))
+	isTestDatabase := databaseName == "test" ||
+		strings.HasPrefix(databaseName, "test_") ||
+		strings.HasSuffix(databaseName, "_test") ||
+		strings.Contains(databaseName, "_test_")
+	if !isLoopback || !isTestDatabase {
+		t.Skipf(
+			"destructive migration compatibility test requires a loopback disposable test database; host=%q database=%q",
+			host,
+			databaseName,
+		)
+	}
+}
+
+func migrateToVersion(ctx context.Context, databaseURL string, version uint) error {
+	return execute(ctx, databaseURL, func(instance *migrate.Migrate, _ *sql.DB) error {
+		return instance.Migrate(version)
+	})
 }
 
 func insertBlockedOutboxRollbackFixture(

@@ -25,6 +25,50 @@ const schedule: CalendarWorkingSchedule = {
 describe("WorkingScheduleDrawer", () => {
   afterEach(cleanup);
 
+  it("initializes the form when the schedule arrives after opening", async () => {
+    const onSave = vi.fn();
+    const { rerender } = render(
+      <I18nProvider initialLanguage="en">
+        <WorkingScheduleDrawer
+          error={null}
+          loading
+          onOpenChange={vi.fn()}
+          onReload={vi.fn()}
+          onSave={onSave}
+          open
+          pending={false}
+          schedule={undefined}
+        />
+      </I18nProvider>,
+    );
+
+    expect(screen.getByText("Loading working hours...")).toBeVisible();
+
+    rerender(
+      <I18nProvider initialLanguage="en">
+        <WorkingScheduleDrawer
+          error={null}
+          loading={false}
+          onOpenChange={vi.fn()}
+          onReload={vi.fn()}
+          onSave={onSave}
+          open
+          pending={false}
+          schedule={schedule}
+        />
+      </I18nProvider>,
+    );
+
+    expect(await screen.findByLabelText("Working-hours timezone")).toHaveValue(
+      "Asia/Ho_Chi_Minh",
+    );
+    expect(
+      within(screen.getByRole("group", { name: "Monday" })).getAllByLabelText(
+        "Monday Starts",
+      ),
+    ).toHaveLength(2);
+  });
+
   it("submits a full CAS replacement with multiple intervals", async () => {
     const onSave = vi.fn().mockResolvedValue({ ...schedule, version: 5 });
     render(

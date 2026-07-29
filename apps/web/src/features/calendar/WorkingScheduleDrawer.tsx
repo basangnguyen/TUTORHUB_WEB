@@ -168,6 +168,7 @@ export function WorkingScheduleDrawer({
 }: WorkingScheduleDrawerProps) {
   const { t } = useI18n();
   const latestSchedule = useRef(schedule);
+  const draftInitializedForOpen = useRef(false);
   const [draft, setDraft] = useState<WorkingScheduleDraft | null>(() =>
     schedule ? toDraft(schedule) : null,
   );
@@ -181,12 +182,18 @@ export function WorkingScheduleDrawer({
   }, [schedule]);
 
   useEffect(() => {
-    if (open) {
-      setDraft(latestSchedule.current ? toDraft(latestSchedule.current) : null);
-      setSubmitted(false);
-      setSaved(false);
+    if (!open) {
+      draftInitializedForOpen.current = false;
+      return;
     }
-  }, [open]);
+    if (draftInitializedForOpen.current) return;
+
+    const currentSchedule = latestSchedule.current;
+    setDraft(currentSchedule ? toDraft(currentSchedule) : null);
+    setSubmitted(false);
+    setSaved(false);
+    draftInitializedForOpen.current = currentSchedule !== undefined;
+  }, [open, schedule]);
 
   const updateInterval = (
     weekday: Weekday,
