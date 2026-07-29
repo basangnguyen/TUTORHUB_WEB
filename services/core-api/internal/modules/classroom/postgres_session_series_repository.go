@@ -578,7 +578,20 @@ func (repository *PostgresRepository) mutateOneOccurrence(
 		Reason:           params.ScheduleConflictReason,
 	}
 	_, exception.OriginalOffset = occurrence.StartsAt.In(mustLocation(series.Timezone)).Zone()
+	var cancellationSource lockedTypedParticipationSource
 	if cancelMutation {
+		var err error
+		cancellationSource, err = repository.lockTypedParticipationSource(
+			ctx,
+			transaction,
+			series.TenantID,
+			series.ClassID,
+			OccurrenceParticipationSource(series.ID, occurrence.Key),
+			true,
+		)
+		if err != nil {
+			return ClassSessionSeries{}, err
+		}
 		exception.Type = recurrence.ExceptionCancel
 	} else {
 		exception.Type = recurrence.ExceptionOverride
@@ -611,6 +624,32 @@ func (repository *PostgresRepository) mutateOneOccurrence(
 	if err != nil {
 		return ClassSessionSeries{}, err
 	}
+	if cancelMutation {
+		if err := repository.insertTypedCancellationSnapshot(
+			ctx,
+			transaction,
+			tenantContext,
+			cancellationSource,
+			result.Version,
+			nextCancellationSequence(cancellationSource.Sequence, result.Sequence),
+			updatedAt,
+			"occurrence_cancelled",
+		); err != nil {
+			return ClassSessionSeries{}, err
+		}
+		if err := closeParticipationForSource(
+			ctx,
+			transaction,
+			series.TenantID,
+			series.ClassID,
+			OccurrenceParticipationSource(series.ID, occurrence.Key),
+			tenantContext.ActorID,
+			updatedAt,
+			"occurrence_cancelled",
+		); err != nil {
+			return ClassSessionSeries{}, err
+		}
+	}
 	eventType := "class_session_occurrence.updated.v1"
 	if cancelMutation {
 		eventType = "class_session_occurrence.cancelled.v1"
@@ -636,8 +675,13 @@ func (repository *PostgresRepository) mutateEntireSeries(
 	cancelMutation bool,
 ) (ClassSessionSeries, error) {
 	if cancelMutation {
-		result, err := cancelClassSessionSeries(
-			ctx, transaction, series, tenantContext.ActorID, updatedAt,
+		result, err := repository.cancelSeriesWithParticipationSnapshot(
+			ctx,
+			transaction,
+			tenantContext,
+			series,
+			updatedAt,
+			"series_cancelled",
 		)
 		if err != nil {
 			return ClassSessionSeries{}, err
@@ -710,10 +754,42 @@ func (repository *PostgresRepository) mutateFollowingOccurrences(
 		var result ClassSessionSeries
 		var err error
 		if boundaryIndex == 0 {
-			result, err = cancelClassSessionSeries(
-				ctx, transaction, series, tenantContext.ActorID, updatedAt,
+			result, err = repository.cancelSeriesWithParticipationSnapshot(
+				ctx,
+				transaction,
+				tenantContext,
+				series,
+				updatedAt,
+				"series_following_cancelled",
 			)
 		} else {
+			master, lockErr := repository.lockTypedParticipationSource(
+				ctx,
+				transaction,
+				series.TenantID,
+				series.ClassID,
+				SeriesParticipationSource(series.ID),
+				true,
+			)
+			if lockErr != nil {
+				return ClassSessionSeries{}, lockErr
+			}
+			occurrenceKeys := make([]string, 0, len(occurrences)-boundaryIndex)
+			for _, occurrence := range occurrences[boundaryIndex:] {
+				occurrenceKeys = append(occurrenceKeys, occurrence.Key)
+			}
+			occurrenceSources, captureErr :=
+				repository.captureActiveOccurrenceCancellationSources(
+					ctx,
+					transaction,
+					series.TenantID,
+					series.ClassID,
+					series.ID,
+					occurrenceKeys,
+				)
+			if captureErr != nil {
+				return ClassSessionSeries{}, captureErr
+			}
 			result = series
 			result.Rule.End = recurrence.End{
 				Type: recurrence.EndAfterCount, Count: boundaryIndex,
@@ -724,9 +800,40 @@ func (repository *PostgresRepository) mutateFollowingOccurrences(
 					ctx, transaction, result, tenantContext.ActorID, updatedAt,
 				)
 			}
+			if err == nil {
+				err = repository.snapshotFollowingCancellation(
+					ctx,
+					transaction,
+					tenantContext,
+					master,
+					occurrenceSources,
+					result,
+					updatedAt,
+					"series_following_cancelled",
+				)
+			}
 		}
 		if err != nil {
 			return ClassSessionSeries{}, err
+		}
+		if boundaryIndex > 0 {
+			occurrenceKeys := make([]string, 0, len(occurrences)-boundaryIndex)
+			for _, occurrence := range occurrences[boundaryIndex:] {
+				occurrenceKeys = append(occurrenceKeys, occurrence.Key)
+			}
+			if err := closeParticipationForSeriesOccurrenceKeys(
+				ctx,
+				transaction,
+				series.TenantID,
+				series.ClassID,
+				series.ID,
+				occurrenceKeys,
+				tenantContext.ActorID,
+				updatedAt,
+				"series_following_cancelled",
+			); err != nil {
+				return ClassSessionSeries{}, err
+			}
 		}
 		if err := insertClassSessionSeriesEvent(
 			ctx, transaction, result, tenantContext.ActorID,
@@ -781,7 +888,12 @@ func (repository *PostgresRepository) mutateFollowingOccurrences(
 
 	if boundaryIndex == 0 {
 		if _, err := cancelClassSessionSeries(
-			ctx, transaction, series, tenantContext.ActorID, updatedAt,
+			ctx,
+			transaction,
+			series,
+			tenantContext.ActorID,
+			updatedAt,
+			"series_split",
 		); err != nil {
 			return ClassSessionSeries{}, err
 		}
@@ -1191,8 +1303,21 @@ func cancelClassSessionSeries(
 	series ClassSessionSeries,
 	actorID uuid.UUID,
 	cancelledAt time.Time,
+	reason string,
 ) (ClassSessionSeries, error) {
 	if series.Status == SeriesStatusCancelled {
+		if err := closeParticipationForSource(
+			ctx,
+			transaction,
+			series.TenantID,
+			series.ClassID,
+			SeriesParticipationSource(series.ID),
+			actorID,
+			cancelledAt,
+			reason,
+		); err != nil {
+			return ClassSessionSeries{}, err
+		}
 		return series, nil
 	}
 	result, err := scanClassSessionSeries(transaction.QueryRow(
@@ -1214,7 +1339,22 @@ RETURNING
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ClassSessionSeries{}, ErrSeriesVersionConflict
 	}
-	return result, err
+	if err != nil {
+		return ClassSessionSeries{}, err
+	}
+	if err := closeParticipationForSource(
+		ctx,
+		transaction,
+		series.TenantID,
+		series.ClassID,
+		SeriesParticipationSource(series.ID),
+		actorID,
+		cancelledAt,
+		reason,
+	); err != nil {
+		return ClassSessionSeries{}, err
+	}
+	return result, nil
 }
 
 func listSeriesExceptions(

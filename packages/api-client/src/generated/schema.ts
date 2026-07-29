@@ -97,6 +97,51 @@ export type paths = {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/api/v1/calendar/invitations/resolve": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Resolve the minimum public projection for an external invitation
+     * @description Exchanges a purpose-bound resolve capability sent in the JSON body.
+     *     Unknown, malformed, expired, revoked, superseded and closed
+     *     capabilities deliberately return the same generic response. Tokens
+     *     must never be placed in a query string.
+     */
+    readonly post: operations["resolveExternalCalendarRSVP"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/calendar/invitations/respond": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Record an external attendee RSVP through a respond capability
+     * @description Mutates only the attendee bound to the purpose-specific capability.
+     *     Browser requests must originate from TutorHub's configured public web
+     *     origin and carry attendee-version CAS plus an idempotency key.
+     */
+    readonly post: operations["respondExternalCalendarRSVP"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/api/v1/calendar/items": {
     readonly parameters: {
       readonly query?: never;
@@ -592,6 +637,28 @@ export type paths = {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/api/v1/classes/{class_id}/session-series/{series_id}/organizer": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Transfer a recurring series to another eligible organizer
+     * @description Transfers organizer authority for the series master. Occurrence-level
+     *     organizer transfer is intentionally unsupported; callers must transfer
+     *     the authoritative series.
+     */
+    readonly post: operations["transferClassSessionSeriesOrganizer"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/api/v1/classes/{class_id}/session-series/{series_id}/preview": {
     readonly parameters: {
       readonly query?: never;
@@ -712,6 +779,28 @@ export type paths = {
     readonly put?: never;
     /** Idempotently cancel one scheduled class session */
     readonly post: operations["cancelClassSession"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/classes/{class_id}/sessions/{session_id}/organizer": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Transfer a one-time session to another eligible organizer
+     * @description Transfers organizer authority with source-version CAS and idempotency.
+     *     The replacement organizer must still be an active eligible class member
+     *     when the transaction commits. External guests can never be organizers.
+     */
+    readonly post: operations["transferClassSessionOrganizer"];
     readonly delete?: never;
     readonly options?: never;
     readonly head?: never;
@@ -1925,6 +2014,26 @@ export type components = {
     readonly CSRFResponse: {
       readonly csrf_token: string;
     };
+    readonly ExternalCalendarRSVPMutationResponse: {
+      readonly projection: components["schemas"]["ExternalCalendarRSVPProjection"];
+      readonly replayed: boolean;
+    };
+    readonly ExternalCalendarRSVPProjection: {
+      /** Format: int64 */
+      readonly attendee_version: number;
+      /** Format: date-time */
+      readonly capability_expires_at: string;
+      /** Format: date-time */
+      readonly ends_at: string;
+      /** Format: int64 */
+      readonly invitation_sequence: number;
+      readonly response_requested: boolean;
+      readonly rsvp_state: components["schemas"]["SessionRSVPState"];
+      /** Format: date-time */
+      readonly starts_at: string;
+      readonly timezone: string;
+      readonly title: string;
+    };
     readonly ExternalIdentity: {
       /** Format: date-time */
       readonly created_at: string;
@@ -2186,17 +2295,42 @@ export type components = {
       /** Format: uuid */
       readonly user_id: string;
     };
+    readonly ReplaceSessionAudienceExternalAttendeeRequest: {
+      readonly display_name: string;
+      /** Format: email */
+      readonly email: string;
+      /** @enum {string} */
+      readonly locale: "vi-VN" | "en-US";
+      readonly participation_role: components["schemas"]["SessionParticipationRole"];
+      readonly viewer_timezone: string;
+    };
     readonly ReplaceSessionAudienceRequest: {
-      /** @description Full replacement; at most 128 distinct internal users are accepted. */
+      /** @description Internal portion of the full replacement. */
       readonly attendees: readonly components["schemas"]["ReplaceSessionAudienceAttendeeRequest"][];
       /** Format: int64 */
       readonly expected_audience_revision: number;
+      /**
+       * @description Optional external portion of the full replacement. Internal and
+       *     external attendees share one hard cap of 128 recipients.
+       */
+      readonly external_attendees?: readonly components["schemas"]["ReplaceSessionAudienceExternalAttendeeRequest"][];
       readonly idempotency_key: string;
       readonly response_requested: boolean;
     };
     readonly ReplaceSessionAudienceResponse: {
       readonly audience: components["schemas"]["SessionAudience"];
       readonly replayed: boolean;
+    };
+    readonly ResolveExternalCalendarRSVPRequest: {
+      readonly token: string;
+    };
+    readonly RespondExternalCalendarRSVPRequest: {
+      /** Format: int64 */
+      readonly expected_attendee_version: number;
+      readonly idempotency_key: string;
+      readonly note?: string;
+      readonly state: components["schemas"]["SessionSelfRSVPState"];
+      readonly token: string;
     };
     readonly RespondToClassSessionRequest: {
       /** Format: int64 */
@@ -2213,6 +2347,12 @@ export type components = {
       readonly attendees: readonly components["schemas"]["SessionAudienceAttendee"][];
       /** Format: int64 */
       readonly audience_revision: number;
+      /**
+       * @description Manager-only external-recipient projection. It is always empty for
+       *     ordinary participants, regardless of guest-list visibility, so a
+       *     delivery address is never disclosed to another attendee.
+       */
+      readonly external_attendees: readonly components["schemas"]["SessionAudienceExternalAttendee"][];
       readonly response_requested: boolean;
       readonly viewer_access: components["schemas"]["SessionAudienceViewerAccess"];
     };
@@ -2236,14 +2376,29 @@ export type components = {
       /** Format: int64 */
       readonly version: number;
     };
+    readonly SessionAudienceExternalAttendee: {
+      readonly display_name: string;
+      /** Format: email */
+      readonly email: string;
+      /** Format: uuid */
+      readonly id: string;
+      /** @enum {string} */
+      readonly locale: "vi-VN" | "en-US";
+      readonly participation_role: components["schemas"]["SessionParticipationRole"];
+      readonly responded_at: string | null;
+      readonly rsvp_state: components["schemas"]["SessionRSVPState"];
+      /** Format: int64 */
+      readonly version: number;
+      /** @description Canonical IANA timezone used when rendering invitations. */
+      readonly viewer_timezone: string;
+    };
     readonly SessionAudienceViewerAccess: {
       readonly can_manage_attendees: boolean;
       readonly can_respond: boolean;
       readonly can_see_guest_list: boolean;
     };
     /**
-     * @description Server-resolved role from active class membership. External recipient
-     *     roles are intentionally absent from the P3-02C internal audience API.
+     * @description Server-resolved role from active class membership.
      * @enum {string}
      */
     readonly SessionParticipationBusinessRole:
@@ -2354,6 +2509,21 @@ export type components = {
       readonly expected_version: number;
       /** Format: uuid */
       readonly new_owner_user_id: string;
+    };
+    readonly TransferSessionOrganizerRequest: {
+      /** Format: int64 */
+      readonly expected_source_version: number;
+      readonly idempotency_key: string;
+      /** Format: uuid */
+      readonly new_organizer_user_id: string;
+    };
+    readonly TransferSessionOrganizerResponse: {
+      readonly audience: components["schemas"]["SessionAudience"];
+      /** Format: uuid */
+      readonly organizer_user_id: string;
+      readonly replayed: boolean;
+      /** Format: int64 */
+      readonly source_version: number;
     };
     readonly UpdateCalendarDisplayPreferenceRequest: {
       /** @enum {string} */
@@ -2627,6 +2797,66 @@ export interface operations {
       };
       readonly 400: components["responses"]["ProblemResponse"];
       readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 429: components["responses"]["ProblemResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly resolveExternalCalendarRSVP: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["ResolveExternalCalendarRSVPRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Privacy-minimized event and RSVP projection */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ExternalCalendarRSVPProjection"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 429: components["responses"]["ProblemResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly respondExternalCalendarRSVP: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["RespondExternalCalendarRSVPRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Current projection after response or idempotent replay */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ExternalCalendarRSVPMutationResponse"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
       readonly 403: components["responses"]["ForbiddenResponse"];
       readonly 404: components["responses"]["NotFoundResponse"];
       readonly 409: components["responses"]["ConflictResponse"];
@@ -3723,6 +3953,43 @@ export interface operations {
       readonly default: components["responses"]["ProblemResponse"];
     };
   };
+  readonly transferClassSessionSeriesOrganizer: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly "X-CSRF-Token": string;
+        readonly "X-TutorHub-Expected-Tenant-ID": string;
+      };
+      readonly path: {
+        readonly class_id: string;
+        readonly series_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["TransferSessionOrganizerRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Current organizer and audience after transfer or replay */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["TransferSessionOrganizerResponse"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
   readonly previewClassSessionSeriesMutation: {
     readonly parameters: {
       readonly query?: never;
@@ -4024,6 +4291,43 @@ export interface operations {
       readonly 403: components["responses"]["ForbiddenResponse"];
       readonly 404: components["responses"]["NotFoundResponse"];
       readonly 409: components["responses"]["ConflictResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly transferClassSessionOrganizer: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly "X-CSRF-Token": string;
+        readonly "X-TutorHub-Expected-Tenant-ID": string;
+      };
+      readonly path: {
+        readonly class_id: string;
+        readonly session_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["TransferSessionOrganizerRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Current organizer and audience after transfer or replay */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["TransferSessionOrganizerResponse"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
       readonly default: components["responses"]["ProblemResponse"];
     };
   };

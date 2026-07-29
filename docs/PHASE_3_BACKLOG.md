@@ -89,7 +89,7 @@ P3-03B đạt; hai gate P3-04 tiếp tục giữ `false` cho tới acceptance.
 | P3-CAL-02  | Invitation/RSVP/iCalendar/AWS SES + ADR-0020   | P3-CAL-01, P3-01                | VERIFY     |
 | P3-02A     | Professional Calendar shell/read projection    | P3-01, P3-CAL-01                | DONE       |
 | P3-02B     | Recurrence + class conflict                    | P3-02A, ADR-0019                | DONE       |
-| P3-02C     | Working hours/attendee/free-busy/RSVP          | P3-02A, P3-CAL-02, ADR-0023     | IN PROGRESS |
+| P3-02C     | Working hours/attendee/free-busy/RSVP          | P3-02A, P3-CAL-02, ADR-0023     | VERIFY     |
 | P3-02D     | Native Availability Poll + Study Meeting       | P3-02B, P3-02C, P3-03, ADR-0021 | TODO       |
 | P3-03      | PostgreSQL outbox worker production shape      | P3-01                           | VERIFY     |
 | P3-04      | In-app notification và preference              | P3-03A; P3-03B trước activation | VERIFY     |
@@ -542,9 +542,12 @@ bộ đáng tin cậy; P3-05A chỉ phân phối email/ICS, không sở hữu bu
 - [x] Internal attendee/audience có organizer, required/optional, roster/manual source,
       show-as/visibility, guest permission và invitation snapshot theo ADR-0020; typed
       series/occurrence dùng inherited revision `0` và copy-on-write revision `1`.
-- [ ] External attendee/capability và guest delivery policy theo ADR-0020.
-- [ ] Audience update tính added/removed/unchanged/role-change; RSVP retain/reset,
-      organizer disable/transfer và class archive policy không do worker tự suy.
+- [x] External attendee và purpose-bound RSVP capability theo ADR-0020 đã có local
+      implementation; raw token không nằm trong URL/query/log và email/ICS delivery vẫn
+      thuộc P3-05A.
+- [x] Audience update tính deterministic added/removed/unchanged/role-change và RSVP
+      retain/reset; organizer transfer cùng cancel close/revoke/snapshot do source domain
+      quyết định, worker không tự suy business lifecycle.
 - [x] Free/busy endpoint trả canonical status
       `free/tentative/busy/out_of_office/unknown`; không trả title, description,
       class/file/roster detail và không coi external/no-sync là free.
@@ -554,14 +557,17 @@ bộ đáng tin cậy; P3-05A chỉ phân phối email/ICS, không sở hữu bu
       và keyboard/screen-reader equivalent; không truyền nghĩa chỉ bằng heatmap color.
 - [x] Internal RSVP `needs_action/accepted/tentative/declined` là domain/API/UI source of
       truth, có expected version/idempotency, organizer summary và không cập nhật attendance.
-- [ ] External response đi qua purpose-bound capability hash/expiry/revoke/rate limit;
+- [x] External response đi qua purpose-bound capability hash/expiry/revoke/rate limit;
       CTA chỉ gọi command RSVP này. Native email reply không được hứa nếu chưa có parser.
-- [ ] Teacher/organizer/resource conflict authority và privacy matrix được test riêng;
-      participant thường không được đọc lịch riêng hay guest list ngoài quyền.
-- [ ] Source flag/cap/kill switch, audience/fan-out max và tenant policy enforcement có từ
+- [x] Teacher/organizer/resource conflict authority và privacy projection có local test;
+      participant thường không được đọc lịch riêng hay external guest list ngoài quyền.
+- [x] Source flag/cap/kill switch, audience/fan-out max và tenant policy enforcement có từ
       task này; không chờ P3-13.
-- [ ] Unit/integration/E2E bao phủ unknown vs busy ordering, DST gap/overlap, working-hour
-      exception, concurrent RSVP, audience diff và cross-tenant/cross-class authorization.
+- [x] Unit/HTTP/UI và integration-tag compile bao phủ unknown vs busy ordering, DST
+      gap/overlap, working-hour exception, audience diff, capability security và privacy
+      projection.
+- [ ] Neon migration `000020/000021`, exact runtime ACL, concurrent RSVP,
+      cross-tenant/cross-class authorization và browser/live E2E acceptance đạt.
 
 **Implementation checkpoint 2026-07-28:** migration `000020`, typed OpenAPI client,
 working-hours UI, authenticated HTTP handlers và PostgreSQL repository cho `WorkingSchedule`
@@ -587,6 +593,18 @@ outbox domain fact. Local gates xanh: `go test ./... -count=1`, integration-tag 
 10 web tests, 25 API-client tests, web lint/typecheck và Vite build. Chưa chạy live migration/
 ACL/Neon staging; external guest/capability, audience diff semantics, organizer transfer/archive,
 full concurrency/IDOR/E2E acceptance vẫn mở nên P3-02C vẫn `IN PROGRESS`.
+
+**Implementation checkpoint 2026-07-29 (local completion):** external audience được bảo
+vệ khi lưu và chỉ project chi tiết cho manager; public RSVP dùng capability hash-at-rest,
+expiry/revoke/rate limit, POST body và generic error/secure-cache headers. Audience diff
+đã phân loại added/removed/unchanged/role-change cùng RSVP retain/reset; organizer
+transfer giữ source authority. Cancel session/series/occurrence đóng response, revoke
+capability, tăng sequence và giữ immutable cancellation invitation snapshot để P3-05A
+phân phối sau này. OpenAPI/generated client, Core API và web có focused local coverage.
+P3-02C chuyển `IN PROGRESS -> VERIFY`, không chuyển `DONE`: Neon staging vẫn được xác
+nhận gần nhất ở `19 false`; migration source `000020/000021`, exact runtime ACL,
+concurrent/IDOR và browser/live E2E theo
+[`P3_02C_STAGING_ACCEPTANCE.md`](P3_02C_STAGING_ACCEPTANCE.md) vẫn `NOT RUN`.
 
 ### P3-02D Native Availability Poll và Study Meeting
 

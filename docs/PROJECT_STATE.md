@@ -14,8 +14,8 @@
 | Phase hiện tại      | Phase 3 - Daily learning workspace                                                   |
 | Task `DONE` gần nhất | P3-02B Recurrence + class conflict                                                   |
 | Mốc repository mới | P3-02B PostgreSQL acceptance tại commit `734d2b6`                                    |
-| Task hiện tại       | P3-02C `IN PROGRESS`; P3-03/P3-04/P3-CAL-02 vẫn `VERIFY`                            |
-| Task tiếp theo      | P3-02C Working hours/attendee/free-busy/RSVP                                        |
+| Task hiện tại       | P3-02C `VERIFY`; P3-03/P3-04/P3-CAL-02 vẫn `VERIFY`                                 |
+| Task tiếp theo      | P3-02C Neon migration/ACL và staging/live acceptance                                |
 
 ## Kiến trúc đang chạy
 
@@ -510,6 +510,17 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
     integration-tag compile, 10 web tests, 25 API-client tests, lint/typecheck và Vite build
     đều xanh. P3-02C vẫn `IN PROGRESS` vì external guest/capability, diff/lifecycle policy,
     full concurrency/IDOR/E2E và Neon migration `000020/000021` + ACL/staging acceptance còn lại.
+35. P3-02C đạt local implementation gate và chuyển `IN PROGRESS -> VERIFY` ngày
+    2026-07-29. OpenAPI/generated client, Core API và web đã nối external audience,
+    purpose-bound RSVP capability hash/expiry/revoke/rate limit, public RSVP chỉ nhận
+    capability trong POST body và privacy-safe projection. Audience replacement có
+    deterministic added/removed/unchanged/role-change cùng RSVP retain/reset; organizer
+    transfer giữ source authority; cancel session/series/occurrence đóng response,
+    revoke capability và giữ immutable cancellation invitation snapshot. Focused HTTP,
+    domain, PostgreSQL integration-tag compile và web/API-client coverage đã có ở local.
+    Trạng thái chỉ là `VERIFY`: source mới nhất là migration `000021`, nhưng Neon staging
+    được xác nhận gần nhất vẫn `19 false`; migration `000020/000021`, exact runtime ACL,
+    concurrent/IDOR, public RSVP và browser/live E2E chưa được chạy trên staging.
 
 ## Rủi ro đã biết
 
@@ -518,9 +529,11 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
   durable worker hoặc Phase 4 media lifecycle.
 - ADR-0019 đã chấp nhận decision dùng FullCalendar v7 và recurrence bounded; manual NVDA
   đã PASS. P3-02A shell/read projection và P3-02B recurrence/class conflict đã `DONE`.
-  P3-02C đã có working-hours/free-busy và internal attendee/RSVP slice local, gồm typed
-  series/occurrence copy-on-write; external capability, lifecycle, full authorization/E2E
-  và staging acceptance chưa hoàn thành nên không được coi là Calendar professional core.
+  P3-02C đã đạt local implementation gate cho working-hours/free-busy, internal/external
+  audience, typed series/occurrence copy-on-write, organizer transfer, cancellation
+  lifecycle và internal/public RSVP. Migration `000020/000021`, exact ACL, full
+  authorization/concurrency và staging/live E2E chưa hoàn thành nên task chỉ ở `VERIFY`
+  và chưa được coi là Calendar professional core.
 - AWS SES đã được chọn làm provider target; local SES v2 Raw adapter, deterministic
   renderer/sink và error semantics đã đạt trong spike cô lập, nhưng provider account/
   region/sandbox/quota chưa được live-verify và sending domain chưa có. Pre-domain chỉ

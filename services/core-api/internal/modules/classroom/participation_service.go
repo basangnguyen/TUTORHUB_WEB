@@ -33,6 +33,7 @@ type SessionAudience struct {
 	ResponseRequested bool
 	SourceStatus      SessionStatus
 	Attendees         []SessionAudienceAttendee
+	ExternalAttendees []SessionAudienceExternalAttendee
 	ViewerAccess      SessionAudienceViewerAccess
 }
 
@@ -57,6 +58,22 @@ type SessionAudienceAttendee struct {
 	ResponseRequested bool
 	ResponseClosedAt  *time.Time
 	CanSeeGuestList   bool
+}
+
+// SessionAudienceExternalAttendee is a manager-only projection. Delivery
+// identity is decrypted inside the repository and removed again by
+// projectSessionAudience for every non-manager, even when an internal
+// attendee may see the ordinary guest list.
+type SessionAudienceExternalAttendee struct {
+	ID                uuid.UUID
+	Email             string
+	DisplayName       string
+	ParticipationRole ParticipationRole
+	Locale            string
+	ViewerTimezone    string
+	RSVPState         RSVPState
+	RespondedAt       *time.Time
+	Version           int64
 }
 
 type SessionAudienceMutationResult struct {
@@ -490,7 +507,14 @@ func projectSessionAudience(
 			CanManageAttendees: canManage,
 			CanSeeGuestList:    canSeeGuestList,
 		},
-		Attendees: make([]SessionAudienceAttendee, 0, len(audience.Attendees)),
+		Attendees:         make([]SessionAudienceAttendee, 0, len(audience.Attendees)),
+		ExternalAttendees: make([]SessionAudienceExternalAttendee, 0),
+	}
+	if canManage {
+		projected.ExternalAttendees = append(
+			projected.ExternalAttendees,
+			audience.ExternalAttendees...,
+		)
 	}
 	for _, attendee := range audience.Attendees {
 		attendee.IsSelf = attendee.UserID == actorID

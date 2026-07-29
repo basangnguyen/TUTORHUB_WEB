@@ -51,6 +51,8 @@ import {
   replaceClassSessionAudience,
   replaceClassSessionSeriesAudience,
   replaceClassSessionSeriesOccurrenceAudience,
+  resolveExternalCalendarRSVP,
+  respondExternalCalendarRSVP,
   respondToClassSession,
   respondToClassSessionSeries,
   respondToClassSessionSeriesOccurrence,
@@ -61,6 +63,8 @@ import {
   switchActiveTenant,
   suspendClassEnrollment,
   transferClassOwnership,
+  transferClassSessionOrganizer,
+  transferClassSessionSeriesOrganizer,
   unlinkIdentity,
   updateClass,
   updateCalendarDisplayPreference,
@@ -2040,6 +2044,7 @@ describe("getHealth", () => {
           is_self: true,
         },
       ],
+      external_attendees: [],
       viewer_access: {
         can_manage_attendees: true,
         can_respond: true,
@@ -2166,6 +2171,7 @@ describe("getHealth", () => {
           is_self: true,
         },
       ],
+      external_attendees: [],
       viewer_access: {
         can_manage_attendees: true,
         can_respond: true,
@@ -2314,6 +2320,155 @@ describe("getHealth", () => {
     ]) {
       expect(publicProjection).not.toContain(forbidden);
     }
+  });
+
+  it("transfers session and series organizers with tenant and CSRF scope", async () => {
+    const tenantID = "4b18543a-74de-419f-9fe8-d0c3dfc991eb";
+    const classID = "1dcf37ff-4450-49ff-90aa-74dfbd551da2";
+    const sessionID = "2b9c25a4-b01b-4b5b-9e87-a782675ed511";
+    const seriesID = "0f927d7e-7190-4c08-9723-b68820c7a163";
+    const organizerID = "a9082628-f44c-4ec1-982c-e7745a1cba80";
+    const input = {
+      new_organizer_user_id: organizerID,
+      expected_source_version: 6,
+      idempotency_key: "organizer-transfer-client-0001",
+    };
+    const response = {
+      audience: {
+        audience_revision: 3,
+        response_requested: true,
+        attendees: [],
+        external_attendees: [],
+        viewer_access: {
+          can_manage_attendees: true,
+          can_respond: false,
+          can_see_guest_list: true,
+        },
+      },
+      organizer_user_id: organizerID,
+      source_version: 7,
+      replayed: false,
+    };
+    const responses = Array.from(
+      { length: 2 },
+      () =>
+        new Response(JSON.stringify(response), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+    );
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(() => Promise.resolve(responses.shift()));
+    const options = { baseUrl: "http://localhost/api", fetch: fetchMock };
+
+    await expect(
+      transferClassSessionOrganizer(
+        tenantID,
+        classID,
+        sessionID,
+        input,
+        "session-transfer-csrf",
+        options,
+      ),
+    ).resolves.toEqual(response);
+    await expect(
+      transferClassSessionSeriesOrganizer(
+        tenantID,
+        classID,
+        seriesID,
+        input,
+        "series-transfer-csrf",
+        options,
+      ),
+    ).resolves.toEqual(response);
+
+    const requests = fetchMock.mock.calls.map((call) => call[0] as Request);
+    expect(requests.map((request) => request.url)).toEqual([
+      `http://localhost/api/v1/classes/${classID}/sessions/${sessionID}/organizer`,
+      `http://localhost/api/v1/classes/${classID}/session-series/${seriesID}/organizer`,
+    ]);
+    expect(requests.map((request) => request.method)).toEqual(["POST", "POST"]);
+    expect(
+      requests.map((request) =>
+        request.headers.get("X-TutorHub-Expected-Tenant-ID"),
+      ),
+    ).toEqual([tenantID, tenantID]);
+    expect(
+      requests.map((request) => request.headers.get("X-CSRF-Token")),
+    ).toEqual(["session-transfer-csrf", "series-transfer-csrf"]);
+    await expect(requests[0]?.clone().json()).resolves.toEqual(input);
+    await expect(requests[1]?.clone().json()).resolves.toEqual(input);
+  });
+
+  it("keeps external RSVP capabilities in POST bodies instead of URLs", async () => {
+    const token = "opaque-capability-token-0000000001";
+    const projection = {
+      title: "Algebra review",
+      starts_at: "2026-07-29T01:00:00Z",
+      ends_at: "2026-07-29T02:00:00Z",
+      timezone: "Asia/Ho_Chi_Minh",
+      rsvp_state: "needs_action" as const,
+      response_requested: true,
+      attendee_version: 4,
+      invitation_sequence: 2,
+      capability_expires_at: "2026-08-05T01:00:00Z",
+    };
+    const responseInput = {
+      token,
+      state: "accepted" as const,
+      note: "I will attend",
+      expected_attendee_version: 4,
+      idempotency_key: "external-rsvp-client-000001",
+    };
+    const responses = [
+      new Response(JSON.stringify(projection), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+      new Response(
+        JSON.stringify({
+          projection: {
+            ...projection,
+            rsvp_state: "accepted",
+            attendee_version: 5,
+          },
+          replayed: false,
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        },
+      ),
+    ];
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(() => Promise.resolve(responses.shift()));
+    const options = { baseUrl: "http://localhost/api", fetch: fetchMock };
+
+    await expect(
+      resolveExternalCalendarRSVP({ token }, options),
+    ).resolves.toEqual(projection);
+    await expect(
+      respondExternalCalendarRSVP(responseInput, options),
+    ).resolves.toMatchObject({
+      projection: { rsvp_state: "accepted", attendee_version: 5 },
+      replayed: false,
+    });
+
+    const requests = fetchMock.mock.calls.map((call) => call[0] as Request);
+    expect(requests.map((request) => request.url)).toEqual([
+      "http://localhost/api/v1/calendar/invitations/resolve",
+      "http://localhost/api/v1/calendar/invitations/respond",
+    ]);
+    for (const request of requests) {
+      expect(request.method).toBe("POST");
+      expect(request.url).not.toContain(token);
+      expect(request.headers.get("X-TutorHub-Expected-Tenant-ID")).toBeNull();
+      expect(request.headers.get("X-CSRF-Token")).toBeNull();
+    }
+    await expect(requests[0]?.clone().json()).resolves.toEqual({ token });
+    await expect(requests[1]?.clone().json()).resolves.toEqual(responseInput);
   });
 
   it("manages the current profile and linked identities", async () => {

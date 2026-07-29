@@ -669,6 +669,18 @@ RETURNING id, tenant_id, owner_user_id, code, title, description, timezone,
 	if err != nil {
 		return Class{}, mapClassPostgresError("change class archive state", err)
 	}
+	if archive {
+		if err := closeClassParticipationForArchive(
+			queryContext,
+			transaction,
+			tenantContext.TenantID,
+			classID,
+			tenantContext.ActorID,
+			changedAt,
+		); err != nil {
+			return Class{}, err
+		}
+	}
 	if err := insertClassEvent(
 		queryContext,
 		transaction,

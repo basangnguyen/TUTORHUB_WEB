@@ -28,7 +28,7 @@ func TestPostgresClassSessionLifecycleAndTenantScope(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read migration version: %v", err)
 	}
-	if version.Number < 14 || version.Dirty {
+	if version.Number < 21 || version.Dirty {
 		t.Fatalf("unexpected migration version: %+v", version)
 	}
 	pool, err := pgxpool.New(ctx, poolURL)
@@ -65,7 +65,12 @@ INSERT INTO tutorhub.classes (
 	defer cleanupClassIntegrationFixture(t, pool, tenantID, ownerID)
 	defer cleanupClassIntegrationFixture(t, pool, otherTenantID, otherOwnerID)
 
-	repository := NewPostgresRepository(pool, 30*time.Second, policy.NewEngine())
+	calendarProtector := newCancellationLifecycleProtector(t)
+	repository := NewPostgresRepository(
+		pool,
+		30*time.Second,
+		policy.NewEngine(),
+	).WithCalendarProtectedData(calendarProtector)
 	tenantContext := mustTenantContext(t, tenantID, ownerID)
 	otherContext := mustTenantContext(t, otherTenantID, otherOwnerID)
 	now := time.Date(2026, 7, 23, 3, 0, 0, 0, time.UTC)
@@ -142,6 +147,19 @@ INSERT INTO tutorhub.classes (
 	); !errors.Is(err, ErrSessionVersionConflict) {
 		t.Fatalf("stale session update must conflict, got %v", err)
 	}
+	cancellationLifecycle := seedCancellationLifecycleFixture(
+		t,
+		ctx,
+		pool,
+		calendarProtector,
+		tenantID,
+		classID,
+		ownerID,
+		SessionParticipationSource(created.ID),
+		updated.Version,
+		0,
+		now.Add(2*time.Minute),
+	)
 	cancelled, err := repository.CancelSession(
 		ctx, tenantContext, classID, created.ID,
 		CancelSessionParams{ExpectedVersion: 2},
@@ -153,6 +171,15 @@ INSERT INTO tutorhub.classes (
 	if cancelled.Status != SessionStatusCancelled || cancelled.Version != 3 {
 		t.Fatalf("unexpected cancelled session: %+v", cancelled)
 	}
+	assertCancellationLifecycle(
+		t,
+		ctx,
+		pool,
+		cancellationLifecycle,
+		"session_cancelled",
+		2,
+		1,
+	)
 	idempotent, err := repository.CancelSession(
 		ctx, tenantContext, classID, created.ID,
 		CancelSessionParams{ExpectedVersion: 1},
@@ -161,6 +188,15 @@ INSERT INTO tutorhub.classes (
 	if err != nil || idempotent.Version != cancelled.Version {
 		t.Fatalf("cancel must be idempotent: session=%+v err=%v", idempotent, err)
 	}
+	assertCancellationLifecycle(
+		t,
+		ctx,
+		pool,
+		cancellationLifecycle,
+		"session_cancelled",
+		2,
+		1,
+	)
 	var eventCount int
 	if err := pool.QueryRow(
 		ctx,

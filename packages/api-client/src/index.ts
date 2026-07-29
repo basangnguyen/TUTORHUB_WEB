@@ -158,14 +158,30 @@ export type SessionAudienceViewerAccess =
   components["schemas"]["SessionAudienceViewerAccess"];
 export type SessionAudienceAttendee =
   components["schemas"]["SessionAudienceAttendee"];
+export type SessionAudienceExternalAttendee =
+  components["schemas"]["SessionAudienceExternalAttendee"];
 export type SessionAudience = components["schemas"]["SessionAudience"];
 export type ReplaceSessionAudienceRequest =
   components["schemas"]["ReplaceSessionAudienceRequest"];
+export type ReplaceSessionAudienceExternalAttendeeRequest =
+  components["schemas"]["ReplaceSessionAudienceExternalAttendeeRequest"];
 export type ReplaceSessionAudienceResponse =
   components["schemas"]["ReplaceSessionAudienceResponse"];
+export type TransferSessionOrganizerRequest =
+  components["schemas"]["TransferSessionOrganizerRequest"];
+export type TransferSessionOrganizerResponse =
+  components["schemas"]["TransferSessionOrganizerResponse"];
 export type RespondToClassSessionRequest =
   components["schemas"]["RespondToClassSessionRequest"];
 export type SelfRSVPResponse = components["schemas"]["SelfRSVPResponse"];
+export type ResolveExternalCalendarRSVPRequest =
+  components["schemas"]["ResolveExternalCalendarRSVPRequest"];
+export type RespondExternalCalendarRSVPRequest =
+  components["schemas"]["RespondExternalCalendarRSVPRequest"];
+export type ExternalCalendarRSVPProjection =
+  components["schemas"]["ExternalCalendarRSVPProjection"];
+export type ExternalCalendarRSVPMutationResponse =
+  components["schemas"]["ExternalCalendarRSVPMutationResponse"];
 export type ClassSessionRecurrenceRule =
   components["schemas"]["ClassSessionRecurrenceRule"];
 export type ClassSessionSeries = components["schemas"]["ClassSessionSeries"];
@@ -1385,6 +1401,38 @@ export async function replaceClassSessionAudience(
   );
 }
 
+export async function transferClassSessionOrganizer(
+  tenantID: string,
+  classID: string,
+  sessionID: string,
+  input: TransferSessionOrganizerRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<TransferSessionOrganizerResponse> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/classes/{class_id}/sessions/{session_id}/organizer",
+    {
+      params: {
+        path: { class_id: classID, session_id: sessionID },
+        header: {
+          "X-CSRF-Token": csrfToken,
+          "X-TutorHub-Expected-Tenant-ID": tenantID,
+        },
+      },
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<TransferSessionOrganizerResponse>(
+    data as TransferSessionOrganizerResponse | undefined,
+    error,
+    response,
+  );
+}
+
 export async function respondToClassSession(
   tenantID: string,
   classID: string,
@@ -1470,6 +1518,38 @@ export async function replaceClassSessionSeriesAudience(
 
   return requireData<ReplaceSessionAudienceResponse>(
     data as ReplaceSessionAudienceResponse | undefined,
+    error,
+    response,
+  );
+}
+
+export async function transferClassSessionSeriesOrganizer(
+  tenantID: string,
+  classID: string,
+  seriesID: string,
+  input: TransferSessionOrganizerRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<TransferSessionOrganizerResponse> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/classes/{class_id}/session-series/{series_id}/organizer",
+    {
+      params: {
+        path: { class_id: classID, series_id: seriesID },
+        header: {
+          "X-CSRF-Token": csrfToken,
+          "X-TutorHub-Expected-Tenant-ID": tenantID,
+        },
+      },
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<TransferSessionOrganizerResponse>(
+    data as TransferSessionOrganizerResponse | undefined,
     error,
     response,
   );
@@ -1607,6 +1687,46 @@ export async function respondToClassSessionSeriesOccurrence(
 
   return requireData<SelfRSVPResponse>(
     data as SelfRSVPResponse | undefined,
+    error,
+    response,
+  );
+}
+
+export async function resolveExternalCalendarRSVP(
+  input: ResolveExternalCalendarRSVPRequest,
+  options: APIRequestOptions = {},
+): Promise<ExternalCalendarRSVPProjection> {
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/calendar/invitations/resolve",
+    {
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<ExternalCalendarRSVPProjection>(
+    data as ExternalCalendarRSVPProjection | undefined,
+    error,
+    response,
+  );
+}
+
+export async function respondExternalCalendarRSVP(
+  input: RespondExternalCalendarRSVPRequest,
+  options: APIRequestOptions = {},
+): Promise<ExternalCalendarRSVPMutationResponse> {
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/calendar/invitations/respond",
+    {
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<ExternalCalendarRSVPMutationResponse>(
+    data as ExternalCalendarRSVPMutationResponse | undefined,
     error,
     response,
   );

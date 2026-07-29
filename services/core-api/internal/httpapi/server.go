@@ -33,6 +33,7 @@ type Options struct {
 	ClassSessions         classroom.SessionServiceAPI
 	ClassSessionSeries    classroom.SessionSeriesServiceAPI
 	SessionParticipation  classroom.SessionParticipationServiceAPI
+	ExternalRSVP          classroom.ExternalRSVPServiceAPI
 	Calendar              calendar.ServiceAPI
 	CalendarScheduling    calendar.SchedulingServiceAPI
 	Enrollment            classroom.EnrollmentServiceAPI
@@ -95,6 +96,25 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 		options.Identity,
 		options.InvitationRateLimiter,
 		options.Clock,
+	)
+	externalRSVP := newExternalCalendarRSVPHandlers(
+		logger,
+		options.ExternalRSVP,
+		options.InvitationRateLimiter,
+		options.Clock,
+		cfg.WebOrigin,
+	)
+	mux.Handle(
+		calendarInvitationResolvePath,
+		externalCalendarRSVPResponseHeaders(
+			requireMethod(http.MethodPost, http.HandlerFunc(externalRSVP.resolve)),
+		),
+	)
+	mux.Handle(
+		calendarInvitationRespondPath,
+		externalCalendarRSVPResponseHeaders(
+			requireMethod(http.MethodPost, http.HandlerFunc(externalRSVP.respond)),
+		),
 	)
 	mux.Handle("/api/v1/auth/login", requireMethod(http.MethodGet, http.HandlerFunc(auth.login)))
 	mux.Handle("/api/v1/auth/callback", requireMethod(http.MethodGet, http.HandlerFunc(auth.callback)))
@@ -379,6 +399,30 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 	mux.Handle(
 		classSessionOccurrenceResponsesPattern,
 		sessionParticipation.responsesHandler(),
+	)
+	mux.Handle(
+		classSessionOrganizerPattern,
+		auditMutation(
+			staticAuditMutation(
+				http.MethodPost,
+				audit.ActionClassSessionUpdate,
+				"class_session",
+				pathValueAuditResource("session_id"),
+			),
+			sessionParticipation.organizerHandler(),
+		),
+	)
+	mux.Handle(
+		classSessionSeriesOrganizerPattern,
+		auditMutation(
+			staticAuditMutation(
+				http.MethodPost,
+				audit.ActionClassSessionUpdate,
+				"class_session_series",
+				pathValueAuditResource("series_id"),
+			),
+			sessionParticipation.organizerHandler(),
+		),
 	)
 	mux.Handle(
 		classArchivePathPattern,

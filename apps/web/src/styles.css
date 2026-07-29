@@ -3650,6 +3650,258 @@ textarea:focus-visible {
   color: var(--color-success);
 }
 
+.external-calendar-rsvp-page {
+  display: grid;
+  min-height: 100dvh;
+  place-items: center;
+  padding: 40px 20px;
+  background:
+    radial-gradient(circle at top left, #eee4ce 0, transparent 40%),
+    var(--color-canvas);
+}
+
+.external-calendar-rsvp-card {
+  width: min(100%, 720px);
+  padding: clamp(24px, 5vw, 46px);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.external-calendar-rsvp-card__brand {
+  display: inline-grid;
+  width: 48px;
+  height: 48px;
+  margin-bottom: 18px;
+  place-items: center;
+  border-radius: var(--radius-md);
+  background: var(--color-accent);
+  color: #fff;
+}
+
+.external-calendar-rsvp-card__brand svg {
+  width: 23px;
+  height: 23px;
+}
+
+.external-calendar-rsvp-card__kicker {
+  margin: 0 0 8px;
+  color: var(--color-text-muted);
+  font-size: 13px;
+  font-weight: 750;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.external-calendar-rsvp-card h1 {
+  margin: 0 0 28px;
+  font-size: clamp(28px, 5vw, 40px);
+  letter-spacing: -0.035em;
+  line-height: 1.05;
+}
+
+.external-calendar-rsvp-card__content {
+  display: grid;
+  gap: 24px;
+}
+
+.external-calendar-rsvp-card__facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+}
+
+.external-calendar-rsvp-card__facts > div {
+  min-width: 0;
+  padding: 15px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-canvas);
+}
+
+.external-calendar-rsvp-card__facts dt {
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.external-calendar-rsvp-card__facts dd {
+  display: block;
+  margin: 7px 0 0;
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.external-calendar-rsvp-card__form {
+  display: grid;
+  gap: 20px;
+}
+
+.external-calendar-rsvp-card__form fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.external-calendar-rsvp-card__form legend,
+.external-calendar-rsvp-card__note > span {
+  margin-bottom: 9px;
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.external-calendar-rsvp-card__choices {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.external-calendar-rsvp-card__choices label {
+  display: grid;
+  cursor: pointer;
+}
+
+.external-calendar-rsvp-card__choices input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+.external-calendar-rsvp-card__choices span {
+  display: grid;
+  min-height: 46px;
+  place-items: center;
+  padding: 8px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 750;
+  text-align: center;
+}
+
+.external-calendar-rsvp-card__choices input:focus-visible + span {
+  outline: 3px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+.external-calendar-rsvp-card__choices input:checked + span {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+  color: var(--color-accent-strong);
+}
+
+.external-calendar-rsvp-card__note {
+  display: grid;
+}
+
+.external-calendar-rsvp-card__note textarea {
+  width: 100%;
+  resize: vertical;
+  padding: 11px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  line-height: 1.5;
+}
+
+.external-calendar-rsvp-card__note small,
+.external-calendar-rsvp-card__confirm small {
+  margin-top: 6px;
+  color: var(--color-text-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.external-calendar-rsvp-card__confirm {
+  display: flex;
+  align-items: start;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.external-calendar-rsvp-card__confirm input {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  margin-top: 2px;
+  accent-color: var(--color-accent);
+}
+
+.external-calendar-rsvp-card__confirm > span {
+  display: grid;
+}
+
+.external-calendar-rsvp-card__confirm strong {
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.external-calendar-rsvp-card__error,
+.external-calendar-rsvp-card__closed {
+  margin: 0;
+  padding: 12px 14px;
+  border-left: 3px solid var(--color-danger);
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.external-calendar-rsvp-card__closed {
+  border-color: var(--color-border-strong);
+  background: var(--color-canvas);
+  color: var(--color-text-muted);
+}
+
+.external-calendar-rsvp-card__success {
+  display: flex;
+  align-items: start;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--color-success);
+  border-radius: var(--radius-sm);
+  background: var(--color-success-soft);
+}
+
+.external-calendar-rsvp-card__success > svg {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+  color: var(--color-success);
+}
+
+.external-calendar-rsvp-card__success h2,
+.external-calendar-rsvp-card__success p {
+  margin: 0;
+}
+
+.external-calendar-rsvp-card__success h2 {
+  font-size: 16px;
+}
+
+.external-calendar-rsvp-card__success p {
+  margin-top: 4px;
+  color: var(--color-text-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+@media (max-width: 620px) {
+  .external-calendar-rsvp-card__facts,
+  .external-calendar-rsvp-card__choices {
+    grid-template-columns: 1fr;
+  }
+}
+
 .membership-invitation-card--success > p:not(:first-of-type) {
   margin: 0 auto 24px;
   color: var(--color-text-muted);

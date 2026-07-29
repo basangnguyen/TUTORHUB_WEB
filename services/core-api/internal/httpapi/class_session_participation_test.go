@@ -99,7 +99,10 @@ func TestClassSessionParticipationRoutesExposeScopedAudienceAndMutations(
 		`"idempotency_key":"audience-route-0001","response_requested":true,` +
 		`"attendees":[{"user_id":"` + actorID.String() +
 		`","participation_role":"required"},{"user_id":"` + peerID.String() +
-		`","participation_role":"optional"}]}`
+		`","participation_role":"optional"}],` +
+		`"external_attendees":[{"email":"learner@example.edu",` +
+		`"display_name":"External learner","participation_role":"optional",` +
+		`"locale":"vi-VN","viewer_timezone":"Asia/Ho_Chi_Minh"}]}`
 	putResponse := performSessionParticipationMutation(
 		handler,
 		http.MethodPut,
@@ -115,7 +118,10 @@ func TestClassSessionParticipationRoutesExposeScopedAudienceAndMutations(
 		service.replaceInput.IdempotencyKey != "audience-route-0001" ||
 		!service.replaceInput.ResponseRequested ||
 		len(service.replaceInput.Attendees) != 2 ||
-		service.replaceInput.Attendees[1].UserID != peerID {
+		service.replaceInput.Attendees[1].UserID != peerID ||
+		len(service.replaceInput.ExternalAttendees) != 1 ||
+		service.replaceInput.ExternalAttendees[0].Email != "learner@example.edu" ||
+		service.replaceInput.ExternalAttendees[0].ViewerTimezone != "Asia/Ho_Chi_Minh" {
 		t.Fatalf("unexpected replace input: %+v", service.replaceInput)
 	}
 	var replaceBody replaceSessionAudienceResponse
@@ -144,6 +150,72 @@ func TestClassSessionParticipationRoutesExposeScopedAudienceAndMutations(
 		service.respondInput.ExpectedAttendeeVersion != 4 ||
 		service.respondInput.IdempotencyKey != "rsvp-route-000001" {
 		t.Fatalf("unexpected response input: %+v", service.respondInput)
+	}
+}
+
+func TestClassSessionParticipationTransfersSessionAndSeriesOrganizer(t *testing.T) {
+	t.Parallel()
+	tenantID, actorID := uuid.New(), uuid.New()
+	classID, sessionID, seriesID, organizerID := uuid.New(), uuid.New(), uuid.New(), uuid.New()
+	service := &fakeSessionParticipationService{
+		organizerResult: classroom.OrganizerTransferResult{
+			Audience: classroom.SessionAudience{
+				AudienceRevision: 5,
+				Attendees:         []classroom.SessionAudienceAttendee{},
+			},
+			OrganizerUserID: organizerID,
+			SourceVersion:   8,
+			Replayed:        true,
+		},
+	}
+	handler := sessionParticipationTestHandler(tenantID, actorID, service)
+	body := `{"new_organizer_user_id":"` + organizerID.String() +
+		`","expected_source_version":7,"idempotency_key":"organizer-route-0001"}`
+
+	for _, test := range []struct {
+		name   string
+		path   string
+		source classroom.ParticipationSourceRef
+	}{
+		{
+			name: "session",
+			path: sessionParticipationPath(classID, sessionID, "organizer"),
+			source: classroom.SessionParticipationSource(sessionID),
+		},
+		{
+			name: "series",
+			path: "/api/v1/classes/" + classID.String() +
+				"/session-series/" + seriesID.String() + "/organizer",
+			source: classroom.SeriesParticipationSource(seriesID),
+		},
+	} {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			response := performSessionParticipationMutation(
+				handler, http.MethodPost, test.path, body, tenantID,
+			)
+			if response.Code != http.StatusOK {
+				t.Fatalf("organizer transfer status=%d body=%s", response.Code, response.Body.String())
+			}
+			assertSessionParticipationPrivateHeaders(t, response)
+			if service.organizerInput.NewOrganizerUserID != organizerID ||
+				service.organizerInput.ExpectedSourceVersion != 7 ||
+				service.organizerInput.IdempotencyKey != "organizer-route-0001" ||
+				service.source != test.source {
+				t.Fatalf("unexpected organizer transfer input/source: %+v / %+v", service.organizerInput, service.source)
+			}
+			var result transferSessionOrganizerResponse
+			if err := json.Unmarshal(response.Body.Bytes(), &result); err != nil {
+				t.Fatalf("decode organizer transfer response: %v", err)
+			}
+			if result.OrganizerUserID != organizerID || result.SourceVersion != 8 ||
+				!result.Replayed || result.Audience.AudienceRevision != 5 {
+				t.Fatalf("unexpected organizer response: %+v", result)
+			}
+		})
+	}
+	if service.organizerCalls != 2 {
+		t.Fatalf("organizer calls=%d", service.organizerCalls)
 	}
 }
 
@@ -450,17 +522,33 @@ type fakeSessionParticipationService struct {
 	audience      classroom.SessionAudience
 	replaceResult classroom.SessionAudienceMutationResult
 	respondResult classroom.SelfRSVPMutationResult
+	organizerResult classroom.OrganizerTransferResult
 	requestError  error
 
 	getCalls     int
 	replaceCalls int
 	respondCalls int
+	organizerCalls int
 	access       classroom.AccessContext
 	classID      uuid.UUID
 	sessionID    uuid.UUID
 	source       classroom.ParticipationSourceRef
 	replaceInput classroom.ReplaceAudienceInput
 	respondInput classroom.SelfRSVPInput
+	organizerInput classroom.TransferOrganizerInput
+}
+
+func (service *fakeSessionParticipationService) TransferOrganizer(
+	_ context.Context,
+	access classroom.AccessContext,
+	classID uuid.UUID,
+	source classroom.ParticipationSourceRef,
+	input classroom.TransferOrganizerInput,
+) (classroom.OrganizerTransferResult, error) {
+	service.organizerCalls++
+	service.access, service.classID, service.source = access, classID, source
+	service.organizerInput = input
+	return service.organizerResult, service.requestError
 }
 
 func (service *fakeSessionParticipationService) GetAudience(

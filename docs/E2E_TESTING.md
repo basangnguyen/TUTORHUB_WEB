@@ -129,6 +129,117 @@ Kết quả staging P2-08 ở trên là bằng chứng lịch sử và không th
 cuối của P2-12. Không đánh dấu Phase 2 hoàn tất cho đến khi commit đóng phase cùng
 staging acceptance cuối đều đạt.
 
+## P3-02C — Calendar working schedule, free/busy và RSVP
+
+### Phạm vi
+
+Đây là checklist E2E cho working hours, availability, attendee audience, RSVP,
+organizer transfer và lifecycle đóng lịch. Nó bổ sung cho regression shell của
+P3-02A và không thay thế các gate database/API trong
+[P3_02C_STAGING_ACCEPTANCE.md](P3_02C_STAGING_ACCEPTANCE.md).
+
+Trạng thái hiện tại: **VERIFY**. Chưa có browser run hoặc staging evidence P3-02C
+được ghi nhận. `corepack pnpm e2e:calendar` hiện chỉ kiểm tra route/calendar shell
+với mocked data; không coi đó là bằng chứng cho working hours, free/busy, RSVP,
+authorization hay public capability.
+
+### Preconditions và an toàn staging
+
+- Dùng một fixture Neon staging/disposable ở migration `21 false`, cùng commit với
+  Render Core API và Cloudflare web.
+- Có browser context độc lập cho manager/organizer, ordinary internal attendee
+  (student) và external unauthenticated recipient. Không dùng chung cookie hoặc
+  storage state giữa các context.
+- Public RSVP phải dùng capability fixture/tool do server phát hành. Không chèn
+  token thô bằng SQL, không copy token vào test source và không đưa token vào
+  screenshot, trace, URL query, cache, storage hoặc log.
+- Chỉ bật staging mutation bằng cờ xác nhận rõ ràng; không chạy trên production hoặc
+  tenant có dữ liệu thật. Fixture tạo trong lượt test phải có tên duy nhất và được
+  dọn theo policy của môi trường.
+- Khi chưa có capability fixture server-side, public RSVP ghi `BLOCKED/NOT RUN`;
+  không bỏ qua bằng cách tạo token thủ công.
+
+### Chạy local/CI
+
+Các gate nền:
+
+```powershell
+corepack pnpm verify
+corepack pnpm test:integration
+corepack pnpm e2e:calendar
+```
+
+Scenario P3-02C đầy đủ chưa được nối vào một script Playwright riêng. Khi thêm
+scenario, chạy qua cùng orchestrator `scripts/e2e-local.mjs` với database
+`tutorhub_e2e` riêng ở local/CI; staging phải dùng storage state ngắn hạn bên ngoài
+repository theo phần bảo vệ credential ở cuối tài liệu.
+
+### Scenario bắt buộc
+
+1. **Working schedule và timezone**
+   - Manager/teacher lưu nhiều interval trong ngày, IANA timezone và exception
+     holiday/OOO; reload vẫn giữ version.
+   - Kiểm tra DST gap/fold, dual timezone, half-open boundary và `409` stale
+     version. Focus quay lại control gây lỗi.
+
+2. **Scheduling assistant/free-busy**
+   - Query one-time/series window với participant nội bộ và external/no-sync.
+   - Xác nhận busy, outside-hours và `unknown` có reason text; không lộ title,
+     description, class, roster hoặc file.
+   - Thử giới hạn 31 ngày, 50 participant, duration 15–480 phút, step 15/30/60,
+     tối đa 20 suggestion và 2.000 candidate start; vượt cap trả lỗi đúng.
+
+3. **Audience và RSVP nội bộ**
+   - Tạo audience cho one-time, series và occurrence; kiểm tra dedupe ≤128,
+     audience diff added/removed/unchanged/role-change.
+   - Metadata-only edit giữ RSVP; đổi role/time/organizer hoặc split reset đúng
+     policy; remove đóng response/revoke capability, re-add không tái sử dụng.
+   - Student chỉ xem/cập nhật RSVP của mình; organizer summary không lộ
+     individual status ngoài policy.
+
+4. **Conflict, replay và concurrency**
+   - Gửi cùng idempotency key + payload hai lần: một mutation và một replay an toàn.
+   - Dùng cùng key với payload khác: `409`, không nhân đôi snapshot/receipt.
+   - Hai request đồng thời cùng `expected_version`: một winner, một `409`, không
+     partial state. Kiểm tra thông báo và focus.
+
+5. **Public RSVP**
+   - Mở `/calendar/respond#resolve_token=...&respond_token=...` bằng external
+     context; xác nhận fragment được scrub trước request và không còn ở history.
+   - Resolve chỉ hiện snapshot tối thiểu; respond cần explicit confirm và chỉ cho
+     phép purpose đúng. Kiểm tra Origin, `no-store`, `no-referrer`, `noindex`,
+     CSP/CORP và rate-limit `429 + Retry-After`.
+   - Token malformed/expired/revoked/superseded/closed trả lỗi chung; replay và
+     stale trả `409` an toàn.
+
+6. **Organizer transfer và đóng lịch**
+   - Transfer bằng manager/organizer được phép: stable UID, sequence/source tăng,
+     RSVP reset theo policy, capability rotate/revoke, organizer cũ mất quyền.
+   - Disable/remove organizer không được thay ngầm; cancel one-time/series/
+     occurrence và archive class đóng response/revoke capability trong cùng
+     lifecycle nhưng giữ history.
+
+7. **Authorization, privacy và caps**
+   - Foreign tenant/class/session/series/occurrence trả concealment `404`.
+   - Student, teacher và external recipient không thể dùng UI flag để vượt quyền.
+   - Feature off/kill switch fail closed trước query/mutation; loading, empty,
+     forbidden, error, retry và rate-limited state đều hiển thị rõ.
+
+8. **Accessibility**
+   - Chạy keyboard-only cho mở panel, chọn attendee, RSVP, confirm/cancel và
+     recovery sau `409`.
+   - Chạy NVDA kiểm tra heading/landmark, accessible name, reason/status live region,
+     dual timezone và không dùng màu làm tín hiệu duy nhất.
+
+### Bằng chứng và tiêu chí đạt
+
+Mỗi lượt ghi commit, môi trường, migration version và kết quả pass/fail bằng dữ
+liệu đã che. Không lưu email thật, cookie, storage state, token, URL fragment,
+ciphertext hoặc payload riêng tư. Chỉ đánh dấu scenario P3-02C đạt khi tất cả
+context, public RSVP, concurrency, privacy và accessibility ở trên đều pass; nếu
+chưa chạy hoặc thiếu capability fixture, giữ `VERIFY` và cập nhật
+`docs/P3_02C_STAGING_ACCEPTANCE.md`.
+
 ## Bảo vệ credential và artifact
 
 - Không đặt storage state, token hoặc secret trong source, command history hay

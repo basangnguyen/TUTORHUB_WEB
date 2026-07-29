@@ -21,16 +21,19 @@ const (
 	classSessionSeriesResponsesPattern     = "/api/v1/classes/{class_id}/session-series/{series_id}/responses"
 	classSessionOccurrenceAttendeesPattern = "/api/v1/classes/{class_id}/session-series/{series_id}/occurrences/{occurrence_key}/attendees"
 	classSessionOccurrenceResponsesPattern = "/api/v1/classes/{class_id}/session-series/{series_id}/occurrences/{occurrence_key}/responses"
+	classSessionOrganizerPattern           = "/api/v1/classes/{class_id}/sessions/{session_id}/organizer"
+	classSessionSeriesOrganizerPattern     = "/api/v1/classes/{class_id}/session-series/{series_id}/organizer"
 	maximumSessionParticipationBodySize    = 64 * 1024
 )
 
 var errSessionParticipationScopeChanged = errors.New("active workspace changed")
 
 type classSessionParticipationHandlers struct {
-	logger        *slog.Logger
-	auth          authHandlers
-	service       classroom.SessionParticipationServiceAPI
-	sourceService classroom.ParticipationSourceServiceAPI
+	logger           *slog.Logger
+	auth             authHandlers
+	service          classroom.SessionParticipationServiceAPI
+	sourceService    classroom.ParticipationSourceServiceAPI
+	organizerService classroom.ParticipationOrganizerServiceAPI
 }
 
 type replaceSessionAudienceAttendeeRequest struct {
@@ -38,11 +41,20 @@ type replaceSessionAudienceAttendeeRequest struct {
 	ParticipationRole classroom.ParticipationRole `json:"participation_role"`
 }
 
+type replaceSessionAudienceExternalAttendeeRequest struct {
+	Email             string                      `json:"email"`
+	DisplayName       string                      `json:"display_name"`
+	ParticipationRole classroom.ParticipationRole `json:"participation_role"`
+	Locale            string                      `json:"locale"`
+	ViewerTimezone    string                      `json:"viewer_timezone"`
+}
+
 type replaceSessionAudienceRequest struct {
-	ExpectedAudienceRevision *int64                                   `json:"expected_audience_revision"`
-	IdempotencyKey           *string                                  `json:"idempotency_key"`
-	ResponseRequested        *bool                                    `json:"response_requested"`
-	Attendees                *[]replaceSessionAudienceAttendeeRequest `json:"attendees"`
+	ExpectedAudienceRevision *int64                                          `json:"expected_audience_revision"`
+	IdempotencyKey           *string                                         `json:"idempotency_key"`
+	ResponseRequested        *bool                                           `json:"response_requested"`
+	Attendees                *[]replaceSessionAudienceAttendeeRequest        `json:"attendees"`
+	ExternalAttendees        []replaceSessionAudienceExternalAttendeeRequest `json:"external_attendees"`
 }
 
 func (request replaceSessionAudienceRequest) complete() bool {
@@ -50,6 +62,18 @@ func (request replaceSessionAudienceRequest) complete() bool {
 		request.IdempotencyKey != nil &&
 		request.ResponseRequested != nil &&
 		request.Attendees != nil
+}
+
+type transferSessionOrganizerRequest struct {
+	NewOrganizerUserID    *uuid.UUID `json:"new_organizer_user_id"`
+	ExpectedSourceVersion *int64     `json:"expected_source_version"`
+	IdempotencyKey        *string    `json:"idempotency_key"`
+}
+
+func (request transferSessionOrganizerRequest) complete() bool {
+	return request.NewOrganizerUserID != nil &&
+		request.ExpectedSourceVersion != nil &&
+		request.IdempotencyKey != nil
 }
 
 type respondToClassSessionRequest struct {
@@ -82,11 +106,24 @@ type sessionAudienceAttendeeResponse struct {
 	IsSelf            bool                        `json:"is_self"`
 }
 
+type sessionAudienceExternalAttendeeResponse struct {
+	ID                uuid.UUID                   `json:"id"`
+	Email             string                      `json:"email"`
+	DisplayName       string                      `json:"display_name"`
+	ParticipationRole classroom.ParticipationRole `json:"participation_role"`
+	Locale            string                      `json:"locale"`
+	ViewerTimezone    string                      `json:"viewer_timezone"`
+	RSVPState         classroom.RSVPState         `json:"rsvp_state"`
+	RespondedAt       *time.Time                  `json:"responded_at"`
+	Version           int64                       `json:"version"`
+}
+
 type sessionAudienceResponse struct {
-	AudienceRevision  int64                               `json:"audience_revision"`
-	ResponseRequested bool                                `json:"response_requested"`
-	Attendees         []sessionAudienceAttendeeResponse   `json:"attendees"`
-	ViewerAccess      sessionAudienceViewerAccessResponse `json:"viewer_access"`
+	AudienceRevision  int64                                     `json:"audience_revision"`
+	ResponseRequested bool                                      `json:"response_requested"`
+	Attendees         []sessionAudienceAttendeeResponse         `json:"attendees"`
+	ExternalAttendees []sessionAudienceExternalAttendeeResponse `json:"external_attendees"`
+	ViewerAccess      sessionAudienceViewerAccessResponse       `json:"viewer_access"`
 }
 
 type replaceSessionAudienceResponse struct {
@@ -99,17 +136,26 @@ type selfRSVPResponse struct {
 	Replayed bool                            `json:"replayed"`
 }
 
+type transferSessionOrganizerResponse struct {
+	Audience        sessionAudienceResponse `json:"audience"`
+	OrganizerUserID uuid.UUID               `json:"organizer_user_id"`
+	SourceVersion   int64                   `json:"source_version"`
+	Replayed        bool                    `json:"replayed"`
+}
+
 func newClassSessionParticipationHandlers(
 	logger *slog.Logger,
 	auth authHandlers,
 	service classroom.SessionParticipationServiceAPI,
 ) classSessionParticipationHandlers {
 	sourceService, _ := service.(classroom.ParticipationSourceServiceAPI)
+	organizerService, _ := service.(classroom.ParticipationOrganizerServiceAPI)
 	return classSessionParticipationHandlers{
-		logger:        logger,
-		auth:          auth,
-		service:       service,
-		sourceService: sourceService,
+		logger:           logger,
+		auth:             auth,
+		service:          service,
+		sourceService:    sourceService,
+		organizerService: organizerService,
 	}
 }
 
@@ -121,6 +167,10 @@ func (handlers classSessionParticipationHandlers) attendeesHandler() http.Handle
 
 func (handlers classSessionParticipationHandlers) responsesHandler() http.Handler {
 	return calendarResponseHeaders(http.HandlerFunc(handlers.responses))
+}
+
+func (handlers classSessionParticipationHandlers) organizerHandler() http.Handler {
+	return calendarResponseHeaders(http.HandlerFunc(handlers.organizer))
 }
 
 func (handlers classSessionParticipationHandlers) attendees(
@@ -149,6 +199,69 @@ func (handlers classSessionParticipationHandlers) attendees(
 			"Class session attendees support GET and PUT requests.",
 		)
 	}
+}
+
+func (handlers classSessionParticipationHandlers) organizer(
+	w http.ResponseWriter,
+	r *http.Request,
+) {
+	if !handlers.available(w, r) {
+		return
+	}
+	if r.Method != http.MethodPost {
+		w.Header().Set("Allow", http.MethodPost)
+		writeProblem(
+			w,
+			r,
+			http.StatusMethodNotAllowed,
+			"Method not allowed",
+			"Class session organizer transfer supports POST requests.",
+		)
+		return
+	}
+	if handlers.organizerService == nil {
+		handlers.writeProblem(w, r, classroom.ErrSessionParticipationUnavailable)
+		return
+	}
+	classID, source, ok := handlers.pathSource(w, r)
+	if !ok {
+		return
+	}
+	principal, ok := handlers.csrfPrincipal(w, r)
+	if !ok || !handlers.expectedTenant(w, r, principal) {
+		return
+	}
+	var request transferSessionOrganizerRequest
+	if err := decodeJSONRequest(
+		w,
+		r,
+		&request,
+		maximumSessionParticipationBodySize,
+	); err != nil || !request.complete() {
+		handlers.writeProblem(w, r, classroom.ErrInvalidParticipationInput)
+		return
+	}
+	result, err := handlers.organizerService.TransferOrganizer(
+		r.Context(),
+		classAccess(principal),
+		classID,
+		source,
+		classroom.TransferOrganizerInput{
+			NewOrganizerUserID:    *request.NewOrganizerUserID,
+			ExpectedSourceVersion: *request.ExpectedSourceVersion,
+			IdempotencyKey:        *request.IdempotencyKey,
+		},
+	)
+	if err != nil {
+		handlers.writeProblem(w, r, err)
+		return
+	}
+	writeJSON(handlers.logger, w, http.StatusOK, transferSessionOrganizerResponse{
+		Audience:        newSessionAudienceResponse(result.Audience),
+		OrganizerUserID: result.OrganizerUserID,
+		SourceVersion:   result.SourceVersion,
+		Replayed:        result.Replayed,
+	})
 }
 
 func (handlers classSessionParticipationHandlers) responses(
@@ -299,11 +412,26 @@ func (handlers classSessionParticipationHandlers) replaceAudience(
 			ParticipationRole: attendee.ParticipationRole,
 		})
 	}
+	externalAttendees := make(
+		[]classroom.ExternalAudienceAttendeeInput,
+		0,
+		len(request.ExternalAttendees),
+	)
+	for _, attendee := range request.ExternalAttendees {
+		externalAttendees = append(externalAttendees, classroom.ExternalAudienceAttendeeInput{
+			Email:             attendee.Email,
+			DisplayName:       attendee.DisplayName,
+			ParticipationRole: attendee.ParticipationRole,
+			Locale:            attendee.Locale,
+			ViewerTimezone:    attendee.ViewerTimezone,
+		})
+	}
 	input := classroom.ReplaceAudienceInput{
 		ExpectedAudienceRevision: *request.ExpectedAudienceRevision,
 		IdempotencyKey:           *request.IdempotencyKey,
 		ResponseRequested:        *request.ResponseRequested,
 		Attendees:                attendees,
+		ExternalAttendees:        externalAttendees,
 	}
 	var (
 		result classroom.SessionAudienceMutationResult
@@ -450,6 +578,10 @@ func (handlers classSessionParticipationHandlers) writeProblem(
 		status, code = http.StatusConflict, "class_session_audience_conflict"
 		title = "Class session audience changed"
 		detail = "Reload the latest attendee list before saving this change."
+	case errors.Is(err, classroom.ErrSessionOrganizerUnavailable):
+		status, code = http.StatusConflict, "class_session_organizer_unavailable"
+		title = "Class session organizer unavailable"
+		detail = "Select an active teacher, co-teacher, administrator, or class owner before retrying."
 	case errors.Is(err, classroom.ErrSessionAttendeeVersionConflict):
 		status, code = http.StatusConflict, "class_session_rsvp_conflict"
 		title = "Class session response changed"
@@ -493,15 +625,48 @@ func newSessionAudienceResponse(
 	for _, attendee := range audience.Attendees {
 		attendees = append(attendees, newSessionAudienceAttendeeResponse(attendee))
 	}
+	externalAttendees := make(
+		[]sessionAudienceExternalAttendeeResponse,
+		0,
+		len(audience.ExternalAttendees),
+	)
+	for _, attendee := range audience.ExternalAttendees {
+		externalAttendees = append(
+			externalAttendees,
+			newSessionAudienceExternalAttendeeResponse(attendee),
+		)
+	}
 	return sessionAudienceResponse{
 		AudienceRevision:  audience.AudienceRevision,
 		ResponseRequested: audience.ResponseRequested,
 		Attendees:         attendees,
+		ExternalAttendees: externalAttendees,
 		ViewerAccess: sessionAudienceViewerAccessResponse{
 			CanManageAttendees: audience.ViewerAccess.CanManageAttendees,
 			CanRespond:         audience.ViewerAccess.CanRespond,
 			CanSeeGuestList:    audience.ViewerAccess.CanSeeGuestList,
 		},
+	}
+}
+
+func newSessionAudienceExternalAttendeeResponse(
+	attendee classroom.SessionAudienceExternalAttendee,
+) sessionAudienceExternalAttendeeResponse {
+	var respondedAt *time.Time
+	if attendee.RespondedAt != nil {
+		value := attendee.RespondedAt.UTC()
+		respondedAt = &value
+	}
+	return sessionAudienceExternalAttendeeResponse{
+		ID:                attendee.ID,
+		Email:             attendee.Email,
+		DisplayName:       attendee.DisplayName,
+		ParticipationRole: attendee.ParticipationRole,
+		Locale:            attendee.Locale,
+		ViewerTimezone:    attendee.ViewerTimezone,
+		RSVPState:         attendee.RSVPState,
+		RespondedAt:       respondedAt,
+		Version:           attendee.Version,
 	}
 }
 

@@ -6,8 +6,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/mail"
 	"sort"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/google/uuid"
@@ -188,6 +190,26 @@ type InternalAudienceAttendee struct {
 	ParticipationRole ParticipationRole
 }
 
+// ExternalAudienceAttendeeInput is manual-only delivery identity. It never
+// accepts a tenant/class role or guest permission from the client. Repository
+// code protects the normalized address before persistence and rejects an
+// address that already belongs to an active internal tenant member.
+type ExternalAudienceAttendeeInput struct {
+	Email             string
+	DisplayName       string
+	ParticipationRole ParticipationRole
+	Locale            string
+	ViewerTimezone    string
+}
+
+type ExternalAudienceAttendee struct {
+	Email             string
+	DisplayName       string
+	ParticipationRole ParticipationRole
+	Locale            string
+	ViewerTimezone    string
+}
+
 // ReplaceAudienceInput is a full replacement of an event source's internal
 // audience. expected_audience_revision may be zero for the first replacement,
 // because new sources start at revision zero. The HTTP boundary must still
@@ -197,6 +219,7 @@ type ReplaceAudienceInput struct {
 	IdempotencyKey           string
 	ResponseRequested        bool
 	Attendees                []InternalAudienceAttendeeInput
+	ExternalAttendees        []ExternalAudienceAttendeeInput
 }
 
 // AudienceReplacementParams is the deterministic, storage-ready subset of a
@@ -207,6 +230,7 @@ type AudienceReplacementParams struct {
 	IdempotencyKey           string
 	ResponseRequested        bool
 	Attendees                []InternalAudienceAttendee
+	ExternalAttendees        []ExternalAudienceAttendee
 	Fingerprint              string
 }
 
@@ -245,17 +269,92 @@ func (input ReplaceAudienceInput) normalized() (AudienceReplacementParams, error
 	if err != nil {
 		return AudienceReplacementParams{}, err
 	}
+	externalAttendees, err := normalizeExternalAudienceAttendees(input.ExternalAttendees)
+	if err != nil {
+		return AudienceReplacementParams{}, err
+	}
+	if len(attendees)+len(externalAttendees) > maximumAudienceAttendees {
+		return AudienceReplacementParams{}, fmt.Errorf(
+			"%w: audience cannot exceed %d distinct attendees",
+			ErrInvalidParticipationInput,
+			maximumAudienceAttendees,
+		)
+	}
 	params := AudienceReplacementParams{
 		ExpectedAudienceRevision: input.ExpectedAudienceRevision,
 		IdempotencyKey:           key,
 		ResponseRequested:        input.ResponseRequested,
 		Attendees:                attendees,
+		ExternalAttendees:        externalAttendees,
 	}
 	params.Fingerprint, err = fingerprintAudienceReplacement(params)
 	if err != nil {
 		return AudienceReplacementParams{}, err
 	}
 	return params, nil
+}
+
+func normalizeExternalAudienceAttendees(
+	inputs []ExternalAudienceAttendeeInput,
+) ([]ExternalAudienceAttendee, error) {
+	byAddress := make(map[string]ExternalAudienceAttendee, len(inputs))
+	for _, input := range inputs {
+		email := strings.ToLower(strings.TrimSpace(input.Email))
+		if len(email) < 3 || len(email) > 320 || strings.ContainsAny(email, "\r\n\t ") {
+			return nil, fmt.Errorf("%w: invalid external attendee address", ErrInvalidParticipationInput)
+		}
+		for _, character := range email {
+			if character > 0x7f {
+				return nil, fmt.Errorf("%w: external attendee address must be ASCII", ErrInvalidParticipationInput)
+			}
+		}
+		parsed, err := mail.ParseAddress(email)
+		if err != nil || parsed.Address != email || parsed.Name != "" {
+			return nil, fmt.Errorf("%w: invalid external attendee address", ErrInvalidParticipationInput)
+		}
+		displayName := strings.TrimSpace(input.DisplayName)
+		if !utf8.ValidString(displayName) || utf8.RuneCountInString(displayName) < 1 ||
+			utf8.RuneCountInString(displayName) > 256 || strings.ContainsAny(displayName, "\r\n") {
+			return nil, fmt.Errorf("%w: invalid external attendee display name", ErrInvalidParticipationInput)
+		}
+		if input.ParticipationRole != ParticipationRoleRequired &&
+			input.ParticipationRole != ParticipationRoleOptional {
+			return nil, fmt.Errorf("%w: unsupported external participation role", ErrInvalidParticipationInput)
+		}
+		locale := normalizeInvitationLocale(input.Locale)
+		viewerTimezone := strings.TrimSpace(input.ViewerTimezone)
+		if viewerTimezone == "" || strings.EqualFold(viewerTimezone, "local") {
+			return nil, fmt.Errorf("%w: canonical viewer timezone is required", ErrInvalidParticipationInput)
+		}
+		if _, err := time.LoadLocation(viewerTimezone); err != nil {
+			return nil, fmt.Errorf("%w: canonical viewer timezone is invalid", ErrInvalidParticipationInput)
+		}
+		attendee := ExternalAudienceAttendee{
+			Email:             email,
+			DisplayName:       displayName,
+			ParticipationRole: input.ParticipationRole,
+			Locale:            locale,
+			ViewerTimezone:    viewerTimezone,
+		}
+		if current, exists := byAddress[email]; exists {
+			if current != attendee {
+				return nil, fmt.Errorf(
+					"%w: duplicate external attendee has conflicting attributes",
+					ErrInvalidParticipationInput,
+				)
+			}
+			continue
+		}
+		byAddress[email] = attendee
+	}
+	attendees := make([]ExternalAudienceAttendee, 0, len(byAddress))
+	for _, attendee := range byAddress {
+		attendees = append(attendees, attendee)
+	}
+	sort.Slice(attendees, func(left int, right int) bool {
+		return attendees[left].Email < attendees[right].Email
+	})
+	return attendees, nil
 }
 
 func (input SelfRSVPInput) normalized() (SelfRSVPParams, error) {
@@ -371,10 +470,12 @@ func fingerprintAudienceReplacement(params AudienceReplacementParams) (string, e
 		ExpectedAudienceRevision int64                      `json:"expected_audience_revision"`
 		ResponseRequested        bool                       `json:"response_requested"`
 		Attendees                []InternalAudienceAttendee `json:"attendees"`
+		ExternalAttendees        []ExternalAudienceAttendee `json:"external_attendees"`
 	}{
 		ExpectedAudienceRevision: params.ExpectedAudienceRevision,
 		ResponseRequested:        params.ResponseRequested,
 		Attendees:                params.Attendees,
+		ExternalAttendees:        params.ExternalAttendees,
 	}
 	return fingerprintParticipationInput("audience_replace", payload)
 }
@@ -420,11 +521,13 @@ func bindAudienceReplacementToSource(
 		ExpectedAudienceRevision int64                      `json:"expected_audience_revision"`
 		ResponseRequested        bool                       `json:"response_requested"`
 		Attendees                []InternalAudienceAttendee `json:"attendees"`
+		ExternalAttendees        []ExternalAudienceAttendee `json:"external_attendees"`
 	}{
 		SourceFingerprint:        sourceFingerprint,
 		ExpectedAudienceRevision: params.ExpectedAudienceRevision,
 		ResponseRequested:        params.ResponseRequested,
 		Attendees:                params.Attendees,
+		ExternalAttendees:        params.ExternalAttendees,
 	}
 	params.Fingerprint, err = fingerprintParticipationInput(
 		"audience_replace",

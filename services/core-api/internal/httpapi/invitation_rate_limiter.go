@@ -14,6 +14,10 @@ const (
 	InvitationRateLimitPreview   InvitationRateLimitAction = "preview"
 	InvitationRateLimitAccept    InvitationRateLimitAction = "accept"
 	InvitationRateLimitClassJoin InvitationRateLimitAction = "class_join"
+	InvitationRateLimitCalendarRSVPResolveIP    InvitationRateLimitAction = "calendar_rsvp_resolve_ip"
+	InvitationRateLimitCalendarRSVPResolveToken InvitationRateLimitAction = "calendar_rsvp_resolve_token"
+	InvitationRateLimitCalendarRSVPRespondIP    InvitationRateLimitAction = "calendar_rsvp_respond_ip"
+	InvitationRateLimitCalendarRSVPRespondToken InvitationRateLimitAction = "calendar_rsvp_respond_token"
 )
 
 type InvitationRateLimitDecision struct {
@@ -22,8 +26,9 @@ type InvitationRateLimitDecision struct {
 	Err        error
 }
 
-// InvitationRateLimiter deliberately receives only an action and an IP prefix.
-// Raw invitation tokens must never be used as limiter keys or retained in memory.
+// InvitationRateLimiter deliberately receives only an action and a privacy-safe
+// bucket. Public capability handlers may pass an IP prefix or a one-way token
+// fingerprint; raw invitation/capability tokens must never be retained.
 type InvitationRateLimiter interface {
 	Allow(
 		ctx context.Context,
@@ -63,6 +68,10 @@ func newDefaultInvitationRateLimiter() InvitationRateLimiter {
 			InvitationRateLimitPreview:   {Limit: 30, Window: time.Minute},
 			InvitationRateLimitAccept:    {Limit: 10, Window: time.Minute},
 			InvitationRateLimitClassJoin: {Limit: 10, Window: time.Minute},
+			InvitationRateLimitCalendarRSVPResolveIP:    {Limit: 30, Window: time.Minute},
+			InvitationRateLimitCalendarRSVPResolveToken: {Limit: 10, Window: time.Minute},
+			InvitationRateLimitCalendarRSVPRespondIP:    {Limit: 20, Window: 10 * time.Minute},
+			InvitationRateLimitCalendarRSVPRespondToken: {Limit: 5, Window: 10 * time.Minute},
 		},
 	)
 }

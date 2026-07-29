@@ -83,6 +83,53 @@ const messages = {
     "calendar.audienceEditor.saveError":
       "Chưa thể lưu danh sách người tham dự. Hãy thử lại.",
     "calendar.audienceEditor.reload": "Tải lại danh sách",
+    "calendar.audienceEditor.externalTitle": "Khách bên ngoài",
+    "calendar.audienceEditor.externalDescription":
+      "Thêm người không có tài khoản TutorHub. Họ chỉ nhận được thông tin tối thiểu và đường dẫn phản hồi riêng.",
+    "calendar.audienceEditor.externalForm": "Thêm khách bên ngoài",
+    "calendar.audienceEditor.externalName": "Tên hiển thị",
+    "calendar.audienceEditor.externalEmail": "Email",
+    "calendar.audienceEditor.externalRole": "Mức độ tham dự",
+    "calendar.audienceEditor.externalAdd": "Thêm khách",
+    "calendar.audienceEditor.externalDuplicate":
+      "Email này đã có trong danh sách khách.",
+    "calendar.audienceEditor.externalInvalid":
+      "Nhập tên hiển thị và địa chỉ email hợp lệ.",
+    "calendar.audienceEditor.externalEmpty": "Chưa có khách bên ngoài.",
+    "calendar.audienceEditor.externalList": "Danh sách khách bên ngoài",
+    "calendar.audienceEditor.externalRemove": "Xóa {name}",
+    "calendar.audienceEditor.remove": "Xóa",
+    "calendar.externalRSVP.kicker": "Lời mời lịch TutorHub",
+    "calendar.externalRSVP.title": "Phản hồi lời mời",
+    "calendar.externalRSVP.loading": "Đang tải lời mời...",
+    "calendar.externalRSVP.unavailableTitle": "Lời mời không khả dụng",
+    "calendar.externalRSVP.unavailableDescription":
+      "Liên kết có thể đã hết hạn, bị thu hồi hoặc đã được thay thế. Hãy yêu cầu người tổ chức gửi lại lời mời.",
+    "calendar.externalRSVP.loadErrorTitle": "Chưa thể tải lời mời",
+    "calendar.externalRSVP.loadErrorDescription":
+      "Kiểm tra kết nối rồi thử lại. TutorHub không hiển thị chi tiết lỗi nhạy cảm tại đây.",
+    "calendar.externalRSVP.eventLabel": "Sự kiện",
+    "calendar.externalRSVP.timeLabel": "Thời gian",
+    "calendar.externalRSVP.timezoneLabel": "Múi giờ sự kiện",
+    "calendar.externalRSVP.currentLabel": "Phản hồi hiện tại",
+    "calendar.externalRSVP.confirmation":
+      "Tôi xác nhận đây là phản hồi của mình cho lời mời này.",
+    "calendar.externalRSVP.confirmationHint":
+      "Chỉ gửi khi bạn đã xem lại sự kiện và lựa chọn bên dưới.",
+    "calendar.externalRSVP.choiceLabel": "Chọn phản hồi",
+    "calendar.externalRSVP.noteLabel": "Ghi chú (tùy chọn)",
+    "calendar.externalRSVP.noteHint": "Tối đa 500 ký tự.",
+    "calendar.externalRSVP.submit": "Gửi phản hồi",
+    "calendar.externalRSVP.submitting": "Đang gửi...",
+    "calendar.externalRSVP.savedTitle": "Đã lưu phản hồi",
+    "calendar.externalRSVP.savedDescription":
+      "Lựa chọn của bạn đã được cập nhật cho người tổ chức.",
+    "calendar.externalRSVP.conflict":
+      "Lời mời đã thay đổi. Hãy mở liên kết mới nhất trước khi phản hồi.",
+    "calendar.externalRSVP.saveError":
+      "Chưa thể lưu phản hồi. Hãy thử lại sau.",
+    "calendar.externalRSVP.responseClosed":
+      "Người tổ chức không yêu cầu phản hồi cho lời mời này.",
     "calendar.schedulingAssistant.title": "Trợ lý xếp lịch",
     "calendar.schedulingAssistant.description":
       "Tìm giờ phù hợp từ trạng thái rảnh/bận và giờ làm việc đã được bảo vệ quyền riêng tư.",
@@ -1410,6 +1457,53 @@ const messages = {
     "calendar.audienceEditor.saveError":
       "The attendee list could not be saved. Try again.",
     "calendar.audienceEditor.reload": "Reload attendee list",
+    "calendar.audienceEditor.externalTitle": "External guests",
+    "calendar.audienceEditor.externalDescription":
+      "Add people without a TutorHub account. They receive only the minimum event details and a private RSVP link.",
+    "calendar.audienceEditor.externalForm": "Add an external guest",
+    "calendar.audienceEditor.externalName": "Display name",
+    "calendar.audienceEditor.externalEmail": "Email",
+    "calendar.audienceEditor.externalRole": "Attendance role",
+    "calendar.audienceEditor.externalAdd": "Add guest",
+    "calendar.audienceEditor.externalDuplicate":
+      "This email is already in the external guest list.",
+    "calendar.audienceEditor.externalInvalid":
+      "Enter a display name and a valid email address.",
+    "calendar.audienceEditor.externalEmpty": "No external guests yet.",
+    "calendar.audienceEditor.externalList": "External guest list",
+    "calendar.audienceEditor.externalRemove": "Remove {name}",
+    "calendar.audienceEditor.remove": "Remove",
+    "calendar.externalRSVP.kicker": "TutorHub calendar invitation",
+    "calendar.externalRSVP.title": "Respond to invitation",
+    "calendar.externalRSVP.loading": "Loading the invitation...",
+    "calendar.externalRSVP.unavailableTitle": "Invitation unavailable",
+    "calendar.externalRSVP.unavailableDescription":
+      "This link may be expired, revoked, or superseded. Ask the organizer to send the invitation again.",
+    "calendar.externalRSVP.loadErrorTitle": "Could not load the invitation",
+    "calendar.externalRSVP.loadErrorDescription":
+      "Check your connection and try again. TutorHub does not expose sensitive error details here.",
+    "calendar.externalRSVP.eventLabel": "Event",
+    "calendar.externalRSVP.timeLabel": "Time",
+    "calendar.externalRSVP.timezoneLabel": "Event timezone",
+    "calendar.externalRSVP.currentLabel": "Current response",
+    "calendar.externalRSVP.confirmation":
+      "I confirm this is my response to this invitation.",
+    "calendar.externalRSVP.confirmationHint":
+      "Submit only after reviewing the event and your choice below.",
+    "calendar.externalRSVP.choiceLabel": "Choose a response",
+    "calendar.externalRSVP.noteLabel": "Note (optional)",
+    "calendar.externalRSVP.noteHint": "Up to 500 characters.",
+    "calendar.externalRSVP.submit": "Send response",
+    "calendar.externalRSVP.submitting": "Sending...",
+    "calendar.externalRSVP.savedTitle": "Response saved",
+    "calendar.externalRSVP.savedDescription":
+      "Your choice has been updated for the organizer.",
+    "calendar.externalRSVP.conflict":
+      "The invitation changed. Open the latest invitation before responding.",
+    "calendar.externalRSVP.saveError":
+      "Your response could not be saved. Try again later.",
+    "calendar.externalRSVP.responseClosed":
+      "The organizer is not requesting a response for this invitation.",
     "calendar.schedulingAssistant.title": "Scheduling Assistant",
     "calendar.schedulingAssistant.description":
       "Find a suitable time from privacy-safe free/busy status and working hours.",

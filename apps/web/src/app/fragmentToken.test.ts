@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   clearFragmentTokenEscrow,
   consumeFragmentToken,
+  consumeFragmentTokens,
 } from "./fragmentToken";
 
 const escrowKey = "fragment-token-test";
@@ -32,6 +33,37 @@ describe("fragment bearer-token handling", () => {
 
     expect(consumeFragmentToken(escrowKey)).toBe("short-lived");
     expect(consumeFragmentToken(escrowKey)).toBe("short-lived");
+  });
+
+  it("consumes a purpose-bound token pair and discards unknown fragment data", () => {
+    window.history.replaceState(
+      { preserved: true },
+      "",
+      "/calendar/respond#resolve_token=resolve-v1&respond_token=respond-v1&tracking=discard",
+    );
+
+    expect(
+      consumeFragmentTokens(escrowKey, [
+        "resolve_token",
+        "respond_token",
+      ] as const),
+    ).toEqual({
+      resolve_token: "resolve-v1",
+      respond_token: "respond-v1",
+    });
+    expect(window.location.pathname).toBe("/calendar/respond");
+    expect(window.location.hash).toBe("");
+    expect(window.history.state).toEqual({ preserved: true });
+
+    expect(
+      consumeFragmentTokens(escrowKey, [
+        "resolve_token",
+        "respond_token",
+      ] as const),
+    ).toEqual({
+      resolve_token: "resolve-v1",
+      respond_token: "respond-v1",
+    });
   });
 
   it("rejects empty and oversized values while still cleaning the fragment", () => {

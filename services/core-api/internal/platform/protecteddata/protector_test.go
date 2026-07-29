@@ -263,6 +263,72 @@ func TestDeliveryAddressFingerprintRejectsUnboundedOrInvalidContext(t *testing.T
 	}
 }
 
+func TestRSVPCapabilityTokenDigestIsDeterministicKeyedAndVersioned(t *testing.T) {
+	t.Parallel()
+
+	key := bytes.Repeat([]byte{0x57}, minimumKeyBytes)
+	protector, err := New(Config{Key: key, KeyVersion: 1})
+	if err != nil {
+		t.Fatalf("create protector: %v", err)
+	}
+	token := bytes.Repeat([]byte{0xa3}, 32)
+	first, err := protector.RSVPCapabilityTokenDigest(token)
+	if err != nil {
+		t.Fatalf("digest capability token: %v", err)
+	}
+	second, err := protector.RSVPCapabilityTokenDigest(token)
+	if err != nil {
+		t.Fatalf("digest capability token again: %v", err)
+	}
+	if !bytes.Equal(first[:], second[:]) {
+		t.Fatal("capability digest must be deterministic")
+	}
+	if bytes.Equal(first[:], token) {
+		t.Fatal("capability digest must not persist the raw token")
+	}
+
+	otherToken, err := protector.RSVPCapabilityTokenDigest(bytes.Repeat([]byte{0xa4}, 32))
+	if err != nil {
+		t.Fatalf("digest different capability token: %v", err)
+	}
+	if bytes.Equal(first[:], otherToken[:]) {
+		t.Fatal("capability digest must be token-sensitive")
+	}
+
+	versionTwo, err := New(Config{Key: key, KeyVersion: 2})
+	if err != nil {
+		t.Fatalf("create rotated protector: %v", err)
+	}
+	rotated, err := versionTwo.RSVPCapabilityTokenDigest(token)
+	if err != nil {
+		t.Fatalf("digest capability token with rotated key version: %v", err)
+	}
+	if bytes.Equal(first[:], rotated[:]) {
+		t.Fatal("capability digest must be key-version-sensitive")
+	}
+}
+
+func TestRSVPCapabilityTokenDigestRejectsUnsafeTokenLength(t *testing.T) {
+	t.Parallel()
+
+	protector, err := New(Config{
+		Key:        bytes.Repeat([]byte{0x25}, minimumKeyBytes),
+		KeyVersion: 1,
+	})
+	if err != nil {
+		t.Fatalf("create protector: %v", err)
+	}
+	for _, token := range [][]byte{
+		nil,
+		bytes.Repeat([]byte{0x01}, 15),
+		bytes.Repeat([]byte{0x01}, 129),
+	} {
+		if _, err := protector.RSVPCapabilityTokenDigest(token); !errors.Is(err, ErrInvalidContext) {
+			t.Fatalf("token length %d: expected invalid context, got %v", len(token), err)
+		}
+	}
+}
+
 func validContext() Context {
 	return Context{
 		TenantID: "a0bc4c50-a890-42b0-9eaa-6e3c4e36104f",

@@ -91,7 +91,9 @@ live; rollback bằng specific commit giữ cấu hình hiện tại là bằng 
 | P3-03 PostgreSQL leased worker       | VERIFY      | P3-03A đạt; worker role/host/crash gate mở    |
 | P3-04 In-app notification            | VERIFY      | API ACL staging xanh; worker/canary gate mở   |
 | P3-02A Calendar shell/read projection | DONE      | Route E2E/perf/visual/staging gates đạt        |
-| P3-02B/C, P3-05 đến P3-14             | TODO      | Theo dependency trong backlog                 |
+| P3-02B Recurrence + class conflict     | DONE      | PostgreSQL/staging acceptance đạt              |
+| P3-02C Working hours/free-busy/RSVP    | VERIFY    | Local complete; Neon/ACL/live E2E còn mở       |
+| P3-05 đến P3-14                       | TODO        | Theo dependency trong backlog                 |
 
 Nguồn thực thi: `docs/PHASE_3_BACKLOG.md`. Trước khi code calendar phải đọc
 `docs/CALENDAR_PRODUCT_TECHNICAL_DESIGN.md` và ADR-0017; P3-02B recurrence phải chờ
@@ -150,6 +152,12 @@ thu. Khi đổi worker gate phải dừng process và đổi exact notification
 grant cùng lúc; quyền dư/thiếu đều phải làm startup probe fail closed. Trong khi chờ owner
 duyệt hạ tầng, task implementation độc lập tiếp theo là P3-02B recurrence/conflict.
 P3-CAL-02 tiếp tục giữ live SES/domain/interoperability gate song song, không bật runtime.
+P3-02C đã đạt local implementation gate ngày 2026-07-29: external audience/capability,
+audience diff/RSVP retain-reset, organizer transfer, cancellation close/revoke/snapshot
+và public RSVP POST-only đã có focused local coverage. Không mô tả task là `DONE`:
+source mới nhất là migration `000021`, còn Neon staging được xác nhận gần nhất ở
+`19 false`; migration `000020/000021`, exact runtime ACL, concurrent/IDOR và browser/live
+E2E vẫn phải chạy theo `docs/P3_02C_STAGING_ACCEPTANCE.md`.
 
 ## 6. Hạ tầng staging đã chốt
 

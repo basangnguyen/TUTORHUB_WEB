@@ -44,6 +44,7 @@ const managerAudience: SessionAudience = {
     },
   ],
   audience_revision: 8,
+  external_attendees: [],
   response_requested: true,
   viewer_access: {
     can_manage_attendees: true,

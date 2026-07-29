@@ -1344,6 +1344,13 @@ registration cùng product visibility vẫn mặc định tắt, chưa được 
 ADR-0021 đã chốt Native Availability Poll, secure
 sharing, member-owned Study Meeting và permission boundary cho P3-02D; quyết định này
 không cho phép P3-02D bypass P3-02B/C hoặc P3-03.
+P3-02C đã đạt local implementation gate và chuyển `IN PROGRESS -> VERIFY` ngày
+2026-07-29: working schedule/free-busy, internal/external audience, RSVP capability,
+audience diff, organizer transfer, cancellation lifecycle và public RSVP đã nối
+OpenAPI/generated client/Core API/web với focused local coverage. Source migration mới
+nhất là `000021`; Neon staging được xác nhận gần nhất vẫn `19 false`, nên
+`000020/000021`, exact runtime ACL, concurrent/IDOR và browser/live E2E vẫn là gate
+trước khi chuyển `DONE` hoặc kích hoạt delivery tới end user.
 
 **Mục tiêu:** trước khi có classroom phức tạp, người dùng đã quản lý được lịch, tin nhắn và tài liệu.
 
@@ -1844,7 +1851,7 @@ Một tính năng chỉ được đánh dấu hoàn thành khi:
 
 ## 36. Việc cần làm ngay
 
-Thứ tự hiện tại, cập nhật ngày 2026-07-26:
+Thứ tự hiện tại, cập nhật ngày 2026-07-29:
 
 1. Phase 1 đã hoàn thành; biên bản nằm tại `docs/PHASE_1_COMPLETION.md`.
 2. Phase 2/P2-00 đến P2-12 đã hoàn thành; biên bản exit gate được sign-off ngày 2026-07-22.
@@ -1871,14 +1878,18 @@ Thứ tự hiện tại, cập nhật ngày 2026-07-26:
     domain/DNS gate có evidence. Pre-domain chỉ dùng owner-controlled verified identities;
     runtime delivery chờ P3-03B/P3-02C/P3-05A.
 11. P3-02B đã `DONE`: migration `000018/000019`, exact runtime grants, canary,
-    concurrent/authorization/cross-tenant/split/query-plan acceptance đều đạt. Tiếp tục
-    P3-02C và P3-05A theo dependency đã khóa; hoàn tất staging gate P3-04 cùng P3-03B
-    trước activation.
-    Không đưa recurrence, reminder, worker, email hoặc calendar tổng hợp vào P3-01.
-12. ADR-0021 đã `Accepted`; triển khai P3-02D sau P3-02B/C và P3-03 rồi P3-05B, không
+     concurrent/authorization/cross-tenant/split/query-plan acceptance đều đạt. Tiếp tục
+     P3-02C và P3-05A theo dependency đã khóa; hoàn tất staging gate P3-04 cùng P3-03B
+     trước activation.
+     Không đưa recurrence, reminder, worker, email hoặc calendar tổng hợp vào P3-01.
+12. P3-02C đã đạt local `VERIFY`: external audience/capability, deterministic audience
+     diff, organizer transfer, cancellation close/revoke/snapshot và public RSVP có local
+     coverage. Neon vẫn `19 false`; migration `000020/000021`, exact ACL,
+     concurrent/IDOR và browser/live E2E chưa chạy nên chưa `DONE`.
+13. ADR-0021 đã `Accepted`; triển khai P3-02D sau P3-02B/C và P3-03 rồi P3-05B, không
      phụ thuộc When2meet.
-13. Không xóa thêm Neon branch theo quyết định hiện tại của owner.
-14. Không khởi động QuizHub, Lavie, social feed hoặc Secure Exam ngoài phase đã quy hoạch.
+14. Không xóa thêm Neon branch theo quyết định hiện tại của owner.
+15. Không khởi động QuizHub, Lavie, social feed hoặc Secure Exam ngoài phase đã quy hoạch.
 
 ## 37. Quy tắc duy trì Master Plan
 
@@ -1937,8 +1948,9 @@ Cả
 `OUTBOX_ENABLE_IN_APP_NOTIFICATION_CANARY` và
 `FEATURE_CONTROL_ENABLE_IN_APP_NOTIFICATIONS` vẫn mặc định false. P3-CAL-02/ADR-0020
 đã đạt local `VERIFY` với renderer/golden/sink/SES adapter cô lập. P3-02B recurrence và
-class conflict đã `DONE`; bước Calendar nghiệp vụ tiếp theo là P3-02C working hours,
-attendee/free-busy và RSVP.
+class conflict đã `DONE`; P3-02C working hours/attendee/free-busy/RSVP đã đạt local
+`VERIFY`. Bước tiếp theo của P3-02C là migration `000020/000021`, exact runtime ACL và
+staging/live acceptance; không được ghi `DONE` trước các gate này.
 P3-02D/ADR-0021 mới là
 architecture/backlog, chưa có runtime. AWS SES đã được chọn làm provider target nhưng
 P3-CAL-02/ADR-0020 vẫn giữ các gate live email/ICS chưa nghiệm thu; chưa có domain hoặc

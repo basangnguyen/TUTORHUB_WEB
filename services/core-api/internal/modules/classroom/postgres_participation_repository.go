@@ -72,20 +72,22 @@ type resolvedAudienceMember struct {
 }
 
 type invitationSnapshotRecipient struct {
-	ID                uuid.UUID
-	AttendeeID        uuid.UUID
-	UserID            uuid.UUID
-	ParticipationRole ParticipationRole
-	BusinessRole      string
-	AudienceSource    string
-	ResponseRequested bool
-	CanSeeGuestList   bool
-	RSVPState         RSVPState
-	RSVPSource        string
-	Email             string
-	DisplayName       string
-	Locale            string
-	ViewerTimezone    string
+	ID                         uuid.UUID
+	AttendeeID                 uuid.UUID
+	UserID                     uuid.UUID
+	RecipientKind              string
+	DeliveryAddressFingerprint [32]byte
+	ParticipationRole          ParticipationRole
+	BusinessRole               string
+	AudienceSource             string
+	ResponseRequested          bool
+	CanSeeGuestList            bool
+	RSVPState                  RSVPState
+	RSVPSource                 string
+	Email                      string
+	DisplayName                string
+	Locale                     string
+	ViewerTimezone             string
 }
 
 type canonicalSessionInvitationSnapshot struct {
@@ -121,6 +123,7 @@ type invitationSnapshotGuestPermissions struct {
 type invitationSnapshotAttendee struct {
 	AttendeeID        uuid.UUID         `json:"attendee_id"`
 	RecipientID       uuid.UUID         `json:"recipient_id"`
+	RecipientKind     string            `json:"recipient_kind"`
 	UserID            uuid.UUID         `json:"user_id"`
 	ParticipationRole ParticipationRole `json:"participation_role"`
 	BusinessRole      string            `json:"business_role"`
@@ -159,7 +162,7 @@ func (repository *PostgresRepository) GetSessionAudience(
 	); err != nil {
 		return SessionAudience{}, err
 	}
-	audience, err := readSessionAudience(
+	audience, err := repository.readSessionAudience(
 		queryContext, transaction, tenantContext.TenantID, classID, sessionID,
 	)
 	if err != nil {
@@ -190,10 +193,11 @@ func (repository *PostgresRepository) ReplaceSessionAudience(
 		IdempotencyKey:           params.IdempotencyKey,
 		ResponseRequested:        params.ResponseRequested,
 		Attendees:                toAudienceInput(params.Attendees),
+		ExternalAttendees:        toExternalAudienceInput(params.ExternalAttendees),
 	}).normalized(); err != nil {
 		return SessionAudienceMutationResult{}, err
 	}
-	fingerprint, err := decodeParticipationFingerprint(params.Fingerprint)
+	fingerprint, err := repository.storedAudienceFingerprint(tenantContext.TenantID, params)
 	if err != nil {
 		return SessionAudienceMutationResult{}, err
 	}
@@ -239,7 +243,7 @@ func (repository *PostgresRepository) ReplaceSessionAudience(
 	); err != nil {
 		return SessionAudienceMutationResult{}, err
 	} else if replay {
-		audience, readErr := readSessionAudience(
+		audience, readErr := repository.readSessionAudience(
 			queryContext, transaction, tenantContext.TenantID, classID, sessionID,
 		)
 		if readErr != nil {
@@ -260,6 +264,15 @@ func (repository *PostgresRepository) ReplaceSessionAudience(
 	if source.Status != SessionStatusScheduled {
 		return SessionAudienceMutationResult{}, ErrInvalidSessionTransition
 	}
+	if err := requireEligibleParticipationOrganizer(
+		queryContext,
+		transaction,
+		tenantContext.TenantID,
+		classID,
+		source.OrganizerUserID,
+	); err != nil {
+		return SessionAudienceMutationResult{}, err
+	}
 	if source.AudienceRevision != params.ExpectedAudienceRevision {
 		return SessionAudienceMutationResult{}, ErrSessionAudienceVersionConflict
 	}
@@ -274,14 +287,40 @@ func (repository *PostgresRepository) ReplaceSessionAudience(
 	if err != nil {
 		return SessionAudienceMutationResult{}, err
 	}
+	resolvedExternal, err := repository.resolveExternalAudience(
+		queryContext,
+		transaction,
+		tenantContext,
+		params.ExternalAttendees,
+		replacedAt.UTC(),
+	)
+	if err != nil {
+		return SessionAudienceMutationResult{}, err
+	}
 	current, err := lockActiveSessionAttendees(
 		queryContext, transaction, tenantContext.TenantID, classID, sessionID,
 	)
 	if err != nil {
 		return SessionAudienceMutationResult{}, err
 	}
-	if !audienceReplacementChanges(source.ResponseRequested, params.ResponseRequested, current, resolved) {
-		audience, readErr := readSessionAudience(
+	currentExternal, err := repository.lockExternalAudienceAttendees(
+		queryContext,
+		transaction,
+		tenantContext.TenantID,
+		classID,
+		SessionParticipationSource(sessionID),
+	)
+	if err != nil {
+		return SessionAudienceMutationResult{}, err
+	}
+	if !audienceReplacementChanges(source.ResponseRequested, params.ResponseRequested, current, resolved) &&
+		!externalAudienceReplacementChanges(
+			source.ResponseRequested,
+			params.ResponseRequested,
+			currentExternal,
+			resolvedExternal,
+		) {
+		audience, readErr := repository.readSessionAudience(
 			queryContext, transaction, tenantContext.TenantID, classID, sessionID,
 		)
 		if readErr != nil {
@@ -314,6 +353,21 @@ func (repository *PostgresRepository) ReplaceSessionAudience(
 	); err != nil {
 		return SessionAudienceMutationResult{}, err
 	}
+	if err := repository.applyExternalAudienceReplacement(
+		queryContext,
+		transaction,
+		tenantContext,
+		classID,
+		SessionParticipationSource(sessionID),
+		source.ShowAs,
+		source.Visibility,
+		params.ResponseRequested,
+		currentExternal,
+		resolvedExternal,
+		replacedAt.UTC(),
+	); err != nil {
+		return SessionAudienceMutationResult{}, err
+	}
 
 	newAudienceRevision := source.AudienceRevision + 1
 	newSequence := source.Sequence
@@ -336,8 +390,9 @@ func (repository *PostgresRepository) ReplaceSessionAudience(
 		return SessionAudienceMutationResult{}, err
 	}
 
-	recipients, err := readInvitationSnapshotRecipients(
+	recipients, err := repository.readInvitationSnapshotRecipients(
 		queryContext, transaction, tenantContext.TenantID, classID, sessionID,
+		resolvedExternal,
 	)
 	if err != nil {
 		return SessionAudienceMutationResult{}, err
@@ -383,7 +438,7 @@ func (repository *PostgresRepository) ReplaceSessionAudience(
 	); err != nil {
 		return SessionAudienceMutationResult{}, err
 	}
-	audience, err := readSessionAudience(
+	audience, err := repository.readSessionAudience(
 		queryContext, transaction, tenantContext.TenantID, classID, sessionID,
 	)
 	if err != nil {
@@ -571,7 +626,7 @@ type participationQuerier interface {
 	QueryRow(context.Context, string, ...any) pgx.Row
 }
 
-func readSessionAudience(
+func (repository *PostgresRepository) readSessionAudience(
 	ctx context.Context,
 	queryer participationQuerier,
 	tenantID uuid.UUID,
@@ -643,6 +698,28 @@ ORDER BY internal_user_id ASC`,
 	}
 	if err := rows.Err(); err != nil {
 		return SessionAudience{}, fmt.Errorf("iterate session audience attendees: %w", err)
+	}
+	rows.Close()
+	externalAttendees, err := repository.readExternalAudienceAttendees(
+		ctx,
+		queryer,
+		tenantID,
+		classID,
+		SessionParticipationSource(sessionID),
+	)
+	if err != nil {
+		return SessionAudience{}, err
+	}
+	audience.ExternalAttendees = make(
+		[]SessionAudienceExternalAttendee,
+		0,
+		len(externalAttendees),
+	)
+	for _, attendee := range externalAttendees {
+		audience.ExternalAttendees = append(
+			audience.ExternalAttendees,
+			attendee.toAudienceExternalAttendee(),
+		)
 	}
 	return audience, nil
 }
@@ -795,7 +872,8 @@ WHERE tenant_id = $1
   AND class_id = $2
   AND session_id = $3
   AND status = 'active'
-ORDER BY internal_user_id ASC NULLS LAST, id ASC
+  AND internal_user_id IS NOT NULL
+ORDER BY internal_user_id ASC, id ASC
 FOR UPDATE`,
 		tenantID,
 		classID,
@@ -808,10 +886,9 @@ FOR UPDATE`,
 	attendees := make([]persistedSessionAttendee, 0)
 	for rows.Next() {
 		var attendee persistedSessionAttendee
-		var userID uuid.NullUUID
 		if scanErr := rows.Scan(
 			&attendee.ID,
-			&userID,
+			&attendee.UserID,
 			&attendee.ParticipationRole,
 			&attendee.BusinessRole,
 			&attendee.AudienceSource,
@@ -824,12 +901,6 @@ FOR UPDATE`,
 		); scanErr != nil {
 			return nil, fmt.Errorf("scan active session attendee: %w", scanErr)
 		}
-		// P3-02C accepts internal audience only. Refuse to mutate a source
-		// containing a later external audience rather than silently discarding it.
-		if !userID.Valid {
-			return nil, ErrSessionParticipationUnavailable
-		}
-		attendee.UserID = userID.UUID
 		attendees = append(attendees, attendee)
 	}
 	if err := rows.Err(); err != nil {
@@ -873,6 +944,14 @@ func applyAudienceReplacement(
 	desired []resolvedAudienceMember,
 	changedAt time.Time,
 ) error {
+	diffByUserID, err := planResolvedAudienceDiff(
+		current,
+		desired,
+		params.ResponseRequested,
+	)
+	if err != nil {
+		return err
+	}
 	currentByUserID := make(map[uuid.UUID]persistedSessionAttendee, len(current))
 	for _, attendee := range current {
 		currentByUserID[attendee.UserID] = attendee
@@ -907,17 +986,11 @@ WHERE tenant_id = $1 AND class_id = $2 AND id = $3 AND status = 'active'`,
 			}
 			continue
 		}
-		resetRSVP := attendee.ParticipationRole != member.ParticipationRole ||
-			attendee.BusinessRole != member.BusinessRole ||
-			attendee.AudienceSource != member.AudienceSource ||
-			attendee.ResponseRequested != params.ResponseRequested
-		attendeeChanged := attendee.ParticipationRole != member.ParticipationRole ||
-			attendee.BusinessRole != member.BusinessRole ||
-			attendee.AudienceSource != member.AudienceSource ||
-			attendee.ResponseRequested != params.ResponseRequested
-		if !attendeeChanged {
+		diff := diffByUserID[attendee.UserID]
+		if !diff.MetadataChanged {
 			continue
 		}
+		resetRSVP := diff.RSVPDisposition == AudienceRSVPReset
 		if _, err := transaction.Exec(
 			ctx,
 			`UPDATE tutorhub.class_session_attendees
@@ -1051,6 +1124,22 @@ func toAudienceInput(
 		result = append(result, InternalAudienceAttendeeInput{
 			UserID:            attendee.UserID,
 			ParticipationRole: attendee.ParticipationRole,
+		})
+	}
+	return result
+}
+
+func toExternalAudienceInput(
+	attendees []ExternalAudienceAttendee,
+) []ExternalAudienceAttendeeInput {
+	result := make([]ExternalAudienceAttendeeInput, 0, len(attendees))
+	for _, attendee := range attendees {
+		result = append(result, ExternalAudienceAttendeeInput{
+			Email:             attendee.Email,
+			DisplayName:       attendee.DisplayName,
+			ParticipationRole: attendee.ParticipationRole,
+			Locale:            attendee.Locale,
+			ViewerTimezone:    attendee.ViewerTimezone,
 		})
 	}
 	return result
@@ -1397,12 +1486,13 @@ func validAudienceBusinessRole(value string) bool {
 	}
 }
 
-func readInvitationSnapshotRecipients(
+func (repository *PostgresRepository) readInvitationSnapshotRecipients(
 	ctx context.Context,
 	transaction pgx.Tx,
 	tenantID uuid.UUID,
 	classID uuid.UUID,
 	sessionID uuid.UUID,
+	desiredExternal []resolvedExternalAudienceMember,
 ) ([]invitationSnapshotRecipient, error) {
 	rows, err := transaction.Query(
 		ctx,
@@ -1462,6 +1552,7 @@ ORDER BY attendee.internal_user_id ASC`,
 			return nil, fmt.Errorf("scan invitation snapshot recipient: %w", scanErr)
 		}
 		recipient.Email = strings.ToLower(strings.TrimSpace(recipient.Email))
+		recipient.RecipientKind = "internal"
 		recipient.DisplayName = strings.TrimSpace(recipient.DisplayName)
 		recipient.Locale = normalizeInvitationLocale(recipient.Locale)
 		recipient.ViewerTimezone = strings.TrimSpace(recipient.ViewerTimezone)
@@ -1472,6 +1563,18 @@ ORDER BY attendee.internal_user_id ASC`,
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("iterate invitation snapshot recipients: %w", err)
+	}
+	recipients, err = repository.appendExternalInvitationSnapshotRecipients(
+		ctx,
+		transaction,
+		tenantID,
+		classID,
+		SessionParticipationSource(sessionID),
+		recipients,
+		desiredExternal,
+	)
+	if err != nil {
+		return nil, err
 	}
 	if len(recipients) > maximumAudienceAttendees {
 		return nil, fmt.Errorf(
@@ -1492,8 +1595,17 @@ func normalizeInvitationLocale(value string) string {
 	}
 }
 
+func validInvitationSnapshotLifecycle(lifecycle string, reasonCode string) bool {
+	switch lifecycle {
+	case "published", "updated", "cancelled":
+	default:
+		return false
+	}
+	return externalCapabilityRevocationReason.MatchString(reasonCode)
+}
+
 func validInvitationRecipient(recipient invitationSnapshotRecipient) bool {
-	if recipient.AttendeeID == uuid.Nil || recipient.UserID == uuid.Nil ||
+	if recipient.AttendeeID == uuid.Nil ||
 		len(recipient.Email) < 3 || len(recipient.Email) > 320 ||
 		strings.Count(recipient.Email, "@") != 1 ||
 		strings.ContainsAny(recipient.Email, " \t\r\n") ||
@@ -1502,8 +1614,21 @@ func validInvitationRecipient(recipient invitationSnapshotRecipient) bool {
 		recipient.Locale != "vi-VN" && recipient.Locale != "en-US" ||
 		recipient.ParticipationRole != ParticipationRoleRequired &&
 			recipient.ParticipationRole != ParticipationRoleOptional ||
-		!validAudienceBusinessRole(recipient.BusinessRole) ||
 		recipient.AudienceSource != "roster" && recipient.AudienceSource != "manual" {
+		return false
+	}
+	switch recipient.RecipientKind {
+	case "internal":
+		if recipient.UserID == uuid.Nil || !validAudienceBusinessRole(recipient.BusinessRole) ||
+			recipient.BusinessRole == "external_guest" {
+			return false
+		}
+	case "external":
+		if recipient.UserID != uuid.Nil || recipient.BusinessRole != "external_guest" ||
+			recipient.AudienceSource != "manual" || recipient.CanSeeGuestList {
+			return false
+		}
+	default:
 		return false
 	}
 	switch recipient.RSVPState {
@@ -1535,18 +1660,52 @@ func (repository *PostgresRepository) insertInvitationSnapshot(
 	recipients []invitationSnapshotRecipient,
 	createdAt time.Time,
 ) error {
-	if repository.calendarProtector == nil || revisionID == uuid.Nil {
-		return ErrSessionParticipationUnavailable
-	}
 	lifecycle := "updated"
 	if source.AudienceRevision == 0 {
 		lifecycle = "published"
+	}
+	return repository.insertInvitationSnapshotWithLifecycle(
+		ctx,
+		transaction,
+		tenantContext,
+		source,
+		sourceVersion,
+		audienceRevision,
+		sequence,
+		responseRequested,
+		revisionID,
+		recipients,
+		lifecycle,
+		"audience_replaced",
+		createdAt,
+	)
+}
+
+func (repository *PostgresRepository) insertInvitationSnapshotWithLifecycle(
+	ctx context.Context,
+	transaction pgx.Tx,
+	tenantContext tenancy.Context,
+	source lockedParticipationSession,
+	sourceVersion int64,
+	audienceRevision int64,
+	sequence int64,
+	responseRequested bool,
+	revisionID uuid.UUID,
+	recipients []invitationSnapshotRecipient,
+	lifecycle string,
+	reasonCode string,
+	createdAt time.Time,
+) error {
+	if repository.calendarProtector == nil || revisionID == uuid.Nil ||
+		!validInvitationSnapshotLifecycle(lifecycle, reasonCode) {
+		return ErrSessionParticipationUnavailable
 	}
 	snapshotAttendees := make([]invitationSnapshotAttendee, 0, len(recipients))
 	for _, recipient := range recipients {
 		snapshotAttendees = append(snapshotAttendees, invitationSnapshotAttendee{
 			AttendeeID:        recipient.AttendeeID,
 			RecipientID:       recipient.ID,
+			RecipientKind:     recipient.RecipientKind,
 			UserID:            recipient.UserID,
 			ParticipationRole: recipient.ParticipationRole,
 			BusinessRole:      recipient.BusinessRole,
@@ -1556,7 +1715,10 @@ func (repository *PostgresRepository) insertInvitationSnapshot(
 		})
 	}
 	sort.Slice(snapshotAttendees, func(left int, right int) bool {
-		return snapshotAttendees[left].UserID.String() < snapshotAttendees[right].UserID.String()
+		if snapshotAttendees[left].RecipientKind != snapshotAttendees[right].RecipientKind {
+			return snapshotAttendees[left].RecipientKind < snapshotAttendees[right].RecipientKind
+		}
+		return snapshotAttendees[left].RecipientID.String() < snapshotAttendees[right].RecipientID.String()
 	})
 	payload, err := json.Marshal(canonicalSessionInvitationSnapshot{
 		SchemaVersion:     "tutorhub.calendar.invitation.v1",
@@ -1610,9 +1772,9 @@ VALUES (
     $1, $2, $3, $4,
     $5, $6, $7, $8,
     NULL, $9, $10, 'user', $11,
-    'audience_replaced', $12,
-    $13, $14,
-    $15, $16
+    $12, $13,
+    $14, $15,
+    $16, $17
 )`,
 		revisionID,
 		tenantContext.TenantID,
@@ -1625,6 +1787,7 @@ VALUES (
 		lifecycle,
 		source.OrganizerUserID,
 		tenantContext.ActorID,
+		reasonCode,
 		calendarTimezoneDataVersion,
 		sealedPayload.Ciphertext,
 		payloadDigest[:],
@@ -1674,17 +1837,18 @@ VALUES (
 )
 VALUES (
     $1, $2, $3, $4, $5,
-    'internal', $6, $7, $8,
-    $9, $10, $11, $12,
-    $13, $14,
-    $15, $16,
-    $17, $18, $19
+    $6, $7, $8, $9,
+    $10, $11, $12, $13,
+    $14, $15,
+    $16, $17,
+    $18, $19, $20
 )`,
 			recipient.ID,
 			tenantContext.TenantID,
 			source.ClassID,
 			revisionID,
 			recipient.AttendeeID,
+			recipient.RecipientKind,
 			string(recipient.ParticipationRole),
 			recipient.BusinessRole,
 			recipient.AudienceSource,

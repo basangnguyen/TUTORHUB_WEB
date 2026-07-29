@@ -55,6 +55,7 @@ const selfAttendee = {
 const selfAudience: SessionAudience = {
   attendees: [selfAttendee],
   audience_revision: 4,
+  external_attendees: [],
   response_requested: true,
   viewer_access: {
     can_manage_attendees: false,
@@ -191,6 +192,7 @@ describe("SessionParticipationPanel", () => {
         },
       ],
       audience_revision: 8,
+      external_attendees: [],
       response_requested: true,
       viewer_access: {
         can_manage_attendees: true,

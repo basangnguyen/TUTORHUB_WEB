@@ -30,6 +30,7 @@ import {
   MembershipInvitationPage,
 } from "../pages/MembershipInvitationPage";
 import { ClassInvitationPage } from "../pages/ClassInvitationPage";
+import { ExternalCalendarRSVPPage } from "../pages/ExternalCalendarRSVPPage";
 import {
   ForbiddenPage,
   AuthenticationErrorPage,
@@ -275,6 +276,7 @@ export function createAppRoutes(): RouteObject[] {
     },
     { path: "/forbidden", element: <ForbiddenPage /> },
     { path: "/class-invite", element: <ClassInvitationPage /> },
+    { path: "/calendar/respond", element: <ExternalCalendarRSVPPage /> },
     { path: "/invite", element: <MembershipInvitationPage /> },
     {
       path: "/invite/accepted",

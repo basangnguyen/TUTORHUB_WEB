@@ -34,6 +34,10 @@ func NewPostgresInvitationRateLimiter(
 			InvitationRateLimitPreview:   {Limit: 30, Window: time.Minute},
 			InvitationRateLimitAccept:    {Limit: 10, Window: time.Minute},
 			InvitationRateLimitClassJoin: {Limit: 10, Window: time.Minute},
+			InvitationRateLimitCalendarRSVPResolveIP:    {Limit: 30, Window: time.Minute},
+			InvitationRateLimitCalendarRSVPResolveToken: {Limit: 10, Window: time.Minute},
+			InvitationRateLimitCalendarRSVPRespondIP:    {Limit: 20, Window: 10 * time.Minute},
+			InvitationRateLimitCalendarRSVPRespondToken: {Limit: 5, Window: 10 * time.Minute},
 		},
 	}, nil
 }
@@ -122,6 +126,14 @@ func invitationRateLimitPurpose(action InvitationRateLimitAction) string {
 		return "membership_invitation.accept"
 	case InvitationRateLimitClassJoin:
 		return "class_invite.join"
+	case InvitationRateLimitCalendarRSVPResolveIP:
+		return "calendar_rsvp.resolve_ip"
+	case InvitationRateLimitCalendarRSVPResolveToken:
+		return "calendar_rsvp.resolve_token"
+	case InvitationRateLimitCalendarRSVPRespondIP:
+		return "calendar_rsvp.respond_ip"
+	case InvitationRateLimitCalendarRSVPRespondToken:
+		return "calendar_rsvp.respond_token"
 	default:
 		return "invalid"
 	}

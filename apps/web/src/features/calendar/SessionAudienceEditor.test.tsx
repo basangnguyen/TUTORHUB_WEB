@@ -35,6 +35,7 @@ const audience: SessionAudience = {
     },
   ],
   audience_revision: 8,
+  external_attendees: [],
   response_requested: true,
   viewer_access: {
     can_manage_attendees: true,
@@ -200,9 +201,92 @@ describe("SessionAudienceEditor", () => {
         { participation_role: "required", user_id: ownerID },
         { participation_role: "optional", user_id: studentID },
       ],
+      external_attendees: [],
       expected_audience_revision: 8,
       idempotency_key: expect.stringMatching(/^audience:/u),
       response_requested: true,
+    });
+  });
+
+  it("preserves existing external guests and includes a newly added guest in the full replacement", async () => {
+    const renderedAudience = {
+      ...audience,
+      external_attendees: [
+        {
+          display_name: "Grace Guardian",
+          email: "grace@example.test",
+          locale: "en-US",
+          participation_role: "required",
+          viewer_timezone: "Asia/Ho_Chi_Minh",
+        },
+      ],
+    } as SessionAudience & {
+      external_attendees: Array<{
+        display_name: string;
+        email: string;
+        locale: string;
+        participation_role: "required" | "optional";
+        viewer_timezone: string;
+      }>;
+    };
+    let replacementBody: unknown;
+    const fetchMock = vi.fn().mockImplementation(async (request: Request) => {
+      const url = new URL(request.url);
+      if (
+        request.method === "GET" &&
+        url.pathname.endsWith(`/api/v1/classes/${classID}/roster`)
+      ) {
+        return jsonResponse(roster);
+      }
+      if (url.pathname.endsWith("/api/v1/auth/csrf")) {
+        return jsonResponse({ csrf_token: "audience-csrf" });
+      }
+      if (request.method === "PUT") {
+        replacementBody = await request.clone().json();
+        return jsonResponse({
+          audience: renderedAudience,
+          replayed: false,
+        });
+      }
+      throw new Error(`unexpected request ${request.method} ${url.pathname}`);
+    });
+
+    renderEditor(fetchMock, undefined, undefined, renderedAudience);
+
+    const externalList = screen.getByRole("list", {
+      name: "External guest list",
+    });
+    expect(within(externalList).getByText("Grace Guardian")).toBeVisible();
+    expect(within(externalList).getByText("grace@example.test")).toBeVisible();
+
+    fireEvent.change(screen.getByRole("textbox", { name: "Display name" }), {
+      target: { value: "Alex Parent" },
+    });
+    fireEvent.change(screen.getByRole("textbox", { name: "Email" }), {
+      target: { value: "ALEX@example.test" },
+    });
+    fireEvent.change(screen.getByLabelText("Attendance role"), {
+      target: { value: "optional" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add guest" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save attendees" }));
+
+    await waitFor(() => expect(replacementBody).toBeDefined());
+    expect(replacementBody).toMatchObject({
+      external_attendees: [
+        {
+          display_name: "Alex Parent",
+          email: "alex@example.test",
+          participation_role: "optional",
+        },
+        {
+          display_name: "Grace Guardian",
+          email: "grace@example.test",
+          locale: "en-US",
+          participation_role: "required",
+          viewer_timezone: "Asia/Ho_Chi_Minh",
+        },
+      ],
     });
   });
 

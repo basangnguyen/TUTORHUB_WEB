@@ -7,7 +7,8 @@ thay đổi schema, migration hoặc repository phải đọc tài liệu này t
 
 - System of record: Neon PostgreSQL.
 - Schema ứng dụng: `tutorhub`.
-- Migration mới nhất trong source: `000019_class_session_recurrence_mutations`.
+- Migration mới nhất trong source:
+  `000021_calendar_invitation_snapshot_delivery_boundary`.
 - Migration 1-5 đã được chạy và kiểm tra trên Neon; smoke
   `5 false -> rollback 4 false -> migrate 5 false` đạt ngày 2026-07-16.
 - Migration `000006` đến `000013` đều có up/down path. Source và PostgreSQL 17 CI
@@ -24,6 +25,12 @@ thay đổi schema, migration hoặc repository phải đọc tài liệu này t
   exception overlay và migration `000019` bổ sung iCal identity cùng idempotency
   receipts. Exact Core API runtime grants tới migration `000019` đã được probe; quyền
   worker, durable-host và các acceptance gate riêng của P3-03/P3-04 vẫn chưa đạt.
+- Migration `000020` thêm working schedule/exception, audience/attendee, external
+  recipient, immutable invitation snapshot, RSVP capability và participation receipt.
+  Migration `000021` tách immutable business snapshot khỏi per-recipient delivery
+  method do P3-05A sở hữu. Hai migration này hiện chỉ có trong source/local coverage:
+  Neon staging được xác nhận gần nhất vẫn `19 false`; `000020/000021` và exact runtime
+  grants là `NOT RUN`.
 - Phần lớn integration test rollback bằng transaction. Chỉ focused P2-09 suite có
   fixture tự dọn hoàn toàn được chạy trên staging ngày 2026-07-21; các suite concurrency
   có thể để lại audit append-only vẫn chỉ chạy trên database CI tạm thời.
@@ -817,6 +824,33 @@ Không in connection string, token hoặc dữ liệu fixture ra terminal/artifa
 rollback giữ schema 19 là đường ưu tiên; down `19 -> 18` chỉ chạy trên disposable/test
 và sau khi đã đánh giá mất receipt/UID.
 
+## Working schedule, participation và delivery boundary 000020/000021
+
+Migration `000020` tạo working schedule tenant/user-scoped, weekly/special-hour
+interval và holiday/out-of-office exception; đồng thời bổ sung audience authority cho
+session/series, encrypted external recipient, attendee/RSVP state, immutable invitation
+revision/recipient snapshot, hashed RSVP capability và append-only participation receipt.
+Các trigger/constraint giữ cap interval/exception, source scope, RSVP state, token
+expiry/revoke và snapshot immutability.
+
+Migration `000021` làm rõ delivery boundary: invitation revision là encrypted immutable
+business/audience snapshot, không phải delivery ledger hoặc rendered MIME. Revision-level
+`method` phải `NULL` cho snapshot mới; P3-05A mới suy `REQUEST`/`CANCEL` theo recipient
+từ audience diff và source lifecycle. Migration cũng cho phép protected display name
+một ký tự theo kích thước envelope AES-GCM thực tế.
+
+Source/local implementation của P3-02C đã đạt `VERIFY`, nhưng không được xem là bằng
+chứng database staging. Neon được xác nhận gần nhất ở `19 false`; migration
+`000020/000021`, exact Core API runtime ACL và smoke PostgreSQL vẫn `NOT RUN`. Khi chạy
+staging phải dùng direct migration role, cấp đúng least-privilege matrix và chạy toàn bộ
+probe trong
+[`P3_02C_STAGING_ACCEPTANCE.md`](P3_02C_STAGING_ACCEPTANCE.md). Không in URL/credential,
+raw capability, email hoặc decrypted snapshot ra terminal/artifact.
+
+Application rollback giữ schema 21 là đường ưu tiên sau khi forward thành công. Database
+down `21 -> 20 -> 19` chỉ chạy trên disposable/test hoặc sau khi dừng runtime liên quan,
+đánh giá dữ liệu participation/snapshot và có backup/restore plan.
+
 ## Chạy migration
 
 Tạo `.env.local` từ `.env.example` và điền direct migration URL cùng hai pooled URL
@@ -846,14 +880,13 @@ pnpm db:version
 ```
 
 Sau khi áp dụng toàn bộ migration trong source hiện tại, kết quả mong đợi là
-`17 false`. Chỉ ghi đó là kết quả môi trường khi lệnh thực tế đã chạy. Neon staging
-được xác nhận gần nhất ở `14 false` trong P3-01; chưa được coi là version 15/16/17 và
-chưa có worker/notification/calendar role grants cho tới khi provisioning cùng smoke
-thực tế đạt. Application rollback giữ schema 17. Database rollback chỉ dùng khi đã dừng
-worker, đánh giá dữ liệu và có backup/restore plan. Down `17 -> 16` xóa Calendar
-preference/index; down tiếp `16 -> 15` xóa notification projection; down `15 -> 14`
-chạy preflight retained lease/dead-letter trước khi metadata đổi và phải giữ `15 false`
-nếu bị chặn:
+`21 false`. Chỉ ghi đó là kết quả môi trường khi lệnh thực tế đã chạy. Neon staging
+được xác nhận gần nhất ở `19 false`; chưa được coi là version 20/21 và chưa có exact
+P3-02C runtime grants cho tới khi provisioning cùng smoke thực tế đạt. Application
+rollback giữ schema hiện tại. Database rollback chỉ dùng khi đã dừng runtime liên quan,
+đánh giá dữ liệu và có backup/restore plan. Down `21 -> 20 -> 19` có thể mất delivery
+boundary metadata và participation/working-schedule data; chỉ chạy theo preflight của
+acceptance runbook:
 
 ```powershell
 go run ./services/core-api/cmd/migrate down -steps 1
@@ -883,6 +916,12 @@ retry/backoff, duplicate idempotency, permanent/max-attempt dead-letter và grac
 shutdown. Không dùng database down để test dead-letter bằng cách biến row terminal thành
 pending; rollback guard được verify riêng và fixture worker phải chạy trên database CI
 tạm thời.
+
+P3-02B/P3-02C phải kiểm tra tiếp migrate `17 -> 18 -> 19 -> 20 -> 21`, rollback
+`21 -> 20 -> 19`, migrate lại tới `21`, exact runtime ACL, snapshot immutability,
+capability expiry/revoke, concurrent RSVP, cancellation lifecycle và
+cross-tenant/cross-class concealment. Local compile/test không thay thế PostgreSQL staging
+evidence.
 
 Với P2-05, cần kiểm tra riêng migrate 9 -> 10, rollback 10 -> 9, migrate lại 9 -> 10;
 tenant-scoped FK/unique/state constraints; direct enroll và các transition; same-user
@@ -937,11 +976,12 @@ của lịch sử append-only và không phải quy trình cleanup cho staging/p
   migration 13, role split/default ACL và importer idempotency trên disposable branch;
   production data/cohort migration vẫn thuộc discovery/cutover phase sau.
 - P3-03A/P3-04 đã bổ sung migration `000015`/`000016`; P3-02A/P3-02B bổ sung
-  `000017`/`000018`/`000019`. Neon staging hiện ở `19 false` và exact Core API runtime
-  ACL đã được probe. Exact worker ACL, durable-host và controlled-canary/crash-reclaim
-  acceptance của P3-03/P3-04 vẫn là gate bên ngoài.
-- P3-02A Calendar shell/read projection đã đạt staging gate. P3-02B đã đạt Teacher
-  mutation/ACL/metrics checkpoint nhưng vẫn chờ concurrent/idempotency,
-  split/exception retention, Student/Admin authorization, cross-tenant và bounded
-  query-plan evidence; không mô tả Calendar recurrence production-ready trước các gate.
+  `000017`/`000018`/`000019`; P3-02C bổ sung `000020/000021`. Neon staging hiện ở
+  `19 false` và exact Core API runtime ACL mới chỉ được probe tới migration `000019`.
+  Migration `000020/000021`, exact P3-02C grants, worker ACL, durable-host và
+  controlled-canary/crash-reclaim acceptance vẫn là gate bên ngoài.
+- P3-02A Calendar shell/read projection và P3-02B recurrence/class-conflict đã đạt
+  staging gate. P3-02C mới đạt local `VERIFY` cho working schedule/free-busy,
+  internal/external audience, organizer transfer, cancellation lifecycle và RSVP;
+  chưa có Neon migration/ACL, concurrency/IDOR hoặc browser/live E2E acceptance.
 - Chưa có backup/restore drill, PITR gate hoặc connection load test cho pilot.

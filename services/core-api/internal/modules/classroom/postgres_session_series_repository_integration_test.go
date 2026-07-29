@@ -30,7 +30,7 @@ func TestPostgresClassSessionSeriesLifecycleConflictAndTenantScope(t *testing.T)
 	if err != nil {
 		t.Fatalf("read migration version: %v", err)
 	}
-	if version.Number < 19 || version.Dirty {
+	if version.Number < 21 || version.Dirty {
 		t.Fatalf("unexpected migration version: %+v", version)
 	}
 	pool, err := pgxpool.New(ctx, poolURL)
@@ -78,7 +78,12 @@ VALUES ($1, $2, $3, 'student', 'active', $4, now())`,
 	defer cleanupClassIntegrationFixture(t, pool, tenantID, ownerID, studentID, adminID)
 	defer cleanupClassIntegrationFixture(t, pool, otherTenantID, otherOwnerID)
 
-	repository := NewPostgresRepository(pool, 30*time.Second, policy.NewEngine())
+	calendarProtector := newCancellationLifecycleProtector(t)
+	repository := NewPostgresRepository(
+		pool,
+		30*time.Second,
+		policy.NewEngine(),
+	).WithCalendarProtectedData(calendarProtector)
 	classService, err := NewService(repository, policy.NewEngine())
 	if err != nil {
 		t.Fatalf("create recurring session class service: %v", err)
@@ -368,12 +373,56 @@ VALUES ($1, $2, $3, 'student', 'active', $4, now())`,
 	if err != nil {
 		t.Fatalf("normalize series cancel: %v", err)
 	}
+	seriesCancellationLifecycle := seedCancellationLifecycleFixture(
+		t,
+		ctx,
+		pool,
+		calendarProtector,
+		tenantID,
+		classID,
+		ownerID,
+		SeriesParticipationSource(split.Series.ID),
+		split.Series.Version,
+		split.Series.Sequence,
+		startsAt.Add(4*time.Minute+30*time.Second),
+	)
+	occurrenceCancellationLifecycle := seedCancellationLifecycleFixture(
+		t,
+		ctx,
+		pool,
+		calendarProtector,
+		tenantID,
+		classID,
+		ownerID,
+		OccurrenceParticipationSource(split.Series.ID, childOccurrences[1].Key),
+		split.Series.Version,
+		split.Series.Sequence,
+		startsAt.Add(4*time.Minute+30*time.Second),
+	)
 	cancelled, err := repository.CancelSeriesOccurrence(
 		ctx, tenantContext, classID, split.Series.ID, cancelParams, startsAt.Add(5*time.Minute),
 	)
 	if err != nil || cancelled.Series.Status != SeriesStatusCancelled {
 		t.Fatalf("cancel split series: result=%+v err=%v", cancelled, err)
 	}
+	assertCancellationLifecycle(
+		t,
+		ctx,
+		pool,
+		seriesCancellationLifecycle,
+		"series_cancelled",
+		2,
+		cancelled.Series.Sequence,
+	)
+	assertCancellationLifecycle(
+		t,
+		ctx,
+		pool,
+		occurrenceCancellationLifecycle,
+		"series_cancelled",
+		2,
+		cancelled.Series.Sequence,
+	)
 
 	assertAdminConflictOverride(
 		t, ctx, pool, repository, tenantContext, adminAccess, classID, ownerID, startsAt,

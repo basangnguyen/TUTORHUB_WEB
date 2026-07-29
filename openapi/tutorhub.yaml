@@ -2136,6 +2136,136 @@ paths:
           $ref: "#/components/responses/ProblemResponse"
         default:
           $ref: "#/components/responses/ProblemResponse"
+  /api/v1/classes/{class_id}/sessions/{session_id}/organizer:
+    post:
+      operationId: transferClassSessionOrganizer
+      summary: Transfer a one-time session to another eligible organizer
+      description: |
+        Transfers organizer authority with source-version CAS and idempotency.
+        The replacement organizer must still be an active eligible class member
+        when the transaction commits. External guests can never be organizers.
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: class_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: X-TutorHub-Expected-Tenant-ID
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TransferSessionOrganizerRequest"
+      responses:
+        "200":
+          description: Current organizer and audience after transfer or replay
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TransferSessionOrganizerResponse"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/calendar/invitations/resolve:
+    post:
+      operationId: resolveExternalCalendarRSVP
+      summary: Resolve the minimum public projection for an external invitation
+      description: |
+        Exchanges a purpose-bound resolve capability sent in the JSON body.
+        Unknown, malformed, expired, revoked, superseded and closed
+        capabilities deliberately return the same generic response. Tokens
+        must never be placed in a query string.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResolveExternalCalendarRSVPRequest"
+      responses:
+        "200":
+          description: Privacy-minimized event and RSVP projection
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExternalCalendarRSVPProjection"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "429":
+          $ref: "#/components/responses/ProblemResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/calendar/invitations/respond:
+    post:
+      operationId: respondExternalCalendarRSVP
+      summary: Record an external attendee RSVP through a respond capability
+      description: |
+        Mutates only the attendee bound to the purpose-specific capability.
+        Browser requests must originate from TutorHub's configured public web
+        origin and carry attendee-version CAS plus an idempotency key.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RespondExternalCalendarRSVPRequest"
+      responses:
+        "200":
+          description: Current projection after response or idempotent replay
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExternalCalendarRSVPMutationResponse"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "429":
+          $ref: "#/components/responses/ProblemResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
   /api/v1/classes/{class_id}/sessions/{session_id}/cancel:
     post:
       operationId: cancelClassSession
@@ -2429,6 +2559,67 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/SelfRSVPResponse"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/classes/{class_id}/session-series/{series_id}/organizer:
+    post:
+      operationId: transferClassSessionSeriesOrganizer
+      summary: Transfer a recurring series to another eligible organizer
+      description: |
+        Transfers organizer authority for the series master. Occurrence-level
+        organizer transfer is intentionally unsupported; callers must transfer
+        the authoritative series.
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: class_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: series_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: X-TutorHub-Expected-Tenant-ID
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TransferSessionOrganizerRequest"
+      responses:
+        "200":
+          description: Current organizer and audience after transfer or replay
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TransferSessionOrganizerResponse"
         "400":
           $ref: "#/components/responses/ProblemResponse"
         "401":
@@ -5506,9 +5697,7 @@ components:
       enum: [required, optional]
     SessionParticipationBusinessRole:
       type: string
-      description: |
-        Server-resolved role from active class membership. External recipient
-        roles are intentionally absent from the P3-02C internal audience API.
+      description: Server-resolved role from active class membership.
       enum: [organizer, teacher, co_teacher, teaching_assistant, student]
     SessionRSVPState:
       type: string
@@ -5571,7 +5760,13 @@ components:
       type: object
       additionalProperties: false
       required:
-        [audience_revision, response_requested, attendees, viewer_access]
+        [
+          audience_revision,
+          response_requested,
+          attendees,
+          external_attendees,
+          viewer_access,
+        ]
       properties:
         audience_revision:
           type: integer
@@ -5584,8 +5779,65 @@ components:
           maxItems: 128
           items:
             $ref: "#/components/schemas/SessionAudienceAttendee"
+        external_attendees:
+          type: array
+          maxItems: 128
+          description: |
+            Manager-only external-recipient projection. It is always empty for
+            ordinary participants, regardless of guest-list visibility, so a
+            delivery address is never disclosed to another attendee.
+          items:
+            $ref: "#/components/schemas/SessionAudienceExternalAttendee"
         viewer_access:
           $ref: "#/components/schemas/SessionAudienceViewerAccess"
+    SessionAudienceExternalAttendee:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          email,
+          display_name,
+          participation_role,
+          locale,
+          viewer_timezone,
+          rsvp_state,
+          responded_at,
+          version,
+        ]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+          maxLength: 320
+        display_name:
+          type: string
+          minLength: 1
+          maxLength: 256
+        participation_role:
+          $ref: "#/components/schemas/SessionParticipationRole"
+        locale:
+          type: string
+          enum: [vi-VN, en-US]
+        viewer_timezone:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: Canonical IANA timezone used when rendering invitations.
+        rsvp_state:
+          $ref: "#/components/schemas/SessionRSVPState"
+        responded_at:
+          oneOf:
+            - type: string
+              format: date-time
+            - type: "null"
+        version:
+          type: integer
+          format: int64
+          minimum: 1
     ReplaceSessionAudienceAttendeeRequest:
       type: object
       additionalProperties: false
@@ -5622,9 +5874,41 @@ components:
           type: boolean
         attendees:
           type: array
-          description: Full replacement; at most 128 distinct internal users are accepted.
+          maxItems: 128
+          description: Internal portion of the full replacement.
           items:
             $ref: "#/components/schemas/ReplaceSessionAudienceAttendeeRequest"
+        external_attendees:
+          type: array
+          maxItems: 128
+          description: |
+            Optional external portion of the full replacement. Internal and
+            external attendees share one hard cap of 128 recipients.
+          items:
+            $ref: "#/components/schemas/ReplaceSessionAudienceExternalAttendeeRequest"
+    ReplaceSessionAudienceExternalAttendeeRequest:
+      type: object
+      additionalProperties: false
+      required:
+        [email, display_name, participation_role, locale, viewer_timezone]
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 320
+        display_name:
+          type: string
+          minLength: 1
+          maxLength: 256
+        participation_role:
+          $ref: "#/components/schemas/SessionParticipationRole"
+        locale:
+          type: string
+          enum: [vi-VN, en-US]
+        viewer_timezone:
+          type: string
+          minLength: 1
+          maxLength: 100
     ReplaceSessionAudienceResponse:
       type: object
       additionalProperties: false
@@ -5663,6 +5947,126 @@ components:
       properties:
         attendee:
           $ref: "#/components/schemas/SessionAudienceAttendee"
+        replayed:
+          type: boolean
+    TransferSessionOrganizerRequest:
+      type: object
+      additionalProperties: false
+      required:
+        [new_organizer_user_id, expected_source_version, idempotency_key]
+      properties:
+        new_organizer_user_id:
+          type: string
+          format: uuid
+        expected_source_version:
+          type: integer
+          format: int64
+          minimum: 1
+        idempotency_key:
+          type: string
+          minLength: 16
+          maxLength: 128
+    TransferSessionOrganizerResponse:
+      type: object
+      additionalProperties: false
+      required: [audience, organizer_user_id, source_version, replayed]
+      properties:
+        audience:
+          $ref: "#/components/schemas/SessionAudience"
+        organizer_user_id:
+          type: string
+          format: uuid
+        source_version:
+          type: integer
+          format: int64
+          minimum: 1
+        replayed:
+          type: boolean
+    ResolveExternalCalendarRSVPRequest:
+      type: object
+      additionalProperties: false
+      required: [token]
+      properties:
+        token:
+          type: string
+          minLength: 16
+          maxLength: 512
+          writeOnly: true
+    RespondExternalCalendarRSVPRequest:
+      type: object
+      additionalProperties: false
+      required: [token, state, expected_attendee_version, idempotency_key]
+      properties:
+        token:
+          type: string
+          minLength: 16
+          maxLength: 512
+          writeOnly: true
+        state:
+          $ref: "#/components/schemas/SessionSelfRSVPState"
+        note:
+          type: string
+          maxLength: 500
+        expected_attendee_version:
+          type: integer
+          format: int64
+          minimum: 1
+        idempotency_key:
+          type: string
+          minLength: 16
+          maxLength: 128
+    ExternalCalendarRSVPProjection:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          title,
+          starts_at,
+          ends_at,
+          timezone,
+          rsvp_state,
+          response_requested,
+          attendee_version,
+          invitation_sequence,
+          capability_expires_at,
+        ]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        starts_at:
+          type: string
+          format: date-time
+        ends_at:
+          type: string
+          format: date-time
+        timezone:
+          type: string
+          minLength: 1
+          maxLength: 100
+        rsvp_state:
+          $ref: "#/components/schemas/SessionRSVPState"
+        response_requested:
+          type: boolean
+        attendee_version:
+          type: integer
+          format: int64
+          minimum: 1
+        invitation_sequence:
+          type: integer
+          format: int64
+          minimum: 0
+        capability_expires_at:
+          type: string
+          format: date-time
+    ExternalCalendarRSVPMutationResponse:
+      type: object
+      additionalProperties: false
+      required: [projection, replayed]
+      properties:
+        projection:
+          $ref: "#/components/schemas/ExternalCalendarRSVPProjection"
         replayed:
           type: boolean
     ClassSessionListResponse:

@@ -178,6 +178,7 @@ func run() int {
 	var classSessionService classroom.SessionServiceAPI
 	var classSessionSeriesService classroom.SessionSeriesServiceAPI
 	var classSessionParticipationService classroom.SessionParticipationServiceAPI
+	var externalRSVPService classroom.ExternalRSVPServiceAPI
 	var calendarService calendar.ServiceAPI
 	var calendarSchedulingService calendar.SchedulingServiceAPI
 	if pool != nil {
@@ -239,6 +240,15 @@ func run() int {
 		)
 		if err != nil {
 			logger.Error("initialize class session participation service", "error", err)
+			return 1
+		}
+		externalRSVPService, err = classroom.NewExternalRSVPService(
+			classroomRepository,
+			classroomAuthorizer,
+			time.Now,
+		)
+		if err != nil {
+			logger.Error("initialize external calendar RSVP service", "error", err)
 			return 1
 		}
 		calendarRepository, err := calendar.NewPostgresRepository(
@@ -395,6 +405,7 @@ func run() int {
 		ClassSessions:         classSessionService,
 		ClassSessionSeries:    classSessionSeriesService,
 		SessionParticipation:  classSessionParticipationService,
+		ExternalRSVP:          externalRSVPService,
 		Calendar:              calendarService,
 		CalendarScheduling:    calendarSchedulingService,
 		Enrollment:            enrollmentService,

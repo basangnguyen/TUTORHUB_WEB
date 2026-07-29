@@ -2,11 +2,12 @@ import {
   APIRequestError,
   type ClassEnrollmentRole,
   type ClassRosterUser,
+  type ReplaceSessionAudienceExternalAttendeeRequest,
   type SessionAudience,
   type SessionParticipationRole,
 } from "@tutorhub/api-client";
 import { Button, TextField } from "@tutorhub/ui";
-import { RefreshCw, Search, UsersRound } from "lucide-react";
+import { Plus, RefreshCw, Search, Trash2, UsersRound } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
   participationIdempotencyKey,
@@ -33,6 +34,8 @@ interface RosterCandidate {
   user: ClassRosterUser;
 }
 
+type ExternalAudienceAttendee = ReplaceSessionAudienceExternalAttendeeRequest;
+
 const rosterRoleKeys = {
   co_teacher: "classRoster.roleCoTeacher",
   owner: "classRoster.roleOwner",
@@ -49,11 +52,27 @@ function selectionFromAudience(audience: SessionAudience) {
   );
 }
 
+function externalSelectionFromAudience(audience: SessionAudience) {
+  return new Map(
+    audience.external_attendees.map((attendee) => [
+      attendee.email.toLowerCase(),
+      {
+        display_name: attendee.display_name,
+        email: attendee.email.toLowerCase(),
+        locale: attendee.locale,
+        participation_role: attendee.participation_role,
+        viewer_timezone: attendee.viewer_timezone,
+      },
+    ]),
+  );
+}
+
 function draftFromAudience(audience: SessionAudience) {
   return {
     responseRequested: audience.response_requested,
     revision: audience.audience_revision,
     selection: selectionFromAudience(audience),
+    externalSelection: externalSelectionFromAudience(audience),
   };
 }
 
@@ -63,6 +82,18 @@ function canonicalSelection(
   return [...selection.entries()]
     .sort(([left], [right]) => left.localeCompare(right))
     .map(([id, role]) => `${id}:${role}`)
+    .join("|");
+}
+
+function canonicalExternalSelection(
+  selection: ReadonlyMap<string, ExternalAudienceAttendee>,
+) {
+  return [...selection.values()]
+    .sort((left, right) => left.email.localeCompare(right.email))
+    .map(
+      (attendee) =>
+        `${attendee.email}:${attendee.display_name}:${attendee.participation_role}:${attendee.locale}:${attendee.viewer_timezone}`,
+    )
     .join("|");
 }
 
@@ -78,6 +109,14 @@ export function SessionAudienceEditor({
   const [searchDraft, setSearchDraft] = useState("");
   const [search, setSearch] = useState("");
   const [draft, setDraft] = useState(() => draftFromAudience(audience));
+  const [externalDraft, setExternalDraft] = useState({
+    displayName: "",
+    email: "",
+    participationRole: "required" as SessionParticipationRole,
+  });
+  const [externalDraftError, setExternalDraftError] = useState<
+    "duplicate" | "invalid" | null
+  >(null);
   const conflictButton = useRef<HTMLButtonElement>(null);
   const idempotencyKey = useRef<string | null>(null);
   const roster = useActiveClassRosterForAudience(
@@ -140,16 +179,97 @@ export function SessionAudienceEditor({
     );
   }
 
-  const { responseRequested, selection } = draft;
+  const { externalSelection, responseRequested, selection } = draft;
   const initialSelection = canonicalSelection(selectionFromAudience(audience));
+  const initialExternalSelection = canonicalExternalSelection(
+    externalSelectionFromAudience(audience),
+  );
   const dirty =
     canonicalSelection(selection) !== initialSelection ||
+    canonicalExternalSelection(externalSelection) !==
+      initialExternalSelection ||
     responseRequested !== audience.response_requested;
-  const selectionLimitReached = selection.size >= maximumAudienceSize;
+  const audienceSize = selection.size + externalSelection.size;
+  const selectionLimitReached = audienceSize >= maximumAudienceSize;
 
   const submitSearch = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setSearch(searchDraft);
+  };
+
+  const addExternalAttendee = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const email = externalDraft.email.trim().toLowerCase();
+    const displayName = externalDraft.displayName.trim();
+    const validEmail =
+      email.length >= 3 &&
+      email.length <= 320 &&
+      /^[\x21-\x7e]+@[\x21-\x7e]+$/u.test(email) &&
+      !/[\s,;]/u.test(email);
+    if (!validEmail || displayName.length < 1 || displayName.length > 256) {
+      setExternalDraftError("invalid");
+      return;
+    }
+    if (externalSelection.has(email)) {
+      setExternalDraftError("duplicate");
+      return;
+    }
+    if (selectionLimitReached) {
+      return;
+    }
+    const viewerTimezone =
+      Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+    replaceAudience.reset();
+    idempotencyKey.current = null;
+    setDraft((current) => {
+      const nextExternalSelection = new Map(current.externalSelection);
+      nextExternalSelection.set(email, {
+        display_name: displayName,
+        email,
+        locale: navigator.language.toLowerCase().startsWith("vi")
+          ? "vi-VN"
+          : "en-US",
+        participation_role: externalDraft.participationRole,
+        viewer_timezone: viewerTimezone,
+      });
+      return { ...current, externalSelection: nextExternalSelection };
+    });
+    setExternalDraft({
+      displayName: "",
+      email: "",
+      participationRole: "required",
+    });
+    setExternalDraftError(null);
+  };
+
+  const removeExternalAttendee = (email: string) => {
+    replaceAudience.reset();
+    idempotencyKey.current = null;
+    setDraft((current) => {
+      const nextExternalSelection = new Map(current.externalSelection);
+      nextExternalSelection.delete(email);
+      return { ...current, externalSelection: nextExternalSelection };
+    });
+  };
+
+  const updateExternalRole = (
+    email: string,
+    participationRole: SessionParticipationRole,
+  ) => {
+    replaceAudience.reset();
+    idempotencyKey.current = null;
+    setDraft((current) => {
+      const attendee = current.externalSelection.get(email);
+      if (!attendee) {
+        return current;
+      }
+      const nextExternalSelection = new Map(current.externalSelection);
+      nextExternalSelection.set(email, {
+        ...attendee,
+        participation_role: participationRole,
+      });
+      return { ...current, externalSelection: nextExternalSelection };
+    });
   };
 
   const updateRole = (
@@ -175,19 +295,27 @@ export function SessionAudienceEditor({
       return;
     }
     idempotencyKey.current ??= participationIdempotencyKey("audience");
-    replaceAudience.mutate({
-      input: {
-        attendees: [...selection.entries()]
-          .sort(([left], [right]) => left.localeCompare(right))
-          .map(([targetUserID, participationRole]) => ({
-            participation_role: participationRole,
-            user_id: targetUserID,
-          })),
-        expected_audience_revision: audience.audience_revision,
-        idempotency_key: idempotencyKey.current,
-        response_requested: responseRequested,
-      },
-    });
+    const input = {
+      attendees: [...selection.entries()]
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([targetUserID, participationRole]) => ({
+          participation_role: participationRole,
+          user_id: targetUserID,
+        })),
+      external_attendees: [...externalSelection.values()]
+        .sort((left, right) => left.email.localeCompare(right.email))
+        .map((attendee) => ({
+          display_name: attendee.display_name,
+          email: attendee.email,
+          locale: attendee.locale,
+          participation_role: attendee.participation_role,
+          viewer_timezone: attendee.viewer_timezone,
+        })),
+      expected_audience_revision: audience.audience_revision,
+      idempotency_key: idempotencyKey.current,
+      response_requested: responseRequested,
+    };
+    replaceAudience.mutate({ input });
   };
 
   const reloadAfterConflict = async () => {
@@ -206,7 +334,7 @@ export function SessionAudienceEditor({
         <span>
           <UsersRound aria-hidden="true" />
           {t("calendar.audienceEditor.selectedCount", {
-            count: selection.size,
+            count: audienceSize,
           })}
         </span>
       </div>
@@ -333,6 +461,145 @@ export function SessionAudienceEditor({
           })}
         </ul>
       )}
+
+      <section
+        aria-labelledby="calendar-external-attendees-title"
+        className="calendar-audience-editor__external"
+      >
+        <div>
+          <h5 id="calendar-external-attendees-title">
+            {t("calendar.audienceEditor.externalTitle")}
+          </h5>
+          <p>{t("calendar.audienceEditor.externalDescription")}</p>
+        </div>
+
+        <form
+          aria-label={t("calendar.audienceEditor.externalForm")}
+          className="calendar-audience-editor__external-form"
+          onSubmit={addExternalAttendee}
+        >
+          <TextField
+            autoComplete="name"
+            label={t("calendar.audienceEditor.externalName")}
+            maxLength={256}
+            onChange={(event) => {
+              setExternalDraftError(null);
+              setExternalDraft((current) => ({
+                ...current,
+                displayName: event.target.value,
+              }));
+            }}
+            value={externalDraft.displayName}
+          />
+          <TextField
+            autoComplete="email"
+            label={t("calendar.audienceEditor.externalEmail")}
+            maxLength={320}
+            onChange={(event) => {
+              setExternalDraftError(null);
+              setExternalDraft((current) => ({
+                ...current,
+                email: event.target.value,
+              }));
+            }}
+            type="email"
+            value={externalDraft.email}
+          />
+          <label>
+            <span>{t("calendar.audienceEditor.externalRole")}</span>
+            <select
+              onChange={(event) =>
+                setExternalDraft((current) => ({
+                  ...current,
+                  participationRole: event.target
+                    .value as SessionParticipationRole,
+                }))
+              }
+              value={externalDraft.participationRole}
+            >
+              <option value="required">
+                {t("calendar.participation.role.required")}
+              </option>
+              <option value="optional">
+                {t("calendar.participation.role.optional")}
+              </option>
+            </select>
+          </label>
+          <Button
+            disabled={selectionLimitReached}
+            leadingIcon={<Plus />}
+            size="sm"
+            type="submit"
+            variant="secondary"
+          >
+            {t("calendar.audienceEditor.externalAdd")}
+          </Button>
+        </form>
+
+        {externalDraftError && (
+          <p className="calendar-audience-editor__external-error" role="alert">
+            {t(
+              externalDraftError === "duplicate"
+                ? "calendar.audienceEditor.externalDuplicate"
+                : "calendar.audienceEditor.externalInvalid",
+            )}
+          </p>
+        )}
+
+        {externalSelection.size === 0 ? (
+          <p className="calendar-audience-editor__notice">
+            {t("calendar.audienceEditor.externalEmpty")}
+          </p>
+        ) : (
+          <ul
+            aria-label={t("calendar.audienceEditor.externalList")}
+            className="calendar-audience-editor__list"
+          >
+            {[...externalSelection.values()]
+              .sort((left, right) => left.email.localeCompare(right.email))
+              .map((attendee) => (
+                <li key={attendee.email}>
+                  <span className="calendar-audience-editor__identity">
+                    <strong>{attendee.display_name}</strong>
+                    <small>{attendee.email}</small>
+                  </span>
+                  <span className="calendar-audience-editor__external-actions">
+                    <select
+                      aria-label={t("calendar.audienceEditor.roleChoices", {
+                        name: attendee.display_name,
+                      })}
+                      onChange={(event) =>
+                        updateExternalRole(
+                          attendee.email,
+                          event.target.value as SessionParticipationRole,
+                        )
+                      }
+                      value={attendee.participation_role}
+                    >
+                      <option value="required">
+                        {t("calendar.participation.role.required")}
+                      </option>
+                      <option value="optional">
+                        {t("calendar.participation.role.optional")}
+                      </option>
+                    </select>
+                    <Button
+                      aria-label={t("calendar.audienceEditor.externalRemove", {
+                        name: attendee.display_name,
+                      })}
+                      leadingIcon={<Trash2 />}
+                      onClick={() => removeExternalAttendee(attendee.email)}
+                      size="sm"
+                      variant="quiet"
+                    >
+                      {t("calendar.audienceEditor.remove")}
+                    </Button>
+                  </span>
+                </li>
+              ))}
+          </ul>
+        )}
+      </section>
 
       {roster.hasNextPage && (
         <Button

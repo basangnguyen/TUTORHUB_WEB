@@ -397,7 +397,29 @@ func (repository *PostgresRepository) CancelSession(
 	if err != nil {
 		return ClassSession{}, err
 	}
+	participationSource, err := lockParticipationSession(
+		queryContext,
+		transaction,
+		tenantContext.TenantID,
+		classID,
+		sessionID,
+	)
+	if err != nil {
+		return ClassSession{}, err
+	}
 	if current.Status == SessionStatusCancelled {
+		if err := closeParticipationForSource(
+			queryContext,
+			transaction,
+			tenantContext.TenantID,
+			classID,
+			SessionParticipationSource(sessionID),
+			tenantContext.ActorID,
+			cancelledAt,
+			"session_cancelled",
+		); err != nil {
+			return ClassSession{}, err
+		}
 		if err := transaction.Commit(queryContext); err != nil {
 			return ClassSession{}, fmt.Errorf(
 				"commit idempotent class session cancellation: %w",
@@ -418,6 +440,7 @@ func (repository *PostgresRepository) CancelSession(
 		`UPDATE tutorhub.class_sessions
 SET status = 'cancelled',
     version = version + 1,
+    sequence = sequence + 1,
     updated_by = $4,
     cancelled_by = $4,
     cancelled_at = $5,
@@ -438,6 +461,30 @@ RETURNING id, tenant_id, class_id, title, description, starts_at, ends_at,
 	}
 	if err != nil {
 		return ClassSession{}, mapSessionPostgresError("cancel class session", err)
+	}
+	if err := repository.insertSessionCancellationSnapshot(
+		queryContext,
+		transaction,
+		tenantContext,
+		participationSource,
+		session.Version,
+		participationSource.Sequence+1,
+		cancelledAt,
+		"session_cancelled",
+	); err != nil {
+		return ClassSession{}, err
+	}
+	if err := closeParticipationForSource(
+		queryContext,
+		transaction,
+		tenantContext.TenantID,
+		classID,
+		SessionParticipationSource(sessionID),
+		tenantContext.ActorID,
+		cancelledAt,
+		"session_cancelled",
+	); err != nil {
+		return ClassSession{}, err
 	}
 	if err := insertClassSessionEvent(
 		queryContext,
