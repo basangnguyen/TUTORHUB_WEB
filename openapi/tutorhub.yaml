@@ -1963,6 +1963,179 @@ paths:
           $ref: "#/components/responses/ConflictResponse"
         default:
           $ref: "#/components/responses/ProblemResponse"
+  /api/v1/classes/{class_id}/sessions/{session_id}/attendees:
+    get:
+      operationId: getClassSessionAudience
+      summary: Return the privacy-filtered internal audience for one class session
+      description: |
+        Managers receive the internal audience they are authorized to manage.
+        Other participants receive only their own attendee row. Delivery
+        addresses, display names, invitation ciphertext and fingerprints are
+        never exposed by this boundary.
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: class_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: X-TutorHub-Expected-Tenant-ID
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Privacy-filtered current session audience
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionAudience"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+    put:
+      operationId: replaceClassSessionAudience
+      summary: Atomically replace the internal audience for one scheduled session
+      description: |
+        Replaces the complete internal audience with optimistic concurrency and
+        a mutation idempotency key. Business roles are resolved by the server
+        from active class membership; clients supply only user IDs and whether
+        each attendee is required or optional.
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: class_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: X-TutorHub-Expected-Tenant-ID
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReplaceSessionAudienceRequest"
+      responses:
+        "200":
+          description: Current audience after the applied or idempotently replayed replacement
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReplaceSessionAudienceResponse"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/classes/{class_id}/sessions/{session_id}/responses:
+    post:
+      operationId: respondToClassSession
+      summary: Record the authenticated attendee's RSVP response
+      description: |
+        The attendee identity is derived from the authenticated session and
+        cannot be selected in the request. needs_action is a persisted state,
+        not an accepted self-response command.
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: class_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: X-TutorHub-Expected-Tenant-ID
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RespondToClassSessionRequest"
+      responses:
+        "200":
+          description: Current self attendee state after the applied or idempotently replayed response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SelfRSVPResponse"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
   /api/v1/classes/{class_id}/sessions/{session_id}/cancel:
     post:
       operationId: cancelClassSession
@@ -4950,6 +5123,171 @@ components:
           format: date-time
         viewer_access:
           $ref: "#/components/schemas/ClassSessionViewerAccess"
+    SessionParticipationRole:
+      type: string
+      description: Scheduling importance selected for an internal attendee.
+      enum: [required, optional]
+    SessionParticipationBusinessRole:
+      type: string
+      description: |
+        Server-resolved role from active class membership. External recipient
+        roles are intentionally absent from the P3-02C internal audience API.
+      enum: [organizer, teacher, co_teacher, teaching_assistant, student]
+    SessionRSVPState:
+      type: string
+      description: Current authoritative RSVP state on the active attendee.
+      enum: [needs_action, accepted, tentative, declined]
+    SessionAudienceViewerAccess:
+      type: object
+      additionalProperties: false
+      required: [can_manage_attendees, can_respond, can_see_guest_list]
+      properties:
+        can_manage_attendees:
+          type: boolean
+        can_respond:
+          type: boolean
+        can_see_guest_list:
+          type: boolean
+    SessionAudienceAttendee:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          user_id,
+          participation_role,
+          business_role,
+          rsvp_state,
+          responded_at,
+          version,
+          is_self,
+        ]
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+          description: Internal TutorHub user identifier; never a delivery address.
+        participation_role:
+          $ref: "#/components/schemas/SessionParticipationRole"
+        business_role:
+          $ref: "#/components/schemas/SessionParticipationBusinessRole"
+        rsvp_state:
+          $ref: "#/components/schemas/SessionRSVPState"
+        responded_at:
+          oneOf:
+            - type: string
+              format: date-time
+            - type: "null"
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+        is_self:
+          type: boolean
+      description: |
+        Privacy-filtered internal attendee projection. It deliberately contains
+        no email, display name, delivery address, ciphertext or fingerprint.
+    SessionAudience:
+      type: object
+      additionalProperties: false
+      required:
+        [audience_revision, response_requested, attendees, viewer_access]
+      properties:
+        audience_revision:
+          type: integer
+          format: int64
+          minimum: 0
+        response_requested:
+          type: boolean
+        attendees:
+          type: array
+          maxItems: 128
+          items:
+            $ref: "#/components/schemas/SessionAudienceAttendee"
+        viewer_access:
+          $ref: "#/components/schemas/SessionAudienceViewerAccess"
+    ReplaceSessionAudienceAttendeeRequest:
+      type: object
+      additionalProperties: false
+      required: [user_id, participation_role]
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        participation_role:
+          $ref: "#/components/schemas/SessionParticipationRole"
+      description: |
+        The server resolves business role and delivery metadata. Duplicate user
+        IDs with conflicting participation roles are rejected.
+    ReplaceSessionAudienceRequest:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          expected_audience_revision,
+          idempotency_key,
+          response_requested,
+          attendees,
+        ]
+      properties:
+        expected_audience_revision:
+          type: integer
+          format: int64
+          minimum: 0
+        idempotency_key:
+          type: string
+          minLength: 16
+          maxLength: 128
+        response_requested:
+          type: boolean
+        attendees:
+          type: array
+          description: Full replacement; at most 128 distinct internal users are accepted.
+          items:
+            $ref: "#/components/schemas/ReplaceSessionAudienceAttendeeRequest"
+    ReplaceSessionAudienceResponse:
+      type: object
+      additionalProperties: false
+      required: [audience, replayed]
+      properties:
+        audience:
+          $ref: "#/components/schemas/SessionAudience"
+        replayed:
+          type: boolean
+    SessionSelfRSVPState:
+      type: string
+      description: Explicit response states accepted from the authenticated attendee.
+      enum: [accepted, tentative, declined]
+    RespondToClassSessionRequest:
+      type: object
+      additionalProperties: false
+      required: [state, expected_attendee_version, idempotency_key]
+      properties:
+        state:
+          $ref: "#/components/schemas/SessionSelfRSVPState"
+        note:
+          type: string
+          maxLength: 500
+        expected_attendee_version:
+          type: integer
+          format: int64
+          minimum: 1
+        idempotency_key:
+          type: string
+          minLength: 16
+          maxLength: 128
+    SelfRSVPResponse:
+      type: object
+      additionalProperties: false
+      required: [attendee, replayed]
+      properties:
+        attendee:
+          $ref: "#/components/schemas/SessionAudienceAttendee"
+        replayed:
+          type: boolean
     ClassSessionListResponse:
       type: object
       additionalProperties: false

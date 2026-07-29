@@ -421,13 +421,19 @@ export function CalendarSessionEdit({
     );
   }
 
+  const initialSession = {
+    ...detail.data,
+    ends_at: item.endsAt,
+    starts_at: item.startsAt,
+  };
+
   return (
     <ClassSessionEditorDialog
       classTitle={item.classTitle ?? item.title}
       classTimezone={detail.data.timezone}
       error={updateMutation.error}
-      initial={detail.data}
-      key={`${detail.data.id}:${detail.data.version}`}
+      initial={initialSession}
+      key={`${detail.data.id}:${detail.data.version}:${item.startsAt}:${item.endsAt}`}
       onCreate={() => undefined}
       onOpenChange={(open) => !open && close()}
       onUpdate={(input: UpdateClassSessionRequest) => {

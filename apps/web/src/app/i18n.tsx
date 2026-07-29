@@ -14,6 +14,116 @@ export type Language = (typeof supportedLanguages)[number];
 
 const messages = {
   vi: {
+    "calendar.participation.title": "Người tham dự",
+    "calendar.participation.description":
+      "Phản hồi tham dự cho buổi học này. Thông tin liên lạc và gửi thư không hiển thị ở đây.",
+    "calendar.participation.loading": "Đang tải người tham dự...",
+    "calendar.participation.loadError":
+      "Chưa thể tải thông tin tham dự. Hãy thử lại.",
+    "calendar.participation.concealed":
+      "Thông tin tham dự không khả dụng cho phiên hiện tại.",
+    "calendar.participation.count": "{count} người tham dự nội bộ",
+    "calendar.participation.empty": "Chưa có người tham dự nội bộ.",
+    "calendar.participation.listLabel": "Danh sách người tham dự nội bộ",
+    "calendar.participation.you": "Bạn",
+    "calendar.participation.internalUser": "Người dùng …{id}",
+    "calendar.participation.notInvited":
+      "Bạn không có yêu cầu phản hồi cho buổi học này.",
+    "calendar.participation.yourResponse": "Phản hồi của bạn",
+    "calendar.participation.responseRequested":
+      "Người tổ chức đang chờ phản hồi của bạn.",
+    "calendar.participation.responseNotRequested":
+      "Buổi học này không yêu cầu phản hồi.",
+    "calendar.participation.responseChoices": "Chọn phản hồi tham dự",
+    "calendar.participation.rsvp.needsAction": "Chưa phản hồi",
+    "calendar.participation.rsvp.accepted": "Tham gia",
+    "calendar.participation.rsvp.tentative": "Có thể tham gia",
+    "calendar.participation.rsvp.declined": "Không tham gia",
+    "calendar.participation.role.required": "Bắt buộc",
+    "calendar.participation.role.optional": "Tùy chọn",
+    "calendar.participation.businessRole.organizer": "Người tổ chức",
+    "calendar.participation.businessRole.teacher": "Giảng viên",
+    "calendar.participation.businessRole.coTeacher": "Đồng giảng viên",
+    "calendar.participation.businessRole.teachingAssistant": "Trợ giảng",
+    "calendar.participation.businessRole.student": "Học viên",
+    "calendar.participation.saved": "Đã lưu phản hồi.",
+    "calendar.participation.conflict":
+      "Lời mời đã thay đổi ở nơi khác. Hãy tải lại trước khi phản hồi.",
+    "calendar.participation.saveError": "Chưa thể lưu phản hồi. Hãy thử lại.",
+    "calendar.participation.reload": "Tải lại lời mời",
+    "calendar.schedulingAssistant.title": "Trợ lý xếp lịch",
+    "calendar.schedulingAssistant.description":
+      "Tìm giờ phù hợp từ trạng thái rảnh/bận và giờ làm việc đã được bảo vệ quyền riêng tư.",
+    "calendar.schedulingAssistant.private": "Chỉ hiển thị trạng thái",
+    "calendar.schedulingAssistant.searchForm": "Tùy chọn tìm giờ phù hợp",
+    "calendar.schedulingAssistant.range": "Khoảng tìm kiếm",
+    "calendar.schedulingAssistant.rangeDays": "{count} ngày",
+    "calendar.schedulingAssistant.step": "Bước thời gian",
+    "calendar.schedulingAssistant.minutes": "{count} phút",
+    "calendar.schedulingAssistant.duration": "Thời lượng: {count} phút",
+    "calendar.schedulingAssistant.search": "Tìm giờ phù hợp",
+    "calendar.schedulingAssistant.searching": "Đang tìm giờ phù hợp...",
+    "calendar.schedulingAssistant.noParticipants":
+      "Hãy thêm ít nhất một người tham dự trước khi tìm giờ.",
+    "calendar.schedulingAssistant.invalidDuration":
+      "Thời lượng buổi học phải từ 15 đến 480 phút.",
+    "calendar.schedulingAssistant.error":
+      "Chưa thể kiểm tra lịch rảnh/bận. Hãy thử lại.",
+    "calendar.schedulingAssistant.resultCount":
+      "Tìm thấy {count} khung giờ gợi ý.",
+    "calendar.schedulingAssistant.primaryTimezone": "Múi giờ chính",
+    "calendar.schedulingAssistant.secondaryTimezone": "Múi giờ phụ",
+    "calendar.schedulingAssistant.participantSummary":
+      "Chi tiết khả dụng của {count} người tham dự",
+    "calendar.schedulingAssistant.participantTable":
+      "Trạng thái khả dụng và giờ làm việc theo người tham dự",
+    "calendar.schedulingAssistant.participant": "Người tham dự",
+    "calendar.schedulingAssistant.role": "Vai trò",
+    "calendar.schedulingAssistant.availability": "Khả dụng",
+    "calendar.schedulingAssistant.workingHours": "Giờ làm việc",
+    "calendar.schedulingAssistant.status.free": "Rảnh",
+    "calendar.schedulingAssistant.status.tentative": "Có thể bận",
+    "calendar.schedulingAssistant.status.unknown": "Chưa rõ",
+    "calendar.schedulingAssistant.status.busy": "Bận",
+    "calendar.schedulingAssistant.status.outOfOffice": "Vắng mặt",
+    "calendar.schedulingAssistant.statusCount": "{status}: {count}",
+    "calendar.schedulingAssistant.noBlockingIntervals":
+      "Rảnh · không có khoảng chặn",
+    "calendar.schedulingAssistant.workingIntervalCount":
+      "{count} khoảng trong giờ làm việc",
+    "calendar.schedulingAssistant.noWorkingIntervals":
+      "Không có giờ làm việc trong khoảng tìm kiếm",
+    "calendar.schedulingAssistant.emptyTitle": "Chưa có khung giờ hợp lệ",
+    "calendar.schedulingAssistant.emptyDescription":
+      "Hãy mở rộng khoảng tìm kiếm hoặc thay đổi bước thời gian.",
+    "calendar.schedulingAssistant.suggestionTable": "Các khung giờ được gợi ý",
+    "calendar.schedulingAssistant.primaryTime": "Giờ chính",
+    "calendar.schedulingAssistant.secondaryTime": "Giờ phụ",
+    "calendar.schedulingAssistant.reasons": "Xung đột và lý do",
+    "calendar.schedulingAssistant.actions": "Thao tác",
+    "calendar.schedulingAssistant.noConflicts":
+      "Không có xung đột được phát hiện",
+    "calendar.schedulingAssistant.reason.requiredBusy":
+      "Bắt buộc đang bận: {count}",
+    "calendar.schedulingAssistant.reason.requiredOutOfOffice":
+      "Bắt buộc đang vắng mặt: {count}",
+    "calendar.schedulingAssistant.reason.requiredOutsideWorking":
+      "Bắt buộc ngoài giờ làm việc: {count}",
+    "calendar.schedulingAssistant.reason.requiredTentative":
+      "Bắt buộc có thể bận: {count}",
+    "calendar.schedulingAssistant.reason.requiredUnknown":
+      "Bắt buộc chưa rõ: {count}",
+    "calendar.schedulingAssistant.reason.optionalBusy":
+      "Tùy chọn đang bận: {count}",
+    "calendar.schedulingAssistant.reason.optionalOutOfOffice":
+      "Tùy chọn đang vắng mặt: {count}",
+    "calendar.schedulingAssistant.reason.optionalOutsideWorking":
+      "Tùy chọn ngoài giờ làm việc: {count}",
+    "calendar.schedulingAssistant.reason.optionalTentative":
+      "Tùy chọn có thể bận: {count}",
+    "calendar.schedulingAssistant.reason.optionalUnknown":
+      "Tùy chọn chưa rõ: {count}",
+    "calendar.schedulingAssistant.useTime": "Dùng giờ này",
     "app.loading": "Đang mở không gian học tập...",
     "brand.product": "TutorHub",
     "brand.version": "V2",
@@ -1198,6 +1308,117 @@ const messages = {
     "state.retry": "Thử lại",
   },
   en: {
+    "calendar.participation.title": "Attendees",
+    "calendar.participation.description":
+      "RSVP status for this learning session. Contact and delivery data is never shown here.",
+    "calendar.participation.loading": "Loading attendees...",
+    "calendar.participation.loadError":
+      "Attendance details could not be loaded. Try again.",
+    "calendar.participation.concealed":
+      "Attendance details are unavailable to the current session.",
+    "calendar.participation.count": "{count} internal attendees",
+    "calendar.participation.empty": "No internal attendees yet.",
+    "calendar.participation.listLabel": "Internal attendees",
+    "calendar.participation.you": "You",
+    "calendar.participation.internalUser": "User …{id}",
+    "calendar.participation.notInvited":
+      "You do not have an RSVP request for this session.",
+    "calendar.participation.yourResponse": "Your response",
+    "calendar.participation.responseRequested":
+      "The organizer is waiting for your response.",
+    "calendar.participation.responseNotRequested":
+      "This session does not request a response.",
+    "calendar.participation.responseChoices": "Choose your RSVP response",
+    "calendar.participation.rsvp.needsAction": "No response",
+    "calendar.participation.rsvp.accepted": "Accept",
+    "calendar.participation.rsvp.tentative": "Tentative",
+    "calendar.participation.rsvp.declined": "Decline",
+    "calendar.participation.role.required": "Required",
+    "calendar.participation.role.optional": "Optional",
+    "calendar.participation.businessRole.organizer": "Organizer",
+    "calendar.participation.businessRole.teacher": "Teacher",
+    "calendar.participation.businessRole.coTeacher": "Co-teacher",
+    "calendar.participation.businessRole.teachingAssistant":
+      "Teaching assistant",
+    "calendar.participation.businessRole.student": "Student",
+    "calendar.participation.saved": "Response saved.",
+    "calendar.participation.conflict":
+      "The invitation changed elsewhere. Reload it before responding.",
+    "calendar.participation.saveError":
+      "Your response could not be saved. Try again.",
+    "calendar.participation.reload": "Reload invitation",
+    "calendar.schedulingAssistant.title": "Scheduling Assistant",
+    "calendar.schedulingAssistant.description":
+      "Find a suitable time from privacy-safe free/busy status and working hours.",
+    "calendar.schedulingAssistant.private": "Status only",
+    "calendar.schedulingAssistant.searchForm": "Find-a-time options",
+    "calendar.schedulingAssistant.range": "Search range",
+    "calendar.schedulingAssistant.rangeDays": "{count} days",
+    "calendar.schedulingAssistant.step": "Time step",
+    "calendar.schedulingAssistant.minutes": "{count} minutes",
+    "calendar.schedulingAssistant.duration": "Duration: {count} minutes",
+    "calendar.schedulingAssistant.search": "Find available times",
+    "calendar.schedulingAssistant.searching": "Finding available times...",
+    "calendar.schedulingAssistant.noParticipants":
+      "Add at least one attendee before finding a time.",
+    "calendar.schedulingAssistant.invalidDuration":
+      "Session duration must be between 15 and 480 minutes.",
+    "calendar.schedulingAssistant.error":
+      "Free/busy availability could not be checked. Try again.",
+    "calendar.schedulingAssistant.resultCount":
+      "{count} suggested times found.",
+    "calendar.schedulingAssistant.primaryTimezone": "Primary timezone",
+    "calendar.schedulingAssistant.secondaryTimezone": "Secondary timezone",
+    "calendar.schedulingAssistant.participantSummary":
+      "Availability details for {count} attendees",
+    "calendar.schedulingAssistant.participantTable":
+      "Availability status and working hours by attendee",
+    "calendar.schedulingAssistant.participant": "Attendee",
+    "calendar.schedulingAssistant.role": "Role",
+    "calendar.schedulingAssistant.availability": "Availability",
+    "calendar.schedulingAssistant.workingHours": "Working hours",
+    "calendar.schedulingAssistant.status.free": "Free",
+    "calendar.schedulingAssistant.status.tentative": "Tentative",
+    "calendar.schedulingAssistant.status.unknown": "Unknown",
+    "calendar.schedulingAssistant.status.busy": "Busy",
+    "calendar.schedulingAssistant.status.outOfOffice": "Out of office",
+    "calendar.schedulingAssistant.statusCount": "{status}: {count}",
+    "calendar.schedulingAssistant.noBlockingIntervals":
+      "Free · no blocking intervals",
+    "calendar.schedulingAssistant.workingIntervalCount":
+      "{count} working-hours intervals",
+    "calendar.schedulingAssistant.noWorkingIntervals":
+      "No working hours in this search range",
+    "calendar.schedulingAssistant.emptyTitle": "No valid times found",
+    "calendar.schedulingAssistant.emptyDescription":
+      "Try a wider search range or a different time step.",
+    "calendar.schedulingAssistant.suggestionTable": "Suggested times",
+    "calendar.schedulingAssistant.primaryTime": "Primary time",
+    "calendar.schedulingAssistant.secondaryTime": "Secondary time",
+    "calendar.schedulingAssistant.reasons": "Conflicts and reasons",
+    "calendar.schedulingAssistant.actions": "Actions",
+    "calendar.schedulingAssistant.noConflicts": "No conflicts detected",
+    "calendar.schedulingAssistant.reason.requiredBusy":
+      "Required busy: {count}",
+    "calendar.schedulingAssistant.reason.requiredOutOfOffice":
+      "Required out of office: {count}",
+    "calendar.schedulingAssistant.reason.requiredOutsideWorking":
+      "Required outside working hours: {count}",
+    "calendar.schedulingAssistant.reason.requiredTentative":
+      "Required tentative: {count}",
+    "calendar.schedulingAssistant.reason.requiredUnknown":
+      "Required unknown: {count}",
+    "calendar.schedulingAssistant.reason.optionalBusy":
+      "Optional busy: {count}",
+    "calendar.schedulingAssistant.reason.optionalOutOfOffice":
+      "Optional out of office: {count}",
+    "calendar.schedulingAssistant.reason.optionalOutsideWorking":
+      "Optional outside working hours: {count}",
+    "calendar.schedulingAssistant.reason.optionalTentative":
+      "Optional tentative: {count}",
+    "calendar.schedulingAssistant.reason.optionalUnknown":
+      "Optional unknown: {count}",
+    "calendar.schedulingAssistant.useTime": "Use this time",
     "app.loading": "Opening your learning workspace...",
     "brand.product": "TutorHub",
     "brand.version": "V2",

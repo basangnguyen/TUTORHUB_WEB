@@ -6,7 +6,7 @@
 
 | Thuộc tính          | Trạng thái                                                                            |
 | ------------------- | ------------------------------------------------------------------------------------- |
-| Ngày cập nhật       | 2026-07-28                                                                            |
+| Ngày cập nhật       | 2026-07-29                                                                            |
 | Repository          | `https://github.com/basangnguyen/TUTORHUB_WEB`                                        |
 | Nhánh làm việc      | `main`                                                                                |
 | Quy trình           | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
@@ -493,6 +493,15 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
     có drawer Working hours với CAS/conflict recovery và accessibility cơ bản. Chưa đánh
     dấu task `DONE`: audience command, RSVP domain/API/UI, Scheduling Assistant gắn vào
     session editor và PostgreSQL staging acceptance vẫn còn lại.
+33. P3-02C đạt internal one-time participation checkpoint ngày 2026-07-29. Core
+    API/OpenAPI/client có privacy-filtered audience replacement và authenticated self RSVP
+    với CAS/idempotency; PostgreSQL giữ current RSVP authority cùng encrypted neutral
+    invitation/recipient snapshot, audit và outbox domain fact. Web có attendee/organizer
+    summary, self RSVP và Scheduling Assistant manager-only với working interval, canonical
+    free/busy status, conflict reason, dual timezone và semantic table; 192 web tests cùng
+    lint/typecheck/build đều xanh. Task vẫn `IN PROGRESS` vì còn manager roster editor,
+    external guest/capability, typed series/occurrence, organizer/archive lifecycle,
+    concurrency/IDOR/E2E và Neon migration `000020/000021` + ACL/staging smoke.
 
 ## Rủi ro đã biết
 
@@ -612,7 +621,7 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
 - `docs/adr/0017-class-session-scheduling-and-civil-time.md`
 - `docs/adr/0018-postgresql-leased-outbox-worker.md`
 - `docs/adr/0019-calendar-renderer-recurrence-and-conflict.md`
-- `docs/adr/0020-session-audience-ics-and-ses-delivery-boundary.md`
+- `docs/adr/0020-calendar-invitation-rsvp-icalendar-and-ses.md`
 - `docs/adr/0021-native-availability-polls-and-member-owned-study-meetings.md`
 - `docs/adr/0022-tenant-scoped-in-app-notification-projection.md`
 - `docs/adr/0023-calendar-working-schedule-free-busy-and-rsvp-authority.md`

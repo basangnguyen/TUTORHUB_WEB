@@ -13,34 +13,36 @@ import (
 type Action string
 
 const (
-	ActionTenantCreate               Action = "tenant.create"
-	ActionTenantUpdate               Action = "tenant.update"
-	ActionTenantArchive              Action = "tenant.archive"
-	ActionTenantSwitch               Action = "tenant.switch"
-	ActionTenantFeatureControlUpdate Action = "tenant.feature_control.update"
-	ActionMembershipInvitationCreate Action = "membership.invitation.create"
-	ActionMembershipInvitationRevoke Action = "membership.invitation.revoke"
-	ActionMembershipInvitationAccept Action = "membership.invitation.accept"
-	ActionMembershipInvitationExpire Action = "membership.invitation.expire"
-	ActionClassCreate                Action = "class.create"
-	ActionClassUpdate                Action = "class.update"
-	ActionClassArchive               Action = "class.archive"
-	ActionClassRestore               Action = "class.restore"
-	ActionClassTransferOwnership     Action = "class.transfer_ownership"
-	ActionClassEnrollmentEnroll      Action = "class.enrollment.enroll"
-	ActionClassEnrollmentSuspend     Action = "class.enrollment.suspend"
-	ActionClassEnrollmentRemove      Action = "class.enrollment.remove"
-	ActionClassEnrollmentJoin        Action = "class.enrollment.join"
-	ActionClassEnrollmentLeave       Action = "class.enrollment.leave"
-	ActionClassEnrollmentUpdateRole  Action = "class.enrollment.update_role"
-	ActionClassRosterBulk            Action = "class.roster.bulk"
-	ActionClassInviteCodeCreate      Action = "class.invite_code.create"
-	ActionClassInviteCodeRevoke      Action = "class.invite_code.revoke"
-	ActionClassInviteCodeExpire      Action = "class.invite_code.expire"
-	ActionClassInviteCodeExhaust     Action = "class.invite_code.exhaust"
-	ActionClassSessionCreate         Action = "class.session.create"
-	ActionClassSessionUpdate         Action = "class.session.update"
-	ActionClassSessionCancel         Action = "class.session.cancel"
+	ActionTenantCreate                Action = "tenant.create"
+	ActionTenantUpdate                Action = "tenant.update"
+	ActionTenantArchive               Action = "tenant.archive"
+	ActionTenantSwitch                Action = "tenant.switch"
+	ActionTenantFeatureControlUpdate  Action = "tenant.feature_control.update"
+	ActionMembershipInvitationCreate  Action = "membership.invitation.create"
+	ActionMembershipInvitationRevoke  Action = "membership.invitation.revoke"
+	ActionMembershipInvitationAccept  Action = "membership.invitation.accept"
+	ActionMembershipInvitationExpire  Action = "membership.invitation.expire"
+	ActionClassCreate                 Action = "class.create"
+	ActionClassUpdate                 Action = "class.update"
+	ActionClassArchive                Action = "class.archive"
+	ActionClassRestore                Action = "class.restore"
+	ActionClassTransferOwnership      Action = "class.transfer_ownership"
+	ActionClassEnrollmentEnroll       Action = "class.enrollment.enroll"
+	ActionClassEnrollmentSuspend      Action = "class.enrollment.suspend"
+	ActionClassEnrollmentRemove       Action = "class.enrollment.remove"
+	ActionClassEnrollmentJoin         Action = "class.enrollment.join"
+	ActionClassEnrollmentLeave        Action = "class.enrollment.leave"
+	ActionClassEnrollmentUpdateRole   Action = "class.enrollment.update_role"
+	ActionClassRosterBulk             Action = "class.roster.bulk"
+	ActionClassInviteCodeCreate       Action = "class.invite_code.create"
+	ActionClassInviteCodeRevoke       Action = "class.invite_code.revoke"
+	ActionClassInviteCodeExpire       Action = "class.invite_code.expire"
+	ActionClassInviteCodeExhaust      Action = "class.invite_code.exhaust"
+	ActionClassSessionCreate          Action = "class.session.create"
+	ActionClassSessionUpdate          Action = "class.session.update"
+	ActionClassSessionCancel          Action = "class.session.cancel"
+	ActionClassSessionAudienceReplace Action = "class.session.audience.replace"
+	ActionClassSessionRSVPRespond     Action = "class.session.rsvp.respond"
 )
 
 type Outcome string
@@ -164,10 +166,12 @@ var actionCatalog = map[Action]struct{}{
 	ActionClassEnrollmentUpdateRole: {}, ActionClassInviteCodeCreate: {},
 	ActionClassRosterBulk:       {},
 	ActionClassInviteCodeRevoke: {}, ActionClassInviteCodeExpire: {},
-	ActionClassInviteCodeExhaust: {},
-	ActionClassSessionCreate:     {},
-	ActionClassSessionUpdate:     {},
-	ActionClassSessionCancel:     {},
+	ActionClassInviteCodeExhaust:      {},
+	ActionClassSessionCreate:          {},
+	ActionClassSessionUpdate:          {},
+	ActionClassSessionCancel:          {},
+	ActionClassSessionAudienceReplace: {},
+	ActionClassSessionRSVPRespond:     {},
 }
 
 var domainEventActions = map[string]Action{
@@ -207,6 +211,8 @@ var domainEventActions = map[string]Action{
 	"class_session_series.following_cancelled.v1": ActionClassSessionCancel,
 	"class_session_occurrence.updated.v1":         ActionClassSessionUpdate,
 	"class_session_occurrence.cancelled.v1":       ActionClassSessionCancel,
+	"class_session.audience_replaced.v1":          ActionClassSessionAudienceReplace,
+	"class_session.rsvp_responded.v1":             ActionClassSessionRSVPRespond,
 }
 
 func ActionForDomainEvent(eventType string) (Action, bool) {

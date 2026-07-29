@@ -72,15 +72,25 @@ authoritative **trong business transaction** rồi lưu một revision snapshot:
 - `required` hoặc `optional`, nguồn `roster` hoặc `manual`;
 - `response_requested`, guest permission, locale và viewer timezone;
 - canonical IANA event/viewer timezone và version của tzdata/container đã pin;
-- `ical_uid`, `ical_sequence`, method và canonical render inputs;
+- `ical_uid`, `ical_sequence`, source lifecycle (`published|updated|cancelled`) và canonical render inputs đã mã hóa; các input này là business snapshot, không phải rendered MIME bytes hay per-recipient delivery method;
 - audience revision, created/updated/cancelled reason và actor.
 
-Worker không đọc roster hiện tại để quyết định người nhận. Mỗi recipient có một
-invitation-recipient row và một effect riêng. Email dùng đúng một địa chỉ `To`, không
-dùng `CC/BCC`; ICS mặc định chỉ chứa organizer và recipient hiện tại. Guest list chỉ
-được thêm khi server trả `can_see_guest_list`, policy cho phép và interoperability test
-chứng minh không lộ dữ liệu. External guest không bao giờ nhận roster lớp chỉ vì có
-invitation.
+Revision và recipient row là **neutral, immutable business snapshot**. P3-02C persist encrypted
+canonical business snapshot/render input, nhưng không persist rendered MIME bytes, provider
+attempt/reference, delivery state, delivery effect, recipient-specific delivery method hay outbox
+delivery handler và không coi snapshot là email đang chờ gửi. Worker không đọc roster hiện tại
+để quyết định người nhận. P3-05A sẽ materialize **sau commit** một delivery effect riêng cho
+từng recipient snapshot, derive `REQUEST` hoặc `CANCEL` từ immutable audience diff và source
+lifecycle, cố định đúng một địa chỉ `To`, không dùng `CC/BCC`. ICS
+mặc định chỉ chứa organizer và recipient hiện tại. Guest list chỉ được thêm khi server trả
+`can_see_guest_list`, policy cho phép và interoperability test chứng minh không lộ dữ liệu.
+External guest không bao giờ nhận roster lớp chỉ vì có invitation.
+
+Migration `000021` giữ an toàn dữ liệu thử nghiệm trước boundary bằng cách không xóa value
+cũ. Encrypted canonical business snapshot (`canonical_payload_*` và key version) vẫn là runtime
+input bất biến cho renderer về sau; chỉ revision-level `method` legacy không phải runtime input
+và không được consumer đọc. Mọi revision tạo sau boundary bắt buộc có `method = NULL`; P3-05A
+sẽ derive method, tạo rendered MIME payload/effect chuyên dụng khi delivery runtime thật được mở.
 
 Recipient nội bộ được định danh bằng `user_id`. External guest chỉ lưu dữ liệu giao hàng
 tối thiểu trong bảng có quyền hạn chế; lookup/dedupe dùng keyed fingerprint, giá trị có
@@ -88,16 +98,24 @@ thể gửi phải được mã hóa bằng key ngoài database. Không ghi raw 
 metric, audit detail hoặc provider tag. Retention/redaction theo tenant policy và legal
 requirement; delivery history giữ opaque recipient reference thay vì giữ email vô hạn.
 
+Snapshot có thể ghi `rsvp_state`/`rsvp_source` như historical value tại thời điểm revision
+được tạo, nhưng không bao giờ là current RSVP. Current RSVP chỉ nằm ở attendee authority của
+PostgreSQL; response sau đó không update snapshot và không tạo delivery effect trước P3-05A.
+
 #### Audience diff
 
 Mỗi command tạo diff deterministic theo stable recipient identity:
 
-| Diff | Delivery | RSVP/capability |
+| Diff | Delivery effect (P3-05A, chưa tạo ở P3-02C) | RSVP/capability |
 | --- | --- | --- |
-| `added` | `REQUEST` ở sequence hiện tại | `needs_action`; capability mới |
-| `removed` | `CANCEL` cùng UID với sequence mới | đóng response; revoke capability; giữ RSVP cũ chỉ làm history |
-| `unchanged` | chỉ gửi update khi thay đổi user-visible hoặc policy bắt buộc | retain/reset theo bảng dưới |
-| `role_change` | `REQUEST` với role mới | reset `needs_action`; rotate capability |
+| `added` | materialize `REQUEST` ở sequence hiện tại | `needs_action`; capability mới |
+| `removed` | materialize `CANCEL` cùng UID với sequence mới | đóng response; revoke capability; giữ RSVP cũ chỉ làm history |
+| `unchanged` | chỉ materialize update khi thay đổi user-visible hoặc policy bắt buộc | retain/reset theo bảng dưới |
+| `role_change` | materialize `REQUEST` với role mới | reset `needs_action`; rotate capability |
+
+`REQUEST`/`CANCEL` trong bảng là delivery method của **recipient effect**, không phải field của
+revision snapshot. Một revision lifecycle `updated` có thể đồng thời materialize `REQUEST` cho
+`added` và `CANCEL` cho `removed`; lifecycle `cancelled` materialize `CANCEL` cho effect phù hợp.
 
 Re-add sau removal là `added`, không khôi phục RSVP/capability cũ. Duplicate giữa roster
 và manual được collapse theo stable identity; policy có độ ưu tiên rõ và không tạo hai
@@ -199,10 +217,12 @@ review. Raw token, email và IP không dùng làm metric label.
 - First publish dùng `SEQUENCE:0`. Mỗi externally visible revision tăng đúng một lần
   trong transaction; sequence không giảm, không tái sử dụng và không tăng cho idempotent
   no-op.
-- Mọi recipient effect của cùng revision dùng cùng sequence. Worker không sở hữu việc
-  tăng sequence.
-- Update/reschedule dùng cùng UID, sequence mới và `METHOD:REQUEST`.
-- Cancel dùng cùng UID, sequence mới, `METHOD:CANCEL` và `STATUS:CANCELLED`.
+- Mọi recipient effect được P3-05A materialize từ cùng revision dùng cùng sequence. P3-05A
+  derive `REQUEST`/`CANCEL` theo audience diff và source lifecycle; revision snapshot sau
+  boundary không lưu một delivery method. Worker không sở hữu việc tăng sequence; P3-02C không
+  tạo effect.
+- Effect update/reschedule dùng cùng UID, sequence mới và `METHOD:REQUEST`.
+- Effect cancel dùng cùng UID, sequence mới, `METHOD:CANCEL` và `STATUS:CANCELLED`.
 - Occurrence override/cancel dùng UID của series và stable `RECURRENCE-ID`.
 
 Với `edit following`, series cũ được truncate bằng một `REQUEST` sequence mới; series
@@ -253,10 +273,11 @@ tzdata không được âm thầm render lại effect cũ.
 
 ### 4. Deterministic MIME và canonical bytes
 
-Renderer nhận immutable invitation/effect snapshot, không nhận raw outbox payload hoặc
-clock trực tiếp. `DTSTAMP`, locale, subject, boundary và mọi render
-input được persist trước provider call. Kết quả gồm canonical bytes và SHA-256; retry
-cùng effect/revision phải dùng **đúng bytes đã persist**, không render lại.
+P3-05A renderer nhận immutable invitation/recipient snapshot rồi materialize effect riêng;
+P3-02C không render hay persist canonical MIME bytes. Renderer không nhận raw outbox payload
+hoặc clock trực tiếp. `DTSTAMP`, locale, subject, boundary và mọi render input được persist
+cùng effect trước provider call. Kết quả gồm canonical bytes và SHA-256; retry cùng
+effect/revision phải dùng **đúng bytes đã persist**, không render lại.
 
 Canonical bytes nằm trong bảng/record `calendar_delivery_payload` chuyên dụng, mã hóa
 at-rest bằng envelope key ngoài database, có `effect_id`, hash, key version, size,
@@ -537,7 +558,9 @@ Runtime bị chặn rõ:
 - provider call runtime phải sau commit qua ADR-0018 worker;
 - P3-03B phải chứng minh durable host, lease/reclaim/duplicate/dead-letter;
 - P3-02C phải triển khai audience/attendee/RSVP contract;
-- P3-05A mới được đăng ký handler invitation/reminder;
+- P3-02C chỉ commit neutral invitation/recipient snapshot; P3-05A mới được tạo
+  per-recipient delivery effect/payload, đăng ký handler invitation/reminder và consume
+  delivery outbox;
 - mọi gate domain/deliverability còn thiếu giữ feature flag tắt.
 
 ## Interoperability acceptance

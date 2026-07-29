@@ -15,6 +15,8 @@ func TestClassSessionDomainEventsMapToAuditableActions(t *testing.T) {
 		"class_session_series.following_cancelled.v1": ActionClassSessionCancel,
 		"class_session_occurrence.updated.v1":         ActionClassSessionUpdate,
 		"class_session_occurrence.cancelled.v1":       ActionClassSessionCancel,
+		"class_session.audience_replaced.v1":          ActionClassSessionAudienceReplace,
+		"class_session.rsvp_responded.v1":             ActionClassSessionRSVPRespond,
 	}
 	for eventType, want := range tests {
 		got, ok := ActionForDomainEvent(eventType)

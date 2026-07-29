@@ -10,6 +10,7 @@ import { Pencil } from "lucide-react";
 import { useMemo } from "react";
 import { useI18n, type TranslationKey } from "../../app/i18n";
 import type { CalendarHourCycle, CalendarItemViewModel } from "./model";
+import { SessionParticipationPanel } from "./SessionParticipationPanel";
 
 interface SessionDetailDrawerProps {
   hourCycle: CalendarHourCycle;
@@ -17,6 +18,9 @@ interface SessionDetailDrawerProps {
   locale: string;
   onClose: () => void;
   onEdit: (item: CalendarItemViewModel) => void;
+  secondaryTimezone?: string | null;
+  tenantID?: string;
+  userID?: string;
 }
 
 function statusTranslation(status: string): TranslationKey {
@@ -39,6 +43,9 @@ export function SessionDetailDrawer({
   locale,
   onClose,
   onEdit,
+  secondaryTimezone = null,
+  tenantID,
+  userID,
 }: SessionDetailDrawerProps) {
   const { t } = useI18n();
   const dateTimeFormatter = useMemo(
@@ -111,6 +118,27 @@ export function SessionDetailDrawer({
             </dd>
           </div>
         </dl>
+
+        {tenantID && userID && (
+          <SessionParticipationPanel
+            hourCycle={hourCycle}
+            item={item}
+            locale={locale}
+            onUseSuggestedTime={
+              item.canEdit
+                ? (startsAt, endsAt) =>
+                    onEdit({
+                      ...item,
+                      endsAt,
+                      startsAt,
+                    })
+                : undefined
+            }
+            secondaryTimezone={secondaryTimezone}
+            tenantID={tenantID}
+            userID={userID}
+          />
+        )}
 
         {item.canEdit && (
           <div className="calendar-session-detail__actions">

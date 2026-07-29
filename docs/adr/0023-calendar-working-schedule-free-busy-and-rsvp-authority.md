@@ -30,7 +30,10 @@ provider của ADR-0020 là production-ready.
 3. PostgreSQL TutorHub là source of truth duy nhất cho RSVP. Email/ICS/provider status
    không phải business response và không được cập nhật attendance, enrollment, grade
    hoặc join permission.
-4. P3-05A chỉ phân phối recipient snapshot/CTA/ICS đã commit và gọi lại RSVP command của
+4. P3-02C chỉ commit encrypted revision/recipient snapshot trung tính: `lifecycle` vẫn là
+   source truth, còn revision-level `method` là `NULL` và không có per-recipient MIME/effect.
+   P3-05A mới materialize per-recipient delivery effect/payload, derive `REQUEST`/`CANCEL`
+   từ audience diff và lifecycle, phân phối CTA/ICS đã commit và gọi lại RSVP command của
    P3-02C. Worker không đọc roster hiện tại để tự dựng hoặc thay đổi audience.
 5. Các clause audience diff, organizer transition, RSVP retain/reset và external
    capability tại ADR-0020 được dùng làm contract domain cho P3-02C. ADR-0020 vẫn
@@ -127,7 +130,8 @@ provider của ADR-0020 là production-ready.
 
 1. Một source event có tối đa **128 distinct attendee recipient** sau khi collapse
    roster/manual duplicate. Organizer nếu đồng thời là recipient chỉ chiếm một row.
-   Audience revision không được tạo hơn 128 delivery effect; vượt cap fail atomically.
+   P3-02C commit không quá 128 recipient snapshot; P3-05A sau đó chỉ được materialize tối đa
+   128 delivery effect từ revision đó. Vượt cap fail atomically.
 2. Participation `required|optional` tách khỏi business role. Recipient là internal
    `user_id` hoặc protected/minimized external guest, có source `roster|manual`,
    `show_as`, `visibility`, `response_requested` và guest permissions.

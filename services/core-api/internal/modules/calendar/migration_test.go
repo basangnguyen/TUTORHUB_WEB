@@ -159,3 +159,61 @@ func TestCalendarAvailabilityParticipationMigrationContainsPrivacyAndBoundGuards
 		}
 	}
 }
+
+func TestCalendarInvitationSnapshotDeliveryBoundaryDefersRecipientSpecificMethod(t *testing.T) {
+	t.Parallel()
+
+	upContents, err := os.ReadFile(filepath.Join(
+		"..", "..", "..", "migrations", "000021_calendar_invitation_snapshot_delivery_boundary.up.sql",
+	))
+	if err != nil {
+		t.Fatal(err)
+	}
+	upSQL := string(upContents)
+	for _, fragment := range []string{
+		"DROP CONSTRAINT calendar_invitation_revisions_method_valid",
+		"ALTER COLUMN method DROP NOT NULL",
+		"calendar_invitation_revisions_delivery_method_deferred",
+		"CHECK (method IS NULL) NOT VALID",
+		"P3-05A derives REQUEST or CANCEL per recipient",
+		"canonical_payload_ciphertext",
+		"canonical_payload_sha256",
+		"crypto_key_version",
+		"calendar_external_recipients_ciphertext_valid",
+		"calendar_invitation_recipients_identity_protected",
+		"display_name_ciphertext) BETWEEN 29 AND 2048",
+	} {
+		if !strings.Contains(upSQL, fragment) {
+			t.Fatalf("calendar invitation delivery-boundary migration missing %q", fragment)
+		}
+	}
+	for _, forbidden := range []string{
+		"DROP COLUMN canonical_payload_ciphertext",
+		"DROP COLUMN canonical_payload_sha256",
+		"DROP COLUMN crypto_key_version",
+	} {
+		if strings.Contains(upSQL, forbidden) {
+			t.Fatalf("calendar invitation delivery-boundary migration destroys snapshot data with %q", forbidden)
+		}
+	}
+
+	downContents, err := os.ReadFile(filepath.Join(
+		"..", "..", "..", "migrations", "000021_calendar_invitation_snapshot_delivery_boundary.down.sql",
+	))
+	if err != nil {
+		t.Fatal(err)
+	}
+	downSQL := string(downContents)
+	for _, fragment := range []string{
+		"WHERE method IS NULL",
+		"RAISE EXCEPTION",
+		"octet_length(display_name_ciphertext) < 32",
+		"display_name_ciphertext) BETWEEN 32 AND 2048",
+		"ALTER COLUMN method SET NOT NULL",
+		"CHECK (method IN ('REQUEST', 'CANCEL'))",
+	} {
+		if !strings.Contains(downSQL, fragment) {
+			t.Fatalf("calendar invitation delivery-boundary down migration missing %q", fragment)
+		}
+	}
+}

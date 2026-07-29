@@ -567,6 +567,36 @@ export type paths = {
     readonly patch: operations["updateClassSession"];
     readonly trace?: never;
   };
+  readonly "/api/v1/classes/{class_id}/sessions/{session_id}/attendees": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /**
+     * Return the privacy-filtered internal audience for one class session
+     * @description Managers receive the internal audience they are authorized to manage.
+     *     Other participants receive only their own attendee row. Delivery
+     *     addresses, display names, invitation ciphertext and fingerprints are
+     *     never exposed by this boundary.
+     */
+    readonly get: operations["getClassSessionAudience"];
+    /**
+     * Atomically replace the internal audience for one scheduled session
+     * @description Replaces the complete internal audience with optimistic concurrency and
+     *     a mutation idempotency key. Business roles are resolved by the server
+     *     from active class membership; clients supply only user IDs and whether
+     *     each attendee is required or optional.
+     */
+    readonly put: operations["replaceClassSessionAudience"];
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/api/v1/classes/{class_id}/sessions/{session_id}/cancel": {
     readonly parameters: {
       readonly query?: never;
@@ -578,6 +608,28 @@ export type paths = {
     readonly put?: never;
     /** Idempotently cancel one scheduled class session */
     readonly post: operations["cancelClassSession"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/classes/{class_id}/sessions/{session_id}/responses": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Record the authenticated attendee's RSVP response
+     * @description The attendee identity is derived from the authenticated session and
+     *     cannot be selected in the request. needs_action is a persisted state,
+     *     not an accepted self-response command.
+     */
+    readonly post: operations["respondToClassSession"];
     readonly delete?: never;
     readonly options?: never;
     readonly head?: never;
@@ -2021,6 +2073,93 @@ export type components = {
       /** Format: date-time */
       readonly timestamp: string;
     };
+    /**
+     * @description The server resolves business role and delivery metadata. Duplicate user
+     *     IDs with conflicting participation roles are rejected.
+     */
+    readonly ReplaceSessionAudienceAttendeeRequest: {
+      readonly participation_role: components["schemas"]["SessionParticipationRole"];
+      /** Format: uuid */
+      readonly user_id: string;
+    };
+    readonly ReplaceSessionAudienceRequest: {
+      /** @description Full replacement; at most 128 distinct internal users are accepted. */
+      readonly attendees: readonly components["schemas"]["ReplaceSessionAudienceAttendeeRequest"][];
+      /** Format: int64 */
+      readonly expected_audience_revision: number;
+      readonly idempotency_key: string;
+      readonly response_requested: boolean;
+    };
+    readonly ReplaceSessionAudienceResponse: {
+      readonly audience: components["schemas"]["SessionAudience"];
+      readonly replayed: boolean;
+    };
+    readonly RespondToClassSessionRequest: {
+      /** Format: int64 */
+      readonly expected_attendee_version: number;
+      readonly idempotency_key: string;
+      readonly note?: string;
+      readonly state: components["schemas"]["SessionSelfRSVPState"];
+    };
+    readonly SelfRSVPResponse: {
+      readonly attendee: components["schemas"]["SessionAudienceAttendee"];
+      readonly replayed: boolean;
+    };
+    readonly SessionAudience: {
+      readonly attendees: readonly components["schemas"]["SessionAudienceAttendee"][];
+      /** Format: int64 */
+      readonly audience_revision: number;
+      readonly response_requested: boolean;
+      readonly viewer_access: components["schemas"]["SessionAudienceViewerAccess"];
+    };
+    /**
+     * @description Privacy-filtered internal attendee projection. It deliberately contains
+     *     no email, display name, delivery address, ciphertext or fingerprint.
+     */
+    readonly SessionAudienceAttendee: {
+      readonly business_role: components["schemas"]["SessionParticipationBusinessRole"];
+      /** Format: uuid */
+      readonly id: string;
+      readonly is_self: boolean;
+      readonly participation_role: components["schemas"]["SessionParticipationRole"];
+      readonly responded_at: string | null;
+      readonly rsvp_state: components["schemas"]["SessionRSVPState"];
+      /**
+       * Format: uuid
+       * @description Internal TutorHub user identifier; never a delivery address.
+       */
+      readonly user_id: string;
+      /** Format: int64 */
+      readonly version: number;
+    };
+    readonly SessionAudienceViewerAccess: {
+      readonly can_manage_attendees: boolean;
+      readonly can_respond: boolean;
+      readonly can_see_guest_list: boolean;
+    };
+    /**
+     * @description Server-resolved role from active class membership. External recipient
+     *     roles are intentionally absent from the P3-02C internal audience API.
+     * @enum {string}
+     */
+    readonly SessionParticipationBusinessRole:
+      "organizer" | "teacher" | "co_teacher" | "teaching_assistant" | "student";
+    /**
+     * @description Scheduling importance selected for an internal attendee.
+     * @enum {string}
+     */
+    readonly SessionParticipationRole: "required" | "optional";
+    /**
+     * @description Current authoritative RSVP state on the active attendee.
+     * @enum {string}
+     */
+    readonly SessionRSVPState:
+      "needs_action" | "accepted" | "tentative" | "declined";
+    /**
+     * @description Explicit response states accepted from the authenticated attendee.
+     * @enum {string}
+     */
+    readonly SessionSelfRSVPState: "accepted" | "tentative" | "declined";
     readonly SwitchActiveTenantRequest: {
       /** Format: uuid */
       readonly tenant_id: string;
@@ -3460,6 +3599,75 @@ export interface operations {
       readonly default: components["responses"]["ProblemResponse"];
     };
   };
+  readonly getClassSessionAudience: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly "X-TutorHub-Expected-Tenant-ID": string;
+      };
+      readonly path: {
+        readonly class_id: string;
+        readonly session_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Privacy-filtered current session audience */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["SessionAudience"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly replaceClassSessionAudience: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly "X-CSRF-Token": string;
+        readonly "X-TutorHub-Expected-Tenant-ID": string;
+      };
+      readonly path: {
+        readonly class_id: string;
+        readonly session_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["ReplaceSessionAudienceRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Current audience after the applied or idempotently replayed replacement */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ReplaceSessionAudienceResponse"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
   readonly cancelClassSession: {
     readonly parameters: {
       readonly query?: never;
@@ -3492,6 +3700,43 @@ export interface operations {
       readonly 403: components["responses"]["ForbiddenResponse"];
       readonly 404: components["responses"]["NotFoundResponse"];
       readonly 409: components["responses"]["ConflictResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly respondToClassSession: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly "X-CSRF-Token": string;
+        readonly "X-TutorHub-Expected-Tenant-ID": string;
+      };
+      readonly path: {
+        readonly class_id: string;
+        readonly session_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["RespondToClassSessionRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Current self attendee state after the applied or idempotently replayed response */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["SelfRSVPResponse"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
       readonly default: components["responses"]["ProblemResponse"];
     };
   };

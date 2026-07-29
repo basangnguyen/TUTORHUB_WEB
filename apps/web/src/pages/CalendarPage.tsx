@@ -566,6 +566,9 @@ export function CalendarPage() {
           setSelectedItem(null);
           setEditingItem(item);
         }}
+        secondaryTimezone={preference.secondaryTimezone}
+        tenantID={tenantID}
+        userID={userID}
       />
       <CalendarQuickCreate
         onOpenChange={setCreateOpen}

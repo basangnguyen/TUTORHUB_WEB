@@ -66,6 +66,10 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.EdgeContext.Enabled || cfg.EdgeContext.MaxSkew != defaultEdgeContextMaxSkew {
 		t.Fatalf("unexpected edge context defaults: %+v", cfg.EdgeContext)
 	}
+	if cfg.CalendarProtectedData.Enabled || len(cfg.CalendarProtectedData.Key) != 0 ||
+		cfg.CalendarProtectedData.KeyVersion != 0 {
+		t.Fatalf("calendar protected data must remain disabled without an explicit key: %+v", cfg.CalendarProtectedData)
+	}
 	if cfg.FeatureControls.EnableInAppNotifications ||
 		cfg.FeatureControls.MaxMembers != defaultFeatureMemberLimit ||
 		cfg.FeatureControls.MaxActiveClasses != defaultFeatureClassLimit ||
@@ -114,7 +118,7 @@ func TestLoadRejectsInvalidListenHost(t *testing.T) {
 func TestLoadCustomValues(t *testing.T) {
 	t.Parallel()
 
-	cfg, err := load(mapLookup(map[string]string{
+	values := map[string]string{
 		"APP_ENV":                   " staging ",
 		"PORT":                      "9090",
 		"HTTP_LISTEN_HOST":          " 127.0.0.1 ",
@@ -159,7 +163,11 @@ func TestLoadCustomValues(t *testing.T) {
 		"FEATURE_CONTROL_MAX_MEMBERS":                      "5000",
 		"FEATURE_CONTROL_MAX_ACTIVE_CLASSES":               "500",
 		"FEATURE_CONTROL_MAX_INVITE_CREATIONS_PER_HOUR":    "5000",
-	}))
+	}
+	values["CALENDAR_PROTECTED_DATA_KEY"] = validSessionSecret()
+	values["CALENDAR_PROTECTED_DATA_KEY_VERSION"] = "1"
+
+	cfg, err := load(mapLookup(values))
 	if err != nil {
 		t.Fatalf("load custom values: %v", err)
 	}
@@ -206,6 +214,10 @@ func TestLoadCustomValues(t *testing.T) {
 	if !cfg.EdgeContext.Enabled || len(cfg.EdgeContext.Key) != 32 ||
 		cfg.EdgeContext.MaxSkew != 90*time.Second {
 		t.Fatalf("unexpected edge context config: %+v", cfg.EdgeContext)
+	}
+	if !cfg.CalendarProtectedData.Enabled || len(cfg.CalendarProtectedData.Key) != 32 ||
+		cfg.CalendarProtectedData.KeyVersion != 1 {
+		t.Fatalf("unexpected calendar protected data config: %+v", cfg.CalendarProtectedData)
 	}
 	if !cfg.FeatureControls.DisableMembershipInvitations ||
 		!cfg.FeatureControls.DisableClassManagement ||
@@ -458,6 +470,52 @@ func TestLoadRejectsPartialOrUnsafeObjectStorageConfiguration(t *testing.T) {
 		if !strings.Contains(message, expected) {
 			t.Fatalf("expected object storage error to mention %s, got %q", expected, message)
 		}
+	}
+}
+
+func TestLoadRejectsPartialOrUnsafeCalendarProtectedDataConfiguration(t *testing.T) {
+	t.Parallel()
+
+	for name, values := range map[string]map[string]string{
+		"missing key": {
+			"CALENDAR_PROTECTED_DATA_KEY_VERSION": "1",
+		},
+		"missing key version": {
+			"CALENDAR_PROTECTED_DATA_KEY": validSessionSecret(),
+		},
+		"short key": {
+			"CALENDAR_PROTECTED_DATA_KEY":         base64.RawURLEncoding.EncodeToString([]byte("too-short")),
+			"CALENDAR_PROTECTED_DATA_KEY_VERSION": "1",
+		},
+		"non-numeric key version": {
+			"CALENDAR_PROTECTED_DATA_KEY":         validSessionSecret(),
+			"CALENDAR_PROTECTED_DATA_KEY_VERSION": "calendar/key",
+		},
+		"zero key version": {
+			"CALENDAR_PROTECTED_DATA_KEY":         validSessionSecret(),
+			"CALENDAR_PROTECTED_DATA_KEY_VERSION": "0",
+		},
+		"negative key version": {
+			"CALENDAR_PROTECTED_DATA_KEY":         validSessionSecret(),
+			"CALENDAR_PROTECTED_DATA_KEY_VERSION": "-1",
+		},
+		"key version exceeds smallint": {
+			"CALENDAR_PROTECTED_DATA_KEY":         validSessionSecret(),
+			"CALENDAR_PROTECTED_DATA_KEY_VERSION": "32768",
+		},
+	} {
+		name, values := name, values
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			cfg, err := load(mapLookup(values))
+			if err == nil || !strings.Contains(err.Error(), "CALENDAR_PROTECTED_DATA") {
+				t.Fatalf("expected calendar protected data validation error, got %v", err)
+			}
+			if cfg.CalendarProtectedData.Enabled {
+				t.Fatal("invalid calendar protected data configuration must fail closed")
+			}
+		})
 	}
 }
 

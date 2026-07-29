@@ -1,0 +1,279 @@
+package classroom
+
+import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"sort"
+	"strings"
+	"unicode/utf8"
+
+	"github.com/google/uuid"
+)
+
+const (
+	maximumAudienceAttendees           = 128
+	minimumParticipationIdempotencyKey = 16
+	maximumParticipationIdempotencyKey = 128
+	maximumRSVPResponseNoteLength      = 500
+)
+
+var ErrInvalidParticipationInput = errors.New("invalid class session participation input")
+
+// ParticipationRole describes a recipient's scheduling importance. It is
+// intentionally independent from the class business role, which is resolved
+// authoritatively from the class roster by the repository layer.
+type ParticipationRole string
+
+const (
+	ParticipationRoleRequired ParticipationRole = "required"
+	ParticipationRoleOptional ParticipationRole = "optional"
+)
+
+// RSVPState is the TutorHub-owned response state persisted on an active
+// attendee. needs_action is valid persisted state, but is not a self-response
+// command value because it would erase a response without an explicit command.
+type RSVPState string
+
+const (
+	RSVPStateNeedsAction RSVPState = "needs_action"
+	RSVPStateAccepted    RSVPState = "accepted"
+	RSVPStateTentative   RSVPState = "tentative"
+	RSVPStateDeclined    RSVPState = "declined"
+)
+
+// InternalAudienceAttendeeInput is deliberately limited to an internal user
+// identity and participation role. It accepts neither delivery addresses nor
+// client-selected class roles, visibility, or guest permissions.
+type InternalAudienceAttendeeInput struct {
+	UserID            uuid.UUID
+	ParticipationRole ParticipationRole
+}
+
+// InternalAudienceAttendee is the canonical form used by the source-domain
+// repository after authoritative roster validation.
+type InternalAudienceAttendee struct {
+	UserID            uuid.UUID
+	ParticipationRole ParticipationRole
+}
+
+// ReplaceAudienceInput is a full replacement of an event source's internal
+// audience. expected_audience_revision may be zero for the first replacement,
+// because new sources start at revision zero. The HTTP boundary must still
+// require the client to explicitly provide that field.
+type ReplaceAudienceInput struct {
+	ExpectedAudienceRevision int64
+	IdempotencyKey           string
+	ResponseRequested        bool
+	Attendees                []InternalAudienceAttendeeInput
+}
+
+// AudienceReplacementParams is the deterministic, storage-ready subset of a
+// replacement request. Fingerprint excludes the idempotency key because the
+// receipt key scopes the comparison; it covers every business mutation input.
+type AudienceReplacementParams struct {
+	ExpectedAudienceRevision int64
+	IdempotencyKey           string
+	ResponseRequested        bool
+	Attendees                []InternalAudienceAttendee
+	Fingerprint              string
+}
+
+// SelfRSVPInput describes a participant's response for their own active
+// attendee row. The actor identity and source scope are derived by the service,
+// never supplied by this input.
+type SelfRSVPInput struct {
+	State                   RSVPState
+	Note                    string
+	ExpectedAttendeeVersion int64
+	IdempotencyKey          string
+}
+
+// SelfRSVPParams is the canonical form used by the authoritative RSVP command.
+type SelfRSVPParams struct {
+	State                   RSVPState
+	Note                    string
+	ExpectedAttendeeVersion int64
+	IdempotencyKey          string
+	Fingerprint             string
+}
+
+func (input ReplaceAudienceInput) normalized() (AudienceReplacementParams, error) {
+	key, err := normalizeParticipationIdempotencyKey(input.IdempotencyKey)
+	if err != nil {
+		return AudienceReplacementParams{}, err
+	}
+	if input.ExpectedAudienceRevision < 0 {
+		return AudienceReplacementParams{}, fmt.Errorf(
+			"%w: expected audience revision cannot be negative",
+			ErrInvalidParticipationInput,
+		)
+	}
+
+	attendees, err := normalizeInternalAudienceAttendees(input.Attendees)
+	if err != nil {
+		return AudienceReplacementParams{}, err
+	}
+	params := AudienceReplacementParams{
+		ExpectedAudienceRevision: input.ExpectedAudienceRevision,
+		IdempotencyKey:           key,
+		ResponseRequested:        input.ResponseRequested,
+		Attendees:                attendees,
+	}
+	params.Fingerprint, err = fingerprintAudienceReplacement(params)
+	if err != nil {
+		return AudienceReplacementParams{}, err
+	}
+	return params, nil
+}
+
+func (input SelfRSVPInput) normalized() (SelfRSVPParams, error) {
+	key, err := normalizeParticipationIdempotencyKey(input.IdempotencyKey)
+	if err != nil {
+		return SelfRSVPParams{}, err
+	}
+	if input.ExpectedAttendeeVersion < 1 {
+		return SelfRSVPParams{}, fmt.Errorf(
+			"%w: expected attendee version is required",
+			ErrInvalidParticipationInput,
+		)
+	}
+	switch input.State {
+	case RSVPStateAccepted, RSVPStateTentative, RSVPStateDeclined:
+	default:
+		return SelfRSVPParams{}, fmt.Errorf(
+			"%w: unsupported self RSVP state %q",
+			ErrInvalidParticipationInput,
+			input.State,
+		)
+	}
+	note := strings.TrimSpace(input.Note)
+	if !utf8.ValidString(note) || utf8.RuneCountInString(note) > maximumRSVPResponseNoteLength {
+		return SelfRSVPParams{}, fmt.Errorf(
+			"%w: RSVP note cannot exceed %d characters",
+			ErrInvalidParticipationInput,
+			maximumRSVPResponseNoteLength,
+		)
+	}
+	params := SelfRSVPParams{
+		State:                   input.State,
+		Note:                    note,
+		ExpectedAttendeeVersion: input.ExpectedAttendeeVersion,
+		IdempotencyKey:          key,
+	}
+	params.Fingerprint, err = fingerprintSelfRSVP(params)
+	if err != nil {
+		return SelfRSVPParams{}, err
+	}
+	return params, nil
+}
+
+func normalizeInternalAudienceAttendees(
+	inputs []InternalAudienceAttendeeInput,
+) ([]InternalAudienceAttendee, error) {
+	byUserID := make(map[uuid.UUID]ParticipationRole, len(inputs))
+	for _, input := range inputs {
+		if input.UserID == uuid.Nil {
+			return nil, fmt.Errorf(
+				"%w: attendee user id is required",
+				ErrInvalidParticipationInput,
+			)
+		}
+		if input.ParticipationRole != ParticipationRoleRequired &&
+			input.ParticipationRole != ParticipationRoleOptional {
+			return nil, fmt.Errorf(
+				"%w: unsupported attendee participation role %q",
+				ErrInvalidParticipationInput,
+				input.ParticipationRole,
+			)
+		}
+		if current, exists := byUserID[input.UserID]; exists {
+			if current != input.ParticipationRole {
+				return nil, fmt.Errorf(
+					"%w: duplicate attendee %s has conflicting participation roles",
+					ErrInvalidParticipationInput,
+					input.UserID,
+				)
+			}
+			continue
+		}
+		byUserID[input.UserID] = input.ParticipationRole
+	}
+	if len(byUserID) > maximumAudienceAttendees {
+		return nil, fmt.Errorf(
+			"%w: audience cannot exceed %d distinct attendees",
+			ErrInvalidParticipationInput,
+			maximumAudienceAttendees,
+		)
+	}
+
+	attendees := make([]InternalAudienceAttendee, 0, len(byUserID))
+	for userID, role := range byUserID {
+		attendees = append(attendees, InternalAudienceAttendee{
+			UserID:            userID,
+			ParticipationRole: role,
+		})
+	}
+	sort.Slice(attendees, func(left int, right int) bool {
+		return attendees[left].UserID.String() < attendees[right].UserID.String()
+	})
+	return attendees, nil
+}
+
+func normalizeParticipationIdempotencyKey(value string) (string, error) {
+	key := strings.TrimSpace(value)
+	if !utf8.ValidString(key) ||
+		utf8.RuneCountInString(key) < minimumParticipationIdempotencyKey ||
+		utf8.RuneCountInString(key) > maximumParticipationIdempotencyKey {
+		return "", fmt.Errorf(
+			"%w: idempotency key must contain between %d and %d characters",
+			ErrInvalidParticipationInput,
+			minimumParticipationIdempotencyKey,
+			maximumParticipationIdempotencyKey,
+		)
+	}
+	return key, nil
+}
+
+func fingerprintAudienceReplacement(params AudienceReplacementParams) (string, error) {
+	payload := struct {
+		ExpectedAudienceRevision int64                      `json:"expected_audience_revision"`
+		ResponseRequested        bool                       `json:"response_requested"`
+		Attendees                []InternalAudienceAttendee `json:"attendees"`
+	}{
+		ExpectedAudienceRevision: params.ExpectedAudienceRevision,
+		ResponseRequested:        params.ResponseRequested,
+		Attendees:                params.Attendees,
+	}
+	return fingerprintParticipationInput("audience_replace", payload)
+}
+
+func fingerprintSelfRSVP(params SelfRSVPParams) (string, error) {
+	payload := struct {
+		State                   RSVPState `json:"state"`
+		Note                    string    `json:"note"`
+		ExpectedAttendeeVersion int64     `json:"expected_attendee_version"`
+	}{
+		State:                   params.State,
+		Note:                    params.Note,
+		ExpectedAttendeeVersion: params.ExpectedAttendeeVersion,
+	}
+	return fingerprintParticipationInput("rsvp_respond", payload)
+}
+
+func fingerprintParticipationInput(operation string, payload any) (string, error) {
+	encoded, err := json.Marshal(struct {
+		Operation string `json:"operation"`
+		Payload   any    `json:"payload"`
+	}{
+		Operation: operation,
+		Payload:   payload,
+	})
+	if err != nil {
+		return "", fmt.Errorf("fingerprint participation mutation: %w", err)
+	}
+	digest := sha256.Sum256(encoded)
+	return hex.EncodeToString(digest[:]), nil
+}

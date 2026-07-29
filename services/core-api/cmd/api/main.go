@@ -25,6 +25,7 @@ import (
 	"github.com/tutorhub-v2/core-api/internal/platform/httpserver"
 	"github.com/tutorhub-v2/core-api/internal/platform/objectstorage"
 	"github.com/tutorhub-v2/core-api/internal/platform/observability"
+	"github.com/tutorhub-v2/core-api/internal/platform/protecteddata"
 	"github.com/tutorhub-v2/core-api/internal/policy"
 )
 
@@ -176,15 +177,34 @@ func run() int {
 	var classroomService classroom.ServiceAPI
 	var classSessionService classroom.SessionServiceAPI
 	var classSessionSeriesService classroom.SessionSeriesServiceAPI
+	var classSessionParticipationService classroom.SessionParticipationServiceAPI
 	var calendarService calendar.ServiceAPI
 	var calendarSchedulingService calendar.SchedulingServiceAPI
 	if pool != nil {
+		var calendarProtector *protecteddata.Protector
+		if cfg.CalendarProtectedData.Enabled {
+			calendarProtector, err = protecteddata.New(protecteddata.Config{
+				Key:        cfg.CalendarProtectedData.Key,
+				KeyVersion: cfg.CalendarProtectedData.KeyVersion,
+			})
+			if err != nil {
+				logger.Error("initialize Calendar protected data", "error", err)
+				return 1
+			}
+			logger.Info(
+				"Calendar protected data initialized",
+				"key_version",
+				calendarProtector.KeyVersion(),
+			)
+		} else {
+			logger.Info("Calendar protected data is disabled for this environment")
+		}
 		classroomRepository = classroom.NewPostgresRepository(
 			pool,
 			cfg.Database.QueryTimeout,
 			authorizer,
 			featureControlEnforcer,
-		).WithRecurrenceObserver(metrics)
+		).WithRecurrenceObserver(metrics).WithCalendarProtectedData(calendarProtector)
 		classroomAuthorizer, err = classroom.NewService(
 			classroomRepository,
 			authorizer,
@@ -210,6 +230,15 @@ func run() int {
 		)
 		if err != nil {
 			logger.Error("initialize recurring class session service", "error", err)
+			return 1
+		}
+		classSessionParticipationService, err = classroom.NewSessionParticipationService(
+			classroomRepository,
+			classroomAuthorizer,
+			classroom.SessionParticipationServiceConfig{Clock: time.Now},
+		)
+		if err != nil {
+			logger.Error("initialize class session participation service", "error", err)
 			return 1
 		}
 		calendarRepository, err := calendar.NewPostgresRepository(
@@ -365,6 +394,7 @@ func run() int {
 		Classroom:             classroomService,
 		ClassSessions:         classSessionService,
 		ClassSessionSeries:    classSessionSeriesService,
+		SessionParticipation:  classSessionParticipationService,
 		Calendar:              calendarService,
 		CalendarScheduling:    calendarSchedulingService,
 		Enrollment:            enrollmentService,

@@ -13,6 +13,7 @@ import (
 	"github.com/tutorhub-v2/core-api/internal/modules/audit"
 	"github.com/tutorhub-v2/core-api/internal/modules/calendar/recurrence"
 	"github.com/tutorhub-v2/core-api/internal/modules/featurecontrol"
+	"github.com/tutorhub-v2/core-api/internal/platform/protecteddata"
 	"github.com/tutorhub-v2/core-api/internal/platform/tenancy"
 	"github.com/tutorhub-v2/core-api/internal/policy"
 )
@@ -30,6 +31,7 @@ type PostgresRepository struct {
 	authorizer         policy.Authorizer
 	controls           featurecontrol.Enforcer
 	recurrenceObserver recurrence.ExpansionObserver
+	calendarProtector  *protecteddata.Protector
 }
 
 func NewPostgresRepository(
@@ -51,6 +53,16 @@ func (repository *PostgresRepository) WithRecurrenceObserver(
 	observer recurrence.ExpansionObserver,
 ) *PostgresRepository {
 	repository.recurrenceObserver = observer
+	return repository
+}
+
+// WithCalendarProtectedData installs the dedicated Calendar-only protector for
+// participation snapshot persistence. A nil protector intentionally leaves the
+// participation service unavailable rather than falling back to session crypto.
+func (repository *PostgresRepository) WithCalendarProtectedData(
+	protector *protecteddata.Protector,
+) *PostgresRepository {
+	repository.calendarProtector = protector
 	return repository
 }
 

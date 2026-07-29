@@ -17,6 +17,7 @@ import {
   getCalendarWorkingSchedule,
   getClass,
   getClassSession,
+  getClassSessionAudience,
   getCurrentUser,
   getHealth,
   getLoginURL,
@@ -45,6 +46,8 @@ import {
   previewMembershipInvitation,
   queryCalendarAvailability,
   removeClassEnrollment,
+  replaceClassSessionAudience,
+  respondToClassSession,
   restoreClass,
   revokeClassInviteCode,
   revokeMembershipInvitation,
@@ -76,6 +79,9 @@ import type {
   CurrentUser,
   Notification,
   NotificationPreference,
+  ReplaceSessionAudienceRequest,
+  RespondToClassSessionRequest,
+  SessionAudience,
   TenantCapabilities,
   UpdateNotificationPreferenceRequest,
   UpdateCalendarDisplayPreferenceRequest,
@@ -2005,6 +2011,131 @@ describe("getHealth", () => {
       error_code: "",
       duration_ms: 842,
     });
+  });
+
+  it("scopes session audience and self RSVP boundaries without delivery metadata", async () => {
+    const tenantID = "4b18543a-74de-419f-9fe8-d0c3dfc991eb";
+    const classID = "1dcf37ff-4450-49ff-90aa-74dfbd551da2";
+    const sessionID = "2b9c25a4-b01b-4b5b-9e87-a782675ed511";
+    const userID = "a9082628-f44c-4ec1-982c-e7745a1cba80";
+    const attendeeID = "e870c07a-2bd1-45f0-b6ab-75a91cfe35fe";
+    const audience: SessionAudience = {
+      audience_revision: 3,
+      response_requested: true,
+      attendees: [
+        {
+          id: attendeeID,
+          user_id: userID,
+          participation_role: "required",
+          business_role: "teacher",
+          rsvp_state: "needs_action",
+          responded_at: null,
+          version: 1,
+          is_self: true,
+        },
+      ],
+      viewer_access: {
+        can_manage_attendees: true,
+        can_respond: true,
+        can_see_guest_list: false,
+      },
+    };
+    const replacement: ReplaceSessionAudienceRequest = {
+      expected_audience_revision: 3,
+      idempotency_key: "audience-client-0001",
+      response_requested: true,
+      attendees: [{ user_id: userID, participation_role: "required" }],
+    };
+    const responseInput: RespondToClassSessionRequest = {
+      state: "accepted",
+      note: "Tham gia",
+      expected_attendee_version: 1,
+      idempotency_key: "rsvp-client-000001",
+    };
+    const acceptedAttendee = {
+      ...audience.attendees[0],
+      rsvp_state: "accepted" as const,
+      responded_at: "2026-07-29T04:00:00Z",
+      version: 2,
+    };
+    const responses = [
+      new Response(JSON.stringify(audience), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+      new Response(JSON.stringify({ audience, replayed: false }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+      new Response(
+        JSON.stringify({ attendee: acceptedAttendee, replayed: false }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        },
+      ),
+    ];
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(() => Promise.resolve(responses.shift()));
+    const options = { baseUrl: "http://localhost/api", fetch: fetchMock };
+
+    await expect(
+      getClassSessionAudience(tenantID, classID, sessionID, options),
+    ).resolves.toEqual(audience);
+    await expect(
+      replaceClassSessionAudience(
+        tenantID,
+        classID,
+        sessionID,
+        replacement,
+        "audience-csrf",
+        options,
+      ),
+    ).resolves.toEqual({ audience, replayed: false });
+    await expect(
+      respondToClassSession(
+        tenantID,
+        classID,
+        sessionID,
+        responseInput,
+        "rsvp-csrf",
+        options,
+      ),
+    ).resolves.toEqual({ attendee: acceptedAttendee, replayed: false });
+
+    const requests = fetchMock.mock.calls.map((call) => call[0] as Request);
+    expect(requests.map((request) => request.method)).toEqual([
+      "GET",
+      "PUT",
+      "POST",
+    ]);
+    expect(requests.map((request) => request.url)).toEqual([
+      `http://localhost/api/v1/classes/${classID}/sessions/${sessionID}/attendees`,
+      `http://localhost/api/v1/classes/${classID}/sessions/${sessionID}/attendees`,
+      `http://localhost/api/v1/classes/${classID}/sessions/${sessionID}/responses`,
+    ]);
+    expect(
+      requests.map((request) =>
+        request.headers.get("X-TutorHub-Expected-Tenant-ID"),
+      ),
+    ).toEqual([tenantID, tenantID, tenantID]);
+    expect(requests[0]?.headers.get("X-CSRF-Token")).toBeNull();
+    expect(requests[1]?.headers.get("X-CSRF-Token")).toBe("audience-csrf");
+    expect(requests[2]?.headers.get("X-CSRF-Token")).toBe("rsvp-csrf");
+    await expect(requests[1]?.clone().json()).resolves.toEqual(replacement);
+    await expect(requests[2]?.clone().json()).resolves.toEqual(responseInput);
+
+    const publicProjection = JSON.stringify(audience).toLowerCase();
+    for (const forbidden of [
+      "email",
+      "display_name",
+      "delivery_address",
+      "ciphertext",
+      "fingerprint",
+    ]) {
+      expect(publicProjection).not.toContain(forbidden);
+    }
   });
 
   it("manages the current profile and linked identities", async () => {

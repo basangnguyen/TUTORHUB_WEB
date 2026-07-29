@@ -32,6 +32,7 @@ type Options struct {
 	Classroom             classroom.ServiceAPI
 	ClassSessions         classroom.SessionServiceAPI
 	ClassSessionSeries    classroom.SessionSeriesServiceAPI
+	SessionParticipation  classroom.SessionParticipationServiceAPI
 	Calendar              calendar.ServiceAPI
 	CalendarScheduling    calendar.SchedulingServiceAPI
 	Enrollment            classroom.EnrollmentServiceAPI
@@ -259,6 +260,11 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 	classSessionSeries := newClassSessionSeriesHandlers(
 		auth, options.ClassSessionSeries, classSessions,
 	)
+	sessionParticipation := newClassSessionParticipationHandlers(
+		logger,
+		auth,
+		options.SessionParticipation,
+	)
 	classEnrollments := newClassEnrollmentHandlers(
 		cfg,
 		logger,
@@ -349,6 +355,14 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 			classSessionSeriesResourceAuditMutation,
 			http.HandlerFunc(classSessionSeries.cancel),
 		),
+	)
+	mux.Handle(
+		classSessionAttendeesPattern,
+		sessionParticipation.attendeesHandler(),
+	)
+	mux.Handle(
+		classSessionResponsesPattern,
+		sessionParticipation.responsesHandler(),
 	)
 	mux.Handle(
 		classArchivePathPattern,

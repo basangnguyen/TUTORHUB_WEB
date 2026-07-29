@@ -548,7 +548,7 @@ bộ đáng tin cậy; P3-05A chỉ phân phối email/ICS, không sở hữu bu
       class/file/roster detail và không coi external/no-sync là free.
 - [x] Suggested-time dùng total-order tuple đã khóa, bounded range/participant/step/
       candidate cap và DST grid policy; response có reason breakdown/empty reason ổn định.
-- [ ] Scheduling Assistant hiển thị working hours, unknown, dual timezone, conflict reason
+- [x] Scheduling Assistant hiển thị working hours, unknown, dual timezone, conflict reason
       và keyboard/screen-reader equivalent; không truyền nghĩa chỉ bằng heatmap color.
 - [ ] RSVP `needs_action/accepted/tentative/declined` là domain/API/UI source of truth,
       có expected version/idempotency, organizer summary và không cập nhật attendance.
@@ -567,6 +567,26 @@ và availability đã có local test coverage. Execution budget 250 ms áp dụn
 candidate grid vượt 2.000 trả `429`, không cắt im lặng. Chưa chạy migration/ACL trên Neon
 và không đánh dấu `DONE` trước attendee/audience command, RSVP domain/API/UI, Scheduling
 Assistant và các acceptance tests còn lại.
+
+**Implementation checkpoint 2026-07-29:** internal one-time ClassSession đã có
+privacy-filtered audience GET/PUT, authenticated self RSVP với CAS/idempotency, encrypted
+neutral invitation/recipient snapshot, audit/outbox domain event và detail-drawer
+RSVP/organizer summary. Scheduling Assistant manager-only đã dùng required/optional audience,
+hiển thị working interval, canonical availability status, conflict reason và dual timezone
+bằng semantic table có keyboard/screen-reader equivalent; focused/full web acceptance local
+đều xanh. Checkpoint này chưa bao gồm manager roster editor, external guest/capability,
+typed series/occurrence, organizer transfer/archive lifecycle hoặc Neon staging rollout nên
+P3-02C vẫn `IN PROGRESS`.
+
+**Implementation checkpoint 2026-07-29:** internal one-time ClassSession đã có
+privacy-filtered audience GET/PUT, authenticated self RSVP với CAS/idempotency, encrypted
+neutral invitation/recipient snapshot, audit/outbox domain event và detail-drawer
+RSVP/organizer summary. Scheduling Assistant manager-only đã dùng required/optional audience,
+hiển thị working interval, canonical availability status, conflict reason và dual timezone
+bằng semantic table có keyboard/screen-reader equivalent; focused/full web acceptance local
+đều xanh. Checkpoint này chưa bao gồm manager roster editor, external guest/capability,
+typed series/occurrence, organizer transfer/archive lifecycle hoặc Neon staging rollout nên
+P3-02C vẫn `IN PROGRESS`.
 
 ### P3-02D Native Availability Poll và Study Meeting
 

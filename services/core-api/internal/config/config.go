@@ -11,6 +11,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/tutorhub-v2/core-api/internal/platform/protecteddata"
 )
 
 const (
@@ -57,24 +59,25 @@ var validLogLevels = map[string]struct{}{
 }
 
 type Config struct {
-	Environment       string
-	Port              string
-	ListenHost        string
-	WebOrigin         string
-	APIOrigin         string
-	LogLevel          string
-	ReadHeaderTimeout time.Duration
-	ReadTimeout       time.Duration
-	WriteTimeout      time.Duration
-	IdleTimeout       time.Duration
-	ShutdownTimeout   time.Duration
-	MaxHeaderBytes    int
-	Database          DatabaseConfig
-	Authentication    AuthenticationConfig
-	LiveKit           LiveKitConfig
-	ObjectStorage     ObjectStorageConfig
-	EdgeContext       EdgeContextConfig
-	FeatureControls   FeatureControlConfig
+	Environment           string
+	Port                  string
+	ListenHost            string
+	WebOrigin             string
+	APIOrigin             string
+	LogLevel              string
+	ReadHeaderTimeout     time.Duration
+	ReadTimeout           time.Duration
+	WriteTimeout          time.Duration
+	IdleTimeout           time.Duration
+	ShutdownTimeout       time.Duration
+	MaxHeaderBytes        int
+	Database              DatabaseConfig
+	Authentication        AuthenticationConfig
+	LiveKit               LiveKitConfig
+	ObjectStorage         ObjectStorageConfig
+	EdgeContext           EdgeContextConfig
+	CalendarProtectedData CalendarProtectedDataConfig
+	FeatureControls       FeatureControlConfig
 }
 
 type DatabaseConfig struct {
@@ -125,6 +128,17 @@ type EdgeContextConfig struct {
 	Enabled bool
 	Key     []byte
 	MaxSkew time.Duration
+}
+
+// CalendarProtectedDataConfig contains the dedicated key used to encrypt the
+// minimal Calendar invitation recipient data stored in PostgreSQL. KeyVersion
+// maps directly to the positive smallint schema column. It is optional until
+// the Calendar participation service is wired, but no default key is generated:
+// an absent configuration leaves the feature disabled.
+type CalendarProtectedDataConfig struct {
+	Enabled    bool
+	Key        []byte
+	KeyVersion int16
 }
 
 type FeatureControlConfig struct {
@@ -237,6 +251,7 @@ func load(lookup lookupEnv) (Config, error) {
 	cfg.LiveKit = liveKitConfig(lookup, cfg.Environment, &validationErrors)
 	cfg.ObjectStorage = objectStorageConfig(lookup, &validationErrors)
 	cfg.EdgeContext = edgeContextConfig(lookup, cfg.Environment, &validationErrors)
+	cfg.CalendarProtectedData = calendarProtectedDataConfig(lookup, &validationErrors)
 	cfg.FeatureControls = featureControlConfig(lookup, &validationErrors)
 
 	if err := errors.Join(validationErrors...); err != nil {
@@ -290,6 +305,66 @@ func edgeContextConfig(
 	config.Key = key
 
 	return config
+}
+
+func calendarProtectedDataConfig(
+	lookup lookupEnv,
+	validationErrors *[]error,
+) CalendarProtectedDataConfig {
+	rawKey := strings.TrimSpace(valueOrDefault(lookup, "CALENDAR_PROTECTED_DATA_KEY", ""))
+	rawKeyVersion := strings.TrimSpace(valueOrDefault(lookup, "CALENDAR_PROTECTED_DATA_KEY_VERSION", ""))
+	if rawKey == "" && rawKeyVersion == "" {
+		return CalendarProtectedDataConfig{}
+	}
+	if rawKey == "" {
+		*validationErrors = append(
+			*validationErrors,
+			fmt.Errorf("CALENDAR_PROTECTED_DATA_KEY is required when calendar protected data is configured"),
+		)
+	}
+	if rawKeyVersion == "" {
+		*validationErrors = append(
+			*validationErrors,
+			fmt.Errorf("CALENDAR_PROTECTED_DATA_KEY_VERSION is required when calendar protected data is configured"),
+		)
+	}
+	if rawKey == "" || rawKeyVersion == "" {
+		return CalendarProtectedDataConfig{}
+	}
+
+	key, err := decodeBase64Key("CALENDAR_PROTECTED_DATA_KEY", rawKey)
+	if err != nil {
+		*validationErrors = append(*validationErrors, err)
+		return CalendarProtectedDataConfig{}
+	}
+	keyVersion, err := parseCalendarProtectedDataKeyVersion(rawKeyVersion)
+	if err != nil {
+		*validationErrors = append(
+			*validationErrors,
+			fmt.Errorf("CALENDAR_PROTECTED_DATA_KEY_VERSION: %w", err),
+		)
+		return CalendarProtectedDataConfig{}
+	}
+
+	return CalendarProtectedDataConfig{
+		Enabled:    true,
+		Key:        key,
+		KeyVersion: keyVersion,
+	}
+}
+
+func parseCalendarProtectedDataKeyVersion(value string) (int16, error) {
+	parsed, err := strconv.ParseInt(value, 10, 16)
+	if err != nil {
+		return 0, errors.New("must be a positive smallint value from 1 through 32767")
+	}
+
+	keyVersion := int16(parsed)
+	if err := protecteddata.ValidateKeyVersion(keyVersion); err != nil {
+		return 0, err
+	}
+
+	return keyVersion, nil
 }
 
 func featureControlConfig(

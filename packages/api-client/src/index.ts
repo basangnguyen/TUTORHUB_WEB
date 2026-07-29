@@ -147,6 +147,25 @@ export type UpdateClassSessionRequest = GeneratedUpdateClassSessionRequest &
   );
 export type CancelClassSessionRequest =
   components["schemas"]["CancelClassSessionRequest"];
+export type SessionParticipationRole =
+  components["schemas"]["SessionParticipationRole"];
+export type SessionParticipationBusinessRole =
+  components["schemas"]["SessionParticipationBusinessRole"];
+export type SessionRSVPState = components["schemas"]["SessionRSVPState"];
+export type SessionSelfRSVPState =
+  components["schemas"]["SessionSelfRSVPState"];
+export type SessionAudienceViewerAccess =
+  components["schemas"]["SessionAudienceViewerAccess"];
+export type SessionAudienceAttendee =
+  components["schemas"]["SessionAudienceAttendee"];
+export type SessionAudience = components["schemas"]["SessionAudience"];
+export type ReplaceSessionAudienceRequest =
+  components["schemas"]["ReplaceSessionAudienceRequest"];
+export type ReplaceSessionAudienceResponse =
+  components["schemas"]["ReplaceSessionAudienceResponse"];
+export type RespondToClassSessionRequest =
+  components["schemas"]["RespondToClassSessionRequest"];
+export type SelfRSVPResponse = components["schemas"]["SelfRSVPResponse"];
 export type ClassSessionRecurrenceRule =
   components["schemas"]["ClassSessionRecurrenceRule"];
 export type ClassSessionSeries = components["schemas"]["ClassSessionSeries"];
@@ -1303,6 +1322,96 @@ export async function getClassSession(
 
   return requireData<ClassSession>(
     data as ClassSession | undefined,
+    error,
+    response,
+  );
+}
+
+export async function getClassSessionAudience(
+  tenantID: string,
+  classID: string,
+  sessionID: string,
+  options: APIRequestOptions = {},
+): Promise<SessionAudience> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).GET(
+    "/api/v1/classes/{class_id}/sessions/{session_id}/attendees",
+    {
+      params: {
+        path: { class_id: classID, session_id: sessionID },
+        header: { "X-TutorHub-Expected-Tenant-ID": tenantID },
+      },
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<SessionAudience>(
+    data as SessionAudience | undefined,
+    error,
+    response,
+  );
+}
+
+export async function replaceClassSessionAudience(
+  tenantID: string,
+  classID: string,
+  sessionID: string,
+  input: ReplaceSessionAudienceRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<ReplaceSessionAudienceResponse> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).PUT(
+    "/api/v1/classes/{class_id}/sessions/{session_id}/attendees",
+    {
+      params: {
+        path: { class_id: classID, session_id: sessionID },
+        header: {
+          "X-CSRF-Token": csrfToken,
+          "X-TutorHub-Expected-Tenant-ID": tenantID,
+        },
+      },
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<ReplaceSessionAudienceResponse>(
+    data as ReplaceSessionAudienceResponse | undefined,
+    error,
+    response,
+  );
+}
+
+export async function respondToClassSession(
+  tenantID: string,
+  classID: string,
+  sessionID: string,
+  input: RespondToClassSessionRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<SelfRSVPResponse> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/classes/{class_id}/sessions/{session_id}/responses",
+    {
+      params: {
+        path: { class_id: classID, session_id: sessionID },
+        header: {
+          "X-CSRF-Token": csrfToken,
+          "X-TutorHub-Expected-Tenant-ID": tenantID,
+        },
+      },
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<SelfRSVPResponse>(
+    data as SelfRSVPResponse | undefined,
     error,
     response,
   );
