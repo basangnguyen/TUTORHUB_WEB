@@ -2267,6 +2267,383 @@ paths:
           $ref: "#/components/responses/NotFoundResponse"
         default:
           $ref: "#/components/responses/ProblemResponse"
+  /api/v1/classes/{class_id}/session-series/{series_id}/attendees:
+    get:
+      operationId: getClassSessionSeriesAudience
+      summary: Return the privacy-filtered internal audience for a series master
+      description: |
+        Returns the authoritative audience attached to the recurring series
+        master. Managers receive the audience they are authorized to manage;
+        other participants receive only the projection allowed by guest-list
+        policy. Delivery addresses, display names, invitation ciphertext and
+        fingerprints are never exposed by this boundary.
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: class_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: series_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: X-TutorHub-Expected-Tenant-ID
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Privacy-filtered current series-master audience
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionAudience"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+    put:
+      operationId: replaceClassSessionSeriesAudience
+      summary: Atomically replace the internal audience for a series master
+      description: |
+        Replaces the complete series-master audience with optimistic
+        concurrency and a mutation idempotency key. The server resolves
+        business roles from active class membership.
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: class_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: series_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: X-TutorHub-Expected-Tenant-ID
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReplaceSessionAudienceRequest"
+      responses:
+        "200":
+          description: Current series-master audience after replacement or replay
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReplaceSessionAudienceResponse"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "429":
+          $ref: "#/components/responses/ProblemResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/classes/{class_id}/session-series/{series_id}/responses:
+    post:
+      operationId: respondToClassSessionSeries
+      summary: Record the authenticated attendee's RSVP for a series master
+      description: |
+        Records the attendee's authoritative default response for the series
+        master. The attendee identity is derived from the authenticated
+        session; the request carries attendee-version CAS and an idempotency
+        key.
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: class_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: series_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: X-TutorHub-Expected-Tenant-ID
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RespondToClassSessionRequest"
+      responses:
+        "200":
+          description: Current self attendee state after response or replay
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SelfRSVPResponse"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/classes/{class_id}/session-series/{series_id}/occurrences/{occurrence_key}/attendees:
+    get:
+      operationId: getClassSessionSeriesOccurrenceAudience
+      summary: Return the privacy-filtered internal audience for one occurrence
+      description: |
+        Resolves the occurrence by its opaque stable identity derived from the
+        original civil tuple. The occurrence key remains stable across
+        reschedules and is percent-encoded as one path segment by clients.
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: class_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: series_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: occurrence_key
+          in: path
+          required: true
+          allowReserved: false
+          description: Opaque stable occurrence identity; pass it unmodified.
+          schema:
+            type: string
+            minLength: 8
+            maxLength: 128
+        - name: X-TutorHub-Expected-Tenant-ID
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Privacy-filtered current occurrence audience
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionAudience"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+    put:
+      operationId: replaceClassSessionSeriesOccurrenceAudience
+      summary: Atomically replace the internal audience for one occurrence
+      description: |
+        Replaces only the audience override for the addressed stable
+        occurrence. The request uses audience-revision CAS and an idempotency
+        key; it does not mutate the series-master audience.
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: class_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: series_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: occurrence_key
+          in: path
+          required: true
+          allowReserved: false
+          description: Opaque stable occurrence identity; pass it unmodified.
+          schema:
+            type: string
+            minLength: 8
+            maxLength: 128
+        - name: X-TutorHub-Expected-Tenant-ID
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReplaceSessionAudienceRequest"
+      responses:
+        "200":
+          description: Current occurrence audience after replacement or replay
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReplaceSessionAudienceResponse"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "429":
+          $ref: "#/components/responses/ProblemResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/classes/{class_id}/session-series/{series_id}/occurrences/{occurrence_key}/responses:
+    post:
+      operationId: respondToClassSessionSeriesOccurrence
+      summary: Record the authenticated attendee's RSVP for one occurrence
+      description: |
+        Records an occurrence-specific RSVP override addressed by the opaque
+        stable occurrence key. The attendee identity is derived from the
+        authenticated session; attendee-version CAS and idempotency are
+        required in the request body.
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: class_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: series_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: occurrence_key
+          in: path
+          required: true
+          allowReserved: false
+          description: Opaque stable occurrence identity; pass it unmodified.
+          schema:
+            type: string
+            minLength: 8
+            maxLength: 128
+        - name: X-TutorHub-Expected-Tenant-ID
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RespondToClassSessionRequest"
+      responses:
+        "200":
+          description: Current self attendee state after response or replay
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SelfRSVPResponse"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
   /api/v1/classes/{class_id}/session-series/{series_id}/preview:
     post:
       operationId: previewClassSessionSeriesMutation

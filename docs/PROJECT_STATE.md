@@ -502,6 +502,14 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
     lint/typecheck/build đều xanh. Task vẫn `IN PROGRESS` vì còn manager roster editor,
     external guest/capability, typed series/occurrence, organizer/archive lifecycle,
     concurrency/IDOR/E2E và Neon migration `000020/000021` + ACL/staging smoke.
+34. P3-02C đạt recurring participation checkpoint ngày 2026-07-29. Manager roster editor
+    có active-roster search/cursor, required/optional role, cap 128, 403 conceal/retry và
+    409 focus recovery. Typed OpenAPI/client/HTTP hỗ trợ session/series/occurrence; occurrence
+    đọc inherited audience revision `0` và copy-on-write thành revision `1` khi thay đổi hoặc
+    RSVP đầu tiên, không làm đổi series hay occurrence khác. `go test ./... -count=1`,
+    integration-tag compile, 10 web tests, 25 API-client tests, lint/typecheck và Vite build
+    đều xanh. P3-02C vẫn `IN PROGRESS` vì external guest/capability, diff/lifecycle policy,
+    full concurrency/IDOR/E2E và Neon migration `000020/000021` + ACL/staging acceptance còn lại.
 
 ## Rủi ro đã biết
 
@@ -510,8 +518,9 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
   durable worker hoặc Phase 4 media lifecycle.
 - ADR-0019 đã chấp nhận decision dùng FullCalendar v7 và recurrence bounded; manual NVDA
   đã PASS. P3-02A shell/read projection và P3-02B recurrence/class conflict đã `DONE`.
-  P3-02C đang có working-hours/free-busy slice local; attendee, RSVP và staging
-  acceptance chưa hoàn thành nên không được coi là hoàn tất Calendar professional core.
+  P3-02C đã có working-hours/free-busy và internal attendee/RSVP slice local, gồm typed
+  series/occurrence copy-on-write; external capability, lifecycle, full authorization/E2E
+  và staging acceptance chưa hoàn thành nên không được coi là Calendar professional core.
 - AWS SES đã được chọn làm provider target; local SES v2 Raw adapter, deterministic
   renderer/sink và error semantics đã đạt trong spike cô lập, nhưng provider account/
   region/sandbox/quota chưa được live-verify và sending domain chưa có. Pre-domain chỉ

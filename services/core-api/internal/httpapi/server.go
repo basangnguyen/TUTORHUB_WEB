@@ -365,6 +365,22 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 		sessionParticipation.responsesHandler(),
 	)
 	mux.Handle(
+		classSessionSeriesAttendeesPattern,
+		sessionParticipation.attendeesHandler(),
+	)
+	mux.Handle(
+		classSessionSeriesResponsesPattern,
+		sessionParticipation.responsesHandler(),
+	)
+	mux.Handle(
+		classSessionOccurrenceAttendeesPattern,
+		sessionParticipation.attendeesHandler(),
+	)
+	mux.Handle(
+		classSessionOccurrenceResponsesPattern,
+		sessionParticipation.responsesHandler(),
+	)
+	mux.Handle(
 		classArchivePathPattern,
 		auditMutation(
 			staticAuditMutation(

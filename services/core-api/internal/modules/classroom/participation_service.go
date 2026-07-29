@@ -28,6 +28,7 @@ var (
 // scheduled source. It deliberately contains no email, recipient ciphertext,
 // delivery fingerprint, invitation capability, or delivery state.
 type SessionAudience struct {
+	Source            ParticipationSourceRef
 	AudienceRevision  int64
 	ResponseRequested bool
 	SourceStatus      SessionStatus
@@ -96,6 +97,34 @@ type SessionParticipationRepository interface {
 	) (SelfRSVPMutationResult, error)
 }
 
+// ParticipationSourceRepository is the typed recurring-aware authority. The
+// legacy session methods remain available as compatibility wrappers while
+// transports migrate to this contract.
+type ParticipationSourceRepository interface {
+	GetParticipationAudience(
+		context.Context,
+		tenancy.Context,
+		uuid.UUID,
+		ParticipationSourceRef,
+	) (SessionAudience, error)
+	ReplaceParticipationAudience(
+		context.Context,
+		tenancy.Context,
+		uuid.UUID,
+		ParticipationSourceRef,
+		AudienceReplacementParams,
+		time.Time,
+	) (SessionAudienceMutationResult, error)
+	RespondToParticipationSource(
+		context.Context,
+		tenancy.Context,
+		uuid.UUID,
+		ParticipationSourceRef,
+		SelfRSVPParams,
+		time.Time,
+	) (SelfRSVPMutationResult, error)
+}
+
 type SessionParticipationServiceAPI interface {
 	GetSessionAudience(
 		context.Context,
@@ -119,6 +148,30 @@ type SessionParticipationServiceAPI interface {
 	) (SelfRSVPMutationResult, error)
 }
 
+type ParticipationSourceServiceAPI interface {
+	SessionParticipationServiceAPI
+	GetAudience(
+		context.Context,
+		AccessContext,
+		uuid.UUID,
+		ParticipationSourceRef,
+	) (SessionAudience, error)
+	ReplaceAudience(
+		context.Context,
+		AccessContext,
+		uuid.UUID,
+		ParticipationSourceRef,
+		ReplaceAudienceInput,
+	) (SessionAudienceMutationResult, error)
+	Respond(
+		context.Context,
+		AccessContext,
+		uuid.UUID,
+		ParticipationSourceRef,
+		SelfRSVPInput,
+	) (SelfRSVPMutationResult, error)
+}
+
 type SessionParticipationServiceConfig struct {
 	Clock func() time.Time
 }
@@ -128,9 +181,10 @@ type SessionParticipationServiceConfig struct {
 // The PostgreSQL repository repeats mutation authorization under row locks and
 // owns the atomic snapshot/write boundary.
 type SessionParticipationService struct {
-	repository      SessionParticipationRepository
-	classAuthorizer ClassActionAuthorizer
-	clock           func() time.Time
+	repository       SessionParticipationRepository
+	sourceRepository ParticipationSourceRepository
+	classAuthorizer  ClassActionAuthorizer
+	clock            func() time.Time
 }
 
 func NewSessionParticipationService(
@@ -152,7 +206,13 @@ func NewSessionParticipationService(
 		config.Clock = time.Now
 	}
 	return &SessionParticipationService{
-		repository: repository, classAuthorizer: classAuthorizer, clock: config.Clock,
+		repository: repository,
+		sourceRepository: func() ParticipationSourceRepository {
+			value, _ := repository.(ParticipationSourceRepository)
+			return value
+		}(),
+		classAuthorizer: classAuthorizer,
+		clock:           config.Clock,
 	}, nil
 }
 
@@ -162,6 +222,14 @@ func (service *SessionParticipationService) GetSessionAudience(
 	classID uuid.UUID,
 	sessionID uuid.UUID,
 ) (SessionAudience, error) {
+	if service.sourceRepository != nil {
+		return service.GetAudience(
+			ctx,
+			access,
+			classID,
+			SessionParticipationSource(sessionID),
+		)
+	}
 	class, tenantContext, err := service.authorize(ctx, access, classID, policy.ActionClassView)
 	if err != nil {
 		return SessionAudience{}, err
@@ -185,6 +253,15 @@ func (service *SessionParticipationService) ReplaceSessionAudience(
 	sessionID uuid.UUID,
 	input ReplaceAudienceInput,
 ) (SessionAudienceMutationResult, error) {
+	if service.sourceRepository != nil {
+		return service.ReplaceAudience(
+			ctx,
+			access,
+			classID,
+			SessionParticipationSource(sessionID),
+			input,
+		)
+	}
 	class, tenantContext, err := service.authorize(
 		ctx, access, classID, policy.ActionSessionSchedule,
 	)
@@ -215,6 +292,15 @@ func (service *SessionParticipationService) RespondToSession(
 	sessionID uuid.UUID,
 	input SelfRSVPInput,
 ) (SelfRSVPMutationResult, error) {
+	if service.sourceRepository != nil {
+		return service.Respond(
+			ctx,
+			access,
+			classID,
+			SessionParticipationSource(sessionID),
+			input,
+		)
+	}
 	_, tenantContext, err := service.authorize(ctx, access, classID, policy.ActionClassView)
 	if err != nil {
 		return SelfRSVPMutationResult{}, err
@@ -228,6 +314,132 @@ func (service *SessionParticipationService) RespondToSession(
 	}
 	result, err := service.repository.RespondToSession(
 		ctx, tenantContext, classID, sessionID, params, service.clock().UTC(),
+	)
+	if err != nil {
+		return SelfRSVPMutationResult{}, err
+	}
+	result.Attendee.IsSelf = true
+	return result, nil
+}
+
+func (service *SessionParticipationService) GetAudience(
+	ctx context.Context,
+	access AccessContext,
+	classID uuid.UUID,
+	source ParticipationSourceRef,
+) (SessionAudience, error) {
+	class, tenantContext, err := service.authorize(
+		ctx,
+		access,
+		classID,
+		policy.ActionClassView,
+	)
+	if err != nil {
+		return SessionAudience{}, err
+	}
+	source, err = source.Normalized()
+	if err != nil {
+		return SessionAudience{}, ErrSessionParticipationNotFound
+	}
+	if service.sourceRepository == nil {
+		return SessionAudience{}, ErrSessionParticipationUnavailable
+	}
+	audience, err := service.sourceRepository.GetParticipationAudience(
+		ctx,
+		tenantContext,
+		classID,
+		source,
+	)
+	if err != nil {
+		return SessionAudience{}, err
+	}
+	return projectSessionAudience(audience, class, access.ActorID), nil
+}
+
+func (service *SessionParticipationService) ReplaceAudience(
+	ctx context.Context,
+	access AccessContext,
+	classID uuid.UUID,
+	source ParticipationSourceRef,
+	input ReplaceAudienceInput,
+) (SessionAudienceMutationResult, error) {
+	class, tenantContext, err := service.authorize(
+		ctx,
+		access,
+		classID,
+		policy.ActionSessionSchedule,
+	)
+	if err != nil {
+		return SessionAudienceMutationResult{}, err
+	}
+	source, err = source.Normalized()
+	if err != nil {
+		return SessionAudienceMutationResult{}, ErrSessionParticipationNotFound
+	}
+	if service.sourceRepository == nil {
+		return SessionAudienceMutationResult{}, ErrSessionParticipationUnavailable
+	}
+	params, err := input.normalized()
+	if err != nil {
+		return SessionAudienceMutationResult{}, err
+	}
+	params, err = bindAudienceReplacementToSource(source, params)
+	if err != nil {
+		return SessionAudienceMutationResult{}, err
+	}
+	result, err := service.sourceRepository.ReplaceParticipationAudience(
+		ctx,
+		tenantContext,
+		classID,
+		source,
+		params,
+		service.clock().UTC(),
+	)
+	if err != nil {
+		return SessionAudienceMutationResult{}, err
+	}
+	result.Audience = projectSessionAudience(result.Audience, class, access.ActorID)
+	return result, nil
+}
+
+func (service *SessionParticipationService) Respond(
+	ctx context.Context,
+	access AccessContext,
+	classID uuid.UUID,
+	source ParticipationSourceRef,
+	input SelfRSVPInput,
+) (SelfRSVPMutationResult, error) {
+	_, tenantContext, err := service.authorize(
+		ctx,
+		access,
+		classID,
+		policy.ActionClassView,
+	)
+	if err != nil {
+		return SelfRSVPMutationResult{}, err
+	}
+	source, err = source.Normalized()
+	if err != nil {
+		return SelfRSVPMutationResult{}, ErrSessionParticipationNotFound
+	}
+	if service.sourceRepository == nil {
+		return SelfRSVPMutationResult{}, ErrSessionParticipationUnavailable
+	}
+	params, err := input.normalized()
+	if err != nil {
+		return SelfRSVPMutationResult{}, err
+	}
+	params, err = bindSelfRSVPToSource(source, params)
+	if err != nil {
+		return SelfRSVPMutationResult{}, err
+	}
+	result, err := service.sourceRepository.RespondToParticipationSource(
+		ctx,
+		tenantContext,
+		classID,
+		source,
+		params,
+		service.clock().UTC(),
 	)
 	if err != nil {
 		return SelfRSVPMutationResult{}, err
@@ -270,6 +482,7 @@ func projectSessionAudience(
 		}
 	}
 	projected := SessionAudience{
+		Source:            audience.Source,
 		AudienceRevision:  audience.AudienceRevision,
 		ResponseRequested: audience.ResponseRequested,
 		SourceStatus:      audience.SourceStatus,

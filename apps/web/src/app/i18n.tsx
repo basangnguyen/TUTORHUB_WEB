@@ -51,6 +51,38 @@ const messages = {
       "Lời mời đã thay đổi ở nơi khác. Hãy tải lại trước khi phản hồi.",
     "calendar.participation.saveError": "Chưa thể lưu phản hồi. Hãy thử lại.",
     "calendar.participation.reload": "Tải lại lời mời",
+    "calendar.audienceEditor.title": "Quản lý người tham dự",
+    "calendar.audienceEditor.description":
+      "Chọn thành viên đang hoạt động trong lớp. Địa chỉ email và người nhận bên ngoài không được thêm tại đây.",
+    "calendar.audienceEditor.selectedCount": "Đã chọn {count}",
+    "calendar.audienceEditor.searchForm": "Tìm thành viên lớp",
+    "calendar.audienceEditor.searchLabel": "Tìm thành viên",
+    "calendar.audienceEditor.searchPlaceholder": "Tìm theo tên",
+    "calendar.audienceEditor.searchAction": "Tìm",
+    "calendar.audienceEditor.requestResponses": "Yêu cầu phản hồi tham dự",
+    "calendar.audienceEditor.requestResponsesHint":
+      "Người tham dự có thể chọn tham gia, có thể tham gia hoặc không tham gia.",
+    "calendar.audienceEditor.limit":
+      "Một buổi học có tối đa {count} người tham dự.",
+    "calendar.audienceEditor.loading": "Đang tải danh sách lớp...",
+    "calendar.audienceEditor.loadError":
+      "Chưa thể tải danh sách lớp. Hãy thử lại.",
+    "calendar.audienceEditor.accessChanged":
+      "Quyền xem hoặc quản lý danh sách lớp của bạn đã thay đổi.",
+    "calendar.audienceEditor.empty":
+      "Không có thành viên đang hoạt động phù hợp.",
+    "calendar.audienceEditor.rosterLabel": "Thành viên lớp có thể được mời",
+    "calendar.audienceEditor.roleChoices": "Mức độ tham dự của {name}",
+    "calendar.audienceEditor.loadMore": "Tải thêm thành viên",
+    "calendar.audienceEditor.loadingMore": "Đang tải thêm...",
+    "calendar.audienceEditor.save": "Lưu người tham dự",
+    "calendar.audienceEditor.saving": "Đang lưu...",
+    "calendar.audienceEditor.saved": "Đã cập nhật người tham dự.",
+    "calendar.audienceEditor.conflict":
+      "Danh sách người tham dự đã thay đổi ở nơi khác. Hãy tải lại trước khi lưu.",
+    "calendar.audienceEditor.saveError":
+      "Chưa thể lưu danh sách người tham dự. Hãy thử lại.",
+    "calendar.audienceEditor.reload": "Tải lại danh sách",
     "calendar.schedulingAssistant.title": "Trợ lý xếp lịch",
     "calendar.schedulingAssistant.description":
       "Tìm giờ phù hợp từ trạng thái rảnh/bận và giờ làm việc đã được bảo vệ quyền riêng tư.",
@@ -1347,6 +1379,37 @@ const messages = {
     "calendar.participation.saveError":
       "Your response could not be saved. Try again.",
     "calendar.participation.reload": "Reload invitation",
+    "calendar.audienceEditor.title": "Manage attendees",
+    "calendar.audienceEditor.description":
+      "Choose active class members. External recipients and email addresses are not added here.",
+    "calendar.audienceEditor.selectedCount": "{count} selected",
+    "calendar.audienceEditor.searchForm": "Search class members",
+    "calendar.audienceEditor.searchLabel": "Find a member",
+    "calendar.audienceEditor.searchPlaceholder": "Search by name",
+    "calendar.audienceEditor.searchAction": "Search",
+    "calendar.audienceEditor.requestResponses": "Request RSVP responses",
+    "calendar.audienceEditor.requestResponsesHint":
+      "Attendees can accept, respond tentatively, or decline.",
+    "calendar.audienceEditor.limit":
+      "A session can have at most {count} attendees.",
+    "calendar.audienceEditor.loading": "Loading the active class roster...",
+    "calendar.audienceEditor.loadError":
+      "The active class roster could not be loaded. Try again.",
+    "calendar.audienceEditor.accessChanged":
+      "Your access to view or manage the class roster has changed.",
+    "calendar.audienceEditor.empty": "No matching active class members.",
+    "calendar.audienceEditor.rosterLabel": "Class members available to invite",
+    "calendar.audienceEditor.roleChoices": "Attendance role for {name}",
+    "calendar.audienceEditor.loadMore": "Load more members",
+    "calendar.audienceEditor.loadingMore": "Loading more...",
+    "calendar.audienceEditor.save": "Save attendees",
+    "calendar.audienceEditor.saving": "Saving...",
+    "calendar.audienceEditor.saved": "Attendees updated.",
+    "calendar.audienceEditor.conflict":
+      "The attendee list changed elsewhere. Reload it before saving.",
+    "calendar.audienceEditor.saveError":
+      "The attendee list could not be saved. Try again.",
+    "calendar.audienceEditor.reload": "Reload attendee list",
     "calendar.schedulingAssistant.title": "Scheduling Assistant",
     "calendar.schedulingAssistant.description":
       "Find a suitable time from privacy-safe free/busy status and working hours.",

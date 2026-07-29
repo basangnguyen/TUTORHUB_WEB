@@ -539,8 +539,10 @@ bộ đáng tin cậy; P3-05A chỉ phân phối email/ICS, không sở hữu bu
 - [x] Migration/OpenAPI cho `WorkingSchedule` nhiều interval/ngày, exception/holiday/OOO
       và IANA timezone; validate overlap, range và optimistic version. Display preference
       đã thuộc P3-02A, không tạo model preference trùng ở task này.
-- [ ] Attendee/audience có organizer, required/optional/internal/external, roster/manual
-      source, show-as/visibility, guest permission và invitation snapshot theo ADR-0020.
+- [x] Internal attendee/audience có organizer, required/optional, roster/manual source,
+      show-as/visibility, guest permission và invitation snapshot theo ADR-0020; typed
+      series/occurrence dùng inherited revision `0` và copy-on-write revision `1`.
+- [ ] External attendee/capability và guest delivery policy theo ADR-0020.
 - [ ] Audience update tính added/removed/unchanged/role-change; RSVP retain/reset,
       organizer disable/transfer và class archive policy không do worker tự suy.
 - [x] Free/busy endpoint trả canonical status
@@ -550,8 +552,8 @@ bộ đáng tin cậy; P3-05A chỉ phân phối email/ICS, không sở hữu bu
       candidate cap và DST grid policy; response có reason breakdown/empty reason ổn định.
 - [x] Scheduling Assistant hiển thị working hours, unknown, dual timezone, conflict reason
       và keyboard/screen-reader equivalent; không truyền nghĩa chỉ bằng heatmap color.
-- [ ] RSVP `needs_action/accepted/tentative/declined` là domain/API/UI source of truth,
-      có expected version/idempotency, organizer summary và không cập nhật attendance.
+- [x] Internal RSVP `needs_action/accepted/tentative/declined` là domain/API/UI source of
+      truth, có expected version/idempotency, organizer summary và không cập nhật attendance.
 - [ ] External response đi qua purpose-bound capability hash/expiry/revoke/rate limit;
       CTA chỉ gọi command RSVP này. Native email reply không được hứa nếu chưa có parser.
 - [ ] Teacher/organizer/resource conflict authority và privacy matrix được test riêng;
@@ -568,25 +570,23 @@ candidate grid vượt 2.000 trả `429`, không cắt im lặng. Chưa chạy m
 và không đánh dấu `DONE` trước attendee/audience command, RSVP domain/API/UI, Scheduling
 Assistant và các acceptance tests còn lại.
 
-**Implementation checkpoint 2026-07-29:** internal one-time ClassSession đã có
-privacy-filtered audience GET/PUT, authenticated self RSVP với CAS/idempotency, encrypted
-neutral invitation/recipient snapshot, audit/outbox domain event và detail-drawer
-RSVP/organizer summary. Scheduling Assistant manager-only đã dùng required/optional audience,
-hiển thị working interval, canonical availability status, conflict reason và dual timezone
-bằng semantic table có keyboard/screen-reader equivalent; focused/full web acceptance local
-đều xanh. Checkpoint này chưa bao gồm manager roster editor, external guest/capability,
-typed series/occurrence, organizer transfer/archive lifecycle hoặc Neon staging rollout nên
-P3-02C vẫn `IN PROGRESS`.
+**Implementation checkpoint 2026-07-29 (one-time participation):** internal one-time
+ClassSession đã có privacy-filtered audience GET/PUT, authenticated self RSVP với
+CAS/idempotency, encrypted neutral invitation/recipient snapshot, audit/outbox domain event
+và detail-drawer RSVP/organizer summary. Scheduling Assistant manager-only đã dùng
+required/optional audience, working interval, canonical availability status, conflict reason,
+dual timezone và semantic keyboard/screen-reader table; focused local acceptance xanh.
 
-**Implementation checkpoint 2026-07-29:** internal one-time ClassSession đã có
-privacy-filtered audience GET/PUT, authenticated self RSVP với CAS/idempotency, encrypted
-neutral invitation/recipient snapshot, audit/outbox domain event và detail-drawer
-RSVP/organizer summary. Scheduling Assistant manager-only đã dùng required/optional audience,
-hiển thị working interval, canonical availability status, conflict reason và dual timezone
-bằng semantic table có keyboard/screen-reader equivalent; focused/full web acceptance local
-đều xanh. Checkpoint này chưa bao gồm manager roster editor, external guest/capability,
-typed series/occurrence, organizer transfer/archive lifecycle hoặc Neon staging rollout nên
-P3-02C vẫn `IN PROGRESS`.
+**Implementation checkpoint 2026-07-29 (recurring participation):** manager roster editor
+đã dùng active-class-roster search/cursor, required/optional role, cap 128, 403 conceal/retry
+và 409 focus recovery. OpenAPI/client/HTTP đã có audience GET/PUT và self-RSVP cho session,
+series và occurrence; query key tách theo typed source. PostgreSQL đã đọc audience occurrence
+theo inheritance revision `0`, tạo snapshot copy-on-write revision `1` khi occurrence có
+replacement hoặc RSVP đầu tiên, giữ RSVP của series/occurrence khác độc lập và ghi audit +
+outbox domain fact. Local gates xanh: `go test ./... -count=1`, integration-tag compile,
+10 web tests, 25 API-client tests, web lint/typecheck và Vite build. Chưa chạy live migration/
+ACL/Neon staging; external guest/capability, audience diff semantics, organizer transfer/archive,
+full concurrency/IDOR/E2E acceptance vẫn mở nên P3-02C vẫn `IN PROGRESS`.
 
 ### P3-02D Native Availability Poll và Study Meeting
 

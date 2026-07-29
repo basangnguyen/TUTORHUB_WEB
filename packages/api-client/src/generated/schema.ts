@@ -477,6 +477,36 @@ export type paths = {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/api/v1/classes/{class_id}/session-series/{series_id}/attendees": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /**
+     * Return the privacy-filtered internal audience for a series master
+     * @description Returns the authoritative audience attached to the recurring series
+     *     master. Managers receive the audience they are authorized to manage;
+     *     other participants receive only the projection allowed by guest-list
+     *     policy. Delivery addresses, display names, invitation ciphertext and
+     *     fingerprints are never exposed by this boundary.
+     */
+    readonly get: operations["getClassSessionSeriesAudience"];
+    /**
+     * Atomically replace the internal audience for a series master
+     * @description Replaces the complete series-master audience with optimistic
+     *     concurrency and a mutation idempotency key. The server resolves
+     *     business roles from active class membership.
+     */
+    readonly put: operations["replaceClassSessionSeriesAudience"];
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/api/v1/classes/{class_id}/session-series/{series_id}/occurrence": {
     readonly parameters: {
       readonly query?: never;
@@ -511,6 +541,57 @@ export type paths = {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/api/v1/classes/{class_id}/session-series/{series_id}/occurrences/{occurrence_key}/attendees": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /**
+     * Return the privacy-filtered internal audience for one occurrence
+     * @description Resolves the occurrence by its opaque stable identity derived from the
+     *     original civil tuple. The occurrence key remains stable across
+     *     reschedules and is percent-encoded as one path segment by clients.
+     */
+    readonly get: operations["getClassSessionSeriesOccurrenceAudience"];
+    /**
+     * Atomically replace the internal audience for one occurrence
+     * @description Replaces only the audience override for the addressed stable
+     *     occurrence. The request uses audience-revision CAS and an idempotency
+     *     key; it does not mutate the series-master audience.
+     */
+    readonly put: operations["replaceClassSessionSeriesOccurrenceAudience"];
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/classes/{class_id}/session-series/{series_id}/occurrences/{occurrence_key}/responses": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Record the authenticated attendee's RSVP for one occurrence
+     * @description Records an occurrence-specific RSVP override addressed by the opaque
+     *     stable occurrence key. The attendee identity is derived from the
+     *     authenticated session; attendee-version CAS and idempotency are
+     *     required in the request body.
+     */
+    readonly post: operations["respondToClassSessionSeriesOccurrence"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/api/v1/classes/{class_id}/session-series/{series_id}/preview": {
     readonly parameters: {
       readonly query?: never;
@@ -525,6 +606,29 @@ export type paths = {
      * @description Send the proposed replacement fields for an edit preview. For a cancellation preview, omit all replacement fields; the server still validates the scope and version but does not mutate data.
      */
     readonly post: operations["previewClassSessionSeriesMutation"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/classes/{class_id}/session-series/{series_id}/responses": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Record the authenticated attendee's RSVP for a series master
+     * @description Records the attendee's authoritative default response for the series
+     *     master. The attendee identity is derived from the authenticated
+     *     session; the request carries attendee-version CAS and an idempotency
+     *     key.
+     */
+    readonly post: operations["respondToClassSessionSeries"];
     readonly delete?: never;
     readonly options?: never;
     readonly head?: never;
@@ -3365,6 +3469,76 @@ export interface operations {
       readonly default: components["responses"]["ProblemResponse"];
     };
   };
+  readonly getClassSessionSeriesAudience: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly "X-TutorHub-Expected-Tenant-ID": string;
+      };
+      readonly path: {
+        readonly class_id: string;
+        readonly series_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Privacy-filtered current series-master audience */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["SessionAudience"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly replaceClassSessionSeriesAudience: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly "X-CSRF-Token": string;
+        readonly "X-TutorHub-Expected-Tenant-ID": string;
+      };
+      readonly path: {
+        readonly class_id: string;
+        readonly series_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["ReplaceSessionAudienceRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Current series-master audience after replacement or replay */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ReplaceSessionAudienceResponse"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 429: components["responses"]["ProblemResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
   readonly updateClassSessionSeriesOccurrence: {
     readonly parameters: {
       readonly query?: never;
@@ -3436,6 +3610,119 @@ export interface operations {
       readonly default: components["responses"]["ProblemResponse"];
     };
   };
+  readonly getClassSessionSeriesOccurrenceAudience: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly "X-TutorHub-Expected-Tenant-ID": string;
+      };
+      readonly path: {
+        readonly class_id: string;
+        /** @description Opaque stable occurrence identity; pass it unmodified. */
+        readonly occurrence_key: string;
+        readonly series_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Privacy-filtered current occurrence audience */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["SessionAudience"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly replaceClassSessionSeriesOccurrenceAudience: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly "X-CSRF-Token": string;
+        readonly "X-TutorHub-Expected-Tenant-ID": string;
+      };
+      readonly path: {
+        readonly class_id: string;
+        /** @description Opaque stable occurrence identity; pass it unmodified. */
+        readonly occurrence_key: string;
+        readonly series_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["ReplaceSessionAudienceRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Current occurrence audience after replacement or replay */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ReplaceSessionAudienceResponse"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 429: components["responses"]["ProblemResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly respondToClassSessionSeriesOccurrence: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly "X-CSRF-Token": string;
+        readonly "X-TutorHub-Expected-Tenant-ID": string;
+      };
+      readonly path: {
+        readonly class_id: string;
+        /** @description Opaque stable occurrence identity; pass it unmodified. */
+        readonly occurrence_key: string;
+        readonly series_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["RespondToClassSessionRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Current self attendee state after response or replay */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["SelfRSVPResponse"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
   readonly previewClassSessionSeriesMutation: {
     readonly parameters: {
       readonly query?: never;
@@ -3467,6 +3754,43 @@ export interface operations {
       readonly 401: components["responses"]["UnauthorizedResponse"];
       readonly 403: components["responses"]["ForbiddenResponse"];
       readonly 404: components["responses"]["NotFoundResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly respondToClassSessionSeries: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly "X-CSRF-Token": string;
+        readonly "X-TutorHub-Expected-Tenant-ID": string;
+      };
+      readonly path: {
+        readonly class_id: string;
+        readonly series_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["RespondToClassSessionRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Current self attendee state after response or replay */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["SelfRSVPResponse"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
       readonly default: components["responses"]["ProblemResponse"];
     };
   };

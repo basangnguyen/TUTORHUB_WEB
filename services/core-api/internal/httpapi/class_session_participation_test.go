@@ -73,6 +73,9 @@ func TestClassSessionParticipationRoutesExposeScopedAudienceAndMutations(
 	if service.getCalls != 1 || service.classID != classID || service.sessionID != sessionID {
 		t.Fatalf("unexpected get service state: %+v", service)
 	}
+	if service.source != classroom.SessionParticipationSource(sessionID) {
+		t.Fatalf("session participation source=%+v", service.source)
+	}
 	assertClassAccess(t, service.access, tenantID, actorID)
 	var getBody sessionAudienceResponse
 	if err := json.Unmarshal(getResponse.Body.Bytes(), &getBody); err != nil {
@@ -215,6 +218,180 @@ func TestClassSessionParticipationRequiresTenantAssertionCSRFAndCompleteMutation
 	}
 }
 
+func TestClassSessionParticipationRoutesPreserveTypedRecurringSources(t *testing.T) {
+	t.Parallel()
+	tenantID, actorID, classID, seriesID := uuid.New(), uuid.New(), uuid.New(), uuid.New()
+	const decodedOccurrenceKey = "20260729T010000Z+slot"
+	tests := []struct {
+		name           string
+		attendeesPath  string
+		responsesPath  string
+		expectedSource classroom.ParticipationSourceRef
+	}{
+		{
+			name: "series",
+			attendeesPath: "/api/v1/classes/" + classID.String() +
+				"/session-series/" + seriesID.String() + "/attendees",
+			responsesPath: "/api/v1/classes/" + classID.String() +
+				"/session-series/" + seriesID.String() + "/responses",
+			expectedSource: classroom.SeriesParticipationSource(seriesID),
+		},
+		{
+			name: "occurrence with URL-decoded opaque key",
+			attendeesPath: "/api/v1/classes/" + classID.String() +
+				"/session-series/" + seriesID.String() +
+				"/occurrences/20260729T010000Z%2Bslot/attendees",
+			responsesPath: "/api/v1/classes/" + classID.String() +
+				"/session-series/" + seriesID.String() +
+				"/occurrences/20260729T010000Z%2Bslot/responses",
+			expectedSource: classroom.OccurrenceParticipationSource(
+				seriesID,
+				decodedOccurrenceKey,
+			),
+		},
+	}
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			service := &fakeSessionParticipationService{
+				audience: classroom.SessionAudience{
+					AudienceRevision: 2,
+					Attendees:        []classroom.SessionAudienceAttendee{},
+				},
+				replaceResult: classroom.SessionAudienceMutationResult{
+					Audience: classroom.SessionAudience{
+						AudienceRevision: 3,
+						Attendees:        []classroom.SessionAudienceAttendee{},
+					},
+				},
+				respondResult: classroom.SelfRSVPMutationResult{
+					Attendee: classroom.SessionAudienceAttendee{
+						ID:                uuid.New(),
+						UserID:            actorID,
+						ParticipationRole: classroom.ParticipationRoleRequired,
+						RSVPState:         classroom.RSVPStateAccepted,
+						Version:           2,
+						IsSelf:            true,
+					},
+				},
+			}
+			handler := sessionParticipationTestHandler(tenantID, actorID, service)
+
+			getRequest := httptest.NewRequest(http.MethodGet, test.attendeesPath, nil)
+			addSessionCookie(getRequest)
+			getRequest.Header.Set(calendarTenantHeader, tenantID.String())
+			getResponse := httptest.NewRecorder()
+			handler.ServeHTTP(getResponse, getRequest)
+			if getResponse.Code != http.StatusOK {
+				t.Fatalf(
+					"get typed audience status=%d body=%s",
+					getResponse.Code,
+					getResponse.Body.String(),
+				)
+			}
+			if service.getCalls != 1 || service.source != test.expectedSource {
+				t.Fatalf("get source=%+v calls=%d", service.source, service.getCalls)
+			}
+
+			putResponse := performSessionParticipationMutation(
+				handler,
+				http.MethodPut,
+				test.attendeesPath,
+				`{"expected_audience_revision":2,`+
+					`"idempotency_key":"typed-audience-route-0001",`+
+					`"response_requested":true,"attendees":[]}`,
+				tenantID,
+			)
+			if putResponse.Code != http.StatusOK {
+				t.Fatalf(
+					"replace typed audience status=%d body=%s",
+					putResponse.Code,
+					putResponse.Body.String(),
+				)
+			}
+			if service.replaceCalls != 1 || service.source != test.expectedSource {
+				t.Fatalf(
+					"replace source=%+v calls=%d",
+					service.source,
+					service.replaceCalls,
+				)
+			}
+
+			postResponse := performSessionParticipationMutation(
+				handler,
+				http.MethodPost,
+				test.responsesPath,
+				`{"state":"accepted","expected_attendee_version":1,`+
+					`"idempotency_key":"typed-response-route-0001"}`,
+				tenantID,
+			)
+			if postResponse.Code != http.StatusOK {
+				t.Fatalf(
+					"respond typed source status=%d body=%s",
+					postResponse.Code,
+					postResponse.Body.String(),
+				)
+			}
+			if service.respondCalls != 1 || service.source != test.expectedSource {
+				t.Fatalf(
+					"respond source=%+v calls=%d",
+					service.source,
+					service.respondCalls,
+				)
+			}
+			assertClassAccess(t, service.access, tenantID, actorID)
+		})
+	}
+}
+
+func TestClassSessionParticipationRecurringRoutesEnforceMethodsAndUUIDs(t *testing.T) {
+	t.Parallel()
+	tenantID, actorID, classID, seriesID := uuid.New(), uuid.New(), uuid.New(), uuid.New()
+	service := &fakeSessionParticipationService{}
+	handler := sessionParticipationTestHandler(tenantID, actorID, service)
+
+	methodRequest := httptest.NewRequest(
+		http.MethodDelete,
+		"/api/v1/classes/"+classID.String()+
+			"/session-series/"+seriesID.String()+"/attendees",
+		nil,
+	)
+	addSessionCookie(methodRequest)
+	methodRequest.Header.Set(calendarTenantHeader, tenantID.String())
+	methodResponse := httptest.NewRecorder()
+	handler.ServeHTTP(methodResponse, methodRequest)
+	if methodResponse.Code != http.StatusMethodNotAllowed ||
+		methodResponse.Header().Get("Allow") != "GET, HEAD, PUT" {
+		t.Fatalf(
+			"method boundary status=%d allow=%q body=%s",
+			methodResponse.Code,
+			methodResponse.Header().Get("Allow"),
+			methodResponse.Body.String(),
+		)
+	}
+
+	invalidRequest := httptest.NewRequest(
+		http.MethodGet,
+		"/api/v1/classes/"+classID.String()+
+			"/session-series/not-a-uuid/attendees",
+		nil,
+	)
+	addSessionCookie(invalidRequest)
+	invalidRequest.Header.Set(calendarTenantHeader, tenantID.String())
+	invalidResponse := httptest.NewRecorder()
+	handler.ServeHTTP(invalidResponse, invalidRequest)
+	assertCalendarProblem(
+		t,
+		invalidResponse,
+		http.StatusNotFound,
+		"class_session_participation_not_found",
+	)
+	if service.getCalls != 0 || service.replaceCalls != 0 || service.respondCalls != 0 {
+		t.Fatalf("invalid recurring route reached service: %+v", service)
+	}
+}
+
 func TestClassSessionParticipationMapsStableDomainErrors(t *testing.T) {
 	t.Parallel()
 	tenantID, actorID, classID, sessionID := uuid.New(), uuid.New(), uuid.New(), uuid.New()
@@ -281,51 +458,101 @@ type fakeSessionParticipationService struct {
 	access       classroom.AccessContext
 	classID      uuid.UUID
 	sessionID    uuid.UUID
+	source       classroom.ParticipationSourceRef
 	replaceInput classroom.ReplaceAudienceInput
 	respondInput classroom.SelfRSVPInput
 }
 
-func (service *fakeSessionParticipationService) GetSessionAudience(
+func (service *fakeSessionParticipationService) GetAudience(
 	_ context.Context,
+	access classroom.AccessContext,
+	classID uuid.UUID,
+	source classroom.ParticipationSourceRef,
+) (classroom.SessionAudience, error) {
+	service.getCalls++
+	service.access, service.classID, service.source = access, classID, source
+	service.sessionID = source.SessionID
+	return service.audience, service.requestError
+}
+
+func (service *fakeSessionParticipationService) ReplaceAudience(
+	_ context.Context,
+	access classroom.AccessContext,
+	classID uuid.UUID,
+	source classroom.ParticipationSourceRef,
+	input classroom.ReplaceAudienceInput,
+) (classroom.SessionAudienceMutationResult, error) {
+	service.replaceCalls++
+	service.access, service.classID, service.source = access, classID, source
+	service.sessionID = source.SessionID
+	service.replaceInput = input
+	return service.replaceResult, service.requestError
+}
+
+func (service *fakeSessionParticipationService) Respond(
+	_ context.Context,
+	access classroom.AccessContext,
+	classID uuid.UUID,
+	source classroom.ParticipationSourceRef,
+	input classroom.SelfRSVPInput,
+) (classroom.SelfRSVPMutationResult, error) {
+	service.respondCalls++
+	service.access, service.classID, service.source = access, classID, source
+	service.sessionID = source.SessionID
+	service.respondInput = input
+	return service.respondResult, service.requestError
+}
+
+func (service *fakeSessionParticipationService) GetSessionAudience(
+	ctx context.Context,
 	access classroom.AccessContext,
 	classID uuid.UUID,
 	sessionID uuid.UUID,
 ) (classroom.SessionAudience, error) {
-	service.getCalls++
-	service.access, service.classID, service.sessionID = access, classID, sessionID
-	return service.audience, service.requestError
+	return service.GetAudience(
+		ctx,
+		access,
+		classID,
+		classroom.SessionParticipationSource(sessionID),
+	)
 }
 
 func (service *fakeSessionParticipationService) ReplaceSessionAudience(
-	_ context.Context,
+	ctx context.Context,
 	access classroom.AccessContext,
 	classID uuid.UUID,
 	sessionID uuid.UUID,
 	input classroom.ReplaceAudienceInput,
 ) (classroom.SessionAudienceMutationResult, error) {
-	service.replaceCalls++
-	service.access, service.classID, service.sessionID = access, classID, sessionID
-	service.replaceInput = input
-	return service.replaceResult, service.requestError
+	return service.ReplaceAudience(
+		ctx,
+		access,
+		classID,
+		classroom.SessionParticipationSource(sessionID),
+		input,
+	)
 }
 
 func (service *fakeSessionParticipationService) RespondToSession(
-	_ context.Context,
+	ctx context.Context,
 	access classroom.AccessContext,
 	classID uuid.UUID,
 	sessionID uuid.UUID,
 	input classroom.SelfRSVPInput,
 ) (classroom.SelfRSVPMutationResult, error) {
-	service.respondCalls++
-	service.access, service.classID, service.sessionID = access, classID, sessionID
-	service.respondInput = input
-	return service.respondResult, service.requestError
+	return service.Respond(
+		ctx,
+		access,
+		classID,
+		classroom.SessionParticipationSource(sessionID),
+		input,
+	)
 }
 
 func sessionParticipationTestHandler(
 	tenantID uuid.UUID,
 	actorID uuid.UUID,
-	service classroom.SessionParticipationServiceAPI,
+	service classroom.ParticipationSourceServiceAPI,
 ) http.Handler {
 	return NewHandlerWithOptions(
 		config.Config{

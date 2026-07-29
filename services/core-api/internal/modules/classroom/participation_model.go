@@ -22,6 +22,135 @@ const (
 
 var ErrInvalidParticipationInput = errors.New("invalid class session participation input")
 
+// ParticipationSourceKind identifies the authoritative classroom source whose
+// audience is being read or mutated. A recurring occurrence is never addressed
+// by a materialized session id: its stable identity is the owning series plus
+// occurrence key.
+type ParticipationSourceKind string
+
+const (
+	ParticipationSourceSession    ParticipationSourceKind = "session"
+	ParticipationSourceSeries     ParticipationSourceKind = "series"
+	ParticipationSourceOccurrence ParticipationSourceKind = "occurrence"
+)
+
+// ParticipationSourceRef is a tagged union:
+//   - session: SessionID only;
+//   - series: SeriesID only;
+//   - occurrence: SeriesID and OccurrenceKey.
+//
+// Keeping the union in the source domain prevents transports from inventing
+// ambiguous combinations or treating a recurrence occurrence as a one-time
+// session.
+type ParticipationSourceRef struct {
+	Kind          ParticipationSourceKind
+	SessionID     uuid.UUID
+	SeriesID      uuid.UUID
+	OccurrenceKey string
+}
+
+func SessionParticipationSource(sessionID uuid.UUID) ParticipationSourceRef {
+	return ParticipationSourceRef{
+		Kind:      ParticipationSourceSession,
+		SessionID: sessionID,
+	}
+}
+
+func SeriesParticipationSource(seriesID uuid.UUID) ParticipationSourceRef {
+	return ParticipationSourceRef{
+		Kind:     ParticipationSourceSeries,
+		SeriesID: seriesID,
+	}
+}
+
+func OccurrenceParticipationSource(
+	seriesID uuid.UUID,
+	occurrenceKey string,
+) ParticipationSourceRef {
+	return ParticipationSourceRef{
+		Kind:          ParticipationSourceOccurrence,
+		SeriesID:      seriesID,
+		OccurrenceKey: occurrenceKey,
+	}
+}
+
+// Validate rejects every non-canonical union shape. Call Normalized before
+// validation when values originated at a text boundary.
+func (source ParticipationSourceRef) Validate() error {
+	switch source.Kind {
+	case ParticipationSourceSession:
+		if source.SessionID == uuid.Nil ||
+			source.SeriesID != uuid.Nil ||
+			source.OccurrenceKey != "" {
+			return fmt.Errorf(
+				"%w: session source requires only session id",
+				ErrInvalidParticipationInput,
+			)
+		}
+	case ParticipationSourceSeries:
+		if source.SessionID != uuid.Nil ||
+			source.SeriesID == uuid.Nil ||
+			source.OccurrenceKey != "" {
+			return fmt.Errorf(
+				"%w: series source requires only series id",
+				ErrInvalidParticipationInput,
+			)
+		}
+	case ParticipationSourceOccurrence:
+		if source.SessionID != uuid.Nil ||
+			source.SeriesID == uuid.Nil ||
+			source.OccurrenceKey != strings.TrimSpace(source.OccurrenceKey) ||
+			utf8.RuneCountInString(source.OccurrenceKey) < 8 ||
+			utf8.RuneCountInString(source.OccurrenceKey) > 128 ||
+			!utf8.ValidString(source.OccurrenceKey) {
+			return fmt.Errorf(
+				"%w: occurrence source requires series id and an occurrence key between 8 and 128 characters",
+				ErrInvalidParticipationInput,
+			)
+		}
+	default:
+		return fmt.Errorf(
+			"%w: unsupported participation source kind %q",
+			ErrInvalidParticipationInput,
+			source.Kind,
+		)
+	}
+	return nil
+}
+
+func (source ParticipationSourceRef) Normalized() (ParticipationSourceRef, error) {
+	if err := source.Validate(); err != nil {
+		return ParticipationSourceRef{}, err
+	}
+	return source, nil
+}
+
+// Fingerprint returns a stable, non-secret identity digest suitable for
+// binding mutation fingerprints and idempotency receipts to exactly one
+// source.
+func (source ParticipationSourceRef) Fingerprint() (string, error) {
+	normalized, err := source.Normalized()
+	if err != nil {
+		return "", err
+	}
+	encoded, err := json.Marshal(struct {
+		Kind          ParticipationSourceKind `json:"kind"`
+		SessionID     uuid.UUID               `json:"session_id,omitempty"`
+		SeriesID      uuid.UUID               `json:"series_id,omitempty"`
+		OccurrenceKey string                  `json:"occurrence_key,omitempty"`
+	}{
+		Kind:          normalized.Kind,
+		SessionID:     normalized.SessionID,
+		SeriesID:      normalized.SeriesID,
+		OccurrenceKey: normalized.OccurrenceKey,
+	})
+	if err != nil {
+		return "", fmt.Errorf("fingerprint participation source: %w", err)
+	}
+	digest := sha256.Sum256(encoded)
+	return hex.EncodeToString(digest[:]), nil
+}
+
 // ParticipationRole describes a recipient's scheduling importance. It is
 // intentionally independent from the class business role, which is resolved
 // authoritatively from the class roster by the repository layer.
@@ -276,4 +405,59 @@ func fingerprintParticipationInput(operation string, payload any) (string, error
 	}
 	digest := sha256.Sum256(encoded)
 	return hex.EncodeToString(digest[:]), nil
+}
+
+func bindAudienceReplacementToSource(
+	source ParticipationSourceRef,
+	params AudienceReplacementParams,
+) (AudienceReplacementParams, error) {
+	sourceFingerprint, err := source.Fingerprint()
+	if err != nil {
+		return AudienceReplacementParams{}, err
+	}
+	payload := struct {
+		SourceFingerprint        string                     `json:"source_fingerprint"`
+		ExpectedAudienceRevision int64                      `json:"expected_audience_revision"`
+		ResponseRequested        bool                       `json:"response_requested"`
+		Attendees                []InternalAudienceAttendee `json:"attendees"`
+	}{
+		SourceFingerprint:        sourceFingerprint,
+		ExpectedAudienceRevision: params.ExpectedAudienceRevision,
+		ResponseRequested:        params.ResponseRequested,
+		Attendees:                params.Attendees,
+	}
+	params.Fingerprint, err = fingerprintParticipationInput(
+		"audience_replace",
+		payload,
+	)
+	if err != nil {
+		return AudienceReplacementParams{}, err
+	}
+	return params, nil
+}
+
+func bindSelfRSVPToSource(
+	source ParticipationSourceRef,
+	params SelfRSVPParams,
+) (SelfRSVPParams, error) {
+	sourceFingerprint, err := source.Fingerprint()
+	if err != nil {
+		return SelfRSVPParams{}, err
+	}
+	payload := struct {
+		SourceFingerprint       string    `json:"source_fingerprint"`
+		State                   RSVPState `json:"state"`
+		Note                    string    `json:"note"`
+		ExpectedAttendeeVersion int64     `json:"expected_attendee_version"`
+	}{
+		SourceFingerprint:       sourceFingerprint,
+		State:                   params.State,
+		Note:                    params.Note,
+		ExpectedAttendeeVersion: params.ExpectedAttendeeVersion,
+	}
+	params.Fingerprint, err = fingerprintParticipationInput("rsvp_respond", payload)
+	if err != nil {
+		return SelfRSVPParams{}, err
+	}
+	return params, nil
 }

@@ -16,6 +16,7 @@ import { SessionParticipationPanel } from "./SessionParticipationPanel";
 const tenantID = "4b18543a-74de-419f-9fe8-d0c3dfc991eb";
 const classID = "a912f628-f3d2-4c18-84c6-42a9e858dc8d";
 const sessionID = "3042cad1-d582-4c59-b821-eb599b27ebf7";
+const seriesID = "4d7cd279-452e-48f8-913b-7897f71785a7";
 const userID = "1d7d65eb-904e-4a0d-bd24-a8ec1b453d64";
 
 const item: CalendarItemViewModel = {
@@ -72,7 +73,10 @@ function jsonResponse(body: unknown, status = 200) {
   });
 }
 
-function renderPanel(fetchMock: ReturnType<typeof vi.fn>) {
+function renderPanel(
+  fetchMock: ReturnType<typeof vi.fn>,
+  renderedItem: CalendarItemViewModel = item,
+) {
   vi.stubGlobal("fetch", fetchMock);
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -85,7 +89,7 @@ function renderPanel(fetchMock: ReturnType<typeof vi.fn>) {
       <I18nProvider initialLanguage="en">
         <SessionParticipationPanel
           hourCycle="h23"
-          item={item}
+          item={renderedItem}
           locale="en-US"
           secondaryTimezone={null}
           tenantID={tenantID}
@@ -104,6 +108,8 @@ describe("SessionParticipationPanel", () => {
   });
 
   it("keeps an ordinary attendee private and submits a versioned RSVP", async () => {
+    let audienceReads = 0;
+    let currentAttendee: SessionAudience["attendees"][number] = selfAttendee;
     let responseBody: unknown;
     const fetchMock = vi.fn().mockImplementation(async (request: Request) => {
       const url = new URL(request.url);
@@ -113,7 +119,8 @@ describe("SessionParticipationPanel", () => {
           `/api/v1/classes/${classID}/sessions/${sessionID}/attendees`,
         )
       ) {
-        return jsonResponse(selfAudience);
+        audienceReads += 1;
+        return jsonResponse({ ...selfAudience, attendees: [currentAttendee] });
       }
       if (url.pathname.endsWith("/api/v1/auth/csrf")) {
         return jsonResponse({ csrf_token: "participation-csrf" });
@@ -129,13 +136,14 @@ describe("SessionParticipationPanel", () => {
         expect(request.headers.get("X-TutorHub-Expected-Tenant-ID")).toBe(
           tenantID,
         );
+        currentAttendee = {
+          ...selfAttendee,
+          responded_at: "2026-07-29T04:00:00Z",
+          rsvp_state: "tentative",
+          version: 3,
+        };
         return jsonResponse({
-          attendee: {
-            ...selfAttendee,
-            responded_at: "2026-07-29T04:00:00Z",
-            rsvp_state: "tentative",
-            version: 3,
-          },
+          attendee: currentAttendee,
           replayed: false,
         });
       }
@@ -160,6 +168,7 @@ describe("SessionParticipationPanel", () => {
     expect(responseBody).toMatchObject({
       idempotency_key: expect.stringMatching(/^rsvp:/u),
     });
+    await waitFor(() => expect(audienceReads).toBe(2));
     expect(screen.getByRole("button", { name: "Tentative" })).toHaveAttribute(
       "aria-pressed",
       "true",
@@ -242,5 +251,72 @@ describe("SessionParticipationPanel", () => {
     await waitFor(() => expect(reload).toHaveFocus());
     fireEvent.click(reload);
     await waitFor(() => expect(audienceReads).toBe(2));
+  });
+
+  it("loads and responds to a recurring occurrence through its typed endpoint", async () => {
+    const recurringItem: CalendarItemViewModel = {
+      ...item,
+      id: `class-session:${seriesID}:${item.occurrenceKey}`,
+      seriesID,
+      sourceID: seriesID,
+    };
+    const materializedAttendee = {
+      ...selfAttendee,
+      id: "882f6e31-9664-4c57-826f-8e727da8084e",
+      responded_at: "2026-07-29T04:00:00Z",
+      rsvp_state: "accepted" as const,
+      version: 3,
+    };
+    let audienceReads = 0;
+    let responseBody: unknown;
+    const fetchMock = vi.fn().mockImplementation(async (request: Request) => {
+      const url = new URL(request.url);
+      const path = decodeURIComponent(url.pathname);
+      const occurrenceBase = `/api/v1/classes/${classID}/session-series/${seriesID}/occurrences/${item.occurrenceKey}`;
+      if (
+        request.method === "GET" &&
+        path.endsWith(`${occurrenceBase}/attendees`)
+      ) {
+        audienceReads += 1;
+        return jsonResponse(
+          audienceReads === 1
+            ? { ...selfAudience, audience_revision: 0 }
+            : {
+                ...selfAudience,
+                attendees: [materializedAttendee],
+                audience_revision: 1,
+              },
+        );
+      }
+      if (path.endsWith("/api/v1/auth/csrf")) {
+        return jsonResponse({ csrf_token: "participation-csrf" });
+      }
+      if (
+        request.method === "POST" &&
+        path.endsWith(`${occurrenceBase}/responses`)
+      ) {
+        responseBody = await request.clone().json();
+        return jsonResponse({
+          attendee: materializedAttendee,
+          replayed: false,
+        });
+      }
+      throw new Error(`unexpected request ${request.method} ${path}`);
+    });
+
+    renderPanel(fetchMock, recurringItem);
+    await screen.findByText("Your response");
+    fireEvent.click(screen.getByRole("button", { name: "Accept" }));
+
+    expect(await screen.findByText("Response saved.")).toBeVisible();
+    expect(responseBody).toMatchObject({
+      expected_attendee_version: 2,
+      state: "accepted",
+    });
+    await waitFor(() => expect(audienceReads).toBe(2));
+    expect(screen.getByRole("button", { name: "Accept" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
   });
 });

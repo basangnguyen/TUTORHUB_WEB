@@ -92,6 +92,7 @@ type canonicalSessionInvitationSnapshot struct {
 	SchemaVersion     string                             `json:"schema_version"`
 	SourceType        string                             `json:"source_type"`
 	SourceID          uuid.UUID                          `json:"source_id"`
+	OccurrenceKey     string                             `json:"occurrence_key,omitempty"`
 	ClassID           uuid.UUID                          `json:"class_id"`
 	SourceVersion     int64                              `json:"source_version"`
 	AudienceRevision  int64                              `json:"audience_revision"`
@@ -1385,7 +1386,11 @@ func optionalTextEqual(current *string, desired string) bool {
 
 func validAudienceBusinessRole(value string) bool {
 	switch value {
-	case "organizer", "teacher", "co_teacher", "teaching_assistant", "student":
+	case "organizer",
+		string(policy.OrganizationRoleTeacher),
+		string(policy.ClassRoleCoTeacher),
+		string(policy.ClassRoleTeachingAssistant),
+		string(policy.OrganizationRoleStudent):
 		return true
 	default:
 		return false

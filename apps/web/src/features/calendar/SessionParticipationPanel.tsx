@@ -4,13 +4,16 @@ import { RefreshCw } from "lucide-react";
 import { useEffect, useMemo, useRef } from "react";
 import {
   participationIdempotencyKey,
-  useClassSessionAudience,
-  useRespondToClassSession,
+  participationSourceFingerprint,
+  useParticipationAudience,
+  useRespondToParticipation,
+  type ClassSessionParticipationSource,
 } from "../../app/classSessionParticipation";
 import { useI18n, type TranslationKey } from "../../app/i18n";
 import { shouldConcealTenantScopedData } from "../../app/tenantDataAccess";
 import type { CalendarItemViewModel } from "./model";
 import { SchedulingAssistantPanel } from "./SchedulingAssistantPanel";
+import { SessionAudienceEditor } from "./SessionAudienceEditor";
 
 interface SessionParticipationPanelProps {
   hourCycle: "h12" | "h23";
@@ -58,19 +61,38 @@ export function SessionParticipationPanel({
   userID,
 }: SessionParticipationPanelProps) {
   const { t } = useI18n();
-  const enabled = item.sourceType === "class_session";
-  const audience = useClassSessionAudience(
+  const participationSource = useMemo<
+    ClassSessionParticipationSource | undefined
+  >(() => {
+    if (item.sourceType !== "class_session") {
+      return undefined;
+    }
+    if (item.seriesID && item.occurrenceKey) {
+      return {
+        kind: "occurrence",
+        occurrenceKey: item.occurrenceKey,
+        seriesID: item.seriesID,
+      };
+    }
+    if (item.seriesID) {
+      return { kind: "series", seriesID: item.seriesID };
+    }
+    return { kind: "session", sessionID: item.sourceID };
+  }, [item.occurrenceKey, item.seriesID, item.sourceID, item.sourceType]);
+  const sourceFingerprint = participationSourceFingerprint(participationSource);
+  const enabled = participationSource !== undefined;
+  const audience = useParticipationAudience(
     tenantID,
     userID,
     item.classID ?? undefined,
-    item.sourceID,
+    participationSource,
     enabled,
   );
-  const response = useRespondToClassSession(
+  const response = useRespondToParticipation(
     tenantID,
     userID,
     item.classID ?? undefined,
-    item.sourceID,
+    participationSource,
   );
   const resetResponse = response.reset;
   const conflictButton = useRef<HTMLButtonElement>(null);
@@ -88,7 +110,7 @@ export function SessionParticipationPanel({
 
   useEffect(() => {
     resetResponse();
-  }, [item.classID, item.sourceID, resetResponse, tenantID, userID]);
+  }, [item.classID, resetResponse, sourceFingerprint, tenantID, userID]);
 
   useEffect(() => {
     if (conflict) {
@@ -184,6 +206,22 @@ export function SessionParticipationPanel({
         )}
       </div>
 
+      {audience.data &&
+        item.classID &&
+        participationSource &&
+        item.status === "scheduled" &&
+        viewerAccess?.can_manage_attendees && (
+          <SessionAudienceEditor
+            audience={audience.data}
+            classID={item.classID}
+            key={`${tenantID}:${userID}:${sourceFingerprint}:${audience.data.audience_revision}`}
+            onReloadAudience={() => audience.refetch()}
+            source={participationSource}
+            tenantID={tenantID}
+            userID={userID}
+          />
+        )}
+
       {viewerAccess?.can_see_guest_list && attendees.length === 0 && (
         <p className="calendar-participation__empty">
           {t("calendar.participation.empty")}
@@ -227,7 +265,7 @@ export function SessionParticipationPanel({
             classID={item.classID}
             endsAt={item.endsAt}
             hourCycle={hourCycle}
-            key={`${tenantID}:${userID}:${item.sourceID}:${audience.data.audience_revision}`}
+            key={`${tenantID}:${userID}:${sourceFingerprint}:${audience.data.audience_revision}`}
             locale={locale}
             onUseSuggestion={onUseSuggestedTime}
             primaryTimezone={item.displayTimezone}

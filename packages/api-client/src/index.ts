@@ -1417,6 +1417,201 @@ export async function respondToClassSession(
   );
 }
 
+export async function getClassSessionSeriesAudience(
+  tenantID: string,
+  classID: string,
+  seriesID: string,
+  options: APIRequestOptions = {},
+): Promise<SessionAudience> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).GET(
+    "/api/v1/classes/{class_id}/session-series/{series_id}/attendees",
+    {
+      params: {
+        path: { class_id: classID, series_id: seriesID },
+        header: { "X-TutorHub-Expected-Tenant-ID": tenantID },
+      },
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<SessionAudience>(
+    data as SessionAudience | undefined,
+    error,
+    response,
+  );
+}
+
+export async function replaceClassSessionSeriesAudience(
+  tenantID: string,
+  classID: string,
+  seriesID: string,
+  input: ReplaceSessionAudienceRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<ReplaceSessionAudienceResponse> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).PUT(
+    "/api/v1/classes/{class_id}/session-series/{series_id}/attendees",
+    {
+      params: {
+        path: { class_id: classID, series_id: seriesID },
+        header: {
+          "X-CSRF-Token": csrfToken,
+          "X-TutorHub-Expected-Tenant-ID": tenantID,
+        },
+      },
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<ReplaceSessionAudienceResponse>(
+    data as ReplaceSessionAudienceResponse | undefined,
+    error,
+    response,
+  );
+}
+
+export async function respondToClassSessionSeries(
+  tenantID: string,
+  classID: string,
+  seriesID: string,
+  input: RespondToClassSessionRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<SelfRSVPResponse> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/classes/{class_id}/session-series/{series_id}/responses",
+    {
+      params: {
+        path: { class_id: classID, series_id: seriesID },
+        header: {
+          "X-CSRF-Token": csrfToken,
+          "X-TutorHub-Expected-Tenant-ID": tenantID,
+        },
+      },
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<SelfRSVPResponse>(
+    data as SelfRSVPResponse | undefined,
+    error,
+    response,
+  );
+}
+
+export async function getClassSessionSeriesOccurrenceAudience(
+  tenantID: string,
+  classID: string,
+  seriesID: string,
+  occurrenceKey: string,
+  options: APIRequestOptions = {},
+): Promise<SessionAudience> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).GET(
+    "/api/v1/classes/{class_id}/session-series/{series_id}/occurrences/{occurrence_key}/attendees",
+    {
+      params: {
+        path: {
+          class_id: classID,
+          series_id: seriesID,
+          occurrence_key: occurrenceKey,
+        },
+        header: { "X-TutorHub-Expected-Tenant-ID": tenantID },
+      },
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<SessionAudience>(
+    data as SessionAudience | undefined,
+    error,
+    response,
+  );
+}
+
+export async function replaceClassSessionSeriesOccurrenceAudience(
+  tenantID: string,
+  classID: string,
+  seriesID: string,
+  occurrenceKey: string,
+  input: ReplaceSessionAudienceRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<ReplaceSessionAudienceResponse> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).PUT(
+    "/api/v1/classes/{class_id}/session-series/{series_id}/occurrences/{occurrence_key}/attendees",
+    {
+      params: {
+        path: {
+          class_id: classID,
+          series_id: seriesID,
+          occurrence_key: occurrenceKey,
+        },
+        header: {
+          "X-CSRF-Token": csrfToken,
+          "X-TutorHub-Expected-Tenant-ID": tenantID,
+        },
+      },
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<ReplaceSessionAudienceResponse>(
+    data as ReplaceSessionAudienceResponse | undefined,
+    error,
+    response,
+  );
+}
+
+export async function respondToClassSessionSeriesOccurrence(
+  tenantID: string,
+  classID: string,
+  seriesID: string,
+  occurrenceKey: string,
+  input: RespondToClassSessionRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<SelfRSVPResponse> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/classes/{class_id}/session-series/{series_id}/occurrences/{occurrence_key}/responses",
+    {
+      params: {
+        path: {
+          class_id: classID,
+          series_id: seriesID,
+          occurrence_key: occurrenceKey,
+        },
+        header: {
+          "X-CSRF-Token": csrfToken,
+          "X-TutorHub-Expected-Tenant-ID": tenantID,
+        },
+      },
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<SelfRSVPResponse>(
+    data as SelfRSVPResponse | undefined,
+    error,
+    response,
+  );
+}
+
 export async function createClassSession(
   classID: string,
   input: CreateClassSessionRequest,

@@ -15,17 +15,22 @@ import (
 )
 
 const (
-	classSessionAttendeesPattern        = "/api/v1/classes/{class_id}/sessions/{session_id}/attendees"
-	classSessionResponsesPattern        = "/api/v1/classes/{class_id}/sessions/{session_id}/responses"
-	maximumSessionParticipationBodySize = 64 * 1024
+	classSessionAttendeesPattern           = "/api/v1/classes/{class_id}/sessions/{session_id}/attendees"
+	classSessionResponsesPattern           = "/api/v1/classes/{class_id}/sessions/{session_id}/responses"
+	classSessionSeriesAttendeesPattern     = "/api/v1/classes/{class_id}/session-series/{series_id}/attendees"
+	classSessionSeriesResponsesPattern     = "/api/v1/classes/{class_id}/session-series/{series_id}/responses"
+	classSessionOccurrenceAttendeesPattern = "/api/v1/classes/{class_id}/session-series/{series_id}/occurrences/{occurrence_key}/attendees"
+	classSessionOccurrenceResponsesPattern = "/api/v1/classes/{class_id}/session-series/{series_id}/occurrences/{occurrence_key}/responses"
+	maximumSessionParticipationBodySize    = 64 * 1024
 )
 
 var errSessionParticipationScopeChanged = errors.New("active workspace changed")
 
 type classSessionParticipationHandlers struct {
-	logger  *slog.Logger
-	auth    authHandlers
-	service classroom.SessionParticipationServiceAPI
+	logger        *slog.Logger
+	auth          authHandlers
+	service       classroom.SessionParticipationServiceAPI
+	sourceService classroom.ParticipationSourceServiceAPI
 }
 
 type replaceSessionAudienceAttendeeRequest struct {
@@ -99,10 +104,12 @@ func newClassSessionParticipationHandlers(
 	auth authHandlers,
 	service classroom.SessionParticipationServiceAPI,
 ) classSessionParticipationHandlers {
+	sourceService, _ := service.(classroom.ParticipationSourceServiceAPI)
 	return classSessionParticipationHandlers{
-		logger:  logger,
-		auth:    auth,
-		service: service,
+		logger:        logger,
+		auth:          auth,
+		service:       service,
+		sourceService: sourceService,
 	}
 }
 
@@ -123,15 +130,15 @@ func (handlers classSessionParticipationHandlers) attendees(
 	if !handlers.available(w, r) {
 		return
 	}
-	classID, sessionID, ok := handlers.pathIDs(w, r)
+	classID, source, ok := handlers.pathSource(w, r)
 	if !ok {
 		return
 	}
 	switch r.Method {
 	case http.MethodGet, http.MethodHead:
-		handlers.getAudience(w, r, classID, sessionID)
+		handlers.getAudience(w, r, classID, source)
 	case http.MethodPut:
-		handlers.replaceAudience(w, r, classID, sessionID)
+		handlers.replaceAudience(w, r, classID, source)
 	default:
 		w.Header().Set("Allow", "GET, HEAD, PUT")
 		writeProblem(
@@ -162,7 +169,7 @@ func (handlers classSessionParticipationHandlers) responses(
 		)
 		return
 	}
-	classID, sessionID, ok := handlers.pathIDs(w, r)
+	classID, source, ok := handlers.pathSource(w, r)
 	if !ok {
 		return
 	}
@@ -184,18 +191,35 @@ func (handlers classSessionParticipationHandlers) responses(
 	if request.Note != nil {
 		note = *request.Note
 	}
-	result, err := handlers.service.RespondToSession(
-		r.Context(),
-		classAccess(principal),
-		classID,
-		sessionID,
-		classroom.SelfRSVPInput{
-			State:                   *request.State,
-			Note:                    note,
-			ExpectedAttendeeVersion: *request.ExpectedAttendeeVersion,
-			IdempotencyKey:          *request.IdempotencyKey,
-		},
+	input := classroom.SelfRSVPInput{
+		State:                   *request.State,
+		Note:                    note,
+		ExpectedAttendeeVersion: *request.ExpectedAttendeeVersion,
+		IdempotencyKey:          *request.IdempotencyKey,
+	}
+	var (
+		result classroom.SelfRSVPMutationResult
+		err    error
 	)
+	if source.Kind == classroom.ParticipationSourceSession {
+		result, err = handlers.service.RespondToSession(
+			r.Context(),
+			classAccess(principal),
+			classID,
+			source.SessionID,
+			input,
+		)
+	} else if handlers.sourceService != nil {
+		result, err = handlers.sourceService.Respond(
+			r.Context(),
+			classAccess(principal),
+			classID,
+			source,
+			input,
+		)
+	} else {
+		err = classroom.ErrSessionParticipationUnavailable
+	}
 	if err != nil {
 		handlers.writeProblem(w, r, err)
 		return
@@ -210,18 +234,33 @@ func (handlers classSessionParticipationHandlers) getAudience(
 	w http.ResponseWriter,
 	r *http.Request,
 	classID uuid.UUID,
-	sessionID uuid.UUID,
+	source classroom.ParticipationSourceRef,
 ) {
 	principal, ok := handlers.auth.authenticatedPrincipal(w, r)
 	if !ok || !handlers.expectedTenant(w, r, principal) {
 		return
 	}
-	audience, err := handlers.service.GetSessionAudience(
-		r.Context(),
-		classAccess(principal),
-		classID,
-		sessionID,
+	var (
+		audience classroom.SessionAudience
+		err      error
 	)
+	if source.Kind == classroom.ParticipationSourceSession {
+		audience, err = handlers.service.GetSessionAudience(
+			r.Context(),
+			classAccess(principal),
+			classID,
+			source.SessionID,
+		)
+	} else if handlers.sourceService != nil {
+		audience, err = handlers.sourceService.GetAudience(
+			r.Context(),
+			classAccess(principal),
+			classID,
+			source,
+		)
+	} else {
+		err = classroom.ErrSessionParticipationUnavailable
+	}
 	if err != nil {
 		handlers.writeProblem(w, r, err)
 		return
@@ -233,7 +272,7 @@ func (handlers classSessionParticipationHandlers) replaceAudience(
 	w http.ResponseWriter,
 	r *http.Request,
 	classID uuid.UUID,
-	sessionID uuid.UUID,
+	source classroom.ParticipationSourceRef,
 ) {
 	principal, ok := handlers.csrfPrincipal(w, r)
 	if !ok || !handlers.expectedTenant(w, r, principal) {
@@ -260,18 +299,35 @@ func (handlers classSessionParticipationHandlers) replaceAudience(
 			ParticipationRole: attendee.ParticipationRole,
 		})
 	}
-	result, err := handlers.service.ReplaceSessionAudience(
-		r.Context(),
-		classAccess(principal),
-		classID,
-		sessionID,
-		classroom.ReplaceAudienceInput{
-			ExpectedAudienceRevision: *request.ExpectedAudienceRevision,
-			IdempotencyKey:           *request.IdempotencyKey,
-			ResponseRequested:        *request.ResponseRequested,
-			Attendees:                attendees,
-		},
+	input := classroom.ReplaceAudienceInput{
+		ExpectedAudienceRevision: *request.ExpectedAudienceRevision,
+		IdempotencyKey:           *request.IdempotencyKey,
+		ResponseRequested:        *request.ResponseRequested,
+		Attendees:                attendees,
+	}
+	var (
+		result classroom.SessionAudienceMutationResult
+		err    error
 	)
+	if source.Kind == classroom.ParticipationSourceSession {
+		result, err = handlers.service.ReplaceSessionAudience(
+			r.Context(),
+			classAccess(principal),
+			classID,
+			source.SessionID,
+			input,
+		)
+	} else if handlers.sourceService != nil {
+		result, err = handlers.sourceService.ReplaceAudience(
+			r.Context(),
+			classAccess(principal),
+			classID,
+			source,
+			input,
+		)
+	} else {
+		err = classroom.ErrSessionParticipationUnavailable
+	}
 	if err != nil {
 		handlers.writeProblem(w, r, err)
 		return
@@ -282,17 +338,38 @@ func (handlers classSessionParticipationHandlers) replaceAudience(
 	})
 }
 
-func (handlers classSessionParticipationHandlers) pathIDs(
+func (handlers classSessionParticipationHandlers) pathSource(
 	w http.ResponseWriter,
 	r *http.Request,
-) (uuid.UUID, uuid.UUID, bool) {
+) (uuid.UUID, classroom.ParticipationSourceRef, bool) {
 	classID, classOK := parseResourceUUID(r.PathValue("class_id"))
-	sessionID, sessionOK := parseResourceUUID(r.PathValue("session_id"))
-	if classOK && sessionOK {
-		return classID, sessionID, true
+	if !classOK {
+		handlers.writeProblem(w, r, classroom.ErrSessionParticipationNotFound)
+		return uuid.Nil, classroom.ParticipationSourceRef{}, false
 	}
-	handlers.writeProblem(w, r, classroom.ErrSessionParticipationNotFound)
-	return uuid.Nil, uuid.Nil, false
+
+	if rawSessionID := r.PathValue("session_id"); rawSessionID != "" {
+		sessionID, ok := parseResourceUUID(rawSessionID)
+		if ok {
+			return classID, classroom.SessionParticipationSource(sessionID), true
+		}
+		handlers.writeProblem(w, r, classroom.ErrSessionParticipationNotFound)
+		return uuid.Nil, classroom.ParticipationSourceRef{}, false
+	}
+
+	seriesID, seriesOK := parseResourceUUID(r.PathValue("series_id"))
+	if !seriesOK {
+		handlers.writeProblem(w, r, classroom.ErrSessionParticipationNotFound)
+		return uuid.Nil, classroom.ParticipationSourceRef{}, false
+	}
+	if occurrenceKey := r.PathValue("occurrence_key"); occurrenceKey != "" {
+		// PathValue is already URL-decoded by net/http. Keep this value opaque;
+		// source normalization and validation belong to the classroom domain.
+		return classID,
+			classroom.OccurrenceParticipationSource(seriesID, occurrenceKey),
+			true
+	}
+	return classID, classroom.SeriesParticipationSource(seriesID), true
 }
 
 func (handlers classSessionParticipationHandlers) available(
