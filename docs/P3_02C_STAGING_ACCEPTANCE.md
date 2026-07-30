@@ -5,17 +5,17 @@
 | Hạng mục | Giá trị |
 | --- | --- |
 | Phạm vi | Working hours, attendee/free-busy, audience, RSVP và participation lifecycle |
-| Trạng thái task | `VERIFY` |
+| Trạng thái task | `DONE` |
 | Neon staging | `21 false` (migration/ACL smoke đã đối chiếu) |
 | Migration mong đợi | `21 false` |
-| Commit Core API | `32a770ac` |
-| Render deployment | Live exact `32a770ac` (`dep-d9lc4boae00c73a4i8v0`) |
-| Commit web | `32a770ac` |
-| Cloudflare deployment | Live exact `32a770ac` |
+| Commit Core API | `7859c233` |
+| Render deployment | Live exact `7859c233` (`dep-d9lo3fjm8hqs739525jg`) |
+| Commit web | `7859c233` |
+| Cloudflare deployment | Live exact `7859c233` (`https://e980e2ec.tutorhub-web.pages.dev`) |
 
-Tài liệu này vừa là runbook vừa là sổ bằng chứng không nhạy cảm. P3-02C vẫn ở
-`VERIFY`: một số happy-path staging đã đạt, nhưng các gate bắt buộc chưa đủ để chuyển
-sang `DONE`.
+Tài liệu này vừa là runbook vừa là sổ bằng chứng không nhạy cảm. Toàn bộ automated,
+staging/disposable PostgreSQL và manual accessibility/privacy gate bắt buộc đã đạt;
+exact commit nghiệm thu đã Live trên Render và Cloudflare. P3-02C chuyển sang `DONE`.
 
 ### Cập nhật staging 2026-07-30
 
@@ -46,9 +46,9 @@ sang `DONE`.
   cầu RSVP, sau đó bị hủy bởi organizer. Sau reload trạng thái vẫn là `Đã hủy` và lịch
   sử được giữ lại. Không ghi identifier, email hoặc capability vào bằng chứng này.
 - Focused Go regression bổ sung kill-switch-before-query, working-schedule hard caps
-  và fixture lifecycle guard; ba package Calendar/API/fixture đều PASS. Concurrency
-  PostgreSQL thật, organizer transfer/archive và matrix rate-limit đầy đủ vẫn mở nên
-  trạng thái task tiếp tục là `VERIFY`.
+  và fixture lifecycle guard; ba package Calendar/API/fixture đều PASS. Tại checkpoint
+  này, concurrency PostgreSQL thật, organizer transfer/archive và matrix rate-limit đầy
+  đủ còn mở; các gate đó đã được operator chạy và xác nhận PASS ở lượt chốt bên dưới.
 - Operator xác nhận toàn bộ lượt thủ công P3-02C PASS: Teacher working-hours/audience,
   Student privacy/self-RSVP, keyboard flow, focus recovery sau `409`, NVDA cho Calendar
   và public RSVP, cùng cancel/revocation trên fixture. Bằng chứng chỉ ghi kết quả,
@@ -61,7 +61,8 @@ sang `DONE`.
   không lưu identifier, URL, token, ciphertext, RSVP payload hoặc roster.
 - Revalidation local trên HEAD sau xác nhận operator: `corepack pnpm verify` PASS;
   focused Go Calendar/Classroom/HTTP/API/fixture PASS; Calendar E2E `11/11` PASS.
-  Task chỉ còn gate triển khai exact commit nghiệm thu lên Render và Cloudflare.
+  Exact commit nghiệm thu `7859c233` sau đó đã Live trên Render và Cloudflare; Render
+  health check trả HTTP `200`.
 
 ## Phạm vi và ranh giới
 
@@ -446,6 +447,7 @@ Guard vận hành:
 | Tenant/privacy/IDOR | `PASS` | Student projection và full foreign tenant/class/session/series/occurrence concealment đạt |
 | UI/keyboard/NVDA | `PASS` | Operator xác nhận keyboard flow, focus sau success/error/`409`, heading/landmark/accessible name/live status, dual timezone và color-independent state đều đạt |
 | Observability/log privacy | `PASS` | Request ID/audit và timeout/conflict/rate/lifecycle log-privacy matrix đạt |
+| Exact deployment parity | `PASS` | Commit `7859c233` Live trên Render và Cloudflare; Render health HTTP `200` |
 
 ## Exit gate
 
@@ -459,4 +461,6 @@ P3-02C chỉ chuyển `DONE` khi:
 - organizer transfer, cancel/archive, UI keyboard/NVDA và log privacy đều đạt;
 - commit/deployment/result không nhạy cảm được ghi vào bảng trên.
 
-Nếu bất kỳ gate bắt buộc nào chưa chạy hoặc bị chặn, trạng thái vẫn là `VERIFY`.
+**DONE 2026-07-30:** toàn bộ điều kiện trên đã đạt. Kết quả manual/staging được ghi theo
+xác nhận của operator; kết quả tự động được revalidate trên local HEAD; exact runtime
+acceptance commit `7859c233` đã Live đồng thời trên Render và Cloudflare.

@@ -12,10 +12,10 @@
 | Quy trình           | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
 | Phase hoàn thành    | Phase 0, Phase 1, Phase 2                                                             |
 | Phase hiện tại      | Phase 3 - Daily learning workspace                                                   |
-| Task `DONE` gần nhất | P3-02B Recurrence + class conflict                                                   |
-| Mốc repository mới | P3-02C staging hardening checkpoint tại commit `c60ff5a9`                            |
-| Task hiện tại       | P3-02C `VERIFY`; P3-03/P3-04/P3-CAL-02 vẫn `VERIFY`                                 |
-| Task tiếp theo      | P3-02C đóng các live gate tự động còn mở (capability/lifecycle/concurrency/IDOR)   |
+| Task `DONE` gần nhất | P3-02C Working hours, attendee/free-busy và RSVP                                  |
+| Mốc repository mới | P3-02C runtime acceptance commit `7859c233` Live trên Render và Cloudflare         |
+| Task hiện tại       | P3-03/P3-04/P3-CAL-02 vẫn `VERIFY`                                                |
+| Task tiếp theo      | P3-03B durable host, worker role/grants và crash/reclaim acceptance               |
 
 ## Kiến trúc đang chạy
 
@@ -549,6 +549,13 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
     fixture. Không lưu credential, capability URL/token hoặc dữ liệu người học. Manual
     gate đã đóng; full rate/expiry/hash-at-rest, organizer transfer/archive,
     PostgreSQL concurrency/IDOR và observability live vẫn mở nên task giữ `VERIFY`.
+41. P3-02C chuyển `VERIFY -> DONE` ngày 2026-07-30. Neon staging ở `21 false`, exact
+    ACL/runtime-role isolation đạt; `corepack pnpm verify`, focused Go
+    Calendar/Classroom/HTTP/API/fixture và Calendar E2E `11/11` đều PASS. Operator xác
+    nhận toàn bộ ma trận staging/disposable PostgreSQL và manual accessibility/privacy
+    còn lại PASS, gồm concurrency/IDOR, capability digest/expiry/rate/revocation,
+    organizer transfer/cancel/archive và log privacy. Exact runtime acceptance commit
+    `7859c233` đã Live trên Render và Cloudflare; Render health trả HTTP `200`.
 
 ## Rủi ro đã biết
 
@@ -557,23 +564,22 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
   durable worker hoặc Phase 4 media lifecycle.
 - ADR-0019 đã chấp nhận decision dùng FullCalendar v7 và recurrence bounded; manual NVDA
   đã PASS. P3-02A shell/read projection và P3-02B recurrence/class conflict đã `DONE`.
-  P3-02C đã đạt local implementation gate cho working-hours/free-busy, internal/external
-  audience, typed series/occurrence copy-on-write, organizer transfer, cancellation
-  lifecycle và internal/public RSVP. Migration `000020/000021`, exact ACL, full
-  authorization/concurrency và staging/live E2E chưa hoàn thành nên task chỉ ở `VERIFY`
-  và chưa được coi là Calendar professional core.
+  P3-02C cũng đã `DONE` cho working-hours/free-busy, internal/external audience, typed
+  series/occurrence copy-on-write, organizer transfer, cancellation lifecycle và
+  internal/public RSVP. Email/ICS delivery vẫn thuộc P3-05A/P3-CAL-02; Availability
+  Poll/Study Meeting vẫn thuộc P3-02D/P3-05B.
 - AWS SES đã được chọn làm provider target; local SES v2 Raw adapter, deterministic
   renderer/sink và error semantics đã đạt trong spike cô lập, nhưng provider account/
   region/sandbox/quota chưa được live-verify và sending domain chưa có. Pre-domain chỉ
   cho phép owner-controlled verified identities trong SES sandbox; không được coi là
   production readiness. SPF/DKIM/DMARC, provider-event topology ADR-0020,
   bounce/complaint/suppression và cross-client ICS chưa được nghiệm thu. Không gửi
-  business email tới end user trước khi các live gate của ADR-0020, P3-03B, P3-02C và
-  P3-05A đạt.
+  business email tới end user trước khi các live gate của ADR-0020, P3-03B và P3-05A đạt.
 - Warm Academic calendar shell, semantic Agenda, FullCalendar renderer và visual
-  desktop/tablet/mobile đã được nghiệm thu trong phạm vi P3-02A. Recurrence, participant/
-  RSVP, email/ICS và Availability Poll vẫn thuộc P3-02B/C/D, P3-CAL-02 và P3-05A/B;
-  không coi P3-02A là toàn bộ sản phẩm Calendar cuối cùng.
+  desktop/tablet/mobile đã được nghiệm thu trong P3-02A; recurrence/conflict và
+  participant/RSVP đã được nghiệm thu trong P3-02B/P3-02C. Email/ICS và Availability
+  Poll vẫn thuộc P3-CAL-02, P3-02D và P3-05A/B; Calendar chưa phải toàn bộ sản phẩm cuối
+  cùng cho đến khi các phạm vi đó đạt gate.
 - P3-02D hiện mới có ADR/backlog/design, chưa có schema/API/UI/capability exchange hoặc
   authorization test; không được mô tả Availability Poll/Study Meeting như chức năng đã
   chạy.

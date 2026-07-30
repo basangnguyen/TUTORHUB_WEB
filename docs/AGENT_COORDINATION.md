@@ -92,7 +92,7 @@ live; rollback bằng specific commit giữ cấu hình hiện tại là bằng 
 | P3-04 In-app notification            | VERIFY      | API ACL staging xanh; worker/canary gate mở   |
 | P3-02A Calendar shell/read projection | DONE      | Route E2E/perf/visual/staging gates đạt        |
 | P3-02B Recurrence + class conflict     | DONE      | PostgreSQL/staging acceptance đạt              |
-| P3-02C Working hours/free-busy/RSVP    | VERIFY    | Staging participation PASS; public/lifecycle/IDOR live còn mở |
+| P3-02C Working hours/free-busy/RSVP    | DONE      | Automated, staging/disposable DB và manual gates PASS |
 | P3-05 đến P3-14                       | TODO        | Theo dependency trong backlog                 |
 
 Nguồn thực thi: `docs/PHASE_3_BACKLOG.md`. Trước khi code calendar phải đọc
@@ -148,20 +148,17 @@ Không chuyển umbrella P3-03 sang `DONE` hoặc bật end-user side effect tr�
 staging migration/grants, durable host không spin-down và crash/reclaim acceptance đạt.
 P3-04 chưa `DONE`: Neon staging đã ở `17 false` và exact API runtime grants đã probe xanh;
 worker role/worker grants, durable worker và canary duplicate/crash-reclaim chưa được nghiệm
-thu. Khi đổi worker gate phải dừng process và đổi exact notification
-grant cùng lúc; quyền dư/thiếu đều phải làm startup probe fail closed. Trong khi chờ owner
-duyệt hạ tầng, task implementation độc lập tiếp theo là P3-02B recurrence/conflict.
+thu. Khi đổi worker gate phải dừng process và đổi exact notification grant cùng lúc; quyền
+dư/thiếu đều phải làm startup probe fail closed. Bước dependency tiếp theo là P3-03B
+durable-host, worker role/grants và crash/reclaim acceptance.
 P3-CAL-02 tiếp tục giữ live SES/domain/interoperability gate song song, không bật runtime.
-P3-02C đã đạt local implementation gate ngày 2026-07-29 và staging participation
-checkpoint ngày 2026-07-30 trên commit `32a770ac`: audience PUT và Student self-RSVP
-sau reload PASS, ordinary participant không thấy external roster/email. Không mô tả task
-là `DONE`: migration `21 false`, exact ACL/role isolation đã đạt; server-issued public
-capability, core public smoke và audience remove/re-add revocation đã PASS một phần qua
-disposable Codespace. Full rate/expiry/hash-at-rest, concurrent/IDOR, organizer
-transfer/archive và observability live vẫn phải chạy theo
-`docs/P3_02C_STAGING_ACCEPTANCE.md`. Operator đã xác nhận manual keyboard/NVDA,
-Teacher/Student privacy-RSVP và cancel/revocation fixture đều PASS; không chạy lại
-manual matrix nếu deployment UI/contract liên quan không thay đổi.
+P3-02C đã `DONE` ngày 2026-07-30. Neon staging `21 false`, exact ACL/runtime-role
+isolation, automated local gate và Calendar E2E đều PASS. Operator xác nhận toàn bộ ma
+trận staging/disposable PostgreSQL và manual accessibility/privacy còn lại PASS, gồm
+concurrency/IDOR, capability lifecycle/rate, organizer transfer/cancel/archive và log
+privacy. Exact runtime acceptance commit `7859c233` đã Live trên Render và Cloudflare;
+Render health trả HTTP `200`. Biên bản không nhạy cảm nằm tại
+`docs/P3_02C_STAGING_ACCEPTANCE.md`.
 
 ## 6. Hạ tầng staging đã chốt
 

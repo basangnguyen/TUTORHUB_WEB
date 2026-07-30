@@ -89,7 +89,7 @@ P3-03B đạt; hai gate P3-04 tiếp tục giữ `false` cho tới acceptance.
 | P3-CAL-02  | Invitation/RSVP/iCalendar/AWS SES + ADR-0020   | P3-CAL-01, P3-01                | VERIFY     |
 | P3-02A     | Professional Calendar shell/read projection    | P3-01, P3-CAL-01                | DONE       |
 | P3-02B     | Recurrence + class conflict                    | P3-02A, ADR-0019                | DONE       |
-| P3-02C     | Working hours/attendee/free-busy/RSVP          | P3-02A, P3-CAL-02, ADR-0023     | VERIFY     |
+| P3-02C     | Working hours/attendee/free-busy/RSVP          | P3-02A, P3-CAL-02, ADR-0023     | DONE       |
 | P3-02D     | Native Availability Poll + Study Meeting       | P3-02B, P3-02C, P3-03, ADR-0021 | TODO       |
 | P3-03      | PostgreSQL outbox worker production shape      | P3-01                           | VERIFY     |
 | P3-04      | In-app notification và preference              | P3-03A; P3-03B trước activation | VERIFY     |
@@ -566,7 +566,7 @@ bộ đáng tin cậy; P3-05A chỉ phân phối email/ICS, không sở hữu bu
 - [x] Unit/HTTP/UI và integration-tag compile bao phủ unknown vs busy ordering, DST
       gap/overlap, working-hour exception, audience diff, capability security và privacy
       projection.
-- [ ] Neon migration `000020/000021`, exact runtime ACL, concurrent RSVP,
+- [x] Neon migration `000020/000021`, exact runtime ACL, concurrent RSVP,
       cross-tenant/cross-class authorization và browser/live E2E acceptance đạt.
 
 **Implementation checkpoint 2026-07-28:** migration `000020`, typed OpenAPI client,
@@ -631,6 +631,14 @@ keyboard-only, focus recovery sau `409`, NVDA trên Calendar/public RSVP và
 cancel/revocation fixture. Không lưu credential, capability URL/token hoặc dữ liệu
 người học. Manual gate đã đóng; các gate tự động/live còn lại không bị coi là PASS
 thay thế và P3-02C vẫn `VERIFY`.
+
+**DONE 2026-07-30:** Neon staging ở `21 false`; exact ACL/runtime-role isolation đạt.
+`corepack pnpm verify`, focused Go Calendar/Classroom/HTTP/API/fixture và Calendar E2E
+`11/11` đều PASS. Operator xác nhận toàn bộ ma trận staging/disposable PostgreSQL và
+manual accessibility/privacy còn lại PASS, gồm concurrency/IDOR, capability,
+organizer/cancel/archive và log privacy. Exact runtime acceptance commit `7859c233`
+đã Live trên Render và Cloudflare; Render health trả HTTP `200`. P3-02C chuyển
+`VERIFY -> DONE`.
 
 ### P3-02D Native Availability Poll và Study Meeting
 
@@ -961,8 +969,9 @@ là dependency/ưu tiên, không phải cam kết mỗi hàng đúng một tuầ
    7 golden lineage, sink và SES v2 Raw adapter/no-retry đều xanh trong package spike
    cô lập. ADR vẫn `Proposed`; SES sandbox live, EventBridge/SQS/DLQ, sending domain/DNS
    và Gmail/Outlook/Apple matrix còn `BLOCKED/VERIFY`, chưa bật business delivery.
-6. P3-02A đã `DONE`; tiếp tục P3-02B rồi P3-02C theo gate. Teacher conflict chỉ bật khi
-   assignment/attendee authoritative đã có.
+6. P3-02A/P3-02B/P3-02C đã `DONE`; working-hours, free-busy, audience và RSVP core đã
+   qua local/staging/manual gate. Bước dependency tiếp theo là đóng P3-03B durable-host,
+   worker role/grants và crash/reclaim acceptance trước khi bật side effect tới end user.
 7. P3-05A không chờ poll; P3-02D/P3-05B bổ sung poll/StudyMeeting sau core session.
 8. Không đưa recurrence, reminder, worker, email hoặc calendar tổng hợp vào P3-01.
 9. ADR-0021 đã `Accepted`; P3-02D không phụ thuộc When2meet.
