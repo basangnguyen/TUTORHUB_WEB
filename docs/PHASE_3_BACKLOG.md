@@ -614,7 +614,7 @@ schedule gồm hai interval, timezone IANA và exception theo ngày; Scheduling 
 trả 10 gợi ý bounded, privacy-safe. Một fixture staging có audience nội bộ/yêu cầu RSVP
 đã được organizer tạo rồi hủy; reload giữ trạng thái `Đã hủy` và lịch sử. Đây là evidence
 cho cancel one-time, không thay thế organizer transfer/archive/capability revocation,
-concurrency/IDOR, public capability hay NVDA; P3-02C tiếp tục `VERIFY`.
+concurrency/IDOR hoặc public capability; P3-02C tiếp tục `VERIFY`.
 
 **Public RSVP staging checkpoint 2026-07-30:** fixture server-side trên disposable
 Codespace đã phát hành capability không qua SQL mutation. Fragment scrub, minimal
@@ -622,8 +622,15 @@ resolve, respond/replay/collision/stale/origin/malformed/secure-header và bound
 resolve-rate smoke đạt. Teacher remove rồi re-add external fixture qua audience flow
 làm link cũ trả generic unavailable. Focused Go test bổ sung kill-switch-before-query,
 working-schedule hard caps và fixture lifecycle guard đều đạt. Full token/IP rate matrix,
-expiry/hash-at-rest postcheck, organizer transfer/archive, PostgreSQL concurrency/IDOR
-và NVDA vẫn mở; P3-02C tiếp tục `VERIFY`.
+expiry/hash-at-rest postcheck, organizer transfer/archive và PostgreSQL concurrency/IDOR
+vẫn mở; P3-02C tiếp tục `VERIFY`.
+
+**Manual accessibility/privacy checkpoint 2026-07-30:** operator xác nhận toàn bộ
+manual matrix PASS cho Teacher working-hours/audience, Student privacy/self-RSVP,
+keyboard-only, focus recovery sau `409`, NVDA trên Calendar/public RSVP và
+cancel/revocation fixture. Không lưu credential, capability URL/token hoặc dữ liệu
+người học. Manual gate đã đóng; các gate tự động/live còn lại không bị coi là PASS
+thay thế và P3-02C vẫn `VERIFY`.
 
 ### P3-02D Native Availability Poll và Study Meeting
 

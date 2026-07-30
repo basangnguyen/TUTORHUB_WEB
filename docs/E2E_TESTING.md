@@ -231,6 +231,11 @@ repository theo phần bảo vệ credential ở cuối tài liệu.
    - Chạy NVDA kiểm tra heading/landmark, accessible name, reason/status live region,
      dual timezone và không dùng màu làm tín hiệu duy nhất.
 
+**Kết quả thủ công P3-02C 2026-07-30:** operator xác nhận PASS cho Teacher
+working-hours/audience, Student privacy/self-RSVP, keyboard-only, focus recovery sau
+`409`, NVDA trên Calendar/public RSVP và cancel/revocation fixture. Không lưu tài khoản,
+capability URL/token, screenshot hoặc dữ liệu người học trong bằng chứng.
+
 ### Bằng chứng và tiêu chí đạt
 
 Mỗi lượt ghi commit, môi trường, migration version và kết quả pass/fail bằng dữ

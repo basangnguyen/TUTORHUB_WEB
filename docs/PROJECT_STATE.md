@@ -13,9 +13,9 @@
 | Phase hoàn thành    | Phase 0, Phase 1, Phase 2                                                             |
 | Phase hiện tại      | Phase 3 - Daily learning workspace                                                   |
 | Task `DONE` gần nhất | P3-02B Recurrence + class conflict                                                   |
-| Mốc repository mới | P3-02C staging checkpoint tại commit `32a770ac`                                      |
+| Mốc repository mới | P3-02C staging hardening checkpoint tại commit `c60ff5a9`                            |
 | Task hiện tại       | P3-02C `VERIFY`; P3-03/P3-04/P3-CAL-02 vẫn `VERIFY`                                 |
-| Task tiếp theo      | P3-02C đóng các live gate còn mở (public capability/transfer-archive/IDOR/NVDA)    |
+| Task tiếp theo      | P3-02C đóng các live gate tự động còn mở (capability/lifecycle/concurrency/IDOR)   |
 
 ## Kiến trúc đang chạy
 
@@ -542,7 +542,13 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
     rate. Teacher remove/re-add external fixture qua business flow làm link cũ generic
     unavailable. Focused Go regression cho fixture, Calendar repository/service và API
     đều đạt. Full rate/expiry/hash-at-rest, organizer transfer/archive, PostgreSQL
-    concurrency/IDOR và NVDA vẫn mở; task giữ `VERIFY`.
+    concurrency/IDOR vẫn mở; task giữ `VERIFY`.
+40. P3-02C manual accessibility/privacy checkpoint ngày 2026-07-30: operator xác nhận
+    PASS cho Teacher working-hours/audience, Student privacy/self-RSVP, keyboard flow,
+    focus recovery sau `409`, NVDA trên Calendar/public RSVP và cancel/revocation
+    fixture. Không lưu credential, capability URL/token hoặc dữ liệu người học. Manual
+    gate đã đóng; full rate/expiry/hash-at-rest, organizer transfer/archive,
+    PostgreSQL concurrency/IDOR và observability live vẫn mở nên task giữ `VERIFY`.
 
 ## Rủi ro đã biết
 

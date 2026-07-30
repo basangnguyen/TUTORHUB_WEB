@@ -158,8 +158,10 @@ sau reload PASS, ordinary participant không thấy external roster/email. Khôn
 là `DONE`: migration `21 false`, exact ACL/role isolation đã đạt; server-issued public
 capability, core public smoke và audience remove/re-add revocation đã PASS một phần qua
 disposable Codespace. Full rate/expiry/hash-at-rest, concurrent/IDOR, organizer
-transfer/archive, NVDA và browser/live E2E vẫn phải chạy theo
-`docs/P3_02C_STAGING_ACCEPTANCE.md`.
+transfer/archive và observability live vẫn phải chạy theo
+`docs/P3_02C_STAGING_ACCEPTANCE.md`. Operator đã xác nhận manual keyboard/NVDA,
+Teacher/Student privacy-RSVP và cancel/revocation fixture đều PASS; không chạy lại
+manual matrix nếu deployment UI/contract liên quan không thay đổi.
 
 ## 6. Hạ tầng staging đã chốt
 
