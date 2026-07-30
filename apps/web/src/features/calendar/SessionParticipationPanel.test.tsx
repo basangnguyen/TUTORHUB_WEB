@@ -7,7 +7,7 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import type { SessionAudience } from "@tutorhub/api-client";
+import type { ClassRosterPage, SessionAudience } from "@tutorhub/api-client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../../app/i18n";
 import type { CalendarItemViewModel } from "./model";
@@ -18,6 +18,7 @@ const classID = "a912f628-f3d2-4c18-84c6-42a9e858dc8d";
 const sessionID = "3042cad1-d582-4c59-b821-eb599b27ebf7";
 const seriesID = "4d7cd279-452e-48f8-913b-7897f71785a7";
 const userID = "1d7d65eb-904e-4a0d-bd24-a8ec1b453d64";
+const studentID = "80113acb-9865-46aa-a9bf-d7bde155208a";
 
 const item: CalendarItemViewModel = {
   allDay: false,
@@ -211,6 +212,136 @@ describe("SessionParticipationPanel", () => {
     expect(within(list).getByText(/Organizer/u)).toBeVisible();
     expect(within(list).getByText(/Student/u)).toBeVisible();
     expect(document.body.textContent).not.toContain("@");
+  });
+
+  it("keeps one audience editor and clears its pending state after replacement", async () => {
+    const studentAttendee = {
+      ...selfAttendee,
+      business_role: "student" as const,
+      id: "85e4d84c-cf88-45b7-845c-6dd1b777a311",
+      is_self: false,
+      participation_role: "optional" as const,
+      rsvp_state: "accepted" as const,
+      user_id: studentID,
+      version: 5,
+    };
+    const managerAudience: SessionAudience = {
+      attendees: [
+        { ...selfAttendee, business_role: "organizer" },
+        studentAttendee,
+      ],
+      audience_revision: 8,
+      external_attendees: [],
+      response_requested: true,
+      viewer_access: {
+        can_manage_attendees: true,
+        can_respond: true,
+        can_see_guest_list: true,
+      },
+    };
+    const managerRoster: ClassRosterPage = {
+      class_owner: {
+        class_role: "owner",
+        user: {
+          display_name: "Olivia Owner",
+          email: "owner@example.test",
+          id: userID,
+        },
+      },
+      items: [
+        {
+          actions: {
+            assignable_roles: [],
+            can_remove: true,
+            can_suspend: true,
+          },
+          enrollment: {
+            class_id: classID,
+            class_role: "student",
+            created_at: "2026-07-20T01:00:00Z",
+            enrolled_by: userID,
+            id: "7426fdcf-9956-481c-9871-180a1f23bc29",
+            joined_at: "2026-07-20T01:00:00Z",
+            left_at: null,
+            removed_at: null,
+            status: "active",
+            suspended_at: null,
+            updated_at: "2026-07-20T01:00:00Z",
+            user_id: studentID,
+          },
+          user: {
+            display_name: "Ada Student",
+            email: "ada@example.test",
+            id: studentID,
+          },
+        },
+      ],
+      next_cursor: null,
+    };
+    let replacementBody: unknown;
+    const fetchMock = vi.fn().mockImplementation(async (request: Request) => {
+      const url = new URL(request.url);
+      const audiencePath = `/api/v1/classes/${classID}/sessions/${sessionID}/attendees`;
+      if (request.method === "GET" && url.pathname.endsWith(audiencePath)) {
+        return jsonResponse(managerAudience);
+      }
+      if (
+        request.method === "GET" &&
+        url.pathname.endsWith(`/api/v1/classes/${classID}/roster`)
+      ) {
+        return jsonResponse(managerRoster);
+      }
+      if (url.pathname.endsWith("/api/v1/auth/csrf")) {
+        return jsonResponse({ csrf_token: "audience-csrf" });
+      }
+      if (request.method === "PUT" && url.pathname.endsWith(audiencePath)) {
+        replacementBody = await request.clone().json();
+        return jsonResponse({
+          audience: {
+            ...managerAudience,
+            attendees: [
+              managerAudience.attendees[0],
+              { ...studentAttendee, participation_role: "required" },
+            ],
+            audience_revision: 9,
+          },
+          replayed: false,
+        });
+      }
+      throw new Error(`unexpected request ${request.method} ${url.pathname}`);
+    });
+
+    renderPanel(fetchMock);
+
+    const rosterList = await screen.findByRole("list", {
+      name: "Class members available to invite",
+    });
+    const studentChoices = within(rosterList).getByRole("group", {
+      name: "Attendance role for Ada Student",
+    });
+    fireEvent.click(
+      within(studentChoices).getByRole("checkbox", { name: "Required" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Save attendees" }));
+
+    await waitFor(() => expect(replacementBody).toBeDefined());
+    await waitFor(() => {
+      expect(
+        screen.getAllByRole("heading", { name: "Manage attendees" }),
+      ).toHaveLength(1);
+      expect(
+        screen.queryByRole("button", { name: "Saving..." }),
+      ).not.toBeInTheDocument();
+    });
+    expect(
+      screen.getByRole("button", { name: "Save attendees" }),
+    ).toBeDisabled();
+    expect(replacementBody).toMatchObject({
+      attendees: expect.arrayContaining([
+        { participation_role: "required", user_id: studentID },
+      ]),
+      expected_audience_revision: 8,
+    });
   });
 
   it("moves focus to reload after a stale RSVP conflict", async () => {

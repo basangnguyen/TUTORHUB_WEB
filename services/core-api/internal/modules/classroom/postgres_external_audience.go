@@ -532,7 +532,7 @@ WHERE tenant_id = $1 AND class_id = $2 AND id = $3 AND status = 'active'`,
 )
 VALUES ($1, $2, $3, $4, $5, $6, $7, 'external_guest', 'manual',
     $8, $9, false, false, false,
-    $10, CASE WHEN $10 THEN NULL ELSE $12 END,
+    $10, CASE WHEN $10 THEN NULL ELSE $12::timestamptz END,
     'active', 'needs_action', 'none', $11, $11, $12, $12)`,
 			tenantContext.TenantID, classID, sessionID, seriesID, occurrenceKey,
 			member.ExternalRecipientID, string(member.ParticipationRole),

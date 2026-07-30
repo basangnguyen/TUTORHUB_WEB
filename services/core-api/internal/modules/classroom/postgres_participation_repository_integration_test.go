@@ -82,6 +82,197 @@ VALUES ($1, $2, $3, $4, 'Implicit owner audience integration class',
 	}
 }
 
+func TestPostgresSessionParticipationInsertsExternalAttendeeTimestamp(t *testing.T) {
+	migrationURL := requireEnvironment(t, "DATABASE_MIGRATION_URL")
+	poolURL := requireEnvironment(t, "DATABASE_POOL_URL")
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	defer cancel()
+	if err := migrationrunner.Up(ctx, migrationURL); err != nil {
+		t.Fatalf("apply migrations: %v", err)
+	}
+	pool, err := pgxpool.New(ctx, poolURL)
+	if err != nil {
+		t.Fatalf("create external attendee integration pool: %v", err)
+	}
+	defer pool.Close()
+
+	setup, err := pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		t.Fatalf("begin external attendee fixture: %v", err)
+	}
+	defer func() { _ = setup.Rollback(context.Background()) }()
+	tenantID, ownerID := seedTenantOwner(t, ctx, setup, "external-attendee-timestamp")
+	classID := uuid.New()
+	sessionID := uuid.New()
+	if _, err := setup.Exec(ctx, `
+INSERT INTO tutorhub.classes (
+    id, tenant_id, owner_user_id, code, title, timezone, status
+)
+VALUES ($1, $2, $3, $4, 'External attendee timestamp integration class',
+        'Asia/Ho_Chi_Minh', 'active')`,
+		classID,
+		tenantID,
+		ownerID,
+		"PE"+strings.ToUpper(uuid.NewString()[:8]),
+	); err != nil {
+		t.Fatalf("insert external attendee class: %v", err)
+	}
+	startsAt := time.Now().UTC().Add(24 * time.Hour).Truncate(time.Microsecond)
+	if _, err := setup.Exec(ctx, `
+INSERT INTO tutorhub.class_sessions (
+    id, tenant_id, class_id, title, description,
+    starts_at, ends_at, timezone, status,
+    created_by, updated_by, organizer_user_id, ical_uid
+)
+VALUES (
+    $1, $2, $3, 'External attendee timestamp integration',
+    'Regression for external attendee response closure typing',
+    $4, $5, 'Asia/Ho_Chi_Minh', 'scheduled',
+    $6, $6, $6, $7
+)`,
+		sessionID,
+		tenantID,
+		classID,
+		startsAt,
+		startsAt.Add(time.Hour),
+		ownerID,
+		"urn:uuid:"+sessionID.String(),
+	); err != nil {
+		t.Fatalf("insert external attendee session: %v", err)
+	}
+	if err := setup.Commit(ctx); err != nil {
+		t.Fatalf("commit external attendee fixture: %v", err)
+	}
+	defer cleanupClassIntegrationFixture(t, pool, tenantID, ownerID)
+
+	protector, err := protecteddata.New(protecteddata.Config{
+		Key:        bytes.Repeat([]byte{0x4e}, 32),
+		KeyVersion: 7,
+	})
+	if err != nil {
+		t.Fatalf("create external attendee test protector: %v", err)
+	}
+	repository := NewPostgresRepository(
+		pool,
+		30*time.Second,
+		policy.NewEngine(),
+	).WithCalendarProtectedData(protector)
+	ownerContext := mustTenantContext(t, tenantID, ownerID)
+	externalEmail := "external-attendee-timestamp@example.test"
+	changedAt := time.Now().UTC().Add(time.Second).Truncate(time.Microsecond)
+
+	createParams, err := (ReplaceAudienceInput{
+		ExpectedAudienceRevision: 0,
+		IdempotencyKey:           "external-attendee-insert-0001",
+		ResponseRequested:        true,
+		Attendees: []InternalAudienceAttendeeInput{{
+			UserID:            ownerID,
+			ParticipationRole: ParticipationRoleRequired,
+		}},
+		ExternalAttendees: []ExternalAudienceAttendeeInput{{
+			Email:             externalEmail,
+			DisplayName:       "External attendee timestamp",
+			ParticipationRole: ParticipationRoleRequired,
+			Locale:            "en-US",
+			ViewerTimezone:    "Asia/Ho_Chi_Minh",
+		}},
+	}).normalized()
+	if err != nil {
+		t.Fatalf("normalize external attendee audience: %v", err)
+	}
+	created, err := repository.ReplaceSessionAudience(
+		ctx,
+		ownerContext,
+		classID,
+		sessionID,
+		createParams,
+		changedAt,
+	)
+	if err != nil {
+		t.Fatalf("insert external participation attendee: %v", err)
+	}
+	if len(created.Audience.ExternalAttendees) != 1 ||
+		created.Audience.ExternalAttendees[0].Email != externalEmail ||
+		created.Audience.ExternalAttendees[0].ParticipationRole != ParticipationRoleRequired {
+		t.Fatalf("unexpected created external attendee: %+v", created.Audience.ExternalAttendees)
+	}
+	externalAttendeeID := created.Audience.ExternalAttendees[0].ID
+	var (
+		responseRequested bool
+		responseClosed    bool
+	)
+	if err := pool.QueryRow(ctx, `
+SELECT response_requested, response_closed_at IS NOT NULL
+FROM tutorhub.class_session_attendees
+WHERE tenant_id = $1 AND class_id = $2 AND id = $3`,
+		tenantID,
+		classID,
+		externalAttendeeID,
+	).Scan(&responseRequested, &responseClosed); err != nil {
+		t.Fatalf("read inserted external attendee response window: %v", err)
+	}
+	if !responseRequested || responseClosed {
+		t.Fatalf(
+			"unexpected inserted external response window requested=%t closed=%t",
+			responseRequested,
+			responseClosed,
+		)
+	}
+
+	closeParams, err := (ReplaceAudienceInput{
+		ExpectedAudienceRevision: created.Audience.AudienceRevision,
+		IdempotencyKey:           "external-attendee-close-0001",
+		ResponseRequested:        false,
+		Attendees: []InternalAudienceAttendeeInput{{
+			UserID:            ownerID,
+			ParticipationRole: ParticipationRoleRequired,
+		}},
+		ExternalAttendees: []ExternalAudienceAttendeeInput{{
+			Email:             externalEmail,
+			DisplayName:       "External attendee timestamp",
+			ParticipationRole: ParticipationRoleOptional,
+			Locale:            "en-US",
+			ViewerTimezone:    "Asia/Ho_Chi_Minh",
+		}},
+	}).normalized()
+	if err != nil {
+		t.Fatalf("normalize external attendee response closure: %v", err)
+	}
+	closed, err := repository.ReplaceSessionAudience(
+		ctx,
+		ownerContext,
+		classID,
+		sessionID,
+		closeParams,
+		changedAt.Add(time.Minute),
+	)
+	if err != nil {
+		t.Fatalf("close external participation response window: %v", err)
+	}
+	if len(closed.Audience.ExternalAttendees) != 1 ||
+		closed.Audience.ExternalAttendees[0].ID != externalAttendeeID ||
+		closed.Audience.ExternalAttendees[0].ParticipationRole != ParticipationRoleOptional {
+		t.Fatalf("unexpected updated external attendee: %+v", closed.Audience.ExternalAttendees)
+	}
+	if err := pool.QueryRow(ctx, `
+SELECT response_requested, response_closed_at IS NOT NULL
+FROM tutorhub.class_session_attendees
+WHERE tenant_id = $1 AND class_id = $2 AND id = $3`,
+		tenantID,
+		classID,
+		externalAttendeeID,
+	).Scan(&responseRequested, &responseClosed); err != nil {
+		t.Fatalf("read closed external attendee response window: %v", err)
+	}
+	if responseRequested || !responseClosed {
+		t.Fatalf(
+			"unexpected closed external response window requested=%t closed=%t",
+			responseRequested,
+			responseClosed,
+		)
+	}
+}
+
 func TestPostgresSessionParticipationSnapshotsIdempotencyAndRSVPCAS(t *testing.T) {
 	migrationURL := requireEnvironment(t, "DATABASE_MIGRATION_URL")
 	poolURL := requireEnvironment(t, "DATABASE_POOL_URL")

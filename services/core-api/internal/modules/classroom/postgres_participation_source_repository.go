@@ -1386,7 +1386,7 @@ VALUES (
     $6, $7, $8, $9,
     $10, $11, $12, $13, $14,
     $15, 'active', 'needs_action', 'none',
-    CASE WHEN $15 THEN NULL ELSE $17 END,
+    CASE WHEN $15 THEN NULL ELSE $17::timestamptz END,
     $16, $16, $17, $17
 )`,
 			tenantContext.TenantID,

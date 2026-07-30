@@ -214,7 +214,7 @@ export function SessionParticipationPanel({
           <SessionAudienceEditor
             audience={audience.data}
             classID={item.classID}
-            key={`${tenantID}:${userID}:${sourceFingerprint}:${audience.data.audience_revision}`}
+            key={`audience-editor:${tenantID}:${userID}:${sourceFingerprint}:${audience.data.audience_revision}`}
             onReloadAudience={() => audience.refetch()}
             source={participationSource}
             tenantID={tenantID}
@@ -265,7 +265,7 @@ export function SessionParticipationPanel({
             classID={item.classID}
             endsAt={item.endsAt}
             hourCycle={hourCycle}
-            key={`${tenantID}:${userID}:${sourceFingerprint}:${audience.data.audience_revision}`}
+            key={`scheduling-assistant:${tenantID}:${userID}:${sourceFingerprint}:${audience.data.audience_revision}`}
             locale={locale}
             onUseSuggestion={onUseSuggestedTime}
             primaryTimezone={item.displayTimezone}
