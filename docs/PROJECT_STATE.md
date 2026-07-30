@@ -523,9 +523,9 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
     self-RSVP sau reload. Concurrent/IDOR, public capability và lifecycle live vẫn mở.
 36. P3-02C đạt staging participation checkpoint ngày 2026-07-30 trên commit `32a770ac`.
     Teacher audience PUT và Student self-RSVP đều trả HTTP 200, reload giữ trạng thái và
-    ordinary participant không thấy external roster/email. Render Free không có Shell nên
-    public capability fixture bị `BLOCKED`; task tiếp tục ở `VERIFY` cho đến khi public
-    RSVP, concurrency/IDOR, organizer/cancel/archive và accessibility live được nghiệm thu.
+    ordinary participant không thấy external roster/email. Public capability fixture sau
+    đó được chạy trên disposable Codespace; task tiếp tục ở `VERIFY` cho đến khi full
+    concurrency/IDOR, organizer/cancel/archive và accessibility live được nghiệm thu.
 37. P3-02C regression local được chạy lại ngày 2026-07-30: focused Go
     calendar/classroom/http API suites, API client `27/27` và Calendar E2E `11/11` đều
     đạt. Evidence này không thay thế live fixture public RSVP, Teacher lifecycle,
@@ -536,6 +536,13 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
     tạo rồi hủy, reload giữ `Đã hủy` và lịch sử. Public capability, organizer
     transfer/archive/capability revocation, concurrency/IDOR, NVDA và observability
     vẫn mở; P3-02C giữ `VERIFY`.
+39. P3-02C public RSVP staging checkpoint ngày 2026-07-30: server-issued fixture trên
+    disposable Codespace đạt fragment scrub, minimal resolve, respond/replay,
+    collision/stale `409`, origin/malformed guard, secure headers và bounded resolve
+    rate. Teacher remove/re-add external fixture qua business flow làm link cũ generic
+    unavailable. Focused Go regression cho fixture, Calendar repository/service và API
+    đều đạt. Full rate/expiry/hash-at-rest, organizer transfer/archive, PostgreSQL
+    concurrency/IDOR và NVDA vẫn mở; task giữ `VERIFY`.
 
 ## Rủi ro đã biết
 

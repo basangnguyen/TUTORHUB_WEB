@@ -604,8 +604,9 @@ phân phối sau này. OpenAPI/generated client, Core API và web có focused lo
 P3-02C chuyển `IN PROGRESS -> VERIFY`, không chuyển `DONE`: Neon staging đã đạt
 `21 false`, exact runtime ACL/role isolation đã đạt; staging participation checkpoint
 trên commit `32a770ac` xác nhận audience PUT và Student self-RSVP sau reload. Public
-capability bị `BLOCKED` vì Render Free không có Shell; concurrent/IDOR, lifecycle và
-browser accessibility live vẫn theo
+capability đã được phát hành bằng fixture server-side trên disposable Codespace; public
+smoke và audience remove/re-add revocation đã đạt một phần. Concurrent/IDOR, full
+rate/expiry matrix, organizer transfer/archive và browser accessibility live vẫn theo
 [`P3_02C_STAGING_ACCEPTANCE.md`](P3_02C_STAGING_ACCEPTANCE.md) và chưa đủ exit gate.
 
 **Teacher lifecycle staging checkpoint 2026-07-30:** Teacher reload giữ working
@@ -614,6 +615,15 @@ trả 10 gợi ý bounded, privacy-safe. Một fixture staging có audience nộ
 đã được organizer tạo rồi hủy; reload giữ trạng thái `Đã hủy` và lịch sử. Đây là evidence
 cho cancel one-time, không thay thế organizer transfer/archive/capability revocation,
 concurrency/IDOR, public capability hay NVDA; P3-02C tiếp tục `VERIFY`.
+
+**Public RSVP staging checkpoint 2026-07-30:** fixture server-side trên disposable
+Codespace đã phát hành capability không qua SQL mutation. Fragment scrub, minimal
+resolve, respond/replay/collision/stale/origin/malformed/secure-header và bounded
+resolve-rate smoke đạt. Teacher remove rồi re-add external fixture qua audience flow
+làm link cũ trả generic unavailable. Focused Go test bổ sung kill-switch-before-query,
+working-schedule hard caps và fixture lifecycle guard đều đạt. Full token/IP rate matrix,
+expiry/hash-at-rest postcheck, organizer transfer/archive, PostgreSQL concurrency/IDOR
+và NVDA vẫn mở; P3-02C tiếp tục `VERIFY`.
 
 ### P3-02D Native Availability Poll và Study Meeting
 

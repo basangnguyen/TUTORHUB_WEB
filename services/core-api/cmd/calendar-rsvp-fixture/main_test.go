@@ -6,8 +6,10 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
+	"github.com/tutorhub-v2/core-api/internal/modules/classroom"
 )
 
 var fixtureIDs = []string{
@@ -46,7 +48,7 @@ func TestRunEmitsExactlyOneFragmentOnlyLink(t *testing.T) {
 		&stdout,
 		&stderr,
 		stagingEnvironmentLookup,
-		issuer,
+		fixtureActions{issueCapabilities: issuer},
 	)
 	if exitCode != 0 {
 		t.Fatalf("run failed: exit=%d stderr=%q", exitCode, stderr.String())
@@ -84,9 +86,14 @@ func TestRunRefusesEveryNonStagingEnvironmentBeforeIssuance(t *testing.T) {
 					}
 					return "", false
 				},
-				func(context.Context, capabilityIssueRequest) (capabilityIssueResult, error) {
-					called = true
-					return capabilityIssueResult{}, nil
+				fixtureActions{
+					issueCapabilities: func(
+						context.Context,
+						capabilityIssueRequest,
+					) (capabilityIssueResult, error) {
+						called = true
+						return capabilityIssueResult{}, nil
+					},
 				},
 			)
 			if exitCode == 0 || called || stdout.Len() != 0 ||
@@ -119,9 +126,14 @@ func TestRunRequiresTemporaryDeploymentOptInBeforeIssuance(t *testing.T) {
 			}
 			return "", false
 		},
-		func(context.Context, capabilityIssueRequest) (capabilityIssueResult, error) {
-			called = true
-			return capabilityIssueResult{}, nil
+		fixtureActions{
+			issueCapabilities: func(
+				context.Context,
+				capabilityIssueRequest,
+			) (capabilityIssueResult, error) {
+				called = true
+				return capabilityIssueResult{}, nil
+			},
 		},
 	)
 	if exitCode == 0 || called || stdout.Len() != 0 ||
@@ -162,9 +174,14 @@ func TestRunRequiresExplicitConfirmationAndEverySourceID(t *testing.T) {
 				&stdout,
 				&stderr,
 				stagingEnvironmentLookup,
-				func(context.Context, capabilityIssueRequest) (capabilityIssueResult, error) {
-					called = true
-					return capabilityIssueResult{}, nil
+				fixtureActions{
+					issueCapabilities: func(
+						context.Context,
+						capabilityIssueRequest,
+					) (capabilityIssueResult, error) {
+						called = true
+						return capabilityIssueResult{}, nil
+					},
 				},
 			)
 			if exitCode == 0 || called || stdout.Len() != 0 {
@@ -191,8 +208,13 @@ func TestRunNeverEmitsPartiallyIssuedTokenOnFailure(t *testing.T) {
 		&stdout,
 		&stderr,
 		stagingEnvironmentLookup,
-		func(context.Context, capabilityIssueRequest) (capabilityIssueResult, error) {
-			return capabilityIssueResult{ResolveToken: partialToken}, errors.New("respond issue failed")
+		fixtureActions{
+			issueCapabilities: func(
+				context.Context,
+				capabilityIssueRequest,
+			) (capabilityIssueResult, error) {
+				return capabilityIssueResult{ResolveToken: partialToken}, errors.New("respond issue failed")
+			},
 		},
 	)
 	if exitCode == 0 || stdout.Len() != 0 || strings.Contains(stderr.String(), partialToken) {
@@ -227,9 +249,14 @@ func TestRunRejectsUnsafePublicOriginBeforeIssuance(t *testing.T) {
 				return "", false
 			}
 		},
-		func(context.Context, capabilityIssueRequest) (capabilityIssueResult, error) {
-			called = true
-			return capabilityIssueResult{}, nil
+		fixtureActions{
+			issueCapabilities: func(
+				context.Context,
+				capabilityIssueRequest,
+			) (capabilityIssueResult, error) {
+				called = true
+				return capabilityIssueResult{}, nil
+			},
 		},
 	)
 	if exitCode == 0 || called || stdout.Len() != 0 ||
@@ -241,6 +268,269 @@ func TestRunRejectsUnsafePublicOriginBeforeIssuance(t *testing.T) {
 			stdout.String(),
 			stderr.String(),
 		)
+	}
+}
+
+func TestRunCancelsSessionThroughInjectedBusinessActionWithoutLoggingIDs(t *testing.T) {
+	t.Parallel()
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	called := 0
+	exitCode := run(
+		context.Background(),
+		cancelSessionArguments(),
+		&stdout,
+		&stderr,
+		stagingEnvironmentLookup,
+		fixtureActions{
+			cancelSession: func(
+				_ context.Context,
+				request cancelSessionRequest,
+			) error {
+				called++
+				if request.TenantID != uuid.MustParse(fixtureIDs[0]) ||
+					request.ActorID != uuid.MustParse(fixtureIDs[1]) ||
+					request.ClassID != uuid.MustParse(fixtureIDs[2]) ||
+					request.SessionID != uuid.MustParse(fixtureIDs[3]) ||
+					request.ExpectedVersion != 7 {
+					t.Fatalf("unexpected cancellation request: %+v", request)
+				}
+				return nil
+			},
+			issueCapabilities: func(
+				context.Context,
+				capabilityIssueRequest,
+			) (capabilityIssueResult, error) {
+				t.Fatal("capability issuance must not run for cancellation")
+				return capabilityIssueResult{}, nil
+			},
+		},
+	)
+	if exitCode != 0 || called != 1 || stderr.Len() != 0 ||
+		stdout.String() != "staging session cancellation completed\n" {
+		t.Fatalf(
+			"unexpected cancellation result: exit=%d called=%d stdout=%q stderr=%q",
+			exitCode,
+			called,
+			stdout.String(),
+			stderr.String(),
+		)
+	}
+	for _, identifier := range fixtureIDs {
+		if strings.Contains(stdout.String(), identifier) {
+			t.Fatalf("fixture identifier escaped to stdout: %q", stdout.String())
+		}
+	}
+}
+
+func TestRunTransfersOrganizerThroughInjectedBusinessActionWithoutLoggingIDs(t *testing.T) {
+	t.Parallel()
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	called := 0
+	exitCode := run(
+		context.Background(),
+		organizerTransferArguments(),
+		&stdout,
+		&stderr,
+		stagingEnvironmentLookup,
+		fixtureActions{
+			transferOrganizer: func(
+				_ context.Context,
+				request organizerTransferRequest,
+			) error {
+				called++
+				if request.TenantID != uuid.MustParse(fixtureIDs[0]) ||
+					request.ActorID != uuid.MustParse(fixtureIDs[1]) ||
+					request.ClassID != uuid.MustParse(fixtureIDs[2]) ||
+					request.SessionID != uuid.MustParse(fixtureIDs[3]) ||
+					request.NewOrganizerUserID != uuid.MustParse(fixtureIDs[4]) ||
+					request.ExpectedSourceVersion != 9 ||
+					request.IdempotencyKey != "p3-02c-transfer-0001" {
+					t.Fatalf("unexpected organizer transfer request: %+v", request)
+				}
+				return nil
+			},
+		},
+	)
+	if exitCode != 0 || called != 1 || stderr.Len() != 0 ||
+		stdout.String() != "staging organizer transfer completed\n" {
+		t.Fatalf(
+			"unexpected transfer result: exit=%d called=%d stdout=%q stderr=%q",
+			exitCode,
+			called,
+			stdout.String(),
+			stderr.String(),
+		)
+	}
+	for _, identifier := range fixtureIDs {
+		if strings.Contains(stdout.String(), identifier) {
+			t.Fatalf("fixture identifier escaped to stdout: %q", stdout.String())
+		}
+	}
+}
+
+func TestRunLifecycleOperationsFailClosedBeforeAction(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name string
+		args []string
+	}{
+		{
+			name: "cancel missing session",
+			args: replaceArgument(cancelSessionArguments(), "--session-id", ""),
+		},
+		{
+			name: "cancel missing expected version",
+			args: replaceArgument(cancelSessionArguments(), "--expected-version", "0"),
+		},
+		{
+			name: "transfer missing organizer",
+			args: replaceArgument(
+				organizerTransferArguments(),
+				"--new-organizer-user-id",
+				"",
+			),
+		},
+		{
+			name: "transfer short idempotency key",
+			args: replaceArgument(
+				organizerTransferArguments(),
+				"--idempotency-key",
+				"too-short",
+			),
+		},
+		{
+			name: "unsupported operation",
+			args: replaceArgument(
+				cancelSessionArguments(),
+				"--operation",
+				"drop-database",
+			),
+		},
+	}
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			var stdout bytes.Buffer
+			var stderr bytes.Buffer
+			called := false
+			exitCode := run(
+				context.Background(),
+				test.args,
+				&stdout,
+				&stderr,
+				stagingEnvironmentLookup,
+				fixtureActions{
+					cancelSession: func(context.Context, cancelSessionRequest) error {
+						called = true
+						return nil
+					},
+					transferOrganizer: func(
+						context.Context,
+						organizerTransferRequest,
+					) error {
+						called = true
+						return nil
+					},
+				},
+			)
+			if exitCode == 0 || called || stdout.Len() != 0 || stderr.Len() == 0 {
+				t.Fatalf(
+					"lifecycle guard did not fail closed: exit=%d called=%t stdout=%q stderr=%q",
+					exitCode,
+					called,
+					stdout.String(),
+					stderr.String(),
+				)
+			}
+		})
+	}
+}
+
+func TestRunLifecycleFailureDoesNotLeakDependencyDetails(t *testing.T) {
+	t.Parallel()
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	sensitiveDetail := "postgres://secret@host/" + fixtureIDs[3]
+	exitCode := run(
+		context.Background(),
+		cancelSessionArguments(),
+		&stdout,
+		&stderr,
+		stagingEnvironmentLookup,
+		fixtureActions{
+			cancelSession: func(context.Context, cancelSessionRequest) error {
+				return errors.New(sensitiveDetail)
+			},
+		},
+	)
+	if exitCode == 0 || stdout.Len() != 0 ||
+		strings.Contains(stderr.String(), sensitiveDetail) ||
+		!strings.Contains(stderr.String(), "staging session cancellation failed") {
+		t.Fatalf(
+			"lifecycle failure leaked details: exit=%d stdout=%q stderr=%q",
+			exitCode,
+			stdout.String(),
+			stderr.String(),
+		)
+	}
+}
+
+func TestLifecyclePostconditionsRequireExactScopeAndVersionAdvance(t *testing.T) {
+	t.Parallel()
+	cancelRequest, err := parseCancelSessionRequest(
+		fixtureIDs[0],
+		fixtureIDs[1],
+		fixtureIDs[2],
+		fixtureIDs[3],
+		7,
+	)
+	if err != nil {
+		t.Fatalf("parse cancellation request: %v", err)
+	}
+	cancelledAt := time.Now().UTC()
+	cancelled := classroom.ClassSession{
+		ID:          cancelRequest.SessionID,
+		ClassID:     cancelRequest.ClassID,
+		Status:      classroom.SessionStatusCancelled,
+		Version:     8,
+		CancelledAt: &cancelledAt,
+	}
+	if err := validateCancelledSession(cancelRequest, cancelled); err != nil {
+		t.Fatalf("valid cancellation result rejected: %v", err)
+	}
+	cancelled.Version = cancelRequest.ExpectedVersion
+	if err := validateCancelledSession(cancelRequest, cancelled); err == nil {
+		t.Fatal("cancellation without a version advance was accepted")
+	}
+
+	transferRequest, err := parseOrganizerTransferRequest(
+		fixtureIDs[0],
+		fixtureIDs[1],
+		fixtureIDs[2],
+		fixtureIDs[3],
+		fixtureIDs[4],
+		9,
+		"p3-02c-transfer-0001",
+	)
+	if err != nil {
+		t.Fatalf("parse transfer request: %v", err)
+	}
+	transferred := classroom.OrganizerTransferResult{
+		Audience: classroom.SessionAudience{
+			Source: classroom.SessionParticipationSource(transferRequest.SessionID),
+		},
+		OrganizerUserID: transferRequest.NewOrganizerUserID,
+		SourceVersion:   10,
+	}
+	if err := validateOrganizerTransfer(transferRequest, transferred); err != nil {
+		t.Fatalf("valid organizer transfer result rejected: %v", err)
+	}
+	transferred.SourceVersion = transferRequest.ExpectedSourceVersion
+	if err := validateOrganizerTransfer(transferRequest, transferred); err == nil {
+		t.Fatal("organizer transfer without a version advance was accepted")
 	}
 }
 
@@ -282,6 +572,32 @@ func validArguments() []string {
 		"--class-id", fixtureIDs[2],
 		"--invitation-revision-id", fixtureIDs[3],
 		"--invitation-recipient-id", fixtureIDs[4],
+		"--confirm", confirmationPhrase,
+	}
+}
+
+func cancelSessionArguments() []string {
+	return []string{
+		"--operation", operationCancelSession,
+		"--tenant-id", fixtureIDs[0],
+		"--actor-id", fixtureIDs[1],
+		"--class-id", fixtureIDs[2],
+		"--session-id", fixtureIDs[3],
+		"--expected-version", "7",
+		"--confirm", confirmationPhrase,
+	}
+}
+
+func organizerTransferArguments() []string {
+	return []string{
+		"--operation", operationTransferOrganizer,
+		"--tenant-id", fixtureIDs[0],
+		"--actor-id", fixtureIDs[1],
+		"--class-id", fixtureIDs[2],
+		"--session-id", fixtureIDs[3],
+		"--new-organizer-user-id", fixtureIDs[4],
+		"--expected-source-version", "9",
+		"--idempotency-key", "p3-02c-transfer-0001",
 		"--confirm", confirmationPhrase,
 	}
 }

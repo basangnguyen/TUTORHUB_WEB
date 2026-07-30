@@ -155,9 +155,11 @@ P3-CAL-02 tiếp tục giữ live SES/domain/interoperability gate song song, kh
 P3-02C đã đạt local implementation gate ngày 2026-07-29 và staging participation
 checkpoint ngày 2026-07-30 trên commit `32a770ac`: audience PUT và Student self-RSVP
 sau reload PASS, ordinary participant không thấy external roster/email. Không mô tả task
-là `DONE`: migration `21 false`, exact ACL/role isolation đã đạt nhưng public capability
-bị BLOCKED bởi Render Free không có Shell; concurrent/IDOR, lifecycle và browser/live
-E2E vẫn phải chạy theo `docs/P3_02C_STAGING_ACCEPTANCE.md`.
+là `DONE`: migration `21 false`, exact ACL/role isolation đã đạt; server-issued public
+capability, core public smoke và audience remove/re-add revocation đã PASS một phần qua
+disposable Codespace. Full rate/expiry/hash-at-rest, concurrent/IDOR, organizer
+transfer/archive, NVDA và browser/live E2E vẫn phải chạy theo
+`docs/P3_02C_STAGING_ACCEPTANCE.md`.
 
 ## 6. Hạ tầng staging đã chốt
 

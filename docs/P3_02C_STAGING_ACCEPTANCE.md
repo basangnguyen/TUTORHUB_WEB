@@ -31,15 +31,24 @@ sang `DONE`.
   Các suite bao phủ WorkingSchedule CAS, privacy của Scheduling Assistant, focus
   recovery sau RSVP `409` và public-RSVP confirm/fragment scrub, nhưng không phát
   hành capability trên shared staging.
-- Render Free không cung cấp Render Shell cho service này. Vì vậy public RSVP
-  capability fixture chưa thể phát hành bằng binary server-side theo runbook; gate
-  này được ghi `BLOCKED`, không dùng raw token hoặc SQL shortcut.
+- Disposable GitHub Codespace chạy exact source commit `32a770ac` đã phát hành
+  capability bằng fixture server-side có opt-in staging; không dùng raw token hoặc
+  SQL mutation shortcut. Trình duyệt ngoài xác nhận fragment được scrub trước request,
+  resolve chỉ trả snapshot tối thiểu và respond lưu thành công.
+- Public API smoke đạt secure headers, origin guard, malformed generic response,
+  idempotent replay, collision/stale `409` và bounded resolve rate limit. Sau khi
+  Teacher remove rồi re-add external fixture qua audience business flow, link cũ trả
+  generic unavailable và không còn lộ event.
 - Teacher đã xác nhận lịch làm việc đã lưu lại sau reload với hai khoảng trong ngày,
   timezone IANA và một exception theo ngày. Scheduling Assistant trả về đúng 10 gợi ý
   có giới hạn; UI chỉ hiển thị trạng thái/reason cần thiết, không lộ nội dung lịch riêng.
 - Một lifecycle fixture chỉ dùng cho staging đã được tạo, lưu audience nội bộ với yêu
   cầu RSVP, sau đó bị hủy bởi organizer. Sau reload trạng thái vẫn là `Đã hủy` và lịch
   sử được giữ lại. Không ghi identifier, email hoặc capability vào bằng chứng này.
+- Focused Go regression bổ sung kill-switch-before-query, working-schedule hard caps
+  và fixture lifecycle guard; ba package Calendar/API/fixture đều PASS. Concurrency
+  PostgreSQL thật, organizer transfer/archive và matrix rate-limit đầy đủ vẫn mở nên
+  trạng thái task tiếp tục là `VERIFY`.
 
 ## Phạm vi và ranh giới
 
@@ -419,8 +428,8 @@ Guard vận hành:
 | Feature/kill-switch smoke | `NOT RUN` | Chưa có live fail-closed evidence |
 | Working schedule/free-busy API | `PARTIAL` | Teacher reload giữ hai interval, timezone IANA và exception; Scheduling Assistant trả 10 gợi ý bounded, privacy-safe. DST/cap/foreign-tenant edge còn mở |
 | Audience/internal RSVP/concurrency | `PARTIAL` | Audience PUT/reload, Student self-RSVP/reload và audience lifecycle fixture PASS; idempotency/concurrency/diff lifecycle live còn mở |
-| Public RSVP/capability | `BLOCKED` | Render Free không có Shell để chạy server-issued fixture binary |
-| Organizer/cancel/archive | `PARTIAL` | Organizer tạo rồi hủy lifecycle fixture trên staging; reload giữ `Đã hủy` và lịch sử. Transfer, archive và capability revocation live còn mở |
+| Public RSVP/capability | `PARTIAL` | Server-issued fixture trên disposable Codespace; fragment scrub, minimal resolve, respond/replay/collision/stale/origin/malformed/secure-header và bounded resolve rate PASS. Full token/IP rate matrix, expiry và DB hash-at-rest postcheck còn mở |
+| Organizer/cancel/archive | `PARTIAL` | Organizer tạo rồi hủy lifecycle fixture; audience remove/re-add làm link cũ generic unavailable. Transfer, archive, cancel scope matrix và atomicity live còn mở |
 | Tenant/privacy/IDOR | `PARTIAL` | Student privacy projection PASS; full cross-tenant/IDOR matrix chưa chạy |
 | UI/keyboard/NVDA | `PARTIAL` | Semantic/detail/RSVP path đã kiểm tra; keyboard/NVDA đầy đủ cho P3-02C chưa chạy |
 | Observability/log privacy | `PARTIAL` | Request ID/status log đã đối chiếu; full timeout/rate/lifecycle privacy matrix còn mở |

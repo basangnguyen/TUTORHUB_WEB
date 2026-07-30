@@ -9,7 +9,9 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/tutorhub-v2/core-api/internal/modules/featurecontrol"
+	"github.com/tutorhub-v2/core-api/internal/platform/tenancy"
 	"github.com/tutorhub-v2/core-api/internal/policy"
 )
 
@@ -48,6 +50,125 @@ func TestNewPostgresSchedulingRepositoryRequiresFailClosedDependencies(t *testin
 	}
 	if repository.queryTimeout != defaultQueryTimeout {
 		t.Fatalf("default query timeout = %s", repository.queryTimeout)
+	}
+}
+
+func TestPostgresSchedulingRepositoryKillSwitchStopsBeforeBusinessQueries(t *testing.T) {
+	t.Parallel()
+
+	scope, err := tenancy.New(uuid.New(), uuid.New())
+	if err != nil {
+		t.Fatalf("create scheduling scope: %v", err)
+	}
+	tests := []struct {
+		name               string
+		snapshotSetupExecs int
+		invoke             func(
+			*PostgresSchedulingRepository,
+			tenancy.Context,
+		) error
+	}{
+		{
+			name:               "get working schedule",
+			snapshotSetupExecs: 1,
+			invoke: func(repository *PostgresSchedulingRepository, scope tenancy.Context) error {
+				_, err := repository.GetWorkingSchedule(
+					context.Background(),
+					scope,
+					time.Date(2026, 7, 30, 0, 0, 0, 0, time.UTC),
+				)
+				return err
+			},
+		},
+		{
+			name: "put working schedule",
+			invoke: func(repository *PostgresSchedulingRepository, scope tenancy.Context) error {
+				_, err := repository.PutWorkingSchedule(
+					context.Background(),
+					scope,
+					PutWorkingScheduleInput{Timezone: "UTC"},
+					time.Date(2026, 7, 30, 0, 0, 0, 0, time.UTC),
+				)
+				return err
+			},
+		},
+		{
+			name:               "load availability",
+			snapshotSetupExecs: 1,
+			invoke: func(repository *PostgresSchedulingRepository, scope tenancy.Context) error {
+				_, err := repository.LoadAvailability(
+					context.Background(),
+					scope,
+					availabilityParams{},
+				)
+				return err
+			},
+		},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			transaction := &schedulingKillSwitchTransaction{}
+			database := &schedulingKillSwitchDatabase{transaction: transaction}
+			controls := &schedulingKillSwitchControls{
+				schedulingConstructorControls: &schedulingConstructorControls{},
+				err: &featurecontrol.FeatureDisabledError{
+					Feature: featurecontrol.FeatureClassSessionScheduling,
+				},
+			}
+			repository, err := NewPostgresSchedulingRepository(
+				database,
+				time.Second,
+				policy.NewEngine(),
+				controls,
+			)
+			if err != nil {
+				t.Fatalf("construct scheduling repository: %v", err)
+			}
+
+			err = test.invoke(repository, scope)
+			if !errors.Is(err, featurecontrol.ErrFeatureDisabled) {
+				t.Fatalf("kill-switch error = %v, want feature disabled", err)
+			}
+			if database.beginCalls != 1 {
+				t.Fatalf("transaction begins = %d, want 1", database.beginCalls)
+			}
+			if controls.calls != 1 ||
+				controls.tenantID != scope.TenantID ||
+				controls.feature != featurecontrol.FeatureClassSessionScheduling ||
+				controls.transaction != transaction {
+				t.Fatalf("feature check = %+v", controls)
+			}
+			if transaction.queryCalls != 0 || transaction.queryRowCalls != 0 {
+				t.Fatalf(
+					"kill-switch allowed business queries: query=%d query_row=%d",
+					transaction.queryCalls,
+					transaction.queryRowCalls,
+				)
+			}
+			if len(transaction.execQueries) != test.snapshotSetupExecs {
+				t.Fatalf(
+					"pre-check execs = %#v, want %d snapshot setup statements",
+					transaction.execQueries,
+					test.snapshotSetupExecs,
+				)
+			}
+			if test.snapshotSetupExecs == 1 &&
+				transaction.execQueries[0] !=
+					"SET TRANSACTION ISOLATION LEVEL REPEATABLE READ" {
+				t.Fatalf("unexpected pre-check statement: %q", transaction.execQueries[0])
+			}
+			if transaction.commitCalls != 0 || transaction.rollbackCalls != 1 {
+				t.Fatalf(
+					"transaction close calls = commit:%d rollback:%d",
+					transaction.commitCalls,
+					transaction.rollbackCalls,
+				)
+			}
+		})
 	}
 }
 
@@ -224,6 +345,29 @@ func TestAvailabilityParticipantValidationConcealsIneligibleReference(t *testing
 
 type schedulingConstructorDatabase struct{}
 
+type schedulingKillSwitchDatabase struct {
+	transaction *schedulingKillSwitchTransaction
+	beginCalls  int
+}
+
+type schedulingKillSwitchTransaction struct {
+	pgx.Tx
+	execQueries   []string
+	queryCalls    int
+	queryRowCalls int
+	commitCalls   int
+	rollbackCalls int
+}
+
+type schedulingKillSwitchControls struct {
+	*schedulingConstructorControls
+	err         error
+	calls       int
+	transaction featurecontrol.Transaction
+	tenantID    uuid.UUID
+	feature     featurecontrol.FeatureKey
+}
+
 type availabilityValidationTransaction struct {
 	pgx.Tx
 	rows      []pgx.Rows
@@ -280,7 +424,70 @@ func (*schedulingConstructorDatabase) Begin(context.Context) (pgx.Tx, error) {
 	return nil, errors.New("not used")
 }
 
+func (database *schedulingKillSwitchDatabase) Begin(
+	context.Context,
+) (pgx.Tx, error) {
+	database.beginCalls++
+	return database.transaction, nil
+}
+
+func (transaction *schedulingKillSwitchTransaction) Exec(
+	_ context.Context,
+	query string,
+	_ ...any,
+) (pgconn.CommandTag, error) {
+	transaction.execQueries = append(transaction.execQueries, query)
+	return pgconn.NewCommandTag("SET"), nil
+}
+
+func (transaction *schedulingKillSwitchTransaction) Query(
+	context.Context,
+	string,
+	...any,
+) (pgx.Rows, error) {
+	transaction.queryCalls++
+	return nil, errors.New("unexpected scheduling query after disabled feature")
+}
+
+func (transaction *schedulingKillSwitchTransaction) QueryRow(
+	context.Context,
+	string,
+	...any,
+) pgx.Row {
+	transaction.queryRowCalls++
+	return schedulingUnexpectedRow{}
+}
+
+func (transaction *schedulingKillSwitchTransaction) Commit(context.Context) error {
+	transaction.commitCalls++
+	return nil
+}
+
+func (transaction *schedulingKillSwitchTransaction) Rollback(context.Context) error {
+	transaction.rollbackCalls++
+	return nil
+}
+
+type schedulingUnexpectedRow struct{}
+
+func (schedulingUnexpectedRow) Scan(...any) error {
+	return errors.New("unexpected scheduling row scan after disabled feature")
+}
+
 type schedulingConstructorControls struct{}
+
+func (controls *schedulingKillSwitchControls) RequireFeature(
+	_ context.Context,
+	transaction featurecontrol.Transaction,
+	tenantID uuid.UUID,
+	feature featurecontrol.FeatureKey,
+) error {
+	controls.calls++
+	controls.transaction = transaction
+	controls.tenantID = tenantID
+	controls.feature = feature
+	return controls.err
+}
 
 func (*schedulingConstructorControls) RequireFeature(
 	context.Context,

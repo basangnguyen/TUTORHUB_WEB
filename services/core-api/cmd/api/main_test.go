@@ -32,3 +32,21 @@ func TestFeatureControlGuardrailsOmitFeaturesThatAreNotForcedOff(t *testing.T) {
 		t.Fatalf("valid runtime configuration must initialize the catalog: %v", err)
 	}
 }
+
+func TestFeatureControlGuardrailsForceOffClassSessionScheduling(t *testing.T) {
+	t.Parallel()
+
+	guardrails := featureControlGuardrails(config.FeatureControlConfig{
+		DisableClassSessionScheduling: true,
+		EnableClassSessionRecurrence:  true,
+		EnableInAppNotifications:      true,
+	})
+
+	if len(guardrails.ForcedOffFeatures) != 1 ||
+		!guardrails.ForcedOffFeatures[featurecontrol.FeatureClassSessionScheduling] {
+		t.Fatalf(
+			"class session scheduling kill-switch was not mapped exactly: %+v",
+			guardrails.ForcedOffFeatures,
+		)
+	}
+}

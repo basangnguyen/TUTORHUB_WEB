@@ -3,6 +3,7 @@ package calendar
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -78,6 +79,86 @@ func TestPutWorkingScheduleRejectsOverlapAndInvalidException(t *testing.T) {
 	}
 }
 
+func TestWorkingScheduleInputEnforcesPublishedCapacityBoundaries(t *testing.T) {
+	t.Parallel()
+
+	weekly := make([]WeeklyWorkingInterval, MaximumWorkingIntervalsDay)
+	for index := range weekly {
+		weekly[index] = WeeklyWorkingInterval{
+			Weekday: "monday",
+			CivilTimeInterval: CivilTimeInterval{
+				StartsAt: fmt.Sprintf("%02d:00", index*2),
+				EndsAt:   fmt.Sprintf("%02d:00", index*2+1),
+			},
+		}
+	}
+	normalized, err := normalizeWorkingScheduleInput(
+		PutWorkingScheduleInput{
+			Timezone:        "UTC",
+			WeeklyIntervals: weekly,
+		},
+		schedulingTestNow,
+	)
+	if err != nil || len(normalized.WeeklyIntervals) != MaximumWorkingIntervalsDay {
+		t.Fatalf("maximum weekly intervals rejected: value=%+v error=%v", normalized, err)
+	}
+	overWeekly := append(
+		append([]WeeklyWorkingInterval(nil), weekly...),
+		WeeklyWorkingInterval{
+			Weekday: "monday",
+			CivilTimeInterval: CivilTimeInterval{
+				StartsAt: "16:00",
+				EndsAt:   "17:00",
+			},
+		},
+	)
+	if _, err := normalizeWorkingScheduleInput(
+		PutWorkingScheduleInput{
+			Timezone:        "UTC",
+			WeeklyIntervals: overWeekly,
+		},
+		schedulingTestNow,
+	); !errors.Is(err, ErrInvalidInput) {
+		t.Fatalf("over-limit weekly intervals error = %v, want invalid input", err)
+	}
+
+	exceptions := make([]WorkingScheduleException, MaximumWorkingExceptions)
+	for index := range exceptions {
+		exceptions[index] = WorkingScheduleException{
+			Date: schedulingTestNow.AddDate(0, 0, index).Format("2006-01-02"),
+			Kind: "holiday",
+		}
+	}
+	normalized, err = normalizeWorkingScheduleInput(
+		PutWorkingScheduleInput{
+			Timezone:   "UTC",
+			Exceptions: exceptions,
+		},
+		schedulingTestNow,
+	)
+	if err != nil || len(normalized.Exceptions) != MaximumWorkingExceptions {
+		t.Fatalf("maximum exceptions rejected: count=%d error=%v", len(normalized.Exceptions), err)
+	}
+	overExceptions := append(
+		append([]WorkingScheduleException(nil), exceptions...),
+		WorkingScheduleException{
+			Date: schedulingTestNow.
+				AddDate(0, 0, MaximumWorkingExceptions).
+				Format("2006-01-02"),
+			Kind: "holiday",
+		},
+	)
+	if _, err := normalizeWorkingScheduleInput(
+		PutWorkingScheduleInput{
+			Timezone:   "UTC",
+			Exceptions: overExceptions,
+		},
+		schedulingTestNow,
+	); !errors.Is(err, ErrInvalidInput) {
+		t.Fatalf("over-limit exceptions error = %v, want invalid input", err)
+	}
+}
+
 func TestAvailabilityInputRejectsDuplicateAndUnboundedQueries(t *testing.T) {
 	t.Parallel()
 	participantID := uuid.New().String()
@@ -96,6 +177,116 @@ func TestAvailabilityInputRejectsDuplicateAndUnboundedQueries(t *testing.T) {
 	tooWide.To = "2026-09-28T09:00:00Z"
 	if _, err := normalizeAvailabilityInput(tooWide); !errors.Is(err, ErrInvalidRange) {
 		t.Fatalf("wide range error = %v", err)
+	}
+}
+
+func TestAvailabilityInputEnforcesPublishedCapacityBoundaries(t *testing.T) {
+	t.Parallel()
+
+	required := make(
+		[]AvailabilityParticipantReference,
+		MaximumAvailabilityPeople,
+	)
+	for index := range required {
+		required[index] = AvailabilityParticipantReference{
+			Kind: "internal_user",
+			ID:   uuid.New().String(),
+		}
+	}
+	base := AvailabilityQueryInput{
+		ClassID:         uuid.New().String(),
+		From:            "2026-07-28T09:00:00Z",
+		To:              "2026-07-29T09:00:00Z",
+		Timezone:        "UTC",
+		DurationMinutes: 15,
+		StepMinutes:     15,
+		MaxCandidates:   MaximumSuggestedCandidates,
+		Required:        required,
+	}
+	params, err := normalizeAvailabilityInput(base)
+	if err != nil {
+		t.Fatalf("published maximum availability input rejected: %v", err)
+	}
+	if len(params.Participants) != MaximumAvailabilityPeople ||
+		params.Duration != 15*time.Minute ||
+		params.Step != 15*time.Minute ||
+		params.MaxCandidates != MaximumSuggestedCandidates {
+		t.Fatalf("unexpected maximum availability params: %+v", params)
+	}
+
+	maximumDuration := base
+	maximumDuration.DurationMinutes = 480
+	maximumDuration.StepMinutes = 60
+	if _, err := normalizeAvailabilityInput(maximumDuration); err != nil {
+		t.Fatalf("maximum duration and allowed step rejected: %v", err)
+	}
+	middleStep := base
+	middleStep.StepMinutes = 30
+	if _, err := normalizeAvailabilityInput(middleStep); err != nil {
+		t.Fatalf("allowed 30-minute step rejected: %v", err)
+	}
+	defaultCandidates := base
+	defaultCandidates.MaxCandidates = 0
+	params, err = normalizeAvailabilityInput(defaultCandidates)
+	if err != nil || params.MaxCandidates != 10 {
+		t.Fatalf(
+			"default candidate limit = %d, error=%v, want 10",
+			params.MaxCandidates,
+			err,
+		)
+	}
+
+	overPeople := base
+	overPeople.Optional = []AvailabilityParticipantReference{{
+		Kind: "internal_user",
+		ID:   uuid.New().String(),
+	}}
+	tests := []struct {
+		name  string
+		input AvailabilityQueryInput
+	}{
+		{name: "over people", input: overPeople},
+		{
+			name: "duration below minimum",
+			input: func() AvailabilityQueryInput {
+				value := base
+				value.DurationMinutes = 14
+				return value
+			}(),
+		},
+		{
+			name: "duration above maximum",
+			input: func() AvailabilityQueryInput {
+				value := base
+				value.DurationMinutes = 481
+				return value
+			}(),
+		},
+		{
+			name: "unsupported step",
+			input: func() AvailabilityQueryInput {
+				value := base
+				value.StepMinutes = 45
+				return value
+			}(),
+		},
+		{
+			name: "over candidate limit",
+			input: func() AvailabilityQueryInput {
+				value := base
+				value.MaxCandidates = MaximumSuggestedCandidates + 1
+				return value
+			}(),
+		},
+	}
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			if _, err := normalizeAvailabilityInput(test.input); !errors.Is(err, ErrInvalidInput) {
+				t.Fatalf("error = %v, want invalid input", err)
+			}
+		})
 	}
 }
 

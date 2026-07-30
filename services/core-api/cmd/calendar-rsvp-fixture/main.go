@@ -22,11 +22,17 @@ import (
 )
 
 const (
-	stagingEnvironment = "staging"
-	confirmationPhrase = "ISSUE-P3-02C-STAGING-CAPABILITIES"
-	fixtureAppName     = "tutorhub-p3-02c-rsvp-fixture"
-	fixtureEnableKey   = "P3_02C_STAGING_FIXTURE_ENABLED"
-	maximumTokenLength = 512
+	stagingEnvironment                 = "staging"
+	confirmationPhrase                 = "ISSUE-P3-02C-STAGING-CAPABILITIES"
+	fixtureAppName                     = "tutorhub-p3-02c-rsvp-fixture"
+	fixtureEnableKey                   = "P3_02C_STAGING_FIXTURE_ENABLED"
+	maximumTokenLength                 = 512
+	minimumFixtureIdempotencyKeyLength = 16
+	maximumFixtureIdempotencyKeyLength = 128
+
+	operationIssueCapabilities = "issue-capabilities"
+	operationCancelSession     = "cancel-session"
+	operationTransferOrganizer = "transfer-organizer"
 )
 
 type environmentLookup func(string) (string, bool)
@@ -49,6 +55,36 @@ type capabilityIssuer func(
 	capabilityIssueRequest,
 ) (capabilityIssueResult, error)
 
+type fixtureScope struct {
+	TenantID uuid.UUID
+	ActorID  uuid.UUID
+	ClassID  uuid.UUID
+}
+
+type cancelSessionRequest struct {
+	fixtureScope
+	SessionID       uuid.UUID
+	ExpectedVersion int64
+}
+
+type organizerTransferRequest struct {
+	fixtureScope
+	SessionID             uuid.UUID
+	NewOrganizerUserID    uuid.UUID
+	ExpectedSourceVersion int64
+	IdempotencyKey        string
+}
+
+type sessionCanceller func(context.Context, cancelSessionRequest) error
+
+type organizerTransferrer func(context.Context, organizerTransferRequest) error
+
+type fixtureActions struct {
+	issueCapabilities capabilityIssuer
+	cancelSession     sessionCanceller
+	transferOrganizer organizerTransferrer
+}
+
 func main() {
 	ctx, stop := signal.NotifyContext(
 		context.Background(),
@@ -56,7 +92,18 @@ func main() {
 		syscall.SIGTERM,
 	)
 	defer stop()
-	os.Exit(run(ctx, os.Args[1:], os.Stdout, os.Stderr, os.LookupEnv, issueCapabilities))
+	os.Exit(run(
+		ctx,
+		os.Args[1:],
+		os.Stdout,
+		os.Stderr,
+		os.LookupEnv,
+		fixtureActions{
+			issueCapabilities: issueCapabilities,
+			cancelSession:     cancelStagingSession,
+			transferOrganizer: transferStagingOrganizer,
+		},
+	))
 }
 
 func run(
@@ -65,13 +112,39 @@ func run(
 	stdout io.Writer,
 	stderr io.Writer,
 	lookup environmentLookup,
-	issuer capabilityIssuer,
+	actions fixtureActions,
 ) int {
 	flags := flag.NewFlagSet("calendar-rsvp-fixture", flag.ContinueOnError)
 	flags.SetOutput(stderr)
+	operation := flags.String(
+		"operation",
+		operationIssueCapabilities,
+		"staging fixture operation",
+	)
 	tenantID := flags.String("tenant-id", "", "staging tenant UUID")
 	actorID := flags.String("actor-id", "", "authorized staging actor UUID")
 	classID := flags.String("class-id", "", "staging class UUID")
+	sessionID := flags.String("session-id", "", "staging one-time session UUID")
+	expectedVersion := flags.Int64(
+		"expected-version",
+		0,
+		"current session version for cancellation",
+	)
+	newOrganizerUserID := flags.String(
+		"new-organizer-user-id",
+		"",
+		"eligible replacement organizer UUID",
+	)
+	expectedSourceVersion := flags.Int64(
+		"expected-source-version",
+		0,
+		"current participation source version",
+	)
+	idempotencyKey := flags.String(
+		"idempotency-key",
+		"",
+		"single-use lifecycle idempotency key",
+	)
 	revisionID := flags.String(
 		"invitation-revision-id",
 		"",
@@ -115,18 +188,103 @@ func run(
 	if *confirmation != confirmationPhrase {
 		fmt.Fprintf(
 			stderr,
-			"refusing issuance without --confirm %s\n",
+			"refusing fixture operation without --confirm %s\n",
 			confirmationPhrase,
 		)
 		return 2
 	}
 
+	normalizedOperation := strings.ToLower(strings.TrimSpace(*operation))
+	switch normalizedOperation {
+	case operationIssueCapabilities:
+		return runCapabilityIssuance(
+			ctx,
+			stdout,
+			stderr,
+			lookup,
+			actions.issueCapabilities,
+			*tenantID,
+			*actorID,
+			*classID,
+			*revisionID,
+			*recipientID,
+		)
+	case operationCancelSession:
+		request, err := parseCancelSessionRequest(
+			*tenantID,
+			*actorID,
+			*classID,
+			*sessionID,
+			*expectedVersion,
+		)
+		if err != nil {
+			fmt.Fprintln(
+				stderr,
+				"tenant, actor, class, session, and a positive expected version are required",
+			)
+			return 2
+		}
+		if actions.cancelSession == nil {
+			fmt.Fprintln(stderr, "session cancellation fixture is unavailable")
+			return 1
+		}
+		if err := actions.cancelSession(ctx, request); err != nil {
+			fmt.Fprintln(stderr, "staging session cancellation failed")
+			return 1
+		}
+		fmt.Fprintln(stdout, "staging session cancellation completed")
+		return 0
+	case operationTransferOrganizer:
+		request, err := parseOrganizerTransferRequest(
+			*tenantID,
+			*actorID,
+			*classID,
+			*sessionID,
+			*newOrganizerUserID,
+			*expectedSourceVersion,
+			*idempotencyKey,
+		)
+		if err != nil {
+			fmt.Fprintln(
+				stderr,
+				"tenant, actor, class, session, organizer, source version, and idempotency key are required",
+			)
+			return 2
+		}
+		if actions.transferOrganizer == nil {
+			fmt.Fprintln(stderr, "organizer transfer fixture is unavailable")
+			return 1
+		}
+		if err := actions.transferOrganizer(ctx, request); err != nil {
+			fmt.Fprintln(stderr, "staging organizer transfer failed")
+			return 1
+		}
+		fmt.Fprintln(stdout, "staging organizer transfer completed")
+		return 0
+	default:
+		fmt.Fprintln(stderr, "unsupported staging fixture operation")
+		return 2
+	}
+}
+
+func runCapabilityIssuance(
+	ctx context.Context,
+	stdout io.Writer,
+	stderr io.Writer,
+	lookup environmentLookup,
+	issuer capabilityIssuer,
+	tenantID string,
+	actorID string,
+	classID string,
+	revisionID string,
+	recipientID string,
+) int {
 	request, err := parseIssueRequest(
-		*tenantID,
-		*actorID,
-		*classID,
-		*revisionID,
-		*recipientID,
+		tenantID,
+		actorID,
+		classID,
+		revisionID,
+		recipientID,
 	)
 	if err != nil {
 		fmt.Fprintln(stderr, "all tenant/source identifiers must be valid non-zero UUIDs")
@@ -194,6 +352,85 @@ func parseIssueRequest(
 	}, nil
 }
 
+func parseFixtureScope(
+	tenantID string,
+	actorID string,
+	classID string,
+) (fixtureScope, error) {
+	values := [3]uuid.UUID{}
+	raw := []string{tenantID, actorID, classID}
+	for index := range raw {
+		parsed, err := uuid.Parse(strings.TrimSpace(raw[index]))
+		if err != nil || parsed == uuid.Nil {
+			return fixtureScope{}, fmt.Errorf("invalid fixture scope")
+		}
+		values[index] = parsed
+	}
+	return fixtureScope{
+		TenantID: values[0],
+		ActorID:  values[1],
+		ClassID:  values[2],
+	}, nil
+}
+
+func parseCancelSessionRequest(
+	tenantID string,
+	actorID string,
+	classID string,
+	sessionID string,
+	expectedVersion int64,
+) (cancelSessionRequest, error) {
+	scope, err := parseFixtureScope(tenantID, actorID, classID)
+	if err != nil {
+		return cancelSessionRequest{}, err
+	}
+	session, err := uuid.Parse(strings.TrimSpace(sessionID))
+	if err != nil || session == uuid.Nil || expectedVersion < 1 {
+		return cancelSessionRequest{}, fmt.Errorf("invalid cancellation target")
+	}
+	return cancelSessionRequest{
+		fixtureScope:    scope,
+		SessionID:       session,
+		ExpectedVersion: expectedVersion,
+	}, nil
+}
+
+func parseOrganizerTransferRequest(
+	tenantID string,
+	actorID string,
+	classID string,
+	sessionID string,
+	newOrganizerUserID string,
+	expectedSourceVersion int64,
+	idempotencyKey string,
+) (organizerTransferRequest, error) {
+	scope, err := parseFixtureScope(tenantID, actorID, classID)
+	if err != nil {
+		return organizerTransferRequest{}, err
+	}
+	session, err := uuid.Parse(strings.TrimSpace(sessionID))
+	if err != nil || session == uuid.Nil {
+		return organizerTransferRequest{}, fmt.Errorf("invalid organizer transfer session")
+	}
+	organizer, err := uuid.Parse(strings.TrimSpace(newOrganizerUserID))
+	if err != nil || organizer == uuid.Nil || expectedSourceVersion < 1 {
+		return organizerTransferRequest{}, fmt.Errorf("invalid organizer transfer target")
+	}
+	key := strings.TrimSpace(idempotencyKey)
+	if key != idempotencyKey ||
+		len(key) < minimumFixtureIdempotencyKeyLength ||
+		len(key) > maximumFixtureIdempotencyKeyLength {
+		return organizerTransferRequest{}, fmt.Errorf("invalid organizer transfer idempotency key")
+	}
+	return organizerTransferRequest{
+		fixtureScope:          scope,
+		SessionID:             session,
+		NewOrganizerUserID:    organizer,
+		ExpectedSourceVersion: expectedSourceVersion,
+		IdempotencyKey:        key,
+	}, nil
+}
+
 func publicRSVPBase(rawOrigin string) (*url.URL, error) {
 	origin, err := url.Parse(strings.TrimSpace(rawOrigin))
 	if err != nil || origin.Scheme != "https" || origin.Host == "" || origin.User != nil ||
@@ -231,15 +468,177 @@ func issueCapabilities(
 	ctx context.Context,
 	request capabilityIssueRequest,
 ) (capabilityIssueResult, error) {
+	var result capabilityIssueResult
+	err := withStagingFixtureServices(
+		ctx,
+		fixtureScope{
+			TenantID: request.TenantID,
+			ActorID:  request.ActorID,
+			ClassID:  request.ClassID,
+		},
+		func(services stagingFixtureServices) error {
+			service, err := classroom.NewExternalRSVPService(
+				services.repository,
+				services.classAuthorizer,
+				time.Now,
+			)
+			if err != nil {
+				return fmt.Errorf("initialize RSVP authority")
+			}
+			issue := classroom.ExternalRSVPCapabilityIssue{
+				InvitationRevisionID:  request.InvitationRevisionID,
+				InvitationRecipientID: request.InvitationRecipientID,
+				Purpose:               classroom.ExternalRSVPCapabilityResolve,
+			}
+			resolve, err := service.IssueCapability(
+				ctx,
+				services.access,
+				request.ClassID,
+				issue,
+			)
+			if err != nil {
+				return err
+			}
+			issue.Purpose = classroom.ExternalRSVPCapabilityRespond
+			respond, err := service.IssueCapability(
+				ctx,
+				services.access,
+				request.ClassID,
+				issue,
+			)
+			if err != nil {
+				return err
+			}
+			result = capabilityIssueResult{
+				ResolveToken: resolve.Raw,
+				RespondToken: respond.Raw,
+			}
+			return nil
+		},
+	)
+	if err != nil {
+		return capabilityIssueResult{}, err
+	}
+	return result, nil
+}
+
+func cancelStagingSession(
+	ctx context.Context,
+	request cancelSessionRequest,
+) error {
+	return withStagingFixtureServices(
+		ctx,
+		request.fixtureScope,
+		func(services stagingFixtureServices) error {
+			service, err := classroom.NewSessionService(
+				services.repository,
+				services.classAuthorizer,
+			)
+			if err != nil {
+				return fmt.Errorf("initialize session authority")
+			}
+			session, err := service.CancelSession(
+				ctx,
+				services.access,
+				request.ClassID,
+				request.SessionID,
+				request.ExpectedVersion,
+			)
+			if err != nil {
+				return err
+			}
+			return validateCancelledSession(request, session)
+		},
+	)
+}
+
+func transferStagingOrganizer(
+	ctx context.Context,
+	request organizerTransferRequest,
+) error {
+	return withStagingFixtureServices(
+		ctx,
+		request.fixtureScope,
+		func(services stagingFixtureServices) error {
+			service, err := classroom.NewSessionParticipationService(
+				services.repository,
+				services.classAuthorizer,
+			)
+			if err != nil {
+				return fmt.Errorf("initialize participation authority")
+			}
+			result, err := service.TransferOrganizer(
+				ctx,
+				services.access,
+				request.ClassID,
+				classroom.SessionParticipationSource(request.SessionID),
+				classroom.TransferOrganizerInput{
+					NewOrganizerUserID:    request.NewOrganizerUserID,
+					ExpectedSourceVersion: request.ExpectedSourceVersion,
+					IdempotencyKey:        request.IdempotencyKey,
+				},
+			)
+			if err != nil {
+				return err
+			}
+			return validateOrganizerTransfer(request, result)
+		},
+	)
+}
+
+func validateCancelledSession(
+	request cancelSessionRequest,
+	session classroom.ClassSession,
+) error {
+	if session.ID != request.SessionID ||
+		session.ClassID != request.ClassID ||
+		session.Status != classroom.SessionStatusCancelled ||
+		session.CancelledAt == nil ||
+		session.Version <= request.ExpectedVersion ||
+		session.Version-request.ExpectedVersion != 1 {
+		return fmt.Errorf("session cancellation result is inconsistent")
+	}
+	return nil
+}
+
+func validateOrganizerTransfer(
+	request organizerTransferRequest,
+	result classroom.OrganizerTransferResult,
+) error {
+	if result.OrganizerUserID != request.NewOrganizerUserID ||
+		result.SourceVersion <= request.ExpectedSourceVersion ||
+		result.SourceVersion-request.ExpectedSourceVersion != 1 ||
+		result.Audience.Source.Kind != classroom.ParticipationSourceSession ||
+		result.Audience.Source.SessionID != request.SessionID {
+		return fmt.Errorf("organizer transfer result is inconsistent")
+	}
+	return nil
+}
+
+type stagingFixtureServices struct {
+	repository      *classroom.PostgresRepository
+	classAuthorizer *classroom.Service
+	access          classroom.AccessContext
+}
+
+func withStagingFixtureServices(
+	ctx context.Context,
+	scope fixtureScope,
+	action func(stagingFixtureServices) error,
+) error {
+	if scope.TenantID == uuid.Nil || scope.ActorID == uuid.Nil ||
+		scope.ClassID == uuid.Nil || action == nil {
+		return fmt.Errorf("invalid staging fixture scope")
+	}
 	cfg, err := config.Load()
 	if err != nil || cfg.Environment != stagingEnvironment || cfg.Database.PoolURL == "" ||
 		!cfg.CalendarProtectedData.Enabled {
-		return capabilityIssueResult{}, fmt.Errorf("staging fixture runtime is not configured")
+		return fmt.Errorf("staging fixture runtime is not configured")
 	}
 
 	pool, err := database.OpenNamed(ctx, cfg.Database, fixtureAppName)
 	if err != nil {
-		return capabilityIssueResult{}, fmt.Errorf("open fixture database")
+		return fmt.Errorf("open fixture database")
 	}
 	defer pool.Close()
 
@@ -248,7 +647,7 @@ func issueCapabilities(
 		KeyVersion: cfg.CalendarProtectedData.KeyVersion,
 	})
 	if err != nil {
-		return capabilityIssueResult{}, fmt.Errorf("initialize calendar protection")
+		return fmt.Errorf("initialize calendar protection")
 	}
 	authorizer := policy.NewEngine()
 	forcedOff := map[featurecontrol.FeatureKey]bool{}
@@ -259,7 +658,7 @@ func issueCapabilities(
 		ForcedOffFeatures: forcedOff,
 	})
 	if err != nil {
-		return capabilityIssueResult{}, fmt.Errorf("initialize feature controls")
+		return fmt.Errorf("initialize feature controls")
 	}
 	controls, err := featurecontrol.NewPostgresRepository(
 		pool,
@@ -268,7 +667,7 @@ func issueCapabilities(
 		catalog,
 	)
 	if err != nil {
-		return capabilityIssueResult{}, fmt.Errorf("initialize feature repository")
+		return fmt.Errorf("initialize feature repository")
 	}
 	repository := classroom.NewPostgresRepository(
 		pool,
@@ -278,15 +677,7 @@ func issueCapabilities(
 	).WithCalendarProtectedData(protector)
 	classAuthorizer, err := classroom.NewService(repository, authorizer)
 	if err != nil {
-		return capabilityIssueResult{}, fmt.Errorf("initialize class authority")
-	}
-	service, err := classroom.NewExternalRSVPService(
-		repository,
-		classAuthorizer,
-		time.Now,
-	)
-	if err != nil {
-		return capabilityIssueResult{}, fmt.Errorf("initialize RSVP authority")
+		return fmt.Errorf("initialize class authority")
 	}
 	roleContext, cancelRoleLookup := context.WithTimeout(ctx, cfg.Database.QueryTimeout)
 	defer cancelRoleLookup()
@@ -300,33 +691,20 @@ WHERE membership.tenant_id = $1
   AND membership.user_id = $2
   AND membership.status = 'active'
   AND tenant.status = 'active'`,
-		request.TenantID,
-		request.ActorID,
+		scope.TenantID,
+		scope.ActorID,
 	).Scan(&organizationRole); err != nil {
-		return capabilityIssueResult{}, fmt.Errorf("resolve active staging actor")
+		return fmt.Errorf("resolve active staging actor")
 	}
 	access := classroom.AccessContext{
-		TenantID:          request.TenantID,
-		ActorID:           request.ActorID,
+		TenantID:          scope.TenantID,
+		ActorID:           scope.ActorID,
 		MembershipActive:  true,
 		OrganizationRoles: []policy.OrganizationRole{organizationRole},
 	}
-	issue := classroom.ExternalRSVPCapabilityIssue{
-		InvitationRevisionID:  request.InvitationRevisionID,
-		InvitationRecipientID: request.InvitationRecipientID,
-	}
-	issue.Purpose = classroom.ExternalRSVPCapabilityResolve
-	resolve, err := service.IssueCapability(ctx, access, request.ClassID, issue)
-	if err != nil {
-		return capabilityIssueResult{}, err
-	}
-	issue.Purpose = classroom.ExternalRSVPCapabilityRespond
-	respond, err := service.IssueCapability(ctx, access, request.ClassID, issue)
-	if err != nil {
-		return capabilityIssueResult{}, err
-	}
-	return capabilityIssueResult{
-		ResolveToken: resolve.Raw,
-		RespondToken: respond.Raw,
-	}, nil
+	return action(stagingFixtureServices{
+		repository:      repository,
+		classAuthorizer: classAuthorizer,
+		access:          access,
+	})
 }
