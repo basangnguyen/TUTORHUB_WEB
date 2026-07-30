@@ -526,6 +526,10 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
     ordinary participant không thấy external roster/email. Render Free không có Shell nên
     public capability fixture bị `BLOCKED`; task tiếp tục ở `VERIFY` cho đến khi public
     RSVP, concurrency/IDOR, organizer/cancel/archive và accessibility live được nghiệm thu.
+37. P3-02C regression local được chạy lại ngày 2026-07-30: focused Go
+    calendar/classroom/http API suites, API client `27/27` và Calendar E2E `11/11` đều
+    đạt. Evidence này không thay thế live fixture public RSVP, Teacher lifecycle,
+    cross-tenant/IDOR và NVDA/observability acceptance; task vẫn `VERIFY`.
 
 ## Rủi ro đã biết
 

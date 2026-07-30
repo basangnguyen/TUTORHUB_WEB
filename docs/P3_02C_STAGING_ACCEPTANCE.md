@@ -26,6 +26,11 @@ sang `DONE`.
   đã chọn và UI hiển thị `Đã lưu phản hồi.`.
 - Backend ghi nhận self-RSVP `POST /responses` HTTP `200`, sau đó
   `GET /attendees` HTTP `200`; log có request ID và không chứa token/ciphertext.
+- Regression tự động chạy lại ở local: focused Go calendar/classroom/http API suites
+  đều đạt; API client đạt `27/27`; `corepack pnpm e2e:calendar` đạt `11/11`.
+  Các suite bao phủ WorkingSchedule CAS, privacy của Scheduling Assistant, focus
+  recovery sau RSVP `409` và public-RSVP confirm/fragment scrub, nhưng không phát
+  hành capability trên shared staging.
 - Render Free không cung cấp Render Shell cho service này. Vì vậy public RSVP
   capability fixture chưa thể phát hành bằng binary server-side theo runbook; gate
   này được ghi `BLOCKED`, không dùng raw token hoặc SQL shortcut.
@@ -403,6 +408,7 @@ Guard vận hành:
 | Runtime ACL mismatch = zero rows | `PASS` | Probe trả zero rows |
 | Runtime role isolation | `PASS` | Runtime role không có owner/superuser/bypass đặc quyền |
 | `corepack pnpm verify` | `PASS` | Local exact commit `32a770ac` |
+| Focused regression | `PASS` | Go calendar/classroom/http API; API client `27/27`; Calendar E2E `11/11` |
 | `corepack pnpm test:integration` | `NOT RUN` | Không chạy mutation suite trên shared staging; focused PostgreSQL coverage đã PASS local |
 | Feature/kill-switch smoke | `NOT RUN` | Chưa có live fail-closed evidence |
 | Working schedule/free-busy API | `PARTIAL` | Staging Scheduling Assistant, 409/reload, bounded suggestions, reason và timezone đã PASS; DST/cap/foreign-tenant edge còn mở |
