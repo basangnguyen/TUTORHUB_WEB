@@ -801,6 +801,7 @@ func resolveInternalAudience(
 SELECT requested.user_id,
        CASE
            WHEN requested.user_id = $3::uuid THEN 'organizer'
+           WHEN requested.user_id = class.owner_user_id THEN 'teacher'
            ELSE enrollment.class_role
        END AS business_role,
        CASE
@@ -808,6 +809,9 @@ SELECT requested.user_id,
            ELSE 'roster'
        END AS audience_source
 FROM requested
+JOIN tutorhub.classes AS class
+  ON class.tenant_id = $1
+ AND class.id = $2
 JOIN tutorhub.memberships AS membership
   ON membership.tenant_id = $1
  AND membership.user_id = requested.user_id
@@ -820,7 +824,9 @@ LEFT JOIN tutorhub.class_enrollments AS enrollment
  AND enrollment.class_id = $2
  AND enrollment.user_id = requested.user_id
  AND enrollment.status = 'active'
-WHERE requested.user_id = $3::uuid OR enrollment.user_id IS NOT NULL
+WHERE requested.user_id = $3::uuid
+   OR requested.user_id = class.owner_user_id
+   OR enrollment.user_id IS NOT NULL
 ORDER BY requested.user_id ASC
 FOR SHARE OF membership, app_user`,
 		tenantID,

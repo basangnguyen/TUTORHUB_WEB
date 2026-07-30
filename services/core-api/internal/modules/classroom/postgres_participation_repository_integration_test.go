@@ -21,6 +21,67 @@ import (
 	"github.com/tutorhub-v2/core-api/internal/policy"
 )
 
+func TestResolveInternalAudienceIncludesImplicitClassOwner(t *testing.T) {
+	migrationURL := requireEnvironment(t, "DATABASE_MIGRATION_URL")
+	poolURL := requireEnvironment(t, "DATABASE_POOL_URL")
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	defer cancel()
+	if err := migrationrunner.Up(ctx, migrationURL); err != nil {
+		t.Fatalf("apply migrations: %v", err)
+	}
+	pool, err := pgxpool.New(ctx, poolURL)
+	if err != nil {
+		t.Fatalf("create implicit owner audience integration pool: %v", err)
+	}
+	defer pool.Close()
+
+	transaction, err := pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		t.Fatalf("begin implicit owner audience fixture: %v", err)
+	}
+	defer func() { _ = transaction.Rollback(context.Background()) }()
+
+	tenantID, ownerID := seedTenantOwner(t, ctx, transaction, "participation-owner-audience")
+	organizerID := seedTenantMember(
+		t, ctx, transaction, tenantID, "participation-owner-audience-organizer", "teacher",
+	)
+	classID := uuid.New()
+	if _, err := transaction.Exec(ctx, `
+INSERT INTO tutorhub.classes (
+    id, tenant_id, owner_user_id, code, title, timezone, status
+)
+VALUES ($1, $2, $3, $4, 'Implicit owner audience integration class',
+        'Asia/Ho_Chi_Minh', 'active')`,
+		classID,
+		tenantID,
+		ownerID,
+		"PO"+strings.ToUpper(uuid.NewString()[:8]),
+	); err != nil {
+		t.Fatalf("insert implicit owner audience class: %v", err)
+	}
+
+	resolved, err := resolveInternalAudience(
+		ctx,
+		transaction,
+		tenantID,
+		classID,
+		organizerID,
+		[]InternalAudienceAttendee{{
+			UserID:            ownerID,
+			ParticipationRole: ParticipationRoleRequired,
+		}},
+	)
+	if err != nil {
+		t.Fatalf("resolve implicit class owner audience: %v", err)
+	}
+	if len(resolved) != 1 || resolved[0].UserID != ownerID ||
+		resolved[0].ParticipationRole != ParticipationRoleRequired ||
+		resolved[0].BusinessRole != string(policy.OrganizationRoleTeacher) ||
+		resolved[0].AudienceSource != "roster" {
+		t.Fatalf("unexpected implicit class owner audience: %+v", resolved)
+	}
+}
+
 func TestPostgresSessionParticipationSnapshotsIdempotencyAndRSVPCAS(t *testing.T) {
 	migrationURL := requireEnvironment(t, "DATABASE_MIGRATION_URL")
 	poolURL := requireEnvironment(t, "DATABASE_POOL_URL")
