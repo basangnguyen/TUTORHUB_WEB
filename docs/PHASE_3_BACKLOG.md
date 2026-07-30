@@ -608,6 +608,13 @@ capability bị `BLOCKED` vì Render Free không có Shell; concurrent/IDOR, lif
 browser accessibility live vẫn theo
 [`P3_02C_STAGING_ACCEPTANCE.md`](P3_02C_STAGING_ACCEPTANCE.md) và chưa đủ exit gate.
 
+**Teacher lifecycle staging checkpoint 2026-07-30:** Teacher reload giữ working
+schedule gồm hai interval, timezone IANA và exception theo ngày; Scheduling Assistant
+trả 10 gợi ý bounded, privacy-safe. Một fixture staging có audience nội bộ/yêu cầu RSVP
+đã được organizer tạo rồi hủy; reload giữ trạng thái `Đã hủy` và lịch sử. Đây là evidence
+cho cancel one-time, không thay thế organizer transfer/archive/capability revocation,
+concurrency/IDOR, public capability hay NVDA; P3-02C tiếp tục `VERIFY`.
+
 ### P3-02D Native Availability Poll và Study Meeting
 
 - [x] ADR-0021 chốt native ownership, permission, share mode, capability security và

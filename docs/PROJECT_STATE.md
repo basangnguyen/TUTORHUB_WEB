@@ -15,7 +15,7 @@
 | Task `DONE` gần nhất | P3-02B Recurrence + class conflict                                                   |
 | Mốc repository mới | P3-02C staging checkpoint tại commit `32a770ac`                                      |
 | Task hiện tại       | P3-02C `VERIFY`; P3-03/P3-04/P3-CAL-02 vẫn `VERIFY`                                 |
-| Task tiếp theo      | P3-02C đóng các live gate còn mở (public capability/lifecycle/IDOR)                 |
+| Task tiếp theo      | P3-02C đóng các live gate còn mở (public capability/transfer-archive/IDOR/NVDA)    |
 
 ## Kiến trúc đang chạy
 
@@ -530,6 +530,12 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
     calendar/classroom/http API suites, API client `27/27` và Calendar E2E `11/11` đều
     đạt. Evidence này không thay thế live fixture public RSVP, Teacher lifecycle,
     cross-tenant/IDOR và NVDA/observability acceptance; task vẫn `VERIFY`.
+38. P3-02C Teacher lifecycle staging checkpoint ngày 2026-07-30: reload giữ working
+    schedule gồm hai interval, timezone IANA và exception; Scheduling Assistant trả 10
+    gợi ý bounded, privacy-safe. Fixture staging có audience nội bộ/yêu cầu RSVP được
+    tạo rồi hủy, reload giữ `Đã hủy` và lịch sử. Public capability, organizer
+    transfer/archive/capability revocation, concurrency/IDOR, NVDA và observability
+    vẫn mở; P3-02C giữ `VERIFY`.
 
 ## Rủi ro đã biết
 

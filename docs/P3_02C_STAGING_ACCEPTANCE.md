@@ -34,6 +34,12 @@ sang `DONE`.
 - Render Free không cung cấp Render Shell cho service này. Vì vậy public RSVP
   capability fixture chưa thể phát hành bằng binary server-side theo runbook; gate
   này được ghi `BLOCKED`, không dùng raw token hoặc SQL shortcut.
+- Teacher đã xác nhận lịch làm việc đã lưu lại sau reload với hai khoảng trong ngày,
+  timezone IANA và một exception theo ngày. Scheduling Assistant trả về đúng 10 gợi ý
+  có giới hạn; UI chỉ hiển thị trạng thái/reason cần thiết, không lộ nội dung lịch riêng.
+- Một lifecycle fixture chỉ dùng cho staging đã được tạo, lưu audience nội bộ với yêu
+  cầu RSVP, sau đó bị hủy bởi organizer. Sau reload trạng thái vẫn là `Đã hủy` và lịch
+  sử được giữ lại. Không ghi identifier, email hoặc capability vào bằng chứng này.
 
 ## Phạm vi và ranh giới
 
@@ -411,10 +417,10 @@ Guard vận hành:
 | Focused regression | `PASS` | Go calendar/classroom/http API; API client `27/27`; Calendar E2E `11/11` |
 | `corepack pnpm test:integration` | `NOT RUN` | Không chạy mutation suite trên shared staging; focused PostgreSQL coverage đã PASS local |
 | Feature/kill-switch smoke | `NOT RUN` | Chưa có live fail-closed evidence |
-| Working schedule/free-busy API | `PARTIAL` | Staging Scheduling Assistant, 409/reload, bounded suggestions, reason và timezone đã PASS; DST/cap/foreign-tenant edge còn mở |
-| Audience/internal RSVP/concurrency | `PARTIAL` | Audience PUT/reload và Student self-RSVP/reload PASS; idempotency/concurrency/diff lifecycle live còn mở |
+| Working schedule/free-busy API | `PARTIAL` | Teacher reload giữ hai interval, timezone IANA và exception; Scheduling Assistant trả 10 gợi ý bounded, privacy-safe. DST/cap/foreign-tenant edge còn mở |
+| Audience/internal RSVP/concurrency | `PARTIAL` | Audience PUT/reload, Student self-RSVP/reload và audience lifecycle fixture PASS; idempotency/concurrency/diff lifecycle live còn mở |
 | Public RSVP/capability | `BLOCKED` | Render Free không có Shell để chạy server-issued fixture binary |
-| Organizer/cancel/archive | `NOT RUN` | Chưa có live lifecycle evidence |
+| Organizer/cancel/archive | `PARTIAL` | Organizer tạo rồi hủy lifecycle fixture trên staging; reload giữ `Đã hủy` và lịch sử. Transfer, archive và capability revocation live còn mở |
 | Tenant/privacy/IDOR | `PARTIAL` | Student privacy projection PASS; full cross-tenant/IDOR matrix chưa chạy |
 | UI/keyboard/NVDA | `PARTIAL` | Semantic/detail/RSVP path đã kiểm tra; keyboard/NVDA đầy đủ cho P3-02C chưa chạy |
 | Observability/log privacy | `PARTIAL` | Request ID/status log đã đối chiếu; full timeout/rate/lifecycle privacy matrix còn mở |
