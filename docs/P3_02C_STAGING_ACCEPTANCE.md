@@ -6,16 +6,29 @@
 | --- | --- |
 | Phạm vi | Working hours, attendee/free-busy, audience, RSVP và participation lifecycle |
 | Trạng thái task | `VERIFY` |
-| Neon staging | `NOT RUN` |
+| Neon staging | `21 false` (migration/ACL smoke đã đối chiếu) |
 | Migration mong đợi | `21 false` |
-| Commit Core API | Chưa ghi nhận |
-| Render deployment | Chưa ghi nhận |
-| Commit web | Chưa ghi nhận |
-| Cloudflare deployment | Chưa ghi nhận |
+| Commit Core API | `32a770ac` |
+| Render deployment | Live exact `32a770ac` (`dep-d9lc4boae00c73a4i8v0`) |
+| Commit web | `32a770ac` |
+| Cloudflare deployment | Live exact `32a770ac` |
 
-Tài liệu này là runbook nghiệm thu, không phải bằng chứng đã chạy. P3-02C chỉ được
-chuyển sang `DONE` sau khi toàn bộ gate bắt buộc bên dưới có kết quả live trên cùng
-commit và được ghi lại ở mục **Kết quả nghiệm thu**.
+Tài liệu này vừa là runbook vừa là sổ bằng chứng không nhạy cảm. P3-02C vẫn ở
+`VERIFY`: một số happy-path staging đã đạt, nhưng các gate bắt buộc chưa đủ để chuyển
+sang `DONE`.
+
+### Cập nhật staging 2026-07-30
+
+- Teacher đã lưu audience gồm attendee nội bộ và một external fixture; tải lại vẫn
+  giữ đúng dữ liệu. PUT audience trả HTTP `200` trên Render.
+- Student đúng vai trò `Học viên` chỉ thấy phần phản hồi của chính mình, không thấy
+  email hoặc roster external. Student chọn `Tham gia`; sau reload nút vẫn ở trạng thái
+  đã chọn và UI hiển thị `Đã lưu phản hồi.`.
+- Backend ghi nhận self-RSVP `POST /responses` HTTP `200`, sau đó
+  `GET /attendees` HTTP `200`; log có request ID và không chứa token/ciphertext.
+- Render Free không cung cấp Render Shell cho service này. Vì vậy public RSVP
+  capability fixture chưa thể phát hành bằng binary server-side theo runbook; gate
+  này được ghi `BLOCKED`, không dùng raw token hoặc SQL shortcut.
 
 ## Phạm vi và ranh giới
 
@@ -386,19 +399,19 @@ Guard vận hành:
 
 | Gate | Kết quả | Bằng chứng không nhạy cảm |
 | --- | --- | --- |
-| Migration `21 false` | `NOT RUN` | Chưa ghi nhận |
-| Runtime ACL mismatch = zero rows | `NOT RUN` | Chưa ghi nhận |
-| Runtime role isolation | `NOT RUN` | Chưa ghi nhận |
-| `corepack pnpm verify` | `NOT RUN` | Chưa ghi nhận |
-| `corepack pnpm test:integration` | `NOT RUN` | Chưa ghi nhận |
-| Feature/kill-switch smoke | `NOT RUN` | Chưa ghi nhận |
-| Working schedule/free-busy API | `NOT RUN` | Chưa ghi nhận |
-| Audience/internal RSVP/concurrency | `NOT RUN` | Chưa ghi nhận |
-| Public RSVP/capability | `NOT RUN` | Chưa ghi nhận |
-| Organizer/cancel/archive | `NOT RUN` | Chưa ghi nhận |
-| Tenant/privacy/IDOR | `NOT RUN` | Chưa ghi nhận |
-| UI/keyboard/NVDA | `NOT RUN` | Chưa ghi nhận |
-| Observability/log privacy | `NOT RUN` | Chưa ghi nhận |
+| Migration `21 false` | `PASS` | Neon staging version `21`, dirty `false` |
+| Runtime ACL mismatch = zero rows | `PASS` | Probe trả zero rows |
+| Runtime role isolation | `PASS` | Runtime role không có owner/superuser/bypass đặc quyền |
+| `corepack pnpm verify` | `PASS` | Local exact commit `32a770ac` |
+| `corepack pnpm test:integration` | `NOT RUN` | Không chạy mutation suite trên shared staging; focused PostgreSQL coverage đã PASS local |
+| Feature/kill-switch smoke | `NOT RUN` | Chưa có live fail-closed evidence |
+| Working schedule/free-busy API | `PARTIAL` | Staging Scheduling Assistant, 409/reload, bounded suggestions, reason và timezone đã PASS; DST/cap/foreign-tenant edge còn mở |
+| Audience/internal RSVP/concurrency | `PARTIAL` | Audience PUT/reload và Student self-RSVP/reload PASS; idempotency/concurrency/diff lifecycle live còn mở |
+| Public RSVP/capability | `BLOCKED` | Render Free không có Shell để chạy server-issued fixture binary |
+| Organizer/cancel/archive | `NOT RUN` | Chưa có live lifecycle evidence |
+| Tenant/privacy/IDOR | `PARTIAL` | Student privacy projection PASS; full cross-tenant/IDOR matrix chưa chạy |
+| UI/keyboard/NVDA | `PARTIAL` | Semantic/detail/RSVP path đã kiểm tra; keyboard/NVDA đầy đủ cho P3-02C chưa chạy |
+| Observability/log privacy | `PARTIAL` | Request ID/status log đã đối chiếu; full timeout/rate/lifecycle privacy matrix còn mở |
 
 ## Exit gate
 

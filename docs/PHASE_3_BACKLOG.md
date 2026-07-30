@@ -601,10 +601,12 @@ expiry/revoke/rate limit, POST body và generic error/secure-cache headers. Audi
 transfer giữ source authority. Cancel session/series/occurrence đóng response, revoke
 capability, tăng sequence và giữ immutable cancellation invitation snapshot để P3-05A
 phân phối sau này. OpenAPI/generated client, Core API và web có focused local coverage.
-P3-02C chuyển `IN PROGRESS -> VERIFY`, không chuyển `DONE`: Neon staging vẫn được xác
-nhận gần nhất ở `19 false`; migration source `000020/000021`, exact runtime ACL,
-concurrent/IDOR và browser/live E2E theo
-[`P3_02C_STAGING_ACCEPTANCE.md`](P3_02C_STAGING_ACCEPTANCE.md) vẫn `NOT RUN`.
+P3-02C chuyển `IN PROGRESS -> VERIFY`, không chuyển `DONE`: Neon staging đã đạt
+`21 false`, exact runtime ACL/role isolation đã đạt; staging participation checkpoint
+trên commit `32a770ac` xác nhận audience PUT và Student self-RSVP sau reload. Public
+capability bị `BLOCKED` vì Render Free không có Shell; concurrent/IDOR, lifecycle và
+browser accessibility live vẫn theo
+[`P3_02C_STAGING_ACCEPTANCE.md`](P3_02C_STAGING_ACCEPTANCE.md) và chưa đủ exit gate.
 
 ### P3-02D Native Availability Poll và Study Meeting
 

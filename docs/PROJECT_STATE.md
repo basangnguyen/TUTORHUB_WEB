@@ -6,16 +6,16 @@
 
 | Thuộc tính          | Trạng thái                                                                            |
 | ------------------- | ------------------------------------------------------------------------------------- |
-| Ngày cập nhật       | 2026-07-29                                                                            |
+| Ngày cập nhật       | 2026-07-30                                                                            |
 | Repository          | `https://github.com/basangnguyen/TUTORHUB_WEB`                                        |
 | Nhánh làm việc      | `main`                                                                                |
 | Quy trình           | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
 | Phase hoàn thành    | Phase 0, Phase 1, Phase 2                                                             |
 | Phase hiện tại      | Phase 3 - Daily learning workspace                                                   |
 | Task `DONE` gần nhất | P3-02B Recurrence + class conflict                                                   |
-| Mốc repository mới | P3-02B PostgreSQL acceptance tại commit `734d2b6`                                    |
+| Mốc repository mới | P3-02C staging checkpoint tại commit `32a770ac`                                      |
 | Task hiện tại       | P3-02C `VERIFY`; P3-03/P3-04/P3-CAL-02 vẫn `VERIFY`                                 |
-| Task tiếp theo      | P3-02C Neon migration/ACL và staging/live acceptance                                |
+| Task tiếp theo      | P3-02C đóng các live gate còn mở (public capability/lifecycle/IDOR)                 |
 
 ## Kiến trúc đang chạy
 
@@ -518,9 +518,14 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
     transfer giữ source authority; cancel session/series/occurrence đóng response,
     revoke capability và giữ immutable cancellation invitation snapshot. Focused HTTP,
     domain, PostgreSQL integration-tag compile và web/API-client coverage đã có ở local.
-    Trạng thái chỉ là `VERIFY`: source mới nhất là migration `000021`, nhưng Neon staging
-    được xác nhận gần nhất vẫn `19 false`; migration `000020/000021`, exact runtime ACL,
-    concurrent/IDOR, public RSVP và browser/live E2E chưa được chạy trên staging.
+    Trạng thái chỉ là `VERIFY`: migration `000020/000021` đã đạt `21 false`, exact runtime
+    ACL và role isolation đã đạt; browser staging mới xác nhận audience PUT và Student
+    self-RSVP sau reload. Concurrent/IDOR, public capability và lifecycle live vẫn mở.
+36. P3-02C đạt staging participation checkpoint ngày 2026-07-30 trên commit `32a770ac`.
+    Teacher audience PUT và Student self-RSVP đều trả HTTP 200, reload giữ trạng thái và
+    ordinary participant không thấy external roster/email. Render Free không có Shell nên
+    public capability fixture bị `BLOCKED`; task tiếp tục ở `VERIFY` cho đến khi public
+    RSVP, concurrency/IDOR, organizer/cancel/archive và accessibility live được nghiệm thu.
 
 ## Rủi ro đã biết
 
