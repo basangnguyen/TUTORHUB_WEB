@@ -53,6 +53,15 @@ sang `DONE`.
   Student privacy/self-RSVP, keyboard flow, focus recovery sau `409`, NVDA cho Calendar
   và public RSVP, cùng cancel/revocation trên fixture. Bằng chứng chỉ ghi kết quả,
   không lưu tài khoản, URL capability, token hoặc dữ liệu người học.
+- Operator chạy tiếp toàn bộ ma trận acceptance còn mở trên staging/disposable
+  PostgreSQL và xác nhận PASS: feature/kill-switch fail-closed; DST/boundary/cap/
+  deterministic free-busy; audience diff/idempotency/concurrent CAS/snapshot;
+  capability digest/expiry/rate/revocation; organizer transfer/cancel/archive;
+  cross-tenant concealment và log privacy. Chỉ lưu kết quả tổng hợp không nhạy cảm;
+  không lưu identifier, URL, token, ciphertext, RSVP payload hoặc roster.
+- Revalidation local trên HEAD sau xác nhận operator: `corepack pnpm verify` PASS;
+  focused Go Calendar/Classroom/HTTP/API/fixture PASS; Calendar E2E `11/11` PASS.
+  Task chỉ còn gate triển khai exact commit nghiệm thu lên Render và Cloudflare.
 
 ## Phạm vi và ranh giới
 
@@ -286,40 +295,40 @@ public capability và NVDA trên deployment đúng commit.
 
 ### Feature control
 
-- [ ] Khi feature tắt, working schedule, availability, audience, RSVP và organizer
+- [x] Khi feature tắt, working schedule, availability, audience, RSVP và organizer
       transfer đều fail closed trước query/mutation.
-- [ ] Khi deployment kill switch bật, tenant override không thể bật ngược.
-- [ ] Khi feature bật cho tenant canary, chỉ actor có quyền tương ứng mới mutate.
+- [x] Khi deployment kill switch bật, tenant override không thể bật ngược.
+- [x] Khi feature bật cho tenant canary, chỉ actor có quyền tương ứng mới mutate.
 
 ### Working hours và availability
 
-- [ ] Lưu nhiều interval trong một ngày, IANA timezone, ngày nghỉ, out-of-office và
+- [x] Lưu nhiều interval trong một ngày, IANA timezone, ngày nghỉ, out-of-office và
       exception có interval; reload vẫn giữ đúng dữ liệu.
-- [ ] `expected_version` cũ trả `409`; payload hợp lệ đang mở không bị mất.
-- [ ] Ngày DST gap/fold tạo kết quả xác định; khoảng thời gian được xử lý theo
+- [x] `expected_version` cũ trả `409`; payload hợp lệ đang mở không bị mất.
+- [x] Ngày DST gap/fold tạo kết quả xác định; khoảng thời gian được xử lý theo
       boundary nửa mở.
-- [ ] External/no-sync hiển thị `unknown`, không được suy diễn thành `free`.
-- [ ] Query 1–31 ngày, 1–50 participant, duration 15–480 phút và step
+- [x] External/no-sync hiển thị `unknown`, không được suy diễn thành `free`.
+- [x] Query 1–31 ngày, 1–50 participant, duration 15–480 phút và step
       15/30/60 hoạt động; vượt hard cap bị từ chối.
-- [ ] Kết quả tối đa 20 suggestion, không duyệt quá 2.000 candidate start và đáp
+- [x] Kết quả tối đa 20 suggestion, không duyệt quá 2.000 candidate start và đáp
       ứng deadline 250 ms theo ADR-0023.
-- [ ] Cùng input cho cùng output/order; reason giải thích busy/outside-hours/
+- [x] Cùng input cho cùng output/order; reason giải thích busy/outside-hours/
       unknown nhưng không lộ title, description, class, roster hay file.
-- [ ] ID tenant/class/member chéo tenant trả concealment và không mutate.
+- [x] ID tenant/class/member chéo tenant trả concealment và không mutate.
 
 ### Audience và RSVP nội bộ
 
-- [ ] Tổng internal + external sau dedupe không vượt 128 recipient.
-- [ ] Add/remove/unchanged/role-change đúng cho one-time, series và occurrence.
-- [ ] Metadata-only edit giữ RSVP; đổi role/time/organizer hoặc split áp dụng đúng
+- [x] Tổng internal + external sau dedupe không vượt 128 recipient.
+- [x] Add/remove/unchanged/role-change đúng cho one-time, series và occurrence.
+- [x] Metadata-only edit giữ RSVP; đổi role/time/organizer hoặc split áp dụng đúng
       reset rule; remove đóng response và revoke capability.
 - [x] Remove rồi add lại không tái sử dụng capability hoặc RSVP snapshot cũ.
 - [x] Student/ordinary attendee chỉ cập nhật RSVP của chính mình.
-- [ ] Cùng idempotency key + cùng payload replay an toàn; cùng key + payload khác
+- [x] Cùng idempotency key + cùng payload replay an toàn; cùng key + payload khác
       trả conflict và không nhân đôi receipt/snapshot.
-- [ ] Hai mutation đồng thời với cùng `expected_version` chỉ có một winner; request
+- [x] Hai mutation đồng thời với cùng `expected_version` chỉ có một winner; request
       còn lại trả `409` và không tạo partial state.
-- [ ] Snapshot invitation giữ stable UID, sequence/source version tăng đơn điệu,
+- [x] Snapshot invitation giữ stable UID, sequence/source version tăng đơn điệu,
       append-only và không chứa delivery effect/MIME của P3-05A.
 
 ## Public RSVP
@@ -332,9 +341,9 @@ Endpoint:
 
 Checklist:
 
-- [ ] Fixture phía server phát hành hai capability riêng theo purpose
+- [x] Fixture phía server phát hành hai capability riêng theo purpose
       `resolve`/`respond`; token không xuất hiện trong database ở dạng thô.
-- [ ] Link đặt token trong fragment
+- [x] Link đặt token trong fragment
       `#resolve_token=...&respond_token=...`; trang scrub fragment trước request và
       không ghi token vào query string, cache key, storage, log hay telemetry.
 - [x] Trang resolve chỉ hiển thị snapshot tối thiểu; respond yêu cầu xác nhận rõ
@@ -342,13 +351,13 @@ Checklist:
 - [x] Respond từ Origin ngoài web origin cấu hình bị từ chối.
 - [x] Response có `Cache-Control: no-store`, `Referrer-Policy: no-referrer`,
       `X-Robots-Tag: noindex, nofollow`, CSP chặt và CORP same-origin.
-- [ ] Token malformed, expired, revoked, superseded hoặc response window đã đóng
+- [x] Token malformed, expired, revoked, superseded hoặc response window đã đóng
       đều trả thông báo chung, không giúp phân biệt recipient/session tồn tại.
-- [ ] Rate cap resolve đạt 10/phút/token và 30/phút/IP; respond đạt
+- [x] Rate cap resolve đạt 10/phút/token và 30/phút/IP; respond đạt
       5/10 phút/token và 20/10 phút/IP; `429` có `Retry-After`.
 - [x] Replay cùng idempotency key an toàn; key collision hoặc stale state trả
       `409` không thay đổi RSVP lần hai.
-- [ ] Sau audience remove, organizer transfer, cancel hoặc archive, capability cũ
+- [x] Sau audience remove, organizer transfer, cancel hoặc archive, capability cũ
       không còn dùng được.
 
 API không mở capability-issuance endpoint cho người dùng; P3-05A mới tạo delivery
@@ -384,39 +393,39 @@ Guard vận hành:
 
 ## Organizer, cancellation và archive
 
-- [ ] Chỉ actor được phép mới chuyển organizer; dùng CAS, idempotency và audit.
-- [ ] Transfer giữ stable UID, tăng sequence/source version, reset RSVP theo policy
+- [x] Chỉ actor được phép mới chuyển organizer; dùng CAS, idempotency và audit.
+- [x] Transfer giữ stable UID, tăng sequence/source version, reset RSVP theo policy
       và rotate/revoke toàn bộ capability cũ.
-- [ ] Organizer cũ mất quyền ngay sau transaction; organizer mới có quyền đúng.
-- [ ] Organizer bị disable/remove không được thay ngầm; session vào trạng thái cần
+- [x] Organizer cũ mất quyền ngay sau transaction; organizer mới có quyền đúng.
+- [x] Organizer bị disable/remove không được thay ngầm; session vào trạng thái cần
       xử lý/blocked theo policy.
-- [ ] Cancel one-time/series/occurrence đóng response và revoke capability trong
+- [x] Cancel one-time/series/occurrence đóng response và revoke capability trong
       cùng transaction nhưng vẫn giữ lịch sử.
-- [ ] Archive class áp dụng cùng lifecycle closure; không còn public RSVP hợp lệ.
-- [ ] Fault/concurrency không tạo trạng thái nửa vời giữa attendee, snapshot,
+- [x] Archive class áp dụng cùng lifecycle closure; không còn public RSVP hợp lệ.
+- [x] Fault/concurrency không tạo trạng thái nửa vời giữa attendee, snapshot,
       capability và receipt.
 
 ## Privacy và UI/accessibility
 
 - [x] Ordinary participant chỉ thấy RSVP của mình và aggregate được policy cho
       phép; guest list/individual status cần capability phù hợp.
-- [ ] Availability không trả dữ liệu lớp/lịch riêng tư; ciphertext và fingerprint
+- [x] Availability không trả dữ liệu lớp/lịch riêng tư; ciphertext và fingerprint
       không xuất hiện ở API response hoặc log.
-- [ ] Foreign tenant/class/session/series/occurrence đều conceal `404`.
+- [x] Foreign tenant/class/session/series/occurrence đều conceal `404`.
 - [x] Calendar hiển thị working hours, busy/unknown và reason bằng text/icon; màu
       không phải tín hiệu duy nhất.
 - [x] Primary và secondary timezone được gắn nhãn rõ.
 - [x] Keyboard có luồng tương đương cho mở panel, chọn attendee, RSVP, confirm và
       đóng dialog; focus hợp lý sau success/error/`409`.
 - [x] Heading, landmark, accessible name và live status được NVDA đọc đúng.
-- [ ] Loading, empty, error, forbidden, rate-limited và retry đều có trạng thái rõ.
+- [x] Loading, empty, error, forbidden, rate-limited và retry đều có trạng thái rõ.
 
 ## Observability và log privacy
 
-- [ ] Request ID có mặt ở lỗi có cấu trúc và audit cho mutation quan trọng.
-- [ ] Có thể quan sát timeout, conflict, rate limit và lifecycle rejection mà không
+- [x] Request ID có mặt ở lỗi có cấu trúc và audit cho mutation quan trọng.
+- [x] Có thể quan sát timeout, conflict, rate limit và lifecycle rejection mà không
       log email, title, description, token, ciphertext, RSVP payload hay roster.
-- [ ] Không upload screenshot/trace/video chứa URL fragment, cookie hoặc thông tin
+- [x] Không upload screenshot/trace/video chứa URL fragment, cookie hoặc thông tin
       người học.
 
 ## Kết quả nghiệm thu
@@ -426,17 +435,17 @@ Guard vận hành:
 | Migration `21 false` | `PASS` | Neon staging version `21`, dirty `false` |
 | Runtime ACL mismatch = zero rows | `PASS` | Probe trả zero rows |
 | Runtime role isolation | `PASS` | Runtime role không có owner/superuser/bypass đặc quyền |
-| `corepack pnpm verify` | `PASS` | Local exact commit `32a770ac` |
-| Focused regression | `PASS` | Go calendar/classroom/http API; API client `27/27`; Calendar E2E `11/11` |
-| `corepack pnpm test:integration` | `NOT RUN` | Không chạy mutation suite trên shared staging; focused PostgreSQL coverage đã PASS local |
-| Feature/kill-switch smoke | `NOT RUN` | Chưa có live fail-closed evidence |
-| Working schedule/free-busy API | `PARTIAL` | Teacher reload giữ hai interval, timezone IANA và exception; Scheduling Assistant trả 10 gợi ý bounded, privacy-safe. DST/cap/foreign-tenant edge còn mở |
-| Audience/internal RSVP/concurrency | `PARTIAL` | Audience PUT/reload, Student self-RSVP/reload và audience lifecycle fixture PASS; idempotency/concurrency/diff lifecycle live còn mở |
-| Public RSVP/capability | `PARTIAL` | Server-issued fixture trên disposable Codespace; fragment scrub, minimal resolve, respond/replay/collision/stale/origin/malformed/secure-header và bounded resolve rate PASS. Full token/IP rate matrix, expiry và DB hash-at-rest postcheck còn mở |
-| Organizer/cancel/archive | `PARTIAL` | Organizer tạo rồi hủy lifecycle fixture; audience remove/re-add làm link cũ generic unavailable. Transfer, archive, cancel scope matrix và atomicity live còn mở |
-| Tenant/privacy/IDOR | `PARTIAL` | Student privacy projection PASS; full cross-tenant/IDOR matrix chưa chạy |
+| `corepack pnpm verify` | `PASS` | Local HEAD revalidation ngày 2026-07-30 |
+| Focused regression | `PASS` | Go Calendar/Classroom/HTTP/API/fixture; API client `27/27`; Calendar E2E `11/11` |
+| Disposable PostgreSQL integration | `PASS` | Operator xác nhận focused mutation/concurrency matrix trên database disposable; không chạy mutation suite trên shared staging |
+| Feature/kill-switch smoke | `PASS` | Operator xác nhận fail-closed, kill-switch precedence và canary authorization |
+| Working schedule/free-busy API | `PASS` | Reload/CAS/DST/boundary/unknown/cap/determinism/privacy/cross-tenant matrix đạt |
+| Audience/internal RSVP/concurrency | `PASS` | Diff/reset/idempotency/concurrent CAS/snapshot invariants đạt |
+| Public RSVP/capability | `PASS` | Server-issued token, digest-at-rest, generic expiry/revocation, full token/IP rate caps và lifecycle revocation đạt |
+| Organizer/cancel/archive | `PASS` | Transfer/CAS/audit/permission hand-off, cancel scope, archive và atomicity đạt |
+| Tenant/privacy/IDOR | `PASS` | Student projection và full foreign tenant/class/session/series/occurrence concealment đạt |
 | UI/keyboard/NVDA | `PASS` | Operator xác nhận keyboard flow, focus sau success/error/`409`, heading/landmark/accessible name/live status, dual timezone và color-independent state đều đạt |
-| Observability/log privacy | `PARTIAL` | Request ID/status log đã đối chiếu; full timeout/rate/lifecycle privacy matrix còn mở |
+| Observability/log privacy | `PASS` | Request ID/audit và timeout/conflict/rate/lifecycle log-privacy matrix đạt |
 
 ## Exit gate
 
