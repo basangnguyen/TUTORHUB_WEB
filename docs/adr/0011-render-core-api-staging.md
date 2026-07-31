@@ -40,6 +40,19 @@ readiness check và same-origin proxy từ Cloudflare Pages.
   ứng dụng dùng previous deployment của provider; rollback schema dùng migration
   có kiểm soát.
 
+## Tái xác nhận quyết định — 2026-07-31
+
+Chủ dự án giữ Render Web Service cho Core API staging/private alpha. Đánh giá OCI/
+Cloud Run/Oracle và các provider thay thế không làm thay đổi quyết định hoặc tạo migration
+trong task này. Render Free vẫn chỉ được chấp nhận vì API stateless và phạm vi alpha;
+không được dùng service này làm outbox worker durable.
+
+Các gate có thể chạy ở local/CI/disposable staging vẫn bắt buộc. Gate phụ thuộc host
+không spin-down, worker role/grants, crash/reclaim hoặc provider/domain production được
+ghi `DEFERRED/VERIFY`, không được coi là PASS do không chạy. Không bật notification,
+email/ICS, reminder hoặc file side effect tới end user trước khi ADR-0018/P3-03B và
+provider gates đạt.
+
 ## Xác minh
 
 Ngày 2026-07-16, chủ dự án xác nhận toàn bộ smoke test staging đạt:

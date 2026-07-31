@@ -61,6 +61,16 @@ phải chạy nhiều replica an toàn, phục hồi sau crash và xử lý pois
     lease state hoặc dead-letter nào đều chặn rollback và phải giữ version `15 false`; không
     cung cấp lệnh force/repair tự động để hợp thức hóa schema không khớp lịch sử migration.
 
+### Hosting status được tái xác nhận — 2026-07-31
+
+Render Web Service được giữ cho Core API staging/private alpha, nhưng Render Free không
+đáp ứng durable-worker gate. Chưa provision worker host hoặc provider migration mới;
+Render Background Worker trả phí chỉ là candidate tương lai. Vì vậy P3-03 vẫn `VERIFY`:
+worker role/grants live, non-spin-down host, duplicate canary và crash/reclaim là
+`DEFERRED/VERIFY`, không bị bỏ qua. Unit/CI/disposable PostgreSQL acceptance vẫn bắt
+buộc chạy, không dùng keepalive/cron/laptop thay cho worker. Hai gate side effect của
+P3-04 tiếp tục `false` cho tới durable acceptance.
+
 ## Hệ quả
 
 - API và worker có thể deploy/scale độc lập nhưng vẫn chia sẻ code, schema, policy và

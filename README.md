@@ -13,22 +13,21 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
   ngày 2026-07-22. P2-00 đến P2-12, staging acceptance, application rollback/redeploy
   và exit gate đều đạt.
 - Hiện đang thực hiện **Phase 3 - Daily learning workspace**. P3-00,
-  P3-CAL-00/00B/00C, P3-CAL-01 và P3-01 đã `DONE`. ADR-0019 chấp nhận
-  FullCalendar Standard v7.0.1 qua adapter, recurrence Go bounded
-  `366/730/512/2.000/250 ms`, COUNT occurrence-last horizon validation, YEARLY golden
-  và Warm Academic theme. Full v7 E2E hậu fix đạt `9 passed (23.6s)`; comparator parity v6
-  `4 passed` nhưng fail absolute budget ở render 500/long-task 2.000. NVDA vẫn là
-  explicit rollout gate trước khi renderer được nối vào route production, nên chưa
-  được mô tả Calendar như chức năng runtime. P3-03A PostgreSQL leased outbox worker đã
-  đạt `VERIFY` trong repository/runtime foundation: schema `000015`, fencing/lease,
-  retry/dead-letter, typed registry, worker process, least-privilege startup probe,
-  test/CI và runbook đã có. P3-04 đã hoàn tất phần repository ở mức `VERIFY`: schema
-  `000016`, notification projection/preference tenant-user scoped, API/client/UI,
-  exact worker ACL probe và handler controlled-canary đều đã có. Hai gate
-  `OUTBOX_ENABLE_IN_APP_NOTIFICATION_CANARY` và
+  P3-CAL-00/00B/00C, P3-CAL-01, P3-01, P3-02A, P3-02B và P3-02C đã `DONE`.
+  ADR-0019 chấp nhận FullCalendar Standard v7.0.1 qua adapter, recurrence Go bounded
+  `366/730/512/2.000/250 ms`, COUNT occurrence-last horizon validation, YEARLY golden,
+  Warm Academic theme và manual NVDA gate đã PASS. P3-02C runtime acceptance commit
+  `7859c233` đã live trên Render/Cloudflare; Neon staging `21 false`, ACL/runtime-role,
+  Calendar E2E `11/11` và ma trận manual/staging đều đạt.
+- P3-03A/P3-04 vẫn ở `VERIFY`: schema, fencing/lease, retry/dead-letter, typed registry,
+  worker binary, notification projection/API/UI và controlled canary đã có trong
+  repository, nhưng chưa có durable worker staging acceptance. Theo quyết định
+  2026-07-31, **giữ Render Web Service cho Core API staging/private alpha**; Render Free
+  không được dùng làm durable worker. Các gate cần host không spin-down (worker role/
+  grants, crash/reclaim, duplicate canary) là `DEFERRED/VERIFY`, không bị coi là đã
+  pass do bỏ qua. Hai gate `OUTBOX_ENABLE_IN_APP_NOTIFICATION_CANARY` và
   `FEATURE_CONTROL_ENABLE_IN_APP_NOTIFICATIONS` vẫn mặc định `false`; không bật
-  end-user side effect cho tới khi P3-03B áp dụng migration/grants, durable host không
-  spin-down được duyệt và staging duplicate/crash/reclaim acceptance đạt.
+  end-user side effect trước khi durable acceptance đạt.
 - ADR-0021 đã `Accepted` để P3-02D xây Native Availability Poll do TutorHub sở hữu:
   active member gồm student có thể tạo poll/Study Meeting của mình; secure public link
   không phải booking và không phụ thuộc When2meet. Đây mới là architecture/backlog,
@@ -37,7 +36,9 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
   P3-CAL-02/ADR-0020 vẫn phải xác minh account/region/sandbox/quota, adapter, webhook và
   deliverability; trước khi có domain chỉ được thử bằng identity cá nhân do owner kiểm
   soát và đã verify trong SES sandbox. Production vẫn chờ domain/DNS cùng
-  SPF/DKIM/DMARC; chưa có email runtime.
+  SPF/DKIM/DMARC, provider-event topology và cross-client matrix; chưa có email runtime.
+  Các test local/CI/sandbox vẫn bắt buộc chạy; chỉ các gate phụ thuộc provider/domain
+  production mới được ghi `DEFERRED/VERIFY`.
 - Web MVP nền đã chạy trên staging: Cloudflare Pages -> same-origin `/api/*` -> Go
   Core API trên Render; dữ liệu dùng Neon, file dùng Backblaze B2, media dùng LiveKit
   Cloud và xác thực dùng ZITADEL.

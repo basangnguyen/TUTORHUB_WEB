@@ -5,13 +5,13 @@
 | Thuộc tính            | Giá trị                                                                                      |
 | --------------------- | -------------------------------------------------------------------------------------------- |
 | Phiên bản tài liệu    | 2.2                                                                                          |
-| Cập nhật              | 2026-07-26                                                                                   |
+| Cập nhật              | 2026-07-31                                                                                   |
 | Phạm vi ưu tiên       | Web application                                                                              |
 | Thư mục phát triển    | `D:\TutorHub_V2`                                                                             |
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
 | Phase hiện tại        | Phase 3 - Daily learning workspace                                                           |
-| Trạng thái gần nhất   | P3-CAL-02 local VERIFY; SES/domain/client live gates và P3-03B/P3-04 vẫn mở                 |
+| Trạng thái gần nhất   | P3-02C DONE; P3-CAL-02/P3-03/P3-04 VERIFY, host/provider gates DEFERRED                   |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 
@@ -53,7 +53,10 @@ Nếu một quyết định trong tài liệu này khác ADR đã chấp nhận,
 
 ### 2.2 Điều chỉnh bắt buộc
 
-1. Render Web Service là host Core API staging/private alpha hiện tại. API phải stateless và đóng gói OCI để có thể chuyển sang nền tảng container production khi đạt exit trigger; Hugging Face chỉ còn là lựa chọn cho dịch vụ AI chuyên biệt.
+1. Render Web Service là host Core API staging/private alpha hiện tại và được giữ nguyên
+   trong quyết định ngày 2026-07-31. API phải stateless và đóng gói OCI để có thể chuyển
+   sang nền tảng container production khi đạt exit trigger; Hugging Face chỉ còn là lựa
+   chọn cho dịch vụ AI chuyên biệt. Render Free không phải durable worker.
 2. Kiến trúc phải tách rõ control plane, business data plane, media plane, collaboration plane, asynchronous plane và AI plane.
 3. Phải có transactional outbox và worker trước khi triển khai thông báo, xử lý file, recording, transcript hoặc AI bất đồng bộ.
 4. Chat bền vững phải ghi qua Core API/PostgreSQL; LiveKit DataChannel chỉ dùng cho tín hiệu tạm thời.
@@ -175,7 +178,7 @@ Không mở cấp tiếp theo nếu phase trước chưa đạt exit gate và ch
 | LiveKit Cloud                | Phù hợp MVP                    | Giữ; không tự host trước khi có SRE                                        |
 | Backblaze B2                 | Phù hợp object storage         | Giữ; thêm scan, metadata, lifecycle và CDN policy                          |
 | Cloudflare Pages             | Phù hợp SPA static             | Giữ                                                                        |
-| Render cho Core API          | Phù hợp staging/private alpha  | Giữ tạm; Free tier có cold start và phải có exit trigger trước public beta |
+| Render cho Core API          | Phù hợp staging/private alpha  | Giữ cho đến exit trigger; Free tier có cold start, không dùng làm durable worker |
 | Redis ngay từ đầu            | Chưa cần                       | Hoãn tới khi có rate limit phân tán, queue hoặc presence bắt buộc          |
 | Microservices/Kubernetes     | Quá sớm                        | Không dùng trong MVP                                                       |
 | LiveKit DataChannel cho chat | Không phù hợp dữ liệu bền vững | Chỉ dùng ephemeral events                                                  |
@@ -466,7 +469,9 @@ Nhóm job:
 - data export/deletion.
 - AI ingestion.
 
-HF free Space không phù hợp worker bền vững; private alpha chỉ chạy job nhẹ có thể retry, còn pilot phải chọn runtime worker có độ tin cậy phù hợp.
+Render Free Web Service và HF free Space đều không phù hợp worker bền vững. Private alpha
+chỉ chạy API stateless và job nhẹ có thể retry; worker side effect phải chờ host durable
+được provision, còn pilot phải chọn runtime worker có độ tin cậy phù hợp.
 
 ## 12. Identity, session, tenant và authorization
 
@@ -850,7 +855,8 @@ Ingestion là job: extract -> normalize -> chunk -> classify tenant/resource -> 
 ### 19.3 Private alpha miễn phí
 
 - Cloudflare Pages: static React.
-- HF Docker Space: Core API stateless.
+- Cloudflare Pages + Render Web Service: Core API stateless; Render cold start chỉ chấp
+  nhận cho staging/private alpha, không dùng cho durable worker hoặc side effect production.
 - Neon Free: PostgreSQL.
 - Backblaze B2: object storage với quota nội bộ.
 - LiveKit Build Free: media test có hard cap.
@@ -890,7 +896,8 @@ Không chọn Kubernetes mặc định. Chỉ dùng khi số service, yêu cầu
 
 | Thành phần        | Giữ khi                                                             | Bắt đầu chuyển khi                                                            |
 | ----------------- | ------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| HF Core API       | Alpha nhỏ, stateless, chấp nhận sleep/cold start                    | Cần SLA, autoscaling, worker bền vững, private network hoặc WebSocket ổn định |
+| Render Core API   | Alpha nhỏ/staging, stateless, chấp nhận sleep/cold start             | Cần SLA, autoscaling, worker bền vững, private network hoặc WebSocket ổn định |
+| Durable worker    | Chưa provision; các test local/CI/disposable vẫn chạy                | Trước notification/email/file side effect hoặc pilot; cần host không spin-down và crash/reclaim evidence |
 | Neon Free         | Connection/storage/compute trong quota và cold start chấp nhận được | Pilot cần luôn sẵn sàng, vượt quota, cần compliance/region/PITR cao hơn       |
 | LiveKit Free      | Test/private alpha trong hard cap                                   | Có lớp thật, recording, concurrency hoặc support/SLA                          |
 | B2                | Cost/region/latency và policy đáp ứng                               | Data residency, egress path, compliance hoặc latency không đạt                |
@@ -1344,13 +1351,13 @@ registration cùng product visibility vẫn mặc định tắt, chưa được 
 ADR-0021 đã chốt Native Availability Poll, secure
 sharing, member-owned Study Meeting và permission boundary cho P3-02D; quyết định này
 không cho phép P3-02D bypass P3-02B/C hoặc P3-03.
-P3-02C đã đạt local implementation gate và chuyển `IN PROGRESS -> VERIFY` ngày
-2026-07-29: working schedule/free-busy, internal/external audience, RSVP capability,
-audience diff, organizer transfer, cancellation lifecycle và public RSVP đã nối
-OpenAPI/generated client/Core API/web với focused local coverage. Source migration mới
-nhất là `000021`; Neon staging được xác nhận gần nhất vẫn `19 false`, nên
-`000020/000021`, exact runtime ACL, concurrent/IDOR và browser/live E2E vẫn là gate
-trước khi chuyển `DONE` hoặc kích hoạt delivery tới end user.
+P3-02C đã chuyển `VERIFY -> DONE` ngày 2026-07-30 tại acceptance commit `7859c233`:
+working schedule/free-busy, internal/external audience, RSVP capability, audience diff,
+organizer transfer, cancellation lifecycle và public RSVP đã nối OpenAPI/generated
+client/Core API/web. Neon staging đạt `21 false`, exact runtime ACL, concurrent/IDOR,
+Calendar E2E `11/11` và manual accessibility/privacy acceptance đều PASS; commit đã
+live trên Render/Cloudflare. Không mở thêm gate P3-02C trong tài liệu này. Email/ICS
+production vẫn phụ thuộc P3-CAL-02/P3-03B/P3-05A.
 
 **Mục tiêu:** trước khi có classroom phức tạp, người dùng đã quản lý được lịch, tin nhắn và tài liệu.
 
@@ -1851,7 +1858,7 @@ Một tính năng chỉ được đánh dấu hoàn thành khi:
 
 ## 36. Việc cần làm ngay
 
-Thứ tự hiện tại, cập nhật ngày 2026-07-29:
+  Thứ tự hiện tại, cập nhật ngày 2026-07-31:
 
 1. Phase 1 đã hoàn thành; biên bản nằm tại `docs/PHASE_1_COMPLETION.md`.
 2. Phase 2/P2-00 đến P2-12 đã hoàn thành; biên bản exit gate được sign-off ngày 2026-07-22.
@@ -1871,6 +1878,9 @@ Thứ tự hiện tại, cập nhật ngày 2026-07-29:
    durable host không spin-down và staging crash/reclaim acceptance trước mọi side effect
    tới end user. P3-04 implementation đã đạt local `VERIFY`, nhưng migration `000016`,
    exact notification grants, canary duplicate/reclaim và activation gate chưa nghiệm thu.
+   Render Web Service được giữ cho Core API staging/private alpha; không dùng Render Free
+   làm worker và chưa chuyển sang provider khác. Các gate host/provider được ghi
+   `DEFERRED/VERIFY`, còn test local/CI/disposable vẫn bắt buộc.
 9. P3-02A đã `DONE`: production-route Playwright 8/8, numeric performance,
    visual desktop/tablet/mobile, public probes và browser staging acceptance đều đạt.
 10. P3-CAL-02/ADR-0020 đã đạt local `VERIFY` trong package spike cô lập; ADR giữ
@@ -1882,10 +1892,11 @@ Thứ tự hiện tại, cập nhật ngày 2026-07-29:
      P3-02C và P3-05A theo dependency đã khóa; hoàn tất staging gate P3-04 cùng P3-03B
      trước activation.
      Không đưa recurrence, reminder, worker, email hoặc calendar tổng hợp vào P3-01.
-12. P3-02C đã đạt local `VERIFY`: external audience/capability, deterministic audience
-     diff, organizer transfer, cancellation close/revoke/snapshot và public RSVP có local
-     coverage. Neon vẫn `19 false`; migration `000020/000021`, exact ACL,
-     concurrent/IDOR và browser/live E2E chưa chạy nên chưa `DONE`.
+12. P3-02C đã `DONE` ngày 2026-07-30 tại commit `7859c233`: Neon `21 false`, migration
+     `000020/000021`, exact ACL/runtime isolation, concurrent/IDOR, Calendar E2E `11/11`
+     và staging/manual accessibility/privacy acceptance đều đạt; live trên Render/
+     Cloudflare. Email/ICS production không được suy ra từ gate này và vẫn chờ
+     P3-CAL-02/P3-03B/P3-05A.
 13. ADR-0021 đã `Accepted`; triển khai P3-02D sau P3-02B/C và P3-03 rồi P3-05B, không
      phụ thuộc When2meet.
 14. Không xóa thêm Neon branch theo quyết định hiện tại của owner.
@@ -1927,6 +1938,7 @@ Thứ tự hiện tại, cập nhật ngày 2026-07-29:
 - Backblaze B2 pricing: https://www.backblaze.com/cloud-storage/pricing
 - Backblaze + Cloudflare: https://www.backblaze.com/docs/cloud-storage-cloudflare-integrations
 - Cloudflare Pages limits: https://developers.cloudflare.com/pages/platform/limits/
+- Render Free services: https://render.com/docs/free
 
 ### Security
 
@@ -1942,16 +1954,20 @@ ADR-0018 cùng ADR-0021. Phase 2/P2-12 đã hoàn thành;
 P3-CAL-00/P3-CAL-00B/P3-CAL-00C, P3-CAL-01 và P3-01 đã `DONE`. ADR-0019 là
 `Accepted; manual NVDA gate PASS`; P3-02A đã `DONE` sau khi exact renderer, numeric
 performance, visual và staging/browser gates đều đạt.
-P3-03A và P3-04 implementation đã đạt `VERIFY`;
-task hạ tầng hiện tại là P3-03B/P3-04 durable-host và canary crash/reclaim acceptance.
+P3-03A và P3-04 implementation đã đạt `VERIFY`; task hạ tầng hiện tại là
+P3-03B/P3-04 durable-host và canary crash/reclaim acceptance. Render Web Service được
+giữ cho Core API staging/private alpha; các gate cần host/provider được ghi
+`DEFERRED/VERIFY`, không bị bỏ qua.
 Cả
 `OUTBOX_ENABLE_IN_APP_NOTIFICATION_CANARY` và
 `FEATURE_CONTROL_ENABLE_IN_APP_NOTIFICATIONS` vẫn mặc định false. P3-CAL-02/ADR-0020
 đã đạt local `VERIFY` với renderer/golden/sink/SES adapter cô lập. P3-02B recurrence và
-class conflict đã `DONE`; P3-02C working hours/attendee/free-busy/RSVP đã đạt local
-`VERIFY`. Bước tiếp theo của P3-02C là migration `000020/000021`, exact runtime ACL và
-staging/live acceptance; không được ghi `DONE` trước các gate này.
+class conflict đã `DONE`; P3-02C working hours/attendee/free-busy/RSVP đã `DONE` ngày
+2026-07-30 tại commit `7859c233` sau migration `000020/000021`, exact runtime ACL,
+concurrent/IDOR, Calendar E2E `11/11` và staging/manual acceptance. Bước tiếp theo là
+P3-03B durable worker acceptance; không bật side effect chỉ vì P3-02C đã hoàn tất.
 P3-02D/ADR-0021 mới là
 architecture/backlog, chưa có runtime. AWS SES đã được chọn làm provider target nhưng
 P3-CAL-02/ADR-0020 vẫn giữ các gate live email/ICS chưa nghiệm thu; chưa có domain hoặc
-production delivery. Master Plan giữ mục tiêu/exit gate, không thay backlog chi tiết.
+production delivery. Render Web Service vẫn là API staging/private alpha; Render Free
+không phải worker durable. Master Plan giữ mục tiêu/exit gate, không thay backlog chi tiết.

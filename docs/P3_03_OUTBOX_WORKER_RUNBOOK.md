@@ -26,6 +26,15 @@ dụng trên staging, API/worker direct-LOGIN grants cùng exact ACL probes và 
 dưới có bằng chứng đạt.
 Không bật side effect tới end user khi P3-03B còn mở.
 
+### Quyết định hosting hiện tại — 2026-07-31
+
+Render Web Service tiếp tục chạy Core API staging/private alpha. Render Free Web Service
+không phải durable worker; không dùng external ping, cron, GitHub Actions schedule hoặc
+laptop để giả lập lease worker. Render Background Worker trả phí là candidate tương lai,
+chưa được owner phê duyệt/provision. Vì vậy worker-host, live role/grants, duplicate
+canary và crash/reclaim được ghi `DEFERRED/VERIFY`; các test local/CI/disposable vẫn bắt
+buộc chạy và không có side effect tới end user.
+
 ## Cấu hình runtime và invariant
 
 | Biến | Mặc định | Vai trò |
@@ -67,10 +76,11 @@ web/private services, không áp dụng cho background worker.
 
 ## Durable-host gate
 
-Target ưu tiên cho staging/private alpha là **Render Background Worker trả phí**, một
+Candidate để review cho staging/private alpha là **Render Background Worker trả phí**, một
 instance, cùng repository, commit, Dockerfile và image với Core API. Background Worker
 chạy liên tục và không nhận inbound traffic. Render không có Free plan cho loại service
-này; dùng Free web service kèm external ping không đáp ứng gate.
+này; dùng Free web service kèm external ping không đáp ứng gate. Candidate này chưa phải
+quyết định provision và không thay đổi host Core API hiện tại.
 
 Không dùng các phương án sau thay cho durable worker:
 
@@ -88,6 +98,9 @@ Trước khi provision, owner phải duyệt đủ các điều kiện:
 - [ ] `OUTBOX_SHUTDOWN_TIMEOUT` nhỏ hơn provider shutdown delay;
 - [ ] metrics/alerts và crash/reclaim acceptance fixture đã sẵn sàng;
 - [ ] có quyền thao tác provider và cửa sổ triển khai được phê duyệt.
+
+Danh sách trên là future gate, chưa phải xác nhận chi phí hay lệnh provision. Không được
+đánh dấu các mục này hoàn tất chỉ vì Core API Render đang live.
 
 Render gửi `SIGTERM` khi shutdown/deploy rồi mới `SIGKILL` sau shutdown delay. Cấu hình
 `maxShutdownDelaySeconds` phải lớn hơn `OUTBOX_SHUTDOWN_TIMEOUT`; Render giới hạn giá trị

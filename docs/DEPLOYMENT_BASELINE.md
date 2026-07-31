@@ -23,12 +23,21 @@ Core API và outbox worker dùng cùng OCI image nhưng là hai process và hai 
 credential riêng. Worker phải chạy trên host bền vững không spin-down; Render Free Web
 Service không đáp ứng điều kiện này.
 
+### Quyết định vận hành hiện tại — 2026-07-31
+
+Render Web Service tiếp tục là host Core API cho staging/private alpha. Chưa có quyết
+định chuyển Core API sang OCI/Cloud Run/Oracle hay provider khác trong phạm vi cập nhật
+này. Render Free không được dùng làm `tutorhub-worker`; không thay durable worker bằng
+external ping, cron, GitHub Actions schedule hoặc laptop. Các kiểm tra local/CI/
+disposable staging vẫn bắt buộc; gate cần worker host không spin-down, provider event
+ingress hoặc domain production được ghi `DEFERRED/VERIFY` và không bật side effect.
+
 ## 2. Tách môi trường
 
 | Thành phần | Local | Staging | Production |
 |---|---|---|---|
 | Web/API | Local process | Cloudflare Pages + Render Web Service | Chưa quyết định; review trước pilot |
-| Outbox worker | Local process riêng | Durable non-spin-down host, provider chờ duyệt | Review capacity/SLA trước pilot |
+| Outbox worker | Local process riêng | `DEFERRED`: durable non-spin-down host, provider chưa provision | Review capacity/SLA trước pilot |
 | PostgreSQL | Local container | Neon staging branch/project | Neon production project |
 | Object storage | Local emulator hoặc bucket dev | B2 staging bucket | B2 production bucket |
 | LiveKit | Dev project | Staging project | Production project |

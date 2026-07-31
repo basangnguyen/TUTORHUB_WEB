@@ -146,11 +146,12 @@ P3-03A repository/runtime foundation đã đạt `VERIFY`: migration `000015`, w
 lease/fencing/retry/dead-letter, startup ACL probe, CI integration và runbook đã có.
 Không chuyển umbrella P3-03 sang `DONE` hoặc bật end-user side effect trước khi P3-03B
 staging migration/grants, durable host không spin-down và crash/reclaim acceptance đạt.
-P3-04 chưa `DONE`: Neon staging đã ở `17 false` và exact API runtime grants đã probe xanh;
-worker role/worker grants, durable worker và canary duplicate/crash-reclaim chưa được nghiệm
-thu. Khi đổi worker gate phải dừng process và đổi exact notification grant cùng lúc; quyền
-dư/thiếu đều phải làm startup probe fail closed. Bước dependency tiếp theo là P3-03B
-durable-host, worker role/grants và crash/reclaim acceptance.
+P3-04 chưa `DONE`: Neon staging hiện ở `21 false`; migration `000016` và exact API
+runtime grants đã probe xanh, nhưng worker role/worker grants, durable worker và canary
+duplicate/crash-reclaim chưa được nghiệm thu. Khi đổi worker gate phải dừng process và
+đổi exact notification grant cùng lúc; quyền dư/thiếu đều phải làm startup probe fail
+closed. Bước dependency tiếp theo là P3-03B durable-host, worker role/grants và
+crash/reclaim acceptance.
 P3-CAL-02 tiếp tục giữ live SES/domain/interoperability gate song song, không bật runtime.
 P3-02C đã `DONE` ngày 2026-07-30. Neon staging `21 false`, exact ACL/runtime-role
 isolation, automated local gate và Calendar E2E đều PASS. Operator xác nhận toàn bộ ma
@@ -159,6 +160,13 @@ concurrency/IDOR, capability lifecycle/rate, organizer transfer/cancel/archive v
 privacy. Exact runtime acceptance commit `7859c233` đã Live trên Render và Cloudflare;
 Render health trả HTTP `200`. Biên bản không nhạy cảm nằm tại
 `docs/P3_02C_STAGING_ACCEPTANCE.md`.
+
+Quyết định vận hành ngày 2026-07-31 là giữ Render Web Service cho Core API staging/
+private alpha và không chuyển provider trong lượt hiện tại. Render Free không phải
+durable worker. Test local/CI/disposable vẫn bắt buộc; gate cần host không spin-down,
+worker live grants, crash/reclaim/duplicate canary hoặc SES/domain production được ghi
+`DEFERRED/VERIFY`, không được coi là PASS do không chạy. Hai feature gate notification
+tiếp tục `false`; không bật side effect tới end user.
 
 ## 6. Hạ tầng staging đã chốt
 

@@ -6,7 +6,7 @@
 
 | Thuộc tính          | Trạng thái                                                                            |
 | ------------------- | ------------------------------------------------------------------------------------- |
-| Ngày cập nhật       | 2026-07-30                                                                            |
+| Ngày cập nhật       | 2026-07-31                                                                            |
 | Repository          | `https://github.com/basangnguyen/TUTORHUB_WEB`                                        |
 | Nhánh làm việc      | `main`                                                                                |
 | Quy trình           | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
@@ -14,7 +14,7 @@
 | Phase hiện tại      | Phase 3 - Daily learning workspace                                                   |
 | Task `DONE` gần nhất | P3-02C Working hours, attendee/free-busy và RSVP                                  |
 | Mốc repository mới | P3-02C runtime acceptance commit `7859c233` Live trên Render và Cloudflare         |
-| Task hiện tại       | P3-03/P3-04/P3-CAL-02 vẫn `VERIFY`                                                |
+| Task hiện tại       | P3-03/P3-04/P3-CAL-02 vẫn `VERIFY`; host/provider gates được ghi `DEFERRED`       |
 | Task tiếp theo      | P3-03B durable host, worker role/grants và crash/reclaim acceptance               |
 
 ## Kiến trúc đang chạy
@@ -556,6 +556,15 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
     còn lại PASS, gồm concurrency/IDOR, capability digest/expiry/rate/revocation,
     organizer transfer/cancel/archive và log privacy. Exact runtime acceptance commit
     `7859c233` đã Live trên Render và Cloudflare; Render health trả HTTP `200`.
+42. Quyết định vận hành được tái xác nhận ngày 2026-07-31: giữ **Render Web Service**
+    cho Core API staging/private alpha; không chuyển sang OCI/Cloud Run/Oracle hay
+    provider khác trong cập nhật này. Render Free có cold start/spin-down và không phải
+    durable worker. Vì vậy các kiểm tra chạy được ở local/CI/disposable staging vẫn là
+    bắt buộc; các gate phụ thuộc host không spin-down hoặc provider production được ghi
+    `DEFERRED/VERIFY`, không được suy diễn thành PASS hay bỏ qua. P3-03B (worker role/
+    grants, crash/reclaim, duplicate canary) và các gate live SES/domain/event
+    topology tiếp tục mở; hai feature gate notification vẫn `false`, không có
+    email/notification/reminder/file side effect tới end user.
 
 ## Rủi ro đã biết
 
@@ -592,13 +601,23 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
 - P3-03A/P3-04 mới ở `VERIFY`: lease/fencing/dead-letter, worker binary, notification
   projection/API/UI, ACL probe và test đã
   có trong repository nhưng chưa chạy như durable service trên staging. Render Free web
-  service không được xem là durable worker; owner chưa duyệt chi phí Background Worker.
+  service không được xem là durable worker. Quyết định hiện tại là giữ Render Web Service
+  cho Core API staging/private alpha; Render Background Worker trả phí chỉ là candidate
+  tương lai, chưa được provision/phê duyệt và không có provider migration trong task này.
   Không bật notification, email/ICS, reminder hoặc message/file side effect tới end user
   trước khi migration `000015/000016`, exact grants, non-spin-down host và crash/reclaim
   acceptance đạt. Hai P3-04 gate phải giữ false; grant worker notification và worker gate
   phải chuyển cùng nhau khi process đã dừng, nếu không startup probe sẽ fail closed.
   P3-CAL-02 chỉ
   được chạy renderer/provider sandbox cô lập trong lúc gate này còn mở.
+
+### Phân loại gate vận hành hiện tại (2026-07-31)
+
+| Nhóm | Quy tắc |
+| --- | --- |
+| Bắt buộc chạy ngay | Unit/integration/CI, static ACL/config checks, local/disposable PostgreSQL, API/browser/accessibility và sandbox/sink tests trong phạm vi hiện có. |
+| `DEFERRED/VERIFY` | Durable worker host không spin-down, live worker role/grants, crash/reclaim/duplicate canary, SES production access/quota/event ingress, domain/DNS và Gmail/Outlook/Apple interoperability. |
+| Không được bật | `OUTBOX_ENABLE_IN_APP_NOTIFICATION_CANARY`, `FEATURE_CONTROL_ENABLE_IN_APP_NOTIFICATIONS` và mọi business email/ICS/reminder/file side effect tới end user trước khi các gate phụ thuộc đạt. |
 
 - Render Free spin down khi không hoạt động và có thể cold start trên 50 giây;
   chỉ chấp nhận cho staging/private alpha.

@@ -21,6 +21,16 @@ Chỉ chuyển sang `Accepted` sau khi:
 Ngay cả khi ADR được chấp nhận ở cấp decision spike, delivery tới end user vẫn bị khóa
 bởi P3-03B durable worker, P3-02C và P3-05A.
 
+### Cập nhật vận hành — 2026-07-31
+
+Quyết định giữ Render Web Service cho Core API staging/private alpha không thay đổi
+thiết kế SES trong ADR này. Renderer/golden/sink và adapter sandbox tiếp tục được test
+local/CI; không gửi business email tới end user trong giai đoạn chưa có durable worker.
+SES account/region/quota, event topology/suppression, production access, sending
+domain/DNS/SPF/DKIM/DMARC và Gmail/Outlook/Apple interoperability được ghi
+`DEFERRED/VERIFY` cho tới khi có evidence live. Không coi việc chưa cấu hình domain hoặc
+chưa gửi là PASS; runtime provider call chỉ được mở sau P3-03B và P3-05A.
+
 ## Bối cảnh
 
 TutorHub cần gửi invitation, update, cancellation và reminder có thể được Calendar

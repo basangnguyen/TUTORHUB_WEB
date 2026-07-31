@@ -39,6 +39,14 @@ P3-03A/P3-04 vẫn `VERIFY` vì `tutorhub_worker` chưa provision, durable host 
 và duplicate/crash/reclaim acceptance còn thiếu. Mọi side effect tới end user vẫn chờ
 P3-03B đạt; hai gate P3-04 tiếp tục giữ `false` cho tới acceptance.
 
+**Quyết định hosting/test ngày 2026-07-31:** giữ Render Web Service cho Core API
+staging/private alpha. Render Free không phải durable worker và không được thay bằng
+external ping, cron, GitHub Actions schedule hoặc laptop. Các test local/CI/disposable
+staging vẫn bắt buộc thực hiện; chỉ gate cần host không spin-down, worker live grants,
+crash/reclaim/duplicate và provider/domain production được gắn `DEFERRED/VERIFY`.
+`DEFERRED` là trạng thái của một sub-gate, không làm umbrella task thành `DONE` và không
+cho phép bật side effect tới end user.
+
 **Thiết kế Calendar có thẩm quyền:**
 [`CALENDAR_PRODUCT_TECHNICAL_DESIGN.md`](CALENDAR_PRODUCT_TECHNICAL_DESIGN.md).
 
@@ -107,6 +115,9 @@ P3-03B đạt; hai gate P3-04 tiếp tục giữ `false` cho tới acceptance.
 
 `VERIFY` nghĩa là implementation và kiểm tra local đã đạt, nhưng migration/deployment
 và acceptance trên staging chưa hoàn tất. Trạng thái này không đồng nghĩa `DONE`.
+`DEFERRED/VERIFY` nghĩa là phần kiểm tra đã được xác định rõ nhưng đang chờ một điều kiện
+ngoài repository (ví dụ durable host, quyền provider hoặc domain/DNS). Không được đánh
+dấu PASS bằng cách không chạy; các phần không phụ thuộc điều kiện đó vẫn phải chạy.
 
 ## 5. Dependency graph
 
@@ -381,6 +392,12 @@ route đã được nghiệm thu trong P3-02A.
       không consume outbox và không gửi business email tới end user. SES sandbox chỉ
       dùng owner-controlled verified identities. Runtime delivery vẫn phải chờ
       P3-03/P3-05A.
+
+**Gate vận hành hiện tại (2026-07-31):** renderer, golden, sink và adapter sandbox tiếp
+tục được kiểm tra local/CI. SES account/region/quota, provider event ingress/suppression,
+sending domain/DNS/SPF/DKIM/DMARC và cross-client interoperability được giữ
+`DEFERRED/VERIFY` cho tới khi có bằng chứng live; không coi việc chưa gửi email là PASS và
+không nối business delivery vào Render Web Service.
 
 ### P3-02A Professional Calendar shell và read projection
 
@@ -686,15 +703,16 @@ organizer/cancel/archive và log privacy. Exact runtime acceptance commit `7859c
 
 ## 9. P3-03 PostgreSQL outbox worker production shape
 
-**Trạng thái 2026-07-25:** `VERIFY`. Repository đã có migration `000015`, worker binary
+**Trạng thái 2026-07-31:** `VERIFY`. Repository đã có migration `000015`, worker binary
 độc lập, exact allowlist/typed registry, lease + fencing, bounded claim concurrency,
 retry/backoff/dead-letter, graceful shutdown, bounded structured metrics, startup ACL
 probe, OCI image chung, CI PostgreSQL integration và runbook. Registry runtime để rỗng
 theo mặc định; P3-04 chỉ đăng ký exact controlled-canary handler khi worker gate bật,
 nên không đụng event lịch sử. Registry gate-off vẫn phát heartbeat định kỳ nhưng không claim. Local unit/compile gate
 đạt; PostgreSQL runtime suite chạy ở CI. Neon staging đã áp migration và API runtime ACL;
-worker role/ACL, host trả phí và crash/reclaim acceptance vẫn chưa có, vì vậy tuyệt đối chưa
-chuyển `DONE`.
+worker role/ACL, host không spin-down và crash/reclaim acceptance vẫn chưa có, vì vậy tuyệt đối
+chưa chuyển `DONE`. Quyết định hiện tại giữ Render Web Service cho Core API
+staging/private alpha; không provision hoặc migrate host khác trong task này.
 
 - Thực thi ADR-0018 bằng `services/core-api/cmd/worker` trong cùng modular monolith/image.
 - Lease batch bằng `FOR UPDATE SKIP LOCKED` cùng fencing token; stale owner không thể
@@ -715,15 +733,20 @@ chuyển `DONE`.
   dụng trên staging, API/worker direct-LOGIN grants cùng exact ACL probes và startup smoke
   đạt, một hosting target không spin-down/cron-loss được chọn/deploy, và crash/reclaim
   acceptance đạt.
+- **Phân loại kiểm tra:** unit/integration/CI, image build, static ACL/config probe và
+  local/disposable PostgreSQL lease tests vẫn phải chạy ngay. Worker live role/grants,
+  non-spin-down host, duplicate canary và crash/reclaim được ghi `DEFERRED/VERIFY` vì
+  chưa có runtime phù hợp; không được bỏ qua hoặc tuyên bố PASS.
 - P3-04 implementation đã đạt local `VERIFY` sau P3-03A, nhưng worker registration và
   product-visibility gate đều mặc định tắt; không có end-user activation trước P3-03B.
 
 ## 10. P3-04 In-app notification và preference
 
-**Trạng thái 2026-07-26:** `VERIFY`. Implementation repository đã hoàn thiện và local gate
-đạt; staging đã ở `17 false`, exact API runtime grants đã probe xanh nhưng durable worker chưa
-provision, worker ACL/canary/crash-reclaim chưa nghiệm thu và cả hai gate phải giữ false. Không mô tả
-notification là chức năng runtime đã bật.
+**Trạng thái 2026-07-31:** `VERIFY`. Implementation repository đã hoàn thiện và local gate
+đạt; Neon staging hiện ở `21 false`, migration `000016` và exact API runtime grants đã
+probe xanh nhưng durable worker chưa provision, worker ACL/canary/crash-reclaim chưa
+nghiệm thu và cả hai gate phải giữ false. Không mô tả notification là chức năng runtime
+đã bật.
 
 - [x] ADR-0022 chốt tenant/user projection, recipient snapshot boundary, idempotency,
       preference, least privilege, polling và controlled-canary activation gate.
@@ -754,6 +777,9 @@ notification là chức năng runtime đã bật.
       crash/lease-expiry/reclaim acceptance và lưu evidence redacted.
 - [ ] Chỉ sau hai gate trên mới nghiệm thu product visibility/tenant feature activation;
       giữ P3-03B và P3-04 ở `VERIFY` cho tới khi toàn bộ acceptance đạt.
+
+Các mục provision/activation ở trên hiện là `DEFERRED/VERIFY`, không phải mục được miễn.
+Hai gate notification vẫn phải giữ `false` trong khi Render chỉ phục vụ API staging.
 
 ## 11. P3-05A Session email/ICS, external response và reminder delivery
 
@@ -965,6 +991,8 @@ là dependency/ưu tiên, không phải cam kết mỗi hàng đúng một tuầ
 4. P3-03A repository implementation đã đạt `VERIFY`; hoàn tất P3-03B durable-host,
    staging migration/grants và crash/reclaim gate trước mọi side effect tới end user.
    P3-04 chỉ được triển khai handler canary sau gate mặc định tắt để đóng acceptance.
+   Render Web Service vẫn được giữ cho Core API staging/private alpha; không dùng Render
+   Free làm worker và không chuyển provider trong lượt cập nhật này.
 5. P3-CAL-02/ADR-0020 đã đạt local `VERIFY`: contract, deterministic renderer,
    7 golden lineage, sink và SES v2 Raw adapter/no-retry đều xanh trong package spike
    cô lập. ADR vẫn `Proposed`; SES sandbox live, EventBridge/SQS/DLQ, sending domain/DNS
