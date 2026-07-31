@@ -17,27 +17,25 @@ Xây daily learning workspace đủ dùng cho pilot có kiểm soát:
    và chốt thành buổi học chính thức hoặc Study Meeting đúng quyền;
 8. home, calendar, search và Class Files có đủ trạng thái vận hành.
 
-**Thời lượng re-baseline:** 13–17 tuần cho toàn Phase 3 khi một agent làm tuần tự trên
-`main`; milestone Calendar chuyên nghiệp + email + Availability Poll khoảng 8–10 tuần
-tính từ P3-CAL-01.
-Domain/DNS, SES sandbox và production-access approval có thể chuẩn bị song song nhưng
-không được tính `DONE` trước interoperability gate.
+**Re-baseline thực thi ngày 2026-07-31:** Phase 3 được tách thành hai lane:
 
-**Task `DONE` vừa hoàn thành:** P3-CAL-01 decision spike và P3-01. P3-CAL-01
-chấp nhận FullCalendar Standard v7.0.1, adapter/domain boundary, Warm Academic theme và
-recurrence Go bounded; manual NVDA gate đã PASS trước khi nối renderer vào route
-production. P3-01 đã đạt migration, contract, backend, feature/policy,
-generated client, class-detail UI, Neon `14 false`, deploy/public probes và browser
-acceptance Teacher/Student/IDOR. Biên bản P3-01 nằm tại
-`docs/P3_01_STAGING_ACCEPTANCE.md`.
+1. **Core Exit (runnable):** các slice có thể xây/chạy/test trên Render/Neon/B2 hiện tại,
+   gồm P3-02D-A poll/Study Meeting core, conversation/message core, file transfer core
+   và các phần dashboard/quality không cần worker hoặc provider live.
+2. **Deferred carry-over:** durable worker, notification activation, live SES/domain/
+   interoperability, email/ICS/reminder delivery và processing phụ thuộc worker.
 
-**Task `DONE` vừa hoàn thành:** P3-02A read projection, preference, semantic Calendar shell
-và exact FullCalendar Standard v7.0.1 production renderer đã đạt toàn bộ local/route/staging
-gate ngày 2026-07-26. Staging đã migrate sạch `14 false -> 17 false`, exact API runtime
-grants đã probe xanh, visual desktop/tablet/mobile và browser acceptance đều đạt.
-P3-03A/P3-04 vẫn `VERIFY` vì `tutorhub_worker` chưa provision, durable host không spin-down
-và duplicate/crash/reclaim acceptance còn thiếu. Mọi side effect tới end user vẫn chờ
-P3-03B đạt; hai gate P3-04 tiếp tục giữ `false` cho tới acceptance.
+Core Exit là mốc cho phép bắt đầu Phase 4 khi checklist của lane runnable xanh; nó không
+đánh dấu umbrella Phase 3 hoặc P3-14 là `DONE`. Carry-over vẫn phải được theo dõi, không
+được tuyên bố `PASS` bằng cách bỏ qua gate, và sẽ đóng sau bằng full P3-14.
+Thời lượng 13–17 tuần trước đây chỉ là planning estimate cho một chuỗi tuần tự; từ
+re-baseline này không dùng nó để chặn Phase 4 hay ép các gate provider/hạ tầng phải hoàn
+tất trước khi có môi trường phù hợp. Domain/DNS, SES sandbox và production-access
+approval có thể tiếp tục chuẩn bị song song.
+
+**Task runnable tiếp theo:** `P3-02D-A` Native Availability Poll và Study Meeting core.
+`P3-02D-B` lifecycle delivery/auto-close/fan-out và các gate P3-03B/P3-CAL-02/P3-05A/B
+là carry-over, không nằm trong mốc Core Exit tối thiểu.
 
 **Quyết định hosting/test ngày 2026-07-31:** giữ Render Web Service cho Core API
 staging/private alpha. Render Free không phải durable worker và không được thay bằng
@@ -45,7 +43,8 @@ external ping, cron, GitHub Actions schedule hoặc laptop. Các test local/CI/d
 staging vẫn bắt buộc thực hiện; chỉ gate cần host không spin-down, worker live grants,
 crash/reclaim/duplicate và provider/domain production được gắn `DEFERRED/VERIFY`.
 `DEFERRED` là trạng thái của một sub-gate, không làm umbrella task thành `DONE` và không
-cho phép bật side effect tới end user.
+cho phép bật asynchronous delivery/notification/email/reminder hoặc worker-driven file
+processing/sharing tới end user.
 
 **Thiết kế Calendar có thẩm quyền:**
 [`CALENDAR_PRODUCT_TECHNICAL_DESIGN.md`](CALENDAR_PRODUCT_TECHNICAL_DESIGN.md).
@@ -97,27 +96,37 @@ cho phép bật side effect tới end user.
 | P3-CAL-02  | Invitation/RSVP/iCalendar/AWS SES + ADR-0020   | P3-CAL-01, P3-01                | VERIFY     |
 | P3-02A     | Professional Calendar shell/read projection    | P3-01, P3-CAL-01                | DONE       |
 | P3-02B     | Recurrence + class conflict                    | P3-02A, ADR-0019                | DONE       |
-| P3-02C     | Working hours/attendee/free-busy/RSVP          | P3-02A, P3-CAL-02, ADR-0023     | DONE       |
-| P3-02D     | Native Availability Poll + Study Meeting       | P3-02B, P3-02C, P3-03, ADR-0021 | TODO       |
-| P3-03      | PostgreSQL outbox worker production shape      | P3-01                           | VERIFY     |
+| P3-02C     | Working hours/attendee/free-busy/RSVP          | P3-02A, ADR-0023 contract       | DONE       |
+| P3-02D-A   | Native Availability Poll + Study Meeting core  | P3-02B, P3-02C, ADR-0021        | TODO       |
+| P3-02D-B   | Poll lifecycle delivery/auto-close/fan-out    | P3-02D-A, P3-03B, P3-04         | DEFERRED/TODO |
+| P3-03A     | PostgreSQL outbox worker repository foundation | P3-01                          | VERIFY     |
+| P3-03B     | Durable worker staging acceptance              | P3-03A                          | DEFERRED/VERIFY |
 | P3-04      | In-app notification và preference              | P3-03A; P3-03B trước activation | VERIFY     |
-| P3-05A     | Session email/ICS/external RSVP/reminder       | P3-02C, P3-CAL-02, P3-03, P3-04 | TODO       |
-| P3-05B     | Poll/Study Meeting lifecycle delivery          | P3-02D, P3-05A                  | TODO       |
+| P3-05A     | Session email/ICS/external RSVP/reminder       | P3-02C, P3-CAL-02, P3-03B, P3-04 | DEFERRED/TODO |
+| P3-05B     | Poll/Study Meeting lifecycle delivery          | P3-02D-B, P3-05A               | DEFERRED/TODO |
 | P3-06      | Direct/class conversation                      | P3-00, Phase 2 policy           | TODO       |
-| P3-07      | Persistent message, unread và read receipt     | P3-03, P3-06                    | TODO       |
+| P3-07A     | Persistent message, unread/read core           | P3-06                           | TODO       |
+| P3-07B     | Message notification delivery                  | P3-07A, P3-03B, P3-04           | DEFERRED/TODO |
 | P3-08      | File metadata, upload intent và finalize       | P3-00, B2 baseline              | TODO       |
 | P3-09      | Presigned B2 upload/download                   | P3-08                           | TODO       |
-| P3-10      | Scan/metadata/thumbnail processing             | P3-03, P3-09                    | TODO       |
-| P3-11      | Class Files UI                                 | P3-09, P3-10                    | TODO       |
-| P3-12      | Home dashboard và PostgreSQL search cơ bản     | P3-01, P3-04, P3-07, P3-11      | TODO       |
-| P3-13      | Offline/retry drafts và Phase 3 quota closure  | P3-02D, P3-07, P3-11            | TODO       |
-| P3-14      | Staging acceptance và đóng Phase 3             | P3-CAL-02, P3-05B, P3-12, P3-13 | TODO       |
+| P3-10      | Scan/metadata/thumbnail processing             | P3-03B, P3-09                   | DEFERRED/TODO |
+| P3-11A     | Class Files transfer-core UI (gate off)        | P3-09                           | TODO       |
+| P3-11B     | File processing/thumbnail/rejected UX          | P3-10, P3-11A                   | DEFERRED/TODO |
+| P3-12      | Home dashboard và PostgreSQL search cơ bản     | P3-01, P3-07A, P3-11A           | TODO       |
+| P3-13      | Offline/retry drafts và Phase 3 quota closure  | P3-02D-A, P3-07A, P3-11A        | TODO       |
+| P3-14-CORE | Core Exit sign-off (cho phép bắt đầu Phase 4)  | P3-02D-A, P3-07A, P3-09, P3-11A, P3-12, P3-13 | TODO |
+| P3-14      | Full staging acceptance và đóng Phase 3       | carry-over + P3-12/P3-13        | TODO       |
 
 `VERIFY` nghĩa là implementation và kiểm tra local đã đạt, nhưng migration/deployment
 và acceptance trên staging chưa hoàn tất. Trạng thái này không đồng nghĩa `DONE`.
 `DEFERRED/VERIFY` nghĩa là phần kiểm tra đã được xác định rõ nhưng đang chờ một điều kiện
 ngoài repository (ví dụ durable host, quyền provider hoặc domain/DNS). Không được đánh
 dấu PASS bằng cách không chạy; các phần không phụ thuộc điều kiện đó vẫn phải chạy.
+`DEFERRED/TODO` nghĩa là task chưa được triển khai và dependency hạ tầng/provider đang
+chưa sẵn sàng; không được ngụ ý implementation hay verification đã tồn tại.
+`P3-14-CORE` là checkpoint chuyển tiếp, không đóng umbrella Phase 3. Khi checkpoint này
+đạt, Phase 4 được phép bắt đầu với carry-over register còn mở; P3-14 đầy đủ chỉ đóng sau
+khi các carry-over gate và side-effect safety đều được nghiệm thu.
 
 ## 5. Dependency graph
 
@@ -131,50 +140,102 @@ flowchart LR
     PC01 --> PC02["P3-CAL-02 Email/ICS ADR"]
     P301 --> PC02
     P301 --> P303A["P3-03A Worker foundation"]
+    P303A --> P303B["P3-03B Durable staging gate"]
     P300 --> P306["P3-06 Conversations"]
     P300 --> P308["P3-08 File metadata"]
     P301 --> P302A["P3-02A Calendar shell"]
     PC01 --> P302A
     P302A --> P302B["P3-02B Recurrence/class conflict"]
     P302A --> P302C["P3-02C Working hours/attendee/RSVP"]
-    PC02 --> P302C
-    P302B --> P302D["P3-02D Native availability poll"]
-    P302C --> P302D
+    P302B --> P302DA["P3-02D-A Native availability poll core"]
+    P302C --> P302DA
     P303A --> P304["P3-04 Notifications (gate off)"]
-    P304 --> P303B["P3-03B Durable staging gate"]
-    P303B --> P302D
+    P303B --> P304
+    P302DA --> P302DB["P3-02D-B Poll lifecycle delivery"]
+    P303B --> P302DB
+    P304 --> P302DB
     P302C --> P305A["P3-05A Session email/ICS/reminders"]
     PC02 --> P305A
     P303B --> P305A
     P304 --> P305A
-    P302D --> P305B["P3-05B Poll lifecycle delivery"]
+    P302DB --> P305B["P3-05B Poll/Study Meeting delivery"]
     P305A --> P305B
-    P306 --> P307["P3-07 Messages"]
-    P303B --> P307
+    P306 --> P307A["P3-07A Message core"]
+    P303B --> P307B["P3-07B Message delivery"]
+    P307A --> P307B
     P308 --> P309["P3-09 B2 transfer"]
     P309 --> P310["P3-10 File processing"]
     P303B --> P310
-    P309 --> P311["P3-11 Class Files"]
-    P310 --> P311
+    P309 --> P311A["P3-11A Class Files transfer core"]
+    P310 --> P311B["P3-11B Processing UX"]
+    P311A --> P311B
     P301 --> P312["P3-12 Home/search"]
-    P304 --> P312
-    P307 --> P312
-    P311 --> P312
-    P302D --> P313["P3-13 Offline/quota"]
-    P307 --> P313
-    P311 --> P313
-    P305B --> P314["P3-14 Closure"]
+    P307A --> P312
+    P311A --> P312
+    P302DA --> P313["P3-13 Offline/quota"]
+    P307A --> P313
+    P311A --> P313
+    P302DA --> P314C["P3-14-CORE Core Exit"]
+    P307A --> P314C
+    P309 --> P314C
+    P311A --> P314C
+    P312 --> P314C
+    P313 --> P314C
+    P314C --> P4["Phase 4 may start"]
+    P305B --> P314["P3-14 Full closure"]
+    P307B --> P314
+    P311B --> P314
     P312 --> P314
     P313 --> P314
 ```
 
 P3-03A được kéo lên ngay sau P3-01 để kiểm chứng worker sớm; không cần chờ poll. P3-04
 được code handler canary sau P3-03A với registration/feature gate mặc định tắt; canary
-đóng P3-03B rồi mới được activation tới end user. P3-05A/P3-05B/P3-07/P3-10 không được
-bypass P3-03B durable staging gate. P3-05A không
-được bypass ADR-0020/provider/deliverability gate. Session delivery không bị P3-02D
-chặn; P3-05B chỉ bổ sung poll/StudyMeeting lifecycle sau P3-02D. P3-02D theo ADR-0021
-chỉ bắt đầu sau P3-02B/C và không phụ thuộc runtime When2meet.
+đóng P3-03B rồi mới được activation tới end user. P3-05A/P3-05B/P3-07B/P3-10 không
+được bypass P3-03B durable staging gate. P3-05A không được bypass ADR-0020/provider/
+deliverability gate. P3-02D-A chỉ là poll/StudyMeeting core và có thể triển khai trước
+durable worker; P3-02D-B mới bổ sung auto-close/fan-out/delivery sau P3-03B và activation
+P3-04. P3-05B là adapter/delivery slice downstream của P3-02D-B, không phải prerequisite.
+P3-07A là message persistence core; notification delivery thuộc P3-07B carry-over.
+P3-02D theo ADR-0021 chỉ bắt đầu sau P3-02B/C và không phụ thuộc runtime When2meet.
+
+## 5A. Hai lane thực thi và điều kiện `Core Exit`
+
+### Lane runnable — được phép hoàn thiện trước Phase 4
+
+Các task sau có thể tiếp tục với hạ tầng hiện tại, miễn là vẫn giữ tenant policy, audit,
+idempotency, a11y và feature gate đúng:
+
+- `P3-02D-A`: poll/Study Meeting core — create, edit, share capability, response,
+  aggregate/ranking, manual close/reopen/finalize và direct StudyMeeting intent. Không
+  auto-send email, không fan-out và không mint LiveKit token.
+- `P3-06` + `P3-07A`: conversation và message persistence/unread/read core. Notification
+  delivery, reminder và worker consumer thuộc `P3-07B` carry-over.
+- `P3-08` + `P3-09`: file metadata, upload intent/finalize và presigned B2 transfer.
+  Scan/thumbnail/processing cần worker được tách khỏi Core Exit.
+- `P3-11A`, `P3-12`, `P3-13` có thể chạy song song ở phạm vi không phụ thuộc worker/
+  provider và là điều kiện bắt buộc của Core Exit; degraded/empty/error/forbidden/offline
+  state vẫn là acceptance bắt buộc.
+  Class Files transfer core giữ feature gate tắt cho end user cho tới khi P3-10/P3-11B
+  đóng scan/processing safety.
+
+### Lane deferred — vẫn mở, không được đánh dấu PASS bằng cách bỏ qua
+
+`P3-03B` durable host/worker role/grants/crash-reclaim, `P3-04` activation, live
+`P3-CAL-02` SES/domain/interoperability, `P3-05A` session email/ICS/reminder,
+`P3-02D-B` auto-close/fan-out/poll delivery, `P3-05B`, `P3-10` và `P3-11B` worker-dependent
+processing/UX là carry-over. Các test local/CI/disposable của chúng vẫn phải chạy ngay; chỉ
+sub-gate cần host/provider thật được giữ `DEFERRED/VERIFY`; task chưa triển khai dùng
+`DEFERRED/TODO`. Hai notification flag và Class Files activation vẫn `false`, không tạo
+asynchronous delivery hoặc worker-driven file side effect tới end user.
+
+### Mốc chuyển tiếp
+
+`P3-14-CORE` đạt khi P3-02A/B/C đã DONE (đã đạt), lane runnable đã qua test/authorization/
+tenant isolation/a11y/staging acceptance và có carry-over register rõ ràng. Khi đó owner
+được phép bắt đầu Phase 4. `P3-14-CORE` không đóng Phase 3; `P3-14` full closure chỉ
+được sign-off sau khi lane deferred đóng và toàn bộ exit gate email/worker/file processing
+đạt.
 
 ## 6. P3-00 Backlog và architecture/contract baseline
 
@@ -657,7 +718,12 @@ organizer/cancel/archive và log privacy. Exact runtime acceptance commit `7859c
 đã Live trên Render và Cloudflare; Render health trả HTTP `200`. P3-02C chuyển
 `VERIFY -> DONE`.
 
-### P3-02D Native Availability Poll và Study Meeting
+### P3-02D-A Native Availability Poll và Study Meeting core
+
+P3-02D-A là phần runnable của Availability Poll. Phạm vi này không bật email/fan-out,
+không auto-close bằng worker và không tạo LiveKit room. Các hành vi delivery/auto-close/
+roster fan-out được ghi riêng ở P3-02D-B và giữ `DEFERRED/TODO` cho tới khi P3-03B và
+P3-04 activation đạt gate; P3-05B là delivery adapter downstream.
 
 - [x] ADR-0021 chốt native ownership, permission, share mode, capability security và
       ranh giới Phase 3/Phase 4 trước implementation.
@@ -672,8 +738,9 @@ organizer/cancel/archive và log privacy. Exact runtime acceptance commit `7859c
       recipient và `anyone_with_link` phải bật rõ ràng; đổi mode revoke/rotate token cũ.
 - [ ] Poll có title, optional class/participants, timezone IANA, date range, working
       hours, duration, slot granularity, deadline, version và lifecycle.
-- [ ] Close/deadline auto-close/reopen và edit-after-response tuân state machine; slot/
-      timezone/duration không bị tái diễn giải âm thầm sau khi đã có response.
+- [ ] Manual close/reopen/cancel và edit-after-response tuân state machine; deadline được
+      lưu/hiển thị nhất quán nhưng worker auto-close thuộc P3-02D-B. Slot/timezone/duration
+      không bị tái diễn giải âm thầm sau khi đã có response.
 - [ ] Response normalized theo slot: `preferred`, `available`, `unavailable`; chưa trả
       lời là `unknown`, không dùng JSON/string như V1.
 - [ ] Desktop có drag/paint heatmap; mobile dùng list/card; keyboard, screen reader và
@@ -696,15 +763,24 @@ organizer/cancel/archive và log privacy. Exact runtime acceptance commit `7859c
       runtime; token, lobby, moderation, reconnect và media lifecycle thuộc Phase 4.
 - [ ] Active member tạo/list/detail/update/cancel StudyMeeting trực tiếp hoặc từ poll;
       owner/admin-recovery và conflict/version policy đạt.
-- [ ] Feature flag/hard cap/kill switch cho poll/slot/participant/capability/fan-out được
-      enforcement ngay P3-02D, không chờ P3-13.
-- [ ] Open/share/close/reopen/cancel/finalize ghi audit + outbox; P3-05B phân phối
-      email sau commit và provider failure không rollback nghiệp vụ.
+- [ ] Feature flag/hard cap/kill switch cho poll/slot/participant/capability được
+      enforcement ngay P3-02D-A, không chờ P3-13. Fan-out cap/enforcement thuộc P3-02D-B.
+- [ ] Open/share/close/reopen/cancel/finalize thủ công ghi audit + outbox; P3-05B phân phối
+      email/fan-out sau commit và provider failure không rollback nghiệp vụ (carry-over).
+
+### P3-02D-B Poll lifecycle delivery (deferred carry-over)
+
+- [ ] Deadline auto-close, reminder, roster fan-out và delivery sau commit có worker lease,
+      idempotency, retry/dead-letter và suppression đúng ADR-0018/0021.
+- [ ] Chỉ mở sau P3-03B durable acceptance và P3-04 activation. P3-05B tiêu thụ lifecycle
+      này để thực hiện delivery; nó không phải prerequisite ngược của P3-02D-B.
+- [ ] Không chặn việc nghiệm thu P3-02D-A hoặc bắt đầu Phase 4 sau `P3-14-CORE`.
 
 ## 9. P3-03 PostgreSQL outbox worker production shape
 
-**Trạng thái 2026-07-31:** `VERIFY`. Repository đã có migration `000015`, worker binary
-độc lập, exact allowlist/typed registry, lease + fencing, bounded claim concurrency,
+**Trạng thái 2026-07-31:** P3-03A `VERIFY`; P3-03B `DEFERRED/VERIFY`. Repository đã có
+migration `000015`, worker binary độc lập, exact allowlist/typed registry, lease +
+fencing, bounded claim concurrency,
 retry/backoff/dead-letter, graceful shutdown, bounded structured metrics, startup ACL
 probe, OCI image chung, CI PostgreSQL integration và runbook. Registry runtime để rỗng
 theo mặc định; P3-04 chỉ đăng ký exact controlled-canary handler khi worker gate bật,
@@ -776,7 +852,7 @@ nghiệm thu và cả hai gate phải giữ false. Không mô tả notification 
 - [ ] Provision durable worker không spin-down, chạy controlled canary duplicate cùng
       crash/lease-expiry/reclaim acceptance và lưu evidence redacted.
 - [ ] Chỉ sau hai gate trên mới nghiệm thu product visibility/tenant feature activation;
-      giữ P3-03B và P3-04 ở `VERIFY` cho tới khi toàn bộ acceptance đạt.
+      giữ P3-03B ở `DEFERRED/VERIFY` và P3-04 ở `VERIFY` cho tới khi toàn bộ acceptance đạt.
 
 Các mục provision/activation ở trên hiện là `DEFERRED/VERIFY`, không phải mục được miễn.
 Hai gate notification vẫn phải giữ `false` trong khi Render chỉ phục vụ API staging.
@@ -869,12 +945,21 @@ Hai gate notification vẫn phải giữ `false` trong khi Render chỉ phục v
 - Malware/suspicious file thành `rejected`, không public; metadata redacted và bounded.
 - Thumbnail là derived object có lifecycle theo source, không thay binary gốc.
 
-## 18. P3-11 Class Files UI
+## 18. P3-11A/P3-11B Class Files UI
+
+### P3-11A — transfer-core UI (runnable, feature gate off)
 
 - Teacher upload/quản lý; student chỉ xem/tải file được chia sẻ đúng lớp.
-- UI có progress, resume/retry, checksum failure, processing, rejected và ready states.
+- UI có progress, resume/retry, checksum failure và các trạng thái transfer cơ bản.
 - Không render active content nguy hiểm; download disposition/MIME được kiểm soát.
 - Cache key chứa tenant/class và bị purge khi switch/archive/role change.
+- Có thể nghiệm thu contract/UI bằng fixture và object test an toàn, nhưng feature gate
+  chia sẻ file tới end user vẫn tắt cho tới khi P3-10/P3-11B đóng processing safety.
+
+### P3-11B — processing/thumbnail/rejected UX (deferred carry-over)
+
+- UI phản ánh `processing`, `rejected`, thumbnail và retry/dead-letter từ worker thật.
+- Chỉ activation sau P3-10 durable worker acceptance; không giả lập PASS bằng fixture.
 
 ## 19. P3-12 Home dashboard và PostgreSQL search cơ bản
 
@@ -894,7 +979,32 @@ Hai gate notification vẫn phải giữ `false` trong khi Render chỉ phục v
 
 ## 21. P3-14 Staging acceptance và exit gate
 
-### Acceptance scenarios
+### 21A. `P3-14-CORE` — checkpoint cho phép bắt đầu Phase 4
+
+Đây là acceptance tối thiểu cho lane runnable, không phải biên bản đóng Phase 3:
+
+- [ ] P3-02A/P3-02B/P3-02C tiếp tục giữ `DONE` và không có regression trên tenant,
+      authorization, a11y, recurrence/conflict và RSVP.
+- [ ] P3-02D-A poll/StudyMeeting core đạt schema/API/UI, capability link, response,
+      aggregate/ranking, manual lifecycle, concurrency, privacy và accessibility gate.
+- [ ] P3-06/P3-07A conversation/message core đạt persistence, unread/read, reload/reconnect,
+      idempotency và foreign-tenant conceal; notification delivery vẫn gate-off.
+- [ ] P3-08/P3-09 file metadata + direct B2 transfer đạt intent/finalize/checksum,
+      state safety và authorization; scan/thumbnail worker có thể để carry-over.
+- [ ] P3-11A/P3-12/P3-13 được đưa vào Core Exit chỉ ở phạm vi không phụ thuộc worker/
+      provider; loading/empty/error/forbidden/offline và quota tests đều xanh. P3-11B
+      vẫn ở carry-over và Class Files activation vẫn tắt.
+- [ ] Verify/Security/accessibility/tenant-isolation và staging smoke của lane runnable xanh;
+      lập carry-over register nêu rõ owner, dependency, flag đang tắt và gate còn mở.
+
+Khi các mục trên đạt, owner được phép bắt đầu Phase 4 (Classroom Media MVP). Các mục
+chưa đạt của lane deferred không bị xóa hay đánh dấu PASS; chúng tiếp tục chạy song song
+hoặc sau khi Phase 4 đã bắt đầu.
+
+### Acceptance scenarios tổng hợp (Core + carry-over)
+
+Các scenario phụ thuộc email/provider/durable worker/file processing thuộc full P3-14,
+không chặn việc mở Phase 4 sau khi checklist P3-14-CORE ở trên đã đạt.
 
 - [ ] Teacher tạo/sửa/hủy session; student thấy đúng timezone qua reload.
 - [ ] Calendar Day/Work week/Week/Month/Agenda và recurrence vượt DST đúng semantics.
@@ -935,7 +1045,10 @@ Hai gate notification vẫn phải giữ `false` trong khi Render chỉ phục v
 - [ ] Home/search chỉ trả resource được phép; partial failure có degraded state.
 - [ ] Deploy, migration up/down/up và application rollback smoke đạt trên staging.
 
-### Exit gate Phase 3
+### Exit gate **full Phase 3** (P3-14)
+
+Các mục dưới đây vẫn là điều kiện đóng hoàn toàn Phase 3, không phải điều kiện bắt đầu
+Phase 4 sau `P3-14-CORE`:
 
 - Message không mất sau reconnect và duplicate submit không tạo duplicate.
 - Upload lớn không đi qua Core API.
@@ -962,24 +1075,26 @@ Hai gate notification vẫn phải giữ `false` trong khi Render chỉ phục v
 | C0    | P3-CAL-00/00B/00C | Research, re-baseline và readiness review        |
 | C1    | P3-CAL-01         | Renderer/recurrence/theme spike + ADR-0019       |
 | 1     | P3-01             | Session một lần contract-first                   |
-| 2     | P3-03             | Durable PostgreSQL leased worker                 |
-| 3     | P3-02A            | Professional shell/read projection               |
+| 2     | P3-02A            | Professional shell/read projection               |
 | C2    | P3-CAL-02         | Invitation/iCalendar/provider spike + ADR-0020   |
-| 4     | P3-02B            | Recurrence + class conflict                      |
-| 5     | P3-02C            | Working hours, attendee/free-busy/RSVP           |
-| 6     | P3-04             | In-app notification + channel preferences        |
-| 7     | P3-05A            | Session email/ICS/reminder + provider acceptance |
-| 8     | P3-02D            | Native poll, secure sharing và Study Meeting     |
-| 9     | P3-05B            | Poll/StudyMeeting lifecycle delivery             |
-| 10    | P3-06, P3-07      | Conversation và persistent message               |
-| 11-13 | P3-08 đến P3-11   | B2 transfer, processing và Class Files           |
-| 14    | P3-12, P3-13      | Home/search, quota và offline                    |
-| 15    | P3-14             | Staging acceptance/closure                       |
+| 3     | P3-02B            | Recurrence + class conflict                      |
+| 4     | P3-02C            | Working hours, attendee/free-busy/RSVP           |
+| 5     | P3-02D-A          | Native poll/Study Meeting core (runnable)        |
+| 6     | P3-06, P3-07A    | Conversation và persistent message core          |
+| 7     | P3-08, P3-09     | File metadata và direct B2 transfer core         |
+| 8     | P3-11A đến P3-13 | Class Files core, dashboard/search, quota/offline |
+| CE    | P3-14-CORE       | Core Exit sign-off; cho phép bắt đầu Phase 4     |
+| D1    | P3-03B, P3-04    | Durable worker + notification activation (deferred) |
+| D2    | P3-05A, P3-CAL-02 | Session email/ICS/provider live (deferred)      |
+| D3    | P3-02D-B, P3-05B | Poll lifecycle delivery (deferred)               |
+| D4    | P3-10, P3-11B    | Worker-dependent file processing/UX (deferred)   |
+| F     | P3-14            | Full staging acceptance/Phase 3 closure          |
 
 Các nhãn `C0/C1/C2` là decision gate nằm trong chặng kế cận, không phải ba sprint cộng
-thêm vào 13–17 tuần. C2 có thể chạy sandbox cô lập song song với P3-02A sau khi
-P3-CAL-01 và P3-01 cùng đạt gate, nhưng runtime provider vẫn chờ P3-03/P3-05A. Số thứ tự
-là dependency/ưu tiên, không phải cam kết mỗi hàng đúng một tuần.
+thêm vào estimate. `CE` là checkpoint chuyển tiếp, không đóng Phase 3. Các nhãn `D1–D4`
+là carry-over có thể chờ host/provider phù hợp; không được giả định chúng đã PASS. `F`
+mới là full closure. Số thứ tự là dependency/ưu tiên, không phải cam kết mỗi hàng đúng
+một tuần.
 
 ## 23. Việc cần làm ngay
 
@@ -988,8 +1103,8 @@ là dependency/ưu tiên, không phải cam kết mỗi hàng đúng một tuầ
    rollout gate đã PASS. Exact renderer đã được nối vào production route trong P3-02A.
 3. P3-01 đã `DONE` sau local/staging acceptance; không mở rộng one-time slice thành
    recurrence/reminder/calendar aggregate.
-4. P3-03A repository implementation đã đạt `VERIFY`; hoàn tất P3-03B durable-host,
-   staging migration/grants và crash/reclaim gate trước mọi side effect tới end user.
+4. P3-03A repository implementation đã đạt `VERIFY`; hoàn tất P3-03B worker role/grants,
+   durable host và crash/reclaim gate trước các asynchronous delivery side effect.
    P3-04 chỉ được triển khai handler canary sau gate mặc định tắt để đóng acceptance.
    Render Web Service vẫn được giữ cho Core API staging/private alpha; không dùng Render
    Free làm worker và không chuyển provider trong lượt cập nhật này.
@@ -998,9 +1113,11 @@ là dependency/ưu tiên, không phải cam kết mỗi hàng đúng một tuầ
    cô lập. ADR vẫn `Proposed`; SES sandbox live, EventBridge/SQS/DLQ, sending domain/DNS
    và Gmail/Outlook/Apple matrix còn `BLOCKED/VERIFY`, chưa bật business delivery.
 6. P3-02A/P3-02B/P3-02C đã `DONE`; working-hours, free-busy, audience và RSVP core đã
-   qua local/staging/manual gate. Bước dependency tiếp theo là đóng P3-03B durable-host,
-   worker role/grants và crash/reclaim acceptance trước khi bật side effect tới end user.
-7. P3-05A không chờ poll; P3-02D/P3-05B bổ sung poll/StudyMeeting sau core session.
+   qua local/staging/manual gate. Bước runnable tiếp theo là `P3-02D-A` poll/StudyMeeting
+   core; không chờ P3-03B và không bật delivery side effect.
+7. P3-03B/P3-04, P3-CAL-02/P3-05A và P3-02D-B/P3-05B tiếp tục ở carry-over. Đóng
+   `P3-14-CORE` sau lane runnable cho phép bắt đầu Phase 4; full P3-14 vẫn chờ các gate này.
 8. Không đưa recurrence, reminder, worker, email hoặc calendar tổng hợp vào P3-01.
-9. ADR-0021 đã `Accepted`; P3-02D không phụ thuộc When2meet.
+9. ADR-0021 đã `Accepted`; P3-02D-A không phụ thuộc When2meet. P3-02D-B chỉ mở sau
+   durable worker/provider delivery gate tương ứng.
 10. Giữ file cá nhân ngoài scope và không đọc/commit `.env*.local`.

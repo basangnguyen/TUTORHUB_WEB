@@ -86,14 +86,18 @@ live; rollback bằng specific commit giữ cấu hình hiện tại là bằng 
 | P3-CAL-00C Calendar readiness review | DONE        | Gate/dependency/contract đã được harden       |
 | P3-CAL-01 Spike + ADR-0019           | DONE        | V7 được chấp nhận; manual NVDA gate PASS      |
 | P3-01 Session scheduling và timezone | DONE        | One-time session staging acceptance đạt       |
-| P3-CAL-02 Email/ICS + ADR-0020       | VERIFY      | Local renderer/sink/SES adapter; live gates mở |
-| P3-02D Native Availability Poll      | TODO        | Native poll, secure sharing, Study Meeting    |
-| P3-03 PostgreSQL leased worker       | VERIFY      | P3-03A đạt; worker role/host/crash gate mở    |
+| P3-CAL-02 Email/ICS + ADR-0020       | VERIFY      | Local renderer/sink/SES adapter; live SES/domain gates mở |
+| P3-02D-A Native Availability Poll    | TODO        | Poll/Study Meeting core; không bật delivery   |
+| P3-02D-B Poll lifecycle delivery     | DEFERRED/TODO | Chưa code; auto-close/fan-out chờ worker      |
+| P3-03A Worker repository foundation  | VERIFY      | Implementation local/CI đã có                 |
+| P3-03B Durable worker acceptance     | DEFERRED/VERIFY | Host/role/grants/crash gate mở             |
 | P3-04 In-app notification            | VERIFY      | API ACL staging xanh; worker/canary gate mở   |
 | P3-02A Calendar shell/read projection | DONE      | Route E2E/perf/visual/staging gates đạt        |
 | P3-02B Recurrence + class conflict     | DONE      | PostgreSQL/staging acceptance đạt              |
 | P3-02C Working hours/free-busy/RSVP    | DONE      | Automated, staging/disposable DB và manual gates PASS |
-| P3-05 đến P3-14                       | TODO        | Theo dependency trong backlog                 |
+| P3-06/07A/08/09/11A/12/13/14-CORE    | TODO        | Lane runnable hướng tới Core Exit             |
+| P3-05A/B, P3-07B, P3-10/11B          | DEFERRED/TODO | Chưa code; phụ thuộc worker/provider        |
+| P3-14 full closure                    | TODO        | Chỉ đóng sau toàn bộ carry-over               |
 
 Nguồn thực thi: `docs/PHASE_3_BACKLOG.md`. Trước khi code calendar phải đọc
 `docs/CALENDAR_PRODUCT_TECHNICAL_DESIGN.md` và ADR-0017; P3-02B recurrence phải chờ
@@ -105,11 +109,15 @@ vẫn cần domain/DNS, SPF/DKIM/DMARC và deliverability gate.
 P3-02D tuân ADR-0021 và chỉ bắt đầu sau calendar conflict/participant foundation
 P3-02B/C. Poll là module native của TutorHub; không iframe, scrape, fork hoặc phụ thuộc
 runtime When2meet.
-Mọi side effect tới end user phải chờ P3-03B theo ADR-0018. P3-04 implementation đã đạt
-local `VERIFY` theo ADR-0022, nhưng không được coi đó là runtime activation. Worker chỉ
-đăng ký canary khi `OUTBOX_ENABLE_IN_APP_NOTIFICATION_CANARY=true`; product visibility chỉ
-mở khi `FEATURE_CONTROL_ENABLE_IN_APP_NOTIFICATIONS=true`. Cả hai mặc định false và phải
-giữ false cho tới staging migration/grants, durable host cùng crash/reclaim acceptance.
+Mọi asynchronous delivery/notification/email/reminder và worker-driven file-processing
+side effect tới end user phải chờ P3-03B theo ADR-0018. Message persistence, poll core và
+B2 transfer core vẫn được triển khai theo lane runnable với feature gate tương ứng.
+P3-04 implementation đã đạt local `VERIFY` theo ADR-0022, nhưng không được coi đó là
+runtime activation. Worker chỉ đăng ký canary khi
+`OUTBOX_ENABLE_IN_APP_NOTIFICATION_CANARY=true`; product visibility chỉ mở khi
+`FEATURE_CONTROL_ENABLE_IN_APP_NOTIFICATIONS=true`. Cả hai mặc định false và phải
+giữ false cho tới khi worker role/worker grants, durable host cùng crash/reclaim
+acceptance đạt.
 `X-TutorHub-Expected-Tenant-ID` chỉ là assertion chống workspace/cache race; authorization
 vẫn lấy từ active tenant của session. P3-01 không gồm recurrence, calendar tổng hợp, email, reminder
 hoặc media lifecycle.
@@ -145,13 +153,19 @@ runtime chỉ nằm ở P3-05A/P3-05B sau khi P3-03B và P3-02C đạt gate.
 P3-03A repository/runtime foundation đã đạt `VERIFY`: migration `000015`, worker process,
 lease/fencing/retry/dead-letter, startup ACL probe, CI integration và runbook đã có.
 Không chuyển umbrella P3-03 sang `DONE` hoặc bật end-user side effect trước khi P3-03B
-staging migration/grants, durable host không spin-down và crash/reclaim acceptance đạt.
+worker role/worker grants, durable host không spin-down và crash/reclaim acceptance đạt.
 P3-04 chưa `DONE`: Neon staging hiện ở `21 false`; migration `000016` và exact API
 runtime grants đã probe xanh, nhưng worker role/worker grants, durable worker và canary
 duplicate/crash-reclaim chưa được nghiệm thu. Khi đổi worker gate phải dừng process và
 đổi exact notification grant cùng lúc; quyền dư/thiếu đều phải làm startup probe fail
-closed. Bước dependency tiếp theo là P3-03B durable-host, worker role/grants và
-crash/reclaim acceptance.
+closed. Dependency runnable tiếp theo là `P3-02D-A` sau P3-02B/C. P3-03B durable-host,
+worker role/grants/crash-reclaim, P3-04 activation, live SES/domain và delivery-dependent
+processing được giữ `DEFERRED/VERIFY` hoặc `DEFERRED/TODO` đúng theo mức implementation
+cho tới khi có môi trường phù hợp. Khi các slice
+runnable đạt `P3-14-CORE`, Phase 4 được phép bắt đầu; full Phase 3 vẫn chờ carry-over
+register và không bật asynchronous delivery/notification/email/reminder hoặc Class Files
+sharing/processing tới end user. Render Web Service tiếp tục là Core API
+staging/private alpha, không được dùng làm durable worker.
 P3-CAL-02 tiếp tục giữ live SES/domain/interoperability gate song song, không bật runtime.
 P3-02C đã `DONE` ngày 2026-07-30. Neon staging `21 false`, exact ACL/runtime-role
 isolation, automated local gate và Calendar E2E đều PASS. Operator xác nhận toàn bộ ma
@@ -166,7 +180,8 @@ private alpha và không chuyển provider trong lượt hiện tại. Render Fr
 durable worker. Test local/CI/disposable vẫn bắt buộc; gate cần host không spin-down,
 worker live grants, crash/reclaim/duplicate canary hoặc SES/domain production được ghi
 `DEFERRED/VERIFY`, không được coi là PASS do không chạy. Hai feature gate notification
-tiếp tục `false`; không bật side effect tới end user.
+và Class Files activation tiếp tục `false`; không bật asynchronous delivery/email/reminder
+hoặc worker-driven file processing/sharing tới end user.
 
 ## 6. Hạ tầng staging đã chốt
 

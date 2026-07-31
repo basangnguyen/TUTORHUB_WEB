@@ -14,8 +14,27 @@
 | Phase hiện tại      | Phase 3 - Daily learning workspace                                                   |
 | Task `DONE` gần nhất | P3-02C Working hours, attendee/free-busy và RSVP                                  |
 | Mốc repository mới | P3-02C runtime acceptance commit `7859c233` Live trên Render và Cloudflare         |
-| Task hiện tại       | P3-03/P3-04/P3-CAL-02 vẫn `VERIFY`; host/provider gates được ghi `DEFERRED`       |
-| Task tiếp theo      | P3-03B durable host, worker role/grants và crash/reclaim acceptance               |
+| Task hiện tại       | Chuẩn bị `Core Exit`; P3-03A/P3-04/P3-CAL-02 `VERIFY`, P3-03B `DEFERRED/VERIFY` |
+| Task tiếp theo      | P3-02D-A Native Availability Poll và Study Meeting core                         |
+
+### Mô hình thoát Phase 3 (re-baseline 2026-07-31)
+
+Phase 3 được theo dõi theo hai lane, không còn coi toàn bộ phase là một chuỗi tuần tự:
+
+- **Core Exit (runnable lane):** hoàn thiện các slice có thể chạy và nghiệm thu trên
+  Render/Neon/B2 hiện tại: P3-02D-A poll/Study Meeting core, conversation/message core,
+  file transfer core và các phần dashboard/quality không cần worker hoặc provider live.
+  Khi checklist Core Exit xanh, owner có thể bắt đầu Phase 4.
+- **Deferred carry-over:** P3-03B durable worker, P3-04 activation, P3-CAL-02 live
+  SES/domain/interoperability, P3-05A/B delivery, P3-10/P3-11B processing phụ thuộc
+  worker. Các lane này vẫn mở, tiếp tục được thực hiện sau khi Phase 4 bắt đầu và không
+  được ghi `PASS` chỉ vì chưa có môi trường chạy.
+
+Core Exit là một mốc chuyển tiếp, **không** phải `Phase 3 DONE` và không thay thế biên
+bản P3-14. Full Phase 3 chỉ đóng khi carry-over gates, side-effect safety, staging
+acceptance và `PHASE_3_COMPLETION.md` đều được sign-off. Trong thời gian chờ, các cờ
+notification và Class Files activation vẫn `false`; không phát email/ICS/reminder hoặc
+worker-driven file processing/sharing tới end user.
 
 ## Kiến trúc đang chạy
 
@@ -315,9 +334,10 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
     part, full durable provider-event path tới inbox/consumer, iterator recurrence có
     cancellation/cap, DST suggested-time total order và giới hạn đúng mức của public-poll
     cohort/dedupe. Vòng hậu kiểm đã tách `CalendarDisplayPreference` về P3-02A,
-    `WorkingSchedule` về P3-02C; buộc P3-02D phụ thuộc P3-03 cho deadline auto-close và
-    khóa P3-05B cho poll reopen cùng direct StudyMeeting lifecycle. Đây vẫn là tài liệu,
-    chưa có Calendar runtime.
+    `WorkingSchedule` về P3-02C; tách P3-02D thành P3-02D-A core (có thể triển khai
+    không cần durable worker) và P3-02D-B lifecycle delivery/auto-close/fan-out
+    (`DEFERRED/TODO`, chờ P3-03B/P3-04 activation). P3-05B là delivery adapter downstream
+    ở carry-over. Đây vẫn là tài liệu, chưa có Availability Poll runtime.
 13. P3-CAL-01 đã `DONE` ở cấp decision spike. FullCalendar Standard `7.0.1`,
     Temporal `1.0.1`, Warm Academic theme và adapter boundary nằm trong
     `apps/calendar-spike`; comparator v6.1.21 nằm riêng ở `apps/calendar-spike-v6`.
@@ -362,9 +382,10 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
     hoặc có INSERT/DELETE/TRUNCATE/REFERENCES/TRIGGER dư thừa.
     Unit test, integration compile gate, duplicate/poison/shutdown PostgreSQL fixtures,
     CI PostgreSQL step, OCI image chung và `docs/P3_03_OUTBOX_WORKER_RUNBOOK.md` đã có.
-    Registry production gate-off rỗng có chủ ý và vẫn phát heartbeat định kỳ. Máy local không có Docker/psql hoặc
-    migration URL nên PostgreSQL runtime suite phải chạy ở CI; migration/grants, paid
-    durable host và staging crash/reclaim vẫn là gate bên ngoài trước `DONE`.
+    Registry production gate-off rỗng có chủ ý và vẫn phát heartbeat định kỳ. Máy local
+    không có Docker/psql hoặc migration URL nên PostgreSQL runtime suite phải chạy ở CI;
+    worker role/worker grants, durable host và staging crash/reclaim vẫn là gate bên
+    ngoài trước `DONE`.
 19. P3-04 implementation đạt local `VERIFY` theo ADR-0022. Migration `000016` tạo
     notification projection và preference tenant/user-scoped. Worker chỉ đăng ký exact
     `notification.in_app_canary.requested.v1` khi
@@ -377,8 +398,8 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
     Tests/module/HTTP/config/worker/API-client/web liên quan đạt local; không gọi email
     provider. Neon staging đã ở `17 false` sau khi áp `000015 -> 000016 -> 000017`;
     API runtime exact grants đã được probe xanh, nhưng `tutorhub_worker` chưa provision nên
-    durable host/canary/crash-reclaim acceptance chưa có. Vì vậy P3-03B và P3-04 vẫn
-    `VERIFY` và chưa có end-user activation.
+    durable host/canary/crash-reclaim acceptance chưa có. Vì vậy P3-03B vẫn
+    `DEFERRED/VERIFY`, P3-04 vẫn `VERIFY` và chưa có end-user activation.
 20. P3-02A read foundation đạt local `VERIFY` ngày 2026-07-26. Migration `000017` thêm
     bounded-read index cho ClassSession và `calendar_display_preferences` theo
     tenant/user. Go API có projection ổn định, overlap half-open, range tối đa 366 ngày,
@@ -563,8 +584,9 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
     bắt buộc; các gate phụ thuộc host không spin-down hoặc provider production được ghi
     `DEFERRED/VERIFY`, không được suy diễn thành PASS hay bỏ qua. P3-03B (worker role/
     grants, crash/reclaim, duplicate canary) và các gate live SES/domain/event
-    topology tiếp tục mở; hai feature gate notification vẫn `false`, không có
-    email/notification/reminder/file side effect tới end user.
+    topology tiếp tục mở; hai feature gate notification và Class Files activation vẫn
+    `false`, không có asynchronous email/notification/reminder hoặc worker-driven file
+    processing/sharing tới end user.
 
 ## Rủi ro đã biết
 
@@ -604,9 +626,10 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
   service không được xem là durable worker. Quyết định hiện tại là giữ Render Web Service
   cho Core API staging/private alpha; Render Background Worker trả phí chỉ là candidate
   tương lai, chưa được provision/phê duyệt và không có provider migration trong task này.
-  Không bật notification, email/ICS, reminder hoặc message/file side effect tới end user
-  trước khi migration `000015/000016`, exact grants, non-spin-down host và crash/reclaim
-  acceptance đạt. Hai P3-04 gate phải giữ false; grant worker notification và worker gate
+  Không bật notification delivery, email/ICS, reminder hoặc worker-driven file processing/
+  sharing tới end user trước khi worker role/grants, non-spin-down host và crash/reclaim
+  acceptance đạt. Migration `000015/000016` và exact API runtime grants đã áp dụng/probe
+  xanh. Hai P3-04 gate phải giữ false; grant worker notification và worker gate
   phải chuyển cùng nhau khi process đã dừng, nếu không startup probe sẽ fail closed.
   P3-CAL-02 chỉ
   được chạy renderer/provider sandbox cô lập trong lúc gate này còn mở.
@@ -617,7 +640,7 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
 | --- | --- |
 | Bắt buộc chạy ngay | Unit/integration/CI, static ACL/config checks, local/disposable PostgreSQL, API/browser/accessibility và sandbox/sink tests trong phạm vi hiện có. |
 | `DEFERRED/VERIFY` | Durable worker host không spin-down, live worker role/grants, crash/reclaim/duplicate canary, SES production access/quota/event ingress, domain/DNS và Gmail/Outlook/Apple interoperability. |
-| Không được bật | `OUTBOX_ENABLE_IN_APP_NOTIFICATION_CANARY`, `FEATURE_CONTROL_ENABLE_IN_APP_NOTIFICATIONS` và mọi business email/ICS/reminder/file side effect tới end user trước khi các gate phụ thuộc đạt. |
+| Không được bật | `OUTBOX_ENABLE_IN_APP_NOTIFICATION_CANARY`, `FEATURE_CONTROL_ENABLE_IN_APP_NOTIFICATIONS`, Class Files sharing/processing và mọi asynchronous email/ICS/reminder side effect trước khi gate phụ thuộc đạt. |
 
 - Render Free spin down khi không hoạt động và có thể cold start trên 50 giây;
   chỉ chấp nhận cho staging/private alpha.

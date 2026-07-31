@@ -84,6 +84,10 @@ Kết luận ngày 2026-07-23:
   ClassSession contract-first.
 - **Chưa được code production:** recurrence trước khi ADR-0019 `Accepted`;
   participant/RSVP/email trước ADR-0020; mọi consumer runtime activation trước P3-03B.
+  Sau khi P3-02A/B/C đạt, `P3-02D-A` poll/Study Meeting core có thể triển khai trên
+  Render/Neon mà không chờ durable worker; phần auto-close/fan-out/delivery được tách
+  sang `P3-02D-B` ở trạng thái `DEFERRED/TODO` và vẫn chờ P3-03B/P3-04 activation;
+  P3-05B là delivery adapter downstream.
 - **Chưa được gọi production-ready:** SES sandbox dùng personal verified identities,
   Calendar UI chưa đạt cross-client/a11y/performance gate hoặc chưa có sending domain
   cùng SPF/DKIM/DMARC.
@@ -856,8 +860,9 @@ Quy tắc:
   all-day projection rendering;
   `location`, all-day authoring, online intent và material link chỉ hiện khi typed source
   contract có thật; drag, resize, revert và undo. ClassSession/StudyMeeting Phase 3 là
-  timed. Class Files picker/projection chỉ bật sau khi P3-11 có domain/API thật; milestone
-  Calendar + email không bị block bởi placeholder attachment.
+  timed. Class Files picker/projection core chỉ code/test sau P3-11A có domain/API thật;
+  end-user activation vẫn chờ P3-10/P3-11B processing safety. Milestone Calendar + email
+  không bị block bởi placeholder attachment.
 - **Participants:** organizer, teacher/co-teacher/TA/student; roster-derived audience;
   required/optional attendee; external guest có tenant policy; guest list permission,
   visibility và show-as.
@@ -2361,10 +2366,15 @@ PII và nội dung lớp bị redacted.
   deterministic suggested-time ranking và privacy-safe availability;
 - RSVP domain/API/UI accept/tentative/decline, organizer summary và token security.
 
-### P3-02D — Native Availability Poll và Study Meeting
+### P3-02D-A — Native Availability Poll và Study Meeting core
+
+Phần A là lane runnable của P3-02D. Nó không gửi email/notification, không fan-out
+recipient, không auto-close bằng worker và không tạo LiveKit room; các side effect này
+chỉ được mở trong phần B sau khi hạ tầng tương ứng đạt gate.
 
 - normalized poll/slot/participant/response/capability schema và tenant policy;
-- explicit close/reopen/edit-after-response lifecycle; deadline auto-close;
+- explicit close/reopen/edit-after-response lifecycle; deadline chỉ được xử lý thủ công
+  trong core; auto-close thuộc phần B;
 - direct create/list/detail/update/cancel StudyMeeting scheduling API;
 - class-only, invited-only và explicit anyone-link share mode;
 - desktop drag/paint heatmap, mobile list/card, keyboard/screen-reader/forced-colors;
@@ -2373,6 +2383,17 @@ PII và nội dung lớp bị redacted.
 - ClassSession finalize chỉ với `session.schedule`; còn lại là member-owned Study Meeting;
 - audit/outbox/idempotency/conflict recheck, anti-abuse/quota và external projection tests;
 - không có When2meet runtime/API/iframe/scrape/fork/code dependency.
+
+### P3-02D-B — Poll lifecycle delivery (deferred carry-over)
+
+- deadline auto-close, reminder, roster fan-out và delivery ledger;
+- opened/reopened/deadline/cancelled/finalized và Study Meeting scheduled/rescheduled/
+  cancelled delivery theo recipient;
+- retry/idempotency/dead-letter/crash-reclaim và provider/notification acceptance.
+
+Phần B phụ thuộc P3-03B/P3-04 activation và live provider gates; P3-05B tiêu thụ
+lifecycle này ở downstream. Thiếu môi trường không được đánh dấu PASS; phần A và
+checkpoint `P3-14-CORE` vẫn có thể hoàn tất trước.
 
 ### P3-03/P3-04/P3-05A/P3-05B — Worker, notification, email và reminder
 
@@ -2391,8 +2412,9 @@ PII và nội dung lớp bị redacted.
 
 ### Sau calendar core
 
-Quay lại P3-06 đến P3-14 theo backlog. P3-11 bổ sung Class Files picker/projection vào
-editor/detail; Home dùng Calendar read model cho “sắp tới”, không tự viết query/session
+Quay lại P3-06 đến P3-14 theo backlog. P3-11A bổ sung Class Files transfer-core picker/
+projection vào editor/detail nhưng giữ activation tắt; P3-10/P3-11B đóng processing
+safety sau. Home dùng Calendar read model cho “sắp tới”, không tự viết query/session
 semantics thứ hai.
 
 ## 25. Các ADR bắt buộc
@@ -2587,24 +2609,19 @@ API/white-label/SLA của dịch vụ và không dùng nó làm runtime/source d
 - [rrule.js](https://github.com/jkbrzt/rrule)
 - [rrule-go](https://github.com/teambition/rrule-go)
 
-## 28. Bước tiếp theo được khuyến nghị
+## 28. Bước tiếp theo được khuyến nghị (re-baseline 2026-07-31)
 
-1. P3-CAL-00B/00C đã hoàn tất re-research, re-baseline và readiness review; đây chưa
-   phải runtime.
-2. Thực hiện P3-CAL-01: mở ADR-0019 và chạy FullCalendar/Go
-   recurrence/theme/a11y/performance/license spike; chỉ pin dependency khi gate đạt.
-3. Triển khai P3-01 one-time ClassSession contract-first. P3-CAL-01 và P3-01 có thể tiến
-   song song, nhưng P3-02A chờ cả hai hoàn tất.
-4. Triển khai P3-03A foundation sau P3-01; đóng P3-03B durable acceptance trước mọi
-   consumer side effect tới end user. P3-04 handler canary phải mặc định tắt.
-5. Triển khai P3-02A Calendar shell/read projection sau P3-01 và ADR-0019; không chờ
-   email provider.
-6. Chạy P3-CAL-02/ADR-0020 trong sandbox cô lập sau khi **cả P3-CAL-01 và P3-01**
-   đạt gate để khóa audience diff, iCalendar/MIME, AWS SES adapter, ambiguous acceptance,
-   durable event transport và deliverability. Pre-domain chỉ dùng owner-controlled
-   verified identities; runtime delivery vẫn chờ P3-03.
-7. Triển khai P3-02B recurrence/conflict và P3-02C WorkingSchedule,
-   attendee/free-busy/RSVP theo gate tương ứng.
-8. Triển khai P3-04 rồi P3-05A cho notification và ClassSession email/ICS/reminder.
-9. Sau professional session core, triển khai P3-02D theo ADR-0021 rồi P3-05B cho
-   Availability Poll/StudyMeeting delivery; không bypass worker hoặc provider gate.
+1. P3-CAL-00B/00C, P3-CAL-01, P3-01, P3-02A/B/C đã đạt các gate tương ứng; không mở
+   lại các task này chỉ vì live email/worker còn chờ.
+2. Triển khai `P3-02D-A` Native Availability Poll và Study Meeting core theo ADR-0021:
+   schema/API/UI, capability sharing, response/ranking, manual close/reopen/finalize,
+   authorization, privacy và accessibility. Không bật email/fan-out/auto-close worker
+   hoặc LiveKit.
+3. Tiếp tục conversation/message persistence core và B2 file-transfer core trong lane
+   runnable; mỗi slice phải có test, tenant isolation, a11y và staging smoke.
+4. Giữ P3-03B durable host/role/grants/crash-reclaim và live gate P3-CAL-02 ở
+   `DEFERRED/VERIFY`; P3-05A/B delivery và P3-02D-B chưa triển khai ở `DEFERRED/TODO`
+   cho tới khi môi trường/provider tương ứng sẵn sàng.
+5. Đóng `P3-14-CORE` khi lane runnable xanh và carry-over register đầy đủ; sau đó được
+   phép bắt đầu Phase 4. Full Phase 3/P3-14 chỉ đóng sau khi các carry-over gate và
+   side-effect safety hoàn tất.

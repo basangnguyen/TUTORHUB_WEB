@@ -11,9 +11,16 @@
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
 | Phase hiện tại        | Phase 3 - Daily learning workspace                                                           |
-| Trạng thái gần nhất   | P3-02C DONE; P3-CAL-02/P3-03/P3-04 VERIFY, host/provider gates DEFERRED                   |
+| Trạng thái gần nhất   | P3-02C DONE; P3-03A/P3-04/P3-CAL-02 VERIFY; P3-03B và provider gates DEFERRED            |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
+
+> **Re-baseline thực thi 2026-07-31:** Phase 3 được theo dõi theo hai lane. `Core Exit`
+> là checkpoint cho phép bắt đầu Phase 4 sau khi các slice chạy được trên Render/Neon/B2
+> đạt test, authorization, accessibility và staging smoke. Các gate cần durable worker,
+> SES/domain/provider hoặc processing nền được giữ `DEFERRED/VERIFY` nếu đã có
+> implementation, hoặc `DEFERRED/TODO` nếu chưa triển khai. Chúng tiếp tục đóng sau khi
+> Phase 4 đã bắt đầu; không được tự động coi là `PASS` hay làm mất carry-over.
 
 ## 1. Mục đích và cách sử dụng
 
@@ -1308,9 +1315,19 @@ Bằng chứng chuẩn hóa nằm trong `docs/P2_12_STAGING_ACCEPTANCE.md` và
 
 ### Phase 3 - Daily learning workspace
 
-**Thời lượng re-baseline:** 13–17 tuần cho toàn Phase 3 khi một agent làm tuần tự trên
-`main`; milestone Calendar chuyên nghiệp + email + Availability Poll khoảng 8–10 tuần
-từ P3-CAL-01.
+**Mô hình thực thi re-baseline 2026-07-31:** Phase 3 không còn bị vận hành như một chuỗi
+tuần tự duy nhất. Planning estimate `13–17 tuần` chỉ dùng để ước lượng full closure,
+không phải điều kiện chặn Phase 4. Hai lane có thẩm quyền là:
+
+- **Core Exit (runnable):** poll/Study Meeting core, conversation/message persistence
+  core, B2 file-transfer core và các phần dashboard/quality có thể chạy, kiểm thử và
+  nghiệm thu trên Render/Neon/B2 hiện tại.
+- **Deferred carry-over:** durable worker, notification activation, SES/domain/live
+  interoperability, email/ICS/reminder delivery và processing nền phụ thuộc worker.
+
+Khi `P3-14-CORE` đạt, Phase 4 được phép bắt đầu dù carry-over còn mở. Mốc này không
+đánh dấu umbrella Phase 3 hay full `P3-14` là `DONE`; full closure vẫn cần đóng toàn bộ
+gate bị hoãn và biên bản `PHASE_3_COMPLETION.md`.
 
 **Backlog thực thi:** `docs/PHASE_3_BACKLOG.md`. P3-00 backlog/architecture baseline và
 P3-CAL-00/P3-CAL-00B/P3-CAL-00C calendar research/re-baseline/readiness review đã
@@ -1350,7 +1367,10 @@ migration `000016`, notification API/preference/UI và controlled-canary handler
 registration cùng product visibility vẫn mặc định tắt, chưa được kích hoạt trên staging.
 ADR-0021 đã chốt Native Availability Poll, secure
 sharing, member-owned Study Meeting và permission boundary cho P3-02D; quyết định này
-không cho phép P3-02D bypass P3-02B/C hoặc P3-03.
+không cho phép P3-02D bypass P3-02B/C. P3-02D được tách thành `P3-02D-A` core runnable
+và `P3-02D-B` lifecycle delivery: phần A không chờ durable worker, còn auto-close,
+fan-out và delivery ở phần B vẫn chờ P3-03B/P3-04 activation; P3-05B là delivery
+adapter downstream, không phải prerequisite ngược.
 P3-02C đã chuyển `VERIFY -> DONE` ngày 2026-07-30 tại acceptance commit `7859c233`:
 working schedule/free-busy, internal/external audience, RSVP capability, audience diff,
 organizer transfer, cancellation lifecycle và public RSVP đã nối OpenAPI/generated
@@ -1391,6 +1411,19 @@ tạo Study Meeting của mình. Người dùng đồng thời trao đổi với
 
 **Exit gate:**
 
+`P3-14-CORE` là checkpoint chuyển tiếp tối thiểu để mở Phase 4:
+
+- P3-02A/B/C giữ trạng thái `DONE`, không có regression.
+- P3-02D-A đạt schema/API/UI, secure sharing, response/ranking, manual close/reopen và
+  finalize/Study Meeting đúng quyền mà không bật delivery hoặc LiveKit room.
+- Conversation/message core đạt persistence, unread/read và reload/reconnect; file
+  transfer core đạt B2 direct upload/download, tenant policy và ready-state safety.
+- Các phần runnable đạt test, authorization/tenant isolation, accessibility và staging
+  smoke; carry-over register ghi rõ owner, dependency, trạng thái và feature gate tắt.
+
+Sau checkpoint trên, Phase 4 được phép bắt đầu. Các điều kiện dưới đây vẫn là **full
+Phase 3 exit gate** và phải đóng trước khi ghi Phase 3/P3-14 `DONE`:
+
 - Message không mất sau reconnect.
 - Upload lớn không đi qua Core API.
 - File chưa `ready` không được chia sẻ.
@@ -1412,6 +1445,10 @@ tạo Study Meeting của mình. Người dùng đồng thời trao đổi với
   bounce/complaint/suppression và runbook đạt; provider failure không rollback nghiệp vụ.
 
 ### Phase 4 - Classroom Media MVP
+
+**Entry gate:** chỉ bắt đầu sau khi `P3-14-CORE` được sign-off. Các carry-over Phase 3 có
+thể còn `DEFERRED/VERIFY` hoặc `DEFERRED/TODO` và tiếp tục song song; chúng không được
+xóa, giả lập PASS hoặc bật side effect khi chưa đạt gate tương ứng.
 
 **Thời lượng:** 6-8 tuần.
 
@@ -1625,20 +1662,21 @@ vẫn dùng class policy teacher/admin, không suy từ ownership của Study Me
 flowchart TD
     P0["Phase 0: Baseline"] --> P1["Phase 1: Foundation"]
     P1 --> P2["Phase 2: Identity/Tenant/Class"]
-    P2 --> P3["Phase 3: Workspace"]
-    P2 --> P4["Phase 4: Classroom Media"]
-    P3 --> P5["Phase 5: Collaboration"]
+    P2 --> P3C["Phase 3: Workspace Core Exit"]
+    P3C --> P4["Phase 4: Classroom Media"]
+    P3C --> P3F["Phase 3: deferred carry-over/full closure"]
+    P3F --> P5["Phase 5: Collaboration"]
     P4 --> P5
-    P3 --> P6["Phase 6: Assessment/QuizHub"]
+    P3F --> P6["Phase 6: Assessment/QuizHub"]
     P5 --> P6
-    P3 --> P7["Phase 7: Content/AI"]
+    P3F --> P7["Phase 7: Content/AI"]
     P6 --> P7
     P4 --> P8["Phase 8: Global Readiness"]
     P5 --> P8
     P6 --> P8
     P7 --> P8
     P2 --> P9["Phase 9: V1 Cutover by module"]
-    P3 --> P9
+    P3F --> P9
     P4 --> P9
     P5 --> P9
     P6 --> P9
@@ -1801,7 +1839,8 @@ Phải giải quyết bằng spike/ADR đúng phase:
 1. OIDC provider.
 2. Migration tool và query/repository library Go.
 3. Error tracking/metrics/tracing provider.
-4. Runtime container production thay HF.
+4. Production container/provider sau private alpha; Render đã được chốt cho Core API
+   staging/private alpha, không phải durable worker.
 5. Worker/queue runtime cho pilot.
 6. Redis provider và thời điểm thực sự cần.
 7. Whiteboard engine/provider topology.
@@ -1874,10 +1913,11 @@ Một tính năng chỉ được đánh dấu hoàn thành khi:
 7. P3-01 đã `DONE`: implementation/test local, Neon `14 false`, runtime grants, deploy,
    public probes và browser acceptance Teacher/Student/IDOR trên staging đều đạt. Không
    gọi lượt browser thủ công là Playwright staging.
-8. P3-03A repository/runtime foundation đã đạt `VERIFY`; hoàn tất P3-03B migration/grants,
-   durable host không spin-down và staging crash/reclaim acceptance trước mọi side effect
-   tới end user. P3-04 implementation đã đạt local `VERIFY`, nhưng migration `000016`,
-   exact notification grants, canary duplicate/reclaim và activation gate chưa nghiệm thu.
+8. P3-03A repository/runtime foundation đã đạt `VERIFY`; migration `000015` và API-side
+   runtime grants đã áp dụng. P3-03B vẫn chờ worker role/grants, durable host không
+   spin-down và staging crash/reclaim acceptance trước các asynchronous delivery side
+   effect. P3-04 implementation và migration `000016`/exact API notification grants đã
+   probe xanh; worker grants, canary duplicate/reclaim và activation gate chưa nghiệm thu.
    Render Web Service được giữ cho Core API staging/private alpha; không dùng Render Free
    làm worker và chưa chuyển sang provider khác. Các gate host/provider được ghi
    `DEFERRED/VERIFY`, còn test local/CI/disposable vẫn bắt buộc.
@@ -1886,19 +1926,21 @@ Một tính năng chỉ được đánh dấu hoàn thành khi:
 10. P3-CAL-02/ADR-0020 đã đạt local `VERIFY` trong package spike cô lập; ADR giữ
     `Proposed` cho tới khi SES sandbox, provider-event topology, cross-client matrix và
     domain/DNS gate có evidence. Pre-domain chỉ dùng owner-controlled verified identities;
-    runtime delivery chờ P3-03B/P3-02C/P3-05A.
+    runtime delivery chờ P3-03B/P3-05A.
 11. P3-02B đã `DONE`: migration `000018/000019`, exact runtime grants, canary,
-     concurrent/authorization/cross-tenant/split/query-plan acceptance đều đạt. Tiếp tục
-     P3-02C và P3-05A theo dependency đã khóa; hoàn tất staging gate P3-04 cùng P3-03B
-     trước activation.
+     concurrent/authorization/cross-tenant/split/query-plan acceptance đều đạt. P3-02C
+     cũng đã `DONE` ngày 2026-07-30; không mở lại gate chỉ vì P3-CAL-02 live gate còn
+     `VERIFY`. Bước runnable tiếp theo là P3-02D-A; P3-05A và delivery vẫn là carry-over.
      Không đưa recurrence, reminder, worker, email hoặc calendar tổng hợp vào P3-01.
 12. P3-02C đã `DONE` ngày 2026-07-30 tại commit `7859c233`: Neon `21 false`, migration
      `000020/000021`, exact ACL/runtime isolation, concurrent/IDOR, Calendar E2E `11/11`
      và staging/manual accessibility/privacy acceptance đều đạt; live trên Render/
      Cloudflare. Email/ICS production không được suy ra từ gate này và vẫn chờ
      P3-CAL-02/P3-03B/P3-05A.
-13. ADR-0021 đã `Accepted`; triển khai P3-02D sau P3-02B/C và P3-03 rồi P3-05B, không
-     phụ thuộc When2meet.
+13. ADR-0021 đã `Accepted`; triển khai `P3-02D-A` sau P3-02B/C, không phụ thuộc
+     When2meet hoặc durable worker. `P3-02D-B` (auto-close/fan-out/delivery) chờ
+     P3-03B/P3-04 activation và được ghi vào carry-over register; P3-05B là delivery
+     adapter downstream.
 14. Không xóa thêm Neon branch theo quyết định hiện tại của owner.
 15. Không khởi động QuizHub, Lavie, social feed hoặc Secure Exam ngoài phase đã quy hoạch.
 
@@ -1954,20 +1996,21 @@ ADR-0018 cùng ADR-0021. Phase 2/P2-12 đã hoàn thành;
 P3-CAL-00/P3-CAL-00B/P3-CAL-00C, P3-CAL-01 và P3-01 đã `DONE`. ADR-0019 là
 `Accepted; manual NVDA gate PASS`; P3-02A đã `DONE` sau khi exact renderer, numeric
 performance, visual và staging/browser gates đều đạt.
-P3-03A và P3-04 implementation đã đạt `VERIFY`; task hạ tầng hiện tại là
-P3-03B/P3-04 durable-host và canary crash/reclaim acceptance. Render Web Service được
-giữ cho Core API staging/private alpha; các gate cần host/provider được ghi
-`DEFERRED/VERIFY`, không bị bỏ qua.
+P3-03A và P3-04 implementation đã đạt `VERIFY`; P3-03B/P3-04 durable-host và canary
+crash/reclaim acceptance là carry-over đang chờ môi trường phù hợp. Render Web Service
+được giữ cho Core API staging/private alpha; các gate cần host/provider được ghi
+`DEFERRED/VERIFY`, không bị bỏ qua và không chặn Core Exit.
 Cả
 `OUTBOX_ENABLE_IN_APP_NOTIFICATION_CANARY` và
 `FEATURE_CONTROL_ENABLE_IN_APP_NOTIFICATIONS` vẫn mặc định false. P3-CAL-02/ADR-0020
 đã đạt local `VERIFY` với renderer/golden/sink/SES adapter cô lập. P3-02B recurrence và
 class conflict đã `DONE`; P3-02C working hours/attendee/free-busy/RSVP đã `DONE` ngày
 2026-07-30 tại commit `7859c233` sau migration `000020/000021`, exact runtime ACL,
-concurrent/IDOR, Calendar E2E `11/11` và staging/manual acceptance. Bước tiếp theo là
-P3-03B durable worker acceptance; không bật side effect chỉ vì P3-02C đã hoàn tất.
-P3-02D/ADR-0021 mới là
-architecture/backlog, chưa có runtime. AWS SES đã được chọn làm provider target nhưng
+concurrent/IDOR, Calendar E2E `11/11` và staging/manual acceptance. Bước runnable tiếp
+theo là `P3-02D-A` Native Availability Poll/Study Meeting core; không bật side effect
+chỉ vì P3-02C đã hoàn tất. `P3-02D-B` và các gate worker/provider vẫn là carry-over.
+AWS SES đã được chọn làm provider target nhưng
 P3-CAL-02/ADR-0020 vẫn giữ các gate live email/ICS chưa nghiệm thu; chưa có domain hoặc
 production delivery. Render Web Service vẫn là API staging/private alpha; Render Free
-không phải worker durable. Master Plan giữ mục tiêu/exit gate, không thay backlog chi tiết.
+không phải worker durable. Khi `P3-14-CORE` đạt, Phase 4 được phép bắt đầu; full P3-14
+vẫn chờ carry-over gates. Master Plan giữ mục tiêu/exit gate, không thay backlog chi tiết.

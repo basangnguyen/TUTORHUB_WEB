@@ -39,6 +39,19 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
   SPF/DKIM/DMARC, provider-event topology và cross-client matrix; chưa có email runtime.
   Các test local/CI/sandbox vẫn bắt buộc chạy; chỉ các gate phụ thuộc provider/domain
   production mới được ghi `DEFERRED/VERIFY`.
+- **Mô hình thực thi Phase 3 (re-baseline 2026-07-31):** Phase 3 được tách thành
+  `Core Exit` và `Deferred carry-over`. `Core Exit` bao gồm các luồng có thể xây,
+  chạy và kiểm thử trên Render/Neon/B2 hiện tại (trong đó có P3-02D-A poll core,
+  conversation/message core và file transfer core). Khi các gate của `Core Exit` xanh,
+  có thể bắt đầu Phase 4; điều này **không** đánh dấu umbrella Phase 3 hay P3-14 là
+  `DONE`.
+- `Deferred carry-over` vẫn được theo dõi và không được bypass: P3-03B durable worker,
+  P3-04 activation, P3-CAL-02 live SES/domain/interoperability, P3-05A/B delivery,
+  P3-10 và P3-11B processing UX phụ thuộc worker. Cho đến khi các gate này đóng,
+  notification/email/reminder và Class Files sharing/processing tới end user vẫn giữ tắt.
+- **Task runnable tiếp theo:** P3-02D-A Native Availability Poll và Study Meeting
+  core. P3-02D-B lifecycle delivery và các gate hạ tầng/provider là carry-over; chúng
+  có thể tiếp tục chính xác sau khi Phase 4 đã bắt đầu.
 - Web MVP nền đã chạy trên staging: Cloudflare Pages -> same-origin `/api/*` -> Go
   Core API trên Render; dữ liệu dùng Neon, file dùng Backblaze B2, media dùng LiveKit
   Cloud và xác thực dùng ZITADEL.
