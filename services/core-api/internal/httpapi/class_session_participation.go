@@ -578,6 +578,10 @@ func (handlers classSessionParticipationHandlers) writeProblem(
 		status, code = http.StatusConflict, "class_session_audience_conflict"
 		title = "Class session audience changed"
 		detail = "Reload the latest attendee list before saving this change."
+	case errors.Is(err, classroom.ErrSessionScheduleConflict):
+		status, code = http.StatusConflict, "class_session_schedule_conflict"
+		title = "Class schedule conflict"
+		detail = "The requested half-open time range conflicts with another calendar commitment."
 	case errors.Is(err, classroom.ErrSessionOrganizerUnavailable):
 		status, code = http.StatusConflict, "class_session_organizer_unavailable"
 		title = "Class session organizer unavailable"

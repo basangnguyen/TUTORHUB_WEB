@@ -486,6 +486,10 @@ func TestClassSessionParticipationMapsStableDomainErrors(t *testing.T) {
 			wantStatus: http.StatusConflict, wantCode: "class_session_audience_conflict",
 		},
 		{
+			name: "calendar commitment conflict", err: classroom.ErrSessionScheduleConflict,
+			wantStatus: http.StatusConflict, wantCode: "class_session_schedule_conflict",
+		},
+		{
 			name:       "idempotency conflict",
 			err:        classroom.ErrSessionParticipationIdempotencyConflict,
 			wantStatus: http.StatusConflict,

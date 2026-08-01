@@ -462,7 +462,7 @@ func (handlers classSessionHandlers) writeProblem(
 	case errors.Is(err, classroom.ErrSessionScheduleConflict):
 		status, code, title, detail = http.StatusConflict,
 			"class_session_schedule_conflict", "Class schedule conflict",
-			"Another session for this class overlaps the requested half-open time range."
+			"The requested half-open time range conflicts with another calendar commitment."
 	case errors.Is(err, classroom.ErrConflictOverrideDenied):
 		status, code, title, detail = http.StatusForbidden,
 			"class_session_override_forbidden", "Conflict override denied",

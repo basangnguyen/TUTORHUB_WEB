@@ -18,6 +18,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/tutorhub-v2/core-api/internal/modules/audit"
 	"github.com/tutorhub-v2/core-api/internal/modules/featurecontrol"
+	"github.com/tutorhub-v2/core-api/internal/platform/ownertime"
 	"github.com/tutorhub-v2/core-api/internal/platform/protecteddata"
 	"github.com/tutorhub-v2/core-api/internal/platform/tenancy"
 	"github.com/tutorhub-v2/core-api/internal/policy"
@@ -3212,8 +3213,9 @@ func requireNoStudyMeetingConflict(
 	startsAt time.Time,
 	endsAt time.Time,
 ) error {
-	lockKey := "study-meeting-conflict:" + tenantID.String() + ":" + ownerID.String()
-	if err := acquireAvailabilityPollTransactionLock(ctx, transaction, lockKey); err != nil {
+	if err := ownertime.AcquireLocks(
+		ctx, transaction, tenantID, []uuid.UUID{ownerID},
+	); err != nil {
 		return fmt.Errorf("lock study meeting conflict scope: %w", err)
 	}
 	var conflict bool

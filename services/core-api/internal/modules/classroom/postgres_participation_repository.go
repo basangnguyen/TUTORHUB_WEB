@@ -338,6 +338,23 @@ func (repository *PostgresRepository) ReplaceSessionAudience(
 		}
 		return SessionAudienceMutationResult{Audience: audience}, nil
 	}
+	newBusyWindows := newlyActiveOneTimeAudienceBusyWindows(
+		source.OrganizerUserID,
+		current,
+		resolved,
+		source.StartsAt,
+		source.EndsAt,
+	)
+	if len(newBusyWindows) > 0 {
+		if err := requireNoStudyMeetingConflicts(
+			queryContext,
+			transaction,
+			tenantContext.TenantID,
+			newBusyWindows,
+		); err != nil {
+			return SessionAudienceMutationResult{}, err
+		}
+	}
 
 	if err := applyAudienceReplacement(
 		queryContext,

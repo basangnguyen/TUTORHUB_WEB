@@ -27,7 +27,12 @@ Final local gate ngày 2026-08-01 trên shared tree:
   monorepo lint/typecheck/test/build, Storybook, bundle scan, toàn bộ Go test và `go vet`;
 - web Vitest: 45 file/225 test PASS; API client: 3 file/30 test PASS;
 - sau hardening index retention cuối: `go test -count=1 ./internal/modules/calendar` và
-  scoped `git diff --check` PASS.
+  scoped `git diff --check` PASS;
+- sau owner-time cross-writer hardening: focused Calendar/Classroom/HTTP/ownertime test,
+  full `go test -count=1 ./...`, `go vet ./...`, `corepack pnpm verify` và
+  `git diff --check` PASS. Integration-tag compile cho package Classroom cũng PASS;
+  barrier runtime chưa chạy vì cả hai database integration URL đều không được cấu hình
+  trên host này.
 
 Các lệnh tối thiểu tương ứng là:
 
@@ -221,10 +226,12 @@ rollout và review migration/provisioning; không cấp wildcard để làm smok
   không xóa meeting và không chặn active-to-active reschedule không mở rộng usage.
 - Owner conflict chặn overlap với scheduled Study Meeting và one-time/recurring
   ClassSession nơi owner là organizer/active attendee, kể cả source hiển thị free.
-- Study Meeting writer serialize theo owner và recheck conflict trong transaction. Gate
-  hiện **chưa đóng** vì concurrent ClassSession/series/audience writer chưa dùng chung
-  advisory lock và chưa reverse-recheck Study Meeting. Phải harden authority rồi chạy
-  cross-writer barrier test chứng minh không thể commit hai lịch overlap.
+- Study Meeting và writer one-time/recurring ClassSession, internal audience addition,
+  organizer transfer đã dùng chung advisory authority theo tenant/user, stable UUID order
+  và reverse-recheck StudyMeeting trong source local. Two-writer barrier test giữ exact
+  owner lock rồi chạy StudyMeeting/ClassSession thật đã có và integration-tag compile
+  PASS; gate vẫn **chưa đóng** cho tới khi test này chạy trên PostgreSQL thật và chứng minh
+  chỉ một writer commit, không còn cặp lịch overlap sau race.
 - Owner list/detail/update/cancel đúng scope; safety admin chỉ recovery cancel với reason/
   audit. Cross-owner/cross-tenant ID bị conceal.
 - Không endpoint nào mint LiveKit token hoặc tuyên bố media room đã tồn tại.

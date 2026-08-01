@@ -15,7 +15,7 @@
 | Task `DONE` gần nhất | P3-02C Working hours, attendee/free-busy và RSVP                                  |
 | Mốc repository mới | P3-02C runtime acceptance commit `7859c233` Live trên Render và Cloudflare         |
 | Task hiện tại       | P3-02D-A Native Availability Poll/Study Meeting core ở `VERIFY`                 |
-| Task tiếp theo      | Harden cross-writer conflict + nghiệm thu `000022`/ACL/staging, sau đó P3-06    |
+| Task tiếp theo      | Chạy PostgreSQL barrier + nghiệm thu `000022`/ACL/staging, sau đó P3-06         |
 
 ### Cập nhật P3-02D-A ngày 2026-08-01
 
@@ -37,10 +37,21 @@ P3-02D-B tiếp tục `DEFERRED/TODO`. Deadline worker auto-close, roster fan-ou
 notification/reminder delivery và LiveKit room lifecycle đều chưa được bật; các feature/
 worker/delivery/LiveKit consumer gate liên quan vẫn `false`.
 
-Rủi ro concurrency còn mở: Study Meeting writer hiện serialize theo owner và recheck
-conflict trong transaction, nhưng concurrent ClassSession/series/audience writer chưa dùng
-chung advisory lock và chưa reverse-recheck Study Meeting. Cross-writer race này phải được
-harden/chứng minh trên PostgreSQL trước khi P3-02D-A chuyển `DONE`.
+Cross-writer code gate đã được harden local: Study Meeting và mọi writer tạo busy edge từ
+one-time/recurring ClassSession, internal audience addition hoặc organizer transfer dùng
+chung legacy-compatible advisory key theo tenant/user, khóa UUID theo thứ tự ổn định và
+reverse-check scheduled StudyMeeting trong cùng transaction. HTTP trả conflict generic,
+không lộ meeting riêng tư. Full `go test -count=1 ./...`, `go vet ./...`,
+`corepack pnpm verify`, focused test và integration-tag compile đã đạt; barrier hai writer
+thật đã được mã hóa nhưng chưa chạy vì host không có `DATABASE_MIGRATION_URL`/
+`DATABASE_POOL_URL`. Vì vậy PostgreSQL concurrency gate vẫn mở và P3-02D-A giữ `VERIFY`.
+
+Gap kề cạnh được phát hiện khi harden recurring split: child series giờ giữ đúng organizer
+đã transfer thay vì mặc định thành mutation actor, nhưng audience/participation settings
+của parent vẫn chưa được copy/re-seal sang child. Owner-time reverse check chỉ dùng
+occupancy thực sự được persist (organizer) để không false-positive. Audience continuity
+cho following split phải được xử lý như regression riêng trước khi tuyên bố flow đó hoàn
+chỉnh; task này không copy ciphertext invitation hoặc mở rộng delivery scope.
 
 ### Mô hình thoát Phase 3 (re-baseline 2026-07-31)
 

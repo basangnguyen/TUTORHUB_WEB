@@ -34,8 +34,8 @@ tất trước khi có môi trường phù hợp. Domain/DNS, SES sandbox và pr
 approval có thể tiếp tục chuẩn bị song song.
 
 **Task đang verify:** `P3-02D-A` Native Availability Poll và Study Meeting core đã có
-implementation local; bước bắt buộc tiếp theo là harden cross-writer conflict rồi chạy
-migration/ACL/staging acceptance trước khi chuyển `DONE`, sau đó runnable lane tiếp tục
+implementation local cùng cross-writer hardening; bước bắt buộc tiếp theo là chạy
+PostgreSQL barrier và migration/ACL/staging acceptance trước khi chuyển `DONE`, sau đó runnable lane tiếp tục
 với P3-06. `P3-02D-B` lifecycle delivery/
 auto-close/fan-out và các gate P3-03B/P3-CAL-02/P3-05A/B là carry-over, không nằm trong
 mốc Core Exit tối thiểu.
@@ -777,9 +777,14 @@ P3-04 activation đạt gate; P3-05B là delivery adapter downstream.
       runtime/maintenance grants, chứng minh hard-retention cascade, quota/concurrency/
       tenant isolation, rồi hoàn tất Render/Cloudflare browser, privacy và manual a11y
       acceptance theo `P3_02D_A_STAGING_ACCEPTANCE.md`; chỉ khi đó mới chuyển `DONE`.
-- [ ] Harden/verify cross-writer race: Study Meeting writer đã serialize theo owner, nhưng
-      concurrent ClassSession/series/audience writer phải dùng chung authority hoặc có
-      reverse Study Meeting recheck để không commit hai lịch overlap.
+- [x] Harden cross-writer code: Study Meeting, one-time/recurring ClassSession, internal
+      audience addition và organizer transfer dùng chung advisory authority theo
+      tenant/user, stable UUID lock order và reverse StudyMeeting recheck. PostgreSQL
+      two-writer barrier test đã có nhưng việc chạy thật vẫn thuộc concurrency gate ở mục
+      migration/acceptance phía trên; local compile không được ghi là barrier PASS.
+- [ ] Following-split audience continuity: child đã giữ authoritative organizer, nhưng
+      audience/participation settings chưa được copy/re-seal từ parent. Xử lý regression
+      riêng bằng business snapshot path; không raw-copy protected invitation ciphertext.
 
 ### P3-02D-B Poll lifecycle delivery (deferred carry-over)
 
@@ -1126,9 +1131,9 @@ một tuần.
    cô lập. ADR vẫn `Proposed`; SES sandbox live, EventBridge/SQS/DLQ, sending domain/DNS
    và Gmail/Outlook/Apple matrix còn `BLOCKED/VERIFY`, chưa bật business delivery.
 6. P3-02A/P3-02B/P3-02C đã `DONE`; working-hours, free-busy, audience và RSVP core đã
-   qua local/staging/manual gate. P3-02D-A poll/StudyMeeting core hiện ở `VERIFY`; hoàn
-   harden cross-writer conflict, hoàn tất migration `000022`, exact ACL và staging/manual
-   acceptance rồi tiếp tục P3-06.
+   qua local/staging/manual gate. P3-02D-A poll/StudyMeeting core hiện ở `VERIFY`;
+   cross-writer code đã harden, còn phải chạy PostgreSQL barrier, hoàn tất migration
+   `000022`, exact ACL và staging/manual acceptance rồi tiếp tục P3-06.
    Task này không chờ P3-03B và không bật delivery side effect.
 7. P3-03B/P3-04, P3-CAL-02/P3-05A và P3-02D-B/P3-05B tiếp tục ở carry-over. Đóng
    `P3-14-CORE` sau lane runnable cho phép bắt đầu Phase 4; full P3-14 vẫn chờ các gate này.

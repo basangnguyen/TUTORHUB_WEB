@@ -342,6 +342,17 @@ func (repository *PostgresRepository) TransferParticipationOrganizer(
 		params.NewOrganizerUserID,
 	)
 	changedAt := transferredAt.UTC()
+	if err := repository.requireNoOrganizerTransferStudyMeetingConflicts(
+		queryContext,
+		transaction,
+		tenantContext.TenantID,
+		classID,
+		locked,
+		current,
+		params.NewOrganizerUserID,
+	); err != nil {
+		return OrganizerTransferResult{}, err
+	}
 	if err := applyTypedAudienceReplacement(
 		queryContext,
 		transaction,

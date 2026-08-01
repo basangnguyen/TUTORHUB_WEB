@@ -61,6 +61,16 @@ func (repository *PostgresRepository) CreateSession(
 	); err != nil {
 		return ClassSession{}, err
 	}
+	if err := requireNoStudyMeetingConflicts(
+		queryContext,
+		transaction,
+		tenantContext.TenantID,
+		oneTimeBusyWindows(
+			[]uuid.UUID{params.CreatedBy}, params.StartsAt, params.EndsAt,
+		),
+	); err != nil {
+		return ClassSession{}, err
+	}
 	if err := requireNoClassSessionConflict(
 		queryContext,
 		transaction,
@@ -278,6 +288,24 @@ func (repository *PostgresRepository) UpdateSession(
 		return ClassSession{}, ErrSessionVersionConflict
 	}
 	if params.StartsAt != nil {
+		busyUserIDs, err := loadOneTimeSessionBusyUserIDs(
+			queryContext,
+			transaction,
+			tenantContext.TenantID,
+			classID,
+			sessionID,
+		)
+		if err != nil {
+			return ClassSession{}, err
+		}
+		if err := requireNoStudyMeetingConflicts(
+			queryContext,
+			transaction,
+			tenantContext.TenantID,
+			oneTimeBusyWindows(busyUserIDs, *params.StartsAt, *params.EndsAt),
+		); err != nil {
+			return ClassSession{}, err
+		}
 		if err := requireNoClassSessionConflict(
 			queryContext,
 			transaction,

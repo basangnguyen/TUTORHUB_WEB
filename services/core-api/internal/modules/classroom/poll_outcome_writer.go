@@ -48,6 +48,16 @@ func (repository *PostgresRepository) CreatePollOutcomeInTransaction(
 	); err != nil {
 		return uuid.Nil, mapPollClassSessionOutcomeError(err)
 	}
+	if err := requireNoStudyMeetingConflicts(
+		ctx,
+		transaction,
+		scope.TenantID,
+		oneTimeBusyWindows(
+			[]uuid.UUID{scope.ActorID}, params.StartsAt, params.EndsAt,
+		),
+	); err != nil {
+		return uuid.Nil, mapPollClassSessionOutcomeError(err)
+	}
 	if err := requireNoClassSessionConflict(
 		ctx, transaction, scope.TenantID, classID, uuid.Nil, params.StartsAt, params.EndsAt,
 	); err != nil {

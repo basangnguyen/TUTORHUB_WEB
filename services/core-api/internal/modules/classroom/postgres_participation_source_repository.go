@@ -387,6 +387,17 @@ func (repository *PostgresRepository) ReplaceParticipationAudience(
 		return SessionAudienceMutationResult{Audience: audience}, nil
 	}
 
+	if err := repository.requireNoNewTypedAudienceStudyMeetingConflicts(
+		queryContext,
+		transaction,
+		tenantContext.TenantID,
+		classID,
+		locked,
+		effectiveCurrent,
+		resolved,
+	); err != nil {
+		return SessionAudienceMutationResult{}, err
+	}
 	if err := applyTypedAudienceReplacement(
 		queryContext,
 		transaction,

@@ -159,7 +159,9 @@ func TestClassSessionHandlersMapAuthoritativeScheduleConflict(t *testing.T) {
 		`{"title":"Conflict","starts_at":"2026-07-24T10:00:00+07:00","ends_at":"2026-07-24T11:00:00+07:00","timezone":"Asia/Ho_Chi_Minh"}`,
 	)
 	if response.Code != http.StatusConflict ||
-		!strings.Contains(response.Body.String(), "class_session_schedule_conflict") {
+		!strings.Contains(response.Body.String(), "class_session_schedule_conflict") ||
+		!strings.Contains(response.Body.String(), "another calendar commitment") ||
+		strings.Contains(response.Body.String(), "study meeting") {
 		t.Fatalf("schedule conflict response: status=%d body=%s", response.Code, response.Body.String())
 	}
 }

@@ -87,7 +87,7 @@ live; rollback bằng specific commit giữ cấu hình hiện tại là bằng 
 | P3-CAL-01 Spike + ADR-0019           | DONE        | V7 được chấp nhận; manual NVDA gate PASS      |
 | P3-01 Session scheduling và timezone | DONE        | One-time session staging acceptance đạt       |
 | P3-CAL-02 Email/ICS + ADR-0020       | VERIFY      | Local renderer/sink/SES adapter; live SES/domain gates mở |
-| P3-02D-A Native Availability Poll    | TODO        | Poll/Study Meeting core; không bật delivery   |
+| P3-02D-A Native Availability Poll    | VERIFY      | Core + cross-writer hardening local; DB/staging gates mở |
 | P3-02D-B Poll lifecycle delivery     | DEFERRED/TODO | Chưa code; auto-close/fan-out chờ worker      |
 | P3-03A Worker repository foundation  | VERIFY      | Implementation local/CI đã có                 |
 | P3-03B Durable worker acceptance     | DEFERRED/VERIFY | Host/role/grants/crash gate mở             |
@@ -158,7 +158,7 @@ P3-04 chưa `DONE`: Neon staging hiện ở `21 false`; migration `000016` và e
 runtime grants đã probe xanh, nhưng worker role/worker grants, durable worker và canary
 duplicate/crash-reclaim chưa được nghiệm thu. Khi đổi worker gate phải dừng process và
 đổi exact notification grant cùng lúc; quyền dư/thiếu đều phải làm startup probe fail
-closed. Dependency runnable tiếp theo là `P3-02D-A` sau P3-02B/C. P3-03B durable-host,
+closed. Dependency runnable đang verify là `P3-02D-A` sau P3-02B/C. P3-03B durable-host,
 worker role/grants/crash-reclaim, P3-04 activation, live SES/domain và delivery-dependent
 processing được giữ `DEFERRED/VERIFY` hoặc `DEFERRED/TODO` đúng theo mức implementation
 cho tới khi có môi trường phù hợp. Khi các slice

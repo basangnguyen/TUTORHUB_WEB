@@ -99,6 +99,14 @@ WHERE tenant_id = $1 AND class_id = $2 AND status = 'scheduled'`,
 	} else if conflict != nil {
 		return ClassSessionSeries{}, ErrSessionScheduleConflict
 	}
+	if err := requireNoStudyMeetingConflicts(
+		queryContext,
+		transaction,
+		tenantContext.TenantID,
+		recurringOrganizerBusyWindows(params.CreatedBy, occurrences),
+	); err != nil {
+		return ClassSessionSeries{}, err
+	}
 	series, err := insertClassSessionSeries(
 		queryContext,
 		transaction,
@@ -106,6 +114,7 @@ WHERE tenant_id = $1 AND class_id = $2 AND status = 'scheduled'`,
 		classID,
 		params,
 		nil,
+		params.CreatedBy,
 		createdAt,
 	)
 	if err != nil {
@@ -612,6 +621,18 @@ func (repository *PostgresRepository) mutateOneOccurrence(
 		} else if conflict != nil && !params.OverrideScheduleConflict {
 			return ClassSessionSeries{}, ErrSessionScheduleConflict
 		}
+		if seriesMutationChangesSchedule(params) {
+			if err := repository.requireNoExistingSeriesStudyMeetingConflicts(
+				ctx,
+				transaction,
+				series.TenantID,
+				series.ClassID,
+				series.ID,
+				[]recurrence.Occurrence{projected},
+			); err != nil {
+				return ClassSessionSeries{}, err
+			}
+		}
 	}
 	if err := upsertSeriesException(
 		ctx, transaction, series, exception, tenantContext.ActorID, updatedAt,
@@ -710,8 +731,20 @@ func (repository *PostgresRepository) mutateEntireSeries(
 	if err := requireNoSelfOverlap(occurrences); err != nil {
 		return ClassSessionSeries{}, err
 	}
+	projectedOccurrences := occurrences
+	if !identityChanged && len(exceptions) > 0 {
+		projectedOccurrences, err = applyPersistedExceptions(
+			ctx,
+			updated,
+			occurrences,
+			exceptions,
+		)
+		if err != nil {
+			return ClassSessionSeries{}, err
+		}
+	}
 	if conflict, conflictErr := repository.findClassScheduleConflict(
-		ctx, transaction, series.TenantID, series.ClassID, series.ID, occurrences,
+		ctx, transaction, series.TenantID, series.ClassID, series.ID, projectedOccurrences,
 	); conflictErr != nil {
 		return ClassSessionSeries{}, conflictErr
 	} else if conflict != nil && !params.OverrideScheduleConflict {
@@ -720,6 +753,18 @@ func (repository *PostgresRepository) mutateEntireSeries(
 	if params.OverrideScheduleConflict &&
 		membership.Role != string(policy.OrganizationRoleAdmin) {
 		return ClassSessionSeries{}, ErrConflictOverrideDenied
+	}
+	if seriesMutationChangesSchedule(params) {
+		if err := repository.requireNoExistingSeriesStudyMeetingConflicts(
+			ctx,
+			transaction,
+			series.TenantID,
+			series.ClassID,
+			series.ID,
+			projectedOccurrences,
+		); err != nil {
+			return ClassSessionSeries{}, err
+		}
 	}
 	result, err := updateClassSessionSeries(
 		ctx, transaction, updated, tenantContext.ActorID, updatedAt,
@@ -878,12 +923,47 @@ func (repository *PostgresRepository) mutateFollowingOccurrences(
 	if err := requireNoSelfOverlap(childOccurrences); err != nil {
 		return ClassSessionSeries{}, err
 	}
+	projectedChildOccurrences := childOccurrences
+	if params.FollowingExceptionPolicy != recurrence.ExceptionDiscard {
+		projectedChildOccurrences, err = applyFutureExceptionsToOccurrences(
+			ctx,
+			series,
+			child,
+			occurrences[boundaryIndex:],
+			childOccurrences,
+			exceptions,
+			params.FollowingExceptionPolicy,
+		)
+		if err != nil {
+			return ClassSessionSeries{}, err
+		}
+	}
 	if conflict, conflictErr := repository.findClassScheduleConflict(
-		ctx, transaction, series.TenantID, series.ClassID, series.ID, childOccurrences,
+		ctx, transaction, series.TenantID, series.ClassID, series.ID, projectedChildOccurrences,
 	); conflictErr != nil {
 		return ClassSessionSeries{}, conflictErr
 	} else if conflict != nil && !params.OverrideScheduleConflict {
 		return ClassSessionSeries{}, ErrSessionScheduleConflict
+	}
+	organizerUserID, err := loadRecurringSeriesOrganizerUserID(
+		ctx,
+		transaction,
+		series.TenantID,
+		series.ClassID,
+		series.ID,
+	)
+	if err != nil {
+		return ClassSessionSeries{}, err
+	}
+	if seriesMutationChangesSchedule(params) && len(projectedChildOccurrences) > 0 {
+		if err := requireNoStudyMeetingConflicts(
+			ctx,
+			transaction,
+			series.TenantID,
+			recurringOrganizerBusyWindows(organizerUserID, projectedChildOccurrences),
+		); err != nil {
+			return ClassSessionSeries{}, err
+		}
 	}
 
 	if boundaryIndex == 0 {
@@ -920,6 +1000,7 @@ func (repository *PostgresRepository) mutateFollowingOccurrences(
 		series.ClassID,
 		childParams,
 		&series.ID,
+		organizerUserID,
 		updatedAt,
 	)
 	if err != nil {
@@ -988,6 +1069,10 @@ func applySeriesUpdate(
 		series.OverlapPolicy = *params.OverlapPolicy
 	}
 	return series, identityChanged, nil
+}
+
+func seriesMutationChangesSchedule(params SeriesMutationParams) bool {
+	return params.StartsAt != nil || params.Rule != nil || params.OverlapPolicy != nil
 }
 
 func applyOccurrenceOverride(
@@ -1182,8 +1267,12 @@ func insertClassSessionSeries(
 	classID uuid.UUID,
 	params CreateSeriesParams,
 	splitFrom *uuid.UUID,
+	organizerUserID uuid.UUID,
 	createdAt time.Time,
 ) (ClassSessionSeries, error) {
+	if organizerUserID == uuid.Nil {
+		return ClassSessionSeries{}, ErrInvalidSessionInput
+	}
 	localStart, _ := time.Parse(civilDateTimeLayout, params.LocalStart)
 	icalUID := params.ID.String() + "@calendar.tutorhub"
 	series, err := scanClassSessionSeries(transaction.QueryRow(
@@ -1194,11 +1283,11 @@ func insertClassSessionSeries(
     recurrence_weekdays, recurrence_month_days, recurrence_months,
     recurrence_end_type, recurrence_until_date, recurrence_count,
     normalized_rule, overlap_policy, ical_uid, split_from_series_id,
-    created_by, updated_by, created_at, updated_at
+    organizer_user_id, created_by, updated_by, created_at, updated_at
 )
 VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13,
-    $14, $15, $16, $17, $18, $19, $20, $21, $21, $22, $22
+    $14, $15, $16, $17, $18, $19, $20, $21, $22, $22, $23, $23
 )
 RETURNING
     id, tenant_id, class_id, title, description, local_start, timezone,
@@ -1215,7 +1304,7 @@ RETURNING
 		intsToInt16s(params.Rule.Months), params.Rule.End.Type,
 		nullableEndDate(params.Rule.End), nullableEndCount(params.Rule.End),
 		params.NormalizedRule, params.OverlapPolicy, icalUID, splitFrom,
-		params.CreatedBy, createdAt,
+		organizerUserID, params.CreatedBy, createdAt,
 	))
 	if err != nil {
 		return ClassSessionSeries{}, mapSeriesPostgresError("insert recurring session series", err)

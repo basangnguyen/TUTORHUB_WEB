@@ -1388,10 +1388,10 @@ browser authorization/privacy và manual accessibility vẫn là gate mở; vì 
 `DONE`. P3-02D-B auto-close/fan-out/delivery và Phase 4 LiveKit lifecycle không thuộc
 vertical slice này, chưa được triển khai hoặc bật.
 
-Conflict gate cũng chưa đóng: Study Meeting writer serialize theo owner và recheck trong
-transaction, nhưng concurrent ClassSession/series/audience writer chưa chia sẻ advisory
-lock/reverse Study Meeting recheck. Cross-writer race phải được harden và kiểm chứng trên
-PostgreSQL trước khi P3-02D-A chuyển `DONE`.
+Cross-writer code gate đã được harden local: Study Meeting và ClassSession/series/audience/
+organizer-transfer writer chia sẻ advisory authority theo tenant/user và reverse-check
+trong transaction. Two-writer PostgreSQL barrier đã được mã hóa nhưng chưa chạy trên host
+có database integration URL, nên concurrency acceptance vẫn mở và P3-02D-A chưa `DONE`.
 
 **Mục tiêu:** trước khi có classroom phức tạp, người dùng đã quản lý được lịch, tin nhắn và tài liệu.
 
@@ -2023,9 +2023,9 @@ Cả
 class conflict đã `DONE`; P3-02C working hours/attendee/free-busy/RSVP đã `DONE` ngày
 2026-07-30 tại commit `7859c233` sau migration `000020/000021`, exact runtime ACL,
 concurrent/IDOR, Calendar E2E `11/11` và staging/manual acceptance. P3-02D-A Native
-Availability Poll/Study Meeting core đã có implementation local ở `VERIFY`; bước bắt
-buộc tiếp theo là harden cross-writer conflict, migration `000022`/exact ACL/staging
-acceptance, rồi P3-06. Không bật
+Availability Poll/Study Meeting core đã có implementation local ở `VERIFY`; cross-writer
+code đã harden, bước bắt buộc tiếp theo là chạy PostgreSQL barrier cùng migration
+`000022`/exact ACL/staging acceptance, rồi P3-06. Không bật
 side effect chỉ vì core đã có. `P3-02D-B` và các gate worker/provider vẫn là carry-over.
 AWS SES đã được chọn làm provider target nhưng
 P3-CAL-02/ADR-0020 vẫn giữ các gate live email/ICS chưa nghiệm thu; chưa có domain hoặc

@@ -329,10 +329,28 @@ không đổi boundary của ADR:
   auto-close vẫn thuộc P3-02D-B;
 - StudyMeeting conflict trong A là owner-time conflict: chặn overlap với StudyMeeting
   scheduled của owner và ClassSession nơi owner là organizer/active attendee. Outcome
-  ClassSession tiếp tục dùng class-wide conflict authority hiện có. Study Meeting writer
-  serialize theo owner và recheck trong transaction; concurrent ClassSession/series/
-  audience writer chưa dùng chung advisory lock/reverse Study Meeting recheck, nên
-  cross-writer race là gate hardening/verify bắt buộc trước `DONE`;
+  ClassSession tiếp tục dùng class-wide conflict authority hiện có;
+- owner-time conflict dùng chung một transaction advisory-lock protocol cho cả Calendar
+  và Classroom. Namespace tương thích rollout là
+  `study-meeting-conflict:<tenant_id>:<user_id>`; writer loại trùng rồi khóa UUID người
+  dùng theo thứ tự tăng ổn định trước conflict read và write. Namespace này không được
+  đổi trong rollout hardening để binary cũ/mới vẫn serialize với nhau;
+- thứ tự khóa là domain-first: feature/tenant/class/idempotency/source/series/attendee row
+  lock hiện có, rồi owner-time advisory lock, plain cross-domain conflict read, cuối cùng
+  mới write. Không có đường writer nào được lấy owner-time lock trước rồi quay lại lấy
+  class/source row lock. StudyMeeting writer giữ authority cũ theo owner; ClassSession,
+  recurring-series, internal-audience addition và organizer-transfer writer phải lấy cùng
+  lock cho mọi người dùng/cửa sổ bận mới tạo rồi reverse-check StudyMeeting scheduled;
+- recurring reverse-check dùng đúng projected occurrence sau exception cùng effective
+  attendee semantics: organizer luôn bận; row occurrence-specific mới nhất override row
+  series-level; chỉ attendee internal `active` là bận. Không union chéo mọi attendee với
+  mọi occurrence vì có thể false-positive sau occurrence removal. RSVP, external
+  attendee, cancellation và internal attendee removal không tạo cạnh bận mới nên không
+  cần owner-time lock. Admin conflict override không được bỏ qua StudyMeeting riêng tư;
+- mọi overlap dùng half-open interval `[start,end)`, trả conflict đồng nhất và không lộ
+  ID/title/owner của StudyMeeting. PostgreSQL barrier tests phải chứng minh hai writer
+  đối nghịch không thể cùng commit; test chỉ compile hoặc fixture conflict có sẵn không
+  thay thế gate concurrency này;
 - hard cap mỗi poll: tối đa 500 poll-access capability active/1.000 row lịch sử, 500
   response session active/1.000 row lịch sử, 10.000 slot history, 5.000 participant
   history và 100 version cho mỗi response; expired/revoked row đủ điều kiện được tái sử
@@ -352,11 +370,15 @@ không đổi boundary của ADR:
 Các giá trị tenant có thể bị hạ qua ADR-0015 nhưng không vượt ceiling compile-time/schema.
 Hạ quota không xóa dữ liệu đã có; nó chỉ chặn expansion tiếp theo.
 
-Implementation local của hồ sơ này ở trạng thái `VERIFY`. Migration `000022`, exact
-runtime/maintenance grants, hard-retention cascade, PostgreSQL concurrency và staging
-browser/privacy/accessibility chưa được coi là đạt cho tới khi có bằng chứng trong
-`docs/P3_02D_A_STAGING_ACCEPTANCE.md`. P3-02D-B vẫn `DEFERRED/TODO`; không bật deadline
-worker auto-close, roster fan-out, email/notification/reminder hoặc LiveKit lifecycle.
+Implementation local của hồ sơ này ở trạng thái `VERIFY`. Shared owner-time lock và
+reverse StudyMeeting check đã được nối vào one-time/recurring ClassSession, internal
+audience addition và organizer transfer ngày 2026-08-01; PostgreSQL two-writer barrier
+test đã có trong source nhưng mới compile ở local vì không có database integration URL.
+Migration `000022`, exact runtime/maintenance grants, hard-retention cascade, việc chạy
+barrier/concurrency trên PostgreSQL thật và staging browser/privacy/accessibility chưa
+được coi là đạt cho tới khi có bằng chứng trong `docs/P3_02D_A_STAGING_ACCEPTANCE.md`.
+P3-02D-B vẫn `DEFERRED/TODO`; không bật deadline worker auto-close, roster fan-out,
+email/notification/reminder hoặc LiveKit lifecycle.
 
 ## Hệ quả
 
