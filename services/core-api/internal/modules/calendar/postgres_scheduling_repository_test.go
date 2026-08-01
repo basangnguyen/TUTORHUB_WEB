@@ -514,6 +514,26 @@ func (*schedulingConstructorControls) RequireActiveClassCapacity(
 	return nil
 }
 
+func (*schedulingConstructorControls) RequireQuotaAtMost(
+	context.Context,
+	featurecontrol.Transaction,
+	uuid.UUID,
+	featurecontrol.QuotaKey,
+	int64,
+) error {
+	return nil
+}
+
+func (*schedulingConstructorControls) ConsumeRateQuota(
+	context.Context,
+	featurecontrol.Transaction,
+	uuid.UUID,
+	featurecontrol.QuotaKey,
+	time.Time,
+) (featurecontrol.RateLimitResult, error) {
+	return featurecontrol.RateLimitResult{}, nil
+}
+
 func (*schedulingConstructorControls) ConsumeInviteCreation(
 	context.Context,
 	featurecontrol.Transaction,

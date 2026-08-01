@@ -40,6 +40,10 @@ func run() int {
 		bootstrapLogger.Error("invalid configuration", "error", err)
 		return 1
 	}
+	cfg.FeatureControls = featureControlsWithRuntimePrerequisites(
+		cfg.FeatureControls,
+		cfg.CalendarProtectedData.Enabled,
+	)
 
 	logger, err := observability.NewLogger(os.Stdout, cfg.LogLevel)
 	if err != nil {
@@ -181,8 +185,9 @@ func run() int {
 	var externalRSVPService classroom.ExternalRSVPServiceAPI
 	var calendarService calendar.ServiceAPI
 	var calendarSchedulingService calendar.SchedulingServiceAPI
+	var availabilityPollService calendar.AvailabilityPollServiceAPI
+	var calendarProtector *protecteddata.Protector
 	if pool != nil {
-		var calendarProtector *protecteddata.Protector
 		if cfg.CalendarProtectedData.Enabled {
 			calendarProtector, err = protecteddata.New(protecteddata.Config{
 				Key:        cfg.CalendarProtectedData.Key,
@@ -283,6 +288,29 @@ func run() int {
 		if err != nil {
 			logger.Error("initialize calendar scheduling service", "error", err)
 			return 1
+		}
+		if calendarProtector != nil {
+			availabilityPollRepository, pollErr := calendar.NewPostgresAvailabilityPollRepository(
+				pool,
+				cfg.Database.QueryTimeout,
+				authorizer,
+				featureControlEnforcer,
+				calendarProtector,
+				classroomRepository,
+				cfg.WebOrigin,
+				time.Now,
+			)
+			if pollErr != nil {
+				logger.Error("initialize availability poll repository", "error", pollErr)
+				return 1
+			}
+			availabilityPollService, pollErr = calendar.NewAvailabilityPollService(
+				availabilityPollRepository, time.Now,
+			)
+			if pollErr != nil {
+				logger.Error("initialize availability poll service", "error", pollErr)
+				return 1
+			}
 		}
 	}
 
@@ -408,6 +436,7 @@ func run() int {
 		ExternalRSVP:          externalRSVPService,
 		Calendar:              calendarService,
 		CalendarScheduling:    calendarSchedulingService,
+		AvailabilityPolls:     availabilityPollService,
 		Enrollment:            enrollmentService,
 		Audit:                 auditService,
 		FeatureControls:       featureControlService,
@@ -441,7 +470,7 @@ func run() int {
 }
 
 func featureControlGuardrails(configuration config.FeatureControlConfig) featurecontrol.Guardrails {
-	forcedOff := make(map[featurecontrol.FeatureKey]bool, 4)
+	forcedOff := make(map[featurecontrol.FeatureKey]bool, 5)
 	if configuration.DisableMembershipInvitations {
 		forcedOff[featurecontrol.FeatureMembershipInvitations] = true
 	}
@@ -454,6 +483,9 @@ func featureControlGuardrails(configuration config.FeatureControlConfig) feature
 	if configuration.DisableClassSessionScheduling {
 		forcedOff[featurecontrol.FeatureClassSessionScheduling] = true
 	}
+	if configuration.DisableAvailabilityPolls {
+		forcedOff[featurecontrol.FeatureAvailabilityPolls] = true
+	}
 	if !configuration.EnableClassSessionRecurrence {
 		forcedOff[featurecontrol.FeatureClassSessionRecurrence] = true
 	}
@@ -464,9 +496,27 @@ func featureControlGuardrails(configuration config.FeatureControlConfig) feature
 	return featurecontrol.Guardrails{
 		ForcedOffFeatures: forcedOff,
 		QuotaCeilings: map[featurecontrol.QuotaKey]int64{
-			featurecontrol.QuotaMembers:                int64(configuration.MaxMembers),
-			featurecontrol.QuotaActiveClasses:          int64(configuration.MaxActiveClasses),
-			featurecontrol.QuotaInviteCreationsPerHour: int64(configuration.MaxInviteCreationsPerHour),
+			featurecontrol.QuotaMembers:                                    int64(configuration.MaxMembers),
+			featurecontrol.QuotaActiveClasses:                              int64(configuration.MaxActiveClasses),
+			featurecontrol.QuotaInviteCreationsPerHour:                     int64(configuration.MaxInviteCreationsPerHour),
+			featurecontrol.QuotaActiveAvailabilityPolls:                    int64(configuration.MaxActiveAvailabilityPolls),
+			featurecontrol.QuotaAvailabilityPollRangeDays:                  int64(configuration.MaxAvailabilityPollRangeDays),
+			featurecontrol.QuotaAvailabilityPollSlots:                      int64(configuration.MaxAvailabilityPollSlots),
+			featurecontrol.QuotaAvailabilityPollParticipants:               int64(configuration.MaxAvailabilityPollParticipants),
+			featurecontrol.QuotaAvailabilityPollCreationsPerHour:           int64(configuration.MaxAvailabilityPollCreationsPerHour),
+			featurecontrol.QuotaAvailabilityPollCapabilityCreationsPerHour: int64(configuration.MaxAvailabilityPollCapabilityCreationsPerHour),
+			featurecontrol.QuotaActiveStudyMeetings:                        int64(configuration.MaxActiveStudyMeetings),
+			featurecontrol.QuotaStudyMeetingCreationsPerHour:               int64(configuration.MaxStudyMeetingCreationsPerHour),
 		},
 	}
+}
+
+func featureControlsWithRuntimePrerequisites(
+	configuration config.FeatureControlConfig,
+	calendarProtectedDataEnabled bool,
+) config.FeatureControlConfig {
+	if !calendarProtectedDataEnabled {
+		configuration.DisableAvailabilityPolls = true
+	}
+	return configuration
 }

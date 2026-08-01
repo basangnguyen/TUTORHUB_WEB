@@ -73,7 +73,15 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.FeatureControls.EnableInAppNotifications ||
 		cfg.FeatureControls.MaxMembers != defaultFeatureMemberLimit ||
 		cfg.FeatureControls.MaxActiveClasses != defaultFeatureClassLimit ||
-		cfg.FeatureControls.MaxInviteCreationsPerHour != defaultFeatureInviteRateLimit {
+		cfg.FeatureControls.MaxInviteCreationsPerHour != defaultFeatureInviteRateLimit ||
+		cfg.FeatureControls.MaxActiveAvailabilityPolls != defaultFeatureActiveAvailabilityPollLimit ||
+		cfg.FeatureControls.MaxAvailabilityPollRangeDays != defaultFeatureAvailabilityPollRangeDaysLimit ||
+		cfg.FeatureControls.MaxAvailabilityPollSlots != defaultFeatureAvailabilityPollSlotsLimit ||
+		cfg.FeatureControls.MaxAvailabilityPollParticipants != defaultFeatureAvailabilityPollParticipantsLimit ||
+		cfg.FeatureControls.MaxAvailabilityPollCreationsPerHour != defaultFeatureAvailabilityPollCreationRateLimit ||
+		cfg.FeatureControls.MaxAvailabilityPollCapabilityCreationsPerHour != defaultFeatureAvailabilityPollCapabilityRateLimit ||
+		cfg.FeatureControls.MaxActiveStudyMeetings != defaultFeatureActiveStudyMeetingLimit ||
+		cfg.FeatureControls.MaxStudyMeetingCreationsPerHour != defaultFeatureStudyMeetingCreationRateLimit {
 		t.Fatalf("unexpected feature control defaults: %+v", cfg.FeatureControls)
 	}
 }
@@ -154,15 +162,24 @@ func TestLoadCustomValues(t *testing.T) {
 		"B2_APPLICATION_KEY":        "not-a-real-b2-secret",
 		"EDGE_CONTEXT_SECRET":       validSessionSecret(),
 		"EDGE_CONTEXT_MAX_SKEW":     "90s",
-		"FEATURE_CONTROL_DISABLE_MEMBERSHIP_INVITATIONS":   "true",
-		"FEATURE_CONTROL_DISABLE_CLASS_MANAGEMENT":         "true",
-		"FEATURE_CONTROL_DISABLE_CLASS_INVITE_LINKS":       "true",
-		"FEATURE_CONTROL_DISABLE_CLASS_SESSION_SCHEDULING": "true",
-		"FEATURE_CONTROL_ENABLE_CLASS_SESSION_RECURRENCE":  "true",
-		"FEATURE_CONTROL_ENABLE_IN_APP_NOTIFICATIONS":      "true",
-		"FEATURE_CONTROL_MAX_MEMBERS":                      "5000",
-		"FEATURE_CONTROL_MAX_ACTIVE_CLASSES":               "500",
-		"FEATURE_CONTROL_MAX_INVITE_CREATIONS_PER_HOUR":    "5000",
+		"FEATURE_CONTROL_DISABLE_MEMBERSHIP_INVITATIONS":                      "true",
+		"FEATURE_CONTROL_DISABLE_CLASS_MANAGEMENT":                            "true",
+		"FEATURE_CONTROL_DISABLE_CLASS_INVITE_LINKS":                          "true",
+		"FEATURE_CONTROL_DISABLE_CLASS_SESSION_SCHEDULING":                    "true",
+		"FEATURE_CONTROL_DISABLE_AVAILABILITY_POLLS":                          "true",
+		"FEATURE_CONTROL_ENABLE_CLASS_SESSION_RECURRENCE":                     "true",
+		"FEATURE_CONTROL_ENABLE_IN_APP_NOTIFICATIONS":                         "true",
+		"FEATURE_CONTROL_MAX_MEMBERS":                                         "5000",
+		"FEATURE_CONTROL_MAX_ACTIVE_CLASSES":                                  "500",
+		"FEATURE_CONTROL_MAX_INVITE_CREATIONS_PER_HOUR":                       "5000",
+		"FEATURE_CONTROL_MAX_ACTIVE_AVAILABILITY_POLLS":                       "150",
+		"FEATURE_CONTROL_MAX_AVAILABILITY_POLL_RANGE_DAYS":                    "60",
+		"FEATURE_CONTROL_MAX_AVAILABILITY_POLL_SLOTS":                         "800",
+		"FEATURE_CONTROL_MAX_AVAILABILITY_POLL_PARTICIPANTS":                  "400",
+		"FEATURE_CONTROL_MAX_AVAILABILITY_POLL_CREATIONS_PER_HOUR":            "150",
+		"FEATURE_CONTROL_MAX_AVAILABILITY_POLL_CAPABILITY_CREATIONS_PER_HOUR": "900",
+		"FEATURE_CONTROL_MAX_ACTIVE_STUDY_MEETINGS":                           "120",
+		"FEATURE_CONTROL_MAX_STUDY_MEETING_CREATIONS_PER_HOUR":                "140",
 	}
 	values["CALENDAR_PROTECTED_DATA_KEY"] = validSessionSecret()
 	values["CALENDAR_PROTECTED_DATA_KEY_VERSION"] = "1"
@@ -223,12 +240,23 @@ func TestLoadCustomValues(t *testing.T) {
 		!cfg.FeatureControls.DisableClassManagement ||
 		!cfg.FeatureControls.DisableClassInviteLinks ||
 		!cfg.FeatureControls.DisableClassSessionScheduling ||
+		!cfg.FeatureControls.DisableAvailabilityPolls ||
 		!cfg.FeatureControls.EnableClassSessionRecurrence ||
 		!cfg.FeatureControls.EnableInAppNotifications ||
 		cfg.FeatureControls.MaxMembers != 5000 ||
 		cfg.FeatureControls.MaxActiveClasses != 500 ||
 		cfg.FeatureControls.MaxInviteCreationsPerHour != 5000 {
 		t.Fatalf("unexpected feature control config: %+v", cfg.FeatureControls)
+	}
+	if cfg.FeatureControls.MaxActiveAvailabilityPolls != 150 ||
+		cfg.FeatureControls.MaxAvailabilityPollRangeDays != 60 ||
+		cfg.FeatureControls.MaxAvailabilityPollSlots != 800 ||
+		cfg.FeatureControls.MaxAvailabilityPollParticipants != 400 ||
+		cfg.FeatureControls.MaxAvailabilityPollCreationsPerHour != 150 ||
+		cfg.FeatureControls.MaxAvailabilityPollCapabilityCreationsPerHour != 900 ||
+		cfg.FeatureControls.MaxActiveStudyMeetings != 120 ||
+		cfg.FeatureControls.MaxStudyMeetingCreationsPerHour != 140 {
+		t.Fatalf("unexpected availability poll feature control config: %+v", cfg.FeatureControls)
 	}
 }
 
@@ -258,12 +286,21 @@ func TestLoadRejectsInvalidFeatureControlGuardrails(t *testing.T) {
 	t.Parallel()
 
 	_, err := load(mapLookup(map[string]string{
-		"FEATURE_CONTROL_DISABLE_CLASS_MANAGEMENT":        "sometimes",
-		"FEATURE_CONTROL_ENABLE_CLASS_SESSION_RECURRENCE": "sometimes",
-		"FEATURE_CONTROL_ENABLE_IN_APP_NOTIFICATIONS":     "sometimes",
-		"FEATURE_CONTROL_MAX_MEMBERS":                     "10001",
-		"FEATURE_CONTROL_MAX_ACTIVE_CLASSES":              "0",
-		"FEATURE_CONTROL_MAX_INVITE_CREATIONS_PER_HOUR":   "not-a-number",
+		"FEATURE_CONTROL_DISABLE_CLASS_MANAGEMENT":                            "sometimes",
+		"FEATURE_CONTROL_DISABLE_AVAILABILITY_POLLS":                          "sometimes",
+		"FEATURE_CONTROL_ENABLE_CLASS_SESSION_RECURRENCE":                     "sometimes",
+		"FEATURE_CONTROL_ENABLE_IN_APP_NOTIFICATIONS":                         "sometimes",
+		"FEATURE_CONTROL_MAX_MEMBERS":                                         "10001",
+		"FEATURE_CONTROL_MAX_ACTIVE_CLASSES":                                  "0",
+		"FEATURE_CONTROL_MAX_INVITE_CREATIONS_PER_HOUR":                       "not-a-number",
+		"FEATURE_CONTROL_MAX_ACTIVE_AVAILABILITY_POLLS":                       "201",
+		"FEATURE_CONTROL_MAX_AVAILABILITY_POLL_RANGE_DAYS":                    "0",
+		"FEATURE_CONTROL_MAX_AVAILABILITY_POLL_SLOTS":                         "not-a-number",
+		"FEATURE_CONTROL_MAX_AVAILABILITY_POLL_PARTICIPANTS":                  "501",
+		"FEATURE_CONTROL_MAX_AVAILABILITY_POLL_CREATIONS_PER_HOUR":            "0",
+		"FEATURE_CONTROL_MAX_AVAILABILITY_POLL_CAPABILITY_CREATIONS_PER_HOUR": "1001",
+		"FEATURE_CONTROL_MAX_ACTIVE_STUDY_MEETINGS":                           "201",
+		"FEATURE_CONTROL_MAX_STUDY_MEETING_CREATIONS_PER_HOUR":                "0",
 	}))
 	if err == nil {
 		t.Fatal("expected feature control guardrail validation errors")
@@ -271,11 +308,20 @@ func TestLoadRejectsInvalidFeatureControlGuardrails(t *testing.T) {
 	message := err.Error()
 	for _, expected := range []string{
 		"FEATURE_CONTROL_DISABLE_CLASS_MANAGEMENT",
+		"FEATURE_CONTROL_DISABLE_AVAILABILITY_POLLS",
 		"FEATURE_CONTROL_ENABLE_CLASS_SESSION_RECURRENCE",
 		"FEATURE_CONTROL_ENABLE_IN_APP_NOTIFICATIONS",
 		"FEATURE_CONTROL_MAX_MEMBERS",
 		"FEATURE_CONTROL_MAX_ACTIVE_CLASSES",
 		"FEATURE_CONTROL_MAX_INVITE_CREATIONS_PER_HOUR",
+		"FEATURE_CONTROL_MAX_ACTIVE_AVAILABILITY_POLLS",
+		"FEATURE_CONTROL_MAX_AVAILABILITY_POLL_RANGE_DAYS",
+		"FEATURE_CONTROL_MAX_AVAILABILITY_POLL_SLOTS",
+		"FEATURE_CONTROL_MAX_AVAILABILITY_POLL_PARTICIPANTS",
+		"FEATURE_CONTROL_MAX_AVAILABILITY_POLL_CREATIONS_PER_HOUR",
+		"FEATURE_CONTROL_MAX_AVAILABILITY_POLL_CAPABILITY_CREATIONS_PER_HOUR",
+		"FEATURE_CONTROL_MAX_ACTIVE_STUDY_MEETINGS",
+		"FEATURE_CONTROL_MAX_STUDY_MEETING_CREATIONS_PER_HOUR",
 	} {
 		if !strings.Contains(message, expected) {
 			t.Fatalf("expected error to mention %s, got %q", expected, message)

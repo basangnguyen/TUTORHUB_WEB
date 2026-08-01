@@ -1,5 +1,6 @@
 import { Button, IconButton, Select } from "@tutorhub/ui";
 import {
+  CalendarClock,
   ChevronLeft,
   ChevronRight,
   Clock3,
@@ -23,6 +24,7 @@ interface CalendarToolbarProps {
   preferencesDisabled?: boolean;
   workingScheduleDisabled?: boolean;
   onNext: () => void;
+  onOpenAvailabilityPolls: () => void;
   onCreateSession: () => void;
   onOpenPreferences: () => void;
   onOpenWorkingSchedule: () => void;
@@ -34,6 +36,7 @@ interface CalendarToolbarProps {
 export function CalendarToolbar({
   onCreateSession,
   onNext,
+  onOpenAvailabilityPolls,
   onOpenPreferences,
   onOpenWorkingSchedule,
   onPrevious,
@@ -78,6 +81,14 @@ export function CalendarToolbar({
       </div>
 
       <div className="calendar-toolbar__actions">
+        <Button
+          leadingIcon={<CalendarClock />}
+          onClick={onOpenAvailabilityPolls}
+          size="sm"
+          variant="secondary"
+        >
+          {t("calendar.availabilityPolls.action")}
+        </Button>
         <Button leadingIcon={<Plus />} onClick={onCreateSession} size="sm">
           {t("calendar.createSession")}
         </Button>

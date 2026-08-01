@@ -8,7 +8,7 @@ thay đổi schema, migration hoặc repository phải đọc tài liệu này t
 - System of record: Neon PostgreSQL.
 - Schema ứng dụng: `tutorhub`.
 - Migration mới nhất trong source:
-  `000021_calendar_invitation_snapshot_delivery_boundary`.
+  `000022_availability_polls_study_meetings`; Neon staging gần nhất vẫn ở `21 false`.
 - Migration 1-5 đã được chạy và kiểm tra trên Neon; smoke
   `5 false -> rollback 4 false -> migrate 5 false` đạt ngày 2026-07-16.
 - Migration `000006` đến `000013` đều có up/down path. Source và PostgreSQL 17 CI
@@ -34,6 +34,9 @@ thay đổi schema, migration hoặc repository phải đọc tài liệu này t
   method do P3-05A sở hữu. Cả hai migration đã được chạy trên Neon staging; probe
   exact runtime ACL, smoke PostgreSQL và acceptance của P3-02C đã đạt. Delivery
   boundary vẫn thuộc P3-05A và chưa bật business email/notification side effect.
+- Migration `000022` thêm Availability Poll/response/capability/Study Meeting, quota và
+  maintenance hard-retention function. Source đang ở P3-02D-A `VERIFY`; migration,
+  exact runtime/maintenance grants và staging acceptance chưa chạy trên Neon.
 - Phần lớn integration test rollback bằng transaction. Chỉ focused P2-09 suite có
   fixture tự dọn hoàn toàn được chạy trên staging ngày 2026-07-21; các suite concurrency
   có thể để lại audit append-only vẫn chỉ chạy trên database CI tạm thời.
@@ -73,7 +76,7 @@ process không tự chạy migration khi khởi động.
 `tutorhub-outbox-worker` để quan sát trên Neon. Mọi truy vấn mạng/database phải chạy
 ngoài UI thread ở các client native về sau.
 
-## Schema source phiên bản 19
+## Schema source nền đến phiên bản 22
 
 | Bảng                     | Vai trò                                                                                          |
 | ------------------------ | ------------------------------------------------------------------------------------------------ |
@@ -854,6 +857,197 @@ Application rollback giữ schema 21 là đường ưu tiên sau khi forward th�
 down `21 -> 20 -> 19` chỉ chạy trên disposable/test hoặc sau khi dừng runtime liên quan,
 đánh giá dữ liệu participation/snapshot và có backup/restore plan.
 
+## Availability Poll, Study Meeting và hard-retention purge 000022
+
+Migration `000022` tạo các bảng tenant-scoped sau:
+
+- `availability_polls`;
+- `availability_poll_slots`;
+- `availability_poll_participants`;
+- `availability_poll_capabilities`;
+- `availability_poll_responses`;
+- `availability_poll_answers`;
+- `availability_poll_mutation_receipts`;
+- `study_meetings`.
+
+Migration đồng thời mở rộng feature/quota constraint cho `availability_polls`, poll
+active/range/slot/participant/create/capability-create và Study Meeting active/create-rate.
+Mọi tenant/class/participant/capability/response relation dùng composite integrity; raw
+capability token không được lưu. `availability_poll_mutation_receipts` là append-only.
+
+`retention_until` là hard-retention boundary, không phải deadline worker:
+
+- poll `draft/open/closed` neo boundary tối đa 180 ngày sau `deadline_at`;
+- poll `finalized/cancelled` neo boundary tối đa 180 ngày sau terminal transition;
+- maintenance purge có thể xóa poll ở mọi lifecycle khi boundary đã tới. Nó không đổi
+  status, không auto-close, không ghi outbox/delivery và không thuộc P3-02D-B;
+- index `(retention_until, tenant_id, id)` bao phủ mọi lifecycle để batch purge không
+  suy giảm thành full-table scan khi số poll bỏ quên tăng;
+- trước khi xóa poll, function đặt `study_meetings.source_poll_id = NULL`; các poll child
+  còn lại phải bị xóa qua FK cascade.
+
+### Exact Core API runtime grants
+
+Migration revoke `PUBLIC` nhưng không tự cấp role deployment. Chạy bằng migration owner,
+thay `tutorhub_runtime` nếu staging dùng tên khác:
+
+```sql
+BEGIN;
+
+GRANT USAGE ON SCHEMA tutorhub TO tutorhub_runtime;
+
+REVOKE ALL PRIVILEGES ON FUNCTION
+    tutorhub.purge_expired_availability_polls(integer)
+FROM tutorhub_runtime;
+
+REVOKE ALL PRIVILEGES ON TABLE
+    tutorhub.availability_polls,
+    tutorhub.availability_poll_slots,
+    tutorhub.availability_poll_participants,
+    tutorhub.availability_poll_capabilities,
+    tutorhub.availability_poll_responses,
+    tutorhub.availability_poll_answers,
+    tutorhub.availability_poll_mutation_receipts,
+    tutorhub.study_meetings
+FROM tutorhub_runtime;
+
+GRANT SELECT, INSERT, UPDATE ON TABLE
+    tutorhub.availability_polls,
+    tutorhub.availability_poll_slots,
+    tutorhub.availability_poll_participants,
+    tutorhub.availability_poll_capabilities,
+    tutorhub.availability_poll_responses,
+    tutorhub.availability_poll_answers,
+    tutorhub.study_meetings
+TO tutorhub_runtime;
+
+GRANT SELECT, INSERT ON TABLE
+    tutorhub.availability_poll_mutation_receipts
+TO tutorhub_runtime;
+
+COMMIT;
+```
+
+Core API runtime tuyệt đối không nhận `DELETE` trên bất kỳ bảng migration `000022` nào,
+không nhận `EXECUTE` purge function và không nhận `UPDATE/DELETE` mutation receipt.
+Deployment probe phải tính cả quyền kế thừa qua role membership, không chỉ đọc row grant.
+
+### Exact maintenance purge grants
+
+Function `tutorhub.purge_expired_availability_polls(integer)` là `SECURITY INVOKER`, khóa
+`search_path`, dùng `FOR UPDATE SKIP LOCKED` và trả số poll đã xóa. Chỉ cấp cho dedicated
+maintenance role; ví dụ dưới dùng `tutorhub_poll_maintenance` làm placeholder cho exact
+role đã được provision:
+
+```sql
+BEGIN;
+
+GRANT USAGE ON SCHEMA tutorhub TO tutorhub_poll_maintenance;
+
+REVOKE ALL PRIVILEGES ON TABLE
+    tutorhub.availability_polls,
+    tutorhub.availability_poll_slots,
+    tutorhub.availability_poll_participants,
+    tutorhub.availability_poll_capabilities,
+    tutorhub.availability_poll_responses,
+    tutorhub.availability_poll_answers,
+    tutorhub.availability_poll_mutation_receipts,
+    tutorhub.study_meetings
+FROM tutorhub_poll_maintenance;
+
+REVOKE ALL PRIVILEGES ON FUNCTION
+    tutorhub.purge_expired_availability_polls(integer)
+FROM tutorhub_poll_maintenance;
+
+GRANT EXECUTE ON FUNCTION
+    tutorhub.purge_expired_availability_polls(integer)
+TO tutorhub_poll_maintenance;
+
+GRANT SELECT (tenant_id, id, retention_until), DELETE
+ON TABLE tutorhub.availability_polls
+TO tutorhub_poll_maintenance;
+
+GRANT SELECT (tenant_id, source_poll_id), UPDATE (source_poll_id)
+ON TABLE tutorhub.study_meetings
+TO tutorhub_poll_maintenance;
+
+COMMIT;
+```
+
+Các column-level `SELECT` là bắt buộc vì function đọc cột trong `ORDER BY`/`WHERE`;
+`UPDATE (source_poll_id)` không tự cấp quyền đọc `tenant_id/source_poll_id`. Maintenance
+không cần và không được cấp quyền trực tiếp trên poll child tables. Tuy vậy, exact login
+acceptance phải chứng minh `DELETE` parent kích hoạt toàn bộ FK cascade dưới role này;
+nếu deployment PostgreSQL yêu cầu thêm quyền vì ownership/trigger khác source baseline,
+dừng rollout và review migration/role thay vì cấp wildcard.
+
+Batch hợp lệ là `1..1000`, mặc định `100`. `NULL`, `0`, số âm và `>1000` phải fail với
+SQLSTATE `22023`; không tự chuyển `NULL` thành default. Chạy nhiều batch bounded cho tới
+khi trả `0`, có rate/transaction monitoring phù hợp, không gọi từ request path Core API:
+
+```sql
+SELECT tutorhub.purge_expired_availability_polls(100);
+```
+
+### ACL và cascade acceptance tối thiểu
+
+Chạy các probe sau bằng migration owner sau khi cấp role. Mọi cột `runtime_*` phải `false`;
+các cột `maintenance_*` phải đúng như tên:
+
+```sql
+SELECT
+    has_function_privilege(
+        'tutorhub_runtime',
+        'tutorhub.purge_expired_availability_polls(integer)',
+        'EXECUTE'
+    ) AS runtime_execute_must_be_false,
+    has_table_privilege(
+        'tutorhub_runtime',
+        'tutorhub.availability_polls',
+        'DELETE'
+    ) AS runtime_poll_delete_must_be_false,
+    has_schema_privilege(
+        'tutorhub_poll_maintenance',
+        'tutorhub',
+        'USAGE'
+    ) AS maintenance_schema_usage_must_be_true,
+    has_function_privilege(
+        'tutorhub_poll_maintenance',
+        'tutorhub.purge_expired_availability_polls(integer)',
+        'EXECUTE'
+    ) AS maintenance_execute_must_be_true,
+    has_table_privilege(
+        'tutorhub_poll_maintenance',
+        'tutorhub.availability_polls',
+        'DELETE'
+    ) AS maintenance_poll_delete_must_be_true,
+    has_column_privilege(
+        'tutorhub_poll_maintenance',
+        'tutorhub.availability_polls',
+        'retention_until',
+        'SELECT'
+    ) AS maintenance_retention_select_must_be_true,
+    has_column_privilege(
+        'tutorhub_poll_maintenance',
+        'tutorhub.study_meetings',
+        'source_poll_id',
+        'UPDATE'
+    ) AS maintenance_source_update_must_be_true;
+```
+
+Ngoài probe metadata, đăng nhập **đúng maintenance role** trên disposable database và
+chứng minh:
+
+1. batch `1` xóa đúng một poll tới hard-retention boundary;
+2. Study Meeting outcome còn tồn tại nhưng `source_poll_id` thành `NULL`;
+3. slot/participant/capability/response/answer/receipt của poll bị cascade sạch;
+4. poll chưa tới boundary không bị xóa;
+5. `NULL`, `0`, `1001` đều bị từ chối;
+6. role không thể `DELETE` child trực tiếp, không đọc dữ liệu ngoài các cột được cấp và
+   Core API runtime không thể gọi function hoặc xóa poll.
+
+Không chạy purge acceptance trên shared production hoặc dữ liệu người dùng thật.
+
 ## Chạy migration
 
 Tạo `.env.local` từ `.env.example` và điền direct migration URL cùng hai pooled URL
@@ -883,13 +1077,13 @@ pnpm db:version
 ```
 
 Sau khi áp dụng toàn bộ migration trong source hiện tại, kết quả mong đợi là
-`21 false`. Chỉ ghi đó là kết quả môi trường khi lệnh thực tế đã chạy. Neon staging
-được xác nhận gần nhất ở `19 false`; chưa được coi là version 20/21 và chưa có exact
-P3-02C runtime grants cho tới khi provisioning cùng smoke thực tế đạt. Application
-rollback giữ schema hiện tại. Database rollback chỉ dùng khi đã dừng runtime liên quan,
-đánh giá dữ liệu và có backup/restore plan. Down `21 -> 20 -> 19` có thể mất delivery
-boundary metadata và participation/working-schedule data; chỉ chạy theo preflight của
-acceptance runbook:
+`22 false`. Chỉ ghi đó là kết quả môi trường khi lệnh thực tế đã chạy. Neon staging
+được xác nhận gần nhất ở `21 false`; chưa được coi là version 22 và chưa có exact
+P3-02D-A runtime/maintenance grants cho tới khi provisioning cùng smoke thực tế đạt.
+Application rollback giữ schema hiện tại. Database rollback chỉ dùng khi đã dừng runtime
+liên quan, đánh giá dữ liệu và có backup/restore plan. Down `22 -> 21` xóa toàn bộ poll/
+Study Meeting data; down tiếp `21 -> 20 -> 19` có thể mất delivery-boundary metadata và
+participation/working-schedule data. Chỉ chạy theo preflight của acceptance runbook:
 
 ```powershell
 go run ./services/core-api/cmd/migrate down -steps 1
@@ -925,6 +1119,12 @@ P3-02B/P3-02C phải kiểm tra tiếp migrate `17 -> 18 -> 19 -> 20 -> 21`, rol
 capability expiry/revoke, concurrent RSVP, cancellation lifecycle và
 cross-tenant/cross-class concealment. Local compile/test không thay thế PostgreSQL staging
 evidence.
+
+P3-02D-A phải kiểm tra migrate `21 -> 22`, rollback `22 -> 21`, migrate lại `21 -> 22`
+trên database disposable; exact Core API/maintenance ACL; poll lifecycle/CAS/idempotency;
+response/ranking/finalize concurrency; Study Meeting conflict/quota; public capability
+expiry/revoke/rate/privacy; hard-retention batch validation và parent/FK cascade. Local
+unit/typecheck/build không thay thế PostgreSQL/Neon/staging evidence.
 
 Với P2-05, cần kiểm tra riêng migrate 9 -> 10, rollback 10 -> 9, migrate lại 9 -> 10;
 tenant-scoped FK/unique/state constraints; direct enroll và các transition; same-user
@@ -979,8 +1179,10 @@ của lịch sử append-only và không phải quy trình cleanup cho staging/p
   migration 13, role split/default ACL và importer idempotency trên disposable branch;
   production data/cohort migration vẫn thuộc discovery/cutover phase sau.
 - P3-03A/P3-04 đã bổ sung migration `000015`/`000016`; P3-02A/P3-02B bổ sung
-  `000017`/`000018`/`000019`; P3-02C bổ sung `000020/000021`. Neon staging hiện ở
-  `21 false`; exact Core API runtime ACL và P3-02C staging acceptance đã đạt.
+  `000017`/`000018`/`000019`; P3-02C bổ sung `000020/000021`; P3-02D-A bổ sung
+  `000022`. Neon staging hiện ở `21 false`; exact Core API runtime ACL và P3-02C
+  staging acceptance đã đạt. Migration/grants/staging acceptance của `000022` chưa chạy,
+  nên P3-02D-A vẫn `VERIFY`.
   Worker ACL, durable-host, controlled-canary/crash-reclaim và các gate P3-03/P3-04
   vẫn là gate bên ngoài, hiện được phân loại `DEFERRED/VERIFY` chứ không tự động bỏ qua.
 - P3-02A Calendar shell/read projection, P3-02B recurrence/class-conflict và

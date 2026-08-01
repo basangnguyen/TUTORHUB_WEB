@@ -27,6 +27,8 @@ func TestOrganizationPermissionMatrix(t *testing.T) {
 			role: OrganizationRoleTeacher,
 			want: []Permission{
 				PermissionTenantView, PermissionClassCreate, PermissionClassUpdate, PermissionClassView,
+				PermissionAvailabilityPollCreate, PermissionAvailabilityPollManageOwn,
+				PermissionAvailabilityPollPublishToClass, PermissionStudyMeetingScheduleOwn,
 				PermissionEnrollmentManage, PermissionSessionSchedule, PermissionSessionStart, PermissionSessionEnd,
 				PermissionSessionJoin, PermissionParticipantAdmit,
 				PermissionParticipantRemove, PermissionMediaPublish, PermissionChatSend,
@@ -35,12 +37,18 @@ func TestOrganizationPermissionMatrix(t *testing.T) {
 		{
 			name: "student",
 			role: OrganizationRoleStudent,
-			want: []Permission{PermissionTenantView},
+			want: []Permission{
+				PermissionTenantView, PermissionAvailabilityPollCreate,
+				PermissionAvailabilityPollManageOwn, PermissionStudyMeetingScheduleOwn,
+			},
 		},
 		{
 			name: "guest",
 			role: OrganizationRoleGuest,
-			want: []Permission{PermissionTenantView},
+			want: []Permission{
+				PermissionTenantView, PermissionAvailabilityPollCreate,
+				PermissionAvailabilityPollManageOwn, PermissionStudyMeetingScheduleOwn,
+			},
 		},
 	}
 
@@ -75,8 +83,10 @@ func TestClassPermissionMatrix(t *testing.T) {
 			role: ClassRoleOwner,
 			want: []Permission{
 				PermissionTenantView, PermissionClassUpdate, PermissionClassArchive,
-				PermissionClassTransferOwner, PermissionClassView, PermissionEnrollmentManage,
-				PermissionEnrollmentLeave, PermissionSessionSchedule,
+				PermissionClassTransferOwner, PermissionClassView,
+				PermissionAvailabilityPollCreate, PermissionAvailabilityPollManageOwn,
+				PermissionAvailabilityPollPublishToClass, PermissionStudyMeetingScheduleOwn,
+				PermissionEnrollmentManage, PermissionEnrollmentLeave, PermissionSessionSchedule,
 				PermissionSessionStart, PermissionSessionEnd, PermissionSessionJoin,
 				PermissionParticipantAdmit, PermissionParticipantRemove,
 				PermissionMediaPublish, PermissionChatSend,
@@ -86,8 +96,10 @@ func TestClassPermissionMatrix(t *testing.T) {
 			name: "co-teacher",
 			role: ClassRoleCoTeacher,
 			want: []Permission{
-				PermissionTenantView, PermissionClassUpdate, PermissionClassView, PermissionEnrollmentManage,
-				PermissionEnrollmentLeave, PermissionSessionSchedule,
+				PermissionTenantView, PermissionClassUpdate, PermissionClassView,
+				PermissionAvailabilityPollCreate, PermissionAvailabilityPollManageOwn,
+				PermissionAvailabilityPollPublishToClass, PermissionStudyMeetingScheduleOwn,
+				PermissionEnrollmentManage, PermissionEnrollmentLeave, PermissionSessionSchedule,
 				PermissionSessionStart, PermissionSessionEnd, PermissionSessionJoin,
 				PermissionParticipantAdmit, PermissionParticipantRemove,
 				PermissionMediaPublish, PermissionChatSend,
@@ -97,8 +109,10 @@ func TestClassPermissionMatrix(t *testing.T) {
 			name: "teaching assistant",
 			role: ClassRoleTeachingAssistant,
 			want: []Permission{
-				PermissionTenantView, PermissionClassView, PermissionEnrollmentLeave,
-				PermissionSessionJoin, PermissionParticipantAdmit,
+				PermissionTenantView, PermissionClassView,
+				PermissionAvailabilityPollCreate, PermissionAvailabilityPollManageOwn,
+				PermissionStudyMeetingScheduleOwn,
+				PermissionEnrollmentLeave, PermissionSessionJoin, PermissionParticipantAdmit,
 				PermissionMediaPublish, PermissionChatSend,
 			},
 		},
@@ -106,8 +120,10 @@ func TestClassPermissionMatrix(t *testing.T) {
 			name: "student",
 			role: ClassRoleStudent,
 			want: []Permission{
-				PermissionTenantView, PermissionClassView, PermissionEnrollmentLeave,
-				PermissionSessionJoin, PermissionMediaPublish,
+				PermissionTenantView, PermissionClassView,
+				PermissionAvailabilityPollCreate, PermissionAvailabilityPollManageOwn,
+				PermissionStudyMeetingScheduleOwn,
+				PermissionEnrollmentLeave, PermissionSessionJoin, PermissionMediaPublish,
 				PermissionChatSend,
 			},
 		},
@@ -140,6 +156,9 @@ func TestEffectivePermissionsUnionsMultipleRolesDeterministically(t *testing.T) 
 	want := []Permission{
 		PermissionTenantView,
 		PermissionClassView,
+		PermissionAvailabilityPollCreate,
+		PermissionAvailabilityPollManageOwn,
+		PermissionStudyMeetingScheduleOwn,
 		PermissionEnrollmentLeave,
 		PermissionSessionJoin,
 		PermissionParticipantAdmit,
@@ -148,6 +167,50 @@ func TestEffectivePermissionsUnionsMultipleRolesDeterministically(t *testing.T) 
 	}
 	if got := NewEngine().EffectivePermissions(subject); !reflect.DeepEqual(got, want) {
 		t.Fatalf("effective permission union is not deterministic: got=%v want=%v", got, want)
+	}
+}
+
+func TestAvailabilityPollOwnActionsAreTenantScopedAndPublishRequiresClass(t *testing.T) {
+	t.Parallel()
+
+	engine := NewEngine()
+	subject := validTestSubject()
+	subject.OrganizationRoles = []OrganizationRole{OrganizationRoleStudent}
+	resource := Resource{TenantID: subject.ActiveTenantID, State: ResourceStateActive}
+
+	for _, action := range []Action{
+		ActionAvailabilityPollCreate,
+		ActionAvailabilityPollManageOwn,
+		ActionStudyMeetingScheduleOwn,
+	} {
+		decision := engine.Authorize(Input{Subject: subject, Action: action, Resource: resource})
+		if !decision.Allowed {
+			t.Fatalf("tenant-scoped action %s denied without class: %+v", action, decision)
+		}
+	}
+
+	studentPublish := engine.Authorize(Input{
+		Subject: subject, Action: ActionAvailabilityPollPublishToClass, Resource: resource,
+	})
+	if studentPublish.Allowed || studentPublish.Reason != DenialResourceScope ||
+		!studentPublish.ConcealResource {
+		t.Fatalf("publish without a class must be concealed: %+v", studentPublish)
+	}
+
+	resource.ClassID = uuid.New()
+	studentPublish = engine.Authorize(Input{
+		Subject: subject, Action: ActionAvailabilityPollPublishToClass, Resource: resource,
+	})
+	if studentPublish.Allowed || studentPublish.Reason != DenialPermission {
+		t.Fatalf("student unexpectedly published to class: %+v", studentPublish)
+	}
+
+	subject.OrganizationRoles = []OrganizationRole{OrganizationRoleTeacher}
+	teacherPublish := engine.Authorize(Input{
+		Subject: subject, Action: ActionAvailabilityPollPublishToClass, Resource: resource,
+	})
+	if !teacherPublish.Allowed {
+		t.Fatalf("teacher publish denied: %+v", teacherPublish)
 	}
 }
 

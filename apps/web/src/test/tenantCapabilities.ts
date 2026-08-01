@@ -9,6 +9,10 @@ export function availableTenantCapabilities(
     version: 0,
     can_manage_overrides: true,
     features: {
+      availability_polls: {
+        configured_enabled: true,
+        enabled: true,
+      },
       membership_invitations: {
         configured_enabled: true,
         enabled: true,
@@ -29,6 +33,18 @@ export function availableTenantCapabilities(
       },
     },
     quotas: {
+      active_availability_polls: {
+        configured_limit: 20,
+        limit: 20,
+        used: 0,
+        remaining: 20,
+      },
+      active_study_meetings: {
+        configured_limit: 20,
+        limit: 20,
+        used: 0,
+        remaining: 20,
+      },
       members: {
         configured_limit: 100,
         limit: 100,
@@ -47,6 +63,42 @@ export function availableTenantCapabilities(
         used: 0,
         remaining: 60,
       },
+      availability_poll_range_days: {
+        configured_limit: 31,
+        limit: 31,
+        used: 0,
+        remaining: 31,
+      },
+      availability_poll_slots: {
+        configured_limit: 336,
+        limit: 336,
+        used: 0,
+        remaining: 336,
+      },
+      availability_poll_participants: {
+        configured_limit: 100,
+        limit: 100,
+        used: 0,
+        remaining: 100,
+      },
+      availability_poll_creations_per_hour: {
+        configured_limit: 20,
+        limit: 20,
+        used: 0,
+        remaining: 20,
+      },
+      availability_poll_capability_creations_per_hour: {
+        configured_limit: 60,
+        limit: 60,
+        used: 0,
+        remaining: 60,
+      },
+      study_meeting_creations_per_hour: {
+        configured_limit: 20,
+        limit: 20,
+        used: 0,
+        remaining: 20,
+      },
     },
     operations: {
       create_membership_invitation: available,
@@ -57,6 +109,9 @@ export function availableTenantCapabilities(
       create_class_invite_link: available,
       join_class_invite_link: available,
       schedule_class_session: available,
+      create_availability_poll: available,
+      create_availability_poll_capability: available,
+      schedule_study_meeting: available,
     },
   };
 }

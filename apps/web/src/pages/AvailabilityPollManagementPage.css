@@ -1,0 +1,677 @@
+.availability-poll-management {
+  display: grid;
+  gap: var(--space-6);
+  max-width: 94rem;
+  margin: 0 auto;
+}
+
+.availability-poll-management__header {
+  align-items: start;
+}
+
+.availability-poll-management__boundary,
+.availability-poll-management__notice,
+.availability-poll-management__success,
+.availability-poll-management__error {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-body);
+}
+
+.availability-poll-management__boundary {
+  max-width: 32rem;
+  border: 1px solid var(--color-calendar-border);
+  background: var(--color-calendar-info-fill);
+  color: var(--color-calendar-ink);
+}
+
+.availability-poll-management__boundary svg,
+.availability-poll-management__notice svg,
+.availability-poll-management__success svg {
+  width: 1rem;
+  min-width: 1rem;
+  margin-top: 0.2rem;
+}
+
+.availability-poll-management__panel {
+  min-width: 0;
+  padding: var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.availability-poll-management__panel-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+}
+
+.availability-poll-management__panel-heading > span {
+  display: grid;
+  width: 2.5rem;
+  height: 2.5rem;
+  min-width: 2.5rem;
+  place-items: center;
+  border-radius: var(--radius-md);
+  background: var(--color-calendar-accent-fill);
+  color: var(--color-calendar-brand-ink);
+}
+
+.availability-poll-management__panel-heading svg {
+  width: 1.2rem;
+}
+
+.availability-poll-management__panel-heading h2,
+.availability-poll-management__subpanel h3,
+.availability-poll-management__detail h2 {
+  margin: 0;
+  color: var(--color-text);
+}
+
+.availability-poll-management__panel-heading p,
+.availability-poll-management__subpanel > p,
+.availability-poll-management__detail header p {
+  margin: var(--space-1) 0 0;
+  color: var(--color-text-muted);
+  line-height: var(--line-height-body);
+}
+
+.availability-poll-management__panel-heading--inline {
+  justify-content: space-between;
+  align-items: center;
+}
+
+.availability-poll-management__editor form,
+.availability-poll-management__subpanel,
+.availability-poll-management__meeting-form {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.availability-poll-management__form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+.availability-poll-management label:not(.th-field__label) {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.availability-poll-management select,
+.availability-poll-management input:not([type="radio"]) {
+  width: 100%;
+  min-height: var(--control-height-md);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.availability-poll-management__slot-preview {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border: 1px dashed var(--color-calendar-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-calendar-canvas);
+  color: var(--color-calendar-ink);
+}
+
+.availability-poll-management__slot-preview small {
+  flex-basis: 100%;
+  color: var(--color-danger);
+}
+
+.availability-poll-management__notice {
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
+}
+
+.availability-poll-management__error {
+  border: 1px solid var(--color-danger);
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+.availability-poll-management__success {
+  background: var(--color-success-soft);
+  color: var(--color-success);
+}
+
+.availability-poll-management__workspace {
+  display: grid;
+  grid-template-columns: minmax(16rem, 21rem) minmax(0, 1fr);
+  gap: var(--space-5);
+  align-items: start;
+}
+
+.availability-poll-management__sidebar {
+  position: sticky;
+  top: var(--space-4);
+  max-height: calc(100dvh - 2 * var(--space-4));
+  overflow: auto;
+}
+
+.availability-poll-management__poll-list,
+.availability-poll-management__meeting-list,
+.availability-poll-management__ranking {
+  display: grid;
+  gap: var(--space-2);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.availability-poll-management__poll-list button {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text);
+  text-align: left;
+}
+
+.availability-poll-management__poll-list button:hover {
+  background: var(--color-surface-subtle);
+}
+
+.availability-poll-management__poll-list button[aria-current="true"] {
+  border-color: var(--color-calendar-border-strong);
+  background: var(--color-calendar-accent-fill);
+  color: var(--color-calendar-ink);
+}
+
+.availability-poll-management__poll-list button > span:first-child {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-1);
+}
+
+.availability-poll-management__poll-list strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.availability-poll-management__poll-list small,
+.availability-poll-management__detail header span,
+.availability-poll-management__meeting-list span {
+  color: var(--color-text-muted);
+}
+
+.availability-poll-management__detail {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.availability-poll-management__detail > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.availability-poll-management__detail header h2 {
+  margin: var(--space-1) 0;
+  font-size: var(--font-size-2xl);
+}
+
+.availability-poll-management__facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.availability-poll-management__facts > div {
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-subtle);
+}
+
+.availability-poll-management__facts dt {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+}
+
+.availability-poll-management__facts dd {
+  margin: var(--space-1) 0 0;
+  overflow-wrap: anywhere;
+  font-weight: var(--font-weight-semibold);
+}
+
+.availability-poll-management__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: end;
+}
+
+.availability-poll-management__inline-action {
+  grid-template-columns: minmax(12rem, 1fr) auto;
+  align-items: end;
+}
+
+.availability-poll-management__inline-action > span {
+  grid-column: 1 / -1;
+}
+
+.availability-poll-management__subpanel {
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-subtle);
+}
+
+.availability-poll-management__subpanel h3 {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-lg);
+}
+
+.availability-poll-management__subpanel h3 svg {
+  width: 1.1rem;
+}
+
+.availability-poll-management__heatmap {
+  display: grid;
+  gap: var(--space-2);
+  overflow-x: auto;
+  padding-bottom: var(--space-2);
+}
+
+.availability-poll-management__heatmap-head,
+.availability-poll-management__heatmap fieldset {
+  display: grid;
+  grid-template-columns: minmax(13rem, 1.6fr) repeat(3, minmax(6.5rem, 1fr));
+  gap: var(--space-2);
+  min-width: 42rem;
+}
+
+.availability-poll-management__heatmap-head strong {
+  padding: var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  text-align: center;
+}
+
+.availability-poll-management__heatmap fieldset {
+  padding: 0;
+  border: 0;
+  margin: 0;
+}
+
+.availability-poll-management__heatmap legend {
+  display: flex;
+  align-items: center;
+  padding: var(--space-2);
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+.availability-poll-management__heatmap label {
+  position: relative;
+  display: grid;
+  min-height: 2.75rem;
+  place-items: center;
+  padding: var(--space-2);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+}
+
+.availability-poll-management__heatmap label:hover {
+  border-color: var(--color-calendar-border-strong);
+}
+
+.availability-poll-management__heatmap label:has(input:checked) {
+  border-width: 2px;
+  border-color: var(--color-calendar-selected-indicator);
+}
+
+.availability-poll-management__heatmap
+  label[data-state="preferred"]:has(input:checked) {
+  background: var(--color-calendar-accent-fill);
+}
+
+.availability-poll-management__heatmap
+  label[data-state="available"]:has(input:checked) {
+  background: var(--color-calendar-info-fill);
+}
+
+.availability-poll-management__heatmap
+  label[data-state="unavailable"]:has(input:checked) {
+  background: var(--color-danger-soft);
+}
+
+.availability-poll-management__heatmap input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.availability-poll-management__heatmap label:has(input:focus-visible) {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.availability-poll-management__individual-responses {
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.availability-poll-management__count {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.availability-poll-management__query-error {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius-md);
+}
+
+.availability-poll-management__query-error p {
+  margin: 0;
+  color: var(--color-danger);
+}
+
+.availability-poll-management__individual-responses:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.availability-poll-management__individual-responses table {
+  width: 100%;
+  min-width: max-content;
+  border-collapse: collapse;
+}
+
+.availability-poll-management__individual-responses caption {
+  padding: var(--space-3);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  text-align: left;
+}
+
+.availability-poll-management__individual-responses th,
+.availability-poll-management__individual-responses td {
+  max-width: 18rem;
+  padding: var(--space-3);
+  border-top: 1px solid var(--color-border);
+  border-right: 1px solid var(--color-border);
+  color: var(--color-text);
+  text-align: left;
+  vertical-align: top;
+}
+
+.availability-poll-management__individual-responses tr > :last-child {
+  border-right: 0;
+}
+
+.availability-poll-management__individual-responses thead th {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.availability-poll-management__individual-responses tbody th {
+  min-width: 13rem;
+}
+
+.availability-poll-management__individual-responses tbody th,
+.availability-poll-management__individual-responses tbody th small {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.availability-poll-management__individual-responses tbody th small {
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-regular);
+}
+
+.availability-poll-management__individual-responses td > span {
+  display: inline-block;
+  min-width: 7rem;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.availability-poll-management__individual-responses
+  span[data-state="preferred"] {
+  background: var(--color-calendar-accent-fill);
+}
+
+.availability-poll-management__individual-responses
+  span[data-state="available"] {
+  background: var(--color-calendar-info-fill);
+}
+
+.availability-poll-management__individual-responses
+  span[data-state="unavailable"] {
+  background: var(--color-danger-soft);
+}
+
+.availability-poll-management__individual-responses span[data-state="unknown"] {
+  color: var(--color-text-muted);
+}
+
+.availability-poll-management__secret {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--color-warning);
+  border-radius: var(--radius-md);
+  background: var(--color-warning-soft);
+}
+
+.availability-poll-management__secret p {
+  display: flex;
+  grid-column: 1 / -1;
+  gap: var(--space-2);
+  margin: 0;
+  color: var(--color-warning);
+}
+
+.availability-poll-management__secret svg {
+  width: 1rem;
+  min-width: 1rem;
+}
+
+.availability-poll-management__ranking {
+  counter-reset: ranking;
+}
+
+.availability-poll-management__ranking li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-1) var(--space-3);
+  align-items: center;
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.availability-poll-management__ranking li > strong {
+  grid-row: 1 / 3;
+  color: var(--color-calendar-link);
+  font-size: var(--font-size-lg);
+}
+
+.availability-poll-management__ranking small {
+  color: var(--color-text-muted);
+}
+
+.availability-poll-management__meeting-form {
+  grid-template-columns: minmax(12rem, 1.5fr) repeat(3, minmax(10rem, 1fr)) auto;
+  align-items: end;
+  margin-bottom: var(--space-5);
+}
+
+.availability-poll-management__meeting-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.availability-poll-management__meeting-list li > div {
+  display: grid;
+  gap: var(--space-1);
+}
+
+@media (max-width: 72rem) {
+  .availability-poll-management__meeting-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 56rem) {
+  .availability-poll-management__workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .availability-poll-management__sidebar {
+    position: static;
+    max-height: none;
+  }
+
+  .availability-poll-management__poll-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 40rem) {
+  .availability-poll-management__form-grid,
+  .availability-poll-management__facts,
+  .availability-poll-management__meeting-form {
+    grid-template-columns: 1fr;
+  }
+
+  .availability-poll-management__poll-list {
+    grid-template-columns: 1fr;
+  }
+
+  .availability-poll-management__detail > header,
+  .availability-poll-management__meeting-list li {
+    align-items: flex-start;
+    grid-template-columns: 1fr;
+  }
+
+  .availability-poll-management__detail > header {
+    display: grid;
+  }
+
+  .availability-poll-management__secret {
+    grid-template-columns: 1fr;
+  }
+
+  .availability-poll-management__heatmap-head {
+    display: none;
+  }
+
+  .availability-poll-management__heatmap fieldset {
+    min-width: 0;
+    grid-template-columns: 1fr;
+    padding: var(--space-3);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+  }
+
+  .availability-poll-management__heatmap legend {
+    width: 100%;
+    padding: 0 0 var(--space-2);
+  }
+
+  .availability-poll-management__heatmap label {
+    grid-template-columns: auto 1fr;
+    justify-items: start;
+  }
+
+  .availability-poll-management__heatmap input {
+    position: static;
+    width: 1rem;
+    height: 1rem;
+    opacity: 1;
+  }
+}
+
+@media (forced-colors: active) {
+  .availability-poll-management__panel,
+  .availability-poll-management__subpanel,
+  .availability-poll-management__heatmap label,
+  .availability-poll-management__meeting-list li,
+  .availability-poll-management__poll-list button[aria-current="true"] {
+    border: 1px solid CanvasText;
+  }
+
+  .availability-poll-management__heatmap label:has(input:checked) {
+    border: 3px solid Highlight;
+  }
+
+  .availability-poll-management__heatmap input {
+    opacity: 1;
+    position: static;
+    width: 1rem;
+    height: 1rem;
+  }
+
+  .availability-poll-management__individual-responses,
+  .availability-poll-management__query-error,
+  .availability-poll-management__individual-responses th,
+  .availability-poll-management__individual-responses td,
+  .availability-poll-management__individual-responses td > span {
+    border-color: CanvasText;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .availability-poll-management * {
+    scroll-behavior: auto;
+  }
+}

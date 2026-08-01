@@ -95,6 +95,147 @@ func TestPostgresInvitationRateLimiterSeparatesBucketHashByPurpose(t *testing.T)
 	}
 }
 
+func TestAvailabilityPollRateLimitActionsUseDistinctStoragePurposesAndHashes(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		action  InvitationRateLimitAction
+		purpose string
+	}{
+		{
+			action:  InvitationRateLimitAvailabilityPollResolveIP,
+			purpose: "availability_poll.resolve_ip",
+		},
+		{
+			action:  InvitationRateLimitAvailabilityPollResolveTokenDigest,
+			purpose: "availability_poll.resolve_token_digest",
+		},
+		{
+			action:  InvitationRateLimitAvailabilityPollResolvePublicID,
+			purpose: "availability_poll.resolve_public_id",
+		},
+		{
+			action:  InvitationRateLimitAvailabilityPollRespondIP,
+			purpose: "availability_poll.respond_ip",
+		},
+		{
+			action:  InvitationRateLimitAvailabilityPollRespondTokenDigest,
+			purpose: "availability_poll.respond_token_digest",
+		},
+		{
+			action:  InvitationRateLimitAvailabilityPollRespondPublicID,
+			purpose: "availability_poll.respond_public_id",
+		},
+	}
+
+	seenPurposes := make(map[string]struct{}, len(testCases))
+	seenHashes := make(map[[32]byte]struct{}, len(testCases))
+	for _, testCase := range testCases {
+		actualPurpose := invitationRateLimitPurpose(testCase.action)
+		if actualPurpose != testCase.purpose {
+			t.Fatalf(
+				"action %q: expected storage purpose %q, got %q",
+				testCase.action,
+				testCase.purpose,
+				actualPurpose,
+			)
+		}
+		if _, duplicate := seenPurposes[actualPurpose]; duplicate {
+			t.Fatalf("duplicate storage purpose %q", actualPurpose)
+		}
+		seenPurposes[actualPurpose] = struct{}{}
+
+		bucketHash := invitationRateLimitBucketHash(actualPurpose, "same-safe-bucket")
+		if _, duplicate := seenHashes[bucketHash]; duplicate {
+			t.Fatalf("purpose %q did not receive an independent storage hash", actualPurpose)
+		}
+		seenHashes[bucketHash] = struct{}{}
+	}
+}
+
+func TestPostgresAvailabilityPollRateLimitUsesConfiguredDimensionPolicy(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		action         InvitationRateLimitAction
+		expectedLimit  int
+		expectedWindow time.Duration
+	}{
+		{
+			action:         InvitationRateLimitAvailabilityPollResolveIP,
+			expectedLimit:  availabilityPollResolveIPLimit,
+			expectedWindow: availabilityPollResolveWindow,
+		},
+		{
+			action:         InvitationRateLimitAvailabilityPollResolveTokenDigest,
+			expectedLimit:  availabilityPollResolveTokenDigestLimit,
+			expectedWindow: availabilityPollResolveWindow,
+		},
+		{
+			action:         InvitationRateLimitAvailabilityPollResolvePublicID,
+			expectedLimit:  availabilityPollResolvePublicIDLimit,
+			expectedWindow: availabilityPollResolveWindow,
+		},
+		{
+			action:         InvitationRateLimitAvailabilityPollRespondIP,
+			expectedLimit:  availabilityPollRespondIPLimit,
+			expectedWindow: availabilityPollRespondWindow,
+		},
+		{
+			action:         InvitationRateLimitAvailabilityPollRespondTokenDigest,
+			expectedLimit:  availabilityPollRespondTokenDigestLimit,
+			expectedWindow: availabilityPollRespondWindow,
+		},
+		{
+			action:         InvitationRateLimitAvailabilityPollRespondPublicID,
+			expectedLimit:  availabilityPollRespondPublicIDLimit,
+			expectedWindow: availabilityPollRespondWindow,
+		},
+	}
+
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(string(testCase.action), func(t *testing.T) {
+			t.Parallel()
+
+			database := &recordingInvitationRateLimitDatabase{
+				rows: []pgx.Row{invitationRateLimitRow{value: 1}},
+			}
+			limiter, err := NewPostgresInvitationRateLimiter(database, time.Second)
+			if err != nil {
+				t.Fatalf("NewPostgresInvitationRateLimiter returned error: %v", err)
+			}
+			now := time.Date(2026, time.August, 1, 10, 2, 30, 0, time.UTC)
+			decision := limiter.Allow(
+				context.Background(),
+				testCase.action,
+				"privacy-safe-bucket",
+				now,
+			)
+			if !decision.Allowed || decision.Err != nil {
+				t.Fatalf("expected request to be allowed: %+v", decision)
+			}
+			if len(database.calls) != 1 {
+				t.Fatalf("expected one database call, got %d", len(database.calls))
+			}
+			call := database.calls[0]
+			if len(call.args) != 6 {
+				t.Fatalf("expected six storage arguments, got %d", len(call.args))
+			}
+			if call.args[0] != invitationRateLimitPurpose(testCase.action) {
+				t.Fatalf("unexpected purpose argument: %#v", call.args[0])
+			}
+			if call.args[2] != now.Truncate(testCase.expectedWindow) ||
+				call.args[3] != now.Truncate(testCase.expectedWindow).Add(testCase.expectedWindow) {
+				t.Fatalf("unexpected fixed window: start=%#v end=%#v", call.args[2], call.args[3])
+			}
+			if call.args[5] != testCase.expectedLimit {
+				t.Fatalf("expected storage limit %d, got %#v", testCase.expectedLimit, call.args[5])
+			}
+		})
+	}
+}
+
 func TestPostgresInvitationRateLimiterReturnsRetryAfterAtLimit(t *testing.T) {
 	t.Parallel()
 

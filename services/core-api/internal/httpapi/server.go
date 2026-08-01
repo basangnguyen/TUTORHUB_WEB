@@ -36,6 +36,7 @@ type Options struct {
 	ExternalRSVP          classroom.ExternalRSVPServiceAPI
 	Calendar              calendar.ServiceAPI
 	CalendarScheduling    calendar.SchedulingServiceAPI
+	AvailabilityPolls     calendar.AvailabilityPollServiceAPI
 	Enrollment            classroom.EnrollmentServiceAPI
 	Audit                 audit.ServiceAPI
 	FeatureControls       featurecontrol.ServiceAPI
@@ -150,6 +151,14 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 		auth,
 		options.CalendarScheduling,
 	)
+	availabilityPolls := newAvailabilityPollHandlers(
+		logger,
+		auth,
+		options.AvailabilityPolls,
+		options.InvitationRateLimiter,
+		options.Clock,
+		cfg.WebOrigin,
+	)
 	mux.Handle(
 		tenantCapabilitiesPattern,
 		featureControlResponseHeaders(
@@ -215,6 +224,74 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 	mux.Handle(
 		calendarAvailabilityQueryPath,
 		calendarScheduling.availabilityQueryHandler(),
+	)
+	mux.Handle(
+		availabilityPollCollectionPath,
+		availabilityPollResponseHeaders(http.HandlerFunc(availabilityPolls.collection)),
+	)
+	mux.Handle(
+		availabilityPollResourcePattern,
+		availabilityPollResponseHeaders(http.HandlerFunc(availabilityPolls.resource)),
+	)
+	mux.Handle(
+		availabilityPollOpenPattern,
+		availabilityPollResponseHeaders(http.HandlerFunc(availabilityPolls.open)),
+	)
+	mux.Handle(
+		availabilityPollClosePattern,
+		availabilityPollResponseHeaders(http.HandlerFunc(availabilityPolls.close)),
+	)
+	mux.Handle(
+		availabilityPollReopenPattern,
+		availabilityPollResponseHeaders(http.HandlerFunc(availabilityPolls.reopen)),
+	)
+	mux.Handle(
+		availabilityPollCancelPattern,
+		availabilityPollResponseHeaders(http.HandlerFunc(availabilityPolls.cancel)),
+	)
+	mux.Handle(
+		availabilityPollResponsePattern,
+		availabilityPollResponseHeaders(http.HandlerFunc(availabilityPolls.respond)),
+	)
+	mux.Handle(
+		availabilityPollIndividualResponsesPattern,
+		availabilityPollResponseHeaders(http.HandlerFunc(availabilityPolls.individualResponses)),
+	)
+	mux.Handle(
+		availabilityPollSummaryPattern,
+		availabilityPollResponseHeaders(http.HandlerFunc(availabilityPolls.summary)),
+	)
+	mux.Handle(
+		availabilityPollFinalizePattern,
+		availabilityPollResponseHeaders(http.HandlerFunc(availabilityPolls.finalize)),
+	)
+	mux.Handle(
+		availabilityPollCapabilitiesPattern,
+		availabilityPollResponseHeaders(http.HandlerFunc(availabilityPolls.capabilities)),
+	)
+	mux.Handle(
+		availabilityPollCapabilityPattern,
+		availabilityPollResponseHeaders(http.HandlerFunc(availabilityPolls.revokeCapability)),
+	)
+	mux.Handle(
+		availabilityPollResolvePath,
+		publicAvailabilityPollResponseHeaders(http.HandlerFunc(availabilityPolls.resolvePublic)),
+	)
+	mux.Handle(
+		availabilityPollPublicRespondPath,
+		publicAvailabilityPollResponseHeaders(http.HandlerFunc(availabilityPolls.respondPublic)),
+	)
+	mux.Handle(
+		studyMeetingCollectionPath,
+		availabilityPollResponseHeaders(http.HandlerFunc(availabilityPolls.studyMeetingCollection)),
+	)
+	mux.Handle(
+		studyMeetingResourcePattern,
+		availabilityPollResponseHeaders(http.HandlerFunc(availabilityPolls.studyMeetingResource)),
+	)
+	mux.Handle(
+		studyMeetingCancelPattern,
+		availabilityPollResponseHeaders(http.HandlerFunc(availabilityPolls.cancelStudyMeeting)),
 	)
 	mux.Handle(
 		membershipInvitationsAdminCollectionPattern,

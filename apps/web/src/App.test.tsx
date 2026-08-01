@@ -173,6 +173,30 @@ describe("web shell", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it("fails closed before mounting availability-poll queries when the feature is disabled", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const capabilities = availableTenantCapabilities(activeMembership.id);
+
+    renderRoute("/app/calendar/availability-polls", testSession, false, true, {
+      ...capabilities,
+      features: {
+        ...capabilities.features,
+        availability_polls: {
+          configured_enabled: false,
+          enabled: false,
+        },
+      },
+    });
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "Bạn chưa có quyền truy cập khu vực này",
+      }),
+    ).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("fails closed without crashing when an older capability response omits notifications", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
@@ -216,6 +240,39 @@ describe("web shell", () => {
     expect(
       await screen.findByRole("heading", {
         name: "Chưa thể kiểm tra trạng thái thông báo",
+      }),
+    ).toBeInTheDocument();
+    const attemptsBeforeRetry = fetchMock.mock.calls.length;
+
+    fireEvent.click(screen.getByRole("button", { name: "Thử lại" }));
+
+    await waitFor(() => {
+      expect(fetchMock.mock.calls.length).toBeGreaterThan(attemptsBeforeRetry);
+    });
+  });
+
+  it("shows a retryable error when availability-poll capabilities are unavailable", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          type: "https://tutorhub.dev/problems/service-unavailable",
+          title: "Service unavailable",
+          status: 503,
+          detail: "Capabilities are temporarily unavailable.",
+        }),
+        {
+          status: 503,
+          headers: { "Content-Type": "application/problem+json" },
+        },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderRoute("/app/calendar/availability-polls", testSession, false, false);
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "Chưa thể kiểm tra trạng thái khảo sát thời gian",
       }),
     ).toBeInTheDocument();
     const attemptsBeforeRetry = fetchMock.mock.calls.length;

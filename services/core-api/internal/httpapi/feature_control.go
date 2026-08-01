@@ -49,23 +49,35 @@ type tenantFeatureCapabilitiesResponse struct {
 	ClassSessionScheduling featureCapabilityResponse `json:"class_session_scheduling"`
 	ClassSessionRecurrence featureCapabilityResponse `json:"class_session_recurrence"`
 	InAppNotifications     featureCapabilityResponse `json:"in_app_notifications"`
+	AvailabilityPolls      featureCapabilityResponse `json:"availability_polls"`
 }
 
 type tenantQuotaCapabilitiesResponse struct {
-	Members                quotaCapabilityResponse `json:"members"`
-	ActiveClasses          quotaCapabilityResponse `json:"active_classes"`
-	InviteCreationsPerHour quotaCapabilityResponse `json:"invite_creations_per_hour"`
+	Members                                    quotaCapabilityResponse `json:"members"`
+	ActiveClasses                              quotaCapabilityResponse `json:"active_classes"`
+	InviteCreationsPerHour                     quotaCapabilityResponse `json:"invite_creations_per_hour"`
+	ActiveAvailabilityPolls                    quotaCapabilityResponse `json:"active_availability_polls"`
+	AvailabilityPollRangeDays                  quotaCapabilityResponse `json:"availability_poll_range_days"`
+	AvailabilityPollSlots                      quotaCapabilityResponse `json:"availability_poll_slots"`
+	AvailabilityPollParticipants               quotaCapabilityResponse `json:"availability_poll_participants"`
+	AvailabilityPollCreationsPerHour           quotaCapabilityResponse `json:"availability_poll_creations_per_hour"`
+	AvailabilityPollCapabilityCreationsPerHour quotaCapabilityResponse `json:"availability_poll_capability_creations_per_hour"`
+	ActiveStudyMeetings                        quotaCapabilityResponse `json:"active_study_meetings"`
+	StudyMeetingCreationsPerHour               quotaCapabilityResponse `json:"study_meeting_creations_per_hour"`
 }
 
 type tenantOperationCapabilitiesResponse struct {
-	CreateMembershipInvitation operationCapabilityResponse `json:"create_membership_invitation"`
-	AcceptMembershipInvitation operationCapabilityResponse `json:"accept_membership_invitation"`
-	CreateClass                operationCapabilityResponse `json:"create_class"`
-	ActivateClass              operationCapabilityResponse `json:"activate_class"`
-	RestoreActiveClass         operationCapabilityResponse `json:"restore_active_class"`
-	CreateClassInviteLink      operationCapabilityResponse `json:"create_class_invite_link"`
-	JoinClassInviteLink        operationCapabilityResponse `json:"join_class_invite_link"`
-	ScheduleClassSession       operationCapabilityResponse `json:"schedule_class_session"`
+	CreateMembershipInvitation       operationCapabilityResponse `json:"create_membership_invitation"`
+	AcceptMembershipInvitation       operationCapabilityResponse `json:"accept_membership_invitation"`
+	CreateClass                      operationCapabilityResponse `json:"create_class"`
+	ActivateClass                    operationCapabilityResponse `json:"activate_class"`
+	RestoreActiveClass               operationCapabilityResponse `json:"restore_active_class"`
+	CreateClassInviteLink            operationCapabilityResponse `json:"create_class_invite_link"`
+	JoinClassInviteLink              operationCapabilityResponse `json:"join_class_invite_link"`
+	ScheduleClassSession             operationCapabilityResponse `json:"schedule_class_session"`
+	CreateAvailabilityPoll           operationCapabilityResponse `json:"create_availability_poll"`
+	CreateAvailabilityPollCapability operationCapabilityResponse `json:"create_availability_poll_capability"`
+	ScheduleStudyMeeting             operationCapabilityResponse `json:"schedule_study_meeting"`
 }
 
 type tenantCapabilitiesResponse struct {
@@ -90,12 +102,21 @@ type updateTenantFeatureControlValuesRequest struct {
 	ClassSessionScheduling *bool `json:"class_session_scheduling"`
 	ClassSessionRecurrence *bool `json:"class_session_recurrence"`
 	InAppNotifications     *bool `json:"in_app_notifications"`
+	AvailabilityPolls      *bool `json:"availability_polls"`
 }
 
 type updateTenantQuotaControlValuesRequest struct {
-	Members                *int64 `json:"members"`
-	ActiveClasses          *int64 `json:"active_classes"`
-	InviteCreationsPerHour *int64 `json:"invite_creations_per_hour"`
+	Members                                    *int64 `json:"members"`
+	ActiveClasses                              *int64 `json:"active_classes"`
+	InviteCreationsPerHour                     *int64 `json:"invite_creations_per_hour"`
+	ActiveAvailabilityPolls                    *int64 `json:"active_availability_polls"`
+	AvailabilityPollRangeDays                  *int64 `json:"availability_poll_range_days"`
+	AvailabilityPollSlots                      *int64 `json:"availability_poll_slots"`
+	AvailabilityPollParticipants               *int64 `json:"availability_poll_participants"`
+	AvailabilityPollCreationsPerHour           *int64 `json:"availability_poll_creations_per_hour"`
+	AvailabilityPollCapabilityCreationsPerHour *int64 `json:"availability_poll_capability_creations_per_hour"`
+	ActiveStudyMeetings                        *int64 `json:"active_study_meetings"`
+	StudyMeetingCreationsPerHour               *int64 `json:"study_meeting_creations_per_hour"`
 }
 
 func (request updateTenantFeatureControlsRequest) complete() bool {
@@ -106,9 +127,18 @@ func (request updateTenantFeatureControlsRequest) complete() bool {
 		request.Features.ClassSessionScheduling != nil &&
 		request.Features.ClassSessionRecurrence != nil &&
 		request.Features.InAppNotifications != nil &&
+		request.Features.AvailabilityPolls != nil &&
 		request.Quotas != nil && request.Quotas.Members != nil &&
 		request.Quotas.ActiveClasses != nil &&
-		request.Quotas.InviteCreationsPerHour != nil
+		request.Quotas.InviteCreationsPerHour != nil &&
+		request.Quotas.ActiveAvailabilityPolls != nil &&
+		request.Quotas.AvailabilityPollRangeDays != nil &&
+		request.Quotas.AvailabilityPollSlots != nil &&
+		request.Quotas.AvailabilityPollParticipants != nil &&
+		request.Quotas.AvailabilityPollCreationsPerHour != nil &&
+		request.Quotas.AvailabilityPollCapabilityCreationsPerHour != nil &&
+		request.Quotas.ActiveStudyMeetings != nil &&
+		request.Quotas.StudyMeetingCreationsPerHour != nil
 }
 
 func newFeatureControlHandlers(
@@ -192,11 +222,20 @@ func (handlers featureControlHandlers) update(w http.ResponseWriter, r *http.Req
 				{Key: featurecontrol.FeatureClassSessionScheduling, Enabled: *request.Features.ClassSessionScheduling},
 				{Key: featurecontrol.FeatureClassSessionRecurrence, Enabled: *request.Features.ClassSessionRecurrence},
 				{Key: featurecontrol.FeatureInAppNotifications, Enabled: *request.Features.InAppNotifications},
+				{Key: featurecontrol.FeatureAvailabilityPolls, Enabled: *request.Features.AvailabilityPolls},
 			},
 			QuotaOverrides: []featurecontrol.QuotaOverride{
 				{Key: featurecontrol.QuotaMembers, Limit: *request.Quotas.Members},
 				{Key: featurecontrol.QuotaActiveClasses, Limit: *request.Quotas.ActiveClasses},
 				{Key: featurecontrol.QuotaInviteCreationsPerHour, Limit: *request.Quotas.InviteCreationsPerHour},
+				{Key: featurecontrol.QuotaActiveAvailabilityPolls, Limit: *request.Quotas.ActiveAvailabilityPolls},
+				{Key: featurecontrol.QuotaAvailabilityPollRangeDays, Limit: *request.Quotas.AvailabilityPollRangeDays},
+				{Key: featurecontrol.QuotaAvailabilityPollSlots, Limit: *request.Quotas.AvailabilityPollSlots},
+				{Key: featurecontrol.QuotaAvailabilityPollParticipants, Limit: *request.Quotas.AvailabilityPollParticipants},
+				{Key: featurecontrol.QuotaAvailabilityPollCreationsPerHour, Limit: *request.Quotas.AvailabilityPollCreationsPerHour},
+				{Key: featurecontrol.QuotaAvailabilityPollCapabilityCreationsPerHour, Limit: *request.Quotas.AvailabilityPollCapabilityCreationsPerHour},
+				{Key: featurecontrol.QuotaActiveStudyMeetings, Limit: *request.Quotas.ActiveStudyMeetings},
+				{Key: featurecontrol.QuotaStudyMeetingCreationsPerHour, Limit: *request.Quotas.StudyMeetingCreationsPerHour},
 			},
 		},
 	)
@@ -332,11 +371,22 @@ func mapTenantCapabilities(
 	sessionFeature, sessionOK := features[featurecontrol.FeatureClassSessionScheduling]
 	recurrenceFeature, recurrenceOK := features[featurecontrol.FeatureClassSessionRecurrence]
 	notificationFeature, notificationOK := features[featurecontrol.FeatureInAppNotifications]
+	availabilityPollFeature, availabilityPollOK := features[featurecontrol.FeatureAvailabilityPolls]
 	membersQuota, membersOK := quotas[featurecontrol.QuotaMembers]
 	classesQuota, classesOK := quotas[featurecontrol.QuotaActiveClasses]
 	invitesQuota, invitesOK := quotas[featurecontrol.QuotaInviteCreationsPerHour]
+	activePollsQuota, activePollsOK := quotas[featurecontrol.QuotaActiveAvailabilityPolls]
+	pollRangeQuota, pollRangeOK := quotas[featurecontrol.QuotaAvailabilityPollRangeDays]
+	pollSlotsQuota, pollSlotsOK := quotas[featurecontrol.QuotaAvailabilityPollSlots]
+	pollParticipantsQuota, pollParticipantsOK := quotas[featurecontrol.QuotaAvailabilityPollParticipants]
+	pollCreationsQuota, pollCreationsOK := quotas[featurecontrol.QuotaAvailabilityPollCreationsPerHour]
+	pollCapabilitiesQuota, pollCapabilitiesOK := quotas[featurecontrol.QuotaAvailabilityPollCapabilityCreationsPerHour]
+	activeStudyMeetingsQuota, activeStudyMeetingsOK := quotas[featurecontrol.QuotaActiveStudyMeetings]
+	studyMeetingCreationsQuota, studyMeetingCreationsOK := quotas[featurecontrol.QuotaStudyMeetingCreationsPerHour]
 	if !membershipOK || !classOK || !inviteOK || !sessionOK || !recurrenceOK || !notificationOK ||
-		!membersOK || !classesOK || !invitesOK {
+		!availabilityPollOK || !membersOK || !classesOK || !invitesOK || !activePollsOK ||
+		!pollRangeOK || !pollSlotsOK || !pollParticipantsOK || !pollCreationsOK || !pollCapabilitiesOK ||
+		!activeStudyMeetingsOK || !studyMeetingCreationsOK {
 		return tenantCapabilitiesResponse{}, errors.New("feature control snapshot is incomplete")
 	}
 	response := tenantCapabilitiesResponse{
@@ -350,22 +400,34 @@ func mapTenantCapabilities(
 			ClassSessionScheduling: mapFeatureCapability(sessionFeature, capabilities.AllowedAction.ManageControls),
 			ClassSessionRecurrence: mapFeatureCapability(recurrenceFeature, capabilities.AllowedAction.ManageControls),
 			InAppNotifications:     mapFeatureCapability(notificationFeature, capabilities.AllowedAction.ManageControls),
+			AvailabilityPolls:      mapFeatureCapability(availabilityPollFeature, capabilities.AllowedAction.ManageControls),
 		},
 		Quotas: tenantQuotaCapabilitiesResponse{
-			Members:                mapQuotaCapability(membersQuota, capabilities.AllowedAction.ManageControls),
-			ActiveClasses:          mapQuotaCapability(classesQuota, capabilities.AllowedAction.ManageControls),
-			InviteCreationsPerHour: mapQuotaCapability(invitesQuota, capabilities.AllowedAction.ManageControls),
+			Members:                                    mapQuotaCapability(membersQuota, capabilities.AllowedAction.ManageControls),
+			ActiveClasses:                              mapQuotaCapability(classesQuota, capabilities.AllowedAction.ManageControls),
+			InviteCreationsPerHour:                     mapQuotaCapability(invitesQuota, capabilities.AllowedAction.ManageControls),
+			ActiveAvailabilityPolls:                    mapQuotaCapability(activePollsQuota, capabilities.AllowedAction.ManageControls),
+			AvailabilityPollRangeDays:                  mapQuotaCapability(pollRangeQuota, capabilities.AllowedAction.ManageControls),
+			AvailabilityPollSlots:                      mapQuotaCapability(pollSlotsQuota, capabilities.AllowedAction.ManageControls),
+			AvailabilityPollParticipants:               mapQuotaCapability(pollParticipantsQuota, capabilities.AllowedAction.ManageControls),
+			AvailabilityPollCreationsPerHour:           mapQuotaCapability(pollCreationsQuota, capabilities.AllowedAction.ManageControls),
+			AvailabilityPollCapabilityCreationsPerHour: mapQuotaCapability(pollCapabilitiesQuota, capabilities.AllowedAction.ManageControls),
+			ActiveStudyMeetings:                        mapQuotaCapability(activeStudyMeetingsQuota, capabilities.AllowedAction.ManageControls),
+			StudyMeetingCreationsPerHour:               mapQuotaCapability(studyMeetingCreationsQuota, capabilities.AllowedAction.ManageControls),
 		},
 	}
 	response.Operations = tenantOperationCapabilitiesResponse{
-		CreateMembershipInvitation: combineOperation(membershipFeature.Enabled, invitesQuota, true),
-		AcceptMembershipInvitation: combineOperation(membershipFeature.Enabled, membersQuota, false),
-		CreateClass:                featureOperation(classFeature.Enabled),
-		ActivateClass:              combineOperation(classFeature.Enabled, classesQuota, false),
-		RestoreActiveClass:         combineOperation(classFeature.Enabled, classesQuota, false),
-		CreateClassInviteLink:      combineOperation(inviteFeature.Enabled, invitesQuota, true),
-		JoinClassInviteLink:        featureOperation(inviteFeature.Enabled),
-		ScheduleClassSession:       featureOperation(sessionFeature.Enabled),
+		CreateMembershipInvitation:       combineOperation(membershipFeature.Enabled, invitesQuota, true),
+		AcceptMembershipInvitation:       combineOperation(membershipFeature.Enabled, membersQuota, false),
+		CreateClass:                      featureOperation(classFeature.Enabled),
+		ActivateClass:                    combineOperation(classFeature.Enabled, classesQuota, false),
+		RestoreActiveClass:               combineOperation(classFeature.Enabled, classesQuota, false),
+		CreateClassInviteLink:            combineOperation(inviteFeature.Enabled, invitesQuota, true),
+		JoinClassInviteLink:              featureOperation(inviteFeature.Enabled),
+		ScheduleClassSession:             featureOperation(sessionFeature.Enabled),
+		CreateAvailabilityPoll:           availabilityPollCreateOperation(availabilityPollFeature.Enabled, activePollsQuota, pollCreationsQuota),
+		CreateAvailabilityPollCapability: combineOperation(availabilityPollFeature.Enabled, pollCapabilitiesQuota, true),
+		ScheduleStudyMeeting:             availabilityPollCreateOperation(availabilityPollFeature.Enabled, activeStudyMeetingsQuota, studyMeetingCreationsQuota),
 	}
 	return response, nil
 }
@@ -386,8 +448,15 @@ func mapQuotaCapability(
 	capability featurecontrol.QuotaCapability,
 	includeConfigured bool,
 ) quotaCapabilityResponse {
+	remaining := capability.Remaining
+	// A capability assembled by a lightweight caller may omit the derived
+	// remaining field. Recompute it from the authoritative limit/usage pair so
+	// operation projections fail closed only when the quota is actually full.
+	if remaining == 0 && capability.Used < capability.Limit {
+		remaining = capability.Limit - capability.Used
+	}
 	response := quotaCapabilityResponse{
-		Limit: capability.Limit, Used: capability.Used, Remaining: capability.Remaining,
+		Limit: capability.Limit, Used: capability.Used, Remaining: remaining,
 		ResetAt: capability.ResetAt,
 	}
 	if includeConfigured {
@@ -412,7 +481,7 @@ func combineOperation(
 	if !enabled {
 		return operationCapabilityResponse{Available: false, Reason: "feature_disabled"}
 	}
-	if quota.Remaining <= 0 {
+	if quotaRemaining(quota) <= 0 {
 		reason := "quota_exhausted"
 		if rateLimited {
 			reason = "rate_limited"
@@ -420,6 +489,31 @@ func combineOperation(
 		return operationCapabilityResponse{Available: false, Reason: reason}
 	}
 	return operationCapabilityResponse{Available: true, Reason: "available"}
+}
+
+func availabilityPollCreateOperation(
+	enabled bool,
+	activePolls featurecontrol.QuotaCapability,
+	creationRate featurecontrol.QuotaCapability,
+) operationCapabilityResponse {
+	if !enabled {
+		return operationCapabilityResponse{Available: false, Reason: "feature_disabled"}
+	}
+	activeRemaining := quotaRemaining(activePolls)
+	if activeRemaining <= 0 {
+		return operationCapabilityResponse{Available: false, Reason: "quota_exhausted"}
+	}
+	if quotaRemaining(creationRate) <= 0 {
+		return operationCapabilityResponse{Available: false, Reason: "rate_limited"}
+	}
+	return operationCapabilityResponse{Available: true, Reason: "available"}
+}
+
+func quotaRemaining(capability featurecontrol.QuotaCapability) int64 {
+	if capability.Remaining > 0 || capability.Used >= capability.Limit {
+		return capability.Remaining
+	}
+	return capability.Limit - capability.Used
 }
 
 func maxInt64(left int64, right int64) int64 {

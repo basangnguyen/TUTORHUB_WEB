@@ -43,6 +43,19 @@ const (
 	ActionClassSessionCancel          Action = "class.session.cancel"
 	ActionClassSessionAudienceReplace Action = "class.session.audience.replace"
 	ActionClassSessionRSVPRespond     Action = "class.session.rsvp.respond"
+	ActionAvailabilityPollCreate      Action = "availability.poll.create"
+	ActionAvailabilityPollUpdate      Action = "availability.poll.update"
+	ActionAvailabilityPollOpen        Action = "availability.poll.open"
+	ActionAvailabilityPollClose       Action = "availability.poll.close"
+	ActionAvailabilityPollReopen      Action = "availability.poll.reopen"
+	ActionAvailabilityPollCancel      Action = "availability.poll.cancel"
+	ActionAvailabilityPollRespond     Action = "availability.poll.respond"
+	ActionAvailabilityPollShare       Action = "availability.poll.share"
+	ActionAvailabilityPollRevoke      Action = "availability.poll.revoke"
+	ActionAvailabilityPollFinalize    Action = "availability.poll.finalize"
+	ActionStudyMeetingCreate          Action = "study_meeting.create"
+	ActionStudyMeetingUpdate          Action = "study_meeting.update"
+	ActionStudyMeetingCancel          Action = "study_meeting.cancel"
 )
 
 type Outcome string
@@ -172,6 +185,19 @@ var actionCatalog = map[Action]struct{}{
 	ActionClassSessionCancel:          {},
 	ActionClassSessionAudienceReplace: {},
 	ActionClassSessionRSVPRespond:     {},
+	ActionAvailabilityPollCreate:      {},
+	ActionAvailabilityPollUpdate:      {},
+	ActionAvailabilityPollOpen:        {},
+	ActionAvailabilityPollClose:       {},
+	ActionAvailabilityPollReopen:      {},
+	ActionAvailabilityPollCancel:      {},
+	ActionAvailabilityPollRespond:     {},
+	ActionAvailabilityPollShare:       {},
+	ActionAvailabilityPollRevoke:      {},
+	ActionAvailabilityPollFinalize:    {},
+	ActionStudyMeetingCreate:          {},
+	ActionStudyMeetingUpdate:          {},
+	ActionStudyMeetingCancel:          {},
 }
 
 var domainEventActions = map[string]Action{
@@ -213,6 +239,19 @@ var domainEventActions = map[string]Action{
 	"class_session_occurrence.cancelled.v1":       ActionClassSessionCancel,
 	"class_session.audience_replaced.v1":          ActionClassSessionAudienceReplace,
 	"class_session.rsvp_responded.v1":             ActionClassSessionRSVPRespond,
+	"availability_poll.created.v1":                ActionAvailabilityPollCreate,
+	"availability_poll.updated.v1":                ActionAvailabilityPollUpdate,
+	"availability_poll.opened.v1":                 ActionAvailabilityPollOpen,
+	"availability_poll.reopened.v1":               ActionAvailabilityPollReopen,
+	"availability_poll.response_recorded.v1":      ActionAvailabilityPollRespond,
+	"availability_poll.closed.v1":                 ActionAvailabilityPollClose,
+	"availability_poll.cancelled.v1":              ActionAvailabilityPollCancel,
+	"availability_poll.capability_issued.v1":      ActionAvailabilityPollShare,
+	"availability_poll.capability_revoked.v1":     ActionAvailabilityPollRevoke,
+	"availability_poll.finalized.v1":              ActionAvailabilityPollFinalize,
+	"study_meeting.scheduled.v1":                  ActionStudyMeetingCreate,
+	"study_meeting.rescheduled.v1":                ActionStudyMeetingUpdate,
+	"study_meeting.cancelled.v1":                  ActionStudyMeetingCancel,
 }
 
 func ActionForDomainEvent(eventType string) (Action, bool) {

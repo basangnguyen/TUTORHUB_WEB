@@ -6,7 +6,7 @@
 
 | Thuộc tính          | Trạng thái                                                                            |
 | ------------------- | ------------------------------------------------------------------------------------- |
-| Ngày cập nhật       | 2026-07-31                                                                            |
+| Ngày cập nhật       | 2026-08-01                                                                            |
 | Repository          | `https://github.com/basangnguyen/TUTORHUB_WEB`                                        |
 | Nhánh làm việc      | `main`                                                                                |
 | Quy trình           | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
@@ -14,8 +14,33 @@
 | Phase hiện tại      | Phase 3 - Daily learning workspace                                                   |
 | Task `DONE` gần nhất | P3-02C Working hours, attendee/free-busy và RSVP                                  |
 | Mốc repository mới | P3-02C runtime acceptance commit `7859c233` Live trên Render và Cloudflare         |
-| Task hiện tại       | Chuẩn bị `Core Exit`; P3-03A/P3-04/P3-CAL-02 `VERIFY`, P3-03B `DEFERRED/VERIFY` |
-| Task tiếp theo      | P3-02D-A Native Availability Poll và Study Meeting core                         |
+| Task hiện tại       | P3-02D-A Native Availability Poll/Study Meeting core ở `VERIFY`                 |
+| Task tiếp theo      | Harden cross-writer conflict + nghiệm thu `000022`/ACL/staging, sau đó P3-06    |
+
+### Cập nhật P3-02D-A ngày 2026-08-01
+
+P3-02D-A đã có vertical slice local ở trạng thái `VERIFY`: migration `000022`, normalized
+poll/slot/participant/capability/response/answer/receipt và Study Meeting schema; Go API,
+OpenAPI/generated TypeScript client; organizer/public React flow; manual lifecycle,
+response/ranking/finalize; secure fragment exchange; owner-time conflict; audit/outbox;
+feature kill switch, tenant quota và hard cap. Individual response dùng projection phân
+trang riêng và chỉ mở cho owner, safety admin hoặc class member có authoritative
+`session.schedule`; poll/public projection không nhúng dữ liệu này.
+
+`VERIFY` không phải `DONE`: migration `000022` chưa chạy trên Neon/disposable PostgreSQL,
+exact runtime/maintenance ACL và hard-retention cascade chưa được chứng minh trên PostgreSQL
+thật, commit chưa deploy Render/Cloudflare, và staging authorization/privacy/concurrency/
+accessibility smoke chưa có sign-off. Hồ sơ thực thi nằm tại
+[`P3_02D_A_STAGING_ACCEPTANCE.md`](P3_02D_A_STAGING_ACCEPTANCE.md).
+
+P3-02D-B tiếp tục `DEFERRED/TODO`. Deadline worker auto-close, roster fan-out, email/ICS,
+notification/reminder delivery và LiveKit room lifecycle đều chưa được bật; các feature/
+worker/delivery/LiveKit consumer gate liên quan vẫn `false`.
+
+Rủi ro concurrency còn mở: Study Meeting writer hiện serialize theo owner và recheck
+conflict trong transaction, nhưng concurrent ClassSession/series/audience writer chưa dùng
+chung advisory lock và chưa reverse-recheck Study Meeting. Cross-writer race này phải được
+harden/chứng minh trên PostgreSQL trước khi P3-02D-A chuyển `DONE`.
 
 ### Mô hình thoát Phase 3 (re-baseline 2026-07-31)
 
@@ -337,7 +362,8 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
     `WorkingSchedule` về P3-02C; tách P3-02D thành P3-02D-A core (có thể triển khai
     không cần durable worker) và P3-02D-B lifecycle delivery/auto-close/fan-out
     (`DEFERRED/TODO`, chờ P3-03B/P3-04 activation). P3-05B là delivery adapter downstream
-    ở carry-over. Đây vẫn là tài liệu, chưa có Availability Poll runtime.
+    ở carry-over. P3-02D-A hiện đã có implementation local ở `VERIFY`; runtime staging và
+    mọi delivery thuộc P3-02D-B vẫn chưa được nghiệm thu/bật.
 13. P3-CAL-01 đã `DONE` ở cấp decision spike. FullCalendar Standard `7.0.1`,
     Temporal `1.0.1`, Warm Academic theme và adapter boundary nằm trong
     `apps/calendar-spike`; comparator v6.1.21 nằm riêng ở `apps/calendar-spike-v6`.
@@ -611,13 +637,15 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
   participant/RSVP đã được nghiệm thu trong P3-02B/P3-02C. Email/ICS và Availability
   Poll vẫn thuộc P3-CAL-02, P3-02D và P3-05A/B; Calendar chưa phải toàn bộ sản phẩm cuối
   cùng cho đến khi các phạm vi đó đạt gate.
-- P3-02D hiện mới có ADR/backlog/design, chưa có schema/API/UI/capability exchange hoặc
-  authorization test; không được mô tả Availability Poll/Study Meeting như chức năng đã
-  chạy.
-- External poll link có rủi ro token/PII leak và abuse. Implementation phải đạt token
+- P3-02D-A đã có schema/API/UI/capability exchange và automated authorization/privacy
+  coverage ở local, nhưng vẫn là `VERIFY` cho tới khi migration `000022`, exact ACL,
+  PostgreSQL concurrency/cascade, staging browser và manual accessibility/privacy đạt.
+  Không được mô tả Availability Poll/Study Meeting như chức năng production đã chạy.
+- External poll link có rủi ro token/PII leak và abuse. Local implementation dùng token
   entropy cao, hash-at-rest, fragment exchange, expiry/revoke/rate limit, log redaction
-  và privacy-safe aggregate theo ADR-0021. Minimum cohort/coarse bucket chỉ giảm rủi ro
-  differencing/Sybil; anonymous link không thể hứa one-human-one-response.
+  và privacy-safe aggregate theo ADR-0021; staging vẫn phải xác nhận các boundary này.
+  Minimum cohort/coarse bucket chỉ giảm rủi ro differencing/Sybil; anonymous link không
+  thể hứa one-human-one-response.
 - Quyền tạo instant study room đã được chốt làm authorization target, nhưng LiveKit
   token, lobby, moderation và media lifecycle vẫn thuộc Phase 4.
 - P3-03A/P3-04 mới ở `VERIFY`: lease/fencing/dead-letter, worker binary, notification

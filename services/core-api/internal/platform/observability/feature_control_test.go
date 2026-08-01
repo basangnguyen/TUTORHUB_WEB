@@ -36,6 +36,28 @@ func (rejectingFeatureControlEnforcer) RequireActiveClassCapacity(
 	return &featurecontrol.QuotaExceededError{Quota: featurecontrol.QuotaActiveClasses}
 }
 
+func (rejectingFeatureControlEnforcer) RequireQuotaAtMost(
+	context.Context,
+	featurecontrol.Transaction,
+	uuid.UUID,
+	featurecontrol.QuotaKey,
+	int64,
+) error {
+	return &featurecontrol.QuotaExceededError{Quota: featurecontrol.QuotaActiveAvailabilityPolls}
+}
+
+func (rejectingFeatureControlEnforcer) ConsumeRateQuota(
+	context.Context,
+	featurecontrol.Transaction,
+	uuid.UUID,
+	featurecontrol.QuotaKey,
+	time.Time,
+) (featurecontrol.RateLimitResult, error) {
+	return featurecontrol.RateLimitResult{}, &featurecontrol.QuotaExceededError{
+		Quota: featurecontrol.QuotaAvailabilityPollCreationsPerHour,
+	}
+}
+
 func (rejectingFeatureControlEnforcer) ConsumeInviteCreation(
 	context.Context,
 	featurecontrol.Transaction,

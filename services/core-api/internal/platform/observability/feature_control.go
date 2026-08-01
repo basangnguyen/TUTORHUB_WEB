@@ -49,6 +49,27 @@ func (enforcer *observedFeatureControlEnforcer) RequireActiveClassCapacity(
 	return enforcer.observe(enforcer.next.RequireActiveClassCapacity(ctx, transaction, tenantID))
 }
 
+func (enforcer *observedFeatureControlEnforcer) RequireQuotaAtMost(
+	ctx context.Context,
+	transaction featurecontrol.Transaction,
+	tenantID uuid.UUID,
+	key featurecontrol.QuotaKey,
+	requested int64,
+) error {
+	return enforcer.observe(enforcer.next.RequireQuotaAtMost(ctx, transaction, tenantID, key, requested))
+}
+
+func (enforcer *observedFeatureControlEnforcer) ConsumeRateQuota(
+	ctx context.Context,
+	transaction featurecontrol.Transaction,
+	tenantID uuid.UUID,
+	key featurecontrol.QuotaKey,
+	now time.Time,
+) (featurecontrol.RateLimitResult, error) {
+	result, err := enforcer.next.ConsumeRateQuota(ctx, transaction, tenantID, key, now)
+	return result, enforcer.observe(err)
+}
+
 func (enforcer *observedFeatureControlEnforcer) ConsumeInviteCreation(
 	ctx context.Context,
 	transaction featurecontrol.Transaction,

@@ -9,7 +9,7 @@ import {
 } from "@tutorhub/ui";
 import { RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useUpdateClassSession } from "../app/classSessions";
 import { useI18n } from "../app/i18n";
 import { useSession } from "../app/session";
@@ -195,6 +195,7 @@ function WorkingScheduleController({
 export function CalendarPage() {
   const { language, t } = useI18n();
   const session = useSession();
+  const navigateRoute = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [preferencesPrincipal, setPreferencesPrincipal] = useState<
     string | null
@@ -371,6 +372,9 @@ export function CalendarPage() {
               })
             }
             onOpenPreferences={() => setPreferencesPrincipal(principalKey)}
+            onOpenAvailabilityPolls={() =>
+              navigateRoute("/app/calendar/availability-polls")
+            }
             onOpenWorkingSchedule={() =>
               setWorkingSchedulePrincipal(principalKey)
             }

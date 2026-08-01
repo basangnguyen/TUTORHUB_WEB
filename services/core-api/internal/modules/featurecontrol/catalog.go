@@ -14,14 +14,23 @@ const (
 	FeatureClassSessionScheduling FeatureKey = "class_session_scheduling"
 	FeatureClassSessionRecurrence FeatureKey = "class_session_recurrence"
 	FeatureInAppNotifications     FeatureKey = "in_app_notifications"
+	FeatureAvailabilityPolls      FeatureKey = "availability_polls"
 )
 
 type QuotaKey string
 
 const (
-	QuotaMembers                QuotaKey = "members"
-	QuotaActiveClasses          QuotaKey = "active_classes"
-	QuotaInviteCreationsPerHour QuotaKey = "invite_creations_per_hour"
+	QuotaMembers                                    QuotaKey = "members"
+	QuotaActiveClasses                              QuotaKey = "active_classes"
+	QuotaInviteCreationsPerHour                     QuotaKey = "invite_creations_per_hour"
+	QuotaActiveAvailabilityPolls                    QuotaKey = "active_availability_polls"
+	QuotaAvailabilityPollRangeDays                  QuotaKey = "availability_poll_range_days"
+	QuotaAvailabilityPollSlots                      QuotaKey = "availability_poll_slots"
+	QuotaAvailabilityPollParticipants               QuotaKey = "availability_poll_participants"
+	QuotaAvailabilityPollCreationsPerHour           QuotaKey = "availability_poll_creations_per_hour"
+	QuotaAvailabilityPollCapabilityCreationsPerHour QuotaKey = "availability_poll_capability_creations_per_hour"
+	QuotaActiveStudyMeetings                        QuotaKey = "active_study_meetings"
+	QuotaStudyMeetingCreationsPerHour               QuotaKey = "study_meeting_creations_per_hour"
 )
 
 type ValueSource string
@@ -73,6 +82,9 @@ var featureDefinitions = map[FeatureKey]FeatureDefinition{
 	FeatureInAppNotifications: {
 		Key: FeatureInAppNotifications, DefaultEnabled: true,
 	},
+	FeatureAvailabilityPolls: {
+		Key: FeatureAvailabilityPolls, DefaultEnabled: true,
+	},
 }
 
 var quotaDefinitions = map[QuotaKey]QuotaDefinition{
@@ -87,6 +99,30 @@ var quotaDefinitions = map[QuotaKey]QuotaDefinition{
 		DefaultLimit: 60,
 		MinimumLimit: 1,
 		MaximumLimit: 10000,
+	},
+	QuotaActiveAvailabilityPolls: {
+		Key: QuotaActiveAvailabilityPolls, DefaultLimit: 20, MinimumLimit: 1, MaximumLimit: 200,
+	},
+	QuotaAvailabilityPollRangeDays: {
+		Key: QuotaAvailabilityPollRangeDays, DefaultLimit: 31, MinimumLimit: 1, MaximumLimit: 90,
+	},
+	QuotaAvailabilityPollSlots: {
+		Key: QuotaAvailabilityPollSlots, DefaultLimit: 336, MinimumLimit: 1, MaximumLimit: 1000,
+	},
+	QuotaAvailabilityPollParticipants: {
+		Key: QuotaAvailabilityPollParticipants, DefaultLimit: 100, MinimumLimit: 1, MaximumLimit: 500,
+	},
+	QuotaAvailabilityPollCreationsPerHour: {
+		Key: QuotaAvailabilityPollCreationsPerHour, DefaultLimit: 20, MinimumLimit: 1, MaximumLimit: 200,
+	},
+	QuotaAvailabilityPollCapabilityCreationsPerHour: {
+		Key: QuotaAvailabilityPollCapabilityCreationsPerHour, DefaultLimit: 60, MinimumLimit: 1, MaximumLimit: 1000,
+	},
+	QuotaActiveStudyMeetings: {
+		Key: QuotaActiveStudyMeetings, DefaultLimit: 20, MinimumLimit: 1, MaximumLimit: 200,
+	},
+	QuotaStudyMeetingCreationsPerHour: {
+		Key: QuotaStudyMeetingCreationsPerHour, DefaultLimit: 20, MinimumLimit: 1, MaximumLimit: 200,
 	},
 }
 

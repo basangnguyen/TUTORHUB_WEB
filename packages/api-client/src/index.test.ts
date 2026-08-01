@@ -823,6 +823,7 @@ describe("getHealth", () => {
       version: 7,
       can_manage_overrides: true,
       features: {
+        availability_polls: { enabled: true },
         membership_invitations: { enabled: true },
         class_management: { enabled: true },
         class_invite_links: { enabled: false },
@@ -831,6 +832,8 @@ describe("getHealth", () => {
         in_app_notifications: { enabled: true },
       },
       quotas: {
+        active_availability_polls: { limit: 20, used: 2, remaining: 18 },
+        active_study_meetings: { limit: 20, used: 3, remaining: 17 },
         members: { limit: 100, used: 12, remaining: 88 },
         active_classes: { limit: 20, used: 4, remaining: 16 },
         invite_creations_per_hour: {
@@ -838,6 +841,36 @@ describe("getHealth", () => {
           used: 30,
           remaining: 0,
           reset_at: "2026-07-20T12:00:00Z",
+        },
+        availability_poll_range_days: {
+          limit: 31,
+          used: 0,
+          remaining: 31,
+        },
+        availability_poll_slots: {
+          limit: 336,
+          used: 0,
+          remaining: 336,
+        },
+        availability_poll_participants: {
+          limit: 100,
+          used: 0,
+          remaining: 100,
+        },
+        availability_poll_creations_per_hour: {
+          limit: 20,
+          used: 1,
+          remaining: 19,
+        },
+        availability_poll_capability_creations_per_hour: {
+          limit: 60,
+          used: 1,
+          remaining: 59,
+        },
+        study_meeting_creations_per_hour: {
+          limit: 20,
+          used: 2,
+          remaining: 18,
         },
       },
       operations: {
@@ -864,11 +897,24 @@ describe("getHealth", () => {
           available: true,
           reason: "available",
         },
+        create_availability_poll: {
+          available: true,
+          reason: "available",
+        },
+        create_availability_poll_capability: {
+          available: true,
+          reason: "available",
+        },
+        schedule_study_meeting: {
+          available: true,
+          reason: "available",
+        },
       },
     };
     const input: UpdateTenantFeatureControlsRequest = {
       expected_version: 7,
       features: {
+        availability_polls: true,
         membership_invitations: true,
         class_management: true,
         class_invite_links: true,
@@ -877,9 +923,17 @@ describe("getHealth", () => {
         in_app_notifications: true,
       },
       quotas: {
+        active_availability_polls: 30,
+        active_study_meetings: 30,
         members: 120,
         active_classes: 25,
         invite_creations_per_hour: 40,
+        availability_poll_range_days: 45,
+        availability_poll_slots: 400,
+        availability_poll_participants: 120,
+        availability_poll_creations_per_hour: 30,
+        availability_poll_capability_creations_per_hour: 80,
+        study_meeting_creations_per_hour: 30,
       },
     };
     const updatedCapabilities: TenantCapabilities = {
@@ -890,6 +944,7 @@ describe("getHealth", () => {
         class_invite_links: { enabled: true },
       },
       quotas: {
+        ...capabilities.quotas,
         members: { limit: 120, used: 12, remaining: 108 },
         active_classes: { limit: 25, used: 4, remaining: 21 },
         invite_creations_per_hour: {

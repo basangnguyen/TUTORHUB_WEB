@@ -3,6 +3,7 @@
 - Trạng thái: Accepted
 - Ngày: 2026-07-23
 - Làm rõ sau readiness review: 2026-07-23
+- Hồ sơ implementation P3-02D-A: 2026-08-01 (`VERIFY`, staging acceptance còn mở)
 - Phạm vi: P3-02D, P3-05B và contract tích hợp Classroom Media ở Phase 4
 
 ## Bối cảnh
@@ -299,6 +300,63 @@ event. Mỗi recipient có một effect và capability riêng để không lộ 
 theo `(source_type, source_id, recipient_id, effect_type, source_version, channel)`.
 Provider failure không rollback poll/session/meeting; retry/dead-letter/idempotency tuân
 ADR-0018, deliverability và suppression tuân ADR-0020.
+
+### 10. Hồ sơ triển khai P3-02D-A
+
+Hồ sơ dưới đây khóa các giá trị còn để ngỏ cho vertical slice core ngày 2026-08-01 mà
+không đổi boundary của ADR:
+
+- feature key là `availability_polls`, mặc định bật nhưng có deployment kill switch;
+  nếu Calendar protected-data key không sẵn sàng thì runtime prerequisite buộc capability
+  về off, kể cả tenant override đang bật;
+- tenant quota mặc định/ceiling lần lượt là poll active `20/200`, range ngày `31/90`,
+  slot mỗi poll `336/1.000`, participant mỗi poll `100/500`, poll create mỗi giờ
+  `20/200`, capability create mỗi giờ `60/1.000`, Study Meeting active `20/200` và
+  Study Meeting create mỗi giờ `20/200`;
+- duration nằm trong `15..480` phút; granularity chỉ nhận `15`, `30` hoặc `60` phút;
+- capability dùng 32 byte CSPRNG, token `vN.<base64url>`, TTL tối đa 30 ngày và HMAC
+  domain riêng trên Calendar protected-data key; resolve broad token chỉ mint response
+  session 30 phút, respond không gửi lại broad token;
+- public aggregate cần ít nhất 3 response và chỉ trả bucket `low`, `medium`, `high`;
+  individual response dùng endpoint keyset riêng với page mặc định 25 và cursor bind
+  tenant/poll/scope. Chỉ owner, safety admin hoặc visible class member có authoritative
+  `session.schedule` nhận capability đọc; poll/public projection không nhúng danh sách
+  này và responder/public không nhận exact cohort/count;
+- ranking server dùng tuple deterministic: ít `unavailable` hơn, nhiều `preferred` hơn,
+  nhiều `available` hơn, rồi `starts_at` và slot UUID tăng dần. Explanation chỉ trả ba
+  count bounded cùng reason code, không trả identity;
+- poll hết deadline từ chối response mới nhưng giữ lifecycle `open` cho tới manual close;
+  auto-close vẫn thuộc P3-02D-B;
+- StudyMeeting conflict trong A là owner-time conflict: chặn overlap với StudyMeeting
+  scheduled của owner và ClassSession nơi owner là organizer/active attendee. Outcome
+  ClassSession tiếp tục dùng class-wide conflict authority hiện có. Study Meeting writer
+  serialize theo owner và recheck trong transaction; concurrent ClassSession/series/
+  audience writer chưa dùng chung advisory lock/reverse Study Meeting recheck, nên
+  cross-writer race là gate hardening/verify bắt buộc trước `DONE`;
+- hard cap mỗi poll: tối đa 500 poll-access capability active/1.000 row lịch sử, 500
+  response session active/1.000 row lịch sử, 10.000 slot history, 5.000 participant
+  history và 100 version cho mỗi response; expired/revoked row đủ điều kiện được tái sử
+  dụng để tránh tăng trưởng vô hạn;
+- hard-retention boundary của poll `draft/open/closed` neo tối đa 180 ngày sau deadline;
+  `finalized/cancelled` neo tối đa 180 ngày sau terminal transition. Maintenance purge
+  xóa row đã tới boundary bất kể lifecycle, không transition status, không auto-close,
+  không ghi outbox/delivery và vì vậy không thay thế P3-02D-B;
+- purge là `SECURITY INVOKER` batch `1..1000` (mặc định 100), `NULL` không hợp lệ. Core
+  API runtime không có `EXECUTE` hoặc `DELETE`; dedicated maintenance role chỉ có schema
+  `USAGE`, function `EXECUTE`, poll predicate `SELECT` + `DELETE`, cùng column-level
+  Study Meeting predicate `SELECT` + `UPDATE(source_poll_id)`. Exact-login acceptance
+  phải chứng minh detach Study Meeting và FK cascade trước rollout;
+- invited-only trong A tạo capability riêng để organizer copy link thủ công; không đọc
+  email, không roster fan-out và không đăng ký delivery consumer.
+
+Các giá trị tenant có thể bị hạ qua ADR-0015 nhưng không vượt ceiling compile-time/schema.
+Hạ quota không xóa dữ liệu đã có; nó chỉ chặn expansion tiếp theo.
+
+Implementation local của hồ sơ này ở trạng thái `VERIFY`. Migration `000022`, exact
+runtime/maintenance grants, hard-retention cascade, PostgreSQL concurrency và staging
+browser/privacy/accessibility chưa được coi là đạt cho tới khi có bằng chứng trong
+`docs/P3_02D_A_STAGING_ACCEPTANCE.md`. P3-02D-B vẫn `DEFERRED/TODO`; không bật deadline
+worker auto-close, roster fan-out, email/notification/reminder hoặc LiveKit lifecycle.
 
 ## Hệ quả
 

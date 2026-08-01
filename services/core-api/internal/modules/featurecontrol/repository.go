@@ -20,6 +20,14 @@ type Enforcer interface {
 	RequireFeature(context.Context, Transaction, uuid.UUID, FeatureKey) error
 	RequireMemberCapacity(context.Context, Transaction, uuid.UUID) error
 	RequireActiveClassCapacity(context.Context, Transaction, uuid.UUID) error
+	RequireQuotaAtMost(context.Context, Transaction, uuid.UUID, QuotaKey, int64) error
+	ConsumeRateQuota(
+		context.Context,
+		Transaction,
+		uuid.UUID,
+		QuotaKey,
+		time.Time,
+	) (RateLimitResult, error)
 	ConsumeInviteCreation(
 		context.Context,
 		Transaction,

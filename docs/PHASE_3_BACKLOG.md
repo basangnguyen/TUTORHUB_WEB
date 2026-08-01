@@ -33,9 +33,12 @@ re-baseline này không dùng nó để chặn Phase 4 hay ép các gate provide
 tất trước khi có môi trường phù hợp. Domain/DNS, SES sandbox và production-access
 approval có thể tiếp tục chuẩn bị song song.
 
-**Task runnable tiếp theo:** `P3-02D-A` Native Availability Poll và Study Meeting core.
-`P3-02D-B` lifecycle delivery/auto-close/fan-out và các gate P3-03B/P3-CAL-02/P3-05A/B
-là carry-over, không nằm trong mốc Core Exit tối thiểu.
+**Task đang verify:** `P3-02D-A` Native Availability Poll và Study Meeting core đã có
+implementation local; bước bắt buộc tiếp theo là harden cross-writer conflict rồi chạy
+migration/ACL/staging acceptance trước khi chuyển `DONE`, sau đó runnable lane tiếp tục
+với P3-06. `P3-02D-B` lifecycle delivery/
+auto-close/fan-out và các gate P3-03B/P3-CAL-02/P3-05A/B là carry-over, không nằm trong
+mốc Core Exit tối thiểu.
 
 **Quyết định hosting/test ngày 2026-07-31:** giữ Render Web Service cho Core API
 staging/private alpha. Render Free không phải durable worker và không được thay bằng
@@ -97,7 +100,7 @@ processing/sharing tới end user.
 | P3-02A     | Professional Calendar shell/read projection    | P3-01, P3-CAL-01                | DONE       |
 | P3-02B     | Recurrence + class conflict                    | P3-02A, ADR-0019                | DONE       |
 | P3-02C     | Working hours/attendee/free-busy/RSVP          | P3-02A, ADR-0023 contract       | DONE       |
-| P3-02D-A   | Native Availability Poll + Study Meeting core  | P3-02B, P3-02C, ADR-0021        | TODO       |
+| P3-02D-A   | Native Availability Poll + Study Meeting core  | P3-02B, P3-02C, ADR-0021        | VERIFY     |
 | P3-02D-B   | Poll lifecycle delivery/auto-close/fan-out    | P3-02D-A, P3-03B, P3-04         | DEFERRED/TODO |
 | P3-03A     | PostgreSQL outbox worker repository foundation | P3-01                          | VERIFY     |
 | P3-03B     | Durable worker staging acceptance              | P3-03A                          | DEFERRED/VERIFY |
@@ -727,46 +730,56 @@ P3-04 activation đạt gate; P3-05B là delivery adapter downstream.
 
 - [x] ADR-0021 chốt native ownership, permission, share mode, capability security và
       ranh giới Phase 3/Phase 4 trước implementation.
-- [ ] TutorHub tự xây poll bằng React + Go modular monolith + PostgreSQL; không iframe,
+- [x] TutorHub tự xây poll bằng React + Go modular monolith + PostgreSQL; không iframe,
       scrape, API không chính thức, fork, code copy hoặc runtime dependency When2meet.
-- [ ] Mọi active authenticated tenant member có `availability.poll.create`,
+- [x] Mọi active authenticated tenant member có `availability.poll.create`,
       `availability.poll.manage_own` và `study_meeting.schedule_own` theo feature/quota;
       external/anonymous responder không được tạo poll/meeting.
-- [ ] Poll chỉ được bind `class_id` khi creator là active class member có `class.view`;
+- [x] Poll chỉ được bind `class_id` khi creator là active class member có `class.view`;
       class foreign/inaccessible bị conceal `404`.
-- [ ] Có `class_members` mặc định cho poll gắn lớp, `invited_only` với token riêng từng
+- [x] Có `class_members` mặc định cho poll gắn lớp, `invited_only` với token riêng từng
       recipient và `anyone_with_link` phải bật rõ ràng; đổi mode revoke/rotate token cũ.
-- [ ] Poll có title, optional class/participants, timezone IANA, date range, working
+- [x] Poll có title, optional class/participants, timezone IANA, date range, working
       hours, duration, slot granularity, deadline, version và lifecycle.
-- [ ] Manual close/reopen/cancel và edit-after-response tuân state machine; deadline được
+- [x] Manual close/reopen/cancel và edit-after-response tuân state machine; deadline được
       lưu/hiển thị nhất quán nhưng worker auto-close thuộc P3-02D-B. Slot/timezone/duration
       không bị tái diễn giải âm thầm sau khi đã có response.
-- [ ] Response normalized theo slot: `preferred`, `available`, `unavailable`; chưa trả
+- [x] Response normalized theo slot: `preferred`, `available`, `unavailable`; chưa trả
       lời là `unknown`, không dùng JSON/string như V1.
-- [ ] Desktop có drag/paint heatmap; mobile dùng list/card; keyboard, screen reader và
+- [x] Desktop có drag/paint heatmap; mobile dùng list/card; keyboard, screen reader và
       forced-colors có action/label tương đương, không truyền nghĩa chỉ bằng màu.
-- [ ] Participant thường chỉ thấy response của mình và aggregate privacy-safe. Organizer
+- [x] Participant thường chỉ thấy response của mình và aggregate privacy-safe. Organizer
       hoặc teacher/admin đủ capability mới thấy individual response; public projection
-      không lộ roster, email, class detail hay lịch riêng.
-- [ ] Minimum cohort chỉ là giảm rủi ro, không hứa chống differencing/Sybil tuyệt đối.
+      không lộ roster, email, class detail hay lịch riêng. Individual response dùng endpoint
+      keyset riêng; cursor bind tenant/poll/scope và page mặc định 25.
+- [x] Minimum cohort chỉ là giảm rủi ro, không hứa chống differencing/Sybil tuyệt đối.
       Public aggregate dùng coarse bucket/không lộ exact responder count; anonymous
       dedupe chỉ theo response handle + idempotency key, không tuyên bố one-human-one-vote.
-      Retention/purge, uniform error và token/prefix/poll rate limit đạt.
-- [ ] External link dùng high-entropy token hash-at-rest, expiry/revoke/scope/rate limit,
+      Hard-retention/purge, uniform error và token/prefix/poll rate limit đã có trong local
+      implementation; PostgreSQL/ACL/cascade acceptance còn mở.
+- [x] External link dùng high-entropy token hash-at-rest, expiry/revoke/scope/rate limit,
       URL fragment exchange, `history.replaceState`, `no-referrer`, `no-store`, `noindex`
       cùng strict CSP/no third-party pre-exchange và log/analytics redaction.
-- [ ] Ranking deterministic, giải thích bounded; frontend preview không phải authority.
+- [x] Ranking deterministic, giải thích bounded; frontend preview không phải authority.
       Finalize luôn recheck conflict, dùng expected version và idempotency key.
-- [ ] Actor có `session.schedule` trên class đích mới được finalize thành `ClassSession`;
+- [x] Actor có `session.schedule` trên class đích mới được finalize thành `ClassSession`;
       actor khác chỉ tạo `StudyMeeting` của mình. External responder không được finalize.
-- [ ] Study Meeting trong Phase 3 là scheduling/room intent, không phải LiveKit room
+- [x] Study Meeting trong Phase 3 là scheduling/room intent, không phải LiveKit room
       runtime; token, lobby, moderation, reconnect và media lifecycle thuộc Phase 4.
-- [ ] Active member tạo/list/detail/update/cancel StudyMeeting trực tiếp hoặc từ poll;
-      owner/admin-recovery và conflict/version policy đạt.
-- [ ] Feature flag/hard cap/kill switch cho poll/slot/participant/capability được
-      enforcement ngay P3-02D-A, không chờ P3-13. Fan-out cap/enforcement thuộc P3-02D-B.
-- [ ] Open/share/close/reopen/cancel/finalize thủ công ghi audit + outbox; P3-05B phân phối
+- [x] Active member tạo/list/detail/update/cancel StudyMeeting trực tiếp hoặc từ poll;
+      owner/admin-recovery, version và transactional owner-conflict recheck đã có.
+- [x] Feature flag/hard cap/kill switch cho poll/slot/participant/capability và
+      StudyMeeting active/create-rate được enforcement ngay P3-02D-A, không chờ P3-13.
+      Fan-out cap/enforcement thuộc P3-02D-B.
+- [x] Open/share/close/reopen/cancel/finalize thủ công ghi audit + outbox; P3-05B phân phối
       email/fan-out sau commit và provider failure không rollback nghiệp vụ (carry-over).
+- [ ] Chạy migration `000022` up/down/up trên disposable PostgreSQL, cấp và đối chiếu exact
+      runtime/maintenance grants, chứng minh hard-retention cascade, quota/concurrency/
+      tenant isolation, rồi hoàn tất Render/Cloudflare browser, privacy và manual a11y
+      acceptance theo `P3_02D_A_STAGING_ACCEPTANCE.md`; chỉ khi đó mới chuyển `DONE`.
+- [ ] Harden/verify cross-writer race: Study Meeting writer đã serialize theo owner, nhưng
+      concurrent ClassSession/series/audience writer phải dùng chung authority hoặc có
+      reverse Study Meeting recheck để không commit hai lịch overlap.
 
 ### P3-02D-B Poll lifecycle delivery (deferred carry-over)
 
@@ -1113,8 +1126,10 @@ một tuần.
    cô lập. ADR vẫn `Proposed`; SES sandbox live, EventBridge/SQS/DLQ, sending domain/DNS
    và Gmail/Outlook/Apple matrix còn `BLOCKED/VERIFY`, chưa bật business delivery.
 6. P3-02A/P3-02B/P3-02C đã `DONE`; working-hours, free-busy, audience và RSVP core đã
-   qua local/staging/manual gate. Bước runnable tiếp theo là `P3-02D-A` poll/StudyMeeting
-   core; không chờ P3-03B và không bật delivery side effect.
+   qua local/staging/manual gate. P3-02D-A poll/StudyMeeting core hiện ở `VERIFY`; hoàn
+   harden cross-writer conflict, hoàn tất migration `000022`, exact ACL và staging/manual
+   acceptance rồi tiếp tục P3-06.
+   Task này không chờ P3-03B và không bật delivery side effect.
 7. P3-03B/P3-04, P3-CAL-02/P3-05A và P3-02D-B/P3-05B tiếp tục ở carry-over. Đóng
    `P3-14-CORE` sau lane runnable cho phép bắt đầu Phase 4; full P3-14 vẫn chờ các gate này.
 8. Không đưa recurrence, reminder, worker, email hoặc calendar tổng hợp vào P3-01.

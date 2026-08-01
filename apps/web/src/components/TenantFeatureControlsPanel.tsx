@@ -26,15 +26,25 @@ const featureKeys = [
   "class_session_scheduling",
   "class_session_recurrence",
   "in_app_notifications",
+  "availability_polls",
 ] as const satisfies readonly FeatureKey[];
 
 const quotaKeys = [
   "members",
   "active_classes",
   "invite_creations_per_hour",
+  "active_availability_polls",
+  "availability_poll_range_days",
+  "availability_poll_slots",
+  "availability_poll_participants",
+  "availability_poll_creations_per_hour",
+  "availability_poll_capability_creations_per_hour",
+  "active_study_meetings",
+  "study_meeting_creations_per_hour",
 ] as const satisfies readonly QuotaKey[];
 
 const featureLabelKeys: Record<FeatureKey, TranslationKey> = {
+  availability_polls: "capabilities.featureAvailabilityPolls",
   class_invite_links: "capabilities.featureClassInviteLinks",
   class_session_scheduling: "capabilities.featureClassSessionScheduling",
   class_session_recurrence: "capabilities.featureClassSessionRecurrence",
@@ -44,8 +54,19 @@ const featureLabelKeys: Record<FeatureKey, TranslationKey> = {
 };
 
 const quotaLabelKeys: Record<QuotaKey, TranslationKey> = {
+  active_availability_polls: "capabilities.quotaActiveAvailabilityPolls",
   active_classes: "capabilities.quotaActiveClasses",
+  active_study_meetings: "capabilities.quotaActiveStudyMeetings",
   invite_creations_per_hour: "capabilities.quotaInviteCreations",
+  availability_poll_range_days: "capabilities.quotaAvailabilityPollRangeDays",
+  availability_poll_slots: "capabilities.quotaAvailabilityPollSlots",
+  availability_poll_participants:
+    "capabilities.quotaAvailabilityPollParticipants",
+  availability_poll_creations_per_hour:
+    "capabilities.quotaAvailabilityPollCreations",
+  availability_poll_capability_creations_per_hour:
+    "capabilities.quotaAvailabilityPollCapabilityCreations",
+  study_meeting_creations_per_hour: "capabilities.quotaStudyMeetingCreations",
   members: "capabilities.quotaMembers",
 };
 
@@ -78,6 +99,7 @@ function controlsDraft(capabilities: TenantCapabilities): ControlsDraft {
       version: capabilities.version,
     },
     features: {
+      availability_polls: configuredFeature(capabilities, "availability_polls"),
       class_invite_links: configuredFeature(capabilities, "class_invite_links"),
       class_session_scheduling: configuredFeature(
         capabilities,
@@ -98,9 +120,36 @@ function controlsDraft(capabilities: TenantCapabilities): ControlsDraft {
       ),
     },
     quotas: {
+      active_availability_polls: String(
+        configuredQuota(capabilities, "active_availability_polls"),
+      ),
       active_classes: String(configuredQuota(capabilities, "active_classes")),
+      active_study_meetings: String(
+        configuredQuota(capabilities, "active_study_meetings"),
+      ),
       invite_creations_per_hour: String(
         configuredQuota(capabilities, "invite_creations_per_hour"),
+      ),
+      availability_poll_range_days: String(
+        configuredQuota(capabilities, "availability_poll_range_days"),
+      ),
+      availability_poll_slots: String(
+        configuredQuota(capabilities, "availability_poll_slots"),
+      ),
+      availability_poll_participants: String(
+        configuredQuota(capabilities, "availability_poll_participants"),
+      ),
+      availability_poll_creations_per_hour: String(
+        configuredQuota(capabilities, "availability_poll_creations_per_hour"),
+      ),
+      availability_poll_capability_creations_per_hour: String(
+        configuredQuota(
+          capabilities,
+          "availability_poll_capability_creations_per_hour",
+        ),
+      ),
+      study_meeting_creations_per_hour: String(
+        configuredQuota(capabilities, "study_meeting_creations_per_hour"),
       ),
       members: String(configuredQuota(capabilities, "members")),
     },
@@ -339,9 +388,27 @@ function TenantFeatureControlsForm({
     event.preventDefault();
     const errors: Partial<Record<QuotaKey, string>> = {};
     const quotas = {
+      active_availability_polls: Number(draft.quotas.active_availability_polls),
       active_classes: Number(draft.quotas.active_classes),
+      active_study_meetings: Number(draft.quotas.active_study_meetings),
       invite_creations_per_hour: Number(draft.quotas.invite_creations_per_hour),
       members: Number(draft.quotas.members),
+      availability_poll_range_days: Number(
+        draft.quotas.availability_poll_range_days,
+      ),
+      availability_poll_slots: Number(draft.quotas.availability_poll_slots),
+      availability_poll_participants: Number(
+        draft.quotas.availability_poll_participants,
+      ),
+      availability_poll_creations_per_hour: Number(
+        draft.quotas.availability_poll_creations_per_hour,
+      ),
+      availability_poll_capability_creations_per_hour: Number(
+        draft.quotas.availability_poll_capability_creations_per_hour,
+      ),
+      study_meeting_creations_per_hour: Number(
+        draft.quotas.study_meeting_creations_per_hour,
+      ),
     };
     for (const key of quotaKeys) {
       if (!Number.isSafeInteger(quotas[key]) || quotas[key] < 1) {

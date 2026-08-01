@@ -130,6 +130,49 @@ const messages = {
       "Chưa thể lưu phản hồi. Hãy thử lại sau.",
     "calendar.externalRSVP.responseClosed":
       "Người tổ chức không yêu cầu phản hồi cho lời mời này.",
+    "availabilityPoll.public.kicker": "Khảo sát thời gian TutorHub",
+    "availabilityPoll.public.pageTitle": "Chọn thời gian phù hợp",
+    "availabilityPoll.public.loading": "Đang tải khảo sát thời gian...",
+    "availabilityPoll.public.unavailableTitle": "Khảo sát không khả dụng",
+    "availabilityPoll.public.unavailableDescription":
+      "Liên kết có thể đã hết hạn, bị thu hồi hoặc không còn hợp lệ. Hãy yêu cầu người tổ chức gửi liên kết mới.",
+    "availabilityPoll.public.loadErrorTitle": "Chưa thể tải khảo sát",
+    "availabilityPoll.public.loadErrorDescription":
+      "Kiểm tra kết nối rồi thử lại. TutorHub không hiển thị chi tiết lỗi nhạy cảm tại đây.",
+    "availabilityPoll.public.descriptionFallback":
+      "Chọn mức độ phù hợp của bạn cho từng khung giờ bên dưới.",
+    "availabilityPoll.public.deadline": "Hạn phản hồi",
+    "availabilityPoll.public.timezone": "Múi giờ",
+    "availabilityPoll.public.slotChoices": "Mức độ phù hợp cho {time}",
+    "availabilityPoll.public.preferred": "Ưu tiên",
+    "availabilityPoll.public.available": "Có thể tham gia",
+    "availabilityPoll.public.unavailable": "Không thể tham gia",
+    "availabilityPoll.public.responseHint":
+      "Trên máy tính, nhấn và kéo để tô nhiều khung giờ. Bạn cũng có thể dùng phím Tab và các phím mũi tên. Chỉ các khung giờ đã chọn mới được gửi.",
+    "availabilityPoll.public.summary": "Mức độ phù hợp của nhóm",
+    "availabilityPoll.public.aggregate.low": "Ít phù hợp",
+    "availabilityPoll.public.aggregate.medium": "Khá phù hợp",
+    "availabilityPoll.public.aggregate.high": "Rất phù hợp",
+    "availabilityPoll.public.aggregate.withheld":
+      "Chưa đủ phản hồi để hiển thị mức tổng hợp.",
+    "availabilityPoll.public.noSlotsTitle": "Chưa có khung giờ",
+    "availabilityPoll.public.noSlotsDescription":
+      "Người tổ chức chưa thêm khung giờ để phản hồi.",
+    "availabilityPoll.public.closed":
+      "Khảo sát đã đóng và không nhận thêm phản hồi.",
+    "availabilityPoll.public.cancelled": "Khảo sát này đã bị hủy.",
+    "availabilityPoll.public.finalized":
+      "Khảo sát đã kết thúc và người tổ chức đã chọn kết quả.",
+    "availabilityPoll.public.submit": "Lưu lựa chọn",
+    "availabilityPoll.public.submitting": "Đang lưu...",
+    "availabilityPoll.public.selectOne":
+      "Chọn ít nhất một khung giờ trước khi lưu.",
+    "availabilityPoll.public.saved": "Đã lưu lựa chọn của bạn.",
+    "availabilityPoll.public.conflict":
+      "Phản hồi hoặc khảo sát đã thay đổi. Hãy tải lại trước khi lưu.",
+    "availabilityPoll.public.saveError":
+      "Chưa thể lưu lựa chọn. Hãy thử lại sau.",
+    "availabilityPoll.public.reload": "Tải lại khảo sát",
     "calendar.schedulingAssistant.title": "Trợ lý xếp lịch",
     "calendar.schedulingAssistant.description":
       "Tìm giờ phù hợp từ trạng thái rảnh/bận và giờ làm việc đã được bảo vệ quyền riêng tư.",
@@ -217,6 +260,7 @@ const messages = {
     "calendar.previous": "Khoảng trước",
     "calendar.next": "Khoảng tiếp theo",
     "calendar.settings": "Tùy chọn hiển thị",
+    "calendar.availabilityPolls.action": "Khảo sát thời gian",
     "calendar.workingSchedule.action": "Giờ làm việc",
     "calendar.workingSchedule.title": "Giờ làm việc và ngoại lệ",
     "calendar.workingSchedule.description":
@@ -411,6 +455,10 @@ const messages = {
     "notifications.capabilitiesErrorTitle":
       "Chưa thể kiểm tra trạng thái thông báo",
     "notifications.capabilitiesErrorDescription":
+      "Không thể tải cấu hình tính năng của workspace. Hãy thử lại.",
+    "availabilityPolls.capabilitiesErrorTitle":
+      "Chưa thể kiểm tra trạng thái khảo sát thời gian",
+    "availabilityPolls.capabilitiesErrorDescription":
       "Không thể tải cấu hình tính năng của workspace. Hãy thử lại.",
     "notifications.forbiddenTitle": "Chưa thể mở trung tâm thông báo",
     "notifications.forbiddenDescription":
@@ -688,9 +736,22 @@ const messages = {
     "capabilities.featureClassSessionScheduling": "Lên lịch buổi học trong lớp",
     "capabilities.featureClassSessionRecurrence": "Lịch lặp lại cho buổi học",
     "capabilities.featureInAppNotifications": "Thông báo trong ứng dụng",
+    "capabilities.featureAvailabilityPolls": "Khảo sát thời gian rảnh",
     "capabilities.quotaMembers": "Thành viên workspace",
     "capabilities.quotaActiveClasses": "Lớp đang hoạt động",
     "capabilities.quotaInviteCreations": "Lượt tạo lời mời mỗi giờ",
+    "capabilities.quotaActiveAvailabilityPolls":
+      "Khảo sát thời gian đang hoạt động",
+    "capabilities.quotaAvailabilityPollRangeDays":
+      "Số ngày tối đa mỗi khảo sát",
+    "capabilities.quotaAvailabilityPollSlots": "Khung giờ tối đa mỗi khảo sát",
+    "capabilities.quotaAvailabilityPollParticipants":
+      "Người tham gia tối đa mỗi khảo sát",
+    "capabilities.quotaAvailabilityPollCreations": "Lượt tạo khảo sát mỗi giờ",
+    "capabilities.quotaAvailabilityPollCapabilityCreations":
+      "Lượt tạo liên kết khảo sát mỗi giờ",
+    "capabilities.quotaActiveStudyMeetings": "Lịch học nhóm đang hoạt động",
+    "capabilities.quotaStudyMeetingCreations": "Lượt tạo lịch học nhóm mỗi giờ",
     "capabilities.quotaUsage": "{used}/{limit} đã dùng",
     "capabilities.quotaRemaining": "Còn lại {remaining}",
     "capabilities.quotaReset": "Đặt lại lúc {date}",
@@ -799,6 +860,9 @@ const messages = {
     "audit.resource.classEnrollment": "Enrollment lớp",
     "audit.resource.classInviteCode": "Mã mời lớp",
     "audit.resource.classMember": "Thành viên lớp",
+    "audit.resource.classSession": "Buổi học trong lớp",
+    "audit.resource.availabilityPoll": "Khảo sát thời gian",
+    "audit.resource.studyMeeting": "Lịch học nhóm",
     "audit.resource.tenantFeatureControl": "Điều khiển tính năng workspace",
     "audit.action.tenantCreate": "Tạo workspace",
     "audit.action.tenantUpdate": "Cập nhật workspace",
@@ -826,6 +890,24 @@ const messages = {
     "audit.action.classInviteCodeRevoke": "Thu hồi mã mời lớp",
     "audit.action.classInviteCodeExpire": "Mã mời lớp hết hạn",
     "audit.action.classInviteCodeExhaust": "Mã mời lớp hết lượt dùng",
+    "audit.action.classSessionCreate": "Tạo buổi học",
+    "audit.action.classSessionUpdate": "Cập nhật buổi học",
+    "audit.action.classSessionCancel": "Hủy buổi học",
+    "audit.action.classSessionAudienceReplace": "Thay đối tượng buổi học",
+    "audit.action.classSessionRsvpRespond": "Phản hồi tham dự buổi học",
+    "audit.action.availabilityPollCreate": "Tạo khảo sát thời gian",
+    "audit.action.availabilityPollUpdate": "Cập nhật khảo sát thời gian",
+    "audit.action.availabilityPollOpen": "Mở khảo sát thời gian",
+    "audit.action.availabilityPollClose": "Đóng khảo sát thời gian",
+    "audit.action.availabilityPollReopen": "Mở lại khảo sát thời gian",
+    "audit.action.availabilityPollCancel": "Hủy khảo sát thời gian",
+    "audit.action.availabilityPollRespond": "Phản hồi khảo sát thời gian",
+    "audit.action.availabilityPollShare": "Chia sẻ khảo sát thời gian",
+    "audit.action.availabilityPollRevoke": "Thu hồi liên kết khảo sát",
+    "audit.action.availabilityPollFinalize": "Chốt khảo sát thời gian",
+    "audit.action.studyMeetingCreate": "Tạo lịch học nhóm",
+    "audit.action.studyMeetingUpdate": "Cập nhật lịch học nhóm",
+    "audit.action.studyMeetingCancel": "Hủy lịch học nhóm",
     "invitation.adminTitle": "Lời mời thành viên",
     "invitation.adminDescription":
       "Mời thành viên vào workspace bằng liên kết dùng một lần có thời hạn.",
@@ -1504,6 +1586,49 @@ const messages = {
       "Your response could not be saved. Try again later.",
     "calendar.externalRSVP.responseClosed":
       "The organizer is not requesting a response for this invitation.",
+    "availabilityPoll.public.kicker": "TutorHub availability poll",
+    "availabilityPoll.public.pageTitle": "Choose a suitable time",
+    "availabilityPoll.public.loading": "Loading the availability poll...",
+    "availabilityPoll.public.unavailableTitle": "Poll unavailable",
+    "availabilityPoll.public.unavailableDescription":
+      "This link may be expired, revoked, or no longer valid. Ask the organizer to send a new link.",
+    "availabilityPoll.public.loadErrorTitle": "Could not load the poll",
+    "availabilityPoll.public.loadErrorDescription":
+      "Check your connection and try again. TutorHub does not expose sensitive error details here.",
+    "availabilityPoll.public.descriptionFallback":
+      "Choose how well each time slot works for you.",
+    "availabilityPoll.public.deadline": "Response deadline",
+    "availabilityPoll.public.timezone": "Time zone",
+    "availabilityPoll.public.slotChoices": "Availability for {time}",
+    "availabilityPoll.public.preferred": "Preferred",
+    "availabilityPoll.public.available": "Available",
+    "availabilityPoll.public.unavailable": "Unavailable",
+    "availabilityPoll.public.responseHint":
+      "On desktop, press and drag to paint multiple slots. You can also use Tab and the arrow keys. Only time slots you select are submitted.",
+    "availabilityPoll.public.summary": "Group fit",
+    "availabilityPoll.public.aggregate.low": "Low fit",
+    "availabilityPoll.public.aggregate.medium": "Good fit",
+    "availabilityPoll.public.aggregate.high": "Great fit",
+    "availabilityPoll.public.aggregate.withheld":
+      "More responses are needed before a group result is shown.",
+    "availabilityPoll.public.noSlotsTitle": "No time slots yet",
+    "availabilityPoll.public.noSlotsDescription":
+      "The organizer has not added any time slots to respond to.",
+    "availabilityPoll.public.closed":
+      "This poll is closed and no longer accepts responses.",
+    "availabilityPoll.public.cancelled": "This poll has been cancelled.",
+    "availabilityPoll.public.finalized":
+      "This poll is complete and the organizer has selected an outcome.",
+    "availabilityPoll.public.submit": "Save choices",
+    "availabilityPoll.public.submitting": "Saving...",
+    "availabilityPoll.public.selectOne":
+      "Choose at least one time slot before saving.",
+    "availabilityPoll.public.saved": "Your choices have been saved.",
+    "availabilityPoll.public.conflict":
+      "The response or poll changed. Reload it before saving.",
+    "availabilityPoll.public.saveError":
+      "Your choices could not be saved. Try again later.",
+    "availabilityPoll.public.reload": "Reload poll",
     "calendar.schedulingAssistant.title": "Scheduling Assistant",
     "calendar.schedulingAssistant.description":
       "Find a suitable time from privacy-safe free/busy status and working hours.",
@@ -1590,6 +1715,7 @@ const messages = {
     "calendar.previous": "Previous range",
     "calendar.next": "Next range",
     "calendar.settings": "Display preferences",
+    "calendar.availabilityPolls.action": "Availability polls",
     "calendar.workingSchedule.action": "Working hours",
     "calendar.workingSchedule.title": "Working hours and exceptions",
     "calendar.workingSchedule.description":
@@ -1785,6 +1911,10 @@ const messages = {
       "The notification service is temporarily unavailable.",
     "notifications.capabilitiesErrorTitle": "Notification status unavailable",
     "notifications.capabilitiesErrorDescription":
+      "The workspace feature configuration could not be loaded. Try again.",
+    "availabilityPolls.capabilitiesErrorTitle":
+      "Availability poll status unavailable",
+    "availabilityPolls.capabilitiesErrorDescription":
       "The workspace feature configuration could not be loaded. Try again.",
     "notifications.forbiddenTitle": "Notification center unavailable",
     "notifications.forbiddenDescription":
@@ -2065,9 +2195,21 @@ const messages = {
     "capabilities.featureClassSessionScheduling": "Class session scheduling",
     "capabilities.featureClassSessionRecurrence": "Recurring class sessions",
     "capabilities.featureInAppNotifications": "In-app notifications",
+    "capabilities.featureAvailabilityPolls": "Availability polls",
     "capabilities.quotaMembers": "Workspace members",
     "capabilities.quotaActiveClasses": "Active classes",
     "capabilities.quotaInviteCreations": "Invitation creations per hour",
+    "capabilities.quotaActiveAvailabilityPolls": "Active availability polls",
+    "capabilities.quotaAvailabilityPollRangeDays": "Maximum days per poll",
+    "capabilities.quotaAvailabilityPollSlots": "Maximum slots per poll",
+    "capabilities.quotaAvailabilityPollParticipants":
+      "Maximum participants per poll",
+    "capabilities.quotaAvailabilityPollCreations": "Poll creations per hour",
+    "capabilities.quotaAvailabilityPollCapabilityCreations":
+      "Poll link creations per hour",
+    "capabilities.quotaActiveStudyMeetings": "Active study meetings",
+    "capabilities.quotaStudyMeetingCreations":
+      "Study meeting creations per hour",
     "capabilities.quotaUsage": "{used}/{limit} used",
     "capabilities.quotaRemaining": "{remaining} remaining",
     "capabilities.quotaReset": "Resets at {date}",
@@ -2177,6 +2319,9 @@ const messages = {
     "audit.resource.classEnrollment": "Class enrollment",
     "audit.resource.classInviteCode": "Class invitation code",
     "audit.resource.classMember": "Class member",
+    "audit.resource.classSession": "Class session",
+    "audit.resource.availabilityPoll": "Availability poll",
+    "audit.resource.studyMeeting": "Study meeting",
     "audit.resource.tenantFeatureControl": "Workspace feature controls",
     "audit.action.tenantCreate": "Create workspace",
     "audit.action.tenantUpdate": "Update workspace",
@@ -2204,6 +2349,25 @@ const messages = {
     "audit.action.classInviteCodeRevoke": "Revoke class invitation code",
     "audit.action.classInviteCodeExpire": "Expire class invitation code",
     "audit.action.classInviteCodeExhaust": "Exhaust class invitation code",
+    "audit.action.classSessionCreate": "Create class session",
+    "audit.action.classSessionUpdate": "Update class session",
+    "audit.action.classSessionCancel": "Cancel class session",
+    "audit.action.classSessionAudienceReplace":
+      "Replace class session audience",
+    "audit.action.classSessionRsvpRespond": "Respond to class session",
+    "audit.action.availabilityPollCreate": "Create availability poll",
+    "audit.action.availabilityPollUpdate": "Update availability poll",
+    "audit.action.availabilityPollOpen": "Open availability poll",
+    "audit.action.availabilityPollClose": "Close availability poll",
+    "audit.action.availabilityPollReopen": "Reopen availability poll",
+    "audit.action.availabilityPollCancel": "Cancel availability poll",
+    "audit.action.availabilityPollRespond": "Respond to availability poll",
+    "audit.action.availabilityPollShare": "Share availability poll",
+    "audit.action.availabilityPollRevoke": "Revoke availability poll link",
+    "audit.action.availabilityPollFinalize": "Finalize availability poll",
+    "audit.action.studyMeetingCreate": "Create study meeting",
+    "audit.action.studyMeetingUpdate": "Update study meeting",
+    "audit.action.studyMeetingCancel": "Cancel study meeting",
     "invitation.adminTitle": "Member invitations",
     "invitation.adminDescription":
       "Invite members to the workspace with an expiring one-time link.",

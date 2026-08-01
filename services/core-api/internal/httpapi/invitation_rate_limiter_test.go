@@ -52,6 +52,103 @@ func TestFixedWindowInvitationRateLimiterIsScopedByActionAndPrefix(t *testing.T)
 	}
 }
 
+func TestAvailabilityPollDefaultRateLimitPoliciesAreDimensionedAndConservative(t *testing.T) {
+	t.Parallel()
+
+	expected := map[InvitationRateLimitAction]invitationRateLimitPolicy{
+		InvitationRateLimitAvailabilityPollResolveIP: {
+			Limit:  availabilityPollResolveIPLimit,
+			Window: availabilityPollResolveWindow,
+		},
+		InvitationRateLimitAvailabilityPollResolveTokenDigest: {
+			Limit:  availabilityPollResolveTokenDigestLimit,
+			Window: availabilityPollResolveWindow,
+		},
+		InvitationRateLimitAvailabilityPollResolvePublicID: {
+			Limit:  availabilityPollResolvePublicIDLimit,
+			Window: availabilityPollResolveWindow,
+		},
+		InvitationRateLimitAvailabilityPollRespondIP: {
+			Limit:  availabilityPollRespondIPLimit,
+			Window: availabilityPollRespondWindow,
+		},
+		InvitationRateLimitAvailabilityPollRespondTokenDigest: {
+			Limit:  availabilityPollRespondTokenDigestLimit,
+			Window: availabilityPollRespondWindow,
+		},
+		InvitationRateLimitAvailabilityPollRespondPublicID: {
+			Limit:  availabilityPollRespondPublicIDLimit,
+			Window: availabilityPollRespondWindow,
+		},
+	}
+
+	policies := defaultInvitationRateLimitPolicies()
+	for action, expectedPolicy := range expected {
+		actualPolicy, exists := policies[action]
+		if !exists {
+			t.Fatalf("availability-poll action %q has no default policy", action)
+		}
+		if actualPolicy != expectedPolicy {
+			t.Fatalf(
+				"availability-poll action %q: expected policy %+v, got %+v",
+				action,
+				expectedPolicy,
+				actualPolicy,
+			)
+		}
+	}
+
+	if availabilityPollResolveTokenDigestLimit >= availabilityPollResolveIPLimit ||
+		availabilityPollRespondTokenDigestLimit >= availabilityPollRespondIPLimit {
+		t.Fatal("token-digest budgets must remain tighter than network-prefix budgets")
+	}
+}
+
+func TestAvailabilityPollRateLimitDimensionsHaveIndependentInMemoryBudgets(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, time.August, 1, 4, 5, 6, 0, time.UTC)
+	limiter := newFixedWindowInvitationRateLimiter(16, defaultInvitationRateLimitPolicies())
+	const sharedBucketValue = "privacy-safe-bucket"
+
+	for attempt := 0; attempt < availabilityPollResolveTokenDigestLimit; attempt++ {
+		decision := limiter.Allow(
+			context.Background(),
+			InvitationRateLimitAvailabilityPollResolveTokenDigest,
+			sharedBucketValue,
+			now,
+		)
+		if !decision.Allowed {
+			t.Fatalf("token-digest attempt %d unexpectedly denied: %+v", attempt+1, decision)
+		}
+	}
+	if decision := limiter.Allow(
+		context.Background(),
+		InvitationRateLimitAvailabilityPollResolveTokenDigest,
+		sharedBucketValue,
+		now,
+	); decision.Allowed {
+		t.Fatalf("exhausted token-digest budget must be denied: %+v", decision)
+	}
+
+	for _, action := range []InvitationRateLimitAction{
+		InvitationRateLimitAvailabilityPollResolveIP,
+		InvitationRateLimitAvailabilityPollResolvePublicID,
+		InvitationRateLimitAvailabilityPollRespondIP,
+		InvitationRateLimitAvailabilityPollRespondTokenDigest,
+		InvitationRateLimitAvailabilityPollRespondPublicID,
+	} {
+		if decision := limiter.Allow(
+			context.Background(),
+			action,
+			sharedBucketValue,
+			now,
+		); !decision.Allowed {
+			t.Fatalf("action %q must have an independent budget: %+v", action, decision)
+		}
+	}
+}
+
 func TestFixedWindowInvitationRateLimiterResetsAtBoundaryAndClockRollback(t *testing.T) {
 	t.Parallel()
 

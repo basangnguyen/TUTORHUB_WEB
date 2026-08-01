@@ -11,10 +11,18 @@ func TestFeatureControlGuardrailsOmitFeaturesThatAreNotForcedOff(t *testing.T) {
 	t.Parallel()
 
 	configuration := config.FeatureControlConfig{
-		DisableClassManagement:    true,
-		MaxMembers:                10_000,
-		MaxActiveClasses:          1_000,
-		MaxInviteCreationsPerHour: 10_000,
+		DisableClassManagement:                        true,
+		MaxMembers:                                    10_000,
+		MaxActiveClasses:                              1_000,
+		MaxInviteCreationsPerHour:                     10_000,
+		MaxActiveAvailabilityPolls:                    200,
+		MaxAvailabilityPollRangeDays:                  90,
+		MaxAvailabilityPollSlots:                      1_000,
+		MaxAvailabilityPollParticipants:               500,
+		MaxAvailabilityPollCreationsPerHour:           200,
+		MaxAvailabilityPollCapabilityCreationsPerHour: 1_000,
+		MaxActiveStudyMeetings:                        200,
+		MaxStudyMeetingCreationsPerHour:               200,
 	}
 	guardrails := featureControlGuardrails(configuration)
 
@@ -37,9 +45,20 @@ func TestFeatureControlGuardrailsForceOffClassSessionScheduling(t *testing.T) {
 	t.Parallel()
 
 	guardrails := featureControlGuardrails(config.FeatureControlConfig{
-		DisableClassSessionScheduling: true,
-		EnableClassSessionRecurrence:  true,
-		EnableInAppNotifications:      true,
+		DisableClassSessionScheduling:                 true,
+		EnableClassSessionRecurrence:                  true,
+		EnableInAppNotifications:                      true,
+		MaxMembers:                                    10_000,
+		MaxActiveClasses:                              1_000,
+		MaxInviteCreationsPerHour:                     10_000,
+		MaxActiveAvailabilityPolls:                    200,
+		MaxAvailabilityPollRangeDays:                  90,
+		MaxAvailabilityPollSlots:                      1_000,
+		MaxAvailabilityPollParticipants:               500,
+		MaxAvailabilityPollCreationsPerHour:           200,
+		MaxAvailabilityPollCapabilityCreationsPerHour: 1_000,
+		MaxActiveStudyMeetings:                        200,
+		MaxStudyMeetingCreationsPerHour:               200,
 	})
 
 	if len(guardrails.ForcedOffFeatures) != 1 ||
@@ -48,5 +67,24 @@ func TestFeatureControlGuardrailsForceOffClassSessionScheduling(t *testing.T) {
 			"class session scheduling kill-switch was not mapped exactly: %+v",
 			guardrails.ForcedOffFeatures,
 		)
+	}
+}
+
+func TestAvailabilityPollFeatureFailsClosedWithoutProtectedData(t *testing.T) {
+	t.Parallel()
+
+	configuration := featureControlsWithRuntimePrerequisites(
+		config.FeatureControlConfig{DisableAvailabilityPolls: false},
+		false,
+	)
+	if !configuration.DisableAvailabilityPolls {
+		t.Fatal("availability polls must be forced off when their protected-data runtime is absent")
+	}
+	configured := featureControlsWithRuntimePrerequisites(
+		config.FeatureControlConfig{DisableAvailabilityPolls: false},
+		true,
+	)
+	if configured.DisableAvailabilityPolls {
+		t.Fatal("configured protected data must not force the availability feature off")
 	}
 }

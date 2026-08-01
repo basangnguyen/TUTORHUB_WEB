@@ -16,32 +16,40 @@ import (
 )
 
 const (
-	defaultPort                    = "8080"
-	defaultWebOrigin               = "http://localhost:5173"
-	defaultAPIOrigin               = "http://localhost:8080"
-	defaultReadHeaderTimeout       = 5 * time.Second
-	defaultReadTimeout             = 15 * time.Second
-	defaultWriteTimeout            = 30 * time.Second
-	defaultIdleTimeout             = 60 * time.Second
-	defaultShutdownTimeout         = 10 * time.Second
-	defaultMaxHeaderBytes          = 1 << 20
-	defaultDBMaxConnections        = 4
-	defaultDBMinConnections        = 0
-	defaultDBConnectTimeout        = 10 * time.Second
-	defaultDBQueryTimeout          = 5 * time.Second
-	defaultDBMaxLifetime           = 30 * time.Minute
-	defaultDBMaxIdleTime           = 5 * time.Minute
-	defaultDBHealthPeriod          = time.Minute
-	defaultAuthFlowTTL             = 10 * time.Minute
-	defaultSessionTTL              = 8 * time.Hour
-	defaultSessionAbsoluteTTL      = 24 * time.Hour
-	defaultMembershipInvitationTTL = 168 * time.Hour
-	defaultLiveKitTokenTTL         = 5 * time.Minute
-	defaultEdgeContextMaxSkew      = 2 * time.Minute
-	maximumEdgeContextMaxSkew      = 5 * time.Minute
-	defaultFeatureMemberLimit      = 10_000
-	defaultFeatureClassLimit       = 1_000
-	defaultFeatureInviteRateLimit  = 10_000
+	defaultPort                                       = "8080"
+	defaultWebOrigin                                  = "http://localhost:5173"
+	defaultAPIOrigin                                  = "http://localhost:8080"
+	defaultReadHeaderTimeout                          = 5 * time.Second
+	defaultReadTimeout                                = 15 * time.Second
+	defaultWriteTimeout                               = 30 * time.Second
+	defaultIdleTimeout                                = 60 * time.Second
+	defaultShutdownTimeout                            = 10 * time.Second
+	defaultMaxHeaderBytes                             = 1 << 20
+	defaultDBMaxConnections                           = 4
+	defaultDBMinConnections                           = 0
+	defaultDBConnectTimeout                           = 10 * time.Second
+	defaultDBQueryTimeout                             = 5 * time.Second
+	defaultDBMaxLifetime                              = 30 * time.Minute
+	defaultDBMaxIdleTime                              = 5 * time.Minute
+	defaultDBHealthPeriod                             = time.Minute
+	defaultAuthFlowTTL                                = 10 * time.Minute
+	defaultSessionTTL                                 = 8 * time.Hour
+	defaultSessionAbsoluteTTL                         = 24 * time.Hour
+	defaultMembershipInvitationTTL                    = 168 * time.Hour
+	defaultLiveKitTokenTTL                            = 5 * time.Minute
+	defaultEdgeContextMaxSkew                         = 2 * time.Minute
+	maximumEdgeContextMaxSkew                         = 5 * time.Minute
+	defaultFeatureMemberLimit                         = 10_000
+	defaultFeatureClassLimit                          = 1_000
+	defaultFeatureInviteRateLimit                     = 10_000
+	defaultFeatureActiveAvailabilityPollLimit         = 200
+	defaultFeatureAvailabilityPollRangeDaysLimit      = 90
+	defaultFeatureAvailabilityPollSlotsLimit          = 1_000
+	defaultFeatureAvailabilityPollParticipantsLimit   = 500
+	defaultFeatureAvailabilityPollCreationRateLimit   = 200
+	defaultFeatureAvailabilityPollCapabilityRateLimit = 1_000
+	defaultFeatureActiveStudyMeetingLimit             = 200
+	defaultFeatureStudyMeetingCreationRateLimit       = 200
 )
 
 var validEnvironments = map[string]struct{}{
@@ -142,15 +150,24 @@ type CalendarProtectedDataConfig struct {
 }
 
 type FeatureControlConfig struct {
-	DisableMembershipInvitations  bool
-	DisableClassManagement        bool
-	DisableClassInviteLinks       bool
-	DisableClassSessionScheduling bool
-	EnableClassSessionRecurrence  bool
-	EnableInAppNotifications      bool
-	MaxMembers                    int
-	MaxActiveClasses              int
-	MaxInviteCreationsPerHour     int
+	DisableMembershipInvitations                  bool
+	DisableClassManagement                        bool
+	DisableClassInviteLinks                       bool
+	DisableClassSessionScheduling                 bool
+	DisableAvailabilityPolls                      bool
+	EnableClassSessionRecurrence                  bool
+	EnableInAppNotifications                      bool
+	MaxMembers                                    int
+	MaxActiveClasses                              int
+	MaxInviteCreationsPerHour                     int
+	MaxActiveAvailabilityPolls                    int
+	MaxAvailabilityPollRangeDays                  int
+	MaxAvailabilityPollSlots                      int
+	MaxAvailabilityPollParticipants               int
+	MaxAvailabilityPollCreationsPerHour           int
+	MaxAvailabilityPollCapabilityCreationsPerHour int
+	MaxActiveStudyMeetings                        int
+	MaxStudyMeetingCreationsPerHour               int
 }
 
 var objectStorageNamePattern = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9.-]*[a-zA-Z0-9]$`)
@@ -396,6 +413,12 @@ func featureControlConfig(
 			false,
 			validationErrors,
 		),
+		DisableAvailabilityPolls: boolValue(
+			lookup,
+			"FEATURE_CONTROL_DISABLE_AVAILABILITY_POLLS",
+			false,
+			validationErrors,
+		),
 		EnableClassSessionRecurrence: boolValue(
 			lookup,
 			"FEATURE_CONTROL_ENABLE_CLASS_SESSION_RECURRENCE",
@@ -430,6 +453,70 @@ func featureControlConfig(
 			defaultFeatureInviteRateLimit,
 			1,
 			defaultFeatureInviteRateLimit,
+			validationErrors,
+		),
+		MaxActiveAvailabilityPolls: intValue(
+			lookup,
+			"FEATURE_CONTROL_MAX_ACTIVE_AVAILABILITY_POLLS",
+			defaultFeatureActiveAvailabilityPollLimit,
+			1,
+			defaultFeatureActiveAvailabilityPollLimit,
+			validationErrors,
+		),
+		MaxAvailabilityPollRangeDays: intValue(
+			lookup,
+			"FEATURE_CONTROL_MAX_AVAILABILITY_POLL_RANGE_DAYS",
+			defaultFeatureAvailabilityPollRangeDaysLimit,
+			1,
+			defaultFeatureAvailabilityPollRangeDaysLimit,
+			validationErrors,
+		),
+		MaxAvailabilityPollSlots: intValue(
+			lookup,
+			"FEATURE_CONTROL_MAX_AVAILABILITY_POLL_SLOTS",
+			defaultFeatureAvailabilityPollSlotsLimit,
+			1,
+			defaultFeatureAvailabilityPollSlotsLimit,
+			validationErrors,
+		),
+		MaxAvailabilityPollParticipants: intValue(
+			lookup,
+			"FEATURE_CONTROL_MAX_AVAILABILITY_POLL_PARTICIPANTS",
+			defaultFeatureAvailabilityPollParticipantsLimit,
+			1,
+			defaultFeatureAvailabilityPollParticipantsLimit,
+			validationErrors,
+		),
+		MaxAvailabilityPollCreationsPerHour: intValue(
+			lookup,
+			"FEATURE_CONTROL_MAX_AVAILABILITY_POLL_CREATIONS_PER_HOUR",
+			defaultFeatureAvailabilityPollCreationRateLimit,
+			1,
+			defaultFeatureAvailabilityPollCreationRateLimit,
+			validationErrors,
+		),
+		MaxAvailabilityPollCapabilityCreationsPerHour: intValue(
+			lookup,
+			"FEATURE_CONTROL_MAX_AVAILABILITY_POLL_CAPABILITY_CREATIONS_PER_HOUR",
+			defaultFeatureAvailabilityPollCapabilityRateLimit,
+			1,
+			defaultFeatureAvailabilityPollCapabilityRateLimit,
+			validationErrors,
+		),
+		MaxActiveStudyMeetings: intValue(
+			lookup,
+			"FEATURE_CONTROL_MAX_ACTIVE_STUDY_MEETINGS",
+			defaultFeatureActiveStudyMeetingLimit,
+			1,
+			defaultFeatureActiveStudyMeetingLimit,
+			validationErrors,
+		),
+		MaxStudyMeetingCreationsPerHour: intValue(
+			lookup,
+			"FEATURE_CONTROL_MAX_STUDY_MEETING_CREATIONS_PER_HOUR",
+			defaultFeatureStudyMeetingCreationRateLimit,
+			1,
+			defaultFeatureStudyMeetingCreationRateLimit,
 			validationErrors,
 		),
 	}

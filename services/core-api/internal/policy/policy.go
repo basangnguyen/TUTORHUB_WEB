@@ -23,51 +23,59 @@ const (
 type Permission string
 
 const (
-	PermissionTenantView           Permission = "tenant.view"
-	PermissionTenantManage         Permission = "tenant.manage"
-	PermissionTenantManageMembers  Permission = "tenant.manage_members"
-	PermissionTenantManageFeatures Permission = "tenant.manage_features"
-	PermissionClassCreate          Permission = "class.create"
-	PermissionClassUpdate          Permission = "class.update"
-	PermissionClassArchive         Permission = "class.archive"
-	PermissionClassTransferOwner   Permission = "class.transfer_ownership"
-	PermissionClassView            Permission = "class.view"
-	PermissionEnrollmentManage     Permission = "enrollment.manage"
-	PermissionEnrollmentLeave      Permission = "enrollment.leave"
-	PermissionSessionSchedule      Permission = "session.schedule"
-	PermissionSessionStart         Permission = "session.start"
-	PermissionSessionEnd           Permission = "session.end"
-	PermissionSessionJoin          Permission = "session.join"
-	PermissionParticipantAdmit     Permission = "participant.admit"
-	PermissionParticipantRemove    Permission = "participant.remove"
-	PermissionMediaPublish         Permission = "media.publish"
-	PermissionChatSend             Permission = "chat.send"
-	PermissionAuditView            Permission = "audit.view"
+	PermissionTenantView                     Permission = "tenant.view"
+	PermissionTenantManage                   Permission = "tenant.manage"
+	PermissionTenantManageMembers            Permission = "tenant.manage_members"
+	PermissionTenantManageFeatures           Permission = "tenant.manage_features"
+	PermissionClassCreate                    Permission = "class.create"
+	PermissionClassUpdate                    Permission = "class.update"
+	PermissionClassArchive                   Permission = "class.archive"
+	PermissionClassTransferOwner             Permission = "class.transfer_ownership"
+	PermissionClassView                      Permission = "class.view"
+	PermissionAvailabilityPollCreate         Permission = "availability.poll.create"
+	PermissionAvailabilityPollManageOwn      Permission = "availability.poll.manage_own"
+	PermissionAvailabilityPollPublishToClass Permission = "availability.poll.publish_to_class"
+	PermissionStudyMeetingScheduleOwn        Permission = "study_meeting.schedule_own"
+	PermissionEnrollmentManage               Permission = "enrollment.manage"
+	PermissionEnrollmentLeave                Permission = "enrollment.leave"
+	PermissionSessionSchedule                Permission = "session.schedule"
+	PermissionSessionStart                   Permission = "session.start"
+	PermissionSessionEnd                     Permission = "session.end"
+	PermissionSessionJoin                    Permission = "session.join"
+	PermissionParticipantAdmit               Permission = "participant.admit"
+	PermissionParticipantRemove              Permission = "participant.remove"
+	PermissionMediaPublish                   Permission = "media.publish"
+	PermissionChatSend                       Permission = "chat.send"
+	PermissionAuditView                      Permission = "audit.view"
 )
 
 type Action string
 
 const (
-	ActionTenantView             Action = Action(PermissionTenantView)
-	ActionTenantManage           Action = Action(PermissionTenantManage)
-	ActionTenantManageMembers    Action = Action(PermissionTenantManageMembers)
-	ActionTenantManageFeatures   Action = Action(PermissionTenantManageFeatures)
-	ActionClassCreate            Action = Action(PermissionClassCreate)
-	ActionClassUpdate            Action = Action(PermissionClassUpdate)
-	ActionClassArchive           Action = Action(PermissionClassArchive)
-	ActionClassTransferOwnership Action = Action(PermissionClassTransferOwner)
-	ActionClassView              Action = Action(PermissionClassView)
-	ActionEnrollmentManage       Action = Action(PermissionEnrollmentManage)
-	ActionEnrollmentLeave        Action = Action(PermissionEnrollmentLeave)
-	ActionSessionSchedule        Action = Action(PermissionSessionSchedule)
-	ActionSessionStart           Action = Action(PermissionSessionStart)
-	ActionSessionEnd             Action = Action(PermissionSessionEnd)
-	ActionSessionJoin            Action = Action(PermissionSessionJoin)
-	ActionParticipantAdmit       Action = Action(PermissionParticipantAdmit)
-	ActionParticipantRemove      Action = Action(PermissionParticipantRemove)
-	ActionMediaPublish           Action = Action(PermissionMediaPublish)
-	ActionChatSend               Action = Action(PermissionChatSend)
-	ActionAuditView              Action = Action(PermissionAuditView)
+	ActionTenantView                     Action = Action(PermissionTenantView)
+	ActionTenantManage                   Action = Action(PermissionTenantManage)
+	ActionTenantManageMembers            Action = Action(PermissionTenantManageMembers)
+	ActionTenantManageFeatures           Action = Action(PermissionTenantManageFeatures)
+	ActionClassCreate                    Action = Action(PermissionClassCreate)
+	ActionClassUpdate                    Action = Action(PermissionClassUpdate)
+	ActionClassArchive                   Action = Action(PermissionClassArchive)
+	ActionClassTransferOwnership         Action = Action(PermissionClassTransferOwner)
+	ActionClassView                      Action = Action(PermissionClassView)
+	ActionAvailabilityPollCreate         Action = Action(PermissionAvailabilityPollCreate)
+	ActionAvailabilityPollManageOwn      Action = Action(PermissionAvailabilityPollManageOwn)
+	ActionAvailabilityPollPublishToClass Action = Action(PermissionAvailabilityPollPublishToClass)
+	ActionStudyMeetingScheduleOwn        Action = Action(PermissionStudyMeetingScheduleOwn)
+	ActionEnrollmentManage               Action = Action(PermissionEnrollmentManage)
+	ActionEnrollmentLeave                Action = Action(PermissionEnrollmentLeave)
+	ActionSessionSchedule                Action = Action(PermissionSessionSchedule)
+	ActionSessionStart                   Action = Action(PermissionSessionStart)
+	ActionSessionEnd                     Action = Action(PermissionSessionEnd)
+	ActionSessionJoin                    Action = Action(PermissionSessionJoin)
+	ActionParticipantAdmit               Action = Action(PermissionParticipantAdmit)
+	ActionParticipantRemove              Action = Action(PermissionParticipantRemove)
+	ActionMediaPublish                   Action = Action(PermissionMediaPublish)
+	ActionChatSend                       Action = Action(PermissionChatSend)
+	ActionAuditView                      Action = Action(PermissionAuditView)
 )
 
 type ResourceState string
@@ -179,6 +187,10 @@ var permissionOrder = []Permission{
 	PermissionClassArchive,
 	PermissionClassTransferOwner,
 	PermissionClassView,
+	PermissionAvailabilityPollCreate,
+	PermissionAvailabilityPollManageOwn,
+	PermissionAvailabilityPollPublishToClass,
+	PermissionStudyMeetingScheduleOwn,
 	PermissionEnrollmentManage,
 	PermissionEnrollmentLeave,
 	PermissionSessionSchedule,
@@ -199,6 +211,10 @@ var organizationPermissions = map[OrganizationRole][]Permission{
 		PermissionClassCreate,
 		PermissionClassUpdate,
 		PermissionClassView,
+		PermissionAvailabilityPollCreate,
+		PermissionAvailabilityPollManageOwn,
+		PermissionAvailabilityPollPublishToClass,
+		PermissionStudyMeetingScheduleOwn,
 		PermissionEnrollmentManage,
 		PermissionSessionSchedule,
 		PermissionSessionStart,
@@ -211,9 +227,15 @@ var organizationPermissions = map[OrganizationRole][]Permission{
 	},
 	OrganizationRoleStudent: {
 		PermissionTenantView,
+		PermissionAvailabilityPollCreate,
+		PermissionAvailabilityPollManageOwn,
+		PermissionStudyMeetingScheduleOwn,
 	},
 	OrganizationRoleGuest: {
 		PermissionTenantView,
+		PermissionAvailabilityPollCreate,
+		PermissionAvailabilityPollManageOwn,
+		PermissionStudyMeetingScheduleOwn,
 	},
 }
 
@@ -223,6 +245,7 @@ var classPermissions = map[ClassRole][]Permission{
 		PermissionClassArchive,
 		PermissionClassTransferOwner,
 		PermissionClassView,
+		PermissionAvailabilityPollPublishToClass,
 		PermissionEnrollmentManage,
 		PermissionEnrollmentLeave,
 		PermissionSessionSchedule,
@@ -237,6 +260,7 @@ var classPermissions = map[ClassRole][]Permission{
 	ClassRoleCoTeacher: {
 		PermissionClassUpdate,
 		PermissionClassView,
+		PermissionAvailabilityPollPublishToClass,
 		PermissionEnrollmentManage,
 		PermissionEnrollmentLeave,
 		PermissionSessionSchedule,
@@ -484,7 +508,9 @@ func actionRequiresClass(action Action) bool {
 	switch action {
 	case ActionTenantView, ActionTenantManage, ActionTenantManageMembers,
 		ActionTenantManageFeatures,
-		ActionClassCreate, ActionClassView, ActionAuditView:
+		ActionClassCreate, ActionClassView, ActionAuditView,
+		ActionAvailabilityPollCreate, ActionAvailabilityPollManageOwn,
+		ActionStudyMeetingScheduleOwn:
 		return false
 	default:
 		return true

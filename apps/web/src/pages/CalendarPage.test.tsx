@@ -155,7 +155,12 @@ function jsonResponse(body: unknown, status = 200) {
 
 function LocationProbe() {
   const location = useLocation();
-  return <output data-testid="location">{location.search}</output>;
+  return (
+    <>
+      <output data-testid="location">{location.search}</output>
+      <output data-testid="pathname">{location.pathname}</output>
+    </>
+  );
 }
 
 function PrincipalSwitch({ nextUser }: { nextUser: CurrentUser }) {
@@ -279,6 +284,10 @@ describe("CalendarPage", () => {
           new URL(request.url).pathname.endsWith("/api/v1/calendar/items"),
         ),
       ).toHaveLength(2),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Availability polls" }));
+    expect(screen.getByTestId("pathname")).toHaveTextContent(
+      "/app/calendar/availability-polls",
     );
   });
 

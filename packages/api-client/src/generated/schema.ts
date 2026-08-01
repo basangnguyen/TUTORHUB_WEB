@@ -72,6 +72,269 @@ export type paths = {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/api/v1/calendar/availability-polls": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /** List polls visible to the authenticated active member */
+    readonly get: operations["listAvailabilityPolls"];
+    readonly put?: never;
+    /**
+     * Create a native TutorHub availability poll
+     * @description Any active authenticated tenant member may create a poll when the feature and quotas allow it. A supplied class is authoritatively checked and inaccessible identifiers are concealed.
+     */
+    readonly post: operations["createAvailabilityPoll"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/calendar/availability-polls/{poll_id}": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path: {
+        readonly poll_id: string;
+      };
+      readonly cookie?: never;
+    };
+    /** Return an authorization-filtered poll projection */
+    readonly get: operations["getAvailabilityPoll"];
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    /**
+     * Update poll metadata or draft slot/participant structure
+     * @description Fields that would reinterpret answers are immutable after the poll has a response. Share-mode changes revoke capabilities that are no longer valid.
+     */
+    readonly patch: operations["updateAvailabilityPoll"];
+    readonly trace?: never;
+  };
+  readonly "/api/v1/calendar/availability-polls/{poll_id}/cancel": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Cancel a draft, open, or closed poll */
+    readonly post: operations["cancelAvailabilityPoll"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/calendar/availability-polls/{poll_id}/capabilities": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Create one expiring poll-access capability and return its raw token once
+     * @description In invited-only mode a capability is bound to one participant. In anyone-with-link mode it is a broad resolve-only capability; exchange mints a distinct short-lived response session.
+     */
+    readonly post: operations["createAvailabilityPollCapability"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/calendar/availability-polls/{poll_id}/capabilities/{capability_id}/revoke": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Revoke a poll-access capability and all child response sessions */
+    readonly post: operations["revokeAvailabilityPollCapability"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/calendar/availability-polls/{poll_id}/close": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Manually close an open poll */
+    readonly post: operations["closeAvailabilityPoll"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/calendar/availability-polls/{poll_id}/finalize": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Finalize one selected slot into exactly one authorized outcome
+     * @description The server reauthorizes, checks expected version and idempotency, rechecks conflict in the transaction, and creates a ClassSession only when session.schedule is currently allowed. Otherwise only an owned StudyMeeting is permitted.
+     */
+    readonly post: operations["finalizeAvailabilityPoll"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/calendar/availability-polls/{poll_id}/open": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Open a draft poll for responses */
+    readonly post: operations["openAvailabilityPoll"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/calendar/availability-polls/{poll_id}/reopen": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Reopen a closed poll without changing its slots */
+    readonly post: operations["reopenAvailabilityPoll"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/calendar/availability-polls/{poll_id}/responses": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /**
+     * List a bounded keyset page of authorized individual responses
+     * @description Available only to the poll organizer, an organization safety admin, or a visible class teacher with session-scheduling capability. Ordinary participants and public responders receive no individual-response projection.
+     */
+    readonly get: operations["listAvailabilityPollIndividualResponses"];
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/calendar/availability-polls/{poll_id}/responses/me": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    /** Replace the authenticated member's normalized slot answers */
+    readonly put: operations["respondToAvailabilityPoll"];
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/calendar/availability-polls/{poll_id}/summary": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /** Return server-ranked slots and a viewer-safe aggregate */
+    readonly get: operations["getAvailabilityPollSummary"];
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/calendar/availability-polls/resolve": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Exchange a fragment-only poll token for a short-lived response session
+     * @description The raw broad or invited token is accepted only in this JSON POST. The response contains no tenant, class, roster, email, individual availability, or private calendar detail.
+     */
+    readonly post: operations["resolvePublicAvailabilityPoll"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/calendar/availability-polls/respond": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Replace answers owned by one exchanged response session
+     * @description The broad share token is not accepted here. Concurrent responders own distinct rows and cannot overwrite one another.
+     */
+    readonly post: operations["respondPublicAvailabilityPoll"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/api/v1/calendar/availability/query": {
     readonly parameters: {
       readonly query?: never;
@@ -176,6 +439,64 @@ export type paths = {
     /** Replace calendar display preferences using optimistic concurrency */
     readonly put: operations["updateCalendarDisplayPreference"];
     readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/calendar/study-meetings": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /** List StudyMeetings visible to the authenticated active member */
+    readonly get: operations["listStudyMeetings"];
+    readonly put?: never;
+    /**
+     * Create a member-owned StudyMeeting scheduling intent
+     * @description This operation never creates a LiveKit room or attendance-bearing class session.
+     */
+    readonly post: operations["createStudyMeeting"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/calendar/study-meetings/{meeting_id}": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path: {
+        readonly meeting_id: string;
+      };
+      readonly cookie?: never;
+    };
+    /** Return a StudyMeeting owned by the authenticated member */
+    readonly get: operations["getStudyMeeting"];
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    /** Reschedule or rename a StudyMeeting using optimistic concurrency */
+    readonly patch: operations["updateStudyMeeting"];
+    readonly trace?: never;
+  };
+  readonly "/api/v1/calendar/study-meetings/{meeting_id}/cancel": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Cancel a StudyMeeting owned by the authenticated member */
+    readonly post: operations["cancelStudyMeeting"];
     readonly delete?: never;
     readonly options?: never;
     readonly head?: never;
@@ -1348,7 +1669,25 @@ export type components = {
       | "class.invite_code.create"
       | "class.invite_code.revoke"
       | "class.invite_code.expire"
-      | "class.invite_code.exhaust";
+      | "class.invite_code.exhaust"
+      | "class.session.create"
+      | "class.session.update"
+      | "class.session.cancel"
+      | "class.session.audience.replace"
+      | "class.session.rsvp.respond"
+      | "availability.poll.create"
+      | "availability.poll.update"
+      | "availability.poll.open"
+      | "availability.poll.close"
+      | "availability.poll.reopen"
+      | "availability.poll.cancel"
+      | "availability.poll.respond"
+      | "availability.poll.share"
+      | "availability.poll.revoke"
+      | "availability.poll.finalize"
+      | "study_meeting.create"
+      | "study_meeting.update"
+      | "study_meeting.cancel";
     readonly AuditActor: {
       readonly display_name: string | null;
       /** @enum {string} */
@@ -1383,6 +1722,201 @@ export type components = {
       /** Format: uuid */
       readonly id: string | null;
       readonly type: string;
+    };
+    readonly AvailabilityPoll: {
+      readonly class_id: string | null;
+      /** Format: date-time */
+      readonly created_at: string;
+      /** Format: date-time */
+      readonly deadline_at: string;
+      readonly description: string;
+      readonly duration_minutes: number;
+      /** Format: uuid */
+      readonly id: string;
+      readonly my_response:
+        components["schemas"]["AvailabilityPollResponseProjection"] | null;
+      readonly outcome:
+        components["schemas"]["AvailabilityPollOutcomeReference"] | null;
+      /** Format: uuid */
+      readonly owner_user_id: string;
+      readonly participants: readonly components["schemas"]["AvailabilityPollParticipant"][];
+      /** Format: uuid */
+      readonly public_id: string;
+      /** Format: date */
+      readonly range_end: string;
+      /** Format: date */
+      readonly range_start: string;
+      readonly share_mode: components["schemas"]["AvailabilityPollShareMode"];
+      /** @enum {integer} */
+      readonly slot_granularity_minutes: 15 | 30 | 60;
+      readonly slots: readonly components["schemas"]["AvailabilityPollSlot"][];
+      readonly status: components["schemas"]["AvailabilityPollStatus"];
+      readonly timezone: string;
+      readonly title: string;
+      /** Format: date-time */
+      readonly updated_at: string;
+      /** Format: int64 */
+      readonly version: number;
+      readonly viewer_capabilities: components["schemas"]["AvailabilityPollViewerCapabilities"];
+      /** Format: time */
+      readonly working_day_end: string;
+      /** Format: time */
+      readonly working_day_start: string;
+    };
+    /**
+     * @description Coarse public aggregate; it intentionally does not reveal exact counts.
+     * @enum {string}
+     */
+    readonly AvailabilityPollAggregateBucket: "low" | "medium" | "high";
+    readonly AvailabilityPollAnswer: {
+      /** Format: uuid */
+      readonly slot_id: string;
+      readonly state: components["schemas"]["AvailabilityPollAnswerState"];
+    };
+    readonly AvailabilityPollAnswerInput: {
+      /** Format: uuid */
+      readonly slot_id: string;
+      readonly state: components["schemas"]["AvailabilityPollAnswerState"];
+    };
+    /** @enum {string} */
+    readonly AvailabilityPollAnswerState:
+      "preferred" | "available" | "unavailable";
+    readonly AvailabilityPollCapability: {
+      /** Format: date-time */
+      readonly created_at: string;
+      /** Format: date-time */
+      readonly expires_at: string;
+      /** Format: uuid */
+      readonly id: string;
+      readonly participant_id: string | null;
+      /** Format: uuid */
+      readonly poll_id: string;
+      readonly revoked_at: string | null;
+      readonly scope: components["schemas"]["AvailabilityPollCapabilityScope"];
+    };
+    /** @enum {string} */
+    readonly AvailabilityPollCapabilityScope:
+      "invited_participant" | "public_link";
+    readonly AvailabilityPollCapabilitySecret: {
+      readonly capability: components["schemas"]["AvailabilityPollCapability"];
+      readonly raw_token: string;
+      /** Format: uri */
+      readonly share_url: string;
+    };
+    /** @description Organizer/safety-admin detail projection; never returned to ordinary participants or public responders. */
+    readonly AvailabilityPollIndividualResponse: {
+      readonly actor_type: components["schemas"]["AvailabilityPollResponseActorType"];
+      readonly answers: readonly components["schemas"]["AvailabilityPollAnswer"][];
+      readonly internal_user_id: string | null;
+      readonly participant_id: string | null;
+      /** Format: uuid */
+      readonly response_id: string;
+      /** Format: date-time */
+      readonly submitted_at: string;
+      /** Format: int64 */
+      readonly version: number;
+    };
+    readonly AvailabilityPollIndividualResponsePage: {
+      readonly next_cursor: string | null;
+      readonly responses: readonly components["schemas"]["AvailabilityPollIndividualResponse"][];
+    };
+    readonly AvailabilityPollListResponse: {
+      readonly polls: readonly components["schemas"]["AvailabilityPoll"][];
+    };
+    readonly AvailabilityPollMutationResponse: {
+      readonly poll: components["schemas"]["AvailabilityPoll"];
+      readonly summary: components["schemas"]["AvailabilityPollSummary"];
+    };
+    readonly AvailabilityPollOutcomeReference: {
+      /** Format: uuid */
+      readonly id: string;
+      readonly type: components["schemas"]["AvailabilityPollOutcomeType"];
+    };
+    /** @enum {string} */
+    readonly AvailabilityPollOutcomeType: "class_session" | "study_meeting";
+    readonly AvailabilityPollParticipant: {
+      readonly has_responded: boolean;
+      /** Format: uuid */
+      readonly id: string;
+      readonly internal_user_id: string | null;
+      readonly kind: components["schemas"]["AvailabilityPollParticipantKind"];
+      readonly status: components["schemas"]["AvailabilityPollParticipantStatus"];
+    };
+    readonly AvailabilityPollParticipantInput: {
+      readonly internal_user_id: string | null;
+      readonly kind: components["schemas"]["AvailabilityPollParticipantKind"];
+    };
+    /** @enum {string} */
+    readonly AvailabilityPollParticipantKind:
+      "internal_user" | "external_invitee";
+    /** @enum {string} */
+    readonly AvailabilityPollParticipantStatus: "active" | "revoked";
+    readonly AvailabilityPollRankedSlot: {
+      readonly aggregate_bucket:
+        components["schemas"]["AvailabilityPollAggregateBucket"] | null;
+      /** @description Exact owner-only value; null in participant/public projections. */
+      readonly available_count: number | null;
+      readonly cohort_satisfied: boolean;
+      /** @description Exact owner-only value; null in participant/public projections. */
+      readonly preferred_count: number | null;
+      readonly rank: number;
+      readonly slot: components["schemas"]["AvailabilityPollSlot"];
+      /** @description Exact owner-only value; null in participant/public projections. */
+      readonly unavailable_count: number | null;
+    };
+    /** @enum {string} */
+    readonly AvailabilityPollResponseActorType:
+      "internal_member" | "external_session";
+    readonly AvailabilityPollResponseProjection: {
+      readonly answers: readonly components["schemas"]["AvailabilityPollAnswer"][];
+      /** Format: date-time */
+      readonly submitted_at: string;
+      /** Format: int64 */
+      readonly version: number;
+    };
+    /** @enum {string} */
+    readonly AvailabilityPollShareMode:
+      "class_members" | "invited_only" | "anyone_with_link";
+    readonly AvailabilityPollSlot: {
+      /** Format: date-time */
+      readonly ends_at: string;
+      /** Format: uuid */
+      readonly id: string;
+      readonly ordinal: number;
+      /** Format: date-time */
+      readonly starts_at: string;
+    };
+    readonly AvailabilityPollSlotInput: {
+      /** Format: date-time */
+      readonly ends_at: string;
+      /** Format: date-time */
+      readonly starts_at: string;
+    };
+    /** @enum {string} */
+    readonly AvailabilityPollStatus:
+      "draft" | "open" | "closed" | "finalized" | "cancelled";
+    readonly AvailabilityPollSummary: {
+      /** Format: uuid */
+      readonly poll_id: string;
+      /** Format: int64 */
+      readonly poll_version: number;
+      readonly ranked_slots: readonly components["schemas"]["AvailabilityPollRankedSlot"][];
+      /** @description Exact owner-only value; null in privacy-limited projections. */
+      readonly response_count: number | null;
+      readonly status: components["schemas"]["AvailabilityPollStatus"];
+    };
+    readonly AvailabilityPollVersionRequest: {
+      /** Format: int64 */
+      readonly expected_version: number;
+    };
+    readonly AvailabilityPollViewerCapabilities: {
+      readonly can_finalize_class_session: boolean;
+      readonly can_finalize_study_meeting: boolean;
+      readonly can_manage: boolean;
+      readonly can_respond: boolean;
+      readonly can_share: boolean;
+      readonly can_view_exact_aggregate: boolean;
+      readonly can_view_individual_responses: boolean;
     };
     /** @enum {string} */
     readonly CalendarAvailabilityEmptySuggestionsReason: "no_valid_civil_slots";
@@ -1602,9 +2136,19 @@ export type components = {
       | components["schemas"]["CalendarSpecialHoursWorkingScheduleException"];
     /** @enum {string} */
     readonly CalendarWorkingScheduleSource: "tenant_default" | "user_override";
+    readonly CancelAvailabilityPollRequest: {
+      /** Format: int64 */
+      readonly expected_version: number;
+      readonly reason: string;
+    };
     readonly CancelClassSessionRequest: {
       /** Format: int64 */
       readonly expected_version: number;
+    };
+    readonly CancelStudyMeetingRequest: {
+      /** Format: int64 */
+      readonly expected_version: number;
+      readonly reason: string;
     };
     readonly Class: {
       readonly archived_at: string | null;
@@ -1944,6 +2488,37 @@ export type components = {
       readonly enrollment_status:
         components["schemas"]["ClassEnrollmentStatus"] | null;
     };
+    readonly CreateAvailabilityPollCapabilityRequest: {
+      /** Format: int64 */
+      readonly expected_version: number;
+      /** Format: date-time */
+      readonly expires_at: string;
+      readonly participant_id: string | null;
+      readonly scope: components["schemas"]["AvailabilityPollCapabilityScope"];
+    };
+    readonly CreateAvailabilityPollRequest: {
+      readonly class_id: string | null;
+      /** Format: date-time */
+      readonly deadline_at: string;
+      readonly description: string;
+      readonly duration_minutes: number;
+      readonly idempotency_key: string;
+      readonly participants: readonly components["schemas"]["AvailabilityPollParticipantInput"][];
+      /** Format: date */
+      readonly range_end: string;
+      /** Format: date */
+      readonly range_start: string;
+      readonly share_mode: components["schemas"]["AvailabilityPollShareMode"];
+      /** @enum {integer} */
+      readonly slot_granularity_minutes: 15 | 30 | 60;
+      readonly slots: readonly components["schemas"]["AvailabilityPollSlotInput"][];
+      readonly timezone: string;
+      readonly title: string;
+      /** Format: time */
+      readonly working_day_end: string;
+      /** Format: time */
+      readonly working_day_start: string;
+    };
     readonly CreateClassEnrollmentRequest: {
       /** Format: email */
       readonly member_email: string;
@@ -2007,6 +2582,16 @@ export type components = {
       readonly accept_url: string;
       readonly invitation: components["schemas"]["MembershipInvitation"];
     };
+    readonly CreateStudyMeetingRequest: {
+      readonly class_id: string | null;
+      /** Format: date-time */
+      readonly ends_at: string;
+      readonly idempotency_key: string;
+      /** Format: date-time */
+      readonly starts_at: string;
+      readonly timezone: string;
+      readonly title: string;
+    };
     readonly CreateTenantRequest: {
       readonly name: string;
       readonly slug: string;
@@ -2050,6 +2635,15 @@ export type components = {
       /** @description Configured tenant value before deployment guardrails; present only when can_manage_overrides is true. */
       readonly configured_enabled?: boolean;
       readonly enabled: boolean;
+    };
+    readonly FinalizeAvailabilityPollRequest: {
+      readonly class_id: string | null;
+      /** Format: int64 */
+      readonly expected_version: number;
+      readonly idempotency_key: string;
+      readonly outcome_type: components["schemas"]["AvailabilityPollOutcomeType"];
+      /** Format: uuid */
+      readonly slot_id: string;
     };
     readonly HealthResponse: {
       readonly environment: string;
@@ -2239,6 +2833,10 @@ export type components = {
       | "session.start"
       | "session.end"
       | "session.join"
+      | "availability.poll.create"
+      | "availability.poll.manage_own"
+      | "availability.poll.publish_to_class"
+      | "study_meeting.schedule_own"
       | "participant.admit"
       | "participant.remove"
       | "media.publish"
@@ -2265,6 +2863,30 @@ export type components = {
       readonly locale?: "vi" | "en";
       readonly timezone?: string;
     };
+    /** @description Deliberately excludes tenant, class, owner, roster, email, exact counts, and individual responses. */
+    readonly PublicAvailabilityPoll: {
+      /** Format: date-time */
+      readonly deadline_at: string;
+      readonly description: string;
+      readonly my_response:
+        components["schemas"]["AvailabilityPollResponseProjection"] | null;
+      /** Format: uuid */
+      readonly public_id: string;
+      readonly ranked_slots: readonly components["schemas"]["AvailabilityPollRankedSlot"][];
+      readonly slots: readonly components["schemas"]["AvailabilityPollSlot"][];
+      readonly status: components["schemas"]["AvailabilityPollStatus"];
+      readonly timezone: string;
+      readonly title: string;
+    };
+    readonly PublicAvailabilityPollExchange: {
+      readonly poll: components["schemas"]["PublicAvailabilityPoll"];
+      readonly response_token: string;
+      /** Format: date-time */
+      readonly response_token_expires_at: string;
+    };
+    readonly PublicAvailabilityPollMutationResponse: {
+      readonly poll: components["schemas"]["PublicAvailabilityPoll"];
+    };
     readonly QuotaCapability: {
       /** @description Configured tenant limit before deployment guardrails; present only when can_manage_overrides is true. */
       readonly configured_limit?: number;
@@ -2285,6 +2907,12 @@ export type components = {
       readonly status: "ready" | "not_ready";
       /** Format: date-time */
       readonly timestamp: string;
+    };
+    readonly ReopenAvailabilityPollRequest: {
+      /** Format: date-time */
+      readonly deadline_at: string;
+      /** Format: int64 */
+      readonly expected_version: number;
     };
     /**
      * @description The server resolves business role and delivery metadata. Duplicate user
@@ -2324,6 +2952,17 @@ export type components = {
     readonly ResolveExternalCalendarRSVPRequest: {
       readonly token: string;
     };
+    readonly ResolvePublicAvailabilityPollRequest: {
+      /** Format: uuid */
+      readonly public_id: string;
+      readonly token: string;
+    };
+    readonly RespondAvailabilityPollRequest: {
+      readonly answers: readonly components["schemas"]["AvailabilityPollAnswerInput"][];
+      /** Format: int64 */
+      readonly expected_response_version: number;
+      readonly idempotency_key: string;
+    };
     readonly RespondExternalCalendarRSVPRequest: {
       /** Format: int64 */
       readonly expected_attendee_version: number;
@@ -2332,12 +2971,26 @@ export type components = {
       readonly state: components["schemas"]["SessionSelfRSVPState"];
       readonly token: string;
     };
+    readonly RespondPublicAvailabilityPollRequest: {
+      readonly answers: readonly components["schemas"]["AvailabilityPollAnswerInput"][];
+      /** Format: int64 */
+      readonly expected_response_version: number;
+      readonly idempotency_key: string;
+      /** Format: uuid */
+      readonly public_id: string;
+      readonly response_token: string;
+    };
     readonly RespondToClassSessionRequest: {
       /** Format: int64 */
       readonly expected_attendee_version: number;
       readonly idempotency_key: string;
       readonly note?: string;
       readonly state: components["schemas"]["SessionSelfRSVPState"];
+    };
+    readonly RevokeAvailabilityPollCapabilityRequest: {
+      /** Format: int64 */
+      readonly expected_version: number;
+      readonly reason: string;
     };
     readonly SelfRSVPResponse: {
       readonly attendee: components["schemas"]["SessionAudienceAttendee"];
@@ -2419,6 +3072,33 @@ export type components = {
      * @enum {string}
      */
     readonly SessionSelfRSVPState: "accepted" | "tentative" | "declined";
+    readonly StudyMeeting: {
+      readonly cancelled_at: string | null;
+      readonly class_id: string | null;
+      /** Format: date-time */
+      readonly created_at: string;
+      /** Format: date-time */
+      readonly ends_at: string;
+      /** Format: uuid */
+      readonly id: string;
+      /** Format: uuid */
+      readonly owner_user_id: string;
+      readonly source_poll_id: string | null;
+      /** Format: date-time */
+      readonly starts_at: string;
+      readonly status: components["schemas"]["StudyMeetingStatus"];
+      readonly timezone: string;
+      readonly title: string;
+      /** Format: date-time */
+      readonly updated_at: string;
+      /** Format: int64 */
+      readonly version: number;
+    };
+    readonly StudyMeetingListResponse: {
+      readonly meetings: readonly components["schemas"]["StudyMeeting"][];
+    };
+    /** @enum {string} */
+    readonly StudyMeetingStatus: "scheduled" | "cancelled";
     readonly SwitchActiveTenantRequest: {
       /** Format: uuid */
       readonly tenant_id: string;
@@ -2453,6 +3133,7 @@ export type components = {
       readonly version: number;
     };
     readonly TenantFeatureCapabilities: {
+      readonly availability_polls: components["schemas"]["FeatureCapability"];
       readonly class_invite_links: components["schemas"]["FeatureCapability"];
       readonly class_management: components["schemas"]["FeatureCapability"];
       readonly class_session_recurrence: components["schemas"]["FeatureCapability"];
@@ -2461,6 +3142,7 @@ export type components = {
       readonly membership_invitations: components["schemas"]["FeatureCapability"];
     };
     readonly TenantFeatureControlValues: {
+      readonly availability_polls: boolean;
       readonly class_invite_links: boolean;
       readonly class_management: boolean;
       readonly class_session_recurrence: boolean;
@@ -2485,22 +3167,41 @@ export type components = {
     readonly TenantOperationCapabilities: {
       readonly accept_membership_invitation: components["schemas"]["OperationCapability"];
       readonly activate_class: components["schemas"]["OperationCapability"];
+      readonly create_availability_poll: components["schemas"]["OperationCapability"];
+      readonly create_availability_poll_capability: components["schemas"]["OperationCapability"];
       readonly create_class: components["schemas"]["OperationCapability"];
       readonly create_class_invite_link: components["schemas"]["OperationCapability"];
       readonly create_membership_invitation: components["schemas"]["OperationCapability"];
       readonly join_class_invite_link: components["schemas"]["OperationCapability"];
       readonly restore_active_class: components["schemas"]["OperationCapability"];
       readonly schedule_class_session: components["schemas"]["OperationCapability"];
+      readonly schedule_study_meeting: components["schemas"]["OperationCapability"];
     };
     readonly TenantQuotaCapabilities: {
+      readonly active_availability_polls: components["schemas"]["QuotaCapability"];
       readonly active_classes: components["schemas"]["QuotaCapability"];
+      readonly active_study_meetings: components["schemas"]["QuotaCapability"];
+      readonly availability_poll_capability_creations_per_hour: components["schemas"]["QuotaCapability"];
+      readonly availability_poll_creations_per_hour: components["schemas"]["QuotaCapability"];
+      readonly availability_poll_participants: components["schemas"]["QuotaCapability"];
+      readonly availability_poll_range_days: components["schemas"]["QuotaCapability"];
+      readonly availability_poll_slots: components["schemas"]["QuotaCapability"];
       readonly invite_creations_per_hour: components["schemas"]["QuotaCapability"];
       readonly members: components["schemas"]["QuotaCapability"];
+      readonly study_meeting_creations_per_hour: components["schemas"]["QuotaCapability"];
     };
     readonly TenantQuotaControlValues: {
+      readonly active_availability_polls: number;
       readonly active_classes: number;
+      readonly active_study_meetings: number;
+      readonly availability_poll_capability_creations_per_hour: number;
+      readonly availability_poll_creations_per_hour: number;
+      readonly availability_poll_participants: number;
+      readonly availability_poll_range_days: number;
+      readonly availability_poll_slots: number;
       readonly invite_creations_per_hour: number;
       readonly members: number;
+      readonly study_meeting_creations_per_hour: number;
     };
     /** @enum {string} */
     readonly TenantStatus: "active" | "suspended" | "archived";
@@ -2524,6 +3225,30 @@ export type components = {
       readonly replayed: boolean;
       /** Format: int64 */
       readonly source_version: number;
+    };
+    readonly UpdateAvailabilityPollRequest: {
+      readonly class_id: string | null;
+      /** Format: date-time */
+      readonly deadline_at: string;
+      readonly description: string;
+      readonly duration_minutes: number;
+      /** Format: int64 */
+      readonly expected_version: number;
+      readonly participants: readonly components["schemas"]["AvailabilityPollParticipantInput"][];
+      /** Format: date */
+      readonly range_end: string;
+      /** Format: date */
+      readonly range_start: string;
+      readonly share_mode: components["schemas"]["AvailabilityPollShareMode"];
+      /** @enum {integer} */
+      readonly slot_granularity_minutes: 15 | 30 | 60;
+      readonly slots: readonly components["schemas"]["AvailabilityPollSlotInput"][];
+      readonly timezone: string;
+      readonly title: string;
+      /** Format: time */
+      readonly working_day_end: string;
+      /** Format: time */
+      readonly working_day_start: string;
     };
     readonly UpdateCalendarDisplayPreferenceRequest: {
       /** @enum {string} */
@@ -2595,6 +3320,17 @@ export type components = {
       readonly quiet_hours_timezone: string;
       readonly reminder_offset_minutes: number;
     };
+    readonly UpdateStudyMeetingRequest: {
+      readonly class_id: string | null;
+      /** Format: date-time */
+      readonly ends_at: string;
+      /** Format: int64 */
+      readonly expected_version: number;
+      /** Format: date-time */
+      readonly starts_at: string;
+      readonly timezone: string;
+      readonly title: string;
+    };
     readonly UpdateTenantFeatureControlsRequest: {
       /** Format: int64 */
       readonly expected_version: number;
@@ -2622,6 +3358,16 @@ export type components = {
     };
   };
   responses: {
+    /** @description Authorization-filtered availability poll projection */
+    readonly AvailabilityPollResponse: {
+      headers: {
+        readonly "Cache-Control"?: "private, no-store";
+        readonly [name: string]: unknown;
+      };
+      content: {
+        readonly "application/json": components["schemas"]["AvailabilityPoll"];
+      };
+    };
     /** @description The request conflicts with the current resource state or version */
     readonly ConflictResponse: {
       headers: {
@@ -2668,7 +3414,13 @@ export type components = {
       };
     };
   };
-  parameters: never;
+  parameters: {
+    /** @description Double-submit CSRF token bound to the active authenticated session. */
+    readonly CSRFToken: string;
+    /** @description Active workspace assertion used to prevent confused-deputy mutations and reads. */
+    readonly ExpectedTenantID: string;
+    readonly PollID: string;
+  };
   requestBodies: never;
   headers: never;
   pathItems: never;
@@ -2765,6 +3517,563 @@ export interface operations {
           readonly "application/json": components["schemas"]["LogoutResponse"];
         };
       };
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly listAvailabilityPolls: {
+    readonly parameters: {
+      readonly query?: {
+        readonly limit?: number;
+        readonly status?: components["schemas"]["AvailabilityPollStatus"];
+      };
+      readonly header: {
+        /** @description Active workspace assertion used to prevent confused-deputy mutations and reads. */
+        readonly "X-TutorHub-Expected-Tenant-ID": components["parameters"]["ExpectedTenantID"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Tenant- and viewer-scoped poll list */
+      readonly 200: {
+        headers: {
+          readonly "Cache-Control"?: "private, no-store";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["AvailabilityPollListResponse"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly createAvailabilityPoll: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Double-submit CSRF token bound to the active authenticated session. */
+        readonly "X-CSRF-Token": components["parameters"]["CSRFToken"];
+        /** @description Active workspace assertion used to prevent confused-deputy mutations and reads. */
+        readonly "X-TutorHub-Expected-Tenant-ID": components["parameters"]["ExpectedTenantID"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["CreateAvailabilityPollRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Poll created in draft state */
+      readonly 201: {
+        headers: {
+          readonly "Cache-Control"?: "private, no-store";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["AvailabilityPoll"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 429: components["responses"]["ProblemResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly getAvailabilityPoll: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Active workspace assertion used to prevent confused-deputy mutations and reads. */
+        readonly "X-TutorHub-Expected-Tenant-ID": components["parameters"]["ExpectedTenantID"];
+      };
+      readonly path: {
+        readonly poll_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Poll detail with viewer capability projection */
+      readonly 200: {
+        headers: {
+          readonly "Cache-Control"?: "private, no-store";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["AvailabilityPoll"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly updateAvailabilityPoll: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Double-submit CSRF token bound to the active authenticated session. */
+        readonly "X-CSRF-Token": components["parameters"]["CSRFToken"];
+        /** @description Active workspace assertion used to prevent confused-deputy mutations and reads. */
+        readonly "X-TutorHub-Expected-Tenant-ID": components["parameters"]["ExpectedTenantID"];
+      };
+      readonly path: {
+        readonly poll_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["UpdateAvailabilityPollRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Updated poll */
+      readonly 200: {
+        headers: {
+          readonly "Cache-Control"?: "private, no-store";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["AvailabilityPoll"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly cancelAvailabilityPoll: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Double-submit CSRF token bound to the active authenticated session. */
+        readonly "X-CSRF-Token": components["parameters"]["CSRFToken"];
+        /** @description Active workspace assertion used to prevent confused-deputy mutations and reads. */
+        readonly "X-TutorHub-Expected-Tenant-ID": components["parameters"]["ExpectedTenantID"];
+      };
+      readonly path: {
+        readonly poll_id: components["parameters"]["PollID"];
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["CancelAvailabilityPollRequest"];
+      };
+    };
+    readonly responses: {
+      readonly 200: components["responses"]["AvailabilityPollResponse"];
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly createAvailabilityPollCapability: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Double-submit CSRF token bound to the active authenticated session. */
+        readonly "X-CSRF-Token": components["parameters"]["CSRFToken"];
+        /** @description Active workspace assertion used to prevent confused-deputy mutations and reads. */
+        readonly "X-TutorHub-Expected-Tenant-ID": components["parameters"]["ExpectedTenantID"];
+      };
+      readonly path: {
+        readonly poll_id: components["parameters"]["PollID"];
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["CreateAvailabilityPollCapabilityRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Capability issued; raw_token and share_url are never returned again */
+      readonly 201: {
+        headers: {
+          readonly "Cache-Control"?: "private, no-store";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["AvailabilityPollCapabilitySecret"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 429: components["responses"]["ProblemResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly revokeAvailabilityPollCapability: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Double-submit CSRF token bound to the active authenticated session. */
+        readonly "X-CSRF-Token": components["parameters"]["CSRFToken"];
+        /** @description Active workspace assertion used to prevent confused-deputy mutations and reads. */
+        readonly "X-TutorHub-Expected-Tenant-ID": components["parameters"]["ExpectedTenantID"];
+      };
+      readonly path: {
+        readonly capability_id: string;
+        readonly poll_id: components["parameters"]["PollID"];
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["RevokeAvailabilityPollCapabilityRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Revoked capability metadata without a token digest */
+      readonly 200: {
+        headers: {
+          readonly "Cache-Control"?: "private, no-store";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["AvailabilityPollCapability"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly closeAvailabilityPoll: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Double-submit CSRF token bound to the active authenticated session. */
+        readonly "X-CSRF-Token": components["parameters"]["CSRFToken"];
+        /** @description Active workspace assertion used to prevent confused-deputy mutations and reads. */
+        readonly "X-TutorHub-Expected-Tenant-ID": components["parameters"]["ExpectedTenantID"];
+      };
+      readonly path: {
+        readonly poll_id: components["parameters"]["PollID"];
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["AvailabilityPollVersionRequest"];
+      };
+    };
+    readonly responses: {
+      readonly 200: components["responses"]["AvailabilityPollResponse"];
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly finalizeAvailabilityPoll: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Double-submit CSRF token bound to the active authenticated session. */
+        readonly "X-CSRF-Token": components["parameters"]["CSRFToken"];
+        /** @description Active workspace assertion used to prevent confused-deputy mutations and reads. */
+        readonly "X-TutorHub-Expected-Tenant-ID": components["parameters"]["ExpectedTenantID"];
+      };
+      readonly path: {
+        readonly poll_id: components["parameters"]["PollID"];
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["FinalizeAvailabilityPollRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Finalized poll and single outcome reference */
+      readonly 200: {
+        headers: {
+          readonly "Cache-Control"?: "private, no-store";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["AvailabilityPollMutationResponse"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 429: components["responses"]["ProblemResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly openAvailabilityPoll: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Double-submit CSRF token bound to the active authenticated session. */
+        readonly "X-CSRF-Token": components["parameters"]["CSRFToken"];
+        /** @description Active workspace assertion used to prevent confused-deputy mutations and reads. */
+        readonly "X-TutorHub-Expected-Tenant-ID": components["parameters"]["ExpectedTenantID"];
+      };
+      readonly path: {
+        readonly poll_id: components["parameters"]["PollID"];
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["AvailabilityPollVersionRequest"];
+      };
+    };
+    readonly responses: {
+      readonly 200: components["responses"]["AvailabilityPollResponse"];
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly reopenAvailabilityPoll: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Double-submit CSRF token bound to the active authenticated session. */
+        readonly "X-CSRF-Token": components["parameters"]["CSRFToken"];
+        /** @description Active workspace assertion used to prevent confused-deputy mutations and reads. */
+        readonly "X-TutorHub-Expected-Tenant-ID": components["parameters"]["ExpectedTenantID"];
+      };
+      readonly path: {
+        readonly poll_id: components["parameters"]["PollID"];
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["ReopenAvailabilityPollRequest"];
+      };
+    };
+    readonly responses: {
+      readonly 200: components["responses"]["AvailabilityPollResponse"];
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly listAvailabilityPollIndividualResponses: {
+    readonly parameters: {
+      readonly query?: {
+        readonly cursor?: string;
+        readonly limit?: number;
+      };
+      readonly header: {
+        /** @description Active workspace assertion used to prevent confused-deputy mutations and reads. */
+        readonly "X-TutorHub-Expected-Tenant-ID": components["parameters"]["ExpectedTenantID"];
+      };
+      readonly path: {
+        readonly poll_id: components["parameters"]["PollID"];
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Privacy-authorized individual response page */
+      readonly 200: {
+        headers: {
+          readonly "Cache-Control"?: "private, no-store";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["AvailabilityPollIndividualResponsePage"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly respondToAvailabilityPoll: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Double-submit CSRF token bound to the active authenticated session. */
+        readonly "X-CSRF-Token": components["parameters"]["CSRFToken"];
+        /** @description Active workspace assertion used to prevent confused-deputy mutations and reads. */
+        readonly "X-TutorHub-Expected-Tenant-ID": components["parameters"]["ExpectedTenantID"];
+      };
+      readonly path: {
+        readonly poll_id: components["parameters"]["PollID"];
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["RespondAvailabilityPollRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Saved response and refreshed privacy-safe poll projection */
+      readonly 200: {
+        headers: {
+          readonly "Cache-Control"?: "private, no-store";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["AvailabilityPollMutationResponse"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 410: components["responses"]["ProblemResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly getAvailabilityPollSummary: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Active workspace assertion used to prevent confused-deputy mutations and reads. */
+        readonly "X-TutorHub-Expected-Tenant-ID": components["parameters"]["ExpectedTenantID"];
+      };
+      readonly path: {
+        readonly poll_id: components["parameters"]["PollID"];
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Deterministic bounded ranking */
+      readonly 200: {
+        headers: {
+          readonly "Cache-Control"?: "private, no-store";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["AvailabilityPollSummary"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly resolvePublicAvailabilityPoll: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly Origin: string;
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["ResolvePublicAvailabilityPollRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Minimum public projection and a thirty-minute memory-only response session token */
+      readonly 200: {
+        headers: {
+          readonly "Cache-Control"?: "no-store";
+          readonly "Referrer-Policy"?: "no-referrer";
+          readonly "X-Robots-Tag"?: "noindex, nofollow";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["PublicAvailabilityPollExchange"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 429: components["responses"]["ProblemResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly respondPublicAvailabilityPoll: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly Origin: string;
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["RespondPublicAvailabilityPollRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Saved response and refreshed public projection */
+      readonly 200: {
+        headers: {
+          readonly "Cache-Control"?: "no-store";
+          readonly "Referrer-Policy"?: "no-referrer";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["PublicAvailabilityPollMutationResponse"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 410: components["responses"]["ProblemResponse"];
+      readonly 429: components["responses"]["ProblemResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
       readonly default: components["responses"]["ProblemResponse"];
     };
   };
@@ -2967,6 +4276,187 @@ export interface operations {
       readonly 400: components["responses"]["ProblemResponse"];
       readonly 401: components["responses"]["UnauthorizedResponse"];
       readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly listStudyMeetings: {
+    readonly parameters: {
+      readonly query?: {
+        readonly from?: string;
+        readonly limit?: number;
+        readonly to?: string;
+      };
+      readonly header: {
+        /** @description Active workspace assertion used to prevent confused-deputy mutations and reads. */
+        readonly "X-TutorHub-Expected-Tenant-ID": components["parameters"]["ExpectedTenantID"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Meetings owned by the authenticated member */
+      readonly 200: {
+        headers: {
+          readonly "Cache-Control"?: "private, no-store";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["StudyMeetingListResponse"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly createStudyMeeting: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Double-submit CSRF token bound to the active authenticated session. */
+        readonly "X-CSRF-Token": components["parameters"]["CSRFToken"];
+        /** @description Active workspace assertion used to prevent confused-deputy mutations and reads. */
+        readonly "X-TutorHub-Expected-Tenant-ID": components["parameters"]["ExpectedTenantID"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["CreateStudyMeetingRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description StudyMeeting created */
+      readonly 201: {
+        headers: {
+          readonly "Cache-Control"?: "private, no-store";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["StudyMeeting"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 429: components["responses"]["ProblemResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly getStudyMeeting: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Active workspace assertion used to prevent confused-deputy mutations and reads. */
+        readonly "X-TutorHub-Expected-Tenant-ID": components["parameters"]["ExpectedTenantID"];
+      };
+      readonly path: {
+        readonly meeting_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description StudyMeeting detail */
+      readonly 200: {
+        headers: {
+          readonly "Cache-Control"?: "private, no-store";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["StudyMeeting"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly updateStudyMeeting: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Double-submit CSRF token bound to the active authenticated session. */
+        readonly "X-CSRF-Token": components["parameters"]["CSRFToken"];
+        /** @description Active workspace assertion used to prevent confused-deputy mutations and reads. */
+        readonly "X-TutorHub-Expected-Tenant-ID": components["parameters"]["ExpectedTenantID"];
+      };
+      readonly path: {
+        readonly meeting_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["UpdateStudyMeetingRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Updated StudyMeeting */
+      readonly 200: {
+        headers: {
+          readonly "Cache-Control"?: "private, no-store";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["StudyMeeting"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly cancelStudyMeeting: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Double-submit CSRF token bound to the active authenticated session. */
+        readonly "X-CSRF-Token": components["parameters"]["CSRFToken"];
+        /** @description Active workspace assertion used to prevent confused-deputy mutations and reads. */
+        readonly "X-TutorHub-Expected-Tenant-ID": components["parameters"]["ExpectedTenantID"];
+      };
+      readonly path: {
+        readonly meeting_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["CancelStudyMeetingRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Cancelled StudyMeeting */
+      readonly 200: {
+        headers: {
+          readonly "Cache-Control"?: "private, no-store";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["StudyMeeting"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
       readonly 409: components["responses"]["ConflictResponse"];
       readonly 503: components["responses"]["ProblemResponse"];
       readonly default: components["responses"]["ProblemResponse"];

@@ -15,7 +15,7 @@ import (
 	"github.com/tutorhub-v2/core-api/internal/policy"
 )
 
-const inviteCreationWindow = time.Hour
+const quotaRateWindow = time.Hour
 
 type DBTX interface {
 	Begin(context.Context) (pgx.Tx, error)
@@ -260,10 +260,61 @@ func (repository *PostgresRepository) ConsumeInviteCreation(
 	transaction Transaction,
 	tenantID uuid.UUID,
 	now time.Time,
+) (RateLimitResult, error) {
+	return repository.ConsumeRateQuota(
+		ctx,
+		transaction,
+		tenantID,
+		QuotaInviteCreationsPerHour,
+		now,
+	)
+}
+
+func (repository *PostgresRepository) RequireQuotaAtMost(
+	ctx context.Context,
+	transaction Transaction,
+	tenantID uuid.UUID,
+	key QuotaKey,
+	requested int64,
+) (resultErr error) {
+	defer func() { resultErr = NormalizeError(resultErr) }()
+	if transaction == nil || tenantID == uuid.Nil || requested < 0 {
+		return ErrInvalidControl
+	}
+	if _, known := repository.catalog.QuotaDefinition(key); !known {
+		return fmt.Errorf("require quota %q: %w", key, ErrInvalidControl)
+	}
+	queryContext, cancel := repository.contextWithTimeout(ctx)
+	defer cancel()
+	if err := acquireTenantControlLock(queryContext, transaction, tenantID); err != nil {
+		return err
+	}
+	if err := ensureActiveControlTenant(queryContext, transaction, tenantID); err != nil {
+		return err
+	}
+	effective, err := repository.readEffectiveQuota(queryContext, transaction, tenantID, key)
+	if err != nil {
+		return err
+	}
+	if requested > effective.Limit {
+		return &QuotaExceededError{Quota: key, Limit: effective.Limit, Used: requested}
+	}
+	return nil
+}
+
+func (repository *PostgresRepository) ConsumeRateQuota(
+	ctx context.Context,
+	transaction Transaction,
+	tenantID uuid.UUID,
+	key QuotaKey,
+	now time.Time,
 ) (result RateLimitResult, resultErr error) {
 	defer func() { resultErr = NormalizeError(resultErr) }()
 	if transaction == nil || tenantID == uuid.Nil || now.IsZero() {
 		return RateLimitResult{}, ErrInvalidControl
+	}
+	if !isRateQuota(key) {
+		return RateLimitResult{}, fmt.Errorf("consume rate quota %q: %w", key, ErrInvalidControl)
 	}
 	queryContext, cancel := repository.contextWithTimeout(ctx)
 	defer cancel()
@@ -277,14 +328,14 @@ func (repository *PostgresRepository) ConsumeInviteCreation(
 		queryContext,
 		transaction,
 		tenantID,
-		QuotaInviteCreationsPerHour,
+		key,
 	)
 	if err != nil {
 		return RateLimitResult{}, err
 	}
 	now = now.UTC()
-	windowFrom := now.Truncate(inviteCreationWindow)
-	resetAt := windowFrom.Add(inviteCreationWindow)
+	windowFrom := now.Truncate(quotaRateWindow)
+	resetAt := windowFrom.Add(quotaRateWindow)
 	var used int64
 	err = transaction.QueryRow(
 		queryContext,
@@ -304,7 +355,7 @@ DO UPDATE SET
 WHERE tutorhub.tenant_quota_windows.used_count < $6
 RETURNING used_count`,
 		tenantID,
-		QuotaInviteCreationsPerHour,
+		key,
 		windowFrom,
 		resetAt,
 		now,
@@ -317,21 +368,33 @@ RETURNING used_count`,
 FROM tutorhub.tenant_quota_windows
 WHERE tenant_id = $1 AND quota_key = $2 AND window_started_at = $3`,
 			tenantID,
-			QuotaInviteCreationsPerHour,
+			key,
 			windowFrom,
 		).Scan(&used); scanErr != nil {
-			return RateLimitResult{}, fmt.Errorf("read exhausted invitation quota: %w", scanErr)
+			return RateLimitResult{}, fmt.Errorf("read exhausted rate quota %q: %w", key, scanErr)
 		}
 		result := newRateLimitResult(effective.Limit, used, windowFrom, resetAt, now)
 		return result, &QuotaExceededError{
-			Quota: QuotaInviteCreationsPerHour, Limit: effective.Limit, Used: used,
+			Quota: key, Limit: effective.Limit, Used: used,
 			ResetAt: resetAt, RetryAfter: result.RetryAfter,
 		}
 	}
 	if err != nil {
-		return RateLimitResult{}, fmt.Errorf("consume invitation quota: %w", err)
+		return RateLimitResult{}, fmt.Errorf("consume rate quota %q: %w", key, err)
 	}
 	return newRateLimitResult(effective.Limit, used, windowFrom, resetAt, now), nil
+}
+
+func isRateQuota(key QuotaKey) bool {
+	switch key {
+	case QuotaInviteCreationsPerHour,
+		QuotaAvailabilityPollCreationsPerHour,
+		QuotaAvailabilityPollCapabilityCreationsPerHour,
+		QuotaStudyMeetingCreationsPerHour:
+		return true
+	default:
+		return false
+	}
 }
 
 func (repository *PostgresRepository) requireCapacity(
@@ -641,9 +704,20 @@ func readQuotaUsage(
 		query = `SELECT count(*) FROM tutorhub.memberships WHERE tenant_id = $1 AND status = 'active'`
 	case QuotaActiveClasses:
 		query = `SELECT count(*) FROM tutorhub.classes WHERE tenant_id = $1 AND status = 'active'`
-	case QuotaInviteCreationsPerHour:
-		windowStart := now.UTC().Truncate(inviteCreationWindow)
-		resetAt := windowStart.Add(inviteCreationWindow)
+	case QuotaActiveAvailabilityPolls:
+		query = `SELECT count(*) FROM tutorhub.availability_polls WHERE tenant_id = $1 AND status IN ('draft', 'open', 'closed')`
+	case QuotaActiveStudyMeetings:
+		query = `SELECT count(*) FROM tutorhub.study_meetings WHERE tenant_id = $1 AND status = 'scheduled' AND ends_at > $2`
+	case QuotaAvailabilityPollRangeDays,
+		QuotaAvailabilityPollSlots,
+		QuotaAvailabilityPollParticipants:
+		return 0, time.Time{}, time.Time{}, nil
+	case QuotaInviteCreationsPerHour,
+		QuotaAvailabilityPollCreationsPerHour,
+		QuotaAvailabilityPollCapabilityCreationsPerHour,
+		QuotaStudyMeetingCreationsPerHour:
+		windowStart := now.UTC().Truncate(quotaRateWindow)
+		resetAt := windowStart.Add(quotaRateWindow)
 		var used int64
 		if err := transaction.QueryRow(
 			ctx,
@@ -654,14 +728,18 @@ WHERE tenant_id = $1 AND quota_key = $2 AND window_started_at = $3`,
 			key,
 			windowStart,
 		).Scan(&used); err != nil {
-			return 0, time.Time{}, time.Time{}, fmt.Errorf("read invitation quota usage: %w", err)
+			return 0, time.Time{}, time.Time{}, fmt.Errorf("read rate quota %q usage: %w", key, err)
 		}
 		return used, windowStart, resetAt, nil
 	default:
 		return 0, time.Time{}, time.Time{}, ErrInvalidControl
 	}
 	var used int64
-	if err := transaction.QueryRow(ctx, query, tenantID).Scan(&used); err != nil {
+	arguments := []any{tenantID}
+	if key == QuotaActiveStudyMeetings {
+		arguments = append(arguments, now.UTC())
+	}
+	if err := transaction.QueryRow(ctx, query, arguments...).Scan(&used); err != nil {
 		return 0, time.Time{}, time.Time{}, fmt.Errorf("read %s quota usage: %w", key, err)
 	}
 	return used, time.Time{}, time.Time{}, nil

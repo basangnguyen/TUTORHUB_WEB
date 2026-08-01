@@ -31,6 +31,7 @@ const (
 	aadDomain                  = "tutorhub.calendar.protected-data.v1"
 	recipientFingerprintDomain = "tutorhub.calendar.recipient-fingerprint.v1"
 	capabilityTokenDomain      = "tutorhub.calendar.rsvp-capability-token.v1"
+	pollCapabilityTokenDomain  = "tutorhub.calendar.poll-capability-token.v1"
 	audienceMutationDomain     = "tutorhub.calendar.audience-mutation.v1"
 )
 
@@ -97,12 +98,13 @@ type SealedValue struct {
 // Protector provides authenticated encryption using a Calendar-only derived key.
 // It is safe for concurrent use after construction.
 type Protector struct {
-	aead           cipher.AEAD
-	keyVersion     int16
-	fingerprintKey [sha256.Size]byte
-	capabilityKey  [sha256.Size]byte
-	audienceKey    [sha256.Size]byte
-	random         io.Reader
+	aead              cipher.AEAD
+	keyVersion        int16
+	fingerprintKey    [sha256.Size]byte
+	capabilityKey     [sha256.Size]byte
+	pollCapabilityKey [sha256.Size]byte
+	audienceKey       [sha256.Size]byte
+	random            io.Reader
 }
 
 // New creates a production protector. It fails closed when the key/version is
@@ -125,6 +127,7 @@ func newProtector(config Config, random io.Reader) (*Protector, error) {
 	derivedKey := deriveKey(config.Key)
 	fingerprintKey := deriveRecipientFingerprintKey(config.Key)
 	capabilityKey := deriveCapabilityTokenKey(config.Key)
+	pollCapabilityKey := derivePollCapabilityTokenKey(config.Key)
 	audienceKey := deriveAudienceMutationKey(config.Key)
 	block, err := aes.NewCipher(derivedKey[:])
 	if err != nil {
@@ -136,12 +139,13 @@ func newProtector(config Config, random io.Reader) (*Protector, error) {
 	}
 
 	return &Protector{
-		aead:           aead,
-		keyVersion:     config.KeyVersion,
-		fingerprintKey: fingerprintKey,
-		capabilityKey:  capabilityKey,
-		audienceKey:    audienceKey,
-		random:         random,
+		aead:              aead,
+		keyVersion:        config.KeyVersion,
+		fingerprintKey:    fingerprintKey,
+		capabilityKey:     capabilityKey,
+		pollCapabilityKey: pollCapabilityKey,
+		audienceKey:       audienceKey,
+		random:            random,
 	}, nil
 }
 
@@ -190,6 +194,36 @@ func (protector *Protector) RSVPCapabilityTokenDigest(
 	mac := hmac.New(sha256.New, protector.capabilityKey[:])
 	_, _ = mac.Write(lengthDelimitedBytes(
 		[]byte(capabilityTokenDomain),
+		[]byte(strconv.FormatInt(int64(protector.keyVersion), 10)),
+		rawToken,
+	))
+	copy(digest[:], mac.Sum(nil))
+	return digest, nil
+}
+
+// PollCapabilityTokenDigest returns the versioned, keyed lookup digest for a
+// raw availability-poll capability token. The Calendar protected-data key is
+// reused as the root secret, while a poll-specific sub-key and HMAC domain keep
+// poll capabilities cryptographically separate from RSVP capabilities and all
+// other protected Calendar data.
+//
+// KeyVersion is persisted beside the digest. Rotating the Calendar key
+// intentionally invalidates outstanding capabilities unless the previous key
+// remains available through an explicitly managed rotation window.
+func (protector *Protector) PollCapabilityTokenDigest(
+	rawToken []byte,
+) ([sha256.Size]byte, error) {
+	var digest [sha256.Size]byte
+	if protector == nil || protector.aead == nil || protector.keyVersion <= 0 {
+		return digest, ErrInvalidConfig
+	}
+	if len(rawToken) < 16 || len(rawToken) > 128 {
+		return digest, ErrInvalidContext
+	}
+
+	mac := hmac.New(sha256.New, protector.pollCapabilityKey[:])
+	_, _ = mac.Write(lengthDelimitedBytes(
+		[]byte(pollCapabilityTokenDomain),
 		[]byte(strconv.FormatInt(int64(protector.keyVersion), 10)),
 		rawToken,
 	))
@@ -362,6 +396,10 @@ func deriveRecipientFingerprintKey(key []byte) [sha256.Size]byte {
 
 func deriveCapabilityTokenKey(key []byte) [sha256.Size]byte {
 	return deriveKeyWithDomain("tutorhub.calendar.rsvp-capability-token.key.v1", key)
+}
+
+func derivePollCapabilityTokenKey(key []byte) [sha256.Size]byte {
+	return deriveKeyWithDomain("tutorhub.calendar.poll-capability-token.key.v1", key)
 }
 
 func deriveAudienceMutationKey(key []byte) [sha256.Size]byte {

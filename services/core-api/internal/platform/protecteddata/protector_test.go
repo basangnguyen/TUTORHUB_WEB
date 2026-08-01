@@ -329,6 +329,100 @@ func TestRSVPCapabilityTokenDigestRejectsUnsafeTokenLength(t *testing.T) {
 	}
 }
 
+func TestPollCapabilityTokenDigestIsDeterministicKeyedVersionedAndDomainSeparated(t *testing.T) {
+	t.Parallel()
+
+	key := bytes.Repeat([]byte{0x58}, minimumKeyBytes)
+	protector, err := New(Config{Key: key, KeyVersion: 1})
+	if err != nil {
+		t.Fatalf("create protector: %v", err)
+	}
+	token := bytes.Repeat([]byte{0xb3}, 32)
+	first, err := protector.PollCapabilityTokenDigest(token)
+	if err != nil {
+		t.Fatalf("digest poll capability token: %v", err)
+	}
+	second, err := protector.PollCapabilityTokenDigest(token)
+	if err != nil {
+		t.Fatalf("digest poll capability token again: %v", err)
+	}
+	if !bytes.Equal(first[:], second[:]) {
+		t.Fatal("poll capability digest must be deterministic")
+	}
+	if bytes.Equal(first[:], token) {
+		t.Fatal("poll capability digest must not persist the raw token")
+	}
+
+	otherToken, err := protector.PollCapabilityTokenDigest(bytes.Repeat([]byte{0xb4}, 32))
+	if err != nil {
+		t.Fatalf("digest different poll capability token: %v", err)
+	}
+	if bytes.Equal(first[:], otherToken[:]) {
+		t.Fatal("poll capability digest must be token-sensitive")
+	}
+
+	otherKeyProtector, err := New(Config{
+		Key:        bytes.Repeat([]byte{0x59}, minimumKeyBytes),
+		KeyVersion: 1,
+	})
+	if err != nil {
+		t.Fatalf("create protector with a different key: %v", err)
+	}
+	otherKey, err := otherKeyProtector.PollCapabilityTokenDigest(token)
+	if err != nil {
+		t.Fatalf("digest poll capability token with a different key: %v", err)
+	}
+	if bytes.Equal(first[:], otherKey[:]) {
+		t.Fatal("poll capability digest must be key-sensitive")
+	}
+
+	versionTwo, err := New(Config{Key: key, KeyVersion: 2})
+	if err != nil {
+		t.Fatalf("create rotated protector: %v", err)
+	}
+	rotated, err := versionTwo.PollCapabilityTokenDigest(token)
+	if err != nil {
+		t.Fatalf("digest poll capability token with rotated key version: %v", err)
+	}
+	if bytes.Equal(first[:], rotated[:]) {
+		t.Fatal("poll capability digest must be key-version-sensitive")
+	}
+
+	rsvp, err := protector.RSVPCapabilityTokenDigest(token)
+	if err != nil {
+		t.Fatalf("digest RSVP capability token: %v", err)
+	}
+	if bytes.Equal(first[:], rsvp[:]) {
+		t.Fatal("poll and RSVP capability digests must be domain-separated")
+	}
+}
+
+func TestPollCapabilityTokenDigestRejectsUnsafeTokenLengthAndInvalidProtector(t *testing.T) {
+	t.Parallel()
+
+	protector, err := New(Config{
+		Key:        bytes.Repeat([]byte{0x26}, minimumKeyBytes),
+		KeyVersion: 1,
+	})
+	if err != nil {
+		t.Fatalf("create protector: %v", err)
+	}
+	for _, token := range [][]byte{
+		nil,
+		bytes.Repeat([]byte{0x01}, 15),
+		bytes.Repeat([]byte{0x01}, 129),
+	} {
+		if _, err := protector.PollCapabilityTokenDigest(token); !errors.Is(err, ErrInvalidContext) {
+			t.Fatalf("token length %d: expected invalid context, got %v", len(token), err)
+		}
+	}
+
+	var nilProtector *Protector
+	if _, err := nilProtector.PollCapabilityTokenDigest(bytes.Repeat([]byte{0x01}, 32)); !errors.Is(err, ErrInvalidConfig) {
+		t.Fatalf("expected invalid config for a nil protector, got %v", err)
+	}
+}
+
 func validContext() Context {
 	return Context{
 		TenantID: "a0bc4c50-a890-42b0-9eaa-6e3c4e36104f",

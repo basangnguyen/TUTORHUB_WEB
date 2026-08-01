@@ -11,13 +11,34 @@ import (
 type InvitationRateLimitAction string
 
 const (
-	InvitationRateLimitPreview   InvitationRateLimitAction = "preview"
-	InvitationRateLimitAccept    InvitationRateLimitAction = "accept"
-	InvitationRateLimitClassJoin InvitationRateLimitAction = "class_join"
-	InvitationRateLimitCalendarRSVPResolveIP    InvitationRateLimitAction = "calendar_rsvp_resolve_ip"
-	InvitationRateLimitCalendarRSVPResolveToken InvitationRateLimitAction = "calendar_rsvp_resolve_token"
-	InvitationRateLimitCalendarRSVPRespondIP    InvitationRateLimitAction = "calendar_rsvp_respond_ip"
-	InvitationRateLimitCalendarRSVPRespondToken InvitationRateLimitAction = "calendar_rsvp_respond_token"
+	InvitationRateLimitPreview                            InvitationRateLimitAction = "preview"
+	InvitationRateLimitAccept                             InvitationRateLimitAction = "accept"
+	InvitationRateLimitClassJoin                          InvitationRateLimitAction = "class_join"
+	InvitationRateLimitCalendarRSVPResolveIP              InvitationRateLimitAction = "calendar_rsvp_resolve_ip"
+	InvitationRateLimitCalendarRSVPResolveToken           InvitationRateLimitAction = "calendar_rsvp_resolve_token"
+	InvitationRateLimitCalendarRSVPRespondIP              InvitationRateLimitAction = "calendar_rsvp_respond_ip"
+	InvitationRateLimitCalendarRSVPRespondToken           InvitationRateLimitAction = "calendar_rsvp_respond_token"
+	InvitationRateLimitAvailabilityPollResolveIP          InvitationRateLimitAction = "availability_poll_resolve_ip"
+	InvitationRateLimitAvailabilityPollResolveTokenDigest InvitationRateLimitAction = "availability_poll_resolve_token_digest"
+	InvitationRateLimitAvailabilityPollResolvePublicID    InvitationRateLimitAction = "availability_poll_resolve_public_id"
+	InvitationRateLimitAvailabilityPollRespondIP          InvitationRateLimitAction = "availability_poll_respond_ip"
+	InvitationRateLimitAvailabilityPollRespondTokenDigest InvitationRateLimitAction = "availability_poll_respond_token_digest"
+	InvitationRateLimitAvailabilityPollRespondPublicID    InvitationRateLimitAction = "availability_poll_respond_public_id"
+)
+
+// Availability-poll capability traffic uses independent budgets for the caller's
+// network prefix, one-way token digest, and public poll ID. The token budget is
+// intentionally the tightest; the public-ID budget is high enough that one noisy
+// client cannot cheaply deny access to every legitimate responder for the poll.
+const (
+	availabilityPollResolveIPLimit          = 30
+	availabilityPollResolveTokenDigestLimit = 10
+	availabilityPollResolvePublicIDLimit    = 60
+	availabilityPollResolveWindow           = time.Minute
+	availabilityPollRespondIPLimit          = 20
+	availabilityPollRespondTokenDigestLimit = 5
+	availabilityPollRespondPublicIDLimit    = 60
+	availabilityPollRespondWindow           = 10 * time.Minute
 )
 
 type InvitationRateLimitDecision struct {
@@ -64,16 +85,26 @@ type fixedWindowInvitationRateLimitEntry struct {
 func newDefaultInvitationRateLimiter() InvitationRateLimiter {
 	return newFixedWindowInvitationRateLimiter(
 		4096,
-		map[InvitationRateLimitAction]invitationRateLimitPolicy{
-			InvitationRateLimitPreview:   {Limit: 30, Window: time.Minute},
-			InvitationRateLimitAccept:    {Limit: 10, Window: time.Minute},
-			InvitationRateLimitClassJoin: {Limit: 10, Window: time.Minute},
-			InvitationRateLimitCalendarRSVPResolveIP:    {Limit: 30, Window: time.Minute},
-			InvitationRateLimitCalendarRSVPResolveToken: {Limit: 10, Window: time.Minute},
-			InvitationRateLimitCalendarRSVPRespondIP:    {Limit: 20, Window: 10 * time.Minute},
-			InvitationRateLimitCalendarRSVPRespondToken: {Limit: 5, Window: 10 * time.Minute},
-		},
+		defaultInvitationRateLimitPolicies(),
 	)
+}
+
+func defaultInvitationRateLimitPolicies() map[InvitationRateLimitAction]invitationRateLimitPolicy {
+	return map[InvitationRateLimitAction]invitationRateLimitPolicy{
+		InvitationRateLimitPreview:                            {Limit: 30, Window: time.Minute},
+		InvitationRateLimitAccept:                             {Limit: 10, Window: time.Minute},
+		InvitationRateLimitClassJoin:                          {Limit: 10, Window: time.Minute},
+		InvitationRateLimitCalendarRSVPResolveIP:              {Limit: 30, Window: time.Minute},
+		InvitationRateLimitCalendarRSVPResolveToken:           {Limit: 10, Window: time.Minute},
+		InvitationRateLimitCalendarRSVPRespondIP:              {Limit: 20, Window: 10 * time.Minute},
+		InvitationRateLimitCalendarRSVPRespondToken:           {Limit: 5, Window: 10 * time.Minute},
+		InvitationRateLimitAvailabilityPollResolveIP:          {Limit: availabilityPollResolveIPLimit, Window: availabilityPollResolveWindow},
+		InvitationRateLimitAvailabilityPollResolveTokenDigest: {Limit: availabilityPollResolveTokenDigestLimit, Window: availabilityPollResolveWindow},
+		InvitationRateLimitAvailabilityPollResolvePublicID:    {Limit: availabilityPollResolvePublicIDLimit, Window: availabilityPollResolveWindow},
+		InvitationRateLimitAvailabilityPollRespondIP:          {Limit: availabilityPollRespondIPLimit, Window: availabilityPollRespondWindow},
+		InvitationRateLimitAvailabilityPollRespondTokenDigest: {Limit: availabilityPollRespondTokenDigestLimit, Window: availabilityPollRespondWindow},
+		InvitationRateLimitAvailabilityPollRespondPublicID:    {Limit: availabilityPollRespondPublicIDLimit, Window: availabilityPollRespondWindow},
+	}
 }
 
 func newFixedWindowInvitationRateLimiter(

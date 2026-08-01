@@ -182,6 +182,97 @@ export type ExternalCalendarRSVPProjection =
   components["schemas"]["ExternalCalendarRSVPProjection"];
 export type ExternalCalendarRSVPMutationResponse =
   components["schemas"]["ExternalCalendarRSVPMutationResponse"];
+export type AvailabilityPollAnswerState =
+  components["schemas"]["AvailabilityPollAnswerState"];
+export type AvailabilityPollAnswerInput =
+  components["schemas"]["AvailabilityPollAnswerInput"];
+export type AvailabilityPollAnswer =
+  components["schemas"]["AvailabilityPollAnswer"];
+export type AvailabilityPollAggregateBucket =
+  components["schemas"]["AvailabilityPollAggregateBucket"];
+export type AvailabilityPollStatus =
+  components["schemas"]["AvailabilityPollStatus"];
+export type AvailabilityPoll = components["schemas"]["AvailabilityPoll"];
+export type AvailabilityPollCapability =
+  components["schemas"]["AvailabilityPollCapability"];
+export type AvailabilityPollCapabilityScope =
+  components["schemas"]["AvailabilityPollCapabilityScope"];
+export type AvailabilityPollCapabilitySecret =
+  components["schemas"]["AvailabilityPollCapabilitySecret"];
+export type AvailabilityPollListResponse =
+  components["schemas"]["AvailabilityPollListResponse"];
+export type AvailabilityPollMutationResponse =
+  components["schemas"]["AvailabilityPollMutationResponse"];
+export type AvailabilityPollOutcomeReference =
+  components["schemas"]["AvailabilityPollOutcomeReference"];
+export type AvailabilityPollOutcomeType =
+  components["schemas"]["AvailabilityPollOutcomeType"];
+export type AvailabilityPollParticipant =
+  components["schemas"]["AvailabilityPollParticipant"];
+export type AvailabilityPollParticipantInput =
+  components["schemas"]["AvailabilityPollParticipantInput"];
+export type AvailabilityPollParticipantKind =
+  components["schemas"]["AvailabilityPollParticipantKind"];
+export type AvailabilityPollParticipantStatus =
+  components["schemas"]["AvailabilityPollParticipantStatus"];
+export type AvailabilityPollRankedSlot =
+  components["schemas"]["AvailabilityPollRankedSlot"];
+export type AvailabilityPollResponseProjection =
+  components["schemas"]["AvailabilityPollResponseProjection"];
+export type AvailabilityPollResponseActorType =
+  components["schemas"]["AvailabilityPollResponseActorType"];
+export type AvailabilityPollIndividualResponse =
+  components["schemas"]["AvailabilityPollIndividualResponse"];
+export type AvailabilityPollIndividualResponsePage =
+  components["schemas"]["AvailabilityPollIndividualResponsePage"];
+export type AvailabilityPollShareMode =
+  components["schemas"]["AvailabilityPollShareMode"];
+export type AvailabilityPollSlot =
+  components["schemas"]["AvailabilityPollSlot"];
+export type AvailabilityPollSlotInput =
+  components["schemas"]["AvailabilityPollSlotInput"];
+export type AvailabilityPollSummary =
+  components["schemas"]["AvailabilityPollSummary"];
+export type AvailabilityPollVersionRequest =
+  components["schemas"]["AvailabilityPollVersionRequest"];
+export type AvailabilityPollViewerCapabilities =
+  components["schemas"]["AvailabilityPollViewerCapabilities"];
+export type CreateAvailabilityPollRequest =
+  components["schemas"]["CreateAvailabilityPollRequest"];
+export type UpdateAvailabilityPollRequest =
+  components["schemas"]["UpdateAvailabilityPollRequest"];
+export type CancelAvailabilityPollRequest =
+  components["schemas"]["CancelAvailabilityPollRequest"];
+export type ReopenAvailabilityPollRequest =
+  components["schemas"]["ReopenAvailabilityPollRequest"];
+export type RespondAvailabilityPollRequest =
+  components["schemas"]["RespondAvailabilityPollRequest"];
+export type CreateAvailabilityPollCapabilityRequest =
+  components["schemas"]["CreateAvailabilityPollCapabilityRequest"];
+export type RevokeAvailabilityPollCapabilityRequest =
+  components["schemas"]["RevokeAvailabilityPollCapabilityRequest"];
+export type FinalizeAvailabilityPollRequest =
+  components["schemas"]["FinalizeAvailabilityPollRequest"];
+export type PublicAvailabilityPoll =
+  components["schemas"]["PublicAvailabilityPoll"];
+export type PublicAvailabilityPollExchange =
+  components["schemas"]["PublicAvailabilityPollExchange"];
+export type PublicAvailabilityPollMutationResponse =
+  components["schemas"]["PublicAvailabilityPollMutationResponse"];
+export type ResolvePublicAvailabilityPollRequest =
+  components["schemas"]["ResolvePublicAvailabilityPollRequest"];
+export type RespondPublicAvailabilityPollRequest =
+  components["schemas"]["RespondPublicAvailabilityPollRequest"];
+export type StudyMeeting = components["schemas"]["StudyMeeting"];
+export type StudyMeetingStatus = components["schemas"]["StudyMeetingStatus"];
+export type StudyMeetingListResponse =
+  components["schemas"]["StudyMeetingListResponse"];
+export type CreateStudyMeetingRequest =
+  components["schemas"]["CreateStudyMeetingRequest"];
+export type UpdateStudyMeetingRequest =
+  components["schemas"]["UpdateStudyMeetingRequest"];
+export type CancelStudyMeetingRequest =
+  components["schemas"]["CancelStudyMeetingRequest"];
 export type ClassSessionRecurrenceRule =
   components["schemas"]["ClassSessionRecurrenceRule"];
 export type ClassSessionSeries = components["schemas"]["ClassSessionSeries"];
@@ -265,6 +356,19 @@ export interface ListCalendarItemsInput {
   search?: string;
   cursor?: string;
   limit?: number;
+}
+export interface ListAvailabilityPollsInput {
+  limit?: number;
+  status?: AvailabilityPollStatus;
+}
+export interface ListAvailabilityPollIndividualResponsesInput {
+  cursor?: string;
+  limit?: number;
+}
+export interface ListStudyMeetingsInput {
+  from?: string;
+  limit?: number;
+  to?: string;
 }
 export type MediaTokenResponse = components["schemas"]["MediaTokenResponse"];
 export type MediaEventRequest = components["schemas"]["MediaEventRequest"];
@@ -1732,6 +1836,614 @@ export async function respondExternalCalendarRSVP(
   );
 }
 
+export async function listAvailabilityPolls(
+  tenantID: string,
+  input: ListAvailabilityPollsInput = {},
+  options: APIRequestOptions = {},
+): Promise<AvailabilityPollListResponse> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).GET(
+    "/api/v1/calendar/availability-polls",
+    {
+      params: {
+        query: input,
+        header: { "X-TutorHub-Expected-Tenant-ID": tenantID },
+      },
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<AvailabilityPollListResponse>(
+    data as AvailabilityPollListResponse | undefined,
+    error,
+    response,
+  );
+}
+
+export async function getAvailabilityPoll(
+  tenantID: string,
+  pollID: string,
+  options: APIRequestOptions = {},
+): Promise<AvailabilityPoll> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).GET(
+    "/api/v1/calendar/availability-polls/{poll_id}",
+    {
+      params: {
+        path: { poll_id: pollID },
+        header: { "X-TutorHub-Expected-Tenant-ID": tenantID },
+      },
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<AvailabilityPoll>(
+    data as AvailabilityPoll | undefined,
+    error,
+    response,
+  );
+}
+
+export async function createAvailabilityPoll(
+  tenantID: string,
+  input: CreateAvailabilityPollRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<AvailabilityPoll> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/calendar/availability-polls",
+    {
+      params: {
+        header: {
+          "X-CSRF-Token": csrfToken,
+          "X-TutorHub-Expected-Tenant-ID": tenantID,
+        },
+      },
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<AvailabilityPoll>(
+    data as AvailabilityPoll | undefined,
+    error,
+    response,
+  );
+}
+
+export async function updateAvailabilityPoll(
+  tenantID: string,
+  pollID: string,
+  input: UpdateAvailabilityPollRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<AvailabilityPoll> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).PATCH(
+    "/api/v1/calendar/availability-polls/{poll_id}",
+    {
+      params: {
+        path: { poll_id: pollID },
+        header: {
+          "X-CSRF-Token": csrfToken,
+          "X-TutorHub-Expected-Tenant-ID": tenantID,
+        },
+      },
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<AvailabilityPoll>(
+    data as AvailabilityPoll | undefined,
+    error,
+    response,
+  );
+}
+
+export async function openAvailabilityPoll(
+  tenantID: string,
+  pollID: string,
+  input: AvailabilityPollVersionRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<AvailabilityPoll> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/calendar/availability-polls/{poll_id}/open",
+    {
+      params: {
+        path: { poll_id: pollID },
+        header: {
+          "X-CSRF-Token": csrfToken,
+          "X-TutorHub-Expected-Tenant-ID": tenantID,
+        },
+      },
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<AvailabilityPoll>(
+    data as AvailabilityPoll | undefined,
+    error,
+    response,
+  );
+}
+
+export async function closeAvailabilityPoll(
+  tenantID: string,
+  pollID: string,
+  input: AvailabilityPollVersionRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<AvailabilityPoll> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/calendar/availability-polls/{poll_id}/close",
+    {
+      params: {
+        path: { poll_id: pollID },
+        header: {
+          "X-CSRF-Token": csrfToken,
+          "X-TutorHub-Expected-Tenant-ID": tenantID,
+        },
+      },
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<AvailabilityPoll>(
+    data as AvailabilityPoll | undefined,
+    error,
+    response,
+  );
+}
+
+export async function reopenAvailabilityPoll(
+  tenantID: string,
+  pollID: string,
+  input: ReopenAvailabilityPollRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<AvailabilityPoll> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/calendar/availability-polls/{poll_id}/reopen",
+    {
+      params: {
+        path: { poll_id: pollID },
+        header: {
+          "X-CSRF-Token": csrfToken,
+          "X-TutorHub-Expected-Tenant-ID": tenantID,
+        },
+      },
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<AvailabilityPoll>(
+    data as AvailabilityPoll | undefined,
+    error,
+    response,
+  );
+}
+
+export async function cancelAvailabilityPoll(
+  tenantID: string,
+  pollID: string,
+  input: CancelAvailabilityPollRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<AvailabilityPoll> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/calendar/availability-polls/{poll_id}/cancel",
+    {
+      params: {
+        path: { poll_id: pollID },
+        header: {
+          "X-CSRF-Token": csrfToken,
+          "X-TutorHub-Expected-Tenant-ID": tenantID,
+        },
+      },
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<AvailabilityPoll>(
+    data as AvailabilityPoll | undefined,
+    error,
+    response,
+  );
+}
+
+export async function respondToAvailabilityPoll(
+  tenantID: string,
+  pollID: string,
+  input: RespondAvailabilityPollRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<AvailabilityPollMutationResponse> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).PUT(
+    "/api/v1/calendar/availability-polls/{poll_id}/responses/me",
+    {
+      params: {
+        path: { poll_id: pollID },
+        header: {
+          "X-CSRF-Token": csrfToken,
+          "X-TutorHub-Expected-Tenant-ID": tenantID,
+        },
+      },
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<AvailabilityPollMutationResponse>(
+    data as AvailabilityPollMutationResponse | undefined,
+    error,
+    response,
+  );
+}
+
+export async function listAvailabilityPollIndividualResponses(
+  tenantID: string,
+  pollID: string,
+  input: ListAvailabilityPollIndividualResponsesInput = {},
+  options: APIRequestOptions = {},
+): Promise<AvailabilityPollIndividualResponsePage> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).GET(
+    "/api/v1/calendar/availability-polls/{poll_id}/responses",
+    {
+      params: {
+        path: { poll_id: pollID },
+        query: input,
+        header: { "X-TutorHub-Expected-Tenant-ID": tenantID },
+      },
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<AvailabilityPollIndividualResponsePage>(
+    data as AvailabilityPollIndividualResponsePage | undefined,
+    error,
+    response,
+  );
+}
+
+export async function getAvailabilityPollSummary(
+  tenantID: string,
+  pollID: string,
+  options: APIRequestOptions = {},
+): Promise<AvailabilityPollSummary> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).GET(
+    "/api/v1/calendar/availability-polls/{poll_id}/summary",
+    {
+      params: {
+        path: { poll_id: pollID },
+        header: { "X-TutorHub-Expected-Tenant-ID": tenantID },
+      },
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<AvailabilityPollSummary>(
+    data as AvailabilityPollSummary | undefined,
+    error,
+    response,
+  );
+}
+
+export async function createAvailabilityPollCapability(
+  tenantID: string,
+  pollID: string,
+  input: CreateAvailabilityPollCapabilityRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<AvailabilityPollCapabilitySecret> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/calendar/availability-polls/{poll_id}/capabilities",
+    {
+      params: {
+        path: { poll_id: pollID },
+        header: {
+          "X-CSRF-Token": csrfToken,
+          "X-TutorHub-Expected-Tenant-ID": tenantID,
+        },
+      },
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<AvailabilityPollCapabilitySecret>(
+    data as AvailabilityPollCapabilitySecret | undefined,
+    error,
+    response,
+  );
+}
+
+export async function revokeAvailabilityPollCapability(
+  tenantID: string,
+  pollID: string,
+  capabilityID: string,
+  input: RevokeAvailabilityPollCapabilityRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<AvailabilityPollCapability> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/calendar/availability-polls/{poll_id}/capabilities/{capability_id}/revoke",
+    {
+      params: {
+        path: { poll_id: pollID, capability_id: capabilityID },
+        header: {
+          "X-CSRF-Token": csrfToken,
+          "X-TutorHub-Expected-Tenant-ID": tenantID,
+        },
+      },
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<AvailabilityPollCapability>(
+    data as AvailabilityPollCapability | undefined,
+    error,
+    response,
+  );
+}
+
+export async function finalizeAvailabilityPoll(
+  tenantID: string,
+  pollID: string,
+  input: FinalizeAvailabilityPollRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<AvailabilityPollMutationResponse> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/calendar/availability-polls/{poll_id}/finalize",
+    {
+      params: {
+        path: { poll_id: pollID },
+        header: {
+          "X-CSRF-Token": csrfToken,
+          "X-TutorHub-Expected-Tenant-ID": tenantID,
+        },
+      },
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<AvailabilityPollMutationResponse>(
+    data as AvailabilityPollMutationResponse | undefined,
+    error,
+    response,
+  );
+}
+
+export async function listStudyMeetings(
+  tenantID: string,
+  input: ListStudyMeetingsInput = {},
+  options: APIRequestOptions = {},
+): Promise<StudyMeetingListResponse> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).GET(
+    "/api/v1/calendar/study-meetings",
+    {
+      params: {
+        query: input,
+        header: { "X-TutorHub-Expected-Tenant-ID": tenantID },
+      },
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<StudyMeetingListResponse>(
+    data as StudyMeetingListResponse | undefined,
+    error,
+    response,
+  );
+}
+
+export async function getStudyMeeting(
+  tenantID: string,
+  meetingID: string,
+  options: APIRequestOptions = {},
+): Promise<StudyMeeting> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).GET(
+    "/api/v1/calendar/study-meetings/{meeting_id}",
+    {
+      params: {
+        path: { meeting_id: meetingID },
+        header: { "X-TutorHub-Expected-Tenant-ID": tenantID },
+      },
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<StudyMeeting>(
+    data as StudyMeeting | undefined,
+    error,
+    response,
+  );
+}
+
+export async function createStudyMeeting(
+  tenantID: string,
+  input: CreateStudyMeetingRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<StudyMeeting> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/calendar/study-meetings",
+    {
+      params: {
+        header: {
+          "X-CSRF-Token": csrfToken,
+          "X-TutorHub-Expected-Tenant-ID": tenantID,
+        },
+      },
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<StudyMeeting>(
+    data as StudyMeeting | undefined,
+    error,
+    response,
+  );
+}
+
+export async function updateStudyMeeting(
+  tenantID: string,
+  meetingID: string,
+  input: UpdateStudyMeetingRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<StudyMeeting> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).PATCH(
+    "/api/v1/calendar/study-meetings/{meeting_id}",
+    {
+      params: {
+        path: { meeting_id: meetingID },
+        header: {
+          "X-CSRF-Token": csrfToken,
+          "X-TutorHub-Expected-Tenant-ID": tenantID,
+        },
+      },
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<StudyMeeting>(
+    data as StudyMeeting | undefined,
+    error,
+    response,
+  );
+}
+
+export async function cancelStudyMeeting(
+  tenantID: string,
+  meetingID: string,
+  input: CancelStudyMeetingRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<StudyMeeting> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/calendar/study-meetings/{meeting_id}/cancel",
+    {
+      params: {
+        path: { meeting_id: meetingID },
+        header: {
+          "X-CSRF-Token": csrfToken,
+          "X-TutorHub-Expected-Tenant-ID": tenantID,
+        },
+      },
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<StudyMeeting>(
+    data as StudyMeeting | undefined,
+    error,
+    response,
+  );
+}
+
+export async function resolvePublicAvailabilityPoll(
+  input: ResolvePublicAvailabilityPollRequest,
+  options: APIRequestOptions = {},
+): Promise<PublicAvailabilityPollExchange> {
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/calendar/availability-polls/resolve",
+    {
+      params: {
+        header: {
+          Origin: resolvePublicRequestOrigin(options.baseUrl ?? "/api"),
+        },
+      },
+      body: input,
+      cache: "no-store",
+      credentials: "omit",
+      headers: { Accept: "application/json" },
+      referrerPolicy: "no-referrer",
+      signal: options.signal,
+    },
+  );
+
+  return requireData<PublicAvailabilityPollExchange>(
+    data as PublicAvailabilityPollExchange | undefined,
+    error,
+    response,
+  );
+}
+
+export async function respondPublicAvailabilityPoll(
+  input: RespondPublicAvailabilityPollRequest,
+  options: APIRequestOptions = {},
+): Promise<PublicAvailabilityPollMutationResponse> {
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/calendar/availability-polls/respond",
+    {
+      params: {
+        header: {
+          Origin: resolvePublicRequestOrigin(options.baseUrl ?? "/api"),
+        },
+      },
+      body: input,
+      cache: "no-store",
+      credentials: "omit",
+      headers: { Accept: "application/json" },
+      referrerPolicy: "no-referrer",
+      signal: options.signal,
+    },
+  );
+
+  return requireData<PublicAvailabilityPollMutationResponse>(
+    data as PublicAvailabilityPollMutationResponse | undefined,
+    error,
+    response,
+  );
+}
+
 export async function createClassSession(
   classID: string,
   input: CreateClassSessionRequest,
@@ -2302,6 +3014,15 @@ function resolveBaseUrl(baseUrl: string): string {
       new URL(normalizedBaseUrl, `${origin}/`).toString(),
     );
   }
+}
+
+function resolvePublicRequestOrigin(baseUrl: string): string {
+  const runtimeOrigin = globalThis.location?.origin;
+  if (runtimeOrigin && runtimeOrigin !== "null") {
+    return runtimeOrigin;
+  }
+
+  return new URL(resolveBaseUrl(baseUrl)).origin;
 }
 
 function createNormalizedFetch(

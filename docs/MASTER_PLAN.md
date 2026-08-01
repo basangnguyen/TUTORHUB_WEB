@@ -4,14 +4,14 @@
 
 | Thuộc tính            | Giá trị                                                                                      |
 | --------------------- | -------------------------------------------------------------------------------------------- |
-| Phiên bản tài liệu    | 2.2                                                                                          |
-| Cập nhật              | 2026-07-31                                                                                   |
+| Phiên bản tài liệu    | 2.3                                                                                          |
+| Cập nhật              | 2026-08-01                                                                                   |
 | Phạm vi ưu tiên       | Web application                                                                              |
 | Thư mục phát triển    | `D:\TutorHub_V2`                                                                             |
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
 | Phase hiện tại        | Phase 3 - Daily learning workspace                                                           |
-| Trạng thái gần nhất   | P3-02C DONE; P3-03A/P3-04/P3-CAL-02 VERIFY; P3-03B và provider gates DEFERRED            |
+| Trạng thái gần nhất   | P3-02D-A VERIFY; P3-02C DONE; worker/provider/delivery gates vẫn DEFERRED                  |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 
@@ -1379,6 +1379,20 @@ Calendar E2E `11/11` và manual accessibility/privacy acceptance đều PASS; co
 live trên Render/Cloudflare. Không mở thêm gate P3-02C trong tài liệu này. Email/ICS
 production vẫn phụ thuộc P3-CAL-02/P3-03B/P3-05A.
 
+P3-02D-A đã có vertical slice local và chuyển `TODO -> VERIFY` ngày 2026-08-01:
+migration `000022`, normalized poll/response/capability/Study Meeting persistence,
+OpenAPI/generated client, organizer/public UI, manual lifecycle, ranking/finalize,
+secure link exchange, privacy projection, owner-time conflict, quota/hard cap và
+audit/outbox. Migration/ACL/cascade trên PostgreSQL thật, Neon/Render/Cloudflare staging,
+browser authorization/privacy và manual accessibility vẫn là gate mở; vì vậy task chưa
+`DONE`. P3-02D-B auto-close/fan-out/delivery và Phase 4 LiveKit lifecycle không thuộc
+vertical slice này, chưa được triển khai hoặc bật.
+
+Conflict gate cũng chưa đóng: Study Meeting writer serialize theo owner và recheck trong
+transaction, nhưng concurrent ClassSession/series/audience writer chưa chia sẻ advisory
+lock/reverse Study Meeting recheck. Cross-writer race phải được harden và kiểm chứng trên
+PostgreSQL trước khi P3-02D-A chuyển `DONE`.
+
 **Mục tiêu:** trước khi có classroom phức tạp, người dùng đã quản lý được lịch, tin nhắn và tài liệu.
 
 **Work package:**
@@ -1930,19 +1944,21 @@ Một tính năng chỉ được đánh dấu hoàn thành khi:
 11. P3-02B đã `DONE`: migration `000018/000019`, exact runtime grants, canary,
      concurrent/authorization/cross-tenant/split/query-plan acceptance đều đạt. P3-02C
      cũng đã `DONE` ngày 2026-07-30; không mở lại gate chỉ vì P3-CAL-02 live gate còn
-     `VERIFY`. Bước runnable tiếp theo là P3-02D-A; P3-05A và delivery vẫn là carry-over.
+     `VERIFY`. P3-05A và delivery vẫn là carry-over.
      Không đưa recurrence, reminder, worker, email hoặc calendar tổng hợp vào P3-01.
 12. P3-02C đã `DONE` ngày 2026-07-30 tại commit `7859c233`: Neon `21 false`, migration
      `000020/000021`, exact ACL/runtime isolation, concurrent/IDOR, Calendar E2E `11/11`
      và staging/manual accessibility/privacy acceptance đều đạt; live trên Render/
      Cloudflare. Email/ICS production không được suy ra từ gate này và vẫn chờ
      P3-CAL-02/P3-03B/P3-05A.
-13. ADR-0021 đã `Accepted`; triển khai `P3-02D-A` sau P3-02B/C, không phụ thuộc
-     When2meet hoặc durable worker. `P3-02D-B` (auto-close/fan-out/delivery) chờ
-     P3-03B/P3-04 activation và được ghi vào carry-over register; P3-05B là delivery
-     adapter downstream.
-14. Không xóa thêm Neon branch theo quyết định hiện tại của owner.
-15. Không khởi động QuizHub, Lavie, social feed hoặc Secure Exam ngoài phase đã quy hoạch.
+13. ADR-0021 đã `Accepted`; `P3-02D-A` đã có implementation local ở `VERIFY` sau
+     P3-02B/C và không phụ thuộc When2meet hoặc durable worker. Migration `000022`, exact
+     runtime/maintenance ACL, hard-retention cascade và staging/manual acceptance còn mở.
+     `P3-02D-B` (auto-close/fan-out/delivery) chờ P3-03B/P3-04 activation và được ghi vào
+     carry-over register; P3-05B là delivery adapter downstream.
+14. Sau P3-02D-A staging acceptance, runnable lane tiếp tục với P3-06 conversation core.
+15. Không xóa thêm Neon branch theo quyết định hiện tại của owner.
+16. Không khởi động QuizHub, Lavie, social feed hoặc Secure Exam ngoài phase đã quy hoạch.
 
 ## 37. Quy tắc duy trì Master Plan
 
@@ -2006,9 +2022,11 @@ Cả
 đã đạt local `VERIFY` với renderer/golden/sink/SES adapter cô lập. P3-02B recurrence và
 class conflict đã `DONE`; P3-02C working hours/attendee/free-busy/RSVP đã `DONE` ngày
 2026-07-30 tại commit `7859c233` sau migration `000020/000021`, exact runtime ACL,
-concurrent/IDOR, Calendar E2E `11/11` và staging/manual acceptance. Bước runnable tiếp
-theo là `P3-02D-A` Native Availability Poll/Study Meeting core; không bật side effect
-chỉ vì P3-02C đã hoàn tất. `P3-02D-B` và các gate worker/provider vẫn là carry-over.
+concurrent/IDOR, Calendar E2E `11/11` và staging/manual acceptance. P3-02D-A Native
+Availability Poll/Study Meeting core đã có implementation local ở `VERIFY`; bước bắt
+buộc tiếp theo là harden cross-writer conflict, migration `000022`/exact ACL/staging
+acceptance, rồi P3-06. Không bật
+side effect chỉ vì core đã có. `P3-02D-B` và các gate worker/provider vẫn là carry-over.
 AWS SES đã được chọn làm provider target nhưng
 P3-CAL-02/ADR-0020 vẫn giữ các gate live email/ICS chưa nghiệm thu; chưa có domain hoặc
 production delivery. Render Web Service vẫn là API staging/private alpha; Render Free

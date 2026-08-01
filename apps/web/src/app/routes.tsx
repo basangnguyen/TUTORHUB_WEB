@@ -31,6 +31,7 @@ import {
 } from "../pages/MembershipInvitationPage";
 import { ClassInvitationPage } from "../pages/ClassInvitationPage";
 import { ExternalCalendarRSVPPage } from "../pages/ExternalCalendarRSVPPage";
+import { PublicAvailabilityPollPage } from "../pages/PublicAvailabilityPollPage";
 import {
   ForbiddenPage,
   AuthenticationErrorPage,
@@ -53,6 +54,11 @@ const ClassroomPreJoinPage = lazy(() =>
 const CalendarPage = lazy(() =>
   import("../pages/CalendarPage").then((module) => ({
     default: module.CalendarPage,
+  })),
+);
+const AvailabilityPollManagementPage = lazy(() =>
+  import("../pages/AvailabilityPollManagementPage").then((module) => ({
+    default: module.AvailabilityPollManagementPage,
   })),
 );
 const ClassroomRoomPage = lazy(() =>
@@ -185,6 +191,41 @@ function NotificationFeatureRoute() {
   return <Outlet />;
 }
 
+function AvailabilityPollFeatureRoute() {
+  const { t } = useI18n();
+  const session = useSession();
+  const tenantID = session.currentUser?.active_tenant?.id;
+  const capabilities = useTenantCapabilities(tenantID, Boolean(tenantID));
+
+  if (capabilities.isPending) {
+    return <LoadingScreen />;
+  }
+  if (capabilities.isError) {
+    return (
+      <div className="page-content availability-poll-route-state">
+        <ErrorState
+          actions={
+            <Button
+              leadingIcon={<RefreshCw />}
+              onClick={() => void capabilities.refetch()}
+              variant="secondary"
+            >
+              {t("state.retry")}
+            </Button>
+          }
+          description={t("availabilityPolls.capabilitiesErrorDescription")}
+          title={t("availabilityPolls.capabilitiesErrorTitle")}
+        />
+      </div>
+    );
+  }
+  if (capabilities.data?.features.availability_polls?.enabled !== true) {
+    return <Navigate replace to="/forbidden" />;
+  }
+
+  return <Outlet />;
+}
+
 function throwSystemError(): never {
   throw new Response("Temporary route error", {
     status: 503,
@@ -227,6 +268,15 @@ export function createAppRoutes(): RouteObject[] {
                 {
                   path: "calendar",
                   element: <CalendarPage />,
+                },
+                {
+                  element: <AvailabilityPollFeatureRoute />,
+                  children: [
+                    {
+                      path: "calendar/availability-polls",
+                      element: <AvailabilityPollManagementPage />,
+                    },
+                  ],
                 },
                 {
                   path: "settings",
@@ -277,6 +327,10 @@ export function createAppRoutes(): RouteObject[] {
     { path: "/forbidden", element: <ForbiddenPage /> },
     { path: "/class-invite", element: <ClassInvitationPage /> },
     { path: "/calendar/respond", element: <ExternalCalendarRSVPPage /> },
+    {
+      path: "/availability/:publicId",
+      element: <PublicAvailabilityPollPage />,
+    },
     { path: "/invite", element: <MembershipInvitationPage /> },
     {
       path: "/invite/accepted",

@@ -15,6 +15,7 @@ func TestCatalogDefaultsAndStableOrder(t *testing.T) {
 	catalog := NewDefaultCatalog()
 	features := catalog.Features()
 	if got, want := featureKeys(features), []FeatureKey{
+		FeatureAvailabilityPolls,
 		FeatureClassInviteLinks,
 		FeatureClassManagement,
 		FeatureClassSessionRecurrence,
@@ -31,9 +32,17 @@ func TestCatalogDefaultsAndStableOrder(t *testing.T) {
 	}
 	quotas := catalog.Quotas()
 	if got, want := quotaKeys(quotas), []QuotaKey{
+		QuotaActiveAvailabilityPolls,
 		QuotaActiveClasses,
+		QuotaActiveStudyMeetings,
+		QuotaAvailabilityPollCapabilityCreationsPerHour,
+		QuotaAvailabilityPollCreationsPerHour,
+		QuotaAvailabilityPollParticipants,
+		QuotaAvailabilityPollRangeDays,
+		QuotaAvailabilityPollSlots,
 		QuotaInviteCreationsPerHour,
 		QuotaMembers,
+		QuotaStudyMeetingCreationsPerHour,
 	}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("quota catalog order = %v, want %v", got, want)
 	}
@@ -49,6 +58,30 @@ func TestCatalogDefaultsAndStableOrder(t *testing.T) {
 			DefaultLimit: 60,
 			MinimumLimit: 1,
 			MaximumLimit: 10000,
+		},
+		QuotaActiveAvailabilityPolls: {
+			Key: QuotaActiveAvailabilityPolls, DefaultLimit: 20, MinimumLimit: 1, MaximumLimit: 200,
+		},
+		QuotaAvailabilityPollRangeDays: {
+			Key: QuotaAvailabilityPollRangeDays, DefaultLimit: 31, MinimumLimit: 1, MaximumLimit: 90,
+		},
+		QuotaAvailabilityPollSlots: {
+			Key: QuotaAvailabilityPollSlots, DefaultLimit: 336, MinimumLimit: 1, MaximumLimit: 1000,
+		},
+		QuotaAvailabilityPollParticipants: {
+			Key: QuotaAvailabilityPollParticipants, DefaultLimit: 100, MinimumLimit: 1, MaximumLimit: 500,
+		},
+		QuotaAvailabilityPollCreationsPerHour: {
+			Key: QuotaAvailabilityPollCreationsPerHour, DefaultLimit: 20, MinimumLimit: 1, MaximumLimit: 200,
+		},
+		QuotaAvailabilityPollCapabilityCreationsPerHour: {
+			Key: QuotaAvailabilityPollCapabilityCreationsPerHour, DefaultLimit: 60, MinimumLimit: 1, MaximumLimit: 1000,
+		},
+		QuotaActiveStudyMeetings: {
+			Key: QuotaActiveStudyMeetings, DefaultLimit: 20, MinimumLimit: 1, MaximumLimit: 200,
+		},
+		QuotaStudyMeetingCreationsPerHour: {
+			Key: QuotaStudyMeetingCreationsPerHour, DefaultLimit: 20, MinimumLimit: 1, MaximumLimit: 200,
 		},
 	}
 	for _, definition := range quotas {

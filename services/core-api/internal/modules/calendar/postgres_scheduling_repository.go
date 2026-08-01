@@ -364,6 +364,7 @@ func (repository *PostgresSchedulingRepository) LoadAvailability(
 		params,
 		sources,
 		sourceIndex,
+		false,
 	); err != nil {
 		return nil, err
 	}
@@ -996,6 +997,7 @@ func loadRecurringAvailability(
 	params availabilityParams,
 	sources []availabilitySource,
 	sourceIndex map[string]int,
+	treatFreeAsBusy bool,
 ) error {
 	if len(participantIDs) == 0 {
 		return nil
@@ -1148,6 +1150,9 @@ LIMIT $5`,
 				)
 				if !present {
 					continue
+				}
+				if treatFreeAsBusy {
+					showAs = "busy"
 				}
 				sourcePosition, ok := sourceIndex["internal_user:"+participantID.String()]
 				if !ok {

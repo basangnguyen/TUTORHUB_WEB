@@ -30,15 +30,7 @@ func NewPostgresInvitationRateLimiter(
 	return &postgresInvitationRateLimiter{
 		database:     database,
 		queryTimeout: queryTimeout,
-		policies: map[InvitationRateLimitAction]invitationRateLimitPolicy{
-			InvitationRateLimitPreview:   {Limit: 30, Window: time.Minute},
-			InvitationRateLimitAccept:    {Limit: 10, Window: time.Minute},
-			InvitationRateLimitClassJoin: {Limit: 10, Window: time.Minute},
-			InvitationRateLimitCalendarRSVPResolveIP:    {Limit: 30, Window: time.Minute},
-			InvitationRateLimitCalendarRSVPResolveToken: {Limit: 10, Window: time.Minute},
-			InvitationRateLimitCalendarRSVPRespondIP:    {Limit: 20, Window: 10 * time.Minute},
-			InvitationRateLimitCalendarRSVPRespondToken: {Limit: 5, Window: 10 * time.Minute},
-		},
+		policies:     defaultInvitationRateLimitPolicies(),
 	}, nil
 }
 
@@ -134,6 +126,18 @@ func invitationRateLimitPurpose(action InvitationRateLimitAction) string {
 		return "calendar_rsvp.respond_ip"
 	case InvitationRateLimitCalendarRSVPRespondToken:
 		return "calendar_rsvp.respond_token"
+	case InvitationRateLimitAvailabilityPollResolveIP:
+		return "availability_poll.resolve_ip"
+	case InvitationRateLimitAvailabilityPollResolveTokenDigest:
+		return "availability_poll.resolve_token_digest"
+	case InvitationRateLimitAvailabilityPollResolvePublicID:
+		return "availability_poll.resolve_public_id"
+	case InvitationRateLimitAvailabilityPollRespondIP:
+		return "availability_poll.respond_ip"
+	case InvitationRateLimitAvailabilityPollRespondTokenDigest:
+		return "availability_poll.respond_token_digest"
+	case InvitationRateLimitAvailabilityPollRespondPublicID:
+		return "availability_poll.respond_public_id"
 	default:
 		return "invalid"
 	}

@@ -1074,6 +1074,883 @@ paths:
           $ref: "#/components/responses/ProblemResponse"
         default:
           $ref: "#/components/responses/ProblemResponse"
+  /api/v1/calendar/availability-polls:
+    get:
+      operationId: listAvailabilityPolls
+      summary: List polls visible to the authenticated active member
+      security:
+        - SessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/ExpectedTenantID"
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/AvailabilityPollStatus"
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+      responses:
+        "200":
+          description: Tenant- and viewer-scoped poll list
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: private, no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AvailabilityPollListResponse"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+    post:
+      operationId: createAvailabilityPoll
+      summary: Create a native TutorHub availability poll
+      description: Any active authenticated tenant member may create a poll when the feature and quotas allow it. A supplied class is authoritatively checked and inaccessible identifiers are concealed.
+      security:
+        - SessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/ExpectedTenantID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAvailabilityPollRequest"
+      responses:
+        "201":
+          description: Poll created in draft state
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: private, no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AvailabilityPoll"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "429":
+          $ref: "#/components/responses/ProblemResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/calendar/availability-polls/{poll_id}:
+    parameters:
+      - name: poll_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: getAvailabilityPoll
+      summary: Return an authorization-filtered poll projection
+      security:
+        - SessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/ExpectedTenantID"
+      responses:
+        "200":
+          description: Poll detail with viewer capability projection
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: private, no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AvailabilityPoll"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+    patch:
+      operationId: updateAvailabilityPoll
+      summary: Update poll metadata or draft slot/participant structure
+      description: Fields that would reinterpret answers are immutable after the poll has a response. Share-mode changes revoke capabilities that are no longer valid.
+      security:
+        - SessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/ExpectedTenantID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAvailabilityPollRequest"
+      responses:
+        "200":
+          description: Updated poll
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: private, no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AvailabilityPoll"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/calendar/availability-polls/{poll_id}/open:
+    post:
+      operationId: openAvailabilityPoll
+      summary: Open a draft poll for responses
+      security:
+        - SessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/PollID"
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/ExpectedTenantID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AvailabilityPollVersionRequest"
+      responses:
+        "200":
+          $ref: "#/components/responses/AvailabilityPollResponse"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/calendar/availability-polls/{poll_id}/close:
+    post:
+      operationId: closeAvailabilityPoll
+      summary: Manually close an open poll
+      security:
+        - SessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/PollID"
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/ExpectedTenantID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AvailabilityPollVersionRequest"
+      responses:
+        "200":
+          $ref: "#/components/responses/AvailabilityPollResponse"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/calendar/availability-polls/{poll_id}/reopen:
+    post:
+      operationId: reopenAvailabilityPoll
+      summary: Reopen a closed poll without changing its slots
+      security:
+        - SessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/PollID"
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/ExpectedTenantID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReopenAvailabilityPollRequest"
+      responses:
+        "200":
+          $ref: "#/components/responses/AvailabilityPollResponse"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/calendar/availability-polls/{poll_id}/cancel:
+    post:
+      operationId: cancelAvailabilityPoll
+      summary: Cancel a draft, open, or closed poll
+      security:
+        - SessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/PollID"
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/ExpectedTenantID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CancelAvailabilityPollRequest"
+      responses:
+        "200":
+          $ref: "#/components/responses/AvailabilityPollResponse"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/calendar/availability-polls/{poll_id}/responses/me:
+    put:
+      operationId: respondToAvailabilityPoll
+      summary: Replace the authenticated member's normalized slot answers
+      security:
+        - SessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/PollID"
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/ExpectedTenantID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RespondAvailabilityPollRequest"
+      responses:
+        "200":
+          description: Saved response and refreshed privacy-safe poll projection
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: private, no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AvailabilityPollMutationResponse"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "410":
+          $ref: "#/components/responses/ProblemResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/calendar/availability-polls/{poll_id}/responses:
+    get:
+      operationId: listAvailabilityPollIndividualResponses
+      summary: List a bounded keyset page of authorized individual responses
+      description: Available only to the poll organizer, an organization safety admin, or a visible class teacher with session-scheduling capability. Ordinary participants and public responders receive no individual-response projection.
+      security:
+        - SessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/PollID"
+        - $ref: "#/components/parameters/ExpectedTenantID"
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 512
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 25
+            default: 25
+      responses:
+        "200":
+          description: Privacy-authorized individual response page
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: private, no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AvailabilityPollIndividualResponsePage"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/calendar/availability-polls/{poll_id}/summary:
+    get:
+      operationId: getAvailabilityPollSummary
+      summary: Return server-ranked slots and a viewer-safe aggregate
+      security:
+        - SessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/PollID"
+        - $ref: "#/components/parameters/ExpectedTenantID"
+      responses:
+        "200":
+          description: Deterministic bounded ranking
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: private, no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AvailabilityPollSummary"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/calendar/availability-polls/{poll_id}/finalize:
+    post:
+      operationId: finalizeAvailabilityPoll
+      summary: Finalize one selected slot into exactly one authorized outcome
+      description: The server reauthorizes, checks expected version and idempotency, rechecks conflict in the transaction, and creates a ClassSession only when session.schedule is currently allowed. Otherwise only an owned StudyMeeting is permitted.
+      security:
+        - SessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/PollID"
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/ExpectedTenantID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FinalizeAvailabilityPollRequest"
+      responses:
+        "200":
+          description: Finalized poll and single outcome reference
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: private, no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AvailabilityPollMutationResponse"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "429":
+          $ref: "#/components/responses/ProblemResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/calendar/availability-polls/{poll_id}/capabilities:
+    post:
+      operationId: createAvailabilityPollCapability
+      summary: Create one expiring poll-access capability and return its raw token once
+      description: In invited-only mode a capability is bound to one participant. In anyone-with-link mode it is a broad resolve-only capability; exchange mints a distinct short-lived response session.
+      security:
+        - SessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/PollID"
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/ExpectedTenantID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAvailabilityPollCapabilityRequest"
+      responses:
+        "201":
+          description: Capability issued; raw_token and share_url are never returned again
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: private, no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AvailabilityPollCapabilitySecret"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "429":
+          $ref: "#/components/responses/ProblemResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/calendar/availability-polls/{poll_id}/capabilities/{capability_id}/revoke:
+    post:
+      operationId: revokeAvailabilityPollCapability
+      summary: Revoke a poll-access capability and all child response sessions
+      security:
+        - SessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/PollID"
+        - name: capability_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/ExpectedTenantID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RevokeAvailabilityPollCapabilityRequest"
+      responses:
+        "200":
+          description: Revoked capability metadata without a token digest
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: private, no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AvailabilityPollCapability"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/calendar/availability-polls/resolve:
+    post:
+      operationId: resolvePublicAvailabilityPoll
+      summary: Exchange a fragment-only poll token for a short-lived response session
+      description: The raw broad or invited token is accepted only in this JSON POST. The response contains no tenant, class, roster, email, individual availability, or private calendar detail.
+      parameters:
+        - name: Origin
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uri
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResolvePublicAvailabilityPollRequest"
+      responses:
+        "200":
+          description: Minimum public projection and a thirty-minute memory-only response session token
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+            Referrer-Policy:
+              schema:
+                type: string
+                const: no-referrer
+            X-Robots-Tag:
+              schema:
+                type: string
+                const: noindex, nofollow
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicAvailabilityPollExchange"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "429":
+          $ref: "#/components/responses/ProblemResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/calendar/availability-polls/respond:
+    post:
+      operationId: respondPublicAvailabilityPoll
+      summary: Replace answers owned by one exchanged response session
+      description: The broad share token is not accepted here. Concurrent responders own distinct rows and cannot overwrite one another.
+      parameters:
+        - name: Origin
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uri
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RespondPublicAvailabilityPollRequest"
+      responses:
+        "200":
+          description: Saved response and refreshed public projection
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+            Referrer-Policy:
+              schema:
+                type: string
+                const: no-referrer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicAvailabilityPollMutationResponse"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "410":
+          $ref: "#/components/responses/ProblemResponse"
+        "429":
+          $ref: "#/components/responses/ProblemResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/calendar/study-meetings:
+    get:
+      operationId: listStudyMeetings
+      summary: List StudyMeetings visible to the authenticated active member
+      security:
+        - SessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/ExpectedTenantID"
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+      responses:
+        "200":
+          description: Meetings owned by the authenticated member
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: private, no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StudyMeetingListResponse"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+    post:
+      operationId: createStudyMeeting
+      summary: Create a member-owned StudyMeeting scheduling intent
+      description: This operation never creates a LiveKit room or attendance-bearing class session.
+      security:
+        - SessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/ExpectedTenantID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateStudyMeetingRequest"
+      responses:
+        "201":
+          description: StudyMeeting created
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: private, no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StudyMeeting"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "429":
+          $ref: "#/components/responses/ProblemResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/calendar/study-meetings/{meeting_id}:
+    parameters:
+      - name: meeting_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: getStudyMeeting
+      summary: Return a StudyMeeting owned by the authenticated member
+      security:
+        - SessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/ExpectedTenantID"
+      responses:
+        "200":
+          description: StudyMeeting detail
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: private, no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StudyMeeting"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+    patch:
+      operationId: updateStudyMeeting
+      summary: Reschedule or rename a StudyMeeting using optimistic concurrency
+      security:
+        - SessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/ExpectedTenantID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateStudyMeetingRequest"
+      responses:
+        "200":
+          description: Updated StudyMeeting
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: private, no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StudyMeeting"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/calendar/study-meetings/{meeting_id}/cancel:
+    post:
+      operationId: cancelStudyMeeting
+      summary: Cancel a StudyMeeting owned by the authenticated member
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: meeting_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/ExpectedTenantID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CancelStudyMeetingRequest"
+      responses:
+        "200":
+          description: Cancelled StudyMeeting
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: private, no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StudyMeeting"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
   /api/v1/notification-preferences:
     get:
       operationId: getNotificationPreference
@@ -3552,7 +4429,43 @@ components:
       in: cookie
       name: tutorhub_session
       description: Opaque TutorHub BFF session cookie; secure deployments use the __Host- prefix.
+  parameters:
+    CSRFToken:
+      name: X-CSRF-Token
+      in: header
+      required: true
+      description: Double-submit CSRF token bound to the active authenticated session.
+      schema:
+        type: string
+        minLength: 16
+        maxLength: 512
+    ExpectedTenantID:
+      name: X-TutorHub-Expected-Tenant-ID
+      in: header
+      required: true
+      description: Active workspace assertion used to prevent confused-deputy mutations and reads.
+      schema:
+        type: string
+        format: uuid
+    PollID:
+      name: poll_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
   responses:
+    AvailabilityPollResponse:
+      description: Authorization-filtered availability poll projection
+      headers:
+        Cache-Control:
+          schema:
+            type: string
+            const: private, no-store
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/AvailabilityPoll"
     ProblemResponse:
       description: Request failed with a structured problem response
       content:
@@ -3612,6 +4525,10 @@ components:
         - session.start
         - session.end
         - session.join
+        - availability.poll.create
+        - availability.poll.manage_own
+        - availability.poll.publish_to_class
+        - study_meeting.schedule_own
         - participant.admit
         - participant.remove
         - media.publish
@@ -3928,6 +4845,7 @@ components:
         - class_session_scheduling
         - class_session_recurrence
         - in_app_notifications
+        - availability_polls
       properties:
         membership_invitations:
           $ref: "#/components/schemas/FeatureCapability"
@@ -3941,6 +4859,8 @@ components:
           $ref: "#/components/schemas/FeatureCapability"
         in_app_notifications:
           $ref: "#/components/schemas/FeatureCapability"
+        availability_polls:
+          $ref: "#/components/schemas/FeatureCapability"
     TenantQuotaCapabilities:
       type: object
       additionalProperties: false
@@ -3948,12 +4868,36 @@ components:
         - members
         - active_classes
         - invite_creations_per_hour
+        - active_availability_polls
+        - availability_poll_range_days
+        - availability_poll_slots
+        - availability_poll_participants
+        - availability_poll_creations_per_hour
+        - availability_poll_capability_creations_per_hour
+        - active_study_meetings
+        - study_meeting_creations_per_hour
       properties:
         members:
           $ref: "#/components/schemas/QuotaCapability"
         active_classes:
           $ref: "#/components/schemas/QuotaCapability"
         invite_creations_per_hour:
+          $ref: "#/components/schemas/QuotaCapability"
+        active_availability_polls:
+          $ref: "#/components/schemas/QuotaCapability"
+        availability_poll_range_days:
+          $ref: "#/components/schemas/QuotaCapability"
+        availability_poll_slots:
+          $ref: "#/components/schemas/QuotaCapability"
+        availability_poll_participants:
+          $ref: "#/components/schemas/QuotaCapability"
+        availability_poll_creations_per_hour:
+          $ref: "#/components/schemas/QuotaCapability"
+        availability_poll_capability_creations_per_hour:
+          $ref: "#/components/schemas/QuotaCapability"
+        active_study_meetings:
+          $ref: "#/components/schemas/QuotaCapability"
+        study_meeting_creations_per_hour:
           $ref: "#/components/schemas/QuotaCapability"
     TenantOperationCapabilities:
       type: object
@@ -3967,6 +4911,9 @@ components:
         - create_class_invite_link
         - join_class_invite_link
         - schedule_class_session
+        - create_availability_poll
+        - create_availability_poll_capability
+        - schedule_study_meeting
       properties:
         create_membership_invitation:
           $ref: "#/components/schemas/OperationCapability"
@@ -3983,6 +4930,12 @@ components:
         join_class_invite_link:
           $ref: "#/components/schemas/OperationCapability"
         schedule_class_session:
+          $ref: "#/components/schemas/OperationCapability"
+        create_availability_poll:
+          $ref: "#/components/schemas/OperationCapability"
+        create_availability_poll_capability:
+          $ref: "#/components/schemas/OperationCapability"
+        schedule_study_meeting:
           $ref: "#/components/schemas/OperationCapability"
     TenantCapabilities:
       type: object
@@ -4020,6 +4973,7 @@ components:
         - class_session_scheduling
         - class_session_recurrence
         - in_app_notifications
+        - availability_polls
       properties:
         membership_invitations:
           type: boolean
@@ -4032,6 +4986,8 @@ components:
         class_session_recurrence:
           type: boolean
         in_app_notifications:
+          type: boolean
+        availability_polls:
           type: boolean
     Notification:
       type: object
@@ -4210,6 +5166,14 @@ components:
         - members
         - active_classes
         - invite_creations_per_hour
+        - active_availability_polls
+        - availability_poll_range_days
+        - availability_poll_slots
+        - availability_poll_participants
+        - availability_poll_creations_per_hour
+        - availability_poll_capability_creations_per_hour
+        - active_study_meetings
+        - study_meeting_creations_per_hour
       properties:
         members:
           type: integer
@@ -4220,6 +5184,39 @@ components:
         invite_creations_per_hour:
           type: integer
           minimum: 1
+          maximum: 10000
+        active_availability_polls:
+          type: integer
+          minimum: 1
+          maximum: 200
+        availability_poll_range_days:
+          type: integer
+          minimum: 1
+          maximum: 90
+        availability_poll_slots:
+          type: integer
+          minimum: 1
+          maximum: 1000
+        availability_poll_participants:
+          type: integer
+          minimum: 1
+          maximum: 500
+        availability_poll_creations_per_hour:
+          type: integer
+          minimum: 1
+          maximum: 200
+        availability_poll_capability_creations_per_hour:
+          type: integer
+          minimum: 1
+          maximum: 1000
+        active_study_meetings:
+          type: integer
+          minimum: 1
+          maximum: 200
+        study_meeting_creations_per_hour:
+          type: integer
+          minimum: 1
+          maximum: 200
     UpdateTenantFeatureControlsRequest:
       type: object
       additionalProperties: false
@@ -4264,6 +5261,24 @@ components:
         - class.invite_code.revoke
         - class.invite_code.expire
         - class.invite_code.exhaust
+        - class.session.create
+        - class.session.update
+        - class.session.cancel
+        - class.session.audience.replace
+        - class.session.rsvp.respond
+        - availability.poll.create
+        - availability.poll.update
+        - availability.poll.open
+        - availability.poll.close
+        - availability.poll.reopen
+        - availability.poll.cancel
+        - availability.poll.respond
+        - availability.poll.share
+        - availability.poll.revoke
+        - availability.poll.finalize
+        - study_meeting.create
+        - study_meeting.update
+        - study_meeting.cancel
     AuditOutcome:
       type: string
       enum: [succeeded, denied, failed]
@@ -5284,6 +6299,1007 @@ components:
           oneOf:
             - $ref: "#/components/schemas/CalendarAvailabilityEmptySuggestionsReason"
             - type: "null"
+    AvailabilityPollShareMode:
+      type: string
+      enum: [class_members, invited_only, anyone_with_link]
+    AvailabilityPollStatus:
+      type: string
+      enum: [draft, open, closed, finalized, cancelled]
+    AvailabilityPollAnswerState:
+      type: string
+      enum: [preferred, available, unavailable]
+    AvailabilityPollParticipantKind:
+      type: string
+      enum: [internal_user, external_invitee]
+    AvailabilityPollParticipantStatus:
+      type: string
+      enum: [active, revoked]
+    AvailabilityPollCapabilityScope:
+      type: string
+      enum: [invited_participant, public_link]
+    AvailabilityPollAggregateBucket:
+      type: string
+      description: Coarse public aggregate; it intentionally does not reveal exact counts.
+      enum: [low, medium, high]
+    AvailabilityPollOutcomeType:
+      type: string
+      enum: [class_session, study_meeting]
+    AvailabilityPollSlotInput:
+      type: object
+      additionalProperties: false
+      required: [starts_at, ends_at]
+      properties:
+        starts_at:
+          type: string
+          format: date-time
+        ends_at:
+          type: string
+          format: date-time
+    AvailabilityPollSlot:
+      type: object
+      additionalProperties: false
+      required: [id, starts_at, ends_at, ordinal]
+      properties:
+        id:
+          type: string
+          format: uuid
+        starts_at:
+          type: string
+          format: date-time
+        ends_at:
+          type: string
+          format: date-time
+        ordinal:
+          type: integer
+          minimum: 0
+          maximum: 999
+    AvailabilityPollParticipantInput:
+      type: object
+      additionalProperties: false
+      required: [kind, internal_user_id]
+      properties:
+        kind:
+          $ref: "#/components/schemas/AvailabilityPollParticipantKind"
+        internal_user_id:
+          oneOf:
+            - type: string
+              format: uuid
+            - type: "null"
+    AvailabilityPollParticipant:
+      type: object
+      additionalProperties: false
+      required: [id, kind, internal_user_id, status, has_responded]
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          $ref: "#/components/schemas/AvailabilityPollParticipantKind"
+        internal_user_id:
+          oneOf:
+            - type: string
+              format: uuid
+            - type: "null"
+        status:
+          $ref: "#/components/schemas/AvailabilityPollParticipantStatus"
+        has_responded:
+          type: boolean
+    AvailabilityPollAnswerInput:
+      type: object
+      additionalProperties: false
+      required: [slot_id, state]
+      properties:
+        slot_id:
+          type: string
+          format: uuid
+        state:
+          $ref: "#/components/schemas/AvailabilityPollAnswerState"
+    AvailabilityPollAnswer:
+      type: object
+      additionalProperties: false
+      required: [slot_id, state]
+      properties:
+        slot_id:
+          type: string
+          format: uuid
+        state:
+          $ref: "#/components/schemas/AvailabilityPollAnswerState"
+    AvailabilityPollResponseProjection:
+      type: object
+      additionalProperties: false
+      required: [version, answers, submitted_at]
+      properties:
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 100
+        answers:
+          type: array
+          maxItems: 1000
+          items:
+            $ref: "#/components/schemas/AvailabilityPollAnswer"
+        submitted_at:
+          type: string
+          format: date-time
+    AvailabilityPollResponseActorType:
+      type: string
+      enum: [internal_member, external_session]
+    AvailabilityPollIndividualResponse:
+      type: object
+      additionalProperties: false
+      description: Organizer/safety-admin detail projection; never returned to ordinary participants or public responders.
+      required:
+        - response_id
+        - participant_id
+        - internal_user_id
+        - actor_type
+        - version
+        - answers
+        - submitted_at
+      properties:
+        response_id:
+          type: string
+          format: uuid
+        participant_id:
+          oneOf:
+            - type: string
+              format: uuid
+            - type: "null"
+        internal_user_id:
+          oneOf:
+            - type: string
+              format: uuid
+            - type: "null"
+        actor_type:
+          $ref: "#/components/schemas/AvailabilityPollResponseActorType"
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 100
+        answers:
+          type: array
+          maxItems: 1000
+          items:
+            $ref: "#/components/schemas/AvailabilityPollAnswer"
+        submitted_at:
+          type: string
+          format: date-time
+    AvailabilityPollIndividualResponsePage:
+      type: object
+      additionalProperties: false
+      required: [responses, next_cursor]
+      properties:
+        responses:
+          type: array
+          maxItems: 25
+          items:
+            $ref: "#/components/schemas/AvailabilityPollIndividualResponse"
+        next_cursor:
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 512
+            - type: "null"
+    AvailabilityPollViewerCapabilities:
+      type: object
+      additionalProperties: false
+      required:
+        - can_manage
+        - can_respond
+        - can_share
+        - can_finalize_class_session
+        - can_finalize_study_meeting
+        - can_view_exact_aggregate
+        - can_view_individual_responses
+      properties:
+        can_manage:
+          type: boolean
+        can_respond:
+          type: boolean
+        can_share:
+          type: boolean
+        can_finalize_class_session:
+          type: boolean
+        can_finalize_study_meeting:
+          type: boolean
+        can_view_exact_aggregate:
+          type: boolean
+        can_view_individual_responses:
+          type: boolean
+    AvailabilityPollOutcomeReference:
+      type: object
+      additionalProperties: false
+      required: [type, id]
+      properties:
+        type:
+          $ref: "#/components/schemas/AvailabilityPollOutcomeType"
+        id:
+          type: string
+          format: uuid
+    AvailabilityPollRankedSlot:
+      type: object
+      additionalProperties: false
+      required:
+        - slot
+        - rank
+        - cohort_satisfied
+        - aggregate_bucket
+        - unavailable_count
+        - preferred_count
+        - available_count
+      properties:
+        slot:
+          $ref: "#/components/schemas/AvailabilityPollSlot"
+        rank:
+          type: integer
+          minimum: 1
+          maximum: 1000
+        cohort_satisfied:
+          type: boolean
+        aggregate_bucket:
+          oneOf:
+            - $ref: "#/components/schemas/AvailabilityPollAggregateBucket"
+            - type: "null"
+        unavailable_count:
+          description: Exact owner-only value; null in participant/public projections.
+          oneOf:
+            - type: integer
+              minimum: 0
+              maximum: 500
+            - type: "null"
+        preferred_count:
+          description: Exact owner-only value; null in participant/public projections.
+          oneOf:
+            - type: integer
+              minimum: 0
+              maximum: 500
+            - type: "null"
+        available_count:
+          description: Exact owner-only value; null in participant/public projections.
+          oneOf:
+            - type: integer
+              minimum: 0
+              maximum: 500
+            - type: "null"
+    AvailabilityPoll:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - public_id
+        - class_id
+        - owner_user_id
+        - title
+        - description
+        - timezone
+        - range_start
+        - range_end
+        - working_day_start
+        - working_day_end
+        - duration_minutes
+        - slot_granularity_minutes
+        - deadline_at
+        - share_mode
+        - status
+        - version
+        - slots
+        - participants
+        - my_response
+        - viewer_capabilities
+        - outcome
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        public_id:
+          type: string
+          format: uuid
+        class_id:
+          oneOf:
+            - type: string
+              format: uuid
+            - type: "null"
+        owner_user_id:
+          type: string
+          format: uuid
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 4000
+        timezone:
+          type: string
+          minLength: 1
+          maxLength: 100
+        range_start:
+          type: string
+          format: date
+        range_end:
+          type: string
+          format: date
+        working_day_start:
+          type: string
+          format: time
+        working_day_end:
+          type: string
+          format: time
+        duration_minutes:
+          type: integer
+          minimum: 15
+          maximum: 480
+        slot_granularity_minutes:
+          type: integer
+          enum: [15, 30, 60]
+        deadline_at:
+          type: string
+          format: date-time
+        share_mode:
+          $ref: "#/components/schemas/AvailabilityPollShareMode"
+        status:
+          $ref: "#/components/schemas/AvailabilityPollStatus"
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+        slots:
+          type: array
+          minItems: 1
+          maxItems: 1000
+          items:
+            $ref: "#/components/schemas/AvailabilityPollSlot"
+        participants:
+          type: array
+          maxItems: 500
+          items:
+            $ref: "#/components/schemas/AvailabilityPollParticipant"
+        my_response:
+          oneOf:
+            - $ref: "#/components/schemas/AvailabilityPollResponseProjection"
+            - type: "null"
+        viewer_capabilities:
+          $ref: "#/components/schemas/AvailabilityPollViewerCapabilities"
+        outcome:
+          oneOf:
+            - $ref: "#/components/schemas/AvailabilityPollOutcomeReference"
+            - type: "null"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    AvailabilityPollListResponse:
+      type: object
+      additionalProperties: false
+      required: [polls]
+      properties:
+        polls:
+          type: array
+          maxItems: 100
+          items:
+            $ref: "#/components/schemas/AvailabilityPoll"
+    CreateAvailabilityPollRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - title
+        - description
+        - class_id
+        - timezone
+        - range_start
+        - range_end
+        - working_day_start
+        - working_day_end
+        - duration_minutes
+        - slot_granularity_minutes
+        - deadline_at
+        - share_mode
+        - slots
+        - participants
+        - idempotency_key
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 4000
+        class_id:
+          oneOf:
+            - type: string
+              format: uuid
+            - type: "null"
+        timezone:
+          type: string
+          minLength: 1
+          maxLength: 100
+        range_start:
+          type: string
+          format: date
+        range_end:
+          type: string
+          format: date
+        working_day_start:
+          type: string
+          format: time
+        working_day_end:
+          type: string
+          format: time
+        duration_minutes:
+          type: integer
+          minimum: 15
+          maximum: 480
+        slot_granularity_minutes:
+          type: integer
+          enum: [15, 30, 60]
+        deadline_at:
+          type: string
+          format: date-time
+        share_mode:
+          $ref: "#/components/schemas/AvailabilityPollShareMode"
+        slots:
+          type: array
+          minItems: 1
+          maxItems: 1000
+          items:
+            $ref: "#/components/schemas/AvailabilityPollSlotInput"
+        participants:
+          type: array
+          maxItems: 500
+          items:
+            $ref: "#/components/schemas/AvailabilityPollParticipantInput"
+        idempotency_key:
+          type: string
+          minLength: 8
+          maxLength: 128
+          pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+    UpdateAvailabilityPollRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - expected_version
+        - title
+        - description
+        - class_id
+        - timezone
+        - range_start
+        - range_end
+        - working_day_start
+        - working_day_end
+        - duration_minutes
+        - slot_granularity_minutes
+        - deadline_at
+        - share_mode
+        - slots
+        - participants
+      properties:
+        expected_version:
+          type: integer
+          format: int64
+          minimum: 1
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 4000
+        class_id:
+          oneOf:
+            - type: string
+              format: uuid
+            - type: "null"
+        timezone:
+          type: string
+          minLength: 1
+          maxLength: 100
+        range_start:
+          type: string
+          format: date
+        range_end:
+          type: string
+          format: date
+        working_day_start:
+          type: string
+          format: time
+        working_day_end:
+          type: string
+          format: time
+        duration_minutes:
+          type: integer
+          minimum: 15
+          maximum: 480
+        slot_granularity_minutes:
+          type: integer
+          enum: [15, 30, 60]
+        deadline_at:
+          type: string
+          format: date-time
+        share_mode:
+          $ref: "#/components/schemas/AvailabilityPollShareMode"
+        slots:
+          type: array
+          minItems: 1
+          maxItems: 1000
+          items:
+            $ref: "#/components/schemas/AvailabilityPollSlotInput"
+        participants:
+          type: array
+          maxItems: 500
+          items:
+            $ref: "#/components/schemas/AvailabilityPollParticipantInput"
+    AvailabilityPollVersionRequest:
+      type: object
+      additionalProperties: false
+      required: [expected_version]
+      properties:
+        expected_version:
+          type: integer
+          format: int64
+          minimum: 1
+    ReopenAvailabilityPollRequest:
+      type: object
+      additionalProperties: false
+      required: [expected_version, deadline_at]
+      properties:
+        expected_version:
+          type: integer
+          format: int64
+          minimum: 1
+        deadline_at:
+          type: string
+          format: date-time
+    CancelAvailabilityPollRequest:
+      type: object
+      additionalProperties: false
+      required: [expected_version, reason]
+      properties:
+        expected_version:
+          type: integer
+          format: int64
+          minimum: 1
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 256
+    RespondAvailabilityPollRequest:
+      type: object
+      additionalProperties: false
+      required: [expected_response_version, answers, idempotency_key]
+      properties:
+        expected_response_version:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 100
+        answers:
+          type: array
+          minItems: 1
+          maxItems: 1000
+          items:
+            $ref: "#/components/schemas/AvailabilityPollAnswerInput"
+        idempotency_key:
+          type: string
+          minLength: 8
+          maxLength: 128
+          pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+    AvailabilityPollSummary:
+      type: object
+      additionalProperties: false
+      required: [poll_id, poll_version, status, response_count, ranked_slots]
+      properties:
+        poll_id:
+          type: string
+          format: uuid
+        poll_version:
+          type: integer
+          format: int64
+          minimum: 1
+        status:
+          $ref: "#/components/schemas/AvailabilityPollStatus"
+        response_count:
+          description: Exact owner-only value; null in privacy-limited projections.
+          oneOf:
+            - type: integer
+              minimum: 0
+              maximum: 500
+            - type: "null"
+        ranked_slots:
+          type: array
+          maxItems: 1000
+          items:
+            $ref: "#/components/schemas/AvailabilityPollRankedSlot"
+    AvailabilityPollMutationResponse:
+      type: object
+      additionalProperties: false
+      required: [poll, summary]
+      properties:
+        poll:
+          $ref: "#/components/schemas/AvailabilityPoll"
+        summary:
+          $ref: "#/components/schemas/AvailabilityPollSummary"
+    FinalizeAvailabilityPollRequest:
+      type: object
+      additionalProperties: false
+      required:
+        [slot_id, outcome_type, class_id, expected_version, idempotency_key]
+      properties:
+        slot_id:
+          type: string
+          format: uuid
+        outcome_type:
+          $ref: "#/components/schemas/AvailabilityPollOutcomeType"
+        class_id:
+          oneOf:
+            - type: string
+              format: uuid
+            - type: "null"
+        expected_version:
+          type: integer
+          format: int64
+          minimum: 1
+        idempotency_key:
+          type: string
+          minLength: 8
+          maxLength: 128
+          pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+    AvailabilityPollCapability:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - poll_id
+        - participant_id
+        - scope
+        - expires_at
+        - revoked_at
+        - created_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        poll_id:
+          type: string
+          format: uuid
+        participant_id:
+          oneOf:
+            - type: string
+              format: uuid
+            - type: "null"
+        scope:
+          $ref: "#/components/schemas/AvailabilityPollCapabilityScope"
+        expires_at:
+          type: string
+          format: date-time
+        revoked_at:
+          oneOf:
+            - type: string
+              format: date-time
+            - type: "null"
+        created_at:
+          type: string
+          format: date-time
+    AvailabilityPollCapabilitySecret:
+      type: object
+      additionalProperties: false
+      required: [capability, raw_token, share_url]
+      properties:
+        capability:
+          $ref: "#/components/schemas/AvailabilityPollCapability"
+        raw_token:
+          type: string
+          minLength: 32
+          maxLength: 256
+          writeOnly: true
+        share_url:
+          type: string
+          format: uri
+          writeOnly: true
+    CreateAvailabilityPollCapabilityRequest:
+      type: object
+      additionalProperties: false
+      required: [scope, participant_id, expires_at, expected_version]
+      properties:
+        scope:
+          $ref: "#/components/schemas/AvailabilityPollCapabilityScope"
+        participant_id:
+          oneOf:
+            - type: string
+              format: uuid
+            - type: "null"
+        expires_at:
+          type: string
+          format: date-time
+        expected_version:
+          type: integer
+          format: int64
+          minimum: 1
+    RevokeAvailabilityPollCapabilityRequest:
+      type: object
+      additionalProperties: false
+      required: [expected_version, reason]
+      properties:
+        expected_version:
+          type: integer
+          format: int64
+          minimum: 1
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 256
+    ResolvePublicAvailabilityPollRequest:
+      type: object
+      additionalProperties: false
+      required: [public_id, token]
+      properties:
+        public_id:
+          type: string
+          format: uuid
+        token:
+          type: string
+          minLength: 32
+          maxLength: 256
+          writeOnly: true
+    PublicAvailabilityPoll:
+      type: object
+      additionalProperties: false
+      description: Deliberately excludes tenant, class, owner, roster, email, exact counts, and individual responses.
+      required:
+        - public_id
+        - title
+        - description
+        - timezone
+        - deadline_at
+        - status
+        - slots
+        - my_response
+        - ranked_slots
+      properties:
+        public_id:
+          type: string
+          format: uuid
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 4000
+        timezone:
+          type: string
+          minLength: 1
+          maxLength: 100
+        deadline_at:
+          type: string
+          format: date-time
+        status:
+          $ref: "#/components/schemas/AvailabilityPollStatus"
+        slots:
+          type: array
+          maxItems: 1000
+          items:
+            $ref: "#/components/schemas/AvailabilityPollSlot"
+        my_response:
+          oneOf:
+            - $ref: "#/components/schemas/AvailabilityPollResponseProjection"
+            - type: "null"
+        ranked_slots:
+          type: array
+          maxItems: 1000
+          items:
+            $ref: "#/components/schemas/AvailabilityPollRankedSlot"
+    PublicAvailabilityPollExchange:
+      type: object
+      additionalProperties: false
+      required: [poll, response_token, response_token_expires_at]
+      properties:
+        poll:
+          $ref: "#/components/schemas/PublicAvailabilityPoll"
+        response_token:
+          type: string
+          minLength: 32
+          maxLength: 256
+          writeOnly: true
+        response_token_expires_at:
+          type: string
+          format: date-time
+    RespondPublicAvailabilityPollRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - public_id
+        - response_token
+        - expected_response_version
+        - answers
+        - idempotency_key
+      properties:
+        public_id:
+          type: string
+          format: uuid
+        response_token:
+          type: string
+          minLength: 32
+          maxLength: 256
+          writeOnly: true
+        expected_response_version:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 100
+        answers:
+          type: array
+          minItems: 1
+          maxItems: 1000
+          items:
+            $ref: "#/components/schemas/AvailabilityPollAnswerInput"
+        idempotency_key:
+          type: string
+          minLength: 8
+          maxLength: 128
+          pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+    PublicAvailabilityPollMutationResponse:
+      type: object
+      additionalProperties: false
+      required: [poll]
+      properties:
+        poll:
+          $ref: "#/components/schemas/PublicAvailabilityPoll"
+    StudyMeetingStatus:
+      type: string
+      enum: [scheduled, cancelled]
+    StudyMeeting:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - class_id
+        - owner_user_id
+        - source_poll_id
+        - title
+        - starts_at
+        - ends_at
+        - timezone
+        - status
+        - version
+        - cancelled_at
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        class_id:
+          oneOf:
+            - type: string
+              format: uuid
+            - type: "null"
+        owner_user_id:
+          type: string
+          format: uuid
+        source_poll_id:
+          oneOf:
+            - type: string
+              format: uuid
+            - type: "null"
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        starts_at:
+          type: string
+          format: date-time
+        ends_at:
+          type: string
+          format: date-time
+        timezone:
+          type: string
+          minLength: 1
+          maxLength: 100
+        status:
+          $ref: "#/components/schemas/StudyMeetingStatus"
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+        cancelled_at:
+          oneOf:
+            - type: string
+              format: date-time
+            - type: "null"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    StudyMeetingListResponse:
+      type: object
+      additionalProperties: false
+      required: [meetings]
+      properties:
+        meetings:
+          type: array
+          maxItems: 100
+          items:
+            $ref: "#/components/schemas/StudyMeeting"
+    CreateStudyMeetingRequest:
+      type: object
+      additionalProperties: false
+      required: [class_id, title, starts_at, ends_at, timezone, idempotency_key]
+      properties:
+        class_id:
+          oneOf:
+            - type: string
+              format: uuid
+            - type: "null"
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        starts_at:
+          type: string
+          format: date-time
+        ends_at:
+          type: string
+          format: date-time
+        timezone:
+          type: string
+          minLength: 1
+          maxLength: 100
+        idempotency_key:
+          type: string
+          minLength: 8
+          maxLength: 128
+          pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+    UpdateStudyMeetingRequest:
+      type: object
+      additionalProperties: false
+      required:
+        [expected_version, class_id, title, starts_at, ends_at, timezone]
+      properties:
+        expected_version:
+          type: integer
+          format: int64
+          minimum: 1
+        class_id:
+          oneOf:
+            - type: string
+              format: uuid
+            - type: "null"
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        starts_at:
+          type: string
+          format: date-time
+        ends_at:
+          type: string
+          format: date-time
+        timezone:
+          type: string
+          minLength: 1
+          maxLength: 100
+    CancelStudyMeetingRequest:
+      type: object
+      additionalProperties: false
+      required: [expected_version, reason]
+      properties:
+        expected_version:
+          type: integer
+          format: int64
+          minimum: 1
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 256
     ClassSessionStatus:
       type: string
       description: P3-01 exposes only the one-time scheduled-to-cancelled lifecycle.
