@@ -56,8 +56,8 @@ chỉnh; task này không copy ciphertext invitation hoặc mở rộng delivery
 
 ### Disposable database checkpoint — 2026-08-02
 
-- Ba URL database được nạp trong cùng command kiểm thử; không ghi URL, password, role name,
-  token hoặc fixture payload vào log/artifact.
+- Các URL database cần cho probe được nạp trong cùng command kiểm thử có credential; không
+  ghi URL, password, role name, token hoặc fixture payload vào log/artifact.
 - Maintenance role đã được đồng bộ password từ `DATABASE_POLL_MAINTENANCE_URL`; login sau
   sync thành công. Exact metadata matrix và Core API runtime ACL đều đã được probe.
 - `FOR UPDATE SKIP LOCKED` và `purge_expired_availability_polls(1)` cùng trả `42501` vì

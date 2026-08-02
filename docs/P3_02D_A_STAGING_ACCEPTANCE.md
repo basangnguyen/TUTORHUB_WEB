@@ -58,8 +58,8 @@ không được suy ra từ unit test/mock hoặc local production build.
 
 The operator-confirmed disposable migration sequence is `21 false -> 22 false -> 21 false ->
 22 false`; the final state is `22 false`, and a repeat migrate is idempotent. The three
-database URLs were loaded inside each test command and no URL, password, role name or
-fixture payload was recorded.
+required database URLs were loaded inside the credential-bearing probe command and no URL,
+password, role name or fixture payload was recorded.
 
 - Exact Core API runtime ACL: `RUNTIME_ACL_PROVISION=PASS`,
   `RUNTIME_ACL_EFFECTIVE_MATRIX=PASS`, `RUNTIME_ROLE_SAFETY=PASS`.
