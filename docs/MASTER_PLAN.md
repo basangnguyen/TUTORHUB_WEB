@@ -1380,18 +1380,20 @@ live trên Render/Cloudflare. Không mở thêm gate P3-02C trong tài liệu n�
 production vẫn phụ thuộc P3-CAL-02/P3-03B/P3-05A.
 
 P3-02D-A đã có vertical slice local và chuyển `TODO -> VERIFY` ngày 2026-08-01:
-migration `000022`, normalized poll/response/capability/Study Meeting persistence,
+migration `000022/000023`, normalized poll/response/capability/Study Meeting persistence,
 OpenAPI/generated client, organizer/public UI, manual lifecycle, ranking/finalize,
 secure link exchange, privacy projection, owner-time conflict, quota/hard cap và
-audit/outbox. Migration/ACL/cascade trên PostgreSQL thật, Neon/Render/Cloudflare staging,
-browser authorization/privacy và manual accessibility vẫn là gate mở; vì vậy task chưa
-`DONE`. P3-02D-B auto-close/fan-out/delivery và Phase 4 LiveKit lifecycle không thuộc
-vertical slice này, chưa được triển khai hoặc bật.
+audit/outbox. Disposable đã forward tới `23 false`; exact runtime/maintenance ACL,
+cascade/concurrency, poll ownership/quota/isolation/capability và Calendar PostgreSQL
+integration đều PASS. Neon/Render/Cloudflare staging, browser authorization/privacy và
+manual accessibility vẫn là gate mở; vì vậy task chưa `DONE`. P3-02D-B auto-close/
+fan-out/delivery và Phase 4 LiveKit lifecycle không thuộc vertical slice này, chưa được
+triển khai hoặc bật.
 
 Cross-writer code gate đã được harden local: Study Meeting và ClassSession/series/audience/
 organizer-transfer writer chia sẻ advisory authority theo tenant/user và reverse-check
-trong transaction. Two-writer PostgreSQL barrier đã được mã hóa nhưng chưa chạy trên host
-có database integration URL, nên concurrency acceptance vẫn mở và P3-02D-A chưa `DONE`.
+trong transaction. Two-writer PostgreSQL barrier thật đã PASS trên disposable; staging/browser
+acceptance vẫn mở nên P3-02D-A chưa `DONE`.
 
 **Mục tiêu:** trước khi có classroom phức tạp, người dùng đã quản lý được lịch, tin nhắn và tài liệu.
 
@@ -1952,8 +1954,10 @@ Một tính năng chỉ được đánh dấu hoàn thành khi:
      Cloudflare. Email/ICS production không được suy ra từ gate này và vẫn chờ
      P3-CAL-02/P3-03B/P3-05A.
 13. ADR-0021 đã `Accepted`; `P3-02D-A` đã có implementation local ở `VERIFY` sau
-     P3-02B/C và không phụ thuộc When2meet hoặc durable worker. Migration `000022`, exact
-     runtime/maintenance ACL, hard-retention cascade và staging/manual acceptance còn mở.
+     P3-02B/C và không phụ thuộc When2meet hoặc durable worker. Disposable đã forward
+     `000022 -> 000023` tới `23 false`; exact runtime/maintenance ACL, hard-retention cascade,
+     poll/capability và concurrency gates đều PASS. Shared staging/browser/manual acceptance
+     còn mở; không rollback thêm và không xóa disposable branch trước sign-off.
      `P3-02D-B` (auto-close/fan-out/delivery) chờ P3-03B/P3-04 activation và được ghi vào
      carry-over register; P3-05B là delivery adapter downstream.
 14. Sau P3-02D-A staging acceptance, runnable lane tiếp tục với P3-06 conversation core.
@@ -2024,8 +2028,8 @@ class conflict đã `DONE`; P3-02C working hours/attendee/free-busy/RSVP đã `D
 2026-07-30 tại commit `7859c233` sau migration `000020/000021`, exact runtime ACL,
 concurrent/IDOR, Calendar E2E `11/11` và staging/manual acceptance. P3-02D-A Native
 Availability Poll/Study Meeting core đã có implementation local ở `VERIFY`; cross-writer
-code đã harden, bước bắt buộc tiếp theo là chạy PostgreSQL barrier cùng migration
-`000022`/exact ACL/staging acceptance, rồi P3-06. Không bật
+code đã harden và disposable `23 false` đã PASS toàn bộ database gates. Bước bắt buộc tiếp
+theo là owner sign-off, rồi shared staging/browser/manual acceptance và P3-06. Không bật
 side effect chỉ vì core đã có. `P3-02D-B` và các gate worker/provider vẫn là carry-over.
 AWS SES đã được chọn làm provider target nhưng
 P3-CAL-02/ADR-0020 vẫn giữ các gate live email/ICS chưa nghiệm thu; chưa có domain hoặc

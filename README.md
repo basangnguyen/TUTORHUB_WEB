@@ -30,8 +30,9 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
   end-user side effect trước khi durable acceptance đạt.
 - ADR-0021 đã `Accepted` để P3-02D xây Native Availability Poll do TutorHub sở hữu:
   active member gồm student có thể tạo poll/Study Meeting của mình; secure public link
-  không phải booking và không phụ thuộc When2meet. Đây mới là architecture/backlog,
-  chưa có runtime.
+  không phải booking và không phụ thuộc When2meet. P3-02D-A đã có vertical slice local ở
+  `VERIFY`; disposable đã forward `000022 -> 000023` tới `23 false` và toàn bộ database
+  gate đã PASS, còn shared staging/browser/manual acceptance chưa chạy.
 - AWS SES đã được owner chọn làm transactional email provider target cho Phase 3.
   P3-CAL-02/ADR-0020 vẫn phải xác minh account/region/sandbox/quota, adapter, webhook và
   deliverability; trước khi có domain chỉ được thử bằng identity cá nhân do owner kiểm
@@ -49,9 +50,10 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
   P3-04 activation, P3-CAL-02 live SES/domain/interoperability, P3-05A/B delivery,
   P3-10 và P3-11B processing UX phụ thuộc worker. Cho đến khi các gate này đóng,
   notification/email/reminder và Class Files sharing/processing tới end user vẫn giữ tắt.
-- **Task runnable tiếp theo:** P3-02D-A Native Availability Poll và Study Meeting
-  core. P3-02D-B lifecycle delivery và các gate hạ tầng/provider là carry-over; chúng
-  có thể tiếp tục chính xác sau khi Phase 4 đã bắt đầu.
+- **Task runnable tiếp theo:** owner sign-off báo cáo disposable, sau đó mới forward shared
+  staging tới `23 false` và chạy P3-02D-A staging/browser/manual acceptance. P3-02D-B lifecycle
+  delivery và các gate hạ tầng/provider là carry-over; chúng có thể tiếp tục chính xác sau
+  khi Phase 4 bắt đầu.
 - Web MVP nền đã chạy trên staging: Cloudflare Pages -> same-origin `/api/*` -> Go
   Core API trên Render; dữ liệu dùng Neon, file dùng Backblaze B2, media dùng LiveKit
   Cloud và xác thực dùng ZITADEL.
@@ -101,6 +103,8 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
 34. [ADR-0019: Calendar renderer, bounded recurrence và conflict authority](docs/adr/0019-calendar-renderer-recurrence-and-conflict.md)
 35. [ADR-0021: Native Availability Poll và member-owned Study Meeting](docs/adr/0021-native-availability-polls-and-member-owned-study-meetings.md)
 36. [ADR-0022: Tenant-scoped in-app notification projection và preference](docs/adr/0022-tenant-scoped-in-app-notification-projection.md)
+37. [ADR-0023: Calendar working schedule, free/busy và RSVP authority](docs/adr/0023-calendar-working-schedule-free-busy-and-rsvp-authority.md)
+38. [ADR-0024: Forward-only security correction cho Availability Poll maintenance purge](docs/adr/0024-forward-maintenance-purge-security.md)
 
 Các quyết định kiến trúc đã chấp nhận nằm trong `docs/adr`.
 

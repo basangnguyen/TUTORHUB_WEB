@@ -15,7 +15,7 @@
 | Task `DONE` gần nhất | P3-02C Working hours, attendee/free-busy và RSVP                                  |
 | Mốc repository mới | P3-02C runtime acceptance commit `7859c233` Live trên Render và Cloudflare         |
 | Task hiện tại       | P3-02D-A Native Availability Poll/Study Meeting core ở `VERIFY`                 |
-| Task tiếp theo      | Review forward fix cho maintenance purge trên disposable, rồi mới chạy lại các gate còn lại |
+| Task tiếp theo      | Báo cáo disposable; chỉ sau owner sign-off mới forward shared staging `23 false` và chạy staging/browser gates |
 
 ### Cập nhật P3-02D-A ngày 2026-08-01
 
@@ -28,11 +28,19 @@ trang riêng và chỉ mở cho owner, safety admin hoặc class member có auth
 `session.schedule`; poll/public projection không nhúng dữ liệu này.
 
 `VERIFY` không phải `DONE`: disposable đã xác nhận migration `000022` qua chuỗi up/down/up
-`21 false -> 22 false -> 21 false -> 22 false`, trạng thái cuối `22 false` và migrate lặp
-idempotent. Exact runtime ACL đã PASS, nhưng maintenance purge bị chặn bởi SQLSTATE `42501`
-trong cả locking query và function; cascade/downstream gates, deploy Render/Cloudflare và
-staging authorization/privacy/concurrency/accessibility smoke chưa có sign-off. Hồ sơ thực thi nằm tại
+`21 false -> 22 false -> 21 false -> 22 false`, sau đó forward `000023` và migrate lặp
+idempotent đều ở `23 false`. Exact runtime/maintenance ACL, maintenance cascade/`SKIP LOCKED`,
+poll ownership/quota/isolation/capability, StudyMeeting/ClassSession barrier, feature quota/rate
+concurrency và full Calendar PostgreSQL package đã PASS. Shared staging, deploy Render/Cloudflare
+và staging authorization/privacy/concurrency/accessibility smoke chưa có sign-off. Hồ sơ thực thi nằm tại
 [`P3_02D_A_STAGING_ACCEPTANCE.md`](P3_02D_A_STAGING_ACCEPTANCE.md).
+
+Security/architecture review ngày 2026-08-02 đã chấp nhận ADR-0024 và áp dụng migration
+forward-only `000023`: purge function chuyển sang `SECURITY DEFINER`, fixed
+`search_path = pg_catalog, pg_temp`, schema-qualified body, không dynamic SQL và revoke
+`PUBLIC`. Maintenance contract sau provisioning chỉ còn schema `USAGE` + function
+`EXECUTE`; không cấp direct table/column privilege. Disposable đã ở `23 false`; không có
+rollback `000022` thêm.
 
 P3-02D-B tiếp tục `DEFERRED/TODO`. Deadline worker auto-close, roster fan-out, email/ICS,
 notification/reminder delivery và LiveKit room lifecycle đều chưa được bật; các feature/
@@ -44,8 +52,9 @@ chung legacy-compatible advisory key theo tenant/user, khóa UUID theo thứ t�
 reverse-check scheduled StudyMeeting trong cùng transaction. HTTP trả conflict generic,
 không lộ meeting riêng tư. Full `go test -count=1 ./...`, `go vet ./...`,
 `corepack pnpm verify`, focused test và integration-tag compile đã đạt. Barrier hai writer
-thật cùng các gate downstream chưa chạy vì runbook yêu cầu dừng tại maintenance `42501`;
-P3-02D-A tiếp tục giữ `VERIFY` và không được migrate shared staging/deploy.
+thật, exact runtime ACL probe, poll ownership/capability test, maintenance cascade và
+feature-control concurrency đều PASS trên disposable; P3-02D-A tiếp tục giữ `VERIFY` cho
+tới staging/browser/manual sign-off.
 
 Gap kề cạnh được phát hiện khi harden recurring split: child series giờ giữ đúng organizer
 đã transfer thay vì mặc định thành mutation actor, nhưng audience/participation settings
@@ -58,13 +67,21 @@ chỉnh; task này không copy ciphertext invitation hoặc mở rộng delivery
 
 - Các URL database cần cho probe được nạp trong cùng command kiểm thử có credential; không
   ghi URL, password, role name, token hoặc fixture payload vào log/artifact.
-- Maintenance role đã được đồng bộ password từ `DATABASE_POLL_MAINTENANCE_URL`; login sau
-  sync thành công. Exact metadata matrix và Core API runtime ACL đều đã được probe.
-- `FOR UPDATE SKIP LOCKED` và `purge_expired_availability_polls(1)` cùng trả `42501` vì
-  function `SECURITY INVOKER` cần quyền lock không có trong exact matrix. Fixture tạm đã
-  cleanup thành công.
-- Theo runbook, không cấp thêm wildcard/`UPDATE`, không rollback, không chạy gate 3–6,
-  không migrate shared staging/deploy và giữ disposable branch để review forward migration.
+- Owner preflight trước forward: `ENV_LOAD=PASS`, `OWNER_PREFLIGHT=PASS`; chỉ ghi nhận
+  `OWNER_ADMIN_RESIDUAL=true` ở migration owner, không truyền sang runtime/maintenance.
+- Disposable đã forward `22 false -> 23 false`; migrate lặp idempotent vẫn `23 false`. Không
+  rollback thêm, không migrate/deploy shared staging và giữ nguyên disposable branch.
+- Maintenance role đã đồng bộ password từ `DATABASE_POLL_MAINTENANCE_URL`; login và
+  re-provision exact ACL đều PASS. Function metadata, direct-DML denial, cascade/detach và
+  `SKIP LOCKED` đều PASS dưới maintenance credential.
+- Exact Core API runtime ACL/role safety, poll ownership/quota/tenant isolation/capability
+  lifecycle/privacy/rate, StudyMeeting/ClassSession barrier và feature-control quota/rate
+  concurrency đều PASS trên PostgreSQL thật. Full Calendar integration package PASS.
+- Full Classroom/feature-control package còn test debt ngoài gate: một số assertion dùng
+  runtime login để `SELECT outbox_events` trái exact insert-only ACL và ba fixture/lifecycle
+  Classroom không thuộc P3-02D-A còn đỏ. Không nới ACL; targeted barrier nêu trên đã PASS.
+- Shared staging vẫn giữ nguyên `21 false`; Render/Cloudflare/browser/manual accessibility
+  gates chưa chạy cho P3-02D-A.
 
 ### Mô hình thoát Phase 3 (re-baseline 2026-07-31)
 
@@ -662,7 +679,7 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
   Poll vẫn thuộc P3-CAL-02, P3-02D và P3-05A/B; Calendar chưa phải toàn bộ sản phẩm cuối
   cùng cho đến khi các phạm vi đó đạt gate.
 - P3-02D-A đã có schema/API/UI/capability exchange và automated authorization/privacy
-  coverage ở local, nhưng vẫn là `VERIFY` cho tới khi migration `000022`, exact ACL,
+  coverage ở local, nhưng vẫn là `VERIFY` cho tới khi migration `000023`, exact ACL,
   PostgreSQL concurrency/cascade, staging browser và manual accessibility/privacy đạt.
   Không được mô tả Availability Poll/Study Meeting như chức năng production đã chạy.
 - External poll link có rủi ro token/PII leak và abuse. Local implementation dùng token
@@ -775,3 +792,4 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
 - `docs/adr/0021-native-availability-polls-and-member-owned-study-meetings.md`
 - `docs/adr/0022-tenant-scoped-in-app-notification-projection.md`
 - `docs/adr/0023-calendar-working-schedule-free-busy-and-rsvp-authority.md`
+- `docs/adr/0024-forward-maintenance-purge-security.md`

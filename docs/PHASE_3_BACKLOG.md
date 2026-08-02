@@ -756,7 +756,7 @@ P3-04 activation đạt gate; P3-05B là delivery adapter downstream.
       Public aggregate dùng coarse bucket/không lộ exact responder count; anonymous
       dedupe chỉ theo response handle + idempotency key, không tuyên bố one-human-one-vote.
       Hard-retention/purge, uniform error và token/prefix/poll rate limit đã có trong local
-      implementation; PostgreSQL/ACL/cascade acceptance còn mở.
+      implementation; PostgreSQL/ACL/cascade acceptance disposable đã PASS.
 - [x] External link dùng high-entropy token hash-at-rest, expiry/revoke/scope/rate limit,
       URL fragment exchange, `history.replaceState`, `no-referrer`, `no-store`, `noindex`
       cùng strict CSP/no third-party pre-exchange và log/analytics redaction.
@@ -773,21 +773,25 @@ P3-04 activation đạt gate; P3-05B là delivery adapter downstream.
       Fan-out cap/enforcement thuộc P3-02D-B.
 - [x] Open/share/close/reopen/cancel/finalize thủ công ghi audit + outbox; P3-05B phân phối
       email/fan-out sau commit và provider failure không rollback nghiệp vụ (carry-over).
-- [ ] Chạy migration `000022` up/down/up trên disposable PostgreSQL, cấp và đối chiếu exact
-      runtime/maintenance grants, chứng minh hard-retention cascade, quota/concurrency/
-      tenant isolation, rồi hoàn tất Render/Cloudflare browser, privacy và manual a11y
-      acceptance theo `P3_02D_A_STAGING_ACCEPTANCE.md`; chỉ khi đó mới chuyển `DONE`.
-- **Disposable checkpoint 2026-08-02:** migration `000022` up/down/up (`21 false -> 22
-  false -> 21 false -> 22 false`) và exact Core API runtime ACL đã PASS. Maintenance
-  metadata matrix/login PASS nhưng locking query và purge function đều trả SQLSTATE `42501`
-  do `SECURITY INVOKER` thiếu quyền lock trong exact maintenance matrix. Theo runbook,
-  cascade và các gate downstream chưa chạy; không cấp thêm `UPDATE`, không rollback và
-  không migrate/deploy shared staging cho tới khi có forward migration được review.
+- [x] Chạy migration `000022` up/down/up trên disposable PostgreSQL và đối chiếu exact
+      Core API runtime ACL.
+- [x] Forward disposable `22 -> 23`, re-provision maintenance chỉ còn schema `USAGE` +
+      function `EXECUTE`, chứng minh hard-retention cascade, quota/concurrency/tenant
+      isolation và capability lifecycle trên PostgreSQL thật.
+- [ ] Hoàn tất Render/Cloudflare browser, privacy và manual a11y acceptance theo
+      `P3_02D_A_STAGING_ACCEPTANCE.md`; chỉ khi đó mới chuyển `DONE`.
+- **Disposable checkpoint 2026-08-02:** migration lịch sử (`21 false -> 22 false -> 21 false
+  -> 22 false`) và forward `22 false -> 23 false` idempotent đều PASS. Owner preflight,
+  exact Core API runtime ACL, maintenance re-provision/login, hard-retention cascade/
+  `SKIP LOCKED`, poll ownership/quota/tenant isolation/capability privacy/rate,
+  StudyMeeting/ClassSession barrier, feature-control concurrency và full Calendar
+  integration package đều PASS. Không rollback thêm, không migrate/deploy shared staging;
+  disposable branch được giữ lại.
 - [x] Harden cross-writer code: Study Meeting, one-time/recurring ClassSession, internal
       audience addition và organizer transfer dùng chung advisory authority theo
       tenant/user, stable UUID lock order và reverse StudyMeeting recheck. PostgreSQL
-      two-writer barrier test đã có nhưng việc chạy thật vẫn thuộc concurrency gate ở mục
-      migration/acceptance phía trên; local compile không được ghi là barrier PASS.
+      two-writer barrier thật đã PASS trên disposable: đúng một writer commit, writer còn
+      lại nhận conflict.
 - [ ] Following-split audience continuity: child đã giữ authoritative organizer, nhưng
       audience/participation settings chưa được copy/re-seal từ parent. Xử lý regression
       riêng bằng business snapshot path; không raw-copy protected invitation ciphertext.
@@ -1138,8 +1142,9 @@ một tuần.
    và Gmail/Outlook/Apple matrix còn `BLOCKED/VERIFY`, chưa bật business delivery.
 6. P3-02A/P3-02B/P3-02C đã `DONE`; working-hours, free-busy, audience và RSVP core đã
    qua local/staging/manual gate. P3-02D-A poll/StudyMeeting core hiện ở `VERIFY`;
-   cross-writer code đã harden, còn phải chạy PostgreSQL barrier, hoàn tất migration
-   `000022`, exact ACL và staging/manual acceptance rồi tiếp tục P3-06.
+   cross-writer code đã harden, `000022` disposable/runtime ACL đã đạt và `000023` forward
+   fix đã chuẩn bị; còn phải forward/probe `000023`, chạy PostgreSQL barrier, exact ACL và
+   staging/manual acceptance rồi tiếp tục P3-06.
    Task này không chờ P3-03B và không bật delivery side effect.
 7. P3-03B/P3-04, P3-CAL-02/P3-05A và P3-02D-B/P3-05B tiếp tục ở carry-over. Đóng
    `P3-14-CORE` sau lane runnable cho phép bắt đầu Phase 4; full P3-14 vẫn chờ các gate này.

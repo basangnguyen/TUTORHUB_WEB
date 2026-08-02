@@ -346,6 +346,70 @@ func TestAvailabilityPollMigrationContainsNormalizedTenantPrivacyAndQuotaGuards(
 	}
 }
 
+func TestAvailabilityPollMaintenanceSecurityCorrectionIsForwardOnly(t *testing.T) {
+	t.Parallel()
+
+	upContents, err := os.ReadFile(filepath.Join(
+		"..", "..", "..", "migrations", "000023_availability_poll_maintenance_security.up.sql",
+	))
+	if err != nil {
+		t.Fatal(err)
+	}
+	upSQL := string(upContents)
+	for _, fragment := range []string{
+		"CREATE OR REPLACE FUNCTION tutorhub.purge_expired_availability_polls(batch_size integer DEFAULT 100)",
+		"SECURITY DEFINER",
+		"SET search_path = pg_catalog, pg_temp",
+		"batch_size IS NULL OR batch_size < 1 OR batch_size > 1000",
+		"USING ERRCODE = '22023'",
+		"pg_catalog.clock_timestamp()",
+		"FOR UPDATE SKIP LOCKED",
+		"LIMIT batch_size",
+		"SET source_poll_id = NULL",
+		"DELETE FROM tutorhub.availability_polls",
+		"RETURN deleted_count",
+		"REVOKE ALL ON FUNCTION tutorhub.purge_expired_availability_polls(integer) FROM PUBLIC",
+		"COMMENT ON FUNCTION tutorhub.purge_expired_availability_polls(integer)",
+	} {
+		if !strings.Contains(upSQL, fragment) {
+			t.Fatalf("000023 maintenance security migration is missing %q", fragment)
+		}
+	}
+	if strings.Contains(strings.ToUpper(upSQL), "GRANT UPDATE") ||
+		strings.Contains(strings.ToUpper(upSQL), "EXECUTE IMMEDIATE") {
+		t.Fatal("000023 must not widen caller table privileges or add dynamic SQL")
+	}
+	for _, relation := range []string{
+		"tutorhub.availability_polls",
+		"tutorhub.study_meetings",
+	} {
+		if !strings.Contains(upSQL, relation) {
+			t.Fatalf("000023 function body must schema-qualify %q", relation)
+		}
+	}
+
+	downContents, err := os.ReadFile(filepath.Join(
+		"..", "..", "..", "migrations", "000023_availability_poll_maintenance_security.down.sql",
+	))
+	if err != nil {
+		t.Fatal(err)
+	}
+	downSQL := string(downContents)
+	for _, fragment := range []string{
+		"000023",
+		"fails closed",
+		"REVOKE ALL ON FUNCTION tutorhub.purge_expired_availability_polls(integer) FROM PUBLIC",
+		"DROP FUNCTION IF EXISTS tutorhub.purge_expired_availability_polls(integer)",
+	} {
+		if !strings.Contains(downSQL, fragment) {
+			t.Fatalf("000023 guarded down migration is missing %q", fragment)
+		}
+	}
+	if strings.Contains(downSQL, "CREATE FUNCTION") || strings.Contains(downSQL, "SECURITY INVOKER") {
+		t.Fatal("000023 down must disable maintenance instead of restoring the invoker contract")
+	}
+}
+
 func TestAvailabilityPollDownMigrationGuardsExternalOutcomeAndRestoresCatalog(t *testing.T) {
 	t.Parallel()
 

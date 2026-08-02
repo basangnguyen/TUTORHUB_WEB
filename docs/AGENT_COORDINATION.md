@@ -87,7 +87,7 @@ live; rollback bằng specific commit giữ cấu hình hiện tại là bằng 
 | P3-CAL-01 Spike + ADR-0019           | DONE        | V7 được chấp nhận; manual NVDA gate PASS      |
 | P3-01 Session scheduling và timezone | DONE        | One-time session staging acceptance đạt       |
 | P3-CAL-02 Email/ICS + ADR-0020       | VERIFY      | Local renderer/sink/SES adapter; live SES/domain gates mở |
-| P3-02D-A Native Availability Poll    | VERIFY      | Core + cross-writer hardening local; DB/staging gates mở |
+| P3-02D-A Native Availability Poll    | VERIFY      | Disposable DB gates PASS ở `23 false`; shared staging/browser/manual còn mở |
 | P3-02D-B Poll lifecycle delivery     | DEFERRED/TODO | Chưa code; auto-close/fan-out chờ worker      |
 | P3-03A Worker repository foundation  | VERIFY      | Implementation local/CI đã có                 |
 | P3-03B Durable worker acceptance     | DEFERRED/VERIFY | Host/role/grants/crash gate mở             |

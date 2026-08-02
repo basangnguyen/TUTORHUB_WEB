@@ -291,7 +291,8 @@ WHERE tenant_id = $1 AND status IN ('draft', 'open', 'closed')`,
 )
 VALUES (
     $1, $2, $3, $4, $5, $6, $7::date, $8::date, $9::time, $10::time,
-    $11, $12, $13, $14, $13 + interval '180 days', $15, $16, $17, $17
+    $11, $12, $13::timestamptz, $14,
+    $13::timestamptz + interval '180 days', $15, $16, $17, $17
 )
 RETURNING id, public_id, class_id, owner_user_id, title, description,
           timezone, range_start::text, range_end::text,
@@ -591,8 +592,9 @@ SET class_id = $4, title = $5, description = $6, timezone = $7,
     range_start = $8::date, range_end = $9::date,
     working_day_start = $10::time, working_day_end = $11::time,
     duration_minutes = $12, slot_granularity_minutes = $13,
-    deadline_at = $14, share_mode = $15, version = version + 1,
-    retention_until = $14 + interval '180 days', updated_at = $16
+    deadline_at = $14::timestamptz, share_mode = $15, version = version + 1,
+    retention_until = $14::timestamptz + interval '180 days',
+    updated_at = $16::timestamptz
 WHERE tenant_id = $1 AND id = $2 AND version = $3
 RETURNING id, public_id, class_id, owner_user_id, title, description,
           timezone, range_start::text, range_end::text,
@@ -704,7 +706,8 @@ func (repository *PostgresAvailabilityPollRepository) CancelPoll(
 		queryContext,
 		`UPDATE tutorhub.availability_polls
 SET status = 'cancelled', version = version + 1,
-    retention_until = $4 + interval '180 days', updated_at = $4
+    retention_until = $4::timestamptz + interval '180 days',
+    updated_at = $4::timestamptz
 WHERE tenant_id = $1 AND id = $2 AND version = $3
 RETURNING id, public_id, class_id, owner_user_id, title, description,
           timezone, range_start::text, range_end::text,
@@ -801,8 +804,9 @@ func (repository *PostgresAvailabilityPollRepository) transitionPoll(
 	updated, err := scanAvailabilityPoll(transaction.QueryRow(
 		queryContext,
 		`UPDATE tutorhub.availability_polls
-SET status = $4, deadline_at = $5, version = version + 1,
-    retention_until = $5 + interval '180 days', updated_at = $6
+SET status = $4, deadline_at = $5::timestamptz, version = version + 1,
+    retention_until = $5::timestamptz + interval '180 days',
+    updated_at = $6::timestamptz
 WHERE tenant_id = $1 AND id = $2 AND version = $3
 RETURNING id, public_id, class_id, owner_user_id, title, description,
           timezone, range_start::text, range_end::text,
@@ -1094,7 +1098,8 @@ RETURNING id, class_id, owner_user_id, source_poll_id, title, starts_at,
 		`UPDATE tutorhub.availability_polls
 SET status = 'finalized', selected_slot_id = $4, outcome_type = $5,
     outcome_id = $6, version = version + 1,
-    retention_until = $7 + interval '180 days', updated_at = $7
+    retention_until = $7::timestamptz + interval '180 days',
+    updated_at = $7::timestamptz
 WHERE tenant_id = $1 AND id = $2 AND version = $3 AND status = 'closed'
 RETURNING id, public_id, class_id, owner_user_id, title, description,
           timezone, range_start::text, range_end::text,

@@ -281,6 +281,23 @@ func cleanupCalendarFixture(
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
+	// ClassSession keeps a creator-membership FK with RESTRICT semantics. Remove
+	// the fixture sessions before deleting the tenant memberships so cleanup
+	// remains deterministic on a real PostgreSQL database.
+	if _, err := pool.Exec(ctx, `
+DELETE FROM tutorhub.class_sessions
+WHERE tenant_id = ANY($1::uuid[])`,
+		[]uuid.UUID{fixture.tenantID, fixture.otherTenantID}); err != nil {
+		t.Errorf("delete calendar fixture class sessions: %v", err)
+		return
+	}
+	if _, err := pool.Exec(ctx, `
+DELETE FROM tutorhub.class_enrollments
+WHERE tenant_id = ANY($1::uuid[])`,
+		[]uuid.UUID{fixture.tenantID, fixture.otherTenantID}); err != nil {
+		t.Errorf("delete calendar fixture enrollments: %v", err)
+		return
+	}
 	if _, err := pool.Exec(ctx, `DELETE FROM tutorhub.tenants WHERE id = ANY($1::uuid[])`,
 		[]uuid.UUID{fixture.tenantID, fixture.otherTenantID}); err != nil {
 		t.Errorf("delete calendar fixture tenants: %v", err)

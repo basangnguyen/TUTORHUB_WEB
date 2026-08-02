@@ -4,6 +4,7 @@
 - Ngày: 2026-07-23
 - Làm rõ sau readiness review: 2026-07-23
 - Hồ sơ implementation P3-02D-A: 2026-08-01 (`VERIFY`, staging acceptance còn mở)
+- Bổ sung security maintenance: ADR-0024 và migration `000023` (2026-08-02)
 - Phạm vi: P3-02D, P3-05B và contract tích hợp Classroom Media ở Phase 4
 
 ## Bối cảnh
@@ -359,24 +360,26 @@ không đổi boundary của ADR:
   `finalized/cancelled` neo tối đa 180 ngày sau terminal transition. Maintenance purge
   xóa row đã tới boundary bất kể lifecycle, không transition status, không auto-close,
   không ghi outbox/delivery và vì vậy không thay thế P3-02D-B;
-- purge là `SECURITY INVOKER` batch `1..1000` (mặc định 100), `NULL` không hợp lệ. Core
-  API runtime không có `EXECUTE` hoặc `DELETE`; dedicated maintenance role chỉ có schema
-  `USAGE`, function `EXECUTE`, poll predicate `SELECT` + `DELETE`, cùng column-level
-  Study Meeting predicate `SELECT` + `UPDATE(source_poll_id)`. Exact-login acceptance
-  phải chứng minh detach Study Meeting và FK cascade trước rollout;
+- purge giữ batch `1..1000` (mặc định 100), `NULL` không hợp lệ nhưng từ migration `000023`
+  chạy dưới `SECURITY DEFINER` với `search_path = pg_catalog, pg_temp`; owner/search_path
+  là trust boundary phải được probe. Core API runtime không có `EXECUTE` hoặc `DELETE`;
+  dedicated maintenance role chỉ có schema `USAGE` và function `EXECUTE` sau provisioning,
+  không có direct table grants trên các bảng `000022`. Exact-login acceptance phải chứng
+  minh detach Study Meeting, FK cascade, owner safety và `SKIP LOCKED` trước rollout;
 - invited-only trong A tạo capability riêng để organizer copy link thủ công; không đọc
   email, không roster fan-out và không đăng ký delivery consumer.
 
 Các giá trị tenant có thể bị hạ qua ADR-0015 nhưng không vượt ceiling compile-time/schema.
 Hạ quota không xóa dữ liệu đã có; nó chỉ chặn expansion tiếp theo.
 
-Implementation local của hồ sơ này ở trạng thái `VERIFY`. Shared owner-time lock và
+Implementation local của hồ sơ này vẫn ở trạng thái `VERIFY`. Shared owner-time lock và
 reverse StudyMeeting check đã được nối vào one-time/recurring ClassSession, internal
-audience addition và organizer transfer ngày 2026-08-01; PostgreSQL two-writer barrier
-test đã có trong source nhưng mới compile ở local vì không có database integration URL.
-Migration `000022`, exact runtime/maintenance grants, hard-retention cascade, việc chạy
-barrier/concurrency trên PostgreSQL thật và staging browser/privacy/accessibility chưa
-được coi là đạt cho tới khi có bằng chứng trong `docs/P3_02D_A_STAGING_ACCEPTANCE.md`.
+audience addition và organizer transfer ngày 2026-08-01; PostgreSQL two-writer barrier thật
+đã PASS trên disposable. Disposable đã forward `000022 -> 000023` tới `23 false`; exact
+runtime/maintenance grants, hard-retention cascade/`SKIP LOCKED`, poll ownership/quota/
+isolation/capability và feature-control concurrency đều PASS. Staging browser/privacy/
+accessibility chưa chạy nên chưa chuyển `DONE`; kết quả chi tiết nằm trong
+`docs/P3_02D_A_STAGING_ACCEPTANCE.md`.
 P3-02D-B vẫn `DEFERRED/TODO`; không bật deadline worker auto-close, roster fan-out,
 email/notification/reminder hoặc LiveKit lifecycle.
 

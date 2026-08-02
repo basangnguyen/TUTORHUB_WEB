@@ -10,6 +10,8 @@ TutorHub V2 là hệ sinh thái học trực tuyến web-first. TutorHub V1 tạ
 2. Kiểm tra trạng thái Git và các thay đổi cục bộ trước khi sửa; không ghi đè thay đổi chưa được hiểu rõ.
 3. Với thay đổi kiến trúc, tạo hoặc cập nhật ADR trước khi triển khai.
 4. Không sao chép secret, token, URL có credential hoặc file cấu hình production từ V1.
+5. Ưu tiên làm việc nhanh chóng, không overthinking: chọn phương án đơn giản, đủ an toàn và
+   có thể kiểm chứng; tránh phân tích hoặc trao đổi lặp lại khi không làm thay đổi quyết định.
 
 ## Repository và phối hợp
 
