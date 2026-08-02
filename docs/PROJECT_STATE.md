@@ -6,7 +6,7 @@
 
 | Thuộc tính          | Trạng thái                                                                            |
 | ------------------- | ------------------------------------------------------------------------------------- |
-| Ngày cập nhật       | 2026-08-01                                                                            |
+| Ngày cập nhật       | 2026-08-02                                                                            |
 | Repository          | `https://github.com/basangnguyen/TUTORHUB_WEB`                                        |
 | Nhánh làm việc      | `main`                                                                                |
 | Quy trình           | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
@@ -15,7 +15,7 @@
 | Task `DONE` gần nhất | P3-02C Working hours, attendee/free-busy và RSVP                                  |
 | Mốc repository mới | P3-02C runtime acceptance commit `7859c233` Live trên Render và Cloudflare         |
 | Task hiện tại       | P3-02D-A Native Availability Poll/Study Meeting core ở `VERIFY`                 |
-| Task tiếp theo      | Chạy PostgreSQL barrier + nghiệm thu `000022`/ACL/staging, sau đó P3-06         |
+| Task tiếp theo      | Review forward fix cho maintenance purge trên disposable, rồi mới chạy lại các gate còn lại |
 
 ### Cập nhật P3-02D-A ngày 2026-08-01
 
@@ -27,10 +27,11 @@ feature kill switch, tenant quota và hard cap. Individual response dùng projec
 trang riêng và chỉ mở cho owner, safety admin hoặc class member có authoritative
 `session.schedule`; poll/public projection không nhúng dữ liệu này.
 
-`VERIFY` không phải `DONE`: migration `000022` chưa chạy trên Neon/disposable PostgreSQL,
-exact runtime/maintenance ACL và hard-retention cascade chưa được chứng minh trên PostgreSQL
-thật, commit chưa deploy Render/Cloudflare, và staging authorization/privacy/concurrency/
-accessibility smoke chưa có sign-off. Hồ sơ thực thi nằm tại
+`VERIFY` không phải `DONE`: disposable đã xác nhận migration `000022` qua chuỗi up/down/up
+`21 false -> 22 false -> 21 false -> 22 false`, trạng thái cuối `22 false` và migrate lặp
+idempotent. Exact runtime ACL đã PASS, nhưng maintenance purge bị chặn bởi SQLSTATE `42501`
+trong cả locking query và function; cascade/downstream gates, deploy Render/Cloudflare và
+staging authorization/privacy/concurrency/accessibility smoke chưa có sign-off. Hồ sơ thực thi nằm tại
 [`P3_02D_A_STAGING_ACCEPTANCE.md`](P3_02D_A_STAGING_ACCEPTANCE.md).
 
 P3-02D-B tiếp tục `DEFERRED/TODO`. Deadline worker auto-close, roster fan-out, email/ICS,
@@ -42,9 +43,9 @@ one-time/recurring ClassSession, internal audience addition hoặc organizer tra
 chung legacy-compatible advisory key theo tenant/user, khóa UUID theo thứ tự ổn định và
 reverse-check scheduled StudyMeeting trong cùng transaction. HTTP trả conflict generic,
 không lộ meeting riêng tư. Full `go test -count=1 ./...`, `go vet ./...`,
-`corepack pnpm verify`, focused test và integration-tag compile đã đạt; barrier hai writer
-thật đã được mã hóa nhưng chưa chạy vì host không có `DATABASE_MIGRATION_URL`/
-`DATABASE_POOL_URL`. Vì vậy PostgreSQL concurrency gate vẫn mở và P3-02D-A giữ `VERIFY`.
+`corepack pnpm verify`, focused test và integration-tag compile đã đạt. Barrier hai writer
+thật cùng các gate downstream chưa chạy vì runbook yêu cầu dừng tại maintenance `42501`;
+P3-02D-A tiếp tục giữ `VERIFY` và không được migrate shared staging/deploy.
 
 Gap kề cạnh được phát hiện khi harden recurring split: child series giờ giữ đúng organizer
 đã transfer thay vì mặc định thành mutation actor, nhưng audience/participation settings
@@ -52,6 +53,18 @@ của parent vẫn chưa được copy/re-seal sang child. Owner-time reverse ch
 occupancy thực sự được persist (organizer) để không false-positive. Audience continuity
 cho following split phải được xử lý như regression riêng trước khi tuyên bố flow đó hoàn
 chỉnh; task này không copy ciphertext invitation hoặc mở rộng delivery scope.
+
+### Disposable database checkpoint — 2026-08-02
+
+- Ba URL database được nạp trong cùng command kiểm thử; không ghi URL, password, role name,
+  token hoặc fixture payload vào log/artifact.
+- Maintenance role đã được đồng bộ password từ `DATABASE_POLL_MAINTENANCE_URL`; login sau
+  sync thành công. Exact metadata matrix và Core API runtime ACL đều đã được probe.
+- `FOR UPDATE SKIP LOCKED` và `purge_expired_availability_polls(1)` cùng trả `42501` vì
+  function `SECURITY INVOKER` cần quyền lock không có trong exact matrix. Fixture tạm đã
+  cleanup thành công.
+- Theo runbook, không cấp thêm wildcard/`UPDATE`, không rollback, không chạy gate 3–6,
+  không migrate shared staging/deploy và giữ disposable branch để review forward migration.
 
 ### Mô hình thoát Phase 3 (re-baseline 2026-07-31)
 

@@ -777,6 +777,12 @@ P3-04 activation đạt gate; P3-05B là delivery adapter downstream.
       runtime/maintenance grants, chứng minh hard-retention cascade, quota/concurrency/
       tenant isolation, rồi hoàn tất Render/Cloudflare browser, privacy và manual a11y
       acceptance theo `P3_02D_A_STAGING_ACCEPTANCE.md`; chỉ khi đó mới chuyển `DONE`.
+- **Disposable checkpoint 2026-08-02:** migration `000022` up/down/up (`21 false -> 22
+  false -> 21 false -> 22 false`) và exact Core API runtime ACL đã PASS. Maintenance
+  metadata matrix/login PASS nhưng locking query và purge function đều trả SQLSTATE `42501`
+  do `SECURITY INVOKER` thiếu quyền lock trong exact maintenance matrix. Theo runbook,
+  cascade và các gate downstream chưa chạy; không cấp thêm `UPDATE`, không rollback và
+  không migrate/deploy shared staging cho tới khi có forward migration được review.
 - [x] Harden cross-writer code: Study Meeting, one-time/recurring ClassSession, internal
       audience addition và organizer transfer dùng chung advisory authority theo
       tenant/user, stable UUID lock order và reverse StudyMeeting recheck. PostgreSQL

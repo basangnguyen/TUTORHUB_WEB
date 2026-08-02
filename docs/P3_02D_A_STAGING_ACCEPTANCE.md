@@ -11,8 +11,9 @@
 | Neon staging gần nhất | `21 false`; migration `000022` chưa chạy |
 | Commit nghiệm thu | Chưa ghi nhận |
 | Render/Cloudflare deployment | Chưa chạy cho P3-02D-A |
-| PostgreSQL/ACL/cascade acceptance | Chưa chạy |
+| PostgreSQL/ACL/cascade acceptance | BLOCKED: maintenance `42501`; runtime ACL PASS |
 | Browser/manual accessibility acceptance | Chưa chạy |
+| Disposable checkpoint (2026-08-02) | Migration PASS; maintenance purge gate BLOCKED |
 
 Tài liệu này là runbook và sổ bằng chứng không nhạy cảm. P3-02D-A chỉ chuyển `DONE` khi
 toàn bộ gate trong tài liệu đạt trên exact commit đã deploy. Local compile/unit/typecheck
@@ -52,6 +53,28 @@ git diff --check
 
 PostgreSQL integration và browser staging evidence chưa chạy, phải được ghi riêng và
 không được suy ra từ unit test/mock hoặc local production build.
+
+### Disposable PostgreSQL checkpoint (2026-08-02)
+
+The operator-confirmed disposable migration sequence is `21 false -> 22 false -> 21 false ->
+22 false`; the final state is `22 false`, and a repeat migrate is idempotent. The three
+database URLs were loaded inside each test command and no URL, password, role name or
+fixture payload was recorded.
+
+- Exact Core API runtime ACL: `RUNTIME_ACL_PROVISION=PASS`,
+  `RUNTIME_ACL_EFFECTIVE_MATRIX=PASS`, `RUNTIME_ROLE_SAFETY=PASS`.
+- The dedicated maintenance login password was synchronized from the existing
+  `DATABASE_POLL_MAINTENANCE_URL` value and a post-sync login succeeded.
+- Exact maintenance metadata matrix: `PASS`; runtime had no maintenance `EXECUTE` or
+  `DELETE` privilege.
+- The fully iterated `FOR UPDATE SKIP LOCKED` probe returned SQLSTATE `42501` and the
+  `purge_expired_availability_polls(1)` call returned SQLSTATE `42501`. The temporary
+  fixture cleanup probe returned `PASS`.
+
+This stops P3-02D-A at maintenance gate 2. Cascade/child cleanup, StudyMeeting/ClassSession
+barrier, poll ownership/quota/tenant isolation, capability/privacy/rate-limit and the
+remaining PostgreSQL integration tests were intentionally not run after the blocker. Shared
+staging migration, deployment and disposable-branch deletion remain prohibited.
 
 ## Phạm vi và ranh giới
 
@@ -171,6 +194,18 @@ nhận `EXECUTE`/`DELETE`; maintenance role không được wildcard/broad table
 Nếu FK cascade đòi quyền ngoài matrix vì ownership/trigger khác source baseline, dừng
 rollout và review migration/provisioning; không cấp wildcard để làm smoke xanh.
 
+### Disposable result and blocker (2026-08-02)
+
+The exact matrix is internally inconsistent with the migration implementation: the purge
+function is `SECURITY INVOKER`, while its body locks `availability_polls` with
+`FOR UPDATE SKIP LOCKED`. Under the documented maintenance grants, the login has the
+allowlisted column `SELECT` and table `DELETE`, but no `UPDATE` privilege on the locked
+relation; PostgreSQL therefore rejects both the locking statement and the function with
+`42501` before the purge loop can run. Do not grant wildcard or business-column `UPDATE` to
+make this smoke test green. Review a forward-only migration and an ADR/security decision
+(for example, a hardened `SECURITY DEFINER` maintenance entry point) before rerunning this
+gate. Migration `000022` must not be rolled back.
+
 ## API, authorization và concurrency gate
 
 ### Poll ownership và class scope
@@ -276,6 +311,8 @@ suy ra từ P3-02D-A.
 
 ## Kết quả chạy
 
-Chưa chạy migration `000022`, exact-login ACL/cascade, staging deployment/browser hoặc
-manual accessibility. Giữ trạng thái `VERIFY`; cập nhật phần này sau từng gate thực tế,
-không điền trước `PASS`, commit, URL hoặc số liệu.
+Migration `000022` and the up/down/up disposable sequence are complete, and exact runtime
+ACL plus maintenance credential login have been verified. The maintenance purge gate is
+`BLOCKED` by `42501` as recorded above; cascade, downstream database gates, staging
+deployment/browser and manual accessibility remain unrun. Giữ trạng thái `VERIFY`; do not
+record a commit, URL or secret value here until a reviewed forward fix passes on disposable.
