@@ -2609,16 +2609,14 @@ API/white-label/SLA của dịch vụ và không dùng nó làm runtime/source d
 - [rrule.js](https://github.com/jkbrzt/rrule)
 - [rrule-go](https://github.com/teambition/rrule-go)
 
-## 28. Bước tiếp theo được khuyến nghị (re-baseline 2026-07-31)
+## 28. Bước tiếp theo được khuyến nghị (cập nhật 2026-08-03)
 
-1. P3-CAL-00B/00C, P3-CAL-01, P3-01, P3-02A/B/C đã đạt các gate tương ứng; không mở
-   lại các task này chỉ vì live email/worker còn chờ.
-2. Triển khai `P3-02D-A` Native Availability Poll và Study Meeting core theo ADR-0021:
-   schema/API/UI, capability sharing, response/ranking, manual close/reopen/finalize,
-   authorization, privacy và accessibility. Không bật email/fan-out/auto-close worker
-   hoặc LiveKit.
-3. Tiếp tục conversation/message persistence core và B2 file-transfer core trong lane
-   runnable; mỗi slice phải có test, tenant isolation, a11y và staging smoke.
+1. P3-CAL-00B/00C, P3-CAL-01, P3-01, P3-02A/B/C và P3-02D-A đã đạt các gate tương
+   ứng; không mở lại các task này chỉ vì live email/worker còn chờ.
+2. Bắt đầu `P3-06` Direct/class conversation core theo backlog; giữ participant/membership
+   authoritative, tenant isolation và idempotent canonical direct conversation.
+3. Sau P3-06 tiếp tục P3-07A, rồi P3-08/P3-09 trong runnable lane; mỗi slice phải có
+   test, tenant isolation, a11y và staging smoke.
 4. Giữ P3-03B durable host/role/grants/crash-reclaim và live gate P3-CAL-02 ở
    `DEFERRED/VERIFY`; P3-05A/B delivery và P3-02D-B chưa triển khai ở `DEFERRED/TODO`
    cho tới khi môi trường/provider tương ứng sẵn sàng.

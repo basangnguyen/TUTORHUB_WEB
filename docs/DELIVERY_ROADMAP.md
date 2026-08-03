@@ -4,11 +4,11 @@
 
 | Thuộc tính          | Trạng thái                                      |
 | ------------------- | ----------------------------------------------- |
-| Cập nhật            | 2026-07-31                                      |
+| Cập nhật            | 2026-08-03                                      |
 | Phase hiện tại      | Phase 3 - Daily learning workspace              |
-| Hoàn thành gần nhất | P3-02C `DONE` tại acceptance commit `7859c233`  |
-| Mốc repository mới  | P3-02C live trên Render/Cloudflare              |
-| Việc tiếp theo      | P3-02D-A runnable; worker/provider gates carry-over |
+| Hoàn thành gần nhất | P3-02D-A `DONE` trên candidate `8585864`        |
+| Mốc repository mới  | P3-02D-A exact staging/browser/API/NVDA PASS    |
+| Việc tiếp theo      | P3-06 conversation core; worker/provider gates carry-over |
 | Phạm vi             | Web-first; desktop/mobile/native là track sau   |
 
 ## Chuỗi phase
@@ -49,7 +49,7 @@ Phase 2 đã hoàn thành; ma trận staging và biên bản đóng phase nằm 
 [P2_12_STAGING_ACCEPTANCE.md](P2_12_STAGING_ACCEPTANCE.md) và
 [PHASE_2_COMPLETION.md](PHASE_2_COMPLETION.md). Backlog thực thi hiện hành là
 [PHASE_3_BACKLOG.md](PHASE_3_BACKLOG.md): P3-00/P3-CAL-00/00B/00C,
-P3-CAL-01, P3-01, P3-02A, P3-02B và P3-02C đã `DONE`. ADR-0019 được
+P3-CAL-01, P3-01, P3-02A, P3-02B, P3-02C và P3-02D-A đã `DONE`. ADR-0019 được
 `Accepted; manual NVDA gate PASS`: FullCalendar Standard v7.0.1 cùng recurrence
 caps `366 ngày/730 ngày/512/2.000/250 ms` được chấp nhận ở cấp decision spike, nhưng
 COUNT phải giữ occurrence cuối trong horizon và YEARLY golden đã đạt. Full v7 E2E hậu
@@ -62,7 +62,9 @@ còn worker role/grants, durable host và crash/reclaim acceptance. P3-04 implem
 vẫn gate-off; không bật asynchronous notification delivery tới end user trước khi
 P3-03B đạt.
 ADR-0021 đã chốt P3-02D Native Availability Poll, member-owned Study Meeting và quyền
-cho active member gồm student; đây mới là architecture/backlog, chưa có runtime. AWS SES
+cho active member gồm student. P3-02D-A core đã `DONE` trên candidate `8585864` sau exact
+Neon/ACL/concurrency, authenticated browser/API và manual NVDA acceptance; P3-02D-B
+auto-close/fan-out/delivery vẫn là carry-over. AWS SES
 đã được chọn làm transactional email provider target nhưng P3-CAL-02/ADR-0020 vẫn phải
 xác minh sandbox/adapter/deliverability và production vẫn cần domain/DNS cùng
 SPF/DKIM/DMARC. Calendar professional core, poll và transactional email/ICS/RSVP thuộc
@@ -72,9 +74,9 @@ activation, SES/domain/live interoperability và delivery/processing phụ thu�
 được giữ carry-over để đóng sau, không đánh dấu PASS do bỏ qua.
 P3-CAL-01 không phải dependency kỹ thuật của session một lần P3-01; cả hai gate đã đạt.
 P3-CAL-02 có thể chạy sandbox cô lập, nhưng mọi email/notification side effect runtime
-vẫn phải chờ P3-03B. Bước runnable tiếp theo là `P3-02D-A` Native Availability Poll/
-Study Meeting core; `P3-02D-B` auto-close/fan-out/delivery và các lane worker/provider
-là carry-over sau Core Exit.
+vẫn phải chờ P3-03B. Bước runnable tiếp theo là `P3-06` Direct/class conversation core;
+`P3-02D-B` auto-close/fan-out/delivery và các lane worker/provider là carry-over sau
+Core Exit.
 
 ## Mô hình chuyển tiếp Phase 3 → Phase 4
 

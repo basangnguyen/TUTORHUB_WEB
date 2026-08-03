@@ -3,7 +3,7 @@
 - Trạng thái: Accepted
 - Ngày: 2026-07-23
 - Làm rõ sau readiness review: 2026-07-23
-- Hồ sơ implementation P3-02D-A: 2026-08-01 (`VERIFY`, staging acceptance còn mở)
+- Hồ sơ implementation P3-02D-A: 2026-08-01; `DONE` 2026-08-03 (exact staging/browser/API/manual NVDA PASS)
 - Bổ sung security maintenance: ADR-0024 và migration `000023` (2026-08-02)
 - Phạm vi: P3-02D, P3-05B và contract tích hợp Classroom Media ở Phase 4
 
@@ -372,14 +372,12 @@ không đổi boundary của ADR:
 Các giá trị tenant có thể bị hạ qua ADR-0015 nhưng không vượt ceiling compile-time/schema.
 Hạ quota không xóa dữ liệu đã có; nó chỉ chặn expansion tiếp theo.
 
-Implementation local của hồ sơ này vẫn ở trạng thái `VERIFY`. Shared owner-time lock và
-reverse StudyMeeting check đã được nối vào one-time/recurring ClassSession, internal
-audience addition và organizer transfer ngày 2026-08-01; PostgreSQL two-writer barrier thật
-đã PASS trên disposable. Disposable đã forward `000022 -> 000023` tới `23 false`; exact
-runtime/maintenance grants, hard-retention cascade/`SKIP LOCKED`, poll ownership/quota/
-isolation/capability và feature-control concurrency đều PASS. Staging browser/privacy/
-accessibility chưa chạy nên chưa chuyển `DONE`; kết quả chi tiết nằm trong
-`docs/P3_02D_A_STAGING_ACCEPTANCE.md`.
+Hồ sơ P3-02D-A đã `DONE` ngày 2026-08-03. Shared owner-time lock và reverse StudyMeeting
+check đã được nối vào one-time/recurring ClassSession, internal audience addition và organizer
+transfer. Disposable/shared Neon đều ở `23 false`; exact runtime/maintenance grants,
+hard-retention cascade/`SKIP LOCKED`, poll ownership/quota/isolation/capability, feature-control
+concurrency, authenticated browser/API và manual NVDA organizer/public trên exact deployment
+đều PASS. Kết quả chi tiết nằm trong `docs/P3_02D_A_STAGING_ACCEPTANCE.md`.
 P3-02D-B vẫn `DEFERRED/TODO`; không bật deadline worker auto-close, roster fan-out,
 email/notification/reminder hoặc LiveKit lifecycle.
 

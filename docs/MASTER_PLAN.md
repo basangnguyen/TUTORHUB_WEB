@@ -11,7 +11,7 @@
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
 | Phase hiện tại        | Phase 3 - Daily learning workspace                                                           |
-| Trạng thái gần nhất   | P3-02D-A VERIFY; P3-02C DONE; worker/provider/delivery gates vẫn DEFERRED                  |
+| Trạng thái gần nhất   | P3-02D-A DONE; P3-06 là task runnable tiếp theo; worker/provider/delivery gates vẫn DEFERRED |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 
@@ -1386,15 +1386,17 @@ secure link exchange, privacy projection, owner-time conflict, quota/hard cap v�
 audit/outbox. Disposable và shared Neon đều ở `23 false`; exact runtime/maintenance ACL,
 cascade/concurrency, poll ownership/quota/isolation/capability và targeted PostgreSQL
 integration đều PASS. Candidate `8585864` đã Live trên Render/Cloudflare; automated
-Playwright/axe, public privacy headers và Secret scan PASS. Authenticated live role matrix
-và manual NVDA vẫn là gate mở; vì vậy task chưa `DONE`. P3-02D-B auto-close/
+Playwright/axe, public privacy headers và Secret scan PASS. Authenticated live role/API
+safety-admin matrix và manual NVDA `2026.1.1.55980` trên organizer/public production route
+cũng PASS; task chuyển `VERIFY -> DONE` ngày 2026-08-03. P3-02D-B auto-close/
 fan-out/delivery và Phase 4 LiveKit lifecycle không thuộc vertical slice này, chưa được
 triển khai hoặc bật.
 
 Cross-writer code gate đã được harden local: Study Meeting và ClassSession/series/audience/
 organizer-transfer writer chia sẻ advisory authority theo tenant/user và reverse-check
 trong transaction. Two-writer PostgreSQL barrier thật đã PASS trên disposable và shared
-staging; authenticated browser/manual NVDA acceptance vẫn mở nên P3-02D-A chưa `DONE`.
+staging; authenticated browser/API và manual NVDA acceptance cũng PASS, nên P3-02D-A đã
+`DONE`.
 
 **Mục tiêu:** trước khi có classroom phức tạp, người dùng đã quản lý được lịch, tin nhắn và tài liệu.
 
@@ -1954,13 +1956,14 @@ Một tính năng chỉ được đánh dấu hoàn thành khi:
      và staging/manual accessibility/privacy acceptance đều đạt; live trên Render/
      Cloudflare. Email/ICS production không được suy ra từ gate này và vẫn chờ
      P3-CAL-02/P3-03B/P3-05A.
-13. ADR-0021 đã `Accepted`; `P3-02D-A` đã có implementation local ở `VERIFY` sau
-     P3-02B/C và không phụ thuộc When2meet hoặc durable worker. Disposable đã forward
+13. ADR-0021 đã `Accepted`; `P3-02D-A` đã `DONE` sau P3-02B/C và không phụ thuộc
+     When2meet hoặc durable worker. Disposable đã forward
      `000022 -> 000023` tới `23 false`; exact runtime/maintenance ACL, hard-retention cascade,
      poll/capability và concurrency gates đều PASS. Shared staging cũng ở `23 false`; exact
      candidate `8585864` Live trên Render/Cloudflare với automated browser/privacy/a11y PASS.
-     Authenticated live role matrix và manual NVDA còn mở; không rollback thêm và không xóa
-     disposable branch trước sign-off.
+     Authenticated live role/API safety-admin matrix và manual NVDA organizer/public-route
+     acceptance đều PASS. Không rollback thêm; disposable branch vẫn được giữ theo quyết định
+     của owner.
      `P3-02D-B` (auto-close/fan-out/delivery) chờ P3-03B/P3-04 activation và được ghi vào
      carry-over register; P3-05B là delivery adapter downstream.
 14. Sau P3-02D-A staging acceptance, runnable lane tiếp tục với P3-06 conversation core.
@@ -2030,11 +2033,11 @@ Cả
 class conflict đã `DONE`; P3-02C working hours/attendee/free-busy/RSVP đã `DONE` ngày
 2026-07-30 tại commit `7859c233` sau migration `000020/000021`, exact runtime ACL,
 concurrent/IDOR, Calendar E2E `11/11` và staging/manual acceptance. P3-02D-A Native
-Availability Poll/Study Meeting core đã có implementation local ở `VERIFY`; cross-writer
-code đã harden; disposable/shared staging `23 false`, exact ACL, database gates, deploy
-`8585864`, public privacy headers và automated Playwright/axe đều PASS. Bước bắt buộc tiếp
-theo là authenticated Admin/Teacher/Student browser matrix và manual NVDA, rồi P3-06. Không bật
-side effect chỉ vì core đã có. `P3-02D-B` và các gate worker/provider vẫn là carry-over.
+Availability Poll/Study Meeting core đã `DONE`; cross-writer code đã harden; disposable/shared
+staging `23 false`, exact ACL, database gates, deploy `8585864`, public privacy headers,
+authenticated browser/API matrix, automated Playwright/axe và manual NVDA đều PASS. Task
+runnable tiếp theo là P3-06. Không bật side effect chỉ vì core đã có. `P3-02D-B` và các gate
+worker/provider vẫn là carry-over.
 AWS SES đã được chọn làm provider target nhưng
 P3-CAL-02/ADR-0020 vẫn giữ các gate live email/ICS chưa nghiệm thu; chưa có domain hoặc
 production delivery. Render Web Service vẫn là API staging/private alpha; Render Free

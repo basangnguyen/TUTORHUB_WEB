@@ -12,10 +12,10 @@
 | Quy trình           | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
 | Phase hoàn thành    | Phase 0, Phase 1, Phase 2                                                             |
 | Phase hiện tại      | Phase 3 - Daily learning workspace                                                   |
-| Task `DONE` gần nhất | P3-02C Working hours, attendee/free-busy và RSVP                                  |
-| Mốc repository mới | P3-02D-A candidate `8585864` Live trên Render và Cloudflare; automated staging PASS |
-| Task hiện tại       | P3-02D-A ở `VERIFY`; automated staging và authenticated browser/API matrix PASS, chỉ manual NVDA còn mở |
-| Task tiếp theo      | Chạy manual NVDA trên organizer/public production route, ghi bằng chứng rồi ký `DONE` |
+| Task `DONE` gần nhất | P3-02D-A Native Availability Poll và Study Meeting core                          |
+| Mốc repository mới | Candidate `8585864` Live; database, browser/API và manual NVDA acceptance PASS     |
+| Task hiện tại       | P3-02D-A `DONE`; lane runnable sẵn sàng bắt đầu P3-06                             |
+| Task tiếp theo      | P3-06 Direct/class conversation core                                              |
 
 ### Cập nhật P3-02D-A ngày 2026-08-03
 
@@ -60,9 +60,20 @@ API-only safety-admin recovery checkpoint cũng PASS:
 - fixture poll và StudyMeeting đều terminal; cleanup PASS. Hai storage state app-origin-only và
   harness tạm nằm trong Git-ignored path đã bị xóa ngay sau test, không log credential.
 
-P3-02D-A chưa chuyển `DONE` chỉ vì manual NVDA trên organizer/public production route còn mở;
-automated axe/keyboard/forced-colors không được dùng để suy diễn gate này. Hồ sơ chi tiết nằm tại
-[`P3_02D_A_STAGING_ACCEPTANCE.md`](P3_02D_A_STAGING_ACCEPTANCE.md).
+Manual NVDA checkpoint trên exact organizer/public production route cũng PASS với NVDA
+`2026.1.1.55980`:
+
+- organizer heading/landmark, slot radio label/checked state, keyboard operation, save
+  announcement và focus recovery PASS;
+- stale two-tab `409` alert giữ draft và phục hồi focus PASS;
+- public heading/deadline/timezone, slot label, low-cohort suppression, save announcement và
+  focus recovery PASS;
+- sau cancel/revoke, tab public đang giữ chỉ hiện trạng thái không khả dụng chung, không còn
+  answer control và không lộ reason/identity/token; cleanup PASS.
+
+Không lưu screenshot, trace, account identifier, capability token, cookie hoặc response payload.
+Toàn bộ exit gate đã đạt và P3-02D-A chuyển `VERIFY -> DONE` ngày 2026-08-03. Hồ sơ chi tiết
+nằm tại [`P3_02D_A_STAGING_ACCEPTANCE.md`](P3_02D_A_STAGING_ACCEPTANCE.md).
 
 ### Cập nhật P3-02D-A ngày 2026-08-01
 
@@ -450,8 +461,8 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
     `WorkingSchedule` về P3-02C; tách P3-02D thành P3-02D-A core (có thể triển khai
     không cần durable worker) và P3-02D-B lifecycle delivery/auto-close/fan-out
     (`DEFERRED/TODO`, chờ P3-03B/P3-04 activation). P3-05B là delivery adapter downstream
-    ở carry-over. P3-02D-A hiện đã có implementation local ở `VERIFY`; runtime staging và
-    mọi delivery thuộc P3-02D-B vẫn chưa được nghiệm thu/bật.
+    ở carry-over. P3-02D-A đã `DONE` sau exact staging/browser/API/NVDA acceptance; mọi
+    delivery thuộc P3-02D-B vẫn chưa được triển khai hoặc bật.
 13. P3-CAL-01 đã `DONE` ở cấp decision spike. FullCalendar Standard `7.0.1`,
     Temporal `1.0.1`, Warm Academic theme và adapter boundary nằm trong
     `apps/calendar-spike`; comparator v6.1.21 nằm riêng ở `apps/calendar-spike-v6`.
@@ -725,13 +736,12 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
   participant/RSVP đã được nghiệm thu trong P3-02B/P3-02C. Email/ICS và Availability
   Poll vẫn thuộc P3-CAL-02, P3-02D và P3-05A/B; Calendar chưa phải toàn bộ sản phẩm cuối
   cùng cho đến khi các phạm vi đó đạt gate.
-- P3-02D-A đã PASS migration `000023`, exact ACL, PostgreSQL concurrency/cascade,
-  schema/API/UI/capability exchange, automated authorization/privacy và authenticated
-  staging browser/API matrix. Task chỉ còn `VERIFY` tới khi manual NVDA trên organizer/public
-  production route đạt; chưa được ký `DONE` trước bằng chứng screen-reader này.
+- P3-02D-A đã `DONE` sau migration `000023`, exact ACL, PostgreSQL concurrency/cascade,
+  schema/API/UI/capability exchange, automated authorization/privacy, authenticated staging
+  browser/API matrix và manual NVDA organizer/public production-route acceptance đều PASS.
 - External poll link có rủi ro token/PII leak và abuse. Local implementation dùng token
   entropy cao, hash-at-rest, fragment exchange, expiry/revoke/rate limit, log redaction
-  và privacy-safe aggregate theo ADR-0021; staging vẫn phải xác nhận các boundary này.
+  và privacy-safe aggregate theo ADR-0021; exact staging đã xác nhận các boundary này.
   Minimum cohort/coarse bucket chỉ giảm rủi ro differencing/Sybil; anonymous link không
   thể hứa one-human-one-response.
 - Quyền tạo instant study room đã được chốt làm authorization target, nhưng LiveKit

@@ -7,8 +7,9 @@ thay đổi schema, migration hoặc repository phải đọc tài liệu này t
 
 - System of record: Neon PostgreSQL.
 - Schema ứng dụng: `tutorhub`.
-- Migration mới nhất trong source:
-  `000023_availability_poll_maintenance_security`; Neon staging gần nhất vẫn ở `21 false`.
+- Migration mới nhất trong source: `000023_availability_poll_maintenance_security`; Neon
+  staging gần nhất ở `23 false` sau forward `21 -> 23` và rerun idempotent PASS ngày
+  2026-08-03.
 - Migration 1-5 đã được chạy và kiểm tra trên Neon; smoke
   `5 false -> rollback 4 false -> migrate 5 false` đạt ngày 2026-07-16.
 - Migration `000006` đến `000013` đều có up/down path. Source và PostgreSQL 17 CI
@@ -38,8 +39,8 @@ thay đổi schema, migration hoặc repository phải đọc tài liệu này t
   maintenance hard-retention function. Disposable đã PASS chuỗi lịch sử `21 -> 22 -> 21 -> 22`
   và exact runtime ACL; function `SECURITY INVOKER` từng bị blocker `42501` như ADR-0024 ghi.
   Migration forward-only `000023` đã sửa boundary sang hardened `SECURITY DEFINER`; disposable
-  hiện ở `23 false` và toàn bộ database gate P3-02D-A đã PASS. Shared Neon staging vẫn ở
-  `21 false` và chưa được migrate.
+  và shared Neon staging hiện ở `23 false`; exact runtime/maintenance ACL và toàn bộ database
+  gate P3-02D-A đã PASS.
 - Phần lớn integration test rollback bằng transaction. Chỉ focused P2-09 suite có
   fixture tự dọn hoàn toàn được chạy trên staging ngày 2026-07-21; các suite concurrency
   có thể để lại audit append-only vẫn chỉ chạy trên database CI tạm thời.
@@ -1095,8 +1096,8 @@ pnpm db:version
 ```
 
 Sau khi áp dụng toàn bộ migration trong source hiện tại, kết quả mong đợi là
-`23 false`. Chỉ ghi đó là kết quả môi trường khi lệnh thực tế đã chạy. Disposable đã được
-xác nhận `23 false` sau forward và migrate idempotent; shared Neon staging vẫn ở `21 false`.
+`23 false`. Chỉ ghi đó là kết quả môi trường khi lệnh thực tế đã chạy. Disposable và shared
+Neon staging đều được xác nhận `23 false` sau forward và migrate idempotent.
 Không chạy database rollback thêm cho P3-02D-A. Emergency down `000023` chỉ disable purge
 function; down `000022` mới phá hủy poll/Study Meeting data. Recovery ưu tiên application
 rollback hoặc migration forward mới.
@@ -1136,8 +1137,8 @@ P3-02D-A đã kiểm tra historical sequence `21 -> 22 -> 21 -> 22` trên dispos
 rollback thêm. Forward `22 -> 23` và migrate idempotent đều PASS ở `23 false`; exact Core
 API/maintenance ACL; poll ownership/quota/isolation/capability lifecycle; Study Meeting
 conflict/quota; public capability expiry/revoke/rate/privacy; hard-retention batch validation
-và parent/FK cascade đều đã có PostgreSQL evidence PASS. Shared staging/browser/manual
-acceptance vẫn là gate sau disposable và chưa được chạy.
+và parent/FK cascade đều đã có PostgreSQL evidence PASS. Shared staging, authenticated
+browser/API và manual NVDA acceptance cũng PASS.
 
 Với P2-05, cần kiểm tra riêng migrate 9 -> 10, rollback 10 -> 9, migrate lại 9 -> 10;
 tenant-scoped FK/unique/state constraints; direct enroll và các transition; same-user
@@ -1193,9 +1194,9 @@ của lịch sử append-only và không phải quy trình cleanup cho staging/p
   production data/cohort migration vẫn thuộc discovery/cutover phase sau.
 - P3-03A/P3-04 đã bổ sung migration `000015`/`000016`; P3-02A/P3-02B bổ sung
   `000017`/`000018`/`000019`; P3-02C bổ sung `000020/000021`; P3-02D-A bổ sung
-  `000022/000023`. Disposable đã xác nhận `23 false`, exact Core API/maintenance ACL và
-  toàn bộ database gate P3-02D-A; Neon staging hiện vẫn ở `21 false`, nên task vẫn `VERIFY`
-  cho tới staging/browser/manual acceptance.
+  `000022/000023`. Disposable và shared Neon staging đã xác nhận `23 false`, exact Core
+  API/maintenance ACL và toàn bộ database gate P3-02D-A; authenticated browser/API và
+  manual NVDA acceptance cũng PASS, nên task đã `DONE`.
   Worker ACL, durable-host, controlled-canary/crash-reclaim và các gate P3-03/P3-04
   vẫn là gate bên ngoài, hiện được phân loại `DEFERRED/VERIFY` chứ không tự động bỏ qua.
 - P3-02A Calendar shell/read projection, P3-02B recurrence/class-conflict và

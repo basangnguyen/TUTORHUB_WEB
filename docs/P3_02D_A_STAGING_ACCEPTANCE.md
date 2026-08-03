@@ -5,14 +5,14 @@
 | Hạng mục | Giá trị |
 | --- | --- |
 | Phạm vi | Native Availability Poll và member-owned Study Meeting core |
-| Trạng thái task | `VERIFY`; automated staging và authenticated browser/API matrix PASS; chỉ manual NVDA còn mở |
+| Trạng thái task | `DONE`; automated staging, authenticated browser/API matrix và manual NVDA PASS |
 | Migration source | `000023_availability_poll_maintenance_security` trên nền `000022` |
 | Database mong đợi sau migrate | `23 false` |
 | Neon staging gần nhất | `23 false`; forward `21 -> 23` và rerun idempotent PASS |
 | Commit nghiệm thu | `8585864198ae0d9539c480e21e7b5efbbab0d389` |
 | Render/Cloudflare deployment | Exact commit PASS; Render `dep-d9nvul5aeets73cpc330`, Cloudflare Pages check success |
 | PostgreSQL/ACL/cascade acceptance | Disposable và shared staging targeted gates PASS |
-| Browser/manual accessibility acceptance | Playwright/axe `3/3`, public headers và live owner/scheduler/member/tenant/capability/safety-admin matrix PASS; manual NVDA còn mở |
+| Browser/manual accessibility acceptance | Playwright/axe `3/3`, public headers, live owner/scheduler/member/tenant/capability/safety-admin matrix và manual NVDA PASS |
 | Disposable checkpoint (2026-08-02) | `23 false`; database gates PASS; không rollback/shared staging |
 
 Tài liệu này là runbook và sổ bằng chứng không nhạy cảm. P3-02D-A chỉ chuyển `DONE` khi
@@ -62,9 +62,8 @@ go vet ./services/core-api/...
 git diff --check
 ```
 
-Automated production-route coverage đã chạy bằng fixture mock không nhạy cảm; nó không thay
-thế authenticated browser role matrix hoặc manual NVDA trên exact staging deployment. Hai
-gate thủ công này vẫn phải được ghi riêng.
+Automated production-route coverage đã chạy bằng fixture mock không nhạy cảm; authenticated
+browser role matrix và manual NVDA trên exact staging deployment được ghi riêng bên dưới.
 
 ### Disposable PostgreSQL checkpoint (2026-08-02, after forward 000023)
 
@@ -93,8 +92,8 @@ recorded.
   Feature-control capacity/rate concurrency: `PASS`. Full Calendar integration package:
   `PASS`. No rollback was run after the historical sequence; the disposable branch remains.
 
-All disposable database gates requested in this task are now green. The disposable branch is
-retained until the remaining authenticated browser and manual accessibility sign-off.
+All disposable database gates requested in this task are green. The disposable branch remains
+retained under the owner's explicit decision after sign-off.
 
 ### Shared staging and deployment checkpoint (2026-08-03)
 
@@ -126,7 +125,7 @@ no URL, password, role name, cookie, token or fixture payload was printed.
   matrix and API-only safety-admin recovery matrix below have been executed. The API matrix
   used two short-lived, app-origin-only Playwright storage states under Git-ignored paths;
   no cookie/token/password value was printed, and the states plus harness were removed after
-  PASS. NVDA remains a separate manual gate.
+  PASS. The separate manual NVDA gate is recorded below.
 
 ### Authenticated live browser/API checkpoint (2026-08-03)
 
@@ -166,9 +165,26 @@ credentials, cookies, capability tokens, email, roster or answer payloads:
   `reason/status/version`; no token, secret, email, title, description, answer, roster or
   session field was present. Both synthetic resources were terminal and cleanup PASS.
 
-Authenticated Gate 1 is complete. The only remaining P3-02D-A exit work is manual NVDA on the
-organizer and public production routes; automated axe/keyboard/forced-colors evidence does not
-replace that manual screen-reader check.
+### Manual NVDA checkpoint (2026-08-03)
+
+The project owner/operator completed the exact production-route screen-reader gate with NVDA
+`2026.1.1.55980`, using browse/focus modes and keyboard-only interaction. No screenshot,
+trace, account identifier, capability token, cookie or response payload was retained.
+
+- Organizer heading/landmark navigation, slot group/radio labels, checked-state feedback and
+  keyboard operation: `PASS`.
+- Organizer save announcement and focus recovery: `PASS`.
+- Two-tab stale-version `409` alert, retained draft and focus recovery: `PASS`.
+- Public heading, deadline/timezone context, slot labels and low-cohort aggregate suppression:
+  `PASS`.
+- Public save announcement and focus recovery: `PASS`.
+- After owner cancellation/revocation, the retained public tab exposed only the generic
+  unavailable state, no answer controls and no reason/identity/token detail: `PASS`.
+- Synthetic poll/capability cleanup and browser-tab cleanup: `PASS`; no StudyMeeting was
+  created by this manual gate.
+
+Authenticated Gate 1 and the manual NVDA gate are complete. All P3-02D-A exit work on the
+exact deployed candidate has passed.
 
 ## Phạm vi và ranh giới
 
@@ -419,10 +435,10 @@ runtime/maintenance ACL, purge cascade/SKIP LOCKED, poll ownership/quota/isolati
 owner-time barrier and feature-control concurrency are PASS. Candidate `8585864` is Live on
 Render and has a successful matching Cloudflare Pages check; local verify, focused Playwright/
 axe `3/3`, health/readiness, public privacy headers and Secret scan are PASS. The authenticated
-owner/scheduler/ordinary-member/Admin-negative/tenant/capability browser matrix and API-only
-safety-admin recovery/audit matrix are PASS. Manual NVDA is the sole open exit gate, so
-P3-02D-A stays `VERIFY`. No URL credential or secret is recorded, temporary session states were
-removed after use, and the disposable branch is retained.
+owner/scheduler/ordinary-member/Admin-negative/tenant/capability browser matrix, API-only
+safety-admin recovery/audit matrix and manual NVDA organizer/public-route matrix are PASS.
+P3-02D-A is `DONE`. No URL credential or secret is recorded, temporary session states were
+removed after use, and the disposable branch is retained under the owner's explicit decision.
 
 Broad-suite note: running the entire Classroom and feature-control integration packages also
 exposed pre-existing test debt outside these P3-02D-A gates. Several assertions try to read

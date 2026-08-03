@@ -33,10 +33,9 @@ re-baseline này không dùng nó để chặn Phase 4 hay ép các gate provide
 tất trước khi có môi trường phù hợp. Domain/DNS, SES sandbox và production-access
 approval có thể tiếp tục chuẩn bị song song.
 
-**Task đang verify:** `P3-02D-A` Native Availability Poll và Study Meeting core đã có
-implementation, PostgreSQL/shared-staging, exact ACL, deploy và automated accessibility
-gates đều PASS; bước bắt buộc tiếp theo là authenticated Admin/Teacher/Student browser
-matrix và manual NVDA trước khi chuyển `DONE`, sau đó runnable lane tiếp tục với P3-06.
+**Task vừa hoàn tất:** `P3-02D-A` Native Availability Poll và Study Meeting core đã
+`DONE`; PostgreSQL/shared-staging, exact ACL, deploy, authenticated Admin/Teacher/Student
+browser/API matrix và manual NVDA đều PASS. Runnable lane tiếp tục với P3-06.
 `P3-02D-B` lifecycle delivery/
 auto-close/fan-out và các gate P3-03B/P3-CAL-02/P3-05A/B là carry-over, không nằm trong
 mốc Core Exit tối thiểu.
@@ -101,7 +100,7 @@ processing/sharing tới end user.
 | P3-02A     | Professional Calendar shell/read projection    | P3-01, P3-CAL-01                | DONE       |
 | P3-02B     | Recurrence + class conflict                    | P3-02A, ADR-0019                | DONE       |
 | P3-02C     | Working hours/attendee/free-busy/RSVP          | P3-02A, ADR-0023 contract       | DONE       |
-| P3-02D-A   | Native Availability Poll + Study Meeting core  | P3-02B, P3-02C, ADR-0021        | VERIFY     |
+| P3-02D-A   | Native Availability Poll + Study Meeting core  | P3-02B, P3-02C, ADR-0021        | DONE       |
 | P3-02D-B   | Poll lifecycle delivery/auto-close/fan-out    | P3-02D-A, P3-03B, P3-04         | DEFERRED/TODO |
 | P3-03A     | PostgreSQL outbox worker repository foundation | P3-01                          | VERIFY     |
 | P3-03B     | Durable worker staging acceptance              | P3-03A                          | DEFERRED/VERIFY |
@@ -782,8 +781,9 @@ P3-04 activation đạt gate; P3-05B là delivery adapter downstream.
 - [x] Forward shared Neon tới `23 false`, exact runtime/maintenance ACL và targeted
       PostgreSQL gates PASS; exact candidate `8585864` Live trên Render/Cloudflare,
       health/readiness/public privacy headers và Playwright/axe `3/3` PASS.
-- [ ] Hoàn tất authenticated Admin/Teacher/Student browser matrix và manual NVDA theo
-      `P3_02D_A_STAGING_ACCEPTANCE.md`; chỉ khi đó mới chuyển `DONE`.
+- [x] Authenticated Admin/Teacher/Student browser/API matrix và manual NVDA
+      `2026.1.1.55980` trên organizer/public production route PASS theo
+      `P3_02D_A_STAGING_ACCEPTANCE.md`; task chuyển `VERIFY -> DONE` ngày 2026-08-03.
 - **Disposable checkpoint 2026-08-02:** migration lịch sử (`21 false -> 22 false -> 21 false
   -> 22 false`) và forward `22 false -> 23 false` idempotent đều PASS. Owner preflight,
   exact Core API runtime ACL, maintenance re-provision/login, hard-retention cascade/
@@ -797,13 +797,15 @@ P3-04 activation đạt gate; P3-05B là delivery adapter downstream.
   feature-control concurrency PASS. Candidate `8585864` Live trên Render deployment
   `dep-d9nvul5aeets73cpc330`; matching Cloudflare Pages/Browser E2E/Secret scan success,
   health/readiness `200 + no-store`, public privacy headers và local Playwright/axe `3/3`
-  PASS. Còn authenticated live role matrix và manual NVDA; disposable branch vẫn giữ.
+  PASS. Authenticated live role/API safety-admin matrix và manual NVDA organizer/public
+  route cũng PASS; disposable branch vẫn giữ theo quyết định của owner.
 - [x] Harden cross-writer code: Study Meeting, one-time/recurring ClassSession, internal
       audience addition và organizer transfer dùng chung advisory authority theo
       tenant/user, stable UUID lock order và reverse StudyMeeting recheck. PostgreSQL
       two-writer barrier thật đã PASS trên disposable và shared staging: đúng một writer
       commit, writer còn lại nhận conflict.
-- [ ] Following-split audience continuity: child đã giữ authoritative organizer, nhưng
+- [ ] **Separate P3-02C/Core-Exit regression; không phải P3-02D-A exit gate:**
+      Following-split audience continuity: child đã giữ authoritative organizer, nhưng
       audience/participation settings chưa được copy/re-seal từ parent. Xử lý regression
       riêng bằng business snapshot path; không raw-copy protected invitation ciphertext.
 
@@ -857,8 +859,8 @@ staging/private alpha; không provision hoặc migrate host khác trong task nà
 
 ## 10. P3-04 In-app notification và preference
 
-**Trạng thái 2026-07-31:** `VERIFY`. Implementation repository đã hoàn thiện và local gate
-đạt; Neon staging hiện ở `21 false`, migration `000016` và exact API runtime grants đã
+**Trạng thái 2026-08-03:** `VERIFY`. Implementation repository đã hoàn thiện và local gate
+đạt; Neon staging hiện ở `23 false`, migration `000016` và exact API runtime grants đã
 probe xanh nhưng durable worker chưa provision, worker ACL/canary/crash-reclaim chưa
 nghiệm thu và cả hai gate phải giữ false. Không mô tả notification là chức năng runtime
 đã bật.
@@ -1024,7 +1026,7 @@ Hai gate notification vẫn phải giữ `false` trong khi Render chỉ phục v
 
 - [ ] P3-02A/P3-02B/P3-02C tiếp tục giữ `DONE` và không có regression trên tenant,
       authorization, a11y, recurrence/conflict và RSVP.
-- [ ] P3-02D-A poll/StudyMeeting core đạt schema/API/UI, capability link, response,
+- [x] P3-02D-A poll/StudyMeeting core đạt schema/API/UI, capability link, response,
       aggregate/ranking, manual lifecycle, concurrency, privacy và accessibility gate.
 - [ ] P3-06/P3-07A conversation/message core đạt persistence, unread/read, reload/reconnect,
       idempotency và foreign-tenant conceal; notification delivery vẫn gate-off.
@@ -1152,11 +1154,10 @@ một tuần.
    cô lập. ADR vẫn `Proposed`; SES sandbox live, EventBridge/SQS/DLQ, sending domain/DNS
    và Gmail/Outlook/Apple matrix còn `BLOCKED/VERIFY`, chưa bật business delivery.
 6. P3-02A/P3-02B/P3-02C đã `DONE`; working-hours, free-busy, audience và RSVP core đã
-   qua local/staging/manual gate. P3-02D-A poll/StudyMeeting core hiện ở `VERIFY`;
-   cross-writer code đã harden, `000022` disposable/runtime ACL đã đạt và `000023` forward
-   fix đã chuẩn bị; còn phải forward/probe `000023`, chạy PostgreSQL barrier, exact ACL và
-   staging/manual acceptance rồi tiếp tục P3-06.
-   Task này không chờ P3-03B và không bật delivery side effect.
+   qua local/staging/manual gate. P3-02D-A poll/StudyMeeting core cũng đã `DONE` ngày
+   2026-08-03 sau forward `000023`, exact ACL/PostgreSQL barriers, authenticated browser/API
+   matrix và manual NVDA PASS. Runnable lane tiếp tục với P3-06; không bật delivery side
+   effect và không chờ P3-03B.
 7. P3-03B/P3-04, P3-CAL-02/P3-05A và P3-02D-B/P3-05B tiếp tục ở carry-over. Đóng
    `P3-14-CORE` sau lane runnable cho phép bắt đầu Phase 4; full P3-14 vẫn chờ các gate này.
 8. Không đưa recurrence, reminder, worker, email hoặc calendar tổng hợp vào P3-01.

@@ -30,9 +30,10 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
   end-user side effect trước khi durable acceptance đạt.
 - ADR-0021 đã `Accepted` để P3-02D xây Native Availability Poll do TutorHub sở hữu:
   active member gồm student có thể tạo poll/Study Meeting của mình; secure public link
-  không phải booking và không phụ thuộc When2meet. P3-02D-A đã có vertical slice local ở
-  `VERIFY`; disposable đã forward `000022 -> 000023` tới `23 false` và toàn bộ database
-  gate đã PASS, còn shared staging/browser/manual acceptance chưa chạy.
+  không phải booking và không phụ thuộc When2meet. P3-02D-A đã `DONE` ngày 2026-08-03
+  trên exact candidate `8585864`; disposable/shared staging đều ở `23 false`, exact
+  database/ACL/concurrency, authenticated browser/API và manual NVDA acceptance đều PASS.
+  P3-02D-B delivery/auto-close/fan-out vẫn carry-over.
 - AWS SES đã được owner chọn làm transactional email provider target cho Phase 3.
   P3-CAL-02/ADR-0020 vẫn phải xác minh account/region/sandbox/quota, adapter, webhook và
   deliverability; trước khi có domain chỉ được thử bằng identity cá nhân do owner kiểm
@@ -50,10 +51,9 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
   P3-04 activation, P3-CAL-02 live SES/domain/interoperability, P3-05A/B delivery,
   P3-10 và P3-11B processing UX phụ thuộc worker. Cho đến khi các gate này đóng,
   notification/email/reminder và Class Files sharing/processing tới end user vẫn giữ tắt.
-- **Task runnable tiếp theo:** owner sign-off báo cáo disposable, sau đó mới forward shared
-  staging tới `23 false` và chạy P3-02D-A staging/browser/manual acceptance. P3-02D-B lifecycle
-  delivery và các gate hạ tầng/provider là carry-over; chúng có thể tiếp tục chính xác sau
-  khi Phase 4 bắt đầu.
+- **Task runnable tiếp theo:** P3-06 Direct/class conversation core; P3-07A persistent
+  message core theo sau. P3-02D-B lifecycle delivery và các gate hạ tầng/provider là
+  carry-over; chúng có thể tiếp tục chính xác sau khi Phase 4 bắt đầu.
 - Web MVP nền đã chạy trên staging: Cloudflare Pages -> same-origin `/api/*` -> Go
   Core API trên Render; dữ liệu dùng Neon, file dùng Backblaze B2, media dùng LiveKit
   Cloud và xác thực dùng ZITADEL.
