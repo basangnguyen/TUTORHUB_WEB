@@ -5,14 +5,14 @@
 | Hạng mục | Giá trị |
 | --- | --- |
 | Phạm vi | Native Availability Poll và member-owned Study Meeting core |
-| Trạng thái task | `VERIFY`; automated staging gates PASS, authenticated browser/manual NVDA còn mở |
+| Trạng thái task | `VERIFY`; automated staging và authenticated browser/API matrix PASS; chỉ manual NVDA còn mở |
 | Migration source | `000023_availability_poll_maintenance_security` trên nền `000022` |
 | Database mong đợi sau migrate | `23 false` |
 | Neon staging gần nhất | `23 false`; forward `21 -> 23` và rerun idempotent PASS |
 | Commit nghiệm thu | `8585864198ae0d9539c480e21e7b5efbbab0d389` |
 | Render/Cloudflare deployment | Exact commit PASS; Render `dep-d9nvul5aeets73cpc330`, Cloudflare Pages check success |
 | PostgreSQL/ACL/cascade acceptance | Disposable và shared staging targeted gates PASS |
-| Browser/manual accessibility acceptance | Playwright/axe `3/3` và public headers PASS; authenticated role matrix/manual NVDA còn mở |
+| Browser/manual accessibility acceptance | Playwright/axe `3/3`, public headers và live owner/scheduler/member/tenant/capability/safety-admin matrix PASS; manual NVDA còn mở |
 | Disposable checkpoint (2026-08-02) | `23 false`; database gates PASS; không rollback/shared staging |
 
 Tài liệu này là runbook và sổ bằng chứng không nhạy cảm. P3-02D-A chỉ chuyển `DONE` khi
@@ -122,10 +122,53 @@ no URL, password, role name, cookie, token or fixture payload was printed.
   idempotency fixture that triggered the generic-key detector. The repository vulnerability,
   Core API container and broad Quality checks remain red from the same pre-existing baseline;
   the Quality failure is an unrelated migration-runner timeout, not a P3-02D-A gate failure.
-- No authenticated Admin/Teacher/Student staging sessions are available to this run, browser
-  access to the TutorHub Pages origin cannot be used for the remaining live role matrix, and
-  NVDA is not installed on this machine. These two manual gates remain pending; no result is
-  inferred from mocks.
+- Authenticated Admin/Teacher/Student sessions are now available and both the live browser
+  matrix and API-only safety-admin recovery matrix below have been executed. The API matrix
+  used two short-lived, app-origin-only Playwright storage states under Git-ignored paths;
+  no cookie/token/password value was printed, and the states plus harness were removed after
+  PASS. NVDA remains a separate manual gate.
+
+### Authenticated live browser/API checkpoint (2026-08-03)
+
+The following checks passed on the exact deployed candidate without logging or retaining
+credentials, cookies, capability tokens, email, roster or answer payloads:
+
+- Teacher owner lifecycle covered draft/open/response/close/reopen/finalize, privacy aliases,
+  StudyMeeting creation/cancel and class-bound ClassSession creation/cancel. The synthetic
+  class was archived after cleanup.
+- Student/ordinary-member projection exposed only the actor's own response and privacy-safe
+  aggregate, with no lifecycle/share/finalize or individual-response controls. A Student-owned
+  poll could finalize only to StudyMeeting; the meeting was cancelled through the business UI.
+- A Student-owned class poll proved the positive non-owner scheduler branch: Teacher had
+  authoritative `session.schedule`, saw the individual-response projection and exact aggregate,
+  but received no owner lifecycle/share controls. Static organization policy grants
+  `session.schedule` to every organization Teacher, so the capability-negative branch is the
+  ordinary class member rather than a literal organization `Teacher-` identity.
+- Organization Admin could not respond or use owner lifecycle/share/finalize controls, while
+  the safety projection used privacy aliases and contained no email.
+- Same-user workspace switch concealed the exact P2-08 class under P2-12 and hid all P2-08 poll
+  fixtures. A Student bind attempt against an inaccessible class returned generic HTTP `404`
+  and created no poll.
+- The public fragment was scrubbed before projection; the anonymous response used suppressed
+  low-cohort aggregate. Owner cancellation cascaded to the retained response session: a replay
+  attempt returned one uniform closed/unavailable state and disabled all answer controls.
+- API-only safety-admin preflight proved exact active `teacher`/`org_admin` roles in the same
+  P2-08 tenant. A Teacher created one synthetic open poll/capability and one scheduled
+  StudyMeeting; Admin detail access to the cross-owner StudyMeeting remained concealed as
+  generic `404`, while the explicit recovery command was authorized.
+- Bounded recovery reasons rejected whitespace-only, 257-byte ASCII and 258-byte multibyte
+  inputs without changing poll/meeting versions. Valid Admin recovery revoked the cross-owner
+  capability, cancelled the poll and cancelled the StudyMeeting. The revoked public token then
+  resolved to the same uniform `404`; mutation responses exposed no raw token or share URL.
+- The three successful recovery audit records used the Admin actor and exact action/resource
+  pairs. Metadata keys matched the allowlists exactly: capability revoke had
+  `capability_id/scope/reason/status/version`, while poll and StudyMeeting cancel had only
+  `reason/status/version`; no token, secret, email, title, description, answer, roster or
+  session field was present. Both synthetic resources were terminal and cleanup PASS.
+
+Authenticated Gate 1 is complete. The only remaining P3-02D-A exit work is manual NVDA on the
+organizer and public production routes; automated axe/keyboard/forced-colors evidence does not
+replace that manual screen-reader check.
 
 ## Phạm vi và ranh giới
 
@@ -375,10 +418,11 @@ Historical migration `000022` and its up/down/up disposable sequence are complet
 runtime/maintenance ACL, purge cascade/SKIP LOCKED, poll ownership/quota/isolation/capability,
 owner-time barrier and feature-control concurrency are PASS. Candidate `8585864` is Live on
 Render and has a successful matching Cloudflare Pages check; local verify, focused Playwright/
-axe `3/3`, health/readiness, public privacy headers and Secret scan are PASS. P3-02D-A remains
-`VERIFY` only because the authenticated Admin/Teacher/Student live browser matrix and manual
-NVDA are not available in this run. No URL credential or secret is recorded, and the disposable
-branch is retained.
+axe `3/3`, health/readiness, public privacy headers and Secret scan are PASS. The authenticated
+owner/scheduler/ordinary-member/Admin-negative/tenant/capability browser matrix and API-only
+safety-admin recovery/audit matrix are PASS. Manual NVDA is the sole open exit gate, so
+P3-02D-A stays `VERIFY`. No URL credential or secret is recorded, temporary session states were
+removed after use, and the disposable branch is retained.
 
 Broad-suite note: running the entire Classroom and feature-control integration packages also
 exposed pre-existing test debt outside these P3-02D-A gates. Several assertions try to read

@@ -14,8 +14,8 @@
 | Phase hiện tại      | Phase 3 - Daily learning workspace                                                   |
 | Task `DONE` gần nhất | P3-02C Working hours, attendee/free-busy và RSVP                                  |
 | Mốc repository mới | P3-02D-A candidate `8585864` Live trên Render và Cloudflare; automated staging PASS |
-| Task hiện tại       | P3-02D-A ở `VERIFY`; chỉ còn authenticated browser matrix và manual NVDA          |
-| Task tiếp theo      | Cấp phiên Admin/Teacher/Student staging và NVDA để chạy hai manual gate rồi ký `DONE` |
+| Task hiện tại       | P3-02D-A ở `VERIFY`; automated staging và authenticated browser/API matrix PASS, chỉ manual NVDA còn mở |
+| Task tiếp theo      | Chạy manual NVDA trên organizer/public production route, ghi bằng chứng rồi ký `DONE` |
 
 ### Cập nhật P3-02D-A ngày 2026-08-03
 
@@ -36,10 +36,32 @@ Automated database/deployment acceptance đã hoàn tất trên candidate
 - notification/canary side-effect flags vẫn false; P3-02D-B auto-close/fan-out/delivery
   và LiveKit lifecycle chưa được bật. Disposable branch tiếp tục được giữ.
 
-P3-02D-A chưa chuyển `DONE`: lượt này không có authenticated staging session cho ma trận
-Admin/Teacher có/không có `session.schedule`/Student/cross-tenant, browser origin không thể
-được dùng cho live role matrix và máy không cài NVDA. Automated fixture không được dùng để
-suy ra hai gate thủ công này. Hồ sơ chi tiết nằm tại
+Authenticated live browser checkpoint đã chạy trên exact candidate:
+
+- Teacher owner lifecycle, privacy projection, StudyMeeting và ClassSession business flow PASS;
+- Student own-response/coarse projection, capability-negative finalize chỉ ra StudyMeeting và
+  StudyMeeting cancellation PASS;
+- non-owner class scheduler có authoritative `session.schedule` thấy individual projection/
+  exact aggregate nhưng không có owner controls; ordinary class member không có capability chỉ
+  thấy own/coarse projection;
+- Admin negative response/owner-control matrix, cross-workspace concealment, inaccessible-class
+  bind `404` không mutation, public fragment scrub/privacy và revoke cascade đều PASS;
+- fixture poll đã hủy, ClassSession/StudyMeeting đã hủy và class fixture đã lưu trữ lại.
+
+API-only safety-admin recovery checkpoint cũng PASS:
+
+- exact Teacher/Admin role và P2-08 tenant preflight PASS;
+- whitespace-only, 257-byte ASCII và 258-byte multibyte recovery reason đều bị từ chối mà
+  không đổi version;
+- Admin cross-owner capability revoke, poll cancel và StudyMeeting cancel PASS; revoked public
+  token trở về uniform `404`, response không chứa raw token/share URL;
+- audit actor/action/resource và exact metadata allowlist PASS; không có token/secret/email/
+  title/description/answer/roster/session field;
+- fixture poll và StudyMeeting đều terminal; cleanup PASS. Hai storage state app-origin-only và
+  harness tạm nằm trong Git-ignored path đã bị xóa ngay sau test, không log credential.
+
+P3-02D-A chưa chuyển `DONE` chỉ vì manual NVDA trên organizer/public production route còn mở;
+automated axe/keyboard/forced-colors không được dùng để suy diễn gate này. Hồ sơ chi tiết nằm tại
 [`P3_02D_A_STAGING_ACCEPTANCE.md`](P3_02D_A_STAGING_ACCEPTANCE.md).
 
 ### Cập nhật P3-02D-A ngày 2026-08-01
@@ -703,10 +725,10 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
   participant/RSVP đã được nghiệm thu trong P3-02B/P3-02C. Email/ICS và Availability
   Poll vẫn thuộc P3-CAL-02, P3-02D và P3-05A/B; Calendar chưa phải toàn bộ sản phẩm cuối
   cùng cho đến khi các phạm vi đó đạt gate.
-- P3-02D-A đã có schema/API/UI/capability exchange và automated authorization/privacy
-  coverage ở local, nhưng vẫn là `VERIFY` cho tới khi migration `000023`, exact ACL,
-  PostgreSQL concurrency/cascade, staging browser và manual accessibility/privacy đạt.
-  Không được mô tả Availability Poll/Study Meeting như chức năng production đã chạy.
+- P3-02D-A đã PASS migration `000023`, exact ACL, PostgreSQL concurrency/cascade,
+  schema/API/UI/capability exchange, automated authorization/privacy và authenticated
+  staging browser/API matrix. Task chỉ còn `VERIFY` tới khi manual NVDA trên organizer/public
+  production route đạt; chưa được ký `DONE` trước bằng chứng screen-reader này.
 - External poll link có rủi ro token/PII leak và abuse. Local implementation dùng token
   entropy cao, hash-at-rest, fragment exchange, expiry/revoke/rate limit, log redaction
   và privacy-safe aggregate theo ADR-0021; staging vẫn phải xác nhận các boundary này.
