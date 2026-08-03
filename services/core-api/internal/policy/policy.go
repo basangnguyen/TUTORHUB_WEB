@@ -32,6 +32,7 @@ const (
 	PermissionClassArchive                   Permission = "class.archive"
 	PermissionClassTransferOwner             Permission = "class.transfer_ownership"
 	PermissionClassView                      Permission = "class.view"
+	PermissionConversationCreateDirect       Permission = "conversation.create_direct"
 	PermissionAvailabilityPollCreate         Permission = "availability.poll.create"
 	PermissionAvailabilityPollManageOwn      Permission = "availability.poll.manage_own"
 	PermissionAvailabilityPollPublishToClass Permission = "availability.poll.publish_to_class"
@@ -61,6 +62,7 @@ const (
 	ActionClassArchive                   Action = Action(PermissionClassArchive)
 	ActionClassTransferOwnership         Action = Action(PermissionClassTransferOwner)
 	ActionClassView                      Action = Action(PermissionClassView)
+	ActionConversationCreateDirect       Action = Action(PermissionConversationCreateDirect)
 	ActionAvailabilityPollCreate         Action = Action(PermissionAvailabilityPollCreate)
 	ActionAvailabilityPollManageOwn      Action = Action(PermissionAvailabilityPollManageOwn)
 	ActionAvailabilityPollPublishToClass Action = Action(PermissionAvailabilityPollPublishToClass)
@@ -187,6 +189,7 @@ var permissionOrder = []Permission{
 	PermissionClassArchive,
 	PermissionClassTransferOwner,
 	PermissionClassView,
+	PermissionConversationCreateDirect,
 	PermissionAvailabilityPollCreate,
 	PermissionAvailabilityPollManageOwn,
 	PermissionAvailabilityPollPublishToClass,
@@ -211,6 +214,7 @@ var organizationPermissions = map[OrganizationRole][]Permission{
 		PermissionClassCreate,
 		PermissionClassUpdate,
 		PermissionClassView,
+		PermissionConversationCreateDirect,
 		PermissionAvailabilityPollCreate,
 		PermissionAvailabilityPollManageOwn,
 		PermissionAvailabilityPollPublishToClass,
@@ -227,12 +231,14 @@ var organizationPermissions = map[OrganizationRole][]Permission{
 	},
 	OrganizationRoleStudent: {
 		PermissionTenantView,
+		PermissionConversationCreateDirect,
 		PermissionAvailabilityPollCreate,
 		PermissionAvailabilityPollManageOwn,
 		PermissionStudyMeetingScheduleOwn,
 	},
 	OrganizationRoleGuest: {
 		PermissionTenantView,
+		PermissionConversationCreateDirect,
 		PermissionAvailabilityPollCreate,
 		PermissionAvailabilityPollManageOwn,
 		PermissionStudyMeetingScheduleOwn,
@@ -508,7 +514,7 @@ func actionRequiresClass(action Action) bool {
 	switch action {
 	case ActionTenantView, ActionTenantManage, ActionTenantManageMembers,
 		ActionTenantManageFeatures,
-		ActionClassCreate, ActionClassView, ActionAuditView,
+		ActionClassCreate, ActionClassView, ActionConversationCreateDirect, ActionAuditView,
 		ActionAvailabilityPollCreate, ActionAvailabilityPollManageOwn,
 		ActionStudyMeetingScheduleOwn:
 		return false

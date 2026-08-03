@@ -16,6 +16,7 @@ import (
 	"github.com/tutorhub-v2/core-api/internal/modules/audit"
 	"github.com/tutorhub-v2/core-api/internal/modules/calendar"
 	"github.com/tutorhub-v2/core-api/internal/modules/classroom"
+	"github.com/tutorhub-v2/core-api/internal/modules/conversation"
 	"github.com/tutorhub-v2/core-api/internal/modules/featurecontrol"
 	"github.com/tutorhub-v2/core-api/internal/modules/identity"
 	"github.com/tutorhub-v2/core-api/internal/modules/media"
@@ -173,6 +174,24 @@ func run() int {
 		notificationService, err = notification.NewService(notificationRepository, time.Now)
 		if err != nil {
 			logger.Error("initialize notification service", "error", err)
+			return 1
+		}
+	}
+	var conversationService conversation.ServiceAPI
+	if pool != nil {
+		conversationRepository, conversationErr := conversation.NewPostgresRepository(
+			pool,
+			cfg.Database.QueryTimeout,
+			authorizer,
+			featureControlEnforcer,
+		)
+		if conversationErr != nil {
+			logger.Error("initialize conversation repository", "error", conversationErr)
+			return 1
+		}
+		conversationService, conversationErr = conversation.NewService(conversationRepository)
+		if conversationErr != nil {
+			logger.Error("initialize conversation service", "error", conversationErr)
 			return 1
 		}
 	}
@@ -441,6 +460,7 @@ func run() int {
 		Audit:                 auditService,
 		FeatureControls:       featureControlService,
 		Notifications:         notificationService,
+		Conversations:         conversationService,
 		InvitationRateLimiter: invitationRateLimiter,
 		Media:                 mediaService,
 		LiveKitWebhook:        liveKitWebhook,
@@ -470,7 +490,7 @@ func run() int {
 }
 
 func featureControlGuardrails(configuration config.FeatureControlConfig) featurecontrol.Guardrails {
-	forcedOff := make(map[featurecontrol.FeatureKey]bool, 5)
+	forcedOff := make(map[featurecontrol.FeatureKey]bool, 6)
 	if configuration.DisableMembershipInvitations {
 		forcedOff[featurecontrol.FeatureMembershipInvitations] = true
 	}
@@ -485,6 +505,9 @@ func featureControlGuardrails(configuration config.FeatureControlConfig) feature
 	}
 	if configuration.DisableAvailabilityPolls {
 		forcedOff[featurecontrol.FeatureAvailabilityPolls] = true
+	}
+	if configuration.DisableConversations {
+		forcedOff[featurecontrol.FeatureConversations] = true
 	}
 	if !configuration.EnableClassSessionRecurrence {
 		forcedOff[featurecontrol.FeatureClassSessionRecurrence] = true

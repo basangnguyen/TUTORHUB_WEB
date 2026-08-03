@@ -35,6 +35,15 @@ export type TenantQuotaControlValues =
   components["schemas"]["TenantQuotaControlValues"];
 export type UpdateTenantFeatureControlsRequest =
   components["schemas"]["UpdateTenantFeatureControlsRequest"];
+export type ConversationKind = components["schemas"]["ConversationKind"];
+export type ConversationParticipant =
+  components["schemas"]["ConversationParticipant"];
+export type ConversationViewerAccess =
+  components["schemas"]["ConversationViewerAccess"];
+export type Conversation = components["schemas"]["Conversation"];
+export type ConversationPage = components["schemas"]["ConversationPage"];
+export type CreateDirectConversationRequest =
+  components["schemas"]["CreateDirectConversationRequest"];
 export type Notification = components["schemas"]["Notification"];
 export type NotificationPage = components["schemas"]["NotificationPage"];
 export type NotificationUnreadCount =
@@ -345,6 +354,11 @@ export interface ListNotificationsInput {
   cursor?: string;
   limit?: number;
   unreadOnly?: boolean;
+}
+export interface ListConversationsInput {
+  cursor?: string;
+  kind?: ConversationKind;
+  limit?: number;
 }
 export interface ListCalendarItemsInput {
   from: string;
@@ -695,6 +709,114 @@ export async function updateTenantFeatureControls(
 
   return requireData<TenantCapabilities>(
     data as TenantCapabilities | undefined,
+    error,
+    response,
+  );
+}
+
+export async function listConversations(
+  tenantID: string,
+  input: ListConversationsInput = {},
+  options: APIRequestOptions = {},
+): Promise<ConversationPage> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).GET(
+    "/api/v1/conversations",
+    {
+      params: {
+        header: { "X-TutorHub-Expected-Tenant-ID": tenantID },
+        query: input,
+      },
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<ConversationPage>(
+    data as ConversationPage | undefined,
+    error,
+    response,
+  );
+}
+
+export async function getConversation(
+  tenantID: string,
+  conversationID: string,
+  options: APIRequestOptions = {},
+): Promise<Conversation> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).GET(
+    "/api/v1/conversations/{conversation_id}",
+    {
+      params: {
+        path: { conversation_id: conversationID },
+        header: { "X-TutorHub-Expected-Tenant-ID": tenantID },
+      },
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<Conversation>(
+    data as Conversation | undefined,
+    error,
+    response,
+  );
+}
+
+export async function createDirectConversation(
+  tenantID: string,
+  input: CreateDirectConversationRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<Conversation> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/conversations/direct",
+    {
+      params: {
+        header: {
+          "X-CSRF-Token": csrfToken,
+          "X-TutorHub-Expected-Tenant-ID": tenantID,
+        },
+      },
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<Conversation>(
+    data as Conversation | undefined,
+    error,
+    response,
+  );
+}
+
+export async function ensureClassConversation(
+  tenantID: string,
+  classID: string,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<Conversation> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/classes/{class_id}/conversation",
+    {
+      params: {
+        path: { class_id: classID },
+        header: {
+          "X-CSRF-Token": csrfToken,
+          "X-TutorHub-Expected-Tenant-ID": tenantID,
+        },
+      },
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<Conversation>(
+    data as Conversation | undefined,
     error,
     response,
   );

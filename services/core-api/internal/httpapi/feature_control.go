@@ -50,6 +50,7 @@ type tenantFeatureCapabilitiesResponse struct {
 	ClassSessionRecurrence featureCapabilityResponse `json:"class_session_recurrence"`
 	InAppNotifications     featureCapabilityResponse `json:"in_app_notifications"`
 	AvailabilityPolls      featureCapabilityResponse `json:"availability_polls"`
+	Conversations          featureCapabilityResponse `json:"conversations"`
 }
 
 type tenantQuotaCapabilitiesResponse struct {
@@ -78,6 +79,7 @@ type tenantOperationCapabilitiesResponse struct {
 	CreateAvailabilityPoll           operationCapabilityResponse `json:"create_availability_poll"`
 	CreateAvailabilityPollCapability operationCapabilityResponse `json:"create_availability_poll_capability"`
 	ScheduleStudyMeeting             operationCapabilityResponse `json:"schedule_study_meeting"`
+	CreateConversation               operationCapabilityResponse `json:"create_conversation"`
 }
 
 type tenantCapabilitiesResponse struct {
@@ -103,6 +105,7 @@ type updateTenantFeatureControlValuesRequest struct {
 	ClassSessionRecurrence *bool `json:"class_session_recurrence"`
 	InAppNotifications     *bool `json:"in_app_notifications"`
 	AvailabilityPolls      *bool `json:"availability_polls"`
+	Conversations          *bool `json:"conversations"`
 }
 
 type updateTenantQuotaControlValuesRequest struct {
@@ -128,6 +131,7 @@ func (request updateTenantFeatureControlsRequest) complete() bool {
 		request.Features.ClassSessionRecurrence != nil &&
 		request.Features.InAppNotifications != nil &&
 		request.Features.AvailabilityPolls != nil &&
+		request.Features.Conversations != nil &&
 		request.Quotas != nil && request.Quotas.Members != nil &&
 		request.Quotas.ActiveClasses != nil &&
 		request.Quotas.InviteCreationsPerHour != nil &&
@@ -223,6 +227,7 @@ func (handlers featureControlHandlers) update(w http.ResponseWriter, r *http.Req
 				{Key: featurecontrol.FeatureClassSessionRecurrence, Enabled: *request.Features.ClassSessionRecurrence},
 				{Key: featurecontrol.FeatureInAppNotifications, Enabled: *request.Features.InAppNotifications},
 				{Key: featurecontrol.FeatureAvailabilityPolls, Enabled: *request.Features.AvailabilityPolls},
+				{Key: featurecontrol.FeatureConversations, Enabled: *request.Features.Conversations},
 			},
 			QuotaOverrides: []featurecontrol.QuotaOverride{
 				{Key: featurecontrol.QuotaMembers, Limit: *request.Quotas.Members},
@@ -372,6 +377,7 @@ func mapTenantCapabilities(
 	recurrenceFeature, recurrenceOK := features[featurecontrol.FeatureClassSessionRecurrence]
 	notificationFeature, notificationOK := features[featurecontrol.FeatureInAppNotifications]
 	availabilityPollFeature, availabilityPollOK := features[featurecontrol.FeatureAvailabilityPolls]
+	conversationFeature, conversationOK := features[featurecontrol.FeatureConversations]
 	membersQuota, membersOK := quotas[featurecontrol.QuotaMembers]
 	classesQuota, classesOK := quotas[featurecontrol.QuotaActiveClasses]
 	invitesQuota, invitesOK := quotas[featurecontrol.QuotaInviteCreationsPerHour]
@@ -384,7 +390,7 @@ func mapTenantCapabilities(
 	activeStudyMeetingsQuota, activeStudyMeetingsOK := quotas[featurecontrol.QuotaActiveStudyMeetings]
 	studyMeetingCreationsQuota, studyMeetingCreationsOK := quotas[featurecontrol.QuotaStudyMeetingCreationsPerHour]
 	if !membershipOK || !classOK || !inviteOK || !sessionOK || !recurrenceOK || !notificationOK ||
-		!availabilityPollOK || !membersOK || !classesOK || !invitesOK || !activePollsOK ||
+		!availabilityPollOK || !conversationOK || !membersOK || !classesOK || !invitesOK || !activePollsOK ||
 		!pollRangeOK || !pollSlotsOK || !pollParticipantsOK || !pollCreationsOK || !pollCapabilitiesOK ||
 		!activeStudyMeetingsOK || !studyMeetingCreationsOK {
 		return tenantCapabilitiesResponse{}, errors.New("feature control snapshot is incomplete")
@@ -401,6 +407,7 @@ func mapTenantCapabilities(
 			ClassSessionRecurrence: mapFeatureCapability(recurrenceFeature, capabilities.AllowedAction.ManageControls),
 			InAppNotifications:     mapFeatureCapability(notificationFeature, capabilities.AllowedAction.ManageControls),
 			AvailabilityPolls:      mapFeatureCapability(availabilityPollFeature, capabilities.AllowedAction.ManageControls),
+			Conversations:          mapFeatureCapability(conversationFeature, capabilities.AllowedAction.ManageControls),
 		},
 		Quotas: tenantQuotaCapabilitiesResponse{
 			Members:                                    mapQuotaCapability(membersQuota, capabilities.AllowedAction.ManageControls),
@@ -428,6 +435,7 @@ func mapTenantCapabilities(
 		CreateAvailabilityPoll:           availabilityPollCreateOperation(availabilityPollFeature.Enabled, activePollsQuota, pollCreationsQuota),
 		CreateAvailabilityPollCapability: combineOperation(availabilityPollFeature.Enabled, pollCapabilitiesQuota, true),
 		ScheduleStudyMeeting:             availabilityPollCreateOperation(availabilityPollFeature.Enabled, activeStudyMeetingsQuota, studyMeetingCreationsQuota),
+		CreateConversation:               featureOperation(conversationFeature.Enabled),
 	}
 	return response, nil
 }

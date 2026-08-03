@@ -38,6 +38,9 @@ func TestMapTenantCapabilitiesIncludesAvailabilityPollProfile(t *testing.T) {
 	if !response.Features.AvailabilityPolls.Enabled {
 		t.Fatal("availability poll feature is missing from capability projection")
 	}
+	if !response.Features.Conversations.Enabled || !response.Operations.CreateConversation.Available {
+		t.Fatal("conversation feature is missing from capability projection")
+	}
 	if response.Quotas.ActiveAvailabilityPolls.Limit != 20 ||
 		response.Quotas.AvailabilityPollRangeDays.Limit != 31 ||
 		response.Quotas.AvailabilityPollSlots.Limit != 336 ||
@@ -154,5 +157,31 @@ func TestMapTenantCapabilitiesRejectsIncompleteAvailabilityPollProfile(t *testin
 	}
 	if _, err := mapTenantCapabilities(capabilities); err == nil {
 		t.Fatal("incomplete availability poll capability snapshot unexpectedly mapped")
+	}
+}
+
+func TestMapTenantCapabilitiesConversationFeatureReason(t *testing.T) {
+	t.Parallel()
+
+	capabilities := featurecontrol.Capabilities{}
+	for _, definition := range featurecontrol.NewDefaultCatalog().Features() {
+		capabilities.Features = append(capabilities.Features, featurecontrol.FeatureCapability{
+			EffectiveFeature: featurecontrol.EffectiveFeature{
+				Key: definition.Key, Enabled: definition.Key != featurecontrol.FeatureConversations,
+			},
+		})
+	}
+	for _, definition := range featurecontrol.NewDefaultCatalog().Quotas() {
+		capabilities.Quotas = append(capabilities.Quotas, featurecontrol.QuotaCapability{
+			EffectiveQuota: featurecontrol.EffectiveQuota{Key: definition.Key, Limit: definition.DefaultLimit},
+		})
+	}
+	response, err := mapTenantCapabilities(capabilities)
+	if err != nil {
+		t.Fatalf("map tenant capabilities: %v", err)
+	}
+	if response.Operations.CreateConversation.Available ||
+		response.Operations.CreateConversation.Reason != "feature_disabled" {
+		t.Fatalf("conversation operation = %+v", response.Operations.CreateConversation)
 	}
 }

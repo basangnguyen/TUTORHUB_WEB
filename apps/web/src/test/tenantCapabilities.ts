@@ -27,6 +27,10 @@ export function availableTenantCapabilities(
         configured_enabled: false,
         enabled: false,
       },
+      conversations: {
+        configured_enabled: true,
+        enabled: true,
+      },
       in_app_notifications: {
         configured_enabled: false,
         enabled: false,
@@ -112,6 +116,7 @@ export function availableTenantCapabilities(
       create_availability_poll: available,
       create_availability_poll_capability: available,
       schedule_study_meeting: available,
+      create_conversation: available,
     },
   };
 }

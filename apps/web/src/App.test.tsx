@@ -131,18 +131,53 @@ describe("web shell", () => {
     const navigation = screen.getByRole("navigation", {
       name: "Điều hướng chính",
     });
-    expect(within(navigation).getAllByRole("link")).toHaveLength(5);
+    expect(within(navigation).getAllByRole("link")).toHaveLength(6);
     expect(within(navigation).getByRole("link", { name: "Tổng quan" }));
     expect(within(navigation).getByRole("link", { name: "Lớp học" }));
     expect(within(navigation).getByRole("link", { name: "Workspace" }));
     expect(within(navigation).getByRole("link", { name: "Thiết lập" }));
     expect(within(navigation).getByRole("link", { name: "Lịch" }));
+    expect(within(navigation).getByRole("link", { name: "Tin nhắn" }));
     expect(getVisibleNavigationItems([]).map((item) => item.to)).toEqual([
       "/app/home",
       "/app/classrooms",
+      "/app/messages",
       "/app/calendar",
       "/app/settings",
     ]);
+  });
+
+  it("shows Messages to a student without organization-level chat.send", () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            status: "ok",
+            service: "tutorhub-core-api",
+            environment: "test",
+            timestamp: "2026-08-03T00:00:00Z",
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      ),
+    );
+    const studentMembership = {
+      ...activeMembership,
+      role: "student" as const,
+    };
+
+    renderRoute("/app/home", {
+      ...testSession,
+      active_tenant: studentMembership,
+      memberships: [studentMembership],
+      permissions: ["tenant.view"],
+    });
+
+    expect(screen.getByRole("link", { name: "Tin nhắn" })).toHaveAttribute(
+      "href",
+      "/app/messages",
+    );
   });
 
   it("blocks the audit route before rendering it when audit.view is absent", async () => {

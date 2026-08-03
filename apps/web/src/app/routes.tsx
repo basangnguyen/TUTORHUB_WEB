@@ -56,6 +56,11 @@ const CalendarPage = lazy(() =>
     default: module.CalendarPage,
   })),
 );
+const ConversationsPage = lazy(() =>
+  import("../pages/ConversationsPage").then((module) => ({
+    default: module.ConversationsPage,
+  })),
+);
 const AvailabilityPollManagementPage = lazy(() =>
   import("../pages/AvailabilityPollManagementPage").then((module) => ({
     default: module.AvailabilityPollManagementPage,
@@ -82,6 +87,7 @@ export const navigationItems: readonly NavigationItem[] = [
     showInSidebar: false,
   },
   { to: "/app/classrooms", labelKey: "nav.classrooms" },
+  { to: "/app/messages", labelKey: "nav.messages" },
   { to: "/app/calendar", labelKey: "nav.calendar" },
   {
     to: "/app/workspace",
@@ -264,6 +270,14 @@ export function createAppRoutes(): RouteObject[] {
                 {
                   path: "classrooms/:classId/prejoin",
                   element: <ClassroomPreJoinPage />,
+                },
+                {
+                  path: "messages",
+                  element: <ConversationsPage />,
+                },
+                {
+                  path: "messages/:conversationId",
+                  element: <ConversationsPage />,
                 },
                 {
                   path: "calendar",

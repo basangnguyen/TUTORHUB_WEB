@@ -20,6 +20,7 @@ func TestCatalogDefaultsAndStableOrder(t *testing.T) {
 		FeatureClassManagement,
 		FeatureClassSessionRecurrence,
 		FeatureClassSessionScheduling,
+		FeatureConversations,
 		FeatureInAppNotifications,
 		FeatureMembershipInvitations,
 	}; !reflect.DeepEqual(got, want) {

@@ -14,8 +14,34 @@
 | Phase hiện tại      | Phase 3 - Daily learning workspace                                                   |
 | Task `DONE` gần nhất | P3-02D-A Native Availability Poll và Study Meeting core                          |
 | Mốc repository mới | Candidate `8585864` Live; database, browser/API và manual NVDA acceptance PASS     |
-| Task hiện tại       | P3-02D-A `DONE`; lane runnable sẵn sàng bắt đầu P3-06                             |
-| Task tiếp theo      | P3-06 Direct/class conversation core                                              |
+| Task hiện tại       | P3-06 Direct/class conversation core — `VERIFY`                                   |
+| Task tiếp theo      | Shared staging + authenticated browser/Axe gate P3-06, sau đó P3-07A              |
+
+### Checkpoint P3-06 ngày 2026-08-03
+
+P3-06 đã khóa phạm vi REST-only cho conversation container; message persistence,
+unread/read, realtime và notification vẫn thuộc P3-07A/P3-07B. ADR-0013 được amend:
+
+- direct conversation đúng hai active member cùng tenant; request chỉ nhận exact target
+  email, server tự resolve/canonicalize participant set và create lặp/concurrent phải trả
+  cùng một conversation;
+- mỗi class có tối đa một conversation, không copy roster; quyền đọc luôn lấy từ implicit
+  owner, organization policy và enrollment authoritative;
+- archived class giữ lịch sử read-only, chặn create/write mới; restore vẫn phải reauthorize;
+- feature `conversations` có server-side emergency-off; quota tổng thể được giữ cho P3-13.
+
+Vertical slice đã hoàn tất migration `000024`, Go module/API, OpenAPI/generated client và
+web `/app/messages`; không bật worker, realtime hoặc delivery side effect. Local gate xanh:
+
+- toàn bộ Go test/vet, API-client `32/32`, web `236/236`, lint, typecheck, production build,
+  format, diff và secret-pattern scan đều PASS;
+- disposable Neon forward-only `23 false -> 24 false`, rerun idempotent giữ `24 false`;
+- exact runtime ACL và focused PostgreSQL concurrency/lifecycle/tenant/privacy/audit gate
+  PASS sau khi fixture suspension được sửa để tuân constraint timestamp authoritative;
+- không rollback, không migrate shared staging và không deploy. Shared staging vẫn ở
+  `23 false`; authenticated browser/API cùng keyboard/Axe trên candidate chưa chạy.
+
+Vì còn shared staging/deployment/browser acceptance, P3-06 hiện là `VERIFY`, chưa `DONE`.
 
 ### Cập nhật P3-02D-A ngày 2026-08-03
 

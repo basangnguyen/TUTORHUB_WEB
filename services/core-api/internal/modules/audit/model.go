@@ -43,6 +43,7 @@ const (
 	ActionClassSessionCancel          Action = "class.session.cancel"
 	ActionClassSessionAudienceReplace Action = "class.session.audience.replace"
 	ActionClassSessionRSVPRespond     Action = "class.session.rsvp.respond"
+	ActionConversationCreate          Action = "conversation.create"
 	ActionAvailabilityPollCreate      Action = "availability.poll.create"
 	ActionAvailabilityPollUpdate      Action = "availability.poll.update"
 	ActionAvailabilityPollOpen        Action = "availability.poll.open"
@@ -185,6 +186,7 @@ var actionCatalog = map[Action]struct{}{
 	ActionClassSessionCancel:          {},
 	ActionClassSessionAudienceReplace: {},
 	ActionClassSessionRSVPRespond:     {},
+	ActionConversationCreate:          {},
 	ActionAvailabilityPollCreate:      {},
 	ActionAvailabilityPollUpdate:      {},
 	ActionAvailabilityPollOpen:        {},
@@ -239,6 +241,7 @@ var domainEventActions = map[string]Action{
 	"class_session_occurrence.cancelled.v1":       ActionClassSessionCancel,
 	"class_session.audience_replaced.v1":          ActionClassSessionAudienceReplace,
 	"class_session.rsvp_responded.v1":             ActionClassSessionRSVPRespond,
+	"conversation.created.v1":                     ActionConversationCreate,
 	"availability_poll.created.v1":                ActionAvailabilityPollCreate,
 	"availability_poll.updated.v1":                ActionAvailabilityPollUpdate,
 	"availability_poll.opened.v1":                 ActionAvailabilityPollOpen,

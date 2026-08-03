@@ -95,6 +95,10 @@ sau đó token phải khớp keyed HMAC của session trong PostgreSQL. Không d
 | `POST /api/v1/classes/{class_id}/invite-codes/{code_id}/revoke`       | Manager revoke code active; CSRF bắt buộc                                                                     |
 | `POST /api/v1/class-invitations/join`                                 | Session + CSRF; nhận class invite token trong JSON body và join/rejoin atomically                             |
 | `POST /api/v1/classes/{class_id}/leave`                               | Active enrollee tự rời lớp; CSRF bắt buộc và replay idempotent                                                |
+| `GET /api/v1/conversations`                                          | List direct/class conversation actor được xem trong expected active tenant                                    |
+| `GET /api/v1/conversations/{conversation_id}`                        | Detail tenant-scoped; foreign/inaccessible conversation bị conceal                                            |
+| `POST /api/v1/conversations/direct`                                  | Session + CSRF; server resolve exact active same-tenant member email và canonical pair                         |
+| `POST /api/v1/classes/{class_id}/conversation`                       | Session + CSRF; get-or-create duy nhất cho active class theo owner/enrollment authoritative                    |
 
 Contract có thẩm quyền nằm tại `openapi/tutorhub.yaml`; TypeScript client được sinh ở
 `packages/api-client/src/generated/schema.ts`.
@@ -262,6 +266,20 @@ web luôn invalidate/refetch trước retry. Role update dùng last-write-wins �
 LiveKit grant mới ghi organization/class/effective role từ projection authoritative,
 vì vậy token cấp sau roster mutation phản ánh role mới. JWT đã cấp và participant đang
 kết nối không được cập nhật hoặc thu hồi retroactively.
+
+## Conversation authorization
+
+P3-06 chỉ tạo conversation container qua REST, chưa tạo message/realtime/notification.
+Mọi endpoint yêu cầu `X-TutorHub-Expected-Tenant-ID` khớp active tenant; hai POST còn yêu
+cầu CSRF. Direct request chỉ nhận `target_member_email`: backend resolve actor/target từ
+membership active cùng tenant, canonical hóa pair và không nhận participant ID/array.
+Response chỉ trả user ID/display name cần cho UI, không trả email.
+
+Class conversation không lưu roster snapshot. List/detail tính quyền lại từ class owner và
+active enrollment authoritative; organization admin áp shared policy hiện có. Class archived
+giữ history cho actor còn `class.view` nhưng `viewer_access.can_post_messages=false` và không
+được tạo conversation mới. Deployment feature `conversations` chỉ chặn create; history read
+không phụ thuộc feature để emergency-off không làm mất khả năng truy xuất dữ liệu đã có.
 
 ## Tạo ứng dụng ZITADEL
 

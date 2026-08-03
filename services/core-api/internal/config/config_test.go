@@ -70,7 +70,8 @@ func TestLoadDefaults(t *testing.T) {
 		cfg.CalendarProtectedData.KeyVersion != 0 {
 		t.Fatalf("calendar protected data must remain disabled without an explicit key: %+v", cfg.CalendarProtectedData)
 	}
-	if cfg.FeatureControls.EnableInAppNotifications ||
+	if cfg.FeatureControls.DisableConversations ||
+		cfg.FeatureControls.EnableInAppNotifications ||
 		cfg.FeatureControls.MaxMembers != defaultFeatureMemberLimit ||
 		cfg.FeatureControls.MaxActiveClasses != defaultFeatureClassLimit ||
 		cfg.FeatureControls.MaxInviteCreationsPerHour != defaultFeatureInviteRateLimit ||
@@ -167,6 +168,7 @@ func TestLoadCustomValues(t *testing.T) {
 		"FEATURE_CONTROL_DISABLE_CLASS_INVITE_LINKS":                          "true",
 		"FEATURE_CONTROL_DISABLE_CLASS_SESSION_SCHEDULING":                    "true",
 		"FEATURE_CONTROL_DISABLE_AVAILABILITY_POLLS":                          "true",
+		"FEATURE_CONTROL_DISABLE_CONVERSATIONS":                               "true",
 		"FEATURE_CONTROL_ENABLE_CLASS_SESSION_RECURRENCE":                     "true",
 		"FEATURE_CONTROL_ENABLE_IN_APP_NOTIFICATIONS":                         "true",
 		"FEATURE_CONTROL_MAX_MEMBERS":                                         "5000",
@@ -241,6 +243,7 @@ func TestLoadCustomValues(t *testing.T) {
 		!cfg.FeatureControls.DisableClassInviteLinks ||
 		!cfg.FeatureControls.DisableClassSessionScheduling ||
 		!cfg.FeatureControls.DisableAvailabilityPolls ||
+		!cfg.FeatureControls.DisableConversations ||
 		!cfg.FeatureControls.EnableClassSessionRecurrence ||
 		!cfg.FeatureControls.EnableInAppNotifications ||
 		cfg.FeatureControls.MaxMembers != 5000 ||
@@ -288,6 +291,7 @@ func TestLoadRejectsInvalidFeatureControlGuardrails(t *testing.T) {
 	_, err := load(mapLookup(map[string]string{
 		"FEATURE_CONTROL_DISABLE_CLASS_MANAGEMENT":                            "sometimes",
 		"FEATURE_CONTROL_DISABLE_AVAILABILITY_POLLS":                          "sometimes",
+		"FEATURE_CONTROL_DISABLE_CONVERSATIONS":                               "sometimes",
 		"FEATURE_CONTROL_ENABLE_CLASS_SESSION_RECURRENCE":                     "sometimes",
 		"FEATURE_CONTROL_ENABLE_IN_APP_NOTIFICATIONS":                         "sometimes",
 		"FEATURE_CONTROL_MAX_MEMBERS":                                         "10001",
@@ -309,6 +313,7 @@ func TestLoadRejectsInvalidFeatureControlGuardrails(t *testing.T) {
 	for _, expected := range []string{
 		"FEATURE_CONTROL_DISABLE_CLASS_MANAGEMENT",
 		"FEATURE_CONTROL_DISABLE_AVAILABILITY_POLLS",
+		"FEATURE_CONTROL_DISABLE_CONVERSATIONS",
 		"FEATURE_CONTROL_ENABLE_CLASS_SESSION_RECURRENCE",
 		"FEATURE_CONTROL_ENABLE_IN_APP_NOTIFICATIONS",
 		"FEATURE_CONTROL_MAX_MEMBERS",

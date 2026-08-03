@@ -5,6 +5,7 @@
 - P2-05 amendment: 2026-07-19
 - P2-06 amendment: 2026-07-19
 - P2-07 amendment: 2026-07-19
+- P3-06 amendment: 2026-08-03
 
 ## Context
 
@@ -101,6 +102,31 @@ CSRF protection, and authoritative membership reauthorization inside the same
 transaction. A handler must not infer this authority from cached `/me` data or a
 client-provided tenant ID.
 
+Starting in P3-06, TutorHub has exactly two conversation kinds: `direct` and `class`.
+A direct conversation contains exactly two distinct users. The request supplies only
+an exact target-member email; the server resolves the active same-tenant membership,
+adds the actor, sorts the two user IDs into a canonical pair and rejects unavailable,
+self or cross-tenant targets through one generic response. The client never supplies a
+participant array, tenant, role, display name or persisted membership row. Every active
+organization role may start a direct conversation; repository membership checks remain
+authoritative and repeated or concurrent creation of the same pair returns one record.
+
+Each class has at most one class conversation. Class participant rows are not copied into
+conversation storage: read access is recalculated from the implicit owner, organization
+admin/teacher policy and active enrollment for every request. Creating the class
+conversation and future message writes require authoritative `chat.send` on an active
+class. An archived class retains readable history for actors who still have `class.view`,
+but creation and new writes remain blocked; restoring the class re-enables writes only
+after normal policy reauthorization. Enrollment suspension, leave or removal therefore
+removes class-conversation access immediately rather than preserving a stale snapshot.
+
+Direct-conversation creation uses the tenant-scoped `conversation.create_direct` action.
+Direct history remains visible only to a persisted participant whose own tenant membership
+is active. New direct writes will additionally require both participant memberships to be
+active when P3-07 is implemented. P3-06 is REST-only conversation-container persistence;
+message content, unread/read state, realtime transport and notification delivery remain
+owned by P3-07A/P3-07B.
+
 ## Consequences
 
 - Permission constants and role mappings have one source of truth and table-driven
@@ -119,6 +145,10 @@ client-provided tenant ID.
   outcomes and refetch after an infrastructure error.
 - Tenant audit visibility remains an organization-policy decision and is reauthorized
   from current database state for every query.
+- Direct participant identity and class conversation membership are server-derived;
+  class enrollment changes cannot leave a stale conversation ACL behind.
+- Archived classes keep conversation history read-only, while restore does not bypass
+  the regular `chat.send` authorization path.
 - A static test rejects reintroduction of local permission helpers in domain modules.
 
 ## Alternatives rejected

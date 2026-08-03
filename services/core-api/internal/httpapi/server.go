@@ -11,6 +11,7 @@ import (
 	"github.com/tutorhub-v2/core-api/internal/modules/audit"
 	"github.com/tutorhub-v2/core-api/internal/modules/calendar"
 	"github.com/tutorhub-v2/core-api/internal/modules/classroom"
+	"github.com/tutorhub-v2/core-api/internal/modules/conversation"
 	"github.com/tutorhub-v2/core-api/internal/modules/featurecontrol"
 	"github.com/tutorhub-v2/core-api/internal/modules/identity"
 	"github.com/tutorhub-v2/core-api/internal/modules/media"
@@ -42,6 +43,7 @@ type Options struct {
 	FeatureControls       featurecontrol.ServiceAPI
 	Media                 media.ServiceAPI
 	Notifications         notification.ServiceAPI
+	Conversations         conversation.ServiceAPI
 	LiveKitWebhook        media.WebhookVerifier
 	InvitationRateLimiter InvitationRateLimiter
 	RemoteAddressResolver RemoteAddressResolver
@@ -145,6 +147,7 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 	)
 	featureControls := newFeatureControlHandlers(logger, auth, options.FeatureControls)
 	notifications := newNotificationHandlers(logger, auth, options.Notifications)
+	conversations := newConversationHandlers(logger, auth, options.Conversations)
 	calendarHandlers := newCalendarHandlers(logger, auth, options.Calendar)
 	calendarScheduling := newCalendarSchedulingHandlers(
 		logger,
@@ -206,6 +209,22 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 	mux.Handle(
 		notificationPreferencePath,
 		notificationResponseHeaders(http.HandlerFunc(notifications.preference)),
+	)
+	mux.Handle(
+		conversationsCollectionPath,
+		conversationResponseHeaders(http.HandlerFunc(conversations.collection)),
+	)
+	mux.Handle(
+		conversationDirectPath,
+		conversationResponseHeaders(http.HandlerFunc(conversations.createDirect)),
+	)
+	mux.Handle(
+		conversationResourcePattern,
+		conversationResponseHeaders(http.HandlerFunc(conversations.resource)),
+	)
+	mux.Handle(
+		classConversationPattern,
+		conversationResponseHeaders(http.HandlerFunc(conversations.createClass)),
 	)
 	mux.Handle(
 		calendarItemsPath,

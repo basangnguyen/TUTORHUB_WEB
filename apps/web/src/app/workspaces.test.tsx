@@ -202,6 +202,10 @@ describe("workspace actions", () => {
       defaultOptions: { queries: { retry: false } },
     });
     queryClient.setQueryData(["classes", tenantA.id, "list"], ["class-a"]);
+    queryClient.setQueryData(
+      ["conversations", tenantA.id, "list", "all"],
+      ["conversation-a"],
+    );
     queryClient.setQueryData(["media", tenantA.id, "room"], "room-a");
     queryClient.setQueryData(["audit", tenantA.id, "list"], ["event-a"]);
     queryClient.setQueryData(
@@ -239,6 +243,9 @@ describe("workspace actions", () => {
     expect(endpointCalls(fetchMock, "/api/v1/me")).toHaveLength(1);
     expect(
       queryClient.getQueryData(["classes", tenantA.id, "list"]),
+    ).toBeUndefined();
+    expect(
+      queryClient.getQueryData(["conversations", tenantA.id, "list", "all"]),
     ).toBeUndefined();
     expect(
       queryClient.getQueryData(["media", tenantA.id, "room"]),

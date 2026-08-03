@@ -7,9 +7,9 @@ thay đổi schema, migration hoặc repository phải đọc tài liệu này t
 
 - System of record: Neon PostgreSQL.
 - Schema ứng dụng: `tutorhub`.
-- Migration mới nhất trong source: `000023_availability_poll_maintenance_security`; Neon
-  staging gần nhất ở `23 false` sau forward `21 -> 23` và rerun idempotent PASS ngày
-  2026-08-03.
+- Migration mới nhất trong source: `000024_conversation_core`; disposable Neon đã forward
+  `23 -> 24` và rerun idempotent giữ `24 false` ngày 2026-08-03. Shared Neon staging vẫn
+  ở `23 false`; migration `000024` chưa được áp dụng lên shared staging.
 - Migration 1-5 đã được chạy và kiểm tra trên Neon; smoke
   `5 false -> rollback 4 false -> migrate 5 false` đạt ngày 2026-07-16.
 - Migration `000006` đến `000013` đều có up/down path. Source và PostgreSQL 17 CI
@@ -38,9 +38,9 @@ thay đổi schema, migration hoặc repository phải đọc tài liệu này t
 - Migration `000022` thêm Availability Poll/response/capability/Study Meeting, quota và
   maintenance hard-retention function. Disposable đã PASS chuỗi lịch sử `21 -> 22 -> 21 -> 22`
   và exact runtime ACL; function `SECURITY INVOKER` từng bị blocker `42501` như ADR-0024 ghi.
-  Migration forward-only `000023` đã sửa boundary sang hardened `SECURITY DEFINER`; disposable
-  và shared Neon staging hiện ở `23 false`; exact runtime/maintenance ACL và toàn bộ database
-  gate P3-02D-A đã PASS.
+  Migration forward-only `000023` đã sửa boundary sang hardened `SECURITY DEFINER`; exact
+  runtime/maintenance ACL và toàn bộ database gate P3-02D-A đã PASS ở `23 false`. Disposable
+  này sau đó được forward lên `24 false` cho P3-06; shared Neon staging vẫn ở `23 false`.
 - Phần lớn integration test rollback bằng transaction. Chỉ focused P2-09 suite có
   fixture tự dọn hoàn toàn được chạy trên staging ngày 2026-07-21; các suite concurrency
   có thể để lại audit append-only vẫn chỉ chạy trên database CI tạm thời.
@@ -81,7 +81,7 @@ process không tự chạy migration khi khởi động.
 `tutorhub-outbox-worker` để quan sát trên Neon. Mọi truy vấn mạng/database phải chạy
 ngoài UI thread ở các client native về sau.
 
-## Schema source nền đến phiên bản 23
+## Schema source nền đến phiên bản 24
 
 | Bảng                     | Vai trò                                                                                          |
 | ------------------------ | ------------------------------------------------------------------------------------------------ |
@@ -112,6 +112,8 @@ ngoài UI thread ở các client native về sau.
 | `legacy_import_runs`     | Ledger migration-role-only cho checksum, trạng thái và checkpoint fixture V1                         |
 | `legacy_import_run_items` | Outcome/reason code bounded theo record để reconciliation và resume                                  |
 | `legacy_import_mappings` | Mapping bền `(source_system, entity_type, external_id) -> target_id`; không chứa source payload        |
+| `conversations`          | Container direct/class tenant-scoped; canonical direct pair và tối đa một conversation mỗi class     |
+| `conversation_members`   | Hai membership row server-owned cho direct conversation; class membership luôn đọc từ enrollment      |
 
 Ràng buộc quan trọng:
 
@@ -1068,6 +1070,48 @@ chứng minh:
 
 Không chạy purge acceptance trên shared production hoặc dữ liệu người dùng thật.
 
+## Conversation core 000024
+
+Migration `000024` tạo `conversations` và `conversation_members`, đồng thời thêm feature
+key `conversations`. Mỗi direct conversation giữ đúng canonical pair
+`direct_user_low_id < direct_user_high_id`; partial unique index chặn duplicate khi hai
+phía create đồng thời. Mỗi class có tối đa một conversation qua partial unique index.
+Class không snapshot roster vào `conversation_members`: quyền đọc/ghi luôn được tính lại
+từ owner và `class_enrollments` authoritative. Archive giữ conversation để đọc nhưng
+không cấp `chat.send`; feature emergency-off chỉ chặn create và không xóa/ẩn history.
+
+Migration revoke `PUBLIC` và không hardcode tên role môi trường. Sau khi forward bằng
+migration owner, provision exact Core API runtime role như sau, thay
+`tutorhub_runtime` bằng role thật của môi trường:
+
+```sql
+BEGIN;
+
+REVOKE ALL PRIVILEGES ON TABLE
+    tutorhub.conversations,
+    tutorhub.conversation_members
+FROM tutorhub_runtime;
+
+GRANT SELECT, INSERT ON TABLE
+    tutorhub.conversations,
+    tutorhub.conversation_members
+TO tutorhub_runtime;
+
+COMMIT;
+```
+
+Runtime role không được nhận `UPDATE`, `DELETE`, `TRUNCATE`, `REFERENCES`, `TRIGGER` hoặc
+ownership trên hai bảng này. API chỉ ghi hai `conversation_members` do server resolve;
+request direct chỉ nhận exact target-member email và không nhận participant ID/array.
+`conversation_members` không phải nguồn authorization: direct access vẫn kiểm tra canonical
+pair trên `conversations`, còn class access luôn lấy từ owner/enrollment authoritative.
+P3-07 không được tin hoặc mở generic mutation cho bảng này nếu chưa giữ đúng invariant
+hai direct member/không snapshot class roster và bổ sung DB enforcement khi xuất hiện write
+path mới.
+Audit `conversation.created.v1` chỉ append khi insert conversation mới thực sự thắng;
+replay canonical không tạo audit hoặc side effect thứ hai. P3-06 không tạo message,
+outbox delivery, notification hoặc realtime transport.
+
 ## Chạy migration
 
 Tạo `.env.local` từ `.env.example` và điền migration, API, worker cùng poll-maintenance URL
@@ -1096,8 +1140,9 @@ pnpm db:version
 ```
 
 Sau khi áp dụng toàn bộ migration trong source hiện tại, kết quả mong đợi là
-`23 false`. Chỉ ghi đó là kết quả môi trường khi lệnh thực tế đã chạy. Disposable và shared
-Neon staging đều được xác nhận `23 false` sau forward và migrate idempotent.
+`24 false`. Disposable P3-06 đã được xác nhận thực tế ở `24 false` và migrate lặp vẫn giữ
+nguyên; shared Neon staging mới chỉ được xác nhận `23 false`, không được suy diễn kết quả
+disposable thành kết quả shared staging.
 Không chạy database rollback thêm cho P3-02D-A. Emergency down `000023` chỉ disable purge
 function; down `000022` mới phá hủy poll/Study Meeting data. Recovery ưu tiên application
 rollback hoặc migration forward mới.
@@ -1139,6 +1184,13 @@ API/maintenance ACL; poll ownership/quota/isolation/capability lifecycle; Study 
 conflict/quota; public capability expiry/revoke/rate/privacy; hard-retention batch validation
 và parent/FK cascade đều đã có PostgreSQL evidence PASS. Shared staging, authenticated
 browser/API và manual NVDA acceptance cũng PASS.
+
+P3-06 đã forward `23 -> 24` trên disposable mà không rollback `000022/000023`; rerun giữ
+`24 false`. Exact runtime ACL, canonical direct và one-class create dưới concurrency,
+authoritative active membership/enrollment, archived-class read-only, feature-off history,
+cross-tenant concealment và audit-once đều PASS bằng PostgreSQL thật. Shared staging vẫn ở
+`23 false`; phải re-provision ACL và chạy lại acceptance sau forward, không suy diễn từ
+disposable.
 
 Với P2-05, cần kiểm tra riêng migrate 9 -> 10, rollback 10 -> 9, migrate lại 9 -> 10;
 tenant-scoped FK/unique/state constraints; direct enroll và các transition; same-user

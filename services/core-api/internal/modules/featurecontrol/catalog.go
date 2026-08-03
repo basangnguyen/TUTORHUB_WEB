@@ -15,6 +15,7 @@ const (
 	FeatureClassSessionRecurrence FeatureKey = "class_session_recurrence"
 	FeatureInAppNotifications     FeatureKey = "in_app_notifications"
 	FeatureAvailabilityPolls      FeatureKey = "availability_polls"
+	FeatureConversations          FeatureKey = "conversations"
 )
 
 type QuotaKey string
@@ -84,6 +85,9 @@ var featureDefinitions = map[FeatureKey]FeatureDefinition{
 	},
 	FeatureAvailabilityPolls: {
 		Key: FeatureAvailabilityPolls, DefaultEnabled: true,
+	},
+	FeatureConversations: {
+		Key: FeatureConversations, DefaultEnabled: true,
 	},
 }
 

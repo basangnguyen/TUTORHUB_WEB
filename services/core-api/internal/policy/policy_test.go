@@ -27,6 +27,7 @@ func TestOrganizationPermissionMatrix(t *testing.T) {
 			role: OrganizationRoleTeacher,
 			want: []Permission{
 				PermissionTenantView, PermissionClassCreate, PermissionClassUpdate, PermissionClassView,
+				PermissionConversationCreateDirect,
 				PermissionAvailabilityPollCreate, PermissionAvailabilityPollManageOwn,
 				PermissionAvailabilityPollPublishToClass, PermissionStudyMeetingScheduleOwn,
 				PermissionEnrollmentManage, PermissionSessionSchedule, PermissionSessionStart, PermissionSessionEnd,
@@ -38,7 +39,8 @@ func TestOrganizationPermissionMatrix(t *testing.T) {
 			name: "student",
 			role: OrganizationRoleStudent,
 			want: []Permission{
-				PermissionTenantView, PermissionAvailabilityPollCreate,
+				PermissionTenantView, PermissionConversationCreateDirect,
+				PermissionAvailabilityPollCreate,
 				PermissionAvailabilityPollManageOwn, PermissionStudyMeetingScheduleOwn,
 			},
 		},
@@ -46,7 +48,8 @@ func TestOrganizationPermissionMatrix(t *testing.T) {
 			name: "guest",
 			role: OrganizationRoleGuest,
 			want: []Permission{
-				PermissionTenantView, PermissionAvailabilityPollCreate,
+				PermissionTenantView, PermissionConversationCreateDirect,
+				PermissionAvailabilityPollCreate,
 				PermissionAvailabilityPollManageOwn, PermissionStudyMeetingScheduleOwn,
 			},
 		},
@@ -84,6 +87,7 @@ func TestClassPermissionMatrix(t *testing.T) {
 			want: []Permission{
 				PermissionTenantView, PermissionClassUpdate, PermissionClassArchive,
 				PermissionClassTransferOwner, PermissionClassView,
+				PermissionConversationCreateDirect,
 				PermissionAvailabilityPollCreate, PermissionAvailabilityPollManageOwn,
 				PermissionAvailabilityPollPublishToClass, PermissionStudyMeetingScheduleOwn,
 				PermissionEnrollmentManage, PermissionEnrollmentLeave, PermissionSessionSchedule,
@@ -97,6 +101,7 @@ func TestClassPermissionMatrix(t *testing.T) {
 			role: ClassRoleCoTeacher,
 			want: []Permission{
 				PermissionTenantView, PermissionClassUpdate, PermissionClassView,
+				PermissionConversationCreateDirect,
 				PermissionAvailabilityPollCreate, PermissionAvailabilityPollManageOwn,
 				PermissionAvailabilityPollPublishToClass, PermissionStudyMeetingScheduleOwn,
 				PermissionEnrollmentManage, PermissionEnrollmentLeave, PermissionSessionSchedule,
@@ -110,6 +115,7 @@ func TestClassPermissionMatrix(t *testing.T) {
 			role: ClassRoleTeachingAssistant,
 			want: []Permission{
 				PermissionTenantView, PermissionClassView,
+				PermissionConversationCreateDirect,
 				PermissionAvailabilityPollCreate, PermissionAvailabilityPollManageOwn,
 				PermissionStudyMeetingScheduleOwn,
 				PermissionEnrollmentLeave, PermissionSessionJoin, PermissionParticipantAdmit,
@@ -121,6 +127,7 @@ func TestClassPermissionMatrix(t *testing.T) {
 			role: ClassRoleStudent,
 			want: []Permission{
 				PermissionTenantView, PermissionClassView,
+				PermissionConversationCreateDirect,
 				PermissionAvailabilityPollCreate, PermissionAvailabilityPollManageOwn,
 				PermissionStudyMeetingScheduleOwn,
 				PermissionEnrollmentLeave, PermissionSessionJoin, PermissionMediaPublish,
@@ -156,6 +163,7 @@ func TestEffectivePermissionsUnionsMultipleRolesDeterministically(t *testing.T) 
 	want := []Permission{
 		PermissionTenantView,
 		PermissionClassView,
+		PermissionConversationCreateDirect,
 		PermissionAvailabilityPollCreate,
 		PermissionAvailabilityPollManageOwn,
 		PermissionStudyMeetingScheduleOwn,
@@ -167,6 +175,32 @@ func TestEffectivePermissionsUnionsMultipleRolesDeterministically(t *testing.T) 
 	}
 	if got := NewEngine().EffectivePermissions(subject); !reflect.DeepEqual(got, want) {
 		t.Fatalf("effective permission union is not deterministic: got=%v want=%v", got, want)
+	}
+}
+
+func TestDirectConversationCreationIsTenantScopedForEveryActiveMember(t *testing.T) {
+	t.Parallel()
+
+	engine := NewEngine()
+	for _, role := range []OrganizationRole{
+		OrganizationRoleAdmin,
+		OrganizationRoleTeacher,
+		OrganizationRoleStudent,
+		OrganizationRoleGuest,
+	} {
+		subject := validTestSubject()
+		subject.OrganizationRoles = []OrganizationRole{role}
+		decision := engine.Authorize(Input{
+			Subject: subject,
+			Action:  ActionConversationCreateDirect,
+			Resource: Resource{
+				TenantID: subject.ActiveTenantID,
+				State:    ResourceStateActive,
+			},
+		})
+		if !decision.Allowed {
+			t.Fatalf("active %s member could not create direct conversation: %+v", role, decision)
+		}
 	}
 }
 

@@ -155,6 +155,7 @@ type FeatureControlConfig struct {
 	DisableClassInviteLinks                       bool
 	DisableClassSessionScheduling                 bool
 	DisableAvailabilityPolls                      bool
+	DisableConversations                          bool
 	EnableClassSessionRecurrence                  bool
 	EnableInAppNotifications                      bool
 	MaxMembers                                    int
@@ -416,6 +417,12 @@ func featureControlConfig(
 		DisableAvailabilityPolls: boolValue(
 			lookup,
 			"FEATURE_CONTROL_DISABLE_AVAILABILITY_POLLS",
+			false,
+			validationErrors,
+		),
+		DisableConversations: boolValue(
+			lookup,
+			"FEATURE_CONTROL_DISABLE_CONVERSATIONS",
 			false,
 			validationErrors,
 		),

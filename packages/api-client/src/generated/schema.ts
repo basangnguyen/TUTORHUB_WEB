@@ -601,6 +601,26 @@ export type paths = {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/api/v1/classes/{class_id}/conversation": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Create or return the canonical conversation for one class
+     * @description Class participants and viewer access are always derived from authoritative class ownership, tenant role, and enrollment state. This request accepts no participant body.
+     */
+    readonly post: operations["ensureClassConversation"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/api/v1/classes/{class_id}/enrollments": {
     readonly parameters: {
       readonly query?: never;
@@ -1161,6 +1181,63 @@ export type paths = {
     readonly put?: never;
     /** Transfer class ownership after recent authentication */
     readonly post: operations["transferClassOwnership"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/conversations": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /**
+     * List conversations visible to the authenticated user in the active tenant
+     * @description Returns a keyset-paginated projection scoped by authoritative direct participation or class access. The opaque cursor is bound to the active tenant and optional kind filter; every page query independently reauthorizes the current user.
+     */
+    readonly get: operations["listConversations"];
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/conversations/{conversation_id}": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /** Return one conversation visible to the authenticated user */
+    readonly get: operations["getConversation"];
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/conversations/direct": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Create or return the canonical direct conversation with one active tenant member
+     * @description The server derives the exact participant pair from the authenticated actor and normalized target member email. Clients cannot submit a participant array.
+     */
+    readonly post: operations["createDirectConversation"];
     readonly delete?: never;
     readonly options?: never;
     readonly head?: never;
@@ -2488,6 +2565,36 @@ export type components = {
       readonly enrollment_status:
         components["schemas"]["ClassEnrollmentStatus"] | null;
     };
+    readonly Conversation: {
+      /** Format: uuid */
+      readonly class_id?: string;
+      readonly class_status?: components["schemas"]["ClassStatus"];
+      /** Format: date-time */
+      readonly created_at: string;
+      /** Format: uuid */
+      readonly id: string;
+      readonly kind: components["schemas"]["ConversationKind"];
+      /** @description The two direct participants. Class conversations return an empty array so this projection cannot bypass roster visibility policy. */
+      readonly participants: readonly components["schemas"]["ConversationParticipant"][];
+      readonly title: string;
+      /** Format: date-time */
+      readonly updated_at: string;
+      readonly viewer_access: components["schemas"]["ConversationViewerAccess"];
+    };
+    /** @enum {string} */
+    readonly ConversationKind: "direct" | "class";
+    readonly ConversationPage: {
+      readonly items: readonly components["schemas"]["Conversation"][];
+      readonly next_cursor?: string;
+    };
+    readonly ConversationParticipant: {
+      readonly display_name: string;
+      /** Format: uuid */
+      readonly user_id: string;
+    };
+    readonly ConversationViewerAccess: {
+      readonly can_post_messages: boolean;
+    };
     readonly CreateAvailabilityPollCapabilityRequest: {
       /** Format: int64 */
       readonly expected_version: number;
@@ -2568,6 +2675,10 @@ export type components = {
       readonly starts_at: string;
       readonly timezone: string;
       readonly title: string;
+    };
+    readonly CreateDirectConversationRequest: {
+      /** Format: email */
+      readonly target_member_email: string;
     };
     readonly CreateMembershipInvitationRequest: {
       /** Format: email */
@@ -3138,6 +3249,7 @@ export type components = {
       readonly class_management: components["schemas"]["FeatureCapability"];
       readonly class_session_recurrence: components["schemas"]["FeatureCapability"];
       readonly class_session_scheduling: components["schemas"]["FeatureCapability"];
+      readonly conversations: components["schemas"]["FeatureCapability"];
       readonly in_app_notifications: components["schemas"]["FeatureCapability"];
       readonly membership_invitations: components["schemas"]["FeatureCapability"];
     };
@@ -3147,6 +3259,7 @@ export type components = {
       readonly class_management: boolean;
       readonly class_session_recurrence: boolean;
       readonly class_session_scheduling: boolean;
+      readonly conversations: boolean;
       readonly in_app_notifications: boolean;
       readonly membership_invitations: boolean;
     };
@@ -3171,6 +3284,7 @@ export type components = {
       readonly create_availability_poll_capability: components["schemas"]["OperationCapability"];
       readonly create_class: components["schemas"]["OperationCapability"];
       readonly create_class_invite_link: components["schemas"]["OperationCapability"];
+      readonly create_conversation: components["schemas"]["OperationCapability"];
       readonly create_membership_invitation: components["schemas"]["OperationCapability"];
       readonly join_class_invite_link: components["schemas"]["OperationCapability"];
       readonly restore_active_class: components["schemas"]["OperationCapability"];
@@ -4714,6 +4828,51 @@ export interface operations {
       readonly default: components["responses"]["ProblemResponse"];
     };
   };
+  readonly ensureClassConversation: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly "X-CSRF-Token": string;
+        /** @description Client cache-scope assertion; authorization still comes only from the server-side active session. */
+        readonly "X-TutorHub-Expected-Tenant-ID": string;
+      };
+      readonly path: {
+        readonly class_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Existing canonical class conversation */
+      readonly 200: {
+        headers: {
+          readonly "Cache-Control"?: "private, no-store";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["Conversation"];
+        };
+      };
+      /** @description Canonical class conversation created */
+      readonly 201: {
+        headers: {
+          readonly "Cache-Control"?: "private, no-store";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["Conversation"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 429: components["responses"]["ProblemResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
   readonly createClassEnrollment: {
     readonly parameters: {
       readonly query?: never;
@@ -5889,6 +6048,120 @@ export interface operations {
       readonly 403: components["responses"]["ForbiddenResponse"];
       readonly 404: components["responses"]["NotFoundResponse"];
       readonly 409: components["responses"]["ConflictResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly listConversations: {
+    readonly parameters: {
+      readonly query?: {
+        readonly cursor?: string;
+        readonly kind?: components["schemas"]["ConversationKind"];
+        readonly limit?: number;
+      };
+      readonly header: {
+        /** @description Client cache-scope assertion; authorization still comes only from the server-side active session. */
+        readonly "X-TutorHub-Expected-Tenant-ID": string;
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Conversation page for the active tenant and current user */
+      readonly 200: {
+        headers: {
+          readonly "Cache-Control"?: "private, no-store";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ConversationPage"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly getConversation: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Client cache-scope assertion; authorization still comes only from the server-side active session. */
+        readonly "X-TutorHub-Expected-Tenant-ID": string;
+      };
+      readonly path: {
+        readonly conversation_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Authorized conversation projection */
+      readonly 200: {
+        headers: {
+          readonly "Cache-Control"?: "private, no-store";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["Conversation"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly createDirectConversation: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly "X-CSRF-Token": string;
+        /** @description Client cache-scope assertion; authorization still comes only from the server-side active session. */
+        readonly "X-TutorHub-Expected-Tenant-ID": string;
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["CreateDirectConversationRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Existing canonical direct conversation */
+      readonly 200: {
+        headers: {
+          readonly "Cache-Control"?: "private, no-store";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["Conversation"];
+        };
+      };
+      /** @description Canonical direct conversation created */
+      readonly 201: {
+        headers: {
+          readonly "Cache-Control"?: "private, no-store";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["Conversation"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 429: components["responses"]["ProblemResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
       readonly default: components["responses"]["ProblemResponse"];
     };
   };

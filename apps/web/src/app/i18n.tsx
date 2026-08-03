@@ -419,6 +419,76 @@ const messages = {
     "calendar.preferencesReload": "Tải lại",
     "calendar.closePreferences": "Đóng tùy chọn lịch",
     "nav.messages": "Tin nhắn",
+    "conversations.kicker": "Không gian trao đổi",
+    "conversations.title": "Tin nhắn",
+    "conversations.description":
+      "Mở các cuộc trò chuyện trực tiếp và của lớp trong workspace hiện tại.",
+    "conversations.createAction": "Bắt đầu trò chuyện",
+    "conversations.createDialogTitle": "Bắt đầu trò chuyện trực tiếp",
+    "conversations.createDialogDescription":
+      "Nhập chính xác email của một thành viên đang hoạt động trong workspace này.",
+    "conversations.targetEmailLabel": "Email thành viên",
+    "conversations.targetEmailHint":
+      "TutorHub chỉ kết nối các thành viên trong cùng workspace.",
+    "conversations.targetEmailRequired": "Hãy nhập email thành viên.",
+    "conversations.targetEmailInvalid": "Hãy nhập địa chỉ email hợp lệ.",
+    "conversations.closeDialog": "Đóng biểu mẫu trò chuyện",
+    "conversations.cancel": "Hủy",
+    "conversations.create": "Tạo trò chuyện",
+    "conversations.creating": "Đang tạo...",
+    "conversations.createError":
+      "Không thể bắt đầu trò chuyện. Thành viên có thể không khả dụng hoặc bạn chưa có quyền.",
+    "conversations.created": "Đã mở cuộc trò chuyện {title}.",
+    "conversations.listTitle": "Cuộc trò chuyện",
+    "conversations.loading": "Đang tải cuộc trò chuyện",
+    "conversations.loadedCount": "Đã tải {count} cuộc trò chuyện",
+    "conversations.emptyTitle": "Chưa có cuộc trò chuyện",
+    "conversations.emptyDescription":
+      "Bắt đầu trò chuyện trực tiếp hoặc mở trao đổi từ trang lớp học.",
+    "conversations.refresh": "Làm mới",
+    "conversations.refreshing": "Đang làm mới...",
+    "conversations.refreshError":
+      "Không thể làm mới. Danh sách đã tải vẫn được giữ lại.",
+    "conversations.loadMore": "Tải thêm cuộc trò chuyện",
+    "conversations.loadingMore": "Đang tải thêm...",
+    "conversations.loadMoreError":
+      "Không thể tải trang tiếp theo. Danh sách hiện tại vẫn được giữ lại.",
+    "conversations.errorTitle": "Chưa thể tải cuộc trò chuyện",
+    "conversations.errorDescription":
+      "Dịch vụ trò chuyện tạm thời chưa sẵn sàng.",
+    "conversations.forbiddenTitle": "Không thể mở khu vực trò chuyện",
+    "conversations.forbiddenDescription":
+      "Phiên hiện tại không có quyền xem cuộc trò chuyện trong workspace này.",
+    "conversations.detailPromptTitle": "Chọn một cuộc trò chuyện",
+    "conversations.detailPromptDescription":
+      "Chọn từ danh sách để xem thông tin và thành viên.",
+    "conversations.detailLoading": "Đang tải cuộc trò chuyện",
+    "conversations.detailErrorTitle": "Chưa thể mở cuộc trò chuyện",
+    "conversations.detailErrorDescription":
+      "Không thể tải thông tin lúc này. Hãy thử lại.",
+    "conversations.notFoundTitle": "Cuộc trò chuyện không khả dụng",
+    "conversations.notFoundDescription":
+      "Cuộc trò chuyện không tồn tại hoặc phiên hiện tại không còn quyền truy cập.",
+    "conversations.directKind": "Trực tiếp",
+    "conversations.classKind": "Lớp học",
+    "conversations.participantsTitle": "Thành viên",
+    "conversations.participantsEmpty": "Không có thành viên được hiển thị.",
+    "conversations.updatedLabel": "Cập nhật gần nhất",
+    "conversations.readOnly": "Chỉ đọc",
+    "conversations.ready": "Đang hoạt động",
+    "conversations.readOnlyDescription":
+      "Lịch sử được giữ lại nhưng phiên hiện tại không thể gửi tin nhắn mới.",
+    "conversations.corePlaceholderTitle": "Cuộc trò chuyện đã sẵn sàng",
+    "conversations.corePlaceholderDescription":
+      "Tin nhắn bền vững sẽ được bổ sung trong bước phát triển tiếp theo.",
+    "conversations.classActionTitle": "Trao đổi lớp học",
+    "conversations.classActionDescription":
+      "Mở cuộc trò chuyện được quản lý theo thành viên lớp hiện tại.",
+    "conversations.classActionButton": "Mở trao đổi lớp",
+    "conversations.classActionOpening": "Đang mở...",
+    "conversations.classActionError": "Không thể mở trao đổi lớp. Hãy thử lại.",
+    "conversations.classActionConcealed":
+      "Trao đổi lớp không khả dụng hoặc bạn không còn quyền truy cập.",
     "nav.tasks": "Nhiệm vụ",
     "nav.drive": "Tài liệu",
     "nav.workspace": "Workspace",
@@ -735,6 +805,7 @@ const messages = {
     "capabilities.featureClassInviteLinks": "Liên kết mời vào lớp",
     "capabilities.featureClassSessionScheduling": "Lên lịch buổi học trong lớp",
     "capabilities.featureClassSessionRecurrence": "Lịch lặp lại cho buổi học",
+    "capabilities.featureConversations": "Cuộc trò chuyện",
     "capabilities.featureInAppNotifications": "Thông báo trong ứng dụng",
     "capabilities.featureAvailabilityPolls": "Khảo sát thời gian rảnh",
     "capabilities.quotaMembers": "Thành viên workspace",
@@ -781,13 +852,14 @@ const messages = {
     "capabilities.reasonQuotaExhausted":
       "Workspace đã dùng hết hạn mức cho thao tác này.",
     "capabilities.reasonRateLimited":
-      "Đã đạt giới hạn tạo lời mời trong cửa sổ hiện tại. Hãy thử lại sau.",
+      "Đã đạt giới hạn thao tác trong cửa sổ hiện tại. Hãy thử lại sau.",
     "capabilities.operationCreateClass": "Tạo lớp",
     "capabilities.operationActivateClass": "Kích hoạt lớp",
     "capabilities.operationRestoreClass": "Khôi phục lớp hoạt động",
     "capabilities.operationCreateClassInvite": "Tạo liên kết mời lớp",
     "capabilities.operationJoinClass": "Tham gia bằng liên kết lớp",
     "capabilities.operationAcceptInvitation": "Chấp nhận lời mời workspace",
+    "capabilities.operationCreateConversation": "Tạo cuộc trò chuyện",
     "audit.backToWorkspace": "← Quay lại workspace",
     "audit.kicker": "Bảo mật workspace",
     "audit.title": "Nhật ký hoạt động",
@@ -1877,6 +1949,77 @@ const messages = {
     "calendar.preferencesReload": "Reload",
     "calendar.closePreferences": "Close calendar preferences",
     "nav.messages": "Messages",
+    "conversations.kicker": "Communication workspace",
+    "conversations.title": "Messages",
+    "conversations.description":
+      "Open direct and class conversations in the active workspace.",
+    "conversations.createAction": "Start a conversation",
+    "conversations.createDialogTitle": "Start a direct conversation",
+    "conversations.createDialogDescription":
+      "Enter the exact email of an active member in this workspace.",
+    "conversations.targetEmailLabel": "Member email",
+    "conversations.targetEmailHint":
+      "TutorHub only connects members in the same workspace.",
+    "conversations.targetEmailRequired": "Enter a member email.",
+    "conversations.targetEmailInvalid": "Enter a valid email address.",
+    "conversations.closeDialog": "Close conversation form",
+    "conversations.cancel": "Cancel",
+    "conversations.create": "Create conversation",
+    "conversations.creating": "Creating...",
+    "conversations.createError":
+      "The conversation could not be started. The member may be unavailable or you may not have access.",
+    "conversations.created": "Opened the {title} conversation.",
+    "conversations.listTitle": "Conversations",
+    "conversations.loading": "Loading conversations",
+    "conversations.loadedCount": "{count} conversations loaded",
+    "conversations.emptyTitle": "No conversations yet",
+    "conversations.emptyDescription":
+      "Start a direct conversation or open the conversation from a class page.",
+    "conversations.refresh": "Refresh",
+    "conversations.refreshing": "Refreshing...",
+    "conversations.refreshError":
+      "The list could not be refreshed. Previously loaded items are still available.",
+    "conversations.loadMore": "Load more conversations",
+    "conversations.loadingMore": "Loading more...",
+    "conversations.loadMoreError":
+      "The next page could not be loaded. The current list is still available.",
+    "conversations.errorTitle": "Conversations unavailable",
+    "conversations.errorDescription":
+      "The conversation service is temporarily unavailable.",
+    "conversations.forbiddenTitle": "Conversation area unavailable",
+    "conversations.forbiddenDescription":
+      "This session cannot view conversations in the active workspace.",
+    "conversations.detailPromptTitle": "Choose a conversation",
+    "conversations.detailPromptDescription":
+      "Choose one from the list to view its details and members.",
+    "conversations.detailLoading": "Loading conversation",
+    "conversations.detailErrorTitle": "Conversation unavailable",
+    "conversations.detailErrorDescription":
+      "The conversation details could not be loaded. Try again.",
+    "conversations.notFoundTitle": "Conversation unavailable",
+    "conversations.notFoundDescription":
+      "The conversation does not exist or this session no longer has access.",
+    "conversations.directKind": "Direct",
+    "conversations.classKind": "Class",
+    "conversations.participantsTitle": "Members",
+    "conversations.participantsEmpty": "No members are available to display.",
+    "conversations.updatedLabel": "Last updated",
+    "conversations.readOnly": "Read only",
+    "conversations.ready": "Active",
+    "conversations.readOnlyDescription":
+      "History remains available, but this session cannot post new messages.",
+    "conversations.corePlaceholderTitle": "Conversation ready",
+    "conversations.corePlaceholderDescription":
+      "Persistent messages will be added in the next delivery step.",
+    "conversations.classActionTitle": "Class conversation",
+    "conversations.classActionDescription":
+      "Open the conversation governed by current class membership.",
+    "conversations.classActionButton": "Open class conversation",
+    "conversations.classActionOpening": "Opening...",
+    "conversations.classActionError":
+      "The class conversation could not be opened. Try again.",
+    "conversations.classActionConcealed":
+      "The class conversation is unavailable or you no longer have access.",
     "nav.tasks": "Tasks",
     "nav.drive": "Resources",
     "nav.workspace": "Workspace",
@@ -2194,6 +2337,7 @@ const messages = {
     "capabilities.featureClassInviteLinks": "Class invitation links",
     "capabilities.featureClassSessionScheduling": "Class session scheduling",
     "capabilities.featureClassSessionRecurrence": "Recurring class sessions",
+    "capabilities.featureConversations": "Conversations",
     "capabilities.featureInAppNotifications": "In-app notifications",
     "capabilities.featureAvailabilityPolls": "Availability polls",
     "capabilities.quotaMembers": "Workspace members",
@@ -2240,13 +2384,14 @@ const messages = {
     "capabilities.reasonQuotaExhausted":
       "The workspace has exhausted the quota for this action.",
     "capabilities.reasonRateLimited":
-      "The invitation-creation window is full. Try again later.",
+      "The current action window is full. Try again later.",
     "capabilities.operationCreateClass": "Create class",
     "capabilities.operationActivateClass": "Activate class",
     "capabilities.operationRestoreClass": "Restore active class",
     "capabilities.operationCreateClassInvite": "Create class invitation link",
     "capabilities.operationJoinClass": "Join with a class invitation",
     "capabilities.operationAcceptInvitation": "Accept workspace invitation",
+    "capabilities.operationCreateConversation": "Create conversation",
     "audit.backToWorkspace": "← Back to workspace",
     "audit.kicker": "Workspace security",
     "audit.title": "Activity audit log",

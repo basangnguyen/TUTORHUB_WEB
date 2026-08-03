@@ -830,6 +830,7 @@ describe("getHealth", () => {
         class_session_scheduling: { enabled: true },
         class_session_recurrence: { enabled: false },
         in_app_notifications: { enabled: true },
+        conversations: { enabled: true },
       },
       quotas: {
         active_availability_polls: { limit: 20, used: 2, remaining: 18 },
@@ -909,6 +910,10 @@ describe("getHealth", () => {
           available: true,
           reason: "available",
         },
+        create_conversation: {
+          available: true,
+          reason: "available",
+        },
       },
     };
     const input: UpdateTenantFeatureControlsRequest = {
@@ -921,6 +926,7 @@ describe("getHealth", () => {
         class_session_scheduling: true,
         class_session_recurrence: false,
         in_app_notifications: true,
+        conversations: true,
       },
       quotas: {
         active_availability_polls: 30,

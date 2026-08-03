@@ -73,6 +73,9 @@ describe("TenantFeatureControlsPanel", () => {
     expect(
       screen.getByRole("checkbox", { name: "Member invitations" }),
     ).toBeChecked();
+    expect(
+      screen.getByRole("checkbox", { name: "Conversations" }),
+    ).toBeChecked();
   });
 
   it("edits configured values when deployment guardrails clamp effective values", async () => {

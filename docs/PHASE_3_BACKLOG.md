@@ -33,9 +33,10 @@ re-baseline này không dùng nó để chặn Phase 4 hay ép các gate provide
 tất trước khi có môi trường phù hợp. Domain/DNS, SES sandbox và production-access
 approval có thể tiếp tục chuẩn bị song song.
 
-**Task vừa hoàn tất:** `P3-02D-A` Native Availability Poll và Study Meeting core đã
-`DONE`; PostgreSQL/shared-staging, exact ACL, deploy, authenticated Admin/Teacher/Student
-browser/API matrix và manual NVDA đều PASS. Runnable lane tiếp tục với P3-06.
+**Task đang thực hiện:** `P3-06` Direct/class conversation core đã hoàn tất vertical slice
+REST/persistence/UI và disposable PostgreSQL gate, hiện ở `VERIFY`. P3-02D-A Native
+Availability Poll và Study Meeting core đã `DONE`; runnable lane tiếp tục P3-07A sau khi
+P3-06 đạt shared staging/browser/Axe gate.
 `P3-02D-B` lifecycle delivery/
 auto-close/fan-out và các gate P3-03B/P3-CAL-02/P3-05A/B là carry-over, không nằm trong
 mốc Core Exit tối thiểu.
@@ -107,7 +108,7 @@ processing/sharing tới end user.
 | P3-04      | In-app notification và preference              | P3-03A; P3-03B trước activation | VERIFY     |
 | P3-05A     | Session email/ICS/external RSVP/reminder       | P3-02C, P3-CAL-02, P3-03B, P3-04 | DEFERRED/TODO |
 | P3-05B     | Poll/Study Meeting lifecycle delivery          | P3-02D-B, P3-05A               | DEFERRED/TODO |
-| P3-06      | Direct/class conversation                      | P3-00, Phase 2 policy           | TODO       |
+| P3-06      | Direct/class conversation                      | P3-00, Phase 2 policy           | VERIFY     |
 | P3-07A     | Persistent message, unread/read core           | P3-06                           | TODO       |
 | P3-07B     | Message notification delivery                  | P3-07A, P3-03B, P3-04           | DEFERRED/TODO |
 | P3-08      | File metadata, upload intent và finalize       | P3-00, B2 baseline              | TODO       |
@@ -956,6 +957,21 @@ Hai gate notification vẫn phải giữ `false` trong khi Render chỉ phục v
 - Direct conversation có canonical participant set để create lặp không sinh duplicate.
 - Archive class giữ history nhưng policy viết mới phải được chốt rõ.
 - Tạo ADR transport/retention/moderation trước P3-07 nếu cần SSE/WebSocket.
+- [x] Amend ADR-0013: direct đúng hai active same-tenant member; class conversation duy
+      nhất dùng owner/enrollment authoritative; archived class giữ history read-only.
+- [x] Migration `000024` tạo `conversations`/`conversation_members`, tenant-scoped FK,
+      canonical direct pair và unique class conversation; rollback cùng ACL rõ ràng.
+- [x] Feature `conversations` mặc định bật, có deployment emergency-off; create bị chặn
+      trong transaction khi feature off nhưng history read vẫn còn. Quota để P3-13.
+- [x] REST list/detail, direct create bằng exact target-member email và class get-or-create;
+      mọi request bind expected tenant, mutation có CSRF và foreign scope bị conceal.
+- [x] Web `/app/messages` có list/detail, exact-email direct create và action mở class
+      conversation; loading/empty/error/forbidden/retry/read-only cùng keyboard focus đã
+      có automated test.
+- [x] Unit, HTTP, disposable PostgreSQL integration và concurrency test chứng minh canonical create,
+      authoritative membership, archive policy, tenant isolation và không lộ email/log.
+- [ ] Forward shared staging `23 -> 24`, re-provision exact ACL, deploy exact candidate rồi
+      chạy authenticated browser/API và keyboard/Axe; chỉ khi xanh mới chuyển `DONE`.
 
 ## 14. P3-07 Persistent message, unread và read receipt
 
