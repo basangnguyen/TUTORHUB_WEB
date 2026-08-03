@@ -34,9 +34,10 @@ tất trước khi có môi trường phù hợp. Domain/DNS, SES sandbox và pr
 approval có thể tiếp tục chuẩn bị song song.
 
 **Task đang verify:** `P3-02D-A` Native Availability Poll và Study Meeting core đã có
-implementation local cùng cross-writer hardening; bước bắt buộc tiếp theo là chạy
-PostgreSQL barrier và migration/ACL/staging acceptance trước khi chuyển `DONE`, sau đó runnable lane tiếp tục
-với P3-06. `P3-02D-B` lifecycle delivery/
+implementation, PostgreSQL/shared-staging, exact ACL, deploy và automated accessibility
+gates đều PASS; bước bắt buộc tiếp theo là authenticated Admin/Teacher/Student browser
+matrix và manual NVDA trước khi chuyển `DONE`, sau đó runnable lane tiếp tục với P3-06.
+`P3-02D-B` lifecycle delivery/
 auto-close/fan-out và các gate P3-03B/P3-CAL-02/P3-05A/B là carry-over, không nằm trong
 mốc Core Exit tối thiểu.
 
@@ -120,8 +121,8 @@ processing/sharing tới end user.
 | P3-14-CORE | Core Exit sign-off (cho phép bắt đầu Phase 4)  | P3-02D-A, P3-07A, P3-09, P3-11A, P3-12, P3-13 | TODO |
 | P3-14      | Full staging acceptance và đóng Phase 3       | carry-over + P3-12/P3-13        | TODO       |
 
-`VERIFY` nghĩa là implementation và kiểm tra local đã đạt, nhưng migration/deployment
-và acceptance trên staging chưa hoàn tất. Trạng thái này không đồng nghĩa `DONE`.
+`VERIFY` nghĩa là implementation và các gate đã ghi nhận đạt, nhưng vẫn còn ít nhất một
+exit gate staging/manual chưa hoàn tất. Trạng thái này không đồng nghĩa `DONE`.
 `DEFERRED/VERIFY` nghĩa là phần kiểm tra đã được xác định rõ nhưng đang chờ một điều kiện
 ngoài repository (ví dụ durable host, quyền provider hoặc domain/DNS). Không được đánh
 dấu PASS bằng cách không chạy; các phần không phụ thuộc điều kiện đó vẫn phải chạy.
@@ -778,7 +779,10 @@ P3-04 activation đạt gate; P3-05B là delivery adapter downstream.
 - [x] Forward disposable `22 -> 23`, re-provision maintenance chỉ còn schema `USAGE` +
       function `EXECUTE`, chứng minh hard-retention cascade, quota/concurrency/tenant
       isolation và capability lifecycle trên PostgreSQL thật.
-- [ ] Hoàn tất Render/Cloudflare browser, privacy và manual a11y acceptance theo
+- [x] Forward shared Neon tới `23 false`, exact runtime/maintenance ACL và targeted
+      PostgreSQL gates PASS; exact candidate `8585864` Live trên Render/Cloudflare,
+      health/readiness/public privacy headers và Playwright/axe `3/3` PASS.
+- [ ] Hoàn tất authenticated Admin/Teacher/Student browser matrix và manual NVDA theo
       `P3_02D_A_STAGING_ACCEPTANCE.md`; chỉ khi đó mới chuyển `DONE`.
 - **Disposable checkpoint 2026-08-02:** migration lịch sử (`21 false -> 22 false -> 21 false
   -> 22 false`) và forward `22 false -> 23 false` idempotent đều PASS. Owner preflight,
@@ -787,11 +791,18 @@ P3-04 activation đạt gate; P3-05B là delivery adapter downstream.
   StudyMeeting/ClassSession barrier, feature-control concurrency và full Calendar
   integration package đều PASS. Không rollback thêm, không migrate/deploy shared staging;
   disposable branch được giữ lại.
+- **Shared staging checkpoint 2026-08-03:** forward-only `21 false -> 23 false` và
+  idempotent rerun PASS; exact Core API/maintenance ACL, poll ownership/quota/isolation/
+  capability, maintenance cascade/`SKIP LOCKED`, StudyMeeting/ClassSession barrier và
+  feature-control concurrency PASS. Candidate `8585864` Live trên Render deployment
+  `dep-d9nvul5aeets73cpc330`; matching Cloudflare Pages/Browser E2E/Secret scan success,
+  health/readiness `200 + no-store`, public privacy headers và local Playwright/axe `3/3`
+  PASS. Còn authenticated live role matrix và manual NVDA; disposable branch vẫn giữ.
 - [x] Harden cross-writer code: Study Meeting, one-time/recurring ClassSession, internal
       audience addition và organizer transfer dùng chung advisory authority theo
       tenant/user, stable UUID lock order và reverse StudyMeeting recheck. PostgreSQL
-      two-writer barrier thật đã PASS trên disposable: đúng một writer commit, writer còn
-      lại nhận conflict.
+      two-writer barrier thật đã PASS trên disposable và shared staging: đúng một writer
+      commit, writer còn lại nhận conflict.
 - [ ] Following-split audience continuity: child đã giữ authoritative organizer, nhưng
       audience/participation settings chưa được copy/re-seal từ parent. Xử lý regression
       riêng bằng business snapshot path; không raw-copy protected invitation ciphertext.

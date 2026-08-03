@@ -6,16 +6,41 @@
 
 | Thuộc tính          | Trạng thái                                                                            |
 | ------------------- | ------------------------------------------------------------------------------------- |
-| Ngày cập nhật       | 2026-08-02                                                                            |
+| Ngày cập nhật       | 2026-08-03                                                                            |
 | Repository          | `https://github.com/basangnguyen/TUTORHUB_WEB`                                        |
 | Nhánh làm việc      | `main`                                                                                |
 | Quy trình           | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
 | Phase hoàn thành    | Phase 0, Phase 1, Phase 2                                                             |
 | Phase hiện tại      | Phase 3 - Daily learning workspace                                                   |
 | Task `DONE` gần nhất | P3-02C Working hours, attendee/free-busy và RSVP                                  |
-| Mốc repository mới | P3-02C runtime acceptance commit `7859c233` Live trên Render và Cloudflare         |
-| Task hiện tại       | P3-02D-A Native Availability Poll/Study Meeting core ở `VERIFY`                 |
-| Task tiếp theo      | Báo cáo disposable; chỉ sau owner sign-off mới forward shared staging `23 false` và chạy staging/browser gates |
+| Mốc repository mới | P3-02D-A candidate `8585864` Live trên Render và Cloudflare; automated staging PASS |
+| Task hiện tại       | P3-02D-A ở `VERIFY`; chỉ còn authenticated browser matrix và manual NVDA          |
+| Task tiếp theo      | Cấp phiên Admin/Teacher/Student staging và NVDA để chạy hai manual gate rồi ký `DONE` |
+
+### Cập nhật P3-02D-A ngày 2026-08-03
+
+Automated database/deployment acceptance đã hoàn tất trên candidate
+`8585864198ae0d9539c480e21e7b5efbbab0d389`:
+
+- shared Neon forward-only từ `21 false` tới `23 false`; migrate lặp idempotent vẫn
+  `23 false`, không rollback;
+- owner preflight, exact runtime ACL, dedicated maintenance ACL/login, purge cascade/
+  `SKIP LOCKED`, poll ownership/quota/tenant isolation/capability privacy/rate,
+  StudyMeeting/ClassSession two-writer barrier và feature-control concurrency đều PASS;
+- `corepack pnpm verify`, integration-tag compile và focused Playwright/axe desktop,
+  public, mobile, keyboard, forced-colors `3/3` PASS;
+- candidate Live trên Render deployment `dep-d9nvul5aeets73cpc330`; Cloudflare Pages,
+  Browser E2E, Secret scan, Local environment smoke và CodeQL success. Direct Render và
+  Pages-proxied health/readiness trả `200 + no-store`; public Pages/resolve giữ concealment
+  và các header no-store/no-referrer/noindex/CSP đúng policy;
+- notification/canary side-effect flags vẫn false; P3-02D-B auto-close/fan-out/delivery
+  và LiveKit lifecycle chưa được bật. Disposable branch tiếp tục được giữ.
+
+P3-02D-A chưa chuyển `DONE`: lượt này không có authenticated staging session cho ma trận
+Admin/Teacher có/không có `session.schedule`/Student/cross-tenant, browser origin không thể
+được dùng cho live role matrix và máy không cài NVDA. Automated fixture không được dùng để
+suy ra hai gate thủ công này. Hồ sơ chi tiết nằm tại
+[`P3_02D_A_STAGING_ACCEPTANCE.md`](P3_02D_A_STAGING_ACCEPTANCE.md).
 
 ### Cập nhật P3-02D-A ngày 2026-08-01
 

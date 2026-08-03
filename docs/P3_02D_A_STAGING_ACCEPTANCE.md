@@ -5,14 +5,14 @@
 | Hạng mục | Giá trị |
 | --- | --- |
 | Phạm vi | Native Availability Poll và member-owned Study Meeting core |
-| Trạng thái task | `VERIFY` |
+| Trạng thái task | `VERIFY`; automated staging gates PASS, authenticated browser/manual NVDA còn mở |
 | Migration source | `000023_availability_poll_maintenance_security` trên nền `000022` |
 | Database mong đợi sau migrate | `23 false` |
-| Neon staging gần nhất | `21 false`; migration `000022` chưa chạy |
-| Commit nghiệm thu | Chưa ghi nhận |
-| Render/Cloudflare deployment | Chưa chạy cho P3-02D-A |
-| PostgreSQL/ACL/cascade acceptance | Disposable database gates PASS sau forward `22 -> 23`; staging còn mở |
-| Browser/manual accessibility acceptance | Chưa chạy |
+| Neon staging gần nhất | `23 false`; forward `21 -> 23` và rerun idempotent PASS |
+| Commit nghiệm thu | `8585864198ae0d9539c480e21e7b5efbbab0d389` |
+| Render/Cloudflare deployment | Exact commit PASS; Render `dep-d9nvul5aeets73cpc330`, Cloudflare Pages check success |
+| PostgreSQL/ACL/cascade acceptance | Disposable và shared staging targeted gates PASS |
+| Browser/manual accessibility acceptance | Playwright/axe `3/3` và public headers PASS; authenticated role matrix/manual NVDA còn mở |
 | Disposable checkpoint (2026-08-02) | `23 false`; database gates PASS; không rollback/shared staging |
 
 Tài liệu này là runbook và sổ bằng chứng không nhạy cảm. P3-02D-A chỉ chuyển `DONE` khi
@@ -41,6 +41,10 @@ Final local gate ngày 2026-08-01 trên shared tree:
   ACL/cascade/`SKIP LOCKED`, poll ownership/quota/isolation/capability lifecycle, migration
   assertions), exact runtime ACL probe PASS, StudyMeeting/ClassSession barrier PASS và
   feature-control quota/rate concurrency PASS.
+- Final acceptance candidate `8585864` ngày 2026-08-03: `corepack pnpm verify` PASS;
+  integration-tag Calendar compile PASS; focused P3-02D-A Playwright/axe desktop, public,
+  mobile, keyboard và forced-colors `3/3` PASS; `git diff --check` PASS. CI Secret scan,
+  Browser E2E, Cloudflare Pages, Local environment smoke và CodeQL đều success.
 
 Các lệnh tối thiểu tương ứng là:
 
@@ -58,8 +62,9 @@ go vet ./services/core-api/...
 git diff --check
 ```
 
-Browser staging/manual accessibility evidence vẫn chưa chạy, phải được ghi riêng và không
-được suy ra từ unit test/mock hoặc disposable database evidence.
+Automated production-route coverage đã chạy bằng fixture mock không nhạy cảm; nó không thay
+thế authenticated browser role matrix hoặc manual NVDA trên exact staging deployment. Hai
+gate thủ công này vẫn phải được ghi riêng.
 
 ### Disposable PostgreSQL checkpoint (2026-08-02, after forward 000023)
 
@@ -88,9 +93,39 @@ recorded.
   Feature-control capacity/rate concurrency: `PASS`. Full Calendar integration package:
   `PASS`. No rollback was run after the historical sequence; the disposable branch remains.
 
-All disposable database gates requested in this task are now green. Shared staging migration,
-deployment, browser authorization/privacy, manual accessibility and disposable-branch deletion
-remain intentionally pending.
+All disposable database gates requested in this task are now green. The disposable branch is
+retained until the remaining authenticated browser and manual accessibility sign-off.
+
+### Shared staging and deployment checkpoint (2026-08-03)
+
+Credential-bearing commands loaded the ignored staging environment inside the same process;
+no URL, password, role name, cookie, token or fixture payload was printed.
+
+- Owner preflight: `OWNER_PREFLIGHT=true`, distinct roles, non-superuser owner and
+  `OWNER_CAN_PROVISION_ROLE=true`; the existing owner admin residual was not propagated.
+- Forward-only migration: `21 false -> 23 false`; a second migrate was idempotent and
+  remained `23 false`. No rollback was run.
+- Runtime and dedicated maintenance roles were re-provisioned with the exact ACL. Core API
+  runtime ACL probe and maintenance metadata/direct-DML denial/cascade/`SKIP LOCKED` gate:
+  `PASS`.
+- Shared-staging PostgreSQL targeted gates: poll ownership/quota/tenant isolation/capability
+  lifecycle/privacy/rate `PASS`; StudyMeeting/ClassSession two-writer barrier `PASS`; feature
+  control capacity/rate concurrency `PASS`. All fixtures used isolated UUIDs and cleanup.
+- Exact candidate `8585864198ae0d9539c480e21e7b5efbbab0d389` is Live on Render deployment
+  `dep-d9nvul5aeets73cpc330`; the matching Cloudflare Pages check succeeded. Direct Render
+  and Pages-proxied `/health` and `/ready` returned `200` with `Cache-Control: no-store`.
+  Public route/resolve probes returned the expected concealment status and strict no-store,
+  no-referrer, noindex and CSP/frame/form/base headers.
+- Render keeps notification/canary side-effect flags false; P3-02D-B auto-close, fan-out,
+  email/ICS/reminder and LiveKit lifecycle remain unavailable.
+- The candidate's Secret scan succeeded after replacing a deterministic test-only
+  idempotency fixture that triggered the generic-key detector. The repository vulnerability,
+  Core API container and broad Quality checks remain red from the same pre-existing baseline;
+  the Quality failure is an unrelated migration-runner timeout, not a P3-02D-A gate failure.
+- No authenticated Admin/Teacher/Student staging sessions are available to this run, browser
+  access to the TutorHub Pages origin cannot be used for the remaining live role matrix, and
+  NVDA is not installed on this machine. These two manual gates remain pending; no result is
+  inferred from mocks.
 
 ## Phạm vi và ranh giới
 
@@ -287,9 +322,9 @@ is PASS. Migration `000022` was not rolled back again.
 - Study Meeting và writer one-time/recurring ClassSession, internal audience addition,
   organizer transfer đã dùng chung advisory authority theo tenant/user, stable UUID order
   và reverse-recheck StudyMeeting trong source local. Two-writer barrier test giữ exact
-  owner lock rồi chạy StudyMeeting/ClassSession thật đã có và integration-tag compile
-  PASS; gate vẫn **chưa đóng** cho tới khi test này chạy trên PostgreSQL thật và chứng minh
-  chỉ một writer commit, không còn cặp lịch overlap sau race.
+  owner lock rồi chạy StudyMeeting/ClassSession thật trên disposable và shared staging;
+  đúng một writer commit, writer còn lại nhận conflict và không còn cặp lịch overlap sau
+  race. Gate PostgreSQL này đã `PASS`.
 - Owner list/detail/update/cancel đúng scope; safety admin chỉ recovery cancel với reason/
   audit. Cross-owner/cross-tenant ID bị conceal.
 - Không endpoint nào mint LiveKit token hoặc tuyên bố media room đã tồn tại.
@@ -336,11 +371,14 @@ suy ra từ P3-02D-A.
 ## Kết quả chạy
 
 Historical migration `000022` and its up/down/up disposable sequence are complete. Forward
-`000023` is applied and idempotent at `23 false`; exact runtime/maintenance ACL, purge
-cascade/SKIP LOCKED, poll ownership/quota/isolation/capability, owner-time barrier and the
-related Calendar PostgreSQL package are PASS. P3-02D-A remains `VERIFY` because shared
-staging migration/deploy and browser/manual accessibility/privacy acceptance are intentionally
-not run yet. No URL or secret is recorded, and the disposable branch is retained.
+`000023` is applied and idempotent at `23 false` on disposable and shared staging; exact
+runtime/maintenance ACL, purge cascade/SKIP LOCKED, poll ownership/quota/isolation/capability,
+owner-time barrier and feature-control concurrency are PASS. Candidate `8585864` is Live on
+Render and has a successful matching Cloudflare Pages check; local verify, focused Playwright/
+axe `3/3`, health/readiness, public privacy headers and Secret scan are PASS. P3-02D-A remains
+`VERIFY` only because the authenticated Admin/Teacher/Student live browser matrix and manual
+NVDA are not available in this run. No URL credential or secret is recorded, and the disposable
+branch is retained.
 
 Broad-suite note: running the entire Classroom and feature-control integration packages also
 exposed pre-existing test debt outside these P3-02D-A gates. Several assertions try to read
