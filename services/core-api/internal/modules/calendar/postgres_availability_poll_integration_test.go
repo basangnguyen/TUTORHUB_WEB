@@ -98,7 +98,7 @@ func TestPostgresAvailabilityPollOwnershipQuotaIsolationAndCapabilityLifecycle(t
 			EndsAt:   time.Date(2026, time.August, 3, 3, 0, 0, 0, time.UTC),
 		}},
 		Participants:   []AvailabilityPollParticipantInput{},
-		IdempotencyKey: "poll-disposable-gate-0001",
+		IdempotencyKey: uuid.NewString(),
 	}
 	poll, err := service.CreatePoll(ctx, ownerScope, createInput)
 	if err != nil {
@@ -110,7 +110,7 @@ func TestPostgresAvailabilityPollOwnershipQuotaIsolationAndCapabilityLifecycle(t
 	}
 	secondInput := createInput
 	secondInput.Title = "Quota must reject this poll"
-	secondInput.IdempotencyKey = "poll-disposable-gate-0002"
+	secondInput.IdempotencyKey = uuid.NewString()
 	if _, err := service.CreatePoll(ctx, ownerScope, secondInput); !errors.Is(
 		err, featurecontrol.ErrQuotaExceeded,
 	) {
