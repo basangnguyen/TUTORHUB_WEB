@@ -10,7 +10,7 @@ import {
 } from "@tutorhub/ui";
 import { CheckCheck, RefreshCw, Settings } from "lucide-react";
 import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { useI18n, type TranslationKey } from "../app/i18n";
 import { notificationTarget } from "../app/notificationTarget";
 import {

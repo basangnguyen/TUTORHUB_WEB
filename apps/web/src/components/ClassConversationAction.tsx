@@ -1,7 +1,7 @@
 import { APIRequestError } from "@tutorhub/api-client";
 import { Button } from "@tutorhub/ui";
 import { MessageCircle } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import {
   conversationCreationAvailability,
   useEnsureClassConversation,

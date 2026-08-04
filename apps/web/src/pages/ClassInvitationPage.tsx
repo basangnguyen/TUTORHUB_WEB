@@ -8,7 +8,7 @@ import {
 } from "@tutorhub/ui";
 import { LogIn, RefreshCw, School, UserPlus } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { useJoinClassInvitation } from "../app/classEnrollments";
 import {
   clearFragmentTokenEscrow,

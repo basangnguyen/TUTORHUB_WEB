@@ -91,9 +91,10 @@ func execute(
 	if err != nil {
 		return fmt.Errorf("open migration database: %w", err)
 	}
-	database.SetMaxOpenConns(1)
-	// PostgreSQL advisory locks are session-scoped. Keep the single connection
-	// idle so golang-migrate can unlock on the same database session.
+	// golang-migrate reserves one connection for the lifetime of its PostgreSQL
+	// driver so advisory lock/unlock calls stay on the same session. Keep one
+	// additional bounded connection available for migration safety preflights.
+	database.SetMaxOpenConns(2)
 	database.SetMaxIdleConns(1)
 
 	if err := database.PingContext(ctx); err != nil {

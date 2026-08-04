@@ -17,7 +17,7 @@ import { APIRequestError } from "@tutorhub/api-client";
 import { Skeleton, SkeletonGroup } from "@tutorhub/ui";
 import { Room, RoomEvent, Track } from "livekit-client";
 import { useEffect, useRef, useState } from "react";
-import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router";
 import { useClassDetail } from "../app/classes";
 import { useI18n } from "../app/i18n";
 import {

@@ -12,7 +12,7 @@ import {
 } from "@tutorhub/ui";
 import { CheckCircle2, LogIn, RefreshCw, UserPlus } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router";
 import {
   useAcceptMembershipInvitation,
   useMembershipInvitationPreview,

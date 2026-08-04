@@ -15,7 +15,7 @@ import {
 } from "@tutorhub/ui";
 import { ChevronDown, Plus, RotateCw } from "lucide-react";
 import { useMemo, useState, type FormEvent } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router";
 import {
   useClassDetail,
   useClassList,

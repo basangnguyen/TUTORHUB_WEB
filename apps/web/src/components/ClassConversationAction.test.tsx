@@ -5,7 +5,7 @@ import type {
   CurrentUser,
   TenantCapabilities,
 } from "@tutorhub/api-client";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../app/i18n";
 import { SessionProvider } from "../app/session";

@@ -1,11 +1,7 @@
 import { Button } from "@tutorhub/ui";
 import { LogIn, RefreshCw } from "lucide-react";
-import {
-  isRouteErrorResponse,
-  useLocation,
-  useRouteError,
-} from "react-router-dom";
-import { Link } from "react-router-dom";
+import { isRouteErrorResponse, useLocation, useRouteError } from "react-router";
+import { Link } from "react-router";
 import { useI18n } from "../app/i18n";
 import { useSession } from "../app/session";
 

@@ -1,11 +1,6 @@
 /* eslint-disable react-refresh/only-export-components -- The exported route configuration is intentionally colocated with its guard. */
 
-import {
-  Navigate,
-  Outlet,
-  type RouteObject,
-  useLocation,
-} from "react-router-dom";
+import { Navigate, Outlet, type RouteObject, useLocation } from "react-router";
 import type { CurrentUser } from "@tutorhub/api-client";
 import { Button, ErrorState } from "@tutorhub/ui";
 import { RefreshCw } from "lucide-react";

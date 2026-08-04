@@ -1,6 +1,6 @@
 import type { CurrentUser, NotificationPreference } from "@tutorhub/api-client";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../app/i18n";
 import {

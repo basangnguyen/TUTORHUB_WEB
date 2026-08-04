@@ -26,7 +26,7 @@ import {
   ScrollText,
 } from "lucide-react";
 import { useMemo, useRef, useState, type FormEvent } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { useI18n, type TranslationKey } from "../app/i18n";
 import { useSession } from "../app/session";
 import {

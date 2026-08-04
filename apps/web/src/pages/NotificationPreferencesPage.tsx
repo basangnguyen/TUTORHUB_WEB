@@ -12,7 +12,7 @@ import {
 } from "@tutorhub/ui";
 import { RefreshCw, Save } from "lucide-react";
 import { useState, type FormEvent } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { useI18n } from "../app/i18n";
 import {
   useNotificationPreference,

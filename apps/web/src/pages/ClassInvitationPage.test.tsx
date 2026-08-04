@@ -8,7 +8,7 @@ import {
 } from "@testing-library/react";
 import type { ClassroomClass, CurrentUser } from "@tutorhub/api-client";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router";
 import { I18nProvider } from "../app/i18n";
 import { SessionProvider } from "../app/session";
 import { tenantCapabilityQueryKeys } from "../app/tenantCapabilities";

@@ -7,7 +7,7 @@ import {
   useLocation,
   useNavigate,
   useNavigation,
-} from "react-router-dom";
+} from "react-router";
 import { getVisibleNavigationItems, navigationItems } from "../app/routes";
 import { useI18n } from "../app/i18n";
 import { useSession } from "../app/session";

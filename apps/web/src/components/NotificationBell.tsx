@@ -1,6 +1,6 @@
 import { Bell } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { useI18n } from "../app/i18n";
 import { useNotificationUnreadCount } from "../app/notifications";
 

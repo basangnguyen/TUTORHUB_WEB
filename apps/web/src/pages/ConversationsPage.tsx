@@ -24,7 +24,7 @@ import {
   type FormEvent,
   type RefObject,
 } from "react";
-import { NavLink, useNavigate, useParams } from "react-router-dom";
+import { NavLink, useNavigate, useParams } from "react-router";
 import {
   conversationCreationAvailability,
   useConversation,

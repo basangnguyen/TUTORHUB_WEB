@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { getHealth } from "@tutorhub/api-client";
 import { StatusBadge } from "@tutorhub/ui";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { getVisibleNavigationItems } from "../app/routes";
 import { useI18n } from "../app/i18n";
 import { useSession } from "../app/session";

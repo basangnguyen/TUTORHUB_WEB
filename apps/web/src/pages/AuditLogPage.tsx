@@ -17,7 +17,7 @@ import {
 } from "@tutorhub/ui";
 import { ChevronDown, RefreshCw, Search, ShieldCheck, X } from "lucide-react";
 import { useMemo, useState, type FormEvent } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { useAuditEvents, type AuditFilters } from "../app/audit";
 import { useI18n, type TranslationKey } from "../app/i18n";
 import { useSession } from "../app/session";

@@ -1,7 +1,7 @@
 import { Button, StatusBadge } from "@tutorhub/ui";
 import { CalendarClock, ExternalLink, Eye } from "lucide-react";
 import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { Temporal } from "temporal-polyfill";
 import { useI18n, type TranslationKey } from "../../app/i18n";
 import {

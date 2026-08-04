@@ -13,7 +13,7 @@ import type {
   MembershipInvitationPreview,
 } from "@tutorhub/api-client";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router";
 import { I18nProvider } from "../app/i18n";
 import { membershipInvitationQueryKeys } from "../app/invitations";
 import { SessionProvider } from "../app/session";

@@ -1,6 +1,7 @@
 import { QueryClientProvider } from "@tanstack/react-query";
 import { TooltipProvider } from "@tutorhub/ui";
-import { RouterProvider, createBrowserRouter } from "react-router-dom";
+import { createBrowserRouter } from "react-router";
+import { RouterProvider } from "react-router/dom";
 import { Suspense, useState } from "react";
 import { I18nProvider } from "./app/i18n";
 import { createTutorHubQueryClient } from "./app/queryClient";

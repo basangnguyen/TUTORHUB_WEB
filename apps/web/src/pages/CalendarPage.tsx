@@ -9,7 +9,7 @@ import {
 } from "@tutorhub/ui";
 import { RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router";
 import { useUpdateClassSession } from "../app/classSessions";
 import { useI18n } from "../app/i18n";
 import { useSession } from "../app/session";

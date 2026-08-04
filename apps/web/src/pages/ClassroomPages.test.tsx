@@ -7,7 +7,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import type { ClassroomClass, CurrentUser } from "@tutorhub/api-client";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { classEnrollmentQueryKeys } from "../app/classEnrollments";
 import { classQueryKeys } from "../app/classes";
