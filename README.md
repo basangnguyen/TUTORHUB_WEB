@@ -34,6 +34,10 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
   trên exact candidate `8585864`; disposable/shared staging đều ở `23 false`, exact
   database/ACL/concurrency, authenticated browser/API và manual NVDA acceptance đều PASS.
   P3-02D-B delivery/auto-close/fan-out vẫn carry-over.
+- P3-06 Direct/class conversation core đã `DONE` ngày 2026-08-04 trên exact candidate
+  `756ca60a`; shared Neon ở `24 false`, exact ACL/PostgreSQL, CI/security, authenticated
+  direct/class/archive role matrix, keyboard/focus và Playwright/Axe đều PASS. Message
+  persistence, unread/read, realtime và notification vẫn thuộc P3-07A/P3-07B.
 - AWS SES đã được owner chọn làm transactional email provider target cho Phase 3.
   P3-CAL-02/ADR-0020 vẫn phải xác minh account/region/sandbox/quota, adapter, webhook và
   deliverability; trước khi có domain chỉ được thử bằng identity cá nhân do owner kiểm
@@ -51,8 +55,8 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
   P3-04 activation, P3-CAL-02 live SES/domain/interoperability, P3-05A/B delivery,
   P3-10 và P3-11B processing UX phụ thuộc worker. Cho đến khi các gate này đóng,
   notification/email/reminder và Class Files sharing/processing tới end user vẫn giữ tắt.
-- **Task runnable tiếp theo:** P3-06 Direct/class conversation core; P3-07A persistent
-  message core theo sau. P3-02D-B lifecycle delivery và các gate hạ tầng/provider là
+- **Task runnable tiếp theo:** P3-07A persistent message, unread/read core. P3-02D-B
+  lifecycle delivery, P3-07B realtime/notification và các gate hạ tầng/provider là
   carry-over; chúng có thể tiếp tục chính xác sau khi Phase 4 bắt đầu.
 - Web MVP nền đã chạy trên staging: Cloudflare Pages -> same-origin `/api/*` -> Go
   Core API trên Render; dữ liệu dùng Neon, file dùng Backblaze B2, media dùng LiveKit
@@ -62,7 +66,7 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
   local developer experience.
 - Repository hiện do một người duy trì và push trực tiếp `main`; ngoại lệ quản trị
   này được giới hạn trong development/staging/private alpha theo ADR-0012.
-- Master Plan web-first 2.2 và backlog Phase 3 là nguồn kế hoạch hiện hành.
+- Master Plan web-first 2.4 và backlog Phase 3 là nguồn kế hoạch hiện hành.
 - Không sao chép secret, token hoặc cấu hình production từ V1.
 
 ## Tài liệu bắt buộc đọc

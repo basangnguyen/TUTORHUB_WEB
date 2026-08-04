@@ -6,18 +6,18 @@
 
 | Thuộc tính          | Trạng thái                                                                            |
 | ------------------- | ------------------------------------------------------------------------------------- |
-| Ngày cập nhật       | 2026-08-03                                                                            |
+| Ngày cập nhật       | 2026-08-04                                                                            |
 | Repository          | `https://github.com/basangnguyen/TUTORHUB_WEB`                                        |
 | Nhánh làm việc      | `main`                                                                                |
 | Quy trình           | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
 | Phase hoàn thành    | Phase 0, Phase 1, Phase 2                                                             |
 | Phase hiện tại      | Phase 3 - Daily learning workspace                                                   |
-| Task `DONE` gần nhất | P3-02D-A Native Availability Poll và Study Meeting core                          |
-| Mốc repository mới | Candidate `8585864` Live; database, browser/API và manual NVDA acceptance PASS     |
-| Task hiện tại       | P3-06 Direct/class conversation core — `VERIFY`                                   |
-| Task tiếp theo      | Shared staging + authenticated browser/Axe gate P3-06, sau đó P3-07A              |
+| Task `DONE` gần nhất | P3-06 Direct/class conversation core                                             |
+| Mốc repository mới | Candidate `756ca60a` Live; CI, PostgreSQL, browser/API và Axe acceptance PASS       |
+| Task hiện tại       | P3-07A Persistent message, unread/read core — `TODO`                               |
+| Task tiếp theo      | Bắt đầu contract/security review và vertical slice P3-07A                          |
 
-### Checkpoint P3-06 ngày 2026-08-03
+### Checkpoint P3-06 ngày 2026-08-04
 
 P3-06 đã khóa phạm vi REST-only cho conversation container; message persistence,
 unread/read, realtime và notification vẫn thuộc P3-07A/P3-07B. ADR-0013 được amend:
@@ -31,17 +31,33 @@ unread/read, realtime và notification vẫn thuộc P3-07A/P3-07B. ADR-0013 đ�
 - feature `conversations` có server-side emergency-off; quota tổng thể được giữ cho P3-13.
 
 Vertical slice đã hoàn tất migration `000024`, Go module/API, OpenAPI/generated client và
-web `/app/messages`; không bật worker, realtime hoặc delivery side effect. Local gate xanh:
+web `/app/messages`; không bật worker, realtime hoặc delivery side effect. Toàn bộ exit gate
+đã xanh:
 
-- toàn bộ Go test/vet, API-client `32/32`, web `236/236`, lint, typecheck, production build,
-  format, diff và secret-pattern scan đều PASS;
-- disposable Neon forward-only `23 false -> 24 false`, rerun idempotent giữ `24 false`;
-- exact runtime ACL và focused PostgreSQL concurrency/lifecycle/tenant/privacy/audit gate
-  PASS sau khi fixture suspension được sửa để tuân constraint timestamp authoritative;
-- không rollback, không migrate shared staging và không deploy. Shared staging vẫn ở
-  `23 false`; authenticated browser/API cùng keyboard/Axe trên candidate chưa chạy.
+- disposable rồi shared Neon được forward-only `23 false -> 24 false`; migrate lặp
+  idempotent vẫn giữ `24 false`, exact runtime ACL cùng PostgreSQL canonical-create,
+  authoritative-membership, archive, tenant/privacy/audit và concurrency gates đều PASS;
+- candidate `756ca60aee579e60ae386c50020ecaf166d1a034` có Quality/integration,
+  Browser E2E, Local environment smoke, Secret scan, CodeQL Go/JavaScript, repository và
+  container scan cùng Cloudflare Pages đều PASS; dependency review skip đúng policy push;
+- `pnpm verify` PASS với API-client `32/32`, web `237/237`, toàn bộ Go test/vet, lint,
+  typecheck, build, Storybook, format và client-bundle/security checks;
+- Render deployment `dep-d9ov689t0dsc73bu99a0` của exact candidate đã Live. Direct Render
+  và Pages-proxied health/readiness đều trả `200 + Cache-Control: no-store`;
+- authenticated live acceptance chứng minh Teacher/Student reverse-create trả cùng direct,
+  projection đúng hai display name và không lộ email; Admin ngoài participant bị conceal
+  `404`; class conversation bị conceal trước enrollment, trả cùng ID sau enrollment, bind
+  sau archive trả `409` nhưng history cũ vẫn đọc `200` với trạng thái read-only;
+- Browser E2E chạy UI thật với ba role đã PASS canonical direct/class, tenant concealment,
+  privacy projection, Enter/Escape focus và Axe không violation trên direct/class page.
+  Live acceptance cũng PASS heading focus, dialog autofocus, Escape trả focus, không
+  overflow ngang; selector màu heading-action được thu hẹp sau khi Axe phát hiện contrast
+  `1.55:1`, và exact candidate hiển thị chữ trắng trên nền primary đúng policy.
 
-Vì còn shared staging/deployment/browser acceptance, P3-06 hiện là `VERIFY`, chưa `DONE`.
+Acceptance class riêng được giữ ở trạng thái archived. Không có message persistence,
+unread/read, realtime hoặc notification side effect được bật; các phần đó tiếp tục ở
+P3-07A/P3-07B. P3-06 chuyển `VERIFY -> DONE` ngày 2026-08-04; runnable lane tiếp theo là
+P3-07A.
 
 ### Cập nhật P3-02D-A ngày 2026-08-03
 

@@ -33,10 +33,9 @@ re-baseline này không dùng nó để chặn Phase 4 hay ép các gate provide
 tất trước khi có môi trường phù hợp. Domain/DNS, SES sandbox và production-access
 approval có thể tiếp tục chuẩn bị song song.
 
-**Task đang thực hiện:** `P3-06` Direct/class conversation core đã hoàn tất vertical slice
-REST/persistence/UI và disposable PostgreSQL gate, hiện ở `VERIFY`. P3-02D-A Native
-Availability Poll và Study Meeting core đã `DONE`; runnable lane tiếp tục P3-07A sau khi
-P3-06 đạt shared staging/browser/Axe gate.
+**Task đang thực hiện:** `P3-06` Direct/class conversation core đã `DONE` ngày 2026-08-04
+sau shared PostgreSQL, exact deployment, authenticated browser/API, keyboard và Axe gate.
+Runnable lane hiện chuyển sang `P3-07A` persistent message, unread/read core.
 `P3-02D-B` lifecycle delivery/
 auto-close/fan-out và các gate P3-03B/P3-CAL-02/P3-05A/B là carry-over, không nằm trong
 mốc Core Exit tối thiểu.
@@ -108,7 +107,7 @@ processing/sharing tới end user.
 | P3-04      | In-app notification và preference              | P3-03A; P3-03B trước activation | VERIFY     |
 | P3-05A     | Session email/ICS/external RSVP/reminder       | P3-02C, P3-CAL-02, P3-03B, P3-04 | DEFERRED/TODO |
 | P3-05B     | Poll/Study Meeting lifecycle delivery          | P3-02D-B, P3-05A               | DEFERRED/TODO |
-| P3-06      | Direct/class conversation                      | P3-00, Phase 2 policy           | VERIFY     |
+| P3-06      | Direct/class conversation                      | P3-00, Phase 2 policy           | DONE       |
 | P3-07A     | Persistent message, unread/read core           | P3-06                           | TODO       |
 | P3-07B     | Message notification delivery                  | P3-07A, P3-03B, P3-04           | DEFERRED/TODO |
 | P3-08      | File metadata, upload intent và finalize       | P3-00, B2 baseline              | TODO       |
@@ -970,8 +969,9 @@ Hai gate notification vẫn phải giữ `false` trong khi Render chỉ phục v
       có automated test.
 - [x] Unit, HTTP, disposable PostgreSQL integration và concurrency test chứng minh canonical create,
       authoritative membership, archive policy, tenant isolation và không lộ email/log.
-- [ ] Forward shared staging `23 -> 24`, re-provision exact ACL, deploy exact candidate rồi
-      chạy authenticated browser/API và keyboard/Axe; chỉ khi xanh mới chuyển `DONE`.
+- [x] Shared staging forward-only `23 -> 24`, exact ACL, candidate `756ca60a` Live trên
+      Render/Cloudflare; authenticated role/API, keyboard/focus, direct/class Axe và CI
+      security/integration đều PASS. P3-06 chuyển `VERIFY -> DONE` ngày 2026-08-04.
 
 ## 14. P3-07 Persistent message, unread và read receipt
 
@@ -1172,8 +1172,9 @@ một tuần.
 6. P3-02A/P3-02B/P3-02C đã `DONE`; working-hours, free-busy, audience và RSVP core đã
    qua local/staging/manual gate. P3-02D-A poll/StudyMeeting core cũng đã `DONE` ngày
    2026-08-03 sau forward `000023`, exact ACL/PostgreSQL barriers, authenticated browser/API
-   matrix và manual NVDA PASS. Runnable lane tiếp tục với P3-06; không bật delivery side
-   effect và không chờ P3-03B.
+   matrix và manual NVDA PASS. P3-06 cũng đã `DONE` ngày 2026-08-04 sau migration `000024`,
+   exact ACL/PostgreSQL, deployment, authenticated browser/API, focus và Axe gate. Runnable
+   lane tiếp tục với P3-07A; không bật delivery side effect và không chờ P3-03B.
 7. P3-03B/P3-04, P3-CAL-02/P3-05A và P3-02D-B/P3-05B tiếp tục ở carry-over. Đóng
    `P3-14-CORE` sau lane runnable cho phép bắt đầu Phase 4; full P3-14 vẫn chờ các gate này.
 8. Không đưa recurrence, reminder, worker, email hoặc calendar tổng hợp vào P3-01.

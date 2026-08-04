@@ -4,14 +4,14 @@
 
 | Thuộc tính            | Giá trị                                                                                      |
 | --------------------- | -------------------------------------------------------------------------------------------- |
-| Phiên bản tài liệu    | 2.3                                                                                          |
-| Cập nhật              | 2026-08-03                                                                                   |
+| Phiên bản tài liệu    | 2.4                                                                                          |
+| Cập nhật              | 2026-08-04                                                                                   |
 | Phạm vi ưu tiên       | Web application                                                                              |
 | Thư mục phát triển    | `D:\TutorHub_V2`                                                                             |
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
 | Phase hiện tại        | Phase 3 - Daily learning workspace                                                           |
-| Trạng thái gần nhất   | P3-02D-A DONE; P3-06 là task runnable tiếp theo; worker/provider/delivery gates vẫn DEFERRED |
+| Trạng thái gần nhất   | P3-06 DONE; P3-07A là task runnable tiếp theo; worker/provider/delivery gates vẫn DEFERRED   |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 
@@ -1966,7 +1966,10 @@ Một tính năng chỉ được đánh dấu hoàn thành khi:
      của owner.
      `P3-02D-B` (auto-close/fan-out/delivery) chờ P3-03B/P3-04 activation và được ghi vào
      carry-over register; P3-05B là delivery adapter downstream.
-14. Sau P3-02D-A staging acceptance, runnable lane tiếp tục với P3-06 conversation core.
+14. P3-06 Direct/class conversation core đã `DONE` ngày 2026-08-04 sau migration
+     `000024`, exact runtime ACL/PostgreSQL, deployment, authenticated browser/API,
+     keyboard/focus và Axe gate. Runnable lane tiếp tục với P3-07A persistent message,
+     unread/read core; realtime và notification delivery vẫn thuộc P3-07B/carry-over.
 15. Không xóa thêm Neon branch theo quyết định hiện tại của owner.
 16. Không khởi động QuizHub, Lavie, social feed hoặc Secure Exam ngoài phase đã quy hoạch.
 
@@ -2036,8 +2039,12 @@ concurrent/IDOR, Calendar E2E `11/11` và staging/manual acceptance. P3-02D-A Na
 Availability Poll/Study Meeting core đã `DONE`; cross-writer code đã harden; disposable/shared
 staging `23 false`, exact ACL, database gates, deploy `8585864`, public privacy headers,
 authenticated browser/API matrix, automated Playwright/axe và manual NVDA đều PASS. Task
-runnable tiếp theo là P3-06. Không bật side effect chỉ vì core đã có. `P3-02D-B` và các gate
-worker/provider vẫn là carry-over.
+runnable P3-06 Direct/class conversation core cũng đã `DONE` ngày 2026-08-04: shared
+staging forward-only `23 false -> 24 false`, exact ACL/PostgreSQL gates, candidate
+`756ca60a` Live trên Render/Cloudflare, authenticated direct/class/archive role matrix,
+keyboard/focus và automated Playwright/Axe đều PASS. Runnable lane tiếp theo là P3-07A.
+Không bật side effect chỉ vì core đã có. `P3-02D-B` và các gate worker/provider vẫn là
+carry-over.
 AWS SES đã được chọn làm provider target nhưng
 P3-CAL-02/ADR-0020 vẫn giữ các gate live email/ICS chưa nghiệm thu; chưa có domain hoặc
 production delivery. Render Web Service vẫn là API staging/private alpha; Render Free
