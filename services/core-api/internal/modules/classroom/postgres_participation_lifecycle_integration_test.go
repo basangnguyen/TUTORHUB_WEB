@@ -151,10 +151,11 @@ VALUES ($1, $2, $3, $4, 'Following cancellation integration class',
 	)
 	params, err := normalizeSeriesMutationInput(
 		OccurrenceMutationInput{
-			Scope:           recurrence.ScopeFollowing,
-			OccurrenceKey:   occurrences[1].Key,
-			ExpectedVersion: series.Version,
-			IdempotencyKey:  "series-following-cancel-0001",
+			Scope:                    recurrence.ScopeFollowing,
+			OccurrenceKey:            occurrences[1].Key,
+			FollowingExceptionPolicy: recurrence.ExceptionDiscard,
+			ExpectedVersion:          series.Version,
+			IdempotencyKey:           "series-following-cancel-0001",
 		},
 		ownerID,
 		"cancel",
@@ -368,9 +369,32 @@ WHERE tenant_id = $1 AND class_id = $2 AND id = $3`,
 		}
 	}
 
-	aggregateID := source.SessionID
-	if aggregateID == uuid.Nil {
-		aggregateID = source.SeriesID
+	var icalUID string
+	switch source.Kind {
+	case ParticipationSourceSession:
+		if err := pool.QueryRow(
+			ctx,
+			`SELECT ical_uid
+FROM tutorhub.class_sessions
+WHERE tenant_id = $1 AND class_id = $2 AND id = $3`,
+			tenantID,
+			classID,
+			source.SessionID,
+		).Scan(&icalUID); err != nil {
+			t.Fatalf("read cancellation session iCal UID: %v", err)
+		}
+	case ParticipationSourceSeries, ParticipationSourceOccurrence:
+		if err := pool.QueryRow(
+			ctx,
+			`SELECT ical_uid
+FROM tutorhub.class_session_series
+WHERE tenant_id = $1 AND class_id = $2 AND id = $3`,
+			tenantID,
+			classID,
+			source.SeriesID,
+		).Scan(&icalUID); err != nil {
+			t.Fatalf("read cancellation series iCal UID: %v", err)
+		}
 	}
 	revisionID := uuid.New()
 	canonicalPayload := []byte(`{"response_requested":true}`)
@@ -406,7 +430,7 @@ VALUES (
 		seriesID,
 		occurrenceKey,
 		sourceVersion,
-		"urn:uuid:"+aggregateID.String(),
+		icalUID,
 		sequence,
 		ownerID,
 		sealedPayload.Ciphertext,
@@ -476,7 +500,7 @@ RETURNING id`,
 		TenantID:        tenantID,
 		ClassID:         classID,
 		Source:          source,
-		ICalUID:         "urn:uuid:" + aggregateID.String(),
+		ICalUID:         icalUID,
 		InitialSequence: sequence,
 		AttendeeID:      attendeeID,
 		CapabilityID:    capabilityID,

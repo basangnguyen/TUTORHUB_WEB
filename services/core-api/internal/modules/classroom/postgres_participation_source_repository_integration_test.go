@@ -164,7 +164,7 @@ VALUES ($1, $2, $3, 'student', 'active', $4, now())`,
 	if err != nil {
 		t.Fatalf("bind series participation audience: %v", err)
 	}
-	replacedAt := startsAt.Add(-2 * time.Hour)
+	replacedAt := series.CreatedAt.Add(time.Minute)
 	replaced, err := repository.ReplaceParticipationAudience(
 		ctx,
 		ownerContext,
