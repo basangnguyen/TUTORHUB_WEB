@@ -13,15 +13,15 @@
 | Phase hoàn thành    | Phase 0, Phase 1, Phase 2                                                             |
 | Phase hiện tại      | Phase 3 - Daily learning workspace                                                   |
 | Task `DONE` gần nhất | P3-06 Direct/class conversation core                                             |
-| Mốc repository mới | Local P3-07A candidate đã commit, chưa push/deploy; Live vẫn là `756ca60a`         |
-| Task hiện tại       | P3-07A Persistent message, unread/read core — `IN PROGRESS`                        |
-| Task tiếp theo      | Chạy forward-only `24 -> 25` và PostgreSQL gates trên Neon disposable             |
+| Mốc repository mới | P3-07A local + disposable PASS; chưa push/deploy; Live vẫn là `756ca60a`            |
+| Task hiện tại       | P3-07A Persistent message, unread/read core — `VERIFY`                             |
+| Task tiếp theo      | Báo cáo disposable; xin phê duyệt shared forward/ACL và exact deploy              |
 
-### Checkpoint P3-07A local ngày 2026-08-04
+### Checkpoint P3-07A disposable ngày 2026-08-04
 
-P3-07A đã có vertical slice local hoàn chỉnh nhưng chưa chuyển `VERIFY`: ADR-0025 được
-chấp nhận; migration forward `000025`, REST API, OpenAPI/generated client và web message
-history/composer đã sẵn sàng cho disposable acceptance.
+P3-07A đã chuyển `IN PROGRESS -> VERIFY`: ADR-0025 được chấp nhận; migration forward
+`000025`, REST API, OpenAPI/generated client và web message history/composer đã hoàn tất
+local gate và disposable database acceptance.
 
 - PostgreSQL giữ message/tombstone, server sequence, global author/client idempotency,
   monotonic self-read marker và O(1) `tenant_message_usage` counter dưới tenant advisory
@@ -38,10 +38,19 @@ history/composer đã sẵn sàng cho disposable acceptance.
 - Local `go test -count=1 ./...`, `go vet ./...`, API client `34/34`, web `246/246`, lint,
   typecheck, build, format, generated-contract, security/bundle và Storybook gates đều PASS;
   integration-tag PostgreSQL code compile PASS bằng `-run '^$'`.
+- Neon disposable owner preflight PASS ở `24 false`; direct/pool endpoint và runtime/
+  migration role boundary đạt. Migration owner có admin residual được ghi tổng hợp nhưng
+  runtime không nhận superuser/role/database/replication/bypass-RLS hoặc migration membership.
+- Forward-only `24 false -> 25 false -> 25 false` PASS, không rollback. Exact runtime
+  table/column ACL, `PUBLIC` zero-grant và role safety PASS; final ledger giữ `25 false`.
+- Full PostgreSQL conversation suite 5/5, zero `SKIP`: P3-07A idempotency/lifecycle/read/
+  quota/privacy, counter constraint/cascade/4.096-row query plan và P3-06 concurrency
+  regression đều PASS. Riêng fixture query-plan 4.096 row được rollback và statistics
+  được re-ANALYZE; các mutation fixture khác được giữ trên disposable để điều tra nếu cần.
 
-Chưa có bằng chứng PostgreSQL thật: owner preflight, forward disposable `24 false -> 25 false`,
-idempotent rerun, exact ACL và concurrency/privacy/quota gates vẫn `PENDING`. Không rollback,
-không migrate shared staging và không deploy trước báo cáo disposable.
+Shared staging vẫn ở `24 false`; candidate chưa push/deploy và live vẫn là P3-06
+`756ca60a`. Không xóa disposable, không rollback và không forward shared/deploy trước khi
+owner nhận báo cáo rồi phê duyệt bước kế tiếp.
 
 ### Checkpoint P3-06 ngày 2026-08-04
 

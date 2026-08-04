@@ -33,9 +33,10 @@ re-baseline này không dùng nó để chặn Phase 4 hay ép các gate provide
 tất trước khi có môi trường phù hợp. Domain/DNS, SES sandbox và production-access
 approval có thể tiếp tục chuẩn bị song song.
 
-**Task đang thực hiện:** `P3-07A` persistent message, unread/read core đã bắt đầu
-`IN PROGRESS` ngày 2026-08-04 sau khi P3-06 đạt `DONE`. ADR-0025 và amendment ADR-0013
-khóa REST/PostgreSQL authority, lifecycle, idempotency, receipt và privacy boundary.
+**Task đang thực hiện:** `P3-07A` persistent message, unread/read core ở `VERIFY` từ
+ngày 2026-08-04 sau khi local candidate và toàn bộ disposable database gate PASS.
+ADR-0025 và amendment ADR-0013 khóa REST/PostgreSQL authority, lifecycle, idempotency,
+receipt và privacy boundary. Shared staging, exact deploy và live acceptance còn `PENDING`.
 `P3-02D-B` lifecycle delivery/
 auto-close/fan-out và các gate P3-03B/P3-CAL-02/P3-05A/B là carry-over, không nằm trong
 mốc Core Exit tối thiểu.
@@ -108,7 +109,7 @@ processing/sharing tới end user.
 | P3-05A     | Session email/ICS/external RSVP/reminder       | P3-02C, P3-CAL-02, P3-03B, P3-04 | DEFERRED/TODO |
 | P3-05B     | Poll/Study Meeting lifecycle delivery          | P3-02D-B, P3-05A               | DEFERRED/TODO |
 | P3-06      | Direct/class conversation                      | P3-00, Phase 2 policy           | DONE       |
-| P3-07A     | Persistent message, unread/read core           | P3-06                           | IN PROGRESS |
+| P3-07A     | Persistent message, unread/read core           | P3-06                           | VERIFY     |
 | P3-07B     | Message notification delivery                  | P3-07A, P3-03B, P3-04           | DEFERRED/TODO |
 | P3-08      | File metadata, upload intent và finalize       | P3-00, B2 baseline              | TODO       |
 | P3-09      | Presigned B2 upload/download                   | P3-08                           | TODO       |
@@ -991,14 +992,14 @@ Hai gate notification vẫn phải giữ `false` trong khi Render chỉ phục v
       expected-tenant và reauthorize source permission trong transaction.
 - [x] Message body không vào audit/outbox/log/metric/error/cursor; P3-07A không tạo delivery
       side effect và hai notification gate vẫn giữ false.
-- [ ] Web `/app/messages` có history/composer/pagination/unread/read, loading/empty/error/
+- [x] Web `/app/messages` có history/composer/pagination/unread/read, loading/empty/error/
       forbidden/retry/read-only, memory-only retry ID, keyboard/focus và Axe.
 - [x] Unit/HTTP test đạt replay/conflict, cursor binding, bounds, CSRF/tenant scope,
       lifecycle/version và read monotonic contract.
-- [ ] PostgreSQL integration đạt exact ACL, concurrent duplicate, direct both-active,
+- [x] PostgreSQL integration đạt exact ACL, concurrent duplicate, direct both-active,
       class enrollment/archive/restore, foreign-ID conceal, receipt monotonic, pagination,
       quota/rate và content không xuất hiện trong audit/outbox.
-- [ ] Full local verify và disposable Neon forward-only `24 -> 25`/idempotent cùng focused
+- [x] Full local verify và disposable Neon forward-only `24 -> 25`/idempotent cùng focused
       database gates PASS trước khi chuyển `IN PROGRESS -> VERIFY`.
 - [ ] Shared staging forward/exact ACL, exact deploy, CI/security và authenticated role/
       reload/API-reconnect/keyboard/Axe acceptance PASS trước `VERIFY -> DONE`.
@@ -1196,7 +1197,8 @@ một tuần.
    2026-08-03 sau forward `000023`, exact ACL/PostgreSQL barriers, authenticated browser/API
    matrix và manual NVDA PASS. P3-06 cũng đã `DONE` ngày 2026-08-04 sau migration `000024`,
    exact ACL/PostgreSQL, deployment, authenticated browser/API, focus và Axe gate. Runnable
-   lane tiếp tục với P3-07A; không bật delivery side effect và không chờ P3-03B.
+   lane P3-07A đang `VERIFY`; bước kế tiếp là shared forward/ACL, exact deploy và live
+   acceptance. Không bật delivery side effect và không chờ P3-03B.
 7. P3-03B/P3-04, P3-CAL-02/P3-05A và P3-02D-B/P3-05B tiếp tục ở carry-over. Đóng
    `P3-14-CORE` sau lane runnable cho phép bắt đầu Phase 4; full P3-14 vẫn chờ các gate này.
 8. Không đưa recurrence, reminder, worker, email hoặc calendar tổng hợp vào P3-01.

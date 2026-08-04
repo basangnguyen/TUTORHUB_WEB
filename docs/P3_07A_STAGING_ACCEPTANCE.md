@@ -10,19 +10,20 @@ Ngày ghi nhận: 2026-08-04.
 
 | Hạng mục | Trạng thái | Ghi chú |
 | --- | --- | --- |
-| ADR-0025 và migration `000025` trong source | `LOCAL` | Chưa có bằng chứng Neon P3-07A |
-| Core API unit/HTTP test | `PASS (cached)` | `go test ./...` trên `services/core-api`; chưa phải fresh candidate run |
-| Integration-tag compile | `PASS` | `go test -tags=integration -run '^$' ./...`; chỉ compile, không chạy test |
-| Full `corepack pnpm verify` trên candidate | `PENDING` | Chưa khóa exact candidate |
-| Disposable owner preflight | `PENDING` | Chưa kết nối database |
-| Disposable forward `24 false -> 25 false` | `PENDING` | Không suy diễn từ local compile |
-| Disposable exact ACL/PostgreSQL gates | `PENDING` | Chưa chạy bằng runtime credential thật |
-| Shared Neon forward/ACL | `PENDING` | Bị chặn cho tới khi disposable được báo cáo PASS |
-| Render/Cloudflare deployment và live acceptance | `PENDING` | Không deploy trước báo cáo disposable |
+| ADR-0025 và migration `000025` trong source | `PASS` | Local candidate source; chưa push/deploy |
+| Core API unit/HTTP test | `PASS` | Fresh `go test -count=1 ./...` trên candidate |
+| Integration-tag compile | `PASS` | Full integration-tag source compile |
+| Full `corepack pnpm verify` trên candidate source | `PASS` | Workspace-scoped `GOCACHE` |
+| Disposable owner preflight | `PASS` | `24 false`; direct/pool và role boundary đạt; owner residual được ghi tổng hợp |
+| Disposable forward `24 false -> 25 false` | `PASS` | Rerun `up` giữ `25 false`; không rollback |
+| Disposable exact ACL/PostgreSQL gates | `PASS` | Exact ACL và 5/5 conversation integration tests; zero `SKIP` |
+| Shared Neon forward/ACL | `PENDING` | Chỉ thực hiện sau báo cáo disposable và owner phê duyệt |
+| Render/Cloudflare deployment và live acceptance | `PENDING` | Chưa push/deploy candidate P3-07A |
 
-P3-06 đã được nghiệm thu ở `24 false`. Mọi kết quả `25 false`, shared staging, CI của exact
-candidate và deployment P3-07A vẫn là `PENDING`; tài liệu này không ghi nhận thao tác
-database nào đã chạy.
+P3-06 đã được nghiệm thu ở `24 false`. Ngày 2026-08-04, Neon disposable P3-07A đạt
+`24 false -> 25 false -> 25 false`, exact runtime ACL và full conversation PostgreSQL
+suite; final ledger vẫn là `25 false`. P3-07A chuyển `IN PROGRESS -> VERIFY`. Shared
+staging, CI trên commit được push và deployment/live acceptance vẫn là `PENDING`.
 
 ## Phạm vi và invariant bắt buộc
 
@@ -281,8 +282,8 @@ COMMIT;
 ```
 
 Không cấp table-level `UPDATE`. Runtime role không được `DELETE`, `TRUNCATE`, `REFERENCES`,
-`TRIGGER`, ownership, superuser, role creation, database creation, bypass-RLS hay membership
-trong migration role. `conversation_members` vẫn không có update path. Message delete là
+`TRIGGER`, ownership, superuser, role creation, database creation, replication, bypass-RLS
+hay membership trong migration role. `conversation_members` vẫn không có update path. Message delete là
 column update thành tombstone; không phải SQL `DELETE`. `tenant_message_usage` chỉ được
 reserve transactionally dưới tenant advisory lock, không phải API generic mutation.
 
@@ -401,6 +402,7 @@ SELECT
     rolsuper,
     rolcreaterole,
     rolcreatedb,
+    rolreplication,
     rolbypassrls,
     has_schema_privilege(rolname, 'tutorhub', 'USAGE') AS schema_usage,
     has_schema_privilege(rolname, 'tutorhub', 'CREATE') AS schema_create,
@@ -429,9 +431,9 @@ WHERE table_schema = 'tutorhub'
   AND grantee = 'PUBLIC';
 ```
 
-Role query phải trả đúng một row: `schema_usage=true`; mọi cờ đặc quyền,
-`schema_create`, migration membership và `owns_target_relation` đều `false`. `PUBLIC`
-query phải zero rows. Nếu migration role thực tế khác `current_user`, thay đối số
+Role query phải trả đúng một row: `schema_usage=true`; mọi cờ đặc quyền gồm
+`rolreplication`, `schema_create`, migration membership và `owns_target_relation` đều
+`false`. `PUBLIC` query phải zero rows. Nếu migration role thực tế khác `current_user`, thay đối số
 membership bằng exact migration role đã xác minh trong owner preflight.
 
 ## 5. Focused PostgreSQL integration gates
@@ -503,22 +505,22 @@ content writes khi cần và sửa bằng application rollback hoặc forward mi
 
 | Gate | Kết quả | Bằng chứng không nhạy cảm |
 | --- | --- | --- |
-| Local Core API `go test ./...` | `PASS (cached)` | Cần fresh `-count=1` trên exact candidate |
-| Integration-tag compile, không có DB evidence | `PASS` | `-run '^$'`; không chạy test |
+| Local Core API `go test ./...` | `PASS` | Fresh `-count=1` trên candidate |
+| Integration-tag compile | `PASS` | Exact integration source compile |
 | Local working tree + `pnpm verify` | `PASS` | 2026-08-04; workspace-scoped `GOCACHE` |
-| Exact committed candidate | `PASS` | Commit local hiện tại; chưa push/deploy |
-| Disposable branch safety + env load | `PENDING` | Chưa kết nối |
-| Owner preflight ở `24 false` | `PENDING` | Chưa chạy |
-| Forward `24 false -> 25 false` | `PENDING` | Chưa chạy |
-| Idempotent rerun giữ `25 false` | `PENDING` | Chưa chạy |
-| Exact runtime table/column ACL | `PENDING` | Chưa provision/probe |
-| Idempotency + cross-conversation race | `PENDING` | Chưa chạy PostgreSQL thật |
-| CAS/tombstone + pagination/order | `PENDING` | Chưa chạy PostgreSQL thật |
-| Monotonic read + unread/cap | `PENDING` | Chưa chạy PostgreSQL thật |
-| Direct/class/tenant authorization | `PENDING` | Chưa chạy PostgreSQL thật |
-| Storage counter/hourly/actor rate + query plan | `PENDING` | Chưa chạy PostgreSQL thật |
-| Audit/outbox/error privacy | `PENDING` | Chưa chạy PostgreSQL thật |
-| Shared staging forward/ACL | `PENDING` | Bị chặn bởi disposable report |
+| Candidate source snapshot | `PASS` | Local `main`; SHA được ghi trong handoff; chưa push/deploy |
+| Disposable branch safety + env load | `PASS` | `ENV_LOAD=PASS`; endpoint boundary đạt; không ghi URL/role |
+| Owner preflight ở `24 false` | `PASS` | Role boundary và owner authority đạt; `OWNER_ADMIN_RESIDUAL=true` |
+| Forward `24 false -> 25 false` | `PASS` | Forward-only migration `000025` |
+| Idempotent rerun giữ `25 false` | `PASS` | Chuỗi `24 false -> 25 false -> 25 false` |
+| Exact runtime table/column ACL | `PASS` | Runtime role safety, allowlist và `PUBLIC` zero-grant đạt |
+| Idempotency + cross-conversation race | `PASS` | PostgreSQL disposable |
+| CAS/tombstone + pagination/order | `PASS` | PostgreSQL disposable |
+| Monotonic read + unread/cap | `PASS` | PostgreSQL disposable |
+| Direct/class/tenant authorization | `PASS` | PostgreSQL disposable + P3-06 regression |
+| Storage counter/hourly/actor rate + query plan | `PASS` | Constraint/cascade, 4,096-row `EXPLAIN`, rollback consistency |
+| Audit/outbox/error privacy | `PASS` | No content side effect; PostgreSQL error detail sanitized |
+| Shared staging forward/ACL | `PENDING` | Chờ owner phê duyệt sau báo cáo disposable |
 | Exact deploy + CI/security | `PENDING` | Chưa deploy |
 | Live role/reload/retry/keyboard/Axe | `PENDING` | Chưa chạy |
 

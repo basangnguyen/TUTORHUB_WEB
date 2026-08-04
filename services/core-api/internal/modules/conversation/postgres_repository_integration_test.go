@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tutorhub-v2/core-api/internal/modules/featurecontrol"
 	"github.com/tutorhub-v2/core-api/internal/platform/migrationrunner"
@@ -40,7 +41,7 @@ func TestPostgresConversationAndMessageRuntimeExactACL(t *testing.T) {
 		t.Fatalf("read conversation migration identity: %v", err)
 	}
 	if runtimeRole == migrationRole {
-		t.Skip("exact conversation ACL requires distinct runtime and migration roles")
+		t.Fatal("exact conversation ACL requires distinct runtime and migration roles")
 	}
 
 	var schemaUsage, schemaCreate bool
@@ -107,10 +108,43 @@ SELECT
 		)
 	}
 
-	var notSuperuser, noMigrationInheritance, notTableOwner bool
+	targetRelations := []string{
+		"conversations", "conversation_members", "messages",
+		"message_receipts", "tenant_message_usage",
+	}
+	var publicTableGrants, publicColumnGrants int
+	if err := migrationPool.QueryRow(ctx, `
+SELECT
+    (SELECT count(*)
+     FROM information_schema.table_privileges
+     WHERE table_schema = 'tutorhub'
+       AND table_name = ANY($1::text[])
+       AND grantee = 'PUBLIC'),
+    (SELECT count(*)
+     FROM information_schema.column_privileges
+     WHERE table_schema = 'tutorhub'
+       AND table_name = ANY($1::text[])
+       AND grantee = 'PUBLIC')`, targetRelations).Scan(
+		&publicTableGrants, &publicColumnGrants,
+	); err != nil {
+		t.Fatalf("inspect PUBLIC conversation grants: %v", err)
+	}
+	if publicTableGrants != 0 || publicColumnGrants != 0 {
+		t.Fatalf(
+			"PUBLIC retained conversation privileges: table=%d column=%d",
+			publicTableGrants, publicColumnGrants,
+		)
+	}
+
+	var notSuperuser, noCreateRole, noCreateDatabase, noReplication, noBypassRLS bool
+	var noMigrationInheritance, notTableOwner bool
 	if err := migrationPool.QueryRow(ctx, `
 SELECT
     NOT runtime.rolsuper,
+    NOT runtime.rolcreaterole,
+    NOT runtime.rolcreatedb,
+    NOT runtime.rolreplication,
+    NOT runtime.rolbypassrls,
     NOT pg_has_role(runtime.oid, migration.oid, 'MEMBER'),
     NOT EXISTS (
         SELECT 1
@@ -125,14 +159,20 @@ JOIN pg_roles AS migration ON migration.rolname = $2
 WHERE runtime.rolname = $1`,
 		runtimeRole,
 		migrationRole,
-		[]string{
-			"conversations", "conversation_members", "messages",
-			"message_receipts", "tenant_message_usage",
-		},
-	).Scan(&notSuperuser, &noMigrationInheritance, &notTableOwner); err != nil {
+		targetRelations,
+	).Scan(
+		&notSuperuser,
+		&noCreateRole,
+		&noCreateDatabase,
+		&noReplication,
+		&noBypassRLS,
+		&noMigrationInheritance,
+		&notTableOwner,
+	); err != nil {
 		t.Fatalf("inspect conversation runtime role safety: %v", err)
 	}
-	if !notSuperuser || !noMigrationInheritance || !notTableOwner {
+	if !notSuperuser || !noCreateRole || !noCreateDatabase || !noReplication || !noBypassRLS ||
+		!noMigrationInheritance || !notTableOwner {
 		t.Fatal("conversation runtime role safety boundary is not exact")
 	}
 }
@@ -187,6 +227,172 @@ ORDER BY ordinal_position`, relation, parts[0], parts[1])
 	}
 	if columnCount == 0 || len(seen) != len(expectedSet) {
 		t.Fatalf("runtime UPDATE column set for %s=%v, want %v", relation, seen, expectedSet)
+	}
+}
+
+func TestPostgresPersistentMessageUsageConstraintsAndBoundedLookup(t *testing.T) {
+	migrationURL := requireConversationEnvironment(t, "DATABASE_MIGRATION_URL")
+	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
+	defer cancel()
+	if err := migrationrunner.Up(ctx, migrationURL); err != nil {
+		t.Fatalf("apply persistent message usage migrations: %v", err)
+	}
+	migrationPool := openConversationPool(t, ctx, migrationURL)
+	defer migrationPool.Close()
+
+	transaction, err := migrationPool.Begin(ctx)
+	if err != nil {
+		t.Fatalf("begin persistent message usage proof: %v", err)
+	}
+	defer func() { _ = transaction.Rollback(context.Background()) }()
+
+	lookupTenantID := uuid.New()
+	cascadeTenantID := uuid.New()
+	lookupSlug := integrationSlug("p307a-usage-lookup")
+	cascadeSlug := integrationSlug("p307a-usage-cascade")
+	if _, err := transaction.Exec(ctx, `
+INSERT INTO tutorhub.tenants (id, slug, name)
+VALUES ($1, $2, 'P3-07A usage lookup'),
+       ($3, $4, 'P3-07A usage cascade')`,
+		lookupTenantID, lookupSlug, cascadeTenantID, cascadeSlug,
+	); err != nil {
+		t.Fatalf("insert persistent message usage proof tenants: %v", err)
+	}
+	if _, err := transaction.Exec(ctx, `
+INSERT INTO tutorhub.tenant_message_usage (tenant_id, message_count)
+VALUES ($1, 7), ($2, 11)`, lookupTenantID, cascadeTenantID); err != nil {
+		t.Fatalf("insert persistent message usage proof rows: %v", err)
+	}
+
+	const planFixtureSize = 4096
+	planSlugPrefix := integrationSlug("p307a-usage-plan")
+	if _, err := transaction.Exec(ctx, `
+WITH tenants AS (
+    INSERT INTO tutorhub.tenants (id, slug, name)
+    SELECT
+        gen_random_uuid(),
+        $1 || '-' || lpad(series::text, 4, '0'),
+        'P3-07A usage plan fixture'
+    FROM generate_series(1, $2) AS series
+    RETURNING id
+)
+INSERT INTO tutorhub.tenant_message_usage (tenant_id, message_count)
+SELECT id, 1
+FROM tenants`, planSlugPrefix, planFixtureSize); err != nil {
+		t.Fatalf("insert bounded usage lookup fixture: %v", err)
+	}
+	if _, err := transaction.Exec(ctx, "ANALYZE tutorhub.tenant_message_usage"); err != nil {
+		t.Fatalf("analyze bounded usage lookup fixture: %v", err)
+	}
+
+	var lookupRows int
+	if err := transaction.QueryRow(ctx, `
+SELECT count(*)
+FROM tutorhub.tenant_message_usage
+WHERE tenant_id = $1`, lookupTenantID).Scan(&lookupRows); err != nil {
+		t.Fatalf("count usage rows for one tenant: %v", err)
+	}
+	if lookupRows != 1 {
+		t.Fatalf("usage rows for one tenant=%d, want 1", lookupRows)
+	}
+
+	duplicateTransaction, err := transaction.Begin(ctx)
+	if err != nil {
+		t.Fatalf("begin duplicate usage proof: %v", err)
+	}
+	_, duplicateErr := duplicateTransaction.Exec(ctx, `
+INSERT INTO tutorhub.tenant_message_usage (tenant_id, message_count)
+VALUES ($1, 1)`, lookupTenantID)
+	var duplicatePostgresError *pgconn.PgError
+	if !errors.As(duplicateErr, &duplicatePostgresError) ||
+		duplicatePostgresError.Code != "23505" ||
+		duplicatePostgresError.ConstraintName != "tenant_message_usage_pkey" {
+		_ = duplicateTransaction.Rollback(ctx)
+		t.Fatalf("duplicate usage error=%v, want tenant primary-key violation", duplicateErr)
+	}
+	if err := duplicateTransaction.Rollback(ctx); err != nil {
+		t.Fatalf("rollback duplicate usage proof: %v", err)
+	}
+
+	negativeTransaction, err := transaction.Begin(ctx)
+	if err != nil {
+		t.Fatalf("begin non-negative usage proof: %v", err)
+	}
+	_, negativeErr := negativeTransaction.Exec(ctx, `
+UPDATE tutorhub.tenant_message_usage
+SET message_count = -1
+WHERE tenant_id = $1`, lookupTenantID)
+	var negativePostgresError *pgconn.PgError
+	if !errors.As(negativeErr, &negativePostgresError) ||
+		negativePostgresError.Code != "23514" ||
+		negativePostgresError.ConstraintName != "tenant_message_usage_count_valid" {
+		_ = negativeTransaction.Rollback(ctx)
+		t.Fatalf("negative usage error=%v, want counter check violation", negativeErr)
+	}
+	if negativePostgresError.Detail == "" {
+		_ = negativeTransaction.Rollback(ctx)
+		t.Fatal("negative usage violation omitted the failing-row detail needed for privacy proof")
+	}
+	safeError := safeMessageStoreError("update tenant message usage", negativeErr)
+	if strings.Contains(safeError.Error(), negativePostgresError.Detail) ||
+		strings.Contains(safeError.Error(), lookupTenantID.String()) ||
+		!strings.Contains(safeError.Error(), "23514") {
+		_ = negativeTransaction.Rollback(ctx)
+		t.Fatalf("sanitized database error exposed failing-row detail: %v", safeError)
+	}
+	if err := negativeTransaction.Rollback(ctx); err != nil {
+		t.Fatalf("rollback non-negative usage proof: %v", err)
+	}
+
+	if _, err := transaction.Exec(
+		ctx, "DELETE FROM tutorhub.tenants WHERE id = $1", cascadeTenantID,
+	); err != nil {
+		t.Fatalf("delete tenant for usage cascade proof: %v", err)
+	}
+	var cascadeRows int
+	if err := transaction.QueryRow(ctx, `
+SELECT count(*)
+FROM tutorhub.tenant_message_usage
+WHERE tenant_id = $1`, cascadeTenantID).Scan(&cascadeRows); err != nil {
+		t.Fatalf("count usage rows after tenant cascade: %v", err)
+	}
+	if cascadeRows != 0 {
+		t.Fatalf("usage rows after tenant cascade=%d, want 0", cascadeRows)
+	}
+
+	planRows, err := transaction.Query(ctx, `
+EXPLAIN (COSTS OFF)
+SELECT message_count
+FROM tutorhub.tenant_message_usage
+WHERE tenant_id = $1`, lookupTenantID)
+	if err != nil {
+		t.Fatalf("explain bounded usage lookup: %v", err)
+	}
+	var planLines []string
+	for planRows.Next() {
+		var line string
+		if err := planRows.Scan(&line); err != nil {
+			planRows.Close()
+			t.Fatalf("scan bounded usage lookup plan: %v", err)
+		}
+		planLines = append(planLines, line)
+	}
+	if err := planRows.Err(); err != nil {
+		planRows.Close()
+		t.Fatalf("iterate bounded usage lookup plan: %v", err)
+	}
+	planRows.Close()
+	plan := strings.Join(planLines, "\n")
+	if strings.Contains(plan, "Seq Scan") ||
+		!strings.Contains(plan, "tenant_message_usage_pkey") ||
+		!strings.Contains(plan, "Index Cond") {
+		t.Fatalf("tenant usage lookup is not bounded by its primary key:\n%s", plan)
+	}
+	if err := transaction.Rollback(ctx); err != nil {
+		t.Fatalf("rollback persistent message usage proof: %v", err)
+	}
+	if _, err := migrationPool.Exec(ctx, "ANALYZE tutorhub.tenant_message_usage"); err != nil {
+		t.Fatalf("restore tenant message usage statistics: %v", err)
 	}
 }
 
@@ -489,6 +695,11 @@ SELECT
 	if directRows != 1 || sendQuotaUsed != 1 {
 		t.Fatalf("idempotent sends rows=%d quota=%d, want 1/1", directRows, sendQuotaUsed)
 	}
+	if reserved := assertTenantMessageUsageMatchesMessages(
+		t, ctx, migrationPool, fixture.tenantID,
+	); reserved != 1 {
+		t.Fatalf("idempotent sends reserved messages=%d, want 1", reserved)
+	}
 
 	if _, err := service.SendMessage(ctx, ownerAccess, direct.Conversation.ID, SendMessageInput{
 		ClientMessageID: clientMessageID,
@@ -514,6 +725,11 @@ WHERE tenant_id = $1 AND quota_key = 'message_sends_per_hour'`,
 	}
 	if sendQuotaUsed != 1 {
 		t.Fatalf("idempotency conflicts consumed quota: used=%d", sendQuotaUsed)
+	}
+	if reserved := assertTenantMessageUsageMatchesMessages(
+		t, ctx, migrationPool, fixture.tenantID,
+	); reserved != 1 {
+		t.Fatalf("idempotency conflicts changed message counter: reserved=%d", reserved)
 	}
 
 	studentMessage, err := service.SendMessage(
@@ -916,6 +1132,14 @@ DO UPDATE SET limit_value = EXCLUDED.limit_value,
 	); !errors.Is(err, featurecontrol.ErrQuotaExceeded) {
 		t.Fatalf("storage quota error=%v, want quota exceeded", err)
 	}
+	if reserved := assertTenantMessageUsageMatchesMessages(
+		t, ctx, migrationPool, fixture.tenantID,
+	); reserved != messageCount {
+		t.Fatalf(
+			"storage quota failure changed message counter: reserved=%d want=%d",
+			reserved, messageCount,
+		)
+	}
 	if _, err := migrationPool.Exec(ctx, `
 UPDATE tutorhub.tenant_quota_overrides
 SET limit_value = $2, updated_at = now()
@@ -959,6 +1183,14 @@ DO UPDATE SET limit_value = EXCLUDED.limit_value,
 		quotaFailure.Quota != featurecontrol.QuotaMessageSendsPerHour {
 		t.Fatalf("hourly quota error=%v, want bounded retry metadata", err)
 	}
+	if reserved := assertTenantMessageUsageMatchesMessages(
+		t, ctx, migrationPool, fixture.tenantID,
+	); reserved != messageCount {
+		t.Fatalf(
+			"hourly quota failure changed message counter: reserved=%d want=%d",
+			reserved, messageCount,
+		)
+	}
 
 	replayed, err := service.SendMessage(
 		ctx,
@@ -968,6 +1200,14 @@ DO UPDATE SET limit_value = EXCLUDED.limit_value,
 	)
 	if err != nil || replayed.Created || replayed.Message.ID != ownerMessage.ID {
 		t.Fatalf("quota-exhausted replay result=%+v error=%v", replayed, err)
+	}
+	if reserved := assertTenantMessageUsageMatchesMessages(
+		t, ctx, migrationPool, fixture.tenantID,
+	); reserved != messageCount {
+		t.Fatalf(
+			"quota-exhausted replay changed message counter: reserved=%d want=%d",
+			reserved, messageCount,
+		)
 	}
 
 	if _, err := migrationPool.Exec(ctx, `
@@ -997,6 +1237,14 @@ DO UPDATE SET enabled = EXCLUDED.enabled,
 		SendMessageInput{ClientMessageID: uuid.New(), Content: "blocked feature"},
 	); !errors.Is(err, featurecontrol.ErrFeatureDisabled) {
 		t.Fatalf("feature-off new send error=%v, want feature disabled", err)
+	}
+	if reserved := assertTenantMessageUsageMatchesMessages(
+		t, ctx, migrationPool, fixture.tenantID,
+	); reserved != messageCount {
+		t.Fatalf(
+			"feature-off replay/failure changed message counter: reserved=%d want=%d",
+			reserved, messageCount,
+		)
 	}
 	if _, err := service.ListMessages(
 		ctx, ownerAccess, direct.Conversation.ID, MessageListInput{},
@@ -1093,6 +1341,12 @@ FROM generate_series(1, $5) AS series(sequence)`,
 	); err != nil {
 		t.Fatalf("seed capped unread messages: %v", err)
 	}
+	seededMessageCount := actorMessageRateLimit + maximumUnreadCount + 1
+	if _, err := migrationPool.Exec(ctx, `
+INSERT INTO tutorhub.tenant_message_usage (tenant_id, message_count, updated_at)
+VALUES ($1, $2, now())`, fixture.tenantID, seededMessageCount); err != nil {
+		t.Fatalf("seed actor-rate message counter: %v", err)
+	}
 	unreadPage, err := service.ListMessages(
 		ctx, ownerAccess, direct.Conversation.ID, MessageListInput{Limit: 1},
 	)
@@ -1133,6 +1387,41 @@ SELECT
 			messageCount, quotaWindows,
 		)
 	}
+	if reserved := assertTenantMessageUsageMatchesMessages(
+		t, ctx, migrationPool, fixture.tenantID,
+	); reserved != int64(seededMessageCount) {
+		t.Fatalf(
+			"actor rate failure changed message counter: reserved=%d want=%d",
+			reserved, seededMessageCount,
+		)
+	}
+}
+
+func assertTenantMessageUsageMatchesMessages(
+	t *testing.T,
+	ctx context.Context,
+	pool *pgxpool.Pool,
+	tenantID uuid.UUID,
+) int64 {
+	t.Helper()
+	var messageCount, reservedMessageCount int64
+	if err := pool.QueryRow(ctx, `
+SELECT
+    (SELECT count(*) FROM tutorhub.messages WHERE tenant_id = $1),
+    COALESCE((
+        SELECT message_count
+        FROM tutorhub.tenant_message_usage
+        WHERE tenant_id = $1
+    ), 0)`, tenantID).Scan(&messageCount, &reservedMessageCount); err != nil {
+		t.Fatalf("inspect tenant message counter consistency: %v", err)
+	}
+	if reservedMessageCount != messageCount {
+		t.Fatalf(
+			"tenant message counter=%d, committed messages=%d",
+			reservedMessageCount, messageCount,
+		)
+	}
+	return reservedMessageCount
 }
 
 func newConversationIntegrationService(
