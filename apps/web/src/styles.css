@@ -717,7 +717,8 @@ textarea:focus-visible {
   text-wrap: balance;
 }
 
-.page-heading span {
+.page-heading > span,
+.page-heading > div:first-child > span {
   display: block;
   margin-top: 14px;
   color: var(--color-text-muted);
