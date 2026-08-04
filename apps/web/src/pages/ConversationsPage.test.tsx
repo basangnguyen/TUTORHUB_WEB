@@ -194,6 +194,28 @@ describe("ConversationsPage", () => {
     expect(screen.getByText(/Tính năng này đang bị tắt/)).toBeInTheDocument();
   });
 
+  it("restores focus to the opener when Escape closes the create dialog", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(listResponse());
+
+    renderPage("/app/messages", fetchMock);
+
+    const trigger = await screen.findByRole("button", {
+      name: "Bắt đầu trò chuyện",
+    });
+    fireEvent.click(trigger);
+    const email = await screen.findByRole("textbox", {
+      name: "Email thành viên",
+    });
+    await waitFor(() => expect(email).toHaveFocus());
+
+    fireEvent.keyDown(email, { code: "Escape", key: "Escape" });
+
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+    expect(trigger).toHaveFocus();
+  });
+
   it("validates, normalizes, creates, announces, and opens a direct conversation", async () => {
     const requests: Request[] = [];
     const capabilities = availableTenantCapabilities(tenantID);

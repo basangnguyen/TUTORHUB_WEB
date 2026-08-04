@@ -22,6 +22,7 @@ import {
   useRef,
   useState,
   type FormEvent,
+  type MouseEvent,
   type RefObject,
 } from "react";
 import { NavLink, useNavigate, useParams } from "react-router";
@@ -53,6 +54,7 @@ export function ConversationsPage() {
   const [targetEmail, setTargetEmail] = useState("");
   const [emailError, setEmailError] = useState<string | null>(null);
   const [createdTitle, setCreatedTitle] = useState<string | null>(null);
+  const createTrigger = useRef<HTMLButtonElement>(null);
   const detailHeading = useRef<HTMLHeadingElement>(null);
   const items = useMemo(() => {
     const byID = new Map<string, Conversation>();
@@ -94,7 +96,8 @@ export function ConversationsPage() {
     items.length > 0 &&
     !conversations.isFetchNextPageError;
 
-  const openCreate = () => {
+  const openCreate = (event: MouseEvent<HTMLButtonElement>) => {
+    createTrigger.current = event.currentTarget;
     setCreatedTitle(null);
     setCreateOpen(true);
   };
@@ -323,7 +326,13 @@ export function ConversationsPage() {
         }}
         open={createOpen}
       >
-        <DialogContent closeLabel={t("conversations.closeDialog")}>
+        <DialogContent
+          closeLabel={t("conversations.closeDialog")}
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            createTrigger.current?.focus();
+          }}
+        >
           <form onSubmit={submitDirect}>
             <DialogTitle>{t("conversations.createDialogTitle")}</DialogTitle>
             <DialogDescription>
