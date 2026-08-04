@@ -1,3 +1,4 @@
+import AxeBuilder from "@axe-core/playwright";
 import {
   expect,
   test,
@@ -86,6 +87,16 @@ async function useEnglish(page: Page) {
   await expect(language).toBeVisible();
   await language.selectOption("en");
   await expect(language).toHaveValue("en");
+}
+
+async function currentDisplayName(page: Page) {
+  const displayName = (
+    await page.locator(".app-sidebar__footer strong").textContent()
+  )?.trim();
+  if (!displayName) {
+    throw new Error("The signed-in user's display name is unavailable.");
+  }
+  return displayName;
 }
 
 async function chooseRadixOption(
@@ -514,6 +525,122 @@ test("P2-12 closes admin, instructor, and learner workflows through the real UI"
       await expect(
         studentPage.getByRole("link", { name: new RegExp(updatedClassName) }),
       ).toBeVisible();
+    });
+
+    await test.step("conversations pass canonical, concealment, focus, privacy, and page axe gates", async () => {
+      const classDetailURL = teacherPage.url();
+      const teacherDisplayName = await currentDisplayName(teacherPage);
+      const studentDisplayName = await currentDisplayName(studentPage);
+
+      await teacherPage.goto("/app/messages");
+      await useEnglish(teacherPage);
+      const teacherCreate = teacherPage
+        .locator(".conversations-page__header")
+        .getByRole("button", { name: "Start a conversation" });
+      await teacherCreate.click();
+      const teacherDialog = teacherPage.getByRole("dialog", {
+        name: "Start a direct conversation",
+      });
+      const studentEmail = teacherDialog.getByLabel("Member email");
+      await expect(studentEmail).toBeFocused();
+      await studentEmail.fill(accountEmails.student);
+      await studentEmail.press("Enter");
+      await expect(
+        teacherPage.getByRole("heading", { name: studentDisplayName }),
+      ).toBeFocused();
+      const directParticipants = teacherPage.locator(
+        ".conversation-participants li",
+      );
+      await expect(directParticipants).toHaveCount(2);
+      await expect(
+        directParticipants.filter({ hasText: teacherDisplayName }),
+      ).toHaveCount(1);
+      await expect(
+        directParticipants.filter({ hasText: studentDisplayName }),
+      ).toHaveCount(1);
+      const directParticipantText = (
+        await directParticipants.allTextContents()
+      ).join(" ");
+      expect(directParticipantText).not.toContain(accountEmails.teacher);
+      expect(directParticipantText).not.toContain(accountEmails.student);
+      const directURL = teacherPage.url();
+      expect(
+        await teacherPage.evaluate(
+          () =>
+            document.documentElement.scrollWidth <=
+            document.documentElement.clientWidth,
+        ),
+      ).toBe(true);
+      expect(
+        (
+          await new AxeBuilder({ page: teacherPage })
+            .include(".conversations-page")
+            .analyze()
+        ).violations,
+      ).toEqual([]);
+
+      await teacherCreate.click();
+      await expect(teacherDialog.getByLabel("Member email")).toBeFocused();
+      await teacherDialog.getByLabel("Member email").press("Escape");
+      await expect(teacherDialog).toBeHidden();
+      await expect(teacherCreate).toBeFocused();
+
+      await studentPage.goto("/app/messages");
+      await useEnglish(studentPage);
+      await studentPage
+        .locator(".conversations-page__header")
+        .getByRole("button", { name: "Start a conversation" })
+        .click();
+      const studentDialog = studentPage.getByRole("dialog", {
+        name: "Start a direct conversation",
+      });
+      await studentDialog
+        .getByLabel("Member email")
+        .fill(accountEmails.teacher);
+      await studentDialog.getByLabel("Member email").press("Enter");
+      await expect(
+        studentPage.getByRole("heading", { name: teacherDisplayName }),
+      ).toBeFocused();
+      expect(studentPage.url()).toBe(directURL);
+
+      await adminPage.goto(directURL);
+      await useEnglish(adminPage);
+      await expect(
+        adminPage.getByRole("heading", { name: "Conversation unavailable" }),
+      ).toBeVisible();
+
+      await teacherPage.goto(classDetailURL);
+      await useEnglish(teacherPage);
+      await teacherPage
+        .getByRole("button", { name: "Open class conversation" })
+        .click();
+      await expect(
+        teacherPage.getByRole("heading", { name: updatedClassName }),
+      ).toBeFocused();
+      const classConversationURL = teacherPage.url();
+
+      await studentPage.goto(classDetailURL);
+      await useEnglish(studentPage);
+      await studentPage
+        .getByRole("button", { name: "Open class conversation" })
+        .click();
+      await expect(
+        studentPage.getByRole("heading", { name: updatedClassName }),
+      ).toBeFocused();
+      expect(studentPage.url()).toBe(classConversationURL);
+      await expect(
+        studentPage.getByText("No members are available to display."),
+      ).toBeVisible();
+      expect(
+        (
+          await new AxeBuilder({ page: studentPage })
+            .include(".conversations-page")
+            .analyze()
+        ).violations,
+      ).toEqual([]);
+
+      await teacherPage.goto(classDetailURL);
+      await useEnglish(teacherPage);
     });
 
     await test.step("instructor updates the learner role, then suspends and removes the learner", async () => {
