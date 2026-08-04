@@ -121,7 +121,10 @@ jobs:
           ignore-unfixed: true
           format: sarif
           output: trivy-repository.sarif
-          exit-code: 1
+          exit-code: 0
+
+      - name: Enforce repository vulnerability threshold
+        run: node scripts/check-trivy-sarif.mjs trivy-repository.sarif repository
 
       - name: Upload repository findings
         if: always() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
@@ -155,7 +158,10 @@ jobs:
           ignore-unfixed: true
           format: sarif
           output: trivy-container.sarif
-          exit-code: 1
+          exit-code: 0
+
+      - name: Enforce container vulnerability threshold
+        run: node scripts/check-trivy-sarif.mjs trivy-container.sarif container
 
       - name: Upload container findings
         if: always() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)

@@ -212,13 +212,25 @@ func TestPostgresOutboxRuntimeRolesEnforceLeastPrivilegeSplit(t *testing.T) {
 		`INSERT ON TABLE tutorhub.notifications`,
 		workerRole,
 	)
+	// Re-provision the exact column grant after exercising a table-level grant.
+	// This keeps recovery independent of how PostgreSQL represents a redundant
+	// table/column ACL and mirrors the idempotent runtime provisioning path.
+	grantNotificationCanaryWorkerCapabilities(t, ctx, migrationPool, workerRole)
+	assertExactIntegrationColumnPrivilege(
+		t,
+		ctx,
+		workerPool,
+		"notifications",
+		"INSERT",
+		integrationNotificationInsertColumns,
+	)
 	if err := VerifyDatabaseCapabilities(
 		ctx,
 		workerPool,
 		3*time.Second,
 		canaryContract,
 	); err != nil {
-		t.Fatalf("gate-on probe did not recover after table-level INSERT revoke: %v", err)
+		t.Fatalf("gate-on probe rejected re-provisioned notification ACL: %v", err)
 	}
 	revokeNotificationCanaryWorkerCapabilities(t, ctx, migrationPool, workerRole)
 	if err := VerifyDatabaseCapabilities(ctx, workerPool, 3*time.Second); err != nil {

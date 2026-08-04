@@ -30,6 +30,11 @@ The workflow runs on pull requests, pushes to `main`, manual dispatch and every 
 
 CodeQL and SARIF uploads are not granted write access for untrusted fork pull requests. The workflow never uses `pull_request_target`.
 
+Trivy tạo SARIF trước, sau đó `scripts/check-trivy-sarif.mjs` thực thi ngưỡng
+High/Critical. Khi gate đỏ, annotation chỉ chứa rule ID đã sanitize và severity; message,
+location và matched secret không được ghi ra log. Bước upload SARIF vẫn chạy với
+`if: always()` để giữ bằng chứng code-scanning.
+
 ## 3. Local commands
 
 Chạy cùng các gate trước khi push trực tiếp lên `main`:
