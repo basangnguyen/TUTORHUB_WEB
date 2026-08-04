@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/tutorhub-v2/core-api/internal/config"
 	"github.com/tutorhub-v2/core-api/internal/modules/conversation"
+	"github.com/tutorhub-v2/core-api/internal/modules/featurecontrol"
 	"github.com/tutorhub-v2/core-api/internal/modules/identity"
 )
 
@@ -195,25 +196,276 @@ func TestConversationHandlersRejectScopeAndMapConcealedErrors(t *testing.T) {
 	assertConversationProblem(t, resourceResponse, http.StatusNotFound, "conversation_not_found")
 }
 
+func TestConversationMessageHandlersListSendEditDeleteAndMarkRead(t *testing.T) {
+	t.Parallel()
+
+	tenantID := uuid.New()
+	userID := uuid.New()
+	conversationID := uuid.New()
+	messageID := uuid.New()
+	clientMessageID := uuid.New()
+	content := "Private message"
+	message := conversation.Message{
+		ID:              messageID,
+		ConversationID:  conversationID,
+		Sequence:        7,
+		ClientMessageID: clientMessageID,
+		Author: conversation.MessageAuthor{
+			UserID: userID, DisplayName: "Teacher",
+		},
+		Content:   &content,
+		State:     conversation.MessageStateActive,
+		Version:   1,
+		CreatedAt: conversationTestTime,
+		UpdatedAt: conversationTestTime,
+	}
+	service := &fakeConversationService{
+		messagePage: conversation.MessagePage{
+			Items: []conversation.Message{message}, UnreadCount: 1,
+		},
+		messageResult: conversation.MessageMutationResult{Message: message, Created: true},
+		editResult:    message,
+		deleteResult:  message,
+		readState: conversation.MessageReadState{
+			LastReadMessageID: messageID,
+			LastReadSequence:  7,
+			UpdatedAt:         conversationTestTime,
+		},
+	}
+	handler := conversationTestHandler(classIdentityService(tenantID, userID, nil), service)
+	basePath := "/api/v1/conversations/" + conversationID.String()
+
+	listRequest := httptest.NewRequest(
+		http.MethodGet, basePath+"/messages?limit=25&cursor=older", nil,
+	)
+	addSessionCookie(listRequest)
+	listRequest.Header.Set(conversationTenantHeader, tenantID.String())
+	listResponse := httptest.NewRecorder()
+	handler.ServeHTTP(listResponse, listRequest)
+	if listResponse.Code != http.StatusOK {
+		t.Fatalf("message list status=%d body=%s", listResponse.Code, listResponse.Body.String())
+	}
+	assertConversationHeaders(t, listResponse)
+	if service.messageListCalls != 1 || service.messageListConversationID != conversationID ||
+		service.messageListAccess.ActorID != userID || service.messageListInput.Limit != 25 ||
+		service.messageListInput.Cursor != "older" {
+		t.Fatalf("unexpected message list invocation: %+v", service)
+	}
+	var listBody conversation.MessagePage
+	if err := json.Unmarshal(listResponse.Body.Bytes(), &listBody); err != nil {
+		t.Fatalf("decode message list response: %v", err)
+	}
+	if len(listBody.Items) != 1 || listBody.Items[0].Content == nil ||
+		*listBody.Items[0].Content != content || listBody.UnreadCount != 1 {
+		t.Fatalf("unexpected message list body: %+v", listBody)
+	}
+
+	sendBody := `{"client_message_id":"` + clientMessageID.String() + `","content":"` + content + `"}`
+	sendRequest := conversationAuthenticatedMutationRequest(
+		http.MethodPost, basePath+"/messages", sendBody, tenantID,
+	)
+	sendResponse := httptest.NewRecorder()
+	handler.ServeHTTP(sendResponse, sendRequest)
+	if sendResponse.Code != http.StatusCreated {
+		t.Fatalf("message send status=%d body=%s", sendResponse.Code, sendResponse.Body.String())
+	}
+	if service.messageCalls != 1 || service.messageConversationID != conversationID ||
+		service.messageAccess.ActorID != userID ||
+		service.messageInput.ClientMessageID != clientMessageID ||
+		service.messageInput.Content != content {
+		t.Fatalf("unexpected message send invocation: %+v", service)
+	}
+
+	service.messageResult.Created = false
+	replayRequest := conversationAuthenticatedMutationRequest(
+		http.MethodPost, basePath+"/messages", sendBody, tenantID,
+	)
+	replayResponse := httptest.NewRecorder()
+	handler.ServeHTTP(replayResponse, replayRequest)
+	if replayResponse.Code != http.StatusOK {
+		t.Fatalf("message replay status=%d body=%s", replayResponse.Code, replayResponse.Body.String())
+	}
+
+	resourcePath := basePath + "/messages/" + messageID.String()
+	editRequest := conversationAuthenticatedMutationRequest(
+		http.MethodPatch,
+		resourcePath,
+		`{"content":"Edited","expected_version":1}`,
+		tenantID,
+	)
+	editResponse := httptest.NewRecorder()
+	handler.ServeHTTP(editResponse, editRequest)
+	if editResponse.Code != http.StatusOK {
+		t.Fatalf("message edit status=%d body=%s", editResponse.Code, editResponse.Body.String())
+	}
+	if service.editConversationID != conversationID || service.editMessageID != messageID ||
+		service.editAccess.ActorID != userID || service.editInput.Content != "Edited" ||
+		service.editInput.ExpectedVersion != 1 {
+		t.Fatalf("unexpected message edit invocation: %+v", service)
+	}
+
+	deleteRequest := conversationAuthenticatedMutationRequest(
+		http.MethodDelete,
+		resourcePath,
+		`{"expected_version":1}`,
+		tenantID,
+	)
+	deleteResponse := httptest.NewRecorder()
+	handler.ServeHTTP(deleteResponse, deleteRequest)
+	if deleteResponse.Code != http.StatusOK {
+		t.Fatalf("message delete status=%d body=%s", deleteResponse.Code, deleteResponse.Body.String())
+	}
+	if service.deleteConversationID != conversationID || service.deleteMessageID != messageID ||
+		service.deleteAccess.ActorID != userID || service.deleteInput.ExpectedVersion != 1 {
+		t.Fatalf("unexpected message delete invocation: %+v", service)
+	}
+
+	readRequest := conversationAuthenticatedMutationRequest(
+		http.MethodPost,
+		basePath+"/read",
+		`{"message_id":"`+messageID.String()+`"}`,
+		tenantID,
+	)
+	readResponse := httptest.NewRecorder()
+	handler.ServeHTTP(readResponse, readRequest)
+	if readResponse.Code != http.StatusOK {
+		t.Fatalf("message read status=%d body=%s", readResponse.Code, readResponse.Body.String())
+	}
+	if service.markReadConversationID != conversationID ||
+		service.markReadMessageID != messageID || service.markReadAccess.ActorID != userID {
+		t.Fatalf("unexpected mark-read invocation: %+v", service)
+	}
+}
+
+func TestConversationMessageHandlersRequireCSRFAndMapConflictsAndRateLimit(t *testing.T) {
+	t.Parallel()
+
+	tenantID := uuid.New()
+	conversationID := uuid.New()
+	messageID := uuid.New()
+	clientMessageID := uuid.New()
+	service := &fakeConversationService{}
+	handler := conversationTestHandler(
+		classIdentityService(tenantID, uuid.New(), nil), service,
+	)
+	basePath := "/api/v1/conversations/" + conversationID.String()
+
+	missingCSRF := httptest.NewRequest(
+		http.MethodPost,
+		basePath+"/messages",
+		strings.NewReader(`{"client_message_id":"`+clientMessageID.String()+`","content":"secret"}`),
+	)
+	missingCSRF.Header.Set("Content-Type", "application/json")
+	missingCSRF.Header.Set(conversationTenantHeader, tenantID.String())
+	addSessionCookie(missingCSRF)
+	missingResponse := httptest.NewRecorder()
+	handler.ServeHTTP(missingResponse, missingCSRF)
+	if missingResponse.Code != http.StatusForbidden || service.messageCalls != 0 {
+		t.Fatalf("missing CSRF status=%d calls=%d body=%s",
+			missingResponse.Code, service.messageCalls, missingResponse.Body.String())
+	}
+
+	service.messageError = conversation.ErrIdempotencyConflict
+	conflictRequest := conversationAuthenticatedMutationRequest(
+		http.MethodPost,
+		basePath+"/messages",
+		`{"client_message_id":"`+clientMessageID.String()+`","content":"secret"}`,
+		tenantID,
+	)
+	conflictResponse := httptest.NewRecorder()
+	handler.ServeHTTP(conflictResponse, conflictRequest)
+	assertConversationProblem(
+		t, conflictResponse, http.StatusConflict, "message_idempotency_conflict",
+	)
+	if strings.Contains(conflictResponse.Body.String(), "secret") {
+		t.Fatal("idempotency problem response exposed message content")
+	}
+
+	service.editError = conversation.ErrVersionConflict
+	editRequest := conversationAuthenticatedMutationRequest(
+		http.MethodPatch,
+		basePath+"/messages/"+messageID.String(),
+		`{"content":"secret edit","expected_version":1}`,
+		tenantID,
+	)
+	editResponse := httptest.NewRecorder()
+	handler.ServeHTTP(editResponse, editRequest)
+	assertConversationProblem(t, editResponse, http.StatusConflict, "message_version_conflict")
+	if strings.Contains(editResponse.Body.String(), "secret edit") {
+		t.Fatal("version problem response exposed message content")
+	}
+
+	service.messageError = &featurecontrol.QuotaExceededError{
+		Quota:      featurecontrol.QuotaMessageSendsPerHour,
+		Limit:      60,
+		Used:       60,
+		RetryAfter: 3 * time.Second,
+	}
+	rateRequest := conversationAuthenticatedMutationRequest(
+		http.MethodPost,
+		basePath+"/messages",
+		`{"client_message_id":"`+uuid.NewString()+`","content":"bounded"}`,
+		tenantID,
+	)
+	rateResponse := httptest.NewRecorder()
+	handler.ServeHTTP(rateResponse, rateRequest)
+	assertConversationProblem(t, rateResponse, http.StatusTooManyRequests, "quota_exceeded")
+	if rateResponse.Header().Get("Retry-After") != "3" {
+		t.Fatalf("Retry-After=%q, want 3", rateResponse.Header().Get("Retry-After"))
+	}
+}
+
 type fakeConversationService struct {
-	page         conversation.Page
-	listError    error
-	listCalls    int
-	listAccess   conversation.AccessContext
-	listInput    conversation.ListInput
-	getResult    conversation.Conversation
-	getError     error
-	getCalls     int
-	directResult conversation.CreateResult
-	directError  error
-	directCalls  int
-	directAccess conversation.AccessContext
-	directEmail  string
-	classResult  conversation.CreateResult
-	classError   error
-	classCalls   int
-	classAccess  conversation.AccessContext
-	classID      uuid.UUID
+	page                      conversation.Page
+	listError                 error
+	listCalls                 int
+	listAccess                conversation.AccessContext
+	listInput                 conversation.ListInput
+	getResult                 conversation.Conversation
+	getError                  error
+	getCalls                  int
+	directResult              conversation.CreateResult
+	directError               error
+	directCalls               int
+	directAccess              conversation.AccessContext
+	directEmail               string
+	classResult               conversation.CreateResult
+	classError                error
+	classCalls                int
+	classAccess               conversation.AccessContext
+	classID                   uuid.UUID
+	messagePage               conversation.MessagePage
+	messagePageError          error
+	messageListAccess         conversation.AccessContext
+	messageListConversationID uuid.UUID
+	messageListInput          conversation.MessageListInput
+	messageListCalls          int
+	messageResult             conversation.MessageMutationResult
+	messageError              error
+	messageAccess             conversation.AccessContext
+	messageConversationID     uuid.UUID
+	messageInput              conversation.SendMessageInput
+	messageCalls              int
+	editResult                conversation.Message
+	editError                 error
+	editAccess                conversation.AccessContext
+	editConversationID        uuid.UUID
+	editMessageID             uuid.UUID
+	editInput                 conversation.EditMessageInput
+	editCalls                 int
+	deleteResult              conversation.Message
+	deleteError               error
+	deleteAccess              conversation.AccessContext
+	deleteConversationID      uuid.UUID
+	deleteMessageID           uuid.UUID
+	deleteInput               conversation.DeleteMessageInput
+	deleteCalls               int
+	readState                 conversation.MessageReadState
+	readError                 error
+	markReadAccess            conversation.AccessContext
+	markReadConversationID    uuid.UUID
+	markReadMessageID         uuid.UUID
+	markReadCalls             int
 }
 
 func (service *fakeConversationService) List(
@@ -258,6 +510,75 @@ func (service *fakeConversationService) CreateClass(
 	return service.classResult, service.classError
 }
 
+func (service *fakeConversationService) ListMessages(
+	_ context.Context,
+	access conversation.AccessContext,
+	conversationID uuid.UUID,
+	input conversation.MessageListInput,
+) (conversation.MessagePage, error) {
+	service.messageListCalls++
+	service.messageListAccess = access
+	service.messageListConversationID = conversationID
+	service.messageListInput = input
+	return service.messagePage, service.messagePageError
+}
+
+func (service *fakeConversationService) SendMessage(
+	_ context.Context,
+	access conversation.AccessContext,
+	conversationID uuid.UUID,
+	input conversation.SendMessageInput,
+) (conversation.MessageMutationResult, error) {
+	service.messageCalls++
+	service.messageAccess = access
+	service.messageConversationID = conversationID
+	service.messageInput = input
+	return service.messageResult, service.messageError
+}
+
+func (service *fakeConversationService) EditMessage(
+	_ context.Context,
+	access conversation.AccessContext,
+	conversationID uuid.UUID,
+	messageID uuid.UUID,
+	input conversation.EditMessageInput,
+) (conversation.Message, error) {
+	service.editCalls++
+	service.editAccess = access
+	service.editConversationID = conversationID
+	service.editMessageID = messageID
+	service.editInput = input
+	return service.editResult, service.editError
+}
+
+func (service *fakeConversationService) DeleteMessage(
+	_ context.Context,
+	access conversation.AccessContext,
+	conversationID uuid.UUID,
+	messageID uuid.UUID,
+	input conversation.DeleteMessageInput,
+) (conversation.Message, error) {
+	service.deleteCalls++
+	service.deleteAccess = access
+	service.deleteConversationID = conversationID
+	service.deleteMessageID = messageID
+	service.deleteInput = input
+	return service.deleteResult, service.deleteError
+}
+
+func (service *fakeConversationService) MarkRead(
+	_ context.Context,
+	access conversation.AccessContext,
+	conversationID uuid.UUID,
+	messageID uuid.UUID,
+) (conversation.MessageReadState, error) {
+	service.markReadCalls++
+	service.markReadAccess = access
+	service.markReadConversationID = conversationID
+	service.markReadMessageID = messageID
+	return service.readState, service.readError
+}
+
 func conversationTestHandler(
 	identityService identity.ServiceAPI,
 	service conversation.ServiceAPI,
@@ -276,7 +597,14 @@ func conversationTestHandler(
 }
 
 func conversationMutationRequest(path, body string, tenantID uuid.UUID) *http.Request {
-	request := httptest.NewRequest(http.MethodPost, path, strings.NewReader(body))
+	return conversationAuthenticatedMutationRequest(http.MethodPost, path, body, tenantID)
+}
+
+func conversationAuthenticatedMutationRequest(
+	method, path, body string,
+	tenantID uuid.UUID,
+) *http.Request {
+	request := httptest.NewRequest(method, path, strings.NewReader(body))
 	if body != "" {
 		request.Header.Set("Content-Type", "application/json")
 	}

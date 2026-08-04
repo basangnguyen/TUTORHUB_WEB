@@ -42,6 +42,8 @@ const quotaKeys = [
   "availability_poll_capability_creations_per_hour",
   "active_study_meetings",
   "study_meeting_creations_per_hour",
+  "messages_per_tenant",
+  "message_sends_per_hour",
 ] as const satisfies readonly QuotaKey[];
 
 const featureLabelKeys: Record<FeatureKey, TranslationKey> = {
@@ -69,6 +71,8 @@ const quotaLabelKeys: Record<QuotaKey, TranslationKey> = {
   availability_poll_capability_creations_per_hour:
     "capabilities.quotaAvailabilityPollCapabilityCreations",
   study_meeting_creations_per_hour: "capabilities.quotaStudyMeetingCreations",
+  messages_per_tenant: "capabilities.quotaMessages",
+  message_sends_per_hour: "capabilities.quotaMessageSends",
   members: "capabilities.quotaMembers",
 };
 
@@ -153,6 +157,12 @@ function controlsDraft(capabilities: TenantCapabilities): ControlsDraft {
       ),
       study_meeting_creations_per_hour: String(
         configuredQuota(capabilities, "study_meeting_creations_per_hour"),
+      ),
+      messages_per_tenant: String(
+        configuredQuota(capabilities, "messages_per_tenant"),
+      ),
+      message_sends_per_hour: String(
+        configuredQuota(capabilities, "message_sends_per_hour"),
       ),
       members: String(configuredQuota(capabilities, "members")),
     },
@@ -412,6 +422,8 @@ function TenantFeatureControlsForm({
       study_meeting_creations_per_hour: Number(
         draft.quotas.study_meeting_creations_per_hour,
       ),
+      messages_per_tenant: Number(draft.quotas.messages_per_tenant),
+      message_sends_per_hour: Number(draft.quotas.message_sends_per_hour),
     };
     for (const key of quotaKeys) {
       if (!Number.isSafeInteger(quotas[key]) || quotas[key] < 1) {

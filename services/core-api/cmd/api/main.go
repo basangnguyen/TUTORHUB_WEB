@@ -530,6 +530,8 @@ func featureControlGuardrails(configuration config.FeatureControlConfig) feature
 			featurecontrol.QuotaAvailabilityPollCapabilityCreationsPerHour: int64(configuration.MaxAvailabilityPollCapabilityCreationsPerHour),
 			featurecontrol.QuotaActiveStudyMeetings:                        int64(configuration.MaxActiveStudyMeetings),
 			featurecontrol.QuotaStudyMeetingCreationsPerHour:               int64(configuration.MaxStudyMeetingCreationsPerHour),
+			featurecontrol.QuotaMessagesPerTenant:                          int64(configuration.MaxMessagesPerTenant),
+			featurecontrol.QuotaMessageSendsPerHour:                        int64(configuration.MaxMessageSendsPerHour),
 		},
 	}
 }

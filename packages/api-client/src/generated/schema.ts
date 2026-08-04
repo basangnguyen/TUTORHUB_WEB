@@ -1224,6 +1224,68 @@ export type paths = {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/api/v1/conversations/{conversation_id}/messages": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /**
+     * List persistent messages visible in an authorized conversation
+     * @description Returns a newest-first keyset page. The opaque cursor is bound to the active tenant and conversation. Unread state is viewer-scoped, bounded, and excludes the viewer's own messages.
+     */
+    readonly get: operations["listConversationMessages"];
+    readonly put?: never;
+    /**
+     * Persist or replay one idempotent conversation message
+     * @description The server derives the sender and timestamp. Reusing the same client message identifier with the same normalized content and conversation returns the existing message without consuming quota; a conflicting reuse returns 409.
+     */
+    readonly post: operations["sendConversationMessage"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/conversations/{conversation_id}/messages/{message_id}": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    readonly post?: never;
+    /** Replace an active author-owned message with a durable tombstone */
+    readonly delete: operations["deleteConversationMessage"];
+    readonly options?: never;
+    readonly head?: never;
+    /** Edit an active message owned by the authenticated author */
+    readonly patch: operations["editConversationMessage"];
+    readonly trace?: never;
+  };
+  readonly "/api/v1/conversations/{conversation_id}/read": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Monotonically advance the authenticated viewer's conversation read marker
+     * @description A request for an older already-readable message returns the current newer marker and never moves read state backward. This endpoint does not create peer-facing seen-by semantics.
+     */
+    readonly post: operations["markConversationRead"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/api/v1/conversations/direct": {
     readonly parameters: {
       readonly query?: never;
@@ -1707,6 +1769,38 @@ export type paths = {
 export type webhooks = Record<string, never>;
 export type components = {
   schemas: {
+    readonly ActiveMessage: {
+      readonly author: components["schemas"]["MessageAuthor"];
+      /**
+       * Format: uuid
+       * @description Sender-supplied idempotency identifier; it never selects the sender or conversation.
+       */
+      readonly client_message_id: string;
+      /** @description Normalized plain text for an active message. */
+      readonly content: string;
+      /** Format: uuid */
+      readonly conversation_id: string;
+      /** Format: date-time */
+      readonly created_at: string;
+      /** Format: date-time */
+      readonly edited_at?: string;
+      /** Format: uuid */
+      readonly id: string;
+      /**
+       * Format: int64
+       * @description Positive server-assigned ordering within one conversation.
+       */
+      readonly sequence: number;
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      readonly state: "active";
+      /** Format: date-time */
+      readonly updated_at: string;
+      /** Format: int64 */
+      readonly version: number;
+    };
     readonly APIStatusResponse: {
       readonly environment: string;
       readonly service: string;
@@ -2577,6 +2671,10 @@ export type components = {
       /** @description The two direct participants. Class conversations return an empty array so this projection cannot bypass roster visibility policy. */
       readonly participants: readonly components["schemas"]["ConversationParticipant"][];
       readonly title: string;
+      /** @description Bounded count of unread active messages authored by other participants. */
+      readonly unread_count: number;
+      /** @description True when more unread messages exist than unread_count reports. */
+      readonly unread_count_capped: boolean;
       /** Format: date-time */
       readonly updated_at: string;
       readonly viewer_access: components["schemas"]["ConversationViewerAccess"];
@@ -2710,6 +2808,51 @@ export type components = {
     readonly CSRFResponse: {
       readonly csrf_token: string;
     };
+    readonly DeletedMessage: {
+      readonly author: components["schemas"]["MessageAuthor"];
+      /**
+       * Format: uuid
+       * @description Sender-supplied idempotency identifier; it never selects the sender or conversation.
+       */
+      readonly client_message_id: string;
+      /** Format: uuid */
+      readonly conversation_id: string;
+      /** Format: date-time */
+      readonly created_at: string;
+      /**
+       * Format: date-time
+       * @description Durable tombstone time. Deleted messages never expose a content property.
+       */
+      readonly deleted_at: string;
+      /** Format: date-time */
+      readonly edited_at?: string;
+      /** Format: uuid */
+      readonly id: string;
+      /**
+       * Format: int64
+       * @description Positive server-assigned ordering within one conversation.
+       */
+      readonly sequence: number;
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      readonly state: "deleted";
+      /** Format: date-time */
+      readonly updated_at: string;
+      /** Format: int64 */
+      readonly version: number;
+    };
+    readonly DeleteMessageRequest: {
+      /** Format: int64 */
+      readonly expected_version: number;
+    };
+    readonly EditMessageRequest: {
+      /** @description Plain text; the server also enforces a 16 KiB UTF-8 maximum after normalization. */
+      readonly content: string;
+      /** Format: int64 */
+      readonly expected_version: number;
+    };
     readonly ExternalCalendarRSVPMutationResponse: {
       readonly projection: components["schemas"]["ExternalCalendarRSVPProjection"];
       readonly replayed: boolean;
@@ -2795,6 +2938,10 @@ export type components = {
       /** Format: int64 */
       readonly updated_count: number;
     };
+    readonly MarkConversationReadRequest: {
+      /** Format: uuid */
+      readonly message_id: string;
+    };
     readonly MediaEventRequest: {
       /** Format: uuid */
       readonly attempt_id: string;
@@ -2879,6 +3026,34 @@ export type components = {
       readonly permissions: readonly components["schemas"]["Permission"][];
       readonly user: components["schemas"]["User"];
     };
+    readonly Message:
+      | components["schemas"]["ActiveMessage"]
+      | components["schemas"]["DeletedMessage"];
+    readonly MessageAuthor: {
+      readonly display_name: string;
+      /** Format: uuid */
+      readonly user_id: string;
+    };
+    readonly MessagePage: {
+      /** @description Newest-first persistent message page. */
+      readonly items: readonly components["schemas"]["Message"][];
+      readonly next_cursor?: string;
+      /** @description Current viewer marker, or null before the viewer has marked any message read. */
+      readonly read_state: components["schemas"]["MessageReadState"] | null;
+      readonly unread_count: number;
+      /** @description True when more unread messages exist than the bounded unread_count value states. */
+      readonly unread_count_capped: boolean;
+    };
+    readonly MessageReadState: {
+      /** Format: uuid */
+      readonly last_read_message_id: string;
+      /** Format: int64 */
+      readonly last_read_sequence: number;
+      /** Format: date-time */
+      readonly updated_at: string;
+    };
+    /** @enum {string} */
+    readonly MessageState: "active" | "deleted";
     readonly Notification: {
       readonly context: {
         readonly [key: string]: string;
@@ -2938,6 +3113,8 @@ export type components = {
       | "class.archive"
       | "class.transfer_ownership"
       | "class.view"
+      | "conversation.create_direct"
+      | "message.write_direct"
       | "enrollment.manage"
       | "enrollment.leave"
       | "session.schedule"
@@ -3106,6 +3283,12 @@ export type components = {
     readonly SelfRSVPResponse: {
       readonly attendee: components["schemas"]["SessionAudienceAttendee"];
       readonly replayed: boolean;
+    };
+    readonly SendMessageRequest: {
+      /** Format: uuid */
+      readonly client_message_id: string;
+      /** @description Plain text; the server also enforces a 16 KiB UTF-8 maximum after normalization. */
+      readonly content: string;
     };
     readonly SessionAudience: {
       readonly attendees: readonly components["schemas"]["SessionAudienceAttendee"][];
@@ -3302,6 +3485,8 @@ export type components = {
       readonly availability_poll_slots: components["schemas"]["QuotaCapability"];
       readonly invite_creations_per_hour: components["schemas"]["QuotaCapability"];
       readonly members: components["schemas"]["QuotaCapability"];
+      readonly message_sends_per_hour: components["schemas"]["QuotaCapability"];
+      readonly messages_per_tenant: components["schemas"]["QuotaCapability"];
       readonly study_meeting_creations_per_hour: components["schemas"]["QuotaCapability"];
     };
     readonly TenantQuotaControlValues: {
@@ -3315,6 +3500,8 @@ export type components = {
       readonly availability_poll_slots: number;
       readonly invite_creations_per_hour: number;
       readonly members: number;
+      readonly message_sends_per_hour: number;
+      readonly messages_per_tenant: number;
       readonly study_meeting_creations_per_hour: number;
     };
     /** @enum {string} */
@@ -6107,6 +6294,216 @@ export interface operations {
         };
         content: {
           readonly "application/json": components["schemas"]["Conversation"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly listConversationMessages: {
+    readonly parameters: {
+      readonly query?: {
+        readonly cursor?: string;
+        readonly limit?: number;
+      };
+      readonly header: {
+        /** @description Client cache-scope assertion; authorization still comes only from the server-side active session. */
+        readonly "X-TutorHub-Expected-Tenant-ID": string;
+      };
+      readonly path: {
+        readonly conversation_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Authorized persistent message page and viewer read state */
+      readonly 200: {
+        headers: {
+          readonly "Cache-Control"?: "no-store";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["MessagePage"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly sendConversationMessage: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly "X-CSRF-Token": string;
+        /** @description Client cache-scope assertion; authorization still comes only from the server-side active session. */
+        readonly "X-TutorHub-Expected-Tenant-ID": string;
+      };
+      readonly path: {
+        readonly conversation_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["SendMessageRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Existing message returned by an exact idempotent replay */
+      readonly 200: {
+        headers: {
+          readonly "Cache-Control"?: "no-store";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["Message"];
+        };
+      };
+      /** @description Message committed */
+      readonly 201: {
+        headers: {
+          readonly "Cache-Control"?: "no-store";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["Message"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      /** @description The effective tenant or actor send-rate limit was reached */
+      readonly 429: {
+        headers: {
+          readonly "Retry-After": number;
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly deleteConversationMessage: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly "X-CSRF-Token": string;
+        /** @description Client cache-scope assertion; authorization still comes only from the server-side active session. */
+        readonly "X-TutorHub-Expected-Tenant-ID": string;
+      };
+      readonly path: {
+        readonly conversation_id: string;
+        readonly message_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["DeleteMessageRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Deleted message tombstone, or the existing tombstone for a repeated delete */
+      readonly 200: {
+        headers: {
+          readonly "Cache-Control"?: "no-store";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["Message"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly editConversationMessage: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly "X-CSRF-Token": string;
+        /** @description Client cache-scope assertion; authorization still comes only from the server-side active session. */
+        readonly "X-TutorHub-Expected-Tenant-ID": string;
+      };
+      readonly path: {
+        readonly conversation_id: string;
+        readonly message_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["EditMessageRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Updated message */
+      readonly 200: {
+        headers: {
+          readonly "Cache-Control"?: "no-store";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["Message"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly markConversationRead: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly "X-CSRF-Token": string;
+        /** @description Client cache-scope assertion; authorization still comes only from the server-side active session. */
+        readonly "X-TutorHub-Expected-Tenant-ID": string;
+      };
+      readonly path: {
+        readonly conversation_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["MarkConversationReadRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Current monotonic viewer read state */
+      readonly 200: {
+        headers: {
+          readonly "Cache-Control"?: "no-store";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["MessageReadState"];
         };
       };
       readonly 400: components["responses"]["ProblemResponse"];

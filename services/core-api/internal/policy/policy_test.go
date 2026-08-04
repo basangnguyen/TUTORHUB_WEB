@@ -27,7 +27,7 @@ func TestOrganizationPermissionMatrix(t *testing.T) {
 			role: OrganizationRoleTeacher,
 			want: []Permission{
 				PermissionTenantView, PermissionClassCreate, PermissionClassUpdate, PermissionClassView,
-				PermissionConversationCreateDirect,
+				PermissionConversationCreateDirect, PermissionMessageWriteDirect,
 				PermissionAvailabilityPollCreate, PermissionAvailabilityPollManageOwn,
 				PermissionAvailabilityPollPublishToClass, PermissionStudyMeetingScheduleOwn,
 				PermissionEnrollmentManage, PermissionSessionSchedule, PermissionSessionStart, PermissionSessionEnd,
@@ -39,7 +39,7 @@ func TestOrganizationPermissionMatrix(t *testing.T) {
 			name: "student",
 			role: OrganizationRoleStudent,
 			want: []Permission{
-				PermissionTenantView, PermissionConversationCreateDirect,
+				PermissionTenantView, PermissionConversationCreateDirect, PermissionMessageWriteDirect,
 				PermissionAvailabilityPollCreate,
 				PermissionAvailabilityPollManageOwn, PermissionStudyMeetingScheduleOwn,
 			},
@@ -48,7 +48,7 @@ func TestOrganizationPermissionMatrix(t *testing.T) {
 			name: "guest",
 			role: OrganizationRoleGuest,
 			want: []Permission{
-				PermissionTenantView, PermissionConversationCreateDirect,
+				PermissionTenantView, PermissionConversationCreateDirect, PermissionMessageWriteDirect,
 				PermissionAvailabilityPollCreate,
 				PermissionAvailabilityPollManageOwn, PermissionStudyMeetingScheduleOwn,
 			},
@@ -87,7 +87,7 @@ func TestClassPermissionMatrix(t *testing.T) {
 			want: []Permission{
 				PermissionTenantView, PermissionClassUpdate, PermissionClassArchive,
 				PermissionClassTransferOwner, PermissionClassView,
-				PermissionConversationCreateDirect,
+				PermissionConversationCreateDirect, PermissionMessageWriteDirect,
 				PermissionAvailabilityPollCreate, PermissionAvailabilityPollManageOwn,
 				PermissionAvailabilityPollPublishToClass, PermissionStudyMeetingScheduleOwn,
 				PermissionEnrollmentManage, PermissionEnrollmentLeave, PermissionSessionSchedule,
@@ -101,7 +101,7 @@ func TestClassPermissionMatrix(t *testing.T) {
 			role: ClassRoleCoTeacher,
 			want: []Permission{
 				PermissionTenantView, PermissionClassUpdate, PermissionClassView,
-				PermissionConversationCreateDirect,
+				PermissionConversationCreateDirect, PermissionMessageWriteDirect,
 				PermissionAvailabilityPollCreate, PermissionAvailabilityPollManageOwn,
 				PermissionAvailabilityPollPublishToClass, PermissionStudyMeetingScheduleOwn,
 				PermissionEnrollmentManage, PermissionEnrollmentLeave, PermissionSessionSchedule,
@@ -115,7 +115,7 @@ func TestClassPermissionMatrix(t *testing.T) {
 			role: ClassRoleTeachingAssistant,
 			want: []Permission{
 				PermissionTenantView, PermissionClassView,
-				PermissionConversationCreateDirect,
+				PermissionConversationCreateDirect, PermissionMessageWriteDirect,
 				PermissionAvailabilityPollCreate, PermissionAvailabilityPollManageOwn,
 				PermissionStudyMeetingScheduleOwn,
 				PermissionEnrollmentLeave, PermissionSessionJoin, PermissionParticipantAdmit,
@@ -127,7 +127,7 @@ func TestClassPermissionMatrix(t *testing.T) {
 			role: ClassRoleStudent,
 			want: []Permission{
 				PermissionTenantView, PermissionClassView,
-				PermissionConversationCreateDirect,
+				PermissionConversationCreateDirect, PermissionMessageWriteDirect,
 				PermissionAvailabilityPollCreate, PermissionAvailabilityPollManageOwn,
 				PermissionStudyMeetingScheduleOwn,
 				PermissionEnrollmentLeave, PermissionSessionJoin, PermissionMediaPublish,
@@ -164,6 +164,7 @@ func TestEffectivePermissionsUnionsMultipleRolesDeterministically(t *testing.T) 
 		PermissionTenantView,
 		PermissionClassView,
 		PermissionConversationCreateDirect,
+		PermissionMessageWriteDirect,
 		PermissionAvailabilityPollCreate,
 		PermissionAvailabilityPollManageOwn,
 		PermissionStudyMeetingScheduleOwn,

@@ -481,6 +481,54 @@ const messages = {
     "conversations.corePlaceholderTitle": "Cuộc trò chuyện đã sẵn sàng",
     "conversations.corePlaceholderDescription":
       "Tin nhắn bền vững sẽ được bổ sung trong bước phát triển tiếp theo.",
+    "conversations.messagesTitle": "Lịch sử tin nhắn",
+    "conversations.unreadBadge": "{count} chưa đọc",
+    "conversations.messagesRefresh": "Làm mới tin nhắn",
+    "conversations.messagesRefreshing": "Đang làm mới tin nhắn...",
+    "conversations.messagesLoading": "Đang tải lịch sử tin nhắn",
+    "conversations.messagesForbiddenTitle": "Không thể xem tin nhắn",
+    "conversations.messagesForbiddenDescription":
+      "Phiên hiện tại không còn quyền đọc lịch sử này.",
+    "conversations.messagesUnavailableTitle": "Lịch sử không khả dụng",
+    "conversations.messagesUnavailableDescription":
+      "Cuộc trò chuyện không tồn tại hoặc bạn không còn quyền truy cập.",
+    "conversations.messagesErrorTitle": "Chưa thể tải tin nhắn",
+    "conversations.messagesErrorDescription":
+      "Kiểm tra kết nối rồi thử tải lại lịch sử.",
+    "conversations.messagesRefreshError":
+      "Không thể làm mới. Lịch sử đã tải vẫn được giữ lại.",
+    "conversations.messagesEmptyTitle": "Chưa có tin nhắn",
+    "conversations.messagesEmptyDescription":
+      "Tin nhắn đầu tiên sẽ xuất hiện tại đây sau khi được lưu.",
+    "conversations.messagesLoadOlder": "Tải tin nhắn cũ hơn",
+    "conversations.messagesLoadingOlder": "Đang tải tin nhắn cũ hơn...",
+    "conversations.messagesOlderError":
+      "Không thể tải phần lịch sử cũ hơn. Hãy thử lại.",
+    "conversations.messagesHistoryLabel": "Lịch sử tin nhắn bền vững",
+    "conversations.messageDeleted": "Tin nhắn đã bị xóa.",
+    "conversations.messageEdited": "Đã chỉnh sửa",
+    "conversations.markReadError": "Chưa thể cập nhật mốc đã đọc. Hãy thử lại.",
+    "conversations.composerLabel": "Tin nhắn mới",
+    "conversations.composerPlaceholder": "Nhập nội dung tin nhắn",
+    "conversations.composerHint": "Nhấn Ctrl+Enter hoặc Command+Enter để gửi.",
+    "conversations.composerCount": "{count}/{limit} ký tự",
+    "conversations.messageRequired": "Hãy nhập nội dung tin nhắn.",
+    "conversations.messageTooLong":
+      "Tin nhắn phải tối đa 4.000 ký tự và 16 KiB sau khi chuẩn hóa.",
+    "conversations.messageSent": "Tin nhắn đã được lưu.",
+    "conversations.messageSending": "Đang gửi...",
+    "conversations.messageRetry": "Gửi lại",
+    "conversations.messageSend": "Gửi tin nhắn",
+    "conversations.messageSendForbidden":
+      "Bạn không còn quyền gửi tin nhắn trong cuộc trò chuyện này.",
+    "conversations.messageSendUnavailable":
+      "Cuộc trò chuyện không còn khả dụng.",
+    "conversations.messageSendConflict":
+      "Trạng thái cuộc trò chuyện đã thay đổi. Làm mới rồi thử lại.",
+    "conversations.messageSendRateLimited":
+      "Bạn đang gửi quá nhanh. Hãy chờ rồi thử lại.",
+    "conversations.messageSendError":
+      "Không thể lưu tin nhắn. Bạn có thể gửi lại với cùng nội dung.",
     "conversations.classActionTitle": "Trao đổi lớp học",
     "conversations.classActionDescription":
       "Mở cuộc trò chuyện được quản lý theo thành viên lớp hiện tại.",
@@ -823,6 +871,8 @@ const messages = {
       "Lượt tạo liên kết khảo sát mỗi giờ",
     "capabilities.quotaActiveStudyMeetings": "Lịch học nhóm đang hoạt động",
     "capabilities.quotaStudyMeetingCreations": "Lượt tạo lịch học nhóm mỗi giờ",
+    "capabilities.quotaMessages": "Tin nhắn tối đa mỗi workspace",
+    "capabilities.quotaMessageSends": "Lượt gửi tin nhắn mỗi giờ",
     "capabilities.quotaUsage": "{used}/{limit} đã dùng",
     "capabilities.quotaRemaining": "Còn lại {remaining}",
     "capabilities.quotaReset": "Đặt lại lúc {date}",
@@ -2011,6 +2061,55 @@ const messages = {
     "conversations.corePlaceholderTitle": "Conversation ready",
     "conversations.corePlaceholderDescription":
       "Persistent messages will be added in the next delivery step.",
+    "conversations.messagesTitle": "Message history",
+    "conversations.unreadBadge": "{count} unread",
+    "conversations.messagesRefresh": "Refresh messages",
+    "conversations.messagesRefreshing": "Refreshing messages...",
+    "conversations.messagesLoading": "Loading message history",
+    "conversations.messagesForbiddenTitle": "Messages unavailable",
+    "conversations.messagesForbiddenDescription":
+      "This session can no longer read this history.",
+    "conversations.messagesUnavailableTitle": "History unavailable",
+    "conversations.messagesUnavailableDescription":
+      "The conversation does not exist or you no longer have access.",
+    "conversations.messagesErrorTitle": "Messages unavailable",
+    "conversations.messagesErrorDescription":
+      "Check the connection, then retry loading the history.",
+    "conversations.messagesRefreshError":
+      "Messages could not be refreshed. Loaded history is still available.",
+    "conversations.messagesEmptyTitle": "No messages yet",
+    "conversations.messagesEmptyDescription":
+      "The first committed message will appear here.",
+    "conversations.messagesLoadOlder": "Load older messages",
+    "conversations.messagesLoadingOlder": "Loading older messages...",
+    "conversations.messagesOlderError":
+      "Older history could not be loaded. Try again.",
+    "conversations.messagesHistoryLabel": "Persistent message history",
+    "conversations.messageDeleted": "This message was deleted.",
+    "conversations.messageEdited": "Edited",
+    "conversations.markReadError":
+      "Your read marker could not be updated. Try again.",
+    "conversations.composerLabel": "New message",
+    "conversations.composerPlaceholder": "Write a message",
+    "conversations.composerHint": "Press Ctrl+Enter or Command+Enter to send.",
+    "conversations.composerCount": "{count}/{limit} characters",
+    "conversations.messageRequired": "Enter a message.",
+    "conversations.messageTooLong":
+      "Messages are limited to 4,000 characters and 16 KiB after normalization.",
+    "conversations.messageSent": "Message saved.",
+    "conversations.messageSending": "Sending...",
+    "conversations.messageRetry": "Retry send",
+    "conversations.messageSend": "Send message",
+    "conversations.messageSendForbidden":
+      "You can no longer post in this conversation.",
+    "conversations.messageSendUnavailable":
+      "The conversation is no longer available.",
+    "conversations.messageSendConflict":
+      "The conversation changed. Refresh it, then retry.",
+    "conversations.messageSendRateLimited":
+      "Messages are being sent too quickly. Wait, then retry.",
+    "conversations.messageSendError":
+      "The message could not be saved. You can retry the same content safely.",
     "conversations.classActionTitle": "Class conversation",
     "conversations.classActionDescription":
       "Open the conversation governed by current class membership.",
@@ -2354,6 +2453,8 @@ const messages = {
     "capabilities.quotaActiveStudyMeetings": "Active study meetings",
     "capabilities.quotaStudyMeetingCreations":
       "Study meeting creations per hour",
+    "capabilities.quotaMessages": "Messages per workspace",
+    "capabilities.quotaMessageSends": "Message sends per hour",
     "capabilities.quotaUsage": "{used}/{limit} used",
     "capabilities.quotaRemaining": "{remaining} remaining",
     "capabilities.quotaReset": "Resets at {date}",

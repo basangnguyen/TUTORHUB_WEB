@@ -661,6 +661,7 @@ type conversationRow struct {
 	HighDisplayName      sql.NullString
 	LowActive            bool
 	HighActive           bool
+	UnreadCount          int
 }
 
 const conversationSelect = `SELECT
@@ -680,7 +681,27 @@ const conversationSelect = `SELECT
     low_user.display_name,
     high_user.display_name,
     COALESCE(low_member.status = 'active' AND low_user.status = 'active', false),
-    COALESCE(high_member.status = 'active' AND high_user.status = 'active', false)
+    COALESCE(high_member.status = 'active' AND high_user.status = 'active', false),
+    (
+        SELECT count(*)
+        FROM (
+            SELECT 1
+            FROM tutorhub.messages AS unread_message
+            WHERE unread_message.tenant_id = conversation.tenant_id
+              AND unread_message.conversation_id = conversation.id
+              AND unread_message.author_user_id <> $5
+              AND unread_message.state <> 'deleted'
+              AND unread_message.sequence > COALESCE((
+                  SELECT receipt.last_read_sequence
+                  FROM tutorhub.message_receipts AS receipt
+                  WHERE receipt.tenant_id = conversation.tenant_id
+                    AND receipt.conversation_id = conversation.id
+                    AND receipt.user_id = $5
+              ), 0)
+            ORDER BY unread_message.sequence
+            LIMIT 101
+        ) AS bounded_unread
+    )
 FROM tutorhub.conversations AS conversation
 LEFT JOIN tutorhub.classes AS class
   ON class.tenant_id = conversation.tenant_id
@@ -717,7 +738,27 @@ const conversationGetSelect = `SELECT
     low_user.display_name,
     high_user.display_name,
     COALESCE(low_member.status = 'active' AND low_user.status = 'active', false),
-    COALESCE(high_member.status = 'active' AND high_user.status = 'active', false)
+    COALESCE(high_member.status = 'active' AND high_user.status = 'active', false),
+    (
+        SELECT count(*)
+        FROM (
+            SELECT 1
+            FROM tutorhub.messages AS unread_message
+            WHERE unread_message.tenant_id = conversation.tenant_id
+              AND unread_message.conversation_id = conversation.id
+              AND unread_message.author_user_id <> $2
+              AND unread_message.state <> 'deleted'
+              AND unread_message.sequence > COALESCE((
+                  SELECT receipt.last_read_sequence
+                  FROM tutorhub.message_receipts AS receipt
+                  WHERE receipt.tenant_id = conversation.tenant_id
+                    AND receipt.conversation_id = conversation.id
+                    AND receipt.user_id = $2
+              ), 0)
+            ORDER BY unread_message.sequence
+            LIMIT 101
+        ) AS bounded_unread
+    )
 FROM tutorhub.conversations AS conversation
 LEFT JOIN tutorhub.classes AS class
   ON class.tenant_id = conversation.tenant_id
@@ -772,6 +813,7 @@ func scanConversationRow(row rowScanner) (conversationRow, error) {
 		&item.HighDisplayName,
 		&item.LowActive,
 		&item.HighActive,
+		&item.UnreadCount,
 	)
 	return item, err
 }
@@ -784,6 +826,11 @@ func (repository *PostgresRepository) project(
 	item := Conversation{
 		ID: row.ID, TenantID: row.TenantID, Kind: row.Kind,
 		Participants: []Participant{}, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
+	}
+	item.UnreadCount = row.UnreadCount
+	if item.UnreadCount > maximumUnreadCount {
+		item.UnreadCount = maximumUnreadCount
+		item.UnreadCountCapped = true
 	}
 	switch row.Kind {
 	case KindDirect:
@@ -805,7 +852,7 @@ func (repository *PostgresRepository) project(
 		}
 		item.ViewerAccess.CanPostMessages = row.LowActive && row.HighActive &&
 			repository.authorizer.Authorize(policy.Input{
-				Subject: subject(access), Action: policy.ActionConversationCreateDirect,
+				Subject: subject(access), Action: policy.ActionMessageWriteDirect,
 				Resource: policy.Resource{
 					TenantID: access.TenantID, State: policy.ResourceStateActive,
 				},

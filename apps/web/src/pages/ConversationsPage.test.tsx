@@ -65,6 +65,8 @@ const directConversation: Conversation = {
     { user_id: studentID, display_name: "TutorHub Student" },
   ],
   viewer_access: { can_post_messages: true },
+  unread_count: 100,
+  unread_count_capped: true,
   created_at: "2026-08-03T09:00:00Z",
   updated_at: "2026-08-03T09:00:00Z",
 };
@@ -77,6 +79,8 @@ const archivedClassConversation: Conversation = {
   title: "Cơ sở An toàn thông tin",
   participants: [],
   viewer_access: { can_post_messages: false },
+  unread_count: 0,
+  unread_count_capped: false,
   created_at: "2026-08-03T08:00:00Z",
   updated_at: "2026-08-03T10:00:00Z",
 };
@@ -131,6 +135,16 @@ function listResponse(items: Conversation[] = [directConversation]) {
   return jsonResponse({ items, next_cursor: null });
 }
 
+function emptyMessagePageResponse() {
+  return jsonResponse({
+    items: [],
+    next_cursor: null,
+    read_state: null,
+    unread_count: 0,
+    unread_count_capped: false,
+  });
+}
+
 describe("ConversationsPage", () => {
   afterEach(() => {
     cleanup();
@@ -140,6 +154,11 @@ describe("ConversationsPage", () => {
   it("renders class history as read-only and focuses the selected heading", async () => {
     const fetchMock = vi.fn().mockImplementation((request: Request) => {
       const path = new URL(request.url).pathname;
+      if (
+        path.endsWith(`/api/v1/conversations/${classConversationID}/messages`)
+      ) {
+        return Promise.resolve(emptyMessagePageResponse());
+      }
       if (path.endsWith(`/api/v1/conversations/${classConversationID}`)) {
         return Promise.resolve(jsonResponse(archivedClassConversation));
       }
@@ -162,6 +181,9 @@ describe("ConversationsPage", () => {
     expect(
       screen.getByText("Không có thành viên được hiển thị."),
     ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("textbox", { name: "Tin nhắn mới" }),
+    ).not.toBeInTheDocument();
   });
 
   it("keeps history visible while feature controls disable creation", async () => {
@@ -188,6 +210,7 @@ describe("ConversationsPage", () => {
     renderPage("/app/messages", fetchMock, capabilities);
 
     expect(await screen.findByText("TutorHub Student")).toBeInTheDocument();
+    expect(screen.getByText("100+ chưa đọc")).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Bắt đầu trò chuyện" }),
     ).toBeDisabled();
@@ -232,6 +255,12 @@ describe("ConversationsPage", () => {
         request.method === "POST"
       ) {
         return Promise.resolve(jsonResponse(directConversation, 201));
+      }
+      if (
+        path.endsWith(`/api/v1/conversations/${directID}/messages`) &&
+        request.method === "GET"
+      ) {
+        return Promise.resolve(emptyMessagePageResponse());
       }
       if (path.endsWith(`/api/v1/tenants/${tenantID}/capabilities`)) {
         return Promise.resolve(jsonResponse(capabilities));

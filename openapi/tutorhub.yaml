@@ -886,6 +886,331 @@ paths:
           $ref: "#/components/responses/ProblemResponse"
         default:
           $ref: "#/components/responses/ProblemResponse"
+  /api/v1/conversations/{conversation_id}/messages:
+    get:
+      operationId: listConversationMessages
+      summary: List persistent messages visible in an authorized conversation
+      description: Returns a newest-first keyset page. The opaque cursor is bound to the active tenant and conversation. Unread state is viewer-scoped, bounded, and excludes the viewer's own messages.
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: conversation_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: X-TutorHub-Expected-Tenant-ID
+          in: header
+          required: true
+          description: Client cache-scope assertion; authorization still comes only from the server-side active session.
+          schema:
+            type: string
+            format: uuid
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 1024
+      responses:
+        "200":
+          description: Authorized persistent message page and viewer read state
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessagePage"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+    post:
+      operationId: sendConversationMessage
+      summary: Persist or replay one idempotent conversation message
+      description: The server derives the sender and timestamp. Reusing the same client message identifier with the same normalized content and conversation returns the existing message without consuming quota; a conflicting reuse returns 409.
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: conversation_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+        - name: X-TutorHub-Expected-Tenant-ID
+          in: header
+          required: true
+          description: Client cache-scope assertion; authorization still comes only from the server-side active session.
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SendMessageRequest"
+      responses:
+        "200":
+          description: Existing message returned by an exact idempotent replay
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Message"
+        "201":
+          description: Message committed
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Message"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "429":
+          description: The effective tenant or actor send-rate limit was reached
+          headers:
+            Retry-After:
+              required: true
+              schema:
+                type: integer
+                minimum: 1
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/conversations/{conversation_id}/messages/{message_id}:
+    patch:
+      operationId: editConversationMessage
+      summary: Edit an active message owned by the authenticated author
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: conversation_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: message_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+        - name: X-TutorHub-Expected-Tenant-ID
+          in: header
+          required: true
+          description: Client cache-scope assertion; authorization still comes only from the server-side active session.
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EditMessageRequest"
+      responses:
+        "200":
+          description: Updated message
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Message"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+    delete:
+      operationId: deleteConversationMessage
+      summary: Replace an active author-owned message with a durable tombstone
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: conversation_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: message_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+        - name: X-TutorHub-Expected-Tenant-ID
+          in: header
+          required: true
+          description: Client cache-scope assertion; authorization still comes only from the server-side active session.
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeleteMessageRequest"
+      responses:
+        "200":
+          description: Deleted message tombstone, or the existing tombstone for a repeated delete
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Message"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/conversations/{conversation_id}/read:
+    post:
+      operationId: markConversationRead
+      summary: Monotonically advance the authenticated viewer's conversation read marker
+      description: A request for an older already-readable message returns the current newer marker and never moves read state backward. This endpoint does not create peer-facing seen-by semantics.
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: conversation_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+        - name: X-TutorHub-Expected-Tenant-ID
+          in: header
+          required: true
+          description: Client cache-scope assertion; authorization still comes only from the server-side active session.
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MarkConversationReadRequest"
+      responses:
+        "200":
+          description: Current monotonic viewer read state
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageReadState"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
   /api/v1/calendar/items:
     get:
       operationId: listCalendarItems
@@ -4754,6 +5079,8 @@ components:
         - class.archive
         - class.transfer_ownership
         - class.view
+        - conversation.create_direct
+        - message.write_direct
         - enrollment.manage
         - enrollment.leave
         - session.schedule
@@ -5114,6 +5441,8 @@ components:
         - availability_poll_capability_creations_per_hour
         - active_study_meetings
         - study_meeting_creations_per_hour
+        - messages_per_tenant
+        - message_sends_per_hour
       properties:
         members:
           $ref: "#/components/schemas/QuotaCapability"
@@ -5136,6 +5465,10 @@ components:
         active_study_meetings:
           $ref: "#/components/schemas/QuotaCapability"
         study_meeting_creations_per_hour:
+          $ref: "#/components/schemas/QuotaCapability"
+        messages_per_tenant:
+          $ref: "#/components/schemas/QuotaCapability"
+        message_sends_per_hour:
           $ref: "#/components/schemas/QuotaCapability"
     TenantOperationCapabilities:
       type: object
@@ -5264,6 +5597,8 @@ components:
         - title
         - participants
         - viewer_access
+        - unread_count
+        - unread_count_capped
         - created_at
         - updated_at
       properties:
@@ -5288,6 +5623,14 @@ components:
             $ref: "#/components/schemas/ConversationParticipant"
         viewer_access:
           $ref: "#/components/schemas/ConversationViewerAccess"
+        unread_count:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: Bounded count of unread active messages authored by other participants.
+        unread_count_capped:
+          type: boolean
+          description: True when more unread messages exist than unread_count reports.
         created_at:
           type: string
           format: date-time
@@ -5317,6 +5660,224 @@ components:
           format: email
           minLength: 3
           maxLength: 320
+    MessageState:
+      type: string
+      enum: [active, deleted]
+    MessageAuthor:
+      type: object
+      additionalProperties: false
+      required: [user_id, display_name]
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        display_name:
+          type: string
+          minLength: 1
+          maxLength: 200
+    ActiveMessage:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - conversation_id
+        - sequence
+        - client_message_id
+        - author
+        - content
+        - state
+        - version
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        conversation_id:
+          type: string
+          format: uuid
+        sequence:
+          type: integer
+          format: int64
+          minimum: 1
+          description: Positive server-assigned ordering within one conversation.
+        client_message_id:
+          type: string
+          format: uuid
+          description: Sender-supplied idempotency identifier; it never selects the sender or conversation.
+        author:
+          $ref: "#/components/schemas/MessageAuthor"
+        content:
+          type: string
+          minLength: 1
+          maxLength: 4000
+          description: Normalized plain text for an active message.
+        state:
+          type: string
+          const: active
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        edited_at:
+          type: string
+          format: date-time
+    DeletedMessage:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - conversation_id
+        - sequence
+        - client_message_id
+        - author
+        - state
+        - version
+        - created_at
+        - updated_at
+        - deleted_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        conversation_id:
+          type: string
+          format: uuid
+        sequence:
+          type: integer
+          format: int64
+          minimum: 1
+          description: Positive server-assigned ordering within one conversation.
+        client_message_id:
+          type: string
+          format: uuid
+          description: Sender-supplied idempotency identifier; it never selects the sender or conversation.
+        author:
+          $ref: "#/components/schemas/MessageAuthor"
+        state:
+          type: string
+          const: deleted
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        edited_at:
+          type: string
+          format: date-time
+        deleted_at:
+          type: string
+          format: date-time
+          description: Durable tombstone time. Deleted messages never expose a content property.
+    Message:
+      oneOf:
+        - $ref: "#/components/schemas/ActiveMessage"
+        - $ref: "#/components/schemas/DeletedMessage"
+      discriminator:
+        propertyName: state
+        mapping:
+          active: "#/components/schemas/ActiveMessage"
+          deleted: "#/components/schemas/DeletedMessage"
+    MessageReadState:
+      type: object
+      additionalProperties: false
+      required: [last_read_message_id, last_read_sequence, updated_at]
+      properties:
+        last_read_message_id:
+          type: string
+          format: uuid
+        last_read_sequence:
+          type: integer
+          format: int64
+          minimum: 1
+        updated_at:
+          type: string
+          format: date-time
+    MessagePage:
+      type: object
+      additionalProperties: false
+      required:
+        - items
+        - unread_count
+        - unread_count_capped
+        - read_state
+      properties:
+        items:
+          type: array
+          description: Newest-first persistent message page.
+          items:
+            $ref: "#/components/schemas/Message"
+        next_cursor:
+          type: string
+          minLength: 1
+          maxLength: 1024
+        unread_count:
+          type: integer
+          minimum: 0
+          maximum: 100
+        unread_count_capped:
+          type: boolean
+          description: True when more unread messages exist than the bounded unread_count value states.
+        read_state:
+          description: Current viewer marker, or null before the viewer has marked any message read.
+          oneOf:
+            - $ref: "#/components/schemas/MessageReadState"
+            - type: "null"
+    SendMessageRequest:
+      type: object
+      additionalProperties: false
+      required: [client_message_id, content]
+      properties:
+        client_message_id:
+          type: string
+          format: uuid
+        content:
+          type: string
+          minLength: 1
+          maxLength: 4000
+          description: Plain text; the server also enforces a 16 KiB UTF-8 maximum after normalization.
+    EditMessageRequest:
+      type: object
+      additionalProperties: false
+      required: [content, expected_version]
+      properties:
+        content:
+          type: string
+          minLength: 1
+          maxLength: 4000
+          description: Plain text; the server also enforces a 16 KiB UTF-8 maximum after normalization.
+        expected_version:
+          type: integer
+          format: int64
+          minimum: 1
+    DeleteMessageRequest:
+      type: object
+      additionalProperties: false
+      required: [expected_version]
+      properties:
+        expected_version:
+          type: integer
+          format: int64
+          minimum: 1
+    MarkConversationReadRequest:
+      type: object
+      additionalProperties: false
+      required: [message_id]
+      properties:
+        message_id:
+          type: string
+          format: uuid
     Notification:
       type: object
       additionalProperties: false
@@ -5502,6 +6063,8 @@ components:
         - availability_poll_capability_creations_per_hour
         - active_study_meetings
         - study_meeting_creations_per_hour
+        - messages_per_tenant
+        - message_sends_per_hour
       properties:
         members:
           type: integer
@@ -5545,6 +6108,14 @@ components:
           type: integer
           minimum: 1
           maximum: 200
+        messages_per_tenant:
+          type: integer
+          minimum: 1
+          maximum: 10000000
+        message_sends_per_hour:
+          type: integer
+          minimum: 1
+          maximum: 100000
     UpdateTenantFeatureControlsRequest:
       type: object
       additionalProperties: false

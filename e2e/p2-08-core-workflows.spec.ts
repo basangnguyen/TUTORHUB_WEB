@@ -564,6 +564,8 @@ test("P2-12 closes admin, instructor, and learner workflows through the real UI"
       expect(directParticipantText).not.toContain(accountEmails.teacher);
       expect(directParticipantText).not.toContain(accountEmails.student);
       const directURL = teacherPage.url();
+      const teacherMessage = `Persistent teacher message ${runID}`;
+      const studentReply = `Persistent student reply ${runID}`;
       expect(
         await teacherPage.evaluate(
           () =>
@@ -578,6 +580,82 @@ test("P2-12 closes admin, instructor, and learner workflows through the real UI"
             .analyze()
         ).violations,
       ).toEqual([]);
+
+      const teacherComposer = teacherPage.getByRole("textbox", {
+        name: "New message",
+      });
+      await expect(teacherComposer).toBeVisible();
+      const messageRoutePattern = "**/api/v1/conversations/*/messages";
+      const teacherSendBodies: unknown[] = [];
+      let rejectFirstTeacherSend = true;
+      await teacherPage.route(messageRoutePattern, async (route) => {
+        const request = route.request();
+        if (request.method() !== "POST") {
+          await route.continue();
+          return;
+        }
+        const body: unknown = request.postDataJSON();
+        teacherSendBodies.push(body);
+        if (rejectFirstTeacherSend) {
+          rejectFirstTeacherSend = false;
+          await route.abort("connectionfailed");
+          return;
+        }
+        await route.continue();
+      });
+      await teacherComposer.fill(teacherMessage);
+      await teacherComposer.press("Control+Enter");
+      await expect(
+        teacherPage.getByText(
+          "The message could not be saved. You can retry the same content safely.",
+        ),
+      ).toBeVisible();
+      await expect(teacherComposer).toHaveValue(teacherMessage);
+      const retrySend = teacherPage.getByRole("button", {
+        name: "Retry send",
+      });
+      await expect(retrySend).toBeVisible();
+      const teacherSendResponse = teacherPage.waitForResponse((candidate) => {
+        const request = candidate.request();
+        return (
+          request.method() === "POST" &&
+          new URL(candidate.url()).pathname.endsWith("/messages")
+        );
+      });
+      await retrySend.click();
+      expect(
+        (await teacherSendResponse).status(),
+        "POST conversation message should return HTTP 201 after retry",
+      ).toBe(201);
+      await teacherPage.unroute(messageRoutePattern);
+      expect(teacherSendBodies).toHaveLength(2);
+      expect(teacherSendBodies[0]).toEqual({
+        client_message_id: expect.stringMatching(
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+        ),
+        content: teacherMessage,
+      });
+      expect(teacherSendBodies[1]).toEqual(teacherSendBodies[0]);
+      await expect(
+        teacherPage.getByRole("status").filter({ hasText: "Message saved." }),
+      ).toBeVisible();
+      await expect(teacherComposer).toBeFocused();
+      await expect(teacherComposer).toHaveValue("");
+      const teacherHistory = teacherPage.getByRole("list", {
+        name: "Persistent message history",
+      });
+      await expect(
+        teacherHistory.getByText(teacherMessage, { exact: true }),
+      ).toHaveCount(1);
+
+      await teacherPage.reload();
+      await useEnglish(teacherPage);
+      await expect(
+        teacherHistory.getByText(teacherMessage, { exact: true }),
+      ).toHaveCount(1);
+      await expect(
+        teacherPage.getByRole("textbox", { name: "New message" }),
+      ).toBeVisible();
 
       await teacherCreate.click();
       await expect(teacherDialog.getByLabel("Member email")).toBeFocused();
@@ -602,6 +680,56 @@ test("P2-12 closes admin, instructor, and learner workflows through the real UI"
         studentPage.getByRole("heading", { name: teacherDisplayName }),
       ).toBeFocused();
       expect(studentPage.url()).toBe(directURL);
+      const studentHistory = studentPage.getByRole("list", {
+        name: "Persistent message history",
+      });
+      await expect(
+        studentHistory.getByText(teacherMessage, { exact: true }),
+      ).toHaveCount(1);
+      const studentComposer = studentPage.getByRole("textbox", {
+        name: "New message",
+      });
+      await studentComposer.fill(studentReply);
+      const studentSendResponse = studentPage.waitForResponse((candidate) => {
+        const request = candidate.request();
+        return (
+          request.method() === "POST" &&
+          new URL(candidate.url()).pathname.endsWith("/messages")
+        );
+      });
+      await studentComposer.press("Control+Enter");
+      expect(
+        (await studentSendResponse).status(),
+        "POST conversation reply should return HTTP 201",
+      ).toBe(201);
+      await expect(
+        studentHistory.getByText(studentReply, { exact: true }),
+      ).toHaveCount(1);
+      await expect(studentComposer).toBeFocused();
+      await expect(studentComposer).toHaveValue("");
+      const studentHistoryText = (await studentHistory.textContent()) ?? "";
+      expect(studentHistoryText).not.toContain(accountEmails.teacher);
+      expect(studentHistoryText).not.toContain(accountEmails.student);
+
+      await teacherPage.reload();
+      await useEnglish(teacherPage);
+      await expect(
+        teacherHistory.getByText(teacherMessage, { exact: true }),
+      ).toHaveCount(1);
+      await expect(
+        teacherHistory.getByText(studentReply, { exact: true }),
+      ).toHaveCount(1);
+      const populatedTeacherHistoryText =
+        (await teacherHistory.textContent()) ?? "";
+      expect(populatedTeacherHistoryText).not.toContain(accountEmails.teacher);
+      expect(populatedTeacherHistoryText).not.toContain(accountEmails.student);
+      expect(
+        (
+          await new AxeBuilder({ page: teacherPage })
+            .include(".conversations-page")
+            .analyze()
+        ).violations,
+      ).toEqual([]);
 
       await adminPage.goto(directURL);
       await useEnglish(adminPage);

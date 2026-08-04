@@ -19,11 +19,13 @@ const (
 )
 
 var (
-	ErrInvalidInput = errors.New("invalid conversation input")
-	ErrAccessDenied = errors.New("conversation access denied")
-	ErrNotFound     = errors.New("conversation not found")
-	ErrUnavailable  = errors.New("conversation target unavailable")
-	ErrReadOnly     = errors.New("conversation is read only")
+	ErrInvalidInput        = errors.New("invalid conversation input")
+	ErrAccessDenied        = errors.New("conversation access denied")
+	ErrNotFound            = errors.New("conversation not found")
+	ErrUnavailable         = errors.New("conversation target unavailable")
+	ErrReadOnly            = errors.New("conversation is read only")
+	ErrIdempotencyConflict = errors.New("message idempotency conflict")
+	ErrVersionConflict     = errors.New("message version conflict")
 )
 
 type Kind string
@@ -45,16 +47,18 @@ type ViewerAccess struct {
 }
 
 type Conversation struct {
-	ID           uuid.UUID     `json:"id"`
-	TenantID     uuid.UUID     `json:"-"`
-	Kind         Kind          `json:"kind"`
-	ClassID      *uuid.UUID    `json:"class_id,omitempty"`
-	ClassStatus  *string       `json:"class_status,omitempty"`
-	Title        string        `json:"title"`
-	Participants []Participant `json:"participants"`
-	ViewerAccess ViewerAccess  `json:"viewer_access"`
-	CreatedAt    time.Time     `json:"created_at"`
-	UpdatedAt    time.Time     `json:"updated_at"`
+	ID                uuid.UUID     `json:"id"`
+	TenantID          uuid.UUID     `json:"-"`
+	Kind              Kind          `json:"kind"`
+	ClassID           *uuid.UUID    `json:"class_id,omitempty"`
+	ClassStatus       *string       `json:"class_status,omitempty"`
+	Title             string        `json:"title"`
+	Participants      []Participant `json:"participants"`
+	ViewerAccess      ViewerAccess  `json:"viewer_access"`
+	UnreadCount       int           `json:"unread_count"`
+	UnreadCountCapped bool          `json:"unread_count_capped"`
+	CreatedAt         time.Time     `json:"created_at"`
+	UpdatedAt         time.Time     `json:"updated_at"`
 }
 
 type ListInput struct {
@@ -78,4 +82,9 @@ type ServiceAPI interface {
 	Get(context.Context, AccessContext, uuid.UUID) (Conversation, error)
 	CreateDirect(context.Context, AccessContext, string) (CreateResult, error)
 	CreateClass(context.Context, AccessContext, uuid.UUID) (CreateResult, error)
+	ListMessages(context.Context, AccessContext, uuid.UUID, MessageListInput) (MessagePage, error)
+	SendMessage(context.Context, AccessContext, uuid.UUID, SendMessageInput) (MessageMutationResult, error)
+	EditMessage(context.Context, AccessContext, uuid.UUID, uuid.UUID, EditMessageInput) (Message, error)
+	DeleteMessage(context.Context, AccessContext, uuid.UUID, uuid.UUID, DeleteMessageInput) (Message, error)
+	MarkRead(context.Context, AccessContext, uuid.UUID, uuid.UUID) (MessageReadState, error)
 }

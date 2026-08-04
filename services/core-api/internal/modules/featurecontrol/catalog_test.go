@@ -43,6 +43,8 @@ func TestCatalogDefaultsAndStableOrder(t *testing.T) {
 		QuotaAvailabilityPollSlots,
 		QuotaInviteCreationsPerHour,
 		QuotaMembers,
+		QuotaMessageSendsPerHour,
+		QuotaMessagesPerTenant,
 		QuotaStudyMeetingCreationsPerHour,
 	}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("quota catalog order = %v, want %v", got, want)
@@ -83,6 +85,12 @@ func TestCatalogDefaultsAndStableOrder(t *testing.T) {
 		},
 		QuotaStudyMeetingCreationsPerHour: {
 			Key: QuotaStudyMeetingCreationsPerHour, DefaultLimit: 20, MinimumLimit: 1, MaximumLimit: 200,
+		},
+		QuotaMessagesPerTenant: {
+			Key: QuotaMessagesPerTenant, DefaultLimit: 100000, MinimumLimit: 1, MaximumLimit: 10000000,
+		},
+		QuotaMessageSendsPerHour: {
+			Key: QuotaMessageSendsPerHour, DefaultLimit: 5000, MinimumLimit: 1, MaximumLimit: 100000,
 		},
 	}
 	for _, definition := range quotas {

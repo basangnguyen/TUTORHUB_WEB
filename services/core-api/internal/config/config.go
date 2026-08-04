@@ -50,6 +50,8 @@ const (
 	defaultFeatureAvailabilityPollCapabilityRateLimit = 1_000
 	defaultFeatureActiveStudyMeetingLimit             = 200
 	defaultFeatureStudyMeetingCreationRateLimit       = 200
+	defaultFeatureMessagesPerTenantLimit              = 10_000_000
+	defaultFeatureMessageSendRateLimit                = 100_000
 )
 
 var validEnvironments = map[string]struct{}{
@@ -169,6 +171,8 @@ type FeatureControlConfig struct {
 	MaxAvailabilityPollCapabilityCreationsPerHour int
 	MaxActiveStudyMeetings                        int
 	MaxStudyMeetingCreationsPerHour               int
+	MaxMessagesPerTenant                          int
+	MaxMessageSendsPerHour                        int
 }
 
 var objectStorageNamePattern = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9.-]*[a-zA-Z0-9]$`)
@@ -524,6 +528,22 @@ func featureControlConfig(
 			defaultFeatureStudyMeetingCreationRateLimit,
 			1,
 			defaultFeatureStudyMeetingCreationRateLimit,
+			validationErrors,
+		),
+		MaxMessagesPerTenant: intValue(
+			lookup,
+			"FEATURE_CONTROL_MAX_MESSAGES_PER_TENANT",
+			defaultFeatureMessagesPerTenantLimit,
+			1,
+			defaultFeatureMessagesPerTenantLimit,
+			validationErrors,
+		),
+		MaxMessageSendsPerHour: intValue(
+			lookup,
+			"FEATURE_CONTROL_MAX_MESSAGE_SENDS_PER_HOUR",
+			defaultFeatureMessageSendRateLimit,
+			1,
+			defaultFeatureMessageSendRateLimit,
 			validationErrors,
 		),
 	}

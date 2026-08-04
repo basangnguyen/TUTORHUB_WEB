@@ -6,6 +6,7 @@
 - P2-06 amendment: 2026-07-19
 - P2-07 amendment: 2026-07-19
 - P3-06 amendment: 2026-08-03
+- P3-07A amendment: 2026-08-04
 
 ## Context
 
@@ -114,18 +115,20 @@ authoritative and repeated or concurrent creation of the same pair returns one r
 Each class has at most one class conversation. Class participant rows are not copied into
 conversation storage: read access is recalculated from the implicit owner, organization
 admin/teacher policy and active enrollment for every request. Creating the class
-conversation and future message writes require authoritative `chat.send` on an active
-class. An archived class retains readable history for actors who still have `class.view`,
-but creation and new writes remain blocked; restoring the class re-enables writes only
-after normal policy reauthorization. Enrollment suspension, leave or removal therefore
-removes class-conversation access immediately rather than preserving a stale snapshot.
+conversation and message writes require authoritative `chat.send` on an active class.
+An archived class retains readable history for actors who still have `class.view`, but
+creation and new writes remain blocked; restoring the class re-enables writes only after
+normal policy reauthorization. Enrollment suspension, leave or removal therefore removes
+class-conversation read/write access immediately rather than preserving a stale snapshot.
 
 Direct-conversation creation uses the tenant-scoped `conversation.create_direct` action.
 Direct history remains visible only to a persisted participant whose own tenant membership
-is active. New direct writes will additionally require both participant memberships to be
-active when P3-07 is implemented. P3-06 is REST-only conversation-container persistence;
-message content, unread/read state, realtime transport and notification delivery remain
-owned by P3-07A/P3-07B.
+is active. Starting in P3-07A, direct content writes use the separate tenant-scoped
+`message.write_direct` action and transactionally require both participant memberships and
+users to remain active. Message resources inherit the conversation tenant/scope: a foreign
+or inaccessible conversation/message is concealed as `404`, and no message row can grant
+access independently. P3-07A keeps persistence/unread/read REST-only under ADR-0025;
+realtime transport and notification delivery remain owned by P3-07B.
 
 ## Consequences
 

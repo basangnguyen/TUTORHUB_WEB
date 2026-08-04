@@ -36,6 +36,7 @@ import { useI18n } from "../app/i18n";
 import { useSession } from "../app/session";
 import { useTenantCapabilities } from "../app/tenantCapabilities";
 import { shouldConcealTenantScopedData } from "../app/tenantDataAccess";
+import { ConversationMessages } from "../components/ConversationMessages";
 import { TenantOperationNotice } from "../components/TenantOperationNotice";
 import "./ConversationsPage.css";
 
@@ -267,9 +268,20 @@ export function ConversationsPage() {
                           )}
                         </StatusBadge>
                       </span>
-                      <time dateTime={item.updated_at}>
-                        {formatter.format(new Date(item.updated_at))}
-                      </time>
+                      <span className="conversation-list__summary">
+                        <time dateTime={item.updated_at}>
+                          {formatter.format(new Date(item.updated_at))}
+                        </time>
+                        {item.unread_count > 0 && (
+                          <StatusBadge tone="warning">
+                            {t("conversations.unreadBadge", {
+                              count: item.unread_count_capped
+                                ? "100+"
+                                : item.unread_count,
+                            })}
+                          </StatusBadge>
+                        )}
+                      </span>
                     </NavLink>
                   </li>
                 ))}
@@ -306,10 +318,12 @@ export function ConversationsPage() {
         </section>
 
         <ConversationDetail
+          actorID={session.currentUser?.user.id ?? ""}
           conversation={conversation}
           detailHeading={detailHeading}
           formatter={formatter}
           selected={Boolean(conversationId)}
+          tenantID={tenantID ?? ""}
         />
       </div>
 
@@ -381,15 +395,19 @@ export function ConversationsPage() {
 }
 
 function ConversationDetail({
+  actorID,
   conversation,
   detailHeading,
   formatter,
   selected,
+  tenantID,
 }: {
+  actorID: string;
   conversation: ReturnType<typeof useConversation>;
   detailHeading: RefObject<HTMLHeadingElement | null>;
   formatter: Intl.DateTimeFormat;
   selected: boolean;
+  tenantID: string;
 }) {
   const { t } = useI18n();
 
@@ -514,9 +532,13 @@ function ConversationDetail({
         </div>
       </dl>
 
-      <EmptyState
-        description={t("conversations.corePlaceholderDescription")}
-        title={t("conversations.corePlaceholderTitle")}
+      <ConversationMessages
+        actorID={actorID}
+        canPostMessages={!readOnly}
+        conversationID={item.id}
+        formatter={formatter}
+        key={item.id}
+        tenantID={tenantID}
       />
     </article>
   );

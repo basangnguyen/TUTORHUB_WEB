@@ -76,6 +76,93 @@ describe("TenantFeatureControlsPanel", () => {
     expect(
       screen.getByRole("checkbox", { name: "Conversations" }),
     ).toBeChecked();
+    expect(
+      screen.getByRole("meter", { name: "Messages per workspace" }),
+    ).toHaveAttribute("max", "100000");
+    expect(
+      screen.getByRole("spinbutton", { name: "Message sends per hour" }),
+    ).toHaveValue(5000);
+  });
+
+  it("submits configured message storage and hourly send quotas", async () => {
+    const capabilities = availableTenantCapabilities(tenantID);
+    const requests: Request[] = [];
+    const fetchMock = vi.fn().mockImplementation((request: Request) => {
+      requests.push(request);
+      if (request.url.endsWith(`/api/v1/tenants/${tenantID}/capabilities`)) {
+        return Promise.resolve(jsonResponse(capabilities));
+      }
+      if (request.url.endsWith("/api/v1/auth/csrf")) {
+        return Promise.resolve(jsonResponse({ csrf_token: "csrf-token" }));
+      }
+      if (
+        request.url.endsWith(`/api/v1/tenants/${tenantID}/feature-controls`) &&
+        request.method === "PUT"
+      ) {
+        return Promise.resolve(
+          jsonResponse({
+            ...capabilities,
+            version: 1,
+            quotas: {
+              ...capabilities.quotas,
+              messages_per_tenant: {
+                configured_limit: 120000,
+                limit: 120000,
+                used: 0,
+                remaining: 120000,
+              },
+              message_sends_per_hour: {
+                configured_limit: 6000,
+                limit: 6000,
+                used: 0,
+                remaining: 6000,
+              },
+            },
+          }),
+        );
+      }
+      return Promise.reject(new Error(`Unexpected request: ${request.url}`));
+    });
+    renderPanel(fetchMock);
+
+    fireEvent.change(
+      await screen.findByRole("spinbutton", {
+        name: "Messages per workspace",
+      }),
+      { target: { value: "120000" } },
+    );
+    fireEvent.change(
+      screen.getByRole("spinbutton", { name: "Message sends per hour" }),
+      { target: { value: "6000" } },
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Save features and quotas" }),
+    );
+
+    await waitFor(() =>
+      expect(
+        requests.some(
+          (request) =>
+            request.method === "PUT" &&
+            request.url.endsWith(
+              `/api/v1/tenants/${tenantID}/feature-controls`,
+            ),
+        ),
+      ).toBe(true),
+    );
+    const updateRequest = requests.find(
+      (request) =>
+        request.method === "PUT" &&
+        request.url.endsWith(`/api/v1/tenants/${tenantID}/feature-controls`),
+    );
+    await expect(updateRequest?.clone().json()).resolves.toEqual(
+      expect.objectContaining({
+        quotas: expect.objectContaining({
+          message_sends_per_hour: 6000,
+          messages_per_tenant: 120000,
+        }),
+      }),
+    );
   });
 
   it("edits configured values when deployment guardrails clamp effective values", async () => {

@@ -33,9 +33,9 @@ re-baseline này không dùng nó để chặn Phase 4 hay ép các gate provide
 tất trước khi có môi trường phù hợp. Domain/DNS, SES sandbox và production-access
 approval có thể tiếp tục chuẩn bị song song.
 
-**Task đang thực hiện:** `P3-06` Direct/class conversation core đã `DONE` ngày 2026-08-04
-sau shared PostgreSQL, exact deployment, authenticated browser/API, keyboard và Axe gate.
-Runnable lane hiện chuyển sang `P3-07A` persistent message, unread/read core.
+**Task đang thực hiện:** `P3-07A` persistent message, unread/read core đã bắt đầu
+`IN PROGRESS` ngày 2026-08-04 sau khi P3-06 đạt `DONE`. ADR-0025 và amendment ADR-0013
+khóa REST/PostgreSQL authority, lifecycle, idempotency, receipt và privacy boundary.
 `P3-02D-B` lifecycle delivery/
 auto-close/fan-out và các gate P3-03B/P3-CAL-02/P3-05A/B là carry-over, không nằm trong
 mốc Core Exit tối thiểu.
@@ -108,7 +108,7 @@ processing/sharing tới end user.
 | P3-05A     | Session email/ICS/external RSVP/reminder       | P3-02C, P3-CAL-02, P3-03B, P3-04 | DEFERRED/TODO |
 | P3-05B     | Poll/Study Meeting lifecycle delivery          | P3-02D-B, P3-05A               | DEFERRED/TODO |
 | P3-06      | Direct/class conversation                      | P3-00, Phase 2 policy           | DONE       |
-| P3-07A     | Persistent message, unread/read core           | P3-06                           | TODO       |
+| P3-07A     | Persistent message, unread/read core           | P3-06                           | IN PROGRESS |
 | P3-07B     | Message notification delivery                  | P3-07A, P3-03B, P3-04           | DEFERRED/TODO |
 | P3-08      | File metadata, upload intent và finalize       | P3-00, B2 baseline              | TODO       |
 | P3-09      | Presigned B2 upload/download                   | P3-08                           | TODO       |
@@ -980,6 +980,28 @@ Hai gate notification vẫn phải giữ `false` trong khi Render chỉ phục v
 - Unread/read receipt theo user/conversation, update monotonic và tenant-scoped.
 - Message content không đi vào audit/outbox/log; event chỉ giữ ID/metadata allowlist.
 - Reconnect không mất message đã commit; duplicate submit không tạo message thứ hai.
+- [x] ADR-0025 `Accepted` và ADR-0013 được amend: direct/class REST-only, PostgreSQL là
+      authority; không bật realtime, outbox consumer hoặc notification delivery.
+- [x] Migration `000025` tạo message/receipt/order/idempotency/lifecycle với tenant-composite
+      integrity, index/constraint, PUBLIC revoke, exact runtime column ACL và up/down test.
+- [x] Feature emergency-off, body hard cap, tenant storage/send quota và shared PostgreSQL
+      actor rate limit có typed 403/409/429 + Retry-After; metric không mang nội dung.
+- [x] Go repository/service/HTTP, OpenAPI/generated client hoàn tất idempotent send, stable
+      keyset list, author edit/delete và monotonic mark-read/unread. Mutation luôn CSRF,
+      expected-tenant và reauthorize source permission trong transaction.
+- [x] Message body không vào audit/outbox/log/metric/error/cursor; P3-07A không tạo delivery
+      side effect và hai notification gate vẫn giữ false.
+- [ ] Web `/app/messages` có history/composer/pagination/unread/read, loading/empty/error/
+      forbidden/retry/read-only, memory-only retry ID, keyboard/focus và Axe.
+- [x] Unit/HTTP test đạt replay/conflict, cursor binding, bounds, CSRF/tenant scope,
+      lifecycle/version và read monotonic contract.
+- [ ] PostgreSQL integration đạt exact ACL, concurrent duplicate, direct both-active,
+      class enrollment/archive/restore, foreign-ID conceal, receipt monotonic, pagination,
+      quota/rate và content không xuất hiện trong audit/outbox.
+- [ ] Full local verify và disposable Neon forward-only `24 -> 25`/idempotent cùng focused
+      database gates PASS trước khi chuyển `IN PROGRESS -> VERIFY`.
+- [ ] Shared staging forward/exact ACL, exact deploy, CI/security và authenticated role/
+      reload/API-reconnect/keyboard/Axe acceptance PASS trước `VERIFY -> DONE`.
 
 ## 15. P3-08 File metadata, upload intent và finalize
 

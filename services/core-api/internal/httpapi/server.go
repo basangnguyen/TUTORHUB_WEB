@@ -223,6 +223,18 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 		conversationResponseHeaders(http.HandlerFunc(conversations.resource)),
 	)
 	mux.Handle(
+		conversationMessagesPattern,
+		conversationResponseHeaders(http.HandlerFunc(conversations.messages)),
+	)
+	mux.Handle(
+		conversationMessagePattern,
+		conversationResponseHeaders(http.HandlerFunc(conversations.message)),
+	)
+	mux.Handle(
+		conversationReadPattern,
+		conversationResponseHeaders(http.HandlerFunc(conversations.markRead)),
+	)
+	mux.Handle(
 		classConversationPattern,
 		conversationResponseHeaders(http.HandlerFunc(conversations.createClass)),
 	)

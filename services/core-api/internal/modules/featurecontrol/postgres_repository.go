@@ -390,7 +390,8 @@ func isRateQuota(key QuotaKey) bool {
 	case QuotaInviteCreationsPerHour,
 		QuotaAvailabilityPollCreationsPerHour,
 		QuotaAvailabilityPollCapabilityCreationsPerHour,
-		QuotaStudyMeetingCreationsPerHour:
+		QuotaStudyMeetingCreationsPerHour,
+		QuotaMessageSendsPerHour:
 		return true
 	default:
 		return false
@@ -708,6 +709,12 @@ func readQuotaUsage(
 		query = `SELECT count(*) FROM tutorhub.availability_polls WHERE tenant_id = $1 AND status IN ('draft', 'open', 'closed')`
 	case QuotaActiveStudyMeetings:
 		query = `SELECT count(*) FROM tutorhub.study_meetings WHERE tenant_id = $1 AND status = 'scheduled' AND ends_at > $2`
+	case QuotaMessagesPerTenant:
+		query = `SELECT COALESCE((
+    SELECT message_count
+    FROM tutorhub.tenant_message_usage
+    WHERE tenant_id = $1
+), 0)`
 	case QuotaAvailabilityPollRangeDays,
 		QuotaAvailabilityPollSlots,
 		QuotaAvailabilityPollParticipants:
@@ -715,7 +722,8 @@ func readQuotaUsage(
 	case QuotaInviteCreationsPerHour,
 		QuotaAvailabilityPollCreationsPerHour,
 		QuotaAvailabilityPollCapabilityCreationsPerHour,
-		QuotaStudyMeetingCreationsPerHour:
+		QuotaStudyMeetingCreationsPerHour,
+		QuotaMessageSendsPerHour:
 		windowStart := now.UTC().Truncate(quotaRateWindow)
 		resetAt := windowStart.Add(quotaRateWindow)
 		var used int64

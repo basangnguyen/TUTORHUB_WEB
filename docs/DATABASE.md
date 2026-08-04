@@ -7,9 +7,10 @@ thay đổi schema, migration hoặc repository phải đọc tài liệu này t
 
 - System of record: Neon PostgreSQL.
 - Schema ứng dụng: `tutorhub`.
-- Migration mới nhất trong source: `000024_conversation_core`; disposable Neon đã forward
-  `23 -> 24` và rerun idempotent giữ `24 false` ngày 2026-08-03. Shared Neon staging vẫn
-  ở `23 false`; migration `000024` chưa được áp dụng lên shared staging.
+- Migration mới nhất trong source: `000025_persistent_messages`. P3-06 đã forward cả
+  disposable và shared Neon `23 -> 24`, rerun idempotent giữ `24 false`. P3-07A hiện chỉ
+  có implementation/test local; disposable forward `24 -> 25`, exact message ACL,
+  shared staging và deployment đều `PENDING`.
 - Migration 1-5 đã được chạy và kiểm tra trên Neon; smoke
   `5 false -> rollback 4 false -> migrate 5 false` đạt ngày 2026-07-16.
 - Migration `000006` đến `000013` đều có up/down path. Source và PostgreSQL 17 CI
@@ -40,7 +41,8 @@ thay đổi schema, migration hoặc repository phải đọc tài liệu này t
   và exact runtime ACL; function `SECURITY INVOKER` từng bị blocker `42501` như ADR-0024 ghi.
   Migration forward-only `000023` đã sửa boundary sang hardened `SECURITY DEFINER`; exact
   runtime/maintenance ACL và toàn bộ database gate P3-02D-A đã PASS ở `23 false`. Disposable
-  này sau đó được forward lên `24 false` cho P3-06; shared Neon staging vẫn ở `23 false`.
+  này sau đó được forward lên `24 false` cho P3-06; shared Neon staging cũng đã được
+  forward-only và xác nhận `24 false` trong acceptance P3-06.
 - Phần lớn integration test rollback bằng transaction. Chỉ focused P2-09 suite có
   fixture tự dọn hoàn toàn được chạy trên staging ngày 2026-07-21; các suite concurrency
   có thể để lại audit append-only vẫn chỉ chạy trên database CI tạm thời.
@@ -81,7 +83,7 @@ process không tự chạy migration khi khởi động.
 `tutorhub-outbox-worker` để quan sát trên Neon. Mọi truy vấn mạng/database phải chạy
 ngoài UI thread ở các client native về sau.
 
-## Schema source nền đến phiên bản 24
+## Schema source nền đến phiên bản 25
 
 | Bảng                     | Vai trò                                                                                          |
 | ------------------------ | ------------------------------------------------------------------------------------------------ |
@@ -106,14 +108,17 @@ ngoài UI thread ở các client native về sau.
 | `calendar_display_preferences` | Preference Calendar tenant/user-scoped cho timezone, locale, view, density và optimistic version |
 | `tenant_feature_control_revisions` | Phiên bản optimistic của override feature/quota theo tenant                         |
 | `tenant_feature_overrides` | Override feature typed theo tenant; global disable vẫn có quyền ưu tiên                          |
-| `tenant_quota_overrides` | Override hard limit typed cho member, active class và invitation rate                              |
-| `tenant_quota_windows`   | Bộ đếm fixed-window tenant-scoped cho quota invitation                                              |
+| `tenant_quota_overrides` | Override hard limit typed cho member/class, invitation, Calendar và message storage/send rate       |
+| `tenant_quota_windows`   | Bộ đếm fixed-window tenant-scoped cho invitation, Calendar và message send rate                      |
 | `rate_limit_windows`     | Bộ đếm anonymous shared; lưu purpose và SHA-256 đã domain-separate theo version/purpose/prefix       |
 | `legacy_import_runs`     | Ledger migration-role-only cho checksum, trạng thái và checkpoint fixture V1                         |
 | `legacy_import_run_items` | Outcome/reason code bounded theo record để reconciliation và resume                                  |
 | `legacy_import_mappings` | Mapping bền `(source_system, entity_type, external_id) -> target_id`; không chứa source payload        |
 | `conversations`          | Container direct/class tenant-scoped; canonical direct pair và tối đa một conversation mỗi class     |
 | `conversation_members`   | Hai membership row server-owned cho direct conversation; class membership luôn đọc từ enrollment      |
+| `messages`               | Message plain-text tenant/conversation-scoped, server sequence, idempotency fingerprint và tombstone lifecycle |
+| `tenant_message_usage`   | O(1) committed message/tombstone counter theo tenant để reserve storage quota trong transaction         |
+| `message_receipts`       | Self read marker đơn điệu theo tenant/conversation/user; tham chiếu exact message sequence/ID          |
 
 Ràng buộc quan trọng:
 
@@ -1100,9 +1105,12 @@ TO tutorhub_runtime;
 COMMIT;
 ```
 
-Runtime role không được nhận `UPDATE`, `DELETE`, `TRUNCATE`, `REFERENCES`, `TRIGGER` hoặc
-ownership trên hai bảng này. API chỉ ghi hai `conversation_members` do server resolve;
-request direct chỉ nhận exact target-member email và không nhận participant ID/array.
+Ở gate P3-06/version 24, runtime role không được nhận `UPDATE`, `DELETE`, `TRUNCATE`,
+`REFERENCES`, `TRIGGER` hoặc ownership trên hai bảng này. Sau migration `000025`, chỉ
+`conversations.updated_at` được nhận column-level `UPDATE` như phần kế tiếp; bảng
+`conversation_members` vẫn không có update path. API chỉ ghi hai `conversation_members`
+do server resolve; request direct chỉ nhận exact target-member email và không nhận
+participant ID/array.
 `conversation_members` không phải nguồn authorization: direct access vẫn kiểm tra canonical
 pair trên `conversations`, còn class access luôn lấy từ owner/enrollment authoritative.
 P3-07 không được tin hoặc mở generic mutation cho bảng này nếu chưa giữ đúng invariant
@@ -1111,6 +1119,84 @@ path mới.
 Audit `conversation.created.v1` chỉ append khi insert conversation mới thực sự thắng;
 replay canonical không tạo audit hoặc side effect thứ hai. P3-06 không tạo message,
 outbox delivery, notification hoặc realtime transport.
+
+## Persistent message và read marker 000025
+
+Migration `000025` tạo `messages`, `tenant_message_usage` và `message_receipts`, mở rộng
+quota typed với `messages_per_tenant` cùng `message_sends_per_hour`, rồi revoke `PUBLIC`.
+Message dùng positive sequence cục bộ theo conversation, unique idempotency key theo
+tenant/author, request fingerprint 32 byte và lifecycle `active/deleted`. Delete là column
+update xóa content và giữ tombstone; runtime không có SQL `DELETE`. Read marker tham chiếu
+exact message `(tenant_id, conversation_id, sequence, id)` và chỉ tiến về phía trước.
+Storage capacity reserve/increment `tenant_message_usage` O(1) trong cùng send transaction,
+dưới tenant advisory lock; rollback/replay/conflict không được làm counter tăng.
+
+Migration không hardcode role môi trường. Sau forward, migration owner phải provision
+exact Core API runtime role; thay `tutorhub_runtime` bằng role thật:
+
+```sql
+BEGIN;
+
+GRANT USAGE ON SCHEMA tutorhub TO tutorhub_runtime;
+REVOKE CREATE ON SCHEMA tutorhub FROM tutorhub_runtime;
+
+REVOKE ALL PRIVILEGES ON TABLE
+    tutorhub.conversations,
+    tutorhub.conversation_members,
+    tutorhub.messages,
+    tutorhub.tenant_message_usage,
+    tutorhub.message_receipts
+FROM tutorhub_runtime;
+
+REVOKE ALL PRIVILEGES ON TABLE
+    tutorhub.conversations,
+    tutorhub.conversation_members,
+    tutorhub.messages,
+    tutorhub.tenant_message_usage,
+    tutorhub.message_receipts
+FROM PUBLIC;
+
+GRANT SELECT, INSERT ON TABLE
+    tutorhub.conversations,
+    tutorhub.conversation_members,
+    tutorhub.messages,
+    tutorhub.tenant_message_usage,
+    tutorhub.message_receipts
+TO tutorhub_runtime;
+
+GRANT UPDATE (updated_at)
+ON TABLE tutorhub.conversations
+TO tutorhub_runtime;
+
+GRANT UPDATE (content, state, version, edited_at, deleted_at, updated_at)
+ON TABLE tutorhub.messages
+TO tutorhub_runtime;
+
+GRANT UPDATE (message_count, updated_at)
+ON TABLE tutorhub.tenant_message_usage
+TO tutorhub_runtime;
+
+GRANT UPDATE (last_read_sequence, last_read_message_id, updated_at)
+ON TABLE tutorhub.message_receipts
+TO tutorhub_runtime;
+
+COMMIT;
+```
+
+Không cấp table-level `UPDATE`. Runtime không được `DELETE`, `TRUNCATE`, `REFERENCES`,
+`TRIGGER`, ownership hoặc membership trong migration role. `conversation_members` không
+có column update grant; `request_fingerprint`, author, conversation, sequence, client ID
+và created timestamp đều immutable qua runtime. `tenant_message_usage` chỉ có
+`UPDATE(message_count, updated_at)` cho reservation nội bộ dưới tenant advisory lock;
+không có generic API mutation. Khi remediation một role đã từng được provision khác
+allowlist, phải revoke cả stale column `UPDATE/REFERENCES` trước block trên.
+Exact defensive SQL, zero-row table/column probe và owner preflight nằm tại
+[`P3_07A_STAGING_ACCEPTANCE.md`](P3_07A_STAGING_ACCEPTANCE.md).
+
+P3-07A không tạo audit/outbox/notification event cho mỗi send/read và không lưu message
+body trong audit, outbox, log, metric, error hoặc cursor. Feature `conversations` tắt chỉ
+chặn send/edit/delete mới; committed history, self read marker và identical replay không
+mutation vẫn đọc được. Realtime/delivery tiếp tục thuộc P3-07B.
 
 ## Chạy migration
 
@@ -1139,13 +1225,17 @@ pnpm db:migrate
 pnpm db:version
 ```
 
-Sau khi áp dụng toàn bộ migration trong source hiện tại, kết quả mong đợi là
-`24 false`. Disposable P3-06 đã được xác nhận thực tế ở `24 false` và migrate lặp vẫn giữ
-nguyên; shared Neon staging mới chỉ được xác nhận `23 false`, không được suy diễn kết quả
-disposable thành kết quả shared staging.
+Sau khi áp dụng toàn bộ migration trong source hiện tại, kết quả mục tiêu là `25 false`.
+Disposable và shared Neon P3-06 mới chỉ được xác nhận thực tế ở `24 false`; chưa có
+database nào được ghi nhận là đã forward P3-07A trong tài liệu này. Trước shared staging,
+phải chạy đúng chuỗi disposable forward-only `24 false -> 25 false -> 25 false`, exact
+ACL và focused PostgreSQL gates theo
+[`P3_07A_STAGING_ACCEPTANCE.md`](P3_07A_STAGING_ACCEPTANCE.md).
 Không chạy database rollback thêm cho P3-02D-A. Emergency down `000023` chỉ disable purge
 function; down `000022` mới phá hủy poll/Study Meeting data. Recovery ưu tiên application
 rollback hoặc migration forward mới.
+Không chạy rollback `000025` trong acceptance P3-07A; lỗi sau forward phải được xử lý bằng
+application rollback/fail-closed hoặc một forward migration reviewed.
 
 ## Kiểm thử
 
@@ -1188,9 +1278,19 @@ browser/API và manual NVDA acceptance cũng PASS.
 P3-06 đã forward `23 -> 24` trên disposable mà không rollback `000022/000023`; rerun giữ
 `24 false`. Exact runtime ACL, canonical direct và one-class create dưới concurrency,
 authoritative active membership/enrollment, archived-class read-only, feature-off history,
-cross-tenant concealment và audit-once đều PASS bằng PostgreSQL thật. Shared staging vẫn ở
-`23 false`; phải re-provision ACL và chạy lại acceptance sau forward, không suy diễn từ
-disposable.
+cross-tenant concealment và audit-once đều PASS bằng PostgreSQL thật. Shared staging sau đó
+cũng được forward-only tới `24 false`, re-provision exact ACL và hoàn tất acceptance trên
+exact P3-06 candidate.
+
+P3-07A local hiện có unit/HTTP và integration test cho message idempotency/conflict,
+cross-conversation race, author CAS/tombstone, stable keyset pagination, monotonic self-read,
+bounded unread, direct/class authorization, tenant isolation, quota/rate, exact column ACL
+và audit/outbox privacy; storage gate phải kiểm tra O(1) `tenant_message_usage` reserve,
+rollback và không drift dưới concurrency. Core API `go test ./...` đã PASS từ cache và
+integration-tag đã compile bằng `-run '^$'`; đây chưa phải fresh candidate run hay
+PostgreSQL runtime evidence.
+Disposable forward `24 -> 25`, rerun idempotent, exact ACL và focused database suite đều
+`PENDING`; shared staging/deploy cũng `PENDING` và bị chặn cho tới báo cáo disposable PASS.
 
 Với P2-05, cần kiểm tra riêng migrate 9 -> 10, rollback 10 -> 9, migrate lại 9 -> 10;
 tenant-scoped FK/unique/state constraints; direct enroll và các transition; same-user
@@ -1246,9 +1346,11 @@ của lịch sử append-only và không phải quy trình cleanup cho staging/p
   production data/cohort migration vẫn thuộc discovery/cutover phase sau.
 - P3-03A/P3-04 đã bổ sung migration `000015`/`000016`; P3-02A/P3-02B bổ sung
   `000017`/`000018`/`000019`; P3-02C bổ sung `000020/000021`; P3-02D-A bổ sung
-  `000022/000023`. Disposable và shared Neon staging đã xác nhận `23 false`, exact Core
+  `000022/000023`; P3-06 bổ sung `000024`; P3-07A đang bổ sung `000025` ở local.
+  Disposable và shared Neon staging đã xác nhận `24 false` qua P3-06, exact Core
   API/maintenance ACL và toàn bộ database gate P3-02D-A; authenticated browser/API và
   manual NVDA acceptance cũng PASS, nên task đã `DONE`.
+  Migration/ACL/database/deploy gate của `000025` chưa chạy và không được đánh dấu PASS.
   Worker ACL, durable-host, controlled-canary/crash-reclaim và các gate P3-03/P3-04
   vẫn là gate bên ngoài, hiện được phân loại `DEFERRED/VERIFY` chứ không tự động bỏ qua.
 - P3-02A Calendar shell/read projection, P3-02B recurrence/class-conflict và

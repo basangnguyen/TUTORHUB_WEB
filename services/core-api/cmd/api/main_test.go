@@ -23,6 +23,8 @@ func TestFeatureControlGuardrailsOmitFeaturesThatAreNotForcedOff(t *testing.T) {
 		MaxAvailabilityPollCapabilityCreationsPerHour: 1_000,
 		MaxActiveStudyMeetings:                        200,
 		MaxStudyMeetingCreationsPerHour:               200,
+		MaxMessagesPerTenant:                          10_000_000,
+		MaxMessageSendsPerHour:                        100_000,
 	}
 	guardrails := featureControlGuardrails(configuration)
 
@@ -59,6 +61,8 @@ func TestFeatureControlGuardrailsForceOffClassSessionScheduling(t *testing.T) {
 		MaxAvailabilityPollCapabilityCreationsPerHour: 1_000,
 		MaxActiveStudyMeetings:                        200,
 		MaxStudyMeetingCreationsPerHour:               200,
+		MaxMessagesPerTenant:                          10_000_000,
+		MaxMessageSendsPerHour:                        100_000,
 	})
 
 	if len(guardrails.ForcedOffFeatures) != 1 ||
@@ -88,6 +92,8 @@ func TestFeatureControlGuardrailsForceOffConversations(t *testing.T) {
 		MaxAvailabilityPollCapabilityCreationsPerHour: 1_000,
 		MaxActiveStudyMeetings:                        200,
 		MaxStudyMeetingCreationsPerHour:               200,
+		MaxMessagesPerTenant:                          10_000_000,
+		MaxMessageSendsPerHour:                        100_000,
 	})
 
 	if len(guardrails.ForcedOffFeatures) != 1 ||

@@ -19,7 +19,7 @@ import (
 	"github.com/tutorhub-v2/core-api/internal/policy"
 )
 
-func TestPostgresConversationCoreRuntimeExactACL(t *testing.T) {
+func TestPostgresConversationAndMessageRuntimeExactACL(t *testing.T) {
 	migrationURL := requireConversationEnvironment(t, "DATABASE_MIGRATION_URL")
 	poolURL := requireConversationEnvironment(t, "DATABASE_POOL_URL")
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
@@ -56,9 +56,28 @@ SELECT
 		t.Fatal("conversation runtime schema ACL is not exact")
 	}
 
-	for _, relation := range []string{
-		"tutorhub.conversations",
-		"tutorhub.conversation_members",
+	for _, expectation := range []struct {
+		relation      string
+		updateColumns []string
+	}{
+		{relation: "tutorhub.conversations", updateColumns: []string{"updated_at"}},
+		{relation: "tutorhub.conversation_members"},
+		{
+			relation: "tutorhub.messages",
+			updateColumns: []string{
+				"content", "state", "version", "edited_at", "deleted_at", "updated_at",
+			},
+		},
+		{
+			relation: "tutorhub.message_receipts",
+			updateColumns: []string{
+				"last_read_message_id", "last_read_sequence", "updated_at",
+			},
+		},
+		{
+			relation:      "tutorhub.tenant_message_usage",
+			updateColumns: []string{"message_count", "updated_at"},
+		},
 	} {
 		var selected, inserted, updated, deleted, truncated, referenced, triggered bool
 		var columnSelected, columnInserted, columnUpdated bool
@@ -73,16 +92,19 @@ SELECT
     has_table_privilege(current_user, $1, 'TRIGGER'),
     has_any_column_privilege(current_user, $1, 'SELECT'),
     has_any_column_privilege(current_user, $1, 'INSERT'),
-    has_any_column_privilege(current_user, $1, 'UPDATE')`, relation).Scan(
+    has_any_column_privilege(current_user, $1, 'UPDATE')`, expectation.relation).Scan(
 			&selected, &inserted, &updated, &deleted, &truncated, &referenced, &triggered,
 			&columnSelected, &columnInserted, &columnUpdated,
 		); err != nil {
-			t.Fatalf("inspect conversation runtime ACL for %s: %v", relation, err)
+			t.Fatalf("inspect conversation runtime ACL for %s: %v", expectation.relation, err)
 		}
 		if !selected || !inserted || updated || deleted || truncated || referenced || triggered ||
-			!columnSelected || !columnInserted || columnUpdated {
-			t.Fatalf("conversation runtime ACL mismatch for %s", relation)
+			!columnSelected || !columnInserted || columnUpdated != (len(expectation.updateColumns) > 0) {
+			t.Fatalf("conversation runtime ACL mismatch for %s", expectation.relation)
 		}
+		assertExactRuntimeUpdateColumns(
+			t, ctx, runtimePool, expectation.relation, expectation.updateColumns,
+		)
 	}
 
 	var notSuperuser, noMigrationInheritance, notTableOwner bool
@@ -103,12 +125,68 @@ JOIN pg_roles AS migration ON migration.rolname = $2
 WHERE runtime.rolname = $1`,
 		runtimeRole,
 		migrationRole,
-		[]string{"conversations", "conversation_members"},
+		[]string{
+			"conversations", "conversation_members", "messages",
+			"message_receipts", "tenant_message_usage",
+		},
 	).Scan(&notSuperuser, &noMigrationInheritance, &notTableOwner); err != nil {
 		t.Fatalf("inspect conversation runtime role safety: %v", err)
 	}
 	if !notSuperuser || !noMigrationInheritance || !notTableOwner {
 		t.Fatal("conversation runtime role safety boundary is not exact")
+	}
+}
+
+func assertExactRuntimeUpdateColumns(
+	t *testing.T,
+	ctx context.Context,
+	pool *pgxpool.Pool,
+	relation string,
+	expected []string,
+) {
+	t.Helper()
+	parts := strings.Split(relation, ".")
+	if len(parts) != 2 {
+		t.Fatalf("invalid relation name %q", relation)
+	}
+	rows, err := pool.Query(ctx, `
+SELECT column_name, has_column_privilege(current_user, $1, column_name, 'UPDATE')
+FROM information_schema.columns
+WHERE table_schema = $2 AND table_name = $3
+ORDER BY ordinal_position`, relation, parts[0], parts[1])
+	if err != nil {
+		t.Fatalf("inspect update columns for %s: %v", relation, err)
+	}
+	defer rows.Close()
+	expectedSet := make(map[string]struct{}, len(expected))
+	for _, column := range expected {
+		expectedSet[column] = struct{}{}
+	}
+	seen := make(map[string]struct{}, len(expected))
+	columnCount := 0
+	for rows.Next() {
+		columnCount++
+		var column string
+		var allowed bool
+		if err := rows.Scan(&column, &allowed); err != nil {
+			t.Fatalf("scan update column for %s: %v", relation, err)
+		}
+		_, shouldAllow := expectedSet[column]
+		if allowed != shouldAllow {
+			t.Fatalf(
+				"runtime UPDATE privilege for %s.%s=%t, want %t",
+				relation, column, allowed, shouldAllow,
+			)
+		}
+		if allowed {
+			seen[column] = struct{}{}
+		}
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("iterate update columns for %s: %v", relation, err)
+	}
+	if columnCount == 0 || len(seen) != len(expectedSet) {
+		t.Fatalf("runtime UPDATE column set for %s=%v, want %v", relation, seen, expectedSet)
 	}
 }
 
@@ -317,6 +395,823 @@ VALUES ($1, 'conversations', false, $2, now(), now())`,
 	); !errors.Is(err, featurecontrol.ErrFeatureDisabled) {
 		t.Fatalf("feature-off absent-class create error=%v, want feature disabled", err)
 	}
+}
+
+func TestPostgresPersistentMessagesIdempotencyLifecycleUnreadAuthorizationAndQuota(t *testing.T) {
+	migrationURL := requireConversationEnvironment(t, "DATABASE_MIGRATION_URL")
+	poolURL := requireConversationEnvironment(t, "DATABASE_POOL_URL")
+	ctx, cancel := context.WithTimeout(context.Background(), 240*time.Second)
+	defer cancel()
+	if err := migrationrunner.Up(ctx, migrationURL); err != nil {
+		t.Fatalf("apply persistent message migrations: %v", err)
+	}
+	migrationPool := openConversationPool(t, ctx, migrationURL)
+	defer migrationPool.Close()
+	apiPool := openConversationPool(t, ctx, poolURL)
+	defer apiPool.Close()
+	fixture := seedConversationFixture(t, ctx, migrationPool)
+	service := newConversationIntegrationService(t, apiPool)
+	ownerAccess := integrationAccess(
+		fixture.tenantID, fixture.ownerID, policy.OrganizationRoleTeacher,
+	)
+	studentAccess := integrationAccess(
+		fixture.tenantID, fixture.studentID, policy.OrganizationRoleStudent,
+	)
+	foreignAccess := integrationAccess(
+		fixture.foreignTenantID,
+		fixture.foreignOwnerID,
+		policy.OrganizationRoleTeacher,
+	)
+
+	direct, err := service.CreateDirect(ctx, ownerAccess, fixture.studentEmail)
+	if err != nil {
+		t.Fatalf("create direct conversation for messages: %v", err)
+	}
+	classConversation, err := service.CreateClass(ctx, ownerAccess, fixture.classID)
+	if err != nil {
+		t.Fatalf("create class conversation for messages: %v", err)
+	}
+	var baselineAuditRows, baselineOutboxRows int
+	if err := migrationPool.QueryRow(ctx, `
+SELECT
+    (SELECT count(*) FROM tutorhub.audit_events WHERE tenant_id = $1),
+    (SELECT count(*) FROM tutorhub.outbox_events WHERE tenant_id = $1)`,
+		fixture.tenantID,
+	).Scan(&baselineAuditRows, &baselineOutboxRows); err != nil {
+		t.Fatalf("capture pre-message side-effect baseline: %v", err)
+	}
+
+	clientMessageID := uuid.New()
+	privateContent := "p3-07a-private-" + uuid.NewString()
+	concurrent := runConcurrentMessageSends(t,
+		func() (MessageMutationResult, error) {
+			return service.SendMessage(ctx, ownerAccess, direct.Conversation.ID, SendMessageInput{
+				ClientMessageID: clientMessageID,
+				Content:         privateContent,
+			})
+		},
+		func() (MessageMutationResult, error) {
+			return service.SendMessage(ctx, ownerAccess, direct.Conversation.ID, SendMessageInput{
+				ClientMessageID: clientMessageID,
+				Content:         privateContent,
+			})
+		},
+	)
+	created := 0
+	for index, result := range concurrent {
+		if result.err != nil {
+			t.Fatalf("concurrent message send %d: %v", index, result.err)
+		}
+		if result.result.Created {
+			created++
+		}
+	}
+	if created != 1 || concurrent[0].result.Message.ID != concurrent[1].result.Message.ID ||
+		concurrent[0].result.Message.Sequence != 1 ||
+		concurrent[1].result.Message.Sequence != 1 {
+		t.Fatalf("non-canonical idempotent sends: %+v", concurrent)
+	}
+	ownerMessage := concurrent[0].result.Message
+
+	var directRows int
+	var sendQuotaUsed int64
+	if err := migrationPool.QueryRow(ctx, `
+SELECT
+    (SELECT count(*) FROM tutorhub.messages
+     WHERE tenant_id = $1 AND conversation_id = $2),
+    COALESCE((SELECT sum(used_count) FROM tutorhub.tenant_quota_windows
+              WHERE tenant_id = $1 AND quota_key = 'message_sends_per_hour'), 0)`,
+		fixture.tenantID,
+		direct.Conversation.ID,
+	).Scan(&directRows, &sendQuotaUsed); err != nil {
+		t.Fatalf("inspect idempotent send persistence: %v", err)
+	}
+	if directRows != 1 || sendQuotaUsed != 1 {
+		t.Fatalf("idempotent sends rows=%d quota=%d, want 1/1", directRows, sendQuotaUsed)
+	}
+
+	if _, err := service.SendMessage(ctx, ownerAccess, direct.Conversation.ID, SendMessageInput{
+		ClientMessageID: clientMessageID,
+		Content:         "changed retry payload",
+	}); !errors.Is(err, ErrIdempotencyConflict) {
+		t.Fatalf("changed idempotent payload error=%v, want conflict", err)
+	}
+	if _, err := service.SendMessage(
+		ctx,
+		ownerAccess,
+		classConversation.Conversation.ID,
+		SendMessageInput{ClientMessageID: clientMessageID, Content: privateContent},
+	); !errors.Is(err, ErrIdempotencyConflict) {
+		t.Fatalf("cross-conversation client ID error=%v, want conflict", err)
+	}
+	if err := migrationPool.QueryRow(ctx, `
+SELECT COALESCE(sum(used_count), 0)
+FROM tutorhub.tenant_quota_windows
+WHERE tenant_id = $1 AND quota_key = 'message_sends_per_hour'`,
+		fixture.tenantID,
+	).Scan(&sendQuotaUsed); err != nil {
+		t.Fatalf("inspect quota after conflicts: %v", err)
+	}
+	if sendQuotaUsed != 1 {
+		t.Fatalf("idempotency conflicts consumed quota: used=%d", sendQuotaUsed)
+	}
+
+	studentMessage, err := service.SendMessage(
+		ctx,
+		studentAccess,
+		direct.Conversation.ID,
+		SendMessageInput{ClientMessageID: uuid.New(), Content: "student reply"},
+	)
+	if err != nil {
+		t.Fatalf("send student reply: %v", err)
+	}
+	if !studentMessage.Created || studentMessage.Message.Sequence != 2 {
+		t.Fatalf("unexpected student reply: %+v", studentMessage)
+	}
+	ownerPage, err := service.ListMessages(
+		ctx, ownerAccess, direct.Conversation.ID, MessageListInput{},
+	)
+	if err != nil {
+		t.Fatalf("list owner direct messages: %v", err)
+	}
+	if ownerPage.UnreadCount != 1 || ownerPage.UnreadCountCapped || len(ownerPage.Items) != 2 ||
+		ownerPage.Items[0].Sequence != 2 || ownerPage.Items[1].Sequence != 1 {
+		t.Fatalf("unexpected owner unread/order projection: %+v", ownerPage)
+	}
+	studentPage, err := service.ListMessages(
+		ctx, studentAccess, direct.Conversation.ID, MessageListInput{},
+	)
+	if err != nil {
+		t.Fatalf("list student direct messages: %v", err)
+	}
+	if studentPage.UnreadCount != 1 {
+		t.Fatalf("student unread=%d, want only the owner's message", studentPage.UnreadCount)
+	}
+	newestPage, err := service.ListMessages(
+		ctx,
+		ownerAccess,
+		direct.Conversation.ID,
+		MessageListInput{Limit: 1},
+	)
+	if err != nil {
+		t.Fatalf("list newest message page: %v", err)
+	}
+	if len(newestPage.Items) != 1 || newestPage.Items[0].Sequence != 2 ||
+		newestPage.NextCursor == "" {
+		t.Fatalf("unexpected newest message page: %+v", newestPage)
+	}
+	olderPage, err := service.ListMessages(
+		ctx,
+		ownerAccess,
+		direct.Conversation.ID,
+		MessageListInput{Limit: 1, Cursor: newestPage.NextCursor},
+	)
+	if err != nil {
+		t.Fatalf("list older message page: %v", err)
+	}
+	if len(olderPage.Items) != 1 || olderPage.Items[0].Sequence != 1 ||
+		olderPage.Items[0].ID == newestPage.Items[0].ID || olderPage.NextCursor != "" {
+		t.Fatalf("unstable or duplicate older message page: newest=%+v older=%+v",
+			newestPage, olderPage)
+	}
+
+	readResults := runConcurrentReadMarkers(t,
+		func() (MessageReadState, error) {
+			return service.MarkRead(ctx, ownerAccess, direct.Conversation.ID, ownerMessage.ID)
+		},
+		func() (MessageReadState, error) {
+			return service.MarkRead(
+				ctx, ownerAccess, direct.Conversation.ID, studentMessage.Message.ID,
+			)
+		},
+	)
+	for index, result := range readResults {
+		if result.err != nil {
+			t.Fatalf("concurrent read marker %d: %v", index, result.err)
+		}
+	}
+	ownerPage, err = service.ListMessages(
+		ctx, ownerAccess, direct.Conversation.ID, MessageListInput{},
+	)
+	if err != nil {
+		t.Fatalf("list after concurrent read marker: %v", err)
+	}
+	if ownerPage.ReadState == nil || ownerPage.ReadState.LastReadSequence != 2 ||
+		ownerPage.ReadState.LastReadMessageID != studentMessage.Message.ID ||
+		ownerPage.UnreadCount != 0 {
+		t.Fatalf("read marker moved backward: %+v", ownerPage)
+	}
+	olderState, err := service.MarkRead(
+		ctx, ownerAccess, direct.Conversation.ID, ownerMessage.ID,
+	)
+	if err != nil || olderState.LastReadSequence != 2 {
+		t.Fatalf("older read marker result=%+v error=%v, want sequence 2", olderState, err)
+	}
+
+	if _, err := service.ListMessages(
+		ctx, foreignAccess, direct.Conversation.ID, MessageListInput{},
+	); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("foreign-tenant message list error=%v, want concealed not found", err)
+	}
+	if _, err := service.MarkRead(
+		ctx, foreignAccess, direct.Conversation.ID, studentMessage.Message.ID,
+	); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("foreign-tenant read marker error=%v, want concealed not found", err)
+	}
+
+	if _, err := service.EditMessage(
+		ctx,
+		studentAccess,
+		direct.Conversation.ID,
+		ownerMessage.ID,
+		EditMessageInput{Content: "not mine", ExpectedVersion: 1},
+	); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("non-author edit error=%v, want concealed not found", err)
+	}
+	edited, err := service.EditMessage(
+		ctx,
+		ownerAccess,
+		direct.Conversation.ID,
+		ownerMessage.ID,
+		EditMessageInput{Content: "edited by author", ExpectedVersion: 1},
+	)
+	if err != nil {
+		t.Fatalf("author CAS edit: %v", err)
+	}
+	if edited.Version != 2 || edited.EditedAt == nil || edited.Content == nil ||
+		*edited.Content != "edited by author" {
+		t.Fatalf("unexpected edited message: %+v", edited)
+	}
+	if _, err := service.EditMessage(
+		ctx,
+		ownerAccess,
+		direct.Conversation.ID,
+		ownerMessage.ID,
+		EditMessageInput{Content: "stale", ExpectedVersion: 1},
+	); !errors.Is(err, ErrVersionConflict) {
+		t.Fatalf("stale author edit error=%v, want version conflict", err)
+	}
+	if _, err := service.DeleteMessage(
+		ctx,
+		studentAccess,
+		direct.Conversation.ID,
+		ownerMessage.ID,
+		DeleteMessageInput{ExpectedVersion: 2},
+	); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("non-author delete error=%v, want concealed not found", err)
+	}
+	deleted, err := service.DeleteMessage(
+		ctx,
+		ownerAccess,
+		direct.Conversation.ID,
+		ownerMessage.ID,
+		DeleteMessageInput{ExpectedVersion: 2},
+	)
+	if err != nil {
+		t.Fatalf("author CAS delete: %v", err)
+	}
+	if deleted.State != MessageStateDeleted || deleted.Content != nil ||
+		deleted.Version != 3 || deleted.DeletedAt == nil {
+		t.Fatalf("unexpected message tombstone: %+v", deleted)
+	}
+	repeatedDelete, err := service.DeleteMessage(
+		ctx,
+		ownerAccess,
+		direct.Conversation.ID,
+		ownerMessage.ID,
+		DeleteMessageInput{ExpectedVersion: 1},
+	)
+	if err != nil || repeatedDelete.State != MessageStateDeleted || repeatedDelete.Version != 3 {
+		t.Fatalf("repeated delete result=%+v error=%v", repeatedDelete, err)
+	}
+	if _, err := service.EditMessage(
+		ctx,
+		ownerAccess,
+		direct.Conversation.ID,
+		ownerMessage.ID,
+		EditMessageInput{Content: "restore", ExpectedVersion: 3},
+	); !errors.Is(err, ErrVersionConflict) {
+		t.Fatalf("edit tombstone error=%v, want version conflict", err)
+	}
+	studentPage, err = service.ListMessages(
+		ctx, studentAccess, direct.Conversation.ID, MessageListInput{},
+	)
+	if err != nil {
+		t.Fatalf("list after tombstone: %v", err)
+	}
+	if studentPage.UnreadCount != 0 || len(studentPage.Items) != 2 ||
+		studentPage.Items[1].State != MessageStateDeleted || studentPage.Items[1].Content != nil {
+		t.Fatalf("deleted message leaked into unread/content: %+v", studentPage)
+	}
+
+	var quotaBeforeCrossConversation int64
+	if err := migrationPool.QueryRow(ctx, `
+SELECT COALESCE(sum(used_count), 0)
+FROM tutorhub.tenant_quota_windows
+WHERE tenant_id = $1 AND quota_key = 'message_sends_per_hour'`,
+		fixture.tenantID,
+	).Scan(&quotaBeforeCrossConversation); err != nil {
+		t.Fatalf("read quota before cross-conversation race: %v", err)
+	}
+	crossConversationClientID := uuid.New()
+	crossConversationResults := runConcurrentMessageSends(t,
+		func() (MessageMutationResult, error) {
+			return service.SendMessage(ctx, ownerAccess, direct.Conversation.ID, SendMessageInput{
+				ClientMessageID: crossConversationClientID,
+				Content:         "cross-conversation retry",
+			})
+		},
+		func() (MessageMutationResult, error) {
+			return service.SendMessage(
+				ctx,
+				ownerAccess,
+				classConversation.Conversation.ID,
+				SendMessageInput{
+					ClientMessageID: crossConversationClientID,
+					Content:         "cross-conversation retry",
+				},
+			)
+		},
+	)
+	crossCreated, crossConflicts := 0, 0
+	for index, result := range crossConversationResults {
+		switch {
+		case result.err == nil:
+			if !result.result.Created {
+				t.Fatalf("cross-conversation send %d returned non-created success: %+v", index, result)
+			}
+			crossCreated++
+		case errors.Is(result.err, ErrIdempotencyConflict):
+			crossConflicts++
+		default:
+			t.Fatalf("cross-conversation send %d returned unsafe error: %v", index, result.err)
+		}
+	}
+	var crossConversationRows int
+	var quotaAfterCrossConversation int64
+	if err := migrationPool.QueryRow(ctx, `
+SELECT
+    (SELECT count(*) FROM tutorhub.messages
+     WHERE tenant_id = $1 AND author_user_id = $2 AND client_message_id = $3),
+    COALESCE((SELECT sum(used_count) FROM tutorhub.tenant_quota_windows
+              WHERE tenant_id = $1 AND quota_key = 'message_sends_per_hour'), 0)`,
+		fixture.tenantID,
+		fixture.ownerID,
+		crossConversationClientID,
+	).Scan(&crossConversationRows, &quotaAfterCrossConversation); err != nil {
+		t.Fatalf("inspect cross-conversation idempotency race: %v", err)
+	}
+	if crossCreated != 1 || crossConflicts != 1 || crossConversationRows != 1 ||
+		quotaAfterCrossConversation != quotaBeforeCrossConversation+1 {
+		t.Fatalf(
+			"cross-conversation race created=%d conflicts=%d rows=%d quota=%d/%d",
+			crossCreated, crossConflicts, crossConversationRows,
+			quotaAfterCrossConversation, quotaBeforeCrossConversation,
+		)
+	}
+
+	if _, err := migrationPool.Exec(ctx, `
+UPDATE tutorhub.memberships
+SET status = 'suspended', updated_at = now()
+WHERE tenant_id = $1 AND user_id = $2`, fixture.tenantID, fixture.studentID); err != nil {
+		t.Fatalf("suspend direct participant membership: %v", err)
+	}
+	if _, err := service.ListMessages(
+		ctx, ownerAccess, direct.Conversation.ID, MessageListInput{},
+	); err != nil {
+		t.Fatalf("direct history must remain readable when peer is inactive: %v", err)
+	}
+	if _, err := service.SendMessage(
+		ctx,
+		ownerAccess,
+		direct.Conversation.ID,
+		SendMessageInput{ClientMessageID: uuid.New(), Content: "blocked inactive peer"},
+	); !errors.Is(err, ErrReadOnly) {
+		t.Fatalf("inactive peer send error=%v, want read only", err)
+	}
+	if _, err := migrationPool.Exec(ctx, `
+UPDATE tutorhub.memberships
+SET status = 'active', updated_at = now()
+WHERE tenant_id = $1 AND user_id = $2`, fixture.tenantID, fixture.studentID); err != nil {
+		t.Fatalf("restore direct participant membership: %v", err)
+	}
+
+	classMessage, err := service.SendMessage(
+		ctx,
+		ownerAccess,
+		classConversation.Conversation.ID,
+		SendMessageInput{ClientMessageID: uuid.New(), Content: "class history"},
+	)
+	if err != nil {
+		t.Fatalf("send active class message: %v", err)
+	}
+	if _, err := migrationPool.Exec(ctx, `
+UPDATE tutorhub.class_enrollments
+SET status = 'suspended', suspended_at = now(), left_at = NULL,
+    removed_at = NULL, updated_at = now()
+WHERE tenant_id = $1 AND class_id = $2 AND user_id = $3`,
+		fixture.tenantID, fixture.classID, fixture.studentID,
+	); err != nil {
+		t.Fatalf("suspend class enrollment for messages: %v", err)
+	}
+	if _, err := service.ListMessages(
+		ctx, studentAccess, classConversation.Conversation.ID, MessageListInput{},
+	); !errors.Is(err, ErrAccessDenied) {
+		t.Fatalf("suspended class history error=%v, want access denied", err)
+	}
+	if _, err := service.SendMessage(
+		ctx,
+		studentAccess,
+		classConversation.Conversation.ID,
+		SendMessageInput{ClientMessageID: uuid.New(), Content: "blocked suspended class"},
+	); !errors.Is(err, ErrAccessDenied) {
+		t.Fatalf("suspended class send error=%v, want access denied", err)
+	}
+	if _, err := migrationPool.Exec(ctx, `
+UPDATE tutorhub.class_enrollments
+SET status = 'active', suspended_at = NULL, left_at = NULL,
+    removed_at = NULL, updated_at = now()
+WHERE tenant_id = $1 AND class_id = $2 AND user_id = $3`,
+		fixture.tenantID, fixture.classID, fixture.studentID,
+	); err != nil {
+		t.Fatalf("restore class enrollment for messages: %v", err)
+	}
+	if _, err := migrationPool.Exec(ctx, `
+UPDATE tutorhub.classes
+SET archived_from_status = status, status = 'archived', archived_at = now(),
+    version = version + 1, updated_at = now()
+WHERE tenant_id = $1 AND id = $2`, fixture.tenantID, fixture.classID); err != nil {
+		t.Fatalf("archive class for messages: %v", err)
+	}
+	if _, err := service.ListMessages(
+		ctx, ownerAccess, classConversation.Conversation.ID, MessageListInput{},
+	); err != nil {
+		t.Fatalf("archived class history must remain readable: %v", err)
+	}
+	if _, err := service.MarkRead(
+		ctx,
+		ownerAccess,
+		classConversation.Conversation.ID,
+		classMessage.Message.ID,
+	); err != nil {
+		t.Fatalf("archived class read marker must remain writable: %v", err)
+	}
+	if _, err := service.SendMessage(
+		ctx,
+		ownerAccess,
+		classConversation.Conversation.ID,
+		SendMessageInput{ClientMessageID: uuid.New(), Content: "blocked archive"},
+	); !errors.Is(err, ErrReadOnly) {
+		t.Fatalf("archived class send error=%v, want read only", err)
+	}
+	if _, err := service.EditMessage(
+		ctx,
+		ownerAccess,
+		classConversation.Conversation.ID,
+		classMessage.Message.ID,
+		EditMessageInput{Content: "blocked archive edit", ExpectedVersion: 1},
+	); !errors.Is(err, ErrReadOnly) {
+		t.Fatalf("archived class edit error=%v, want read only", err)
+	}
+
+	var messageCount int64
+	if err := migrationPool.QueryRow(
+		ctx, `SELECT count(*) FROM tutorhub.messages WHERE tenant_id = $1`, fixture.tenantID,
+	).Scan(&messageCount); err != nil {
+		t.Fatalf("count tenant messages for storage quota: %v", err)
+	}
+	var reservedMessageCount int64
+	if err := migrationPool.QueryRow(
+		ctx,
+		`SELECT message_count FROM tutorhub.tenant_message_usage WHERE tenant_id = $1`,
+		fixture.tenantID,
+	).Scan(&reservedMessageCount); err != nil {
+		t.Fatalf("read O(1) tenant message usage: %v", err)
+	}
+	if reservedMessageCount != messageCount {
+		t.Fatalf(
+			"tenant message usage=%d, want committed message count=%d",
+			reservedMessageCount,
+			messageCount,
+		)
+	}
+	if _, err := migrationPool.Exec(ctx, `
+INSERT INTO tutorhub.tenant_quota_overrides (
+    tenant_id, quota_key, limit_value, updated_by, created_at, updated_at
+)
+VALUES ($1, 'messages_per_tenant', $2, $3, now(), now())
+ON CONFLICT (tenant_id, quota_key)
+DO UPDATE SET limit_value = EXCLUDED.limit_value,
+              updated_by = EXCLUDED.updated_by,
+              updated_at = EXCLUDED.updated_at`,
+		fixture.tenantID, messageCount, fixture.ownerID,
+	); err != nil {
+		t.Fatalf("set message storage quota: %v", err)
+	}
+	if _, err := service.SendMessage(
+		ctx,
+		ownerAccess,
+		direct.Conversation.ID,
+		SendMessageInput{ClientMessageID: uuid.New(), Content: "over storage quota"},
+	); !errors.Is(err, featurecontrol.ErrQuotaExceeded) {
+		t.Fatalf("storage quota error=%v, want quota exceeded", err)
+	}
+	if _, err := migrationPool.Exec(ctx, `
+UPDATE tutorhub.tenant_quota_overrides
+SET limit_value = $2, updated_at = now()
+WHERE tenant_id = $1 AND quota_key = 'messages_per_tenant'`,
+		fixture.tenantID, messageCount+100,
+	); err != nil {
+		t.Fatalf("raise message storage quota: %v", err)
+	}
+	if err := migrationPool.QueryRow(ctx, `
+SELECT COALESCE(sum(used_count), 0)
+FROM tutorhub.tenant_quota_windows
+WHERE tenant_id = $1 AND quota_key = 'message_sends_per_hour'`,
+		fixture.tenantID,
+	).Scan(&sendQuotaUsed); err != nil {
+		t.Fatalf("read current message send quota usage: %v", err)
+	}
+	if sendQuotaUsed < 1 {
+		t.Fatalf("message send quota usage=%d, want positive", sendQuotaUsed)
+	}
+	if _, err := migrationPool.Exec(ctx, `
+INSERT INTO tutorhub.tenant_quota_overrides (
+    tenant_id, quota_key, limit_value, updated_by, created_at, updated_at
+)
+VALUES ($1, 'message_sends_per_hour', $2, $3, now(), now())
+ON CONFLICT (tenant_id, quota_key)
+DO UPDATE SET limit_value = EXCLUDED.limit_value,
+              updated_by = EXCLUDED.updated_by,
+              updated_at = EXCLUDED.updated_at`,
+		fixture.tenantID, sendQuotaUsed, fixture.ownerID,
+	); err != nil {
+		t.Fatalf("set hourly message quota: %v", err)
+	}
+	_, err = service.SendMessage(
+		ctx,
+		ownerAccess,
+		direct.Conversation.ID,
+		SendMessageInput{ClientMessageID: uuid.New(), Content: "over hourly quota"},
+	)
+	var quotaFailure *featurecontrol.QuotaExceededError
+	if !errors.As(err, &quotaFailure) || quotaFailure.RetryAfter <= 0 ||
+		quotaFailure.Quota != featurecontrol.QuotaMessageSendsPerHour {
+		t.Fatalf("hourly quota error=%v, want bounded retry metadata", err)
+	}
+
+	replayed, err := service.SendMessage(
+		ctx,
+		ownerAccess,
+		direct.Conversation.ID,
+		SendMessageInput{ClientMessageID: clientMessageID, Content: privateContent},
+	)
+	if err != nil || replayed.Created || replayed.Message.ID != ownerMessage.ID {
+		t.Fatalf("quota-exhausted replay result=%+v error=%v", replayed, err)
+	}
+
+	if _, err := migrationPool.Exec(ctx, `
+INSERT INTO tutorhub.tenant_feature_overrides (
+    tenant_id, feature_key, enabled, updated_by, created_at, updated_at
+)
+VALUES ($1, 'conversations', false, $2, now(), now())
+ON CONFLICT (tenant_id, feature_key)
+DO UPDATE SET enabled = EXCLUDED.enabled,
+              updated_by = EXCLUDED.updated_by,
+              updated_at = EXCLUDED.updated_at`, fixture.tenantID, fixture.ownerID); err != nil {
+		t.Fatalf("disable conversations for message replay: %v", err)
+	}
+	replayed, err = service.SendMessage(
+		ctx,
+		ownerAccess,
+		direct.Conversation.ID,
+		SendMessageInput{ClientMessageID: clientMessageID, Content: privateContent},
+	)
+	if err != nil || replayed.Created || replayed.Message.ID != ownerMessage.ID {
+		t.Fatalf("feature-off replay result=%+v error=%v", replayed, err)
+	}
+	if _, err := service.SendMessage(
+		ctx,
+		ownerAccess,
+		direct.Conversation.ID,
+		SendMessageInput{ClientMessageID: uuid.New(), Content: "blocked feature"},
+	); !errors.Is(err, featurecontrol.ErrFeatureDisabled) {
+		t.Fatalf("feature-off new send error=%v, want feature disabled", err)
+	}
+	if _, err := service.ListMessages(
+		ctx, ownerAccess, direct.Conversation.ID, MessageListInput{},
+	); err != nil {
+		t.Fatalf("feature-off history read: %v", err)
+	}
+	if _, err := service.MarkRead(
+		ctx, ownerAccess, direct.Conversation.ID, studentMessage.Message.ID,
+	); err != nil {
+		t.Fatalf("feature-off read marker: %v", err)
+	}
+	var auditRows, outboxRows int
+	var auditContainsContent, outboxContainsContent bool
+	if err := migrationPool.QueryRow(ctx, `
+SELECT
+    (SELECT count(*) FROM tutorhub.audit_events WHERE tenant_id = $1),
+    (SELECT count(*) FROM tutorhub.outbox_events WHERE tenant_id = $1),
+    EXISTS (
+        SELECT 1 FROM tutorhub.audit_events
+        WHERE tenant_id = $1 AND metadata::text LIKE '%' || $2 || '%'
+    ),
+    EXISTS (
+        SELECT 1 FROM tutorhub.outbox_events
+        WHERE tenant_id = $1 AND payload::text LIKE '%' || $2 || '%'
+    )`, fixture.tenantID, privateContent).Scan(
+		&auditRows, &outboxRows, &auditContainsContent, &outboxContainsContent,
+	); err != nil {
+		t.Fatalf("inspect message audit/outbox privacy boundary: %v", err)
+	}
+	if auditRows != baselineAuditRows || outboxRows != baselineOutboxRows ||
+		auditContainsContent || outboxContainsContent {
+		t.Fatalf(
+			"message side-effect/privacy boundary changed: audit=%d/%d outbox=%d/%d content=%t/%t",
+			auditRows, baselineAuditRows, outboxRows, baselineOutboxRows,
+			auditContainsContent, outboxContainsContent,
+		)
+	}
+}
+
+func TestPostgresPersistentMessageActorRateLimitIsTransactional(t *testing.T) {
+	migrationURL := requireConversationEnvironment(t, "DATABASE_MIGRATION_URL")
+	poolURL := requireConversationEnvironment(t, "DATABASE_POOL_URL")
+	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
+	defer cancel()
+	if err := migrationrunner.Up(ctx, migrationURL); err != nil {
+		t.Fatalf("apply persistent message rate migrations: %v", err)
+	}
+	migrationPool := openConversationPool(t, ctx, migrationURL)
+	defer migrationPool.Close()
+	apiPool := openConversationPool(t, ctx, poolURL)
+	defer apiPool.Close()
+	fixture := seedConversationFixture(t, ctx, migrationPool)
+	service := newConversationIntegrationService(t, apiPool)
+	ownerAccess := integrationAccess(
+		fixture.tenantID, fixture.ownerID, policy.OrganizationRoleTeacher,
+	)
+	direct, err := service.CreateDirect(ctx, ownerAccess, fixture.studentEmail)
+	if err != nil {
+		t.Fatalf("create actor-rate direct conversation: %v", err)
+	}
+	if _, err := migrationPool.Exec(ctx, `
+INSERT INTO tutorhub.messages (
+    id, tenant_id, conversation_id, author_user_id, client_message_id,
+    sequence, request_fingerprint, content, state, version, created_at, updated_at
+)
+SELECT
+    gen_random_uuid(), $1, $2, $3, gen_random_uuid(), series.sequence,
+    decode(repeat('00', 32), 'hex'), 'rate seed ' || series.sequence,
+    'active', 1, statement_timestamp(), statement_timestamp()
+FROM generate_series(1, $4) AS series(sequence)`,
+		fixture.tenantID,
+		direct.Conversation.ID,
+		fixture.ownerID,
+		actorMessageRateLimit,
+	); err != nil {
+		t.Fatalf("seed actor-rate messages: %v", err)
+	}
+	if _, err := migrationPool.Exec(ctx, `
+INSERT INTO tutorhub.messages (
+    id, tenant_id, conversation_id, author_user_id, client_message_id,
+    sequence, request_fingerprint, content, state, version, created_at, updated_at
+)
+SELECT
+    gen_random_uuid(), $1, $2, $3, gen_random_uuid(),
+    $4 + series.sequence,
+    decode(repeat('00', 32), 'hex'), 'unread seed ' || series.sequence,
+    'active', 1, statement_timestamp(), statement_timestamp()
+FROM generate_series(1, $5) AS series(sequence)`,
+		fixture.tenantID,
+		direct.Conversation.ID,
+		fixture.studentID,
+		actorMessageRateLimit,
+		maximumUnreadCount+1,
+	); err != nil {
+		t.Fatalf("seed capped unread messages: %v", err)
+	}
+	unreadPage, err := service.ListMessages(
+		ctx, ownerAccess, direct.Conversation.ID, MessageListInput{Limit: 1},
+	)
+	if err != nil {
+		t.Fatalf("list capped unread messages: %v", err)
+	}
+	if unreadPage.UnreadCount != maximumUnreadCount || !unreadPage.UnreadCountCapped {
+		t.Fatalf("unread cap projection=%+v, want %d capped", unreadPage, maximumUnreadCount)
+	}
+
+	_, err = service.SendMessage(
+		ctx,
+		ownerAccess,
+		direct.Conversation.ID,
+		SendMessageInput{ClientMessageID: uuid.New(), Content: "rate limited"},
+	)
+	var quotaFailure *featurecontrol.QuotaExceededError
+	if !errors.As(err, &quotaFailure) || quotaFailure.RetryAfter <= 0 ||
+		quotaFailure.Quota != featurecontrol.QuotaMessageSendsPerHour ||
+		quotaFailure.Limit != actorMessageRateLimit {
+		t.Fatalf("actor rate error=%v, want bounded 60/minute failure", err)
+	}
+	var messageCount, quotaWindows int
+	if err := migrationPool.QueryRow(ctx, `
+SELECT
+    (SELECT count(*) FROM tutorhub.messages
+     WHERE tenant_id = $1 AND conversation_id = $2),
+    (SELECT count(*) FROM tutorhub.tenant_quota_windows
+     WHERE tenant_id = $1 AND quota_key = 'message_sends_per_hour')`,
+		fixture.tenantID,
+		direct.Conversation.ID,
+	).Scan(&messageCount, &quotaWindows); err != nil {
+		t.Fatalf("inspect actor rate rollback: %v", err)
+	}
+	if messageCount != actorMessageRateLimit+maximumUnreadCount+1 || quotaWindows != 0 {
+		t.Fatalf(
+			"actor rate failure committed side effects: messages=%d quota_windows=%d",
+			messageCount, quotaWindows,
+		)
+	}
+}
+
+func newConversationIntegrationService(
+	t *testing.T,
+	pool *pgxpool.Pool,
+) *Service {
+	t.Helper()
+	authorizer := policy.NewEngine()
+	controls, err := featurecontrol.NewPostgresRepository(
+		pool, 20*time.Second, authorizer, featurecontrol.NewDefaultCatalog(),
+	)
+	if err != nil {
+		t.Fatalf("create conversation feature enforcer: %v", err)
+	}
+	repository, err := NewPostgresRepository(
+		pool, 20*time.Second, authorizer, controls,
+	)
+	if err != nil {
+		t.Fatalf("create conversation repository: %v", err)
+	}
+	service, err := NewService(repository)
+	if err != nil {
+		t.Fatalf("create conversation service: %v", err)
+	}
+	return service
+}
+
+type integrationMessageResult struct {
+	result MessageMutationResult
+	err    error
+}
+
+func runConcurrentMessageSends(
+	t *testing.T,
+	left func() (MessageMutationResult, error),
+	right func() (MessageMutationResult, error),
+) []integrationMessageResult {
+	t.Helper()
+	start := make(chan struct{})
+	results := make([]integrationMessageResult, 2)
+	var wait sync.WaitGroup
+	wait.Add(2)
+	for index, operation := range []func() (MessageMutationResult, error){left, right} {
+		go func(index int, operation func() (MessageMutationResult, error)) {
+			defer wait.Done()
+			<-start
+			results[index].result, results[index].err = operation()
+		}(index, operation)
+	}
+	close(start)
+	wait.Wait()
+	return results
+}
+
+type integrationReadResult struct {
+	state MessageReadState
+	err   error
+}
+
+func runConcurrentReadMarkers(
+	t *testing.T,
+	left func() (MessageReadState, error),
+	right func() (MessageReadState, error),
+) []integrationReadResult {
+	t.Helper()
+	start := make(chan struct{})
+	results := make([]integrationReadResult, 2)
+	var wait sync.WaitGroup
+	wait.Add(2)
+	for index, operation := range []func() (MessageReadState, error){left, right} {
+		go func(index int, operation func() (MessageReadState, error)) {
+			defer wait.Done()
+			<-start
+			results[index].state, results[index].err = operation()
+		}(index, operation)
+	}
+	close(start)
+	wait.Wait()
+	return results
 }
 
 type integrationCreateResult struct {

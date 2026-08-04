@@ -65,6 +65,8 @@ type tenantQuotaCapabilitiesResponse struct {
 	AvailabilityPollCapabilityCreationsPerHour quotaCapabilityResponse `json:"availability_poll_capability_creations_per_hour"`
 	ActiveStudyMeetings                        quotaCapabilityResponse `json:"active_study_meetings"`
 	StudyMeetingCreationsPerHour               quotaCapabilityResponse `json:"study_meeting_creations_per_hour"`
+	MessagesPerTenant                          quotaCapabilityResponse `json:"messages_per_tenant"`
+	MessageSendsPerHour                        quotaCapabilityResponse `json:"message_sends_per_hour"`
 }
 
 type tenantOperationCapabilitiesResponse struct {
@@ -120,6 +122,8 @@ type updateTenantQuotaControlValuesRequest struct {
 	AvailabilityPollCapabilityCreationsPerHour *int64 `json:"availability_poll_capability_creations_per_hour"`
 	ActiveStudyMeetings                        *int64 `json:"active_study_meetings"`
 	StudyMeetingCreationsPerHour               *int64 `json:"study_meeting_creations_per_hour"`
+	MessagesPerTenant                          *int64 `json:"messages_per_tenant"`
+	MessageSendsPerHour                        *int64 `json:"message_sends_per_hour"`
 }
 
 func (request updateTenantFeatureControlsRequest) complete() bool {
@@ -142,7 +146,9 @@ func (request updateTenantFeatureControlsRequest) complete() bool {
 		request.Quotas.AvailabilityPollCreationsPerHour != nil &&
 		request.Quotas.AvailabilityPollCapabilityCreationsPerHour != nil &&
 		request.Quotas.ActiveStudyMeetings != nil &&
-		request.Quotas.StudyMeetingCreationsPerHour != nil
+		request.Quotas.StudyMeetingCreationsPerHour != nil &&
+		request.Quotas.MessagesPerTenant != nil &&
+		request.Quotas.MessageSendsPerHour != nil
 }
 
 func newFeatureControlHandlers(
@@ -241,6 +247,8 @@ func (handlers featureControlHandlers) update(w http.ResponseWriter, r *http.Req
 				{Key: featurecontrol.QuotaAvailabilityPollCapabilityCreationsPerHour, Limit: *request.Quotas.AvailabilityPollCapabilityCreationsPerHour},
 				{Key: featurecontrol.QuotaActiveStudyMeetings, Limit: *request.Quotas.ActiveStudyMeetings},
 				{Key: featurecontrol.QuotaStudyMeetingCreationsPerHour, Limit: *request.Quotas.StudyMeetingCreationsPerHour},
+				{Key: featurecontrol.QuotaMessagesPerTenant, Limit: *request.Quotas.MessagesPerTenant},
+				{Key: featurecontrol.QuotaMessageSendsPerHour, Limit: *request.Quotas.MessageSendsPerHour},
 			},
 		},
 	)
@@ -389,10 +397,12 @@ func mapTenantCapabilities(
 	pollCapabilitiesQuota, pollCapabilitiesOK := quotas[featurecontrol.QuotaAvailabilityPollCapabilityCreationsPerHour]
 	activeStudyMeetingsQuota, activeStudyMeetingsOK := quotas[featurecontrol.QuotaActiveStudyMeetings]
 	studyMeetingCreationsQuota, studyMeetingCreationsOK := quotas[featurecontrol.QuotaStudyMeetingCreationsPerHour]
+	messagesQuota, messagesOK := quotas[featurecontrol.QuotaMessagesPerTenant]
+	messageSendsQuota, messageSendsOK := quotas[featurecontrol.QuotaMessageSendsPerHour]
 	if !membershipOK || !classOK || !inviteOK || !sessionOK || !recurrenceOK || !notificationOK ||
 		!availabilityPollOK || !conversationOK || !membersOK || !classesOK || !invitesOK || !activePollsOK ||
 		!pollRangeOK || !pollSlotsOK || !pollParticipantsOK || !pollCreationsOK || !pollCapabilitiesOK ||
-		!activeStudyMeetingsOK || !studyMeetingCreationsOK {
+		!activeStudyMeetingsOK || !studyMeetingCreationsOK || !messagesOK || !messageSendsOK {
 		return tenantCapabilitiesResponse{}, errors.New("feature control snapshot is incomplete")
 	}
 	response := tenantCapabilitiesResponse{
@@ -421,6 +431,8 @@ func mapTenantCapabilities(
 			AvailabilityPollCapabilityCreationsPerHour: mapQuotaCapability(pollCapabilitiesQuota, capabilities.AllowedAction.ManageControls),
 			ActiveStudyMeetings:                        mapQuotaCapability(activeStudyMeetingsQuota, capabilities.AllowedAction.ManageControls),
 			StudyMeetingCreationsPerHour:               mapQuotaCapability(studyMeetingCreationsQuota, capabilities.AllowedAction.ManageControls),
+			MessagesPerTenant:                          mapQuotaCapability(messagesQuota, capabilities.AllowedAction.ManageControls),
+			MessageSendsPerHour:                        mapQuotaCapability(messageSendsQuota, capabilities.AllowedAction.ManageControls),
 		},
 	}
 	response.Operations = tenantOperationCapabilitiesResponse{

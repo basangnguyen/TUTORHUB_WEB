@@ -46,6 +46,8 @@ const conversation: Conversation = {
   title: "Cơ sở An toàn thông tin",
   participants: [],
   viewer_access: { can_post_messages: true },
+  unread_count: 0,
+  unread_count_capped: false,
   created_at: "2026-08-03T09:00:00Z",
   updated_at: "2026-08-03T09:00:00Z",
 };

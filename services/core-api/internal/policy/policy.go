@@ -33,6 +33,7 @@ const (
 	PermissionClassTransferOwner             Permission = "class.transfer_ownership"
 	PermissionClassView                      Permission = "class.view"
 	PermissionConversationCreateDirect       Permission = "conversation.create_direct"
+	PermissionMessageWriteDirect             Permission = "message.write_direct"
 	PermissionAvailabilityPollCreate         Permission = "availability.poll.create"
 	PermissionAvailabilityPollManageOwn      Permission = "availability.poll.manage_own"
 	PermissionAvailabilityPollPublishToClass Permission = "availability.poll.publish_to_class"
@@ -63,6 +64,7 @@ const (
 	ActionClassTransferOwnership         Action = Action(PermissionClassTransferOwner)
 	ActionClassView                      Action = Action(PermissionClassView)
 	ActionConversationCreateDirect       Action = Action(PermissionConversationCreateDirect)
+	ActionMessageWriteDirect             Action = Action(PermissionMessageWriteDirect)
 	ActionAvailabilityPollCreate         Action = Action(PermissionAvailabilityPollCreate)
 	ActionAvailabilityPollManageOwn      Action = Action(PermissionAvailabilityPollManageOwn)
 	ActionAvailabilityPollPublishToClass Action = Action(PermissionAvailabilityPollPublishToClass)
@@ -190,6 +192,7 @@ var permissionOrder = []Permission{
 	PermissionClassTransferOwner,
 	PermissionClassView,
 	PermissionConversationCreateDirect,
+	PermissionMessageWriteDirect,
 	PermissionAvailabilityPollCreate,
 	PermissionAvailabilityPollManageOwn,
 	PermissionAvailabilityPollPublishToClass,
@@ -215,6 +218,7 @@ var organizationPermissions = map[OrganizationRole][]Permission{
 		PermissionClassUpdate,
 		PermissionClassView,
 		PermissionConversationCreateDirect,
+		PermissionMessageWriteDirect,
 		PermissionAvailabilityPollCreate,
 		PermissionAvailabilityPollManageOwn,
 		PermissionAvailabilityPollPublishToClass,
@@ -232,6 +236,7 @@ var organizationPermissions = map[OrganizationRole][]Permission{
 	OrganizationRoleStudent: {
 		PermissionTenantView,
 		PermissionConversationCreateDirect,
+		PermissionMessageWriteDirect,
 		PermissionAvailabilityPollCreate,
 		PermissionAvailabilityPollManageOwn,
 		PermissionStudyMeetingScheduleOwn,
@@ -239,6 +244,7 @@ var organizationPermissions = map[OrganizationRole][]Permission{
 	OrganizationRoleGuest: {
 		PermissionTenantView,
 		PermissionConversationCreateDirect,
+		PermissionMessageWriteDirect,
 		PermissionAvailabilityPollCreate,
 		PermissionAvailabilityPollManageOwn,
 		PermissionStudyMeetingScheduleOwn,
@@ -514,7 +520,8 @@ func actionRequiresClass(action Action) bool {
 	switch action {
 	case ActionTenantView, ActionTenantManage, ActionTenantManageMembers,
 		ActionTenantManageFeatures,
-		ActionClassCreate, ActionClassView, ActionConversationCreateDirect, ActionAuditView,
+		ActionClassCreate, ActionClassView, ActionConversationCreateDirect,
+		ActionMessageWriteDirect, ActionAuditView,
 		ActionAvailabilityPollCreate, ActionAvailabilityPollManageOwn,
 		ActionStudyMeetingScheduleOwn:
 		return false

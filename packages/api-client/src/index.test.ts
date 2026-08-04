@@ -873,6 +873,17 @@ describe("getHealth", () => {
           used: 2,
           remaining: 18,
         },
+        messages_per_tenant: {
+          limit: 100000,
+          used: 12,
+          remaining: 99988,
+        },
+        message_sends_per_hour: {
+          limit: 5000,
+          used: 8,
+          remaining: 4992,
+          reset_at: "2026-07-20T12:00:00Z",
+        },
       },
       operations: {
         create_membership_invitation: {
@@ -940,6 +951,8 @@ describe("getHealth", () => {
         availability_poll_creations_per_hour: 30,
         availability_poll_capability_creations_per_hour: 80,
         study_meeting_creations_per_hour: 30,
+        messages_per_tenant: 200000,
+        message_sends_per_hour: 6000,
       },
     };
     const updatedCapabilities: TenantCapabilities = {

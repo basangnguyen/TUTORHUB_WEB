@@ -44,6 +44,19 @@ export type Conversation = components["schemas"]["Conversation"];
 export type ConversationPage = components["schemas"]["ConversationPage"];
 export type CreateDirectConversationRequest =
   components["schemas"]["CreateDirectConversationRequest"];
+export type MessageState = components["schemas"]["MessageState"];
+export type MessageAuthor = components["schemas"]["MessageAuthor"];
+export type ActiveMessage = components["schemas"]["ActiveMessage"];
+export type DeletedMessage = components["schemas"]["DeletedMessage"];
+export type Message = components["schemas"]["Message"];
+export type MessageReadState = components["schemas"]["MessageReadState"];
+export type MessagePage = components["schemas"]["MessagePage"];
+export type SendMessageRequest = components["schemas"]["SendMessageRequest"];
+export type EditMessageRequest = components["schemas"]["EditMessageRequest"];
+export type DeleteMessageRequest =
+  components["schemas"]["DeleteMessageRequest"];
+export type MarkConversationReadRequest =
+  components["schemas"]["MarkConversationReadRequest"];
 export type Notification = components["schemas"]["Notification"];
 export type NotificationPage = components["schemas"]["NotificationPage"];
 export type NotificationUnreadCount =
@@ -360,6 +373,10 @@ export interface ListConversationsInput {
   kind?: ConversationKind;
   limit?: number;
 }
+export interface ListConversationMessagesInput {
+  cursor?: string;
+  limit?: number;
+}
 export interface ListCalendarItemsInput {
   from: string;
   to: string;
@@ -391,14 +408,16 @@ export type Problem = components["schemas"]["Problem"];
 export class APIRequestError extends Error {
   readonly status: number;
   readonly problem?: Problem;
+  readonly retryAfterSeconds?: number;
 
-  constructor(status: number, problem?: Problem) {
+  constructor(status: number, problem?: Problem, retryAfterSeconds?: number) {
     super(
       problem?.detail ?? problem?.title ?? `Core API phản hồi HTTP ${status}.`,
     );
     this.name = "APIRequestError";
     this.status = status;
     this.problem = problem;
+    this.retryAfterSeconds = retryAfterSeconds;
   }
 }
 
@@ -448,6 +467,7 @@ export async function getHealth(
     throw new APIRequestError(
       response.status,
       isProblem(error) ? error : undefined,
+      retryAfterSeconds(response),
     );
   }
 
@@ -570,6 +590,7 @@ export async function unlinkIdentity(
     throw new APIRequestError(
       response.status,
       isProblem(error) ? error : undefined,
+      retryAfterSeconds(response),
     );
   }
 }
@@ -817,6 +838,147 @@ export async function ensureClassConversation(
 
   return requireData<Conversation>(
     data as Conversation | undefined,
+    error,
+    response,
+  );
+}
+
+export async function listConversationMessages(
+  tenantID: string,
+  conversationID: string,
+  input: ListConversationMessagesInput = {},
+  options: APIRequestOptions = {},
+): Promise<MessagePage> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).GET(
+    "/api/v1/conversations/{conversation_id}/messages",
+    {
+      params: {
+        path: { conversation_id: conversationID },
+        header: { "X-TutorHub-Expected-Tenant-ID": tenantID },
+        query: input,
+      },
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<MessagePage>(
+    data as MessagePage | undefined,
+    error,
+    response,
+  );
+}
+
+export async function sendConversationMessage(
+  tenantID: string,
+  conversationID: string,
+  input: SendMessageRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<Message> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/conversations/{conversation_id}/messages",
+    {
+      params: {
+        path: { conversation_id: conversationID },
+        header: {
+          "X-CSRF-Token": csrfToken,
+          "X-TutorHub-Expected-Tenant-ID": tenantID,
+        },
+      },
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<Message>(data as Message | undefined, error, response);
+}
+
+export async function editConversationMessage(
+  tenantID: string,
+  conversationID: string,
+  messageID: string,
+  input: EditMessageRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<Message> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).PATCH(
+    "/api/v1/conversations/{conversation_id}/messages/{message_id}",
+    {
+      params: {
+        path: { conversation_id: conversationID, message_id: messageID },
+        header: {
+          "X-CSRF-Token": csrfToken,
+          "X-TutorHub-Expected-Tenant-ID": tenantID,
+        },
+      },
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<Message>(data as Message | undefined, error, response);
+}
+
+export async function deleteConversationMessage(
+  tenantID: string,
+  conversationID: string,
+  messageID: string,
+  input: DeleteMessageRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<Message> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).DELETE(
+    "/api/v1/conversations/{conversation_id}/messages/{message_id}",
+    {
+      params: {
+        path: { conversation_id: conversationID, message_id: messageID },
+        header: {
+          "X-CSRF-Token": csrfToken,
+          "X-TutorHub-Expected-Tenant-ID": tenantID,
+        },
+      },
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<Message>(data as Message | undefined, error, response);
+}
+
+export async function markConversationRead(
+  tenantID: string,
+  conversationID: string,
+  input: MarkConversationReadRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<MessageReadState> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/conversations/{conversation_id}/read",
+    {
+      params: {
+        path: { conversation_id: conversationID },
+        header: {
+          "X-CSRF-Token": csrfToken,
+          "X-TutorHub-Expected-Tenant-ID": tenantID,
+        },
+      },
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<MessageReadState>(
+    data as MessageReadState | undefined,
     error,
     response,
   );
@@ -3082,6 +3244,7 @@ export async function recordClassMediaEvent(
     throw new APIRequestError(
       response.status,
       isProblem(error) ? error : undefined,
+      retryAfterSeconds(response),
     );
   }
 }
@@ -3095,6 +3258,7 @@ function requireData<T>(
     throw new APIRequestError(
       response.status,
       isProblem(error) ? error : undefined,
+      retryAfterSeconds(response),
     );
   }
 
@@ -3105,6 +3269,16 @@ function requireTenantScope(tenantID: string): void {
   if (tenantID.trim() === "") {
     throw new TypeError("An active tenant ID is required.");
   }
+}
+
+function retryAfterSeconds(response: Response): number | undefined {
+  const value = response.headers.get("Retry-After")?.trim();
+  if (value === undefined || !/^\d+$/.test(value)) {
+    return undefined;
+  }
+
+  const seconds = Number(value);
+  return Number.isSafeInteger(seconds) && seconds >= 1 ? seconds : undefined;
 }
 
 function isProblem(value: unknown): value is Problem {

@@ -82,7 +82,9 @@ func TestLoadDefaults(t *testing.T) {
 		cfg.FeatureControls.MaxAvailabilityPollCreationsPerHour != defaultFeatureAvailabilityPollCreationRateLimit ||
 		cfg.FeatureControls.MaxAvailabilityPollCapabilityCreationsPerHour != defaultFeatureAvailabilityPollCapabilityRateLimit ||
 		cfg.FeatureControls.MaxActiveStudyMeetings != defaultFeatureActiveStudyMeetingLimit ||
-		cfg.FeatureControls.MaxStudyMeetingCreationsPerHour != defaultFeatureStudyMeetingCreationRateLimit {
+		cfg.FeatureControls.MaxStudyMeetingCreationsPerHour != defaultFeatureStudyMeetingCreationRateLimit ||
+		cfg.FeatureControls.MaxMessagesPerTenant != defaultFeatureMessagesPerTenantLimit ||
+		cfg.FeatureControls.MaxMessageSendsPerHour != defaultFeatureMessageSendRateLimit {
 		t.Fatalf("unexpected feature control defaults: %+v", cfg.FeatureControls)
 	}
 }
@@ -182,6 +184,8 @@ func TestLoadCustomValues(t *testing.T) {
 		"FEATURE_CONTROL_MAX_AVAILABILITY_POLL_CAPABILITY_CREATIONS_PER_HOUR": "900",
 		"FEATURE_CONTROL_MAX_ACTIVE_STUDY_MEETINGS":                           "120",
 		"FEATURE_CONTROL_MAX_STUDY_MEETING_CREATIONS_PER_HOUR":                "140",
+		"FEATURE_CONTROL_MAX_MESSAGES_PER_TENANT":                             "9000000",
+		"FEATURE_CONTROL_MAX_MESSAGE_SENDS_PER_HOUR":                          "90000",
 	}
 	values["CALENDAR_PROTECTED_DATA_KEY"] = validSessionSecret()
 	values["CALENDAR_PROTECTED_DATA_KEY_VERSION"] = "1"
@@ -258,7 +262,9 @@ func TestLoadCustomValues(t *testing.T) {
 		cfg.FeatureControls.MaxAvailabilityPollCreationsPerHour != 150 ||
 		cfg.FeatureControls.MaxAvailabilityPollCapabilityCreationsPerHour != 900 ||
 		cfg.FeatureControls.MaxActiveStudyMeetings != 120 ||
-		cfg.FeatureControls.MaxStudyMeetingCreationsPerHour != 140 {
+		cfg.FeatureControls.MaxStudyMeetingCreationsPerHour != 140 ||
+		cfg.FeatureControls.MaxMessagesPerTenant != 9000000 ||
+		cfg.FeatureControls.MaxMessageSendsPerHour != 90000 {
 		t.Fatalf("unexpected availability poll feature control config: %+v", cfg.FeatureControls)
 	}
 }
@@ -305,6 +311,8 @@ func TestLoadRejectsInvalidFeatureControlGuardrails(t *testing.T) {
 		"FEATURE_CONTROL_MAX_AVAILABILITY_POLL_CAPABILITY_CREATIONS_PER_HOUR": "1001",
 		"FEATURE_CONTROL_MAX_ACTIVE_STUDY_MEETINGS":                           "201",
 		"FEATURE_CONTROL_MAX_STUDY_MEETING_CREATIONS_PER_HOUR":                "0",
+		"FEATURE_CONTROL_MAX_MESSAGES_PER_TENANT":                             "10000001",
+		"FEATURE_CONTROL_MAX_MESSAGE_SENDS_PER_HOUR":                          "0",
 	}))
 	if err == nil {
 		t.Fatal("expected feature control guardrail validation errors")
@@ -327,6 +335,8 @@ func TestLoadRejectsInvalidFeatureControlGuardrails(t *testing.T) {
 		"FEATURE_CONTROL_MAX_AVAILABILITY_POLL_CAPABILITY_CREATIONS_PER_HOUR",
 		"FEATURE_CONTROL_MAX_ACTIVE_STUDY_MEETINGS",
 		"FEATURE_CONTROL_MAX_STUDY_MEETING_CREATIONS_PER_HOUR",
+		"FEATURE_CONTROL_MAX_MESSAGES_PER_TENANT",
+		"FEATURE_CONTROL_MAX_MESSAGE_SENDS_PER_HOUR",
 	} {
 		if !strings.Contains(message, expected) {
 			t.Fatalf("expected error to mention %s, got %q", expected, message)

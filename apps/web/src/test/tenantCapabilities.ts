@@ -103,6 +103,18 @@ export function availableTenantCapabilities(
         used: 0,
         remaining: 20,
       },
+      messages_per_tenant: {
+        configured_limit: 100000,
+        limit: 100000,
+        used: 0,
+        remaining: 100000,
+      },
+      message_sends_per_hour: {
+        configured_limit: 5000,
+        limit: 5000,
+        used: 0,
+        remaining: 5000,
+      },
     },
     operations: {
       create_membership_invitation: available,

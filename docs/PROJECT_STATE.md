@@ -13,9 +13,35 @@
 | Phase hoàn thành    | Phase 0, Phase 1, Phase 2                                                             |
 | Phase hiện tại      | Phase 3 - Daily learning workspace                                                   |
 | Task `DONE` gần nhất | P3-06 Direct/class conversation core                                             |
-| Mốc repository mới | Candidate `756ca60a` Live; CI, PostgreSQL, browser/API và Axe acceptance PASS       |
-| Task hiện tại       | P3-07A Persistent message, unread/read core — `TODO`                               |
-| Task tiếp theo      | Bắt đầu contract/security review và vertical slice P3-07A                          |
+| Mốc repository mới | Local P3-07A candidate đã commit, chưa push/deploy; Live vẫn là `756ca60a`         |
+| Task hiện tại       | P3-07A Persistent message, unread/read core — `IN PROGRESS`                        |
+| Task tiếp theo      | Chạy forward-only `24 -> 25` và PostgreSQL gates trên Neon disposable             |
+
+### Checkpoint P3-07A local ngày 2026-08-04
+
+P3-07A đã có vertical slice local hoàn chỉnh nhưng chưa chuyển `VERIFY`: ADR-0025 được
+chấp nhận; migration forward `000025`, REST API, OpenAPI/generated client và web message
+history/composer đã sẵn sàng cho disposable acceptance.
+
+- PostgreSQL giữ message/tombstone, server sequence, global author/client idempotency,
+  monotonic self-read marker và O(1) `tenant_message_usage` counter dưới tenant advisory
+  lock; runtime ACL chỉ cấp exact table/column allowlist qua provisioning riêng.
+- Direct/class permission được reauthorize trong transaction; class archive và inactive
+  direct peer giữ history read-only. Message content không đi vào audit, outbox, log,
+  metric, cursor hay error detail; P3-07A không tạo notification/delivery side effect.
+- API có keyset pagination, CAS edit/delete, tombstone projection, expected-tenant + CSRF,
+  body `1..4000` Unicode code point/`16 KiB`, tenant storage/hourly quota, actor `60/phút`
+  và typed `409/429` với `Retry-After` đã validate.
+- Web `/app/messages` có persistent history, unread/read, memory-only retry ID, focus/keyboard,
+  fail-closed khi quyền bị thu hồi và hàng đợi CSRF chung cho conversation mutations. Mark-read
+  refetch message/detail/list để không bỏ sót message đến đồng thời.
+- Local `go test -count=1 ./...`, `go vet ./...`, API client `34/34`, web `246/246`, lint,
+  typecheck, build, format, generated-contract, security/bundle và Storybook gates đều PASS;
+  integration-tag PostgreSQL code compile PASS bằng `-run '^$'`.
+
+Chưa có bằng chứng PostgreSQL thật: owner preflight, forward disposable `24 false -> 25 false`,
+idempotent rerun, exact ACL và concurrency/privacy/quota gates vẫn `PENDING`. Không rollback,
+không migrate shared staging và không deploy trước báo cáo disposable.
 
 ### Checkpoint P3-06 ngày 2026-08-04
 

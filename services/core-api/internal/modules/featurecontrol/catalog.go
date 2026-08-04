@@ -32,6 +32,8 @@ const (
 	QuotaAvailabilityPollCapabilityCreationsPerHour QuotaKey = "availability_poll_capability_creations_per_hour"
 	QuotaActiveStudyMeetings                        QuotaKey = "active_study_meetings"
 	QuotaStudyMeetingCreationsPerHour               QuotaKey = "study_meeting_creations_per_hour"
+	QuotaMessagesPerTenant                          QuotaKey = "messages_per_tenant"
+	QuotaMessageSendsPerHour                        QuotaKey = "message_sends_per_hour"
 )
 
 type ValueSource string
@@ -127,6 +129,12 @@ var quotaDefinitions = map[QuotaKey]QuotaDefinition{
 	},
 	QuotaStudyMeetingCreationsPerHour: {
 		Key: QuotaStudyMeetingCreationsPerHour, DefaultLimit: 20, MinimumLimit: 1, MaximumLimit: 200,
+	},
+	QuotaMessagesPerTenant: {
+		Key: QuotaMessagesPerTenant, DefaultLimit: 100000, MinimumLimit: 1, MaximumLimit: 10000000,
+	},
+	QuotaMessageSendsPerHour: {
+		Key: QuotaMessageSendsPerHour, DefaultLimit: 5000, MinimumLimit: 1, MaximumLimit: 100000,
 	},
 }
 
