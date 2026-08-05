@@ -6,20 +6,20 @@
 
 | Thuộc tính          | Trạng thái                                                                            |
 | ------------------- | ------------------------------------------------------------------------------------- |
-| Ngày cập nhật       | 2026-08-04                                                                            |
+| Ngày cập nhật       | 2026-08-05                                                                            |
 | Repository          | `https://github.com/basangnguyen/TUTORHUB_WEB`                                        |
 | Nhánh làm việc      | `main`                                                                                |
 | Quy trình           | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
 | Phase hoàn thành    | Phase 0, Phase 1, Phase 2                                                             |
 | Phase hiện tại      | Phase 3 - Daily learning workspace                                                   |
-| Task `DONE` gần nhất | P3-06 Direct/class conversation core                                             |
-| Mốc repository mới | P3-07A local + disposable PASS; chưa push/deploy; Live vẫn là `756ca60a`            |
-| Task hiện tại       | P3-07A Persistent message, unread/read core — `VERIFY`                             |
-| Task tiếp theo      | Báo cáo disposable; xin phê duyệt shared forward/ACL và exact deploy              |
+| Task `DONE` gần nhất | P3-07A Persistent message, unread/read core                                        |
+| Mốc repository mới | Candidate `a21ec385` Live; shared Neon `25 false`; P3-07A toàn bộ exit gate PASS      |
+| Task hiện tại       | P3-07A — `DONE`                                                                         |
+| Task tiếp theo      | P3-08 File metadata, upload intent và finalize                                        |
 
-### Checkpoint P3-07A disposable ngày 2026-08-04
+### Checkpoint P3-07A hoàn tất ngày 2026-08-05
 
-P3-07A đã chuyển `IN PROGRESS -> VERIFY`: ADR-0025 được chấp nhận; migration forward
+P3-07A đã chuyển `VERIFY -> DONE`: ADR-0025 được chấp nhận; migration forward
 `000025`, REST API, OpenAPI/generated client và web message history/composer đã hoàn tất
 local gate và disposable database acceptance.
 
@@ -35,7 +35,7 @@ local gate và disposable database acceptance.
 - Web `/app/messages` có persistent history, unread/read, memory-only retry ID, focus/keyboard,
   fail-closed khi quyền bị thu hồi và hàng đợi CSRF chung cho conversation mutations. Mark-read
   refetch message/detail/list để không bỏ sót message đến đồng thời.
-- Local `go test -count=1 ./...`, `go vet ./...`, API client `34/34`, web `246/246`, lint,
+- Local `go test -count=1 ./...`, `go vet ./...`, API client `34/34`, web `247/247`, lint,
   typecheck, build, format, generated-contract, security/bundle và Storybook gates đều PASS;
   integration-tag PostgreSQL code compile PASS bằng `-run '^$'`.
 - Neon disposable owner preflight PASS ở `24 false`; direct/pool endpoint và runtime/
@@ -48,9 +48,23 @@ local gate và disposable database acceptance.
   regression đều PASS. Riêng fixture query-plan 4.096 row được rollback và statistics
   được re-ANALYZE; các mutation fixture khác được giữ trên disposable để điều tra nếu cần.
 
-Shared staging vẫn ở `24 false`; candidate chưa push/deploy và live vẫn là P3-06
-`756ca60a`. Không xóa disposable, không rollback và không forward shared/deploy trước khi
-owner nhận báo cáo rồi phê duyệt bước kế tiếp.
+- Exact candidate `a21ec385272d6f6da4200b1d76a6c438e45ba727` đã qua toàn bộ PR #33 và
+  push-event CI/security; Cloudflare production xác nhận đúng candidate.
+- Shared Neon owner preflight PASS, forward-only `24 false -> 25 false -> 25 false`, exact
+  runtime ACL, `PUBLIC` zero-grant và role safety PASS. Không rollback và không chạy
+  mutation/concurrency fixture suite trên shared.
+- Render deployment `dep-d9pjeg8ae00c73f651t0` của exact candidate đã Live; direct Render
+  và Pages proxy health/readiness/status `6/6` PASS, health/ready giữ `no-store`.
+- Authenticated live acceptance PASS: Teacher gửi/reload không duplicate; Student nhận
+  unread, đọc, trả lời và reload bền vững; archived class chỉ đọc; Admin ngoài direct bị
+  conceal ở list và URL trực tiếp. Exact-candidate Browser E2E đóng retry/keyboard/focus/Axe;
+  hai controlled canary zero-match trong Render logs.
+- UI chưa cung cấp edit/delete nên CAS/stale `409`/tombstone/non-author được chứng minh bằng
+  HTTP/PostgreSQL suite, không can thiệp SQL live. Unread query còn residual hiệu năng ở
+  conversation cực dài; chỉ tối ưu sau load evidence bằng forward migration riêng.
+
+Disposable branch tiếp tục được giữ theo quyết định của owner. P3-07B delivery vẫn
+`DEFERRED/TODO`; runnable lane tiếp theo là P3-08 file metadata/upload intent/finalize.
 
 ### Checkpoint P3-06 ngày 2026-08-04
 

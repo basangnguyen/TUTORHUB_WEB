@@ -5,13 +5,13 @@
 | Thuộc tính            | Giá trị                                                                                      |
 | --------------------- | -------------------------------------------------------------------------------------------- |
 | Phiên bản tài liệu    | 2.4                                                                                          |
-| Cập nhật              | 2026-08-04                                                                                   |
+| Cập nhật              | 2026-08-05                                                                                   |
 | Phạm vi ưu tiên       | Web application                                                                              |
 | Thư mục phát triển    | `D:\TutorHub_V2`                                                                             |
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
 | Phase hiện tại        | Phase 3 - Daily learning workspace                                                           |
-| Trạng thái gần nhất   | P3-06 DONE; P3-07A VERIFY, local + disposable PASS; shared/deploy PENDING                    |
+| Trạng thái gần nhất   | P3-07A DONE; shared Neon 25, exact candidate Live; P3-08 là runnable lane tiếp theo          |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 
@@ -1970,11 +1970,12 @@ Một tính năng chỉ được đánh dấu hoàn thành khi:
      `000024`, exact runtime ACL/PostgreSQL, deployment, authenticated browser/API,
      keyboard/focus và Axe gate. Mốc này đã mở P3-07A persistent message, unread/read
      core như ghi ở mục 15; realtime và notification delivery vẫn thuộc P3-07B/carry-over.
-15. P3-07A Persistent message, unread/read core chuyển `IN PROGRESS -> VERIFY` ngày
-     2026-08-04: local candidate PASS; Neon disposable đạt owner preflight, forward-only
-     `24 false -> 25 false -> 25 false`, exact runtime ACL và full PostgreSQL conversation
-     suite 5/5 không `SKIP`. Shared staging, exact deploy, CI/security và authenticated
-     live/browser/accessibility acceptance vẫn `PENDING` trước khi chuyển `DONE`.
+15. P3-07A Persistent message, unread/read core đã `DONE` ngày 2026-08-05: local và
+     disposable gate PASS; shared Neon forward-only `24 false -> 25 false -> 25 false`,
+     exact runtime ACL; candidate `a21ec385` qua CI/security và Live trên Render/Cloudflare;
+     authenticated direct unread/read/reload, archived-class read-only, Admin concealment,
+     keyboard/focus/Axe và log privacy đều PASS. P3-07B delivery vẫn là carry-over;
+     runnable lane tiếp theo là P3-08.
 16. Không xóa thêm Neon branch theo quyết định hiện tại của owner.
 17. Không khởi động QuizHub, Lavie, social feed hoặc Secure Exam ngoài phase đã quy hoạch.
 
@@ -2047,10 +2048,11 @@ authenticated browser/API matrix, automated Playwright/axe và manual NVDA đề
 runnable P3-06 Direct/class conversation core cũng đã `DONE` ngày 2026-08-04: shared
 staging forward-only `23 false -> 24 false`, exact ACL/PostgreSQL gates, candidate
 `756ca60a` Live trên Render/Cloudflare, authenticated direct/class/archive role matrix,
-keyboard/focus và automated Playwright/Axe đều PASS. P3-07A hiện ở `VERIFY` sau local và
-disposable database gate; bước kế tiếp là shared forward/ACL, exact deploy và live
-acceptance. Không bật side effect chỉ vì core đã có. `P3-02D-B` và các gate worker/provider
-vẫn là carry-over.
+keyboard/focus và automated Playwright/Axe đều PASS. P3-07A cũng đã `DONE` ngày 2026-08-05:
+shared Neon ở `25 false`, exact ACL, candidate `a21ec385` Live, CI/security và authenticated
+role/reload/accessibility/log-privacy acceptance đều PASS. P3-08 là runnable lane tiếp theo.
+Không bật side effect chỉ vì core đã có. `P3-02D-B` và các gate worker/provider vẫn là
+carry-over.
 AWS SES đã được chọn làm provider target nhưng
 P3-CAL-02/ADR-0020 vẫn giữ các gate live email/ICS chưa nghiệm thu; chưa có domain hoặc
 production delivery. Render Web Service vẫn là API staging/private alpha; Render Free

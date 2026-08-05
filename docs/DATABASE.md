@@ -1229,8 +1229,9 @@ Sau khi áp dụng toàn bộ migration trong source hiện tại, kết quả m
 Neon disposable P3-07A đã đạt chuỗi forward-only
 `24 false -> 25 false -> 25 false`, exact ACL và focused/full PostgreSQL gates theo
 [`P3_07A_STAGING_ACCEPTANCE.md`](P3_07A_STAGING_ACCEPTANCE.md).
-Shared Neon vẫn ở P3-06 `24 false` và chỉ được forward sau báo cáo disposable cùng owner
-phê duyệt; không dùng mutation/concurrency fixture suite trên shared.
+Shared Neon đã được owner phê duyệt và forward-only ngày 2026-08-05 qua chuỗi
+`24 false -> 25 false -> 25 false`; exact runtime ACL, `PUBLIC` zero-grant và role safety
+PASS. Không chạy mutation/concurrency fixture suite trên shared.
 Không chạy database rollback thêm cho P3-02D-A. Emergency down `000023` chỉ disable purge
 function; down `000022` mới phá hủy poll/Study Meeting data. Recovery ưu tiên application
 rollback hoặc migration forward mới.
@@ -1288,8 +1289,10 @@ bounded unread, direct/class authorization, tenant isolation, quota/rate, exact 
 và audit/outbox privacy. Disposable PostgreSQL đã chứng minh O(1)
 `tenant_message_usage` reserve, PK/FK/check constraint, cascade, 4.096-row bounded query
 plan, rollback/no-drift sau replay/quota/rate failure và database-error detail sanitization.
-Exact ACL và full conversation suite 5/5, zero `SKIP`, đều PASS; final ledger giữ
-`25 false`. Shared staging/deploy vẫn `PENDING`.
+Exact ACL và full conversation suite 5/5, zero `SKIP`, đều PASS; final ledger disposable
+giữ `25 false`. Shared staging cũng đã forward-only tới `25 false`, migrate lặp idempotent,
+re-provision exact ACL và hoàn tất controlled authenticated acceptance trên exact candidate
+`a21ec385`; không rollback.
 
 Với P2-05, cần kiểm tra riêng migrate 9 -> 10, rollback 10 -> 9, migrate lại 9 -> 10;
 tenant-scoped FK/unique/state constraints; direct enroll và các transition; same-user
@@ -1346,11 +1349,11 @@ của lịch sử append-only và không phải quy trình cleanup cho staging/p
 - P3-03A/P3-04 đã bổ sung migration `000015`/`000016`; P3-02A/P3-02B bổ sung
   `000017`/`000018`/`000019`; P3-02C bổ sung `000020/000021`; P3-02D-A bổ sung
   `000022/000023`; P3-06 bổ sung `000024`; P3-07A bổ sung `000025`.
-  Shared Neon staging đang ở `24 false` qua P3-06; P3-07A disposable đã ở `25 false`.
+  Shared Neon staging và P3-07A disposable đều ở `25 false`.
   Exact Core API/maintenance ACL, toàn bộ database gate P3-02D-A, authenticated browser/API
   và manual NVDA acceptance đều PASS, nên P3-02D-A đã `DONE`.
-  Migration/ACL/database gate disposable của `000025` PASS; shared/deploy/live gate chưa
-  chạy và không được đánh dấu PASS.
+  Migration/ACL/database gate disposable của `000025`, shared forward/ACL, exact deploy,
+  CI/security và live role/accessibility/log-privacy gate đều PASS; P3-07A đã `DONE`.
   Worker ACL, durable-host, controlled-canary/crash-reclaim và các gate P3-03/P3-04
   vẫn là gate bên ngoài, hiện được phân loại `DEFERRED/VERIFY` chứ không tự động bỏ qua.
 - P3-02A Calendar shell/read projection, P3-02B recurrence/class-conflict và

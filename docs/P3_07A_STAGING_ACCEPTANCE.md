@@ -6,24 +6,27 @@ notification, worker delivery, attachment, search và offline draft không thu�
 
 ## Trạng thái hiện tại
 
-Ngày ghi nhận: 2026-08-04.
+Ngày ghi nhận: 2026-08-05.
 
 | Hạng mục | Trạng thái | Ghi chú |
 | --- | --- | --- |
-| ADR-0025 và migration `000025` trong source | `PASS` | Local candidate source; chưa push/deploy |
+| ADR-0025 và migration `000025` trong source | `PASS` | Exact candidate `a21ec385272d6f6da4200b1d76a6c438e45ba727` |
 | Core API unit/HTTP test | `PASS` | Fresh `go test -count=1 ./...` trên candidate |
 | Integration-tag compile | `PASS` | Full integration-tag source compile |
 | Full `corepack pnpm verify` trên candidate source | `PASS` | Workspace-scoped `GOCACHE` |
 | Disposable owner preflight | `PASS` | `24 false`; direct/pool và role boundary đạt; owner residual được ghi tổng hợp |
 | Disposable forward `24 false -> 25 false` | `PASS` | Rerun `up` giữ `25 false`; không rollback |
 | Disposable exact ACL/PostgreSQL gates | `PASS` | Exact ACL và 5/5 conversation integration tests; zero `SKIP` |
-| Shared Neon forward/ACL | `PENDING` | Chỉ thực hiện sau báo cáo disposable và owner phê duyệt |
-| Render/Cloudflare deployment và live acceptance | `PENDING` | Chưa push/deploy candidate P3-07A |
+| Shared Neon forward/ACL | `PASS` | Forward-only `24 false -> 25 false -> 25 false`; exact ACL/PUBLIC/role safety đạt |
+| Render/Cloudflare deployment và live acceptance | `PASS` | Exact candidate Live; CI/security, health/readiness và authenticated role matrix đạt |
 
 P3-06 đã được nghiệm thu ở `24 false`. Ngày 2026-08-04, Neon disposable P3-07A đạt
 `24 false -> 25 false -> 25 false`, exact runtime ACL và full conversation PostgreSQL
-suite; final ledger vẫn là `25 false`. P3-07A chuyển `IN PROGRESS -> VERIFY`. Shared
-staging, CI trên commit được push và deployment/live acceptance vẫn là `PENDING`.
+suite; final ledger vẫn là `25 false`. Ngày 2026-08-05, owner phê duyệt và shared Neon
+được forward-only tới `25 false`, re-provision exact ACL rồi kiểm tra migrate lặp vẫn giữ
+`25 false`; không chạy rollback hoặc mutation/concurrency fixture suite trên shared.
+Exact candidate đã qua CI/security, được triển khai lên Render/Cloudflare và hoàn tất
+authenticated live acceptance. P3-07A chuyển `VERIFY -> DONE`.
 
 ## Phạm vi và invariant bắt buộc
 
@@ -507,8 +510,8 @@ content writes khi cần và sửa bằng application rollback hoặc forward mi
 | --- | --- | --- |
 | Local Core API `go test ./...` | `PASS` | Fresh `-count=1` trên candidate |
 | Integration-tag compile | `PASS` | Exact integration source compile |
-| Local working tree + `pnpm verify` | `PASS` | 2026-08-04; workspace-scoped `GOCACHE` |
-| Candidate source snapshot | `PASS` | Local `main`; SHA được ghi trong handoff; chưa push/deploy |
+| Local working tree + `pnpm verify` | `PASS` | 2026-08-05; workspace-scoped `GOCACHE` |
+| Candidate source snapshot | `PASS` | `a21ec385272d6f6da4200b1d76a6c438e45ba727` |
 | Disposable branch safety + env load | `PASS` | `ENV_LOAD=PASS`; endpoint boundary đạt; không ghi URL/role |
 | Owner preflight ở `24 false` | `PASS` | Role boundary và owner authority đạt; `OWNER_ADMIN_RESIDUAL=true` |
 | Forward `24 false -> 25 false` | `PASS` | Forward-only migration `000025` |
@@ -520,14 +523,28 @@ content writes khi cần và sửa bằng application rollback hoặc forward mi
 | Direct/class/tenant authorization | `PASS` | PostgreSQL disposable + P3-06 regression |
 | Storage counter/hourly/actor rate + query plan | `PASS` | Constraint/cascade, 4,096-row `EXPLAIN`, rollback consistency |
 | Audit/outbox/error privacy | `PASS` | No content side effect; PostgreSQL error detail sanitized |
-| Shared staging forward/ACL | `PENDING` | Chờ owner phê duyệt sau báo cáo disposable |
-| Exact deploy + CI/security | `PENDING` | Chưa deploy |
-| Live role/reload/retry/keyboard/Axe | `PENDING` | Chưa chạy |
+| Shared staging forward/ACL | `PASS` | Owner preflight; `24 false -> 25 false -> 25 false`; exact ACL/PUBLIC/role safety |
+| Exact deploy + CI/security | `PASS` | PR #33 và push-event CI/security xanh; Render `dep-d9pjeg8ae00c73f651t0` Live; Cloudflare production đúng candidate |
+| Public health/readiness | `PASS` | Direct Render và Pages proxy `6/6`; health/ready giữ `Cache-Control: no-store` |
+| Authenticated direct send/read/reload | `PASS` | Teacher gửi và reload đúng một bản; Student thấy unread, đọc, trả lời và reload bền vững |
+| Class archive và tenant/role concealment | `PASS` | Archived class chỉ đọc; Admin không thấy direct ở list hoặc URL trực tiếp |
+| Retry/keyboard/focus/Axe | `PASS` | Exact-candidate Browser E2E; live Ctrl+Enter/reload và heading focus bổ sung |
+| Live log privacy | `PASS` | Hai controlled canary đều zero-match trong Render logs; không lưu nội dung canary |
+
+Live UI hiện chỉ cung cấp send/read, chưa có nút edit/delete. Vì vậy CAS edit/delete,
+stale `409`, author-only và tombstone được nghiệm thu bằng HTTP/PostgreSQL suite trên exact
+candidate; không dùng SQL hard-delete hoặc thao tác ngoài business flow để giả lập live UI.
+Hai controlled canary không chứa PII và được giữ như message đã commit.
+
+Residual không chặn gate: truy vấn unread đã bounded kết quả/cap nhưng trong conversation
+cực dài vẫn có thể phải quét nhiều row do chính viewer gửi hoặc đã tombstone. Tối ưu hóa
+này cần load evidence và counter/index qua forward migration riêng; không back-edit
+`000025` sau khi đã forward.
 
 ## Exit gate
 
-P3-07A chỉ được chuyển `IN PROGRESS -> VERIFY` sau khi exact candidate local gate và toàn
-bộ disposable migration/ACL/PostgreSQL gates PASS. Chỉ chuyển `VERIFY -> DONE` sau shared
-forward/ACL, exact deploy, CI/security và authenticated live/browser/accessibility matrix
-PASS. Không dùng local compile, mock HTTP test hoặc P3-06 `24 false` làm bằng chứng thay cho
-P3-07A disposable/shared acceptance.
+P3-07A đã chuyển `IN PROGRESS -> VERIFY` sau exact candidate local gate và toàn bộ
+disposable migration/ACL/PostgreSQL gates PASS. Ngày 2026-08-05, shared forward/ACL,
+exact deploy, CI/security và authenticated live/browser/accessibility matrix đều PASS nên
+task chuyển `VERIFY -> DONE`. Không dùng local compile, mock HTTP test hoặc P3-06
+`24 false` làm bằng chứng thay cho P3-07A disposable/shared acceptance.

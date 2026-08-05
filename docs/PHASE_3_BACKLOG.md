@@ -33,10 +33,10 @@ re-baseline này không dùng nó để chặn Phase 4 hay ép các gate provide
 tất trước khi có môi trường phù hợp. Domain/DNS, SES sandbox và production-access
 approval có thể tiếp tục chuẩn bị song song.
 
-**Task đang thực hiện:** `P3-07A` persistent message, unread/read core ở `VERIFY` từ
-ngày 2026-08-04 sau khi local candidate và toàn bộ disposable database gate PASS.
-ADR-0025 và amendment ADR-0013 khóa REST/PostgreSQL authority, lifecycle, idempotency,
-receipt và privacy boundary. Shared staging, exact deploy và live acceptance còn `PENDING`.
+**Task `DONE` gần nhất:** `P3-07A` persistent message, unread/read core hoàn tất ngày
+2026-08-05. ADR-0025 và amendment ADR-0013 khóa REST/PostgreSQL authority, lifecycle,
+idempotency, receipt và privacy boundary; local/disposable/shared/CI/deploy/live gate đều
+PASS. **Task runnable tiếp theo:** `P3-08` file metadata, upload intent và finalize.
 `P3-02D-B` lifecycle delivery/
 auto-close/fan-out và các gate P3-03B/P3-CAL-02/P3-05A/B là carry-over, không nằm trong
 mốc Core Exit tối thiểu.
@@ -109,7 +109,7 @@ processing/sharing tới end user.
 | P3-05A     | Session email/ICS/external RSVP/reminder       | P3-02C, P3-CAL-02, P3-03B, P3-04 | DEFERRED/TODO |
 | P3-05B     | Poll/Study Meeting lifecycle delivery          | P3-02D-B, P3-05A               | DEFERRED/TODO |
 | P3-06      | Direct/class conversation                      | P3-00, Phase 2 policy           | DONE       |
-| P3-07A     | Persistent message, unread/read core           | P3-06                           | VERIFY     |
+| P3-07A     | Persistent message, unread/read core           | P3-06                           | DONE       |
 | P3-07B     | Message notification delivery                  | P3-07A, P3-03B, P3-04           | DEFERRED/TODO |
 | P3-08      | File metadata, upload intent và finalize       | P3-00, B2 baseline              | TODO       |
 | P3-09      | Presigned B2 upload/download                   | P3-08                           | TODO       |
@@ -1001,8 +1001,12 @@ Hai gate notification vẫn phải giữ `false` trong khi Render chỉ phục v
       quota/rate và content không xuất hiện trong audit/outbox.
 - [x] Full local verify và disposable Neon forward-only `24 -> 25`/idempotent cùng focused
       database gates PASS trước khi chuyển `IN PROGRESS -> VERIFY`.
-- [ ] Shared staging forward/exact ACL, exact deploy, CI/security và authenticated role/
-      reload/API-reconnect/keyboard/Axe acceptance PASS trước `VERIFY -> DONE`.
+- [x] Shared staging forward-only `24 -> 25`, exact ACL, exact candidate `a21ec385` deploy,
+      CI/security và authenticated role/reload/keyboard/Axe/log-privacy acceptance PASS;
+      P3-07A chuyển `VERIFY -> DONE` ngày 2026-08-05.
+- **Residual đã chấp nhận:** unread cap vẫn có thể quét nhiều viewer-authored/tombstone row
+  trong conversation cực dài; chỉ tối ưu sau load evidence bằng counter/index và forward
+  migration riêng, không back-edit `000025`.
 
 ## 15. P3-08 File metadata, upload intent và finalize
 
@@ -1197,8 +1201,9 @@ một tuần.
    2026-08-03 sau forward `000023`, exact ACL/PostgreSQL barriers, authenticated browser/API
    matrix và manual NVDA PASS. P3-06 cũng đã `DONE` ngày 2026-08-04 sau migration `000024`,
    exact ACL/PostgreSQL, deployment, authenticated browser/API, focus và Axe gate. Runnable
-   lane P3-07A đang `VERIFY`; bước kế tiếp là shared forward/ACL, exact deploy và live
-   acceptance. Không bật delivery side effect và không chờ P3-03B.
+   lane P3-07A đã `DONE` ngày 2026-08-05 sau shared forward/ACL, exact deploy, CI/security
+   và live role/accessibility acceptance. Runnable lane tiếp theo là P3-08; không bật
+   delivery side effect và không chờ P3-03B.
 7. P3-03B/P3-04, P3-CAL-02/P3-05A và P3-02D-B/P3-05B tiếp tục ở carry-over. Đóng
    `P3-14-CORE` sau lane runnable cho phép bắt đầu Phase 4; full P3-14 vẫn chờ các gate này.
 8. Không đưa recurrence, reminder, worker, email hoặc calendar tổng hợp vào P3-01.
