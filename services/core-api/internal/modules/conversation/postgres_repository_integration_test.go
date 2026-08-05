@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"strings"
 	"sync"
@@ -23,6 +24,10 @@ import (
 func TestPostgresConversationAndMessageRuntimeExactACL(t *testing.T) {
 	migrationURL := requireConversationEnvironment(t, "DATABASE_MIGRATION_URL")
 	poolURL := requireConversationEnvironment(t, "DATABASE_POOL_URL")
+	aclPoolURL := strings.TrimSpace(os.Getenv("DATABASE_CONVERSATION_ACL_TEST_URL"))
+	if aclPoolURL == "" {
+		aclPoolURL = poolURL
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
 	if err := migrationrunner.Up(ctx, migrationURL); err != nil {
@@ -30,7 +35,14 @@ func TestPostgresConversationAndMessageRuntimeExactACL(t *testing.T) {
 	}
 	migrationPool := openConversationPool(t, ctx, migrationURL)
 	defer migrationPool.Close()
-	runtimePool := openConversationPool(t, ctx, poolURL)
+	if strings.EqualFold(strings.TrimSpace(os.Getenv("CONVERSATION_ACL_TEST_BOOTSTRAP")), "true") {
+		if !strings.EqualFold(strings.TrimSpace(os.Getenv("CI")), "true") {
+			t.Fatal("conversation ACL test bootstrap is restricted to CI")
+		}
+		requireConversationACLBootstrapDatabase(t, migrationURL)
+		provisionConversationACLTestRole(t, ctx, migrationPool)
+	}
+	runtimePool := openConversationPool(t, ctx, aclPoolURL)
 	defer runtimePool.Close()
 
 	var runtimeRole, migrationRole string
@@ -174,6 +186,95 @@ WHERE runtime.rolname = $1`,
 	if !notSuperuser || !noCreateRole || !noCreateDatabase || !noReplication || !noBypassRLS ||
 		!noMigrationInheritance || !notTableOwner {
 		t.Fatal("conversation runtime role safety boundary is not exact")
+	}
+}
+
+func requireConversationACLBootstrapDatabase(t *testing.T, databaseURL string) {
+	t.Helper()
+	parsed, err := url.Parse(databaseURL)
+	if err != nil {
+		t.Fatal("parse isolated CI conversation database URL")
+	}
+	host := strings.ToLower(strings.TrimSpace(parsed.Hostname()))
+	database := strings.Trim(strings.TrimSpace(parsed.Path), "/")
+	if (host != "localhost" && host != "127.0.0.1") || database != "tutorhub_test" {
+		t.Fatal("conversation ACL test bootstrap requires the isolated loopback CI database")
+	}
+}
+
+func provisionConversationACLTestRole(
+	t *testing.T,
+	ctx context.Context,
+	pool *pgxpool.Pool,
+) {
+	t.Helper()
+	if _, err := pool.Exec(ctx, `
+DO $bootstrap$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_roles WHERE rolname = 'tutorhub_conversation_runtime_ci'
+    ) THEN
+        CREATE ROLE tutorhub_conversation_runtime_ci
+            LOGIN
+            PASSWORD 'tutorhub_ci'
+            NOSUPERUSER
+            NOCREATEDB
+            NOCREATEROLE
+            NOINHERIT
+            NOREPLICATION
+            NOBYPASSRLS;
+    END IF;
+END
+$bootstrap$;
+
+ALTER ROLE tutorhub_conversation_runtime_ci
+    WITH LOGIN PASSWORD 'tutorhub_ci'
+    NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS;
+
+GRANT USAGE ON SCHEMA tutorhub TO tutorhub_conversation_runtime_ci;
+REVOKE CREATE ON SCHEMA tutorhub FROM tutorhub_conversation_runtime_ci;
+
+REVOKE ALL PRIVILEGES ON TABLE
+    tutorhub.conversations,
+    tutorhub.conversation_members,
+    tutorhub.messages,
+    tutorhub.tenant_message_usage,
+    tutorhub.message_receipts
+FROM tutorhub_conversation_runtime_ci;
+
+REVOKE ALL PRIVILEGES ON TABLE
+    tutorhub.conversations,
+    tutorhub.conversation_members,
+    tutorhub.messages,
+    tutorhub.tenant_message_usage,
+    tutorhub.message_receipts
+FROM PUBLIC;
+
+GRANT SELECT, INSERT ON TABLE
+    tutorhub.conversations,
+    tutorhub.conversation_members,
+    tutorhub.messages,
+    tutorhub.tenant_message_usage,
+    tutorhub.message_receipts
+TO tutorhub_conversation_runtime_ci;
+
+GRANT UPDATE (updated_at)
+ON TABLE tutorhub.conversations
+TO tutorhub_conversation_runtime_ci;
+
+GRANT UPDATE (content, state, version, edited_at, deleted_at, updated_at)
+ON TABLE tutorhub.messages
+TO tutorhub_conversation_runtime_ci;
+
+GRANT UPDATE (message_count, updated_at)
+ON TABLE tutorhub.tenant_message_usage
+TO tutorhub_conversation_runtime_ci;
+
+GRANT UPDATE (last_read_sequence, last_read_message_id, updated_at)
+ON TABLE tutorhub.message_receipts
+TO tutorhub_conversation_runtime_ci;
+`); err != nil {
+		t.Fatalf("provision isolated CI conversation ACL role: %v", err)
 	}
 }
 
