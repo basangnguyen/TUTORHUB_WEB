@@ -335,6 +335,77 @@ describe("ConversationMessages", () => {
     expect(composer).toHaveValue("");
   });
 
+  it("reconciles queries when the read marker trails the loaded newest message", async () => {
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      value: "visible",
+    });
+    const newest = message(2, "A newer message committed");
+    const older = message(1, "Read marker target");
+    let messageReads = 0;
+    let readRequests = 0;
+    const fetchMock = vi.fn().mockImplementation((request: Request) => {
+      const url = new URL(request.url);
+      if (url.pathname.endsWith("/api/v1/auth/csrf")) {
+        return Promise.resolve(jsonResponse({ csrf_token: "read-csrf" }));
+      }
+      if (
+        url.pathname.endsWith(`/api/v1/conversations/${conversationID}/read`)
+      ) {
+        readRequests += 1;
+        return Promise.resolve(
+          jsonResponse({
+            last_read_message_id: older.id,
+            last_read_sequence: older.sequence,
+            updated_at: "2026-08-03T09:04:00Z",
+          }),
+        );
+      }
+      if (
+        request.method === "GET" &&
+        url.pathname.endsWith(
+          `/api/v1/conversations/${conversationID}/messages`,
+        )
+      ) {
+        messageReads += 1;
+        return Promise.resolve(
+          jsonResponse(page([newest], { unreadCount: 1 })),
+        );
+      }
+      return Promise.reject(new Error(`Unexpected request: ${request.url}`));
+    });
+
+    const queryClient = renderMessages(fetchMock);
+    queryClient.setQueryData(
+      conversationQueryKeys.detail(tenantID, conversationID),
+      conversation,
+    );
+    queryClient.setQueryData<InfiniteData<ConversationPage>>(
+      conversationQueryKeys.list(tenantID),
+      {
+        pages: [{ items: [conversation], next_cursor: undefined }],
+        pageParams: [undefined],
+      },
+    );
+
+    expect(
+      await screen.findByText("A newer message committed"),
+    ).toBeInTheDocument();
+    await waitFor(() => expect(readRequests).toBe(1));
+    await waitFor(() => expect(messageReads).toBeGreaterThanOrEqual(2));
+    await waitFor(() =>
+      expect(
+        queryClient.getQueryState(
+          conversationQueryKeys.detail(tenantID, conversationID),
+        )?.isInvalidated,
+      ).toBe(true),
+    );
+    expect(
+      queryClient.getQueryState(conversationQueryKeys.list(tenantID))
+        ?.isInvalidated,
+    ).toBe(true);
+  });
+
   it("accepts 4,000 Unicode code points within the 16 KiB UTF-8 limit", async () => {
     const content = "🙂".repeat(4000);
     let sent = false;

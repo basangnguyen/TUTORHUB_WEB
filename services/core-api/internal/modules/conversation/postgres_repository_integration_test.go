@@ -1466,7 +1466,7 @@ VALUES ($1, $2, now())`, fixture.tenantID, seededMessageCount); err != nil {
 	)
 	var quotaFailure *featurecontrol.QuotaExceededError
 	if !errors.As(err, &quotaFailure) || quotaFailure.RetryAfter <= 0 ||
-		quotaFailure.Quota != featurecontrol.QuotaMessageSendsPerHour ||
+		quotaFailure.Quota != actorMessageRateQuota ||
 		quotaFailure.Limit != actorMessageRateLimit {
 		t.Fatalf("actor rate error=%v, want bounded 60/minute failure", err)
 	}

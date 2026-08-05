@@ -16,7 +16,10 @@ import (
 	"github.com/tutorhub-v2/core-api/internal/policy"
 )
 
-const actorMessageRateWindow = time.Minute
+const (
+	actorMessageRateQuota  featurecontrol.QuotaKey = "actor_message_sends_per_minute"
+	actorMessageRateWindow                         = time.Minute
+)
 
 func (repository *PostgresRepository) ListMessages(
 	ctx context.Context,
@@ -763,7 +766,7 @@ WHERE tenant_id = $1
 		}
 	}
 	return &featurecontrol.QuotaExceededError{
-		Quota:      featurecontrol.QuotaMessageSendsPerHour,
+		Quota:      actorMessageRateQuota,
 		Limit:      actorMessageRateLimit,
 		Used:       used,
 		ResetAt:    now.Add(retryAfter),

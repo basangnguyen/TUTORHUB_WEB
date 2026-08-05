@@ -236,43 +236,42 @@ export function useMarkConversationRead(
           };
         },
       );
-      if (!reachedNewest) {
-        return;
+      if (reachedNewest) {
+        queryClient.setQueryData<Conversation>(
+          conversationQueryKeys.detail(tenantID, conversationID),
+          (conversation) =>
+            conversation
+              ? {
+                  ...conversation,
+                  unread_count: 0,
+                  unread_count_capped: false,
+                }
+              : conversation,
+        );
+        queryClient.setQueriesData<InfiniteData<ConversationPage>>(
+          { queryKey: conversationQueryKeys.lists(tenantID) },
+          (conversationData) =>
+            conversationData
+              ? {
+                  ...conversationData,
+                  pages: conversationData.pages.map((page) => ({
+                    ...page,
+                    items: page.items.map((conversation) =>
+                      conversation.id === conversationID
+                        ? {
+                            ...conversation,
+                            unread_count: 0,
+                            unread_count_capped: false,
+                          }
+                        : conversation,
+                    ),
+                  })),
+                }
+              : conversationData,
+        );
       }
-      queryClient.setQueryData<Conversation>(
-        conversationQueryKeys.detail(tenantID, conversationID),
-        (conversation) =>
-          conversation
-            ? {
-                ...conversation,
-                unread_count: 0,
-                unread_count_capped: false,
-              }
-            : conversation,
-      );
-      queryClient.setQueriesData<InfiniteData<ConversationPage>>(
-        { queryKey: conversationQueryKeys.lists(tenantID) },
-        (conversationData) =>
-          conversationData
-            ? {
-                ...conversationData,
-                pages: conversationData.pages.map((page) => ({
-                  ...page,
-                  items: page.items.map((conversation) =>
-                    conversation.id === conversationID
-                      ? {
-                          ...conversation,
-                          unread_count: 0,
-                          unread_count_capped: false,
-                        }
-                      : conversation,
-                  ),
-                })),
-              }
-            : conversationData,
-      );
-      // Reconcile the optimistic zero with the server in case another message
-      // committed after the loaded page but before this marker transaction.
+      // Always reconcile with the server. Another message can commit after the
+      // loaded page but before this marker transaction reaches the client.
       void Promise.all([
         queryClient.invalidateQueries({
           exact: true,
