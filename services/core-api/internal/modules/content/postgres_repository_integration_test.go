@@ -226,6 +226,12 @@ func TestPostgresContentIntentFinalizeIsolationAndConcurrency(t *testing.T) {
 		ExpectedSizeBytes: 128, ChecksumSHA256: hex.EncodeToString(checksum),
 		ClientRequestID: uuid.New(),
 	}
+	baseCommand := CreateCommand{
+		ClassID: fixture.classID, DisplayName: input.DisplayName,
+		DeclaredMediaType: input.DeclaredMediaType, ExpectedSizeBytes: input.ExpectedSizeBytes,
+		ChecksumSHA256: checksum, ClientRequestID: input.ClientRequestID,
+		CreatedAt: now, UploadExpiresAt: now.Add(uploadIntentTTL),
+	}
 
 	type createOutcome struct {
 		result CreateIntentResult
@@ -239,7 +245,14 @@ func TestPostgresContentIntentFinalizeIsolationAndConcurrency(t *testing.T) {
 		go func() {
 			defer wait.Done()
 			<-start
-			result, createErr := service.CreateIntent(context.Background(), access, input)
+			command := baseCommand
+			command.ID = uuid.New()
+			command.ObjectKey = fmt.Sprintf(
+				"tenants/%s/files/%s/original", access.TenantID, command.ID,
+			)
+			command.ChecksumSHA256 = append([]byte(nil), baseCommand.ChecksumSHA256...)
+			command.RequestFingerprint = requestFingerprint(command)
+			result, createErr := repository.CreateIntent(context.Background(), access, command)
 			outcomes <- createOutcome{result: result, err: createErr}
 		}()
 	}
