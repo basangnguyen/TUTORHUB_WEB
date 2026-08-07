@@ -16,6 +16,7 @@ const (
 	FeatureInAppNotifications     FeatureKey = "in_app_notifications"
 	FeatureAvailabilityPolls      FeatureKey = "availability_polls"
 	FeatureConversations          FeatureKey = "conversations"
+	FeatureFileUploads            FeatureKey = "file_uploads"
 )
 
 type QuotaKey string
@@ -34,6 +35,10 @@ const (
 	QuotaStudyMeetingCreationsPerHour               QuotaKey = "study_meeting_creations_per_hour"
 	QuotaMessagesPerTenant                          QuotaKey = "messages_per_tenant"
 	QuotaMessageSendsPerHour                        QuotaKey = "message_sends_per_hour"
+	QuotaFilesPerTenant                             QuotaKey = "files_per_tenant"
+	QuotaFileBytesPerTenant                         QuotaKey = "file_bytes_per_tenant"
+	QuotaSingleFileBytes                            QuotaKey = "single_file_bytes"
+	QuotaFileUploadIntentsPerHour                   QuotaKey = "file_upload_intents_per_hour"
 )
 
 type ValueSource string
@@ -91,6 +96,9 @@ var featureDefinitions = map[FeatureKey]FeatureDefinition{
 	FeatureConversations: {
 		Key: FeatureConversations, DefaultEnabled: true,
 	},
+	FeatureFileUploads: {
+		Key: FeatureFileUploads, DefaultEnabled: true,
+	},
 }
 
 var quotaDefinitions = map[QuotaKey]QuotaDefinition{
@@ -135,6 +143,18 @@ var quotaDefinitions = map[QuotaKey]QuotaDefinition{
 	},
 	QuotaMessageSendsPerHour: {
 		Key: QuotaMessageSendsPerHour, DefaultLimit: 5000, MinimumLimit: 1, MaximumLimit: 100000,
+	},
+	QuotaFilesPerTenant: {
+		Key: QuotaFilesPerTenant, DefaultLimit: 10000, MinimumLimit: 1, MaximumLimit: 1000000,
+	},
+	QuotaFileBytesPerTenant: {
+		Key: QuotaFileBytesPerTenant, DefaultLimit: 10737418240, MinimumLimit: 1, MaximumLimit: 10995116277760,
+	},
+	QuotaSingleFileBytes: {
+		Key: QuotaSingleFileBytes, DefaultLimit: 104857600, MinimumLimit: 1, MaximumLimit: 5368709120,
+	},
+	QuotaFileUploadIntentsPerHour: {
+		Key: QuotaFileUploadIntentsPerHour, DefaultLimit: 1000, MinimumLimit: 1, MaximumLimit: 100000,
 	},
 }
 

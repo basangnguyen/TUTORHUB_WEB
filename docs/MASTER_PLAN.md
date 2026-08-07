@@ -5,13 +5,13 @@
 | Thuộc tính            | Giá trị                                                                                      |
 | --------------------- | -------------------------------------------------------------------------------------------- |
 | Phiên bản tài liệu    | 2.4                                                                                          |
-| Cập nhật              | 2026-08-05                                                                                   |
+| Cập nhật              | 2026-08-07                                                                                   |
 | Phạm vi ưu tiên       | Web application                                                                              |
 | Thư mục phát triển    | `D:\TutorHub_V2`                                                                             |
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
 | Phase hiện tại        | Phase 3 - Daily learning workspace                                                           |
-| Trạng thái gần nhất   | P3-07A DONE; shared Neon 25, exact candidate Live; P3-08 là runnable lane tiếp theo          |
+| Trạng thái gần nhất   | P3-08 VERIFY; local/disposable 26 PASS, shared Neon vẫn 25                                  |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 
@@ -175,23 +175,23 @@ Không mở cấp tiếp theo nếu phase trước chưa đạt exit gate và ch
 
 ## 7. Audit kiến trúc hiện tại
 
-| Hạng mục                     | Đánh giá                       | Quyết định                                                                 |
-| ---------------------------- | ------------------------------ | -------------------------------------------------------------------------- |
-| React + TypeScript + Vite    | Phù hợp                        | Giữ                                                                        |
-| Go modular monolith          | Phù hợp                        | Giữ; module hóa nội bộ và chỉ tách khi có bằng chứng                       |
-| OpenAPI/generated client     | Phù hợp                        | Bắt buộc                                                                   |
-| OIDC + BFF cookie            | Phù hợp                        | Giữ                                                                        |
-| Neon PostgreSQL              | Phù hợp alpha/pilot            | Giữ; bổ sung pooling, migration role, backup/restore                       |
-| LiveKit Cloud                | Phù hợp MVP                    | Giữ; không tự host trước khi có SRE                                        |
-| Backblaze B2                 | Phù hợp object storage         | Giữ; thêm scan, metadata, lifecycle và CDN policy                          |
-| Cloudflare Pages             | Phù hợp SPA static             | Giữ                                                                        |
+| Hạng mục                     | Đánh giá                       | Quyết định                                                                       |
+| ---------------------------- | ------------------------------ | -------------------------------------------------------------------------------- |
+| React + TypeScript + Vite    | Phù hợp                        | Giữ                                                                              |
+| Go modular monolith          | Phù hợp                        | Giữ; module hóa nội bộ và chỉ tách khi có bằng chứng                             |
+| OpenAPI/generated client     | Phù hợp                        | Bắt buộc                                                                         |
+| OIDC + BFF cookie            | Phù hợp                        | Giữ                                                                              |
+| Neon PostgreSQL              | Phù hợp alpha/pilot            | Giữ; bổ sung pooling, migration role, backup/restore                             |
+| LiveKit Cloud                | Phù hợp MVP                    | Giữ; không tự host trước khi có SRE                                              |
+| Backblaze B2                 | Phù hợp object storage         | Giữ; thêm scan, metadata, lifecycle và CDN policy                                |
+| Cloudflare Pages             | Phù hợp SPA static             | Giữ                                                                              |
 | Render cho Core API          | Phù hợp staging/private alpha  | Giữ cho đến exit trigger; Free tier có cold start, không dùng làm durable worker |
-| Redis ngay từ đầu            | Chưa cần                       | Hoãn tới khi có rate limit phân tán, queue hoặc presence bắt buộc          |
-| Microservices/Kubernetes     | Quá sớm                        | Không dùng trong MVP                                                       |
-| LiveKit DataChannel cho chat | Không phù hợp dữ liệu bền vững | Chỉ dùng ephemeral events                                                  |
-| Worker/job architecture      | Còn thiếu                      | Bổ sung trong Phase 1/2                                                    |
-| Feature flag/quota           | Còn thiếu                      | Bổ sung trước pilot                                                        |
-| Multi-region                 | Chưa cần ngay                  | Thiết kế ranh giới, triển khai ở Global Readiness                          |
+| Redis ngay từ đầu            | Chưa cần                       | Hoãn tới khi có rate limit phân tán, queue hoặc presence bắt buộc                |
+| Microservices/Kubernetes     | Quá sớm                        | Không dùng trong MVP                                                             |
+| LiveKit DataChannel cho chat | Không phù hợp dữ liệu bền vững | Chỉ dùng ephemeral events                                                        |
+| Worker/job architecture      | Còn thiếu                      | Bổ sung trong Phase 1/2                                                          |
+| Feature flag/quota           | Còn thiếu                      | Bổ sung trước pilot                                                              |
+| Multi-region                 | Chưa cần ngay                  | Thiết kế ranh giới, triển khai ở Global Readiness                                |
 
 ## 8. Kiến trúc mục tiêu
 
@@ -901,16 +901,16 @@ Không chọn Kubernetes mặc định. Chỉ dùng khi số service, yêu cầu
 
 ## 20. Exit trigger của nhà cung cấp
 
-| Thành phần        | Giữ khi                                                             | Bắt đầu chuyển khi                                                            |
-| ----------------- | ------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| Render Core API   | Alpha nhỏ/staging, stateless, chấp nhận sleep/cold start             | Cần SLA, autoscaling, worker bền vững, private network hoặc WebSocket ổn định |
-| Durable worker    | Chưa provision; các test local/CI/disposable vẫn chạy                | Trước notification/email/file side effect hoặc pilot; cần host không spin-down và crash/reclaim evidence |
-| Neon Free         | Connection/storage/compute trong quota và cold start chấp nhận được | Pilot cần luôn sẵn sàng, vượt quota, cần compliance/region/PITR cao hơn       |
-| LiveKit Free      | Test/private alpha trong hard cap                                   | Có lớp thật, recording, concurrency hoặc support/SLA                          |
-| B2                | Cost/region/latency và policy đáp ứng                               | Data residency, egress path, compliance hoặc latency không đạt                |
-| Cloudflare Pages  | SPA/static phù hợp                                                  | Cần edge compute/SSR phức tạp hoặc policy không đáp ứng                       |
-| PostgreSQL search | Query và feature đủ                                                 | Relevance, indexing volume hoặc latency vượt SLO                              |
-| Không Redis       | Một instance/DB đủ                                                  | Cần distributed rate limit, short-lived cache, presence hoặc queue            |
+| Thành phần        | Giữ khi                                                             | Bắt đầu chuyển khi                                                                                       |
+| ----------------- | ------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Render Core API   | Alpha nhỏ/staging, stateless, chấp nhận sleep/cold start            | Cần SLA, autoscaling, worker bền vững, private network hoặc WebSocket ổn định                            |
+| Durable worker    | Chưa provision; các test local/CI/disposable vẫn chạy               | Trước notification/email/file side effect hoặc pilot; cần host không spin-down và crash/reclaim evidence |
+| Neon Free         | Connection/storage/compute trong quota và cold start chấp nhận được | Pilot cần luôn sẵn sàng, vượt quota, cần compliance/region/PITR cao hơn                                  |
+| LiveKit Free      | Test/private alpha trong hard cap                                   | Có lớp thật, recording, concurrency hoặc support/SLA                                                     |
+| B2                | Cost/region/latency và policy đáp ứng                               | Data residency, egress path, compliance hoặc latency không đạt                                           |
+| Cloudflare Pages  | SPA/static phù hợp                                                  | Cần edge compute/SSR phức tạp hoặc policy không đáp ứng                                                  |
+| PostgreSQL search | Query và feature đủ                                                 | Relevance, indexing volume hoặc latency vượt SLO                                                         |
+| Không Redis       | Một instance/DB đủ                                                  | Cần distributed rate limit, short-lived cache, presence hoặc queue                                       |
 
 Mọi migration provider phải có interface, export path, dữ liệu ownership và rollback; không trì hoãn đến khi quota đã bị chặn.
 
@@ -1916,7 +1916,7 @@ Một tính năng chỉ được đánh dấu hoàn thành khi:
 
 ## 36. Việc cần làm ngay
 
-  Thứ tự hiện tại, cập nhật ngày 2026-07-31:
+Thứ tự hiện tại, cập nhật ngày 2026-07-31:
 
 1. Phase 1 đã hoàn thành; biên bản nằm tại `docs/PHASE_1_COMPLETION.md`.
 2. Phase 2/P2-00 đến P2-12 đã hoàn thành; biên bản exit gate được sign-off ngày 2026-07-22.
@@ -1947,37 +1947,41 @@ Một tính năng chỉ được đánh dấu hoàn thành khi:
     domain/DNS gate có evidence. Pre-domain chỉ dùng owner-controlled verified identities;
     runtime delivery chờ P3-03B/P3-05A.
 11. P3-02B đã `DONE`: migration `000018/000019`, exact runtime grants, canary,
-     concurrent/authorization/cross-tenant/split/query-plan acceptance đều đạt. P3-02C
-     cũng đã `DONE` ngày 2026-07-30; không mở lại gate chỉ vì P3-CAL-02 live gate còn
-     `VERIFY`. P3-05A và delivery vẫn là carry-over.
-     Không đưa recurrence, reminder, worker, email hoặc calendar tổng hợp vào P3-01.
+    concurrent/authorization/cross-tenant/split/query-plan acceptance đều đạt. P3-02C
+    cũng đã `DONE` ngày 2026-07-30; không mở lại gate chỉ vì P3-CAL-02 live gate còn
+    `VERIFY`. P3-05A và delivery vẫn là carry-over.
+    Không đưa recurrence, reminder, worker, email hoặc calendar tổng hợp vào P3-01.
 12. P3-02C đã `DONE` ngày 2026-07-30 tại commit `7859c233`: Neon `21 false`, migration
-     `000020/000021`, exact ACL/runtime isolation, concurrent/IDOR, Calendar E2E `11/11`
-     và staging/manual accessibility/privacy acceptance đều đạt; live trên Render/
-     Cloudflare. Email/ICS production không được suy ra từ gate này và vẫn chờ
-     P3-CAL-02/P3-03B/P3-05A.
+    `000020/000021`, exact ACL/runtime isolation, concurrent/IDOR, Calendar E2E `11/11`
+    và staging/manual accessibility/privacy acceptance đều đạt; live trên Render/
+    Cloudflare. Email/ICS production không được suy ra từ gate này và vẫn chờ
+    P3-CAL-02/P3-03B/P3-05A.
 13. ADR-0021 đã `Accepted`; `P3-02D-A` đã `DONE` sau P3-02B/C và không phụ thuộc
-     When2meet hoặc durable worker. Disposable đã forward
-     `000022 -> 000023` tới `23 false`; exact runtime/maintenance ACL, hard-retention cascade,
-     poll/capability và concurrency gates đều PASS. Shared staging cũng ở `23 false`; exact
-     candidate `8585864` Live trên Render/Cloudflare với automated browser/privacy/a11y PASS.
-     Authenticated live role/API safety-admin matrix và manual NVDA organizer/public-route
-     acceptance đều PASS. Không rollback thêm; disposable branch vẫn được giữ theo quyết định
-     của owner.
-     `P3-02D-B` (auto-close/fan-out/delivery) chờ P3-03B/P3-04 activation và được ghi vào
-     carry-over register; P3-05B là delivery adapter downstream.
+    When2meet hoặc durable worker. Disposable đã forward
+    `000022 -> 000023` tới `23 false`; exact runtime/maintenance ACL, hard-retention cascade,
+    poll/capability và concurrency gates đều PASS. Shared staging cũng ở `23 false`; exact
+    candidate `8585864` Live trên Render/Cloudflare với automated browser/privacy/a11y PASS.
+    Authenticated live role/API safety-admin matrix và manual NVDA organizer/public-route
+    acceptance đều PASS. Không rollback thêm; disposable branch vẫn được giữ theo quyết định
+    của owner.
+    `P3-02D-B` (auto-close/fan-out/delivery) chờ P3-03B/P3-04 activation và được ghi vào
+    carry-over register; P3-05B là delivery adapter downstream.
 14. P3-06 Direct/class conversation core đã `DONE` ngày 2026-08-04 sau migration
-     `000024`, exact runtime ACL/PostgreSQL, deployment, authenticated browser/API,
-     keyboard/focus và Axe gate. Mốc này đã mở P3-07A persistent message, unread/read
-     core như ghi ở mục 15; realtime và notification delivery vẫn thuộc P3-07B/carry-over.
+    `000024`, exact runtime ACL/PostgreSQL, deployment, authenticated browser/API,
+    keyboard/focus và Axe gate. Mốc này đã mở P3-07A persistent message, unread/read
+    core như ghi ở mục 15; realtime và notification delivery vẫn thuộc P3-07B/carry-over.
 15. P3-07A Persistent message, unread/read core đã `DONE` ngày 2026-08-05: local và
-     disposable gate PASS; shared Neon forward-only `24 false -> 25 false -> 25 false`,
-     exact runtime ACL; candidate `a21ec385` qua CI/security và Live trên Render/Cloudflare;
-     authenticated direct unread/read/reload, archived-class read-only, Admin concealment,
-     keyboard/focus/Axe và log privacy đều PASS. P3-07B delivery vẫn là carry-over;
-     runnable lane tiếp theo là P3-08.
-16. Không xóa thêm Neon branch theo quyết định hiện tại của owner.
-17. Không khởi động QuizHub, Lavie, social feed hoặc Secure Exam ngoài phase đã quy hoạch.
+    disposable gate PASS; shared Neon forward-only `24 false -> 25 false -> 25 false`,
+    exact runtime ACL; candidate `a21ec385` qua CI/security và Live trên Render/Cloudflare;
+    authenticated direct unread/read/reload, archived-class read-only, Admin concealment,
+    keyboard/focus/Axe và log privacy đều PASS. P3-07B delivery vẫn là carry-over;
+    P3-08 đã bắt đầu ngày 2026-08-07.
+16. P3-08 đang `VERIFY`: ADR-0026, migration `000026`, content API, fail-closed B2 metadata
+    verification và feature/quota contract đã hoàn tất local; full verify và disposable
+    forward-only `25 -> 26 -> 26`, exact ACL/PostgreSQL gates PASS. Shared staging chưa
+    forward và chưa deploy; candidate CI/security còn chờ trước `DONE`.
+17. Không xóa thêm Neon branch theo quyết định hiện tại của owner.
+18. Không khởi động QuizHub, Lavie, social feed hoặc Secure Exam ngoài phase đã quy hoạch.
 
 ## 37. Quy tắc duy trì Master Plan
 
@@ -2050,7 +2054,9 @@ staging forward-only `23 false -> 24 false`, exact ACL/PostgreSQL gates, candida
 `756ca60a` Live trên Render/Cloudflare, authenticated direct/class/archive role matrix,
 keyboard/focus và automated Playwright/Axe đều PASS. P3-07A cũng đã `DONE` ngày 2026-08-05:
 shared Neon ở `25 false`, exact ACL, candidate `a21ec385` Live, CI/security và authenticated
-role/reload/accessibility/log-privacy acceptance đều PASS. P3-08 là runnable lane tiếp theo.
+role/reload/accessibility/log-privacy acceptance đều PASS. P3-08 đạt `VERIFY` ngày
+2026-08-07 sau local/full verify và disposable `25 -> 26 -> 26` cùng exact ACL/PostgreSQL
+gates; shared staging chưa forward.
 Không bật side effect chỉ vì core đã có. `P3-02D-B` và các gate worker/provider vẫn là
 carry-over.
 AWS SES đã được chọn làm provider target nhưng

@@ -85,6 +85,7 @@ jobs:
           go test -count=1 -tags=integration ./services/core-api/internal/modules/audit
           go test -count=1 -tags=integration ./services/core-api/internal/modules/featurecontrol
           go test -count=1 -tags=integration ./services/core-api/internal/modules/conversation
+          go test -count=1 -tags=integration ./services/core-api/internal/modules/content
           pnpm test:security:integration
 
       - name: Verify repository

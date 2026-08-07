@@ -48,6 +48,8 @@ const (
 	PermissionParticipantRemove              Permission = "participant.remove"
 	PermissionMediaPublish                   Permission = "media.publish"
 	PermissionChatSend                       Permission = "chat.send"
+	PermissionFileView                       Permission = "file.view"
+	PermissionFileUpload                     Permission = "file.upload"
 	PermissionAuditView                      Permission = "audit.view"
 )
 
@@ -79,6 +81,8 @@ const (
 	ActionParticipantRemove              Action = Action(PermissionParticipantRemove)
 	ActionMediaPublish                   Action = Action(PermissionMediaPublish)
 	ActionChatSend                       Action = Action(PermissionChatSend)
+	ActionFileView                       Action = Action(PermissionFileView)
+	ActionFileUpload                     Action = Action(PermissionFileUpload)
 	ActionAuditView                      Action = Action(PermissionAuditView)
 )
 
@@ -207,6 +211,8 @@ var permissionOrder = []Permission{
 	PermissionParticipantRemove,
 	PermissionMediaPublish,
 	PermissionChatSend,
+	PermissionFileView,
+	PermissionFileUpload,
 	PermissionAuditView,
 }
 
@@ -232,6 +238,8 @@ var organizationPermissions = map[OrganizationRole][]Permission{
 		PermissionParticipantRemove,
 		PermissionMediaPublish,
 		PermissionChatSend,
+		PermissionFileView,
+		PermissionFileUpload,
 	},
 	OrganizationRoleStudent: {
 		PermissionTenantView,
@@ -268,6 +276,8 @@ var classPermissions = map[ClassRole][]Permission{
 		PermissionParticipantRemove,
 		PermissionMediaPublish,
 		PermissionChatSend,
+		PermissionFileView,
+		PermissionFileUpload,
 	},
 	ClassRoleCoTeacher: {
 		PermissionClassUpdate,
@@ -283,6 +293,8 @@ var classPermissions = map[ClassRole][]Permission{
 		PermissionParticipantRemove,
 		PermissionMediaPublish,
 		PermissionChatSend,
+		PermissionFileView,
+		PermissionFileUpload,
 	},
 	ClassRoleTeachingAssistant: {
 		PermissionClassView,
@@ -291,6 +303,7 @@ var classPermissions = map[ClassRole][]Permission{
 		PermissionParticipantAdmit,
 		PermissionMediaPublish,
 		PermissionChatSend,
+		PermissionFileView,
 	},
 	ClassRoleStudent: {
 		PermissionClassView,
@@ -298,6 +311,7 @@ var classPermissions = map[ClassRole][]Permission{
 		PermissionSessionJoin,
 		PermissionMediaPublish,
 		PermissionChatSend,
+		PermissionFileView,
 	},
 }
 
@@ -544,7 +558,8 @@ func actionBlockedForResourceState(action Action, state ResourceState) bool {
 		}
 	case ResourceStateArchived:
 		switch action {
-		case ActionClassView, ActionClassArchive, ActionClassTransferOwnership:
+		case ActionClassView, ActionClassArchive, ActionClassTransferOwnership,
+			ActionFileView:
 			return false
 		case ActionEnrollmentManage, ActionEnrollmentLeave:
 			return false

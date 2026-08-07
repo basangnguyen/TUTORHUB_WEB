@@ -1306,6 +1306,66 @@ export type paths = {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/api/v1/files/{file_id}": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /**
+     * Return one authorized class-file metadata projection
+     * @description Pending, uploaded or processing metadata is visible only to its creator or current upload managers. This endpoint never returns an object key or download capability.
+     */
+    readonly get: operations["getFileMetadata"];
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/files/{file_id}/finalize": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Verify the stored object and commit a pending file as uploaded
+     * @description The Core API reads immutable size, normalized media type, SHA-256, ETag and version metadata directly from B2. Missing or mismatched provider evidence fails closed and leaves the file pending.
+     */
+    readonly post: operations["finalizeFileUpload"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/files/upload-intents": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Reserve metadata and tenant capacity for one class file upload
+     * @description Creates an opaque server-owned file identity and short-lived pending reservation. P3-08 does not expose the object key or issue a transfer URL; direct B2 transfer is added by P3-09.
+     */
+    readonly post: operations["createFileUploadIntent"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/api/v1/me": {
     readonly parameters: {
       readonly query?: never;
@@ -2659,6 +2719,33 @@ export type components = {
       readonly enrollment_status:
         components["schemas"]["ClassEnrollmentStatus"] | null;
     };
+    readonly ContentFile: {
+      /** Format: uuid */
+      readonly class_id: string;
+      /** Format: date-time */
+      readonly created_at: string;
+      /** Format: uuid */
+      readonly creator_user_id: string;
+      readonly declared_media_type: string;
+      readonly display_name: string;
+      readonly expected_checksum_sha256: string;
+      /** Format: int64 */
+      readonly expected_size_bytes: number;
+      /** Format: uuid */
+      readonly id: string;
+      readonly status: components["schemas"]["ContentFileStatus"];
+      /** Format: date-time */
+      readonly updated_at: string;
+      /** Format: date-time */
+      readonly upload_expires_at: string;
+      /** Format: date-time */
+      readonly uploaded_at?: string;
+      /** Format: int64 */
+      readonly version: number;
+    };
+    /** @enum {string} */
+    readonly ContentFileStatus:
+      "pending" | "uploaded" | "processing" | "ready" | "rejected";
     readonly Conversation: {
       /** Format: uuid */
       readonly class_id?: string;
@@ -2777,6 +2864,17 @@ export type components = {
     readonly CreateDirectConversationRequest: {
       /** Format: email */
       readonly target_member_email: string;
+    };
+    readonly CreateFileUploadIntentRequest: {
+      readonly checksum_sha256: string;
+      /** Format: uuid */
+      readonly class_id: string;
+      /** Format: uuid */
+      readonly client_request_id: string;
+      readonly declared_media_type: string;
+      readonly display_name: string;
+      /** Format: int64 */
+      readonly expected_size_bytes: number;
     };
     readonly CreateMembershipInvitationRequest: {
       /** Format: email */
@@ -2898,6 +2996,10 @@ export type components = {
       readonly outcome_type: components["schemas"]["AvailabilityPollOutcomeType"];
       /** Format: uuid */
       readonly slot_id: string;
+    };
+    readonly FinalizeFileUploadRequest: {
+      /** Format: int64 */
+      readonly expected_version: number;
     };
     readonly HealthResponse: {
       readonly environment: string;
@@ -3433,6 +3535,7 @@ export type components = {
       readonly class_session_recurrence: components["schemas"]["FeatureCapability"];
       readonly class_session_scheduling: components["schemas"]["FeatureCapability"];
       readonly conversations: components["schemas"]["FeatureCapability"];
+      readonly file_uploads: components["schemas"]["FeatureCapability"];
       readonly in_app_notifications: components["schemas"]["FeatureCapability"];
       readonly membership_invitations: components["schemas"]["FeatureCapability"];
     };
@@ -3443,6 +3546,7 @@ export type components = {
       readonly class_session_recurrence: boolean;
       readonly class_session_scheduling: boolean;
       readonly conversations: boolean;
+      readonly file_uploads: boolean;
       readonly in_app_notifications: boolean;
       readonly membership_invitations: boolean;
     };
@@ -3468,6 +3572,7 @@ export type components = {
       readonly create_class: components["schemas"]["OperationCapability"];
       readonly create_class_invite_link: components["schemas"]["OperationCapability"];
       readonly create_conversation: components["schemas"]["OperationCapability"];
+      readonly create_file_upload_intent: components["schemas"]["OperationCapability"];
       readonly create_membership_invitation: components["schemas"]["OperationCapability"];
       readonly join_class_invite_link: components["schemas"]["OperationCapability"];
       readonly restore_active_class: components["schemas"]["OperationCapability"];
@@ -3483,10 +3588,14 @@ export type components = {
       readonly availability_poll_participants: components["schemas"]["QuotaCapability"];
       readonly availability_poll_range_days: components["schemas"]["QuotaCapability"];
       readonly availability_poll_slots: components["schemas"]["QuotaCapability"];
+      readonly file_bytes_per_tenant: components["schemas"]["QuotaCapability"];
+      readonly file_upload_intents_per_hour: components["schemas"]["QuotaCapability"];
+      readonly files_per_tenant: components["schemas"]["QuotaCapability"];
       readonly invite_creations_per_hour: components["schemas"]["QuotaCapability"];
       readonly members: components["schemas"]["QuotaCapability"];
       readonly message_sends_per_hour: components["schemas"]["QuotaCapability"];
       readonly messages_per_tenant: components["schemas"]["QuotaCapability"];
+      readonly single_file_bytes: components["schemas"]["QuotaCapability"];
       readonly study_meeting_creations_per_hour: components["schemas"]["QuotaCapability"];
     };
     readonly TenantQuotaControlValues: {
@@ -3498,10 +3607,16 @@ export type components = {
       readonly availability_poll_participants: number;
       readonly availability_poll_range_days: number;
       readonly availability_poll_slots: number;
+      /** Format: int64 */
+      readonly file_bytes_per_tenant: number;
+      readonly file_upload_intents_per_hour: number;
+      readonly files_per_tenant: number;
       readonly invite_creations_per_hour: number;
       readonly members: number;
       readonly message_sends_per_hour: number;
       readonly messages_per_tenant: number;
+      /** Format: int64 */
+      readonly single_file_bytes: number;
       readonly study_meeting_creations_per_hour: number;
     };
     /** @enum {string} */
@@ -6550,6 +6665,124 @@ export interface operations {
         };
         content: {
           readonly "application/json": components["schemas"]["Conversation"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 429: components["responses"]["ProblemResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly getFileMetadata: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Client cache-scope assertion; authorization still comes only from the server-side active session. */
+        readonly "X-TutorHub-Expected-Tenant-ID": string;
+      };
+      readonly path: {
+        readonly file_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Authorized file metadata */
+      readonly 200: {
+        headers: {
+          readonly "Cache-Control"?: "no-store";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ContentFile"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly finalizeFileUpload: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly "X-CSRF-Token": string;
+        /** @description Client cache-scope assertion; authorization still comes only from the server-side active session. */
+        readonly "X-TutorHub-Expected-Tenant-ID": string;
+      };
+      readonly path: {
+        readonly file_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["FinalizeFileUploadRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description File is uploaded, including an idempotent finalize replay */
+      readonly 200: {
+        headers: {
+          readonly "Cache-Control"?: "no-store";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ContentFile"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly createFileUploadIntent: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly "X-CSRF-Token": string;
+        /** @description Client cache-scope assertion; authorization still comes only from the server-side active session. */
+        readonly "X-TutorHub-Expected-Tenant-ID": string;
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["CreateFileUploadIntentRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Existing pending or uploaded file returned by an exact idempotent replay */
+      readonly 200: {
+        headers: {
+          readonly "Cache-Control"?: "no-store";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ContentFile"];
+        };
+      };
+      /** @description Pending file metadata and quota reservation created */
+      readonly 201: {
+        headers: {
+          readonly "Cache-Control"?: "no-store";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ContentFile"];
         };
       };
       readonly 400: components["responses"]["ProblemResponse"];

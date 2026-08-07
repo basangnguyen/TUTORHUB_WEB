@@ -5,6 +5,18 @@ import (
 	"io"
 )
 
+type Metadata struct {
+	ContentLength  int64
+	ContentType    string
+	ChecksumSHA256 []byte
+	ETag           string
+	VersionID      string
+}
+
+type MetadataReader interface {
+	Head(context.Context, string) (Metadata, error)
+}
+
 type Object struct {
 	Body          io.ReadCloser
 	ContentLength int64

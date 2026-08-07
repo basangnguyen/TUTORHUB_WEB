@@ -3,6 +3,7 @@ package objectstorage
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"errors"
 	"io"
 	"strings"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 )
 
 func TestB2StorePutGetDelete(t *testing.T) {
@@ -22,6 +24,11 @@ func TestB2StorePutGetDelete(t *testing.T) {
 			ContentLength: aws.Int64(14),
 			ContentType:   aws.String("text/plain"),
 			ETag:          aws.String("etag"),
+		},
+		headObjectOutput: &s3.HeadObjectOutput{
+			ContentLength: aws.Int64(14), ContentType: aws.String("text/plain"),
+			ChecksumSHA256: aws.String(base64.StdEncoding.EncodeToString(make([]byte, 32))),
+			ETag:           aws.String("etag"), VersionId: aws.String("version-1"),
 		},
 	}
 	store, err := newB2Store(client, "tutorhub-staging")
@@ -55,6 +62,18 @@ func TestB2StorePutGetDelete(t *testing.T) {
 	}
 	if string(payload) != "stored payload" || object.ContentType != "text/plain" {
 		t.Fatalf("unexpected object: %+v", object)
+	}
+
+	metadata, err := store.Head(context.Background(), "smoke/object.txt")
+	if err != nil {
+		t.Fatalf("head object: %v", err)
+	}
+	if metadata.ContentLength != 14 || metadata.ContentType != "text/plain" ||
+		len(metadata.ChecksumSHA256) != 32 || metadata.VersionID != "version-1" {
+		t.Fatalf("unexpected metadata: %+v", metadata)
+	}
+	if client.headObjectInput.ChecksumMode != types.ChecksumModeEnabled {
+		t.Fatal("head object must request checksum metadata")
 	}
 
 	if err := store.Delete(context.Background(), "smoke/object.txt"); err != nil {
@@ -110,11 +129,25 @@ func TestObjectStorageReadinessChecksBucket(t *testing.T) {
 }
 
 type fakeS3Client struct {
-	putInput    *s3.PutObjectInput
-	getOutput   *s3.GetObjectOutput
-	deleteInput *s3.DeleteObjectInput
-	headInput   *s3.HeadBucketInput
-	headErr     error
+	putInput         *s3.PutObjectInput
+	getOutput        *s3.GetObjectOutput
+	deleteInput      *s3.DeleteObjectInput
+	headInput        *s3.HeadBucketInput
+	headErr          error
+	headObjectInput  *s3.HeadObjectInput
+	headObjectOutput *s3.HeadObjectOutput
+}
+
+func (client *fakeS3Client) HeadObject(
+	_ context.Context,
+	input *s3.HeadObjectInput,
+	_ ...func(*s3.Options),
+) (*s3.HeadObjectOutput, error) {
+	client.headObjectInput = input
+	if client.headObjectOutput == nil {
+		return &s3.HeadObjectOutput{}, nil
+	}
+	return client.headObjectOutput, nil
 }
 
 func (client *fakeS3Client) PutObject(

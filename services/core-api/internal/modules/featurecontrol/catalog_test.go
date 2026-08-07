@@ -21,6 +21,7 @@ func TestCatalogDefaultsAndStableOrder(t *testing.T) {
 		FeatureClassSessionRecurrence,
 		FeatureClassSessionScheduling,
 		FeatureConversations,
+		FeatureFileUploads,
 		FeatureInAppNotifications,
 		FeatureMembershipInvitations,
 	}; !reflect.DeepEqual(got, want) {
@@ -41,10 +42,14 @@ func TestCatalogDefaultsAndStableOrder(t *testing.T) {
 		QuotaAvailabilityPollParticipants,
 		QuotaAvailabilityPollRangeDays,
 		QuotaAvailabilityPollSlots,
+		QuotaFileBytesPerTenant,
+		QuotaFileUploadIntentsPerHour,
+		QuotaFilesPerTenant,
 		QuotaInviteCreationsPerHour,
 		QuotaMembers,
 		QuotaMessageSendsPerHour,
 		QuotaMessagesPerTenant,
+		QuotaSingleFileBytes,
 		QuotaStudyMeetingCreationsPerHour,
 	}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("quota catalog order = %v, want %v", got, want)
@@ -91,6 +96,18 @@ func TestCatalogDefaultsAndStableOrder(t *testing.T) {
 		},
 		QuotaMessageSendsPerHour: {
 			Key: QuotaMessageSendsPerHour, DefaultLimit: 5000, MinimumLimit: 1, MaximumLimit: 100000,
+		},
+		QuotaFilesPerTenant: {
+			Key: QuotaFilesPerTenant, DefaultLimit: 10000, MinimumLimit: 1, MaximumLimit: 1000000,
+		},
+		QuotaFileBytesPerTenant: {
+			Key: QuotaFileBytesPerTenant, DefaultLimit: 10737418240, MinimumLimit: 1, MaximumLimit: 10995116277760,
+		},
+		QuotaSingleFileBytes: {
+			Key: QuotaSingleFileBytes, DefaultLimit: 104857600, MinimumLimit: 1, MaximumLimit: 5368709120,
+		},
+		QuotaFileUploadIntentsPerHour: {
+			Key: QuotaFileUploadIntentsPerHour, DefaultLimit: 1000, MinimumLimit: 1, MaximumLimit: 100000,
 		},
 	}
 	for _, definition := range quotas {

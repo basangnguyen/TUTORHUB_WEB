@@ -831,6 +831,7 @@ describe("getHealth", () => {
         class_session_recurrence: { enabled: false },
         in_app_notifications: { enabled: true },
         conversations: { enabled: true },
+        file_uploads: { enabled: true },
       },
       quotas: {
         active_availability_polls: { limit: 20, used: 2, remaining: 18 },
@@ -884,6 +885,23 @@ describe("getHealth", () => {
           remaining: 4992,
           reset_at: "2026-07-20T12:00:00Z",
         },
+        files_per_tenant: { limit: 10000, used: 12, remaining: 9988 },
+        file_bytes_per_tenant: {
+          limit: 10737418240,
+          used: 2048,
+          remaining: 10737416192,
+        },
+        single_file_bytes: {
+          limit: 104857600,
+          used: 0,
+          remaining: 104857600,
+        },
+        file_upload_intents_per_hour: {
+          limit: 1000,
+          used: 3,
+          remaining: 997,
+          reset_at: "2026-07-20T12:00:00Z",
+        },
       },
       operations: {
         create_membership_invitation: {
@@ -925,6 +943,10 @@ describe("getHealth", () => {
           available: true,
           reason: "available",
         },
+        create_file_upload_intent: {
+          available: true,
+          reason: "available",
+        },
       },
     };
     const input: UpdateTenantFeatureControlsRequest = {
@@ -938,6 +960,7 @@ describe("getHealth", () => {
         class_session_recurrence: false,
         in_app_notifications: true,
         conversations: true,
+        file_uploads: true,
       },
       quotas: {
         active_availability_polls: 30,
@@ -953,6 +976,10 @@ describe("getHealth", () => {
         study_meeting_creations_per_hour: 30,
         messages_per_tenant: 200000,
         message_sends_per_hour: 6000,
+        files_per_tenant: 20000,
+        file_bytes_per_tenant: 21474836480,
+        single_file_bytes: 209715200,
+        file_upload_intents_per_hour: 2000,
       },
     };
     const updatedCapabilities: TenantCapabilities = {

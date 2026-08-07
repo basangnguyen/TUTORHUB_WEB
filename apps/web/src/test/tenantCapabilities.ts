@@ -31,6 +31,10 @@ export function availableTenantCapabilities(
         configured_enabled: true,
         enabled: true,
       },
+      file_uploads: {
+        configured_enabled: true,
+        enabled: true,
+      },
       in_app_notifications: {
         configured_enabled: false,
         enabled: false,
@@ -115,6 +119,30 @@ export function availableTenantCapabilities(
         used: 0,
         remaining: 5000,
       },
+      files_per_tenant: {
+        configured_limit: 10000,
+        limit: 10000,
+        used: 0,
+        remaining: 10000,
+      },
+      file_bytes_per_tenant: {
+        configured_limit: 10737418240,
+        limit: 10737418240,
+        used: 0,
+        remaining: 10737418240,
+      },
+      single_file_bytes: {
+        configured_limit: 104857600,
+        limit: 104857600,
+        used: 0,
+        remaining: 104857600,
+      },
+      file_upload_intents_per_hour: {
+        configured_limit: 1000,
+        limit: 1000,
+        used: 0,
+        remaining: 1000,
+      },
     },
     operations: {
       create_membership_invitation: available,
@@ -129,6 +157,7 @@ export function availableTenantCapabilities(
       create_availability_poll_capability: available,
       schedule_study_meeting: available,
       create_conversation: available,
+      create_file_upload_intent: available,
     },
   };
 }

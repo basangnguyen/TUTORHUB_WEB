@@ -2,6 +2,7 @@ package objectstorage
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"strings"
@@ -10,6 +11,7 @@ import (
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/tutorhub-v2/core-api/internal/config"
 )
 
@@ -34,6 +36,11 @@ type s3API interface {
 		*s3.HeadBucketInput,
 		...func(*s3.Options),
 	) (*s3.HeadBucketOutput, error)
+	HeadObject(
+		context.Context,
+		*s3.HeadObjectInput,
+		...func(*s3.Options),
+	) (*s3.HeadObjectOutput, error)
 }
 
 type B2Store struct {
@@ -133,6 +140,34 @@ func (store *B2Store) Get(ctx context.Context, key string) (Object, error) {
 		ContentLength: aws.ToInt64(output.ContentLength),
 		ContentType:   aws.ToString(output.ContentType),
 		ETag:          aws.ToString(output.ETag),
+	}, nil
+}
+
+func (store *B2Store) Head(ctx context.Context, key string) (Metadata, error) {
+	if err := validateKey(key); err != nil {
+		return Metadata{}, err
+	}
+	output, err := store.client.HeadObject(ctx, &s3.HeadObjectInput{
+		Bucket:       aws.String(store.bucket),
+		Key:          aws.String(key),
+		ChecksumMode: types.ChecksumModeEnabled,
+	})
+	if err != nil {
+		return Metadata{}, fmt.Errorf("head object: %w", err)
+	}
+	var checksum []byte
+	if encoded := strings.TrimSpace(aws.ToString(output.ChecksumSHA256)); encoded != "" {
+		checksum, err = base64.StdEncoding.DecodeString(encoded)
+		if err != nil {
+			return Metadata{}, fmt.Errorf("decode object SHA-256 checksum: %w", err)
+		}
+	}
+	return Metadata{
+		ContentLength:  aws.ToInt64(output.ContentLength),
+		ContentType:    strings.TrimSpace(aws.ToString(output.ContentType)),
+		ChecksumSHA256: checksum,
+		ETag:           strings.TrimSpace(aws.ToString(output.ETag)),
+		VersionID:      strings.TrimSpace(aws.ToString(output.VersionId)),
 	}, nil
 }
 

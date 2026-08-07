@@ -6,16 +6,47 @@
 
 | Thuộc tính          | Trạng thái                                                                            |
 | ------------------- | ------------------------------------------------------------------------------------- |
-| Ngày cập nhật       | 2026-08-05                                                                            |
+| Ngày cập nhật       | 2026-08-07                                                                            |
 | Repository          | `https://github.com/basangnguyen/TUTORHUB_WEB`                                        |
 | Nhánh làm việc      | `main`                                                                                |
 | Quy trình           | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
 | Phase hoàn thành    | Phase 0, Phase 1, Phase 2                                                             |
 | Phase hiện tại      | Phase 3 - Daily learning workspace                                                   |
 | Task `DONE` gần nhất | P3-07A Persistent message, unread/read core                                        |
-| Mốc repository mới | Candidate `a21ec385` Live; shared Neon `25 false`; P3-07A toàn bộ exit gate PASS      |
-| Task hiện tại       | P3-07A — `DONE`                                                                         |
-| Task tiếp theo      | P3-08 File metadata, upload intent và finalize                                        |
+| Mốc repository mới | P3-08 local/disposable đạt `VERIFY`; shared Neon vẫn `25 false`                        |
+| Task hiện tại       | P3-08 File metadata, upload intent và finalize — `VERIFY`                             |
+| Task tiếp theo      | Review diff/secret, push candidate và theo dõi CI/security trước quyết định `DONE`    |
+
+### Checkpoint P3-08 bắt đầu ngày 2026-08-07
+
+P3-08 đã khóa kiến trúc bằng ADR-0026, hoàn tất vertical slice local và đạt `VERIFY` trên
+Neon disposable; shared staging chưa migrate và ứng dụng chưa deploy:
+
+- forward migration `000026` tạo `content_files`, `tenant_file_usage`, feature
+  `file_uploads` và bốn quota file; `PUBLIC` bị revoke và runtime provisioning dùng exact
+  column-level `INSERT/UPDATE`;
+- Go module `content` tạo/replay intent, reserve/reclaim quota, reauthorize class trong
+  transaction, conceal foreign/inaccessible ID và finalize qua hai transaction tách khỏi
+  lệnh `HeadObject` tới B2;
+- finalize chỉ commit `pending -> uploaded` khi size, normalized MIME, SHA-256, ETag và
+  immutable version đều đúng; object key/provider proof không xuất hiện trong public API,
+  audit, outbox hoặc log;
+- OpenAPI/generated client, capability projection, deployment guardrails và admin feature/
+  quota controls đã cập nhật; chưa có presigned transfer, download/share, processing worker
+  hoặc Class Files UI;
+- `pnpm verify`, Go unit/vet, OpenAPI generated-contract, API client `37/37`, web `247/247`,
+  lint/typecheck/build/Storybook và local security gates đều PASS;
+- disposable owner preflight PASS với admin residual được ghi nhận; forward-only
+  `25 false -> 26 false -> 26 false`, exact column ACL/runtime-role safety và `PUBLIC`
+  zero-grant đều PASS, không rollback;
+- PostgreSQL content integration package PASS, zero `SKIP`: concurrent intent/finalize,
+  idempotency conflict, expiry/quota accounting, archived-class và tenant isolation đều đạt.
+
+CI/security trên exact candidate và final diff/secret review vẫn còn trước `VERIFY -> DONE`.
+
+Acceptance và exact ACL được ghi tại `docs/P3_08_STAGING_ACCEPTANCE.md`. Real B2 proof cho
+exact presigned PUT thuộc P3-09; nếu provider không trả checksum/version thì giữ feature off,
+không nới điều kiện finalize.
 
 ### Checkpoint P3-07A hoàn tất ngày 2026-08-05
 

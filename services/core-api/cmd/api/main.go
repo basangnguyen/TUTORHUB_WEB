@@ -16,6 +16,7 @@ import (
 	"github.com/tutorhub-v2/core-api/internal/modules/audit"
 	"github.com/tutorhub-v2/core-api/internal/modules/calendar"
 	"github.com/tutorhub-v2/core-api/internal/modules/classroom"
+	"github.com/tutorhub-v2/core-api/internal/modules/content"
 	"github.com/tutorhub-v2/core-api/internal/modules/conversation"
 	"github.com/tutorhub-v2/core-api/internal/modules/featurecontrol"
 	"github.com/tutorhub-v2/core-api/internal/modules/identity"
@@ -44,6 +45,7 @@ func run() int {
 	cfg.FeatureControls = featureControlsWithRuntimePrerequisites(
 		cfg.FeatureControls,
 		cfg.CalendarProtectedData.Enabled,
+		cfg.ObjectStorage.Enabled,
 	)
 
 	logger, err := observability.NewLogger(os.Stdout, cfg.LogLevel)
@@ -96,15 +98,16 @@ func run() int {
 		}
 	}
 
+	var objectStore *objectstorage.B2Store
 	if cfg.ObjectStorage.Enabled {
 		storeContext, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		store, err := objectstorage.NewB2(storeContext, cfg.ObjectStorage)
+		objectStore, err = objectstorage.NewB2(storeContext, cfg.ObjectStorage)
 		cancel()
 		if err != nil {
 			logger.Error("initialize object storage", "error", err)
 			return 1
 		}
-		readiness = append(readiness, objectstorage.NewReadinessCheck(store, 5*time.Second))
+		readiness = append(readiness, objectstorage.NewReadinessCheck(objectStore, 5*time.Second))
 		logger.Info(
 			"object storage initialized",
 			"bucket", cfg.ObjectStorage.Bucket,
@@ -192,6 +195,24 @@ func run() int {
 		conversationService, conversationErr = conversation.NewService(conversationRepository)
 		if conversationErr != nil {
 			logger.Error("initialize conversation service", "error", conversationErr)
+			return 1
+		}
+	}
+	var contentService content.ServiceAPI
+	if pool != nil && objectStore != nil {
+		contentRepository, contentErr := content.NewPostgresRepository(
+			pool,
+			cfg.Database.QueryTimeout,
+			authorizer,
+			featureControlEnforcer,
+		)
+		if contentErr != nil {
+			logger.Error("initialize content repository", "error", contentErr)
+			return 1
+		}
+		contentService, contentErr = content.NewService(contentRepository, objectStore)
+		if contentErr != nil {
+			logger.Error("initialize content service", "error", contentErr)
 			return 1
 		}
 	}
@@ -461,6 +482,7 @@ func run() int {
 		FeatureControls:       featureControlService,
 		Notifications:         notificationService,
 		Conversations:         conversationService,
+		Content:               contentService,
 		InvitationRateLimiter: invitationRateLimiter,
 		Media:                 mediaService,
 		LiveKitWebhook:        liveKitWebhook,
@@ -490,7 +512,7 @@ func run() int {
 }
 
 func featureControlGuardrails(configuration config.FeatureControlConfig) featurecontrol.Guardrails {
-	forcedOff := make(map[featurecontrol.FeatureKey]bool, 6)
+	forcedOff := make(map[featurecontrol.FeatureKey]bool, 9)
 	if configuration.DisableMembershipInvitations {
 		forcedOff[featurecontrol.FeatureMembershipInvitations] = true
 	}
@@ -508,6 +530,9 @@ func featureControlGuardrails(configuration config.FeatureControlConfig) feature
 	}
 	if configuration.DisableConversations {
 		forcedOff[featurecontrol.FeatureConversations] = true
+	}
+	if configuration.DisableFileUploads {
+		forcedOff[featurecontrol.FeatureFileUploads] = true
 	}
 	if !configuration.EnableClassSessionRecurrence {
 		forcedOff[featurecontrol.FeatureClassSessionRecurrence] = true
@@ -532,6 +557,10 @@ func featureControlGuardrails(configuration config.FeatureControlConfig) feature
 			featurecontrol.QuotaStudyMeetingCreationsPerHour:               int64(configuration.MaxStudyMeetingCreationsPerHour),
 			featurecontrol.QuotaMessagesPerTenant:                          int64(configuration.MaxMessagesPerTenant),
 			featurecontrol.QuotaMessageSendsPerHour:                        int64(configuration.MaxMessageSendsPerHour),
+			featurecontrol.QuotaFilesPerTenant:                             int64(configuration.MaxFilesPerTenant),
+			featurecontrol.QuotaFileBytesPerTenant:                         int64(configuration.MaxFileBytesPerTenant),
+			featurecontrol.QuotaSingleFileBytes:                            int64(configuration.MaxSingleFileBytes),
+			featurecontrol.QuotaFileUploadIntentsPerHour:                   int64(configuration.MaxFileUploadIntentsPerHour),
 		},
 	}
 }
@@ -539,9 +568,13 @@ func featureControlGuardrails(configuration config.FeatureControlConfig) feature
 func featureControlsWithRuntimePrerequisites(
 	configuration config.FeatureControlConfig,
 	calendarProtectedDataEnabled bool,
+	objectStorageEnabled bool,
 ) config.FeatureControlConfig {
 	if !calendarProtectedDataEnabled {
 		configuration.DisableAvailabilityPolls = true
+	}
+	if !objectStorageEnabled {
+		configuration.DisableFileUploads = true
 	}
 	return configuration
 }

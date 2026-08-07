@@ -33,6 +33,7 @@ func TestOrganizationPermissionMatrix(t *testing.T) {
 				PermissionEnrollmentManage, PermissionSessionSchedule, PermissionSessionStart, PermissionSessionEnd,
 				PermissionSessionJoin, PermissionParticipantAdmit,
 				PermissionParticipantRemove, PermissionMediaPublish, PermissionChatSend,
+				PermissionFileView, PermissionFileUpload,
 			},
 		},
 		{
@@ -94,6 +95,7 @@ func TestClassPermissionMatrix(t *testing.T) {
 				PermissionSessionStart, PermissionSessionEnd, PermissionSessionJoin,
 				PermissionParticipantAdmit, PermissionParticipantRemove,
 				PermissionMediaPublish, PermissionChatSend,
+				PermissionFileView, PermissionFileUpload,
 			},
 		},
 		{
@@ -108,6 +110,7 @@ func TestClassPermissionMatrix(t *testing.T) {
 				PermissionSessionStart, PermissionSessionEnd, PermissionSessionJoin,
 				PermissionParticipantAdmit, PermissionParticipantRemove,
 				PermissionMediaPublish, PermissionChatSend,
+				PermissionFileView, PermissionFileUpload,
 			},
 		},
 		{
@@ -120,6 +123,7 @@ func TestClassPermissionMatrix(t *testing.T) {
 				PermissionStudyMeetingScheduleOwn,
 				PermissionEnrollmentLeave, PermissionSessionJoin, PermissionParticipantAdmit,
 				PermissionMediaPublish, PermissionChatSend,
+				PermissionFileView,
 			},
 		},
 		{
@@ -132,6 +136,7 @@ func TestClassPermissionMatrix(t *testing.T) {
 				PermissionStudyMeetingScheduleOwn,
 				PermissionEnrollmentLeave, PermissionSessionJoin, PermissionMediaPublish,
 				PermissionChatSend,
+				PermissionFileView,
 			},
 		},
 	}
@@ -173,9 +178,52 @@ func TestEffectivePermissionsUnionsMultipleRolesDeterministically(t *testing.T) 
 		PermissionParticipantAdmit,
 		PermissionMediaPublish,
 		PermissionChatSend,
+		PermissionFileView,
 	}
 	if got := NewEngine().EffectivePermissions(subject); !reflect.DeepEqual(got, want) {
 		t.Fatalf("effective permission union is not deterministic: got=%v want=%v", got, want)
+	}
+}
+
+func TestFilePermissionsSeparateViewFromUploadAndRespectClassLifecycle(t *testing.T) {
+	t.Parallel()
+	tenantID := uuid.New()
+	classID := uuid.New()
+	actorID := uuid.New()
+	engine := NewEngine()
+	student := Subject{
+		ActorID: actorID, ActiveTenantID: tenantID, MembershipActive: true,
+		OrganizationRoles: []OrganizationRole{OrganizationRoleStudent},
+		ClassRoles:        []ClassRole{ClassRoleStudent},
+	}
+	resource := Resource{TenantID: tenantID, ClassID: classID, State: ResourceStateActive}
+	if decision := engine.Authorize(Input{
+		Subject: student, Action: ActionFileView, Resource: resource,
+	}); !decision.Allowed {
+		t.Fatalf("active class student file view denied: %+v", decision)
+	}
+	if decision := engine.Authorize(Input{
+		Subject: student, Action: ActionFileUpload, Resource: resource,
+	}); decision.Allowed || decision.Reason != DenialPermission {
+		t.Fatalf("student file upload decision=%+v, want permission denial", decision)
+	}
+	owner := student
+	owner.ClassRoles = []ClassRole{ClassRoleOwner}
+	if decision := engine.Authorize(Input{
+		Subject: owner, Action: ActionFileUpload, Resource: resource,
+	}); !decision.Allowed {
+		t.Fatalf("active class owner file upload denied: %+v", decision)
+	}
+	resource.State = ResourceStateArchived
+	if decision := engine.Authorize(Input{
+		Subject: owner, Action: ActionFileView, Resource: resource,
+	}); !decision.Allowed {
+		t.Fatalf("archived class file view denied: %+v", decision)
+	}
+	if decision := engine.Authorize(Input{
+		Subject: owner, Action: ActionFileUpload, Resource: resource,
+	}); decision.Allowed || decision.Reason != DenialResourceState {
+		t.Fatalf("archived class file upload decision=%+v, want state denial", decision)
 	}
 }
 

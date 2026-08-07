@@ -25,6 +25,10 @@ func TestFeatureControlGuardrailsOmitFeaturesThatAreNotForcedOff(t *testing.T) {
 		MaxStudyMeetingCreationsPerHour:               200,
 		MaxMessagesPerTenant:                          10_000_000,
 		MaxMessageSendsPerHour:                        100_000,
+		MaxFilesPerTenant:                             1_000_000,
+		MaxFileBytesPerTenant:                         1_099_511_627_776,
+		MaxSingleFileBytes:                            5_368_709_120,
+		MaxFileUploadIntentsPerHour:                   100_000,
 	}
 	guardrails := featureControlGuardrails(configuration)
 
@@ -63,6 +67,10 @@ func TestFeatureControlGuardrailsForceOffClassSessionScheduling(t *testing.T) {
 		MaxStudyMeetingCreationsPerHour:               200,
 		MaxMessagesPerTenant:                          10_000_000,
 		MaxMessageSendsPerHour:                        100_000,
+		MaxFilesPerTenant:                             1_000_000,
+		MaxFileBytesPerTenant:                         1_099_511_627_776,
+		MaxSingleFileBytes:                            5_368_709_120,
+		MaxFileUploadIntentsPerHour:                   100_000,
 	})
 
 	if len(guardrails.ForcedOffFeatures) != 1 ||
@@ -94,6 +102,10 @@ func TestFeatureControlGuardrailsForceOffConversations(t *testing.T) {
 		MaxStudyMeetingCreationsPerHour:               200,
 		MaxMessagesPerTenant:                          10_000_000,
 		MaxMessageSendsPerHour:                        100_000,
+		MaxFilesPerTenant:                             1_000_000,
+		MaxFileBytesPerTenant:                         1_099_511_627_776,
+		MaxSingleFileBytes:                            5_368_709_120,
+		MaxFileUploadIntentsPerHour:                   100_000,
 	})
 
 	if len(guardrails.ForcedOffFeatures) != 1 ||
@@ -108,6 +120,7 @@ func TestAvailabilityPollFeatureFailsClosedWithoutProtectedData(t *testing.T) {
 	configuration := featureControlsWithRuntimePrerequisites(
 		config.FeatureControlConfig{DisableAvailabilityPolls: false},
 		false,
+		true,
 	)
 	if !configuration.DisableAvailabilityPolls {
 		t.Fatal("availability polls must be forced off when their protected-data runtime is absent")
@@ -115,8 +128,30 @@ func TestAvailabilityPollFeatureFailsClosedWithoutProtectedData(t *testing.T) {
 	configured := featureControlsWithRuntimePrerequisites(
 		config.FeatureControlConfig{DisableAvailabilityPolls: false},
 		true,
+		true,
 	)
 	if configured.DisableAvailabilityPolls {
 		t.Fatal("configured protected data must not force the availability feature off")
+	}
+}
+
+func TestFileUploadFeatureFailsClosedWithoutObjectStorage(t *testing.T) {
+	t.Parallel()
+
+	configuration := featureControlsWithRuntimePrerequisites(
+		config.FeatureControlConfig{},
+		true,
+		false,
+	)
+	if !configuration.DisableFileUploads {
+		t.Fatal("file uploads must be forced off when object storage is absent")
+	}
+	configured := featureControlsWithRuntimePrerequisites(
+		config.FeatureControlConfig{},
+		true,
+		true,
+	)
+	if configured.DisableFileUploads {
+		t.Fatal("configured object storage must not force file uploads off")
 	}
 }

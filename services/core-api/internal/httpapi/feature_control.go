@@ -51,6 +51,7 @@ type tenantFeatureCapabilitiesResponse struct {
 	InAppNotifications     featureCapabilityResponse `json:"in_app_notifications"`
 	AvailabilityPolls      featureCapabilityResponse `json:"availability_polls"`
 	Conversations          featureCapabilityResponse `json:"conversations"`
+	FileUploads            featureCapabilityResponse `json:"file_uploads"`
 }
 
 type tenantQuotaCapabilitiesResponse struct {
@@ -67,6 +68,10 @@ type tenantQuotaCapabilitiesResponse struct {
 	StudyMeetingCreationsPerHour               quotaCapabilityResponse `json:"study_meeting_creations_per_hour"`
 	MessagesPerTenant                          quotaCapabilityResponse `json:"messages_per_tenant"`
 	MessageSendsPerHour                        quotaCapabilityResponse `json:"message_sends_per_hour"`
+	FilesPerTenant                             quotaCapabilityResponse `json:"files_per_tenant"`
+	FileBytesPerTenant                         quotaCapabilityResponse `json:"file_bytes_per_tenant"`
+	SingleFileBytes                            quotaCapabilityResponse `json:"single_file_bytes"`
+	FileUploadIntentsPerHour                   quotaCapabilityResponse `json:"file_upload_intents_per_hour"`
 }
 
 type tenantOperationCapabilitiesResponse struct {
@@ -82,6 +87,7 @@ type tenantOperationCapabilitiesResponse struct {
 	CreateAvailabilityPollCapability operationCapabilityResponse `json:"create_availability_poll_capability"`
 	ScheduleStudyMeeting             operationCapabilityResponse `json:"schedule_study_meeting"`
 	CreateConversation               operationCapabilityResponse `json:"create_conversation"`
+	CreateFileUploadIntent           operationCapabilityResponse `json:"create_file_upload_intent"`
 }
 
 type tenantCapabilitiesResponse struct {
@@ -108,6 +114,7 @@ type updateTenantFeatureControlValuesRequest struct {
 	InAppNotifications     *bool `json:"in_app_notifications"`
 	AvailabilityPolls      *bool `json:"availability_polls"`
 	Conversations          *bool `json:"conversations"`
+	FileUploads            *bool `json:"file_uploads"`
 }
 
 type updateTenantQuotaControlValuesRequest struct {
@@ -124,6 +131,10 @@ type updateTenantQuotaControlValuesRequest struct {
 	StudyMeetingCreationsPerHour               *int64 `json:"study_meeting_creations_per_hour"`
 	MessagesPerTenant                          *int64 `json:"messages_per_tenant"`
 	MessageSendsPerHour                        *int64 `json:"message_sends_per_hour"`
+	FilesPerTenant                             *int64 `json:"files_per_tenant"`
+	FileBytesPerTenant                         *int64 `json:"file_bytes_per_tenant"`
+	SingleFileBytes                            *int64 `json:"single_file_bytes"`
+	FileUploadIntentsPerHour                   *int64 `json:"file_upload_intents_per_hour"`
 }
 
 func (request updateTenantFeatureControlsRequest) complete() bool {
@@ -136,6 +147,7 @@ func (request updateTenantFeatureControlsRequest) complete() bool {
 		request.Features.InAppNotifications != nil &&
 		request.Features.AvailabilityPolls != nil &&
 		request.Features.Conversations != nil &&
+		request.Features.FileUploads != nil &&
 		request.Quotas != nil && request.Quotas.Members != nil &&
 		request.Quotas.ActiveClasses != nil &&
 		request.Quotas.InviteCreationsPerHour != nil &&
@@ -148,7 +160,11 @@ func (request updateTenantFeatureControlsRequest) complete() bool {
 		request.Quotas.ActiveStudyMeetings != nil &&
 		request.Quotas.StudyMeetingCreationsPerHour != nil &&
 		request.Quotas.MessagesPerTenant != nil &&
-		request.Quotas.MessageSendsPerHour != nil
+		request.Quotas.MessageSendsPerHour != nil &&
+		request.Quotas.FilesPerTenant != nil &&
+		request.Quotas.FileBytesPerTenant != nil &&
+		request.Quotas.SingleFileBytes != nil &&
+		request.Quotas.FileUploadIntentsPerHour != nil
 }
 
 func newFeatureControlHandlers(
@@ -234,6 +250,7 @@ func (handlers featureControlHandlers) update(w http.ResponseWriter, r *http.Req
 				{Key: featurecontrol.FeatureInAppNotifications, Enabled: *request.Features.InAppNotifications},
 				{Key: featurecontrol.FeatureAvailabilityPolls, Enabled: *request.Features.AvailabilityPolls},
 				{Key: featurecontrol.FeatureConversations, Enabled: *request.Features.Conversations},
+				{Key: featurecontrol.FeatureFileUploads, Enabled: *request.Features.FileUploads},
 			},
 			QuotaOverrides: []featurecontrol.QuotaOverride{
 				{Key: featurecontrol.QuotaMembers, Limit: *request.Quotas.Members},
@@ -249,6 +266,10 @@ func (handlers featureControlHandlers) update(w http.ResponseWriter, r *http.Req
 				{Key: featurecontrol.QuotaStudyMeetingCreationsPerHour, Limit: *request.Quotas.StudyMeetingCreationsPerHour},
 				{Key: featurecontrol.QuotaMessagesPerTenant, Limit: *request.Quotas.MessagesPerTenant},
 				{Key: featurecontrol.QuotaMessageSendsPerHour, Limit: *request.Quotas.MessageSendsPerHour},
+				{Key: featurecontrol.QuotaFilesPerTenant, Limit: *request.Quotas.FilesPerTenant},
+				{Key: featurecontrol.QuotaFileBytesPerTenant, Limit: *request.Quotas.FileBytesPerTenant},
+				{Key: featurecontrol.QuotaSingleFileBytes, Limit: *request.Quotas.SingleFileBytes},
+				{Key: featurecontrol.QuotaFileUploadIntentsPerHour, Limit: *request.Quotas.FileUploadIntentsPerHour},
 			},
 		},
 	)
@@ -386,6 +407,7 @@ func mapTenantCapabilities(
 	notificationFeature, notificationOK := features[featurecontrol.FeatureInAppNotifications]
 	availabilityPollFeature, availabilityPollOK := features[featurecontrol.FeatureAvailabilityPolls]
 	conversationFeature, conversationOK := features[featurecontrol.FeatureConversations]
+	fileUploadFeature, fileUploadOK := features[featurecontrol.FeatureFileUploads]
 	membersQuota, membersOK := quotas[featurecontrol.QuotaMembers]
 	classesQuota, classesOK := quotas[featurecontrol.QuotaActiveClasses]
 	invitesQuota, invitesOK := quotas[featurecontrol.QuotaInviteCreationsPerHour]
@@ -399,10 +421,15 @@ func mapTenantCapabilities(
 	studyMeetingCreationsQuota, studyMeetingCreationsOK := quotas[featurecontrol.QuotaStudyMeetingCreationsPerHour]
 	messagesQuota, messagesOK := quotas[featurecontrol.QuotaMessagesPerTenant]
 	messageSendsQuota, messageSendsOK := quotas[featurecontrol.QuotaMessageSendsPerHour]
+	filesQuota, filesOK := quotas[featurecontrol.QuotaFilesPerTenant]
+	fileBytesQuota, fileBytesOK := quotas[featurecontrol.QuotaFileBytesPerTenant]
+	singleFileQuota, singleFileOK := quotas[featurecontrol.QuotaSingleFileBytes]
+	fileIntentRateQuota, fileIntentRateOK := quotas[featurecontrol.QuotaFileUploadIntentsPerHour]
 	if !membershipOK || !classOK || !inviteOK || !sessionOK || !recurrenceOK || !notificationOK ||
-		!availabilityPollOK || !conversationOK || !membersOK || !classesOK || !invitesOK || !activePollsOK ||
+		!availabilityPollOK || !conversationOK || !fileUploadOK || !membersOK || !classesOK || !invitesOK || !activePollsOK ||
 		!pollRangeOK || !pollSlotsOK || !pollParticipantsOK || !pollCreationsOK || !pollCapabilitiesOK ||
-		!activeStudyMeetingsOK || !studyMeetingCreationsOK || !messagesOK || !messageSendsOK {
+		!activeStudyMeetingsOK || !studyMeetingCreationsOK || !messagesOK || !messageSendsOK ||
+		!filesOK || !fileBytesOK || !singleFileOK || !fileIntentRateOK {
 		return tenantCapabilitiesResponse{}, errors.New("feature control snapshot is incomplete")
 	}
 	response := tenantCapabilitiesResponse{
@@ -418,6 +445,7 @@ func mapTenantCapabilities(
 			InAppNotifications:     mapFeatureCapability(notificationFeature, capabilities.AllowedAction.ManageControls),
 			AvailabilityPolls:      mapFeatureCapability(availabilityPollFeature, capabilities.AllowedAction.ManageControls),
 			Conversations:          mapFeatureCapability(conversationFeature, capabilities.AllowedAction.ManageControls),
+			FileUploads:            mapFeatureCapability(fileUploadFeature, capabilities.AllowedAction.ManageControls),
 		},
 		Quotas: tenantQuotaCapabilitiesResponse{
 			Members:                                    mapQuotaCapability(membersQuota, capabilities.AllowedAction.ManageControls),
@@ -433,6 +461,10 @@ func mapTenantCapabilities(
 			StudyMeetingCreationsPerHour:               mapQuotaCapability(studyMeetingCreationsQuota, capabilities.AllowedAction.ManageControls),
 			MessagesPerTenant:                          mapQuotaCapability(messagesQuota, capabilities.AllowedAction.ManageControls),
 			MessageSendsPerHour:                        mapQuotaCapability(messageSendsQuota, capabilities.AllowedAction.ManageControls),
+			FilesPerTenant:                             mapQuotaCapability(filesQuota, capabilities.AllowedAction.ManageControls),
+			FileBytesPerTenant:                         mapQuotaCapability(fileBytesQuota, capabilities.AllowedAction.ManageControls),
+			SingleFileBytes:                            mapQuotaCapability(singleFileQuota, capabilities.AllowedAction.ManageControls),
+			FileUploadIntentsPerHour:                   mapQuotaCapability(fileIntentRateQuota, capabilities.AllowedAction.ManageControls),
 		},
 	}
 	response.Operations = tenantOperationCapabilitiesResponse{
@@ -448,6 +480,7 @@ func mapTenantCapabilities(
 		CreateAvailabilityPollCapability: combineOperation(availabilityPollFeature.Enabled, pollCapabilitiesQuota, true),
 		ScheduleStudyMeeting:             availabilityPollCreateOperation(availabilityPollFeature.Enabled, activeStudyMeetingsQuota, studyMeetingCreationsQuota),
 		CreateConversation:               featureOperation(conversationFeature.Enabled),
+		CreateFileUploadIntent:           fileUploadOperation(fileUploadFeature.Enabled, filesQuota, fileBytesQuota, fileIntentRateQuota),
 	}
 	return response, nil
 }
@@ -521,6 +554,24 @@ func availabilityPollCreateOperation(
 	}
 	activeRemaining := quotaRemaining(activePolls)
 	if activeRemaining <= 0 {
+		return operationCapabilityResponse{Available: false, Reason: "quota_exhausted"}
+	}
+	if quotaRemaining(creationRate) <= 0 {
+		return operationCapabilityResponse{Available: false, Reason: "rate_limited"}
+	}
+	return operationCapabilityResponse{Available: true, Reason: "available"}
+}
+
+func fileUploadOperation(
+	enabled bool,
+	files featurecontrol.QuotaCapability,
+	bytes featurecontrol.QuotaCapability,
+	creationRate featurecontrol.QuotaCapability,
+) operationCapabilityResponse {
+	if !enabled {
+		return operationCapabilityResponse{Available: false, Reason: "feature_disabled"}
+	}
+	if quotaRemaining(files) <= 0 || quotaRemaining(bytes) <= 0 {
 		return operationCapabilityResponse{Available: false, Reason: "quota_exhausted"}
 	}
 	if quotaRemaining(creationRate) <= 0 {

@@ -52,6 +52,10 @@ const (
 	defaultFeatureStudyMeetingCreationRateLimit       = 200
 	defaultFeatureMessagesPerTenantLimit              = 10_000_000
 	defaultFeatureMessageSendRateLimit                = 100_000
+	defaultFeatureFilesPerTenantLimit                 = 1_000_000
+	defaultFeatureFileBytesPerTenantLimit             = 1_099_511_627_776
+	defaultFeatureSingleFileBytesLimit                = 5_368_709_120
+	defaultFeatureFileUploadIntentRateLimit           = 100_000
 )
 
 var validEnvironments = map[string]struct{}{
@@ -158,6 +162,7 @@ type FeatureControlConfig struct {
 	DisableClassSessionScheduling                 bool
 	DisableAvailabilityPolls                      bool
 	DisableConversations                          bool
+	DisableFileUploads                            bool
 	EnableClassSessionRecurrence                  bool
 	EnableInAppNotifications                      bool
 	MaxMembers                                    int
@@ -173,6 +178,10 @@ type FeatureControlConfig struct {
 	MaxStudyMeetingCreationsPerHour               int
 	MaxMessagesPerTenant                          int
 	MaxMessageSendsPerHour                        int
+	MaxFilesPerTenant                             int
+	MaxFileBytesPerTenant                         int
+	MaxSingleFileBytes                            int
+	MaxFileUploadIntentsPerHour                   int
 }
 
 var objectStorageNamePattern = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9.-]*[a-zA-Z0-9]$`)
@@ -430,6 +439,12 @@ func featureControlConfig(
 			false,
 			validationErrors,
 		),
+		DisableFileUploads: boolValue(
+			lookup,
+			"FEATURE_CONTROL_DISABLE_FILE_UPLOADS",
+			false,
+			validationErrors,
+		),
 		EnableClassSessionRecurrence: boolValue(
 			lookup,
 			"FEATURE_CONTROL_ENABLE_CLASS_SESSION_RECURRENCE",
@@ -544,6 +559,38 @@ func featureControlConfig(
 			defaultFeatureMessageSendRateLimit,
 			1,
 			defaultFeatureMessageSendRateLimit,
+			validationErrors,
+		),
+		MaxFilesPerTenant: intValue(
+			lookup,
+			"FEATURE_CONTROL_MAX_FILES_PER_TENANT",
+			defaultFeatureFilesPerTenantLimit,
+			1,
+			defaultFeatureFilesPerTenantLimit,
+			validationErrors,
+		),
+		MaxFileBytesPerTenant: intValue(
+			lookup,
+			"FEATURE_CONTROL_MAX_FILE_BYTES_PER_TENANT",
+			defaultFeatureFileBytesPerTenantLimit,
+			1,
+			defaultFeatureFileBytesPerTenantLimit,
+			validationErrors,
+		),
+		MaxSingleFileBytes: intValue(
+			lookup,
+			"FEATURE_CONTROL_MAX_SINGLE_FILE_BYTES",
+			defaultFeatureSingleFileBytesLimit,
+			1,
+			defaultFeatureSingleFileBytesLimit,
+			validationErrors,
+		),
+		MaxFileUploadIntentsPerHour: intValue(
+			lookup,
+			"FEATURE_CONTROL_MAX_FILE_UPLOAD_INTENTS_PER_HOUR",
+			defaultFeatureFileUploadIntentRateLimit,
+			1,
+			defaultFeatureFileUploadIntentRateLimit,
 			validationErrors,
 		),
 	}

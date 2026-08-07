@@ -391,7 +391,8 @@ func isRateQuota(key QuotaKey) bool {
 		QuotaAvailabilityPollCreationsPerHour,
 		QuotaAvailabilityPollCapabilityCreationsPerHour,
 		QuotaStudyMeetingCreationsPerHour,
-		QuotaMessageSendsPerHour:
+		QuotaMessageSendsPerHour,
+		QuotaFileUploadIntentsPerHour:
 		return true
 	default:
 		return false
@@ -715,15 +716,29 @@ func readQuotaUsage(
     FROM tutorhub.tenant_message_usage
     WHERE tenant_id = $1
 ), 0)`
+	case QuotaFilesPerTenant:
+		query = `SELECT COALESCE((
+    SELECT file_count
+    FROM tutorhub.tenant_file_usage
+    WHERE tenant_id = $1
+), 0)`
+	case QuotaFileBytesPerTenant:
+		query = `SELECT COALESCE((
+    SELECT reserved_bytes + committed_bytes
+    FROM tutorhub.tenant_file_usage
+    WHERE tenant_id = $1
+), 0)`
 	case QuotaAvailabilityPollRangeDays,
 		QuotaAvailabilityPollSlots,
-		QuotaAvailabilityPollParticipants:
+		QuotaAvailabilityPollParticipants,
+		QuotaSingleFileBytes:
 		return 0, time.Time{}, time.Time{}, nil
 	case QuotaInviteCreationsPerHour,
 		QuotaAvailabilityPollCreationsPerHour,
 		QuotaAvailabilityPollCapabilityCreationsPerHour,
 		QuotaStudyMeetingCreationsPerHour,
-		QuotaMessageSendsPerHour:
+		QuotaMessageSendsPerHour,
+		QuotaFileUploadIntentsPerHour:
 		windowStart := now.UTC().Truncate(quotaRateWindow)
 		resetAt := windowStart.Add(quotaRateWindow)
 		var used int64

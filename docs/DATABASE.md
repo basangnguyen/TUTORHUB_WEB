@@ -7,10 +7,10 @@ thay đổi schema, migration hoặc repository phải đọc tài liệu này t
 
 - System of record: Neon PostgreSQL.
 - Schema ứng dụng: `tutorhub`.
-- Migration mới nhất trong source: `000025_persistent_messages`. P3-06 đã forward cả
-  disposable và shared Neon `23 -> 24`, rerun idempotent giữ `24 false`. P3-07A đã forward
-  disposable `24 false -> 25 false -> 25 false`; exact message ACL và focused/full
-  PostgreSQL gate PASS. Shared staging và deployment vẫn `PENDING`.
+- Migration mới nhất trong source: `000026_content_files`. P3-06/P3-07A đã forward cả
+  disposable và shared Neon tới `25 false`. P3-08 disposable đã forward-only
+  `25 false -> 26 false -> 26 false`; exact content ACL và PostgreSQL gates PASS.
+  Shared staging vẫn `25 false` và chưa deploy P3-08.
 - Migration 1-5 đã được chạy và kiểm tra trên Neon; smoke
   `5 false -> rollback 4 false -> migrate 5 false` đạt ngày 2026-07-16.
 - Migration `000006` đến `000013` đều có up/down path. Source và PostgreSQL 17 CI
@@ -55,11 +55,11 @@ không được ghi vào runbook hoặc artifact.
 
 ## Bốn connection URL
 
-| Biến                     | Đối tượng sử dụng | Loại URL                                 | Quy tắc                                                |
-| ------------------------ | ----------------- | ---------------------------------------- | ------------------------------------------------------ |
-| `DATABASE_POOL_URL`      | Core API          | Neon pooled, hostname có `-pooler`       | Chỉ API runtime role; pool nhỏ theo connection budget  |
-| `DATABASE_WORKER_URL`    | Outbox worker     | Neon pooled, hostname có `-pooler`       | Chỉ worker role; không fallback sang API/migration URL |
-| `DATABASE_MIGRATION_URL` | CLI/release job   | Neon direct, hostname không có `-pooler` | Chỉ migration owner; không đưa vào runtime container   |
+| Biến                            | Đối tượng sử dụng       | Loại URL                                 | Quy tắc                                                    |
+| ------------------------------- | ----------------------- | ---------------------------------------- | ---------------------------------------------------------- |
+| `DATABASE_POOL_URL`             | Core API                | Neon pooled, hostname có `-pooler`       | Chỉ API runtime role; pool nhỏ theo connection budget      |
+| `DATABASE_WORKER_URL`           | Outbox worker           | Neon pooled, hostname có `-pooler`       | Chỉ worker role; không fallback sang API/migration URL     |
+| `DATABASE_MIGRATION_URL`        | CLI/release job         | Neon direct, hostname không có `-pooler` | Chỉ migration owner; không đưa vào runtime container       |
 | `DATABASE_POLL_MAINTENANCE_URL` | Poll retention operator | Neon direct, hostname không có `-pooler` | Chỉ maintenance login; schema `USAGE` + function `EXECUTE` |
 
 Không dùng URL direct cho traffic ứng dụng thường xuyên. Không chia sẻ credential giữa
@@ -85,40 +85,42 @@ ngoài UI thread ở các client native về sau.
 
 ## Schema source nền đến phiên bản 25
 
-| Bảng                     | Vai trò                                                                                          |
-| ------------------------ | ------------------------------------------------------------------------------------------------ |
-| `users`                  | Hồ sơ định danh nội bộ, email chuẩn hóa và trạng thái tài khoản                                  |
-| `identities`             | Ánh xạ `(provider, subject)` từ OIDC, verified email và lần xác thực gần nhất                    |
-| `tenants`                | Workspace với slug/name, locale/timezone, status, optimistic `version` và `archived_at`          |
-| `memberships`            | Quan hệ user-tenant và role `org_admin/teacher/student/guest`                                    |
-| `sessions`               | Hash session/CSRF, active tenant, `context_version`, idle/absolute expiry và revoke state        |
-| `auth_flows`             | HMAC state/binding/nonce, PKCE verifier mã hóa và one-time consume                               |
-| `classes`                | Lớp học theo tenant; owner cùng tenant, timezone, lifecycle, optimistic version và archive state |
-| `class_enrollments`      | Quan hệ user-class theo tenant, class role, trạng thái tham gia và các mốc lifecycle             |
-| `class_invite_codes`     | Mã mời lớp chỉ lưu HMAC, TTL, giới hạn lượt dùng, trạng thái và actor lifecycle                  |
-| `membership_invitations` | Lời mời tenant một lần: normalized email, role, HMAC token, TTL và terminal state                |
-| `outbox_events`          | Transactional outbox có exact versioned event type, lease/fencing, retry và retained dead-letter |
-| `audit_events`           | Lịch sử tenant append-only cho actor/action/resource/outcome và request correlation              |
-| `class_sessions`         | Buổi học một lần theo class, UTC instant/IANA timezone, lifecycle và optimistic version          |
-| `class_session_series`   | Recurrence bounded theo class, civil-time/IANA timezone, stable iCal UID, sequence và optimistic version |
-| `class_session_exceptions` | Tombstone/override occurrence theo stable key, retention policy và optimistic version             |
-| `class_session_mutation_receipts` | Idempotency fingerprint cho update/cancel, tenant-scoped và append-only                         |
-| `notifications`          | Projection tenant/user-scoped, idempotent theo source/recipient/effect và trạng thái read          |
-| `notification_preferences` | Preference in-app/email, reminder, quiet-hours IANA và optimistic version                         |
-| `calendar_display_preferences` | Preference Calendar tenant/user-scoped cho timezone, locale, view, density và optimistic version |
-| `tenant_feature_control_revisions` | Phiên bản optimistic của override feature/quota theo tenant                         |
-| `tenant_feature_overrides` | Override feature typed theo tenant; global disable vẫn có quyền ưu tiên                          |
-| `tenant_quota_overrides` | Override hard limit typed cho member/class, invitation, Calendar và message storage/send rate       |
-| `tenant_quota_windows`   | Bộ đếm fixed-window tenant-scoped cho invitation, Calendar và message send rate                      |
-| `rate_limit_windows`     | Bộ đếm anonymous shared; lưu purpose và SHA-256 đã domain-separate theo version/purpose/prefix       |
-| `legacy_import_runs`     | Ledger migration-role-only cho checksum, trạng thái và checkpoint fixture V1                         |
-| `legacy_import_run_items` | Outcome/reason code bounded theo record để reconciliation và resume                                  |
-| `legacy_import_mappings` | Mapping bền `(source_system, entity_type, external_id) -> target_id`; không chứa source payload        |
-| `conversations`          | Container direct/class tenant-scoped; canonical direct pair và tối đa một conversation mỗi class     |
-| `conversation_members`   | Hai membership row server-owned cho direct conversation; class membership luôn đọc từ enrollment      |
-| `messages`               | Message plain-text tenant/conversation-scoped, server sequence, idempotency fingerprint và tombstone lifecycle |
-| `tenant_message_usage`   | O(1) committed message/tombstone counter theo tenant để reserve storage quota trong transaction         |
-| `message_receipts`       | Self read marker đơn điệu theo tenant/conversation/user; tham chiếu exact message sequence/ID          |
+| Bảng                               | Vai trò                                                                                                        |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `users`                            | Hồ sơ định danh nội bộ, email chuẩn hóa và trạng thái tài khoản                                                |
+| `identities`                       | Ánh xạ `(provider, subject)` từ OIDC, verified email và lần xác thực gần nhất                                  |
+| `tenants`                          | Workspace với slug/name, locale/timezone, status, optimistic `version` và `archived_at`                        |
+| `memberships`                      | Quan hệ user-tenant và role `org_admin/teacher/student/guest`                                                  |
+| `sessions`                         | Hash session/CSRF, active tenant, `context_version`, idle/absolute expiry và revoke state                      |
+| `auth_flows`                       | HMAC state/binding/nonce, PKCE verifier mã hóa và one-time consume                                             |
+| `classes`                          | Lớp học theo tenant; owner cùng tenant, timezone, lifecycle, optimistic version và archive state               |
+| `class_enrollments`                | Quan hệ user-class theo tenant, class role, trạng thái tham gia và các mốc lifecycle                           |
+| `class_invite_codes`               | Mã mời lớp chỉ lưu HMAC, TTL, giới hạn lượt dùng, trạng thái và actor lifecycle                                |
+| `membership_invitations`           | Lời mời tenant một lần: normalized email, role, HMAC token, TTL và terminal state                              |
+| `outbox_events`                    | Transactional outbox có exact versioned event type, lease/fencing, retry và retained dead-letter               |
+| `audit_events`                     | Lịch sử tenant append-only cho actor/action/resource/outcome và request correlation                            |
+| `class_sessions`                   | Buổi học một lần theo class, UTC instant/IANA timezone, lifecycle và optimistic version                        |
+| `class_session_series`             | Recurrence bounded theo class, civil-time/IANA timezone, stable iCal UID, sequence và optimistic version       |
+| `class_session_exceptions`         | Tombstone/override occurrence theo stable key, retention policy và optimistic version                          |
+| `class_session_mutation_receipts`  | Idempotency fingerprint cho update/cancel, tenant-scoped và append-only                                        |
+| `notifications`                    | Projection tenant/user-scoped, idempotent theo source/recipient/effect và trạng thái read                      |
+| `notification_preferences`         | Preference in-app/email, reminder, quiet-hours IANA và optimistic version                                      |
+| `calendar_display_preferences`     | Preference Calendar tenant/user-scoped cho timezone, locale, view, density và optimistic version               |
+| `tenant_feature_control_revisions` | Phiên bản optimistic của override feature/quota theo tenant                                                    |
+| `tenant_feature_overrides`         | Override feature typed theo tenant; global disable vẫn có quyền ưu tiên                                        |
+| `tenant_quota_overrides`           | Override hard limit typed cho member/class, invitation, Calendar và message storage/send rate                  |
+| `tenant_quota_windows`             | Bộ đếm fixed-window tenant-scoped cho invitation, Calendar và message send rate                                |
+| `rate_limit_windows`               | Bộ đếm anonymous shared; lưu purpose và SHA-256 đã domain-separate theo version/purpose/prefix                 |
+| `legacy_import_runs`               | Ledger migration-role-only cho checksum, trạng thái và checkpoint fixture V1                                   |
+| `legacy_import_run_items`          | Outcome/reason code bounded theo record để reconciliation và resume                                            |
+| `legacy_import_mappings`           | Mapping bền `(source_system, entity_type, external_id) -> target_id`; không chứa source payload                |
+| `conversations`                    | Container direct/class tenant-scoped; canonical direct pair và tối đa một conversation mỗi class               |
+| `conversation_members`             | Hai membership row server-owned cho direct conversation; class membership luôn đọc từ enrollment               |
+| `messages`                         | Message plain-text tenant/conversation-scoped, server sequence, idempotency fingerprint và tombstone lifecycle |
+| `tenant_message_usage`             | O(1) committed message/tombstone counter theo tenant để reserve storage quota trong transaction                |
+| `content_files`                    | Metadata class file, opaque object key, idempotent upload intent và immutable finalize proof                   |
+| `tenant_file_usage`                | O(1) file-count/reserved-byte/committed-byte counter theo tenant                                               |
+| `message_receipts`                 | Self read marker đơn điệu theo tenant/conversation/user; tham chiếu exact message sequence/ID                  |
 
 Ràng buộc quan trọng:
 
@@ -1294,6 +1296,15 @@ giữ `25 false`. Shared staging cũng đã forward-only tới `25 false`, migra
 re-provision exact ACL và hoàn tất controlled authenticated acceptance trên exact candidate
 `a21ec385`; không rollback.
 
+P3-08 adds forward migration `000026`: `content_files` stores class-scoped metadata,
+opaque object keys, idempotency fingerprints, the reserved lifecycle
+`pending/uploaded/processing/ready/rejected`, and immutable B2 finalize proof.
+`tenant_file_usage` keeps O(1) file count plus reserved/committed bytes. The runtime role
+receives table `SELECT` and exact column-level `INSERT/UPDATE` only; it receives no table
+`INSERT/UPDATE`, `DELETE`, or P3-10 processing columns. Migration, disposable ACL, and
+PostgreSQL gates are recorded in `docs/P3_08_STAGING_ACCEPTANCE.md`. P3-08 is `VERIFY` after
+the disposable gates passed; shared staging remains unmigrated at this checkpoint.
+
 Với P2-05, cần kiểm tra riêng migrate 9 -> 10, rollback 10 -> 9, migrate lại 9 -> 10;
 tenant-scoped FK/unique/state constraints; direct enroll và các transition; same-user
 replay; concurrent join ở usage limit; atomic exhausted/expired state; archive guard;
@@ -1348,8 +1359,9 @@ của lịch sử append-only và không phải quy trình cleanup cho staging/p
   production data/cohort migration vẫn thuộc discovery/cutover phase sau.
 - P3-03A/P3-04 đã bổ sung migration `000015`/`000016`; P3-02A/P3-02B bổ sung
   `000017`/`000018`/`000019`; P3-02C bổ sung `000020/000021`; P3-02D-A bổ sung
-  `000022/000023`; P3-06 bổ sung `000024`; P3-07A bổ sung `000025`.
-  Shared Neon staging và P3-07A disposable đều ở `25 false`.
+  `000022/000023`; P3-06 bổ sung `000024`; P3-07A bổ sung `000025`; P3-08 bổ sung forward
+  migration `000026` và đang `VERIFY`.
+  Shared Neon staging ở `25 false`; P3-08 disposable ở `26 false` sau rerun idempotent.
   Exact Core API/maintenance ACL, toàn bộ database gate P3-02D-A, authenticated browser/API
   và manual NVDA acceptance đều PASS, nên P3-02D-A đã `DONE`.
   Migration/ACL/database gate disposable của `000025`, shared forward/ACL, exact deploy,

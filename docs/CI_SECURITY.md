@@ -12,9 +12,9 @@ P1-08A thiết lập pipeline kiểm tra và baseline bảo mật kho mã. P1-08
 
 1. installation from the committed pnpm lockfile;
 2. local GitHub Actions policy validation;
-3. classroom, identity, conversation and security integration tests against real PostgreSQL;
-   the conversation ACL gate provisions an isolated CI-only runtime login and validates the
-   exact table/column allowlist separately from the migration login;
+3. classroom, identity, conversation, content-file and security integration tests against
+   real PostgreSQL; the conversation/content ACL gates provision an isolated CI-only runtime
+   login and validate each exact table/column allowlist separately from the migration login;
 4. format, generated OpenAPI client, lint, typecheck, unit test, production build, Storybook build, client-bundle secret check, Go test and Go vet.
 
 ### Security

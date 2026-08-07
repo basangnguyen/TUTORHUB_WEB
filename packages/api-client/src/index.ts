@@ -35,6 +35,12 @@ export type TenantQuotaControlValues =
   components["schemas"]["TenantQuotaControlValues"];
 export type UpdateTenantFeatureControlsRequest =
   components["schemas"]["UpdateTenantFeatureControlsRequest"];
+export type ContentFileStatus = components["schemas"]["ContentFileStatus"];
+export type ContentFile = components["schemas"]["ContentFile"];
+export type CreateFileUploadIntentRequest =
+  components["schemas"]["CreateFileUploadIntentRequest"];
+export type FinalizeFileUploadRequest =
+  components["schemas"]["FinalizeFileUploadRequest"];
 export type ConversationKind = components["schemas"]["ConversationKind"];
 export type ConversationParticipant =
   components["schemas"]["ConversationParticipant"];
@@ -730,6 +736,91 @@ export async function updateTenantFeatureControls(
 
   return requireData<TenantCapabilities>(
     data as TenantCapabilities | undefined,
+    error,
+    response,
+  );
+}
+
+export async function createFileUploadIntent(
+  tenantID: string,
+  input: CreateFileUploadIntentRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<ContentFile> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/files/upload-intents",
+    {
+      params: {
+        header: {
+          "X-CSRF-Token": csrfToken,
+          "X-TutorHub-Expected-Tenant-ID": tenantID,
+        },
+      },
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<ContentFile>(
+    data as ContentFile | undefined,
+    error,
+    response,
+  );
+}
+
+export async function getFileMetadata(
+  tenantID: string,
+  fileID: string,
+  options: APIRequestOptions = {},
+): Promise<ContentFile> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).GET(
+    "/api/v1/files/{file_id}",
+    {
+      params: {
+        path: { file_id: fileID },
+        header: { "X-TutorHub-Expected-Tenant-ID": tenantID },
+      },
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<ContentFile>(
+    data as ContentFile | undefined,
+    error,
+    response,
+  );
+}
+
+export async function finalizeFileUpload(
+  tenantID: string,
+  fileID: string,
+  input: FinalizeFileUploadRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<ContentFile> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/files/{file_id}/finalize",
+    {
+      params: {
+        path: { file_id: fileID },
+        header: {
+          "X-CSRF-Token": csrfToken,
+          "X-TutorHub-Expected-Tenant-ID": tenantID,
+        },
+      },
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<ContentFile>(
+    data as ContentFile | undefined,
     error,
     response,
   );

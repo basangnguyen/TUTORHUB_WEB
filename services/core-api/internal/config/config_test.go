@@ -70,7 +70,7 @@ func TestLoadDefaults(t *testing.T) {
 		cfg.CalendarProtectedData.KeyVersion != 0 {
 		t.Fatalf("calendar protected data must remain disabled without an explicit key: %+v", cfg.CalendarProtectedData)
 	}
-	if cfg.FeatureControls.DisableConversations ||
+	if cfg.FeatureControls.DisableConversations || cfg.FeatureControls.DisableFileUploads ||
 		cfg.FeatureControls.EnableInAppNotifications ||
 		cfg.FeatureControls.MaxMembers != defaultFeatureMemberLimit ||
 		cfg.FeatureControls.MaxActiveClasses != defaultFeatureClassLimit ||
@@ -84,7 +84,11 @@ func TestLoadDefaults(t *testing.T) {
 		cfg.FeatureControls.MaxActiveStudyMeetings != defaultFeatureActiveStudyMeetingLimit ||
 		cfg.FeatureControls.MaxStudyMeetingCreationsPerHour != defaultFeatureStudyMeetingCreationRateLimit ||
 		cfg.FeatureControls.MaxMessagesPerTenant != defaultFeatureMessagesPerTenantLimit ||
-		cfg.FeatureControls.MaxMessageSendsPerHour != defaultFeatureMessageSendRateLimit {
+		cfg.FeatureControls.MaxMessageSendsPerHour != defaultFeatureMessageSendRateLimit ||
+		cfg.FeatureControls.MaxFilesPerTenant != defaultFeatureFilesPerTenantLimit ||
+		cfg.FeatureControls.MaxFileBytesPerTenant != defaultFeatureFileBytesPerTenantLimit ||
+		cfg.FeatureControls.MaxSingleFileBytes != defaultFeatureSingleFileBytesLimit ||
+		cfg.FeatureControls.MaxFileUploadIntentsPerHour != defaultFeatureFileUploadIntentRateLimit {
 		t.Fatalf("unexpected feature control defaults: %+v", cfg.FeatureControls)
 	}
 }
@@ -171,6 +175,7 @@ func TestLoadCustomValues(t *testing.T) {
 		"FEATURE_CONTROL_DISABLE_CLASS_SESSION_SCHEDULING":                    "true",
 		"FEATURE_CONTROL_DISABLE_AVAILABILITY_POLLS":                          "true",
 		"FEATURE_CONTROL_DISABLE_CONVERSATIONS":                               "true",
+		"FEATURE_CONTROL_DISABLE_FILE_UPLOADS":                                "true",
 		"FEATURE_CONTROL_ENABLE_CLASS_SESSION_RECURRENCE":                     "true",
 		"FEATURE_CONTROL_ENABLE_IN_APP_NOTIFICATIONS":                         "true",
 		"FEATURE_CONTROL_MAX_MEMBERS":                                         "5000",
@@ -186,6 +191,10 @@ func TestLoadCustomValues(t *testing.T) {
 		"FEATURE_CONTROL_MAX_STUDY_MEETING_CREATIONS_PER_HOUR":                "140",
 		"FEATURE_CONTROL_MAX_MESSAGES_PER_TENANT":                             "9000000",
 		"FEATURE_CONTROL_MAX_MESSAGE_SENDS_PER_HOUR":                          "90000",
+		"FEATURE_CONTROL_MAX_FILES_PER_TENANT":                                "900000",
+		"FEATURE_CONTROL_MAX_FILE_BYTES_PER_TENANT":                           "109951162777",
+		"FEATURE_CONTROL_MAX_SINGLE_FILE_BYTES":                               "1073741824",
+		"FEATURE_CONTROL_MAX_FILE_UPLOAD_INTENTS_PER_HOUR":                    "90000",
 	}
 	values["CALENDAR_PROTECTED_DATA_KEY"] = validSessionSecret()
 	values["CALENDAR_PROTECTED_DATA_KEY_VERSION"] = "1"
@@ -248,6 +257,7 @@ func TestLoadCustomValues(t *testing.T) {
 		!cfg.FeatureControls.DisableClassSessionScheduling ||
 		!cfg.FeatureControls.DisableAvailabilityPolls ||
 		!cfg.FeatureControls.DisableConversations ||
+		!cfg.FeatureControls.DisableFileUploads ||
 		!cfg.FeatureControls.EnableClassSessionRecurrence ||
 		!cfg.FeatureControls.EnableInAppNotifications ||
 		cfg.FeatureControls.MaxMembers != 5000 ||
@@ -264,7 +274,11 @@ func TestLoadCustomValues(t *testing.T) {
 		cfg.FeatureControls.MaxActiveStudyMeetings != 120 ||
 		cfg.FeatureControls.MaxStudyMeetingCreationsPerHour != 140 ||
 		cfg.FeatureControls.MaxMessagesPerTenant != 9000000 ||
-		cfg.FeatureControls.MaxMessageSendsPerHour != 90000 {
+		cfg.FeatureControls.MaxMessageSendsPerHour != 90000 ||
+		cfg.FeatureControls.MaxFilesPerTenant != 900000 ||
+		cfg.FeatureControls.MaxFileBytesPerTenant != 109951162777 ||
+		cfg.FeatureControls.MaxSingleFileBytes != 1073741824 ||
+		cfg.FeatureControls.MaxFileUploadIntentsPerHour != 90000 {
 		t.Fatalf("unexpected availability poll feature control config: %+v", cfg.FeatureControls)
 	}
 }
@@ -298,6 +312,7 @@ func TestLoadRejectsInvalidFeatureControlGuardrails(t *testing.T) {
 		"FEATURE_CONTROL_DISABLE_CLASS_MANAGEMENT":                            "sometimes",
 		"FEATURE_CONTROL_DISABLE_AVAILABILITY_POLLS":                          "sometimes",
 		"FEATURE_CONTROL_DISABLE_CONVERSATIONS":                               "sometimes",
+		"FEATURE_CONTROL_DISABLE_FILE_UPLOADS":                                "sometimes",
 		"FEATURE_CONTROL_ENABLE_CLASS_SESSION_RECURRENCE":                     "sometimes",
 		"FEATURE_CONTROL_ENABLE_IN_APP_NOTIFICATIONS":                         "sometimes",
 		"FEATURE_CONTROL_MAX_MEMBERS":                                         "10001",
@@ -313,6 +328,10 @@ func TestLoadRejectsInvalidFeatureControlGuardrails(t *testing.T) {
 		"FEATURE_CONTROL_MAX_STUDY_MEETING_CREATIONS_PER_HOUR":                "0",
 		"FEATURE_CONTROL_MAX_MESSAGES_PER_TENANT":                             "10000001",
 		"FEATURE_CONTROL_MAX_MESSAGE_SENDS_PER_HOUR":                          "0",
+		"FEATURE_CONTROL_MAX_FILES_PER_TENANT":                                "1000001",
+		"FEATURE_CONTROL_MAX_FILE_BYTES_PER_TENANT":                           "1099511627777",
+		"FEATURE_CONTROL_MAX_SINGLE_FILE_BYTES":                               "5368709121",
+		"FEATURE_CONTROL_MAX_FILE_UPLOAD_INTENTS_PER_HOUR":                    "0",
 	}))
 	if err == nil {
 		t.Fatal("expected feature control guardrail validation errors")
@@ -322,6 +341,7 @@ func TestLoadRejectsInvalidFeatureControlGuardrails(t *testing.T) {
 		"FEATURE_CONTROL_DISABLE_CLASS_MANAGEMENT",
 		"FEATURE_CONTROL_DISABLE_AVAILABILITY_POLLS",
 		"FEATURE_CONTROL_DISABLE_CONVERSATIONS",
+		"FEATURE_CONTROL_DISABLE_FILE_UPLOADS",
 		"FEATURE_CONTROL_ENABLE_CLASS_SESSION_RECURRENCE",
 		"FEATURE_CONTROL_ENABLE_IN_APP_NOTIFICATIONS",
 		"FEATURE_CONTROL_MAX_MEMBERS",
@@ -337,6 +357,10 @@ func TestLoadRejectsInvalidFeatureControlGuardrails(t *testing.T) {
 		"FEATURE_CONTROL_MAX_STUDY_MEETING_CREATIONS_PER_HOUR",
 		"FEATURE_CONTROL_MAX_MESSAGES_PER_TENANT",
 		"FEATURE_CONTROL_MAX_MESSAGE_SENDS_PER_HOUR",
+		"FEATURE_CONTROL_MAX_FILES_PER_TENANT",
+		"FEATURE_CONTROL_MAX_FILE_BYTES_PER_TENANT",
+		"FEATURE_CONTROL_MAX_SINGLE_FILE_BYTES",
+		"FEATURE_CONTROL_MAX_FILE_UPLOAD_INTENTS_PER_HOUR",
 	} {
 		if !strings.Contains(message, expected) {
 			t.Fatalf("expected error to mention %s, got %q", expected, message)

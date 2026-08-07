@@ -26,6 +26,7 @@ const featureKeys = [
   "class_session_scheduling",
   "class_session_recurrence",
   "conversations",
+  "file_uploads",
   "in_app_notifications",
   "availability_polls",
 ] as const satisfies readonly FeatureKey[];
@@ -44,6 +45,10 @@ const quotaKeys = [
   "study_meeting_creations_per_hour",
   "messages_per_tenant",
   "message_sends_per_hour",
+  "files_per_tenant",
+  "file_bytes_per_tenant",
+  "single_file_bytes",
+  "file_upload_intents_per_hour",
 ] as const satisfies readonly QuotaKey[];
 
 const featureLabelKeys: Record<FeatureKey, TranslationKey> = {
@@ -53,6 +58,7 @@ const featureLabelKeys: Record<FeatureKey, TranslationKey> = {
   class_session_recurrence: "capabilities.featureClassSessionRecurrence",
   class_management: "capabilities.featureClassManagement",
   conversations: "capabilities.featureConversations",
+  file_uploads: "capabilities.featureFileUploads",
   in_app_notifications: "capabilities.featureInAppNotifications",
   membership_invitations: "capabilities.featureMembershipInvitations",
 };
@@ -73,6 +79,10 @@ const quotaLabelKeys: Record<QuotaKey, TranslationKey> = {
   study_meeting_creations_per_hour: "capabilities.quotaStudyMeetingCreations",
   messages_per_tenant: "capabilities.quotaMessages",
   message_sends_per_hour: "capabilities.quotaMessageSends",
+  files_per_tenant: "capabilities.quotaFiles",
+  file_bytes_per_tenant: "capabilities.quotaFileBytes",
+  single_file_bytes: "capabilities.quotaSingleFileBytes",
+  file_upload_intents_per_hour: "capabilities.quotaFileUploadIntents",
   members: "capabilities.quotaMembers",
 };
 
@@ -117,6 +127,7 @@ function controlsDraft(capabilities: TenantCapabilities): ControlsDraft {
       ),
       class_management: configuredFeature(capabilities, "class_management"),
       conversations: configuredFeature(capabilities, "conversations"),
+      file_uploads: configuredFeature(capabilities, "file_uploads"),
       in_app_notifications: configuredFeature(
         capabilities,
         "in_app_notifications",
@@ -163,6 +174,18 @@ function controlsDraft(capabilities: TenantCapabilities): ControlsDraft {
       ),
       message_sends_per_hour: String(
         configuredQuota(capabilities, "message_sends_per_hour"),
+      ),
+      files_per_tenant: String(
+        configuredQuota(capabilities, "files_per_tenant"),
+      ),
+      file_bytes_per_tenant: String(
+        configuredQuota(capabilities, "file_bytes_per_tenant"),
+      ),
+      single_file_bytes: String(
+        configuredQuota(capabilities, "single_file_bytes"),
+      ),
+      file_upload_intents_per_hour: String(
+        configuredQuota(capabilities, "file_upload_intents_per_hour"),
       ),
       members: String(configuredQuota(capabilities, "members")),
     },
@@ -424,6 +447,12 @@ function TenantFeatureControlsForm({
       ),
       messages_per_tenant: Number(draft.quotas.messages_per_tenant),
       message_sends_per_hour: Number(draft.quotas.message_sends_per_hour),
+      files_per_tenant: Number(draft.quotas.files_per_tenant),
+      file_bytes_per_tenant: Number(draft.quotas.file_bytes_per_tenant),
+      single_file_bytes: Number(draft.quotas.single_file_bytes),
+      file_upload_intents_per_hour: Number(
+        draft.quotas.file_upload_intents_per_hour,
+      ),
     };
     for (const key of quotaKeys) {
       if (!Number.isSafeInteger(quotas[key]) || quotas[key] < 1) {
