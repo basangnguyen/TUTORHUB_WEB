@@ -103,14 +103,19 @@ chỉ được nhập V2 sau khi xác minh quyền sử dụng và quét metadat
 | Browser WebRTC audio processing | Mặc định cho echo cancellation, noise suppression và auto gain khi supported | Có music/original-sound escape hatch nếu xử lý làm hỏng nội dung |
 | [LiveKit Krisp](https://docs.livekit.io/transport/media/noise-cancellation/) | Tùy chọn nâng cao sau feature flag/entitlement | Xác minh LiveKit Cloud support, browser, license/terms, runtime model và chi phí trước quyết định |
 
-### 4.1 Local reference checkout
+### 4.1 Local reference checkouts
 
-- Source: `https://github.com/livekit-examples/meet.git`.
-- Revision pin: `665e1cb7841ab872de0d8e5c310744009a763b08` (shallow clone ngày 2026-08-09).
-- Local path: `.tmp/research/livekit-meet`; `.tmp/` được Git ignore, không phải submodule hoặc
+- LiveKit Meet source: `https://github.com/livekit-examples/meet.git`; revision
+  `665e1cb7841ab872de0d8e5c310744009a763b08` (shallow clone ngày 2026-08-09).
+- LiveKit Meet path: `.tmp/research/livekit-meet`; `.tmp/` được Git ignore, không phải submodule hoặc
   production dependency.
-- License tại revision đã kiểm tra: Apache-2.0. Chưa chạy `pnpm install`, chưa tạo `.env` và chưa
-  kết nối LiveKit Cloud; checkout hiện chỉ phục vụ audit read-only.
+- Track Processors source: `https://github.com/livekit/track-processors-js.git`; revision
+  `9ef5191da7fb6d82e55876fa04d0e6048d49859b` (shallow clone ngày 2026-08-09), package
+  `@livekit/track-processors@0.7.2`, khai báo `@mediapipe/tasks-vision@0.10.14`.
+- Track Processors path: `.tmp/research/track-processors-js`; checkout có `LICENSE` Apache-2.0 và
+  `NOTICE`, không phải production dependency.
+- Cả hai checkout chưa chạy `pnpm install`, chưa tạo `.env`, chưa tải runtime/model bổ sung hoặc
+  kết nối LiveKit Cloud; hiện chỉ phục vụ audit read-only.
 
 Không ghép nhiều segmentation stack trong MVP. Beauty, makeup, avatar, sticker, AI-generated
 background, video background và user-uploaded background là non-goal của spike trừ khi evidence
