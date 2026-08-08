@@ -70,7 +70,7 @@ func TestLoadDefaults(t *testing.T) {
 		cfg.CalendarProtectedData.KeyVersion != 0 {
 		t.Fatalf("calendar protected data must remain disabled without an explicit key: %+v", cfg.CalendarProtectedData)
 	}
-	if cfg.FeatureControls.DisableConversations || cfg.FeatureControls.DisableFileUploads ||
+	if cfg.FeatureControls.DisableConversations || !cfg.FeatureControls.DisableFileUploads ||
 		cfg.FeatureControls.EnableInAppNotifications ||
 		cfg.FeatureControls.MaxMembers != defaultFeatureMemberLimit ||
 		cfg.FeatureControls.MaxActiveClasses != defaultFeatureClassLimit ||

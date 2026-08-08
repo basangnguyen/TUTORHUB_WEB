@@ -442,7 +442,7 @@ func featureControlConfig(
 		DisableFileUploads: boolValue(
 			lookup,
 			"FEATURE_CONTROL_DISABLE_FILE_UPLOADS",
-			false,
+			true,
 			validationErrors,
 		),
 		EnableClassSessionRecurrence: boolValue(
