@@ -1983,8 +1983,9 @@ Thứ tự hiện tại, cập nhật ngày 2026-07-31:
 17. P3-09 đã `DONE` ngày 2026-08-08 trên final candidate `d6365b5`: ADR-0027, migration
     `000027/000028`, B2 single/multipart provider gate, disposable/shared Neon `28 false`, exact
     ACL/PostgreSQL, CI/security và Render/Cloudflare live acceptance đều PASS. File uploads giữ
-    fail-closed tới P3-10; P3-11A gate-off đã vào `VERIFY` với class list authority, transfer
-    progress/resume và cache isolation; exact CI/live accessibility acceptance còn mở.
+    fail-closed tới P3-10. P3-11A gate-off đã `DONE` trên candidate `73467ae6` sau exact
+    CI/security, Render/Cloudflare và live role/cache acceptance. Owner phê duyệt automated
+    accessibility evidence thay manual NVDA riêng cho slice này; P3-12 là task runnable kế tiếp.
 18. Không xóa thêm Neon branch theo quyết định hiện tại của owner.
 19. Không khởi động QuizHub, Lavie, social feed hoặc Secure Exam ngoài phase đã quy hoạch.
 
@@ -2063,8 +2064,9 @@ role/reload/accessibility/log-privacy acceptance đều PASS. P3-08 đã `DONE` 
 trên candidate `6a50c3e4` sau local/full verify, disposable `25 -> 26 -> 26`, exact
 ACL/PostgreSQL và CI/security. P3-09 tiếp theo đã `DONE` trên final candidate `d6365b5` sau B2
 provider gate, shared staging `28 false`, exact ACL/PostgreSQL, CI/security và live deployment;
-P3-11A gate-off đã vào `VERIFY`; exact candidate CI/security và live feature-off accessibility
-acceptance là gate còn lại trước `DONE`.
+P3-11A gate-off đã `DONE` trên candidate `73467ae6` sau CI/security, deploy và live
+Teacher/Student role/cache acceptance. Automated accessibility thay manual NVDA được owner
+phê duyệt riêng cho slice này; P3-12 là task runnable kế tiếp.
 Không bật side effect chỉ vì core đã có. `P3-02D-B` và các gate worker/provider vẫn là
 carry-over.
 AWS SES đã được chọn làm provider target nhưng

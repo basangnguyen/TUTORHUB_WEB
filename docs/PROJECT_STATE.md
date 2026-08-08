@@ -4,20 +4,20 @@
 
 ## Snapshot
 
-| Thuộc tính          | Trạng thái                                                                            |
-| ------------------- | ------------------------------------------------------------------------------------- |
-| Ngày cập nhật       | 2026-08-08                                                                            |
-| Repository          | `https://github.com/basangnguyen/TUTORHUB_WEB`                                        |
-| Nhánh làm việc      | `main`                                                                                |
-| Quy trình           | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
-| Phase hoàn thành    | Phase 0, Phase 1, Phase 2                                                             |
-| Phase hiện tại      | Phase 3 - Daily learning workspace                                                   |
-| Task `DONE` gần nhất | P3-09 Presigned B2 upload/download                                                |
-| Mốc repository mới | P3-09 final candidate `d6365b5` Live; shared Neon `28 false`                           |
-| Task hiện tại       | P3-11A Class Files transfer-core UI (feature gate off) — `VERIFY`                     |
-| Task tiếp theo      | Exact candidate CI/security và live accessibility gate-off để chuyển P3-11A `DONE`   |
+| Thuộc tính           | Trạng thái                                                                            |
+| -------------------- | ------------------------------------------------------------------------------------- |
+| Ngày cập nhật        | 2026-08-08                                                                            |
+| Repository           | `https://github.com/basangnguyen/TUTORHUB_WEB`                                        |
+| Nhánh làm việc       | `main`                                                                                |
+| Quy trình            | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
+| Phase hoàn thành     | Phase 0, Phase 1, Phase 2                                                             |
+| Phase hiện tại       | Phase 3 - Daily learning workspace                                                    |
+| Task `DONE` gần nhất | P3-11A Class Files transfer-core UI                                                   |
+| Mốc repository mới   | P3-11A candidate `73467ae6` Live; shared Neon `28 false`                              |
+| Task hiện tại        | P3-12 Home dashboard và PostgreSQL search cơ bản — `TODO`                             |
+| Task tiếp theo       | Scope/readiness review và bắt đầu vertical slice P3-12                                |
 
-### Checkpoint P3-11A `VERIFY` ngày 2026-08-08
+### Checkpoint P3-11A `DONE` ngày 2026-08-08
 
 P3-11A đã có vertical slice contract-first mà không bật upload cho end user. Core API bổ sung
 class-scoped list có keyset cursor bind tenant/class, reauthorize từ PostgreSQL và projection
@@ -34,9 +34,19 @@ OpenAPI/generated client, API-client/web/Go unit gate và Neon disposable conten
 đã PASS; integration xác nhận exact runtime ACL, owner/student visibility, ready download,
 foreign-tenant conceal và archived-class không còn retry capability. Không có migration mới,
 không rollback, không forward shared staging. `file_uploads` vẫn fail-closed cho tới P3-10/P3-11B.
-Full exact-tree `pnpm verify` đã PASS. Các gate còn lại để `DONE`: exact candidate CI/security
-và live Teacher/Student keyboard/Axe/NVDA feature-off acceptance theo
-`docs/P3_11A_STAGING_ACCEPTANCE.md`.
+Full exact-tree `pnpm verify` đã PASS. Exact candidate CI/security và live Teacher/Student
+feature-off acceptance được ghi tại `docs/P3_11A_STAGING_ACCEPTANCE.md`.
+
+Candidate `73467ae665c5aa26a901585f59d41fa32eeff585` đã đạt Verify `31247921859` và
+Security `31247921851`; Cloudflare Pages PASS và Render deployment
+`dep-d9rechlbedkc73bj80v0` Live đúng SHA. Sáu public health/readiness/status probe trực tiếp
+Render và qua Pages đều HTTP 200 với `no-store`. Live Teacher/Student feature-off, workspace
+switch, role `student -> teaching_assistant -> student` và archived fixture restore/archive
+đều PASS; fixture đã được trả về trạng thái ban đầu, không tạo intent/object, không lộ file
+picker/provider URL. Owner đã phê duyệt rõ automated Axe/keyboard/accessibility-tree evidence
+thay manual NVDA riêng cho P3-11A sau khi quick-navigation không phản hồi trong embedded
+browser. Ngoại lệ không áp dụng cho P3-11B, activation, pilot/public release hoặc UI tương lai.
+P3-11A chuyển `VERIFY -> DONE`; `file_uploads` tiếp tục fail-closed tới P3-10/P3-11B.
 
 ### Checkpoint P3-09 hoàn tất ngày 2026-08-08
 
