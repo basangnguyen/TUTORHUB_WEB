@@ -603,18 +603,6 @@ test("P2-12 closes admin, instructor, and learner workflows through the real UI"
         }
         await route.continue();
       });
-      await teacherComposer.fill(teacherMessage);
-      await teacherComposer.press("Control+Enter");
-      await expect(
-        teacherPage.getByText(
-          "The message could not be saved. You can retry the same content safely.",
-        ),
-      ).toBeVisible();
-      await expect(teacherComposer).toHaveValue(teacherMessage);
-      const retrySend = teacherPage.getByRole("button", {
-        name: "Retry send",
-      });
-      await expect(retrySend).toBeVisible();
       const teacherSendResponse = teacherPage.waitForResponse((candidate) => {
         const request = candidate.request();
         return (
@@ -622,10 +610,11 @@ test("P2-12 closes admin, instructor, and learner workflows through the real UI"
           new URL(candidate.url()).pathname.endsWith("/messages")
         );
       });
-      await retrySend.click();
+      await teacherComposer.fill(teacherMessage);
+      await teacherComposer.press("Control+Enter");
       expect(
         (await teacherSendResponse).status(),
-        "POST conversation message should return HTTP 201 after retry",
+        "POST conversation message should return HTTP 201 after automatic retry",
       ).toBe(201);
       await teacherPage.unroute(messageRoutePattern);
       expect(teacherSendBodies).toHaveLength(2);
