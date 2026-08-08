@@ -13,7 +13,7 @@
 | Phase hoàn thành     | Phase 0, Phase 1, Phase 2                                                             |
 | Phase hiện tại       | Phase 4 Classroom Media MVP; Phase 3 deferred carry-over vẫn hoạt động                |
 | Task `DONE` gần nhất | P4-00 Classroom Media architecture/backlog baseline                                  |
-| Mốc repository mới   | ADR-0030 + `PHASE_4_BACKLOG.md`; không migration/deploy                               |
+| Mốc repository mới   | ADR-0030 + Phase 4 backlog + `P4-MEDIA-UX-00`; không migration/deploy                  |
 | Task hiện tại        | P4-01 MediaSpace lifecycle/schema/API core                                            |
 | Task tiếp theo       | Review schema/OpenAPI, khóa forward migration và triển khai feature-off P4-01         |
 
@@ -38,6 +38,19 @@ Baseline cũng chốt lobby/moderation server-authorized, không remote-unmute,
 provider/participant identifiers opaque, identifiable diagnostics retention tối đa 30 ngày và
 legacy/P4 authority mutual exclusion. P4-00 không thêm dependency, migration, credential,
 provider config, shared staging write hoặc deploy. Full P3-14/Phase 3 carry-over vẫn giữ nguyên.
+
+### Forward plan P4-MEDIA-UX-00 đăng ký ngày 2026-08-09
+
+[P4-MEDIA-UX-00](P4_MEDIA_UX_00_RESEARCH_SPIKE.md) đã được thêm làm decision spike cho
+prejoin, lobby và media effects. Task benchmark current official Zoom/Google Meet, audit V1
+read-only và so sánh native browser capability, LiveKit track-processors, MediaPipe fallback,
+WebRTC audio processing cùng Krisp go/no-go trên một ma trận performance/privacy/license/
+accessibility có thể tái lập.
+
+Task giữ `TODO`, có thể chạy song song P4-01/P4-02 nhưng phải `DONE` trước phần UX/effects của
+P4-03/P4-04/P4-05. P4-01 vẫn là vertical slice hiện tại. Chưa thêm production dependency,
+route, migration, service, provider config, shared-staging write hoặc deploy; kết quả hợp lệ có
+thể là ship P4 không effect nếu performance/privacy/accessibility/license gate không đạt.
 
 ### Forward plan P5-COLLAB-00 đăng ký ngày 2026-08-09
 

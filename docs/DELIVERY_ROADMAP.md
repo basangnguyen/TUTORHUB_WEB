@@ -7,7 +7,7 @@
 | Cập nhật            | 2026-08-09                                      |
 | Phase hiện tại      | Phase 4 Classroom Media; Phase 3 carry-over tiếp tục |
 | Hoàn thành gần nhất | P4-00 architecture/backlog baseline `DONE`      |
-| Mốc repository mới  | ADR-0030 + Phase 4 task/dependency/exit gates   |
+| Mốc repository mới  | ADR-0030 + Phase 4 backlog + media UX research  |
 | Việc tiếp theo      | P4-01 MediaSpace lifecycle/schema/API core      |
 | Phạm vi             | Web-first; desktop/mobile/native là track sau   |
 
@@ -81,6 +81,11 @@ architecture/backlog implementation-readiness hiện đã `DONE`. Nguồn thực
 [ADR-0030](adr/0030-authoritative-classroom-media-spaces-lifecycle-and-livekit-grants.md)
 và P4-01 là vertical slice kế tiếp. `P3-02D-B` auto-close/fan-out/delivery cùng các lane
 worker/provider tiếp tục là carry-over, không bị coi là PASS.
+
+[P4-MEDIA-UX-00](P4_MEDIA_UX_00_RESEARCH_SPIKE.md) là research lane chạy song song
+P4-01/P4-02 để benchmark Zoom/Google Meet, audit V1 và chốt LiveKit/browser effect/audio
+path bằng evidence. Task không đổi provider hoặc critical path, nhưng phải `DONE` trước phần
+UX/effects của P4-03/P4-04/P4-05.
 
 Phase 5 bắt đầu bằng [P5-COLLAB-00](P5_COLLAB_00_RESEARCH_SPIKE.md): so sánh engine,
 license, document authority và realtime topology bằng prototype/evidence trước khi thêm

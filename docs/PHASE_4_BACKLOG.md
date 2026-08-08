@@ -10,7 +10,7 @@ Xây classroom media ổn định cho pilot 2-50 người:
 
 1. official ClassSession/occurrence và member-owned StudyMeeting/instant room có lifecycle rõ;
 2. backend cấp LiveKit credential room-instance-scoped, tối thiểu quyền;
-3. prejoin kiểm tra thiết bị/network, lobby/admission và join recovery;
+3. prejoin kiểm tra thiết bị/network, effect progressive-enhancement, lobby/admission và join recovery;
 4. camera, mic, screen share, grid/speaker/presentation layout;
 5. participant roster, hand raise, reaction và moderation server-authorized;
 6. chat trong phòng bền vững, reconnect/degraded audio-only và support diagnostics an toàn;
@@ -25,6 +25,10 @@ MediaSpace/RoomInstance/ParticipantSession, source/ownership, token/webhook, lob
 feature-off rollout, privacy và compatibility với P1 spike. **Task kế tiếp:** `P4-01`
 MediaSpace lifecycle/schema/API core; chưa migration hoặc deploy trong P4-00.
 
+`P4-MEDIA-UX-00` là research lane `TODO` có thể chạy song song P4-01/P4-02 và phải `DONE`
+trước phần UX/effects của P4-03/P4-04/P4-05. Task không đổi LiveKit provider, không thêm
+production dependency và không làm thay đổi critical path hiện tại là P4-01.
+
 ## 2. Non-goal
 
 - Recording/egress, transcription, AI meeting summary, E2EE policy và consent workflow.
@@ -33,6 +37,7 @@ MediaSpace lifecycle/schema/API core; chưa migration hoặc deploy trong P4-00.
 - Anonymous/external room participant; guest phải là active authenticated tenant member.
 - Attendance/grade authority từ join telemetry hoặc provider webhook.
 - Provider billing, automated plan upgrade hoặc self-host LiveKit.
+- Beauty/makeup/avatar/sticker, AI/video background và user-uploaded background trong P4 MVP.
 - Mobile/native app implementation; API/domain phải không khóa khả năng dùng client khác.
 - Media proxy qua Core API, raw media storage hoặc browser-held provider secret.
 - Redis, NATS, Kafka, microservice hoặc Kubernetes khi chưa có tải chứng minh.
@@ -61,21 +66,22 @@ MediaSpace lifecycle/schema/API core; chưa migration hoặc deploy trong P4-00.
 
 ## 4. Trạng thái tổng hợp
 
-| Task  | Nội dung                                           | Dependency                         | Trạng thái |
-| ----- | -------------------------------------------------- | ---------------------------------- | ---------- |
-| P4-00 | Architecture/backlog/contract baseline             | P3-14-CORE                         | DONE       |
-| P4-01 | MediaSpace lifecycle, schema và API core            | P4-00                              | TODO       |
-| P4-02 | RoomInstance LiveKit credential + webhook binding   | P4-01, P1-07 baseline              | TODO       |
-| P4-03 | Prejoin device/network và join-attempt flow         | P4-02                              | TODO       |
-| P4-04 | Lobby, admission và explicit same-tenant invite     | P4-02, P4-03                       | TODO       |
-| P4-05 | Classroom shell, media controls và layouts          | P4-03                              | TODO       |
-| P4-06 | Participant roster, hand raise và reaction          | P4-04, P4-05                       | TODO       |
-| P4-07 | Host/co-host/TA moderation, lock/mute/remove/end     | P4-04, P4-06                       | TODO       |
-| P4-08 | Persistent in-room chat                             | P4-01, P3-07A; ADR review          | TODO       |
-| P4-09 | Reconnect, recovery instance và degraded audio-only | P4-02, P4-05, P4-07                | TODO       |
-| P4-10 | Join telemetry, privacy và diagnostics export       | P4-02, P4-03, P4-09                | TODO       |
-| P4-11 | Browser/device matrix, load và outage runbook        | P4-05 đến P4-10                    | TODO       |
-| P4-12 | Exact staging acceptance và Phase 4 closure          | P4-01 đến P4-11                    | TODO       |
+| Task            | Nội dung                                           | Dependency                              | Trạng thái |
+| --------------- | -------------------------------------------------- | --------------------------------------- | ---------- |
+| P4-00           | Architecture/backlog/contract baseline             | P3-14-CORE                              | DONE       |
+| P4-MEDIA-UX-00 | Prejoin/lobby/media-effects research spike         | P4-00; song song P4-01/P4-02            | TODO       |
+| P4-01           | MediaSpace lifecycle, schema và API core            | P4-00                                   | TODO       |
+| P4-02           | RoomInstance LiveKit credential + webhook binding   | P4-01, P1-07 baseline                   | TODO       |
+| P4-03           | Prejoin device/network và join-attempt flow         | P4-02, P4-MEDIA-UX-00                  | TODO       |
+| P4-04           | Lobby, admission và explicit same-tenant invite     | P4-02, P4-03, P4-MEDIA-UX-00           | TODO       |
+| P4-05           | Classroom shell, media controls và layouts          | P4-03, P4-MEDIA-UX-00                  | TODO       |
+| P4-06           | Participant roster, hand raise và reaction          | P4-04, P4-05                            | TODO       |
+| P4-07           | Host/co-host/TA moderation, lock/mute/remove/end     | P4-04, P4-06                            | TODO       |
+| P4-08           | Persistent in-room chat                             | P4-01, P3-07A; ADR review               | TODO       |
+| P4-09           | Reconnect, recovery instance và degraded audio-only | P4-02, P4-05, P4-07                     | TODO       |
+| P4-10           | Join telemetry, privacy và diagnostics export       | P4-02, P4-03, P4-09                     | TODO       |
+| P4-11           | Browser/device matrix, load và outage runbook        | P4-05 đến P4-10                         | TODO       |
+| P4-12           | Exact staging acceptance và Phase 4 closure          | P4-MEDIA-UX-00, P4-01 đến P4-11         | TODO       |
 
 `TODO` không ngụ ý implementation đã tồn tại. `VERIFY` chỉ dùng sau khi implementation và local/
 disposable gates xanh nhưng exact staging/manual/provider gate còn mở. `DONE` yêu cầu toàn bộ
@@ -86,10 +92,14 @@ acceptance của task, cập nhật Project State/backlog và bằng chứng exa
 ```mermaid
 flowchart LR
     P314C["P3-14-CORE DONE"] --> P400["P4-00 Baseline"]
+    P400 --> P4MUX["P4-MEDIA-UX-00 Research"]
     P400 --> P401["P4-01 MediaSpace core"]
     P401 --> P402["P4-02 LiveKit instance binding"]
     P402 --> P403["P4-03 Prejoin/join attempt"]
     P402 --> P404["P4-04 Lobby/admission"]
+    P4MUX --> P403
+    P4MUX --> P404
+    P4MUX --> P405
     P403 --> P405["P4-05 Room shell/media"]
     P404 --> P406["P4-06 Roster/signals"]
     P405 --> P406
@@ -115,6 +125,10 @@ P4-08 có thể chạy song song sau P4-01 nhưng phải review/amend ADR-0013/0
 có đúng hai kind `direct`/`class`. P4-11 provider load chỉ chạy khi owner cho phép dùng quota/
 credential staging; local/synthetic gates không được bỏ qua trong lúc chờ.
 
+P4-MEDIA-UX-00 có thể chạy song song với P4-01/P4-02 nhưng không được kéo provider/dependency
+mới vào production. Kết quả phải là evidence + ADR/amendment; P4 không bắt buộc ship effect nếu
+performance, privacy, accessibility hoặc license gate không đạt.
+
 ## 6. Reuse matrix và compatibility boundary
 
 | Nền hiện có | Tái sử dụng | Không được coi là Phase 4 authority |
@@ -122,6 +136,7 @@ credential staging; local/synthetic gates không được bỏ qua trong lúc ch
 | ADR-0004 LiveKit Cloud | Provider choice, backend-held secret | Không chốt room lifecycle/moderation |
 | P1 media module | Token issuer, signed webhook verifier, bounded telemetry patterns | Class-wide deterministic room/token path |
 | P1 web room | Prejoin, device choice, LiveKit components, reconnect states | Không có source/instance/lobby authority |
+| V1 lobby prototype | Use case preview/device/mic meter/speaker test/blur/static-background và failure inventory | Global/JCEF/DOM/CDN/client-owned admission code không được port |
 | ADR-0013 policy | Shared deny-by-default role/class projection | JWT/client role không cấp quyền |
 | ADR-0015 controls | Typed feature/quota + deployment clamp | Capability projection không thay API enforcement |
 | P3 scheduling | ClassSession/occurrence/StudyMeeting source authority | StudyMeeting không tự mint token |
@@ -148,6 +163,32 @@ sử dụng mà không cần suy từ lịch sử chat.
 - [x] Xác nhận P4-00 không thêm dependency, migration, provider config, deploy hoặc side effect.
 - [x] Đồng bộ README, Project State, Agent Coordination, Delivery Roadmap, Master Plan,
       Domain Model, Security Baseline và LiveKit runbook.
+
+## 7A. P4-MEDIA-UX-00 Prejoin, lobby và media-effects research spike
+
+**Dependency:** P4-00. **Trạng thái:** `TODO`. **Execution:** song song P4-01/P4-02;
+phải `DONE` trước phần UX/effects của P4-03/P4-04/P4-05.
+
+**Đặc tả và Definition of Done:**
+[P4_MEDIA_UX_00_RESEARCH_SPIKE.md](P4_MEDIA_UX_00_RESEARCH_SPIKE.md).
+
+### Scope
+
+- Benchmark current official Zoom/Google Meet green-room, background/effects, degraded mode,
+  waiting-room và accessibility; chỉ lấy pattern, không sao chép UI/asset.
+- Audit read-only V1 lobby/LiveKit/MediaPipe để lấy use case/test; không port authority/code cũ.
+- So sánh native browser capability, LiveKit track-processors, MediaPipe fallback, WebRTC audio
+  defaults và Krisp go/no-go trên cùng performance/privacy/license/accessibility matrix.
+- Prototype cô lập `None`/blur/curated static background; không production route/dependency/deploy.
+
+### Acceptance
+
+- [ ] V1 reuse/reject matrix và current official Zoom/Meet/LiveKit source inventory được lưu.
+- [ ] Browser/device/capability, 360p-720p performance và low-end degrade evidence đạt hoặc có cap.
+- [ ] Permission/device/autoplay/error recovery và processor/track cleanup không chặn Join.
+- [ ] CSP/self-host model/WASM, asset license, privacy/telemetry và accessibility gates rõ.
+- [ ] ADR/amendment chọn một processor/fallback/MVP scope, hoặc quyết định ship no-effect.
+- [ ] P4-03/P4-04/P4-05/P4-11 được điều chỉnh theo decision trước implementation.
 
 ## 8. P4-01 MediaSpace lifecycle, schema và API core
 
@@ -365,7 +406,7 @@ sử dụng mà không cần suy từ lịch sử chat.
 
 ## 19. P4-12 Exact staging acceptance và Phase 4 closure
 
-**Dependency:** P4-01 đến P4-11. **Trạng thái:** `TODO`.
+**Dependency:** P4-MEDIA-UX-00 và P4-01 đến P4-11. **Trạng thái:** `TODO`.
 
 ### Exit gate
 
@@ -425,6 +466,8 @@ PostgreSQL. Mỗi implementation slice phải cập nhật khi thêm provider co
 ## 23. Thứ tự thực hiện ngay
 
 1. Bắt đầu `P4-01`: review exact P1 code + scheduling/source schema và khóa migration design.
-2. Viết OpenAPI/Go domain tests trước, giữ feature defaults off và provider adapter chưa gọi.
-3. Chạy local PostgreSQL/disposable migration + exact ACL/concurrency gates.
-4. Chỉ sau P4-01 `DONE` mới nối credential/webhook RoomInstance ở P4-02.
+2. Có thể chạy `P4-MEDIA-UX-00` song song; không để research đổi schema/authority hoặc chặn P4-01/P4-02.
+3. Viết OpenAPI/Go domain tests trước, giữ feature defaults off và provider adapter chưa gọi.
+4. Chạy local PostgreSQL/disposable migration + exact ACL/concurrency gates.
+5. Chỉ sau P4-01 `DONE` mới nối credential/webhook RoomInstance ở P4-02; research phải `DONE`
+   trước phần UX/effects của P4-03/P4-04/P4-05.
