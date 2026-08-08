@@ -165,7 +165,7 @@ WHERE tenant_id = $1`,
 	if err := transaction.Commit(queryContext); err != nil {
 		return CreateIntentResult{}, fmt.Errorf("commit upload intent creation: %w", err)
 	}
-	return CreateIntentResult{File: projectFile(row), Created: true}, nil
+	return CreateIntentResult{File: projectFile(row, access, true), Created: true}, nil
 }
 
 func (repository *PostgresRepository) replayIntent(
@@ -201,7 +201,7 @@ func (repository *PostgresRepository) replayIntent(
 	if err := transaction.Commit(ctx); err != nil {
 		return CreateIntentResult{}, fmt.Errorf("commit upload intent replay: %w", err)
 	}
-	return CreateIntentResult{File: projectFile(existing), Created: false}, nil
+	return CreateIntentResult{File: projectFile(existing, access, true), Created: false}, nil
 }
 
 func (repository *PostgresRepository) Get(
@@ -227,22 +227,101 @@ func (repository *PostgresRepository) Get(
 	if err != nil {
 		return File{}, fmt.Errorf("query file metadata: %w", err)
 	}
-	if err := repository.authorizeClass(
-		queryContext, transaction, access, row.ClassID, policy.ActionFileView,
+	class, classRoles, err := lockClassAccess(queryContext, transaction, access, row.ClassID)
+	if err != nil {
+		return File{}, err
+	}
+	if err := repository.authorizeClassResource(
+		access, row.ClassID, class.Status, classRoles, policy.ActionFileView,
 	); err != nil {
 		return File{}, err
 	}
-	if row.Status != StatusReady && row.CreatorUserID != access.ActorID {
-		if err := repository.authorizeClassAsActive(
-			queryContext, transaction, access, row.ClassID, policy.ActionFileUpload,
-		); err != nil {
-			return File{}, ErrNotFound
-		}
+	canManageTransfer := repository.authorizeClassResource(
+		access, row.ClassID, policy.ResourceStateActive, classRoles, policy.ActionFileUpload,
+	) == nil
+	canUpload := repository.authorizeClassResource(
+		access, row.ClassID, class.Status, classRoles, policy.ActionFileUpload,
+	) == nil
+	if row.Status != StatusReady && row.CreatorUserID != access.ActorID && !canManageTransfer {
+		return File{}, ErrNotFound
 	}
 	if err := transaction.Commit(queryContext); err != nil {
 		return File{}, fmt.Errorf("commit file metadata query: %w", err)
 	}
-	return projectFile(row), nil
+	return projectFile(row, access, canUpload), nil
+}
+
+func (repository *PostgresRepository) List(
+	ctx context.Context,
+	access AccessContext,
+	params ListFilesParams,
+) (ListFilesResult, error) {
+	queryContext, cancel := context.WithTimeout(ctx, repository.queryTimeout)
+	defer cancel()
+	if params.ClassID == uuid.Nil || params.Limit < 1 || params.Limit > maximumFileListLimit ||
+		(params.After != nil && (params.After.ID == uuid.Nil || params.After.CreatedAt.IsZero())) {
+		return ListFilesResult{}, ErrInvalidInput
+	}
+	transaction, err := repository.database.Begin(queryContext)
+	if err != nil {
+		return ListFilesResult{}, fmt.Errorf("begin class file list: %w", err)
+	}
+	defer rollback(transaction)
+	access, err = repository.requireActiveScope(queryContext, transaction, access)
+	if err != nil {
+		return ListFilesResult{}, err
+	}
+	class, classRoles, err := lockClassAccess(queryContext, transaction, access, params.ClassID)
+	if err != nil {
+		return ListFilesResult{}, err
+	}
+	if err := repository.authorizeClassResource(
+		access, params.ClassID, class.Status, classRoles, policy.ActionFileView,
+	); err != nil {
+		return ListFilesResult{}, err
+	}
+	canManageTransfer := repository.authorizeClassResource(
+		access, params.ClassID, policy.ResourceStateActive, classRoles, policy.ActionFileUpload,
+	) == nil
+	canUpload := repository.authorizeClassResource(
+		access, params.ClassID, class.Status, classRoles, policy.ActionFileUpload,
+	) == nil
+	query := `SELECT ` + fileReturning + `
+FROM tutorhub.content_files
+WHERE tenant_id = $1 AND class_id = $2 AND deleted_at IS NULL
+  AND ($3::boolean OR status = 'ready' OR creator_user_id = $4)`
+	arguments := []any{access.TenantID, params.ClassID, canManageTransfer, access.ActorID}
+	if params.After != nil {
+		query += " AND (created_at, id) < ($5, $6)"
+		arguments = append(arguments, params.After.CreatedAt, params.After.ID)
+	}
+	query += fmt.Sprintf(" ORDER BY created_at DESC, id DESC LIMIT $%d", len(arguments)+1)
+	arguments = append(arguments, params.Limit+1)
+	rows, err := transaction.Query(queryContext, query, arguments...)
+	if err != nil {
+		return ListFilesResult{}, fmt.Errorf("query class files: %w", err)
+	}
+	defer rows.Close()
+	items := make([]File, 0, params.Limit)
+	for rows.Next() {
+		row, err := scanFileRow(rows)
+		if err != nil {
+			return ListFilesResult{}, fmt.Errorf("scan class file: %w", err)
+		}
+		if len(items) < params.Limit {
+			items = append(items, projectFile(row, access, canUpload))
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return ListFilesResult{}, fmt.Errorf("iterate class files: %w", err)
+	}
+	if err := transaction.Commit(queryContext); err != nil {
+		return ListFilesResult{}, fmt.Errorf("commit class file list: %w", err)
+	}
+	return ListFilesResult{
+		Items: items, HasMore: rows.CommandTag().RowsAffected() > int64(params.Limit),
+		CanUpload: canUpload,
+	}, nil
 }
 
 func (repository *PostgresRepository) PrepareUpload(
@@ -313,7 +392,7 @@ func (repository *PostgresRepository) PrepareUpload(
 	if err := transaction.Commit(queryContext); err != nil {
 		return UploadTarget{}, fmt.Errorf("commit file upload capability preparation: %w", err)
 	}
-	return UploadTarget{File: projectFile(row), ObjectKey: row.ObjectKey}, nil
+	return UploadTarget{File: projectFile(row, access, true), ObjectKey: row.ObjectKey}, nil
 }
 
 func (repository *PostgresRepository) PrepareDownload(
@@ -368,7 +447,7 @@ func (repository *PostgresRepository) PrepareDownload(
 		return DownloadTarget{}, fmt.Errorf("commit file download capability preparation: %w", err)
 	}
 	return DownloadTarget{
-		File: projectFile(row), ObjectKey: row.ObjectKey,
+		File: projectFile(row, access, true), ObjectKey: row.ObjectKey,
 		VersionID:       strings.TrimSpace(row.StorageVersionID.String),
 		StoredMediaType: strings.TrimSpace(row.StoredMediaType.String),
 	}, nil
@@ -484,7 +563,7 @@ func (repository *PostgresRepository) CommitFinalize(
 		if err := transaction.Commit(queryContext); err != nil {
 			return File{}, fmt.Errorf("commit concurrent file finalize replay: %w", err)
 		}
-		return projectFile(row), nil
+		return projectFile(row, access, true), nil
 	}
 	if row.Status != StatusPending || row.Version != proof.ExpectedVersion {
 		return File{}, ErrVersionConflict
@@ -543,7 +622,7 @@ RETURNING `+fileReturning,
 	if err := transaction.Commit(queryContext); err != nil {
 		return File{}, fmt.Errorf("commit file finalize: %w", err)
 	}
-	return projectFile(updated), nil
+	return projectFile(updated, access, true), nil
 }
 
 func (repository *PostgresRepository) PrepareMultipartCreate(
@@ -585,7 +664,7 @@ func (repository *PostgresRepository) PrepareMultipartCreate(
 	if err := transaction.Commit(queryContext); err != nil {
 		return UploadTarget{}, fmt.Errorf("commit multipart creation preparation: %w", err)
 	}
-	return UploadTarget{File: projectFile(row), ObjectKey: row.ObjectKey}, nil
+	return UploadTarget{File: projectFile(row, access, true), ObjectKey: row.ObjectKey}, nil
 }
 
 func (repository *PostgresRepository) CreateMultipart(
@@ -1095,7 +1174,7 @@ func projectMultipartUpload(row multipartUploadRow) MultipartUpload {
 
 func multipartTarget(upload multipartUploadRow, file fileRow) MultipartTarget {
 	target := MultipartTarget{
-		Upload: projectMultipartUpload(upload), File: projectFile(file),
+		Upload: projectMultipartUpload(upload), File: projectFile(file, AccessContext{}, false),
 		ObjectKey: file.ObjectKey, ProviderUploadID: upload.ProviderUploadID,
 	}
 	if upload.CompletedVersionID.Valid {
@@ -1499,7 +1578,7 @@ func scanFileRow(row rowScanner) (fileRow, error) {
 	return item, err
 }
 
-func projectFile(row fileRow) File {
+func projectFile(row fileRow, access AccessContext, canUpload bool) File {
 	item := File{
 		ID: row.ID, ClassID: row.ClassID, CreatorUserID: row.CreatorUserID,
 		DisplayName: row.DisplayName, DeclaredMediaType: row.DeclaredMediaType,
@@ -1507,6 +1586,11 @@ func projectFile(row fileRow) File {
 		ExpectedChecksumSHA256: hex.EncodeToString(row.ExpectedChecksumSHA256),
 		Status:                 row.Status, Version: row.Version, UploadExpiresAt: row.UploadExpiresAt,
 		CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
+		ViewerAccess: FileViewerAccess{
+			CanDownload: row.Status == StatusReady,
+			CanRetryUpload: canUpload && row.CreatorUserID == access.ActorID &&
+				row.Status == StatusPending && time.Now().UTC().Before(row.UploadExpiresAt),
+		},
 	}
 	if row.UploadedAt.Valid {
 		uploadedAt := row.UploadedAt.Time
@@ -1517,7 +1601,7 @@ func projectFile(row fileRow) File {
 
 func finalizeTarget(row fileRow) FinalizeTarget {
 	target := FinalizeTarget{
-		File: projectFile(row), ObjectKey: row.ObjectKey,
+		File: projectFile(row, AccessContext{}, false), ObjectKey: row.ObjectKey,
 	}
 	if row.StorageVersionID.Valid {
 		target.StorageVersionID = strings.TrimSpace(row.StorageVersionID.String)

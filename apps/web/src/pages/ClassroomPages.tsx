@@ -33,6 +33,7 @@ import { shouldConcealTenantScopedData } from "../app/tenantDataAccess";
 import { useTenantDetail } from "../app/workspaces";
 import { ClassEnrollmentPanel } from "../components/ClassEnrollmentPanel";
 import { ClassConversationAction } from "../components/ClassConversationAction";
+import { ClassFilesPanel } from "../components/ClassFilesPanel";
 import { ClassJoinDialog } from "../components/ClassJoinDialog";
 import { ClassManagementPanel } from "../components/ClassManagementPanel";
 import { ClassRosterPanel } from "../components/ClassRosterPanel";
@@ -353,6 +354,8 @@ export function ClassroomDetailPage() {
       </section>
 
       <ClassConversationAction classID={classroom.id} />
+
+      <ClassFilesPanel classroom={classroom} />
 
       <ClassSessionPanel
         classroom={classroom}

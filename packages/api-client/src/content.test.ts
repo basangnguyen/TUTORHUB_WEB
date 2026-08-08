@@ -9,6 +9,7 @@ import {
   issueFileDownloadCapability,
   issueFileMultipartPartCapability,
   issueFileUploadCapability,
+  listClassFiles,
 } from "./index";
 import type {
   ContentFile,
@@ -35,6 +36,7 @@ const pendingFile: ContentFile = {
   upload_expires_at: "2030-08-07T10:15:00Z",
   created_at: "2030-08-07T10:00:00Z",
   updated_at: "2030-08-07T10:00:00Z",
+  viewer_access: { can_download: false, can_retry_upload: true },
 };
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -45,6 +47,32 @@ function jsonResponse(body: unknown, status = 200): Response {
 }
 
 describe("content file API", () => {
+  it("binds class-file pagination to the expected tenant and class", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        jsonResponse({ items: [pendingFile], next_cursor: "next-files" }),
+      );
+
+    const page = await listClassFiles(
+      tenantID,
+      classID,
+      { cursor: "current-files", limit: 12 },
+      { baseUrl: "https://web.example.test/api", fetch: fetchMock },
+    );
+
+    expect(page.next_cursor).toBe("next-files");
+    const request = fetchMock.mock.calls[0]?.[0] as Request;
+    expect(request.headers.get("X-TutorHub-Expected-Tenant-ID")).toBe(tenantID);
+    expect(new URL(request.url).pathname).toBe(
+      `/api/v1/classes/${classID}/files`,
+    );
+    expect(new URL(request.url).searchParams.get("cursor")).toBe(
+      "current-files",
+    );
+    expect(new URL(request.url).searchParams.get("limit")).toBe("12");
+  });
+
   it("binds intent, metadata and finalize to the expected tenant with exact bodies", async () => {
     const fetchMock = vi
       .fn()

@@ -35,8 +35,9 @@ approval có thể tiếp tục chuẩn bị song song.
 
 **Task `DONE` gần nhất:** `P3-09` presigned B2 upload/download hoàn tất ngày 2026-08-08 trên
 final candidate `d6365b5`; disposable/shared Neon, B2 provider, exact CI/security và live
-Render/Cloudflare đều PASS. **Task runnable tiếp theo:** `P3-11A` Class Files transfer-core UI
-trong trạng thái feature gate off; P3-10 processing tiếp tục `DEFERRED/TODO` theo worker dependency.
+Render/Cloudflare đều PASS. **Task hiện tại:** `P3-11A` Class Files transfer-core UI ở `VERIFY`,
+giữ feature gate off và chờ exact candidate CI/security + live accessibility acceptance;
+P3-10 processing tiếp tục `DEFERRED/TODO` theo worker dependency.
 `P3-02D-B` lifecycle delivery/
 auto-close/fan-out và các gate P3-03B/P3-CAL-02/P3-05A/B là carry-over, không nằm trong
 mốc Core Exit tối thiểu.
@@ -114,7 +115,7 @@ processing/sharing tới end user.
 | P3-08      | File metadata, upload intent và finalize       | P3-00, B2 baseline                            | DONE            |
 | P3-09      | Presigned B2 upload/download                   | P3-08                                         | DONE             |
 | P3-10      | Scan/metadata/thumbnail processing             | P3-03B, P3-09                                 | DEFERRED/TODO   |
-| P3-11A     | Class Files transfer-core UI (gate off)        | P3-09                                         | TODO            |
+| P3-11A     | Class Files transfer-core UI (gate off)        | P3-09                                         | VERIFY          |
 | P3-11B     | File processing/thumbnail/rejected UX          | P3-10, P3-11A                                 | DEFERRED/TODO   |
 | P3-12      | Home dashboard và PostgreSQL search cơ bản     | P3-01, P3-07A, P3-11A                         | TODO            |
 | P3-13      | Offline/retry drafts và Phase 3 quota closure  | P3-02D-A, P3-07A, P3-11A                      | TODO            |
@@ -1075,12 +1076,26 @@ forward và ứng dụng chưa deploy theo ranh giới P3-08; direct B2 transfer
 
 ### P3-11A — transfer-core UI (runnable, feature gate off)
 
+**Trạng thái:** `VERIFY` từ 2026-08-08; exact candidate CI/security và live feature-off/
+accessibility acceptance còn mở.
+
 - Teacher upload/quản lý; student chỉ xem/tải file được chia sẻ đúng lớp.
 - UI có progress, resume/retry, checksum failure và các trạng thái transfer cơ bản.
 - Không render active content nguy hiểm; download disposition/MIME được kiểm soát.
 - Cache key chứa tenant/class và bị purge khi switch/archive/role change.
 - Có thể nghiệm thu contract/UI bằng fixture và object test an toàn, nhưng feature gate
   chia sẻ file tới end user vẫn tắt cho tới khi P3-10/P3-11B đóng processing safety.
+- [x] Thêm class-scoped list API phân trang, cursor bind tenant/class và server-derived
+      `can_upload`/`can_download`/`can_retry_upload`; pending/foreign/archived visibility
+      được reauthorize từ PostgreSQL.
+- [x] Class Files panel có loading/empty/error/forbidden/gate-off, attachment-only download,
+      background checksum, single/multipart progress và in-session resume/retry.
+- [x] Cache key chứa tenant/class; switch workspace purge, archive/restore và roster/role
+      mutation invalidate đúng projection.
+- [x] Full exact-tree `pnpm verify`, API-client/web/Go gate và Neon disposable exact ACL/
+      content integration PASS; không có migration mới, không rollback, không shared staging.
+- [ ] Exact candidate CI/security, deployed Teacher/Student feature-off và keyboard/Axe/NVDA
+      acceptance trước khi chuyển `VERIFY -> DONE`.
 
 ### P3-11B — processing/thumbnail/rejected UX (deferred carry-over)
 

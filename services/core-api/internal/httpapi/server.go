@@ -214,6 +214,10 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 		notificationResponseHeaders(http.HandlerFunc(notifications.preference)),
 	)
 	mux.Handle(
+		classFilesPattern,
+		fileResponseHeaders(http.HandlerFunc(files.list)),
+	)
+	mux.Handle(
 		fileUploadIntentsPath,
 		fileResponseHeaders(http.HandlerFunc(files.createIntent)),
 	)

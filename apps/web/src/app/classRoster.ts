@@ -16,6 +16,7 @@ import {
   type ClassRosterMutationResponse,
 } from "@tutorhub/api-client";
 import { invalidateTenantAudit } from "./audit";
+import { classFileQueryKeys } from "./classFiles";
 import { classEnrollmentQueryKeys } from "./classEnrollments";
 
 const rosterPageSize = 25;
@@ -109,6 +110,9 @@ export function useUpdateClassRosterRole(
         queryClient.invalidateQueries({
           queryKey: classEnrollmentQueryKeys.rosters(tenantID, classID),
         }),
+        queryClient.invalidateQueries({
+          queryKey: classFileQueryKeys.list(tenantID, classID),
+        }),
         invalidateTenantAudit(queryClient, tenantID),
       ]);
     },
@@ -140,6 +144,9 @@ export function useBulkMutateClassRoster(
       await Promise.all([
         queryClient.invalidateQueries({
           queryKey: classEnrollmentQueryKeys.rosters(tenantID, classID),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: classFileQueryKeys.list(tenantID, classID),
         }),
         invalidateTenantAudit(queryClient, tenantID),
       ]);

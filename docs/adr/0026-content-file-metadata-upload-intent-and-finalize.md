@@ -24,8 +24,11 @@ unscanned content downloadable.
   lifecycle. B2 is authoritative for the stored object's immutable upload evidence.
 - P3-08 supports class-scoped source files only. Personal drive, folders, sharing,
   download, preview, multipart transfer, processing jobs and deletion are out of scope.
-- The API exposes `POST /api/v1/files/upload-intents`, `GET /api/v1/files/{file_id}` and
-  `POST /api/v1/files/{file_id}/finalize`. Upload intent creation and finalize require
+- The API exposes `GET /api/v1/classes/{class_id}/files`,
+  `POST /api/v1/files/upload-intents`, `GET /api/v1/files/{file_id}` and
+  `POST /api/v1/files/{file_id}/finalize`. The bounded class list uses a tenant/class-bound
+  opaque cursor and projects server-derived `can_download`/`can_retry_upload` capabilities.
+  Upload intent creation and finalize require
   CSRF; every route binds `X-TutorHub-Expected-Tenant-ID`.
 - Upload and finalize require current authoritative `file.upload` permission on an active
   class. Metadata reads require `file.view`; a file that is not `ready` is visible only to
@@ -33,7 +36,8 @@ unscanned content downloadable.
   foreign-tenant IDs are concealed as `404`.
 - The `file_uploads` feature switch is off when the object-store runtime prerequisite is
   unavailable. The switch blocks new intent/finalize mutations but does not hide already
-  committed metadata.
+  committed metadata. The P3-11A class-files surface remains readable while the switch is
+  off and renders the upload action as unavailable; activation still waits for P3-10/P3-11B.
 
 ### Intent, keys and idempotency
 

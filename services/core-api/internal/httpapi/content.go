@@ -16,6 +16,7 @@ import (
 
 const (
 	fileUploadIntentsPath          = "/api/v1/files/upload-intents"
+	classFilesPattern              = "/api/v1/classes/{class_id}/files"
 	fileResourcePattern            = "/api/v1/files/{file_id}"
 	fileFinalizePattern            = "/api/v1/files/{file_id}/finalize"
 	fileUploadCapabilityPattern    = "/api/v1/files/{file_id}/upload-capability"
@@ -71,6 +72,12 @@ type multipartCompletedPartRequest struct {
 type multipartCompleteRequest struct {
 	ExpectedVersion *int64                           `json:"expected_version"`
 	Parts           *[]multipartCompletedPartRequest `json:"parts"`
+}
+
+type classFilePageResponse struct {
+	Items        []content.File                 `json:"items"`
+	NextCursor   *string                        `json:"next_cursor"`
+	ViewerAccess content.ClassFilesViewerAccess `json:"viewer_access"`
 }
 
 func newContentHandlers(
@@ -168,6 +175,54 @@ func (handlers contentHandlers) resource(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	writeJSON(handlers.logger, w, http.StatusOK, item)
+}
+
+func (handlers contentHandlers) list(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
+		w.Header().Set("Allow", "GET, HEAD")
+		writeProblem(w, r, http.StatusMethodNotAllowed, "Method not allowed", "Class file listing supports GET and HEAD requests.")
+		return
+	}
+	if !handlers.available(w, r) {
+		return
+	}
+	principal, ok := handlers.auth.authenticatedPrincipal(w, r)
+	if !ok {
+		return
+	}
+	access, ok := handlers.access(w, r, principal)
+	if !ok {
+		return
+	}
+	classID, ok := parseResourceUUID(r.PathValue("class_id"))
+	if !ok {
+		handlers.writeProblem(w, r, content.ErrNotFound)
+		return
+	}
+	limit := 0
+	if rawLimit := strings.TrimSpace(r.URL.Query().Get("limit")); rawLimit != "" {
+		value, err := strconv.Atoi(rawLimit)
+		if err != nil {
+			handlers.writeProblem(w, r, content.ErrInvalidInput)
+			return
+		}
+		limit = value
+	}
+	page, err := handlers.service.List(r.Context(), access, classID, content.ListFilesInput{
+		Limit: limit, Cursor: strings.TrimSpace(r.URL.Query().Get("cursor")),
+	})
+	if err != nil {
+		handlers.writeProblem(w, r, err)
+		return
+	}
+	response := classFilePageResponse{Items: page.Items, ViewerAccess: page.ViewerAccess}
+	if response.Items == nil {
+		response.Items = []content.File{}
+	}
+	if page.NextCursor != "" {
+		response.NextCursor = &page.NextCursor
+	}
+	writeJSON(handlers.logger, w, http.StatusOK, response)
 }
 
 func (handlers contentHandlers) finalize(w http.ResponseWriter, r *http.Request) {

@@ -98,7 +98,7 @@ function jsonResponse(body: unknown, status = 200) {
 
 function renderClassRoute(
   path: string,
-  fetchMock: ReturnType<typeof vi.fn>,
+  fetchMock: (request: Request) => Promise<Response>,
   session = currentUser(),
 ) {
   const queryClient = new QueryClient({
@@ -108,7 +108,30 @@ function renderClassRoute(
     tenantCapabilityQueryKeys.detail(tenantID),
     availableTenantCapabilities(tenantID),
   );
-  vi.stubGlobal("fetch", withAvailableTenantCapabilities(fetchMock, tenantID));
+  const fetchWithClassFiles = vi.fn(
+    (input: RequestInfo | URL, init?: RequestInit) => {
+      const request =
+        input instanceof Request ? input : new Request(input, init);
+      if (
+        new URL(request.url).pathname.endsWith(
+          `/api/v1/classes/${classID}/files`,
+        )
+      ) {
+        return Promise.resolve(
+          jsonResponse({
+            items: [],
+            next_cursor: null,
+            viewer_access: { can_upload: false },
+          }),
+        );
+      }
+      return fetchMock(request);
+    },
+  );
+  vi.stubGlobal(
+    "fetch",
+    withAvailableTenantCapabilities(fetchWithClassFiles, tenantID),
+  );
   render(
     <QueryClientProvider client={queryClient}>
       <I18nProvider initialLanguage="vi">

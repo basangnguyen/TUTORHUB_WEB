@@ -303,11 +303,23 @@ func TestPostgresContentIntentFinalizeIsolationAndConcurrency(t *testing.T) {
 	if _, err := service.Get(ctx, studentAccess, file.ID); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("student pending metadata error=%v, want concealed not found", err)
 	}
+	ownerPage, err := service.List(ctx, access, fixture.classID, ListFilesInput{Limit: 10})
+	if err != nil || len(ownerPage.Items) != 1 || ownerPage.Items[0].ID != file.ID ||
+		!ownerPage.ViewerAccess.CanUpload {
+		t.Fatalf("owner pending file page=%+v err=%v", ownerPage, err)
+	}
+	studentPage, err := service.List(ctx, studentAccess, fixture.classID, ListFilesInput{Limit: 10})
+	if err != nil || len(studentPage.Items) != 0 || studentPage.ViewerAccess.CanUpload {
+		t.Fatalf("student pending file page=%+v err=%v", studentPage, err)
+	}
 	foreignAccess := integrationContentAccess(
 		fixture.foreignTenantID, fixture.foreignOwnerID, policy.OrganizationRoleTeacher,
 	)
 	if _, err := service.Get(ctx, foreignAccess, file.ID); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("foreign tenant file read error=%v, want not found", err)
+	}
+	if _, err := service.List(ctx, foreignAccess, fixture.classID, ListFilesInput{Limit: 10}); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("foreign tenant file list error=%v, want not found", err)
 	}
 	uploadCapability, err := service.IssueUploadCapability(
 		ctx, access, file.ID, UploadCapabilityInput{ExpectedVersion: 1},
@@ -395,6 +407,11 @@ WHERE tenant_id = $1 AND id = $2`, fixture.tenantID, file.ID, readyAt); err != n
 	if _, err := service.IssueDownloadCapability(ctx, foreignAccess, file.ID); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("foreign ready download error=%v, want not found", err)
 	}
+	studentPage, err = service.List(ctx, studentAccess, fixture.classID, ListFilesInput{Limit: 10})
+	if err != nil || len(studentPage.Items) != 1 || studentPage.Items[0].ID != file.ID ||
+		!studentPage.Items[0].ViewerAccess.CanDownload || studentPage.ViewerAccess.CanUpload {
+		t.Fatalf("student ready file page=%+v err=%v", studentPage, err)
+	}
 
 	pendingInput := input
 	pendingInput.ClientRequestID = uuid.New()
@@ -435,6 +452,15 @@ WHERE tenant_id = $1 AND id = $3`, fixture.tenantID, now, fixture.classID); err 
 	archivedInput.ClientRequestID = uuid.New()
 	if _, err := service.CreateIntent(ctx, access, archivedInput); !errors.Is(err, ErrReadOnly) {
 		t.Fatalf("archived class upload error=%v, want read only", err)
+	}
+	archivedPage, err := service.List(ctx, access, fixture.classID, ListFilesInput{Limit: 10})
+	if err != nil || archivedPage.ViewerAccess.CanUpload || len(archivedPage.Items) == 0 {
+		t.Fatalf("archived class file page=%+v err=%v", archivedPage, err)
+	}
+	for _, item := range archivedPage.Items {
+		if item.ViewerAccess.CanRetryUpload {
+			t.Fatalf("archived file exposed retry capability: %+v", item)
+		}
 	}
 }
 

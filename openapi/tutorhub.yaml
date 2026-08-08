@@ -716,6 +716,66 @@ paths:
           $ref: "#/components/responses/ProblemResponse"
         default:
           $ref: "#/components/responses/ProblemResponse"
+  /api/v1/classes/{class_id}/files:
+    get:
+      operationId: listClassFiles
+      summary: List authorized file metadata for one class
+      description: Returns ready files to current class viewers and additionally returns owned or managed transfer metadata only when authorized. The opaque cursor is bound to the active tenant and class.
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: class_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: cursor
+          in: query
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 512
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: X-TutorHub-Expected-Tenant-ID
+          in: header
+          required: true
+          description: Client cache-scope assertion; authorization still comes only from the server-side active session.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Bounded class-file metadata page
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContentFilePage"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
   /api/v1/files/upload-intents:
     post:
       operationId: createFileUploadIntent
@@ -6104,6 +6164,15 @@ components:
     ContentFileStatus:
       type: string
       enum: [pending, uploaded, processing, ready, rejected]
+    ContentFileViewerAccess:
+      type: object
+      additionalProperties: false
+      required: [can_download, can_retry_upload]
+      properties:
+        can_download:
+          type: boolean
+        can_retry_upload:
+          type: boolean
     ContentFile:
       type: object
       additionalProperties: false
@@ -6120,6 +6189,7 @@ components:
         - upload_expires_at
         - created_at
         - updated_at
+        - viewer_access
       properties:
         id:
           type: string
@@ -6163,6 +6233,32 @@ components:
         updated_at:
           type: string
           format: date-time
+        viewer_access:
+          $ref: "#/components/schemas/ContentFileViewerAccess"
+    ContentFilePage:
+      type: object
+      additionalProperties: false
+      required: [items, next_cursor, viewer_access]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ContentFile"
+        next_cursor:
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 512
+            - type: "null"
+        viewer_access:
+          $ref: "#/components/schemas/ClassFilesViewerAccess"
+    ClassFilesViewerAccess:
+      type: object
+      additionalProperties: false
+      required: [can_upload]
+      properties:
+        can_upload:
+          type: boolean
     CreateFileUploadIntentRequest:
       type: object
       additionalProperties: false

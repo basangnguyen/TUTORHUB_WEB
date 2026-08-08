@@ -79,6 +79,40 @@ func TestCreateIntentRejectsUnsafeMetadataBeforeRepository(t *testing.T) {
 	}
 }
 
+func TestListFilesBindsCursorToTenantAndClass(t *testing.T) {
+	t.Parallel()
+	repository := &fakeRepository{}
+	service, err := NewService(repository, &fakeMetadataReader{})
+	if err != nil {
+		t.Fatalf("create service: %v", err)
+	}
+	access := testAccess()
+	classID := uuid.New()
+	fileID := uuid.New()
+	repository.listResult = ListFilesResult{
+		Items:   []File{{ID: fileID, ClassID: classID, CreatedAt: contentTestTime}},
+		HasMore: true, CanUpload: true,
+	}
+	page, err := service.List(
+		context.Background(), access, classID, ListFilesInput{Limit: 12},
+	)
+	if err != nil {
+		t.Fatalf("list class files: %v", err)
+	}
+	if repository.listParams.ClassID != classID || repository.listParams.Limit != 12 ||
+		page.NextCursor == "" || !page.ViewerAccess.CanUpload {
+		t.Fatalf("unexpected file page/params: page=%+v params=%+v", page, repository.listParams)
+	}
+	before := repository.listCalls
+	_, err = service.List(
+		context.Background(), access, uuid.New(),
+		ListFilesInput{Limit: 12, Cursor: page.NextCursor},
+	)
+	if !errors.Is(err, ErrInvalidInput) || repository.listCalls != before {
+		t.Fatalf("cross-class cursor error=%v calls=%d, want invalid before repository", err, repository.listCalls)
+	}
+}
+
 func TestFinalizeVerifiesProviderMetadataBeforeCommit(t *testing.T) {
 	t.Parallel()
 	checksum := bytes.Repeat([]byte{0x33}, 32)
@@ -358,6 +392,10 @@ type fakeRepository struct {
 	createCalls              int
 	getFile                  File
 	getErr                   error
+	listResult               ListFilesResult
+	listErr                  error
+	listParams               ListFilesParams
+	listCalls                int
 	uploadTarget             UploadTarget
 	uploadErr                error
 	downloadTarget           DownloadTarget
@@ -394,6 +432,14 @@ func (repository *fakeRepository) Get(
 	context.Context, AccessContext, uuid.UUID,
 ) (File, error) {
 	return repository.getFile, repository.getErr
+}
+
+func (repository *fakeRepository) List(
+	_ context.Context, _ AccessContext, params ListFilesParams,
+) (ListFilesResult, error) {
+	repository.listCalls++
+	repository.listParams = params
+	return repository.listResult, repository.listErr
 }
 
 func (repository *fakeRepository) PrepareFinalize(

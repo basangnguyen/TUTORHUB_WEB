@@ -46,19 +46,57 @@ type AccessContext struct {
 }
 
 type File struct {
-	ID                     uuid.UUID  `json:"id"`
-	ClassID                uuid.UUID  `json:"class_id"`
-	CreatorUserID          uuid.UUID  `json:"creator_user_id"`
-	DisplayName            string     `json:"display_name"`
-	DeclaredMediaType      string     `json:"declared_media_type"`
-	ExpectedSizeBytes      int64      `json:"expected_size_bytes"`
-	ExpectedChecksumSHA256 string     `json:"expected_checksum_sha256"`
-	Status                 Status     `json:"status"`
-	Version                int64      `json:"version"`
-	UploadExpiresAt        time.Time  `json:"upload_expires_at"`
-	UploadedAt             *time.Time `json:"uploaded_at,omitempty"`
-	CreatedAt              time.Time  `json:"created_at"`
-	UpdatedAt              time.Time  `json:"updated_at"`
+	ID                     uuid.UUID        `json:"id"`
+	ClassID                uuid.UUID        `json:"class_id"`
+	CreatorUserID          uuid.UUID        `json:"creator_user_id"`
+	DisplayName            string           `json:"display_name"`
+	DeclaredMediaType      string           `json:"declared_media_type"`
+	ExpectedSizeBytes      int64            `json:"expected_size_bytes"`
+	ExpectedChecksumSHA256 string           `json:"expected_checksum_sha256"`
+	Status                 Status           `json:"status"`
+	Version                int64            `json:"version"`
+	UploadExpiresAt        time.Time        `json:"upload_expires_at"`
+	UploadedAt             *time.Time       `json:"uploaded_at,omitempty"`
+	CreatedAt              time.Time        `json:"created_at"`
+	UpdatedAt              time.Time        `json:"updated_at"`
+	ViewerAccess           FileViewerAccess `json:"viewer_access"`
+}
+
+type FileViewerAccess struct {
+	CanDownload    bool `json:"can_download"`
+	CanRetryUpload bool `json:"can_retry_upload"`
+}
+
+type FileCursor struct {
+	CreatedAt time.Time
+	ID        uuid.UUID
+}
+
+type ListFilesParams struct {
+	ClassID uuid.UUID
+	Limit   int
+	After   *FileCursor
+}
+
+type ListFilesResult struct {
+	Items     []File
+	HasMore   bool
+	CanUpload bool
+}
+
+type ListFilesInput struct {
+	Limit  int
+	Cursor string
+}
+
+type FilePage struct {
+	Items        []File                 `json:"items"`
+	NextCursor   string                 `json:"next_cursor,omitempty"`
+	ViewerAccess ClassFilesViewerAccess `json:"viewer_access"`
+}
+
+type ClassFilesViewerAccess struct {
+	CanUpload bool `json:"can_upload"`
 }
 
 type CreateIntentInput struct {
@@ -227,6 +265,7 @@ type MultipartCompleteProof struct {
 type Repository interface {
 	CreateIntent(context.Context, AccessContext, CreateCommand) (CreateIntentResult, error)
 	Get(context.Context, AccessContext, uuid.UUID) (File, error)
+	List(context.Context, AccessContext, ListFilesParams) (ListFilesResult, error)
 	PrepareUpload(context.Context, AccessContext, uuid.UUID, int64, time.Time) (UploadTarget, error)
 	PrepareDownload(context.Context, AccessContext, uuid.UUID) (DownloadTarget, error)
 	PrepareFinalize(context.Context, AccessContext, uuid.UUID, int64, time.Time) (FinalizeTarget, error)
@@ -244,6 +283,7 @@ type Repository interface {
 type ServiceAPI interface {
 	CreateIntent(context.Context, AccessContext, CreateIntentInput) (CreateIntentResult, error)
 	Get(context.Context, AccessContext, uuid.UUID) (File, error)
+	List(context.Context, AccessContext, uuid.UUID, ListFilesInput) (FilePage, error)
 	IssueUploadCapability(context.Context, AccessContext, uuid.UUID, UploadCapabilityInput) (UploadCapability, error)
 	IssueDownloadCapability(context.Context, AccessContext, uuid.UUID) (DownloadCapability, error)
 	Finalize(context.Context, AccessContext, uuid.UUID, FinalizeInput) (File, error)

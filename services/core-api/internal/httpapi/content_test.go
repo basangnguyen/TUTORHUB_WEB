@@ -86,6 +86,53 @@ func TestFileMutationRequiresCSRFAndExpectedTenant(t *testing.T) {
 	}
 }
 
+func TestListClassFilesBindsScopeAndProjectsNullableCursor(t *testing.T) {
+	t.Parallel()
+	tenantID := uuid.New()
+	userID := uuid.New()
+	classID := uuid.New()
+	next := "next-files"
+	service := &fakeContentService{listPage: content.FilePage{
+		Items: []content.File{{
+			ID: uuid.New(), ClassID: classID, CreatorUserID: userID,
+			DisplayName: "lesson.pdf", DeclaredMediaType: "application/pdf",
+			ExpectedSizeBytes: 42, ExpectedChecksumSHA256: hex.EncodeToString(make([]byte, 32)),
+			Status: content.StatusPending, Version: 1,
+			UploadExpiresAt: contentTestHTTPTime.Add(time.Minute),
+			CreatedAt:       contentTestHTTPTime, UpdatedAt: contentTestHTTPTime,
+			ViewerAccess: content.FileViewerAccess{CanRetryUpload: true},
+		}},
+		NextCursor:   next,
+		ViewerAccess: content.ClassFilesViewerAccess{CanUpload: true},
+	}}
+	handler := contentTestHandler(classIdentityService(tenantID, userID, nil), service)
+	request := httptest.NewRequest(
+		http.MethodGet,
+		"/api/v1/classes/"+classID.String()+"/files?limit=12&cursor=current-files",
+		nil,
+	)
+	request.Header.Set(fileTenantHeader, tenantID.String())
+	addSessionCookie(request)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("status=%d, want 200: %s", response.Code, response.Body.String())
+	}
+	assertFileHeaders(t, response)
+	if service.listClassID != classID || service.listInput.Limit != 12 ||
+		service.listInput.Cursor != "current-files" {
+		t.Fatalf("unexpected list scope/input: class=%s input=%+v", service.listClassID, service.listInput)
+	}
+	var page classFilePageResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &page); err != nil {
+		t.Fatalf("decode file page: %v", err)
+	}
+	if len(page.Items) != 1 || page.NextCursor == nil || *page.NextCursor != next ||
+		!page.ViewerAccess.CanUpload || !page.Items[0].ViewerAccess.CanRetryUpload {
+		t.Fatalf("unexpected file page: %+v", page)
+	}
+}
+
 func TestFinalizeFileMapsStorageMismatchWithoutLeakingDetails(t *testing.T) {
 	t.Parallel()
 	tenantID := uuid.New()
@@ -274,6 +321,10 @@ type fakeContentService struct {
 	createCalls             int
 	getFile                 content.File
 	getErr                  error
+	listPage                content.FilePage
+	listErr                 error
+	listClassID             uuid.UUID
+	listInput               content.ListFilesInput
 	finalizeFile            content.File
 	finalizeErr             error
 	uploadCapability        content.UploadCapability
@@ -302,6 +353,14 @@ func (service *fakeContentService) Get(
 	context.Context, content.AccessContext, uuid.UUID,
 ) (content.File, error) {
 	return service.getFile, service.getErr
+}
+
+func (service *fakeContentService) List(
+	_ context.Context, _ content.AccessContext, classID uuid.UUID, input content.ListFilesInput,
+) (content.FilePage, error) {
+	service.listClassID = classID
+	service.listInput = input
+	return service.listPage, service.listErr
 }
 
 func (service *fakeContentService) Finalize(

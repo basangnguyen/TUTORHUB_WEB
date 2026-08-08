@@ -1,12 +1,16 @@
 package content
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"mime"
 	"net/http"
 	"regexp"
@@ -29,6 +33,10 @@ const (
 	maximumMediaTypeBytes    = 127
 	maximumStorageProofBytes = 512
 	maximumProviderIDBytes   = 2048
+	defaultFileListLimit     = 20
+	maximumFileListLimit     = 100
+	maximumFileCursorLength  = 512
+	fileCursorPrefix         = "thfi1_"
 	minimumMultipartPartSize = int64(5_000_000)
 	maximumMultipartPartSize = int64(5_368_709_120)
 )
@@ -399,6 +407,125 @@ func (service *Service) Get(
 	}
 	item, err := service.repository.Get(ctx, access, fileID)
 	return item, normalizeRepositoryError(err)
+}
+
+func (service *Service) List(
+	ctx context.Context,
+	access AccessContext,
+	classID uuid.UUID,
+	input ListFilesInput,
+) (FilePage, error) {
+	if service == nil {
+		return FilePage{}, fmt.Errorf("list class files: service is unavailable")
+	}
+	if !validAccess(access) {
+		return FilePage{}, ErrAccessDenied
+	}
+	if classID == uuid.Nil {
+		return FilePage{}, ErrNotFound
+	}
+	params, err := normalizeListFilesInput(input, access.TenantID, classID)
+	if err != nil {
+		return FilePage{}, err
+	}
+	result, err := service.repository.List(ctx, access, params)
+	if err != nil {
+		return FilePage{}, normalizeRepositoryError(err)
+	}
+	page := FilePage{
+		Items:        result.Items,
+		ViewerAccess: ClassFilesViewerAccess{CanUpload: result.CanUpload},
+	}
+	if result.HasMore && len(result.Items) > 0 {
+		last := result.Items[len(result.Items)-1]
+		page.NextCursor, err = encodeFileCursor(
+			FileCursor{CreatedAt: last.CreatedAt, ID: last.ID},
+			access.TenantID, classID,
+		)
+		if err != nil {
+			return FilePage{}, fmt.Errorf("encode next file cursor: %w", err)
+		}
+	}
+	return page, nil
+}
+
+type fileCursorPayload struct {
+	CreatedAt string `json:"created_at"`
+	ID        string `json:"id"`
+	ScopeHash string `json:"scope_hash"`
+}
+
+func normalizeListFilesInput(
+	input ListFilesInput,
+	tenantID, classID uuid.UUID,
+) (ListFilesParams, error) {
+	if input.Limit == 0 {
+		input.Limit = defaultFileListLimit
+	}
+	if input.Limit < 1 || input.Limit > maximumFileListLimit {
+		return ListFilesParams{}, ErrInvalidInput
+	}
+	after, err := decodeFileCursor(strings.TrimSpace(input.Cursor), tenantID, classID)
+	if err != nil {
+		return ListFilesParams{}, err
+	}
+	return ListFilesParams{ClassID: classID, Limit: input.Limit, After: after}, nil
+}
+
+func encodeFileCursor(
+	cursor FileCursor,
+	tenantID, classID uuid.UUID,
+) (string, error) {
+	if cursor.ID == uuid.Nil || cursor.CreatedAt.IsZero() {
+		return "", ErrInvalidInput
+	}
+	contents, err := json.Marshal(fileCursorPayload{
+		CreatedAt: cursor.CreatedAt.UTC().Format(time.RFC3339Nano),
+		ID:        cursor.ID.String(), ScopeHash: fileListScopeHash(tenantID, classID),
+	})
+	if err != nil {
+		return "", err
+	}
+	return fileCursorPrefix + base64.RawURLEncoding.EncodeToString(contents), nil
+}
+
+func decodeFileCursor(
+	value string,
+	tenantID, classID uuid.UUID,
+) (*FileCursor, error) {
+	if value == "" {
+		return nil, nil
+	}
+	if len(value) > maximumFileCursorLength || !strings.HasPrefix(value, fileCursorPrefix) {
+		return nil, ErrInvalidInput
+	}
+	contents, err := base64.RawURLEncoding.DecodeString(strings.TrimPrefix(value, fileCursorPrefix))
+	if err != nil {
+		return nil, ErrInvalidInput
+	}
+	var payload fileCursorPayload
+	decoder := json.NewDecoder(bytes.NewReader(contents))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&payload); err != nil {
+		return nil, ErrInvalidInput
+	}
+	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+		return nil, ErrInvalidInput
+	}
+	createdAt, err := time.Parse(time.RFC3339Nano, payload.CreatedAt)
+	if err != nil || createdAt.IsZero() || payload.ScopeHash != fileListScopeHash(tenantID, classID) {
+		return nil, ErrInvalidInput
+	}
+	fileID, err := uuid.Parse(payload.ID)
+	if err != nil || fileID == uuid.Nil {
+		return nil, ErrInvalidInput
+	}
+	return &FileCursor{CreatedAt: createdAt.UTC(), ID: fileID}, nil
+}
+
+func fileListScopeHash(tenantID, classID uuid.UUID) string {
+	digest := sha256.Sum256([]byte(tenantID.String() + "\x00" + classID.String()))
+	return base64.RawURLEncoding.EncodeToString(digest[:])
 }
 
 func (service *Service) Finalize(

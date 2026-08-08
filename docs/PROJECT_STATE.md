@@ -14,8 +14,29 @@
 | Phase hiện tại      | Phase 3 - Daily learning workspace                                                   |
 | Task `DONE` gần nhất | P3-09 Presigned B2 upload/download                                                |
 | Mốc repository mới | P3-09 final candidate `d6365b5` Live; shared Neon `28 false`                           |
-| Task hiện tại       | P3-11A Class Files transfer-core UI (feature gate off) — `TODO`                       |
-| Task tiếp theo      | Bắt đầu P3-11A vertical slice, không bật processing/sharing                           |
+| Task hiện tại       | P3-11A Class Files transfer-core UI (feature gate off) — `VERIFY`                     |
+| Task tiếp theo      | Exact candidate CI/security và live accessibility gate-off để chuyển P3-11A `DONE`   |
+
+### Checkpoint P3-11A `VERIFY` ngày 2026-08-08
+
+P3-11A đã có vertical slice contract-first mà không bật upload cho end user. Core API bổ sung
+class-scoped list có keyset cursor bind tenant/class, reauthorize từ PostgreSQL và projection
+`can_upload`/`can_download`/`can_retry_upload`. Student chỉ thấy file `ready`; creator/upload
+manager mới thấy transfer chưa sẵn sàng, foreign tenant và quyền bị thu hồi tiếp tục conceal.
+
+Web class detail có Class Files loading/empty/error/forbidden/off state, attachment-only
+download, background SHA-256, single PUT progress/retry và multipart progress/resume trong
+phiên. Cache key chứa tenant/class và được purge/invalidate khi switch workspace, class archive/
+restore hoặc roster/role thay đổi. Active content không được preview, signed URL/provider proof
+không lưu vào query cache hay storage.
+
+OpenAPI/generated client, API-client/web/Go unit gate và Neon disposable content integration
+đã PASS; integration xác nhận exact runtime ACL, owner/student visibility, ready download,
+foreign-tenant conceal và archived-class không còn retry capability. Không có migration mới,
+không rollback, không forward shared staging. `file_uploads` vẫn fail-closed cho tới P3-10/P3-11B.
+Full exact-tree `pnpm verify` đã PASS. Các gate còn lại để `DONE`: exact candidate CI/security
+và live Teacher/Student keyboard/Axe/NVDA feature-off acceptance theo
+`docs/P3_11A_STAGING_ACCEPTANCE.md`.
 
 ### Checkpoint P3-09 hoàn tất ngày 2026-08-08
 

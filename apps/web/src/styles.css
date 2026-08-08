@@ -5230,7 +5230,204 @@ textarea:focus-visible {
   justify-content: flex-end;
 }
 
+.class-files {
+  display: grid;
+  gap: 18px;
+}
+
+.class-files__heading,
+.class-files__load-error,
+.class-files__gate,
+.class-files__success {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.class-files__heading p,
+.class-files__gate p,
+.class-files__empty p,
+.class-files__load-error p {
+  margin: 6px 0 0;
+  color: var(--color-text-muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.class-files__safety {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--color-success);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.class-files__safety svg,
+.class-files__gate > svg,
+.class-files__empty > svg {
+  width: 19px;
+  height: 19px;
+}
+
+.class-files__gate,
+.class-files__load-error {
+  padding: 15px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-subtle);
+}
+
+.class-files__transfer form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 10px;
+}
+
+.class-files__transfer label {
+  grid-column: 1 / -1;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.class-files__transfer input[type="file"] {
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.class-files__progress {
+  grid-column: 1 / -1;
+  overflow: hidden;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--color-border);
+}
+
+.class-files__progress span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--color-primary);
+  transition: width 160ms ease;
+}
+
+.class-files__error,
+.class-files__success {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 13px;
+}
+
+.class-files__error {
+  color: var(--color-danger);
+}
+
+.class-files__success {
+  color: var(--color-success);
+}
+
+.class-files__empty {
+  display: grid;
+  justify-items: center;
+  padding: 28px 18px;
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  text-align: center;
+}
+
+.class-files__empty h3 {
+  margin: 10px 0 0;
+  font-size: 15px;
+}
+
+.class-files__list {
+  display: grid;
+  gap: 1px;
+  padding: 0;
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-border);
+  list-style: none;
+}
+
+.class-files__list > li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 13px;
+  padding: 13px 15px;
+  background: var(--color-surface);
+}
+
+.class-files__list > li > svg {
+  width: 19px;
+  color: var(--color-text-muted);
+}
+
+.class-files__list > li > div {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.class-files__list strong,
+.class-files__list span,
+.class-files__list time {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.class-files__list span,
+.class-files__list time {
+  color: var(--color-text-muted);
+  font-size: 11px;
+}
+
+.class-files__status {
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: var(--color-surface-subtle);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.class-files__status[data-status="ready"] {
+  background: var(--color-success-soft);
+  color: var(--color-success);
+}
+
+.class-files__status[data-status="rejected"] {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
 @media (max-width: 760px) {
+  .class-files__heading,
+  .class-files__load-error,
+  .class-files__gate,
+  .class-files__success {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .class-files__transfer form,
+  .class-files__list > li {
+    grid-template-columns: 1fr;
+  }
+
+  .class-files__transfer form > button,
+  .class-files__list > li > button {
+    width: 100%;
+  }
   .notification-center__header,
   .notification-preferences__header,
   .notification-center__list > li,

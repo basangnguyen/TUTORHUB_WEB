@@ -672,6 +672,26 @@ export type paths = {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/api/v1/classes/{class_id}/files": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /**
+     * List authorized file metadata for one class
+     * @description Returns ready files to current class viewers and additionally returns owned or managed transfer metadata only when authorized. The opaque cursor is bound to the active tenant and class.
+     */
+    readonly get: operations["listClassFiles"];
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/api/v1/classes/{class_id}/invite-codes": {
     readonly parameters: {
       readonly query?: never;
@@ -2553,6 +2573,9 @@ export type components = {
     /** @enum {string} */
     readonly ClassEnrollmentStatus:
       "invited" | "active" | "suspended" | "left" | "removed";
+    readonly ClassFilesViewerAccess: {
+      readonly can_upload: boolean;
+    };
     readonly ClassInvitationTokenRequest: {
       readonly token: string;
     };
@@ -2876,10 +2899,20 @@ export type components = {
       readonly uploaded_at?: string;
       /** Format: int64 */
       readonly version: number;
+      readonly viewer_access: components["schemas"]["ContentFileViewerAccess"];
+    };
+    readonly ContentFilePage: {
+      readonly items: readonly components["schemas"]["ContentFile"][];
+      readonly next_cursor: string | null;
+      readonly viewer_access: components["schemas"]["ClassFilesViewerAccess"];
     };
     /** @enum {string} */
     readonly ContentFileStatus:
       "pending" | "uploaded" | "processing" | "ready" | "rejected";
+    readonly ContentFileViewerAccess: {
+      readonly can_download: boolean;
+      readonly can_retry_upload: boolean;
+    };
     readonly Conversation: {
       /** Format: uuid */
       readonly class_id?: string;
@@ -5468,6 +5501,42 @@ export interface operations {
       readonly 403: components["responses"]["ForbiddenResponse"];
       readonly 404: components["responses"]["NotFoundResponse"];
       readonly 409: components["responses"]["ConflictResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly listClassFiles: {
+    readonly parameters: {
+      readonly query?: {
+        readonly cursor?: string;
+        readonly limit?: number;
+      };
+      readonly header: {
+        /** @description Client cache-scope assertion; authorization still comes only from the server-side active session. */
+        readonly "X-TutorHub-Expected-Tenant-ID": string;
+      };
+      readonly path: {
+        readonly class_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Bounded class-file metadata page */
+      readonly 200: {
+        headers: {
+          readonly "Cache-Control"?: "no-store";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ContentFilePage"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
       readonly default: components["responses"]["ProblemResponse"];
     };
   };

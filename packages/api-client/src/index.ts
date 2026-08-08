@@ -37,6 +37,9 @@ export type UpdateTenantFeatureControlsRequest =
   components["schemas"]["UpdateTenantFeatureControlsRequest"];
 export type ContentFileStatus = components["schemas"]["ContentFileStatus"];
 export type ContentFile = components["schemas"]["ContentFile"];
+export type ContentFileViewerAccess =
+  components["schemas"]["ContentFileViewerAccess"];
+export type ContentFilePage = components["schemas"]["ContentFilePage"];
 export type CreateFileUploadIntentRequest =
   components["schemas"]["CreateFileUploadIntentRequest"];
 export type FinalizeFileUploadRequest =
@@ -365,6 +368,10 @@ export interface ListClassesInput {
   cursor?: string;
   limit?: number;
   status?: ClassStatus;
+}
+export interface ListClassFilesInput {
+  cursor?: string;
+  limit?: number;
 }
 export interface ListClassSessionsInput {
   range_start: string;
@@ -784,6 +791,33 @@ export async function createFileUploadIntent(
 
   return requireData<ContentFile>(
     data as ContentFile | undefined,
+    error,
+    response,
+  );
+}
+
+export async function listClassFiles(
+  tenantID: string,
+  classID: string,
+  input: ListClassFilesInput = {},
+  options: APIRequestOptions = {},
+): Promise<ContentFilePage> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).GET(
+    "/api/v1/classes/{class_id}/files",
+    {
+      params: {
+        path: { class_id: classID },
+        query: input,
+        header: { "X-TutorHub-Expected-Tenant-ID": tenantID },
+      },
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<ContentFilePage>(
+    data as ContentFilePage | undefined,
     error,
     response,
   );

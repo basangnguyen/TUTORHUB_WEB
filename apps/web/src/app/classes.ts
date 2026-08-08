@@ -21,6 +21,7 @@ import {
   type UpdateClassRequest,
 } from "@tutorhub/api-client";
 import { invalidateTenantAudit } from "./audit";
+import { classFileQueryKeys } from "./classFiles";
 import { invalidateTenantCapabilities } from "./tenantCapabilities";
 
 const classPageSize = 20;
@@ -119,6 +120,9 @@ async function synchronizeClass(
   const invalidations = [
     queryClient.invalidateQueries({
       queryKey: classQueryKeys.lists(tenantID),
+    }),
+    queryClient.invalidateQueries({
+      queryKey: classFileQueryKeys.list(tenantID, classroom.id),
     }),
   ];
   if (invalidateEnrollmentData) {
