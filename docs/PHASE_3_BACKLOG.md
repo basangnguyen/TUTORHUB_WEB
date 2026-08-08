@@ -36,7 +36,8 @@ approval có thể tiếp tục chuẩn bị song song.
 **Task `DONE` gần nhất:** `P3-13` Offline/retry drafts và Phase 3 quota closure hoàn tất ngày
 2026-08-08 trên candidate `25a323ad`; exact CI/security, Cloudflare/Render, public privacy probes
 và live Admin draft/workspace/logout acceptance đều PASS mà không lưu thay đổi shared. **Task hiện
-tại:** `P3-14-CORE` Core Exit sign-off ở `TODO`.
+tại:** `P3-14-CORE` Core Exit sign-off ở `VERIFY`; local/disposable gate đã xanh và đang chờ
+exact candidate CI/deployment/live acceptance.
 P3-10 processing tiếp tục `DEFERRED/TODO` theo worker dependency.
 `P3-02D-B` lifecycle delivery/
 auto-close/fan-out và các gate P3-03B/P3-CAL-02/P3-05A/B là carry-over, không nằm trong
@@ -119,7 +120,7 @@ processing/sharing tới end user.
 | P3-11B     | File processing/thumbnail/rejected UX          | P3-10, P3-11A                                 | DEFERRED/TODO   |
 | P3-12      | Home dashboard và PostgreSQL search cơ bản     | P3-01, P3-07A, P3-11A                         | DONE            |
 | P3-13      | Offline/retry drafts và Phase 3 quota closure  | P3-02D-A, P3-07A, P3-11A                      | DONE            |
-| P3-14-CORE | Core Exit sign-off (cho phép bắt đầu Phase 4)  | P3-02D-A, P3-07A, P3-09, P3-11A, P3-12, P3-13 | TODO            |
+| P3-14-CORE | Core Exit sign-off (cho phép bắt đầu Phase 4)  | P3-02D-A, P3-07A, P3-09, P3-11A, P3-12, P3-13 | VERIFY          |
 | P3-14      | Full staging acceptance và đóng Phase 3        | carry-over + P3-12/P3-13                      | TODO            |
 
 `VERIFY` nghĩa là implementation và các gate đã ghi nhận đạt, nhưng vẫn còn ít nhất một

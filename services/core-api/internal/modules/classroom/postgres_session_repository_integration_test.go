@@ -36,6 +36,8 @@ func TestPostgresClassSessionLifecycleAndTenantScope(t *testing.T) {
 		t.Fatalf("create session integration pool: %v", err)
 	}
 	defer pool.Close()
+	assertionPool := newClassroomAssertionPool(t, ctx, migrationURL)
+	defer assertionPool.Close()
 
 	setup, err := pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
@@ -198,7 +200,7 @@ INSERT INTO tutorhub.classes (
 		1,
 	)
 	var eventCount int
-	if err := pool.QueryRow(
+	if err := assertionPool.QueryRow(
 		ctx,
 		`SELECT count(*) FROM tutorhub.outbox_events
          WHERE tenant_id = $1 AND aggregate_id = $2`,

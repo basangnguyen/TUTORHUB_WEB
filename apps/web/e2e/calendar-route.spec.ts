@@ -504,6 +504,26 @@ test.describe("P3-02A Warm Academic visual baselines", () => {
           () => document.documentElement.scrollWidth <= window.innerWidth + 1,
         ),
       ).toBe(true);
+      expect(
+        await page.locator(".calendar-toolbar__actions").evaluate((actions) => {
+          const main = actions
+            .closest(".calendar-main")
+            ?.getBoundingClientRect();
+          if (!main) {
+            return false;
+          }
+          return Array.from(actions.children)
+            .filter(
+              (child) => window.getComputedStyle(child).display !== "none",
+            )
+            .every((child) => {
+              const bounds = child.getBoundingClientRect();
+              return (
+                bounds.left >= main.left - 1 && bounds.right <= main.right + 1
+              );
+            });
+        }),
+      ).toBe(true);
       await expect(page).toHaveScreenshot(`${visualCase.name}.png`, {
         animations: "disabled",
         fullPage: true,

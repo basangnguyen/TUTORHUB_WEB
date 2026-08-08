@@ -40,6 +40,8 @@ func TestPostgresEnrollmentInviteUsageIsAtomicAndIdempotent(t *testing.T) {
 		t.Fatalf("create enrollment integration pool: %v", err)
 	}
 	defer pool.Close()
+	assertionPool := newClassroomAssertionPool(t, ctx, migrationURL)
+	defer assertionPool.Close()
 
 	setup, err := pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
@@ -193,7 +195,7 @@ WHERE tenant_id = $1 AND class_id = $2 AND user_id = $3`,
 	).Scan(&sameEnrollments); err != nil {
 		t.Fatalf("count same-user enrollment: %v", err)
 	}
-	if err := pool.QueryRow(
+	if err := assertionPool.QueryRow(
 		ctx,
 		`SELECT count(*) FROM tutorhub.outbox_events
 WHERE aggregate_type = 'class_enrollment'
@@ -261,7 +263,7 @@ WHERE tenant_id = $1 AND class_id = $2
 	).Scan(&limitedEnrollments); err != nil {
 		t.Fatalf("count limited enrollments: %v", err)
 	}
-	if err := pool.QueryRow(
+	if err := assertionPool.QueryRow(
 		ctx,
 		`SELECT count(*) FROM tutorhub.outbox_events
 WHERE aggregate_id = $1 AND event_type = 'class.invite_code.exhausted'`,
@@ -344,7 +346,7 @@ WHERE aggregate_id = $1 AND event_type = 'class.invite_code.exhausted'`,
 	).Scan(&expiredStatus); err != nil {
 		t.Fatalf("read expired invite status: %v", err)
 	}
-	if err := pool.QueryRow(
+	if err := assertionPool.QueryRow(
 		ctx,
 		`SELECT count(*) FROM tutorhub.outbox_events
 WHERE aggregate_id = $1 AND event_type = 'class.invite_code.expired'`,
@@ -360,7 +362,7 @@ WHERE aggregate_id = $1 AND event_type = 'class.invite_code.expired'`,
 		)
 	}
 	var outboxPayloadViolations int
-	if err := pool.QueryRow(
+	if err := assertionPool.QueryRow(
 		ctx,
 		`SELECT count(*)
 FROM tutorhub.outbox_events
@@ -403,6 +405,8 @@ func TestPostgresInviteScopeAndArchivedLifecycle(t *testing.T) {
 		t.Fatalf("create archived lifecycle pool: %v", err)
 	}
 	defer pool.Close()
+	assertionPool := newClassroomAssertionPool(t, ctx, migrationURL)
+	defer assertionPool.Close()
 
 	setup, err := pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
@@ -480,7 +484,7 @@ VALUES ($1, $2, $3, $4, 'Archived invite class', 'Asia/Ho_Chi_Minh', 'active')`,
 		t.Fatalf("cross-tenant token must be unavailable, got %v", err)
 	}
 	var usageAfterCrossTenant, crossTenantEnrollments, crossTenantEvents int
-	if err := pool.QueryRow(
+	if err := assertionPool.QueryRow(
 		ctx,
 		`SELECT
     (

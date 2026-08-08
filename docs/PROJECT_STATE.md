@@ -14,8 +14,27 @@
 | Phase hiện tại       | Phase 3 - Daily learning workspace                                                    |
 | Task `DONE` gần nhất | P3-13 Offline/retry drafts và Phase 3 quota closure                                   |
 | Mốc repository mới   | P3-13 candidate `25a323ad` Live trên Render/Pages; Neon giữ `28 false`                |
-| Task hiện tại        | P3-14-CORE Core Exit sign-off — `TODO`                                                |
-| Task tiếp theo       | Rà checklist runnable lane, regression và carry-over register của P3-14-CORE         |
+| Task hiện tại        | P3-14-CORE Core Exit sign-off — `VERIFY`                                              |
+| Task tiếp theo       | Exact candidate CI/security, deploy và live acceptance của P3-14-CORE                 |
+
+### Checkpoint P3-14-CORE `VERIFY` ngày 2026-08-08
+
+Core Exit review xác nhận toàn bộ runnable lane P3-02A/B/C, P3-02D-A, P3-06/07A,
+P3-08/09, P3-11A/12/13 vẫn ở `DONE`. Review tìm và sửa ba regression/harness gap:
+Calendar toolbar wrap để không clip action sau khi thêm Messages/Poll; Classroom integration
+giữ business mutation ở exact runtime pool nhưng đọc audit/outbox bằng owner assertion pool;
+ClassSession create lấy shared owner-time advisory lock trước class row lock để loại deadlock
+với StudyMeeting insert.
+
+Full `pnpm verify` PASS với 55 web file/262 test, generated contract, lint/typecheck,
+build/Storybook/security, toàn bộ Go test và vet. Calendar production-route Playwright PASS
+15/15 gồm Axe, keyboard, 200% zoom, forced colors, performance và ba visual baseline. Neon
+disposable chạy tuần tự Classroom/Calendar/Conversation/Content/Discovery/Feature Control/
+Security đều PASS; focused owner-time race PASS 3/3 và ledger giữ `28 false`, không migration
+hay rollback. Baseline live 6/6 public + 2/2 anonymous privacy PASS; Admin xác nhận file upload
+và in-app notification đều effective-off. Carry-over register đã được tạo tại
+`docs/P3_14_CORE_ACCEPTANCE.md`. Task giữ `VERIFY` tới khi exact candidate CI/security,
+Cloudflare/Render deployment và live rerun hoàn tất; full P3-14/Phase 3 vẫn `TODO`.
 
 ### Checkpoint P3-13 `DONE` ngày 2026-08-08
 

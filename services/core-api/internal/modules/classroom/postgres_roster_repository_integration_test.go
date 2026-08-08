@@ -38,6 +38,8 @@ func TestPostgresRosterScopePaginationHierarchyAndProjection(t *testing.T) {
 		t.Fatalf("create roster integration pool: %v", err)
 	}
 	defer pool.Close()
+	assertionPool := newClassroomAssertionPool(t, ctx, migrationURL)
+	defer assertionPool.Close()
 
 	setup, err := pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
@@ -223,7 +225,7 @@ VALUES ($1, $2, $3, 'student', 'suspended', $4, $5, $6, $5, $6)`,
 		t.Fatalf("owner role update: result=%+v error=%v", roleChanged, err)
 	}
 	var payload json.RawMessage
-	if err := pool.QueryRow(
+	if err := assertionPool.QueryRow(
 		ctx,
 		`SELECT payload FROM tutorhub.outbox_events
 WHERE tenant_id = $1 AND aggregate_id = $2
@@ -241,7 +243,7 @@ ORDER BY occurred_at DESC LIMIT 1`,
 		t.Fatalf("unexpected role-changed payload: %s", payloadText)
 	}
 	var auditMetadata json.RawMessage
-	if err := pool.QueryRow(
+	if err := assertionPool.QueryRow(
 		ctx,
 		`SELECT metadata FROM tutorhub.audit_events
 WHERE tenant_id = $1 AND resource_id = $2

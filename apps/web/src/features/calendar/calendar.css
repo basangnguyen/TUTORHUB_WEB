@@ -331,6 +331,13 @@
   gap: 0.4rem;
 }
 
+.calendar-toolbar__actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  max-width: 100%;
+  min-width: 0;
+}
+
 .calendar-toolbar__range {
   font-size: clamp(0.95rem, 1.7vw, 1.2rem);
   margin: 0 0 0 0.4rem;

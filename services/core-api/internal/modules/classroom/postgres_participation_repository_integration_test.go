@@ -293,6 +293,8 @@ func TestPostgresSessionParticipationSnapshotsIdempotencyAndRSVPCAS(t *testing.T
 		t.Fatalf("create participation integration pool: %v", err)
 	}
 	defer pool.Close()
+	assertionPool := newClassroomAssertionPool(t, ctx, migrationURL)
+	defer assertionPool.Close()
 
 	setup, err := pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
@@ -412,11 +414,11 @@ VALUES (
 		"calendar_participation_mutation_receipts", "operation", "audience_replace", 1,
 	)
 	assertParticipationMutationCount(
-		t, ctx, pool, tenantID, sessionID,
+		t, ctx, assertionPool, tenantID, sessionID,
 		"outbox_events", "event_type", "class_session.audience_replaced.v1", 1,
 	)
 	assertParticipationAuditCount(
-		t, ctx, pool, tenantID, sessionID, "class.session.audience.replace", 1,
+		t, ctx, assertionPool, tenantID, sessionID, "class.session.audience.replace", 1,
 	)
 	assertEncryptedInvitationSnapshot(
 		t, ctx, pool, protector, tenantID, classID, sessionID, 2,
@@ -442,11 +444,11 @@ VALUES (
 	}
 	assertParticipationSnapshotCounts(t, ctx, pool, tenantID, sessionID, 1, 2)
 	assertParticipationMutationCount(
-		t, ctx, pool, tenantID, sessionID,
+		t, ctx, assertionPool, tenantID, sessionID,
 		"outbox_events", "event_type", "class_session.audience_replaced.v1", 1,
 	)
 	assertParticipationAuditCount(
-		t, ctx, pool, tenantID, sessionID, "class.session.audience.replace", 1,
+		t, ctx, assertionPool, tenantID, sessionID, "class.session.audience.replace", 1,
 	)
 
 	conflictingParams, err := (ReplaceAudienceInput{
@@ -539,11 +541,11 @@ WHERE tenant_id = $1 AND class_id = $2 AND id = $3`,
 		"calendar_participation_mutation_receipts", "operation", "rsvp_respond", 1,
 	)
 	assertParticipationMutationCount(
-		t, ctx, pool, tenantID, sessionID,
+		t, ctx, assertionPool, tenantID, sessionID,
 		"outbox_events", "event_type", "class_session.rsvp_responded.v1", 1,
 	)
 	assertParticipationAuditCount(
-		t, ctx, pool, tenantID, sessionID, "class.session.rsvp.respond", 1,
+		t, ctx, assertionPool, tenantID, sessionID, "class.session.rsvp.respond", 1,
 	)
 
 	staleParams, err := (SelfRSVPInput{
@@ -569,7 +571,7 @@ WHERE tenant_id = $1 AND class_id = $2 AND id = $3`,
 		"calendar_participation_mutation_receipts", "operation", "rsvp_respond", 1,
 	)
 	assertParticipationMutationCount(
-		t, ctx, pool, tenantID, sessionID,
+		t, ctx, assertionPool, tenantID, sessionID,
 		"outbox_events", "event_type", "class_session.rsvp_responded.v1", 1,
 	)
 

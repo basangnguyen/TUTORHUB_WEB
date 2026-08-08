@@ -14,6 +14,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tutorhub-v2/core-api/internal/platform/migrationrunner"
 	"github.com/tutorhub-v2/core-api/internal/platform/tenancy"
@@ -45,6 +46,8 @@ func TestPostgresRepositoryClassLifecycleAndTenantIsolation(t *testing.T) {
 	if err := pool.Ping(ctx); err != nil {
 		t.Fatalf("ping integration database: %v", err)
 	}
+	assertionPool := newClassroomAssertionPool(t, ctx, migrationURL)
+	defer assertionPool.Close()
 
 	transaction, err := pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
@@ -415,27 +418,6 @@ VALUES ($1, $2, $3, 'student', 'active', $4, now())`,
 		t.Fatalf("tenant B must not see tenant A classes: classes=%+v error=%v", classesB, err)
 	}
 
-	var transferEvents, lifecycleEvents int
-	if err := transaction.QueryRow(
-		ctx,
-		`SELECT count(*) FILTER (WHERE event_type = 'class.ownership_transferred'),
-                count(*) FILTER (
-                    WHERE event_type IN ('class.updated', 'class.archived', 'class.restored')
-                )
-FROM tutorhub.outbox_events
-WHERE aggregate_id = $1`,
-		created.ID,
-	).Scan(&transferEvents, &lifecycleEvents); err != nil {
-		t.Fatalf("count class lifecycle events: %v", err)
-	}
-	if transferEvents != 1 || lifecycleEvents != 3 {
-		t.Fatalf(
-			"unexpected class events: transfers=%d lifecycle=%d",
-			transferEvents,
-			lifecycleEvents,
-		)
-	}
-
 	err = runInSavepoint(t, ctx, transaction, "duplicate_code", func() error {
 		_, createErr := repository.Create(ctx, contextA, CreateClassParams{
 			OwnerUserID: ownerA,
@@ -471,6 +453,30 @@ WHERE tenant_id = $1 AND user_id = $2`,
 	); !errors.Is(err, ErrClassAccessDenied) {
 		t.Fatalf("inactive membership snapshot must be re-authorized, got %v", err)
 	}
+	if err := transaction.Commit(ctx); err != nil {
+		t.Fatalf("commit class lifecycle integration transaction: %v", err)
+	}
+
+	var transferEvents, lifecycleEvents int
+	if err := assertionPool.QueryRow(
+		ctx,
+		`SELECT count(*) FILTER (WHERE event_type = 'class.ownership_transferred'),
+                count(*) FILTER (
+                    WHERE event_type IN ('class.updated', 'class.archived', 'class.restored')
+                )
+FROM tutorhub.outbox_events
+WHERE aggregate_id = $1`,
+		created.ID,
+	).Scan(&transferEvents, &lifecycleEvents); err != nil {
+		t.Fatalf("count class lifecycle events: %v", err)
+	}
+	if transferEvents != 1 || lifecycleEvents != 3 {
+		t.Fatalf(
+			"unexpected class events: transfers=%d lifecycle=%d",
+			transferEvents,
+			lifecycleEvents,
+		)
+	}
 }
 
 func TestPostgresRepositoryConcurrentUpdateUsesOptimisticVersion(t *testing.T) {
@@ -487,6 +493,8 @@ func TestPostgresRepositoryConcurrentUpdateUsesOptimisticVersion(t *testing.T) {
 		t.Fatalf("create integration pool: %v", err)
 	}
 	defer pool.Close()
+	assertionPool := newClassroomAssertionPool(t, ctx, migrationURL)
+	defer assertionPool.Close()
 
 	setup, err := pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
@@ -563,7 +571,7 @@ func TestPostgresRepositoryConcurrentUpdateUsesOptimisticVersion(t *testing.T) {
 		t.Fatalf("concurrent update silently overwrote version: %+v", loaded)
 	}
 	var updateEvents int
-	if err := pool.QueryRow(
+	if err := assertionPool.QueryRow(
 		ctx,
 		`SELECT count(*)
 FROM tutorhub.outbox_events
@@ -701,6 +709,12 @@ func cleanupClassIntegrationFixture(
 		`SELECT EXISTS (SELECT 1 FROM tutorhub.audit_events WHERE tenant_id = $1)`,
 		tenantID,
 	).Scan(&retainedAudit); err != nil {
+		var postgresError *pgconn.PgError
+		if errors.As(err, &postgresError) && postgresError.Code == "42501" {
+			// Exact runtime ACL is intentionally append-only for audit/outbox data.
+			// Preserve the disposable fixture when runtime cannot prove deletion is safe.
+			return
+		}
 		t.Errorf("inspect retained class audit fixture: %v", err)
 		return
 	}
@@ -722,6 +736,19 @@ func cleanupClassIntegrationFixture(
 			t.Errorf("delete class integration users: %v", err)
 		}
 	}
+}
+
+func newClassroomAssertionPool(
+	t *testing.T,
+	ctx context.Context,
+	migrationURL string,
+) *pgxpool.Pool {
+	t.Helper()
+	pool, err := pgxpool.New(ctx, migrationURL)
+	if err != nil {
+		t.Fatalf("create classroom owner assertion pool: %v", err)
+	}
+	return pool
 }
 
 func mustTenantContext(

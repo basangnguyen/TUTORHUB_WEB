@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/tutorhub-v2/core-api/internal/modules/audit"
 	"github.com/tutorhub-v2/core-api/internal/modules/featurecontrol"
+	"github.com/tutorhub-v2/core-api/internal/platform/ownertime"
 	"github.com/tutorhub-v2/core-api/internal/platform/tenancy"
 	"github.com/tutorhub-v2/core-api/internal/policy"
 )
@@ -49,6 +50,18 @@ func (repository *PostgresRepository) CreateSession(
 		queryContext, transaction, tenantContext.TenantID,
 	); err != nil {
 		return ClassSession{}, err
+	}
+	// The shared owner-time lock must precede the class row lock. A concurrent
+	// StudyMeeting insert takes a foreign-key key-share lock on that class; taking
+	// the locks in the opposite order can form a database deadlock after both
+	// writers queue behind the same advisory-lock holder.
+	if err := ownertime.AcquireLocks(
+		queryContext,
+		transaction,
+		tenantContext.TenantID,
+		[]uuid.UUID{params.CreatedBy},
+	); err != nil {
+		return ClassSession{}, fmt.Errorf("lock class schedule busy users: %w", err)
 	}
 	locked, membership, err := repository.lockClassMutation(
 		queryContext, transaction, tenantContext, classID,
