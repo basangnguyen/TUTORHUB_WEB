@@ -12,10 +12,29 @@
 | Quy trình           | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
 | Phase hoàn thành    | Phase 0, Phase 1, Phase 2                                                             |
 | Phase hiện tại      | Phase 3 - Daily learning workspace                                                   |
-| Task `DONE` gần nhất | P3-08 File metadata, upload intent và finalize                                     |
-| Mốc repository mới | P3-09 multipart candidate `04e30649` đã push; shared Neon vẫn `25 false`              |
-| Task hiện tại       | P3-09 Presigned B2 upload/download — `VERIFY`                                         |
-| Task tiếp theo      | CI Browser E2E của race fix, sau đó shared forward/ACL và live acceptance              |
+| Task `DONE` gần nhất | P3-09 Presigned B2 upload/download                                                |
+| Mốc repository mới | P3-09 final candidate `d6365b5` Live; shared Neon `28 false`                           |
+| Task hiện tại       | P3-11A Class Files transfer-core UI (feature gate off) — `TODO`                       |
+| Task tiếp theo      | Bắt đầu P3-11A vertical slice, không bật processing/sharing                           |
+
+### Checkpoint P3-09 hoàn tất ngày 2026-08-08
+
+P3-09 đã chuyển `VERIFY -> DONE`. Final candidate `d6365b5` đạt Verify `31245311233` và
+Security `31245311235`; Browser E2E, local smoke, quality/integration, CodeQL, Trivy và secret
+scan đều xanh. Cloudflare Pages deployed successfully; Render deploy
+`dep-d9rdbnajobas73d6an40` Live đúng commit. Direct Render và same-origin Pages health/readiness
+đều HTTP 200.
+
+Shared Neon owner preflight xác nhận `25 false`, role migration/runtime tách biệt và runtime
+không đặc quyền; forward-only tới `28 false`, exact ACL re-provision idempotent và ba content
+PostgreSQL integration tests đều PASS. Final ledger giữ `28 false`, không rollback. B2
+single/multipart smoke, CORS và lifecycle read-back/idempotency đã PASS trước khi mở shared gate.
+
+Live acceptance phát hiện `file_uploads` từng effective-on vì thiếu deployment ceiling. Không có
+intent/object nào được tạo. Render đã thêm `FEATURE_CONTROL_DISABLE_FILE_UPLOADS=true` và redeploy;
+Teacher projection xác nhận “Tải tệp lên — Đang tắt”. Code config cùng `.env.example` cũng đổi sang
+fail-closed mặc định. Capability không credential trả 401 với `no-store/no-referrer`, Problem Details
+và không rò provider data. Feature phải giữ off tới P3-10 exact-version hash/scan authority.
 
 ### Checkpoint P3-09 forward design `000027` ngày 2026-08-08
 

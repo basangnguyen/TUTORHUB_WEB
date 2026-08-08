@@ -7,11 +7,12 @@ thay đổi schema, migration hoặc repository phải đọc tài liệu này t
 
 - System of record: Neon PostgreSQL.
 - Schema ứng dụng: `tutorhub`.
-- Migration mới nhất trong source: `000027_version_bound_file_finalize`. P3-06/P3-07A đã forward cả
+- Migration mới nhất trong source: `000028_content_file_multipart_uploads`. P3-06/P3-07A đã forward cả
   disposable và shared Neon tới `25 false`. P3-08 disposable đã forward-only
   `25 false -> 26 false -> 26 false`; exact content ACL và PostgreSQL gates PASS.
-  P3-09 disposable đã forward-only `26 false -> 27 false -> 27 false`, exact content ACL
-  và PostgreSQL gates PASS. Shared staging vẫn `25 false`; chưa deploy P3-08/P3-09.
+  P3-09 disposable đã forward-only tới `28 false`; shared staging đã forward-only
+  `25 false -> 28 false -> 28 false`, re-provision exact content ACL và chạy full PostgreSQL
+  content integration PASS. Không rollback.
 - Migration 1-5 đã được chạy và kiểm tra trên Neon; smoke
   `5 false -> rollback 4 false -> migrate 5 false` đạt ngày 2026-07-16.
 - Migration `000006` đến `000013` đều có up/down path. Source và PostgreSQL 17 CI
@@ -1322,10 +1323,12 @@ and exact column INSERT/UPDATE only; the parts table has no UPDATE because the l
 session serializes part issuance and completion. Disposable owner/runtime preflight and
 forward-only `27 false -> 28 false` passed; the full content integration suite proved tenant/
 creator isolation, single-PUT barrier, part replay conflict, exact completion, abort and expiry.
-Final disposable remains `28 false`; shared staging remains `25 false`. B2 browser CORS/lifecycle
-was provisioned with a separate temporary admin key and read back idempotently. Single/multipart
-provider smoke passed CORS/exposed ETag, complete, exact-version GET, explicit abort and cleanup;
-no shared migration or deploy has run yet.
+Final disposable remains `28 false`. Shared staging was later forwarded `25 false -> 28 false`,
+re-provisioned idempotently with the exact four-table ACL and passed all three content PostgreSQL
+integration tests using the real runtime login. B2 browser CORS/lifecycle was provisioned with a
+separate temporary admin key and read back idempotently. Single/multipart provider smoke passed
+CORS/exposed ETag, complete, exact-version GET, explicit abort and cleanup. Final candidate
+`d6365b5` is live on Render/Cloudflare with file uploads forced off until P3-10.
 
 Với P2-05, cần kiểm tra riêng migrate 9 -> 10, rollback 10 -> 9, migrate lại 9 -> 10;
 tenant-scoped FK/unique/state constraints; direct enroll và các transition; same-user

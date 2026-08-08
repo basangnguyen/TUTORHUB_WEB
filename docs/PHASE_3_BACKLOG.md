@@ -33,10 +33,10 @@ re-baseline này không dùng nó để chặn Phase 4 hay ép các gate provide
 tất trước khi có môi trường phù hợp. Domain/DNS, SES sandbox và production-access
 approval có thể tiếp tục chuẩn bị song song.
 
-**Task `DONE` gần nhất:** `P3-08` file metadata, upload intent và finalize hoàn tất ngày
-2026-08-08. **Task hiện tại:** `P3-09` presigned B2 upload/download ở `VERIFY`; local/disposable
-và B2 single/multipart provider gate đã PASS, còn exact candidate CI/security cùng shared
-staging/deploy/live acceptance.
+**Task `DONE` gần nhất:** `P3-09` presigned B2 upload/download hoàn tất ngày 2026-08-08 trên
+final candidate `d6365b5`; disposable/shared Neon, B2 provider, exact CI/security và live
+Render/Cloudflare đều PASS. **Task runnable tiếp theo:** `P3-11A` Class Files transfer-core UI
+trong trạng thái feature gate off; P3-10 processing tiếp tục `DEFERRED/TODO` theo worker dependency.
 `P3-02D-B` lifecycle delivery/
 auto-close/fan-out và các gate P3-03B/P3-CAL-02/P3-05A/B là carry-over, không nằm trong
 mốc Core Exit tối thiểu.
@@ -112,7 +112,7 @@ processing/sharing tới end user.
 | P3-07A     | Persistent message, unread/read core           | P3-06                                         | DONE            |
 | P3-07B     | Message notification delivery                  | P3-07A, P3-03B, P3-04                         | DEFERRED/TODO   |
 | P3-08      | File metadata, upload intent và finalize       | P3-00, B2 baseline                            | DONE            |
-| P3-09      | Presigned B2 upload/download                   | P3-08                                         | VERIFY           |
+| P3-09      | Presigned B2 upload/download                   | P3-08                                         | DONE             |
 | P3-10      | Scan/metadata/thumbnail processing             | P3-03B, P3-09                                 | DEFERRED/TODO   |
 | P3-11A     | Class Files transfer-core UI (gate off)        | P3-09                                         | TODO            |
 | P3-11B     | File processing/thumbnail/rejected UX          | P3-10, P3-11A                                 | DEFERRED/TODO   |
@@ -1060,8 +1060,9 @@ forward và ứng dụng chưa deploy theo ranh giới P3-08; direct B2 transfer
 - [x] Exact multipart candidate `04e30649` đã push và Security PASS; Verify Browser E2E phát hiện
       race feedback/focus sau send. Bản sửa có regression test với background refresh không hoàn tất;
       full local `pnpm verify` PASS, exact Playwright chờ CI vì host không có Docker.
-- [ ] Exact race-fix candidate CI/security, shared forward/ACL, deploy và live acceptance trước
-      `VERIFY -> DONE`.
+- [x] Final candidate `d6365b5` đạt exact CI/security; shared forward-only `25 -> 28 -> 28`,
+      exact ACL/PostgreSQL, Render/Cloudflare và feature-off/privacy live acceptance đều PASS.
+      P3-09 chuyển `VERIFY -> DONE` ngày 2026-08-08.
 
 ## 17. P3-10 Scan/metadata/thumbnail processing
 
@@ -1114,8 +1115,9 @@ forward và ứng dụng chưa deploy theo ranh giới P3-08; direct B2 transfer
       aggregate/ranking, manual lifecycle, concurrency, privacy và accessibility gate.
 - [x] P3-06/P3-07A conversation/message core đạt persistence, unread/read, reload/reconnect,
       idempotency và foreign-tenant conceal; notification delivery vẫn gate-off.
-- [ ] P3-08/P3-09 file metadata + direct B2 transfer đạt intent/finalize/checksum,
-      state safety và authorization; scan/thumbnail worker có thể để carry-over.
+- [x] P3-08/P3-09 file metadata + direct B2 transfer đạt intent/finalize, immutable-version
+      provider proof, state safety và authorization; exact-version checksum/scan/thumbnail worker
+      thuộc P3-10 carry-over và file uploads tiếp tục gate-off.
 - [ ] P3-11A/P3-12/P3-13 được đưa vào Core Exit chỉ ở phạm vi không phụ thuộc worker/
       provider; loading/empty/error/forbidden/offline và quota tests đều xanh. P3-11B
       vẫn ở carry-over và Class Files activation vẫn tắt.

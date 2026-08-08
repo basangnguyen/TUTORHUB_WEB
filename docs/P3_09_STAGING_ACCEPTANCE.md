@@ -2,11 +2,11 @@
 
 ## 1. Trạng thái và ranh giới
 
-- Trạng thái hiện tại: `VERIFY`; code/disposable và B2 single/multipart provider gate đã đạt,
-  exact candidate CI/security cùng shared staging/live acceptance còn mở.
+- Trạng thái hiện tại: `DONE` ngày 2026-08-08; code/disposable, B2 provider,
+  exact candidate CI/security và shared staging/live acceptance đều đạt.
 - Kiến trúc: ADR-0027; P3-08/ADR-0026 vẫn là authority cho metadata và finalize.
-- Shared Neon staging vẫn ở `25 false`; P3-09 không migrate hoặc deploy shared staging trước
-  khi provider contract và toàn bộ disposable/local gate đạt.
+- Shared Neon staging đã forward-only `25 false -> 28 false -> 28 false` sau khi provider
+  contract, disposable/local và exact candidate CI/security đạt; không rollback.
 - Không log/in URL ký, query string, key ID, application key, bucket credential, object key,
   filename hoặc checksum.
 
@@ -200,5 +200,33 @@ Core API runtime role.
   focus, lần sau feedback bị cache refresh làm chậm quá timeout. Bản sửa không chờ invalidation để
   báo success, đồng thời chỉ focus khi mutation hết pending; regression test giữ refresh pending vẫn
   PASS. Full local `pnpm verify` PASS; host không có Docker nên exact Playwright phải được CI xác minh.
-- Bước còn lại là exact race-fix candidate CI/security, forward shared staging, provision exact ACL,
-  deploy và live acceptance trước `VERIFY -> DONE`.
+- Tại checkpoint này, các bước còn lại là exact race-fix CI/security, shared staging và live
+  acceptance; toàn bộ đã được đóng tại mục 11.
+
+## 11. Shared staging và live closure ngày 2026-08-08
+
+- Race-fix candidate `0317923` đạt Verify `31244312121` và Security `31244312137`; Browser E2E
+  xác nhận feedback/focus race đã đóng. Final fail-closed candidate `d6365b5` tiếp tục đạt Verify
+  `31245311233` và Security `31245311235`, gồm Browser E2E, local smoke, quality/integration,
+  CodeQL, container/repository/secret scan.
+- Shared Neon owner preflight PASS tại `25 false`: migration/runtime role khác nhau, migration
+  role sở hữu schema, runtime không superuser/create-role/create-db/replication/bypass-RLS và
+  không là member migration role. Forward-only `25 false -> 28 false`; migrate lặp giữ `28 false`.
+- Re-provision exact ACL bốn bảng PASS và idempotent. Runtime chỉ có SELECT cùng exact column
+  INSERT/UPDATE allowlist; không table INSERT/UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER,
+  ownership hay PUBLIC grant. Cả ba PostgreSQL content tests PASS: exact ACL (6,36s),
+  intent/finalize isolation-concurrency (35,31s), multipart ownership/abort/expiry/complete (41,04s).
+- Cloudflare Pages deployed successfully đúng final commit. Render manual deploy candidate
+  `dep-d9rd39v40ujc73b78ib0` Live; live acceptance phát hiện deployment ceiling file upload bị
+  thiếu nên chưa tạo intent/object, thêm guardrail fail-closed và redeploy config
+  `dep-d9rd77afngtc73d426g0`. Final code default `d6365b5` được deploy qua
+  `dep-d9rdbnajobas73d6an40` và Live.
+- Direct Render `/health`/`/ready` và same-origin Pages `/api/health`/`/api/ready` đều HTTP 200.
+  Teacher capability projection xác nhận `file_uploads` tắt. POST capability không credential
+  trả 401, `Cache-Control: no-store`, `Referrer-Policy: no-referrer`, Problem Details và không có
+  provider URL/object key/version/credential. Không có live file/object fixture được tạo.
+- Config loader và `.env.example` mặc định `FEATURE_CONTROL_DISABLE_FILE_UPLOADS=true`; Render
+  cũng giữ explicit guardrail. Chỉ P3-10 mới được phép mở sau exact-version stream-hash + scan.
+
+Kết luận: toàn bộ P3-09 exit gate đạt, task chuyển `VERIFY -> DONE`. Admin key tạm không còn cần
+cho runtime và có thể được owner thu hồi trong Backblaze; runtime app key vẫn giữ least privilege.

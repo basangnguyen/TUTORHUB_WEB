@@ -1980,8 +1980,12 @@ Thứ tự hiện tại, cập nhật ngày 2026-07-31:
     `000026`, content API, fail-closed B2 metadata verification, feature/quota contract,
     disposable `25 -> 26 -> 26`, exact ACL/PostgreSQL, CI và Security đều PASS. Shared
     staging vẫn `25 false` và chưa deploy theo ranh giới task; direct B2 transfer thuộc P3-09.
-17. Không xóa thêm Neon branch theo quyết định hiện tại của owner.
-18. Không khởi động QuizHub, Lavie, social feed hoặc Secure Exam ngoài phase đã quy hoạch.
+17. P3-09 đã `DONE` ngày 2026-08-08 trên final candidate `d6365b5`: ADR-0027, migration
+    `000027/000028`, B2 single/multipart provider gate, disposable/shared Neon `28 false`, exact
+    ACL/PostgreSQL, CI/security và Render/Cloudflare live acceptance đều PASS. File uploads giữ
+    fail-closed tới P3-10; P3-11A gate-off là runnable lane tiếp theo.
+18. Không xóa thêm Neon branch theo quyết định hiện tại của owner.
+19. Không khởi động QuizHub, Lavie, social feed hoặc Secure Exam ngoài phase đã quy hoạch.
 
 ## 37. Quy tắc duy trì Master Plan
 
@@ -2056,7 +2060,9 @@ keyboard/focus và automated Playwright/Axe đều PASS. P3-07A cũng đã `DONE
 shared Neon ở `25 false`, exact ACL, candidate `a21ec385` Live, CI/security và authenticated
 role/reload/accessibility/log-privacy acceptance đều PASS. P3-08 đã `DONE` ngày 2026-08-08
 trên candidate `6a50c3e4` sau local/full verify, disposable `25 -> 26 -> 26`, exact
-ACL/PostgreSQL và CI/security; shared staging chưa forward, P3-09 là runnable lane tiếp theo.
+ACL/PostgreSQL và CI/security. P3-09 tiếp theo đã `DONE` trên final candidate `d6365b5` sau B2
+provider gate, shared staging `28 false`, exact ACL/PostgreSQL, CI/security và live deployment;
+P3-11A gate-off là runnable lane tiếp theo.
 Không bật side effect chỉ vì core đã có. `P3-02D-B` và các gate worker/provider vẫn là
 carry-over.
 AWS SES đã được chọn làm provider target nhưng
