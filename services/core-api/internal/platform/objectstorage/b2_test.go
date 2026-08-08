@@ -6,13 +6,16 @@ import (
 	"encoding/base64"
 	"errors"
 	"io"
+	"net/http"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
+	"github.com/tutorhub-v2/core-api/internal/config"
 )
 
 func TestB2StorePutGetDelete(t *testing.T) {
@@ -75,12 +78,124 @@ func TestB2StorePutGetDelete(t *testing.T) {
 	if client.headObjectInput.ChecksumMode != types.ChecksumModeEnabled {
 		t.Fatal("head object must request checksum metadata")
 	}
+	metadata, err = store.HeadVersion(context.Background(), "smoke/object.txt", "version-1")
+	if err != nil || metadata.VersionID != "version-1" ||
+		aws.ToString(client.headObjectInput.VersionId) != "version-1" {
+		t.Fatalf("unexpected exact-version metadata: metadata=%+v input=%+v err=%v", metadata, client.headObjectInput, err)
+	}
 
 	if err := store.Delete(context.Background(), "smoke/object.txt"); err != nil {
 		t.Fatalf("delete object: %v", err)
 	}
 	if aws.ToString(client.deleteInput.Key) != "smoke/object.txt" {
 		t.Fatalf("unexpected delete input: %+v", client.deleteInput)
+	}
+}
+
+func TestB2StorePresignsExactUploadAndVersionedDownload(t *testing.T) {
+	t.Parallel()
+
+	client := &fakeS3Client{}
+	presigner := &fakeS3Presigner{
+		putOutput: &v4.PresignedHTTPRequest{
+			URL:          "https://s3.us-east-005.backblazeb2.com/bucket/key?put=signature",
+			Method:       http.MethodPut,
+			SignedHeader: http.Header{"Content-Length": []string{"42"}},
+		},
+		getOutput: &v4.PresignedHTTPRequest{
+			URL:          "https://s3.us-east-005.backblazeb2.com/bucket/key?get=signature",
+			Method:       http.MethodGet,
+			SignedHeader: http.Header{},
+		},
+	}
+	store, err := newB2StoreWithPresigner(client, presigner, "tutorhub-staging")
+	if err != nil {
+		t.Fatalf("create B2 store: %v", err)
+	}
+	upload, err := store.PresignUpload(context.Background(), UploadPresignInput{
+		Key: "tenants/tenant/files/file/original", ContentLength: 42,
+		ContentType: "application/pdf", Expires: 2 * time.Minute,
+	})
+	if err != nil {
+		t.Fatalf("presign upload: %v", err)
+	}
+	if upload.Method != http.MethodPut || upload.SignedHeader.Get("Content-Length") != "42" {
+		t.Fatalf("unexpected upload capability: %+v", upload)
+	}
+	if aws.ToString(presigner.putInput.Bucket) != "tutorhub-staging" ||
+		aws.ToString(presigner.putInput.Key) != "tenants/tenant/files/file/original" ||
+		aws.ToInt64(presigner.putInput.ContentLength) != 42 ||
+		aws.ToString(presigner.putInput.ContentType) != "application/pdf" ||
+		presigner.putExpires != 2*time.Minute {
+		t.Fatalf("unexpected presign upload input: %+v", presigner.putInput)
+	}
+
+	download, err := store.PresignDownload(context.Background(), DownloadPresignInput{
+		Key: "tenants/tenant/files/file/original", VersionID: "version-1",
+		ContentType: "application/pdf", ContentDisposition: `attachment; filename="file.pdf"`,
+		Expires: time.Minute,
+	})
+	if err != nil {
+		t.Fatalf("presign download: %v", err)
+	}
+	if download.Method != http.MethodGet || aws.ToString(presigner.getInput.VersionId) != "version-1" ||
+		aws.ToString(presigner.getInput.ResponseContentType) != "application/pdf" ||
+		aws.ToString(presigner.getInput.ResponseContentDisposition) != `attachment; filename="file.pdf"` ||
+		presigner.getExpires != time.Minute {
+		t.Fatalf("unexpected presign download input: %+v", presigner.getInput)
+	}
+}
+
+func TestB2StoreUploadCapabilitySignsLengthAndTypeWithoutFalseChecksumClaim(t *testing.T) {
+	t.Parallel()
+
+	store, err := NewB2(context.Background(), config.ObjectStorageConfig{
+		Enabled: true, Endpoint: "https://s3.us-east-005.backblazeb2.com",
+		Region: "us-east-005", Bucket: "tutorhub-test",
+		KeyID: "test-key-id", ApplicationKey: "test-application-key",
+	})
+	if err != nil {
+		t.Fatalf("create B2 store: %v", err)
+	}
+	capability, err := store.PresignUpload(context.Background(), UploadPresignInput{
+		Key: "smoke/version-bound-upload", ContentLength: 42,
+		ContentType: "application/pdf", Expires: time.Minute,
+	})
+	if err != nil {
+		t.Fatalf("presign upload: %v", err)
+	}
+	if capability.SignedHeader.Get("Content-Length") != "42" ||
+		capability.SignedHeader.Get("Content-Type") != "application/pdf" {
+		t.Fatalf("upload constraints are not signed: %v", capability.SignedHeader)
+	}
+	if capability.SignedHeader.Get("X-Amz-Checksum-Sha256") != "" ||
+		capability.SignedHeader.Get("X-Amz-Content-Sha256") != "" {
+		t.Fatalf("upload must not claim an unenforced checksum: %v", capability.SignedHeader)
+	}
+}
+
+func TestB2StoreRejectsUnsafePresignConstraints(t *testing.T) {
+	t.Parallel()
+
+	store, err := newB2StoreWithPresigner(&fakeS3Client{}, &fakeS3Presigner{}, "bucket")
+	if err != nil {
+		t.Fatalf("create B2 store: %v", err)
+	}
+	for _, input := range []UploadPresignInput{
+		{Key: "/absolute", ContentLength: 1, ContentType: "text/plain", Expires: time.Minute},
+		{Key: "safe/key", ContentLength: 0, ContentType: "text/plain", Expires: time.Minute},
+		{Key: "safe/key", ContentLength: 1, ContentType: "", Expires: time.Minute},
+		{Key: "safe/key", ContentLength: 1, ContentType: "text/plain", Expires: 16 * time.Minute},
+	} {
+		if _, err := store.PresignUpload(context.Background(), input); err == nil {
+			t.Fatalf("expected upload constraints to fail: %+v", input)
+		}
+	}
+	if _, err := store.PresignDownload(context.Background(), DownloadPresignInput{
+		Key: "safe/key", VersionID: "version", ContentType: "text/plain",
+		ContentDisposition: "attachment\r\nInjected: true", Expires: time.Minute,
+	}); err == nil {
+		t.Fatal("expected unsafe content disposition to fail")
 	}
 }
 
@@ -136,6 +251,45 @@ type fakeS3Client struct {
 	headErr          error
 	headObjectInput  *s3.HeadObjectInput
 	headObjectOutput *s3.HeadObjectOutput
+}
+
+type fakeS3Presigner struct {
+	putInput   *s3.PutObjectInput
+	putOutput  *v4.PresignedHTTPRequest
+	putErr     error
+	putExpires time.Duration
+	getInput   *s3.GetObjectInput
+	getOutput  *v4.PresignedHTTPRequest
+	getErr     error
+	getExpires time.Duration
+}
+
+func (presigner *fakeS3Presigner) PresignPutObject(
+	_ context.Context,
+	input *s3.PutObjectInput,
+	options ...func(*s3.PresignOptions),
+) (*v4.PresignedHTTPRequest, error) {
+	presigner.putInput = input
+	var resolved s3.PresignOptions
+	for _, option := range options {
+		option(&resolved)
+	}
+	presigner.putExpires = resolved.Expires
+	return presigner.putOutput, presigner.putErr
+}
+
+func (presigner *fakeS3Presigner) PresignGetObject(
+	_ context.Context,
+	input *s3.GetObjectInput,
+	options ...func(*s3.PresignOptions),
+) (*v4.PresignedHTTPRequest, error) {
+	presigner.getInput = input
+	var resolved s3.PresignOptions
+	for _, option := range options {
+		option(&resolved)
+	}
+	presigner.getExpires = resolved.Expires
+	return presigner.getOutput, presigner.getErr
 }
 
 func (client *fakeS3Client) HeadObject(

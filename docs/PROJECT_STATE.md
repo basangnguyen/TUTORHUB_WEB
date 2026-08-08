@@ -14,8 +14,33 @@
 | Phase hiện tại      | Phase 3 - Daily learning workspace                                                   |
 | Task `DONE` gần nhất | P3-08 File metadata, upload intent và finalize                                     |
 | Mốc repository mới | P3-08 `DONE` trên candidate `6a50c3e4`; shared Neon vẫn `25 false`                     |
-| Task hiện tại       | P3-09 Presigned B2 upload/download — `TODO`                                           |
-| Task tiếp theo      | Khóa provider contract và chạy disposable B2 transfer/checksum/version evidence       |
+| Task hiện tại       | P3-09 Presigned B2 upload/download — `IN PROGRESS`                                    |
+| Task tiếp theo      | Full candidate/security rồi đóng multipart/abort gate                                 |
+
+### Checkpoint P3-09 forward design `000027` ngày 2026-08-08
+
+ADR-0027 và `docs/P3_09_STAGING_ACCEPTANCE.md` đã khóa provider-first contract. Local
+presigner unit gate PASS, nhưng disposable B2 Gate 0 đã chứng minh S3-compatible presigned
+PUT không cung cấp SHA-256 authority đã yêu cầu bởi P3-08:
+
+- exact PUT và Head size/MIME/ETag/version PASS, nhưng Head không trả SHA-256;
+- B2 vẫn nhận same-length wrong bytes với signed `x-amz-checksum-sha256` và cả
+  `x-amz-content-sha256` trong signed headers;
+- actual SHA-256 làm presigned SigV4 payload hash bị B2 trả 403 cả payload đúng;
+- test object được cleanup theo exact version; không log secret/URL/query/object key.
+
+Owner đã duyệt forward path: migration `000027` cho phép finalize ghi exact-version
+size/MIME/ETag nhưng không ghi checksum giả; P3-10 stream-hash + scan exact version trước
+`ready`/download. Core API hiện có upload capability tối đa 5 phút, finalize nhận
+`storage_version_id` làm selector và download capability tối đa 2 phút chỉ cho file `ready`.
+
+Disposable Neon đã forward-only `26 false -> 27 false -> 27 false`. Lần chạy đầu bị dirty
+marker do row P3-08 còn checksum chưa được provider chứng minh; exact-schema preflight xác nhận
+transaction không commit, ledger được sửa về `26 false`, rồi migration forward xóa riêng proof
+không đáng tin ở `uploaded/processing`. Exact runtime ACL thu hồi quyền update checksum và full
+PostgreSQL content integration PASS. B2 smoke mới PASS exact PUT, HEAD exact version, versioned
+GET byte-match và exact-version cleanup. Full local `pnpm verify` cũng PASS. Không rollback,
+không shared staging, không deploy.
 
 ### Checkpoint P3-08 hoàn tất ngày 2026-08-08
 

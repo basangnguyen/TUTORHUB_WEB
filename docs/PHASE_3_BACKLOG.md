@@ -112,7 +112,7 @@ processing/sharing tới end user.
 | P3-07A     | Persistent message, unread/read core           | P3-06                                         | DONE            |
 | P3-07B     | Message notification delivery                  | P3-07A, P3-03B, P3-04                         | DEFERRED/TODO   |
 | P3-08      | File metadata, upload intent và finalize       | P3-00, B2 baseline                            | DONE            |
-| P3-09      | Presigned B2 upload/download                   | P3-08                                         | TODO            |
+| P3-09      | Presigned B2 upload/download                   | P3-08                                         | IN PROGRESS      |
 | P3-10      | Scan/metadata/thumbnail processing             | P3-03B, P3-09                                 | DEFERRED/TODO   |
 | P3-11A     | Class Files transfer-core UI (gate off)        | P3-09                                         | TODO            |
 | P3-11B     | File processing/thumbnail/rejected UX          | P3-10, P3-11A                                 | DEFERRED/TODO   |
@@ -1043,6 +1043,16 @@ forward và ứng dụng chưa deploy theo ranh giới P3-08; direct B2 transfer
 - URL ngắn hạn, exact method/key/content length/checksum và least-privilege capability.
 - Download chỉ cấp sau authorization authoritative và file `ready`.
 - Retry multipart, abort, expiry và checksum mismatch có test/smoke staging.
+- [x] ADR-0027, local presigner primitives và disposable provider Gate 0 đã chạy. B2 PASS
+      exact PUT/size/MIME/ETag/version nhưng FAIL SHA-256 authority: Head không echo checksum,
+      hai signed checksum-header variant vẫn nhận wrong bytes, actual payload-hash variant
+      trả 403 cả payload đúng. Public route vẫn unwired, feature off.
+- [x] Owner duyệt forward boundary: finalize chỉ commit version-bound metadata; P3-10
+      stream-hash + scan exact version trước `ready`.
+- [x] Migration `000027`, upload/download capability API, exact-version finalize,
+      OpenAPI/generated client, disposable exact ACL/PostgreSQL và B2 smoke PASS.
+- [x] Full local `pnpm verify` PASS trên exact working tree.
+- [ ] Exact candidate CI/security và multipart/abort/expiry closure trước `VERIFY -> DONE`.
 
 ## 17. P3-10 Scan/metadata/thumbnail processing
 

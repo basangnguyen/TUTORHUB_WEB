@@ -78,3 +78,47 @@ func TestContentFileDownMigrationRestoresPersistentMessageQuotaShape(t *testing.
 		}
 	}
 }
+
+func TestVersionBoundFinalizeMigrationDefersSHA256UntilReady(t *testing.T) {
+	t.Parallel()
+	upContents, err := os.ReadFile(filepath.Join(
+		"..", "..", "..", "migrations", "000027_version_bound_file_finalize.up.sql",
+	))
+	if err != nil {
+		t.Fatalf("read version-bound finalize migration: %v", err)
+	}
+	upSQL := string(upContents)
+	for _, required := range []string{
+		"DROP CONSTRAINT content_files_storage_proof_consistent",
+		"status IN ('uploaded', 'processing')",
+		"stored_checksum_sha256 IS NULL",
+		"status = 'ready'",
+		"stored_checksum_sha256 = expected_checksum_sha256",
+		"status = 'rejected'",
+	} {
+		if !strings.Contains(upSQL, required) {
+			t.Fatalf("version-bound finalize migration is missing %q", required)
+		}
+	}
+	for _, forbidden := range []string{"GRANT "} {
+		if strings.Contains(upSQL, forbidden) {
+			t.Fatalf("version-bound finalize migration must not contain %q", forbidden)
+		}
+	}
+	if !strings.Contains(upSQL, "WHERE status IN ('uploaded', 'processing')") ||
+		!strings.Contains(upSQL, "SET stored_checksum_sha256 = NULL") {
+		t.Fatal("version-bound finalize migration must remove unverified pre-ready checksum claims")
+	}
+
+	downContents, err := os.ReadFile(filepath.Join(
+		"..", "..", "..", "migrations", "000027_version_bound_file_finalize.down.sql",
+	))
+	if err != nil {
+		t.Fatalf("read version-bound finalize down migration: %v", err)
+	}
+	downSQL := string(downContents)
+	if !strings.Contains(downSQL, "cannot downgrade version-bound finalize") ||
+		!strings.Contains(downSQL, "stored_checksum_sha256 IS NULL") {
+		t.Fatal("version-bound finalize down migration must fail closed before restoring SHA-256 invariant")
+	}
+}

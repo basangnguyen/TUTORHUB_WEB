@@ -41,6 +41,12 @@ export type CreateFileUploadIntentRequest =
   components["schemas"]["CreateFileUploadIntentRequest"];
 export type FinalizeFileUploadRequest =
   components["schemas"]["FinalizeFileUploadRequest"];
+export type IssueFileUploadCapabilityRequest =
+  components["schemas"]["IssueFileUploadCapabilityRequest"];
+export type FileUploadCapability =
+  components["schemas"]["FileUploadCapability"];
+export type FileDownloadCapability =
+  components["schemas"]["FileDownloadCapability"];
 export type ConversationKind = components["schemas"]["ConversationKind"];
 export type ConversationParticipant =
   components["schemas"]["ConversationParticipant"];
@@ -821,6 +827,66 @@ export async function finalizeFileUpload(
 
   return requireData<ContentFile>(
     data as ContentFile | undefined,
+    error,
+    response,
+  );
+}
+
+export async function issueFileUploadCapability(
+  tenantID: string,
+  fileID: string,
+  input: IssueFileUploadCapabilityRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<FileUploadCapability> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/files/{file_id}/upload-capability",
+    {
+      params: {
+        path: { file_id: fileID },
+        header: {
+          "X-CSRF-Token": csrfToken,
+          "X-TutorHub-Expected-Tenant-ID": tenantID,
+        },
+      },
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<FileUploadCapability>(
+    data as FileUploadCapability | undefined,
+    error,
+    response,
+  );
+}
+
+export async function issueFileDownloadCapability(
+  tenantID: string,
+  fileID: string,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<FileDownloadCapability> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/files/{file_id}/download-capability",
+    {
+      params: {
+        path: { file_id: fileID },
+        header: {
+          "X-CSRF-Token": csrfToken,
+          "X-TutorHub-Expected-Tenant-ID": tenantID,
+        },
+      },
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<FileDownloadCapability>(
+    data as FileDownloadCapability | undefined,
     error,
     response,
   );

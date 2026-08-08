@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/hex"
 	"errors"
+	"net/http"
 	"strings"
 	"testing"
 	"time"
@@ -88,8 +89,7 @@ func TestFinalizeVerifiesProviderMetadataBeforeCommit(t *testing.T) {
 				ID: fileID, Status: StatusPending, Version: 1,
 				ExpectedSizeBytes: 128, DeclaredMediaType: "text/plain",
 			},
-			ObjectKey:      "tenants/tenant/files/file/original",
-			ChecksumSHA256: checksum,
+			ObjectKey: "tenants/tenant/files/file/original",
 		},
 		commitFile: File{ID: fileID, Status: StatusUploaded, Version: 2},
 	}
@@ -104,36 +104,38 @@ func TestFinalizeVerifiesProviderMetadataBeforeCommit(t *testing.T) {
 	service.now = func() time.Time { return contentTestTime }
 
 	item, err := service.Finalize(
-		context.Background(), testAccess(), fileID, FinalizeInput{ExpectedVersion: 1},
+		context.Background(), testAccess(), fileID,
+		FinalizeInput{ExpectedVersion: 1, StorageVersionID: "version-1"},
 	)
 	if err != nil {
 		t.Fatalf("finalize file: %v", err)
 	}
 	if item.Status != StatusUploaded || repository.commitCalls != 1 ||
 		repository.commitProof.ContentType != "text/plain" ||
-		repository.commitProof.VersionID != "version-1" {
+		repository.commitProof.VersionID != "version-1" || storage.headVersion != "version-1" {
 		t.Fatalf("unexpected finalize result/proof: item=%+v proof=%+v", item, repository.commitProof)
 	}
 }
 
-func TestFinalizeFailsClosedForMissingVersionOrChecksum(t *testing.T) {
+func TestFinalizeFailsClosedForMissingOrMismatchedVersion(t *testing.T) {
 	t.Parallel()
 	checksum := bytes.Repeat([]byte{0x44}, 32)
 	fileID := uuid.New()
 	for _, metadata := range []objectstorage.Metadata{
 		{ContentLength: 64, ContentType: "application/pdf", ChecksumSHA256: checksum, ETag: "etag"},
-		{ContentLength: 64, ContentType: "application/pdf", ETag: "etag", VersionID: "version"},
+		{ContentLength: 64, ContentType: "application/pdf", ETag: "etag", VersionID: "other-version"},
 	} {
 		repository := &fakeRepository{finalizeTarget: FinalizeTarget{
 			File:      File{ID: fileID, Status: StatusPending, Version: 1, ExpectedSizeBytes: 64, DeclaredMediaType: "application/pdf"},
-			ObjectKey: "tenants/tenant/files/file/original", ChecksumSHA256: checksum,
+			ObjectKey: "tenants/tenant/files/file/original",
 		}}
 		service, err := NewService(repository, &fakeMetadataReader{metadata: metadata})
 		if err != nil {
 			t.Fatalf("create service: %v", err)
 		}
 		if _, err := service.Finalize(
-			context.Background(), testAccess(), fileID, FinalizeInput{ExpectedVersion: 1},
+			context.Background(), testAccess(), fileID,
+			FinalizeInput{ExpectedVersion: 1, StorageVersionID: "version"},
 		); !errors.Is(err, ErrStorageMismatch) {
 			t.Fatalf("finalize error=%v, want storage mismatch", err)
 		}
@@ -147,7 +149,7 @@ func TestFinalizeUploadedReplayDoesNotReadStorage(t *testing.T) {
 	t.Parallel()
 	fileID := uuid.New()
 	repository := &fakeRepository{finalizeTarget: FinalizeTarget{
-		File: File{ID: fileID, Status: StatusUploaded, Version: 2},
+		File: File{ID: fileID, Status: StatusUploaded, Version: 2}, StorageVersionID: "version-1",
 	}}
 	storage := &fakeMetadataReader{err: errors.New("must not be called")}
 	service, err := NewService(repository, storage)
@@ -155,13 +157,70 @@ func TestFinalizeUploadedReplayDoesNotReadStorage(t *testing.T) {
 		t.Fatalf("create service: %v", err)
 	}
 	item, err := service.Finalize(
-		context.Background(), testAccess(), fileID, FinalizeInput{ExpectedVersion: 1},
+		context.Background(), testAccess(), fileID,
+		FinalizeInput{ExpectedVersion: 1, StorageVersionID: "version-1"},
 	)
 	if err != nil || item.Status != StatusUploaded {
 		t.Fatalf("finalize replay item=%+v err=%v", item, err)
 	}
 	if storage.calls != 0 || repository.commitCalls != 0 {
 		t.Fatal("uploaded replay must not read storage or write database")
+	}
+}
+
+func TestTransferCapabilitiesBindPendingUploadAndReadyVersion(t *testing.T) {
+	t.Parallel()
+	fileID := uuid.New()
+	repository := &fakeRepository{
+		uploadTarget: UploadTarget{
+			File: File{
+				ID: fileID, Status: StatusPending, Version: 1,
+				ExpectedSizeBytes: 42, DeclaredMediaType: "application/pdf",
+				UploadExpiresAt: contentTestTime.Add(3 * time.Minute),
+			},
+			ObjectKey: "tenants/tenant/files/file/original",
+		},
+		downloadTarget: DownloadTarget{
+			File:      File{ID: fileID, Status: StatusReady},
+			ObjectKey: "tenants/tenant/files/file/original",
+			VersionID: "version-1", StoredMediaType: "application/pdf",
+		},
+	}
+	storage := &fakeMetadataReader{
+		uploadPresigned: objectstorage.PresignedRequest{
+			URL: "https://storage.example/upload?signature=redacted", Method: http.MethodPut,
+			SignedHeader: http.Header{"Content-Type": []string{"application/pdf"}},
+		},
+		downloadPresigned: objectstorage.PresignedRequest{
+			URL: "https://storage.example/download?signature=redacted", Method: http.MethodGet,
+		},
+	}
+	service, err := NewService(repository, storage)
+	if err != nil {
+		t.Fatalf("create service: %v", err)
+	}
+	service.now = func() time.Time { return contentTestTime }
+	upload, err := service.IssueUploadCapability(
+		context.Background(), testAccess(), fileID, UploadCapabilityInput{ExpectedVersion: 1},
+	)
+	if err != nil || upload.ExpiresAt != contentTestTime.Add(3*time.Minute) ||
+		upload.ContentLengthBytes != 42 || upload.RequiredHeaders["Content-Type"] != "application/pdf" {
+		t.Fatalf("unexpected upload capability=%+v err=%v", upload, err)
+	}
+	if storage.uploadInput.Key != repository.uploadTarget.ObjectKey ||
+		storage.uploadInput.Expires != 3*time.Minute {
+		t.Fatalf("unexpected upload presign input: %+v", storage.uploadInput)
+	}
+	download, err := service.IssueDownloadCapability(
+		context.Background(), testAccess(), fileID,
+	)
+	if err != nil || download.Method != http.MethodGet ||
+		download.ExpiresAt != contentTestTime.Add(2*time.Minute) {
+		t.Fatalf("unexpected download capability=%+v err=%v", download, err)
+	}
+	if storage.downloadInput.VersionID != "version-1" ||
+		storage.downloadInput.ContentDisposition != "attachment" {
+		t.Fatalf("download must bind immutable version: %+v", storage.downloadInput)
 	}
 }
 
@@ -194,6 +253,10 @@ type fakeRepository struct {
 	createCalls    int
 	getFile        File
 	getErr         error
+	uploadTarget   UploadTarget
+	uploadErr      error
+	downloadTarget DownloadTarget
+	downloadErr    error
 	finalizeTarget FinalizeTarget
 	prepareErr     error
 	commitFile     File
@@ -224,6 +287,18 @@ func (repository *fakeRepository) PrepareFinalize(
 	return repository.finalizeTarget, repository.prepareErr
 }
 
+func (repository *fakeRepository) PrepareUpload(
+	context.Context, AccessContext, uuid.UUID, int64, time.Time,
+) (UploadTarget, error) {
+	return repository.uploadTarget, repository.uploadErr
+}
+
+func (repository *fakeRepository) PrepareDownload(
+	context.Context, AccessContext, uuid.UUID,
+) (DownloadTarget, error) {
+	return repository.downloadTarget, repository.downloadErr
+}
+
 func (repository *fakeRepository) CommitFinalize(
 	_ context.Context,
 	_ AccessContext,
@@ -236,12 +311,41 @@ func (repository *fakeRepository) CommitFinalize(
 }
 
 type fakeMetadataReader struct {
-	metadata objectstorage.Metadata
-	err      error
-	calls    int
+	metadata          objectstorage.Metadata
+	err               error
+	calls             int
+	headVersion       string
+	uploadInput       objectstorage.UploadPresignInput
+	uploadPresigned   objectstorage.PresignedRequest
+	uploadErr         error
+	downloadInput     objectstorage.DownloadPresignInput
+	downloadPresigned objectstorage.PresignedRequest
+	downloadErr       error
 }
 
 func (reader *fakeMetadataReader) Head(context.Context, string) (objectstorage.Metadata, error) {
 	reader.calls++
 	return reader.metadata, reader.err
+}
+
+func (reader *fakeMetadataReader) HeadVersion(
+	_ context.Context, _ string, versionID string,
+) (objectstorage.Metadata, error) {
+	reader.calls++
+	reader.headVersion = versionID
+	return reader.metadata, reader.err
+}
+
+func (reader *fakeMetadataReader) PresignUpload(
+	_ context.Context, input objectstorage.UploadPresignInput,
+) (objectstorage.PresignedRequest, error) {
+	reader.uploadInput = input
+	return reader.uploadPresigned, reader.uploadErr
+}
+
+func (reader *fakeMetadataReader) PresignDownload(
+	_ context.Context, input objectstorage.DownloadPresignInput,
+) (objectstorage.PresignedRequest, error) {
+	reader.downloadInput = input
+	return reader.downloadPresigned, reader.downloadErr
 }

@@ -7,10 +7,11 @@ thay đổi schema, migration hoặc repository phải đọc tài liệu này t
 
 - System of record: Neon PostgreSQL.
 - Schema ứng dụng: `tutorhub`.
-- Migration mới nhất trong source: `000026_content_files`. P3-06/P3-07A đã forward cả
+- Migration mới nhất trong source: `000027_version_bound_file_finalize`. P3-06/P3-07A đã forward cả
   disposable và shared Neon tới `25 false`. P3-08 disposable đã forward-only
   `25 false -> 26 false -> 26 false`; exact content ACL và PostgreSQL gates PASS.
-  Shared staging vẫn `25 false` và chưa deploy P3-08.
+  P3-09 disposable đã forward-only `26 false -> 27 false -> 27 false`, exact content ACL
+  và PostgreSQL gates PASS. Shared staging vẫn `25 false`; chưa deploy P3-08/P3-09.
 - Migration 1-5 đã được chạy và kiểm tra trên Neon; smoke
   `5 false -> rollback 4 false -> migrate 5 false` đạt ngày 2026-07-16.
 - Migration `000006` đến `000013` đều có up/down path. Source và PostgreSQL 17 CI
@@ -1304,6 +1305,16 @@ receives table `SELECT` and exact column-level `INSERT/UPDATE` only; it receives
 `INSERT/UPDATE`, `DELETE`, or P3-10 processing columns. Migration, disposable ACL, and
 PostgreSQL gates are recorded in `docs/P3_08_STAGING_ACCEPTANCE.md`. P3-08 is `VERIFY` after
 the disposable gates passed; shared staging remains unmigrated at this checkpoint.
+
+P3-09 adds forward migration `000027_version_bound_file_finalize`. B2 S3 presigned PUT does
+not return or enforce a trustworthy SHA-256, so migration `000027` clears the unverified
+stored checksum claim from existing `uploaded/processing` rows and changes the lifecycle
+constraint: pending/uploaded/processing have no stored checksum, while `ready` requires the
+verified stored SHA-256 to equal the expected digest. Finalize persists exact-version
+size/MIME/ETag only; P3-10 must stream-hash and scan the immutable version before `ready`.
+The Core API runtime ACL therefore no longer includes `UPDATE(stored_checksum_sha256)`.
+Disposable forward-only `26 false -> 27 false -> 27 false`, exact ACL and PostgreSQL content
+integration passed; shared staging remains `25 false`.
 
 Với P2-05, cần kiểm tra riêng migrate 9 -> 10, rollback 10 -> 9, migrate lại 9 -> 10;
 tenant-scoped FK/unique/state constraints; direct enroll và các transition; same-user

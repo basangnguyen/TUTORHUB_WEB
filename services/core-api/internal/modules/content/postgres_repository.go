@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -243,6 +244,120 @@ func (repository *PostgresRepository) Get(
 	return projectFile(row), nil
 }
 
+func (repository *PostgresRepository) PrepareUpload(
+	ctx context.Context,
+	access AccessContext,
+	fileID uuid.UUID,
+	expectedVersion int64,
+	now time.Time,
+) (UploadTarget, error) {
+	queryContext, cancel := context.WithTimeout(ctx, repository.queryTimeout)
+	defer cancel()
+	transaction, err := repository.database.Begin(queryContext)
+	if err != nil {
+		return UploadTarget{}, fmt.Errorf("begin file upload capability preparation: %w", err)
+	}
+	defer rollback(transaction)
+	if err := repository.controls.RequireFeature(
+		queryContext, transaction, access.TenantID, featurecontrol.FeatureFileUploads,
+	); err != nil {
+		return UploadTarget{}, err
+	}
+	access, err = repository.requireActiveScope(queryContext, transaction, access)
+	if err != nil {
+		return UploadTarget{}, err
+	}
+	row, err := loadFile(queryContext, transaction, access.TenantID, fileID, true)
+	if errors.Is(err, pgx.ErrNoRows) || (err == nil && row.DeletedAt.Valid) {
+		return UploadTarget{}, ErrNotFound
+	}
+	if err != nil {
+		return UploadTarget{}, fmt.Errorf("lock file upload capability target: %w", err)
+	}
+	if row.CreatorUserID != access.ActorID {
+		return UploadTarget{}, ErrNotFound
+	}
+	if err := repository.authorizeClass(
+		queryContext, transaction, access, row.ClassID, policy.ActionFileUpload,
+	); err != nil {
+		return UploadTarget{}, err
+	}
+	if row.Status != StatusPending || row.Version != expectedVersion {
+		return UploadTarget{}, ErrVersionConflict
+	}
+	if !now.Before(row.UploadExpiresAt) {
+		if err := expireFile(queryContext, transaction, row, now); err != nil {
+			return UploadTarget{}, err
+		}
+		if err := transaction.Commit(queryContext); err != nil {
+			return UploadTarget{}, fmt.Errorf("commit expired file upload capability: %w", err)
+		}
+		return UploadTarget{}, ErrIntentExpired
+	}
+	if err := transaction.Commit(queryContext); err != nil {
+		return UploadTarget{}, fmt.Errorf("commit file upload capability preparation: %w", err)
+	}
+	return UploadTarget{File: projectFile(row), ObjectKey: row.ObjectKey}, nil
+}
+
+func (repository *PostgresRepository) PrepareDownload(
+	ctx context.Context,
+	access AccessContext,
+	fileID uuid.UUID,
+) (DownloadTarget, error) {
+	queryContext, cancel := context.WithTimeout(ctx, repository.queryTimeout)
+	defer cancel()
+	transaction, err := repository.database.Begin(queryContext)
+	if err != nil {
+		return DownloadTarget{}, fmt.Errorf("begin file download capability preparation: %w", err)
+	}
+	defer rollback(transaction)
+	if err := repository.controls.RequireFeature(
+		queryContext, transaction, access.TenantID, featurecontrol.FeatureFileUploads,
+	); err != nil {
+		return DownloadTarget{}, err
+	}
+	access, err = repository.requireActiveScope(queryContext, transaction, access)
+	if err != nil {
+		return DownloadTarget{}, err
+	}
+	row, err := loadFile(queryContext, transaction, access.TenantID, fileID, false)
+	if errors.Is(err, pgx.ErrNoRows) || (err == nil && row.DeletedAt.Valid) {
+		return DownloadTarget{}, ErrNotFound
+	}
+	if err != nil {
+		return DownloadTarget{}, fmt.Errorf("query file download capability target: %w", err)
+	}
+	if err := repository.authorizeClass(
+		queryContext, transaction, access, row.ClassID, policy.ActionFileView,
+	); err != nil {
+		return DownloadTarget{}, err
+	}
+	if row.Status != StatusReady {
+		if row.CreatorUserID == access.ActorID {
+			return DownloadTarget{}, ErrNotReady
+		}
+		if err := repository.authorizeClassAsActive(
+			queryContext, transaction, access, row.ClassID, policy.ActionFileUpload,
+		); err != nil {
+			return DownloadTarget{}, ErrNotFound
+		}
+		return DownloadTarget{}, ErrNotReady
+	}
+	if !row.StorageVersionID.Valid || strings.TrimSpace(row.StorageVersionID.String) == "" ||
+		!row.StoredMediaType.Valid || strings.TrimSpace(row.StoredMediaType.String) == "" {
+		return DownloadTarget{}, ErrStorageUnavailable
+	}
+	if err := transaction.Commit(queryContext); err != nil {
+		return DownloadTarget{}, fmt.Errorf("commit file download capability preparation: %w", err)
+	}
+	return DownloadTarget{
+		File: projectFile(row), ObjectKey: row.ObjectKey,
+		VersionID:       strings.TrimSpace(row.StorageVersionID.String),
+		StoredMediaType: strings.TrimSpace(row.StoredMediaType.String),
+	}, nil
+}
+
 func (repository *PostgresRepository) PrepareFinalize(
 	ctx context.Context,
 	access AccessContext,
@@ -368,7 +483,6 @@ func (repository *PostgresRepository) CommitFinalize(
 		return File{}, ErrIntentExpired
 	}
 	if proof.ContentLength != row.ExpectedSizeBytes || proof.ContentType != row.DeclaredMediaType ||
-		!bytes.Equal(proof.ChecksumSHA256, row.ExpectedChecksumSHA256) ||
 		proof.ETag == "" || proof.VersionID == "" {
 		return File{}, ErrStorageMismatch
 	}
@@ -394,15 +508,14 @@ SET status = 'uploaded',
     version = version + 1,
     stored_size_bytes = $3,
     stored_media_type = $4,
-    stored_checksum_sha256 = $5,
-    storage_etag = $6,
-    storage_version_id = $7,
-    uploaded_at = $8,
-    updated_at = $8
-WHERE tenant_id = $1 AND id = $2 AND status = 'pending' AND version = $9
+    storage_etag = $5,
+    storage_version_id = $6,
+    uploaded_at = $7,
+    updated_at = $7
+WHERE tenant_id = $1 AND id = $2 AND status = 'pending' AND version = $8
 RETURNING `+fileReturning,
 		access.TenantID, fileID, proof.ContentLength, proof.ContentType,
-		proof.ChecksumSHA256, proof.ETag, proof.VersionID, proof.FinalizedAt,
+		proof.ETag, proof.VersionID, proof.FinalizedAt,
 		proof.ExpectedVersion,
 	))
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -774,16 +887,19 @@ func projectFile(row fileRow) File {
 }
 
 func finalizeTarget(row fileRow) FinalizeTarget {
-	return FinalizeTarget{
+	target := FinalizeTarget{
 		File: projectFile(row), ObjectKey: row.ObjectKey,
-		ChecksumSHA256: append([]byte(nil), row.ExpectedChecksumSHA256...),
 	}
+	if row.StorageVersionID.Valid {
+		target.StorageVersionID = strings.TrimSpace(row.StorageVersionID.String)
+	}
+	return target
 }
 
 func storedProofMatches(row fileRow, proof FinalizeProof) bool {
 	return row.StoredSizeBytes.Valid && row.StoredSizeBytes.Int64 == proof.ContentLength &&
 		row.StoredMediaType.Valid && row.StoredMediaType.String == proof.ContentType &&
-		bytes.Equal(row.StoredChecksumSHA256, proof.ChecksumSHA256) &&
+		len(row.StoredChecksumSHA256) == 0 &&
 		row.StorageETag.Valid && row.StorageETag.String == proof.ETag &&
 		row.StorageVersionID.Valid && row.StorageVersionID.String == proof.VersionID
 }

@@ -94,7 +94,7 @@ func TestFinalizeFileMapsStorageMismatchWithoutLeakingDetails(t *testing.T) {
 	handler := contentTestHandler(classIdentityService(tenantID, uuid.New(), nil), service)
 	request := fileMutationRequest(
 		"/api/v1/files/"+fileID.String()+"/finalize",
-		`{"expected_version":1}`,
+		`{"expected_version":1,"storage_version_id":"version-1"}`,
 		tenantID,
 	)
 	response := httptest.NewRecorder()
@@ -107,6 +107,50 @@ func TestFinalizeFileMapsStorageMismatchWithoutLeakingDetails(t *testing.T) {
 	if strings.Contains(problem.Detail, fileID.String()) {
 		t.Fatal("problem detail must not repeat private file identifiers")
 	}
+}
+
+func TestFileTransferCapabilitiesRequireTenantCSRFAndProjectBearerURL(t *testing.T) {
+	t.Parallel()
+	tenantID := uuid.New()
+	fileID := uuid.New()
+	service := &fakeContentService{
+		uploadCapability: content.UploadCapability{
+			Method: http.MethodPut, URL: "https://storage.example/upload?signature=secret",
+			ExpiresAt: contentTestHTTPTime.Add(time.Minute), ContentLengthBytes: 42,
+			RequiredHeaders: map[string]string{"Content-Type": "application/pdf"},
+		},
+		downloadCapability: content.DownloadCapability{
+			Method: http.MethodGet, URL: "https://storage.example/download?signature=secret",
+			ExpiresAt: contentTestHTTPTime.Add(time.Minute),
+		},
+	}
+	handler := contentTestHandler(classIdentityService(tenantID, uuid.New(), nil), service)
+	uploadRequest := fileMutationRequest(
+		"/api/v1/files/"+fileID.String()+"/upload-capability",
+		`{"expected_version":1}`,
+		tenantID,
+	)
+	uploadResponse := httptest.NewRecorder()
+	handler.ServeHTTP(uploadResponse, uploadRequest)
+	if uploadResponse.Code != http.StatusOK ||
+		!strings.Contains(uploadResponse.Body.String(), `"content_length_bytes":42`) {
+		t.Fatalf("upload capability status=%d body=%s", uploadResponse.Code, uploadResponse.Body.String())
+	}
+	assertFileHeaders(t, uploadResponse)
+	if service.uploadCapabilityFileID != fileID || service.uploadCapabilityInput.ExpectedVersion != 1 {
+		t.Fatalf("unexpected upload capability input: %s %+v", service.uploadCapabilityFileID, service.uploadCapabilityInput)
+	}
+
+	downloadRequest := fileMutationRequest(
+		"/api/v1/files/"+fileID.String()+"/download-capability", "{}", tenantID,
+	)
+	downloadResponse := httptest.NewRecorder()
+	handler.ServeHTTP(downloadResponse, downloadRequest)
+	if downloadResponse.Code != http.StatusOK ||
+		!strings.Contains(downloadResponse.Body.String(), `"method":"GET"`) {
+		t.Fatalf("download capability status=%d body=%s", downloadResponse.Code, downloadResponse.Body.String())
+	}
+	assertFileHeaders(t, downloadResponse)
 }
 
 func TestFileMetadataUnavailableWithoutService(t *testing.T) {
@@ -174,15 +218,21 @@ func assertFileProblem(t *testing.T, response *httptest.ResponseRecorder, status
 }
 
 type fakeContentService struct {
-	createResult content.CreateIntentResult
-	createErr    error
-	createAccess content.AccessContext
-	createInput  content.CreateIntentInput
-	createCalls  int
-	getFile      content.File
-	getErr       error
-	finalizeFile content.File
-	finalizeErr  error
+	createResult           content.CreateIntentResult
+	createErr              error
+	createAccess           content.AccessContext
+	createInput            content.CreateIntentInput
+	createCalls            int
+	getFile                content.File
+	getErr                 error
+	finalizeFile           content.File
+	finalizeErr            error
+	uploadCapability       content.UploadCapability
+	uploadCapabilityErr    error
+	uploadCapabilityFileID uuid.UUID
+	uploadCapabilityInput  content.UploadCapabilityInput
+	downloadCapability     content.DownloadCapability
+	downloadCapabilityErr  error
 }
 
 func (service *fakeContentService) CreateIntent(
@@ -206,6 +256,23 @@ func (service *fakeContentService) Finalize(
 	context.Context, content.AccessContext, uuid.UUID, content.FinalizeInput,
 ) (content.File, error) {
 	return service.finalizeFile, service.finalizeErr
+}
+
+func (service *fakeContentService) IssueUploadCapability(
+	_ context.Context,
+	_ content.AccessContext,
+	fileID uuid.UUID,
+	input content.UploadCapabilityInput,
+) (content.UploadCapability, error) {
+	service.uploadCapabilityFileID = fileID
+	service.uploadCapabilityInput = input
+	return service.uploadCapability, service.uploadCapabilityErr
+}
+
+func (service *fakeContentService) IssueDownloadCapability(
+	context.Context, content.AccessContext, uuid.UUID,
+) (content.DownloadCapability, error) {
+	return service.downloadCapability, service.downloadCapabilityErr
 }
 
 var _ content.ServiceAPI = (*fakeContentService)(nil)

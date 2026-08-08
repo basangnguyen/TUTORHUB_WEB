@@ -3,6 +3,8 @@ import {
   createFileUploadIntent,
   finalizeFileUpload,
   getFileMetadata,
+  issueFileDownloadCapability,
+  issueFileUploadCapability,
 } from "./index";
 import type {
   ContentFile,
@@ -56,6 +58,7 @@ describe("content file API", () => {
     } satisfies CreateFileUploadIntentRequest;
     const finalizeInput = {
       expected_version: 1,
+      storage_version_id: "version-1",
     } satisfies FinalizeFileUploadRequest;
 
     await createFileUploadIntent(tenantID, createInput, "create-csrf", options);
@@ -92,6 +95,67 @@ describe("content file API", () => {
     expect(new URL(requests[2]!.url).pathname).toBe(
       `/api/v1/files/${fileID}/finalize`,
     );
+  });
+
+  it("issues upload and download capabilities with CSRF and tenant binding", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockImplementationOnce(() =>
+        Promise.resolve(
+          jsonResponse({
+            method: "PUT",
+            url: "https://storage.example/upload?signature=secret",
+            expires_at: "2030-08-07T10:05:00Z",
+            content_length_bytes: 42,
+            required_headers: { "Content-Type": "application/pdf" },
+          }),
+        ),
+      )
+      .mockImplementationOnce(() =>
+        Promise.resolve(
+          jsonResponse({
+            method: "GET",
+            url: "https://storage.example/download?signature=secret",
+            expires_at: "2030-08-07T10:02:00Z",
+          }),
+        ),
+      );
+    const options = {
+      baseUrl: "https://web.example.test/api",
+      fetch: fetchMock,
+    };
+
+    await issueFileUploadCapability(
+      tenantID,
+      fileID,
+      { expected_version: 1 },
+      "upload-csrf",
+      options,
+    );
+    await issueFileDownloadCapability(
+      tenantID,
+      fileID,
+      "download-csrf",
+      options,
+    );
+
+    const requests = fetchMock.mock.calls.map((call) => call[0] as Request);
+    expect(requests.map((request) => new URL(request.url).pathname)).toEqual([
+      `/api/v1/files/${fileID}/upload-capability`,
+      `/api/v1/files/${fileID}/download-capability`,
+    ]);
+    expect(requests[0]?.headers.get("X-CSRF-Token")).toBe("upload-csrf");
+    expect(requests[1]?.headers.get("X-CSRF-Token")).toBe("download-csrf");
+    expect(requests[0]?.headers.get("X-TutorHub-Expected-Tenant-ID")).toBe(
+      tenantID,
+    );
+    expect(requests[1]?.headers.get("X-TutorHub-Expected-Tenant-ID")).toBe(
+      tenantID,
+    );
+    expect(JSON.parse(await requests[0]!.clone().text())).toEqual({
+      expected_version: 1,
+    });
+    expect(await requests[1]!.clone().text()).toBe("");
   });
 
   it("rejects an empty expected tenant before sending", async () => {

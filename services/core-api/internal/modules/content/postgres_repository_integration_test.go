@@ -81,7 +81,7 @@ SELECT
 			},
 			updateColumns: []string{
 				"deleted_at", "deletion_reason", "status", "storage_etag",
-				"storage_version_id", "stored_checksum_sha256", "stored_media_type",
+				"storage_version_id", "stored_media_type",
 				"stored_size_bytes", "updated_at", "uploaded_at", "version",
 			},
 		},
@@ -292,6 +292,27 @@ func TestPostgresContentIntentFinalizeIsolationAndConcurrency(t *testing.T) {
 	if _, err := service.Get(ctx, foreignAccess, file.ID); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("foreign tenant file read error=%v, want not found", err)
 	}
+	uploadCapability, err := service.IssueUploadCapability(
+		ctx, access, file.ID, UploadCapabilityInput{ExpectedVersion: 1},
+	)
+	if err != nil || uploadCapability.Method != "PUT" || uploadCapability.ContentLengthBytes != 128 {
+		t.Fatalf("owner upload capability=%+v err=%v", uploadCapability, err)
+	}
+	if _, err := service.IssueUploadCapability(
+		ctx, access, file.ID, UploadCapabilityInput{ExpectedVersion: 2},
+	); !errors.Is(err, ErrVersionConflict) {
+		t.Fatalf("stale upload capability error=%v, want version conflict", err)
+	}
+	if _, err := service.IssueUploadCapability(
+		ctx, studentAccess, file.ID, UploadCapabilityInput{ExpectedVersion: 1},
+	); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("student upload capability error=%v, want concealed not found", err)
+	}
+	if _, err := service.IssueUploadCapability(
+		ctx, foreignAccess, file.ID, UploadCapabilityInput{ExpectedVersion: 1},
+	); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("foreign upload capability error=%v, want not found", err)
+	}
 
 	type finalizeOutcome struct {
 		file File
@@ -305,7 +326,8 @@ func TestPostgresContentIntentFinalizeIsolationAndConcurrency(t *testing.T) {
 			defer wait.Done()
 			<-start
 			item, finalizeErr := service.Finalize(
-				context.Background(), access, file.ID, FinalizeInput{ExpectedVersion: 1},
+				context.Background(), access, file.ID,
+				FinalizeInput{ExpectedVersion: 1, StorageVersionID: "version-1"},
 			)
 			finalized <- finalizeOutcome{file: item, err: finalizeErr}
 		}()
@@ -330,6 +352,31 @@ WHERE tenant_id = $1`, fixture.tenantID).Scan(&count, &reserved, &committed); er
 	}
 	if _, err := service.Get(ctx, studentAccess, file.ID); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("student uploaded metadata error=%v, want concealed not found", err)
+	}
+	if _, err := service.IssueDownloadCapability(ctx, access, file.ID); !errors.Is(err, ErrNotReady) {
+		t.Fatalf("owner pre-ready download error=%v, want not ready", err)
+	}
+	if _, err := service.IssueDownloadCapability(ctx, studentAccess, file.ID); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("student pre-ready download error=%v, want concealed not found", err)
+	}
+	readyAt := now.Add(time.Second)
+	if _, err := migrationPool.Exec(ctx, `
+UPDATE tutorhub.content_files
+SET status = 'ready',
+    stored_checksum_sha256 = expected_checksum_sha256,
+    processing_at = $3,
+    ready_at = $3,
+    version = version + 1,
+    updated_at = $3
+WHERE tenant_id = $1 AND id = $2`, fixture.tenantID, file.ID, readyAt); err != nil {
+		t.Fatalf("mark integration file ready: %v", err)
+	}
+	downloadCapability, err := service.IssueDownloadCapability(ctx, studentAccess, file.ID)
+	if err != nil || downloadCapability.Method != "GET" || storage.downloadVersionID != "version-1" {
+		t.Fatalf("student ready download=%+v version=%q err=%v", downloadCapability, storage.downloadVersionID, err)
+	}
+	if _, err := service.IssueDownloadCapability(ctx, foreignAccess, file.ID); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("foreign ready download error=%v, want not found", err)
 	}
 
 	pendingInput := input
@@ -427,7 +474,7 @@ ON TABLE tutorhub.tenant_file_usage TO tutorhub_conversation_runtime_ci;
 
 GRANT UPDATE (
     status, version, stored_size_bytes, stored_media_type,
-    stored_checksum_sha256, storage_etag, storage_version_id,
+    storage_etag, storage_version_id,
     uploaded_at, deleted_at, deletion_reason, updated_at
 ) ON TABLE tutorhub.content_files TO tutorhub_conversation_runtime_ci;
 
@@ -671,7 +718,8 @@ func integrationContentAccess(
 }
 
 type integrationMetadataReader struct {
-	metadata objectstorage.Metadata
+	metadata          objectstorage.Metadata
+	downloadVersionID string
 }
 
 type integrationRepositoryRecorder struct {
@@ -702,6 +750,28 @@ func (recorder *integrationRepositoryRecorder) errorsSnapshot() []error {
 
 func (reader *integrationMetadataReader) Head(context.Context, string) (objectstorage.Metadata, error) {
 	return reader.metadata, nil
+}
+
+func (reader *integrationMetadataReader) HeadVersion(
+	context.Context, string, string,
+) (objectstorage.Metadata, error) {
+	return reader.metadata, nil
+}
+
+func (reader *integrationMetadataReader) PresignUpload(
+	context.Context, objectstorage.UploadPresignInput,
+) (objectstorage.PresignedRequest, error) {
+	return objectstorage.PresignedRequest{
+		URL: "https://storage.example/upload", Method: "PUT",
+		SignedHeader: map[string][]string{"Content-Type": {"application/pdf"}},
+	}, nil
+}
+
+func (reader *integrationMetadataReader) PresignDownload(
+	_ context.Context, input objectstorage.DownloadPresignInput,
+) (objectstorage.PresignedRequest, error) {
+	reader.downloadVersionID = input.VersionID
+	return objectstorage.PresignedRequest{URL: "https://storage.example/download", Method: "GET"}, nil
 }
 
 func contentIntegrationEmail() string {

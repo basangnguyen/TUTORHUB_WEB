@@ -226,6 +226,14 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 		fileResponseHeaders(http.HandlerFunc(files.finalize)),
 	)
 	mux.Handle(
+		fileUploadCapabilityPattern,
+		fileResponseHeaders(http.HandlerFunc(files.uploadCapability)),
+	)
+	mux.Handle(
+		fileDownloadCapabilityPattern,
+		fileResponseHeaders(http.HandlerFunc(files.downloadCapability)),
+	)
+	mux.Handle(
 		conversationsCollectionPath,
 		conversationResponseHeaders(http.HandlerFunc(conversations.collection)),
 	)

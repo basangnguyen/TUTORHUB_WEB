@@ -720,7 +720,7 @@ paths:
     post:
       operationId: createFileUploadIntent
       summary: Reserve metadata and tenant capacity for one class file upload
-      description: Creates an opaque server-owned file identity and short-lived pending reservation. P3-08 does not expose the object key or issue a transfer URL; direct B2 transfer is added by P3-09.
+      description: Creates an opaque server-owned file identity and short-lived pending reservation. The object key remains private; a separate P3-09 capability endpoint issues a short-lived direct B2 upload URL after reauthorization.
       security:
         - SessionCookie: []
       parameters:
@@ -832,7 +832,7 @@ paths:
     post:
       operationId: finalizeFileUpload
       summary: Verify the stored object and commit a pending file as uploaded
-      description: The Core API reads immutable size, normalized media type, SHA-256, ETag and version metadata directly from B2. Missing or mismatched provider evidence fails closed and leaves the file pending.
+      description: The client supplies the immutable B2 version selector returned by its upload. The Core API HEADs exactly that version and verifies size, normalized media type, ETag and version before committing the file as uploaded. SHA-256 is established by the P3-10 pre-ready processing gate; finalize never copies a browser-asserted checksum into stored proof.
       security:
         - SessionCookie: []
       parameters:
@@ -872,6 +872,116 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ContentFile"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/files/{file_id}/upload-capability:
+    post:
+      operationId: issueFileUploadCapability
+      summary: Issue a short-lived exact PUT capability for one pending file
+      description: Reauthorizes the active tenant, creator, file.upload permission, feature switch, intent lifetime and expected version. The bearer URL is returned only in a no-store response and must never be logged or cached.
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: file_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+        - name: X-TutorHub-Expected-Tenant-ID
+          in: header
+          required: true
+          description: Client cache-scope assertion; authorization still comes only from the server-side active session.
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IssueFileUploadCapabilityRequest"
+      responses:
+        "200":
+          description: Short-lived B2 PUT bearer capability bound to the pending intent
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FileUploadCapability"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/files/{file_id}/download-capability:
+    post:
+      operationId: issueFileDownloadCapability
+      summary: Issue a short-lived GET capability for one ready file version
+      description: Reauthorizes file.view and signs only the immutable B2 version persisted by finalize. Non-ready files return a conflict only to authorized upload managers and remain concealed from other viewers.
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: file_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+        - name: X-TutorHub-Expected-Tenant-ID
+          in: header
+          required: true
+          description: Client cache-scope assertion; authorization still comes only from the server-side active session.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Short-lived B2 GET bearer capability bound to the persisted version
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FileDownloadCapability"
         "400":
           $ref: "#/components/responses/ProblemResponse"
         "401":
@@ -5854,12 +5964,67 @@ components:
     FinalizeFileUploadRequest:
       type: object
       additionalProperties: false
+      required: [expected_version, storage_version_id]
+      properties:
+        expected_version:
+          type: integer
+          format: int64
+          minimum: 1
+        storage_version_id:
+          type: string
+          minLength: 1
+          maxLength: 512
+          description: Immutable B2 version selector returned by the successful presigned PUT; the server independently HEADs this exact version.
+    IssueFileUploadCapabilityRequest:
+      type: object
+      additionalProperties: false
       required: [expected_version]
       properties:
         expected_version:
           type: integer
           format: int64
           minimum: 1
+    FileUploadCapability:
+      type: object
+      additionalProperties: false
+      required:
+        - method
+        - url
+        - expires_at
+        - content_length_bytes
+        - required_headers
+      properties:
+        method:
+          type: string
+          const: PUT
+        url:
+          type: string
+          format: uri
+        expires_at:
+          type: string
+          format: date-time
+        content_length_bytes:
+          type: integer
+          format: int64
+          minimum: 1
+        required_headers:
+          type: object
+          additionalProperties:
+            type: string
+    FileDownloadCapability:
+      type: object
+      additionalProperties: false
+      required: [method, url, expires_at]
+      properties:
+        method:
+          type: string
+          const: GET
+        url:
+          type: string
+          format: uri
+        expires_at:
+          type: string
+          format: date-time
     ConversationKind:
       type: string
       enum: [direct, class]

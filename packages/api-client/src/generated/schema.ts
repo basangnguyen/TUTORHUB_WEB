@@ -1326,6 +1326,26 @@ export type paths = {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/api/v1/files/{file_id}/download-capability": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Issue a short-lived GET capability for one ready file version
+     * @description Reauthorizes file.view and signs only the immutable B2 version persisted by finalize. Non-ready files return a conflict only to authorized upload managers and remain concealed from other viewers.
+     */
+    readonly post: operations["issueFileDownloadCapability"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/api/v1/files/{file_id}/finalize": {
     readonly parameters: {
       readonly query?: never;
@@ -1337,9 +1357,29 @@ export type paths = {
     readonly put?: never;
     /**
      * Verify the stored object and commit a pending file as uploaded
-     * @description The Core API reads immutable size, normalized media type, SHA-256, ETag and version metadata directly from B2. Missing or mismatched provider evidence fails closed and leaves the file pending.
+     * @description The client supplies the immutable B2 version selector returned by its upload. The Core API HEADs exactly that version and verifies size, normalized media type, ETag and version before committing the file as uploaded. SHA-256 is established by the P3-10 pre-ready processing gate; finalize never copies a browser-asserted checksum into stored proof.
      */
     readonly post: operations["finalizeFileUpload"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/files/{file_id}/upload-capability": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Issue a short-lived exact PUT capability for one pending file
+     * @description Reauthorizes the active tenant, creator, file.upload permission, feature switch, intent lifetime and expected version. The bearer URL is returned only in a no-store response and must never be logged or cached.
+     */
+    readonly post: operations["issueFileUploadCapability"];
     readonly delete?: never;
     readonly options?: never;
     readonly head?: never;
@@ -1357,7 +1397,7 @@ export type paths = {
     readonly put?: never;
     /**
      * Reserve metadata and tenant capacity for one class file upload
-     * @description Creates an opaque server-owned file identity and short-lived pending reservation. P3-08 does not expose the object key or issue a transfer URL; direct B2 transfer is added by P3-09.
+     * @description Creates an opaque server-owned file identity and short-lived pending reservation. The object key remains private; a separate P3-09 capability endpoint issues a short-lived direct B2 upload URL after reauthorization.
      */
     readonly post: operations["createFileUploadIntent"];
     readonly delete?: never;
@@ -2988,6 +3028,27 @@ export type components = {
       readonly configured_enabled?: boolean;
       readonly enabled: boolean;
     };
+    readonly FileDownloadCapability: {
+      /** Format: date-time */
+      readonly expires_at: string;
+      /** @constant */
+      readonly method: "GET";
+      /** Format: uri */
+      readonly url: string;
+    };
+    readonly FileUploadCapability: {
+      /** Format: int64 */
+      readonly content_length_bytes: number;
+      /** Format: date-time */
+      readonly expires_at: string;
+      /** @constant */
+      readonly method: "PUT";
+      readonly required_headers: {
+        readonly [key: string]: string;
+      };
+      /** Format: uri */
+      readonly url: string;
+    };
     readonly FinalizeAvailabilityPollRequest: {
       readonly class_id: string | null;
       /** Format: int64 */
@@ -3000,6 +3061,8 @@ export type components = {
     readonly FinalizeFileUploadRequest: {
       /** Format: int64 */
       readonly expected_version: number;
+      /** @description Immutable B2 version selector returned by the successful presigned PUT; the server independently HEADs this exact version. */
+      readonly storage_version_id: string;
     };
     readonly HealthResponse: {
       readonly environment: string;
@@ -3021,6 +3084,10 @@ export type components = {
      * @enum {string}
      */
     readonly InvitableOrganizationRole: "teacher" | "student" | "guest";
+    readonly IssueFileUploadCapabilityRequest: {
+      /** Format: int64 */
+      readonly expected_version: number;
+    };
     readonly JoinClassInvitationResponse: {
       readonly classroom: components["schemas"]["Class"];
       readonly enrollment: components["schemas"]["ClassEnrollment"] | null;
@@ -6710,6 +6777,40 @@ export interface operations {
       readonly default: components["responses"]["ProblemResponse"];
     };
   };
+  readonly issueFileDownloadCapability: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly "X-CSRF-Token": string;
+        /** @description Client cache-scope assertion; authorization still comes only from the server-side active session. */
+        readonly "X-TutorHub-Expected-Tenant-ID": string;
+      };
+      readonly path: {
+        readonly file_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Short-lived B2 GET bearer capability bound to the persisted version */
+      readonly 200: {
+        headers: {
+          readonly "Cache-Control"?: "no-store";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["FileDownloadCapability"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
   readonly finalizeFileUpload: {
     readonly parameters: {
       readonly query?: never;
@@ -6737,6 +6838,44 @@ export interface operations {
         };
         content: {
           readonly "application/json": components["schemas"]["ContentFile"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly issueFileUploadCapability: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly "X-CSRF-Token": string;
+        /** @description Client cache-scope assertion; authorization still comes only from the server-side active session. */
+        readonly "X-TutorHub-Expected-Tenant-ID": string;
+      };
+      readonly path: {
+        readonly file_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["IssueFileUploadCapabilityRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Short-lived B2 PUT bearer capability bound to the pending intent */
+      readonly 200: {
+        headers: {
+          readonly "Cache-Control"?: "no-store";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["FileUploadCapability"];
         };
       };
       readonly 400: components["responses"]["ProblemResponse"];

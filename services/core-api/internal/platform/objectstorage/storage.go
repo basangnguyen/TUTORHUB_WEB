@@ -3,6 +3,8 @@ package objectstorage
 import (
 	"context"
 	"io"
+	"net/http"
+	"time"
 )
 
 type Metadata struct {
@@ -15,6 +17,33 @@ type Metadata struct {
 
 type MetadataReader interface {
 	Head(context.Context, string) (Metadata, error)
+	HeadVersion(context.Context, string, string) (Metadata, error)
+}
+
+type UploadPresignInput struct {
+	Key           string
+	ContentLength int64
+	ContentType   string
+	Expires       time.Duration
+}
+
+type DownloadPresignInput struct {
+	Key                string
+	VersionID          string
+	ContentType        string
+	ContentDisposition string
+	Expires            time.Duration
+}
+
+type PresignedRequest struct {
+	URL          string
+	Method       string
+	SignedHeader http.Header
+}
+
+type TransferPresigner interface {
+	PresignUpload(context.Context, UploadPresignInput) (PresignedRequest, error)
+	PresignDownload(context.Context, DownloadPresignInput) (PresignedRequest, error)
 }
 
 type Object struct {

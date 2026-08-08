@@ -13,11 +13,13 @@ import (
 )
 
 const (
-	fileUploadIntentsPath = "/api/v1/files/upload-intents"
-	fileResourcePattern   = "/api/v1/files/{file_id}"
-	fileFinalizePattern   = "/api/v1/files/{file_id}/finalize"
-	fileTenantHeader      = "X-TutorHub-Expected-Tenant-ID"
-	maximumFileBodySize   = 8 * 1024
+	fileUploadIntentsPath         = "/api/v1/files/upload-intents"
+	fileResourcePattern           = "/api/v1/files/{file_id}"
+	fileFinalizePattern           = "/api/v1/files/{file_id}/finalize"
+	fileUploadCapabilityPattern   = "/api/v1/files/{file_id}/upload-capability"
+	fileDownloadCapabilityPattern = "/api/v1/files/{file_id}/download-capability"
+	fileTenantHeader              = "X-TutorHub-Expected-Tenant-ID"
+	maximumFileBodySize           = 8 * 1024
 )
 
 var errFileScopeChanged = errors.New("file active tenant changed")
@@ -38,6 +40,11 @@ type createFileUploadIntentRequest struct {
 }
 
 type finalizeFileRequest struct {
+	ExpectedVersion  *int64  `json:"expected_version"`
+	StorageVersionID *string `json:"storage_version_id"`
+}
+
+type fileUploadCapabilityRequest struct {
 	ExpectedVersion *int64 `json:"expected_version"`
 }
 
@@ -162,19 +169,91 @@ func (handlers contentHandlers) finalize(w http.ResponseWriter, r *http.Request)
 	}
 	var request finalizeFileRequest
 	if err := decodeJSONRequest(w, r, &request, maximumFileBodySize); err != nil ||
-		request.ExpectedVersion == nil {
+		request.ExpectedVersion == nil || request.StorageVersionID == nil {
 		handlers.writeProblem(w, r, content.ErrInvalidInput)
 		return
 	}
 	item, err := handlers.service.Finalize(
 		r.Context(), access, fileID,
-		content.FinalizeInput{ExpectedVersion: *request.ExpectedVersion},
+		content.FinalizeInput{
+			ExpectedVersion:  *request.ExpectedVersion,
+			StorageVersionID: *request.StorageVersionID,
+		},
 	)
 	if err != nil {
 		handlers.writeProblem(w, r, err)
 		return
 	}
 	writeJSON(handlers.logger, w, http.StatusOK, item)
+}
+
+func (handlers contentHandlers) uploadCapability(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.Header().Set("Allow", http.MethodPost)
+		writeProblem(w, r, http.StatusMethodNotAllowed, "Method not allowed", "File upload capability supports POST requests.")
+		return
+	}
+	if !handlers.available(w, r) {
+		return
+	}
+	principal, ok := handlers.csrfPrincipal(w, r)
+	if !ok {
+		return
+	}
+	access, ok := handlers.access(w, r, principal)
+	if !ok {
+		return
+	}
+	fileID, ok := parseResourceUUID(r.PathValue("file_id"))
+	if !ok {
+		handlers.writeProblem(w, r, content.ErrNotFound)
+		return
+	}
+	var request fileUploadCapabilityRequest
+	if err := decodeJSONRequest(w, r, &request, maximumFileBodySize); err != nil ||
+		request.ExpectedVersion == nil {
+		handlers.writeProblem(w, r, content.ErrInvalidInput)
+		return
+	}
+	capability, err := handlers.service.IssueUploadCapability(
+		r.Context(), access, fileID,
+		content.UploadCapabilityInput{ExpectedVersion: *request.ExpectedVersion},
+	)
+	if err != nil {
+		handlers.writeProblem(w, r, err)
+		return
+	}
+	writeJSON(handlers.logger, w, http.StatusOK, capability)
+}
+
+func (handlers contentHandlers) downloadCapability(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.Header().Set("Allow", http.MethodPost)
+		writeProblem(w, r, http.StatusMethodNotAllowed, "Method not allowed", "File download capability supports POST requests.")
+		return
+	}
+	if !handlers.available(w, r) {
+		return
+	}
+	principal, ok := handlers.csrfPrincipal(w, r)
+	if !ok {
+		return
+	}
+	access, ok := handlers.access(w, r, principal)
+	if !ok {
+		return
+	}
+	fileID, ok := parseResourceUUID(r.PathValue("file_id"))
+	if !ok {
+		handlers.writeProblem(w, r, content.ErrNotFound)
+		return
+	}
+	capability, err := handlers.service.IssueDownloadCapability(r.Context(), access, fileID)
+	if err != nil {
+		handlers.writeProblem(w, r, err)
+		return
+	}
+	writeJSON(handlers.logger, w, http.StatusOK, capability)
 }
 
 func (handlers contentHandlers) access(
@@ -254,6 +333,9 @@ func (handlers contentHandlers) writeProblem(w http.ResponseWriter, r *http.Requ
 	case errors.Is(err, content.ErrStorageMismatch):
 		status, code = http.StatusConflict, "file_storage_mismatch"
 		title, detail = "Stored file does not match", "The uploaded object does not match the reserved file metadata."
+	case errors.Is(err, content.ErrNotReady):
+		status, code = http.StatusConflict, "file_not_ready"
+		title, detail = "File is not ready", "Wait for file processing to finish before requesting a download."
 	case errors.Is(err, content.ErrVersionConflict):
 		status, code = http.StatusConflict, "file_version_conflict"
 		title, detail = "File changed", "Reload the latest file metadata before retrying finalize."
