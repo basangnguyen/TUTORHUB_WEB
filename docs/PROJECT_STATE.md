@@ -11,13 +11,13 @@
 | Nhánh làm việc       | `main`                                                                                |
 | Quy trình            | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
 | Phase hoàn thành     | Phase 0, Phase 1, Phase 2                                                             |
-| Phase hiện tại       | Phase 3 - Daily learning workspace                                                    |
-| Task `DONE` gần nhất | P3-13 Offline/retry drafts và Phase 3 quota closure                                   |
-| Mốc repository mới   | P3-13 candidate `25a323ad` Live trên Render/Pages; Neon giữ `28 false`                |
-| Task hiện tại        | P3-14-CORE Core Exit sign-off — `VERIFY`                                              |
-| Task tiếp theo       | Exact candidate CI/security, deploy và live acceptance của P3-14-CORE                 |
+| Phase hiện tại       | Phase 4 entry open; Phase 3 deferred carry-over vẫn hoạt động                         |
+| Task `DONE` gần nhất | P3-14-CORE Core Exit sign-off                                                         |
+| Mốc repository mới   | Candidate `f5f1eb3` Live trên Render/Pages; Neon giữ `28 false`                       |
+| Task hiện tại        | Chưa mở implementation task Phase 4                                                  |
+| Task tiếp theo       | Lập backlog/ADR implementation-readiness cho Phase 4 Classroom Media MVP             |
 
-### Checkpoint P3-14-CORE `VERIFY` ngày 2026-08-08
+### Checkpoint P3-14-CORE `DONE` ngày 2026-08-08
 
 Core Exit review xác nhận toàn bộ runnable lane P3-02A/B/C, P3-02D-A, P3-06/07A,
 P3-08/09, P3-11A/12/13 vẫn ở `DONE`. Review tìm và sửa ba regression/harness gap:
@@ -33,8 +33,16 @@ disposable chạy tuần tự Classroom/Calendar/Conversation/Content/Discovery/
 Security đều PASS; focused owner-time race PASS 3/3 và ledger giữ `28 false`, không migration
 hay rollback. Baseline live 6/6 public + 2/2 anonymous privacy PASS; Admin xác nhận file upload
 và in-app notification đều effective-off. Carry-over register đã được tạo tại
-`docs/P3_14_CORE_ACCEPTANCE.md`. Task giữ `VERIFY` tới khi exact candidate CI/security,
-Cloudflare/Render deployment và live rerun hoàn tất; full P3-14/Phase 3 vẫn `TODO`.
+`docs/P3_14_CORE_ACCEPTANCE.md`.
+
+Exact candidate `f5f1eb32d1ed59dbf8f5848103bb6bc9f38fbafd` PASS Verify `31265719929`,
+Security `31265719927`, Browser E2E và Cloudflare Pages. Render deployment
+`dep-d9rl6bp42hec738p7ed0` Live đúng SHA; 6/6 public và 2/2 anonymous privacy probe PASS.
+Authenticated Admin xác nhận file upload/in-app notification effective-off; live Calendar có
+năm action đều nằm trong main region, wrap đúng và không horizontal overflow, console sạch.
+P3-14-CORE chuyển `VERIFY -> DONE`, cho phép bắt đầu Phase 4. Full P3-14/Phase 3 vẫn `TODO`;
+worker/provider/delivery/processing carry-over tiếp tục theo register và không side effect nào
+được bật sớm.
 
 ### Checkpoint P3-13 `DONE` ngày 2026-08-08
 

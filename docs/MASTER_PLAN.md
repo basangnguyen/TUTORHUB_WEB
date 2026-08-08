@@ -2073,9 +2073,11 @@ CI/security, Cloudflare/Render và live Teacher/Student/workspace/privacy/access
 P3-13 đã `DONE` theo ADR-0029: draft allowlist bind actor/tenant, idempotent retry opt-in và
 bounded quota metrics đã PASS local/disposable/exact CI. Candidate `25a323ad` Live đúng SHA trên
 Cloudflare/Render; public/anonymous privacy probe và live Admin same-tab/workspace/logout purge
-đều PASS mà không lưu shared configuration. `P3-14-CORE` hiện ở `VERIFY`: full local verify,
+đều PASS mà không lưu shared configuration. `P3-14-CORE` đã `DONE`: full local verify,
 Calendar Playwright 15/15, bảy PostgreSQL integration package và ledger disposable `28 false`
-đã xanh; carry-over register đã lập. Exact candidate CI/deploy/live acceptance còn mở.
+đã xanh; carry-over register đã lập. Candidate `f5f1eb3` PASS exact CI/security, Live trên
+Cloudflare/Render và đạt public/privacy/authenticated feature-off/Calendar acceptance. Phase 4
+được phép bắt đầu; full P3-14/Phase 3 vẫn chờ carry-over.
 Không bật side effect chỉ vì core đã có. `P3-02D-B` và các gate worker/provider vẫn là
 carry-over.
 AWS SES đã được chọn làm provider target nhưng

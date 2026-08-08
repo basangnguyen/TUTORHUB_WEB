@@ -96,7 +96,7 @@ live; rollback bằng specific commit giữ cấu hình hiện tại là bằng 
 | P3-02B Recurrence + class conflict     | DONE      | PostgreSQL/staging acceptance đạt              |
 | P3-02C Working hours/free-busy/RSVP    | DONE      | Automated, staging/disposable DB và manual gates PASS |
 | P3-06/07A/08/09/11A/12/13            | DONE        | Runnable product slices đã qua exact acceptance |
-| P3-14-CORE                            | VERIFY      | Local/disposable xanh; chờ exact CI/deploy/live |
+| P3-14-CORE                            | DONE        | Candidate `f5f1eb3` exact CI/deploy/live PASS   |
 | P3-05A/B, P3-07B, P3-10/11B          | DEFERRED/TODO | Chưa code; phụ thuộc worker/provider        |
 | P3-14 full closure                    | TODO        | Chỉ đóng sau toàn bộ carry-over               |
 

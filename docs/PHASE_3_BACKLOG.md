@@ -33,11 +33,10 @@ re-baseline này không dùng nó để chặn Phase 4 hay ép các gate provide
 tất trước khi có môi trường phù hợp. Domain/DNS, SES sandbox và production-access
 approval có thể tiếp tục chuẩn bị song song.
 
-**Task `DONE` gần nhất:** `P3-13` Offline/retry drafts và Phase 3 quota closure hoàn tất ngày
-2026-08-08 trên candidate `25a323ad`; exact CI/security, Cloudflare/Render, public privacy probes
-và live Admin draft/workspace/logout acceptance đều PASS mà không lưu thay đổi shared. **Task hiện
-tại:** `P3-14-CORE` Core Exit sign-off ở `VERIFY`; local/disposable gate đã xanh và đang chờ
-exact candidate CI/deployment/live acceptance.
+**Task `DONE` gần nhất:** `P3-14-CORE` Core Exit sign-off hoàn tất ngày 2026-08-08 trên candidate
+`f5f1eb3`; local/disposable, exact CI/security, Cloudflare/Render, public/privacy và authenticated
+feature-gate/Calendar acceptance đều PASS. Phase 4 được phép bắt đầu; full P3-14/Phase 3 vẫn
+`TODO` tới khi carry-over đóng.
 P3-10 processing tiếp tục `DEFERRED/TODO` theo worker dependency.
 `P3-02D-B` lifecycle delivery/
 auto-close/fan-out và các gate P3-03B/P3-CAL-02/P3-05A/B là carry-over, không nằm trong
@@ -120,7 +119,7 @@ processing/sharing tới end user.
 | P3-11B     | File processing/thumbnail/rejected UX          | P3-10, P3-11A                                 | DEFERRED/TODO   |
 | P3-12      | Home dashboard và PostgreSQL search cơ bản     | P3-01, P3-07A, P3-11A                         | DONE            |
 | P3-13      | Offline/retry drafts và Phase 3 quota closure  | P3-02D-A, P3-07A, P3-11A                      | DONE            |
-| P3-14-CORE | Core Exit sign-off (cho phép bắt đầu Phase 4)  | P3-02D-A, P3-07A, P3-09, P3-11A, P3-12, P3-13 | VERIFY          |
+| P3-14-CORE | Core Exit sign-off (cho phép bắt đầu Phase 4)  | P3-02D-A, P3-07A, P3-09, P3-11A, P3-12, P3-13 | DONE            |
 | P3-14      | Full staging acceptance và đóng Phase 3        | carry-over + P3-12/P3-13                      | TODO            |
 
 `VERIFY` nghĩa là implementation và các gate đã ghi nhận đạt, nhưng vẫn còn ít nhất một
@@ -1150,7 +1149,7 @@ không mở rộng sang P3-11B, activation hoặc public milestone.
 
 Đây là acceptance tối thiểu cho lane runnable, không phải biên bản đóng Phase 3:
 
-- [ ] P3-02A/P3-02B/P3-02C tiếp tục giữ `DONE` và không có regression trên tenant,
+- [x] P3-02A/P3-02B/P3-02C tiếp tục giữ `DONE` và không có regression trên tenant,
       authorization, a11y, recurrence/conflict và RSVP.
 - [x] P3-02D-A poll/StudyMeeting core đạt schema/API/UI, capability link, response,
       aggregate/ranking, manual lifecycle, concurrency, privacy và accessibility gate.
@@ -1162,7 +1161,7 @@ không mở rộng sang P3-11B, activation hoặc public milestone.
 - [x] P3-11A/P3-12/P3-13 được đưa vào Core Exit chỉ ở phạm vi không phụ thuộc worker/
       provider; loading/empty/error/forbidden/offline và quota tests đều xanh. P3-11B
       vẫn ở carry-over và Class Files activation vẫn tắt.
-- [ ] Verify/Security/accessibility/tenant-isolation và staging smoke của lane runnable xanh;
+- [x] Verify/Security/accessibility/tenant-isolation và staging smoke của lane runnable xanh;
       lập carry-over register nêu rõ owner, dependency, flag đang tắt và gate còn mở.
 
 Khi các mục trên đạt, owner được phép bắt đầu Phase 4 (Classroom Media MVP). Các mục
@@ -1286,10 +1285,10 @@ một tuần.
    matrix và manual NVDA PASS. P3-06 cũng đã `DONE` ngày 2026-08-04 sau migration `000024`,
    exact ACL/PostgreSQL, deployment, authenticated browser/API, focus và Axe gate. Runnable
    lane P3-07A đã `DONE` ngày 2026-08-05 sau shared forward/ACL, exact deploy, CI/security
-   và live role/accessibility acceptance. P3-08 đã `DONE` ngày 2026-08-08; runnable lane
-   tiếp theo là P3-09, không bật delivery side effect và không chờ P3-03B.
-7. P3-03B/P3-04, P3-CAL-02/P3-05A và P3-02D-B/P3-05B tiếp tục ở carry-over. Đóng
-   `P3-14-CORE` sau lane runnable cho phép bắt đầu Phase 4; full P3-14 vẫn chờ các gate này.
+   và live role/accessibility acceptance. P3-08/P3-09, P3-11A/P3-12/P3-13 và
+   `P3-14-CORE` đều đã `DONE` ngày 2026-08-08; Phase 4 được phép bắt đầu.
+7. P3-03B/P3-04, P3-CAL-02/P3-05A, P3-02D-B/P3-05B, P3-07B và P3-10/P3-11B tiếp tục
+   ở carry-over. Full P3-14/Phase 3 vẫn chờ các gate này và không bật side effect sớm.
 8. Không đưa recurrence, reminder, worker, email hoặc calendar tổng hợp vào P3-01.
 9. ADR-0021 đã `Accepted`; P3-02D-A không phụ thuộc When2meet. P3-02D-B chỉ mở sau
    durable worker/provider delivery gate tương ứng.

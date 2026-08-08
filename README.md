@@ -72,12 +72,13 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
   Class Files transfer-core UI trong trạng thái gate-off. P3-02D-B
   lifecycle delivery, P3-07B realtime/notification và các gate hạ tầng/provider là
   carry-over; chúng có thể tiếp tục chính xác sau khi Phase 4 bắt đầu.
-- P3-14-CORE đã vào `VERIFY` ngày 2026-08-08 sau fresh full verify, Calendar Playwright
+- P3-14-CORE đã `DONE` ngày 2026-08-08 sau fresh full verify, Calendar Playwright
   15/15 và bảy PostgreSQL integration package trên Neon disposable; ledger giữ `28 false`.
   Checkpoint đã sửa Calendar toolbar overflow, giữ exact runtime ACL bằng owner-only test
   assertions và loại deadlock StudyMeeting/ClassSession bằng lock order thống nhất. Carry-over
-  register đã có; vẫn chờ exact candidate CI/deploy/live acceptance trước khi cho phép bắt đầu
-  Phase 4. Full P3-14 và Phase 3 vẫn `TODO`.
+  register đã có. Exact candidate `f5f1eb3` PASS CI/security và Live trên Render/Pages;
+  public/privacy/feature-off/Calendar acceptance đều xanh. Phase 4 được phép bắt đầu; full
+  P3-14 và Phase 3 vẫn `TODO`.
 - Web MVP nền đã chạy trên staging: Cloudflare Pages -> same-origin `/api/*` -> Go
   Core API trên Render; dữ liệu dùng Neon, file dùng Backblaze B2, media dùng LiveKit
   Cloud và xác thực dùng ZITADEL.

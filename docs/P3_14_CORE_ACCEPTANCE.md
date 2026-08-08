@@ -1,8 +1,10 @@
 # P3-14-CORE Core Exit acceptance
 
-- Status: `VERIFY`
+- Status: `DONE`
 - Date: 2026-08-08
 - Database: no migration; disposable and shared staging remain at `28 false`
+- Exact candidate: `f5f1eb32d1ed59dbf8f5848103bb6bc9f38fbafd`
+- Render deployment: `dep-d9rl6bp42hec738p7ed0`
 - Scope: runnable Phase 3 lane only; this document does not close full P3-14 or Phase 3
 
 ## Exit boundary
@@ -50,23 +52,31 @@ The full Phase 3 exit remains open until the carry-over register below is closed
       keyboard/Axe, 200% zoom, forced colors and performance budgets.
 - [x] The owner-time concurrency regression passes 3/3 on Neon disposable.
 - [x] Full disposable PostgreSQL package matrix passes with schema `28 false` and no rollback.
-- [ ] Exact candidate Verify, Security, Browser E2E and Cloudflare Pages checks pass.
-- [ ] Exact Render deployment, 6/6 public smoke, 2/2 anonymous privacy smoke and authenticated
+- [x] Exact candidate Verify, Security, Browser E2E and Cloudflare Pages checks pass.
+- [x] Exact Render deployment, 6/6 public smoke, 2/2 anonymous privacy smoke and authenticated
       effective feature-gate checks pass.
 
 The local host does not have Docker, so the general Browser E2E webServer cannot start locally.
 Calendar production-route E2E runs directly and passes locally; the exact candidate Browser E2E
 job remains the authoritative container-backed gate.
 
-## Staging baseline before exact-candidate deployment
+## Exact candidate and staging evidence
 
+- Exact candidate `f5f1eb32d1ed59dbf8f5848103bb6bc9f38fbafd` passed Verify
+  `31265719929` and Security `31265719927`. Quality/integration, Browser E2E, local smoke,
+  Cloudflare Pages, CodeQL Go/TypeScript, secret scan, repository vulnerability scan and Core
+  API container scan all passed.
+- Render deployment `dep-d9rl6bp42hec738p7ed0` checked out the exact full SHA and reached `Live`.
+  No migration, rollback, environment change or feature activation was part of the deployment.
 - Direct Render `/health`, `/ready`, `/api/v1/status` and Pages-proxied `/api/health`, `/api/ready`,
-  `/api/v1/status` returned HTTP 200 with `Cache-Control: no-store` (6/6).
+  `/api/v1/status` returned HTTP 200 with `Cache-Control: no-store` (6/6) after deployment.
 - Anonymous direct and Pages-proxied tenant capability reads returned HTTP 401 with
-  `Cache-Control: no-store` (2/2).
+  `Cache-Control: no-store`, `Referrer-Policy: no-referrer` and Problem Details content type (2/2).
 - The authenticated organization-admin projection showed both `Tải tệp lên` and
   `Thông báo trong ứng dụng` as effective `Đang tắt`; the browser console had no warning/error.
-- These are baseline observations only and must be repeated on the exact candidate before `DONE`.
+- The deployed Calendar toolbar exposed five actions with `flex-wrap: wrap`; every visible action
+  remained inside the calendar main region, the document had no horizontal overflow and the
+  browser console remained clean.
 
 ## Deferred carry-over register
 
@@ -84,6 +94,7 @@ job remains the authoritative container-backed gate.
 
 ## Current decision
 
-P3-14-CORE remains `VERIFY` until exact candidate CI, deployment and repeated live acceptance
-are green. No deferred item is treated as passed, no
+P3-14-CORE is `DONE`. The runnable Phase 3 lane has fresh local, disposable, exact CI/security,
+deployment, accessibility, tenant-isolation and staging evidence, and the carry-over boundary is
+explicit. Phase 4 Classroom Media work may start. No deferred item is treated as passed, no
 asynchronous side effect is activated, and full P3-14/Phase 3 remain `TODO`.
