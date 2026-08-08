@@ -190,7 +190,7 @@ hoặc worker-driven file processing/sharing tới end user.
 | Task            | Trạng thái | Ghi chú                                                    |
 | --------------- | ---------- | ---------------------------------------------------------- |
 | P4-00           | DONE       | ADR-0030 + Phase 4 backlog; không migration/deploy         |
-| P4-MEDIA-UX-00 | TODO       | Research prejoin/lobby/effects; song song P4-01/P4-02     |
+| P4-MEDIA-UX-00 | TODO       | Research prejoin/layout/signals/effects; song song P4-01/02 |
 | P4-01           | TODO       | MediaSpace lifecycle/schema/API core, feature mặc định off |
 | P4-02           | TODO       | RoomInstance credential + signed webhook database binding  |
 | P4-03 đến P4-10 | TODO       | Prejoin/lobby/UI/moderation/chat/reconnect/telemetry       |
@@ -205,7 +205,8 @@ end-user room. Trước P4-08 phải review/amend ADR-0013/0025 vì conversation
 `direct` và `class`.
 
 `P4-MEDIA-UX-00` không đổi task hiện tại: có thể chạy song song P4-01/P4-02 nhưng phải
-`DONE` trước phần UX/effects của P4-03/P4-04/P4-05. Chỉ audit V1 read-only và prototype
+`DONE` trước phần UX/signals/effects của P4-03/P4-04/P4-05/P4-06. Phạm vi gồm prejoin/lobby,
+layout 2/5/25/50, hand raise/reaction và media effects. Chỉ audit V1 read-only và prototype
 cô lập; không thêm production dependency/provider/route/deploy trước evidence + ADR/amendment.
 
 Phase 4 không được làm mất Phase 3 carry-over register. Notification/email/reminder,

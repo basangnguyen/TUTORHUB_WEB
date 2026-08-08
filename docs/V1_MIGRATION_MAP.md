@@ -23,7 +23,7 @@ Audit phát hiện V1 có cấu hình endpoint phân tán, một số giá trị
 | Main shell/search/profile | `MainDashboard`, `HeaderPanel`, `ProfileTab`, `client/search` | Thiết kế React responsive, route-based | MVP/P1 |
 | Classes/accepted/invite | `ClassManagerTab`, `AcceptedClassTab`, dialog lớp | Giữ quy tắc nghiệp vụ, viết API và UI mới | MVP |
 | Schedule/tasks | `ScheduleTab`, `TaskTab`, CalendarFX | Chuyển model lịch; UI web mới | MVP/P1 |
-| Live classroom | `BlackboardFrame`, `PreJoinDialog`, `lobby-manager.js`, board resources | Tái dùng ý tưởng/flow/test case qua P4-MEDIA-UX-00; dùng LiveKit React components/API mới, không port authority/code V1 | P4 |
+| Live classroom | `BlackboardFrame`, `PreJoinDialog`, `lobby-manager.js`, `video-layout.js`, `roster.js`, `room-roster-manager.js`, board resources | Tái dùng ý tưởng/flow/test case qua P4-MEDIA-UX-00; dùng LiveKit React components/API mới, không port authority/code V1 | P4 |
 | Whiteboard/tools | `frontend-board`, `tldraw_board_v2.html` | Dùng làm đặc tả; engine/license/sync phải qua P5-COLLAB-00 và ADR, bỏ bridge JCEF | Phase 5 |
 | Chat/Lavie | `ChatTab`, `client/ai`, `ai_chat.html`, `app.py` | Chat người-người P1; Lavie tách riêng P3 | P1/P3 |
 | Drive/files | `DriveTab`, `client/drive`, B2 code | Viết lại presigned upload + metadata + scan | P1 |
@@ -47,8 +47,9 @@ Audit phát hiện V1 có cấu hình endpoint phân tán, một số giá trị
 ### Chỉ tái sử dụng như đặc tả
 
 - Java Swing UI và navigation.
-- Lobby/prejoin V1: device/preview/mic-meter/speaker-test/background/waiting use case; implementation
-  global DOM/JCEF/CDN/localStorage và client-owned admission không được port sang P4.
+- Classroom media V1: device/preview/mic-meter/speaker-test/background/waiting, grid/speaker/share,
+  hand queue/reaction use case; global DOM/JCEF/CDN/localStorage, client metadata/DataChannel
+  authority và client-clock FIFO không được port sang P4.
 - Java socket packet protocol.
 - DAO SQL gắn chặt schema cũ.
 - JCEF bridge, JavaFX media bridge và local filesystem flow.
@@ -95,7 +96,7 @@ Trong giai đoạn V1 và V2 cùng chạy, adapter legacy chuyển packet/model 
 | Quyền hiện nằm ở UI hoặc handler rời rạc | Authorization policy tập trung và deny tests |
 | Bảng trắng/resource rất lớn | Module hóa, lazy load, performance budget |
 | Media tải lớn và phụ thuộc mạng | Prejoin, adaptive streaming, reconnect, upload multipart |
-| Lobby/effect V1 thiếu capability/privacy/license gate | P4-MEDIA-UX-00 benchmark lại, prototype cô lập và ADR/amendment trước production dependency |
+| Lobby/layout/signal/effect V1 thiếu authority/capability/privacy/a11y/license gate | P4-MEDIA-UX-00 benchmark lại, prototype cô lập và ADR/amendment trước production dependency |
 | Secure Exam bị hiểu nhầm là web capability | Native boundary rõ ràng và signed handoff |
 
 ## 7. Điều chưa xác minh trong Phase 0

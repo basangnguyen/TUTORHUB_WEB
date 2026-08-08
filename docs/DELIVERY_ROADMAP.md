@@ -83,9 +83,10 @@ và P4-01 là vertical slice kế tiếp. `P3-02D-B` auto-close/fan-out/delivery
 worker/provider tiếp tục là carry-over, không bị coi là PASS.
 
 [P4-MEDIA-UX-00](P4_MEDIA_UX_00_RESEARCH_SPIKE.md) là research lane chạy song song
-P4-01/P4-02 để benchmark Zoom/Google Meet, audit V1 và chốt LiveKit/browser effect/audio
-path bằng evidence. Task không đổi provider hoặc critical path, nhưng phải `DONE` trước phần
-UX/effects của P4-03/P4-04/P4-05.
+P4-01/P4-02 để benchmark Zoom/Google Meet/LiveKit, audit V1 và chốt prejoin/lobby,
+grid/active-speaker/presentation 2-50, hand raise/reaction, effect/audio path bằng evidence.
+Task không đổi provider hoặc critical path, nhưng phải `DONE` trước phần UX/signals/effects của
+P4-03/P4-04/P4-05/P4-06.
 
 Phase 5 bắt đầu bằng [P5-COLLAB-00](P5_COLLAB_00_RESEARCH_SPIKE.md): so sánh engine,
 license, document authority và realtime topology bằng prototype/evidence trước khi thêm

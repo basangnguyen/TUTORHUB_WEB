@@ -42,13 +42,15 @@ provider config, shared staging write hoặc deploy. Full P3-14/Phase 3 carry-ov
 ### Forward plan P4-MEDIA-UX-00 đăng ký ngày 2026-08-09
 
 [P4-MEDIA-UX-00](P4_MEDIA_UX_00_RESEARCH_SPIKE.md) đã được thêm làm decision spike cho
-prejoin, lobby và media effects. Task benchmark current official Zoom/Google Meet, audit V1
-read-only và so sánh native browser capability, LiveKit track-processors, MediaPipe fallback,
-WebRTC audio processing cùng Krisp go/no-go trên một ma trận performance/privacy/license/
-accessibility có thể tái lập.
+prejoin/lobby, layout lớp học 2-50 người, hand raise/reaction và media effects. Task benchmark
+current official Zoom/Google Meet/LiveKit, audit V1 read-only và so sánh native browser capability,
+LiveKit layout primitives/track-processors, MediaPipe fallback, WebRTC audio processing cùng
+Krisp go/no-go trên một ma trận performance/privacy/license/accessibility có thể tái lập.
 
-Task giữ `TODO`, có thể chạy song song P4-01/P4-02 nhưng phải `DONE` trước phần UX/effects của
-P4-03/P4-04/P4-05. P4-01 vẫn là vertical slice hiện tại. Chưa thêm production dependency,
+Task giữ `TODO`, có thể chạy song song P4-01/P4-02 nhưng phải `DONE` trước phần UX/signals/effects
+của P4-03/P4-04/P4-05/P4-06. Layout research phải chứng minh grid/active-speaker/presentation ở
+2/5/25/50; signal research phải khóa server FIFO/resync/rate-limit với `CanPublishData=false`.
+P4-01 vẫn là vertical slice hiện tại. Chưa thêm production dependency,
 route, migration, service, provider config, shared-staging write hoặc deploy; kết quả hợp lệ có
 thể là ship P4 không effect nếu performance/privacy/accessibility/license gate không đạt.
 

@@ -86,9 +86,10 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
   feature-off rollout. `docs/PHASE_4_BACKLOG.md` là nguồn thực thi mới; P4-01
   MediaSpace lifecycle/schema/API core là vertical slice kế tiếp. P4-00 không migration,
   deploy, thêm dependency hay bật media feature.
-- P4-MEDIA-UX-00 đã được đăng ký làm research spike cho green room, lobby, background/effects,
-  audio processing và degraded fallback. Task `TODO` chạy song song P4-01/P4-02, phải đạt trước
-  phần UX/effects của P4-03/P4-04/P4-05 và chưa cho phép thêm production dependency/provider.
+- P4-MEDIA-UX-00 đã được đăng ký làm research spike cho green room/lobby, layout 2-50 người,
+  hand raise/reaction, background/effects, audio processing và degraded fallback. Task `TODO`
+  chạy song song P4-01/P4-02, phải đạt trước phần UX/signals/effects của P4-03/P4-04/P4-05/P4-06
+  và chưa cho phép thêm production dependency/provider.
 - P5-COLLAB-00 đã được đăng ký làm research spike tương lai cho whiteboard engine,
   document/sync authority, license và realtime topology. Task vẫn `TODO`, không chặn P4-01
   và không cho phép thêm production dependency/runtime trước prototype, evidence và ADR.
@@ -146,7 +147,7 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
 38. [ADR-0024: Forward-only security correction cho Availability Poll maintenance purge](docs/adr/0024-forward-maintenance-purge-security.md)
 39. [Backlog Phase 4](docs/PHASE_4_BACKLOG.md)
 40. [ADR-0030: Authoritative Classroom Media spaces, lifecycle và LiveKit grants](docs/adr/0030-authoritative-classroom-media-spaces-lifecycle-and-livekit-grants.md)
-41. [P4-MEDIA-UX-00: Prejoin, lobby và media-effects research spike](docs/P4_MEDIA_UX_00_RESEARCH_SPIKE.md)
+41. [P4-MEDIA-UX-00: Classroom media UX research spike](docs/P4_MEDIA_UX_00_RESEARCH_SPIKE.md)
 42. [P5-COLLAB-00: Whiteboard engine và collaboration topology research spike](docs/P5_COLLAB_00_RESEARCH_SPIKE.md)
 
 Các quyết định kiến trúc đã chấp nhận nằm trong `docs/adr`.

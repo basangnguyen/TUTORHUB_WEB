@@ -96,22 +96,28 @@ Phần này dựa trên tài liệu công khai chính thức, không tuyên bố
 - Không chia microservice theo danh từ sản phẩm khi chưa có tải, ownership và nhu cầu triển khai độc lập.
 - Không xem số lượng tính năng của đối thủ là tiêu chí hoàn thành; độ tin cậy của luồng học chính quan trọng hơn.
 
-### 3.3 P4-MEDIA-UX-00: benchmark UX và effect có evidence
+### 3.3 P4-MEDIA-UX-00: benchmark classroom media UX có evidence
 
-Nghiên cứu kiến trúc ở 3.1 không thay thế product/performance spike cho green room, lobby và
-media effects. [P4-MEDIA-UX-00](P4_MEDIA_UX_00_RESEARCH_SPIKE.md) phải:
+Nghiên cứu kiến trúc ở 3.1 không thay thế product/performance spike cho green room/lobby,
+classroom layout, participant signals và media effects.
+[P4-MEDIA-UX-00](P4_MEDIA_UX_00_RESEARCH_SPIKE.md) phải:
 
-- benchmark current official Zoom/Google Meet cho preview, device test, background/effects,
-  waiting room, degraded mode và accessibility; chỉ lấy pattern, không sao chép UI/asset;
-- audit TutorHub V1 read-only để tái dùng use case/test từ lobby, mic meter, speaker test,
-  blur/static background và waiting flow; không port JCEF/global/client-owned authority;
+- benchmark current official Zoom/Google Meet cho preview/device, waiting room,
+  grid/active-speaker/presentation, hand raise/reaction, effects/degraded mode và accessibility;
+  chỉ lấy pattern, không sao chép UI/asset;
+- audit TutorHub V1 read-only để tái dùng use case/test từ lobby/device, layout/screen-share,
+  roster/hand/reaction và effects; không port JCEF/global/client metadata/DataChannel authority;
+- kiểm chứng LiveKit layout primitives cùng profile 2/5/25/50; chốt stable reorder,
+  pagination/rail, adaptive subscription, degrade và screen-share transitions;
+- chốt hand FIFO/moderator lifecycle/resync cùng reaction allowlist/TTL/grouping/rate-limit và
+  a11y; Core API vẫn authoritative, `CanPublishData=false`;
 - so sánh native browser capability, LiveKit track-processors, MediaPipe fallback, WebRTC audio
   defaults và Krisp go/no-go trên cùng browser/performance/privacy/license/accessibility matrix;
 - tạo prototype cô lập và ADR/amendment trước production dependency. Kết quả hợp lệ có thể là
   ship Phase 4 không effect nếu evidence không đạt.
 
 Task chạy song song P4-01/P4-02, không đổi LiveKit provider hoặc critical path và phải `DONE`
-trước phần UX/effects của P4-03/P4-04/P4-05.
+trước phần UX/signals/effects của P4-03/P4-04/P4-05/P4-06.
 
 ## 4. Tầm nhìn sản phẩm web
 
@@ -458,7 +464,7 @@ Mỗi module có thể gồm `domain`, `application`, `repository`, `transport`.
 | ------------------------------ | --------------------------------------------- |
 | Camera/mic/screen share        | LiveKit WebRTC                                |
 | Active speaker/network quality | LiveKit event                                 |
-| Hand raise/reaction tạm        | LiveKit DataChannel hoặc room metadata        |
+| Hand raise/reaction tạm        | Core API authorized/rate-limited; UI nhận projection/resync |
 | Persistent chat                | Core API ghi DB; SSE/WebSocket phát sự kiện   |
 | Notification badge             | SSE trước, WebSocket khi có nhu cầu hai chiều |
 | Whiteboard                     | Engine/provider WebSocket theo ADR            |
@@ -1512,7 +1518,7 @@ class-wide spike bằng `MediaSpace -> RoomInstance -> ParticipantSession` có s
 lifecycle và moderation authority. Feature/catalog cùng deployment guardrail giữ force-off;
 P4-00 không migration/deploy. P4-01 MediaSpace lifecycle/schema/API core là task kế tiếp.
 P4-MEDIA-UX-00 là research lane song song, không chặn P4-01/P4-02 nhưng phải chốt evidence và
-ADR/amendment trước phần UX/effects của P4-03/P4-04/P4-05.
+ADR/amendment trước phần UX/signals/effects của P4-03/P4-04/P4-05/P4-06.
 
 **Thời lượng:** 6-8 tuần.
 
@@ -1526,7 +1532,8 @@ vẫn dùng class policy teacher/admin, không suy từ ownership của Study Me
 **Work package:**
 
 Research gate: [P4-MEDIA-UX-00](P4_MEDIA_UX_00_RESEARCH_SPIKE.md) benchmark current official
-Zoom/Google Meet, audit V1 và chốt prejoin/lobby/effect/audio fallback; không đổi provider.
+Zoom/Google Meet/LiveKit, audit V1 và chốt prejoin/lobby, layout 2-50, hand/reaction cùng
+effect/audio fallback; không đổi provider hoặc signal authority.
 
 1. Meeting/study space, member-owned instant room, instance và participant session.
 2. Lobby/waiting room/admission.
@@ -1552,7 +1559,8 @@ Zoom/Google Meet, audit V1 và chốt prejoin/lobby/effect/audio fallback; khôn
 - Time to media p95 dưới 10 giây.
 - Test 50 người/profile hoặc giới hạn thấp hơn đã công bố.
 - Moderation server-authorized.
-- P4-MEDIA-UX-00 evidence + ADR/amendment đạt; effect nếu được chọn luôn có no-effect fallback.
+- P4-MEDIA-UX-00 evidence + ADR/amendment đạt cho layout/signals/effects; effect nếu được chọn
+  luôn có no-effect fallback và hand/reaction vẫn giữ Core API authority.
 - Không có media đi qua Core API.
 - Có runbook LiveKit/provider outage.
 - Recording vẫn tắt trừ test có kiểm soát.
@@ -2140,9 +2148,10 @@ P4-00 đã `DONE` bằng ADR-0030 và `docs/PHASE_4_BACKLOG.md`: room authority,
 opaque LiveKit identity, signed webhook mapping, lobby/moderation, feature-off rollout,
 privacy/retention và P1 compatibility đã chốt. P4-01 là implementation slice kế tiếp;
 chưa có migration, provider change hoặc feature activation từ P4-00.
-P4-MEDIA-UX-00 đã được đăng ký `TODO` để benchmark Zoom/Meet, audit V1 và chốt
-prejoin/lobby/effect/audio path. Task chạy song song P4-01/P4-02, không đổi task hiện tại và
-không cho phép production dependency/provider trước evidence + ADR/amendment.
+P4-MEDIA-UX-00 đã được đăng ký `TODO` để benchmark Zoom/Meet/LiveKit, audit V1 và chốt
+prejoin/lobby, layout 2-50, hand/reaction cùng effect/audio path. Task chạy song song P4-01/P4-02,
+không đổi task hiện tại và không cho phép production dependency/provider hoặc client-owned
+signal authority trước evidence + ADR/amendment.
 Không bật side effect chỉ vì core đã có. `P3-02D-B` và các gate worker/provider vẫn là
 carry-over.
 AWS SES đã được chọn làm provider target nhưng
