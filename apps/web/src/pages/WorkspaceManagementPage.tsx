@@ -308,6 +308,7 @@ export function WorkspaceManagementPage() {
           </section>
 
           <TenantFeatureControlsPanel
+            actorID={session.currentUser?.user.id ?? ""}
             capabilities={tenantCapabilities}
             tenantID={tenant.id}
           />

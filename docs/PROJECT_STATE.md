@@ -14,8 +14,22 @@
 | Phase hiện tại       | Phase 3 - Daily learning workspace                                                    |
 | Task `DONE` gần nhất | P3-12 Home dashboard và PostgreSQL search cơ bản                                      |
 | Mốc repository mới   | P3-12 candidate `1c73c52` Live; shared Neon `28 false`                                |
-| Task hiện tại        | P3-13 Offline/retry drafts và Phase 3 quota closure — `TODO`                          |
-| Task tiếp theo       | Scope/readiness review và bắt đầu vertical slice P3-13                                |
+| Task hiện tại        | P3-13 Offline/retry drafts và Phase 3 quota closure — `VERIFY`                        |
+| Task tiếp theo       | Push exact P3-13 candidate, chạy CI/security và deployed acceptance                  |
+
+### Checkpoint P3-13 `VERIFY` ngày 2026-08-08
+
+ADR-0029 chốt vertical slice không migration: chỉ admin feature/quota draft không nhạy cảm được
+lưu trong `sessionStorage` với TTL/size/scope actor-tenant; logout, 401 và workspace switch purge
+đúng prefix. Mutation chỉ opt-in auto-retry một lần cho network/5xx khi request đã có stable
+idempotency key; 4xx/quota/conflict và B2 transfer tiếp tục không auto-retry.
+
+Web catalog bao phủ exact 9 feature/17 quota. Go quota-rejection metrics lấy label từ compiled
+catalog và bỏ qua runtime label không xác định. Full `pnpm verify` PASS với 55 web file/262 test,
+toàn bộ Go test/vet, build/Storybook/security. Neon disposable feature-control integration PASS
+với exact runtime ACL và ledger giữ `28 false`; không migration, rollback, shared staging write
+hoặc deploy. Exact candidate CI/security và deployed Admin acceptance còn mở; bằng chứng chi tiết
+ở `docs/P3_13_STAGING_ACCEPTANCE.md`.
 
 ### Checkpoint P3-12 `DONE` ngày 2026-08-08
 

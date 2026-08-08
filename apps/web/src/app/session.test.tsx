@@ -143,6 +143,7 @@ function authenticatedResponse() {
 describe("remote session provider", () => {
   afterEach(() => {
     cleanup();
+    sessionStorage.clear();
     vi.unstubAllGlobals();
   });
 
@@ -197,6 +198,7 @@ describe("remote session provider", () => {
 
   it("clears cached authenticated data after a successful sign-out boundary", async () => {
     const queryClient = new QueryClient();
+    sessionStorage.setItem("tutorhub:draft:v1:test", "private-draft");
     queryClient.setQueryData(["auth", "me"], { user: "student" });
     queryClient.setQueryData(["profile", "detail"], { name: "Student" });
     queryClient.setQueryData(["classes", "tenant-a", "list"], ["class-a"]);
@@ -205,6 +207,7 @@ describe("remote session provider", () => {
 
     expect(queryClient.getQueryCache().getAll()).toHaveLength(0);
     expect(queryClient.getMutationCache().getAll()).toHaveLength(0);
+    expect(sessionStorage.getItem("tutorhub:draft:v1:test")).toBeNull();
   });
 
   it("purges private caches and rechecks /me after a mutation-only 401", async () => {

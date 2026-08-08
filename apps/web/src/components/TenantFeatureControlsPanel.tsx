@@ -9,47 +9,24 @@ import {
   TextField,
 } from "@tutorhub/ui";
 import { RefreshCw, Save, SlidersHorizontal } from "lucide-react";
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
+import {
+  readTenantFeatureControlDraft,
+  removeTenantFeatureControlDraft,
+  writeTenantFeatureControlDraft,
+  type TenantFeatureControlDraft,
+} from "../app/clientDrafts";
+import {
+  tenantFeatureKeys as featureKeys,
+  tenantQuotaKeys as quotaKeys,
+  type TenantFeatureKey as FeatureKey,
+  type TenantQuotaKey as QuotaKey,
+} from "../app/featureControlCatalog";
 import { useI18n, type TranslationKey } from "../app/i18n";
 import {
   useTenantCapabilities,
   useUpdateTenantFeatureControls,
 } from "../app/tenantCapabilities";
-
-type FeatureKey = keyof TenantCapabilities["features"];
-type QuotaKey = keyof TenantCapabilities["quotas"];
-
-const featureKeys = [
-  "membership_invitations",
-  "class_management",
-  "class_invite_links",
-  "class_session_scheduling",
-  "class_session_recurrence",
-  "conversations",
-  "file_uploads",
-  "in_app_notifications",
-  "availability_polls",
-] as const satisfies readonly FeatureKey[];
-
-const quotaKeys = [
-  "members",
-  "active_classes",
-  "invite_creations_per_hour",
-  "active_availability_polls",
-  "availability_poll_range_days",
-  "availability_poll_slots",
-  "availability_poll_participants",
-  "availability_poll_creations_per_hour",
-  "availability_poll_capability_creations_per_hour",
-  "active_study_meetings",
-  "study_meeting_creations_per_hour",
-  "messages_per_tenant",
-  "message_sends_per_hour",
-  "files_per_tenant",
-  "file_bytes_per_tenant",
-  "single_file_bytes",
-  "file_upload_intents_per_hour",
-] as const satisfies readonly QuotaKey[];
 
 const featureLabelKeys: Record<FeatureKey, TranslationKey> = {
   availability_polls: "capabilities.featureAvailabilityPolls",
@@ -86,14 +63,7 @@ const quotaLabelKeys: Record<QuotaKey, TranslationKey> = {
   members: "capabilities.quotaMembers",
 };
 
-interface ControlsDraft {
-  base: {
-    tenantID: string;
-    version: number;
-  };
-  features: Record<FeatureKey, boolean>;
-  quotas: Record<QuotaKey, string>;
-}
+type ControlsDraft = TenantFeatureControlDraft;
 
 function configuredFeature(capabilities: TenantCapabilities, key: FeatureKey) {
   return (
@@ -212,9 +182,11 @@ function isConflict(error: Error | null) {
 }
 
 export function TenantFeatureControlsPanel({
+  actorID,
   capabilities: capabilitiesQuery,
   tenantID,
 }: {
+  actorID: string;
   capabilities: ReturnType<typeof useTenantCapabilities>;
   tenantID: string;
 }) {
@@ -351,7 +323,9 @@ export function TenantFeatureControlsPanel({
 
       {capabilities.can_manage_overrides ? (
         <TenantFeatureControlsForm
+          actorID={actorID}
           capabilities={capabilities}
+          key={`${actorID}:${tenantID}`}
           onReload={() => capabilitiesQuery.refetch()}
         />
       ) : (
@@ -364,16 +338,22 @@ export function TenantFeatureControlsPanel({
 }
 
 function TenantFeatureControlsForm({
+  actorID,
   capabilities,
   onReload,
 }: {
+  actorID: string;
   capabilities: TenantCapabilities;
   onReload: () => Promise<unknown>;
 }) {
   const { t } = useI18n();
   const updateControls = useUpdateTenantFeatureControls();
-  const [draftOverride, setDraftOverride] = useState<ControlsDraft | null>(
-    null,
+  const draftScope = useMemo(
+    () => ({ actorID, tenantID: capabilities.tenant_id }),
+    [actorID, capabilities.tenant_id],
+  );
+  const [draftOverride, setDraftOverride] = useState<ControlsDraft | null>(() =>
+    readTenantFeatureControlDraft(draftScope),
   );
   const [quotaErrors, setQuotaErrors] = useState<
     Partial<Record<QuotaKey, string>>
@@ -386,6 +366,14 @@ function TenantFeatureControlsForm({
       ? draftOverride
       : controlsDraft(capabilities);
   const changed = draftChanged(draft, capabilities);
+
+  useEffect(() => {
+    if (draftOverride && draftChanged(draftOverride, capabilities)) {
+      writeTenantFeatureControlDraft(draftScope, draftOverride);
+      return;
+    }
+    removeTenantFeatureControlDraft(draftScope);
+  }, [capabilities, draftOverride, draftScope]);
 
   const updateFeature = (key: FeatureKey, enabled: boolean) => {
     setDraftOverride((current) => {
@@ -476,6 +464,7 @@ function TenantFeatureControlsForm({
       },
       {
         onSuccess: () => {
+          removeTenantFeatureControlDraft(draftScope);
           setDraftOverride(null);
           setFeedback(t("capabilities.updateSuccess"));
         },
@@ -485,6 +474,7 @@ function TenantFeatureControlsForm({
 
   const reload = async () => {
     await onReload();
+    removeTenantFeatureControlDraft(draftScope);
     setDraftOverride(null);
     setQuotaErrors({});
     setFeedback(null);
@@ -550,6 +540,12 @@ function TenantFeatureControlsForm({
       {feedback && (
         <p className="workspace-management__success" role="status">
           {feedback}
+        </p>
+      )}
+
+      {changed && !feedback && (
+        <p className="tenant-controls__draft-status" role="status">
+          {t("capabilities.draftSaved")}
         </p>
       )}
 

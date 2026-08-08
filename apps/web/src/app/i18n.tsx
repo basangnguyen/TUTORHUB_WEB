@@ -889,6 +889,8 @@ const messages = {
     "capabilities.updateAction": "Lưu tính năng và hạn mức",
     "capabilities.updating": "Đang lưu...",
     "capabilities.updateSuccess": "Đã cập nhật tính năng và hạn mức.",
+    "capabilities.draftSaved":
+      "Bản nháp cấu hình được giữ an toàn trong tab này cho đến khi lưu hoặc tải lại.",
     "capabilities.updateError":
       "Chưa thể cập nhật cấu hình. Hãy kiểm tra kết nối rồi thử lại.",
     "capabilities.updateInvalid":
@@ -2560,6 +2562,8 @@ const messages = {
     "capabilities.updateAction": "Save features and quotas",
     "capabilities.updating": "Saving...",
     "capabilities.updateSuccess": "Features and quotas updated.",
+    "capabilities.draftSaved":
+      "This configuration draft is kept in this tab until you save or reload it.",
     "capabilities.updateError":
       "The configuration could not be updated. Check the connection and retry.",
     "capabilities.updateInvalid":

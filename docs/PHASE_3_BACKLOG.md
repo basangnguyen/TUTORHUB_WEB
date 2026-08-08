@@ -36,7 +36,8 @@ approval có thể tiếp tục chuẩn bị song song.
 **Task `DONE` gần nhất:** `P3-12` Home dashboard và PostgreSQL search cơ bản hoàn tất ngày
 2026-08-08 trên candidate `1c73c52`; exact CI/security, Cloudflare/Render, public privacy probes,
 Teacher/Student, workspace cache isolation và accessibility acceptance đều PASS. **Task hiện
-tại:** `P3-13` Offline/retry drafts và Phase 3 quota closure ở `TODO`.
+tại:** `P3-13` Offline/retry drafts và Phase 3 quota closure ở `VERIFY`; local/disposable gate
+đã xanh, exact candidate CI/security và deployed acceptance còn mở.
 P3-10 processing tiếp tục `DEFERRED/TODO` theo worker dependency.
 `P3-02D-B` lifecycle delivery/
 auto-close/fan-out và các gate P3-03B/P3-CAL-02/P3-05A/B là carry-over, không nằm trong
@@ -118,7 +119,7 @@ processing/sharing tới end user.
 | P3-11A     | Class Files transfer-core UI (gate off)        | P3-09                                         | DONE            |
 | P3-11B     | File processing/thumbnail/rejected UX          | P3-10, P3-11A                                 | DEFERRED/TODO   |
 | P3-12      | Home dashboard và PostgreSQL search cơ bản     | P3-01, P3-07A, P3-11A                         | DONE            |
-| P3-13      | Offline/retry drafts và Phase 3 quota closure  | P3-02D-A, P3-07A, P3-11A                      | TODO            |
+| P3-13      | Offline/retry drafts và Phase 3 quota closure  | P3-02D-A, P3-07A, P3-11A                      | VERIFY          |
 | P3-14-CORE | Core Exit sign-off (cho phép bắt đầu Phase 4)  | P3-02D-A, P3-07A, P3-09, P3-11A, P3-12, P3-13 | TODO            |
 | P3-14      | Full staging acceptance và đóng Phase 3        | carry-over + P3-12/P3-13                      | TODO            |
 
@@ -1121,12 +1122,24 @@ không mở rộng sang P3-11B, activation hoặc public milestone.
 
 ## 20. P3-13 Offline/retry drafts và Phase 3 quota closure
 
+**Trạng thái:** `VERIFY` từ 2026-08-08; ADR-0029 chốt vertical slice không migration.
+
 - Chỉ draft không nhạy cảm được lưu client; không lưu token/signed URL/message đã gửi.
 - Retry mutation dùng idempotency key khi có khả năng submit lại tự động.
 - Hợp nhất feature/quota catalog, admin visibility và dashboard cho scheduling, poll,
   message/file; enforcement/kill switch/hard cap bắt buộc đã nằm trong task nguồn
   P3-01/P3-02D/P3-07/P3-08, không chờ closure mới thêm.
 - Quota rejection có typed problem, bounded metric và cleanup path; không xóa dữ liệu cũ.
+- [x] Admin feature/quota draft dùng schema allowlist, `sessionStorage`, TTL 8 giờ, giới hạn
+      16 KiB và scope actor/tenant; save/reload/logout/401/workspace switch purge đúng prefix.
+- [x] Mutation có stable idempotency key được opt-in retry tối đa một lần cho network/5xx;
+      4xx/quota/conflict và B2 transfer không auto-retry.
+- [x] Web catalog bao phủ exact 9 feature/17 quota; Go metric labels lấy từ compiled quota
+      catalog, giữ cardinality bounded và bỏ qua runtime label không xác định.
+- [x] Full local `pnpm verify`, web 55 file/262 test và Neon disposable feature-control
+      integration PASS; schema giữ `28 false`, không rollback/shared migration.
+- [ ] Exact candidate CI/security và deployed Admin privacy/retry/quota acceptance trước khi
+      chuyển `VERIFY -> DONE`.
 
 ## 21. P3-14 Staging acceptance và exit gate
 

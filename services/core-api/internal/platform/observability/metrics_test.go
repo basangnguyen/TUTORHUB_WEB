@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/tutorhub-v2/core-api/internal/modules/featurecontrol"
 )
 
 func TestMetricsRecordsHTTPActivity(t *testing.T) {
@@ -42,6 +44,8 @@ func TestMetricsHandlerUsesPrometheusTextFormat(t *testing.T) {
 	metrics := NewMetrics()
 	metrics.RequestStarted()
 	metrics.RequestCompleted(http.StatusNotFound, time.Millisecond)
+	metrics.QuotaRejected(string(featurecontrol.QuotaMessageSendsPerHour))
+	metrics.QuotaRejected("untrusted_runtime_value")
 
 	response := httptest.NewRecorder()
 	metrics.Handler().ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/metrics", nil))
@@ -57,6 +61,15 @@ func TestMetricsHandlerUsesPrometheusTextFormat(t *testing.T) {
 	}
 	if !strings.Contains(response.Body.String(), "tutorhub_calendar_recurrence_expansions_total 0") {
 		t.Fatalf("expected recurrence metrics in output, got %q", response.Body.String())
+	}
+	if !strings.Contains(
+		response.Body.String(),
+		`tutorhub_quota_rejections_total{quota="message_sends_per_hour"} 1`,
+	) {
+		t.Fatalf("expected message quota metric in output, got %q", response.Body.String())
+	}
+	if strings.Contains(response.Body.String(), "untrusted_runtime_value") {
+		t.Fatalf("unknown quota label reached metrics output: %q", response.Body.String())
 	}
 }
 

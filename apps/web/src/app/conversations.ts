@@ -25,6 +25,10 @@ import {
 } from "@tutorhub/api-client";
 import { invalidateTenantAudit } from "./audit";
 import {
+  idempotentMutationRetryDelay,
+  shouldRetryIdempotentMutation,
+} from "./idempotentMutation";
+import {
   invalidateTenantCapabilities,
   tenantOperationAvailability,
   type TenantOperationAvailability,
@@ -178,7 +182,8 @@ export function useSendConversationMessage(
         invalidateTenantCapabilities(queryClient, tenantID),
       ]);
     },
-    retry: false,
+    retry: shouldRetryIdempotentMutation,
+    retryDelay: idempotentMutationRetryDelay,
     scope: conversationCSRFMutationScope,
   });
 }

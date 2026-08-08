@@ -7,6 +7,10 @@ import {
   type PublicAvailabilityPollExchange,
   type PublicAvailabilityPollMutationResponse,
 } from "@tutorhub/api-client";
+import {
+  idempotentMutationRetryDelay,
+  shouldRetryIdempotentMutation,
+} from "./idempotentMutation";
 
 function getApiBaseUrl() {
   return import.meta.env.VITE_API_BASE_URL ?? "/api";
@@ -87,6 +91,7 @@ export function useRespondPublicAvailabilityPoll(
           exchange ? { ...exchange, poll: result.poll } : exchange,
       );
     },
-    retry: false,
+    retry: shouldRetryIdempotentMutation,
+    retryDelay: idempotentMutationRetryDelay,
   });
 }

@@ -54,6 +54,9 @@ func TestCatalogDefaultsAndStableOrder(t *testing.T) {
 	}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("quota catalog order = %v, want %v", got, want)
 	}
+	if got := QuotaKeys(); !reflect.DeepEqual(got, quotaKeys(quotas)) {
+		t.Fatalf("bounded quota metric keys = %v, want %v", got, quotaKeys(quotas))
+	}
 	want := map[QuotaKey]QuotaDefinition{
 		QuotaMembers: {
 			Key: QuotaMembers, DefaultLimit: 100, MinimumLimit: 1, MaximumLimit: 10000,

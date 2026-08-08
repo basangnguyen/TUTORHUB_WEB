@@ -200,13 +200,21 @@ func (catalog *Catalog) Features() []FeatureDefinition {
 
 func (catalog *Catalog) Quotas() []QuotaDefinition {
 	definitions := make([]QuotaDefinition, 0, len(quotaDefinitions))
-	for _, definition := range quotaDefinitions {
-		definitions = append(definitions, definition)
+	for _, key := range QuotaKeys() {
+		definitions = append(definitions, quotaDefinitions[key])
 	}
-	sort.Slice(definitions, func(left, right int) bool {
-		return definitions[left].Key < definitions[right].Key
-	})
 	return definitions
+}
+
+// QuotaKeys returns a sorted copy of the complete compiled quota catalog. It is
+// safe for bounded observability labels and must never contain runtime values.
+func QuotaKeys() []QuotaKey {
+	keys := make([]QuotaKey, 0, len(quotaDefinitions))
+	for key := range quotaDefinitions {
+		keys = append(keys, key)
+	}
+	sort.Slice(keys, func(left, right int) bool { return keys[left] < keys[right] })
+	return keys
 }
 
 func (catalog *Catalog) FeatureDefinition(key FeatureKey) (FeatureDefinition, bool) {

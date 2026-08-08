@@ -7,6 +7,10 @@ import {
   type ExternalCalendarRSVPProjection,
   type SessionSelfRSVPState,
 } from "@tutorhub/api-client";
+import {
+  idempotentMutationRetryDelay,
+  shouldRetryIdempotentMutation,
+} from "./idempotentMutation";
 
 function getApiBaseUrl() {
   return import.meta.env.VITE_API_BASE_URL ?? "/api";
@@ -74,6 +78,7 @@ export function useRespondExternalCalendarRSVP(respondToken: string | null) {
         { baseUrl: getApiBaseUrl() },
       );
     },
-    retry: false,
+    retry: shouldRetryIdempotentMutation,
+    retryDelay: idempotentMutationRetryDelay,
   });
 }

@@ -6,7 +6,7 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import type { Conversation } from "@tutorhub/api-client";
+import type { Conversation, Message } from "@tutorhub/api-client";
 import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
@@ -14,6 +14,7 @@ import {
   useConversations,
   useCreateDirectConversation,
   useEnsureClassConversation,
+  useSendConversationMessage,
 } from "./conversations";
 
 const tenantID = "4b18543a-74de-419f-9fe8-d0c3dfc991eb";
@@ -40,6 +41,19 @@ const conversation: Conversation = {
   created_at: "2026-08-03T09:00:00Z",
   updated_at: "2026-08-03T09:00:00Z",
 };
+
+const sentMessage = {
+  id: "bd7375d9-0588-4b14-9567-06b230974975",
+  conversation_id: conversationID,
+  client_message_id: "78c0f30f-c4f8-4b66-bac3-e31db5062fb8",
+  sequence: 1,
+  author: conversation.participants[0]!,
+  state: "active",
+  content: "Retry safely",
+  version: 1,
+  created_at: "2026-08-08T12:00:00Z",
+  updated_at: "2026-08-08T12:00:00Z",
+} satisfies Message;
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -82,6 +96,26 @@ function MutationProbe() {
         class
       </button>
       <output>{direct.data?.id ?? classConversation.data?.id ?? "none"}</output>
+    </>
+  );
+}
+
+function MessageMutationProbe() {
+  const send = useSendConversationMessage(tenantID, conversationID);
+  return (
+    <>
+      <button
+        onClick={() =>
+          send.mutate({
+            client_message_id: sentMessage.client_message_id,
+            content: sentMessage.content ?? "",
+          })
+        }
+        type="button"
+      >
+        send
+      </button>
+      <output>{send.data?.id ?? "none"}</output>
     </>
   );
 }
@@ -208,5 +242,59 @@ describe("conversation queries", () => {
     );
     expect(ensureRequest?.headers.get("X-CSRF-Token")).toBe("class-csrf");
     expect(await ensureRequest?.clone().text()).toBe("");
+  });
+
+  it("retries one transient message failure with the same idempotency key", async () => {
+    const requests: Request[] = [];
+    let messageAttempts = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation((request: Request) => {
+        requests.push(request);
+        const path = new URL(request.url).pathname;
+        if (path.endsWith("/api/v1/auth/csrf")) {
+          return Promise.resolve(
+            jsonResponse({ csrf_token: `message-csrf-${requests.length}` }),
+          );
+        }
+        messageAttempts += 1;
+        return Promise.resolve(
+          messageAttempts === 1
+            ? jsonResponse(
+                {
+                  type: "urn:tutorhub:problem:http-503",
+                  title: "Temporarily unavailable",
+                  status: 503,
+                },
+                503,
+              )
+            : jsonResponse(sentMessage, 201),
+        );
+      }),
+    );
+    renderProbe(<MessageMutationProbe />);
+
+    fireEvent.click(screen.getByRole("button", { name: "send" }));
+    expect(await screen.findByText(sentMessage.id)).toBeInTheDocument();
+
+    const messageRequests = requests.filter((request) =>
+      new URL(request.url).pathname.endsWith(
+        `/api/v1/conversations/${conversationID}/messages`,
+      ),
+    );
+    expect(messageRequests).toHaveLength(2);
+    await expect(messageRequests[0]?.clone().json()).resolves.toEqual({
+      client_message_id: sentMessage.client_message_id,
+      content: sentMessage.content,
+    });
+    await expect(messageRequests[1]?.clone().json()).resolves.toEqual({
+      client_message_id: sentMessage.client_message_id,
+      content: sentMessage.content,
+    });
+    expect(
+      requests.filter((request) =>
+        new URL(request.url).pathname.endsWith("/api/v1/auth/csrf"),
+      ),
+    ).toHaveLength(2);
   });
 });

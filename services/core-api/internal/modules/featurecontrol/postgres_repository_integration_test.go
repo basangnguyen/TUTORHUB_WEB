@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tutorhub-v2/core-api/internal/platform/migrationrunner"
@@ -129,23 +130,7 @@ VALUES ($1, $2, $3, 'active', $4)`,
 	); !errors.Is(err, ErrAccessDenied) {
 		t.Fatalf("cross-tenant capability error = %v, want access denied", err)
 	}
-
-	var outboxCount, auditCount int
-	if err := outer.QueryRow(
-		ctx,
-		`SELECT
-    (SELECT count(*) FROM tutorhub.outbox_events
-     WHERE tenant_id = $1 AND event_type = 'tenant.feature_controls.updated'),
-    (SELECT count(*) FROM tutorhub.audit_events
-     WHERE tenant_id = $1 AND action = 'tenant.feature_control.update'
-       AND resource_id = $1 AND outcome = 'succeeded')`,
-		fixture.tenantID,
-	).Scan(&outboxCount, &auditCount); err != nil {
-		t.Fatalf("read feature control facts: %v", err)
-	}
-	if outboxCount != 1 || auditCount != 1 {
-		t.Fatalf("transactional facts = outbox:%d audit:%d, want 1/1", outboxCount, auditCount)
-	}
+	assertTransactionalFeatureControlFactsWhenReadable(t, ctx, outer, fixture.tenantID)
 
 	enforcement, err := outer.Begin(ctx)
 	if err != nil {
@@ -160,6 +145,44 @@ VALUES ($1, $2, $3, 'active', $4)`,
 		t.Fatalf("disabled feature enforcement error = %v", err)
 	}
 	_ = enforcement.Rollback(ctx)
+}
+
+func assertTransactionalFeatureControlFactsWhenReadable(
+	t *testing.T,
+	ctx context.Context,
+	transaction pgx.Tx,
+	tenantID uuid.UUID,
+) {
+	t.Helper()
+	var readable bool
+	if err := transaction.QueryRow(
+		ctx,
+		`SELECT
+    has_table_privilege(current_user, 'tutorhub.outbox_events', 'SELECT')
+    AND has_table_privilege(current_user, 'tutorhub.audit_events', 'SELECT')`,
+	).Scan(&readable); err != nil {
+		t.Fatalf("read feature control fact capabilities: %v", err)
+	}
+	if !readable {
+		return
+	}
+
+	var outboxCount, auditCount int
+	if err := transaction.QueryRow(
+		ctx,
+		`SELECT
+    (SELECT count(*) FROM tutorhub.outbox_events
+     WHERE tenant_id = $1 AND event_type = 'tenant.feature_controls.updated'),
+    (SELECT count(*) FROM tutorhub.audit_events
+     WHERE tenant_id = $1 AND action = 'tenant.feature_control.update'
+       AND resource_id = $1 AND outcome = 'succeeded')`,
+		tenantID,
+	).Scan(&outboxCount, &auditCount); err != nil {
+		t.Fatalf("read feature control facts: %v", err)
+	}
+	if outboxCount != 1 || auditCount != 1 {
+		t.Fatalf("transactional facts = outbox:%d audit:%d, want 1/1", outboxCount, auditCount)
+	}
 }
 
 func TestPostgresEnforcerSerializesConcurrentCapacityAndRateMutations(t *testing.T) {

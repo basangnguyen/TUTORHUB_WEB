@@ -273,7 +273,7 @@ describe("ConversationMessages", () => {
     ).toBe(0);
   });
 
-  it("retries Ctrl+Enter delivery with the same memory-only client message id", async () => {
+  it("automatically retries Ctrl+Enter delivery with the same memory-only client message id", async () => {
     const sendRequests: Request[] = [];
     let sendAttempts = 0;
     let sent = false;
@@ -324,12 +324,6 @@ describe("ConversationMessages", () => {
     fireEvent.change(composer, { target: { value: "  Retry me\r\n" } });
     fireEvent.keyDown(composer, { ctrlKey: true, key: "Enter" });
 
-    expect(
-      await screen.findByText(/message could not be saved/i),
-    ).toBeInTheDocument();
-    const retryButton = screen.getByRole("button", { name: "Retry send" });
-    retryButton.focus();
-    fireEvent.click(retryButton);
     expect(await screen.findByText("Message saved.")).toBeInTheDocument();
     await waitFor(() => expect(refreshAfterSendStarted).toBe(true));
     await waitFor(() => expect(composer).toHaveFocus());

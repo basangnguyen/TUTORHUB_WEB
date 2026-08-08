@@ -1,5 +1,6 @@
 import { MutationCache, QueryCache, QueryClient } from "@tanstack/react-query";
 import { APIRequestError } from "@tutorhub/api-client";
+import { clearClientDrafts } from "./clientDrafts";
 
 const currentUserQueryKey = ["auth", "me"] as const;
 const principalGenerations = new WeakMap<QueryClient, number>();
@@ -27,6 +28,7 @@ function isUnauthorized(error: unknown) {
 
 function purgePrivateCaches(queryClient: QueryClient) {
   advancePrincipalGeneration(queryClient);
+  clearClientDrafts();
   void queryClient.cancelQueries({
     predicate: (query) => !isCurrentUserQuery(query.queryKey),
   });
@@ -39,6 +41,7 @@ function purgePrivateCaches(queryClient: QueryClient) {
 
 export function clearExpiredSessionCaches(queryClient: QueryClient) {
   advancePrincipalGeneration(queryClient);
+  clearClientDrafts();
   queryClient.removeQueries({
     predicate: (query) => !isCurrentUserQuery(query.queryKey),
   });

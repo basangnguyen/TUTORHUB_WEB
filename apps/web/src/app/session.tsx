@@ -26,6 +26,7 @@ import {
   advancePrincipalGeneration,
   clearExpiredSessionCaches,
 } from "./queryClient";
+import { clearClientDrafts } from "./clientDrafts";
 
 export type SessionStatus =
   "loading" | "authenticated" | "unauthenticated" | "error";
@@ -59,6 +60,7 @@ function navigateToLogin(returnTo = "/app/home") {
 
 export async function clearPrivateSessionCache(queryClient: QueryClient) {
   advancePrincipalGeneration(queryClient);
+  clearClientDrafts();
   await queryClient.cancelQueries();
   queryClient.clear();
 }

@@ -28,6 +28,7 @@ function FeatureControlsHarness() {
   const capabilities = useTenantCapabilities(tenantID);
   return (
     <TenantFeatureControlsPanel
+      actorID="be85eb92-0f18-4163-85ba-50e4d343d632"
       capabilities={capabilities}
       tenantID={tenantID}
     />
@@ -54,7 +55,37 @@ function renderPanel(fetchMock: ReturnType<typeof vi.fn>) {
 describe("TenantFeatureControlsPanel", () => {
   afterEach(() => {
     cleanup();
+    sessionStorage.clear();
     vi.unstubAllGlobals();
+  });
+
+  it("restores a principal-bound unsaved control draft after a same-tab remount", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(() =>
+        Promise.resolve(jsonResponse(availableTenantCapabilities(tenantID))),
+      );
+    renderPanel(fetchMock);
+
+    fireEvent.change(
+      await screen.findByRole("spinbutton", {
+        name: "Message sends per hour",
+      }),
+      { target: { value: "6000" } },
+    );
+    expect(
+      await screen.findByText(/configuration draft is kept in this tab/i),
+    ).toBeInTheDocument();
+    await waitFor(() => expect(sessionStorage.length).toBe(1));
+
+    cleanup();
+    renderPanel(fetchMock);
+
+    expect(
+      await screen.findByRole("spinbutton", {
+        name: "Message sends per hour",
+      }),
+    ).toHaveValue(6000);
   });
 
   it("renders effective quotas with accessible meters and editable controls", async () => {

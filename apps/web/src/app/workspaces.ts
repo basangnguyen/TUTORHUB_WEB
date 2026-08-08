@@ -23,6 +23,7 @@ import {
 import { useEffect, useRef } from "react";
 import { invalidateTenantAudit } from "./audit";
 import { advancePrincipalGeneration } from "./queryClient";
+import { clearClientDrafts } from "./clientDrafts";
 import { useSession } from "./session";
 
 function getApiBaseUrl() {
@@ -76,6 +77,7 @@ function useTenantBoundaryPrincipal() {
     // Invalidate mutation snapshots synchronously before the first awaited
     // cancellation so a late response cannot repopulate the previous tenant.
     advancePrincipalGeneration(queryClient);
+    clearClientDrafts();
     await cancelWorkspaceReaders(queryClient);
     if (!isCurrent()) {
       return false;

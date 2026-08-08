@@ -77,8 +77,31 @@ func TestObservedFeatureControlEnforcerRecordsBoundedQuotaFailures(t *testing.T)
 	_, _ = enforcer.ConsumeInviteCreation(context.Background(), nil, uuid.New(), time.Now())
 	_ = enforcer.RequireMemberCapacity(context.Background(), nil, uuid.New())
 	_ = enforcer.RequireActiveClassCapacity(context.Background(), nil, uuid.New())
+	_ = enforcer.RequireQuotaAtMost(
+		context.Background(), nil, uuid.New(), featurecontrol.QuotaActiveAvailabilityPolls, 1,
+	)
+	_, _ = enforcer.ConsumeRateQuota(
+		context.Background(), nil, uuid.New(),
+		featurecontrol.QuotaAvailabilityPollCreationsPerHour, time.Now(),
+	)
 
-	if got := metrics.Snapshot().QuotaRejections; got != [3]int64{1, 1, 1} {
-		t.Fatalf("unexpected quota rejection counters: %v", got)
+	snapshot := metrics.Snapshot()
+	if len(snapshot.QuotaRejections) != len(featurecontrol.QuotaKeys()) {
+		t.Fatalf("quota rejection labels are not catalog bounded: %v", snapshot.QuotaRejections)
+	}
+	counts := make(map[string]int64, len(snapshot.QuotaRejections))
+	for _, metric := range snapshot.QuotaRejections {
+		counts[metric.Quota] = metric.Count
+	}
+	for _, key := range []featurecontrol.QuotaKey{
+		featurecontrol.QuotaMembers,
+		featurecontrol.QuotaActiveClasses,
+		featurecontrol.QuotaInviteCreationsPerHour,
+		featurecontrol.QuotaActiveAvailabilityPolls,
+		featurecontrol.QuotaAvailabilityPollCreationsPerHour,
+	} {
+		if counts[string(key)] != 1 {
+			t.Fatalf("quota %q rejection count = %d, want 1", key, counts[string(key)])
+		}
 	}
 }

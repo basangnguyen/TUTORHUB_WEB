@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"sync/atomic"
 	"time"
+
+	"github.com/tutorhub-v2/core-api/internal/modules/featurecontrol"
 )
 
 type HTTPMetrics interface {
@@ -22,7 +24,9 @@ type Metrics struct {
 	durationNanos           atomic.Int64
 	panicsTotal             atomic.Int64
 	responses               [6]atomic.Int64
-	quotaRejections         [3]atomic.Int64
+	quotaLabels             []string
+	quotaIndexes            map[string]int
+	quotaRejections         []atomic.Int64
 	recurrenceExpansions    atomic.Int64
 	recurrenceOccurrences   atomic.Int64
 	recurrenceRejections    atomic.Int64
@@ -36,15 +40,32 @@ type MetricsSnapshot struct {
 	Duration              time.Duration
 	PanicsTotal           int64
 	Responses             [6]int64
-	QuotaRejections       [3]int64
+	QuotaRejections       []QuotaRejectionMetric
 	RecurrenceExpansions  int64
 	RecurrenceOccurrences int64
 	RecurrenceRejections  int64
 	RecurrenceDuration    time.Duration
 }
 
+type QuotaRejectionMetric struct {
+	Quota string
+	Count int64
+}
+
 func NewMetrics() *Metrics {
-	return &Metrics{startedAt: time.Now()}
+	quotaKeys := featurecontrol.QuotaKeys()
+	metrics := &Metrics{
+		startedAt:       time.Now(),
+		quotaLabels:     make([]string, len(quotaKeys)),
+		quotaIndexes:    make(map[string]int, len(quotaKeys)),
+		quotaRejections: make([]atomic.Int64, len(quotaKeys)),
+	}
+	for index, key := range quotaKeys {
+		label := string(key)
+		metrics.quotaLabels[index] = label
+		metrics.quotaIndexes[label] = index
+	}
+	return metrics
 }
 
 func (metrics *Metrics) RequestStarted() {
@@ -63,8 +84,8 @@ func (metrics *Metrics) PanicRecovered() {
 }
 
 func (metrics *Metrics) QuotaRejected(quota string) {
-	index := quotaIndex(quota)
-	if index < 0 {
+	index, known := metrics.quotaIndexes[quota]
+	if !known {
 		return
 	}
 	metrics.quotaRejections[index].Add(1)
@@ -100,8 +121,12 @@ func (metrics *Metrics) Snapshot() MetricsSnapshot {
 	for index := range metrics.responses {
 		snapshot.Responses[index] = metrics.responses[index].Load()
 	}
+	snapshot.QuotaRejections = make([]QuotaRejectionMetric, len(metrics.quotaRejections))
 	for index := range metrics.quotaRejections {
-		snapshot.QuotaRejections[index] = metrics.quotaRejections[index].Load()
+		snapshot.QuotaRejections[index] = QuotaRejectionMetric{
+			Quota: metrics.quotaLabels[index],
+			Count: metrics.quotaRejections[index].Load(),
+		}
 	}
 
 	return snapshot
@@ -143,13 +168,13 @@ func (metrics *Metrics) Handler() http.Handler {
 		}
 		writeMetric(w, "# HELP tutorhub_quota_rejections_total Server-authoritative quota rejections.\n")
 		writeMetric(w, "# TYPE tutorhub_quota_rejections_total counter\n")
-		for index, quota := range []string{"members", "active_classes", "invite_creations_per_hour"} {
+		for _, quota := range snapshot.QuotaRejections {
 			writeMetric(
 				w,
 				fmt.Sprintf(
 					"tutorhub_quota_rejections_total{quota=%q} %d\n",
-					quota,
-					snapshot.QuotaRejections[index],
+					quota.Quota,
+					quota.Count,
 				),
 			)
 		}
@@ -166,19 +191,6 @@ func (metrics *Metrics) Handler() http.Handler {
 		writeMetric(w, "# TYPE tutorhub_calendar_recurrence_duration_seconds_sum counter\n")
 		writeMetric(w, "tutorhub_calendar_recurrence_duration_seconds_sum "+formatFloat(snapshot.RecurrenceDuration.Seconds())+"\n")
 	})
-}
-
-func quotaIndex(quota string) int {
-	switch quota {
-	case "members":
-		return 0
-	case "active_classes":
-		return 1
-	case "invite_creations_per_hour":
-		return 2
-	default:
-		return -1
-	}
 }
 
 func statusClassIndex(status int) int {

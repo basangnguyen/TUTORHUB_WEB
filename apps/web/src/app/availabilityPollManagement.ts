@@ -12,6 +12,10 @@ import {
   rotateCSRFToken,
   type APIRequestOptions,
 } from "@tutorhub/api-client";
+import {
+  idempotentMutationRetryDelay,
+  shouldRetryIdempotentMutation,
+} from "./idempotentMutation";
 import { Temporal } from "temporal-polyfill";
 import type { components } from "../../../../packages/api-client/src/generated/schema";
 import { invalidateTenantAudit } from "./audit";
@@ -691,7 +695,8 @@ export function useCreateAvailabilityPoll(tenantID: string | undefined) {
         ? synchronizePoll(queryClient, tenantID, poll)
         : Promise.resolve(),
     onSettled: () => invalidateMutationSideEffects(queryClient, tenantID),
-    retry: false,
+    retry: shouldRetryIdempotentMutation,
+    retryDelay: idempotentMutationRetryDelay,
   });
 }
 
@@ -766,7 +771,8 @@ export function useRespondAvailabilityPoll(tenantID: string | undefined) {
         ? synchronizePoll(queryClient, tenantID, result.poll)
         : Promise.resolve(),
     onSettled: () => invalidateTenantAudit(queryClient, tenantID),
-    retry: false,
+    retry: shouldRetryIdempotentMutation,
+    retryDelay: idempotentMutationRetryDelay,
   });
 }
 
@@ -790,7 +796,8 @@ export function useFinalizeAvailabilityPoll(tenantID: string | undefined) {
       ]);
     },
     onSettled: () => invalidateMutationSideEffects(queryClient, tenantID),
-    retry: false,
+    retry: shouldRetryIdempotentMutation,
+    retryDelay: idempotentMutationRetryDelay,
   });
 }
 
@@ -838,7 +845,8 @@ export function useCreateStudyMeeting(tenantID: string | undefined) {
           })
         : Promise.resolve(),
     onSettled: () => invalidateMutationSideEffects(queryClient, tenantID),
-    retry: false,
+    retry: shouldRetryIdempotentMutation,
+    retryDelay: idempotentMutationRetryDelay,
   });
 }
 
