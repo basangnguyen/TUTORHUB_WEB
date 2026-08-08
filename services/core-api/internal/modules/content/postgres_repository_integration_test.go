@@ -172,6 +172,7 @@ WHERE runtime.rolname = $1`, runtimeRole, migrationRole,
 		!noMigrationInheritance || !notTableOwner {
 		t.Fatal("content runtime role safety boundary is not exact")
 	}
+	assertContentRuntimeDependencies(t, ctx, runtimePool)
 }
 
 func TestPostgresContentIntentFinalizeIsolationAndConcurrency(t *testing.T) {
@@ -226,13 +227,6 @@ func TestPostgresContentIntentFinalizeIsolationAndConcurrency(t *testing.T) {
 		ExpectedSizeBytes: 128, ChecksumSHA256: hex.EncodeToString(checksum),
 		ClientRequestID: uuid.New(),
 	}
-	baseCommand := CreateCommand{
-		ClassID: fixture.classID, DisplayName: input.DisplayName,
-		DeclaredMediaType: input.DeclaredMediaType, ExpectedSizeBytes: input.ExpectedSizeBytes,
-		ChecksumSHA256: checksum, ClientRequestID: input.ClientRequestID,
-		CreatedAt: now, UploadExpiresAt: now.Add(uploadIntentTTL),
-	}
-
 	type createOutcome struct {
 		result CreateIntentResult
 		err    error
@@ -245,14 +239,7 @@ func TestPostgresContentIntentFinalizeIsolationAndConcurrency(t *testing.T) {
 		go func() {
 			defer wait.Done()
 			<-start
-			command := baseCommand
-			command.ID = uuid.New()
-			command.ObjectKey = fmt.Sprintf(
-				"tenants/%s/files/%s/original", access.TenantID, command.ID,
-			)
-			command.ChecksumSHA256 = append([]byte(nil), baseCommand.ChecksumSHA256...)
-			command.RequestFingerprint = requestFingerprint(command)
-			result, createErr := repository.CreateIntent(context.Background(), access, command)
+			result, createErr := service.CreateIntent(context.Background(), access, input)
 			outcomes <- createOutcome{result: result, err: createErr}
 		}()
 	}
@@ -396,6 +383,24 @@ $bootstrap$;
 REVOKE ALL ON TABLE tutorhub.content_files, tutorhub.tenant_file_usage
 FROM tutorhub_conversation_runtime_ci;
 
+-- The isolated CI role starts with only the conversation grants. Recreate the
+-- previously accepted Core API dependencies that the content flow reads and
+-- the quota window it mutates; production roles already receive these grants
+-- from their earlier phase provisioning.
+GRANT SELECT ON TABLE
+    tutorhub.tenants,
+    tutorhub.memberships,
+    tutorhub.users,
+    tutorhub.classes,
+    tutorhub.class_enrollments,
+    tutorhub.tenant_feature_overrides,
+    tutorhub.tenant_quota_overrides,
+    tutorhub.tenant_quota_windows
+TO tutorhub_conversation_runtime_ci;
+
+GRANT INSERT, UPDATE ON TABLE tutorhub.tenant_quota_windows
+TO tutorhub_conversation_runtime_ci;
+
 GRANT SELECT ON TABLE tutorhub.content_files, tutorhub.tenant_file_usage
 TO tutorhub_conversation_runtime_ci;
 
@@ -419,6 +424,54 @@ GRANT UPDATE (file_count, reserved_bytes, committed_bytes, updated_at)
 ON TABLE tutorhub.tenant_file_usage TO tutorhub_conversation_runtime_ci;
 `); err != nil {
 		t.Fatalf("provision content ACL test role: %v", err)
+	}
+}
+
+func assertContentRuntimeDependencies(
+	t *testing.T,
+	ctx context.Context,
+	pool *pgxpool.Pool,
+) {
+	t.Helper()
+	for _, expectation := range []struct {
+		relation   string
+		privileges []string
+	}{
+		{relation: "tutorhub.tenants", privileges: []string{"SELECT"}},
+		{relation: "tutorhub.memberships", privileges: []string{"SELECT"}},
+		{relation: "tutorhub.users", privileges: []string{"SELECT"}},
+		{relation: "tutorhub.classes", privileges: []string{"SELECT"}},
+		{relation: "tutorhub.class_enrollments", privileges: []string{"SELECT"}},
+		{relation: "tutorhub.tenant_feature_overrides", privileges: []string{"SELECT"}},
+		{relation: "tutorhub.tenant_quota_overrides", privileges: []string{"SELECT"}},
+		{
+			relation:   "tutorhub.tenant_quota_windows",
+			privileges: []string{"SELECT", "INSERT", "UPDATE"},
+		},
+	} {
+		for _, privilege := range expectation.privileges {
+			var allowed bool
+			if err := pool.QueryRow(
+				ctx,
+				"SELECT has_table_privilege(current_user, $1, $2)",
+				expectation.relation,
+				privilege,
+			).Scan(&allowed); err != nil {
+				t.Fatalf(
+					"inspect content runtime dependency %s %s: %v",
+					expectation.relation,
+					privilege,
+					err,
+				)
+			}
+			if !allowed {
+				t.Fatalf(
+					"content runtime is missing %s on %s",
+					privilege,
+					expectation.relation,
+				)
+			}
+		}
 	}
 }
 
