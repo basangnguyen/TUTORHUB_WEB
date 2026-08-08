@@ -11,7 +11,7 @@
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
 | Phase hiện tại        | Phase 3 - Daily learning workspace                                                           |
-| Trạng thái gần nhất   | P3-12 DONE; shared Neon `28 false`; P3-13 ở `VERIFY` theo ADR-0029                         |
+| Trạng thái gần nhất   | P3-13 `VERIFY`; candidate `25a323ad` CI/Security/Pages PASS; Neon `28 false`              |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 
@@ -2071,8 +2071,8 @@ Teacher/Student role/cache acceptance. Automated accessibility thay manual NVDA 
 phê duyệt riêng cho slice này. P3-12 tiếp theo đã `DONE` trên candidate `1c73c52` sau exact
 CI/security, Cloudflare/Render và live Teacher/Student/workspace/privacy/accessibility acceptance;
 P3-13 đã đạt local/disposable `VERIFY` theo ADR-0029: draft allowlist bind actor/tenant,
-idempotent retry opt-in và bounded quota metrics đã PASS; exact candidate CI/security cùng
-deployed acceptance còn mở.
+idempotent retry opt-in và bounded quota metrics đã PASS. Candidate `25a323ad` đã PASS exact
+CI/security/Cloudflare Pages; Render exact-candidate và live Admin acceptance còn mở.
 Không bật side effect chỉ vì core đã có. `P3-02D-B` và các gate worker/provider vẫn là
 carry-over.
 AWS SES đã được chọn làm provider target nhưng

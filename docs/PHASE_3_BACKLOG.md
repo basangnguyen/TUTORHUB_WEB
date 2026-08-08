@@ -36,8 +36,8 @@ approval có thể tiếp tục chuẩn bị song song.
 **Task `DONE` gần nhất:** `P3-12` Home dashboard và PostgreSQL search cơ bản hoàn tất ngày
 2026-08-08 trên candidate `1c73c52`; exact CI/security, Cloudflare/Render, public privacy probes,
 Teacher/Student, workspace cache isolation và accessibility acceptance đều PASS. **Task hiện
-tại:** `P3-13` Offline/retry drafts và Phase 3 quota closure ở `VERIFY`; local/disposable gate
-đã xanh, exact candidate CI/security và deployed acceptance còn mở.
+tại:** `P3-13` Offline/retry drafts và Phase 3 quota closure ở `VERIFY`; local/disposable và
+exact candidate CI/security đã xanh, Render/live acceptance còn mở.
 P3-10 processing tiếp tục `DEFERRED/TODO` theo worker dependency.
 `P3-02D-B` lifecycle delivery/
 auto-close/fan-out và các gate P3-03B/P3-CAL-02/P3-05A/B là carry-over, không nằm trong
@@ -1138,8 +1138,9 @@ không mở rộng sang P3-11B, activation hoặc public milestone.
       catalog, giữ cardinality bounded và bỏ qua runtime label không xác định.
 - [x] Full local `pnpm verify`, web 55 file/262 test và Neon disposable feature-control
       integration PASS; schema giữ `28 false`, không rollback/shared migration.
-- [ ] Exact candidate CI/security và deployed Admin privacy/retry/quota acceptance trước khi
-      chuyển `VERIFY -> DONE`.
+- [x] Exact candidate `25a323ad` PASS Verify/Security, Browser E2E và Cloudflare Pages.
+- [ ] Render exact candidate và deployed Admin privacy/retry/quota acceptance trước khi chuyển
+      `VERIFY -> DONE`.
 
 ## 21. P3-14 Staging acceptance và exit gate
 
