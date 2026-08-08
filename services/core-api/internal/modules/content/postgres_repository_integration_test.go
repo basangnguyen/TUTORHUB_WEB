@@ -215,7 +215,8 @@ func TestPostgresContentIntentFinalizeIsolationAndConcurrency(t *testing.T) {
 		ContentLength: 128, ContentType: "application/pdf",
 		ChecksumSHA256: checksum, ETag: "etag-1", VersionID: "version-1",
 	}}
-	service, err := NewService(repository, storage)
+	repositoryRecorder := &integrationRepositoryRecorder{Repository: repository}
+	service, err := NewService(repositoryRecorder, storage)
 	if err != nil {
 		t.Fatalf("create content service: %v", err)
 	}
@@ -250,7 +251,11 @@ func TestPostgresContentIntentFinalizeIsolationAndConcurrency(t *testing.T) {
 	var file File
 	for outcome := range outcomes {
 		if outcome.err != nil {
-			t.Fatalf("concurrent upload intent: %v", outcome.err)
+			t.Fatalf(
+				"concurrent upload intent: %v (repository errors: %v)",
+				outcome.err,
+				repositoryRecorder.errorsSnapshot(),
+			)
 		}
 		if outcome.result.Created {
 			created++
@@ -645,6 +650,32 @@ func integrationContentAccess(
 
 type integrationMetadataReader struct {
 	metadata objectstorage.Metadata
+}
+
+type integrationRepositoryRecorder struct {
+	Repository
+	mutex  sync.Mutex
+	errors []error
+}
+
+func (recorder *integrationRepositoryRecorder) CreateIntent(
+	ctx context.Context,
+	access AccessContext,
+	command CreateCommand,
+) (CreateIntentResult, error) {
+	result, err := recorder.Repository.CreateIntent(ctx, access, command)
+	if err != nil {
+		recorder.mutex.Lock()
+		recorder.errors = append(recorder.errors, err)
+		recorder.mutex.Unlock()
+	}
+	return result, err
+}
+
+func (recorder *integrationRepositoryRecorder) errorsSnapshot() []error {
+	recorder.mutex.Lock()
+	defer recorder.mutex.Unlock()
+	return append([]error(nil), recorder.errors...)
 }
 
 func (reader *integrationMetadataReader) Head(context.Context, string) (objectstorage.Metadata, error) {
