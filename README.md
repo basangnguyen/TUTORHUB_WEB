@@ -41,11 +41,11 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
 - P3-07A Persistent message/unread/read core đã `DONE` ngày 2026-08-05 trên exact candidate
   `a21ec385`; shared Neon ở `25 false`, exact ACL/PostgreSQL, CI/security và authenticated
   role/reload/accessibility/log-privacy acceptance đều PASS.
-- P3-08 File metadata/upload intent/finalize đang `VERIFY`: ADR-0026, migration `000026`,
-  Go content core, fail-closed B2 metadata verification, OpenAPI/generated client và
-  feature/quota controls đã hoàn tất local. Full verify và disposable forward-only
-  `25 -> 26 -> 26`, exact ACL/PostgreSQL gates đều PASS; shared staging vẫn `25 false` và
-  chưa deploy. Checklist nằm tại `docs/P3_08_STAGING_ACCEPTANCE.md`.
+- P3-08 File metadata/upload intent/finalize đã `DONE` ngày 2026-08-08 trên exact candidate
+  `6a50c3e4`: ADR-0026, migration `000026`, Go content core, fail-closed B2 metadata
+  verification, OpenAPI/generated client, feature/quota controls, disposable
+  `25 -> 26 -> 26`, exact ACL/PostgreSQL, CI và Security đều PASS. Theo ranh giới task,
+  shared staging vẫn `25 false` và chưa deploy; direct B2 transfer/evidence thuộc P3-09.
 - AWS SES đã được owner chọn làm transactional email provider target cho Phase 3.
   P3-CAL-02/ADR-0020 vẫn phải xác minh account/region/sandbox/quota, adapter, webhook và
   deliverability; trước khi có domain chỉ được thử bằng identity cá nhân do owner kiểm
@@ -63,8 +63,8 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
   P3-04 activation, P3-CAL-02 live SES/domain/interoperability, P3-05A/B delivery,
   P3-10 và P3-11B processing UX phụ thuộc worker. Cho đến khi các gate này đóng,
   notification/email/reminder và Class Files sharing/processing tới end user vẫn giữ tắt.
-- **Task hiện tại:** review diff/secret, push exact P3-08 candidate và theo dõi CI/security
-  để quyết định `VERIFY -> DONE`; chưa forward shared staging. P3-02D-B
+- **Task hiện tại:** P3-09 Presigned B2 upload/download; bắt đầu bằng provider contract và
+  disposable bucket evidence, không forward shared staging trước khi gate tương ứng đạt. P3-02D-B
   lifecycle delivery, P3-07B realtime/notification và các gate hạ tầng/provider là
   carry-over; chúng có thể tiếp tục chính xác sau khi Phase 4 bắt đầu.
 - Web MVP nền đã chạy trên staging: Cloudflare Pages -> same-origin `/api/*` -> Go

@@ -5,13 +5,13 @@
 | Thuộc tính            | Giá trị                                                                                      |
 | --------------------- | -------------------------------------------------------------------------------------------- |
 | Phiên bản tài liệu    | 2.4                                                                                          |
-| Cập nhật              | 2026-08-07                                                                                   |
+| Cập nhật              | 2026-08-08                                                                                   |
 | Phạm vi ưu tiên       | Web application                                                                              |
 | Thư mục phát triển    | `D:\TutorHub_V2`                                                                             |
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
 | Phase hiện tại        | Phase 3 - Daily learning workspace                                                           |
-| Trạng thái gần nhất   | P3-08 VERIFY; local/disposable 26 PASS, shared Neon vẫn 25                                  |
+| Trạng thái gần nhất   | P3-08 DONE; candidate `6a50c3e4` CI/security PASS, shared Neon vẫn 25                        |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 
@@ -1976,10 +1976,10 @@ Thứ tự hiện tại, cập nhật ngày 2026-07-31:
     authenticated direct unread/read/reload, archived-class read-only, Admin concealment,
     keyboard/focus/Axe và log privacy đều PASS. P3-07B delivery vẫn là carry-over;
     P3-08 đã bắt đầu ngày 2026-08-07.
-16. P3-08 đang `VERIFY`: ADR-0026, migration `000026`, content API, fail-closed B2 metadata
-    verification và feature/quota contract đã hoàn tất local; full verify và disposable
-    forward-only `25 -> 26 -> 26`, exact ACL/PostgreSQL gates PASS. Shared staging chưa
-    forward và chưa deploy; candidate CI/security còn chờ trước `DONE`.
+16. P3-08 đã `DONE` ngày 2026-08-08 trên exact candidate `6a50c3e4`: ADR-0026, migration
+    `000026`, content API, fail-closed B2 metadata verification, feature/quota contract,
+    disposable `25 -> 26 -> 26`, exact ACL/PostgreSQL, CI và Security đều PASS. Shared
+    staging vẫn `25 false` và chưa deploy theo ranh giới task; direct B2 transfer thuộc P3-09.
 17. Không xóa thêm Neon branch theo quyết định hiện tại của owner.
 18. Không khởi động QuizHub, Lavie, social feed hoặc Secure Exam ngoài phase đã quy hoạch.
 
@@ -2054,9 +2054,9 @@ staging forward-only `23 false -> 24 false`, exact ACL/PostgreSQL gates, candida
 `756ca60a` Live trên Render/Cloudflare, authenticated direct/class/archive role matrix,
 keyboard/focus và automated Playwright/Axe đều PASS. P3-07A cũng đã `DONE` ngày 2026-08-05:
 shared Neon ở `25 false`, exact ACL, candidate `a21ec385` Live, CI/security và authenticated
-role/reload/accessibility/log-privacy acceptance đều PASS. P3-08 đạt `VERIFY` ngày
-2026-08-07 sau local/full verify và disposable `25 -> 26 -> 26` cùng exact ACL/PostgreSQL
-gates; shared staging chưa forward.
+role/reload/accessibility/log-privacy acceptance đều PASS. P3-08 đã `DONE` ngày 2026-08-08
+trên candidate `6a50c3e4` sau local/full verify, disposable `25 -> 26 -> 26`, exact
+ACL/PostgreSQL và CI/security; shared staging chưa forward, P3-09 là runnable lane tiếp theo.
 Không bật side effect chỉ vì core đã có. `P3-02D-B` và các gate worker/provider vẫn là
 carry-over.
 AWS SES đã được chọn làm provider target nhưng

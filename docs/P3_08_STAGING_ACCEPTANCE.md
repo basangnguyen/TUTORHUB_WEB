@@ -2,7 +2,7 @@
 
 ## 1. Trạng thái và ranh giới
 
-- Trạng thái hiện tại: `VERIFY`.
+- Trạng thái hiện tại: `DONE` từ 2026-08-08; acceptance candidate `6a50c3e4`.
 - Migration source: `000026_content_files`.
 - P3-08 chỉ gồm metadata class file, quota reservation, upload intent idempotent,
   metadata read và server-side finalize proof.
@@ -184,7 +184,7 @@ Chỉ chuyển `P3-08 IN PROGRESS -> VERIFY` khi local Go/OpenAPI/client/full se
 disposable `25 -> 26` + exact ACL/PostgreSQL tests PASS. Chỉ chuyển `VERIFY -> DONE` sau
 review diff/secret, candidate CI xanh và báo cáo rõ provider evidence còn thuộc P3-09.
 
-## 8. Evidence ngày 2026-08-07
+## 8. Evidence ngày 2026-08-08
 
 - Local `pnpm verify`: PASS, gồm format/generated contract, lint, typecheck, unit, build,
   Storybook, client-bundle security, Go test/vet và workflow-security policy.
@@ -194,5 +194,12 @@ review diff/secret, candidate CI xanh và báo cáo rõ provider evidence còn t
 - Exact runtime column ACL, schema no-create, role safety và `PUBLIC` zero-grant: PASS.
 - `go test -count=1 -tags=integration ./services/core-api/internal/modules/content`: PASS,
   zero `SKIP`.
-- Shared staging vẫn `25 false`; chưa deploy. P3-08 chuyển `IN PROGRESS -> VERIFY` và chờ
-  exact candidate diff/secret review cùng CI/security trước quyết định `DONE`.
+- CI exact-login đã phát hiện và đóng gap row-lock dependency: `SELECT ... FOR SHARE` trên
+  `classes`/`class_enrollments` cần `UPDATE` trên ít nhất một cột. Isolated CI role chỉ nhận
+  `UPDATE(updated_at)`; probe mới fail closed nếu dependency mất. Disposable full package và
+  concurrency stress `count=5` PASS sau hardening.
+- Exact candidate `6a50c3e4`: Verify #185 Quality/integration, local smoke và Browser E2E
+  attempt 2 PASS; attempt đầu chỉ flake focus ở conversation P3-07A. Security #183 PASS toàn
+  bộ. Final diff/secret review PASS, không có credential trong diff.
+- Shared staging vẫn `25 false`; chưa deploy. P3-08 chuyển `VERIFY -> DONE`; P3-09 chịu trách
+  nhiệm real B2 presigned PUT/download và checksum/version provider evidence.

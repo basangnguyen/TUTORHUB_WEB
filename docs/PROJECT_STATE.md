@@ -6,21 +6,22 @@
 
 | Thuộc tính          | Trạng thái                                                                            |
 | ------------------- | ------------------------------------------------------------------------------------- |
-| Ngày cập nhật       | 2026-08-07                                                                            |
+| Ngày cập nhật       | 2026-08-08                                                                            |
 | Repository          | `https://github.com/basangnguyen/TUTORHUB_WEB`                                        |
 | Nhánh làm việc      | `main`                                                                                |
 | Quy trình           | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
 | Phase hoàn thành    | Phase 0, Phase 1, Phase 2                                                             |
 | Phase hiện tại      | Phase 3 - Daily learning workspace                                                   |
-| Task `DONE` gần nhất | P3-07A Persistent message, unread/read core                                        |
-| Mốc repository mới | P3-08 local/disposable đạt `VERIFY`; shared Neon vẫn `25 false`                        |
-| Task hiện tại       | P3-08 File metadata, upload intent và finalize — `VERIFY`                             |
-| Task tiếp theo      | Review diff/secret, push candidate và theo dõi CI/security trước quyết định `DONE`    |
+| Task `DONE` gần nhất | P3-08 File metadata, upload intent và finalize                                     |
+| Mốc repository mới | P3-08 `DONE` trên candidate `6a50c3e4`; shared Neon vẫn `25 false`                     |
+| Task hiện tại       | P3-09 Presigned B2 upload/download — `TODO`                                           |
+| Task tiếp theo      | Khóa provider contract và chạy disposable B2 transfer/checksum/version evidence       |
 
-### Checkpoint P3-08 bắt đầu ngày 2026-08-07
+### Checkpoint P3-08 hoàn tất ngày 2026-08-08
 
-P3-08 đã khóa kiến trúc bằng ADR-0026, hoàn tất vertical slice local và đạt `VERIFY` trên
-Neon disposable; shared staging chưa migrate và ứng dụng chưa deploy:
+P3-08 đã chuyển `VERIFY -> DONE`: ADR-0026, vertical slice local, Neon disposable và exact
+candidate CI/security đều đạt; shared staging chưa migrate và ứng dụng chưa deploy theo đúng
+ranh giới task:
 
 - forward migration `000026` tạo `content_files`, `tenant_file_usage`, feature
   `file_uploads` và bốn quota file; `PUBLIC` bị revoke và runtime provisioning dùng exact
@@ -42,7 +43,13 @@ Neon disposable; shared staging chưa migrate và ứng dụng chưa deploy:
 - PostgreSQL content integration package PASS, zero `SKIP`: concurrent intent/finalize,
   idempotency conflict, expiry/quota accounting, archived-class và tenant isolation đều đạt.
 
-CI/security trên exact candidate và final diff/secret review vẫn còn trước `VERIFY -> DONE`.
+- CI đã phát hiện dependency ACL thật của `SELECT ... FOR SHARE`: runtime cần `UPDATE` trên ít
+  nhất một cột của `classes` và `class_enrollments`. Isolated CI role hiện chỉ nhận
+  `UPDATE(updated_at)`, exact-login probe fail closed nếu grant này bị mất; disposable rerun và
+  stress concurrency `count=5` đều PASS.
+- Exact candidate `6a50c3e4` đạt Verify #185: Quality/integration, local smoke và Browser E2E
+  attempt 2 PASS. Browser attempt đầu chỉ flake focus ở conversation P3-07A; rerun riêng PASS.
+  Security #183 PASS toàn bộ; final diff/secret review không phát hiện credential.
 
 Acceptance và exact ACL được ghi tại `docs/P3_08_STAGING_ACCEPTANCE.md`. Real B2 proof cho
 exact presigned PUT thuộc P3-09; nếu provider không trả checksum/version thì giữ feature off,

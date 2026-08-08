@@ -111,7 +111,7 @@ processing/sharing tới end user.
 | P3-06      | Direct/class conversation                      | P3-00, Phase 2 policy                         | DONE            |
 | P3-07A     | Persistent message, unread/read core           | P3-06                                         | DONE            |
 | P3-07B     | Message notification delivery                  | P3-07A, P3-03B, P3-04                         | DEFERRED/TODO   |
-| P3-08      | File metadata, upload intent và finalize       | P3-00, B2 baseline                            | VERIFY          |
+| P3-08      | File metadata, upload intent và finalize       | P3-00, B2 baseline                            | DONE            |
 | P3-09      | Presigned B2 upload/download                   | P3-08                                         | TODO            |
 | P3-10      | Scan/metadata/thumbnail processing             | P3-03B, P3-09                                 | DEFERRED/TODO   |
 | P3-11A     | Class Files transfer-core UI (gate off)        | P3-09                                         | TODO            |
@@ -1010,8 +1010,8 @@ Hai gate notification vẫn phải giữ `false` trong khi Render chỉ phục v
 
 ## 15. P3-08 File metadata, upload intent và finalize
 
-**Trạng thái:** `VERIFY` từ 2026-08-07; local/full verify và disposable PostgreSQL gates đã
-PASS. Shared staging chưa forward và ứng dụng chưa deploy.
+**Trạng thái:** `DONE` từ 2026-08-08 trên exact candidate `6a50c3e4`. Shared staging chưa
+forward và ứng dụng chưa deploy theo ranh giới P3-08; direct B2 transfer thuộc P3-09.
 
 - [x] ADR-0026 khóa PostgreSQL/B2 authority, class scope, opaque object key, idempotency,
       fail-closed finalize và ranh giới P3-09/P3-10/P3-11.
@@ -1031,8 +1031,9 @@ PASS. Shared staging chưa forward và ứng dụng chưa deploy.
 - [x] Disposable PostgreSQL forward-only `25 -> 26 -> 26`, exact runtime column ACL,
       concurrent intent/finalize, expiry/quota accounting, archived-class và tenant isolation.
 - [x] Full local verify PASS và P3-08 chuyển `IN PROGRESS -> VERIFY` sau disposable gate.
-- [ ] Final diff/secret review, exact candidate push và CI/security xanh trước khi chuyển
-      `VERIFY -> DONE`; shared staging vẫn giữ `25 false` tại checkpoint này.
+- [x] Final diff/secret review và exact candidate `6a50c3e4` đạt Quality/integration,
+      Browser E2E, local smoke và toàn bộ Security; P3-08 chuyển `VERIFY -> DONE`. Shared
+      staging vẫn giữ `25 false` tại checkpoint này.
 - **Provider boundary:** real B2 checksum/version evidence của exact direct PUT thuộc P3-09;
   nếu provider thiếu một trong hai, giữ `file_uploads` off và không nới finalize.
 
@@ -1223,8 +1224,8 @@ một tuần.
    matrix và manual NVDA PASS. P3-06 cũng đã `DONE` ngày 2026-08-04 sau migration `000024`,
    exact ACL/PostgreSQL, deployment, authenticated browser/API, focus và Axe gate. Runnable
    lane P3-07A đã `DONE` ngày 2026-08-05 sau shared forward/ACL, exact deploy, CI/security
-   và live role/accessibility acceptance. Runnable lane tiếp theo là P3-08; không bật
-   delivery side effect và không chờ P3-03B.
+   và live role/accessibility acceptance. P3-08 đã `DONE` ngày 2026-08-08; runnable lane
+   tiếp theo là P3-09, không bật delivery side effect và không chờ P3-03B.
 7. P3-03B/P3-04, P3-CAL-02/P3-05A và P3-02D-B/P3-05B tiếp tục ở carry-over. Đóng
    `P3-14-CORE` sau lane runnable cho phép bắt đầu Phase 4; full P3-14 vẫn chờ các gate này.
 8. Không đưa recurrence, reminder, worker, email hoặc calendar tổng hợp vào P3-01.
