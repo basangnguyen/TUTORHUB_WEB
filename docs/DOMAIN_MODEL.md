@@ -7,8 +7,8 @@
 | Identity   | User, ExternalIdentity, Session               | User toàn cục; identity provider có thể thay đổi       |
 | Tenancy    | Tenant, Membership, RoleAssignment            | Membership nối user với tenant                         |
 | Classroom  | Class, Enrollment, Invitation                 | Class luôn thuộc một tenant                            |
-| Scheduling | ClassSession                                  | Phiên học có trạng thái scheduled/live/ended/cancelled |
-| Media      | MediaRoom, Recording                          | Mapping phiên học với LiveKit room                     |
+| Scheduling | ClassSession, SessionSeries, StudyMeeting     | Instant UTC/civil time; official và member-owned tách quyền |
+| Media      | MediaSpace, RoomInstance, ParticipantSession  | Authority lifecycle; provider room là transport        |
 | Messaging  | Conversation, Message                         | Tin nhắn bền vững, có moderation/audit                 |
 | Content    | FileObject, Folder, ShareGrant                | Binary ở object storage                                |
 | Assessment | QuestionBank, Question, Exam, Attempt, Result | Chưa thuộc MVP đầu tiên                                |
@@ -23,7 +23,11 @@ erDiagram
     CLASS ||--o{ ENROLLMENT : contains
     USER ||--o{ ENROLLMENT : joins
     CLASS ||--o{ CLASS_SESSION : schedules
-    CLASS_SESSION ||--o| MEDIA_ROOM : opens
+    USER ||--o{ STUDY_MEETING : owns
+    CLASS_SESSION ||--o| MEDIA_SPACE : sources
+    STUDY_MEETING ||--o| MEDIA_SPACE : sources
+    MEDIA_SPACE ||--o{ ROOM_INSTANCE : runs
+    ROOM_INSTANCE ||--o{ PARTICIPANT_SESSION : contains
     CLASS_SESSION ||--o{ MESSAGE : contains
 ```
 
@@ -138,6 +142,21 @@ mutation owner, gán `owner` hoặc dùng role không nhận diện. Owner chỉ
 ownership-transfer endpoint. Các role persisted của enrollment tiếp tục chỉ gồm
 `co_teacher`, `teaching_assistant` và `student`.
 
+### 3.5. Classroom Media target của Phase 4
+
+ADR-0030 chốt authority target, chưa phải permission đã triển khai. MediaSpace bind một
+ClassSession/recurring occurrence hoặc StudyMeeting; instant command tạo/bind StudyMeeting
+thay vì tạo source authority thứ ba. Official room dùng class/source policy; member-owned
+room dùng owner cùng explicit active same-tenant member. Anonymous/external join không thuộc
+MVP.
+
+P4 tái dùng `session.start`, `session.end`, `session.join`, `participant.admit`,
+`participant.remove` và `media.publish`; các action `room.create.instant`,
+`media.share_screen`, `media.lock` và `media.moderate` chỉ được thêm vào shared policy khi
+endpoint tương ứng có deny/allow/state/hierarchy tests. Organization/class role, JWT attribute
+hoặc provider participant metadata không tự cấp action. Co-host/TA authority chỉ tồn tại trong
+RoomInstance và không sửa role persisted.
+
 ## 4. Tenant isolation
 
 - `tenant_id` được lấy từ session/context đã xác thực, không tin giá trị tùy ý từ body.
@@ -221,6 +240,18 @@ Class invite code P2-05 có lifecycle `active -> exhausted/expired/revoked`. Cod
 ### Class session
 
 `scheduled -> live -> ended`, hoặc `scheduled -> cancelled`.
+
+### MediaSpace và RoomInstance
+
+MediaSpace logical đi `scheduled -> open -> ended` hoặc `scheduled -> cancelled`. Mỗi
+source occurrence có tối đa một MediaSpace và mỗi space có tối đa một active RoomInstance.
+RoomInstance đi `provisioning -> active -> closing -> ended`, với nhánh terminal `failed`;
+recovery tạo instance mới sau khi instance cũ terminal, không tái sử dụng credential.
+
+ParticipantSession đi `waiting -> admitted -> joining -> connected -> reconnecting`, rồi
+terminal `left`, `removed` hoặc `failed`. Admission/capacity được persist và reserve atomically;
+join telemetry không phải attendance. Provider room/participant identifier opaque và chỉ map qua
+database, không encode tenant/class/user/BFF session.
 
 ### Enrollment
 

@@ -84,6 +84,16 @@ nó không thể thu hồi JWT đã cấp hoặc tự kick participant đang k�
 moderation về sau là các lớp kiểm soát bổ sung. Role roster mới được áp dụng cho token
 cấp sau mutation; JWT đã phát và participant đang kết nối không đổi retroactively.
 
+**P4-00 đã chốt target qua ADR-0030:** Phase 4 thay class-wide token authority bằng
+tenant-scoped MediaSpace/RoomInstance/ParticipantSession. Credential bind exact opaque
+instance/participant, TTL ngắn, memory-only và `no-store`; request không nhận tenant/room/
+role/grant client-supplied. Signed webhook map provider room/SID qua database thay vì parse
+tenant/class từ room name. Enrollment/role revoke, lock hoặc remove chặn credential mới và
+dùng server-side provider moderation để loại participant đang kết nối; không remote-unmute.
+Hai media feature có catalog default false **và** deployment guardrail force-off tới exact
+staging acceptance. `X-TutorHub-Expected-Tenant-ID` chỉ chống workspace/cache race, không
+thay active-session/repository authorization. Recording/egress và `CanPublishData` giữ off.
+
 ## 4. Web security
 
 - CSP nghiêm ngặt, không phụ thuộc inline script/eval.

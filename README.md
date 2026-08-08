@@ -12,7 +12,8 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
 - **Phase 2 - Identity, tenant và class core** đã hoàn thành và được owner sign-off
   ngày 2026-07-22. P2-00 đến P2-12, staging acceptance, application rollback/redeploy
   và exit gate đều đạt.
-- Hiện đang thực hiện **Phase 3 - Daily learning workspace**. P3-00,
+- **Phase 4 - Classroom Media MVP** đã mở sau khi P3-14-CORE đạt gate. Phase 3
+  deferred carry-over vẫn tiếp tục song song. P3-00,
   P3-CAL-00/00B/00C, P3-CAL-01, P3-01, P3-02A, P3-02B và P3-02C đã `DONE`.
   ADR-0019 chấp nhận FullCalendar Standard v7.0.1 qua adapter, recurrence Go bounded
   `366/730/512/2.000/250 ms`, COUNT occurrence-last horizon validation, YEARLY golden,
@@ -79,6 +80,12 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
   register đã có. Exact candidate `f5f1eb3` PASS CI/security và Live trên Render/Pages;
   public/privacy/feature-off/Calendar acceptance đều xanh. Phase 4 được phép bắt đầu; full
   P3-14 và Phase 3 vẫn `TODO`.
+- P4-00 architecture/backlog baseline đã `DONE` ngày 2026-08-08. ADR-0030 chốt
+  MediaSpace/RoomInstance/ParticipantSession, official/member-owned authority,
+  room-instance LiveKit credential, webhook binding, lobby/moderation, privacy và
+  feature-off rollout. `docs/PHASE_4_BACKLOG.md` là nguồn thực thi mới; P4-01
+  MediaSpace lifecycle/schema/API core là vertical slice kế tiếp. P4-00 không migration,
+  deploy, thêm dependency hay bật media feature.
 - Web MVP nền đã chạy trên staging: Cloudflare Pages -> same-origin `/api/*` -> Go
   Core API trên Render; dữ liệu dùng Neon, file dùng Backblaze B2, media dùng LiveKit
   Cloud và xác thực dùng ZITADEL.
@@ -87,7 +94,8 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
   local developer experience.
 - Repository hiện do một người duy trì và push trực tiếp `main`; ngoại lệ quản trị
   này được giới hạn trong development/staging/private alpha theo ADR-0012.
-- Master Plan web-first 2.4 và backlog Phase 3 là nguồn kế hoạch hiện hành.
+- Master Plan web-first 2.4 và backlog Phase 4 là nguồn kế hoạch implementation hiện hành;
+  backlog Phase 3 tiếp tục là nguồn cho deferred carry-over/full closure.
 - Không sao chép secret, token hoặc cấu hình production từ V1.
 
 ## Tài liệu bắt buộc đọc
@@ -130,6 +138,8 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
 36. [ADR-0022: Tenant-scoped in-app notification projection và preference](docs/adr/0022-tenant-scoped-in-app-notification-projection.md)
 37. [ADR-0023: Calendar working schedule, free/busy và RSVP authority](docs/adr/0023-calendar-working-schedule-free-busy-and-rsvp-authority.md)
 38. [ADR-0024: Forward-only security correction cho Availability Poll maintenance purge](docs/adr/0024-forward-maintenance-purge-security.md)
+39. [Backlog Phase 4](docs/PHASE_4_BACKLOG.md)
+40. [ADR-0030: Authoritative Classroom Media spaces, lifecycle và LiveKit grants](docs/adr/0030-authoritative-classroom-media-spaces-lifecycle-and-livekit-grants.md)
 
 Các quyết định kiến trúc đã chấp nhận nằm trong `docs/adr`.
 

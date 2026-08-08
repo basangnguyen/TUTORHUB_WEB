@@ -11,11 +11,33 @@
 | Nhánh làm việc       | `main`                                                                                |
 | Quy trình            | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
 | Phase hoàn thành     | Phase 0, Phase 1, Phase 2                                                             |
-| Phase hiện tại       | Phase 4 entry open; Phase 3 deferred carry-over vẫn hoạt động                         |
-| Task `DONE` gần nhất | P3-14-CORE Core Exit sign-off                                                         |
-| Mốc repository mới   | Candidate `f5f1eb3` Live trên Render/Pages; Neon giữ `28 false`                       |
-| Task hiện tại        | Chưa mở implementation task Phase 4                                                  |
-| Task tiếp theo       | Lập backlog/ADR implementation-readiness cho Phase 4 Classroom Media MVP             |
+| Phase hiện tại       | Phase 4 Classroom Media MVP; Phase 3 deferred carry-over vẫn hoạt động                |
+| Task `DONE` gần nhất | P4-00 Classroom Media architecture/backlog baseline                                  |
+| Mốc repository mới   | ADR-0030 + `PHASE_4_BACKLOG.md`; không migration/deploy                               |
+| Task hiện tại        | P4-01 MediaSpace lifecycle/schema/API core                                            |
+| Task tiếp theo       | Review schema/OpenAPI, khóa forward migration và triển khai feature-off P4-01         |
+
+### Checkpoint P4-00 `DONE` ngày 2026-08-08
+
+P4-00 đã tạo `docs/PHASE_4_BACKLOG.md` với P4-00 đến P4-12, dependency graph, reuse
+matrix, risk/test matrix và exit gate. ADR-0030 `Accepted` chốt ba cấp authority
+`MediaSpace -> RoomInstance -> ParticipantSession`; official ClassSession/occurrence và
+member-owned StudyMeeting giữ source/ownership riêng, còn instant command tạo/bind một
+StudyMeeting thay vì tạo authority thứ ba. Không quyền nào được suy từ client, JWT hoặc
+provider state.
+
+P1-07 được kiểm kê và tái sử dụng token issuer, signed webhook verifier, bounded telemetry,
+prejoin/LiveKit room UI, camera/mic/screen share và reconnect. Deterministic class-wide room,
+participant identity chứa user/session và webhook parse tenant/class từ room name chỉ còn là
+compatibility spike, không phải Phase 4 lifecycle authority. P4-01 là vertical slice kế tiếp:
+schema/domain/OpenAPI/ACL/concurrency cùng feature `classroom_media_rooms` và
+`instant_study_rooms` mặc định/deployment-force-off; chưa mint provider token trong slice này.
+
+Baseline cũng chốt lobby/moderation server-authorized, không remote-unmute,
+`CanPublishData=false`, persistent chat không dùng DataChannel, recording/egress off,
+provider/participant identifiers opaque, identifiable diagnostics retention tối đa 30 ngày và
+legacy/P4 authority mutual exclusion. P4-00 không thêm dependency, migration, credential,
+provider config, shared staging write hoặc deploy. Full P3-14/Phase 3 carry-over vẫn giữ nguyên.
 
 ### Checkpoint P3-14-CORE `DONE` ngày 2026-08-08
 

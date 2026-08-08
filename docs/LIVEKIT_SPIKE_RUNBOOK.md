@@ -1,5 +1,14 @@
 # P1-07 LiveKit Spike Runbook
 
+> **P4-00 note (2026-08-08):** tài liệu này là bằng chứng/reuse baseline của P1, không
+> phải Classroom Media lifecycle authority. Phase 4 tuân
+> [ADR-0030](adr/0030-authoritative-classroom-media-spaces-lifecycle-and-livekit-grants.md)
+> và [PHASE_4_BACKLOG.md](PHASE_4_BACKLOG.md): MediaSpace/RoomInstance/ParticipantSession,
+> opaque provider binding, lobby/moderation, feature + deployment guardrail force-off và
+> exact tenant ACL. Legacy class-wide deterministic room/token path chỉ được giữ cho
+> controlled compatibility smoke cho tới khi P4 route thay thế; không tenant nào chạy hai
+> authority đồng thời.
+
 ## 1. Mục tiêu và trạng thái
 
 P1-07 chứng minh một lát cắt phòng học trực tuyến tối thiểu nhưng đúng ranh giới bảo

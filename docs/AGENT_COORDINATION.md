@@ -159,8 +159,8 @@ P3-04 chưa `DONE`: Neon staging hiện ở `23 false`; migration `000016` và e
 runtime grants đã probe xanh, nhưng worker role/worker grants, durable worker và canary
 duplicate/crash-reclaim chưa được nghiệm thu. Khi đổi worker gate phải dừng process và
 đổi exact notification grant cùng lúc; quyền dư/thiếu đều phải làm startup probe fail
-closed. P3-02D-A đã `DONE` sau exact staging/browser/API/NVDA acceptance; dependency
-runnable tiếp theo là `P3-06`. P3-03B durable-host,
+closed. P3-02D-A đã `DONE` sau exact staging/browser/API/NVDA acceptance; các dependency
+runnable đến P3-14-CORE hiện đều đã đóng. P3-03B durable-host,
 worker role/grants/crash-reclaim, P3-04 activation, live SES/domain và delivery-dependent
 processing được giữ `DEFERRED/VERIFY` hoặc `DEFERRED/TODO` đúng theo mức implementation
 cho tới khi có môi trường phù hợp. Khi các slice
@@ -185,7 +185,29 @@ worker live grants, crash/reclaim/duplicate canary hoặc SES/domain production 
 và Class Files activation tiếp tục `false`; không bật asynchronous delivery/email/reminder
 hoặc worker-driven file processing/sharing tới end user.
 
-## 6. Hạ tầng staging đã chốt
+## 6. Trạng thái Phase 4
+
+| Task  | Trạng thái | Ghi chú                                                     |
+| ----- | ---------- | ----------------------------------------------------------- |
+| P4-00 | DONE       | ADR-0030 + Phase 4 backlog; không migration/deploy          |
+| P4-01 | TODO       | MediaSpace lifecycle/schema/API core, feature mặc định off  |
+| P4-02 | TODO       | RoomInstance credential + signed webhook database binding   |
+| P4-03 đến P4-10 | TODO | Prejoin/lobby/UI/moderation/chat/reconnect/telemetry    |
+| P4-11 | TODO       | Browser/device/load/provider-outage acceptance              |
+| P4-12 | TODO       | Exact staging acceptance và Phase 4 closure                 |
+
+Nguồn thực thi: `docs/PHASE_4_BACKLOG.md`; kiến trúc có thẩm quyền: ADR-0030. P1-07
+LiveKit token/webhook/prejoin/room code được tái sử dụng nhưng class-wide deterministic
+room không phải Phase 4 lifecycle authority. P4-01 là task kế tiếp: thiết kế migration
+forward, schema/ACL/domain/API và feature/quota defaults off; chưa gọi provider hoặc bật
+end-user room. Trước P4-08 phải review/amend ADR-0013/0025 vì conversation hiện chỉ có
+`direct` và `class`.
+
+Phase 4 không được làm mất Phase 3 carry-over register. Notification/email/reminder,
+durable worker và file-processing flags giữ off tới gate riêng; recording/egress cũng
+giữ off trong Classroom Media MVP.
+
+## 7. Hạ tầng staging đã chốt
 
 - Web: `https://tutorhub-web.pages.dev`.
 - Core API: `https://tutorhub-core-api.onrender.com`.
@@ -195,7 +217,7 @@ hoặc worker-driven file processing/sharing tới end user.
 - Media: LiveKit Cloud staging project.
 - Tất cả smoke test acceptance đã đạt ngày 2026-07-16.
 
-## 7. Quy tắc tránh mất mã
+## 8. Quy tắc tránh mất mã
 
 - Push sau mỗi checkpoint hoàn chỉnh, không gom quá nhiều thay đổi không liên quan.
 - File `.env*.local`, token, key và URL chứa credential phải được Git-ignore.

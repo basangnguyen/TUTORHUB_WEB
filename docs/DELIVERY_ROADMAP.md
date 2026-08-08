@@ -5,10 +5,10 @@
 | Thuộc tính          | Trạng thái                                      |
 | ------------------- | ----------------------------------------------- |
 | Cập nhật            | 2026-08-08                                      |
-| Phase hiện tại      | Phase 4 entry open; Phase 3 carry-over tiếp tục |
-| Hoàn thành gần nhất | P3-14-CORE `DONE` trên candidate `f5f1eb3`      |
-| Mốc repository mới  | Core Exit exact CI/Render/Pages/live PASS       |
-| Việc tiếp theo      | Lập backlog/ADR readiness cho Classroom Media MVP |
+| Phase hiện tại      | Phase 4 Classroom Media; Phase 3 carry-over tiếp tục |
+| Hoàn thành gần nhất | P4-00 architecture/backlog baseline `DONE`      |
+| Mốc repository mới  | ADR-0030 + Phase 4 task/dependency/exit gates   |
+| Việc tiếp theo      | P4-01 MediaSpace lifecycle/schema/API core      |
 | Phạm vi             | Web-first; desktop/mobile/native là track sau   |
 
 ## Chuỗi phase
@@ -75,9 +75,12 @@ activation, SES/domain/live interoperability và delivery/processing phụ thu�
 được giữ carry-over để đóng sau, không đánh dấu PASS do bỏ qua.
 P3-CAL-01 không phải dependency kỹ thuật của session một lần P3-01; cả hai gate đã đạt.
 P3-CAL-02 có thể chạy sandbox cô lập, nhưng mọi email/notification side effect runtime
-vẫn phải chờ P3-03B. Core Exit đã đạt trên candidate `f5f1eb3`; bước tiếp theo là lập
-backlog/ADR implementation-readiness cho Phase 4. `P3-02D-B` auto-close/fan-out/delivery
-và các lane worker/provider tiếp tục là carry-over, không bị coi là PASS.
+vẫn phải chờ P3-03B. Core Exit đã đạt trên candidate `f5f1eb3`; P4-00
+architecture/backlog implementation-readiness hiện đã `DONE`. Nguồn thực thi là
+[PHASE_4_BACKLOG.md](PHASE_4_BACKLOG.md), ADR authority là
+[ADR-0030](adr/0030-authoritative-classroom-media-spaces-lifecycle-and-livekit-grants.md)
+và P4-01 là vertical slice kế tiếp. `P3-02D-B` auto-close/fan-out/delivery cùng các lane
+worker/provider tiếp tục là carry-over, không bị coi là PASS.
 
 ## Mô hình chuyển tiếp Phase 3 → Phase 4
 

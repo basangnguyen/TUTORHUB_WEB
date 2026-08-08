@@ -10,8 +10,8 @@
 | Thư mục phát triển    | `D:\TutorHub_V2`                                                                             |
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
-| Phase hiện tại        | Phase 3 - Daily learning workspace                                                           |
-| Trạng thái gần nhất   | P3-13 `DONE`; candidate `25a323ad` Live trên Render/Pages; Neon `28 false`               |
+| Phase hiện tại        | Phase 4 - Classroom Media MVP; Phase 3 deferred carry-over tiếp tục                         |
+| Trạng thái gần nhất   | P4-00 `DONE`; ADR-0030 + Phase 4 backlog, không migration/deploy                            |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 
@@ -507,11 +507,12 @@ chỉ chạy API stateless và job nhẹ có thể retry; worker side effect ph�
 Không kiểm tra bằng chuỗi role rải rác. Dùng permission cụ thể như:
 
 - `class.view`, `class.update`, `class.archive`.
-- `session.schedule`, `session.start`.
+- `session.schedule`, `session.start`, `session.end`, `session.join`.
 - `availability.poll.create`, `availability.poll.manage_own`,
   `availability.poll.publish_to_class`.
 - `study_meeting.schedule_own`, `room.create.instant`.
-- `meeting.admit`, `meeting.mute_others`, `meeting.remove`.
+- `participant.admit`, `participant.remove`, `media.publish`, `media.share_screen`,
+  `media.lock`, `media.moderate`.
 - `file.upload`, `file.share`.
 - `assignment.grade`.
 - `assessment.publish`.
@@ -553,13 +554,14 @@ Audit event tối thiểu có actor, tenant, action, resource, timestamp, reques
 **Wave 2 - Classroom management**
 
 - classes.
-- class_members.
+- class_enrollments.
 - invitations.
-- course_sessions.
-- meeting_spaces.
-- meeting_instances.
-- participant_sessions.
-- admission_events.
+- class_sessions, class_session_series và occurrence exceptions.
+- study_meetings.
+- media_spaces.
+- media_room_instances.
+- media_space_members và media_admission_requests.
+- media_participant_sessions.
 
 **Wave 3 - Communication/content**
 
@@ -616,22 +618,34 @@ Audit event tối thiểu có actor, tenant, action, resource, timestamp, reques
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Scheduled
-    Scheduled --> LobbyOpen
-    LobbyOpen --> Waiting: student prejoin
-    Waiting --> Admitted: host admits
-    Admitted --> Joining: token issued
-    Joining --> Connected
-    Joining --> Failed
-    Connected --> Reconnecting: network lost
-    Reconnecting --> Connected: recovered
-    Reconnecting --> Failed: timeout
-    Connected --> Left
-    Failed --> Prejoin: retry
-    Left --> [*]
+    state MediaSpace {
+        [*] --> Scheduled
+        Scheduled --> Open
+        Scheduled --> Cancelled
+        Open --> Ended
+        Ended --> [*]
+        Cancelled --> [*]
+    }
+    state ParticipantSession {
+        [*] --> Waiting
+        Waiting --> Admitted
+        Waiting --> Removed
+        Admitted --> Joining
+        Joining --> Connected
+        Joining --> Failed
+        Connected --> Reconnecting
+        Reconnecting --> Connected
+        Reconnecting --> Failed
+        Connected --> Left
+        Connected --> Removed
+    }
 ```
 
-Backend sở hữu trạng thái nghiệp vụ; LiveKit room phản ánh phiên media, không thay thế meeting record.
+ADR-0030 là authority chi tiết: MediaSpace bind ClassSession/recurring occurrence hoặc
+StudyMeeting; instant command tạo/bind StudyMeeting thay vì tạo source thứ ba. RoomInstance
+tách provider attempt khỏi logical space và mỗi space chỉ có một active instance. Backend/
+PostgreSQL sở hữu trạng thái nghiệp vụ; LiveKit room phản ánh phiên media, không thay thế source,
+admission hoặc ParticipantSession record.
 
 ### 14.2 Luồng join
 
@@ -696,7 +710,9 @@ Breakout là mapping server-side giữa participant và child meeting space. Chu
 
 ### 15.1 Persistent messaging
 
-- Conversation có scope: direct, group, class hoặc session.
+- Runtime hiện có đúng hai scope `direct` và `class` theo ADR-0013/0025. Official room có
+  thể nhúng class conversation hiện hữu; room-scoped/StudyMeeting group chat chỉ được thêm
+  sau P4-08 ADR review, không tự mở rộng enum hoặc tạo bảng song song.
 - Message được ghi PostgreSQL trước khi phát sự kiện.
 - Cursor pagination, unread marker và receipt.
 - Attachment tham chiếu file đã `ready`.
@@ -1469,6 +1485,12 @@ Phase 3 exit gate** và phải đóng trước khi ghi Phase 3/P3-14 `DONE`:
 thể còn `DEFERRED/VERIFY` hoặc `DEFERRED/TODO` và tiếp tục song song; chúng không được
 xóa, giả lập PASS hoặc bật side effect khi chưa đạt gate tương ứng.
 
+**Backlog thực thi:** `docs/PHASE_4_BACKLOG.md`. P4-00 đã `DONE` ngày 2026-08-08 và
+ADR-0030 đã `Accepted`: tái sử dụng LiveKit Cloud/P1 token-webhook-prejoin code nhưng thay
+class-wide spike bằng `MediaSpace -> RoomInstance -> ParticipantSession` có source, tenant,
+lifecycle và moderation authority. Feature/catalog cùng deployment guardrail giữ force-off;
+P4-00 không migration/deploy. P4-01 MediaSpace lifecycle/schema/API core là task kế tiếp.
+
 **Thời lượng:** 6-8 tuần.
 
 **Mục tiêu:** lớp học tương tác 2-50 người có vòng đời và moderation đáng tin cậy.
@@ -2078,6 +2100,10 @@ Calendar Playwright 15/15, bảy PostgreSQL integration package và ledger dispo
 đã xanh; carry-over register đã lập. Candidate `f5f1eb3` PASS exact CI/security, Live trên
 Cloudflare/Render và đạt public/privacy/authenticated feature-off/Calendar acceptance. Phase 4
 được phép bắt đầu; full P3-14/Phase 3 vẫn chờ carry-over.
+P4-00 đã `DONE` bằng ADR-0030 và `docs/PHASE_4_BACKLOG.md`: room authority, source binding,
+opaque LiveKit identity, signed webhook mapping, lobby/moderation, feature-off rollout,
+privacy/retention và P1 compatibility đã chốt. P4-01 là implementation slice kế tiếp;
+chưa có migration, provider change hoặc feature activation từ P4-00.
 Không bật side effect chỉ vì core đã có. `P3-02D-B` và các gate worker/provider vẫn là
 carry-over.
 AWS SES đã được chọn làm provider target nhưng
