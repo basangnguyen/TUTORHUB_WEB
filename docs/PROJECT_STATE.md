@@ -54,6 +54,10 @@ P4-01 vẫn là vertical slice hiện tại. Chưa thêm production dependency,
 route, migration, service, provider config, shared-staging write hoặc deploy; kết quả hợp lệ có
 thể là ship P4 không effect nếu performance/privacy/accessibility/license gate không đạt.
 
+Research setup ngày 2026-08-09 đã shallow-clone LiveKit Meet revision
+`665e1cb7841ab872de0d8e5c310744009a763b08` vào `.tmp/research/livekit-meet`. Checkout Apache-2.0
+được Git ignore và chỉ dùng audit read-only; chưa cài dependency, tạo `.env` hoặc kết nối provider.
+
 ### Forward plan P5-COLLAB-00 đăng ký ngày 2026-08-09
 
 [P5-COLLAB-00](P5_COLLAB_00_RESEARCH_SPIKE.md) đã được thêm làm decision spike đầu tiên cho

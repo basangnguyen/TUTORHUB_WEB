@@ -103,6 +103,15 @@ chỉ được nhập V2 sau khi xác minh quyền sử dụng và quét metadat
 | Browser WebRTC audio processing | Mặc định cho echo cancellation, noise suppression và auto gain khi supported | Có music/original-sound escape hatch nếu xử lý làm hỏng nội dung |
 | [LiveKit Krisp](https://docs.livekit.io/transport/media/noise-cancellation/) | Tùy chọn nâng cao sau feature flag/entitlement | Xác minh LiveKit Cloud support, browser, license/terms, runtime model và chi phí trước quyết định |
 
+### 4.1 Local reference checkout
+
+- Source: `https://github.com/livekit-examples/meet.git`.
+- Revision pin: `665e1cb7841ab872de0d8e5c310744009a763b08` (shallow clone ngày 2026-08-09).
+- Local path: `.tmp/research/livekit-meet`; `.tmp/` được Git ignore, không phải submodule hoặc
+  production dependency.
+- License tại revision đã kiểm tra: Apache-2.0. Chưa chạy `pnpm install`, chưa tạo `.env` và chưa
+  kết nối LiveKit Cloud; checkout hiện chỉ phục vụ audit read-only.
+
 Không ghép nhiều segmentation stack trong MVP. Beauty, makeup, avatar, sticker, AI-generated
 background, video background và user-uploaded background là non-goal của spike trừ khi evidence
 chứng minh chúng không làm tăng đáng kể privacy, moderation, asset và performance scope.
