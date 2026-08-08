@@ -68,7 +68,8 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
   triển khai. Disposable đạt forward-only `27 false -> 28 false`, exact ACL và full PostgreSQL
   content integration; local verify xanh. B2 CORS/lifecycle đã provision bằng admin key tạm và
   single/multipart provider smoke đạt part PUT, complete, exact-version GET, abort và cleanup.
-  Feature vẫn off, exact candidate chưa qua CI và shared staging giữ `25 false`, chưa deploy. P3-02D-B
+  Feature vẫn off; multipart candidate `04e30649` đã push và Security PASS, còn race-fix Browser E2E
+  cần exact CI xác minh. Shared staging giữ `25 false`, chưa deploy. P3-02D-B
   lifecycle delivery, P3-07B realtime/notification và các gate hạ tầng/provider là
   carry-over; chúng có thể tiếp tục chính xác sau khi Phase 4 bắt đầu.
 - Web MVP nền đã chạy trên staging: Cloudflare Pages -> same-origin `/api/*` -> Go

@@ -13,9 +13,9 @@
 | Phase hoàn thành    | Phase 0, Phase 1, Phase 2                                                             |
 | Phase hiện tại      | Phase 3 - Daily learning workspace                                                   |
 | Task `DONE` gần nhất | P3-08 File metadata, upload intent và finalize                                     |
-| Mốc repository mới | P3-08 `DONE` trên candidate `6a50c3e4`; shared Neon vẫn `25 false`                     |
+| Mốc repository mới | P3-09 multipart candidate `04e30649` đã push; shared Neon vẫn `25 false`              |
 | Task hiện tại       | P3-09 Presigned B2 upload/download — `VERIFY`                                         |
-| Task tiếp theo      | Push exact candidate, CI/security, shared forward/ACL và live acceptance              |
+| Task tiếp theo      | CI Browser E2E của race fix, sau đó shared forward/ACL và live acceptance              |
 
 ### Checkpoint P3-09 forward design `000027` ngày 2026-08-08
 
@@ -55,7 +55,11 @@ B2 bucket-admin preflight xác nhận cấu hình cũ rỗng. Một CORS rule al
 một ngày cho `tenants/`/`smoke/` đã được provision, read-back và kiểm tra idempotent. Runtime app
 key không được nâng quyền. Single/multipart smoke PASS part PUT/CORS, complete immutable version,
 exact-version GET, explicit abort và cleanup. P3-09 chuyển `IN PROGRESS -> VERIFY`; exact candidate
-chưa push và shared staging vẫn `25 false`, chưa deploy.
+`04e30649` đã push và Security PASS. Verify phát hiện race thật ở feedback/focus sau gửi tin nhắn:
+hook chờ cache refresh trước khi báo success và focus có thể chạy lúc composer còn disabled. Bản sửa
+tách cache refresh thành background, chỉ focus sau khi mutation hết pending và có regression test với
+refresh cố ý không hoàn tất. Full local `pnpm verify` PASS; host không có Docker nên exact Playwright
+được giao cho CI. Shared staging vẫn `25 false`, chưa deploy.
 
 ### Checkpoint P3-08 hoàn tất ngày 2026-08-08
 

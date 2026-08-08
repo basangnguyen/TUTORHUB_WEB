@@ -195,5 +195,10 @@ Core API runtime role.
   ID nên verification dựa trên origin/method/header/max-age, không dựa vào provider-generated ID.
 - Helper bucket-admin chỉ tồn tại tạm thời, không commit. Admin key có thể bị thu hồi sau khi
   owner xác nhận không còn cần cấu hình bucket; Core API tiếp tục dùng runtime key giới hạn.
-- Bước còn lại là push exact candidate, chạy CI/security, forward shared staging, provision exact
-  ACL, deploy và live acceptance trước `VERIFY -> DONE`.
+- Exact multipart candidate `04e30649` đã push; Security PASS. Verify Browser E2E đã tái hiện race
+  ở feedback/focus sau gửi tin nhắn trong hai attempt: lần đầu feedback đã hiện nhưng composer chưa
+  focus, lần sau feedback bị cache refresh làm chậm quá timeout. Bản sửa không chờ invalidation để
+  báo success, đồng thời chỉ focus khi mutation hết pending; regression test giữ refresh pending vẫn
+  PASS. Full local `pnpm verify` PASS; host không có Docker nên exact Playwright phải được CI xác minh.
+- Bước còn lại là exact race-fix candidate CI/security, forward shared staging, provision exact ACL,
+  deploy và live acceptance trước `VERIFY -> DONE`.

@@ -1057,8 +1057,11 @@ forward và ứng dụng chưa deploy theo ranh giới P3-08; direct B2 transfer
       disposable `27 false -> 28 false` integration PASS.
 - [x] Bucket-admin allowlist B2 CORS/expose `ETag` + `x-amz-version-id`, lifecycle abort
       incomplete và provider single/multipart smoke PASS.
-- [ ] Exact multipart candidate CI/security, shared forward/ACL, deploy và live acceptance
-      trước `VERIFY -> DONE`.
+- [x] Exact multipart candidate `04e30649` đã push và Security PASS; Verify Browser E2E phát hiện
+      race feedback/focus sau send. Bản sửa có regression test với background refresh không hoàn tất;
+      full local `pnpm verify` PASS, exact Playwright chờ CI vì host không có Docker.
+- [ ] Exact race-fix candidate CI/security, shared forward/ACL, deploy và live acceptance trước
+      `VERIFY -> DONE`.
 
 ## 17. P3-10 Scan/metadata/thumbnail processing
 

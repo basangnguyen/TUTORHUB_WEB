@@ -160,11 +160,11 @@ export function useSendConversationMessage(
         { baseUrl: getApiBaseUrl() },
       );
     },
-    onSuccess: async () => {
+    onSuccess: () => {
       if (!tenantID || !conversationID) {
         return;
       }
-      await Promise.all([
+      void Promise.all([
         queryClient.invalidateQueries({
           queryKey: conversationQueryKeys.messages(tenantID, conversationID),
         }),

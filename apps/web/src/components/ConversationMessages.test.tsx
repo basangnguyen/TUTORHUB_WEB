@@ -277,6 +277,7 @@ describe("ConversationMessages", () => {
     const sendRequests: Request[] = [];
     let sendAttempts = 0;
     let sent = false;
+    let refreshAfterSendStarted = false;
     const sentMessage = message(1, "Retry me", { own: true });
     const fetchMock = vi.fn().mockImplementation((request: Request) => {
       const url = new URL(request.url);
@@ -289,6 +290,10 @@ describe("ConversationMessages", () => {
         )
       ) {
         if (request.method === "GET") {
+          if (sent) {
+            refreshAfterSendStarted = true;
+            return new Promise<Response>(() => undefined);
+          }
           return Promise.resolve(jsonResponse(page(sent ? [sentMessage] : [])));
         }
         sendRequests.push(request);
@@ -322,8 +327,12 @@ describe("ConversationMessages", () => {
     expect(
       await screen.findByText(/message could not be saved/i),
     ).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Retry send" }));
+    const retryButton = screen.getByRole("button", { name: "Retry send" });
+    retryButton.focus();
+    fireEvent.click(retryButton);
     expect(await screen.findByText("Message saved.")).toBeInTheDocument();
+    await waitFor(() => expect(refreshAfterSendStarted).toBe(true));
+    await waitFor(() => expect(composer).toHaveFocus());
     expect(sendRequests).toHaveLength(2);
     const firstBody = await sendRequests[0]?.clone().json();
     const secondBody = await sendRequests[1]?.clone().json();

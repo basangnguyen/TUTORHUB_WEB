@@ -56,8 +56,16 @@ export function ConversationMessages({
   const [sentFeedback, setSentFeedback] = useState(false);
   const pendingMessage = useRef<PendingMessage | null>(null);
   const lastReadAttempt = useRef<string | null>(null);
+  const focusComposerAfterSuccess = useRef(false);
   const composer = useRef<HTMLTextAreaElement>(null);
   const oldestMessage = useRef<HTMLLIElement>(null);
+
+  useEffect(() => {
+    if (!sendMessage.isPending && focusComposerAfterSuccess.current) {
+      focusComposerAfterSuccess.current = false;
+      composer.current?.focus();
+    }
+  }, [sendMessage.isPending]);
 
   const items = useMemo(() => {
     const byID = new Map<string, Message>();
@@ -139,7 +147,7 @@ export function ConversationMessages({
           pendingMessage.current = null;
           setDraft("");
           setSentFeedback(true);
-          window.requestAnimationFrame(() => composer.current?.focus());
+          focusComposerAfterSuccess.current = true;
         },
       },
     );
