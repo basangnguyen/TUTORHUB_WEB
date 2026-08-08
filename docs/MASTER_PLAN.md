@@ -11,7 +11,7 @@
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
 | Phase hiện tại        | Phase 3 - Daily learning workspace                                                           |
-| Trạng thái gần nhất   | P3-13 `VERIFY`; candidate `25a323ad` CI/Security/Pages PASS; Neon `28 false`              |
+| Trạng thái gần nhất   | P3-13 `DONE`; candidate `25a323ad` Live trên Render/Pages; Neon `28 false`               |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 
@@ -2070,9 +2070,10 @@ P3-11A gate-off đã `DONE` trên candidate `73467ae6` sau CI/security, deploy v
 Teacher/Student role/cache acceptance. Automated accessibility thay manual NVDA được owner
 phê duyệt riêng cho slice này. P3-12 tiếp theo đã `DONE` trên candidate `1c73c52` sau exact
 CI/security, Cloudflare/Render và live Teacher/Student/workspace/privacy/accessibility acceptance;
-P3-13 đã đạt local/disposable `VERIFY` theo ADR-0029: draft allowlist bind actor/tenant,
-idempotent retry opt-in và bounded quota metrics đã PASS. Candidate `25a323ad` đã PASS exact
-CI/security/Cloudflare Pages; Render exact-candidate và live Admin acceptance còn mở.
+P3-13 đã `DONE` theo ADR-0029: draft allowlist bind actor/tenant, idempotent retry opt-in và
+bounded quota metrics đã PASS local/disposable/exact CI. Candidate `25a323ad` Live đúng SHA trên
+Cloudflare/Render; public/anonymous privacy probe và live Admin same-tab/workspace/logout purge
+đều PASS mà không lưu shared configuration. Runnable task tiếp theo là `P3-14-CORE` sign-off.
 Không bật side effect chỉ vì core đã có. `P3-02D-B` và các gate worker/provider vẫn là
 carry-over.
 AWS SES đã được chọn làm provider target nhưng

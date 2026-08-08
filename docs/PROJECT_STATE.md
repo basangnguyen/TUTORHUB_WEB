@@ -12,12 +12,12 @@
 | Quy trình            | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
 | Phase hoàn thành     | Phase 0, Phase 1, Phase 2                                                             |
 | Phase hiện tại       | Phase 3 - Daily learning workspace                                                    |
-| Task `DONE` gần nhất | P3-12 Home dashboard và PostgreSQL search cơ bản                                      |
-| Mốc repository mới   | P3-13 candidate `25a323ad` CI/Security/Pages PASS; Neon `28 false`                    |
-| Task hiện tại        | P3-13 Offline/retry drafts và Phase 3 quota closure — `VERIFY`                        |
-| Task tiếp theo       | Deploy Render exact candidate và chạy live Admin privacy/retry/quota acceptance      |
+| Task `DONE` gần nhất | P3-13 Offline/retry drafts và Phase 3 quota closure                                   |
+| Mốc repository mới   | P3-13 candidate `25a323ad` Live trên Render/Pages; Neon giữ `28 false`                |
+| Task hiện tại        | P3-14-CORE Core Exit sign-off — `TODO`                                                |
+| Task tiếp theo       | Rà checklist runnable lane, regression và carry-over register của P3-14-CORE         |
 
-### Checkpoint P3-13 `VERIFY` ngày 2026-08-08
+### Checkpoint P3-13 `DONE` ngày 2026-08-08
 
 ADR-0029 chốt vertical slice không migration: chỉ admin feature/quota draft không nhạy cảm được
 lưu trong `sessionStorage` với TTL/size/scope actor-tenant; logout, 401 và workspace switch purge
@@ -27,10 +27,12 @@ idempotency key; 4xx/quota/conflict và B2 transfer tiếp tục không auto-ret
 Web catalog bao phủ exact 9 feature/17 quota. Go quota-rejection metrics lấy label từ compiled
 catalog và bỏ qua runtime label không xác định. Full `pnpm verify` PASS với 55 web file/262 test,
 toàn bộ Go test/vet, build/Storybook/security. Neon disposable feature-control integration PASS
-với exact runtime ACL và ledger giữ `28 false`; không migration, rollback, shared staging write
-hoặc deploy. Exact candidate `25a323ad` đã PASS Verify `31260418987`, Security `31260418985`,
-Browser E2E và Cloudflare Pages. Render exact-candidate deploy cùng live Admin acceptance còn mở;
-bằng chứng chi tiết ở `docs/P3_13_STAGING_ACCEPTANCE.md`.
+với exact runtime ACL và ledger giữ `28 false`; không migration, rollback hay shared staging write.
+Exact candidate `25a323ad` đã PASS Verify `31260418987`, Security `31260418985`, Browser E2E và
+Cloudflare Pages. Render deployment `dep-d9rjdnf10e5c7387mh60` Live đúng full SHA; 6/6 public
+probe và 2/2 anonymous privacy probe PASS. Live Admin same-tab recovery, workspace-switch purge,
+logout purge và console check PASS; server value giữ nguyên vì không bấm lưu hay tạo quota fixture.
+P3-13 chuyển `VERIFY -> DONE`; bằng chứng chi tiết ở `docs/P3_13_STAGING_ACCEPTANCE.md`.
 
 ### Checkpoint P3-12 `DONE` ngày 2026-08-08
 

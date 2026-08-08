@@ -1,6 +1,6 @@
 # P3-13 Offline/retry drafts and Phase 3 quota closure acceptance
 
-- Status: `VERIFY`
+- Status: `DONE`
 - Date: 2026-08-08
 - Database: no migration; shared and disposable schema remain `28 false`
 
@@ -30,7 +30,7 @@
 - [x] Full exact-tree local `pnpm verify`.
 - [x] Neon disposable feature-control PostgreSQL integration and schema-version check.
 - [x] Exact candidate CI/security and Cloudflare Pages deployment.
-- [ ] Render exact-candidate deployment and live Admin staging acceptance.
+- [x] Render exact-candidate deployment and live Admin staging acceptance.
 
 ## Local and disposable evidence
 
@@ -61,8 +61,27 @@
 - The first candidate exposed one stale Browser E2E assertion: it expected a manual retry button
   after one network failure. The final E2E now proves the automatic second POST returns 201 and
   carries the exact same `client_message_id`; the final Browser E2E job passed.
-- Cloudflare Pages check `93110366172` passed for the exact source candidate. Render/Core API was
-  not deployed in this task boundary, and no shared database or feature control was changed.
+- Cloudflare Pages check `93110366172` passed for the exact source candidate. Render deployment
+  `dep-d9rjdnf10e5c7387mh60` reached `Live` on the exact full SHA
+  `25a323ad17c65ae402dd65d33cc7727132f748b1` in 1m44s.
+
+## Live staging evidence
+
+- Direct Render `/health`, `/ready`, `/api/v1/status` and Pages-proxied `/api/health`,
+  `/api/ready`, `/api/v1/status` all returned HTTP 200 with `Cache-Control: no-store` (6/6).
+- Anonymous direct and Pages-proxied tenant capability reads returned HTTP 401 with
+  `Cache-Control: no-store` and `Referrer-Policy: no-referrer` (2/2).
+- A deployed organization-admin session displayed the complete effective feature/quota catalog.
+  Changing `message_sends_per_hour` from 5000 to 5001 without saving created the scoped draft;
+  a same-tab reload restored 5001 and the draft status.
+- Switching KMA -> P2-08 Alternate -> KMA removed that draft and restored the server value 5000.
+  Repeating with an unsaved value 5002, logging out and signing in again also restored 5000 with
+  no draft status. No feature/quota save, shared-database mutation or quota exhaustion fixture was
+  performed.
+- Browser console warning/error capture was empty. The live catalog/purge checks combine with the
+  exact candidate Browser E2E, unit and disposable PostgreSQL tests for 4xx/409/429 no-retry,
+  one bounded network/5xx retry using the same idempotency key, typed quota rejection and bounded
+  privacy-safe metric labels.
 
 ## Retry and privacy matrix
 
@@ -75,5 +94,6 @@
 5. Feature/quota draft: same-tab reload restores only the scoped typed configuration; another
    actor or tenant cannot read it, and boundary cleanup removes it.
 
-P3-13 remains `VERIFY` until Render reaches the exact candidate and the deployed Admin same-tab
-recovery, logout/workspace purge, quota rejection and retry/privacy acceptance matrix passes.
+P3-13 is `DONE`: the exact candidate is Live, public and anonymous privacy probes pass, and the
+deployed non-destructive Admin acceptance plus exact candidate CI/disposable evidence closes the
+draft, quota, retry and privacy matrix without changing shared configuration.

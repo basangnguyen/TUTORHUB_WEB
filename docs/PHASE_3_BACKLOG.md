@@ -33,11 +33,10 @@ re-baseline này không dùng nó để chặn Phase 4 hay ép các gate provide
 tất trước khi có môi trường phù hợp. Domain/DNS, SES sandbox và production-access
 approval có thể tiếp tục chuẩn bị song song.
 
-**Task `DONE` gần nhất:** `P3-12` Home dashboard và PostgreSQL search cơ bản hoàn tất ngày
-2026-08-08 trên candidate `1c73c52`; exact CI/security, Cloudflare/Render, public privacy probes,
-Teacher/Student, workspace cache isolation và accessibility acceptance đều PASS. **Task hiện
-tại:** `P3-13` Offline/retry drafts và Phase 3 quota closure ở `VERIFY`; local/disposable và
-exact candidate CI/security đã xanh, Render/live acceptance còn mở.
+**Task `DONE` gần nhất:** `P3-13` Offline/retry drafts và Phase 3 quota closure hoàn tất ngày
+2026-08-08 trên candidate `25a323ad`; exact CI/security, Cloudflare/Render, public privacy probes
+và live Admin draft/workspace/logout acceptance đều PASS mà không lưu thay đổi shared. **Task hiện
+tại:** `P3-14-CORE` Core Exit sign-off ở `TODO`.
 P3-10 processing tiếp tục `DEFERRED/TODO` theo worker dependency.
 `P3-02D-B` lifecycle delivery/
 auto-close/fan-out và các gate P3-03B/P3-CAL-02/P3-05A/B là carry-over, không nằm trong
@@ -119,7 +118,7 @@ processing/sharing tới end user.
 | P3-11A     | Class Files transfer-core UI (gate off)        | P3-09                                         | DONE            |
 | P3-11B     | File processing/thumbnail/rejected UX          | P3-10, P3-11A                                 | DEFERRED/TODO   |
 | P3-12      | Home dashboard và PostgreSQL search cơ bản     | P3-01, P3-07A, P3-11A                         | DONE            |
-| P3-13      | Offline/retry drafts và Phase 3 quota closure  | P3-02D-A, P3-07A, P3-11A                      | VERIFY          |
+| P3-13      | Offline/retry drafts và Phase 3 quota closure  | P3-02D-A, P3-07A, P3-11A                      | DONE            |
 | P3-14-CORE | Core Exit sign-off (cho phép bắt đầu Phase 4)  | P3-02D-A, P3-07A, P3-09, P3-11A, P3-12, P3-13 | TODO            |
 | P3-14      | Full staging acceptance và đóng Phase 3        | carry-over + P3-12/P3-13                      | TODO            |
 
@@ -1122,7 +1121,7 @@ không mở rộng sang P3-11B, activation hoặc public milestone.
 
 ## 20. P3-13 Offline/retry drafts và Phase 3 quota closure
 
-**Trạng thái:** `VERIFY` từ 2026-08-08; ADR-0029 chốt vertical slice không migration.
+**Trạng thái:** `DONE` từ 2026-08-08; ADR-0029 chốt vertical slice không migration.
 
 - Chỉ draft không nhạy cảm được lưu client; không lưu token/signed URL/message đã gửi.
 - Retry mutation dùng idempotency key khi có khả năng submit lại tự động.
@@ -1139,8 +1138,10 @@ không mở rộng sang P3-11B, activation hoặc public milestone.
 - [x] Full local `pnpm verify`, web 55 file/262 test và Neon disposable feature-control
       integration PASS; schema giữ `28 false`, không rollback/shared migration.
 - [x] Exact candidate `25a323ad` PASS Verify/Security, Browser E2E và Cloudflare Pages.
-- [ ] Render exact candidate và deployed Admin privacy/retry/quota acceptance trước khi chuyển
-      `VERIFY -> DONE`.
+- [x] Render deployment `dep-d9rjdnf10e5c7387mh60` Live đúng candidate `25a323ad`; 6/6 public
+      probe, 2/2 anonymous privacy probe và deployed Admin same-tab/workspace/logout purge PASS.
+      Exact CI/disposable matrix đóng quota/retry/privacy mà không lưu shared configuration;
+      P3-13 chuyển `VERIFY -> DONE`.
 
 ## 21. P3-14 Staging acceptance và exit gate
 
@@ -1157,7 +1158,7 @@ không mở rộng sang P3-11B, activation hoặc public milestone.
 - [x] P3-08/P3-09 file metadata + direct B2 transfer đạt intent/finalize, immutable-version
       provider proof, state safety và authorization; exact-version checksum/scan/thumbnail worker
       thuộc P3-10 carry-over và file uploads tiếp tục gate-off.
-- [ ] P3-11A/P3-12/P3-13 được đưa vào Core Exit chỉ ở phạm vi không phụ thuộc worker/
+- [x] P3-11A/P3-12/P3-13 được đưa vào Core Exit chỉ ở phạm vi không phụ thuộc worker/
       provider; loading/empty/error/forbidden/offline và quota tests đều xanh. P3-11B
       vẫn ở carry-over và Class Files activation vẫn tắt.
 - [ ] Verify/Security/accessibility/tenant-isolation và staging smoke của lane runnable xanh;
