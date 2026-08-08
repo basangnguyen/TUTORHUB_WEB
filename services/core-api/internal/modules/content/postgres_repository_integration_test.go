@@ -403,6 +403,12 @@ GRANT SELECT ON TABLE
     tutorhub.tenant_quota_windows
 TO tutorhub_conversation_runtime_ci;
 
+GRANT UPDATE (updated_at) ON TABLE tutorhub.classes
+TO tutorhub_conversation_runtime_ci;
+
+GRANT UPDATE (updated_at) ON TABLE tutorhub.class_enrollments
+TO tutorhub_conversation_runtime_ci;
+
 GRANT INSERT, UPDATE ON TABLE tutorhub.tenant_quota_windows
 TO tutorhub_conversation_runtime_ci;
 
@@ -476,6 +482,22 @@ func assertContentRuntimeDependencies(
 					expectation.relation,
 				)
 			}
+		}
+	}
+	for _, relation := range []string{
+		"tutorhub.classes",
+		"tutorhub.class_enrollments",
+	} {
+		var allowed bool
+		if err := pool.QueryRow(
+			ctx,
+			"SELECT has_column_privilege(current_user, $1, 'updated_at', 'UPDATE')",
+			relation,
+		).Scan(&allowed); err != nil {
+			t.Fatalf("inspect content runtime row-lock dependency %s: %v", relation, err)
+		}
+		if !allowed {
+			t.Fatalf("content runtime is missing row-lock UPDATE on %s", relation)
 		}
 	}
 }

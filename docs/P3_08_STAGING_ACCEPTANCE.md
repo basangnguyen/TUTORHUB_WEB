@@ -55,8 +55,10 @@ Trước khi cấp ACL cho hai bảng mới, runtime role phải vẫn có basel
 từ các phase trước: `SELECT` trên `tenants`, `memberships`, `users`, `classes`,
 `class_enrollments`, `tenant_feature_overrides`, `tenant_quota_overrides` và
 `tenant_quota_windows`; riêng `tenant_quota_windows` cần thêm `INSERT, UPDATE` cho fixed-window
-rate quota. P3-08 không tự mở rộng các grant cũ; exact-login integration gate sẽ fail
-closed nếu thiếu bất kỳ dependency nào.
+rate quota. Hai truy vấn authorization khóa row bằng `FOR SHARE`, nên `classes` và
+`class_enrollments` cũng phải có `UPDATE` trên ít nhất một cột; baseline hiện dùng
+`updated_at`. P3-08 không tự mở rộng các grant cũ; exact-login integration gate sẽ
+fail closed nếu thiếu bất kỳ dependency nào.
 
 ```sql
 BEGIN;
