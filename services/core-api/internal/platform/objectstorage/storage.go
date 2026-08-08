@@ -46,6 +46,47 @@ type TransferPresigner interface {
 	PresignDownload(context.Context, DownloadPresignInput) (PresignedRequest, error)
 }
 
+type MultipartCreateInput struct {
+	Key         string
+	ContentType string
+}
+
+type MultipartPartPresignInput struct {
+	Key           string
+	UploadID      string
+	PartNumber    int32
+	ContentLength int64
+	Expires       time.Duration
+}
+
+type CompletedPart struct {
+	PartNumber int32
+	ETag       string
+}
+
+type MultipartCompleteInput struct {
+	Key      string
+	UploadID string
+	Parts    []CompletedPart
+}
+
+type MultipartCompleteResult struct {
+	ETag      string
+	VersionID string
+}
+
+type MultipartAbortInput struct {
+	Key      string
+	UploadID string
+}
+
+type MultipartTransfer interface {
+	CreateMultipart(context.Context, MultipartCreateInput) (string, error)
+	PresignMultipartPart(context.Context, MultipartPartPresignInput) (PresignedRequest, error)
+	CompleteMultipart(context.Context, MultipartCompleteInput) (MultipartCompleteResult, error)
+	AbortMultipart(context.Context, MultipartAbortInput) error
+}
+
 type Object struct {
 	Body          io.ReadCloser
 	ContentLength int64

@@ -2,7 +2,8 @@
 
 ## 1. Trạng thái và ranh giới
 
-- Trạng thái hiện tại: `IN PROGRESS` từ 2026-08-08.
+- Trạng thái hiện tại: `VERIFY`; code/disposable và B2 single/multipart provider gate đã đạt,
+  exact candidate CI/security cùng shared staging/live acceptance còn mở.
 - Kiến trúc: ADR-0027; P3-08/ADR-0026 vẫn là authority cho metadata và finalize.
 - Shared Neon staging vẫn ở `25 false`; P3-09 không migrate hoặc deploy shared staging trước
   khi provider contract và toàn bộ disposable/local gate đạt.
@@ -158,3 +159,41 @@ COMMIT;
 
 P3-10 worker phải dùng role/ACL riêng để ghi checksum và processing lifecycle; không nới lại
 Core API runtime role.
+
+## 10. Forward design `000028` và disposable multipart evidence
+
+- ADR-0027 đã chốt multipart không dùng composite ETag làm SHA-256. Migration
+  `000028_content_file_multipart_uploads` thêm durable session/issued-part ownership; provider
+  upload ID chỉ nằm trong PostgreSQL, public API chỉ nhận UUID TutorHub.
+- API initiate/part/complete/abort đã nối session + CSRF + expected tenant, creator, pending
+  file, expected version và intent expiry. Chỉ một session `active/completing` được giữ; single
+  PUT bị chặn trong thời gian đó. Complete chỉ nhận manifest liên tục đúng toàn bộ part đã cấp,
+  non-final part tối thiểu 5.000.000 byte, rồi trả immutable version cho exact finalize.
+- Full local `pnpm verify` PASS sau OpenAPI/generated client, Go unit/HTTP/storage/migration và
+  API client multipart tests.
+- Candidate `0b65c9ca` của single-PUT/version-bound checkpoint đã đạt GitHub Verify và Security;
+  exact multipart candidate đã sẵn sàng push sau provider PASS.
+- Neon disposable owner/runtime preflight PASS; forward-only `27 false -> 28 false`, exact
+  runtime ACL cho `content_files`, `tenant_file_usage`, multipart sessions và parts PASS.
+  Runtime không có table INSERT/UPDATE/DELETE/TRUNCATE; bảng parts chỉ có SELECT + exact column
+  INSERT, không cần UPDATE sau khi bỏ row-lock dư thừa.
+- Toàn bộ PostgreSQL content integration PASS và final ledger giữ `28 false`: ownership/tenant
+  concealment, single-PUT barrier, same-part retry, changed-length conflict, exact manifest,
+  immutable completion version, completed-vs-abort conflict, idempotent abort và lazy expiry.
+- Bucket-admin preflight xác nhận cấu hình cũ rỗng; provision idempotent PASS với một CORS rule
+  allow origin `https://tutorhub-web.pages.dev`, `PUT`/`GET`/`HEAD`, expose `ETag` và
+  `x-amz-version-id`, cùng hai lifecycle rule abort incomplete sau một ngày cho `tenants/` và
+  `smoke/`. Runtime app key không được nâng quyền.
+- B2 single/multipart smoke PASS: part PUT/CORS/exposed ETag, complete immutable version,
+  exact-version GET byte-match, explicit abort và cleanup đều thành công. Shared staging vẫn
+  `25 false`, chưa deploy.
+
+### Provider gate result
+
+- Admin key mới đã qua Native B2 authorization và endpoint-match preflight; secret không được in.
+- S3 read-back xác nhận CORS/lifecycle đúng semantics và idempotent. Backblaze chuẩn hóa CORS rule
+  ID nên verification dựa trên origin/method/header/max-age, không dựa vào provider-generated ID.
+- Helper bucket-admin chỉ tồn tại tạm thời, không commit. Admin key có thể bị thu hồi sau khi
+  owner xác nhận không còn cần cấu hình bucket; Core API tiếp tục dùng runtime key giới hạn.
+- Bước còn lại là push exact candidate, chạy CI/security, forward shared staging, provision exact
+  ACL, deploy và live acceptance trước `VERIFY -> DONE`.

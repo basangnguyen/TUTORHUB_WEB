@@ -31,6 +31,8 @@ var (
 	ErrStorageUnavailable  = errors.New("stored file metadata unavailable")
 	ErrNotReady            = errors.New("file is not ready for download")
 	ErrVersionConflict     = errors.New("file version conflict")
+	ErrMultipartConflict   = errors.New("file multipart upload conflict")
+	ErrMultipartExpired    = errors.New("file multipart upload expired")
 	ErrUnavailable         = errors.New("file metadata unavailable")
 )
 
@@ -96,6 +98,61 @@ type DownloadCapability struct {
 	ExpiresAt time.Time `json:"expires_at"`
 }
 
+type MultipartStatus string
+
+const (
+	MultipartStatusActive     MultipartStatus = "active"
+	MultipartStatusCompleting MultipartStatus = "completing"
+	MultipartStatusCompleted  MultipartStatus = "completed"
+	MultipartStatusAborted    MultipartStatus = "aborted"
+	MultipartStatusExpired    MultipartStatus = "expired"
+)
+
+type MultipartUpload struct {
+	ID        uuid.UUID       `json:"id"`
+	FileID    uuid.UUID       `json:"file_id"`
+	Status    MultipartStatus `json:"status"`
+	ExpiresAt time.Time       `json:"expires_at"`
+}
+
+type CreateMultipartInput struct {
+	ExpectedVersion int64 `json:"expected_version"`
+}
+
+type MultipartPartCapabilityInput struct {
+	ExpectedVersion    int64 `json:"expected_version"`
+	ContentLengthBytes int64 `json:"content_length_bytes"`
+}
+
+type MultipartPartCapability struct {
+	Method             string            `json:"method"`
+	URL                string            `json:"url"`
+	ExpiresAt          time.Time         `json:"expires_at"`
+	PartNumber         int32             `json:"part_number"`
+	ContentLengthBytes int64             `json:"content_length_bytes"`
+	RequiredHeaders    map[string]string `json:"required_headers"`
+}
+
+type MultipartCompletedPart struct {
+	PartNumber int32  `json:"part_number"`
+	ETag       string `json:"etag"`
+}
+
+type CompleteMultipartInput struct {
+	ExpectedVersion int64                    `json:"expected_version"`
+	Parts           []MultipartCompletedPart `json:"parts"`
+}
+
+type CompleteMultipartResult struct {
+	Upload           MultipartUpload `json:"upload"`
+	StorageVersionID string          `json:"storage_version_id"`
+	ETag             string          `json:"etag"`
+}
+
+type AbortMultipartInput struct {
+	ExpectedVersion int64 `json:"expected_version"`
+}
+
 type CreateCommand struct {
 	ID                 uuid.UUID
 	ClassID            uuid.UUID
@@ -137,6 +194,36 @@ type DownloadTarget struct {
 	StoredMediaType string
 }
 
+type MultipartCreateCommand struct {
+	ID               uuid.UUID
+	FileID           uuid.UUID
+	ProviderUploadID string
+	ExpectedVersion  int64
+	ExpiresAt        time.Time
+	CreatedAt        time.Time
+}
+
+type MultipartTarget struct {
+	Upload             MultipartUpload
+	File               File
+	ObjectKey          string
+	ProviderUploadID   string
+	IssuedParts        []MultipartIssuedPart
+	CompletedVersionID string
+	CompletedETag      string
+}
+
+type MultipartIssuedPart struct {
+	PartNumber         int32
+	ContentLengthBytes int64
+}
+
+type MultipartCompleteProof struct {
+	VersionID   string
+	ETag        string
+	CompletedAt time.Time
+}
+
 type Repository interface {
 	CreateIntent(context.Context, AccessContext, CreateCommand) (CreateIntentResult, error)
 	Get(context.Context, AccessContext, uuid.UUID) (File, error)
@@ -144,6 +231,14 @@ type Repository interface {
 	PrepareDownload(context.Context, AccessContext, uuid.UUID) (DownloadTarget, error)
 	PrepareFinalize(context.Context, AccessContext, uuid.UUID, int64, time.Time) (FinalizeTarget, error)
 	CommitFinalize(context.Context, AccessContext, uuid.UUID, FinalizeProof) (File, error)
+	PrepareMultipartCreate(context.Context, AccessContext, uuid.UUID, int64, time.Time) (UploadTarget, error)
+	CreateMultipart(context.Context, AccessContext, MultipartCreateCommand) (MultipartUpload, error)
+	PrepareMultipartPart(context.Context, AccessContext, uuid.UUID, uuid.UUID, int64, int32, int64, time.Time) (MultipartTarget, error)
+	PrepareMultipartComplete(context.Context, AccessContext, uuid.UUID, uuid.UUID, int64, []MultipartCompletedPart, time.Time) (MultipartTarget, error)
+	ReleaseMultipartComplete(context.Context, AccessContext, uuid.UUID, uuid.UUID) error
+	CommitMultipartComplete(context.Context, AccessContext, uuid.UUID, uuid.UUID, MultipartCompleteProof) (MultipartTarget, error)
+	PrepareMultipartAbort(context.Context, AccessContext, uuid.UUID, uuid.UUID, int64, time.Time) (MultipartTarget, error)
+	CommitMultipartAbort(context.Context, AccessContext, uuid.UUID, uuid.UUID, MultipartStatus, time.Time) (MultipartUpload, error)
 }
 
 type ServiceAPI interface {
@@ -152,9 +247,14 @@ type ServiceAPI interface {
 	IssueUploadCapability(context.Context, AccessContext, uuid.UUID, UploadCapabilityInput) (UploadCapability, error)
 	IssueDownloadCapability(context.Context, AccessContext, uuid.UUID) (DownloadCapability, error)
 	Finalize(context.Context, AccessContext, uuid.UUID, FinalizeInput) (File, error)
+	CreateMultipart(context.Context, AccessContext, uuid.UUID, CreateMultipartInput) (MultipartUpload, error)
+	IssueMultipartPartCapability(context.Context, AccessContext, uuid.UUID, uuid.UUID, int32, MultipartPartCapabilityInput) (MultipartPartCapability, error)
+	CompleteMultipart(context.Context, AccessContext, uuid.UUID, uuid.UUID, CompleteMultipartInput) (CompleteMultipartResult, error)
+	AbortMultipart(context.Context, AccessContext, uuid.UUID, uuid.UUID, AbortMultipartInput) (MultipartUpload, error)
 }
 
 type ObjectStorage interface {
 	objectstorage.MetadataReader
 	objectstorage.TransferPresigner
+	objectstorage.MultipartTransfer
 }

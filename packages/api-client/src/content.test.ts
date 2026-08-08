@@ -1,9 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  abortFileMultipartUpload,
+  completeFileMultipartUpload,
+  createFileMultipartUpload,
   createFileUploadIntent,
   finalizeFileUpload,
   getFileMetadata,
   issueFileDownloadCapability,
+  issueFileMultipartPartCapability,
   issueFileUploadCapability,
 } from "./index";
 import type {
@@ -16,6 +20,7 @@ const tenantID = "7f44c093-1cb2-46ae-8285-779b78728524";
 const classID = "0ce0994b-1d0c-4125-9ad0-dfba33f70322";
 const fileID = "527a9874-df73-4bf7-97f0-10f0e6bd9a8d";
 const actorID = "5391c8b2-1224-4105-a44e-452eb69d9884";
+const multipartID = "f46d1d0e-d724-4ca5-8f87-950c9040f027";
 
 const pendingFile: ContentFile = {
   id: fileID,
@@ -156,6 +161,93 @@ describe("content file API", () => {
       expected_version: 1,
     });
     expect(await requests[1]!.clone().text()).toBe("");
+  });
+
+  it("binds multipart initiate, part, complete and abort to tenant ownership", async () => {
+    const upload = {
+      id: multipartID,
+      file_id: fileID,
+      status: "active",
+      expires_at: "2030-08-07T10:15:00Z",
+    } as const;
+    const fetchMock = vi
+      .fn()
+      .mockImplementationOnce(() => Promise.resolve(jsonResponse(upload, 201)))
+      .mockImplementationOnce(() =>
+        Promise.resolve(
+          jsonResponse({
+            method: "PUT",
+            url: "https://storage.example/part?signature=secret",
+            expires_at: "2030-08-07T10:05:00Z",
+            part_number: 1,
+            content_length_bytes: 42,
+            required_headers: {},
+          }),
+        ),
+      )
+      .mockImplementationOnce(() =>
+        Promise.resolve(
+          jsonResponse({
+            upload: { ...upload, status: "completed" },
+            storage_version_id: "version-2",
+            etag: "multipart-etag",
+          }),
+        ),
+      )
+      .mockImplementationOnce(() =>
+        Promise.resolve(jsonResponse({ ...upload, status: "aborted" })),
+      );
+    const options = {
+      baseUrl: "https://web.example.test/api",
+      fetch: fetchMock,
+    };
+
+    await createFileMultipartUpload(
+      tenantID,
+      fileID,
+      { expected_version: 1 },
+      "multipart-csrf",
+      options,
+    );
+    await issueFileMultipartPartCapability(
+      tenantID,
+      fileID,
+      multipartID,
+      1,
+      { expected_version: 1, content_length_bytes: 42 },
+      "part-csrf",
+      options,
+    );
+    await completeFileMultipartUpload(
+      tenantID,
+      fileID,
+      multipartID,
+      { expected_version: 1, parts: [{ part_number: 1, etag: "part-etag" }] },
+      "complete-csrf",
+      options,
+    );
+    await abortFileMultipartUpload(
+      tenantID,
+      fileID,
+      multipartID,
+      { expected_version: 1 },
+      "abort-csrf",
+      options,
+    );
+
+    const requests = fetchMock.mock.calls.map((call) => call[0] as Request);
+    expect(requests.map((request) => new URL(request.url).pathname)).toEqual([
+      `/api/v1/files/${fileID}/multipart-uploads`,
+      `/api/v1/files/${fileID}/multipart-uploads/${multipartID}/parts/1/capability`,
+      `/api/v1/files/${fileID}/multipart-uploads/${multipartID}/complete`,
+      `/api/v1/files/${fileID}/multipart-uploads/${multipartID}/abort`,
+    ]);
+    expect(
+      requests.every(
+        (request) =>
+          request.headers.get("X-TutorHub-Expected-Tenant-ID") === tenantID,
+      ),
+    ).toBe(true);
   });
 
   it("rejects an empty expected tenant before sending", async () => {

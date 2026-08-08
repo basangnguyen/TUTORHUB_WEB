@@ -28,6 +28,9 @@ const (
 	maximumDisplayNameBytes  = 1024
 	maximumMediaTypeBytes    = 127
 	maximumStorageProofBytes = 512
+	maximumProviderIDBytes   = 2048
+	minimumMultipartPartSize = int64(5_000_000)
+	maximumMultipartPartSize = int64(5_368_709_120)
 )
 
 var mediaTypeToken = regexp.MustCompile(`^[a-z0-9][a-z0-9!#$&^_.+-]*/[a-z0-9][a-z0-9!#$&^_.+-]*$`)
@@ -128,6 +131,216 @@ func (service *Service) IssueDownloadCapability(
 	return DownloadCapability{
 		Method: presigned.Method, URL: presigned.URL, ExpiresAt: now.Add(downloadCapabilityTTL),
 	}, nil
+}
+
+func (service *Service) CreateMultipart(
+	ctx context.Context,
+	access AccessContext,
+	fileID uuid.UUID,
+	input CreateMultipartInput,
+) (MultipartUpload, error) {
+	if service == nil {
+		return MultipartUpload{}, fmt.Errorf("create multipart upload: service is unavailable")
+	}
+	if !validAccess(access) {
+		return MultipartUpload{}, ErrAccessDenied
+	}
+	if fileID == uuid.Nil {
+		return MultipartUpload{}, ErrNotFound
+	}
+	if input.ExpectedVersion < 1 {
+		return MultipartUpload{}, ErrInvalidInput
+	}
+	now := service.now().UTC()
+	target, err := service.repository.PrepareMultipartCreate(
+		ctx, access, fileID, input.ExpectedVersion, now,
+	)
+	if err != nil {
+		return MultipartUpload{}, normalizeRepositoryError(err)
+	}
+	providerUploadID, err := service.storage.CreateMultipart(ctx, objectstorage.MultipartCreateInput{
+		Key: target.ObjectKey, ContentType: target.File.DeclaredMediaType,
+	})
+	if err != nil {
+		return MultipartUpload{}, fmt.Errorf("%w: create multipart upload", ErrStorageUnavailable)
+	}
+	providerUploadID, err = normalizeProviderUploadID(providerUploadID)
+	if err != nil {
+		return MultipartUpload{}, fmt.Errorf("%w: invalid multipart provider response", ErrStorageUnavailable)
+	}
+	command := MultipartCreateCommand{
+		ID: uuid.New(), FileID: fileID, ProviderUploadID: providerUploadID,
+		ExpectedVersion: input.ExpectedVersion, ExpiresAt: target.File.UploadExpiresAt,
+		CreatedAt: now,
+	}
+	upload, err := service.repository.CreateMultipart(ctx, access, command)
+	if err != nil {
+		_ = service.storage.AbortMultipart(ctx, objectstorage.MultipartAbortInput{
+			Key: target.ObjectKey, UploadID: providerUploadID,
+		})
+		return MultipartUpload{}, normalizeRepositoryError(err)
+	}
+	return upload, nil
+}
+
+func (service *Service) IssueMultipartPartCapability(
+	ctx context.Context,
+	access AccessContext,
+	fileID uuid.UUID,
+	multipartID uuid.UUID,
+	partNumber int32,
+	input MultipartPartCapabilityInput,
+) (MultipartPartCapability, error) {
+	if service == nil {
+		return MultipartPartCapability{}, fmt.Errorf("issue multipart part capability: service is unavailable")
+	}
+	if !validAccess(access) {
+		return MultipartPartCapability{}, ErrAccessDenied
+	}
+	if fileID == uuid.Nil || multipartID == uuid.Nil {
+		return MultipartPartCapability{}, ErrNotFound
+	}
+	if input.ExpectedVersion < 1 || partNumber < 1 || partNumber > 10000 ||
+		input.ContentLengthBytes < 1 || input.ContentLengthBytes > maximumMultipartPartSize {
+		return MultipartPartCapability{}, ErrInvalidInput
+	}
+	now := service.now().UTC()
+	target, err := service.repository.PrepareMultipartPart(
+		ctx, access, fileID, multipartID, input.ExpectedVersion,
+		partNumber, input.ContentLengthBytes, now,
+	)
+	if err != nil {
+		return MultipartPartCapability{}, normalizeRepositoryError(err)
+	}
+	ttl := minDuration(uploadCapabilityTTL, target.Upload.ExpiresAt.Sub(now))
+	if ttl <= 0 {
+		return MultipartPartCapability{}, ErrMultipartExpired
+	}
+	presigned, err := service.storage.PresignMultipartPart(ctx, objectstorage.MultipartPartPresignInput{
+		Key: target.ObjectKey, UploadID: target.ProviderUploadID,
+		PartNumber: partNumber, ContentLength: input.ContentLengthBytes, Expires: ttl,
+	})
+	if err != nil {
+		return MultipartPartCapability{}, fmt.Errorf("%w: presign multipart part", ErrStorageUnavailable)
+	}
+	if presigned.Method != http.MethodPut || strings.TrimSpace(presigned.URL) == "" {
+		return MultipartPartCapability{}, fmt.Errorf("%w: invalid multipart capability", ErrStorageUnavailable)
+	}
+	return MultipartPartCapability{
+		Method: presigned.Method, URL: presigned.URL, ExpiresAt: now.Add(ttl),
+		PartNumber: partNumber, ContentLengthBytes: input.ContentLengthBytes,
+		RequiredHeaders: map[string]string{},
+	}, nil
+}
+
+func (service *Service) CompleteMultipart(
+	ctx context.Context,
+	access AccessContext,
+	fileID uuid.UUID,
+	multipartID uuid.UUID,
+	input CompleteMultipartInput,
+) (CompleteMultipartResult, error) {
+	if service == nil {
+		return CompleteMultipartResult{}, fmt.Errorf("complete multipart upload: service is unavailable")
+	}
+	if !validAccess(access) {
+		return CompleteMultipartResult{}, ErrAccessDenied
+	}
+	if fileID == uuid.Nil || multipartID == uuid.Nil {
+		return CompleteMultipartResult{}, ErrNotFound
+	}
+	parts, err := normalizeCompletedParts(input.Parts)
+	if input.ExpectedVersion < 1 || err != nil {
+		return CompleteMultipartResult{}, ErrInvalidInput
+	}
+	now := service.now().UTC()
+	target, err := service.repository.PrepareMultipartComplete(
+		ctx, access, fileID, multipartID, input.ExpectedVersion, parts, now,
+	)
+	if err != nil {
+		return CompleteMultipartResult{}, normalizeRepositoryError(err)
+	}
+	if target.Upload.Status == MultipartStatusCompleted {
+		return CompleteMultipartResult{
+			Upload: target.Upload, StorageVersionID: target.CompletedVersionID,
+			ETag: target.CompletedETag,
+		}, nil
+	}
+	if err := validateMultipartManifest(target.File.ExpectedSizeBytes, target.IssuedParts, parts); err != nil {
+		_ = service.repository.ReleaseMultipartComplete(ctx, access, fileID, multipartID)
+		return CompleteMultipartResult{}, err
+	}
+	providerParts := make([]objectstorage.CompletedPart, len(parts))
+	for index, part := range parts {
+		providerParts[index] = objectstorage.CompletedPart{PartNumber: part.PartNumber, ETag: part.ETag}
+	}
+	completed, err := service.storage.CompleteMultipart(ctx, objectstorage.MultipartCompleteInput{
+		Key: target.ObjectKey, UploadID: target.ProviderUploadID, Parts: providerParts,
+	})
+	if err != nil {
+		_ = service.repository.ReleaseMultipartComplete(ctx, access, fileID, multipartID)
+		return CompleteMultipartResult{}, fmt.Errorf("%w: complete multipart upload", ErrStorageUnavailable)
+	}
+	versionID, versionErr := normalizeStorageProof(completed.VersionID)
+	etag, etagErr := normalizeStorageProof(completed.ETag)
+	if versionErr != nil || etagErr != nil {
+		return CompleteMultipartResult{}, fmt.Errorf("%w: invalid multipart completion proof", ErrStorageUnavailable)
+	}
+	committed, err := service.repository.CommitMultipartComplete(
+		ctx, access, fileID, multipartID,
+		MultipartCompleteProof{VersionID: versionID, ETag: etag, CompletedAt: now},
+	)
+	if err != nil {
+		return CompleteMultipartResult{}, normalizeRepositoryError(err)
+	}
+	return CompleteMultipartResult{
+		Upload: committed.Upload, StorageVersionID: committed.CompletedVersionID,
+		ETag: committed.CompletedETag,
+	}, nil
+}
+
+func (service *Service) AbortMultipart(
+	ctx context.Context,
+	access AccessContext,
+	fileID uuid.UUID,
+	multipartID uuid.UUID,
+	input AbortMultipartInput,
+) (MultipartUpload, error) {
+	if service == nil {
+		return MultipartUpload{}, fmt.Errorf("abort multipart upload: service is unavailable")
+	}
+	if !validAccess(access) {
+		return MultipartUpload{}, ErrAccessDenied
+	}
+	if fileID == uuid.Nil || multipartID == uuid.Nil {
+		return MultipartUpload{}, ErrNotFound
+	}
+	if input.ExpectedVersion < 1 {
+		return MultipartUpload{}, ErrInvalidInput
+	}
+	now := service.now().UTC()
+	target, err := service.repository.PrepareMultipartAbort(
+		ctx, access, fileID, multipartID, input.ExpectedVersion, now,
+	)
+	if err != nil {
+		return MultipartUpload{}, normalizeRepositoryError(err)
+	}
+	if target.Upload.Status == MultipartStatusAborted || target.Upload.Status == MultipartStatusExpired {
+		return target.Upload, nil
+	}
+	if err := service.storage.AbortMultipart(ctx, objectstorage.MultipartAbortInput{
+		Key: target.ObjectKey, UploadID: target.ProviderUploadID,
+	}); err != nil {
+		return MultipartUpload{}, fmt.Errorf("%w: abort multipart upload", ErrStorageUnavailable)
+	}
+	status := MultipartStatusAborted
+	if !now.Before(target.Upload.ExpiresAt) {
+		status = MultipartStatusExpired
+	}
+	upload, err := service.repository.CommitMultipartAbort(
+		ctx, access, fileID, multipartID, status, now,
+	)
+	return upload, normalizeRepositoryError(err)
 }
 
 func (service *Service) CreateIntent(
@@ -266,6 +479,58 @@ func normalizeStorageProof(value string) (string, error) {
 	return value, nil
 }
 
+func normalizeProviderUploadID(value string) (string, error) {
+	value = strings.TrimSpace(value)
+	if value == "" || len(value) > maximumProviderIDBytes || !utf8.ValidString(value) {
+		return "", ErrInvalidInput
+	}
+	for _, character := range value {
+		if unicode.IsControl(character) {
+			return "", ErrInvalidInput
+		}
+	}
+	return value, nil
+}
+
+func normalizeCompletedParts(input []MultipartCompletedPart) ([]MultipartCompletedPart, error) {
+	if len(input) == 0 || len(input) > 10000 {
+		return nil, ErrInvalidInput
+	}
+	parts := make([]MultipartCompletedPart, len(input))
+	for index, part := range input {
+		etag, err := normalizeStorageProof(part.ETag)
+		if err != nil || part.PartNumber != int32(index+1) {
+			return nil, ErrInvalidInput
+		}
+		parts[index] = MultipartCompletedPart{PartNumber: part.PartNumber, ETag: etag}
+	}
+	return parts, nil
+}
+
+func validateMultipartManifest(
+	expectedSize int64,
+	issued []MultipartIssuedPart,
+	completed []MultipartCompletedPart,
+) error {
+	if len(issued) != len(completed) || len(issued) == 0 {
+		return ErrMultipartConflict
+	}
+	var total int64
+	for index, part := range issued {
+		if part.PartNumber != int32(index+1) || part.PartNumber != completed[index].PartNumber ||
+			part.ContentLengthBytes < 1 || part.ContentLengthBytes > maximumMultipartPartSize ||
+			(index < len(issued)-1 && part.ContentLengthBytes < minimumMultipartPartSize) ||
+			total > expectedSize-part.ContentLengthBytes {
+			return ErrMultipartConflict
+		}
+		total += part.ContentLengthBytes
+	}
+	if total != expectedSize {
+		return ErrMultipartConflict
+	}
+	return nil
+}
+
 func minDuration(left, right time.Duration) time.Duration {
 	if left < right {
 		return left
@@ -345,6 +610,7 @@ func normalizeRepositoryError(err error) error {
 		ErrIdempotencyConflict, ErrIntentExpired, ErrQuotaExceeded,
 		ErrRateLimited, ErrStorageMismatch, ErrStorageUnavailable,
 		ErrNotReady, ErrVersionConflict, ErrUnavailable,
+		ErrMultipartConflict, ErrMultipartExpired,
 		featurecontrol.ErrInvalidControl, featurecontrol.ErrAccessDenied,
 		featurecontrol.ErrTenantNotFound, featurecontrol.ErrFeatureDisabled,
 		featurecontrol.ErrQuotaExceeded, featurecontrol.ErrVersionConflict,

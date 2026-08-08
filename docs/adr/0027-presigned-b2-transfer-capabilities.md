@@ -62,13 +62,29 @@ therefore needs a real provider gate before any end-user upload endpoint can be 
 
 ### Multipart boundary
 
-- The current single-object limit is bounded by the existing five-GiB single-file guardrail.
-  Multipart support remains part of the P3-09 exit gate, but is implemented only after the
-  provider proves how a completed multipart object exposes a trustworthy whole-object
-  checksum. Initiate/part/complete/abort capabilities must remain server-bound to the same
-  pending file and must have durable upload-ID ownership before they can be exposed.
-- Incomplete multipart uploads require explicit abort plus a bucket lifecycle safety net.
-  Neither multipart nor resume is represented as complete by a successful single-PUT smoke.
+- Provider evidence established that neither a single-object nor multipart ETag is a
+  trustworthy whole-object SHA-256. Multipart therefore follows the same forward contract:
+  provider completion returns an immutable version selector, exact-version finalize verifies
+  length/type/version, and P3-10 later stream-hashes and scans those bytes before `ready`.
+- Forward migration `000028` introduces durable multipart sessions and issued-part manifests.
+  The public session UUID is bound to tenant, creator, pending file, expected file version and
+  the original intent expiry. The provider upload ID is private database state and is never
+  returned, logged or accepted from a client.
+- Initiate, part-capability, complete and abort all require session, CSRF, expected-tenant
+  binding and a fresh server-side authorization check. Part capabilities are valid for at
+  most five minutes and never extend the original upload intent. Part numbers are bounded to
+  `1..10000`; every non-final part is at least 5,000,000 bytes and no part exceeds five GiB.
+- Complete accepts only a contiguous ordered manifest exactly matching the issued part
+  numbers and lengths. ETags are opaque provider selectors, not checksums. It returns the
+  immutable version ID produced by B2; the caller then uses the existing exact-version
+  finalize endpoint.
+- Only one active multipart session may own a file. A single-PUT capability is denied while
+  such a session is active. If provider initiate succeeds but database ownership cannot be
+  committed, the Core API attempts a compensating abort; a bucket lifecycle rule remains the
+  safety net for crash-orphaned uploads.
+- Abort is idempotent for a session already marked aborted and denies any later part or
+  complete request. Expired sessions fail closed and are marked expired lazily; B2 must also
+  enforce `AbortIncompleteMultipartUpload` for abandoned provider uploads.
 
 ### Credentials and CORS
 
@@ -87,8 +103,8 @@ therefore needs a real provider gate before any end-user upload endpoint can be 
   P3-08. The provider evidence determines whether the S3-compatible design can proceed.
 - Forward migration `000027` removes unverified pre-ready stored checksum claims and changes
   the lifecycle constraint so SHA-256 is mandatory at `ready`, not synchronous finalize.
-- Multipart may require a forward migration for durable upload ownership and cleanup state.
-  That decision is deferred until the whole-object checksum contract is proven.
+- Forward migration `000028` adds durable multipart ownership/part state without granting the
+  Core API delete access. Provider upload IDs and part manifests remain private metadata.
 - The Core API handles only authorization, metadata and small provider control requests;
   file bytes continue to travel directly between the browser and B2.
 

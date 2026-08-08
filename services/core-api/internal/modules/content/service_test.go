@@ -224,6 +224,111 @@ func TestTransferCapabilitiesBindPendingUploadAndReadyVersion(t *testing.T) {
 	}
 }
 
+func TestMultipartLifecycleBindsSessionPartsAndImmutableCompletionVersion(t *testing.T) {
+	t.Parallel()
+	fileID, multipartID := uuid.New(), uuid.New()
+	objectKey := "tenants/tenant/files/file/original"
+	upload := MultipartUpload{
+		ID: multipartID, FileID: fileID, Status: MultipartStatusActive,
+		ExpiresAt: contentTestTime.Add(10 * time.Minute),
+	}
+	repository := &fakeRepository{
+		multipartCreateTarget: UploadTarget{File: File{
+			ID: fileID, Version: 1, Status: StatusPending,
+			DeclaredMediaType: "application/pdf", ExpectedSizeBytes: 5_000_001,
+			UploadExpiresAt: upload.ExpiresAt,
+		}, ObjectKey: objectKey},
+		multipartCreated: upload,
+		multipartPartTarget: MultipartTarget{
+			Upload: upload, File: File{ID: fileID, Version: 1, Status: StatusPending},
+			ObjectKey: objectKey, ProviderUploadID: "provider-upload",
+		},
+		multipartCompleteTarget: MultipartTarget{
+			Upload:    MultipartUpload{ID: multipartID, FileID: fileID, Status: MultipartStatusCompleting, ExpiresAt: upload.ExpiresAt},
+			File:      File{ID: fileID, Version: 1, Status: StatusPending, ExpectedSizeBytes: 5_000_001},
+			ObjectKey: objectKey, ProviderUploadID: "provider-upload",
+			IssuedParts: []MultipartIssuedPart{
+				{PartNumber: 1, ContentLengthBytes: 5_000_000},
+				{PartNumber: 2, ContentLengthBytes: 1},
+			},
+		},
+		multipartCommittedTarget: MultipartTarget{
+			Upload:             MultipartUpload{ID: multipartID, FileID: fileID, Status: MultipartStatusCompleted, ExpiresAt: upload.ExpiresAt},
+			CompletedVersionID: "version-2", CompletedETag: "multipart-etag",
+		},
+	}
+	storage := &fakeMetadataReader{
+		multipartCreateID: "provider-upload",
+		multipartPartPresigned: objectstorage.PresignedRequest{
+			URL: "https://storage.example/part?signature=redacted", Method: http.MethodPut,
+		},
+		multipartCompleteResult: objectstorage.MultipartCompleteResult{
+			ETag: "multipart-etag", VersionID: "version-2",
+		},
+	}
+	service, err := NewService(repository, storage)
+	if err != nil {
+		t.Fatalf("create service: %v", err)
+	}
+	service.now = func() time.Time { return contentTestTime }
+	created, err := service.CreateMultipart(
+		context.Background(), testAccess(), fileID, CreateMultipartInput{ExpectedVersion: 1},
+	)
+	if err != nil || created.ID != multipartID || repository.multipartCreateCommand.ProviderUploadID != "provider-upload" {
+		t.Fatalf("create multipart: upload=%+v command=%+v err=%v", created, repository.multipartCreateCommand, err)
+	}
+	capability, err := service.IssueMultipartPartCapability(
+		context.Background(), testAccess(), fileID, multipartID, 1,
+		MultipartPartCapabilityInput{ExpectedVersion: 1, ContentLengthBytes: 5_000_000},
+	)
+	if err != nil || capability.PartNumber != 1 || capability.ContentLengthBytes != 5_000_000 ||
+		storage.multipartPartInput.UploadID != "provider-upload" {
+		t.Fatalf("issue multipart part: capability=%+v input=%+v err=%v", capability, storage.multipartPartInput, err)
+	}
+	completed, err := service.CompleteMultipart(
+		context.Background(), testAccess(), fileID, multipartID,
+		CompleteMultipartInput{ExpectedVersion: 1, Parts: []MultipartCompletedPart{
+			{PartNumber: 1, ETag: "part-1"}, {PartNumber: 2, ETag: "part-2"},
+		}},
+	)
+	if err != nil || completed.StorageVersionID != "version-2" || completed.ETag != "multipart-etag" ||
+		repository.multipartCompleteProof.VersionID != "version-2" ||
+		len(storage.multipartCompleteInput.Parts) != 2 {
+		t.Fatalf("complete multipart: result=%+v proof=%+v provider=%+v err=%v", completed, repository.multipartCompleteProof, storage.multipartCompleteInput, err)
+	}
+}
+
+func TestMultipartCompleteRejectsNonContiguousOrWrongSizedManifestBeforeProvider(t *testing.T) {
+	t.Parallel()
+	fileID, multipartID := uuid.New(), uuid.New()
+	repository := &fakeRepository{multipartCompleteTarget: MultipartTarget{
+		Upload: MultipartUpload{
+			ID: multipartID, FileID: fileID, Status: MultipartStatusCompleting,
+			ExpiresAt: contentTestTime.Add(time.Minute),
+		},
+		File: File{ID: fileID, ExpectedSizeBytes: 5_000_002},
+		IssuedParts: []MultipartIssuedPart{
+			{PartNumber: 1, ContentLengthBytes: 5_000_000},
+			{PartNumber: 2, ContentLengthBytes: 1},
+		},
+	}}
+	storage := &fakeMetadataReader{}
+	service, err := NewService(repository, storage)
+	if err != nil {
+		t.Fatalf("create service: %v", err)
+	}
+	service.now = func() time.Time { return contentTestTime }
+	_, err = service.CompleteMultipart(
+		context.Background(), testAccess(), fileID, multipartID,
+		CompleteMultipartInput{ExpectedVersion: 1, Parts: []MultipartCompletedPart{
+			{PartNumber: 1, ETag: "part-1"}, {PartNumber: 2, ETag: "part-2"},
+		}},
+	)
+	if !errors.Is(err, ErrMultipartConflict) || storage.multipartCompleteCalls != 0 || repository.multipartReleaseCalls != 1 {
+		t.Fatalf("manifest error=%v provider_calls=%d release_calls=%d", err, storage.multipartCompleteCalls, repository.multipartReleaseCalls)
+	}
+}
+
 func TestRepositoryFailureDoesNotExposePrivateDatabaseDetail(t *testing.T) {
 	t.Parallel()
 	service, err := NewService(
@@ -247,22 +352,32 @@ func testAccess() AccessContext {
 }
 
 type fakeRepository struct {
-	createResult   CreateIntentResult
-	createErr      error
-	createCommand  CreateCommand
-	createCalls    int
-	getFile        File
-	getErr         error
-	uploadTarget   UploadTarget
-	uploadErr      error
-	downloadTarget DownloadTarget
-	downloadErr    error
-	finalizeTarget FinalizeTarget
-	prepareErr     error
-	commitFile     File
-	commitErr      error
-	commitProof    FinalizeProof
-	commitCalls    int
+	createResult             CreateIntentResult
+	createErr                error
+	createCommand            CreateCommand
+	createCalls              int
+	getFile                  File
+	getErr                   error
+	uploadTarget             UploadTarget
+	uploadErr                error
+	downloadTarget           DownloadTarget
+	downloadErr              error
+	finalizeTarget           FinalizeTarget
+	prepareErr               error
+	commitFile               File
+	commitErr                error
+	commitProof              FinalizeProof
+	commitCalls              int
+	multipartCreateTarget    UploadTarget
+	multipartCreated         MultipartUpload
+	multipartCreateCommand   MultipartCreateCommand
+	multipartPartTarget      MultipartTarget
+	multipartCompleteTarget  MultipartTarget
+	multipartCommittedTarget MultipartTarget
+	multipartCompleteProof   MultipartCompleteProof
+	multipartReleaseCalls    int
+	multipartAbortTarget     MultipartTarget
+	multipartAborted         MultipartUpload
 }
 
 func (repository *fakeRepository) CreateIntent(
@@ -310,17 +425,76 @@ func (repository *fakeRepository) CommitFinalize(
 	return repository.commitFile, repository.commitErr
 }
 
+func (repository *fakeRepository) PrepareMultipartCreate(
+	context.Context, AccessContext, uuid.UUID, int64, time.Time,
+) (UploadTarget, error) {
+	return repository.multipartCreateTarget, nil
+}
+
+func (repository *fakeRepository) CreateMultipart(
+	_ context.Context, _ AccessContext, command MultipartCreateCommand,
+) (MultipartUpload, error) {
+	repository.multipartCreateCommand = command
+	return repository.multipartCreated, nil
+}
+
+func (repository *fakeRepository) PrepareMultipartPart(
+	context.Context, AccessContext, uuid.UUID, uuid.UUID, int64, int32, int64, time.Time,
+) (MultipartTarget, error) {
+	return repository.multipartPartTarget, nil
+}
+
+func (repository *fakeRepository) PrepareMultipartComplete(
+	context.Context, AccessContext, uuid.UUID, uuid.UUID, int64, []MultipartCompletedPart, time.Time,
+) (MultipartTarget, error) {
+	return repository.multipartCompleteTarget, nil
+}
+
+func (repository *fakeRepository) ReleaseMultipartComplete(
+	context.Context, AccessContext, uuid.UUID, uuid.UUID,
+) error {
+	repository.multipartReleaseCalls++
+	return nil
+}
+
+func (repository *fakeRepository) CommitMultipartComplete(
+	_ context.Context, _ AccessContext, _ uuid.UUID, _ uuid.UUID, proof MultipartCompleteProof,
+) (MultipartTarget, error) {
+	repository.multipartCompleteProof = proof
+	return repository.multipartCommittedTarget, nil
+}
+
+func (repository *fakeRepository) PrepareMultipartAbort(
+	context.Context, AccessContext, uuid.UUID, uuid.UUID, int64, time.Time,
+) (MultipartTarget, error) {
+	return repository.multipartAbortTarget, nil
+}
+
+func (repository *fakeRepository) CommitMultipartAbort(
+	context.Context, AccessContext, uuid.UUID, uuid.UUID, MultipartStatus, time.Time,
+) (MultipartUpload, error) {
+	return repository.multipartAborted, nil
+}
+
 type fakeMetadataReader struct {
-	metadata          objectstorage.Metadata
-	err               error
-	calls             int
-	headVersion       string
-	uploadInput       objectstorage.UploadPresignInput
-	uploadPresigned   objectstorage.PresignedRequest
-	uploadErr         error
-	downloadInput     objectstorage.DownloadPresignInput
-	downloadPresigned objectstorage.PresignedRequest
-	downloadErr       error
+	metadata                objectstorage.Metadata
+	err                     error
+	calls                   int
+	headVersion             string
+	uploadInput             objectstorage.UploadPresignInput
+	uploadPresigned         objectstorage.PresignedRequest
+	uploadErr               error
+	downloadInput           objectstorage.DownloadPresignInput
+	downloadPresigned       objectstorage.PresignedRequest
+	downloadErr             error
+	multipartCreateID       string
+	multipartCreateInput    objectstorage.MultipartCreateInput
+	multipartPartInput      objectstorage.MultipartPartPresignInput
+	multipartPartPresigned  objectstorage.PresignedRequest
+	multipartCompleteInput  objectstorage.MultipartCompleteInput
+	multipartCompleteResult objectstorage.MultipartCompleteResult
+	multipartCompleteCalls  int
+	multipartAbortInput     objectstorage.MultipartAbortInput
 }
 
 func (reader *fakeMetadataReader) Head(context.Context, string) (objectstorage.Metadata, error) {
@@ -348,4 +522,42 @@ func (reader *fakeMetadataReader) PresignDownload(
 ) (objectstorage.PresignedRequest, error) {
 	reader.downloadInput = input
 	return reader.downloadPresigned, reader.downloadErr
+}
+
+func (reader *fakeMetadataReader) CreateMultipart(
+	_ context.Context, input objectstorage.MultipartCreateInput,
+) (string, error) {
+	reader.multipartCreateInput = input
+	if reader.multipartCreateID == "" {
+		return "provider-upload", nil
+	}
+	return reader.multipartCreateID, nil
+}
+
+func (reader *fakeMetadataReader) PresignMultipartPart(
+	_ context.Context, input objectstorage.MultipartPartPresignInput,
+) (objectstorage.PresignedRequest, error) {
+	reader.multipartPartInput = input
+	if reader.multipartPartPresigned.URL == "" {
+		return objectstorage.PresignedRequest{URL: "https://storage.example/part", Method: "PUT"}, nil
+	}
+	return reader.multipartPartPresigned, nil
+}
+
+func (reader *fakeMetadataReader) CompleteMultipart(
+	_ context.Context, input objectstorage.MultipartCompleteInput,
+) (objectstorage.MultipartCompleteResult, error) {
+	reader.multipartCompleteCalls++
+	reader.multipartCompleteInput = input
+	if reader.multipartCompleteResult.VersionID == "" {
+		return objectstorage.MultipartCompleteResult{ETag: "etag", VersionID: "version"}, nil
+	}
+	return reader.multipartCompleteResult, nil
+}
+
+func (reader *fakeMetadataReader) AbortMultipart(
+	_ context.Context, input objectstorage.MultipartAbortInput,
+) error {
+	reader.multipartAbortInput = input
+	return nil
 }

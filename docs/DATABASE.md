@@ -1316,6 +1316,17 @@ The Core API runtime ACL therefore no longer includes `UPDATE(stored_checksum_sh
 Disposable forward-only `26 false -> 27 false -> 27 false`, exact ACL and PostgreSQL content
 integration passed; shared staging remains `25 false`.
 
+P3-09 multipart adds forward migration `000028_content_file_multipart_uploads`: durable private
+provider upload ownership plus issued part number/length manifests. Core API receives SELECT
+and exact column INSERT/UPDATE only; the parts table has no UPDATE because the locked parent
+session serializes part issuance and completion. Disposable owner/runtime preflight and
+forward-only `27 false -> 28 false` passed; the full content integration suite proved tenant/
+creator isolation, single-PUT barrier, part replay conflict, exact completion, abort and expiry.
+Final disposable remains `28 false`; shared staging remains `25 false`. B2 browser CORS/lifecycle
+was provisioned with a separate temporary admin key and read back idempotently. Single/multipart
+provider smoke passed CORS/exposed ETag, complete, exact-version GET, explicit abort and cleanup;
+no shared migration or deploy has run yet.
+
 Với P2-05, cần kiểm tra riêng migrate 9 -> 10, rollback 10 -> 9, migrate lại 9 -> 10;
 tenant-scoped FK/unique/state constraints; direct enroll và các transition; same-user
 replay; concurrent join ở usage limit; atomic exhausted/expired state; archive guard;

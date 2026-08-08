@@ -996,6 +996,240 @@ paths:
           $ref: "#/components/responses/ProblemResponse"
         default:
           $ref: "#/components/responses/ProblemResponse"
+  /api/v1/files/{file_id}/multipart-uploads:
+    post:
+      operationId: createFileMultipartUpload
+      summary: Initiate one durable multipart upload for a pending file
+      description: Creates a provider multipart upload and stores its private upload ID behind a tenant/file/version-bound TutorHub UUID. Only one active or completing multipart upload may own a file.
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: file_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+        - name: X-TutorHub-Expected-Tenant-ID
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateFileMultipartUploadRequest"
+      responses:
+        "201":
+          description: Durable public multipart ownership handle
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FileMultipartUpload"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/files/{file_id}/multipart-uploads/{multipart_id}/parts/{part_number}/capability:
+    post:
+      operationId: issueFileMultipartPartCapability
+      summary: Issue a short-lived PUT capability for one owned multipart part
+      description: Persists the exact part number and byte length before signing. A retry must use the same length and the capability never extends the original file intent.
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: file_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: multipart_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: part_number
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            maximum: 10000
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+        - name: X-TutorHub-Expected-Tenant-ID
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IssueFileMultipartPartCapabilityRequest"
+      responses:
+        "200":
+          description: Short-lived exact multipart part PUT capability
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FileMultipartPartCapability"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/files/{file_id}/multipart-uploads/{multipart_id}/complete:
+    post:
+      operationId: completeFileMultipartUpload
+      summary: Complete one exact issued multipart manifest
+      description: Accepts contiguous opaque provider ETags matching every issued part, completes the provider upload and returns the immutable B2 version selector. ETags are never treated as SHA-256.
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: file_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: multipart_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+        - name: X-TutorHub-Expected-Tenant-ID
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CompleteFileMultipartUploadRequest"
+      responses:
+        "200":
+          description: Multipart upload completed with an immutable version selector
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompleteFileMultipartUploadResult"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/files/{file_id}/multipart-uploads/{multipart_id}/abort:
+    post:
+      operationId: abortFileMultipartUpload
+      summary: Abort one active multipart upload
+      description: Reauthorizes ownership and aborts the private provider upload. Replaying an already aborted or expired session is idempotent; completing/completed sessions conflict.
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: file_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: multipart_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+        - name: X-TutorHub-Expected-Tenant-ID
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AbortFileMultipartUploadRequest"
+      responses:
+        "200":
+          description: Multipart upload is aborted or expired
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FileMultipartUpload"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
   /api/v1/conversations:
     get:
       operationId: listConversations
@@ -6025,6 +6259,135 @@ components:
         expires_at:
           type: string
           format: date-time
+    CreateFileMultipartUploadRequest:
+      type: object
+      additionalProperties: false
+      required: [expected_version]
+      properties:
+        expected_version:
+          type: integer
+          format: int64
+          minimum: 1
+    AbortFileMultipartUploadRequest:
+      type: object
+      additionalProperties: false
+      required: [expected_version]
+      properties:
+        expected_version:
+          type: integer
+          format: int64
+          minimum: 1
+    FileMultipartUpload:
+      type: object
+      additionalProperties: false
+      required: [id, file_id, status, expires_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        file_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [active, completing, completed, aborted, expired]
+        expires_at:
+          type: string
+          format: date-time
+    IssueFileMultipartPartCapabilityRequest:
+      type: object
+      additionalProperties: false
+      required: [expected_version, content_length_bytes]
+      properties:
+        expected_version:
+          type: integer
+          format: int64
+          minimum: 1
+        content_length_bytes:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 5368709120
+    FileMultipartPartCapability:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          method,
+          url,
+          expires_at,
+          part_number,
+          content_length_bytes,
+          required_headers,
+        ]
+      properties:
+        method:
+          type: string
+          const: PUT
+        url:
+          type: string
+          format: uri
+        expires_at:
+          type: string
+          format: date-time
+        part_number:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 10000
+        content_length_bytes:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 5368709120
+        required_headers:
+          type: object
+          additionalProperties:
+            type: string
+    FileMultipartCompletedPart:
+      type: object
+      additionalProperties: false
+      required: [part_number, etag]
+      properties:
+        part_number:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 10000
+        etag:
+          type: string
+          minLength: 1
+          maxLength: 512
+    CompleteFileMultipartUploadRequest:
+      type: object
+      additionalProperties: false
+      required: [expected_version, parts]
+      properties:
+        expected_version:
+          type: integer
+          format: int64
+          minimum: 1
+        parts:
+          type: array
+          minItems: 1
+          maxItems: 10000
+          items:
+            $ref: "#/components/schemas/FileMultipartCompletedPart"
+    CompleteFileMultipartUploadResult:
+      type: object
+      additionalProperties: false
+      required: [upload, storage_version_id, etag]
+      properties:
+        upload:
+          $ref: "#/components/schemas/FileMultipartUpload"
+        storage_version_id:
+          type: string
+          minLength: 1
+          maxLength: 512
+        etag:
+          type: string
+          minLength: 1
+          maxLength: 512
     ConversationKind:
       type: string
       enum: [direct, class]

@@ -1366,6 +1366,86 @@ export type paths = {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/api/v1/files/{file_id}/multipart-uploads": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Initiate one durable multipart upload for a pending file
+     * @description Creates a provider multipart upload and stores its private upload ID behind a tenant/file/version-bound TutorHub UUID. Only one active or completing multipart upload may own a file.
+     */
+    readonly post: operations["createFileMultipartUpload"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/files/{file_id}/multipart-uploads/{multipart_id}/abort": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Abort one active multipart upload
+     * @description Reauthorizes ownership and aborts the private provider upload. Replaying an already aborted or expired session is idempotent; completing/completed sessions conflict.
+     */
+    readonly post: operations["abortFileMultipartUpload"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/files/{file_id}/multipart-uploads/{multipart_id}/complete": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Complete one exact issued multipart manifest
+     * @description Accepts contiguous opaque provider ETags matching every issued part, completes the provider upload and returns the immutable B2 version selector. ETags are never treated as SHA-256.
+     */
+    readonly post: operations["completeFileMultipartUpload"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/files/{file_id}/multipart-uploads/{multipart_id}/parts/{part_number}/capability": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Issue a short-lived PUT capability for one owned multipart part
+     * @description Persists the exact part number and byte length before signing. A retry must use the same length and the capability never extends the original file intent.
+     */
+    readonly post: operations["issueFileMultipartPartCapability"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/api/v1/files/{file_id}/upload-capability": {
     readonly parameters: {
       readonly query?: never;
@@ -1869,6 +1949,10 @@ export type paths = {
 export type webhooks = Record<string, never>;
 export type components = {
   schemas: {
+    readonly AbortFileMultipartUploadRequest: {
+      /** Format: int64 */
+      readonly expected_version: number;
+    };
     readonly ActiveMessage: {
       readonly author: components["schemas"]["MessageAuthor"];
       /**
@@ -2759,6 +2843,16 @@ export type components = {
       readonly enrollment_status:
         components["schemas"]["ClassEnrollmentStatus"] | null;
     };
+    readonly CompleteFileMultipartUploadRequest: {
+      /** Format: int64 */
+      readonly expected_version: number;
+      readonly parts: readonly components["schemas"]["FileMultipartCompletedPart"][];
+    };
+    readonly CompleteFileMultipartUploadResult: {
+      readonly etag: string;
+      readonly storage_version_id: string;
+      readonly upload: components["schemas"]["FileMultipartUpload"];
+    };
     readonly ContentFile: {
       /** Format: uuid */
       readonly class_id: string;
@@ -2905,6 +2999,10 @@ export type components = {
       /** Format: email */
       readonly target_member_email: string;
     };
+    readonly CreateFileMultipartUploadRequest: {
+      /** Format: int64 */
+      readonly expected_version: number;
+    };
     readonly CreateFileUploadIntentRequest: {
       readonly checksum_sha256: string;
       /** Format: uuid */
@@ -3036,6 +3134,37 @@ export type components = {
       /** Format: uri */
       readonly url: string;
     };
+    readonly FileMultipartCompletedPart: {
+      readonly etag: string;
+      /** Format: int32 */
+      readonly part_number: number;
+    };
+    readonly FileMultipartPartCapability: {
+      /** Format: int64 */
+      readonly content_length_bytes: number;
+      /** Format: date-time */
+      readonly expires_at: string;
+      /** @constant */
+      readonly method: "PUT";
+      /** Format: int32 */
+      readonly part_number: number;
+      readonly required_headers: {
+        readonly [key: string]: string;
+      };
+      /** Format: uri */
+      readonly url: string;
+    };
+    readonly FileMultipartUpload: {
+      /** Format: date-time */
+      readonly expires_at: string;
+      /** Format: uuid */
+      readonly file_id: string;
+      /** Format: uuid */
+      readonly id: string;
+      /** @enum {string} */
+      readonly status:
+        "active" | "completing" | "completed" | "aborted" | "expired";
+    };
     readonly FileUploadCapability: {
       /** Format: int64 */
       readonly content_length_bytes: number;
@@ -3084,6 +3213,12 @@ export type components = {
      * @enum {string}
      */
     readonly InvitableOrganizationRole: "teacher" | "student" | "guest";
+    readonly IssueFileMultipartPartCapabilityRequest: {
+      /** Format: int64 */
+      readonly content_length_bytes: number;
+      /** Format: int64 */
+      readonly expected_version: number;
+    };
     readonly IssueFileUploadCapabilityRequest: {
       /** Format: int64 */
       readonly expected_version: number;
@@ -6838,6 +6973,154 @@ export interface operations {
         };
         content: {
           readonly "application/json": components["schemas"]["ContentFile"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly createFileMultipartUpload: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly "X-CSRF-Token": string;
+        readonly "X-TutorHub-Expected-Tenant-ID": string;
+      };
+      readonly path: {
+        readonly file_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["CreateFileMultipartUploadRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Durable public multipart ownership handle */
+      readonly 201: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["FileMultipartUpload"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly abortFileMultipartUpload: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly "X-CSRF-Token": string;
+        readonly "X-TutorHub-Expected-Tenant-ID": string;
+      };
+      readonly path: {
+        readonly file_id: string;
+        readonly multipart_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["AbortFileMultipartUploadRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Multipart upload is aborted or expired */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["FileMultipartUpload"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly completeFileMultipartUpload: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly "X-CSRF-Token": string;
+        readonly "X-TutorHub-Expected-Tenant-ID": string;
+      };
+      readonly path: {
+        readonly file_id: string;
+        readonly multipart_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["CompleteFileMultipartUploadRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Multipart upload completed with an immutable version selector */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["CompleteFileMultipartUploadResult"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly issueFileMultipartPartCapability: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly "X-CSRF-Token": string;
+        readonly "X-TutorHub-Expected-Tenant-ID": string;
+      };
+      readonly path: {
+        readonly file_id: string;
+        readonly multipart_id: string;
+        readonly part_number: number;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["IssueFileMultipartPartCapabilityRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Short-lived exact multipart part PUT capability */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["FileMultipartPartCapability"];
         };
       };
       readonly 400: components["responses"]["ProblemResponse"];

@@ -33,10 +33,10 @@ re-baseline này không dùng nó để chặn Phase 4 hay ép các gate provide
 tất trước khi có môi trường phù hợp. Domain/DNS, SES sandbox và production-access
 approval có thể tiếp tục chuẩn bị song song.
 
-**Task `DONE` gần nhất:** `P3-07A` persistent message, unread/read core hoàn tất ngày
-2026-08-05. ADR-0025 và amendment ADR-0013 khóa REST/PostgreSQL authority, lifecycle,
-idempotency, receipt và privacy boundary; local/disposable/shared/CI/deploy/live gate đều
-PASS. **Task runnable tiếp theo:** `P3-08` file metadata, upload intent và finalize.
+**Task `DONE` gần nhất:** `P3-08` file metadata, upload intent và finalize hoàn tất ngày
+2026-08-08. **Task hiện tại:** `P3-09` presigned B2 upload/download ở `VERIFY`; local/disposable
+và B2 single/multipart provider gate đã PASS, còn exact candidate CI/security cùng shared
+staging/deploy/live acceptance.
 `P3-02D-B` lifecycle delivery/
 auto-close/fan-out và các gate P3-03B/P3-CAL-02/P3-05A/B là carry-over, không nằm trong
 mốc Core Exit tối thiểu.
@@ -112,7 +112,7 @@ processing/sharing tới end user.
 | P3-07A     | Persistent message, unread/read core           | P3-06                                         | DONE            |
 | P3-07B     | Message notification delivery                  | P3-07A, P3-03B, P3-04                         | DEFERRED/TODO   |
 | P3-08      | File metadata, upload intent và finalize       | P3-00, B2 baseline                            | DONE            |
-| P3-09      | Presigned B2 upload/download                   | P3-08                                         | IN PROGRESS      |
+| P3-09      | Presigned B2 upload/download                   | P3-08                                         | VERIFY           |
 | P3-10      | Scan/metadata/thumbnail processing             | P3-03B, P3-09                                 | DEFERRED/TODO   |
 | P3-11A     | Class Files transfer-core UI (gate off)        | P3-09                                         | TODO            |
 | P3-11B     | File processing/thumbnail/rejected UX          | P3-10, P3-11A                                 | DEFERRED/TODO   |
@@ -1052,7 +1052,13 @@ forward và ứng dụng chưa deploy theo ranh giới P3-08; direct B2 transfer
 - [x] Migration `000027`, upload/download capability API, exact-version finalize,
       OpenAPI/generated client, disposable exact ACL/PostgreSQL và B2 smoke PASS.
 - [x] Full local `pnpm verify` PASS trên exact working tree.
-- [ ] Exact candidate CI/security và multipart/abort/expiry closure trước `VERIFY -> DONE`.
+- [x] Candidate single-PUT/version-bound `0b65c9ca` đạt Verify + Security.
+- [x] Migration `000028`, multipart initiate/part/complete/abort, exact ACL, local verify và
+      disposable `27 false -> 28 false` integration PASS.
+- [x] Bucket-admin allowlist B2 CORS/expose `ETag` + `x-amz-version-id`, lifecycle abort
+      incomplete và provider single/multipart smoke PASS.
+- [ ] Exact multipart candidate CI/security, shared forward/ACL, deploy và live acceptance
+      trước `VERIFY -> DONE`.
 
 ## 17. P3-10 Scan/metadata/thumbnail processing
 

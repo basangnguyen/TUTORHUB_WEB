@@ -63,11 +63,12 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
   P3-04 activation, P3-CAL-02 live SES/domain/interoperability, P3-05A/B delivery,
   P3-10 và P3-11B processing UX phụ thuộc worker. Cho đến khi các gate này đóng,
   notification/email/reminder và Class Files sharing/processing tới end user vẫn giữ tắt.
-- **Task hiện tại:** P3-09 Presigned B2 upload/download đang `IN PROGRESS`: owner đã duyệt
-  forward design ADR-0027; migration `000027`, exact-version finalize và hai capability API/
-  generated client đã triển khai. Disposable đã đạt `26 false -> 27 false -> 27 false`, exact
-  ACL/PostgreSQL và B2 single-PUT/versioned-GET smoke; feature vẫn off, shared staging chưa
-  forward. Gate tiếp theo là full candidate/security và multipart/abort closure. P3-02D-B
+- **Task hiện tại:** P3-09 Presigned B2 upload/download đang `VERIFY`: migration `000027`
+  và `000028`, exact-version finalize, single/multipart capability API cùng generated client đã
+  triển khai. Disposable đạt forward-only `27 false -> 28 false`, exact ACL và full PostgreSQL
+  content integration; local verify xanh. B2 CORS/lifecycle đã provision bằng admin key tạm và
+  single/multipart provider smoke đạt part PUT, complete, exact-version GET, abort và cleanup.
+  Feature vẫn off, exact candidate chưa qua CI và shared staging giữ `25 false`, chưa deploy. P3-02D-B
   lifecycle delivery, P3-07B realtime/notification và các gate hạ tầng/provider là
   carry-over; chúng có thể tiếp tục chính xác sau khi Phase 4 bắt đầu.
 - Web MVP nền đã chạy trên staging: Cloudflare Pages -> same-origin `/api/*` -> Go

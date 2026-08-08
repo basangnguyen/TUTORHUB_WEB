@@ -4,8 +4,10 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/tutorhub-v2/core-api/internal/modules/content"
 	"github.com/tutorhub-v2/core-api/internal/modules/identity"
 	"github.com/tutorhub-v2/core-api/internal/platform/logsafe"
@@ -13,13 +15,17 @@ import (
 )
 
 const (
-	fileUploadIntentsPath         = "/api/v1/files/upload-intents"
-	fileResourcePattern           = "/api/v1/files/{file_id}"
-	fileFinalizePattern           = "/api/v1/files/{file_id}/finalize"
-	fileUploadCapabilityPattern   = "/api/v1/files/{file_id}/upload-capability"
-	fileDownloadCapabilityPattern = "/api/v1/files/{file_id}/download-capability"
-	fileTenantHeader              = "X-TutorHub-Expected-Tenant-ID"
-	maximumFileBodySize           = 8 * 1024
+	fileUploadIntentsPath          = "/api/v1/files/upload-intents"
+	fileResourcePattern            = "/api/v1/files/{file_id}"
+	fileFinalizePattern            = "/api/v1/files/{file_id}/finalize"
+	fileUploadCapabilityPattern    = "/api/v1/files/{file_id}/upload-capability"
+	fileDownloadCapabilityPattern  = "/api/v1/files/{file_id}/download-capability"
+	fileMultipartCollectionPattern = "/api/v1/files/{file_id}/multipart-uploads"
+	fileMultipartPartPattern       = "/api/v1/files/{file_id}/multipart-uploads/{multipart_id}/parts/{part_number}/capability"
+	fileMultipartCompletePattern   = "/api/v1/files/{file_id}/multipart-uploads/{multipart_id}/complete"
+	fileMultipartAbortPattern      = "/api/v1/files/{file_id}/multipart-uploads/{multipart_id}/abort"
+	fileTenantHeader               = "X-TutorHub-Expected-Tenant-ID"
+	maximumFileBodySize            = 8 * 1024
 )
 
 var errFileScopeChanged = errors.New("file active tenant changed")
@@ -46,6 +52,25 @@ type finalizeFileRequest struct {
 
 type fileUploadCapabilityRequest struct {
 	ExpectedVersion *int64 `json:"expected_version"`
+}
+
+type multipartCreateRequest struct {
+	ExpectedVersion *int64 `json:"expected_version"`
+}
+
+type multipartPartCapabilityRequest struct {
+	ExpectedVersion    *int64 `json:"expected_version"`
+	ContentLengthBytes *int64 `json:"content_length_bytes"`
+}
+
+type multipartCompletedPartRequest struct {
+	PartNumber *int32  `json:"part_number"`
+	ETag       *string `json:"etag"`
+}
+
+type multipartCompleteRequest struct {
+	ExpectedVersion *int64                           `json:"expected_version"`
+	Parts           *[]multipartCompletedPartRequest `json:"parts"`
 }
 
 func newContentHandlers(
@@ -256,6 +281,166 @@ func (handlers contentHandlers) downloadCapability(w http.ResponseWriter, r *htt
 	writeJSON(handlers.logger, w, http.StatusOK, capability)
 }
 
+func (handlers contentHandlers) multipartCollection(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.Header().Set("Allow", http.MethodPost)
+		writeProblem(w, r, http.StatusMethodNotAllowed, "Method not allowed", "Multipart upload creation supports POST requests.")
+		return
+	}
+	principal, access, fileID, ok := handlers.multipartAccess(w, r)
+	_ = principal
+	if !ok {
+		return
+	}
+	var request multipartCreateRequest
+	if err := decodeJSONRequest(w, r, &request, maximumFileBodySize); err != nil || request.ExpectedVersion == nil {
+		handlers.writeProblem(w, r, content.ErrInvalidInput)
+		return
+	}
+	upload, err := handlers.service.CreateMultipart(
+		r.Context(), access, fileID, content.CreateMultipartInput{ExpectedVersion: *request.ExpectedVersion},
+	)
+	if err != nil {
+		handlers.writeProblem(w, r, err)
+		return
+	}
+	writeJSON(handlers.logger, w, http.StatusCreated, upload)
+}
+
+func (handlers contentHandlers) multipartPartCapability(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.Header().Set("Allow", http.MethodPost)
+		writeProblem(w, r, http.StatusMethodNotAllowed, "Method not allowed", "Multipart part capability supports POST requests.")
+		return
+	}
+	_, access, fileID, ok := handlers.multipartAccess(w, r)
+	if !ok {
+		return
+	}
+	multipartID, ok := parseResourceUUID(r.PathValue("multipart_id"))
+	if !ok {
+		handlers.writeProblem(w, r, content.ErrNotFound)
+		return
+	}
+	partValue, err := strconv.ParseInt(r.PathValue("part_number"), 10, 32)
+	if err != nil || partValue < 1 || partValue > 10000 {
+		handlers.writeProblem(w, r, content.ErrInvalidInput)
+		return
+	}
+	var request multipartPartCapabilityRequest
+	if err := decodeJSONRequest(w, r, &request, maximumFileBodySize); err != nil ||
+		request.ExpectedVersion == nil || request.ContentLengthBytes == nil {
+		handlers.writeProblem(w, r, content.ErrInvalidInput)
+		return
+	}
+	capability, err := handlers.service.IssueMultipartPartCapability(
+		r.Context(), access, fileID, multipartID, int32(partValue),
+		content.MultipartPartCapabilityInput{
+			ExpectedVersion:    *request.ExpectedVersion,
+			ContentLengthBytes: *request.ContentLengthBytes,
+		},
+	)
+	if err != nil {
+		handlers.writeProblem(w, r, err)
+		return
+	}
+	writeJSON(handlers.logger, w, http.StatusOK, capability)
+}
+
+func (handlers contentHandlers) multipartComplete(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.Header().Set("Allow", http.MethodPost)
+		writeProblem(w, r, http.StatusMethodNotAllowed, "Method not allowed", "Multipart completion supports POST requests.")
+		return
+	}
+	_, access, fileID, ok := handlers.multipartAccess(w, r)
+	if !ok {
+		return
+	}
+	multipartID, ok := parseResourceUUID(r.PathValue("multipart_id"))
+	if !ok {
+		handlers.writeProblem(w, r, content.ErrNotFound)
+		return
+	}
+	var request multipartCompleteRequest
+	if err := decodeJSONRequest(w, r, &request, maximumFileBodySize); err != nil ||
+		request.ExpectedVersion == nil || request.Parts == nil {
+		handlers.writeProblem(w, r, content.ErrInvalidInput)
+		return
+	}
+	parts := make([]content.MultipartCompletedPart, len(*request.Parts))
+	for index, part := range *request.Parts {
+		if part.PartNumber == nil || part.ETag == nil {
+			handlers.writeProblem(w, r, content.ErrInvalidInput)
+			return
+		}
+		parts[index] = content.MultipartCompletedPart{PartNumber: *part.PartNumber, ETag: *part.ETag}
+	}
+	result, err := handlers.service.CompleteMultipart(
+		r.Context(), access, fileID, multipartID,
+		content.CompleteMultipartInput{ExpectedVersion: *request.ExpectedVersion, Parts: parts},
+	)
+	if err != nil {
+		handlers.writeProblem(w, r, err)
+		return
+	}
+	writeJSON(handlers.logger, w, http.StatusOK, result)
+}
+
+func (handlers contentHandlers) multipartAbort(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.Header().Set("Allow", http.MethodPost)
+		writeProblem(w, r, http.StatusMethodNotAllowed, "Method not allowed", "Multipart abort supports POST requests.")
+		return
+	}
+	_, access, fileID, ok := handlers.multipartAccess(w, r)
+	if !ok {
+		return
+	}
+	multipartID, ok := parseResourceUUID(r.PathValue("multipart_id"))
+	if !ok {
+		handlers.writeProblem(w, r, content.ErrNotFound)
+		return
+	}
+	var request multipartCreateRequest
+	if err := decodeJSONRequest(w, r, &request, maximumFileBodySize); err != nil || request.ExpectedVersion == nil {
+		handlers.writeProblem(w, r, content.ErrInvalidInput)
+		return
+	}
+	upload, err := handlers.service.AbortMultipart(
+		r.Context(), access, fileID, multipartID,
+		content.AbortMultipartInput{ExpectedVersion: *request.ExpectedVersion},
+	)
+	if err != nil {
+		handlers.writeProblem(w, r, err)
+		return
+	}
+	writeJSON(handlers.logger, w, http.StatusOK, upload)
+}
+
+func (handlers contentHandlers) multipartAccess(
+	w http.ResponseWriter,
+	r *http.Request,
+) (identity.Principal, content.AccessContext, uuid.UUID, bool) {
+	if !handlers.available(w, r) {
+		return identity.Principal{}, content.AccessContext{}, uuid.Nil, false
+	}
+	principal, ok := handlers.csrfPrincipal(w, r)
+	if !ok {
+		return identity.Principal{}, content.AccessContext{}, uuid.Nil, false
+	}
+	access, ok := handlers.access(w, r, principal)
+	if !ok {
+		return identity.Principal{}, content.AccessContext{}, uuid.Nil, false
+	}
+	fileID, ok := parseResourceUUID(r.PathValue("file_id"))
+	if !ok {
+		handlers.writeProblem(w, r, content.ErrNotFound)
+		return identity.Principal{}, content.AccessContext{}, uuid.Nil, false
+	}
+	return principal, access, fileID, true
+}
+
 func (handlers contentHandlers) access(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -339,6 +524,12 @@ func (handlers contentHandlers) writeProblem(w http.ResponseWriter, r *http.Requ
 	case errors.Is(err, content.ErrVersionConflict):
 		status, code = http.StatusConflict, "file_version_conflict"
 		title, detail = "File changed", "Reload the latest file metadata before retrying finalize."
+	case errors.Is(err, content.ErrMultipartConflict):
+		status, code = http.StatusConflict, "file_multipart_conflict"
+		title, detail = "Multipart upload changed", "Reload the multipart upload before retrying the transfer."
+	case errors.Is(err, content.ErrMultipartExpired):
+		status, code = http.StatusConflict, "file_multipart_expired"
+		title, detail = "Multipart upload expired", "Create a new upload intent before retrying the transfer."
 	case errors.Is(err, errFileScopeChanged):
 		status, code = http.StatusConflict, "file_scope_changed"
 		title, detail = "Active workspace changed", "Reload the current session before retrying the file request."

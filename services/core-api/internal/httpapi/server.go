@@ -234,6 +234,22 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 		fileResponseHeaders(http.HandlerFunc(files.downloadCapability)),
 	)
 	mux.Handle(
+		fileMultipartCollectionPattern,
+		fileResponseHeaders(http.HandlerFunc(files.multipartCollection)),
+	)
+	mux.Handle(
+		fileMultipartPartPattern,
+		fileResponseHeaders(http.HandlerFunc(files.multipartPartCapability)),
+	)
+	mux.Handle(
+		fileMultipartCompletePattern,
+		fileResponseHeaders(http.HandlerFunc(files.multipartComplete)),
+	)
+	mux.Handle(
+		fileMultipartAbortPattern,
+		fileResponseHeaders(http.HandlerFunc(files.multipartAbort)),
+	)
+	mux.Handle(
 		conversationsCollectionPath,
 		conversationResponseHeaders(http.HandlerFunc(conversations.collection)),
 	)

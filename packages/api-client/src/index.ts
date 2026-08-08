@@ -47,6 +47,19 @@ export type FileUploadCapability =
   components["schemas"]["FileUploadCapability"];
 export type FileDownloadCapability =
   components["schemas"]["FileDownloadCapability"];
+export type CreateFileMultipartUploadRequest =
+  components["schemas"]["CreateFileMultipartUploadRequest"];
+export type AbortFileMultipartUploadRequest =
+  components["schemas"]["AbortFileMultipartUploadRequest"];
+export type FileMultipartUpload = components["schemas"]["FileMultipartUpload"];
+export type IssueFileMultipartPartCapabilityRequest =
+  components["schemas"]["IssueFileMultipartPartCapabilityRequest"];
+export type FileMultipartPartCapability =
+  components["schemas"]["FileMultipartPartCapability"];
+export type CompleteFileMultipartUploadRequest =
+  components["schemas"]["CompleteFileMultipartUploadRequest"];
+export type CompleteFileMultipartUploadResult =
+  components["schemas"]["CompleteFileMultipartUploadResult"];
 export type ConversationKind = components["schemas"]["ConversationKind"];
 export type ConversationParticipant =
   components["schemas"]["ConversationParticipant"];
@@ -887,6 +900,134 @@ export async function issueFileDownloadCapability(
 
   return requireData<FileDownloadCapability>(
     data as FileDownloadCapability | undefined,
+    error,
+    response,
+  );
+}
+
+export async function createFileMultipartUpload(
+  tenantID: string,
+  fileID: string,
+  input: CreateFileMultipartUploadRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<FileMultipartUpload> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/files/{file_id}/multipart-uploads",
+    {
+      params: {
+        path: { file_id: fileID },
+        header: {
+          "X-CSRF-Token": csrfToken,
+          "X-TutorHub-Expected-Tenant-ID": tenantID,
+        },
+      },
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+  return requireData<FileMultipartUpload>(
+    data as FileMultipartUpload | undefined,
+    error,
+    response,
+  );
+}
+
+export async function issueFileMultipartPartCapability(
+  tenantID: string,
+  fileID: string,
+  multipartID: string,
+  partNumber: number,
+  input: IssueFileMultipartPartCapabilityRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<FileMultipartPartCapability> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/files/{file_id}/multipart-uploads/{multipart_id}/parts/{part_number}/capability",
+    {
+      params: {
+        path: {
+          file_id: fileID,
+          multipart_id: multipartID,
+          part_number: partNumber,
+        },
+        header: {
+          "X-CSRF-Token": csrfToken,
+          "X-TutorHub-Expected-Tenant-ID": tenantID,
+        },
+      },
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+  return requireData<FileMultipartPartCapability>(
+    data as FileMultipartPartCapability | undefined,
+    error,
+    response,
+  );
+}
+
+export async function completeFileMultipartUpload(
+  tenantID: string,
+  fileID: string,
+  multipartID: string,
+  input: CompleteFileMultipartUploadRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<CompleteFileMultipartUploadResult> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/files/{file_id}/multipart-uploads/{multipart_id}/complete",
+    {
+      params: {
+        path: { file_id: fileID, multipart_id: multipartID },
+        header: {
+          "X-CSRF-Token": csrfToken,
+          "X-TutorHub-Expected-Tenant-ID": tenantID,
+        },
+      },
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+  return requireData<CompleteFileMultipartUploadResult>(
+    data as CompleteFileMultipartUploadResult | undefined,
+    error,
+    response,
+  );
+}
+
+export async function abortFileMultipartUpload(
+  tenantID: string,
+  fileID: string,
+  multipartID: string,
+  input: AbortFileMultipartUploadRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<FileMultipartUpload> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/files/{file_id}/multipart-uploads/{multipart_id}/abort",
+    {
+      params: {
+        path: { file_id: fileID, multipart_id: multipartID },
+        header: {
+          "X-CSRF-Token": csrfToken,
+          "X-TutorHub-Expected-Tenant-ID": tenantID,
+        },
+      },
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+  return requireData<FileMultipartUpload>(
+    data as FileMultipartUpload | undefined,
     error,
     response,
   );

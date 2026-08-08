@@ -153,6 +153,55 @@ func TestFileTransferCapabilitiesRequireTenantCSRFAndProjectBearerURL(t *testing
 	assertFileHeaders(t, downloadResponse)
 }
 
+func TestMultipartRoutesProjectOnlyPublicOwnershipAndImmutableCompletion(t *testing.T) {
+	t.Parallel()
+	tenantID, fileID, multipartID := uuid.New(), uuid.New(), uuid.New()
+	upload := content.MultipartUpload{
+		ID: multipartID, FileID: fileID, Status: content.MultipartStatusActive,
+		ExpiresAt: contentTestHTTPTime.Add(10 * time.Minute),
+	}
+	service := &fakeContentService{
+		multipartUpload: upload,
+		multipartPartCapability: content.MultipartPartCapability{
+			Method: http.MethodPut, URL: "https://storage.example/part?signature=secret",
+			ExpiresAt: contentTestHTTPTime.Add(time.Minute), PartNumber: 1,
+			ContentLengthBytes: 42, RequiredHeaders: map[string]string{},
+		},
+		multipartCompleteResult: content.CompleteMultipartResult{
+			Upload: content.MultipartUpload{
+				ID: multipartID, FileID: fileID, Status: content.MultipartStatusCompleted,
+				ExpiresAt: upload.ExpiresAt,
+			},
+			StorageVersionID: "version-2", ETag: "multipart-etag",
+		},
+	}
+	handler := contentTestHandler(classIdentityService(tenantID, uuid.New(), nil), service)
+	createResponse := httptest.NewRecorder()
+	handler.ServeHTTP(createResponse, fileMutationRequest(
+		"/api/v1/files/"+fileID.String()+"/multipart-uploads", `{"expected_version":1}`, tenantID,
+	))
+	if createResponse.Code != http.StatusCreated || strings.Contains(createResponse.Body.String(), "provider") {
+		t.Fatalf("multipart create status=%d body=%s", createResponse.Code, createResponse.Body.String())
+	}
+	partResponse := httptest.NewRecorder()
+	handler.ServeHTTP(partResponse, fileMutationRequest(
+		"/api/v1/files/"+fileID.String()+"/multipart-uploads/"+multipartID.String()+"/parts/1/capability",
+		`{"expected_version":1,"content_length_bytes":42}`, tenantID,
+	))
+	if partResponse.Code != http.StatusOK || !strings.Contains(partResponse.Body.String(), `"part_number":1`) {
+		t.Fatalf("multipart part status=%d body=%s", partResponse.Code, partResponse.Body.String())
+	}
+	completeResponse := httptest.NewRecorder()
+	handler.ServeHTTP(completeResponse, fileMutationRequest(
+		"/api/v1/files/"+fileID.String()+"/multipart-uploads/"+multipartID.String()+"/complete",
+		`{"expected_version":1,"parts":[{"part_number":1,"etag":"part-etag"}]}`, tenantID,
+	))
+	if completeResponse.Code != http.StatusOK ||
+		!strings.Contains(completeResponse.Body.String(), `"storage_version_id":"version-2"`) {
+		t.Fatalf("multipart complete status=%d body=%s", completeResponse.Code, completeResponse.Body.String())
+	}
+}
+
 func TestFileMetadataUnavailableWithoutService(t *testing.T) {
 	t.Parallel()
 	tenantID := uuid.New()
@@ -218,21 +267,24 @@ func assertFileProblem(t *testing.T, response *httptest.ResponseRecorder, status
 }
 
 type fakeContentService struct {
-	createResult           content.CreateIntentResult
-	createErr              error
-	createAccess           content.AccessContext
-	createInput            content.CreateIntentInput
-	createCalls            int
-	getFile                content.File
-	getErr                 error
-	finalizeFile           content.File
-	finalizeErr            error
-	uploadCapability       content.UploadCapability
-	uploadCapabilityErr    error
-	uploadCapabilityFileID uuid.UUID
-	uploadCapabilityInput  content.UploadCapabilityInput
-	downloadCapability     content.DownloadCapability
-	downloadCapabilityErr  error
+	createResult            content.CreateIntentResult
+	createErr               error
+	createAccess            content.AccessContext
+	createInput             content.CreateIntentInput
+	createCalls             int
+	getFile                 content.File
+	getErr                  error
+	finalizeFile            content.File
+	finalizeErr             error
+	uploadCapability        content.UploadCapability
+	uploadCapabilityErr     error
+	uploadCapabilityFileID  uuid.UUID
+	uploadCapabilityInput   content.UploadCapabilityInput
+	downloadCapability      content.DownloadCapability
+	downloadCapabilityErr   error
+	multipartUpload         content.MultipartUpload
+	multipartPartCapability content.MultipartPartCapability
+	multipartCompleteResult content.CompleteMultipartResult
 }
 
 func (service *fakeContentService) CreateIntent(
@@ -273,6 +325,31 @@ func (service *fakeContentService) IssueDownloadCapability(
 	context.Context, content.AccessContext, uuid.UUID,
 ) (content.DownloadCapability, error) {
 	return service.downloadCapability, service.downloadCapabilityErr
+}
+
+func (service *fakeContentService) CreateMultipart(
+	context.Context, content.AccessContext, uuid.UUID, content.CreateMultipartInput,
+) (content.MultipartUpload, error) {
+	return service.multipartUpload, nil
+}
+
+func (service *fakeContentService) IssueMultipartPartCapability(
+	context.Context, content.AccessContext, uuid.UUID, uuid.UUID, int32,
+	content.MultipartPartCapabilityInput,
+) (content.MultipartPartCapability, error) {
+	return service.multipartPartCapability, nil
+}
+
+func (service *fakeContentService) CompleteMultipart(
+	context.Context, content.AccessContext, uuid.UUID, uuid.UUID, content.CompleteMultipartInput,
+) (content.CompleteMultipartResult, error) {
+	return service.multipartCompleteResult, nil
+}
+
+func (service *fakeContentService) AbortMultipart(
+	context.Context, content.AccessContext, uuid.UUID, uuid.UUID, content.AbortMultipartInput,
+) (content.MultipartUpload, error) {
+	return service.multipartUpload, nil
 }
 
 var _ content.ServiceAPI = (*fakeContentService)(nil)

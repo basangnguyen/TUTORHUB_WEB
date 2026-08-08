@@ -122,3 +122,48 @@ func TestVersionBoundFinalizeMigrationDefersSHA256UntilReady(t *testing.T) {
 		t.Fatal("version-bound finalize down migration must fail closed before restoring SHA-256 invariant")
 	}
 }
+
+func TestMultipartMigrationOwnsProviderUploadsPartsAndExpiryPrivately(t *testing.T) {
+	t.Parallel()
+	upContents, err := os.ReadFile(filepath.Join(
+		"..", "..", "..", "migrations", "000028_content_file_multipart_uploads.up.sql",
+	))
+	if err != nil {
+		t.Fatalf("read multipart migration: %v", err)
+	}
+	upSQL := string(upContents)
+	for _, required := range []string{
+		"CREATE TABLE tutorhub.content_file_multipart_uploads",
+		"CREATE TABLE tutorhub.content_file_multipart_parts",
+		"provider_upload_id text NOT NULL",
+		"FOREIGN KEY (tenant_id, file_id)",
+		"FOREIGN KEY (tenant_id, multipart_upload_id)",
+		"status IN ('active', 'completing', 'completed', 'aborted', 'expired')",
+		"part_number BETWEEN 1 AND 10000",
+		"content_length_bytes BETWEEN 1 AND 5368709120",
+		"content_file_multipart_uploads_one_active_idx",
+		"content_file_multipart_uploads_expiry_idx",
+		"REVOKE ALL ON tutorhub.content_file_multipart_uploads FROM PUBLIC",
+		"REVOKE ALL ON tutorhub.content_file_multipart_parts FROM PUBLIC",
+	} {
+		if !strings.Contains(upSQL, required) {
+			t.Fatalf("multipart migration is missing %q", required)
+		}
+	}
+	if strings.Contains(upSQL, "GRANT ") {
+		t.Fatal("multipart migration must not hardcode an environment runtime role")
+	}
+
+	downContents, err := os.ReadFile(filepath.Join(
+		"..", "..", "..", "migrations", "000028_content_file_multipart_uploads.down.sql",
+	))
+	if err != nil {
+		t.Fatalf("read multipart down migration: %v", err)
+	}
+	downSQL := string(downContents)
+	partsDrop := strings.Index(downSQL, "DROP TABLE tutorhub.content_file_multipart_parts")
+	uploadDrop := strings.Index(downSQL, "DROP TABLE tutorhub.content_file_multipart_uploads")
+	if partsDrop < 0 || uploadDrop < 0 || partsDrop > uploadDrop {
+		t.Fatal("multipart parts must be dropped before upload ownership")
+	}
+}

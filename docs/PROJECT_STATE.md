@@ -14,8 +14,8 @@
 | Phase hiện tại      | Phase 3 - Daily learning workspace                                                   |
 | Task `DONE` gần nhất | P3-08 File metadata, upload intent và finalize                                     |
 | Mốc repository mới | P3-08 `DONE` trên candidate `6a50c3e4`; shared Neon vẫn `25 false`                     |
-| Task hiện tại       | P3-09 Presigned B2 upload/download — `IN PROGRESS`                                    |
-| Task tiếp theo      | Full candidate/security rồi đóng multipart/abort gate                                 |
+| Task hiện tại       | P3-09 Presigned B2 upload/download — `VERIFY`                                         |
+| Task tiếp theo      | Push exact candidate, CI/security, shared forward/ACL và live acceptance              |
 
 ### Checkpoint P3-09 forward design `000027` ngày 2026-08-08
 
@@ -41,6 +41,21 @@ không đáng tin ở `uploaded/processing`. Exact runtime ACL thu hồi quyền
 PostgreSQL content integration PASS. B2 smoke mới PASS exact PUT, HEAD exact version, versioned
 GET byte-match và exact-version cleanup. Full local `pnpm verify` cũng PASS. Không rollback,
 không shared staging, không deploy.
+
+### Checkpoint P3-09 multipart `000028` ngày 2026-08-08
+
+ADR-0027 đã chốt durable multipart ownership và migration `000028` đã triển khai session/part
+tables, exact ACL cùng initiate/part/complete/abort API. Local `pnpm verify` PASS. Neon
+disposable owner/runtime preflight PASS, forward-only `27 false -> 28 false`; full content
+integration PASS cho ownership, tenant isolation, single-PUT barrier, part retry/length
+conflict, complete/abort và expiry. Final disposable giữ `28 false`, không rollback.
+
+B2 bucket-admin preflight xác nhận cấu hình cũ rỗng. Một CORS rule allow đúng origin staging,
+`PUT`/`GET`/`HEAD`, expose `ETag`/`x-amz-version-id` và hai lifecycle rule abort incomplete sau
+một ngày cho `tenants/`/`smoke/` đã được provision, read-back và kiểm tra idempotent. Runtime app
+key không được nâng quyền. Single/multipart smoke PASS part PUT/CORS, complete immutable version,
+exact-version GET, explicit abort và cleanup. P3-09 chuyển `IN PROGRESS -> VERIFY`; exact candidate
+chưa push và shared staging vẫn `25 false`, chưa deploy.
 
 ### Checkpoint P3-08 hoàn tất ngày 2026-08-08
 

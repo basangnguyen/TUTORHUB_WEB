@@ -92,6 +92,25 @@ SELECT
 				"committed_bytes", "file_count", "reserved_bytes", "updated_at",
 			},
 		},
+		{
+			relation: "tutorhub.content_file_multipart_uploads",
+			insertColumns: []string{
+				"created_at", "creator_user_id", "expected_file_version", "expires_at",
+				"file_id", "id", "provider_upload_id", "tenant_id", "updated_at",
+			},
+			updateColumns: []string{
+				"aborted_at", "completed_at", "completed_etag",
+				"completed_storage_version_id", "status", "updated_at",
+			},
+		},
+		{
+			relation: "tutorhub.content_file_multipart_parts",
+			insertColumns: []string{
+				"content_length_bytes", "created_at", "multipart_upload_id",
+				"part_number", "tenant_id", "updated_at",
+			},
+			updateColumns: nil,
+		},
 	} {
 		var selected, inserted, updated, deleted, truncated, referenced, triggered bool
 		var columnSelected, columnInserted, columnUpdated bool
@@ -113,12 +132,10 @@ SELECT
 			t.Fatalf("inspect content runtime ACL for %s: %v", expectation.relation, err)
 		}
 		if !selected || inserted || updated || deleted || truncated || referenced || triggered ||
-			!columnSelected || !columnInserted || !columnUpdated {
+			!columnSelected || !columnInserted || columnUpdated != (len(expectation.updateColumns) > 0) {
 			t.Fatalf("content runtime ACL mismatch for %s", expectation.relation)
 		}
-		assertExactContentUpdateColumns(
-			t, ctx, runtimePool, expectation.relation, expectation.updateColumns,
-		)
+		assertExactContentUpdateColumns(t, ctx, runtimePool, expectation.relation, expectation.updateColumns)
 		assertExactContentColumns(
 			t, ctx, runtimePool, expectation.relation, "INSERT", expectation.insertColumns,
 		)
@@ -133,7 +150,7 @@ SELECT
     (SELECT count(*) FROM information_schema.column_privileges
      WHERE table_schema = 'tutorhub'
        AND table_name = ANY($1::text[]) AND grantee = 'PUBLIC')`,
-		[]string{"content_files", "tenant_file_usage"},
+		[]string{"content_files", "tenant_file_usage", "content_file_multipart_uploads", "content_file_multipart_parts"},
 	).Scan(&publicTableGrants, &publicColumnGrants); err != nil {
 		t.Fatalf("inspect PUBLIC content grants: %v", err)
 	}
@@ -161,7 +178,7 @@ SELECT
 FROM pg_roles AS runtime
 JOIN pg_roles AS migration ON migration.rolname = $2
 WHERE runtime.rolname = $1`, runtimeRole, migrationRole,
-		[]string{"content_files", "tenant_file_usage"},
+		[]string{"content_files", "tenant_file_usage", "content_file_multipart_uploads", "content_file_multipart_parts"},
 	).Scan(
 		&notSuperuser, &noCreateRole, &noCreateDatabase, &noReplication,
 		&noBypassRLS, &noMigrationInheritance, &notTableOwner,
@@ -421,6 +438,177 @@ WHERE tenant_id = $1 AND id = $3`, fixture.tenantID, now, fixture.classID); err 
 	}
 }
 
+func TestPostgresContentMultipartOwnershipAbortExpiryAndComplete(t *testing.T) {
+	migrationURL := requireContentEnvironment(t, "DATABASE_MIGRATION_URL")
+	poolURL := requireContentEnvironment(t, "DATABASE_POOL_URL")
+	runtimeURL := strings.TrimSpace(os.Getenv("DATABASE_CONVERSATION_ACL_TEST_URL"))
+	if runtimeURL == "" {
+		runtimeURL = poolURL
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+	if err := migrationrunner.Up(ctx, migrationURL); err != nil {
+		t.Fatalf("apply multipart migrations: %v", err)
+	}
+	migrationPool := openContentPool(t, ctx, migrationURL)
+	t.Cleanup(migrationPool.Close)
+	if strings.EqualFold(strings.TrimSpace(os.Getenv("CONVERSATION_ACL_TEST_BOOTSTRAP")), "true") {
+		provisionContentACLTestRole(t, ctx, migrationPool)
+	}
+	runtimePool := openContentPool(t, ctx, runtimeURL)
+	t.Cleanup(runtimePool.Close)
+	fixture := seedContentFixture(t, ctx, migrationPool)
+	t.Cleanup(func() { cleanupContentFixture(t, migrationPool, fixture) })
+	controls, err := featurecontrol.NewPostgresRepository(
+		runtimePool, 10*time.Second, policy.NewEngine(), featurecontrol.NewDefaultCatalog(),
+	)
+	if err != nil {
+		t.Fatalf("create multipart controls: %v", err)
+	}
+	repository, err := NewPostgresRepository(
+		runtimePool, 10*time.Second, policy.NewEngine(), controls,
+	)
+	if err != nil {
+		t.Fatalf("create multipart repository: %v", err)
+	}
+	storage := &integrationMetadataReader{metadata: objectstorage.Metadata{
+		ContentLength: 128, ContentType: "application/pdf",
+		ETag: "multipart-etag", VersionID: "version-multipart",
+	}}
+	service, err := NewService(repository, storage)
+	if err != nil {
+		t.Fatalf("create multipart service: %v", err)
+	}
+	now := time.Now().UTC().Truncate(time.Microsecond)
+	service.now = func() time.Time { return now }
+	access := integrationContentAccess(
+		fixture.tenantID, fixture.ownerID, policy.OrganizationRoleTeacher,
+	)
+	studentAccess := integrationContentAccess(
+		fixture.tenantID, fixture.studentID, policy.OrganizationRoleStudent,
+	)
+	foreignAccess := integrationContentAccess(
+		fixture.foreignTenantID, fixture.foreignOwnerID, policy.OrganizationRoleTeacher,
+	)
+	createIntent := func(size int64) File {
+		t.Helper()
+		result, createErr := service.CreateIntent(ctx, access, CreateIntentInput{
+			ClassID: fixture.classID, DisplayName: "multipart.pdf",
+			DeclaredMediaType: "application/pdf", ExpectedSizeBytes: size,
+			ChecksumSHA256:  hex.EncodeToString(bytes.Repeat([]byte{0x6b}, 32)),
+			ClientRequestID: uuid.New(),
+		})
+		if createErr != nil {
+			t.Fatalf("create multipart intent: %v", createErr)
+		}
+		return result.File
+	}
+
+	file := createIntent(128)
+	upload, err := service.CreateMultipart(
+		ctx, access, file.ID, CreateMultipartInput{ExpectedVersion: file.Version},
+	)
+	if err != nil || upload.Status != MultipartStatusActive {
+		t.Fatalf("create multipart ownership: upload=%+v err=%v", upload, err)
+	}
+	if _, err := service.IssueUploadCapability(
+		ctx, access, file.ID, UploadCapabilityInput{ExpectedVersion: file.Version},
+	); !errors.Is(err, ErrMultipartConflict) {
+		t.Fatalf("single PUT during multipart error=%v, want multipart conflict", err)
+	}
+	if _, err := service.IssueMultipartPartCapability(
+		ctx, studentAccess, file.ID, upload.ID, 1,
+		MultipartPartCapabilityInput{ExpectedVersion: file.Version, ContentLengthBytes: 128},
+	); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("non-owner multipart part error=%v, want concealed not found", err)
+	}
+	if _, err := service.IssueMultipartPartCapability(
+		ctx, foreignAccess, file.ID, upload.ID, 1,
+		MultipartPartCapabilityInput{ExpectedVersion: file.Version, ContentLengthBytes: 128},
+	); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("foreign multipart part error=%v, want concealed not found", err)
+	}
+	if _, err := service.IssueMultipartPartCapability(
+		ctx, access, file.ID, upload.ID, 1,
+		MultipartPartCapabilityInput{ExpectedVersion: file.Version, ContentLengthBytes: 128},
+	); err != nil {
+		t.Fatalf("issue multipart part: %v", err)
+	}
+	if _, err := service.IssueMultipartPartCapability(
+		ctx, access, file.ID, upload.ID, 1,
+		MultipartPartCapabilityInput{ExpectedVersion: file.Version, ContentLengthBytes: 127},
+	); !errors.Is(err, ErrMultipartConflict) {
+		t.Fatalf("changed multipart part length error=%v, want conflict", err)
+	}
+	completed, err := service.CompleteMultipart(
+		ctx, access, file.ID, upload.ID,
+		CompleteMultipartInput{ExpectedVersion: file.Version, Parts: []MultipartCompletedPart{
+			{PartNumber: 1, ETag: "part-etag"},
+		}},
+	)
+	if err != nil || completed.StorageVersionID != "version-multipart" ||
+		completed.Upload.Status != MultipartStatusCompleted {
+		t.Fatalf("complete multipart: result=%+v err=%v", completed, err)
+	}
+	if _, err := service.AbortMultipart(
+		ctx, access, file.ID, upload.ID, AbortMultipartInput{ExpectedVersion: file.Version},
+	); !errors.Is(err, ErrMultipartConflict) {
+		t.Fatalf("abort completed multipart error=%v, want conflict", err)
+	}
+	finalized, err := service.Finalize(ctx, access, file.ID, FinalizeInput{
+		ExpectedVersion: file.Version, StorageVersionID: completed.StorageVersionID,
+	})
+	if err != nil || finalized.Status != StatusUploaded {
+		t.Fatalf("finalize multipart version: file=%+v err=%v", finalized, err)
+	}
+
+	abortFile := createIntent(64)
+	abortUpload, err := service.CreateMultipart(
+		ctx, access, abortFile.ID, CreateMultipartInput{ExpectedVersion: abortFile.Version},
+	)
+	if err != nil {
+		t.Fatalf("create abortable multipart: %v", err)
+	}
+	aborted, err := service.AbortMultipart(
+		ctx, access, abortFile.ID, abortUpload.ID,
+		AbortMultipartInput{ExpectedVersion: abortFile.Version},
+	)
+	if err != nil || aborted.Status != MultipartStatusAborted {
+		t.Fatalf("abort multipart: upload=%+v err=%v", aborted, err)
+	}
+	replayed, err := service.AbortMultipart(
+		ctx, access, abortFile.ID, abortUpload.ID,
+		AbortMultipartInput{ExpectedVersion: abortFile.Version},
+	)
+	if err != nil || replayed.Status != MultipartStatusAborted {
+		t.Fatalf("replay multipart abort: upload=%+v err=%v", replayed, err)
+	}
+
+	expiredFile := createIntent(32)
+	expiredUpload, err := service.CreateMultipart(
+		ctx, access, expiredFile.ID, CreateMultipartInput{ExpectedVersion: expiredFile.Version},
+	)
+	if err != nil {
+		t.Fatalf("create expiring multipart: %v", err)
+	}
+	service.now = func() time.Time { return expiredUpload.ExpiresAt.Add(time.Second) }
+	if _, err := service.IssueMultipartPartCapability(
+		ctx, access, expiredFile.ID, expiredUpload.ID, 1,
+		MultipartPartCapabilityInput{ExpectedVersion: expiredFile.Version, ContentLengthBytes: 32},
+	); !errors.Is(err, ErrMultipartExpired) {
+		t.Fatalf("expired multipart part error=%v, want expired", err)
+	}
+	var status MultipartStatus
+	if err := migrationPool.QueryRow(ctx, `
+SELECT status FROM tutorhub.content_file_multipart_uploads
+WHERE tenant_id = $1 AND id = $2`, fixture.tenantID, expiredUpload.ID).Scan(&status); err != nil {
+		t.Fatalf("read expired multipart status: %v", err)
+	}
+	if status != MultipartStatusExpired {
+		t.Fatalf("expired multipart status=%s", status)
+	}
+}
+
 func provisionContentACLTestRole(t *testing.T, ctx context.Context, pool *pgxpool.Pool) {
 	t.Helper()
 	if _, err := pool.Exec(ctx, `
@@ -432,7 +620,11 @@ BEGIN
 END
 $bootstrap$;
 
-REVOKE ALL ON TABLE tutorhub.content_files, tutorhub.tenant_file_usage
+REVOKE ALL ON TABLE
+    tutorhub.content_files,
+    tutorhub.tenant_file_usage,
+    tutorhub.content_file_multipart_uploads,
+    tutorhub.content_file_multipart_parts
 FROM tutorhub_conversation_runtime_ci;
 
 -- The isolated CI role starts with only the conversation grants. Recreate the
@@ -459,7 +651,11 @@ TO tutorhub_conversation_runtime_ci;
 GRANT INSERT, UPDATE ON TABLE tutorhub.tenant_quota_windows
 TO tutorhub_conversation_runtime_ci;
 
-GRANT SELECT ON TABLE tutorhub.content_files, tutorhub.tenant_file_usage
+GRANT SELECT ON TABLE
+    tutorhub.content_files,
+    tutorhub.tenant_file_usage,
+    tutorhub.content_file_multipart_uploads,
+    tutorhub.content_file_multipart_parts
 TO tutorhub_conversation_runtime_ci;
 
 GRANT INSERT (
@@ -480,6 +676,21 @@ GRANT UPDATE (
 
 GRANT UPDATE (file_count, reserved_bytes, committed_bytes, updated_at)
 ON TABLE tutorhub.tenant_file_usage TO tutorhub_conversation_runtime_ci;
+
+GRANT INSERT (
+    id, tenant_id, file_id, creator_user_id, provider_upload_id,
+    expected_file_version, expires_at, created_at, updated_at
+) ON TABLE tutorhub.content_file_multipart_uploads TO tutorhub_conversation_runtime_ci;
+
+GRANT UPDATE (
+    status, completed_storage_version_id, completed_etag,
+    completed_at, aborted_at, updated_at
+) ON TABLE tutorhub.content_file_multipart_uploads TO tutorhub_conversation_runtime_ci;
+
+GRANT INSERT (
+    tenant_id, multipart_upload_id, part_number,
+    content_length_bytes, created_at, updated_at
+) ON TABLE tutorhub.content_file_multipart_parts TO tutorhub_conversation_runtime_ci;
 `); err != nil {
 		t.Fatalf("provision content ACL test role: %v", err)
 	}
@@ -720,6 +931,7 @@ func integrationContentAccess(
 type integrationMetadataReader struct {
 	metadata          objectstorage.Metadata
 	downloadVersionID string
+	multipartCounter  int
 }
 
 type integrationRepositoryRecorder struct {
@@ -772,6 +984,33 @@ func (reader *integrationMetadataReader) PresignDownload(
 ) (objectstorage.PresignedRequest, error) {
 	reader.downloadVersionID = input.VersionID
 	return objectstorage.PresignedRequest{URL: "https://storage.example/download", Method: "GET"}, nil
+}
+
+func (reader *integrationMetadataReader) CreateMultipart(
+	context.Context, objectstorage.MultipartCreateInput,
+) (string, error) {
+	reader.multipartCounter++
+	return fmt.Sprintf("provider-upload-%d", reader.multipartCounter), nil
+}
+
+func (reader *integrationMetadataReader) PresignMultipartPart(
+	context.Context, objectstorage.MultipartPartPresignInput,
+) (objectstorage.PresignedRequest, error) {
+	return objectstorage.PresignedRequest{URL: "https://storage.example/part", Method: "PUT"}, nil
+}
+
+func (reader *integrationMetadataReader) CompleteMultipart(
+	context.Context, objectstorage.MultipartCompleteInput,
+) (objectstorage.MultipartCompleteResult, error) {
+	return objectstorage.MultipartCompleteResult{
+		ETag: reader.metadata.ETag, VersionID: reader.metadata.VersionID,
+	}, nil
+}
+
+func (reader *integrationMetadataReader) AbortMultipart(
+	context.Context, objectstorage.MultipartAbortInput,
+) error {
+	return nil
 }
 
 func contentIntegrationEmail() string {

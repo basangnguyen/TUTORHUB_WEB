@@ -174,6 +174,57 @@ func TestB2StoreUploadCapabilitySignsLengthAndTypeWithoutFalseChecksumClaim(t *t
 	}
 }
 
+func TestB2StoreMultipartLifecycleKeepsProviderUploadIDServerSide(t *testing.T) {
+	t.Parallel()
+	client := &fakeS3Client{
+		createMultipartOutput: &s3.CreateMultipartUploadOutput{UploadId: aws.String("provider-upload-id")},
+		completeMultipartOutput: &s3.CompleteMultipartUploadOutput{
+			ETag: aws.String("multipart-etag"), VersionId: aws.String("version-2"),
+		},
+	}
+	presigner := &fakeS3Presigner{partOutput: &v4.PresignedHTTPRequest{
+		URL:    "https://s3.us-east-005.backblazeb2.com/bucket/key?part=signature",
+		Method: http.MethodPut, SignedHeader: http.Header{"Content-Length": []string{"5000000"}},
+	}}
+	store, err := newB2StoreWithPresigner(client, presigner, "tutorhub-staging")
+	if err != nil {
+		t.Fatalf("create B2 store: %v", err)
+	}
+	key := "tenants/tenant/files/file/original"
+	uploadID, err := store.CreateMultipart(context.Background(), MultipartCreateInput{
+		Key: key, ContentType: "application/pdf",
+	})
+	if err != nil || uploadID != "provider-upload-id" {
+		t.Fatalf("create multipart: id=%q err=%v", uploadID, err)
+	}
+	capability, err := store.PresignMultipartPart(context.Background(), MultipartPartPresignInput{
+		Key: key, UploadID: uploadID, PartNumber: 1, ContentLength: 5_000_000,
+		Expires: 2 * time.Minute,
+	})
+	if err != nil || capability.Method != http.MethodPut ||
+		aws.ToString(presigner.partInput.UploadId) != uploadID ||
+		aws.ToInt32(presigner.partInput.PartNumber) != 1 ||
+		aws.ToInt64(presigner.partInput.ContentLength) != 5_000_000 {
+		t.Fatalf("presign multipart part: capability=%+v input=%+v err=%v", capability, presigner.partInput, err)
+	}
+	completed, err := store.CompleteMultipart(context.Background(), MultipartCompleteInput{
+		Key: key, UploadID: uploadID,
+		Parts: []CompletedPart{{PartNumber: 1, ETag: "part-etag"}},
+	})
+	if err != nil || completed.VersionID != "version-2" || completed.ETag != "multipart-etag" {
+		t.Fatalf("complete multipart: result=%+v err=%v", completed, err)
+	}
+	if len(client.completeMultipartInput.MultipartUpload.Parts) != 1 ||
+		aws.ToString(client.completeMultipartInput.MultipartUpload.Parts[0].ETag) != "part-etag" {
+		t.Fatalf("unexpected completion manifest: %+v", client.completeMultipartInput)
+	}
+	if err := store.AbortMultipart(context.Background(), MultipartAbortInput{
+		Key: key, UploadID: uploadID,
+	}); err != nil || aws.ToString(client.abortMultipartInput.UploadId) != uploadID {
+		t.Fatalf("abort multipart: input=%+v err=%v", client.abortMultipartInput, err)
+	}
+}
+
 func TestB2StoreRejectsUnsafePresignConstraints(t *testing.T) {
 	t.Parallel()
 
@@ -244,24 +295,33 @@ func TestObjectStorageReadinessChecksBucket(t *testing.T) {
 }
 
 type fakeS3Client struct {
-	putInput         *s3.PutObjectInput
-	getOutput        *s3.GetObjectOutput
-	deleteInput      *s3.DeleteObjectInput
-	headInput        *s3.HeadBucketInput
-	headErr          error
-	headObjectInput  *s3.HeadObjectInput
-	headObjectOutput *s3.HeadObjectOutput
+	putInput                *s3.PutObjectInput
+	getOutput               *s3.GetObjectOutput
+	deleteInput             *s3.DeleteObjectInput
+	headInput               *s3.HeadBucketInput
+	headErr                 error
+	headObjectInput         *s3.HeadObjectInput
+	headObjectOutput        *s3.HeadObjectOutput
+	createMultipartInput    *s3.CreateMultipartUploadInput
+	createMultipartOutput   *s3.CreateMultipartUploadOutput
+	completeMultipartInput  *s3.CompleteMultipartUploadInput
+	completeMultipartOutput *s3.CompleteMultipartUploadOutput
+	abortMultipartInput     *s3.AbortMultipartUploadInput
 }
 
 type fakeS3Presigner struct {
-	putInput   *s3.PutObjectInput
-	putOutput  *v4.PresignedHTTPRequest
-	putErr     error
-	putExpires time.Duration
-	getInput   *s3.GetObjectInput
-	getOutput  *v4.PresignedHTTPRequest
-	getErr     error
-	getExpires time.Duration
+	putInput    *s3.PutObjectInput
+	putOutput   *v4.PresignedHTTPRequest
+	putErr      error
+	putExpires  time.Duration
+	getInput    *s3.GetObjectInput
+	getOutput   *v4.PresignedHTTPRequest
+	getErr      error
+	getExpires  time.Duration
+	partInput   *s3.UploadPartInput
+	partOutput  *v4.PresignedHTTPRequest
+	partErr     error
+	partExpires time.Duration
 }
 
 func (presigner *fakeS3Presigner) PresignPutObject(
@@ -290,6 +350,20 @@ func (presigner *fakeS3Presigner) PresignGetObject(
 	}
 	presigner.getExpires = resolved.Expires
 	return presigner.getOutput, presigner.getErr
+}
+
+func (presigner *fakeS3Presigner) PresignUploadPart(
+	_ context.Context,
+	input *s3.UploadPartInput,
+	options ...func(*s3.PresignOptions),
+) (*v4.PresignedHTTPRequest, error) {
+	presigner.partInput = input
+	var resolved s3.PresignOptions
+	for _, option := range options {
+		option(&resolved)
+	}
+	presigner.partExpires = resolved.Expires
+	return presigner.partOutput, presigner.partErr
 }
 
 func (client *fakeS3Client) HeadObject(
@@ -340,4 +414,37 @@ func (client *fakeS3Client) HeadBucket(
 ) (*s3.HeadBucketOutput, error) {
 	client.headInput = input
 	return &s3.HeadBucketOutput{}, client.headErr
+}
+
+func (client *fakeS3Client) CreateMultipartUpload(
+	_ context.Context,
+	input *s3.CreateMultipartUploadInput,
+	_ ...func(*s3.Options),
+) (*s3.CreateMultipartUploadOutput, error) {
+	client.createMultipartInput = input
+	if client.createMultipartOutput == nil {
+		return &s3.CreateMultipartUploadOutput{}, nil
+	}
+	return client.createMultipartOutput, nil
+}
+
+func (client *fakeS3Client) CompleteMultipartUpload(
+	_ context.Context,
+	input *s3.CompleteMultipartUploadInput,
+	_ ...func(*s3.Options),
+) (*s3.CompleteMultipartUploadOutput, error) {
+	client.completeMultipartInput = input
+	if client.completeMultipartOutput == nil {
+		return &s3.CompleteMultipartUploadOutput{}, nil
+	}
+	return client.completeMultipartOutput, nil
+}
+
+func (client *fakeS3Client) AbortMultipartUpload(
+	_ context.Context,
+	input *s3.AbortMultipartUploadInput,
+	_ ...func(*s3.Options),
+) (*s3.AbortMultipartUploadOutput, error) {
+	client.abortMultipartInput = input
+	return &s3.AbortMultipartUploadOutput{}, nil
 }

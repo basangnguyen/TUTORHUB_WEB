@@ -45,6 +45,21 @@ type s3API interface {
 		*s3.HeadObjectInput,
 		...func(*s3.Options),
 	) (*s3.HeadObjectOutput, error)
+	CreateMultipartUpload(
+		context.Context,
+		*s3.CreateMultipartUploadInput,
+		...func(*s3.Options),
+	) (*s3.CreateMultipartUploadOutput, error)
+	CompleteMultipartUpload(
+		context.Context,
+		*s3.CompleteMultipartUploadInput,
+		...func(*s3.Options),
+	) (*s3.CompleteMultipartUploadOutput, error)
+	AbortMultipartUpload(
+		context.Context,
+		*s3.AbortMultipartUploadInput,
+		...func(*s3.Options),
+	) (*s3.AbortMultipartUploadOutput, error)
 }
 
 type s3PresignAPI interface {
@@ -56,6 +71,11 @@ type s3PresignAPI interface {
 	PresignGetObject(
 		context.Context,
 		*s3.GetObjectInput,
+		...func(*s3.PresignOptions),
+	) (*v4.PresignedHTTPRequest, error)
+	PresignUploadPart(
+		context.Context,
+		*s3.UploadPartInput,
 		...func(*s3.PresignOptions),
 	) (*v4.PresignedHTTPRequest, error)
 }
@@ -172,6 +192,122 @@ func (store *B2Store) PresignDownload(
 		return PresignedRequest{}, fmt.Errorf("presign download request: %w", err)
 	}
 	return validatedPresignedRequest(output, http.MethodGet)
+}
+
+func (store *B2Store) CreateMultipart(
+	ctx context.Context,
+	input MultipartCreateInput,
+) (string, error) {
+	if store == nil || store.client == nil {
+		return "", fmt.Errorf("create multipart upload: object storage is unavailable")
+	}
+	if err := validateKey(input.Key); err != nil {
+		return "", err
+	}
+	contentType := strings.TrimSpace(input.ContentType)
+	if contentType == "" {
+		return "", fmt.Errorf("create multipart upload: content type is required")
+	}
+	output, err := store.client.CreateMultipartUpload(ctx, &s3.CreateMultipartUploadInput{
+		Bucket: aws.String(store.bucket), Key: aws.String(input.Key),
+		ContentType: aws.String(contentType),
+	})
+	if err != nil {
+		return "", fmt.Errorf("create multipart upload: %w", err)
+	}
+	uploadID := strings.TrimSpace(aws.ToString(output.UploadId))
+	if uploadID == "" {
+		return "", fmt.Errorf("create multipart upload returned an empty upload ID")
+	}
+	return uploadID, nil
+}
+
+func (store *B2Store) PresignMultipartPart(
+	ctx context.Context,
+	input MultipartPartPresignInput,
+) (PresignedRequest, error) {
+	if store == nil || store.presigner == nil {
+		return PresignedRequest{}, fmt.Errorf("presign multipart part: object storage presigner is unavailable")
+	}
+	if err := validateKey(input.Key); err != nil {
+		return PresignedRequest{}, err
+	}
+	uploadID := strings.TrimSpace(input.UploadID)
+	if uploadID == "" || input.PartNumber < 1 || input.PartNumber > 10000 ||
+		input.ContentLength < 1 || !validPresignTTL(input.Expires) {
+		return PresignedRequest{}, fmt.Errorf("presign multipart part: invalid transfer constraints")
+	}
+	output, err := store.presigner.PresignUploadPart(ctx, &s3.UploadPartInput{
+		Bucket: aws.String(store.bucket), Key: aws.String(input.Key),
+		UploadId: aws.String(uploadID), PartNumber: aws.Int32(input.PartNumber),
+		ContentLength: aws.Int64(input.ContentLength),
+	}, func(options *s3.PresignOptions) { options.Expires = input.Expires })
+	if err != nil {
+		return PresignedRequest{}, fmt.Errorf("presign multipart part request: %w", err)
+	}
+	return validatedPresignedRequest(output, http.MethodPut)
+}
+
+func (store *B2Store) CompleteMultipart(
+	ctx context.Context,
+	input MultipartCompleteInput,
+) (MultipartCompleteResult, error) {
+	if store == nil || store.client == nil {
+		return MultipartCompleteResult{}, fmt.Errorf("complete multipart upload: object storage is unavailable")
+	}
+	if err := validateKey(input.Key); err != nil {
+		return MultipartCompleteResult{}, err
+	}
+	uploadID := strings.TrimSpace(input.UploadID)
+	if uploadID == "" || len(input.Parts) == 0 || len(input.Parts) > 10000 {
+		return MultipartCompleteResult{}, fmt.Errorf("complete multipart upload: invalid manifest")
+	}
+	parts := make([]types.CompletedPart, len(input.Parts))
+	for index, part := range input.Parts {
+		etag := strings.TrimSpace(part.ETag)
+		if part.PartNumber != int32(index+1) || etag == "" || containsHeaderControl(etag) {
+			return MultipartCompleteResult{}, fmt.Errorf("complete multipart upload: invalid part")
+		}
+		parts[index] = types.CompletedPart{PartNumber: aws.Int32(part.PartNumber), ETag: aws.String(etag)}
+	}
+	output, err := store.client.CompleteMultipartUpload(ctx, &s3.CompleteMultipartUploadInput{
+		Bucket: aws.String(store.bucket), Key: aws.String(input.Key), UploadId: aws.String(uploadID),
+		MultipartUpload: &types.CompletedMultipartUpload{Parts: parts},
+	})
+	if err != nil {
+		return MultipartCompleteResult{}, fmt.Errorf("complete multipart upload: %w", err)
+	}
+	result := MultipartCompleteResult{
+		ETag:      strings.TrimSpace(aws.ToString(output.ETag)),
+		VersionID: strings.TrimSpace(aws.ToString(output.VersionId)),
+	}
+	if result.ETag == "" || result.VersionID == "" {
+		return MultipartCompleteResult{}, fmt.Errorf("complete multipart upload returned incomplete proof")
+	}
+	return result, nil
+}
+
+func (store *B2Store) AbortMultipart(
+	ctx context.Context,
+	input MultipartAbortInput,
+) error {
+	if store == nil || store.client == nil {
+		return fmt.Errorf("abort multipart upload: object storage is unavailable")
+	}
+	if err := validateKey(input.Key); err != nil {
+		return err
+	}
+	uploadID := strings.TrimSpace(input.UploadID)
+	if uploadID == "" {
+		return fmt.Errorf("abort multipart upload: upload ID is required")
+	}
+	_, err := store.client.AbortMultipartUpload(ctx, &s3.AbortMultipartUploadInput{
+		Bucket: aws.String(store.bucket), Key: aws.String(input.Key), UploadId: aws.String(uploadID),
+	})
+	if err != nil {
+		return fmt.Errorf("abort multipart upload: %w", err)
+	}
+	return nil
 }
 
 func (store *B2Store) Put(
