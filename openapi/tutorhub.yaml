@@ -69,6 +69,106 @@ paths:
                 $ref: "#/components/schemas/APIStatusResponse"
         default:
           $ref: "#/components/responses/ProblemResponse"
+  /api/v1/home/recent-files:
+    get:
+      operationId: listHomeRecentFiles
+      summary: Return a bounded authorized recent-ready-file projection for Home
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: X-TutorHub-Expected-Tenant-ID
+          in: header
+          required: true
+          description: Client cache-scope assertion; authorization still comes only from the server-side active session.
+          schema:
+            type: string
+            format: uuid
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 10
+            default: 5
+      responses:
+        "200":
+          description: Recent ready files visible to the current actor
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: private, no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HomeRecentFilePage"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/search:
+    get:
+      operationId: searchAuthorizedResources
+      summary: Search authorized session, conversation and ready-file metadata in PostgreSQL
+      description: Returns metadata only. Message bodies, file contents, private descriptions and generated snippets are never searched or projected.
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: X-TutorHub-Expected-Tenant-ID
+          in: header
+          required: true
+          description: Client cache-scope assertion; authorization still comes only from the server-side active session.
+          schema:
+            type: string
+            format: uuid
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 100
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 20
+            default: 12
+      responses:
+        "200":
+          description: Bounded metadata-only search results visible to the current actor
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: private, no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthorizedSearchPage"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
   /api/v1/auth/login:
     get:
       operationId: beginLogin
@@ -5738,6 +5838,79 @@ components:
         timestamp:
           type: string
           format: date-time
+    HomeRecentFile:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - class_id
+        - class_title
+        - display_name
+        - declared_media_type
+        - size_bytes
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        class_id:
+          type: string
+          format: uuid
+        class_title:
+          type: string
+        display_name:
+          type: string
+        declared_media_type:
+          type: string
+        size_bytes:
+          type: integer
+          format: int64
+        updated_at:
+          type: string
+          format: date-time
+    HomeRecentFilePage:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          maxItems: 10
+          items:
+            $ref: "#/components/schemas/HomeRecentFile"
+    AuthorizedSearchResultKind:
+      type: string
+      enum: [session, conversation, file]
+    AuthorizedSearchResult:
+      type: object
+      additionalProperties: false
+      required: [kind, id, title, context, occurred_at]
+      properties:
+        kind:
+          $ref: "#/components/schemas/AuthorizedSearchResultKind"
+        id:
+          type: string
+          format: uuid
+        class_id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        context:
+          type: string
+        occurred_at:
+          type: string
+          format: date-time
+    AuthorizedSearchPage:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          maxItems: 20
+          items:
+            $ref: "#/components/schemas/AuthorizedSearchResult"
     CSRFResponse:
       type: object
       additionalProperties: false

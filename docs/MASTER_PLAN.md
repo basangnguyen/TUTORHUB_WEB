@@ -1985,7 +1985,9 @@ Thứ tự hiện tại, cập nhật ngày 2026-07-31:
     ACL/PostgreSQL, CI/security và Render/Cloudflare live acceptance đều PASS. File uploads giữ
     fail-closed tới P3-10. P3-11A gate-off đã `DONE` trên candidate `73467ae6` sau exact
     CI/security, Render/Cloudflare và live role/cache acceptance. Owner phê duyệt automated
-    accessibility evidence thay manual NVDA riêng cho slice này; P3-12 là task runnable kế tiếp.
+    accessibility evidence thay manual NVDA riêng cho slice này. P3-12 đã chuyển `TODO -> VERIFY`:
+    ADR-0028, Home/search vertical slice, full local verify và Neon disposable authorization/
+    tenant-isolation đều PASS; candidate CI/security và deployed acceptance còn mở trước `DONE`.
 18. Không xóa thêm Neon branch theo quyết định hiện tại của owner.
 19. Không khởi động QuizHub, Lavie, social feed hoặc Secure Exam ngoài phase đã quy hoạch.
 

@@ -13,6 +13,7 @@ import (
 	"github.com/tutorhub-v2/core-api/internal/modules/classroom"
 	"github.com/tutorhub-v2/core-api/internal/modules/content"
 	"github.com/tutorhub-v2/core-api/internal/modules/conversation"
+	"github.com/tutorhub-v2/core-api/internal/modules/discovery"
 	"github.com/tutorhub-v2/core-api/internal/modules/featurecontrol"
 	"github.com/tutorhub-v2/core-api/internal/modules/identity"
 	"github.com/tutorhub-v2/core-api/internal/modules/media"
@@ -46,6 +47,7 @@ type Options struct {
 	Notifications         notification.ServiceAPI
 	Conversations         conversation.ServiceAPI
 	Content               content.ServiceAPI
+	Discovery             discovery.ServiceAPI
 	LiveKitWebhook        media.WebhookVerifier
 	InvitationRateLimiter InvitationRateLimiter
 	RemoteAddressResolver RemoteAddressResolver
@@ -151,6 +153,7 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 	notifications := newNotificationHandlers(logger, auth, options.Notifications)
 	conversations := newConversationHandlers(logger, auth, options.Conversations)
 	files := newContentHandlers(logger, auth, options.Content)
+	discovery := newDiscoveryHandlers(logger, auth, options.Discovery)
 	calendarHandlers := newCalendarHandlers(logger, auth, options.Calendar)
 	calendarScheduling := newCalendarSchedulingHandlers(
 		logger,
@@ -212,6 +215,14 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 	mux.Handle(
 		notificationPreferencePath,
 		notificationResponseHeaders(http.HandlerFunc(notifications.preference)),
+	)
+	mux.Handle(
+		homeRecentFilesPath,
+		discoveryResponseHeaders(http.HandlerFunc(discovery.recentFiles)),
+	)
+	mux.Handle(
+		resourceSearchPath,
+		discoveryResponseHeaders(http.HandlerFunc(discovery.search)),
 	)
 	mux.Handle(
 		classFilesPattern,

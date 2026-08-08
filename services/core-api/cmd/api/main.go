@@ -18,6 +18,7 @@ import (
 	"github.com/tutorhub-v2/core-api/internal/modules/classroom"
 	"github.com/tutorhub-v2/core-api/internal/modules/content"
 	"github.com/tutorhub-v2/core-api/internal/modules/conversation"
+	"github.com/tutorhub-v2/core-api/internal/modules/discovery"
 	"github.com/tutorhub-v2/core-api/internal/modules/featurecontrol"
 	"github.com/tutorhub-v2/core-api/internal/modules/identity"
 	"github.com/tutorhub-v2/core-api/internal/modules/media"
@@ -213,6 +214,22 @@ func run() int {
 		contentService, contentErr = content.NewService(contentRepository, objectStore)
 		if contentErr != nil {
 			logger.Error("initialize content service", "error", contentErr)
+			return 1
+		}
+	}
+	var discoveryService discovery.ServiceAPI
+	if pool != nil {
+		discoveryRepository, discoveryErr := discovery.NewPostgresRepository(
+			pool,
+			cfg.Database.QueryTimeout,
+		)
+		if discoveryErr != nil {
+			logger.Error("initialize discovery repository", "error", discoveryErr)
+			return 1
+		}
+		discoveryService, discoveryErr = discovery.NewService(discoveryRepository)
+		if discoveryErr != nil {
+			logger.Error("initialize discovery service", "error", discoveryErr)
 			return 1
 		}
 	}
@@ -483,6 +500,7 @@ func run() int {
 		Notifications:         notificationService,
 		Conversations:         conversationService,
 		Content:               contentService,
+		Discovery:             discoveryService,
 		InvitationRateLimiter: invitationRateLimiter,
 		Media:                 mediaService,
 		LiveKitWebhook:        liveKitWebhook,

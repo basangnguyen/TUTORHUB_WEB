@@ -29,6 +29,14 @@ export type TenantQuotaCapabilities =
 export type TenantOperationCapabilities =
   components["schemas"]["TenantOperationCapabilities"];
 export type TenantCapabilities = components["schemas"]["TenantCapabilities"];
+export type HomeRecentFile = components["schemas"]["HomeRecentFile"];
+export type HomeRecentFilePage = components["schemas"]["HomeRecentFilePage"];
+export type AuthorizedSearchResultKind =
+  components["schemas"]["AuthorizedSearchResultKind"];
+export type AuthorizedSearchResult =
+  components["schemas"]["AuthorizedSearchResult"];
+export type AuthorizedSearchPage =
+  components["schemas"]["AuthorizedSearchPage"];
 export type TenantFeatureControlValues =
   components["schemas"]["TenantFeatureControlValues"];
 export type TenantQuotaControlValues =
@@ -371,6 +379,13 @@ export interface ListClassesInput {
 }
 export interface ListClassFilesInput {
   cursor?: string;
+  limit?: number;
+}
+export interface ListHomeRecentFilesInput {
+  limit?: number;
+}
+export interface SearchAuthorizedResourcesInput {
+  q: string;
   limit?: number;
 }
 export interface ListClassSessionsInput {
@@ -762,6 +777,56 @@ export async function updateTenantFeatureControls(
 
   return requireData<TenantCapabilities>(
     data as TenantCapabilities | undefined,
+    error,
+    response,
+  );
+}
+
+export async function listHomeRecentFiles(
+  tenantID: string,
+  input: ListHomeRecentFilesInput = {},
+  options: APIRequestOptions = {},
+): Promise<HomeRecentFilePage> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).GET(
+    "/api/v1/home/recent-files",
+    {
+      params: {
+        header: { "X-TutorHub-Expected-Tenant-ID": tenantID },
+        query: input,
+      },
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<HomeRecentFilePage>(
+    data as HomeRecentFilePage | undefined,
+    error,
+    response,
+  );
+}
+
+export async function searchAuthorizedResources(
+  tenantID: string,
+  input: SearchAuthorizedResourcesInput,
+  options: APIRequestOptions = {},
+): Promise<AuthorizedSearchPage> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).GET(
+    "/api/v1/search",
+    {
+      params: {
+        header: { "X-TutorHub-Expected-Tenant-ID": tenantID },
+        query: input,
+      },
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<AuthorizedSearchPage>(
+    data as AuthorizedSearchPage | undefined,
     error,
     response,
   );

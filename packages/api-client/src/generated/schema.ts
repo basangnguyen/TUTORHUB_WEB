@@ -1506,6 +1506,23 @@ export type paths = {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/api/v1/home/recent-files": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /** Return a bounded authorized recent-ready-file projection for Home */
+    readonly get: operations["listHomeRecentFiles"];
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/api/v1/me": {
     readonly parameters: {
       readonly query?: never;
@@ -1707,6 +1724,26 @@ export type paths = {
     };
     /** Return the bounded unread notification count for the current user */
     readonly get: operations["getNotificationUnreadCount"];
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/search": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /**
+     * Search authorized session, conversation and ready-file metadata in PostgreSQL
+     * @description Returns metadata only. Message bodies, file contents, private descriptions and generated snippets are never searched or projected.
+     */
+    readonly get: operations["searchAuthorizedResources"];
     readonly put?: never;
     readonly post?: never;
     readonly delete?: never;
@@ -2098,6 +2135,22 @@ export type components = {
       readonly id: string | null;
       readonly type: string;
     };
+    readonly AuthorizedSearchPage: {
+      readonly items: readonly components["schemas"]["AuthorizedSearchResult"][];
+    };
+    readonly AuthorizedSearchResult: {
+      /** Format: uuid */
+      readonly class_id?: string;
+      readonly context: string;
+      /** Format: uuid */
+      readonly id: string;
+      readonly kind: components["schemas"]["AuthorizedSearchResultKind"];
+      /** Format: date-time */
+      readonly occurred_at: string;
+      readonly title: string;
+    };
+    /** @enum {string} */
+    readonly AuthorizedSearchResultKind: "session" | "conversation" | "file";
     readonly AvailabilityPoll: {
       readonly class_id: string | null;
       /** Format: date-time */
@@ -3233,6 +3286,22 @@ export type components = {
       readonly status: "ok";
       /** Format: date-time */
       readonly timestamp: string;
+    };
+    readonly HomeRecentFile: {
+      /** Format: uuid */
+      readonly class_id: string;
+      readonly class_title: string;
+      readonly declared_media_type: string;
+      readonly display_name: string;
+      /** Format: uuid */
+      readonly id: string;
+      /** Format: int64 */
+      readonly size_bytes: number;
+      /** Format: date-time */
+      readonly updated_at: string;
+    };
+    readonly HomeRecentFilePage: {
+      readonly items: readonly components["schemas"]["HomeRecentFile"][];
     };
     readonly IdentityLinkResponse: {
       /** Format: uri */
@@ -7286,6 +7355,38 @@ export interface operations {
       readonly default: components["responses"]["ProblemResponse"];
     };
   };
+  readonly listHomeRecentFiles: {
+    readonly parameters: {
+      readonly query?: {
+        readonly limit?: number;
+      };
+      readonly header: {
+        /** @description Client cache-scope assertion; authorization still comes only from the server-side active session. */
+        readonly "X-TutorHub-Expected-Tenant-ID": string;
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Recent ready files visible to the current actor */
+      readonly 200: {
+        headers: {
+          readonly "Cache-Control"?: "private, no-store";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["HomeRecentFilePage"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
   readonly getCurrentUser: {
     readonly parameters: {
       readonly query?: never;
@@ -7677,6 +7778,39 @@ export interface operations {
         };
         content: {
           readonly "application/json": components["schemas"]["NotificationUnreadCount"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly searchAuthorizedResources: {
+    readonly parameters: {
+      readonly query: {
+        readonly limit?: number;
+        readonly q: string;
+      };
+      readonly header: {
+        /** @description Client cache-scope assertion; authorization still comes only from the server-side active session. */
+        readonly "X-TutorHub-Expected-Tenant-ID": string;
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Bounded metadata-only search results visible to the current actor */
+      readonly 200: {
+        headers: {
+          readonly "Cache-Control"?: "private, no-store";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["AuthorizedSearchPage"];
         };
       };
       readonly 400: components["responses"]["ProblemResponse"];

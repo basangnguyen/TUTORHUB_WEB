@@ -37,7 +37,9 @@ approval có thể tiếp tục chuẩn bị song song.
 candidate `73467ae6`; exact CI/security, Render/Cloudflare, Teacher/Student feature-off và
 cache-isolation acceptance đều PASS. Owner đã phê duyệt automated accessibility evidence thay
 manual NVDA riêng cho slice gate-off này. **Task hiện tại:** `P3-12` Home dashboard và
-PostgreSQL search cơ bản ở `TODO`;
+PostgreSQL search cơ bản ở `VERIFY`: ADR-0028, bounded metadata-only discovery API, independent
+Home cards, full local verify và Neon disposable authorization/search integration đều PASS;
+exact candidate CI/security và deployed role/workspace acceptance còn mở trước `DONE`.
 P3-10 processing tiếp tục `DEFERRED/TODO` theo worker dependency.
 `P3-02D-B` lifecycle delivery/
 auto-close/fan-out và các gate P3-03B/P3-CAL-02/P3-05A/B là carry-over, không nằm trong
@@ -118,7 +120,7 @@ processing/sharing tới end user.
 | P3-10      | Scan/metadata/thumbnail processing             | P3-03B, P3-09                                 | DEFERRED/TODO   |
 | P3-11A     | Class Files transfer-core UI (gate off)        | P3-09                                         | DONE            |
 | P3-11B     | File processing/thumbnail/rejected UX          | P3-10, P3-11A                                 | DEFERRED/TODO   |
-| P3-12      | Home dashboard và PostgreSQL search cơ bản     | P3-01, P3-07A, P3-11A                         | TODO            |
+| P3-12      | Home dashboard và PostgreSQL search cơ bản     | P3-01, P3-07A, P3-11A                         | VERIFY          |
 | P3-13      | Offline/retry drafts và Phase 3 quota closure  | P3-02D-A, P3-07A, P3-11A                      | TODO            |
 | P3-14-CORE | Core Exit sign-off (cho phép bắt đầu Phase 4)  | P3-02D-A, P3-07A, P3-09, P3-11A, P3-12, P3-13 | TODO            |
 | P3-14      | Full staging acceptance và đóng Phase 3        | carry-over + P3-12/P3-13                      | TODO            |
@@ -1111,6 +1113,14 @@ không mở rộng sang P3-11B, activation hoặc public milestone.
 - Search PostgreSQL chỉ trên resource actor được phép; không trả snippet vượt quyền.
 - Không thêm Elasticsearch/vector store khi PostgreSQL chưa có bằng chứng không đủ.
 - Partial provider/module failure degrade từng card, không làm hỏng toàn dashboard.
+- [x] ADR-0028 và contract OpenAPI/generated client cho recent ready files và metadata-only
+      PostgreSQL search; không migration, không thêm search engine.
+- [x] Home dùng query độc lập, cache key bind tenant/user, partial degradation/retry theo card
+      và purge qua principal-generation boundary.
+- [x] Go/API-client/web/keyboard/Axe gate, full local `pnpm verify` và Neon disposable
+      authorization/tenant-isolation/search integration PASS.
+- [ ] Exact candidate CI/security, deploy đúng SHA và live Teacher/Student/workspace-switch/
+      privacy/accessibility matrix trước khi chuyển `VERIFY -> DONE`.
 
 ## 20. P3-13 Offline/retry drafts và Phase 3 quota closure
 

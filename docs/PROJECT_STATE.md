@@ -14,8 +14,27 @@
 | Phase hiện tại       | Phase 3 - Daily learning workspace                                                    |
 | Task `DONE` gần nhất | P3-11A Class Files transfer-core UI                                                   |
 | Mốc repository mới   | P3-11A candidate `73467ae6` Live; shared Neon `28 false`                              |
-| Task hiện tại        | P3-12 Home dashboard và PostgreSQL search cơ bản — `TODO`                             |
-| Task tiếp theo       | Scope/readiness review và bắt đầu vertical slice P3-12                                |
+| Task hiện tại        | P3-12 Home dashboard và PostgreSQL search cơ bản — `VERIFY`                           |
+| Task tiếp theo       | Candidate CI/security, deploy và live acceptance P3-12                                |
+
+### Checkpoint P3-12 `VERIFY` ngày 2026-08-08
+
+P3-12 đã có ADR-0028 và vertical slice không migration. Home tái dùng các API Calendar,
+Notification và Conversation cho các card độc lập; discovery module mới cung cấp recent ready
+files và PostgreSQL search metadata-only cho session, conversation và file mà actor còn quyền
+truy cập. Query được bound theo tenant/user, có giới hạn cứng, xử lý `%`/`_` như ký tự thường và
+không trả message content, file content, private snippet hoặc provider selector.
+
+Web Home có loading/empty/error, retry từng card, partial degradation và search keyboard-first;
+workspace/principal change purge cache cũ. OpenAPI/generated client, Go/API-client/web tests,
+Playwright keyboard/Axe và full exact-tree `pnpm verify` đều PASS; web đạt 53 file/255 test.
+Neon disposable discovery integration PASS cho Teacher/Student, direct/class authorization,
+inactive membership, foreign-tenant concealment và ready-file visibility. Không thêm migration;
+disposable giữ `28 false`, không rollback, không forward shared staging và chưa deploy.
+
+P3-12 đang ở `VERIFY`. Gate còn lại để chuyển `DONE` là push exact candidate, CI/security,
+deploy đúng SHA và live Teacher/Student/workspace-switch/privacy/accessibility matrix theo
+`docs/P3_12_STAGING_ACCEPTANCE.md`.
 
 ### Checkpoint P3-11A `DONE` ngày 2026-08-08
 
