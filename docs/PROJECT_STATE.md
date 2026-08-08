@@ -6,7 +6,7 @@
 
 | Thuộc tính           | Trạng thái                                                                            |
 | -------------------- | ------------------------------------------------------------------------------------- |
-| Ngày cập nhật        | 2026-08-08                                                                            |
+| Ngày cập nhật        | 2026-08-09                                                                            |
 | Repository           | `https://github.com/basangnguyen/TUTORHUB_WEB`                                        |
 | Nhánh làm việc       | `main`                                                                                |
 | Quy trình            | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
@@ -38,6 +38,17 @@ Baseline cũng chốt lobby/moderation server-authorized, không remote-unmute,
 provider/participant identifiers opaque, identifiable diagnostics retention tối đa 30 ngày và
 legacy/P4 authority mutual exclusion. P4-00 không thêm dependency, migration, credential,
 provider config, shared staging write hoặc deploy. Full P3-14/Phase 3 carry-over vẫn giữ nguyên.
+
+### Forward plan P5-COLLAB-00 đăng ký ngày 2026-08-09
+
+[P5-COLLAB-00](P5_COLLAB_00_RESEARCH_SPIKE.md) đã được thêm làm decision spike đầu tiên cho
+Phase 5. Task sẽ so sánh tldraw + official sync, Excalidraw + self-managed sync và
+Yjs/provider cho shared notes/custom CRDT trên cùng ma trận license/cost, convergence,
+snapshot/restore, tenant/role security, scale và accessibility. ADR phải chọn đúng một
+document/history/undo authority trước khi thêm production dependency hoặc runtime mới.
+
+Đây chỉ là forward plan ở trạng thái `TODO`: không đổi phase/task hiện tại, không chặn P4-01,
+không cài dependency, tạo service, migration, shared-staging write hoặc deploy.
 
 ### Checkpoint P3-14-CORE `DONE` ngày 2026-08-08
 

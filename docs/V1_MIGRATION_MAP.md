@@ -24,7 +24,7 @@ Audit phát hiện V1 có cấu hình endpoint phân tán, một số giá trị
 | Classes/accepted/invite | `ClassManagerTab`, `AcceptedClassTab`, dialog lớp | Giữ quy tắc nghiệp vụ, viết API và UI mới | MVP |
 | Schedule/tasks | `ScheduleTab`, `TaskTab`, CalendarFX | Chuyển model lịch; UI web mới | MVP/P1 |
 | Live classroom | `BlackboardFrame`, `PreJoinDialog`, board resources | Tái dùng ý tưởng/flow; dùng LiveKit React components/API mới | MVP/P1 |
-| Whiteboard/tools | `frontend-board`, `tldraw_board_v2.html` | Port có chọn lọc React/tldraw; bỏ bridge JCEF | P1 |
+| Whiteboard/tools | `frontend-board`, `tldraw_board_v2.html` | Dùng làm đặc tả; engine/license/sync phải qua P5-COLLAB-00 và ADR, bỏ bridge JCEF | Phase 5 |
 | Chat/Lavie | `ChatTab`, `client/ai`, `ai_chat.html`, `app.py` | Chat người-người P1; Lavie tách riêng P3 | P1/P3 |
 | Drive/files | `DriveTab`, `client/drive`, B2 code | Viết lại presigned upload + metadata + scan | P1 |
 | Exam/question bank | `client/exam`, server DAO/service | Chuẩn hóa domain/API; không bê DAO trực tiếp | P2 |
@@ -40,7 +40,8 @@ Audit phát hiện V1 có cấu hình endpoint phân tán, một số giá trị
 
 - Design assets không chứa dữ liệu người dùng.
 - Pure TypeScript/JavaScript algorithm độc lập DOM/JCEF, sau khi có test.
-- Tldraw custom shape logic tương thích phiên bản được chọn.
+- Whiteboard custom-shape algorithm chỉ sau khi P5-COLLAB-00 chọn engine/license và chứng minh
+  API compatibility; không mặc định port tldraw implementation của V1.
 - Cấu trúc câu hỏi/quiz sau khi chuẩn hóa schema.
 
 ### Chỉ tái sử dụng như đặc tả

@@ -5,7 +5,7 @@
 | Thuộc tính            | Giá trị                                                                                      |
 | --------------------- | -------------------------------------------------------------------------------------------- |
 | Phiên bản tài liệu    | 2.4                                                                                          |
-| Cập nhật              | 2026-08-08                                                                                   |
+| Cập nhật              | 2026-08-09                                                                                   |
 | Phạm vi ưu tiên       | Web application                                                                              |
 | Thư mục phát triển    | `D:\TutorHub_V2`                                                                             |
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
@@ -201,7 +201,8 @@ Không mở cấp tiếp theo nếu phase trước chưa đạt exit gate và ch
 2. **Control plane**: Go Core API/BFF, auth, permission, room token, presigned URL, policy.
 3. **Business data plane**: Neon PostgreSQL, tenant-scoped repositories, audit metadata.
 4. **Media plane**: LiveKit Cloud, WebRTC/SRTP, TURN, recording/egress theo quota.
-5. **Collaboration plane**: persistent chat qua API; ephemeral events qua LiveKit; Yjs cho whiteboard.
+5. **Collaboration plane**: persistent chat qua API; ephemeral events qua LiveKit; whiteboard dùng
+   engine/sync provider được P5-COLLAB-00 và ADR chấp nhận.
 6. **Asynchronous/AI plane**: outbox, worker, notification, file processing, transcript, Lavie.
 
 ### 8.2 Sơ đồ tổng thể
@@ -211,7 +212,7 @@ flowchart LR
     U["Browser React/PWA"] -->|"HTTPS + session cookie"| E["Cloudflare Pages / Edge"]
     U -->|"REST/SSE"| API["Go Core API + BFF"]
     U -->|"WebRTC/SRTP"| LK["LiveKit Cloud"]
-    U -->|"Yjs WebSocket"| COL["Collaboration gateway"]
+    U -->|"Collaboration WebSocket"| COL["Collaboration gateway"]
     U -->|"Presigned HTTPS"| B2["Backblaze B2"]
 
     API -->|"SQL/TLS"| DB["Neon PostgreSQL"]
@@ -327,7 +328,7 @@ Route chỉ quyết định khả năng hiển thị ban đầu; mọi API vẫn
 | Form state          | Component + schema validation | tạo lớp, lên lịch                         |
 | Ephemeral UI        | Component/local store         | dialog, hover, toolbar                    |
 | Media state         | Classroom controller          | track, device, reconnect, network quality |
-| Collaborative state | Yjs provider                  | nét vẽ, object bảng trắng                 |
+| Collaborative state | Provider/protocol theo ADR    | nét vẽ, object bảng trắng                 |
 | Session             | Query + secure cookie         | user, tenant, effective permissions       |
 
 Không sao chép server state vào store toàn cục nếu không có lý do.
@@ -443,7 +444,7 @@ Mỗi module có thể gồm `domain`, `application`, `repository`, `transport`.
 | Hand raise/reaction tạm        | LiveKit DataChannel hoặc room metadata        |
 | Persistent chat                | Core API ghi DB; SSE/WebSocket phát sự kiện   |
 | Notification badge             | SSE trước, WebSocket khi có nhu cầu hai chiều |
-| Whiteboard                     | Yjs WebSocket                                 |
+| Whiteboard                     | Engine/provider WebSocket theo ADR            |
 | Job progress                   | SSE                                           |
 | Admin/audit query              | REST                                          |
 
@@ -734,14 +735,17 @@ Notification domain tạo intent; outbox/worker phân phối in-app, email hoặ
 
 ### 16.1 Whiteboard
 
-- Tldraw hoặc engine đã chấp nhận qua ADR ở phase triển khai.
-- Yjs document là collaborative state.
-- WebSocket provider đồng bộ delta.
-- Snapshot định kỳ lưu B2; metadata/version lưu PostgreSQL.
-- Reconnect tải snapshot rồi replay update.
-- Permission view/edit/present do backend cấp.
-- Import/export có quota.
-- Không chạy chung whiteboard payload qua Core API REST.
+- `P5-COLLAB-00` phải chọn engine, document authority và realtime topology bằng evidence;
+  candidate gồm tldraw + official sync, Excalidraw + self-managed sync và Yjs/provider cho
+  shared notes hoặc custom CRDT.
+- Chỉ có một authoritative document/history/undo model; không mặc định ghép Yjs lên engine
+  đã có store/sync riêng.
+- WebSocket provider đồng bộ delta; authentication, tenant/role permission và revoke do server cấp.
+- Snapshot/export/restore lưu qua storage do backend kiểm soát; metadata/version lưu PostgreSQL
+  và payload phù hợp lưu B2.
+- Reconnect tải snapshot rồi replay update theo protocol được ADR chọn.
+- Permission view/edit/present do backend cấp; import/export có quota.
+- Không chạy chung whiteboard payload qua Core API REST hoặc LiveKit DataChannel.
 
 ### 16.2 Công cụ phòng học
 
@@ -1037,7 +1041,7 @@ Web có thể quản lý exam policy, schedule, signed launch token và nhận r
 | QuizHub         | Quiz practice/game   |           6 | Tách engine domain và UI game         |
 | Nhiệm vụ        | Assignment/Task      |           6 | Workflow server-side                  |
 | Tài liệu/Drive  | Files/Content        |           3 | Presigned B2 pipeline                 |
-| Bảng vẽ         | Whiteboard           |           5 | React/Yjs, snapshot B2                |
+| Bảng vẽ         | Whiteboard           |           5 | Engine/sync theo ADR, snapshot B2     |
 | Lavie Agent     | AI assistant         |           7 | Permission-filtered RAG               |
 | Secure Exam     | Native companion     | Track riêng | Chỉ contract/handoff từ web           |
 | Admin/nâng cấp  | Tenant admin/billing |           8 | Sau usage/quota telemetry             |
@@ -1538,26 +1542,34 @@ vẫn dùng class policy teacher/admin, không suy từ ownership của Study Me
 
 **Work package theo thứ tự:**
 
-1. Tool registry và side-panel framework.
-2. Whiteboard Yjs + snapshot.
-3. File presentation.
-4. Quick quiz/poll.
-5. Shared notes.
-6. YouTube/co-watch.
-7. Math input.
-8. Diagram/Mermaid.
-9. Code/Snippet viewer/editor an toàn.
-10. Breakout room.
-11. Recording/egress/consent/retention.
-12. Teacher classroom template.
-13. Tool permission và audit.
-14. Reconnect state cho từng tool.
-15. Accessibility/keyboard trong lớp.
+1. [P5-COLLAB-00](P5_COLLAB_00_RESEARCH_SPIKE.md) — research spike chọn whiteboard engine,
+   document authority, license/cost và realtime provider topology; tạo prototype, decision matrix
+   và ADR trước khi thêm production dependency/runtime.
+2. Tool registry và side-panel framework.
+3. Whiteboard engine/sync đã chọn qua ADR + snapshot.
+4. File presentation.
+5. Quick quiz/poll.
+6. Shared notes.
+7. YouTube/co-watch.
+8. Math input.
+9. Diagram/Mermaid.
+10. Code/Snippet viewer/editor an toàn.
+11. Breakout room.
+12. Recording/egress/consent/retention.
+13. Teacher classroom template.
+14. Tool permission và audit.
+15. Reconnect state cho từng tool.
+16. Accessibility/keyboard trong lớp.
+
+P5-COLLAB-00 có thể chuẩn bị ở cuối Phase 4 nhưng không thay đổi task hiện tại hoặc exit gate
+Phase 4. Spike phải so sánh tldraw/Excalidraw trên cùng evidence matrix, chỉ dùng Yjs/Hocuspocus
+khi phù hợp với document model, và không tạo dual state/history/undo authority.
 
 **Deliverable:** teacher mở/đóng công cụ mà không làm rời media room; trạng thái cộng tác khôi phục sau reconnect.
 
 **Exit gate:**
 
+- P5-COLLAB-00 có evidence matrix và ADR `Accepted` cho engine/license/document/sync topology.
 - Whiteboard convergence và snapshot restore đạt.
 - Tool không làm vỡ classroom layout.
 - Untrusted content được sandbox.
@@ -1884,7 +1896,8 @@ Phải giải quyết bằng spike/ADR đúng phase:
    staging/private alpha, không phải durable worker.
 5. Worker/queue runtime cho pilot.
 6. Redis provider và thời điểm thực sự cần.
-7. Whiteboard engine/provider topology.
+7. `P5-COLLAB-00`: whiteboard engine, license/cost, document authority, realtime provider
+   topology, persistence và operational ownership.
 8. Virus scanning/transcode runtime.
 9. AWS SES target và local adapter/contract P3-CAL-02 đã chốt ở trạng thái `VERIFY`;
    account/region/sandbox/quota live, production access, sending domain/DNS,

@@ -4,7 +4,7 @@
 
 | Thuộc tính          | Trạng thái                                      |
 | ------------------- | ----------------------------------------------- |
-| Cập nhật            | 2026-08-08                                      |
+| Cập nhật            | 2026-08-09                                      |
 | Phase hiện tại      | Phase 4 Classroom Media; Phase 3 carry-over tiếp tục |
 | Hoàn thành gần nhất | P4-00 architecture/backlog baseline `DONE`      |
 | Mốc repository mới  | ADR-0030 + Phase 4 task/dependency/exit gates   |
@@ -20,7 +20,7 @@
 |     2 | Identity, tenant và class core    |             Hoàn thành | Multi-tenant, permission, class/enrollment                 |
 |     3 | Daily learning workspace          | Core Exit trước; full closure sau | Lịch chuyên nghiệp, poll core, chat, file; email/worker carry-over |
 |     4 | Classroom Media MVP               |               6-8 tuần | Prejoin, LiveKit room, moderation, reconnect               |
-|     5 | Classroom Collaboration           |              8-12 tuần | Whiteboard, quiz nhanh, tools, breakout, recording         |
+|     5 | Classroom Collaboration           |              8-12 tuần | Research/ADR engine; whiteboard, tools, breakout, recording |
 |     6 | Assessment, Tasks và QuizHub      |              8-12 tuần | Assignment, exam, scoring, practice/game                   |
 |     7 | Content, Social Learning và Lavie |              6-10 tuần | Feed/video có kiểm soát, AI/RAG theo quyền                 |
 |     8 | Global Readiness                  | 8-12 tuần trước launch | Production hosting, SLO, DR, security, privacy             |
@@ -81,6 +81,11 @@ architecture/backlog implementation-readiness hiện đã `DONE`. Nguồn thực
 [ADR-0030](adr/0030-authoritative-classroom-media-spaces-lifecycle-and-livekit-grants.md)
 và P4-01 là vertical slice kế tiếp. `P3-02D-B` auto-close/fan-out/delivery cùng các lane
 worker/provider tiếp tục là carry-over, không bị coi là PASS.
+
+Phase 5 bắt đầu bằng [P5-COLLAB-00](P5_COLLAB_00_RESEARCH_SPIKE.md): so sánh engine,
+license, document authority và realtime topology bằng prototype/evidence trước khi thêm
+whiteboard dependency hoặc collaboration runtime. Task này là forward plan, không chặn
+P4-01 và không thay đổi exit gate Phase 4.
 
 ## Mô hình chuyển tiếp Phase 3 → Phase 4
 
