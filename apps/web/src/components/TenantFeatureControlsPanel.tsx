@@ -36,6 +36,8 @@ const featureLabelKeys: Record<FeatureKey, TranslationKey> = {
   class_management: "capabilities.featureClassManagement",
   conversations: "capabilities.featureConversations",
   file_uploads: "capabilities.featureFileUploads",
+  classroom_media_rooms: "capabilities.featureClassroomMediaRooms",
+  instant_study_rooms: "capabilities.featureInstantStudyRooms",
   in_app_notifications: "capabilities.featureInAppNotifications",
   membership_invitations: "capabilities.featureMembershipInvitations",
 };
@@ -60,6 +62,10 @@ const quotaLabelKeys: Record<QuotaKey, TranslationKey> = {
   file_bytes_per_tenant: "capabilities.quotaFileBytes",
   single_file_bytes: "capabilities.quotaSingleFileBytes",
   file_upload_intents_per_hour: "capabilities.quotaFileUploadIntents",
+  active_media_spaces: "capabilities.quotaActiveMediaSpaces",
+  media_participants_per_space: "capabilities.quotaMediaParticipantsPerSpace",
+  active_media_participants: "capabilities.quotaActiveMediaParticipants",
+  media_space_starts_per_hour: "capabilities.quotaMediaSpaceStarts",
   members: "capabilities.quotaMembers",
 };
 
@@ -98,6 +104,14 @@ function controlsDraft(capabilities: TenantCapabilities): ControlsDraft {
       class_management: configuredFeature(capabilities, "class_management"),
       conversations: configuredFeature(capabilities, "conversations"),
       file_uploads: configuredFeature(capabilities, "file_uploads"),
+      classroom_media_rooms: configuredFeature(
+        capabilities,
+        "classroom_media_rooms",
+      ),
+      instant_study_rooms: configuredFeature(
+        capabilities,
+        "instant_study_rooms",
+      ),
       in_app_notifications: configuredFeature(
         capabilities,
         "in_app_notifications",
@@ -156,6 +170,18 @@ function controlsDraft(capabilities: TenantCapabilities): ControlsDraft {
       ),
       file_upload_intents_per_hour: String(
         configuredQuota(capabilities, "file_upload_intents_per_hour"),
+      ),
+      active_media_spaces: String(
+        configuredQuota(capabilities, "active_media_spaces"),
+      ),
+      media_participants_per_space: String(
+        configuredQuota(capabilities, "media_participants_per_space"),
+      ),
+      active_media_participants: String(
+        configuredQuota(capabilities, "active_media_participants"),
+      ),
+      media_space_starts_per_hour: String(
+        configuredQuota(capabilities, "media_space_starts_per_hour"),
       ),
       members: String(configuredQuota(capabilities, "members")),
     },
@@ -440,6 +466,14 @@ function TenantFeatureControlsForm({
       single_file_bytes: Number(draft.quotas.single_file_bytes),
       file_upload_intents_per_hour: Number(
         draft.quotas.file_upload_intents_per_hour,
+      ),
+      active_media_spaces: Number(draft.quotas.active_media_spaces),
+      media_participants_per_space: Number(
+        draft.quotas.media_participants_per_space,
+      ),
+      active_media_participants: Number(draft.quotas.active_media_participants),
+      media_space_starts_per_hour: Number(
+        draft.quotas.media_space_starts_per_hour,
       ),
     };
     for (const key of quotaKeys) {

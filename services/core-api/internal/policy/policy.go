@@ -38,6 +38,7 @@ const (
 	PermissionAvailabilityPollManageOwn      Permission = "availability.poll.manage_own"
 	PermissionAvailabilityPollPublishToClass Permission = "availability.poll.publish_to_class"
 	PermissionStudyMeetingScheduleOwn        Permission = "study_meeting.schedule_own"
+	PermissionRoomCreateInstant              Permission = "room.create.instant"
 	PermissionEnrollmentManage               Permission = "enrollment.manage"
 	PermissionEnrollmentLeave                Permission = "enrollment.leave"
 	PermissionSessionSchedule                Permission = "session.schedule"
@@ -71,6 +72,7 @@ const (
 	ActionAvailabilityPollManageOwn      Action = Action(PermissionAvailabilityPollManageOwn)
 	ActionAvailabilityPollPublishToClass Action = Action(PermissionAvailabilityPollPublishToClass)
 	ActionStudyMeetingScheduleOwn        Action = Action(PermissionStudyMeetingScheduleOwn)
+	ActionRoomCreateInstant              Action = Action(PermissionRoomCreateInstant)
 	ActionEnrollmentManage               Action = Action(PermissionEnrollmentManage)
 	ActionEnrollmentLeave                Action = Action(PermissionEnrollmentLeave)
 	ActionSessionSchedule                Action = Action(PermissionSessionSchedule)
@@ -201,6 +203,7 @@ var permissionOrder = []Permission{
 	PermissionAvailabilityPollManageOwn,
 	PermissionAvailabilityPollPublishToClass,
 	PermissionStudyMeetingScheduleOwn,
+	PermissionRoomCreateInstant,
 	PermissionEnrollmentManage,
 	PermissionEnrollmentLeave,
 	PermissionSessionSchedule,
@@ -229,6 +232,7 @@ var organizationPermissions = map[OrganizationRole][]Permission{
 		PermissionAvailabilityPollManageOwn,
 		PermissionAvailabilityPollPublishToClass,
 		PermissionStudyMeetingScheduleOwn,
+		PermissionRoomCreateInstant,
 		PermissionEnrollmentManage,
 		PermissionSessionSchedule,
 		PermissionSessionStart,
@@ -248,6 +252,7 @@ var organizationPermissions = map[OrganizationRole][]Permission{
 		PermissionAvailabilityPollCreate,
 		PermissionAvailabilityPollManageOwn,
 		PermissionStudyMeetingScheduleOwn,
+		PermissionRoomCreateInstant,
 	},
 	OrganizationRoleGuest: {
 		PermissionTenantView,
@@ -256,6 +261,7 @@ var organizationPermissions = map[OrganizationRole][]Permission{
 		PermissionAvailabilityPollCreate,
 		PermissionAvailabilityPollManageOwn,
 		PermissionStudyMeetingScheduleOwn,
+		PermissionRoomCreateInstant,
 	},
 }
 
@@ -537,7 +543,7 @@ func actionRequiresClass(action Action) bool {
 		ActionClassCreate, ActionClassView, ActionConversationCreateDirect,
 		ActionMessageWriteDirect, ActionAuditView,
 		ActionAvailabilityPollCreate, ActionAvailabilityPollManageOwn,
-		ActionStudyMeetingScheduleOwn:
+		ActionStudyMeetingScheduleOwn, ActionRoomCreateInstant:
 		return false
 	default:
 		return true

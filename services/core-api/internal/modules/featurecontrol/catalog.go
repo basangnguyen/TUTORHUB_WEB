@@ -17,6 +17,8 @@ const (
 	FeatureAvailabilityPolls      FeatureKey = "availability_polls"
 	FeatureConversations          FeatureKey = "conversations"
 	FeatureFileUploads            FeatureKey = "file_uploads"
+	FeatureClassroomMediaRooms    FeatureKey = "classroom_media_rooms"
+	FeatureInstantStudyRooms      FeatureKey = "instant_study_rooms"
 )
 
 type QuotaKey string
@@ -39,6 +41,10 @@ const (
 	QuotaFileBytesPerTenant                         QuotaKey = "file_bytes_per_tenant"
 	QuotaSingleFileBytes                            QuotaKey = "single_file_bytes"
 	QuotaFileUploadIntentsPerHour                   QuotaKey = "file_upload_intents_per_hour"
+	QuotaActiveMediaSpaces                          QuotaKey = "active_media_spaces"
+	QuotaMediaParticipantsPerSpace                  QuotaKey = "media_participants_per_space"
+	QuotaActiveMediaParticipants                    QuotaKey = "active_media_participants"
+	QuotaMediaSpaceStartsPerHour                    QuotaKey = "media_space_starts_per_hour"
 )
 
 type ValueSource string
@@ -99,6 +105,12 @@ var featureDefinitions = map[FeatureKey]FeatureDefinition{
 	FeatureFileUploads: {
 		Key: FeatureFileUploads, DefaultEnabled: true,
 	},
+	FeatureClassroomMediaRooms: {
+		Key: FeatureClassroomMediaRooms, DefaultEnabled: false,
+	},
+	FeatureInstantStudyRooms: {
+		Key: FeatureInstantStudyRooms, DefaultEnabled: false,
+	},
 }
 
 var quotaDefinitions = map[QuotaKey]QuotaDefinition{
@@ -155,6 +167,18 @@ var quotaDefinitions = map[QuotaKey]QuotaDefinition{
 	},
 	QuotaFileUploadIntentsPerHour: {
 		Key: QuotaFileUploadIntentsPerHour, DefaultLimit: 1000, MinimumLimit: 1, MaximumLimit: 100000,
+	},
+	QuotaActiveMediaSpaces: {
+		Key: QuotaActiveMediaSpaces, DefaultLimit: 10, MinimumLimit: 1, MaximumLimit: 100,
+	},
+	QuotaMediaParticipantsPerSpace: {
+		Key: QuotaMediaParticipantsPerSpace, DefaultLimit: 50, MinimumLimit: 1, MaximumLimit: 50,
+	},
+	QuotaActiveMediaParticipants: {
+		Key: QuotaActiveMediaParticipants, DefaultLimit: 100, MinimumLimit: 1, MaximumLimit: 500,
+	},
+	QuotaMediaSpaceStartsPerHour: {
+		Key: QuotaMediaSpaceStartsPerHour, DefaultLimit: 20, MinimumLimit: 1, MaximumLimit: 200,
 	},
 }
 

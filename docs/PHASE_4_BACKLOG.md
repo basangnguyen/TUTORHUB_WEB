@@ -22,8 +22,9 @@ effect thuộc Phase 3 khi carry-over chưa đạt gate riêng.
 
 **Task `DONE` gần nhất:** `P4-00` architecture/backlog baseline ngày 2026-08-08. ADR-0030 chốt
 MediaSpace/RoomInstance/ParticipantSession, source/ownership, token/webhook, lobby/moderation,
-feature-off rollout, privacy và compatibility với P1 spike. **Task kế tiếp:** `P4-01`
-MediaSpace lifecycle/schema/API core; chưa migration hoặc deploy trong P4-00.
+feature-off rollout, privacy và compatibility với P1 spike. **Task hiện tại:** `P4-01`
+MediaSpace lifecycle/schema/API core đang `IN PROGRESS`; implementation candidate mới có
+bằng chứng local, chưa migration/deploy external.
 
 `P4-MEDIA-UX-00` là research lane `TODO` có thể chạy song song P4-01/P4-02 và phải `DONE`
 trước phần UX/signals/effects của P4-03/P4-04/P4-05/P4-06. Task không đổi LiveKit provider,
@@ -70,7 +71,7 @@ không thêm production dependency và không làm thay đổi critical path hi�
 | --------------- | -------------------------------------------------- | --------------------------------------- | ---------- |
 | P4-00           | Architecture/backlog/contract baseline             | P3-14-CORE                              | DONE       |
 | P4-MEDIA-UX-00 | Prejoin/layout/signals/effects research spike      | P4-00; song song P4-01/P4-02            | TODO       |
-| P4-01           | MediaSpace lifecycle, schema và API core            | P4-00                                   | TODO       |
+| P4-01           | MediaSpace lifecycle, schema và API core            | P4-00                                   | IN PROGRESS |
 | P4-02           | RoomInstance LiveKit credential + webhook binding   | P4-01, P1-07 baseline                   | TODO       |
 | P4-03           | Prejoin device/network và join-attempt flow         | P4-02, P4-MEDIA-UX-00                  | TODO       |
 | P4-04           | Lobby, admission và explicit same-tenant invite     | P4-02, P4-03, P4-MEDIA-UX-00           | TODO       |
@@ -198,13 +199,15 @@ phải `DONE` trước phần UX/signals/effects của P4-03/P4-04/P4-05/P4-06.
 
 ## 8. P4-01 MediaSpace lifecycle, schema và API core
 
-**Dependency:** P4-00. **Trạng thái:** `TODO`. **Rollout:** feature-off, không mint LiveKit token.
+**Dependency:** P4-00. **Trạng thái:** `IN PROGRESS`. **Rollout:** feature-off, không mint
+LiveKit token. **Acceptance:** [P4_01_STAGING_ACCEPTANCE.md](P4_01_STAGING_ACCEPTANCE.md).
 
 ### Scope
 
 - Thêm `media_spaces`, `media_room_instances`, `media_space_members`,
-  `media_admission_requests`, `media_participant_sessions` và provider binding cần thiết bằng
-  forward migration kế tiếp (dự kiến `000029`, chỉ khóa số khi bắt đầu implementation).
+  `media_admission_requests`, `media_participant_sessions` và
+  `media_space_mutation_receipts` bằng forward migration
+  `000029_classroom_media_spaces`. P4-01 chỉ tạo database intent, chưa gọi provider.
 - Exact tenant/composite FK, unique one-space-per-source và one-active-instance constraints.
 - Domain state machine/lock order/idempotency; bind one-time ClassSession, recurring occurrence
   hoặc StudyMeeting do server resolve. Instant command atomically tạo/bind StudyMeeting, không
@@ -217,7 +220,8 @@ phải `DONE` trước phần UX/signals/effects của P4-03/P4-04/P4-05/P4-06.
 
 ### Acceptance
 
-- [ ] Migration up/down PASS local và disposable; forward shared chỉ sau disposable report/approval.
+- [ ] Disposable forward-only `28 -> 29`, rerun giữ `29 false`; không rollback. Forward shared
+      chỉ sau disposable report và owner approval rõ.
 - [ ] Runtime role exact DML, không owner/DDL/broad table grant; foreign tenant conceal `404`.
 - [ ] Official teacher/admin/owner/co-teacher start/end matrix đúng; student không nâng quyền.
 - [ ] StudyMeeting owner, gồm StudyMeeting do instant command tạo, và explicit same-tenant member
@@ -226,6 +230,17 @@ phải `DONE` trước phần UX/signals/effects của P4-03/P4-04/P4-05/P4-06.
 - [ ] Source cancel/archive/enrollment revoke fail closed; audit/outbox không chứa private content.
 - [ ] Feature/quota disabled paths không tạo row; storage failure trả `503`.
 - [ ] OpenAPI/generated client, Go/TS tests và full verify xanh; không có provider side effect.
+
+### Checkpoint implementation local 2026-08-09
+
+- [x] Migration/OpenAPI/generated client, lifecycle repository/HTTP skeleton và feature-control
+      candidate đã được tạo; feature parent/child giữ mặc định off.
+- [x] Focused feature-control/config/HTTP, API client, web và generated-contract checks PASS.
+- [x] Policy/security action matrix được review; typed `room.create.instant` theo ADR-0021,
+      tenant/membership/ownership guard và focused tests PASS.
+- [ ] Disposable PostgreSQL `28 -> 29`, exact ACL, tenant/concurrency/source barrier gates PASS.
+- [x] Full local `pnpm verify` PASS sau policy; exact candidate CI/security vẫn còn mở.
+- [ ] Shared staging/deploy chỉ được xét sau các gate trên; hiện chưa thực hiện.
 
 ## 9. P4-02 RoomInstance LiveKit credential và webhook binding
 
@@ -474,9 +489,10 @@ PostgreSQL. Mỗi implementation slice phải cập nhật khi thêm provider co
 
 ## 23. Thứ tự thực hiện ngay
 
-1. Bắt đầu `P4-01`: review exact P1 code + scheduling/source schema và khóa migration design.
+1. Chạy disposable forward-only `28 -> 29`, provision exact ACL rồi chạy PostgreSQL gates;
+   không rollback hoặc chạm shared staging khi chưa có approval.
 2. Có thể chạy `P4-MEDIA-UX-00` song song; không để research đổi schema/authority hoặc chặn P4-01/P4-02.
-3. Viết OpenAPI/Go domain tests trước, giữ feature defaults off và provider adapter chưa gọi.
-4. Chạy local PostgreSQL/disposable migration + exact ACL/concurrency gates.
+3. Chạy exact candidate CI/security và báo cáo disposable trước quyết định shared.
+4. Chỉ sau owner approval mới forward shared, provision ACL, deploy và chạy feature-off acceptance.
 5. Chỉ sau P4-01 `DONE` mới nối credential/webhook RoomInstance ở P4-02; research phải `DONE`
    trước phần UX/signals/effects của P4-03/P4-04/P4-05/P4-06.

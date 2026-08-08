@@ -191,7 +191,7 @@ hoặc worker-driven file processing/sharing tới end user.
 | --------------- | ---------- | ---------------------------------------------------------- |
 | P4-00           | DONE       | ADR-0030 + Phase 4 backlog; không migration/deploy         |
 | P4-MEDIA-UX-00 | TODO       | Research prejoin/layout/signals/effects; song song P4-01/02 |
-| P4-01           | TODO       | MediaSpace lifecycle/schema/API core, feature mặc định off |
+| P4-01           | IN PROGRESS | Policy/local PASS; chờ disposable ACL/DB và exact CI       |
 | P4-02           | TODO       | RoomInstance credential + signed webhook database binding  |
 | P4-03 đến P4-10 | TODO       | Prejoin/lobby/UI/moderation/chat/reconnect/telemetry       |
 | P4-11           | TODO       | Browser/device/load/provider-outage acceptance             |
@@ -199,10 +199,14 @@ hoặc worker-driven file processing/sharing tới end user.
 
 Nguồn thực thi: `docs/PHASE_4_BACKLOG.md`; kiến trúc có thẩm quyền: ADR-0030. P1-07
 LiveKit token/webhook/prejoin/room code được tái sử dụng nhưng class-wide deterministic
-room không phải Phase 4 lifecycle authority. P4-01 là task kế tiếp: thiết kế migration
-forward, schema/ACL/domain/API và feature/quota defaults off; chưa gọi provider hoặc bật
-end-user room. Trước P4-08 phải review/amend ADR-0013/0025 vì conversation hiện chỉ có
-`direct` và `class`.
+room không phải Phase 4 lifecycle authority. P4-01 đang `IN PROGRESS`: candidate local có
+migration `000029`, schema/ACL design, domain/API và feature/quota defaults off nhưng chưa
+được migrate/deploy external, chưa gọi provider hoặc bật end-user room. Typed policy
+`room.create.instant` đã nối đúng ADR-0021 và local verify PASS. Gate tiếp theo là disposable
+forward-only `28 -> 29`, exact runtime ACL/PostgreSQL và exact candidate CI/security theo
+`docs/P4_01_STAGING_ACCEPTANCE.md`. Không rollback hoặc chạm
+shared staging trước disposable report/owner approval. Trước P4-08 phải review/amend
+ADR-0013/0025 vì conversation hiện chỉ có `direct` và `class`.
 
 `P4-MEDIA-UX-00` không đổi task hiện tại: có thể chạy song song P4-01/P4-02 nhưng phải
 `DONE` trước phần UX/signals/effects của P4-03/P4-04/P4-05/P4-06. Phạm vi gồm prejoin/lobby,

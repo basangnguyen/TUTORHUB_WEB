@@ -56,6 +56,10 @@ const (
 	defaultFeatureFileBytesPerTenantLimit             = 1_099_511_627_776
 	defaultFeatureSingleFileBytesLimit                = 5_368_709_120
 	defaultFeatureFileUploadIntentRateLimit           = 100_000
+	defaultFeatureActiveMediaSpaceLimit               = 100
+	defaultFeatureMediaParticipantsPerSpaceLimit      = 50
+	defaultFeatureActiveMediaParticipantLimit         = 500
+	defaultFeatureMediaSpaceStartRateLimit            = 200
 )
 
 var validEnvironments = map[string]struct{}{
@@ -165,6 +169,8 @@ type FeatureControlConfig struct {
 	DisableFileUploads                            bool
 	EnableClassSessionRecurrence                  bool
 	EnableInAppNotifications                      bool
+	EnableClassroomMediaRooms                     bool
+	EnableInstantStudyRooms                       bool
 	MaxMembers                                    int
 	MaxActiveClasses                              int
 	MaxInviteCreationsPerHour                     int
@@ -182,6 +188,10 @@ type FeatureControlConfig struct {
 	MaxFileBytesPerTenant                         int
 	MaxSingleFileBytes                            int
 	MaxFileUploadIntentsPerHour                   int
+	MaxActiveMediaSpaces                          int
+	MaxMediaParticipantsPerSpace                  int
+	MaxActiveMediaParticipants                    int
+	MaxMediaSpaceStartsPerHour                    int
 }
 
 var objectStorageNamePattern = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9.-]*[a-zA-Z0-9]$`)
@@ -284,6 +294,13 @@ func load(lookup lookupEnv) (Config, error) {
 	cfg.EdgeContext = edgeContextConfig(lookup, cfg.Environment, &validationErrors)
 	cfg.CalendarProtectedData = calendarProtectedDataConfig(lookup, &validationErrors)
 	cfg.FeatureControls = featureControlConfig(lookup, &validationErrors)
+	if !cfg.LiveKit.Enabled {
+		cfg.FeatureControls.EnableClassroomMediaRooms = false
+		cfg.FeatureControls.EnableInstantStudyRooms = false
+	}
+	if !cfg.FeatureControls.EnableClassroomMediaRooms {
+		cfg.FeatureControls.EnableInstantStudyRooms = false
+	}
 
 	if err := errors.Join(validationErrors...); err != nil {
 		return Config{}, fmt.Errorf("validate configuration: %w", err)
@@ -457,6 +474,18 @@ func featureControlConfig(
 			false,
 			validationErrors,
 		),
+		EnableClassroomMediaRooms: boolValue(
+			lookup,
+			"FEATURE_CONTROL_ENABLE_CLASSROOM_MEDIA_ROOMS",
+			false,
+			validationErrors,
+		),
+		EnableInstantStudyRooms: boolValue(
+			lookup,
+			"FEATURE_CONTROL_ENABLE_INSTANT_STUDY_ROOMS",
+			false,
+			validationErrors,
+		),
 		MaxMembers: intValue(
 			lookup,
 			"FEATURE_CONTROL_MAX_MEMBERS",
@@ -591,6 +620,38 @@ func featureControlConfig(
 			defaultFeatureFileUploadIntentRateLimit,
 			1,
 			defaultFeatureFileUploadIntentRateLimit,
+			validationErrors,
+		),
+		MaxActiveMediaSpaces: intValue(
+			lookup,
+			"FEATURE_CONTROL_MAX_ACTIVE_MEDIA_SPACES",
+			defaultFeatureActiveMediaSpaceLimit,
+			1,
+			defaultFeatureActiveMediaSpaceLimit,
+			validationErrors,
+		),
+		MaxMediaParticipantsPerSpace: intValue(
+			lookup,
+			"FEATURE_CONTROL_MAX_MEDIA_PARTICIPANTS_PER_SPACE",
+			defaultFeatureMediaParticipantsPerSpaceLimit,
+			1,
+			defaultFeatureMediaParticipantsPerSpaceLimit,
+			validationErrors,
+		),
+		MaxActiveMediaParticipants: intValue(
+			lookup,
+			"FEATURE_CONTROL_MAX_ACTIVE_MEDIA_PARTICIPANTS",
+			defaultFeatureActiveMediaParticipantLimit,
+			1,
+			defaultFeatureActiveMediaParticipantLimit,
+			validationErrors,
+		),
+		MaxMediaSpaceStartsPerHour: intValue(
+			lookup,
+			"FEATURE_CONTROL_MAX_MEDIA_SPACE_STARTS_PER_HOUR",
+			defaultFeatureMediaSpaceStartRateLimit,
+			1,
+			defaultFeatureMediaSpaceStartRateLimit,
 			validationErrors,
 		),
 	}

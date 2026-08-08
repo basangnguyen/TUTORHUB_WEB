@@ -370,6 +370,28 @@ func run() int {
 			}
 		}
 	}
+	var mediaLifecycleService media.LifecycleServiceAPI
+	if pool != nil && classroomRepository != nil {
+		mediaLifecycleRepository, mediaLifecycleErr := media.NewPostgresLifecycleRepository(
+			pool,
+			cfg.Database.QueryTimeout,
+			authorizer,
+			featureControlEnforcer,
+			classroomRepository,
+		)
+		if mediaLifecycleErr != nil {
+			logger.Error("initialize media lifecycle repository", "error", mediaLifecycleErr)
+			return 1
+		}
+		mediaLifecycleService, mediaLifecycleErr = media.NewLifecycleService(
+			mediaLifecycleRepository,
+			media.LifecycleServiceConfig{Clock: time.Now},
+		)
+		if mediaLifecycleErr != nil {
+			logger.Error("initialize media lifecycle service", "error", mediaLifecycleErr)
+			return 1
+		}
+	}
 
 	var identityService identity.ServiceAPI
 	var enrollmentService classroom.EnrollmentServiceAPI
@@ -503,6 +525,7 @@ func run() int {
 		Discovery:             discoveryService,
 		InvitationRateLimiter: invitationRateLimiter,
 		Media:                 mediaService,
+		MediaSpaces:           mediaLifecycleService,
 		LiveKitWebhook:        liveKitWebhook,
 		RemoteAddressResolver: remoteAddressResolver,
 	})
@@ -558,6 +581,12 @@ func featureControlGuardrails(configuration config.FeatureControlConfig) feature
 	if !configuration.EnableInAppNotifications {
 		forcedOff[featurecontrol.FeatureInAppNotifications] = true
 	}
+	if !configuration.EnableClassroomMediaRooms {
+		forcedOff[featurecontrol.FeatureClassroomMediaRooms] = true
+	}
+	if !configuration.EnableInstantStudyRooms {
+		forcedOff[featurecontrol.FeatureInstantStudyRooms] = true
+	}
 
 	return featurecontrol.Guardrails{
 		ForcedOffFeatures: forcedOff,
@@ -579,6 +608,10 @@ func featureControlGuardrails(configuration config.FeatureControlConfig) feature
 			featurecontrol.QuotaFileBytesPerTenant:                         int64(configuration.MaxFileBytesPerTenant),
 			featurecontrol.QuotaSingleFileBytes:                            int64(configuration.MaxSingleFileBytes),
 			featurecontrol.QuotaFileUploadIntentsPerHour:                   int64(configuration.MaxFileUploadIntentsPerHour),
+			featurecontrol.QuotaActiveMediaSpaces:                          int64(configuration.MaxActiveMediaSpaces),
+			featurecontrol.QuotaMediaParticipantsPerSpace:                  int64(configuration.MaxMediaParticipantsPerSpace),
+			featurecontrol.QuotaActiveMediaParticipants:                    int64(configuration.MaxActiveMediaParticipants),
+			featurecontrol.QuotaMediaSpaceStartsPerHour:                    int64(configuration.MaxMediaSpaceStartsPerHour),
 		},
 	}
 }

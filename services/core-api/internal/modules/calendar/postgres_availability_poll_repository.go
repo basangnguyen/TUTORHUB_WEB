@@ -1973,6 +1973,15 @@ func (repository *PostgresAvailabilityPollRepository) CancelStudyMeeting(
 		return StudyMeeting{}, repository.unavailable("begin study meeting cancellation", err)
 	}
 	defer rollbackAvailabilityPoll(transaction)
+	mediaSpaces, err := lockStudyMeetingMediaSpaces(
+		queryContext,
+		transaction,
+		scope.TenantID,
+		meetingID,
+	)
+	if err != nil {
+		return StudyMeeting{}, repository.unavailable("lock study meeting media spaces", err)
+	}
 	organizationRole, err := repository.requireActiveMembership(queryContext, transaction, scope)
 	if err != nil {
 		return StudyMeeting{}, err
@@ -1987,6 +1996,9 @@ func (repository *PostgresAvailabilityPollRepository) CancelStudyMeeting(
 	)
 	if err != nil {
 		return StudyMeeting{}, err
+	}
+	if hasOpenStudyMeetingMediaSpace(mediaSpaces) {
+		return StudyMeeting{}, ErrStudyMeetingConflict
 	}
 	if current.Status == StudyMeetingCancelled {
 		if current.Version != expectedVersion && current.Version != expectedVersion+1 {

@@ -57,6 +57,10 @@ const (
 	ActionStudyMeetingCreate          Action = "study_meeting.create"
 	ActionStudyMeetingUpdate          Action = "study_meeting.update"
 	ActionStudyMeetingCancel          Action = "study_meeting.cancel"
+	ActionMediaSpaceCreate            Action = "media_space.create"
+	ActionMediaSpaceStart             Action = "media_space.start"
+	ActionMediaSpaceEnd               Action = "media_space.end"
+	ActionMediaSpaceCancel            Action = "media_space.cancel"
 )
 
 type Outcome string
@@ -200,6 +204,10 @@ var actionCatalog = map[Action]struct{}{
 	ActionStudyMeetingCreate:          {},
 	ActionStudyMeetingUpdate:          {},
 	ActionStudyMeetingCancel:          {},
+	ActionMediaSpaceCreate:            {},
+	ActionMediaSpaceStart:             {},
+	ActionMediaSpaceEnd:               {},
+	ActionMediaSpaceCancel:            {},
 }
 
 var domainEventActions = map[string]Action{
@@ -255,6 +263,10 @@ var domainEventActions = map[string]Action{
 	"study_meeting.scheduled.v1":                  ActionStudyMeetingCreate,
 	"study_meeting.rescheduled.v1":                ActionStudyMeetingUpdate,
 	"study_meeting.cancelled.v1":                  ActionStudyMeetingCancel,
+	"media_space.created.v1":                      ActionMediaSpaceCreate,
+	"media_space.started.v1":                      ActionMediaSpaceStart,
+	"media_space.ended.v1":                        ActionMediaSpaceEnd,
+	"media_space.cancelled.v1":                    ActionMediaSpaceCancel,
 }
 
 func ActionForDomainEvent(eventType string) (Action, bool) {

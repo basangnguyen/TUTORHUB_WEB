@@ -52,6 +52,8 @@ type tenantFeatureCapabilitiesResponse struct {
 	AvailabilityPolls      featureCapabilityResponse `json:"availability_polls"`
 	Conversations          featureCapabilityResponse `json:"conversations"`
 	FileUploads            featureCapabilityResponse `json:"file_uploads"`
+	ClassroomMediaRooms    featureCapabilityResponse `json:"classroom_media_rooms"`
+	InstantStudyRooms      featureCapabilityResponse `json:"instant_study_rooms"`
 }
 
 type tenantQuotaCapabilitiesResponse struct {
@@ -72,6 +74,10 @@ type tenantQuotaCapabilitiesResponse struct {
 	FileBytesPerTenant                         quotaCapabilityResponse `json:"file_bytes_per_tenant"`
 	SingleFileBytes                            quotaCapabilityResponse `json:"single_file_bytes"`
 	FileUploadIntentsPerHour                   quotaCapabilityResponse `json:"file_upload_intents_per_hour"`
+	ActiveMediaSpaces                          quotaCapabilityResponse `json:"active_media_spaces"`
+	MediaParticipantsPerSpace                  quotaCapabilityResponse `json:"media_participants_per_space"`
+	ActiveMediaParticipants                    quotaCapabilityResponse `json:"active_media_participants"`
+	MediaSpaceStartsPerHour                    quotaCapabilityResponse `json:"media_space_starts_per_hour"`
 }
 
 type tenantOperationCapabilitiesResponse struct {
@@ -115,6 +121,8 @@ type updateTenantFeatureControlValuesRequest struct {
 	AvailabilityPolls      *bool `json:"availability_polls"`
 	Conversations          *bool `json:"conversations"`
 	FileUploads            *bool `json:"file_uploads"`
+	ClassroomMediaRooms    *bool `json:"classroom_media_rooms"`
+	InstantStudyRooms      *bool `json:"instant_study_rooms"`
 }
 
 type updateTenantQuotaControlValuesRequest struct {
@@ -135,6 +143,10 @@ type updateTenantQuotaControlValuesRequest struct {
 	FileBytesPerTenant                         *int64 `json:"file_bytes_per_tenant"`
 	SingleFileBytes                            *int64 `json:"single_file_bytes"`
 	FileUploadIntentsPerHour                   *int64 `json:"file_upload_intents_per_hour"`
+	ActiveMediaSpaces                          *int64 `json:"active_media_spaces"`
+	MediaParticipantsPerSpace                  *int64 `json:"media_participants_per_space"`
+	ActiveMediaParticipants                    *int64 `json:"active_media_participants"`
+	MediaSpaceStartsPerHour                    *int64 `json:"media_space_starts_per_hour"`
 }
 
 func (request updateTenantFeatureControlsRequest) complete() bool {
@@ -148,6 +160,8 @@ func (request updateTenantFeatureControlsRequest) complete() bool {
 		request.Features.AvailabilityPolls != nil &&
 		request.Features.Conversations != nil &&
 		request.Features.FileUploads != nil &&
+		request.Features.ClassroomMediaRooms != nil &&
+		request.Features.InstantStudyRooms != nil &&
 		request.Quotas != nil && request.Quotas.Members != nil &&
 		request.Quotas.ActiveClasses != nil &&
 		request.Quotas.InviteCreationsPerHour != nil &&
@@ -164,7 +178,11 @@ func (request updateTenantFeatureControlsRequest) complete() bool {
 		request.Quotas.FilesPerTenant != nil &&
 		request.Quotas.FileBytesPerTenant != nil &&
 		request.Quotas.SingleFileBytes != nil &&
-		request.Quotas.FileUploadIntentsPerHour != nil
+		request.Quotas.FileUploadIntentsPerHour != nil &&
+		request.Quotas.ActiveMediaSpaces != nil &&
+		request.Quotas.MediaParticipantsPerSpace != nil &&
+		request.Quotas.ActiveMediaParticipants != nil &&
+		request.Quotas.MediaSpaceStartsPerHour != nil
 }
 
 func newFeatureControlHandlers(
@@ -251,6 +269,8 @@ func (handlers featureControlHandlers) update(w http.ResponseWriter, r *http.Req
 				{Key: featurecontrol.FeatureAvailabilityPolls, Enabled: *request.Features.AvailabilityPolls},
 				{Key: featurecontrol.FeatureConversations, Enabled: *request.Features.Conversations},
 				{Key: featurecontrol.FeatureFileUploads, Enabled: *request.Features.FileUploads},
+				{Key: featurecontrol.FeatureClassroomMediaRooms, Enabled: *request.Features.ClassroomMediaRooms},
+				{Key: featurecontrol.FeatureInstantStudyRooms, Enabled: *request.Features.InstantStudyRooms},
 			},
 			QuotaOverrides: []featurecontrol.QuotaOverride{
 				{Key: featurecontrol.QuotaMembers, Limit: *request.Quotas.Members},
@@ -270,6 +290,10 @@ func (handlers featureControlHandlers) update(w http.ResponseWriter, r *http.Req
 				{Key: featurecontrol.QuotaFileBytesPerTenant, Limit: *request.Quotas.FileBytesPerTenant},
 				{Key: featurecontrol.QuotaSingleFileBytes, Limit: *request.Quotas.SingleFileBytes},
 				{Key: featurecontrol.QuotaFileUploadIntentsPerHour, Limit: *request.Quotas.FileUploadIntentsPerHour},
+				{Key: featurecontrol.QuotaActiveMediaSpaces, Limit: *request.Quotas.ActiveMediaSpaces},
+				{Key: featurecontrol.QuotaMediaParticipantsPerSpace, Limit: *request.Quotas.MediaParticipantsPerSpace},
+				{Key: featurecontrol.QuotaActiveMediaParticipants, Limit: *request.Quotas.ActiveMediaParticipants},
+				{Key: featurecontrol.QuotaMediaSpaceStartsPerHour, Limit: *request.Quotas.MediaSpaceStartsPerHour},
 			},
 		},
 	)
@@ -408,6 +432,8 @@ func mapTenantCapabilities(
 	availabilityPollFeature, availabilityPollOK := features[featurecontrol.FeatureAvailabilityPolls]
 	conversationFeature, conversationOK := features[featurecontrol.FeatureConversations]
 	fileUploadFeature, fileUploadOK := features[featurecontrol.FeatureFileUploads]
+	classroomMediaFeature, classroomMediaOK := features[featurecontrol.FeatureClassroomMediaRooms]
+	instantStudyFeature, instantStudyOK := features[featurecontrol.FeatureInstantStudyRooms]
 	membersQuota, membersOK := quotas[featurecontrol.QuotaMembers]
 	classesQuota, classesOK := quotas[featurecontrol.QuotaActiveClasses]
 	invitesQuota, invitesOK := quotas[featurecontrol.QuotaInviteCreationsPerHour]
@@ -425,11 +451,17 @@ func mapTenantCapabilities(
 	fileBytesQuota, fileBytesOK := quotas[featurecontrol.QuotaFileBytesPerTenant]
 	singleFileQuota, singleFileOK := quotas[featurecontrol.QuotaSingleFileBytes]
 	fileIntentRateQuota, fileIntentRateOK := quotas[featurecontrol.QuotaFileUploadIntentsPerHour]
+	activeMediaSpacesQuota, activeMediaSpacesOK := quotas[featurecontrol.QuotaActiveMediaSpaces]
+	mediaParticipantsPerSpaceQuota, mediaParticipantsPerSpaceOK := quotas[featurecontrol.QuotaMediaParticipantsPerSpace]
+	activeMediaParticipantsQuota, activeMediaParticipantsOK := quotas[featurecontrol.QuotaActiveMediaParticipants]
+	mediaSpaceStartsQuota, mediaSpaceStartsOK := quotas[featurecontrol.QuotaMediaSpaceStartsPerHour]
 	if !membershipOK || !classOK || !inviteOK || !sessionOK || !recurrenceOK || !notificationOK ||
 		!availabilityPollOK || !conversationOK || !fileUploadOK || !membersOK || !classesOK || !invitesOK || !activePollsOK ||
 		!pollRangeOK || !pollSlotsOK || !pollParticipantsOK || !pollCreationsOK || !pollCapabilitiesOK ||
 		!activeStudyMeetingsOK || !studyMeetingCreationsOK || !messagesOK || !messageSendsOK ||
-		!filesOK || !fileBytesOK || !singleFileOK || !fileIntentRateOK {
+		!filesOK || !fileBytesOK || !singleFileOK || !fileIntentRateOK ||
+		!classroomMediaOK || !instantStudyOK || !activeMediaSpacesOK ||
+		!mediaParticipantsPerSpaceOK || !activeMediaParticipantsOK || !mediaSpaceStartsOK {
 		return tenantCapabilitiesResponse{}, errors.New("feature control snapshot is incomplete")
 	}
 	response := tenantCapabilitiesResponse{
@@ -446,6 +478,8 @@ func mapTenantCapabilities(
 			AvailabilityPolls:      mapFeatureCapability(availabilityPollFeature, capabilities.AllowedAction.ManageControls),
 			Conversations:          mapFeatureCapability(conversationFeature, capabilities.AllowedAction.ManageControls),
 			FileUploads:            mapFeatureCapability(fileUploadFeature, capabilities.AllowedAction.ManageControls),
+			ClassroomMediaRooms:    mapFeatureCapability(classroomMediaFeature, capabilities.AllowedAction.ManageControls),
+			InstantStudyRooms:      mapFeatureCapability(instantStudyFeature, capabilities.AllowedAction.ManageControls),
 		},
 		Quotas: tenantQuotaCapabilitiesResponse{
 			Members:                                    mapQuotaCapability(membersQuota, capabilities.AllowedAction.ManageControls),
@@ -465,6 +499,10 @@ func mapTenantCapabilities(
 			FileBytesPerTenant:                         mapQuotaCapability(fileBytesQuota, capabilities.AllowedAction.ManageControls),
 			SingleFileBytes:                            mapQuotaCapability(singleFileQuota, capabilities.AllowedAction.ManageControls),
 			FileUploadIntentsPerHour:                   mapQuotaCapability(fileIntentRateQuota, capabilities.AllowedAction.ManageControls),
+			ActiveMediaSpaces:                          mapQuotaCapability(activeMediaSpacesQuota, capabilities.AllowedAction.ManageControls),
+			MediaParticipantsPerSpace:                  mapQuotaCapability(mediaParticipantsPerSpaceQuota, capabilities.AllowedAction.ManageControls),
+			ActiveMediaParticipants:                    mapQuotaCapability(activeMediaParticipantsQuota, capabilities.AllowedAction.ManageControls),
+			MediaSpaceStartsPerHour:                    mapQuotaCapability(mediaSpaceStartsQuota, capabilities.AllowedAction.ManageControls),
 		},
 	}
 	response.Operations = tenantOperationCapabilitiesResponse{

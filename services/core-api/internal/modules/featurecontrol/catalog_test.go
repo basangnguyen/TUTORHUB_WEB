@@ -20,22 +20,28 @@ func TestCatalogDefaultsAndStableOrder(t *testing.T) {
 		FeatureClassManagement,
 		FeatureClassSessionRecurrence,
 		FeatureClassSessionScheduling,
+		FeatureClassroomMediaRooms,
 		FeatureConversations,
 		FeatureFileUploads,
 		FeatureInAppNotifications,
+		FeatureInstantStudyRooms,
 		FeatureMembershipInvitations,
 	}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("feature catalog order = %v, want %v", got, want)
 	}
 	for _, definition := range features {
-		if !definition.DefaultEnabled {
-			t.Fatalf("feature %q must preserve the existing enabled behavior", definition.Key)
+		mayDefaultOff := definition.Key == FeatureClassroomMediaRooms ||
+			definition.Key == FeatureInstantStudyRooms
+		if definition.DefaultEnabled == mayDefaultOff {
+			t.Fatalf("unexpected compiled default for feature %q: %t", definition.Key, definition.DefaultEnabled)
 		}
 	}
 	quotas := catalog.Quotas()
 	if got, want := quotaKeys(quotas), []QuotaKey{
 		QuotaActiveAvailabilityPolls,
 		QuotaActiveClasses,
+		QuotaActiveMediaParticipants,
+		QuotaActiveMediaSpaces,
 		QuotaActiveStudyMeetings,
 		QuotaAvailabilityPollCapabilityCreationsPerHour,
 		QuotaAvailabilityPollCreationsPerHour,
@@ -46,6 +52,8 @@ func TestCatalogDefaultsAndStableOrder(t *testing.T) {
 		QuotaFileUploadIntentsPerHour,
 		QuotaFilesPerTenant,
 		QuotaInviteCreationsPerHour,
+		QuotaMediaParticipantsPerSpace,
+		QuotaMediaSpaceStartsPerHour,
 		QuotaMembers,
 		QuotaMessageSendsPerHour,
 		QuotaMessagesPerTenant,
@@ -112,11 +120,42 @@ func TestCatalogDefaultsAndStableOrder(t *testing.T) {
 		QuotaFileUploadIntentsPerHour: {
 			Key: QuotaFileUploadIntentsPerHour, DefaultLimit: 1000, MinimumLimit: 1, MaximumLimit: 100000,
 		},
+		QuotaActiveMediaSpaces: {
+			Key: QuotaActiveMediaSpaces, DefaultLimit: 10, MinimumLimit: 1, MaximumLimit: 100,
+		},
+		QuotaMediaParticipantsPerSpace: {
+			Key: QuotaMediaParticipantsPerSpace, DefaultLimit: 50, MinimumLimit: 1, MaximumLimit: 50,
+		},
+		QuotaActiveMediaParticipants: {
+			Key: QuotaActiveMediaParticipants, DefaultLimit: 100, MinimumLimit: 1, MaximumLimit: 500,
+		},
+		QuotaMediaSpaceStartsPerHour: {
+			Key: QuotaMediaSpaceStartsPerHour, DefaultLimit: 20, MinimumLimit: 1, MaximumLimit: 200,
+		},
 	}
 	for _, definition := range quotas {
 		if definition != want[definition.Key] {
 			t.Fatalf("quota definition = %+v, want %+v", definition, want[definition.Key])
 		}
+	}
+}
+
+func TestInstantStudyRoomsDependOnClassroomMediaRooms(t *testing.T) {
+	t.Parallel()
+
+	features := []FeatureCapability{
+		{EffectiveFeature: EffectiveFeature{Key: FeatureInstantStudyRooms, Enabled: true}},
+		{EffectiveFeature: EffectiveFeature{Key: FeatureClassroomMediaRooms, Enabled: false}},
+	}
+	applyFeatureDependencies(features)
+	if features[0].Enabled {
+		t.Fatal("instant study rooms remained enabled while classroom media rooms were disabled")
+	}
+	features[1].Enabled = true
+	features[0].Enabled = true
+	applyFeatureDependencies(features)
+	if !features[0].Enabled {
+		t.Fatal("enabled parent unexpectedly disabled instant study rooms")
 	}
 }
 

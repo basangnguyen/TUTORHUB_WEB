@@ -88,8 +88,55 @@ func TestLoadDefaults(t *testing.T) {
 		cfg.FeatureControls.MaxFilesPerTenant != defaultFeatureFilesPerTenantLimit ||
 		cfg.FeatureControls.MaxFileBytesPerTenant != defaultFeatureFileBytesPerTenantLimit ||
 		cfg.FeatureControls.MaxSingleFileBytes != defaultFeatureSingleFileBytesLimit ||
-		cfg.FeatureControls.MaxFileUploadIntentsPerHour != defaultFeatureFileUploadIntentRateLimit {
+		cfg.FeatureControls.MaxFileUploadIntentsPerHour != defaultFeatureFileUploadIntentRateLimit ||
+		cfg.FeatureControls.EnableClassroomMediaRooms ||
+		cfg.FeatureControls.EnableInstantStudyRooms ||
+		cfg.FeatureControls.MaxActiveMediaSpaces != defaultFeatureActiveMediaSpaceLimit ||
+		cfg.FeatureControls.MaxMediaParticipantsPerSpace != defaultFeatureMediaParticipantsPerSpaceLimit ||
+		cfg.FeatureControls.MaxActiveMediaParticipants != defaultFeatureActiveMediaParticipantLimit ||
+		cfg.FeatureControls.MaxMediaSpaceStartsPerHour != defaultFeatureMediaSpaceStartRateLimit {
 		t.Fatalf("unexpected feature control defaults: %+v", cfg.FeatureControls)
+	}
+}
+
+func TestMediaFeatureControlsFailClosedWithoutLiveKitAndParent(t *testing.T) {
+	t.Parallel()
+
+	withoutProvider, err := load(mapLookup(map[string]string{
+		"FEATURE_CONTROL_ENABLE_CLASSROOM_MEDIA_ROOMS": "true",
+		"FEATURE_CONTROL_ENABLE_INSTANT_STUDY_ROOMS":   "true",
+	}))
+	if err != nil {
+		t.Fatalf("load media controls without provider: %v", err)
+	}
+	if withoutProvider.FeatureControls.EnableClassroomMediaRooms ||
+		withoutProvider.FeatureControls.EnableInstantStudyRooms {
+		t.Fatalf("media controls did not fail closed without LiveKit: %+v", withoutProvider.FeatureControls)
+	}
+
+	provider := map[string]string{
+		"LIVEKIT_URL":        "wss://media.example.test",
+		"LIVEKIT_API_KEY":    "test-key",
+		"LIVEKIT_API_SECRET": "test-secret",
+		"FEATURE_CONTROL_ENABLE_INSTANT_STUDY_ROOMS":   "true",
+		"FEATURE_CONTROL_ENABLE_CLASSROOM_MEDIA_ROOMS": "false",
+	}
+	withoutParent, err := load(mapLookup(provider))
+	if err != nil {
+		t.Fatalf("load media controls without parent: %v", err)
+	}
+	if withoutParent.FeatureControls.EnableInstantStudyRooms {
+		t.Fatal("instant study rooms remained enabled without the parent feature")
+	}
+
+	provider["FEATURE_CONTROL_ENABLE_CLASSROOM_MEDIA_ROOMS"] = "true"
+	withProvider, err := load(mapLookup(provider))
+	if err != nil {
+		t.Fatalf("load enabled media controls: %v", err)
+	}
+	if !withProvider.FeatureControls.EnableClassroomMediaRooms ||
+		!withProvider.FeatureControls.EnableInstantStudyRooms {
+		t.Fatalf("valid media controls were not preserved: %+v", withProvider.FeatureControls)
 	}
 }
 
@@ -178,6 +225,8 @@ func TestLoadCustomValues(t *testing.T) {
 		"FEATURE_CONTROL_DISABLE_FILE_UPLOADS":                                "true",
 		"FEATURE_CONTROL_ENABLE_CLASS_SESSION_RECURRENCE":                     "true",
 		"FEATURE_CONTROL_ENABLE_IN_APP_NOTIFICATIONS":                         "true",
+		"FEATURE_CONTROL_ENABLE_CLASSROOM_MEDIA_ROOMS":                        "true",
+		"FEATURE_CONTROL_ENABLE_INSTANT_STUDY_ROOMS":                          "true",
 		"FEATURE_CONTROL_MAX_MEMBERS":                                         "5000",
 		"FEATURE_CONTROL_MAX_ACTIVE_CLASSES":                                  "500",
 		"FEATURE_CONTROL_MAX_INVITE_CREATIONS_PER_HOUR":                       "5000",
@@ -195,6 +244,10 @@ func TestLoadCustomValues(t *testing.T) {
 		"FEATURE_CONTROL_MAX_FILE_BYTES_PER_TENANT":                           "109951162777",
 		"FEATURE_CONTROL_MAX_SINGLE_FILE_BYTES":                               "1073741824",
 		"FEATURE_CONTROL_MAX_FILE_UPLOAD_INTENTS_PER_HOUR":                    "90000",
+		"FEATURE_CONTROL_MAX_ACTIVE_MEDIA_SPACES":                             "80",
+		"FEATURE_CONTROL_MAX_MEDIA_PARTICIPANTS_PER_SPACE":                    "40",
+		"FEATURE_CONTROL_MAX_ACTIVE_MEDIA_PARTICIPANTS":                       "400",
+		"FEATURE_CONTROL_MAX_MEDIA_SPACE_STARTS_PER_HOUR":                     "150",
 	}
 	values["CALENDAR_PROTECTED_DATA_KEY"] = validSessionSecret()
 	values["CALENDAR_PROTECTED_DATA_KEY_VERSION"] = "1"
@@ -260,6 +313,8 @@ func TestLoadCustomValues(t *testing.T) {
 		!cfg.FeatureControls.DisableFileUploads ||
 		!cfg.FeatureControls.EnableClassSessionRecurrence ||
 		!cfg.FeatureControls.EnableInAppNotifications ||
+		!cfg.FeatureControls.EnableClassroomMediaRooms ||
+		!cfg.FeatureControls.EnableInstantStudyRooms ||
 		cfg.FeatureControls.MaxMembers != 5000 ||
 		cfg.FeatureControls.MaxActiveClasses != 500 ||
 		cfg.FeatureControls.MaxInviteCreationsPerHour != 5000 {
@@ -278,7 +333,11 @@ func TestLoadCustomValues(t *testing.T) {
 		cfg.FeatureControls.MaxFilesPerTenant != 900000 ||
 		cfg.FeatureControls.MaxFileBytesPerTenant != 109951162777 ||
 		cfg.FeatureControls.MaxSingleFileBytes != 1073741824 ||
-		cfg.FeatureControls.MaxFileUploadIntentsPerHour != 90000 {
+		cfg.FeatureControls.MaxFileUploadIntentsPerHour != 90000 ||
+		cfg.FeatureControls.MaxActiveMediaSpaces != 80 ||
+		cfg.FeatureControls.MaxMediaParticipantsPerSpace != 40 ||
+		cfg.FeatureControls.MaxActiveMediaParticipants != 400 ||
+		cfg.FeatureControls.MaxMediaSpaceStartsPerHour != 150 {
 		t.Fatalf("unexpected availability poll feature control config: %+v", cfg.FeatureControls)
 	}
 }
@@ -315,6 +374,8 @@ func TestLoadRejectsInvalidFeatureControlGuardrails(t *testing.T) {
 		"FEATURE_CONTROL_DISABLE_FILE_UPLOADS":                                "sometimes",
 		"FEATURE_CONTROL_ENABLE_CLASS_SESSION_RECURRENCE":                     "sometimes",
 		"FEATURE_CONTROL_ENABLE_IN_APP_NOTIFICATIONS":                         "sometimes",
+		"FEATURE_CONTROL_ENABLE_CLASSROOM_MEDIA_ROOMS":                        "sometimes",
+		"FEATURE_CONTROL_ENABLE_INSTANT_STUDY_ROOMS":                          "sometimes",
 		"FEATURE_CONTROL_MAX_MEMBERS":                                         "10001",
 		"FEATURE_CONTROL_MAX_ACTIVE_CLASSES":                                  "0",
 		"FEATURE_CONTROL_MAX_INVITE_CREATIONS_PER_HOUR":                       "not-a-number",
@@ -332,6 +393,10 @@ func TestLoadRejectsInvalidFeatureControlGuardrails(t *testing.T) {
 		"FEATURE_CONTROL_MAX_FILE_BYTES_PER_TENANT":                           "1099511627777",
 		"FEATURE_CONTROL_MAX_SINGLE_FILE_BYTES":                               "5368709121",
 		"FEATURE_CONTROL_MAX_FILE_UPLOAD_INTENTS_PER_HOUR":                    "0",
+		"FEATURE_CONTROL_MAX_ACTIVE_MEDIA_SPACES":                             "101",
+		"FEATURE_CONTROL_MAX_MEDIA_PARTICIPANTS_PER_SPACE":                    "51",
+		"FEATURE_CONTROL_MAX_ACTIVE_MEDIA_PARTICIPANTS":                       "501",
+		"FEATURE_CONTROL_MAX_MEDIA_SPACE_STARTS_PER_HOUR":                     "201",
 	}))
 	if err == nil {
 		t.Fatal("expected feature control guardrail validation errors")
@@ -344,6 +409,8 @@ func TestLoadRejectsInvalidFeatureControlGuardrails(t *testing.T) {
 		"FEATURE_CONTROL_DISABLE_FILE_UPLOADS",
 		"FEATURE_CONTROL_ENABLE_CLASS_SESSION_RECURRENCE",
 		"FEATURE_CONTROL_ENABLE_IN_APP_NOTIFICATIONS",
+		"FEATURE_CONTROL_ENABLE_CLASSROOM_MEDIA_ROOMS",
+		"FEATURE_CONTROL_ENABLE_INSTANT_STUDY_ROOMS",
 		"FEATURE_CONTROL_MAX_MEMBERS",
 		"FEATURE_CONTROL_MAX_ACTIVE_CLASSES",
 		"FEATURE_CONTROL_MAX_INVITE_CREATIONS_PER_HOUR",
@@ -361,6 +428,10 @@ func TestLoadRejectsInvalidFeatureControlGuardrails(t *testing.T) {
 		"FEATURE_CONTROL_MAX_FILE_BYTES_PER_TENANT",
 		"FEATURE_CONTROL_MAX_SINGLE_FILE_BYTES",
 		"FEATURE_CONTROL_MAX_FILE_UPLOAD_INTENTS_PER_HOUR",
+		"FEATURE_CONTROL_MAX_ACTIVE_MEDIA_SPACES",
+		"FEATURE_CONTROL_MAX_MEDIA_PARTICIPANTS_PER_SPACE",
+		"FEATURE_CONTROL_MAX_ACTIVE_MEDIA_PARTICIPANTS",
+		"FEATURE_CONTROL_MAX_MEDIA_SPACE_STARTS_PER_HOUR",
 	} {
 		if !strings.Contains(message, expected) {
 			t.Fatalf("expected error to mention %s, got %q", expected, message)

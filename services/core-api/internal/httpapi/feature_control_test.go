@@ -41,6 +41,9 @@ func TestMapTenantCapabilitiesIncludesAvailabilityPollProfile(t *testing.T) {
 	if !response.Features.Conversations.Enabled || !response.Operations.CreateConversation.Available {
 		t.Fatal("conversation feature is missing from capability projection")
 	}
+	if !response.Features.ClassroomMediaRooms.Enabled || !response.Features.InstantStudyRooms.Enabled {
+		t.Fatal("media features are missing from capability projection")
+	}
 	if response.Quotas.ActiveAvailabilityPolls.Limit != 20 ||
 		response.Quotas.AvailabilityPollRangeDays.Limit != 31 ||
 		response.Quotas.AvailabilityPollSlots.Limit != 336 ||
@@ -48,13 +51,39 @@ func TestMapTenantCapabilitiesIncludesAvailabilityPollProfile(t *testing.T) {
 		response.Quotas.AvailabilityPollCreationsPerHour.Limit != 20 ||
 		response.Quotas.AvailabilityPollCapabilityCreationsPerHour.Limit != 60 ||
 		response.Quotas.ActiveStudyMeetings.Limit != 20 ||
-		response.Quotas.StudyMeetingCreationsPerHour.Limit != 20 {
+		response.Quotas.StudyMeetingCreationsPerHour.Limit != 20 ||
+		response.Quotas.ActiveMediaSpaces.Limit != 10 ||
+		response.Quotas.MediaParticipantsPerSpace.Limit != 50 ||
+		response.Quotas.ActiveMediaParticipants.Limit != 100 ||
+		response.Quotas.MediaSpaceStartsPerHour.Limit != 20 {
 		t.Fatalf("unexpected availability poll quota projection: %+v", response.Quotas)
 	}
 	if !response.Operations.CreateAvailabilityPoll.Available ||
 		!response.Operations.CreateAvailabilityPollCapability.Available ||
 		!response.Operations.ScheduleStudyMeeting.Available {
 		t.Fatalf("unexpected availability poll operation projection: %+v", response.Operations)
+	}
+}
+
+func TestMapTenantCapabilitiesRejectsIncompleteMediaProfile(t *testing.T) {
+	t.Parallel()
+
+	capabilities := featurecontrol.Capabilities{}
+	for _, definition := range featurecontrol.NewDefaultCatalog().Features() {
+		if definition.Key == featurecontrol.FeatureClassroomMediaRooms {
+			continue
+		}
+		capabilities.Features = append(capabilities.Features, featurecontrol.FeatureCapability{
+			EffectiveFeature: featurecontrol.EffectiveFeature{Key: definition.Key, Enabled: definition.DefaultEnabled},
+		})
+	}
+	for _, definition := range featurecontrol.NewDefaultCatalog().Quotas() {
+		capabilities.Quotas = append(capabilities.Quotas, featurecontrol.QuotaCapability{
+			EffectiveQuota: featurecontrol.EffectiveQuota{Key: definition.Key, Limit: definition.DefaultLimit},
+		})
+	}
+	if _, err := mapTenantCapabilities(capabilities); err == nil {
+		t.Fatal("incomplete media capability snapshot unexpectedly mapped")
 	}
 }
 

@@ -11,6 +11,8 @@ export const tenantFeatureKeys = [
   "class_session_recurrence",
   "conversations",
   "file_uploads",
+  "classroom_media_rooms",
+  "instant_study_rooms",
   "in_app_notifications",
   "availability_polls",
 ] as const satisfies readonly TenantFeatureKey[];
@@ -33,6 +35,10 @@ export const tenantQuotaKeys = [
   "file_bytes_per_tenant",
   "single_file_bytes",
   "file_upload_intents_per_hour",
+  "active_media_spaces",
+  "media_participants_per_space",
+  "active_media_participants",
+  "media_space_starts_per_hour",
 ] as const satisfies readonly TenantQuotaKey[];
 
 type MissingFeatureKey = Exclude<

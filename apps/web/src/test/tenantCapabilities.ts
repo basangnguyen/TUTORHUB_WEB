@@ -35,6 +35,14 @@ export function availableTenantCapabilities(
         configured_enabled: true,
         enabled: true,
       },
+      classroom_media_rooms: {
+        configured_enabled: false,
+        enabled: false,
+      },
+      instant_study_rooms: {
+        configured_enabled: false,
+        enabled: false,
+      },
       in_app_notifications: {
         configured_enabled: false,
         enabled: false,
@@ -142,6 +150,30 @@ export function availableTenantCapabilities(
         limit: 1000,
         used: 0,
         remaining: 1000,
+      },
+      active_media_spaces: {
+        configured_limit: 10,
+        limit: 10,
+        used: 0,
+        remaining: 10,
+      },
+      media_participants_per_space: {
+        configured_limit: 50,
+        limit: 50,
+        used: 0,
+        remaining: 50,
+      },
+      active_media_participants: {
+        configured_limit: 100,
+        limit: 100,
+        used: 0,
+        remaining: 100,
+      },
+      media_space_starts_per_hour: {
+        configured_limit: 20,
+        limit: 20,
+        used: 0,
+        remaining: 20,
       },
     },
     operations: {

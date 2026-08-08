@@ -108,11 +108,17 @@ describe("TenantFeatureControlsPanel", () => {
       screen.getByRole("checkbox", { name: "Conversations" }),
     ).toBeChecked();
     expect(
+      screen.getByRole("checkbox", { name: "Classroom media rooms" }),
+    ).not.toBeChecked();
+    expect(
       screen.getByRole("meter", { name: "Messages per workspace" }),
     ).toHaveAttribute("max", "100000");
     expect(
       screen.getByRole("spinbutton", { name: "Message sends per hour" }),
     ).toHaveValue(5000);
+    expect(
+      screen.getByRole("spinbutton", { name: "Active media spaces" }),
+    ).toHaveValue(10);
   });
 
   it("submits configured message storage and hourly send quotas", async () => {

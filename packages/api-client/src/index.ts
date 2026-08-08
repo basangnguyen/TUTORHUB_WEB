@@ -331,6 +331,28 @@ export type UpdateStudyMeetingRequest =
   components["schemas"]["UpdateStudyMeetingRequest"];
 export type CancelStudyMeetingRequest =
   components["schemas"]["CancelStudyMeetingRequest"];
+export type ClassSessionMediaSpaceSource =
+  components["schemas"]["ClassSessionMediaSpaceSource"];
+export type ClassSessionOccurrenceMediaSpaceSource =
+  components["schemas"]["ClassSessionOccurrenceMediaSpaceSource"];
+export type StudyMeetingMediaSpaceSource =
+  components["schemas"]["StudyMeetingMediaSpaceSource"];
+export type InstantMediaSpaceSourceInput =
+  components["schemas"]["InstantMediaSpaceSourceInput"];
+export type MediaSpaceSource = components["schemas"]["MediaSpaceSource"];
+export type CreateMediaSpaceSourceInput =
+  components["schemas"]["CreateMediaSpaceSourceInput"];
+export type MediaSpaceStatus = components["schemas"]["MediaSpaceStatus"];
+export type MediaRoomInstanceStatus =
+  components["schemas"]["MediaRoomInstanceStatus"];
+export type MediaRoomInstance = components["schemas"]["MediaRoomInstance"];
+export type MediaSpaceViewerOperations =
+  components["schemas"]["MediaSpaceViewerOperations"];
+export type MediaSpace = components["schemas"]["MediaSpace"];
+export type CreateMediaSpaceRequest =
+  components["schemas"]["CreateMediaSpaceRequest"];
+export type MediaSpaceTransitionRequest =
+  components["schemas"]["MediaSpaceTransitionRequest"];
 export type ClassSessionRecurrenceRule =
   components["schemas"]["ClassSessionRecurrenceRule"];
 export type ClassSessionSeries = components["schemas"]["ClassSessionSeries"];
@@ -3066,6 +3088,144 @@ export async function cancelStudyMeeting(
     data as StudyMeeting | undefined,
     error,
     response,
+  );
+}
+
+export async function createMediaSpace(
+  tenantID: string,
+  input: CreateMediaSpaceRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<MediaSpace> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/media/spaces",
+    {
+      params: {
+        header: {
+          "X-CSRF-Token": csrfToken,
+          "X-TutorHub-Expected-Tenant-ID": tenantID,
+        },
+      },
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+  return requireData<MediaSpace>(
+    data as MediaSpace | undefined,
+    error,
+    response,
+  );
+}
+
+export async function getMediaSpace(
+  tenantID: string,
+  spaceID: string,
+  options: APIRequestOptions = {},
+): Promise<MediaSpace> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).GET(
+    "/api/v1/media/spaces/{space_id}",
+    {
+      params: {
+        path: { space_id: spaceID },
+        header: { "X-TutorHub-Expected-Tenant-ID": tenantID },
+      },
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+  return requireData<MediaSpace>(
+    data as MediaSpace | undefined,
+    error,
+    response,
+  );
+}
+
+export async function startMediaSpace(
+  tenantID: string,
+  spaceID: string,
+  input: MediaSpaceTransitionRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<MediaSpace> {
+  return transitionMediaSpace(
+    "start",
+    tenantID,
+    spaceID,
+    input,
+    csrfToken,
+    options,
+  );
+}
+
+export async function endMediaSpace(
+  tenantID: string,
+  spaceID: string,
+  input: MediaSpaceTransitionRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<MediaSpace> {
+  return transitionMediaSpace(
+    "end",
+    tenantID,
+    spaceID,
+    input,
+    csrfToken,
+    options,
+  );
+}
+
+export async function cancelMediaSpace(
+  tenantID: string,
+  spaceID: string,
+  input: MediaSpaceTransitionRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<MediaSpace> {
+  return transitionMediaSpace(
+    "cancel",
+    tenantID,
+    spaceID,
+    input,
+    csrfToken,
+    options,
+  );
+}
+
+async function transitionMediaSpace(
+  transition: "start" | "end" | "cancel",
+  tenantID: string,
+  spaceID: string,
+  input: MediaSpaceTransitionRequest,
+  csrfToken: string,
+  options: APIRequestOptions,
+): Promise<MediaSpace> {
+  requireTenantScope(tenantID);
+  const client = createTutorHubClient(options);
+  const request = {
+    params: {
+      path: { space_id: spaceID },
+      header: {
+        "X-CSRF-Token": csrfToken,
+        "X-TutorHub-Expected-Tenant-ID": tenantID,
+      },
+    },
+    body: input,
+    headers: { Accept: "application/json" },
+    signal: options.signal,
+  } as const;
+  const result =
+    transition === "start"
+      ? await client.POST("/api/v1/media/spaces/{space_id}/start", request)
+      : transition === "end"
+        ? await client.POST("/api/v1/media/spaces/{space_id}/end", request)
+        : await client.POST("/api/v1/media/spaces/{space_id}/cancel", request);
+  return requireData<MediaSpace>(
+    result.data as MediaSpace | undefined,
+    result.error,
+    result.response,
   );
 }
 

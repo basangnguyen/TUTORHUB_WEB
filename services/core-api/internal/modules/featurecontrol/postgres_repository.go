@@ -392,7 +392,8 @@ func isRateQuota(key QuotaKey) bool {
 		QuotaAvailabilityPollCapabilityCreationsPerHour,
 		QuotaStudyMeetingCreationsPerHour,
 		QuotaMessageSendsPerHour,
-		QuotaFileUploadIntentsPerHour:
+		QuotaFileUploadIntentsPerHour,
+		QuotaMediaSpaceStartsPerHour:
 		return true
 	default:
 		return false
@@ -540,6 +541,7 @@ func (repository *PostgresRepository) readCapabilities(
 			},
 		)
 	}
+	applyFeatureDependencies(capabilities.Features)
 	now = now.UTC()
 	for _, definition := range repository.catalog.Quotas() {
 		override, overridden := quotaOverrides[definition.Key]
@@ -587,6 +589,32 @@ func (repository *PostgresRepository) readEffectiveFeature(
 	tenantID uuid.UUID,
 	key FeatureKey,
 ) (EffectiveFeature, error) {
+	effective, err := repository.readEffectiveFeatureValue(ctx, transaction, tenantID, key)
+	if err != nil || key != FeatureInstantStudyRooms || !effective.Enabled {
+		return effective, err
+	}
+	parent, err := repository.readEffectiveFeatureValue(
+		ctx,
+		transaction,
+		tenantID,
+		FeatureClassroomMediaRooms,
+	)
+	if err != nil {
+		return EffectiveFeature{}, err
+	}
+	if !parent.Enabled {
+		effective.Enabled = false
+		effective.Source = parent.Source
+	}
+	return effective, nil
+}
+
+func (repository *PostgresRepository) readEffectiveFeatureValue(
+	ctx context.Context,
+	transaction Transaction,
+	tenantID uuid.UUID,
+	key FeatureKey,
+) (EffectiveFeature, error) {
 	var override bool
 	err := transaction.QueryRow(
 		ctx,
@@ -603,6 +631,24 @@ WHERE tenant_id = $1 AND feature_key = $2`,
 		return EffectiveFeature{}, fmt.Errorf("read feature override %q: %w", key, err)
 	}
 	return repository.catalog.EvaluateFeature(key, &override)
+}
+
+func applyFeatureDependencies(features []FeatureCapability) {
+	parentEnabled := false
+	parentFound := false
+	instantIndex := -1
+	for index := range features {
+		switch features[index].Key {
+		case FeatureClassroomMediaRooms:
+			parentEnabled = features[index].Enabled
+			parentFound = true
+		case FeatureInstantStudyRooms:
+			instantIndex = index
+		}
+	}
+	if parentFound && instantIndex >= 0 && !parentEnabled {
+		features[instantIndex].Enabled = false
+	}
 }
 
 func (repository *PostgresRepository) readEffectiveQuota(
@@ -710,6 +756,10 @@ func readQuotaUsage(
 		query = `SELECT count(*) FROM tutorhub.availability_polls WHERE tenant_id = $1 AND status IN ('draft', 'open', 'closed')`
 	case QuotaActiveStudyMeetings:
 		query = `SELECT count(*) FROM tutorhub.study_meetings WHERE tenant_id = $1 AND status = 'scheduled' AND ends_at > $2`
+	case QuotaActiveMediaSpaces:
+		query = `SELECT count(*) FROM tutorhub.media_spaces WHERE tenant_id = $1 AND status IN ('scheduled', 'open')`
+	case QuotaActiveMediaParticipants:
+		query = `SELECT count(*) FROM tutorhub.media_participant_sessions WHERE tenant_id = $1 AND status IN ('waiting', 'admitted', 'joining', 'connected', 'reconnecting')`
 	case QuotaMessagesPerTenant:
 		query = `SELECT COALESCE((
     SELECT message_count
@@ -731,6 +781,7 @@ func readQuotaUsage(
 	case QuotaAvailabilityPollRangeDays,
 		QuotaAvailabilityPollSlots,
 		QuotaAvailabilityPollParticipants,
+		QuotaMediaParticipantsPerSpace,
 		QuotaSingleFileBytes:
 		return 0, time.Time{}, time.Time{}, nil
 	case QuotaInviteCreationsPerHour,
@@ -738,7 +789,8 @@ func readQuotaUsage(
 		QuotaAvailabilityPollCapabilityCreationsPerHour,
 		QuotaStudyMeetingCreationsPerHour,
 		QuotaMessageSendsPerHour,
-		QuotaFileUploadIntentsPerHour:
+		QuotaFileUploadIntentsPerHour,
+		QuotaMediaSpaceStartsPerHour:
 		windowStart := now.UTC().Truncate(quotaRateWindow)
 		resetAt := windowStart.Add(quotaRateWindow)
 		var used int64

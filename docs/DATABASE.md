@@ -7,12 +7,14 @@ thay đổi schema, migration hoặc repository phải đọc tài liệu này t
 
 - System of record: Neon PostgreSQL.
 - Schema ứng dụng: `tutorhub`.
-- Migration mới nhất trong source: `000028_content_file_multipart_uploads`. P3-06/P3-07A đã forward cả
-  disposable và shared Neon tới `25 false`. P3-08 disposable đã forward-only
+- Migration mới nhất trong source: `000029_classroom_media_spaces`; P4-01 hiện
+  `IN PROGRESS` và mới có candidate local. P3-06/P3-07A đã forward cả disposable và shared
+  Neon tới `25 false`. P3-08 disposable đã forward-only
   `25 false -> 26 false -> 26 false`; exact content ACL và PostgreSQL gates PASS.
   P3-09 disposable đã forward-only tới `28 false`; shared staging đã forward-only
   `25 false -> 28 false -> 28 false`, re-provision exact content ACL và chạy full PostgreSQL
-  content integration PASS. Không rollback.
+  content integration PASS. P4-01 chưa forward disposable/shared lên `29`; không rollback hoặc
+  chạy shared trước disposable report và owner approval.
 - Migration 1-5 đã được chạy và kiểm tra trên Neon; smoke
   `5 false -> rollback 4 false -> migrate 5 false` đạt ngày 2026-07-16.
 - Migration `000006` đến `000013` đều có up/down path. Source và PostgreSQL 17 CI
@@ -85,7 +87,7 @@ process không tự chạy migration khi khởi động.
 `tutorhub-outbox-worker` để quan sát trên Neon. Mọi truy vấn mạng/database phải chạy
 ngoài UI thread ở các client native về sau.
 
-## Schema source nền đến phiên bản 25
+## Schema source qua migration `000029`
 
 | Bảng                               | Vai trò                                                                                                        |
 | ---------------------------------- | -------------------------------------------------------------------------------------------------------------- |
@@ -123,6 +125,12 @@ ngoài UI thread ở các client native về sau.
 | `content_files`                    | Metadata class file, opaque object key, idempotent upload intent và immutable finalize proof                   |
 | `tenant_file_usage`                | O(1) file-count/reserved-byte/committed-byte counter theo tenant                                               |
 | `message_receipts`                 | Self read marker đơn điệu theo tenant/conversation/user; tham chiếu exact message sequence/ID                  |
+| `media_spaces`                     | Aggregate lifecycle tenant-scoped, bind đúng một ClassSession/occurrence/StudyMeeting                          |
+| `media_room_instances`             | Room intent theo space/attempt; provider activation và webhook thật thuộc P4-02                                |
+| `media_space_members`              | Explicit same-tenant member boundary cho member-owned space; P4-01 chỉ đọc                                     |
+| `media_admission_requests`         | Schema reservation cho lobby/admission; runtime P4-01 zero-grant                                               |
+| `media_participant_sessions`       | Participant lifecycle/capacity projection; P4-01 chỉ đọc để đếm quota                                          |
+| `media_space_mutation_receipts`    | Idempotency receipt cho start/end/cancel, bind tenant/actor/space/version                                      |
 
 Ràng buộc quan trọng:
 
@@ -1229,7 +1237,9 @@ pnpm db:migrate
 pnpm db:version
 ```
 
-Sau khi áp dụng toàn bộ migration trong source hiện tại, kết quả mục tiêu là `25 false`.
+Sau khi áp dụng toàn bộ migration trong source hiện tại lên database được phép, kết quả mục tiêu
+là `29 false`. Riêng P4-01 chỉ được chạy disposable từ `28 false`, rerun giữ `29 false`, không
+rollback; shared staging vẫn giữ `28 false` cho tới khi disposable report đạt và owner phê duyệt.
 Neon disposable P3-07A đã đạt chuỗi forward-only
 `24 false -> 25 false -> 25 false`, exact ACL và focused/full PostgreSQL gates theo
 [`P3_07A_STAGING_ACCEPTANCE.md`](P3_07A_STAGING_ACCEPTANCE.md).
@@ -1330,6 +1340,17 @@ separate temporary admin key and read back idempotently. Single/multipart provid
 CORS/exposed ETag, complete, exact-version GET, explicit abort and cleanup. Final candidate
 `d6365b5` is live on Render/Cloudflare with file uploads forced off until P3-10.
 
+P4-01 adds forward migration `000029_classroom_media_spaces`: hai feature mặc định off, bốn
+media quota và sáu relation `media_spaces`, `media_room_instances`, `media_space_members`,
+`media_admission_requests`, `media_participant_sessions`, `media_space_mutation_receipts`.
+Source union chỉ lưu ClassSession/occurrence/StudyMeeting; instant command phải tạo/bind
+StudyMeeting. P4-01 chỉ cấp runtime exact column SELECT/INSERT/UPDATE cho space,
+room-instance intent và mutation receipt; member/participant chỉ có exact column SELECT,
+admission zero-grant. Không có LiveKit token, provider call hoặc webhook. Exact
+forward/ACL/probe nằm tại
+[`P4_01_STAGING_ACCEPTANCE.md`](P4_01_STAGING_ACCEPTANCE.md). Tại checkpoint 2026-08-09,
+disposable/shared vẫn chưa chạy `000029`; policy approval, PostgreSQL/ACL và CI còn mở.
+
 Với P2-05, cần kiểm tra riêng migrate 9 -> 10, rollback 10 -> 9, migrate lại 9 -> 10;
 tenant-scoped FK/unique/state constraints; direct enroll và các transition; same-user
 replay; concurrent join ở usage limit; atomic exhausted/expired state; archive guard;
@@ -1397,4 +1418,7 @@ của lịch sử append-only và không phải quy trình cleanup cho staging/p
   P3-02C working schedule/free-busy, internal/external audience, organizer transfer,
   cancellation lifecycle và RSVP đều đã đạt staging gate. Delivery/email side effect
   vẫn bị khóa cho tới khi P3-03B/P3-05A và các provider gate tương ứng hoàn tất.
+- P4-01 đang `IN PROGRESS`: source có migration `000029` và local candidate, nhưng chưa có
+  disposable forward/exact ACL/PostgreSQL, full candidate CI/security, shared migration hoặc
+  deploy. Hai media feature tiếp tục off và P4-01 không được tạo provider side effect.
 - Chưa có backup/restore drill, PITR gate hoặc connection load test cho pilot.

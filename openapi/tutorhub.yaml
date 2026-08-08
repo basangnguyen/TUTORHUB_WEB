@@ -5552,6 +5552,267 @@ paths:
           $ref: "#/components/responses/ConflictResponse"
         default:
           $ref: "#/components/responses/ProblemResponse"
+  /api/v1/media/spaces:
+    post:
+      operationId: createMediaSpace
+      summary: Create or replay one authoritative classroom media space
+      description: The server resolves the source in the active tenant. An instant request atomically creates and binds an owned StudyMeeting; no provider room or credential is created by this endpoint.
+      security:
+        - SessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/ExpectedTenantID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateMediaSpaceRequest"
+      responses:
+        "200":
+          description: Existing media space returned by an exact idempotent replay
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: private, no-store
+            Referrer-Policy:
+              schema:
+                type: string
+                const: no-referrer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MediaSpace"
+        "201":
+          description: Authoritative media space created without calling the media provider
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: private, no-store
+            Referrer-Policy:
+              schema:
+                type: string
+                const: no-referrer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MediaSpace"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "429":
+          $ref: "#/components/responses/ProblemResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/media/spaces/{space_id}:
+    get:
+      operationId: getMediaSpace
+      summary: Return an authorized media-space lifecycle projection
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: space_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/ExpectedTenantID"
+      responses:
+        "200":
+          description: Authorized media-space projection
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: private, no-store
+            Referrer-Policy:
+              schema:
+                type: string
+                const: no-referrer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MediaSpace"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/media/spaces/{space_id}/start:
+    post:
+      operationId: startMediaSpace
+      summary: Commit one idempotent room-instance start intent
+      description: P4-01 persists only the lifecycle and room-instance intent; it does not call LiveKit or expose provider identifiers.
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: space_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/ExpectedTenantID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MediaSpaceTransitionRequest"
+      responses:
+        "200":
+          description: Current media-space projection after start or exact replay
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: private, no-store
+            Referrer-Policy:
+              schema:
+                type: string
+                const: no-referrer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MediaSpace"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "429":
+          $ref: "#/components/responses/ProblemResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/media/spaces/{space_id}/end:
+    post:
+      operationId: endMediaSpace
+      summary: End an open media space using optimistic concurrency
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: space_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/ExpectedTenantID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MediaSpaceTransitionRequest"
+      responses:
+        "200":
+          description: Current media-space projection after end or exact replay
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: private, no-store
+            Referrer-Policy:
+              schema:
+                type: string
+                const: no-referrer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MediaSpace"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/media/spaces/{space_id}/cancel:
+    post:
+      operationId: cancelMediaSpace
+      summary: Cancel a scheduled media space using optimistic concurrency
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: space_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/ExpectedTenantID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MediaSpaceTransitionRequest"
+      responses:
+        "200":
+          description: Current media-space projection after cancellation or exact replay
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: private, no-store
+            Referrer-Policy:
+              schema:
+                type: string
+                const: no-referrer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MediaSpace"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
   /api/v1/classes/{class_id}/media-token:
     post:
       operationId: issueClassMediaToken
@@ -6157,6 +6418,8 @@ components:
         - availability_polls
         - conversations
         - file_uploads
+        - classroom_media_rooms
+        - instant_study_rooms
       properties:
         membership_invitations:
           $ref: "#/components/schemas/FeatureCapability"
@@ -6175,6 +6438,10 @@ components:
         conversations:
           $ref: "#/components/schemas/FeatureCapability"
         file_uploads:
+          $ref: "#/components/schemas/FeatureCapability"
+        classroom_media_rooms:
+          $ref: "#/components/schemas/FeatureCapability"
+        instant_study_rooms:
           $ref: "#/components/schemas/FeatureCapability"
     TenantQuotaCapabilities:
       type: object
@@ -6197,6 +6464,10 @@ components:
         - file_bytes_per_tenant
         - single_file_bytes
         - file_upload_intents_per_hour
+        - active_media_spaces
+        - media_participants_per_space
+        - active_media_participants
+        - media_space_starts_per_hour
       properties:
         members:
           $ref: "#/components/schemas/QuotaCapability"
@@ -6231,6 +6502,14 @@ components:
         single_file_bytes:
           $ref: "#/components/schemas/QuotaCapability"
         file_upload_intents_per_hour:
+          $ref: "#/components/schemas/QuotaCapability"
+        active_media_spaces:
+          $ref: "#/components/schemas/QuotaCapability"
+        media_participants_per_space:
+          $ref: "#/components/schemas/QuotaCapability"
+        active_media_participants:
+          $ref: "#/components/schemas/QuotaCapability"
+        media_space_starts_per_hour:
           $ref: "#/components/schemas/QuotaCapability"
     TenantOperationCapabilities:
       type: object
@@ -6315,6 +6594,8 @@ components:
         - availability_polls
         - conversations
         - file_uploads
+        - classroom_media_rooms
+        - instant_study_rooms
       properties:
         membership_invitations:
           type: boolean
@@ -6333,6 +6614,10 @@ components:
         conversations:
           type: boolean
         file_uploads:
+          type: boolean
+        classroom_media_rooms:
+          type: boolean
+        instant_study_rooms:
           type: boolean
     ContentFileStatus:
       type: string
@@ -7160,6 +7445,10 @@ components:
         - file_bytes_per_tenant
         - single_file_bytes
         - file_upload_intents_per_hour
+        - active_media_spaces
+        - media_participants_per_space
+        - active_media_participants
+        - media_space_starts_per_hour
       properties:
         members:
           type: integer
@@ -7229,6 +7518,22 @@ components:
           type: integer
           minimum: 1
           maximum: 100000
+        active_media_spaces:
+          type: integer
+          minimum: 1
+          maximum: 100
+        media_participants_per_space:
+          type: integer
+          minimum: 1
+          maximum: 50
+        active_media_participants:
+          type: integer
+          minimum: 1
+          maximum: 500
+        media_space_starts_per_hour:
+          type: integer
+          minimum: 1
+          maximum: 200
     UpdateTenantFeatureControlsRequest:
       type: object
       additionalProperties: false
@@ -10548,6 +10853,194 @@ components:
             - type: "null"
         joined:
           type: boolean
+    ClassSessionMediaSpaceSource:
+      type: object
+      additionalProperties: false
+      required: [kind, class_session_id]
+      properties:
+        kind:
+          type: string
+          const: class_session
+        class_session_id:
+          type: string
+          format: uuid
+    ClassSessionOccurrenceMediaSpaceSource:
+      type: object
+      additionalProperties: false
+      required: [kind, series_id, occurrence_key]
+      properties:
+        kind:
+          type: string
+          const: class_session_occurrence
+        series_id:
+          type: string
+          format: uuid
+        occurrence_key:
+          type: string
+          minLength: 8
+          maxLength: 128
+          description: Opaque stable occurrence identity resolved against the authoritative series.
+    StudyMeetingMediaSpaceSource:
+      type: object
+      additionalProperties: false
+      required: [kind, study_meeting_id]
+      properties:
+        kind:
+          type: string
+          const: study_meeting
+        study_meeting_id:
+          type: string
+          format: uuid
+    InstantMediaSpaceSourceInput:
+      type: object
+      additionalProperties: false
+      required: [kind, title, duration_minutes, timezone]
+      properties:
+        kind:
+          type: string
+          const: instant
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        duration_minutes:
+          type: integer
+          minimum: 1
+          maximum: 1440
+        timezone:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: IANA timezone identifier; the value local is rejected.
+    MediaSpaceSource:
+      oneOf:
+        - $ref: "#/components/schemas/ClassSessionMediaSpaceSource"
+        - $ref: "#/components/schemas/ClassSessionOccurrenceMediaSpaceSource"
+        - $ref: "#/components/schemas/StudyMeetingMediaSpaceSource"
+      discriminator:
+        propertyName: kind
+        mapping:
+          class_session: "#/components/schemas/ClassSessionMediaSpaceSource"
+          class_session_occurrence: "#/components/schemas/ClassSessionOccurrenceMediaSpaceSource"
+          study_meeting: "#/components/schemas/StudyMeetingMediaSpaceSource"
+    CreateMediaSpaceSourceInput:
+      oneOf:
+        - $ref: "#/components/schemas/ClassSessionMediaSpaceSource"
+        - $ref: "#/components/schemas/ClassSessionOccurrenceMediaSpaceSource"
+        - $ref: "#/components/schemas/StudyMeetingMediaSpaceSource"
+        - $ref: "#/components/schemas/InstantMediaSpaceSourceInput"
+      discriminator:
+        propertyName: kind
+        mapping:
+          class_session: "#/components/schemas/ClassSessionMediaSpaceSource"
+          class_session_occurrence: "#/components/schemas/ClassSessionOccurrenceMediaSpaceSource"
+          study_meeting: "#/components/schemas/StudyMeetingMediaSpaceSource"
+          instant: "#/components/schemas/InstantMediaSpaceSourceInput"
+    MediaSpaceStatus:
+      type: string
+      enum: [scheduled, open, ended, cancelled]
+    MediaRoomInstanceStatus:
+      type: string
+      enum: [provisioning, active, closing, ended, failed]
+    MediaRoomInstance:
+      type: object
+      additionalProperties: false
+      required: [id, status, version, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          $ref: "#/components/schemas/MediaRoomInstanceStatus"
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    MediaSpaceViewerOperations:
+      type: object
+      additionalProperties: false
+      required: [can_start, can_end, can_cancel]
+      properties:
+        can_start:
+          type: boolean
+        can_end:
+          type: boolean
+        can_cancel:
+          type: boolean
+    MediaSpace:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - source
+        - status
+        - version
+        - active_room_instance
+        - viewer_operations
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        source:
+          $ref: "#/components/schemas/MediaSpaceSource"
+        status:
+          $ref: "#/components/schemas/MediaSpaceStatus"
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+        active_room_instance:
+          oneOf:
+            - $ref: "#/components/schemas/MediaRoomInstance"
+            - type: "null"
+        viewer_operations:
+          $ref: "#/components/schemas/MediaSpaceViewerOperations"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    CreateMediaSpaceRequest:
+      type: object
+      additionalProperties: false
+      required: [source, idempotency_key]
+      properties:
+        source:
+          $ref: "#/components/schemas/CreateMediaSpaceSourceInput"
+        idempotency_key:
+          type: string
+          minLength: 16
+          maxLength: 128
+          pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]{15,127}$"
+    MediaSpaceTransitionRequest:
+      type: object
+      additionalProperties: false
+      required: [expected_version, idempotency_key]
+      properties:
+        expected_version:
+          type: integer
+          format: int64
+          minimum: 1
+        idempotency_key:
+          type: string
+          minLength: 16
+          maxLength: 128
+          pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]{15,127}$"
+        reason_code:
+          type: string
+          minLength: 1
+          maxLength: 64
+          pattern: "^[a-z][a-z0-9_.-]{0,63}$"
+          description: Bounded non-private reason code; raw free text is not persisted to audit or outbox.
     MediaTokenResponse:
       type: object
       additionalProperties: false

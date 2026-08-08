@@ -7,7 +7,7 @@ import {
 } from "./featureControlCatalog";
 
 const draftPrefix = "tutorhub:draft:v1:";
-const draftSchemaVersion = 1;
+const draftSchemaVersion = 2;
 const draftTimeToLiveMilliseconds = 8 * 60 * 60 * 1000;
 const maximumDraftBytes = 16 * 1024;
 
@@ -29,7 +29,7 @@ interface StoredTenantFeatureControlDraft {
   actor_id: string;
   expires_at: number;
   kind: "tenant_feature_controls";
-  schema_version: 1;
+  schema_version: 2;
   tenant_id: string;
   value: TenantFeatureControlDraft;
 }

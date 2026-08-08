@@ -63,7 +63,10 @@ func TestPostgresRepositoryCapabilitiesOverridesAndAuthoritativeAuthorization(t 
 		true,
 		ValueSourceCatalogDefault,
 	)
+	assertFeatureCapability(t, defaults, FeatureClassroomMediaRooms, false, ValueSourceCatalogDefault)
+	assertFeatureCapability(t, defaults, FeatureInstantStudyRooms, false, ValueSourceCatalogDefault)
 	assertQuotaCapability(t, defaults, QuotaMembers, 100, 1, ValueSourceCatalogDefault)
+	assertQuotaCapability(t, defaults, QuotaActiveMediaSpaces, 10, 0, ValueSourceCatalogDefault)
 
 	requestContext, _ := requestmeta.New(
 		ctx,
@@ -77,6 +80,8 @@ func TestPostgresRepositoryCapabilitiesOverridesAndAuthoritativeAuthorization(t 
 		ExpectedVersion: 0,
 		FeatureOverrides: []FeatureOverride{
 			{Key: FeatureClassManagement, Enabled: false},
+			{Key: FeatureClassroomMediaRooms, Enabled: false},
+			{Key: FeatureInstantStudyRooms, Enabled: true},
 		},
 		QuotaOverrides: []QuotaOverride{
 			{Key: QuotaMembers, Limit: 2},
@@ -98,6 +103,7 @@ func TestPostgresRepositoryCapabilitiesOverridesAndAuthoritativeAuthorization(t 
 		ValueSourceTenantOverride,
 	)
 	assertQuotaCapability(t, updated, QuotaMembers, 2, 1, ValueSourceTenantOverride)
+	assertFeatureCapability(t, updated, FeatureInstantStudyRooms, false, ValueSourceTenantOverride)
 	if _, err := service.PutOverrides(ctx, adminContext, PutOverridesInput{
 		ExpectedVersion: 0,
 	}); !errors.Is(err, ErrVersionConflict) {
@@ -143,6 +149,14 @@ VALUES ($1, $2, $3, 'active', $4)`,
 		FeatureClassManagement,
 	); !errors.Is(err, ErrFeatureDisabled) {
 		t.Fatalf("disabled feature enforcement error = %v", err)
+	}
+	if err := repository.RequireFeature(
+		ctx,
+		enforcement,
+		fixture.tenantID,
+		FeatureInstantStudyRooms,
+	); !errors.Is(err, ErrFeatureDisabled) {
+		t.Fatalf("dependent instant feature error = %v", err)
 	}
 	_ = enforcement.Rollback(ctx)
 }

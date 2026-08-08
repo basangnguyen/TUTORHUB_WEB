@@ -421,6 +421,15 @@ func (repository *PostgresRepository) CancelSession(
 	); err != nil {
 		return ClassSession{}, err
 	}
+	mediaSpaces, err := lockClassSessionMediaSpaces(
+		queryContext,
+		transaction,
+		tenantContext.TenantID,
+		sessionID,
+	)
+	if err != nil {
+		return ClassSession{}, err
+	}
 	locked, membership, err := repository.lockClassMutation(
 		queryContext, transaction, tenantContext, classID,
 	)
@@ -431,6 +440,9 @@ func (repository *PostgresRepository) CancelSession(
 		tenantContext, membership, locked.Class, policy.ActionSessionSchedule,
 	); err != nil {
 		return ClassSession{}, err
+	}
+	if hasOpenSourceMediaSpace(mediaSpaces) {
+		return ClassSession{}, ErrInvalidSessionTransition
 	}
 	current, err := lockClassSession(
 		queryContext, transaction, tenantContext.TenantID, classID, sessionID,

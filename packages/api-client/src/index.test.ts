@@ -832,6 +832,8 @@ describe("getHealth", () => {
         in_app_notifications: { enabled: true },
         conversations: { enabled: true },
         file_uploads: { enabled: true },
+        classroom_media_rooms: { enabled: false },
+        instant_study_rooms: { enabled: false },
       },
       quotas: {
         active_availability_polls: { limit: 20, used: 2, remaining: 18 },
@@ -902,6 +904,22 @@ describe("getHealth", () => {
           remaining: 997,
           reset_at: "2026-07-20T12:00:00Z",
         },
+        active_media_spaces: { limit: 10, used: 0, remaining: 10 },
+        media_participants_per_space: {
+          limit: 50,
+          used: 0,
+          remaining: 50,
+        },
+        active_media_participants: {
+          limit: 100,
+          used: 0,
+          remaining: 100,
+        },
+        media_space_starts_per_hour: {
+          limit: 20,
+          used: 0,
+          remaining: 20,
+        },
       },
       operations: {
         create_membership_invitation: {
@@ -961,6 +979,8 @@ describe("getHealth", () => {
         in_app_notifications: true,
         conversations: true,
         file_uploads: true,
+        classroom_media_rooms: false,
+        instant_study_rooms: false,
       },
       quotas: {
         active_availability_polls: 30,
@@ -980,6 +1000,10 @@ describe("getHealth", () => {
         file_bytes_per_tenant: 21474836480,
         single_file_bytes: 209715200,
         file_upload_intents_per_hour: 2000,
+        active_media_spaces: 20,
+        media_participants_per_space: 50,
+        active_media_participants: 200,
+        media_space_starts_per_hour: 40,
       },
     };
     const updatedCapabilities: TenantCapabilities = {

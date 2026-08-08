@@ -259,7 +259,7 @@ func mediaAccess(principal identity.Principal) media.AccessContext {
 	if principal.ActiveTenant != nil {
 		access.TenantID = principal.ActiveTenant.ID
 		access.Role = principal.ActiveTenant.Role
-		access.MembershipActive = true
+		access.MembershipActive = principal.ActiveTenant.IsActive
 		access.OrganizationRoles = []policy.OrganizationRole{
 			policy.OrganizationRole(principal.ActiveTenant.Role),
 		}

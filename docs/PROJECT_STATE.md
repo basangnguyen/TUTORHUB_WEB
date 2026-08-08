@@ -13,9 +13,30 @@
 | Phase hoàn thành     | Phase 0, Phase 1, Phase 2                                                             |
 | Phase hiện tại       | Phase 4 Classroom Media MVP; Phase 3 deferred carry-over vẫn hoạt động                |
 | Task `DONE` gần nhất | P4-00 Classroom Media architecture/backlog baseline                                  |
-| Mốc repository mới   | ADR-0030 + Phase 4 backlog + `P4-MEDIA-UX-00`; không migration/deploy                  |
+| Mốc repository mới   | P4-01 implementation candidate local; chưa migration/deploy external                  |
 | Task hiện tại        | P4-01 MediaSpace lifecycle/schema/API core                                            |
-| Task tiếp theo       | Review schema/OpenAPI, khóa forward migration và triển khai feature-off P4-01         |
+| Task tiếp theo       | Disposable `28 -> 29`, exact ACL/PostgreSQL rồi exact candidate CI/security           |
+
+### Checkpoint P4-01 `IN PROGRESS` ngày 2026-08-09
+
+P4-01 đã có implementation candidate local cho forward migration
+`000029_classroom_media_spaces`, MediaSpace/RoomInstance lifecycle, source binding,
+idempotency/concurrency barrier, shared policy actions, audit allowlist, REST
+create/get/start/end/cancel, OpenAPI/generated client và feature/quota controls. Hai feature
+`classroom_media_rooms`/`instant_study_rooms` giữ compiled/deployment default off; child phụ
+thuộc parent và thiếu LiveKit prerequisite phải fail closed. Slice không mint token, gọi
+LiveKit, xử lý webhook hoặc mở room end-user; provider binding thật thuộc P4-02.
+
+Focused local feature-control/config/HTTP, API client, web, generated-contract và full
+`pnpm verify` đã xanh; integration-tag PostgreSQL compile/skip sạch khi chủ động bỏ DB env.
+Review còn sửa concealment mutation cùng actor-scoped receipt để loại hai existence oracle.
+Typed `room.create.instant` đã nối đúng ADR-0021 cho mọi active member, nhưng instant command
+vẫn reauthorize tenant, membership và StudyMeeting ownership; focused policy/media/HTTP cùng
+full local verify sau policy đều PASS. Task chưa chuyển `VERIFY`: disposable chưa chạy
+forward-only `28 false -> 29 false -> 29 false`, exact runtime ACL/PostgreSQL integration và
+exact candidate CI/security vẫn còn mở. Shared Neon chưa chạy
+`000029`, không deploy P4-01 và không có external provider side effect. Runbook + exact ACL nằm tại
+[P4_01_STAGING_ACCEPTANCE.md](P4_01_STAGING_ACCEPTANCE.md).
 
 ### Checkpoint P4-00 `DONE` ngày 2026-08-08
 

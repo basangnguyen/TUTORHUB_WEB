@@ -30,6 +30,7 @@ func TestOrganizationPermissionMatrix(t *testing.T) {
 				PermissionConversationCreateDirect, PermissionMessageWriteDirect,
 				PermissionAvailabilityPollCreate, PermissionAvailabilityPollManageOwn,
 				PermissionAvailabilityPollPublishToClass, PermissionStudyMeetingScheduleOwn,
+				PermissionRoomCreateInstant,
 				PermissionEnrollmentManage, PermissionSessionSchedule, PermissionSessionStart, PermissionSessionEnd,
 				PermissionSessionJoin, PermissionParticipantAdmit,
 				PermissionParticipantRemove, PermissionMediaPublish, PermissionChatSend,
@@ -43,6 +44,7 @@ func TestOrganizationPermissionMatrix(t *testing.T) {
 				PermissionTenantView, PermissionConversationCreateDirect, PermissionMessageWriteDirect,
 				PermissionAvailabilityPollCreate,
 				PermissionAvailabilityPollManageOwn, PermissionStudyMeetingScheduleOwn,
+				PermissionRoomCreateInstant,
 			},
 		},
 		{
@@ -52,6 +54,7 @@ func TestOrganizationPermissionMatrix(t *testing.T) {
 				PermissionTenantView, PermissionConversationCreateDirect, PermissionMessageWriteDirect,
 				PermissionAvailabilityPollCreate,
 				PermissionAvailabilityPollManageOwn, PermissionStudyMeetingScheduleOwn,
+				PermissionRoomCreateInstant,
 			},
 		},
 	}
@@ -91,6 +94,7 @@ func TestClassPermissionMatrix(t *testing.T) {
 				PermissionConversationCreateDirect, PermissionMessageWriteDirect,
 				PermissionAvailabilityPollCreate, PermissionAvailabilityPollManageOwn,
 				PermissionAvailabilityPollPublishToClass, PermissionStudyMeetingScheduleOwn,
+				PermissionRoomCreateInstant,
 				PermissionEnrollmentManage, PermissionEnrollmentLeave, PermissionSessionSchedule,
 				PermissionSessionStart, PermissionSessionEnd, PermissionSessionJoin,
 				PermissionParticipantAdmit, PermissionParticipantRemove,
@@ -106,6 +110,7 @@ func TestClassPermissionMatrix(t *testing.T) {
 				PermissionConversationCreateDirect, PermissionMessageWriteDirect,
 				PermissionAvailabilityPollCreate, PermissionAvailabilityPollManageOwn,
 				PermissionAvailabilityPollPublishToClass, PermissionStudyMeetingScheduleOwn,
+				PermissionRoomCreateInstant,
 				PermissionEnrollmentManage, PermissionEnrollmentLeave, PermissionSessionSchedule,
 				PermissionSessionStart, PermissionSessionEnd, PermissionSessionJoin,
 				PermissionParticipantAdmit, PermissionParticipantRemove,
@@ -121,6 +126,7 @@ func TestClassPermissionMatrix(t *testing.T) {
 				PermissionConversationCreateDirect, PermissionMessageWriteDirect,
 				PermissionAvailabilityPollCreate, PermissionAvailabilityPollManageOwn,
 				PermissionStudyMeetingScheduleOwn,
+				PermissionRoomCreateInstant,
 				PermissionEnrollmentLeave, PermissionSessionJoin, PermissionParticipantAdmit,
 				PermissionMediaPublish, PermissionChatSend,
 				PermissionFileView,
@@ -134,6 +140,7 @@ func TestClassPermissionMatrix(t *testing.T) {
 				PermissionConversationCreateDirect, PermissionMessageWriteDirect,
 				PermissionAvailabilityPollCreate, PermissionAvailabilityPollManageOwn,
 				PermissionStudyMeetingScheduleOwn,
+				PermissionRoomCreateInstant,
 				PermissionEnrollmentLeave, PermissionSessionJoin, PermissionMediaPublish,
 				PermissionChatSend,
 				PermissionFileView,
@@ -173,6 +180,7 @@ func TestEffectivePermissionsUnionsMultipleRolesDeterministically(t *testing.T) 
 		PermissionAvailabilityPollCreate,
 		PermissionAvailabilityPollManageOwn,
 		PermissionStudyMeetingScheduleOwn,
+		PermissionRoomCreateInstant,
 		PermissionEnrollmentLeave,
 		PermissionSessionJoin,
 		PermissionParticipantAdmit,
@@ -294,6 +302,59 @@ func TestAvailabilityPollOwnActionsAreTenantScopedAndPublishRequiresClass(t *tes
 	})
 	if !teacherPublish.Allowed {
 		t.Fatalf("teacher publish denied: %+v", teacherPublish)
+	}
+}
+
+func TestInstantRoomCreationIsTenantScopedForEveryActiveMember(t *testing.T) {
+	t.Parallel()
+
+	engine := NewEngine()
+	for _, role := range []OrganizationRole{
+		OrganizationRoleAdmin,
+		OrganizationRoleTeacher,
+		OrganizationRoleStudent,
+		OrganizationRoleGuest,
+	} {
+		subject := validTestSubject()
+		subject.OrganizationRoles = []OrganizationRole{role}
+		decision := engine.Authorize(Input{
+			Subject: subject,
+			Action:  ActionRoomCreateInstant,
+			Resource: Resource{
+				TenantID: subject.ActiveTenantID,
+				State:    ResourceStateActive,
+			},
+		})
+		if !decision.Allowed {
+			t.Fatalf("active %s member could not create an instant room: %+v", role, decision)
+		}
+	}
+
+	inactive := validTestSubject()
+	inactive.MembershipActive = false
+	decision := engine.Authorize(Input{
+		Subject: inactive,
+		Action:  ActionRoomCreateInstant,
+		Resource: Resource{
+			TenantID: inactive.ActiveTenantID,
+			State:    ResourceStateActive,
+		},
+	})
+	if decision.Allowed || decision.Reason != DenialInactiveMembership {
+		t.Fatalf("inactive member received instant-room permission: %+v", decision)
+	}
+
+	crossTenant := validTestSubject()
+	decision = engine.Authorize(Input{
+		Subject: crossTenant,
+		Action:  ActionRoomCreateInstant,
+		Resource: Resource{
+			TenantID: uuid.New(),
+			State:    ResourceStateActive,
+		},
+	})
+	if decision.Allowed || decision.Reason != DenialResourceScope || !decision.ConcealResource {
+		t.Fatalf("cross-tenant instant-room request was not concealed: %+v", decision)
 	}
 }
 

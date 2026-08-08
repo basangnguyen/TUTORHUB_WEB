@@ -44,6 +44,7 @@ type Options struct {
 	Audit                 audit.ServiceAPI
 	FeatureControls       featurecontrol.ServiceAPI
 	Media                 media.ServiceAPI
+	MediaSpaces           media.LifecycleServiceAPI
 	Notifications         notification.ServiceAPI
 	Conversations         conversation.ServiceAPI
 	Content               content.ServiceAPI
@@ -462,6 +463,7 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 		options.Media,
 		options.LiveKitWebhook,
 	)
+	mediaSpaces := newMediaSpaceHandlers(logger, auth, options.MediaSpaces)
 	mux.Handle(
 		classesCollectionPath,
 		auditMutation(
@@ -755,6 +757,59 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 	)
 	mux.Handle(mediaTokenPathPattern, http.HandlerFunc(mediaHandlers.issueJoinCredential))
 	mux.Handle(mediaEventsPathPattern, http.HandlerFunc(mediaHandlers.recordClientEvent))
+	mux.Handle(
+		mediaSpacesCollectionPath,
+		mediaSpaceResponseHeaders(
+			auditMutation(
+				staticAuditMutation(
+					http.MethodPost, audit.ActionMediaSpaceCreate, "media_space", nil,
+				),
+				requireMethod(http.MethodPost, http.HandlerFunc(mediaSpaces.create)),
+			),
+		),
+	)
+	mux.Handle(
+		mediaSpaceResourcePattern,
+		mediaSpaceResponseHeaders(
+			requireMethod(http.MethodGet, http.HandlerFunc(mediaSpaces.get)),
+		),
+	)
+	mux.Handle(
+		mediaSpaceStartPattern,
+		mediaSpaceResponseHeaders(
+			auditMutation(
+				staticAuditMutation(
+					http.MethodPost, audit.ActionMediaSpaceStart, "media_space",
+					pathValueAuditResource("space_id"),
+				),
+				requireMethod(http.MethodPost, http.HandlerFunc(mediaSpaces.start)),
+			),
+		),
+	)
+	mux.Handle(
+		mediaSpaceEndPattern,
+		mediaSpaceResponseHeaders(
+			auditMutation(
+				staticAuditMutation(
+					http.MethodPost, audit.ActionMediaSpaceEnd, "media_space",
+					pathValueAuditResource("space_id"),
+				),
+				requireMethod(http.MethodPost, http.HandlerFunc(mediaSpaces.end)),
+			),
+		),
+	)
+	mux.Handle(
+		mediaSpaceCancelPattern,
+		mediaSpaceResponseHeaders(
+			auditMutation(
+				staticAuditMutation(
+					http.MethodPost, audit.ActionMediaSpaceCancel, "media_space",
+					pathValueAuditResource("space_id"),
+				),
+				requireMethod(http.MethodPost, http.HandlerFunc(mediaSpaces.cancel)),
+			),
+		),
+	)
 	mux.Handle(liveKitWebhookPath, http.HandlerFunc(mediaHandlers.receiveWebhook))
 	mux.Handle("/metrics", requireMethod(http.MethodGet, options.Metrics.Handler()))
 	mux.Handle("/", notFoundHandler())

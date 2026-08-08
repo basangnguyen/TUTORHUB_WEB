@@ -454,6 +454,23 @@ func (repository *PostgresRepository) mutateSeriesOccurrence(
 	); err != nil {
 		return SeriesMutationResult{}, err
 	}
+	var mediaSpaces []lockedSourceMediaSpace
+	if cancelMutation {
+		var exactOccurrenceKey *string
+		if params.Scope == recurrence.ScopeThisOccurrence {
+			exactOccurrenceKey = &params.OccurrenceKey
+		}
+		mediaSpaces, err = lockSeriesMediaSpaces(
+			queryContext,
+			transaction,
+			tenantContext.TenantID,
+			seriesID,
+			exactOccurrenceKey,
+		)
+		if err != nil {
+			return SeriesMutationResult{}, err
+		}
+	}
 	locked, membership, err := repository.lockClassMutation(
 		queryContext, transaction, tenantContext, classID,
 	)
@@ -467,6 +484,10 @@ func (repository *PostgresRepository) mutateSeriesOccurrence(
 	}
 	if params.OverrideScheduleConflict && membership.Role != string(policy.OrganizationRoleAdmin) {
 		return SeriesMutationResult{}, ErrConflictOverrideDenied
+	}
+	if cancelMutation && params.Scope != recurrence.ScopeFollowing &&
+		hasOpenSourceMediaSpace(mediaSpaces) {
+		return SeriesMutationResult{}, ErrInvalidSessionTransition
 	}
 	series, err := lockClassSessionSeries(
 		queryContext, transaction, tenantContext.TenantID, classID, seriesID,
@@ -511,6 +532,19 @@ func (repository *PostgresRepository) mutateSeriesOccurrence(
 	boundaryIndex := occurrenceIndex(occurrences, params.OccurrenceKey)
 	if boundaryIndex < 0 {
 		return SeriesMutationResult{}, ErrInvalidSessionInput
+	}
+	if cancelMutation && params.Scope == recurrence.ScopeFollowing {
+		allKeys := make(map[string]struct{}, len(occurrences))
+		followingKeys := make(map[string]struct{}, len(occurrences)-boundaryIndex)
+		for index, occurrence := range occurrences {
+			allKeys[occurrence.Key] = struct{}{}
+			if index >= boundaryIndex {
+				followingKeys[occurrence.Key] = struct{}{}
+			}
+		}
+		if hasOpenFollowingMediaSpace(mediaSpaces, allKeys, followingKeys) {
+			return SeriesMutationResult{}, ErrInvalidSessionTransition
+		}
 	}
 	exceptions, err := listSeriesExceptions(
 		queryContext, transaction, tenantContext.TenantID, classID, seriesID,

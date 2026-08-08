@@ -12,6 +12,8 @@ func TestFeatureControlGuardrailsOmitFeaturesThatAreNotForcedOff(t *testing.T) {
 
 	configuration := config.FeatureControlConfig{
 		DisableClassManagement:                        true,
+		EnableClassroomMediaRooms:                     true,
+		EnableInstantStudyRooms:                       true,
 		MaxMembers:                                    10_000,
 		MaxActiveClasses:                              1_000,
 		MaxInviteCreationsPerHour:                     10_000,
@@ -29,6 +31,10 @@ func TestFeatureControlGuardrailsOmitFeaturesThatAreNotForcedOff(t *testing.T) {
 		MaxFileBytesPerTenant:                         1_099_511_627_776,
 		MaxSingleFileBytes:                            5_368_709_120,
 		MaxFileUploadIntentsPerHour:                   100_000,
+		MaxActiveMediaSpaces:                          100,
+		MaxMediaParticipantsPerSpace:                  50,
+		MaxActiveMediaParticipants:                    500,
+		MaxMediaSpaceStartsPerHour:                    200,
 	}
 	guardrails := featureControlGuardrails(configuration)
 
@@ -54,6 +60,8 @@ func TestFeatureControlGuardrailsForceOffClassSessionScheduling(t *testing.T) {
 		DisableClassSessionScheduling:                 true,
 		EnableClassSessionRecurrence:                  true,
 		EnableInAppNotifications:                      true,
+		EnableClassroomMediaRooms:                     true,
+		EnableInstantStudyRooms:                       true,
 		MaxMembers:                                    10_000,
 		MaxActiveClasses:                              1_000,
 		MaxInviteCreationsPerHour:                     10_000,
@@ -89,6 +97,8 @@ func TestFeatureControlGuardrailsForceOffConversations(t *testing.T) {
 		DisableConversations:                          true,
 		EnableClassSessionRecurrence:                  true,
 		EnableInAppNotifications:                      true,
+		EnableClassroomMediaRooms:                     true,
+		EnableInstantStudyRooms:                       true,
 		MaxMembers:                                    10_000,
 		MaxActiveClasses:                              1_000,
 		MaxInviteCreationsPerHour:                     10_000,
@@ -111,6 +121,46 @@ func TestFeatureControlGuardrailsForceOffConversations(t *testing.T) {
 	if len(guardrails.ForcedOffFeatures) != 1 ||
 		!guardrails.ForcedOffFeatures[featurecontrol.FeatureConversations] {
 		t.Fatalf("conversation kill-switch was not mapped exactly: %+v", guardrails.ForcedOffFeatures)
+	}
+}
+
+func TestFeatureControlGuardrailsForceOffMediaAndApplyCeilings(t *testing.T) {
+	t.Parallel()
+
+	guardrails := featureControlGuardrails(config.FeatureControlConfig{
+		EnableClassSessionRecurrence: true,
+		EnableInAppNotifications:     true,
+		MaxActiveMediaSpaces:         80,
+		MaxMediaParticipantsPerSpace: 40,
+		MaxActiveMediaParticipants:   400,
+		MaxMediaSpaceStartsPerHour:   150,
+	})
+	if len(guardrails.ForcedOffFeatures) != 2 ||
+		!guardrails.ForcedOffFeatures[featurecontrol.FeatureClassroomMediaRooms] ||
+		!guardrails.ForcedOffFeatures[featurecontrol.FeatureInstantStudyRooms] {
+		t.Fatalf("media features must fail closed: %+v", guardrails.ForcedOffFeatures)
+	}
+	wantCeilings := map[featurecontrol.QuotaKey]int64{
+		featurecontrol.QuotaActiveMediaSpaces:         80,
+		featurecontrol.QuotaMediaParticipantsPerSpace: 40,
+		featurecontrol.QuotaActiveMediaParticipants:   400,
+		featurecontrol.QuotaMediaSpaceStartsPerHour:   150,
+	}
+	for key, want := range wantCeilings {
+		if got := guardrails.QuotaCeilings[key]; got != want {
+			t.Fatalf("media quota ceiling %q = %d, want %d", key, got, want)
+		}
+	}
+
+	enabled := featureControlGuardrails(config.FeatureControlConfig{
+		EnableClassSessionRecurrence: true,
+		EnableInAppNotifications:     true,
+		EnableClassroomMediaRooms:    true,
+		EnableInstantStudyRooms:      true,
+	})
+	if enabled.ForcedOffFeatures[featurecontrol.FeatureClassroomMediaRooms] ||
+		enabled.ForcedOffFeatures[featurecontrol.FeatureInstantStudyRooms] {
+		t.Fatalf("explicitly enabled media guardrails were forced off: %+v", enabled.ForcedOffFeatures)
 	}
 }
 

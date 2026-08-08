@@ -578,6 +578,18 @@ func (repository *PostgresRepository) changeArchiveState(
 			return Class{}, err
 		}
 	}
+	var mediaSpaces []lockedSourceMediaSpace
+	if archive {
+		mediaSpaces, err = lockClassMediaSpaces(
+			queryContext,
+			transaction,
+			tenantContext.TenantID,
+			classID,
+		)
+		if err != nil {
+			return Class{}, err
+		}
+	}
 
 	locked, membership, err := repository.lockClassMutation(
 		queryContext,
@@ -598,6 +610,9 @@ func (repository *PostgresRepository) changeArchiveState(
 	}
 	if locked.Class.Version != expectedVersion {
 		return Class{}, ErrClassVersionConflict
+	}
+	if archive && hasOpenSourceMediaSpace(mediaSpaces) {
+		return Class{}, ErrInvalidClassTransition
 	}
 
 	var class Class
