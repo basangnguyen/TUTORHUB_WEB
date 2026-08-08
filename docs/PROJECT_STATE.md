@@ -12,12 +12,12 @@
 | Quy trình            | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
 | Phase hoàn thành     | Phase 0, Phase 1, Phase 2                                                             |
 | Phase hiện tại       | Phase 3 - Daily learning workspace                                                    |
-| Task `DONE` gần nhất | P3-11A Class Files transfer-core UI                                                   |
-| Mốc repository mới   | P3-11A candidate `73467ae6` Live; shared Neon `28 false`                              |
-| Task hiện tại        | P3-12 Home dashboard và PostgreSQL search cơ bản — `VERIFY`                           |
-| Task tiếp theo       | Candidate CI/security, deploy và live acceptance P3-12                                |
+| Task `DONE` gần nhất | P3-12 Home dashboard và PostgreSQL search cơ bản                                      |
+| Mốc repository mới   | P3-12 candidate `1c73c52` Live; shared Neon `28 false`                                |
+| Task hiện tại        | P3-13 Offline/retry drafts và Phase 3 quota closure — `TODO`                          |
+| Task tiếp theo       | Scope/readiness review và bắt đầu vertical slice P3-13                                |
 
-### Checkpoint P3-12 `VERIFY` ngày 2026-08-08
+### Checkpoint P3-12 `DONE` ngày 2026-08-08
 
 P3-12 đã có ADR-0028 và vertical slice không migration. Home tái dùng các API Calendar,
 Notification và Conversation cho các card độc lập; discovery module mới cung cấp recent ready
@@ -30,11 +30,19 @@ workspace/principal change purge cache cũ. OpenAPI/generated client, Go/API-cli
 Playwright keyboard/Axe và full exact-tree `pnpm verify` đều PASS; web đạt 53 file/255 test.
 Neon disposable discovery integration PASS cho Teacher/Student, direct/class authorization,
 inactive membership, foreign-tenant concealment và ready-file visibility. Không thêm migration;
-disposable giữ `28 false`, không rollback, không forward shared staging và chưa deploy.
+disposable giữ `28 false`, không rollback và không forward shared staging.
 
-P3-12 đang ở `VERIFY`. Gate còn lại để chuyển `DONE` là push exact candidate, CI/security,
-deploy đúng SHA và live Teacher/Student/workspace-switch/privacy/accessibility matrix theo
-`docs/P3_12_STAGING_ACCEPTANCE.md`.
+Exact candidate `1c73c52782ca8b4139af0802bbace8e82b0c288b` đạt Verify `31256747702`
+và Security `31256747681`; Cloudflare Pages check PASS, Render deployment
+`dep-d9rhu4ugekts739t6ssg` Live đúng SHA. Sáu health/readiness/status probe đạt HTTP 200
+`no-store`; bốn discovery privacy probe đạt 401 với `no-store/no-referrer/nosniff`.
+
+Live Teacher/Student authorized session và class-conversation search PASS; notification failure
+chỉ degrade card riêng. Teacher switch P2-08 -> P2-12 loại ngay kết quả cũ; Student foreign
+workspace term không xuất hiện. Live workspace không có ready file nên giữ empty-state evidence,
+không tạo shared fixture; ready/pending/file isolation dùng Neon integration PASS. Viewport 375 px
+không overflow, semantic accessibility tree/console sạch và exact-build keyboard/Axe PASS.
+P3-12 chuyển `VERIFY -> DONE`; bằng chứng chi tiết ở `docs/P3_12_STAGING_ACCEPTANCE.md`.
 
 ### Checkpoint P3-11A `DONE` ngày 2026-08-08
 
