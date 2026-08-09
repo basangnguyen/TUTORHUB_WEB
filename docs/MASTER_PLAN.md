@@ -5,13 +5,13 @@
 | Thuộc tính            | Giá trị                                                                                      |
 | --------------------- | -------------------------------------------------------------------------------------------- |
 | Phiên bản tài liệu    | 2.4                                                                                          |
-| Cập nhật              | 2026-08-09                                                                                   |
+| Cập nhật              | 2026-08-10                                                                                   |
 | Phạm vi ưu tiên       | Web application                                                                              |
 | Thư mục phát triển    | `D:\TutorHub_V2`                                                                             |
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
-| Phase hiện tại        | Phase 4 - Classroom Media MVP; Phase 3 deferred carry-over tiếp tục                         |
-| Trạng thái gần nhất   | P4-00 `DONE`; ADR-0030 + Phase 4 backlog, không migration/deploy                            |
+| Phase hiện tại        | Phase 4 - Classroom Media MVP; Phase 3 deferred carry-over tiếp tục                          |
+| Trạng thái gần nhất   | P4-03 `DONE`; P4-04 lobby/admission/invite là task runnable                                  |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 
@@ -463,16 +463,16 @@ Mỗi module có thể gồm `domain`, `application`, `repository`, `transport`.
 
 ### 11.4 Realtime ngoài media
 
-| Nhu cầu                        | Kênh                                          |
-| ------------------------------ | --------------------------------------------- |
-| Camera/mic/screen share        | LiveKit WebRTC                                |
-| Active speaker/network quality | LiveKit event                                 |
+| Nhu cầu                        | Kênh                                                        |
+| ------------------------------ | ----------------------------------------------------------- |
+| Camera/mic/screen share        | LiveKit WebRTC                                              |
+| Active speaker/network quality | LiveKit event                                               |
 | Hand raise/reaction tạm        | Core API authorized/rate-limited; UI nhận projection/resync |
-| Persistent chat                | Core API ghi DB; SSE/WebSocket phát sự kiện   |
-| Notification badge             | SSE trước, WebSocket khi có nhu cầu hai chiều |
-| Whiteboard                     | Engine/provider WebSocket theo ADR            |
-| Job progress                   | SSE                                           |
-| Admin/audit query              | REST                                          |
+| Persistent chat                | Core API ghi DB; SSE/WebSocket phát sự kiện                 |
+| Notification badge             | SSE trước, WebSocket khi có nhu cầu hai chiều               |
+| Whiteboard                     | Engine/provider WebSocket theo ADR                          |
+| Job progress                   | SSE                                                         |
+| Admin/audit query              | REST                                                        |
 
 Không dùng một WebSocket gateway để xử lý cả media, collaboration và dữ liệu nghiệp vụ.
 
@@ -1522,8 +1522,9 @@ lifecycle và moderation authority. Feature/catalog cùng deployment guardrail g
 P4-00 không migration/deploy. P4-01 lifecycle/schema/API và P4-02 RoomInstance credential/signed
 webhook đã `DONE`; shared ledger giữ `30 false`. P4-MEDIA-UX-00 cũng đã `DONE` bằng evidence và
 ADR-0031, khóa `None` baseline cùng browser/device/privacy/performance gates. P4-03 prejoin/
-join-attempt hiện `VERIFY`: local/Chromium/disposable/provider PASS, còn exact candidate
-CI/security, shared ACL/deploy và live acceptance trước `DONE`.
+join-attempt đã `DONE`: exact candidate CI/security, shared exact ACL/read-only gate,
+Render/Cloudflare exact deploy và live public/privacy/authenticated feature-off/no-side-effect
+acceptance đều PASS. P4-04 lobby/admission/invite là task runnable hiện tại.
 
 **Thời lượng:** 6-8 tuần.
 
@@ -2154,8 +2155,8 @@ signed webhook binding, exact disposable/shared ACL, deployment và feature-off/
 đều đã chốt; shared ledger giữ `30 false`. P4-MEDIA-UX-00 cũng đã `DONE` bằng current official
 Zoom/Meet/LiveKit/browser research, V1 audit, isolated prototype và ADR-0031. Baseline P4 là
 `effect=None`; optional processor giữ off, còn hand/reaction luôn do Core API authorize với
-`CanPublishData=false`. P4-03 là task `VERIFY` hiện tại; P4-04 chỉ bắt đầu sau khi exact
-CI/shared deploy/live acceptance của P4-03 đạt.
+`CanPublishData=false`. P4-03 đã `DONE` trên exact CI/shared deploy/live acceptance; P4-04 là task
+runnable hiện tại và hai media capability tiếp tục force-off.
 Không bật side effect chỉ vì core đã có. `P3-02D-B` và các gate worker/provider vẫn là
 carry-over.
 AWS SES đã được chọn làm provider target nhưng

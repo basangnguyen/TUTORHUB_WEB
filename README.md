@@ -92,7 +92,12 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
 - P4-MEDIA-UX-00 đã `DONE` ngày 2026-08-09 bằng current official Zoom/Meet/LiveKit/browser
   research, V1 reuse/reject audit, prototype cô lập và ADR-0031. `effect=None` là production
   baseline; Track Processors 0.7.2 chỉ là candidate force-off tới browser/device/privacy/performance
-  gate. Task runnable hiện tại là P4-03; hand/reaction vẫn qua Core API và `CanPublishData=false`.
+  gate; hand/reaction vẫn qua Core API và `CanPublishData=false`.
+- P4-03 Prejoin device/network và canonical join-attempt đã `DONE` ngày 2026-08-10 trên exact
+  candidate `e49a8cc38f464e3ec56655823bcbb1ee77cbc651`: local/Chromium/disposable/LiveKit provider,
+  GitHub Verify/Security, shared exact ACL, Render/Cloudflare exact deploy và live
+  public/privacy/authenticated feature-off/no-side-effect acceptance đều PASS. Không có migration;
+  shared ledger giữ `30 false`, không rollback. Task runnable hiện tại là P4-04 lobby/admission/invite.
 - P5-COLLAB-00 đã được đăng ký làm research spike tương lai cho whiteboard engine,
   document/sync authority, license và realtime topology. Task vẫn `TODO`, không chặn P4-02
   và không cho phép thêm production dependency/runtime trước prototype, evidence và ADR.

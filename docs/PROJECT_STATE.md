@@ -6,18 +6,18 @@
 
 | Thuộc tính           | Trạng thái                                                                            |
 | -------------------- | ------------------------------------------------------------------------------------- |
-| Ngày cập nhật        | 2026-08-09                                                                            |
+| Ngày cập nhật        | 2026-08-10                                                                            |
 | Repository           | `https://github.com/basangnguyen/TUTORHUB_WEB`                                        |
 | Nhánh làm việc       | `main`                                                                                |
 | Quy trình            | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
 | Phase hoàn thành     | Phase 0, Phase 1, Phase 2                                                             |
 | Phase hiện tại       | Phase 4 Classroom Media MVP; Phase 3 deferred carry-over vẫn hoạt động                |
-| Task `DONE` gần nhất | P4-MEDIA-UX-00 Classroom media UX research                                            |
-| Mốc repository mới   | P4-03 local/Chromium/disposable/provider candidate đạt `VERIFY`                        |
-| Task hiện tại        | P4-03 Prejoin device/network và join-attempt flow (`VERIFY`)                           |
-| Task tiếp theo       | P4-03 exact CI/shared deploy/live; sau `DONE` mới bắt đầu P4-04                       |
+| Task `DONE` gần nhất | P4-03 Prejoin device/network và join-attempt flow                                     |
+| Mốc repository mới   | P4-03 exact candidate CI/shared/deploy/live acceptance đạt `DONE`                     |
+| Task hiện tại        | P4-04 Lobby, admission và explicit same-tenant invite (`TODO`)                        |
+| Task tiếp theo       | Bắt đầu vertical slice P4-04, tiếp tục giữ media feature force-off                    |
 
-### Checkpoint P4-03 `VERIFY` ngày 2026-08-09
+### Checkpoint P4-03 `DONE` ngày 2026-08-10
 
 P4-03 đã thêm canonical join-attempt API trước credential, current-role/lobby reauthorization,
 same-tenant concealment và exact runtime ACL không cho `joining_at` ở participant `INSERT`. Prejoin
@@ -25,20 +25,28 @@ không capture ban đầu, chỉ probe sau explicit action; có device/speaker/a
 bounded errors, listen-only, memory-only credential handoff và purge khi route/principal/workspace/
 disconnect thay đổi.
 
-Fresh `pnpm verify` PASS trong `215.2s`: web `57` files/`289` tests, API client `47` tests, format,
+Fresh `pnpm verify` PASS trên exact candidate tree: web `57` files/`289` tests, API client `47` tests, format,
 generated contract, lint/typecheck/build/Storybook/security và toàn bộ Go test/vet đều xanh. Isolated
 Chromium Playwright đạt `6/6`; focused prejoin/room Vitest đạt `27` tests và stress test xác nhận 20
 device-switch cycles để lại zero owned resource.
 
 Neon disposable đạt exact ACL provision/ledger-role, runtime ACL, lifecycle/concurrency/quota/privacy
 và join-attempt/credential/webhook gates. LiveKit test-provider smoke PASS; final read-only ledger giữ
-`30 false`, không migration mới, không rollback, không shared staging/deploy. Lần fail đầu chỉ ra
+`30 false`, không migration mới và không rollback. Lần fail đầu chỉ ra
 fixture timestamp rơi đúng ranh giới Unix second; fixture được lệch `125ms`, unit + disposable rerun
 đều PASS. Evidence: [P4_03_STAGING_ACCEPTANCE.md](P4_03_STAGING_ACCEPTANCE.md).
 
-P4-03 chưa `DONE`: còn review/stage exact candidate, GitHub Verify/Security, shared exact ACL/deploy
-và live acceptance. Disposable branch tiếp tục được giữ; `.env*.local` và `.tmp-gocache/` không thuộc
-candidate.
+Exact candidate `e49a8cc38f464e3ec56655823bcbb1ee77cbc651` PASS GitHub Verify
+`31330663644` và Security `31330663663`. Shared exact ACL reprovision + focused read-only probe
+PASS, ledger giữ `30 false`; không migration, rollback hoặc shared fixture. Cloudflare Pages check
+`93288377456` và Render deployment `dep-d9sd4ne7bikc739bf7l0` đều chạy exact SHA.
+
+Live đạt 6/6 health/ready/status `200 + no-store`, 4/4 anonymous MediaSpace/join-attempt privacy
+`401`, Organization Admin xác nhận hai media feature off và prejoin inaccessible route fail-closed
+với Retry, zero video/audio element, URL sạch credential và console sạch. Transaction read-only
+trước/sau giữ bảy media relation ở `0 -> 0`; không có join/provider/database side effect. Disposable
+branch tiếp tục được giữ; `.env*.local` và `.tmp-gocache/` không thuộc candidate. P4-03 chuyển
+`VERIFY -> DONE`; P4-04 là task runnable hiện tại.
 
 ### Checkpoint P4-MEDIA-UX-00 `DONE` ngày 2026-08-09
 
@@ -67,8 +75,8 @@ candidate force-off đến khi self-host immutable model/WASM/background, privac
 CSP/network, exact Firefox/Safari/low-end performance và cleanup gates đạt ở P4-05/P4-11. WebRTC
 speech + explicit original-sound là audio baseline; Krisp/direct MediaPipe không vào MVP. Hand/
 reaction vẫn qua Core API với `CanPublishData=false`. Không migration, shared staging write,
-provider config, deploy hoặc feature activation trong research. P4-03 sau đó đã đạt `VERIFY`; còn
-exact candidate CI/security, shared ACL/deploy và live acceptance trước `DONE`.
+provider config, deploy hoặc feature activation trong research. P4-03 sau đó đã đạt `DONE`; P4-04
+là task runnable tiếp theo và vẫn phải tuân toàn bộ decision của ADR-0031.
 
 ### Checkpoint P4-02 `DONE` ngày 2026-08-09
 

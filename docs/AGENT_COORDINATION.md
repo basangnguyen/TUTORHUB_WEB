@@ -193,7 +193,7 @@ hoặc worker-driven file processing/sharing tới end user.
 | P4-MEDIA-UX-00 | DONE       | Report + prototype cô lập + ADR-0031; effect mặc định off   |
 | P4-01           | DONE       | Exact disposable/CI/shared/deploy/live feature-off PASS    |
 | P4-02           | DONE       | Exact disposable/CI/shared/deploy/live/provider PASS       |
-| P4-03           | VERIFY     | Local/Chromium/disposable/provider PASS; còn CI/shared/live |
+| P4-03           | DONE       | Exact CI/shared/deploy/live feature-off/privacy PASS        |
 | P4-04 đến P4-10 | TODO       | Lobby/UI/moderation/chat/reconnect/telemetry               |
 | P4-11           | TODO       | Browser/device/load/provider-outage acceptance             |
 | P4-12           | TODO       | Exact staging acceptance và Phase 4 closure                |
@@ -206,12 +206,14 @@ exact ACL/PostgreSQL gates, GitHub Verify/Security, Render/Cloudflare deploy và
 feature-off acceptance đều PASS. P4-02 sau đó cũng `DONE`: disposable/shared forward giữ
 `30 false`, exact credential/webhook ACL, CI/security, Render/Cloudflare và live provider
 acceptance đều PASS; hai media feature tiếp tục off. Evidence tại
-`docs/P4_01_STAGING_ACCEPTANCE.md` và `docs/P4_02_STAGING_ACCEPTANCE.md`. P4-03 hiện `VERIFY`:
-implementation, local/Chromium, exact Neon disposable và LiveKit test-provider đều PASS; còn exact
-candidate CI/security, shared ACL/deploy và live acceptance theo `docs/P4_03_STAGING_ACCEPTANCE.md`.
+`docs/P4_01_STAGING_ACCEPTANCE.md` và `docs/P4_02_STAGING_ACCEPTANCE.md`. P4-03 cũng đã `DONE` trên
+exact candidate `e49a8cc38f464e3ec56655823bcbb1ee77cbc651`: GitHub Verify/Security, shared exact
+ACL/read-only gate, Render/Cloudflare exact deploy, public/anonymous/authenticated feature-off và
+zero-side-effect acceptance đều PASS; ledger giữ `30 false`, không migration/rollback. Evidence tại
+`docs/P4_03_STAGING_ACCEPTANCE.md`.
 Trước P4-08 phải review/amend ADR-0013/0025 vì conversation hiện chỉ có `direct` và `class`.
 
-`P4-MEDIA-UX-00` đã `DONE` bằng report, prototype cô lập và ADR-0031. P4-03 là task `VERIFY` hiện tại;
+`P4-MEDIA-UX-00` và P4-03 đã `DONE`; P4-04 là task runnable hiện tại;
 P4-03/P4-04/P4-05/P4-06/P4-11 phải dùng explicit device probe, bounded layout 2/5/25/50 và
 Core API signal contract đã chốt. `effect=None` là baseline; Track Processors chưa phải production
 dependency và giữ off tới exact browser/device/privacy/performance gate. Không mở lại

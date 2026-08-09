@@ -2,29 +2,29 @@
 
 > Bản tóm tắt điều hành. Chi tiết work package, dependency, SLO, rủi ro và exit gate nằm trong [MASTER_PLAN.md](MASTER_PLAN.md). Khi có khác biệt, Master Plan phiên bản mới hơn là nguồn có thẩm quyền.
 
-| Thuộc tính          | Trạng thái                                      |
-| ------------------- | ----------------------------------------------- |
-| Cập nhật            | 2026-08-09                                      |
+| Thuộc tính          | Trạng thái                                           |
+| ------------------- | ---------------------------------------------------- |
+| Cập nhật            | 2026-08-10                                           |
 | Phase hiện tại      | Phase 4 Classroom Media; Phase 3 carry-over tiếp tục |
-| Hoàn thành gần nhất | P4-MEDIA-UX-00 research `DONE`                  |
-| Mốc repository mới  | P4-03 local/Chromium/disposable/provider `VERIFY` |
-| Việc tiếp theo      | P4-03 exact CI/shared deploy/live acceptance    |
-| Phạm vi             | Web-first; desktop/mobile/native là track sau   |
+| Hoàn thành gần nhất | P4-03 prejoin/join-attempt `DONE`                    |
+| Mốc repository mới  | P4-03 exact CI/shared/deploy/live PASS               |
+| Việc tiếp theo      | Bắt đầu P4-04 lobby/admission/invite                 |
+| Phạm vi             | Web-first; desktop/mobile/native là track sau        |
 
 ## Chuỗi phase
 
-| Phase | Tên                               |    Thời lượng kế hoạch | Kết quả chính                                              |
-| ----: | --------------------------------- | ---------------------: | ---------------------------------------------------------- |
-|     0 | Product và architecture baseline  |             Hoàn thành | Phạm vi, ADR, security/deployment baseline                 |
-|     1 | Engineering Foundation            |             Hoàn thành | CI, web shell, API, database, auth, LiveKit spike, staging |
-|     2 | Identity, tenant và class core    |             Hoàn thành | Multi-tenant, permission, class/enrollment                 |
+| Phase | Tên                               |               Thời lượng kế hoạch | Kết quả chính                                                      |
+| ----: | --------------------------------- | --------------------------------: | ------------------------------------------------------------------ |
+|     0 | Product và architecture baseline  |                        Hoàn thành | Phạm vi, ADR, security/deployment baseline                         |
+|     1 | Engineering Foundation            |                        Hoàn thành | CI, web shell, API, database, auth, LiveKit spike, staging         |
+|     2 | Identity, tenant và class core    |                        Hoàn thành | Multi-tenant, permission, class/enrollment                         |
 |     3 | Daily learning workspace          | Core Exit trước; full closure sau | Lịch chuyên nghiệp, poll core, chat, file; email/worker carry-over |
-|     4 | Classroom Media MVP               |               6-8 tuần | Prejoin, LiveKit room, moderation, reconnect               |
-|     5 | Classroom Collaboration           |              8-12 tuần | Research/ADR engine; whiteboard, tools, breakout, recording |
-|     6 | Assessment, Tasks và QuizHub      |              8-12 tuần | Assignment, exam, scoring, practice/game                   |
-|     7 | Content, Social Learning và Lavie |              6-10 tuần | Feed/video có kiểm soát, AI/RAG theo quyền                 |
-|     8 | Global Readiness                  | 8-12 tuần trước launch | Production hosting, SLO, DR, security, privacy             |
-|     9 | V1 Cutover và Sunset              |        4-8 tuần/cohort | Import, reconciliation, rollout và V1 read-only            |
+|     4 | Classroom Media MVP               |                          6-8 tuần | Prejoin, LiveKit room, moderation, reconnect                       |
+|     5 | Classroom Collaboration           |                         8-12 tuần | Research/ADR engine; whiteboard, tools, breakout, recording        |
+|     6 | Assessment, Tasks và QuizHub      |                         8-12 tuần | Assignment, exam, scoring, practice/game                           |
+|     7 | Content, Social Learning và Lavie |                         6-10 tuần | Feed/video có kiểm soát, AI/RAG theo quyền                         |
+|     8 | Global Readiness                  |            8-12 tuần trước launch | Production hosting, SLO, DR, security, privacy                     |
+|     9 | V1 Cutover và Sunset              |                   4-8 tuần/cohort | Import, reconciliation, rollout và V1 read-only                    |
 
 ## Milestone
 
@@ -75,12 +75,13 @@ activation, SES/domain/live interoperability và delivery/processing phụ thu�
 được giữ carry-over để đóng sau, không đánh dấu PASS do bỏ qua.
 P3-CAL-01 không phải dependency kỹ thuật của session một lần P3-01; cả hai gate đã đạt.
 P3-CAL-02 có thể chạy sandbox cô lập, nhưng mọi email/notification side effect runtime
-vẫn phải chờ P3-03B. Core Exit đã đạt trên candidate `f5f1eb3`; P4-00/P4-01/P4-02
+vẫn phải chờ P3-03B. Core Exit đã đạt trên candidate `f5f1eb3`; P4-00/P4-01/P4-02/P4-03
 và P4-MEDIA-UX-00 hiện đã `DONE`. Nguồn thực thi là
 [PHASE_4_BACKLOG.md](PHASE_4_BACKLOG.md), ADR authority là
 [ADR-0030](adr/0030-authoritative-classroom-media-spaces-lifecycle-and-livekit-grants.md) cùng
-[ADR-0031](adr/0031-classroom-media-ux-devices-layout-effects-and-signals.md). P4-03 hiện `VERIFY`
-sau local/Chromium/disposable/provider PASS; còn exact CI/shared deploy/live trước `DONE`.
+[ADR-0031](adr/0031-classroom-media-ux-devices-layout-effects-and-signals.md). P4-03 exact candidate
+đã PASS CI/security, shared exact ACL, Render/Cloudflare deploy cùng public/privacy/authenticated
+feature-off/no-side-effect live acceptance; P4-04 là task runnable hiện tại.
 `P3-02D-B` auto-close/fan-out/delivery cùng các lane
 worker/provider tiếp tục là carry-over, không bị coi là PASS.
 

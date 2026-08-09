@@ -20,13 +20,11 @@ P3-14-CORE đã `DONE`; Phase 4 được phép bắt đầu trong khi Phase 3 de
 Không task Phase 4 nào được xóa, giả lập PASS hoặc bật notification/email/file-processing side
 effect thuộc Phase 3 khi carry-over chưa đạt gate riêng.
 
-**Task `DONE` gần nhất:** `P4-MEDIA-UX-00` Classroom media UX research ngày 2026-08-09.
-Official Zoom/Meet/LiveKit/browser evidence, V1 reuse/reject audit, isolated layout/signal/effect
-prototype và ADR-0031 đã chốt. Production baseline là `effect=None`; optional Track Processors
-giữ force-off tới browser/device/privacy/performance gate P4-05/P4-11. P4-02 vẫn `DONE`, shared
-ledger giữ `30 false`, không rollback. **Task hiện tại:** `P4-03` prejoin device/network và
-join-attempt flow đang `VERIFY` sau local/Chromium/disposable/provider PASS; còn exact candidate
-CI/security, shared ACL/deploy và live acceptance trước `DONE`.
+**Task `DONE` gần nhất:** `P4-03` Prejoin device/network và join-attempt flow ngày 2026-08-10.
+Canonical attempt/credential boundary, explicit local media probe, exact ACL, Chromium/disposable/
+provider gates, exact CI/security, shared ACL và Render/Cloudflare live acceptance đều PASS. P4-03
+không có migration; shared ledger giữ `30 false`, không rollback và hai media feature vẫn off.
+**Task hiện tại:** `P4-04` Lobby, admission và explicit same-tenant invite (`TODO`).
 
 `P4-MEDIA-UX-00` đã `DONE`; không đổi LiveKit provider, không thêm processor production dependency
 hoặc mở `CanPublishData=false`. P4-03/P4-04/P4-05/P4-06/P4-11 phải tuân ADR-0031 và báo rõ các
@@ -69,22 +67,22 @@ physical/manual effect gate còn `UNVERIFIED` thay vì suy PASS từ research.
 
 ## 4. Trạng thái tổng hợp
 
-| Task            | Nội dung                                           | Dependency                              | Trạng thái |
-| --------------- | -------------------------------------------------- | --------------------------------------- | ---------- |
-| P4-00           | Architecture/backlog/contract baseline             | P3-14-CORE                              | DONE       |
-| P4-MEDIA-UX-00 | Prejoin/layout/signals/effects research spike      | P4-00; song song P4-01/P4-02            | DONE       |
-| P4-01           | MediaSpace lifecycle, schema và API core            | P4-00                                   | DONE       |
-| P4-02           | RoomInstance LiveKit credential + webhook binding   | P4-01, P1-07 baseline                   | DONE       |
-| P4-03           | Prejoin device/network và join-attempt flow         | P4-02, P4-MEDIA-UX-00                  | VERIFY     |
-| P4-04           | Lobby, admission và explicit same-tenant invite     | P4-02, P4-03, P4-MEDIA-UX-00           | TODO       |
-| P4-05           | Classroom shell, media controls và layouts          | P4-03, P4-MEDIA-UX-00                  | TODO       |
-| P4-06           | Participant roster, hand raise và reaction          | P4-04, P4-05, P4-MEDIA-UX-00           | TODO       |
-| P4-07           | Host/co-host/TA moderation, lock/mute/remove/end     | P4-04, P4-06                            | TODO       |
-| P4-08           | Persistent in-room chat                             | P4-01, P3-07A; ADR review               | TODO       |
-| P4-09           | Reconnect, recovery instance và degraded audio-only | P4-02, P4-05, P4-07                     | TODO       |
-| P4-10           | Join telemetry, privacy và diagnostics export       | P4-02, P4-03, P4-09                     | TODO       |
-| P4-11           | Browser/device matrix, load và outage runbook        | P4-05 đến P4-10                         | TODO       |
-| P4-12           | Exact staging acceptance và Phase 4 closure          | P4-MEDIA-UX-00, P4-01 đến P4-11         | TODO       |
+| Task           | Nội dung                                            | Dependency                      | Trạng thái |
+| -------------- | --------------------------------------------------- | ------------------------------- | ---------- |
+| P4-00          | Architecture/backlog/contract baseline              | P3-14-CORE                      | DONE       |
+| P4-MEDIA-UX-00 | Prejoin/layout/signals/effects research spike       | P4-00; song song P4-01/P4-02    | DONE       |
+| P4-01          | MediaSpace lifecycle, schema và API core            | P4-00                           | DONE       |
+| P4-02          | RoomInstance LiveKit credential + webhook binding   | P4-01, P1-07 baseline           | DONE       |
+| P4-03          | Prejoin device/network và join-attempt flow         | P4-02, P4-MEDIA-UX-00           | DONE       |
+| P4-04          | Lobby, admission và explicit same-tenant invite     | P4-02, P4-03, P4-MEDIA-UX-00    | TODO       |
+| P4-05          | Classroom shell, media controls và layouts          | P4-03, P4-MEDIA-UX-00           | TODO       |
+| P4-06          | Participant roster, hand raise và reaction          | P4-04, P4-05, P4-MEDIA-UX-00    | TODO       |
+| P4-07          | Host/co-host/TA moderation, lock/mute/remove/end    | P4-04, P4-06                    | TODO       |
+| P4-08          | Persistent in-room chat                             | P4-01, P3-07A; ADR review       | TODO       |
+| P4-09          | Reconnect, recovery instance và degraded audio-only | P4-02, P4-05, P4-07             | TODO       |
+| P4-10          | Join telemetry, privacy và diagnostics export       | P4-02, P4-03, P4-09             | TODO       |
+| P4-11          | Browser/device matrix, load và outage runbook       | P4-05 đến P4-10                 | TODO       |
+| P4-12          | Exact staging acceptance và Phase 4 closure         | P4-MEDIA-UX-00, P4-01 đến P4-11 | TODO       |
 
 `TODO` không ngụ ý implementation đã tồn tại. `VERIFY` chỉ dùng sau khi implementation và các gate
 pre-staging do runbook task quy định đã xanh; riêng P4-02 cần local/disposable/provider cùng exact
@@ -136,17 +134,17 @@ performance, privacy, accessibility hoặc license gate không đạt.
 
 ## 6. Reuse matrix và compatibility boundary
 
-| Nền hiện có | Tái sử dụng | Không được coi là Phase 4 authority |
-| ----------- | ----------- | ----------------------------------- |
-| ADR-0004 LiveKit Cloud | Provider choice, backend-held secret | Không chốt room lifecycle/moderation |
-| P1 media module | Token issuer, signed webhook verifier, bounded telemetry patterns | Class-wide deterministic room/token path |
-| P1 web room | Prejoin, device choice, LiveKit components, reconnect states | Không có source/instance/lobby authority |
+| Nền hiện có            | Tái sử dụng                                                                    | Không được coi là Phase 4 authority                                       |
+| ---------------------- | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------- |
+| ADR-0004 LiveKit Cloud | Provider choice, backend-held secret                                           | Không chốt room lifecycle/moderation                                      |
+| P1 media module        | Token issuer, signed webhook verifier, bounded telemetry patterns              | Class-wide deterministic room/token path                                  |
+| P1 web room            | Prejoin, device choice, LiveKit components, reconnect states                   | Không có source/instance/lobby authority                                  |
 | V1 classroom prototype | Preview/device/effect, layout/screen-share, hand/reaction và failure inventory | Global/JCEF/DOM/CDN/client-metadata/DataChannel authority không được port |
-| ADR-0013 policy | Shared deny-by-default role/class projection | JWT/client role không cấp quyền |
-| ADR-0015 controls | Typed feature/quota + deployment clamp | Capability projection không thay API enforcement |
-| P3 scheduling | ClassSession/occurrence/StudyMeeting source authority | StudyMeeting không tự mint token |
-| P3 conversation | Persistent REST messages, unread/read | DataChannel không lưu chat; room kind chưa được chốt |
-| P3 audit/outbox | Transactional allowlist events | Không ghi media content/telemetry noise |
+| ADR-0013 policy        | Shared deny-by-default role/class projection                                   | JWT/client role không cấp quyền                                           |
+| ADR-0015 controls      | Typed feature/quota + deployment clamp                                         | Capability projection không thay API enforcement                          |
+| P3 scheduling          | ClassSession/occurrence/StudyMeeting source authority                          | StudyMeeting không tự mint token                                          |
+| P3 conversation        | Persistent REST messages, unread/read                                          | DataChannel không lưu chat; room kind chưa được chốt                      |
+| P3 audit/outbox        | Transactional allowlist events                                                 | Không ghi media content/telemetry noise                                   |
 
 Legacy `/api/v1/classes/{class_id}/media-token` chỉ phục vụ controlled P1 compatibility cho tới
 khi P4 route thay thế. Không tenant nào được chạy đồng thời class-wide authority và MediaSpace
@@ -306,12 +304,16 @@ disposable branch tiếp tục được giữ lại.
 
 ## 10. P4-03 Prejoin device/network và join-attempt flow
 
-**Dependency:** P4-02/P4-MEDIA-UX-00. **Trạng thái:** `VERIFY` ngày 2026-08-09.
+**Dependency:** P4-02/P4-MEDIA-UX-00. **Trạng thái:** `DONE` ngày 2026-08-10.
 
 Implementation/OpenAPI/generated client, local full verify, 6/6 Chromium E2E, exact ACL cùng
 PostgreSQL lifecycle/concurrency/quota/privacy/join-attempt gates trên Neon disposable và LiveKit
-test-provider smoke đều PASS. P4-03 không có migration; final ledger giữ `30 false`, không rollback,
-không shared migration/deploy trong lượt này. Evidence chi tiết:
+test-provider smoke đều PASS. Exact candidate
+`e49a8cc38f464e3ec56655823bcbb1ee77cbc651` PASS GitHub Verify `31330663644` và Security
+`31330663663`; shared exact ACL/read-only gate giữ `30 false`; Render deployment
+`dep-d9sd4ne7bikc739bf7l0`, Cloudflare exact SHA và live public/privacy/feature-off/no-side-effect
+acceptance đều PASS. P4-03 không có migration, không rollback và không temporary-enable feature.
+Evidence chi tiết:
 [P4_03_STAGING_ACCEPTANCE.md](P4_03_STAGING_ACCEPTANCE.md).
 
 ### Scope
@@ -334,7 +336,7 @@ không shared migration/deploy trong lượt này. Evidence chi tiết:
 - [x] Error taxonomy bounded gồm denied/policy, not-found, busy, overconstraint, abort và autoplay;
       device switch/unplug 20 vòng và cancel/unmount để lại zero owned track/AudioContext/listener.
 - [x] Join dùng canonical RoomInstance attempt/credential; participant waiting chưa connect LiveKit.
-- [ ] Exact candidate GitHub Verify/Security, shared exact ACL/deploy và live acceptance PASS.
+- [x] Exact candidate GitHub Verify/Security, shared exact ACL/deploy và live acceptance PASS.
 
 ## 11. P4-04 Lobby, admission và explicit same-tenant invite
 
@@ -393,7 +395,7 @@ không shared migration/deploy trong lượt này. Evidence chi tiết:
 - FIFO dùng server sequence; moderator lower-one/lower-all, reaction TTL/grouping và bounded a11y
   announcements theo contract đã chốt bởi research spike.
 - Hand không auto-lower theo active speaker. Reaction enum `thumbs_up/clap/heart/celebrate/laugh/
-  surprised`, TTL 10 giây, grouping 750 ms/max 3 visual cluster, actor 3/5s + 20/min và room 100/5s.
+surprised`, TTL 10 giây, grouping 750 ms/max 3 visual cluster, actor 3/5s + 20/min và room 100/5s.
 - Active-speaker/quality remain provider ephemeral; bounded resync after signal loss.
 
 ### Acceptance
@@ -517,38 +519,38 @@ không shared migration/deploy trong lượt này. Evidence chi tiết:
 
 ## 20. Cross-cutting test matrix
 
-| Risk | Automated evidence bắt buộc |
-| ---- | --------------------------- |
-| Tenant/IDOR | foreign source/space/instance/participant concealment across every endpoint |
-| Role drift | org/class/source role matrix, revoke after token, no client-role trust |
-| Concurrency | start/start, start/end, lock/join, admit/deny, remove/rejoin, recovery/recovery |
-| Token/privacy | TTL/scope/grant/no-store/memory-only, bundle/log/audit secret scan |
-| Webhook | signature, replay, out-of-order, unknown room, stale instance, malformed ID fuzz |
-| Feature/quota | defaults off, parent/subfeature dependency, clamp, concurrent ceiling |
-| Accessibility | keyboard, NVDA/Axe, 200% zoom, forced colors, reduced motion, focus recovery |
-| Reliability | network short/long loss, provider unavailable, tab reload, device unplug/change |
-| Performance | lazy bundle, layout 2/5/25/50, time-to-media, join storm, Core API health |
-| Retention | participant/webhook purge ACL, bounded batch, SKIP LOCKED, export redaction |
+| Risk          | Automated evidence bắt buộc                                                      |
+| ------------- | -------------------------------------------------------------------------------- |
+| Tenant/IDOR   | foreign source/space/instance/participant concealment across every endpoint      |
+| Role drift    | org/class/source role matrix, revoke after token, no client-role trust           |
+| Concurrency   | start/start, start/end, lock/join, admit/deny, remove/rejoin, recovery/recovery  |
+| Token/privacy | TTL/scope/grant/no-store/memory-only, bundle/log/audit secret scan               |
+| Webhook       | signature, replay, out-of-order, unknown room, stale instance, malformed ID fuzz |
+| Feature/quota | defaults off, parent/subfeature dependency, clamp, concurrent ceiling            |
+| Accessibility | keyboard, NVDA/Axe, 200% zoom, forced colors, reduced motion, focus recovery     |
+| Reliability   | network short/long loss, provider unavailable, tab reload, device unplug/change  |
+| Performance   | lazy bundle, layout 2/5/25/50, time-to-media, join storm, Core API health        |
+| Retention     | participant/webhook purge ACL, bounded batch, SKIP LOCKED, export redaction      |
 
 ## 21. Threat model và risk register
 
 Đây là threat-model baseline của P4-00 cho trust boundary mới browser/Core API/LiveKit/
 PostgreSQL. Mỗi implementation slice phải cập nhật khi thêm provider command, dữ liệu hoặc actor.
 
-| Rủi ro | Giảm thiểu/Gate |
-| ------ | -------------- |
-| P1 class-wide route bị nhầm là production lifecycle | Mutual exclusion, deprecation và P4-12 disable |
-| JWT/role stale sau roster change | TTL ngắn, reauthorize mutation, server kick/reissue |
-| Hai provider room cho một session | Row lock + partial unique + idempotency + race test |
-| Fake/tampered provider event | Official signature/body verify, DB binding, replay/out-of-order test |
-| Join/admission storm vượt capacity | Atomic reservation, tenant/actor rate-limit, deployment ceiling |
-| Provider outage làm state lệch | Instance reconciliation/recovery, typed failed state, runbook |
-| Student nâng quyền từ StudyMeeting | Source-kind policy, owner boundary, no attendance/session.schedule |
-| DataChannel bypass moderation | `CanPublishData=false`; command qua Core API |
-| Token/metadata leak | Opaque IDs, memory-only/no-store, log/bundle regression scan |
-| Join telemetry bị dùng như attendance | Domain/docs/API label rõ, no grade/attendance projection |
-| 50-person cost/quality không đạt free tier | Deployment cap có thể hạ; publish measured supported profile |
-| P3 carry-over bị bật nhầm | Separate flags/register; P4 tasks không activate email/worker/file processing |
+| Rủi ro                                              | Giảm thiểu/Gate                                                               |
+| --------------------------------------------------- | ----------------------------------------------------------------------------- |
+| P1 class-wide route bị nhầm là production lifecycle | Mutual exclusion, deprecation và P4-12 disable                                |
+| JWT/role stale sau roster change                    | TTL ngắn, reauthorize mutation, server kick/reissue                           |
+| Hai provider room cho một session                   | Row lock + partial unique + idempotency + race test                           |
+| Fake/tampered provider event                        | Official signature/body verify, DB binding, replay/out-of-order test          |
+| Join/admission storm vượt capacity                  | Atomic reservation, tenant/actor rate-limit, deployment ceiling               |
+| Provider outage làm state lệch                      | Instance reconciliation/recovery, typed failed state, runbook                 |
+| Student nâng quyền từ StudyMeeting                  | Source-kind policy, owner boundary, no attendance/session.schedule            |
+| DataChannel bypass moderation                       | `CanPublishData=false`; command qua Core API                                  |
+| Token/metadata leak                                 | Opaque IDs, memory-only/no-store, log/bundle regression scan                  |
+| Join telemetry bị dùng như attendance               | Domain/docs/API label rõ, no grade/attendance projection                      |
+| 50-person cost/quality không đạt free tier          | Deployment cap có thể hạ; publish measured supported profile                  |
+| P3 carry-over bị bật nhầm                           | Separate flags/register; P4 tasks không activate email/worker/file processing |
 
 ## 22. Definition of Done Phase 4
 
@@ -565,7 +567,7 @@ PostgreSQL. Mỗi implementation slice phải cập nhật khi thêm provider co
    live feature-off/provider acceptance đều PASS; hai media feature tiếp tục off và không rollback.
 2. P4-MEDIA-UX-00 đã `DONE`: report/prototype/ADR-0031 chốt no-effect baseline, bounded layout và
    Core API signal authority; không schema/provider/production processor change.
-3. Hoàn tất `P4-03 VERIFY -> DONE`: exact candidate CI/security, shared exact ACL/deploy và live
-   acceptance; không có forward migration, ledger phải giữ `30 false`.
-4. Sau khi P4-03 `DONE`, bắt đầu P4-04; tiếp tục giữ optional effect force-off và áp dụng decision
-   cho P4-04/P4-05/P4-06/P4-11.
+3. P4-03 đã `DONE`: exact candidate CI/security, shared exact ACL/deploy và live acceptance PASS;
+   không có forward migration, ledger giữ `30 false`.
+4. Bắt đầu P4-04 Lobby/admission/invite; tiếp tục giữ optional effect và hai media capability
+   force-off, áp dụng decision cho P4-04/P4-05/P4-06/P4-11.

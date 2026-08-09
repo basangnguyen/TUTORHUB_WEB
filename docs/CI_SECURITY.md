@@ -12,10 +12,19 @@ P1-08A thiết lập pipeline kiểm tra và baseline bảo mật kho mã. P1-08
 
 1. installation from the committed pnpm lockfile;
 2. local GitHub Actions policy validation;
-3. classroom, identity, conversation, content-file and security integration tests against
-   real PostgreSQL; the conversation/content ACL gates provision an isolated CI-only runtime
-   login and validate each exact table/column allowlist separately from the migration login;
-4. format, generated OpenAPI client, lint, typecheck, unit test, production build, Storybook build, client-bundle secret check, Go test and Go vet.
+3. classroom, identity, conversation, content-file, classroom-media and security integration tests
+   against real PostgreSQL. Conversation/content/media ACL gates provision isolated CI-only runtime
+   logins and validate exact table/column allowlists separately from the migration login;
+4. media exact ACL runs first on the narrow runtime role. Cross-module media lifecycle fixtures use
+   a distinct CI-only non-superuser role with `SELECT/INSERT/UPDATE` but no `DELETE`, DDL, ownership,
+   role administration, `BYPASSRLS` or inheritance path to the migration owner. Row-lock dependencies
+   are explicit column grants rather than broad table grants;
+5. format, generated OpenAPI client, lint, typecheck, unit test, production build, Storybook build,
+   client-bundle secret check, Go test and Go vet.
+
+Normal CI does not impersonate Neon ownership semantics or run provider/shared mutations. Owner
+preflight, shared ACL provisioning and LiveKit provider smoke remain explicit opt-in gates on an
+authorized disposable/shared environment; CI cannot silently skip or weaken their role separation.
 
 ### Security
 
