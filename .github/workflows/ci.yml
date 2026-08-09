@@ -38,6 +38,7 @@ jobs:
       DATABASE_POOL_URL: postgresql://tutorhub:tutorhub_ci@localhost:5432/tutorhub_test?sslmode=disable
       DATABASE_MIGRATION_URL: postgresql://tutorhub:tutorhub_ci@localhost:5432/tutorhub_test?sslmode=disable
       DATABASE_CONVERSATION_ACL_TEST_URL: postgresql://tutorhub_conversation_runtime_ci:tutorhub_ci@localhost:5432/tutorhub_test?sslmode=disable
+      DATABASE_MEDIA_FIXTURE_TEST_URL: postgresql://tutorhub_media_fixture_ci:tutorhub_ci@localhost:5432/tutorhub_test?sslmode=disable
       CONVERSATION_ACL_TEST_BOOTSTRAP: "true"
     steps:
       - name: Checkout
@@ -100,13 +101,37 @@ jobs:
           go test -count=1 -tags=integration \
             -run '^TestPostgresMediaLifecycleRuntimeExactACL$' \
             ./services/core-api/internal/modules/media
-          # Cross-module fixtures use the isolated CI database owner. The exact
-          # media role remains narrow above; disposable acceptance covers these
-          # fixtures through the real Core API runtime role.
-          DATABASE_POOL_URL="$DATABASE_MIGRATION_URL" go test -count=1 -tags=integration \
+          # Cross-module fixtures use a distinct, non-superuser role in this
+          # disposable CI database. The exact media role remains narrow above;
+          # Neon disposable acceptance covers the real Core API runtime role.
+          psql "$DATABASE_MIGRATION_URL" --set=ON_ERROR_STOP=1 <<'SQL'
+          DO $bootstrap$
+          BEGIN
+              IF NOT EXISTS (
+                  SELECT 1 FROM pg_roles WHERE rolname = 'tutorhub_media_fixture_ci'
+              ) THEN
+                  CREATE ROLE tutorhub_media_fixture_ci
+                      LOGIN PASSWORD 'tutorhub_ci'
+                      NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT
+                      NOREPLICATION NOBYPASSRLS;
+              END IF;
+          END
+          $bootstrap$;
+          ALTER ROLE tutorhub_media_fixture_ci
+              WITH LOGIN PASSWORD 'tutorhub_ci'
+              NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT
+              NOREPLICATION NOBYPASSRLS;
+          GRANT USAGE ON SCHEMA tutorhub TO tutorhub_media_fixture_ci;
+          REVOKE CREATE ON SCHEMA tutorhub FROM tutorhub_media_fixture_ci;
+          GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA tutorhub
+              TO tutorhub_media_fixture_ci;
+          GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA tutorhub
+              TO tutorhub_media_fixture_ci;
+          SQL
+          DATABASE_POOL_URL="$DATABASE_MEDIA_FIXTURE_TEST_URL" go test -count=1 -tags=integration \
             -run '^TestPostgresMediaLifecycleAuthorityConcurrencyQuotaAndPrivacy$' \
             ./services/core-api/internal/modules/media
-          DATABASE_POOL_URL="$DATABASE_MIGRATION_URL" go test -count=1 -tags=integration \
+          DATABASE_POOL_URL="$DATABASE_MEDIA_FIXTURE_TEST_URL" go test -count=1 -tags=integration \
             -run '^TestPostgresMediaRoomInstanceCredentialAndSignedWebhookBinding$' \
             ./services/core-api/internal/modules/media
 
