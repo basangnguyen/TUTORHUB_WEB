@@ -65,6 +65,10 @@ PowerShell process chạy gate. Tối thiểu cần:
   cho exact ACL provision trên disposable.
 - `P4_02_PROVIDER_SMOKE_CONFIRM=I_UNDERSTAND_P4_02_TEST_PROVIDER_RESOURCE`: opt-in riêng cho
   LiveKit test-provider smoke và exact cleanup.
+- `P4_02_SHARED_CONFIRM=I_UNDERSTAND_P4_02_SHARED_STAGING_ONLY`: opt-in riêng cho shared owner
+  preflight; không đặt đồng thời với cờ disposable.
+- `P4_02_SHARED_ACL_PROVISION_CONFIRM=I_UNDERSTAND_P4_02_ACL_PROVISION_SHARED_STAGING_ONLY`:
+  opt-in riêng cho exact ACL provision trên shared sau khi ledger đã đạt `30 false`.
 
 Chỉ báo `present/valid=true|false`; không in URL, hostname, username, password, key, secret, token,
 query string hoặc toàn bộ process environment. Không dùng shell tracing, `Get-ChildItem Env:` hay
@@ -597,6 +601,13 @@ Chỉ sau khi disposable report được review và có quyền tiếp tục m�
 6. live health/readiness, anonymous auth/no-store, legacy-disabled, authenticated capability-off và
    signed provider smoke được phép;
 7. read-only shared probe xác nhận không có unexpected room/session/receipt/provider side effect.
+
+Shared preflight chỉ chạy
+`TestPostgresP402SharedOwnerPreflight` với `P4_02_SHARED_CONFIRM` và
+`P4_02_OWNER_PREFLIGHT`. Exact ACL provision chỉ chạy
+`TestProvisionPostgresMediaLifecycleRuntimeExactACLShared` với shared confirmation riêng; không
+được giả mạo hai cờ `DISPOSABLE_ONLY`. Sau provisioning, chỉ chạy read-only
+`TestPostgresMediaLifecycleRuntimeExactACL`; không chạy fixture authority/concurrency trên shared.
 
 P4-02 chuyển `IN PROGRESS -> VERIFY` sau khi disposable forward/ACL/PostgreSQL/provider gates và
 exact candidate CI/security đều PASS. Chỉ chuyển `VERIFY -> DONE` sau shared forward/exact ACL,

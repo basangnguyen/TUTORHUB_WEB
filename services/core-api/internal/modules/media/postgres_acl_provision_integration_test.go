@@ -13,7 +13,10 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-const p402ACLProvisionConfirmation = "I_UNDERSTAND_P4_02_ACL_PROVISION_DISPOSABLE_ONLY"
+const (
+	p402ACLProvisionConfirmation       = "I_UNDERSTAND_P4_02_ACL_PROVISION_DISPOSABLE_ONLY"
+	p402SharedACLProvisionConfirmation = "I_UNDERSTAND_P4_02_ACL_PROVISION_SHARED_STAGING_ONLY"
+)
 
 // TestProvisionPostgresMediaLifecycleRuntimeExactACL is an explicitly opted-in
 // disposable-only acceptance gate. It derives the runtime database identity
@@ -26,7 +29,25 @@ func TestProvisionPostgresMediaLifecycleRuntimeExactACL(t *testing.T) {
 	if strings.TrimSpace(os.Getenv("P4_02_DISPOSABLE_CONFIRM")) != p402DisposableConfirmation {
 		t.Skip("P4_02_DISPOSABLE_CONFIRM is not set to the disposable-only confirmation")
 	}
+	runProvisionPostgresMediaLifecycleRuntimeExactACL(t)
+}
 
+// TestProvisionPostgresMediaLifecycleRuntimeExactACLShared is an explicitly
+// opted-in shared-staging gate. It provisions only the reviewed exact runtime
+// column allowlist and refuses to run without the separate shared confirmations.
+func TestProvisionPostgresMediaLifecycleRuntimeExactACLShared(t *testing.T) {
+	if strings.TrimSpace(os.Getenv("P4_02_SHARED_ACL_PROVISION_CONFIRM")) !=
+		p402SharedACLProvisionConfirmation {
+		t.Skip("P4_02_SHARED_ACL_PROVISION_CONFIRM is not set to the shared-staging ACL confirmation")
+	}
+	if strings.TrimSpace(os.Getenv("P4_02_SHARED_CONFIRM")) != p402SharedConfirmation {
+		t.Skip("P4_02_SHARED_CONFIRM is not set to the shared-staging confirmation")
+	}
+	runProvisionPostgresMediaLifecycleRuntimeExactACL(t)
+}
+
+func runProvisionPostgresMediaLifecycleRuntimeExactACL(t *testing.T) {
+	t.Helper()
 	migrationURL := requireMediaIntegrationEnvironment(t, "DATABASE_MIGRATION_URL")
 	runtimeURL := requireMediaIntegrationEnvironment(t, "DATABASE_POOL_URL")
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
