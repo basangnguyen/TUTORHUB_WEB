@@ -199,10 +199,61 @@ func TestPostgresMediaRoomInstanceCredentialAndSignedWebhookBinding(t *testing.T
 	); !errors.Is(err, ErrSpaceNotFound) {
 		t.Fatalf("foreign activation error = %v, want concealed room", err)
 	}
+	outsiderAccess := p402IntegrationAccess(
+		fixture.tenantID,
+		fixture.outsiderID,
+		policy.OrganizationRoleStudent,
+		uuid.New(),
+	)
+	if _, err := instances.CreateOrReuseJoinAttempt(
+		ctx,
+		outsiderAccess,
+		opened.ID,
+		CreateJoinAttemptInput{
+			JoinAttemptID:          uuid.New(),
+			ExpectedRoomInstanceID: uuid.New(),
+			ExpectedSpaceVersion:   opened.Version + 1,
+		},
+		now,
+	); !isConcealedMediaError(err) {
+		t.Fatalf("same-tenant inaccessible stale join error = %v, want concealed source", err)
+	}
 	logStage("activation_checks")
 
 	now = now.Add(time.Second)
 	ownerAttemptID := uuid.New()
+	ownerAttempt, err := instances.CreateOrReuseJoinAttempt(
+		ctx,
+		ownerAccess,
+		opened.ID,
+		CreateJoinAttemptInput{
+			JoinAttemptID:          ownerAttemptID,
+			ExpectedRoomInstanceID: roomInstanceID,
+			ExpectedSpaceVersion:   opened.Version,
+		},
+		now,
+	)
+	if err != nil || !ownerAttempt.Created ||
+		ownerAttempt.Attempt.Status != JoinAttemptAdmitted ||
+		ownerAttempt.Attempt.InstanceRole != InstanceRoleHost {
+		t.Fatalf("create admitted owner join attempt: result=%+v error=%v", ownerAttempt, err)
+	}
+	ownerAttemptRetry, err := instances.CreateOrReuseJoinAttempt(
+		ctx,
+		ownerAccess,
+		opened.ID,
+		CreateJoinAttemptInput{
+			JoinAttemptID:          ownerAttemptID,
+			ExpectedRoomInstanceID: roomInstanceID,
+			ExpectedSpaceVersion:   opened.Version,
+		},
+		now,
+	)
+	if err != nil || ownerAttemptRetry.Created ||
+		ownerAttemptRetry.Attempt.ParticipantSessionID !=
+			ownerAttempt.Attempt.ParticipantSessionID {
+		t.Fatalf("retry admitted owner join attempt: result=%+v error=%v", ownerAttemptRetry, err)
+	}
 	ownerGrant, err := instances.PrepareCredential(
 		ctx,
 		ownerAccess,
@@ -274,6 +325,41 @@ func TestPostgresMediaRoomInstanceCredentialAndSignedWebhookBinding(t *testing.T
 		uuid.New(),
 	)
 	studentAttemptID := uuid.New()
+	studentWaiting, err := instances.CreateOrReuseJoinAttempt(
+		ctx,
+		studentAccess,
+		opened.ID,
+		CreateJoinAttemptInput{
+			JoinAttemptID:          studentAttemptID,
+			ExpectedRoomInstanceID: roomInstanceID,
+			ExpectedSpaceVersion:   opened.Version,
+		},
+		now,
+	)
+	if err != nil || !studentWaiting.Created ||
+		studentWaiting.Attempt.Status != JoinAttemptWaiting ||
+		studentWaiting.Attempt.AdmissionRequestID == nil {
+		t.Fatalf("create waiting attendee join attempt: result=%+v error=%v", studentWaiting, err)
+	}
+	studentWaitingRetry, err := instances.CreateOrReuseJoinAttempt(
+		ctx,
+		studentAccess,
+		opened.ID,
+		CreateJoinAttemptInput{
+			JoinAttemptID:          studentAttemptID,
+			ExpectedRoomInstanceID: roomInstanceID,
+			ExpectedSpaceVersion:   opened.Version,
+		},
+		now,
+	)
+	if err != nil || studentWaitingRetry.Created ||
+		studentWaitingRetry.Attempt.ParticipantSessionID !=
+			studentWaiting.Attempt.ParticipantSessionID ||
+		studentWaitingRetry.Attempt.AdmissionRequestID == nil ||
+		*studentWaitingRetry.Attempt.AdmissionRequestID !=
+			*studentWaiting.Attempt.AdmissionRequestID {
+		t.Fatalf("retry waiting attendee join attempt: result=%+v error=%v", studentWaitingRetry, err)
+	}
 	if _, err := instances.PrepareCredential(
 		ctx,
 		studentAccess,
@@ -286,6 +372,24 @@ func TestPostgresMediaRoomInstanceCredentialAndSignedWebhookBinding(t *testing.T
 			p402IntegrationErrorClass(err),
 		)
 	}
+	if _, err := migrationPool.Exec(
+		ctx,
+		`DELETE FROM tutorhub.media_participant_sessions
+WHERE tenant_id = $1 AND id = $2`,
+		fixture.tenantID,
+		studentWaiting.Attempt.ParticipantSessionID,
+	); err != nil {
+		t.Fatalf("remove waiting participant fixture before lobby-off retry: %v", err)
+	}
+	if _, err := migrationPool.Exec(
+		ctx,
+		`DELETE FROM tutorhub.media_admission_requests
+WHERE tenant_id = $1 AND id = $2`,
+		fixture.tenantID,
+		*studentWaiting.Attempt.AdmissionRequestID,
+	); err != nil {
+		t.Fatalf("remove waiting admission fixture before lobby-off retry: %v", err)
+	}
 	lobbyUpdate, err := migrationPool.Exec(
 		ctx,
 		`UPDATE tutorhub.media_spaces
@@ -297,6 +401,22 @@ WHERE tenant_id = $1 AND id = $2 AND lobby_enabled = true`,
 	)
 	if err != nil || lobbyUpdate.RowsAffected() != 1 {
 		t.Fatal("prepare non-lobby credential concurrency fixture")
+	}
+	studentAttemptID = uuid.New()
+	studentAdmitted, err := instances.CreateOrReuseJoinAttempt(
+		ctx,
+		studentAccess,
+		opened.ID,
+		CreateJoinAttemptInput{
+			JoinAttemptID:          studentAttemptID,
+			ExpectedRoomInstanceID: roomInstanceID,
+			ExpectedSpaceVersion:   opened.Version,
+		},
+		now,
+	)
+	if err != nil || !studentAdmitted.Created ||
+		studentAdmitted.Attempt.Status != JoinAttemptAdmitted {
+		t.Fatalf("create admitted lobby-off attendee attempt: result=%+v error=%v", studentAdmitted, err)
 	}
 	studentOutcomes := runConcurrentP402Credentials(
 		ctx,
@@ -321,7 +441,9 @@ WHERE tenant_id = $1 AND id = $2 AND lobby_enabled = true`,
 		!studentGrant.CanSubscribe {
 		t.Fatal("student credential authority was not least privilege")
 	}
-	now = now.Add(250 * time.Millisecond)
+	// Keep the subsequent Unix-second webhook probe off an exact second so the
+	// PostgreSQL precision-clamp assertion remains meaningful.
+	now = now.Add(125 * time.Millisecond)
 	roleChangedAt := now
 	if _, err := migrationPool.Exec(
 		ctx,
@@ -358,11 +480,48 @@ WHERE tenant_id = $1 AND class_id = $2 AND user_id = $3`,
 		studentGrant.ParticipantSessionID,
 		InstanceRoleTeachingAssistant,
 	)
+	now = now.Add(250 * time.Millisecond)
+	if _, err := migrationPool.Exec(
+		ctx,
+		`UPDATE tutorhub.class_enrollments
+SET class_role = 'student', updated_at = $4
+WHERE tenant_id = $1 AND class_id = $2 AND user_id = $3`,
+		fixture.tenantID,
+		fixture.classID,
+		fixture.studentID,
+		now,
+	); err != nil {
+		t.Fatalf("downgrade participant source role: %v", err)
+	}
+	if _, err := migrationPool.Exec(
+		ctx,
+		`UPDATE tutorhub.media_spaces
+SET lobby_enabled = true, updated_at = $3
+WHERE tenant_id = $1 AND id = $2`,
+		fixture.tenantID,
+		opened.ID,
+		now,
+	); err != nil {
+		t.Fatalf("restore lobby before current-role credential check: %v", err)
+	}
 	if _, err := instances.PrepareCredential(
 		ctx,
 		studentAccess,
 		opened.ID,
-		uuid.New(),
+		studentAttemptID,
+		now,
+	); !errors.Is(err, ErrAdmissionRequired) {
+		t.Fatalf("downgraded lobby-bypass credential error = %v, want admission required", err)
+	}
+	if _, err := instances.CreateOrReuseJoinAttempt(
+		ctx,
+		studentAccess,
+		opened.ID,
+		CreateJoinAttemptInput{
+			JoinAttemptID:          uuid.New(),
+			ExpectedRoomInstanceID: roomInstanceID,
+			ExpectedSpaceVersion:   opened.Version,
+		},
 		now,
 	); !errors.Is(err, ErrParticipantConflict) {
 		t.Fatalf("second active join attempt error = %v, want participant conflict", err)
@@ -384,6 +543,21 @@ WHERE tenant_id = $1 AND class_id = $2 AND user_id = $3`,
 		uuid.New(),
 	)
 	teacherAttemptID := uuid.New()
+	teacherAttempt, err := instances.CreateOrReuseJoinAttempt(
+		ctx,
+		teacherAccess,
+		opened.ID,
+		CreateJoinAttemptInput{
+			JoinAttemptID:          teacherAttemptID,
+			ExpectedRoomInstanceID: roomInstanceID,
+			ExpectedSpaceVersion:   opened.Version,
+		},
+		now,
+	)
+	if err != nil || !teacherAttempt.Created ||
+		teacherAttempt.Attempt.Status != JoinAttemptAdmitted {
+		t.Fatalf("create admitted teacher join attempt: result=%+v error=%v", teacherAttempt, err)
+	}
 	var teacherGrant ParticipantCredentialGrant
 	for request := 0; request < int(mediaCredentialRateLimit); request++ {
 		teacherGrant, err = instances.PrepareCredential(
@@ -434,11 +608,15 @@ WHERE tenant_id = $1 AND class_id = $2 AND user_id = $3`,
 		policy.OrganizationRoleAdmin,
 		uuid.New(),
 	)
-	if _, err := instances.PrepareCredential(
+	if _, err := instances.CreateOrReuseJoinAttempt(
 		ctx,
 		adminAccess,
 		opened.ID,
-		uuid.New(),
+		CreateJoinAttemptInput{
+			JoinAttemptID:          uuid.New(),
+			ExpectedRoomInstanceID: roomInstanceID,
+			ExpectedSpaceVersion:   opened.Version,
+		},
 		now,
 	); !errors.Is(err, featurecontrol.ErrQuotaExceeded) {
 		t.Fatalf("participant quota error = %v, want quota exceeded", err)
@@ -462,6 +640,22 @@ WHERE tenant_id = $1 AND class_id = $2 AND user_id = $3`,
 		policy.OrganizationRoleStudent,
 		uuid.New(),
 	)
+	coTeacherAttemptID := uuid.New()
+	coTeacherAttempt, err := instances.CreateOrReuseJoinAttempt(
+		ctx,
+		coTeacherAccess,
+		opened.ID,
+		CreateJoinAttemptInput{
+			JoinAttemptID:          coTeacherAttemptID,
+			ExpectedRoomInstanceID: roomInstanceID,
+			ExpectedSpaceVersion:   opened.Version,
+		},
+		now,
+	)
+	if err != nil || !coTeacherAttempt.Created ||
+		coTeacherAttempt.Attempt.Status != JoinAttemptAdmitted {
+		t.Fatalf("create admitted co-teacher join attempt: result=%+v error=%v", coTeacherAttempt, err)
+	}
 	if _, err := migrationPool.Exec(
 		ctx,
 		`UPDATE tutorhub.media_spaces
@@ -475,12 +669,21 @@ WHERE tenant_id = $1 AND id = $2`,
 	}
 	if _, err := instances.PrepareCredential(
 		ctx,
-		coTeacherAccess,
+		outsiderAccess,
 		opened.ID,
 		uuid.New(),
 		now,
+	); !isConcealedMediaError(err) {
+		t.Fatalf("same-tenant inaccessible locked credential error = %v, want concealed source", err)
+	}
+	if _, err := instances.PrepareCredential(
+		ctx,
+		coTeacherAccess,
+		opened.ID,
+		coTeacherAttemptID,
+		now,
 	); !errors.Is(err, ErrRoomLocked) {
-		t.Fatalf("locked-room credential error = %v, want room locked", err)
+		t.Fatalf("locked-room admitted-attempt credential error = %v, want room locked", err)
 	}
 	if _, err := migrationPool.Exec(
 		ctx,
@@ -1454,11 +1657,18 @@ WHERE id = $1`,
 	).Scan(&connectedAt, &updatedAt); err != nil {
 		t.Fatal("read P4-02 participant transition timestamp")
 	}
-	if providerOccurredAt.Nanosecond() != 0 ||
-		!connectedAt.UTC().Equal(wantClampedAt.UTC()) ||
-		!updatedAt.UTC().Equal(wantClampedAt.UTC()) ||
-		!connectedAt.After(providerOccurredAt) {
-		t.Fatal("Unix-second provider timestamp was not clamped to PostgreSQL state precision")
+	providerSecond := providerOccurredAt.Nanosecond() == 0
+	connectedMatches := connectedAt.UTC().Equal(wantClampedAt.UTC())
+	updatedMatches := updatedAt.UTC().Equal(wantClampedAt.UTC())
+	connectedAfterProvider := connectedAt.After(providerOccurredAt)
+	if !providerSecond || !connectedMatches || !updatedMatches || !connectedAfterProvider {
+		t.Fatalf(
+			"Unix-second provider timestamp clamp failed: provider_second=%t connected_matches=%t updated_matches=%t connected_after_provider=%t",
+			providerSecond,
+			connectedMatches,
+			updatedMatches,
+			connectedAfterProvider,
+		)
 	}
 }
 

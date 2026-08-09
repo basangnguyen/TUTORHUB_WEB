@@ -27,6 +27,7 @@ import {
   clearExpiredSessionCaches,
 } from "./queryClient";
 import { clearClientDrafts } from "./clientDrafts";
+import { clearMediaRoomEscrow } from "./mediaPrejoin";
 
 export type SessionStatus =
   "loading" | "authenticated" | "unauthenticated" | "error";
@@ -61,6 +62,7 @@ function navigateToLogin(returnTo = "/app/home") {
 export async function clearPrivateSessionCache(queryClient: QueryClient) {
   advancePrincipalGeneration(queryClient);
   clearClientDrafts();
+  clearMediaRoomEscrow();
   await queryClient.cancelQueries();
   queryClient.clear();
 }
@@ -85,17 +87,21 @@ function StaticSessionProvider({
   initialCurrentUser,
 }: PropsWithChildren<{ initialCurrentUser: CurrentUser | null }>) {
   const [currentUser, setCurrentUser] = useState(initialCurrentUser);
+  const replaceCurrentUser = useCallback((nextCurrentUser: CurrentUser) => {
+    clearMediaRoomEscrow();
+    setCurrentUser(nextCurrentUser);
+  }, []);
   const value = useMemo<SessionContextValue>(
     () => ({
       currentUser,
       error: null,
       status: currentUser ? "authenticated" : "unauthenticated",
       signIn: navigateToLogin,
-      signOut: async () => undefined,
+      signOut: async () => clearMediaRoomEscrow(),
       refresh: async () => undefined,
-      replaceCurrentUser: setCurrentUser,
+      replaceCurrentUser,
     }),
-    [currentUser],
+    [currentUser, replaceCurrentUser],
   );
 
   return (
@@ -150,6 +156,7 @@ function RemoteSessionProvider({ children }: PropsWithChildren) {
 
   const replaceCurrentUser = useCallback(
     (currentUser: CurrentUser) => {
+      clearMediaRoomEscrow();
       queryClient.setQueryData(["auth", "me"], currentUser);
     },
     [queryClient],

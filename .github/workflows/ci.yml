@@ -78,7 +78,7 @@ jobs:
       - name: P2-11 fixture import integration
         run: go test -count=1 -tags=integration ./services/core-api/internal/platform/v1import
 
-      - name: PostgreSQL module and security integration
+      - name: PostgreSQL module integration
         run: |
           go test -count=1 -tags=integration ./services/core-api/internal/modules/classroom
           go test -count=1 -tags=integration ./services/core-api/internal/modules/identity
@@ -86,7 +86,36 @@ jobs:
           go test -count=1 -tags=integration ./services/core-api/internal/modules/featurecontrol
           go test -count=1 -tags=integration ./services/core-api/internal/modules/conversation
           go test -count=1 -tags=integration ./services/core-api/internal/modules/content
-          pnpm test:security:integration
+
+      - name: PostgreSQL media integration
+        env:
+          DATABASE_POOL_URL: ${{ env.DATABASE_CONVERSATION_ACL_TEST_URL }}
+          P4_02_DISPOSABLE_CONFIRM: I_UNDERSTAND_P4_02_DISPOSABLE_ONLY
+          P4_02_ACL_PROVISION_CONFIRM: I_UNDERSTAND_P4_02_ACL_PROVISION_DISPOSABLE_ONLY
+        run: |
+          psql "$DATABASE_MIGRATION_URL" --set=ON_ERROR_STOP=1 <<'SQL'
+          GRANT SELECT, INSERT, UPDATE ON TABLE
+            tutorhub.class_sessions,
+            tutorhub.class_session_series,
+            tutorhub.class_session_exceptions,
+            tutorhub.study_meetings,
+            tutorhub.rate_limit_windows
+          TO tutorhub_conversation_runtime_ci;
+          GRANT INSERT (
+            tenant_id, aggregate_type, aggregate_id, event_type,
+            payload, occurred_at, available_at
+          ) ON TABLE tutorhub.outbox_events
+          TO tutorhub_conversation_runtime_ci;
+          GRANT INSERT ON TABLE tutorhub.audit_events
+          TO tutorhub_conversation_runtime_ci;
+          SQL
+          go test -count=1 -tags=integration \
+            -run '^TestProvisionPostgresMediaLifecycleRuntimeExactACL$' \
+            ./services/core-api/internal/modules/media
+          go test -count=1 -tags=integration ./services/core-api/internal/modules/media
+
+      - name: PostgreSQL security integration
+        run: pnpm test:security:integration
 
       - name: Verify repository
         run: pnpm verify

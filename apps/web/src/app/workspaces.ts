@@ -24,6 +24,7 @@ import { useEffect, useRef } from "react";
 import { invalidateTenantAudit } from "./audit";
 import { advancePrincipalGeneration } from "./queryClient";
 import { clearClientDrafts } from "./clientDrafts";
+import { clearMediaRoomEscrow } from "./mediaPrejoin";
 import { useSession } from "./session";
 
 function getApiBaseUrl() {
@@ -78,6 +79,7 @@ function useTenantBoundaryPrincipal() {
     // cancellation so a late response cannot repopulate the previous tenant.
     advancePrincipalGeneration(queryClient);
     clearClientDrafts();
+    clearMediaRoomEscrow();
     await cancelWorkspaceReaders(queryClient);
     if (!isCurrent()) {
       return false;

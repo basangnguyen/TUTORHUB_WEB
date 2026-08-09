@@ -1522,7 +1522,8 @@ lifecycle và moderation authority. Feature/catalog cùng deployment guardrail g
 P4-00 không migration/deploy. P4-01 lifecycle/schema/API và P4-02 RoomInstance credential/signed
 webhook đã `DONE`; shared ledger giữ `30 false`. P4-MEDIA-UX-00 cũng đã `DONE` bằng evidence và
 ADR-0031, khóa `None` baseline cùng browser/device/privacy/performance gates. P4-03 prejoin/
-join-attempt là task implementation kế tiếp.
+join-attempt hiện `VERIFY`: local/Chromium/disposable/provider PASS, còn exact candidate
+CI/security, shared ACL/deploy và live acceptance trước `DONE`.
 
 **Thời lượng:** 6-8 tuần.
 
@@ -2153,7 +2154,8 @@ signed webhook binding, exact disposable/shared ACL, deployment và feature-off/
 đều đã chốt; shared ledger giữ `30 false`. P4-MEDIA-UX-00 cũng đã `DONE` bằng current official
 Zoom/Meet/LiveKit/browser research, V1 audit, isolated prototype và ADR-0031. Baseline P4 là
 `effect=None`; optional processor giữ off, còn hand/reaction luôn do Core API authorize với
-`CanPublishData=false`. P4-03 là task hiện tại.
+`CanPublishData=false`. P4-03 là task `VERIFY` hiện tại; P4-04 chỉ bắt đầu sau khi exact
+CI/shared deploy/live acceptance của P4-03 đạt.
 Không bật side effect chỉ vì core đã có. `P3-02D-B` và các gate worker/provider vẫn là
 carry-over.
 AWS SES đã được chọn làm provider target nhưng

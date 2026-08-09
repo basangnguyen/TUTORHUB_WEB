@@ -462,6 +462,7 @@ func run() int {
 	}
 
 	var mediaService media.ServiceAPI
+	var mediaJoinAttemptService media.JoinAttemptServiceAPI
 	var mediaCredentialService media.InstanceCredentialServiceAPI
 	var mediaWebhookProcessor media.WebhookProcessor
 	var liveKitWebhook media.WebhookVerifier
@@ -548,6 +549,11 @@ func run() int {
 			logger.Error("initialize room-instance media credentials", "error", err)
 			return 1
 		}
+		mediaJoinAttemptService, err = media.NewJoinAttemptService(instanceRepository, time.Now)
+		if err != nil {
+			logger.Error("initialize room-instance join attempts", "error", err)
+			return 1
+		}
 		mediaWebhookProcessor, err = media.NewProviderWebhookService(
 			instanceRepository,
 			mediaService,
@@ -588,6 +594,7 @@ func run() int {
 		InvitationRateLimiter: invitationRateLimiter,
 		Media:                 mediaService,
 		MediaSpaces:           mediaLifecycleService,
+		MediaJoinAttempts:     mediaJoinAttemptService,
 		MediaCredentials:      mediaCredentialService,
 		MediaWebhooks:         mediaWebhookProcessor,
 		LiveKitWebhook:        liveKitWebhook,

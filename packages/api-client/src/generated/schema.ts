@@ -1684,6 +1684,26 @@ export type paths = {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/api/v1/media/spaces/{space_id}/join-attempts": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Create or reuse one authoritative RoomInstance join attempt
+     * @description The server reauthorizes the active workspace and source, verifies the expected media-space version and active RoomInstance, then creates or reuses one opaque ParticipantSession. An attendee waits without a provider credential when the lobby applies; hosts and other bypass roles are admitted immediately. Device identifiers, provider identifiers, grants, and tenant authority are never accepted from the client.
+     */
+    readonly post: operations["createMediaSpaceJoinAttempt"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/api/v1/media/spaces/{space_id}/join-credentials": {
     readonly parameters: {
       readonly query?: never;
@@ -1695,7 +1715,7 @@ export type paths = {
     readonly put?: never;
     /**
      * Issue a short-lived credential for the exact active RoomInstance
-     * @description The server reauthorizes the active workspace and authoritative source, creates or reuses one opaque ParticipantSession for the join attempt, and derives all LiveKit identifiers, role, and grants. Provider room names and participant identities are never returned.
+     * @description The server reauthorizes the active workspace and authoritative source, requires an existing admitted or joining ParticipantSession created by the canonical join-attempt endpoint, and derives all LiveKit identifiers, role, and grants. A waiting attempt returns admission_required without minting a credential. Provider room names and participant identities are never returned.
      */
     readonly post: operations["issueMediaSpaceJoinCredential"];
     readonly delete?: never;
@@ -3553,6 +3573,49 @@ export type components = {
     /** @enum {string} */
     readonly MediaInstanceRole:
       "host" | "co_host" | "teaching_assistant" | "attendee";
+    readonly MediaJoinAttempt: {
+      /**
+       * Format: uuid
+       * @description Present only when this participant is bound to a lobby admission request.
+       */
+      readonly admission_request_id?: string;
+      readonly can_publish_camera_microphone: boolean;
+      readonly can_share_screen: boolean;
+      readonly can_subscribe: boolean;
+      /** Format: date-time */
+      readonly created_at: string;
+      readonly instance_role: components["schemas"]["MediaInstanceRole"];
+      /** Format: uuid */
+      readonly join_attempt_id: string;
+      /** Format: uuid */
+      readonly participant_session_id: string;
+      /** Format: uuid */
+      readonly room_instance_id: string;
+      readonly status: components["schemas"]["MediaJoinAttemptStatus"];
+      /** Format: date-time */
+      readonly updated_at: string;
+      /** Format: int64 */
+      readonly version: number;
+    };
+    readonly MediaJoinAttemptRequest: {
+      /**
+       * Format: uuid
+       * @description RoomInstance identifier from the current authorized media-space projection; stale instances fail closed.
+       */
+      readonly expected_room_instance_id: string;
+      /**
+       * Format: int64
+       * @description Current authorized media-space version used for optimistic concurrency.
+       */
+      readonly expected_space_version: number;
+      /**
+       * Format: uuid
+       * @description Client-generated opaque idempotency identifier for one explicit join action; it is never a provider identity.
+       */
+      readonly join_attempt_id: string;
+    };
+    /** @enum {string} */
+    readonly MediaJoinAttemptStatus: "waiting" | "admitted" | "joining";
     readonly MediaRoomInstance: {
       /** Format: date-time */
       readonly created_at: string;
@@ -7949,6 +8012,58 @@ export interface operations {
       readonly 403: components["responses"]["ForbiddenResponse"];
       readonly 404: components["responses"]["NotFoundResponse"];
       readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly createMediaSpaceJoinAttempt: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Double-submit CSRF token bound to the active authenticated session. */
+        readonly "X-CSRF-Token": components["parameters"]["CSRFToken"];
+        /** @description Active workspace assertion used to prevent confused-deputy mutations and reads. */
+        readonly "X-TutorHub-Expected-Tenant-ID": components["parameters"]["ExpectedTenantID"];
+      };
+      readonly path: {
+        readonly space_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["MediaJoinAttemptRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Existing idempotent join-attempt projection */
+      readonly 200: {
+        headers: {
+          readonly "Cache-Control"?: "private, no-store";
+          readonly "Referrer-Policy"?: "no-referrer";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["MediaJoinAttempt"];
+        };
+      };
+      /** @description Newly created join-attempt projection */
+      readonly 201: {
+        headers: {
+          readonly "Cache-Control"?: "private, no-store";
+          readonly "Referrer-Policy"?: "no-referrer";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["MediaJoinAttempt"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 429: components["responses"]["ProblemResponse"];
       readonly 503: components["responses"]["ProblemResponse"];
       readonly default: components["responses"]["ProblemResponse"];
     };

@@ -25,7 +25,8 @@ Official Zoom/Meet/LiveKit/browser evidence, V1 reuse/reject audit, isolated lay
 prototype và ADR-0031 đã chốt. Production baseline là `effect=None`; optional Track Processors
 giữ force-off tới browser/device/privacy/performance gate P4-05/P4-11. P4-02 vẫn `DONE`, shared
 ledger giữ `30 false`, không rollback. **Task hiện tại:** `P4-03` prejoin device/network và
-join-attempt flow.
+join-attempt flow đang `VERIFY` sau local/Chromium/disposable/provider PASS; còn exact candidate
+CI/security, shared ACL/deploy và live acceptance trước `DONE`.
 
 `P4-MEDIA-UX-00` đã `DONE`; không đổi LiveKit provider, không thêm processor production dependency
 hoặc mở `CanPublishData=false`. P4-03/P4-04/P4-05/P4-06/P4-11 phải tuân ADR-0031 và báo rõ các
@@ -74,7 +75,7 @@ physical/manual effect gate còn `UNVERIFIED` thay vì suy PASS từ research.
 | P4-MEDIA-UX-00 | Prejoin/layout/signals/effects research spike      | P4-00; song song P4-01/P4-02            | DONE       |
 | P4-01           | MediaSpace lifecycle, schema và API core            | P4-00                                   | DONE       |
 | P4-02           | RoomInstance LiveKit credential + webhook binding   | P4-01, P1-07 baseline                   | DONE       |
-| P4-03           | Prejoin device/network và join-attempt flow         | P4-02, P4-MEDIA-UX-00                  | TODO       |
+| P4-03           | Prejoin device/network và join-attempt flow         | P4-02, P4-MEDIA-UX-00                  | VERIFY     |
 | P4-04           | Lobby, admission và explicit same-tenant invite     | P4-02, P4-03, P4-MEDIA-UX-00           | TODO       |
 | P4-05           | Classroom shell, media controls và layouts          | P4-03, P4-MEDIA-UX-00                  | TODO       |
 | P4-06           | Participant roster, hand raise và reaction          | P4-04, P4-05, P4-MEDIA-UX-00           | TODO       |
@@ -305,7 +306,13 @@ disposable branch tiếp tục được giữ lại.
 
 ## 10. P4-03 Prejoin device/network và join-attempt flow
 
-**Dependency:** P4-02/P4-MEDIA-UX-00. **Trạng thái:** `TODO`.
+**Dependency:** P4-02/P4-MEDIA-UX-00. **Trạng thái:** `VERIFY` ngày 2026-08-09.
+
+Implementation/OpenAPI/generated client, local full verify, 6/6 Chromium E2E, exact ACL cùng
+PostgreSQL lifecycle/concurrency/quota/privacy/join-attempt gates trên Neon disposable và LiveKit
+test-provider smoke đều PASS. P4-03 không có migration; final ledger giữ `30 false`, không rollback,
+không shared migration/deploy trong lượt này. Evidence chi tiết:
+[P4_03_STAGING_ACCEPTANCE.md](P4_03_STAGING_ACCEPTANCE.md).
 
 ### Scope
 
@@ -319,13 +326,15 @@ disposable branch tiếp tục được giữ lại.
 
 ### Acceptance
 
-- [ ] Keyboard/screen reader/200% zoom/forced-colors; labels và error recovery rõ.
-- [ ] Permission denial hoặc missing device vẫn cho listen-only khi policy cho phép.
-- [ ] Không device label trước permission; không token trong history/storage/error report.
-- [ ] Chromium pilot matrix và unit/Playwright happy/error/offline paths PASS.
-- [ ] Error taxonomy bounded gồm denied/policy, not-found, busy, overconstraint, abort và autoplay;
+- [x] Automated keyboard/Axe/screen-reader semantics, 200%-equivalent reflow và forced-colors;
+      physical/manual matrix được giữ rõ cho P4-11.
+- [x] Permission denial hoặc missing device vẫn cho listen-only khi policy cho phép.
+- [x] Không device label trước permission; không token trong history/storage/error report.
+- [x] Chromium automated pilot matrix và unit/Playwright happy/error/offline paths PASS.
+- [x] Error taxonomy bounded gồm denied/policy, not-found, busy, overconstraint, abort và autoplay;
       device switch/unplug 20 vòng và cancel/unmount để lại zero owned track/AudioContext/listener.
-- [ ] Join dùng canonical RoomInstance attempt/credential; participant waiting chưa connect LiveKit.
+- [x] Join dùng canonical RoomInstance attempt/credential; participant waiting chưa connect LiveKit.
+- [ ] Exact candidate GitHub Verify/Security, shared exact ACL/deploy và live acceptance PASS.
 
 ## 11. P4-04 Lobby, admission và explicit same-tenant invite
 
@@ -556,5 +565,7 @@ PostgreSQL. Mỗi implementation slice phải cập nhật khi thêm provider co
    live feature-off/provider acceptance đều PASS; hai media feature tiếp tục off và không rollback.
 2. P4-MEDIA-UX-00 đã `DONE`: report/prototype/ADR-0031 chốt no-effect baseline, bounded layout và
    Core API signal authority; không schema/provider/production processor change.
-3. Bắt đầu `P4-03` prejoin device/network và join-attempt flow theo ADR-0031.
-4. Giữ optional effect force-off và áp dụng decision cho P4-04/P4-05/P4-06/P4-11.
+3. Hoàn tất `P4-03 VERIFY -> DONE`: exact candidate CI/security, shared exact ACL/deploy và live
+   acceptance; không có forward migration, ledger phải giữ `30 false`.
+4. Sau khi P4-03 `DONE`, bắt đầu P4-04; tiếp tục giữ optional effect force-off và áp dụng decision
+   cho P4-04/P4-05/P4-06/P4-11.

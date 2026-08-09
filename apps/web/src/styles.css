@@ -4645,6 +4645,337 @@ textarea:focus-visible {
   }
 }
 
+.media-p403-page {
+  width: min(100%, 1180px);
+  min-width: 0;
+  padding: clamp(20px, 4vw, 42px);
+  margin: 0 auto;
+}
+
+.media-p403-heading {
+  max-width: 760px;
+  margin: 22px 0 28px;
+}
+
+.media-p403-heading > p {
+  margin: 0 0 8px;
+  color: var(--color-accent);
+  font-size: 12px;
+  font-weight: 760;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.media-p403-heading h1 {
+  margin: 0;
+  font-size: clamp(28px, 4vw, 44px);
+  line-height: 1.1;
+}
+
+.media-p403-heading > span {
+  display: block;
+  margin-top: 12px;
+  color: var(--color-text-muted);
+  line-height: 1.65;
+}
+
+.media-p403-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 330px);
+  gap: 22px;
+  min-width: 0;
+}
+
+.media-p403-preview-panel,
+.media-p403-readiness,
+.media-p403-waiting,
+.media-p403-alert,
+.media-p403-room-status,
+.media-p403-room-recovery {
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.media-p403-preview-panel {
+  min-width: 0;
+  padding: 18px;
+}
+
+.media-p403-preview {
+  position: relative;
+  display: grid;
+  min-height: min(52vw, 440px);
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  background: #171a1f;
+  color: #fff;
+  place-items: center;
+}
+
+.media-p403-preview video {
+  width: 100%;
+  height: 100%;
+  min-height: inherit;
+  object-fit: cover;
+}
+
+.media-p403-preview-placeholder {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 8px;
+  padding: 24px;
+  text-align: center;
+}
+
+.media-p403-preview-placeholder span {
+  max-width: 44ch;
+  color: #c9ced8;
+  line-height: 1.55;
+}
+
+.media-p403-actions,
+.media-p403-join-actions,
+.media-p403-speaker-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.media-p403-actions button,
+.media-p403-join-actions button,
+.media-p403-speaker-actions button,
+.media-p403-waiting button,
+.media-p403-alert button {
+  min-height: 42px;
+  padding: 0 15px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-weight: 680;
+}
+
+.media-p403-join-actions button:first-child,
+.media-p403-actions button:first-child {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+.media-p403-device-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.media-p403-device-controls > label,
+.media-p403-meter {
+  display: grid;
+  min-width: 0;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 680;
+}
+
+.media-p403-device-controls select {
+  width: 100%;
+  min-width: 0;
+  min-height: 42px;
+  padding: 0 10px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.media-p403-device-controls fieldset {
+  display: flex;
+  grid-column: 1 / -1;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  padding: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+.media-p403-device-controls fieldset label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.media-p403-meter meter {
+  width: 100%;
+  min-height: 18px;
+}
+
+.media-p403-processing,
+.media-p403-speaker-actions {
+  grid-column: 1 / -1;
+  margin-bottom: 0;
+}
+
+.media-p403-speaker-actions {
+  align-items: center;
+}
+
+.media-p403-readiness {
+  align-self: start;
+  padding: 20px;
+}
+
+.media-p403-readiness h2,
+.media-p403-waiting h2,
+.media-p403-alert h1,
+.media-p403-alert h2 {
+  margin-top: 0;
+}
+
+.media-p403-readiness dl {
+  display: grid;
+  gap: 1px;
+  overflow: hidden;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  margin: 16px 0;
+  background: var(--color-border);
+}
+
+.media-p403-readiness dl > div {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  padding: 11px 12px;
+  background: var(--color-surface);
+}
+
+.media-p403-readiness dd {
+  margin: 0;
+  color: var(--color-text-muted);
+  text-align: right;
+}
+
+.media-p403-readiness > p,
+.media-p403-processing {
+  color: var(--color-text-muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.media-p403-waiting,
+.media-p403-alert {
+  padding: 18px;
+  margin-top: 18px;
+}
+
+.media-p403-alert {
+  border-color: var(--color-danger);
+}
+
+.media-p403-alert p,
+.media-p403-waiting p {
+  line-height: 1.55;
+}
+
+.media-p403-room {
+  min-height: 100vh;
+  padding: 24px;
+  background: #171a1f;
+}
+
+.media-p403-room-status,
+.media-p403-room-recovery {
+  width: min(100%, 560px);
+  padding: 24px;
+  margin: 10vh auto 0;
+}
+
+.media-p403-room-recovery {
+  min-height: auto;
+}
+
+.media-p403-start-audio {
+  display: block;
+  margin: 16px auto;
+}
+
+@media (max-width: 860px) {
+  .media-p403-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .media-p403-readiness {
+    width: 100%;
+  }
+}
+
+@media (max-width: 560px) {
+  .media-p403-page,
+  .media-p403-room {
+    padding: 16px;
+  }
+
+  .media-p403-device-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .media-p403-device-controls fieldset,
+  .media-p403-processing,
+  .media-p403-speaker-actions {
+    grid-column: auto;
+  }
+
+  .media-p403-actions,
+  .media-p403-join-actions,
+  .media-p403-speaker-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .media-p403-actions button,
+  .media-p403-join-actions button,
+  .media-p403-speaker-actions button {
+    width: 100%;
+  }
+}
+
+@media (forced-colors: active) {
+  .media-p403-preview,
+  .media-p403-preview-panel,
+  .media-p403-readiness,
+  .media-p403-waiting,
+  .media-p403-alert,
+  .media-p403-room-status,
+  .media-p403-room-recovery {
+    border: 1px solid CanvasText;
+    forced-color-adjust: auto;
+  }
+
+  .media-p403-preview-placeholder span,
+  .media-p403-readiness dd,
+  .media-p403-readiness > p,
+  .media-p403-processing {
+    color: CanvasText;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .media-p403-page *,
+  .media-p403-room * {
+    scroll-behavior: auto;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+
 @media (max-width: 560px) {
   .public-availability-page {
     padding: 18px 10px;

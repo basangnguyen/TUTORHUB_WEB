@@ -45,6 +45,7 @@ type Options struct {
 	FeatureControls       featurecontrol.ServiceAPI
 	Media                 media.ServiceAPI
 	MediaSpaces           media.LifecycleServiceAPI
+	MediaJoinAttempts     media.JoinAttemptServiceAPI
 	MediaCredentials      media.InstanceCredentialServiceAPI
 	MediaWebhooks         media.WebhookProcessor
 	Notifications         notification.ServiceAPI
@@ -463,6 +464,7 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 		logger,
 		auth,
 		options.Media,
+		options.MediaJoinAttempts,
 		options.MediaCredentials,
 		options.LiveKitWebhook,
 		options.MediaWebhooks,
@@ -761,6 +763,12 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 	)
 	mux.Handle(mediaTokenPathPattern, http.HandlerFunc(mediaHandlers.issueJoinCredential))
 	mux.Handle(mediaEventsPathPattern, http.HandlerFunc(mediaHandlers.recordClientEvent))
+	mux.Handle(
+		mediaSpaceJoinAttemptPathPattern,
+		mediaSpaceResponseHeaders(
+			requireMethod(http.MethodPost, http.HandlerFunc(mediaHandlers.createJoinAttempt)),
+		),
+	)
 	mux.Handle(
 		mediaSpaceCredentialPathPattern,
 		mediaSpaceResponseHeaders(

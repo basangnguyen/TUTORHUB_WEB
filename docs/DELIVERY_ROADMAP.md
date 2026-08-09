@@ -7,8 +7,8 @@
 | Cập nhật            | 2026-08-09                                      |
 | Phase hiện tại      | Phase 4 Classroom Media; Phase 3 carry-over tiếp tục |
 | Hoàn thành gần nhất | P4-MEDIA-UX-00 research `DONE`                  |
-| Mốc repository mới  | P4-02 live + P4 media UX report/prototype/ADR-0031 |
-| Việc tiếp theo      | P4-03 prejoin device/network/join-attempt       |
+| Mốc repository mới  | P4-03 local/Chromium/disposable/provider `VERIFY` |
+| Việc tiếp theo      | P4-03 exact CI/shared deploy/live acceptance    |
 | Phạm vi             | Web-first; desktop/mobile/native là track sau   |
 
 ## Chuỗi phase
@@ -79,8 +79,9 @@ vẫn phải chờ P3-03B. Core Exit đã đạt trên candidate `f5f1eb3`; P4-0
 và P4-MEDIA-UX-00 hiện đã `DONE`. Nguồn thực thi là
 [PHASE_4_BACKLOG.md](PHASE_4_BACKLOG.md), ADR authority là
 [ADR-0030](adr/0030-authoritative-classroom-media-spaces-lifecycle-and-livekit-grants.md) cùng
-[ADR-0031](adr/0031-classroom-media-ux-devices-layout-effects-and-signals.md), và P4-03 là
-vertical slice kế tiếp. `P3-02D-B` auto-close/fan-out/delivery cùng các lane
+[ADR-0031](adr/0031-classroom-media-ux-devices-layout-effects-and-signals.md). P4-03 hiện `VERIFY`
+sau local/Chromium/disposable/provider PASS; còn exact CI/shared deploy/live trước `DONE`.
+`P3-02D-B` auto-close/fan-out/delivery cùng các lane
 worker/provider tiếp tục là carry-over, không bị coi là PASS.
 
 [P4-MEDIA-UX-00](P4_MEDIA_UX_00_RESEARCH_SPIKE.md) đã `DONE`: current official

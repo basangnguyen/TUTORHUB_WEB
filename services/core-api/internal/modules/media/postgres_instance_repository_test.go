@@ -2,6 +2,7 @@ package media
 
 import (
 	"database/sql"
+	"errors"
 	"os"
 	"regexp"
 	"strings"
@@ -152,7 +153,12 @@ func TestInstanceControlLockPrecedesRowsWhileSpaceConcealsFeature(t *testing.T) 
 		{
 			name:  "join credential",
 			start: "func (repository *PostgresInstanceRepository) PrepareCredential(",
-			end:   "func (repository *PostgresInstanceRepository) AllowLegacyMedia(",
+			end:   "func (repository *PostgresInstanceRepository) CreateOrReuseJoinAttempt(",
+		},
+		{
+			name:  "join attempt",
+			start: "func (repository *PostgresInstanceRepository) CreateOrReuseJoinAttempt(",
+			end:   "func (repository *PostgresInstanceRepository) requireParticipantCapacity(",
 		},
 	}
 	for _, test := range tests {
@@ -172,6 +178,142 @@ func TestInstanceControlLockPrecedesRowsWhileSpaceConcealsFeature(t *testing.T) 
 				t.Fatal("exact tenant space lookup must conceal foreign spaces before feature evaluation")
 			}
 		})
+	}
+}
+
+func TestJoinAttemptOwnsParticipantCreationBeforeCredentialMint(t *testing.T) {
+	t.Parallel()
+
+	source := postgresInstanceRepositorySource(t)
+	credential := postgresInstanceRepositorySection(
+		t,
+		source,
+		"func (repository *PostgresInstanceRepository) PrepareCredential(",
+		"func (repository *PostgresInstanceRepository) CreateOrReuseJoinAttempt(",
+	)
+	if strings.Contains(credential, "INSERT INTO tutorhub.media_participant_sessions") {
+		t.Fatal("credential issuance must not create a participant session")
+	}
+	for _, fragment := range []string{
+		`existing.Status == string(JoinAttemptWaiting)`,
+		`existing.Status != string(JoinAttemptAdmitted)`,
+		`existing.Status != string(JoinAttemptJoining)`,
+		"SET status = 'joining'",
+		"joining_at = $6",
+	} {
+		if !strings.Contains(credential, fragment) {
+			t.Fatalf("credential issuance is missing existing-attempt boundary %q", fragment)
+		}
+	}
+
+	attempt := postgresInstanceRepositorySection(
+		t,
+		source,
+		"func (repository *PostgresInstanceRepository) CreateOrReuseJoinAttempt(",
+		"func (repository *PostgresInstanceRepository) requireParticipantCapacity(",
+	)
+	for _, fragment := range []string{
+		"space.Version != input.ExpectedSpaceVersion",
+		"room.ID != input.ExpectedRoomInstanceID",
+		"INSERT INTO tutorhub.media_admission_requests",
+		"INSERT INTO tutorhub.media_participant_sessions",
+		"space.LobbyEnabled && source.InstanceRole == InstanceRoleAttendee",
+		"participant.Status = string(JoinAttemptWaiting)",
+	} {
+		if !strings.Contains(attempt, fragment) {
+			t.Fatalf("join-attempt authority is missing %q", fragment)
+		}
+	}
+}
+
+func TestCredentialLockBlocksAdmittedAttemptBeforeMint(t *testing.T) {
+	t.Parallel()
+
+	credential := postgresInstanceRepositorySection(
+		t,
+		postgresInstanceRepositorySource(t),
+		"func (repository *PostgresInstanceRepository) PrepareCredential(",
+		"func (repository *PostgresInstanceRepository) CreateOrReuseJoinAttempt(",
+	)
+	lockCheck := strings.Index(credential, "if space.Locked {")
+	participantLookup := strings.Index(credential, "loadParticipantByAttempt(")
+	rateLimit := strings.Index(credential, "consumeMediaCredentialRateLimit(")
+	if lockCheck < 0 || participantLookup < 0 || rateLimit < 0 {
+		t.Fatal("credential issuance is missing the lock, admitted-attempt, or rate-limit boundary")
+	}
+	if lockCheck > participantLookup || lockCheck > rateLimit {
+		t.Fatal("space lock must reject every new credential before admitted-attempt lookup or mint rate consumption")
+	}
+}
+
+func TestJoinBoundariesAuthorizeAndConcealSourceBeforeObservableState(t *testing.T) {
+	t.Parallel()
+
+	source := postgresInstanceRepositorySource(t)
+	for _, test := range []struct {
+		name       string
+		start      string
+		end        string
+		observable []string
+	}{
+		{
+			name:  "credential",
+			start: "func (repository *PostgresInstanceRepository) PrepareCredential(",
+			end:   "func (repository *PostgresInstanceRepository) CreateOrReuseJoinAttempt(",
+			observable: []string{
+				"controls.RequireFeature(", "if space.Status !=", "if space.Locked {",
+			},
+		},
+		{
+			name:  "join attempt",
+			start: "func (repository *PostgresInstanceRepository) CreateOrReuseJoinAttempt(",
+			end:   "func (repository *PostgresInstanceRepository) requireParticipantCapacity(",
+			observable: []string{
+				"controls.RequireFeature(", "if space.Version !=", "if space.Status !=", "if space.Locked {",
+			},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			section := postgresInstanceRepositorySection(t, source, test.start, test.end)
+			authorization := strings.Index(section, "repository.lifecycle.authorizeSource(")
+			concealment := strings.Index(section, "concealJoinSourceError(err)")
+			if authorization < 0 || concealment < authorization {
+				t.Fatal("join boundary must authorize and conceal the source before exposing state")
+			}
+			for _, fragment := range test.observable {
+				observable := strings.Index(section, fragment)
+				if observable < 0 || authorization > observable {
+					t.Fatalf("source authorization must precede observable boundary %q", fragment)
+				}
+			}
+		})
+	}
+
+	if !errors.Is(concealJoinSourceError(ErrSpaceAccessDenied), ErrSpaceNotFound) {
+		t.Fatal("join source access denial must be concealed as not found")
+	}
+	if !errors.Is(concealJoinSourceError(ErrSourceUnavailable), ErrSourceUnavailable) {
+		t.Fatal("join source unavailable error must retain its concealed class")
+	}
+}
+
+func TestCredentialRechecksCurrentLobbyBypassAuthority(t *testing.T) {
+	t.Parallel()
+
+	credential := postgresInstanceRepositorySection(
+		t,
+		postgresInstanceRepositorySource(t),
+		"func (repository *PostgresInstanceRepository) PrepareCredential(",
+		"func (repository *PostgresInstanceRepository) CreateOrReuseJoinAttempt(",
+	)
+	roleCheck := strings.Index(
+		credential,
+		"space.LobbyEnabled && source.InstanceRole == InstanceRoleAttendee",
+	)
+	admissionCheck := strings.Index(credential, "requireAdmittedAdmission(")
+	rateLimit := strings.Index(credential, "consumeMediaCredentialRateLimit(")
+	if roleCheck < 0 || admissionCheck < roleCheck || rateLimit < admissionCheck {
+		t.Fatal("credential must recheck current lobby admission before rate-limit or mint")
 	}
 }
 

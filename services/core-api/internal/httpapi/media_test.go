@@ -24,6 +24,127 @@ import (
 	"github.com/tutorhub-v2/core-api/internal/modules/media"
 )
 
+func TestJoinAttemptRequiresCSRFExpectedTenantAndStrictAuthority(t *testing.T) {
+	t.Parallel()
+
+	tenantID, actorID := uuid.New(), uuid.New()
+	spaceID, roomID, attemptID, admissionID := uuid.New(), uuid.New(), uuid.New(), uuid.New()
+	identityService := classIdentityService(tenantID, actorID, nil)
+	service := &fakeJoinAttemptService{result: media.CreateJoinAttemptResult{
+		Created: true,
+		Attempt: media.JoinAttempt{
+			ParticipantSessionID: uuid.New(), RoomInstanceID: roomID,
+			AdmissionRequestID: &admissionID, JoinAttemptID: attemptID,
+			Status: media.JoinAttemptWaiting, Version: 1,
+			InstanceRole: media.InstanceRoleAttendee, CanPublishCameraMicrophone: true,
+			CanSubscribe: true, CreatedAt: fixedTime, UpdatedAt: fixedTime,
+		},
+	}}
+	handler := newP4JoinAttemptTestHandler(identityService, service)
+	path := "/api/v1/media/spaces/" + spaceID.String() + "/join-attempts"
+	body := `{"join_attempt_id":"` + attemptID.String() +
+		`","expected_room_instance_id":"` + roomID.String() +
+		`","expected_space_version":4}`
+
+	missingCSRF := httptest.NewRequest(http.MethodPost, path, strings.NewReader(body))
+	missingCSRF.Header.Set("Content-Type", "application/json")
+	missingCSRF.Header.Set(mediaSpaceTenantHeader, tenantID.String())
+	addSessionCookie(missingCSRF)
+	missingCSRFResponse := httptest.NewRecorder()
+	handler.ServeHTTP(missingCSRFResponse, missingCSRF)
+	if missingCSRFResponse.Code != http.StatusForbidden || service.calls != 0 {
+		t.Fatalf("missing CSRF must fail closed: status=%d calls=%d", missingCSRFResponse.Code, service.calls)
+	}
+
+	unknownAuthority := httptest.NewRequest(
+		http.MethodPost,
+		path,
+		strings.NewReader(strings.TrimSuffix(body, "}")+`,"role":"host","device_id":"camera"}`),
+	)
+	unknownAuthority.Header.Set("Content-Type", "application/json")
+	unknownAuthority.Header.Set(mediaSpaceTenantHeader, tenantID.String())
+	addAuthenticatedMutationCookies(unknownAuthority)
+	unknownAuthorityResponse := httptest.NewRecorder()
+	handler.ServeHTTP(unknownAuthorityResponse, unknownAuthority)
+	if unknownAuthorityResponse.Code != http.StatusBadRequest || service.calls != 0 {
+		t.Fatalf("client authority/device fields must be rejected: status=%d calls=%d", unknownAuthorityResponse.Code, service.calls)
+	}
+
+	request := httptest.NewRequest(http.MethodPost, path, strings.NewReader(body))
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set(mediaSpaceTenantHeader, tenantID.String())
+	addAuthenticatedMutationCookies(request)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusCreated {
+		t.Fatalf("create join attempt: status=%d body=%s", response.Code, response.Body.String())
+	}
+	var actual media.JoinAttempt
+	if err := json.Unmarshal(response.Body.Bytes(), &actual); err != nil {
+		t.Fatalf("decode join attempt: %v", err)
+	}
+	if service.calls != 1 || service.spaceID != spaceID ||
+		service.input.JoinAttemptID != attemptID ||
+		service.input.ExpectedRoomInstanceID != roomID ||
+		service.input.ExpectedSpaceVersion != 4 || actual.Status != media.JoinAttemptWaiting ||
+		actual.AdmissionRequestID == nil || *actual.AdmissionRequestID != admissionID {
+		t.Fatalf("unexpected join-attempt flow: body=%+v service=%+v", actual, service)
+	}
+	assertMediaAccess(t, service.access, identityService.principal)
+	if response.Header().Get("Cache-Control") != "private, no-store" ||
+		response.Header().Get("Referrer-Policy") != "no-referrer" ||
+		strings.Contains(response.Body.String(), "provider_") ||
+		strings.Contains(response.Body.String(), "device_") ||
+		strings.Contains(response.Body.String(), "access_token") {
+		t.Fatalf("join-attempt privacy boundary failed: headers=%v body=%s", response.Header(), response.Body.String())
+	}
+}
+
+func TestJoinAttemptMapsStaleAndParticipantConflicts(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		err    error
+		status int
+		code   string
+	}{
+		{name: "invalid", err: media.ErrInvalidJoinAttempt, status: http.StatusBadRequest, code: "join_attempt_invalid"},
+		{name: "stale", err: media.ErrJoinAttemptStale, status: http.StatusConflict, code: "stale_version"},
+		{name: "participant", err: media.ErrParticipantConflict, status: http.StatusConflict, code: "participant_session_conflict"},
+		{name: "locked", err: media.ErrRoomLocked, status: http.StatusConflict, code: "room_locked"},
+		{name: "conceal", err: media.ErrSpaceNotFound, status: http.StatusNotFound, code: "media_space_not_found"},
+		{name: "unavailable", err: media.ErrLifecycleUnavailable, status: http.StatusServiceUnavailable, code: "join_attempt_unavailable"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			tenantID, actorID := uuid.New(), uuid.New()
+			spaceID, roomID, attemptID := uuid.New(), uuid.New(), uuid.New()
+			service := &fakeJoinAttemptService{requestError: test.err}
+			handler := newP4JoinAttemptTestHandler(
+				classIdentityService(tenantID, actorID, nil), service,
+			)
+			request := httptest.NewRequest(
+				http.MethodPost,
+				"/api/v1/media/spaces/"+spaceID.String()+"/join-attempts",
+				strings.NewReader(`{"join_attempt_id":"`+attemptID.String()+
+					`","expected_room_instance_id":"`+roomID.String()+
+					`","expected_space_version":1}`),
+			)
+			request.Header.Set("Content-Type", "application/json")
+			request.Header.Set(mediaSpaceTenantHeader, tenantID.String())
+			addAuthenticatedMutationCookies(request)
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, request)
+			if response.Code != test.status ||
+				!strings.Contains(response.Body.String(), `"code":"`+test.code+`"`) {
+				t.Fatalf("typed join-attempt error mismatch: status=%d body=%s", response.Code, response.Body.String())
+			}
+		})
+	}
+}
+
 func TestInstanceCredentialRequiresCSRFExpectedTenantAndStrictRequest(t *testing.T) {
 	t.Parallel()
 
@@ -526,6 +647,27 @@ func newP4MediaTestHandler(
 	)
 }
 
+func newP4JoinAttemptTestHandler(
+	identityService identity.ServiceAPI,
+	joinAttemptService media.JoinAttemptServiceAPI,
+) http.Handler {
+	return NewHandlerWithOptions(
+		config.Config{
+			Environment: "test",
+			Port:        "8080",
+			WebOrigin:   "http://localhost:5173",
+			Authentication: config.AuthenticationConfig{
+				SessionTTL: 8 * time.Hour,
+			},
+		},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Options{
+			Clock: fixedClock, Identity: identityService,
+			MediaJoinAttempts: joinAttemptService,
+		},
+	)
+}
+
 func fixedClock() time.Time {
 	return fixedTime
 }
@@ -567,6 +709,26 @@ type fakeInstanceCredentialService struct {
 	credential   media.InstanceCredential
 	requestError error
 	calls        int
+}
+
+type fakeJoinAttemptService struct {
+	access       media.AccessContext
+	spaceID      uuid.UUID
+	input        media.CreateJoinAttemptInput
+	result       media.CreateJoinAttemptResult
+	requestError error
+	calls        int
+}
+
+func (service *fakeJoinAttemptService) CreateJoinAttempt(
+	_ context.Context,
+	access media.AccessContext,
+	spaceID uuid.UUID,
+	input media.CreateJoinAttemptInput,
+) (media.CreateJoinAttemptResult, error) {
+	service.calls++
+	service.access, service.spaceID, service.input = access, spaceID, input
+	return service.result, service.requestError
 }
 
 func (service *fakeInstanceCredentialService) IssueInstanceCredential(

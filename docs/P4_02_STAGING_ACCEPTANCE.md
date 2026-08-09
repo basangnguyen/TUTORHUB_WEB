@@ -280,14 +280,15 @@ GRANT SELECT (
 ) ON TABLE tutorhub.media_participant_sessions TO tutorhub_runtime;
 
 GRANT INSERT (
-    id, tenant_id, space_id, room_instance_id, user_id, join_attempt_id,
+    id, tenant_id, space_id, room_instance_id, user_id, admission_request_id,
+    join_attempt_id,
     provider_participant_identity, instance_role, status, capacity_reserved,
-    admitted_at, joining_at, created_at, updated_at
+    version, admitted_at, created_at, updated_at
 ) ON TABLE tutorhub.media_participant_sessions TO tutorhub_runtime;
 
 GRANT UPDATE (
-    instance_role, status, version, capacity_reserved, connected_at, reconnecting_at,
-    terminal_at, failure_code, updated_at
+    instance_role, status, version, capacity_reserved, joining_at, connected_at,
+    reconnecting_at, terminal_at, failure_code, updated_at
 ) ON TABLE tutorhub.media_participant_sessions TO tutorhub_runtime;
 
 GRANT SELECT (
@@ -418,13 +419,14 @@ WITH expected_sets(table_name, privilege_type, column_names) AS (
             'failure_code','created_at','updated_at'
         ]::text[]),
         ('media_participant_sessions', 'INSERT', ARRAY[
-            'id','tenant_id','space_id','room_instance_id','user_id','join_attempt_id',
+            'id','tenant_id','space_id','room_instance_id','user_id','admission_request_id',
+            'join_attempt_id',
             'provider_participant_identity','instance_role','status','capacity_reserved',
-            'admitted_at','joining_at','created_at','updated_at'
+            'version','admitted_at','created_at','updated_at'
         ]::text[]),
         ('media_participant_sessions', 'UPDATE', ARRAY[
-            'instance_role','status','version','capacity_reserved','connected_at','reconnecting_at',
-            'terminal_at','failure_code','updated_at'
+            'instance_role','status','version','capacity_reserved','joining_at','connected_at',
+            'reconnecting_at','terminal_at','failure_code','updated_at'
         ]::text[]),
         ('media_space_mutation_receipts', 'SELECT', ARRAY[
             'tenant_id','idempotency_key','request_fingerprint','operation','space_id',

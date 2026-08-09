@@ -1,6 +1,7 @@
 package media
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"database/sql"
@@ -240,6 +241,12 @@ func (repository *PostgresInstanceRepository) PrepareCredential(
 			"lock media credential space", err,
 		)
 	}
+	source, err := repository.lifecycle.authorizeSource(
+		queryContext, transaction, access, scope, space, policy.ActionSessionJoin, false, false,
+	)
+	if err != nil {
+		return ParticipantCredentialGrant{}, concealJoinSourceError(err)
+	}
 	if err := repository.lifecycle.controls.RequireFeature(
 		queryContext, transaction, scope.TenantID, featurecontrol.FeatureClassroomMediaRooms,
 	); err != nil {
@@ -250,12 +257,6 @@ func (repository *PostgresInstanceRepository) PrepareCredential(
 	}
 	if space.Locked {
 		return ParticipantCredentialGrant{}, ErrRoomLocked
-	}
-	source, err := repository.lifecycle.authorizeSource(
-		queryContext, transaction, access, scope, space, policy.ActionSessionJoin, false, false,
-	)
-	if err != nil {
-		return ParticipantCredentialGrant{}, err
 	}
 	if !sourceAvailableForJoin(source) {
 		return ParticipantCredentialGrant{}, ErrRoomNotOpen
@@ -273,16 +274,7 @@ func (repository *PostgresInstanceRepository) PrepareCredential(
 		room.ProviderRoomName == "" {
 		return ParticipantCredentialGrant{}, ErrRoomNotOpen
 	}
-	if space.LobbyEnabled && source.InstanceRole == InstanceRoleAttendee {
-		return ParticipantCredentialGrant{}, ErrAdmissionRequired
-	}
 	now = now.UTC()
-	if err := consumeMediaCredentialRateLimit(
-		queryContext, transaction, scope.TenantID, scope.ActorID, access.SessionID, now,
-	); err != nil {
-		return ParticipantCredentialGrant{}, err
-	}
-
 	existing, found, err := loadParticipantByAttempt(
 		queryContext, transaction, scope.TenantID, room.ID, scope.ActorID, joinAttemptID,
 	)
@@ -291,88 +283,290 @@ func (repository *PostgresInstanceRepository) PrepareCredential(
 			"load media participant retry", err,
 		)
 	}
-	if found {
-		if !activeParticipantStatus(existing.Status) {
-			return ParticipantCredentialGrant{}, ErrParticipantConflict
-		}
-		if existing.InstanceRole != source.InstanceRole {
-			if _, err := transaction.Exec(
-				queryContext,
-				`UPDATE tutorhub.media_participant_sessions
-SET instance_role = $5, version = version + 1, updated_at = $6
-WHERE tenant_id = $1 AND room_instance_id = $2 AND user_id = $3
-  AND join_attempt_id = $4
-  AND status IN ('waiting', 'admitted', 'joining', 'connected', 'reconnecting')`,
-				scope.TenantID, room.ID, scope.ActorID, joinAttemptID,
-				source.InstanceRole, now,
-			); err != nil {
-				return ParticipantCredentialGrant{}, repository.lifecycle.unavailable(
-					"refresh media participant authority", err,
-				)
-			}
-			existing.InstanceRole = source.InstanceRole
-		}
-		if err := transaction.Commit(queryContext); err != nil {
-			return ParticipantCredentialGrant{}, repository.lifecycle.unavailable(
-				"commit media credential retry", err,
-			)
-		}
-		return participantGrant(access, room, existing, source), nil
-	}
-
-	if occupied, err := hasActiveParticipant(
-		queryContext, transaction, scope.TenantID, room.ID, scope.ActorID,
-	); err != nil {
-		return ParticipantCredentialGrant{}, repository.lifecycle.unavailable(
-			"check active media participant", err,
-		)
-	} else if occupied {
+	if !found {
 		return ParticipantCredentialGrant{}, ErrParticipantConflict
 	}
-	if err := acquireLifecycleTransactionLock(
-		queryContext, transaction, "media-participant-capacity:"+scope.TenantID.String(),
-	); err != nil {
-		return ParticipantCredentialGrant{}, repository.lifecycle.unavailable(
-			"lock media participant capacity", err,
-		)
+	if existing.Status == string(JoinAttemptWaiting) {
+		return ParticipantCredentialGrant{}, ErrAdmissionRequired
 	}
-	if err := repository.requireParticipantCapacity(
-		queryContext, transaction, scope.TenantID, space.ID,
+	if existing.Status != string(JoinAttemptAdmitted) &&
+		existing.Status != string(JoinAttemptJoining) {
+		return ParticipantCredentialGrant{}, ErrParticipantConflict
+	}
+	if space.LobbyEnabled && source.InstanceRole == InstanceRoleAttendee {
+		if err := requireAdmittedAdmission(
+			queryContext, transaction, scope.TenantID, space.ID, room.ID,
+			scope.ActorID, existing,
+		); err != nil {
+			return ParticipantCredentialGrant{}, err
+		}
+	}
+	if err := consumeMediaCredentialRateLimit(
+		queryContext, transaction, scope.TenantID, scope.ActorID, access.SessionID, now,
 	); err != nil {
 		return ParticipantCredentialGrant{}, err
 	}
-	participant := participantRow{
-		ID:               repository.newID(),
-		JoinAttemptID:    joinAttemptID,
-		ProviderIdentity: opaqueParticipantIdentity(repository.newID()),
-		InstanceRole:     source.InstanceRole,
-		Status:           "joining",
-		CreatedAt:        now,
-	}
-	if participant.ID == uuid.Nil || !validProviderIdentifier(participant.ProviderIdentity, 128) {
-		return ParticipantCredentialGrant{}, ErrLifecycleUnavailable
-	}
-	if _, err := transaction.Exec(
-		queryContext,
-		`INSERT INTO tutorhub.media_participant_sessions (
-    id, tenant_id, space_id, room_instance_id, user_id, join_attempt_id,
-    provider_participant_identity, instance_role, status, capacity_reserved,
-    admitted_at, joining_at, created_at, updated_at
-)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'joining', true, $9, $9, $9, $9)`,
-		participant.ID, scope.TenantID, space.ID, room.ID, scope.ActorID,
-		joinAttemptID, participant.ProviderIdentity, participant.InstanceRole, now,
-	); err != nil {
-		return ParticipantCredentialGrant{}, repository.lifecycle.unavailable(
-			"insert media participant session", err,
-		)
+	if existing.Status == string(JoinAttemptAdmitted) {
+		err := transaction.QueryRow(
+			queryContext,
+			`UPDATE tutorhub.media_participant_sessions
+SET status = 'joining', instance_role = $5, version = version + 1,
+    joining_at = $6, updated_at = $6
+WHERE tenant_id = $1 AND room_instance_id = $2 AND user_id = $3
+  AND join_attempt_id = $4 AND status = 'admitted'
+RETURNING version`,
+			scope.TenantID, room.ID, scope.ActorID, joinAttemptID,
+			source.InstanceRole, now,
+		).Scan(&existing.Version)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ParticipantCredentialGrant{}, ErrParticipantConflict
+		}
+		if err != nil {
+			return ParticipantCredentialGrant{}, repository.lifecycle.unavailable(
+				"advance admitted media participant", err,
+			)
+		}
+		existing.Status = string(JoinAttemptJoining)
+		existing.InstanceRole = source.InstanceRole
+		existing.JoiningAt = sql.NullTime{Time: now, Valid: true}
+		existing.UpdatedAt = now
+	} else if existing.InstanceRole != source.InstanceRole {
+		err := transaction.QueryRow(
+			queryContext,
+			`UPDATE tutorhub.media_participant_sessions
+SET instance_role = $5, version = version + 1, updated_at = $6
+WHERE tenant_id = $1 AND room_instance_id = $2 AND user_id = $3
+  AND join_attempt_id = $4 AND status = 'joining'
+RETURNING version`,
+			scope.TenantID, room.ID, scope.ActorID, joinAttemptID,
+			source.InstanceRole, now,
+		).Scan(&existing.Version)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ParticipantCredentialGrant{}, ErrParticipantConflict
+		}
+		if err != nil {
+			return ParticipantCredentialGrant{}, repository.lifecycle.unavailable(
+				"refresh media participant authority", err,
+			)
+		}
+		existing.InstanceRole = source.InstanceRole
+		existing.UpdatedAt = now
 	}
 	if err := transaction.Commit(queryContext); err != nil {
 		return ParticipantCredentialGrant{}, repository.lifecycle.unavailable(
 			"commit media credential", err,
 		)
 	}
-	return participantGrant(access, room, participant, source), nil
+	return participantGrant(access, room, existing, source), nil
+}
+
+func (repository *PostgresInstanceRepository) CreateOrReuseJoinAttempt(
+	ctx context.Context,
+	access AccessContext,
+	spaceID uuid.UUID,
+	input CreateJoinAttemptInput,
+	now time.Time,
+) (CreateJoinAttemptResult, error) {
+	if repository == nil || repository.lifecycle == nil || spaceID == uuid.Nil ||
+		input.JoinAttemptID == uuid.Nil || input.ExpectedRoomInstanceID == uuid.Nil ||
+		input.ExpectedSpaceVersion < 1 || access.SessionID == uuid.Nil {
+		return CreateJoinAttemptResult{}, ErrInvalidJoinAttempt
+	}
+	queryContext, cancel := context.WithTimeout(ctx, repository.lifecycle.queryTimeout)
+	defer cancel()
+	transaction, err := repository.lifecycle.database.Begin(queryContext)
+	if err != nil {
+		return CreateJoinAttemptResult{}, repository.lifecycle.unavailable(
+			"begin media join attempt", err,
+		)
+	}
+	defer rollbackLifecycle(transaction)
+	if err := repository.lifecycle.acquireTenantControlLock(
+		queryContext, transaction, access.TenantID,
+	); err != nil {
+		return CreateJoinAttemptResult{}, err
+	}
+	access, scope, err := repository.lifecycle.requireActiveScope(queryContext, transaction, access)
+	if err != nil {
+		return CreateJoinAttemptResult{}, err
+	}
+	space, err := loadSpace(queryContext, transaction, scope.TenantID, spaceID, true)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return CreateJoinAttemptResult{}, ErrSpaceNotFound
+	}
+	if err != nil {
+		return CreateJoinAttemptResult{}, repository.lifecycle.unavailable(
+			"lock media join-attempt space", err,
+		)
+	}
+	source, err := repository.lifecycle.authorizeSource(
+		queryContext, transaction, access, scope, space, policy.ActionSessionJoin, false, false,
+	)
+	if err != nil {
+		return CreateJoinAttemptResult{}, concealJoinSourceError(err)
+	}
+	if err := repository.lifecycle.controls.RequireFeature(
+		queryContext, transaction, scope.TenantID, featurecontrol.FeatureClassroomMediaRooms,
+	); err != nil {
+		return CreateJoinAttemptResult{}, err
+	}
+	if space.Version != input.ExpectedSpaceVersion {
+		return CreateJoinAttemptResult{}, ErrJoinAttemptStale
+	}
+	if space.Status != SpaceStatusOpen {
+		return CreateJoinAttemptResult{}, ErrRoomNotOpen
+	}
+	if space.Locked {
+		return CreateJoinAttemptResult{}, ErrRoomLocked
+	}
+	if !sourceAvailableForJoin(source) {
+		return CreateJoinAttemptResult{}, ErrRoomNotOpen
+	}
+	room, err := loadActiveRoom(queryContext, transaction, scope.TenantID, space.ID, true)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return CreateJoinAttemptResult{}, ErrRoomNotOpen
+	}
+	if err != nil {
+		return CreateJoinAttemptResult{}, repository.lifecycle.unavailable(
+			"lock media join-attempt room", err,
+		)
+	}
+	if room.ID != input.ExpectedRoomInstanceID {
+		return CreateJoinAttemptResult{}, ErrJoinAttemptStale
+	}
+	if room.Status != RoomInstanceActive || !room.ProviderRoomSID.Valid ||
+		room.ProviderRoomName == "" {
+		return CreateJoinAttemptResult{}, ErrRoomNotOpen
+	}
+	now = now.UTC()
+	fingerprint := joinAttemptRequestFingerprint(spaceID, input)
+	existing, found, err := loadParticipantByAttempt(
+		queryContext, transaction, scope.TenantID, room.ID, scope.ActorID, input.JoinAttemptID,
+	)
+	if err != nil {
+		return CreateJoinAttemptResult{}, repository.lifecycle.unavailable(
+			"load media join-attempt retry", err,
+		)
+	}
+	if found {
+		if existing.Status != string(JoinAttemptWaiting) &&
+			existing.Status != string(JoinAttemptAdmitted) &&
+			existing.Status != string(JoinAttemptJoining) {
+			return CreateJoinAttemptResult{}, ErrParticipantConflict
+		}
+		if existing.InstanceRole != source.InstanceRole {
+			return CreateJoinAttemptResult{}, ErrParticipantConflict
+		}
+		if existing.Status == string(JoinAttemptWaiting) {
+			if err := validateWaitingAdmission(
+				queryContext, transaction, scope.TenantID, space.ID, room.ID,
+				scope.ActorID, existing, fingerprint,
+			); err != nil {
+				return CreateJoinAttemptResult{}, err
+			}
+		}
+		if err := transaction.Commit(queryContext); err != nil {
+			return CreateJoinAttemptResult{}, repository.lifecycle.unavailable(
+				"commit media join-attempt retry", err,
+			)
+		}
+		return CreateJoinAttemptResult{
+			Attempt: projectJoinAttempt(existing, room, source),
+		}, nil
+	}
+
+	if occupied, err := hasActiveParticipant(
+		queryContext, transaction, scope.TenantID, room.ID, scope.ActorID,
+	); err != nil {
+		return CreateJoinAttemptResult{}, repository.lifecycle.unavailable(
+			"check active media participant", err,
+		)
+	} else if occupied {
+		return CreateJoinAttemptResult{}, ErrParticipantConflict
+	}
+	if err := acquireLifecycleTransactionLock(
+		queryContext, transaction, "media-participant-capacity:"+scope.TenantID.String(),
+	); err != nil {
+		return CreateJoinAttemptResult{}, repository.lifecycle.unavailable(
+			"lock media participant capacity", err,
+		)
+	}
+	if err := repository.requireParticipantCapacity(
+		queryContext, transaction, scope.TenantID, space.ID,
+	); err != nil {
+		return CreateJoinAttemptResult{}, err
+	}
+
+	participant := participantRow{
+		ID:               repository.newID(),
+		JoinAttemptID:    input.JoinAttemptID,
+		ProviderIdentity: opaqueParticipantIdentity(repository.newID()),
+		InstanceRole:     source.InstanceRole,
+		Status:           string(JoinAttemptAdmitted),
+		Version:          1,
+		CreatedAt:        now,
+		UpdatedAt:        now,
+	}
+	if participant.ID == uuid.Nil || !validProviderIdentifier(participant.ProviderIdentity, 128) {
+		return CreateJoinAttemptResult{}, ErrLifecycleUnavailable
+	}
+	if space.LobbyEnabled && source.InstanceRole == InstanceRoleAttendee {
+		admissionID := repository.newID()
+		if admissionID == uuid.Nil {
+			return CreateJoinAttemptResult{}, ErrLifecycleUnavailable
+		}
+		if _, err := transaction.Exec(
+			queryContext,
+			`INSERT INTO tutorhub.media_admission_requests (
+    id, tenant_id, space_id, room_instance_id, user_id, status, version,
+    idempotency_key, request_fingerprint, created_at, updated_at
+)
+VALUES ($1, $2, $3, $4, $5, 'waiting', 1, $6, $7, $8, $8)`,
+			admissionID, scope.TenantID, space.ID, room.ID, scope.ActorID,
+			input.JoinAttemptID.String(), fingerprint[:], now,
+		); err != nil {
+			return CreateJoinAttemptResult{}, repository.lifecycle.unavailable(
+				"insert media admission request", err,
+			)
+		}
+		participant.AdmissionRequestID = uuid.NullUUID{UUID: admissionID, Valid: true}
+		participant.Status = string(JoinAttemptWaiting)
+	} else {
+		participant.AdmittedAt = sql.NullTime{Time: now, Valid: true}
+	}
+	var admissionRequestID any
+	if participant.AdmissionRequestID.Valid {
+		admissionRequestID = participant.AdmissionRequestID.UUID
+	}
+	var admittedAt any
+	if participant.AdmittedAt.Valid {
+		admittedAt = participant.AdmittedAt.Time
+	}
+	if _, err := transaction.Exec(
+		queryContext,
+		`INSERT INTO tutorhub.media_participant_sessions (
+    id, tenant_id, space_id, room_instance_id, user_id, admission_request_id,
+    join_attempt_id, provider_participant_identity, instance_role, status,
+    capacity_reserved, version, admitted_at, created_at, updated_at
+)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, true, 1, $11, $12, $12)`,
+		participant.ID, scope.TenantID, space.ID, room.ID, scope.ActorID,
+		admissionRequestID, participant.JoinAttemptID, participant.ProviderIdentity,
+		participant.InstanceRole, participant.Status, admittedAt, now,
+	); err != nil {
+		return CreateJoinAttemptResult{}, repository.lifecycle.unavailable(
+			"insert media participant join attempt", err,
+		)
+	}
+	if err := transaction.Commit(queryContext); err != nil {
+		return CreateJoinAttemptResult{}, repository.lifecycle.unavailable(
+			"commit media join attempt", err,
+		)
+	}
+	return CreateJoinAttemptResult{
+		Attempt: projectJoinAttempt(participant, room, source),
+		Created: true,
+	}, nil
 }
 
 func (repository *PostgresInstanceRepository) requireParticipantCapacity(
@@ -524,15 +718,20 @@ func (repository *PostgresInstanceRepository) RecordProviderWebhook(
 }
 
 type participantRow struct {
-	ID               uuid.UUID
-	JoinAttemptID    uuid.UUID
-	ProviderIdentity string
-	InstanceRole     InstanceRole
-	Status           string
-	CreatedAt        time.Time
-	ConnectedAt      sql.NullTime
-	ReconnectingAt   sql.NullTime
-	TerminalAt       sql.NullTime
+	ID                 uuid.UUID
+	AdmissionRequestID uuid.NullUUID
+	JoinAttemptID      uuid.UUID
+	ProviderIdentity   string
+	InstanceRole       InstanceRole
+	Status             string
+	Version            int64
+	AdmittedAt         sql.NullTime
+	JoiningAt          sql.NullTime
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
+	ConnectedAt        sql.NullTime
+	ReconnectingAt     sql.NullTime
+	TerminalAt         sql.NullTime
 }
 
 func loadParticipantByAttempt(
@@ -546,22 +745,139 @@ func loadParticipantByAttempt(
 	var participant participantRow
 	err := transaction.QueryRow(
 		ctx,
-		`SELECT id, join_attempt_id, provider_participant_identity,
-       instance_role, status, created_at, connected_at, reconnecting_at, terminal_at
+		`SELECT id, admission_request_id, join_attempt_id, provider_participant_identity,
+       instance_role, status, version, admitted_at, joining_at, created_at, updated_at,
+       connected_at, reconnecting_at, terminal_at
 FROM tutorhub.media_participant_sessions
 WHERE tenant_id = $1 AND room_instance_id = $2 AND user_id = $3
   AND join_attempt_id = $4
 FOR UPDATE`,
 		tenantID, roomInstanceID, userID, joinAttemptID,
 	).Scan(
-		&participant.ID, &participant.JoinAttemptID, &participant.ProviderIdentity,
-		&participant.InstanceRole, &participant.Status, &participant.CreatedAt,
+		&participant.ID, &participant.AdmissionRequestID, &participant.JoinAttemptID,
+		&participant.ProviderIdentity, &participant.InstanceRole, &participant.Status,
+		&participant.Version, &participant.AdmittedAt, &participant.JoiningAt,
+		&participant.CreatedAt, &participant.UpdatedAt,
 		&participant.ConnectedAt, &participant.ReconnectingAt, &participant.TerminalAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return participantRow{}, false, nil
 	}
 	return participant, err == nil, err
+}
+
+func validateWaitingAdmission(
+	ctx context.Context,
+	transaction pgx.Tx,
+	tenantID uuid.UUID,
+	spaceID uuid.UUID,
+	roomInstanceID uuid.UUID,
+	userID uuid.UUID,
+	participant participantRow,
+	expectedFingerprint [sha256.Size]byte,
+) error {
+	if !participant.AdmissionRequestID.Valid {
+		return ErrParticipantConflict
+	}
+	var status, idempotencyKey string
+	var version int64
+	var fingerprint []byte
+	err := transaction.QueryRow(
+		ctx,
+		`SELECT status, version, idempotency_key, request_fingerprint
+FROM tutorhub.media_admission_requests
+WHERE tenant_id = $1 AND space_id = $2 AND room_instance_id = $3
+	AND user_id = $4 AND id = $5`,
+		tenantID, spaceID, roomInstanceID, userID, participant.AdmissionRequestID.UUID,
+	).Scan(&status, &version, &idempotencyKey, &fingerprint)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrParticipantConflict
+	}
+	if err != nil {
+		return fmt.Errorf("validate media admission request: %w", err)
+	}
+	if status != string(JoinAttemptWaiting) || version < 1 ||
+		idempotencyKey != participant.JoinAttemptID.String() ||
+		!bytes.Equal(fingerprint, expectedFingerprint[:]) {
+		return ErrParticipantConflict
+	}
+	return nil
+}
+
+func requireAdmittedAdmission(
+	ctx context.Context,
+	transaction pgx.Tx,
+	tenantID uuid.UUID,
+	spaceID uuid.UUID,
+	roomInstanceID uuid.UUID,
+	userID uuid.UUID,
+	participant participantRow,
+) error {
+	if !participant.AdmissionRequestID.Valid {
+		return ErrAdmissionRequired
+	}
+	var status string
+	err := transaction.QueryRow(
+		ctx,
+		`SELECT status
+FROM tutorhub.media_admission_requests
+WHERE tenant_id = $1 AND space_id = $2 AND room_instance_id = $3
+  AND user_id = $4 AND id = $5`,
+		tenantID, spaceID, roomInstanceID, userID, participant.AdmissionRequestID.UUID,
+	).Scan(&status)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrAdmissionRequired
+	}
+	if err != nil {
+		return fmt.Errorf("validate admitted media admission request: %w", err)
+	}
+	if status != string(JoinAttemptAdmitted) {
+		return ErrAdmissionRequired
+	}
+	return nil
+}
+
+func concealJoinSourceError(err error) error {
+	if errors.Is(err, ErrSpaceAccessDenied) {
+		return ErrSpaceNotFound
+	}
+	return err
+}
+
+func joinAttemptRequestFingerprint(
+	spaceID uuid.UUID,
+	input CreateJoinAttemptInput,
+) [sha256.Size]byte {
+	return sha256.Sum256([]byte(fmt.Sprintf(
+		"media.join_attempt.v1\x00%s\x00%s\x00%s\x00%d",
+		spaceID, input.ExpectedRoomInstanceID, input.JoinAttemptID, input.ExpectedSpaceVersion,
+	)))
+}
+
+func projectJoinAttempt(
+	participant participantRow,
+	room roomRow,
+	source authorizedSource,
+) JoinAttempt {
+	var admissionRequestID *uuid.UUID
+	if participant.AdmissionRequestID.Valid {
+		value := participant.AdmissionRequestID.UUID
+		admissionRequestID = &value
+	}
+	return JoinAttempt{
+		ParticipantSessionID:       participant.ID,
+		RoomInstanceID:             room.ID,
+		AdmissionRequestID:         admissionRequestID,
+		JoinAttemptID:              participant.JoinAttemptID,
+		Status:                     JoinAttemptStatus(participant.Status),
+		Version:                    participant.Version,
+		InstanceRole:               participant.InstanceRole,
+		CanPublishCameraMicrophone: source.CanPublishCameraMicrophone,
+		CanShareScreen:             source.CanShareScreen,
+		CanSubscribe:               true,
+		CreatedAt:                  participant.CreatedAt.UTC(),
+		UpdatedAt:                  participant.UpdatedAt.UTC(),
+	}
 }
 
 func hasActiveParticipant(

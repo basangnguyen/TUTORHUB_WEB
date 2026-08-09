@@ -251,7 +251,18 @@ func p402MediaACLExpectations() []mediaACLExpectation {
 			relation:      "tutorhub.media_space_members",
 			selectColumns: []string{"space_id", "status", "tenant_id", "user_id"},
 		},
-		{relation: "tutorhub.media_admission_requests"},
+		{
+			relation: "tutorhub.media_admission_requests",
+			selectColumns: []string{
+				"id", "idempotency_key", "request_fingerprint", "room_instance_id",
+				"space_id", "status", "tenant_id", "user_id", "version",
+			},
+			insertColumns: []string{
+				"created_at", "id", "idempotency_key", "request_fingerprint",
+				"room_instance_id", "space_id", "status", "tenant_id", "updated_at",
+				"user_id", "version",
+			},
+		},
 		{
 			relation: "tutorhub.media_participant_sessions",
 			selectColumns: []string{
@@ -262,12 +273,13 @@ func p402MediaACLExpectations() []mediaACLExpectation {
 				"updated_at", "user_id", "version",
 			},
 			insertColumns: []string{
-				"admitted_at", "capacity_reserved", "created_at", "id", "instance_role",
-				"join_attempt_id", "joining_at", "provider_participant_identity",
+				"admission_request_id", "admitted_at", "capacity_reserved", "created_at",
+				"id", "instance_role", "join_attempt_id", "provider_participant_identity",
 				"room_instance_id", "space_id", "status", "tenant_id", "updated_at", "user_id",
+				"version",
 			},
 			updateColumns: []string{
-				"capacity_reserved", "connected_at", "failure_code", "instance_role",
+				"capacity_reserved", "connected_at", "failure_code", "instance_role", "joining_at",
 				"reconnecting_at", "status", "terminal_at", "updated_at", "version",
 			},
 		},

@@ -66,6 +66,16 @@ const ClassroomRoomPage = lazy(() =>
     default: module.ClassroomRoomPage,
   })),
 );
+const MediaSpacePreJoinPage = lazy(() =>
+  import("../pages/MediaSpacePages").then((module) => ({
+    default: module.MediaSpacePreJoinPage,
+  })),
+);
+const MediaSpaceRoomPage = lazy(() =>
+  import("../pages/MediaSpacePages").then((module) => ({
+    default: module.MediaSpaceRoomPage,
+  })),
+);
 
 export interface NavigationItem {
   to: string;
@@ -267,6 +277,10 @@ export function createAppRoutes(): RouteObject[] {
                   element: <ClassroomPreJoinPage />,
                 },
                 {
+                  path: "media/spaces/:spaceId/prejoin",
+                  element: <MediaSpacePreJoinPage />,
+                },
+                {
                   path: "messages",
                   element: <ConversationsPage />,
                 },
@@ -327,6 +341,11 @@ export function createAppRoutes(): RouteObject[] {
             {
               path: "classrooms/:classId/room",
               element: <ClassroomRoomPage />,
+              errorElement: <RouteErrorBoundary />,
+            },
+            {
+              path: "media/spaces/:spaceId/instances/:roomInstanceId/room",
+              element: <MediaSpaceRoomPage />,
               errorElement: <RouteErrorBoundary />,
             },
           ],

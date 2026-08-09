@@ -5657,11 +5657,80 @@ paths:
           $ref: "#/components/responses/ProblemResponse"
         default:
           $ref: "#/components/responses/ProblemResponse"
+  /api/v1/media/spaces/{space_id}/join-attempts:
+    post:
+      operationId: createMediaSpaceJoinAttempt
+      summary: Create or reuse one authoritative RoomInstance join attempt
+      description: The server reauthorizes the active workspace and source, verifies the expected media-space version and active RoomInstance, then creates or reuses one opaque ParticipantSession. An attendee waits without a provider credential when the lobby applies; hosts and other bypass roles are admitted immediately. Device identifiers, provider identifiers, grants, and tenant authority are never accepted from the client.
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: space_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/ExpectedTenantID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MediaJoinAttemptRequest"
+      responses:
+        "200":
+          description: Existing idempotent join-attempt projection
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: private, no-store
+            Referrer-Policy:
+              schema:
+                type: string
+                const: no-referrer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MediaJoinAttempt"
+        "201":
+          description: Newly created join-attempt projection
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: private, no-store
+            Referrer-Policy:
+              schema:
+                type: string
+                const: no-referrer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MediaJoinAttempt"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "429":
+          $ref: "#/components/responses/ProblemResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
   /api/v1/media/spaces/{space_id}/join-credentials:
     post:
       operationId: issueMediaSpaceJoinCredential
       summary: Issue a short-lived credential for the exact active RoomInstance
-      description: The server reauthorizes the active workspace and authoritative source, creates or reuses one opaque ParticipantSession for the join attempt, and derives all LiveKit identifiers, role, and grants. Provider room names and participant identities are never returned.
+      description: The server reauthorizes the active workspace and authoritative source, requires an existing admitted or joining ParticipantSession created by the canonical join-attempt endpoint, and derives all LiveKit identifiers, role, and grants. A waiting attempt returns admission_required without minting a credential. Provider room names and participant identities are never returned.
       security:
         - SessionCookie: []
       parameters:
@@ -11102,6 +11171,77 @@ components:
     MediaInstanceRole:
       type: string
       enum: [host, co_host, teaching_assistant, attendee]
+    MediaJoinAttemptRequest:
+      type: object
+      additionalProperties: false
+      required:
+        [join_attempt_id, expected_room_instance_id, expected_space_version]
+      properties:
+        join_attempt_id:
+          type: string
+          format: uuid
+          description: Client-generated opaque idempotency identifier for one explicit join action; it is never a provider identity.
+        expected_room_instance_id:
+          type: string
+          format: uuid
+          description: RoomInstance identifier from the current authorized media-space projection; stale instances fail closed.
+        expected_space_version:
+          type: integer
+          format: int64
+          minimum: 1
+          description: Current authorized media-space version used for optimistic concurrency.
+    MediaJoinAttemptStatus:
+      type: string
+      enum: [waiting, admitted, joining]
+    MediaJoinAttempt:
+      type: object
+      additionalProperties: false
+      required:
+        - participant_session_id
+        - room_instance_id
+        - join_attempt_id
+        - status
+        - version
+        - instance_role
+        - can_publish_camera_microphone
+        - can_share_screen
+        - can_subscribe
+        - created_at
+        - updated_at
+      properties:
+        participant_session_id:
+          type: string
+          format: uuid
+        room_instance_id:
+          type: string
+          format: uuid
+        admission_request_id:
+          type: string
+          format: uuid
+          description: Present only when this participant is bound to a lobby admission request.
+        join_attempt_id:
+          type: string
+          format: uuid
+        status:
+          $ref: "#/components/schemas/MediaJoinAttemptStatus"
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+        instance_role:
+          $ref: "#/components/schemas/MediaInstanceRole"
+        can_publish_camera_microphone:
+          type: boolean
+        can_share_screen:
+          type: boolean
+        can_subscribe:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
     MediaInstanceCredentialRequest:
       type: object
       additionalProperties: false

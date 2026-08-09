@@ -20,6 +20,7 @@ import (
 const (
 	mediaTokenPathPattern              = "/api/v1/classes/{class_id}/media-token"
 	mediaEventsPathPattern             = "/api/v1/classes/{class_id}/media-events"
+	mediaSpaceJoinAttemptPathPattern   = "/api/v1/media/spaces/{space_id}/join-attempts"
 	mediaSpaceCredentialPathPattern    = "/api/v1/media/spaces/{space_id}/join-credentials"
 	liveKitWebhookPath                 = "/api/v1/webhooks/livekit"
 	maximumMediaEventBytes             = 8 * 1024
@@ -31,6 +32,7 @@ type mediaHandlers struct {
 	logger           *slog.Logger
 	auth             authHandlers
 	service          media.ServiceAPI
+	joinAttempts     media.JoinAttemptServiceAPI
 	credentials      media.InstanceCredentialServiceAPI
 	webhookVerifier  media.WebhookVerifier
 	webhookProcessor media.WebhookProcessor
@@ -38,6 +40,12 @@ type mediaHandlers struct {
 
 type mediaSpaceCredentialRequest struct {
 	JoinAttemptID *uuid.UUID `json:"join_attempt_id"`
+}
+
+type mediaSpaceJoinAttemptRequest struct {
+	JoinAttemptID          *uuid.UUID `json:"join_attempt_id"`
+	ExpectedRoomInstanceID *uuid.UUID `json:"expected_room_instance_id"`
+	ExpectedSpaceVersion   *int64     `json:"expected_space_version"`
 }
 
 type mediaTokenResponse struct {
@@ -63,14 +71,56 @@ func newMediaHandlers(
 	logger *slog.Logger,
 	auth authHandlers,
 	service media.ServiceAPI,
+	joinAttempts media.JoinAttemptServiceAPI,
 	credentials media.InstanceCredentialServiceAPI,
 	webhookVerifier media.WebhookVerifier,
 	webhookProcessor media.WebhookProcessor,
 ) mediaHandlers {
 	return mediaHandlers{
-		logger: logger, auth: auth, service: service, credentials: credentials,
+		logger: logger, auth: auth, service: service, joinAttempts: joinAttempts,
+		credentials:     credentials,
 		webhookVerifier: webhookVerifier, webhookProcessor: webhookProcessor,
 	}
+}
+
+func (handlers mediaHandlers) createJoinAttempt(w http.ResponseWriter, r *http.Request) {
+	principal, ok := handlers.joinAttemptPrincipal(w, r)
+	if !ok {
+		return
+	}
+	spaceID, ok := parseResourceUUID(r.PathValue("space_id"))
+	if !ok {
+		handlers.writeJoinAttemptProblem(w, r, media.ErrInvalidJoinAttempt)
+		return
+	}
+	var request mediaSpaceJoinAttemptRequest
+	if err := decodeJSONRequest(
+		w, r, &request, maximumMediaCredentialRequestBytes,
+	); err != nil || request.JoinAttemptID == nil || *request.JoinAttemptID == uuid.Nil ||
+		request.ExpectedRoomInstanceID == nil || *request.ExpectedRoomInstanceID == uuid.Nil ||
+		request.ExpectedSpaceVersion == nil || *request.ExpectedSpaceVersion < 1 {
+		handlers.writeJoinAttemptProblem(w, r, media.ErrInvalidJoinAttempt)
+		return
+	}
+	result, err := handlers.joinAttempts.CreateJoinAttempt(
+		r.Context(),
+		mediaAccess(principal),
+		spaceID,
+		media.CreateJoinAttemptInput{
+			JoinAttemptID:          *request.JoinAttemptID,
+			ExpectedRoomInstanceID: *request.ExpectedRoomInstanceID,
+			ExpectedSpaceVersion:   *request.ExpectedSpaceVersion,
+		},
+	)
+	if err != nil {
+		handlers.writeJoinAttemptProblem(w, r, err)
+		return
+	}
+	status := http.StatusOK
+	if result.Created {
+		status = http.StatusCreated
+	}
+	writeJSON(handlers.logger, w, status, result.Attempt)
 }
 
 func (handlers mediaHandlers) issueInstanceCredential(w http.ResponseWriter, r *http.Request) {
@@ -251,6 +301,91 @@ func (handlers mediaHandlers) instanceCredentialPrincipal(
 		return identity.Principal{}, false
 	}
 	return principal, true
+}
+
+func (handlers mediaHandlers) joinAttemptPrincipal(
+	w http.ResponseWriter,
+	r *http.Request,
+) (identity.Principal, bool) {
+	if !handlers.auth.available(w, r) {
+		return identity.Principal{}, false
+	}
+	if handlers.joinAttempts == nil {
+		handlers.writeJoinAttemptProblem(w, r, media.ErrLifecycleUnavailable)
+		return identity.Principal{}, false
+	}
+	sessionToken, ok := handlers.auth.sessionToken(w, r)
+	if !ok {
+		return identity.Principal{}, false
+	}
+	principal, ok := handlers.auth.csrfPrincipal(w, r, sessionToken)
+	if !ok {
+		return identity.Principal{}, false
+	}
+	if principal.ActiveTenant == nil || !principal.ActiveTenant.IsActive {
+		handlers.writeJoinAttemptProblem(w, r, media.ErrSpaceAccessDenied)
+		return identity.Principal{}, false
+	}
+	expectedTenantID, valid := parseResourceUUID(
+		strings.TrimSpace(r.Header.Get(mediaSpaceTenantHeader)),
+	)
+	if !valid {
+		handlers.writeJoinAttemptProblem(w, r, media.ErrInvalidJoinAttempt)
+		return identity.Principal{}, false
+	}
+	if expectedTenantID != principal.ActiveTenant.ID {
+		handlers.writeJoinAttemptProblem(w, r, errMediaSpaceScopeChanged)
+		return identity.Principal{}, false
+	}
+	return principal, true
+}
+
+func (handlers mediaHandlers) writeJoinAttemptProblem(
+	w http.ResponseWriter,
+	r *http.Request,
+	err error,
+) {
+	if writeFeatureControlEnforcementProblem(w, r, err) {
+		return
+	}
+	status, code := http.StatusServiceUnavailable, "join_attempt_unavailable"
+	title, detail := "Join attempt unavailable", "The media join attempt could not be created safely."
+	switch {
+	case errors.Is(err, media.ErrInvalidJoinAttempt):
+		status, code = http.StatusBadRequest, "join_attempt_invalid"
+		title, detail = "Invalid join attempt", "Review the media space, room instance, version, and retry identifier."
+	case errors.Is(err, media.ErrSpaceAccessDenied):
+		status, code = http.StatusForbidden, "join_attempt_forbidden"
+		title, detail = "Join attempt access denied", "The active workspace cannot authorize this join attempt."
+	case errors.Is(err, media.ErrSpaceNotFound), errors.Is(err, media.ErrSourceUnavailable):
+		status, code = http.StatusNotFound, "media_space_not_found"
+		title, detail = "Media space unavailable", "The media space is unavailable in the active workspace."
+	case errors.Is(err, media.ErrRoomNotOpen):
+		status, code = http.StatusConflict, "room_not_open"
+		title, detail = "Media room is not open", "Reload the media space before joining."
+	case errors.Is(err, media.ErrRoomLocked):
+		status, code = http.StatusConflict, "room_locked"
+		title, detail = "Media room is locked", "The room is not accepting new join attempts."
+	case errors.Is(err, media.ErrJoinAttemptStale):
+		status, code = http.StatusConflict, "stale_version"
+		title, detail = "Media room changed", "Reload the media space before retrying."
+	case errors.Is(err, media.ErrParticipantConflict):
+		status, code = http.StatusConflict, "participant_session_conflict"
+		title, detail = "Participant session changed", "Reload the media space and start a new join attempt."
+	case errors.Is(err, errMediaSpaceScopeChanged):
+		status, code = http.StatusConflict, "media_space_scope_changed"
+		title, detail = "Active workspace changed", "Reload the current workspace before retrying."
+	case errors.Is(err, media.ErrLifecycleUnavailable), errors.Is(err, context.DeadlineExceeded):
+		status, code = http.StatusServiceUnavailable, "join_attempt_unavailable"
+		title, detail = "Join attempt unavailable", "Try joining again later."
+	default:
+		handlers.logger.Error(
+			"media join-attempt request failed",
+			"request_id", RequestIDFromContext(r.Context()),
+			"error", logsafe.Error(err),
+		)
+	}
+	writeCodedProblem(w, r, status, code, title, detail)
 }
 
 func (handlers mediaHandlers) writeInstanceCredentialProblem(

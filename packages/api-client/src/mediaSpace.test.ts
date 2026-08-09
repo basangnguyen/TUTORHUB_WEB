@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   cancelMediaSpace,
+  createMediaSpaceJoinAttempt,
   createMediaSpace,
   endMediaSpace,
   getMediaSpace,
@@ -9,6 +10,7 @@ import {
 } from "./index";
 import type {
   CreateMediaSpaceRequest,
+  MediaJoinAttempt,
   MediaInstanceCredential,
   MediaSpace,
   MediaSpaceTransitionRequest,
@@ -63,6 +65,63 @@ function jsonResponse(body: unknown, status = 200): Response {
 }
 
 describe("media-space API", () => {
+  it("creates an authoritative join attempt without client supplied grants or device data", async () => {
+    const attempt: MediaJoinAttempt = {
+      participant_session_id: participantSessionID,
+      room_instance_id: roomInstanceID,
+      join_attempt_id: joinAttemptID,
+      status: "admitted",
+      version: 1,
+      instance_role: "attendee",
+      can_publish_camera_microphone: true,
+      can_share_screen: false,
+      can_subscribe: true,
+      created_at: "2030-08-03T00:00:00Z",
+      updated_at: "2030-08-03T00:00:00Z",
+    };
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(attempt, 201));
+
+    await expect(
+      createMediaSpaceJoinAttempt(
+        tenantID,
+        spaceID,
+        {
+          join_attempt_id: joinAttemptID,
+          expected_room_instance_id: roomInstanceID,
+          expected_space_version: 1,
+        },
+        "attempt-csrf",
+        { baseUrl: "https://web.example.test/api", fetch: fetchMock },
+      ),
+    ).resolves.toEqual(attempt);
+
+    const request = fetchMock.mock.calls[0]![0] as Request;
+    expect(request.method).toBe("POST");
+    expect(new URL(request.url).pathname).toBe(
+      `/api/v1/media/spaces/${spaceID}/join-attempts`,
+    );
+    expect(request.credentials).toBe("include");
+    expect(request.headers.get("X-CSRF-Token")).toBe("attempt-csrf");
+    expect(request.headers.get("X-TutorHub-Expected-Tenant-ID")).toBe(tenantID);
+    const body = (await request.clone().json()) as Record<string, unknown>;
+    expect(body).toEqual({
+      join_attempt_id: joinAttemptID,
+      expected_room_instance_id: roomInstanceID,
+      expected_space_version: 1,
+    });
+    for (const forbidden of [
+      "tenant_id",
+      "role",
+      "grant",
+      "device_id",
+      "device_label",
+      "provider_room_name",
+      "provider_participant_identity",
+    ]) {
+      expect(body).not.toHaveProperty(forbidden);
+    }
+  });
+
   it("issues an exact tenant-scoped credential without client supplied provider authority", async () => {
     const credential: MediaInstanceCredential = {
       access_token: "memory-only-token",

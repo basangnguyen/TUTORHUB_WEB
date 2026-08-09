@@ -1589,6 +1589,92 @@ const messages = {
     "media.prejoin.listenOnlyDescription":
       "Vai trò hiện tại có thể xem và nghe phòng học nhưng không được phát camera, micro hoặc chia sẻ màn hình.",
     "media.prejoin.unavailableTitle": "Phòng học chưa sẵn sàng",
+    "media.p403.invalidSpace": "Đường dẫn không chứa MediaSpace hợp lệ.",
+    "media.p403.loadingSpace": "Đang kiểm tra phòng học và quyền tham gia...",
+    "media.p403.spaceUnavailable": "Không thể mở kiểm tra trước khi vào phòng",
+    "media.p403.spaceUnavailableDescription":
+      "MediaSpace không tồn tại hoặc không thuộc workspace hiện tại.",
+    "media.p403.roomNotOpen":
+      "Phòng chưa mở hoặc phiên media hiện tại đã kết thúc.",
+    "media.p403.roomLocked": "Phòng đang khóa và không nhận lượt tham gia mới.",
+    "media.p403.back": "← Về Trang chủ",
+    "media.p403.title": "Sẵn sàng vào phòng học",
+    "media.p403.description":
+      "Camera và micro chỉ được mở sau khi bạn chọn kiểm tra. Lựa chọn thiết bị và credential chỉ tồn tại trong bộ nhớ của tab.",
+    "media.p403.previewLabel": "Bản xem trước camera cục bộ",
+    "media.p403.previewOff": "Camera và micro đang tắt",
+    "media.p403.previewConsent":
+      "Chọn kiểm tra thiết bị để trình duyệt hỏi quyền truy cập.",
+    "media.p403.retryPreview": "Kiểm tra lại thiết bị",
+    "media.p403.startPreview": "Kiểm tra camera và micro",
+    "media.p403.stopPreview": "Tắt bản xem trước",
+    "media.p403.deviceProblem": "Không thể dùng thiết bị đã chọn",
+    "media.p403.readinessLabel": "Trạng thái sẵn sàng tham gia",
+    "media.p403.network": "Kết nối Core API",
+    "media.p403.effect": "Hiệu ứng hình ảnh",
+    "media.p403.effectNone": "Không dùng hiệu ứng",
+    "media.p403.networkPrivacy":
+      "Kiểm tra mạng chỉ gọi health endpoint cùng origin; không thu SDP, ICE, IP hoặc nhãn thiết bị.",
+    "media.p403.joinWithDevices": "Tham gia với thiết bị đã bật",
+    "media.p403.joinListenOnly": "Tham gia chỉ nghe",
+    "media.p403.waitingTitle": "Đang chờ được cho vào",
+    "media.p403.waitingDescription":
+      "TutorHub chưa cấp credential và chưa kết nối LiveKit trong khi bạn đang chờ.",
+    "media.p403.checkAdmission": "Kiểm tra trạng thái vào phòng",
+    "media.p403.deviceReset":
+      "Thiết bị đã chọn không còn khả dụng. TutorHub đã chuyển về thiết bị mặc định.",
+    "media.p403.speaker": "Loa",
+    "media.p403.systemDefault": "Loa mặc định của hệ thống",
+    "media.p403.micLevel": "Mức micro",
+    "media.p403.audioMode": "Chế độ âm thanh",
+    "media.p403.speech": "Giọng nói (khử vọng và lọc ồn)",
+    "media.p403.originalSound": "Âm thanh gốc / nhạc",
+    "media.p403.actualProcessing":
+      "Thực tế: khử vọng {echo}, lọc ồn {noise}, tự cân bằng {gain}.",
+    "media.p403.stopSpeaker": "Dừng kiểm tra loa",
+    "media.p403.providerUnavailable":
+      "Dịch vụ media đang tạm thời không khả dụng.",
+    "media.p403.featureDisabled":
+      "Tính năng phòng học trực tuyến chưa được bật cho workspace này.",
+    "media.p403.quotaExceeded": "Phòng đã đạt giới hạn người tham gia.",
+    "media.p403.rateLimited":
+      "Bạn đã thử tham gia quá nhiều lần. Hãy chờ rồi thử lại.",
+    "media.p403.leave": "Rời phòng",
+    "media.p403.unknown": "không xác định",
+    "media.p403.on": "bật",
+    "media.p403.off": "tắt",
+    "media.p403.network.checking": "Đang kiểm tra",
+    "media.p403.network.ready": "Sẵn sàng",
+    "media.p403.network.offline": "Thiết bị đang ngoại tuyến",
+    "media.p403.network.unavailable": "Không thể xác nhận kết nối",
+    "media.p403.network.fast": "nhanh",
+    "media.p403.network.moderate": "trung bình",
+    "media.p403.network.slow": "chậm",
+    "media.p403.speaker.idle": "Chưa kiểm tra",
+    "media.p403.speaker.playing": "Đang phát âm thử",
+    "media.p403.speaker.success": "Đã phát âm thử",
+    "media.p403.speaker.blocked":
+      "Trình duyệt đã chặn tự phát âm thanh; hãy thử lại.",
+    "media.p403.speaker.unsupported":
+      "Trình duyệt dùng loa mặc định của hệ thống.",
+    "media.p403.speaker.failed": "Không thể phát âm thử.",
+    "media.p403.error.media_permission_denied_or_blocked":
+      "Quyền camera hoặc micro bị từ chối. Bạn vẫn có thể tham gia chỉ nghe.",
+    "media.p403.error.media_device_not_found":
+      "Không tìm thấy camera hoặc micro. Bạn vẫn có thể tham gia chỉ nghe.",
+    "media.p403.error.media_device_busy_or_unreadable":
+      "Thiết bị đang được ứng dụng khác sử dụng. Hãy đóng ứng dụng đó rồi thử lại.",
+    "media.p403.error.media_constraints_unavailable":
+      "Thiết bị không hỗ trợ cấu hình đã chọn. TutorHub đã thử cấu hình mặc định.",
+    "media.p403.error.media_probe_aborted": "Kiểm tra thiết bị đã bị hủy.",
+    "media.p403.error.media_capture_unsupported_or_policy_blocked":
+      "Trình duyệt hoặc chính sách hệ thống không cho phép thu media trên trang này.",
+    "media.p403.error.audio_output_selection_unsupported":
+      "Trình duyệt không hỗ trợ chọn loa; loa mặc định vẫn có thể dùng.",
+    "media.p403.error.media_playback_blocked":
+      "Trình duyệt đã chặn phát âm thử. Hãy chọn kiểm tra loa lần nữa.",
+    "media.p403.error.media_device_unknown":
+      "Thiết bị gặp lỗi chưa xác định. Bạn vẫn có thể tham gia chỉ nghe.",
     "media.room.title": "Phòng học TutorHub",
     "media.room.participantCount": "{count} người tham gia",
     "media.room.participantGrid": "Khu vực video người tham gia",
@@ -1602,6 +1688,7 @@ const messages = {
       "Không thể kết nối tới phòng học. Hãy quay lại bước kiểm tra và thử lại.",
     "media.room.deviceError":
       "Camera hoặc micro không khả dụng. Kiểm tra quyền của trình duyệt và thiết bị đang dùng.",
+    "media.room.enableAudio": "Bật âm thanh phòng học",
     "media.room.dismiss": "Đóng thông báo",
     "media.room.credentialMissing":
       "Thông tin kết nối đã hết hạn hoặc không còn trong bộ nhớ. TutorHub không lưu token phòng học trên trình duyệt.",
@@ -3269,6 +3356,94 @@ const messages = {
     "media.prejoin.listenOnlyDescription":
       "Your current role can watch and listen but cannot publish a camera, microphone or screen share.",
     "media.prejoin.unavailableTitle": "The classroom is not ready",
+    "media.p403.invalidSpace":
+      "The address does not contain a valid MediaSpace.",
+    "media.p403.loadingSpace": "Checking the room and your join permission...",
+    "media.p403.spaceUnavailable": "The prejoin check cannot be opened",
+    "media.p403.spaceUnavailableDescription":
+      "The MediaSpace does not exist or is not in the active workspace.",
+    "media.p403.roomNotOpen":
+      "The room is not open or the active media instance has ended.",
+    "media.p403.roomLocked":
+      "The room is locked and is not accepting new join attempts.",
+    "media.p403.back": "← Back to Home",
+    "media.p403.title": "Get ready for class",
+    "media.p403.description":
+      "Camera and microphone access starts only after you choose to test them. Device choices and credentials stay in this tab's memory.",
+    "media.p403.previewLabel": "Local camera preview",
+    "media.p403.previewOff": "Camera and microphone are off",
+    "media.p403.previewConsent":
+      "Choose the device check to let the browser request access.",
+    "media.p403.retryPreview": "Test devices again",
+    "media.p403.startPreview": "Test camera and microphone",
+    "media.p403.stopPreview": "Stop preview",
+    "media.p403.deviceProblem": "The selected device is unavailable",
+    "media.p403.readinessLabel": "Join readiness status",
+    "media.p403.network": "Core API connection",
+    "media.p403.effect": "Video effect",
+    "media.p403.effectNone": "No effect",
+    "media.p403.networkPrivacy":
+      "The network check calls only the same-origin health endpoint; it collects no SDP, ICE, IP address or device label.",
+    "media.p403.joinWithDevices": "Join with enabled devices",
+    "media.p403.joinListenOnly": "Join listen-only",
+    "media.p403.waitingTitle": "Waiting to be admitted",
+    "media.p403.waitingDescription":
+      "TutorHub has not issued a credential or connected to LiveKit while you wait.",
+    "media.p403.checkAdmission": "Check admission status",
+    "media.p403.deviceReset":
+      "The selected device is no longer available. TutorHub switched to the browser default.",
+    "media.p403.speaker": "Speaker",
+    "media.p403.systemDefault": "System default speaker",
+    "media.p403.micLevel": "Microphone level",
+    "media.p403.audioMode": "Audio mode",
+    "media.p403.speech": "Speech (echo and noise processing)",
+    "media.p403.originalSound": "Original sound / music",
+    "media.p403.actualProcessing":
+      "Actual: echo cancellation {echo}, noise suppression {noise}, auto gain {gain}.",
+    "media.p403.stopSpeaker": "Stop speaker test",
+    "media.p403.providerUnavailable":
+      "The media service is temporarily unavailable.",
+    "media.p403.featureDisabled":
+      "Live classroom media is not enabled for this workspace.",
+    "media.p403.quotaExceeded": "The room has reached its participant limit.",
+    "media.p403.rateLimited":
+      "Too many join attempts. Wait before trying again.",
+    "media.p403.leave": "Leave room",
+    "media.p403.unknown": "unknown",
+    "media.p403.on": "on",
+    "media.p403.off": "off",
+    "media.p403.network.checking": "Checking",
+    "media.p403.network.ready": "Ready",
+    "media.p403.network.offline": "This device is offline",
+    "media.p403.network.unavailable": "Connection could not be confirmed",
+    "media.p403.network.fast": "fast",
+    "media.p403.network.moderate": "moderate",
+    "media.p403.network.slow": "slow",
+    "media.p403.speaker.idle": "Not tested",
+    "media.p403.speaker.playing": "Playing test sound",
+    "media.p403.speaker.success": "Test sound played",
+    "media.p403.speaker.blocked":
+      "The browser blocked playback; try the speaker test again.",
+    "media.p403.speaker.unsupported":
+      "The browser will use the system default speaker.",
+    "media.p403.speaker.failed": "The test sound could not be played.",
+    "media.p403.error.media_permission_denied_or_blocked":
+      "Camera or microphone permission was denied. You can still join listen-only.",
+    "media.p403.error.media_device_not_found":
+      "No camera or microphone was found. You can still join listen-only.",
+    "media.p403.error.media_device_busy_or_unreadable":
+      "Another application is using the device. Close it and try again.",
+    "media.p403.error.media_constraints_unavailable":
+      "The device does not support the selected settings. TutorHub tried browser defaults.",
+    "media.p403.error.media_probe_aborted": "The device check was cancelled.",
+    "media.p403.error.media_capture_unsupported_or_policy_blocked":
+      "The browser or system policy does not allow media capture on this page.",
+    "media.p403.error.audio_output_selection_unsupported":
+      "This browser cannot select a speaker; the system default remains available.",
+    "media.p403.error.media_playback_blocked":
+      "The browser blocked the test sound. Choose the speaker test again.",
+    "media.p403.error.media_device_unknown":
+      "The device reported an unknown error. You can still join listen-only.",
     "media.room.title": "TutorHub classroom",
     "media.room.participantCount": "{count} participants",
     "media.room.participantGrid": "Participant video area",
@@ -3282,6 +3457,7 @@ const messages = {
       "The classroom could not be reached. Return to the prejoin check and try again.",
     "media.room.deviceError":
       "The camera or microphone is unavailable. Check browser permission and the selected device.",
+    "media.room.enableAudio": "Enable classroom audio",
     "media.room.dismiss": "Dismiss",
     "media.room.credentialMissing":
       "The room credential expired or is no longer in memory. TutorHub does not persist room tokens in browser storage.",
