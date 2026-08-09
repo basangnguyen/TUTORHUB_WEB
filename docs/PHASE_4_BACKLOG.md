@@ -23,9 +23,9 @@ effect thuộc Phase 3 khi carry-over chưa đạt gate riêng.
 **Task `DONE` gần nhất:** `P4-01` MediaSpace lifecycle/schema/API core ngày 2026-08-09. Exact
 candidate đã PASS local/disposable/CI/security/shared/deploy/live feature-off acceptance; cả
 disposable và shared giữ ledger `29 false`, không rollback. **Task hiện tại:** `P4-02`
-RoomInstance LiveKit credential + webhook binding ở trạng thái `IN PROGRESS`; local candidate đã
-PASS full verify, disposable PostgreSQL/exact ACL và LiveKit test-provider gates; còn khóa exact
-candidate, CI/security, shared forward/ACL, deploy và live acceptance.
+RoomInstance LiveKit credential + webhook binding ở trạng thái `VERIFY`; local/disposable exact
+ACL/PostgreSQL, LiveKit test-provider và exact candidate CI/security đã PASS. Còn shared
+forward/ACL, deploy và live feature-off/provider acceptance.
 
 `P4-MEDIA-UX-00` là research lane `TODO` có thể chạy song song P4-01/P4-02 và phải `DONE`
 trước phần UX/signals/effects của P4-03/P4-04/P4-05/P4-06. Task không đổi LiveKit provider,
@@ -73,7 +73,7 @@ không thêm production dependency và không làm thay đổi critical path hi�
 | P4-00           | Architecture/backlog/contract baseline             | P3-14-CORE                              | DONE       |
 | P4-MEDIA-UX-00 | Prejoin/layout/signals/effects research spike      | P4-00; song song P4-01/P4-02            | TODO       |
 | P4-01           | MediaSpace lifecycle, schema và API core            | P4-00                                   | DONE       |
-| P4-02           | RoomInstance LiveKit credential + webhook binding   | P4-01, P1-07 baseline                   | IN PROGRESS |
+| P4-02           | RoomInstance LiveKit credential + webhook binding   | P4-01, P1-07 baseline                   | VERIFY     |
 | P4-03           | Prejoin device/network và join-attempt flow         | P4-02, P4-MEDIA-UX-00                  | TODO       |
 | P4-04           | Lobby, admission và explicit same-tenant invite     | P4-02, P4-03, P4-MEDIA-UX-00           | TODO       |
 | P4-05           | Classroom shell, media controls và layouts          | P4-03, P4-MEDIA-UX-00                  | TODO       |
@@ -251,7 +251,7 @@ LiveKit token. **Acceptance:** [P4_01_STAGING_ACCEPTANCE.md](P4_01_STAGING_ACCEP
 
 ## 9. P4-02 RoomInstance LiveKit credential và webhook binding
 
-**Dependency:** P4-01 và P1-07 baseline. **Trạng thái:** `IN PROGRESS`.
+**Dependency:** P4-01 và P1-07 baseline. **Trạng thái:** `VERIFY`.
 
 Candidate ngày 2026-08-09 có migration `000030`, exact ACL/runbook, official LiveKit RoomService
 adapter, provider lifecycle reconciliation, RoomInstance credential API, opaque ParticipantSession
@@ -286,9 +286,10 @@ live acceptance. Feature vẫn force-off; chưa khóa/push exact candidate và c
 - [x] Provider outage trả typed `503`, không để partial active instance hoặc duplicate room.
 - [x] P1/P4 route mutual exclusion và compatibility tests PASS.
 
-Các acceptance implementation/database/provider trên đã xanh, nhưng rollout gate còn mở nên P4-02
-vẫn `IN PROGRESS`: khóa exact candidate và CI/security trước; shared/deploy/live chỉ sau khi báo cáo
-disposable được chấp nhận.
+Các acceptance implementation/database/provider trên đã xanh. Exact candidate
+`f622e5f4b4c5efd6b877914e35aff16d765fba53` PASS GitHub Verify `31303424310` trong 3 phút 13 giây
+và Security `31303424335` trong 2 phút 55 giây, nên P4-02 chuyển `IN PROGRESS -> VERIFY`.
+Shared/deploy/live chỉ chạy sau khi báo cáo này được chấp nhận và có quyền tiếp tục.
 
 ## 10. P4-03 Prejoin device/network và join-attempt flow
 
@@ -516,9 +517,10 @@ PostgreSQL. Mỗi implementation slice phải cập nhật khi thêm provider co
 
 ## 23. Thứ tự thực hiện ngay
 
-1. Khóa exact P4-02 candidate, commit/push và chạy GitHub Verify/Security; chưa forward shared hoặc
-   deploy, vẫn giữ hai feature off và không rollback.
-2. Sau khi báo cáo exact candidate CI/security và có quyền tiếp tục: shared owner/runtime preflight,
+1. Exact P4-02 candidate đã PASS GitHub Verify/Security; xin quyền tiếp tục shared owner/runtime
+   preflight, forward-only `29 false -> 30 false -> 30 false`, exact ACL, deploy và live
+   feature-off/provider acceptance; vẫn giữ hai feature off và không rollback.
+2. Sau khi có quyền tiếp tục: shared owner/runtime preflight,
    forward-only `29 false -> 30 false -> 30 false`, exact ACL, deploy và live feature-off/provider
    acceptance.
 3. Có thể chạy `P4-MEDIA-UX-00` song song; không để research đổi schema/authority hoặc chặn P4-02.

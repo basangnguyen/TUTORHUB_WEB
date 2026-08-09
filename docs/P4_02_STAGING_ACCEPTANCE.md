@@ -2,7 +2,8 @@
 
 ## 1. Trạng thái và ranh giới
 
-- Trạng thái hiện tại: `IN PROGRESS`.
+- Trạng thái hiện tại: `VERIFY`; disposable/provider và exact candidate CI/security đã PASS,
+  shared staging/deploy/live acceptance chưa chạy.
 - Kiến trúc có thẩm quyền: ADR-0030; migration source:
   `000030_room_instance_livekit_binding`.
 - Ledger đầu vào bắt buộc: `29 false`; ledger đích: `30 false`.
@@ -559,9 +560,9 @@ Disposable report phải gồm, chỉ ở dạng non-secret:
 
 ### 8.1 Kết quả disposable/test-provider ngày 2026-08-09
 
-- Candidate hiện là worktree chưa commit; exact commit/diff identity sẽ được khóa trước GitHub
-  Verify/Security. Full local `pnpm verify` PASS trong 182.5 giây; rerun sau khi bỏ log endpoint
-  LiveKit tiếp tục PASS trong 26.2 giây với cache.
+- Exact implementation candidate `f622e5f4b4c5efd6b877914e35aff16d765fba53` đã push lên
+  `main`. Full local `pnpm verify` PASS trong 182.5 giây; rerun sau khi bỏ log endpoint LiveKit
+  tiếp tục PASS trong 26.2 giây với cache.
 - Owner preflight direct/pooled/different-role PASS, chỉ báo boolean không bí mật.
 - Forward-only và rerun idempotent PASS: `29 false -> 30 false -> 30 false`; final ledger
   `30 false`, `rollback_run=false`.
@@ -574,8 +575,12 @@ Disposable report phải gồm, chỉ ở dạng non-secret:
   least-privilege, real connect/disconnect và exact delete/list cleanup. Official verifier synthetic
   valid/wrong-key/body-tamper PASS; provider-emitted webhook tới public Core API vẫn thuộc live
   acceptance sau deploy.
+- Exact candidate GitHub Verify run `31303424310` PASS trong 3 phút 13 giây; Security run
+  `31303424335` PASS trong 2 phút 55 giây, gồm secret scan, CodeQL JavaScript/TypeScript + Go,
+  repository vulnerability scan và Core API container scan. Dependency Review được skip đúng
+  contract vì đây là push event, không phải pull request.
 - Không log secret/URL/token, không chạm shared staging, không deploy và giữ disposable branch.
-  Trạng thái vẫn là `IN PROGRESS` vì exact candidate GitHub Verify/Security chưa chạy.
+  P4-02 chuyển `IN PROGRESS -> VERIFY`; chỉ shared forward/ACL, deploy và live acceptance còn mở.
 
 Nếu bất kỳ gate FAIL: dừng, giữ disposable, không rollback/nới ACL và không chuyển shared. Sửa bằng
 candidate/forward migration mới phù hợp rồi chạy lại từ gate liên quan.

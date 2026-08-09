@@ -13,11 +13,11 @@
 | Phase hoàn thành     | Phase 0, Phase 1, Phase 2                                                             |
 | Phase hiện tại       | Phase 4 Classroom Media MVP; Phase 3 deferred carry-over vẫn hoạt động                |
 | Task `DONE` gần nhất | P4-01 MediaSpace lifecycle/schema/API core                                            |
-| Mốc repository mới   | P4-02 disposable PostgreSQL/ACL và LiveKit test-provider gates PASS; CI còn mở          |
+| Mốc repository mới   | P4-02 exact candidate f622e5f4 PASS disposable/provider và GitHub Verify/Security       |
 | Task hiện tại        | P4-02 RoomInstance LiveKit credential + webhook binding                               |
-| Task tiếp theo       | Khóa exact P4-02 candidate, push và chạy GitHub Verify/Security; chưa shared/deploy    |
+| Task tiếp theo       | Sau khi có quyền: shared forward 29 -> 30, exact ACL, deploy và live acceptance        |
 
-### Checkpoint P4-02 disposable/provider candidate `IN PROGRESS` ngày 2026-08-09
+### Checkpoint P4-02 exact candidate `VERIFY` ngày 2026-08-09
 
 P4-02 đã có forward migration `000030_room_instance_livekit_binding`, exact runtime ACL/runbook,
 official LiveKit server SDK adapter và canonical RoomInstance credential endpoint. Credential chỉ
@@ -57,8 +57,10 @@ PASS với signed synthetic webhook; provider-emitted webhook tới public Core 
 acceptance sau deploy. Full `pnpm verify` sau các sửa lock-order, tenant concealment, lobby/
 Unix-second fixture và ACL PASS trong 182.5 giây; rerun sau khi bỏ log endpoint LiveKit tiếp tục
 PASS trong 26.2 giây với cache. File `.env.p4-02-disposable.local` chỉ được nạp
-trong cùng command, không in/log giá trị. P4-02 giữ `IN PROGRESS`: còn khóa exact candidate, GitHub
-Verify/Security, rồi mới xin quyền shared forward/ACL/deploy/live theo
+trong cùng command, không in/log giá trị. Exact candidate
+`f622e5f4b4c5efd6b877914e35aff16d765fba53` đã push `main`; GitHub Verify `31303424310` PASS
+trong 3 phút 13 giây và Security `31303424335` PASS trong 2 phút 55 giây. P4-02 chuyển
+`IN PROGRESS -> VERIFY`; còn shared forward/ACL/deploy/live và chỉ chạy sau khi có quyền theo
 [P4_02_STAGING_ACCEPTANCE.md](P4_02_STAGING_ACCEPTANCE.md).
 
 ### Checkpoint P4-01 `DONE` ngày 2026-08-09
