@@ -2,17 +2,16 @@
 
 ## 1. Trạng thái và ranh giới
 
-- Trạng thái hiện tại: `IN PROGRESS` ngày 2026-08-09.
+- Trạng thái hiện tại: `DONE` ngày 2026-08-09.
 - Kiến trúc có thẩm quyền: ADR-0030; migration source:
   `000029_classroom_media_spaces`.
 - Source candidate đã có schema/domain/repository, feature/quota, REST
   create/get/start/end/cancel, OpenAPI/generated client và feature-control UI.
-- Typed policy/security review, fresh local verify và disposable PostgreSQL forward/exact
-  ACL/integration đã PASS. Gate còn mở bắt buộc là exact candidate GitHub CI/security,
-  shared staging forward/ACL, deploy và live feature-off acceptance.
-- Migration `000029` chỉ đã được chạy trên disposable branch
-  `p4-01-disposable-20260809`. Shared Neon vẫn ở ledger đã nghiệm thu trước P4-01; không chạy
-  `000029` trên shared trước khi owner phê duyệt rõ sau báo cáo disposable này.
+- Typed policy/security review, fresh local verify, disposable PostgreSQL forward/exact
+  ACL/integration, exact candidate GitHub CI/security, shared staging forward/ACL, deploy và
+  live feature-off acceptance đều PASS.
+- Migration `000029` đã forward-only trên disposable branch
+  `p4-01-disposable-20260809` và shared Neon; cả hai giữ final ledger `29 false`. Không rollback.
 
 P4-01 luôn feature-off. `classroom_media_rooms` và `instant_study_rooms` có compiled default
 `false`, deployment enable mặc định `false`; child instant còn phụ thuộc parent. Thiếu LiveKit
@@ -524,16 +523,37 @@ thực sự chạy hai operation; timeout toàn suite tăng lên 5 phút cho Neo
 được giữ lại vì `audit_events` append-only với tenant FK `RESTRICT`. Không thay đổi production
 schema/logic để làm test PASS.
 
-Các kết quả trên chưa thay thế exact candidate GitHub CI/security, shared staging hoặc live
-acceptance. Disposable branch phải được giữ cho tới khi các bước kế tiếp được quyết định.
+Disposable branch được giữ lại sau acceptance; không xóa trong task này.
 
-## 8. Exit decision
+## 8. Exact candidate, shared staging và live evidence
 
-Chuyển `IN PROGRESS -> VERIFY` chỉ sau khi disposable forward/ACL/PostgreSQL gates PASS và exact
-candidate CI/security xanh; policy/security review cùng full local verify đã PASS.
+- Exact implementation candidate:
+  `183ca338557fafd6e8fe502d67763bb2a73d9aa0`.
+- GitHub Verify run `31291917865`: PASS; Security run `31291917871`: PASS.
+- Cloudflare Pages check `93190579210`, deployment
+  `98c7f7fd-e1e6-474c-8cf1-924b6971aa64`: PASS trên exact candidate.
+- Shared owner/runtime preflight: PASS; migration login direct, runtime login pooled, role tách
+  biệt, owner authority hợp lệ và ledger đầu vào `28 false`.
+- Shared forward-only `28 false -> 29 false -> 29 false`: PASS; exact runtime ACL provisioning
+  và focused PostgreSQL ACL integration PASS; final ledger giữ `29 false`, không rollback.
+- Render deployment `dep-d9rv61ajobas73e9pq90` chạy exact candidate và đạt `live`.
+- Direct Render và Pages proxy health/ready/status: 6/6 HTTP `200`, `no-store`.
+- Authenticated Organization Admin UI xác nhận cả `classroom_media_rooms` và
+  `instant_study_rooms` ở trạng thái off; browser console không có warning/error.
+- Anonymous direct/Pages GET/POST media route: 4/4 HTTP `401`, `Cache-Control: no-store`,
+  `Referrer-Policy: no-referrer`.
+- Read-only shared database probe sau live giữ `media_spaces`, `media_room_instances`,
+  `media_space_mutation_receipts` và `media_participant_sessions` đều bằng `0`.
+- Không tạo MediaSpace, RoomInstance, participant session, token, webhook hoặc provider room;
+  không có provider side effect trong acceptance P4-01.
 
-Chuyển `VERIFY -> DONE` chỉ sau disposable report, owner phê duyệt rõ cho shared forward,
-shared owner preflight `28 false -> 29 false -> 29 false`, exact ACL provisioning, deploy exact
-candidate và authenticated/live feature-off acceptance. Shared/live không được tạo MediaSpace,
-RoomInstance, token hoặc provider room trong acceptance P4-01. Không rollback; lỗi sau forward
-phải fail closed hoặc dùng forward migration mới được review.
+Full mutation/concurrency/privacy PostgreSQL suite chỉ chạy trên disposable để tránh ghi fixture
+audit append-only vào shared. Shared chỉ chạy preflight, forward/idempotency, exact ACL và focused
+ACL integration; live probe chỉ đọc.
+
+## 9. Exit decision
+
+P4-01 đã chuyển `IN PROGRESS -> VERIFY` sau disposable forward/ACL/PostgreSQL gates và exact
+candidate CI/security; sau đó chuyển `VERIFY -> DONE` khi shared owner preflight/forward/exact ACL,
+exact deploy và authenticated/live feature-off acceptance đều PASS. Hai media feature tiếp tục off.
+Không rollback; thay đổi schema tiếp theo phải dùng forward migration mới được review.

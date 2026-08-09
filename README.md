@@ -83,18 +83,17 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
 - P4-00 architecture/backlog baseline đã `DONE` ngày 2026-08-08. ADR-0030 chốt
   MediaSpace/RoomInstance/ParticipantSession, official/member-owned authority,
   room-instance LiveKit credential, webhook binding, lobby/moderation, privacy và
-  feature-off rollout. P4-01 MediaSpace lifecycle/schema/API core đang `IN PROGRESS` với
-  migration `000029`, typed policy, lifecycle/API/OpenAPI/generated client và feature/quota
-  candidate. Disposable forward-only `28 false -> 29 false -> 29 false`, exact runtime ACL,
-  full media PostgreSQL integration và fresh local verify đã PASS; exact candidate GitHub
-  CI/security, shared forward/deploy và live feature-off acceptance còn mở. Chưa gọi LiveKit và
-  hai media feature vẫn mặc định off.
+  feature-off rollout. P4-01 MediaSpace lifecycle/schema/API core đã `DONE` ngày 2026-08-09 trên
+  exact candidate `183ca338557fafd6e8fe502d67763bb2a73d9aa0`: disposable/shared forward-only
+  `28 false -> 29 false -> 29 false`, exact ACL/PostgreSQL, Verify/Security, Render/Cloudflare và
+  authenticated/live feature-off acceptance đều PASS. Chưa gọi LiveKit, không có provider side
+  effect và hai media feature vẫn off. Task runnable tiếp theo là P4-02.
 - P4-MEDIA-UX-00 đã được đăng ký làm research spike cho green room/lobby, layout 2-50 người,
   hand raise/reaction, background/effects, audio processing và degraded fallback. Task `TODO`
-  chạy song song P4-01/P4-02, phải đạt trước phần UX/signals/effects của P4-03/P4-04/P4-05/P4-06
+  chạy song song P4-02, phải đạt trước phần UX/signals/effects của P4-03/P4-04/P4-05/P4-06
   và chưa cho phép thêm production dependency/provider.
 - P5-COLLAB-00 đã được đăng ký làm research spike tương lai cho whiteboard engine,
-  document/sync authority, license và realtime topology. Task vẫn `TODO`, không chặn P4-01
+  document/sync authority, license và realtime topology. Task vẫn `TODO`, không chặn P4-02
   và không cho phép thêm production dependency/runtime trước prototype, evidence và ADR.
 - Web MVP nền đã chạy trên staging: Cloudflare Pages -> same-origin `/api/*` -> Go
   Core API trên Render; dữ liệu dùng Neon, file dùng Backblaze B2, media dùng LiveKit

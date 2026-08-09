@@ -191,7 +191,7 @@ hoặc worker-driven file processing/sharing tới end user.
 | --------------- | ---------- | ---------------------------------------------------------- |
 | P4-00           | DONE       | ADR-0030 + Phase 4 backlog; không migration/deploy         |
 | P4-MEDIA-UX-00 | TODO       | Research prejoin/layout/signals/effects; song song P4-01/02 |
-| P4-01           | IN PROGRESS | Disposable DB/ACL PASS; chờ exact CI, shared và live       |
+| P4-01           | DONE       | Exact disposable/CI/shared/deploy/live feature-off PASS    |
 | P4-02           | TODO       | RoomInstance credential + signed webhook database binding  |
 | P4-03 đến P4-10 | TODO       | Prejoin/lobby/UI/moderation/chat/reconnect/telemetry       |
 | P4-11           | TODO       | Browser/device/load/provider-outage acceptance             |
@@ -199,16 +199,16 @@ hoặc worker-driven file processing/sharing tới end user.
 
 Nguồn thực thi: `docs/PHASE_4_BACKLOG.md`; kiến trúc có thẩm quyền: ADR-0030. P1-07
 LiveKit token/webhook/prejoin/room code được tái sử dụng nhưng class-wide deterministic
-room không phải Phase 4 lifecycle authority. P4-01 đang `IN PROGRESS`: candidate local có
-migration `000029`, schema/ACL design, domain/API và feature/quota defaults off. Disposable
-forward-only `28 false -> 29 false -> 29 false`, exact runtime ACL, full media PostgreSQL gate
-và fresh local verify đã PASS; không rollback, provider call hoặc end-user activation. Typed
-policy `room.create.instant` đã nối đúng ADR-0021. Gate tiếp theo là push exact candidate,
-GitHub CI/security, rồi shared forward/ACL/deploy/live acceptance theo
-`docs/P4_01_STAGING_ACCEPTANCE.md`; shared staging vẫn cần owner approval rõ. Trước P4-08 phải review/amend
-ADR-0013/0025 vì conversation hiện chỉ có `direct` và `class`.
+room không phải Phase 4 lifecycle authority. P4-01 đã `DONE` trên exact candidate
+`183ca338557fafd6e8fe502d67763bb2a73d9aa0`: disposable và shared forward-only giữ `29 false`,
+exact ACL/PostgreSQL gates, GitHub Verify/Security, Render/Cloudflare deploy và authenticated/live
+feature-off acceptance đều PASS. Không rollback, provider call, provider side effect hoặc
+end-user activation; hai media feature tiếp tục off. Evidence tại
+`docs/P4_01_STAGING_ACCEPTANCE.md`. Task runnable tiếp theo là P4-02 credential + signed webhook
+binding. Trước P4-08 phải review/amend ADR-0013/0025 vì conversation hiện chỉ có `direct` và
+`class`.
 
-`P4-MEDIA-UX-00` không đổi task hiện tại: có thể chạy song song P4-01/P4-02 nhưng phải
+`P4-MEDIA-UX-00` không đổi task hiện tại: có thể chạy song song P4-02 nhưng phải
 `DONE` trước phần UX/signals/effects của P4-03/P4-04/P4-05/P4-06. Phạm vi gồm prejoin/lobby,
 layout 2/5/25/50, hand raise/reaction và media effects. Chỉ audit V1 read-only và prototype
 cô lập; không thêm production dependency/provider/route/deploy trước evidence + ADR/amendment.

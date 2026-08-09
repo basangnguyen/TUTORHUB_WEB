@@ -7,16 +7,17 @@ thay đổi schema, migration hoặc repository phải đọc tài liệu này t
 
 - System of record: Neon PostgreSQL.
 - Schema ứng dụng: `tutorhub`.
-- Migration mới nhất trong source: `000029_classroom_media_spaces`; P4-01 hiện
-  `IN PROGRESS`. P3-06/P3-07A đã forward cả disposable và shared
+- Migration mới nhất trong source: `000029_classroom_media_spaces`; P4-01 đã
+  `DONE`. P3-06/P3-07A đã forward cả disposable và shared
   Neon tới `25 false`. P3-08 disposable đã forward-only
   `25 false -> 26 false -> 26 false`; exact content ACL và PostgreSQL gates PASS.
   P3-09 disposable đã forward-only tới `28 false`; shared staging đã forward-only
   `25 false -> 28 false -> 28 false`, re-provision exact content ACL và chạy full PostgreSQL
   content integration PASS. P4-01 disposable đã forward-only
   `28 false -> 29 false -> 29 false`, provision exact runtime ACL và PASS full media PostgreSQL
-  integration; final ledger giữ `29 false`, không rollback. Shared vẫn ở `28 false` và chỉ được
-  forward sau exact candidate CI/security cùng owner approval rõ.
+  integration; final ledger giữ `29 false`, không rollback. Shared đã forward-only
+  `28 false -> 29 false -> 29 false`, provision exact runtime ACL và PASS focused ACL integration;
+  final shared ledger cũng giữ `29 false`.
 - Migration 1-5 đã được chạy và kiểm tra trên Neon; smoke
   `5 false -> rollback 4 false -> migrate 5 false` đạt ngày 2026-07-16.
 - Migration `000006` đến `000013` đều có up/down path. Source và PostgreSQL 17 CI
@@ -1240,8 +1241,8 @@ pnpm db:version
 ```
 
 Sau khi áp dụng toàn bộ migration trong source hiện tại lên database được phép, kết quả mục tiêu
-là `29 false`. Riêng P4-01 chỉ được chạy disposable từ `28 false`, rerun giữ `29 false`, không
-rollback; shared staging vẫn giữ `28 false` cho tới khi disposable report đạt và owner phê duyệt.
+là `29 false`. P4-01 đã chạy disposable và shared từ `28 false`, rerun giữ `29 false`, không
+rollback; shared chỉ được forward sau khi disposable report, exact CI/security và owner approval đạt.
 Neon disposable P3-07A đã đạt chuỗi forward-only
 `24 false -> 25 false -> 25 false`, exact ACL và focused/full PostgreSQL gates theo
 [`P3_07A_STAGING_ACCEPTANCE.md`](P3_07A_STAGING_ACCEPTANCE.md).
@@ -1352,7 +1353,9 @@ admission zero-grant. Không có LiveKit token, provider call hoặc webhook. Ex
 forward/ACL/probe nằm tại
 [`P4_01_STAGING_ACCEPTANCE.md`](P4_01_STAGING_ACCEPTANCE.md). Tại checkpoint 2026-08-09,
 disposable đã PASS forward-only `28 false -> 29 false -> 29 false`, exact ACL và full media
-PostgreSQL integration; shared chưa chạy `000029`, exact candidate GitHub CI/security còn mở.
+PostgreSQL integration. Exact candidate đã PASS CI/security; shared đã PASS forward-only
+`28 false -> 29 false -> 29 false`, exact ACL và focused ACL integration. Cả hai final ledger
+giữ `29 false`, không rollback.
 
 Với P2-05, cần kiểm tra riêng migrate 9 -> 10, rollback 10 -> 9, migrate lại 9 -> 10;
 tenant-scoped FK/unique/state constraints; direct enroll và các transition; same-user
@@ -1421,8 +1424,7 @@ của lịch sử append-only và không phải quy trình cleanup cho staging/p
   P3-02C working schedule/free-busy, internal/external audience, organizer transfer,
   cancellation lifecycle và RSVP đều đã đạt staging gate. Delivery/email side effect
   vẫn bị khóa cho tới khi P3-03B/P3-05A và các provider gate tương ứng hoàn tất.
-- P4-01 đang `IN PROGRESS`: disposable forward/exact ACL/full media PostgreSQL và fresh local
-  verify đã PASS; exact candidate GitHub CI/security, shared migration/ACL, deploy và live
-  feature-off acceptance còn mở. Hai media feature tiếp tục off và P4-01 không được tạo provider
-  side effect.
+- P4-01 đã `DONE`: disposable/shared forward-only giữ `29 false`, exact ACL/PostgreSQL,
+  fresh local verify, exact candidate GitHub CI/security, deploy và live feature-off acceptance
+  đều PASS. Hai media feature tiếp tục off; acceptance không tạo provider side effect.
 - Chưa có backup/restore drill, PITR gate hoặc connection load test cho pilot.

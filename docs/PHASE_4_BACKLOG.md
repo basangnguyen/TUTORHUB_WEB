@@ -20,15 +20,14 @@ P3-14-CORE đã `DONE`; Phase 4 được phép bắt đầu trong khi Phase 3 de
 Không task Phase 4 nào được xóa, giả lập PASS hoặc bật notification/email/file-processing side
 effect thuộc Phase 3 khi carry-over chưa đạt gate riêng.
 
-**Task `DONE` gần nhất:** `P4-00` architecture/backlog baseline ngày 2026-08-08. ADR-0030 chốt
-MediaSpace/RoomInstance/ParticipantSession, source/ownership, token/webhook, lobby/moderation,
-feature-off rollout, privacy và compatibility với P1 spike. **Task hiện tại:** `P4-01`
-MediaSpace lifecycle/schema/API core đang `IN PROGRESS`; implementation candidate mới có
-bằng chứng local, chưa migration/deploy external.
+**Task `DONE` gần nhất:** `P4-01` MediaSpace lifecycle/schema/API core ngày 2026-08-09. Exact
+candidate đã PASS local/disposable/CI/security/shared/deploy/live feature-off acceptance; cả
+disposable và shared giữ ledger `29 false`, không rollback. **Task hiện tại:** `P4-02`
+RoomInstance LiveKit credential + webhook binding ở trạng thái `TODO`.
 
 `P4-MEDIA-UX-00` là research lane `TODO` có thể chạy song song P4-01/P4-02 và phải `DONE`
 trước phần UX/signals/effects của P4-03/P4-04/P4-05/P4-06. Task không đổi LiveKit provider,
-không thêm production dependency và không làm thay đổi critical path hiện tại là P4-01.
+không thêm production dependency và không làm thay đổi critical path hiện tại là P4-02.
 
 ## 2. Non-goal
 
@@ -71,7 +70,7 @@ không thêm production dependency và không làm thay đổi critical path hi�
 | --------------- | -------------------------------------------------- | --------------------------------------- | ---------- |
 | P4-00           | Architecture/backlog/contract baseline             | P3-14-CORE                              | DONE       |
 | P4-MEDIA-UX-00 | Prejoin/layout/signals/effects research spike      | P4-00; song song P4-01/P4-02            | TODO       |
-| P4-01           | MediaSpace lifecycle, schema và API core            | P4-00                                   | IN PROGRESS |
+| P4-01           | MediaSpace lifecycle, schema và API core            | P4-00                                   | DONE       |
 | P4-02           | RoomInstance LiveKit credential + webhook binding   | P4-01, P1-07 baseline                   | TODO       |
 | P4-03           | Prejoin device/network và join-attempt flow         | P4-02, P4-MEDIA-UX-00                  | TODO       |
 | P4-04           | Lobby, admission và explicit same-tenant invite     | P4-02, P4-03, P4-MEDIA-UX-00           | TODO       |
@@ -199,7 +198,7 @@ phải `DONE` trước phần UX/signals/effects của P4-03/P4-04/P4-05/P4-06.
 
 ## 8. P4-01 MediaSpace lifecycle, schema và API core
 
-**Dependency:** P4-00. **Trạng thái:** `IN PROGRESS`. **Rollout:** feature-off, không mint
+**Dependency:** P4-00. **Trạng thái:** `DONE`. **Rollout:** feature-off, không mint
 LiveKit token. **Acceptance:** [P4_01_STAGING_ACCEPTANCE.md](P4_01_STAGING_ACCEPTANCE.md).
 
 ### Scope
@@ -221,7 +220,7 @@ LiveKit token. **Acceptance:** [P4_01_STAGING_ACCEPTANCE.md](P4_01_STAGING_ACCEP
 ### Acceptance
 
 - [x] Disposable forward-only `28 -> 29`, rerun giữ `29 false`; không rollback.
-- [ ] Forward shared chỉ sau disposable report, exact candidate CI/security và owner approval rõ.
+- [x] Shared forward-only `28 -> 29`, rerun giữ `29 false`, sau disposable/CI và owner approval.
 - [x] Runtime role exact DML, không owner/DDL/broad table grant; foreign tenant conceal `404`.
 - [x] Official teacher/admin/owner/co-teacher start/end matrix đúng; student không nâng quyền.
 - [x] StudyMeeting owner, gồm StudyMeeting do instant command tạo, và explicit same-tenant member
@@ -230,7 +229,7 @@ LiveKit token. **Acceptance:** [P4_01_STAGING_ACCEPTANCE.md](P4_01_STAGING_ACCEP
 - [x] Source cancel/archive/enrollment revoke fail closed; audit/outbox không chứa private content.
 - [x] Feature/quota disabled paths không tạo row; storage failure trả `503`.
 - [x] OpenAPI/generated client, Go/TS tests và fresh full verify xanh; không có provider side effect.
-- [ ] Exact candidate GitHub CI/security, shared forward/ACL, deploy và live feature-off acceptance.
+- [x] Exact candidate GitHub CI/security, shared forward/ACL, deploy và live feature-off acceptance.
 
 ### Checkpoint implementation local 2026-08-09
 
@@ -241,9 +240,11 @@ LiveKit token. **Acceptance:** [P4_01_STAGING_ACCEPTANCE.md](P4_01_STAGING_ACCEP
       tenant/membership/ownership guard và focused tests PASS.
 - [x] Disposable PostgreSQL `28 false -> 29 false -> 29 false`, exact ACL và full
       tenant/concurrency/source/privacy gates PASS; final ledger giữ `29 false`, không rollback.
-- [x] Fresh full local `pnpm verify` PASS sau disposable harness fixes; exact candidate GitHub
-      CI/security vẫn còn mở.
-- [ ] Shared staging/deploy chỉ được xét sau các gate trên; hiện chưa thực hiện.
+- [x] Fresh full local `pnpm verify` PASS sau disposable harness fixes; exact candidate
+      `183ca338557fafd6e8fe502d67763bb2a73d9aa0` PASS Verify `31291917865` và Security
+      `31291917871`.
+- [x] Shared staging forward-only `28 false -> 29 false -> 29 false`, exact ACL/focused
+      integration, Render/Cloudflare deployment và authenticated/live feature-off acceptance PASS.
 
 ## 9. P4-02 RoomInstance LiveKit credential và webhook binding
 
@@ -492,10 +493,8 @@ PostgreSQL. Mỗi implementation slice phải cập nhật khi thêm provider co
 
 ## 23. Thứ tự thực hiện ngay
 
-1. Chạy disposable forward-only `28 -> 29`, provision exact ACL rồi chạy PostgreSQL gates;
-   không rollback hoặc chạm shared staging khi chưa có approval.
-2. Có thể chạy `P4-MEDIA-UX-00` song song; không để research đổi schema/authority hoặc chặn P4-01/P4-02.
-3. Chạy exact candidate CI/security và báo cáo disposable trước quyết định shared.
-4. Chỉ sau owner approval mới forward shared, provision ACL, deploy và chạy feature-off acceptance.
-5. Chỉ sau P4-01 `DONE` mới nối credential/webhook RoomInstance ở P4-02; research phải `DONE`
-   trước phần UX/signals/effects của P4-03/P4-04/P4-05/P4-06.
+1. P4-01 đã `DONE`; bắt đầu forward design P4-02 cho credential issuance, one-active-instance
+   provider binding và signed webhook lifecycle, vẫn giữ feature off.
+2. Có thể chạy `P4-MEDIA-UX-00` song song; không để research đổi schema/authority hoặc chặn P4-02.
+3. `P4-MEDIA-UX-00` phải `DONE` trước phần UX/signals/effects của
+   P4-03/P4-04/P4-05/P4-06.

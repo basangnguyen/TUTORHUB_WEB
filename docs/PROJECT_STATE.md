@@ -12,12 +12,12 @@
 | Quy trình            | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
 | Phase hoàn thành     | Phase 0, Phase 1, Phase 2                                                             |
 | Phase hiện tại       | Phase 4 Classroom Media MVP; Phase 3 deferred carry-over vẫn hoạt động                |
-| Task `DONE` gần nhất | P4-00 Classroom Media architecture/backlog baseline                                  |
-| Mốc repository mới   | P4-01 disposable DB/ACL/integration PASS; shared/deploy chưa thực hiện                 |
-| Task hiện tại        | P4-01 MediaSpace lifecycle/schema/API core                                            |
-| Task tiếp theo       | Push exact candidate, theo dõi GitHub CI/security rồi xin duyệt shared `28 -> 29`      |
+| Task `DONE` gần nhất | P4-01 MediaSpace lifecycle/schema/API core                                            |
+| Mốc repository mới   | Exact candidate P4-01 PASS disposable/CI/shared/deploy/live feature-off acceptance    |
+| Task hiện tại        | P4-02 RoomInstance LiveKit credential + webhook binding                               |
+| Task tiếp theo       | Review kiến trúc rồi tạo forward design P4-02; giữ hai media feature off              |
 
-### Checkpoint P4-01 `IN PROGRESS` ngày 2026-08-09
+### Checkpoint P4-01 `DONE` ngày 2026-08-09
 
 P4-01 đã có implementation candidate local cho forward migration
 `000029_classroom_media_spaces`, MediaSpace/RoomInstance lifecycle, source binding,
@@ -40,9 +40,19 @@ pooled runtime login; final ledger giữ `29 false`, không rollback. Integratio
 authority/tenant concealment, same-key concurrency, source lifecycle barrier, feature/quota,
 privacy/audit và không có provider side effect. Fresh `pnpm verify` sau hai sửa lỗi harness
 (khởi chạy đủ hai concurrent operation và giữ append-only audit fixture) PASS trong 195.8 giây.
-Task chưa chuyển `VERIFY` vì exact candidate GitHub CI/security vẫn còn mở. Shared Neon chưa chạy
-`000029`, chưa deploy P4-01 và hai media feature tiếp tục off. Runbook + exact ACL nằm tại
-[P4_01_STAGING_ACCEPTANCE.md](P4_01_STAGING_ACCEPTANCE.md).
+Exact candidate `183ca338557fafd6e8fe502d67763bb2a73d9aa0` đã PASS GitHub Verify
+`31291917865`, Security `31291917871` và Cloudflare Pages check `93190579210`. Shared owner/
+runtime preflight, forward-only `28 false -> 29 false -> 29 false`, exact ACL provisioning và
+focused ACL integration đều PASS; final shared ledger giữ `29 false`, không rollback. Render
+deployment `dep-d9rv61ajobas73e9pq90` chạy exact candidate và đạt `live`.
+
+Live acceptance đạt 6/6 health/ready/status qua direct Render và Pages proxy; Organization Admin
+UI xác nhận hai media feature off; anonymous media route đạt 4/4 `401` với privacy/cache headers.
+Read-only shared probe sau live giữ bốn relation lifecycle ở `0`, nên không có MediaSpace,
+RoomInstance, participant session, token/webhook/provider room hoặc provider side effect. P4-01
+đã chuyển `IN PROGRESS -> VERIFY -> DONE`. Runbook và evidence đầy đủ nằm tại
+[P4_01_STAGING_ACCEPTANCE.md](P4_01_STAGING_ACCEPTANCE.md). Task runnable tiếp theo là P4-02;
+`P4-MEDIA-UX-00` có thể chạy song song nhưng vẫn là `TODO`.
 
 ### Checkpoint P4-00 `DONE` ngày 2026-08-08
 
@@ -77,7 +87,7 @@ Krisp go/no-go trên một ma trận performance/privacy/license/accessibility c
 Task giữ `TODO`, có thể chạy song song P4-01/P4-02 nhưng phải `DONE` trước phần UX/signals/effects
 của P4-03/P4-04/P4-05/P4-06. Layout research phải chứng minh grid/active-speaker/presentation ở
 2/5/25/50; signal research phải khóa server FIFO/resync/rate-limit với `CanPublishData=false`.
-P4-01 vẫn là vertical slice hiện tại. Chưa thêm production dependency,
+P4-02 là vertical slice hiện tại. Chưa thêm production dependency từ research,
 route, migration, service, provider config, shared-staging write hoặc deploy; kết quả hợp lệ có
 thể là ship P4 không effect nếu performance/privacy/accessibility/license gate không đạt.
 
