@@ -101,6 +101,24 @@ jobs:
             tutorhub.study_meetings,
             tutorhub.rate_limit_windows
           TO tutorhub_conversation_runtime_ci;
+          GRANT SELECT ON TABLE
+            tutorhub.tenants,
+            tutorhub.memberships,
+            tutorhub.classes,
+            tutorhub.class_enrollments,
+            tutorhub.tenant_feature_control_revisions,
+            tutorhub.tenant_feature_overrides,
+            tutorhub.tenant_quota_overrides
+          TO tutorhub_conversation_runtime_ci;
+          GRANT UPDATE (updated_at) ON TABLE
+            tutorhub.tenants,
+            tutorhub.memberships,
+            tutorhub.classes,
+            tutorhub.class_enrollments
+          TO tutorhub_conversation_runtime_ci;
+          GRANT SELECT, INSERT, UPDATE ON TABLE
+            tutorhub.tenant_quota_windows
+          TO tutorhub_conversation_runtime_ci;
           GRANT INSERT (
             tenant_id, aggregate_type, aggregate_id, event_type,
             payload, occurred_at, available_at
@@ -109,10 +127,7 @@ jobs:
           GRANT INSERT ON TABLE tutorhub.audit_events
           TO tutorhub_conversation_runtime_ci;
           SQL
-          go test -count=1 -tags=integration \
-            -run '^TestProvisionPostgresMediaLifecycleRuntimeExactACL$' \
-            ./services/core-api/internal/modules/media
-          go test -count=1 -tags=integration ./services/core-api/internal/modules/media
+          pnpm test:integration:media
 
       - name: PostgreSQL security integration
         run: pnpm test:security:integration
