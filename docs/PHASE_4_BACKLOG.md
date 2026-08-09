@@ -251,7 +251,7 @@ LiveKit token. **Acceptance:** [P4_01_STAGING_ACCEPTANCE.md](P4_01_STAGING_ACCEP
 
 ## 9. P4-02 RoomInstance LiveKit credential và webhook binding
 
-**Dependency:** P4-01 và P1-07 baseline. **Trạng thái:** `VERIFY`.
+**Dependency:** P4-01 và P1-07 baseline. **Trạng thái:** `DONE`.
 
 Candidate ngày 2026-08-09 có migration `000030`, exact ACL/runbook, official LiveKit RoomService
 adapter, provider lifecycle reconciliation, RoomInstance credential API, opaque ParticipantSession
@@ -266,8 +266,7 @@ Full local verify PASS trong 182.5 giây; rerun sau khi bỏ log endpoint LiveKi
 authority/quota/concurrency/privacy gates đều PASS; final ledger giữ `30 false`, không rollback.
 Allowlist đã bổ sung exact `SELECT attempt_number` sau gate thực tế. LiveKit test-provider create/
 reuse, token 5 phút least-privilege, real connect/disconnect và exact cleanup PASS; synthetic signed
-webhook verifier valid/wrong-key/tamper PASS. Provider-emitted webhook tới public Core API còn thuộc
-live acceptance. Feature vẫn force-off; chưa khóa/push exact candidate và chưa chạm shared staging.
+webhook verifier valid/wrong-key/tamper PASS. Feature vẫn force-off.
 
 ### Scope
 
@@ -289,7 +288,13 @@ live acceptance. Feature vẫn force-off; chưa khóa/push exact candidate và c
 Các acceptance implementation/database/provider trên đã xanh. Exact candidate
 `f622e5f4b4c5efd6b877914e35aff16d765fba53` PASS GitHub Verify `31303424310` trong 3 phút 13 giây
 và Security `31303424335` trong 2 phút 55 giây, nên P4-02 chuyển `IN PROGRESS -> VERIFY`.
-Shared/deploy/live chỉ chạy sau khi báo cáo này được chấp nhận và có quyền tiếp tục.
+Shared safety candidate `d223daf0f2d504e6a0088071239aa9daeb36372c` tiếp tục PASS Verify
+`31304103932` và Security `31304103916`. Shared preflight, forward-only
+`29 false -> 30 false -> 30 false`, exact ACL/read-only probe và Render deployment
+`dep-d9s3vh0n74is73ftetr0` đều PASS. Live đạt 6/6 health/readiness/status, authenticated media
+feature-off, anonymous auth/privacy, provider-emitted signed webhook và zero unexpected shared
+room/session/receipt side effect. P4-02 chuyển `IN PROGRESS -> VERIFY -> DONE`; không rollback và
+disposable branch tiếp tục được giữ lại.
 
 ## 10. P4-03 Prejoin device/network và join-attempt flow
 

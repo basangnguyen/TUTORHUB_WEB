@@ -12,12 +12,12 @@
 | Quy trình            | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
 | Phase hoàn thành     | Phase 0, Phase 1, Phase 2                                                             |
 | Phase hiện tại       | Phase 4 Classroom Media MVP; Phase 3 deferred carry-over vẫn hoạt động                |
-| Task `DONE` gần nhất | P4-01 MediaSpace lifecycle/schema/API core                                            |
-| Mốc repository mới   | P4-02 exact candidate f622e5f4 PASS disposable/provider và GitHub Verify/Security       |
-| Task hiện tại        | P4-02 RoomInstance LiveKit credential + webhook binding                               |
-| Task tiếp theo       | Sau khi có quyền: shared forward 29 -> 30, exact ACL, deploy và live acceptance        |
+| Task `DONE` gần nhất | P4-02 RoomInstance LiveKit credential + signed webhook binding                        |
+| Mốc repository mới   | P4-02 shared forward 30, exact ACL, deploy và live/provider acceptance PASS             |
+| Task hiện tại        | P4-02 `DONE`; chuẩn bị P4-03 prejoin device/network và join-attempt flow               |
+| Task tiếp theo       | P4-03 Prejoin device/network và join-attempt flow                                     |
 
-### Checkpoint P4-02 exact candidate `VERIFY` ngày 2026-08-09
+### Checkpoint P4-02 `DONE` ngày 2026-08-09
 
 P4-02 đã có forward migration `000030_room_instance_livekit_binding`, exact runtime ACL/runbook,
 official LiveKit server SDK adapter và canonical RoomInstance credential endpoint. Credential chỉ
@@ -53,14 +53,26 @@ không rollback, không chạm shared staging.
 
 LiveKit test-provider smoke tạo/reuse một opaque room, mint token 5 phút least-privilege,
 connect/disconnect và exact cleanup PASS trong 29.8 giây. Official verifier valid/wrong-key/tamper
-PASS với signed synthetic webhook; provider-emitted webhook tới public Core API vẫn thuộc live
-acceptance sau deploy. Full `pnpm verify` sau các sửa lock-order, tenant concealment, lobby/
+PASS với signed synthetic webhook. Full `pnpm verify` sau các sửa lock-order, tenant concealment, lobby/
 Unix-second fixture và ACL PASS trong 182.5 giây; rerun sau khi bỏ log endpoint LiveKit tiếp tục
 PASS trong 26.2 giây với cache. File `.env.p4-02-disposable.local` chỉ được nạp
 trong cùng command, không in/log giá trị. Exact candidate
 `f622e5f4b4c5efd6b877914e35aff16d765fba53` đã push `main`; GitHub Verify `31303424310` PASS
-trong 3 phút 13 giây và Security `31303424335` PASS trong 2 phút 55 giây. P4-02 chuyển
-`IN PROGRESS -> VERIFY`; còn shared forward/ACL/deploy/live và chỉ chạy sau khi có quyền theo
+trong 3 phút 13 giây và Security `31303424335` PASS trong 2 phút 55 giây. Shared safety candidate
+`d223daf0f2d504e6a0088071239aa9daeb36372c` PASS Verify `31304103932` trong 4 phút 28 giây và
+Security `31304103916` trong 2 phút 40 giây. Shared owner/runtime preflight, forward-only
+`29 false -> 30 false -> 30 false`, exact ACL provisioning và read-only ACL integration đều PASS;
+final ledger giữ `30 false`, không rollback.
+
+Render deployment `dep-d9s3vh0n74is73ftetr0` chạy exact safety candidate và đạt `live`.
+Direct Render/Pages health, ready và status đạt 6/6 HTTP `200` + `no-store`; anonymous canonical
+credential/unsigned webhook fail closed `401` qua cả hai đường; authenticated Organization Admin
+UI xác nhận hai media feature tiếp tục off. LiveKit test-provider smoke rerun PASS và Render nhận,
+xác minh rồi ignore đúng ba provider-emitted webhook của unknown test room; exact provider cleanup
+PASS. Read-only shared probe giữ năm bảng MediaSpace/RoomInstance/session/mutation receipt/provider
+receipt ở `0`; bảng receipt legacy có `16` dòng lịch sử nhưng không có dòng mới kể từ deployment.
+Không log secret/URL/token, không xóa disposable branch. P4-02 đã chuyển
+`IN PROGRESS -> VERIFY -> DONE`; task runnable tiếp theo là P4-03. Chi tiết nằm tại
 [P4_02_STAGING_ACCEPTANCE.md](P4_02_STAGING_ACCEPTANCE.md).
 
 ### Checkpoint P4-01 `DONE` ngày 2026-08-09

@@ -2,8 +2,8 @@
 
 ## 1. Trạng thái và ranh giới
 
-- Trạng thái hiện tại: `VERIFY`; disposable/provider và exact candidate CI/security đã PASS,
-  shared staging/deploy/live acceptance chưa chạy.
+- Trạng thái hiện tại: `DONE`; disposable/provider, exact candidate CI/security, shared
+  staging, exact deploy và live acceptance đều đã PASS.
 - Kiến trúc có thẩm quyền: ADR-0030; migration source:
   `000030_room_instance_livekit_binding`.
 - Ledger đầu vào bắt buộc: `29 false`; ledger đích: `30 false`.
@@ -585,6 +585,36 @@ Disposable report phải gồm, chỉ ở dạng non-secret:
   contract vì đây là push event, không phải pull request.
 - Không log secret/URL/token, không chạm shared staging, không deploy và giữ disposable branch.
   P4-02 chuyển `IN PROGRESS -> VERIFY`; chỉ shared forward/ACL, deploy và live acceptance còn mở.
+
+### 8.2 Kết quả shared staging/live ngày 2026-08-09
+
+- Safety candidate `d223daf0f2d504e6a0088071239aa9daeb36372c` bổ sung shared-only owner/ACL
+  confirmations, cấm giả mạo disposable flag và đã PASS GitHub Verify `31304103932` trong 4 phút
+  28 giây cùng Security `31304103916` trong 2 phút 40 giây.
+- Shared owner/runtime preflight PASS với migration login direct, runtime login pooled và role tách
+  biệt. Forward-only cùng rerun idempotent đạt `29 false -> 30 false -> 30 false`; final ledger giữ
+  `30 false`, không rollback.
+- Exact shared ACL provision PASS; read-only `TestPostgresMediaLifecycleRuntimeExactACL` PASS,
+  không broad/PUBLIC/legacy grant và không chạy destructive fixture suite trên shared.
+- Render deployment `dep-d9s3vh0n74is73ftetr0` chạy exact SHA
+  `d223daf0f2d504e6a0088071239aa9daeb36372c` và đạt `live`. Direct Render cùng Pages proxy
+  health/ready/status đạt 6/6 HTTP `200`, `Cache-Control: no-store`.
+- Anonymous canonical credential và unsigned webhook qua direct/Pages đạt 4/4 HTTP `401`;
+  credential/webhook có `no-store`, `no-referrer` đúng boundary. Anonymous legacy route qua hai
+  đường cũng trả `401`, `no-store`; enabled-path `410` vẫn do focused HTTP/compatibility tests
+  chứng minh vì live acceptance bắt buộc giữ feature off, không được bật tạm để chạm route đó.
+- Authenticated Organization Admin UI xác nhận `classroom_media_rooms` và
+  `instant_study_rooms` đều ở trạng thái off trong effective tenant controls.
+- LiveKit test-provider smoke rerun PASS: opaque room create/reuse, real connect/disconnect và exact
+  cleanup. Render nhận và official verifier chấp nhận ba provider-emitted webhook
+  `room_started`, `participant_connection_aborted`, `room_finished`; cả ba được ignored đúng vì
+  test room không có persisted binding, không tạo receipt hoặc mutate tenant state.
+- Read-only shared probe sau provider smoke giữ `media_spaces`, `media_room_instances`,
+  `media_participant_sessions`, `media_space_mutation_receipts` và
+  `media_provider_webhook_receipts` đều bằng `0`. Bảng legacy có `16` receipt lịch sử từ trước,
+  nhưng số receipt legacy mới kể từ deployment bằng `0`.
+- Không log secret/URL/token, không rollback, không xóa disposable branch. P4-02 chuyển
+  `IN PROGRESS -> VERIFY -> DONE`; task runnable tiếp theo là P4-03.
 
 Nếu bất kỳ gate FAIL: dừng, giữ disposable, không rollback/nới ACL và không chuyển shared. Sửa bằng
 candidate/forward migration mới phù hợp rồi chạy lại từ gate liên quan.
