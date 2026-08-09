@@ -190,9 +190,9 @@ hoặc worker-driven file processing/sharing tới end user.
 | Task            | Trạng thái | Ghi chú                                                    |
 | --------------- | ---------- | ---------------------------------------------------------- |
 | P4-00           | DONE       | ADR-0030 + Phase 4 backlog; không migration/deploy         |
-| P4-MEDIA-UX-00 | TODO       | Research prejoin/layout/signals/effects; song song P4-01/02 |
+| P4-MEDIA-UX-00 | DONE       | Report + prototype cô lập + ADR-0031; effect mặc định off   |
 | P4-01           | DONE       | Exact disposable/CI/shared/deploy/live feature-off PASS    |
-| P4-02           | TODO       | RoomInstance credential + signed webhook database binding  |
+| P4-02           | DONE       | Exact disposable/CI/shared/deploy/live/provider PASS       |
 | P4-03 đến P4-10 | TODO       | Prejoin/lobby/UI/moderation/chat/reconnect/telemetry       |
 | P4-11           | TODO       | Browser/device/load/provider-outage acceptance             |
 | P4-12           | TODO       | Exact staging acceptance và Phase 4 closure                |
@@ -202,16 +202,17 @@ LiveKit token/webhook/prejoin/room code được tái sử dụng nhưng class-w
 room không phải Phase 4 lifecycle authority. P4-01 đã `DONE` trên exact candidate
 `183ca338557fafd6e8fe502d67763bb2a73d9aa0`: disposable và shared forward-only giữ `29 false`,
 exact ACL/PostgreSQL gates, GitHub Verify/Security, Render/Cloudflare deploy và authenticated/live
-feature-off acceptance đều PASS. Không rollback, provider call, provider side effect hoặc
-end-user activation; hai media feature tiếp tục off. Evidence tại
-`docs/P4_01_STAGING_ACCEPTANCE.md`. Task runnable tiếp theo là P4-02 credential + signed webhook
-binding. Trước P4-08 phải review/amend ADR-0013/0025 vì conversation hiện chỉ có `direct` và
-`class`.
+feature-off acceptance đều PASS. P4-02 sau đó cũng `DONE`: disposable/shared forward giữ
+`30 false`, exact credential/webhook ACL, CI/security, Render/Cloudflare và live provider
+acceptance đều PASS; hai media feature tiếp tục off. Evidence tại
+`docs/P4_01_STAGING_ACCEPTANCE.md` và `docs/P4_02_STAGING_ACCEPTANCE.md`. P4-03 là task runnable.
+Trước P4-08 phải review/amend ADR-0013/0025 vì conversation hiện chỉ có `direct` và `class`.
 
-`P4-MEDIA-UX-00` không đổi task hiện tại: có thể chạy song song P4-02 nhưng phải
-`DONE` trước phần UX/signals/effects của P4-03/P4-04/P4-05/P4-06. Phạm vi gồm prejoin/lobby,
-layout 2/5/25/50, hand raise/reaction và media effects. Chỉ audit V1 read-only và prototype
-cô lập; không thêm production dependency/provider/route/deploy trước evidence + ADR/amendment.
+`P4-MEDIA-UX-00` đã `DONE` bằng report, prototype cô lập và ADR-0031. P4-03 là task hiện tại;
+P4-03/P4-04/P4-05/P4-06/P4-11 phải dùng explicit device probe, bounded layout 2/5/25/50 và
+Core API signal contract đã chốt. `effect=None` là baseline; Track Processors chưa phải production
+dependency và giữ off tới exact browser/device/privacy/performance gate. Không mở lại
+`CanPublishData=false` hoặc kết nối participant waiting vào provider trước admission.
 
 Phase 4 không được làm mất Phase 3 carry-over register. Notification/email/reminder,
 durable worker và file-processing flags giữ off tới gate riêng; recording/egress cũng

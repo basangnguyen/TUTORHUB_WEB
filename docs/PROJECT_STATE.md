@@ -12,10 +12,39 @@
 | Quy trình            | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
 | Phase hoàn thành     | Phase 0, Phase 1, Phase 2                                                             |
 | Phase hiện tại       | Phase 4 Classroom Media MVP; Phase 3 deferred carry-over vẫn hoạt động                |
-| Task `DONE` gần nhất | P4-02 RoomInstance LiveKit credential + signed webhook binding                        |
-| Mốc repository mới   | P4-02 shared forward 30, exact ACL, deploy và live/provider acceptance PASS             |
-| Task hiện tại        | P4-02 `DONE`; chuẩn bị P4-03 prejoin device/network và join-attempt flow               |
-| Task tiếp theo       | P4-03 Prejoin device/network và join-attempt flow                                     |
+| Task `DONE` gần nhất | P4-MEDIA-UX-00 Classroom media UX research                                            |
+| Mốc repository mới   | Report + isolated prototype + ADR-0031; effect baseline `None`                         |
+| Task hiện tại        | P4-03 Prejoin device/network và join-attempt flow (`TODO`, ready)                      |
+| Task tiếp theo       | P4-04 Lobby/admission sau khi P4-03 đạt                                               |
+
+### Checkpoint P4-MEDIA-UX-00 `DONE` ngày 2026-08-09
+
+P4-MEDIA-UX-00 đã benchmark nguồn chính thức hiện hành của Google Meet, Zoom, LiveKit, W3C,
+Mozilla/WebKit/Chrome và MediaPipe; audit V1 read-only; pin ba checkout LiveKit tham khảo; lưu
+[báo cáo evidence](P4_MEDIA_UX_00_RESEARCH_REPORT.md) và chấp nhận
+[ADR-0031](adr/0031-classroom-media-ux-devices-layout-effects-and-signals.md). Không sao chép UI/
+asset đối thủ, không port V1 client-owned admission/DataChannel authority và không dùng bốn ảnh
+nền V1 thiếu license/provenance đủ mạnh.
+
+Prototype `apps/media-ux-spike` không nối production route, media device, Core API hoặc LiveKit.
+Nó khóa fixture Grid/Active speaker/Presentation 2/5/25/50, cap 12/6/4, local pin, server-sequence
+hand queue và reaction allowlist/TTL/grouping/rate-limit; unit/component 22/22, lint, typecheck,
+build và Playwright/Axe browser/a11y 5/5 PASS. Processor harness Git-ignore chạy video tổng hợp
+360p/540p/720p: Chrome/Edge đạt 30 frame/case và observable cleanup giới hạn nhưng có long task tới
+172 ms;
+Firefox fallback fail cả 9 case, Safari/macOS/máy yếu chưa test vật lý.
+
+Repository gate tương đương `pnpm verify` đã PASS: format/API generation/local-infra/security,
+8 workspace lint/typecheck/test/build, Storybook và client bundle đều xanh. Bước Go ban đầu chỉ bị
+sandbox từ chối cache mặc định; exact `go test ./services/core-api/...` và
+`go vet ./services/core-api/...` chạy lại với workspace `GOCACHE` đều PASS.
+
+Vì vậy P4 production baseline là `effect=None`. `@livekit/track-processors@0.7.2` chỉ là optional
+candidate force-off đến khi self-host immutable model/WASM/background, privacy/MediaPipe metrics,
+CSP/network, exact Firefox/Safari/low-end performance và cleanup gates đạt ở P4-05/P4-11. WebRTC
+speech + explicit original-sound là audio baseline; Krisp/direct MediaPipe không vào MVP. Hand/
+reaction vẫn qua Core API với `CanPublishData=false`. Không migration, shared staging write,
+provider config, deploy hoặc feature activation trong research. P4-03 là task runnable hiện tại.
 
 ### Checkpoint P4-02 `DONE` ngày 2026-08-09
 
@@ -110,7 +139,7 @@ Read-only shared probe sau live giữ bốn relation lifecycle ở `0`, nên kh�
 RoomInstance, participant session, token/webhook/provider room hoặc provider side effect. P4-01
 đã chuyển `IN PROGRESS -> VERIFY -> DONE`. Runbook và evidence đầy đủ nằm tại
 [P4_01_STAGING_ACCEPTANCE.md](P4_01_STAGING_ACCEPTANCE.md). Task runnable tiếp theo là P4-02;
-`P4-MEDIA-UX-00` có thể chạy song song nhưng vẫn là `TODO`.
+`P4-MEDIA-UX-00` sau đó đã `DONE`; quyết định áp dụng từ P4-03 theo ADR-0031.
 
 ### Checkpoint P4-00 `DONE` ngày 2026-08-08
 
@@ -134,7 +163,7 @@ provider/participant identifiers opaque, identifiable diagnostics retention tố
 legacy/P4 authority mutual exclusion. P4-00 không thêm dependency, migration, credential,
 provider config, shared staging write hoặc deploy. Full P3-14/Phase 3 carry-over vẫn giữ nguyên.
 
-### Forward plan P4-MEDIA-UX-00 đăng ký ngày 2026-08-09
+### Lịch sử khởi tạo P4-MEDIA-UX-00 ngày 2026-08-09
 
 [P4-MEDIA-UX-00](P4_MEDIA_UX_00_RESEARCH_SPIKE.md) đã được thêm làm decision spike cho
 prejoin/lobby, layout lớp học 2-50 người, hand raise/reaction và media effects. Task benchmark
@@ -142,12 +171,9 @@ current official Zoom/Google Meet/LiveKit, audit V1 read-only và so sánh nativ
 LiveKit layout primitives/track-processors, MediaPipe fallback, WebRTC audio processing cùng
 Krisp go/no-go trên một ma trận performance/privacy/license/accessibility có thể tái lập.
 
-Task giữ `TODO`, có thể chạy song song P4-01/P4-02 nhưng phải `DONE` trước phần UX/signals/effects
-của P4-03/P4-04/P4-05/P4-06. Layout research phải chứng minh grid/active-speaker/presentation ở
-2/5/25/50; signal research phải khóa server FIFO/resync/rate-limit với `CanPublishData=false`.
-P4-02 là vertical slice hiện tại. Chưa thêm production dependency từ research,
-route, migration, service, provider config, shared-staging write hoặc deploy; kết quả hợp lệ có
-thể là ship P4 không effect nếu performance/privacy/accessibility/license gate không đạt.
+Task đã chuyển `TODO -> DONE`; kết quả chốt grid/active-speaker/presentation 2/5/25/50, server
+FIFO/resync/rate-limit với `CanPublishData=false` và ship baseline không effect. Physical browser/
+device/load/manual accessibility còn là rollout gate P4-05/P4-11, không phải PASS ngầm từ source.
 
 Research setup ngày 2026-08-09 đã shallow-clone LiveKit Meet revision
 `665e1cb7841ab872de0d8e5c310744009a763b08` vào `.tmp/research/livekit-meet`. Checkout Apache-2.0
@@ -156,7 +182,8 @@ Research setup ngày 2026-08-09 đã shallow-clone LiveKit Meet revision
 Cùng research setup đã shallow-clone LiveKit Track Processors revision
 `9ef5191da7fb6d82e55876fa04d0e6048d49859b` vào `.tmp/research/track-processors-js`. Revision
 Apache-2.0/NOTICE khai báo `@livekit/track-processors@0.7.2` và
-`@mediapipe/tasks-vision@0.10.14`; chưa cài dependency, tải runtime/model hoặc chạy processor.
+`@mediapipe/tasks-vision@0.10.14`; dependency/model chỉ được dùng trong checkout Git-ignore để
+build và benchmark synthetic, không được thêm vào production app.
 
 ### Forward plan P5-COLLAB-00 đăng ký ngày 2026-08-09
 

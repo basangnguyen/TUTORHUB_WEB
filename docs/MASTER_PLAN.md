@@ -116,8 +116,11 @@ classroom layout, participant signals và media effects.
 - tạo prototype cô lập và ADR/amendment trước production dependency. Kết quả hợp lệ có thể là
   ship Phase 4 không effect nếu evidence không đạt.
 
-Task chạy song song P4-01/P4-02, không đổi LiveKit provider hoặc critical path và phải `DONE`
-trước phần UX/signals/effects của P4-03/P4-04/P4-05/P4-06.
+Task đã `DONE` ngày 2026-08-09 bằng
+[research report](P4_MEDIA_UX_00_RESEARCH_REPORT.md), prototype cô lập và
+[ADR-0031](adr/0031-classroom-media-ux-devices-layout-effects-and-signals.md). Baseline là
+`effect=None`; Track Processors giữ force-off tới P4-05/P4-11. Research không đổi provider,
+authority hoặc `CanPublishData=false` và đã hoàn thành trước P4-03/P4-04/P4-05/P4-06.
 
 ## 4. Tầm nhìn sản phẩm web
 
@@ -1516,9 +1519,10 @@ xóa, giả lập PASS hoặc bật side effect khi chưa đạt gate tương �
 ADR-0030 đã `Accepted`: tái sử dụng LiveKit Cloud/P1 token-webhook-prejoin code nhưng thay
 class-wide spike bằng `MediaSpace -> RoomInstance -> ParticipantSession` có source, tenant,
 lifecycle và moderation authority. Feature/catalog cùng deployment guardrail giữ force-off;
-P4-00 không migration/deploy. P4-01 MediaSpace lifecycle/schema/API core là task kế tiếp.
-P4-MEDIA-UX-00 là research lane song song, không chặn P4-01/P4-02 nhưng phải chốt evidence và
-ADR/amendment trước phần UX/signals/effects của P4-03/P4-04/P4-05/P4-06.
+P4-00 không migration/deploy. P4-01 lifecycle/schema/API và P4-02 RoomInstance credential/signed
+webhook đã `DONE`; shared ledger giữ `30 false`. P4-MEDIA-UX-00 cũng đã `DONE` bằng evidence và
+ADR-0031, khóa `None` baseline cùng browser/device/privacy/performance gates. P4-03 prejoin/
+join-attempt là task implementation kế tiếp.
 
 **Thời lượng:** 6-8 tuần.
 
@@ -2144,14 +2148,12 @@ Calendar Playwright 15/15, bảy PostgreSQL integration package và ledger dispo
 đã xanh; carry-over register đã lập. Candidate `f5f1eb3` PASS exact CI/security, Live trên
 Cloudflare/Render và đạt public/privacy/authenticated feature-off/Calendar acceptance. Phase 4
 được phép bắt đầu; full P3-14/Phase 3 vẫn chờ carry-over.
-P4-00 đã `DONE` bằng ADR-0030 và `docs/PHASE_4_BACKLOG.md`: room authority, source binding,
-opaque LiveKit identity, signed webhook mapping, lobby/moderation, feature-off rollout,
-privacy/retention và P1 compatibility đã chốt. P4-01 là implementation slice kế tiếp;
-chưa có migration, provider change hoặc feature activation từ P4-00.
-P4-MEDIA-UX-00 đã được đăng ký `TODO` để benchmark Zoom/Meet/LiveKit, audit V1 và chốt
-prejoin/lobby, layout 2-50, hand/reaction cùng effect/audio path. Task chạy song song P4-01/P4-02,
-không đổi task hiện tại và không cho phép production dependency/provider hoặc client-owned
-signal authority trước evidence + ADR/amendment.
+P4-00/P4-01/P4-02 đã `DONE`: room authority, schema/lifecycle, opaque RoomInstance credential,
+signed webhook binding, exact disposable/shared ACL, deployment và feature-off/provider acceptance
+đều đã chốt; shared ledger giữ `30 false`. P4-MEDIA-UX-00 cũng đã `DONE` bằng current official
+Zoom/Meet/LiveKit/browser research, V1 audit, isolated prototype và ADR-0031. Baseline P4 là
+`effect=None`; optional processor giữ off, còn hand/reaction luôn do Core API authorize với
+`CanPublishData=false`. P4-03 là task hiện tại.
 Không bật side effect chỉ vì core đã có. `P3-02D-B` và các gate worker/provider vẫn là
 carry-over.
 AWS SES đã được chọn làm provider target nhưng

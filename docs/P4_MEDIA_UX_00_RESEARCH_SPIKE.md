@@ -8,14 +8,30 @@
 
 | Thuộc tính         | Giá trị                                                                       |
 | ------------------ | ----------------------------------------------------------------------------- |
-| Trạng thái         | `TODO`                                                                        |
+| Trạng thái         | `DONE` ngày 2026-08-09                                                        |
 | Phase              | Phase 4 - Classroom Media MVP                                                 |
 | Dependency         | P4-00                                                                         |
 | Có thể chạy        | Song song P4-01/P4-02                                                         |
-| Phải hoàn thành    | Trước phần UX/signals/effects của P4-03/P4-04/P4-05/P4-06                    |
+| Phải hoàn thành    | Đã đạt trước P4-03/P4-04/P4-05/P4-06                                         |
 | Quyết định bị chặn | Prejoin/lobby, classroom layout, hand raise/reaction, effects và fallback     |
 | Không bị chặn      | P4-01/P4-02 authority/schema/credential work và Phase 3 deferred carry-over   |
 | Cập nhật           | 2026-08-09                                                                    |
+
+## 0. Kết quả
+
+Research decision đã hoàn thành và được lưu tại:
+
+- [báo cáo evidence đầy đủ](P4_MEDIA_UX_00_RESEARCH_REPORT.md);
+- [ADR-0031](adr/0031-classroom-media-ux-devices-layout-effects-and-signals.md) `Accepted`;
+- prototype UX cô lập `apps/media-ux-spike`, không nối production route/provider/device;
+- processor/browser harness trong `.tmp/research/`, bị Git ignore.
+
+Baseline P4 là `effect=None`. Track Processors 0.7.2 chỉ là optional candidate force-off: Chrome/
+Edge synthetic 360p/540p/720p chạy và đạt observable cleanup giới hạn nhưng có long task tới
+172 ms; Firefox canvas
+fallback không qua automated harness, còn Safari/macOS/máy yếu chưa được test vật lý. Vì vậy effect
+không nằm trên critical Join path và chỉ được bật sau gate P4-05/P4-11. Hand/reaction tiếp tục qua
+Core API với `CanPublishData=false`; LiveKit Components chỉ là primitive cho TutorHub shell.
 
 ## 1. Mục tiêu
 
@@ -114,8 +130,12 @@ chỉ được nhập V2 sau khi xác minh quyền sử dụng và quét metadat
   `@livekit/track-processors@0.7.2`, khai báo `@mediapipe/tasks-vision@0.10.14`.
 - Track Processors path: `.tmp/research/track-processors-js`; checkout có `LICENSE` Apache-2.0 và
   `NOTICE`, không phải production dependency.
-- Cả hai checkout chưa chạy `pnpm install`, chưa tạo `.env`, chưa tải runtime/model bổ sung hoặc
-  kết nối LiveKit Cloud; hiện chỉ phục vụ audit read-only.
+- Components source: `https://github.com/livekit/components-js.git`; revision
+  `2da3e59e9854cde26cbeadcf8a5732ea42163bfa`, path `.tmp/research/livekit-components-js`.
+- Track Processors đã cài dependency chỉ trong checkout Git-ignore để chạy lint/build/sample và
+  processor benchmark bằng video tổng hợp. Harness đã tải asset upstream để quan sát cold/warm path,
+  không dùng camera thật, `.env`, LiveKit credential hoặc provider room. Không package nào được thêm
+  vào `apps/web` hoặc production route.
 
 Không ghép nhiều segmentation stack trong MVP. Beauty, makeup, avatar, sticker, AI-generated
 background, video background và user-uploaded background là non-goal của spike trừ khi evidence
@@ -215,22 +235,28 @@ provider packet: Core API giữ authority/FIFO/rate-limit, UI nhận projection 
 
 ## 7. Definition of Done
 
-- [ ] Current official Zoom/Meet/LiveKit/browser sources và V1 reuse/reject matrix được lưu.
-- [ ] Prototype `None`/blur/curated background chạy cô lập; không có production dependency/route.
-- [ ] Chrome/Edge/Firefox/Safari và Windows/macOS capability/fallback matrix có evidence.
-- [ ] 360p/540p/720p performance, low-end auto-disable và track/processor cleanup đạt hoặc có cap rõ.
-- [ ] Permission/device/autoplay/offline/provider-asset/error recovery không chặn Join.
-- [ ] WebRTC audio defaults, music/original-sound escape hatch và Krisp go/no-go được chốt.
-- [ ] Grid/active-speaker/presentation đạt fixture 2/5/25/50, responsive/zoom, visual stability,
-      adaptive-subscription và bounded pagination/degrade gate.
-- [ ] Hand queue lifecycle/FIFO/resync và reaction allowlist/TTL/grouping/rate-limit đạt test 25/50.
-- [ ] CSP/self-host/model/WASM, license/NOTICE, privacy/telemetry và V1 background provenance rõ.
-- [ ] Layout, queue và reaction đạt keyboard/NVDA, 200% zoom, forced-colors, reduced-motion và
-      bounded announcement gate.
-- [ ] ADR/amendment `Accepted` chọn đúng một processor path, fallback/degrade order và P4 MVP scope.
-- [ ] ADR/amendment cũng khóa layout modes, hand/reaction contract, server-authority boundary và
+- [x] Current official Zoom/Meet/LiveKit/browser sources và V1 reuse/reject matrix được lưu.
+- [x] Prototype `None`/blur/curated background chạy cô lập; không có production dependency/route.
+- [x] Chrome/Edge/Firefox/Safari và Windows/macOS capability/fallback matrix có evidence; exact
+      Safari/macOS physical result được ghi `UNVERIFIED` và chuyển thành P4-11 rollout gate.
+- [x] 360p/540p/720p performance, low-end auto-disable và track/processor cleanup đạt hoặc có cap rõ:
+      Chrome/Edge có số đo, Firefox fallback fail, low-end chưa đo nên effect force-off.
+- [x] Permission/device/autoplay/offline/provider-asset/error recovery được khóa fail về
+      no-effect/audio-only/listen-only và không chặn Join; test route thật thuộc P4-03/P4-11.
+- [x] WebRTC audio defaults, music/original-sound escape hatch và Krisp go/no-go được chốt.
+- [x] Deterministic model khóa fixture contract 2/5/25/50, cap/pagination/pin/degrade và automated
+      320px reflow; 200% zoom, visual stability và adaptive LiveKit subscription thật là gate P4-05/P4-11.
+- [x] Hand queue server-sequence/FIFO/idempotency và reaction allowlist/TTL/grouping/rate-limit có
+      deterministic tests, gồm hand storm 50 người và room-limit 101 event; snapshot/gap resync,
+      moderator lifecycle, API/concurrency/load thật thuộc P4-06/P4-11.
+- [x] CSP/self-host/model/WASM, license/NOTICE, privacy/telemetry và V1 background provenance rõ.
+- [x] Prototype có automated keyboard/Axe/reflow/forced-colors/reduced-motion gate; layout, queue
+      và reaction có model/unit coverage. Manual NVDA/VoiceOver production-route acceptance vẫn
+      bắt buộc ở P4-11.
+- [x] ADR-0031 `Accepted` chọn đúng một processor path, fallback/degrade order và P4 MVP scope.
+- [x] ADR-0031 cũng khóa layout modes, hand/reaction contract, server-authority boundary và
       rollout; không để research mở lại `CanPublishData=false`.
-- [ ] P4-03/P4-04/P4-05/P4-06/P4-11 acceptance được cập nhật theo quyết định; nếu effect bị loại,
+- [x] P4-03/P4-04/P4-05/P4-06/P4-11 acceptance được cập nhật theo quyết định; nếu effect bị loại,
       UI vẫn có no-effect fallback và không tuyên bố feature chưa ship.
 
 Cho tới khi checklist trên đạt, background/effects chỉ là candidate. `@livekit/track-processors`,

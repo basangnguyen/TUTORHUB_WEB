@@ -20,15 +20,16 @@ P3-14-CORE đã `DONE`; Phase 4 được phép bắt đầu trong khi Phase 3 de
 Không task Phase 4 nào được xóa, giả lập PASS hoặc bật notification/email/file-processing side
 effect thuộc Phase 3 khi carry-over chưa đạt gate riêng.
 
-**Task `DONE` gần nhất:** `P4-02` RoomInstance LiveKit credential + signed webhook binding ngày
-2026-08-09. Local/disposable/provider, exact candidate CI/security, shared forward/exact ACL,
-Render/Cloudflare deploy và live feature-off/provider acceptance đều PASS; disposable và shared
-giữ ledger `30 false`, không rollback. **Task hiện tại:** `P4-MEDIA-UX-00` research spike ở trạng
-thái `TODO`; sau khi research `DONE`, task implementation tiếp theo là `P4-03`.
+**Task `DONE` gần nhất:** `P4-MEDIA-UX-00` Classroom media UX research ngày 2026-08-09.
+Official Zoom/Meet/LiveKit/browser evidence, V1 reuse/reject audit, isolated layout/signal/effect
+prototype và ADR-0031 đã chốt. Production baseline là `effect=None`; optional Track Processors
+giữ force-off tới browser/device/privacy/performance gate P4-05/P4-11. P4-02 vẫn `DONE`, shared
+ledger giữ `30 false`, không rollback. **Task hiện tại:** `P4-03` prejoin device/network và
+join-attempt flow.
 
-`P4-MEDIA-UX-00` là research lane `TODO` có thể chạy song song P4-01/P4-02 và phải `DONE`
-trước phần UX/signals/effects của P4-03/P4-04/P4-05/P4-06. Task không đổi LiveKit provider,
-không thêm production dependency; critical path hiện tại là hoàn thành research trước P4-03.
+`P4-MEDIA-UX-00` đã `DONE`; không đổi LiveKit provider, không thêm processor production dependency
+hoặc mở `CanPublishData=false`. P4-03/P4-04/P4-05/P4-06/P4-11 phải tuân ADR-0031 và báo rõ các
+physical/manual effect gate còn `UNVERIFIED` thay vì suy PASS từ research.
 
 ## 2. Non-goal
 
@@ -70,7 +71,7 @@ không thêm production dependency; critical path hiện tại là hoàn thành 
 | Task            | Nội dung                                           | Dependency                              | Trạng thái |
 | --------------- | -------------------------------------------------- | --------------------------------------- | ---------- |
 | P4-00           | Architecture/backlog/contract baseline             | P3-14-CORE                              | DONE       |
-| P4-MEDIA-UX-00 | Prejoin/layout/signals/effects research spike      | P4-00; song song P4-01/P4-02            | TODO       |
+| P4-MEDIA-UX-00 | Prejoin/layout/signals/effects research spike      | P4-00; song song P4-01/P4-02            | DONE       |
 | P4-01           | MediaSpace lifecycle, schema và API core            | P4-00                                   | DONE       |
 | P4-02           | RoomInstance LiveKit credential + webhook binding   | P4-01, P1-07 baseline                   | DONE       |
 | P4-03           | Prejoin device/network và join-attempt flow         | P4-02, P4-MEDIA-UX-00                  | TODO       |
@@ -169,11 +170,13 @@ sử dụng mà không cần suy từ lịch sử chat.
 
 ## 7A. P4-MEDIA-UX-00 Classroom media UX research spike
 
-**Dependency:** P4-00. **Trạng thái:** `TODO`. **Execution:** song song P4-01/P4-02;
-phải `DONE` trước phần UX/signals/effects của P4-03/P4-04/P4-05/P4-06.
+**Dependency:** P4-00. **Trạng thái:** `DONE` ngày 2026-08-09. **Execution:** đã hoàn thành
+trước P4-03/P4-04/P4-05/P4-06.
 
 **Đặc tả và Definition of Done:**
 [P4_MEDIA_UX_00_RESEARCH_SPIKE.md](P4_MEDIA_UX_00_RESEARCH_SPIKE.md).
+Evidence: [P4_MEDIA_UX_00_RESEARCH_REPORT.md](P4_MEDIA_UX_00_RESEARCH_REPORT.md).
+Decision: [ADR-0031](adr/0031-classroom-media-ux-devices-layout-effects-and-signals.md).
 
 ### Scope
 
@@ -183,20 +186,25 @@ phải `DONE` trước phần UX/signals/effects của P4-03/P4-04/P4-05/P4-06.
   authority/code cũ.
 - So sánh native browser capability, LiveKit track-processors, MediaPipe fallback, WebRTC audio
   defaults và Krisp go/no-go trên cùng performance/privacy/license/accessibility matrix.
-- Prototype grid/active-speaker/presentation ở 2/5/25/50 và hand queue/reaction projection với
-  Core API authority, FIFO/resync/rate-limit; tiếp tục giữ `CanPublishData=false`.
+- Prototype grid/active-speaker/presentation theo fixture contract 2/5/25/50 và hand queue/reaction
+  projection với Core API authority, FIFO/rate-limit; resync thật vẫn là acceptance P4-06/P4-11;
+  tiếp tục giữ `CanPublishData=false`.
 - Prototype cô lập `None`/blur/curated static background; không production route/dependency/deploy.
 
 ### Acceptance
 
-- [ ] V1 reuse/reject matrix và current official Zoom/Meet/LiveKit source inventory được lưu.
-- [ ] Browser/device/capability, 360p-720p performance và low-end degrade evidence đạt hoặc có cap.
-- [ ] Permission/device/autoplay/error recovery và processor/track cleanup không chặn Join.
-- [ ] Layout 2/5/25/50 có pagination/degrade, visual stability, adaptive-subscription và a11y evidence.
-- [ ] Hand FIFO/moderator lifecycle/resync và reaction allowlist/TTL/grouping/rate-limit có evidence.
-- [ ] CSP/self-host model/WASM, asset license, privacy/telemetry và accessibility gates rõ.
-- [ ] ADR/amendment chọn một processor/fallback/MVP scope, hoặc quyết định ship no-effect.
-- [ ] P4-03/P4-04/P4-05/P4-06/P4-11 được điều chỉnh theo decision trước implementation.
+- [x] V1 reuse/reject matrix và current official Zoom/Meet/LiveKit source inventory được lưu.
+- [x] Browser/device/capability, 360p-720p performance và low-end degrade evidence đạt hoặc có cap;
+      effect giữ off do Firefox/Safari/low-end gate chưa đạt.
+- [x] Permission/device/autoplay/error recovery và observable processor/track cleanup có contract
+      fail về no-effect/audio-only/listen-only; exact 10-cycle/device cleanup còn ở P4-05/P4-11.
+- [x] Layout fixture contract 2/5/25/50 có deterministic pagination/degrade/pin và 320px/a11y
+      evidence; 200%/visual stability/adaptive LiveKit subscription thật còn ở P4-05/P4-11.
+- [x] Hand server-sequence/FIFO/idempotency và reaction allowlist/TTL/grouping/rate-limit có
+      deterministic evidence; moderator lifecycle và snapshot/gap resync thật còn ở P4-06/P4-11.
+- [x] CSP/self-host model/WASM, asset license, privacy/telemetry và accessibility gates rõ.
+- [x] ADR-0031 chọn `None` baseline và Track Processors 0.7.2 conditional candidate.
+- [x] P4-03/P4-04/P4-05/P4-06/P4-11 được điều chỉnh theo decision trước implementation.
 
 ## 8. P4-01 MediaSpace lifecycle, schema và API core
 
@@ -297,7 +305,7 @@ disposable branch tiếp tục được giữ lại.
 
 ## 10. P4-03 Prejoin device/network và join-attempt flow
 
-**Dependency:** P4-02. **Trạng thái:** `TODO`.
+**Dependency:** P4-02/P4-MEDIA-UX-00. **Trạng thái:** `TODO`.
 
 ### Scope
 
@@ -305,6 +313,9 @@ disposable branch tiếp tục được giữ lại.
 - Mic/camera/speaker selection, preview, permission denied/in-use/no-device và browser guidance.
 - Coarse connectivity/TURN readiness probe không thu raw IP/ICE; create join attempt sau consent.
 - Route reload không phục hồi token; workspace/principal/source change purge state.
+- Speech mặc định request EC/NS/AGC dạng ideal rồi đọc actual settings; original-sound/music là
+  explicit escape hatch. Speaker selection/autoplay là progressive enhancement, không join gate.
+- Không mount LiveKit prefab tạo track ở initial render; effect mặc định `None` và chưa tải processor.
 
 ### Acceptance
 
@@ -312,10 +323,13 @@ disposable branch tiếp tục được giữ lại.
 - [ ] Permission denial hoặc missing device vẫn cho listen-only khi policy cho phép.
 - [ ] Không device label trước permission; không token trong history/storage/error report.
 - [ ] Chromium pilot matrix và unit/Playwright happy/error/offline paths PASS.
+- [ ] Error taxonomy bounded gồm denied/policy, not-found, busy, overconstraint, abort và autoplay;
+      device switch/unplug 20 vòng và cancel/unmount để lại zero owned track/AudioContext/listener.
+- [ ] Join dùng canonical RoomInstance attempt/credential; participant waiting chưa connect LiveKit.
 
 ## 11. P4-04 Lobby, admission và explicit same-tenant invite
 
-**Dependency:** P4-02/P4-03. **Trạng thái:** `TODO`.
+**Dependency:** P4-02/P4-03/P4-MEDIA-UX-00. **Trạng thái:** `TODO`.
 
 ### Scope
 
@@ -330,6 +344,8 @@ disposable branch tiếp tục được giữ lại.
 - [ ] Concurrent admit/deny/end produces one terminal result; stale instance cannot admit.
 - [ ] Denied/removed member cannot rejoin until explicit restore; no raw email in event payload.
 - [ ] Lobby waiting UX has timeout, cancel, retry, accessibility and provider-unavailable state.
+- [ ] Waiting participant có zero provider credential/connection; V1 connect-before-admit bị chặn
+      bằng integration/E2E test và effect/device state không đổi admission/capacity.
 
 ## 12. P4-05 Classroom shell, media controls và layouts
 
@@ -340,8 +356,12 @@ disposable branch tiếp tục được giữ lại.
 - Classroom stage, toolbar, participant rail and responsive drawer using existing design system.
 - Camera/mic/screen-share device switching; grid, active speaker and presentation layout.
 - Áp dụng layout modes, pagination/rail, visual-stability và degrade order đã chốt bởi research spike.
+- Grid cap 12 desktop/6 medium/4 compact; active-speaker/presentation có bounded rail, local pin,
+  tunable hysteresis và deterministic screen-share restore; Grid không reorder theo speaker/hand.
 - Release tracks/device on leave; listen-only and browser autoplay handling.
 - Lazy-load LiveKit bundle and declare performance budget.
+- Production baseline `None`; optional blur/3-4 project-owned static backgrounds force-off cho tới
+  exact self-host/hash/CSP/privacy/browser/low-end gate, không dùng V1 backgrounds.
 
 ### Acceptance
 
@@ -349,6 +369,9 @@ disposable branch tiếp tục được giữ lại.
 - [ ] Keyboard, screen reader, focus restore, forced colors và reduced motion PASS.
 - [ ] Publish controls exactly match server grant; hidden UI never substitutes API deny test.
 - [ ] Leave/unmount stops tracks and device indicators; navigation cannot leak token/state.
+- [ ] Off-page video không attach/subscribe vô hạn; audio/control sống lâu hơn video khi degrade.
+- [ ] Effect failure/cold timeout/over-budget về raw track; không request jsDelivr/Google model/
+      telemetry endpoint chưa phê duyệt và không bật effect trên Firefox/Safari chưa đạt gate.
 
 ## 13. P4-06 Participant roster, hand raise và reaction
 
@@ -360,6 +383,8 @@ disposable branch tiếp tục được giữ lại.
 - Hand raise/reaction through authorized/rate-limited Core API signal; `CanPublishData=false`.
 - FIFO dùng server sequence; moderator lower-one/lower-all, reaction TTL/grouping và bounded a11y
   announcements theo contract đã chốt bởi research spike.
+- Hand không auto-lower theo active speaker. Reaction enum `thumbs_up/clap/heart/celebrate/laugh/
+  surprised`, TTL 10 giây, grouping 750 ms/max 3 visual cluster, actor 3/5s + 20/min và room 100/5s.
 - Active-speaker/quality remain provider ephemeral; bounded resync after signal loss.
 
 ### Acceptance
@@ -368,6 +393,8 @@ disposable branch tiếp tục được giữ lại.
 - [ ] Spam rate limit cross-instance-safe; unknown payload discarded without log injection.
 - [ ] Join/leave/reconnect roster eventually converges after duplicate/out-of-order webhook.
 - [ ] Roster/reaction accessible without color-only meaning and does not expose email/session ID.
+- [ ] Hand/reaction duplicate/retry/offline/403/409/429/sequence-gap hội tụ qua versioned snapshot;
+      25/50 storm không tạo DOM/live-region unbounded và direct DataChannel không đổi authority.
 
 ## 14. P4-07 Host/co-host/TA moderation
 
@@ -459,6 +486,10 @@ disposable branch tiếp tục được giữ lại.
 - [ ] No Core API media proxy; API remains healthy under join storm/rate limit.
 - [ ] Provider outage drill has fail-closed start, existing-room behavior and recovery evidence.
 - [ ] Load test uses staging synthetic identities and explicit provider quota approval; no real PII.
+- [ ] Exact physical Safari/macOS, Firefox fallback, standard/low-end 360p/540p/720p và
+      NVDA/VoiceOver được ghi PASS/FAIL; WebKit/headless/source evidence không thay test thật.
+- [ ] Effect chỉ được bật nếu self-hosted assets/privacy/CSP/network/120s perf/10-cycle cleanup đạt;
+      nếu fail thì giữ `None` mà không hạ core classroom acceptance.
 
 ## 19. P4-12 Exact staging acceptance và Phase 4 closure
 
@@ -523,7 +554,7 @@ PostgreSQL. Mỗi implementation slice phải cập nhật khi thêm provider co
 
 1. P4-02 đã `DONE`: shared forward-only `29 false -> 30 false -> 30 false`, exact ACL, deploy và
    live feature-off/provider acceptance đều PASS; hai media feature tiếp tục off và không rollback.
-2. Hoàn thành `P4-MEDIA-UX-00`; research không được đổi schema/authority hoặc tự thêm production
-   dependency trước khi ADR/amendment được chấp nhận.
-3. Sau khi research `DONE`, bắt đầu `P4-03` prejoin device/network và join-attempt flow.
-4. Áp dụng decision của research cho phần UX/signals/effects của P4-04/P4-05/P4-06.
+2. P4-MEDIA-UX-00 đã `DONE`: report/prototype/ADR-0031 chốt no-effect baseline, bounded layout và
+   Core API signal authority; không schema/provider/production processor change.
+3. Bắt đầu `P4-03` prejoin device/network và join-attempt flow theo ADR-0031.
+4. Giữ optional effect force-off và áp dụng decision cho P4-04/P4-05/P4-06/P4-11.

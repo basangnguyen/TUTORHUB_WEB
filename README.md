@@ -87,11 +87,12 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
   exact candidate `183ca338557fafd6e8fe502d67763bb2a73d9aa0`: disposable/shared forward-only
   `28 false -> 29 false -> 29 false`, exact ACL/PostgreSQL, Verify/Security, Render/Cloudflare và
   authenticated/live feature-off acceptance đều PASS. Chưa gọi LiveKit, không có provider side
-  effect và hai media feature vẫn off. Task runnable tiếp theo là P4-02.
-- P4-MEDIA-UX-00 đã được đăng ký làm research spike cho green room/lobby, layout 2-50 người,
-  hand raise/reaction, background/effects, audio processing và degraded fallback. Task `TODO`
-  chạy song song P4-02, phải đạt trước phần UX/signals/effects của P4-03/P4-04/P4-05/P4-06
-  và chưa cho phép thêm production dependency/provider.
+  effect và hai media feature vẫn off. P4-02 credential/webhook sau đó cũng đã `DONE` trên exact
+  disposable/shared/deploy/live-provider acceptance, ledger giữ `30 false`.
+- P4-MEDIA-UX-00 đã `DONE` ngày 2026-08-09 bằng current official Zoom/Meet/LiveKit/browser
+  research, V1 reuse/reject audit, prototype cô lập và ADR-0031. `effect=None` là production
+  baseline; Track Processors 0.7.2 chỉ là candidate force-off tới browser/device/privacy/performance
+  gate. Task runnable hiện tại là P4-03; hand/reaction vẫn qua Core API và `CanPublishData=false`.
 - P5-COLLAB-00 đã được đăng ký làm research spike tương lai cho whiteboard engine,
   document/sync authority, license và realtime topology. Task vẫn `TODO`, không chặn P4-02
   và không cho phép thêm production dependency/runtime trước prototype, evidence và ADR.
@@ -150,7 +151,9 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
 39. [Backlog Phase 4](docs/PHASE_4_BACKLOG.md)
 40. [ADR-0030: Authoritative Classroom Media spaces, lifecycle và LiveKit grants](docs/adr/0030-authoritative-classroom-media-spaces-lifecycle-and-livekit-grants.md)
 41. [P4-MEDIA-UX-00: Classroom media UX research spike](docs/P4_MEDIA_UX_00_RESEARCH_SPIKE.md)
-42. [P5-COLLAB-00: Whiteboard engine và collaboration topology research spike](docs/P5_COLLAB_00_RESEARCH_SPIKE.md)
+42. [P4-MEDIA-UX-00: Báo cáo research/evidence](docs/P4_MEDIA_UX_00_RESEARCH_REPORT.md)
+43. [ADR-0031: Classroom media UX devices/layout/effects/signals](docs/adr/0031-classroom-media-ux-devices-layout-effects-and-signals.md)
+44. [P5-COLLAB-00: Whiteboard engine và collaboration topology research spike](docs/P5_COLLAB_00_RESEARCH_SPIKE.md)
 
 Các quyết định kiến trúc đã chấp nhận nằm trong `docs/adr`.
 

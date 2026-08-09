@@ -157,6 +157,52 @@ importers:
         specifier: 4.1.10
         version: 4.1.10(@types/node@24.10.13)(jsdom@29.1.1)(vite@8.1.4(@types/node@24.10.13)(esbuild@0.28.1))
 
+  apps/media-ux-spike:
+    dependencies:
+      react:
+        specifier: 19.2.7
+        version: 19.2.7
+      react-dom:
+        specifier: 19.2.7
+        version: 19.2.7(react@19.2.7)
+    devDependencies:
+      "@axe-core/playwright":
+        specifier: 4.12.1
+        version: 4.12.1(playwright-core@1.61.1)
+      "@playwright/test":
+        specifier: 1.61.1
+        version: 1.61.1
+      "@testing-library/jest-dom":
+        specifier: 6.9.1
+        version: 6.9.1
+      "@testing-library/react":
+        specifier: 16.3.2
+        version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      "@types/node":
+        specifier: 24.10.13
+        version: 24.10.13
+      "@types/react":
+        specifier: 19.2.17
+        version: 19.2.17
+      "@types/react-dom":
+        specifier: 19.2.3
+        version: 19.2.3(@types/react@19.2.17)
+      "@vitejs/plugin-react":
+        specifier: 6.0.3
+        version: 6.0.3(vite@8.1.4(@types/node@24.10.13)(esbuild@0.28.1))
+      jsdom:
+        specifier: 29.1.1
+        version: 29.1.1
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+      vite:
+        specifier: 8.1.4
+        version: 8.1.4(@types/node@24.10.13)(esbuild@0.28.1)
+      vitest:
+        specifier: 4.1.10
+        version: 4.1.10(@types/node@24.10.13)(jsdom@29.1.1)(vite@8.1.4(@types/node@24.10.13)(esbuild@0.28.1))
+
   apps/web:
     dependencies:
       "@fullcalendar/react":

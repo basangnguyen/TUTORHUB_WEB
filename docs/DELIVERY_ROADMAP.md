@@ -6,9 +6,9 @@
 | ------------------- | ----------------------------------------------- |
 | Cập nhật            | 2026-08-09                                      |
 | Phase hiện tại      | Phase 4 Classroom Media; Phase 3 carry-over tiếp tục |
-| Hoàn thành gần nhất | P4-00 architecture/backlog baseline `DONE`      |
-| Mốc repository mới  | ADR-0030 + Phase 4 backlog + media UX research  |
-| Việc tiếp theo      | P4-01 MediaSpace lifecycle/schema/API core      |
+| Hoàn thành gần nhất | P4-MEDIA-UX-00 research `DONE`                  |
+| Mốc repository mới  | P4-02 live + P4 media UX report/prototype/ADR-0031 |
+| Việc tiếp theo      | P4-03 prejoin device/network/join-attempt       |
 | Phạm vi             | Web-first; desktop/mobile/native là track sau   |
 
 ## Chuỗi phase
@@ -75,18 +75,18 @@ activation, SES/domain/live interoperability và delivery/processing phụ thu�
 được giữ carry-over để đóng sau, không đánh dấu PASS do bỏ qua.
 P3-CAL-01 không phải dependency kỹ thuật của session một lần P3-01; cả hai gate đã đạt.
 P3-CAL-02 có thể chạy sandbox cô lập, nhưng mọi email/notification side effect runtime
-vẫn phải chờ P3-03B. Core Exit đã đạt trên candidate `f5f1eb3`; P4-00
-architecture/backlog implementation-readiness hiện đã `DONE`. Nguồn thực thi là
+vẫn phải chờ P3-03B. Core Exit đã đạt trên candidate `f5f1eb3`; P4-00/P4-01/P4-02
+và P4-MEDIA-UX-00 hiện đã `DONE`. Nguồn thực thi là
 [PHASE_4_BACKLOG.md](PHASE_4_BACKLOG.md), ADR authority là
-[ADR-0030](adr/0030-authoritative-classroom-media-spaces-lifecycle-and-livekit-grants.md)
-và P4-01 là vertical slice kế tiếp. `P3-02D-B` auto-close/fan-out/delivery cùng các lane
+[ADR-0030](adr/0030-authoritative-classroom-media-spaces-lifecycle-and-livekit-grants.md) cùng
+[ADR-0031](adr/0031-classroom-media-ux-devices-layout-effects-and-signals.md), và P4-03 là
+vertical slice kế tiếp. `P3-02D-B` auto-close/fan-out/delivery cùng các lane
 worker/provider tiếp tục là carry-over, không bị coi là PASS.
 
-[P4-MEDIA-UX-00](P4_MEDIA_UX_00_RESEARCH_SPIKE.md) là research lane chạy song song
-P4-01/P4-02 để benchmark Zoom/Google Meet/LiveKit, audit V1 và chốt prejoin/lobby,
-grid/active-speaker/presentation 2-50, hand raise/reaction, effect/audio path bằng evidence.
-Task không đổi provider hoặc critical path, nhưng phải `DONE` trước phần UX/signals/effects của
-P4-03/P4-04/P4-05/P4-06.
+[P4-MEDIA-UX-00](P4_MEDIA_UX_00_RESEARCH_SPIKE.md) đã `DONE`: current official
+Zoom/Meet/LiveKit/browser evidence, V1 audit, isolated prototype và ADR-0031 đã chốt prejoin/lobby,
+grid/active-speaker/presentation 2-50, hand/reaction cùng `effect=None` baseline. Optional processor
+giữ off tới P4-05/P4-11; task không đổi provider/authority hoặc `CanPublishData=false`.
 
 Phase 5 bắt đầu bằng [P5-COLLAB-00](P5_COLLAB_00_RESEARCH_SPIKE.md): so sánh engine,
 license, document authority và realtime topology bằng prototype/evidence trước khi thêm
