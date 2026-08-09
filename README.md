@@ -85,8 +85,10 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
   room-instance LiveKit credential, webhook binding, lobby/moderation, privacy và
   feature-off rollout. P4-01 MediaSpace lifecycle/schema/API core đang `IN PROGRESS` với
   migration `000029`, typed policy, lifecycle/API/OpenAPI/generated client và feature/quota
-  candidate local; full verify PASS nhưng disposable/ACL/exact CI còn mở. Chưa migration/deploy
-  external, chưa gọi LiveKit và hai media feature vẫn mặc định off.
+  candidate. Disposable forward-only `28 false -> 29 false -> 29 false`, exact runtime ACL,
+  full media PostgreSQL integration và fresh local verify đã PASS; exact candidate GitHub
+  CI/security, shared forward/deploy và live feature-off acceptance còn mở. Chưa gọi LiveKit và
+  hai media feature vẫn mặc định off.
 - P4-MEDIA-UX-00 đã được đăng ký làm research spike cho green room/lobby, layout 2-50 người,
   hand raise/reaction, background/effects, audio processing và degraded fallback. Task `TODO`
   chạy song song P4-01/P4-02, phải đạt trước phần UX/signals/effects của P4-03/P4-04/P4-05/P4-06

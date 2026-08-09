@@ -8,13 +8,15 @@ thay đổi schema, migration hoặc repository phải đọc tài liệu này t
 - System of record: Neon PostgreSQL.
 - Schema ứng dụng: `tutorhub`.
 - Migration mới nhất trong source: `000029_classroom_media_spaces`; P4-01 hiện
-  `IN PROGRESS` và mới có candidate local. P3-06/P3-07A đã forward cả disposable và shared
+  `IN PROGRESS`. P3-06/P3-07A đã forward cả disposable và shared
   Neon tới `25 false`. P3-08 disposable đã forward-only
   `25 false -> 26 false -> 26 false`; exact content ACL và PostgreSQL gates PASS.
   P3-09 disposable đã forward-only tới `28 false`; shared staging đã forward-only
   `25 false -> 28 false -> 28 false`, re-provision exact content ACL và chạy full PostgreSQL
-  content integration PASS. P4-01 chưa forward disposable/shared lên `29`; không rollback hoặc
-  chạy shared trước disposable report và owner approval.
+  content integration PASS. P4-01 disposable đã forward-only
+  `28 false -> 29 false -> 29 false`, provision exact runtime ACL và PASS full media PostgreSQL
+  integration; final ledger giữ `29 false`, không rollback. Shared vẫn ở `28 false` và chỉ được
+  forward sau exact candidate CI/security cùng owner approval rõ.
 - Migration 1-5 đã được chạy và kiểm tra trên Neon; smoke
   `5 false -> rollback 4 false -> migrate 5 false` đạt ngày 2026-07-16.
 - Migration `000006` đến `000013` đều có up/down path. Source và PostgreSQL 17 CI
@@ -1349,7 +1351,8 @@ room-instance intent và mutation receipt; member/participant chỉ có exact co
 admission zero-grant. Không có LiveKit token, provider call hoặc webhook. Exact
 forward/ACL/probe nằm tại
 [`P4_01_STAGING_ACCEPTANCE.md`](P4_01_STAGING_ACCEPTANCE.md). Tại checkpoint 2026-08-09,
-disposable/shared vẫn chưa chạy `000029`; policy approval, PostgreSQL/ACL và CI còn mở.
+disposable đã PASS forward-only `28 false -> 29 false -> 29 false`, exact ACL và full media
+PostgreSQL integration; shared chưa chạy `000029`, exact candidate GitHub CI/security còn mở.
 
 Với P2-05, cần kiểm tra riêng migrate 9 -> 10, rollback 10 -> 9, migrate lại 9 -> 10;
 tenant-scoped FK/unique/state constraints; direct enroll và các transition; same-user
@@ -1418,7 +1421,8 @@ của lịch sử append-only và không phải quy trình cleanup cho staging/p
   P3-02C working schedule/free-busy, internal/external audience, organizer transfer,
   cancellation lifecycle và RSVP đều đã đạt staging gate. Delivery/email side effect
   vẫn bị khóa cho tới khi P3-03B/P3-05A và các provider gate tương ứng hoàn tất.
-- P4-01 đang `IN PROGRESS`: source có migration `000029` và local candidate, nhưng chưa có
-  disposable forward/exact ACL/PostgreSQL, full candidate CI/security, shared migration hoặc
-  deploy. Hai media feature tiếp tục off và P4-01 không được tạo provider side effect.
+- P4-01 đang `IN PROGRESS`: disposable forward/exact ACL/full media PostgreSQL và fresh local
+  verify đã PASS; exact candidate GitHub CI/security, shared migration/ACL, deploy và live
+  feature-off acceptance còn mở. Hai media feature tiếp tục off và P4-01 không được tạo provider
+  side effect.
 - Chưa có backup/restore drill, PITR gate hoặc connection load test cho pilot.

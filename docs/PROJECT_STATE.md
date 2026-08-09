@@ -13,9 +13,9 @@
 | Phase hoàn thành     | Phase 0, Phase 1, Phase 2                                                             |
 | Phase hiện tại       | Phase 4 Classroom Media MVP; Phase 3 deferred carry-over vẫn hoạt động                |
 | Task `DONE` gần nhất | P4-00 Classroom Media architecture/backlog baseline                                  |
-| Mốc repository mới   | P4-01 implementation candidate local; chưa migration/deploy external                  |
+| Mốc repository mới   | P4-01 disposable DB/ACL/integration PASS; shared/deploy chưa thực hiện                 |
 | Task hiện tại        | P4-01 MediaSpace lifecycle/schema/API core                                            |
-| Task tiếp theo       | Disposable `28 -> 29`, exact ACL/PostgreSQL rồi exact candidate CI/security           |
+| Task tiếp theo       | Push exact candidate, theo dõi GitHub CI/security rồi xin duyệt shared `28 -> 29`      |
 
 ### Checkpoint P4-01 `IN PROGRESS` ngày 2026-08-09
 
@@ -32,10 +32,16 @@ Focused local feature-control/config/HTTP, API client, web, generated-contract v
 Review còn sửa concealment mutation cùng actor-scoped receipt để loại hai existence oracle.
 Typed `room.create.instant` đã nối đúng ADR-0021 cho mọi active member, nhưng instant command
 vẫn reauthorize tenant, membership và StudyMeeting ownership; focused policy/media/HTTP cùng
-full local verify sau policy đều PASS. Task chưa chuyển `VERIFY`: disposable chưa chạy
-forward-only `28 false -> 29 false -> 29 false`, exact runtime ACL/PostgreSQL integration và
-exact candidate CI/security vẫn còn mở. Shared Neon chưa chạy
-`000029`, không deploy P4-01 và không có external provider side effect. Runbook + exact ACL nằm tại
+full local verify sau policy đều PASS.
+
+Neon disposable `p4-01-disposable-20260809` đã PASS owner/runtime preflight, forward-only
+`28 false -> 29 false -> 29 false`, exact runtime ACL và full media PostgreSQL integration bằng
+pooled runtime login; final ledger giữ `29 false`, không rollback. Integration suite xác nhận
+authority/tenant concealment, same-key concurrency, source lifecycle barrier, feature/quota,
+privacy/audit và không có provider side effect. Fresh `pnpm verify` sau hai sửa lỗi harness
+(khởi chạy đủ hai concurrent operation và giữ append-only audit fixture) PASS trong 195.8 giây.
+Task chưa chuyển `VERIFY` vì exact candidate GitHub CI/security vẫn còn mở. Shared Neon chưa chạy
+`000029`, chưa deploy P4-01 và hai media feature tiếp tục off. Runbook + exact ACL nằm tại
 [P4_01_STAGING_ACCEPTANCE.md](P4_01_STAGING_ACCEPTANCE.md).
 
 ### Checkpoint P4-00 `DONE` ngày 2026-08-08

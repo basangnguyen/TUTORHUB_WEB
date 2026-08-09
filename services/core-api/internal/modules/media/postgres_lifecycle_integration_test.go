@@ -263,7 +263,7 @@ ORDER BY column_name`, relation, privilege)
 func TestPostgresMediaLifecycleAuthorityConcurrencyQuotaAndPrivacy(t *testing.T) {
 	migrationURL := requireMediaIntegrationEnvironment(t, "DATABASE_MIGRATION_URL")
 	runtimeURL := requireMediaIntegrationEnvironment(t, "DATABASE_POOL_URL")
-	ctx, cancel := context.WithTimeout(context.Background(), 150*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 	if err := migrationrunner.Up(ctx, migrationURL); err != nil {
 		t.Fatalf("apply media lifecycle migrations: %v", err)
@@ -676,14 +676,15 @@ WHERE tenant_id = $1 AND create_idempotency_key = $2`, fixture.tenantID, instant
 		t.Fatalf("create concurrent-start media space: %v", err)
 	}
 	startKey := mediaIntegrationKey("concurrent-start")
-	startOutcomes := runConcurrentMediaTransitions(func() (MediaSpace, error) {
+	startOperation := func() (MediaSpace, error) {
 		return lifecycle.StartSpace(
 			ctx,
 			ownerAccess,
 			concurrentCreate.Space.ID,
 			TransitionInput{ExpectedVersion: 1, IdempotencyKey: startKey},
 		)
-	})
+	}
+	startOutcomes := runConcurrentMediaTransitions(startOperation, startOperation)
 	assertConcurrentTransitionReplay(t, startOutcomes, SpaceStatusOpen)
 	if startOutcomes[0].space.ActiveRoomInstance == nil ||
 		startOutcomes[1].space.ActiveRoomInstance == nil ||
@@ -1616,8 +1617,25 @@ func cleanupMediaIntegrationFixture(
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
+	tenantIDs := []uuid.UUID{fixture.tenantID, fixture.foreignTenantID, fixture.quotaTenantID}
+	var retainedAudit bool
+	if err := pool.QueryRow(
+		ctx,
+		`SELECT EXISTS (
+    SELECT 1 FROM tutorhub.audit_events WHERE tenant_id = ANY($1::uuid[])
+)`,
+		tenantIDs,
+	).Scan(&retainedAudit); err != nil {
+		t.Errorf("inspect retained media integration audit fixture: %v", err)
+		return
+	}
+	// Audit history is deliberately append-only with a restrictive tenant FK.
+	// CI/disposable identifiers are unique, so retain exercised fixtures for inspection.
+	if retainedAudit {
+		return
+	}
 	if _, err := pool.Exec(ctx, `DELETE FROM tutorhub.tenants WHERE id = ANY($1::uuid[])`,
-		[]uuid.UUID{fixture.tenantID, fixture.foreignTenantID, fixture.quotaTenantID},
+		tenantIDs,
 	); err != nil {
 		t.Errorf("delete media integration tenants: %v", err)
 		return

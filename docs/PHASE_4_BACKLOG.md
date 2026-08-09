@@ -220,16 +220,17 @@ LiveKit token. **Acceptance:** [P4_01_STAGING_ACCEPTANCE.md](P4_01_STAGING_ACCEP
 
 ### Acceptance
 
-- [ ] Disposable forward-only `28 -> 29`, rerun giữ `29 false`; không rollback. Forward shared
-      chỉ sau disposable report và owner approval rõ.
-- [ ] Runtime role exact DML, không owner/DDL/broad table grant; foreign tenant conceal `404`.
-- [ ] Official teacher/admin/owner/co-teacher start/end matrix đúng; student không nâng quyền.
-- [ ] StudyMeeting owner, gồm StudyMeeting do instant command tạo, và explicit same-tenant member
+- [x] Disposable forward-only `28 -> 29`, rerun giữ `29 false`; không rollback.
+- [ ] Forward shared chỉ sau disposable report, exact candidate CI/security và owner approval rõ.
+- [x] Runtime role exact DML, không owner/DDL/broad table grant; foreign tenant conceal `404`.
+- [x] Official teacher/admin/owner/co-teacher start/end matrix đúng; student không nâng quyền.
+- [x] StudyMeeting owner, gồm StudyMeeting do instant command tạo, và explicit same-tenant member
       boundary đúng; anonymous bị từ chối.
-- [ ] Concurrent/retry start chỉ tạo một space/instance intent; end/cancel race deterministic.
-- [ ] Source cancel/archive/enrollment revoke fail closed; audit/outbox không chứa private content.
-- [ ] Feature/quota disabled paths không tạo row; storage failure trả `503`.
-- [ ] OpenAPI/generated client, Go/TS tests và full verify xanh; không có provider side effect.
+- [x] Concurrent/retry start chỉ tạo một space/instance intent; end/cancel race deterministic.
+- [x] Source cancel/archive/enrollment revoke fail closed; audit/outbox không chứa private content.
+- [x] Feature/quota disabled paths không tạo row; storage failure trả `503`.
+- [x] OpenAPI/generated client, Go/TS tests và fresh full verify xanh; không có provider side effect.
+- [ ] Exact candidate GitHub CI/security, shared forward/ACL, deploy và live feature-off acceptance.
 
 ### Checkpoint implementation local 2026-08-09
 
@@ -238,8 +239,10 @@ LiveKit token. **Acceptance:** [P4_01_STAGING_ACCEPTANCE.md](P4_01_STAGING_ACCEP
 - [x] Focused feature-control/config/HTTP, API client, web và generated-contract checks PASS.
 - [x] Policy/security action matrix được review; typed `room.create.instant` theo ADR-0021,
       tenant/membership/ownership guard và focused tests PASS.
-- [ ] Disposable PostgreSQL `28 -> 29`, exact ACL, tenant/concurrency/source barrier gates PASS.
-- [x] Full local `pnpm verify` PASS sau policy; exact candidate CI/security vẫn còn mở.
+- [x] Disposable PostgreSQL `28 false -> 29 false -> 29 false`, exact ACL và full
+      tenant/concurrency/source/privacy gates PASS; final ledger giữ `29 false`, không rollback.
+- [x] Fresh full local `pnpm verify` PASS sau disposable harness fixes; exact candidate GitHub
+      CI/security vẫn còn mở.
 - [ ] Shared staging/deploy chỉ được xét sau các gate trên; hiện chưa thực hiện.
 
 ## 9. P4-02 RoomInstance LiveKit credential và webhook binding

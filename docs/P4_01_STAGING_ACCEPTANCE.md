@@ -6,13 +6,13 @@
 - Kiến trúc có thẩm quyền: ADR-0030; migration source:
   `000029_classroom_media_spaces`.
 - Source candidate đã có schema/domain/repository, feature/quota, REST
-  create/get/start/end/cancel, OpenAPI/generated client và feature-control UI. Đây mới là
-  bằng chứng local; chưa phải bằng chứng PostgreSQL disposable, CI, shared staging hoặc live.
-- Typed policy/security review và final local verify sau policy đã PASS. Gate còn mở bắt buộc:
-  disposable PostgreSQL forward + exact ACL/integration và exact candidate CI/security.
-- Không migration/deploy nào đã được thực hiện ra ngoài local trong P4-01 tại checkpoint này.
-  Shared Neon vẫn ở ledger đã nghiệm thu trước P4-01; không chạy `000029` trên shared trước khi
-  disposable report đạt và owner phê duyệt rõ.
+  create/get/start/end/cancel, OpenAPI/generated client và feature-control UI.
+- Typed policy/security review, fresh local verify và disposable PostgreSQL forward/exact
+  ACL/integration đã PASS. Gate còn mở bắt buộc là exact candidate GitHub CI/security,
+  shared staging forward/ACL, deploy và live feature-off acceptance.
+- Migration `000029` chỉ đã được chạy trên disposable branch
+  `p4-01-disposable-20260809`. Shared Neon vẫn ở ledger đã nghiệm thu trước P4-01; không chạy
+  `000029` trên shared trước khi owner phê duyệt rõ sau báo cáo disposable này.
 
 P4-01 luôn feature-off. `classroom_media_rooms` và `instant_study_rooms` có compiled default
 `false`, deployment enable mặc định `false`; child instant còn phụ thuộc parent. Thiếu LiveKit
@@ -90,7 +90,7 @@ SELECT
 FROM actor
 CROSS JOIN owned_scope;
 
-SELECT version, dirty FROM schema_migrations;
+SELECT version, dirty FROM public.tutorhub_schema_migrations;
 ```
 
 PASS yêu cầu ledger đầu vào đúng `28 false`; `not_superuser`, `schema_usage`,
@@ -469,7 +469,7 @@ WHERE table_schema = 'tutorhub'
 Nếu migration role không phải `current_user`, thay đối số membership bằng exact migration
 role đã xác minh trong preflight. Chỉ báo cáo boolean/mismatch count; không ghi credential.
 
-## 6. PostgreSQL, authorization và concurrency gates còn mở
+## 6. PostgreSQL, authorization và concurrency gates
 
 Chạy integration bằng exact runtime login sau provisioning; không thay
 `DATABASE_POOL_URL` bằng migration URL để làm test giả PASS. Toàn bộ test phải chạy, không
@@ -493,7 +493,7 @@ Chạy integration bằng exact runtime login sau provisioning; không thay
    private content, participant data hoặc raw database error.
 10. Không có LiveKit request/token/webhook/provider side effect trong toàn bộ P4-01 gate.
 
-## 7. Bằng chứng local hiện có
+## 7. Bằng chứng local và disposable hiện có
 
 Checkpoint 2026-08-09 hiện ghi nhận:
 
@@ -506,9 +506,26 @@ Checkpoint 2026-08-09 hiện ghi nhận:
   policy/media/HTTP tests: PASS;
 - full local `pnpm verify` với workspace `GOCACHE`: PASS;
 - PostgreSQL integration tag compile và no-env skip (hai URL chủ động unset): PASS, không kết nối DB.
+- disposable owner/runtime preflight PASS với migration login direct, runtime login pooled,
+  hai role tách biệt, owner không superuser, schema `USAGE/CREATE`, required relations và
+  owner authority đều đúng; ledger đầu vào `28 false`;
+- forward-only `28 false -> 29 false -> 29 false`: PASS; final ledger sau toàn bộ gate giữ
+  `29 false`, không rollback;
+- exact runtime schema/column ACL provisioning: PASS; runtime không có schema `CREATE`, broad
+  table grant hoặc PUBLIC grant;
+- full media PostgreSQL integration bằng exact pooled runtime login: PASS, không `SKIP`
+  (`go test -count=1 -tags=integration ./services/core-api/internal/modules/media`, 187.326 giây);
+- gate xác nhận authority/tenant concealment, idempotency/concurrency, ClassSession và
+  StudyMeeting barrier, feature/quota, privacy audit/outbox và zero provider side effect;
+- fresh full local `pnpm verify` sau sửa integration harness: PASS trong 195.8 giây.
 
-Các kết quả trên không thay thế PostgreSQL disposable, exact ACL, candidate CI/security hoặc
-live acceptance. Chưa ghi PASS cho bất kỳ gate external nào.
+Hai lỗi harness phát hiện trong lần chạy đầu đã được sửa tối thiểu: same-key concurrent start
+thực sự chạy hai operation; timeout toàn suite tăng lên 5 phút cho Neon; fixture có audit history
+được giữ lại vì `audit_events` append-only với tenant FK `RESTRICT`. Không thay đổi production
+schema/logic để làm test PASS.
+
+Các kết quả trên chưa thay thế exact candidate GitHub CI/security, shared staging hoặc live
+acceptance. Disposable branch phải được giữ cho tới khi các bước kế tiếp được quyết định.
 
 ## 8. Exit decision
 
