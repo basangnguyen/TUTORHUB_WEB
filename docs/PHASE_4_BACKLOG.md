@@ -20,16 +20,15 @@ P3-14-CORE đã `DONE`; Phase 4 được phép bắt đầu trong khi Phase 3 de
 Không task Phase 4 nào được xóa, giả lập PASS hoặc bật notification/email/file-processing side
 effect thuộc Phase 3 khi carry-over chưa đạt gate riêng.
 
-**Task `DONE` gần nhất:** `P4-01` MediaSpace lifecycle/schema/API core ngày 2026-08-09. Exact
-candidate đã PASS local/disposable/CI/security/shared/deploy/live feature-off acceptance; cả
-disposable và shared giữ ledger `29 false`, không rollback. **Task hiện tại:** `P4-02`
-RoomInstance LiveKit credential + webhook binding ở trạng thái `VERIFY`; local/disposable exact
-ACL/PostgreSQL, LiveKit test-provider và exact candidate CI/security đã PASS. Còn shared
-forward/ACL, deploy và live feature-off/provider acceptance.
+**Task `DONE` gần nhất:** `P4-02` RoomInstance LiveKit credential + signed webhook binding ngày
+2026-08-09. Local/disposable/provider, exact candidate CI/security, shared forward/exact ACL,
+Render/Cloudflare deploy và live feature-off/provider acceptance đều PASS; disposable và shared
+giữ ledger `30 false`, không rollback. **Task hiện tại:** `P4-MEDIA-UX-00` research spike ở trạng
+thái `TODO`; sau khi research `DONE`, task implementation tiếp theo là `P4-03`.
 
 `P4-MEDIA-UX-00` là research lane `TODO` có thể chạy song song P4-01/P4-02 và phải `DONE`
 trước phần UX/signals/effects của P4-03/P4-04/P4-05/P4-06. Task không đổi LiveKit provider,
-không thêm production dependency và không làm thay đổi critical path hiện tại là P4-02.
+không thêm production dependency; critical path hiện tại là hoàn thành research trước P4-03.
 
 ## 2. Non-goal
 
@@ -73,7 +72,7 @@ không thêm production dependency và không làm thay đổi critical path hi�
 | P4-00           | Architecture/backlog/contract baseline             | P3-14-CORE                              | DONE       |
 | P4-MEDIA-UX-00 | Prejoin/layout/signals/effects research spike      | P4-00; song song P4-01/P4-02            | TODO       |
 | P4-01           | MediaSpace lifecycle, schema và API core            | P4-00                                   | DONE       |
-| P4-02           | RoomInstance LiveKit credential + webhook binding   | P4-01, P1-07 baseline                   | VERIFY     |
+| P4-02           | RoomInstance LiveKit credential + webhook binding   | P4-01, P1-07 baseline                   | DONE       |
 | P4-03           | Prejoin device/network và join-attempt flow         | P4-02, P4-MEDIA-UX-00                  | TODO       |
 | P4-04           | Lobby, admission và explicit same-tenant invite     | P4-02, P4-03, P4-MEDIA-UX-00           | TODO       |
 | P4-05           | Classroom shell, media controls và layouts          | P4-03, P4-MEDIA-UX-00                  | TODO       |
@@ -522,12 +521,9 @@ PostgreSQL. Mỗi implementation slice phải cập nhật khi thêm provider co
 
 ## 23. Thứ tự thực hiện ngay
 
-1. Exact P4-02 candidate đã PASS GitHub Verify/Security; xin quyền tiếp tục shared owner/runtime
-   preflight, forward-only `29 false -> 30 false -> 30 false`, exact ACL, deploy và live
-   feature-off/provider acceptance; vẫn giữ hai feature off và không rollback.
-2. Sau khi có quyền tiếp tục: shared owner/runtime preflight,
-   forward-only `29 false -> 30 false -> 30 false`, exact ACL, deploy và live feature-off/provider
-   acceptance.
-3. Có thể chạy `P4-MEDIA-UX-00` song song; không để research đổi schema/authority hoặc chặn P4-02.
-4. `P4-MEDIA-UX-00` phải `DONE` trước phần UX/signals/effects của
-   P4-03/P4-04/P4-05/P4-06.
+1. P4-02 đã `DONE`: shared forward-only `29 false -> 30 false -> 30 false`, exact ACL, deploy và
+   live feature-off/provider acceptance đều PASS; hai media feature tiếp tục off và không rollback.
+2. Hoàn thành `P4-MEDIA-UX-00`; research không được đổi schema/authority hoặc tự thêm production
+   dependency trước khi ADR/amendment được chấp nhận.
+3. Sau khi research `DONE`, bắt đầu `P4-03` prejoin device/network và join-attempt flow.
+4. Áp dụng decision của research cho phần UX/signals/effects của P4-04/P4-05/P4-06.
