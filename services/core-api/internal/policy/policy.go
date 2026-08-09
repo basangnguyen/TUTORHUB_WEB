@@ -48,6 +48,7 @@ const (
 	PermissionParticipantAdmit               Permission = "participant.admit"
 	PermissionParticipantRemove              Permission = "participant.remove"
 	PermissionMediaPublish                   Permission = "media.publish"
+	PermissionMediaShareScreen               Permission = "media.share_screen"
 	PermissionChatSend                       Permission = "chat.send"
 	PermissionFileView                       Permission = "file.view"
 	PermissionFileUpload                     Permission = "file.upload"
@@ -82,6 +83,7 @@ const (
 	ActionParticipantAdmit               Action = Action(PermissionParticipantAdmit)
 	ActionParticipantRemove              Action = Action(PermissionParticipantRemove)
 	ActionMediaPublish                   Action = Action(PermissionMediaPublish)
+	ActionMediaShareScreen               Action = Action(PermissionMediaShareScreen)
 	ActionChatSend                       Action = Action(PermissionChatSend)
 	ActionFileView                       Action = Action(PermissionFileView)
 	ActionFileUpload                     Action = Action(PermissionFileUpload)
@@ -213,6 +215,7 @@ var permissionOrder = []Permission{
 	PermissionParticipantAdmit,
 	PermissionParticipantRemove,
 	PermissionMediaPublish,
+	PermissionMediaShareScreen,
 	PermissionChatSend,
 	PermissionFileView,
 	PermissionFileUpload,
@@ -241,6 +244,7 @@ var organizationPermissions = map[OrganizationRole][]Permission{
 		PermissionParticipantAdmit,
 		PermissionParticipantRemove,
 		PermissionMediaPublish,
+		PermissionMediaShareScreen,
 		PermissionChatSend,
 		PermissionFileView,
 		PermissionFileUpload,
@@ -281,6 +285,7 @@ var classPermissions = map[ClassRole][]Permission{
 		PermissionParticipantAdmit,
 		PermissionParticipantRemove,
 		PermissionMediaPublish,
+		PermissionMediaShareScreen,
 		PermissionChatSend,
 		PermissionFileView,
 		PermissionFileUpload,
@@ -298,6 +303,7 @@ var classPermissions = map[ClassRole][]Permission{
 		PermissionParticipantAdmit,
 		PermissionParticipantRemove,
 		PermissionMediaPublish,
+		PermissionMediaShareScreen,
 		PermissionChatSend,
 		PermissionFileView,
 		PermissionFileUpload,
@@ -308,6 +314,7 @@ var classPermissions = map[ClassRole][]Permission{
 		PermissionSessionJoin,
 		PermissionParticipantAdmit,
 		PermissionMediaPublish,
+		PermissionMediaShareScreen,
 		PermissionChatSend,
 		PermissionFileView,
 	},

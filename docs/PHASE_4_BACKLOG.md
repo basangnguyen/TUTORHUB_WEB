@@ -23,7 +23,9 @@ effect thuộc Phase 3 khi carry-over chưa đạt gate riêng.
 **Task `DONE` gần nhất:** `P4-01` MediaSpace lifecycle/schema/API core ngày 2026-08-09. Exact
 candidate đã PASS local/disposable/CI/security/shared/deploy/live feature-off acceptance; cả
 disposable và shared giữ ledger `29 false`, không rollback. **Task hiện tại:** `P4-02`
-RoomInstance LiveKit credential + webhook binding ở trạng thái `TODO`.
+RoomInstance LiveKit credential + webhook binding ở trạng thái `IN PROGRESS`; local candidate đã
+PASS full verify, disposable PostgreSQL/exact ACL và LiveKit test-provider gates; còn khóa exact
+candidate, CI/security, shared forward/ACL, deploy và live acceptance.
 
 `P4-MEDIA-UX-00` là research lane `TODO` có thể chạy song song P4-01/P4-02 và phải `DONE`
 trước phần UX/signals/effects của P4-03/P4-04/P4-05/P4-06. Task không đổi LiveKit provider,
@@ -71,7 +73,7 @@ không thêm production dependency và không làm thay đổi critical path hi�
 | P4-00           | Architecture/backlog/contract baseline             | P3-14-CORE                              | DONE       |
 | P4-MEDIA-UX-00 | Prejoin/layout/signals/effects research spike      | P4-00; song song P4-01/P4-02            | TODO       |
 | P4-01           | MediaSpace lifecycle, schema và API core            | P4-00                                   | DONE       |
-| P4-02           | RoomInstance LiveKit credential + webhook binding   | P4-01, P1-07 baseline                   | TODO       |
+| P4-02           | RoomInstance LiveKit credential + webhook binding   | P4-01, P1-07 baseline                   | IN PROGRESS |
 | P4-03           | Prejoin device/network và join-attempt flow         | P4-02, P4-MEDIA-UX-00                  | TODO       |
 | P4-04           | Lobby, admission và explicit same-tenant invite     | P4-02, P4-03, P4-MEDIA-UX-00           | TODO       |
 | P4-05           | Classroom shell, media controls và layouts          | P4-03, P4-MEDIA-UX-00                  | TODO       |
@@ -83,9 +85,10 @@ không thêm production dependency và không làm thay đổi critical path hi�
 | P4-11           | Browser/device matrix, load và outage runbook        | P4-05 đến P4-10                         | TODO       |
 | P4-12           | Exact staging acceptance và Phase 4 closure          | P4-MEDIA-UX-00, P4-01 đến P4-11         | TODO       |
 
-`TODO` không ngụ ý implementation đã tồn tại. `VERIFY` chỉ dùng sau khi implementation và local/
-disposable gates xanh nhưng exact staging/manual/provider gate còn mở. `DONE` yêu cầu toàn bộ
-acceptance của task, cập nhật Project State/backlog và bằng chứng exact candidate phù hợp.
+`TODO` không ngụ ý implementation đã tồn tại. `VERIFY` chỉ dùng sau khi implementation và các gate
+pre-staging do runbook task quy định đã xanh; riêng P4-02 cần local/disposable/provider cùng exact
+candidate CI/security PASS. `DONE` yêu cầu toàn bộ acceptance của task, cập nhật Project State/
+backlog và bằng chứng exact candidate phù hợp.
 
 ## 5. Dependency graph
 
@@ -248,7 +251,23 @@ LiveKit token. **Acceptance:** [P4_01_STAGING_ACCEPTANCE.md](P4_01_STAGING_ACCEP
 
 ## 9. P4-02 RoomInstance LiveKit credential và webhook binding
 
-**Dependency:** P4-01 và P1-07 baseline. **Trạng thái:** `TODO`.
+**Dependency:** P4-01 và P1-07 baseline. **Trạng thái:** `IN PROGRESS`.
+
+Candidate ngày 2026-08-09 có migration `000030`, exact ACL/runbook, official LiveKit RoomService
+adapter, provider lifecycle reconciliation, RoomInstance credential API, opaque ParticipantSession
+binding, shared rate limit, signed webhook receipt/transition và P1/P4 mutual exclusion. Security
+hardening đã khóa official signature/body-hash trước mutation, redacted database error, tenant
+advisory-before-row-lock ordering, exact tenant concealment, Unix-second timestamp clamp, room-wide
+capacity release, failed-intent cleanup và concurrent credential/webhook/provider reconcile.
+
+Full local verify PASS trong 182.5 giây; rerun sau khi bỏ log endpoint LiveKit tiếp tục PASS trong
+26.2 giây với cache. Disposable owner/runtime preflight, forward-only
+`29 false -> 30 false -> 30 false`, rerun idempotent, exact ACL provision/probe và PostgreSQL
+authority/quota/concurrency/privacy gates đều PASS; final ledger giữ `30 false`, không rollback.
+Allowlist đã bổ sung exact `SELECT attempt_number` sau gate thực tế. LiveKit test-provider create/
+reuse, token 5 phút least-privilege, real connect/disconnect và exact cleanup PASS; synthetic signed
+webhook verifier valid/wrong-key/tamper PASS. Provider-emitted webhook tới public Core API còn thuộc
+live acceptance. Feature vẫn force-off; chưa khóa/push exact candidate và chưa chạm shared staging.
 
 ### Scope
 
@@ -260,12 +279,16 @@ LiveKit token. **Acceptance:** [P4_01_STAGING_ACCEPTANCE.md](P4_01_STAGING_ACCEP
 
 ### Acceptance
 
-- [ ] Credential request không nhận/echo tenant, provider room, role hoặc grant client-supplied.
-- [ ] Token no-store/memory-only; secret/token/identifier không vào bundle, log, audit hoặc metric.
-- [ ] Inactive/locked/ended/foreign/revoked source không mint token; exact allow/deny matrix PASS.
-- [ ] Signed duplicate webhook idempotent; unsigned/malformed/unknown/stale event không mutate state.
-- [ ] Provider outage trả typed `503`, không để partial active instance hoặc duplicate room.
-- [ ] P1/P4 route mutual exclusion và compatibility tests PASS.
+- [x] Credential request không nhận/echo tenant, provider room, role hoặc grant client-supplied.
+- [x] Token no-store/memory-only; secret/token/identifier không vào bundle, log, audit hoặc metric.
+- [x] Inactive/locked/ended/foreign/revoked source không mint token; exact allow/deny matrix PASS.
+- [x] Signed duplicate webhook idempotent; unsigned/malformed/unknown/stale event không mutate state.
+- [x] Provider outage trả typed `503`, không để partial active instance hoặc duplicate room.
+- [x] P1/P4 route mutual exclusion và compatibility tests PASS.
+
+Các acceptance implementation/database/provider trên đã xanh, nhưng rollout gate còn mở nên P4-02
+vẫn `IN PROGRESS`: khóa exact candidate và CI/security trước; shared/deploy/live chỉ sau khi báo cáo
+disposable được chấp nhận.
 
 ## 10. P4-03 Prejoin device/network và join-attempt flow
 
@@ -493,8 +516,11 @@ PostgreSQL. Mỗi implementation slice phải cập nhật khi thêm provider co
 
 ## 23. Thứ tự thực hiện ngay
 
-1. P4-01 đã `DONE`; bắt đầu forward design P4-02 cho credential issuance, one-active-instance
-   provider binding và signed webhook lifecycle, vẫn giữ feature off.
-2. Có thể chạy `P4-MEDIA-UX-00` song song; không để research đổi schema/authority hoặc chặn P4-02.
-3. `P4-MEDIA-UX-00` phải `DONE` trước phần UX/signals/effects của
+1. Khóa exact P4-02 candidate, commit/push và chạy GitHub Verify/Security; chưa forward shared hoặc
+   deploy, vẫn giữ hai feature off và không rollback.
+2. Sau khi báo cáo exact candidate CI/security và có quyền tiếp tục: shared owner/runtime preflight,
+   forward-only `29 false -> 30 false -> 30 false`, exact ACL, deploy và live feature-off/provider
+   acceptance.
+3. Có thể chạy `P4-MEDIA-UX-00` song song; không để research đổi schema/authority hoặc chặn P4-02.
+4. `P4-MEDIA-UX-00` phải `DONE` trước phần UX/signals/effects của
    P4-03/P4-04/P4-05/P4-06.

@@ -45,6 +45,8 @@ type Options struct {
 	FeatureControls       featurecontrol.ServiceAPI
 	Media                 media.ServiceAPI
 	MediaSpaces           media.LifecycleServiceAPI
+	MediaCredentials      media.InstanceCredentialServiceAPI
+	MediaWebhooks         media.WebhookProcessor
 	Notifications         notification.ServiceAPI
 	Conversations         conversation.ServiceAPI
 	Content               content.ServiceAPI
@@ -461,7 +463,9 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 		logger,
 		auth,
 		options.Media,
+		options.MediaCredentials,
 		options.LiveKitWebhook,
+		options.MediaWebhooks,
 	)
 	mediaSpaces := newMediaSpaceHandlers(logger, auth, options.MediaSpaces)
 	mux.Handle(
@@ -757,6 +761,12 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 	)
 	mux.Handle(mediaTokenPathPattern, http.HandlerFunc(mediaHandlers.issueJoinCredential))
 	mux.Handle(mediaEventsPathPattern, http.HandlerFunc(mediaHandlers.recordClientEvent))
+	mux.Handle(
+		mediaSpaceCredentialPathPattern,
+		mediaSpaceResponseHeaders(
+			requireMethod(http.MethodPost, http.HandlerFunc(mediaHandlers.issueInstanceCredential)),
+		),
+	)
 	mux.Handle(
 		mediaSpacesCollectionPath,
 		mediaSpaceResponseHeaders(

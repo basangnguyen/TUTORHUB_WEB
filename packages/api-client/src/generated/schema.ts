@@ -770,7 +770,11 @@ export type paths = {
     };
     readonly get?: never;
     readonly put?: never;
-    /** Issue a short-lived LiveKit credential for an active class */
+    /**
+     * Issue a legacy class-wide LiveKit credential for controlled P1 smoke only
+     * @deprecated
+     * @description Deprecated compatibility path. It returns 410 for every tenant whose classroom_media_rooms authority is enabled; no tenant may use this path and RoomInstance credentials together.
+     */
     readonly post: operations["issueClassMediaToken"];
     readonly delete?: never;
     readonly options?: never;
@@ -1680,6 +1684,26 @@ export type paths = {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/api/v1/media/spaces/{space_id}/join-credentials": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Issue a short-lived credential for the exact active RoomInstance
+     * @description The server reauthorizes the active workspace and authoritative source, creates or reuses one opaque ParticipantSession for the join attempt, and derives all LiveKit identifiers, role, and grants. Provider room names and participant identities are never returned.
+     */
+    readonly post: operations["issueMediaSpaceJoinCredential"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/api/v1/media/spaces/{space_id}/start": {
     readonly parameters: {
       readonly query?: never;
@@ -1690,8 +1714,8 @@ export type paths = {
     readonly get?: never;
     readonly put?: never;
     /**
-     * Commit one idempotent room-instance start intent
-     * @description P4-01 persists only the lifecycle and room-instance intent; it does not call LiveKit or expose provider identifiers.
+     * Start and bind one idempotent RoomInstance
+     * @description The server commits one opaque provisioning intent, calls LiveKit outside the database transaction, and compare-and-sets the exact provider SID. Retries reuse the persisted room name and never expose provider identifiers.
      */
     readonly post: operations["startMediaSpace"];
     readonly delete?: never;
@@ -3498,6 +3522,37 @@ export type components = {
         | "disconnected"
         | "leave";
     };
+    readonly MediaInstanceCredential: {
+      /** @description Short-lived LiveKit JWT; clients must keep it in memory only and never persist or log it. */
+      readonly access_token: string;
+      readonly can_publish_camera_microphone: boolean;
+      readonly can_share_screen: boolean;
+      readonly can_subscribe: boolean;
+      /** Format: date-time */
+      readonly expires_at: string;
+      readonly instance_role: components["schemas"]["MediaInstanceRole"];
+      /** Format: uuid */
+      readonly join_attempt_id: string;
+      /** Format: uuid */
+      readonly participant_session_id: string;
+      /** Format: uuid */
+      readonly room_instance_id: string;
+      /**
+       * Format: uri
+       * @description LiveKit WebSocket URL; staging and production require wss://.
+       */
+      readonly server_url: string;
+    };
+    readonly MediaInstanceCredentialRequest: {
+      /**
+       * Format: uuid
+       * @description Client-generated opaque retry key for one join attempt; it is not a provider identity.
+       */
+      readonly join_attempt_id: string;
+    };
+    /** @enum {string} */
+    readonly MediaInstanceRole:
+      "host" | "co_host" | "teaching_assistant" | "attendee";
     readonly MediaRoomInstance: {
       /** Format: date-time */
       readonly created_at: string;
@@ -5987,6 +6042,7 @@ export interface operations {
       readonly 403: components["responses"]["ForbiddenResponse"];
       readonly 404: components["responses"]["NotFoundResponse"];
       readonly 409: components["responses"]["ConflictResponse"];
+      readonly 410: components["responses"]["ProblemResponse"];
       readonly default: components["responses"]["ProblemResponse"];
     };
   };
@@ -7893,6 +7949,47 @@ export interface operations {
       readonly 403: components["responses"]["ForbiddenResponse"];
       readonly 404: components["responses"]["NotFoundResponse"];
       readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly issueMediaSpaceJoinCredential: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Double-submit CSRF token bound to the active authenticated session. */
+        readonly "X-CSRF-Token": components["parameters"]["CSRFToken"];
+        /** @description Active workspace assertion used to prevent confused-deputy mutations and reads. */
+        readonly "X-TutorHub-Expected-Tenant-ID": components["parameters"]["ExpectedTenantID"];
+      };
+      readonly path: {
+        readonly space_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["MediaInstanceCredentialRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Memory-only LiveKit credential scoped to one active RoomInstance and opaque ParticipantSession */
+      readonly 200: {
+        headers: {
+          readonly "Cache-Control"?: "private, no-store";
+          readonly "Referrer-Policy"?: "no-referrer";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["MediaInstanceCredential"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 429: components["responses"]["ProblemResponse"];
       readonly 503: components["responses"]["ProblemResponse"];
       readonly default: components["responses"]["ProblemResponse"];
     };

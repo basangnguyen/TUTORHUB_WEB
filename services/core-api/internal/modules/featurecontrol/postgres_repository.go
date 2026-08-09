@@ -1084,6 +1084,14 @@ func acquireTenantControlLock(
 	return nil
 }
 
+func AcquireTenantControlLock(
+	ctx context.Context,
+	transaction Transaction,
+	tenantID uuid.UUID,
+) error {
+	return NormalizeError(acquireTenantControlLock(ctx, transaction, tenantID))
+}
+
 func tenantControlLockKey(tenantID uuid.UUID) int64 {
 	digest := sha256.Sum256(append(
 		[]byte("tutorhub-feature-control-v1\x00"),

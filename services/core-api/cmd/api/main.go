@@ -10,6 +10,7 @@ import (
 	"time"
 	_ "time/tzdata"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tutorhub-v2/core-api/internal/config"
 	"github.com/tutorhub-v2/core-api/internal/httpapi"
@@ -370,9 +371,11 @@ func run() int {
 			}
 		}
 	}
+	var mediaLifecycleRepository *media.PostgresLifecycleRepository
 	var mediaLifecycleService media.LifecycleServiceAPI
 	if pool != nil && classroomRepository != nil {
-		mediaLifecycleRepository, mediaLifecycleErr := media.NewPostgresLifecycleRepository(
+		var mediaLifecycleErr error
+		mediaLifecycleRepository, mediaLifecycleErr = media.NewPostgresLifecycleRepository(
 			pool,
 			cfg.Database.QueryTimeout,
 			authorizer,
@@ -459,10 +462,13 @@ func run() int {
 	}
 
 	var mediaService media.ServiceAPI
+	var mediaCredentialService media.InstanceCredentialServiceAPI
+	var mediaWebhookProcessor media.WebhookProcessor
 	var liveKitWebhook media.WebhookVerifier
 	if cfg.LiveKit.Enabled {
-		if pool == nil || classroomService == nil {
-			logger.Error("LiveKit requires a configured database and classroom service")
+		if pool == nil || classroomService == nil || mediaLifecycleRepository == nil ||
+			mediaLifecycleService == nil {
+			logger.Error("LiveKit requires configured database, classroom, and media lifecycle services")
 			return 1
 		}
 		issuer, err := media.NewLiveKitTokenIssuer(cfg.LiveKit.APIKey, cfg.LiveKit.APISecret)
@@ -478,7 +484,7 @@ func run() int {
 			logger.Error("initialize LiveKit webhook verifier", "error", err)
 			return 1
 		}
-		mediaService, err = media.NewService(
+		legacyMediaService, err := media.NewService(
 			classroomService,
 			authorizer,
 			issuer,
@@ -494,9 +500,65 @@ func run() int {
 			logger.Error("initialize classroom media service", "error", err)
 			return 1
 		}
+		instanceRepository, err := media.NewPostgresInstanceRepository(
+			mediaLifecycleRepository,
+			uuid.New,
+		)
+		if err != nil {
+			logger.Error("initialize room-instance media repository", "error", err)
+			return 1
+		}
+		roomProvider, err := media.NewLiveKitRoomProvider(
+			cfg.LiveKit.URL,
+			cfg.LiveKit.APIKey,
+			cfg.LiveKit.APISecret,
+		)
+		if err != nil {
+			logger.Error("initialize LiveKit room provider", "error", err)
+			return 1
+		}
+		mediaLifecycleService, err = media.NewProviderLifecycleService(
+			mediaLifecycleService,
+			instanceRepository,
+			roomProvider,
+			time.Now,
+		)
+		if err != nil {
+			logger.Error("initialize provider-backed media lifecycle", "error", err)
+			return 1
+		}
+		mediaService, err = media.NewLegacyCompatibleService(
+			legacyMediaService,
+			instanceRepository,
+		)
+		if err != nil {
+			logger.Error("initialize legacy media compatibility gate", "error", err)
+			return 1
+		}
+		mediaCredentialService, err = media.NewInstanceCredentialService(
+			instanceRepository,
+			issuer,
+			media.ServiceConfig{
+				ServerURL: cfg.LiveKit.URL,
+				TokenTTL:  cfg.LiveKit.TokenTTL,
+				Clock:     time.Now,
+			},
+		)
+		if err != nil {
+			logger.Error("initialize room-instance media credentials", "error", err)
+			return 1
+		}
+		mediaWebhookProcessor, err = media.NewProviderWebhookService(
+			instanceRepository,
+			mediaService,
+			time.Now,
+		)
+		if err != nil {
+			logger.Error("initialize room-instance webhook processor", "error", err)
+			return 1
+		}
 		logger.Info(
 			"LiveKit classroom media initialized",
-			"server_url", cfg.LiveKit.URL,
 			"token_ttl", cfg.LiveKit.TokenTTL,
 		)
 	} else {
@@ -526,6 +588,8 @@ func run() int {
 		InvitationRateLimiter: invitationRateLimiter,
 		Media:                 mediaService,
 		MediaSpaces:           mediaLifecycleService,
+		MediaCredentials:      mediaCredentialService,
+		MediaWebhooks:         mediaWebhookProcessor,
 		LiveKitWebhook:        liveKitWebhook,
 		RemoteAddressResolver: remoteAddressResolver,
 	})

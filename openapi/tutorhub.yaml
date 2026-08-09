@@ -5657,11 +5657,65 @@ paths:
           $ref: "#/components/responses/ProblemResponse"
         default:
           $ref: "#/components/responses/ProblemResponse"
+  /api/v1/media/spaces/{space_id}/join-credentials:
+    post:
+      operationId: issueMediaSpaceJoinCredential
+      summary: Issue a short-lived credential for the exact active RoomInstance
+      description: The server reauthorizes the active workspace and authoritative source, creates or reuses one opaque ParticipantSession for the join attempt, and derives all LiveKit identifiers, role, and grants. Provider room names and participant identities are never returned.
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: space_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/ExpectedTenantID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MediaInstanceCredentialRequest"
+      responses:
+        "200":
+          description: Memory-only LiveKit credential scoped to one active RoomInstance and opaque ParticipantSession
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: private, no-store
+            Referrer-Policy:
+              schema:
+                type: string
+                const: no-referrer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MediaInstanceCredential"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "429":
+          $ref: "#/components/responses/ProblemResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
   /api/v1/media/spaces/{space_id}/start:
     post:
       operationId: startMediaSpace
-      summary: Commit one idempotent room-instance start intent
-      description: P4-01 persists only the lifecycle and room-instance intent; it does not call LiveKit or expose provider identifiers.
+      summary: Start and bind one idempotent RoomInstance
+      description: The server commits one opaque provisioning intent, calls LiveKit outside the database transaction, and compare-and-sets the exact provider SID. Retries reuse the persisted room name and never expose provider identifiers.
       security:
         - SessionCookie: []
       parameters:
@@ -5816,7 +5870,9 @@ paths:
   /api/v1/classes/{class_id}/media-token:
     post:
       operationId: issueClassMediaToken
-      summary: Issue a short-lived LiveKit credential for an active class
+      summary: Issue a legacy class-wide LiveKit credential for controlled P1 smoke only
+      description: Deprecated compatibility path. It returns 410 for every tenant whose classroom_media_rooms authority is enabled; no tenant may use this path and RoomInstance credentials together.
+      deprecated: true
       security:
         - SessionCookie: []
       parameters:
@@ -5853,6 +5909,8 @@ paths:
           $ref: "#/components/responses/NotFoundResponse"
         "409":
           $ref: "#/components/responses/ConflictResponse"
+        "410":
+          $ref: "#/components/responses/ProblemResponse"
         default:
           $ref: "#/components/responses/ProblemResponse"
   /api/v1/classes/{class_id}/media-events:
@@ -11041,6 +11099,61 @@ components:
           maxLength: 64
           pattern: "^[a-z][a-z0-9_.-]{0,63}$"
           description: Bounded non-private reason code; raw free text is not persisted to audit or outbox.
+    MediaInstanceRole:
+      type: string
+      enum: [host, co_host, teaching_assistant, attendee]
+    MediaInstanceCredentialRequest:
+      type: object
+      additionalProperties: false
+      required: [join_attempt_id]
+      properties:
+        join_attempt_id:
+          type: string
+          format: uuid
+          description: Client-generated opaque retry key for one join attempt; it is not a provider identity.
+    MediaInstanceCredential:
+      type: object
+      additionalProperties: false
+      required:
+        - access_token
+        - server_url
+        - participant_session_id
+        - room_instance_id
+        - join_attempt_id
+        - instance_role
+        - can_publish_camera_microphone
+        - can_share_screen
+        - can_subscribe
+        - expires_at
+      properties:
+        access_token:
+          type: string
+          minLength: 1
+          description: Short-lived LiveKit JWT; clients must keep it in memory only and never persist or log it.
+        server_url:
+          type: string
+          format: uri
+          description: LiveKit WebSocket URL; staging and production require wss://.
+        participant_session_id:
+          type: string
+          format: uuid
+        room_instance_id:
+          type: string
+          format: uuid
+        join_attempt_id:
+          type: string
+          format: uuid
+        instance_role:
+          $ref: "#/components/schemas/MediaInstanceRole"
+        can_publish_camera_microphone:
+          type: boolean
+        can_share_screen:
+          type: boolean
+        can_subscribe:
+          type: boolean
+        expires_at:
+          type: string
+          format: date-time
     MediaTokenResponse:
       type: object
       additionalProperties: false

@@ -28,14 +28,17 @@ type MediaSourceReference struct {
 }
 
 type MediaSourceSnapshot struct {
-	Kind           MediaSourceKind
-	ClassID        uuid.UUID
-	ClassSessionID uuid.UUID
-	SeriesID       uuid.UUID
-	OccurrenceKey  string
-	Status         string
-	StartsAt       time.Time
-	EndsAt         time.Time
+	Kind            MediaSourceKind
+	ClassID         uuid.UUID
+	ClassSessionID  uuid.UUID
+	SeriesID        uuid.UUID
+	OccurrenceKey   string
+	Status          string
+	StartsAt        time.Time
+	EndsAt          time.Time
+	ClassRole       *policy.ClassRole
+	CanPublishMedia bool
+	CanShareScreen  bool
 }
 
 // AuthorizeMediaClass reloads the class, tenant membership, enrollment and
@@ -127,10 +130,14 @@ WHERE tenant_id = $1 AND id = $2 AND series_id IS NULL`,
 		session.Status != SessionStatusEnded && session.Status != SessionStatusCancelled {
 		return MediaSourceSnapshot{}, ErrInvalidSessionTransition
 	}
+	classRole, canPublish, canShareScreen := repository.mediaSourceGrants(
+		scope, locked.Class, membership,
+	)
 	return MediaSourceSnapshot{
 		Kind: MediaSourceClassSession, ClassID: classID,
 		ClassSessionID: session.ID, Status: string(session.Status),
 		StartsAt: session.StartsAt.UTC(), EndsAt: session.EndsAt.UTC(),
+		ClassRole: classRole, CanPublishMedia: canPublish, CanShareScreen: canShareScreen,
 	}, nil
 }
 
@@ -192,15 +199,55 @@ WHERE tenant_id = $1 AND id = $2`,
 	}
 	for _, occurrence := range occurrences {
 		if occurrence.Key == reference.OccurrenceKey {
+			classRole, canPublish, canShareScreen := repository.mediaSourceGrants(
+				scope, locked.Class, membership,
+			)
 			return MediaSourceSnapshot{
 				Kind: MediaSourceClassSessionOccurrence, ClassID: classID,
 				SeriesID: reference.SeriesID, OccurrenceKey: reference.OccurrenceKey,
 				Status: string(SessionStatusScheduled), StartsAt: occurrence.StartsAt.UTC(),
-				EndsAt: occurrence.EndsAt.UTC(),
+				EndsAt:    occurrence.EndsAt.UTC(),
+				ClassRole: classRole, CanPublishMedia: canPublish,
+				CanShareScreen: canShareScreen,
 			}, nil
 		}
 	}
 	return MediaSourceSnapshot{}, ErrSessionNotFound
+}
+
+func (repository *PostgresRepository) mediaSourceGrants(
+	scope tenancy.Context,
+	class Class,
+	membership lockedClassMembership,
+) (*policy.ClassRole, bool, bool) {
+	roles := make([]policy.ClassRole, 0, 2)
+	var projectedRole *policy.ClassRole
+	if class.OwnerUserID == scope.ActorID {
+		role := policy.ClassRoleOwner
+		roles = append(roles, role)
+		projectedRole = &role
+	} else if membership.ClassRole != nil {
+		role := *membership.ClassRole
+		roles = append(roles, role)
+		projectedRole = &role
+	}
+	subject := policy.Subject{
+		ActorID: scope.ActorID, ActiveTenantID: scope.TenantID,
+		MembershipActive:  true,
+		OrganizationRoles: []policy.OrganizationRole{policy.OrganizationRole(membership.Role)},
+		ClassRoles:        roles,
+	}
+	resource := policy.Resource{
+		TenantID: class.TenantID, ClassID: class.ID,
+		State: policy.ResourceState(class.Status),
+	}
+	return projectedRole,
+		repository.authorizer.Authorize(policy.Input{
+			Subject: subject, Action: policy.ActionMediaPublish, Resource: resource,
+		}).Allowed,
+		repository.authorizer.Authorize(policy.Input{
+			Subject: subject, Action: policy.ActionMediaShareScreen, Resource: resource,
+		}).Allowed
 }
 
 // TransitionMediaSession is only valid for a one-time ClassSession already

@@ -159,3 +159,106 @@ func TestClassroomMediaDownMigrationDropsChildrenAndRestoresCatalog(t *testing.T
 		}
 	}
 }
+
+func TestRoomInstanceLiveKitBindingMigrationContainsExactReceiptAndPrivacyGuards(t *testing.T) {
+	t.Parallel()
+
+	contents, err := os.ReadFile(filepath.Join(
+		"..", "..", "..", "migrations", "000030_room_instance_livekit_binding.up.sql",
+	))
+	if err != nil {
+		t.Fatal(err)
+	}
+	sql := string(contents)
+	definition := regexp.MustCompile(
+		`(?s)CREATE TABLE tutorhub\.media_provider_webhook_receipts \((.*?)\n\);`,
+	).FindStringSubmatch(sql)
+	if len(definition) != 2 {
+		t.Fatal("room-instance binding migration is missing the provider webhook receipt table")
+	}
+
+	for _, fragment := range []string{
+		"UNIQUE (tenant_id, space_id, room_instance_id, id)",
+		"participant_session_id uuid,",
+		"PRIMARY KEY (provider_kind, event_id)",
+		"FOREIGN KEY (tenant_id, space_id, room_instance_id)",
+		"REFERENCES tutorhub.media_room_instances (tenant_id, space_id, id)",
+		"media_provider_webhook_receipts_participant_fk",
+		"room_instance_id,\n            participant_session_id",
+		"REFERENCES tutorhub.media_participant_sessions",
+		"provider_kind = 'livekit'",
+		"event_id ~ '^[A-Za-z0-9_-]{1,128}$'",
+		"event_type ~ '^[a-z][a-z0-9_]{0,63}$'",
+		"'applied'",
+		"'ignored_stale'",
+		"'ignored_mismatch'",
+		"'ignored_terminal'",
+		"'ignored_unknown_participant'",
+		"'ignored_unsupported_event'",
+		"retention_until > received_at",
+		"retention_until <= received_at + interval '30 days'",
+		"media_provider_webhook_receipts_retention_idx",
+		"REVOKE ALL ON tutorhub.media_provider_webhook_receipts FROM PUBLIC",
+		"Environment-specific Core API column grants are provisioned separately",
+	} {
+		if !strings.Contains(sql, fragment) {
+			t.Fatalf("room-instance binding migration is missing %q", fragment)
+		}
+	}
+
+	if strings.Contains(definition[1], "participant_session_id uuid NOT NULL") {
+		t.Fatal("provider webhook receipt participant binding must remain nullable")
+	}
+	upperSQL := strings.ToUpper(sql)
+	if strings.Contains(upperSQL, "GRANT ") {
+		t.Fatal("room-instance binding migration must not hardcode an environment runtime role grant")
+	}
+	for _, forbidden := range []string{
+		"provider_room_name",
+		"room_name",
+		"provider_participant_identity",
+		"participant_identity",
+		"raw_payload",
+		"payload json",
+		"payload jsonb",
+		"token text",
+		"api_secret",
+		"sdp",
+		"ice_candidate",
+		"email text",
+	} {
+		if strings.Contains(strings.ToLower(definition[1]), forbidden) {
+			t.Fatalf("provider webhook receipt persists forbidden field %q", forbidden)
+		}
+	}
+}
+
+func TestRoomInstanceLiveKitBindingDownMigrationDropsOnlyForwardAdditions(t *testing.T) {
+	t.Parallel()
+
+	contents, err := os.ReadFile(filepath.Join(
+		"..", "..", "..", "migrations", "000030_room_instance_livekit_binding.down.sql",
+	))
+	if err != nil {
+		t.Fatal(err)
+	}
+	sql := string(contents)
+	tableDrop := strings.Index(sql, "DROP TABLE tutorhub.media_provider_webhook_receipts")
+	constraintDrop := strings.Index(
+		sql,
+		"DROP CONSTRAINT media_participant_sessions_instance_id_unique",
+	)
+	if tableDrop < 0 || constraintDrop < 0 || tableDrop >= constraintDrop {
+		t.Fatal("room-instance binding down migration must drop the receipt before its participant key")
+	}
+	for _, forbidden := range []string{
+		"DROP TABLE tutorhub.media_participant_sessions",
+		"DROP TABLE tutorhub.media_room_instances",
+		"DROP TABLE tutorhub.media_spaces",
+		"DROP COLUMN",
+	} {
+		if strings.Contains(sql, forbidden) {
+			t.Fatalf("room-instance binding down migration removes pre-000030 state via %q", forbidden)
+		}
+	}
+}

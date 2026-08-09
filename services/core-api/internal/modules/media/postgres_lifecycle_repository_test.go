@@ -3,6 +3,8 @@ package media
 import (
 	"context"
 	"errors"
+	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -12,6 +14,75 @@ import (
 	"github.com/tutorhub-v2/core-api/internal/platform/tenancy"
 	"github.com/tutorhub-v2/core-api/internal/policy"
 )
+
+func TestPostgresLifecycleTenantControlLockPrecedesScopeRows(t *testing.T) {
+	t.Parallel()
+
+	contents, err := os.ReadFile("postgres_lifecycle_repository.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := string(contents)
+	tests := []struct {
+		name  string
+		start string
+		end   string
+	}{
+		{
+			name:  "create",
+			start: "func (repository *PostgresLifecycleRepository) CreateSpace(",
+			end:   "func (repository *PostgresLifecycleRepository) GetSpace(",
+		},
+		{
+			name:  "read",
+			start: "func (repository *PostgresLifecycleRepository) GetSpace(",
+			end:   "func (repository *PostgresLifecycleRepository) TransitionSpace(",
+		},
+		{
+			name:  "transition",
+			start: "func (repository *PostgresLifecycleRepository) TransitionSpace(",
+			end:   "func (repository *PostgresLifecycleRepository) authorizeTransition(",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			start := strings.Index(source, test.start)
+			if start < 0 {
+				t.Fatalf("missing repository section %q", test.start)
+			}
+			endOffset := strings.Index(source[start:], test.end)
+			if endOffset < 0 {
+				t.Fatalf("missing repository section boundary %q", test.end)
+			}
+			section := source[start : start+endOffset]
+			controlLock := strings.Index(section, "repository.acquireTenantControlLock(")
+			activeScope := strings.Index(section, "repository.requireActiveScope(")
+			if controlLock < 0 || activeScope < 0 || controlLock > activeScope {
+				t.Fatal("tenant control lock must precede active membership and row locks")
+			}
+		})
+	}
+}
+
+func TestPostgresLifecycleUnavailableRedactsDatabaseCause(t *testing.T) {
+	t.Parallel()
+
+	const sensitiveDetail = "relation tenant_private_table role tenant_private_role provider_room_sid RM_internal"
+	repository := &PostgresLifecycleRepository{}
+	err := repository.unavailable(
+		"load active room instance",
+		errors.New(sensitiveDetail),
+	)
+	if !errors.Is(err, ErrLifecycleUnavailable) {
+		t.Fatalf("unavailable error = %v, want lifecycle-unavailable classification", err)
+	}
+	if strings.Contains(err.Error(), sensitiveDetail) {
+		t.Fatal("unavailable error exposed the underlying database cause")
+	}
+	if err.Error() != "load active room instance: media lifecycle unavailable" {
+		t.Fatalf("unavailable error = %q, want stable redacted operation", err)
+	}
+}
 
 func TestClassSourceMutationConcealsInvisibleSpace(t *testing.T) {
 	t.Parallel()

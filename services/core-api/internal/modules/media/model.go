@@ -40,16 +40,18 @@ type JoinCredential struct {
 }
 
 type TokenGrant struct {
-	RoomName            string
-	ParticipantIdentity string
-	ParticipantName     string
-	Role                string
-	OrganizationRole    string
-	ClassRole           string
-	CanPublish          bool
-	CanPublishData      bool
-	CanSubscribe        bool
-	ValidFor            time.Duration
+	RoomName                   string
+	ParticipantIdentity        string
+	ParticipantName            string
+	Role                       string
+	OrganizationRole           string
+	ClassRole                  string
+	CanPublish                 bool
+	CanPublishCameraMicrophone bool
+	CanShareScreen             bool
+	CanPublishData             bool
+	CanSubscribe               bool
+	ValidFor                   time.Duration
 }
 
 type ClientEventInput struct {
@@ -76,7 +78,9 @@ type WebhookEvent struct {
 	ID                  string
 	EventType           string
 	RoomName            string
+	RoomSID             string
 	ParticipantIdentity string
+	ParticipantSID      string
 	OccurredAt          time.Time
 }
 

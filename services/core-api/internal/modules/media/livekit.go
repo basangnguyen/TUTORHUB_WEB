@@ -24,18 +24,28 @@ func NewLiveKitTokenIssuer(apiKey string, apiSecret string) (*LiveKitTokenIssuer
 }
 
 func (issuer *LiveKitTokenIssuer) Issue(grant TokenGrant) (string, error) {
+	canPublishCameraMicrophone := grant.CanPublish || grant.CanPublishCameraMicrophone
+	canShareScreen := grant.CanPublish || grant.CanShareScreen
 	videoGrant := &auth.VideoGrant{RoomJoin: true, Room: grant.RoomName}
-	videoGrant.SetCanPublish(grant.CanPublish)
+	videoGrant.SetCanPublish(canPublishCameraMicrophone || canShareScreen)
 	videoGrant.SetCanSubscribe(grant.CanSubscribe)
 	videoGrant.SetCanPublishData(grant.CanPublishData)
 	videoGrant.SetCanUpdateOwnMetadata(false)
-	if grant.CanPublish {
-		videoGrant.SetCanPublishSources([]livekit.TrackSource{
+	publishSources := make([]livekit.TrackSource, 0, 4)
+	if canPublishCameraMicrophone {
+		publishSources = append(publishSources,
 			livekit.TrackSource_CAMERA,
 			livekit.TrackSource_MICROPHONE,
+		)
+	}
+	if canShareScreen {
+		publishSources = append(publishSources,
 			livekit.TrackSource_SCREEN_SHARE,
 			livekit.TrackSource_SCREEN_SHARE_AUDIO,
-		})
+		)
+	}
+	if len(publishSources) > 0 {
+		videoGrant.SetCanPublishSources(publishSources)
 	}
 
 	attributes := map[string]string{"tutorhub.role": grant.Role}
@@ -84,20 +94,24 @@ func (verifier *LiveKitWebhookVerifier) Receive(request *http.Request) (WebhookE
 	if !safeWebhookEventIDPattern.MatchString(eventID) {
 		return WebhookEvent{}, ErrInvalidWebhook
 	}
-	roomName := ""
+	roomName, roomSID := "", ""
 	if event.GetRoom() != nil {
 		roomName = event.GetRoom().GetName()
+		roomSID = event.GetRoom().GetSid()
 	}
-	participantIdentity := ""
+	participantIdentity, participantSID := "", ""
 	if event.GetParticipant() != nil {
 		participantIdentity = event.GetParticipant().GetIdentity()
+		participantSID = event.GetParticipant().GetSid()
 	}
 
 	return WebhookEvent{
 		ID:                  eventID,
 		EventType:           event.GetEvent(),
 		RoomName:            roomName,
+		RoomSID:             roomSID,
 		ParticipantIdentity: participantIdentity,
+		ParticipantSID:      participantSID,
 		OccurredAt:          time.Unix(event.GetCreatedAt(), 0).UTC(),
 	}, nil
 }

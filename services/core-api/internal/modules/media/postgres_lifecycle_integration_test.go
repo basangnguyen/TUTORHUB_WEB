@@ -28,7 +28,7 @@ func TestPostgresMediaLifecycleRuntimeExactACL(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
 	if err := migrationrunner.Up(ctx, migrationURL); err != nil {
-		t.Fatalf("apply media lifecycle migrations: %v", err)
+		t.Fatal("apply media lifecycle migrations")
 	}
 	migrationPool := openMediaIntegrationPool(t, ctx, migrationURL)
 	t.Cleanup(migrationPool.Close)
@@ -59,68 +59,15 @@ func TestPostgresMediaLifecycleRuntimeExactACL(t *testing.T) {
 		t.Fatalf("runtime schema ACL = usage:%t create:%t, want true/false", schemaUsage, schemaCreate)
 	}
 
-	for _, expectation := range []mediaACLExpectation{
-		{
-			relation: "tutorhub.media_spaces",
-			selectColumns: []string{
-				"class_id", "create_idempotency_key", "create_request_fingerprint",
-				"created_at", "created_by", "id", "source_class_session_id", "source_kind",
-				"source_occurrence_key", "source_series_id", "source_study_meeting_id",
-				"status", "tenant_id", "updated_at", "version",
-			},
-			insertColumns: []string{
-				"class_id", "create_idempotency_key", "create_request_fingerprint",
-				"created_at", "created_by", "id", "source_class_session_id", "source_kind",
-				"source_occurrence_key", "source_series_id", "source_study_meeting_id",
-				"tenant_id", "updated_at", "updated_by",
-			},
-			updateColumns: []string{
-				"cancelled_at", "cancelled_by", "ended_at", "ended_by", "locked", "opened_at",
-				"opened_by", "status", "updated_at", "updated_by", "version",
-			},
-		},
-		{
-			relation: "tutorhub.media_room_instances",
-			selectColumns: []string{
-				"created_at", "id", "space_id", "status", "tenant_id", "updated_at", "version",
-			},
-			insertColumns: []string{
-				"created_at", "created_by", "id", "provider_room_name", "space_id", "tenant_id",
-				"updated_at", "updated_by", "attempt_number",
-			},
-			updateColumns: []string{
-				"closing_at", "ended_at", "failed_at", "failure_code", "status", "updated_at",
-				"updated_by", "version",
-			},
-		},
-		{
-			relation:      "tutorhub.media_space_members",
-			selectColumns: []string{"space_id", "status", "tenant_id", "user_id"},
-		},
-		{relation: "tutorhub.media_admission_requests"},
-		{
-			relation:      "tutorhub.media_participant_sessions",
-			selectColumns: []string{"status", "tenant_id"},
-		},
-		{
-			relation: "tutorhub.media_space_mutation_receipts",
-			selectColumns: []string{
-				"actor_user_id", "idempotency_key", "operation", "request_fingerprint", "space_id",
-				"tenant_id",
-			},
-			insertColumns: []string{
-				"actor_user_id", "created_at", "idempotency_key", "operation", "request_fingerprint",
-				"result_room_instance_id", "result_space_version", "space_id", "tenant_id",
-			},
-		},
-	} {
+	for _, expectation := range p402MediaACLExpectations() {
 		assertExactMediaACL(t, ctx, runtimePool, expectation)
 	}
 
 	mediaTables := []string{
 		"media_spaces", "media_room_instances", "media_space_members",
 		"media_admission_requests", "media_participant_sessions",
-		"media_space_mutation_receipts",
+		"media_space_mutation_receipts", "media_provider_webhook_receipts",
+		"livekit_webhook_events",
 	}
 	var publicTableGrants, publicColumnGrants int
 	if err := migrationPool.QueryRow(ctx, `SELECT
@@ -221,6 +168,7 @@ func assertExactMediaACL(
 	assertExactMediaColumns(t, ctx, pool, expectation.relation, "SELECT", expectation.selectColumns)
 	assertExactMediaColumns(t, ctx, pool, expectation.relation, "INSERT", expectation.insertColumns)
 	assertExactMediaColumns(t, ctx, pool, expectation.relation, "UPDATE", expectation.updateColumns)
+	assertExactMediaColumns(t, ctx, pool, expectation.relation, "REFERENCES", nil)
 }
 
 func assertExactMediaColumns(

@@ -353,6 +353,11 @@ export type CreateMediaSpaceRequest =
   components["schemas"]["CreateMediaSpaceRequest"];
 export type MediaSpaceTransitionRequest =
   components["schemas"]["MediaSpaceTransitionRequest"];
+export type MediaInstanceRole = components["schemas"]["MediaInstanceRole"];
+export type MediaInstanceCredentialRequest =
+  components["schemas"]["MediaInstanceCredentialRequest"];
+export type MediaInstanceCredential =
+  components["schemas"]["MediaInstanceCredential"];
 export type ClassSessionRecurrenceRule =
   components["schemas"]["ClassSessionRecurrenceRule"];
 export type ClassSessionSeries = components["schemas"]["ClassSessionSeries"];
@@ -3138,6 +3143,36 @@ export async function getMediaSpace(
   );
   return requireData<MediaSpace>(
     data as MediaSpace | undefined,
+    error,
+    response,
+  );
+}
+
+export async function issueMediaSpaceJoinCredential(
+  tenantID: string,
+  spaceID: string,
+  input: MediaInstanceCredentialRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<MediaInstanceCredential> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/media/spaces/{space_id}/join-credentials",
+    {
+      params: {
+        path: { space_id: spaceID },
+        header: {
+          "X-CSRF-Token": csrfToken,
+          "X-TutorHub-Expected-Tenant-ID": tenantID,
+        },
+      },
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+  return requireData<MediaInstanceCredential>(
+    data as MediaInstanceCredential | undefined,
     error,
     response,
   );

@@ -4,10 +4,12 @@ import {
   createMediaSpace,
   endMediaSpace,
   getMediaSpace,
+  issueMediaSpaceJoinCredential,
   startMediaSpace,
 } from "./index";
 import type {
   CreateMediaSpaceRequest,
+  MediaInstanceCredential,
   MediaSpace,
   MediaSpaceTransitionRequest,
 } from "./index";
@@ -15,6 +17,9 @@ import type {
 const tenantID = "7f44c093-1cb2-46ae-8285-779b78728524";
 const spaceID = "c2dc1048-1d90-4c90-ae50-5fb436bfb607";
 const meetingID = "8477ee76-c4aa-431f-bb65-405f4b6575c9";
+const roomInstanceID = "c5f918a5-a09e-4f94-9fab-fb0ab5702a4d";
+const participantSessionID = "f680fd29-c7f1-4083-af9b-52ad1db14ba9";
+const joinAttemptID = "a860f06d-34f9-4c57-89f8-1541bfb3b6d7";
 
 const space: MediaSpace = {
   id: spaceID,
@@ -58,6 +63,53 @@ function jsonResponse(body: unknown, status = 200): Response {
 }
 
 describe("media-space API", () => {
+  it("issues an exact tenant-scoped credential without client supplied provider authority", async () => {
+    const credential: MediaInstanceCredential = {
+      access_token: "memory-only-token",
+      server_url: "wss://media.example.test",
+      participant_session_id: participantSessionID,
+      room_instance_id: roomInstanceID,
+      join_attempt_id: joinAttemptID,
+      instance_role: "attendee",
+      can_publish_camera_microphone: true,
+      can_share_screen: false,
+      can_subscribe: true,
+      expires_at: "2030-08-03T00:05:00Z",
+    };
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(credential));
+
+    await expect(
+      issueMediaSpaceJoinCredential(
+        tenantID,
+        spaceID,
+        { join_attempt_id: joinAttemptID },
+        "credential-csrf",
+        { baseUrl: "https://web.example.test/api", fetch: fetchMock },
+      ),
+    ).resolves.toEqual(credential);
+
+    const request = fetchMock.mock.calls[0]![0] as Request;
+    expect(request.method).toBe("POST");
+    expect(new URL(request.url).pathname).toBe(
+      `/api/v1/media/spaces/${spaceID}/join-credentials`,
+    );
+    expect(request.credentials).toBe("include");
+    expect(request.headers.get("X-CSRF-Token")).toBe("credential-csrf");
+    expect(request.headers.get("X-TutorHub-Expected-Tenant-ID")).toBe(tenantID);
+    const body = (await request.clone().json()) as Record<string, unknown>;
+    expect(body).toEqual({ join_attempt_id: joinAttemptID });
+    for (const forbidden of [
+      "tenant_id",
+      "provider_room_name",
+      "provider_participant_identity",
+      "role",
+      "grant",
+      "can_share_screen",
+    ]) {
+      expect(body).not.toHaveProperty(forbidden);
+    }
+  });
+
   it("binds create, read, and lifecycle transitions to the active tenant and CSRF session", async () => {
     const fetchMock = vi
       .fn()

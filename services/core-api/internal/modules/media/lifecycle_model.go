@@ -37,14 +37,16 @@ const (
 )
 
 var (
-	ErrLifecycleUnavailable = errors.New("media lifecycle unavailable")
-	ErrInvalidSpaceRequest  = errors.New("invalid media space request")
-	ErrSpaceAccessDenied    = errors.New("media space access denied")
-	ErrSpaceNotFound        = errors.New("media space not found")
-	ErrSourceUnavailable    = errors.New("media space source unavailable")
-	ErrSpaceVersionConflict = errors.New("media space version conflict")
-	ErrSpaceIdempotency     = errors.New("media space idempotency conflict")
-	ErrSpaceTransition      = errors.New("invalid media space transition")
+	ErrLifecycleUnavailable     = errors.New("media lifecycle unavailable")
+	ErrMediaProviderUnavailable = errors.New("media provider unavailable")
+	ErrInvalidSpaceRequest      = errors.New("invalid media space request")
+	ErrSpaceAccessDenied        = errors.New("media space access denied")
+	ErrSpaceNotFound            = errors.New("media space not found")
+	ErrSourceUnavailable        = errors.New("media space source unavailable")
+	ErrSpaceVersionConflict     = errors.New("media space version conflict")
+	ErrSpaceIdempotency         = errors.New("media space idempotency conflict")
+	ErrSpaceTransition          = errors.New("invalid media space transition")
+	errRoomActivationTerminal   = errors.New("room activation reached terminal state")
 )
 
 // SourceReference is the authoritative source projection. SourceInstant is
@@ -79,11 +81,13 @@ type ViewerOperations struct {
 }
 
 type RoomInstance struct {
-	ID        uuid.UUID          `json:"id"`
-	Status    RoomInstanceStatus `json:"status"`
-	Version   int64              `json:"version"`
-	CreatedAt time.Time          `json:"created_at"`
-	UpdatedAt time.Time          `json:"updated_at"`
+	ID               uuid.UUID          `json:"id"`
+	Status           RoomInstanceStatus `json:"status"`
+	Version          int64              `json:"version"`
+	CreatedAt        time.Time          `json:"created_at"`
+	UpdatedAt        time.Time          `json:"updated_at"`
+	ProviderRoomName string             `json:"-"`
+	ProviderRoomSID  string             `json:"-"`
 }
 
 type MediaSpace struct {

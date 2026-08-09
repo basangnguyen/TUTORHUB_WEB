@@ -300,6 +300,9 @@ func (handlers mediaSpaceHandlers) writeProblem(w http.ResponseWriter, r *http.R
 	case errors.Is(err, errMediaSpaceScopeChanged):
 		status, code = http.StatusConflict, "media_space_scope_changed"
 		title, detail = "Active workspace changed", "Reload the current workspace before retrying."
+	case errors.Is(err, media.ErrMediaProviderUnavailable):
+		status, code = http.StatusServiceUnavailable, "media_provider_unavailable"
+		title, detail = "Media provider unavailable", "Try the media-space operation again later."
 	case errors.Is(err, media.ErrLifecycleUnavailable), errors.Is(err, context.DeadlineExceeded):
 		status, code = http.StatusServiceUnavailable, "media_space_unavailable"
 		title, detail = "Media spaces unavailable", "Try again later."

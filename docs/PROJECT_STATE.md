@@ -13,9 +13,53 @@
 | Phase hoàn thành     | Phase 0, Phase 1, Phase 2                                                             |
 | Phase hiện tại       | Phase 4 Classroom Media MVP; Phase 3 deferred carry-over vẫn hoạt động                |
 | Task `DONE` gần nhất | P4-01 MediaSpace lifecycle/schema/API core                                            |
-| Mốc repository mới   | Exact candidate P4-01 PASS disposable/CI/shared/deploy/live feature-off acceptance    |
+| Mốc repository mới   | P4-02 disposable PostgreSQL/ACL và LiveKit test-provider gates PASS; CI còn mở          |
 | Task hiện tại        | P4-02 RoomInstance LiveKit credential + webhook binding                               |
-| Task tiếp theo       | Review kiến trúc rồi tạo forward design P4-02; giữ hai media feature off              |
+| Task tiếp theo       | Khóa exact P4-02 candidate, push và chạy GitHub Verify/Security; chưa shared/deploy    |
+
+### Checkpoint P4-02 disposable/provider candidate `IN PROGRESS` ngày 2026-08-09
+
+P4-02 đã có forward migration `000030_room_instance_livekit_binding`, exact runtime ACL/runbook,
+official LiveKit server SDK adapter và canonical RoomInstance credential endpoint. Credential chỉ
+nhận `join_attempt_id`, reauthorize active tenant/session/source, bind exact active RoomInstance,
+tạo opaque ParticipantSession identity độc lập, áp dụng shared `30/10m` rate limit và mint JWT mặc
+định 5 phút với camera/mic, screen-share và subscribe grant tách riêng; `CanPublishData=false`.
+Response không trả provider room/participant identity và luôn `private, no-store`.
+
+Provider lifecycle commit intent trước khi gọi LiveKit, create/reuse room idempotent rồi activation
+CAS; provider outage trả typed/redacted `503`. Signed webhook dùng official verifier trước database,
+lookup exact persisted room/SID và participant identity, receipt `(provider_kind,event_id)` chống
+replay, xử lý mismatch/stale/out-of-order/terminal và không lưu raw payload/provider identifiers.
+Legacy P1 class-wide route được gate mutual exclusion; runtime P4 có zero grant trên receipt legacy.
+Review cuối còn siết activation phải reauthorize `session.start`, chuẩn hóa lỗi database tại webhook
+boundary và map provider lifecycle outage thành `media_provider_unavailable`. `room_finished` giải
+phóng toàn bộ active participant capacity; provisioning intent chuyển `failed` có thể được owner kết
+thúc/cleanup an toàn; timestamp LiveKit độ chính xác một giây được clamp vào state PostgreSQL có
+microsecond mà không hồi sinh hoặc đảo lifecycle.
+
+Official verifier HTTP test chứng minh valid signature mới tới processor; unsigned, wrong-key và body
+tamper đều dừng trước mutation. PostgreSQL harness có explicit disposable opt-in trước khi đọc URL,
+chặn owner/runtime trùng role và khóa same-key credential, signed duplicate, connect/leave cùng
+provider reconciliation concurrency; failed/unknown/composite-FK/retention/privacy branches cũng có
+assertion thật khi chạy trên disposable. Raw driver cause không còn được render ra service error/test
+failure.
+
+Disposable owner/runtime preflight PASS; migration forward-only và idempotent đạt
+`29 false -> 30 false -> 30 false`. Exact runtime ACL provision/probe PASS, không broad/PUBLIC/legacy
+grant; gate thực tế phát hiện và sửa thiếu `SELECT attempt_number` cho truy vấn latest RoomInstance.
+Focused RoomInstance/credential/webhook PostgreSQL gate PASS trong 223.7 giây; lifecycle exact ACL,
+authority, quota, concurrency và privacy suite PASS trong 200.2 giây. Final ledger giữ `30 false` và
+không rollback, không chạm shared staging.
+
+LiveKit test-provider smoke tạo/reuse một opaque room, mint token 5 phút least-privilege,
+connect/disconnect và exact cleanup PASS trong 29.8 giây. Official verifier valid/wrong-key/tamper
+PASS với signed synthetic webhook; provider-emitted webhook tới public Core API vẫn thuộc live
+acceptance sau deploy. Full `pnpm verify` sau các sửa lock-order, tenant concealment, lobby/
+Unix-second fixture và ACL PASS trong 182.5 giây; rerun sau khi bỏ log endpoint LiveKit tiếp tục
+PASS trong 26.2 giây với cache. File `.env.p4-02-disposable.local` chỉ được nạp
+trong cùng command, không in/log giá trị. P4-02 giữ `IN PROGRESS`: còn khóa exact candidate, GitHub
+Verify/Security, rồi mới xin quyền shared forward/ACL/deploy/live theo
+[P4_02_STAGING_ACCEPTANCE.md](P4_02_STAGING_ACCEPTANCE.md).
 
 ### Checkpoint P4-01 `DONE` ngày 2026-08-09
 

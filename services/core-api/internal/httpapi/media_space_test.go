@@ -122,6 +122,34 @@ func TestMediaSpaceQuotaRejectionIsAlwaysTooManyRequests(t *testing.T) {
 	}
 }
 
+func TestMediaSpaceProviderOutageIsTypedAndRedacted(t *testing.T) {
+	t.Parallel()
+
+	tenantID, actorID, spaceID := uuid.New(), uuid.New(), uuid.New()
+	identityService := classIdentityService(tenantID, actorID, nil)
+	service := &fakeMediaLifecycleService{requestError: media.ErrMediaProviderUnavailable}
+	handler := newMediaSpaceTestHandler(identityService, service)
+	request := httptest.NewRequest(
+		http.MethodPost, "/api/v1/media/spaces/"+spaceID.String()+"/start",
+		strings.NewReader(`{"expected_version":1,"idempotency_key":"media-start-provider"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set(mediaSpaceTenantHeader, tenantID.String())
+	addAuthenticatedMutationCookies(request)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusServiceUnavailable ||
+		!strings.Contains(response.Body.String(), `"code":"media_provider_unavailable"`) ||
+		strings.Contains(response.Body.String(), "LiveKit") {
+		t.Fatalf(
+			"provider outage must be a redacted typed 503: status=%d body=%s",
+			response.Code,
+			response.Body.String(),
+		)
+	}
+}
+
 func TestMediaSpaceScopeMismatchStopsBeforeService(t *testing.T) {
 	t.Parallel()
 

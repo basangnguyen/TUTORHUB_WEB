@@ -33,7 +33,8 @@ func TestOrganizationPermissionMatrix(t *testing.T) {
 				PermissionRoomCreateInstant,
 				PermissionEnrollmentManage, PermissionSessionSchedule, PermissionSessionStart, PermissionSessionEnd,
 				PermissionSessionJoin, PermissionParticipantAdmit,
-				PermissionParticipantRemove, PermissionMediaPublish, PermissionChatSend,
+				PermissionParticipantRemove, PermissionMediaPublish, PermissionMediaShareScreen,
+				PermissionChatSend,
 				PermissionFileView, PermissionFileUpload,
 			},
 		},
@@ -98,7 +99,7 @@ func TestClassPermissionMatrix(t *testing.T) {
 				PermissionEnrollmentManage, PermissionEnrollmentLeave, PermissionSessionSchedule,
 				PermissionSessionStart, PermissionSessionEnd, PermissionSessionJoin,
 				PermissionParticipantAdmit, PermissionParticipantRemove,
-				PermissionMediaPublish, PermissionChatSend,
+				PermissionMediaPublish, PermissionMediaShareScreen, PermissionChatSend,
 				PermissionFileView, PermissionFileUpload,
 			},
 		},
@@ -114,7 +115,7 @@ func TestClassPermissionMatrix(t *testing.T) {
 				PermissionEnrollmentManage, PermissionEnrollmentLeave, PermissionSessionSchedule,
 				PermissionSessionStart, PermissionSessionEnd, PermissionSessionJoin,
 				PermissionParticipantAdmit, PermissionParticipantRemove,
-				PermissionMediaPublish, PermissionChatSend,
+				PermissionMediaPublish, PermissionMediaShareScreen, PermissionChatSend,
 				PermissionFileView, PermissionFileUpload,
 			},
 		},
@@ -128,7 +129,7 @@ func TestClassPermissionMatrix(t *testing.T) {
 				PermissionStudyMeetingScheduleOwn,
 				PermissionRoomCreateInstant,
 				PermissionEnrollmentLeave, PermissionSessionJoin, PermissionParticipantAdmit,
-				PermissionMediaPublish, PermissionChatSend,
+				PermissionMediaPublish, PermissionMediaShareScreen, PermissionChatSend,
 				PermissionFileView,
 			},
 		},
@@ -185,11 +186,79 @@ func TestEffectivePermissionsUnionsMultipleRolesDeterministically(t *testing.T) 
 		PermissionSessionJoin,
 		PermissionParticipantAdmit,
 		PermissionMediaPublish,
+		PermissionMediaShareScreen,
 		PermissionChatSend,
 		PermissionFileView,
 	}
 	if got := NewEngine().EffectivePermissions(subject); !reflect.DeepEqual(got, want) {
 		t.Fatalf("effective permission union is not deterministic: got=%v want=%v", got, want)
+	}
+}
+
+func TestMediaShareScreenPermissionMatrix(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name              string
+		organizationRoles []OrganizationRole
+		classRoles        []ClassRole
+		allowed           bool
+	}{
+		{
+			name: "organization admin", organizationRoles: []OrganizationRole{OrganizationRoleAdmin},
+			allowed: true,
+		},
+		{
+			name: "organization teacher", organizationRoles: []OrganizationRole{OrganizationRoleTeacher},
+			allowed: true,
+		},
+		{
+			name: "class owner", organizationRoles: []OrganizationRole{OrganizationRoleStudent},
+			classRoles: []ClassRole{ClassRoleOwner}, allowed: true,
+		},
+		{
+			name: "co-teacher", organizationRoles: []OrganizationRole{OrganizationRoleStudent},
+			classRoles: []ClassRole{ClassRoleCoTeacher}, allowed: true,
+		},
+		{
+			name: "teaching assistant", organizationRoles: []OrganizationRole{OrganizationRoleStudent},
+			classRoles: []ClassRole{ClassRoleTeachingAssistant}, allowed: true,
+		},
+		{
+			name: "organization student", organizationRoles: []OrganizationRole{OrganizationRoleStudent},
+		},
+		{
+			name: "organization guest", organizationRoles: []OrganizationRole{OrganizationRoleGuest},
+		},
+		{
+			name: "class student", organizationRoles: []OrganizationRole{OrganizationRoleGuest},
+			classRoles: []ClassRole{ClassRoleStudent},
+		},
+	}
+
+	engine := NewEngine()
+	tenantID, classID, actorID := uuid.New(), uuid.New(), uuid.New()
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			decision := engine.Authorize(Input{
+				Subject: Subject{
+					ActorID: actorID, ActiveTenantID: tenantID, MembershipActive: true,
+					OrganizationRoles: test.organizationRoles, ClassRoles: test.classRoles,
+				},
+				Action: ActionMediaShareScreen,
+				Resource: Resource{
+					TenantID: tenantID, ClassID: classID, State: ResourceStateActive,
+				},
+			})
+			if decision.Allowed != test.allowed {
+				t.Fatalf("media share-screen decision=%+v, want allowed=%t", decision, test.allowed)
+			}
+			if !test.allowed && decision.Reason != DenialPermission {
+				t.Fatalf("media share-screen denial=%+v, want permission denial", decision)
+			}
+		})
 	}
 }
 

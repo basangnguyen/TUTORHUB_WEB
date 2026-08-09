@@ -91,6 +91,11 @@ func (repository *PostgresLifecycleRepository) CreateSpace(
 		return CreateSpaceResult{}, repository.unavailable("begin media space creation", err)
 	}
 	defer rollbackLifecycle(transaction)
+	if err := repository.acquireTenantControlLock(
+		queryContext, transaction, access.TenantID,
+	); err != nil {
+		return CreateSpaceResult{}, err
+	}
 	access, scope, err := repository.requireActiveScope(queryContext, transaction, access)
 	if err != nil {
 		return CreateSpaceResult{}, err
@@ -218,6 +223,11 @@ func (repository *PostgresLifecycleRepository) GetSpace(
 		return MediaSpace{}, repository.unavailable("begin media space read", err)
 	}
 	defer rollbackLifecycle(transaction)
+	if err := repository.acquireTenantControlLock(
+		queryContext, transaction, access.TenantID,
+	); err != nil {
+		return MediaSpace{}, err
+	}
 	access, scope, err := repository.requireActiveScope(queryContext, transaction, access)
 	if err != nil {
 		return MediaSpace{}, err
@@ -253,6 +263,11 @@ func (repository *PostgresLifecycleRepository) TransitionSpace(
 		return MediaSpace{}, repository.unavailable("begin media space transition", err)
 	}
 	defer rollbackLifecycle(transaction)
+	if err := repository.acquireTenantControlLock(
+		queryContext, transaction, access.TenantID,
+	); err != nil {
+		return MediaSpace{}, err
+	}
 	access, scope, err := repository.requireActiveScope(queryContext, transaction, access)
 	if err != nil {
 		return MediaSpace{}, err
@@ -456,7 +471,7 @@ func (repository *PostgresLifecycleRepository) endSpace(
 	if safetyEnd && command.ReasonCode == "" {
 		return spaceRow{}, ErrInvalidSpaceRequest
 	}
-	instance, err := loadActiveRoom(ctx, transaction, scope.TenantID, row.ID, true)
+	instance, err := loadRoomForTermination(ctx, transaction, scope.TenantID, row.ID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return spaceRow{}, ErrSpaceTransition
 	}
@@ -465,6 +480,16 @@ func (repository *PostgresLifecycleRepository) endSpace(
 	}
 	if err := terminateRoomIntent(ctx, transaction, scope, instance, command.OccurredAt); err != nil {
 		return spaceRow{}, err
+	}
+	if err := terminateRoomParticipants(
+		ctx,
+		transaction,
+		scope.TenantID,
+		row.ID,
+		instance.ID,
+		command.OccurredAt,
+	); err != nil {
+		return spaceRow{}, repository.unavailable("terminate media room participants", err)
 	}
 	updated, err := scanSpace(transaction.QueryRow(
 		ctx,
@@ -540,11 +565,14 @@ RETURNING `+spaceReturning,
 }
 
 type authorizedSource struct {
-	Kind           SourceKind
-	ClassSessionID uuid.UUID
-	Status         string
-	Owner          bool
-	SafetyAdmin    bool
+	Kind                       SourceKind
+	ClassSessionID             uuid.UUID
+	Status                     string
+	Owner                      bool
+	SafetyAdmin                bool
+	InstanceRole               InstanceRole
+	CanPublishCameraMicrophone bool
+	CanShareScreen             bool
 }
 
 func (repository *PostgresLifecycleRepository) authorizeSource(
@@ -588,7 +616,10 @@ func (repository *PostgresLifecycleRepository) authorizeSource(
 		}
 		return authorizedSource{
 			Kind: row.Source.Kind, ClassSessionID: snapshot.ClassSessionID,
-			Status: snapshot.Status,
+			Status:                     snapshot.Status,
+			InstanceRole:               instanceRoleForClass(snapshot.ClassRole, access.OrganizationRoles),
+			CanPublishCameraMicrophone: snapshot.CanPublishMedia,
+			CanShareScreen:             snapshot.CanShareScreen,
 		}, nil
 	case SourceStudyMeeting:
 		meeting, err := loadStudyMeeting(
@@ -625,6 +656,8 @@ func (repository *PostgresLifecycleRepository) authorizeSource(
 			classAction := policy.ActionClassView
 			if action == policy.ActionSessionStart {
 				classAction = policy.ActionSessionStart
+			} else if action == policy.ActionSessionJoin {
+				classAction = policy.ActionSessionJoin
 			}
 			if _, err := repository.classSources.AuthorizeMediaClass(
 				ctx, transaction, scope, *meeting.ClassID, classAction,
@@ -632,13 +665,42 @@ func (repository *PostgresLifecycleRepository) authorizeSource(
 				return authorizedSource{}, mapClassSourceError(err, !mutating)
 			}
 		}
+		instanceRole := InstanceRoleAttendee
+		if owner {
+			instanceRole = InstanceRoleHost
+		} else if safetyAdmin {
+			instanceRole = InstanceRoleCoHost
+		}
 		return authorizedSource{
 			Kind: SourceStudyMeeting, Status: meeting.Status,
-			Owner: owner, SafetyAdmin: safetyAdmin,
+			Owner: owner, SafetyAdmin: safetyAdmin, InstanceRole: instanceRole,
+			CanPublishCameraMicrophone: true,
+			CanShareScreen:             owner || safetyAdmin,
 		}, nil
 	default:
 		return authorizedSource{}, ErrSourceUnavailable
 	}
+}
+
+func instanceRoleForClass(
+	classRole *policy.ClassRole,
+	organizationRoles []policy.OrganizationRole,
+) InstanceRole {
+	if classRole != nil {
+		switch *classRole {
+		case policy.ClassRoleOwner:
+			return InstanceRoleHost
+		case policy.ClassRoleCoTeacher:
+			return InstanceRoleCoHost
+		case policy.ClassRoleTeachingAssistant:
+			return InstanceRoleTeachingAssistant
+		}
+	}
+	if hasOrganizationRole(organizationRoles, policy.OrganizationRoleAdmin) ||
+		hasOrganizationRole(organizationRoles, policy.OrganizationRoleTeacher) {
+		return InstanceRoleCoHost
+	}
+	return InstanceRoleAttendee
 }
 
 func (repository *PostgresLifecycleRepository) projectAuthorizedSpace(
@@ -801,6 +863,17 @@ FOR SHARE OF membership, tenant`,
 	access.ClassRoles = nil
 	access.Role = string(role)
 	return access, scope, nil
+}
+
+func (repository *PostgresLifecycleRepository) acquireTenantControlLock(
+	ctx context.Context,
+	transaction pgx.Tx,
+	tenantID uuid.UUID,
+) error {
+	if tenantID == uuid.Nil {
+		return nil
+	}
+	return featurecontrol.AcquireTenantControlLock(ctx, transaction, tenantID)
 }
 
 func (repository *PostgresLifecycleRepository) requireActiveSpaceCapacity(
@@ -985,18 +1058,21 @@ WHERE tenant_id = $1 AND id = $2`
 }
 
 type spaceRow struct {
-	ID        uuid.UUID
-	TenantID  uuid.UUID
-	Source    SourceReference
-	Status    SpaceStatus
-	Version   int64
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID           uuid.UUID
+	TenantID     uuid.UUID
+	Source       SourceReference
+	Status       SpaceStatus
+	Version      int64
+	LobbyEnabled bool
+	Locked       bool
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
 }
 
 const spaceReturning = `id, tenant_id, source_kind, class_id,
        source_class_session_id, source_series_id, source_occurrence_key,
-       source_study_meeting_id, status, version, created_at, updated_at`
+       source_study_meeting_id, status, version, lobby_enabled, locked,
+       created_at, updated_at`
 
 func loadSpace(
 	ctx context.Context,
@@ -1034,7 +1110,7 @@ WHERE tenant_id = $1 AND created_by = $2 AND create_idempotency_key = $3`,
 	).Scan(
 		&row.ID, &row.TenantID, &sourceKind, &classID, &classSessionID,
 		&seriesID, &occurrence, &studyMeetingID, &row.Status, &row.Version,
-		&row.CreatedAt, &row.UpdatedAt, &fingerprint,
+		&row.LobbyEnabled, &row.Locked, &row.CreatedAt, &row.UpdatedAt, &fingerprint,
 	)
 	if err != nil {
 		return spaceRow{}, nil, err
@@ -1051,7 +1127,7 @@ func scanSpace(row interface{ Scan(...any) error }) (spaceRow, error) {
 	err := row.Scan(
 		&value.ID, &value.TenantID, &kind, &classID, &classSessionID,
 		&seriesID, &occurrence, &studyMeetingID, &value.Status, &value.Version,
-		&value.CreatedAt, &value.UpdatedAt,
+		&value.LobbyEnabled, &value.Locked, &value.CreatedAt, &value.UpdatedAt,
 	)
 	if err != nil {
 		return spaceRow{}, err
@@ -1154,11 +1230,13 @@ WHERE tenant_id = $1 AND source_kind = 'study_meeting' AND source_study_meeting_
 }
 
 type roomRow struct {
-	ID        uuid.UUID
-	Status    RoomInstanceStatus
-	Version   int64
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID               uuid.UUID
+	Status           RoomInstanceStatus
+	Version          int64
+	ProviderRoomName string
+	ProviderRoomSID  sql.NullString
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
 }
 
 func loadActiveRoom(
@@ -1168,7 +1246,8 @@ func loadActiveRoom(
 	spaceID uuid.UUID,
 	lock bool,
 ) (roomRow, error) {
-	query := `SELECT id, status, version, created_at, updated_at
+	query := `SELECT id, status, version, provider_room_name, provider_room_sid,
+       created_at, updated_at
 FROM tutorhub.media_room_instances
 WHERE tenant_id = $1 AND space_id = $2
   AND status IN ('provisioning', 'active', 'closing')`
@@ -1177,7 +1256,40 @@ WHERE tenant_id = $1 AND space_id = $2
 	}
 	var room roomRow
 	err := transaction.QueryRow(ctx, query, tenantID, spaceID).Scan(
-		&room.ID, &room.Status, &room.Version, &room.CreatedAt, &room.UpdatedAt,
+		&room.ID, &room.Status, &room.Version, &room.ProviderRoomName,
+		&room.ProviderRoomSID, &room.CreatedAt, &room.UpdatedAt,
+	)
+	room.CreatedAt, room.UpdatedAt = room.CreatedAt.UTC(), room.UpdatedAt.UTC()
+	return room, err
+}
+
+func loadRoomForTermination(
+	ctx context.Context,
+	transaction pgx.Tx,
+	tenantID uuid.UUID,
+	spaceID uuid.UUID,
+) (roomRow, error) {
+	var room roomRow
+	err := transaction.QueryRow(
+		ctx,
+		`SELECT id, status, version, provider_room_name, provider_room_sid,
+       created_at, updated_at
+FROM tutorhub.media_room_instances
+WHERE tenant_id = $1 AND space_id = $2
+  AND status IN ('provisioning', 'active', 'closing', 'failed')
+ORDER BY attempt_number DESC
+LIMIT 1
+FOR UPDATE`,
+		tenantID,
+		spaceID,
+	).Scan(
+		&room.ID,
+		&room.Status,
+		&room.Version,
+		&room.ProviderRoomName,
+		&room.ProviderRoomSID,
+		&room.CreatedAt,
+		&room.UpdatedAt,
 	)
 	room.CreatedAt, room.UpdatedAt = room.CreatedAt.UTC(), room.UpdatedAt.UTC()
 	return room, err
@@ -1187,6 +1299,8 @@ func (room roomRow) project() RoomInstance {
 	return RoomInstance{
 		ID: room.ID, Status: room.Status, Version: room.Version,
 		CreatedAt: room.CreatedAt, UpdatedAt: room.UpdatedAt,
+		ProviderRoomName: room.ProviderRoomName,
+		ProviderRoomSID:  room.ProviderRoomSID.String,
 	}
 }
 
@@ -1197,6 +1311,9 @@ func terminateRoomIntent(
 	room roomRow,
 	now time.Time,
 ) error {
+	if room.Status == RoomInstanceFailed {
+		return nil
+	}
 	if room.Status == RoomInstanceProvisioning {
 		commandTag, err := transaction.Exec(
 			ctx,
@@ -1229,6 +1346,29 @@ WHERE tenant_id = $1 AND id = $2 AND status IN ('active', 'closing')`,
 		return ErrSpaceTransition
 	}
 	return nil
+}
+
+func terminateRoomParticipants(
+	ctx context.Context,
+	transaction pgx.Tx,
+	tenantID uuid.UUID,
+	spaceID uuid.UUID,
+	roomInstanceID uuid.UUID,
+	now time.Time,
+) error {
+	_, err := transaction.Exec(
+		ctx,
+		`UPDATE tutorhub.media_participant_sessions
+SET status = 'left', version = version + 1, capacity_reserved = false,
+    terminal_at = $4, reconnecting_at = NULL, updated_at = $4
+WHERE tenant_id = $1 AND space_id = $2 AND room_instance_id = $3
+  AND status IN ('waiting', 'admitted', 'joining', 'connected', 'reconnecting')`,
+		tenantID,
+		spaceID,
+		roomInstanceID,
+		now.UTC(),
+	)
+	return err
 }
 
 func insertTransitionReceipt(
@@ -1377,7 +1517,7 @@ func (repository *PostgresLifecycleRepository) unavailable(operation string, err
 	if err == nil {
 		return nil
 	}
-	return fmt.Errorf("%s: %w: %v", operation, ErrLifecycleUnavailable, err)
+	return fmt.Errorf("%s: %w", operation, ErrLifecycleUnavailable)
 }
 
 func rollbackLifecycle(transaction pgx.Tx) {
