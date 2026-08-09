@@ -93,41 +93,22 @@ jobs:
           P4_02_DISPOSABLE_CONFIRM: I_UNDERSTAND_P4_02_DISPOSABLE_ONLY
           P4_02_ACL_PROVISION_CONFIRM: I_UNDERSTAND_P4_02_ACL_PROVISION_DISPOSABLE_ONLY
         run: |
-          psql "$DATABASE_MIGRATION_URL" --set=ON_ERROR_STOP=1 <<'SQL'
-          GRANT SELECT, INSERT, UPDATE ON TABLE
-            tutorhub.class_sessions,
-            tutorhub.class_session_series,
-            tutorhub.class_session_exceptions,
-            tutorhub.study_meetings,
-            tutorhub.rate_limit_windows
-          TO tutorhub_conversation_runtime_ci;
-          GRANT SELECT ON TABLE
-            tutorhub.tenants,
-            tutorhub.memberships,
-            tutorhub.classes,
-            tutorhub.class_enrollments,
-            tutorhub.tenant_feature_control_revisions,
-            tutorhub.tenant_feature_overrides,
-            tutorhub.tenant_quota_overrides
-          TO tutorhub_conversation_runtime_ci;
-          GRANT UPDATE (updated_at) ON TABLE
-            tutorhub.tenants,
-            tutorhub.memberships,
-            tutorhub.classes,
-            tutorhub.class_enrollments
-          TO tutorhub_conversation_runtime_ci;
-          GRANT SELECT, INSERT, UPDATE ON TABLE
-            tutorhub.tenant_quota_windows
-          TO tutorhub_conversation_runtime_ci;
-          GRANT INSERT (
-            tenant_id, aggregate_type, aggregate_id, event_type,
-            payload, occurred_at, available_at
-          ) ON TABLE tutorhub.outbox_events
-          TO tutorhub_conversation_runtime_ci;
-          GRANT INSERT ON TABLE tutorhub.audit_events
-          TO tutorhub_conversation_runtime_ci;
-          SQL
-          pnpm test:integration:media
+          node scripts/require-media-disposable-confirm.mjs
+          go test -count=1 -tags=integration \
+            -run '^TestProvisionPostgresMediaLifecycleRuntimeExactACL$' \
+            ./services/core-api/internal/modules/media
+          go test -count=1 -tags=integration \
+            -run '^TestPostgresMediaLifecycleRuntimeExactACL$' \
+            ./services/core-api/internal/modules/media
+          # Cross-module fixtures use the isolated CI database owner. The exact
+          # media role remains narrow above; disposable acceptance covers these
+          # fixtures through the real Core API runtime role.
+          DATABASE_POOL_URL="$DATABASE_MIGRATION_URL" go test -count=1 -tags=integration \
+            -run '^TestPostgresMediaLifecycleAuthorityConcurrencyQuotaAndPrivacy$' \
+            ./services/core-api/internal/modules/media
+          DATABASE_POOL_URL="$DATABASE_MIGRATION_URL" go test -count=1 -tags=integration \
+            -run '^TestPostgresMediaRoomInstanceCredentialAndSignedWebhookBinding$' \
+            ./services/core-api/internal/modules/media
 
       - name: PostgreSQL security integration
         run: pnpm test:security:integration
