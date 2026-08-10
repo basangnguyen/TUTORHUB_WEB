@@ -12,12 +12,12 @@
 | Quy trình            | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
 | Phase hoàn thành     | Phase 0, Phase 1, Phase 2                                                             |
 | Phase hiện tại       | Phase 4 Classroom Media MVP; Phase 3 deferred carry-over vẫn hoạt động                |
-| Task `DONE` gần nhất | P4-03 Prejoin device/network và join-attempt flow                                     |
-| Mốc repository mới   | P4-04 local + Neon disposable database gates PASS; CI/shared/live còn `PENDING`        |
-| Task hiện tại        | P4-04 Lobby, admission và explicit same-tenant invite (`VERIFY`)                      |
-| Task tiếp theo       | Exact candidate diff/secret review, commit/push và GitHub Verify/Security             |
+| Task `DONE` gần nhất | P4-04 Lobby, admission và explicit same-tenant invite                                 |
+| Mốc repository mới   | P4-04 exact CI/shared/deploy/live acceptance PASS; shared ledger `31 false`           |
+| Task hiện tại        | P4-05 Classroom shell, media controls và layouts (`TODO`)                             |
+| Task tiếp theo       | Bắt đầu P4-05 theo ADR-0030/0031 và Phase 4 backlog                                   |
 
-### Checkpoint P4-04 `VERIFY` ngày 2026-08-10
+### Checkpoint P4-04 `DONE` ngày 2026-08-10
 
 P4-04 local candidate đã thêm contract/API cho self join-attempt poll/cancel, moderator admission
 queue cùng admit/deny/restore và explicit same-tenant StudyMeeting member list/invite/revoke/restore.
@@ -44,9 +44,18 @@ integration compile không phải bằng chứng PostgreSQL runtime.
 Neon disposable đã PASS owner preflight, forward-only `30 false -> 31 false -> 31 false`, exact
 runtime/default/future-table ACL, lobby/admission/invite race/restore, lifecycle và RoomInstance
 integration gates; final ledger `31 false`, không rollback. Full post-disposable `pnpm verify` cũng
-PASS. P4-04 vẫn `VERIFY`, chưa `DONE`: bước tiếp theo là exact candidate CI/security; shared forward,
-deploy và live acceptance cần quyền riêng sau đó. Không xóa disposable branch và tiếp tục giữ
-`classroom_media_rooms`/`instant_study_rooms` force-off, `effect=None`, `CanPublishData=false`.
+PASS. Exact runtime candidate `735a5e5579d6e5efe7c4efca2b8a48c3de1b1f23` sau đó PASS GitHub
+Verify `31356295542` và Security `31356295518`. Shared owner preflight, forward-only
+`30 false -> 31 false -> 31 false`, exact ACL và read-only snapshot đều PASS; không chạy shared
+mutation/provider fixture.
+
+Cloudflare Pages check `93356654021`/deployment `7f180bf1-3736-4e40-a6f3-7ced6df2be27` và Render
+deployment `dep-d9sli7740ujc73dfic70` chạy exact runtime SHA. Live đạt `6/6` health/readiness/status,
+`22/22` anonymous privacy checks và authenticated Admin feature-off/prejoin fail-closed acceptance.
+Shared snapshot trước/sau giống hệt ở ledger `31 false`; tất cả P4 media aggregate vẫn `0`, trừ
+`livekit_webhook_events=16` có sẵn, và không có media feature override bật. Không rollback, không xóa
+disposable branch; `classroom_media_rooms`/`instant_study_rooms` tiếp tục force-off, `effect=None`,
+`CanPublishData=false`. P4-04 chuyển `VERIFY -> DONE`; P4-05 là task runnable tiếp theo.
 Runbook/evidence: [P4_04_STAGING_ACCEPTANCE.md](P4_04_STAGING_ACCEPTANCE.md).
 
 ### Checkpoint P4-03 `DONE` ngày 2026-08-10
@@ -107,8 +116,8 @@ candidate force-off đến khi self-host immutable model/WASM/background, privac
 CSP/network, exact Firefox/Safari/low-end performance và cleanup gates đạt ở P4-05/P4-11. WebRTC
 speech + explicit original-sound là audio baseline; Krisp/direct MediaPipe không vào MVP. Hand/
 reaction vẫn qua Core API với `CanPublishData=false`. Không migration, shared staging write,
-provider config, deploy hoặc feature activation trong research. P4-03 sau đó đã đạt `DONE`; P4-04
-là task runnable tiếp theo và vẫn phải tuân toàn bộ decision của ADR-0031.
+provider config, deploy hoặc feature activation trong research. P4-03 và P4-04 sau đó đã đạt
+`DONE` theo toàn bộ decision của ADR-0031; P4-05 là task runnable tiếp theo.
 
 ### Checkpoint P4-02 `DONE` ngày 2026-08-09
 

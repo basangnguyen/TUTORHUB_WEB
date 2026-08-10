@@ -11,7 +11,7 @@
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
 | Phase hiện tại        | Phase 4 - Classroom Media MVP; Phase 3 deferred carry-over tiếp tục                          |
-| Trạng thái gần nhất   | P4-04 lobby/admission/invite `VERIFY`; external acceptance còn `PENDING`                     |
+| Trạng thái gần nhất   | P4-04 lobby/admission/invite `DONE`; P4-05 là task runnable tiếp theo                        |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 
@@ -1524,9 +1524,10 @@ webhook đã `DONE`; shared ledger giữ `30 false`. P4-MEDIA-UX-00 cũng đã `
 ADR-0031, khóa `None` baseline cùng browser/device/privacy/performance gates. P4-03 prejoin/
 join-attempt đã `DONE`: exact candidate CI/security, shared exact ACL/read-only gate,
 Render/Cloudflare exact deploy và live public/privacy/authenticated feature-off/no-side-effect
-acceptance đều PASS. P4-04 lobby/admission/invite đang `VERIFY`; local và disposable forward
-`30 false -> 31 false -> 31 false` cùng exact ACL/PostgreSQL gates PASS, còn exact CI/shared/deploy/live
-gate `PENDING` theo
+acceptance đều PASS. P4-04 lobby/admission/invite cũng đã `DONE`: exact runtime candidate
+`735a5e5579d6e5efe7c4efca2b8a48c3de1b1f23` PASS local/disposable, GitHub Verify/Security, shared
+forward-only `30 false -> 31 false -> 31 false`, exact ACL/read-only snapshot, Render/Cloudflare và
+live privacy/feature-off/no-side-effect acceptance theo
 [P4_04_STAGING_ACCEPTANCE.md](P4_04_STAGING_ACCEPTANCE.md).
 
 **Thời lượng:** 6-8 tuần.
@@ -2158,10 +2159,9 @@ signed webhook binding, exact disposable/shared ACL, deployment và feature-off/
 đều đã chốt; shared ledger giữ `30 false`. P4-MEDIA-UX-00 cũng đã `DONE` bằng current official
 Zoom/Meet/LiveKit/browser research, V1 audit, isolated prototype và ADR-0031. Baseline P4 là
 `effect=None`; optional processor giữ off, còn hand/reaction luôn do Core API authorize với
-`CanPublishData=false`. P4-03 đã `DONE` trên exact CI/shared deploy/live acceptance; P4-04 đang
-`VERIFY` sau local + disposable PASS. Shared forward, exact CI và deploy/live còn `PENDING`;
-disposable đã đạt `30 false -> 31 false -> 31 false`, không rollback và hai media capability tiếp tục
-force-off.
+`CanPublishData=false`. P4-03 và P4-04 đã `DONE` trên exact CI/shared/deploy/live acceptance; P4-04
+disposable/shared đạt `30 false -> 31 false -> 31 false`, không rollback và hai media capability
+tiếp tục force-off. P4-05 là task runnable tiếp theo.
 Không bật side effect chỉ vì core đã có. `P3-02D-B` và các gate worker/provider vẫn là
 carry-over.
 AWS SES đã được chọn làm provider target nhưng

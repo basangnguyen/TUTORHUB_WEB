@@ -98,12 +98,12 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
   GitHub Verify/Security, shared exact ACL, Render/Cloudflare exact deploy và live
   public/privacy/authenticated feature-off/no-side-effect acceptance đều PASS. Không có migration;
   shared ledger giữ `30 false`, không rollback.
-- P4-04 Lobby/admission/explicit same-tenant invite đang `VERIFY` ngày 2026-08-10. Local candidate
-  đã có OpenAPI/generated client, Go service/repository/HTTP, web waiting/moderator/invite UX,
-  migration `000031` và full local verification PASS. Neon disposable owner preflight, forward-only
-  `30 false -> 31 false -> 31 false`, exact/default ACL cùng PostgreSQL gates PASS. Exact CI/security,
-  shared staging, deploy và live acceptance còn `PENDING`; không rollback. Hai media
-  feature tiếp tục force-off, `effect=None`, `CanPublishData=false`.
+- P4-04 Lobby/admission/explicit same-tenant invite đã `DONE` ngày 2026-08-10 trên exact runtime
+  candidate `735a5e5579d6e5efe7c4efca2b8a48c3de1b1f23`. Local/disposable gates, GitHub
+  Verify/Security, shared forward-only `30 false -> 31 false -> 31 false`, exact ACL/read-only
+  snapshot, Render/Cloudflare deploy và live privacy/feature-off/no-side-effect acceptance đều PASS;
+  không rollback. Hai media feature tiếp tục force-off, `effect=None`, `CanPublishData=false`.
+  Task runnable tiếp theo là P4-05 Classroom shell, media controls và layouts.
 - P5-COLLAB-00 đã được đăng ký làm research spike tương lai cho whiteboard engine,
   document/sync authority, license và realtime topology. Task vẫn `TODO`, không chặn P4-02
   và không cho phép thêm production dependency/runtime trước prototype, evidence và ADR.

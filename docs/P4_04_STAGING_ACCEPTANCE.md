@@ -3,14 +3,13 @@
 ## 1. Trạng thái và ranh giới
 
 - Ngày cập nhật: `2026-08-10`.
-- Trạng thái hiện tại: `VERIFY` — implementation, full local verification và Neon disposable
-  database acceptance đã PASS; exact candidate CI/security, shared staging, deploy và live
-  acceptance còn mở.
+- Trạng thái hiện tại: `DONE` — implementation, full local/disposable verification, exact candidate
+  CI/security, shared staging, deploy và live acceptance đều PASS.
 - Forward migration mới trong source: `000031_media_lobby_admission_restore`.
-- Disposable đã PASS forward-only `30 false -> 31 false -> 31 false`; shared ledger vẫn kế thừa
-  P4-03 ở `30 false`. **Không chạy rollback `000031`**.
-- Không forward shared staging và không deploy trước khi disposable cùng exact CI/security PASS và
-  có quyền riêng cho từng bước.
+- Disposable và shared đều PASS forward-only `30 false -> 31 false -> 31 false`; final ledger của
+  cả hai là `31 false`. **Không chạy rollback `000031`**.
+- Shared chỉ được forward sau disposable cùng exact CI/security PASS và quyền riêng; deploy chỉ bắt
+  đầu sau shared ACL/read-only gate PASS.
 - Hai feature `classroom_media_rooms` và `instant_study_rooms` tiếp tục force-off. `effect=None` là
   baseline và `CanPublishData=false`; participant `waiting` không nhận credential hoặc kết nối
   LiveKit.
@@ -82,7 +81,7 @@
 | `go test ./services/core-api/...`                                     | PASS                                                   |
 | `go vet ./services/core-api/...`                                      | PASS                                                   |
 | Media integration build-tag compile                                   | PASS; không chạy external PostgreSQL test              |
-| Full `pnpm verify` trên exact candidate                               | PASS với workspace-local Go cache                     |
+| Full `pnpm verify` trên exact candidate                               | PASS với workspace-local Go cache                      |
 | P4-04 Playwright runtime                                              | `3/3` PASS trên temporary isolated Vite fixture        |
 | Security/static sign-off                                              | PASS guard, audit, ACL, lock/TTL/privacy/restore gates |
 
@@ -124,45 +123,81 @@ Evidence ngày `2026-08-10`:
 - full `pnpm verify` trên post-disposable exact local tree PASS trong `138.5s`; media feature
   config/deployment guardrail tests PASS. Không nạp LiveKit credential và không xóa disposable.
 
-## 5. Exact candidate CI/security — `PENDING`
+## 5. Exact candidate CI/security — `PASS`
 
-1. [ ] Chạy full `pnpm verify`, review exact diff và secret scan; loại `.env*.local`,
+1. [x] Chạy full `pnpm verify`, review exact diff và secret scan; loại `.env*.local`,
        `.tmp-gocache/` và mọi test artifact khỏi candidate.
-2. [ ] Commit/push exact candidate lên `main` theo repository workflow.
-3. [ ] GitHub Verify PASS cho quality/integration, browser E2E và local-environment smoke.
-4. [ ] GitHub Security PASS cho secret scan, CodeQL, dependency/repository scan và container scan.
-5. [ ] Ghi exact full SHA và workflow run IDs; không suy PASS từ local run.
+2. [x] Commit/push exact candidate lên `main` theo repository workflow.
+3. [x] GitHub Verify PASS cho quality/integration, browser E2E và local-environment smoke.
+4. [x] GitHub Security PASS cho secret scan, CodeQL, dependency/repository scan và container scan.
+5. [x] Ghi exact full SHA và workflow run IDs; không suy PASS từ local run.
 
-## 6. Shared staging — `PENDING`, cần quyền riêng
+Evidence ngày `2026-08-10`:
 
-Chỉ bắt đầu sau disposable report + exact CI/security PASS và owner cho phép forward shared.
+- exact accepted runtime candidate: `735a5e5579d6e5efe7c4efca2b8a48c3de1b1f23`;
+- full local `pnpm verify`, diff review, commit hooks và secret guard đều PASS; `.env*.local`,
+  `.tmp-gocache/` không thuộc candidate;
+- GitHub Verify run `31356295542`: quality/integration, browser E2E, local-environment smoke và exact
+  PostgreSQL media integration đều PASS;
+- GitHub Security run `31356295518`: secret scan, CodeQL Go/JavaScript-TypeScript, repository
+  vulnerability và container scan đều PASS; dependency review được skip đúng thiết kế cho push.
 
-1. [ ] Wrapper so sánh endpoint xác nhận shared khác disposable mà không in URL; shared-only
+## 6. Shared staging — `PASS`
+
+Shared chỉ được bắt đầu sau disposable report + exact CI/security PASS và owner cho phép forward.
+
+1. [x] Wrapper so sánh endpoint xác nhận shared khác disposable mà không in URL; shared-only
        `TestPostgresP404SharedOwnerPreflight` xác nhận ledger `30 false`, direct/pooled cùng exact
        shared endpoint, đúng database/roles/default ACL và không có cờ disposable/legacy.
-2. [ ] Forward-only shared `30 false -> 31 false -> 31 false`; không rollback.
-3. [ ] Re-provision exact P4-04 ACL idempotently bằng fresh shared confirmations, rồi chạy
+2. [x] Forward-only shared `30 false -> 31 false -> 31 false`; không rollback.
+3. [x] Re-provision exact P4-04 ACL idempotently bằng fresh shared confirmations, rồi chạy
        `TestPostgresMediaLifecycleRuntimeExactACLSharedReadOnly`; không gọi migration runner trong
        read-only probe và coi `SKIP`/`no tests to run` là FAIL.
-4. [ ] Đặt `P4_04_SHARED_SNAPSHOT_CONFIRM=I_UNDERSTAND_P4_04_SHARED_READ_ONLY_SNAPSHOT`, rồi chạy
+4. [x] Đặt `P4_04_SHARED_SNAPSHOT_CONFIRM=I_UNDERSTAND_P4_04_SHARED_READ_ONLY_SNAPSHOT`, rồi chạy
        `TestPostgresP404SharedReadOnlySnapshot` trước deploy và sau live acceptance. Hai dòng
        `P4_04_SHARED_SNAPSHOT` phải giống hệt; probe chỉ dùng transaction `REPEATABLE READ READ ONLY`,
        chỉ xuất ledger/aggregate count và xác nhận không có media feature override đang bật.
-5. [ ] Không chạy mutation/concurrency fixture hoặc provider smoke trên shared.
-6. [ ] Final shared ledger `31 false`; runtime role không có broad privilege và feature vẫn false.
+5. [x] Không chạy mutation/concurrency fixture hoặc provider smoke trên shared.
+6. [x] Final shared ledger `31 false`; runtime role không có broad privilege và feature vẫn false.
 
-## 7. Exact deploy và live acceptance — `PENDING`, cần quyền riêng
+Evidence ngày `2026-08-10`:
 
-1. [ ] Deploy exact candidate SHA lên Render và xác nhận Cloudflare Pages trỏ cùng SHA.
-2. [ ] Direct Render + Pages proxy health/readiness/status đạt `200 + no-store`.
-3. [ ] Anonymous lobby/admission/member routes trả `401` với problem JSON, privacy/cache headers,
+- endpoint/role/database shape và shared owner preflight PASS mà không in URL/credential;
+- forward/idempotent: `30 false -> 31 false -> 31 false`; không rollback;
+- exact ACL provision cùng `TestPostgresMediaLifecycleRuntimeExactACLSharedReadOnly` PASS;
+- read-only snapshot trước và sau live giống hệt: `version=31`, `dirty=false`,
+  `media_spaces=0`, `media_room_instances=0`, `media_space_members=0`,
+  `media_admission_requests=0`, `media_participant_sessions=0`,
+  `media_space_mutation_receipts=0`, `media_provider_webhook_receipts=0`,
+  `livekit_webhook_events=16`, `media_outbox=0`, `media_audit=0` và
+  `enabled_media_feature_overrides=0`.
+
+## 7. Exact deploy và live acceptance — `PASS`
+
+1. [x] Deploy exact candidate SHA lên Render và xác nhận Cloudflare Pages trỏ cùng SHA.
+2. [x] Direct Render + Pages proxy health/readiness/status đạt `200 + no-store`.
+3. [x] Anonymous lobby/admission/member routes trả `401` với problem JSON, privacy/cache headers,
        request ID và không lộ tenant/room/user/email/provider data.
-4. [ ] Authenticated Organization Admin xác nhận hai media feature vẫn off; lobby/prejoin route
+4. [x] Authenticated Organization Admin xác nhận hai media feature vẫn off; lobby/prejoin route
        fail-closed, có bounded retry và không tạo media/provider side effect.
-5. [ ] Read-only before/after probe giữ ledger `31 false` và các media relation không đổi trong
+5. [x] Read-only before/after probe giữ ledger `31 false` và các media relation không đổi trong
        feature-off live acceptance.
-6. [ ] Actual lobby/admission flow dùng isolated browser + disposable PostgreSQL/LiveKit test
+6. [x] Actual lobby/admission flow dùng isolated browser + disposable PostgreSQL/LiveKit test
        project; không temporary-enable shared/live feature chỉ để demo.
+
+Evidence ngày `2026-08-10`:
+
+- Cloudflare Pages check `93356654021`, deployment `7f180bf1-3736-4e40-a6f3-7ced6df2be27` và
+  Render deployment `dep-d9sli7740ujc73dfic70` đều PASS cho exact runtime SHA
+  `735a5e5579d6e5efe7c4efca2b8a48c3de1b1f23`;
+- direct Render và Pages proxy đạt `6/6` health/readiness/status checks;
+- `11` P4-04 routes qua hai origin đạt `22/22` anonymous privacy checks: `401` problem JSON,
+  no-store/privacy headers, request ID, không Set-Cookie và không lộ dữ liệu;
+- authenticated Organization Admin xác nhận hai media capability vẫn off; prejoin inaccessible
+  route fail-closed, Retry bounded, zero video/audio/iframe, URL sạch credential và console sạch;
+- isolated P4-04 Playwright actual lobby/admission flow đạt `3/3`; shared không được temporary-enable;
+- shared snapshot sau live giống hệt snapshot trước live, nên feature-off acceptance không tạo
+  database hoặc provider side effect.
 
 ## 8. VERIFY -> DONE
 
@@ -171,13 +206,14 @@ Chỉ bắt đầu sau disposable report + exact CI/security PASS và owner cho 
 - [x] Runtime Playwright P4-04 `3/3` PASS trên isolated fixture; temporary config đã được xóa.
 - [x] Full exact local `pnpm verify` PASS.
 - [x] Disposable forward `30 -> 31`, exact ACL và PostgreSQL integration gates PASS; không rollback.
-- [ ] Exact candidate GitHub Verify/Security PASS.
-- [ ] Shared forward/ACL read-only gate PASS theo quyền riêng.
-- [ ] Exact deploy và live feature-off/privacy/no-side-effect acceptance PASS.
-- [ ] Ghi đủ exact SHA/run/deploy/ledger evidence rồi mới chuyển P4-04 `VERIFY -> DONE`.
+- [x] Exact candidate GitHub Verify/Security PASS.
+- [x] Shared forward/ACL read-only gate PASS theo quyền riêng.
+- [x] Exact deploy và live feature-off/privacy/no-side-effect acceptance PASS.
+- [x] Ghi đủ exact SHA/run/deploy/ledger evidence và chuyển P4-04 `VERIFY -> DONE`.
 
 ## 9. Quyết định trạng thái
 
-P4-04 đã hoàn tất implementation candidate, full local verification và Neon disposable database
-acceptance nên tiếp tục ở `VERIFY` ngày `2026-08-10`. Task **chưa `DONE`** vì exact CI/security,
-shared staging, deploy và live acceptance vẫn `PENDING`.
+P4-04 chuyển `VERIFY -> DONE` ngày `2026-08-10`. Exact candidate CI/security, disposable/shared
+forward-only migration và ACL, Render/Cloudflare deploy, live privacy/feature-off/no-side-effect
+acceptance đều PASS. Final disposable/shared ledger là `31 false`; không rollback, không bật hai
+media capability và disposable branch tiếp tục được giữ.

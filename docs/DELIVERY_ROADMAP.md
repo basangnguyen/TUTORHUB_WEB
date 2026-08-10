@@ -6,9 +6,9 @@
 | ------------------- | ---------------------------------------------------- |
 | Cập nhật            | 2026-08-10                                           |
 | Phase hiện tại      | Phase 4 Classroom Media; Phase 3 carry-over tiếp tục |
-| Hoàn thành gần nhất | P4-03 prejoin/join-attempt `DONE`                    |
-| Mốc repository mới  | P4-04 local + disposable database gates PASS         |
-| Việc tiếp theo      | Exact candidate GitHub Verify/Security               |
+| Hoàn thành gần nhất | P4-04 lobby/admission/invite `DONE`                  |
+| Mốc repository mới  | P4-04 exact shared/deploy/live acceptance PASS       |
+| Việc tiếp theo      | P4-05 classroom shell, media controls và layouts     |
 | Phạm vi             | Web-first; desktop/mobile/native là track sau        |
 
 ## Chuỗi phase
@@ -75,16 +75,17 @@ activation, SES/domain/live interoperability và delivery/processing phụ thu�
 được giữ carry-over để đóng sau, không đánh dấu PASS do bỏ qua.
 P3-CAL-01 không phải dependency kỹ thuật của session một lần P3-01; cả hai gate đã đạt.
 P3-CAL-02 có thể chạy sandbox cô lập, nhưng mọi email/notification side effect runtime
-vẫn phải chờ P3-03B. Core Exit đã đạt trên candidate `f5f1eb3`; P4-00/P4-01/P4-02/P4-03
-và P4-MEDIA-UX-00 hiện đã `DONE`, còn P4-04 đang `VERIFY`. Nguồn thực thi là
+vẫn phải chờ P3-03B. Core Exit đã đạt trên candidate `f5f1eb3`; P4-00/P4-01/P4-02/P4-03,
+P4-04 và P4-MEDIA-UX-00 hiện đã `DONE`. Nguồn thực thi là
 [PHASE_4_BACKLOG.md](PHASE_4_BACKLOG.md), ADR authority là
 [ADR-0030](adr/0030-authoritative-classroom-media-spaces-lifecycle-and-livekit-grants.md) cùng
 [ADR-0031](adr/0031-classroom-media-ux-devices-layout-effects-and-signals.md). P4-03 exact candidate
 đã PASS CI/security, shared exact ACL, Render/Cloudflare deploy cùng public/privacy/authenticated
-feature-off/no-side-effect live acceptance. P4-04 đã PASS local cùng disposable forward-only
-`30 false -> 31 false -> 31 false` và exact ACL/PostgreSQL; CI/security, shared forward, deploy và
-live acceptance vẫn `PENDING`; không rollback và hai media feature tiếp tục
-force-off.
+feature-off/no-side-effect live acceptance. P4-04 exact runtime candidate
+`735a5e5579d6e5efe7c4efca2b8a48c3de1b1f23` đã PASS local/disposable, GitHub Verify/Security,
+shared forward-only `30 false -> 31 false -> 31 false`, exact ACL/read-only snapshot,
+Render/Cloudflare deploy và live privacy/feature-off/no-side-effect acceptance. Không rollback và
+hai media feature tiếp tục force-off; P4-05 là task runnable tiếp theo.
 `P3-02D-B` auto-close/fan-out/delivery cùng các lane
 worker/provider tiếp tục là carry-over, không bị coi là PASS.
 

@@ -7,10 +7,10 @@ thay đổi schema, migration hoặc repository phải đọc tài liệu này t
 
 - System of record: Neon PostgreSQL.
 - Schema ứng dụng: `tutorhub`.
-- Migration mới nhất trong source: `000031_media_lobby_admission_restore`; P4-01/P4-02/P4-03 đã
-  `DONE`, P4-04 đang `VERIFY`. Disposable đã PASS forward-only
-  `30 false -> 31 false -> 31 false`, exact/default ACL và PostgreSQL gates; shared vẫn ở
-  `30 false`. P3-06/P3-07A đã forward cả disposable và shared
+- Migration mới nhất trong source: `000031_media_lobby_admission_restore`; P4-01/P4-02/P4-03/P4-04
+  đã `DONE`. Disposable và shared đều PASS forward-only `30 false -> 31 false -> 31 false`, exact/
+  default ACL và read-only gates; final ledger của cả hai là `31 false`. P3-06/P3-07A đã forward cả
+  disposable và shared
   Neon tới `25 false`. P3-08 disposable đã forward-only
   `25 false -> 26 false -> 26 false`; exact content ACL và PostgreSQL gates PASS.
   P3-09 disposable đã forward-only tới `28 false`; shared staging đã forward-only
@@ -20,8 +20,9 @@ thay đổi schema, migration hoặc repository phải đọc tài liệu này t
   integration. P4-02 disposable/shared sau đó forward-only `29 false -> 30 false -> 30 false`,
   provision exact RoomInstance/credential/webhook ACL và PASS PostgreSQL/provider gates. P4-03
   không có migration; exact ACL được reprovision trên disposable/shared và final ledger cả hai giữ
-  `30 false`, không rollback. P4-04 disposable đã đạt `30 false -> 31 false -> 31 false` cùng exact
-  ACL/PostgreSQL; shared, exact CI/security và deploy/live còn `PENDING`.
+  `30 false`, không rollback. P4-04 disposable/shared đã đạt `30 false -> 31 false -> 31 false`,
+  exact ACL/read-only gates, exact CI/security và deploy/live no-side-effect acceptance; không
+  rollback và hai media feature tiếp tục off.
 - Migration 1-5 đã được chạy và kiểm tra trên Neon; smoke
   `5 false -> rollback 4 false -> migrate 5 false` đạt ngày 2026-07-16.
 - Migration `000006` đến `000013` đều có up/down path. Source và PostgreSQL 17 CI
@@ -1248,9 +1249,9 @@ pnpm db:version
 Sau khi áp dụng toàn bộ migration trong source hiện tại lên database được phép, kết quả mục tiêu
 là `31 false`. P4-01 đã chạy disposable/shared `28 false -> 29 false -> 29 false`; P4-02 tiếp tục
 forward-only `29 false -> 30 false -> 30 false`. P4-03 không có migration và chỉ reprovision/probe
-exact ACL ở ledger `30 false`. P4-04 disposable đã PASS forward-only
-`30 false -> 31 false -> 31 false`. Không rollback; shared chỉ được forward sau disposable
-report, exact CI/security và owner approval.
+exact ACL ở ledger `30 false`. P4-04 disposable và shared đã PASS forward-only
+`30 false -> 31 false -> 31 false`, exact ACL/read-only snapshot và final ledger `31 false`. Không
+rollback; shared chỉ được forward sau disposable report, exact CI/security và owner approval.
 Neon disposable P3-07A đã đạt chuỗi forward-only
 `24 false -> 25 false -> 25 false`, exact ACL và focused/full PostgreSQL gates theo
 [`P3_07A_STAGING_ACCEPTANCE.md`](P3_07A_STAGING_ACCEPTANCE.md).
@@ -1387,9 +1388,10 @@ admit/deny/cancel/restore; thêm `rejoin_restored_at`/`rejoin_restored_by`, same
 consistency check và partial index cho removed participant chưa explicit restore. Restore không
 revive terminal ParticipantSession. Runtime ACL candidate chỉ có exact column grants cần cho
 lobby/admission/member flow; không `DELETE`, DDL, ownership, migration role hoặc broad table grant.
-Source/local static/unit/compile gates đã PASS nhưng migration chưa chạy trên Neon. Disposable phải
-PASS forward-only `30 false -> 31 false -> 31 false`, ACL provision/runtime probe và
-`TestPostgresMediaLobbyAdmissionInviteRaceAndRestoreBarrier` trước shared/CI/deploy; không rollback.
+Source/local, disposable và exact CI/security gates đã PASS. Disposable rồi shared đều được
+forward-only `30 false -> 31 false -> 31 false`; exact/default ACL, lobby/admission/invite race,
+lifecycle/RoomInstance và shared read-only snapshot gates PASS. Không chạy shared mutation/provider
+fixture, không rollback; snapshot trước/sau live giống hệt ở ledger `31 false` và media feature off.
 Chi tiết tại [`P4_04_STAGING_ACCEPTANCE.md`](P4_04_STAGING_ACCEPTANCE.md).
 
 Với P2-05, cần kiểm tra riêng migrate 9 -> 10, rollback 10 -> 9, migrate lại 9 -> 10;
@@ -1467,7 +1469,7 @@ của lịch sử append-only và không phải quy trình cleanup cho staging/p
 - P4-03 đã `DONE` không migration/rollback: disposable functional/provider và shared exact
   ACL/read-only gate PASS; final ledger giữ `30 false`, live feature-off/privacy acceptance không
   tạo row trên bảy media relation.
-- P4-04 đang `VERIFY`: local + disposable migration `000031`, exact/default ACL và PostgreSQL
-  gates PASS. Exact CI/security, shared migration/ACL và deploy/live còn `PENDING`. Không rollback;
-  disposable final là `31 false` và hai media feature tiếp tục off.
+- P4-04 đã `DONE`: local/disposable, exact CI/security, shared forward-only migration/ACL/read-only
+  snapshot và deploy/live privacy/no-side-effect acceptance đều PASS. Không rollback; disposable và
+  shared final đều là `31 false`, hai media feature tiếp tục off.
 - Chưa có backup/restore drill, PITR gate hoặc connection load test cho pilot.

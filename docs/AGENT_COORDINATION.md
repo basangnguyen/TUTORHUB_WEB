@@ -194,7 +194,7 @@ hoặc worker-driven file processing/sharing tới end user.
 | P4-01           | DONE       | Exact disposable/CI/shared/deploy/live feature-off PASS    |
 | P4-02           | DONE       | Exact disposable/CI/shared/deploy/live/provider PASS       |
 | P4-03           | DONE       | Exact CI/shared/deploy/live feature-off/privacy PASS        |
-| P4-04           | VERIFY     | Local + disposable PASS; CI/shared/deploy/live PENDING      |
+| P4-04           | DONE       | Exact CI/shared/deploy/live privacy/no-side-effect PASS     |
 | P4-05 đến P4-10 | TODO       | UI/moderation/chat/reconnect/telemetry                     |
 | P4-11           | TODO       | Browser/device/load/provider-outage acceptance             |
 | P4-12           | TODO       | Exact staging acceptance và Phase 4 closure                |
@@ -211,15 +211,15 @@ acceptance đều PASS; hai media feature tiếp tục off. Evidence tại
 exact candidate `e49a8cc38f464e3ec56655823bcbb1ee77cbc651`: GitHub Verify/Security, shared exact
 ACL/read-only gate, Render/Cloudflare exact deploy, public/anonymous/authenticated feature-off và
 zero-side-effect acceptance đều PASS; ledger giữ `30 false`, không migration/rollback. Evidence tại
-`docs/P4_03_STAGING_ACCEPTANCE.md`. P4-04 hiện ở `VERIFY`: OpenAPI/Go/web, full local verify và Neon
-disposable forward-only `30 false -> 31 false -> 31 false` cùng exact/default ACL/PostgreSQL gates
-đều PASS. Exact CI/security, shared forward/ACL và deploy/live acceptance còn `PENDING`; không
-rollback. Evidence/runbook tại
+`docs/P4_03_STAGING_ACCEPTANCE.md`. P4-04 cũng đã `DONE` trên exact runtime candidate
+`735a5e5579d6e5efe7c4efca2b8a48c3de1b1f23`: local/disposable, GitHub Verify/Security, shared
+forward-only `30 false -> 31 false -> 31 false`, exact ACL/read-only snapshot, Render/Cloudflare và
+live privacy/feature-off/no-side-effect acceptance đều PASS; không rollback. Evidence tại
 `docs/P4_04_STAGING_ACCEPTANCE.md`.
 Trước P4-08 phải review/amend ADR-0013/0025 vì conversation hiện chỉ có `direct` và `class`.
 
-`P4-MEDIA-UX-00` và P4-03 đã `DONE`; P4-04 đang `VERIFY` sau disposable và phải hoàn tất exact CI;
-P4-03/P4-04/P4-05/P4-06/P4-11 phải dùng explicit device probe, bounded layout 2/5/25/50 và
+`P4-MEDIA-UX-00`, P4-03 và P4-04 đã `DONE`; P4-05 là lane runnable tiếp theo. P4-03/P4-04/P4-05/
+P4-06/P4-11 phải dùng explicit device probe, bounded layout 2/5/25/50 và
 Core API signal contract đã chốt. `effect=None` là baseline; Track Processors chưa phải production
 dependency và giữ off tới exact browser/device/privacy/performance gate. Không mở lại
 `CanPublishData=false` hoặc kết nối participant waiting vào provider trước admission.
