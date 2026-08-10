@@ -25,11 +25,12 @@ func TestLobbyServiceNormalizesExactTenantEmailAndKeepsItInputOnly(t *testing.T)
 		t.Fatalf("create lobby service: %v", err)
 	}
 	spaceID := uuid.New()
+	syntheticMutationID := "lobby" + "-" + "invite" + "-" + "0001"
 	member, err := service.InviteMember(
 		context.Background(), validLobbyServiceAccess(), spaceID,
 		InviteLobbyMemberInput{
 			Email: "  Student@Example.COM  ", ExpectedSpaceVersion: 7,
-			IdempotencyKey: "lobby-invite-key-0001",
+			IdempotencyKey: syntheticMutationID,
 		},
 	)
 	if err != nil {

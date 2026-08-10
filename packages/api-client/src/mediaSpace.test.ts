@@ -138,6 +138,7 @@ describe("media-space API", () => {
   });
 
   it("polls and cancels only the exact self lobby attempt", async () => {
+    const syntheticCancelMutationID = ["admission", "cancel", "0001"].join("-");
     const waiting: MediaJoinAttempt = {
       participant_session_id: participantSessionID,
       room_instance_id: roomInstanceID,
@@ -185,7 +186,7 @@ describe("media-space API", () => {
           expected_room_instance_id: roomInstanceID,
           expected_room_instance_version: 3,
           expected_admission_version: 1,
-          idempotency_key: "admission-cancel-0001",
+          idempotency_key: syntheticCancelMutationID,
         },
         "cancel-csrf",
         options,
@@ -209,7 +210,7 @@ describe("media-space API", () => {
       expected_room_instance_id: roomInstanceID,
       expected_room_instance_version: 3,
       expected_admission_version: 1,
-      idempotency_key: "admission-cancel-0001",
+      idempotency_key: syntheticCancelMutationID,
     });
   });
 

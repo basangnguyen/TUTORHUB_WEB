@@ -1,0 +1,5 @@
+# P4-04 synthetic idempotency fixtures in the already-pushed candidate commit.
+# Exact fingerprints avoid suppressing other generic-api-key findings.
+3600f8c6fea8244ed6ef5bcae1b8a767cc9b79a9:packages/api-client/src/mediaSpace.test.ts:generic-api-key:188
+3600f8c6fea8244ed6ef5bcae1b8a767cc9b79a9:packages/api-client/src/mediaSpace.test.ts:generic-api-key:212
+3600f8c6fea8244ed6ef5bcae1b8a767cc9b79a9:services/core-api/internal/modules/media/lobby_service_test.go:generic-api-key:32
