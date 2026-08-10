@@ -203,6 +203,29 @@ rollout cho tới task acceptance tương ứng.
 Recording, egress, transcription, E2EE policy, breakout, whiteboard và webinar/broadcast profile
 không thuộc Phase 4 MVP. Recording luôn off ngoài controlled provider test có owner approval.
 
+#### 8.1. P4-04 admission, invite và explicit restore
+
+P4-04 dùng các aggregate đã tạo ở migration `000029`; không tạo directory/public-invite authority
+mới. Explicit member grant chỉ áp dụng cho `StudyMeeting` (kể cả instant-created meeting). Request
+có thể nhận normalized exact member email để lookup một active same-tenant membership, nhưng email
+không được persist trong media table, response, audit, outbox hoặc log. Official ClassSession/
+occurrence vẫn chỉ lấy eligibility từ class policy và enrollment hiện hành.
+
+Mỗi lobby mutation bind exact MediaSpace, active RoomInstance, AdmissionRequest/Member version và
+stable idempotency key. Receipt giữ fingerprint bounded; replay cùng key/fingerprint không tạo audit/
+outbox lần hai, còn key reuse khác fingerprint bị reject. Lock order là tenant control -> MediaSpace
+-> RoomInstance -> AdmissionRequest -> ParticipantSession. Admit/deny/end race chỉ được một durable
+kết quả; end/timeout/cancel terminalize waiting admission và release participant capacity trong cùng
+transaction.
+
+Deny chuyển ParticipantSession hiện tại sang terminal `removed`; terminal session không được hồi
+sinh. Một attempt mới của actor bị chặn cho tới khi moderator thực hiện explicit restore, được lưu
+bằng timestamp/actor trên terminal participant. Restore chỉ mở quyền tạo attempt mới và vẫn phải
+reauthorize membership/source/lobby hiện hành. Member revoke/restore dùng lifecycle riêng trên
+`media_space_members`; revoke chặn ngay admission/credential mới. Waiting projection có bounded
+expiry, self-cancel và polling; trước `admitted` browser không được mint credential hoặc connect
+LiveKit.
+
 ### 9. Persistent chat và ephemeral signal boundary
 
 LiveKit DataChannel không là source of truth. In-room chat phải dùng PostgreSQL REST contract và

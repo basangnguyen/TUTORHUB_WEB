@@ -2,16 +2,16 @@
 
 ## 1. Aggregate chính
 
-| Aggregate  | Entity chính                                  | Ghi chú                                                |
-| ---------- | --------------------------------------------- | ------------------------------------------------------ |
-| Identity   | User, ExternalIdentity, Session               | User toàn cục; identity provider có thể thay đổi       |
-| Tenancy    | Tenant, Membership, RoleAssignment            | Membership nối user với tenant                         |
-| Classroom  | Class, Enrollment, Invitation                 | Class luôn thuộc một tenant                            |
-| Scheduling | ClassSession, SessionSeries, StudyMeeting     | Instant UTC/civil time; official và member-owned tách quyền |
-| Media      | MediaSpace, RoomInstance, ParticipantSession  | Authority lifecycle; provider room là transport        |
-| Messaging  | Conversation, Message                         | Tin nhắn bền vững, có moderation/audit                 |
-| Content    | FileObject, Folder, ShareGrant                | Binary ở object storage                                |
-| Assessment | QuestionBank, Question, Exam, Attempt, Result | Chưa thuộc MVP đầu tiên                                |
+| Aggregate  | Entity chính                                                                     | Ghi chú                                                     |
+| ---------- | -------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| Identity   | User, ExternalIdentity, Session                                                  | User toàn cục; identity provider có thể thay đổi            |
+| Tenancy    | Tenant, Membership, RoleAssignment                                               | Membership nối user với tenant                              |
+| Classroom  | Class, Enrollment, Invitation                                                    | Class luôn thuộc một tenant                                 |
+| Scheduling | ClassSession, SessionSeries, StudyMeeting                                        | Instant UTC/civil time; official và member-owned tách quyền |
+| Media      | MediaSpace, RoomInstance, AdmissionRequest, ParticipantSession, MediaSpaceMember | Authority lifecycle; provider room là transport             |
+| Messaging  | Conversation, Message                                                            | Tin nhắn bền vững, có moderation/audit                      |
+| Content    | FileObject, Folder, ShareGrant                                                   | Binary ở object storage                                     |
+| Assessment | QuestionBank, Question, Exam, Attempt, Result                                    | Chưa thuộc MVP đầu tiên                                     |
 
 ## 2. Quan hệ lõi
 
@@ -252,6 +252,21 @@ ParticipantSession đi `waiting -> admitted -> joining -> connected -> reconnect
 terminal `left`, `removed` hoặc `failed`. Admission/capacity được persist và reserve atomically;
 join telemetry không phải attendance. Provider room/participant identifier opaque và chỉ map qua
 database, không encode tenant/class/user/BFF session.
+
+P4-04 dùng `media_admission_requests` làm canonical lobby/join-attempt authority. Bounded client
+projection gồm `waiting`, `admitted`, `denied`, `cancelled`, `timeout`, `meeting_ended` hoặc
+`provider_unavailable`; moderator admit/deny và self cancel bind exact room/space/admission version,
+idempotency receipt và current source authority. Race admit/deny/end/cancel/timeout chỉ tạo một
+terminal result; timeout/end atomically release reserved capacity. Participant `waiting` không có
+provider credential/connection, còn device/effect state không tham gia authority hoặc capacity.
+
+Member-owned StudyMeeting/instant meeting có explicit `MediaSpaceMember` trạng thái
+`active -> revoked`, và chỉ owner hiện hành được invite/revoke/restore active authenticated member
+cùng tenant. Email chuẩn hóa chỉ là lookup input, không nằm trong member/admission projection,
+audit hoặc outbox. Admission denied và ParticipantSession removed tạo durable rejoin barrier;
+explicit restore chỉ mở quyền thử lại, không revive terminal session và không bỏ qua current
+tenant/source/membership reauthorization. Official class tiếp tục dùng active enrollment/role
+authority, không được mở rộng bởi StudyMeeting member grant.
 
 ### Enrollment
 

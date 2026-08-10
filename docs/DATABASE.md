@@ -7,8 +7,10 @@ thay đổi schema, migration hoặc repository phải đọc tài liệu này t
 
 - System of record: Neon PostgreSQL.
 - Schema ứng dụng: `tutorhub`.
-- Migration mới nhất trong source: `000030_room_instance_livekit_binding`; P4-01/P4-02/P4-03 đã
-  `DONE`. P3-06/P3-07A đã forward cả disposable và shared
+- Migration mới nhất trong source: `000031_media_lobby_admission_restore`; P4-01/P4-02/P4-03 đã
+  `DONE`, P4-04 đang `VERIFY`. Disposable đã PASS forward-only
+  `30 false -> 31 false -> 31 false`, exact/default ACL và PostgreSQL gates; shared vẫn ở
+  `30 false`. P3-06/P3-07A đã forward cả disposable và shared
   Neon tới `25 false`. P3-08 disposable đã forward-only
   `25 false -> 26 false -> 26 false`; exact content ACL và PostgreSQL gates PASS.
   P3-09 disposable đã forward-only tới `28 false`; shared staging đã forward-only
@@ -18,7 +20,8 @@ thay đổi schema, migration hoặc repository phải đọc tài liệu này t
   integration. P4-02 disposable/shared sau đó forward-only `29 false -> 30 false -> 30 false`,
   provision exact RoomInstance/credential/webhook ACL và PASS PostgreSQL/provider gates. P4-03
   không có migration; exact ACL được reprovision trên disposable/shared và final ledger cả hai giữ
-  `30 false`, không rollback.
+  `30 false`, không rollback. P4-04 disposable đã đạt `30 false -> 31 false -> 31 false` cùng exact
+  ACL/PostgreSQL; shared, exact CI/security và deploy/live còn `PENDING`.
 - Migration 1-5 đã được chạy và kiểm tra trên Neon; smoke
   `5 false -> rollback 4 false -> migrate 5 false` đạt ngày 2026-07-16.
 - Migration `000006` đến `000013` đều có up/down path. Source và PostgreSQL 17 CI
@@ -133,8 +136,8 @@ ngoài UI thread ở các client native về sau.
 | `media_room_instances`             | Exact RoomInstance intent/activation, opaque provider room/SID binding và terminal lifecycle                   |
 | `media_space_members`              | Explicit same-tenant member boundary cho member-owned space                                                    |
 | `media_admission_requests`         | Canonical join-attempt/lobby request, exact actor/room/version và terminal admission state                     |
-| `media_participant_sessions`       | Participant lifecycle/capacity projection, opaque provider identity và credential transition                   |
-| `media_space_mutation_receipts`    | Idempotency receipt cho start/end/cancel, bind tenant/actor/space/version                                      |
+| `media_participant_sessions`       | Participant lifecycle/capacity, opaque provider identity, credential transition và explicit rejoin restore     |
+| `media_space_mutation_receipts`    | Idempotency receipt cho lifecycle/member/admission command, bind tenant/actor/space/version                    |
 | `media_provider_webhook_receipts`  | Signed provider-event replay receipt, mapped exact RoomInstance và không lưu raw payload                       |
 
 Ràng buộc quan trọng:
@@ -1243,10 +1246,11 @@ pnpm db:version
 ```
 
 Sau khi áp dụng toàn bộ migration trong source hiện tại lên database được phép, kết quả mục tiêu
-là `30 false`. P4-01 đã chạy disposable/shared `28 false -> 29 false -> 29 false`; P4-02 tiếp tục
+là `31 false`. P4-01 đã chạy disposable/shared `28 false -> 29 false -> 29 false`; P4-02 tiếp tục
 forward-only `29 false -> 30 false -> 30 false`. P4-03 không có migration và chỉ reprovision/probe
-exact ACL ở ledger `30 false`. Không rollback; shared chỉ được forward sau disposable report,
-exact CI/security và owner approval.
+exact ACL ở ledger `30 false`. P4-04 disposable đã PASS forward-only
+`30 false -> 31 false -> 31 false`. Không rollback; shared chỉ được forward sau disposable
+report, exact CI/security và owner approval.
 Neon disposable P3-07A đã đạt chuỗi forward-only
 `24 false -> 25 false -> 25 false`, exact ACL và focused/full PostgreSQL gates theo
 [`P3_07A_STAGING_ACCEPTANCE.md`](P3_07A_STAGING_ACCEPTANCE.md).
@@ -1377,6 +1381,17 @@ probe, không fixture/migration/rollback. Exact deploy/live acceptance giữ led
 media relation `0 -> 0`; hai media feature tiếp tục force-off. Chi tiết tại
 [`P4_03_STAGING_ACCEPTANCE.md`](P4_03_STAGING_ACCEPTANCE.md).
 
+P4-04 adds forward migration `000031_media_lobby_admission_restore`: mở rộng exact operation
+allowlist của `media_space_mutation_receipts` cho member invite/revoke/restore và admission
+admit/deny/cancel/restore; thêm `rejoin_restored_at`/`rejoin_restored_by`, same-tenant membership FK,
+consistency check và partial index cho removed participant chưa explicit restore. Restore không
+revive terminal ParticipantSession. Runtime ACL candidate chỉ có exact column grants cần cho
+lobby/admission/member flow; không `DELETE`, DDL, ownership, migration role hoặc broad table grant.
+Source/local static/unit/compile gates đã PASS nhưng migration chưa chạy trên Neon. Disposable phải
+PASS forward-only `30 false -> 31 false -> 31 false`, ACL provision/runtime probe và
+`TestPostgresMediaLobbyAdmissionInviteRaceAndRestoreBarrier` trước shared/CI/deploy; không rollback.
+Chi tiết tại [`P4_04_STAGING_ACCEPTANCE.md`](P4_04_STAGING_ACCEPTANCE.md).
+
 Với P2-05, cần kiểm tra riêng migrate 9 -> 10, rollback 10 -> 9, migrate lại 9 -> 10;
 tenant-scoped FK/unique/state constraints; direct enroll và các transition; same-user
 replay; concurrent join ở usage limit; atomic exhausted/expired state; archive guard;
@@ -1451,5 +1466,8 @@ của lịch sử append-only và không phải quy trình cleanup cho staging/p
   RoomInstance/credential/webhook ACL, provider smoke, CI/security và deploy/live acceptance PASS.
 - P4-03 đã `DONE` không migration/rollback: disposable functional/provider và shared exact
   ACL/read-only gate PASS; final ledger giữ `30 false`, live feature-off/privacy acceptance không
-  tạo row trên bảy media relation. P4-04 là task runnable tiếp theo.
+  tạo row trên bảy media relation.
+- P4-04 đang `VERIFY`: local + disposable migration `000031`, exact/default ACL và PostgreSQL
+  gates PASS. Exact CI/security, shared migration/ACL và deploy/live còn `PENDING`. Không rollback;
+  disposable final là `31 false` và hai media feature tiếp tục off.
 - Chưa có backup/restore drill, PITR gate hoặc connection load test cho pilot.

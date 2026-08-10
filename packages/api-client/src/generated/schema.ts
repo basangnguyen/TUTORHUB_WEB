@@ -1650,6 +1650,80 @@ export type paths = {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/api/v1/media/spaces/{space_id}/admissions": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /**
+     * List the bounded FIFO lobby queue for an authorized moderator
+     * @description The projection contains only bounded display names and admission lifecycle fields. It excludes email, user ID, ParticipantSession, join-attempt, provider identity, and token data.
+     */
+    readonly get: operations["listMediaSpaceAdmissions"];
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/media/spaces/{space_id}/admissions/{admission_id}/admit": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Admit one exact waiting participant using optimistic concurrency */
+    readonly post: operations["admitMediaSpaceAdmission"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/media/spaces/{space_id}/admissions/{admission_id}/deny": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Deny one exact waiting participant and release reserved capacity */
+    readonly post: operations["denyMediaSpaceAdmission"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/media/spaces/{space_id}/admissions/{admission_id}/restore": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Explicitly allow a previously denied participant to create a new join attempt
+     * @description The terminal ParticipantSession is never revived. Restore only clears the persisted rejoin block; a future attempt must pass all current source, membership, lobby, quota, and room checks again.
+     */
+    readonly post: operations["restoreMediaSpaceAdmission"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/api/v1/media/spaces/{space_id}/cancel": {
     readonly parameters: {
       readonly query?: never;
@@ -1704,6 +1778,43 @@ export type paths = {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/api/v1/media/spaces/{space_id}/join-attempts/{join_attempt_id}": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /**
+     * Return the authenticated participant's current lobby projection
+     * @description The lookup is bound to the active tenant, exact media space, actor, and opaque join-attempt ID. It may expire a stale waiting request atomically, but never mints a provider credential or exposes another participant.
+     */
+    readonly get: operations["getMediaSpaceJoinAttempt"];
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/media/spaces/{space_id}/join-attempts/{join_attempt_id}/cancel": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Cancel the authenticated participant's exact waiting lobby request */
+    readonly post: operations["cancelMediaSpaceJoinAttempt"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/api/v1/media/spaces/{space_id}/join-credentials": {
     readonly parameters: {
       readonly query?: never;
@@ -1718,6 +1829,61 @@ export type paths = {
      * @description The server reauthorizes the active workspace and authoritative source, requires an existing admitted or joining ParticipantSession created by the canonical join-attempt endpoint, and derives all LiveKit identifiers, role, and grants. A waiting attempt returns admission_required without minting a credential. Provider room names and participant identities are never returned.
      */
     readonly post: operations["issueMediaSpaceJoinCredential"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/media/spaces/{space_id}/members": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /** List explicit StudyMeeting member grants without exposing a tenant directory */
+    readonly get: operations["listMediaSpaceMembers"];
+    readonly put?: never;
+    /**
+     * Invite one active same-tenant member to a StudyMeeting media space
+     * @description The normalized email is used only for an exact server lookup. It is not persisted in media tables or returned in responses, logs, audit, or outbox events. This endpoint never applies to official class media spaces.
+     */
+    readonly post: operations["inviteMediaSpaceMember"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/media/spaces/{space_id}/members/{user_id}/restore": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Restore one exact StudyMeeting member grant */
+    readonly post: operations["restoreMediaSpaceMember"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/media/spaces/{space_id}/members/{user_id}/revoke": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Revoke one exact StudyMeeting member grant */
+    readonly post: operations["revokeMediaSpaceMember"];
     readonly delete?: never;
     readonly options?: never;
     readonly head?: never;
@@ -3523,6 +3689,44 @@ export type components = {
       /** Format: uuid */
       readonly message_id: string;
     };
+    readonly MediaAdmission: {
+      /** Format: date-time */
+      readonly created_at: string;
+      /** @description Bounded display label only; no email, provider identity, join-attempt, or participant-session identifier is returned. */
+      readonly display_name: string;
+      /** Format: date-time */
+      readonly expires_at: string;
+      /** Format: uuid */
+      readonly id: string;
+      readonly status: components["schemas"]["MediaAdmissionStatus"];
+      /** Format: int64 */
+      readonly version: number;
+    };
+    readonly MediaAdmissionMutationRequest: {
+      /** Format: int64 */
+      readonly expected_admission_version: number;
+      /** Format: uuid */
+      readonly expected_room_instance_id: string;
+      /** Format: int64 */
+      readonly expected_room_instance_version: number;
+      /** Format: int64 */
+      readonly expected_space_version: number;
+      readonly idempotency_key: string;
+      /** @description Optional bounded non-private reason code; deny and safety actions may require it. */
+      readonly reason_code?: string;
+    };
+    readonly MediaAdmissionQueue: {
+      readonly items: readonly components["schemas"]["MediaAdmission"][];
+    };
+    /** @enum {string} */
+    readonly MediaAdmissionStatus:
+      | "waiting"
+      | "admitted"
+      | "denied"
+      | "cancelled"
+      | "meeting_ended"
+      | "timeout"
+      | "provider_unavailable";
     readonly MediaEventRequest: {
       /** Format: uuid */
       readonly attempt_id: string;
@@ -3579,11 +3783,21 @@ export type components = {
        * @description Present only when this participant is bound to a lobby admission request.
        */
       readonly admission_request_id?: string;
+      /**
+       * Format: int64
+       * @description Current self-only admission version used to cancel the exact waiting request.
+       */
+      readonly admission_version?: number;
       readonly can_publish_camera_microphone: boolean;
       readonly can_share_screen: boolean;
       readonly can_subscribe: boolean;
       /** Format: date-time */
       readonly created_at: string;
+      /**
+       * Format: date-time
+       * @description Bounded lobby wait expiry. It is present for attempts that required admission.
+       */
+      readonly expires_at?: string;
       readonly instance_role: components["schemas"]["MediaInstanceRole"];
       /** Format: uuid */
       readonly join_attempt_id: string;
@@ -3596,6 +3810,17 @@ export type components = {
       readonly updated_at: string;
       /** Format: int64 */
       readonly version: number;
+    };
+    readonly MediaJoinAttemptCancelRequest: {
+      /** Format: int64 */
+      readonly expected_admission_version: number;
+      /** Format: uuid */
+      readonly expected_room_instance_id: string;
+      /** Format: int64 */
+      readonly expected_room_instance_version: number;
+      /** Format: int64 */
+      readonly expected_space_version: number;
+      readonly idempotency_key: string;
     };
     readonly MediaJoinAttemptRequest: {
       /**
@@ -3615,7 +3840,15 @@ export type components = {
       readonly join_attempt_id: string;
     };
     /** @enum {string} */
-    readonly MediaJoinAttemptStatus: "waiting" | "admitted" | "joining";
+    readonly MediaJoinAttemptStatus:
+      | "waiting"
+      | "admitted"
+      | "joining"
+      | "denied"
+      | "cancelled"
+      | "timeout"
+      | "meeting_ended"
+      | "provider_unavailable";
     readonly MediaRoomInstance: {
       /** Format: date-time */
       readonly created_at: string;
@@ -3645,6 +3878,42 @@ export type components = {
       readonly version: number;
       readonly viewer_operations: components["schemas"]["MediaSpaceViewerOperations"];
     };
+    readonly MediaSpaceMember: {
+      /** Format: date-time */
+      readonly created_at: string;
+      readonly display_name: string;
+      readonly status: components["schemas"]["MediaSpaceMemberStatus"];
+      /** Format: date-time */
+      readonly updated_at: string;
+      /** Format: uuid */
+      readonly user_id: string;
+      /** Format: int64 */
+      readonly version: number;
+    };
+    readonly MediaSpaceMemberInviteRequest: {
+      /** Format: int64 */
+      readonly expected_space_version: number;
+      readonly idempotency_key: string;
+      /**
+       * Format: email
+       * @description Used only for an exact active same-tenant lookup and never persisted in media rows or returned in projections/events.
+       */
+      readonly target_member_email: string;
+    };
+    readonly MediaSpaceMemberList: {
+      readonly items: readonly components["schemas"]["MediaSpaceMember"][];
+    };
+    readonly MediaSpaceMemberMutationRequest: {
+      /** Format: int64 */
+      readonly expected_member_version: number;
+      /** Format: int64 */
+      readonly expected_space_version: number;
+      readonly idempotency_key: string;
+      /** @description Optional bounded non-private reason code; a safety-admin revoke requires it. */
+      readonly reason_code?: string;
+    };
+    /** @enum {string} */
+    readonly MediaSpaceMemberStatus: "active" | "revoked";
     readonly MediaSpaceSource:
       | components["schemas"]["ClassSessionMediaSpaceSource"]
       | components["schemas"]["ClassSessionOccurrenceMediaSpaceSource"]
@@ -3661,6 +3930,10 @@ export type components = {
     readonly MediaSpaceViewerOperations: {
       readonly can_cancel: boolean;
       readonly can_end: boolean;
+      /** @description Current server-authorized capability; never inferred from a client or provider role. */
+      readonly can_manage_admissions: boolean;
+      /** @description True only for an authorized StudyMeeting explicit-member manager. */
+      readonly can_manage_invites: boolean;
       readonly can_start: boolean;
     };
     readonly MediaTokenResponse: {
@@ -7936,6 +8209,160 @@ export interface operations {
       readonly default: components["responses"]["ProblemResponse"];
     };
   };
+  readonly listMediaSpaceAdmissions: {
+    readonly parameters: {
+      readonly query: {
+        readonly expected_room_instance_version: number;
+        readonly expected_space_version: number;
+        readonly limit?: number;
+        readonly room_instance_id: string;
+      };
+      readonly header: {
+        /** @description Active workspace assertion used to prevent confused-deputy mutations and reads. */
+        readonly "X-TutorHub-Expected-Tenant-ID": components["parameters"]["ExpectedTenantID"];
+      };
+      readonly path: {
+        readonly space_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Bounded moderator-only lobby queue */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["MediaAdmissionQueue"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly admitMediaSpaceAdmission: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Double-submit CSRF token bound to the active authenticated session. */
+        readonly "X-CSRF-Token": components["parameters"]["CSRFToken"];
+        /** @description Active workspace assertion used to prevent confused-deputy mutations and reads. */
+        readonly "X-TutorHub-Expected-Tenant-ID": components["parameters"]["ExpectedTenantID"];
+      };
+      readonly path: {
+        readonly admission_id: string;
+        readonly space_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["MediaAdmissionMutationRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Admitted lobby entry or exact idempotent replay */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["MediaAdmission"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly denyMediaSpaceAdmission: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Double-submit CSRF token bound to the active authenticated session. */
+        readonly "X-CSRF-Token": components["parameters"]["CSRFToken"];
+        /** @description Active workspace assertion used to prevent confused-deputy mutations and reads. */
+        readonly "X-TutorHub-Expected-Tenant-ID": components["parameters"]["ExpectedTenantID"];
+      };
+      readonly path: {
+        readonly admission_id: string;
+        readonly space_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["MediaAdmissionMutationRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Denied lobby entry or exact idempotent replay */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["MediaAdmission"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly restoreMediaSpaceAdmission: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Double-submit CSRF token bound to the active authenticated session. */
+        readonly "X-CSRF-Token": components["parameters"]["CSRFToken"];
+        /** @description Active workspace assertion used to prevent confused-deputy mutations and reads. */
+        readonly "X-TutorHub-Expected-Tenant-ID": components["parameters"]["ExpectedTenantID"];
+      };
+      readonly path: {
+        readonly admission_id: string;
+        readonly space_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["MediaAdmissionMutationRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Restored lobby entry or exact idempotent replay */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["MediaAdmission"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
   readonly cancelMediaSpace: {
     readonly parameters: {
       readonly query?: never;
@@ -8068,6 +8495,81 @@ export interface operations {
       readonly default: components["responses"]["ProblemResponse"];
     };
   };
+  readonly getMediaSpaceJoinAttempt: {
+    readonly parameters: {
+      readonly query: {
+        readonly expected_room_instance_version: number;
+        readonly expected_space_version: number;
+        readonly room_instance_id: string;
+      };
+      readonly header: {
+        /** @description Active workspace assertion used to prevent confused-deputy mutations and reads. */
+        readonly "X-TutorHub-Expected-Tenant-ID": components["parameters"]["ExpectedTenantID"];
+      };
+      readonly path: {
+        readonly join_attempt_id: string;
+        readonly space_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Current self-only join-attempt and lobby projection */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["MediaJoinAttempt"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly cancelMediaSpaceJoinAttempt: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Double-submit CSRF token bound to the active authenticated session. */
+        readonly "X-CSRF-Token": components["parameters"]["CSRFToken"];
+        /** @description Active workspace assertion used to prevent confused-deputy mutations and reads. */
+        readonly "X-TutorHub-Expected-Tenant-ID": components["parameters"]["ExpectedTenantID"];
+      };
+      readonly path: {
+        readonly join_attempt_id: string;
+        readonly space_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["MediaJoinAttemptCancelRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Cancelled join-attempt projection or exact idempotent replay */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["MediaJoinAttempt"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
   readonly issueMediaSpaceJoinCredential: {
     readonly parameters: {
       readonly query?: never;
@@ -8105,6 +8607,166 @@ export interface operations {
       readonly 404: components["responses"]["NotFoundResponse"];
       readonly 409: components["responses"]["ConflictResponse"];
       readonly 429: components["responses"]["ProblemResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly listMediaSpaceMembers: {
+    readonly parameters: {
+      readonly query: {
+        readonly expected_space_version: number;
+        readonly limit?: number;
+      };
+      readonly header: {
+        /** @description Active workspace assertion used to prevent confused-deputy mutations and reads. */
+        readonly "X-TutorHub-Expected-Tenant-ID": components["parameters"]["ExpectedTenantID"];
+      };
+      readonly path: {
+        readonly space_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Explicit grants only; never a tenant roster */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["MediaSpaceMemberList"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly inviteMediaSpaceMember: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Double-submit CSRF token bound to the active authenticated session. */
+        readonly "X-CSRF-Token": components["parameters"]["CSRFToken"];
+        /** @description Active workspace assertion used to prevent confused-deputy mutations and reads. */
+        readonly "X-TutorHub-Expected-Tenant-ID": components["parameters"]["ExpectedTenantID"];
+      };
+      readonly path: {
+        readonly space_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["MediaSpaceMemberInviteRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Existing active grant returned by exact replay */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["MediaSpaceMember"];
+        };
+      };
+      /** @description Same-tenant explicit member grant created */
+      readonly 201: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["MediaSpaceMember"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly restoreMediaSpaceMember: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Double-submit CSRF token bound to the active authenticated session. */
+        readonly "X-CSRF-Token": components["parameters"]["CSRFToken"];
+        /** @description Active workspace assertion used to prevent confused-deputy mutations and reads. */
+        readonly "X-TutorHub-Expected-Tenant-ID": components["parameters"]["ExpectedTenantID"];
+      };
+      readonly path: {
+        readonly space_id: string;
+        readonly user_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["MediaSpaceMemberMutationRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Restored grant or exact idempotent replay */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["MediaSpaceMember"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly revokeMediaSpaceMember: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Double-submit CSRF token bound to the active authenticated session. */
+        readonly "X-CSRF-Token": components["parameters"]["CSRFToken"];
+        /** @description Active workspace assertion used to prevent confused-deputy mutations and reads. */
+        readonly "X-TutorHub-Expected-Tenant-ID": components["parameters"]["ExpectedTenantID"];
+      };
+      readonly path: {
+        readonly space_id: string;
+        readonly user_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["MediaSpaceMemberMutationRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Revoked grant or exact idempotent replay */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["MediaSpaceMember"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
       readonly 503: components["responses"]["ProblemResponse"];
       readonly default: components["responses"]["ProblemResponse"];
     };

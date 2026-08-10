@@ -1675,6 +1675,105 @@ const messages = {
       "Trình duyệt đã chặn phát âm thử. Hãy chọn kiểm tra loa lần nữa.",
     "media.p403.error.media_device_unknown":
       "Thiết bị gặp lỗi chưa xác định. Bạn vẫn có thể tham gia chỉ nghe.",
+    "media.p404.refresh": "Làm mới",
+    "media.p404.refreshing": "Đang làm mới...",
+    "media.p404.reload": "Tải lại trạng thái",
+    "media.p404.closeDialog": "Đóng hộp thoại",
+    "media.p404.cancel": "Hủy",
+    "media.p404.conflict":
+      "Trạng thái phòng đã thay đổi. Hãy tải lại trước khi thử lại.",
+    "media.p404.rateLimited":
+      "Bạn đã thực hiện quá nhiều yêu cầu. Hãy chờ rồi thử lại.",
+    "media.p404.unavailable": "Dịch vụ phòng chờ đang tạm thời không khả dụng.",
+    "media.p404.commandError":
+      "Không thể hoàn tất thao tác. Hãy tải lại và thử lại.",
+    "media.p404.waiting.checking": "Đang kiểm tra...",
+    "media.p404.waiting.cancel": "Rời hàng chờ",
+    "media.p404.waiting.cancelling": "Đang rời hàng chờ...",
+    "media.p404.waiting.cancelError":
+      "Chưa thể rời hàng chờ. Hãy tải lại trạng thái rồi thử lại.",
+    "media.p404.waiting.statusError":
+      "Chưa thể cập nhật trạng thái. Bạn vẫn chưa kết nối tới nhà cung cấp media.",
+    "media.p404.waiting.expiresAt": "Yêu cầu chờ sẽ hết hạn lúc {time}.",
+    "media.p404.waiting.newRequest": "Tạo yêu cầu tham gia mới",
+    "media.p404.waiting.checkAgain": "Kiểm tra lại",
+    "media.p404.waiting.denied.title": "Yêu cầu tham gia đã bị từ chối",
+    "media.p404.waiting.denied.description":
+      "Bạn không thể yêu cầu tham gia lại phiên này cho tới khi người điều phối khôi phục quyền.",
+    "media.p404.waiting.cancelled.title": "Bạn đã rời hàng chờ",
+    "media.p404.waiting.cancelled.description":
+      "Không có credential media nào được cấp. Bạn có thể tạo yêu cầu mới khi sẵn sàng.",
+    "media.p404.waiting.timeout.title": "Yêu cầu tham gia đã hết hạn",
+    "media.p404.waiting.timeout.description":
+      "Thời gian chờ đã kết thúc mà không có credential. Tạo yêu cầu mới để thử lại.",
+    "media.p404.waiting.meeting_ended.title": "Phiên học đã kết thúc",
+    "media.p404.waiting.meeting_ended.description":
+      "Phòng đã đóng trước khi yêu cầu của bạn được giải quyết.",
+    "media.p404.waiting.provider_unavailable.title":
+      "Dịch vụ media chưa khả dụng",
+    "media.p404.waiting.provider_unavailable.description":
+      "TutorHub chưa cấp credential. Hãy chờ một lúc rồi kiểm tra lại.",
+    "media.p404.lobby.title": "Hàng chờ vào phòng",
+    "media.p404.lobby.description":
+      "Cho vào hoặc từ chối từng yêu cầu đã được Core API xác thực.",
+    "media.p404.lobby.loading": "Đang tải hàng chờ",
+    "media.p404.lobby.forbiddenTitle": "Không thể xem hàng chờ",
+    "media.p404.lobby.forbiddenDescription":
+      "Quyền điều phối của bạn không còn hiệu lực.",
+    "media.p404.lobby.errorTitle": "Chưa thể tải hàng chờ",
+    "media.p404.lobby.errorDescription":
+      "Không thể xác nhận danh sách hiện tại. Hãy thử lại.",
+    "media.p404.lobby.emptyTitle": "Không có ai đang chờ",
+    "media.p404.lobby.emptyDescription":
+      "Yêu cầu mới sẽ xuất hiện ở đây sau khi Core API xác thực.",
+    "media.p404.lobby.listLabel": "Người đang chờ được cho vào",
+    "media.p404.lobby.waiting": "Đang chờ",
+    "media.p404.lobby.admit": "Cho vào",
+    "media.p404.lobby.deny": "Từ chối",
+    "media.p404.lobby.admitNamed": "Cho {name} vào",
+    "media.p404.lobby.denyNamed": "Từ chối {name}",
+    "media.p404.lobby.resolving": "Đang cập nhật...",
+    "media.p404.lobby.admitted": "Đã cho {name} vào.",
+    "media.p404.lobby.denied": "Đã từ chối yêu cầu của {name}.",
+    "media.p404.lobby.denyTitle": "Từ chối yêu cầu tham gia?",
+    "media.p404.lobby.denyDescription":
+      "{name} sẽ không thể yêu cầu lại cho tới khi được khôi phục rõ ràng.",
+    "media.p404.lobby.confirmDeny": "Xác nhận từ chối",
+    "media.p404.invites.title": "Thành viên được mời",
+    "media.p404.invites.description":
+      "Chỉ mời tài khoản đang hoạt động trong workspace. TutorHub không tạo liên kết công khai.",
+    "media.p404.invites.emailLabel": "Email thành viên workspace",
+    "media.p404.invites.emailPlaceholder": "ten@workspace.example",
+    "media.p404.invites.invalidEmail": "Nhập một địa chỉ email hợp lệ.",
+    "media.p404.invites.invite": "Mời thành viên",
+    "media.p404.invites.inviting": "Đang mời...",
+    "media.p404.invites.invited": "Đã cấp quyền tham gia cho {name}.",
+    "media.p404.invites.loading": "Đang tải danh sách thành viên được mời",
+    "media.p404.invites.forbiddenTitle": "Không thể quản lý lời mời",
+    "media.p404.invites.forbiddenDescription":
+      "Chỉ chủ sở hữu StudyMeeting hiện tại mới có thể quản lý danh sách này.",
+    "media.p404.invites.errorTitle": "Chưa thể tải danh sách được mời",
+    "media.p404.invites.errorDescription":
+      "Không thể xác nhận các quyền tham gia hiện tại.",
+    "media.p404.invites.emptyTitle": "Chưa mời thành viên nào",
+    "media.p404.invites.emptyDescription":
+      "Nhập email của một thành viên workspace để cấp quyền rõ ràng.",
+    "media.p404.invites.listLabel": "Danh sách thành viên được mời",
+    "media.p404.invites.active": "Đang có quyền",
+    "media.p404.invites.revokedStatus": "Đã thu hồi",
+    "media.p404.invites.revoke": "Thu hồi",
+    "media.p404.invites.restore": "Khôi phục",
+    "media.p404.invites.revokeNamed": "Thu hồi quyền của {name}",
+    "media.p404.invites.restoreNamed": "Khôi phục quyền của {name}",
+    "media.p404.invites.updating": "Đang cập nhật...",
+    "media.p404.invites.revoked": "Đã thu hồi quyền của {name}.",
+    "media.p404.invites.restored": "Đã khôi phục quyền của {name}.",
+    "media.p404.invites.memberUnavailable":
+      "Không thể mời tài khoản này. Hãy kiểm tra rằng đó là thành viên workspace đang hoạt động.",
+    "media.p404.invites.revokeTitle": "Thu hồi quyền tham gia?",
+    "media.p404.invites.revokeDescription":
+      "{name} sẽ không thể tạo yêu cầu tham gia mới cho tới khi được khôi phục.",
+    "media.p404.invites.confirmRevoke": "Xác nhận thu hồi",
     "media.room.title": "Phòng học TutorHub",
     "media.room.participantCount": "{count} người tham gia",
     "media.room.participantGrid": "Khu vực video người tham gia",
@@ -3444,6 +3543,105 @@ const messages = {
       "The browser blocked the test sound. Choose the speaker test again.",
     "media.p403.error.media_device_unknown":
       "The device reported an unknown error. You can still join listen-only.",
+    "media.p404.refresh": "Refresh",
+    "media.p404.refreshing": "Refreshing...",
+    "media.p404.reload": "Reload current state",
+    "media.p404.closeDialog": "Close dialog",
+    "media.p404.cancel": "Cancel",
+    "media.p404.conflict":
+      "The room state changed. Reload it before trying again.",
+    "media.p404.rateLimited":
+      "Too many requests were made. Wait before trying again.",
+    "media.p404.unavailable": "The lobby service is temporarily unavailable.",
+    "media.p404.commandError":
+      "The command could not be completed. Reload and try again.",
+    "media.p404.waiting.checking": "Checking...",
+    "media.p404.waiting.cancel": "Leave waiting room",
+    "media.p404.waiting.cancelling": "Leaving waiting room...",
+    "media.p404.waiting.cancelError":
+      "The waiting request could not be cancelled. Reload its status and try again.",
+    "media.p404.waiting.statusError":
+      "The status could not be refreshed. You are still not connected to the media provider.",
+    "media.p404.waiting.expiresAt": "This waiting request expires at {time}.",
+    "media.p404.waiting.newRequest": "Create a new join request",
+    "media.p404.waiting.checkAgain": "Check again",
+    "media.p404.waiting.denied.title": "Your join request was denied",
+    "media.p404.waiting.denied.description":
+      "You cannot request access to this instance again until a moderator explicitly restores it.",
+    "media.p404.waiting.cancelled.title": "You left the waiting room",
+    "media.p404.waiting.cancelled.description":
+      "No media credential was issued. You can create a new request when you are ready.",
+    "media.p404.waiting.timeout.title": "Your join request expired",
+    "media.p404.waiting.timeout.description":
+      "The waiting period ended without a credential. Create a new request to try again.",
+    "media.p404.waiting.meeting_ended.title": "The classroom session ended",
+    "media.p404.waiting.meeting_ended.description":
+      "The room closed before your request was resolved.",
+    "media.p404.waiting.provider_unavailable.title":
+      "The media service is unavailable",
+    "media.p404.waiting.provider_unavailable.description":
+      "TutorHub has not issued a credential. Wait briefly and check again.",
+    "media.p404.lobby.title": "Waiting room",
+    "media.p404.lobby.description":
+      "Admit or deny individual requests already authorized by the Core API.",
+    "media.p404.lobby.loading": "Loading the waiting room",
+    "media.p404.lobby.forbiddenTitle": "The waiting room is unavailable",
+    "media.p404.lobby.forbiddenDescription":
+      "Your current moderation authority is no longer active.",
+    "media.p404.lobby.errorTitle": "The waiting room could not be loaded",
+    "media.p404.lobby.errorDescription":
+      "The current list could not be confirmed. Try again.",
+    "media.p404.lobby.emptyTitle": "No one is waiting",
+    "media.p404.lobby.emptyDescription":
+      "New requests appear here after the Core API authorizes them.",
+    "media.p404.lobby.listLabel": "People waiting to be admitted",
+    "media.p404.lobby.waiting": "Waiting",
+    "media.p404.lobby.admit": "Admit",
+    "media.p404.lobby.deny": "Deny",
+    "media.p404.lobby.admitNamed": "Admit {name}",
+    "media.p404.lobby.denyNamed": "Deny {name}",
+    "media.p404.lobby.resolving": "Updating...",
+    "media.p404.lobby.admitted": "{name} was admitted.",
+    "media.p404.lobby.denied": "{name}'s request was denied.",
+    "media.p404.lobby.denyTitle": "Deny this join request?",
+    "media.p404.lobby.denyDescription":
+      "{name} cannot request access again until a moderator explicitly restores it.",
+    "media.p404.lobby.confirmDeny": "Confirm denial",
+    "media.p404.invites.title": "Invited members",
+    "media.p404.invites.description":
+      "Invite only active accounts in this workspace. TutorHub does not create a public link.",
+    "media.p404.invites.emailLabel": "Workspace member email",
+    "media.p404.invites.emailPlaceholder": "name@workspace.example",
+    "media.p404.invites.invalidEmail": "Enter a valid email address.",
+    "media.p404.invites.invite": "Invite member",
+    "media.p404.invites.inviting": "Inviting...",
+    "media.p404.invites.invited": "{name} was granted access.",
+    "media.p404.invites.loading": "Loading invited members",
+    "media.p404.invites.forbiddenTitle": "Invites cannot be managed",
+    "media.p404.invites.forbiddenDescription":
+      "Only the current StudyMeeting owner can manage this list.",
+    "media.p404.invites.errorTitle": "Invited members could not be loaded",
+    "media.p404.invites.errorDescription":
+      "The current member grants could not be confirmed.",
+    "media.p404.invites.emptyTitle": "No members have been invited",
+    "media.p404.invites.emptyDescription":
+      "Enter an active workspace member's email to grant explicit access.",
+    "media.p404.invites.listLabel": "Invited members",
+    "media.p404.invites.active": "Active access",
+    "media.p404.invites.revokedStatus": "Revoked",
+    "media.p404.invites.revoke": "Revoke",
+    "media.p404.invites.restore": "Restore",
+    "media.p404.invites.revokeNamed": "Revoke {name}'s access",
+    "media.p404.invites.restoreNamed": "Restore {name}'s access",
+    "media.p404.invites.updating": "Updating...",
+    "media.p404.invites.revoked": "{name}'s access was revoked.",
+    "media.p404.invites.restored": "{name}'s access was restored.",
+    "media.p404.invites.memberUnavailable":
+      "This account cannot be invited. Check that it is an active member of the workspace.",
+    "media.p404.invites.revokeTitle": "Revoke this member's access?",
+    "media.p404.invites.revokeDescription":
+      "{name} cannot create another join request until access is restored.",
+    "media.p404.invites.confirmRevoke": "Confirm revocation",
     "media.room.title": "TutorHub classroom",
     "media.room.participantCount": "{count} participants",
     "media.room.participantGrid": "Participant video area",

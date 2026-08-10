@@ -484,6 +484,15 @@ func (repository *PostgresInstanceRepository) CreateOrReuseJoinAttempt(
 	} else if occupied {
 		return CreateJoinAttemptResult{}, ErrParticipantConflict
 	}
+	if blocked, err := hasUnrestoredRemovalBarrier(
+		queryContext, transaction, scope.TenantID, space.ID, room.ID, scope.ActorID,
+	); err != nil {
+		return CreateJoinAttemptResult{}, repository.lifecycle.unavailable(
+			"check media participant restore barrier", err,
+		)
+	} else if blocked {
+		return CreateJoinAttemptResult{}, ErrParticipantConflict
+	}
 	if err := acquireLifecycleTransactionLock(
 		queryContext, transaction, "media-participant-capacity:"+scope.TenantID.String(),
 	); err != nil {
@@ -530,6 +539,8 @@ VALUES ($1, $2, $3, $4, $5, 'waiting', 1, $6, $7, $8, $8)`,
 			)
 		}
 		participant.AdmissionRequestID = uuid.NullUUID{UUID: admissionID, Valid: true}
+		participant.AdmissionVersion = sql.NullInt64{Int64: 1, Valid: true}
+		participant.AdmissionCreatedAt = sql.NullTime{Time: now, Valid: true}
 		participant.Status = string(JoinAttemptWaiting)
 	} else {
 		participant.AdmittedAt = sql.NullTime{Time: now, Valid: true}
@@ -720,6 +731,8 @@ func (repository *PostgresInstanceRepository) RecordProviderWebhook(
 type participantRow struct {
 	ID                 uuid.UUID
 	AdmissionRequestID uuid.NullUUID
+	AdmissionVersion   sql.NullInt64
+	AdmissionCreatedAt sql.NullTime
 	JoinAttemptID      uuid.UUID
 	ProviderIdentity   string
 	InstanceRole       InstanceRole
@@ -745,13 +758,21 @@ func loadParticipantByAttempt(
 	var participant participantRow
 	err := transaction.QueryRow(
 		ctx,
-		`SELECT id, admission_request_id, join_attempt_id, provider_participant_identity,
-       instance_role, status, version, admitted_at, joining_at, created_at, updated_at,
-       connected_at, reconnecting_at, terminal_at
-FROM tutorhub.media_participant_sessions
-WHERE tenant_id = $1 AND room_instance_id = $2 AND user_id = $3
-  AND join_attempt_id = $4
-FOR UPDATE`,
+		`SELECT participant.id, participant.admission_request_id, participant.join_attempt_id,
+       participant.provider_participant_identity, participant.instance_role,
+       participant.status, participant.version, participant.admitted_at,
+       participant.joining_at, participant.created_at, participant.updated_at,
+       participant.connected_at, participant.reconnecting_at, participant.terminal_at,
+       admission.version, admission.created_at
+FROM tutorhub.media_participant_sessions AS participant
+LEFT JOIN tutorhub.media_admission_requests AS admission
+  ON admission.tenant_id = participant.tenant_id
+ AND admission.space_id = participant.space_id
+ AND admission.room_instance_id = participant.room_instance_id
+ AND admission.id = participant.admission_request_id
+WHERE participant.tenant_id = $1 AND participant.room_instance_id = $2
+  AND participant.user_id = $3 AND participant.join_attempt_id = $4
+FOR UPDATE OF participant`,
 		tenantID, roomInstanceID, userID, joinAttemptID,
 	).Scan(
 		&participant.ID, &participant.AdmissionRequestID, &participant.JoinAttemptID,
@@ -759,6 +780,7 @@ FOR UPDATE`,
 		&participant.Version, &participant.AdmittedAt, &participant.JoiningAt,
 		&participant.CreatedAt, &participant.UpdatedAt,
 		&participant.ConnectedAt, &participant.ReconnectingAt, &participant.TerminalAt,
+		&participant.AdmissionVersion, &participant.AdmissionCreatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return participantRow{}, false, nil
@@ -860,14 +882,25 @@ func projectJoinAttempt(
 	source authorizedSource,
 ) JoinAttempt {
 	var admissionRequestID *uuid.UUID
+	var admissionVersion *int64
+	var expiresAt *time.Time
 	if participant.AdmissionRequestID.Valid {
 		value := participant.AdmissionRequestID.UUID
 		admissionRequestID = &value
+	}
+	if participant.AdmissionVersion.Valid {
+		value := participant.AdmissionVersion.Int64
+		admissionVersion = &value
+	}
+	if participant.AdmissionCreatedAt.Valid {
+		value := participant.AdmissionCreatedAt.Time.UTC().Add(defaultLobbyAdmissionTTL)
+		expiresAt = &value
 	}
 	return JoinAttempt{
 		ParticipantSessionID:       participant.ID,
 		RoomInstanceID:             room.ID,
 		AdmissionRequestID:         admissionRequestID,
+		AdmissionVersion:           admissionVersion,
 		JoinAttemptID:              participant.JoinAttemptID,
 		Status:                     JoinAttemptStatus(participant.Status),
 		Version:                    participant.Version,
@@ -877,6 +910,7 @@ func projectJoinAttempt(
 		CanSubscribe:               true,
 		CreatedAt:                  participant.CreatedAt.UTC(),
 		UpdatedAt:                  participant.UpdatedAt.UTC(),
+		ExpiresAt:                  expiresAt,
 	}
 }
 
@@ -898,6 +932,28 @@ func hasActiveParticipant(
 		tenantID, roomInstanceID, userID,
 	).Scan(&found)
 	return found, err
+}
+
+func hasUnrestoredRemovalBarrier(
+	ctx context.Context,
+	transaction pgx.Tx,
+	tenantID uuid.UUID,
+	spaceID uuid.UUID,
+	roomInstanceID uuid.UUID,
+	userID uuid.UUID,
+) (bool, error) {
+	var blocked bool
+	err := transaction.QueryRow(
+		ctx,
+		`SELECT EXISTS (
+    SELECT 1 FROM tutorhub.media_participant_sessions
+    WHERE tenant_id = $1 AND space_id = $2 AND room_instance_id = $3
+      AND user_id = $4 AND status = 'removed'
+      AND rejoin_restored_at IS NULL
+)`,
+		tenantID, spaceID, roomInstanceID, userID,
+	).Scan(&blocked)
+	return blocked, err
 }
 
 func activeParticipantStatus(status string) bool {
@@ -1138,6 +1194,18 @@ WHERE tenant_id = $1 AND space_id = $2 AND id = $3 AND status = 'active'`,
 				if tag.RowsAffected() != 1 {
 					return ErrSpaceTransition
 				}
+				if err := expireOutstandingLobbyAdmissions(
+					ctx,
+					transaction,
+					binding.TenantID,
+					binding.SpaceID,
+					binding.RoomInstanceID,
+					nil,
+					"provider_unavailable",
+					transitionAt,
+				); err != nil {
+					return err
+				}
 				return terminateRoomParticipants(
 					ctx,
 					transaction,
@@ -1163,6 +1231,18 @@ WHERE tenant_id = $1 AND space_id = $2 AND id = $3 AND status = 'provisioning'`,
 				}
 				if tag.RowsAffected() != 1 {
 					return ErrSpaceTransition
+				}
+				if err := expireOutstandingLobbyAdmissions(
+					ctx,
+					transaction,
+					binding.TenantID,
+					binding.SpaceID,
+					binding.RoomInstanceID,
+					nil,
+					"provider_unavailable",
+					transitionAt,
+				); err != nil {
+					return err
 				}
 				return terminateRoomParticipants(
 					ctx,

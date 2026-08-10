@@ -75,9 +75,11 @@ type InstantSourceInput struct {
 }
 
 type ViewerOperations struct {
-	CanStart  bool `json:"can_start"`
-	CanEnd    bool `json:"can_end"`
-	CanCancel bool `json:"can_cancel"`
+	CanStart            bool `json:"can_start"`
+	CanEnd              bool `json:"can_end"`
+	CanCancel           bool `json:"can_cancel"`
+	CanManageAdmissions bool `json:"can_manage_admissions"`
+	CanManageInvites    bool `json:"can_manage_invites"`
 }
 
 type RoomInstance struct {

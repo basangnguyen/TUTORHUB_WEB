@@ -64,9 +64,19 @@ export interface MediaJoinAttemptProjection {
   join_attempt_id: string;
   participant_session_id: string;
   room_instance_id: string;
-  status: "waiting" | "admitted" | "joining";
+  status:
+    | "waiting"
+    | "admitted"
+    | "joining"
+    | "denied"
+    | "cancelled"
+    | "timeout"
+    | "meeting_ended"
+    | "provider_unavailable";
   version: number;
   admission_request_id?: string | null;
+  admission_version?: number;
+  expires_at?: string | null;
 }
 
 export interface MediaInstanceCredentialProjection {

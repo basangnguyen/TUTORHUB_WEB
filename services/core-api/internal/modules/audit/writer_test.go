@@ -74,22 +74,65 @@ func TestAppendDomainEventMapsSafeAuditProjection(t *testing.T) {
 	}
 }
 
-func TestAppendTransactionRejectsSecretShapedMetadata(t *testing.T) {
+func TestAppendExpiredMediaAdmissionSupportsSystemActorWithoutRequestMetadata(t *testing.T) {
+	t.Parallel()
+
 	transaction := &recordingTransaction{}
-	err := AppendTransaction(context.Background(), transaction, Draft{
-		TenantID:     uuid.New(),
-		ActorID:      uuid.New(),
-		Action:       ActionTenantUpdate,
-		ResourceType: "tenant",
-		ResourceID:   uuid.New(),
-		Outcome:      OutcomeSucceeded,
-		Metadata:     Metadata{"session_id": uuid.NewString()},
+	err := AppendDomainEvent(context.Background(), transaction, DomainEvent{
+		TenantID:      uuid.New(),
+		EventType:     "media_admission.expired.v1",
+		AggregateType: "media_admission",
+		AggregateID:   uuid.New(),
+		Metadata: Metadata{
+			MetadataKeyTargetUserID: uuid.NewString(),
+			"status":                "expired",
+			"reason_code":           "provider_unavailable",
+		},
+		OccurredAt: time.Now(),
 	})
-	if !errors.Is(err, ErrInvalidFilter) {
-		t.Fatalf("expected invalid metadata, got %v", err)
+	if err != nil {
+		t.Fatalf("append system admission expiry: %v", err)
 	}
-	if transaction.query != "" {
-		t.Fatal("invalid metadata reached the database")
+	if transaction.args[1] != ActorTypeSystem || transaction.args[2] != nil {
+		t.Fatalf(
+			"system admission expiry actor = type:%#v id:%#v",
+			transaction.args[1], transaction.args[2],
+		)
+	}
+	if transaction.args[3] != ActionMediaAdmissionExpire {
+		t.Fatalf("system admission expiry action = %#v", transaction.args[3])
+	}
+	if transaction.args[9] != nil || transaction.args[10] != nil {
+		t.Fatal("system admission expiry retained request source metadata")
+	}
+}
+
+func TestAppendTransactionRejectsSecretShapedMetadata(t *testing.T) {
+	for _, key := range []string{
+		"session_id",
+		"email",
+		"provider_room_name",
+		"provider_participant_identity",
+		"join_attempt_id",
+	} {
+		t.Run(key, func(t *testing.T) {
+			transaction := &recordingTransaction{}
+			err := AppendTransaction(context.Background(), transaction, Draft{
+				TenantID:     uuid.New(),
+				ActorID:      uuid.New(),
+				Action:       ActionMediaAdmissionAdmit,
+				ResourceType: "media_admission",
+				ResourceID:   uuid.New(),
+				Outcome:      OutcomeSucceeded,
+				Metadata:     Metadata{key: uuid.NewString()},
+			})
+			if !errors.Is(err, ErrInvalidFilter) {
+				t.Fatalf("expected invalid metadata key %q, got %v", key, err)
+			}
+			if transaction.query != "" {
+				t.Fatalf("invalid metadata key %q reached the database", key)
+			}
+		})
 	}
 }
 

@@ -463,6 +463,7 @@ func run() int {
 
 	var mediaService media.ServiceAPI
 	var mediaJoinAttemptService media.JoinAttemptServiceAPI
+	var mediaLobbyService media.LobbyServiceAPI
 	var mediaCredentialService media.InstanceCredentialServiceAPI
 	var mediaWebhookProcessor media.WebhookProcessor
 	var liveKitWebhook media.WebhookVerifier
@@ -554,6 +555,19 @@ func run() int {
 			logger.Error("initialize room-instance join attempts", "error", err)
 			return 1
 		}
+		lobbyRepository, err := media.NewPostgresLobbyRepository(mediaLifecycleRepository)
+		if err != nil {
+			logger.Error("initialize media lobby repository", "error", err)
+			return 1
+		}
+		mediaLobbyService, err = media.NewLobbyService(
+			lobbyRepository,
+			media.LobbyServiceConfig{Clock: time.Now},
+		)
+		if err != nil {
+			logger.Error("initialize media lobby service", "error", err)
+			return 1
+		}
 		mediaWebhookProcessor, err = media.NewProviderWebhookService(
 			instanceRepository,
 			mediaService,
@@ -595,6 +609,7 @@ func run() int {
 		Media:                 mediaService,
 		MediaSpaces:           mediaLifecycleService,
 		MediaJoinAttempts:     mediaJoinAttemptService,
+		MediaLobby:            mediaLobbyService,
 		MediaCredentials:      mediaCredentialService,
 		MediaWebhooks:         mediaWebhookProcessor,
 		LiveKitWebhook:        liveKitWebhook,

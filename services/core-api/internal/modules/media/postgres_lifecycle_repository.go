@@ -481,6 +481,18 @@ func (repository *PostgresLifecycleRepository) endSpace(
 	if err := terminateRoomIntent(ctx, transaction, scope, instance, command.OccurredAt); err != nil {
 		return spaceRow{}, err
 	}
+	if err := expireOutstandingLobbyAdmissions(
+		ctx,
+		transaction,
+		scope.TenantID,
+		row.ID,
+		instance.ID,
+		&scope.ActorID,
+		"meeting_ended",
+		command.OccurredAt,
+	); err != nil {
+		return spaceRow{}, repository.unavailable("expire media lobby admissions", err)
+	}
 	if err := terminateRoomParticipants(
 		ctx,
 		transaction,
@@ -710,19 +722,21 @@ func (repository *PostgresLifecycleRepository) projectAuthorizedSpace(
 	scope tenancy.Context,
 	row spaceRow,
 ) (MediaSpace, error) {
-	if _, err := repository.authorizeSource(
+	viewerSource, err := repository.authorizeSource(
 		ctx, transaction, access, scope, row, policy.ActionClassView, false, false,
-	); err != nil {
+	)
+	if err != nil {
 		if errors.Is(err, ErrSpaceAccessDenied) {
 			return MediaSpace{}, ErrSpaceNotFound
 		}
 		return MediaSpace{}, err
 	}
 	operations := ViewerOperations{}
+	featureEnabled := repository.controls.RequireFeature(
+		ctx, transaction, scope.TenantID, featurecontrol.FeatureClassroomMediaRooms,
+	) == nil
 	if row.Status == SpaceStatusScheduled {
-		if err := repository.controls.RequireFeature(
-			ctx, transaction, scope.TenantID, featurecontrol.FeatureClassroomMediaRooms,
-		); err == nil {
+		if featureEnabled {
 			if _, err := repository.authorizeSource(
 				ctx, transaction, access, scope, row, policy.ActionSessionStart, true, false,
 			); err == nil {
@@ -741,7 +755,17 @@ func (repository *PostgresLifecycleRepository) projectAuthorizedSpace(
 		); err == nil {
 			operations.CanEnd = true
 		}
+		if featureEnabled {
+			if _, err := repository.authorizeSource(
+				ctx, transaction, access, scope, row, policy.ActionParticipantAdmit, true, false,
+			); err == nil {
+				operations.CanManageAdmissions = true
+			}
+		}
 	}
+	operations.CanManageInvites = featureEnabled &&
+		(row.Status == SpaceStatusScheduled || row.Status == SpaceStatusOpen) &&
+		row.Source.Kind == SourceStudyMeeting && viewerSource.Owner
 	space := row.project(operations)
 	instance, err := loadActiveRoom(ctx, transaction, scope.TenantID, row.ID, false)
 	if err == nil {

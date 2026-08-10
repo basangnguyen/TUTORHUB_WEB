@@ -97,7 +97,13 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
   candidate `e49a8cc38f464e3ec56655823bcbb1ee77cbc651`: local/Chromium/disposable/LiveKit provider,
   GitHub Verify/Security, shared exact ACL, Render/Cloudflare exact deploy và live
   public/privacy/authenticated feature-off/no-side-effect acceptance đều PASS. Không có migration;
-  shared ledger giữ `30 false`, không rollback. Task runnable hiện tại là P4-04 lobby/admission/invite.
+  shared ledger giữ `30 false`, không rollback.
+- P4-04 Lobby/admission/explicit same-tenant invite đang `VERIFY` ngày 2026-08-10. Local candidate
+  đã có OpenAPI/generated client, Go service/repository/HTTP, web waiting/moderator/invite UX,
+  migration `000031` và full local verification PASS. Neon disposable owner preflight, forward-only
+  `30 false -> 31 false -> 31 false`, exact/default ACL cùng PostgreSQL gates PASS. Exact CI/security,
+  shared staging, deploy và live acceptance còn `PENDING`; không rollback. Hai media
+  feature tiếp tục force-off, `effect=None`, `CanPublishData=false`.
 - P5-COLLAB-00 đã được đăng ký làm research spike tương lai cho whiteboard engine,
   document/sync authority, license và realtime topology. Task vẫn `TODO`, không chặn P4-02
   và không cho phép thêm production dependency/runtime trước prototype, evidence và ADR.
@@ -158,7 +164,8 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
 41. [P4-MEDIA-UX-00: Classroom media UX research spike](docs/P4_MEDIA_UX_00_RESEARCH_SPIKE.md)
 42. [P4-MEDIA-UX-00: Báo cáo research/evidence](docs/P4_MEDIA_UX_00_RESEARCH_REPORT.md)
 43. [ADR-0031: Classroom media UX devices/layout/effects/signals](docs/adr/0031-classroom-media-ux-devices-layout-effects-and-signals.md)
-44. [P5-COLLAB-00: Whiteboard engine và collaboration topology research spike](docs/P5_COLLAB_00_RESEARCH_SPIKE.md)
+44. [P4-04: Lobby/admission/invite staging acceptance](docs/P4_04_STAGING_ACCEPTANCE.md)
+45. [P5-COLLAB-00: Whiteboard engine và collaboration topology research spike](docs/P5_COLLAB_00_RESEARCH_SPIKE.md)
 
 Các quyết định kiến trúc đã chấp nhận nằm trong `docs/adr`.
 

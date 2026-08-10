@@ -14,14 +14,17 @@ func TestJoinAttemptServiceReturnsBoundedWaitingProjection(t *testing.T) {
 
 	spaceID, roomID, attemptID := uuid.New(), uuid.New(), uuid.New()
 	admissionID := uuid.New()
+	admissionVersion := int64(1)
+	expiresAt := mediaTestTime.Add(defaultLobbyAdmissionTTL)
 	repository := &fakeJoinAttemptRepository{result: CreateJoinAttemptResult{
 		Created: true,
 		Attempt: JoinAttempt{
 			ParticipantSessionID: uuid.New(), RoomInstanceID: roomID,
-			AdmissionRequestID: &admissionID, JoinAttemptID: attemptID,
-			Status: JoinAttemptWaiting, Version: 1, InstanceRole: InstanceRoleAttendee,
+			AdmissionRequestID: &admissionID, AdmissionVersion: &admissionVersion,
+			JoinAttemptID: attemptID,
+			Status:        JoinAttemptWaiting, Version: 1, InstanceRole: InstanceRoleAttendee,
 			CanPublishCameraMicrophone: true, CanSubscribe: true,
-			CreatedAt: mediaTestTime, UpdatedAt: mediaTestTime,
+			CreatedAt: mediaTestTime, UpdatedAt: mediaTestTime, ExpiresAt: &expiresAt,
 		},
 	}}
 	service, err := NewJoinAttemptService(repository, func() time.Time { return mediaTestTime })

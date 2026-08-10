@@ -15,8 +15,9 @@ import {
 } from "@livekit/components-react";
 import { Room } from "livekit-client";
 import {
-  useEffect,
   useCallback,
+  useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -38,15 +39,32 @@ import {
   type MediaPrejoinErrorCode,
   type MediaPrejoinSnapshot,
 } from "../app/mediaPrejoin";
+import {
+  mediaLobbyIdempotencyKey,
+  useCancelMediaJoinAttempt,
+  useMediaJoinAttemptStatus,
+} from "../app/mediaLobby";
 import { useSession } from "../app/session";
+import { MediaLobbyPanel } from "../components/MediaLobbyPanel";
+import { MediaSpaceInvitePanel } from "../components/MediaSpaceInvitePanel";
 
 type JoinStatus =
-  "idle" | "creating_attempt" | "waiting" | "credential" | "failed";
+  | "idle"
+  | "creating_attempt"
+  | "waiting"
+  | "credential"
+  | "denied"
+  | "cancelled"
+  | "timeout"
+  | "meeting_ended"
+  | "provider_unavailable"
+  | "failed";
 interface MediaJoinState {
   scopeKey: string;
   status: JoinStatus;
   errorKey: TranslationKey | null;
   attempt: MediaJoinAttemptProjection | null;
+  choices: MediaJoinChoices | null;
 }
 type CanonicalRoomStatus =
   "connecting" | "connected" | "disconnected" | "failed";
@@ -75,7 +93,7 @@ const unsupportedSnapshot: MediaPrejoinSnapshot = {
 export function MediaSpacePreJoinPage() {
   const { spaceId } = useParams();
   const navigate = useNavigate();
-  const { t } = useI18n();
+  const { language, t } = useI18n();
   const session = useSession();
   const tenantId = session.currentUser?.active_tenant?.id ?? "";
   const userId = session.currentUser?.user.id ?? "";
@@ -84,6 +102,7 @@ export function MediaSpacePreJoinPage() {
     status: "idle",
     errorKey: null,
     attempt: null,
+    choices: null,
   });
   const [networkStatus, setNetworkStatus] =
     useState<MediaNetworkStatus>("checking");
@@ -91,7 +110,9 @@ export function MediaSpacePreJoinPage() {
     "fast" | "moderate" | "slow" | "unknown"
   >("unknown");
   const handoffCreated = useRef(false);
+  const terminalHeading = useRef<HTMLHeadingElement>(null);
   const activeJoinRequest = useRef<AbortController | null>(null);
+  const cancelCommand = useRef<{ attemptID: string; key: string } | null>(null);
   const joinScopeKey = `${tenantId}\u0000${userId}\u0000${spaceId ?? ""}`;
   const joinStateIsCurrent = joinState.scopeKey === joinScopeKey;
   const currentJoinStatus: JoinStatus = joinStateIsCurrent
@@ -146,6 +167,7 @@ export function MediaSpacePreJoinPage() {
     () => () => {
       activeJoinRequest.current?.abort();
       activeJoinRequest.current = null;
+      cancelCommand.current = null;
     },
     [spaceId, tenantId, userId],
   );
@@ -156,59 +178,31 @@ export function MediaSpacePreJoinPage() {
     queryFn: ({ signal }) => getMediaSpace(tenantId, spaceId ?? "", { signal }),
     retry: false,
   });
+  const projectedRoom = mediaSpace.data?.active_room_instance;
+  const joinAttemptStatus = useMediaJoinAttemptStatus(
+    tenantId,
+    spaceId ?? "",
+    currentJoinAttempt?.join_attempt_id ?? "",
+    projectedRoom?.id ?? "",
+    mediaSpace.data?.version ?? 0,
+    projectedRoom?.version ?? 0,
+    currentJoinStatus === "waiting",
+  );
+  const cancelJoinAttempt = useCancelMediaJoinAttempt(tenantId, spaceId ?? "");
 
-  const submitJoin = async (choices: MediaJoinChoices) => {
-    const room = mediaSpace.data?.active_room_instance;
-    if (
-      !spaceId ||
-      !tenantId ||
-      !userId ||
-      !room ||
-      room.status !== "active" ||
-      mediaSpace.data?.status !== "open" ||
-      activeJoinRequest.current !== null ||
-      currentJoinStatus === "creating_attempt" ||
-      currentJoinStatus === "credential"
-    ) {
-      return;
-    }
-    const currentAttempt = currentJoinAttempt;
-    setJoinState({
-      scopeKey: joinScopeKey,
-      status: "creating_attempt",
-      errorKey: null,
-      attempt: currentAttempt,
-    });
-    const attemptId =
-      currentAttempt?.join_attempt_id ?? globalThis.crypto.randomUUID();
-    const abort = new AbortController();
-    activeJoinRequest.current = abort;
-    try {
-      const csrf = await rotateCSRFToken({ signal: abort.signal });
-      if (abort.signal.aborted) {
-        return;
-      }
-      const attempt = (await createMediaSpaceJoinAttempt(
-        tenantId,
-        spaceId,
-        {
-          join_attempt_id: attemptId,
-          expected_room_instance_id: room.id,
-          expected_space_version: mediaSpace.data.version,
-        },
-        csrf.csrf_token,
-        { signal: abort.signal },
-      )) as MediaJoinAttemptProjection;
-      if (abort.signal.aborted) {
-        return;
-      }
-      if (attempt.status === "waiting") {
-        setJoinState({
-          scopeKey: joinScopeKey,
-          status: "waiting",
-          errorKey: null,
-          attempt,
-        });
+  const completeCredentialHandoff = useCallback(
+    async (
+      attempt: MediaJoinAttemptProjection,
+      choices: MediaJoinChoices,
+      csrfToken: string,
+      abort: AbortController,
+    ) => {
+      if (
+        !spaceId ||
+        !tenantId ||
+        !userId ||
+        (attempt.status !== "admitted" && attempt.status !== "joining")
+      ) {
         return;
       }
       setJoinState({
@@ -216,12 +210,13 @@ export function MediaSpacePreJoinPage() {
         status: "credential",
         errorKey: null,
         attempt,
+        choices,
       });
       const credential = await issueMediaSpaceJoinCredential(
         tenantId,
         spaceId,
         { join_attempt_id: attempt.join_attempt_id },
-        csrf.csrf_token,
+        csrfToken,
         { signal: abort.signal },
       );
       if (abort.signal.aborted) {
@@ -258,6 +253,78 @@ export function MediaSpacePreJoinPage() {
       void navigate(
         `/app/media/spaces/${spaceId}/instances/${credential.room_instance_id}/room`,
       );
+    },
+    [controller, joinScopeKey, navigate, spaceId, tenantId, userId],
+  );
+
+  const submitJoin = async (choices: MediaJoinChoices) => {
+    const room = mediaSpace.data?.active_room_instance;
+    if (
+      !spaceId ||
+      !tenantId ||
+      !userId ||
+      !room ||
+      room.status !== "active" ||
+      mediaSpace.data?.status !== "open" ||
+      activeJoinRequest.current !== null ||
+      currentJoinStatus === "creating_attempt" ||
+      currentJoinStatus === "credential"
+    ) {
+      return;
+    }
+    const currentAttempt = currentJoinAttempt;
+    setJoinState({
+      scopeKey: joinScopeKey,
+      status: "creating_attempt",
+      errorKey: null,
+      attempt: currentAttempt,
+      choices,
+    });
+    const attemptId =
+      currentAttempt?.join_attempt_id ?? globalThis.crypto.randomUUID();
+    const abort = new AbortController();
+    activeJoinRequest.current = abort;
+    try {
+      const csrf = await rotateCSRFToken({ signal: abort.signal });
+      if (abort.signal.aborted) {
+        return;
+      }
+      const attempt = (await createMediaSpaceJoinAttempt(
+        tenantId,
+        spaceId,
+        {
+          join_attempt_id: attemptId,
+          expected_room_instance_id: room.id,
+          expected_space_version: mediaSpace.data.version,
+        },
+        csrf.csrf_token,
+        { signal: abort.signal },
+      )) as MediaJoinAttemptProjection;
+      if (abort.signal.aborted) {
+        return;
+      }
+      if (attempt.status === "waiting") {
+        setJoinState({
+          scopeKey: joinScopeKey,
+          status: "waiting",
+          errorKey: null,
+          attempt,
+          choices,
+        });
+        return;
+      }
+      if (isTerminalJoinStatus(attempt.status)) {
+        const terminalStatus: TerminalJoinStatus = attempt.status;
+        setJoinState({
+          scopeKey: joinScopeKey,
+          status: terminalStatus,
+          errorKey: null,
+          attempt,
+          choices,
+        });
+        return;
+      }
+      await completeCredentialHandoff(attempt, choices, csrf.csrf_token, abort);
     } catch (error) {
       if (abort.signal.aborted) {
         return;
@@ -276,6 +343,160 @@ export function MediaSpacePreJoinPage() {
         activeJoinRequest.current = null;
       }
     }
+  };
+
+  useEffect(() => {
+    const attempt = joinAttemptStatus.data;
+    const choices =
+      currentJoinAttempt?.join_attempt_id === attempt?.join_attempt_id
+        ? joinState.choices
+        : null;
+    if (
+      !attempt ||
+      !choices ||
+      currentJoinStatus !== "waiting" ||
+      activeJoinRequest.current !== null
+    ) {
+      return;
+    }
+    if (attempt.status === "waiting") {
+      setJoinState((current) =>
+        current.scopeKey === joinScopeKey &&
+        current.attempt?.version !== attempt.version
+          ? { ...current, attempt }
+          : current,
+      );
+      return;
+    }
+    if (isTerminalJoinStatus(attempt.status)) {
+      const terminalStatus: TerminalJoinStatus = attempt.status;
+      setJoinState((current) =>
+        current.scopeKey === joinScopeKey
+          ? {
+              ...current,
+              attempt,
+              errorKey: null,
+              status: terminalStatus,
+            }
+          : current,
+      );
+      return;
+    }
+    if (attempt.status !== "admitted" && attempt.status !== "joining") {
+      return;
+    }
+
+    const abort = new AbortController();
+    activeJoinRequest.current = abort;
+    void (async () => {
+      try {
+        const csrf = await rotateCSRFToken({ signal: abort.signal });
+        if (!abort.signal.aborted) {
+          await completeCredentialHandoff(
+            attempt,
+            choices,
+            csrf.csrf_token,
+            abort,
+          );
+        }
+      } catch (error) {
+        if (!abort.signal.aborted) {
+          setJoinState((current) =>
+            current.scopeKey === joinScopeKey
+              ? {
+                  ...current,
+                  status: "failed",
+                  errorKey: joinProblemKey(error),
+                }
+              : current,
+          );
+        }
+      } finally {
+        if (activeJoinRequest.current === abort) {
+          activeJoinRequest.current = null;
+        }
+      }
+    })();
+    return () => abort.abort();
+  }, [
+    completeCredentialHandoff,
+    currentJoinAttempt?.join_attempt_id,
+    currentJoinStatus,
+    joinAttemptStatus.data,
+    joinScopeKey,
+    joinState.choices,
+  ]);
+
+  useLayoutEffect(() => {
+    if (isTerminalJoinStatus(currentJoinStatus)) {
+      terminalHeading.current?.focus();
+    }
+  }, [currentJoinStatus]);
+
+  const cancelWaiting = () => {
+    const attempt = currentJoinAttempt;
+    if (
+      !attempt ||
+      !attempt.admission_version ||
+      !projectedRoom ||
+      cancelJoinAttempt.isPending
+    ) {
+      return;
+    }
+    if (cancelCommand.current?.attemptID !== attempt.join_attempt_id) {
+      cancelCommand.current = {
+        attemptID: attempt.join_attempt_id,
+        key: mediaLobbyIdempotencyKey("join-cancel"),
+      };
+    }
+    cancelJoinAttempt.mutate(
+      {
+        attemptID: attempt.join_attempt_id,
+        input: {
+          expected_space_version: mediaSpace.data?.version ?? 0,
+          expected_room_instance_id: attempt.room_instance_id,
+          expected_room_instance_version: projectedRoom.version,
+          expected_admission_version: attempt.admission_version,
+          idempotency_key: cancelCommand.current.key,
+        },
+      },
+      {
+        onSuccess: (cancelled) => {
+          cancelCommand.current = null;
+          setJoinState((current) =>
+            current.scopeKey === joinScopeKey
+              ? {
+                  ...current,
+                  attempt: cancelled,
+                  errorKey: null,
+                  status: "cancelled",
+                }
+              : current,
+          );
+        },
+      },
+    );
+  };
+
+  const resetJoinRequest = () => {
+    cancelJoinAttempt.reset();
+    cancelCommand.current = null;
+    setJoinState({
+      scopeKey: joinScopeKey,
+      status: "idle",
+      errorKey: null,
+      attempt: null,
+      choices: null,
+    });
+  };
+
+  const recheckTerminalAdmission = () => {
+    setJoinState((current) =>
+      current.scopeKey === joinScopeKey
+        ? { ...current, status: "waiting", errorKey: null }
+        : current,
+    );
+    void joinAttemptStatus.refetch();
   };
 
   if (!spaceId || !tenantId || !userId) {
@@ -301,13 +522,18 @@ export function MediaSpacePreJoinPage() {
       </div>
     );
   }
-  const room = mediaSpace.data.active_room_instance;
+  const room = projectedRoom;
   if (mediaSpace.data.status !== "open" || room?.status !== "active") {
     return <MediaSpaceFailure message={t("media.p403.roomNotOpen")} />;
   }
   const previewActive =
     snapshot.status === "preview_ready" ||
     snapshot.status === "switching_device";
+  const joinActionLocked =
+    currentJoinStatus !== "idle" && currentJoinStatus !== "failed";
+  const viewerOperations = mediaP404ViewerOperations(
+    mediaSpace.data.viewer_operations,
+  );
 
   return (
     <div className="media-p403-page">
@@ -402,10 +628,7 @@ export function MediaSpacePreJoinPage() {
 
           <div className="media-p403-join-actions">
             <button
-              disabled={
-                currentJoinStatus === "creating_attempt" ||
-                currentJoinStatus === "credential"
-              }
+              disabled={joinActionLocked}
               onClick={() =>
                 void submitJoin(
                   controller?.choices(false) ?? listenOnlyChoices(),
@@ -419,10 +642,7 @@ export function MediaSpacePreJoinPage() {
                 : t("media.p403.joinWithDevices")}
             </button>
             <button
-              disabled={
-                currentJoinStatus === "creating_attempt" ||
-                currentJoinStatus === "credential"
-              }
+              disabled={joinActionLocked}
               onClick={() =>
                 void submitJoin(
                   controller?.choices(true) ?? listenOnlyChoices(),
@@ -437,21 +657,74 @@ export function MediaSpacePreJoinPage() {
       </section>
 
       {currentJoinStatus === "waiting" && (
-        <section
-          className="media-p403-waiting"
-          role="status"
-          aria-live="polite"
-        >
+        <section className="media-p403-waiting">
           <h2>{t("media.p403.waitingTitle")}</h2>
-          <p>{t("media.p403.waitingDescription")}</p>
+          <p aria-live="polite" role="status">
+            {t("media.p403.waitingDescription")}
+          </p>
+          {currentJoinAttempt?.expires_at && (
+            <p>
+              {t("media.p404.waiting.expiresAt", {
+                time: formatLobbyExpiry(
+                  currentJoinAttempt.expires_at,
+                  language,
+                ),
+              })}
+            </p>
+          )}
           <button
-            onClick={() =>
-              void submitJoin(controller?.choices(true) ?? listenOnlyChoices())
-            }
+            disabled={joinAttemptStatus.isFetching}
+            onClick={() => void joinAttemptStatus.refetch()}
             type="button"
           >
-            {t("media.p403.checkAdmission")}
+            {joinAttemptStatus.isFetching
+              ? t("media.p404.waiting.checking")
+              : t("media.p403.checkAdmission")}
           </button>
+          <button
+            disabled={
+              cancelJoinAttempt.isPending ||
+              !currentJoinAttempt?.admission_version
+            }
+            onClick={cancelWaiting}
+            type="button"
+          >
+            {cancelJoinAttempt.isPending
+              ? t("media.p404.waiting.cancelling")
+              : t("media.p404.waiting.cancel")}
+          </button>
+          {(joinAttemptStatus.isError || cancelJoinAttempt.isError) && (
+            <p className="media-p404-error" role="alert">
+              {t(
+                cancelJoinAttempt.isError
+                  ? "media.p404.waiting.cancelError"
+                  : "media.p404.waiting.statusError",
+              )}
+            </p>
+          )}
+        </section>
+      )}
+
+      {isTerminalJoinStatus(currentJoinStatus) && (
+        <section className="media-p403-alert" role="alert">
+          <h2 ref={terminalHeading} tabIndex={-1}>
+            {t(terminalJoinTitleKey(currentJoinStatus))}
+          </h2>
+          <p>{t(terminalJoinDescriptionKey(currentJoinStatus))}</p>
+          <div className="media-p404-terminal-actions">
+            {(currentJoinStatus === "cancelled" ||
+              currentJoinStatus === "timeout") && (
+              <button onClick={resetJoinRequest} type="button">
+                {t("media.p404.waiting.newRequest")}
+              </button>
+            )}
+            {(currentJoinStatus === "denied" ||
+              currentJoinStatus === "provider_unavailable") && (
+              <button onClick={recheckTerminalAdmission} type="button">
+                {t("media.p404.waiting.checkAgain")}
+              </button>
+            )}
+          </div>
         </section>
       )}
 
@@ -475,6 +748,7 @@ export function MediaSpacePreJoinPage() {
                       status: "idle",
                       errorKey: null,
                       attempt: null,
+                      choices: null,
                     },
               );
             }}
@@ -484,6 +758,16 @@ export function MediaSpacePreJoinPage() {
           </button>
         </section>
       )}
+
+      <MediaSpaceInvitePanel
+        enabled={
+          mediaSpace.data.source.kind === "study_meeting" &&
+          viewerOperations.canManageInvites
+        }
+        spaceID={spaceId}
+        spaceVersion={mediaSpace.data.version}
+        tenantID={tenantId}
+      />
     </div>
   );
 }
@@ -677,6 +961,12 @@ function MediaSpaceRoomSession({
     useState<CanonicalRoomStatus>("connecting");
   const [roomError, setRoomError] = useState<TranslationKey | null>(null);
   const [shouldConnect, setShouldConnect] = useState(true);
+  const mediaSpace = useQuery({
+    enabled: Boolean(spaceId && tenantId),
+    queryKey: ["media-space-room", tenantId, spaceId],
+    queryFn: ({ signal }) => getMediaSpace(tenantId, spaceId ?? "", { signal }),
+    retry: false,
+  });
   const [handoff, setHandoff] = useState(() => {
     if (!spaceId || !roomInstanceId || !tenantId || !userId) {
       clearMediaRoomEscrow();
@@ -714,6 +1004,10 @@ function MediaSpaceRoomSession({
     [handoff],
   );
   const selectedSpeakerDeviceId = handoff?.choices.speakerDeviceId ?? "";
+  const activeRoom = mediaSpace.data?.active_room_instance;
+  const viewerOperations = mediaP404ViewerOperations(
+    mediaSpace.data?.viewer_operations,
+  );
 
   const handleConnected = useCallback(() => {
     setRoomStatus("connected");
@@ -838,6 +1132,18 @@ function MediaSpaceRoomSession({
             {t("media.p403.leave")}
           </button>
         </section>
+        {spaceId &&
+          activeRoom?.id === roomInstanceId &&
+          activeRoom.status === "active" && (
+            <MediaLobbyPanel
+              enabled={viewerOperations.canManageAdmissions}
+              roomInstanceID={activeRoom.id}
+              roomInstanceVersion={activeRoom.version}
+              spaceID={spaceId}
+              spaceVersion={mediaSpace.data?.version ?? 0}
+              tenantID={tenantId}
+            />
+          )}
         <RoomAudioRenderer />
         <StartAudio
           className="media-p403-start-audio"
@@ -906,6 +1212,17 @@ function credentialExpired(expiresAt: string): boolean {
   return !Number.isFinite(parsed) || parsed <= Date.now();
 }
 
+function formatLobbyExpiry(expiresAt: string, language: "vi" | "en"): string {
+  const parsed = new Date(expiresAt);
+  if (!Number.isFinite(parsed.getTime())) {
+    return expiresAt;
+  }
+  return new Intl.DateTimeFormat(language === "vi" ? "vi-VN" : "en-US", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(parsed);
+}
+
 function deviceErrorKey(code: MediaPrejoinErrorCode): TranslationKey {
   return `media.p403.error.${code}` as TranslationKey;
 }
@@ -952,4 +1269,45 @@ function processingValue(
 ): string {
   if (value === null) return t("media.p403.unknown");
   return value ? t("media.p403.on") : t("media.p403.off");
+}
+
+type TerminalJoinStatus = Extract<
+  JoinStatus,
+  "denied" | "cancelled" | "timeout" | "meeting_ended" | "provider_unavailable"
+>;
+
+function isTerminalJoinStatus(
+  status: JoinStatus | MediaJoinAttemptProjection["status"],
+): status is TerminalJoinStatus {
+  return (
+    status === "denied" ||
+    status === "cancelled" ||
+    status === "timeout" ||
+    status === "meeting_ended" ||
+    status === "provider_unavailable"
+  );
+}
+
+function terminalJoinTitleKey(status: TerminalJoinStatus): TranslationKey {
+  return `media.p404.waiting.${status}.title` as TranslationKey;
+}
+
+function terminalJoinDescriptionKey(
+  status: TerminalJoinStatus,
+): TranslationKey {
+  return `media.p404.waiting.${status}.description` as TranslationKey;
+}
+
+function mediaP404ViewerOperations(value: unknown): {
+  canManageAdmissions: boolean;
+  canManageInvites: boolean;
+} {
+  if (typeof value !== "object" || value === null) {
+    return { canManageAdmissions: false, canManageInvites: false };
+  }
+  const operations = value as Record<string, unknown>;
+  return {
+    canManageAdmissions: operations.can_manage_admissions === true,
+    canManageInvites: operations.can_manage_invites === true,
+  };
 }

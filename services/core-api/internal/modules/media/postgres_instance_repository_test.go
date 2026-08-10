@@ -226,6 +226,41 @@ func TestJoinAttemptOwnsParticipantCreationBeforeCredentialMint(t *testing.T) {
 	}
 }
 
+func TestJoinAttemptRequiresExplicitRestoreAfterRemoval(t *testing.T) {
+	t.Parallel()
+
+	source := postgresInstanceRepositorySource(t)
+	attempt := postgresInstanceRepositorySection(
+		t,
+		source,
+		"func (repository *PostgresInstanceRepository) CreateOrReuseJoinAttempt(",
+		"func (repository *PostgresInstanceRepository) requireParticipantCapacity(",
+	)
+	activeCheck := strings.Index(attempt, "hasActiveParticipant(")
+	restoreBarrier := strings.Index(attempt, "hasUnrestoredRemovalBarrier(")
+	capacityLock := strings.Index(attempt, "media-participant-capacity:")
+	admissionInsert := strings.Index(attempt, "INSERT INTO tutorhub.media_admission_requests")
+	if activeCheck < 0 || restoreBarrier <= activeCheck || capacityLock <= restoreBarrier ||
+		admissionInsert <= capacityLock {
+		t.Fatal("join attempt does not enforce the removal restore barrier before capacity/admission creation")
+	}
+	barrier := postgresInstanceRepositorySection(
+		t,
+		source,
+		"func hasUnrestoredRemovalBarrier(",
+		"func activeParticipantStatus(",
+	)
+	for _, fragment := range []string{
+		"tenant_id = $1 AND space_id = $2 AND room_instance_id = $3",
+		"user_id = $4 AND status = 'removed'",
+		"rejoin_restored_at IS NULL",
+	} {
+		if !strings.Contains(barrier, fragment) {
+			t.Fatalf("restore barrier is missing %q", fragment)
+		}
+	}
+}
+
 func TestCredentialLockBlocksAdmittedAttemptBeforeMint(t *testing.T) {
 	t.Parallel()
 

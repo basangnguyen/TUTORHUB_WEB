@@ -31,7 +31,9 @@ import { SessionProvider } from "../app/session";
 import { MediaSpacePreJoinPage, MediaSpaceRoomPage } from "./MediaSpacePages";
 
 const apiMocks = vi.hoisted(() => ({
+  cancelJoinAttempt: vi.fn(),
   createJoinAttempt: vi.fn(),
+  getJoinAttempt: vi.fn(),
   getMediaSpace: vi.fn(),
   issueJoinCredential: vi.fn(),
   rotateCSRFToken: vi.fn(),
@@ -49,7 +51,9 @@ vi.mock("@tutorhub/api-client", async (importOriginal) => {
     await importOriginal<typeof import("@tutorhub/api-client")>();
   return {
     ...original,
+    cancelMediaJoinAttempt: apiMocks.cancelJoinAttempt,
     createMediaSpaceJoinAttempt: apiMocks.createJoinAttempt,
+    getMediaJoinAttempt: apiMocks.getJoinAttempt,
     getMediaSpace: apiMocks.getMediaSpace,
     issueMediaSpaceJoinCredential: apiMocks.issueJoinCredential,
     rotateCSRFToken: apiMocks.rotateCSRFToken,
@@ -121,6 +125,8 @@ const mediaSpace: MediaSpace = {
     can_start: false,
     can_end: false,
     can_cancel: false,
+    can_manage_admissions: false,
+    can_manage_invites: false,
   },
   created_at: "2030-08-03T00:00:00Z",
   updated_at: "2030-08-03T00:01:00Z",
@@ -359,6 +365,15 @@ describe("MediaSpacePreJoinPage P4-03 boundaries", () => {
   beforeEach(() => {
     clearMediaRoomEscrow();
     apiMocks.getMediaSpace.mockResolvedValue(mediaSpace);
+    apiMocks.getJoinAttempt.mockResolvedValue({
+      admission_request_id: "d48a301d-c468-4f65-8da2-029fc379ee74",
+      admission_version: 1,
+      join_attempt_id: joinAttemptID,
+      participant_session_id: participantSessionID,
+      room_instance_id: roomInstanceID,
+      status: "waiting",
+      version: 1,
+    });
     apiMocks.rotateCSRFToken.mockResolvedValue({ csrf_token: "media-csrf" });
     vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue(undefined);
     vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(
@@ -374,6 +389,8 @@ describe("MediaSpacePreJoinPage P4-03 boundaries", () => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
     apiMocks.createJoinAttempt.mockReset();
+    apiMocks.cancelJoinAttempt.mockReset();
+    apiMocks.getJoinAttempt.mockReset();
     apiMocks.getMediaSpace.mockReset();
     apiMocks.issueJoinCredential.mockReset();
     apiMocks.rotateCSRFToken.mockReset();
@@ -433,6 +450,7 @@ describe("MediaSpacePreJoinPage P4-03 boundaries", () => {
     const media = fakeMediaDevices(fakeStream().stream);
     apiMocks.createJoinAttempt.mockResolvedValue({
       admission_request_id: "d48a301d-c468-4f65-8da2-029fc379ee74",
+      admission_version: 1,
       join_attempt_id: joinAttemptID,
       participant_session_id: participantSessionID,
       room_instance_id: roomInstanceID,
@@ -454,6 +472,187 @@ describe("MediaSpacePreJoinPage P4-03 boundaries", () => {
     expect(screen.getByTestId("route-path")).toHaveTextContent(
       `/app/media/spaces/${spaceID}/prejoin`,
     );
+  });
+
+  it("renders an immediate terminal provider projection without requesting a credential", async () => {
+    const media = fakeMediaDevices(fakeStream().stream);
+    apiMocks.createJoinAttempt.mockResolvedValue({
+      join_attempt_id: joinAttemptID,
+      participant_session_id: participantSessionID,
+      room_instance_id: roomInstanceID,
+      status: "provider_unavailable",
+      version: 1,
+    });
+    renderPrejoin(media);
+    await screen.findByRole("heading", { name: "Get ready for class" });
+
+    fireEvent.click(screen.getByRole("button", { name: "Join listen-only" }));
+
+    const terminalHeading = await screen.findByRole("heading", {
+      name: "The media service is unavailable",
+    });
+    expect(terminalHeading).toHaveFocus();
+    expect(apiMocks.issueJoinCredential).not.toHaveBeenCalled();
+    expect(liveKitMocks.roomRender).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    {
+      status: "timeout" as const,
+      heading: "Your join request expired",
+      canCreateNewRequest: true,
+    },
+    {
+      status: "meeting_ended" as const,
+      heading: "The classroom session ended",
+      canCreateNewRequest: false,
+    },
+  ])(
+    "renders the $status terminal projection with the bounded recovery action",
+    async ({ status, heading, canCreateNewRequest }) => {
+      const media = fakeMediaDevices(fakeStream().stream);
+      apiMocks.createJoinAttempt.mockResolvedValue({
+        join_attempt_id: joinAttemptID,
+        participant_session_id: participantSessionID,
+        room_instance_id: roomInstanceID,
+        status,
+        version: 1,
+      });
+      renderPrejoin(media);
+      await screen.findByRole("heading", { name: "Get ready for class" });
+
+      fireEvent.click(screen.getByRole("button", { name: "Join listen-only" }));
+
+      const terminalHeading = await screen.findByRole("heading", {
+        name: heading,
+      });
+      expect(terminalHeading).toHaveFocus();
+      const newRequest = screen.queryByRole("button", {
+        name: "Create a new join request",
+      });
+      if (canCreateNewRequest) {
+        expect(newRequest).toBeVisible();
+        fireEvent.click(newRequest!);
+        expect(
+          screen.getByRole("button", { name: "Join listen-only" }),
+        ).toBeEnabled();
+      } else {
+        expect(newRequest).not.toBeInTheDocument();
+      }
+      expect(apiMocks.issueJoinCredential).not.toHaveBeenCalled();
+      expect(liveKitMocks.roomRender).not.toHaveBeenCalled();
+    },
+  );
+
+  it("retains the original device choices while admission polling completes", async () => {
+    const token = "admitted-after-wait-token";
+    const media = fakeMediaDevices(fakeStream().stream);
+    const waitingAttempt = {
+      admission_request_id: "d48a301d-c468-4f65-8da2-029fc379ee74",
+      admission_version: 1,
+      join_attempt_id: joinAttemptID,
+      participant_session_id: participantSessionID,
+      room_instance_id: roomInstanceID,
+      status: "waiting" as const,
+      version: 1,
+      expires_at: "2030-08-03T00:07:00Z",
+    };
+    apiMocks.createJoinAttempt.mockResolvedValue(waitingAttempt);
+    apiMocks.getJoinAttempt
+      .mockResolvedValueOnce(waitingAttempt)
+      .mockResolvedValue({ ...waitingAttempt, status: "admitted", version: 2 });
+    apiMocks.issueJoinCredential.mockResolvedValue({
+      access_token: token,
+      server_url: "wss://media.example.test",
+      participant_session_id: participantSessionID,
+      room_instance_id: roomInstanceID,
+      join_attempt_id: joinAttemptID,
+      instance_role: "attendee",
+      can_publish_camera_microphone: true,
+      can_share_screen: false,
+      can_subscribe: true,
+      expires_at: "2030-08-03T00:05:00Z",
+    });
+    renderPrejoin(media);
+    await screen.findByRole("heading", { name: "Get ready for class" });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Test camera and microphone" }),
+    );
+    await waitFor(() => expect(media.getUserMedia).toHaveBeenCalledTimes(1));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Join with enabled devices" }),
+    );
+    await screen.findByRole("heading", { name: "Waiting to be admitted" });
+    expect(screen.getByText(/waiting request expires at/i)).toBeVisible();
+    await waitFor(() =>
+      expect(apiMocks.getJoinAttempt).toHaveBeenCalledTimes(1),
+    );
+    const refresh = screen.getByRole("button", {
+      name: "Check admission status",
+    });
+    await waitFor(() => expect(refresh).toBeEnabled());
+    fireEvent.click(refresh);
+
+    await screen.findByText("Canonical room destination");
+    const handoff = takeMediaRoomEscrow({
+      tenantId: tenantID,
+      userId: userID,
+      spaceId: spaceID,
+      roomInstanceId: roomInstanceID,
+    });
+    expect(handoff).toMatchObject({
+      choices: {
+        audioEnabled: true,
+        videoEnabled: true,
+        audioDeviceId: "microphone-1",
+        videoDeviceId: "camera-1",
+      },
+      credential: { access_token: token },
+    });
+  });
+
+  it("cancels a waiting request without minting a credential", async () => {
+    const media = fakeMediaDevices(fakeStream().stream);
+    const waitingAttempt = {
+      admission_request_id: "d48a301d-c468-4f65-8da2-029fc379ee74",
+      admission_version: 1,
+      join_attempt_id: joinAttemptID,
+      participant_session_id: participantSessionID,
+      room_instance_id: roomInstanceID,
+      status: "waiting" as const,
+      version: 1,
+    };
+    apiMocks.createJoinAttempt.mockResolvedValue(waitingAttempt);
+    apiMocks.cancelJoinAttempt.mockResolvedValue({
+      ...waitingAttempt,
+      status: "cancelled",
+      version: 2,
+    });
+    renderPrejoin(media);
+    await screen.findByRole("heading", { name: "Get ready for class" });
+    fireEvent.click(screen.getByRole("button", { name: "Join listen-only" }));
+    await screen.findByRole("heading", { name: "Waiting to be admitted" });
+    fireEvent.click(screen.getByRole("button", { name: "Leave waiting room" }));
+
+    const cancelledHeading = await screen.findByRole("heading", {
+      name: "You left the waiting room",
+    });
+    expect(cancelledHeading).toBeVisible();
+    expect(cancelledHeading).toHaveFocus();
+    expect(apiMocks.cancelJoinAttempt).toHaveBeenCalledWith(
+      tenantID,
+      spaceID,
+      joinAttemptID,
+      expect.objectContaining({
+        expected_space_version: 4,
+        expected_room_instance_id: roomInstanceID,
+        expected_room_instance_version: 2,
+        expected_admission_version: 1,
+      }),
+      "media-csrf",
+    );
+    expect(apiMocks.issueJoinCredential).not.toHaveBeenCalled();
+    expect(liveKitMocks.roomRender).not.toHaveBeenCalled();
   });
 
   it("requests an admitted attempt before the credential and hands the token off outside history state", async () => {

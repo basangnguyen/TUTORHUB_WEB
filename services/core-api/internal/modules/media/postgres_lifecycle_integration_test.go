@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tutorhub-v2/core-api/internal/modules/classroom"
 	"github.com/tutorhub-v2/core-api/internal/modules/featurecontrol"
@@ -23,31 +24,97 @@ import (
 )
 
 func TestPostgresMediaLifecycleRuntimeExactACL(t *testing.T) {
+	runPostgresMediaLifecycleRuntimeExactACL(t, true)
+}
+
+func TestPostgresMediaLifecycleRuntimeExactACLSharedReadOnly(t *testing.T) {
+	if strings.TrimSpace(os.Getenv("P4_04_SHARED_CONFIRM")) != p404SharedPreflightConfirmation {
+		t.Fatal("P4_04_SHARED_CONFIRM is not set to the shared-staging confirmation")
+	}
+	if strings.TrimSpace(os.Getenv("P4_04_SHARED_ACL_PROVISION_CONFIRM")) !=
+		p404SharedACLProvisionConfirmation {
+		t.Fatal("P4_04_SHARED_ACL_PROVISION_CONFIRM is not set to the shared-staging ACL confirmation")
+	}
+	if p404AnyConflictingSharedConfirmationIsSet() {
+		t.Fatal("P4-04 shared read-only ACL probe refuses disposable confirmations")
+	}
+	migrationURL := requireP404SharedIntegrationEnvironment(t, "DATABASE_MIGRATION_URL")
+	runtimeURL := requireP404SharedIntegrationEnvironment(t, "DATABASE_POOL_URL")
+	requireP404NeonURLBoundary(t, migrationURL, runtimeURL)
+	runPostgresMediaLifecycleRuntimeExactACL(t, false)
+}
+
+func runPostgresMediaLifecycleRuntimeExactACL(t *testing.T, applyMigrations bool) {
+	t.Helper()
 	migrationURL := requireMediaIntegrationEnvironment(t, "DATABASE_MIGRATION_URL")
 	runtimeURL := requireMediaIntegrationEnvironment(t, "DATABASE_POOL_URL")
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
-	if err := migrationrunner.Up(ctx, migrationURL); err != nil {
-		t.Fatal("apply media lifecycle migrations")
+	if applyMigrations {
+		if err := migrationrunner.Up(ctx, migrationURL); err != nil {
+			t.Fatal("apply media lifecycle migrations")
+		}
 	}
 	migrationPool := openMediaIntegrationPool(t, ctx, migrationURL)
 	t.Cleanup(migrationPool.Close)
 	runtimePool := openMediaIntegrationPool(t, ctx, runtimeURL)
 	t.Cleanup(runtimePool.Close)
+	var migrationQueries mediaACLRowQuerier = migrationPool
+	var runtimeQueries mediaACLRowQuerier = runtimePool
+	if !applyMigrations {
+		migrationTx, err := migrationPool.BeginTx(ctx, pgx.TxOptions{
+			IsoLevel:   pgx.RepeatableRead,
+			AccessMode: pgx.ReadOnly,
+		})
+		if err != nil {
+			t.Fatal("begin shared owner read-only ACL probe")
+		}
+		defer func() { _ = migrationTx.Rollback(context.Background()) }()
+		runtimeTx, err := runtimePool.BeginTx(ctx, pgx.TxOptions{
+			IsoLevel:   pgx.RepeatableRead,
+			AccessMode: pgx.ReadOnly,
+		})
+		if err != nil {
+			t.Fatal("begin shared runtime read-only ACL probe")
+		}
+		defer func() { _ = runtimeTx.Rollback(context.Background()) }()
+		for _, tx := range []pgx.Tx{migrationTx, runtimeTx} {
+			var readOnly string
+			if err := tx.QueryRow(ctx, `SHOW transaction_read_only`).Scan(&readOnly); err != nil {
+				t.Fatal("inspect shared read-only ACL transaction mode")
+			}
+			if readOnly != "on" {
+				t.Fatal("shared ACL probe transaction is not read-only")
+			}
+		}
+		migrationQueries = migrationTx
+		runtimeQueries = runtimeTx
+	}
 
 	var migrationRole, runtimeRole string
-	if err := migrationPool.QueryRow(ctx, "SELECT current_user").Scan(&migrationRole); err != nil {
+	if err := migrationQueries.QueryRow(ctx, "SELECT current_user").Scan(&migrationRole); err != nil {
 		t.Fatalf("read migration database identity: %v", err)
 	}
-	if err := runtimePool.QueryRow(ctx, "SELECT current_user").Scan(&runtimeRole); err != nil {
+	if err := runtimeQueries.QueryRow(ctx, "SELECT current_user").Scan(&runtimeRole); err != nil {
 		t.Fatalf("read runtime database identity: %v", err)
 	}
 	if migrationRole == runtimeRole {
 		t.Fatal("exact media lifecycle ACL requires distinct migration and runtime roles")
 	}
+	var version int
+	var dirty bool
+	if err := migrationQueries.QueryRow(
+		ctx,
+		`SELECT version, dirty FROM public.tutorhub_schema_migrations`,
+	).Scan(&version, &dirty); err != nil {
+		t.Fatal("inspect exact media lifecycle ACL ledger")
+	}
+	if version != 31 || dirty {
+		t.Fatal("exact media lifecycle ACL requires ledger 31 false")
+	}
 
 	var schemaUsage, schemaCreate bool
-	if err := runtimePool.QueryRow(ctx, `SELECT
+	if err := runtimeQueries.QueryRow(ctx, `SELECT
     has_schema_privilege(current_user, 'tutorhub', 'USAGE'),
     has_schema_privilege(current_user, 'tutorhub', 'CREATE')`).Scan(
 		&schemaUsage,
@@ -60,7 +127,7 @@ func TestPostgresMediaLifecycleRuntimeExactACL(t *testing.T) {
 	}
 
 	for _, expectation := range p402MediaACLExpectations() {
-		assertExactMediaACL(t, ctx, runtimePool, expectation)
+		assertExactMediaACL(t, ctx, runtimeQueries, expectation)
 	}
 
 	mediaTables := []string{
@@ -70,7 +137,7 @@ func TestPostgresMediaLifecycleRuntimeExactACL(t *testing.T) {
 		"livekit_webhook_events",
 	}
 	var publicTableGrants, publicColumnGrants int
-	if err := migrationPool.QueryRow(ctx, `SELECT
+	if err := migrationQueries.QueryRow(ctx, `SELECT
     (SELECT count(*) FROM information_schema.table_privileges
      WHERE table_schema = 'tutorhub' AND table_name = ANY($1::text[]) AND grantee = 'PUBLIC'),
     (SELECT count(*) FROM information_schema.column_privileges
@@ -88,7 +155,7 @@ func TestPostgresMediaLifecycleRuntimeExactACL(t *testing.T) {
 	}
 
 	var safeRole, noMigrationMembership, noTableOwnership bool
-	if err := migrationPool.QueryRow(ctx, `SELECT
+	if err := migrationQueries.QueryRow(ctx, `SELECT
     NOT runtime.rolsuper AND NOT runtime.rolcreaterole AND NOT runtime.rolcreatedb
         AND NOT runtime.rolreplication AND NOT runtime.rolbypassrls,
     NOT pg_has_role(runtime.oid, migration.oid, 'MEMBER'),
@@ -117,6 +184,29 @@ WHERE runtime.rolname = $1`, runtimeRole, migrationRole, mediaTables).Scan(
 			noTableOwnership,
 		)
 	}
+
+	var unsafeFutureTableDefaultGrants int
+	if err := migrationQueries.QueryRow(ctx, `SELECT count(*)
+FROM pg_default_acl AS defaults
+JOIN pg_namespace AS namespace ON namespace.oid = defaults.defaclnamespace
+CROSS JOIN LATERAL aclexplode(defaults.defaclacl) AS privilege
+JOIN pg_roles AS runtime ON runtime.rolname = $1
+WHERE namespace.nspname = 'tutorhub'
+  AND defaults.defaclobjtype = 'r'
+  AND (
+      privilege.grantee = 0
+      OR pg_has_role(runtime.oid, privilege.grantee, 'USAGE')
+  )`, runtimeRole).Scan(&unsafeFutureTableDefaultGrants); err != nil {
+		t.Fatal("inspect media lifecycle future-table default ACL")
+	}
+	if unsafeFutureTableDefaultGrants != 0 {
+		t.Fatal("runtime or PUBLIC has unsafe future-table default ACL")
+	}
+}
+
+type mediaACLRowQuerier interface {
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
 }
 
 type mediaACLExpectation struct {
@@ -129,12 +219,12 @@ type mediaACLExpectation struct {
 func assertExactMediaACL(
 	t *testing.T,
 	ctx context.Context,
-	pool *pgxpool.Pool,
+	queries mediaACLRowQuerier,
 	expectation mediaACLExpectation,
 ) {
 	t.Helper()
 	var inserted, selected, updated, deleted, truncated, referenced, triggered bool
-	if err := pool.QueryRow(ctx, `SELECT
+	if err := queries.QueryRow(ctx, `SELECT
     has_table_privilege(current_user, $1, 'INSERT'),
     has_table_privilege(current_user, $1, 'SELECT'),
     has_table_privilege(current_user, $1, 'UPDATE'),
@@ -165,22 +255,22 @@ func assertExactMediaACL(
 			triggered,
 		)
 	}
-	assertExactMediaColumns(t, ctx, pool, expectation.relation, "SELECT", expectation.selectColumns)
-	assertExactMediaColumns(t, ctx, pool, expectation.relation, "INSERT", expectation.insertColumns)
-	assertExactMediaColumns(t, ctx, pool, expectation.relation, "UPDATE", expectation.updateColumns)
-	assertExactMediaColumns(t, ctx, pool, expectation.relation, "REFERENCES", nil)
+	assertExactMediaColumns(t, ctx, queries, expectation.relation, "SELECT", expectation.selectColumns)
+	assertExactMediaColumns(t, ctx, queries, expectation.relation, "INSERT", expectation.insertColumns)
+	assertExactMediaColumns(t, ctx, queries, expectation.relation, "UPDATE", expectation.updateColumns)
+	assertExactMediaColumns(t, ctx, queries, expectation.relation, "REFERENCES", nil)
 }
 
 func assertExactMediaColumns(
 	t *testing.T,
 	ctx context.Context,
-	pool *pgxpool.Pool,
+	queries mediaACLRowQuerier,
 	relation string,
 	privilege string,
 	expected []string,
 ) {
 	t.Helper()
-	rows, err := pool.Query(ctx, `SELECT column_name
+	rows, err := queries.Query(ctx, `SELECT column_name
 FROM information_schema.columns
 WHERE table_schema = split_part($1, '.', 1)
   AND table_name = split_part($1, '.', 2)

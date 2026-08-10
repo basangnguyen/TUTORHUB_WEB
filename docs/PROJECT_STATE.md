@@ -13,9 +13,41 @@
 | Phase hoàn thành     | Phase 0, Phase 1, Phase 2                                                             |
 | Phase hiện tại       | Phase 4 Classroom Media MVP; Phase 3 deferred carry-over vẫn hoạt động                |
 | Task `DONE` gần nhất | P4-03 Prejoin device/network và join-attempt flow                                     |
-| Mốc repository mới   | P4-03 exact candidate CI/shared/deploy/live acceptance đạt `DONE`                     |
-| Task hiện tại        | P4-04 Lobby, admission và explicit same-tenant invite (`TODO`)                        |
-| Task tiếp theo       | Bắt đầu vertical slice P4-04, tiếp tục giữ media feature force-off                    |
+| Mốc repository mới   | P4-04 local + Neon disposable database gates PASS; CI/shared/live còn `PENDING`        |
+| Task hiện tại        | P4-04 Lobby, admission và explicit same-tenant invite (`VERIFY`)                      |
+| Task tiếp theo       | Exact candidate diff/secret review, commit/push và GitHub Verify/Security             |
+
+### Checkpoint P4-04 `VERIFY` ngày 2026-08-10
+
+P4-04 local candidate đã thêm contract/API cho self join-attempt poll/cancel, moderator admission
+queue cùng admit/deny/restore và explicit same-tenant StudyMeeting member list/invite/revoke/restore.
+Core API reauthorize current tenant/source/membership, bind exact MediaSpace/RoomInstance/actor,
+dùng expected version + idempotency receipt + CAS và giữ lock order cho race admit/deny/end/cancel/
+timeout. Denied/removed member chỉ có thể rejoin sau explicit restore; waiting participant không có
+provider credential/connection và device/effect state không đổi admission hoặc capacity.
+
+Forward migration `000031_media_lobby_admission_restore` mở rộng exact receipt-operation allowlist
+và thêm participant rejoin-restore marker cùng same-tenant FK/check/partial index. Migration không
+revive terminal session hoặc mở public/anonymous authority. Raw email
+chỉ là exact lookup input cho invite; projection, audit/outbox và log không lưu email, token,
+provider/device identifier hoặc media content.
+
+Web có waiting timeout/cancel/retry cùng denied/cancelled/meeting-ended/provider-unavailable states,
+moderator lobby và invite panel fail-closed, bounded focus/error/empty/forbidden handling và không
+enumerate tenant roster. Local evidence hiện có: OpenAPI generation/check PASS; API client `7` files/
+`49` tests; web typecheck và `59` files/`305` tests PASS; focused P4-04 web `23/23`, targeted lint/build/
+E2E typecheck/format/diff PASS; Go test/vet cùng integration-tag compile PASS. Isolated P4-04
+Playwright đạt `3/3`; security/static sign-off cho deployment guard, audit, exact ACL columns,
+lock/TTL/privacy/restore PASS. Full exact `pnpm verify` PASS với workspace-local Go cache;
+integration compile không phải bằng chứng PostgreSQL runtime.
+
+Neon disposable đã PASS owner preflight, forward-only `30 false -> 31 false -> 31 false`, exact
+runtime/default/future-table ACL, lobby/admission/invite race/restore, lifecycle và RoomInstance
+integration gates; final ledger `31 false`, không rollback. Full post-disposable `pnpm verify` cũng
+PASS. P4-04 vẫn `VERIFY`, chưa `DONE`: bước tiếp theo là exact candidate CI/security; shared forward,
+deploy và live acceptance cần quyền riêng sau đó. Không xóa disposable branch và tiếp tục giữ
+`classroom_media_rooms`/`instant_study_rooms` force-off, `effect=None`, `CanPublishData=false`.
+Runbook/evidence: [P4_04_STAGING_ACCEPTANCE.md](P4_04_STAGING_ACCEPTANCE.md).
 
 ### Checkpoint P4-03 `DONE` ngày 2026-08-10
 
@@ -46,7 +78,7 @@ Live đạt 6/6 health/ready/status `200 + no-store`, 4/4 anonymous MediaSpace/j
 với Retry, zero video/audio element, URL sạch credential và console sạch. Transaction read-only
 trước/sau giữ bảy media relation ở `0 -> 0`; không có join/provider/database side effect. Disposable
 branch tiếp tục được giữ; `.env*.local` và `.tmp-gocache/` không thuộc candidate. P4-03 chuyển
-`VERIFY -> DONE`; P4-04 là task runnable hiện tại.
+`VERIFY -> DONE`; P4-04 sau đó đã triển khai local candidate và chuyển `VERIFY`.
 
 ### Checkpoint P4-MEDIA-UX-00 `DONE` ngày 2026-08-09
 

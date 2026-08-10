@@ -94,6 +94,18 @@ Hai media feature có catalog default false **và** deployment guardrail force-o
 staging acceptance. `X-TutorHub-Expected-Tenant-ID` chỉ chống workspace/cache race, không
 thay active-session/repository authorization. Recording/egress và `CanPublishData` giữ off.
 
+**P4-04 lobby boundary:** explicit invite chỉ lookup active authenticated member cùng tenant cho
+member-owned StudyMeeting/instant meeting; không có public/anonymous/external guest và không tải
+tenant roster để client chọn. Raw email là input-only, không xuất hiện trong response, audit,
+outbox, metric hoặc log. Admission/member mutation bind exact tenant/space/room/actor/current source,
+expected version và idempotency receipt; inaccessible/foreign/inactive identity bị conceal.
+Admit/deny/end/cancel/timeout dùng deterministic lock order và terminal transition để không double
+reserve capacity. Denied/removed rejoin bị chặn tới explicit restore, nhưng restore không revive
+terminal ParticipantSession hoặc bypass current membership/source reauthorization. Waiting có zero
+credential/provider connection; device/effect không thay đổi authority. Forward migration `000031`
+cùng exact runtime/default/future-table ACL đã PASS disposable trước shared; không rollback, còn hai feature media,
+`effect=None` và `CanPublishData=false` tiếp tục force-off.
+
 ## 4. Web security
 
 - CSP nghiêm ngặt, không phụ thuộc inline script/eval.

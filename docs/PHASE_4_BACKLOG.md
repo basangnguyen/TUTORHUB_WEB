@@ -24,7 +24,10 @@ effect thuộc Phase 3 khi carry-over chưa đạt gate riêng.
 Canonical attempt/credential boundary, explicit local media probe, exact ACL, Chromium/disposable/
 provider gates, exact CI/security, shared ACL và Render/Cloudflare live acceptance đều PASS. P4-03
 không có migration; shared ledger giữ `30 false`, không rollback và hai media feature vẫn off.
-**Task hiện tại:** `P4-04` Lobby, admission và explicit same-tenant invite (`TODO`).
+**Task hiện tại:** `P4-04` Lobby, admission và explicit same-tenant invite (`VERIFY`). Local và
+Neon disposable forward-only `30 false -> 31 false -> 31 false`, exact ACL/integration gates đã
+PASS; exact CI/security, shared, deploy và live acceptance vẫn `PENDING` theo
+[P4_04_STAGING_ACCEPTANCE.md](P4_04_STAGING_ACCEPTANCE.md).
 
 `P4-MEDIA-UX-00` đã `DONE`; không đổi LiveKit provider, không thêm processor production dependency
 hoặc mở `CanPublishData=false`. P4-03/P4-04/P4-05/P4-06/P4-11 phải tuân ADR-0031 và báo rõ các
@@ -74,7 +77,7 @@ physical/manual effect gate còn `UNVERIFIED` thay vì suy PASS từ research.
 | P4-01          | MediaSpace lifecycle, schema và API core            | P4-00                           | DONE       |
 | P4-02          | RoomInstance LiveKit credential + webhook binding   | P4-01, P1-07 baseline           | DONE       |
 | P4-03          | Prejoin device/network và join-attempt flow         | P4-02, P4-MEDIA-UX-00           | DONE       |
-| P4-04          | Lobby, admission và explicit same-tenant invite     | P4-02, P4-03, P4-MEDIA-UX-00    | TODO       |
+| P4-04          | Lobby, admission và explicit same-tenant invite     | P4-02, P4-03, P4-MEDIA-UX-00    | VERIFY     |
 | P4-05          | Classroom shell, media controls và layouts          | P4-03, P4-MEDIA-UX-00           | TODO       |
 | P4-06          | Participant roster, hand raise và reaction          | P4-04, P4-05, P4-MEDIA-UX-00    | TODO       |
 | P4-07          | Host/co-host/TA moderation, lock/mute/remove/end    | P4-04, P4-06                    | TODO       |
@@ -340,7 +343,17 @@ Evidence chi tiết:
 
 ## 11. P4-04 Lobby, admission và explicit same-tenant invite
 
-**Dependency:** P4-02/P4-03/P4-MEDIA-UX-00. **Trạng thái:** `TODO`.
+**Dependency:** P4-02/P4-03/P4-MEDIA-UX-00. **Trạng thái:** `VERIFY` ngày 2026-08-10.
+
+Local candidate đã thêm self poll/cancel join-attempt, moderator admission queue với
+admit/deny/restore, explicit same-tenant StudyMeeting member invite/revoke/restore, forward
+migration `000031`, exact ACL candidate, bounded audit/outbox và waiting/moderator/invite UI.
+OpenAPI/generated client, API client `49` tests, web `305` tests, focused P4-04 web `23/23`, full
+`pnpm verify`, Go test/vet và integration-tag compile đều PASS. Neon disposable owner preflight,
+forward `30 false -> 31 false -> 31 false`, exact/default ACL, lobby race/restore, lifecycle và
+RoomInstance PostgreSQL gates cũng PASS. Exact CI/security, shared staging, deploy và live gates
+vẫn `PENDING`; không rollback và hai media feature vẫn force-off. Evidence/runbook:
+[P4_04_STAGING_ACCEPTANCE.md](P4_04_STAGING_ACCEPTANCE.md).
 
 ### Scope
 
@@ -569,5 +582,6 @@ PostgreSQL. Mỗi implementation slice phải cập nhật khi thêm provider co
    Core API signal authority; không schema/provider/production processor change.
 3. P4-03 đã `DONE`: exact candidate CI/security, shared exact ACL/deploy và live acceptance PASS;
    không có forward migration, ledger giữ `30 false`.
-4. Bắt đầu P4-04 Lobby/admission/invite; tiếp tục giữ optional effect và hai media capability
-   force-off, áp dụng decision cho P4-04/P4-05/P4-06/P4-11.
+4. P4-04 đang `VERIFY`: hoàn tất disposable forward-only `30 -> 31`, exact ACL/PostgreSQL,
+   exact CI/security, shared forward/ACL và deploy/live acceptance trước khi chuyển `DONE`; không
+   rollback và tiếp tục giữ optional effect cùng hai media capability force-off.

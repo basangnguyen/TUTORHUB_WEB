@@ -1,18 +1,29 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  cancelMediaJoinAttempt,
   cancelMediaSpace,
   createMediaSpaceJoinAttempt,
   createMediaSpace,
   endMediaSpace,
+  getMediaJoinAttempt,
   getMediaSpace,
+  inviteMediaSpaceMember,
   issueMediaSpaceJoinCredential,
+  listMediaAdmissions,
+  listMediaSpaceMembers,
+  mutateMediaSpaceMember,
+  resolveMediaAdmission,
   startMediaSpace,
 } from "./index";
 import type {
   CreateMediaSpaceRequest,
+  MediaAdmission,
+  MediaAdmissionQueue,
   MediaJoinAttempt,
   MediaInstanceCredential,
   MediaSpace,
+  MediaSpaceMember,
+  MediaSpaceMemberList,
   MediaSpaceTransitionRequest,
 } from "./index";
 
@@ -22,6 +33,8 @@ const meetingID = "8477ee76-c4aa-431f-bb65-405f4b6575c9";
 const roomInstanceID = "c5f918a5-a09e-4f94-9fab-fb0ab5702a4d";
 const participantSessionID = "f680fd29-c7f1-4083-af9b-52ad1db14ba9";
 const joinAttemptID = "a860f06d-34f9-4c57-89f8-1541bfb3b6d7";
+const admissionID = "19f9b26c-52bf-4ef5-9651-f284d24f3e6c";
+const memberID = "da655aa5-46aa-46db-a282-d39698bb83c3";
 
 const space: MediaSpace = {
   id: spaceID,
@@ -33,6 +46,8 @@ const space: MediaSpace = {
     can_start: true,
     can_end: false,
     can_cancel: true,
+    can_manage_admissions: true,
+    can_manage_invites: true,
   },
   created_at: "2030-08-03T00:00:00Z",
   updated_at: "2030-08-03T00:00:00Z",
@@ -119,6 +134,197 @@ describe("media-space API", () => {
       "provider_participant_identity",
     ]) {
       expect(body).not.toHaveProperty(forbidden);
+    }
+  });
+
+  it("polls and cancels only the exact self lobby attempt", async () => {
+    const waiting: MediaJoinAttempt = {
+      participant_session_id: participantSessionID,
+      room_instance_id: roomInstanceID,
+      admission_request_id: admissionID,
+      admission_version: 1,
+      join_attempt_id: joinAttemptID,
+      status: "waiting",
+      version: 1,
+      instance_role: "attendee",
+      can_publish_camera_microphone: true,
+      can_share_screen: false,
+      can_subscribe: true,
+      created_at: "2030-08-03T00:00:00Z",
+      updated_at: "2030-08-03T00:00:00Z",
+      expires_at: "2030-08-03T00:10:00Z",
+    };
+    const cancelled = { ...waiting, status: "cancelled" as const, version: 2 };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse(waiting))
+      .mockResolvedValueOnce(jsonResponse(cancelled));
+    const options = {
+      baseUrl: "https://web.example.test/api",
+      fetch: fetchMock,
+    };
+
+    await expect(
+      getMediaJoinAttempt(
+        tenantID,
+        spaceID,
+        joinAttemptID,
+        roomInstanceID,
+        7,
+        3,
+        options,
+      ),
+    ).resolves.toEqual(waiting);
+    await expect(
+      cancelMediaJoinAttempt(
+        tenantID,
+        spaceID,
+        joinAttemptID,
+        {
+          expected_space_version: 7,
+          expected_room_instance_id: roomInstanceID,
+          expected_room_instance_version: 3,
+          expected_admission_version: 1,
+          idempotency_key: "admission-cancel-0001",
+        },
+        "cancel-csrf",
+        options,
+      ),
+    ).resolves.toEqual(cancelled);
+
+    const [poll, cancel] = fetchMock.mock.calls.map(
+      (call) => call[0] as Request,
+    );
+    expect(poll!.method).toBe("GET");
+    expect(new URL(poll!.url).searchParams.get("room_instance_id")).toBe(
+      roomInstanceID,
+    );
+    expect(new URL(poll!.url).searchParams.get("expected_space_version")).toBe(
+      "7",
+    );
+    expect(cancel!.method).toBe("POST");
+    expect(cancel!.headers.get("X-CSRF-Token")).toBe("cancel-csrf");
+    expect(await cancel!.clone().json()).toEqual({
+      expected_space_version: 7,
+      expected_room_instance_id: roomInstanceID,
+      expected_room_instance_version: 3,
+      expected_admission_version: 1,
+      idempotency_key: "admission-cancel-0001",
+    });
+  });
+
+  it("uses bounded moderator and explicit-member contracts without client provider authority", async () => {
+    const admission: MediaAdmission = {
+      id: admissionID,
+      status: "waiting",
+      version: 1,
+      display_name: "Learner",
+      created_at: "2030-08-03T00:00:00Z",
+      expires_at: "2030-08-03T00:10:00Z",
+    };
+    const queue: MediaAdmissionQueue = { items: [admission] };
+    const member: MediaSpaceMember = {
+      user_id: memberID,
+      display_name: "Learner",
+      status: "active",
+      version: 1,
+      created_at: "2030-08-03T00:00:00Z",
+      updated_at: "2030-08-03T00:00:00Z",
+    };
+    const members: MediaSpaceMemberList = { items: [member] };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse(queue))
+      .mockResolvedValueOnce(
+        jsonResponse({ ...admission, status: "denied", version: 2 }),
+      )
+      .mockResolvedValueOnce(jsonResponse(members))
+      .mockResolvedValueOnce(jsonResponse(member))
+      .mockResolvedValueOnce(
+        jsonResponse({ ...member, status: "revoked", version: 2 }),
+      );
+    const options = {
+      baseUrl: "https://web.example.test/api",
+      fetch: fetchMock,
+    };
+
+    await listMediaAdmissions(tenantID, spaceID, roomInstanceID, 7, 3, options);
+    await resolveMediaAdmission(
+      "deny",
+      tenantID,
+      spaceID,
+      admissionID,
+      {
+        expected_space_version: 7,
+        expected_room_instance_id: roomInstanceID,
+        expected_room_instance_version: 3,
+        expected_admission_version: 1,
+        idempotency_key: "admission-deny-00001",
+        reason_code: "host_denied",
+      },
+      "deny-csrf",
+      options,
+    );
+    await listMediaSpaceMembers(tenantID, spaceID, 7, options);
+    await inviteMediaSpaceMember(
+      tenantID,
+      spaceID,
+      {
+        target_member_email: "learner@example.test",
+        expected_space_version: 7,
+        idempotency_key: "member-invite-00001",
+      },
+      "invite-csrf",
+      options,
+    );
+    await mutateMediaSpaceMember(
+      "revoke",
+      tenantID,
+      spaceID,
+      memberID,
+      {
+        expected_space_version: 7,
+        expected_member_version: 1,
+        idempotency_key: "member-revoke-00001",
+        reason_code: "owner_revoked",
+      },
+      "revoke-csrf",
+      options,
+    );
+
+    const requests = fetchMock.mock.calls.map((call) => call[0] as Request);
+    expect(requests.map((request) => request.method)).toEqual([
+      "GET",
+      "POST",
+      "GET",
+      "POST",
+      "POST",
+    ]);
+    const inviteBody = (await requests[3]!.clone().json()) as Record<
+      string,
+      unknown
+    >;
+    expect(inviteBody).toEqual({
+      target_member_email: "learner@example.test",
+      expected_space_version: 7,
+      idempotency_key: "member-invite-00001",
+    });
+    for (const request of requests) {
+      expect(request.headers.get("X-TutorHub-Expected-Tenant-ID")).toBe(
+        tenantID,
+      );
+      const body =
+        request.method === "POST" ? await request.clone().json() : {};
+      for (const forbidden of [
+        "tenant_id",
+        "role",
+        "provider_room_name",
+        "provider_participant_identity",
+        "participant_session_id",
+        "join_attempt_id",
+      ]) {
+        expect(body).not.toHaveProperty(forbidden);
+      }
     }
   });
 

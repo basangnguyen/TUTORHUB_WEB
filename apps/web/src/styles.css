@@ -4906,6 +4906,113 @@ textarea:focus-visible {
   margin: 16px auto;
 }
 
+.media-p404-lobby,
+.media-p404-invites {
+  min-width: 0;
+  padding: 20px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  margin-top: 20px;
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.media-p403-room .media-p404-lobby {
+  width: min(100%, 760px);
+  margin-right: auto;
+  margin-left: auto;
+}
+
+.media-p404-panel-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.media-p404-panel-heading h2,
+.media-p404-panel-heading p {
+  margin-top: 0;
+}
+
+.media-p404-panel-heading p {
+  max-width: 64ch;
+  margin-bottom: 0;
+  color: var(--color-text-muted);
+  line-height: 1.55;
+}
+
+.media-p404-invite-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.media-p404-list {
+  display: grid;
+  gap: 10px;
+  padding: 0;
+  margin: 18px 0 0;
+  list-style: none;
+}
+
+.media-p404-list > li {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+.media-p404-identity {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.media-p404-identity strong {
+  overflow-wrap: anywhere;
+}
+
+.media-p404-row-actions,
+.media-p404-terminal-actions {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.media-p404-feedback,
+.media-p404-error {
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  margin: 14px 0 0;
+  line-height: 1.5;
+}
+
+.media-p404-feedback {
+  border: 1px solid var(--color-success);
+}
+
+.media-p404-error {
+  border: 1px solid var(--color-danger);
+}
+
+.media-p404-error p {
+  margin-top: 0;
+}
+
+.media-p404-terminal-actions {
+  margin-top: 12px;
+}
+
 @media (max-width: 860px) {
   .media-p403-grid {
     grid-template-columns: 1fr;
@@ -4944,6 +5051,26 @@ textarea:focus-visible {
   .media-p403-speaker-actions button {
     width: 100%;
   }
+
+  .media-p404-panel-heading,
+  .media-p404-list > li {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .media-p404-invite-form {
+    grid-template-columns: 1fr;
+  }
+
+  .media-p404-row-actions,
+  .media-p404-terminal-actions {
+    flex-direction: column;
+  }
+
+  .media-p404-row-actions button,
+  .media-p404-terminal-actions button {
+    width: 100%;
+  }
 }
 
 @media (forced-colors: active) {
@@ -4954,6 +5081,15 @@ textarea:focus-visible {
   .media-p403-alert,
   .media-p403-room-status,
   .media-p403-room-recovery {
+    border: 1px solid CanvasText;
+    forced-color-adjust: auto;
+  }
+
+  .media-p404-lobby,
+  .media-p404-invites,
+  .media-p404-list > li,
+  .media-p404-feedback,
+  .media-p404-error {
     border: 1px solid CanvasText;
     forced-color-adjust: auto;
   }

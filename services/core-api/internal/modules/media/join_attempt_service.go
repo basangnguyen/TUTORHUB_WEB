@@ -13,9 +13,14 @@ import (
 type JoinAttemptStatus string
 
 const (
-	JoinAttemptWaiting  JoinAttemptStatus = "waiting"
-	JoinAttemptAdmitted JoinAttemptStatus = "admitted"
-	JoinAttemptJoining  JoinAttemptStatus = "joining"
+	JoinAttemptWaiting             JoinAttemptStatus = "waiting"
+	JoinAttemptAdmitted            JoinAttemptStatus = "admitted"
+	JoinAttemptJoining             JoinAttemptStatus = "joining"
+	JoinAttemptDenied              JoinAttemptStatus = "denied"
+	JoinAttemptCancelled           JoinAttemptStatus = "cancelled"
+	JoinAttemptMeetingEnded        JoinAttemptStatus = "meeting_ended"
+	JoinAttemptTimeout             JoinAttemptStatus = "timeout"
+	JoinAttemptProviderUnavailable JoinAttemptStatus = "provider_unavailable"
 )
 
 var (
@@ -33,6 +38,7 @@ type JoinAttempt struct {
 	ParticipantSessionID       uuid.UUID         `json:"participant_session_id"`
 	RoomInstanceID             uuid.UUID         `json:"room_instance_id"`
 	AdmissionRequestID         *uuid.UUID        `json:"admission_request_id,omitempty"`
+	AdmissionVersion           *int64            `json:"admission_version,omitempty"`
 	JoinAttemptID              uuid.UUID         `json:"join_attempt_id"`
 	Status                     JoinAttemptStatus `json:"status"`
 	Version                    int64             `json:"version"`
@@ -42,6 +48,7 @@ type JoinAttempt struct {
 	CanSubscribe               bool              `json:"can_subscribe"`
 	CreatedAt                  time.Time         `json:"created_at"`
 	UpdatedAt                  time.Time         `json:"updated_at"`
+	ExpiresAt                  *time.Time        `json:"expires_at,omitempty"`
 }
 
 type CreateJoinAttemptResult struct {
@@ -126,9 +133,15 @@ func validJoinAttemptResult(
 	}
 	switch attempt.Status {
 	case JoinAttemptWaiting:
-		return attempt.AdmissionRequestID != nil && *attempt.AdmissionRequestID != uuid.Nil
+		return attempt.AdmissionRequestID != nil && *attempt.AdmissionRequestID != uuid.Nil &&
+			attempt.AdmissionVersion != nil && *attempt.AdmissionVersion > 0 &&
+			attempt.ExpiresAt != nil && !attempt.ExpiresAt.IsZero()
 	case JoinAttemptAdmitted, JoinAttemptJoining:
 		return true
+	case JoinAttemptDenied, JoinAttemptCancelled, JoinAttemptMeetingEnded,
+		JoinAttemptTimeout, JoinAttemptProviderUnavailable:
+		return attempt.AdmissionRequestID != nil && *attempt.AdmissionRequestID != uuid.Nil &&
+			attempt.AdmissionVersion != nil && *attempt.AdmissionVersion > 0
 	default:
 		return false
 	}

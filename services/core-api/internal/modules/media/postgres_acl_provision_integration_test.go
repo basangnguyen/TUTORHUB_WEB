@@ -14,8 +14,8 @@ import (
 )
 
 const (
-	p402ACLProvisionConfirmation       = "I_UNDERSTAND_P4_02_ACL_PROVISION_DISPOSABLE_ONLY"
-	p402SharedACLProvisionConfirmation = "I_UNDERSTAND_P4_02_ACL_PROVISION_SHARED_STAGING_ONLY"
+	p404ACLProvisionConfirmation       = "I_UNDERSTAND_P4_04_ACL_PROVISION_DISPOSABLE_ONLY"
+	p404SharedACLProvisionConfirmation = "I_UNDERSTAND_P4_04_ACL_PROVISION_SHARED_STAGING_ONLY"
 )
 
 // TestProvisionPostgresMediaLifecycleRuntimeExactACL is an explicitly opted-in
@@ -23,8 +23,8 @@ const (
 // from the authenticated runtime connection and never prints that identity or
 // either database URL.
 func TestProvisionPostgresMediaLifecycleRuntimeExactACL(t *testing.T) {
-	if strings.TrimSpace(os.Getenv("P4_02_ACL_PROVISION_CONFIRM")) != p402ACLProvisionConfirmation {
-		t.Skip("P4_02_ACL_PROVISION_CONFIRM is not set to the disposable-only ACL confirmation")
+	if strings.TrimSpace(os.Getenv("P4_04_ACL_PROVISION_CONFIRM")) != p404ACLProvisionConfirmation {
+		t.Skip("P4_04_ACL_PROVISION_CONFIRM is not set to the disposable-only ACL confirmation")
 	}
 	if strings.TrimSpace(os.Getenv("P4_02_DISPOSABLE_CONFIRM")) != p402DisposableConfirmation {
 		t.Skip("P4_02_DISPOSABLE_CONFIRM is not set to the disposable-only confirmation")
@@ -36,13 +36,19 @@ func TestProvisionPostgresMediaLifecycleRuntimeExactACL(t *testing.T) {
 // opted-in shared-staging gate. It provisions only the reviewed exact runtime
 // column allowlist and refuses to run without the separate shared confirmations.
 func TestProvisionPostgresMediaLifecycleRuntimeExactACLShared(t *testing.T) {
-	if strings.TrimSpace(os.Getenv("P4_02_SHARED_ACL_PROVISION_CONFIRM")) !=
-		p402SharedACLProvisionConfirmation {
-		t.Skip("P4_02_SHARED_ACL_PROVISION_CONFIRM is not set to the shared-staging ACL confirmation")
+	if strings.TrimSpace(os.Getenv("P4_04_SHARED_ACL_PROVISION_CONFIRM")) !=
+		p404SharedACLProvisionConfirmation {
+		t.Fatal("P4_04_SHARED_ACL_PROVISION_CONFIRM is not set to the shared-staging ACL confirmation")
 	}
-	if strings.TrimSpace(os.Getenv("P4_02_SHARED_CONFIRM")) != p402SharedConfirmation {
-		t.Skip("P4_02_SHARED_CONFIRM is not set to the shared-staging confirmation")
+	if strings.TrimSpace(os.Getenv("P4_04_SHARED_CONFIRM")) != p404SharedPreflightConfirmation {
+		t.Fatal("P4_04_SHARED_CONFIRM is not set to the shared-staging confirmation")
 	}
+	if p404AnyConflictingSharedConfirmationIsSet() {
+		t.Fatal("P4-04 shared ACL provisioning refuses disposable confirmations")
+	}
+	migrationURL := requireP404SharedIntegrationEnvironment(t, "DATABASE_MIGRATION_URL")
+	runtimeURL := requireP404SharedIntegrationEnvironment(t, "DATABASE_POOL_URL")
+	requireP404NeonURLBoundary(t, migrationURL, runtimeURL)
 	runProvisionPostgresMediaLifecycleRuntimeExactACL(t)
 }
 
@@ -63,17 +69,17 @@ func runProvisionPostgresMediaLifecycleRuntimeExactACL(t *testing.T) {
 		&migrationRole,
 		&migrationDatabase,
 	); err != nil {
-		t.Fatal("inspect P4-02 migration database identity")
+		t.Fatal("inspect P4-04 migration database identity")
 	}
 	var runtimeRole, runtimeDatabase string
 	if err := runtimePool.QueryRow(ctx, `SELECT current_user, current_database()`).Scan(
 		&runtimeRole,
 		&runtimeDatabase,
 	); err != nil {
-		t.Fatal("inspect P4-02 runtime database identity")
+		t.Fatal("inspect P4-04 runtime database identity")
 	}
 	if migrationRole == runtimeRole || migrationDatabase != runtimeDatabase {
-		t.Fatal("P4-02 ACL provisioning requires distinct roles on the same database")
+		t.Fatal("P4-04 ACL provisioning requires distinct roles on the same database")
 	}
 
 	var version int
@@ -82,10 +88,10 @@ func runProvisionPostgresMediaLifecycleRuntimeExactACL(t *testing.T) {
 		ctx,
 		`SELECT version, dirty FROM public.tutorhub_schema_migrations`,
 	).Scan(&version, &dirty); err != nil {
-		t.Fatal("inspect P4-02 migration ledger")
+		t.Fatal("inspect P4-04 migration ledger")
 	}
-	if version != 30 || dirty {
-		t.Fatal("P4-02 ACL provisioning requires ledger 30 false")
+	if version != 31 || dirty {
+		t.Fatal("P4-04 ACL provisioning requires ledger 31 false")
 	}
 
 	expectations := p402MediaACLExpectations()
@@ -93,7 +99,7 @@ func runProvisionPostgresMediaLifecycleRuntimeExactACL(t *testing.T) {
 	for _, expectation := range expectations {
 		parts := strings.Split(expectation.relation, ".")
 		if len(parts) != 2 || parts[0] != "tutorhub" || strings.TrimSpace(parts[1]) == "" {
-			t.Fatal("P4-02 ACL expectation contains an invalid relation")
+			t.Fatal("P4-04 ACL expectation contains an invalid relation")
 		}
 		targets = append(targets, parts[1])
 	}
@@ -118,16 +124,16 @@ WHERE runtime.rolname = $1`, runtimeRole, migrationRole, targets).Scan(
 		&noMigrationMembership,
 		&noTableOwnership,
 	); err != nil {
-		t.Fatal("inspect P4-02 runtime role safety")
+		t.Fatal("inspect P4-04 runtime role safety")
 	}
 	if !safeRole || !noMigrationMembership || !noTableOwnership {
-		t.Fatal("P4-02 runtime role safety preflight failed")
+		t.Fatal("P4-04 runtime role safety preflight failed")
 	}
 
 	runtimeIdentifier := pgx.Identifier{runtimeRole}.Sanitize()
 	tx, err := migrationPool.Begin(ctx)
 	if err != nil {
-		t.Fatal("begin P4-02 ACL provisioning transaction")
+		t.Fatal("begin P4-04 ACL provisioning transaction")
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
@@ -136,14 +142,14 @@ WHERE runtime.rolname = $1`, runtimeRole, migrationRole, targets).Scan(
 		ctx,
 		tx,
 		fmt.Sprintf(`GRANT USAGE ON SCHEMA tutorhub TO %s`, runtimeIdentifier),
-		"grant P4-02 runtime schema usage",
+		"grant P4-04 runtime schema usage",
 	)
 	execP402ACLStatement(
 		t,
 		ctx,
 		tx,
 		fmt.Sprintf(`REVOKE CREATE ON SCHEMA tutorhub FROM %s`, runtimeIdentifier),
-		"revoke P4-02 runtime schema create",
+		"revoke P4-04 runtime schema create",
 	)
 
 	for _, expectation := range expectations {
@@ -161,7 +167,7 @@ WHERE runtime.rolname = $1`, runtimeRole, migrationRole, targets).Scan(
 			ctx,
 			tx,
 			fmt.Sprintf(`REVOKE ALL PRIVILEGES ON TABLE %s FROM %s`, relationIdentifier, runtimeIdentifier),
-			"revoke P4-02 runtime table privileges",
+			"revoke P4-04 runtime table privileges",
 		)
 		execP402ACLStatement(
 			t,
@@ -173,14 +179,14 @@ WHERE runtime.rolname = $1`, runtimeRole, migrationRole, targets).Scan(
 				relationIdentifier,
 				runtimeIdentifier,
 			),
-			"revoke P4-02 runtime column privileges",
+			"revoke P4-04 runtime column privileges",
 		)
 		execP402ACLStatement(
 			t,
 			ctx,
 			tx,
 			fmt.Sprintf(`REVOKE ALL PRIVILEGES ON TABLE %s FROM PUBLIC`, relationIdentifier),
-			"revoke P4-02 PUBLIC table privileges",
+			"revoke P4-04 PUBLIC table privileges",
 		)
 		execP402ACLStatement(
 			t,
@@ -191,7 +197,7 @@ WHERE runtime.rolname = $1`, runtimeRole, migrationRole, targets).Scan(
 				allColumns,
 				relationIdentifier,
 			),
-			"revoke P4-02 PUBLIC column privileges",
+			"revoke P4-04 PUBLIC column privileges",
 		)
 
 		grantP402ACLColumns(t, ctx, tx, relationIdentifier, runtimeIdentifier, "SELECT", expectation.selectColumns)
@@ -200,7 +206,7 @@ WHERE runtime.rolname = $1`, runtimeRole, migrationRole, targets).Scan(
 	}
 
 	if err := tx.Commit(ctx); err != nil {
-		t.Fatal("commit P4-02 ACL provisioning transaction")
+		t.Fatal("commit P4-04 ACL provisioning transaction")
 	}
 
 	for _, expectation := range expectations {
@@ -248,19 +254,31 @@ func p402MediaACLExpectations() []mediaACLExpectation {
 			},
 		},
 		{
-			relation:      "tutorhub.media_space_members",
-			selectColumns: []string{"space_id", "status", "tenant_id", "user_id"},
+			relation: "tutorhub.media_space_members",
+			selectColumns: []string{
+				"created_at", "space_id", "status", "tenant_id", "updated_at", "user_id", "version",
+			},
+			insertColumns: []string{
+				"created_at", "invited_by", "space_id", "status", "tenant_id", "updated_at",
+				"user_id", "version",
+			},
+			updateColumns: []string{
+				"revoked_at", "revoked_by", "status", "updated_at", "version",
+			},
 		},
 		{
 			relation: "tutorhub.media_admission_requests",
 			selectColumns: []string{
-				"id", "idempotency_key", "request_fingerprint", "room_instance_id",
-				"space_id", "status", "tenant_id", "user_id", "version",
+				"created_at", "id", "idempotency_key", "request_fingerprint", "resolution_code",
+				"room_instance_id", "space_id", "status", "tenant_id", "updated_at", "user_id", "version",
 			},
 			insertColumns: []string{
 				"created_at", "id", "idempotency_key", "request_fingerprint",
 				"room_instance_id", "space_id", "status", "tenant_id", "updated_at",
 				"user_id", "version",
+			},
+			updateColumns: []string{
+				"resolution_code", "resolved_at", "resolved_by", "status", "updated_at", "version",
 			},
 		},
 		{
@@ -269,8 +287,8 @@ func p402MediaACLExpectations() []mediaACLExpectation {
 				"admission_request_id", "admitted_at", "capacity_reserved", "connected_at",
 				"created_at", "failure_code", "id", "instance_role", "join_attempt_id",
 				"joining_at", "provider_participant_identity", "reconnecting_at", "removed_by",
-				"room_instance_id", "space_id", "status", "tenant_id", "terminal_at",
-				"updated_at", "user_id", "version",
+				"rejoin_restored_at", "room_instance_id", "space_id", "status",
+				"tenant_id", "terminal_at", "updated_at", "user_id", "version",
 			},
 			insertColumns: []string{
 				"admission_request_id", "admitted_at", "capacity_reserved", "created_at",
@@ -279,8 +297,9 @@ func p402MediaACLExpectations() []mediaACLExpectation {
 				"version",
 			},
 			updateColumns: []string{
-				"capacity_reserved", "connected_at", "failure_code", "instance_role", "joining_at",
-				"reconnecting_at", "status", "terminal_at", "updated_at", "version",
+				"admitted_at", "capacity_reserved", "connected_at", "failure_code", "instance_role",
+				"joining_at", "reconnecting_at", "rejoin_restored_at", "rejoin_restored_by",
+				"removed_by", "status", "terminal_at", "updated_at", "version",
 			},
 		},
 		{
@@ -325,7 +344,7 @@ WHERE table_schema = $1
   AND table_name = $2
 ORDER BY ordinal_position`, schema, relation)
 	if err != nil {
-		t.Fatal("inspect P4-02 ACL relation columns")
+		t.Fatal("inspect P4-04 ACL relation columns")
 	}
 	defer rows.Close()
 
@@ -333,15 +352,15 @@ ORDER BY ordinal_position`, schema, relation)
 	for rows.Next() {
 		var column string
 		if err := rows.Scan(&column); err != nil {
-			t.Fatal("read P4-02 ACL relation column")
+			t.Fatal("read P4-04 ACL relation column")
 		}
 		columns = append(columns, column)
 	}
 	if rows.Err() != nil {
-		t.Fatal("iterate P4-02 ACL relation columns")
+		t.Fatal("iterate P4-04 ACL relation columns")
 	}
 	if len(columns) == 0 {
-		t.Fatal("P4-02 ACL target relation has no columns")
+		t.Fatal("P4-04 ACL target relation has no columns")
 	}
 	return columns
 }
@@ -374,7 +393,7 @@ func grantP402ACLColumns(
 			relationIdentifier,
 			runtimeIdentifier,
 		),
-		"grant exact P4-02 runtime column privileges",
+		"grant exact P4-04 runtime column privileges",
 	)
 }
 
@@ -412,9 +431,9 @@ func assertP402ProvisionedPublicACL(
      WHERE table_schema = 'tutorhub'
        AND table_name = ANY($1::text[])
        AND grantee = 'PUBLIC')`, targets).Scan(&tableGrants, &columnGrants); err != nil {
-		t.Fatal("inspect provisioned P4-02 PUBLIC ACL")
+		t.Fatal("inspect provisioned P4-04 PUBLIC ACL")
 	}
 	if tableGrants != 0 || columnGrants != 0 {
-		t.Fatal("provisioned P4-02 PUBLIC ACL is not empty")
+		t.Fatal("provisioned P4-04 PUBLIC ACL is not empty")
 	}
 }

@@ -262,3 +262,135 @@ func TestRoomInstanceLiveKitBindingDownMigrationDropsOnlyForwardAdditions(t *tes
 		}
 	}
 }
+
+func TestMediaLobbyAdmissionRestoreMigrationContainsExactSecurityGuards(t *testing.T) {
+	t.Parallel()
+
+	contents, err := os.ReadFile(filepath.Join(
+		"..", "..", "..", "migrations", "000031_media_lobby_admission_restore.up.sql",
+	))
+	if err != nil {
+		t.Fatal(err)
+	}
+	sql := string(contents)
+	constraint := regexp.MustCompile(
+		`(?s)ADD CONSTRAINT media_space_mutation_receipts_operation_valid CHECK\s*` +
+			`\(\s*operation IN\s*\(([^)]*)\)\s*\)`,
+	).FindStringSubmatch(sql)
+	if len(constraint) != 2 {
+		t.Fatal("media lobby/admission migration lacks one parseable receipt operation constraint")
+	}
+	operationMatches := regexp.MustCompile(`'([a-z_]+)'`).FindAllStringSubmatch(constraint[1], -1)
+	operations := make([]string, 0, len(operationMatches))
+	for _, match := range operationMatches {
+		operations = append(operations, match[1])
+	}
+	if got, want := strings.Join(operations, ","), strings.Join([]string{
+		"start", "end", "cancel",
+		"member_invite", "member_revoke", "member_restore",
+		"admission_admit", "admission_deny", "admission_cancel", "admission_restore",
+	}, ","); got != want {
+		t.Fatalf("media lobby/admission receipt operations = %q, want exact %q", got, want)
+	}
+
+	for _, fragment := range []string{
+		"DROP CONSTRAINT media_space_mutation_receipts_operation_valid",
+		"ADD CONSTRAINT media_space_mutation_receipts_operation_valid CHECK",
+		"'member_invite'",
+		"'member_revoke'",
+		"'member_restore'",
+		"'admission_admit'",
+		"'admission_deny'",
+		"'admission_cancel'",
+		"'admission_restore'",
+		"ADD COLUMN rejoin_restored_at timestamptz",
+		"ADD COLUMN rejoin_restored_by uuid",
+		"media_participant_sessions_rejoin_restorer_membership_fk",
+		"FOREIGN KEY (tenant_id, rejoin_restored_by)",
+		"REFERENCES tutorhub.memberships (tenant_id, user_id)",
+		"media_participant_sessions_rejoin_restore_consistent",
+		"rejoin_restored_at IS NULL",
+		"rejoin_restored_by IS NULL",
+		"status = 'removed'",
+		"terminal_at IS NOT NULL",
+		"rejoin_restored_at IS NOT NULL",
+		"rejoin_restored_by IS NOT NULL",
+		"rejoin_restored_at >= terminal_at",
+		"rejoin_restored_at <= updated_at",
+		"media_participant_sessions_unrestored_removed_idx",
+		"tenant_id,\n        room_instance_id,\n        user_id",
+		"WHERE status = 'removed' AND rejoin_restored_at IS NULL",
+	} {
+		if !strings.Contains(sql, fragment) {
+			t.Fatalf("media lobby/admission migration is missing %q", fragment)
+		}
+	}
+
+	upperSQL := strings.ToUpper(sql)
+	for _, forbidden := range []string{
+		"GRANT ",
+		"DROP TABLE ",
+		"ADD COLUMN tenant_id",
+		"ADD COLUMN user_id",
+		"ADD COLUMN provider_",
+		"ADD COLUMN join_attempt",
+		"ADD COLUMN email",
+		"ADD COLUMN token",
+		" JSON ",
+		" JSONB ",
+	} {
+		if strings.Contains(upperSQL, strings.ToUpper(forbidden)) {
+			t.Fatalf("media lobby/admission migration contains forbidden expansion %q", forbidden)
+		}
+	}
+}
+
+func TestMediaLobbyAdmissionRestoreDownMigrationRemovesOnlyForwardAdditions(t *testing.T) {
+	t.Parallel()
+
+	contents, err := os.ReadFile(filepath.Join(
+		"..", "..", "..", "migrations", "000031_media_lobby_admission_restore.down.sql",
+	))
+	if err != nil {
+		t.Fatal(err)
+	}
+	sql := string(contents)
+
+	ordered := []string{
+		"DROP INDEX tutorhub.media_participant_sessions_unrestored_removed_idx",
+		"DROP CONSTRAINT media_participant_sessions_rejoin_restore_consistent",
+		"DROP CONSTRAINT media_participant_sessions_rejoin_restorer_membership_fk",
+		"DROP COLUMN rejoin_restored_by",
+		"DROP COLUMN rejoin_restored_at",
+		"DROP CONSTRAINT media_space_mutation_receipts_operation_valid",
+		"ADD CONSTRAINT media_space_mutation_receipts_operation_valid CHECK",
+		"operation IN ('start', 'end', 'cancel')",
+	}
+	lastPosition := -1
+	for _, fragment := range ordered {
+		position := strings.Index(sql, fragment)
+		if position < 0 {
+			t.Fatalf("media lobby/admission down migration is missing %q", fragment)
+		}
+		if position <= lastPosition {
+			t.Fatalf("media lobby/admission down migration applies %q out of dependency order", fragment)
+		}
+		lastPosition = position
+	}
+
+	if strings.Count(sql, "DROP COLUMN") != 2 {
+		t.Fatalf("media lobby/admission down migration drops unexpected columns: %s", sql)
+	}
+	for _, forbidden := range []string{
+		"DROP TABLE",
+		"DROP COLUMN tenant_id",
+		"DROP COLUMN user_id",
+		"DROP COLUMN status",
+		"DROP COLUMN admission_request_id",
+		"DROP COLUMN join_attempt_id",
+	} {
+		if strings.Contains(sql, forbidden) {
+			t.Fatalf("media lobby/admission down migration removes pre-000031 state via %q", forbidden)
+		}
+	}
+}

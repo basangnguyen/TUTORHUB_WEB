@@ -61,6 +61,14 @@ const (
 	ActionMediaSpaceStart             Action = "media_space.start"
 	ActionMediaSpaceEnd               Action = "media_space.end"
 	ActionMediaSpaceCancel            Action = "media_space.cancel"
+	ActionMediaSpaceMemberInvite      Action = "media_space_member.invite"
+	ActionMediaSpaceMemberRevoke      Action = "media_space_member.revoke"
+	ActionMediaSpaceMemberRestore     Action = "media_space_member.restore"
+	ActionMediaAdmissionAdmit         Action = "media_admission.admit"
+	ActionMediaAdmissionDeny          Action = "media_admission.deny"
+	ActionMediaAdmissionCancel        Action = "media_admission.cancel"
+	ActionMediaAdmissionRestore       Action = "media_admission.restore"
+	ActionMediaAdmissionExpire        Action = "media_admission.expire"
 )
 
 type Outcome string
@@ -169,7 +177,7 @@ var (
 var metadataKeyPattern = regexp.MustCompile(`^[a-z][a-z0-9_]{0,63}$`)
 var resourceTypePattern = regexp.MustCompile(`^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)*$`)
 var forbiddenMetadataKeyPattern = regexp.MustCompile(
-	`token|secret|password|cookie|session|email|name|description|payload|request_body|sql|error|stack|hash`,
+	`token|secret|password|cookie|session|email|name|description|payload|request_body|sql|error|stack|hash|provider|join_attempt`,
 )
 
 var actionCatalog = map[Action]struct{}{
@@ -208,6 +216,14 @@ var actionCatalog = map[Action]struct{}{
 	ActionMediaSpaceStart:             {},
 	ActionMediaSpaceEnd:               {},
 	ActionMediaSpaceCancel:            {},
+	ActionMediaSpaceMemberInvite:      {},
+	ActionMediaSpaceMemberRevoke:      {},
+	ActionMediaSpaceMemberRestore:     {},
+	ActionMediaAdmissionAdmit:         {},
+	ActionMediaAdmissionDeny:          {},
+	ActionMediaAdmissionCancel:        {},
+	ActionMediaAdmissionRestore:       {},
+	ActionMediaAdmissionExpire:        {},
 }
 
 var domainEventActions = map[string]Action{
@@ -267,6 +283,14 @@ var domainEventActions = map[string]Action{
 	"media_space.started.v1":                      ActionMediaSpaceStart,
 	"media_space.ended.v1":                        ActionMediaSpaceEnd,
 	"media_space.cancelled.v1":                    ActionMediaSpaceCancel,
+	"media_space_member.invited.v1":               ActionMediaSpaceMemberInvite,
+	"media_space_member.revoked.v1":               ActionMediaSpaceMemberRevoke,
+	"media_space_member.restored.v1":              ActionMediaSpaceMemberRestore,
+	"media_admission.admitted.v1":                 ActionMediaAdmissionAdmit,
+	"media_admission.denied.v1":                   ActionMediaAdmissionDeny,
+	"media_admission.cancelled.v1":                ActionMediaAdmissionCancel,
+	"media_admission.restored.v1":                 ActionMediaAdmissionRestore,
+	"media_admission.expired.v1":                  ActionMediaAdmissionExpire,
 }
 
 func ActionForDomainEvent(eventType string) (Action, bool) {

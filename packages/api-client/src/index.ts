@@ -359,6 +359,23 @@ export type MediaJoinAttemptRequest =
 export type MediaJoinAttemptStatus =
   components["schemas"]["MediaJoinAttemptStatus"];
 export type MediaJoinAttempt = components["schemas"]["MediaJoinAttempt"];
+export type MediaJoinAttemptCancelRequest =
+  components["schemas"]["MediaJoinAttemptCancelRequest"];
+export type MediaAdmissionStatus =
+  components["schemas"]["MediaAdmissionStatus"];
+export type MediaAdmission = components["schemas"]["MediaAdmission"];
+export type MediaAdmissionQueue = components["schemas"]["MediaAdmissionQueue"];
+export type MediaAdmissionMutationRequest =
+  components["schemas"]["MediaAdmissionMutationRequest"];
+export type MediaSpaceMemberStatus =
+  components["schemas"]["MediaSpaceMemberStatus"];
+export type MediaSpaceMember = components["schemas"]["MediaSpaceMember"];
+export type MediaSpaceMemberList =
+  components["schemas"]["MediaSpaceMemberList"];
+export type MediaSpaceMemberInviteRequest =
+  components["schemas"]["MediaSpaceMemberInviteRequest"];
+export type MediaSpaceMemberMutationRequest =
+  components["schemas"]["MediaSpaceMemberMutationRequest"];
 export type MediaInstanceCredentialRequest =
   components["schemas"]["MediaInstanceCredentialRequest"];
 export type MediaInstanceCredential =
@@ -3210,6 +3227,250 @@ export async function createMediaSpaceJoinAttempt(
     data as MediaJoinAttempt | undefined,
     error,
     response,
+  );
+}
+
+export async function getMediaJoinAttempt(
+  tenantID: string,
+  spaceID: string,
+  joinAttemptID: string,
+  roomInstanceID: string,
+  expectedSpaceVersion: number,
+  expectedRoomInstanceVersion: number,
+  options: APIRequestOptions = {},
+): Promise<MediaJoinAttempt> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).GET(
+    "/api/v1/media/spaces/{space_id}/join-attempts/{join_attempt_id}",
+    {
+      params: {
+        path: {
+          space_id: spaceID,
+          join_attempt_id: joinAttemptID,
+        },
+        query: {
+          room_instance_id: roomInstanceID,
+          expected_space_version: expectedSpaceVersion,
+          expected_room_instance_version: expectedRoomInstanceVersion,
+        },
+        header: { "X-TutorHub-Expected-Tenant-ID": tenantID },
+      },
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+  return requireData<MediaJoinAttempt>(
+    data as MediaJoinAttempt | undefined,
+    error,
+    response,
+  );
+}
+
+export async function cancelMediaJoinAttempt(
+  tenantID: string,
+  spaceID: string,
+  joinAttemptID: string,
+  input: MediaJoinAttemptCancelRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<MediaJoinAttempt> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/media/spaces/{space_id}/join-attempts/{join_attempt_id}/cancel",
+    {
+      params: {
+        path: {
+          space_id: spaceID,
+          join_attempt_id: joinAttemptID,
+        },
+        header: {
+          "X-CSRF-Token": csrfToken,
+          "X-TutorHub-Expected-Tenant-ID": tenantID,
+        },
+      },
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+  return requireData<MediaJoinAttempt>(
+    data as MediaJoinAttempt | undefined,
+    error,
+    response,
+  );
+}
+
+export async function listMediaAdmissions(
+  tenantID: string,
+  spaceID: string,
+  roomInstanceID: string,
+  expectedSpaceVersion: number,
+  expectedRoomInstanceVersion: number,
+  options: APIRequestOptions = {},
+): Promise<MediaAdmissionQueue> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).GET(
+    "/api/v1/media/spaces/{space_id}/admissions",
+    {
+      params: {
+        path: { space_id: spaceID },
+        query: {
+          room_instance_id: roomInstanceID,
+          expected_space_version: expectedSpaceVersion,
+          expected_room_instance_version: expectedRoomInstanceVersion,
+          limit: 50,
+        },
+        header: { "X-TutorHub-Expected-Tenant-ID": tenantID },
+      },
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+  return requireData<MediaAdmissionQueue>(
+    data as MediaAdmissionQueue | undefined,
+    error,
+    response,
+  );
+}
+
+export async function resolveMediaAdmission(
+  action: "admit" | "deny" | "restore",
+  tenantID: string,
+  spaceID: string,
+  admissionID: string,
+  input: MediaAdmissionMutationRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<MediaAdmission> {
+  requireTenantScope(tenantID);
+  const client = createTutorHubClient(options);
+  const request = {
+    params: {
+      path: { space_id: spaceID, admission_id: admissionID },
+      header: {
+        "X-CSRF-Token": csrfToken,
+        "X-TutorHub-Expected-Tenant-ID": tenantID,
+      },
+    },
+    body: input,
+    headers: { Accept: "application/json" },
+    signal: options.signal,
+  } as const;
+  const result =
+    action === "admit"
+      ? await client.POST(
+          "/api/v1/media/spaces/{space_id}/admissions/{admission_id}/admit",
+          request,
+        )
+      : action === "deny"
+        ? await client.POST(
+            "/api/v1/media/spaces/{space_id}/admissions/{admission_id}/deny",
+            request,
+          )
+        : await client.POST(
+            "/api/v1/media/spaces/{space_id}/admissions/{admission_id}/restore",
+            request,
+          );
+  return requireData<MediaAdmission>(
+    result.data as MediaAdmission | undefined,
+    result.error,
+    result.response,
+  );
+}
+
+export async function listMediaSpaceMembers(
+  tenantID: string,
+  spaceID: string,
+  expectedSpaceVersion: number,
+  options: APIRequestOptions = {},
+): Promise<MediaSpaceMemberList> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).GET(
+    "/api/v1/media/spaces/{space_id}/members",
+    {
+      params: {
+        path: { space_id: spaceID },
+        query: { expected_space_version: expectedSpaceVersion, limit: 50 },
+        header: { "X-TutorHub-Expected-Tenant-ID": tenantID },
+      },
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+  return requireData<MediaSpaceMemberList>(
+    data as MediaSpaceMemberList | undefined,
+    error,
+    response,
+  );
+}
+
+export async function inviteMediaSpaceMember(
+  tenantID: string,
+  spaceID: string,
+  input: MediaSpaceMemberInviteRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<MediaSpaceMember> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/media/spaces/{space_id}/members",
+    {
+      params: {
+        path: { space_id: spaceID },
+        header: {
+          "X-CSRF-Token": csrfToken,
+          "X-TutorHub-Expected-Tenant-ID": tenantID,
+        },
+      },
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+  return requireData<MediaSpaceMember>(
+    data as MediaSpaceMember | undefined,
+    error,
+    response,
+  );
+}
+
+export async function mutateMediaSpaceMember(
+  action: "revoke" | "restore",
+  tenantID: string,
+  spaceID: string,
+  userID: string,
+  input: MediaSpaceMemberMutationRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<MediaSpaceMember> {
+  requireTenantScope(tenantID);
+  const client = createTutorHubClient(options);
+  const request = {
+    params: {
+      path: { space_id: spaceID, user_id: userID },
+      header: {
+        "X-CSRF-Token": csrfToken,
+        "X-TutorHub-Expected-Tenant-ID": tenantID,
+      },
+    },
+    body: input,
+    headers: { Accept: "application/json" },
+    signal: options.signal,
+  } as const;
+  const result =
+    action === "revoke"
+      ? await client.POST(
+          "/api/v1/media/spaces/{space_id}/members/{user_id}/revoke",
+          request,
+        )
+      : await client.POST(
+          "/api/v1/media/spaces/{space_id}/members/{user_id}/restore",
+          request,
+        );
+  return requireData<MediaSpaceMember>(
+    result.data as MediaSpaceMember | undefined,
+    result.error,
+    result.response,
   );
 }
 

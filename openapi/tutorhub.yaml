@@ -5726,6 +5726,515 @@ paths:
           $ref: "#/components/responses/ProblemResponse"
         default:
           $ref: "#/components/responses/ProblemResponse"
+  /api/v1/media/spaces/{space_id}/join-attempts/{join_attempt_id}:
+    get:
+      operationId: getMediaSpaceJoinAttempt
+      summary: Return the authenticated participant's current lobby projection
+      description: The lookup is bound to the active tenant, exact media space, actor, and opaque join-attempt ID. It may expire a stale waiting request atomically, but never mints a provider credential or exposes another participant.
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: space_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: join_attempt_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: room_instance_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: expected_space_version
+          in: query
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+        - name: expected_room_instance_version
+          in: query
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+        - $ref: "#/components/parameters/ExpectedTenantID"
+      responses:
+        "200":
+          description: Current self-only join-attempt and lobby projection
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MediaJoinAttempt"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/media/spaces/{space_id}/join-attempts/{join_attempt_id}/cancel:
+    post:
+      operationId: cancelMediaSpaceJoinAttempt
+      summary: Cancel the authenticated participant's exact waiting lobby request
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: space_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: join_attempt_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/ExpectedTenantID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MediaJoinAttemptCancelRequest"
+      responses:
+        "200":
+          description: Cancelled join-attempt projection or exact idempotent replay
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MediaJoinAttempt"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/media/spaces/{space_id}/admissions:
+    get:
+      operationId: listMediaSpaceAdmissions
+      summary: List the bounded FIFO lobby queue for an authorized moderator
+      description: The projection contains only bounded display names and admission lifecycle fields. It excludes email, user ID, ParticipantSession, join-attempt, provider identity, and token data.
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: space_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: room_instance_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: expected_space_version
+          in: query
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+        - name: expected_room_instance_version
+          in: query
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 50
+        - $ref: "#/components/parameters/ExpectedTenantID"
+      responses:
+        "200":
+          description: Bounded moderator-only lobby queue
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MediaAdmissionQueue"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/media/spaces/{space_id}/admissions/{admission_id}/admit:
+    post:
+      operationId: admitMediaSpaceAdmission
+      summary: Admit one exact waiting participant using optimistic concurrency
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: space_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: admission_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/ExpectedTenantID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MediaAdmissionMutationRequest"
+      responses:
+        "200":
+          description: Admitted lobby entry or exact idempotent replay
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MediaAdmission"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/media/spaces/{space_id}/admissions/{admission_id}/deny:
+    post:
+      operationId: denyMediaSpaceAdmission
+      summary: Deny one exact waiting participant and release reserved capacity
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: space_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: admission_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/ExpectedTenantID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MediaAdmissionMutationRequest"
+      responses:
+        "200":
+          description: Denied lobby entry or exact idempotent replay
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MediaAdmission"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/media/spaces/{space_id}/admissions/{admission_id}/restore:
+    post:
+      operationId: restoreMediaSpaceAdmission
+      summary: Explicitly allow a previously denied participant to create a new join attempt
+      description: The terminal ParticipantSession is never revived. Restore only clears the persisted rejoin block; a future attempt must pass all current source, membership, lobby, quota, and room checks again.
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: space_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: admission_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/ExpectedTenantID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MediaAdmissionMutationRequest"
+      responses:
+        "200":
+          description: Restored lobby entry or exact idempotent replay
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MediaAdmission"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/media/spaces/{space_id}/members:
+    get:
+      operationId: listMediaSpaceMembers
+      summary: List explicit StudyMeeting member grants without exposing a tenant directory
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: space_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: expected_space_version
+          in: query
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 50
+        - $ref: "#/components/parameters/ExpectedTenantID"
+      responses:
+        "200":
+          description: Explicit grants only; never a tenant roster
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MediaSpaceMemberList"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+    post:
+      operationId: inviteMediaSpaceMember
+      summary: Invite one active same-tenant member to a StudyMeeting media space
+      description: The normalized email is used only for an exact server lookup. It is not persisted in media tables or returned in responses, logs, audit, or outbox events. This endpoint never applies to official class media spaces.
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: space_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/ExpectedTenantID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MediaSpaceMemberInviteRequest"
+      responses:
+        "200":
+          description: Existing active grant returned by exact replay
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MediaSpaceMember"
+        "201":
+          description: Same-tenant explicit member grant created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MediaSpaceMember"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/media/spaces/{space_id}/members/{user_id}/revoke:
+    post:
+      operationId: revokeMediaSpaceMember
+      summary: Revoke one exact StudyMeeting member grant
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: space_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/ExpectedTenantID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MediaSpaceMemberMutationRequest"
+      responses:
+        "200":
+          description: Revoked grant or exact idempotent replay
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MediaSpaceMember"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/media/spaces/{space_id}/members/{user_id}/restore:
+    post:
+      operationId: restoreMediaSpaceMember
+      summary: Restore one exact StudyMeeting member grant
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: space_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/ExpectedTenantID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MediaSpaceMemberMutationRequest"
+      responses:
+        "200":
+          description: Restored grant or exact idempotent replay
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MediaSpaceMember"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
   /api/v1/media/spaces/{space_id}/join-credentials:
     post:
       operationId: issueMediaSpaceJoinCredential
@@ -11092,7 +11601,14 @@ components:
     MediaSpaceViewerOperations:
       type: object
       additionalProperties: false
-      required: [can_start, can_end, can_cancel]
+      required:
+        [
+          can_start,
+          can_end,
+          can_cancel,
+          can_manage_admissions,
+          can_manage_invites,
+        ]
       properties:
         can_start:
           type: boolean
@@ -11100,6 +11616,12 @@ components:
           type: boolean
         can_cancel:
           type: boolean
+        can_manage_admissions:
+          type: boolean
+          description: Current server-authorized capability; never inferred from a client or provider role.
+        can_manage_invites:
+          type: boolean
+          description: True only for an authorized StudyMeeting explicit-member manager.
     MediaSpace:
       type: object
       additionalProperties: false
@@ -11192,7 +11714,15 @@ components:
           description: Current authorized media-space version used for optimistic concurrency.
     MediaJoinAttemptStatus:
       type: string
-      enum: [waiting, admitted, joining]
+      enum:
+        - waiting
+        - admitted
+        - joining
+        - denied
+        - cancelled
+        - timeout
+        - meeting_ended
+        - provider_unavailable
     MediaJoinAttempt:
       type: object
       additionalProperties: false
@@ -11219,6 +11749,11 @@ components:
           type: string
           format: uuid
           description: Present only when this participant is bound to a lobby admission request.
+        admission_version:
+          type: integer
+          format: int64
+          minimum: 1
+          description: Current self-only admission version used to cancel the exact waiting request.
         join_attempt_id:
           type: string
           format: uuid
@@ -11242,6 +11777,202 @@ components:
         updated_at:
           type: string
           format: date-time
+        expires_at:
+          type: string
+          format: date-time
+          description: Bounded lobby wait expiry. It is present for attempts that required admission.
+    MediaJoinAttemptCancelRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - expected_space_version
+        - expected_room_instance_id
+        - expected_room_instance_version
+        - expected_admission_version
+        - idempotency_key
+      properties:
+        expected_space_version:
+          type: integer
+          format: int64
+          minimum: 1
+        expected_room_instance_id:
+          type: string
+          format: uuid
+        expected_room_instance_version:
+          type: integer
+          format: int64
+          minimum: 1
+        expected_admission_version:
+          type: integer
+          format: int64
+          minimum: 1
+        idempotency_key:
+          type: string
+          minLength: 16
+          maxLength: 128
+          pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]{15,127}$"
+    MediaAdmissionStatus:
+      type: string
+      enum:
+        - waiting
+        - admitted
+        - denied
+        - cancelled
+        - meeting_ended
+        - timeout
+        - provider_unavailable
+    MediaAdmission:
+      type: object
+      additionalProperties: false
+      required: [id, status, version, display_name, created_at, expires_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          $ref: "#/components/schemas/MediaAdmissionStatus"
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+        display_name:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Bounded display label only; no email, provider identity, join-attempt, or participant-session identifier is returned.
+        created_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+    MediaAdmissionQueue:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          maxItems: 50
+          items:
+            $ref: "#/components/schemas/MediaAdmission"
+    MediaAdmissionMutationRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - expected_space_version
+        - expected_room_instance_id
+        - expected_room_instance_version
+        - expected_admission_version
+        - idempotency_key
+      properties:
+        expected_space_version:
+          type: integer
+          format: int64
+          minimum: 1
+        expected_room_instance_id:
+          type: string
+          format: uuid
+        expected_room_instance_version:
+          type: integer
+          format: int64
+          minimum: 1
+        expected_admission_version:
+          type: integer
+          format: int64
+          minimum: 1
+        idempotency_key:
+          type: string
+          minLength: 16
+          maxLength: 128
+          pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]{15,127}$"
+        reason_code:
+          type: string
+          minLength: 1
+          maxLength: 64
+          pattern: "^[a-z][a-z0-9_.-]{0,63}$"
+          description: Optional bounded non-private reason code; deny and safety actions may require it.
+    MediaSpaceMemberStatus:
+      type: string
+      enum: [active, revoked]
+    MediaSpaceMember:
+      type: object
+      additionalProperties: false
+      required: [user_id, display_name, status, version, created_at, updated_at]
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        display_name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        status:
+          $ref: "#/components/schemas/MediaSpaceMemberStatus"
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    MediaSpaceMemberList:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          maxItems: 50
+          items:
+            $ref: "#/components/schemas/MediaSpaceMember"
+    MediaSpaceMemberInviteRequest:
+      type: object
+      additionalProperties: false
+      required: [target_member_email, expected_space_version, idempotency_key]
+      properties:
+        target_member_email:
+          type: string
+          format: email
+          maxLength: 320
+          description: Used only for an exact active same-tenant lookup and never persisted in media rows or returned in projections/events.
+        expected_space_version:
+          type: integer
+          format: int64
+          minimum: 1
+        idempotency_key:
+          type: string
+          minLength: 16
+          maxLength: 128
+          pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]{15,127}$"
+    MediaSpaceMemberMutationRequest:
+      type: object
+      additionalProperties: false
+      required:
+        [expected_space_version, expected_member_version, idempotency_key]
+      properties:
+        expected_space_version:
+          type: integer
+          format: int64
+          minimum: 1
+        expected_member_version:
+          type: integer
+          format: int64
+          minimum: 1
+        idempotency_key:
+          type: string
+          minLength: 16
+          maxLength: 128
+          pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]{15,127}$"
+        reason_code:
+          type: string
+          minLength: 1
+          maxLength: 64
+          pattern: "^[a-z][a-z0-9_.-]{0,63}$"
+          description: Optional bounded non-private reason code; a safety-admin revoke requires it.
     MediaInstanceCredentialRequest:
       type: object
       additionalProperties: false

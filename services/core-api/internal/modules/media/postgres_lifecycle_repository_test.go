@@ -84,6 +84,35 @@ func TestPostgresLifecycleUnavailableRedactsDatabaseCause(t *testing.T) {
 	}
 }
 
+func TestViewerLobbyOperationsRequireEnabledFeatureAndActiveLifecycle(t *testing.T) {
+	t.Parallel()
+
+	contents, err := os.ReadFile("postgres_lifecycle_repository.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := string(contents)
+	start := strings.Index(source, "func (repository *PostgresLifecycleRepository) projectAuthorizedSpace(")
+	end := strings.Index(source[start:], "func (repository *PostgresLifecycleRepository) resolveCreateSource(")
+	if start < 0 || end < 0 {
+		t.Fatal("missing authorized media-space projection section")
+	}
+	section := source[start : start+end]
+	for _, fragment := range []string{
+		"featureEnabled := repository.controls.RequireFeature(",
+		"featurecontrol.FeatureClassroomMediaRooms",
+		"if featureEnabled {",
+		"operations.CanManageAdmissions = true",
+		"operations.CanManageInvites = featureEnabled &&",
+		"row.Status == SpaceStatusScheduled || row.Status == SpaceStatusOpen",
+		"row.Source.Kind == SourceStudyMeeting && viewerSource.Owner",
+	} {
+		if !strings.Contains(section, fragment) {
+			t.Fatalf("viewer lobby projection is missing %q", fragment)
+		}
+	}
+}
+
 func TestClassSourceMutationConcealsInvisibleSpace(t *testing.T) {
 	t.Parallel()
 

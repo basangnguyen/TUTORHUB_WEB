@@ -46,6 +46,7 @@ type Options struct {
 	Media                 media.ServiceAPI
 	MediaSpaces           media.LifecycleServiceAPI
 	MediaJoinAttempts     media.JoinAttemptServiceAPI
+	MediaLobby            media.LobbyServiceAPI
 	MediaCredentials      media.InstanceCredentialServiceAPI
 	MediaWebhooks         media.WebhookProcessor
 	Notifications         notification.ServiceAPI
@@ -470,6 +471,7 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 		options.MediaWebhooks,
 	)
 	mediaSpaces := newMediaSpaceHandlers(logger, auth, options.MediaSpaces)
+	mediaLobby := newMediaLobbyHandlers(logger, auth, options.MediaLobby)
 	mux.Handle(
 		classesCollectionPath,
 		auditMutation(
@@ -767,6 +769,101 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 		mediaSpaceJoinAttemptPathPattern,
 		mediaSpaceResponseHeaders(
 			requireMethod(http.MethodPost, http.HandlerFunc(mediaHandlers.createJoinAttempt)),
+		),
+	)
+	mux.Handle(
+		mediaJoinAttemptResourcePattern,
+		mediaSpaceResponseHeaders(
+			requireMethod(http.MethodGet, http.HandlerFunc(mediaLobby.joinAttempt)),
+		),
+	)
+	mux.Handle(
+		mediaJoinAttemptCancelPattern,
+		mediaSpaceResponseHeaders(
+			auditMutation(
+				staticAuditMutation(
+					http.MethodPost, audit.ActionMediaAdmissionCancel, "media_admission", nil,
+				),
+				requireMethod(http.MethodPost, http.HandlerFunc(mediaLobby.cancelJoinAttempt)),
+			),
+		),
+	)
+	mux.Handle(
+		mediaAdmissionsCollectionPath,
+		mediaSpaceResponseHeaders(
+			requireMethod(http.MethodGet, http.HandlerFunc(mediaLobby.admissions)),
+		),
+	)
+	mux.Handle(
+		mediaAdmissionAdmitPattern,
+		mediaSpaceResponseHeaders(
+			auditMutation(
+				staticAuditMutation(
+					http.MethodPost, audit.ActionMediaAdmissionAdmit, "media_admission",
+					pathValueAuditResource("admission_id"),
+				),
+				requireMethod(http.MethodPost, mediaLobby.mutateAdmission("admit")),
+			),
+		),
+	)
+	mux.Handle(
+		mediaAdmissionDenyPattern,
+		mediaSpaceResponseHeaders(
+			auditMutation(
+				staticAuditMutation(
+					http.MethodPost, audit.ActionMediaAdmissionDeny, "media_admission",
+					pathValueAuditResource("admission_id"),
+				),
+				requireMethod(http.MethodPost, mediaLobby.mutateAdmission("deny")),
+			),
+		),
+	)
+	mux.Handle(
+		mediaAdmissionRestorePattern,
+		mediaSpaceResponseHeaders(
+			auditMutation(
+				staticAuditMutation(
+					http.MethodPost, audit.ActionMediaAdmissionRestore, "media_admission",
+					pathValueAuditResource("admission_id"),
+				),
+				requireMethod(http.MethodPost, mediaLobby.mutateAdmission("restore")),
+			),
+		),
+	)
+	mux.Handle(
+		mediaSpaceMembersPattern,
+		mediaSpaceResponseHeaders(
+			auditMutation(
+				staticAuditMutation(
+					http.MethodPost, audit.ActionMediaSpaceMemberInvite, "media_space",
+					pathValueAuditResource("space_id"),
+				),
+				http.HandlerFunc(mediaLobby.members),
+			),
+		),
+	)
+	mux.Handle(
+		mediaSpaceMemberRevokePattern,
+		mediaSpaceResponseHeaders(
+			auditMutation(
+				staticAuditMutation(
+					http.MethodPost, audit.ActionMediaSpaceMemberRevoke, "media_space_member",
+					pathValueAuditResource("user_id"),
+				),
+				requireMethod(http.MethodPost, mediaLobby.mutateMember("revoke")),
+			),
+		),
+	)
+	mux.Handle(
+		mediaSpaceMemberRestorePattern,
+		mediaSpaceResponseHeaders(
+			auditMutation(
+				staticAuditMutation(
+					http.MethodPost, audit.ActionMediaSpaceMemberRestore, "media_space_member",
+					pathValueAuditResource("user_id"),
+				),
+				requireMethod(http.MethodPost, mediaLobby.mutateMember("restore")),
+			),
 		),
 	)
 	mux.Handle(
