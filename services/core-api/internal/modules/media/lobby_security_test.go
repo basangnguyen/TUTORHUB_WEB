@@ -59,6 +59,23 @@ func TestP404IntegrationGateCannotSilentlySkipACLOrDatabaseSlice(t *testing.T) {
 	if aclGate < 0 || p404DatabaseGate < aclGate {
 		t.Fatal("P4-04 package integration sequence does not provision ACL before its database gate")
 	}
+
+	workflowContents, err := os.ReadFile(filepath.Join(repositoryRoot, ".github", "workflows", "ci.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	workflowSource := string(workflowContents)
+	fixtureBoundary := strings.Index(
+		workflowSource,
+		`DATABASE_POOL_URL="$DATABASE_MEDIA_FIXTURE_TEST_URL" go test -count=1 -tags=integration`,
+	)
+	workflowLobbyGate := strings.Index(
+		workflowSource,
+		`-run '^TestPostgresMediaLobbyAdmissionInviteRaceAndRestoreBarrier$'`,
+	)
+	if fixtureBoundary < 0 || workflowLobbyGate < fixtureBoundary {
+		t.Fatal("P4-04 CI lobby database gate does not use the isolated non-superuser fixture role")
+	}
 }
 
 func TestP404ACLProvisioningIsVersionPinnedAndFreshlyOptedIn(t *testing.T) {

@@ -102,9 +102,6 @@ jobs:
           go test -count=1 -tags=integration \
             -run '^TestPostgresMediaLifecycleRuntimeExactACL$' \
             ./services/core-api/internal/modules/media
-          go test -count=1 -tags=integration \
-            -run '^TestPostgresMediaLobbyAdmissionInviteRaceAndRestoreBarrier$' \
-            ./services/core-api/internal/modules/media
           # Cross-module fixtures use a distinct, non-superuser role in this
           # disposable CI database. The exact media role remains narrow above;
           # Neon disposable acceptance covers the real Core API runtime role.
@@ -132,6 +129,9 @@ jobs:
           GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA tutorhub
               TO tutorhub_media_fixture_ci;
           SQL
+          DATABASE_POOL_URL="$DATABASE_MEDIA_FIXTURE_TEST_URL" go test -count=1 -tags=integration \
+            -run '^TestPostgresMediaLobbyAdmissionInviteRaceAndRestoreBarrier$' \
+            ./services/core-api/internal/modules/media
           DATABASE_POOL_URL="$DATABASE_MEDIA_FIXTURE_TEST_URL" go test -count=1 -tags=integration \
             -run '^TestPostgresMediaLifecycleAuthorityConcurrencyQuotaAndPrivacy$' \
             ./services/core-api/internal/modules/media
