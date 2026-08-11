@@ -72,7 +72,7 @@ const MediaSpacePreJoinPage = lazy(() =>
   })),
 );
 const MediaSpaceRoomPage = lazy(() =>
-  import("../pages/MediaSpacePages").then((module) => ({
+  import("../pages/MediaSpaceRoomPage").then((module) => ({
     default: module.MediaSpaceRoomPage,
   })),
 );

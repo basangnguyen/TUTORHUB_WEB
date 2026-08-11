@@ -1,5 +1,5 @@
 import { readdir, readFile, stat } from "node:fs/promises";
-import { extname, resolve } from "node:path";
+import { basename, extname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 const TEXT_EXTENSIONS = new Set([
@@ -59,6 +59,77 @@ export async function scanClientBundle(directory) {
   return { filesChecked: files.length, issues };
 }
 
+export async function scanMediaBundleIsolation(directory) {
+  const issues = [];
+  const assetsDirectory = resolve(directory, "assets");
+  const assetNames = await readdir(assetsDirectory);
+  const indexHtml = await readFile(resolve(directory, "index.html"), "utf8");
+  const entryMatch = indexHtml.match(
+    /<script[^>]+src=["']([^"']*\/assets\/index-[^"']+\.js)["']/i,
+  );
+  const entryName = entryMatch ? basename(entryMatch[1]) : null;
+  const prejoinName = singleAsset(assetNames, "MediaSpacePages-", ".js");
+  const roomName = singleAsset(assetNames, "MediaSpaceRoomPage-", ".js");
+  const liveKitName = singleAsset(assetNames, "livekit-", ".js");
+
+  if (!entryName || !assetNames.includes(entryName)) {
+    issues.push("client entry chunk is missing");
+  }
+  if (!prejoinName) issues.push("canonical media prejoin chunk is missing");
+  if (!roomName) issues.push("canonical media room chunk is missing");
+  if (!liveKitName) issues.push("isolated LiveKit vendor chunk is missing");
+
+  for (const name of [entryName, prejoinName]) {
+    if (!name) continue;
+    const source = await readFile(resolve(assetsDirectory, name), "utf8");
+    if (
+      staticImportSpecifiers(source).some(
+        (specifier) =>
+          specifier.includes("/livekit-") ||
+          specifier.includes("/LiveKitPages-"),
+      )
+    ) {
+      issues.push(`${name}: statically imports the LiveKit media bundle`);
+    }
+  }
+
+  if (roomName && liveKitName) {
+    const roomSource = await readFile(
+      resolve(assetsDirectory, roomName),
+      "utf8",
+    );
+    if (
+      !staticImportSpecifiers(roomSource).some((specifier) =>
+        specifier.endsWith(`/${liveKitName}`),
+      )
+    ) {
+      issues.push(`${roomName}: does not import the isolated LiveKit chunk`);
+    }
+  }
+
+  return issues;
+}
+
+function staticImportSpecifiers(source) {
+  return [
+    ...[...source.matchAll(/\bimport\s*["']([^"']+)["']/g)].map(
+      (match) => match[1],
+    ),
+    ...[
+      ...source.matchAll(
+        /\b(?:import|export)\s*[^"'()]*?\bfrom\s*["']([^"']+)["']/g,
+      ),
+    ].map((match) => match[1]),
+  ];
+}
+
+function singleAsset(names, prefix, suffix) {
+  const matches = names.filter(
+    (name) => name.startsWith(prefix) && name.endsWith(suffix),
+  );
+  return matches.length === 1 ? matches[0] : null;
+}
+
 const isMain =
   process.argv[1] &&
   pathToFileURL(resolve(process.argv[1])).href === import.meta.url;
@@ -76,8 +147,12 @@ if (isMain) {
   }
 
   const result = await scanClientBundle(bundleDirectory);
-  if (result.issues.length > 0) {
-    console.error(result.issues.join("\n"));
+  const issues = [
+    ...result.issues,
+    ...(await scanMediaBundleIsolation(bundleDirectory)),
+  ];
+  if (issues.length > 0) {
+    console.error(issues.join("\n"));
     process.exitCode = 1;
   } else {
     console.log(

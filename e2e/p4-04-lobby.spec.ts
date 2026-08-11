@@ -253,12 +253,18 @@ test("P4-04 denied projection is terminal and never mints a credential", async (
   ).toBeVisible();
   fixture.deny();
   const check = page.getByRole("button", { name: "Check admission status" });
-  await expect(check).toBeEnabled();
-  await check.click();
-
-  await expect(
-    page.getByRole("heading", { name: "Your join request was denied" }),
-  ).toBeVisible();
+  const deniedHeading = page.getByRole("heading", {
+    name: "Your join request was denied",
+  });
+  await expect
+    .poll(async () => {
+      if (await deniedHeading.isVisible()) return true;
+      if ((await check.isVisible()) && (await check.isEnabled())) {
+        await check.click();
+      }
+      return deniedHeading.isVisible();
+    })
+    .toBe(true);
   expect(fixture.observed.statusCalls).toBeGreaterThan(0);
   expect(fixture.observed.credentialCalls).toBe(0);
   expect(websockets).toEqual([]);

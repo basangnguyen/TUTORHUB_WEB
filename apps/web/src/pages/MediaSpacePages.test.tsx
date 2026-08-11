@@ -26,9 +26,11 @@ import {
   finalizeMediaRoomEscrowClaim,
   putMediaRoomEscrow,
   takeMediaRoomEscrow,
+  type MediaInstanceCredentialProjection,
 } from "../app/mediaPrejoin";
 import { SessionProvider } from "../app/session";
-import { MediaSpacePreJoinPage, MediaSpaceRoomPage } from "./MediaSpacePages";
+import { MediaSpacePreJoinPage } from "./MediaSpacePages";
+import { MediaSpaceRoomPage } from "./MediaSpaceRoomPage";
 
 const apiMocks = vi.hoisted(() => ({
   cancelJoinAttempt: vi.fn(),
@@ -39,12 +41,38 @@ const apiMocks = vi.hoisted(() => ({
   rotateCSRFToken: vi.fn(),
 }));
 
-const liveKitMocks = vi.hoisted(() => ({
-  roomDisconnect: vi.fn().mockResolvedValue(undefined),
-  roomRender: vi.fn(),
-  startAudioRender: vi.fn(),
-  switchActiveDevice: vi.fn().mockResolvedValue(undefined),
-}));
+interface MockLocalTrack {
+  detach: ReturnType<typeof vi.fn>;
+  stop: ReturnType<typeof vi.fn>;
+}
+
+const liveKitMocks = vi.hoisted(() => {
+  const trackPublications = new Map<string, { track?: MockLocalTrack }>();
+  const unpublishTrack = vi.fn(
+    async (track: MockLocalTrack, stopOnUnpublish: boolean) => {
+      void stopOnUnpublish;
+      for (const [trackID, publication] of trackPublications) {
+        if (publication.track === track) trackPublications.delete(trackID);
+      }
+    },
+  );
+  return {
+    listeners: new Map<string, Set<(...args: unknown[]) => void>>(),
+    roomConnect: vi.fn().mockResolvedValue(undefined),
+    roomConstruct: vi.fn(),
+    roomDisconnect: vi.fn().mockResolvedValue(undefined),
+    setCameraEnabled: vi.fn().mockResolvedValue(undefined),
+    shellRender: vi.fn(),
+    setMicrophoneEnabled: vi.fn().mockResolvedValue(undefined),
+    setScreenShareEnabled: vi.fn().mockResolvedValue(undefined),
+    setComponentsLogLevel: vi.fn(),
+    setRoomLogLevel: vi.fn(),
+    startAudioRender: vi.fn(),
+    switchActiveDevice: vi.fn().mockResolvedValue(undefined),
+    trackPublications,
+    unpublishTrack,
+  };
+});
 
 vi.mock("@tutorhub/api-client", async (importOriginal) => {
   const original =
@@ -61,23 +89,80 @@ vi.mock("@tutorhub/api-client", async (importOriginal) => {
 });
 
 vi.mock("@livekit/components-react", () => ({
-  LiveKitRoom: (props: { children?: React.ReactNode }) => {
-    liveKitMocks.roomRender(props);
-    return props.children ?? null;
+  RoomContext: {
+    Provider: (props: { children?: React.ReactNode }) => props.children ?? null,
   },
   RoomAudioRenderer: () => null,
   StartAudio: (props: { label: string }) => {
     liveKitMocks.startAudioRender(props);
     return <button type="button">{props.label}</button>;
   },
+  setLogLevel: liveKitMocks.setComponentsLogLevel,
+}));
+
+vi.mock("../features/media/ClassroomMediaShell", () => ({
+  ClassroomMediaShell: (props: {
+    controlAbortSignal?: AbortSignal;
+    onLeave: () => void;
+    onTerminalMediaCleanup: () => Promise<void>;
+  }) => {
+    liveKitMocks.shellRender(props);
+    return (
+      <section>
+        <h1>TutorHub classroom</h1>
+        <button onClick={props.onLeave} type="button">
+          Mock leave room
+        </button>
+      </section>
+    );
+  },
 }));
 
 vi.mock("livekit-client", () => ({
+  getLogger: () => ({ setLevel: liveKitMocks.setRoomLogLevel }),
+  LogLevel: { silent: 5 },
+  RoomEvent: {
+    Connected: "connected",
+    Disconnected: "disconnected",
+    SignalConnected: "signalConnected",
+  },
   Room: class MockRoom {
+    localParticipant = {
+      setCameraEnabled: liveKitMocks.setCameraEnabled,
+      setMicrophoneEnabled: liveKitMocks.setMicrophoneEnabled,
+      setScreenShareEnabled: liveKitMocks.setScreenShareEnabled,
+      trackPublications: liveKitMocks.trackPublications,
+      unpublishTrack: liveKitMocks.unpublishTrack,
+    };
+    connect = liveKitMocks.roomConnect;
     disconnect = liveKitMocks.roomDisconnect;
     switchActiveDevice = liveKitMocks.switchActiveDevice;
+
+    constructor() {
+      liveKitMocks.roomConstruct();
+    }
+
+    on(event: string, listener: (...args: unknown[]) => void) {
+      const listeners = liveKitMocks.listeners.get(event) ?? new Set();
+      listeners.add(listener);
+      liveKitMocks.listeners.set(event, listeners);
+      return this;
+    }
+
+    off(event: string, listener: (...args: unknown[]) => void) {
+      liveKitMocks.listeners.get(event)?.delete(listener);
+      return this;
+    }
   },
 }));
+
+function emitRoomEvent(
+  event: "connected" | "disconnected" | "signalConnected",
+) {
+  for (const listener of liveKitMocks.listeners.get(event) ?? []) {
+    listener();
+  }
+}
 
 const tenantID = "4b18543a-74de-419f-9fe8-d0c3dfc991eb";
 const userID = "1d7d65eb-904e-4a0d-bd24-a8ec1b453d64";
@@ -264,7 +349,7 @@ function renderPrejoin(mediaDevices: MediaDevices) {
     },
   });
 
-  render(
+  return render(
     <QueryClientProvider client={queryClient}>
       <I18nProvider initialLanguage="en">
         <SessionProvider mode={{ kind: "static", currentUser }}>
@@ -296,7 +381,7 @@ function renderCanonicalRoom() {
       queries: { retry: false },
     },
   });
-  render(
+  return render(
     <StrictMode>
       <QueryClientProvider client={queryClient}>
         <I18nProvider initialLanguage="en">
@@ -313,6 +398,7 @@ function renderCanonicalRoom() {
                 />
               </Routes>
               <RoomScopeNavigation />
+              <LocationProbe />
             </MemoryRouter>
           </SessionProvider>
         </I18nProvider>
@@ -337,6 +423,7 @@ function putCanonicalRoomEscrow(
     speakerDeviceId: "",
     audioMode: "speech",
   },
+  credentialOverrides: Partial<MediaInstanceCredentialProjection> = {},
 ) {
   putMediaRoomEscrow({
     scope: {
@@ -356,6 +443,7 @@ function putCanonicalRoomEscrow(
       can_share_screen: false,
       can_subscribe: true,
       expires_at: "2030-08-03T00:05:00Z",
+      ...credentialOverrides,
     },
     choices,
   });
@@ -381,8 +469,9 @@ describe("MediaSpacePreJoinPage P4-03 boundaries", () => {
     );
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     cleanup();
+    await Promise.resolve();
     clearMediaRoomEscrow();
     window.localStorage.clear();
     window.sessionStorage.clear();
@@ -394,10 +483,20 @@ describe("MediaSpacePreJoinPage P4-03 boundaries", () => {
     apiMocks.getMediaSpace.mockReset();
     apiMocks.issueJoinCredential.mockReset();
     apiMocks.rotateCSRFToken.mockReset();
-    liveKitMocks.roomRender.mockReset();
+    liveKitMocks.listeners.clear();
+    liveKitMocks.roomConnect.mockReset().mockResolvedValue(undefined);
+    liveKitMocks.roomConstruct.mockClear();
+    liveKitMocks.shellRender.mockReset();
     liveKitMocks.roomDisconnect.mockClear();
+    liveKitMocks.setCameraEnabled.mockReset().mockResolvedValue(undefined);
+    liveKitMocks.setMicrophoneEnabled.mockReset().mockResolvedValue(undefined);
+    liveKitMocks.setScreenShareEnabled.mockReset().mockResolvedValue(undefined);
+    liveKitMocks.setComponentsLogLevel.mockClear();
+    liveKitMocks.setRoomLogLevel.mockClear();
     liveKitMocks.startAudioRender.mockReset();
     liveKitMocks.switchActiveDevice.mockClear();
+    liveKitMocks.trackPublications.clear();
+    liveKitMocks.unpublishTrack.mockClear();
   });
 
   it("does not capture media or create a join attempt during initial render", async () => {
@@ -412,7 +511,7 @@ describe("MediaSpacePreJoinPage P4-03 boundaries", () => {
     expect(apiMocks.rotateCSRFToken).not.toHaveBeenCalled();
     expect(apiMocks.createJoinAttempt).not.toHaveBeenCalled();
     expect(apiMocks.issueJoinCredential).not.toHaveBeenCalled();
-    expect(liveKitMocks.roomRender).not.toHaveBeenCalled();
+    expect(liveKitMocks.roomConnect).not.toHaveBeenCalled();
   });
 
   it("starts one local preview only after the explicit device-check action", async () => {
@@ -468,7 +567,7 @@ describe("MediaSpacePreJoinPage P4-03 boundaries", () => {
     expect(media.getUserMedia).not.toHaveBeenCalled();
     expect(apiMocks.createJoinAttempt).toHaveBeenCalledTimes(1);
     expect(apiMocks.issueJoinCredential).not.toHaveBeenCalled();
-    expect(liveKitMocks.roomRender).not.toHaveBeenCalled();
+    expect(liveKitMocks.roomConnect).not.toHaveBeenCalled();
     expect(screen.getByTestId("route-path")).toHaveTextContent(
       `/app/media/spaces/${spaceID}/prejoin`,
     );
@@ -493,7 +592,7 @@ describe("MediaSpacePreJoinPage P4-03 boundaries", () => {
     });
     expect(terminalHeading).toHaveFocus();
     expect(apiMocks.issueJoinCredential).not.toHaveBeenCalled();
-    expect(liveKitMocks.roomRender).not.toHaveBeenCalled();
+    expect(liveKitMocks.roomConnect).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -540,7 +639,7 @@ describe("MediaSpacePreJoinPage P4-03 boundaries", () => {
         expect(newRequest).not.toBeInTheDocument();
       }
       expect(apiMocks.issueJoinCredential).not.toHaveBeenCalled();
-      expect(liveKitMocks.roomRender).not.toHaveBeenCalled();
+      expect(liveKitMocks.roomConnect).not.toHaveBeenCalled();
     },
   );
 
@@ -652,7 +751,7 @@ describe("MediaSpacePreJoinPage P4-03 boundaries", () => {
       "media-csrf",
     );
     expect(apiMocks.issueJoinCredential).not.toHaveBeenCalled();
-    expect(liveKitMocks.roomRender).not.toHaveBeenCalled();
+    expect(liveKitMocks.roomConnect).not.toHaveBeenCalled();
   });
 
   it("requests an admitted attempt before the credential and hands the token off outside history state", async () => {
@@ -723,7 +822,7 @@ describe("MediaSpacePreJoinPage P4-03 boundaries", () => {
     expect(JSON.stringify(window.history.state ?? null)).not.toContain(token);
     expect(window.localStorage).toHaveLength(0);
     expect(window.sessionStorage).toHaveLength(0);
-    expect(liveKitMocks.roomRender).not.toHaveBeenCalled();
+    expect(liveKitMocks.roomConnect).not.toHaveBeenCalled();
 
     const handoff = takeMediaRoomEscrow({
       tenantId: tenantID,
@@ -762,52 +861,49 @@ describe("MediaSpacePreJoinPage P4-03 boundaries", () => {
       audioMode: "original_sound",
     });
 
-    renderCanonicalRoom();
+    const view = renderCanonicalRoom();
 
     expect(
       await screen.findByRole("heading", { name: "TutorHub classroom" }),
     ).toBeInTheDocument();
-    const liveKitProps = liveKitMocks.roomRender.mock.lastCall?.[0] as
-      | {
-          token?: string;
-          audio?: unknown;
-        }
-      | undefined;
-    expect(liveKitProps).toMatchObject({
+    expect(liveKitMocks.roomConnect).toHaveBeenCalledTimes(1);
+    expect(liveKitMocks.roomConstruct).toHaveBeenCalledTimes(1);
+    expect(liveKitMocks.roomConnect).toHaveBeenCalledWith(
+      "wss://media.example.test",
       token,
-      connect: true,
-      audio: {
+      { autoSubscribe: false },
+    );
+    act(() => emitRoomEvent("signalConnected"));
+    await waitFor(() =>
+      expect(liveKitMocks.setMicrophoneEnabled).toHaveBeenCalledWith(true, {
         deviceId: "microphone-1",
         echoCancellation: { ideal: false },
         noiseSuppression: { ideal: false },
         autoGainControl: { ideal: false },
-      },
-    });
+      }),
+    );
+    expect(liveKitMocks.setCameraEnabled).toHaveBeenCalledWith(
+      false,
+      undefined,
+    );
+    act(() => emitRoomEvent("signalConnected"));
+    expect(liveKitMocks.setMicrophoneEnabled).toHaveBeenCalledTimes(1);
+    expect(liveKitMocks.setCameraEnabled).toHaveBeenCalledTimes(1);
+    expect(liveKitMocks.setScreenShareEnabled).not.toHaveBeenCalled();
     expect(screen.getByRole("main")).toHaveClass("media-p403-room");
     expect(
       screen.getByRole("button", { name: "Enable classroom audio" }),
     ).toBeInTheDocument();
     expect(liveKitMocks.startAudioRender).toHaveBeenCalled();
-    const stableCallbacks = liveKitMocks.roomRender.mock.lastCall?.[0] as
-      | {
-          onConnected?: () => void;
-          onDisconnected?: () => void;
-          onError?: () => void;
-        }
-      | undefined;
-    act(() => stableCallbacks?.onConnected?.());
-    const rerenderedCallbacks = liveKitMocks.roomRender.mock.lastCall?.[0] as
-      | {
-          onConnected?: () => void;
-          onDisconnected?: () => void;
-          onError?: () => void;
-        }
-      | undefined;
-    expect(rerenderedCallbacks?.onConnected).toBe(stableCallbacks?.onConnected);
-    expect(rerenderedCallbacks?.onDisconnected).toBe(
-      stableCallbacks?.onDisconnected,
-    );
-    expect(rerenderedCallbacks?.onError).toBe(stableCallbacks?.onError);
+    await act(async () => Promise.resolve());
+    expect(liveKitMocks.roomDisconnect).not.toHaveBeenCalled();
+    expect(liveKitMocks.setRoomLogLevel).toHaveBeenCalledWith(5);
+    expect(liveKitMocks.setComponentsLogLevel).toHaveBeenCalledWith(5, {
+      liveKitClientLogLevel: 5,
+    });
+    expect(liveKitMocks.listeners.get("connected")?.size).toBe(1);
+    expect(liveKitMocks.listeners.get("disconnected")?.size).toBe(1);
+    act(() => emitRoomEvent("connected"));
     expect(liveKitMocks.switchActiveDevice).toHaveBeenCalledWith(
       "audiooutput",
       "speaker-1",
@@ -820,6 +916,222 @@ describe("MediaSpacePreJoinPage P4-03 boundaries", () => {
         roomInstanceId: roomInstanceID,
       }),
     ).toBeNull();
+    view.unmount();
+    await act(async () => Promise.resolve());
+    expect(liveKitMocks.roomDisconnect).toHaveBeenCalledTimes(1);
+    expect(liveKitMocks.roomDisconnect).toHaveBeenCalledWith(true);
+  });
+
+  it("hard-stops initial capture that resolves after terminal leave", async () => {
+    const microphone = createDeferred<void>();
+    const camera = createDeferred<void>();
+    liveKitMocks.setMicrophoneEnabled.mockReturnValueOnce(microphone.promise);
+    liveKitMocks.setCameraEnabled.mockReturnValueOnce(camera.promise);
+    putCanonicalRoomEscrow({
+      audioEnabled: true,
+      videoEnabled: true,
+      audioDeviceId: "microphone-1",
+      videoDeviceId: "camera-1",
+      speakerDeviceId: "",
+      audioMode: "speech",
+    });
+
+    renderCanonicalRoom();
+    await screen.findByRole("heading", { name: "TutorHub classroom" });
+    act(() => emitRoomEvent("signalConnected"));
+    fireEvent.click(screen.getByRole("button", { name: "Mock leave room" }));
+    await waitFor(() =>
+      expect(liveKitMocks.roomDisconnect).toHaveBeenCalledWith(true),
+    );
+    const microphoneTrack = createMockLocalTrack();
+    const cameraTrack = createMockLocalTrack();
+    liveKitMocks.trackPublications.set("microphone", {
+      track: microphoneTrack,
+    });
+    liveKitMocks.trackPublications.set("camera", { track: cameraTrack });
+
+    await act(async () => {
+      microphone.resolve();
+      await microphone.promise;
+    });
+    await waitFor(() =>
+      expect(liveKitMocks.unpublishTrack).toHaveBeenCalledTimes(2),
+    );
+    await act(async () => {
+      camera.resolve();
+      await camera.promise;
+    });
+
+    expect(liveKitMocks.unpublishTrack).toHaveBeenCalledWith(
+      microphoneTrack,
+      true,
+    );
+    expect(liveKitMocks.unpublishTrack).toHaveBeenCalledWith(cameraTrack, true);
+    expect(microphoneTrack.detach).toHaveBeenCalledTimes(1);
+    expect(microphoneTrack.stop).toHaveBeenCalledTimes(1);
+    expect(cameraTrack.detach).toHaveBeenCalledTimes(1);
+    expect(cameraTrack.stop).toHaveBeenCalledTimes(1);
+  });
+
+  it("hard-stops initial capture that resolves after room unmount", async () => {
+    const camera = createDeferred<void>();
+    liveKitMocks.setCameraEnabled.mockReturnValueOnce(camera.promise);
+    putCanonicalRoomEscrow({
+      audioEnabled: false,
+      videoEnabled: true,
+      audioDeviceId: "",
+      videoDeviceId: "camera-1",
+      speakerDeviceId: "",
+      audioMode: "speech",
+    });
+
+    const view = renderCanonicalRoom();
+    await screen.findByRole("heading", { name: "TutorHub classroom" });
+    act(() => emitRoomEvent("signalConnected"));
+    view.unmount();
+    const cameraTrack = createMockLocalTrack();
+    liveKitMocks.trackPublications.set("late-camera", { track: cameraTrack });
+    await act(async () => {
+      camera.resolve();
+      await camera.promise;
+    });
+    await waitFor(() =>
+      expect(liveKitMocks.unpublishTrack).toHaveBeenCalledWith(
+        cameraTrack,
+        true,
+      ),
+    );
+    expect(cameraTrack.detach).toHaveBeenCalledTimes(1);
+    expect(cameraTrack.stop).toHaveBeenCalledTimes(1);
+  });
+
+  it("clamps prejoin capture choices to the exact camera and microphone grant", async () => {
+    putCanonicalRoomEscrow(
+      {
+        audioEnabled: true,
+        videoEnabled: true,
+        audioDeviceId: "microphone-1",
+        videoDeviceId: "camera-1",
+        speakerDeviceId: "speaker-1",
+        audioMode: "speech",
+      },
+      { can_publish_camera_microphone: false },
+    );
+
+    renderCanonicalRoom();
+    await screen.findByRole("heading", { name: "TutorHub classroom" });
+    act(() => emitRoomEvent("signalConnected"));
+    await waitFor(() =>
+      expect(liveKitMocks.setMicrophoneEnabled).toHaveBeenCalledWith(
+        false,
+        undefined,
+      ),
+    );
+    expect(liveKitMocks.setCameraEnabled).toHaveBeenCalledWith(
+      false,
+      undefined,
+    );
+    expect(liveKitMocks.setScreenShareEnabled).not.toHaveBeenCalled();
+  });
+
+  it("terminates a provider connection failure without logging raw errors", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const error = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    liveKitMocks.roomConnect.mockRejectedValueOnce(
+      new Error("provider-identity secret-room-sid"),
+    );
+    putCanonicalRoomEscrow();
+    renderCanonicalRoom();
+    await screen.findByRole("heading", { name: "TutorHub classroom" });
+    const shellProps = liveKitMocks.shellRender.mock.lastCall?.[0] as
+      { controlAbortSignal?: AbortSignal } | undefined;
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "Return to the prejoin check",
+      }),
+    ).toBeInTheDocument();
+    expect(shellProps?.controlAbortSignal?.aborted).toBe(true);
+    expect(screen.getByTestId("route-path")).toHaveTextContent(
+      `/app/media/spaces/${spaceID}/instances/${roomInstanceID}/room`,
+    );
+    expect(warn).not.toHaveBeenCalled();
+    expect(error).not.toHaveBeenCalled();
+  });
+
+  it("keeps a double leave ahead of a racing provider error", async () => {
+    liveKitMocks.setMicrophoneEnabled.mockRejectedValueOnce(
+      new Error("late provider failure"),
+    );
+    putCanonicalRoomEscrow();
+    renderCanonicalRoom();
+    await screen.findByRole("heading", { name: "TutorHub classroom" });
+    const leave = screen.getByRole("button", { name: "Mock leave room" });
+
+    act(() => {
+      emitRoomEvent("signalConnected");
+      fireEvent.click(leave);
+      fireEvent.click(leave);
+    });
+
+    await waitFor(() =>
+      expect(screen.getByTestId("route-path")).toHaveTextContent(
+        `/app/media/spaces/${spaceID}/prejoin`,
+      ),
+    );
+  });
+
+  it("suppresses a late leave callback after the room scope unmounts", async () => {
+    let resolveDisconnect: (() => void) | undefined;
+    liveKitMocks.roomDisconnect.mockReturnValueOnce(
+      new Promise<void>((resolve) => {
+        resolveDisconnect = resolve;
+      }),
+    );
+    putCanonicalRoomEscrow();
+    renderCanonicalRoom();
+    await screen.findByRole("heading", { name: "TutorHub classroom" });
+
+    fireEvent.click(screen.getByRole("button", { name: "Mock leave room" }));
+    expect(liveKitMocks.roomDisconnect).toHaveBeenCalledTimes(1);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Open other room scope" }),
+    );
+
+    await screen.findByRole("heading", {
+      name: "Return to the prejoin check",
+    });
+    expect(screen.getByTestId("route-path")).toHaveTextContent(
+      `/app/media/spaces/${otherSpaceID}/instances/${roomInstanceID}/room`,
+    );
+    await act(async () => {
+      resolveDisconnect?.();
+      await Promise.resolve();
+    });
+    expect(screen.getByTestId("route-path")).toHaveTextContent(
+      `/app/media/spaces/${otherSpaceID}/instances/${roomInstanceID}/room`,
+    );
+    expect(liveKitMocks.roomDisconnect).toHaveBeenCalledTimes(1);
+  });
+
+  it("ignores a connected event that arrives after terminal leave starts", async () => {
+    putCanonicalRoomEscrow();
+    renderCanonicalRoom();
+    await screen.findByRole("heading", { name: "TutorHub classroom" });
+
+    act(() => {
+      fireEvent.click(screen.getByRole("button", { name: "Mock leave room" }));
+      emitRoomEvent("connected");
+    });
+
+    expect(liveKitMocks.switchActiveDevice).not.toHaveBeenCalled();
+    await waitFor(() =>
+      expect(screen.getByTestId("route-path")).toHaveTextContent(
+        `/app/media/spaces/${spaceID}/prejoin`,
+      ),
+    );
   });
 
   it("terminates the room handoff after disconnect without reconnecting", async () => {
@@ -827,12 +1139,14 @@ describe("MediaSpacePreJoinPage P4-03 boundaries", () => {
     renderCanonicalRoom();
 
     await screen.findByRole("heading", { name: "TutorHub classroom" });
-    const before = liveKitMocks.roomRender.mock.calls.length;
-    const props = liveKitMocks.roomRender.mock.lastCall?.[0] as
-      { onDisconnected?: () => void } | undefined;
-    expect(props?.onDisconnected).toBeTypeOf("function");
+    const before = liveKitMocks.roomConnect.mock.calls.length;
+    const shellProps = liveKitMocks.shellRender.mock.lastCall?.[0] as
+      { controlAbortSignal?: AbortSignal } | undefined;
+    expect(liveKitMocks.listeners.get("disconnected")?.size).toBe(1);
+    expect(shellProps?.controlAbortSignal?.aborted).toBe(false);
 
-    act(() => props?.onDisconnected?.());
+    act(() => emitRoomEvent("disconnected"));
+    expect(shellProps?.controlAbortSignal?.aborted).toBe(true);
 
     expect(
       await screen.findByRole("heading", {
@@ -840,7 +1154,9 @@ describe("MediaSpacePreJoinPage P4-03 boundaries", () => {
       }),
     ).toBeInTheDocument();
     expect(screen.getByRole("main")).toHaveClass("media-p403-room-recovery");
-    expect(liveKitMocks.roomRender.mock.calls.length).toBe(before);
+    expect(liveKitMocks.roomConnect.mock.calls.length).toBe(before);
+    await act(async () => Promise.resolve());
+    expect(liveKitMocks.roomDisconnect).not.toHaveBeenCalled();
     expect(
       takeMediaRoomEscrow({
         tenantId: tenantID,
@@ -856,7 +1172,7 @@ describe("MediaSpacePreJoinPage P4-03 boundaries", () => {
     renderCanonicalRoom();
 
     await screen.findByRole("heading", { name: "TutorHub classroom" });
-    const initialRoomRenders = liveKitMocks.roomRender.mock.calls.length;
+    const initialRoomConnections = liveKitMocks.roomConnect.mock.calls.length;
     fireEvent.click(
       screen.getByRole("button", { name: "Open other room scope" }),
     );
@@ -874,7 +1190,10 @@ describe("MediaSpacePreJoinPage P4-03 boundaries", () => {
         name: "Return to the prejoin check",
       }),
     ).toBeInTheDocument();
-    expect(liveKitMocks.roomRender.mock.calls.length).toBe(initialRoomRenders);
+    expect(liveKitMocks.roomConnect.mock.calls.length).toBe(
+      initialRoomConnections,
+    );
+    expect(liveKitMocks.roomDisconnect).toHaveBeenCalledTimes(1);
     expect(
       takeMediaRoomEscrow({
         tenantId: tenantID,
@@ -885,3 +1204,17 @@ describe("MediaSpacePreJoinPage P4-03 boundaries", () => {
     ).toBeNull();
   });
 });
+
+function createDeferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, reject, resolve };
+}
+
+function createMockLocalTrack(): MockLocalTrack {
+  return { detach: vi.fn(), stop: vi.fn() };
+}

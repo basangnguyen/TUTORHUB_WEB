@@ -6,7 +6,7 @@
 
 | Thuộc tính           | Trạng thái                                                                            |
 | -------------------- | ------------------------------------------------------------------------------------- |
-| Ngày cập nhật        | 2026-08-10                                                                            |
+| Ngày cập nhật        | 2026-08-11                                                                            |
 | Repository           | `https://github.com/basangnguyen/TUTORHUB_WEB`                                        |
 | Nhánh làm việc       | `main`                                                                                |
 | Quy trình            | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
@@ -14,8 +14,50 @@
 | Phase hiện tại       | Phase 4 Classroom Media MVP; Phase 3 deferred carry-over vẫn hoạt động                |
 | Task `DONE` gần nhất | P4-04 Lobby, admission và explicit same-tenant invite                                 |
 | Mốc repository mới   | P4-04 exact CI/shared/deploy/live acceptance PASS; shared ledger `31 false`           |
-| Task hiện tại        | P4-05 Classroom shell, media controls và layouts (`TODO`)                             |
-| Task tiếp theo       | Bắt đầu P4-05 theo ADR-0030/0031 và Phase 4 backlog                                   |
+| Task hiện tại        | P4-05 Classroom shell, media controls và layouts (`IN PROGRESS`)                      |
+| Task tiếp theo       | Commit/push exact P4-05 candidate và kiểm tra GitHub Verify/Security                  |
+
+### Checkpoint P4-05 `IN PROGRESS` ngày 2026-08-11
+
+Canonical room đã được tách khỏi prejoin thành lazy route riêng và dùng custom LiveKit shell thay
+cho prebuilt conference UI. Local slice hiện có stage/toolbar/participant rail và responsive drawer;
+Grid/Active speaker/Presentation; grid cap `12/6/4`, rail tối đa `6`, local pin, hysteresis
+`800/2500/1500 ms` và deterministic screen-share restore. Publish controls chiếu đúng credential
+grants; `autoSubscribe=false`, remote audio/video được subscribe thủ công theo bounded projection,
+hidden presenter camera/off-page video bị gỡ subscription và listen-only không gọi publish API.
+Deterministic degradation đã có đủ chuỗi normal -> reduced video -> lower quality -> stage-only ->
+audio-only với cửa sổ xuống cấp `5 s`, phục hồi `15 s`, ưu tiên presentation và giữ audio/control.
+
+Device selector chỉ mount sau explicit mở panel và không enumerate input device khi grant publish
+false. LiveKit/component logger bị tắt ở canonical room, provider identity không render vào DOM,
+terminal leave/disconnect/error là first-wins và pending camera/mic/share/device promise bị invalidate
+khi leave/unmount. TutorHub sở hữu trực tiếp `RoomContext`/connect/publish/disconnect; Room chỉ được tạo
+sau StrictMode commit, synthetic cleanup không disconnect, terminal callback cũ không thể đổi scope mới
+và wrapper/session cleanup dùng chung một idempotent disconnect lifecycle. Production baseline tiếp tục
+chỉ có `effect=None`; không thêm processor/model/WASM, không migration/OpenAPI/backend delta và không
+bật media capability.
+
+Focused P4-05/P4-03 regression tests đạt `76/76`; full web đạt `62` files/`376` tests. Targeted/full
+web lint, TypeScript web/E2E typecheck, production build, Vite-only Chromium regression P4-03/P4-04/
+P4-05 `16/16`, Playwright P4-05 `7/7`, Prettier/diff check, client bundle security `20` files, exact
+local security suite `24/24` và candidate diff/secret-marker audit `28` files đều PASS. Rolldown tách LiveKit
+thành vendor chunk chỉ được
+static-import bởi room routes; app entry và canonical prejoin không static-import SDK. Application
+room chunk hiện `38.02 kB` raw/`11.93 kB` gzip dưới budget `45/15 kB`; tổng room application +
+LiveKit vendor + CSS là `642.90/173.66 kB`, dưới budget `700/190 kB`.
+
+Neon disposable read-only đã PASS với endpoint boundary riêng, ledger `31 false`, `dirty=false`, hai
+media feature effective false và exact runtime ACL; `53` historic enabled override rows được giữ
+nguyên vì deployment guard vẫn force-off. Không có migration, rollback, ACL provision, seed hoặc
+mutation. Isolated LiveKit Go two-participant grant matrix đạt `2/2`; Chromium actual-media gate đạt
+`1/1` khi publisher và subscribe-only subscriber đều mount real `ClassroomLiveKitRoom`: subscriber
+nhận remote camera/audio và chỉ nhận screen share sau explicit action; signed grant matrix chặn data,
+privacy check PASS, mọi captured track `ended`, remote media detach khi Leave và exact room cleanup về `0`.
+
+P4-05 giữ `IN PROGRESS` vì browser fixture/harness chưa được commit; exact candidate CI/security và
+shared/deploy/live acceptance vẫn `PENDING`. Physical device indicator, browser/hardware/load và
+provider-outage matrix tiếp tục `UNVERIFIED — P4-11`. Evidence ledger:
+[P4_05_STAGING_ACCEPTANCE.md](P4_05_STAGING_ACCEPTANCE.md).
 
 ### Checkpoint P4-04 `DONE` ngày 2026-08-10
 

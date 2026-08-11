@@ -180,6 +180,54 @@ func TestP404SharedSnapshotIsReadOnlyMinimalAndFailClosed(t *testing.T) {
 	}
 }
 
+func TestP405SharedReadOnlyHarnessIsMinimalAndFailClosed(t *testing.T) {
+	t.Parallel()
+
+	contents, err := os.ReadFile("p405_shared_read_only_integration_test.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := string(contents)
+	for _, required := range []string{
+		`TestPostgresP405SharedReadOnlySnapshot`,
+		`TestPostgresMediaLifecycleRuntimeExactACLP405SharedReadOnly`,
+		`I_UNDERSTAND_P4_05_SHARED_READ_ONLY`,
+		`I_UNDERSTAND_P4_05_SHARED_READ_ONLY_SNAPSHOT`,
+		`p405SharedConflictingConfirmations`,
+		`"P4_05_DISPOSABLE_CONFIRM"`,
+		`"P4_05_PROVIDER_CONFIRM"`,
+		`"P4_05_BROWSER_PROVIDER_CONFIRM"`,
+		`"P4_05_ACL_PROVISION_CONFIRM"`,
+		`"P4_05_SHARED_ACL_PROVISION_CONFIRM"`,
+		`beginP405ReadOnlyTransaction`,
+		`requireP404NeonURLBoundary`,
+		`runPostgresMediaLifecycleRuntimeExactACL(t, false)`,
+		`if version != 31 || dirty`,
+		`if counts[10] != 0`,
+		`ValueSourceDeploymentGuardrail`,
+		`P4_05_SHARED_SNAPSHOT`,
+	} {
+		if !strings.Contains(source, required) {
+			t.Fatalf("P4-05 shared read-only harness is missing safety boundary %q", required)
+		}
+	}
+	for _, forbidden := range []string{
+		`migrationrunner`,
+		`runProvisionPostgres`,
+		`.Exec(`,
+		`INSERT INTO`,
+		`UPDATE tutorhub`,
+		`DELETE FROM`,
+		`TRUNCATE`,
+		`NewLiveKitRoomProvider`,
+		`LIVEKIT_URL`,
+	} {
+		if strings.Contains(source, forbidden) {
+			t.Fatalf("P4-05 shared read-only harness contains forbidden boundary %q", forbidden)
+		}
+	}
+}
+
 func TestP404DisposableOwnerPreflightIsPinnedAndFreshlyOptedIn(t *testing.T) {
 	t.Parallel()
 

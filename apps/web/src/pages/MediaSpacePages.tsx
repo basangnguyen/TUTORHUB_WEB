@@ -1,5 +1,3 @@
-import "@livekit/components-styles";
-
 import {
   APIRequestError,
   createMediaSpaceJoinAttempt,
@@ -8,12 +6,6 @@ import {
   rotateCSRFToken,
 } from "@tutorhub/api-client";
 import { useQuery } from "@tanstack/react-query";
-import {
-  LiveKitRoom,
-  RoomAudioRenderer,
-  StartAudio,
-} from "@livekit/components-react";
-import { Room } from "livekit-client";
 import {
   useCallback,
   useEffect,
@@ -28,11 +20,9 @@ import { Link, useNavigate, useParams } from "react-router";
 import { useI18n, type TranslationKey } from "../app/i18n";
 import {
   clearMediaRoomEscrow,
-  finalizeMediaRoomEscrowClaim,
   MediaPrejoinController,
   probeMediaNetwork,
   putMediaRoomEscrow,
-  takeMediaRoomEscrow,
   type MediaJoinChoices,
   type MediaJoinAttemptProjection,
   type MediaNetworkStatus,
@@ -45,7 +35,6 @@ import {
   useMediaJoinAttemptStatus,
 } from "../app/mediaLobby";
 import { useSession } from "../app/session";
-import { MediaLobbyPanel } from "../components/MediaLobbyPanel";
 import { MediaSpaceInvitePanel } from "../components/MediaSpaceInvitePanel";
 
 type JoinStatus =
@@ -66,9 +55,6 @@ interface MediaJoinState {
   attempt: MediaJoinAttemptProjection | null;
   choices: MediaJoinChoices | null;
 }
-type CanonicalRoomStatus =
-  "connecting" | "connected" | "disconnected" | "failed";
-
 const unsupportedSnapshot: MediaPrejoinSnapshot = {
   status: "degraded",
   permissionGranted: false,
@@ -927,262 +913,6 @@ function DeviceControls({
   );
 }
 
-export function MediaSpaceRoomPage() {
-  const { spaceId, roomInstanceId } = useParams();
-  const session = useSession();
-  const tenantId = session.currentUser?.active_tenant?.id ?? "";
-  const userId = session.currentUser?.user.id ?? "";
-  const scopeKey = `${tenantId}\u0000${userId}\u0000${spaceId ?? ""}\u0000${roomInstanceId ?? ""}`;
-  return (
-    <MediaSpaceRoomSession
-      key={scopeKey}
-      roomInstanceId={roomInstanceId}
-      spaceId={spaceId}
-      tenantId={tenantId}
-      userId={userId}
-    />
-  );
-}
-
-function MediaSpaceRoomSession({
-  roomInstanceId,
-  spaceId,
-  tenantId,
-  userId,
-}: {
-  roomInstanceId: string | undefined;
-  spaceId: string | undefined;
-  tenantId: string;
-  userId: string;
-}) {
-  const navigate = useNavigate();
-  const { t } = useI18n();
-  const [roomStatus, setRoomStatus] =
-    useState<CanonicalRoomStatus>("connecting");
-  const [roomError, setRoomError] = useState<TranslationKey | null>(null);
-  const [shouldConnect, setShouldConnect] = useState(true);
-  const mediaSpace = useQuery({
-    enabled: Boolean(spaceId && tenantId),
-    queryKey: ["media-space-room", tenantId, spaceId],
-    queryFn: ({ signal }) => getMediaSpace(tenantId, spaceId ?? "", { signal }),
-    retry: false,
-  });
-  const [handoff, setHandoff] = useState(() => {
-    if (!spaceId || !roomInstanceId || !tenantId || !userId) {
-      clearMediaRoomEscrow();
-      return null;
-    }
-    return takeMediaRoomEscrow({
-      tenantId,
-      userId,
-      spaceId,
-      roomInstanceId,
-    });
-  });
-  const [room] = useState(
-    () => new Room({ adaptiveStream: true, dynacast: true }),
-  );
-  const handoffMatchesScope = Boolean(
-    handoff &&
-    handoff.scope.tenantId === tenantId &&
-    handoff.scope.userId === userId &&
-    handoff.scope.spaceId === spaceId &&
-    handoff.scope.roomInstanceId === roomInstanceId,
-  );
-  const handoffExpired = Boolean(
-    handoff && credentialExpired(handoff.credential.expires_at),
-  );
-  const audioCaptureOptions = useMemo(
-    () => (handoff ? roomAudioCaptureOptions(handoff.choices) : false),
-    [handoff],
-  );
-  const videoCaptureOptions = useMemo(
-    () =>
-      handoff?.choices.videoEnabled
-        ? { deviceId: handoff.choices.videoDeviceId || undefined }
-        : false,
-    [handoff],
-  );
-  const selectedSpeakerDeviceId = handoff?.choices.speakerDeviceId ?? "";
-  const activeRoom = mediaSpace.data?.active_room_instance;
-  const viewerOperations = mediaP404ViewerOperations(
-    mediaSpace.data?.viewer_operations,
-  );
-
-  const handleConnected = useCallback(() => {
-    setRoomStatus("connected");
-    setRoomError(null);
-    if (selectedSpeakerDeviceId) {
-      void room
-        .switchActiveDevice("audiooutput", selectedSpeakerDeviceId)
-        .catch(() => undefined);
-    }
-  }, [room, selectedSpeakerDeviceId]);
-
-  const handleDisconnected = useCallback(() => {
-    setShouldConnect(false);
-    setRoomStatus("disconnected");
-    setRoomError("media.room.disconnectedDescription");
-    setHandoff(null);
-    clearMediaRoomEscrow();
-  }, []);
-
-  const handleRoomError = useCallback(() => {
-    setShouldConnect(false);
-    setRoomStatus("failed");
-    setRoomError("media.p403.providerUnavailable");
-    setHandoff(null);
-    clearMediaRoomEscrow();
-    void room.disconnect();
-  }, [room]);
-
-  const handleLeave = useCallback(() => {
-    setShouldConnect(false);
-    setRoomStatus("disconnected");
-    setRoomError("media.room.disconnectedDescription");
-    setHandoff(null);
-    clearMediaRoomEscrow();
-    void room.disconnect().finally(() => {
-      void navigate(
-        spaceId ? `/app/media/spaces/${spaceId}/prejoin` : "/app/home",
-        { replace: true },
-      );
-    });
-  }, [navigate, room, spaceId]);
-
-  useEffect(() => {
-    if (
-      handoffMatchesScope &&
-      !handoffExpired &&
-      spaceId &&
-      roomInstanceId &&
-      tenantId &&
-      userId
-    ) {
-      finalizeMediaRoomEscrowClaim({
-        tenantId,
-        userId,
-        spaceId,
-        roomInstanceId,
-      });
-    }
-  }, [
-    handoffExpired,
-    handoffMatchesScope,
-    roomInstanceId,
-    spaceId,
-    tenantId,
-    userId,
-  ]);
-
-  useEffect(() => {
-    if (handoff && (!handoffMatchesScope || handoffExpired)) {
-      clearMediaRoomEscrow();
-      void room.disconnect();
-    }
-  }, [handoff, handoffExpired, handoffMatchesScope, room]);
-
-  useEffect(
-    () => () => {
-      void room.disconnect();
-      clearMediaRoomEscrow();
-    },
-    [room],
-  );
-
-  if (
-    !spaceId ||
-    !roomInstanceId ||
-    !handoff ||
-    !handoffMatchesScope ||
-    handoffExpired
-  ) {
-    return (
-      <main className="media-p403-room-recovery">
-        <h1>{t("media.room.recoveryTitle")}</h1>
-        <p>{t(roomError ?? "media.room.credentialMissing")}</p>
-        <Link
-          to={spaceId ? `/app/media/spaces/${spaceId}/prejoin` : "/app/home"}
-        >
-          {t("media.room.returnToPrejoin")}
-        </Link>
-      </main>
-    );
-  }
-
-  return (
-    <main className="media-p403-room" data-lk-theme="default">
-      <LiveKitRoom
-        audio={audioCaptureOptions}
-        connect={shouldConnect}
-        onConnected={handleConnected}
-        onDisconnected={handleDisconnected}
-        onError={handleRoomError}
-        room={room}
-        serverUrl={handoff.credential.server_url}
-        token={handoff.credential.access_token}
-        video={videoCaptureOptions}
-      >
-        <section className="media-p403-room-status">
-          <h1>{t("media.room.title")}</h1>
-          <p role="status" aria-live="polite">
-            {t(roomStatusKey(roomStatus))}
-          </p>
-          <button onClick={handleLeave} type="button">
-            {t("media.p403.leave")}
-          </button>
-        </section>
-        {spaceId &&
-          activeRoom?.id === roomInstanceId &&
-          activeRoom.status === "active" && (
-            <MediaLobbyPanel
-              enabled={viewerOperations.canManageAdmissions}
-              roomInstanceID={activeRoom.id}
-              roomInstanceVersion={activeRoom.version}
-              spaceID={spaceId}
-              spaceVersion={mediaSpace.data?.version ?? 0}
-              tenantID={tenantId}
-            />
-          )}
-        <RoomAudioRenderer />
-        <StartAudio
-          className="media-p403-start-audio"
-          label={t("media.room.enableAudio")}
-          room={room}
-        />
-      </LiveKitRoom>
-      {roomError && (
-        <section className="media-p403-alert" role="alert">
-          <p>{t(roomError)}</p>
-          <Link to={`/app/media/spaces/${spaceId}/prejoin`}>
-            {t("media.room.returnToPrejoin")}
-          </Link>
-        </section>
-      )}
-    </main>
-  );
-}
-
-function roomAudioCaptureOptions(choices: MediaJoinChoices):
-  | false
-  | {
-      deviceId?: string;
-      echoCancellation: { ideal: boolean };
-      noiseSuppression: { ideal: boolean };
-      autoGainControl: { ideal: boolean };
-    } {
-  if (!choices.audioEnabled) {
-    return false;
-  }
-  const speech = choices.audioMode === "speech";
-  return {
-    deviceId: choices.audioDeviceId || undefined,
-    echoCancellation: { ideal: speech },
-    noiseSuppression: { ideal: speech },
-    autoGainControl: { ideal: speech },
-  };
-}
-
 function MediaSpaceFailure({ message }: { message: string }) {
   const { t } = useI18n();
   return (
@@ -1205,11 +935,6 @@ function listenOnlyChoices(): MediaJoinChoices {
     speakerDeviceId: "",
     audioMode: "speech",
   };
-}
-
-function credentialExpired(expiresAt: string): boolean {
-  const parsed = Date.parse(expiresAt);
-  return !Number.isFinite(parsed) || parsed <= Date.now();
 }
 
 function formatLobbyExpiry(expiresAt: string, language: "vi" | "en"): string {
@@ -1257,10 +982,6 @@ function speakerStatusKey(
   status: MediaPrejoinSnapshot["speakerTestStatus"],
 ): TranslationKey {
   return `media.p403.speaker.${status}` as TranslationKey;
-}
-
-function roomStatusKey(status: CanonicalRoomStatus): TranslationKey {
-  return `media.room.${status}` as TranslationKey;
 }
 
 function processingValue(
