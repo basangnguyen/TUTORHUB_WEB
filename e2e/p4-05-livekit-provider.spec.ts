@@ -542,9 +542,7 @@ async function mountClassroomPublisher(
         /from "([^"]*\/react\.js\?v=[^"]+)"/,
         "React",
       );
-      const dependencyVersion = new URL(reactPath, window.location.origin)
-        .search;
-      const reactDOMPath = `/node_modules/.vite/deps/react-dom_client.js${dependencyVersion}`;
+      const reactDOMPath = "/@id/react-dom/client";
       const i18nPath = dependencyPath(
         /from "([^"]*\/src\/app\/i18n\.tsx(?:\?t=[^"]+)?)"/,
         "TutorHub i18n",
@@ -657,9 +655,7 @@ async function mountClassroomSubscriber(
         /from "([^"]*\/react\.js\?v=[^"]+)"/,
         "React",
       );
-      const dependencyVersion = new URL(reactPath, window.location.origin)
-        .search;
-      const reactDOMPath = `/node_modules/.vite/deps/react-dom_client.js${dependencyVersion}`;
+      const reactDOMPath = "/@id/react-dom/client";
       const i18nPath = dependencyPath(
         /from "([^"]*\/src\/app\/i18n\.tsx(?:\?t=[^"]+)?)"/,
         "TutorHub i18n",

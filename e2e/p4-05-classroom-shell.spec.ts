@@ -184,8 +184,7 @@ async function mountClassroomFixture(page: Page, options: FixtureOptions) {
       /from "([^"]*\/react\.js\?v=[^"]+)"/,
       "React",
     );
-    const dependencyVersion = new URL(reactPath, window.location.origin).search;
-    const reactDOMPath = `/node_modules/.vite/deps/react-dom_client.js${dependencyVersion}`;
+    const reactDOMPath = "/@id/react-dom/client";
     const componentsPath = dependencyPath(
       /from "([^"]*\/@livekit_components-react\.js\?v=[^"]+)"/,
       "LiveKit components",
