@@ -199,7 +199,10 @@ func (handlers mediaSpaceHandlers) principal(
 	} else {
 		principal, ok = handlers.auth.authenticatedPrincipal(w, r)
 	}
-	if !ok || principal.ActiveTenant == nil || !principal.ActiveTenant.IsActive {
+	if !ok {
+		return identity.Principal{}, false
+	}
+	if principal.ActiveTenant == nil || !principal.ActiveTenant.IsActive {
 		writeCodedProblem(
 			w, r, http.StatusForbidden, "media_space_forbidden", "Media space access denied",
 			"The active workspace cannot authorize this media-space request.",

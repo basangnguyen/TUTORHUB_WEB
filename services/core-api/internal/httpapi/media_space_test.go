@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"log/slog"
 	"net/http"
@@ -46,6 +47,12 @@ func TestMediaSpaceCreateRequiresCSRFAndExpectedTenant(t *testing.T) {
 	if missingCSRFResponse.Code != http.StatusForbidden || service.createCalls != 0 {
 		t.Fatalf("missing CSRF must fail closed: status=%d calls=%d", missingCSRFResponse.Code, service.createCalls)
 	}
+	assertSingleMediaSpaceProblem(
+		t,
+		missingCSRFResponse,
+		http.StatusForbidden,
+		"Request verification failed",
+	)
 
 	missingTenant := httptest.NewRequest(http.MethodPost, mediaSpacesCollectionPath, strings.NewReader(body))
 	missingTenant.Header.Set("Content-Type", "application/json")
@@ -74,6 +81,35 @@ func TestMediaSpaceCreateRequiresCSRFAndExpectedTenant(t *testing.T) {
 		response.Header().Get("Referrer-Policy") != "no-referrer" {
 		t.Fatalf("missing privacy headers: %v", response.Header())
 	}
+}
+
+func TestMediaSpaceReadWithoutSessionWritesOneAuthenticationProblem(t *testing.T) {
+	t.Parallel()
+
+	service := &fakeMediaLifecycleService{}
+	handler := newMediaSpaceTestHandler(
+		classIdentityService(uuid.New(), uuid.New(), nil),
+		service,
+	)
+	request := httptest.NewRequest(
+		http.MethodGet,
+		"/api/v1/media/spaces/"+uuid.NewString(),
+		nil,
+	)
+	request.Header.Set(mediaSpaceTenantHeader, uuid.NewString())
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if service.getCalls != 0 {
+		t.Fatalf("anonymous request must stop before service: calls=%d", service.getCalls)
+	}
+	assertSingleMediaSpaceProblem(
+		t,
+		response,
+		http.StatusUnauthorized,
+		"Authentication required",
+	)
 }
 
 func TestMediaSpaceReadUsesAuthenticatedSessionWithoutCSRF(t *testing.T) {
@@ -179,6 +215,29 @@ func newMediaSpaceTestHandler(
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		Options{Clock: fixedClock, Identity: identityService, MediaSpaces: service},
 	)
+}
+
+func assertSingleMediaSpaceProblem(
+	t *testing.T,
+	response *httptest.ResponseRecorder,
+	status int,
+	title string,
+) {
+	t.Helper()
+	if response.Code != status {
+		t.Fatalf("status=%d, want %d: %s", response.Code, status, response.Body.String())
+	}
+	var problem Problem
+	if err := json.Unmarshal(response.Body.Bytes(), &problem); err != nil {
+		t.Fatalf("response must contain exactly one problem document: %v", err)
+	}
+	if problem.Status != status || problem.Title != title {
+		t.Fatalf("problem=%+v, want status=%d title=%q", problem, status, title)
+	}
+	if problem.Code == "media_space_forbidden" ||
+		strings.Contains(response.Body.String(), "media_space_forbidden") {
+		t.Fatalf("authentication response must not append a media-space denial: %s", response.Body.String())
+	}
 }
 
 type fakeMediaLifecycleService struct {
