@@ -20,15 +20,12 @@ P3-14-CORE đã `DONE`; Phase 4 được phép bắt đầu trong khi Phase 3 de
 Không task Phase 4 nào được xóa, giả lập PASS hoặc bật notification/email/file-processing side
 effect thuộc Phase 3 khi carry-over chưa đạt gate riêng.
 
-**Task `DONE` gần nhất:** `P4-04` Lobby, admission và explicit same-tenant invite ngày 2026-08-10.
-Local/disposable gates, exact GitHub CI/security, shared forward-only
-`30 false -> 31 false -> 31 false`, exact ACL/read-only snapshot, Render/Cloudflare deploy và live
-privacy/feature-off/no-side-effect acceptance đều PASS; không rollback và hai media feature vẫn off.
-Evidence tại [P4_04_STAGING_ACCEPTANCE.md](P4_04_STAGING_ACCEPTANCE.md).
-**Task hiện tại:** `P4-05` Classroom shell, media controls và layouts (`IN PROGRESS`). Local
-checkpoint đã có custom shell/layout/subscription/degradation lifecycle, automated
-accessibility/Playwright và lazy LiveKit vendor boundary. Disposable read-only cùng isolated LiveKit
-Go/browser grant/control/cleanup gates đã PASS; commit/CI và shared/deploy/live rollout còn mở.
+**Task `DONE` gần nhất:** `P4-05` Classroom shell, media controls và layouts ngày 2026-08-12.
+Local/disposable/isolated LiveKit gates, exact GitHub CI/security, shared read-only snapshot,
+Render/Cloudflare deploy và live privacy/feature-off/no-side-effect acceptance đều PASS; không
+migration/rollback/ACL mutation và hai media feature vẫn off. Evidence tại
+[P4_05_STAGING_ACCEPTANCE.md](P4_05_STAGING_ACCEPTANCE.md).
+**Task hiện tại:** `P4-06` Participant roster, hand raise và reaction (`TODO`).
 
 `P4-MEDIA-UX-00` đã `DONE`; không đổi LiveKit provider, không thêm processor production dependency
 hoặc mở `CanPublishData=false`. P4-03/P4-04/P4-05/P4-06/P4-11 phải tuân ADR-0031 và báo rõ các
@@ -79,7 +76,7 @@ physical/manual effect gate còn `UNVERIFIED` thay vì suy PASS từ research.
 | P4-02          | RoomInstance LiveKit credential + webhook binding   | P4-01, P1-07 baseline           | DONE       |
 | P4-03          | Prejoin device/network và join-attempt flow         | P4-02, P4-MEDIA-UX-00           | DONE       |
 | P4-04          | Lobby, admission và explicit same-tenant invite     | P4-02, P4-03, P4-MEDIA-UX-00    | DONE       |
-| P4-05          | Classroom shell, media controls và layouts          | P4-03, P4-MEDIA-UX-00           | IN PROGRESS |
+| P4-05          | Classroom shell, media controls và layouts          | P4-03, P4-MEDIA-UX-00           | DONE       |
 | P4-06          | Participant roster, hand raise và reaction          | P4-04, P4-05, P4-MEDIA-UX-00    | TODO       |
 | P4-07          | Host/co-host/TA moderation, lock/mute/remove/end    | P4-04, P4-06                    | TODO       |
 | P4-08          | Persistent in-room chat                             | P4-01, P3-07A; ADR review       | TODO       |
@@ -200,9 +197,9 @@ Decision: [ADR-0031](adr/0031-classroom-media-ux-devices-layout-effects-and-sign
 - [x] Browser/device/capability, 360p-720p performance và low-end degrade evidence đạt hoặc có cap;
       effect giữ off do Firefox/Safari/low-end gate chưa đạt.
 - [x] Permission/device/autoplay/error recovery và observable processor/track cleanup có contract
-      fail về no-effect/audio-only/listen-only; exact 10-cycle/device cleanup còn ở P4-05/P4-11.
+      fail về no-effect/audio-only/listen-only; exact physical-device 10-cycle cleanup còn ở P4-11.
 - [x] Layout fixture contract 2/5/25/50 có deterministic pagination/degrade/pin và 320px/a11y
-      evidence; 200%/visual stability/adaptive LiveKit subscription thật còn ở P4-05/P4-11.
+      evidence; physical-browser 200%/visual stability và adaptive LiveKit subscription thật còn ở P4-11.
 - [x] Hand server-sequence/FIFO/idempotency và reaction allowlist/TTL/grouping/rate-limit có
       deterministic evidence; moderator lifecycle và snapshot/gap resync thật còn ở P4-06/P4-11.
 - [x] CSP/self-host model/WASM, asset license, privacy/telemetry và accessibility gates rõ.
@@ -377,7 +374,7 @@ Evidence/runbook:
 
 ## 12. P4-05 Classroom shell, media controls và layouts
 
-**Dependency:** P4-03/P4-MEDIA-UX-00. **Trạng thái:** `IN PROGRESS` từ 2026-08-10.
+**Dependency:** P4-03/P4-MEDIA-UX-00. **Trạng thái:** `DONE` ngày 2026-08-12.
 
 Checkpoint local đầu tiên đã tách canonical room thành lazy route riêng, thêm custom classroom
 stage/toolbar/rail-drawer, exact grant controls, manual bounded audio/video subscription, opaque
@@ -392,8 +389,11 @@ security đều PASS. LiveKit vendor chỉ được static-import từ room rout
 SDK. Neon disposable read-only đạt ledger `31 false`, effective feature-off và exact runtime ACL;
 LiveKit Go two-participant matrix `2/2` cùng Chromium actual-media gate `1/1` bằng real publisher +
 subscribe-only subscriber shells (remote camera/audio và explicit screen-share delivery) và exact room cleanup
-đều PASS. Task chưa chuyển `VERIFY`: browser fixture/harness chưa commit; exact CI và
-shared/deploy/live acceptance còn `PENDING` theo `P4_05_STAGING_ACCEPTANCE.md`.
+đều PASS. Exact runtime candidate `dcbdfef3c209a7c6d17197ccbcf737b58cd9e315` PASS Verify
+`31598671906`, Security `31598671939`, exact Cloudflare/Render deploy và live `13/13`
+public/anonymous + Admin feature-off acceptance. Shared before/after snapshot giữ `31 false`, exact
+ACL và toàn bộ bounded count không đổi. Task chuyển `IN PROGRESS -> VERIFY -> DONE`; physical/manual/
+load/outage/effect gates vẫn `UNVERIFIED — P4-11`.
 
 ### Scope
 
@@ -610,7 +610,8 @@ PostgreSQL. Mỗi implementation slice phải cập nhật khi thêm provider co
 4. P4-04 đã `DONE`: disposable/shared forward-only `30 false -> 31 false -> 31 false`, exact
    ACL/PostgreSQL, exact CI/security, deploy/live acceptance đều PASS; không rollback và optional
    effect cùng hai media capability tiếp tục force-off.
-5. P4-05 đang `IN PROGRESS`: local/current-tree verify, Vite-only regression, disposable read-only và
-   isolated LiveKit Go/browser grant/control/cleanup đã xanh; tiếp theo commit/push exact candidate,
-   kiểm tra GitHub Verify/Security rồi mới xin quyền shared read-only/deploy/live. Không mở
-   capability/effect trước exact gate trong `P4_05_STAGING_ACCEPTANCE.md`.
+5. P4-05 đã `DONE`: local/disposable/isolated LiveKit, exact CI/security, shared read-only và
+   exact deploy/live acceptance đều PASS; không migration/rollback/ACL mutation và capability/effect
+   vẫn force-off.
+6. Bắt đầu P4-06 participant roster, hand raise và reaction trên canonical room shell; giữ Core API
+   làm authority và `CanPublishData=false`.

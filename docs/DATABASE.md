@@ -1472,4 +1472,8 @@ của lịch sử append-only và không phải quy trình cleanup cho staging/p
 - P4-04 đã `DONE`: local/disposable, exact CI/security, shared forward-only migration/ACL/read-only
   snapshot và deploy/live privacy/no-side-effect acceptance đều PASS. Không rollback; disposable và
   shared final đều là `31 false`, hai media feature tiếp tục off.
+- P4-05 đã `DONE` không migration/rollback/ACL mutation: disposable và shared chỉ chạy read-only
+  ledger/feature/ACL gate; shared before/after live đều giữ `31 false`, exact ACL và toàn bộ bounded
+  media aggregate/outbox/audit count không đổi. Shell/layout nghiệm thu bằng fixture và isolated
+  LiveKit project; shared không tạo provider/database side effect.
 - Chưa có backup/restore drill, PITR gate hoặc connection load test cho pilot.

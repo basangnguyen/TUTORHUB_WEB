@@ -12,12 +12,12 @@
 | Quy trình            | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
 | Phase hoàn thành     | Phase 0, Phase 1, Phase 2                                                             |
 | Phase hiện tại       | Phase 4 Classroom Media MVP; Phase 3 deferred carry-over vẫn hoạt động                |
-| Task `DONE` gần nhất | P4-04 Lobby, admission và explicit same-tenant invite                                 |
-| Mốc repository mới   | P4-04 exact CI/shared/deploy/live acceptance PASS; shared ledger `31 false`           |
-| Task hiện tại        | P4-05 Classroom shell, media controls và layouts (`IN PROGRESS`)                      |
-| Task tiếp theo       | Commit/push exact P4-05 candidate và kiểm tra GitHub Verify/Security                  |
+| Task `DONE` gần nhất | P4-05 Classroom shell, media controls và layouts                                      |
+| Mốc repository mới   | P4-05 exact CI/shared/deploy/live acceptance PASS; shared ledger `31 false`           |
+| Task hiện tại        | P4-06 Participant roster, hand raise và reaction (`TODO`)                             |
+| Task tiếp theo       | Bắt đầu P4-06 trên authority/layout baseline đã nghiệm thu                           |
 
-### Checkpoint P4-05 `IN PROGRESS` ngày 2026-08-12
+### Checkpoint P4-05 `DONE` ngày 2026-08-12
 
 Canonical room đã được tách khỏi prejoin thành lazy route riêng và dùng custom LiveKit shell thay
 cho prebuilt conference UI. Local slice hiện có stage/toolbar/participant rail và responsive drawer;
@@ -37,13 +37,14 @@ terminal leave/disconnect/error là first-wins và pending camera/mic/share/devi
 khi leave/unmount. TutorHub sở hữu trực tiếp `RoomContext`/connect/publish/disconnect; Room chỉ được tạo
 sau StrictMode commit, synthetic cleanup không disconnect, terminal callback cũ không thể đổi scope mới
 và wrapper/session cleanup dùng chung một idempotent disconnect lifecycle. Production baseline tiếp tục
-chỉ có `effect=None`; không thêm processor/model/WASM, không migration/OpenAPI/backend delta và không
-bật media capability.
+chỉ có `effect=None`; không thêm processor/model/WASM, không migration/OpenAPI/schema/ACL delta và
+không bật media capability.
 
 Focused P4-05/P4-03 regression tests đạt `76/76`; full web đạt `62` files/`376` tests. Targeted/full
 web lint, TypeScript web/E2E typecheck, production build, Vite-only Chromium regression P4-03/P4-04/
 P4-05 `16/16`, Playwright P4-05 `7/7`, Prettier/diff check, client bundle security `20` files, exact
-local security suite `24/24` và candidate diff/secret-marker audit `29` files đều PASS. Rolldown tách LiveKit
+local security suite `24/24` và diff/secret-marker audit trên `29-file` pre-hotfix candidate cùng
+`2-file` hotfix đều PASS. Rolldown tách LiveKit
 thành vendor chunk chỉ được
 static-import bởi room routes; app entry và canonical prejoin không static-import SDK. Application
 room chunk hiện `38.02 kB` raw/`11.93 kB` gzip dưới budget `45/15 kB`; tổng room application +
@@ -57,9 +58,19 @@ mutation. Isolated LiveKit Go two-participant grant matrix đạt `2/2`; Chromiu
 nhận remote camera/audio và chỉ nhận screen share sau explicit action; signed grant matrix chặn data,
 privacy check PASS, mọi captured track `ended`, remote media detach khi Leave và exact room cleanup về `0`.
 
-P4-05 giữ `IN PROGRESS` vì exact candidate CI/security và shared/deploy/live acceptance vẫn
-`PENDING`; browser fixture/harness cùng opaque-order follow-up đã được commit/push. Physical device indicator, browser/hardware/load và
-provider-outage matrix tiếp tục `UNVERIFIED — P4-11`. Evidence ledger:
+Exact runtime candidate `dcbdfef3c209a7c6d17197ccbcf737b58cd9e315` sửa fail-closed response
+contract để auth failure chỉ ghi một Problem Details, sau khi live probe phát hiện response cũ nối
+`401` và `403`. Focused MediaSpace regression, toàn bộ Go packages và `pnpm verify` PASS. GitHub
+Verify `31598671906`, Security `31598671939` và Cloudflare deployment
+`e2e72ca9-0173-4f2c-8221-f14203551c42` đều PASS; Render deployment
+`dep-d9u6sdbm8hqs73em447g` Live đúng SHA. Public/anonymous matrix đạt `13/13`; authenticated
+Organization Admin xác nhận hai media feature vẫn off, synthetic route fail closed và production
+resource audit không tải LiveKit/effect/model. Shared before/after read-only snapshot giống nhau:
+ledger `31 false`, exact ACL, mọi media aggregate/outbox/audit count không đổi.
+
+P4-05 chuyển `IN PROGRESS -> VERIFY -> DONE`. P4-06 là task runnable tiếp theo. Physical device
+indicator, browser/hardware/load, provider-outage và optional-effect matrix tiếp tục
+`UNVERIFIED — P4-11`. Evidence ledger:
 [P4_05_STAGING_ACCEPTANCE.md](P4_05_STAGING_ACCEPTANCE.md).
 
 ### Checkpoint P4-04 `DONE` ngày 2026-08-10
@@ -158,11 +169,11 @@ sandbox từ chối cache mặc định; exact `go test ./services/core-api/...`
 
 Vì vậy P4 production baseline là `effect=None`. `@livekit/track-processors@0.7.2` chỉ là optional
 candidate force-off đến khi self-host immutable model/WASM/background, privacy/MediaPipe metrics,
-CSP/network, exact Firefox/Safari/low-end performance và cleanup gates đạt ở P4-05/P4-11. WebRTC
+CSP/network, exact Firefox/Safari/low-end performance và cleanup gates đạt ở P4-11. WebRTC
 speech + explicit original-sound là audio baseline; Krisp/direct MediaPipe không vào MVP. Hand/
 reaction vẫn qua Core API với `CanPublishData=false`. Không migration, shared staging write,
-provider config, deploy hoặc feature activation trong research. P4-03 và P4-04 sau đó đã đạt
-`DONE` theo toàn bộ decision của ADR-0031; P4-05 là task runnable tiếp theo.
+provider config, deploy hoặc feature activation trong research. P4-03, P4-04 và P4-05 sau đó đã đạt
+`DONE` theo toàn bộ decision của ADR-0031; P4-06 là task runnable tiếp theo.
 
 ### Checkpoint P4-02 `DONE` ngày 2026-08-09
 
@@ -291,7 +302,8 @@ Krisp go/no-go trên một ma trận performance/privacy/license/accessibility c
 
 Task đã chuyển `TODO -> DONE`; kết quả chốt grid/active-speaker/presentation 2/5/25/50, server
 FIFO/resync/rate-limit với `CanPublishData=false` và ship baseline không effect. Physical browser/
-device/load/manual accessibility còn là rollout gate P4-05/P4-11, không phải PASS ngầm từ source.
+device/load/manual accessibility còn lại là rollout gate P4-11, không phải PASS ngầm từ source;
+các gate tự động thuộc P4-05 đã được nghiệm thu riêng.
 
 Research setup ngày 2026-08-09 đã shallow-clone LiveKit Meet revision
 `665e1cb7841ab872de0d8e5c310744009a763b08` vào `.tmp/research/livekit-meet`. Checkout Apache-2.0

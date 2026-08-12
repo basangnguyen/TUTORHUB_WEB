@@ -195,7 +195,7 @@ hoặc worker-driven file processing/sharing tới end user.
 | P4-02           | DONE       | Exact disposable/CI/shared/deploy/live/provider PASS       |
 | P4-03           | DONE       | Exact CI/shared/deploy/live feature-off/privacy PASS        |
 | P4-04           | DONE       | Exact CI/shared/deploy/live privacy/no-side-effect PASS     |
-| P4-05           | IN PROGRESS | Disposable/provider PASS; exact commit/CI còn mở          |
+| P4-05           | DONE        | Exact CI/shared/deploy/live + isolated provider PASS      |
 | P4-06 đến P4-10 | TODO       | Roster/moderation/chat/reconnect/telemetry                 |
 | P4-11           | TODO       | Browser/device/load/provider-outage acceptance             |
 | P4-12           | TODO       | Exact staging acceptance và Phase 4 closure                |
@@ -218,7 +218,7 @@ forward-only `30 false -> 31 false -> 31 false`, exact ACL/read-only snapshot, R
 live privacy/feature-off/no-side-effect acceptance đều PASS; không rollback. Evidence tại
 `docs/P4_04_STAGING_ACCEPTANCE.md`.
 
-P4-05 đang `IN PROGRESS` với local custom room shell, bounded Grid/Active speaker/Presentation,
+P4-05 đã `DONE` với local custom room shell, bounded Grid/Active speaker/Presentation,
 exact grant controls, manual subscription, lazy device enumeration, ordered degradation,
 first-wins terminal cleanup và pending-operation generation guard. TutorHub-owned Room lifecycle
 không double-create/disconnect dưới StrictMode và chặn late callback sau scope change. Participant
@@ -230,12 +230,13 @@ entry/prejoin và chỉ được room route static-import. Disposable read-only 
 effective feature-off và exact runtime ACL; isolated LiveKit Go grant matrix `2/2`, Chromium
 actual-media `1/1` bằng real publisher + subscribe-only subscriber production shells với remote
 camera/audio, explicit screen-share delivery và exact cleanup về `0` đều PASS, không migration/rollback/provision/mutation.
-Chưa chuyển `VERIFY`: browser fixture/harness chưa commit; exact CI và shared/deploy/live gates còn
-mở tại `docs/P4_05_STAGING_ACCEPTANCE.md`; physical device/load/outage vẫn `UNVERIFIED — P4-11` và
-không bật feature/effect.
+Exact runtime candidate `dcbdfef3c209a7c6d17197ccbcf737b58cd9e315` PASS GitHub Verify/Security,
+Cloudflare/Render exact deploy, live public/anonymous/Admin feature-off acceptance và shared
+before/after read-only snapshot `31 false` với exact ACL/counts không đổi. Physical device/load/
+outage/effect vẫn `UNVERIFIED — P4-11` và không bật feature/effect.
 Trước P4-08 phải review/amend ADR-0013/0025 vì conversation hiện chỉ có `direct` và `class`.
 
-`P4-MEDIA-UX-00`, P4-03 và P4-04 đã `DONE`; P4-05 là lane runnable tiếp theo. P4-03/P4-04/P4-05/
+`P4-MEDIA-UX-00`, P4-03, P4-04 và P4-05 đã `DONE`; P4-06 là lane runnable tiếp theo. P4-03/P4-04/P4-05/
 P4-06/P4-11 phải dùng explicit device probe, bounded layout 2/5/25/50 và
 Core API signal contract đã chốt. `effect=None` là baseline; Track Processors chưa phải production
 dependency và giữ off tới exact browser/device/privacy/performance gate. Không mở lại

@@ -4,11 +4,11 @@
 
 | Thuộc tính          | Trạng thái                                           |
 | ------------------- | ---------------------------------------------------- |
-| Cập nhật            | 2026-08-10                                           |
+| Cập nhật            | 2026-08-12                                           |
 | Phase hiện tại      | Phase 4 Classroom Media; Phase 3 carry-over tiếp tục |
-| Hoàn thành gần nhất | P4-04 lobby/admission/invite `DONE`                  |
-| Mốc repository mới  | P4-04 exact shared/deploy/live acceptance PASS       |
-| Việc tiếp theo      | P4-05 classroom shell, media controls và layouts     |
+| Hoàn thành gần nhất | P4-05 classroom shell/media/layout `DONE`            |
+| Mốc repository mới  | P4-05 exact CI/shared/deploy/live acceptance PASS    |
+| Việc tiếp theo      | P4-06 participant roster, hand raise và reaction     |
 | Phạm vi             | Web-first; desktop/mobile/native là track sau        |
 
 ## Chuỗi phase
@@ -85,14 +85,17 @@ feature-off/no-side-effect live acceptance. P4-04 exact runtime candidate
 `735a5e5579d6e5efe7c4efca2b8a48c3de1b1f23` đã PASS local/disposable, GitHub Verify/Security,
 shared forward-only `30 false -> 31 false -> 31 false`, exact ACL/read-only snapshot,
 Render/Cloudflare deploy và live privacy/feature-off/no-side-effect acceptance. Không rollback và
-hai media feature tiếp tục force-off; P4-05 là task runnable tiếp theo.
+hai media feature tiếp tục force-off. P4-05 sau đó đã `DONE` trên exact runtime candidate
+`dcbdfef3c209a7c6d17197ccbcf737b58cd9e315`: local/disposable/isolated LiveKit, GitHub
+Verify/Security, shared read-only `31 false`, exact Render/Cloudflare deploy và live public/
+anonymous/Admin feature-off acceptance đều PASS. P4-06 là task runnable tiếp theo.
 `P3-02D-B` auto-close/fan-out/delivery cùng các lane
 worker/provider tiếp tục là carry-over, không bị coi là PASS.
 
 [P4-MEDIA-UX-00](P4_MEDIA_UX_00_RESEARCH_SPIKE.md) đã `DONE`: current official
 Zoom/Meet/LiveKit/browser evidence, V1 audit, isolated prototype và ADR-0031 đã chốt prejoin/lobby,
 grid/active-speaker/presentation 2-50, hand/reaction cùng `effect=None` baseline. Optional processor
-giữ off tới P4-05/P4-11; task không đổi provider/authority hoặc `CanPublishData=false`.
+giữ off tới P4-11; task không đổi provider/authority hoặc `CanPublishData=false`.
 
 Phase 5 bắt đầu bằng [P5-COLLAB-00](P5_COLLAB_00_RESEARCH_SPIKE.md): so sánh engine,
 license, document authority và realtime topology bằng prototype/evidence trước khi thêm

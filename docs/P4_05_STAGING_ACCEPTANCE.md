@@ -2,13 +2,15 @@
 
 ## 1. Trạng thái và ranh giới
 
-- Trạng thái hiện tại: `IN PROGRESS`.
+- Trạng thái hiện tại: `DONE` ngày 2026-08-12.
 - Tài liệu này là runbook/evidence ledger cho P4-05; không checklist nào bên dưới được coi là
   `PASS` nếu chưa có exact command, candidate SHA hoặc browser/provider evidence tương ứng.
 - P4-05 dùng canonical MediaSpace/RoomInstance flow của P4-03/P4-04. Legacy class media-token và
   deterministic provider room không phải authority của task.
-- Theo scope hiện tại, P4-05 không cần OpenAPI, backend, PostgreSQL relation, runtime ACL hoặc
-  migration mới. Disposable và shared phải giữ ledger mục tiêu `31 false`; không chạy
+- Theo scope hiện tại, P4-05 không cần OpenAPI, PostgreSQL relation, runtime ACL hoặc migration
+  mới. Live acceptance phát hiện Core API ghi nối hai Problem Details sau lỗi xác thực; minimal
+  backend hotfix chỉ dừng handler ngay sau auth failure và thêm regression test, không đổi contract/schema/ACL.
+  Disposable và shared phải giữ ledger mục tiêu `31 false`; không chạy
   `db:migrate`, rollback hoặc ACL provisioning chỉ để nghiệm thu UI.
 - `classroom_media_rooms` và `instant_study_rooms` tiếp tục deployment-force-off.
   `effect=None` là production baseline và `CanPublishData=false` không thay đổi.
@@ -127,7 +129,7 @@ Presentation share được ưu tiên hơn camera video nhưng không hơn audio
 - Browser fixture phải chứng minh video attach/subscription bounded theo page/stage/rail. Audio và
   control phải sống lâu hơn video trong degraded state.
 
-## 3. Local verification — `AUTOMATED PASS`, commit/CI còn mở
+## 3. Local verification — `PASS`
 
 - [x] Layout controller unit tests bao phủ Grid/Active speaker/Presentation với profile 2/5/25/50,
       join/leave, duplicate/out-of-order projection và page clamp. Production shell dùng opaque
@@ -159,7 +161,8 @@ Presentation share được ưu tiên hơn camera video nhưng không hơn audio
       telemetry hoặc media frame tới Core API.
 - [x] `pnpm verify`, full web `62` files/`376` tests, web build và client bundle security đều PASS
       trên local tree.
-- [ ] Full committed Playwright regression suite và exact candidate CI/security đều PASS.
+- [x] Full committed Playwright regression suite và exact candidate CI/security đều PASS. Hotfix
+      authentication-response chạy focused MediaSpace tests, toàn bộ Go packages và `pnpm verify` PASS.
 
 ## 4. Disposable và LiveKit test project — `AUTOMATED PASS`, không đổi database
 
@@ -201,56 +204,57 @@ chỉ xuất status/count không bí mật:
 - disposable/shared endpoint chỉ được so sánh offline theo boolean và xác nhận khác nhau; không có
   shared network connection trong gate này.
 
-## 5. Exact candidate CI/security — `PENDING`
+## 5. Exact candidate CI/security — `PASS`
 
 - [x] Review diff chỉ chứa P4-05 source/test/docs cần thiết; loại `.env*.local`, token, artifact,
       browser profile, screenshot riêng tư và `.tmp-gocache/`.
 - [x] Local full verification chạy lại trên exact tree trước commit.
-- [ ] Commit/push exact candidate lên `main` không force-push; ghi full SHA vào mục Evidence.
-- [ ] GitHub Verify PASS: quality/integration, committed Browser E2E và local-environment smoke.
-- [ ] GitHub Security PASS: secret scan, CodeQL Go/JavaScript-TypeScript, repository/dependency scan
-      và container scan theo workflow hiện hành.
-- [ ] CI test output/artifact không chứa credential, provider room/participant identity, device label
+- [x] Commit/push exact runtime candidate lên `main` không force-push; full SHA ghi tại Evidence.
+- [x] GitHub Verify PASS: quality/integration, committed Browser E2E và local-environment smoke.
+- [x] GitHub Security PASS: secret scan, CodeQL Go/JavaScript-TypeScript, repository vulnerability
+      và container scan; Dependency Review `SKIP` đúng thiết kế của direct push lên `main`.
+- [x] CI test output/artifact không chứa credential, provider room/participant identity, device label
       hoặc private media content.
-- [ ] Shared/deploy gate không bắt đầu trước exact candidate Verify/Security PASS.
+- [x] Shared/deploy gate chỉ bắt đầu sau exact candidate Verify/Security PASS.
 
-## 6. Shared staging read-only — `PENDING`
+## 6. Shared staging read-only — `PASS`
 
 Chỉ bắt đầu sau exact candidate CI/security PASS và quyền shared staging riêng. P4-05 không có
 forward migration hoặc ACL delta.
 
-- [ ] Secret-safe endpoint comparison xác nhận shared khác disposable; không in URL/credential.
-- [ ] Read-only before-live snapshot xác nhận ledger `31 false`, `dirty=false`, hai media feature
+- [x] Secret-safe endpoint comparison xác nhận shared khác disposable; không in URL/credential.
+- [x] Read-only before-live snapshot xác nhận ledger `31 false`, `dirty=false`, hai media feature
       false, không có enabled media override và runtime ACL vẫn exact.
-- [ ] Không chạy migration, rollback, ACL provision, mutation/concurrency fixture, provider smoke
+- [x] Không chạy migration, rollback, ACL provision, mutation/concurrency fixture, provider smoke
       hoặc temporary feature override trên shared.
-- [ ] Không tạo MediaSpace/RoomInstance/ParticipantSession/audit/outbox row để nghiệm thu shell.
-- [ ] Read-only after-live snapshot giống before-live snapshot trên ledger, feature state và bounded
+- [x] Không tạo MediaSpace/RoomInstance/ParticipantSession/audit/outbox row để nghiệm thu shell.
+- [x] Read-only after-live snapshot giống before-live snapshot trên ledger, feature state và bounded
       aggregate counts.
 
-## 7. Exact deploy và live acceptance — `PENDING`
+## 7. Exact deploy và live acceptance — `PASS`
 
-- [ ] Cloudflare Pages deploy exact accepted candidate SHA sau CI/shared read-only gate; deployment
+- [x] Cloudflare Pages deploy exact accepted candidate SHA; deployment
       status và URL được ghi nhưng không chứa credential.
-- [ ] Vì P4-05 dự kiến không đổi Core API, ghi rõ Render giữ compatible backend SHA hay được
-      owner-authorized exact-SHA redeploy; không tuyên bố Render chạy candidate nếu không có evidence.
-- [ ] Render và Pages health/ready/status endpoints đều `200`, semantic status đúng, no-store và có
+- [x] Minimal Core API response-contract hotfix được manual deploy đúng exact runtime SHA; Render
+      dashboard xác nhận deployment `Live` trên cùng SHA.
+- [x] Render và Pages health/ready/status endpoints đều `200`, semantic status đúng, no-store và có
       request ID theo baseline.
-- [ ] Anonymous matrix trên canonical MediaSpace/prejoin/join paths trả typed `401`/concealment,
-      no-store/no-referrer/nosniff, không Set-Cookie ngoài auth flow và không lộ resource/provider ID.
-- [ ] `/app/media/*` giữ no-store, no-referrer, frame denial và `Permissions-Policy` chỉ cho camera,
+- [x] Anonymous matrix trên canonical MediaSpace/prejoin/join paths trả đúng một typed `401`/concealment,
+      no-store/no-referrer/nosniff, không Set-Cookie ngoài auth flow và không lộ resource/provider ID do
+      server cung cấp; `Problem.Instance` chỉ echo synthetic request path như thiết kế.
+- [x] `/app/media/*` giữ no-store, no-referrer, frame denial và `Permissions-Policy` chỉ cho camera,
       microphone, display-capture, speaker-selection từ `self`.
-- [ ] Authenticated Organization Admin xác nhận `classroom_media_rooms` và
+- [x] Authenticated Organization Admin xác nhận `classroom_media_rooms` và
       `instant_study_rooms` vẫn off; inaccessible synthetic route fail closed và không capture/
       connect provider.
-- [ ] No-effect production network audit không có processor/model/WASM/background/CDN/telemetry
+- [x] No-effect production resource audit không có processor/model/WASM/background/CDN/telemetry
       request; route không dùng media không tải LiveKit SDK.
-- [ ] Actual shell/control/layout acceptance lấy từ committed isolated Playwright + allowed LiveKit
+- [x] Actual shell/control/layout acceptance lấy từ committed isolated Playwright + allowed LiveKit
       test project; không temporary-enable shared/live capability.
-- [ ] Shared read-only after-live snapshot bằng before-live; live probe không tạo database/provider
+- [x] Shared read-only after-live snapshot bằng before-live; live probe không tạo database/provider
       side effect.
-- [ ] Browser console không có uncaught error, token/provider identifier, device label hoặc raw
-      exception.
+- [x] Live reload không phát sinh uncaught page error; rendered DOM/resource audit không có token,
+      provider identifier, device label, raw exception hoặc forbidden media/effect resource.
 
 ## 8. P4-11 manual/physical deferrals
 
@@ -283,16 +287,16 @@ grant/cleanup/accessibility gate để giữ effect.
 | Exact local security suite                          | `24/24 PASS`       |
 | P4-03/P4-04/P4-05 Vite-only fixture regression      | `16/16 PASS`       |
 | Browser LiveKit real publisher/subscriber delivery gate | `1/1 PASS`      |
-| Candidate diff/secret-marker audit                  | `29 files PASS`    |
+| Candidate diff/secret-marker audit                  | `29-file pre-hotfix candidate + 2-file hotfix PASS` |
 | Disposable read-only ledger/ACL probe               | `31 false; exact ACL PASS` |
 | Isolated LiveKit test-project grant/control/cleanup | `Go 2/2 + real publisher/subscriber browser 1/1 + cleanup PASS` |
-| Exact candidate SHA                                 | `PENDING`          |
-| GitHub Verify run                                   | `PENDING`          |
-| GitHub Security run                                 | `PENDING`          |
-| Shared before/after read-only snapshots             | `PENDING`          |
-| Cloudflare Pages exact deployment                   | `PENDING`          |
-| Render compatibility/exact deployment decision      | `PENDING`          |
-| Live health/privacy/feature-off/no-side-effect      | `PENDING`          |
+| Exact runtime candidate SHA                         | `dcbdfef3c209a7c6d17197ccbcf737b58cd9e315` |
+| GitHub Verify run                                   | `31598671906 PASS` |
+| GitHub Security run                                 | `31598671939 PASS` |
+| Shared before/after read-only snapshots             | `31 false; exact ACL; counts identical PASS` |
+| Cloudflare Pages exact deployment                   | `e2e72ca9-0173-4f2c-8221-f14203551c42 PASS` |
+| Render exact runtime deployment                     | `dep-d9u6sdbm8hqs73em447g Live` |
+| Live health/privacy/feature-off/no-side-effect      | `13/13 public/anonymous + Admin PASS` |
 
 ## 10. Chuyển trạng thái
 
@@ -302,18 +306,18 @@ disposable-no-DB read-only boundary đều xanh trên cùng candidate tree.
 
 P4-05 chỉ được chuyển `VERIFY -> DONE` khi:
 
-1. [ ] exact candidate đã commit/push và GitHub Verify/Security PASS;
-2. [ ] shared read-only `31 false`/feature-off snapshots trước và sau live giống nhau, không có
+1. [x] exact candidate đã commit/push và GitHub Verify/Security PASS;
+2. [x] shared read-only `31 false`/feature-off snapshots trước và sau live giống nhau, không có
        migration/rollback/ACL/mutation;
-3. [ ] exact deploy và live health/privacy/header/authenticated feature-off acceptance PASS;
-4. [ ] actual grant/control/cleanup evidence đến từ isolated LiveKit test project, không shared/live
+3. [x] exact deploy và live health/privacy/header/authenticated feature-off acceptance PASS;
+4. [x] actual grant/control/cleanup evidence đến từ isolated LiveKit test project, không shared/live
        temporary activation;
-5. [ ] performance/lazy-boundary và automated accessibility evidence đầy đủ;
-6. [ ] các manual/physical/load/effect gate P4-11 vẫn được ghi rõ `UNVERIFIED`, không suy PASS;
-7. [ ] Project State, Phase 4 backlog, coordination, roadmap, database/security state và README được
+5. [x] performance/lazy-boundary và automated accessibility evidence đầy đủ;
+6. [x] các manual/physical/load/effect gate P4-11 vẫn được ghi rõ `UNVERIFIED`, không suy PASS;
+7. [x] Project State, Phase 4 backlog, coordination, roadmap, database/security state và README được
        đồng bộ; P4-06 trở thành task runnable tiếp theo.
 
-Local automated implementation/performance/accessibility, disposable read-only và isolated LiveKit
-actual grant/control/cleanup checkpoint đã PASS; browser fixture/harness và opaque-order follow-up
-đã được commit/push. Exact candidate CI/security và shared/deploy/live gates chưa được xác nhận, nên
-trạng thái hợp lệ của P4-05 vẫn là `IN PROGRESS`.
+P4-05 chuyển `IN PROGRESS -> VERIFY -> DONE` ngày 2026-08-12. Local automated implementation,
+performance/accessibility, disposable read-only, isolated LiveKit grant/control/cleanup, exact
+CI/security, shared read-only và exact deploy/live acceptance đều PASS. Physical/manual/load/outage/
+effect gates vẫn được giữ rõ `UNVERIFIED — P4-11`; không suy PASS từ P4-05.

@@ -5,13 +5,13 @@
 | Thuộc tính            | Giá trị                                                                                      |
 | --------------------- | -------------------------------------------------------------------------------------------- |
 | Phiên bản tài liệu    | 2.4                                                                                          |
-| Cập nhật              | 2026-08-10                                                                                   |
+| Cập nhật              | 2026-08-12                                                                                   |
 | Phạm vi ưu tiên       | Web application                                                                              |
 | Thư mục phát triển    | `D:\TutorHub_V2`                                                                             |
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
 | Phase hiện tại        | Phase 4 - Classroom Media MVP; Phase 3 deferred carry-over tiếp tục                          |
-| Trạng thái gần nhất   | P4-04 lobby/admission/invite `DONE`; P4-05 là task runnable tiếp theo                        |
+| Trạng thái gần nhất   | P4-05 classroom shell/media/layout `DONE`; P4-06 là task runnable tiếp theo                  |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 
@@ -119,7 +119,7 @@ classroom layout, participant signals và media effects.
 Task đã `DONE` ngày 2026-08-09 bằng
 [research report](P4_MEDIA_UX_00_RESEARCH_REPORT.md), prototype cô lập và
 [ADR-0031](adr/0031-classroom-media-ux-devices-layout-effects-and-signals.md). Baseline là
-`effect=None`; Track Processors giữ force-off tới P4-05/P4-11. Research không đổi provider,
+`effect=None`; Track Processors giữ force-off tới P4-11 sau khi P4-05 đã PASS no-effect gate. Research không đổi provider,
 authority hoặc `CanPublishData=false` và đã hoàn thành trước P4-03/P4-04/P4-05/P4-06.
 
 ## 4. Tầm nhìn sản phẩm web
@@ -2161,7 +2161,11 @@ Zoom/Meet/LiveKit/browser research, V1 audit, isolated prototype và ADR-0031. B
 `effect=None`; optional processor giữ off, còn hand/reaction luôn do Core API authorize với
 `CanPublishData=false`. P4-03 và P4-04 đã `DONE` trên exact CI/shared/deploy/live acceptance; P4-04
 disposable/shared đạt `30 false -> 31 false -> 31 false`, không rollback và hai media capability
-tiếp tục force-off. P4-05 là task runnable tiếp theo.
+tiếp tục force-off. P4-05 cũng đã `DONE` trên exact runtime candidate
+`dcbdfef3c209a7c6d17197ccbcf737b58cd9e315`: local/disposable/isolated LiveKit, exact
+CI/security, shared read-only `31 false`, Render/Cloudflare deploy và live privacy/feature-off/
+no-side-effect acceptance đều PASS. P4-06 là task runnable tiếp theo; physical/manual/load/outage/
+effect gates vẫn thuộc P4-11.
 Không bật side effect chỉ vì core đã có. `P3-02D-B` và các gate worker/provider vẫn là
 carry-over.
 AWS SES đã được chọn làm provider target nhưng

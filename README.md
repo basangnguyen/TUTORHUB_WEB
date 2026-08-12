@@ -103,7 +103,12 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
   Verify/Security, shared forward-only `30 false -> 31 false -> 31 false`, exact ACL/read-only
   snapshot, Render/Cloudflare deploy và live privacy/feature-off/no-side-effect acceptance đều PASS;
   không rollback. Hai media feature tiếp tục force-off, `effect=None`, `CanPublishData=false`.
-  Task runnable tiếp theo là P4-05 Classroom shell, media controls và layouts.
+- P4-05 Classroom shell, media controls và layouts đã `DONE` ngày 2026-08-12 trên exact runtime
+  candidate `dcbdfef3c209a7c6d17197ccbcf737b58cd9e315`. Local/disposable/isolated LiveKit,
+  GitHub Verify/Security, shared read-only `31 false`, exact Render/Cloudflare deploy và live
+  `13/13` public/anonymous + Admin feature-off acceptance đều PASS; không migration/rollback/ACL
+  mutation. Physical/manual/load/outage/effect gates vẫn `UNVERIFIED — P4-11`.
+  Task runnable tiếp theo là P4-06 Participant roster, hand raise và reaction.
 - P5-COLLAB-00 đã được đăng ký làm research spike tương lai cho whiteboard engine,
   document/sync authority, license và realtime topology. Task vẫn `TODO`, không chặn P4-02
   và không cho phép thêm production dependency/runtime trước prototype, evidence và ADR.

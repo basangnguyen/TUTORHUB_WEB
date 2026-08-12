@@ -106,6 +106,14 @@ credential/provider connection; device/effect không thay đổi authority. Forw
 cùng exact runtime/default/future-table ACL đã PASS disposable trước shared; không rollback, còn hai feature media,
 `effect=None` và `CanPublishData=false` tiếp tục force-off.
 
+**P4-05 classroom shell boundary:** custom room shell chỉ dùng canonical one-time in-memory
+RoomInstance credential, exact server grants và bounded manual subscription; layout/pin/device/effect
+state không được persist hoặc log. `effect=None`, `CanPublishData=false` và hai media feature tiếp tục
+force-off. Live authentication regression xác nhận mỗi auth failure chỉ ghi đúng một Problem Details;
+anonymous MediaSpace/join paths fail closed trước service/provider, không Set-Cookie hoặc lộ provider
+metadata. Exact CI/security, isolated LiveKit grant/cleanup, shared read-only `31 false`/exact ACL và
+live Admin feature-off acceptance đều PASS; manual physical/load/outage/effect gates vẫn thuộc P4-11.
+
 ## 4. Web security
 
 - CSP nghiêm ngặt, không phụ thuộc inline script/eval.
