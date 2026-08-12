@@ -314,6 +314,6 @@ P4-05 chỉ được chuyển `VERIFY -> DONE` khi:
        đồng bộ; P4-06 trở thành task runnable tiếp theo.
 
 Local automated implementation/performance/accessibility, disposable read-only và isolated LiveKit
-actual grant/control/cleanup checkpoint đã PASS. Browser fixture/harness chưa được commit; exact
-candidate CI/security và shared/deploy/live gates chưa được xác nhận, nên trạng thái hợp lệ của P4-05
-vẫn là `IN PROGRESS`.
+actual grant/control/cleanup checkpoint đã PASS; browser fixture/harness và opaque-order follow-up
+đã được commit/push. Exact candidate CI/security và shared/deploy/live gates chưa được xác nhận, nên
+trạng thái hợp lệ của P4-05 vẫn là `IN PROGRESS`.

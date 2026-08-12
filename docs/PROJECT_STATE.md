@@ -57,8 +57,8 @@ mutation. Isolated LiveKit Go two-participant grant matrix đạt `2/2`; Chromiu
 nhận remote camera/audio và chỉ nhận screen share sau explicit action; signed grant matrix chặn data,
 privacy check PASS, mọi captured track `ended`, remote media detach khi Leave và exact room cleanup về `0`.
 
-P4-05 giữ `IN PROGRESS` vì browser fixture/harness chưa được commit; exact candidate CI/security và
-shared/deploy/live acceptance vẫn `PENDING`. Physical device indicator, browser/hardware/load và
+P4-05 giữ `IN PROGRESS` vì exact candidate CI/security và shared/deploy/live acceptance vẫn
+`PENDING`; browser fixture/harness cùng opaque-order follow-up đã được commit/push. Physical device indicator, browser/hardware/load và
 provider-outage matrix tiếp tục `UNVERIFIED — P4-11`. Evidence ledger:
 [P4_05_STAGING_ACCEPTANCE.md](P4_05_STAGING_ACCEPTANCE.md).
 
