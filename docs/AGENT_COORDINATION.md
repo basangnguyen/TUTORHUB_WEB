@@ -221,7 +221,9 @@ live privacy/feature-off/no-side-effect acceptance đều PASS; không rollback.
 P4-05 đang `IN PROGRESS` với local custom room shell, bounded Grid/Active speaker/Presentation,
 exact grant controls, manual subscription, lazy device enumeration, ordered degradation,
 first-wins terminal cleanup và pending-operation generation guard. TutorHub-owned Room lifecycle
-không double-create/disconnect dưới StrictMode và chặn late callback sau scope change. Focused tests
+không double-create/disconnect dưới StrictMode và chặn late callback sau scope change. Participant
+order hiện chỉ là opaque local-first session-local append-stable fallback không dùng provider identity/join time;
+P4-06 phải thay bằng versioned server roster sequence/key trước feature enable. Focused tests
 `76/76`, full web `62` files/`376` tests, Vite-only P4-03/P4-04/P4-05 regression `16/16`, Playwright
 P4-05 `7/7`, lint/typecheck/build và client bundle security đều PASS. LiveKit vendor đã tách khỏi app
 entry/prejoin và chỉ được room route static-import. Disposable read-only đạt ledger `31 false`,

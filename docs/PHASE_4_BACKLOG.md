@@ -380,7 +380,8 @@ Evidence/runbook:
 **Dependency:** P4-03/P4-MEDIA-UX-00. **Trạng thái:** `IN PROGRESS` từ 2026-08-10.
 
 Checkpoint local đầu tiên đã tách canonical room thành lazy route riêng, thêm custom classroom
-stage/toolbar/rail-drawer, exact grant controls, manual bounded audio/video subscription, stable
+stage/toolbar/rail-drawer, exact grant controls, manual bounded audio/video subscription, opaque
+local-first session-local append-stable participant fallback không dùng provider identity/join time, cùng
 Grid/Active speaker/Presentation với cap `12/6/4`, rail `6`, local pin, hysteresis
 `800/2500/1500 ms`, deterministic share restore, ordered degradation và cleanup first-wins. Device
 enumeration chỉ bắt đầu khi mở panel và media operation đang chờ bị invalidate khi leave/unmount.
@@ -424,7 +425,8 @@ shared/deploy/live acceptance còn `PENDING` theo `P4_05_STAGING_ACCEPTANCE.md`.
 
 ### Scope
 
-- Server-derived participant projection with bounded display name/role/media state.
+- Server-derived participant projection with bounded display name/role/media state; thay P4-05
+  session-local fallback bằng versioned server roster sequence + opaque participant key.
 - Hand raise/reaction through authorized/rate-limited Core API signal; `CanPublishData=false`.
 - FIFO dùng server sequence; moderator lower-one/lower-all, reaction TTL/grouping và bounded a11y
   announcements theo contract đã chốt bởi research spike.
@@ -437,6 +439,8 @@ surprised`, TTL 10 giây, grouping 750 ms/max 3 visual cluster, actor 3/5s + 20/
 - [ ] Participant cannot forge role/user/tenant or signal for another ParticipantSession.
 - [ ] Spam rate limit cross-instance-safe; unknown payload discarded without log injection.
 - [ ] Join/leave/reconnect roster eventually converges after duplicate/out-of-order webhook.
+- [ ] Grid canonical order dùng server roster sequence/key, không dùng session observation order,
+      display name, client/join time hoặc provider identity; gate này phải PASS trước feature enable.
 - [ ] Roster/reaction accessible without color-only meaning and does not expose email/session ID.
 - [ ] Hand/reaction duplicate/retry/offline/403/409/429/sequence-gap hội tụ qua versioned snapshot;
       25/50 storm không tạo DOM/live-region unbounded và direct DataChannel không đổi authority.

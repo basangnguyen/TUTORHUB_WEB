@@ -6,7 +6,7 @@
 
 | Thuộc tính           | Trạng thái                                                                            |
 | -------------------- | ------------------------------------------------------------------------------------- |
-| Ngày cập nhật        | 2026-08-11                                                                            |
+| Ngày cập nhật        | 2026-08-12                                                                            |
 | Repository           | `https://github.com/basangnguyen/TUTORHUB_WEB`                                        |
 | Nhánh làm việc       | `main`                                                                                |
 | Quy trình            | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
@@ -17,7 +17,7 @@
 | Task hiện tại        | P4-05 Classroom shell, media controls và layouts (`IN PROGRESS`)                      |
 | Task tiếp theo       | Commit/push exact P4-05 candidate và kiểm tra GitHub Verify/Security                  |
 
-### Checkpoint P4-05 `IN PROGRESS` ngày 2026-08-11
+### Checkpoint P4-05 `IN PROGRESS` ngày 2026-08-12
 
 Canonical room đã được tách khỏi prejoin thành lazy route riêng và dùng custom LiveKit shell thay
 cho prebuilt conference UI. Local slice hiện có stage/toolbar/participant rail và responsive drawer;
@@ -25,6 +25,9 @@ Grid/Active speaker/Presentation; grid cap `12/6/4`, rail tối đa `6`, local p
 `800/2500/1500 ms` và deterministic screen-share restore. Publish controls chiếu đúng credential
 grants; `autoSubscribe=false`, remote audio/video được subscribe thủ công theo bounded projection,
 hidden presenter camera/off-page video bị gỡ subscription và listen-only không gọi publish API.
+Trong khi feature còn deployment-force-off, participant dùng opaque local-first session-local append-stable
+fallback không đọc provider identity/join time; canonical server roster sequence/key thuộc P4-06
+và bắt buộc trước feature enable.
 Deterministic degradation đã có đủ chuỗi normal -> reduced video -> lower quality -> stage-only ->
 audio-only với cửa sổ xuống cấp `5 s`, phục hồi `15 s`, ưu tiên presentation và giữ audio/control.
 
@@ -40,7 +43,7 @@ bật media capability.
 Focused P4-05/P4-03 regression tests đạt `76/76`; full web đạt `62` files/`376` tests. Targeted/full
 web lint, TypeScript web/E2E typecheck, production build, Vite-only Chromium regression P4-03/P4-04/
 P4-05 `16/16`, Playwright P4-05 `7/7`, Prettier/diff check, client bundle security `20` files, exact
-local security suite `24/24` và candidate diff/secret-marker audit `28` files đều PASS. Rolldown tách LiveKit
+local security suite `24/24` và candidate diff/secret-marker audit `29` files đều PASS. Rolldown tách LiveKit
 thành vendor chunk chỉ được
 static-import bởi room routes; app entry và canonical prejoin không static-import SDK. Application
 room chunk hiện `38.02 kB` raw/`11.93 kB` gzip dưới budget `45/15 kB`; tổng room application +

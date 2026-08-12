@@ -175,6 +175,14 @@ opaque participant key, không dùng display name/client time/provider identity.
 duplicate/out-of-order event được fold theo projection version. Leave/unpublish chỉ compact khi cần;
 không di chuyển tile chỉ vì audio activity.
 
+P4-05 vẫn chạy deployment-force-off trước khi P4-06 có versioned server roster projection. Trong
+slice này, shell chỉ được dùng fallback session-local append-stable: local tile giữ sequence `0`,
+remote participant object được gán opaque counter trong memory ở lần quan sát đầu tiên. Fallback
+không đọc, persist hoặc log display
+name, client/join time hay provider identity để tạo key/thứ tự và không được gọi là canonical. P4-06
+phải thay fallback bằng server roster sequence + opaque participant key trước khi media capability
+được phép bật.
+
 Capacity ban đầu, là **hằng số sản phẩm TutorHub có thể tune sau evidence**, không phải behavior của
 Zoom/Meet:
 

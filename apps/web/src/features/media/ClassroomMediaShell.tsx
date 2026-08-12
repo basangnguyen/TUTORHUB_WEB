@@ -57,6 +57,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
   type KeyboardEvent,
   type ReactNode,
 } from "react";
@@ -94,8 +95,23 @@ export interface ClassroomMediaShellProps {
 }
 
 interface MediaLayoutItem extends ClassroomLayoutItem {
-  readonly participantIdentity: string;
   readonly trackRef: TrackReferenceOrPlaceholder;
+}
+
+interface SessionParticipantProjection {
+  readonly id: string;
+  readonly sequence: number;
+}
+
+interface SessionParticipantProjectionSnapshot {
+  readonly entries: WeakMap<object, SessionParticipantProjection>;
+  readonly revision: number;
+}
+
+interface SessionParticipantProjectionStore {
+  readonly getSnapshot: () => SessionParticipantProjectionSnapshot;
+  readonly observe: (trackRefs: readonly TrackReferenceOrPlaceholder[]) => void;
+  readonly subscribe: (listener: () => void) => () => void;
 }
 
 interface MediaTileProps {
@@ -181,6 +197,15 @@ export function ClassroomMediaShell({
     [Track.Source.Microphone, Track.Source.ScreenShareAudio],
     { onlySubscribed: false },
   );
+  const [sessionParticipantProjectionStore] =
+    useState<SessionParticipantProjectionStore>(() =>
+      createSessionParticipantProjectionStore(cameraTrackRefs),
+    );
+  const sessionParticipantProjection = useSyncExternalStore(
+    sessionParticipantProjectionStore.subscribe,
+    sessionParticipantProjectionStore.getSnapshot,
+    sessionParticipantProjectionStore.getSnapshot,
+  );
   const speakingParticipants = useSpeakingParticipants();
   const {
     isCameraEnabled,
@@ -192,6 +217,10 @@ export function ClassroomMediaShell({
     useState<ConnectionQuality>(localParticipant.connectionQuality);
   const [degradationStage, setDegradationStage] =
     useState<ClassroomDegradationStage>("normal");
+
+  useLayoutEffect(() => {
+    sessionParticipantProjectionStore.observe(cameraTrackRefs);
+  }, [cameraTrackRefs, sessionParticipantProjectionStore]);
 
   const scheduleElementFocus = useCallback(
     (elementID: string | null, fallbackElementID?: string) => {
@@ -276,8 +305,9 @@ export function ClassroomMediaShell({
   }, [localParticipant]);
 
   const allCameraItems = useMemo(
-    () => stableMediaItems(cameraTrackRefs),
-    [cameraTrackRefs],
+    () =>
+      stableMediaItems(cameraTrackRefs, sessionParticipantProjection.entries),
+    [cameraTrackRefs, sessionParticipantProjection],
   );
   const cameraItems = useMemo(
     () =>
@@ -286,16 +316,18 @@ export function ClassroomMediaShell({
         : allCameraItems.filter(({ trackRef }) => trackRef.participant.isLocal),
     [allCameraItems, canSubscribe],
   );
-  const itemByIdentity = useMemo(
+  const itemByParticipant = useMemo(
     () =>
       new Map(
-        allCameraItems.map((item) => [item.participantIdentity, item] as const),
+        allCameraItems.map(
+          (item) => [item.trackRef.participant, item] as const,
+        ),
       ),
     [allCameraItems],
   );
   const presenterTrackRef = screenShareTrackRefs[0];
   const presenterItem = presenterTrackRef
-    ? (itemByIdentity.get(presenterTrackRef.participant.identity) ?? null)
+    ? (itemByParticipant.get(presenterTrackRef.participant) ?? null)
     : null;
   const presenterID = presenterItem?.id ?? null;
   const toolbarControlKeys = useMemo<readonly ToolbarControlKey[]>(
@@ -327,8 +359,10 @@ export function ClassroomMediaShell({
   const toolbarTabIndex = (key: ToolbarControlKey) =>
     effectiveToolbarFocusKey === key ? 0 : -1;
 
-  const candidateSpeakerID =
-    itemByIdentity.get(speakingParticipants[0]?.identity ?? "")?.id ?? null;
+  const candidateSpeaker = speakingParticipants[0];
+  const candidateSpeakerID = candidateSpeaker
+    ? (itemByParticipant.get(candidateSpeaker)?.id ?? null)
+    : null;
   const normalVisibleVideoItems =
     layoutState.mode === "grid"
       ? getGridCapacity(width)
@@ -491,7 +525,7 @@ export function ClassroomMediaShell({
         if (!isRemoteTrackPublication(publication)) continue;
         currentPublications.add(publication);
         managedRemoteVideos.current.add(publication);
-        const item = itemByIdentity.get(trackRef.participant.identity);
+        const item = itemByParticipant.get(trackRef.participant);
         const visible = Boolean(
           canSubscribe &&
           item &&
@@ -538,7 +572,7 @@ export function ClassroomMediaShell({
     cameraTrackRefs,
     canSubscribe,
     degradationProjection.remoteCameraQuality,
-    itemByIdentity,
+    itemByParticipant,
     projection.stage,
     screenShareTrackRefs,
   ]);
@@ -569,7 +603,7 @@ export function ClassroomMediaShell({
     tick();
     const timer = globalThis.setInterval(tick, 1_000);
     return () => globalThis.clearInterval(timer);
-  }, [localConnectionQuality]);
+  }, [localConnectionQuality, sessionParticipantProjection]);
 
   useEffect(() => {
     const currentPublications = new Set<RemoteTrackPublication>();
@@ -1247,28 +1281,73 @@ function LeaveRoomDialog({ onLeave }: { onLeave: () => void }) {
 
 function stableMediaItems(
   trackRefs: readonly TrackReferenceOrPlaceholder[],
+  participantProjection: WeakMap<object, SessionParticipantProjection>,
 ): readonly MediaLayoutItem[] {
-  return trackRefs
-    .map((trackRef, inputIndex) => ({
-      inputIndex,
-      joinedAt: finiteJoinedAt(trackRef.participant.joinedAt),
-      trackRef,
-    }))
+  const observedItems: Array<{
+    inputIndex: number;
+    projection: SessionParticipantProjection;
+    trackRef: TrackReferenceOrPlaceholder;
+  }> = [];
+  trackRefs.forEach((trackRef, inputIndex) => {
+    const projection = participantProjection.get(trackRef.participant);
+    if (projection) observedItems.push({ inputIndex, projection, trackRef });
+  });
+  return observedItems
     .sort(
       (left, right) =>
-        left.joinedAt - right.joinedAt ||
-        left.trackRef.participant.identity.localeCompare(
-          right.trackRef.participant.identity,
-        ) ||
+        left.projection.sequence - right.projection.sequence ||
         left.inputIndex - right.inputIndex,
     )
-    .map(({ trackRef }, sequence) => ({
-      id: trackRef.participant.identity,
+    .map(({ projection, trackRef }) => ({
+      id: projection.id,
       isLocal: trackRef.participant.isLocal,
-      participantIdentity: trackRef.participant.identity,
-      sequence,
+      sequence: projection.sequence,
       trackRef,
     }));
+}
+
+function createSessionParticipantProjectionStore(
+  initialTrackRefs: readonly TrackReferenceOrPlaceholder[],
+): SessionParticipantProjectionStore {
+  const entries = new WeakMap<object, SessionParticipantProjection>();
+  const listeners = new Set<() => void>();
+  let nextRemoteSequence = 1;
+  let snapshot: SessionParticipantProjectionSnapshot = {
+    entries,
+    revision: 0,
+  };
+  const observe = (trackRefs: readonly TrackReferenceOrPlaceholder[]) => {
+    let changed = false;
+    const localFirstTrackRefs = [
+      ...trackRefs.filter(({ participant }) => participant.isLocal),
+      ...trackRefs.filter(({ participant }) => !participant.isLocal),
+    ];
+    for (const trackRef of localFirstTrackRefs) {
+      if (entries.has(trackRef.participant)) continue;
+      const isLocal = trackRef.participant.isLocal;
+      const sequence = isLocal ? 0 : nextRemoteSequence;
+      if (!isLocal) nextRemoteSequence += 1;
+      entries.set(trackRef.participant, {
+        id: isLocal
+          ? "p405-session-local-participant"
+          : `p405-session-participant-${sequence}`,
+        sequence,
+      });
+      changed = true;
+    }
+    if (!changed) return;
+    snapshot = { entries, revision: snapshot.revision + 1 };
+    for (const listener of listeners) listener();
+  };
+  observe(initialTrackRefs);
+  return {
+    getSnapshot: () => snapshot,
+    observe,
+    subscribe: (listener) => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+  };
 }
 
 function isRemoteTrackPublication(
@@ -1284,13 +1363,6 @@ function isRemoteTrackPublication(
     typeof candidate.setSubscribed === "function" &&
     typeof candidate.setVideoQuality === "function"
   );
-}
-
-function finiteJoinedAt(value: Date | undefined): number {
-  const joinedAt = value?.getTime();
-  return typeof joinedAt === "number" && Number.isFinite(joinedAt)
-    ? joinedAt
-    : Number.MAX_SAFE_INTEGER;
 }
 
 function classroomDegradationSignal(

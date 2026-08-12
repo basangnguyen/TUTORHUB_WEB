@@ -303,11 +303,8 @@ describe("ClassroomMediaShell", () => {
     );
   });
 
-  it("uses a canonical tie-break when provider track order changes", () => {
-    const tracks = createCameraTracks(5).map((track) => ({
-      ...track,
-      participant: { ...track.participant, joinedAt: undefined },
-    }));
+  it("keeps local-first session order without provider identity or time", () => {
+    const tracks = createCameraTracks(5);
     liveKitState.cameraTrackRefs = [...tracks].reverse();
     const view = renderShell();
     const visibleNames = () =>
@@ -319,12 +316,16 @@ describe("ClassroomMediaShell", () => {
 
     expect(visibleNames()).toEqual([
       "Learner 1",
-      "Learner 2",
-      "Learner 3",
-      "Learner 4",
       "Learner 5",
+      "Learner 4",
+      "Learner 3",
+      "Learner 2",
     ]);
 
+    tracks.forEach((track, index) => {
+      track.participant.identity = `provider-identity-rewritten-${index}`;
+      track.participant.joinedAt = new Date(50_000 - index);
+    });
     liveKitState.cameraTrackRefs = [
       tracks[2]!,
       tracks[4]!,
@@ -335,10 +336,24 @@ describe("ClassroomMediaShell", () => {
     view.rerender(shellElement());
     expect(visibleNames()).toEqual([
       "Learner 1",
-      "Learner 2",
-      "Learner 3",
-      "Learner 4",
       "Learner 5",
+      "Learner 4",
+      "Learner 3",
+      "Learner 2",
+    ]);
+
+    const newcomer = createCameraTracks(1)[0]!;
+    newcomer.participant.isLocal = false;
+    newcomer.participant.name = "Learner 6";
+    liveKitState.cameraTrackRefs = [newcomer, ...liveKitState.cameraTrackRefs];
+    view.rerender(shellElement());
+    expect(visibleNames()).toEqual([
+      "Learner 1",
+      "Learner 5",
+      "Learner 4",
+      "Learner 3",
+      "Learner 2",
+      "Learner 6",
     ]);
   });
 

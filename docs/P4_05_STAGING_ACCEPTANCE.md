@@ -130,7 +130,9 @@ Presentation share được ưu tiên hơn camera video nhưng không hơn audio
 ## 3. Local verification — `AUTOMATED PASS`, commit/CI còn mở
 
 - [x] Layout controller unit tests bao phủ Grid/Active speaker/Presentation với profile 2/5/25/50,
-      join/leave, duplicate/out-of-order projection, page clamp và stable canonical order.
+      join/leave, duplicate/out-of-order projection và page clamp. Production shell dùng opaque
+      local-first session-local append-stable fallback, không dùng provider identity/join time; canonical server
+      roster order được giao rõ cho P4-06 trước khi capability có thể bật.
 - [x] Fake-clock tests xác nhận `800/2500/1500 ms`, local pin precedence, deterministic fallback và
       speaker event không reorder Grid/DOM.
 - [x] Presentation tests xác nhận share start/stop/cancel/replace, track end và presenter leave
@@ -186,7 +188,7 @@ command, không in giá trị; structural output chỉ là boolean/status/count 
 - [x] Disposable branch/test project được giữ cho tới khi database/provider gate liên quan được báo
       cáo; không rollback hoặc xóa tự động.
 
-Evidence ngày 2026-08-11, toàn bộ command nạp credential từ ignored local file trong cùng process và
+Evidence cập nhật ngày 2026-08-12, toàn bộ command nạp credential từ ignored local file trong cùng process và
 chỉ xuất status/count không bí mật:
 
 - `TestPostgresP405DisposableReadOnlySnapshot` và
@@ -281,7 +283,7 @@ grant/cleanup/accessibility gate để giữ effect.
 | Exact local security suite                          | `24/24 PASS`       |
 | P4-03/P4-04/P4-05 Vite-only fixture regression      | `16/16 PASS`       |
 | Browser LiveKit real publisher/subscriber delivery gate | `1/1 PASS`      |
-| Candidate diff/secret-marker audit                  | `28 files PASS`    |
+| Candidate diff/secret-marker audit                  | `29 files PASS`    |
 | Disposable read-only ledger/ACL probe               | `31 false; exact ACL PASS` |
 | Isolated LiveKit test-project grant/control/cleanup | `Go 2/2 + real publisher/subscriber browser 1/1 + cleanup PASS` |
 | Exact candidate SHA                                 | `PENDING`          |
