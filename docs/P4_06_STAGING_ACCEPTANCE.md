@@ -2,8 +2,8 @@
 
 ## 1. Trạng thái và ranh giới
 
-- Trạng thái hiện tại: `IN PROGRESS` ngày 2026-08-13. Local và Neon disposable đã `PASS`;
-  exact candidate CI/security, shared staging, deploy và live acceptance vẫn `PENDING`.
+- Trạng thái hiện tại: `DONE` ngày 2026-08-13. Local/disposable, exact candidate CI/security,
+  shared staging, exact deploy và live feature-off/no-side-effect acceptance đều `PASS`.
 - P4-06 thay fallback roster session-local của P4-05 bằng projection có version do Core API/
   PostgreSQL sở hữu. LiveKit chỉ cung cấp media transport và active-speaker/quality tức thời.
 - `CanPublishData=false` tiếp tục là invariant; client metadata, provider identity, DataChannel,
@@ -132,32 +132,54 @@ theo dependency order, rate window deterministic, confirmation riêng cho P4-06 
 preflight/postflight ba principal. Những sửa này đã được compile/vet/focused-test trước khi chạy lại
 disposable. Branch được giữ lại; không shared migration, deploy, rollback hoặc branch deletion.
 
-## 5. Exact candidate CI/security — `PENDING`
+## 5. Exact candidate CI/security — `PASS`
 
-- [ ] Diff chỉ chứa source/test/docs P4-06; loại `.env*.local`, `.tmp-gocache/`, token, provider
+- [x] Diff chỉ chứa source/test/docs P4-06; loại `.env*.local`, `.tmp-gocache/`, token, provider
       identifier, browser profile, screenshot riêng tư và generated artifact không cần thiết.
-- [ ] Commit/push trực tiếp `main` không force-push sau full local verification.
-- [ ] GitHub Verify và Security PASS trên exact full SHA; secret scan, CodeQL Go/JavaScript-TypeScript,
-      dependency/container checks không có regression liên quan.
-- [ ] CI log/artifact không chứa database/provider credential, participant identity hoặc private media.
+- [x] Exact runtime candidate `d773641f796076b90f31a876ee840a427db43372` được commit/push trực
+      tiếp `main`, không force-push, sau full local verification PASS với `64/64` web files,
+      `400/400` web tests và `50/50` API client tests.
+- [x] GitHub Verify `31664828854` và Security `31664828820` PASS trên exact full SHA; secret scan,
+      CodeQL Go/JavaScript-TypeScript và dependency/container checks không có regression liên quan.
+- [x] Focused `TestMediaSpaceScopeMismatchStopsBeforeService` cùng ba HTTP privacy/CSRF/rate tests
+      PASS; authenticated wrong-tenant scope mismatch trả typed `409 media_space_scope_changed`
+      trước service call.
+- [x] CI log/artifact không chứa database/provider credential, participant identity hoặc private media.
 
-## 6. Shared staging — `BLOCKED UNTIL DISPOSABLE + CI PASS`
+## 6. Shared staging — `PASS`
 
-- [ ] Có quyền owner riêng cho forward shared `31 false -> 32 false`; preflight và backup/rollback plan
-      được ghi nhưng không chạy rollback.
-- [ ] Forward migration idempotent, exact runtime ACL provision và focused PostgreSQL gate PASS;
-      final ledger `32 false`, feature vẫn force-off.
-- [ ] Trước/sau migration aggregate evidence không có unexpected participant/signal side effect.
+- [x] Shared owner preflight PASS trước khi forward; migration giữ forward-only recovery boundary và
+      không chạy rollback.
+- [x] Forward-only `31 false -> 32 false`; chạy migrate lại giữ `32 false`. Exact runtime ACL
+      provision và focused final gate đều PASS; hai media feature vẫn force-off.
+- [x] Final shared snapshot giữ version `32`, `dirty=false`, `media_features=false` và toàn bộ P4-06
+      aggregate count bằng `0`; `livekit_webhook_events=16` là dữ liệu có sẵn và không đổi.
 
-## 7. Deploy/live acceptance — `BLOCKED UNTIL SHARED PASS`
+## 7. Deploy/live acceptance — `PASS`
 
-- [ ] Render Core API và Cloudflare Pages chạy cùng exact candidate SHA; health/ready/status PASS.
-- [ ] Anonymous, wrong-tenant và feature-off routes trả typed concealment/deny với privacy/cache headers;
-      không tạo participant/hand/reaction row.
-- [ ] Authenticated capability/UI vẫn thể hiện media feature-off; không chạy positive signal flow hoặc
+- [x] Render deployment `dep-d9ul9q6417fc738gfa3g` ở trạng thái `Live` và Cloudflare Pages đều chạy
+      exact candidate `d773641f796076b90f31a876ee840a427db43372`.
+- [x] Direct Render và Pages health/ready/status đạt `6/6` HTTP `200`, `Cache-Control: no-store` và
+      có request ID.
+- [x] Anonymous GET participants và POST signals trên Render/Pages đạt `4/4` typed `401` problem JSON,
+      no-store/no-referrer/nosniff, safe `Vary`, có request ID, không `Set-Cookie` và không lộ dữ liệu
+      nhạy cảm. Authenticated wrong-tenant được chứng minh bằng exact-candidate gate ở mục 5, không
+      được suy thành một live positive signal flow.
+- [x] Authenticated Organization Admin `/app/workspace` xác nhận classroom/instant media feature off;
+      synthetic room/prejoin fail closed/conceal, không tải LiveKit/processor/media/token và console
+      có `0` warning/error.
+- [x] Không chạy positive signal flow hoặc
       bật canary tạm trên shared. Enabled-path projection/raise/lower/moderator/reaction/retry/resync
       dùng bằng chứng isolated local/disposable đã PASS.
-- [ ] Live browser accessibility/privacy/network audit PASS; không DataChannel signal, email/session/
-      provider identity hoặc token trong DOM/URL/storage/log.
-- [ ] Read-only post-live snapshot giữ exact ledger/ACL/feature state. Chỉ khi toàn bộ mục 3-7 đạt mới
-      chuyển P4-06 `VERIFY -> DONE` và mở P4-07.
+- [x] Live browser accessibility/privacy/resource/console audit PASS: `main=1`, `h1=1`, `nav=1`,
+      `37/37` exposed controls có accessible name, không duplicate ID, external LiveKit/processor
+      resource, console warning/error, credential/raw exception, DataChannel signal, email/session/
+      provider identity hoặc token trong rendered DOM/URL/log. Storage safety tiếp tục được bảo đảm
+      bởi committed automated gate; browser acceptance không đọc hoặc xuất session storage/cookie.
+- [x] Read-only post-live snapshot giữ version `32`, `dirty=false`, exact ACL, media feature off,
+      toàn bộ P4-06 count bằng `0` và `livekit_webhook_events=16` có sẵn không đổi.
+
+P4-06 chuyển `IN PROGRESS -> VERIFY -> DONE` ngày 2026-08-13 trên exact candidate
+`d773641f796076b90f31a876ee840a427db43372`. Không rollback; disposable branch được giữ lại;
+`CanPublishData=false` và hai media feature tiếp tục force-off. Physical/manual/load/outage/effect
+gates vẫn `UNVERIFIED — P4-11`, không được suy `PASS` từ slice này. P4-07 là task runnable tiếp theo.

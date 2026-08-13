@@ -195,9 +195,10 @@ hoặc worker-driven file processing/sharing tới end user.
 | P4-02           | DONE       | Exact disposable/CI/shared/deploy/live/provider PASS       |
 | P4-03           | DONE       | Exact CI/shared/deploy/live feature-off/privacy PASS        |
 | P4-04           | DONE       | Exact CI/shared/deploy/live privacy/no-side-effect PASS     |
-| P4-05           | DONE        | Exact CI/shared/deploy/live + isolated provider PASS      |
-| P4-06           | IN PROGRESS | Local + Neon disposable PASS; CI/shared/live pending        |
-| P4-07 đến P4-10 | TODO        | Moderation/chat/reconnect/telemetry                        |
+| P4-05           | DONE       | Exact CI/shared/deploy/live + isolated provider PASS        |
+| P4-06           | DONE       | Exact CI/shared/deploy/live feature-off/no-side-effect PASS |
+| P4-07           | TODO       | Moderation core; task runnable tiếp theo                    |
+| P4-08 đến P4-10 | TODO       | Chat/reconnect/telemetry                                    |
 | P4-11           | TODO       | Browser/device/load/provider-outage acceptance             |
 | P4-12           | TODO       | Exact staging acceptance và Phase 4 closure                |
 
@@ -223,8 +224,8 @@ P4-05 đã `DONE` với local custom room shell, bounded Grid/Active speaker/Pre
 exact grant controls, manual subscription, lazy device enumeration, ordered degradation,
 first-wins terminal cleanup và pending-operation generation guard. TutorHub-owned Room lifecycle
 không double-create/disconnect dưới StrictMode và chặn late callback sau scope change. Participant
-order hiện chỉ là opaque local-first session-local append-stable fallback không dùng provider identity/join time;
-P4-06 phải thay bằng versioned server roster sequence/key trước feature enable. Focused tests
+order trước P4-06 chỉ là opaque local-first session-local append-stable fallback không dùng provider
+identity/join time; P4-06 đã thay bằng versioned server roster sequence/key trước feature enable. Focused tests
 `76/76`, full web `62` files/`376` tests, Vite-only P4-03/P4-04/P4-05 regression `16/16`, Playwright
 P4-05 `7/7`, lint/typecheck/build và client bundle security đều PASS. LiveKit vendor đã tách khỏi app
 entry/prejoin và chỉ được room route static-import. Disposable read-only đạt ledger `31 false`,
@@ -237,7 +238,8 @@ before/after read-only snapshot `31 false` với exact ACL/counts không đổi.
 outage/effect vẫn `UNVERIFIED — P4-11` và không bật feature/effect.
 Trước P4-08 phải review/amend ADR-0013/0025 vì conversation hiện chỉ có `direct` và `class`.
 
-P4-06 local candidate hiện có forward migration `000032`, privacy-safe versioned roster,
+P4-06 đã `DONE` ngày 2026-08-13 trên exact candidate
+`d773641f796076b90f31a876ee840a427db43372`, với forward migration `000032`, privacy-safe versioned roster,
 server-sequence hand FIFO/moderator controls, bounded reaction projection/rate-limit, signed opaque
 LiveKit participant key và classroom UI/resync/a11y. Shared-read/exclusive-write feature lock,
 PostgreSQL clock, 24 giờ receipt retention, bounded maintenance purge và exact no-runtime-DELETE ACL
@@ -247,15 +249,19 @@ test/vet/build/security, integration-tag compile/vet và P4-06 Playwright/Axe `7
 Neon disposable đã PASS ba-principal read-only preflight ở `31 false`, forward-only
 `31 false -> 32 false -> 32 false`, exact runtime/PUBLIC/maintenance/dependency ACL và toàn bộ
 focused roster/signal/rate-limit/retention/SKIP LOCKED gate. Final postflight giữ `32 false`, media
-feature force-off, side-effect count `0`; branch được giữ lại, không rollback. Candidate chưa được
-push, forward shared, deploy hoặc bật feature. Giữ `IN PROGRESS` tới khi CI/shared/live trong runbook
-P4-06 đạt.
+feature force-off, side-effect count `0`; branch được giữ lại, không rollback. Exact candidate đã
+PASS GitHub Verify/Security; shared forward-only `31 false -> 32 false -> 32 false`, exact ACL và
+read-only pre/postflight đều PASS. Render/Cloudflare exact deploy cùng live public/anonymous/Admin
+privacy/feature-off/no-side-effect acceptance cũng PASS; shared post-live vẫn `32 false`, không có
+P4-06 side effect và không bật media feature.
 
-`P4-MEDIA-UX-00`, P4-03, P4-04 và P4-05 đã `DONE`; P4-06 là lane đang chạy. P4-03/P4-04/P4-05/
+`P4-MEDIA-UX-00`, P4-03, P4-04, P4-05 và P4-06 đã `DONE`; P4-07 là lane `TODO`/runnable tiếp theo.
+P4-03/P4-04/P4-05/
 P4-06/P4-11 phải dùng explicit device probe, bounded layout 2/5/25/50 và
 Core API signal contract đã chốt. `effect=None` là baseline; Track Processors chưa phải production
 dependency và giữ off tới exact browser/device/privacy/performance gate. Không mở lại
 `CanPublishData=false` hoặc kết nối participant waiting vào provider trước admission.
+Physical/manual/device/load/provider-outage/effect gates vẫn `UNVERIFIED — P4-11`.
 
 Phase 4 không được làm mất Phase 3 carry-over register. Notification/email/reminder,
 durable worker và file-processing flags giữ off tới gate riêng; recording/egress cũng

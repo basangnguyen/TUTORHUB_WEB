@@ -11,7 +11,7 @@
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
 | Phase hiện tại        | Phase 4 - Classroom Media MVP; Phase 3 deferred carry-over tiếp tục                          |
-| Trạng thái gần nhất   | P4-06 local + Neon disposable `PASS`; task vẫn `IN PROGRESS`                                 |
+| Trạng thái gần nhất   | P4-06 `DONE`; P4-07 là task `TODO` runnable tiếp theo                                        |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 
@@ -2164,13 +2164,15 @@ disposable/shared đạt `30 false -> 31 false -> 31 false`, không rollback và
 tiếp tục force-off. P4-05 cũng đã `DONE` trên exact runtime candidate
 `dcbdfef3c209a7c6d17197ccbcf737b58cd9e315`: local/disposable/isolated LiveKit, exact
 CI/security, shared read-only `31 false`, Render/Cloudflare deploy và live privacy/feature-off/
-no-side-effect acceptance đều PASS. P4-06 đang `IN PROGRESS`: local candidate có migration `000032`,
-versioned privacy-safe roster và Core API hand/reaction authority; exact local web/API/Go/security,
-integration compile/vet và Playwright/Axe đã PASS. Neon disposable cũng đã PASS read-only
-three-principal preflight, forward-only `31 false -> 32 false -> 32 false`, exact ACL, focused
-PostgreSQL roster/signal/rate/retention/concurrency gates và final force-off/side-effect-zero
-postflight; không rollback và branch được giữ lại. Exact CI/security, shared staging, deploy/live
-chưa chạy. Physical/manual/load/outage/effect gates vẫn thuộc P4-11.
+no-side-effect acceptance đều PASS. P4-06 đã `DONE` ngày 2026-08-13 trên exact candidate
+`d773641f796076b90f31a876ee840a427db43372`: versioned privacy-safe roster và Core API
+hand/reaction authority, exact local verification, GitHub CI/security và disposable PostgreSQL đều
+PASS. Disposable/shared staging đạt forward-only `31 false -> 32 false -> 32 false`, exact ACL và
+final feature-off/P4-06-side-effect-zero snapshot; không rollback và disposable branch được giữ lại.
+Render deployment `dep-d9ul9q6417fc738gfa3g` đã `Live` exact candidate; Cloudflare Pages cũng chạy
+exact `d773641f`. Public/privacy/feature-off/automated accessibility/no-side-effect acceptance PASS.
+P4-07 Host/co-host/TA moderation là task `TODO` runnable tiếp theo. Physical/manual browser-device,
+25/50 provider load, outage và optional-effect gates vẫn `UNVERIFIED — P4-11`, không suy PASS.
 Không bật side effect chỉ vì core đã có. `P3-02D-B` và các gate worker/provider vẫn là
 carry-over.
 AWS SES đã được chọn làm provider target nhưng

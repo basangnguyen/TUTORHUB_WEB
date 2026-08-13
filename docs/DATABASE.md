@@ -7,9 +7,9 @@ thay đổi schema, migration hoặc repository phải đọc tài liệu này t
 
 - System of record: Neon PostgreSQL.
 - Schema ứng dụng: `tutorhub`.
-- Migration mới nhất trong source: `000031_media_lobby_admission_restore`; P4-01/P4-02/P4-03/P4-04
-  đã `DONE`. Disposable và shared đều PASS forward-only `30 false -> 31 false -> 31 false`, exact/
-  default ACL và read-only gates; final ledger của cả hai là `31 false`. P3-06/P3-07A đã forward cả
+- Migration mới nhất trong source: `000032_media_participant_signals`; P4-01 đến P4-06 đã `DONE`.
+  P4-06 disposable và shared đều PASS forward-only `31 false -> 32 false -> 32 false`, exact/default
+  ACL và read-only gates; final ledger của cả hai là `32 false`. P3-06/P3-07A đã forward cả
   disposable và shared
   Neon tới `25 false`. P3-08 disposable đã forward-only
   `25 false -> 26 false -> 26 false`; exact content ACL và PostgreSQL gates PASS.
@@ -23,6 +23,8 @@ thay đổi schema, migration hoặc repository phải đọc tài liệu này t
   `30 false`, không rollback. P4-04 disposable/shared đã đạt `30 false -> 31 false -> 31 false`,
   exact ACL/read-only gates, exact CI/security và deploy/live no-side-effect acceptance; không
   rollback và hai media feature tiếp tục off.
+  P4-06 tiếp tục forward disposable/shared tới `32 false`; exact CI/security, deploy/live
+  feature-off/privacy và post-live no-side-effect acceptance đều PASS, không rollback.
 - Migration 1-5 đã được chạy và kiểm tra trên Neon; smoke
   `5 false -> rollback 4 false -> migrate 5 false` đạt ngày 2026-07-16.
 - Migration `000006` đến `000013` đều có up/down path. Source và PostgreSQL 17 CI
@@ -1394,7 +1396,7 @@ lifecycle/RoomInstance và shared read-only snapshot gates PASS. Không chạy s
 fixture, không rollback; snapshot trước/sau live giống hệt ở ledger `31 false` và media feature off.
 Chi tiết tại [`P4_04_STAGING_ACCEPTANCE.md`](P4_04_STAGING_ACCEPTANCE.md).
 
-P4-06 có forward candidate `000032_media_participant_signals`: thêm projection/signal/roster counter
+P4-06 đã forward migration `000032_media_participant_signals`: thêm projection/signal/roster counter
 cho RoomInstance, opaque `participant_key` + `roster_sequence` cho ParticipantSession và ba relation
 tenant-scoped `media_participant_hand_states`, `media_reaction_events`,
 `media_signal_mutation_receipts`. Hand là bounded durable state (`is_raised`) và chỉ dùng exact column
@@ -1405,13 +1407,16 @@ có hard retention 24 giờ. Hai maintenance function `purge_expired_media_react
 không có direct table `DELETE`.
 Runtime candidate chỉ cần exact column ACL trên relation media mới/cột mới. Repository P4-06 chỉ đọc
 `users(id, display_name)` nhưng giữ nguyên table `SELECT` dùng chung đã được các phase trước chấp nhận;
-`rate_limit_windows` giữ exact SELECT/INSERT/UPDATE, không revoke phá vỡ module khác. Source/local và
-Neon disposable đều PASS. Disposable read-only preflight
+`rate_limit_windows` giữ exact SELECT/INSERT/UPDATE, không revoke phá vỡ module khác. Source/local,
+Neon disposable và shared staging đều PASS. Disposable read-only preflight
 xác thực ba principal direct owner/direct maintenance/pooled runtime ở `31 false`; forward-only
 `31 false -> 32 false -> 32 false`, exact runtime/PUBLIC/maintenance/dependency ACL, roster/signal
 concurrency/tenant/privacy/rate-limit, 24 giờ replay và bounded retention purge/two-transaction
 `SKIP LOCKED` đều PASS. Final postflight giữ `32 false`, media feature force-off, P4-06 side-effect
-count `0`; branch được giữ lại và không rollback. Shared ledger vẫn `31 false`, chưa migrate/provision.
+count `0`; branch được giữ lại và không rollback. Shared owner preflight, forward-only
+`31 false -> 32 false -> 32 false`, exact ACL và final read-only snapshot đều PASS. Exact candidate
+`d773641f796076b90f31a876ee840a427db43372` cũng PASS CI/security, deploy/live feature-off/privacy
+và post-live no-side-effect acceptance; shared final giữ `32 false`.
 Chi tiết tại
 [`P4_06_STAGING_ACCEPTANCE.md`](P4_06_STAGING_ACCEPTANCE.md).
 
@@ -1497,7 +1502,9 @@ của lịch sử append-only và không phải quy trình cleanup cho staging/p
   ledger/feature/ACL gate; shared before/after live đều giữ `31 false`, exact ACL và toàn bộ bounded
   media aggregate/outbox/audit count không đổi. Shell/layout nghiệm thu bằng fixture và isolated
   LiveKit project; shared không tạo provider/database side effect.
-- P4-06 đang `IN PROGRESS`: local candidate và Neon disposable forward-only
-  `31 false -> 32 false -> 32 false`, exact ACL/PostgreSQL/final postflight đã PASS, không rollback;
-  exact CI/security, shared forward, deploy/live và feature-off acceptance vẫn pending.
+- P4-06 đã `DONE` ngày 2026-08-13 trên exact candidate
+  `d773641f796076b90f31a876ee840a427db43372`: disposable/shared forward-only
+  `31 false -> 32 false -> 32 false`, exact ACL/PostgreSQL, CI/security, deploy/live feature-off/
+  privacy và post-live no-side-effect acceptance đều PASS. Không rollback; shared final là
+  `32 false`, hai media feature tiếp tục off và P4-07 là task runnable tiếp theo.
 - Chưa có backup/restore drill, PITR gate hoặc connection load test cho pilot.

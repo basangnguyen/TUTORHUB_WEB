@@ -12,20 +12,20 @@
 | Quy trình            | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
 | Phase hoàn thành     | Phase 0, Phase 1, Phase 2                                                             |
 | Phase hiện tại       | Phase 4 Classroom Media MVP; Phase 3 deferred carry-over vẫn hoạt động                |
-| Task `DONE` gần nhất | P4-05 Classroom shell, media controls và layouts                                      |
-| Mốc repository mới   | P4-06 candidate local + Neon disposable PASS; chưa push; shared vẫn `31 false`        |
-| Task hiện tại        | P4-06 Participant roster, hand raise và reaction (`IN PROGRESS`)                      |
-| Task tiếp theo       | Review/stage exact P4-06 candidate, push và chạy GitHub Verify/Security               |
+| Task `DONE` gần nhất | P4-06 Participant roster, hand raise và reaction                                       |
+| Mốc repository mới   | Exact candidate `d773641f` đã PASS CI/security và Live trên Render/Cloudflare          |
+| Task hiện tại        | P4-07 Host/co-host/TA moderation (`TODO`, runnable)                                    |
+| Task tiếp theo       | Bắt đầu contract/security design và implementation P4-07                              |
 
-### Checkpoint P4-06 `IN PROGRESS` ngày 2026-08-13
+### Checkpoint P4-06 `DONE` ngày 2026-08-13
 
 Local candidate đã thay roster fallback của P4-05 bằng projection có version do Core API/PostgreSQL
 sở hữu. Forward migration `000032_media_participant_signals` bổ sung opaque participant key,
 monotonic roster/signal sequence, hand state, reaction event TTL 10 giây và idempotency receipt giữ
 24 giờ với composite same-tenant FK/PUBLIC zero privilege. Hai bounded maintenance function dùng
 `SECURITY DEFINER`, static search path và `FOR UPDATE SKIP LOCKED`; Core API runtime không có direct
-table `DELETE`. Neon disposable đã chạy forward-only `31 false -> 32 false -> 32 false`, không
-rollback; shared staging chưa được chạm và shared ledger vẫn là `31 false`.
+table `DELETE`. Neon disposable và shared staging đều đã chạy forward-only
+`31 false -> 32 false -> 32 false`; không rollback.
 
 Contract/API mới cung cấp bounded snapshot tối đa 50 participant và typed hand/reaction mutation.
 Mọi mutation reauthorize current tenant/source/active ParticipantSession, dùng expected versions,
@@ -50,11 +50,24 @@ authorization, privacy/opaque key, roster/FIFO/idempotency/lower/terminal cleanu
 24 giờ, reaction TTL/grouping/allowlist, cross-instance limits actor `3/5 s` + `20/60 s` và room
 `100/5 s`, shared/exclusive locks, invalid purge batch, future preservation và two-transaction
 `SKIP LOCKED`. Harness được harden bằng explicit timestamp cast, dependency-ordered cleanup,
-deterministic rate windows và confirmation/pre-postflight riêng P4-06. Final read-only snapshot giữ
+deterministic rate windows và confirmation/pre-postflight riêng P4-06. Final disposable snapshot giữ
 `32 false`, hai media feature force-off, P4-06 side-effect count `0`; disposable branch được giữ lại.
 
-Exact CI/security, shared forward, deploy và live acceptance vẫn `PENDING`; P4-06 giữ `IN PROGRESS`
-và không feature nào được bật. Evidence:
+Exact candidate `d773641f796076b90f31a876ee840a427db43372` đã commit/push trực tiếp `main` và
+PASS GitHub Verify/Security. Shared owner preflight sau đó PASS; migration forward-only giữ chuỗi
+`31 false -> 32 false -> 32 false`, exact runtime/PUBLIC/maintenance ACL và final read-only snapshot
+đều PASS. Hai media feature tiếp tục force-off, toàn bộ bounded P4-06 business count giữ `0` và không
+có rollback.
+
+Render deployment `dep-d9ul9q6417fc738gfa3g` đã `Live` đúng candidate; Cloudflare Pages cũng chạy
+exact `d773641f`. Public health/readiness/status, anonymous privacy/concealment, authenticated
+feature-off, automated browser accessibility/privacy/network và no-side-effect acceptance đều PASS;
+không temporary-enable capability hoặc chạy positive signal canary trên shared. Post-live snapshot
+giữ ledger/ACL/feature/count như trước live.
+
+P4-06 chuyển `IN PROGRESS -> VERIFY -> DONE`; P4-07 là task `TODO` runnable tiếp theo. Physical/
+manual browser-device, 25/50 provider load, outage và optional-effect gates tiếp tục
+`UNVERIFIED — P4-11`, không được suy PASS từ P4-06. Evidence:
 [P4_06_STAGING_ACCEPTANCE.md](P4_06_STAGING_ACCEPTANCE.md).
 
 ### Checkpoint P4-05 `DONE` ngày 2026-08-12

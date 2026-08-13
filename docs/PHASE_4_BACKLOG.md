@@ -20,17 +20,15 @@ P3-14-CORE đã `DONE`; Phase 4 được phép bắt đầu trong khi Phase 3 de
 Không task Phase 4 nào được xóa, giả lập PASS hoặc bật notification/email/file-processing side
 effect thuộc Phase 3 khi carry-over chưa đạt gate riêng.
 
-**Task `DONE` gần nhất:** `P4-05` Classroom shell, media controls và layouts ngày 2026-08-12.
-Local/disposable/isolated LiveKit gates, exact GitHub CI/security, shared read-only snapshot,
-Render/Cloudflare deploy và live privacy/feature-off/no-side-effect acceptance đều PASS; không
-migration/rollback/ACL mutation và hai media feature vẫn off. Evidence tại
-[P4_05_STAGING_ACCEPTANCE.md](P4_05_STAGING_ACCEPTANCE.md).
-**Task hiện tại:** `P4-06` Participant roster, hand raise và reaction (`IN PROGRESS`). Candidate đang
-triển khai server-authoritative roster/hand/reaction theo
-[P4_06_STAGING_ACCEPTANCE.md](P4_06_STAGING_ACCEPTANCE.md); feature vẫn deployment-force-off và chưa
-forward shared staging. Exact local web/API/Go/security, P4-06 Playwright/Axe và Neon disposable
-forward-only `31 false -> 32 false -> 32 false` cùng exact ACL/PostgreSQL runtime gates đã PASS.
-Exact candidate CI/security, shared staging, deploy và live acceptance là các gate tiếp theo.
+**Task `DONE` gần nhất:** `P4-06` Participant roster, hand raise và reaction ngày 2026-08-13.
+Exact candidate `d773641f` đã PASS GitHub CI/security; disposable/shared đều đạt forward-only
+`31 false -> 32 false -> 32 false`, exact ACL/final snapshot, feature-off và P4-06 count `0` mà
+không rollback. Render deployment `dep-d9ul9q6417fc738gfa3g` và Cloudflare Pages chạy exact
+candidate; public/privacy/feature-off/accessibility/no-side-effect acceptance đều PASS. Disposable
+branch được giữ lại. Evidence tại [P4_06_STAGING_ACCEPTANCE.md](P4_06_STAGING_ACCEPTANCE.md).
+**Task hiện tại:** `P4-07` Host/co-host/TA moderation (`TODO`, runnable). Dependency P4-04/P4-06 đã
+`DONE`; bước kế tiếp là chốt contract/security boundary rồi triển khai slice moderation. Trạng thái
+`TODO` không ngụ ý implementation đã tồn tại.
 
 `P4-MEDIA-UX-00` đã `DONE`; không đổi LiveKit provider, không thêm processor production dependency
 hoặc mở `CanPublishData=false`. P4-03/P4-04/P4-05/P4-06/P4-11 phải tuân ADR-0031 và báo rõ các
@@ -82,7 +80,7 @@ physical/manual effect gate còn `UNVERIFIED` thay vì suy PASS từ research.
 | P4-03          | Prejoin device/network và join-attempt flow         | P4-02, P4-MEDIA-UX-00           | DONE       |
 | P4-04          | Lobby, admission và explicit same-tenant invite     | P4-02, P4-03, P4-MEDIA-UX-00    | DONE       |
 | P4-05          | Classroom shell, media controls và layouts          | P4-03, P4-MEDIA-UX-00           | DONE       |
-| P4-06          | Participant roster, hand raise và reaction          | P4-04, P4-05, P4-MEDIA-UX-00    | IN PROGRESS |
+| P4-06          | Participant roster, hand raise và reaction          | P4-04, P4-05, P4-MEDIA-UX-00    | DONE       |
 | P4-07          | Host/co-host/TA moderation, lock/mute/remove/end    | P4-04, P4-06                    | TODO       |
 | P4-08          | Persistent in-room chat                             | P4-01, P3-07A; ADR review       | TODO       |
 | P4-09          | Reconnect, recovery instance và degraded audio-only | P4-02, P4-05, P4-07             | TODO       |
@@ -426,7 +424,7 @@ load/outage/effect gates vẫn `UNVERIFIED — P4-11`.
 
 ## 13. P4-06 Participant roster, hand raise và reaction
 
-**Dependency:** P4-04/P4-05/P4-MEDIA-UX-00. **Trạng thái:** `IN PROGRESS` ngày 2026-08-13.
+**Dependency:** P4-04/P4-05/P4-MEDIA-UX-00. **Trạng thái:** `DONE` ngày 2026-08-13.
 **Acceptance:** [P4_06_STAGING_ACCEPTANCE.md](P4_06_STAGING_ACCEPTANCE.md).
 
 ### Scope
@@ -446,15 +444,15 @@ surprised`, TTL 10 giây, grouping 750 ms, snapshot max 50 summary/UI max 3 visu
 
 ### Acceptance
 
-- [ ] Participant cannot forge role/user/tenant or signal for another ParticipantSession.
-- [ ] Spam rate limit cross-instance-safe; unknown payload discarded without log injection.
-- [ ] Join/leave/reconnect roster eventually converges after duplicate/out-of-order webhook.
-- [ ] Grid canonical order dùng server roster sequence/key, không dùng session observation order,
+- [x] Participant cannot forge role/user/tenant or signal for another ParticipantSession.
+- [x] Spam rate limit cross-instance-safe; unknown payload discarded without log injection.
+- [x] Join/leave/reconnect roster eventually converges after duplicate/out-of-order webhook.
+- [x] Grid canonical order dùng server roster sequence/key, không dùng session observation order,
       display name, client/join time hoặc provider identity; gate này phải PASS trước feature enable.
-- [ ] Roster/reaction accessible without color-only meaning and does not expose email/session ID.
-- [ ] Hand/reaction duplicate/retry/offline/403/409/429/sequence-gap hội tụ qua versioned snapshot;
+- [x] Roster/reaction accessible without color-only meaning and does not expose email/session ID.
+- [x] Hand/reaction duplicate/retry/offline/403/409/429/sequence-gap hội tụ qua versioned snapshot;
       25/50 storm không tạo DOM/live-region unbounded và direct DataChannel không đổi authority.
-- [ ] Reaction/receipt retention purge bounded, exact maintenance ACL và two-transaction
+- [x] Reaction/receipt retention purge bounded, exact maintenance ACL và two-transaction
       `SKIP LOCKED` PASS; runtime/PUBLIC direct `DELETE` denied.
 
 ### Disposable checkpoint — `PASS` ngày 2026-08-13
@@ -467,11 +465,22 @@ surprised`, TTL 10 giây, grouping 750 ms, snapshot max 50 summary/UI max 3 visu
   24 giờ replay, reaction TTL/grouping/allowlist, actor `3/5 s` + `20/60 s`, room `100/5 s` và
   shared-read/exclusive-write concurrency đều PASS.
 - Final postflight giữ `32 false`, media feature force-off, P4-06 side-effect count `0`; branch được
-  giữ lại. P4-06 chưa `DONE` vì CI/security, shared staging, deploy và live acceptance còn mở.
+  giữ lại.
+
+### Exact closure — `PASS` ngày 2026-08-13
+
+- Exact candidate `d773641f796076b90f31a876ee840a427db43372` PASS GitHub Verify/Security.
+- Shared owner preflight, forward-only `31 false -> 32 false -> 32 false`, exact ACL và final snapshot
+  PASS; feature vẫn force-off, bounded P4-06 business count `0`, không rollback.
+- Render deployment `dep-d9ul9q6417fc738gfa3g` `Live` exact candidate; Cloudflare Pages cũng chạy
+  exact `d773641f`. Public/privacy/feature-off/automated accessibility/no-side-effect acceptance PASS.
+- Không temporary-enable shared/live signal path. Physical/manual browser-device, provider load,
+  outage và optional-effect gates giữ `UNVERIFIED — P4-11`; không suy PASS.
+- P4-06 chuyển `IN PROGRESS -> VERIFY -> DONE`; P4-07 trở thành task `TODO` runnable tiếp theo.
 
 ## 14. P4-07 Host/co-host/TA moderation
 
-**Dependency:** P4-04/P4-06. **Trạng thái:** `TODO`.
+**Dependency:** P4-04/P4-06. **Trạng thái:** `TODO`, runnable tiếp theo từ ngày 2026-08-13.
 
 ### Scope
 
@@ -637,5 +646,9 @@ PostgreSQL. Mỗi implementation slice phải cập nhật khi thêm provider co
 5. P4-05 đã `DONE`: local/disposable/isolated LiveKit, exact CI/security, shared read-only và
    exact deploy/live acceptance đều PASS; không migration/rollback/ACL mutation và capability/effect
    vẫn force-off.
-6. P4-06 local + Neon disposable đã PASS; tiếp tục exact candidate CI/security, shared forward,
-   deploy và live acceptance, giữ Core API làm authority và `CanPublishData=false`.
+6. P4-06 đã `DONE`: exact candidate `d773641f` PASS CI/security; disposable/shared forward-only
+   `31 false -> 32 false -> 32 false`, exact ACL/final snapshot, Render/Cloudflare exact deploy và
+   live privacy/feature-off/accessibility/no-side-effect acceptance đều PASS; không rollback,
+   disposable branch được giữ lại và các physical/manual/load/outage/effect gate vẫn
+   `UNVERIFIED — P4-11`.
+7. Bắt đầu P4-07 Host/co-host/TA moderation; task đang `TODO` nhưng dependency đã đủ và runnable.
