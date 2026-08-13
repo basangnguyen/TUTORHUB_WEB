@@ -24,11 +24,14 @@ func TestMediaSignalServiceValidatesTypedCommandsAndReturnsPrivacySafeSnapshot(t
 	}
 	access := AccessContext{TenantID: uuid.New(), ActorID: uuid.New(), SessionID: uuid.New()}
 	spaceID := uuid.New()
+	validNonce := "p406-signal-request-0001"
+	invalidReactionNonce := "p406-signal-request-0002"
+	invalidTargetNonce := "p406-signal-request-0003"
 
 	result, err := service.SendSignal(context.Background(), access, spaceID, SendMediaSignalInput{
 		ExpectedSpaceVersion: 3, ExpectedRoomInstanceID: roomID,
 		ExpectedRoomInstanceVersion: 4, ExpectedProjectionVersion: 8,
-		IdempotencyKey: "p406-signal-key-0001", Kind: MediaSignalReaction,
+		IdempotencyKey: validNonce, Kind: MediaSignalReaction,
 		Reaction: MediaReactionClap,
 	})
 	if err != nil {
@@ -42,10 +45,10 @@ func TestMediaSignalServiceValidatesTypedCommandsAndReturnsPrivacySafeSnapshot(t
 
 	invalid := []SendMediaSignalInput{
 		{ExpectedSpaceVersion: 3, ExpectedRoomInstanceID: roomID, ExpectedRoomInstanceVersion: 4,
-			ExpectedProjectionVersion: 8, IdempotencyKey: "p406-signal-key-0002",
+			ExpectedProjectionVersion: 8, IdempotencyKey: invalidReactionNonce,
 			Kind: MediaSignalReaction, Reaction: "fire"},
 		{ExpectedSpaceVersion: 3, ExpectedRoomInstanceID: roomID, ExpectedRoomInstanceVersion: 4,
-			ExpectedProjectionVersion: 8, IdempotencyKey: "p406-signal-key-0003",
+			ExpectedProjectionVersion: 8, IdempotencyKey: invalidTargetNonce,
 			Kind: MediaSignalHandRaise, TargetParticipantKey: uuid.New()},
 		{ExpectedSpaceVersion: 3, ExpectedRoomInstanceID: roomID, ExpectedRoomInstanceVersion: 4,
 			ExpectedProjectionVersion: 8, IdempotencyKey: "short", Kind: MediaSignalHandLower},

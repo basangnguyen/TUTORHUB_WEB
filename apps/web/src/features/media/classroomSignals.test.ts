@@ -262,7 +262,7 @@ describe("classroom signal snapshot validation and folding", () => {
       ...snapshot(),
       raised_hands: [
         {
-          participant_key: "018f4c7b-9b0a-7a34-8a4c-96d26cb87299",
+          participant_key: PARTICIPANT_C,
           signal_sequence: 9,
           raised_at: "not-a-date",
         },

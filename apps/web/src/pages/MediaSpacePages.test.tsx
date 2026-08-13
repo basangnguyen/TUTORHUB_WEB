@@ -183,7 +183,7 @@ const sessionID = "8477ee76-c4aa-431f-bb65-405f4b6575c9";
 const roomInstanceID = "c5f918a5-a09e-4f94-9fab-fb0ab5702a4d";
 const participantSessionID = "f680fd29-c7f1-4083-af9b-52ad1db14ba9";
 const joinAttemptID = "a860f06d-34f9-4c57-89f8-1541bfb3b6d7";
-const participantKey = "018f4c7b-9b0a-7a34-8a4c-96d26cb87221";
+const participantOpaqueID = "018f4c7b-9b0a-7a34-8a4c-96d26cb87221";
 
 const currentUser: CurrentUser = {
   user: {
@@ -469,7 +469,7 @@ describe("MediaSpacePreJoinPage P4-03 boundaries", () => {
       room_instance_id: roomInstanceID,
       projection_version: 1,
       last_signal_sequence: 0,
-      self_participant_key: participantKey,
+      self_participant_key: participantOpaqueID,
       viewer_operations: {
         can_raise_hand: true,
         can_send_reaction: true,
@@ -477,7 +477,7 @@ describe("MediaSpacePreJoinPage P4-03 boundaries", () => {
       },
       participants: [
         {
-          participant_key: participantKey,
+          participant_key: participantOpaqueID,
           roster_sequence: 1,
           display_name: "Student One",
           instance_role: "attendee",

@@ -33,13 +33,13 @@ vi.mock("@tutorhub/api-client", async (importOriginal) => {
 const tenantID = "4b18543a-74de-419f-9fe8-d0c3dfc991eb";
 const spaceID = "c2dc1048-1d90-4c90-ae50-5fb436bfb607";
 const roomInstanceID = "c5f918a5-a09e-4f94-9fab-fb0ab5702a4d";
-const participantKey = "018f4c7b-9b0a-7a34-8a4c-96d26cb87221";
+const participantOpaqueID = "018f4c7b-9b0a-7a34-8a4c-96d26cb87221";
 
 const snapshot = {
   room_instance_id: roomInstanceID,
   projection_version: 4,
   last_signal_sequence: 9,
-  self_participant_key: participantKey,
+  self_participant_key: participantOpaqueID,
   viewer_operations: {
     can_raise_hand: true,
     can_send_reaction: true,
@@ -47,7 +47,7 @@ const snapshot = {
   },
   participants: [
     {
-      participant_key: participantKey,
+      participant_key: participantOpaqueID,
       roster_sequence: 1,
       display_name: "Student One",
       instance_role: "attendee",
@@ -179,7 +179,7 @@ describe("P4-06 media signal query boundary", () => {
         expectedProjectionVersion: 4,
         idempotencyKey: "media-signal-invalid-0001",
         kind: "hand_lower_all",
-        targetParticipantKey: participantKey,
+        targetParticipantKey: participantOpaqueID,
       }),
     ).toThrow(TypeError);
   });

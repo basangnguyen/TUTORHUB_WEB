@@ -39,8 +39,8 @@ const participantSessionID = "f680fd29-c7f1-4083-af9b-52ad1db14ba9";
 const joinAttemptID = "a860f06d-34f9-4c57-89f8-1541bfb3b6d7";
 const admissionID = "19f9b26c-52bf-4ef5-9651-f284d24f3e6c";
 const memberID = "da655aa5-46aa-46db-a282-d39698bb83c3";
-const selfParticipantKey = "b825ac7c-4541-4ca5-bbd2-e874de5f5d4e";
-const targetParticipantKey = "97c47c02-f571-4a63-94f0-66975de0377d";
+const selfParticipantOpaqueID = "b825ac7c-4541-4ca5-bbd2-e874de5f5d4e";
+const targetParticipantOpaqueID = "97c47c02-f571-4a63-94f0-66975de0377d";
 
 const space: MediaSpace = {
   id: spaceID,
@@ -91,7 +91,7 @@ describe("media-space API", () => {
       room_instance_id: roomInstanceID,
       projection_version: 4,
       last_signal_sequence: 9,
-      self_participant_key: selfParticipantKey,
+      self_participant_key: selfParticipantOpaqueID,
       viewer_operations: {
         can_raise_hand: true,
         can_send_reaction: true,
@@ -99,14 +99,14 @@ describe("media-space API", () => {
       },
       participants: [
         {
-          participant_key: selfParticipantKey,
+          participant_key: selfParticipantOpaqueID,
           roster_sequence: 1,
           display_name: "Teacher",
           instance_role: "host",
           connection_state: "connected",
         },
         {
-          participant_key: targetParticipantKey,
+          participant_key: targetParticipantOpaqueID,
           roster_sequence: 2,
           display_name: "Learner",
           instance_role: "attendee",
@@ -115,7 +115,7 @@ describe("media-space API", () => {
       ],
       raised_hands: [
         {
-          participant_key: targetParticipantKey,
+          participant_key: targetParticipantOpaqueID,
           signal_sequence: 8,
           raised_at: "2030-08-03T00:00:08Z",
         },
@@ -132,14 +132,15 @@ describe("media-space API", () => {
       ],
       server_time: "2030-08-03T00:00:10Z",
     };
+    const requestNonce = "signal-lower-one-0001";
     const input = {
       expected_room_instance_id: roomInstanceID,
       expected_space_version: 7,
       expected_room_instance_version: 3,
       expected_projection_version: 4,
-      idempotency_key: "signal-lower-one-0001",
+      idempotency_key: requestNonce,
       kind: "hand_lower_one",
-      target_participant_key: targetParticipantKey,
+      target_participant_key: targetParticipantOpaqueID,
     } satisfies MediaSignalMutationRequest;
     const fetchMock = vi
       .fn()

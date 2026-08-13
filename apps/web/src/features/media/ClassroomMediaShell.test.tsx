@@ -17,6 +17,9 @@ import {
   type ClassroomSignalControls,
 } from "./ClassroomMediaShell";
 
+const PARTICIPANT_A = "018f4c7b-9b0a-7a34-8a4c-96d26cb87221";
+const PARTICIPANT_B = "018f4c7b-9b0a-7a34-8a4c-96d26cb87222";
+
 const liveKitState = vi.hoisted(() => {
   class MockRemoteTrackPublication {
     isDesired = false;
@@ -442,7 +445,7 @@ describe("ClassroomMediaShell", () => {
         raised_hands: [
           {
             display_name: "Student One",
-            participant_key: "018f4c7b-9b0a-7a34-8a4c-96d26cb87222",
+            participant_key: PARTICIPANT_B,
             queue_position: 1,
             raised_at: "2030-08-03T00:00:00Z",
             signal_sequence: 4,
@@ -1204,7 +1207,7 @@ function createSignalControls(
       room_instance_id: "c5f918a5-a09e-4f94-9fab-fb0ab5702a4d",
       projection_version: 4,
       last_signal_sequence: 9,
-      self_participant_key: "018f4c7b-9b0a-7a34-8a4c-96d26cb87221",
+      self_participant_key: PARTICIPANT_A,
       viewer_operations: {
         can_raise_hand: true,
         can_send_reaction: true,
@@ -1212,14 +1215,14 @@ function createSignalControls(
       },
       roster: [
         {
-          participant_key: "018f4c7b-9b0a-7a34-8a4c-96d26cb87221",
+          participant_key: PARTICIPANT_A,
           roster_sequence: 1,
           display_name: "Teacher One",
           instance_role: "host",
           connection_state: "connected",
         },
         {
-          participant_key: "018f4c7b-9b0a-7a34-8a4c-96d26cb87222",
+          participant_key: PARTICIPANT_B,
           roster_sequence: 2,
           display_name: "Student One",
           instance_role: "attendee",
