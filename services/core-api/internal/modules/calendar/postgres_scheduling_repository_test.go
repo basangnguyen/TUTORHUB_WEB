@@ -498,6 +498,15 @@ func (*schedulingConstructorControls) RequireFeature(
 	return nil
 }
 
+func (*schedulingConstructorControls) RequireFeatureForRead(
+	context.Context,
+	featurecontrol.Transaction,
+	uuid.UUID,
+	featurecontrol.FeatureKey,
+) error {
+	return nil
+}
+
 func (*schedulingConstructorControls) RequireMemberCapacity(
 	context.Context,
 	featurecontrol.Transaction,

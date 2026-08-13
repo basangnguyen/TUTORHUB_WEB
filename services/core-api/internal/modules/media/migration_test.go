@@ -394,3 +394,168 @@ func TestMediaLobbyAdmissionRestoreDownMigrationRemovesOnlyForwardAdditions(t *t
 		}
 	}
 }
+
+func TestMediaParticipantSignalsMigrationContainsExactSecurityAndBoundedProjectionGuards(t *testing.T) {
+	t.Parallel()
+
+	contents, err := os.ReadFile(filepath.Join(
+		"..", "..", "..", "migrations", "000032_media_participant_signals.up.sql",
+	))
+	if err != nil {
+		t.Fatal(err)
+	}
+	sql := string(contents)
+	for _, fragment := range []string{
+		"ADD COLUMN projection_version bigint NOT NULL DEFAULT 1",
+		"ADD COLUMN last_signal_sequence bigint NOT NULL DEFAULT 0",
+		"ADD COLUMN next_roster_sequence bigint NOT NULL DEFAULT 0",
+		"CHECK (projection_version > 0)",
+		"CHECK (last_signal_sequence >= 0)",
+		"CHECK (next_roster_sequence >= 0)",
+		"ADD COLUMN participant_key uuid DEFAULT gen_random_uuid()",
+		"row_number() OVER (",
+		"PARTITION BY tenant_id, room_instance_id",
+		"ORDER BY created_at, id",
+		"ALTER COLUMN participant_key SET NOT NULL",
+		"ALTER COLUMN roster_sequence SET NOT NULL",
+		"media_participant_sessions_room_key_unique",
+		"media_participant_sessions_room_roster_sequence_unique",
+		"WHERE status IN ('joining', 'connected', 'reconnecting')",
+		"CREATE TABLE tutorhub.media_participant_hand_states",
+		"is_raised boolean NOT NULL DEFAULT true",
+		"PRIMARY KEY (tenant_id, room_instance_id, participant_session_id)",
+		"CREATE UNIQUE INDEX media_participant_hand_states_room_sequence_unique",
+		"WHERE is_raised",
+		"CREATE TABLE tutorhub.media_reaction_events",
+		"FOREIGN KEY (tenant_id, space_id, room_instance_id)",
+		"REFERENCES tutorhub.media_room_instances (tenant_id, space_id, id)",
+		"REFERENCES tutorhub.media_participant_sessions (",
+		"expires_at = accepted_at + interval '10 seconds'",
+		"CREATE UNIQUE INDEX media_reaction_events_room_sequence_unique",
+		"CREATE TABLE tutorhub.media_signal_mutation_receipts",
+		"PRIMARY KEY (",
+		"actor_user_id",
+		"length(idempotency_key) BETWEEN 16 AND 128",
+		"octet_length(request_fingerprint) = 32",
+		"REFERENCES tutorhub.memberships (tenant_id, user_id)",
+		"retention_until timestamptz NOT NULL",
+		"retention_until = created_at + interval '24 hours'",
+		"media_signal_mutation_receipts_retention_idx",
+		"CREATE FUNCTION tutorhub.purge_expired_media_reactions(batch_size integer DEFAULT 100)",
+		"CREATE FUNCTION tutorhub.purge_expired_media_signal_receipts(batch_size integer DEFAULT 100)",
+		"batch_size IS NULL OR batch_size < 1 OR batch_size > 1000",
+		"FOR UPDATE OF reaction SKIP LOCKED",
+		"FOR UPDATE OF receipt SKIP LOCKED",
+		"REVOKE ALL ON tutorhub.media_participant_hand_states FROM PUBLIC",
+		"REVOKE ALL ON tutorhub.media_reaction_events FROM PUBLIC",
+		"REVOKE ALL ON tutorhub.media_signal_mutation_receipts FROM PUBLIC",
+		"REVOKE ALL ON FUNCTION tutorhub.purge_expired_media_reactions(integer) FROM PUBLIC",
+		"REVOKE ALL ON FUNCTION tutorhub.purge_expired_media_signal_receipts(integer) FROM PUBLIC",
+		"Environment-specific Core API column grants are provisioned separately",
+	} {
+		if !strings.Contains(sql, fragment) {
+			t.Fatalf("media participant signals migration is missing %q", fragment)
+		}
+	}
+
+	reactionDefinition := regexp.MustCompile(
+		`(?s)CREATE TABLE tutorhub\.media_reaction_events \((.*?)\n\);`,
+	).FindStringSubmatch(sql)
+	if len(reactionDefinition) != 2 {
+		t.Fatal("media participant signals migration is missing the reaction table")
+	}
+	reactions := regexp.MustCompile(`'([a-z_]+)'`).FindAllStringSubmatch(reactionDefinition[1], -1)
+	actual := make([]string, 0, len(reactions))
+	for _, match := range reactions {
+		actual = append(actual, match[1])
+	}
+	if got, want := strings.Join(actual, ","),
+		"thumbs_up,clap,heart,celebrate,laugh,surprised"; got != want {
+		t.Fatalf("reaction allowlist = %q, want exact %q", got, want)
+	}
+
+	receiptDefinition := regexp.MustCompile(
+		`(?s)CREATE TABLE tutorhub\.media_signal_mutation_receipts \((.*?)\n\);`,
+	).FindStringSubmatch(sql)
+	if len(receiptDefinition) != 2 {
+		t.Fatal("media participant signals migration is missing the signal receipt table")
+	}
+	for _, forbidden := range []string{
+		"email", "display_name", "provider", "access_token", "refresh_token",
+		"session_token", "raw_payload", "payload json", "payload jsonb", "content",
+	} {
+		if strings.Contains(strings.ToLower(receiptDefinition[1]), forbidden) {
+			t.Fatalf("signal receipt persists forbidden field class %q", forbidden)
+		}
+	}
+	if strings.Contains(strings.ToUpper(sql), "GRANT ") {
+		t.Fatal("media participant signals migration must not hardcode an environment runtime grant")
+	}
+	if strings.Count(sql, "SECURITY DEFINER") != 2 ||
+		strings.Count(sql, "SET search_path = pg_catalog, pg_temp") != 2 {
+		t.Fatal("media signal maintenance functions must both use the reviewed SECURITY DEFINER boundary")
+	}
+	if strings.Count(sql, "WHERE is_raised;") != 2 {
+		t.Fatal("media hand uniqueness and FIFO indexes must both be partial on raised state")
+	}
+	if strings.Count(sql, "batch_size IS NULL OR batch_size < 1 OR batch_size > 1000") != 2 {
+		t.Fatal("media signal maintenance functions must both enforce the exact batch bound")
+	}
+	if strings.Contains(strings.ToUpper(sql), "EXECUTE ") ||
+		strings.Contains(strings.ToUpper(sql), "FORMAT(") {
+		t.Fatal("media signal maintenance functions must not use dynamic SQL")
+	}
+}
+
+func TestMediaParticipantSignalsDownMigrationRemovesOnlyForwardAdditions(t *testing.T) {
+	t.Parallel()
+
+	contents, err := os.ReadFile(filepath.Join(
+		"..", "..", "..", "migrations", "000032_media_participant_signals.down.sql",
+	))
+	if err != nil {
+		t.Fatal(err)
+	}
+	sql := string(contents)
+	ordered := []string{
+		"DROP FUNCTION tutorhub.purge_expired_media_signal_receipts(integer)",
+		"DROP FUNCTION tutorhub.purge_expired_media_reactions(integer)",
+		"DROP TABLE tutorhub.media_signal_mutation_receipts",
+		"DROP TABLE tutorhub.media_reaction_events",
+		"DROP TABLE tutorhub.media_participant_hand_states",
+		"DROP INDEX tutorhub.media_participant_sessions_roster_projection_idx",
+		"DROP INDEX tutorhub.media_participant_sessions_room_roster_sequence_unique",
+		"DROP INDEX tutorhub.media_participant_sessions_room_key_unique",
+		"DROP CONSTRAINT media_participant_sessions_roster_sequence_positive",
+		"DROP COLUMN roster_sequence",
+		"DROP COLUMN participant_key",
+		"DROP CONSTRAINT media_room_instances_roster_sequence_non_negative",
+		"DROP CONSTRAINT media_room_instances_signal_sequence_non_negative",
+		"DROP CONSTRAINT media_room_instances_projection_version_positive",
+		"DROP COLUMN next_roster_sequence",
+		"DROP COLUMN last_signal_sequence",
+		"DROP COLUMN projection_version",
+	}
+	lastPosition := -1
+	for _, fragment := range ordered {
+		position := strings.Index(sql, fragment)
+		if position < 0 {
+			t.Fatalf("media participant signals down migration is missing %q", fragment)
+		}
+		if position <= lastPosition {
+			t.Fatalf("media participant signals down migration applies %q out of dependency order", fragment)
+		}
+		lastPosition = position
+	}
+	for _, forbidden := range []string{
+		"DROP TABLE tutorhub.media_participant_sessions",
+		"DROP TABLE tutorhub.media_room_instances",
+		"DROP TABLE tutorhub.media_spaces",
+		"DROP COLUMN user_id",
+		"DROP COLUMN provider_participant_identity",
+	} {
+		if strings.Contains(sql, forbidden) {
+			t.Fatalf("media participant signals down migration removes pre-000032 state via %q", forbidden)
+		}
+	}
+}

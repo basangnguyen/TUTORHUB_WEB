@@ -33,6 +33,10 @@ func TestP404IntegrationGateCannotSilentlySkipACLOrDatabaseSlice(t *testing.T) {
 			"I_UNDERSTAND_P4_04_DISPOSABLE_ONLY",
 			"P4_04_ACL_PROVISION_CONFIRM",
 			"I_UNDERSTAND_P4_04_ACL_PROVISION_DISPOSABLE_ONLY",
+			"P4_06_DISPOSABLE_CONFIRM",
+			"I_UNDERSTAND_P4_06_DISPOSABLE_ONLY",
+			"P4_06_ACL_PROVISION_CONFIRM",
+			"I_UNDERSTAND_P4_06_ACL_PROVISION_DISPOSABLE_ONLY",
 		} {
 			if !strings.Contains(source, required) {
 				t.Fatalf("P4-04 integration gate %s is missing %s", path, required)
@@ -54,7 +58,7 @@ func TestP404IntegrationGateCannotSilentlySkipACLOrDatabaseSlice(t *testing.T) {
 	)
 	aclGate := strings.Index(
 		packageSource,
-		`-run \"^TestProvisionPostgresMediaLifecycleRuntimeExactACL$\"`,
+		`-run \"^TestProvisionPostgresMediaSignalsExactACL$\"`,
 	)
 	if aclGate < 0 || p404DatabaseGate < aclGate {
 		t.Fatal("P4-04 package integration sequence does not provision ACL before its database gate")
@@ -78,7 +82,7 @@ func TestP404IntegrationGateCannotSilentlySkipACLOrDatabaseSlice(t *testing.T) {
 	}
 }
 
-func TestP404ACLProvisioningIsVersionPinnedAndFreshlyOptedIn(t *testing.T) {
+func TestP404SharedACLProvisioningIsRetiredBeforeP406(t *testing.T) {
 	t.Parallel()
 
 	contents, err := os.ReadFile("postgres_acl_provision_integration_test.go")
@@ -87,31 +91,27 @@ func TestP404ACLProvisioningIsVersionPinnedAndFreshlyOptedIn(t *testing.T) {
 	}
 	source := string(contents)
 	for _, required := range []string{
-		`P4_04_ACL_PROVISION_CONFIRM`,
-		`I_UNDERSTAND_P4_04_ACL_PROVISION_DISPOSABLE_ONLY`,
-		`P4_04_SHARED_ACL_PROVISION_CONFIRM`,
-		`I_UNDERSTAND_P4_04_ACL_PROVISION_SHARED_STAGING_ONLY`,
-		`P4_04_SHARED_CONFIRM`,
-		`p404SharedPreflightConfirmation`,
-		`shared ACL provisioning refuses disposable confirmations`,
-		`requireP404SharedIntegrationEnvironment`,
-		`requireP404NeonURLBoundary`,
-		`if version != 31 || dirty`,
-		`P4-04 ACL provisioning requires ledger 31 false`,
+		`TestProvisionPostgresMediaLifecycleRuntimeExactACLShared`,
+		`P4-04 shared ACL provisioning is retired`,
+		`TestProvisionPostgresMediaSignalsExactACLShared`,
+		`P4_06_SHARED_ACL_PROVISION_CONFIRM`,
+		`p406SharedACLProvisionConfirmation`,
+		`requireP406SharedConfirmation`,
+		`if version != 32 || dirty`,
+		`P4-06 ACL provisioning requires ledger 32 false`,
 	} {
 		if !strings.Contains(source, required) {
-			t.Fatalf("P4-04 ACL provisioning is missing safety boundary %q", required)
+			t.Fatalf("P4-06 shared ACL provisioning is missing safety boundary %q", required)
 		}
 	}
-	for _, stale := range []string{
-		`P4_02_ACL_PROVISION_CONFIRM`,
-		`P4_02_SHARED_ACL_PROVISION_CONFIRM`,
-		`P4_02_SHARED_CONFIRM`,
-		`if version != 30 || dirty`,
-	} {
-		if strings.Contains(source, stale) {
-			t.Fatalf("P4-04 ACL provisioning still accepts stale boundary %q", stale)
-		}
+	retiredStart := strings.Index(source, "func TestProvisionPostgresMediaLifecycleRuntimeExactACLShared(")
+	freshStart := strings.Index(source, "func TestProvisionPostgresMediaSignalsExactACLShared(")
+	if retiredStart < 0 || freshStart <= retiredStart {
+		t.Fatal("P4-04 retired and P4-06 fresh shared ACL wrappers are not ordered")
+	}
+	retired := source[retiredStart:freshStart]
+	if strings.Contains(retired, "runProvisionPostgresMediaLifecycleRuntimeExactACL") {
+		t.Fatal("P4-04 shared confirmation can still reach the P4-06 ACL provisioner")
 	}
 }
 
@@ -132,7 +132,7 @@ func TestP404SharedACLProbeIsReadOnlyAndFailClosed(t *testing.T) {
 		`if applyMigrations`,
 		`AccessMode: pgx.ReadOnly`,
 		`SHOW transaction_read_only`,
-		`exact media lifecycle ACL requires ledger 31 false`,
+		`exact media lifecycle ACL requires ledger 32 false`,
 		`pg_default_acl`,
 	} {
 		if !strings.Contains(source, required) {

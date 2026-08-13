@@ -1394,6 +1394,27 @@ lifecycle/RoomInstance và shared read-only snapshot gates PASS. Không chạy s
 fixture, không rollback; snapshot trước/sau live giống hệt ở ledger `31 false` và media feature off.
 Chi tiết tại [`P4_04_STAGING_ACCEPTANCE.md`](P4_04_STAGING_ACCEPTANCE.md).
 
+P4-06 có forward candidate `000032_media_participant_signals`: thêm projection/signal/roster counter
+cho RoomInstance, opaque `participant_key` + `roster_sequence` cho ParticipantSession và ba relation
+tenant-scoped `media_participant_hand_states`, `media_reaction_events`,
+`media_signal_mutation_receipts`. Hand là bounded durable state (`is_raised`) và chỉ dùng exact column
+`UPDATE`; reaction có exact visible TTL 10 giây; receipt không lưu nội dung riêng tư/provider ID và
+có hard retention 24 giờ. Hai maintenance function `purge_expired_media_reactions(integer)` và
+`purge_expired_media_signal_receipts(integer)` dùng static `SECURITY DEFINER`, batch 1..1000 và
+`FOR UPDATE SKIP LOCKED`; principal maintenance hiện có chỉ nhận exact `EXECUTE`, runtime/PUBLIC
+không có direct table `DELETE`.
+Runtime candidate chỉ cần exact column ACL trên relation media mới/cột mới. Repository P4-06 chỉ đọc
+`users(id, display_name)` nhưng giữ nguyên table `SELECT` dùng chung đã được các phase trước chấp nhận;
+`rate_limit_windows` giữ exact SELECT/INSERT/UPDATE, không revoke phá vỡ module khác. Source/local và
+Neon disposable đều PASS. Disposable read-only preflight
+xác thực ba principal direct owner/direct maintenance/pooled runtime ở `31 false`; forward-only
+`31 false -> 32 false -> 32 false`, exact runtime/PUBLIC/maintenance/dependency ACL, roster/signal
+concurrency/tenant/privacy/rate-limit, 24 giờ replay và bounded retention purge/two-transaction
+`SKIP LOCKED` đều PASS. Final postflight giữ `32 false`, media feature force-off, P4-06 side-effect
+count `0`; branch được giữ lại và không rollback. Shared ledger vẫn `31 false`, chưa migrate/provision.
+Chi tiết tại
+[`P4_06_STAGING_ACCEPTANCE.md`](P4_06_STAGING_ACCEPTANCE.md).
+
 Với P2-05, cần kiểm tra riêng migrate 9 -> 10, rollback 10 -> 9, migrate lại 9 -> 10;
 tenant-scoped FK/unique/state constraints; direct enroll và các transition; same-user
 replay; concurrent join ở usage limit; atomic exhausted/expired state; archive guard;
@@ -1476,4 +1497,7 @@ của lịch sử append-only và không phải quy trình cleanup cho staging/p
   ledger/feature/ACL gate; shared before/after live đều giữ `31 false`, exact ACL và toàn bộ bounded
   media aggregate/outbox/audit count không đổi. Shell/layout nghiệm thu bằng fixture và isolated
   LiveKit project; shared không tạo provider/database side effect.
+- P4-06 đang `IN PROGRESS`: local candidate và Neon disposable forward-only
+  `31 false -> 32 false -> 32 false`, exact ACL/PostgreSQL/final postflight đã PASS, không rollback;
+  exact CI/security, shared forward, deploy/live và feature-off acceptance vẫn pending.
 - Chưa có backup/restore drill, PITR gate hoặc connection load test cho pilot.

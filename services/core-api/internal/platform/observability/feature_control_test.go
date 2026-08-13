@@ -2,6 +2,7 @@ package observability
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -9,7 +10,10 @@ import (
 	"github.com/tutorhub-v2/core-api/internal/modules/featurecontrol"
 )
 
-type rejectingFeatureControlEnforcer struct{}
+type rejectingFeatureControlEnforcer struct {
+	readCalls int
+	readErr   error
+}
 
 func (rejectingFeatureControlEnforcer) RequireFeature(
 	context.Context,
@@ -18,6 +22,16 @@ func (rejectingFeatureControlEnforcer) RequireFeature(
 	featurecontrol.FeatureKey,
 ) error {
 	return nil
+}
+
+func (enforcer *rejectingFeatureControlEnforcer) RequireFeatureForRead(
+	context.Context,
+	featurecontrol.Transaction,
+	uuid.UUID,
+	featurecontrol.FeatureKey,
+) error {
+	enforcer.readCalls++
+	return enforcer.readErr
 }
 
 func (rejectingFeatureControlEnforcer) RequireMemberCapacity(
@@ -73,7 +87,8 @@ func TestObservedFeatureControlEnforcerRecordsBoundedQuotaFailures(t *testing.T)
 	t.Parallel()
 
 	metrics := NewMetrics()
-	enforcer := ObserveFeatureControlEnforcer(rejectingFeatureControlEnforcer{}, metrics)
+	next := &rejectingFeatureControlEnforcer{}
+	enforcer := ObserveFeatureControlEnforcer(next, metrics)
 	_, _ = enforcer.ConsumeInviteCreation(context.Background(), nil, uuid.New(), time.Now())
 	_ = enforcer.RequireMemberCapacity(context.Background(), nil, uuid.New())
 	_ = enforcer.RequireActiveClassCapacity(context.Background(), nil, uuid.New())
@@ -103,5 +118,25 @@ func TestObservedFeatureControlEnforcerRecordsBoundedQuotaFailures(t *testing.T)
 		if counts[string(key)] != 1 {
 			t.Fatalf("quota %q rejection count = %d, want 1", key, counts[string(key)])
 		}
+	}
+}
+
+func TestObservedFeatureControlEnforcerForwardsReadFeatureCheck(t *testing.T) {
+	t.Parallel()
+
+	wantErr := errors.New("read feature rejected")
+	next := &rejectingFeatureControlEnforcer{readErr: wantErr}
+	enforcer := ObserveFeatureControlEnforcer(next, NewMetrics())
+	err := enforcer.RequireFeatureForRead(
+		context.Background(),
+		nil,
+		uuid.New(),
+		featurecontrol.FeatureClassroomMediaRooms,
+	)
+	if !errors.Is(err, wantErr) {
+		t.Fatalf("read feature error = %v, want %v", err, wantErr)
+	}
+	if next.readCalls != 1 {
+		t.Fatalf("read feature forwarding calls = %d, want 1", next.readCalls)
 	}
 }

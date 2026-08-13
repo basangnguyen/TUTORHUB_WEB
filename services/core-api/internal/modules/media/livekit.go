@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/livekit/protocol/auth"
 	"github.com/livekit/protocol/livekit"
 	"github.com/livekit/protocol/webhook"
@@ -49,6 +50,9 @@ func (issuer *LiveKitTokenIssuer) Issue(grant TokenGrant) (string, error) {
 	}
 
 	attributes := map[string]string{"tutorhub.role": grant.Role}
+	if grant.ParticipantKey != uuid.Nil {
+		attributes["tutorhub.participant_key"] = grant.ParticipantKey.String()
+	}
 	if grant.OrganizationRole != "" {
 		attributes["tutorhub.organization_role"] = grant.OrganizationRole
 	}

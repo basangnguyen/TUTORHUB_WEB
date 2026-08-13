@@ -353,6 +353,21 @@ export type CreateMediaSpaceRequest =
   components["schemas"]["CreateMediaSpaceRequest"];
 export type MediaSpaceTransitionRequest =
   components["schemas"]["MediaSpaceTransitionRequest"];
+export type MediaParticipantKey = components["schemas"]["MediaParticipantKey"];
+export type MediaParticipantConnectionState =
+  components["schemas"]["MediaParticipantConnectionState"];
+export type MediaParticipant = components["schemas"]["MediaParticipant"];
+export type MediaRaisedHand = components["schemas"]["MediaRaisedHand"];
+export type MediaReaction = components["schemas"]["MediaReaction"];
+export type MediaReactionCluster =
+  components["schemas"]["MediaReactionCluster"];
+export type MediaSignalViewerOperations =
+  components["schemas"]["MediaSignalViewerOperations"];
+export type MediaParticipantSnapshot =
+  components["schemas"]["MediaParticipantSnapshot"];
+export type MediaSignalKind = components["schemas"]["MediaSignalKind"];
+export type MediaSignalMutationRequest =
+  components["schemas"]["MediaSignalMutationRequest"];
 export type MediaInstanceRole = components["schemas"]["MediaInstanceRole"];
 export type MediaJoinAttemptRequest =
   components["schemas"]["MediaJoinAttemptRequest"];
@@ -3165,6 +3180,68 @@ export async function getMediaSpace(
   );
   return requireData<MediaSpace>(
     data as MediaSpace | undefined,
+    error,
+    response,
+  );
+}
+
+export async function listMediaSpaceParticipants(
+  tenantID: string,
+  spaceID: string,
+  roomInstanceID: string,
+  expectedSpaceVersion: number,
+  expectedRoomInstanceVersion: number,
+  options: APIRequestOptions = {},
+): Promise<MediaParticipantSnapshot> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).GET(
+    "/api/v1/media/spaces/{space_id}/participants",
+    {
+      params: {
+        path: { space_id: spaceID },
+        query: {
+          room_instance_id: roomInstanceID,
+          expected_space_version: expectedSpaceVersion,
+          expected_room_instance_version: expectedRoomInstanceVersion,
+        },
+        header: { "X-TutorHub-Expected-Tenant-ID": tenantID },
+      },
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+  return requireData<MediaParticipantSnapshot>(
+    data as MediaParticipantSnapshot | undefined,
+    error,
+    response,
+  );
+}
+
+export async function mutateMediaSpaceSignal(
+  tenantID: string,
+  spaceID: string,
+  input: MediaSignalMutationRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<MediaParticipantSnapshot> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/media/spaces/{space_id}/signals",
+    {
+      params: {
+        path: { space_id: spaceID },
+        header: {
+          "X-CSRF-Token": csrfToken,
+          "X-TutorHub-Expected-Tenant-ID": tenantID,
+        },
+      },
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+  return requireData<MediaParticipantSnapshot>(
+    data as MediaParticipantSnapshot | undefined,
     error,
     response,
   );

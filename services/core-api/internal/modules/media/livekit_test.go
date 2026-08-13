@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/livekit/protocol/auth"
 	"github.com/livekit/protocol/livekit"
 	"github.com/livekit/protocol/utils/protojson"
@@ -21,9 +22,11 @@ func TestLiveKitTokenIssuerSignsExplicitLeastPrivilegeGrant(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create issuer: %v", err)
 	}
+	participantKey := uuid.New()
 	token, err := issuer.Issue(TokenGrant{
 		RoomName: "room", ParticipantIdentity: "participant", ParticipantName: "Teacher",
-		Role: "co_teacher", OrganizationRole: "teacher", ClassRole: "co_teacher",
+		ParticipantKey: participantKey,
+		Role:           "co_teacher", OrganizationRole: "teacher", ClassRole: "co_teacher",
 		CanPublish: true, CanPublishData: false, CanSubscribe: true,
 		ValidFor: 5 * time.Minute,
 	})
@@ -41,7 +44,8 @@ func TestLiveKitTokenIssuerSignsExplicitLeastPrivilegeGrant(t *testing.T) {
 	if verifier.APIKey() != "test-api-key" || verifier.Identity() != "participant" ||
 		claims.Name != "Teacher" || claims.Attributes["tutorhub.role"] != "co_teacher" ||
 		claims.Attributes["tutorhub.organization_role"] != "teacher" ||
-		claims.Attributes["tutorhub.class_role"] != "co_teacher" {
+		claims.Attributes["tutorhub.class_role"] != "co_teacher" ||
+		claims.Attributes["tutorhub.participant_key"] != participantKey.String() {
 		t.Fatalf("unexpected token identity claims: %+v", claims)
 	}
 	if registered.ExpiresAt == nil || registered.IssuedAt == nil ||

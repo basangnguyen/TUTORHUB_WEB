@@ -5,13 +5,13 @@
 | Thuộc tính            | Giá trị                                                                                      |
 | --------------------- | -------------------------------------------------------------------------------------------- |
 | Phiên bản tài liệu    | 2.4                                                                                          |
-| Cập nhật              | 2026-08-12                                                                                   |
+| Cập nhật              | 2026-08-13                                                                                   |
 | Phạm vi ưu tiên       | Web application                                                                              |
 | Thư mục phát triển    | `D:\TutorHub_V2`                                                                             |
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
 | Phase hiện tại        | Phase 4 - Classroom Media MVP; Phase 3 deferred carry-over tiếp tục                          |
-| Trạng thái gần nhất   | P4-05 classroom shell/media/layout `DONE`; P4-06 là task runnable tiếp theo                  |
+| Trạng thái gần nhất   | P4-06 local + Neon disposable `PASS`; task vẫn `IN PROGRESS`                                 |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 
@@ -2164,8 +2164,13 @@ disposable/shared đạt `30 false -> 31 false -> 31 false`, không rollback và
 tiếp tục force-off. P4-05 cũng đã `DONE` trên exact runtime candidate
 `dcbdfef3c209a7c6d17197ccbcf737b58cd9e315`: local/disposable/isolated LiveKit, exact
 CI/security, shared read-only `31 false`, Render/Cloudflare deploy và live privacy/feature-off/
-no-side-effect acceptance đều PASS. P4-06 là task runnable tiếp theo; physical/manual/load/outage/
-effect gates vẫn thuộc P4-11.
+no-side-effect acceptance đều PASS. P4-06 đang `IN PROGRESS`: local candidate có migration `000032`,
+versioned privacy-safe roster và Core API hand/reaction authority; exact local web/API/Go/security,
+integration compile/vet và Playwright/Axe đã PASS. Neon disposable cũng đã PASS read-only
+three-principal preflight, forward-only `31 false -> 32 false -> 32 false`, exact ACL, focused
+PostgreSQL roster/signal/rate/retention/concurrency gates và final force-off/side-effect-zero
+postflight; không rollback và branch được giữ lại. Exact CI/security, shared staging, deploy/live
+chưa chạy. Physical/manual/load/outage/effect gates vẫn thuộc P4-11.
 Không bật side effect chỉ vì core đã có. `P3-02D-B` và các gate worker/provider vẫn là
 carry-over.
 AWS SES đã được chọn làm provider target nhưng

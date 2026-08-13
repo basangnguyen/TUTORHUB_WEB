@@ -39,6 +39,7 @@ jobs:
       DATABASE_MIGRATION_URL: postgresql://tutorhub:tutorhub_ci@localhost:5432/tutorhub_test?sslmode=disable
       DATABASE_CONVERSATION_ACL_TEST_URL: postgresql://tutorhub_conversation_runtime_ci:tutorhub_ci@localhost:5432/tutorhub_test?sslmode=disable
       DATABASE_MEDIA_FIXTURE_TEST_URL: postgresql://tutorhub_media_fixture_ci:tutorhub_ci@localhost:5432/tutorhub_test?sslmode=disable
+      DATABASE_POLL_MAINTENANCE_URL: postgresql://tutorhub_media_maintenance_ci:tutorhub_ci@localhost:5432/tutorhub_test?sslmode=disable
       CONVERSATION_ACL_TEST_BOOTSTRAP: "true"
     steps:
       - name: Checkout
@@ -94,10 +95,30 @@ jobs:
           P4_02_DISPOSABLE_CONFIRM: I_UNDERSTAND_P4_02_DISPOSABLE_ONLY
           P4_04_DISPOSABLE_CONFIRM: I_UNDERSTAND_P4_04_DISPOSABLE_ONLY
           P4_04_ACL_PROVISION_CONFIRM: I_UNDERSTAND_P4_04_ACL_PROVISION_DISPOSABLE_ONLY
+          P4_06_DISPOSABLE_CONFIRM: I_UNDERSTAND_P4_06_DISPOSABLE_ONLY
+          P4_06_ACL_PROVISION_CONFIRM: I_UNDERSTAND_P4_06_ACL_PROVISION_DISPOSABLE_ONLY
         run: |
           node scripts/require-media-disposable-confirm.mjs
+          psql "$DATABASE_MIGRATION_URL" --set=ON_ERROR_STOP=1 <<'SQL'
+          DO $bootstrap$
+          BEGIN
+              IF NOT EXISTS (
+                  SELECT 1 FROM pg_roles WHERE rolname = 'tutorhub_media_maintenance_ci'
+              ) THEN
+                  CREATE ROLE tutorhub_media_maintenance_ci
+                      LOGIN PASSWORD 'tutorhub_ci'
+                      NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT
+                      NOREPLICATION NOBYPASSRLS;
+              END IF;
+          END
+          $bootstrap$;
+          ALTER ROLE tutorhub_media_maintenance_ci
+              WITH LOGIN PASSWORD 'tutorhub_ci'
+              NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT
+              NOREPLICATION NOBYPASSRLS;
+          SQL
           go test -count=1 -tags=integration \
-            -run '^TestProvisionPostgresMediaLifecycleRuntimeExactACL$' \
+            -run '^TestProvisionPostgresMediaSignalsExactACL$' \
             ./services/core-api/internal/modules/media
           go test -count=1 -tags=integration \
             -run '^TestPostgresMediaLifecycleRuntimeExactACL$' \
@@ -137,6 +158,12 @@ jobs:
             ./services/core-api/internal/modules/media
           DATABASE_POOL_URL="$DATABASE_MEDIA_FIXTURE_TEST_URL" go test -count=1 -tags=integration \
             -run '^TestPostgresMediaRoomInstanceCredentialAndSignedWebhookBinding$' \
+            ./services/core-api/internal/modules/media
+          go test -count=1 -tags=integration \
+            -run '^TestPostgresMediaSignalMaintenanceACLRetentionAndSkipLocked$' \
+            ./services/core-api/internal/modules/media
+          go test -count=1 -tags=integration \
+            -run '^TestPostgresMediaParticipantSignalsLifecycleAndConcurrency$' \
             ./services/core-api/internal/modules/media
 
       - name: PostgreSQL security integration
@@ -198,7 +225,9 @@ jobs:
         run: pnpm exec playwright install --with-deps chromium
 
       - name: Run browser E2E
-        run: pnpm e2e
+        run: |
+          pnpm e2e
+          pnpm e2e:media-fixture
 
   local-environment-smoke:
     name: Local environment smoke

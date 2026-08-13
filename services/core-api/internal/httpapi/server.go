@@ -47,6 +47,7 @@ type Options struct {
 	MediaSpaces           media.LifecycleServiceAPI
 	MediaJoinAttempts     media.JoinAttemptServiceAPI
 	MediaLobby            media.LobbyServiceAPI
+	MediaSignals          media.MediaSignalServiceAPI
 	MediaCredentials      media.InstanceCredentialServiceAPI
 	MediaWebhooks         media.WebhookProcessor
 	Notifications         notification.ServiceAPI
@@ -472,6 +473,7 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 	)
 	mediaSpaces := newMediaSpaceHandlers(logger, auth, options.MediaSpaces)
 	mediaLobby := newMediaLobbyHandlers(logger, auth, options.MediaLobby)
+	mediaSignals := newMediaSignalHandlers(logger, auth, options.MediaSignals)
 	mux.Handle(
 		classesCollectionPath,
 		auditMutation(
@@ -765,6 +767,18 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 	)
 	mux.Handle(mediaTokenPathPattern, http.HandlerFunc(mediaHandlers.issueJoinCredential))
 	mux.Handle(mediaEventsPathPattern, http.HandlerFunc(mediaHandlers.recordClientEvent))
+	mux.Handle(
+		mediaParticipantsPattern,
+		mediaSpaceResponseHeaders(
+			requireMethod(http.MethodGet, http.HandlerFunc(mediaSignals.participants)),
+		),
+	)
+	mux.Handle(
+		mediaSignalsPattern,
+		mediaSpaceResponseHeaders(
+			requireMethod(http.MethodPost, http.HandlerFunc(mediaSignals.signal)),
+		),
+	)
 	mux.Handle(
 		mediaSpaceJoinAttemptPathPattern,
 		mediaSpaceResponseHeaders(

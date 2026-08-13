@@ -1530,7 +1530,7 @@ WHERE tenant_id = $1 AND space_id = $2 AND room_instance_id = $3
 	); err != nil {
 		return err
 	}
-	_, err := transaction.Exec(
+	tag, err := transaction.Exec(
 		ctx,
 		`UPDATE tutorhub.media_participant_sessions
 SET status = 'removed', version = version + 1, capacity_reserved = false,
@@ -1540,7 +1540,31 @@ WHERE tenant_id = $1 AND space_id = $2 AND room_instance_id = $3
   AND status IN ('waiting', 'admitted', 'joining', 'connected', 'reconnecting')`,
 		scope.TenantID, spaceID, roomID, targetUserID, scope.ActorID, now.UTC(),
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	if _, err := transaction.Exec(
+		ctx,
+		`UPDATE tutorhub.media_participant_hand_states AS hand
+SET is_raised = false
+FROM tutorhub.media_participant_sessions AS participant
+WHERE hand.tenant_id = $1 AND hand.space_id = $2 AND hand.room_instance_id = $3
+  AND participant.tenant_id = hand.tenant_id
+  AND participant.space_id = hand.space_id
+  AND participant.room_instance_id = hand.room_instance_id
+  AND participant.id = hand.participant_session_id
+  AND participant.user_id = $4
+  AND hand.is_raised`,
+		scope.TenantID, spaceID, roomID, targetUserID,
+	); err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return nil
+	}
+	return advanceMediaRosterProjection(
+		ctx, transaction, scope.TenantID, spaceID, roomID,
+	)
 }
 
 func expireTimedOutLobbyAdmissions(

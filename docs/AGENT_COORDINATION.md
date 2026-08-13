@@ -196,7 +196,8 @@ hoặc worker-driven file processing/sharing tới end user.
 | P4-03           | DONE       | Exact CI/shared/deploy/live feature-off/privacy PASS        |
 | P4-04           | DONE       | Exact CI/shared/deploy/live privacy/no-side-effect PASS     |
 | P4-05           | DONE        | Exact CI/shared/deploy/live + isolated provider PASS      |
-| P4-06 đến P4-10 | TODO       | Roster/moderation/chat/reconnect/telemetry                 |
+| P4-06           | IN PROGRESS | Local + Neon disposable PASS; CI/shared/live pending        |
+| P4-07 đến P4-10 | TODO        | Moderation/chat/reconnect/telemetry                        |
 | P4-11           | TODO       | Browser/device/load/provider-outage acceptance             |
 | P4-12           | TODO       | Exact staging acceptance và Phase 4 closure                |
 
@@ -236,7 +237,21 @@ before/after read-only snapshot `31 false` với exact ACL/counts không đổi.
 outage/effect vẫn `UNVERIFIED — P4-11` và không bật feature/effect.
 Trước P4-08 phải review/amend ADR-0013/0025 vì conversation hiện chỉ có `direct` và `class`.
 
-`P4-MEDIA-UX-00`, P4-03, P4-04 và P4-05 đã `DONE`; P4-06 là lane runnable tiếp theo. P4-03/P4-04/P4-05/
+P4-06 local candidate hiện có forward migration `000032`, privacy-safe versioned roster,
+server-sequence hand FIFO/moderator controls, bounded reaction projection/rate-limit, signed opaque
+LiveKit participant key và classroom UI/resync/a11y. Shared-read/exclusive-write feature lock,
+PostgreSQL clock, 24 giờ receipt retention, bounded maintenance purge và exact no-runtime-DELETE ACL
+đã được security review. Exact local gates đạt web `400/400`, API client `50/50`, all Go
+test/vet/build/security, integration-tag compile/vet và P4-06 Playwright/Axe `7/7`.
+
+Neon disposable đã PASS ba-principal read-only preflight ở `31 false`, forward-only
+`31 false -> 32 false -> 32 false`, exact runtime/PUBLIC/maintenance/dependency ACL và toàn bộ
+focused roster/signal/rate-limit/retention/SKIP LOCKED gate. Final postflight giữ `32 false`, media
+feature force-off, side-effect count `0`; branch được giữ lại, không rollback. Candidate chưa được
+push, forward shared, deploy hoặc bật feature. Giữ `IN PROGRESS` tới khi CI/shared/live trong runbook
+P4-06 đạt.
+
+`P4-MEDIA-UX-00`, P4-03, P4-04 và P4-05 đã `DONE`; P4-06 là lane đang chạy. P4-03/P4-04/P4-05/
 P4-06/P4-11 phải dùng explicit device probe, bounded layout 2/5/25/50 và
 Core API signal contract đã chốt. `effect=None` là baseline; Track Processors chưa phải production
 dependency và giữ off tới exact browser/device/privacy/performance gate. Không mở lại

@@ -10,7 +10,9 @@ import {
   inviteMediaSpaceMember,
   issueMediaSpaceJoinCredential,
   listMediaAdmissions,
+  listMediaSpaceParticipants,
   listMediaSpaceMembers,
+  mutateMediaSpaceSignal,
   mutateMediaSpaceMember,
   resolveMediaAdmission,
   startMediaSpace,
@@ -21,6 +23,8 @@ import type {
   MediaAdmissionQueue,
   MediaJoinAttempt,
   MediaInstanceCredential,
+  MediaParticipantSnapshot,
+  MediaSignalMutationRequest,
   MediaSpace,
   MediaSpaceMember,
   MediaSpaceMemberList,
@@ -35,6 +39,8 @@ const participantSessionID = "f680fd29-c7f1-4083-af9b-52ad1db14ba9";
 const joinAttemptID = "a860f06d-34f9-4c57-89f8-1541bfb3b6d7";
 const admissionID = "19f9b26c-52bf-4ef5-9651-f284d24f3e6c";
 const memberID = "da655aa5-46aa-46db-a282-d39698bb83c3";
+const selfParticipantKey = "b825ac7c-4541-4ca5-bbd2-e874de5f5d4e";
+const targetParticipantKey = "97c47c02-f571-4a63-94f0-66975de0377d";
 
 const space: MediaSpace = {
   id: spaceID,
@@ -80,6 +86,135 @@ function jsonResponse(body: unknown, status = 200): Response {
 }
 
 describe("media-space API", () => {
+  it("reads and mutates only the exact privacy-safe participant projection", async () => {
+    const snapshot: MediaParticipantSnapshot = {
+      room_instance_id: roomInstanceID,
+      projection_version: 4,
+      last_signal_sequence: 9,
+      self_participant_key: selfParticipantKey,
+      viewer_operations: {
+        can_raise_hand: true,
+        can_send_reaction: true,
+        can_moderate_hands: true,
+      },
+      participants: [
+        {
+          participant_key: selfParticipantKey,
+          roster_sequence: 1,
+          display_name: "Teacher",
+          instance_role: "host",
+          connection_state: "connected",
+        },
+        {
+          participant_key: targetParticipantKey,
+          roster_sequence: 2,
+          display_name: "Learner",
+          instance_role: "attendee",
+          connection_state: "reconnecting",
+        },
+      ],
+      raised_hands: [
+        {
+          participant_key: targetParticipantKey,
+          signal_sequence: 8,
+          raised_at: "2030-08-03T00:00:08Z",
+        },
+      ],
+      reaction_clusters: [
+        {
+          reaction: "clap",
+          count: 2,
+          first_signal_sequence: 8,
+          last_signal_sequence: 9,
+          accepted_at: "2030-08-03T00:00:09Z",
+          expires_at: "2030-08-03T00:00:19Z",
+        },
+      ],
+      server_time: "2030-08-03T00:00:10Z",
+    };
+    const input = {
+      expected_room_instance_id: roomInstanceID,
+      expected_space_version: 7,
+      expected_room_instance_version: 3,
+      expected_projection_version: 4,
+      idempotency_key: "signal-lower-one-0001",
+      kind: "hand_lower_one",
+      target_participant_key: targetParticipantKey,
+    } satisfies MediaSignalMutationRequest;
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse(snapshot))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          ...snapshot,
+          projection_version: 5,
+          last_signal_sequence: 10,
+          raised_hands: [],
+        }),
+      );
+    const options = {
+      baseUrl: "https://web.example.test/api",
+      fetch: fetchMock,
+    };
+
+    await expect(
+      listMediaSpaceParticipants(
+        tenantID,
+        spaceID,
+        roomInstanceID,
+        7,
+        3,
+        options,
+      ),
+    ).resolves.toEqual(snapshot);
+    await expect(
+      mutateMediaSpaceSignal(tenantID, spaceID, input, "signal-csrf", options),
+    ).resolves.toMatchObject({
+      projection_version: 5,
+      last_signal_sequence: 10,
+      raised_hands: [],
+    });
+
+    const [read, mutate] = fetchMock.mock.calls.map(
+      (call) => call[0] as Request,
+    );
+    expect(read!.method).toBe("GET");
+    expect(new URL(read!.url).pathname).toBe(
+      `/api/v1/media/spaces/${spaceID}/participants`,
+    );
+    expect(new URL(read!.url).searchParams.get("room_instance_id")).toBe(
+      roomInstanceID,
+    );
+    expect(new URL(read!.url).searchParams.get("expected_space_version")).toBe(
+      "7",
+    );
+    expect(
+      new URL(read!.url).searchParams.get("expected_room_instance_version"),
+    ).toBe("3");
+    expect(mutate!.method).toBe("POST");
+    expect(new URL(mutate!.url).pathname).toBe(
+      `/api/v1/media/spaces/${spaceID}/signals`,
+    );
+    expect(mutate!.headers.get("X-CSRF-Token")).toBe("signal-csrf");
+    expect(mutate!.headers.get("X-TutorHub-Expected-Tenant-ID")).toBe(tenantID);
+    const body = (await mutate!.clone().json()) as Record<string, unknown>;
+    expect(body).toEqual(input);
+    for (const forbidden of [
+      "tenant_id",
+      "actor_user_id",
+      "participant_session_id",
+      "provider_participant_identity",
+      "signal_sequence",
+      "accepted_at",
+      "instance_role",
+    ]) {
+      expect(body).not.toHaveProperty(forbidden);
+    }
+    expect(JSON.stringify(snapshot)).not.toMatch(
+      /email|user_id|participant_session_id|join_attempt_id|provider_/,
+    );
+  });
+
   it("creates an authoritative join attempt without client supplied grants or device data", async () => {
     const attempt: MediaJoinAttempt = {
       participant_session_id: participantSessionID,

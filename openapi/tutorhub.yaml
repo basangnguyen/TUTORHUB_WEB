@@ -5657,6 +5657,136 @@ paths:
           $ref: "#/components/responses/ProblemResponse"
         default:
           $ref: "#/components/responses/ProblemResponse"
+  /api/v1/media/spaces/{space_id}/participants:
+    get:
+      operationId: listMediaSpaceParticipants
+      summary: Return the authoritative participant and signal snapshot for one active RoomInstance
+      description: The server reauthorizes the active workspace, source, room instance, and viewer before returning a bounded projection. Participant keys are opaque and room-scoped. The response never includes email, user ID, ParticipantSession ID, join-attempt ID, provider identity, token, or client-supplied role. Active-speaker and media-quality state remain provider-ephemeral and are not part of this authority snapshot.
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: space_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: room_instance_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: expected_space_version
+          in: query
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+        - name: expected_room_instance_version
+          in: query
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+        - $ref: "#/components/parameters/ExpectedTenantID"
+      responses:
+        "200":
+          description: Bounded privacy-safe participant, hand, and unexpired reaction snapshot
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: private, no-store
+            Referrer-Policy:
+              schema:
+                type: string
+                const: no-referrer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MediaParticipantSnapshot"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/media/spaces/{space_id}/signals:
+    post:
+      operationId: mutateMediaSpaceSignal
+      summary: Apply one authorized hand or reaction command and return the converged snapshot
+      description: The server derives the actor and exact ParticipantSession from the authenticated session, reauthorizes the active workspace and RoomInstance, enforces stable idempotency and shared fail-closed rate limits, and assigns all signal sequence numbers and timestamps. A client cannot supply actor, role, tenant, ParticipantSession, provider identity, sequence, or time. LiveKit DataChannel remains non-authoritative and CanPublishData stays false.
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: space_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/ExpectedTenantID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MediaSignalMutationRequest"
+      responses:
+        "200":
+          description: Idempotent authoritative snapshot after applying or replaying the command
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: private, no-store
+            Referrer-Policy:
+              schema:
+                type: string
+                const: no-referrer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MediaParticipantSnapshot"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "429":
+          description: The actor or RoomInstance signal-rate limit was reached
+          headers:
+            Retry-After:
+              required: true
+              schema:
+                type: integer
+                minimum: 1
+                maximum: 60
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
   /api/v1/media/spaces/{space_id}/join-attempts:
     post:
       operationId: createMediaSpaceJoinAttempt
@@ -11658,6 +11788,203 @@ components:
         updated_at:
           type: string
           format: date-time
+    MediaParticipantKey:
+      type: string
+      format: uuid
+      description: Opaque RoomInstance-scoped presentation key. It is not a user, ParticipantSession, join-attempt, or provider identifier.
+    MediaParticipantConnectionState:
+      type: string
+      enum: [joining, connected, reconnecting]
+    MediaParticipant:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          participant_key,
+          roster_sequence,
+          display_name,
+          instance_role,
+          connection_state,
+        ]
+      properties:
+        participant_key:
+          $ref: "#/components/schemas/MediaParticipantKey"
+        roster_sequence:
+          type: integer
+          format: int64
+          minimum: 1
+          description: Server-assigned canonical ordering value. Display name, provider arrival order, active speaker, and raised hand never determine grid order.
+        display_name:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Bounded display label only; email and other account identifiers are excluded.
+        instance_role:
+          $ref: "#/components/schemas/MediaInstanceRole"
+        connection_state:
+          $ref: "#/components/schemas/MediaParticipantConnectionState"
+    MediaRaisedHand:
+      type: object
+      additionalProperties: false
+      required: [participant_key, signal_sequence, raised_at]
+      properties:
+        participant_key:
+          $ref: "#/components/schemas/MediaParticipantKey"
+        signal_sequence:
+          type: integer
+          format: int64
+          minimum: 1
+          description: Monotonic server sequence used as the only FIFO ordering authority.
+        raised_at:
+          type: string
+          format: date-time
+    MediaReaction:
+      type: string
+      enum: [thumbs_up, clap, heart, celebrate, laugh, surprised]
+      description: Stable semantic reaction enum. Glyph, accessible label, and localized text are presentation concerns.
+    MediaReactionCluster:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          reaction,
+          count,
+          first_signal_sequence,
+          last_signal_sequence,
+          accepted_at,
+          expires_at,
+        ]
+      properties:
+        reaction:
+          $ref: "#/components/schemas/MediaReaction"
+        count:
+          type: integer
+          minimum: 1
+          maximum: 100
+          description: Bounded count for reactions grouped into a 750 millisecond server window. Presentation caps values above 99 as 99+.
+        first_signal_sequence:
+          type: integer
+          format: int64
+          minimum: 1
+        last_signal_sequence:
+          type: integer
+          format: int64
+          minimum: 1
+        accepted_at:
+          type: string
+          format: date-time
+          description: Server acceptance time for the first event that opened this fixed 750 millisecond cluster window.
+        expires_at:
+          type: string
+          format: date-time
+          description: Server-controlled expiry for the latest represented event; every event lives exactly 10 seconds, so a cluster opened by accepted_at can span at most 10.75 seconds including the fixed 750 millisecond grouping window.
+    MediaSignalViewerOperations:
+      type: object
+      additionalProperties: false
+      required: [can_raise_hand, can_send_reaction, can_moderate_hands]
+      properties:
+        can_raise_hand:
+          type: boolean
+        can_send_reaction:
+          type: boolean
+        can_moderate_hands:
+          type: boolean
+          description: Current server-derived media.moderate authority for lower-one and lower-all; never inferred from a client or provider role.
+    MediaParticipantSnapshot:
+      type: object
+      additionalProperties: false
+      required:
+        - room_instance_id
+        - projection_version
+        - last_signal_sequence
+        - self_participant_key
+        - viewer_operations
+        - participants
+        - raised_hands
+        - reaction_clusters
+        - server_time
+      properties:
+        room_instance_id:
+          type: string
+          format: uuid
+        projection_version:
+          type: integer
+          format: int64
+          minimum: 1
+          description: Authoritative snapshot version. A newer snapshot supersedes packets or responses from older projections.
+        last_signal_sequence:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Highest server signal sequence represented by the snapshot; clients refetch after a gap.
+        self_participant_key:
+          $ref: "#/components/schemas/MediaParticipantKey"
+        viewer_operations:
+          $ref: "#/components/schemas/MediaSignalViewerOperations"
+        participants:
+          type: array
+          maxItems: 50
+          items:
+            $ref: "#/components/schemas/MediaParticipant"
+        raised_hands:
+          type: array
+          maxItems: 50
+          description: Canonical FIFO queue ordered by signal_sequence.
+          items:
+            $ref: "#/components/schemas/MediaRaisedHand"
+        reaction_clusters:
+          type: array
+          maxItems: 50
+          description: Bounded unexpired server-grouped reactions. Clients animate at most three clusters, keep the remaining groups in a bounded summary, and batch screen-reader announcements at most once every two seconds.
+          items:
+            $ref: "#/components/schemas/MediaReactionCluster"
+        server_time:
+          type: string
+          format: date-time
+    MediaSignalKind:
+      type: string
+      enum: [hand_raise, hand_lower, hand_lower_one, hand_lower_all, reaction]
+    MediaSignalMutationRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - expected_room_instance_id
+        - expected_space_version
+        - expected_room_instance_version
+        - expected_projection_version
+        - idempotency_key
+        - kind
+      properties:
+        expected_room_instance_id:
+          type: string
+          format: uuid
+        expected_space_version:
+          type: integer
+          format: int64
+          minimum: 1
+        expected_room_instance_version:
+          type: integer
+          format: int64
+          minimum: 1
+        expected_projection_version:
+          type: integer
+          format: int64
+          minimum: 1
+          description: Stale projections fail closed with a conflict and must be replaced by a fresh snapshot.
+        idempotency_key:
+          type: string
+          minLength: 16
+          maxLength: 128
+          pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]{15,127}$"
+        kind:
+          $ref: "#/components/schemas/MediaSignalKind"
+        target_participant_key:
+          $ref: "#/components/schemas/MediaParticipantKey"
+          description: Required only for hand_lower_one. The server reloads target and moderator authority. It is forbidden for every other kind.
+        reaction:
+          $ref: "#/components/schemas/MediaReaction"
+          description: Required only when kind is reaction and forbidden for every hand command.
+      description: hand_raise and hand_lower always target the authenticated participant; hand_lower_one requires target_participant_key; hand_lower_all has no target; reaction requires the allowlisted reaction field. The server rejects every invalid discriminator combination.
     CreateMediaSpaceRequest:
       type: object
       additionalProperties: false

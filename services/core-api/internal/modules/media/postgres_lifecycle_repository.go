@@ -1380,7 +1380,7 @@ func terminateRoomParticipants(
 	roomInstanceID uuid.UUID,
 	now time.Time,
 ) error {
-	_, err := transaction.Exec(
+	tag, err := transaction.Exec(
 		ctx,
 		`UPDATE tutorhub.media_participant_sessions
 SET status = 'left', version = version + 1, capacity_reserved = false,
@@ -1392,7 +1392,25 @@ WHERE tenant_id = $1 AND space_id = $2 AND room_instance_id = $3
 		roomInstanceID,
 		now.UTC(),
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	if _, err := transaction.Exec(
+		ctx,
+		`UPDATE tutorhub.media_participant_hand_states
+SET is_raised = false
+WHERE tenant_id = $1 AND space_id = $2 AND room_instance_id = $3
+  AND is_raised`,
+		tenantID, spaceID, roomInstanceID,
+	); err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return nil
+	}
+	return advanceMediaRosterProjection(
+		ctx, transaction, tenantID, spaceID, roomInstanceID,
+	)
 }
 
 func insertTransitionReceipt(

@@ -6,16 +6,56 @@
 
 | Thuộc tính           | Trạng thái                                                                            |
 | -------------------- | ------------------------------------------------------------------------------------- |
-| Ngày cập nhật        | 2026-08-12                                                                            |
+| Ngày cập nhật        | 2026-08-13                                                                            |
 | Repository           | `https://github.com/basangnguyen/TUTORHUB_WEB`                                        |
 | Nhánh làm việc       | `main`                                                                                |
 | Quy trình            | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
 | Phase hoàn thành     | Phase 0, Phase 1, Phase 2                                                             |
 | Phase hiện tại       | Phase 4 Classroom Media MVP; Phase 3 deferred carry-over vẫn hoạt động                |
 | Task `DONE` gần nhất | P4-05 Classroom shell, media controls và layouts                                      |
-| Mốc repository mới   | P4-05 exact CI/shared/deploy/live acceptance PASS; shared ledger `31 false`           |
-| Task hiện tại        | P4-06 Participant roster, hand raise và reaction (`TODO`)                             |
-| Task tiếp theo       | Bắt đầu P4-06 trên authority/layout baseline đã nghiệm thu                           |
+| Mốc repository mới   | P4-06 candidate local + Neon disposable PASS; chưa push; shared vẫn `31 false`        |
+| Task hiện tại        | P4-06 Participant roster, hand raise và reaction (`IN PROGRESS`)                      |
+| Task tiếp theo       | Review/stage exact P4-06 candidate, push và chạy GitHub Verify/Security               |
+
+### Checkpoint P4-06 `IN PROGRESS` ngày 2026-08-13
+
+Local candidate đã thay roster fallback của P4-05 bằng projection có version do Core API/PostgreSQL
+sở hữu. Forward migration `000032_media_participant_signals` bổ sung opaque participant key,
+monotonic roster/signal sequence, hand state, reaction event TTL 10 giây và idempotency receipt giữ
+24 giờ với composite same-tenant FK/PUBLIC zero privilege. Hai bounded maintenance function dùng
+`SECURITY DEFINER`, static search path và `FOR UPDATE SKIP LOCKED`; Core API runtime không có direct
+table `DELETE`. Neon disposable đã chạy forward-only `31 false -> 32 false -> 32 false`, không
+rollback; shared staging chưa được chạm và shared ledger vẫn là `31 false`.
+
+Contract/API mới cung cấp bounded snapshot tối đa 50 participant và typed hand/reaction mutation.
+Mọi mutation reauthorize current tenant/source/active ParticipantSession, dùng expected versions,
+stable idempotency, shared-read/exclusive-write tenant lock, PostgreSQL-authoritative timestamp,
+server FIFO, moderator lower-one/lower-all và PostgreSQL cross-instance rate limit. Projection không
+trả email, user/session/join/provider ID; LiveKit chỉ nhận signed opaque
+`tutorhub.participant_key`, giữ `CanPublishData=false` và cấm client tự sửa metadata.
+
+Classroom shell đã dùng canonical roster sequence/key cho grid, roster drawer, hand queue, six-reaction
+allowlist, tối đa 3 visual cluster nhưng vẫn giữ bounded summary, 2 giây polling/resync và các trạng
+thái loading/error/retry/rate-limit. Reduced-motion, forced-colors, keyboard và polite live-region
+đã có automated coverage. Exact full `pnpm verify` PASS trong `92.4 s`: web `64/64` files và `400/400` tests,
+API client `50/50`, toàn bộ Go test/vet, lint/typecheck/build/Storybook/security đều xanh;
+PostgreSQL integration-tag compile/vet cũng PASS. Vite-only Playwright/Axe production-shell fixture
+đạt P4-06 `7/7`; combined P4-05/P4-06 đạt `14 passed`, `1` isolated provider test được skip đúng cấu
+hình.
+
+Neon disposable đã PASS read-only owner preflight với ba principal riêng biệt: direct owner và
+maintenance, pooled runtime trên cùng endpoint/database, bắt đầu ở ledger `31 false`. Exact runtime,
+PUBLIC, maintenance và dependency ACL đều PASS. PostgreSQL gates xác nhận tenant/source/participant
+authorization, privacy/opaque key, roster/FIFO/idempotency/lower/terminal cleanup, receipt replay
+24 giờ, reaction TTL/grouping/allowlist, cross-instance limits actor `3/5 s` + `20/60 s` và room
+`100/5 s`, shared/exclusive locks, invalid purge batch, future preservation và two-transaction
+`SKIP LOCKED`. Harness được harden bằng explicit timestamp cast, dependency-ordered cleanup,
+deterministic rate windows và confirmation/pre-postflight riêng P4-06. Final read-only snapshot giữ
+`32 false`, hai media feature force-off, P4-06 side-effect count `0`; disposable branch được giữ lại.
+
+Exact CI/security, shared forward, deploy và live acceptance vẫn `PENDING`; P4-06 giữ `IN PROGRESS`
+và không feature nào được bật. Evidence:
+[P4_06_STAGING_ACCEPTANCE.md](P4_06_STAGING_ACCEPTANCE.md).
 
 ### Checkpoint P4-05 `DONE` ngày 2026-08-12
 

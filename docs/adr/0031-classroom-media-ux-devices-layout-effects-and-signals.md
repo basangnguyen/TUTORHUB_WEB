@@ -246,6 +246,9 @@ arrival order hoặc display name không tham gia FIFO.
 
 - Raise/lower dùng stable idempotency key. Raise lặp trả cùng active state; lower lặp trả trạng thái
   đã hạ, không tạo queue entry mới.
+- Idempotency receipt của signal sống tối đa 24 giờ. Retry trong cửa sổ này replay cùng kết quả;
+  sau maintenance purge, cùng key được xem là request mới và vẫn phải qua authorization/version/
+  rate-limit hiện hành.
 - Participant chỉ tự hạ tay mình. Actor có `media.moderate` mới lower-one/lower-all; target và
   authority reload tại mutation.
 - Hand giữ active tới self-lower, moderator lower, participant left/removed hoặc RoomInstance
@@ -285,6 +288,8 @@ Projection grouping:
   không giới hạn;
 - TTL không kéo dài vô hạn do thêm reaction mới: mỗi cluster giữ expiry mới nhất nhưng một event
   riêng không sống quá 10 giây;
+- event hết hạn và receipt signal được hard-delete bằng hai maintenance function bounded,
+  `SECURITY DEFINER`/static search path/`SKIP LOCKED`; Core API runtime không có table-wide `DELETE`;
 - reduced-motion bỏ travel/burst animation nhưng giữ icon + count + text status.
 
 Initial cross-instance limits:

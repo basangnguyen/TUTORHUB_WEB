@@ -24,6 +24,7 @@ import type {
 import {
   ClassroomMediaShell,
   type ClassroomConnectionStatus,
+  type ClassroomSignalControls,
 } from "./ClassroomMediaShell";
 
 const manualSubscriptionConnectOptions = { autoSubscribe: false } as const;
@@ -34,7 +35,9 @@ export interface ClassroomLiveKitRoomProps {
   connectionStatus: ClassroomConnectionStatus;
   credential: MediaInstanceCredentialProjection;
   lobby?: ReactNode;
+  signals?: ClassroomSignalControls;
   onConnected: () => void;
+  onReconnecting: () => void;
   onDisconnected: () => void;
   onLeave: () => void;
   onProviderError: () => void;
@@ -97,7 +100,9 @@ function ConnectedClassroomLiveKitRoom({
   credential,
   lifecycle,
   lobby,
+  signals,
   onConnected,
+  onReconnecting,
   onDisconnected,
   onLeave,
   onProviderError,
@@ -255,23 +260,30 @@ function ConnectedClassroomLiveKitRoom({
       });
   });
   const notifyConnected = useEffectEvent(handleConnected);
+  const notifyReconnecting = useEffectEvent(onReconnecting);
   const notifyDisconnected = useEffectEvent(handleDisconnected);
   const notifyProviderError = useEffectEvent(handleProviderError);
 
   useEffect(() => {
     const handleSignalConnected = () => publishInitialTracks();
     const handleRoomConnected = () => notifyConnected();
+    const handleRoomReconnected = () => notifyConnected();
+    const handleRoomReconnecting = () => notifyReconnecting();
     const handleRoomDisconnected = () => notifyDisconnected();
 
     room
       .on(RoomEvent.SignalConnected, handleSignalConnected)
       .on(RoomEvent.Connected, handleRoomConnected)
+      .on(RoomEvent.Reconnected, handleRoomReconnected)
+      .on(RoomEvent.Reconnecting, handleRoomReconnecting)
       .on(RoomEvent.Disconnected, handleRoomDisconnected);
 
     return () => {
       room
         .off(RoomEvent.SignalConnected, handleSignalConnected)
         .off(RoomEvent.Connected, handleRoomConnected)
+        .off(RoomEvent.Reconnected, handleRoomReconnected)
+        .off(RoomEvent.Reconnecting, handleRoomReconnecting)
         .off(RoomEvent.Disconnected, handleRoomDisconnected);
     };
   }, [room]);
@@ -321,6 +333,7 @@ function ConnectedClassroomLiveKitRoom({
           connectionStatus={connectionStatus}
           controlAbortSignal={controlAbortController.signal}
           lobby={lobby}
+          signals={signals}
           onLeave={handleLeave}
           onTerminalMediaCleanup={stopOwnedLocalTracks}
         />

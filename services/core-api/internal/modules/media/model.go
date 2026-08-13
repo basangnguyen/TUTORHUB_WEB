@@ -43,6 +43,7 @@ type TokenGrant struct {
 	RoomName                   string
 	ParticipantIdentity        string
 	ParticipantName            string
+	ParticipantKey             uuid.UUID
 	Role                       string
 	OrganizationRole           string
 	ClassRole                  string

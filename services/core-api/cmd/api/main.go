@@ -464,6 +464,7 @@ func run() int {
 	var mediaService media.ServiceAPI
 	var mediaJoinAttemptService media.JoinAttemptServiceAPI
 	var mediaLobbyService media.LobbyServiceAPI
+	var mediaSignalService media.MediaSignalServiceAPI
 	var mediaCredentialService media.InstanceCredentialServiceAPI
 	var mediaWebhookProcessor media.WebhookProcessor
 	var liveKitWebhook media.WebhookVerifier
@@ -568,6 +569,19 @@ func run() int {
 			logger.Error("initialize media lobby service", "error", err)
 			return 1
 		}
+		signalRepository, err := media.NewPostgresMediaSignalRepository(
+			mediaLifecycleRepository,
+			uuid.New,
+		)
+		if err != nil {
+			logger.Error("initialize media signal repository", "error", err)
+			return 1
+		}
+		mediaSignalService, err = media.NewMediaSignalService(signalRepository)
+		if err != nil {
+			logger.Error("initialize media signal service", "error", err)
+			return 1
+		}
 		mediaWebhookProcessor, err = media.NewProviderWebhookService(
 			instanceRepository,
 			mediaService,
@@ -610,6 +624,7 @@ func run() int {
 		MediaSpaces:           mediaLifecycleService,
 		MediaJoinAttempts:     mediaJoinAttemptService,
 		MediaLobby:            mediaLobbyService,
+		MediaSignals:          mediaSignalService,
 		MediaCredentials:      mediaCredentialService,
 		MediaWebhooks:         mediaWebhookProcessor,
 		LiveKitWebhook:        liveKitWebhook,

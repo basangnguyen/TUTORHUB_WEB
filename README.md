@@ -108,7 +108,14 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
   GitHub Verify/Security, shared read-only `31 false`, exact Render/Cloudflare deploy và live
   `13/13` public/anonymous + Admin feature-off acceptance đều PASS; không migration/rollback/ACL
   mutation. Physical/manual/load/outage/effect gates vẫn `UNVERIFIED — P4-11`.
-  Task runnable tiếp theo là P4-06 Participant roster, hand raise và reaction.
+- P4-06 Participant roster, hand raise và reaction đang `IN PROGRESS` ngày 2026-08-13. Local
+  candidate đã có forward migration `000032`, versioned privacy-safe roster, Core API hand/reaction
+  authority, cross-instance rate-limit, signed opaque LiveKit participant key và classroom UI/resync/
+  accessibility. Exact local web `400/400`, API client `50/50`, Go test/vet, security/build và
+  P4-06 Playwright/Axe `7/7` đều PASS. Neon disposable đã PASS three-principal preflight,
+  forward-only `31 false -> 32 false -> 32 false`, exact ACL, focused PostgreSQL signal/retention/
+  concurrency gates và final force-off/side-effect-zero postflight; không rollback và branch được giữ.
+  Chưa push exact candidate, migrate shared, deploy hoặc bật media feature.
 - P5-COLLAB-00 đã được đăng ký làm research spike tương lai cho whiteboard engine,
   document/sync authority, license và realtime topology. Task vẫn `TODO`, không chặn P4-02
   và không cho phép thêm production dependency/runtime trước prototype, evidence và ADR.

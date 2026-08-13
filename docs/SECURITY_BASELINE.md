@@ -114,6 +114,20 @@ anonymous MediaSpace/join paths fail closed trước service/provider, không Se
 metadata. Exact CI/security, isolated LiveKit grant/cleanup, shared read-only `31 false`/exact ACL và
 live Admin feature-off acceptance đều PASS; manual physical/load/outage/effect gates vẫn thuộc P4-11.
 
+**P4-06 participant signal boundary:** Core API/PostgreSQL là authority duy nhất cho roster order,
+hand FIFO, moderator lower-one/all và reaction acceptance. Request không được khai actor/tenant/role;
+server reload active workspace, source access, exact RoomInstance và active ParticipantSession, bind
+expected versions cùng stable idempotency và dùng PostgreSQL cross-instance limiter. Public projection
+chỉ có opaque participant key, monotonic sequence, bounded display label/role/coarse connection state;
+không có email, user/session/join/provider ID. LiveKit attribute chỉ là signed correlation key,
+`CanUpdateOwnMetadata=false` và `CanPublishData=false`. Migration `000032`/exact ACL phải PASS trên
+disposable trước shared; feature vẫn force-off trong khi task `IN PROGRESS`.
+GET snapshot dùng shared tenant feature-control lock để 25/50 reader không serialize lẫn nhau, còn
+mutation/lifecycle giữ exclusive lock. PostgreSQL `clock_timestamp()` sau lock là authority duy nhất
+cho sequence time, reaction TTL và rate window. Reaction event chỉ hiện 10 giây; signal idempotency
+receipt giữ 24 giờ. Hai hard-retention purge chạy qua exact maintenance `EXECUTE`, bounded batch và
+`FOR UPDATE SKIP LOCKED`; Core API runtime/PUBLIC không có direct table-wide `DELETE` trên signal data.
+
 ## 4. Web security
 
 - CSP nghiêm ngặt, không phụ thuộc inline script/eval.

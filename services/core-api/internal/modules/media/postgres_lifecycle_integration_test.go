@@ -109,8 +109,8 @@ func runPostgresMediaLifecycleRuntimeExactACL(t *testing.T, applyMigrations bool
 	).Scan(&version, &dirty); err != nil {
 		t.Fatal("inspect exact media lifecycle ACL ledger")
 	}
-	if version != 31 || dirty {
-		t.Fatal("exact media lifecycle ACL requires ledger 31 false")
+	if version != 32 || dirty {
+		t.Fatal("exact media lifecycle ACL requires ledger 32 false")
 	}
 
 	var schemaUsage, schemaCreate bool
@@ -134,7 +134,8 @@ func runPostgresMediaLifecycleRuntimeExactACL(t *testing.T, applyMigrations bool
 		"media_spaces", "media_room_instances", "media_space_members",
 		"media_admission_requests", "media_participant_sessions",
 		"media_space_mutation_receipts", "media_provider_webhook_receipts",
-		"livekit_webhook_events",
+		"media_participant_hand_states", "media_reaction_events",
+		"media_signal_mutation_receipts", "livekit_webhook_events",
 	}
 	var publicTableGrants, publicColumnGrants int
 	if err := migrationQueries.QueryRow(ctx, `SELECT
@@ -1671,6 +1672,18 @@ func cleanupMediaIntegrationFixture(
 	// CI/disposable identifiers are unique, so retain exercised fixtures for inspection.
 	if retainedAudit {
 		return
+	}
+	for _, statement := range []string{
+		`DELETE FROM tutorhub.media_spaces WHERE tenant_id = ANY($1::uuid[])`,
+		`DELETE FROM tutorhub.study_meetings WHERE tenant_id = ANY($1::uuid[])`,
+		`DELETE FROM tutorhub.class_sessions WHERE tenant_id = ANY($1::uuid[])`,
+		`DELETE FROM tutorhub.class_enrollments WHERE tenant_id = ANY($1::uuid[])`,
+		`DELETE FROM tutorhub.classes WHERE tenant_id = ANY($1::uuid[])`,
+	} {
+		if _, err := pool.Exec(ctx, statement, tenantIDs); err != nil {
+			t.Errorf("delete media integration dependent fixture: %v", err)
+			return
+		}
 	}
 	if _, err := pool.Exec(ctx, `DELETE FROM tutorhub.tenants WHERE id = ANY($1::uuid[])`,
 		tenantIDs,

@@ -330,6 +330,13 @@ RETURNING version`,
 		existing.InstanceRole = source.InstanceRole
 		existing.JoiningAt = sql.NullTime{Time: now, Valid: true}
 		existing.UpdatedAt = now
+		if err := advanceMediaRosterProjection(
+			queryContext, transaction, scope.TenantID, space.ID, room.ID,
+		); err != nil {
+			return ParticipantCredentialGrant{}, repository.lifecycle.unavailable(
+				"advance media roster joining projection", err,
+			)
+		}
 	} else if existing.InstanceRole != source.InstanceRole {
 		err := transaction.QueryRow(
 			queryContext,
@@ -351,6 +358,13 @@ RETURNING version`,
 		}
 		existing.InstanceRole = source.InstanceRole
 		existing.UpdatedAt = now
+		if err := advanceMediaRosterProjection(
+			queryContext, transaction, scope.TenantID, space.ID, room.ID,
+		); err != nil {
+			return ParticipantCredentialGrant{}, repository.lifecycle.unavailable(
+				"advance media roster role projection", err,
+			)
+		}
 	}
 	if err := transaction.Commit(queryContext); err != nil {
 		return ParticipantCredentialGrant{}, repository.lifecycle.unavailable(
@@ -508,6 +522,7 @@ func (repository *PostgresInstanceRepository) CreateOrReuseJoinAttempt(
 
 	participant := participantRow{
 		ID:               repository.newID(),
+		ParticipantKey:   repository.newID(),
 		JoinAttemptID:    input.JoinAttemptID,
 		ProviderIdentity: opaqueParticipantIdentity(repository.newID()),
 		InstanceRole:     source.InstanceRole,
@@ -516,8 +531,21 @@ func (repository *PostgresInstanceRepository) CreateOrReuseJoinAttempt(
 		CreatedAt:        now,
 		UpdatedAt:        now,
 	}
-	if participant.ID == uuid.Nil || !validProviderIdentifier(participant.ProviderIdentity, 128) {
+	if participant.ID == uuid.Nil || participant.ParticipantKey == uuid.Nil ||
+		!validProviderIdentifier(participant.ProviderIdentity, 128) {
 		return CreateJoinAttemptResult{}, ErrLifecycleUnavailable
+	}
+	if err := transaction.QueryRow(
+		queryContext,
+		`UPDATE tutorhub.media_room_instances
+SET next_roster_sequence = next_roster_sequence + 1
+WHERE tenant_id = $1 AND space_id = $2 AND id = $3
+RETURNING next_roster_sequence`,
+		scope.TenantID, space.ID, room.ID,
+	).Scan(&participant.RosterSequence); err != nil {
+		return CreateJoinAttemptResult{}, repository.lifecycle.unavailable(
+			"allocate media roster sequence", err,
+		)
 	}
 	if space.LobbyEnabled && source.InstanceRole == InstanceRoleAttendee {
 		admissionID := repository.newID()
@@ -558,12 +586,14 @@ VALUES ($1, $2, $3, $4, $5, 'waiting', 1, $6, $7, $8, $8)`,
 		`INSERT INTO tutorhub.media_participant_sessions (
     id, tenant_id, space_id, room_instance_id, user_id, admission_request_id,
     join_attempt_id, provider_participant_identity, instance_role, status,
-    capacity_reserved, version, admitted_at, created_at, updated_at
+    capacity_reserved, version, admitted_at, participant_key, roster_sequence,
+    created_at, updated_at
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, true, 1, $11, $12, $12)`,
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, true, 1, $11, $12, $13, $14, $14)`,
 		participant.ID, scope.TenantID, space.ID, room.ID, scope.ActorID,
 		admissionRequestID, participant.JoinAttemptID, participant.ProviderIdentity,
-		participant.InstanceRole, participant.Status, admittedAt, now,
+		participant.InstanceRole, participant.Status, admittedAt,
+		participant.ParticipantKey, participant.RosterSequence, now,
 	); err != nil {
 		return CreateJoinAttemptResult{}, repository.lifecycle.unavailable(
 			"insert media participant join attempt", err,
@@ -730,6 +760,8 @@ func (repository *PostgresInstanceRepository) RecordProviderWebhook(
 
 type participantRow struct {
 	ID                 uuid.UUID
+	ParticipantKey     uuid.UUID
+	RosterSequence     int64
 	AdmissionRequestID uuid.NullUUID
 	AdmissionVersion   sql.NullInt64
 	AdmissionCreatedAt sql.NullTime
@@ -758,7 +790,8 @@ func loadParticipantByAttempt(
 	var participant participantRow
 	err := transaction.QueryRow(
 		ctx,
-		`SELECT participant.id, participant.admission_request_id, participant.join_attempt_id,
+		`SELECT participant.id, participant.participant_key, participant.roster_sequence,
+       participant.admission_request_id, participant.join_attempt_id,
        participant.provider_participant_identity, participant.instance_role,
        participant.status, participant.version, participant.admitted_at,
        participant.joining_at, participant.created_at, participant.updated_at,
@@ -775,7 +808,8 @@ WHERE participant.tenant_id = $1 AND participant.room_instance_id = $2
 FOR UPDATE OF participant`,
 		tenantID, roomInstanceID, userID, joinAttemptID,
 	).Scan(
-		&participant.ID, &participant.AdmissionRequestID, &participant.JoinAttemptID,
+		&participant.ID, &participant.ParticipantKey, &participant.RosterSequence,
+		&participant.AdmissionRequestID, &participant.JoinAttemptID,
 		&participant.ProviderIdentity, &participant.InstanceRole, &participant.Status,
 		&participant.Version, &participant.AdmittedAt, &participant.JoiningAt,
 		&participant.CreatedAt, &participant.UpdatedAt,
@@ -984,6 +1018,7 @@ func participantGrant(
 ) ParticipantCredentialGrant {
 	return ParticipantCredentialGrant{
 		ParticipantSessionID:        participant.ID,
+		ParticipantKey:              participant.ParticipantKey,
 		RoomInstanceID:              room.ID,
 		JoinAttemptID:               participant.JoinAttemptID,
 		ProviderRoomName:            room.ProviderRoomName,
@@ -1311,7 +1346,9 @@ WHERE tenant_id = $1 AND space_id = $2 AND room_instance_id = $3
 			if tag.RowsAffected() != 1 {
 				return ErrSpaceTransition
 			}
-			return nil
+			return advanceMediaRosterProjection(
+				ctx, transaction, binding.TenantID, binding.SpaceID, binding.RoomInstanceID,
+			)
 		}
 	}
 	switch participant.Status {
@@ -1338,8 +1375,43 @@ WHERE tenant_id = $1 AND space_id = $2 AND room_instance_id = $3
 		if tag.RowsAffected() != 1 {
 			return ErrSpaceTransition
 		}
-		return nil
+		if _, err := transaction.Exec(
+			ctx,
+			`UPDATE tutorhub.media_participant_hand_states
+SET is_raised = false
+WHERE tenant_id = $1 AND room_instance_id = $2 AND participant_session_id = $3
+  AND is_raised`,
+			binding.TenantID, binding.RoomInstanceID, participant.ID,
+		); err != nil {
+			return err
+		}
+		return advanceMediaRosterProjection(
+			ctx, transaction, binding.TenantID, binding.SpaceID, binding.RoomInstanceID,
+		)
 	}
+}
+
+func advanceMediaRosterProjection(
+	ctx context.Context,
+	transaction pgx.Tx,
+	tenantID uuid.UUID,
+	spaceID uuid.UUID,
+	roomInstanceID uuid.UUID,
+) error {
+	tag, err := transaction.Exec(
+		ctx,
+		`UPDATE tutorhub.media_room_instances
+SET projection_version = projection_version + 1
+WHERE tenant_id = $1 AND space_id = $2 AND id = $3`,
+		tenantID, spaceID, roomInstanceID,
+	)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() != 1 {
+		return ErrSpaceTransition
+	}
+	return nil
 }
 
 func loadWebhookParticipant(

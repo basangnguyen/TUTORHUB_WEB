@@ -33,6 +33,15 @@ func (enforcer *observedFeatureControlEnforcer) RequireFeature(
 	return enforcer.observe(enforcer.next.RequireFeature(ctx, transaction, tenantID, key))
 }
 
+func (enforcer *observedFeatureControlEnforcer) RequireFeatureForRead(
+	ctx context.Context,
+	transaction featurecontrol.Transaction,
+	tenantID uuid.UUID,
+	key featurecontrol.FeatureKey,
+) error {
+	return enforcer.observe(enforcer.next.RequireFeatureForRead(ctx, transaction, tenantID, key))
+}
+
 func (enforcer *observedFeatureControlEnforcer) RequireMemberCapacity(
 	ctx context.Context,
 	transaction featurecontrol.Transaction,

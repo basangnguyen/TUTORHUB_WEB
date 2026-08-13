@@ -21,6 +21,7 @@ func TestInstanceCredentialServiceIssuesExactP4GrantWithoutProviderIdentifiers(t
 	spaceID := uuid.New()
 	roomInstanceID := uuid.New()
 	participantSessionID := uuid.New()
+	participantKey := uuid.New()
 	joinAttemptID := uuid.New()
 	const (
 		providerRoomName            = "r_0123456789abcdef0123456789abcdef"
@@ -28,6 +29,7 @@ func TestInstanceCredentialServiceIssuesExactP4GrantWithoutProviderIdentifiers(t
 	)
 	repository := &fakeInstanceCredentialRepository{grant: ParticipantCredentialGrant{
 		ParticipantSessionID:        participantSessionID,
+		ParticipantKey:              participantKey,
 		RoomInstanceID:              roomInstanceID,
 		JoinAttemptID:               joinAttemptID,
 		ProviderRoomName:            providerRoomName,
@@ -69,6 +71,7 @@ func TestInstanceCredentialServiceIssuesExactP4GrantWithoutProviderIdentifiers(t
 	grant := issuer.grant
 	if grant.RoomName != providerRoomName ||
 		grant.ParticipantIdentity != providerParticipantIdentity ||
+		grant.ParticipantKey != participantKey ||
 		grant.ParticipantName != "Teaching assistant" ||
 		grant.Role != string(InstanceRoleTeachingAssistant) ||
 		grant.OrganizationRole != "" || grant.ClassRole != "" ||
@@ -131,6 +134,7 @@ func TestInstanceCredentialServiceRejectsInvalidRepositoryGrantBeforeIssuer(t *t
 	joinAttemptID := uuid.New()
 	repository := &fakeInstanceCredentialRepository{grant: ParticipantCredentialGrant{
 		ParticipantSessionID:        uuid.New(),
+		ParticipantKey:              uuid.New(),
 		RoomInstanceID:              uuid.New(),
 		JoinAttemptID:               uuid.New(),
 		ProviderRoomName:            "r_0123456789abcdef0123456789abcdef",
@@ -159,6 +163,7 @@ func TestInstanceCredentialServiceNormalizesIssuerFailureAsProviderUnavailable(t
 	const sensitiveDetail = "provider-sensitive-signing-detail"
 	repository := &fakeInstanceCredentialRepository{grant: ParticipantCredentialGrant{
 		ParticipantSessionID:        uuid.New(),
+		ParticipantKey:              uuid.New(),
 		RoomInstanceID:              uuid.New(),
 		JoinAttemptID:               joinAttemptID,
 		ProviderRoomName:            "r_0123456789abcdef0123456789abcdef",

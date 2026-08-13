@@ -12,7 +12,10 @@ import {
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../../app/i18n";
-import { ClassroomMediaShell } from "./ClassroomMediaShell";
+import {
+  ClassroomMediaShell,
+  type ClassroomSignalControls,
+} from "./ClassroomMediaShell";
 
 const liveKitState = vi.hoisted(() => {
   class MockRemoteTrackPublication {
@@ -82,6 +85,7 @@ const liveKitState = vi.hoisted(() => {
 });
 
 interface MockParticipant {
+  attributes?: Record<string, string>;
   identity: string;
   isLocal: boolean;
   joinedAt?: Date;
@@ -170,6 +174,8 @@ vi.mock("@livekit/components-react", () => ({
       className: kind,
     };
   },
+  useParticipants: () =>
+    liveKitState.cameraTrackRefs.map(({ participant }) => participant),
   useSpeakingParticipants: () => liveKitState.speakingParticipants,
   useTracks: (
     sources: Array<string | { source: string }>,
@@ -355,6 +361,126 @@ describe("ClassroomMediaShell", () => {
       "Learner 2",
       "Learner 6",
     ]);
+  });
+
+  it("uses only the signed participant key to correlate canonical server roster order", () => {
+    liveKitState.cameraTrackRefs = createCameraTracks(3);
+    const participantKeys = [
+      "018f4c7b-9b0a-7a34-8a4c-96d26cb87221",
+      "018f4c7b-9b0a-7a34-8a4c-96d26cb87222",
+      "018f4c7b-9b0a-7a34-8a4c-96d26cb87223",
+    ];
+    liveKitState.cameraTrackRefs.forEach((track, index) => {
+      track.participant.attributes = {
+        "tutorhub.participant_key": participantKeys[index]!,
+      };
+      track.participant.identity = `unsafe-provider-identity-${index}`;
+      track.participant.name = `unsafe-provider-name-${index}@example.test`;
+      track.participant.joinedAt = new Date(99_000 - index);
+    });
+    const signals = createSignalControls({
+      projection: {
+        ...createSignalControls().projection!,
+        self_participant_key: participantKeys[1]!,
+        roster: [
+          {
+            participant_key: participantKeys[2]!,
+            roster_sequence: 1,
+            display_name: "Canonical First",
+            instance_role: "attendee",
+            connection_state: "connected",
+          },
+          {
+            participant_key: participantKeys[1]!,
+            roster_sequence: 2,
+            display_name: "Canonical Self",
+            instance_role: "host",
+            connection_state: "connected",
+          },
+          {
+            participant_key: participantKeys[0]!,
+            roster_sequence: 3,
+            display_name: "Canonical Last",
+            instance_role: "attendee",
+            connection_state: "reconnecting",
+          },
+        ],
+      },
+    });
+    const view = renderShell({ signals });
+    const visibleNames = Array.from(
+      view.container.querySelectorAll(
+        ".media-p405-grid .media-p405-tile-meta > span",
+      ),
+    ).map((element) => element.textContent);
+
+    expect(visibleNames).toEqual([
+      "Canonical First",
+      "Canonical Self",
+      "Canonical Last",
+    ]);
+    expect(view.container.textContent).not.toContain("unsafe-provider");
+  });
+
+  it("requires server ACK for hand/reaction success and exposes bounded moderation controls", async () => {
+    const toggleHand = vi.fn().mockResolvedValue(undefined);
+    const sendReaction = vi.fn().mockResolvedValue(undefined);
+    const lowerHand = vi.fn().mockResolvedValue(undefined);
+    const lowerAll = vi.fn().mockResolvedValue(undefined);
+    const signals = createSignalControls({
+      onLowerAllHands: lowerAll,
+      onLowerHand: lowerHand,
+      onSendReaction: sendReaction,
+      onToggleHand: toggleHand,
+      projection: {
+        ...createSignalControls().projection!,
+        viewer_operations: {
+          can_raise_hand: true,
+          can_send_reaction: true,
+          can_moderate_hands: true,
+        },
+        raised_hands: [
+          {
+            display_name: "Student One",
+            participant_key: "018f4c7b-9b0a-7a34-8a4c-96d26cb87222",
+            queue_position: 1,
+            raised_at: "2030-08-03T00:00:00Z",
+            signal_sequence: 4,
+          },
+        ],
+      },
+    });
+    renderShell({ signals });
+
+    const raise = screen.getByRole("button", { name: "Raise hand" });
+    fireEvent.click(raise);
+    expect(toggleHand).toHaveBeenCalledTimes(1);
+    expect(raise).toHaveAttribute("aria-pressed", "false");
+    expect(await screen.findByText("Your hand is raised.")).toBeInTheDocument();
+
+    fireEvent.pointerDown(
+      screen.getByRole("button", { name: "Send a reaction" }),
+      { button: 0, ctrlKey: false },
+    );
+    fireEvent.click(await screen.findByRole("menuitem", { name: /Clap/ }));
+    await waitFor(() => expect(sendReaction).toHaveBeenCalledWith("clap"));
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Open classroom roster" }),
+    );
+    expect(
+      await screen.findByRole("heading", { name: "Classroom roster" }),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Lower all hands" }));
+    await waitFor(() => expect(lowerAll).toHaveBeenCalledTimes(1));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Lower Student One's hand" }),
+    );
+    await waitFor(() =>
+      expect(lowerHand).toHaveBeenCalledWith(
+        "018f4c7b-9b0a-7a34-8a4c-96d26cb87222",
+      ),
+    );
   });
 
   it("retires an old page before subscribing replacements in reversed provider order", async () => {
@@ -1065,4 +1191,51 @@ function createDeferred<T>() {
     reject = rejectPromise;
   });
   return { promise, reject, resolve };
+}
+
+function createSignalControls(
+  overrides: Partial<ClassroomSignalControls> = {},
+): ClassroomSignalControls {
+  return {
+    error: false,
+    loading: false,
+    mutating: false,
+    projection: {
+      room_instance_id: "c5f918a5-a09e-4f94-9fab-fb0ab5702a4d",
+      projection_version: 4,
+      last_signal_sequence: 9,
+      self_participant_key: "018f4c7b-9b0a-7a34-8a4c-96d26cb87221",
+      viewer_operations: {
+        can_raise_hand: true,
+        can_send_reaction: true,
+        can_moderate_hands: false,
+      },
+      roster: [
+        {
+          participant_key: "018f4c7b-9b0a-7a34-8a4c-96d26cb87221",
+          roster_sequence: 1,
+          display_name: "Teacher One",
+          instance_role: "host",
+          connection_state: "connected",
+        },
+        {
+          participant_key: "018f4c7b-9b0a-7a34-8a4c-96d26cb87222",
+          roster_sequence: 2,
+          display_name: "Student One",
+          instance_role: "attendee",
+          connection_state: "connected",
+        },
+      ],
+      raised_hands: [],
+      reactions: { clusters: [], hidden_cluster_count: 0, summary: [] },
+      server_time: "2030-08-03T00:00:00Z",
+    },
+    refreshing: false,
+    onLowerAllHands: vi.fn().mockResolvedValue(undefined),
+    onLowerHand: vi.fn().mockResolvedValue(undefined),
+    onResync: vi.fn().mockResolvedValue(undefined),
+    onSendReaction: vi.fn().mockResolvedValue(undefined),
+    onToggleHand: vi.fn().mockResolvedValue(undefined),
+    ...overrides,
+  };
 }

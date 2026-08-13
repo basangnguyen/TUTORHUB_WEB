@@ -25,7 +25,12 @@ Local/disposable/isolated LiveKit gates, exact GitHub CI/security, shared read-o
 Render/Cloudflare deploy và live privacy/feature-off/no-side-effect acceptance đều PASS; không
 migration/rollback/ACL mutation và hai media feature vẫn off. Evidence tại
 [P4_05_STAGING_ACCEPTANCE.md](P4_05_STAGING_ACCEPTANCE.md).
-**Task hiện tại:** `P4-06` Participant roster, hand raise và reaction (`TODO`).
+**Task hiện tại:** `P4-06` Participant roster, hand raise và reaction (`IN PROGRESS`). Candidate đang
+triển khai server-authoritative roster/hand/reaction theo
+[P4_06_STAGING_ACCEPTANCE.md](P4_06_STAGING_ACCEPTANCE.md); feature vẫn deployment-force-off và chưa
+forward shared staging. Exact local web/API/Go/security, P4-06 Playwright/Axe và Neon disposable
+forward-only `31 false -> 32 false -> 32 false` cùng exact ACL/PostgreSQL runtime gates đã PASS.
+Exact candidate CI/security, shared staging, deploy và live acceptance là các gate tiếp theo.
 
 `P4-MEDIA-UX-00` đã `DONE`; không đổi LiveKit provider, không thêm processor production dependency
 hoặc mở `CanPublishData=false`. P4-03/P4-04/P4-05/P4-06/P4-11 phải tuân ADR-0031 và báo rõ các
@@ -77,7 +82,7 @@ physical/manual effect gate còn `UNVERIFIED` thay vì suy PASS từ research.
 | P4-03          | Prejoin device/network và join-attempt flow         | P4-02, P4-MEDIA-UX-00           | DONE       |
 | P4-04          | Lobby, admission và explicit same-tenant invite     | P4-02, P4-03, P4-MEDIA-UX-00    | DONE       |
 | P4-05          | Classroom shell, media controls và layouts          | P4-03, P4-MEDIA-UX-00           | DONE       |
-| P4-06          | Participant roster, hand raise và reaction          | P4-04, P4-05, P4-MEDIA-UX-00    | TODO       |
+| P4-06          | Participant roster, hand raise và reaction          | P4-04, P4-05, P4-MEDIA-UX-00    | IN PROGRESS |
 | P4-07          | Host/co-host/TA moderation, lock/mute/remove/end    | P4-04, P4-06                    | TODO       |
 | P4-08          | Persistent in-room chat                             | P4-01, P3-07A; ADR review       | TODO       |
 | P4-09          | Reconnect, recovery instance và degraded audio-only | P4-02, P4-05, P4-07             | TODO       |
@@ -421,7 +426,8 @@ load/outage/effect gates vẫn `UNVERIFIED — P4-11`.
 
 ## 13. P4-06 Participant roster, hand raise và reaction
 
-**Dependency:** P4-04/P4-05/P4-MEDIA-UX-00. **Trạng thái:** `TODO`.
+**Dependency:** P4-04/P4-05/P4-MEDIA-UX-00. **Trạng thái:** `IN PROGRESS` ngày 2026-08-13.
+**Acceptance:** [P4_06_STAGING_ACCEPTANCE.md](P4_06_STAGING_ACCEPTANCE.md).
 
 ### Scope
 
@@ -431,8 +437,12 @@ load/outage/effect gates vẫn `UNVERIFIED — P4-11`.
 - FIFO dùng server sequence; moderator lower-one/lower-all, reaction TTL/grouping và bounded a11y
   announcements theo contract đã chốt bởi research spike.
 - Hand không auto-lower theo active speaker. Reaction enum `thumbs_up/clap/heart/celebrate/laugh/
-surprised`, TTL 10 giây, grouping 750 ms/max 3 visual cluster, actor 3/5s + 20/min và room 100/5s.
+surprised`, TTL 10 giây, grouping 750 ms, snapshot max 50 summary/UI max 3 visual cluster, actor
+  3/5s + 20/min và room 100/5s.
 - Active-speaker/quality remain provider ephemeral; bounded resync after signal loss.
+- Snapshot poll dùng shared tenant read lock; mutation giữ exclusive lock và timestamp lấy từ
+  PostgreSQL sau lock. Reaction hard purge + signal receipt retention 24 giờ đi qua exact maintenance
+  `SECURITY DEFINER`/`SKIP LOCKED`; runtime không có table-wide `DELETE`.
 
 ### Acceptance
 
@@ -444,6 +454,20 @@ surprised`, TTL 10 giây, grouping 750 ms/max 3 visual cluster, actor 3/5s + 20/
 - [ ] Roster/reaction accessible without color-only meaning and does not expose email/session ID.
 - [ ] Hand/reaction duplicate/retry/offline/403/409/429/sequence-gap hội tụ qua versioned snapshot;
       25/50 storm không tạo DOM/live-region unbounded và direct DataChannel không đổi authority.
+- [ ] Reaction/receipt retention purge bounded, exact maintenance ACL và two-transaction
+      `SKIP LOCKED` PASS; runtime/PUBLIC direct `DELETE` denied.
+
+### Disposable checkpoint — `PASS` ngày 2026-08-13
+
+- Read-only preflight xác thực direct owner + direct maintenance + pooled runtime là ba principal
+  riêng trên cùng Neon disposable database ở ledger `31 false`.
+- Forward-only `31 false -> 32 false -> 32 false`, exact runtime/PUBLIC/maintenance/dependency ACL,
+  retention purge và two-transaction `SKIP LOCKED` đều PASS; không rollback.
+- Roster privacy/tenant/source/opaque key, FIFO/idempotency/moderator lower/terminal cleanup,
+  24 giờ replay, reaction TTL/grouping/allowlist, actor `3/5 s` + `20/60 s`, room `100/5 s` và
+  shared-read/exclusive-write concurrency đều PASS.
+- Final postflight giữ `32 false`, media feature force-off, P4-06 side-effect count `0`; branch được
+  giữ lại. P4-06 chưa `DONE` vì CI/security, shared staging, deploy và live acceptance còn mở.
 
 ## 14. P4-07 Host/co-host/TA moderation
 
@@ -613,5 +637,5 @@ PostgreSQL. Mỗi implementation slice phải cập nhật khi thêm provider co
 5. P4-05 đã `DONE`: local/disposable/isolated LiveKit, exact CI/security, shared read-only và
    exact deploy/live acceptance đều PASS; không migration/rollback/ACL mutation và capability/effect
    vẫn force-off.
-6. Bắt đầu P4-06 participant roster, hand raise và reaction trên canonical room shell; giữ Core API
-   làm authority và `CanPublishData=false`.
+6. P4-06 local + Neon disposable đã PASS; tiếp tục exact candidate CI/security, shared forward,
+   deploy và live acceptance, giữ Core API làm authority và `CanPublishData=false`.

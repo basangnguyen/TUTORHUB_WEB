@@ -1,6 +1,6 @@
 import { getMediaSpace } from "@tutorhub/api-client";
 import { useQuery } from "@tanstack/react-query";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { useI18n, type TranslationKey } from "../app/i18n";
 import {
@@ -8,13 +8,25 @@ import {
   finalizeMediaRoomEscrowClaim,
   takeMediaRoomEscrow,
 } from "../app/mediaPrejoin";
+import {
+  mediaSignalIdempotencyKey,
+  useMediaSignalSnapshot,
+  useMutateMediaSignal,
+} from "../app/mediaSignals";
 import { useSession } from "../app/session";
 import { MediaLobbyPanel } from "../components/MediaLobbyPanel";
 import {
   ClassroomLiveKitRoom,
   type ClassroomLiveKitRoomProps,
 } from "../features/media/ClassroomLiveKitRoom";
-import type { ClassroomConnectionStatus } from "../features/media/ClassroomMediaShell";
+import type {
+  ClassroomConnectionStatus,
+  ClassroomSignalControls,
+} from "../features/media/ClassroomMediaShell";
+import {
+  projectClassroomSignalSnapshot,
+  type ClassroomReactionType,
+} from "../features/media/classroomSignals";
 
 export function MediaSpaceRoomPage() {
   const { spaceId, roomInstanceId } = useParams();
@@ -50,6 +62,10 @@ function MediaSpaceRoomSession({
   const [roomStatus, setRoomStatus] =
     useState<ClassroomConnectionStatus>("connecting");
   const [roomError, setRoomError] = useState<TranslationKey | null>(null);
+  const [signalClock, setSignalClock] = useState({
+    dataUpdatedAt: 0,
+    now: 0,
+  });
   const mediaSpace = useQuery({
     enabled: Boolean(spaceId && tenantId),
     queryKey: ["media-space-room", tenantId, spaceId],
@@ -82,9 +98,112 @@ function MediaSpaceRoomSession({
   const viewerOperations = mediaP404ViewerOperations(
     mediaSpace.data?.viewer_operations,
   );
+  const signalScopeReady = Boolean(
+    tenantId &&
+    spaceId &&
+    activeRoom?.id === roomInstanceId &&
+    activeRoom?.status === "active",
+  );
+  const signalQuery = useMediaSignalSnapshot(
+    tenantId,
+    spaceId ?? "",
+    roomInstanceId ?? "",
+    mediaSpace.data?.version ?? 0,
+    activeRoom?.version ?? 0,
+    signalScopeReady && roomStatus === "connected",
+  );
+  const signalMutation = useMutateMediaSignal(
+    tenantId,
+    spaceId ?? "",
+    roomInstanceId ?? "",
+    mediaSpace.data?.version ?? 0,
+    activeRoom?.version ?? 0,
+  );
+  const signalProjection = useMemo(() => {
+    if (!signalQuery.data) return null;
+    const snapshotServerTime = Date.parse(signalQuery.data.server_time);
+    const elapsedClientTime =
+      signalClock.dataUpdatedAt === signalQuery.dataUpdatedAt
+        ? Math.max(0, signalClock.now - signalQuery.dataUpdatedAt)
+        : 0;
+    return projectClassroomSignalSnapshot(
+      signalQuery.data,
+      snapshotServerTime + elapsedClientTime,
+    );
+  }, [signalClock, signalQuery.data, signalQuery.dataUpdatedAt]);
+
+  useEffect(() => {
+    if (!signalQuery.data || roomStatus !== "connected") return undefined;
+    const dataUpdatedAt = signalQuery.dataUpdatedAt;
+    const timer = globalThis.setInterval(() => {
+      setSignalClock({ dataUpdatedAt, now: Date.now() });
+    }, 500);
+    return () => globalThis.clearInterval(timer);
+  }, [roomStatus, signalQuery.data, signalQuery.dataUpdatedAt]);
+
+  const runSignalMutation = useCallback(
+    async (
+      kind:
+        | "hand_raise"
+        | "hand_lower"
+        | "hand_lower_one"
+        | "hand_lower_all"
+        | "reaction",
+      options: {
+        reaction?: ClassroomReactionType;
+        targetParticipantKey?: string;
+      } = {},
+    ) => {
+      if (!signalProjection) {
+        throw new Error("Classroom signal projection is not ready.");
+      }
+      await signalMutation.mutateAsync({
+        expectedProjectionVersion: signalProjection.projection_version,
+        idempotencyKey: mediaSignalIdempotencyKey(kind),
+        kind,
+        reaction: options.reaction,
+        targetParticipantKey: options.targetParticipantKey,
+      });
+    },
+    [signalMutation, signalProjection],
+  );
+
+  const signalControls = useMemo<ClassroomSignalControls>(
+    () => ({
+      error: signalQuery.isError,
+      loading: signalQuery.isPending,
+      mutating: signalMutation.isPending,
+      projection: signalProjection,
+      refreshing: signalQuery.isFetching && !signalQuery.isPending,
+      onLowerAllHands: () => runSignalMutation("hand_lower_all"),
+      onLowerHand: (targetParticipantKey) =>
+        runSignalMutation("hand_lower_one", { targetParticipantKey }),
+      onResync: async () => signalQuery.refetch(),
+      onSendReaction: (reaction) => runSignalMutation("reaction", { reaction }),
+      onToggleHand: () => {
+        const ownHand = signalProjection?.raised_hands.some(
+          ({ participant_key }) =>
+            participant_key === signalProjection.self_participant_key,
+        );
+        return runSignalMutation(ownHand ? "hand_lower" : "hand_raise");
+      },
+    }),
+    [
+      runSignalMutation,
+      signalMutation.isPending,
+      signalProjection,
+      signalQuery,
+    ],
+  );
 
   const handleConnected = useCallback(() => {
     setRoomStatus("connected");
+    setRoomError(null);
+    if (signalScopeReady) void signalQuery.refetch();
+  }, [signalQuery, signalScopeReady]);
+
+  const handleReconnecting = useCallback(() => {
+    setRoomStatus("reconnecting");
     setRoomError(null);
   }, []);
 
@@ -196,9 +315,11 @@ function MediaSpaceRoomSession({
     credential: handoff.credential,
     lobby,
     onConnected: handleConnected,
+    onReconnecting: handleReconnecting,
     onDisconnected: handleDisconnected,
     onLeave: handleLeave,
     onProviderError: handleProviderError,
+    signals: signalControls,
   };
 
   return (

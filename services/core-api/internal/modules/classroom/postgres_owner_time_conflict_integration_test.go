@@ -272,6 +272,15 @@ func (allowOwnerTimeConflictFeatures) RequireFeature(
 	return nil
 }
 
+func (allowOwnerTimeConflictFeatures) RequireFeatureForRead(
+	context.Context,
+	featurecontrol.Transaction,
+	uuid.UUID,
+	featurecontrol.FeatureKey,
+) error {
+	return nil
+}
+
 func (allowOwnerTimeConflictFeatures) RequireMemberCapacity(
 	context.Context,
 	featurecontrol.Transaction,

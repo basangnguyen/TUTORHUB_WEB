@@ -38,6 +38,8 @@ const apiMocks = vi.hoisted(() => ({
   getJoinAttempt: vi.fn(),
   getMediaSpace: vi.fn(),
   issueJoinCredential: vi.fn(),
+  listParticipants: vi.fn(),
+  mutateSignal: vi.fn(),
   rotateCSRFToken: vi.fn(),
 }));
 
@@ -84,6 +86,8 @@ vi.mock("@tutorhub/api-client", async (importOriginal) => {
     getMediaJoinAttempt: apiMocks.getJoinAttempt,
     getMediaSpace: apiMocks.getMediaSpace,
     issueMediaSpaceJoinCredential: apiMocks.issueJoinCredential,
+    listMediaSpaceParticipants: apiMocks.listParticipants,
+    mutateMediaSpaceSignal: apiMocks.mutateSignal,
     rotateCSRFToken: apiMocks.rotateCSRFToken,
   };
 });
@@ -124,6 +128,8 @@ vi.mock("livekit-client", () => ({
   RoomEvent: {
     Connected: "connected",
     Disconnected: "disconnected",
+    Reconnected: "reconnected",
+    Reconnecting: "reconnecting",
     SignalConnected: "signalConnected",
   },
   Room: class MockRoom {
@@ -157,7 +163,12 @@ vi.mock("livekit-client", () => ({
 }));
 
 function emitRoomEvent(
-  event: "connected" | "disconnected" | "signalConnected",
+  event:
+    | "connected"
+    | "disconnected"
+    | "reconnected"
+    | "reconnecting"
+    | "signalConnected",
 ) {
   for (const listener of liveKitMocks.listeners.get(event) ?? []) {
     listener();
@@ -172,6 +183,7 @@ const sessionID = "8477ee76-c4aa-431f-bb65-405f4b6575c9";
 const roomInstanceID = "c5f918a5-a09e-4f94-9fab-fb0ab5702a4d";
 const participantSessionID = "f680fd29-c7f1-4083-af9b-52ad1db14ba9";
 const joinAttemptID = "a860f06d-34f9-4c57-89f8-1541bfb3b6d7";
+const participantKey = "018f4c7b-9b0a-7a34-8a4c-96d26cb87221";
 
 const currentUser: CurrentUser = {
   user: {
@@ -453,6 +465,29 @@ describe("MediaSpacePreJoinPage P4-03 boundaries", () => {
   beforeEach(() => {
     clearMediaRoomEscrow();
     apiMocks.getMediaSpace.mockResolvedValue(mediaSpace);
+    apiMocks.listParticipants.mockResolvedValue({
+      room_instance_id: roomInstanceID,
+      projection_version: 1,
+      last_signal_sequence: 0,
+      self_participant_key: participantKey,
+      viewer_operations: {
+        can_raise_hand: true,
+        can_send_reaction: true,
+        can_moderate_hands: false,
+      },
+      participants: [
+        {
+          participant_key: participantKey,
+          roster_sequence: 1,
+          display_name: "Student One",
+          instance_role: "attendee",
+          connection_state: "connected",
+        },
+      ],
+      raised_hands: [],
+      reaction_clusters: [],
+      server_time: "2030-08-03T00:00:00Z",
+    });
     apiMocks.getJoinAttempt.mockResolvedValue({
       admission_request_id: "d48a301d-c468-4f65-8da2-029fc379ee74",
       admission_version: 1,
@@ -482,6 +517,8 @@ describe("MediaSpacePreJoinPage P4-03 boundaries", () => {
     apiMocks.getJoinAttempt.mockReset();
     apiMocks.getMediaSpace.mockReset();
     apiMocks.issueJoinCredential.mockReset();
+    apiMocks.listParticipants.mockReset();
+    apiMocks.mutateSignal.mockReset();
     apiMocks.rotateCSRFToken.mockReset();
     liveKitMocks.listeners.clear();
     liveKitMocks.roomConnect.mockReset().mockResolvedValue(undefined);

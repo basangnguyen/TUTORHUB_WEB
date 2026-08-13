@@ -5249,6 +5249,145 @@ textarea:focus-visible {
   margin: 16px 0;
 }
 
+.media-p406-status,
+.media-p406-sr-reactions {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.media-p406-reactions {
+  position: absolute;
+  z-index: 4;
+  right: 24px;
+  bottom: 24px;
+  display: grid;
+  max-width: min(280px, 55vw);
+  gap: 8px;
+  pointer-events: none;
+}
+
+.media-p405-classroom {
+  position: relative;
+}
+
+.media-p406-reaction-cluster {
+  display: inline-flex;
+  min-width: 48px;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 999px;
+  background: color-mix(in srgb, #090b0e 88%, transparent);
+  box-shadow: var(--shadow-md);
+  color: #fff;
+  font-weight: 700;
+  animation: media-p406-reaction-arrive 180ms ease-out both;
+}
+
+.media-p406-reaction-cluster > span:first-child {
+  font-size: 22px;
+}
+
+.media-p406-reaction-menu {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.media-p406-roster-drawer {
+  min-width: min(420px, calc(100vw - 24px));
+}
+
+.media-p406-roster,
+.media-p406-roster-state {
+  margin: 16px 0;
+}
+
+.media-p406-roster-summary,
+.media-p406-hand-state {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.media-p406-roster-summary > span {
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+.media-p406-roster ol {
+  display: grid;
+  max-height: min(62vh, 640px);
+  padding: 0;
+  margin: 12px 0;
+  gap: 8px;
+  list-style-position: inside;
+  overflow-y: auto;
+}
+
+.media-p406-roster li {
+  padding: 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-raised);
+}
+
+.media-p406-roster li > div:first-child {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 3px 8px;
+}
+
+.media-p406-roster li strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.media-p406-roster li span {
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+
+.media-p406-hand-state {
+  padding-top: 8px;
+  border-top: 1px solid var(--color-border);
+  margin-top: 8px;
+}
+
+@keyframes media-p406-reaction-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.96);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .media-p406-reaction-cluster {
+    animation: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .media-p406-reaction-cluster,
+  .media-p406-roster li {
+    border: 2px solid CanvasText;
+  }
+}
+
 @media (max-width: 1199px) {
   .media-p405-grid--capacity-12,
   .media-p405-grid--capacity-6 {

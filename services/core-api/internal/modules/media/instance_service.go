@@ -61,6 +61,7 @@ type InstanceCredential struct {
 
 type ParticipantCredentialGrant struct {
 	ParticipantSessionID        uuid.UUID
+	ParticipantKey              uuid.UUID
 	RoomInstanceID              uuid.UUID
 	JoinAttemptID               uuid.UUID
 	ProviderRoomName            string
@@ -150,6 +151,7 @@ func (service *InstanceCredentialService) IssueInstanceCredential(
 		return InstanceCredential{}, normalizeInstanceCredentialError(err)
 	}
 	if grant.ParticipantSessionID == uuid.Nil || grant.RoomInstanceID == uuid.Nil ||
+		grant.ParticipantKey == uuid.Nil ||
 		grant.JoinAttemptID != input.JoinAttemptID ||
 		strings.TrimSpace(grant.ProviderRoomName) == "" ||
 		strings.TrimSpace(grant.ProviderParticipantIdentity) == "" ||
@@ -160,6 +162,7 @@ func (service *InstanceCredentialService) IssueInstanceCredential(
 		RoomName:                   grant.ProviderRoomName,
 		ParticipantIdentity:        grant.ProviderParticipantIdentity,
 		ParticipantName:            strings.TrimSpace(grant.ParticipantName),
+		ParticipantKey:             grant.ParticipantKey,
 		Role:                       string(grant.InstanceRole),
 		CanPublishCameraMicrophone: grant.CanPublishCameraMicrophone,
 		CanShareScreen:             grant.CanShareScreen,

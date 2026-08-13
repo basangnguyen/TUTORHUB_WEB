@@ -1890,6 +1890,46 @@ export type paths = {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/api/v1/media/spaces/{space_id}/participants": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /**
+     * Return the authoritative participant and signal snapshot for one active RoomInstance
+     * @description The server reauthorizes the active workspace, source, room instance, and viewer before returning a bounded projection. Participant keys are opaque and room-scoped. The response never includes email, user ID, ParticipantSession ID, join-attempt ID, provider identity, token, or client-supplied role. Active-speaker and media-quality state remain provider-ephemeral and are not part of this authority snapshot.
+     */
+    readonly get: operations["listMediaSpaceParticipants"];
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/media/spaces/{space_id}/signals": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Apply one authorized hand or reaction command and return the converged snapshot
+     * @description The server derives the actor and exact ParticipantSession from the authenticated session, reauthorizes the active workspace and RoomInstance, enforces stable idempotency and shared fail-closed rate limits, and assigns all signal sequence numbers and timestamps. A client cannot supply actor, role, tenant, ParticipantSession, provider identity, sequence, or time. LiveKit DataChannel remains non-authoritative and CanPublishData stays false.
+     */
+    readonly post: operations["mutateMediaSpaceSignal"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/api/v1/media/spaces/{space_id}/start": {
     readonly parameters: {
       readonly query?: never;
@@ -3849,6 +3889,84 @@ export type components = {
       | "timeout"
       | "meeting_ended"
       | "provider_unavailable";
+    readonly MediaParticipant: {
+      readonly connection_state: components["schemas"]["MediaParticipantConnectionState"];
+      /** @description Bounded display label only; email and other account identifiers are excluded. */
+      readonly display_name: string;
+      readonly instance_role: components["schemas"]["MediaInstanceRole"];
+      readonly participant_key: components["schemas"]["MediaParticipantKey"];
+      /**
+       * Format: int64
+       * @description Server-assigned canonical ordering value. Display name, provider arrival order, active speaker, and raised hand never determine grid order.
+       */
+      readonly roster_sequence: number;
+    };
+    /** @enum {string} */
+    readonly MediaParticipantConnectionState:
+      "joining" | "connected" | "reconnecting";
+    /**
+     * Format: uuid
+     * @description Opaque RoomInstance-scoped presentation key. It is not a user, ParticipantSession, join-attempt, or provider identifier.
+     */
+    readonly MediaParticipantKey: string;
+    readonly MediaParticipantSnapshot: {
+      /**
+       * Format: int64
+       * @description Highest server signal sequence represented by the snapshot; clients refetch after a gap.
+       */
+      readonly last_signal_sequence: number;
+      readonly participants: readonly components["schemas"]["MediaParticipant"][];
+      /**
+       * Format: int64
+       * @description Authoritative snapshot version. A newer snapshot supersedes packets or responses from older projections.
+       */
+      readonly projection_version: number;
+      /** @description Canonical FIFO queue ordered by signal_sequence. */
+      readonly raised_hands: readonly components["schemas"]["MediaRaisedHand"][];
+      /** @description Bounded unexpired server-grouped reactions. Clients animate at most three clusters, keep the remaining groups in a bounded summary, and batch screen-reader announcements at most once every two seconds. */
+      readonly reaction_clusters: readonly components["schemas"]["MediaReactionCluster"][];
+      /** Format: uuid */
+      readonly room_instance_id: string;
+      readonly self_participant_key: components["schemas"]["MediaParticipantKey"];
+      /** Format: date-time */
+      readonly server_time: string;
+      readonly viewer_operations: components["schemas"]["MediaSignalViewerOperations"];
+    };
+    readonly MediaRaisedHand: {
+      readonly participant_key: components["schemas"]["MediaParticipantKey"];
+      /** Format: date-time */
+      readonly raised_at: string;
+      /**
+       * Format: int64
+       * @description Monotonic server sequence used as the only FIFO ordering authority.
+       */
+      readonly signal_sequence: number;
+    };
+    /**
+     * @description Stable semantic reaction enum. Glyph, accessible label, and localized text are presentation concerns.
+     * @enum {string}
+     */
+    readonly MediaReaction:
+      "thumbs_up" | "clap" | "heart" | "celebrate" | "laugh" | "surprised";
+    readonly MediaReactionCluster: {
+      /**
+       * Format: date-time
+       * @description Server acceptance time for the first event that opened this fixed 750 millisecond cluster window.
+       */
+      readonly accepted_at: string;
+      /** @description Bounded count for reactions grouped into a 750 millisecond server window. Presentation caps values above 99 as 99+. */
+      readonly count: number;
+      /**
+       * Format: date-time
+       * @description Server-controlled expiry for the latest represented event; every event lives exactly 10 seconds, so a cluster opened by accepted_at can span at most 10.75 seconds including the fixed 750 millisecond grouping window.
+       */
+      readonly expires_at: string;
+      /** Format: int64 */
+      readonly first_signal_sequence: number;
+      /** Format: int64 */
+      readonly last_signal_sequence: number;
+      readonly reaction: components["schemas"]["MediaReaction"];
+    };
     readonly MediaRoomInstance: {
       /** Format: date-time */
       readonly created_at: string;
@@ -3863,6 +3981,39 @@ export type components = {
     /** @enum {string} */
     readonly MediaRoomInstanceStatus:
       "provisioning" | "active" | "closing" | "ended" | "failed";
+    /** @enum {string} */
+    readonly MediaSignalKind:
+      | "hand_raise"
+      | "hand_lower"
+      | "hand_lower_one"
+      | "hand_lower_all"
+      | "reaction";
+    /** @description hand_raise and hand_lower always target the authenticated participant; hand_lower_one requires target_participant_key; hand_lower_all has no target; reaction requires the allowlisted reaction field. The server rejects every invalid discriminator combination. */
+    readonly MediaSignalMutationRequest: {
+      /**
+       * Format: int64
+       * @description Stale projections fail closed with a conflict and must be replaced by a fresh snapshot.
+       */
+      readonly expected_projection_version: number;
+      /** Format: uuid */
+      readonly expected_room_instance_id: string;
+      /** Format: int64 */
+      readonly expected_room_instance_version: number;
+      /** Format: int64 */
+      readonly expected_space_version: number;
+      readonly idempotency_key: string;
+      readonly kind: components["schemas"]["MediaSignalKind"];
+      /** @description Required only when kind is reaction and forbidden for every hand command. */
+      readonly reaction?: components["schemas"]["MediaReaction"];
+      /** @description Required only for hand_lower_one. The server reloads target and moderator authority. It is forbidden for every other kind. */
+      readonly target_participant_key?: components["schemas"]["MediaParticipantKey"];
+    };
+    readonly MediaSignalViewerOperations: {
+      /** @description Current server-derived media.moderate authority for lower-one and lower-all; never inferred from a client or provider role. */
+      readonly can_moderate_hands: boolean;
+      readonly can_raise_hand: boolean;
+      readonly can_send_reaction: boolean;
+    };
     readonly MediaSpace: {
       readonly active_room_instance:
         components["schemas"]["MediaRoomInstance"] | null;
@@ -8767,6 +8918,94 @@ export interface operations {
       readonly 403: components["responses"]["ForbiddenResponse"];
       readonly 404: components["responses"]["NotFoundResponse"];
       readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly listMediaSpaceParticipants: {
+    readonly parameters: {
+      readonly query: {
+        readonly expected_room_instance_version: number;
+        readonly expected_space_version: number;
+        readonly room_instance_id: string;
+      };
+      readonly header: {
+        /** @description Active workspace assertion used to prevent confused-deputy mutations and reads. */
+        readonly "X-TutorHub-Expected-Tenant-ID": components["parameters"]["ExpectedTenantID"];
+      };
+      readonly path: {
+        readonly space_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Bounded privacy-safe participant, hand, and unexpired reaction snapshot */
+      readonly 200: {
+        headers: {
+          readonly "Cache-Control"?: "private, no-store";
+          readonly "Referrer-Policy"?: "no-referrer";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["MediaParticipantSnapshot"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly mutateMediaSpaceSignal: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Double-submit CSRF token bound to the active authenticated session. */
+        readonly "X-CSRF-Token": components["parameters"]["CSRFToken"];
+        /** @description Active workspace assertion used to prevent confused-deputy mutations and reads. */
+        readonly "X-TutorHub-Expected-Tenant-ID": components["parameters"]["ExpectedTenantID"];
+      };
+      readonly path: {
+        readonly space_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["MediaSignalMutationRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Idempotent authoritative snapshot after applying or replaying the command */
+      readonly 200: {
+        headers: {
+          readonly "Cache-Control"?: "private, no-store";
+          readonly "Referrer-Policy"?: "no-referrer";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["MediaParticipantSnapshot"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      /** @description The actor or RoomInstance signal-rate limit was reached */
+      readonly 429: {
+        headers: {
+          readonly "Retry-After": number;
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
       readonly 503: components["responses"]["ProblemResponse"];
       readonly default: components["responses"]["ProblemResponse"];
     };

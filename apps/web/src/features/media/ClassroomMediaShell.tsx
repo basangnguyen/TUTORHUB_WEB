@@ -4,6 +4,7 @@ import {
   isTrackReference,
   useLocalParticipant,
   useMediaDeviceSelect,
+  useParticipants,
   useSpeakingParticipants,
   useTracks,
   type TrackReferenceOrPlaceholder,
@@ -23,6 +24,10 @@ import {
   DrawerTitle,
   DrawerTrigger,
   IconButton,
+  Menu,
+  MenuContent,
+  MenuItem,
+  MenuTrigger,
 } from "@tutorhub/ui";
 import {
   Camera,
@@ -30,6 +35,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Grid2X2,
+  Hand,
   LogOut,
   Mic,
   MicOff,
@@ -39,6 +45,7 @@ import {
   ScreenShare,
   ScreenShareOff,
   Settings2,
+  Smile,
   UserRound,
   Users,
 } from "lucide-react";
@@ -79,9 +86,14 @@ import {
   type ClassroomLayoutMode,
   type ClassroomLayoutState,
 } from "./classroomLayout";
+import {
+  CLASSROOM_REACTION_TYPES,
+  type ClassroomReactionType,
+  type ClassroomSignalProjection,
+} from "./classroomSignals";
 
 export type ClassroomConnectionStatus =
-  "connecting" | "connected" | "disconnected" | "failed";
+  "connecting" | "connected" | "reconnecting" | "disconnected" | "failed";
 
 export interface ClassroomMediaShellProps {
   canPublishCameraMicrophone: boolean;
@@ -90,11 +102,26 @@ export interface ClassroomMediaShellProps {
   connectionStatus: ClassroomConnectionStatus;
   controlAbortSignal?: AbortSignal;
   lobby?: ReactNode;
+  signals?: ClassroomSignalControls;
   onLeave: () => void;
   onTerminalMediaCleanup: () => Promise<void>;
 }
 
+export interface ClassroomSignalControls {
+  readonly error: boolean;
+  readonly loading: boolean;
+  readonly mutating: boolean;
+  readonly projection: ClassroomSignalProjection | null;
+  readonly refreshing: boolean;
+  readonly onLowerAllHands: () => Promise<void>;
+  readonly onLowerHand: (participantKey: string) => Promise<void>;
+  readonly onResync: () => Promise<unknown>;
+  readonly onSendReaction: (reaction: ClassroomReactionType) => Promise<void>;
+  readonly onToggleHand: () => Promise<void>;
+}
+
 interface MediaLayoutItem extends ClassroomLayoutItem {
+  readonly displayName: string;
   readonly trackRef: TrackReferenceOrPlaceholder;
 }
 
@@ -128,6 +155,9 @@ type ToolbarControlKey =
   | "camera"
   | "screen-share"
   | "devices"
+  | "hand"
+  | "reaction"
+  | "roster"
   | "layout-grid"
   | "layout-active-speaker"
   | "layout-presentation";
@@ -154,6 +184,7 @@ export function ClassroomMediaShell({
   connectionStatus,
   controlAbortSignal,
   lobby,
+  signals,
   onLeave,
   onTerminalMediaCleanup,
 }: ClassroomMediaShellProps) {
@@ -173,6 +204,13 @@ export function ClassroomMediaShell({
   const [activeSpeakerID, setActiveSpeakerID] = useState<string | null>(null);
   const [devicePanelOpen, setDevicePanelOpen] = useState(false);
   const [railOpen, setRailOpen] = useState(false);
+  const [rosterOpen, setRosterOpen] = useState(false);
+  const [signalFeedback, setSignalFeedback] = useState<TranslationKey | null>(
+    null,
+  );
+  const [reactionAnnouncement, setReactionAnnouncement] = useState("");
+  const lastReactionAnnouncementAt = useRef(0);
+  const reactionAnnouncementTimer = useRef<number | null>(null);
   const [pendingControl, setPendingControl] = useState<string | null>(null);
   const [mediaError, setMediaError] = useState(false);
   const [controlsTerminated, setControlsTerminated] = useState(
@@ -190,6 +228,7 @@ export function ClassroomMediaShell({
     [{ source: Track.Source.Camera, withPlaceholder: true }],
     { onlySubscribed: false },
   );
+  const liveKitParticipants = useParticipants();
   const screenShareTrackRefs = useTracks([Track.Source.ScreenShare], {
     onlySubscribed: false,
   });
@@ -217,6 +256,13 @@ export function ClassroomMediaShell({
     useState<ConnectionQuality>(localParticipant.connectionQuality);
   const [degradationStage, setDegradationStage] =
     useState<ClassroomDegradationStage>("normal");
+
+  const participantAttributeRevision = liveKitParticipants
+    .map(
+      (participant) =>
+        participant.attributes?.["tutorhub.participant_key"] ?? "",
+    )
+    .join("\u0000");
 
   useLayoutEffect(() => {
     sessionParticipantProjectionStore.observe(cameraTrackRefs);
@@ -262,9 +308,49 @@ export function ClassroomMediaShell({
         globalThis.clearTimeout(focusTimer.current);
         focusTimer.current = null;
       }
+      if (reactionAnnouncementTimer.current !== null) {
+        globalThis.clearTimeout(reactionAnnouncementTimer.current);
+        reactionAnnouncementTimer.current = null;
+      }
     },
     [],
   );
+
+  const reactionSummaryKey =
+    signals?.projection?.reactions.summary
+      .map(({ reaction, count }) => `${reaction}:${count}`)
+      .join("|") ?? "";
+  const reactionTotal =
+    signals?.projection?.reactions.summary.reduce(
+      (count, item) => count + item.count,
+      0,
+    ) ?? 0;
+  useEffect(() => {
+    if (reactionTotal === 0) {
+      return undefined;
+    }
+    const now = Date.now();
+    const delay = Math.max(
+      0,
+      2_000 - (now - lastReactionAnnouncementAt.current),
+    );
+    if (reactionAnnouncementTimer.current !== null) {
+      globalThis.clearTimeout(reactionAnnouncementTimer.current);
+    }
+    reactionAnnouncementTimer.current = globalThis.setTimeout(() => {
+      reactionAnnouncementTimer.current = null;
+      lastReactionAnnouncementAt.current = Date.now();
+      setReactionAnnouncement(
+        t("media.p406.reactionAnnouncement", { count: reactionTotal }),
+      );
+    }, delay);
+    return () => {
+      if (reactionAnnouncementTimer.current !== null) {
+        globalThis.clearTimeout(reactionAnnouncementTimer.current);
+        reactionAnnouncementTimer.current = null;
+      }
+    };
+  }, [reactionSummaryKey, reactionTotal, t]);
 
   useEffect(() => {
     if (!controlAbortSignal) return undefined;
@@ -304,11 +390,26 @@ export function ClassroomMediaShell({
     };
   }, [localParticipant]);
 
-  const allCameraItems = useMemo(
-    () =>
-      stableMediaItems(cameraTrackRefs, sessionParticipantProjection.entries),
-    [cameraTrackRefs, sessionParticipantProjection],
-  );
+  const allCameraItems = useMemo(() => {
+    void participantAttributeRevision;
+    return signals
+      ? authoritativeMediaItems(
+          cameraTrackRefs,
+          signals.projection?.roster ?? [],
+          signals.projection?.self_participant_key ?? null,
+        )
+      : stableMediaItems(
+          cameraTrackRefs,
+          sessionParticipantProjection.entries,
+          t("media.p405.participantFallback"),
+        );
+  }, [
+    cameraTrackRefs,
+    participantAttributeRevision,
+    sessionParticipantProjection,
+    signals,
+    t,
+  ]);
   const cameraItems = useMemo(
     () =>
       canSubscribe
@@ -341,6 +442,13 @@ export function ClassroomMediaShell({
         ? (["screen-share"] as const)
         : []),
       ...(!controlsTerminated ? (["devices"] as const) : []),
+      ...(signals?.projection?.viewer_operations.can_raise_hand
+        ? (["hand"] as const)
+        : []),
+      ...(signals?.projection?.viewer_operations.can_send_reaction
+        ? (["reaction"] as const)
+        : []),
+      ...(signals ? (["roster"] as const) : []),
       "layout-grid",
       "layout-active-speaker",
       ...(presenterID ? (["layout-presentation"] as const) : []),
@@ -351,6 +459,7 @@ export function ClassroomMediaShell({
       controlsTerminated,
       pendingControl,
       presenterID,
+      signals,
     ],
   );
   const effectiveToolbarFocusKey = toolbarControlKeys.includes(toolbarFocusKey)
@@ -661,6 +770,24 @@ export function ClassroomMediaShell({
     [onTerminalMediaCleanup],
   );
 
+  const runSignalAction = useCallback(
+    async (action: () => Promise<void>, successKey: TranslationKey) => {
+      if (!signals || controlsTerminated || signals.mutating) return;
+      setSignalFeedback(null);
+      try {
+        await action();
+        if (controlLifecycle.current.active) {
+          setSignalFeedback(successKey);
+        }
+      } catch (error) {
+        if (controlLifecycle.current.active) {
+          setSignalFeedback(signalMutationErrorKey(error));
+        }
+      }
+    },
+    [controlsTerminated, signals],
+  );
+
   const handleLeave = useCallback(() => {
     const lifecycle = controlLifecycle.current;
     lifecycle.active = false;
@@ -734,6 +861,12 @@ export function ClassroomMediaShell({
       pinnedID={layoutState.pinnedParticipantId}
     />
   );
+  const selfHand = signals?.projection?.raised_hands.find(
+    ({ participant_key }) =>
+      participant_key === signals.projection?.self_participant_key,
+  );
+  const participantCount =
+    signals?.projection?.roster.length ?? cameraItems.length;
 
   return (
     <div
@@ -747,7 +880,7 @@ export function ClassroomMediaShell({
           <p aria-live="polite" role="status">
             {t(roomStatusKey(connectionStatus))}
             {" / "}
-            {t("media.room.participantCount", { count: cameraItems.length })}
+            {t("media.room.participantCount", { count: participantCount })}
           </p>
         </div>
         <div className="media-p405-header-badges">
@@ -778,6 +911,44 @@ export function ClassroomMediaShell({
           {t(degradationStatusKey(degradationStage))}
         </p>
       )}
+      {signals?.loading && (
+        <p className="media-p405-notice" role="status">
+          {t("media.p406.loading")}
+        </p>
+      )}
+      {signals?.error && (
+        <div className="media-p405-error" role="alert">
+          <span>{t("media.p406.loadError")}</span>
+          <Button
+            onClick={() => void signals.onResync()}
+            size="sm"
+            variant="quiet"
+          >
+            {t("media.p406.retry")}
+          </Button>
+        </div>
+      )}
+      <p
+        aria-atomic="true"
+        aria-live="polite"
+        className="media-p406-status"
+        role="status"
+      >
+        {signalFeedback ? t(signalFeedback) : ""}
+        {selfHand
+          ? ` ${t("media.p406.ownHandPosition", {
+              position: selfHand.queue_position,
+            })}`
+          : ""}
+      </p>
+      <p
+        aria-atomic="true"
+        aria-live="polite"
+        className="media-p406-sr-reactions"
+        role="status"
+      >
+        {reactionTotal > 0 ? reactionAnnouncement : ""}
+      </p>
       {mediaError && (
         <div className="media-p405-error" role="alert">
           <span>{t("media.p405.deviceUpdateError")}</span>
@@ -794,6 +965,20 @@ export function ClassroomMediaShell({
       <div
         className={`media-p405-classroom media-p405-classroom--${projection.mode}`}
       >
+        {signals?.projection && (
+          <div aria-hidden="true" className="media-p406-reactions">
+            {signals.projection.reactions.clusters.map((cluster) => (
+              <span
+                className="media-p406-reaction-cluster"
+                data-reaction={cluster.reaction}
+                key={cluster.cluster_id}
+              >
+                <span>{reactionGlyph(cluster.reaction)}</span>
+                <span>{cluster.count_label}</span>
+              </span>
+            ))}
+          </div>
+        )}
         <section
           aria-label={
             projection.mode === "grid"
@@ -1007,6 +1192,115 @@ export function ClassroomMediaShell({
             <Settings2 />
           </IconButton>
 
+          {signals?.projection?.viewer_operations.can_raise_hand && (
+            <IconButton
+              aria-pressed={Boolean(selfHand)}
+              data-media-control="hand"
+              disabled={
+                signals.mutating || signals.loading || controlsTerminated
+              }
+              id="media-p406-control-hand"
+              label={t(
+                selfHand ? "media.p406.lowerOwnHand" : "media.p406.raiseHand",
+              )}
+              loading={signals.mutating}
+              onClick={() =>
+                void runSignalAction(
+                  signals.onToggleHand,
+                  selfHand
+                    ? "media.p406.loweredOwnHand"
+                    : "media.p406.raisedHand",
+                )
+              }
+              onFocus={() => setToolbarFocusKey("hand")}
+              tabIndex={toolbarTabIndex("hand")}
+              variant={selfHand ? "primary" : "secondary"}
+            >
+              <Hand />
+            </IconButton>
+          )}
+
+          {signals?.projection?.viewer_operations.can_send_reaction && (
+            <Menu modal={false}>
+              <MenuTrigger asChild>
+                <IconButton
+                  data-media-control="reaction"
+                  disabled={signals.mutating || controlsTerminated}
+                  id="media-p406-control-reaction"
+                  label={t("media.p406.reactions")}
+                  onFocus={() => setToolbarFocusKey("reaction")}
+                  tabIndex={toolbarTabIndex("reaction")}
+                  variant="secondary"
+                >
+                  <Smile />
+                </IconButton>
+              </MenuTrigger>
+              <MenuContent
+                aria-label={t("media.p406.reactionMenu")}
+                className="media-p406-reaction-menu"
+                data-theme="dark"
+              >
+                {CLASSROOM_REACTION_TYPES.map((reaction) => (
+                  <MenuItem
+                    key={reaction}
+                    onSelect={() =>
+                      void runSignalAction(
+                        () => signals.onSendReaction(reaction),
+                        "media.p406.reactionSent",
+                      )
+                    }
+                  >
+                    <span aria-hidden="true">{reactionGlyph(reaction)}</span>
+                    {t(reactionLabelKey(reaction))}
+                  </MenuItem>
+                ))}
+              </MenuContent>
+            </Menu>
+          )}
+
+          {signals && (
+            <Drawer onOpenChange={setRosterOpen} open={rosterOpen}>
+              <DrawerTrigger asChild>
+                <IconButton
+                  data-media-control="roster"
+                  disabled={controlsTerminated}
+                  id="media-p406-control-roster"
+                  label={t("media.p406.openRoster")}
+                  onFocus={() => setToolbarFocusKey("roster")}
+                  tabIndex={toolbarTabIndex("roster")}
+                  variant="secondary"
+                >
+                  <Users />
+                </IconButton>
+              </DrawerTrigger>
+              <DrawerContent
+                className="media-p406-roster-drawer"
+                closeLabel={t("media.p405.close")}
+                data-theme="dark"
+              >
+                <DrawerTitle>{t("media.p406.rosterTitle")}</DrawerTitle>
+                <ClassroomRoster
+                  onLowerAll={() =>
+                    void runSignalAction(
+                      signals.onLowerAllHands,
+                      "media.p406.loweredAllHands",
+                    )
+                  }
+                  onLowerHand={(participantKey) =>
+                    void runSignalAction(
+                      () => signals.onLowerHand(participantKey),
+                      "media.p406.loweredHand",
+                    )
+                  }
+                  signals={signals}
+                />
+                <DrawerClose asChild>
+                  <Button variant="secondary">{t("media.p405.close")}</Button>
+                </DrawerClose>
+              </DrawerContent>
+            </Drawer>
+          )}
+
           <div
             aria-label={t("media.p405.layoutGroup")}
             className="media-p405-layout-controls"
@@ -1055,6 +1349,102 @@ export function ClassroomMediaShell({
   );
 }
 
+function ClassroomRoster({
+  onLowerAll,
+  onLowerHand,
+  signals,
+}: {
+  onLowerAll: () => void;
+  onLowerHand: (participantKey: string) => void;
+  signals: ClassroomSignalControls;
+}) {
+  const { t } = useI18n();
+  const projection = signals.projection;
+  if (signals.loading && !projection) {
+    return <p className="media-p405-empty">{t("media.p406.loading")}</p>;
+  }
+  if (signals.error && !projection) {
+    return (
+      <div className="media-p406-roster-state" role="alert">
+        <p>{t("media.p406.loadError")}</p>
+        <Button onClick={() => void signals.onResync()} size="sm">
+          {t("media.p406.retry")}
+        </Button>
+      </div>
+    );
+  }
+  if (!projection || projection.roster.length === 0) {
+    return <p className="media-p405-empty">{t("media.p406.rosterEmpty")}</p>;
+  }
+
+  const raisedByParticipant = new Map(
+    projection.raised_hands.map((hand) => [hand.participant_key, hand]),
+  );
+  const canModerate = projection.viewer_operations.can_moderate_hands;
+  return (
+    <section className="media-p406-roster">
+      <div className="media-p406-roster-summary">
+        <span>
+          {t("media.room.participantCount", {
+            count: projection.roster.length,
+          })}
+        </span>
+        {signals.refreshing && <span>{t("media.p406.refreshing")}</span>}
+        {canModerate && projection.raised_hands.length > 0 && (
+          <Button
+            disabled={signals.mutating}
+            onClick={onLowerAll}
+            size="sm"
+            variant="secondary"
+          >
+            {t("media.p406.lowerAllHands")}
+          </Button>
+        )}
+      </div>
+      <ol aria-label={t("media.p406.rosterLabel")}>
+        {projection.roster.map((participant) => {
+          const hand = raisedByParticipant.get(participant.participant_key);
+          const isSelf =
+            participant.participant_key === projection.self_participant_key;
+          return (
+            <li key={participant.participant_key}>
+              <div>
+                <strong>{participant.display_name}</strong>
+                {isSelf && <span> ({t("media.p406.you")})</span>}
+                <span>{t(instanceRoleKey(participant.instance_role))}</span>
+                <span>
+                  {t(connectionStateKey(participant.connection_state))}
+                </span>
+              </div>
+              {hand && (
+                <div className="media-p406-hand-state">
+                  <span>
+                    {t("media.p406.handQueuePosition", {
+                      position: hand.queue_position,
+                    })}
+                  </span>
+                  {canModerate && !isSelf && (
+                    <Button
+                      disabled={signals.mutating}
+                      onClick={() => onLowerHand(participant.participant_key)}
+                      size="sm"
+                      variant="quiet"
+                    >
+                      {t("media.p406.lowerNamedHand", {
+                        name: participant.display_name,
+                      })}
+                    </Button>
+                  )}
+                </div>
+              )}
+            </li>
+          );
+        })}
+      </ol>
+    </section>
+  );
+}
+
 function MediaTile({
   attachVideo,
   item,
@@ -1064,8 +1454,7 @@ function MediaTile({
   variant,
 }: MediaTileProps) {
   const { t } = useI18n();
-  const displayName =
-    trackRef.participant.name?.trim() || t("media.p405.participantFallback");
+  const displayName = item.displayName;
   const isPresentation = trackRef.source === Track.Source.ScreenShare;
   const label = t(
     isPresentation ? "media.p405.screenShare" : "media.p405.participantVideo",
@@ -1282,6 +1671,7 @@ function LeaveRoomDialog({ onLeave }: { onLeave: () => void }) {
 function stableMediaItems(
   trackRefs: readonly TrackReferenceOrPlaceholder[],
   participantProjection: WeakMap<object, SessionParticipantProjection>,
+  participantFallback: string,
 ): readonly MediaLayoutItem[] {
   const observedItems: Array<{
     inputIndex: number;
@@ -1299,11 +1689,47 @@ function stableMediaItems(
         left.inputIndex - right.inputIndex,
     )
     .map(({ projection, trackRef }) => ({
+      displayName: trackRef.participant.name?.trim() || participantFallback,
       id: projection.id,
       isLocal: trackRef.participant.isLocal,
       sequence: projection.sequence,
       trackRef,
     }));
+}
+
+function authoritativeMediaItems(
+  trackRefs: readonly TrackReferenceOrPlaceholder[],
+  roster: ClassroomSignalProjection["roster"],
+  selfParticipantKey: string | null,
+): readonly MediaLayoutItem[] {
+  const rosterByParticipantKey = new Map(
+    roster.map((participant) => [participant.participant_key, participant]),
+  );
+  const seen = new Set<string>();
+  return trackRefs
+    .flatMap((trackRef) => {
+      const participantKey =
+        trackRef.participant.attributes?.["tutorhub.participant_key"];
+      if (typeof participantKey !== "string" || seen.has(participantKey)) {
+        return [];
+      }
+      const participant = rosterByParticipantKey.get(participantKey);
+      if (!participant) return [];
+      seen.add(participantKey);
+      return [
+        {
+          displayName: participant.display_name,
+          id: participant.participant_key,
+          isLocal: participant.participant_key === selfParticipantKey,
+          sequence: participant.roster_sequence,
+          trackRef,
+        },
+      ];
+    })
+    .sort(
+      (left, right) =>
+        left.sequence - right.sequence || left.id.localeCompare(right.id),
+    );
 }
 
 function createSessionParticipantProjectionStore(
@@ -1403,4 +1829,48 @@ function layoutModeKey(mode: ClassroomLayoutMode): TranslationKey {
   if (mode === "active-speaker") return "media.p405.layoutActiveSpeaker";
   if (mode === "presentation") return "media.p405.layoutPresentation";
   return "media.p405.layoutGrid";
+}
+
+function reactionGlyph(reaction: ClassroomReactionType): string {
+  switch (reaction) {
+    case "thumbs_up":
+      return "👍";
+    case "clap":
+      return "👏";
+    case "heart":
+      return "❤️";
+    case "celebrate":
+      return "🎉";
+    case "laugh":
+      return "😂";
+    case "surprised":
+      return "😮";
+  }
+}
+
+function reactionLabelKey(reaction: ClassroomReactionType): TranslationKey {
+  return `media.p406.reaction.${reaction}` as TranslationKey;
+}
+
+function instanceRoleKey(
+  role: ClassroomSignalProjection["roster"][number]["instance_role"],
+): TranslationKey {
+  return `media.p406.role.${role}` as TranslationKey;
+}
+
+function connectionStateKey(
+  state: ClassroomSignalProjection["roster"][number]["connection_state"],
+): TranslationKey {
+  return `media.p406.connection.${state}` as TranslationKey;
+}
+
+function signalMutationErrorKey(error: unknown): TranslationKey {
+  if (typeof error !== "object" || error === null || !("status" in error)) {
+    return "media.p406.actionError";
+  }
+  const status = (error as { status?: unknown }).status;
+  if (status === 403) return "media.p406.forbidden";
+  if (status === 409) return "media.p406.conflict";
+  if (status === 429) return "media.p406.rateLimited";
+  return "media.p406.actionError";
 }

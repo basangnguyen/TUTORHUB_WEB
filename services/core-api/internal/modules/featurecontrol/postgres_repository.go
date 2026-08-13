@@ -58,7 +58,7 @@ func (repository *PostgresRepository) GetCapabilities(
 	}
 	defer rollbackFeatureControlTransaction(transaction)
 
-	if err := acquireTenantControlLock(queryContext, transaction, tenantContext.TenantID); err != nil {
+	if err := acquireTenantControlReadLock(queryContext, transaction, tenantContext.TenantID); err != nil {
 		return Capabilities{}, err
 	}
 	authorization, err := repository.authorizeLockedTenant(
@@ -202,8 +202,29 @@ func (repository *PostgresRepository) RequireFeature(
 	tenantID uuid.UUID,
 	key FeatureKey,
 ) (resultErr error) {
+	return repository.requireFeature(ctx, transaction, tenantID, key, acquireTenantControlLock)
+}
+
+func (repository *PostgresRepository) RequireFeatureForRead(
+	ctx context.Context,
+	transaction Transaction,
+	tenantID uuid.UUID,
+	key FeatureKey,
+) (resultErr error) {
+	return repository.requireFeature(ctx, transaction, tenantID, key, acquireTenantControlReadLock)
+}
+
+type tenantControlLock func(context.Context, Transaction, uuid.UUID) error
+
+func (repository *PostgresRepository) requireFeature(
+	ctx context.Context,
+	transaction Transaction,
+	tenantID uuid.UUID,
+	key FeatureKey,
+	acquireLock tenantControlLock,
+) (resultErr error) {
 	defer func() { resultErr = NormalizeError(resultErr) }()
-	if transaction == nil || tenantID == uuid.Nil {
+	if transaction == nil || tenantID == uuid.Nil || acquireLock == nil {
 		return ErrInvalidControl
 	}
 	if _, known := repository.catalog.FeatureDefinition(key); !known {
@@ -211,7 +232,7 @@ func (repository *PostgresRepository) RequireFeature(
 	}
 	queryContext, cancel := repository.contextWithTimeout(ctx)
 	defer cancel()
-	if err := acquireTenantControlLock(queryContext, transaction, tenantID); err != nil {
+	if err := acquireLock(queryContext, transaction, tenantID); err != nil {
 		return err
 	}
 	if err := ensureActiveControlTenant(queryContext, transaction, tenantID); err != nil {
@@ -1068,8 +1089,8 @@ func acquireTenantControlLock(
 	transaction Transaction,
 	tenantID uuid.UUID,
 ) error {
-	// This advisory lock is the first lock acquired by feature-control reads,
-	// override writes, and governed business mutations. Keeping that order avoids
+	// This exclusive advisory lock is the first lock acquired by feature-control
+	// override writes and governed business mutations. Keeping that order avoids
 	// a cycle with later tenant, membership, invitation, or class row locks.
 	if transaction == nil || tenantID == uuid.Nil {
 		return ErrInvalidControl
@@ -1084,12 +1105,41 @@ func acquireTenantControlLock(
 	return nil
 }
 
+func acquireTenantControlReadLock(
+	ctx context.Context,
+	transaction Transaction,
+	tenantID uuid.UUID,
+) error {
+	// Read paths take the matching shared transaction lock before reading feature
+	// state. Mutations retain the exclusive lock above, so a feature-control
+	// update cannot race a governed read without serializing every reader.
+	if transaction == nil || tenantID == uuid.Nil {
+		return ErrInvalidControl
+	}
+	if _, err := transaction.Exec(
+		ctx,
+		`SELECT pg_advisory_xact_lock_shared($1::bigint)`,
+		tenantControlLockKey(tenantID),
+	); err != nil {
+		return fmt.Errorf("acquire shared tenant feature control lock: %w", err)
+	}
+	return nil
+}
+
 func AcquireTenantControlLock(
 	ctx context.Context,
 	transaction Transaction,
 	tenantID uuid.UUID,
 ) error {
 	return NormalizeError(acquireTenantControlLock(ctx, transaction, tenantID))
+}
+
+func AcquireTenantControlReadLock(
+	ctx context.Context,
+	transaction Transaction,
+	tenantID uuid.UUID,
+) error {
+	return NormalizeError(acquireTenantControlReadLock(ctx, transaction, tenantID))
 }
 
 func tenantControlLockKey(tenantID uuid.UUID) int64 {
