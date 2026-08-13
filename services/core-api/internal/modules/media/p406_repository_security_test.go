@@ -2,6 +2,7 @@ package media
 
 import (
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -402,6 +403,27 @@ func TestP406SharedHarnessIsFreshFailClosedAndReadOnlyOutsideProvision(t *testin
 		if !strings.Contains(provision, required) {
 			t.Fatalf("P4-06 shared ACL provisioner is missing %q", required)
 		}
+	}
+}
+
+func TestP406CIUsesIsolatedFixtureRoleForStatefulSignalGate(t *testing.T) {
+	t.Parallel()
+
+	repositoryRoot := filepath.Join("..", "..", "..", "..", "..")
+	contents, err := os.ReadFile(filepath.Join(repositoryRoot, ".github", "workflows", "ci.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := string(contents)
+	gate := `-run '^TestPostgresMediaParticipantSignalsLifecycleAndConcurrency$'`
+	gatePosition := strings.Index(source, gate)
+	if gatePosition < 0 {
+		t.Fatal("P4-06 CI is missing the stateful participant-signal database gate")
+	}
+	fixtureCommand := `DATABASE_POOL_URL="$DATABASE_MEDIA_FIXTURE_TEST_URL" go test -count=1 -tags=integration`
+	fixturePosition := strings.LastIndex(source[:gatePosition], fixtureCommand)
+	if fixturePosition < 0 || gatePosition-fixturePosition > 200 {
+		t.Fatal("P4-06 CI stateful signal gate does not use the isolated non-superuser fixture role")
 	}
 }
 

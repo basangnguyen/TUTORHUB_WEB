@@ -743,6 +743,50 @@ func p406IsolatedGitHubActionsDatabaseBoundary(
 	runtimeURL string,
 	maintenanceURL string,
 ) bool {
+	return p406IsolatedGitHubActionsDatabaseBoundaryForRuntimeRole(
+		migrationURL,
+		runtimeURL,
+		maintenanceURL,
+		"tutorhub_conversation_runtime_ci",
+	)
+}
+
+func requireP406SignalFixtureDatabaseURLBoundary(
+	t *testing.T,
+	migrationURL string,
+	runtimeURL string,
+	maintenanceURL string,
+) {
+	t.Helper()
+	if p406IsolatedGitHubActionsSignalFixtureDatabaseBoundary(
+		migrationURL,
+		runtimeURL,
+		maintenanceURL,
+	) {
+		return
+	}
+	requireP406ProvisionDatabaseURLBoundary(t, migrationURL, runtimeURL, maintenanceURL)
+}
+
+func p406IsolatedGitHubActionsSignalFixtureDatabaseBoundary(
+	migrationURL string,
+	runtimeURL string,
+	maintenanceURL string,
+) bool {
+	return p406IsolatedGitHubActionsDatabaseBoundaryForRuntimeRole(
+		migrationURL,
+		runtimeURL,
+		maintenanceURL,
+		"tutorhub_media_fixture_ci",
+	)
+}
+
+func p406IsolatedGitHubActionsDatabaseBoundaryForRuntimeRole(
+	migrationURL string,
+	runtimeURL string,
+	maintenanceURL string,
+	runtimeRole string,
+) bool {
 	if !strings.EqualFold(strings.TrimSpace(os.Getenv("CI")), "true") ||
 		!strings.EqualFold(strings.TrimSpace(os.Getenv("GITHUB_ACTIONS")), "true") {
 		return false
@@ -757,7 +801,7 @@ func p406IsolatedGitHubActionsDatabaseBoundary(
 	}
 	wantUsers := []string{
 		"tutorhub",
-		"tutorhub_conversation_runtime_ci",
+		runtimeRole,
 		"tutorhub_media_maintenance_ci",
 	}
 	for index, config := range configs {
@@ -803,6 +847,12 @@ func TestP406IsolatedGitHubActionsDatabaseBoundaryIsExact(t *testing.T) {
 			runtimeURL:     strings.Replace(runtimeURL, "tutorhub_test", "postgres", 1),
 			maintenanceURL: maintenanceURL,
 		},
+		"stateful fixture role": {
+			githubActions:  true,
+			migrationURL:   migrationURL,
+			runtimeURL:     strings.Replace(runtimeURL, "tutorhub_conversation_runtime_ci", "tutorhub_media_fixture_ci", 1),
+			maintenanceURL: maintenanceURL,
+		},
 		"reused role": {
 			githubActions: true,
 			migrationURL:  migrationURL,
@@ -826,5 +876,36 @@ func TestP406IsolatedGitHubActionsDatabaseBoundaryIsExact(t *testing.T) {
 				t.Fatal("unexpectedly accepted an inexact GitHub Actions database boundary")
 			}
 		})
+	}
+}
+
+func TestP406IsolatedGitHubActionsSignalFixtureDatabaseBoundaryIsExact(t *testing.T) {
+	t.Setenv("CI", "true")
+	t.Setenv("GITHUB_ACTIONS", "true")
+	migrationURL := "postgresql://tutorhub:ignored@localhost:5432/tutorhub_test?sslmode=disable"
+	runtimeURL := "postgresql://tutorhub_media_fixture_ci:ignored@localhost:5432/tutorhub_test?sslmode=disable"
+	maintenanceURL := "postgresql://tutorhub_media_maintenance_ci:ignored@localhost:5432/tutorhub_test?sslmode=disable"
+	if !p406IsolatedGitHubActionsSignalFixtureDatabaseBoundary(
+		migrationURL,
+		runtimeURL,
+		maintenanceURL,
+	) {
+		t.Fatal("expected exact GitHub Actions stateful signal fixture boundary to pass")
+	}
+	if p406IsolatedGitHubActionsDatabaseBoundary(migrationURL, runtimeURL, maintenanceURL) {
+		t.Fatal("stateful signal fixture role must not satisfy the exact ACL provision boundary")
+	}
+	conversationRuntimeURL := strings.Replace(
+		runtimeURL,
+		"tutorhub_media_fixture_ci",
+		"tutorhub_conversation_runtime_ci",
+		1,
+	)
+	if p406IsolatedGitHubActionsSignalFixtureDatabaseBoundary(
+		migrationURL,
+		conversationRuntimeURL,
+		maintenanceURL,
+	) {
+		t.Fatal("exact ACL runtime role must not satisfy the stateful signal fixture boundary")
 	}
 }

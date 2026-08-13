@@ -38,7 +38,7 @@ func TestPostgresMediaParticipantSignalsLifecycleAndConcurrency(t *testing.T) {
 	migrationURL := requireMediaIntegrationEnvironment(t, "DATABASE_MIGRATION_URL")
 	runtimeURL := requireMediaIntegrationEnvironment(t, "DATABASE_POOL_URL")
 	maintenanceURL := requireMediaIntegrationEnvironment(t, "DATABASE_POLL_MAINTENANCE_URL")
-	requireP406ProvisionDatabaseURLBoundary(t, migrationURL, runtimeURL, maintenanceURL)
+	requireP406SignalFixtureDatabaseURLBoundary(t, migrationURL, runtimeURL, maintenanceURL)
 	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Minute)
 	defer cancel()
 	version, err := migrationrunner.CurrentVersion(ctx, migrationURL)

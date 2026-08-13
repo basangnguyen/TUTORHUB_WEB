@@ -162,7 +162,7 @@ jobs:
           go test -count=1 -tags=integration \
             -run '^TestPostgresMediaSignalMaintenanceACLRetentionAndSkipLocked$' \
             ./services/core-api/internal/modules/media
-          go test -count=1 -tags=integration \
+          DATABASE_POOL_URL="$DATABASE_MEDIA_FIXTURE_TEST_URL" go test -count=1 -tags=integration \
             -run '^TestPostgresMediaParticipantSignalsLifecycleAndConcurrency$' \
             ./services/core-api/internal/modules/media
 
