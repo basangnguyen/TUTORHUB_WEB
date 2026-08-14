@@ -5,13 +5,13 @@
 | Thuộc tính            | Giá trị                                                                                      |
 | --------------------- | -------------------------------------------------------------------------------------------- |
 | Phiên bản tài liệu    | 2.4                                                                                          |
-| Cập nhật              | 2026-08-13                                                                                   |
+| Cập nhật              | 2026-08-14                                                                                   |
 | Phạm vi ưu tiên       | Web application                                                                              |
 | Thư mục phát triển    | `D:\TutorHub_V2`                                                                             |
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
 | Phase hiện tại        | Phase 4 - Classroom Media MVP; Phase 3 deferred carry-over tiếp tục                          |
-| Trạng thái gần nhất   | P4-06 `DONE`; P4-07 `VERIFY`, local/disposable PASS; chưa push/CI/shared/deploy              |
+| Trạng thái gần nhất   | P4-07 `DONE`; P4-08 `TODO`, review/amend ADR-0013/0025 trước classroom chat                 |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 
@@ -2171,8 +2171,15 @@ PASS. Disposable/shared staging đạt forward-only `31 false -> 32 false -> 32 
 final feature-off/P4-06-side-effect-zero snapshot; không rollback và disposable branch được giữ lại.
 Render deployment `dep-d9ul9q6417fc738gfa3g` đã `Live` exact candidate; Cloudflare Pages cũng chạy
 exact `d773641f`. Public/privacy/feature-off/automated accessibility/no-side-effect acceptance PASS.
-P4-07 Host/co-host/TA moderation đang `VERIFY`: local/Neon disposable và isolated LiveKit PASS;
-candidate review/push, GitHub CI/security, shared forward/ACL và live acceptance chưa thực hiện.
+P4-07 Host/co-host/TA moderation đã `DONE` ngày 2026-08-14 trên exact deployed runtime candidate
+`2c309eabed9a4b8425f12895df071ee5f06edfb0`. GitHub Verify `31814509810` và Security
+`31814509808` PASS; shared forward-only `32 false -> 33 false -> 33 false`, exact ACL và final
+snapshot đều PASS. Render deployment `dep-d9vjhvp5efls73ea5l3g` đạt `Live`; Cloudflare Pages
+deployment `1b935dc9-7498-4a3c-81c6-2571ca080c53` chạy exact candidate. Public acceptance đạt
+`16/16`; Admin feature-off/concealment, accessibility, resource/log audit và post-live
+zero-side-effect đều PASS. Không rollback, disposable branch được giữ lại, hai media feature tiếp
+tục force-off và `CanPublishData=false`. P4-08 là task `TODO` kế tiếp; phải review/amend
+ADR-0013/0025 trước khi triển khai classroom chat.
 Physical/manual browser-device,
 25/50 provider load, outage và optional-effect gates vẫn `UNVERIFIED — P4-11`, không suy PASS.
 Không bật side effect chỉ vì core đã có. `P3-02D-B` và các gate worker/provider vẫn là

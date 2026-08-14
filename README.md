@@ -115,9 +115,16 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
   Verify/Security, Neon disposable/shared và exact Render/Cloudflare deploy/live acceptance.
   Disposable và shared đều kết thúc ở `32 false`; exact ACL, focused PostgreSQL
   signal/retention/concurrency, live privacy/feature-off và post-live no-side-effect gates đều PASS.
-  Không rollback và hai media feature tiếp tục force-off. P4-07 hiện ở `VERIFY`: local/Neon
-  disposable và isolated LiveKit đã PASS; candidate review/push, GitHub CI/security, shared staging
-  forward/ACL và live acceptance vẫn chưa thực hiện.
+  Không rollback và hai media feature tiếp tục force-off.
+- P4-07 Host/co-host/TA moderation đã `DONE` ngày 2026-08-14 trên exact deployed runtime candidate
+  `2c309eabed9a4b8425f12895df071ee5f06edfb0`. GitHub Verify `31814509810` và Security
+  `31814509808` PASS; Neon shared forward-only `32 false -> 33 false -> 33 false`, exact ACL và
+  final snapshot đều PASS. Render deployment `dep-d9vjhvp5efls73ea5l3g` đạt `Live`; Cloudflare
+  Pages deployment `1b935dc9-7498-4a3c-81c6-2571ca080c53` chạy exact candidate. Public acceptance
+  đạt `16/16`; Admin feature-off/concealment, accessibility, resource/log audit và post-live
+  zero-side-effect đều PASS. Không rollback, disposable branch được giữ lại, hai media feature tiếp
+  tục force-off và `CanPublishData=false`. P4-08 đang `TODO` và là task kế tiếp; phải review/amend
+  ADR-0013/0025 trước khi triển khai classroom chat.
   Physical/manual/load/provider-outage/effect gates vẫn `UNVERIFIED — P4-11`.
 - P5-COLLAB-00 đã được đăng ký làm research spike tương lai cho whiteboard engine,
   document/sync authority, license và realtime topology. Task vẫn `TODO`, không chặn P4-02

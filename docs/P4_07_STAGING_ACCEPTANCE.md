@@ -1,12 +1,14 @@
 # P4-07 — Host/co-host/TA moderation acceptance
 
-Status: `VERIFY`
+Status: `DONE`
 
 Date started: 2026-08-13
 
+Date completed: 2026-08-14
+
 This ledger is the source of truth for moving P4-07 through `IN PROGRESS -> VERIFY -> DONE`.
-Classroom media remains deployment-force-off throughout implementation. No shared-staging migration,
-rollout or deploy is authorized by this document.
+Classroom media remained deployment-force-off throughout implementation and acceptance. Shared-staging
+and live gates ran only after the disposable result, exact candidate CI and explicit authorization.
 
 ## 1. Locked contract
 
@@ -111,10 +113,11 @@ These gates ran under explicit user authorization with secret-safe loading from 
   `git diff --check` also PASS.
 - The exact P4-07 Playwright/Axe file PASS `4/4`; the earlier apparent timeout was the Windows sandbox
   blocking Playwright's Vite teardown, not a fixture, UI or Axe failure.
-- A separate P4-07 shared owner-preflight/ACL/final-snapshot harness now requires fresh action-scoped
+- A separate P4-07 shared owner-preflight/ACL/final-snapshot harness requires fresh action-scoped
   confirmations, rejects disposable/stale confirmations and keeps preflight/final outside the ACL
-  provisioner read-only. Static security tests and integration-tag compile PASS; the harness has not
-  been executed and shared staging remains untouched.
+  provisioner read-only. Static security tests and integration-tag compile PASS. At this pre-push
+  checkpoint the harness had not yet run and shared staging remained untouched; section 4 records
+  its later authorized execution.
 - Final candidate review closed two client fail-closed gaps: provider-backed participant operations
   now reject a `none` effect instead of announcing provider success, and remote mute rotates its
   idempotency key only after confirmed `applied` so a later self-unmute can be muted again. Focused
@@ -124,12 +127,51 @@ These gates ran under explicit user authorization with secret-safe loading from 
 
 Run only after the disposable report is accepted and the user explicitly authorizes forwarding.
 
-- [ ] Candidate is committed/pushed to `main`; GitHub Verify and Security pass.
-- [ ] Shared owner preflight, forward-only migration, exact ACL provision and read-only postflight pass.
-- [ ] Render and Cloudflare deploy the exact verified commit.
-- [ ] Public/anonymous privacy, authenticated feature-off, accessibility and no-side-effect acceptance
+- [x] Candidate is committed/pushed to `main`; GitHub Verify and Security pass.
+- [x] Shared owner preflight, forward-only migration, exact ACL provision and read-only postflight pass.
+- [x] Render and Cloudflare deploy the exact verified commit.
+- [x] Public/anonymous privacy, authenticated feature-off, accessibility and no-side-effect acceptance
       pass without temporarily enabling classroom media.
-- [ ] PROJECT_STATE, Phase 4 checklist and this ledger record exact evidence and P4-07 becomes `DONE`.
+- [x] PROJECT_STATE, Phase 4 checklist and this ledger record exact evidence and P4-07 becomes `DONE`.
+
+### Exact candidate CI/security — `PASS`
+
+- Runtime candidate `2c309eabed9a4b8425f12895df071ee5f06edfb0` was committed and pushed to
+  `main` without force-push after the final local verification and secret-safe candidate review.
+- GitHub Verify run `31814509810` and Security run `31814509808` both completed `PASS` on the exact
+  runtime candidate.
+
+### Shared staging — `PASS`
+
+- The read-only owner preflight passed before any shared mutation with
+  `ledger=32 dirty=false three_principals=true url_boundary=true media_features=false`.
+- Shared staging advanced forward-only through `32 false -> 33 false -> 33 false`; the second migrate
+  was idempotent. No rollback was run.
+- Exact Core API runtime, PUBLIC, maintenance and dependency ACL provisioning passed. The read-only
+  snapshot immediately after migration/provisioning passed with
+  `ledger=33 dirty=false media_features=false moderation_side_effects=0`.
+- Credentials were loaded through an exact environment-key allowlist in the same gate processes; no
+  database URL, password or provider secret was printed or logged.
+
+### Deploy/live acceptance — `PASS`
+
+- Render deployment `dep-d9vjhvp5efls73ea5l3g` reached `Live` on exact runtime candidate
+  `2c309eabed9a4b8425f12895df071ee5f06edfb0`. Cloudflare Pages deployment
+  `1b935dc9-7498-4a3c-81c6-2571ca080c53` completed successfully on the same exact SHA.
+- Public health/readiness/status probes passed `6/6`; anonymous moderation privacy probes passed
+  `10/10`, for a combined live HTTP result of `16/16`.
+- Authenticated Organization Admin acceptance confirmed both media capabilities remain off and a
+  synthetic prejoin remains concealed. Browser accessibility/privacy checks found exactly one
+  `main`, one `h1` and one `nav`; all `12/12` exposed controls had accessible names; duplicate IDs,
+  media/provider references, device controls, console warnings and console errors were all `0`.
+- No classroom-media capability was temporarily enabled and no positive shared moderation/provider
+  flow was run. The post-live read-only snapshot remained
+  `ledger=33 dirty=false media_features=false moderation_side_effects=0`; every bounded P4-07 count
+  and side-effect count remained `0`.
+
+P4-07 moved `IN PROGRESS -> VERIFY -> DONE` on 2026-08-14 on exact runtime candidate
+`2c309eabed9a4b8425f12895df071ee5f06edfb0`. No rollback was run; the disposable branch remains
+retained, `CanPublishData=false`, and both classroom-media capabilities remain deployment-force-off.
 
 ## 5. Deferred gates
 

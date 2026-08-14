@@ -4,11 +4,11 @@
 
 | Thuộc tính          | Trạng thái                                           |
 | ------------------- | ---------------------------------------------------- |
-| Cập nhật            | 2026-08-13                                           |
+| Cập nhật            | 2026-08-14                                           |
 | Phase hiện tại      | Phase 4 Classroom Media; Phase 3 carry-over tiếp tục |
-| Hoàn thành gần nhất | P4-06 participant roster/hand/reaction `DONE`        |
-| Mốc repository mới  | P4-06 exact CI/shared/deploy/live acceptance PASS    |
-| Việc tiếp theo      | P4-07 `VERIFY`: candidate CI, shared và live          |
+| Hoàn thành gần nhất | P4-07 host/co-host/TA moderation `DONE`               |
+| Mốc repository mới  | P4-07 exact CI/shared/deploy/live acceptance PASS     |
+| Việc tiếp theo      | P4-08 `TODO`: review/amend ADR-0013/0025              |
 | Phạm vi             | Web-first; desktop/mobile/native là track sau        |
 
 ## Chuỗi phase
@@ -76,7 +76,7 @@ activation, SES/domain/live interoperability và delivery/processing phụ thu�
 P3-CAL-01 không phải dependency kỹ thuật của session một lần P3-01; cả hai gate đã đạt.
 P3-CAL-02 có thể chạy sandbox cô lập, nhưng mọi email/notification side effect runtime
 vẫn phải chờ P3-03B. Core Exit đã đạt trên candidate `f5f1eb3`; P4-00/P4-01/P4-02/P4-03,
-P4-04/P4-05/P4-06 và P4-MEDIA-UX-00 hiện đã `DONE`. Nguồn thực thi là
+P4-04/P4-05/P4-06/P4-07 và P4-MEDIA-UX-00 hiện đã `DONE`. Nguồn thực thi là
 [PHASE_4_BACKLOG.md](PHASE_4_BACKLOG.md), ADR authority là
 [ADR-0030](adr/0030-authoritative-classroom-media-spaces-lifecycle-and-livekit-grants.md) cùng
 [ADR-0031](adr/0031-classroom-media-ux-devices-layout-effects-and-signals.md). P4-03 exact candidate
@@ -92,7 +92,15 @@ anonymous/Admin feature-off acceptance đều PASS. P4-06 sau đó đã `DONE` n
 exact candidate `d773641f796076b90f31a876ee840a427db43372`: GitHub Verify/Security, disposable/shared
 forward-only `31 false -> 32 false -> 32 false`, exact ACL, Render/Cloudflare deploy và live
 privacy/feature-off/no-side-effect acceptance đều PASS. Không rollback, hai media feature tiếp tục
-force-off. P4-07 hiện ở `VERIFY`: local/disposable PASS, còn candidate CI, shared và live.
+force-off. P4-07 Host/co-host/TA moderation đã `DONE` ngày 2026-08-14 trên exact deployed runtime
+candidate `2c309eabed9a4b8425f12895df071ee5f06edfb0`: GitHub Verify `31814509810` và Security
+`31814509808` PASS; shared forward-only `32 false -> 33 false -> 33 false`, exact ACL/final snapshot,
+Render `dep-d9vjhvp5efls73ea5l3g` `Live` và Cloudflare Pages deployment
+`1b935dc9-7498-4a3c-81c6-2571ca080c53` exact đều PASS. Public acceptance đạt `16/16`; Admin
+feature-off/concealment, accessibility, resource/log audit và post-live zero-side-effect đều PASS.
+Không rollback, disposable branch được giữ lại, media features tiếp tục force-off và
+`CanPublishData=false`. P4-08 là task `TODO` kế tiếp; phải review/amend ADR-0013/0025 trước khi
+triển khai classroom chat.
 Physical/manual/device/load/provider-outage/
 effect gates vẫn `UNVERIFIED — P4-11`.
 `P3-02D-B` auto-close/fan-out/delivery cùng các lane

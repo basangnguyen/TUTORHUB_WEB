@@ -7,7 +7,7 @@ thay đổi schema, migration hoặc repository phải đọc tài liệu này t
 
 - System of record: Neon PostgreSQL.
 - Schema ứng dụng: `tutorhub`.
-- Migration mới nhất trong source: `000032_media_participant_signals`; P4-01 đến P4-06 đã `DONE`.
+- Migration mới nhất trong source: `000033_media_moderation_commands`; P4-01 đến P4-07 đã `DONE`.
   P4-06 disposable và shared đều PASS forward-only `31 false -> 32 false -> 32 false`, exact/default
   ACL và read-only gates; final ledger của cả hai là `32 false`. P3-06/P3-07A đã forward cả
   disposable và shared
@@ -25,6 +25,11 @@ thay đổi schema, migration hoặc repository phải đọc tài liệu này t
   rollback và hai media feature tiếp tục off.
   P4-06 tiếp tục forward disposable/shared tới `32 false`; exact CI/security, deploy/live
   feature-off/privacy và post-live no-side-effect acceptance đều PASS, không rollback.
+  P4-07 tiếp tục forward disposable/shared `32 false -> 33 false -> 33 false`, provision exact
+  runtime/PUBLIC/maintenance/dependency ACL và giữ final/post-live
+  `ledger=33 dirty=false media_features=false moderation_side_effects=0`. Exact runtime candidate
+  `2c309eabed9a4b8425f12895df071ee5f06edfb0`, CI/security và deploy/live acceptance đều PASS;
+  không rollback và disposable branch được giữ lại.
 - Migration 1-5 đã được chạy và kiểm tra trên Neon; smoke
   `5 false -> rollback 4 false -> migrate 5 false` đạt ngày 2026-07-16.
 - Migration `000006` đến `000013` đều có up/down path. Source và PostgreSQL 17 CI
@@ -1420,6 +1425,24 @@ và post-live no-side-effect acceptance; shared final giữ `32 false`.
 Chi tiết tại
 [`P4_06_STAGING_ACCEPTANCE.md`](P4_06_STAGING_ACCEPTANCE.md).
 
+P4-07 đã forward migration `000033_media_moderation_commands`: tạo
+`media_room_role_assignments` tenant/space/RoomInstance-scoped cho dynamic co-host lifecycle và mở
+rộng `media_space_mutation_receipts` cho lock/unlock, promote/demote, mute/remove, exact target/result
+versions cùng durable provider-effect status/lease/attempt. Receipt không lưu raw provider error hoặc
+provider identifier mới; provider effect được reconcile qua authoritative binding sau khi claim.
+Migration revoke toàn bộ quyền `PUBLIC` trên relation mới. Runtime chỉ nhận exact column-level
+`SELECT/INSERT/UPDATE` cần cho assignment, moderation receipt và bounded reconcile; không có broad
+table grant, `DELETE`, DDL hay ownership. Exact PUBLIC/maintenance/dependency ACL tiếp tục fail closed.
+Disposable và shared đều PASS forward-only `32 false -> 33 false -> 33 false`, idempotent migrate,
+exact ACL và read-only final gate. Shared final rồi post-live cùng giữ
+`ledger=33 dirty=false media_features=false moderation_side_effects=0`. Exact runtime candidate
+`2c309eabed9a4b8425f12895df071ee5f06edfb0` PASS Verify `31814509810`, Security `31814509808`,
+Render deployment `dep-d9vjhvp5efls73ea5l3g` `Live`, Cloudflare Pages deployment
+`1b935dc9-7498-4a3c-81c6-2571ca080c53` exact SHA success và live `16/16` + Admin feature-off/
+conceal/accessibility/resource/log acceptance. Không rollback; disposable branch được giữ lại và
+P4-11 physical/manual/load/outage gates vẫn deferred. Chi tiết tại
+[`P4_07_STAGING_ACCEPTANCE.md`](P4_07_STAGING_ACCEPTANCE.md).
+
 Với P2-05, cần kiểm tra riêng migrate 9 -> 10, rollback 10 -> 9, migrate lại 9 -> 10;
 tenant-scoped FK/unique/state constraints; direct enroll và các transition; same-user
 replay; concurrent join ở usage limit; atomic exhausted/expired state; archive guard;
@@ -1506,6 +1529,11 @@ của lịch sử append-only và không phải quy trình cleanup cho staging/p
   `d773641f796076b90f31a876ee840a427db43372`: disposable/shared forward-only
   `31 false -> 32 false -> 32 false`, exact ACL/PostgreSQL, CI/security, deploy/live feature-off/
   privacy và post-live no-side-effect acceptance đều PASS. Không rollback; shared final là
-  `32 false`, hai media feature tiếp tục off. P4-07 hiện ở `VERIFY`: local/disposable PASS;
-  shared vẫn chưa được forward hoặc provision ACL.
+  `32 false`, hai media feature tiếp tục off.
+- P4-07 đã `DONE` ngày 2026-08-14 trên exact runtime candidate
+  `2c309eabed9a4b8425f12895df071ee5f06edfb0`: disposable/shared forward-only
+  `32 false -> 33 false -> 33 false`, exact ACL, final/post-live
+  `ledger=33 dirty=false media_features=false moderation_side_effects=0`, CI/security, exact
+  Render/Cloudflare deploy và live feature-off/privacy/accessibility/no-side-effect acceptance đều
+  PASS. Không rollback; disposable branch được giữ lại. P4-08 là task tiếp theo.
 - Chưa có backup/restore drill, PITR gate hoặc connection load test cho pilot.

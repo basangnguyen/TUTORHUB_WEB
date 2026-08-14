@@ -6,24 +6,23 @@
 
 | Thuộc tính           | Trạng thái                                                                            |
 | -------------------- | ------------------------------------------------------------------------------------- |
-| Ngày cập nhật        | 2026-08-13                                                                            |
+| Ngày cập nhật        | 2026-08-14                                                                            |
 | Repository           | `https://github.com/basangnguyen/TUTORHUB_WEB`                                        |
 | Nhánh làm việc       | `main`                                                                                |
 | Quy trình            | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
 | Phase hoàn thành     | Phase 0, Phase 1, Phase 2                                                             |
 | Phase hiện tại       | Phase 4 Classroom Media MVP; Phase 3 deferred carry-over vẫn hoạt động                |
-| Task `DONE` gần nhất | P4-06 Participant roster, hand raise và reaction                                       |
-| Mốc repository mới   | Exact candidate `d773641f` đã PASS CI/security và Live trên Render/Cloudflare          |
-| Task hiện tại        | P4-07 Host/co-host/TA moderation (`VERIFY`)                                            |
-| Task tiếp theo       | Review/push candidate, GitHub CI/security, rồi xin quyền forward shared P4-07          |
+| Task `DONE` gần nhất | P4-07 Host/co-host/TA moderation                                                       |
+| Mốc repository mới   | Exact candidate `2c309eab` đã PASS CI/shared/deploy/live trên Render/Cloudflare        |
+| Task hiện tại        | P4-08 Persistent in-room chat (`TODO`)                                                 |
+| Task tiếp theo       | Review/amend ADR-0013/0025 trước khi bắt đầu P4-08                                    |
 
-### Checkpoint P4-07 `VERIFY` — local/disposable PASS ngày 2026-08-13
+### Checkpoint P4-07 `DONE` ngày 2026-08-14
 
-P4-07 đã hoàn tất local candidate và disposable acceptance nhưng chưa migrate shared hoặc deploy. ADR-0030 và
-OpenAPI chốt PostgreSQL/Core API là authority; browser chỉ gửi opaque participant key và chỉ render
-server-projected operations. Forward migration `000033_media_moderation_commands` thêm assignment
-co-host đúng tenant/space/RoomInstance, durable provider-effect receipt, PUBLIC zero privilege và
-fail-closed down guard khi còn co-host động hoặc effect bắt buộc chưa hội tụ.
+ADR-0030 và OpenAPI chốt PostgreSQL/Core API là authority; browser chỉ gửi opaque participant key và
+chỉ render server-projected operations. Forward migration `000033_media_moderation_commands` thêm
+assignment co-host đúng tenant/space/RoomInstance, durable provider-effect receipt, PUBLIC zero
+privilege và fail-closed down guard khi còn co-host động hoặc effect bắt buộc chưa hội tụ.
 
 Core API đã có exact matrix cho host/co-host/TA/attendee/safety-admin, expected space/room/projection
 version, stable idempotency và cùng effective-role resolver cho moderation/signal/lobby/credential.
@@ -42,21 +41,37 @@ và loading/forbidden/stale/provider-pending/reconcile/terminal states.
 Full `pnpm verify` PASS: web `66/66` files, `424/424` tests; API client `7/7` files, `52/52` tests;
 toàn bộ lint/typecheck/build/Storybook/security và Go test/vet đều xanh. Focused Go, integration-tag
 compile/vet, OpenAPI generation, format và diff check PASS; deterministic P4-07 Playwright/Axe fixture
-đã PASS `4/4`. Opt-in harness cho mute/remove/delete thật và NotFound replay đã PASS trên isolated
-LiveKit test resource. Neon disposable owner preflight, forward-only
-`32 false -> 33 false -> 33 false`, exact runtime/PUBLIC/maintenance/dependency ACL, P4-07
-authority/concurrency và toàn bộ `9/9` media PostgreSQL regression programs đều PASS. Final read-only
-snapshot giữ `33 false`, feature effective force-off và `unsafe_unresolved_effects=0`; retained audit
-fixtures được báo cáo thay vì xóa. Shared-staging owner preflight/ACL/final-snapshot harness dùng bộ
-xác nhận P4-07 riêng, fail closed với cờ stale và đã PASS static/compile/vet; harness này chưa được
-thực thi. Các giá trị trong `.env.p4-07-disposable.local` chỉ được nạp trong đúng process test, không
-hiển thị hoặc log; shared staging chưa được kết nối. Evidence:
+PASS `4/4`. Opt-in harness cho mute/remove/delete thật và NotFound replay PASS trên isolated LiveKit
+test resource. Neon disposable owner preflight, forward-only `32 false -> 33 false -> 33 false`, exact
+runtime/PUBLIC/maintenance/dependency ACL, P4-07 authority/concurrency và toàn bộ `9/9` media
+PostgreSQL regression programs đều PASS. Final disposable snapshot giữ `33 false`, feature effective
+force-off và `unsafe_unresolved_effects=0`; retained audit fixtures được báo cáo thay vì xóa.
+
+Exact runtime candidate `2c309eabed9a4b8425f12895df071ee5f06edfb0` đã commit/push trực tiếp
+`main`. GitHub Verify `31814509810` và Security `31814509808` đều PASS trên đúng SHA. Shared owner
+preflight PASS tại `ledger=32 dirty=false three_principals=true url_boundary=true media_features=false`;
+migration chạy forward-only `32 false -> 33 false -> 33 false`, lần chạy lại idempotent, exact ACL
+PASS. Read-only snapshot trước deploy giữ
+`ledger=33 dirty=false media_features=false moderation_side_effects=0`.
+
+Render deployment `dep-d9vjhvp5efls73ea5l3g` đạt `Live` trên exact runtime candidate; Cloudflare
+Pages deployment `1b935dc9-7498-4a3c-81c6-2571ca080c53` cũng thành công trên cùng SHA. Public
+health/readiness/status đạt `6/6`, anonymous moderation privacy đạt `10/10`, tổng cộng `16/16` live
+HTTP probes. Authenticated Organization Admin xác nhận cả hai media capability vẫn off và synthetic
+prejoin được conceal. Browser acceptance đạt `main=1`, `h1=1`, `nav=1`, `12/12` exposed controls có
+accessible name; duplicate ID, media/provider reference, device control, console warning và console
+error đều bằng `0`.
+
+Post-live read-only snapshot tiếp tục giữ
+`ledger=33 dirty=false media_features=false moderation_side_effects=0`; toàn bộ bounded P4-07 count và
+side effect đều bằng `0`. Không temporary-enable capability, không rollback; disposable branch được
+giữ lại, `CanPublishData=false` và cả hai media capability tiếp tục deployment-force-off. P4-07 chuyển
+`IN PROGRESS -> VERIFY -> DONE`; physical/manual browser-device, 25/50 provider load, sustained outage
+và optional-effect gates vẫn `UNVERIFIED — P4-11`, không được suy PASS từ slice này. Evidence:
 [P4_07_STAGING_ACCEPTANCE.md](P4_07_STAGING_ACCEPTANCE.md).
 
-Để chuyển `VERIFY -> DONE`, bước kế tiếp là review exact candidate, commit/push trực tiếp `main` và
-chờ GitHub Verify/Security PASS. Chỉ sau đó mới xin quyền forward shared staging `32 -> 33`, provision
-exact ACL, deploy exact candidate và chạy live acceptance. Không rollback; disposable branch tiếp tục
-được giữ lại.
+P4-08 Persistent in-room chat là task `TODO` tiếp theo. Trước khi triển khai phải review/amend
+ADR-0013/0025 để chốt room-scoped conversation authority và không tạo parallel ad-hoc message model.
 
 ### Checkpoint P4-06 `DONE` ngày 2026-08-13
 

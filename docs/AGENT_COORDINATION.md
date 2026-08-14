@@ -197,8 +197,9 @@ hoặc worker-driven file processing/sharing tới end user.
 | P4-04           | DONE       | Exact CI/shared/deploy/live privacy/no-side-effect PASS     |
 | P4-05           | DONE       | Exact CI/shared/deploy/live + isolated provider PASS        |
 | P4-06           | DONE       | Exact CI/shared/deploy/live feature-off/no-side-effect PASS |
-| P4-07           | VERIFY     | Local/disposable PASS; chờ candidate CI/shared/live         |
-| P4-08 đến P4-10 | TODO       | Chat/reconnect/telemetry                                    |
+| P4-07           | DONE       | Exact CI/shared/deploy/live moderation acceptance PASS      |
+| P4-08           | TODO       | Task kế tiếp; review/amend ADR-0013/0025 trước classroom chat |
+| P4-09 đến P4-10 | TODO       | Reconnect/telemetry                                         |
 | P4-11           | TODO       | Browser/device/load/provider-outage acceptance             |
 | P4-12           | TODO       | Exact staging acceptance và Phase 4 closure                |
 
@@ -236,7 +237,6 @@ Exact runtime candidate `dcbdfef3c209a7c6d17197ccbcf737b58cd9e315` PASS GitHub V
 Cloudflare/Render exact deploy, live public/anonymous/Admin feature-off acceptance và shared
 before/after read-only snapshot `31 false` với exact ACL/counts không đổi. Physical device/load/
 outage/effect vẫn `UNVERIFIED — P4-11` và không bật feature/effect.
-Trước P4-08 phải review/amend ADR-0013/0025 vì conversation hiện chỉ có `direct` và `class`.
 
 P4-06 đã `DONE` ngày 2026-08-13 trên exact candidate
 `d773641f796076b90f31a876ee840a427db43372`, với forward migration `000032`, privacy-safe versioned roster,
@@ -255,8 +255,18 @@ read-only pre/postflight đều PASS. Render/Cloudflare exact deploy cùng live 
 privacy/feature-off/no-side-effect acceptance cũng PASS; shared post-live vẫn `32 false`, không có
 P4-06 side effect và không bật media feature.
 
-`P4-MEDIA-UX-00`, P4-03, P4-04, P4-05 và P4-06 đã `DONE`; P4-07 đang `VERIFY`, đã PASS
-local/disposable nhưng chưa push candidate, chạy GitHub CI/security, forward shared hoặc deploy/live.
+P4-07 Host/co-host/TA moderation đã `DONE` ngày 2026-08-14 trên exact deployed runtime candidate
+`2c309eabed9a4b8425f12895df071ee5f06edfb0`. GitHub Verify `31814509810` và Security
+`31814509808` PASS; shared forward-only `32 false -> 33 false -> 33 false`, exact ACL và final
+snapshot đều PASS. Render deployment `dep-d9vjhvp5efls73ea5l3g` đạt `Live`; Cloudflare Pages
+deployment `1b935dc9-7498-4a3c-81c6-2571ca080c53` chạy exact candidate. Public acceptance đạt
+`16/16`; Admin feature-off/concealment, accessibility, resource/log audit và post-live
+zero-side-effect đều PASS. Không rollback, disposable branch được giữ lại, hai media feature tiếp
+tục force-off và `CanPublishData=false`.
+
+`P4-MEDIA-UX-00`, P4-03, P4-04, P4-05, P4-06 và P4-07 đã `DONE`; P4-08 là task `TODO` kế tiếp.
+Trước khi triển khai classroom chat phải review/amend ADR-0013/0025 vì conversation hiện chỉ có
+`direct` và `class`.
 P4-03/P4-04/P4-05/
 P4-06/P4-11 phải dùng explicit device probe, bounded layout 2/5/25/50 và
 Core API signal contract đã chốt. `effect=None` là baseline; Track Processors chưa phải production

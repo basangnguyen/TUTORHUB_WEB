@@ -20,17 +20,18 @@ P3-14-CORE đã `DONE`; Phase 4 được phép bắt đầu trong khi Phase 3 de
 Không task Phase 4 nào được xóa, giả lập PASS hoặc bật notification/email/file-processing side
 effect thuộc Phase 3 khi carry-over chưa đạt gate riêng.
 
-**Task `DONE` gần nhất:** `P4-06` Participant roster, hand raise và reaction ngày 2026-08-13.
-Exact candidate `d773641f` đã PASS GitHub CI/security; disposable/shared đều đạt forward-only
-`31 false -> 32 false -> 32 false`, exact ACL/final snapshot, feature-off và P4-06 count `0` mà
-không rollback. Render deployment `dep-d9ul9q6417fc738gfa3g` và Cloudflare Pages chạy exact
-candidate; public/privacy/feature-off/accessibility/no-side-effect acceptance đều PASS. Disposable
-branch được giữ lại. Evidence tại [P4_06_STAGING_ACCEPTANCE.md](P4_06_STAGING_ACCEPTANCE.md).
-**Task hiện tại:** `P4-07` Host/co-host/TA moderation (`VERIFY`). Local và Neon disposable đều PASS:
-forward-only `32 false -> 33 false -> 33 false`, exact ACL, PostgreSQL authority/concurrency/regression,
-read-only postflight và isolated LiveKit matrix; không rollback và vẫn giữ disposable branch. Bước kế
-tiếp là review candidate, commit/push `main` và chờ GitHub Verify/Security PASS trước khi xin quyền
-forward shared staging; chưa migrate shared staging hoặc deploy.
+**Task `DONE` gần nhất:** `P4-07` Host/co-host/TA moderation ngày 2026-08-14. Exact runtime
+candidate `2c309eabed9a4b8425f12895df071ee5f06edfb0` đã PASS GitHub Verify `31814509810` và
+Security `31814509808`. Disposable/shared đều đạt forward-only
+`32 false -> 33 false -> 33 false`, exact ACL và final/post-live snapshot
+`ledger=33 dirty=false media_features=false moderation_side_effects=0`. Render deployment
+`dep-d9vjhvp5efls73ea5l3g` `Live` và Cloudflare Pages deployment
+`1b935dc9-7498-4a3c-81c6-2571ca080c53` success trên exact SHA; live `16/16` cùng Admin
+feature-off/conceal/accessibility/resource/log acceptance đều PASS. Không rollback; disposable
+branch được giữ lại và các gate physical/manual/load/outage tiếp tục `UNVERIFIED — P4-11`.
+Evidence tại [P4_07_STAGING_ACCEPTANCE.md](P4_07_STAGING_ACCEPTANCE.md).
+**Task tiếp theo:** `P4-08` Persistent in-room chat (`TODO`); review/amend ADR-0013/0025 trước khi
+thêm room-scoped conversation authority.
 
 `P4-MEDIA-UX-00` đã `DONE`; không đổi LiveKit provider, không thêm processor production dependency
 hoặc mở `CanPublishData=false`. P4-03/P4-04/P4-05/P4-06/P4-11 phải tuân ADR-0031 và báo rõ các
@@ -83,7 +84,7 @@ physical/manual effect gate còn `UNVERIFIED` thay vì suy PASS từ research.
 | P4-04          | Lobby, admission và explicit same-tenant invite     | P4-02, P4-03, P4-MEDIA-UX-00    | DONE       |
 | P4-05          | Classroom shell, media controls và layouts          | P4-03, P4-MEDIA-UX-00           | DONE       |
 | P4-06          | Participant roster, hand raise và reaction          | P4-04, P4-05, P4-MEDIA-UX-00    | DONE       |
-| P4-07          | Host/co-host/TA moderation, lock/mute/remove/end    | P4-04, P4-06                    | VERIFY     |
+| P4-07          | Host/co-host/TA moderation, lock/mute/remove/end    | P4-04, P4-06                    | DONE       |
 | P4-08          | Persistent in-room chat                             | P4-01, P3-07A; ADR review       | TODO       |
 | P4-09          | Reconnect, recovery instance và degraded audio-only | P4-02, P4-05, P4-07             | TODO       |
 | P4-10          | Join telemetry, privacy và diagnostics export       | P4-02, P4-03, P4-09             | TODO       |
@@ -482,7 +483,7 @@ surprised`, TTL 10 giây, grouping 750 ms, snapshot max 50 summary/UI max 3 visu
 
 ## 14. P4-07 Host/co-host/TA moderation
 
-**Dependency:** P4-04/P4-06. **Trạng thái:** `VERIFY` từ ngày 2026-08-13.
+**Dependency:** P4-04/P4-06. **Trạng thái:** `DONE` ngày 2026-08-14.
 
 ### Scope
 
@@ -500,6 +501,8 @@ surprised`, TTL 10 giây, grouping 750 ms, snapshot max 50 summary/UI max 3 visu
 - [x] Moderation audit allowlist has actor/target opaque IDs/action/outcome, no media/chat content.
 - [x] Provider failure exposes the committed business result and retry/reconcile state without
       claiming that the provider effect has been applied.
+- [x] Exact candidate GitHub CI/security, shared forward/ACL, exact deploy và live feature-off/
+      privacy/accessibility/no-side-effect acceptance PASS.
 
 ### Disposable evidence — `PASS` ngày 2026-08-13
 
@@ -510,8 +513,19 @@ surprised`, TTL 10 giây, grouping 750 ms, snapshot max 50 summary/UI max 3 visu
   `unsafe_unresolved_effects=0`; retained synthetic audit fixtures are reported, not deleted.
 - Isolated LiveKit microphone mute, participant removal, room deletion and idempotent NotFound replay
   PASS. Sustained provider-outage evidence remains explicitly deferred to P4-11.
-- P4-07 remains `VERIFY`: candidate commit/push, GitHub Verify/Security, shared forward/ACL,
-  exact deploy and live acceptance have not run.
+
+### Exact closure — `PASS` ngày 2026-08-14
+
+- Exact runtime candidate `2c309eabed9a4b8425f12895df071ee5f06edfb0` PASS GitHub Verify
+  `31814509810` và Security `31814509808`.
+- Shared staging PASS forward-only `32 false -> 33 false -> 33 false`, exact ACL và read-only
+  final/post-live snapshot `ledger=33 dirty=false media_features=false moderation_side_effects=0`.
+- Render deployment `dep-d9vjhvp5efls73ea5l3g` `Live` exact SHA; Cloudflare Pages deployment
+  `1b935dc9-7498-4a3c-81c6-2571ca080c53` exact SHA success.
+- Live `16/16` và authenticated Admin feature-off/conceal/accessibility/resource/log acceptance
+  đều PASS mà không temporary-enable hai media feature.
+- Không rollback; disposable branch được giữ lại. Physical/manual browser-device, provider load và
+  sustained outage tiếp tục `UNVERIFIED — P4-11`; P4-08 trở thành task tiếp theo.
 
 ## 15. P4-08 Persistent in-room chat
 
@@ -668,7 +682,11 @@ PostgreSQL. Mỗi implementation slice phải cập nhật khi thêm provider co
    live privacy/feature-off/accessibility/no-side-effect acceptance đều PASS; không rollback,
    disposable branch được giữ lại và các physical/manual/load/outage/effect gate vẫn
    `UNVERIFIED — P4-11`.
-7. P4-07 đang `VERIFY`: migration `000033`, exact authorization/tenant/concurrency boundary, durable
-   provider-effect reconcile, rate limit, generated contract/client, accessible UI và full local verify
-   đều PASS. Disposable cũng PASS forward-only `32 false -> 33 false -> 33 false`, exact ACL, full
-   PostgreSQL regression, read-only postflight và isolated LiveKit matrix; chưa shared staging/deploy.
+7. P4-07 đã `DONE` ngày 2026-08-14 trên exact runtime candidate
+   `2c309eabed9a4b8425f12895df071ee5f06edfb0`: Verify `31814509810` và Security
+   `31814509808` PASS; disposable/shared forward-only `32 false -> 33 false -> 33 false`, exact ACL,
+   final/post-live snapshot sạch, Render/Cloudflare exact deploy và live `16/16` + Admin
+   feature-off/conceal/accessibility/resource/log acceptance đều PASS. Không rollback; disposable
+   branch được giữ lại và P4-11 deferred gates không bị suy PASS.
+8. P4-08 Persistent in-room chat là task `TODO` tiếp theo; review/amend ADR-0013/0025 trước khi
+   triển khai room-scoped conversation authority.
