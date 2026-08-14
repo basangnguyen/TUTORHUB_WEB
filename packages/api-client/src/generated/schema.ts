@@ -1835,6 +1835,26 @@ export type paths = {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/api/v1/media/spaces/{space_id}/lock": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Lock or unlock the authoritative active RoomInstance
+     * @description Only a server-authorized host command may change the room lock. Dynamic co-host assignment does not grant lifecycle authority. The actor, tenant, source role, and current room are derived server-side; stale versions and changed idempotent retries fail closed.
+     */
+    readonly post: operations["setMediaSpaceLock"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/api/v1/media/spaces/{space_id}/members": {
     readonly parameters: {
       readonly query?: never;
@@ -1904,6 +1924,66 @@ export type paths = {
     readonly get: operations["listMediaSpaceParticipants"];
     readonly put?: never;
     readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/media/spaces/{space_id}/participants/{participant_key}/mute": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Remotely mute one current participant microphone
+     * @description Remote mute is one-way and never requests remote unmute. The durable moderation command is committed before the LiveKit side effect; provider_effect_status exposes only bounded reconciliation state.
+     */
+    readonly post: operations["muteMediaParticipantMicrophone"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/media/spaces/{space_id}/participants/{participant_key}/remove": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Remove one current participant from the active RoomInstance
+     * @description The server derives the target provider identity from the opaque participant key. Host or co-host authority and protected-role restrictions are rechecked transactionally; TA may remotely mute attendees but cannot remove them. Provider removal is reconciled outside the database transaction.
+     */
+    readonly post: operations["removeMediaParticipant"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/media/spaces/{space_id}/participants/{participant_key}/role": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Promote an attendee to co-host or demote a co-host to attendee
+     * @description The role assignment is authoritative in PostgreSQL. The durable command schedules removal of the current provider participant so reconnect credentials carry freshly derived grants; provider_effect_status reports that reconciliation progress. A client cannot supply provider identity or grants.
+     */
+    readonly post: operations["changeMediaParticipantRole"];
     readonly delete?: never;
     readonly options?: never;
     readonly head?: never;
@@ -3889,11 +3969,15 @@ export type components = {
       | "timeout"
       | "meeting_ended"
       | "provider_unavailable";
+    readonly MediaModerationResult:
+      | components["schemas"]["MediaSpaceLockResult"]
+      | components["schemas"]["MediaParticipantModerationResult"];
     readonly MediaParticipant: {
       readonly connection_state: components["schemas"]["MediaParticipantConnectionState"];
       /** @description Bounded display label only; email and other account identifiers are excluded. */
       readonly display_name: string;
       readonly instance_role: components["schemas"]["MediaInstanceRole"];
+      readonly moderation_operations: components["schemas"]["MediaParticipantModerationOperations"];
       readonly participant_key: components["schemas"]["MediaParticipantKey"];
       /**
        * Format: int64
@@ -3909,6 +3993,57 @@ export type components = {
      * @description Opaque RoomInstance-scoped presentation key. It is not a user, ParticipantSession, join-attempt, or provider identifier.
      */
     readonly MediaParticipantKey: string;
+    /** @description Exact server-derived operations for this viewer and this opaque participant target. Clients must not infer moderation authority from instance_role. */
+    readonly MediaParticipantModerationOperations: {
+      readonly can_demote_co_host: boolean;
+      readonly can_promote_co_host: boolean;
+      /** @description One-way remote microphone mute only; remote unmute is never exposed. */
+      readonly can_remote_mute: boolean;
+      readonly can_remove: boolean;
+    };
+    readonly MediaParticipantModerationRequest: {
+      /** Format: int64 */
+      readonly expected_projection_version: number;
+      /** Format: uuid */
+      readonly expected_room_instance_id: string;
+      /** Format: int64 */
+      readonly expected_room_instance_version: number;
+      /** Format: int64 */
+      readonly expected_space_version: number;
+      readonly idempotency_key: string;
+      readonly reason_code?: string;
+    };
+    readonly MediaParticipantModerationResult: {
+      /** Format: int64 */
+      readonly projection_version: number;
+      readonly provider_effect_status: components["schemas"]["MediaRequiredProviderEffectStatus"];
+      /** Format: uuid */
+      readonly room_instance_id: string;
+      /** Format: int64 */
+      readonly room_instance_version: number;
+      /** Format: uuid */
+      readonly space_id: string;
+      /** Format: int64 */
+      readonly space_version: number;
+      readonly target_instance_role?: components["schemas"]["MediaInstanceRole"];
+      readonly target_participant_key: components["schemas"]["MediaParticipantKey"];
+      /** Format: int64 */
+      readonly target_participant_version: number;
+    };
+    readonly MediaParticipantRoleRequest: {
+      /** @enum {string} */
+      readonly desired_role: "co_host" | "attendee";
+      /** Format: int64 */
+      readonly expected_projection_version: number;
+      /** Format: uuid */
+      readonly expected_room_instance_id: string;
+      /** Format: int64 */
+      readonly expected_room_instance_version: number;
+      /** Format: int64 */
+      readonly expected_space_version: number;
+      readonly idempotency_key: string;
+      readonly reason_code?: string;
+    };
     readonly MediaParticipantSnapshot: {
       /**
        * Format: int64
@@ -3927,11 +4062,42 @@ export type components = {
       readonly reaction_clusters: readonly components["schemas"]["MediaReactionCluster"][];
       /** Format: uuid */
       readonly room_instance_id: string;
+      /** @description Authoritative MediaSpace lock projection. Lock blocks new joins/admissions but does not eject active participants. */
+      readonly room_locked: boolean;
       readonly self_participant_key: components["schemas"]["MediaParticipantKey"];
       /** Format: date-time */
       readonly server_time: string;
       readonly viewer_operations: components["schemas"]["MediaSignalViewerOperations"];
     };
+    readonly MediaProviderConvergenceProblem: {
+      /** @constant */
+      readonly business_committed: true;
+      /** @constant */
+      readonly code: "media_provider_unavailable";
+      readonly detail?: string;
+      readonly instance?: string;
+      /** @enum {string} */
+      readonly provider_effect_status:
+        "pending" | "retryable_failed" | "permanent_failed";
+      readonly request_id?: string;
+      /** @constant */
+      readonly resource_status: "ended";
+      /** Format: int64 */
+      readonly resource_version: number;
+      /** Format: uuid */
+      readonly space_id: string;
+      /** @constant */
+      readonly status: 503;
+      readonly title: string;
+      /** Format: uri-reference */
+      readonly type: string;
+    };
+    /**
+     * @description Public reconciliation state for a provider side effect. Internal lease or applying state is never exposed.
+     * @enum {string}
+     */
+    readonly MediaProviderEffectStatus:
+      "none" | "pending" | "applied" | "retryable_failed" | "permanent_failed";
     readonly MediaRaisedHand: {
       readonly participant_key: components["schemas"]["MediaParticipantKey"];
       /** Format: date-time */
@@ -3967,6 +4133,12 @@ export type components = {
       readonly last_signal_sequence: number;
       readonly reaction: components["schemas"]["MediaReaction"];
     };
+    /**
+     * @description Public reconciliation state for a required provider side effect. The database mutation is already durable; none and the internal applying lease state are impossible at this boundary.
+     * @enum {string}
+     */
+    readonly MediaRequiredProviderEffectStatus:
+      "pending" | "applied" | "retryable_failed" | "permanent_failed";
     readonly MediaRoomInstance: {
       /** Format: date-time */
       readonly created_at: string;
@@ -4009,6 +4181,10 @@ export type components = {
       readonly target_participant_key?: components["schemas"]["MediaParticipantKey"];
     };
     readonly MediaSignalViewerOperations: {
+      /** @description Exact current lifecycle authority to end this media space; dynamic co-host assignment alone never grants it. */
+      readonly can_end_room: boolean;
+      /** @description Exact current host authority to lock or unlock this RoomInstance. */
+      readonly can_lock_room: boolean;
       /** @description Current server-derived media.moderate authority for lower-one and lower-all; never inferred from a client or provider role. */
       readonly can_moderate_hands: boolean;
       readonly can_raise_hand: boolean;
@@ -4028,6 +4204,37 @@ export type components = {
       /** Format: int64 */
       readonly version: number;
       readonly viewer_operations: components["schemas"]["MediaSpaceViewerOperations"];
+    };
+    readonly MediaSpaceLockRequest: {
+      /** Format: int64 */
+      readonly expected_projection_version: number;
+      /** Format: uuid */
+      readonly expected_room_instance_id: string;
+      /** Format: int64 */
+      readonly expected_room_instance_version: number;
+      /** Format: int64 */
+      readonly expected_space_version: number;
+      readonly idempotency_key: string;
+      readonly locked: boolean;
+      readonly reason_code?: string;
+    };
+    readonly MediaSpaceLockResult: {
+      readonly locked: boolean;
+      /** Format: int64 */
+      readonly projection_version: number;
+      /**
+       * @description Lock and unlock have no provider-side effect.
+       * @constant
+       */
+      readonly provider_effect_status: "none";
+      /** Format: uuid */
+      readonly room_instance_id: string;
+      /** Format: int64 */
+      readonly room_instance_version: number;
+      /** Format: uuid */
+      readonly space_id: string;
+      /** Format: int64 */
+      readonly space_version: number;
     };
     readonly MediaSpaceMember: {
       /** Format: date-time */
@@ -4880,6 +5087,8 @@ export type components = {
     readonly CSRFToken: string;
     /** @description Active workspace assertion used to prevent confused-deputy mutations and reads. */
     readonly ExpectedTenantID: string;
+    /** @description Opaque RoomInstance-scoped participant key; never a user, session, or provider identity. */
+    readonly MediaParticipantKeyPath: string;
     readonly PollID: string;
   };
   requestBodies: never;
@@ -8590,7 +8799,15 @@ export interface operations {
       readonly 403: components["responses"]["ForbiddenResponse"];
       readonly 404: components["responses"]["NotFoundResponse"];
       readonly 409: components["responses"]["ConflictResponse"];
-      readonly 503: components["responses"]["ProblemResponse"];
+      /** @description The room end committed, but provider cleanup still requires durable reconciliation */
+      readonly 503: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/problem+json": components["schemas"]["MediaProviderConvergenceProblem"];
+        };
+      };
       readonly default: components["responses"]["ProblemResponse"];
     };
   };
@@ -8758,6 +8975,56 @@ export interface operations {
       readonly 404: components["responses"]["NotFoundResponse"];
       readonly 409: components["responses"]["ConflictResponse"];
       readonly 429: components["responses"]["ProblemResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly setMediaSpaceLock: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Double-submit CSRF token bound to the active authenticated session. */
+        readonly "X-CSRF-Token": components["parameters"]["CSRFToken"];
+        /** @description Active workspace assertion used to prevent confused-deputy mutations and reads. */
+        readonly "X-TutorHub-Expected-Tenant-ID": components["parameters"]["ExpectedTenantID"];
+      };
+      readonly path: {
+        readonly space_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["MediaSpaceLockRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Durable idempotent lock result with authoritative versions and provider-effect status; clients refetch the participant projection after success */
+      readonly 200: {
+        headers: {
+          readonly "Cache-Control"?: "private, no-store";
+          readonly "Referrer-Policy"?: "no-referrer";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["MediaSpaceLockResult"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      /** @description The actor, RoomInstance, and lock-operation rate limit was reached */
+      readonly 429: {
+        headers: {
+          readonly "Retry-After": number;
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
       readonly 503: components["responses"]["ProblemResponse"];
       readonly default: components["responses"]["ProblemResponse"];
     };
@@ -8956,6 +9223,162 @@ export interface operations {
       readonly 403: components["responses"]["ForbiddenResponse"];
       readonly 404: components["responses"]["NotFoundResponse"];
       readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly muteMediaParticipantMicrophone: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Double-submit CSRF token bound to the active authenticated session. */
+        readonly "X-CSRF-Token": components["parameters"]["CSRFToken"];
+        /** @description Active workspace assertion used to prevent confused-deputy mutations and reads. */
+        readonly "X-TutorHub-Expected-Tenant-ID": components["parameters"]["ExpectedTenantID"];
+      };
+      readonly path: {
+        /** @description Opaque RoomInstance-scoped participant key; never a user, session, or provider identity. */
+        readonly participant_key: components["parameters"]["MediaParticipantKeyPath"];
+        readonly space_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["MediaParticipantModerationRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Durable idempotent mute result and provider-effect status */
+      readonly 200: {
+        headers: {
+          readonly "Cache-Control"?: "private, no-store";
+          readonly "Referrer-Policy"?: "no-referrer";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["MediaParticipantModerationResult"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      /** @description The actor, RoomInstance, and mute-operation rate limit was reached */
+      readonly 429: {
+        headers: {
+          readonly "Retry-After": number;
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly removeMediaParticipant: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Double-submit CSRF token bound to the active authenticated session. */
+        readonly "X-CSRF-Token": components["parameters"]["CSRFToken"];
+        /** @description Active workspace assertion used to prevent confused-deputy mutations and reads. */
+        readonly "X-TutorHub-Expected-Tenant-ID": components["parameters"]["ExpectedTenantID"];
+      };
+      readonly path: {
+        /** @description Opaque RoomInstance-scoped participant key; never a user, session, or provider identity. */
+        readonly participant_key: components["parameters"]["MediaParticipantKeyPath"];
+        readonly space_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["MediaParticipantModerationRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Durable idempotent removal result and provider-effect status */
+      readonly 200: {
+        headers: {
+          readonly "Cache-Control"?: "private, no-store";
+          readonly "Referrer-Policy"?: "no-referrer";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["MediaParticipantModerationResult"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      /** @description The actor, RoomInstance, and remove-operation rate limit was reached */
+      readonly 429: {
+        headers: {
+          readonly "Retry-After": number;
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly changeMediaParticipantRole: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Double-submit CSRF token bound to the active authenticated session. */
+        readonly "X-CSRF-Token": components["parameters"]["CSRFToken"];
+        /** @description Active workspace assertion used to prevent confused-deputy mutations and reads. */
+        readonly "X-TutorHub-Expected-Tenant-ID": components["parameters"]["ExpectedTenantID"];
+      };
+      readonly path: {
+        /** @description Opaque RoomInstance-scoped participant key; never a user, session, or provider identity. */
+        readonly participant_key: components["parameters"]["MediaParticipantKeyPath"];
+        readonly space_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["MediaParticipantRoleRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Durable idempotent role result; provider_effect_status reports reconnect enforcement progress */
+      readonly 200: {
+        headers: {
+          readonly "Cache-Control"?: "private, no-store";
+          readonly "Referrer-Policy"?: "no-referrer";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["MediaParticipantModerationResult"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      /** @description The actor, RoomInstance, and role-operation rate limit was reached */
+      readonly 429: {
+        headers: {
+          readonly "Retry-After": number;
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
       readonly 503: components["responses"]["ProblemResponse"];
       readonly default: components["responses"]["ProblemResponse"];
     };

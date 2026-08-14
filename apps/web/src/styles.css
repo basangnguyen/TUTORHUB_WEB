@@ -5357,6 +5357,54 @@ textarea:focus-visible {
   font-size: 12px;
 }
 
+.media-p407-room-controls {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.media-p407-room-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.media-p407-status {
+  max-width: 60ch;
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.media-p407-status[role="alert"] {
+  color: var(--color-danger);
+}
+
+.media-p407-participant-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 6px;
+}
+
+.media-p407-participant-menu .th-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.media-p407-participant-menu .th-menu-item svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+}
+
 .media-p406-hand-state {
   padding-top: 8px;
   border-top: 1px solid var(--color-border);
@@ -5383,7 +5431,8 @@ textarea:focus-visible {
 
 @media (forced-colors: active) {
   .media-p406-reaction-cluster,
-  .media-p406-roster li {
+  .media-p406-roster li,
+  .media-p407-room-controls {
     border: 2px solid CanvasText;
   }
 }
@@ -5427,6 +5476,15 @@ textarea:focus-visible {
 
   .media-p405-device-panel {
     grid-template-columns: 1fr;
+  }
+
+  .media-p407-room-controls {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .media-p407-room-actions .th-button {
+    min-height: 44px;
   }
 
   .media-p405-start-audio {

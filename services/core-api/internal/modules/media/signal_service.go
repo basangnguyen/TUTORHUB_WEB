@@ -74,11 +74,19 @@ func (err *MediaSignalRateLimitError) Error() string {
 // participant. It excludes tenant/user/session/join-attempt/provider IDs and
 // every email address. ParticipantKey is an independent opaque correlation key.
 type MediaParticipant struct {
-	ParticipantKey uuid.UUID                  `json:"participant_key"`
-	RosterSequence int64                      `json:"roster_sequence"`
-	DisplayName    string                     `json:"display_name"`
-	InstanceRole   InstanceRole               `json:"instance_role"`
-	Connection     ParticipantConnectionState `json:"connection_state"`
+	ParticipantKey       uuid.UUID                     `json:"participant_key"`
+	RosterSequence       int64                         `json:"roster_sequence"`
+	DisplayName          string                        `json:"display_name"`
+	InstanceRole         InstanceRole                  `json:"instance_role"`
+	Connection           ParticipantConnectionState    `json:"connection_state"`
+	ModerationOperations MediaParticipantModerationOps `json:"moderation_operations"`
+}
+
+type MediaParticipantModerationOps struct {
+	CanPromoteCoHost bool `json:"can_promote_co_host"`
+	CanDemoteCoHost  bool `json:"can_demote_co_host"`
+	CanRemoteMute    bool `json:"can_remote_mute"`
+	CanRemove        bool `json:"can_remove"`
 }
 
 type RaisedHand struct {
@@ -100,12 +108,15 @@ type MediaSignalViewerOperations struct {
 	CanRaiseHand     bool `json:"can_raise_hand"`
 	CanSendReaction  bool `json:"can_send_reaction"`
 	CanModerateHands bool `json:"can_moderate_hands"`
+	CanLockRoom      bool `json:"can_lock_room"`
+	CanEndRoom       bool `json:"can_end_room"`
 }
 
 type MediaParticipantSnapshot struct {
 	RoomInstanceID     uuid.UUID                   `json:"room_instance_id"`
 	ProjectionVersion  int64                       `json:"projection_version"`
 	LastSignalSequence int64                       `json:"last_signal_sequence"`
+	RoomLocked         bool                        `json:"room_locked"`
 	SelfParticipantKey uuid.UUID                   `json:"self_participant_key"`
 	ViewerOperations   MediaSignalViewerOperations `json:"viewer_operations"`
 	Participants       []MediaParticipant          `json:"participants"`

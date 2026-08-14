@@ -1506,5 +1506,6 @@ của lịch sử append-only và không phải quy trình cleanup cho staging/p
   `d773641f796076b90f31a876ee840a427db43372`: disposable/shared forward-only
   `31 false -> 32 false -> 32 false`, exact ACL/PostgreSQL, CI/security, deploy/live feature-off/
   privacy và post-live no-side-effect acceptance đều PASS. Không rollback; shared final là
-  `32 false`, hai media feature tiếp tục off và P4-07 là task runnable tiếp theo.
+  `32 false`, hai media feature tiếp tục off. P4-07 hiện ở `VERIFY`: local/disposable PASS;
+  shared vẫn chưa được forward hoặc provision ACL.
 - Chưa có backup/restore drill, PITR gate hoặc connection load test cho pilot.

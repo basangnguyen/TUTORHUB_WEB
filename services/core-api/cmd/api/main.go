@@ -465,6 +465,8 @@ func run() int {
 	var mediaJoinAttemptService media.JoinAttemptServiceAPI
 	var mediaLobbyService media.LobbyServiceAPI
 	var mediaSignalService media.MediaSignalServiceAPI
+	var mediaModerationService media.ModerationServiceAPI
+	var mediaProviderEffectReconciler *media.DurableProviderEffectReconciler
 	var mediaCredentialService media.InstanceCredentialServiceAPI
 	var mediaWebhookProcessor media.WebhookProcessor
 	var liveKitWebhook media.WebhookVerifier
@@ -582,6 +584,37 @@ func run() int {
 			logger.Error("initialize media signal service", "error", err)
 			return 1
 		}
+		moderationRepository, err := media.NewPostgresModerationRepository(mediaLifecycleRepository)
+		if err != nil {
+			logger.Error("initialize media moderation repository", "error", err)
+			return 1
+		}
+		mediaModerationService, err = media.NewModerationService(
+			moderationRepository,
+			roomProvider,
+			time.Now,
+		)
+		if err != nil {
+			logger.Error("initialize media moderation service", "error", err)
+			return 1
+		}
+		providerEffectRepository, err := media.NewPostgresProviderEffectRepository(
+			mediaLifecycleRepository,
+		)
+		if err != nil {
+			logger.Error("initialize durable media provider effects", "error", err)
+			return 1
+		}
+		mediaProviderEffectReconciler, err = media.NewDurableProviderEffectReconciler(
+			providerEffectRepository,
+			roomProvider,
+			roomProvider,
+			time.Now,
+		)
+		if err != nil {
+			logger.Error("initialize media provider effect reconciler", "error", err)
+			return 1
+		}
 		mediaWebhookProcessor, err = media.NewProviderWebhookService(
 			instanceRepository,
 			mediaService,
@@ -625,6 +658,7 @@ func run() int {
 		MediaJoinAttempts:     mediaJoinAttemptService,
 		MediaLobby:            mediaLobbyService,
 		MediaSignals:          mediaSignalService,
+		MediaModeration:       mediaModerationService,
 		MediaCredentials:      mediaCredentialService,
 		MediaWebhooks:         mediaWebhookProcessor,
 		LiveKitWebhook:        liveKitWebhook,
@@ -644,6 +678,14 @@ func run() int {
 		syscall.SIGTERM,
 	)
 	defer stop()
+	if mediaProviderEffectReconciler != nil {
+		go mediaProviderEffectReconciler.Run(ctx, 2*time.Second, func(error) {
+			logger.Warn(
+				"media provider effect reconciliation failed",
+				"error_code", "provider_effect_reconcile_failed",
+			)
+		})
+	}
 
 	if err := httpserver.Run(ctx, server, listener, logger, cfg.ShutdownTimeout); err != nil {
 		logger.Error("core API stopped with error", "error", err)

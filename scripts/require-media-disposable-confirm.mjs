@@ -10,6 +10,11 @@ const requiredConfirmations = new Map([
     "P4_06_ACL_PROVISION_CONFIRM",
     "I_UNDERSTAND_P4_06_ACL_PROVISION_DISPOSABLE_ONLY",
   ],
+  ["P4_07_DISPOSABLE_CONFIRM", "I_UNDERSTAND_P4_07_DISPOSABLE_ONLY"],
+  [
+    "P4_07_ACL_PROVISION_CONFIRM",
+    "I_UNDERSTAND_P4_07_ACL_PROVISION_DISPOSABLE_ONLY",
+  ],
 ]);
 
 const invalidConfirmations = [...requiredConfirmations].flatMap(

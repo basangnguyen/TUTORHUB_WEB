@@ -11,7 +11,7 @@
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
 | Phase hiện tại        | Phase 4 - Classroom Media MVP; Phase 3 deferred carry-over tiếp tục                          |
-| Trạng thái gần nhất   | P4-06 `DONE`; P4-07 là task `TODO` runnable tiếp theo                                        |
+| Trạng thái gần nhất   | P4-06 `DONE`; P4-07 `VERIFY`, local/disposable PASS; chưa push/CI/shared/deploy              |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 
@@ -2171,7 +2171,9 @@ PASS. Disposable/shared staging đạt forward-only `31 false -> 32 false -> 32 
 final feature-off/P4-06-side-effect-zero snapshot; không rollback và disposable branch được giữ lại.
 Render deployment `dep-d9ul9q6417fc738gfa3g` đã `Live` exact candidate; Cloudflare Pages cũng chạy
 exact `d773641f`. Public/privacy/feature-off/automated accessibility/no-side-effect acceptance PASS.
-P4-07 Host/co-host/TA moderation là task `TODO` runnable tiếp theo. Physical/manual browser-device,
+P4-07 Host/co-host/TA moderation đang `VERIFY`: local/Neon disposable và isolated LiveKit PASS;
+candidate review/push, GitHub CI/security, shared forward/ACL và live acceptance chưa thực hiện.
+Physical/manual browser-device,
 25/50 provider load, outage và optional-effect gates vẫn `UNVERIFIED — P4-11`, không suy PASS.
 Không bật side effect chỉ vì core đã có. `P3-02D-B` và các gate worker/provider vẫn là
 carry-over.

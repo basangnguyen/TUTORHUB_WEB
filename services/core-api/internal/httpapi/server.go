@@ -48,6 +48,7 @@ type Options struct {
 	MediaJoinAttempts     media.JoinAttemptServiceAPI
 	MediaLobby            media.LobbyServiceAPI
 	MediaSignals          media.MediaSignalServiceAPI
+	MediaModeration       media.ModerationServiceAPI
 	MediaCredentials      media.InstanceCredentialServiceAPI
 	MediaWebhooks         media.WebhookProcessor
 	Notifications         notification.ServiceAPI
@@ -474,6 +475,7 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 	mediaSpaces := newMediaSpaceHandlers(logger, auth, options.MediaSpaces)
 	mediaLobby := newMediaLobbyHandlers(logger, auth, options.MediaLobby)
 	mediaSignals := newMediaSignalHandlers(logger, auth, options.MediaSignals)
+	mediaModeration := newMediaModerationHandlers(logger, auth, options.MediaModeration)
 	mux.Handle(
 		classesCollectionPath,
 		auditMutation(
@@ -777,6 +779,30 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 		mediaSignalsPattern,
 		mediaSpaceResponseHeaders(
 			requireMethod(http.MethodPost, http.HandlerFunc(mediaSignals.signal)),
+		),
+	)
+	mux.Handle(
+		mediaSpaceLockPattern,
+		mediaSpaceResponseHeaders(
+			requireMethod(http.MethodPost, http.HandlerFunc(mediaModeration.lock)),
+		),
+	)
+	mux.Handle(
+		mediaParticipantRolePattern,
+		mediaSpaceResponseHeaders(
+			requireMethod(http.MethodPost, http.HandlerFunc(mediaModeration.role)),
+		),
+	)
+	mux.Handle(
+		mediaParticipantMutePattern,
+		mediaSpaceResponseHeaders(
+			requireMethod(http.MethodPost, http.HandlerFunc(mediaModeration.mute)),
+		),
+	)
+	mux.Handle(
+		mediaParticipantRemovePattern,
+		mediaSpaceResponseHeaders(
+			requireMethod(http.MethodPost, http.HandlerFunc(mediaModeration.remove)),
 		),
 	)
 	mux.Handle(

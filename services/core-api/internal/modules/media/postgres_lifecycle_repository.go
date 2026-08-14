@@ -314,7 +314,7 @@ func (repository *PostgresLifecycleRepository) TransitionSpace(
 			queryContext, transaction, access, scope, row, command,
 		)
 	case "end":
-		transitioned, err = repository.endSpace(
+		transitioned, resultInstanceID, err = repository.endSpace(
 			queryContext, transaction, access, scope, row, command,
 		)
 	case "cancel":
@@ -457,29 +457,29 @@ func (repository *PostgresLifecycleRepository) endSpace(
 	scope tenancy.Context,
 	row spaceRow,
 	command TransitionCommand,
-) (spaceRow, error) {
+) (spaceRow, uuid.UUID, error) {
 	if row.Status != SpaceStatusOpen {
-		return spaceRow{}, ErrSpaceTransition
+		return spaceRow{}, uuid.Nil, ErrSpaceTransition
 	}
 	source, err := repository.authorizeSource(
 		ctx, transaction, access, scope, row, policy.ActionSessionEnd, true, true,
 	)
 	if err != nil {
-		return spaceRow{}, err
+		return spaceRow{}, uuid.Nil, err
 	}
 	safetyEnd := source.Kind == SourceStudyMeeting && source.SafetyAdmin && !source.Owner
 	if safetyEnd && command.ReasonCode == "" {
-		return spaceRow{}, ErrInvalidSpaceRequest
+		return spaceRow{}, uuid.Nil, ErrInvalidSpaceRequest
 	}
 	instance, err := loadRoomForTermination(ctx, transaction, scope.TenantID, row.ID)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return spaceRow{}, ErrSpaceTransition
+		return spaceRow{}, uuid.Nil, ErrSpaceTransition
 	}
 	if err != nil {
-		return spaceRow{}, repository.unavailable("lock active room instance", err)
+		return spaceRow{}, uuid.Nil, repository.unavailable("lock active room instance", err)
 	}
 	if err := terminateRoomIntent(ctx, transaction, scope, instance, command.OccurredAt); err != nil {
-		return spaceRow{}, err
+		return spaceRow{}, uuid.Nil, err
 	}
 	if err := expireOutstandingLobbyAdmissions(
 		ctx,
@@ -491,7 +491,7 @@ func (repository *PostgresLifecycleRepository) endSpace(
 		"meeting_ended",
 		command.OccurredAt,
 	); err != nil {
-		return spaceRow{}, repository.unavailable("expire media lobby admissions", err)
+		return spaceRow{}, uuid.Nil, repository.unavailable("expire media lobby admissions", err)
 	}
 	if err := terminateRoomParticipants(
 		ctx,
@@ -501,7 +501,7 @@ func (repository *PostgresLifecycleRepository) endSpace(
 		instance.ID,
 		command.OccurredAt,
 	); err != nil {
-		return spaceRow{}, repository.unavailable("terminate media room participants", err)
+		return spaceRow{}, uuid.Nil, repository.unavailable("terminate media room participants", err)
 	}
 	updated, err := scanSpace(transaction.QueryRow(
 		ctx,
@@ -513,17 +513,17 @@ RETURNING `+spaceReturning,
 		scope.TenantID, row.ID, scope.ActorID, command.OccurredAt, command.ExpectedVersion,
 	))
 	if errors.Is(err, pgx.ErrNoRows) {
-		return spaceRow{}, ErrSpaceVersionConflict
+		return spaceRow{}, uuid.Nil, ErrSpaceVersionConflict
 	}
 	if err != nil {
-		return spaceRow{}, repository.unavailable("end media space", err)
+		return spaceRow{}, uuid.Nil, repository.unavailable("end media space", err)
 	}
 	if source.Kind == SourceClassSession && source.Status == "live" {
 		if err := repository.classSources.TransitionMediaSession(
 			ctx, transaction, scope, source.ClassSessionID,
 			classroom.SessionStatusLive, classroom.SessionStatusEnded, command.OccurredAt,
 		); err != nil {
-			return spaceRow{}, mapClassSourceError(err, false)
+			return spaceRow{}, uuid.Nil, mapClassSourceError(err, false)
 		}
 	}
 	if err := appendMediaSpaceEvent(
@@ -531,9 +531,9 @@ RETURNING `+spaceReturning,
 		mediaEventDetails{ReasonCode: command.ReasonCode, SafetyAction: safetyEnd},
 		command.OccurredAt,
 	); err != nil {
-		return spaceRow{}, err
+		return spaceRow{}, uuid.Nil, err
 	}
-	return updated, nil
+	return updated, instance.ID, nil
 }
 
 func (repository *PostgresLifecycleRepository) cancelSpace(
@@ -582,6 +582,7 @@ type authorizedSource struct {
 	Status                     string
 	Owner                      bool
 	SafetyAdmin                bool
+	CanJoin                    bool
 	InstanceRole               InstanceRole
 	CanPublishCameraMicrophone bool
 	CanShareScreen             bool
@@ -629,6 +630,8 @@ func (repository *PostgresLifecycleRepository) authorizeSource(
 		return authorizedSource{
 			Kind: row.Source.Kind, ClassSessionID: snapshot.ClassSessionID,
 			Status:                     snapshot.Status,
+			SafetyAdmin:                classSafetyAdmin(snapshot.ClassRole, access.OrganizationRoles),
+			CanJoin:                    true,
 			InstanceRole:               instanceRoleForClass(snapshot.ClassRole, access.OrganizationRoles),
 			CanPublishCameraMicrophone: snapshot.CanPublishMedia,
 			CanShareScreen:             snapshot.CanShareScreen,
@@ -645,8 +648,8 @@ func (repository *PostgresLifecycleRepository) authorizeSource(
 		}
 		owner := meeting.OwnerUserID == scope.ActorID
 		safetyAdmin := hasOrganizationRole(access.OrganizationRoles, policy.OrganizationRoleAdmin)
-		visible := owner || safetyAdmin
-		if !visible {
+		explicitMember := false
+		if !owner {
 			if err := transaction.QueryRow(
 				ctx,
 				`SELECT EXISTS (
@@ -654,10 +657,11 @@ func (repository *PostgresLifecycleRepository) authorizeSource(
     WHERE tenant_id = $1 AND space_id = $2 AND user_id = $3 AND status = 'active'
 )`,
 				scope.TenantID, row.ID, scope.ActorID,
-			).Scan(&visible); err != nil {
+			).Scan(&explicitMember); err != nil {
 				return authorizedSource{}, repository.unavailable("authorize media space member", err)
 			}
 		}
+		visible := owner || safetyAdmin || explicitMember
 		if !visible {
 			return authorizedSource{}, ErrSpaceNotFound
 		}
@@ -680,14 +684,13 @@ func (repository *PostgresLifecycleRepository) authorizeSource(
 		instanceRole := InstanceRoleAttendee
 		if owner {
 			instanceRole = InstanceRoleHost
-		} else if safetyAdmin {
-			instanceRole = InstanceRoleCoHost
 		}
 		return authorizedSource{
 			Kind: SourceStudyMeeting, Status: meeting.Status,
-			Owner: owner, SafetyAdmin: safetyAdmin, InstanceRole: instanceRole,
+			Owner: owner, SafetyAdmin: safetyAdmin && !owner, CanJoin: owner || explicitMember,
+			InstanceRole:               instanceRole,
 			CanPublishCameraMicrophone: true,
-			CanShareScreen:             owner || safetyAdmin,
+			CanShareScreen:             owner,
 		}, nil
 	default:
 		return authorizedSource{}, ErrSourceUnavailable
@@ -708,11 +711,24 @@ func instanceRoleForClass(
 			return InstanceRoleTeachingAssistant
 		}
 	}
-	if hasOrganizationRole(organizationRoles, policy.OrganizationRoleAdmin) ||
-		hasOrganizationRole(organizationRoles, policy.OrganizationRoleTeacher) {
+	if hasOrganizationRole(organizationRoles, policy.OrganizationRoleTeacher) {
 		return InstanceRoleCoHost
 	}
 	return InstanceRoleAttendee
+}
+
+func classSafetyAdmin(
+	classRole *policy.ClassRole,
+	organizationRoles []policy.OrganizationRole,
+) bool {
+	if !hasOrganizationRole(organizationRoles, policy.OrganizationRoleAdmin) ||
+		hasOrganizationRole(organizationRoles, policy.OrganizationRoleTeacher) {
+		return false
+	}
+	if classRole == nil {
+		return true
+	}
+	return *classRole != policy.ClassRoleOwner && *classRole != policy.ClassRoleCoTeacher
 }
 
 func (repository *PostgresLifecycleRepository) projectAuthorizedSpace(
@@ -1421,16 +1437,24 @@ func insertTransitionReceipt(
 	resultVersion int64,
 	instanceID uuid.UUID,
 ) error {
+	providerRequired := command.Operation == "end"
+	status := ProviderEffectNone
+	var providerUpdatedAt any
+	if providerRequired {
+		status = ProviderEffectPending
+		providerUpdatedAt = command.OccurredAt
+	}
 	_, err := transaction.Exec(
 		ctx,
 		`INSERT INTO tutorhub.media_space_mutation_receipts (
     tenant_id, idempotency_key, request_fingerprint, operation, space_id,
-    result_space_version, result_room_instance_id, actor_user_id, created_at
+    result_space_version, result_room_instance_id, actor_user_id, created_at,
+    provider_effect_required, provider_effect_status, provider_effect_updated_at
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
 		scope.TenantID, command.IdempotencyKey, command.Fingerprint, command.Operation,
 		command.SpaceID, resultVersion, nullableLifecycleUUID(instanceID),
-		scope.ActorID, command.OccurredAt,
+		scope.ActorID, command.OccurredAt, providerRequired, status, providerUpdatedAt,
 	)
 	return err
 }

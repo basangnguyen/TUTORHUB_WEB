@@ -67,12 +67,12 @@ func TestP406SignalAuthorityIsTenantBoundAndKeepsLockedRoomParticipantsActive(t 
 		t.Fatal("P4-06 signal authority incorrectly ejects active participants when the room is locked")
 	}
 	for _, fragment := range []string{
-		"source.InstanceRole == InstanceRoleHost",
-		"source.InstanceRole == InstanceRoleCoHost",
-		"source.InstanceRole == InstanceRoleTeachingAssistant",
+		"effectiveRoomRole(",
+		"participant.InstanceRole = actorRole",
+		"actorRole: actorRole",
 	} {
 		if !strings.Contains(authority, fragment) {
-			t.Fatalf("P4-06 moderator authority is missing %q", fragment)
+			t.Fatalf("P4-06 effective moderator authority is missing %q", fragment)
 		}
 	}
 }

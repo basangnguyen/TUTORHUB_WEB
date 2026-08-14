@@ -18,6 +18,12 @@ func TestMediaSpaceDomainEventsMapToAuditableActions(t *testing.T) {
 		"media_admission.cancelled.v1":   ActionMediaAdmissionCancel,
 		"media_admission.restored.v1":    ActionMediaAdmissionRestore,
 		"media_admission.expired.v1":     ActionMediaAdmissionExpire,
+		"media_space.locked.v1":          ActionMediaSpaceLock,
+		"media_space.unlocked.v1":        ActionMediaSpaceUnlock,
+		"media_participant.promoted.v1":  ActionMediaParticipantPromote,
+		"media_participant.demoted.v1":   ActionMediaParticipantDemote,
+		"media_participant.muted.v1":     ActionMediaParticipantMute,
+		"media_participant.removed.v1":   ActionMediaParticipantRemove,
 	}
 	for eventType, want := range tests {
 		got, ok := ActionForDomainEvent(eventType)

@@ -35,8 +35,8 @@ func TestPostgresMediaSignalMaintenanceACLRetentionAndSkipLocked(t *testing.T) {
 	if err != nil {
 		t.Fatal("read P4-06 migration version")
 	}
-	if version.Number != 32 || version.Dirty {
-		t.Fatal("P4-06 maintenance gate requires ledger 32 false")
+	if version.Number != 33 || version.Dirty {
+		t.Fatal("P4-06 maintenance gate requires latest ledger 33 false")
 	}
 
 	migrationPool := openMediaIntegrationPool(t, ctx, migrationURL)
@@ -46,8 +46,8 @@ func TestPostgresMediaSignalMaintenanceACLRetentionAndSkipLocked(t *testing.T) {
 	maintenancePool := openMediaIntegrationPool(t, ctx, maintenanceURL)
 	t.Cleanup(maintenancePool.Close)
 
-	targets := make([]string, 0, len(p402MediaACLExpectations()))
-	for _, expectation := range p402MediaACLExpectations() {
+	targets := make([]string, 0, len(p407MediaACLExpectations()))
+	for _, expectation := range p407MediaACLExpectations() {
 		assertExactMediaACL(t, ctx, runtimePool, expectation)
 		targets = append(targets, strings.TrimPrefix(expectation.relation, "tutorhub."))
 	}

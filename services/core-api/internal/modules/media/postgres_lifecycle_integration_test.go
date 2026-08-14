@@ -109,8 +109,8 @@ func runPostgresMediaLifecycleRuntimeExactACL(t *testing.T, applyMigrations bool
 	).Scan(&version, &dirty); err != nil {
 		t.Fatal("inspect exact media lifecycle ACL ledger")
 	}
-	if version != 32 || dirty {
-		t.Fatal("exact media lifecycle ACL requires ledger 32 false")
+	if version != 33 || dirty {
+		t.Fatal("exact media lifecycle ACL requires ledger 33 false")
 	}
 
 	var schemaUsage, schemaCreate bool
@@ -126,7 +126,7 @@ func runPostgresMediaLifecycleRuntimeExactACL(t *testing.T, applyMigrations bool
 		t.Fatalf("runtime schema ACL = usage:%t create:%t, want true/false", schemaUsage, schemaCreate)
 	}
 
-	for _, expectation := range p402MediaACLExpectations() {
+	for _, expectation := range p407MediaACLExpectations() {
 		assertExactMediaACL(t, ctx, runtimeQueries, expectation)
 	}
 
@@ -135,7 +135,8 @@ func runPostgresMediaLifecycleRuntimeExactACL(t *testing.T, applyMigrations bool
 		"media_admission_requests", "media_participant_sessions",
 		"media_space_mutation_receipts", "media_provider_webhook_receipts",
 		"media_participant_hand_states", "media_reaction_events",
-		"media_signal_mutation_receipts", "livekit_webhook_events",
+		"media_signal_mutation_receipts", "media_room_role_assignments",
+		"livekit_webhook_events",
 	}
 	var publicTableGrants, publicColumnGrants int
 	if err := migrationQueries.QueryRow(ctx, `SELECT

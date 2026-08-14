@@ -241,6 +241,11 @@ func (repository *PostgresLobbyRepository) MutateAdmission(
 		}
 		return item, nil
 	}
+	// A lock blocks only a new admit transition. Receipt replay above remains
+	// idempotent, while deny/restore and bounded reads remain available.
+	if command.Operation == "admission_admit" && space.Locked {
+		return LobbyAdmission{}, ErrRoomLocked
+	}
 
 	admission, participant, err := loadLobbyAdmissionForMutation(
 		queryContext, transaction, scope.TenantID, command.SpaceID, room.ID,
@@ -849,14 +854,10 @@ func (repository *PostgresLobbyRepository) loadModeratorLobby(
 		return AccessContext{}, tenancy.Context{}, spaceRow{}, roomRow{}, repository.lifecycle.unavailable("load lobby space", err)
 	}
 	source, err := repository.lifecycle.authorizeSource(
-		ctx, transaction, access, scope, space, policy.ActionParticipantAdmit, false, false,
+		ctx, transaction, access, scope, space, policy.ActionSessionJoin, false, false,
 	)
 	if err != nil {
 		return AccessContext{}, tenancy.Context{}, spaceRow{}, roomRow{}, err
-	}
-	if source.InstanceRole != InstanceRoleHost && source.InstanceRole != InstanceRoleCoHost &&
-		source.InstanceRole != InstanceRoleTeachingAssistant {
-		return AccessContext{}, tenancy.Context{}, spaceRow{}, roomRow{}, ErrSpaceAccessDenied
 	}
 	if err := repository.lifecycle.controls.RequireFeature(
 		ctx, transaction, scope.TenantID, featurecontrol.FeatureClassroomMediaRooms,
@@ -883,6 +884,18 @@ func (repository *PostgresLobbyRepository) loadModeratorLobby(
 	}
 	if room.Status != RoomInstanceActive {
 		return AccessContext{}, tenancy.Context{}, spaceRow{}, roomRow{}, ErrRoomNotOpen
+	}
+	actorRole, err := effectiveRoomRole(
+		ctx, transaction, scope.TenantID, room.ID, scope.ActorID,
+		source.InstanceRole, lock,
+	)
+	if err != nil {
+		return AccessContext{}, tenancy.Context{}, spaceRow{}, roomRow{},
+			repository.lifecycle.unavailable("resolve lobby moderator role", err)
+	}
+	if actorRole != InstanceRoleHost && actorRole != InstanceRoleCoHost &&
+		actorRole != InstanceRoleTeachingAssistant {
+		return AccessContext{}, tenancy.Context{}, spaceRow{}, roomRow{}, ErrSpaceAccessDenied
 	}
 	return access, scope, space, room, nil
 }

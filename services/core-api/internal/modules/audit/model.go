@@ -69,6 +69,12 @@ const (
 	ActionMediaAdmissionCancel        Action = "media_admission.cancel"
 	ActionMediaAdmissionRestore       Action = "media_admission.restore"
 	ActionMediaAdmissionExpire        Action = "media_admission.expire"
+	ActionMediaSpaceLock              Action = "media_space.lock"
+	ActionMediaSpaceUnlock            Action = "media_space.unlock"
+	ActionMediaParticipantPromote     Action = "media_participant.promote"
+	ActionMediaParticipantDemote      Action = "media_participant.demote"
+	ActionMediaParticipantMute        Action = "media_participant.mute"
+	ActionMediaParticipantRemove      Action = "media_participant.remove"
 )
 
 type Outcome string
@@ -224,6 +230,12 @@ var actionCatalog = map[Action]struct{}{
 	ActionMediaAdmissionCancel:        {},
 	ActionMediaAdmissionRestore:       {},
 	ActionMediaAdmissionExpire:        {},
+	ActionMediaSpaceLock:              {},
+	ActionMediaSpaceUnlock:            {},
+	ActionMediaParticipantPromote:     {},
+	ActionMediaParticipantDemote:      {},
+	ActionMediaParticipantMute:        {},
+	ActionMediaParticipantRemove:      {},
 }
 
 var domainEventActions = map[string]Action{
@@ -291,6 +303,12 @@ var domainEventActions = map[string]Action{
 	"media_admission.cancelled.v1":                ActionMediaAdmissionCancel,
 	"media_admission.restored.v1":                 ActionMediaAdmissionRestore,
 	"media_admission.expired.v1":                  ActionMediaAdmissionExpire,
+	"media_space.locked.v1":                       ActionMediaSpaceLock,
+	"media_space.unlocked.v1":                     ActionMediaSpaceUnlock,
+	"media_participant.promoted.v1":               ActionMediaParticipantPromote,
+	"media_participant.demoted.v1":                ActionMediaParticipantDemote,
+	"media_participant.muted.v1":                  ActionMediaParticipantMute,
+	"media_participant.removed.v1":                ActionMediaParticipantRemove,
 }
 
 func ActionForDomainEvent(eventType string) (Action, bool) {

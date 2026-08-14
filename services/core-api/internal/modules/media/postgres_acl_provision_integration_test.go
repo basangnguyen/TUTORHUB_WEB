@@ -18,7 +18,13 @@ const (
 	p404ACLProvisionConfirmation       = "I_UNDERSTAND_P4_04_ACL_PROVISION_DISPOSABLE_ONLY"
 	p404SharedACLProvisionConfirmation = "I_UNDERSTAND_P4_04_ACL_PROVISION_SHARED_STAGING_ONLY"
 	p406ACLProvisionConfirmation       = "I_UNDERSTAND_P4_06_ACL_PROVISION_DISPOSABLE_ONLY"
+	p407ACLProvisionConfirmation       = "I_UNDERSTAND_P4_07_ACL_PROVISION_DISPOSABLE_ONLY"
 )
+
+type mediaACLProvisionConfiguration struct {
+	expectedVersion int
+	expectations    []mediaACLExpectation
+}
 
 // TestProvisionPostgresMediaLifecycleRuntimeExactACL is an explicitly opted-in
 // disposable-only acceptance gate. It derives the runtime database identity
@@ -67,8 +73,57 @@ func TestProvisionPostgresMediaSignalsExactACLShared(t *testing.T) {
 	runProvisionPostgresMediaLifecycleRuntimeExactACL(t)
 }
 
-func runProvisionPostgresMediaLifecycleRuntimeExactACL(t *testing.T) {
+// TestProvisionPostgresMediaModerationExactACL provisions only the P4-07
+// disposable branch after migration 000033. A new confirmation prevents an
+// older phase's opt-in from authorizing the moderation table and receipt
+// columns.
+func TestProvisionPostgresMediaModerationExactACL(t *testing.T) {
+	if strings.TrimSpace(os.Getenv("P4_07_DISPOSABLE_CONFIRM")) != "I_UNDERSTAND_P4_07_DISPOSABLE_ONLY" {
+		t.Skip("P4_07_DISPOSABLE_CONFIRM is not set to the disposable-only confirmation")
+	}
+	if strings.TrimSpace(os.Getenv("P4_07_ACL_PROVISION_CONFIRM")) != p407ACLProvisionConfirmation {
+		t.Skip("P4_07_ACL_PROVISION_CONFIRM is not set to the disposable-only ACL confirmation")
+	}
+	runProvisionPostgresMediaLifecycleRuntimeExactACL(t, mediaACLProvisionConfiguration{
+		expectedVersion: 33,
+		expectations:    p407MediaACLExpectations(),
+	})
+}
+
+// TestProvisionPostgresMediaModerationExactACLShared is the P4-07
+// shared-staging mutation wrapper. It is deliberately independent from the
+// P4-06 confirmation helper so stale P4-06 authorization cannot cross the
+// phase boundary.
+func TestProvisionPostgresMediaModerationExactACLShared(t *testing.T) {
+	requireP407SharedConfirmation(
+		t,
+		"P4_07_SHARED_ACL_PROVISION_CONFIRM",
+		p407SharedACLProvisionConfirmation,
+	)
+	runProvisionPostgresMediaLifecycleRuntimeExactACL(t, mediaACLProvisionConfiguration{
+		expectedVersion: 33,
+		expectations:    p407MediaACLExpectations(),
+	})
+}
+
+func runProvisionPostgresMediaLifecycleRuntimeExactACL(
+	t *testing.T,
+	configurations ...mediaACLProvisionConfiguration,
+) {
 	t.Helper()
+	configuration := mediaACLProvisionConfiguration{
+		expectedVersion: 32,
+		expectations:    p402MediaACLExpectations(),
+	}
+	if len(configurations) > 1 {
+		t.Fatal("media ACL provisioner accepts at most one configuration")
+	}
+	if len(configurations) == 1 {
+		configuration = configurations[0]
+	}
+	if configuration.expectedVersion < 1 || len(configuration.expectations) == 0 {
+		t.Fatal("media ACL provisioner configuration is invalid")
+	}
 	migrationURL := requireMediaIntegrationEnvironment(t, "DATABASE_MIGRATION_URL")
 	runtimeURL := requireMediaIntegrationEnvironment(t, "DATABASE_POOL_URL")
 	maintenanceURL := requireMediaIntegrationEnvironment(t, "DATABASE_POLL_MAINTENANCE_URL")
@@ -120,11 +175,15 @@ func runProvisionPostgresMediaLifecycleRuntimeExactACL(t *testing.T) {
 	).Scan(&version, &dirty); err != nil {
 		t.Fatal("inspect P4-04 migration ledger")
 	}
-	if version != 32 || dirty {
-		t.Fatal("P4-06 ACL provisioning requires ledger 32 false")
+	if configuration.expectedVersion == 32 {
+		if version != 32 || dirty {
+			t.Fatal("P4-06 ACL provisioning requires ledger 32 false")
+		}
+	} else if version != configuration.expectedVersion || dirty {
+		t.Fatalf("media ACL provisioning requires ledger %d false", configuration.expectedVersion)
 	}
 
-	expectations := p402MediaACLExpectations()
+	expectations := configuration.expectations
 	targets := make([]string, 0, len(expectations))
 	for _, expectation := range expectations {
 		parts := strings.Split(expectation.relation, ".")
@@ -477,6 +536,55 @@ func p402MediaACLExpectations() []mediaACLExpectation {
 		},
 		{relation: "tutorhub.livekit_webhook_events"},
 	}
+}
+
+func p407MediaACLExpectations() []mediaACLExpectation {
+	expectations := p402MediaACLExpectations()
+	for index := range expectations {
+		if expectations[index].relation != "tutorhub.media_space_mutation_receipts" {
+			continue
+		}
+		expectations[index].selectColumns = []string{
+			"actor_user_id", "created_at", "idempotency_key", "operation",
+			"provider_effect_attempts", "provider_effect_error_code", "provider_effect_lease_until",
+			"provider_effect_required", "provider_effect_status", "provider_effect_updated_at",
+			"request_fingerprint", "result_instance_role", "result_locked",
+			"result_participant_version", "result_projection_version",
+			"result_role_assignment_version", "result_room_instance_id",
+			"result_room_instance_version", "result_space_version", "space_id",
+			"target_participant_session_id", "tenant_id",
+		}
+		expectations[index].insertColumns = []string{
+			"actor_user_id", "created_at", "idempotency_key", "operation",
+			"provider_effect_required", "provider_effect_status", "provider_effect_updated_at",
+			"request_fingerprint", "result_instance_role", "result_locked",
+			"result_participant_version", "result_projection_version",
+			"result_role_assignment_version", "result_room_instance_id",
+			"result_room_instance_version", "result_space_version", "space_id",
+			"target_participant_session_id", "tenant_id",
+		}
+		expectations[index].updateColumns = []string{
+			"provider_effect_attempts", "provider_effect_error_code", "provider_effect_lease_until",
+			"provider_effect_status", "provider_effect_updated_at",
+		}
+	}
+
+	return append(expectations, mediaACLExpectation{
+		relation: "tutorhub.media_room_role_assignments",
+		selectColumns: []string{
+			"assigned_at", "assigned_by", "assigned_role", "reason_code", "revoked_at",
+			"revoked_by", "room_instance_id", "space_id", "status", "tenant_id",
+			"updated_at", "user_id", "version",
+		},
+		insertColumns: []string{
+			"assigned_at", "assigned_by", "assigned_role", "reason_code", "room_instance_id",
+			"space_id", "status", "tenant_id", "updated_at", "user_id", "version",
+		},
+		updateColumns: []string{
+			"assigned_at", "assigned_by", "assigned_role", "reason_code", "revoked_at",
+			"revoked_by", "status", "updated_at", "version",
+		},
+	})
 }
 
 func p402ACLRelationColumns(

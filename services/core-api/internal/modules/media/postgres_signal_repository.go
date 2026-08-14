@@ -65,7 +65,8 @@ type signalAuthority struct {
 	space       spaceRow
 	room        signalRoomRow
 	participant signalParticipantRow
-	moderator   bool
+	actorRole   InstanceRole
+	canEndRoom  bool
 }
 
 func (repository *PostgresMediaSignalRepository) GetParticipantSnapshot(
@@ -304,11 +305,19 @@ func (repository *PostgresMediaSignalRepository) loadSignalAuthority(
 	if err != nil {
 		return signalAuthority{}, signalRepositoryUnavailable("load participant signal actor", err)
 	}
+	canEndRoom := source.InstanceRole == InstanceRoleHost ||
+		source.InstanceRole == InstanceRoleCoHost
+	actorRole, err := effectiveRoomRole(
+		ctx, transaction, scope.TenantID, room.ID, scope.ActorID,
+		source.InstanceRole, lock,
+	)
+	if err != nil {
+		return signalAuthority{}, signalRepositoryUnavailable("resolve participant signal role", err)
+	}
+	participant.InstanceRole = actorRole
 	return signalAuthority{
 		access: access, scope: scope, space: space, room: room, participant: participant,
-		moderator: source.InstanceRole == InstanceRoleHost ||
-			source.InstanceRole == InstanceRoleCoHost ||
-			source.InstanceRole == InstanceRoleTeachingAssistant,
+		actorRole: actorRole, canEndRoom: canEndRoom,
 	}, nil
 }
 
@@ -369,10 +378,15 @@ func loadMediaParticipantSnapshot(
 		RoomInstanceID:     authority.room.ID,
 		ProjectionVersion:  authority.room.ProjectionVersion,
 		LastSignalSequence: authority.room.LastSignalSequence,
+		RoomLocked:         authority.space.Locked,
 		SelfParticipantKey: authority.participant.ParticipantKey,
 		ViewerOperations: MediaSignalViewerOperations{
 			CanRaiseHand: true, CanSendReaction: true,
-			CanModerateHands: authority.moderator,
+			CanModerateHands: authority.actorRole == InstanceRoleHost ||
+				authority.actorRole == InstanceRoleCoHost ||
+				authority.actorRole == InstanceRoleTeachingAssistant,
+			CanLockRoom: authority.actorRole == InstanceRoleHost,
+			CanEndRoom:  authority.canEndRoom,
 		},
 		Participants: []MediaParticipant{}, RaisedHands: []RaisedHand{},
 		ReactionClusters: []ReactionCluster{}, ServerTime: databaseTime.UTC(),
@@ -380,9 +394,18 @@ func loadMediaParticipantSnapshot(
 	rows, err := transaction.Query(
 		ctx,
 		`SELECT participant.participant_key, participant.roster_sequence,
-       target.display_name, participant.instance_role, participant.status
+       target.display_name,
+       COALESCE(role_assignment.assigned_role, participant.instance_role),
+       participant.status, (role_assignment.user_id IS NOT NULL)
 FROM tutorhub.media_participant_sessions AS participant
 JOIN tutorhub.users AS target ON target.id = participant.user_id
+LEFT JOIN tutorhub.media_room_role_assignments AS role_assignment
+  ON role_assignment.tenant_id = participant.tenant_id
+ AND role_assignment.space_id = participant.space_id
+ AND role_assignment.room_instance_id = participant.room_instance_id
+ AND role_assignment.user_id = participant.user_id
+ AND role_assignment.assigned_role = 'co_host'
+ AND role_assignment.status = 'active'
 WHERE participant.tenant_id = $1 AND participant.space_id = $2
   AND participant.room_instance_id = $3
   AND participant.status IN ('joining', 'connected', 'reconnecting')
@@ -395,14 +418,22 @@ LIMIT 50`,
 	}
 	for rows.Next() {
 		var participant MediaParticipant
+		var dynamicCoHost bool
 		if err := rows.Scan(
 			&participant.ParticipantKey, &participant.RosterSequence,
 			&participant.DisplayName, &participant.InstanceRole, &participant.Connection,
+			&dynamicCoHost,
 		); err != nil {
 			rows.Close()
 			return MediaParticipantSnapshot{}, err
 		}
 		participant.DisplayName = truncateMediaDisplayName(participant.DisplayName)
+		participant.ModerationOperations = participantModerationOperations(
+			authority.actorRole,
+			authority.participant.ParticipantKey == participant.ParticipantKey,
+			participant.InstanceRole,
+			dynamicCoHost,
+		)
 		snapshot.Participants = append(snapshot.Participants, participant)
 	}
 	if err := rows.Err(); err != nil {
@@ -479,6 +510,35 @@ LIMIT 500`,
 	return snapshot, nil
 }
 
+func participantModerationOperations(
+	actorRole InstanceRole,
+	self bool,
+	targetRole InstanceRole,
+	dynamicCoHost bool,
+) MediaParticipantModerationOps {
+	if self || targetRole == InstanceRoleHost {
+		return MediaParticipantModerationOps{}
+	}
+	switch actorRole {
+	case InstanceRoleHost:
+		return MediaParticipantModerationOps{
+			CanPromoteCoHost: targetRole == InstanceRoleAttendee,
+			CanDemoteCoHost:  targetRole == InstanceRoleCoHost && dynamicCoHost,
+			CanRemoteMute:    true,
+			CanRemove:        true,
+		}
+	case InstanceRoleCoHost:
+		if targetRole == InstanceRoleAttendee {
+			return MediaParticipantModerationOps{CanRemoteMute: true, CanRemove: true}
+		}
+	case InstanceRoleTeachingAssistant:
+		if targetRole == InstanceRoleAttendee {
+			return MediaParticipantModerationOps{CanRemoteMute: true}
+		}
+	}
+	return MediaParticipantModerationOps{}
+}
+
 func truncateMediaDisplayName(value string) string {
 	runes := []rune(value)
 	if len(runes) > 200 {
@@ -545,7 +605,7 @@ WHERE tenant_id = $1 AND room_instance_id = $2 AND participant_session_id = $3
 		}
 		return tag.RowsAffected() > 0, nil
 	case MediaSignalHandLowerOne:
-		if !authority.moderator {
+		if !canModerateParticipantHands(authority.actorRole) {
 			return false, ErrSpaceAccessDenied
 		}
 		var targetID uuid.UUID
@@ -578,7 +638,7 @@ WHERE tenant_id = $1 AND room_instance_id = $2 AND participant_session_id = $3
 		}
 		return tag.RowsAffected() > 0, nil
 	case MediaSignalHandLowerAll:
-		if !authority.moderator {
+		if !canModerateParticipantHands(authority.actorRole) {
 			return false, ErrSpaceAccessDenied
 		}
 		tag, err := transaction.Exec(
@@ -598,6 +658,11 @@ WHERE tenant_id = $1 AND space_id = $2 AND room_instance_id = $3
 	default:
 		return false, ErrInvalidMediaSignalRequest
 	}
+}
+
+func canModerateParticipantHands(role InstanceRole) bool {
+	return role == InstanceRoleHost || role == InstanceRoleCoHost ||
+		role == InstanceRoleTeachingAssistant
 }
 
 func advanceSignalRoomProjection(

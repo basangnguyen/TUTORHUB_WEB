@@ -177,12 +177,59 @@ func TestMediaSpaceProviderOutageIsTypedAndRedacted(t *testing.T) {
 
 	if response.Code != http.StatusServiceUnavailable ||
 		!strings.Contains(response.Body.String(), `"code":"media_provider_unavailable"`) ||
+		strings.Contains(response.Body.String(), `"business_committed"`) ||
 		strings.Contains(response.Body.String(), "LiveKit") {
 		t.Fatalf(
 			"provider outage must be a redacted typed 503: status=%d body=%s",
 			response.Code,
 			response.Body.String(),
 		)
+	}
+}
+
+func TestMediaSpaceEndProviderOutageReportsCommittedConvergence(t *testing.T) {
+	t.Parallel()
+
+	tenantID, actorID, spaceID := uuid.New(), uuid.New(), uuid.New()
+	ended := media.MediaSpace{
+		ID: spaceID, Status: media.SpaceStatusEnded, Version: 7,
+		CreatedAt: fixedTime, UpdatedAt: fixedTime,
+	}
+	service := &fakeMediaLifecycleService{
+		transitionResult: ended,
+		requestError: &media.MediaProviderConvergenceError{
+			Space: ended, ProviderEffectStatus: media.ProviderEffectRetryableFailed,
+		},
+	}
+	handler := newMediaSpaceTestHandler(
+		classIdentityService(tenantID, actorID, nil), service,
+	)
+	request := httptest.NewRequest(
+		http.MethodPost, "/api/v1/media/spaces/"+spaceID.String()+"/end",
+		strings.NewReader(`{"expected_version":6,"idempotency_key":"media-end-provider-0001"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set(mediaSpaceTenantHeader, tenantID.String())
+	addAuthenticatedMutationCookies(request)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusServiceUnavailable {
+		t.Fatalf("end convergence status=%d body=%s", response.Code, response.Body.String())
+	}
+	var problem mediaProviderConvergenceProblem
+	if err := json.Unmarshal(response.Body.Bytes(), &problem); err != nil {
+		t.Fatalf("decode end convergence problem: %v", err)
+	}
+	if problem.Code != "media_provider_unavailable" || !problem.BusinessCommitted ||
+		problem.SpaceID != spaceID || problem.ResourceStatus != media.SpaceStatusEnded ||
+		problem.ResourceVersion != 7 ||
+		problem.ProviderEffectStatus != media.ProviderEffectRetryableFailed {
+		t.Fatalf("end convergence problem=%+v", problem)
+	}
+	if strings.Contains(response.Body.String(), "LiveKit") ||
+		strings.Contains(response.Body.String(), "provider_room") {
+		t.Fatalf("end convergence problem leaked provider detail: %s", response.Body.String())
 	}
 }
 

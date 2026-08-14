@@ -559,3 +559,162 @@ func TestMediaParticipantSignalsDownMigrationRemovesOnlyForwardAdditions(t *test
 		}
 	}
 }
+
+func TestMediaModerationCommandsMigrationContainsRoomScopedRoleAndProviderEffectGuards(t *testing.T) {
+	t.Parallel()
+
+	contents, err := os.ReadFile(filepath.Join(
+		"..", "..", "..", "migrations", "000033_media_moderation_commands.up.sql",
+	))
+	if err != nil {
+		t.Fatal(err)
+	}
+	sql := string(contents)
+	roleDefinition := regexp.MustCompile(
+		`(?s)CREATE TABLE tutorhub\.media_room_role_assignments \((.*?)\n\);`,
+	).FindStringSubmatch(sql)
+	if len(roleDefinition) != 2 {
+		t.Fatal("media moderation migration is missing the room role assignment table")
+	}
+
+	for _, fragment := range []string{
+		"tenant_id uuid NOT NULL",
+		"space_id uuid NOT NULL",
+		"room_instance_id uuid NOT NULL",
+		"user_id uuid NOT NULL",
+		"assigned_role text NOT NULL",
+		"status text NOT NULL DEFAULT 'active'",
+		"version bigint NOT NULL DEFAULT 1",
+		"PRIMARY KEY (tenant_id, room_instance_id, user_id)",
+		"FOREIGN KEY (tenant_id, space_id, room_instance_id)",
+		"REFERENCES tutorhub.media_room_instances (tenant_id, space_id, id)",
+		"FOREIGN KEY (tenant_id, user_id)",
+		"FOREIGN KEY (tenant_id, assigned_by)",
+		"FOREIGN KEY (tenant_id, revoked_by)",
+		"assigned_role = 'co_host'",
+		"status IN ('active', 'revoked')",
+		"media_room_role_assignments_lifecycle_consistent",
+		"media_room_role_assignments_active_idx",
+		"WHERE status = 'active'",
+		"ADD COLUMN target_participant_session_id uuid",
+		"ADD COLUMN result_room_instance_version bigint",
+		"ADD COLUMN result_projection_version bigint",
+		"ADD COLUMN result_participant_version bigint",
+		"ADD COLUMN result_role_assignment_version bigint",
+		"ADD COLUMN provider_effect_required boolean NOT NULL DEFAULT false",
+		"ADD COLUMN provider_effect_status text NOT NULL DEFAULT 'none'",
+		"ADD COLUMN provider_effect_attempts integer NOT NULL DEFAULT 0",
+		"ADD COLUMN provider_effect_error_code text",
+		"ADD COLUMN provider_effect_lease_until timestamptz",
+		"ADD COLUMN provider_effect_updated_at timestamptz",
+		"media_space_mutation_receipts_target_participant_fk",
+		"REFERENCES tutorhub.media_participant_sessions (",
+		"'pending'",
+		"'applying'",
+		"'applied'",
+		"'retryable_failed'",
+		"'permanent_failed'",
+		"media_space_mutation_receipts_provider_effect_consistent",
+		"media_space_mutation_receipts_participant_provider_required",
+		"media_space_mutation_receipts_provider_effect_idx",
+		"WHERE provider_effect_required",
+		"REVOKE ALL ON tutorhub.media_room_role_assignments FROM PUBLIC",
+		"Environment-specific Core API column grants are provisioned separately",
+	} {
+		if !strings.Contains(sql, fragment) {
+			t.Fatalf("media moderation migration is missing %q", fragment)
+		}
+	}
+
+	if strings.Contains(strings.ToUpper(sql), "GRANT ") {
+		t.Fatal("media moderation migration must not hardcode an environment runtime grant")
+	}
+	if strings.Contains(strings.ToLower(sql), "unmute") {
+		t.Fatal("media moderation migration must not add a remote-unmute persistence path")
+	}
+}
+
+func TestMediaModerationCommandsDownMigrationRemovesOnlyForwardAdditions(t *testing.T) {
+	t.Parallel()
+
+	contents, err := os.ReadFile(filepath.Join(
+		"..", "..", "..", "migrations", "000033_media_moderation_commands.down.sql",
+	))
+	if err != nil {
+		t.Fatal(err)
+	}
+	sql := string(contents)
+	guardAt := strings.Index(sql, "DO $p407_rollback_guard$")
+	firstDropAt := strings.Index(sql, "DROP INDEX tutorhub.media_space_mutation_receipts_provider_effect_idx")
+	if guardAt < 0 || firstDropAt < 0 || guardAt > firstDropAt {
+		t.Fatal("media moderation rollback guard must run before the first destructive statement")
+	}
+	guard := sql[guardAt:firstDropAt]
+	for _, fragment := range []string{
+		"FROM tutorhub.media_room_role_assignments",
+		"WHERE status = 'active'",
+		"FROM tutorhub.media_space_mutation_receipts",
+		"WHERE provider_effect_required",
+		"provider_effect_status <> 'applied'",
+		"USING ERRCODE = '55000'",
+	} {
+		if !strings.Contains(guard, fragment) {
+			t.Fatalf("media moderation rollback guard is missing %q", fragment)
+		}
+	}
+	ordered := []string{
+		"DROP INDEX tutorhub.media_space_mutation_receipts_provider_effect_idx",
+		"DROP CONSTRAINT media_space_mutation_receipts_participant_provider_required",
+		"DROP CONSTRAINT media_space_mutation_receipts_target_participant_fk",
+		"DROP CONSTRAINT media_space_mutation_receipts_operation_valid",
+		"DROP COLUMN provider_effect_updated_at",
+		"DROP COLUMN target_participant_session_id",
+		"DROP TABLE tutorhub.media_room_role_assignments",
+		"DELETE FROM tutorhub.media_space_mutation_receipts",
+		"ADD CONSTRAINT media_space_mutation_receipts_operation_valid CHECK",
+	}
+	lastPosition := -1
+	for _, fragment := range ordered {
+		position := strings.Index(sql, fragment)
+		if position < 0 {
+			t.Fatalf("media moderation down migration is missing %q", fragment)
+		}
+		if position <= lastPosition {
+			t.Fatalf("media moderation down migration applies %q out of dependency order", fragment)
+		}
+		lastPosition = position
+	}
+
+	if strings.Count(sql, "DROP COLUMN") != 13 {
+		t.Fatalf("media moderation down migration drops unexpected columns: %s", sql)
+	}
+	for _, fragment := range []string{
+		"'start'", "'end'", "'cancel'",
+		"'member_invite'", "'member_revoke'", "'member_restore'",
+		"'admission_admit'", "'admission_deny'", "'admission_cancel'", "'admission_restore'",
+	} {
+		if !strings.Contains(sql, fragment) {
+			t.Fatalf("media moderation down migration does not restore receipt operation %q", fragment)
+		}
+	}
+	for _, operation := range []string{
+		"'lock'", "'unlock'", "'participant_promote'", "'participant_demote'",
+		"'participant_mute'", "'participant_remove'",
+	} {
+		if !strings.Contains(sql, operation) {
+			t.Fatalf("media moderation down migration does not remove forward receipt operation %q", operation)
+		}
+	}
+	for _, forbidden := range []string{
+		"DROP TABLE tutorhub.media_space_mutation_receipts",
+		"DROP TABLE tutorhub.media_participant_sessions",
+		"DROP TABLE tutorhub.media_room_instances",
+		"DROP TABLE tutorhub.media_spaces",
+		"DROP COLUMN operation",
+		"DROP COLUMN result_space_version",
+	} {
+		if strings.Contains(sql, forbidden) {
+			t.Fatalf("media moderation down migration removes pre-000033 state via %q", forbidden)
+		}
+	}
+}

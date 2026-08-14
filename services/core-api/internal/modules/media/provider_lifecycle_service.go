@@ -19,6 +19,45 @@ type RoomBindingRepository interface {
 		time.Time,
 	) (MediaSpace, error)
 	ProviderRoomName(context.Context, AccessContext, uuid.UUID) (string, error)
+	ClaimEndProviderEffect(
+		context.Context,
+		AccessContext,
+		uuid.UUID,
+		string,
+		time.Time,
+		time.Duration,
+	) (EndRoomProviderEffect, ProviderEffectStatus, bool, error)
+	CompleteEndProviderEffect(
+		context.Context,
+		AccessContext,
+		uuid.UUID,
+		string,
+		int,
+		ProviderEffectStatus,
+		string,
+		time.Time,
+	) (ProviderEffectStatus, error)
+}
+
+type EndRoomProviderEffect struct {
+	RoomName string
+	Attempt  int
+}
+
+// MediaProviderConvergenceError means the TutorHub lifecycle transition was
+// committed, while the provider-side effect still needs durable convergence.
+// It intentionally exposes no provider identifier or raw provider error.
+type MediaProviderConvergenceError struct {
+	Space                MediaSpace
+	ProviderEffectStatus ProviderEffectStatus
+}
+
+func (err *MediaProviderConvergenceError) Error() string {
+	return ErrMediaProviderUnavailable.Error()
+}
+
+func (err *MediaProviderConvergenceError) Unwrap() error {
+	return ErrMediaProviderUnavailable
 }
 
 // ProviderLifecycleService keeps provider calls outside PostgreSQL transactions.
@@ -122,17 +161,48 @@ func (service *ProviderLifecycleService) EndSpace(
 	if err != nil {
 		return MediaSpace{}, err
 	}
-	providerRoomName, err := service.bindings.ProviderRoomName(ctx, access, spaceID)
+	effect, status, claimed, err := service.bindings.ClaimEndProviderEffect(
+		ctx, access, spaceID, input.IdempotencyKey, service.clock().UTC(),
+		providerModerationLease,
+	)
 	if err != nil {
-		return MediaSpace{}, err
+		return space, providerConvergenceError(space, status)
 	}
-	if providerRoomName == "" {
-		return MediaSpace{}, ErrLifecycleUnavailable
+	if !claimed {
+		if status == ProviderEffectApplied {
+			return space, nil
+		}
+		return space, providerConvergenceError(space, status)
 	}
-	if err := service.provider.DeleteRoom(ctx, providerRoomName); err != nil {
-		return MediaSpace{}, ErrMediaProviderUnavailable
+	completedStatus, errorCode := ProviderEffectApplied, ""
+	if err := service.provider.DeleteRoom(ctx, effect.RoomName); err != nil {
+		completedStatus, errorCode = classifyModerationProviderError(err)
+	}
+	status, err = service.bindings.CompleteEndProviderEffect(
+		ctx, access, spaceID, input.IdempotencyKey, effect.Attempt,
+		completedStatus, errorCode,
+		service.clock().UTC(),
+	)
+	if err != nil {
+		return space, providerConvergenceError(space, ProviderEffectPending)
+	}
+	if status != ProviderEffectApplied {
+		return space, providerConvergenceError(space, status)
 	}
 	return space, nil
+}
+
+func providerConvergenceError(
+	space MediaSpace,
+	status ProviderEffectStatus,
+) *MediaProviderConvergenceError {
+	status = publicProviderEffectStatus(status)
+	if status == ProviderEffectNone || status == "" {
+		status = ProviderEffectPending
+	}
+	return &MediaProviderConvergenceError{
+		Space: space, ProviderEffectStatus: status,
+	}
 }
 
 func (service *ProviderLifecycleService) CancelSpace(

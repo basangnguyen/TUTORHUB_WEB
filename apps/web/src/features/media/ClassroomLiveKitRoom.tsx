@@ -26,6 +26,7 @@ import {
   type ClassroomConnectionStatus,
   type ClassroomSignalControls,
 } from "./ClassroomMediaShell";
+import type { ClassroomModerationControlsModel } from "./ClassroomModerationControls";
 
 const manualSubscriptionConnectOptions = { autoSubscribe: false } as const;
 const canonicalRoomLoggerName = "tutorhub-canonical-media-room";
@@ -35,6 +36,7 @@ export interface ClassroomLiveKitRoomProps {
   connectionStatus: ClassroomConnectionStatus;
   credential: MediaInstanceCredentialProjection;
   lobby?: ReactNode;
+  moderation?: ClassroomModerationControlsModel;
   signals?: ClassroomSignalControls;
   onConnected: () => void;
   onReconnecting: () => void;
@@ -100,6 +102,7 @@ function ConnectedClassroomLiveKitRoom({
   credential,
   lifecycle,
   lobby,
+  moderation,
   signals,
   onConnected,
   onReconnecting,
@@ -333,6 +336,7 @@ function ConnectedClassroomLiveKitRoom({
           connectionStatus={connectionStatus}
           controlAbortSignal={controlAbortController.signal}
           lobby={lobby}
+          moderation={moderation}
           signals={signals}
           onLeave={handleLeave}
           onTerminalMediaCleanup={stopOwnedLocalTracks}

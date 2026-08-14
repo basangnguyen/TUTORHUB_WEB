@@ -91,6 +91,11 @@ import {
   type ClassroomReactionType,
   type ClassroomSignalProjection,
 } from "./classroomSignals";
+import {
+  ClassroomModerationControls,
+  ClassroomParticipantModerationMenu,
+  type ClassroomModerationControlsModel,
+} from "./ClassroomModerationControls";
 
 export type ClassroomConnectionStatus =
   "connecting" | "connected" | "reconnecting" | "disconnected" | "failed";
@@ -102,6 +107,7 @@ export interface ClassroomMediaShellProps {
   connectionStatus: ClassroomConnectionStatus;
   controlAbortSignal?: AbortSignal;
   lobby?: ReactNode;
+  moderation?: ClassroomModerationControlsModel;
   signals?: ClassroomSignalControls;
   onLeave: () => void;
   onTerminalMediaCleanup: () => Promise<void>;
@@ -184,6 +190,7 @@ export function ClassroomMediaShell({
   connectionStatus,
   controlAbortSignal,
   lobby,
+  moderation,
   signals,
   onLeave,
   onTerminalMediaCleanup,
@@ -891,6 +898,13 @@ export function ClassroomMediaShell({
         </div>
       </header>
 
+      {moderation && (
+        <ClassroomModerationControls
+          controls={moderation}
+          disabled={controlsTerminated || connectionStatus !== "connected"}
+        />
+      )}
+
       {!canPublishCameraMicrophone && (
         <p className="media-p405-notice">
           {t("media.p405.listenOnlyDescription")}
@@ -1280,6 +1294,10 @@ export function ClassroomMediaShell({
               >
                 <DrawerTitle>{t("media.p406.rosterTitle")}</DrawerTitle>
                 <ClassroomRoster
+                  moderation={moderation}
+                  moderationDisabled={
+                    controlsTerminated || connectionStatus !== "connected"
+                  }
                   onLowerAll={() =>
                     void runSignalAction(
                       signals.onLowerAllHands,
@@ -1350,10 +1368,14 @@ export function ClassroomMediaShell({
 }
 
 function ClassroomRoster({
+  moderation,
+  moderationDisabled,
   onLowerAll,
   onLowerHand,
   signals,
 }: {
+  moderation?: ClassroomModerationControlsModel;
+  moderationDisabled: boolean;
   onLowerAll: () => void;
   onLowerHand: (participantKey: string) => void;
   signals: ClassroomSignalControls;
@@ -1416,6 +1438,15 @@ function ClassroomRoster({
                   {t(connectionStateKey(participant.connection_state))}
                 </span>
               </div>
+              {moderation && (
+                <ClassroomParticipantModerationMenu
+                  controls={moderation}
+                  disabled={moderationDisabled}
+                  displayName={participant.display_name}
+                  isSelf={isSelf}
+                  participantKey={participant.participant_key}
+                />
+              )}
               {hand && (
                 <div className="media-p406-hand-state">
                   <span>

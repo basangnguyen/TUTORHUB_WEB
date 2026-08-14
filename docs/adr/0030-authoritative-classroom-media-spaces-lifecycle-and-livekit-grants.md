@@ -226,6 +226,44 @@ reauthorize membership/source/lobby hiện hành. Member revoke/restore dùng li
 expiry, self-cancel và polling; trước `admitted` browser không được mint credential hoặc connect
 LiveKit.
 
+#### 8.2. P4-07 moderation command and provider-effect boundary
+
+P4-07 keeps one authoritative participant projection. Client commands target only the opaque
+`participant_key`; user, ParticipantSession, join-attempt, provider room, provider participant and
+track identifiers remain server-only. An early idempotency-receipt replay is read-only and never
+takes a receipt row lock. Every write path resolves the target again under the fixed lock order
+`tenant control -> MediaSpace -> RoomInstance -> ParticipantSession -> role assignment/receipt`.
+
+Dynamic co-host authority is stored as a RoomInstance-scoped assignment. Promotion never changes an
+organization or class role, and every assignment becomes ineffective when that exact instance is no
+longer active. Demotion revokes the dynamic assignment and falls back to the current source role.
+Signal, lobby, credential and moderation flows must all use this same effective-role resolver; a
+provider claim or client-rendered role is never sufficient authority.
+
+`lock`, `unlock`, `promote_co_host`, `demote_co_host`, `mute_microphone` and `remove_participant`
+are versioned and idempotent Core API commands. Lock blocks new join credentials and admissions but
+does not disconnect active participants. Remote mute is one-way: the server adapter can set a
+published microphone track to muted but has no remote-unmute method. Remove terminalizes the active
+ParticipantSession, releases capacity, clears the raised-hand projection and preserves the explicit
+restore barrier before any later rejoin.
+
+Provider work is a durable effect attached to the committed command receipt. Core API commits the
+business result first, releases the PostgreSQL transaction, then a narrow LiveKit adapter attempts
+mute/remove/delete. Responses expose only the allowlisted state `none`, `pending`, `applied`,
+`retryable_failed` or `permanent_failed`; UI must not claim provider success before `applied`.
+Retries claim work with compare-and-set/lease semantics. Raw provider errors and identifiers never
+enter API responses, audit, outbox or logs.
+
+The existing lifecycle `end` command remains versioned/idempotent and owns the durable LiveKit room
+delete effect plus retry/reconcile state; moderation does not create a second end path.
+
+The exact operation matrix is server-projected per target. A host may lock/unlock, promote an
+attendee, demote a dynamic co-host, and mute/remove any non-host target. A co-host may mute/remove an
+attendee only. A teaching assistant may mute an attendee only. An attendee has no moderation
+operation. Self-targeting and host-targeting are always denied. Organization-admin safety recovery
+is a separate reason-required audited path and does not silently grant ordinary room membership or
+a co-host token.
+
 ### 9. Persistent chat và ephemeral signal boundary
 
 LiveKit DataChannel không là source of truth. In-room chat phải dùng PostgreSQL REST contract và
@@ -263,8 +301,9 @@ POST /api/v1/media/spaces/{space_id}/join-attempts
 POST /api/v1/media/spaces/{space_id}/join-credentials
 POST /api/v1/media/spaces/{space_id}/admissions/{admission_id}/admit
 POST /api/v1/media/spaces/{space_id}/admissions/{admission_id}/deny
-POST /api/v1/media/spaces/{space_id}/participants/{participant_session_id}/mute
-POST /api/v1/media/spaces/{space_id}/participants/{participant_session_id}/remove
+POST /api/v1/media/spaces/{space_id}/participants/{participant_key}/role
+POST /api/v1/media/spaces/{space_id}/participants/{participant_key}/mute
+POST /api/v1/media/spaces/{space_id}/participants/{participant_key}/remove
 POST /api/v1/media/spaces/{space_id}/signals
 POST /api/v1/media/spaces/{space_id}/diagnostics
 ```

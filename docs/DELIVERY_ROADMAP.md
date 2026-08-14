@@ -8,7 +8,7 @@
 | Phase hiện tại      | Phase 4 Classroom Media; Phase 3 carry-over tiếp tục |
 | Hoàn thành gần nhất | P4-06 participant roster/hand/reaction `DONE`        |
 | Mốc repository mới  | P4-06 exact CI/shared/deploy/live acceptance PASS    |
-| Việc tiếp theo      | P4-07 moderation core (`TODO`, runnable)              |
+| Việc tiếp theo      | P4-07 `VERIFY`: candidate CI, shared và live          |
 | Phạm vi             | Web-first; desktop/mobile/native là track sau        |
 
 ## Chuỗi phase
@@ -92,7 +92,8 @@ anonymous/Admin feature-off acceptance đều PASS. P4-06 sau đó đã `DONE` n
 exact candidate `d773641f796076b90f31a876ee840a427db43372`: GitHub Verify/Security, disposable/shared
 forward-only `31 false -> 32 false -> 32 false`, exact ACL, Render/Cloudflare deploy và live
 privacy/feature-off/no-side-effect acceptance đều PASS. Không rollback, hai media feature tiếp tục
-force-off và P4-07 là task `TODO`/runnable tiếp theo. Physical/manual/device/load/provider-outage/
+force-off. P4-07 hiện ở `VERIFY`: local/disposable PASS, còn candidate CI, shared và live.
+Physical/manual/device/load/provider-outage/
 effect gates vẫn `UNVERIFIED — P4-11`.
 `P3-02D-B` auto-close/fan-out/delivery cùng các lane
 worker/provider tiếp tục là carry-over, không bị coi là PASS.

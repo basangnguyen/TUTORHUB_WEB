@@ -14,8 +14,49 @@
 | Phase hiện tại       | Phase 4 Classroom Media MVP; Phase 3 deferred carry-over vẫn hoạt động                |
 | Task `DONE` gần nhất | P4-06 Participant roster, hand raise và reaction                                       |
 | Mốc repository mới   | Exact candidate `d773641f` đã PASS CI/security và Live trên Render/Cloudflare          |
-| Task hiện tại        | P4-07 Host/co-host/TA moderation (`TODO`, runnable)                                    |
-| Task tiếp theo       | Bắt đầu contract/security design và implementation P4-07                              |
+| Task hiện tại        | P4-07 Host/co-host/TA moderation (`VERIFY`)                                            |
+| Task tiếp theo       | Review/push candidate, GitHub CI/security, rồi xin quyền forward shared P4-07          |
+
+### Checkpoint P4-07 `VERIFY` — local/disposable PASS ngày 2026-08-13
+
+P4-07 đã hoàn tất local candidate và disposable acceptance nhưng chưa migrate shared hoặc deploy. ADR-0030 và
+OpenAPI chốt PostgreSQL/Core API là authority; browser chỉ gửi opaque participant key và chỉ render
+server-projected operations. Forward migration `000033_media_moderation_commands` thêm assignment
+co-host đúng tenant/space/RoomInstance, durable provider-effect receipt, PUBLIC zero privilege và
+fail-closed down guard khi còn co-host động hoặc effect bắt buộc chưa hội tụ.
+
+Core API đã có exact matrix cho host/co-host/TA/attendee/safety-admin, expected space/room/projection
+version, stable idempotency và cùng effective-role resolver cho moderation/signal/lobby/credential.
+Lock/unlock, promote/demote, remote mute, remove và end đều tái xác thực tenant/source/room/target;
+không có remote unmute. Safety-admin chỉ được remove với bounded reason/audit, không được tự nhận
+quyền tham gia. PostgreSQL actor/room/operation-family rate limit dùng database clock, trả exact
+`429`/`Retry-After` và fail closed.
+
+Provider call chạy sau transaction. Durable reconciler dùng `FOR UPDATE SKIP LOCKED`, lease/CAS,
+bounded retry và giữ nguyên actor chỉ làm audit metadata; actor bị vô hiệu hóa không làm stranded
+effect. End-room provider failure có typed `503` nói rõ business đã commit mà không tuyên bố provider
+success; UI chỉ nhận trạng thái này khi exact status/space/payload khớp, còn generic `503` vẫn fail.
+UI có confirmation, one-way mute language, focus return, keyboard/zoom/reduced-motion/forced-colors
+và loading/forbidden/stale/provider-pending/reconcile/terminal states.
+
+Full `pnpm verify` PASS: web `66/66` files, `424/424` tests; API client `7/7` files, `52/52` tests;
+toàn bộ lint/typecheck/build/Storybook/security và Go test/vet đều xanh. Focused Go, integration-tag
+compile/vet, OpenAPI generation, format và diff check PASS; deterministic P4-07 Playwright/Axe fixture
+đã PASS `4/4`. Opt-in harness cho mute/remove/delete thật và NotFound replay đã PASS trên isolated
+LiveKit test resource. Neon disposable owner preflight, forward-only
+`32 false -> 33 false -> 33 false`, exact runtime/PUBLIC/maintenance/dependency ACL, P4-07
+authority/concurrency và toàn bộ `9/9` media PostgreSQL regression programs đều PASS. Final read-only
+snapshot giữ `33 false`, feature effective force-off và `unsafe_unresolved_effects=0`; retained audit
+fixtures được báo cáo thay vì xóa. Shared-staging owner preflight/ACL/final-snapshot harness dùng bộ
+xác nhận P4-07 riêng, fail closed với cờ stale và đã PASS static/compile/vet; harness này chưa được
+thực thi. Các giá trị trong `.env.p4-07-disposable.local` chỉ được nạp trong đúng process test, không
+hiển thị hoặc log; shared staging chưa được kết nối. Evidence:
+[P4_07_STAGING_ACCEPTANCE.md](P4_07_STAGING_ACCEPTANCE.md).
+
+Để chuyển `VERIFY -> DONE`, bước kế tiếp là review exact candidate, commit/push trực tiếp `main` và
+chờ GitHub Verify/Security PASS. Chỉ sau đó mới xin quyền forward shared staging `32 -> 33`, provision
+exact ACL, deploy exact candidate và chạy live acceptance. Không rollback; disposable branch tiếp tục
+được giữ lại.
 
 ### Checkpoint P4-06 `DONE` ngày 2026-08-13
 

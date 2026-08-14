@@ -13,6 +13,7 @@ import {
   useMediaSignalSnapshot,
   useMutateMediaSignal,
 } from "../app/mediaSignals";
+import { useMediaModerationControls } from "../app/mediaModeration";
 import { useSession } from "../app/session";
 import { MediaLobbyPanel } from "../components/MediaLobbyPanel";
 import {
@@ -237,6 +238,23 @@ function MediaSpaceRoomSession({
     );
   }, [finishDisconnected, navigate, spaceId]);
 
+  const moderationControls = useMediaModerationControls({
+    enabled: signalScopeReady && roomStatus === "connected",
+    tenantID: tenantId,
+    spaceID: spaceId ?? "",
+    roomInstanceID: roomInstanceId ?? "",
+    expectedSpaceVersion: mediaSpace.data?.version ?? 0,
+    expectedRoomInstanceVersion: activeRoom?.version ?? 0,
+    projection: signalProjection,
+    onRoomEnded: handleLeave,
+  });
+
+  useEffect(() => {
+    if (!handoff || mediaSpace.data?.status !== "ended") return undefined;
+    const frame = globalThis.requestAnimationFrame(handleLeave);
+    return () => globalThis.cancelAnimationFrame(frame);
+  }, [handoff, handleLeave, mediaSpace.data?.status]);
+
   useEffect(() => {
     if (
       handoffMatchesScope &&
@@ -314,6 +332,7 @@ function MediaSpaceRoomSession({
     connectionStatus: roomStatus,
     credential: handoff.credential,
     lobby,
+    ...(moderationControls ? { moderation: moderationControls } : {}),
     onConnected: handleConnected,
     onReconnecting: handleReconnecting,
     onDisconnected: handleDisconnected,

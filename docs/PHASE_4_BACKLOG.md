@@ -26,9 +26,11 @@ Exact candidate `d773641f` đã PASS GitHub CI/security; disposable/shared đề
 không rollback. Render deployment `dep-d9ul9q6417fc738gfa3g` và Cloudflare Pages chạy exact
 candidate; public/privacy/feature-off/accessibility/no-side-effect acceptance đều PASS. Disposable
 branch được giữ lại. Evidence tại [P4_06_STAGING_ACCEPTANCE.md](P4_06_STAGING_ACCEPTANCE.md).
-**Task hiện tại:** `P4-07` Host/co-host/TA moderation (`TODO`, runnable). Dependency P4-04/P4-06 đã
-`DONE`; bước kế tiếp là chốt contract/security boundary rồi triển khai slice moderation. Trạng thái
-`TODO` không ngụ ý implementation đã tồn tại.
+**Task hiện tại:** `P4-07` Host/co-host/TA moderation (`VERIFY`). Local và Neon disposable đều PASS:
+forward-only `32 false -> 33 false -> 33 false`, exact ACL, PostgreSQL authority/concurrency/regression,
+read-only postflight và isolated LiveKit matrix; không rollback và vẫn giữ disposable branch. Bước kế
+tiếp là review candidate, commit/push `main` và chờ GitHub Verify/Security PASS trước khi xin quyền
+forward shared staging; chưa migrate shared staging hoặc deploy.
 
 `P4-MEDIA-UX-00` đã `DONE`; không đổi LiveKit provider, không thêm processor production dependency
 hoặc mở `CanPublishData=false`. P4-03/P4-04/P4-05/P4-06/P4-11 phải tuân ADR-0031 và báo rõ các
@@ -81,7 +83,7 @@ physical/manual effect gate còn `UNVERIFIED` thay vì suy PASS từ research.
 | P4-04          | Lobby, admission và explicit same-tenant invite     | P4-02, P4-03, P4-MEDIA-UX-00    | DONE       |
 | P4-05          | Classroom shell, media controls và layouts          | P4-03, P4-MEDIA-UX-00           | DONE       |
 | P4-06          | Participant roster, hand raise và reaction          | P4-04, P4-05, P4-MEDIA-UX-00    | DONE       |
-| P4-07          | Host/co-host/TA moderation, lock/mute/remove/end    | P4-04, P4-06                    | TODO       |
+| P4-07          | Host/co-host/TA moderation, lock/mute/remove/end    | P4-04, P4-06                    | VERIFY     |
 | P4-08          | Persistent in-room chat                             | P4-01, P3-07A; ADR review       | TODO       |
 | P4-09          | Reconnect, recovery instance và degraded audio-only | P4-02, P4-05, P4-07             | TODO       |
 | P4-10          | Join telemetry, privacy và diagnostics export       | P4-02, P4-03, P4-09             | TODO       |
@@ -480,21 +482,36 @@ surprised`, TTL 10 giây, grouping 750 ms, snapshot max 50 summary/UI max 3 visu
 
 ## 14. P4-07 Host/co-host/TA moderation
 
-**Dependency:** P4-04/P4-06. **Trạng thái:** `TODO`, runnable tiếp theo từ ngày 2026-08-13.
+**Dependency:** P4-04/P4-06. **Trạng thái:** `VERIFY` từ ngày 2026-08-13.
 
 ### Scope
 
-- Instance-scoped co-host promotion/demotion, lock/unlock, admit/deny, mute/remove and end.
+- Instance-scoped co-host promotion/demotion, lock/unlock, mute/remove and the existing lifecycle
+  end command; integrate fail-closed races with the P4-04 admit/deny paths.
 - Server-authorized provider adapter; safety-admin recovery with reason/audit.
 - Remote mute only; never remote-unmute. Removed participant block/recovery state.
 
 ### Acceptance
 
-- [ ] Official and member-owned role matrix table-tested; TA/co-host scope expires with instance.
-- [ ] Direct provider call cannot bypass TutorHub command authority.
-- [ ] Concurrent lock/join, remove/rejoin, end/token and role-change/token races fail closed.
-- [ ] Moderation audit allowlist has actor/target opaque IDs/action/outcome, no media/chat content.
-- [ ] Provider failure exposes retry/reconcile state without claiming mutation succeeded.
+- [x] Official and member-owned role matrix table-tested; TA/co-host scope expires with instance.
+- [x] Direct provider call cannot bypass TutorHub command authority.
+- [x] Concurrent lock/join, lock/admit, remove/rejoin, end/token and role-change/token barriers pass
+      deterministic unit/static coverage and PostgreSQL two-connection disposable proof.
+- [x] Moderation audit allowlist has actor/target opaque IDs/action/outcome, no media/chat content.
+- [x] Provider failure exposes the committed business result and retry/reconcile state without
+      claiming that the provider effect has been applied.
+
+### Disposable evidence — `PASS` ngày 2026-08-13
+
+- Owner preflight PASS at `32 false`; forward-only `32 false -> 33 false -> 33 false`, exact
+  runtime/PUBLIC/maintenance/dependency ACL and idempotent rerun PASS; no rollback.
+- P4-07 authority/concurrency PASS and full retained media PostgreSQL regression passes `9/9`
+  programs. Final read-only snapshot remains `33 false`, features effective force-off and
+  `unsafe_unresolved_effects=0`; retained synthetic audit fixtures are reported, not deleted.
+- Isolated LiveKit microphone mute, participant removal, room deletion and idempotent NotFound replay
+  PASS. Sustained provider-outage evidence remains explicitly deferred to P4-11.
+- P4-07 remains `VERIFY`: candidate commit/push, GitHub Verify/Security, shared forward/ACL,
+  exact deploy and live acceptance have not run.
 
 ## 15. P4-08 Persistent in-room chat
 
@@ -651,4 +668,7 @@ PostgreSQL. Mỗi implementation slice phải cập nhật khi thêm provider co
    live privacy/feature-off/accessibility/no-side-effect acceptance đều PASS; không rollback,
    disposable branch được giữ lại và các physical/manual/load/outage/effect gate vẫn
    `UNVERIFIED — P4-11`.
-7. Bắt đầu P4-07 Host/co-host/TA moderation; task đang `TODO` nhưng dependency đã đủ và runnable.
+7. P4-07 đang `VERIFY`: migration `000033`, exact authorization/tenant/concurrency boundary, durable
+   provider-effect reconcile, rate limit, generated contract/client, accessible UI và full local verify
+   đều PASS. Disposable cũng PASS forward-only `32 false -> 33 false -> 33 false`, exact ACL, full
+   PostgreSQL regression, read-only postflight và isolated LiveKit matrix; chưa shared staging/deploy.

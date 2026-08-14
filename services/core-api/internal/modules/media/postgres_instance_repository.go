@@ -203,6 +203,154 @@ LIMIT 1`,
 	return providerRoomName, nil
 }
 
+func (repository *PostgresInstanceRepository) ClaimEndProviderEffect(
+	ctx context.Context,
+	access AccessContext,
+	spaceID uuid.UUID,
+	idempotencyKey string,
+	now time.Time,
+	lease time.Duration,
+) (EndRoomProviderEffect, ProviderEffectStatus, bool, error) {
+	if repository == nil || repository.lifecycle == nil || spaceID == uuid.Nil ||
+		idempotencyKey == "" || lease <= 0 {
+		return EndRoomProviderEffect{}, ProviderEffectPermanentFailed, false,
+			ErrLifecycleUnavailable
+	}
+	queryContext, cancel := context.WithTimeout(ctx, repository.lifecycle.queryTimeout)
+	defer cancel()
+	transaction, err := repository.lifecycle.database.Begin(queryContext)
+	if err != nil {
+		return EndRoomProviderEffect{}, ProviderEffectRetryableFailed, false,
+			repository.lifecycle.unavailable("begin end provider effect", err)
+	}
+	defer rollbackLifecycle(transaction)
+	if err := repository.lifecycle.acquireTenantControlLock(
+		queryContext, transaction, access.TenantID,
+	); err != nil {
+		return EndRoomProviderEffect{}, ProviderEffectRetryableFailed, false, err
+	}
+	_, scope, err := repository.lifecycle.requireActiveScope(queryContext, transaction, access)
+	if err != nil {
+		return EndRoomProviderEffect{}, ProviderEffectPermanentFailed, false, err
+	}
+	var effect EndRoomProviderEffect
+	var currentStatus ProviderEffectStatus
+	err = transaction.QueryRow(
+		queryContext,
+		`SELECT room.provider_room_name, receipt.provider_effect_attempts,
+       receipt.provider_effect_status
+FROM tutorhub.media_space_mutation_receipts AS receipt
+JOIN tutorhub.media_room_instances AS room
+  ON room.tenant_id = receipt.tenant_id
+ AND room.space_id = receipt.space_id
+ AND room.id = receipt.result_room_instance_id
+WHERE receipt.tenant_id = $1 AND receipt.actor_user_id = $2
+  AND receipt.space_id = $3 AND receipt.idempotency_key = $4
+  AND receipt.operation = 'end' AND receipt.provider_effect_required
+FOR UPDATE OF receipt`,
+		scope.TenantID, scope.ActorID, spaceID, idempotencyKey,
+	).Scan(&effect.RoomName, &effect.Attempt, &currentStatus)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return EndRoomProviderEffect{}, ProviderEffectPermanentFailed, false,
+			ErrSpaceTransition
+	}
+	if err != nil || !opaqueProviderRoomNamePattern.MatchString(effect.RoomName) {
+		return EndRoomProviderEffect{}, ProviderEffectRetryableFailed, false,
+			ErrLifecycleUnavailable
+	}
+	if currentStatus == ProviderEffectApplied || currentStatus == ProviderEffectPermanentFailed {
+		return effect, currentStatus, false, nil
+	}
+	effect.Attempt++
+	var claimed ProviderEffectStatus
+	err = transaction.QueryRow(
+		queryContext,
+		`UPDATE tutorhub.media_space_mutation_receipts
+SET provider_effect_status = 'applying', provider_effect_attempts = $5,
+    provider_effect_error_code = NULL, provider_effect_lease_until = $6,
+    provider_effect_updated_at = $7
+WHERE tenant_id = $1 AND actor_user_id = $2 AND space_id = $3
+  AND idempotency_key = $4 AND operation = 'end' AND provider_effect_required
+  AND (provider_effect_status IN ('pending', 'retryable_failed')
+       OR (provider_effect_status = 'applying' AND provider_effect_lease_until <= $7))
+RETURNING provider_effect_status`,
+		scope.TenantID, scope.ActorID, spaceID, idempotencyKey, effect.Attempt,
+		now.UTC().Add(lease), now.UTC(),
+	).Scan(&claimed)
+	if errors.Is(err, pgx.ErrNoRows) {
+		if err := transaction.Commit(queryContext); err != nil {
+			return effect, ProviderEffectRetryableFailed, false, ErrLifecycleUnavailable
+		}
+		return effect, currentStatus, false, nil
+	}
+	if err != nil {
+		return EndRoomProviderEffect{}, ProviderEffectRetryableFailed, false,
+			ErrLifecycleUnavailable
+	}
+	if err := transaction.Commit(queryContext); err != nil {
+		return EndRoomProviderEffect{}, ProviderEffectRetryableFailed, false,
+			ErrLifecycleUnavailable
+	}
+	return effect, claimed, true, nil
+}
+
+func (repository *PostgresInstanceRepository) CompleteEndProviderEffect(
+	ctx context.Context,
+	access AccessContext,
+	spaceID uuid.UUID,
+	idempotencyKey string,
+	attempt int,
+	status ProviderEffectStatus,
+	errorCode string,
+	now time.Time,
+) (ProviderEffectStatus, error) {
+	if repository == nil || repository.lifecycle == nil || spaceID == uuid.Nil ||
+		idempotencyKey == "" || attempt < 1 ||
+		(status != ProviderEffectApplied && status != ProviderEffectRetryableFailed &&
+			status != ProviderEffectPermanentFailed) {
+		return ProviderEffectPermanentFailed, ErrLifecycleUnavailable
+	}
+	queryContext, cancel := context.WithTimeout(ctx, repository.lifecycle.queryTimeout)
+	defer cancel()
+	transaction, err := repository.lifecycle.database.Begin(queryContext)
+	if err != nil {
+		return ProviderEffectRetryableFailed, ErrLifecycleUnavailable
+	}
+	defer rollbackLifecycle(transaction)
+	if err := repository.lifecycle.acquireTenantControlLock(
+		queryContext, transaction, access.TenantID,
+	); err != nil {
+		return ProviderEffectRetryableFailed, err
+	}
+	_, scope, err := repository.lifecycle.requireActiveScope(queryContext, transaction, access)
+	if err != nil {
+		return ProviderEffectPermanentFailed, err
+	}
+	var completed ProviderEffectStatus
+	err = transaction.QueryRow(
+		queryContext,
+		`UPDATE tutorhub.media_space_mutation_receipts
+SET provider_effect_status = $6, provider_effect_error_code = NULLIF($7, ''),
+    provider_effect_lease_until = NULL, provider_effect_updated_at = $8
+WHERE tenant_id = $1 AND actor_user_id = $2 AND space_id = $3
+  AND idempotency_key = $4 AND operation = 'end' AND provider_effect_required
+  AND provider_effect_status = 'applying' AND provider_effect_attempts = $5
+RETURNING provider_effect_status`,
+		scope.TenantID, scope.ActorID, spaceID, idempotencyKey, attempt,
+		status, errorCode, now.UTC(),
+	).Scan(&completed)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ProviderEffectRetryableFailed, ErrSpaceVersionConflict
+	}
+	if err != nil {
+		return ProviderEffectRetryableFailed, ErrLifecycleUnavailable
+	}
+	if err := transaction.Commit(queryContext); err != nil {
+		return ProviderEffectRetryableFailed, ErrLifecycleUnavailable
+	}
+	return completed, nil
+}
+
 func (repository *PostgresInstanceRepository) PrepareCredential(
 	ctx context.Context,
 	access AccessContext,
@@ -273,6 +421,14 @@ func (repository *PostgresInstanceRepository) PrepareCredential(
 	if room.Status != RoomInstanceActive || !room.ProviderRoomSID.Valid ||
 		room.ProviderRoomName == "" {
 		return ParticipantCredentialGrant{}, ErrRoomNotOpen
+	}
+	source, err = resolveEffectiveCredentialSource(
+		queryContext, transaction, scope.TenantID, room.ID, scope.ActorID, source,
+	)
+	if err != nil {
+		return ParticipantCredentialGrant{}, repository.lifecycle.unavailable(
+			"resolve media credential role", err,
+		)
 	}
 	now = now.UTC()
 	existing, found, err := loadParticipantByAttempt(
@@ -451,6 +607,14 @@ func (repository *PostgresInstanceRepository) CreateOrReuseJoinAttempt(
 	if room.Status != RoomInstanceActive || !room.ProviderRoomSID.Valid ||
 		room.ProviderRoomName == "" {
 		return CreateJoinAttemptResult{}, ErrRoomNotOpen
+	}
+	source, err = resolveEffectiveCredentialSource(
+		queryContext, transaction, scope.TenantID, room.ID, scope.ActorID, source,
+	)
+	if err != nil {
+		return CreateJoinAttemptResult{}, repository.lifecycle.unavailable(
+			"resolve media join-attempt role", err,
+		)
 	}
 	now = now.UTC()
 	fingerprint := joinAttemptRequestFingerprint(spaceID, input)
@@ -1000,6 +1164,9 @@ func activeParticipantStatus(status string) bool {
 }
 
 func sourceAvailableForJoin(source authorizedSource) bool {
+	if !source.CanJoin {
+		return false
+	}
 	switch source.Kind {
 	case SourceClassSession:
 		return source.Status == "live"
@@ -1008,6 +1175,28 @@ func sourceAvailableForJoin(source authorizedSource) bool {
 	default:
 		return false
 	}
+}
+
+func resolveEffectiveCredentialSource(
+	ctx context.Context,
+	transaction pgx.Tx,
+	tenantID uuid.UUID,
+	roomID uuid.UUID,
+	userID uuid.UUID,
+	source authorizedSource,
+) (authorizedSource, error) {
+	role, err := effectiveRoomRole(
+		ctx, transaction, tenantID, roomID, userID, source.InstanceRole, true,
+	)
+	if err != nil {
+		return authorizedSource{}, err
+	}
+	source.InstanceRole = role
+	if role == InstanceRoleHost || role == InstanceRoleCoHost ||
+		role == InstanceRoleTeachingAssistant {
+		source.CanShareScreen = true
+	}
+	return source, nil
 }
 
 func participantGrant(

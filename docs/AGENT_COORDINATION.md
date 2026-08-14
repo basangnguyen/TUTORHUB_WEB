@@ -197,7 +197,7 @@ hoặc worker-driven file processing/sharing tới end user.
 | P4-04           | DONE       | Exact CI/shared/deploy/live privacy/no-side-effect PASS     |
 | P4-05           | DONE       | Exact CI/shared/deploy/live + isolated provider PASS        |
 | P4-06           | DONE       | Exact CI/shared/deploy/live feature-off/no-side-effect PASS |
-| P4-07           | TODO       | Moderation core; task runnable tiếp theo                    |
+| P4-07           | VERIFY     | Local/disposable PASS; chờ candidate CI/shared/live         |
 | P4-08 đến P4-10 | TODO       | Chat/reconnect/telemetry                                    |
 | P4-11           | TODO       | Browser/device/load/provider-outage acceptance             |
 | P4-12           | TODO       | Exact staging acceptance và Phase 4 closure                |
@@ -255,7 +255,8 @@ read-only pre/postflight đều PASS. Render/Cloudflare exact deploy cùng live 
 privacy/feature-off/no-side-effect acceptance cũng PASS; shared post-live vẫn `32 false`, không có
 P4-06 side effect và không bật media feature.
 
-`P4-MEDIA-UX-00`, P4-03, P4-04, P4-05 và P4-06 đã `DONE`; P4-07 là lane `TODO`/runnable tiếp theo.
+`P4-MEDIA-UX-00`, P4-03, P4-04, P4-05 và P4-06 đã `DONE`; P4-07 đang `VERIFY`, đã PASS
+local/disposable nhưng chưa push candidate, chạy GitHub CI/security, forward shared hoặc deploy/live.
 P4-03/P4-04/P4-05/
 P4-06/P4-11 phải dùng explicit device probe, bounded layout 2/5/25/50 và
 Core API signal contract đã chốt. `effect=None` là baseline; Track Processors chưa phải production

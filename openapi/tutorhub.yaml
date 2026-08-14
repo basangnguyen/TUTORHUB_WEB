@@ -5787,6 +5787,269 @@ paths:
           $ref: "#/components/responses/ProblemResponse"
         default:
           $ref: "#/components/responses/ProblemResponse"
+  /api/v1/media/spaces/{space_id}/lock:
+    post:
+      operationId: setMediaSpaceLock
+      summary: Lock or unlock the authoritative active RoomInstance
+      description: Only a server-authorized host command may change the room lock. Dynamic co-host assignment does not grant lifecycle authority. The actor, tenant, source role, and current room are derived server-side; stale versions and changed idempotent retries fail closed.
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: space_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/ExpectedTenantID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MediaSpaceLockRequest"
+      responses:
+        "200":
+          description: Durable idempotent lock result with authoritative versions and provider-effect status; clients refetch the participant projection after success
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: private, no-store
+            Referrer-Policy:
+              schema:
+                type: string
+                const: no-referrer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MediaSpaceLockResult"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "429":
+          description: The actor, RoomInstance, and lock-operation rate limit was reached
+          headers:
+            Retry-After:
+              required: true
+              schema:
+                type: integer
+                minimum: 1
+                maximum: 60
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/media/spaces/{space_id}/participants/{participant_key}/role:
+    post:
+      operationId: changeMediaParticipantRole
+      summary: Promote an attendee to co-host or demote a co-host to attendee
+      description: The role assignment is authoritative in PostgreSQL. The durable command schedules removal of the current provider participant so reconnect credentials carry freshly derived grants; provider_effect_status reports that reconciliation progress. A client cannot supply provider identity or grants.
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: space_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/MediaParticipantKeyPath"
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/ExpectedTenantID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MediaParticipantRoleRequest"
+      responses:
+        "200":
+          description: Durable idempotent role result; provider_effect_status reports reconnect enforcement progress
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: private, no-store
+            Referrer-Policy:
+              schema:
+                type: string
+                const: no-referrer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MediaParticipantModerationResult"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "429":
+          description: The actor, RoomInstance, and role-operation rate limit was reached
+          headers:
+            Retry-After:
+              required: true
+              schema:
+                type: integer
+                minimum: 1
+                maximum: 60
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/media/spaces/{space_id}/participants/{participant_key}/mute:
+    post:
+      operationId: muteMediaParticipantMicrophone
+      summary: Remotely mute one current participant microphone
+      description: Remote mute is one-way and never requests remote unmute. The durable moderation command is committed before the LiveKit side effect; provider_effect_status exposes only bounded reconciliation state.
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: space_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/MediaParticipantKeyPath"
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/ExpectedTenantID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MediaParticipantModerationRequest"
+      responses:
+        "200":
+          description: Durable idempotent mute result and provider-effect status
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: private, no-store
+            Referrer-Policy:
+              schema:
+                type: string
+                const: no-referrer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MediaParticipantModerationResult"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "429":
+          description: The actor, RoomInstance, and mute-operation rate limit was reached
+          headers:
+            Retry-After:
+              required: true
+              schema:
+                type: integer
+                minimum: 1
+                maximum: 60
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/media/spaces/{space_id}/participants/{participant_key}/remove:
+    post:
+      operationId: removeMediaParticipant
+      summary: Remove one current participant from the active RoomInstance
+      description: The server derives the target provider identity from the opaque participant key. Host or co-host authority and protected-role restrictions are rechecked transactionally; TA may remotely mute attendees but cannot remove them. Provider removal is reconciled outside the database transaction.
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: space_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/MediaParticipantKeyPath"
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/ExpectedTenantID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MediaParticipantModerationRequest"
+      responses:
+        "200":
+          description: Durable idempotent removal result and provider-effect status
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: private, no-store
+            Referrer-Policy:
+              schema:
+                type: string
+                const: no-referrer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MediaParticipantModerationResult"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "429":
+          description: The actor, RoomInstance, and remove-operation rate limit was reached
+          headers:
+            Retry-After:
+              required: true
+              schema:
+                type: integer
+                minimum: 1
+                maximum: 60
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
   /api/v1/media/spaces/{space_id}/join-attempts:
     post:
       operationId: createMediaSpaceJoinAttempt
@@ -6521,7 +6784,11 @@ paths:
         "409":
           $ref: "#/components/responses/ConflictResponse"
         "503":
-          $ref: "#/components/responses/ProblemResponse"
+          description: The room end committed, but provider cleanup still requires durable reconciliation
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/MediaProviderConvergenceProblem"
         default:
           $ref: "#/components/responses/ProblemResponse"
   /api/v1/media/spaces/{space_id}/cancel:
@@ -6705,6 +6972,14 @@ components:
       in: header
       required: true
       description: Active workspace assertion used to prevent confused-deputy mutations and reads.
+      schema:
+        type: string
+        format: uuid
+    MediaParticipantKeyPath:
+      name: participant_key
+      in: path
+      required: true
+      description: Opaque RoomInstance-scoped participant key; never a user, session, or provider identity.
       schema:
         type: string
         format: uuid
@@ -11795,6 +12070,25 @@ components:
     MediaParticipantConnectionState:
       type: string
       enum: [joining, connected, reconnecting]
+    MediaParticipantModerationOperations:
+      type: object
+      additionalProperties: false
+      required:
+        - can_promote_co_host
+        - can_demote_co_host
+        - can_remote_mute
+        - can_remove
+      properties:
+        can_promote_co_host:
+          type: boolean
+        can_demote_co_host:
+          type: boolean
+        can_remote_mute:
+          type: boolean
+          description: One-way remote microphone mute only; remote unmute is never exposed.
+        can_remove:
+          type: boolean
+      description: Exact server-derived operations for this viewer and this opaque participant target. Clients must not infer moderation authority from instance_role.
     MediaParticipant:
       type: object
       additionalProperties: false
@@ -11805,6 +12099,7 @@ components:
           display_name,
           instance_role,
           connection_state,
+          moderation_operations,
         ]
       properties:
         participant_key:
@@ -11823,6 +12118,8 @@ components:
           $ref: "#/components/schemas/MediaInstanceRole"
         connection_state:
           $ref: "#/components/schemas/MediaParticipantConnectionState"
+        moderation_operations:
+          $ref: "#/components/schemas/MediaParticipantModerationOperations"
     MediaRaisedHand:
       type: object
       additionalProperties: false
@@ -11881,7 +12178,12 @@ components:
     MediaSignalViewerOperations:
       type: object
       additionalProperties: false
-      required: [can_raise_hand, can_send_reaction, can_moderate_hands]
+      required:
+        - can_raise_hand
+        - can_send_reaction
+        - can_moderate_hands
+        - can_lock_room
+        - can_end_room
       properties:
         can_raise_hand:
           type: boolean
@@ -11890,6 +12192,12 @@ components:
         can_moderate_hands:
           type: boolean
           description: Current server-derived media.moderate authority for lower-one and lower-all; never inferred from a client or provider role.
+        can_lock_room:
+          type: boolean
+          description: Exact current host authority to lock or unlock this RoomInstance.
+        can_end_room:
+          type: boolean
+          description: Exact current lifecycle authority to end this media space; dynamic co-host assignment alone never grants it.
     MediaParticipantSnapshot:
       type: object
       additionalProperties: false
@@ -11897,6 +12205,7 @@ components:
         - room_instance_id
         - projection_version
         - last_signal_sequence
+        - room_locked
         - self_participant_key
         - viewer_operations
         - participants
@@ -11917,6 +12226,9 @@ components:
           format: int64
           minimum: 0
           description: Highest server signal sequence represented by the snapshot; clients refetch after a gap.
+        room_locked:
+          type: boolean
+          description: Authoritative MediaSpace lock projection. Lock blocks new joins/admissions but does not eject active participants.
         self_participant_key:
           $ref: "#/components/schemas/MediaParticipantKey"
         viewer_operations:
@@ -11985,6 +12297,207 @@ components:
           $ref: "#/components/schemas/MediaReaction"
           description: Required only when kind is reaction and forbidden for every hand command.
       description: hand_raise and hand_lower always target the authenticated participant; hand_lower_one requires target_participant_key; hand_lower_all has no target; reaction requires the allowlisted reaction field. The server rejects every invalid discriminator combination.
+    MediaProviderEffectStatus:
+      type: string
+      enum: [none, pending, applied, retryable_failed, permanent_failed]
+      description: Public reconciliation state for a provider side effect. Internal lease or applying state is never exposed.
+    MediaRequiredProviderEffectStatus:
+      type: string
+      enum: [pending, applied, retryable_failed, permanent_failed]
+      description: Public reconciliation state for a required provider side effect. The database mutation is already durable; none and the internal applying lease state are impossible at this boundary.
+    MediaSpaceLockRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - expected_room_instance_id
+        - expected_space_version
+        - expected_room_instance_version
+        - expected_projection_version
+        - idempotency_key
+        - locked
+      properties:
+        expected_room_instance_id:
+          type: string
+          format: uuid
+        expected_space_version:
+          type: integer
+          format: int64
+          minimum: 1
+        expected_room_instance_version:
+          type: integer
+          format: int64
+          minimum: 1
+        expected_projection_version:
+          type: integer
+          format: int64
+          minimum: 1
+        idempotency_key:
+          type: string
+          minLength: 16
+          maxLength: 128
+          pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]{15,127}$"
+        locked:
+          type: boolean
+        reason_code:
+          type: string
+          minLength: 1
+          maxLength: 64
+          pattern: "^[a-z][a-z0-9_.-]{0,63}$"
+    MediaParticipantRoleRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - expected_room_instance_id
+        - expected_space_version
+        - expected_room_instance_version
+        - expected_projection_version
+        - idempotency_key
+        - desired_role
+      properties:
+        expected_room_instance_id:
+          type: string
+          format: uuid
+        expected_space_version:
+          type: integer
+          format: int64
+          minimum: 1
+        expected_room_instance_version:
+          type: integer
+          format: int64
+          minimum: 1
+        expected_projection_version:
+          type: integer
+          format: int64
+          minimum: 1
+        idempotency_key:
+          type: string
+          minLength: 16
+          maxLength: 128
+          pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]{15,127}$"
+        desired_role:
+          type: string
+          enum: [co_host, attendee]
+        reason_code:
+          type: string
+          minLength: 1
+          maxLength: 64
+          pattern: "^[a-z][a-z0-9_.-]{0,63}$"
+    MediaParticipantModerationRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - expected_room_instance_id
+        - expected_space_version
+        - expected_room_instance_version
+        - expected_projection_version
+        - idempotency_key
+      properties:
+        expected_room_instance_id:
+          type: string
+          format: uuid
+        expected_space_version:
+          type: integer
+          format: int64
+          minimum: 1
+        expected_room_instance_version:
+          type: integer
+          format: int64
+          minimum: 1
+        expected_projection_version:
+          type: integer
+          format: int64
+          minimum: 1
+        idempotency_key:
+          type: string
+          minLength: 16
+          maxLength: 128
+          pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]{15,127}$"
+        reason_code:
+          type: string
+          minLength: 1
+          maxLength: 64
+          pattern: "^[a-z][a-z0-9_.-]{0,63}$"
+    MediaSpaceLockResult:
+      type: object
+      additionalProperties: false
+      required:
+        - space_id
+        - room_instance_id
+        - space_version
+        - room_instance_version
+        - projection_version
+        - locked
+        - provider_effect_status
+      properties:
+        space_id:
+          type: string
+          format: uuid
+        room_instance_id:
+          type: string
+          format: uuid
+        space_version:
+          type: integer
+          format: int64
+          minimum: 1
+        room_instance_version:
+          type: integer
+          format: int64
+          minimum: 1
+        projection_version:
+          type: integer
+          format: int64
+          minimum: 1
+        locked:
+          type: boolean
+        provider_effect_status:
+          type: string
+          const: none
+          description: Lock and unlock have no provider-side effect.
+    MediaParticipantModerationResult:
+      type: object
+      additionalProperties: false
+      required:
+        - space_id
+        - room_instance_id
+        - space_version
+        - room_instance_version
+        - projection_version
+        - target_participant_key
+        - target_participant_version
+        - provider_effect_status
+      properties:
+        space_id:
+          type: string
+          format: uuid
+        room_instance_id:
+          type: string
+          format: uuid
+        space_version:
+          type: integer
+          format: int64
+          minimum: 1
+        room_instance_version:
+          type: integer
+          format: int64
+          minimum: 1
+        projection_version:
+          type: integer
+          format: int64
+          minimum: 1
+        target_participant_key:
+          $ref: "#/components/schemas/MediaParticipantKey"
+        target_participant_version:
+          type: integer
+          format: int64
+          minimum: 1
+        target_instance_role:
+          $ref: "#/components/schemas/MediaInstanceRole"
+        provider_effect_status:
+          $ref: "#/components/schemas/MediaRequiredProviderEffectStatus"
+    MediaModerationResult:
+      oneOf:
+        - $ref: "#/components/schemas/MediaSpaceLockResult"
+        - $ref: "#/components/schemas/MediaParticipantModerationResult"
     CreateMediaSpaceRequest:
       type: object
       additionalProperties: false
@@ -12448,3 +12961,50 @@ components:
           type: string
         request_id:
           type: string
+    MediaProviderConvergenceProblem:
+      type: object
+      additionalProperties: false
+      required:
+        - type
+        - title
+        - status
+        - code
+        - business_committed
+        - space_id
+        - resource_status
+        - resource_version
+        - provider_effect_status
+      properties:
+        type:
+          type: string
+          format: uri-reference
+        title:
+          type: string
+        status:
+          type: integer
+          const: 503
+        code:
+          type: string
+          const: media_provider_unavailable
+        detail:
+          type: string
+        instance:
+          type: string
+        request_id:
+          type: string
+        business_committed:
+          type: boolean
+          const: true
+        space_id:
+          type: string
+          format: uuid
+        resource_status:
+          type: string
+          const: ended
+        resource_version:
+          type: integer
+          format: int64
+          minimum: 1
+        provider_effect_status:
+          type: string
+          enum: [pending, retryable_failed, permanent_failed]

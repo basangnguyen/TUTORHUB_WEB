@@ -248,7 +248,13 @@ func TestProviderLifecycleServiceEndMutatesBeforeLookupAndDeleteThenRetriesClean
 		strings.Contains(err.Error(), "provider-sensitive-delete-detail") {
 		t.Fatalf("delete failure was not a redacted typed provider error: %v", err)
 	}
-	if result != (MediaSpace{}) ||
+	var convergence *MediaProviderConvergenceError
+	if !errors.As(err, &convergence) || convergence.Space.ID != spaceID ||
+		convergence.Space.Status != SpaceStatusEnded ||
+		convergence.ProviderEffectStatus != ProviderEffectRetryableFailed {
+		t.Fatalf("delete failure lost committed convergence state: %+v", convergence)
+	}
+	if result.ID != spaceID || result.Status != SpaceStatusEnded ||
 		!reflect.DeepEqual(order, []string{"base.end", "bindings.lookup", "provider.delete"}) {
 		t.Fatalf("end ordering did not preserve authority before provider effect: result=%+v order=%+v", result, order)
 	}
@@ -378,6 +384,9 @@ type fakeRoomBindingRepository struct {
 	providerRoomNameErr    error
 	activateCalls          int
 	providerRoomNameCalls  int
+	completeEndCalls       int
+	completedEndStatus     ProviderEffectStatus
+	completedEndErrorCode  string
 	activateAccess         AccessContext
 	activateSpaceID        uuid.UUID
 	activateRoomInstanceID uuid.UUID
@@ -415,6 +424,40 @@ func (bindings *fakeRoomBindingRepository) ProviderRoomName(
 	appendProviderLifecycleOrder(bindings.order, "bindings.lookup")
 	bindings.providerRoomNameCalls++
 	return bindings.providerRoomName, bindings.providerRoomNameErr
+}
+
+func (bindings *fakeRoomBindingRepository) ClaimEndProviderEffect(
+	_ context.Context,
+	_ AccessContext,
+	_ uuid.UUID,
+	_ string,
+	_ time.Time,
+	_ time.Duration,
+) (EndRoomProviderEffect, ProviderEffectStatus, bool, error) {
+	appendProviderLifecycleOrder(bindings.order, "bindings.lookup")
+	bindings.providerRoomNameCalls++
+	if bindings.providerRoomNameErr != nil {
+		return EndRoomProviderEffect{}, ProviderEffectRetryableFailed, false,
+			bindings.providerRoomNameErr
+	}
+	return EndRoomProviderEffect{RoomName: bindings.providerRoomName, Attempt: 1},
+		ProviderEffectPending, true, nil
+}
+
+func (bindings *fakeRoomBindingRepository) CompleteEndProviderEffect(
+	_ context.Context,
+	_ AccessContext,
+	_ uuid.UUID,
+	_ string,
+	_ int,
+	status ProviderEffectStatus,
+	errorCode string,
+	_ time.Time,
+) (ProviderEffectStatus, error) {
+	bindings.completeEndCalls++
+	bindings.completedEndStatus = status
+	bindings.completedEndErrorCode = errorCode
+	return status, nil
 }
 
 type fakeRoomProvider struct {

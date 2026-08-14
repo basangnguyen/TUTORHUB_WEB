@@ -37,6 +37,10 @@ func TestP404IntegrationGateCannotSilentlySkipACLOrDatabaseSlice(t *testing.T) {
 			"I_UNDERSTAND_P4_06_DISPOSABLE_ONLY",
 			"P4_06_ACL_PROVISION_CONFIRM",
 			"I_UNDERSTAND_P4_06_ACL_PROVISION_DISPOSABLE_ONLY",
+			"P4_07_DISPOSABLE_CONFIRM",
+			"I_UNDERSTAND_P4_07_DISPOSABLE_ONLY",
+			"P4_07_ACL_PROVISION_CONFIRM",
+			"I_UNDERSTAND_P4_07_ACL_PROVISION_DISPOSABLE_ONLY",
 		} {
 			if !strings.Contains(source, required) {
 				t.Fatalf("P4-04 integration gate %s is missing %s", path, required)
@@ -58,7 +62,7 @@ func TestP404IntegrationGateCannotSilentlySkipACLOrDatabaseSlice(t *testing.T) {
 	)
 	aclGate := strings.Index(
 		packageSource,
-		`-run \"^TestProvisionPostgresMediaSignalsExactACL$\"`,
+		`-run \"^TestProvisionPostgresMediaModerationExactACL$\"`,
 	)
 	if aclGate < 0 || p404DatabaseGate < aclGate {
 		t.Fatal("P4-04 package integration sequence does not provision ACL before its database gate")
@@ -132,7 +136,7 @@ func TestP404SharedACLProbeIsReadOnlyAndFailClosed(t *testing.T) {
 		`if applyMigrations`,
 		`AccessMode: pgx.ReadOnly`,
 		`SHOW transaction_read_only`,
-		`exact media lifecycle ACL requires ledger 32 false`,
+		`exact media lifecycle ACL requires ledger 33 false`,
 		`pg_default_acl`,
 	} {
 		if !strings.Contains(source, required) {

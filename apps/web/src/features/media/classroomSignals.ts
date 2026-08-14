@@ -48,6 +48,14 @@ export interface ClassroomRosterParticipant {
   readonly display_name: string;
   readonly instance_role: ClassroomInstanceRole;
   readonly connection_state: ClassroomParticipantConnectionState;
+  readonly moderation_operations?: ClassroomParticipantModerationOperations;
+}
+
+export interface ClassroomParticipantModerationOperations {
+  readonly can_promote_co_host: boolean;
+  readonly can_demote_co_host: boolean;
+  readonly can_remote_mute: boolean;
+  readonly can_remove: boolean;
 }
 
 export interface ClassroomRaisedHand {
@@ -79,6 +87,8 @@ export interface ClassroomSignalViewerOperations {
   readonly can_raise_hand: boolean;
   readonly can_send_reaction: boolean;
   readonly can_moderate_hands: boolean;
+  readonly can_lock_room?: boolean;
+  readonly can_end_room?: boolean;
 }
 
 /**
@@ -88,6 +98,7 @@ export interface ClassroomSignalViewerOperations {
  */
 export interface ClassroomSignalSnapshot {
   readonly room_instance_id: string;
+  readonly room_locked?: boolean;
   readonly projection_version: number;
   readonly last_signal_sequence: number;
   readonly self_participant_key: string;
@@ -122,6 +133,7 @@ export interface ClassroomReactionProjection {
 
 export interface ClassroomSignalProjection {
   readonly room_instance_id: string;
+  readonly room_locked?: boolean;
   readonly projection_version: number;
   readonly last_signal_sequence: number;
   readonly self_participant_key: string;
@@ -201,11 +213,22 @@ export function validateClassroomSignalSnapshot(
     "self_participant_key",
     issues,
   );
-  const viewerOperations = readViewerOperations(
-    input.viewer_operations,
+  const hasModerationProjection = containsModerationProjection(input);
+  const roomLocked = readRoomLocked(
+    input.room_locked,
+    hasModerationProjection,
     issues,
   );
-  const participants = readRoster(input.participants, issues);
+  const viewerOperations = readViewerOperations(
+    input.viewer_operations,
+    hasModerationProjection,
+    issues,
+  );
+  const participants = readRoster(
+    input.participants,
+    hasModerationProjection,
+    issues,
+  );
   const raisedHands = readRaisedHands(input.raised_hands, issues);
   const reactionClusters = readReactionClusters(
     input.reaction_clusters,
@@ -296,6 +319,7 @@ export function validateClassroomSignalSnapshot(
     valid: true,
     snapshot: {
       room_instance_id: roomInstanceId,
+      ...(roomLocked === undefined ? {} : { room_locked: roomLocked }),
       projection_version: projectionVersion,
       last_signal_sequence: lastSignalSequence,
       self_participant_key: selfParticipantKey,
@@ -368,6 +392,9 @@ export function projectClassroomSignalSnapshot(
   const roster = sortCanonicalRoster(snapshot.participants);
   return {
     room_instance_id: snapshot.room_instance_id,
+    ...(snapshot.room_locked === undefined
+      ? {}
+      : { room_locked: snapshot.room_locked }),
     projection_version: snapshot.projection_version,
     last_signal_sequence: snapshot.last_signal_sequence,
     self_participant_key: snapshot.self_participant_key,
@@ -614,8 +641,42 @@ function compareReactionClusters(
   );
 }
 
+function containsModerationProjection(input: Record<string, unknown>): boolean {
+  if (input.room_locked !== undefined) return true;
+  if (isRecord(input.viewer_operations)) {
+    if (
+      input.viewer_operations.can_lock_room !== undefined ||
+      input.viewer_operations.can_end_room !== undefined
+    ) {
+      return true;
+    }
+  }
+  return (
+    Array.isArray(input.participants) &&
+    input.participants.some(
+      (participant) =>
+        isRecord(participant) &&
+        participant.moderation_operations !== undefined,
+    )
+  );
+}
+
+function readRoomLocked(
+  input: unknown,
+  required: boolean,
+  issues: string[],
+): boolean | undefined {
+  if (input === undefined && !required) return undefined;
+  if (typeof input !== "boolean") {
+    issues.push("room_locked must be a boolean");
+    return undefined;
+  }
+  return input;
+}
+
 function readViewerOperations(
   input: unknown,
+  moderationRequired: boolean,
   issues: string[],
 ): ClassroomSignalViewerOperations | null {
   if (!isRecord(input)) {
@@ -627,23 +688,44 @@ function readViewerOperations(
     "can_send_reaction",
     "can_moderate_hands",
   ] as const;
+  const moderationFields = ["can_lock_room", "can_end_room"] as const;
   for (const field of fields) {
     if (typeof input[field] !== "boolean") {
       issues.push(`viewer_operations.${field} must be a boolean`);
     }
   }
+  if (moderationRequired) {
+    for (const field of moderationFields) {
+      if (typeof input[field] !== "boolean") {
+        issues.push(`viewer_operations.${field} must be a boolean`);
+      }
+    }
+  }
   if (!fields.every((field) => typeof input[field] === "boolean")) {
+    return null;
+  }
+  if (
+    moderationRequired &&
+    !moderationFields.every((field) => typeof input[field] === "boolean")
+  ) {
     return null;
   }
   return {
     can_raise_hand: input.can_raise_hand as boolean,
     can_send_reaction: input.can_send_reaction as boolean,
     can_moderate_hands: input.can_moderate_hands as boolean,
+    ...(moderationRequired
+      ? {
+          can_lock_room: input.can_lock_room as boolean,
+          can_end_room: input.can_end_room as boolean,
+        }
+      : {}),
   };
 }
 
 function readRoster(
   input: unknown,
+  moderationRequired: boolean,
   issues: string[],
 ): readonly ClassroomRosterParticipant[] {
   if (!boundedArray(input, MAX_SNAPSHOT_PARTICIPANTS)) {
@@ -681,12 +763,19 @@ function readRoster(
     if (!isParticipantConnectionState(connectionState)) {
       issues.push(`participants[${index}].connection_state is not allowed`);
     }
+    const moderationOperations = readParticipantModerationOperations(
+      value.moderation_operations,
+      moderationRequired,
+      index,
+      issues,
+    );
     if (
       participantKey === null ||
       rosterSequence === null ||
       displayName === null ||
       !isClassroomInstanceRole(instanceRole) ||
-      !isParticipantConnectionState(connectionState)
+      !isParticipantConnectionState(connectionState) ||
+      (moderationRequired && moderationOperations === undefined)
     ) {
       return [];
     }
@@ -697,9 +786,49 @@ function readRoster(
         display_name: displayName,
         instance_role: instanceRole,
         connection_state: connectionState,
+        ...(moderationOperations === undefined
+          ? {}
+          : { moderation_operations: moderationOperations }),
       },
     ];
   });
+}
+
+function readParticipantModerationOperations(
+  input: unknown,
+  required: boolean,
+  participantIndex: number,
+  issues: string[],
+): ClassroomParticipantModerationOperations | undefined {
+  if (input === undefined && !required) return undefined;
+  if (!isRecord(input)) {
+    issues.push(
+      `participants[${participantIndex}].moderation_operations must be an object`,
+    );
+    return undefined;
+  }
+  const fields = [
+    "can_promote_co_host",
+    "can_demote_co_host",
+    "can_remote_mute",
+    "can_remove",
+  ] as const;
+  for (const field of fields) {
+    if (typeof input[field] !== "boolean") {
+      issues.push(
+        `participants[${participantIndex}].moderation_operations.${field} must be a boolean`,
+      );
+    }
+  }
+  if (!fields.every((field) => typeof input[field] === "boolean")) {
+    return undefined;
+  }
+  return {
+    can_promote_co_host: input.can_promote_co_host as boolean,
+    can_demote_co_host: input.can_demote_co_host as boolean,
+    can_remote_mute: input.can_remote_mute as boolean,
+    can_remove: input.can_remove as boolean,
+  };
 }
 
 function readRaisedHands(

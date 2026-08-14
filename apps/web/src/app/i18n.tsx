@@ -1895,6 +1895,39 @@ const messages = {
     "media.p406.rateLimited": "Bạn thao tác quá nhanh. Hãy thử lại sau.",
     "media.p406.actionError":
       "Chưa thể thực hiện thao tác lớp học. Hãy thử lại.",
+    "media.p407.roomControls": "Điều khiển quản trị phòng học",
+    "media.p407.lockRoom": "Khóa phòng",
+    "media.p407.unlockRoom": "Mở khóa phòng",
+    "media.p407.endRoom": "Kết thúc phòng",
+    "media.p407.endTitle": "Kết thúc phòng học?",
+    "media.p407.endDescription":
+      "Phòng sẽ ngừng nhận credential mới và người tham gia sẽ bị ngắt kết nối sau khi nhà cung cấp xác nhận.",
+    "media.p407.confirmEnd": "Xác nhận kết thúc",
+    "media.p407.participantMenu": "Quản trị {name}",
+    "media.p407.promoteCoHost": "Thăng cấp đồng chủ phòng",
+    "media.p407.demoteCoHost": "Hạ quyền đồng chủ phòng",
+    "media.p407.remoteMute": "Tắt micro từ xa",
+    "media.p407.remove": "Mời ra khỏi phòng",
+    "media.p407.removeTitle": "Mời người tham gia ra khỏi phòng?",
+    "media.p407.removeDescription":
+      "{name} sẽ bị ngắt kết nối và không thể vào lại cho tới khi quyền được khôi phục rõ ràng.",
+    "media.p407.confirmRemove": "Xác nhận mời ra",
+    "media.p407.cancel": "Hủy",
+    "media.p407.submitting": "Đang gửi lệnh...",
+    "media.p407.providerPending":
+      "TutorHub đã chấp nhận lệnh và đang chờ nhà cung cấp xác nhận.",
+    "media.p407.applied": "Thay đổi quản trị đã được xác nhận.",
+    "media.p407.reconcileRequired":
+      "Chưa thể xác nhận kết quả từ nhà cung cấp. Hãy đồng bộ lại trước khi tiếp tục.",
+    "media.p407.error.forbidden": "Quyền quản trị phòng của bạn đã thay đổi.",
+    "media.p407.error.conflict":
+      "Trạng thái phòng hoặc người tham gia đã thay đổi. Hãy đồng bộ rồi thử lại.",
+    "media.p407.error.rate_limited":
+      "Bạn thao tác quá nhanh. Hãy chờ rồi thử lại.",
+    "media.p407.error.provider_unavailable":
+      "Nhà cung cấp media chưa sẵn sàng. Thay đổi chưa được xác nhận.",
+    "media.p407.error.unknown":
+      "Chưa thể thực hiện thao tác quản trị. Hãy thử lại.",
     "home.kicker": "Không gian học tập",
     "home.title": "Tổng quan hôm nay",
     "home.description":
@@ -3859,6 +3892,39 @@ const messages = {
     "media.p406.rateLimited": "You are acting too quickly. Try again later.",
     "media.p406.actionError":
       "The classroom action could not be completed. Please retry.",
+    "media.p407.roomControls": "Classroom moderation controls",
+    "media.p407.lockRoom": "Lock room",
+    "media.p407.unlockRoom": "Unlock room",
+    "media.p407.endRoom": "End room",
+    "media.p407.endTitle": "End this classroom?",
+    "media.p407.endDescription":
+      "The room will stop issuing credentials and participants will disconnect after the provider confirms the command.",
+    "media.p407.confirmEnd": "Confirm end",
+    "media.p407.participantMenu": "Moderate {name}",
+    "media.p407.promoteCoHost": "Promote to co-host",
+    "media.p407.demoteCoHost": "Demote co-host",
+    "media.p407.remoteMute": "Mute microphone remotely",
+    "media.p407.remove": "Remove from room",
+    "media.p407.removeTitle": "Remove this participant?",
+    "media.p407.removeDescription":
+      "{name} will disconnect and cannot rejoin until access is explicitly restored.",
+    "media.p407.confirmRemove": "Confirm removal",
+    "media.p407.cancel": "Cancel",
+    "media.p407.submitting": "Submitting command...",
+    "media.p407.providerPending":
+      "TutorHub accepted the command and is waiting for provider confirmation.",
+    "media.p407.applied": "The moderation change was confirmed.",
+    "media.p407.reconcileRequired":
+      "The provider result could not be confirmed. Synchronize the room before continuing.",
+    "media.p407.error.forbidden": "Your room moderation authority changed.",
+    "media.p407.error.conflict":
+      "The room or participant changed. Synchronize and try again.",
+    "media.p407.error.rate_limited":
+      "You are acting too quickly. Wait and try again.",
+    "media.p407.error.provider_unavailable":
+      "The media provider is unavailable. The change was not confirmed.",
+    "media.p407.error.unknown":
+      "The moderation action could not be completed. Please retry.",
     "home.kicker": "Learning workspace",
     "home.title": "Today at a glance",
     "home.description":

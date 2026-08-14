@@ -356,6 +356,8 @@ export type MediaSpaceTransitionRequest =
 export type MediaParticipantKey = components["schemas"]["MediaParticipantKey"];
 export type MediaParticipantConnectionState =
   components["schemas"]["MediaParticipantConnectionState"];
+export type MediaParticipantModerationOperations =
+  components["schemas"]["MediaParticipantModerationOperations"];
 export type MediaParticipant = components["schemas"]["MediaParticipant"];
 export type MediaRaisedHand = components["schemas"]["MediaRaisedHand"];
 export type MediaReaction = components["schemas"]["MediaReaction"];
@@ -368,6 +370,24 @@ export type MediaParticipantSnapshot =
 export type MediaSignalKind = components["schemas"]["MediaSignalKind"];
 export type MediaSignalMutationRequest =
   components["schemas"]["MediaSignalMutationRequest"];
+export type MediaProviderEffectStatus =
+  components["schemas"]["MediaProviderEffectStatus"];
+export type MediaRequiredProviderEffectStatus =
+  components["schemas"]["MediaRequiredProviderEffectStatus"];
+export type MediaSpaceLockRequest =
+  components["schemas"]["MediaSpaceLockRequest"];
+export type MediaSpaceLockResult =
+  components["schemas"]["MediaSpaceLockResult"];
+export type MediaParticipantRoleRequest =
+  components["schemas"]["MediaParticipantRoleRequest"];
+export type MediaParticipantModerationRequest =
+  components["schemas"]["MediaParticipantModerationRequest"];
+export type MediaParticipantModerationResult =
+  components["schemas"]["MediaParticipantModerationResult"];
+export type MediaModerationResult =
+  components["schemas"]["MediaModerationResult"];
+export type MediaProviderConvergenceProblem =
+  components["schemas"]["MediaProviderConvergenceProblem"];
 export type MediaInstanceRole = components["schemas"]["MediaInstanceRole"];
 export type MediaJoinAttemptRequest =
   components["schemas"]["MediaJoinAttemptRequest"];
@@ -3244,6 +3264,145 @@ export async function mutateMediaSpaceSignal(
     data as MediaParticipantSnapshot | undefined,
     error,
     response,
+  );
+}
+
+export async function setMediaSpaceLock(
+  tenantID: string,
+  spaceID: string,
+  input: MediaSpaceLockRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<MediaSpaceLockResult> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/media/spaces/{space_id}/lock",
+    {
+      params: {
+        path: { space_id: spaceID },
+        header: {
+          "X-CSRF-Token": csrfToken,
+          "X-TutorHub-Expected-Tenant-ID": tenantID,
+        },
+      },
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+  return requireData<MediaSpaceLockResult>(
+    data as MediaSpaceLockResult | undefined,
+    error,
+    response,
+  );
+}
+
+export async function changeMediaParticipantRole(
+  tenantID: string,
+  spaceID: string,
+  participantKey: string,
+  input: MediaParticipantRoleRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<MediaParticipantModerationResult> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/media/spaces/{space_id}/participants/{participant_key}/role",
+    {
+      params: {
+        path: { space_id: spaceID, participant_key: participantKey },
+        header: {
+          "X-CSRF-Token": csrfToken,
+          "X-TutorHub-Expected-Tenant-ID": tenantID,
+        },
+      },
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+  return requireData<MediaParticipantModerationResult>(
+    data as MediaParticipantModerationResult | undefined,
+    error,
+    response,
+  );
+}
+
+export async function muteMediaParticipantMicrophone(
+  tenantID: string,
+  spaceID: string,
+  participantKey: string,
+  input: MediaParticipantModerationRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<MediaParticipantModerationResult> {
+  return moderateMediaParticipant(
+    "mute",
+    tenantID,
+    spaceID,
+    participantKey,
+    input,
+    csrfToken,
+    options,
+  );
+}
+
+export async function removeMediaParticipant(
+  tenantID: string,
+  spaceID: string,
+  participantKey: string,
+  input: MediaParticipantModerationRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<MediaParticipantModerationResult> {
+  return moderateMediaParticipant(
+    "remove",
+    tenantID,
+    spaceID,
+    participantKey,
+    input,
+    csrfToken,
+    options,
+  );
+}
+
+async function moderateMediaParticipant(
+  action: "mute" | "remove",
+  tenantID: string,
+  spaceID: string,
+  participantKey: string,
+  input: MediaParticipantModerationRequest,
+  csrfToken: string,
+  options: APIRequestOptions,
+): Promise<MediaParticipantModerationResult> {
+  requireTenantScope(tenantID);
+  const client = createTutorHubClient(options);
+  const request = {
+    params: {
+      path: { space_id: spaceID, participant_key: participantKey },
+      header: {
+        "X-CSRF-Token": csrfToken,
+        "X-TutorHub-Expected-Tenant-ID": tenantID,
+      },
+    },
+    body: input,
+    headers: { Accept: "application/json" },
+    signal: options.signal,
+  } as const;
+  const result =
+    action === "mute"
+      ? await client.POST(
+          "/api/v1/media/spaces/{space_id}/participants/{participant_key}/mute",
+          request,
+        )
+      : await client.POST(
+          "/api/v1/media/spaces/{space_id}/participants/{participant_key}/remove",
+          request,
+        );
+  return requireData<MediaParticipantModerationResult>(
+    result.data as MediaParticipantModerationResult | undefined,
+    result.error,
+    result.response,
   );
 }
 

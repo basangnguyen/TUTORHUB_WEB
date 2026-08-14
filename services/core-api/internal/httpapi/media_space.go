@@ -56,6 +56,15 @@ type mediaSpaceTransitionRequest struct {
 	ReasonCode      *string `json:"reason_code"`
 }
 
+type mediaProviderConvergenceProblem struct {
+	Problem
+	BusinessCommitted    bool                       `json:"business_committed"`
+	SpaceID              uuid.UUID                  `json:"space_id"`
+	ResourceStatus       media.SpaceStatus          `json:"resource_status"`
+	ResourceVersion      int64                      `json:"resource_version"`
+	ProviderEffectStatus media.ProviderEffectStatus `json:"provider_effect_status"`
+}
+
 func newMediaSpaceHandlers(
 	logger *slog.Logger,
 	auth authHandlers,
@@ -103,6 +112,27 @@ func (handlers mediaSpaceHandlers) create(w http.ResponseWriter, r *http.Request
 		status = http.StatusCreated
 	}
 	writeJSON(handlers.logger, w, status, result.Space)
+}
+
+func (handlers mediaSpaceHandlers) writeProviderConvergenceProblem(
+	w http.ResponseWriter,
+	r *http.Request,
+	err *media.MediaProviderConvergenceError,
+) {
+	w.Header().Set("Content-Type", "application/problem+json; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
+	writeJSONBytes(w, http.StatusServiceUnavailable, mediaProviderConvergenceProblem{
+		Problem: Problem{
+			Type: problemType(http.StatusServiceUnavailable),
+			Code: "media_provider_unavailable", Title: "Media provider unavailable",
+			Status:   http.StatusServiceUnavailable,
+			Detail:   "The media space ended, but provider cleanup is still converging.",
+			Instance: r.URL.Path, RequestID: RequestIDFromContext(r.Context()),
+		},
+		BusinessCommitted: true, SpaceID: err.Space.ID,
+		ResourceStatus: err.Space.Status, ResourceVersion: err.Space.Version,
+		ProviderEffectStatus: err.ProviderEffectStatus,
+	})
 }
 
 func (handlers mediaSpaceHandlers) get(w http.ResponseWriter, r *http.Request) {
@@ -170,6 +200,11 @@ func (handlers mediaSpaceHandlers) transition(w http.ResponseWriter, r *http.Req
 		err = media.ErrInvalidSpaceRequest
 	}
 	if err != nil {
+		var convergence *media.MediaProviderConvergenceError
+		if operation == "end" && errors.As(err, &convergence) {
+			handlers.writeProviderConvergenceProblem(w, r, convergence)
+			return
+		}
 		handlers.writeProblem(w, r, err)
 		return
 	}

@@ -37,8 +37,15 @@ type liveKitRoomService interface {
 	DeleteRoom(context.Context, *livekit.DeleteRoomRequest) (*livekit.DeleteRoomResponse, error)
 }
 
+type liveKitModerationService interface {
+	ListParticipants(context.Context, *livekit.ListParticipantsRequest) (*livekit.ListParticipantsResponse, error)
+	RemoveParticipant(context.Context, *livekit.RoomParticipantIdentity) (*livekit.RemoveParticipantResponse, error)
+	MutePublishedTrack(context.Context, *livekit.MuteRoomTrackRequest) (*livekit.MuteRoomTrackResponse, error)
+}
+
 type LiveKitRoomProvider struct {
-	rooms liveKitRoomService
+	rooms      liveKitRoomService
+	moderation liveKitModerationService
 }
 
 func NewLiveKitRoomProvider(serverURL, apiKey, apiSecret string) (*LiveKitRoomProvider, error) {
@@ -47,9 +54,8 @@ func NewLiveKitRoomProvider(serverURL, apiKey, apiSecret string) (*LiveKitRoomPr
 		return nil, fmt.Errorf("LiveKit server URL, API key, and secret are required")
 	}
 
-	return &LiveKitRoomProvider{
-		rooms: lksdk.NewRoomServiceClient(serverURL, apiKey, apiSecret),
-	}, nil
+	client := lksdk.NewRoomServiceClient(serverURL, apiKey, apiSecret)
+	return &LiveKitRoomProvider{rooms: client, moderation: client}, nil
 }
 
 func (provider *LiveKitRoomProvider) EnsureRoom(
@@ -115,6 +121,86 @@ func (provider *LiveKitRoomProvider) DeleteRoom(ctx context.Context, roomName st
 		return invalidProviderResponse("delete room")
 	}
 
+	return nil
+}
+
+// MuteParticipantMicrophone is intentionally one-way. TutorHub never sends a
+// LiveKit request with Muted=false; unmute always requires participant consent.
+func (provider *LiveKitRoomProvider) MuteParticipantMicrophone(
+	ctx context.Context,
+	roomName string,
+	participantIdentity string,
+) error {
+	if provider == nil || provider.moderation == nil {
+		return ErrProviderUnavailable
+	}
+	if !opaqueProviderRoomNamePattern.MatchString(roomName) ||
+		!validProviderIdentifier(participantIdentity, 128) {
+		return ErrInvalidRequest
+	}
+	participants, err := provider.moderation.ListParticipants(
+		ctx, &livekit.ListParticipantsRequest{Room: roomName},
+	)
+	if err != nil {
+		return normalizeProviderOperationError("list participant tracks", err)
+	}
+	if participants == nil {
+		return invalidProviderResponse("list participant tracks")
+	}
+	foundParticipant := false
+	for _, participant := range participants.GetParticipants() {
+		if participant == nil || participant.GetIdentity() != participantIdentity {
+			continue
+		}
+		foundParticipant = true
+		for _, track := range participant.GetTracks() {
+			if track == nil || track.GetType() != livekit.TrackType_AUDIO ||
+				track.GetSource() != livekit.TrackSource_MICROPHONE || track.GetMuted() {
+				continue
+			}
+			response, muteErr := provider.moderation.MutePublishedTrack(ctx, &livekit.MuteRoomTrackRequest{
+				Room: roomName, Identity: participantIdentity, TrackSid: track.GetSid(), Muted: true,
+			})
+			if muteErr != nil {
+				return normalizeProviderOperationError("mute microphone", muteErr)
+			}
+			if response == nil {
+				return invalidProviderResponse("mute microphone")
+			}
+		}
+		return nil
+	}
+	if !foundParticipant {
+		// A participant already gone is the converged result of a mute request.
+		return nil
+	}
+	return nil
+}
+
+func (provider *LiveKitRoomProvider) RemoveParticipant(
+	ctx context.Context,
+	roomName string,
+	participantIdentity string,
+) error {
+	if provider == nil || provider.moderation == nil {
+		return ErrProviderUnavailable
+	}
+	if !opaqueProviderRoomNamePattern.MatchString(roomName) ||
+		!validProviderIdentifier(participantIdentity, 128) {
+		return ErrInvalidRequest
+	}
+	response, err := provider.moderation.RemoveParticipant(ctx, &livekit.RoomParticipantIdentity{
+		Room: roomName, Identity: participantIdentity,
+	})
+	if err != nil {
+		if providerErrorCode(err) == twirp.NotFound {
+			return nil
+		}
+		return normalizeProviderOperationError("remove participant", err)
+	}
+	if response == nil {
+		return invalidProviderResponse("remove participant")
+	}
 	return nil
 }
 

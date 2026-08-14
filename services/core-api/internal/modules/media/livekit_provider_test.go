@@ -18,6 +18,33 @@ type fakeLiveKitRoomService struct {
 	deleteRoom func(context.Context, *livekit.DeleteRoomRequest) (*livekit.DeleteRoomResponse, error)
 }
 
+type fakeLiveKitModerationService struct {
+	listParticipants  func(context.Context, *livekit.ListParticipantsRequest) (*livekit.ListParticipantsResponse, error)
+	removeParticipant func(context.Context, *livekit.RoomParticipantIdentity) (*livekit.RemoveParticipantResponse, error)
+	muteTrack         func(context.Context, *livekit.MuteRoomTrackRequest) (*livekit.MuteRoomTrackResponse, error)
+}
+
+func (fake *fakeLiveKitModerationService) ListParticipants(
+	ctx context.Context,
+	request *livekit.ListParticipantsRequest,
+) (*livekit.ListParticipantsResponse, error) {
+	return fake.listParticipants(ctx, request)
+}
+
+func (fake *fakeLiveKitModerationService) RemoveParticipant(
+	ctx context.Context,
+	request *livekit.RoomParticipantIdentity,
+) (*livekit.RemoveParticipantResponse, error) {
+	return fake.removeParticipant(ctx, request)
+}
+
+func (fake *fakeLiveKitModerationService) MutePublishedTrack(
+	ctx context.Context,
+	request *livekit.MuteRoomTrackRequest,
+) (*livekit.MuteRoomTrackResponse, error) {
+	return fake.muteTrack(ctx, request)
+}
+
 func (fake *fakeLiveKitRoomService) CreateRoom(
 	ctx context.Context,
 	request *livekit.CreateRoomRequest,
@@ -157,5 +184,62 @@ func TestLiveKitRoomProviderDeleteIsIdempotent(t *testing.T) {
 
 	if err := provider.DeleteRoom(context.Background(), testOpaqueProviderRoomName); err != nil {
 		t.Fatalf("delete missing room: %v", err)
+	}
+}
+
+func TestLiveKitRoomProviderMuteTargetsOnlyUnmutedMicrophoneTracks(t *testing.T) {
+	t.Parallel()
+
+	const identity = "p_0123456789abcdef"
+	mutedTrackIDs := make([]string, 0, 1)
+	provider := &LiveKitRoomProvider{moderation: &fakeLiveKitModerationService{
+		listParticipants: func(_ context.Context, request *livekit.ListParticipantsRequest) (*livekit.ListParticipantsResponse, error) {
+			if request.GetRoom() != testOpaqueProviderRoomName {
+				t.Fatalf("unexpected room: %q", request.GetRoom())
+			}
+			return &livekit.ListParticipantsResponse{Participants: []*livekit.ParticipantInfo{{
+				Identity: identity,
+				Tracks: []*livekit.TrackInfo{
+					{Sid: "TR_microphone", Type: livekit.TrackType_AUDIO, Source: livekit.TrackSource_MICROPHONE},
+					{Sid: "TR_already_muted", Type: livekit.TrackType_AUDIO, Source: livekit.TrackSource_MICROPHONE, Muted: true},
+					{Sid: "TR_screen_audio", Type: livekit.TrackType_AUDIO, Source: livekit.TrackSource_SCREEN_SHARE_AUDIO},
+				},
+			}}}, nil
+		},
+		muteTrack: func(_ context.Context, request *livekit.MuteRoomTrackRequest) (*livekit.MuteRoomTrackResponse, error) {
+			if !request.GetMuted() {
+				t.Fatal("remote unmute must never be requested")
+			}
+			if request.GetIdentity() != identity {
+				t.Fatalf("unexpected participant identity: %q", request.GetIdentity())
+			}
+			mutedTrackIDs = append(mutedTrackIDs, request.GetTrackSid())
+			return &livekit.MuteRoomTrackResponse{}, nil
+		},
+	}}
+
+	if err := provider.MuteParticipantMicrophone(context.Background(), testOpaqueProviderRoomName, identity); err != nil {
+		t.Fatalf("mute participant microphone: %v", err)
+	}
+	if len(mutedTrackIDs) != 1 || mutedTrackIDs[0] != "TR_microphone" {
+		t.Fatalf("unexpected muted tracks: %v", mutedTrackIDs)
+	}
+}
+
+func TestLiveKitRoomProviderRemoveParticipantIsIdempotent(t *testing.T) {
+	t.Parallel()
+
+	const identity = "p_0123456789abcdef"
+	provider := &LiveKitRoomProvider{moderation: &fakeLiveKitModerationService{
+		removeParticipant: func(_ context.Context, request *livekit.RoomParticipantIdentity) (*livekit.RemoveParticipantResponse, error) {
+			if request.GetRoom() != testOpaqueProviderRoomName || request.GetIdentity() != identity {
+				t.Fatalf("unexpected removal target: room=%q identity=%q", request.GetRoom(), request.GetIdentity())
+			}
+			return nil, twirp.NewError(twirp.NotFound, "provider detail")
+		},
+	}}
+
+	if err := provider.RemoveParticipant(context.Background(), testOpaqueProviderRoomName, identity); err != nil {
+		t.Fatalf("remove missing participant: %v", err)
 	}
 }

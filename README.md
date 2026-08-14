@@ -115,7 +115,9 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
   Verify/Security, Neon disposable/shared và exact Render/Cloudflare deploy/live acceptance.
   Disposable và shared đều kết thúc ở `32 false`; exact ACL, focused PostgreSQL
   signal/retention/concurrency, live privacy/feature-off và post-live no-side-effect gates đều PASS.
-  Không rollback, hai media feature tiếp tục force-off và P4-07 là task `TODO`/runnable tiếp theo.
+  Không rollback và hai media feature tiếp tục force-off. P4-07 hiện ở `VERIFY`: local/Neon
+  disposable và isolated LiveKit đã PASS; candidate review/push, GitHub CI/security, shared staging
+  forward/ACL và live acceptance vẫn chưa thực hiện.
   Physical/manual/load/provider-outage/effect gates vẫn `UNVERIFIED — P4-11`.
 - P5-COLLAB-00 đã được đăng ký làm research spike tương lai cho whiteboard engine,
   document/sync authority, license và realtime topology. Task vẫn `TODO`, không chặn P4-02

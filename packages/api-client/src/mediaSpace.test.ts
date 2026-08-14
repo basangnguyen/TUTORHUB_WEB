@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   cancelMediaJoinAttempt,
   cancelMediaSpace,
+  changeMediaParticipantRole,
   createMediaSpaceJoinAttempt,
   createMediaSpace,
   endMediaSpace,
@@ -12,9 +13,12 @@ import {
   listMediaAdmissions,
   listMediaSpaceParticipants,
   listMediaSpaceMembers,
+  muteMediaParticipantMicrophone,
   mutateMediaSpaceSignal,
   mutateMediaSpaceMember,
+  removeMediaParticipant,
   resolveMediaAdmission,
+  setMediaSpaceLock,
   startMediaSpace,
 } from "./index";
 import type {
@@ -24,8 +28,10 @@ import type {
   MediaJoinAttempt,
   MediaInstanceCredential,
   MediaParticipantSnapshot,
+  MediaParticipantModerationResult,
   MediaSignalMutationRequest,
   MediaSpace,
+  MediaSpaceLockResult,
   MediaSpaceMember,
   MediaSpaceMemberList,
   MediaSpaceTransitionRequest,
@@ -91,11 +97,14 @@ describe("media-space API", () => {
       room_instance_id: roomInstanceID,
       projection_version: 4,
       last_signal_sequence: 9,
+      room_locked: false,
       self_participant_key: selfParticipantOpaqueID,
       viewer_operations: {
         can_raise_hand: true,
         can_send_reaction: true,
         can_moderate_hands: true,
+        can_lock_room: true,
+        can_end_room: true,
       },
       participants: [
         {
@@ -104,6 +113,12 @@ describe("media-space API", () => {
           display_name: "Teacher",
           instance_role: "host",
           connection_state: "connected",
+          moderation_operations: {
+            can_promote_co_host: false,
+            can_demote_co_host: false,
+            can_remote_mute: false,
+            can_remove: false,
+          },
         },
         {
           participant_key: targetParticipantOpaqueID,
@@ -111,6 +126,12 @@ describe("media-space API", () => {
           display_name: "Learner",
           instance_role: "attendee",
           connection_state: "reconnecting",
+          moderation_operations: {
+            can_promote_co_host: true,
+            can_demote_co_host: false,
+            can_remote_mute: true,
+            can_remove: true,
+          },
         },
       ],
       raised_hands: [
@@ -214,6 +235,141 @@ describe("media-space API", () => {
     expect(JSON.stringify(snapshot)).not.toMatch(
       /email|user_id|participant_session_id|join_attempt_id|provider_/,
     );
+  });
+
+  it("sends exact tenant-scoped moderation commands without client-supplied authority", async () => {
+    const baseResult = {
+      space_id: spaceID,
+      room_instance_id: roomInstanceID,
+      space_version: 8,
+      room_instance_version: 4,
+      projection_version: 5,
+    } as const;
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse({
+          ...baseResult,
+          locked: true,
+          provider_effect_status: "none",
+        } satisfies MediaSpaceLockResult),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          ...baseResult,
+          target_participant_key: targetParticipantOpaqueID,
+          target_participant_version: 2,
+          target_instance_role: "co_host",
+          provider_effect_status: "pending",
+        } satisfies MediaParticipantModerationResult),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          ...baseResult,
+          target_participant_key: targetParticipantOpaqueID,
+          target_participant_version: 3,
+          provider_effect_status: "retryable_failed",
+        } satisfies MediaParticipantModerationResult),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          ...baseResult,
+          target_participant_key: targetParticipantOpaqueID,
+          target_participant_version: 4,
+          provider_effect_status: "applied",
+        } satisfies MediaParticipantModerationResult),
+      );
+    const options = {
+      baseUrl: "https://web.example.test/api",
+      fetch: fetchMock,
+    };
+    const expected = {
+      expected_room_instance_id: roomInstanceID,
+      expected_space_version: 7,
+      expected_room_instance_version: 3,
+      expected_projection_version: 4,
+    } as const;
+
+    await setMediaSpaceLock(
+      tenantID,
+      spaceID,
+      {
+        ...expected,
+        idempotency_key: "room-lock-command-0001",
+        locked: true,
+        reason_code: "host_locked",
+      },
+      "lock-csrf",
+      options,
+    );
+    await changeMediaParticipantRole(
+      tenantID,
+      spaceID,
+      targetParticipantOpaqueID,
+      {
+        ...expected,
+        idempotency_key: "role-promote-command-0001",
+        desired_role: "co_host",
+        reason_code: "host_promoted",
+      },
+      "role-csrf",
+      options,
+    );
+    await muteMediaParticipantMicrophone(
+      tenantID,
+      spaceID,
+      targetParticipantOpaqueID,
+      {
+        ...expected,
+        idempotency_key: "remote-mute-command-0001",
+        reason_code: "host_muted",
+      },
+      "mute-csrf",
+      options,
+    );
+    await removeMediaParticipant(
+      tenantID,
+      spaceID,
+      targetParticipantOpaqueID,
+      {
+        ...expected,
+        idempotency_key: "remove-command-0001",
+        reason_code: "host_removed",
+      },
+      "remove-csrf",
+      options,
+    );
+
+    const requests = fetchMock.mock.calls.map((call) => call[0] as Request);
+    expect(requests.map((request) => new URL(request.url).pathname)).toEqual([
+      `/api/v1/media/spaces/${spaceID}/lock`,
+      `/api/v1/media/spaces/${spaceID}/participants/${targetParticipantOpaqueID}/role`,
+      `/api/v1/media/spaces/${spaceID}/participants/${targetParticipantOpaqueID}/mute`,
+      `/api/v1/media/spaces/${spaceID}/participants/${targetParticipantOpaqueID}/remove`,
+    ]);
+    expect(
+      requests.map((request) => request.headers.get("X-CSRF-Token")),
+    ).toEqual(["lock-csrf", "role-csrf", "mute-csrf", "remove-csrf"]);
+    for (const request of requests) {
+      expect(request.method).toBe("POST");
+      expect(request.credentials).toBe("include");
+      expect(request.headers.get("X-TutorHub-Expected-Tenant-ID")).toBe(
+        tenantID,
+      );
+      const body = (await request.clone().json()) as Record<string, unknown>;
+      expect(body).toMatchObject(expected);
+      for (const forbidden of [
+        "tenant_id",
+        "actor_user_id",
+        "actor_role",
+        "target_user_id",
+        "provider_room_name",
+        "provider_participant_identity",
+        "provider_grants",
+      ]) {
+        expect(body).not.toHaveProperty(forbidden);
+      }
+    }
   });
 
   it("creates an authoritative join attempt without client supplied grants or device data", async () => {
@@ -609,6 +765,45 @@ describe("media-space API", () => {
     ).rejects.toMatchObject({
       status: 403,
       problem: { code: "feature_disabled" },
+    });
+  });
+
+  it("preserves the exact committed end convergence projection", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse(
+        {
+          type: "urn:tutorhub:problem:http-503",
+          title: "Media provider unavailable",
+          status: 503,
+          code: "media_provider_unavailable",
+          business_committed: true,
+          space_id: spaceID,
+          resource_status: "ended",
+          resource_version: 8,
+          provider_effect_status: "retryable_failed",
+        },
+        503,
+      ),
+    );
+
+    await expect(
+      endMediaSpace(
+        tenantID,
+        spaceID,
+        { ...transitionInput, idempotency_key: "media-end-converge-0001" },
+        "end-csrf",
+        { fetch: fetchMock },
+      ),
+    ).rejects.toMatchObject({
+      status: 503,
+      problem: {
+        code: "media_provider_unavailable",
+        business_committed: true,
+        space_id: spaceID,
+        resource_status: "ended",
+        resource_version: 8,
+        provider_effect_status: "retryable_failed",
+      },
     });
   });
 });
