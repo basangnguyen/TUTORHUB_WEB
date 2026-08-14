@@ -4,7 +4,7 @@
 
 - Node.js `>=24.14.0 <25` và Corepack.
 - pnpm `11.7.x`.
-- Go `1.26.5`.
+- Go `1.26.6`.
 - Docker Desktop trên Windows hoặc Docker Engine + Compose plugin trên Linux.
 - Git.
 

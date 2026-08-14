@@ -46,7 +46,7 @@ const tenantID = "4b18543a-74de-419f-9fe8-d0c3dfc991eb";
 const spaceID = "c2dc1048-1d90-4c90-ae50-5fb436bfb607";
 const roomInstanceID = "c5f918a5-a09e-4f94-9fab-fb0ab5702a4d";
 const selfParticipantKey = "018f4c7b-9b0a-7a34-8a4c-96d26cb87221";
-const targetParticipantKey = "028f4c7b-9b0a-7a34-8a4c-96d26cb87222";
+const targetParticipantID = "028f4c7b-9b0a-7a34-8a4c-96d26cb87222";
 
 const projection: ClassroomSignalProjection = {
   room_instance_id: roomInstanceID,
@@ -77,7 +77,7 @@ const projection: ClassroomSignalProjection = {
       },
     },
     {
-      participant_key: targetParticipantKey,
+      participant_key: targetParticipantID,
       roster_sequence: 2,
       display_name: "Student",
       instance_role: "attendee",
@@ -195,7 +195,7 @@ describe("P4-07 moderation projection boundary", () => {
         canRemove: false,
       },
       {
-        participantKey: targetParticipantKey,
+        participantKey: targetParticipantID,
         canPromoteCoHost: false,
         canDemoteCoHost: false,
         canRemoteMute: false,
@@ -234,7 +234,7 @@ describe("P4-07 moderation request boundary", () => {
         ...scope,
         action: "promote_co_host",
         desiredRole: "co_host",
-        targetParticipantKey,
+        targetParticipantKey: targetParticipantID,
       }),
     ).toEqual({
       expected_room_instance_id: roomInstanceID,
@@ -248,7 +248,7 @@ describe("P4-07 moderation request boundary", () => {
       buildMediaModerationRequest({
         ...scope,
         action: "remove_participant",
-        targetParticipantKey,
+        targetParticipantKey: targetParticipantID,
       }),
     ).toEqual({
       expected_room_instance_id: roomInstanceID,
@@ -389,15 +389,15 @@ describe("P4-07 moderation mutation boundary", () => {
     apiMocks.rotateCSRF.mockResolvedValue({ csrf_token: "fresh-csrf" });
     apiMocks.muteMicrophone.mockResolvedValue(
       moderationResult({
-        target_participant_key: targetParticipantKey,
+        target_participant_key: targetParticipantID,
         provider_effect_status: "retryable_failed",
       }),
     );
     const { result } = renderModeration();
 
     await act(async () => {
-      await result.current?.onRemoteMute(targetParticipantKey);
-      await result.current?.onRemoteMute(targetParticipantKey);
+      await result.current?.onRemoteMute(targetParticipantID);
+      await result.current?.onRemoteMute(targetParticipantID);
     });
 
     const firstRequest = apiMocks.muteMicrophone.mock.calls[0]?.[3];
@@ -407,7 +407,7 @@ describe("P4-07 moderation mutation boundary", () => {
     expect(result.current?.providerEffect).toEqual({
       status: "reconcile_required",
       action: "remote_mute",
-      targetParticipantKey,
+      targetParticipantKey: targetParticipantID,
     });
     expect(result.current?.mutationState).toEqual({ status: "idle" });
   });
@@ -416,15 +416,15 @@ describe("P4-07 moderation mutation boundary", () => {
     apiMocks.rotateCSRF.mockResolvedValue({ csrf_token: "fresh-csrf" });
     apiMocks.muteMicrophone.mockResolvedValue(
       moderationResult({
-        target_participant_key: targetParticipantKey,
+        target_participant_key: targetParticipantID,
         provider_effect_status: "applied",
       }),
     );
     const { result } = renderModeration();
 
     await act(async () => {
-      await result.current?.onRemoteMute(targetParticipantKey);
-      await result.current?.onRemoteMute(targetParticipantKey);
+      await result.current?.onRemoteMute(targetParticipantID);
+      await result.current?.onRemoteMute(targetParticipantID);
     });
 
     const firstRequest = apiMocks.muteMicrophone.mock.calls[0]?.[3];
@@ -438,7 +438,7 @@ describe("P4-07 moderation mutation boundary", () => {
     expect(result.current?.providerEffect).toEqual({
       status: "applied",
       action: "remote_mute",
-      targetParticipantKey,
+      targetParticipantKey: targetParticipantID,
     });
   });
 
@@ -446,27 +446,27 @@ describe("P4-07 moderation mutation boundary", () => {
     apiMocks.rotateCSRF.mockResolvedValue({ csrf_token: "fresh-csrf" });
     apiMocks.changeRole.mockResolvedValue(
       moderationResult({
-        target_participant_key: targetParticipantKey,
+        target_participant_key: targetParticipantID,
         target_instance_role: "co_host",
       }),
     );
     apiMocks.muteMicrophone.mockResolvedValue(
-      moderationResult({ target_participant_key: targetParticipantKey }),
+      moderationResult({ target_participant_key: targetParticipantID }),
     );
     apiMocks.removeParticipant.mockResolvedValue(
-      moderationResult({ target_participant_key: targetParticipantKey }),
+      moderationResult({ target_participant_key: targetParticipantID }),
     );
     const { result } = renderModeration();
 
     await act(async () => {
       await expect(
-        result.current?.onPromoteCoHost(targetParticipantKey),
+        result.current?.onPromoteCoHost(targetParticipantID),
       ).rejects.toThrow("provider effect is invalid");
       await expect(
-        result.current?.onRemoteMute(targetParticipantKey),
+        result.current?.onRemoteMute(targetParticipantID),
       ).rejects.toThrow("provider effect is invalid");
       await expect(
-        result.current?.onRemoveParticipant(targetParticipantKey),
+        result.current?.onRemoveParticipant(targetParticipantID),
       ).rejects.toThrow("provider effect is invalid");
     });
 

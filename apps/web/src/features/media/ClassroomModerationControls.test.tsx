@@ -16,7 +16,7 @@ import {
   type ClassroomModerationControlsModel,
 } from "./ClassroomModerationControls";
 
-const targetParticipantKey = "018f4c7b-9b0a-7a34-8a4c-96d26cb87222";
+const targetParticipantID = "018f4c7b-9b0a-7a34-8a4c-96d26cb87222";
 
 describe("ClassroomModerationControls", () => {
   afterEach(() => cleanup());
@@ -30,7 +30,7 @@ describe("ClassroomModerationControls", () => {
           controls={controls}
           displayName="Student One"
           isSelf={false}
-          participantKey={targetParticipantKey}
+          participantKey={targetParticipantID}
         />
       </>,
     );
@@ -119,7 +119,7 @@ describe("ClassroomModerationControls", () => {
     const controls = createControls({
       participantOperations: [
         {
-          participantKey: targetParticipantKey,
+          participantKey: targetParticipantID,
           canPromoteCoHost: true,
           canDemoteCoHost: false,
           canRemoteMute: true,
@@ -132,7 +132,7 @@ describe("ClassroomModerationControls", () => {
         controls={controls}
         displayName="Student One"
         isSelf={false}
-        participantKey={targetParticipantKey}
+        participantKey={targetParticipantID}
       />,
     );
 
@@ -148,7 +148,7 @@ describe("ClassroomModerationControls", () => {
       screen.getByRole("menuitem", { name: "Mute microphone remotely" }),
     );
     await waitFor(() =>
-      expect(controls.onRemoteMute).toHaveBeenCalledWith(targetParticipantKey),
+      expect(controls.onRemoteMute).toHaveBeenCalledWith(targetParticipantID),
     );
 
     openParticipantMenu();
@@ -158,11 +158,11 @@ describe("ClassroomModerationControls", () => {
     expect(
       await screen.findByRole("heading", { name: "Remove this participant?" }),
     ).toBeInTheDocument();
-    expect(document.body.textContent).not.toContain(targetParticipantKey);
+    expect(document.body.textContent).not.toContain(targetParticipantID);
     fireEvent.click(screen.getByRole("button", { name: "Confirm removal" }));
     await waitFor(() =>
       expect(controls.onRemoveParticipant).toHaveBeenCalledWith(
-        targetParticipantKey,
+        targetParticipantID,
       ),
     );
     expect(
@@ -177,12 +177,12 @@ describe("ClassroomModerationControls", () => {
             providerEffect: {
               status: "applied",
               action: "remove_participant",
-              targetParticipantKey,
+              targetParticipantKey: targetParticipantID,
             },
           })}
           displayName="Student One"
           isSelf={false}
-          participantKey={targetParticipantKey}
+          participantKey={targetParticipantID}
         />,
       ),
     );
@@ -197,7 +197,7 @@ describe("ClassroomModerationControls", () => {
     const controls = createControls({
       participantOperations: [
         {
-          participantKey: targetParticipantKey,
+          participantKey: targetParticipantID,
           canPromoteCoHost: true,
           canDemoteCoHost: true,
           canRemoteMute: true,
@@ -210,7 +210,7 @@ describe("ClassroomModerationControls", () => {
         controls={controls}
         displayName="Current user"
         isSelf
-        participantKey={targetParticipantKey}
+        participantKey={targetParticipantID}
       />,
     );
     expect(view.container).toBeEmptyDOMElement();

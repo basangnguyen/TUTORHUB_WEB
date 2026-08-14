@@ -15,9 +15,10 @@ import (
 func TestDurableProviderEffectReconcilerConcurrentClaimsHaveSingleWinner(t *testing.T) {
 	t.Parallel()
 
+	requestID := "p407-durable-remove-0001"
 	ref := DurableProviderEffectRef{
 		TenantID: uuid.New(), OriginalActorID: uuid.New(), SpaceID: uuid.New(),
-		IdempotencyKey: "p407-durable-remove-0001",
+		IdempotencyKey: requestID,
 		Operation:      string(ModerationRemove), Attempt: 2,
 	}
 	repository := &fakeDurableProviderEffectRepository{effect: DurableProviderEffect{
@@ -65,10 +66,11 @@ func TestDurableProviderEffectReconcilerConcurrentClaimsHaveSingleWinner(t *test
 func TestDurableProviderEffectReconcilerPersistsRetryableFailureWithoutActorSession(t *testing.T) {
 	t.Parallel()
 
+	requestID := "p407-durable-mute-000001"
 	repository := &fakeDurableProviderEffectRepository{effect: DurableProviderEffect{
 		Ref: DurableProviderEffectRef{
 			TenantID: uuid.New(), OriginalActorID: uuid.New(), SpaceID: uuid.New(),
-			IdempotencyKey: "p407-durable-mute-000001",
+			IdempotencyKey: requestID,
 			Operation:      string(ModerationMute), Attempt: 3,
 		},
 		RoomName:            "r_0123456789abcdef0123456789abcdef",

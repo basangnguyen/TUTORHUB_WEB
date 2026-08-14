@@ -161,8 +161,8 @@ func TestPostgresMediaModerationAuthorityConcurrencyAndProviderReceipts(t *testi
 		t.Fatalf("TA remove error = %v, want forbidden", err)
 	}
 
-	muteKey := "p407-ta-mute-student-0001"
-	muteInput := p407ParticipantInput(state, muteKey, "")
+	muteRequestID := "p407-ta-mute-student-0001"
+	muteInput := p407ParticipantInput(state, muteRequestID, "")
 	muted, err := service.MuteParticipant(ctx, fixture.access["ta"], fixture.spaceID,
 		fixture.keys["student"], muteInput)
 	if err != nil || muted.ProviderEffectStatus != ProviderEffectApplied {
@@ -174,7 +174,7 @@ func TestPostgresMediaModerationAuthorityConcurrencyAndProviderReceipts(t *testi
 		t.Fatalf("TA mute replay result=%+v error=%v", replayed, err)
 	}
 	if _, err := service.MuteParticipant(ctx, fixture.access["ta"], fixture.spaceID,
-		fixture.keys["student"], p407ParticipantInput(state, muteKey, "changed_reason")); !errors.Is(err, ErrModerationIdempotency) {
+		fixture.keys["student"], p407ParticipantInput(state, muteRequestID, "changed_reason")); !errors.Is(err, ErrModerationIdempotency) {
 		t.Fatalf("conflicting mute replay error = %v, want idempotency conflict", err)
 	}
 	provider.mu.Lock()
@@ -226,7 +226,7 @@ func TestPostgresMediaModerationAuthorityConcurrencyAndProviderReceipts(t *testi
 		fixture.keys["ta"], p407ParticipantInput(state, safetyKey, "safety_policy")); err != nil {
 		t.Fatalf("official safety-admin remove: %v", err)
 	}
-	assertP407ReceiptAndAudit(t, ctx, migrationPool, base.tenantID, muteKey, safetyKey)
+	assertP407ReceiptAndAudit(t, ctx, migrationPool, base.tenantID, muteRequestID, safetyKey)
 	assertP407StudyMeetingSafetyRemove(t, ctx, migrationPool, base, service)
 	assertP407EndCredentialRace(t, ctx, migrationPool, lifecycle, instances, fixture)
 	assertP407DurableProviderReconcileAfterActorDeactivation(
@@ -829,11 +829,11 @@ func assertP407ReceiptAndAudit(
 	ctx context.Context,
 	pool *pgxpool.Pool,
 	tenantID uuid.UUID,
-	muteKey string,
+	muteRequestID string,
 	safetyKey string,
 ) {
 	t.Helper()
-	for _, key := range []string{muteKey, safetyKey} {
+	for _, key := range []string{muteRequestID, safetyKey} {
 		var status string
 		var attempts int
 		if err := pool.QueryRow(ctx, `SELECT provider_effect_status, provider_effect_attempts
@@ -911,10 +911,11 @@ func assertP407StudyMeetingSafetyRemove(
 		t.Fatalf("insert P4-07 StudyMeeting target: %v", err)
 	}
 	admin := p402IntegrationAccess(base.tenantID, base.adminID, policy.OrganizationRoleAdmin, uuid.New())
+	requestID := "p407-meeting-safety-remove-0001"
 	result, err := service.RemoveParticipant(ctx, admin, spaceID, participantKey,
 		ModerateParticipantInput{Expected: ModerationExpectedVersions{RoomInstanceID: roomID,
 			SpaceVersion: 2, RoomVersion: 2, ProjectionVersion: 1},
-			IdempotencyKey: "p407-meeting-safety-remove-0001", ReasonCode: "safety_policy"})
+			IdempotencyKey: requestID, ReasonCode: "safety_policy"})
 	if err != nil || result.ProviderEffectStatus != ProviderEffectApplied {
 		t.Fatalf("StudyMeeting safety remove result=%+v error=%v", result, err)
 	}
