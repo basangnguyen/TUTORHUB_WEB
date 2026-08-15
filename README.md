@@ -156,6 +156,8 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
   Windows Chrome/Edge cài thật bổ sung PASS `48/48`; isolated 10-cycle cleanup và invalid-credential
   existing-room resilience PASS với privacy-safe output. Physical A/V/NVDA/macOS/low-end, provider
   dashboard và actual temporary-key rotation vẫn chưa được suy PASS.
+  Exact implementation candidate `50c256e` PASS GitHub Verify `31891519968` và Security
+  `31891520024`; trạng thái vẫn `IN PROGRESS`, không deploy hoặc đổi shared environment.
 - Web MVP nền đã chạy trên staging: Cloudflare Pages -> same-origin `/api/*` -> Go
   Core API trên Render; dữ liệu dùng Neon, file dùng Backblaze B2, media dùng LiveKit
   Cloud và xác thực dùng ZITADEL.

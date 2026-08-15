@@ -268,8 +268,9 @@ reader; 10-cycle processor/worker/track/object-URL cleanup. Bất kỳ gate nào
 - Final pre-commit candidate `pnpm verify` PASS trong `173.3 s`: format/generated drift/local E2E
   infra/security `24/24`, lint/typecheck/test/build/Storybook/bundle security và toàn bộ Go test/vet
   đều xanh; API client `7/7` files, `53/53` tests, web `69/69` files và `437/437` tests. Diff-check và
-  candidate secret scan đều PASS. Exact GitHub CI/security chưa chạy; task chưa đủ điều kiện chuyển
-  `VERIFY` khi dashboard/rotation/physical gates còn mở.
+  candidate secret scan đều PASS. Exact implementation candidate
+  `50c256eb29bb0438016690a91803c302ac6e0a02` PASS GitHub Verify `31891519968` và Security
+  `31891520024`; task chưa đủ điều kiện chuyển `VERIFY` khi dashboard/rotation/physical gates còn mở.
 - Windows installed-browser supplement PASS `48/48` trong `84.1 s`: Chrome `24/24`, Edge `24/24`.
   Host inventory được ghi ở mục 3; physical A/V, NVDA speech, macOS/Safari và low-end vẫn được ghi đúng
   `UNVERIFIED/UNAVAILABLE`, không suy PASS.

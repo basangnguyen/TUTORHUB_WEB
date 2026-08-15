@@ -13,7 +13,7 @@
 | Phase hoàn thành     | Phase 0, Phase 1, Phase 2                                                             |
 | Phase hiện tại       | Phase 4 Classroom Media MVP; Phase 3 deferred carry-over vẫn hoạt động                |
 | Task `DONE` gần nhất | P4-10 Join telemetry, privacy và diagnostics export                                    |
-| Mốc repository mới   | Exact candidate `c960f777` PASS CI/shared/deploy/live trên Render/Cloudflare           |
+| Mốc repository mới   | P4-11 candidate `50c256e` PASS GitHub Verify/Security; external gates vẫn mở            |
 | Task hiện tại        | P4-11 Browser/device matrix, load và outage runbook (`IN PROGRESS`)                    |
 | Task tiếp theo       | Ghi LiveKit dashboard, chạy physical matrix và actual temporary-key rotation           |
 
@@ -38,9 +38,9 @@ WebKit prejoin `6/6`; deterministic unreachable-provider; Prettier, lint, E2E ty
 unit/integration compile và integration vet. Windows sandbox ban đầu chặn Firefox tab subprocess;
 exact rerun ngoài sandbox PASS. Full `pnpm verify` trước provider refinement PASS trong 218,1 giây,
 gồm API client `53/53`, web `69/69` files và `437/437` tests, build/security cùng toàn bộ Go test/vet.
-Exact candidate CI,
-physical devices, CPU/network/provider dashboard và isolated outage/rotation vẫn
-`PENDING/UNVERIFIED`.
+Exact implementation candidate `50c256eb29bb0438016690a91803c302ac6e0a02` PASS GitHub Verify
+`31891519968` và Security `31891520024`. Physical devices, LiveKit provider dashboard và actual
+temporary-key rotation vẫn `PENDING/UNVERIFIED`, nên P4-11 giữ `IN PROGRESS`.
 
 Windows installed-browser automated supplement sau đó PASS `48/48` trong `84.1 s`: Chrome
 `151.0.7922.138` đạt `24/24`, Edge `151.0.4129.78` đạt `24/24`, gồm deterministic permission/prejoin,

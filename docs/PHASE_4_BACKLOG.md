@@ -661,7 +661,8 @@ disposable và không cho phép bật media capability trong lúc kiểm thử.
 - Isolated LiveKit profile 50 PASS: `50/50` join, connect p95 `6761 ms`, TTM p95 `8190 ms`, `49/49`
   delivery, sustain `120 s`, Core API `128` probe không lỗi, cleanup về `0`; post-cleanup goroutine
   delta tiếp tục là `1`. Maximum tested cap là `50`.
-- Exact candidate CI, physical matrix, CPU/network/provider dashboard và actual isolated
+- Exact implementation candidate `50c256eb29bb0438016690a91803c302ac6e0a02` PASS GitHub Verify
+  `31891519968` và Security `31891520024`. Physical matrix, provider dashboard và actual isolated
   outage/rotation vẫn `UNVERIFIED`; trạng thái giữ `IN PROGRESS`.
 - Windows installed Chrome/Edge automated supplement PASS `48/48`; host/browser inventory đã ghi.
   Isolated resilience PASS 10/10 join/leave cleanup, credential fail-closed giữ room hiện hữu và
