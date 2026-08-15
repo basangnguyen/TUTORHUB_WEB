@@ -14,16 +14,17 @@ import (
 )
 
 const (
-	conversationsCollectionPath = "/api/v1/conversations"
-	conversationDirectPath      = "/api/v1/conversations/direct"
-	conversationResourcePattern = "/api/v1/conversations/{conversation_id}"
-	conversationMessagesPattern = "/api/v1/conversations/{conversation_id}/messages"
-	conversationMessagePattern  = "/api/v1/conversations/{conversation_id}/messages/{message_id}"
-	conversationReadPattern     = "/api/v1/conversations/{conversation_id}/read"
-	classConversationPattern    = "/api/v1/classes/{class_id}/conversation"
-	conversationTenantHeader    = "X-TutorHub-Expected-Tenant-ID"
-	maximumConversationBodySize = 16 * 1024
-	maximumMessageBodySize      = 64 * 1024
+	conversationsCollectionPath   = "/api/v1/conversations"
+	conversationDirectPath        = "/api/v1/conversations/direct"
+	conversationResourcePattern   = "/api/v1/conversations/{conversation_id}"
+	conversationMessagesPattern   = "/api/v1/conversations/{conversation_id}/messages"
+	conversationMessagePattern    = "/api/v1/conversations/{conversation_id}/messages/{message_id}"
+	conversationReadPattern       = "/api/v1/conversations/{conversation_id}/read"
+	classConversationPattern      = "/api/v1/classes/{class_id}/conversation"
+	mediaSpaceConversationPattern = "/api/v1/media/spaces/{space_id}/conversation"
+	conversationTenantHeader      = "X-TutorHub-Expected-Tenant-ID"
+	maximumConversationBodySize   = 16 * 1024
+	maximumMessageBodySize        = 64 * 1024
 )
 
 var errConversationScopeChanged = errors.New("conversation active tenant changed")
@@ -204,6 +205,49 @@ func (handlers conversationHandlers) createClass(w http.ResponseWriter, r *http.
 		}
 	}
 	result, err := handlers.service.CreateClass(r.Context(), access, classID)
+	if err != nil {
+		handlers.writeProblem(w, r, err)
+		return
+	}
+	status := http.StatusOK
+	if result.Created {
+		status = http.StatusCreated
+	}
+	writeJSON(handlers.logger, w, status, result.Conversation)
+}
+
+func (handlers conversationHandlers) createRoom(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.Header().Set("Allow", http.MethodPost)
+		writeProblem(w, r, http.StatusMethodNotAllowed, "Method not allowed", "Room conversation creation supports POST requests.")
+		return
+	}
+	if !handlers.available(w, r) {
+		return
+	}
+	principal, ok := handlers.csrfPrincipal(w, r)
+	if !ok {
+		return
+	}
+	access, ok := handlers.access(w, r, principal)
+	if !ok {
+		return
+	}
+	mediaSpaceID, ok := parseResourceUUID(r.PathValue("space_id"))
+	if !ok {
+		handlers.writeProblem(w, r, conversation.ErrNotFound)
+		return
+	}
+	if r.ContentLength != 0 {
+		var request struct{}
+		if err := decodeJSONRequest(
+			w, r, &request, maximumConversationBodySize,
+		); err != nil {
+			handlers.writeProblem(w, r, conversation.ErrInvalidInput)
+			return
+		}
+	}
+	result, err := handlers.service.CreateRoom(r.Context(), access, mediaSpaceID)
 	if err != nil {
 		handlers.writeProblem(w, r, err)
 		return
@@ -498,7 +542,7 @@ func (handlers conversationHandlers) writeProblem(w http.ResponseWriter, r *http
 		title, detail = "Conversation unavailable", "The conversation or member is unavailable in the active workspace."
 	case errors.Is(err, conversation.ErrReadOnly):
 		status, code = http.StatusConflict, "conversation_read_only"
-		title, detail = "Conversation is read only", "Archived classes keep conversation history but cannot create or receive new conversation content."
+		title, detail = "Conversation is read only", "Archived classes and ended rooms keep authorized history but cannot create or receive new conversation content."
 	case errors.Is(err, conversation.ErrIdempotencyConflict):
 		status, code = http.StatusConflict, "message_idempotency_conflict"
 		title, detail = "Message retry conflict", "Use a new client message identifier after changing the conversation or message content."

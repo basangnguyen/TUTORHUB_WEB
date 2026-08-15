@@ -300,6 +300,10 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 		conversationResponseHeaders(http.HandlerFunc(conversations.createClass)),
 	)
 	mux.Handle(
+		mediaSpaceConversationPattern,
+		conversationResponseHeaders(http.HandlerFunc(conversations.createRoom)),
+	)
+	mux.Handle(
 		calendarItemsPath,
 		calendarResponseHeaders(
 			requireMethod(http.MethodGet, http.HandlerFunc(calendarHandlers.listItems)),

@@ -662,6 +662,24 @@ func (repository *PostgresRepository) authorizeMessageWrite(
 			}
 			return AccessContext{}, ErrAccessDenied
 		}
+	case KindRoom:
+		if !row.MediaSpaceID.Valid {
+			return AccessContext{}, ErrNotFound
+		}
+		if err := repository.controls.RequireFeature(
+			ctx,
+			transaction,
+			access.TenantID,
+			featurecontrol.FeatureClassroomMediaRooms,
+		); err != nil {
+			return AccessContext{}, err
+		}
+		access, err = repository.lockRoomConversationWriteAccess(
+			ctx, transaction, access, row.MediaSpaceID.UUID,
+		)
+		if err != nil {
+			return AccessContext{}, err
+		}
 	default:
 		return AccessContext{}, ErrNotFound
 	}

@@ -704,6 +704,351 @@ VALUES ($1, 'conversations', false, $2, now(), now())`,
 	}
 }
 
+func TestPostgresPersistentRoomChatAuthorityIdempotencyAndConcurrencyBarrier(t *testing.T) {
+	migrationURL := requireConversationEnvironment(t, "DATABASE_MIGRATION_URL")
+	requireP408WritableIntegrationDatabase(t, migrationURL)
+	poolURL := requireConversationEnvironment(t, "DATABASE_POOL_URL")
+	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
+	defer cancel()
+	if err := migrationrunner.Up(ctx, migrationURL); err != nil {
+		t.Fatalf("apply persistent room chat migrations: %v", err)
+	}
+	migrationPool := openConversationPool(t, ctx, migrationURL)
+	defer migrationPool.Close()
+	apiPool := openConversationPool(t, ctx, poolURL)
+	defer apiPool.Close()
+	fixture := seedConversationFixture(t, ctx, migrationPool)
+	service := newConversationIntegrationService(t, apiPool)
+	ownerAccess := integrationAccess(
+		fixture.tenantID, fixture.ownerID, policy.OrganizationRoleTeacher,
+	)
+	studentAccess := integrationAccess(
+		fixture.tenantID, fixture.studentID, policy.OrganizationRoleStudent,
+	)
+	foreignAccess := integrationAccess(
+		fixture.foreignTenantID,
+		fixture.foreignOwnerID,
+		policy.OrganizationRoleTeacher,
+	)
+
+	meetingID := uuid.New()
+	spaceID := uuid.New()
+	roomID := uuid.New()
+	ownerParticipantID := uuid.New()
+	studentParticipantID := uuid.New()
+	seedTx, err := migrationPool.Begin(ctx)
+	if err != nil {
+		t.Fatalf("begin P4-08 persistent room fixture: %v", err)
+	}
+	defer func() { _ = seedTx.Rollback(context.Background()) }()
+	if _, err := seedTx.Exec(ctx, `
+INSERT INTO tutorhub.tenant_feature_overrides (
+    tenant_id, feature_key, enabled, updated_by, created_at, updated_at
+)
+VALUES ($1, 'classroom_media_rooms', true, $2, now(), now());
+`, fixture.tenantID, fixture.ownerID); err != nil {
+		t.Fatalf("seed P4-08 media feature override: %v", err)
+	}
+	if _, err := seedTx.Exec(ctx, `
+INSERT INTO tutorhub.study_meetings (
+    id, tenant_id, owner_user_id, title, starts_at, ends_at, timezone,
+    status, create_idempotency_key, create_request_fingerprint
+)
+VALUES (
+	$1, $2, $3, 'P4-08 persistent room chat', now(), now() + interval '1 hour',
+	'Asia/Ho_Chi_Minh', 'scheduled', $4, decode(repeat('11', 32), 'hex')
+);
+`, meetingID, fixture.tenantID, fixture.ownerID, "p408-study-"+uuid.NewString()); err != nil {
+		t.Fatalf("seed P4-08 study meeting: %v", err)
+	}
+	if _, err := seedTx.Exec(ctx, `
+INSERT INTO tutorhub.media_spaces (
+    id, tenant_id, source_kind, source_study_meeting_id, status, version,
+    lobby_enabled, locked, create_idempotency_key, create_request_fingerprint,
+    created_by, updated_by, opened_at, opened_by
+)
+VALUES (
+	$1, $2, 'study_meeting', $3, 'open', 2, true, false, $4,
+	decode(repeat('22', 32), 'hex'), $5, $5, now(), $5
+);
+`, spaceID, fixture.tenantID, meetingID, "p408-space-"+uuid.NewString(), fixture.ownerID); err != nil {
+		t.Fatalf("seed P4-08 media space: %v", err)
+	}
+	if _, err := seedTx.Exec(ctx, `
+INSERT INTO tutorhub.media_space_members (
+    tenant_id, space_id, user_id, status, invited_by
+)
+VALUES ($1, $2, $3, 'active', $4);
+`, fixture.tenantID, spaceID, fixture.studentID, fixture.ownerID); err != nil {
+		t.Fatalf("seed P4-08 media member: %v", err)
+	}
+	if _, err := seedTx.Exec(ctx, `
+INSERT INTO tutorhub.media_room_instances (
+    id, tenant_id, space_id, attempt_number, status, version, provider_kind,
+    provider_room_name, provider_room_sid, created_by, updated_by, activated_at
+)
+VALUES ($1, $2, $3, 1, 'active', 2, 'livekit', $4, $5, $6, $6, now());
+`, roomID, fixture.tenantID, spaceID,
+		"p408_room_"+strings.ReplaceAll(uuid.NewString(), "-", ""),
+		"RM_"+strings.ReplaceAll(uuid.NewString(), "-", ""), fixture.ownerID,
+	); err != nil {
+		t.Fatalf("seed P4-08 room instance: %v", err)
+	}
+	if _, err := seedTx.Exec(ctx, `
+INSERT INTO tutorhub.media_participant_sessions (
+    id, tenant_id, space_id, room_instance_id, user_id, join_attempt_id,
+    provider_participant_identity, instance_role, status, capacity_reserved,
+    admitted_at, joining_at, connected_at, roster_sequence
+)
+VALUES
+	($1, $2, $3, $4, $5, $6, $7, 'host', 'connected', true,
+	 now() - interval '2 seconds', now() - interval '1 second', now(), 1),
+	($8, $2, $3, $4, $9, $10, $11, 'attendee', 'connected', true,
+	 now() - interval '2 seconds', now() - interval '1 second', now(), 2)`,
+		ownerParticipantID,
+		fixture.tenantID,
+		spaceID,
+		roomID,
+		fixture.ownerID,
+		uuid.New(),
+		"p408_owner_"+strings.ReplaceAll(uuid.NewString(), "-", ""),
+		studentParticipantID,
+		fixture.studentID,
+		uuid.New(),
+		"p408_student_"+strings.ReplaceAll(uuid.NewString(), "-", ""),
+	); err != nil {
+		t.Fatalf("seed P4-08 participant sessions: %v", err)
+	}
+	if err := seedTx.Commit(ctx); err != nil {
+		t.Fatalf("commit P4-08 persistent room fixture: %v", err)
+	}
+
+	roomResults := runConcurrentCreates(t,
+		func() (CreateResult, error) {
+			return service.CreateRoom(ctx, ownerAccess, spaceID)
+		},
+		func() (CreateResult, error) {
+			return service.CreateRoom(ctx, studentAccess, spaceID)
+		},
+	)
+	assertCanonicalResults(t, roomResults)
+	roomConversationID := roomResults[0].result.Conversation.ID
+	for index, result := range roomResults {
+		projection := result.result.Conversation
+		if projection.Kind != KindRoom || projection.MediaSpaceID == nil ||
+			*projection.MediaSpaceID != spaceID || !projection.ViewerAccess.CanPostMessages ||
+			len(projection.Participants) != 0 {
+			t.Fatalf("room projection %d=%+v", index, projection)
+		}
+	}
+
+	var roomRows, roomAudits int
+	if err := migrationPool.QueryRow(ctx, `
+SELECT
+    (SELECT count(*) FROM tutorhub.conversations
+     WHERE tenant_id = $1 AND kind = 'room' AND media_space_id = $2),
+    (SELECT count(*) FROM tutorhub.audit_events
+     WHERE tenant_id = $1 AND action = 'conversation.create'
+       AND resource_type = 'conversation' AND resource_id = $3)`,
+		fixture.tenantID,
+		spaceID,
+		roomConversationID,
+	).Scan(&roomRows, &roomAudits); err != nil {
+		t.Fatalf("inspect canonical room conversation: %v", err)
+	}
+	if roomRows != 1 || roomAudits != 1 {
+		t.Fatalf("room invariant rows=%d audits=%d", roomRows, roomAudits)
+	}
+	if _, err := service.Get(ctx, foreignAccess, roomConversationID); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("foreign room get error=%v, want concealed not found", err)
+	}
+
+	// Hold the participant row while a send reaches the P4-08 write barrier.
+	// Once the remover commits, the blocked send must observe the terminal state
+	// and fail without storing the message.
+	removal, err := migrationPool.Begin(ctx)
+	if err != nil {
+		t.Fatalf("begin P4-08 removal barrier: %v", err)
+	}
+	defer func() { _ = removal.Rollback(context.Background()) }()
+	if _, err := removal.Exec(ctx, `
+SELECT id
+FROM tutorhub.media_participant_sessions
+WHERE tenant_id = $1 AND id = $2
+FOR UPDATE`, fixture.tenantID, studentParticipantID); err != nil {
+		t.Fatalf("lock P4-08 participant before removal: %v", err)
+	}
+	blockedSend := make(chan error, 1)
+	go func() {
+		_, sendErr := service.SendMessage(
+			ctx,
+			studentAccess,
+			roomConversationID,
+			SendMessageInput{ClientMessageID: uuid.New(), Content: "must not commit"},
+		)
+		blockedSend <- sendErr
+	}()
+	select {
+	case sendErr := <-blockedSend:
+		t.Fatalf("room send crossed a locked participant row early: %v", sendErr)
+	case <-time.After(150 * time.Millisecond):
+	}
+	if _, err := removal.Exec(ctx, `
+UPDATE tutorhub.media_participant_sessions
+SET status = 'removed', capacity_reserved = false, terminal_at = now(),
+    removed_by = $3, version = version + 1, updated_at = now()
+WHERE tenant_id = $1 AND id = $2`,
+		fixture.tenantID,
+		studentParticipantID,
+		fixture.ownerID,
+	); err != nil {
+		t.Fatalf("remove P4-08 participant: %v", err)
+	}
+	if err := removal.Commit(ctx); err != nil {
+		t.Fatalf("commit P4-08 participant removal: %v", err)
+	}
+	select {
+	case sendErr := <-blockedSend:
+		if !errors.Is(sendErr, ErrReadOnly) {
+			t.Fatalf("removed participant send error=%v, want read only", sendErr)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("P4-08 participant removal did not release blocked send")
+	}
+	studentHistory, err := service.Get(ctx, studentAccess, roomConversationID)
+	if err != nil || studentHistory.ViewerAccess.CanPostMessages {
+		t.Fatalf("removed participant history=%+v error=%v", studentHistory, err)
+	}
+
+	clientMessageID := uuid.New()
+	privateContent := "p408-private-" + uuid.NewString()
+	sent, err := service.SendMessage(
+		ctx,
+		ownerAccess,
+		roomConversationID,
+		SendMessageInput{ClientMessageID: clientMessageID, Content: privateContent},
+	)
+	if err != nil {
+		t.Fatalf("send persistent room message: %v", err)
+	}
+	if !sent.Created {
+		t.Fatal("first persistent room send must create one message")
+	}
+	var sideEffectsBeforeEnd int
+	if err := migrationPool.QueryRow(ctx, `
+SELECT
+    (SELECT count(*) FROM tutorhub.audit_events WHERE tenant_id = $1) +
+    (SELECT count(*) FROM tutorhub.outbox_events WHERE tenant_id = $1)`,
+		fixture.tenantID,
+	).Scan(&sideEffectsBeforeEnd); err != nil {
+		t.Fatalf("capture P4-08 privacy baseline: %v", err)
+	}
+
+	endTx, err := migrationPool.Begin(ctx)
+	if err != nil {
+		t.Fatalf("begin P4-08 room end: %v", err)
+	}
+	defer func() { _ = endTx.Rollback(context.Background()) }()
+	if _, err := endTx.Exec(ctx, `
+UPDATE tutorhub.media_room_instances
+SET status = 'ended', version = version + 1, closing_at = now(), ended_at = now(),
+    updated_by = $3, updated_at = now()
+WHERE tenant_id = $1 AND id = $2`,
+		fixture.tenantID,
+		roomID,
+		fixture.ownerID,
+	); err != nil {
+		t.Fatalf("end P4-08 room instance: %v", err)
+	}
+	if _, err := endTx.Exec(ctx, `
+UPDATE tutorhub.media_spaces
+SET status = 'ended', version = version + 1, locked = false, ended_at = now(),
+    ended_by = $3, updated_by = $3, updated_at = now()
+WHERE tenant_id = $1 AND id = $2`,
+		fixture.tenantID,
+		spaceID,
+		fixture.ownerID,
+	); err != nil {
+		t.Fatalf("end P4-08 media space: %v", err)
+	}
+	if err := endTx.Commit(ctx); err != nil {
+		t.Fatalf("commit P4-08 room end: %v", err)
+	}
+	ended, err := service.Get(ctx, ownerAccess, roomConversationID)
+	if err != nil || ended.MediaSpaceStatus == nil || *ended.MediaSpaceStatus != "ended" ||
+		ended.ViewerAccess.CanPostMessages {
+		t.Fatalf("ended room projection=%+v error=%v", ended, err)
+	}
+	replayed, err := service.SendMessage(
+		ctx,
+		ownerAccess,
+		roomConversationID,
+		SendMessageInput{ClientMessageID: clientMessageID, Content: privateContent},
+	)
+	if err != nil || replayed.Created || replayed.Message.ID != sent.Message.ID {
+		t.Fatalf("ended-room exact replay=%+v error=%v", replayed, err)
+	}
+	if _, err := service.SendMessage(
+		ctx,
+		ownerAccess,
+		roomConversationID,
+		SendMessageInput{ClientMessageID: uuid.New(), Content: "blocked after end"},
+	); !errors.Is(err, ErrReadOnly) {
+		t.Fatalf("ended-room new send error=%v, want read only", err)
+	}
+	messagePage, err := service.ListMessages(
+		ctx,
+		ownerAccess,
+		roomConversationID,
+		MessageListInput{Limit: 10},
+	)
+	if err != nil || len(messagePage.Items) != 1 || messagePage.Items[0].ID != sent.Message.ID {
+		t.Fatalf("persistent room history=%+v error=%v", messagePage, err)
+	}
+	var messageRows, sideEffectsAfterEnd, leakedContent int
+	if err := migrationPool.QueryRow(ctx, `
+SELECT
+    (SELECT count(*) FROM tutorhub.messages
+     WHERE tenant_id = $1 AND conversation_id = $2),
+    (SELECT count(*) FROM tutorhub.audit_events WHERE tenant_id = $1) +
+    (SELECT count(*) FROM tutorhub.outbox_events WHERE tenant_id = $1),
+    (SELECT count(*) FROM tutorhub.audit_events
+     WHERE tenant_id = $1 AND metadata::text LIKE '%' || $3 || '%') +
+    (SELECT count(*) FROM tutorhub.outbox_events
+     WHERE tenant_id = $1 AND payload::text LIKE '%' || $3 || '%')`,
+		fixture.tenantID,
+		roomConversationID,
+		privateContent,
+	).Scan(&messageRows, &sideEffectsAfterEnd, &leakedContent); err != nil {
+		t.Fatalf("inspect P4-08 persistence and privacy: %v", err)
+	}
+	if messageRows != 1 || sideEffectsAfterEnd != sideEffectsBeforeEnd || leakedContent != 0 {
+		t.Fatalf(
+			"room persistence/privacy rows=%d side-effects=%d->%d leaked=%d",
+			messageRows,
+			sideEffectsBeforeEnd,
+			sideEffectsAfterEnd,
+			leakedContent,
+		)
+	}
+
+	if _, err := migrationPool.Exec(ctx, `
+UPDATE tutorhub.media_space_members
+SET status = 'revoked', version = version + 1, revoked_at = now(), revoked_by = $3,
+    updated_at = now()
+WHERE tenant_id = $1 AND space_id = $2 AND user_id = $4`,
+		fixture.tenantID,
+		spaceID,
+		fixture.ownerID,
+		fixture.studentID,
+	); err != nil {
+		t.Fatalf("revoke P4-08 study meeting member: %v", err)
+	}
+	if _, err := service.Get(ctx, studentAccess, roomConversationID); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("revoked study meeting history error=%v, want concealed not found", err)
+	}
+}
+
 func TestPostgresPersistentMessagesIdempotencyLifecycleUnreadAuthorizationAndQuota(t *testing.T) {
 	migrationURL := requireConversationEnvironment(t, "DATABASE_MIGRATION_URL")
 	poolURL := requireConversationEnvironment(t, "DATABASE_POOL_URL")

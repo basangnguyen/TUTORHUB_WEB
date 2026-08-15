@@ -14,12 +14,14 @@ import {
   useConversations,
   useCreateDirectConversation,
   useEnsureClassConversation,
+  useEnsureMediaSpaceConversation,
   useSendConversationMessage,
 } from "./conversations";
 
 const tenantID = "4b18543a-74de-419f-9fe8-d0c3dfc991eb";
 const conversationID = "c82ef7ee-0a1b-4e99-b9d5-3ae20858a82e";
 const classID = "a912f628-f3d2-4c18-84c6-42a9e858dc8d";
+const mediaSpaceID = "3b96de90-4d8b-460f-aafd-a1e814b0a6bf";
 
 const conversation: Conversation = {
   id: conversationID,
@@ -82,6 +84,7 @@ function ListProbe() {
 function MutationProbe() {
   const direct = useCreateDirectConversation(tenantID);
   const classConversation = useEnsureClassConversation(tenantID);
+  const roomConversation = useEnsureMediaSpaceConversation(tenantID);
   return (
     <>
       <button
@@ -95,7 +98,18 @@ function MutationProbe() {
       <button onClick={() => classConversation.mutate(classID)} type="button">
         class
       </button>
-      <output>{direct.data?.id ?? classConversation.data?.id ?? "none"}</output>
+      <button
+        onClick={() => roomConversation.mutate(mediaSpaceID)}
+        type="button"
+      >
+        room
+      </button>
+      <output>
+        {direct.data?.id ??
+          classConversation.data?.id ??
+          roomConversation.data?.id ??
+          "none"}
+      </output>
     </>
   );
 }
@@ -241,6 +255,42 @@ describe("conversation queries", () => {
       `/api/v1/classes/${classID}/conversation`,
     );
     expect(ensureRequest?.headers.get("X-CSRF-Token")).toBe("class-csrf");
+    expect(await ensureRequest?.clone().text()).toBe("");
+  });
+
+  it("ensures the canonical room conversation with media-space scope and no message payload", async () => {
+    const requests: Request[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation((request: Request) => {
+        requests.push(request);
+        if (new URL(request.url).pathname.endsWith("/api/v1/auth/csrf")) {
+          return Promise.resolve(jsonResponse({ csrf_token: "room-csrf" }));
+        }
+        return Promise.resolve(
+          jsonResponse({
+            ...conversation,
+            kind: "room",
+            media_space_id: mediaSpaceID,
+            media_space_status: "open",
+            title: "Weekly tutoring room",
+          }),
+        );
+      }),
+    );
+    renderProbe(<MutationProbe />);
+
+    fireEvent.click(screen.getByRole("button", { name: "room" }));
+    await waitFor(() => expect(requests).toHaveLength(2));
+
+    const ensureRequest = requests[1];
+    expect(new URL(ensureRequest?.url ?? "http://localhost").pathname).toBe(
+      `/api/v1/media/spaces/${mediaSpaceID}/conversation`,
+    );
+    expect(ensureRequest?.headers.get("X-CSRF-Token")).toBe("room-csrf");
+    expect(ensureRequest?.headers.get("X-TutorHub-Expected-Tenant-ID")).toBe(
+      tenantID,
+    );
     expect(await ensureRequest?.clone().text()).toBe("");
   });
 

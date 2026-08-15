@@ -3759,6 +3759,79 @@ paths:
           $ref: "#/components/responses/ProblemResponse"
         default:
           $ref: "#/components/responses/ProblemResponse"
+  /api/v1/media/spaces/{space_id}/conversation:
+    post:
+      operationId: ensureMediaSpaceConversation
+      summary: Create or return the canonical persistent conversation for one MediaSpace
+      description: The server reauthorizes the current MediaSpace source and current non-terminal ParticipantSession before creating the one-to-one room conversation. Retry and a later recovery RoomInstance reuse the same conversation. The request accepts no tenant, roster, role, provider identifier, or message body.
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: space_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+        - name: X-TutorHub-Expected-Tenant-ID
+          in: header
+          required: true
+          description: Client cache-scope assertion; authorization still comes only from the server-side active session.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Existing canonical room conversation
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: private, no-store
+            Referrer-Policy:
+              schema:
+                type: string
+                const: no-referrer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Conversation"
+        "201":
+          description: Canonical room conversation created
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: private, no-store
+            Referrer-Policy:
+              schema:
+                type: string
+                const: no-referrer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Conversation"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "429":
+          $ref: "#/components/responses/ProblemResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
   /api/v1/classes/{class_id}/archive:
     post:
       operationId: archiveClass
@@ -7985,7 +8058,7 @@ components:
           maxLength: 512
     ConversationKind:
       type: string
-      enum: [direct, class]
+      enum: [direct, class, room]
     ConversationParticipant:
       type: object
       additionalProperties: false
@@ -8029,13 +8102,19 @@ components:
           format: uuid
         class_status:
           $ref: "#/components/schemas/ClassStatus"
+        media_space_id:
+          type: string
+          format: uuid
+          description: Present only for a room conversation; opaque LiveKit and participant identifiers are never exposed here.
+        media_space_status:
+          $ref: "#/components/schemas/MediaSpaceStatus"
         title:
           type: string
           minLength: 1
           maxLength: 200
         participants:
           type: array
-          description: The two direct participants. Class conversations return an empty array so this projection cannot bypass roster visibility policy.
+          description: The two direct participants. Class and room conversations return an empty array so this projection cannot bypass roster visibility policy.
           items:
             $ref: "#/components/schemas/ConversationParticipant"
         viewer_access:

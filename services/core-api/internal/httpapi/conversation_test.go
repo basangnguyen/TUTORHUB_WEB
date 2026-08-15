@@ -91,14 +91,17 @@ func TestConversationHandlersListUsesExpectedTenantAndOmitsDirectClassFields(t *
 	}
 }
 
-func TestConversationHandlersCreateDirectAndClassWithCSRF(t *testing.T) {
+func TestConversationHandlersCreateDirectClassAndRoomWithCSRF(t *testing.T) {
 	t.Parallel()
 	tenantID := uuid.New()
 	userID := uuid.New()
 	classID := uuid.New()
 	directID := uuid.New()
 	classConversationID := uuid.New()
+	mediaSpaceID := uuid.New()
+	roomConversationID := uuid.New()
 	classStatus := "active"
+	mediaSpaceStatus := "open"
 	service := &fakeConversationService{
 		directResult: conversation.CreateResult{
 			Created: true,
@@ -114,6 +117,15 @@ func TestConversationHandlersCreateDirectAndClassWithCSRF(t *testing.T) {
 				ClassStatus: &classStatus, Title: "Security class",
 				Participants: []conversation.Participant{}, CreatedAt: conversationTestTime,
 				UpdatedAt: conversationTestTime,
+			},
+		},
+		roomResult: conversation.CreateResult{
+			Created: true,
+			Conversation: conversation.Conversation{
+				ID: roomConversationID, Kind: conversation.KindRoom,
+				MediaSpaceID: &mediaSpaceID, MediaSpaceStatus: &mediaSpaceStatus,
+				Title: "Study room", Participants: []conversation.Participant{},
+				CreatedAt: conversationTestTime, UpdatedAt: conversationTestTime,
 			},
 		},
 	}
@@ -146,6 +158,21 @@ func TestConversationHandlersCreateDirectAndClassWithCSRF(t *testing.T) {
 	if service.classCalls != 1 || service.classID != classID ||
 		service.classAccess.ActorID != userID {
 		t.Fatalf("unexpected class invocation: %+v", service)
+	}
+
+	roomRequest := conversationMutationRequest(
+		"/api/v1/media/spaces/"+mediaSpaceID.String()+"/conversation",
+		"",
+		tenantID,
+	)
+	roomResponse := httptest.NewRecorder()
+	handler.ServeHTTP(roomResponse, roomRequest)
+	if roomResponse.Code != http.StatusCreated {
+		t.Fatalf("room status=%d body=%s", roomResponse.Code, roomResponse.Body.String())
+	}
+	if service.roomCalls != 1 || service.mediaSpaceID != mediaSpaceID ||
+		service.roomAccess.ActorID != userID {
+		t.Fatalf("unexpected room invocation: %+v", service)
 	}
 
 	missingCSRF := httptest.NewRequest(
@@ -434,6 +461,11 @@ type fakeConversationService struct {
 	classCalls                int
 	classAccess               conversation.AccessContext
 	classID                   uuid.UUID
+	roomResult                conversation.CreateResult
+	roomError                 error
+	roomCalls                 int
+	roomAccess                conversation.AccessContext
+	mediaSpaceID              uuid.UUID
 	messagePage               conversation.MessagePage
 	messagePageError          error
 	messageListAccess         conversation.AccessContext
@@ -508,6 +540,17 @@ func (service *fakeConversationService) CreateClass(
 	service.classAccess = access
 	service.classID = classID
 	return service.classResult, service.classError
+}
+
+func (service *fakeConversationService) CreateRoom(
+	_ context.Context,
+	access conversation.AccessContext,
+	mediaSpaceID uuid.UUID,
+) (conversation.CreateResult, error) {
+	service.roomCalls++
+	service.roomAccess = access
+	service.mediaSpaceID = mediaSpaceID
+	return service.roomResult, service.roomError
 }
 
 func (service *fakeConversationService) ListMessages(

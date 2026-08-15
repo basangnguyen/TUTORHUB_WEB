@@ -1324,6 +1324,35 @@ export async function ensureClassConversation(
   );
 }
 
+export async function ensureMediaSpaceConversation(
+  tenantID: string,
+  mediaSpaceID: string,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<Conversation> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/media/spaces/{space_id}/conversation",
+    {
+      params: {
+        path: { space_id: mediaSpaceID },
+        header: {
+          "X-CSRF-Token": csrfToken,
+          "X-TutorHub-Expected-Tenant-ID": tenantID,
+        },
+      },
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<Conversation>(
+    data as Conversation | undefined,
+    error,
+    response,
+  );
+}
+
 export async function listConversationMessages(
   tenantID: string,
   conversationID: string,

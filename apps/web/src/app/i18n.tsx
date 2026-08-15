@@ -471,6 +471,7 @@ const messages = {
       "Cuộc trò chuyện không tồn tại hoặc phiên hiện tại không còn quyền truy cập.",
     "conversations.directKind": "Trực tiếp",
     "conversations.classKind": "Lớp học",
+    "conversations.roomKind": "Phòng học",
     "conversations.participantsTitle": "Thành viên",
     "conversations.participantsEmpty": "Không có thành viên được hiển thị.",
     "conversations.updatedLabel": "Cập nhật gần nhất",
@@ -1928,6 +1929,18 @@ const messages = {
       "Nhà cung cấp media chưa sẵn sàng. Thay đổi chưa được xác nhận.",
     "media.p407.error.unknown":
       "Chưa thể thực hiện thao tác quản trị. Hãy thử lại.",
+    "media.p408.openChat": "Mở trò chuyện trong phòng",
+    "media.p408.title": "Trò chuyện trong phòng",
+    "media.p408.loading": "Đang mở lịch sử trò chuyện bền vững",
+    "media.p408.unavailableTitle": "Trò chuyện không khả dụng",
+    "media.p408.unavailableDescription":
+      "Phòng không tồn tại hoặc bạn không còn quyền xem lịch sử này.",
+    "media.p408.forbiddenTitle": "Không thể mở trò chuyện",
+    "media.p408.forbiddenDescription":
+      "Quyền truy cập trò chuyện trong phòng của bạn đã thay đổi.",
+    "media.p408.errorTitle": "Chưa thể mở trò chuyện",
+    "media.p408.errorDescription":
+      "Không thể xác nhận lịch sử phòng lúc này. Hãy thử lại.",
     "home.kicker": "Không gian học tập",
     "home.title": "Tổng quan hôm nay",
     "home.description":
@@ -2463,6 +2476,7 @@ const messages = {
       "The conversation does not exist or this session no longer has access.",
     "conversations.directKind": "Direct",
     "conversations.classKind": "Class",
+    "conversations.roomKind": "Room",
     "conversations.participantsTitle": "Members",
     "conversations.participantsEmpty": "No members are available to display.",
     "conversations.updatedLabel": "Last updated",
@@ -3925,6 +3939,17 @@ const messages = {
       "The media provider is unavailable. The change was not confirmed.",
     "media.p407.error.unknown":
       "The moderation action could not be completed. Please retry.",
+    "media.p408.openChat": "Open in-room chat",
+    "media.p408.title": "In-room chat",
+    "media.p408.loading": "Opening persistent room history",
+    "media.p408.unavailableTitle": "Chat is unavailable",
+    "media.p408.unavailableDescription":
+      "The room does not exist or you no longer have access to this history.",
+    "media.p408.forbiddenTitle": "Chat cannot be opened",
+    "media.p408.forbiddenDescription": "Your in-room chat access has changed.",
+    "media.p408.errorTitle": "Chat could not be opened",
+    "media.p408.errorDescription":
+      "The room history could not be confirmed. Please retry.",
     "home.kicker": "Learning workspace",
     "home.title": "Today at a glance",
     "home.description":

@@ -11,7 +11,7 @@
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
 | Phase hiện tại        | Phase 4 - Classroom Media MVP; Phase 3 deferred carry-over tiếp tục                          |
-| Trạng thái gần nhất   | P4-07 `DONE`; P4-08 `TODO`, review/amend ADR-0013/0025 trước classroom chat                 |
+| Trạng thái gần nhất   | P4-07 `DONE`; P4-08 `VERIFY`, local/disposable room-chat gates đã PASS                       |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 
@@ -2178,8 +2178,10 @@ snapshot đều PASS. Render deployment `dep-d9vjhvp5efls73ea5l3g` đạt `Live`
 deployment `1b935dc9-7498-4a3c-81c6-2571ca080c53` chạy exact candidate. Public acceptance đạt
 `16/16`; Admin feature-off/concealment, accessibility, resource/log audit và post-live
 zero-side-effect đều PASS. Không rollback, disposable branch được giữ lại, hai media feature tiếp
-tục force-off và `CanPublishData=false`. P4-08 là task `TODO` kế tiếp; phải review/amend
-ADR-0013/0025 trước khi triển khai classroom chat.
+tục force-off và `CanPublishData=false`. P4-08 đang `VERIFY`: ADR-0013/0025 đã amend, canonical
+room-conversation local candidate đã PASS local verify; Neon disposable đạt forward-only/idempotent
+`33 false -> 34 false -> 34 false`, exact ACL, authority/concurrency/privacy và final snapshot
+`34 dirty=false`. Candidate CI/security, shared staging và live acceptance chưa chạy.
 Physical/manual browser-device,
 25/50 provider load, outage và optional-effect gates vẫn `UNVERIFIED — P4-11`, không suy PASS.
 Không bật side effect chỉ vì core đã có. `P3-02D-B` và các gate worker/provider vẫn là

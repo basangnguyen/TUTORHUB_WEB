@@ -264,7 +264,9 @@ export function ConversationsPage() {
                           {t(
                             item.kind === "class"
                               ? "conversations.classKind"
-                              : "conversations.directKind",
+                              : item.kind === "room"
+                                ? "conversations.roomKind"
+                                : "conversations.directKind",
                           )}
                         </StatusBadge>
                       </span>
@@ -485,7 +487,9 @@ function ConversationDetail({
             {t(
               item.kind === "class"
                 ? "conversations.classKind"
-                : "conversations.directKind",
+                : item.kind === "room"
+                  ? "conversations.roomKind"
+                  : "conversations.directKind",
             )}
           </p>
           <h2 ref={detailHeading} tabIndex={-1}>

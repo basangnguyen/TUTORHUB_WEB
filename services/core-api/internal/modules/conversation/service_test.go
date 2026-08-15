@@ -72,6 +72,16 @@ func TestServiceNormalizesDirectTargetAndRejectsInvalidInputs(t *testing.T) {
 	if _, err := service.CreateClass(context.Background(), access, uuid.Nil); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("nil class error = %v, want not found", err)
 	}
+	if _, err := service.CreateRoom(context.Background(), access, uuid.Nil); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("nil media space error = %v, want not found", err)
+	}
+	mediaSpaceID := uuid.New()
+	if _, err := service.CreateRoom(context.Background(), access, mediaSpaceID); err != nil {
+		t.Fatalf("create room conversation: %v", err)
+	}
+	if repository.mediaSpaceID != mediaSpaceID {
+		t.Fatalf("media space ID = %s, want %s", repository.mediaSpaceID, mediaSpaceID)
+	}
 	invalidAccess := access
 	invalidAccess.MembershipActive = false
 	if _, err := service.Get(context.Background(), invalidAccess, uuid.New()); !errors.Is(err, ErrAccessDenied) {
@@ -274,6 +284,9 @@ type fakeRepository struct {
 	classID           uuid.UUID
 	class             CreateResult
 	classError        error
+	mediaSpaceID      uuid.UUID
+	room              CreateResult
+	roomError         error
 	get               Conversation
 	getError          error
 	messageListInput  MessageListInput
@@ -329,6 +342,15 @@ func (repository *fakeRepository) CreateClass(
 ) (CreateResult, error) {
 	repository.classID = classID
 	return repository.class, repository.classError
+}
+
+func (repository *fakeRepository) CreateRoom(
+	_ context.Context,
+	_ AccessContext,
+	mediaSpaceID uuid.UUID,
+) (CreateResult, error) {
+	repository.mediaSpaceID = mediaSpaceID
+	return repository.room, repository.roomError
 }
 
 func (repository *fakeRepository) ListMessages(

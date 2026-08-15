@@ -5305,6 +5305,25 @@ textarea:focus-visible {
   min-width: min(420px, calc(100vw - 24px));
 }
 
+.media-p408-chat-drawer {
+  display: flex;
+  width: min(32rem, calc(100vw - 24px));
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--space-4);
+  overflow-y: auto;
+}
+
+.media-p408-chat-drawer .conversation-messages,
+.media-p408-chat-drawer .conversation-message,
+.media-p408-chat-drawer .conversation-composer {
+  min-width: 0;
+}
+
+.media-p408-chat-drawer .conversation-message {
+  width: min(92%, 48rem);
+}
+
 .media-p406-roster,
 .media-p406-roster-state {
   margin: 16px 0;

@@ -1741,6 +1741,26 @@ export type paths = {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/api/v1/media/spaces/{space_id}/conversation": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Create or return the canonical persistent conversation for one MediaSpace
+     * @description The server reauthorizes the current MediaSpace source and current non-terminal ParticipantSession before creating the one-to-one room conversation. Retry and a later recovery RoomInstance reuse the same conversation. The request accepts no tenant, roster, role, provider identifier, or message body.
+     */
+    readonly post: operations["ensureMediaSpaceConversation"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/api/v1/media/spaces/{space_id}/end": {
     readonly parameters: {
       readonly query?: never;
@@ -3416,7 +3436,13 @@ export type components = {
       /** Format: uuid */
       readonly id: string;
       readonly kind: components["schemas"]["ConversationKind"];
-      /** @description The two direct participants. Class conversations return an empty array so this projection cannot bypass roster visibility policy. */
+      /**
+       * Format: uuid
+       * @description Present only for a room conversation; opaque LiveKit and participant identifiers are never exposed here.
+       */
+      readonly media_space_id?: string;
+      readonly media_space_status?: components["schemas"]["MediaSpaceStatus"];
+      /** @description The two direct participants. Class and room conversations return an empty array so this projection cannot bypass roster visibility policy. */
       readonly participants: readonly components["schemas"]["ConversationParticipant"][];
       readonly title: string;
       /** @description Bounded count of unread active messages authored by other participants. */
@@ -3428,7 +3454,7 @@ export type components = {
       readonly viewer_access: components["schemas"]["ConversationViewerAccess"];
     };
     /** @enum {string} */
-    readonly ConversationKind: "direct" | "class";
+    readonly ConversationKind: "direct" | "class" | "room";
     readonly ConversationPage: {
       readonly items: readonly components["schemas"]["Conversation"][];
       readonly next_cursor?: string;
@@ -8759,6 +8785,53 @@ export interface operations {
       readonly 403: components["responses"]["ForbiddenResponse"];
       readonly 404: components["responses"]["NotFoundResponse"];
       readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly ensureMediaSpaceConversation: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly "X-CSRF-Token": string;
+        /** @description Client cache-scope assertion; authorization still comes only from the server-side active session. */
+        readonly "X-TutorHub-Expected-Tenant-ID": string;
+      };
+      readonly path: {
+        readonly space_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Existing canonical room conversation */
+      readonly 200: {
+        headers: {
+          readonly "Cache-Control"?: "private, no-store";
+          readonly "Referrer-Policy"?: "no-referrer";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["Conversation"];
+        };
+      };
+      /** @description Canonical room conversation created */
+      readonly 201: {
+        headers: {
+          readonly "Cache-Control"?: "private, no-store";
+          readonly "Referrer-Policy"?: "no-referrer";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["Conversation"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 429: components["responses"]["ProblemResponse"];
       readonly 503: components["responses"]["ProblemResponse"];
       readonly default: components["responses"]["ProblemResponse"];
     };

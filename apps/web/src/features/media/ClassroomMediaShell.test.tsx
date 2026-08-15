@@ -486,6 +486,27 @@ describe("ClassroomMediaShell", () => {
     );
   });
 
+  it("opens persistent room chat as a labelled drawer and restores trigger focus", async () => {
+    renderShell({ chat: <div>Persistent room history</div> });
+
+    const opener = screen.getByRole("button", { name: "Open in-room chat" });
+    opener.focus();
+    fireEvent.click(opener);
+
+    expect(opener).toHaveAttribute("aria-expanded", "true");
+    expect(
+      await screen.findByRole("heading", { name: "In-room chat" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Persistent room history")).toBeInTheDocument();
+
+    const close = screen
+      .getAllByRole("button", { name: "Close" })
+      .find((button) => button.textContent?.trim() === "Close");
+    expect(close).toBeDefined();
+    fireEvent.click(close!);
+    await waitFor(() => expect(opener).toHaveFocus());
+  });
+
   it("retires an old page before subscribing replacements in reversed provider order", async () => {
     liveKitState.cameraTrackRefs = [...createCameraTracks(25)].reverse();
     renderShell();

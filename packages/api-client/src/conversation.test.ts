@@ -5,6 +5,7 @@ import {
   deleteConversationMessage,
   editConversationMessage,
   ensureClassConversation,
+  ensureMediaSpaceConversation,
   getConversation,
   listConversationMessages,
   listConversations,
@@ -30,6 +31,7 @@ const tenantID = "7f44c093-1cb2-46ae-8285-779b78728524";
 const conversationID = "c2dc1048-1d90-4c90-ae50-5fb436bfb607";
 const classConversationID = "8477ee76-c4aa-431f-bb65-405f4b6575c9";
 const classID = "0ce0994b-1d0c-4125-9ad0-dfba33f70322";
+const mediaSpaceID = "19f169c1-ed6c-4a33-aa93-e410d555747d";
 const actorID = "5391c8b2-1224-4105-a44e-452eb69d9884";
 const targetID = "ad831635-bca7-4d3e-b770-3e5d09452256";
 const messageID = "b9170d5e-c354-44a8-9241-4571a5e26e57";
@@ -60,6 +62,20 @@ const classConversation: Conversation = {
   unread_count_capped: false,
   participants: [{ display_name: "An", user_id: actorID }],
   title: "Lớp Toán",
+  updated_at: "2030-08-03T00:00:00Z",
+  viewer_access: { can_post_messages: true },
+};
+
+const roomConversation: Conversation = {
+  created_at: "2030-08-03T00:00:00Z",
+  id: "5add8a31-bacf-41e0-9bbc-8a183e649d4e",
+  kind: "room",
+  media_space_id: mediaSpaceID,
+  media_space_status: "open",
+  unread_count: 0,
+  unread_count_capped: false,
+  participants: [],
+  title: "Phòng học Toán",
   updated_at: "2030-08-03T00:00:00Z",
   viewer_access: { can_post_messages: true },
 };
@@ -112,6 +128,9 @@ describe("conversation API", () => {
       if (path.endsWith(`/classes/${classID}/conversation`)) {
         return Promise.resolve(jsonResponse(classConversation));
       }
+      if (path.endsWith(`/media/spaces/${mediaSpaceID}/conversation`)) {
+        return Promise.resolve(jsonResponse(roomConversation));
+      }
       return Promise.resolve(jsonResponse(directConversation));
     });
     const options = {
@@ -132,9 +151,15 @@ describe("conversation API", () => {
       options,
     );
     await ensureClassConversation(tenantID, classID, "class-csrf", options);
+    await ensureMediaSpaceConversation(
+      tenantID,
+      mediaSpaceID,
+      "room-csrf",
+      options,
+    );
 
     const requests = fetchMock.mock.calls.map((call) => call[0] as Request);
-    expect(requests).toHaveLength(4);
+    expect(requests).toHaveLength(5);
     for (const request of requests) {
       expect(request.credentials).toBe("include");
       expect(request.headers.get("X-TutorHub-Expected-Tenant-ID")).toBe(
@@ -152,6 +177,7 @@ describe("conversation API", () => {
     ).toEqual([null, null]);
     expect(requests[2]?.headers.get("X-CSRF-Token")).toBe("direct-csrf");
     expect(requests[3]?.headers.get("X-CSRF-Token")).toBe("class-csrf");
+    expect(requests[4]?.headers.get("X-CSRF-Token")).toBe("room-csrf");
 
     const listURL = new URL(requests[0]!.url);
     expect(listURL.searchParams.get("cursor")).toBe("conversation_cursor_v0");
@@ -173,6 +199,10 @@ describe("conversation API", () => {
       `/api/v1/classes/${classID}/conversation`,
     );
     expect(await requests[3]!.clone().text()).toBe("");
+    expect(new URL(requests[4]!.url).pathname).toBe(
+      `/api/v1/media/spaces/${mediaSpaceID}/conversation`,
+    );
+    expect(await requests[4]!.clone().text()).toBe("");
   });
 
   it("rejects an empty expected tenant before sending", async () => {

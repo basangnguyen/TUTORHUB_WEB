@@ -12,6 +12,7 @@ import (
 const (
 	KindDirect Kind = "direct"
 	KindClass  Kind = "class"
+	KindRoom   Kind = "room"
 
 	defaultListLimit    = 30
 	maximumListLimit    = 100
@@ -52,6 +53,8 @@ type Conversation struct {
 	Kind              Kind          `json:"kind"`
 	ClassID           *uuid.UUID    `json:"class_id,omitempty"`
 	ClassStatus       *string       `json:"class_status,omitempty"`
+	MediaSpaceID      *uuid.UUID    `json:"media_space_id,omitempty"`
+	MediaSpaceStatus  *string       `json:"media_space_status,omitempty"`
 	Title             string        `json:"title"`
 	Participants      []Participant `json:"participants"`
 	ViewerAccess      ViewerAccess  `json:"viewer_access"`
@@ -82,6 +85,7 @@ type ServiceAPI interface {
 	Get(context.Context, AccessContext, uuid.UUID) (Conversation, error)
 	CreateDirect(context.Context, AccessContext, string) (CreateResult, error)
 	CreateClass(context.Context, AccessContext, uuid.UUID) (CreateResult, error)
+	CreateRoom(context.Context, AccessContext, uuid.UUID) (CreateResult, error)
 	ListMessages(context.Context, AccessContext, uuid.UUID, MessageListInput) (MessagePage, error)
 	SendMessage(context.Context, AccessContext, uuid.UUID, SendMessageInput) (MessageMutationResult, error)
 	EditMessage(context.Context, AccessContext, uuid.UUID, uuid.UUID, EditMessageInput) (Message, error)

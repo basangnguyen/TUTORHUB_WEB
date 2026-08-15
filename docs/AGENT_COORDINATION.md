@@ -198,7 +198,7 @@ hoặc worker-driven file processing/sharing tới end user.
 | P4-05           | DONE       | Exact CI/shared/deploy/live + isolated provider PASS        |
 | P4-06           | DONE       | Exact CI/shared/deploy/live feature-off/no-side-effect PASS |
 | P4-07           | DONE       | Exact CI/shared/deploy/live moderation acceptance PASS      |
-| P4-08           | TODO       | Task kế tiếp; review/amend ADR-0013/0025 trước classroom chat |
+| P4-08           | VERIFY     | Local/disposable room-chat gates PASS; candidate/shared/live còn lại |
 | P4-09 đến P4-10 | TODO       | Reconnect/telemetry                                         |
 | P4-11           | TODO       | Browser/device/load/provider-outage acceptance             |
 | P4-12           | TODO       | Exact staging acceptance và Phase 4 closure                |
@@ -264,9 +264,9 @@ deployment `1b935dc9-7498-4a3c-81c6-2571ca080c53` chạy exact candidate. Public
 zero-side-effect đều PASS. Không rollback, disposable branch được giữ lại, hai media feature tiếp
 tục force-off và `CanPublishData=false`.
 
-`P4-MEDIA-UX-00`, P4-03, P4-04, P4-05, P4-06 và P4-07 đã `DONE`; P4-08 là task `TODO` kế tiếp.
-Trước khi triển khai classroom chat phải review/amend ADR-0013/0025 vì conversation hiện chỉ có
-`direct` và `class`.
+`P4-MEDIA-UX-00`, P4-03, P4-04, P4-05, P4-06 và P4-07 đã `DONE`; P4-08 đang `VERIFY`.
+ADR-0013/0025 đã được amend, canonical room conversation và Neon disposable gate đã PASS;
+candidate CI, shared staging và deploy/live acceptance còn lại.
 P4-03/P4-04/P4-05/
 P4-06/P4-11 phải dùng explicit device probe, bounded layout 2/5/25/50 và
 Core API signal contract đã chốt. `effect=None` là baseline; Track Processors chưa phải production

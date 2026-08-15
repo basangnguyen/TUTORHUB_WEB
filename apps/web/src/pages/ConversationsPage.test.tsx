@@ -24,6 +24,7 @@ const teacherID = "be85eb92-0f18-4163-85ba-50e4d343d632";
 const studentID = "53f0dac5-6c10-46ff-bcb8-da03d07bc142";
 const directID = "c82ef7ee-0a1b-4e99-b9d5-3ae20858a82e";
 const classConversationID = "4cbcb21e-008f-4693-ab95-a5bc952802df";
+const roomConversationID = "6a8b229d-b4ee-4464-bb94-b0c0af8828a6";
 
 const session: CurrentUser = {
   user: {
@@ -83,6 +84,20 @@ const archivedClassConversation: Conversation = {
   unread_count_capped: false,
   created_at: "2026-08-03T08:00:00Z",
   updated_at: "2026-08-03T10:00:00Z",
+};
+
+const endedRoomConversation: Conversation = {
+  id: roomConversationID,
+  kind: "room",
+  media_space_id: "dd060149-e85d-43c2-98d0-110f6e3ead29",
+  media_space_status: "ended",
+  title: "Phòng ôn tập Toán",
+  participants: [],
+  viewer_access: { can_post_messages: false },
+  unread_count: 0,
+  unread_count_capped: false,
+  created_at: "2026-08-03T08:00:00Z",
+  updated_at: "2026-08-03T11:00:00Z",
 };
 
 function jsonResponse(body: unknown, status = 200) {
@@ -181,6 +196,35 @@ describe("ConversationsPage", () => {
     expect(
       screen.getByText("Không có thành viên được hiển thị."),
     ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("textbox", { name: "Tin nhắn mới" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("keeps ended room history in the canonical conversation surface", async () => {
+    const fetchMock = vi.fn().mockImplementation((request: Request) => {
+      const path = new URL(request.url).pathname;
+      if (
+        path.endsWith(`/api/v1/conversations/${roomConversationID}/messages`)
+      ) {
+        return Promise.resolve(emptyMessagePageResponse());
+      }
+      if (path.endsWith(`/api/v1/conversations/${roomConversationID}`)) {
+        return Promise.resolve(jsonResponse(endedRoomConversation));
+      }
+      if (path.endsWith("/api/v1/conversations")) {
+        return Promise.resolve(listResponse([endedRoomConversation]));
+      }
+      return Promise.reject(new Error(`Unexpected request: ${request.url}`));
+    });
+
+    renderPage(`/app/messages/${roomConversationID}`, fetchMock);
+
+    expect(
+      await screen.findByRole("heading", { name: "Phòng ôn tập Toán" }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText("Phòng học")).toHaveLength(2);
+    expect(screen.getByText("Chỉ đọc", { exact: true })).toBeInTheDocument();
     expect(
       screen.queryByRole("textbox", { name: "Tin nhắn mới" }),
     ).not.toBeInTheDocument();

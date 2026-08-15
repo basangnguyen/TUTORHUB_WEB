@@ -6,7 +6,7 @@
 
 | Thuộc tính           | Trạng thái                                                                            |
 | -------------------- | ------------------------------------------------------------------------------------- |
-| Ngày cập nhật        | 2026-08-14                                                                            |
+| Ngày cập nhật        | 2026-08-15                                                                            |
 | Repository           | `https://github.com/basangnguyen/TUTORHUB_WEB`                                        |
 | Nhánh làm việc       | `main`                                                                                |
 | Quy trình            | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
@@ -14,8 +14,8 @@
 | Phase hiện tại       | Phase 4 Classroom Media MVP; Phase 3 deferred carry-over vẫn hoạt động                |
 | Task `DONE` gần nhất | P4-07 Host/co-host/TA moderation                                                       |
 | Mốc repository mới   | Exact candidate `2c309eab` đã PASS CI/shared/deploy/live trên Render/Cloudflare        |
-| Task hiện tại        | P4-08 Persistent in-room chat (`TODO`)                                                 |
-| Task tiếp theo       | Review/amend ADR-0013/0025 trước khi bắt đầu P4-08                                    |
+| Task hiện tại        | P4-08 Persistent in-room chat (`VERIFY`)                                               |
+| Task tiếp theo       | Review/stage candidate, push `main`, GitHub Verify/Security rồi xin quyền shared/live   |
 
 ### Checkpoint P4-07 `DONE` ngày 2026-08-14
 
@@ -70,8 +70,30 @@ giữ lại, `CanPublishData=false` và cả hai media capability tiếp tục d
 và optional-effect gates vẫn `UNVERIFIED — P4-11`, không được suy PASS từ slice này. Evidence:
 [P4_07_STAGING_ACCEPTANCE.md](P4_07_STAGING_ACCEPTANCE.md).
 
-P4-08 Persistent in-room chat là task `TODO` tiếp theo. Trước khi triển khai phải review/amend
-ADR-0013/0025 để chốt room-scoped conversation authority và không tạo parallel ad-hoc message model.
+### Checkpoint P4-08 `VERIFY` ngày 2026-08-15
+
+ADR-0013/0025 đã được review/amend: room chat là kind thứ ba của canonical conversation aggregate,
+liên kết một-một với MediaSpace và tiếp tục dùng messages/message_receipts của P3-07A. Forward
+migration `000034_persistent_room_conversations` thêm tenant-composite FK, partial unique index và
+shape constraint; không tạo bảng chat song song, không lưu LiveKit DataChannel/provider content.
+
+Core API đã có endpoint ensure room conversation, tenant/source concealment và write barrier khóa
+MediaSpace -> source -> active RoomInstance -> ParticipantSession trước conversation mutation.
+Official room đọc theo current `class.view`; StudyMeeting đọc theo owner/active explicit member.
+Write chỉ mở khi source cho phép, MediaSpace `open` và participant còn
+`admitted|joining|connected|reconnecting`; room end hoặc participant `left|removed|failed` chuyển ngay
+sang read-only. Exact idempotent replay vẫn đọc lại committed row nên reconnect không nhân đôi message.
+
+Classroom shell đã có labelled chat drawer dùng lại ConversationMessages, unread/read, pagination,
+sanitization và composer; loading/empty/error/forbidden/retry, focus return và long-content wrapping đã
+có automated coverage. Full local verify gates, OpenAPI/generated client, integration-tag compile/vet
+và toàn bộ web test `67/67` files, `430/430` tests đã PASS. Neon disposable PASS owner preflight
+`33 dirty=false`, forward-only/idempotent `33 false -> 34 false -> 34 false`, exact runtime/PUBLIC và
+dependency column ACL, canonical concurrency, tenant/source/member authority, removal-vs-send barrier,
+ended-room replay cùng privacy. Final snapshot giữ `ledger=34 dirty=false`,
+`room_conversations=2`, `retained_enabled_media_overrides=2`; không rollback và disposable branch vẫn
+được giữ. P4-08 chuyển `IN PROGRESS -> VERIFY`; candidate chưa commit/push, shared staging/deploy chưa
+được chạm tới. Evidence/runbook: [P4_08_STAGING_ACCEPTANCE.md](P4_08_STAGING_ACCEPTANCE.md).
 
 ### Checkpoint P4-06 `DONE` ngày 2026-08-13
 

@@ -10,6 +10,7 @@ import {
   APIRequestError,
   createDirectConversation,
   ensureClassConversation,
+  ensureMediaSpaceConversation,
   getConversation,
   listConversationMessages,
   listConversations,
@@ -366,6 +367,34 @@ export function useEnsureClassConversation(tenantID: string | undefined) {
         : Promise.resolve(),
     onSettled: () =>
       Promise.all([
+        invalidateTenantAudit(queryClient, tenantID),
+        invalidateTenantCapabilities(queryClient, tenantID),
+      ]),
+    retry: false,
+    scope: conversationCSRFMutationScope,
+  });
+}
+
+export function useEnsureMediaSpaceConversation(tenantID: string | undefined) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (mediaSpaceID: string) => {
+      const csrf = await rotateCSRFToken({ baseUrl: getApiBaseUrl() });
+      return ensureMediaSpaceConversation(
+        tenantID ?? "",
+        mediaSpaceID,
+        csrf.csrf_token,
+        { baseUrl: getApiBaseUrl() },
+      );
+    },
+    onSuccess: (conversation) =>
+      tenantID
+        ? synchronizeConversation(queryClient, tenantID, conversation)
+        : Promise.resolve(),
+    onSettled: () =>
+      Promise.all([
+        invalidateTenantConversations(queryClient, tenantID),
         invalidateTenantAudit(queryClient, tenantID),
         invalidateTenantCapabilities(queryClient, tenantID),
       ]),

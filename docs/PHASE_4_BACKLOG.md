@@ -30,8 +30,8 @@ Security `31814509808`. Disposable/shared đều đạt forward-only
 feature-off/conceal/accessibility/resource/log acceptance đều PASS. Không rollback; disposable
 branch được giữ lại và các gate physical/manual/load/outage tiếp tục `UNVERIFIED — P4-11`.
 Evidence tại [P4_07_STAGING_ACCEPTANCE.md](P4_07_STAGING_ACCEPTANCE.md).
-**Task tiếp theo:** `P4-08` Persistent in-room chat (`TODO`); review/amend ADR-0013/0025 trước khi
-thêm room-scoped conversation authority.
+**Task hiện tại:** `P4-08` Persistent in-room chat (`VERIFY`). ADR-0013/0025 đã được review/amend;
+local candidate và Neon disposable forward-only/database gates đã PASS. Candidate CI/shared/live còn lại.
 
 `P4-MEDIA-UX-00` đã `DONE`; không đổi LiveKit provider, không thêm processor production dependency
 hoặc mở `CanPublishData=false`. P4-03/P4-04/P4-05/P4-06/P4-11 phải tuân ADR-0031 và báo rõ các
@@ -85,7 +85,7 @@ physical/manual effect gate còn `UNVERIFIED` thay vì suy PASS từ research.
 | P4-05          | Classroom shell, media controls và layouts          | P4-03, P4-MEDIA-UX-00           | DONE       |
 | P4-06          | Participant roster, hand raise và reaction          | P4-04, P4-05, P4-MEDIA-UX-00    | DONE       |
 | P4-07          | Host/co-host/TA moderation, lock/mute/remove/end    | P4-04, P4-06                    | DONE       |
-| P4-08          | Persistent in-room chat                             | P4-01, P3-07A; ADR review       | TODO       |
+| P4-08          | Persistent in-room chat                             | P4-01, P3-07A; ADR review       | VERIFY      |
 | P4-09          | Reconnect, recovery instance và degraded audio-only | P4-02, P4-05, P4-07             | TODO       |
 | P4-10          | Join telemetry, privacy và diagnostics export       | P4-02, P4-03, P4-09             | TODO       |
 | P4-11          | Browser/device matrix, load và outage runbook       | P4-05 đến P4-10                 | TODO       |
@@ -529,7 +529,7 @@ surprised`, TTL 10 giây, grouping 750 ms, snapshot max 50 summary/UI max 3 visu
 
 ## 15. P4-08 Persistent in-room chat
 
-**Dependency:** P4-01/P3-07A và ADR review. **Trạng thái:** `TODO`.
+**Dependency:** P4-01/P3-07A và ADR review. **Trạng thái:** `VERIFY`.
 
 ### Scope
 
@@ -538,12 +538,31 @@ surprised`, TTL 10 giây, grouping 750 ms, snapshot max 50 summary/UI max 3 visu
 - LiveKit DataChannel only optional transient hint; database REST response remains source of truth.
 - History visibility follows room/source policy; ended room becomes read-only.
 
+### Local candidate — 2026-08-14
+
+- ADR-0013/0025 chốt `room` là kind thứ ba của canonical conversation aggregate, liên kết một-một
+  với `MediaSpace`; không tạo message table hoặc provider-content path song song.
+- Forward migration `000034_persistent_room_conversations` thêm tenant-composite FK, partial unique
+  index và shape constraint; PUBLIC tiếp tục zero privilege.
+- Core API tạo/lấy room conversation theo current class/StudyMeeting authority. Write reauthorizes
+  MediaSpace `open`, active RoomInstance và ParticipantSession `admitted|joining|connected|reconnecting`
+  trong cùng transaction; `left|removed|failed`, room end và source revoke thắng write/reconnect.
+- Web classroom shell mở drawer chat bền vững và tái sử dụng pagination, unread/read, sanitization,
+  idempotent retry cùng message composer của P3-07A. UI giữ lịch sử read-only sau room end và có
+  loading/empty/error/forbidden/retry, keyboard focus return cùng long-content wrapping.
+- Full local verify gates, integration-tag compile/vet, OpenAPI generation check, web lint/typecheck và
+  toàn bộ web test `67/67` files, `430/430` tests đã PASS. Neon disposable PASS preflight
+  `33 dirty=false`, forward-only/idempotent `33 false -> 34 false -> 34 false`, exact ACL,
+  authority/concurrency/privacy và final snapshot `34 dirty=false`. Exact candidate CI/security,
+  shared staging và live acceptance chưa chạy; xem
+  [P4_08_STAGING_ACCEPTANCE.md](P4_08_STAGING_ACCEPTANCE.md).
+
 ### Acceptance
 
-- [ ] No parallel ad-hoc media message table or provider webhook content persistence.
-- [ ] Retry/reconnect does not duplicate or lose committed messages; foreign room concealed.
-- [ ] Removed/inactive member loses new write immediately; historical read follows explicit policy.
-- [ ] Message content absent from log/audit/telemetry; accessibility and long-content layout PASS.
+- [x] No parallel ad-hoc media message table or provider webhook content persistence.
+- [x] Retry/reconnect does not duplicate or lose committed messages; foreign room concealed.
+- [x] Removed/inactive member loses new write immediately; historical read follows explicit policy.
+- [x] Message content absent from log/audit/telemetry; accessibility and long-content layout PASS.
 
 ## 16. P4-09 Reconnect, recovery instance và degraded audio-only
 
@@ -688,5 +707,7 @@ PostgreSQL. Mỗi implementation slice phải cập nhật khi thêm provider co
    final/post-live snapshot sạch, Render/Cloudflare exact deploy và live `16/16` + Admin
    feature-off/conceal/accessibility/resource/log acceptance đều PASS. Không rollback; disposable
    branch được giữ lại và P4-11 deferred gates không bị suy PASS.
-8. P4-08 Persistent in-room chat là task `TODO` tiếp theo; review/amend ADR-0013/0025 trước khi
-   triển khai room-scoped conversation authority.
+8. P4-08 Persistent in-room chat đang `VERIFY`; ADR-0013/0025, local candidate và Neon disposable
+   đã PASS. Disposable đạt forward-only/idempotent `33 false -> 34 false -> 34 false`, exact ACL,
+   database authority/concurrency/privacy và final snapshot `34 dirty=false`; candidate CI/security,
+   shared staging và deploy/live vẫn chưa chạy.

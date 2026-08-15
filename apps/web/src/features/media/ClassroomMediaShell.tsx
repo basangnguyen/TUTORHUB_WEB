@@ -46,6 +46,7 @@ import {
   ScreenShareOff,
   Settings2,
   Smile,
+  MessageCircle,
   UserRound,
   Users,
 } from "lucide-react";
@@ -106,6 +107,7 @@ export interface ClassroomMediaShellProps {
   canSubscribe: boolean;
   connectionStatus: ClassroomConnectionStatus;
   controlAbortSignal?: AbortSignal;
+  chat?: ReactNode;
   lobby?: ReactNode;
   moderation?: ClassroomModerationControlsModel;
   signals?: ClassroomSignalControls;
@@ -163,6 +165,7 @@ type ToolbarControlKey =
   | "devices"
   | "hand"
   | "reaction"
+  | "chat"
   | "roster"
   | "layout-grid"
   | "layout-active-speaker"
@@ -189,6 +192,7 @@ export function ClassroomMediaShell({
   canSubscribe,
   connectionStatus,
   controlAbortSignal,
+  chat,
   lobby,
   moderation,
   signals,
@@ -212,6 +216,7 @@ export function ClassroomMediaShell({
   const [devicePanelOpen, setDevicePanelOpen] = useState(false);
   const [railOpen, setRailOpen] = useState(false);
   const [rosterOpen, setRosterOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
   const [signalFeedback, setSignalFeedback] = useState<TranslationKey | null>(
     null,
   );
@@ -455,6 +460,7 @@ export function ClassroomMediaShell({
       ...(signals?.projection?.viewer_operations.can_send_reaction
         ? (["reaction"] as const)
         : []),
+      ...(chat ? (["chat"] as const) : []),
       ...(signals ? (["roster"] as const) : []),
       "layout-grid",
       "layout-active-speaker",
@@ -463,6 +469,7 @@ export function ClassroomMediaShell({
     [
       canPublishCameraMicrophone,
       canShareScreen,
+      chat,
       controlsTerminated,
       pendingControl,
       presenterID,
@@ -1270,6 +1277,34 @@ export function ClassroomMediaShell({
                 ))}
               </MenuContent>
             </Menu>
+          )}
+
+          {chat && (
+            <Drawer onOpenChange={setChatOpen} open={chatOpen}>
+              <DrawerTrigger asChild>
+                <IconButton
+                  data-media-control="chat"
+                  id="media-p408-control-chat"
+                  label={t("media.p408.openChat")}
+                  onFocus={() => setToolbarFocusKey("chat")}
+                  tabIndex={toolbarTabIndex("chat")}
+                  variant="secondary"
+                >
+                  <MessageCircle />
+                </IconButton>
+              </DrawerTrigger>
+              <DrawerContent
+                className="media-p408-chat-drawer"
+                closeLabel={t("media.p405.close")}
+                data-theme="dark"
+              >
+                <DrawerTitle>{t("media.p408.title")}</DrawerTitle>
+                {chat}
+                <DrawerClose asChild>
+                  <Button variant="secondary">{t("media.p405.close")}</Button>
+                </DrawerClose>
+              </DrawerContent>
+            </Drawer>
           )}
 
           {signals && (

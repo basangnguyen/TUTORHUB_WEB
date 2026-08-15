@@ -105,6 +105,29 @@ WHERE conversation.tenant_id = $1
               )
           )
       )
+      OR (
+          conversation.kind = 'room'
+          AND (
+              (
+                  room_space.class_id IS NOT NULL
+                  AND (
+                      $6::boolean
+                      OR class.owner_user_id = $5
+                      OR (
+                          actor_enrollment.user_id = $5
+                          AND actor_enrollment.status = 'active'
+                      )
+                  )
+              )
+              OR (
+                  room_space.source_kind = 'study_meeting'
+                  AND (
+                      study_meeting.owner_user_id = $5
+                      OR room_member.status = 'active'
+                  )
+              )
+          )
+      )
   )
 ORDER BY conversation.updated_at DESC, conversation.id DESC
 LIMIT $7`,
@@ -454,6 +477,96 @@ WHERE tenant_id = $1 AND kind = 'class' AND class_id = $2`,
 	return CreateResult{Conversation: item, Created: created}, nil
 }
 
+func (repository *PostgresRepository) CreateRoom(
+	ctx context.Context,
+	access AccessContext,
+	mediaSpaceID uuid.UUID,
+) (CreateResult, error) {
+	queryContext, cancel := context.WithTimeout(ctx, repository.queryTimeout)
+	defer cancel()
+	transaction, err := repository.database.Begin(queryContext)
+	if err != nil {
+		return CreateResult{}, fmt.Errorf("begin room conversation creation: %w", err)
+	}
+	defer rollback(transaction)
+	if err := repository.controls.RequireFeature(
+		queryContext, transaction, access.TenantID, featurecontrol.FeatureConversations,
+	); err != nil {
+		return CreateResult{}, err
+	}
+	if err := repository.controls.RequireFeature(
+		queryContext, transaction, access.TenantID, featurecontrol.FeatureClassroomMediaRooms,
+	); err != nil {
+		return CreateResult{}, err
+	}
+	if err := lockActiveTenant(queryContext, transaction, access.TenantID); err != nil {
+		return CreateResult{}, err
+	}
+	access, err = repository.lockRoomConversationWriteAccess(
+		queryContext, transaction, access, mediaSpaceID,
+	)
+	if err != nil {
+		return CreateResult{}, err
+	}
+	conversationID := uuid.New()
+	createdAt := time.Now().UTC()
+	var insertedID uuid.UUID
+	err = transaction.QueryRow(
+		queryContext,
+		`INSERT INTO tutorhub.conversations (
+    id, tenant_id, kind, media_space_id, created_by_user_id, created_at, updated_at
+)
+VALUES ($1, $2, 'room', $3, $4, $5, $5)
+ON CONFLICT (tenant_id, media_space_id) WHERE kind = 'room'
+DO NOTHING
+RETURNING id`,
+		conversationID,
+		access.TenantID,
+		mediaSpaceID,
+		access.ActorID,
+		createdAt,
+	).Scan(&insertedID)
+	created := true
+	if errors.Is(err, pgx.ErrNoRows) {
+		created = false
+		if err := transaction.QueryRow(
+			queryContext,
+			`SELECT id
+FROM tutorhub.conversations
+WHERE tenant_id = $1 AND kind = 'room' AND media_space_id = $2`,
+			access.TenantID,
+			mediaSpaceID,
+		).Scan(&conversationID); err != nil {
+			return CreateResult{}, fmt.Errorf("load canonical room conversation: %w", err)
+		}
+	} else if err != nil {
+		return CreateResult{}, fmt.Errorf("insert room conversation: %w", err)
+	} else {
+		conversationID = insertedID
+	}
+	if created {
+		if err := appendCreatedAudit(
+			queryContext, transaction, access, conversationID, KindRoom, createdAt,
+		); err != nil {
+			return CreateResult{}, err
+		}
+	}
+	row, err := loadConversationRow(
+		queryContext, transaction, access.TenantID, access.ActorID, conversationID,
+	)
+	if err != nil {
+		return CreateResult{}, fmt.Errorf("load created room conversation: %w", err)
+	}
+	item, err := repository.project(access, row, policy.ActionClassView)
+	if err != nil {
+		return CreateResult{}, err
+	}
+	if err := transaction.Commit(queryContext); err != nil {
+		return CreateResult{}, fmt.Errorf("commit room conversation creation: %w", err)
+	}
+	return CreateResult{Conversation: item, Created: created}, nil
+}
+
 type lockedMember struct {
 	Role   policy.OrganizationRole
 	Active bool
@@ -462,6 +575,174 @@ type lockedMember struct {
 type lockedClass struct {
 	OwnerUserID uuid.UUID
 	Status      string
+}
+
+type lockedRoomConversationSpace struct {
+	Status         string
+	SourceKind     string
+	ClassID        uuid.NullUUID
+	StudyMeetingID uuid.NullUUID
+}
+
+func (repository *PostgresRepository) lockRoomConversationWriteAccess(
+	ctx context.Context,
+	transaction pgx.Tx,
+	access AccessContext,
+	mediaSpaceID uuid.UUID,
+) (AccessContext, error) {
+	var space lockedRoomConversationSpace
+	if err := transaction.QueryRow(
+		ctx,
+		`SELECT status, source_kind, class_id, source_study_meeting_id
+FROM tutorhub.media_spaces
+WHERE tenant_id = $1 AND id = $2
+FOR SHARE`,
+		access.TenantID,
+		mediaSpaceID,
+	).Scan(
+		&space.Status,
+		&space.SourceKind,
+		&space.ClassID,
+		&space.StudyMeetingID,
+	); errors.Is(err, pgx.ErrNoRows) {
+		return AccessContext{}, ErrNotFound
+	} else if err != nil {
+		return AccessContext{}, fmt.Errorf("lock room conversation space: %w", err)
+	}
+
+	member, err := lockActorMember(ctx, transaction, access.TenantID, access.ActorID)
+	if err != nil {
+		return AccessContext{}, err
+	}
+	access.MembershipActive = member.Active
+	access.OrganizationRoles = []policy.OrganizationRole{member.Role}
+
+	switch space.SourceKind {
+	case "class_session", "class_session_occurrence":
+		if !space.ClassID.Valid {
+			return AccessContext{}, ErrNotFound
+		}
+		class, err := lockConversationClass(
+			ctx, transaction, access.TenantID, space.ClassID.UUID,
+		)
+		if err != nil {
+			return AccessContext{}, err
+		}
+		classRole, err := lockActorClassRole(
+			ctx, transaction, access.TenantID, space.ClassID.UUID, access.ActorID,
+		)
+		if err != nil {
+			return AccessContext{}, err
+		}
+		classRoles := make([]policy.ClassRole, 0, 2)
+		if class.OwnerUserID == access.ActorID {
+			classRoles = append(classRoles, policy.ClassRoleOwner)
+		}
+		if classRole != nil {
+			classRoles = append(classRoles, *classRole)
+		}
+		decision := repository.authorizer.Authorize(policy.Input{
+			Subject: policy.Subject{
+				ActorID: access.ActorID, ActiveTenantID: access.TenantID,
+				MembershipActive:  access.MembershipActive,
+				OrganizationRoles: access.OrganizationRoles,
+				ClassRoles:        classRoles,
+			},
+			Action: policy.ActionChatSend,
+			Resource: policy.Resource{
+				TenantID: access.TenantID, ClassID: space.ClassID.UUID,
+				State: policy.ResourceState(class.Status),
+			},
+		})
+		if !decision.Allowed {
+			if decision.ConcealResource {
+				return AccessContext{}, ErrNotFound
+			}
+			if decision.Reason == policy.DenialResourceState {
+				return AccessContext{}, ErrReadOnly
+			}
+			return AccessContext{}, ErrAccessDenied
+		}
+	case "study_meeting":
+		if !space.StudyMeetingID.Valid {
+			return AccessContext{}, ErrNotFound
+		}
+		var ownerID uuid.UUID
+		if err := transaction.QueryRow(
+			ctx,
+			`SELECT owner_user_id
+FROM tutorhub.study_meetings
+WHERE tenant_id = $1 AND id = $2
+FOR SHARE`,
+			access.TenantID,
+			space.StudyMeetingID.UUID,
+		).Scan(&ownerID); errors.Is(err, pgx.ErrNoRows) {
+			return AccessContext{}, ErrNotFound
+		} else if err != nil {
+			return AccessContext{}, fmt.Errorf("lock room conversation study meeting: %w", err)
+		}
+		if ownerID != access.ActorID {
+			var memberState string
+			if err := transaction.QueryRow(
+				ctx,
+				`SELECT status
+FROM tutorhub.media_space_members
+WHERE tenant_id = $1 AND space_id = $2 AND user_id = $3
+FOR SHARE`,
+				access.TenantID,
+				mediaSpaceID,
+				access.ActorID,
+			).Scan(&memberState); errors.Is(err, pgx.ErrNoRows) {
+				return AccessContext{}, ErrNotFound
+			} else if err != nil {
+				return AccessContext{}, fmt.Errorf("lock room conversation member: %w", err)
+			}
+			if memberState != "active" {
+				return AccessContext{}, ErrNotFound
+			}
+		}
+	default:
+		return AccessContext{}, ErrNotFound
+	}
+
+	if space.Status != "open" {
+		return AccessContext{}, ErrReadOnly
+	}
+	var roomInstanceID uuid.UUID
+	if err := transaction.QueryRow(
+		ctx,
+		`SELECT id
+FROM tutorhub.media_room_instances
+WHERE tenant_id = $1 AND space_id = $2 AND status = 'active'
+FOR SHARE`,
+		access.TenantID,
+		mediaSpaceID,
+	).Scan(&roomInstanceID); errors.Is(err, pgx.ErrNoRows) {
+		return AccessContext{}, ErrReadOnly
+	} else if err != nil {
+		return AccessContext{}, fmt.Errorf("lock room conversation instance: %w", err)
+	}
+	var participantStatus string
+	if err := transaction.QueryRow(
+		ctx,
+		`SELECT status
+FROM tutorhub.media_participant_sessions
+WHERE tenant_id = $1
+  AND space_id = $2
+  AND room_instance_id = $3
+  AND user_id = $4
+  AND status IN ('admitted', 'joining', 'connected', 'reconnecting')
+FOR SHARE`,
+		access.TenantID,
+		mediaSpaceID,
+		roomInstanceID,
+		access.ActorID,
+	).Scan(&participantStatus); errors.Is(err, pgx.ErrNoRows) {
+		return AccessContext{}, ErrReadOnly
+	} else if err != nil {
+		return AccessContext{}, fmt.Errorf("lock room conversation participant: %w", err)
+	}
+	return access, nil
 }
 
 func lockActiveTenant(ctx context.Context, transaction pgx.Tx, tenantID uuid.UUID) error {
@@ -648,6 +929,7 @@ type conversationRow struct {
 	TenantID             uuid.UUID
 	Kind                 Kind
 	ClassID              uuid.NullUUID
+	MediaSpaceID         uuid.NullUUID
 	DirectLowID          uuid.NullUUID
 	DirectHighID         uuid.NullUUID
 	CreatedAt            time.Time
@@ -662,13 +944,20 @@ type conversationRow struct {
 	LowActive            bool
 	HighActive           bool
 	UnreadCount          int
+	MediaSpaceStatus     sql.NullString
+	MediaSourceKind      sql.NullString
+	MediaTitle           sql.NullString
+	MediaOwnerID         uuid.NullUUID
+	MediaMemberState     sql.NullString
+	MediaParticipantLive bool
 }
 
 const conversationSelect = `SELECT
     conversation.id,
     conversation.tenant_id,
     conversation.kind,
-    conversation.class_id,
+    COALESCE(conversation.class_id, room_space.class_id),
+    conversation.media_space_id,
     conversation.direct_user_low_id,
     conversation.direct_user_high_id,
     conversation.created_at,
@@ -701,15 +990,45 @@ const conversationSelect = `SELECT
             ORDER BY unread_message.sequence
             LIMIT 101
         ) AS bounded_unread
+    ),
+    room_space.status,
+    room_space.source_kind,
+    COALESCE(class.title, study_meeting.title),
+    study_meeting.owner_user_id,
+    room_member.status,
+    EXISTS (
+        SELECT 1
+        FROM tutorhub.media_participant_sessions AS room_participant
+        JOIN tutorhub.media_room_instances AS active_room
+          ON active_room.tenant_id = room_participant.tenant_id
+         AND active_room.space_id = room_participant.space_id
+         AND active_room.id = room_participant.room_instance_id
+         AND active_room.status = 'active'
+        WHERE room_participant.tenant_id = conversation.tenant_id
+          AND room_participant.space_id = conversation.media_space_id
+          AND room_participant.user_id = $5
+          AND room_participant.status IN (
+              'admitted', 'joining', 'connected', 'reconnecting'
+          )
     )
 FROM tutorhub.conversations AS conversation
+LEFT JOIN tutorhub.media_spaces AS room_space
+  ON room_space.tenant_id = conversation.tenant_id
+ AND room_space.id = conversation.media_space_id
 LEFT JOIN tutorhub.classes AS class
   ON class.tenant_id = conversation.tenant_id
- AND class.id = conversation.class_id
+ AND class.id = COALESCE(conversation.class_id, room_space.class_id)
 LEFT JOIN tutorhub.class_enrollments AS actor_enrollment
   ON actor_enrollment.tenant_id = conversation.tenant_id
- AND actor_enrollment.class_id = conversation.class_id
+ AND actor_enrollment.class_id = COALESCE(conversation.class_id, room_space.class_id)
  AND actor_enrollment.user_id = $5
+LEFT JOIN tutorhub.study_meetings AS study_meeting
+  ON study_meeting.tenant_id = conversation.tenant_id
+ AND study_meeting.id = room_space.source_study_meeting_id
+LEFT JOIN tutorhub.media_space_members AS room_member
+  ON room_member.tenant_id = conversation.tenant_id
+ AND room_member.space_id = conversation.media_space_id
+ AND room_member.user_id = $5
 LEFT JOIN tutorhub.users AS low_user
   ON low_user.id = conversation.direct_user_low_id
 LEFT JOIN tutorhub.memberships AS low_member
@@ -725,7 +1044,8 @@ const conversationGetSelect = `SELECT
     conversation.id,
     conversation.tenant_id,
     conversation.kind,
-    conversation.class_id,
+    COALESCE(conversation.class_id, room_space.class_id),
+    conversation.media_space_id,
     conversation.direct_user_low_id,
     conversation.direct_user_high_id,
     conversation.created_at,
@@ -758,15 +1078,45 @@ const conversationGetSelect = `SELECT
             ORDER BY unread_message.sequence
             LIMIT 101
         ) AS bounded_unread
+    ),
+    room_space.status,
+    room_space.source_kind,
+    COALESCE(class.title, study_meeting.title),
+    study_meeting.owner_user_id,
+    room_member.status,
+    EXISTS (
+        SELECT 1
+        FROM tutorhub.media_participant_sessions AS room_participant
+        JOIN tutorhub.media_room_instances AS active_room
+          ON active_room.tenant_id = room_participant.tenant_id
+         AND active_room.space_id = room_participant.space_id
+         AND active_room.id = room_participant.room_instance_id
+         AND active_room.status = 'active'
+        WHERE room_participant.tenant_id = conversation.tenant_id
+          AND room_participant.space_id = conversation.media_space_id
+          AND room_participant.user_id = $2
+          AND room_participant.status IN (
+              'admitted', 'joining', 'connected', 'reconnecting'
+          )
     )
 FROM tutorhub.conversations AS conversation
+LEFT JOIN tutorhub.media_spaces AS room_space
+  ON room_space.tenant_id = conversation.tenant_id
+ AND room_space.id = conversation.media_space_id
 LEFT JOIN tutorhub.classes AS class
   ON class.tenant_id = conversation.tenant_id
- AND class.id = conversation.class_id
+ AND class.id = COALESCE(conversation.class_id, room_space.class_id)
 LEFT JOIN tutorhub.class_enrollments AS actor_enrollment
   ON actor_enrollment.tenant_id = conversation.tenant_id
- AND actor_enrollment.class_id = conversation.class_id
+ AND actor_enrollment.class_id = COALESCE(conversation.class_id, room_space.class_id)
  AND actor_enrollment.user_id = $2
+LEFT JOIN tutorhub.study_meetings AS study_meeting
+  ON study_meeting.tenant_id = conversation.tenant_id
+ AND study_meeting.id = room_space.source_study_meeting_id
+LEFT JOIN tutorhub.media_space_members AS room_member
+  ON room_member.tenant_id = conversation.tenant_id
+ AND room_member.space_id = conversation.media_space_id
+ AND room_member.user_id = $2
 LEFT JOIN tutorhub.users AS low_user
   ON low_user.id = conversation.direct_user_low_id
 LEFT JOIN tutorhub.memberships AS low_member
@@ -800,6 +1150,7 @@ func scanConversationRow(row rowScanner) (conversationRow, error) {
 		&item.TenantID,
 		&item.Kind,
 		&item.ClassID,
+		&item.MediaSpaceID,
 		&item.DirectLowID,
 		&item.DirectHighID,
 		&item.CreatedAt,
@@ -814,6 +1165,12 @@ func scanConversationRow(row rowScanner) (conversationRow, error) {
 		&item.LowActive,
 		&item.HighActive,
 		&item.UnreadCount,
+		&item.MediaSpaceStatus,
+		&item.MediaSourceKind,
+		&item.MediaTitle,
+		&item.MediaOwnerID,
+		&item.MediaMemberState,
+		&item.MediaParticipantLive,
 	)
 	return item, err
 }
@@ -892,6 +1249,66 @@ func (repository *PostgresRepository) project(
 		item.ViewerAccess.CanPostMessages = repository.authorizer.Authorize(policy.Input{
 			Subject: classSubject, Action: policy.ActionChatSend, Resource: resource,
 		}).Allowed
+	case KindRoom:
+		if !row.MediaSpaceID.Valid || !row.MediaSpaceStatus.Valid ||
+			!row.MediaSourceKind.Valid || !row.MediaTitle.Valid {
+			return Conversation{}, fmt.Errorf("room conversation projection is incomplete")
+		}
+		roomReadable := false
+		roomSourceWritable := false
+		switch row.MediaSourceKind.String {
+		case "class_session", "class_session_occurrence":
+			if !row.ClassID.Valid || !row.ClassStatus.Valid || !row.ClassOwnerID.Valid {
+				return Conversation{}, fmt.Errorf("official room conversation projection is incomplete")
+			}
+			classRoles := make([]policy.ClassRole, 0, 2)
+			if row.ClassOwnerID.UUID == access.ActorID {
+				classRoles = append(classRoles, policy.ClassRoleOwner)
+			}
+			if row.ActorEnrollmentRole.Valid && row.ActorEnrollmentState.String == "active" {
+				classRoles = append(classRoles, policy.ClassRole(row.ActorEnrollmentRole.String))
+			}
+			classSubject := subject(access)
+			classSubject.ClassRoles = classRoles
+			resource := policy.Resource{
+				TenantID: access.TenantID,
+				ClassID:  row.ClassID.UUID,
+				State:    policy.ResourceState(row.ClassStatus.String),
+			}
+			readDecision := repository.authorizer.Authorize(policy.Input{
+				Subject: classSubject, Action: policy.ActionClassView, Resource: resource,
+			})
+			if !readDecision.Allowed {
+				if readDecision.ConcealResource {
+					return Conversation{}, ErrNotFound
+				}
+				return Conversation{}, ErrAccessDenied
+			}
+			roomReadable = true
+			roomSourceWritable = repository.authorizer.Authorize(policy.Input{
+				Subject: classSubject, Action: policy.ActionChatSend, Resource: resource,
+			}).Allowed
+			classID := row.ClassID.UUID
+			classStatus := row.ClassStatus.String
+			item.ClassID = &classID
+			item.ClassStatus = &classStatus
+		case "study_meeting":
+			roomReadable = (row.MediaOwnerID.Valid && row.MediaOwnerID.UUID == access.ActorID) ||
+				(row.MediaMemberState.Valid && row.MediaMemberState.String == "active")
+			roomSourceWritable = roomReadable
+		default:
+			return Conversation{}, fmt.Errorf("unsupported room conversation source")
+		}
+		if !roomReadable {
+			return Conversation{}, ErrNotFound
+		}
+		mediaSpaceID := row.MediaSpaceID.UUID
+		mediaSpaceStatus := row.MediaSpaceStatus.String
+		item.MediaSpaceID = &mediaSpaceID
+		item.MediaSpaceStatus = &mediaSpaceStatus
+		item.Title = row.MediaTitle.String
+		item.ViewerAccess.CanPostMessages = roomSourceWritable &&
+			mediaSpaceStatus == "open" && row.MediaParticipantLive
 	default:
 		return Conversation{}, fmt.Errorf("unsupported conversation kind")
 	}

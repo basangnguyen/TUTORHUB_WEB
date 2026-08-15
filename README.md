@@ -123,8 +123,12 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
   Pages deployment `1b935dc9-7498-4a3c-81c6-2571ca080c53` chạy exact candidate. Public acceptance
   đạt `16/16`; Admin feature-off/concealment, accessibility, resource/log audit và post-live
   zero-side-effect đều PASS. Không rollback, disposable branch được giữ lại, hai media feature tiếp
-  tục force-off và `CanPublishData=false`. P4-08 đang `TODO` và là task kế tiếp; phải review/amend
-  ADR-0013/0025 trước khi triển khai classroom chat.
+  tục force-off và `CanPublishData=false`.
+- P4-08 Persistent in-room chat đang `VERIFY`. ADR-0013/0025 đã được amend; local candidate dùng
+  canonical conversations/messages, forward migration `000034`, current source/participant write
+  barrier và classroom chat drawer. Full local verify gates và Neon disposable forward-only/exact
+  ACL/authority/concurrency/privacy gates PASS; candidate CI/security, shared staging và deploy/live
+  acceptance chưa chạy.
   Physical/manual/load/provider-outage/effect gates vẫn `UNVERIFIED — P4-11`.
 - P5-COLLAB-00 đã được đăng ký làm research spike tương lai cho whiteboard engine,
   document/sync authority, license và realtime topology. Task vẫn `TODO`, không chặn P4-02

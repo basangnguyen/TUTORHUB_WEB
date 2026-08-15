@@ -16,6 +16,7 @@ import {
 import { useMediaModerationControls } from "../app/mediaModeration";
 import { useSession } from "../app/session";
 import { MediaLobbyPanel } from "../components/MediaLobbyPanel";
+import { MediaSpaceChatPanel } from "../components/MediaSpaceChatPanel";
 import {
   ClassroomLiveKitRoom,
   type ClassroomLiveKitRoomProps,
@@ -329,6 +330,14 @@ function MediaSpaceRoomSession({
 
   const roomProps: ClassroomLiveKitRoomProps = {
     choices: handoff.choices,
+    chat: (
+      <MediaSpaceChatPanel
+        actorID={userId}
+        enabled={signalScopeReady}
+        mediaSpaceID={spaceId}
+        tenantID={tenantId}
+      />
+    ),
     connectionStatus: roomStatus,
     credential: handoff.credential,
     lobby,

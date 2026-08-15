@@ -219,3 +219,62 @@ func TestPersistentMessageDownMigrationDropsChildrenAndRestoresQuotaShape(t *tes
 		t.Fatal("down migration must remove message quota keys from the restored constraints")
 	}
 }
+
+func TestPersistentRoomConversationMigrationExtendsCanonicalAggregate(t *testing.T) {
+	t.Parallel()
+
+	contents, err := os.ReadFile(filepath.Join(
+		"..", "..", "..", "migrations", "000034_persistent_room_conversations.up.sql",
+	))
+	if err != nil {
+		t.Fatalf("read persistent room conversation migration: %v", err)
+	}
+	sql := string(contents)
+	for _, required := range []string{
+		"ADD COLUMN media_space_id uuid",
+		"conversations_media_space_fk",
+		"REFERENCES tutorhub.media_spaces (tenant_id, id)",
+		"kind = 'room'",
+		"conversations_media_space_unique",
+		"ON tutorhub.conversations (tenant_id, media_space_id)",
+		"REVOKE ALL ON tutorhub.conversations FROM PUBLIC",
+	} {
+		if !strings.Contains(sql, required) {
+			t.Fatalf("persistent room conversation migration is missing %q", required)
+		}
+	}
+	for _, forbidden := range []string{
+		"CREATE TABLE tutorhub.media_messages",
+		"CREATE TABLE tutorhub.room_messages",
+		"GRANT ",
+		"provider_room_name",
+		"participant_session_id",
+	} {
+		if strings.Contains(sql, forbidden) {
+			t.Fatalf("persistent room conversation migration must not contain %q", forbidden)
+		}
+	}
+}
+
+func TestPersistentRoomConversationDownMigrationRestoresTwoKindShape(t *testing.T) {
+	t.Parallel()
+
+	contents, err := os.ReadFile(filepath.Join(
+		"..", "..", "..", "migrations", "000034_persistent_room_conversations.down.sql",
+	))
+	if err != nil {
+		t.Fatalf("read persistent room conversation down migration: %v", err)
+	}
+	sql := string(contents)
+	deleteRooms := strings.Index(sql, "WHERE kind = 'room'")
+	dropColumn := strings.Index(sql, "DROP COLUMN media_space_id")
+	if deleteRooms < 0 || dropColumn < 0 || deleteRooms > dropColumn {
+		t.Fatal("room conversations must be removed before dropping media_space_id")
+	}
+	restoredShape := sql[dropColumn:]
+	if strings.Contains(restoredShape, "kind = 'room'") ||
+		!strings.Contains(restoredShape, "kind = 'direct'") ||
+		!strings.Contains(restoredShape, "kind = 'class'") {
+		t.Fatal("down migration must restore the direct/class-only conversation shape")
+	}
+}

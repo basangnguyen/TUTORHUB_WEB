@@ -2,7 +2,8 @@
 
 - Status: Accepted
 - Date: 2026-08-04
-- Scope: P3-07A persistent message, unread/read core
+- Scope: P3-07A persistent message, unread/read core; P4-08 room-chat amendment
+- P4-08 amendment: 2026-08-14
 
 ## Context
 
@@ -21,8 +22,10 @@ leak private content into logs, audit records or operational metadata.
 
 - PostgreSQL commits reached through the authenticated Core API REST endpoints are the
   only source of truth for messages and read state.
-- P3-07A supports only the existing `direct` and `class` conversation kinds. Group,
-  session, attachment, search, typing, presence and moderation workflows are not added.
+- P3-07A supports only the existing `direct` and `class` conversation kinds. P4-08
+  adds the canonical `room` kind bound one-to-one to a MediaSpace while reusing this
+  same message and receipt lifecycle. General group, attachment, typing, presence and
+  chat-moderation workflows are still not added.
 - Every request binds `X-TutorHub-Expected-Tenant-ID`. Every mutation also requires
   CSRF and reauthorizes the conversation, actor membership and relevant class state in
   the same database transaction.
@@ -32,6 +35,12 @@ leak private content into logs, audit records or operational metadata.
   remains available under the P3-06 read policy; archived classes are read-only.
 - Missing, foreign-tenant or inaccessible conversation/message identifiers are concealed
   as `404`. A visible but read-only conversation returns `409` for content mutation.
+- A room conversation read reauthorizes the current MediaSpace source. A write also
+  requires MediaSpace `open` and a current admitted/joining/connected/reconnecting
+  ParticipantSession for the actor. End/cancel and participant left/remove/failure win
+  over a concurrent write by locking the authoritative room rows before the
+  conversation row. History after terminal participant state follows ADR-0013 source
+  policy; no ParticipantSession snapshot is copied into conversation storage.
 
 ### Persistence, ordering and idempotency
 
@@ -47,6 +56,9 @@ leak private content into logs, audit records or operational metadata.
   conversation returns a typed `409` without mutation.
 - A successful first insert advances `conversations.updated_at`. Idempotent replay does
   not advance ordering, quota or any side effect.
+- The canonical room conversation is unique by `(tenant_id, media_space_id)`. Retry or
+  reconnect returns the same conversation and the existing message idempotency rule
+  prevents duplicate content. A P4-09 recovery RoomInstance continues the same history.
 
 ### Lifecycle and privacy
 
@@ -62,6 +74,9 @@ leak private content into logs, audit records or operational metadata.
 - Message content never enters audit events, outbox rows, logs, metrics, errors or
   cursors. P3-07A emits no notification/outbox event. IDs and bounded lifecycle metadata
   may be used in future reviewed events, but never message text.
+- LiveKit DataChannel may later carry an optional invalidation hint containing bounded
+  non-content metadata, but P4-08 keeps `CanPublishData=false` and does not enable that
+  path. PostgreSQL REST responses remain the only message source of truth.
 
 ### Read state and bounded controls
 
@@ -106,6 +121,8 @@ leak private content into logs, audit records or operational metadata.
   truncate, reference, trigger or ownership privileges.
 - Realtime delivery can later publish committed IDs without changing persistence
   authority or exposing content to the outbox.
+- Classroom reconnect and RoomInstance recovery do not create a second chat store or
+  conversation; terminal room state is durable read-only authority.
 
 ## Alternatives rejected
 

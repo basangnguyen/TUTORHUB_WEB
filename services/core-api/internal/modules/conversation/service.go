@@ -122,13 +122,30 @@ func (service *Service) CreateClass(
 	return service.repository.CreateClass(ctx, access, classID)
 }
 
+func (service *Service) CreateRoom(
+	ctx context.Context,
+	access AccessContext,
+	mediaSpaceID uuid.UUID,
+) (CreateResult, error) {
+	if service == nil {
+		return CreateResult{}, fmt.Errorf("create room conversation: service is unavailable")
+	}
+	if !validAccess(access) {
+		return CreateResult{}, ErrAccessDenied
+	}
+	if mediaSpaceID == uuid.Nil {
+		return CreateResult{}, ErrNotFound
+	}
+	return service.repository.CreateRoom(ctx, access, mediaSpaceID)
+}
+
 func validAccess(access AccessContext) bool {
 	return access.TenantID != uuid.Nil && access.ActorID != uuid.Nil &&
 		access.MembershipActive && len(access.OrganizationRoles) > 0
 }
 
 func validKind(kind Kind) bool {
-	return kind == KindDirect || kind == KindClass
+	return kind == KindDirect || kind == KindClass || kind == KindRoom
 }
 
 func normalizeMemberEmail(value string) (string, error) {

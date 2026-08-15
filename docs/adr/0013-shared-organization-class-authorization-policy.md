@@ -7,6 +7,7 @@
 - P2-07 amendment: 2026-07-19
 - P3-06 amendment: 2026-08-03
 - P3-07A amendment: 2026-08-04
+- P4-08 amendment: 2026-08-14
 
 ## Context
 
@@ -103,7 +104,7 @@ CSRF protection, and authoritative membership reauthorization inside the same
 transaction. A handler must not infer this authority from cached `/me` data or a
 client-provided tenant ID.
 
-Starting in P3-06, TutorHub has exactly two conversation kinds: `direct` and `class`.
+Starting in P3-06, TutorHub introduced exactly two conversation kinds: `direct` and `class`.
 A direct conversation contains exactly two distinct users. The request supplies only
 an exact target-member email; the server resolves the active same-tenant membership,
 adds the actor, sorts the two user IDs into a canonical pair and rejects unavailable,
@@ -130,6 +131,34 @@ or inaccessible conversation/message is concealed as `404`, and no message row c
 access independently. P3-07A keeps persistence/unread/read REST-only under ADR-0025;
 realtime transport and notification delivery remain owned by P3-07B.
 
+Starting in P4-08, TutorHub adds one third conversation kind, `room`, as the canonical
+persistent chat container for one `MediaSpace`. The relationship is one-to-one and
+tenant-composite. A room conversation stores only `media_space_id`; it does not copy a
+room roster, LiveKit identity, provider room name, participant role, class enrollment,
+StudyMeeting invite, or message into a media-specific table.
+
+Room history is authorized from the current source on every request:
+
+- for `class_session` and `class_session_occurrence`, current `class.view` grants read;
+  current `chat.send`, an open MediaSpace, and a current non-terminal
+  ParticipantSession grant write;
+- for `study_meeting`, the current owner or an active explicit `media_space_members`
+  grant may read; write additionally requires an open MediaSpace and a current
+  non-terminal ParticipantSession;
+- organization-admin safety authority does not by itself reveal member-owned room
+  content;
+- participant `left`, `removed`, or `failed` state removes write immediately without
+  erasing already committed history. An official-class viewer can still read while
+  `class.view` remains; a StudyMeeting invitee can still read while the explicit member
+  grant remains active. Revoking that grant removes member-owned history access.
+
+Creating the canonical room conversation is a server-authorized, idempotent operation
+available only while the MediaSpace is open to a currently admitted/joining/connected/
+reconnecting actor. Ending or cancelling the MediaSpace makes the conversation
+read-only. A later recovery RoomInstance reuses the same MediaSpace conversation; it
+does not fork history. Foreign or inaccessible space/conversation identifiers remain
+concealed as `404`.
+
 ## Consequences
 
 - Permission constants and role mappings have one source of truth and table-driven
@@ -152,6 +181,8 @@ realtime transport and notification delivery remain owned by P3-07B.
   class enrollment changes cannot leave a stale conversation ACL behind.
 - Archived classes keep conversation history read-only, while restore does not bypass
   the regular `chat.send` authorization path.
+- Room conversation access is re-derived from MediaSpace source authority and current
+  participant/member state; LiveKit metadata and DataChannel traffic never grant access.
 - A static test rejects reintroduction of local permission helpers in domain modules.
 
 ## Alternatives rejected

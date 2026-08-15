@@ -34,6 +34,7 @@ const canonicalRoomLoggerName = "tutorhub-canonical-media-room";
 export interface ClassroomLiveKitRoomProps {
   choices: MediaJoinChoices;
   connectionStatus: ClassroomConnectionStatus;
+  chat?: ReactNode;
   credential: MediaInstanceCredentialProjection;
   lobby?: ReactNode;
   moderation?: ClassroomModerationControlsModel;
@@ -99,6 +100,7 @@ export function ClassroomLiveKitRoom(props: ClassroomLiveKitRoomProps) {
 function ConnectedClassroomLiveKitRoom({
   choices,
   connectionStatus,
+  chat,
   credential,
   lifecycle,
   lobby,
@@ -333,6 +335,7 @@ function ConnectedClassroomLiveKitRoom({
           canPublishCameraMicrophone={canPublishCameraMicrophone}
           canShareScreen={credential.can_share_screen}
           canSubscribe={credential.can_subscribe}
+          chat={chat}
           connectionStatus={connectionStatus}
           controlAbortSignal={controlAbortController.signal}
           lobby={lobby}

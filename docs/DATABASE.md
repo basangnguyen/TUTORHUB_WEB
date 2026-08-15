@@ -7,7 +7,8 @@ thay đổi schema, migration hoặc repository phải đọc tài liệu này t
 
 - System of record: Neon PostgreSQL.
 - Schema ứng dụng: `tutorhub`.
-- Migration mới nhất trong source: `000033_media_moderation_commands`; P4-01 đến P4-07 đã `DONE`.
+- Migration mới nhất trong source: `000034_persistent_room_conversations`; P4-01 đến P4-07 đã `DONE`,
+  P4-08 đang `IN PROGRESS` và chưa forward Neon disposable/shared.
   P4-06 disposable và shared đều PASS forward-only `31 false -> 32 false -> 32 false`, exact/default
   ACL và read-only gates; final ledger của cả hai là `32 false`. P3-06/P3-07A đã forward cả
   disposable và shared
@@ -1535,5 +1536,10 @@ của lịch sử append-only và không phải quy trình cleanup cho staging/p
   `32 false -> 33 false -> 33 false`, exact ACL, final/post-live
   `ledger=33 dirty=false media_features=false moderation_side_effects=0`, CI/security, exact
   Render/Cloudflare deploy và live feature-off/privacy/accessibility/no-side-effect acceptance đều
-  PASS. Không rollback; disposable branch được giữ lại. P4-08 là task tiếp theo.
+  PASS. Không rollback; disposable branch được giữ lại.
+- P4-08 đang `IN PROGRESS`: migration `000034_persistent_room_conversations` mở rộng canonical
+  `conversations` bằng `media_space_id`, tenant-composite FK, partial unique index và room shape.
+  Existing `messages`/`message_receipts` vẫn là persistence authority; local static/unit/integration-
+  tag compile gates PASS. Disposable forward-only `33 -> 34`, exact ACL và database authority gates
+  chưa chạy; shared staging/deploy chưa được chạm tới.
 - Chưa có backup/restore drill, PITR gate hoặc connection load test cho pilot.
