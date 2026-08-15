@@ -32,13 +32,13 @@
 
 ## 4. Candidate, shared staging và live gates
 
-- [ ] Review diff/secret scan; commit/push exact candidate lên `main`.
-- [ ] GitHub Verify và Security PASS trên exact SHA.
-- [ ] Sau quyền riêng: shared owner preflight và forward-only/idempotent `34 -> 35` PASS.
-- [ ] Shared exact ACL/read-only zero-side-effect snapshot PASS trước deploy.
-- [ ] Render và Cloudflare triển khai exact SHA; health/readiness/status PASS.
-- [ ] Live feature-off/privacy/concealment/accessibility probe PASS, không temporary-enable media.
-- [ ] Post-live read-only snapshot PASS; PROJECT_STATE/backlog/master/coordination chuyển P4-09 DONE.
+- [x] Review diff/secret scan; commit/push exact candidate lên `main`.
+- [x] GitHub Verify và Security PASS trên exact SHA.
+- [x] Sau quyền riêng: shared owner preflight và forward-only/idempotent `34 -> 35` PASS.
+- [x] Shared exact ACL/read-only zero-side-effect snapshot PASS trước deploy.
+- [x] Render và Cloudflare triển khai exact SHA; health/readiness/status PASS.
+- [x] Live feature-off/privacy/concealment/accessibility probe PASS, không temporary-enable media.
+- [x] Post-live read-only snapshot PASS; PROJECT_STATE/backlog/master/coordination chuyển P4-09 DONE.
 
 ## 5. Evidence ledger
 
@@ -66,4 +66,23 @@
 
 ### Shared staging/live
 
-- Status: `BLOCKED UNTIL CANDIDATE CI PASS`.
+- Status: `PASS — P4-09 DONE`.
+- Exact final candidate `fe33ffaba19d8f82f2034ddeb4b16d4e919e5014` PASS GitHub Verify
+  `31868991020`, Security `31868991007`, Browser E2E và Cloudflare Pages check `94974692563`.
+  Dependency review skip đúng policy của push; mọi security job còn lại đều success.
+- Shared owner preflight PASS ở `34 dirty=false`. Migration chạy forward-only/idempotent
+  `34 false -> 35 false -> 35 false`; exact runtime/PUBLIC/maintenance/dependency ACL PASS.
+  Final read-only snapshot giữ `35 dirty=false`, media force-off và `recovery_side_effects=0`.
+- Render deployment `dep-da00d7dbedkc739jgt60` đạt `Live` đúng exact SHA. Cloudflare Pages preview
+  `https://2a8eed45.tutorhub-web.pages.dev` deploy thành công cùng SHA.
+- Direct Render và Pages-proxied health/readiness/status cùng anonymous MediaSpace/recovery privacy
+  đạt `10/10`: expected status, `no-store`, request ID, không Set-Cookie, JSON typed và không lộ
+  credential/provider/device field.
+- Organization Admin xác nhận “Phòng học trực tuyến” và “Phòng học nhóm tức thời” đều đang tắt;
+  synthetic MediaSpace được conceal. Workspace có `53/53`, concealment có `12/12` exposed controls
+  mang accessible name; mỗi trang có đúng một `main`, `h1`, `nav`, không duplicate ID, media/effect
+  resource hoặc console warning/error.
+- Post-live read-only snapshot tiếp tục PASS tại `35 dirty=false`, media force-off và
+  `recovery_side_effects=0`. Không rollback, không temporary-enable capability; disposable branch
+  tiếp tục được giữ lại. P4-09 chuyển `IN PROGRESS -> VERIFY -> DONE`; physical browser/device,
+  25/50 load, provider-outage và optional-effect gates vẫn `UNVERIFIED — P4-11`.

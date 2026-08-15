@@ -20,16 +20,14 @@ P3-14-CORE đã `DONE`; Phase 4 được phép bắt đầu trong khi Phase 3 de
 Không task Phase 4 nào được xóa, giả lập PASS hoặc bật notification/email/file-processing side
 effect thuộc Phase 3 khi carry-over chưa đạt gate riêng.
 
-**Task `DONE` gần nhất:** `P4-08` Persistent in-room chat ngày 2026-08-15. Exact candidate
-`fd2c3fc70f7e32c252523367e8aa56e8b466b810` PASS GitHub Verify `31858451744` và Security
-`31858451822`. Disposable/shared đều đạt forward-only `33 false -> 34 false -> 34 false`; exact ACL,
-authority/concurrency/privacy và final/post-live snapshot đều PASS. Render deployment
-`dep-d9vsqjojo6nc73d6f6n0` `Live` và Cloudflare Pages deployment
-`d64338e9-8116-4021-8f5e-90e261868ecb` success trên exact SHA; live HTTP `10/10` cùng Admin
-feature-off/conceal/accessibility/privacy/resource/log acceptance đều PASS. Không rollback;
-disposable branch được giữ lại và các gate physical/manual/load/outage tiếp tục `UNVERIFIED — P4-11`.
-Evidence tại [P4_08_STAGING_ACCEPTANCE.md](P4_08_STAGING_ACCEPTANCE.md).
-**Task hiện tại:** `P4-09` Reconnect, recovery instance và degraded audio-only (`VERIFY`).
+**Task `DONE` gần nhất:** `P4-09` Reconnect, recovery instance và degraded audio-only ngày
+2026-08-15. Exact candidate `fe33ffaba19d8f82f2034ddeb4b16d4e919e5014` PASS GitHub Verify
+`31868991020`, Security `31868991007`, shared forward-only `34 false -> 35 false -> 35 false`, exact
+ACL, Render `dep-da00d7dbedkc739jgt60`, Cloudflare Pages, live `10/10`, feature-off/concealment/
+accessibility và post-live zero-side-effect snapshot. Không rollback; disposable branch được giữ lại
+và các gate physical/manual/load/outage tiếp tục `UNVERIFIED — P4-11`. Evidence tại
+[P4_09_STAGING_ACCEPTANCE.md](P4_09_STAGING_ACCEPTANCE.md).
+**Task hiện tại:** `P4-10` Join telemetry, privacy và diagnostics export (`TODO`).
 
 `P4-MEDIA-UX-00` đã `DONE`; không đổi LiveKit provider, không thêm processor production dependency
 hoặc mở `CanPublishData=false`. P4-03/P4-04/P4-05/P4-06/P4-11 phải tuân ADR-0031 và báo rõ các
@@ -84,7 +82,7 @@ physical/manual effect gate còn `UNVERIFIED` thay vì suy PASS từ research.
 | P4-06          | Participant roster, hand raise và reaction          | P4-04, P4-05, P4-MEDIA-UX-00    | DONE       |
 | P4-07          | Host/co-host/TA moderation, lock/mute/remove/end    | P4-04, P4-06                    | DONE       |
 | P4-08          | Persistent in-room chat                             | P4-01, P3-07A; ADR review       | DONE        |
-| P4-09          | Reconnect, recovery instance và degraded audio-only | P4-02, P4-05, P4-07             | VERIFY      |
+| P4-09          | Reconnect, recovery instance và degraded audio-only | P4-02, P4-05, P4-07             | DONE        |
 | P4-10          | Join telemetry, privacy và diagnostics export       | P4-02, P4-03, P4-09             | TODO       |
 | P4-11          | Browser/device matrix, load và outage runbook       | P4-05 đến P4-10                 | TODO       |
 | P4-12          | Exact staging acceptance và Phase 4 closure         | P4-MEDIA-UX-00, P4-01 đến P4-11 | TODO       |
@@ -570,7 +568,7 @@ surprised`, TTL 10 giây, grouping 750 ms, snapshot max 50 summary/UI max 3 visu
 
 ## 16. P4-09 Reconnect, recovery instance và degraded audio-only
 
-**Dependency:** P4-02/P4-05/P4-07. **Trạng thái:** `VERIFY`.
+**Dependency:** P4-02/P4-05/P4-07. **Trạng thái:** `DONE`.
 
 ### Scope
 
@@ -581,10 +579,15 @@ surprised`, TTL 10 giây, grouping 750 ms, snapshot max 50 summary/UI max 3 visu
 
 ### Acceptance
 
-- [ ] Network loss 5-15s reconnects without duplicate participant or new business room.
-- [ ] Long loss/token expiry asks server for current authority; stale token/state not reused.
-- [ ] Provider instance failure creates at most one recovery instance under concurrency.
-- [ ] Revoked/ended/removed actor never reconnects via cached credential.
+- [x] Network loss 5-15s reconnects without duplicate participant or new business room.
+- [x] Long loss/token expiry asks server for current authority; stale token/state not reused.
+- [x] Provider instance failure creates at most one recovery instance under concurrency.
+- [x] Revoked/ended/removed actor never reconnects via cached credential.
+
+Exact local/disposable/CI/shared/deploy/live gates PASS trên `fe33ffab`; migration `000035` kết thúc
+`35 dirty=false` ở disposable và shared, exact ACL cùng concurrency/privacy/post-live snapshot đều
+xanh. Hai media feature vẫn force-off; không rollback. Physical browser/device/load/outage/effect
+vẫn thuộc P4-11, không được suy PASS từ deterministic P4-09 acceptance.
 
 ## 17. P4-10 Join telemetry, privacy và diagnostics export
 
@@ -714,4 +717,6 @@ PostgreSQL. Mỗi implementation slice phải cập nhật khi thêm provider co
 8. P4-08 Persistent in-room chat đã `DONE` trên exact candidate `fd2c3fc7`: disposable/shared
    forward-only `33 false -> 34 false -> 34 false`, exact CI/security/ACL, Render/Cloudflare deploy,
    live privacy/feature-off/accessibility và post-live zero-side-effect đều PASS; không rollback.
-9. P4-09 Reconnect, recovery instance và degraded audio-only đang `VERIFY`; local/disposable PASS.
+9. P4-09 Reconnect, recovery instance và degraded audio-only đã `DONE` trên exact candidate
+   `fe33ffab`: Verify/Security/Browser E2E, disposable/shared `34 -> 35`, exact ACL,
+   Render/Cloudflare, live feature-off/privacy/accessibility và post-live zero-side-effect đều PASS.

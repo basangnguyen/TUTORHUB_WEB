@@ -7,8 +7,9 @@ thay đổi schema, migration hoặc repository phải đọc tài liệu này t
 
 - System of record: Neon PostgreSQL.
 - Schema ứng dụng: `tutorhub`.
-- Migration mới nhất trong source: `000035_media_room_recovery`; P4-01 đến P4-08 đã `DONE`,
-  P4-09 đang `VERIFY`; disposable đã forward `34 false -> 35 false -> 35 false`, shared chưa forward.
+- Migration mới nhất trong source: `000035_media_room_recovery`; P4-01 đến P4-09 đã `DONE`.
+  Disposable và shared đều forward-only `34 false -> 35 false -> 35 false`; exact ACL và final/
+  post-live read-only snapshot PASS tại `35 dirty=false`, media force-off.
   P4-06 disposable và shared đều PASS forward-only `31 false -> 32 false -> 32 false`, exact/default
   ACL và read-only gates; final ledger của cả hai là `32 false`. P3-06/P3-07A đã forward cả
   disposable và shared
@@ -1541,11 +1542,13 @@ của lịch sử append-only và không phải quy trình cleanup cho staging/p
   canonical `conversations` bằng `media_space_id`, tenant-composite FK, partial unique index và room
   shape. Disposable/shared đều forward-only `33 false -> 34 false -> 34 false`; exact ACL,
   authority/concurrency/privacy, CI/security và deploy/live feature-off acceptance PASS.
-- P4-09 đang `VERIFY`: migration `000035_media_room_recovery` chỉ mở rộng exact
+- P4-09 đã `DONE`: migration `000035_media_room_recovery` chỉ mở rộng exact
   `media_space_mutation_receipts.operation` allowlist bằng `recover` và buộc start/recover receipt
   có result RoomInstance. Không thêm bảng hoặc runtime privilege. Recovery khóa exact latest failed
   instance, tạo `attempt_number + 1` dưới one-active partial unique invariant và giữ provider call
   ngoài transaction. Disposable owner preflight, forward-only/idempotent migration, exact ACL,
-  recovery concurrency và toàn bộ media PostgreSQL regression PASS; final snapshot giữ `35 false`,
-  effective media feature force-off. Shared chưa được forward.
+  recovery concurrency và toàn bộ media PostgreSQL regression PASS. Disposable/shared đều đạt
+  forward-only/idempotent `34 false -> 35 false -> 35 false`; exact ACL, final/post-live snapshot
+  giữ `35 dirty=false`, media force-off và shared `recovery_side_effects=0`. Exact CI/security,
+  Render/Cloudflare và live privacy/concealment/accessibility acceptance đều PASS.
 - Chưa có backup/restore drill, PITR gate hoặc connection load test cho pilot.

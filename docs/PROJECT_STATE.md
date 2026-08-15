@@ -12,12 +12,12 @@
 | Quy trình            | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
 | Phase hoàn thành     | Phase 0, Phase 1, Phase 2                                                             |
 | Phase hiện tại       | Phase 4 Classroom Media MVP; Phase 3 deferred carry-over vẫn hoạt động                |
-| Task `DONE` gần nhất | P4-08 Persistent in-room chat                                                          |
-| Mốc repository mới   | Exact candidate `fd2c3fc7` đã PASS CI/shared/deploy/live trên Render/Cloudflare        |
-| Task hiện tại        | P4-09 Reconnect, recovery instance và degraded audio-only (`VERIFY`)                   |
-| Task tiếp theo       | Review candidate, commit/push main và kiểm tra GitHub Verify/Security                  |
+| Task `DONE` gần nhất | P4-09 Reconnect, recovery instance và degraded audio-only                              |
+| Mốc repository mới   | Exact candidate `fe33ffab` đã PASS CI/shared/deploy/live trên Render/Cloudflare        |
+| Task hiện tại        | P4-10 Join telemetry, privacy và diagnostics export (`TODO`)                           |
+| Task tiếp theo       | Bắt đầu P4-10 từ contract telemetry/privacy/retention và diagnostics export            |
 
-### Checkpoint P4-09 `VERIFY` ngày 2026-08-15
+### Checkpoint P4-09 `DONE` ngày 2026-08-15
 
 ADR-0032 đã chốt ba luồng riêng: LiveKit transient reconnect không gọi lại TutorHub API; terminal
 disconnect xóa credential rồi tải lại server authority; provider room failure tạo successor
@@ -34,9 +34,7 @@ audio và leave vẫn hoạt động, camera không tự bật lại khi chất 
 
 Local candidate PASS `pnpm verify`: web `67/67` files, `431/431` tests; API client `7/7` files,
 `52/52` tests; format, OpenAPI generated drift, lint, typecheck, build, Storybook, security bundle và
-Go test/vet đều xanh. Focused P4-09 integration-tag compile và `git diff --check` cũng PASS. Chưa kết
-nối Neon, chưa chạy migration `000035`, chưa commit/push/deploy; bước kế tiếp là disposable owner
-preflight và forward-only acceptance theo [P4_09_STAGING_ACCEPTANCE.md](P4_09_STAGING_ACCEPTANCE.md).
+Go test/vet đều xanh. Focused P4-09 integration-tag compile/vet và `git diff --check` cũng PASS.
 
 Neon disposable owner preflight PASS ở `34 dirty=false` với ba principal tách biệt trên cùng exact
 branch/database. Migration chạy forward-only/idempotent `34 false -> 35 false -> 35 false`; không
@@ -46,8 +44,18 @@ regression programs PASS. Regression P4-02 đã được cập nhật theo seman
 `room_finished` chuyển active RoomInstance và active participant sang `failed`, còn participant đã
 `left` giữ nguyên. Final read-only snapshot PASS tại `35 dirty=false`, effective media feature
 force-off, recovery receipt/event cân bằng `1/1`; retained override/active intent được báo cáo bounded
-thay vì xóa. Disposable branch vẫn được giữ lại. P4-09 chuyển `IN PROGRESS -> VERIFY`; chưa
-commit/push, chưa forward shared staging và chưa deploy.
+thay vì xóa. Disposable branch vẫn được giữ lại.
+
+Exact final candidate `fe33ffaba19d8f82f2034ddeb4b16d4e919e5014` PASS Verify
+`31868991020`, Security `31868991007`, Browser E2E và Cloudflare Pages. Shared staging PASS owner
+preflight `34 dirty=false`, forward-only/idempotent `34 false -> 35 false -> 35 false`, exact ACL và
+zero-side-effect snapshot. Render `dep-da00d7dbedkc739jgt60` đạt `Live`; Cloudflare preview
+`https://2a8eed45.tutorhub-web.pages.dev` success cùng SHA. Live public/anonymous HTTP đạt `10/10`;
+Admin xác nhận hai media feature vẫn off và synthetic space được conceal. Workspace accessibility
+đạt `53/53`, concealment `12/12`, không duplicate ID/media resource/console issue. Post-live DB vẫn
+`35 dirty=false`, media force-off, `recovery_side_effects=0`. Không rollback hoặc temporary-enable;
+P4-09 chuyển `IN PROGRESS -> VERIFY -> DONE`. Evidence:
+[P4_09_STAGING_ACCEPTANCE.md](P4_09_STAGING_ACCEPTANCE.md).
 
 ### Checkpoint P4-07 `DONE` ngày 2026-08-14
 
