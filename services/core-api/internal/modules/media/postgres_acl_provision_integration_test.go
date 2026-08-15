@@ -73,9 +73,9 @@ func TestProvisionPostgresMediaSignalsExactACLShared(t *testing.T) {
 	runProvisionPostgresMediaLifecycleRuntimeExactACL(t)
 }
 
-// TestProvisionPostgresMediaModerationExactACL provisions only the P4-07
-// disposable branch after migration 000033. A new confirmation prevents an
-// older phase's opt-in from authorizing the moderation table and receipt
+// TestProvisionPostgresMediaModerationExactACL provisions only the P4-07 ACL
+// union on the current P4-08-compatible ledger. A new confirmation prevents
+// an older phase's opt-in from authorizing the moderation table and receipt
 // columns.
 func TestProvisionPostgresMediaModerationExactACL(t *testing.T) {
 	if strings.TrimSpace(os.Getenv("P4_07_DISPOSABLE_CONFIRM")) != "I_UNDERSTAND_P4_07_DISPOSABLE_ONLY" {
@@ -85,7 +85,7 @@ func TestProvisionPostgresMediaModerationExactACL(t *testing.T) {
 		t.Skip("P4_07_ACL_PROVISION_CONFIRM is not set to the disposable-only ACL confirmation")
 	}
 	runProvisionPostgresMediaLifecycleRuntimeExactACL(t, mediaACLProvisionConfiguration{
-		expectedVersion: 33,
+		expectedVersion: 34,
 		expectations:    p407MediaACLExpectations(),
 	})
 }
@@ -101,7 +101,7 @@ func TestProvisionPostgresMediaModerationExactACLShared(t *testing.T) {
 		p407SharedACLProvisionConfirmation,
 	)
 	runProvisionPostgresMediaLifecycleRuntimeExactACL(t, mediaACLProvisionConfiguration{
-		expectedVersion: 33,
+		expectedVersion: 34,
 		expectations:    p407MediaACLExpectations(),
 	})
 }
