@@ -53,6 +53,7 @@ func TestP408SharedHarnessUsesFreshReadOnlyConfirmations(t *testing.T) {
 		"TestPostgresP408SharedOwnerPreflight",
 		"TestPostgresP408SharedFinalSnapshot",
 		"P4_08_SHARED_FINAL PASS room_conversations=0 enabled_media_overrides=0",
+		"explicit P4-08 read-only acceptance gate was not requested",
 	} {
 		if !strings.Contains(source, required) {
 			t.Fatalf("P4-08 shared harness is missing %q", required)

@@ -93,7 +93,11 @@ func isP408IsolatedCIDatabase(databaseURL string) bool {
 
 func requireP408ReadOnlyConfirmation(t *testing.T, activeName, expected string) {
 	t.Helper()
-	if strings.TrimSpace(os.Getenv(activeName)) != expected {
+	actual := strings.TrimSpace(os.Getenv(activeName))
+	if actual == "" {
+		t.Skipf("%s is not set; explicit P4-08 read-only acceptance gate was not requested", activeName)
+	}
+	if actual != expected {
 		t.Fatalf("%s is not set to the exact P4-08 read-only confirmation", activeName)
 	}
 	for _, name := range []string{
