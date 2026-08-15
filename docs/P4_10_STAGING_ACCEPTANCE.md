@@ -2,8 +2,8 @@
 
 ## 1. Trạng thái
 
-`VERIFY` — contract, implementation, local deterministic và Neon disposable gates đã hoàn thành.
-Exact candidate CI, shared staging, deploy và live acceptance chưa chạy nên P4-10 chưa phải `DONE`.
+`DONE` — contract, implementation, local/disposable, exact candidate CI, shared staging,
+Render/Cloudflare và live acceptance đều PASS ngày 2026-08-15.
 
 ## 2. Safety boundary
 
@@ -54,13 +54,13 @@ Không echo environment hoặc connection string. Harness tự fail closed nếu
 
 ## 5. Candidate, shared staging và live gates
 
-- [ ] Review diff/secret scan; commit/push exact candidate lên `main`.
-- [ ] GitHub Verify/Security PASS trên exact SHA.
-- [ ] Sau quyền riêng: shared owner preflight và forward-only/idempotent `35 -> 36` PASS.
-- [ ] Shared exact ACL và read-only zero-side-effect snapshot PASS trước deploy.
-- [ ] Render/Cloudflare deploy exact SHA; health/readiness/status PASS.
-- [ ] Live feature-off/privacy/concealment/accessibility probe PASS; không temporary-enable media.
-- [ ] Post-live shared snapshot PASS; cập nhật state/backlog/master/coordination sang P4-10 `DONE`.
+- [x] Review diff/secret scan; commit/push exact candidate lên `main`.
+- [x] GitHub Verify/Security PASS trên exact SHA.
+- [x] Sau quyền riêng: shared owner preflight và forward-only/idempotent `35 -> 36` PASS.
+- [x] Shared exact ACL và read-only zero-side-effect snapshot PASS trước deploy.
+- [x] Render/Cloudflare deploy exact SHA; health/readiness/status PASS.
+- [x] Live feature-off/privacy/concealment/accessibility probe PASS; không temporary-enable media.
+- [x] Post-live shared snapshot PASS; cập nhật state/backlog/master/coordination sang P4-10 `DONE`.
 
 Shared gates dùng `P4_10_SHARED_CONFIRM=I_UNDERSTAND_P4_10_SHARED_STAGING_ONLY` và chỉ đặt
 một action confirmation trong mỗi process:
@@ -76,12 +76,12 @@ Harness fail closed nếu confirmation disposable/P4-09 cũ hoặc action P4-10 
 
 ### Local candidate
 
-- Status: `PASS — VERIFY`.
+- Status: `PASS`.
 - Evidence: full `pnpm verify` PASS gồm format, generated contract drift, local/E2E infra,
   GitHub Actions security, lint, typecheck, all package test/build, Storybook, bundle security và
   toàn bộ Go test/vet. API client `7/7` files, `53/53` tests; web `69/69` files, `437/437` tests.
   Focused media integration-tag compile, `git diff --check` và candidate secret-pattern scan cũng
-  PASS. Exact SHA review vẫn được chốt trước push.
+  PASS. Exact final candidate là `c960f77753fa14475b84e7f0e0242bfcc458dacc`.
 
 ### Disposable Neon
 
@@ -101,4 +101,25 @@ Harness fail closed nếu confirmation disposable/P4-09 cũ hoặc action P4-10 
 
 ### Shared staging/live
 
-- Status: `PENDING` — bị khóa sau disposable và exact candidate CI.
+- Status: `PASS — P4-10 DONE`.
+- Exact candidate `c960f77753fa14475b84e7f0e0242bfcc458dacc` PASS GitHub Verify
+  `31881117029`, Security `31881116916`, Browser E2E và Cloudflare Pages check
+  `95003818195`. Dependency review skip đúng push policy; các security job còn lại đều success.
+- Shared owner preflight PASS tại `35 dirty=false`, ba principal tách biệt/cùng exact database và
+  media force-off. Forward-only/idempotent đạt `35 false -> 36 false -> 36 false`; exact
+  runtime/PUBLIC/maintenance/dependency ACL và final read-only snapshot trước deploy đều PASS.
+- Render deployment `dep-da04pjegekts7395k1h0` đạt `Live` đúng exact SHA. Cloudflare Pages
+  deployment `b8a42033-ce9a-486b-aa1b-f9d0302452c7` success cùng SHA; preview
+  `https://b8a42033.tutorhub-web.pages.dev`.
+- Direct Render và Pages-proxied health/readiness/status cùng anonymous diagnostics record/export
+  privacy đạt `10/10`: expected status, `no-store`, request ID, không Set-Cookie, JSON typed và
+  không lộ token/SDP/ICE/IP/device/provider/participant/join-attempt field.
+- Organization Admin xác nhận “Phòng học trực tuyến” và “Phòng học nhóm tức thời” đều đang tắt;
+  synthetic MediaSpace bị conceal. Workspace có `52/52`, concealment có `11/11` exposed controls
+  mang accessible name; mỗi trang có đúng một `main`, `h1`, `nav`, không duplicate ID,
+  media resource hoặc console warning/error.
+- Post-live read-only snapshot tiếp tục PASS tại `36 dirty=false`, media force-off,
+  `diagnostics=0`, `expired_diagnostics=0`, `retention_violations=0` và
+  `retained_enabled_media_overrides=0`. Không rollback, không temporary-enable capability;
+  disposable branch tiếp tục được giữ lại. Physical browser/device, 25/50 load,
+  provider-outage và optional-effect gates vẫn `UNVERIFIED — P4-11`.

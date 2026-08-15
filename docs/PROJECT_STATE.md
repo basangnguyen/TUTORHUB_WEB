@@ -12,12 +12,12 @@
 | Quy trình            | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
 | Phase hoàn thành     | Phase 0, Phase 1, Phase 2                                                             |
 | Phase hiện tại       | Phase 4 Classroom Media MVP; Phase 3 deferred carry-over vẫn hoạt động                |
-| Task `DONE` gần nhất | P4-09 Reconnect, recovery instance và degraded audio-only                              |
-| Mốc repository mới   | Exact candidate `fe33ffab` đã PASS CI/shared/deploy/live trên Render/Cloudflare        |
-| Task hiện tại        | P4-10 Join telemetry, privacy và diagnostics export (`VERIFY`)                         |
-| Task tiếp theo       | Fresh candidate verify, secret scan và exact commit/push CI trước shared staging       |
+| Task `DONE` gần nhất | P4-10 Join telemetry, privacy và diagnostics export                                    |
+| Mốc repository mới   | Exact candidate `c960f777` PASS CI/shared/deploy/live trên Render/Cloudflare           |
+| Task hiện tại        | P4-11 Browser/device matrix, load và outage runbook (`TODO`)                           |
+| Task tiếp theo       | Chuẩn bị P4-11 physical browser/device, 25/50 load và provider-outage acceptance       |
 
-### Checkpoint P4-10 `VERIFY` ngày 2026-08-15
+### Checkpoint P4-10 `DONE` ngày 2026-08-15
 
 ADR-0033 đã khóa telemetry schema hữu hạn, no-raw-data privacy boundary, retention đúng 30 ngày,
 role-separated maintenance purge và Organization Admin-only audited export. Forward migration
@@ -36,7 +36,19 @@ retained media đạt đủ `11/11` nhóm sau khi harness được nâng latest 
 được cô lập. Final read-only snapshot giữ `36 dirty=false`, diagnostics/expired/retention violation
 đều `0`, media deployment guard force-off; không rollback và branch được giữ lại.
 
-P4-10 vẫn `VERIFY`: exact candidate CI, shared staging, deploy/live chưa chạy và không được suy PASS. Runbook:
+Exact candidate `c960f77753fa14475b84e7f0e0242bfcc458dacc` PASS Verify `31881117029`,
+Security `31881116916`, Browser E2E và Cloudflare Pages check. Shared owner preflight PASS ở
+`35 dirty=false`; forward-only/idempotent đạt `35 false -> 36 false -> 36 false`, exact
+runtime/PUBLIC/maintenance/dependency ACL và read-only snapshot đều xanh. Render deployment
+`dep-da04pjegekts7395k1h0` đạt `Live`; Cloudflare deployment
+`b8a42033-ce9a-486b-aa1b-f9d0302452c7` chạy đúng exact SHA.
+
+Live HTTP/privacy đạt `10/10`; Admin xác nhận hai media feature vẫn tắt, synthetic MediaSpace bị
+conceal, workspace/concealment accessibility lần lượt `52/52` và `11/11`, không duplicate ID,
+media resource hoặc console warning/error. Post-live shared snapshot giữ `36 dirty=false`, media
+force-off và diagnostics/expired/retention violation đều `0`. Không rollback, không temporary-enable
+capability và disposable branch tiếp tục được giữ lại. P4-10 chuyển `VERIFY -> DONE`; physical
+browser/device, 25/50 load, provider-outage và optional-effect gates thuộc P4-11. Runbook:
 [P4_10_STAGING_ACCEPTANCE.md](P4_10_STAGING_ACCEPTANCE.md).
 
 ### Checkpoint P4-09 `DONE` ngày 2026-08-15

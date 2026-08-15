@@ -199,8 +199,8 @@ hoặc worker-driven file processing/sharing tới end user.
 | P4-06           | DONE       | Exact CI/shared/deploy/live feature-off/no-side-effect PASS |
 | P4-07           | DONE       | Exact CI/shared/deploy/live moderation acceptance PASS      |
 | P4-08           | DONE       | Exact CI/shared/deploy/live room-chat acceptance PASS       |
-| P4-09           | DONE        | Exact CI/shared/deploy/live reconnect acceptance PASS       |
-| P4-10           | VERIFY      | Local + disposable DB PASS; exact CI/shared/live pending    |
+| P4-09           | DONE       | Exact CI/shared/deploy/live reconnect acceptance PASS       |
+| P4-10           | DONE       | Exact CI/shared/deploy/live diagnostics acceptance PASS     |
 | P4-11           | TODO       | Browser/device/load/provider-outage acceptance             |
 | P4-12           | TODO       | Exact staging acceptance và Phase 4 closure                |
 
@@ -265,12 +265,15 @@ deployment `1b935dc9-7498-4a3c-81c6-2571ca080c53` chạy exact candidate. Public
 zero-side-effect đều PASS. Không rollback, disposable branch được giữ lại, hai media feature tiếp
 tục force-off và `CanPublishData=false`.
 
-`P4-MEDIA-UX-00`, P4-03, P4-04, P4-05, P4-06, P4-07, P4-08 và P4-09 đã `DONE`.
+`P4-MEDIA-UX-00`, P4-03, P4-04, P4-05, P4-06, P4-07, P4-08, P4-09 và P4-10 đã `DONE`.
 P4-08 đã PASS exact candidate CI/security, shared forward-only `33 false -> 34 false -> 34 false`,
 Render/Cloudflare exact deploy và live privacy/feature-off/accessibility/no-side-effect acceptance.
 P4-09 đã PASS exact `fe33ffab`, Verify `31868991020`, Security `31868991007`, shared forward-only
 `34 false -> 35 false -> 35 false`, exact ACL, Render `dep-da00d7dbedkc739jgt60`, Cloudflare Pages,
 live `10/10`, Admin feature-off/concealment/accessibility và post-live zero-side-effect snapshot.
+P4-10 đã PASS exact `c960f777`, Verify `31881117029`, Security `31881116916`, shared forward-only
+`35 false -> 36 false -> 36 false`, exact ACL, Render `dep-da04pjegekts7395k1h0`, Cloudflare Pages,
+live `10/10`, Admin feature-off/concealment/accessibility và post-live diagnostics-zero snapshot.
 P4-03/P4-04/P4-05/
 P4-06/P4-11 phải dùng explicit device probe, bounded layout 2/5/25/50 và
 Core API signal contract đã chốt. `effect=None` là baseline; Track Processors chưa phải production

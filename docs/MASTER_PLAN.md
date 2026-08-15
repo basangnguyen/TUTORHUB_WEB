@@ -11,7 +11,7 @@
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
 | Phase hiện tại        | Phase 4 - Classroom Media MVP; Phase 3 deferred carry-over tiếp tục                          |
-| Trạng thái gần nhất   | P4-10 `VERIFY`; disposable `36 false` PASS, exact candidate CI là bước kế tiếp             |
+| Trạng thái gần nhất   | P4-10 `DONE`; exact CI/shared/deploy/live PASS, P4-11 là bước kế tiếp                       |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 
@@ -2190,6 +2190,12 @@ disposable branch được giữ lại. P4-09 reconnect/recovery/audio-only đã
 forward-only `34 false -> 35 false -> 35 false`, exact ACL, Render `dep-da00d7dbedkc739jgt60`,
 Cloudflare Pages, live `10/10`, Admin feature-off/concealment/accessibility và post-live
 zero-side-effect snapshot đều PASS. Không rollback; disposable branch tiếp tục được giữ lại.
+P4-10 join telemetry/privacy/diagnostics export đã `DONE` trên exact candidate
+`c960f77753fa14475b84e7f0e0242bfcc458dacc`: Verify `31881117029`, Security `31881116916`, shared
+forward-only `35 false -> 36 false -> 36 false`, exact ACL, Render `dep-da04pjegekts7395k1h0` và
+Cloudflare Pages exact deploy. Live HTTP/privacy `10/10`, Admin feature-off/concealment/
+accessibility và post-live diagnostics-zero snapshot đều PASS; không rollback, disposable branch
+được giữ lại và hai media capability tiếp tục force-off.
 Physical/manual browser-device,
 25/50 provider load, outage và optional-effect gates vẫn `UNVERIFIED — P4-11`, không suy PASS.
 Không bật side effect chỉ vì core đã có. `P3-02D-B` và các gate worker/provider vẫn là

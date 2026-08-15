@@ -135,10 +135,13 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
 - P5-COLLAB-00 đã được đăng ký làm research spike tương lai cho whiteboard engine,
   document/sync authority, license và realtime topology. Task vẫn `TODO`, không chặn P4-02
   và không cho phép thêm production dependency/runtime trước prototype, evidence và ADR.
-- P4-10 Join telemetry, privacy và diagnostics export đang `VERIFY`: ADR-0033, migration `000036`,
-  bounded Core API/OpenAPI contract, audited redacted Admin export, exact ACL harness và web
-  lifecycle/panel đã hoàn thành; local tests và Neon disposable forward/ACL/retention/metrics/
-  SKIP LOCKED/final snapshot PASS ở `36 false`. Exact CI/shared/deploy/live vẫn pending.
+- P4-10 Join telemetry, privacy và diagnostics export đã `DONE` ngày 2026-08-15 trên exact
+  candidate `c960f77753fa14475b84e7f0e0242bfcc458dacc`. Verify `31881117029`, Security
+  `31881116916`, Neon shared forward-only `35 false -> 36 false -> 36 false`, exact ACL và
+  post-live diagnostics-zero snapshot đều PASS. Render deployment `dep-da04pjegekts7395k1h0` đạt
+  `Live`; Cloudflare Pages deployment `b8a42033-ce9a-486b-aa1b-f9d0302452c7` chạy đúng SHA. Live
+  HTTP/privacy `10/10`, Admin feature-off/concealment/accessibility PASS; không rollback và
+  disposable branch tiếp tục được giữ lại. P4-11 là task tiếp theo.
 - Web MVP nền đã chạy trên staging: Cloudflare Pages -> same-origin `/api/*` -> Go
   Core API trên Render; dữ liệu dùng Neon, file dùng Backblaze B2, media dùng LiveKit
   Cloud và xác thực dùng ZITADEL.
