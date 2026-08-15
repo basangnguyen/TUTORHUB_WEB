@@ -104,14 +104,39 @@ Safe execution order after explicit authorization:
 
 Run only after the disposable result is reported and accepted.
 
-- [ ] Stage reviewed candidate only; exclude `.env*.local`, `.tmp-gocache/` and generated junk.
-- [ ] Commit/push direct to `main`; exact GitHub Verify and Security PASS.
-- [ ] With separate explicit authorization, shared owner preflight, forward-only 33 -> 34,
+- [x] Stage reviewed candidate only; exclude `.env*.local`, `.tmp-gocache/` and generated junk.
+- [x] Commit/push direct to `main`; exact GitHub Verify and Security PASS.
+- [x] With separate explicit authorization, shared owner preflight, forward-only 33 -> 34,
       idempotent rerun, exact ACL and read-only postflight PASS.
-- [ ] Render and Cloudflare deploy the exact verified SHA.
-- [ ] Live feature-off/privacy/accessibility/no-side-effect acceptance PASS without temporarily
+- [x] Render and Cloudflare deploy the exact verified SHA.
+- [x] Live feature-off/privacy/accessibility/no-side-effect acceptance PASS without temporarily
       enabling classroom media.
-- [ ] PROJECT_STATE, Phase 4 backlog and this ledger record exact evidence; P4-08 becomes `DONE`.
+- [x] PROJECT_STATE, Phase 4 backlog and this ledger record exact evidence; P4-08 becomes `DONE`.
+
+### Candidate/shared/live evidence — 2026-08-15
+
+- Exact candidate `fd2c3fc70f7e32c252523367e8aa56e8b466b810` PASS GitHub Verify
+  `31858451744` and Security `31858451822`. The reviewed stage excluded local environment and cache
+  files; the two media-suite compatibility hotfixes only advanced inherited integration assertions
+  to the P4-08 ledger and did not change production authority.
+- Shared owner preflight PASS before mutation at `33 dirty=false`. Shared staging advanced
+  forward-only through `33 false -> 34 false -> 34 false`; the immediate second migrate was
+  idempotent. Exact conversation runtime/PUBLIC ACL and final read-only snapshot PASS with
+  `room_conversations=0` and `enabled_media_overrides=0`.
+- Render deployment `dep-d9vsqjojo6nc73d6f6n0` reached `Live` on the exact candidate. Cloudflare
+  Pages deployment `d64338e9-8116-4021-8f5e-90e261868ecb` completed successfully on the same SHA.
+- Direct Render and Pages health/readiness/status plus anonymous room-conversation/message privacy
+  probes passed `10/10`: expected `200`/typed `401`, `no-store`, request ID, no Set-Cookie and no
+  sensitive body fields.
+- Authenticated Organization Admin confirmed both media capabilities remained off. A synthetic
+  MediaSpace prejoin was concealed without chat, device or LiveKit resources. Workspace and
+  concealment pages had `53/53` and `11/11` named exposed controls; each had one `main`, `h1` and
+  `nav`, with zero duplicate IDs and zero console warnings/errors.
+- Post-live exact ACL/read-only snapshot remained `ledger=34 dirty=false`,
+  `room_conversations=0`, `enabled_media_overrides=0`. No capability was temporarily enabled, no
+  rollback ran and the disposable branch remains retained. P4-08 moved
+  `IN PROGRESS -> VERIFY -> DONE`; physical/manual/device/load/outage gates remain
+  `UNVERIFIED — P4-11`.
 
 ## 5. Prohibited actions
 

@@ -124,11 +124,13 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
   đạt `16/16`; Admin feature-off/concealment, accessibility, resource/log audit và post-live
   zero-side-effect đều PASS. Không rollback, disposable branch được giữ lại, hai media feature tiếp
   tục force-off và `CanPublishData=false`.
-- P4-08 Persistent in-room chat đang `VERIFY`. ADR-0013/0025 đã được amend; local candidate dùng
-  canonical conversations/messages, forward migration `000034`, current source/participant write
-  barrier và classroom chat drawer. Full local verify gates và Neon disposable forward-only/exact
-  ACL/authority/concurrency/privacy gates PASS; candidate CI/security, shared staging và deploy/live
-  acceptance chưa chạy.
+- P4-08 Persistent in-room chat đã `DONE` ngày 2026-08-15 trên exact candidate
+  `fd2c3fc70f7e32c252523367e8aa56e8b466b810`. GitHub Verify `31858451744` và Security
+  `31858451822` PASS; Neon shared forward-only `33 false -> 34 false -> 34 false`, exact ACL và
+  zero-side-effect postflight đều PASS. Render deployment `dep-d9vsqjojo6nc73d6f6n0` đạt `Live`;
+  Cloudflare Pages deployment `d64338e9-8116-4021-8f5e-90e261868ecb` chạy cùng SHA. Live HTTP
+  `10/10`, Admin feature-off/concealment, accessibility/privacy/resource/log audit và post-live
+  database snapshot đều PASS; không rollback và disposable branch tiếp tục được giữ lại.
   Physical/manual/load/provider-outage/effect gates vẫn `UNVERIFIED — P4-11`.
 - P5-COLLAB-00 đã được đăng ký làm research spike tương lai cho whiteboard engine,
   document/sync authority, license và realtime topology. Task vẫn `TODO`, không chặn P4-02

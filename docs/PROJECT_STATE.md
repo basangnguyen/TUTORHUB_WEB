@@ -12,10 +12,10 @@
 | Quy trình            | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
 | Phase hoàn thành     | Phase 0, Phase 1, Phase 2                                                             |
 | Phase hiện tại       | Phase 4 Classroom Media MVP; Phase 3 deferred carry-over vẫn hoạt động                |
-| Task `DONE` gần nhất | P4-07 Host/co-host/TA moderation                                                       |
-| Mốc repository mới   | Exact candidate `2c309eab` đã PASS CI/shared/deploy/live trên Render/Cloudflare        |
-| Task hiện tại        | P4-08 Persistent in-room chat (`VERIFY`)                                               |
-| Task tiếp theo       | Review/stage candidate, push `main`, GitHub Verify/Security rồi xin quyền shared/live   |
+| Task `DONE` gần nhất | P4-08 Persistent in-room chat                                                          |
+| Mốc repository mới   | Exact candidate `fd2c3fc7` đã PASS CI/shared/deploy/live trên Render/Cloudflare        |
+| Task hiện tại        | P4-09 Reconnect, recovery instance và degraded audio-only (`TODO`)                     |
+| Task tiếp theo       | Bắt đầu P4-09 từ authority/recovery contract và failure-state matrix                   |
 
 ### Checkpoint P4-07 `DONE` ngày 2026-08-14
 
@@ -70,7 +70,7 @@ giữ lại, `CanPublishData=false` và cả hai media capability tiếp tục d
 và optional-effect gates vẫn `UNVERIFIED — P4-11`, không được suy PASS từ slice này. Evidence:
 [P4_07_STAGING_ACCEPTANCE.md](P4_07_STAGING_ACCEPTANCE.md).
 
-### Checkpoint P4-08 `VERIFY` ngày 2026-08-15
+### Checkpoint P4-08 `DONE` ngày 2026-08-15
 
 ADR-0013/0025 đã được review/amend: room chat là kind thứ ba của canonical conversation aggregate,
 liên kết một-một với MediaSpace và tiếp tục dùng messages/message_receipts của P3-07A. Forward
@@ -92,8 +92,20 @@ và toàn bộ web test `67/67` files, `430/430` tests đã PASS. Neon disposabl
 dependency column ACL, canonical concurrency, tenant/source/member authority, removal-vs-send barrier,
 ended-room replay cùng privacy. Final snapshot giữ `ledger=34 dirty=false`,
 `room_conversations=2`, `retained_enabled_media_overrides=2`; không rollback và disposable branch vẫn
-được giữ. P4-08 chuyển `IN PROGRESS -> VERIFY`; candidate chưa commit/push, shared staging/deploy chưa
-được chạm tới. Evidence/runbook: [P4_08_STAGING_ACCEPTANCE.md](P4_08_STAGING_ACCEPTANCE.md).
+được giữ. Exact candidate `fd2c3fc70f7e32c252523367e8aa56e8b466b810` PASS GitHub Verify
+`31858451744` và Security `31858451822`. Shared owner preflight PASS trước forward-only
+`33 false -> 34 false -> 34 false`; exact runtime/PUBLIC ACL, final và post-live zero-side-effect
+snapshots đều PASS tại `ledger=34 dirty=false`, `room_conversations=0` và
+`enabled_media_overrides=0`.
+
+Render deployment `dep-d9vsqjojo6nc73d6f6n0` đạt `Live` đúng SHA; Cloudflare Pages deployment
+`d64338e9-8116-4021-8f5e-90e261868ecb` success trên cùng candidate. Live HTTP acceptance đạt
+`10/10`. Organization Admin xác nhận hai media capability vẫn off; synthetic MediaSpace được
+conceal mà không render chat/device/LiveKit resource. Workspace có `53/53` và concealment có
+`11/11` exposed controls mang accessible name; mỗi trang có đúng một `main`, `h1`, `nav`, không
+duplicate ID và không console warning/error. Không temporary-enable capability, không rollback;
+disposable branch vẫn được giữ. P4-08 chuyển `IN PROGRESS -> VERIFY -> DONE`; P4-09 là task tiếp
+theo. Evidence/runbook: [P4_08_STAGING_ACCEPTANCE.md](P4_08_STAGING_ACCEPTANCE.md).
 
 ### Checkpoint P4-06 `DONE` ngày 2026-08-13
 
