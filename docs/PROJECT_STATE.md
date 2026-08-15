@@ -15,7 +15,7 @@
 | Task `DONE` gần nhất | P4-10 Join telemetry, privacy và diagnostics export                                    |
 | Mốc repository mới   | P4-11 candidate `50c256e` PASS GitHub Verify/Security; external gates vẫn mở            |
 | Task hiện tại        | P4-11 Browser/device matrix, load và outage runbook (`IN PROGRESS`)                    |
-| Task tiếp theo       | Ghi LiveKit dashboard, chạy physical matrix và actual temporary-key rotation           |
+| Task tiếp theo       | Ghi LiveKit dashboard, physical matrix và sustained outage/existing-room recovery      |
 
 ### Checkpoint P4-11 `IN PROGRESS` ngày 2026-08-15
 
@@ -39,8 +39,8 @@ unit/integration compile và integration vet. Windows sandbox ban đầu chặn 
 exact rerun ngoài sandbox PASS. Full `pnpm verify` trước provider refinement PASS trong 218,1 giây,
 gồm API client `53/53`, web `69/69` files và `437/437` tests, build/security cùng toàn bộ Go test/vet.
 Exact implementation candidate `50c256eb29bb0438016690a91803c302ac6e0a02` PASS GitHub Verify
-`31891519968` và Security `31891520024`. Physical devices, LiveKit provider dashboard và actual
-temporary-key rotation vẫn `PENDING/UNVERIFIED`, nên P4-11 giữ `IN PROGRESS`.
+`31891519968` và Security `31891520024`. Physical devices, LiveKit provider dashboard và sustained
+outage/existing-room recovery vẫn `PENDING/UNVERIFIED`, nên P4-11 giữ `IN PROGRESS`.
 
 Windows installed-browser automated supplement sau đó PASS `48/48` trong `84.1 s`: Chrome
 `151.0.7922.138` đạt `24/24`, Edge `151.0.4129.78` đạt `24/24`, gồm deterministic permission/prejoin,
@@ -67,8 +67,14 @@ Isolated provider resilience cũng PASS với logger privacy đã khóa trước
 join/leave cycle đều room/participant cleanup về `0`, post-cleanup heap/goroutine delta là
 `634632/1`; credential cố ý sai fail closed thành typed unavailable mà không làm gián đoạn room hiện
 hữu, provider hợp lệ tạo/cleanup successor smoke thành công. Rate-limit/credential HTTP mapping và
-issuer/provider normalization scoped tests PASS, TTL vẫn 5 phút. Smoke này không thay actual
-temporary-key revoke/rotation; CPU/network dashboard và physical A/V/accessibility vẫn còn mở.
+issuer/provider normalization scoped tests PASS, TTL vẫn 5 phút.
+
+Actual isolated credential rotation sau đó PASS trên project `tutorhub-v2-p411-load`, evidence ghi
+lúc `2026-08-15T22:34:12+07:00`: key mới pre-revoke tạo/cleanup room về `0`; sau khi owner revoke key
+cũ, credential cũ fail closed thành typed unavailable và không tạo room; credential mới tiếp tục
+tạo/cleanup room về `0`. Probe nạp hai file local Git-ignored trong process riêng, không in URL/key/
+secret. CPU/network provider dashboard, physical A/V/accessibility và sustained outage recovery vẫn
+còn mở.
 
 Profile 50 được chạy lại cùng host sampler `61` mẫu và tiếp tục PASS: `50/50` join, connect/TTM p95
 `7711/8679 ms`, `49/49` delivery, `132` health probe không lỗi, cleanup `0`; CPU tổng peak `48%`,

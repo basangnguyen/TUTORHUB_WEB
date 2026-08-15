@@ -662,15 +662,18 @@ disposable và không cho phép bật media capability trong lúc kiểm thử.
   delivery, sustain `120 s`, Core API `128` probe không lỗi, cleanup về `0`; post-cleanup goroutine
   delta tiếp tục là `1`. Maximum tested cap là `50`.
 - Exact implementation candidate `50c256eb29bb0438016690a91803c302ac6e0a02` PASS GitHub Verify
-  `31891519968` và Security `31891520024`. Physical matrix, provider dashboard và actual isolated
-  outage/rotation vẫn `UNVERIFIED`; trạng thái giữ `IN PROGRESS`.
+  `31891519968` và Security `31891520024`. Physical matrix, provider dashboard và sustained isolated
+  outage/recovery vẫn `UNVERIFIED`; trạng thái giữ `IN PROGRESS`.
 - Windows installed Chrome/Edge automated supplement PASS `48/48`; host/browser inventory đã ghi.
   Isolated resilience PASS 10/10 join/leave cleanup, credential fail-closed giữ room hiện hữu và
   successor smoke; SDK logger đã khóa để output không chứa IP/candidate/SDP/token. Physical A/V,
-  NVDA/macOS/low-end, dashboard CPU/network và actual temporary-key rotation vẫn chưa đóng.
+  NVDA/macOS/low-end, dashboard CPU/network và sustained outage recovery vẫn chưa đóng.
 - Profile 50 + host sampler PASS lại: `50/50`, TTM p95 `8679 ms`, health `132/132`, cleanup `0`, CPU
   tổng peak `48%`, network tổng peak `2263941 B/s`. Final pre-commit full local verify PASS trong
   `173.3 s`.
+- Actual isolated credential rotation PASS trên `tutorhub-v2-p411-load`: key cũ sau revoke trả typed
+  unavailable và không tạo room; key mới trước/sau revoke đều tạo rồi cleanup room về `0`. Không log
+  URL/key/secret; evidence ghi `2026-08-15T22:34:12+07:00`.
 
 ## 19. P4-12 Exact staging acceptance và Phase 4 closure
 
