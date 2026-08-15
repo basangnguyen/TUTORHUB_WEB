@@ -62,6 +62,16 @@ Không echo environment hoặc connection string. Harness tự fail closed nếu
 - [ ] Live feature-off/privacy/concealment/accessibility probe PASS; không temporary-enable media.
 - [ ] Post-live shared snapshot PASS; cập nhật state/backlog/master/coordination sang P4-10 `DONE`.
 
+Shared gates dùng `P4_10_SHARED_CONFIRM=I_UNDERSTAND_P4_10_SHARED_STAGING_ONLY` và chỉ đặt
+một action confirmation trong mỗi process:
+
+- owner preflight: `P4_10_SHARED_OWNER_PREFLIGHT=I_UNDERSTAND_P4_10_SHARED_OWNER_PREFLIGHT_READ_ONLY`;
+- forward migration: `P4_10_SHARED_MIGRATION_CONFIRM=I_UNDERSTAND_P4_10_FORWARD_SHARED_STAGING_ONLY`;
+- exact ACL: `P4_10_SHARED_ACL_PROVISION_CONFIRM=I_UNDERSTAND_P4_10_ACL_PROVISION_SHARED_STAGING_ONLY`;
+- final snapshot: `P4_10_SHARED_FINAL_CONFIRM=I_UNDERSTAND_P4_10_SHARED_FINAL_SNAPSHOT_READ_ONLY`.
+
+Harness fail closed nếu confirmation disposable/P4-09 cũ hoặc action P4-10 khác còn tồn tại.
+
 ## 6. Evidence ledger
 
 ### Local candidate

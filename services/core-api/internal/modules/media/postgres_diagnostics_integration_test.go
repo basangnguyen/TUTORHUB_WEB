@@ -21,6 +21,11 @@ const p410DisposableConfirmation = "I_UNDERSTAND_P4_10_DISPOSABLE_ONLY"
 
 func TestPostgresMediaDiagnosticsForwardMigration(t *testing.T) {
 	requireP410DisposableConfirmation(t)
+	runP410ForwardMigration(t)
+}
+
+func runP410ForwardMigration(t *testing.T) {
+	t.Helper()
 	migrationURL := requireMediaIntegrationEnvironment(t, "DATABASE_MIGRATION_URL")
 	runtimeURL := requireMediaIntegrationEnvironment(t, "DATABASE_POOL_URL")
 	maintenanceURL := requireMediaIntegrationEnvironment(t, "DATABASE_POLL_MAINTENANCE_URL")

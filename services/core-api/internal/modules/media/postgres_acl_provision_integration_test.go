@@ -20,7 +20,6 @@ const (
 	p406ACLProvisionConfirmation       = "I_UNDERSTAND_P4_06_ACL_PROVISION_DISPOSABLE_ONLY"
 	p407ACLProvisionConfirmation       = "I_UNDERSTAND_P4_07_ACL_PROVISION_DISPOSABLE_ONLY"
 	p410ACLProvisionConfirmation       = "I_UNDERSTAND_P4_10_ACL_PROVISION_DISPOSABLE_ONLY"
-	p410SharedACLProvisionConfirmation = "I_UNDERSTAND_P4_10_ACL_PROVISION_SHARED_STAGING_ONLY"
 )
 
 type mediaACLProvisionConfiguration struct {
@@ -122,9 +121,7 @@ func TestProvisionPostgresMediaDiagnosticsExactACL(t *testing.T) {
 }
 
 func TestProvisionPostgresMediaDiagnosticsExactACLShared(t *testing.T) {
-	if strings.TrimSpace(os.Getenv("P4_10_SHARED_ACL_PROVISION_CONFIRM")) != p410SharedACLProvisionConfirmation {
-		t.Skip("P4_10_SHARED_ACL_PROVISION_CONFIRM is not set to the shared-staging confirmation")
-	}
+	requireP410SharedConfirmation(t, "P4_10_SHARED_ACL_PROVISION_CONFIRM")
 	runProvisionPostgresMediaLifecycleRuntimeExactACL(t, mediaACLProvisionConfiguration{
 		expectedVersion: 36,
 		expectations:    p410MediaACLExpectations(),
