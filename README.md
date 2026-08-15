@@ -142,6 +142,20 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
   `Live`; Cloudflare Pages deployment `b8a42033-ce9a-486b-aa1b-f9d0302452c7` chạy đúng SHA. Live
   HTTP/privacy `10/10`, Admin feature-off/concealment/accessibility PASS; không rollback và
   disposable branch tiếp tục được giữ lại. P4-11 là task tiếp theo.
+- P4-11 Browser/device matrix, 25/50 load và provider-outage runbook đang `IN PROGRESS`. Candidate
+  ban đầu bổ sung Playwright Chromium/Firefox cùng WebKit-prejoin source supplement,
+  deterministic fail-closed
+  outage gate và isolated LiveKit 25/50 harness có exact quota confirmation/120-second sustain/
+  cleanup-zero. Isolated profiles 25/50 và concurrent Core API health đã PASS; physical
+  Edge/Chrome/Firefox Windows, Safari macOS, NVDA/VoiceOver, CPU/network/provider dashboard và
+  isolated outage/rotation vẫn `UNVERIFIED`; không migration, shared database write, deploy hoặc
+  media feature activation. Runbook: [P4-11 acceptance](docs/P4_11_STAGING_ACCEPTANCE.md).
+  Scoped local browser supplement đã PASS `54/54` (Chromium `24/24`, Firefox `24/24`, WebKit
+  prejoin `6/6`); deterministic outage và full `pnpm verify` cũng PASS với web `437/437`, API client
+  `53/53`, build/security và Go test/vet xanh.
+  Windows Chrome/Edge cài thật bổ sung PASS `48/48`; isolated 10-cycle cleanup và invalid-credential
+  existing-room resilience PASS với privacy-safe output. Physical A/V/NVDA/macOS/low-end, provider
+  dashboard và actual temporary-key rotation vẫn chưa được suy PASS.
 - Web MVP nền đã chạy trên staging: Cloudflare Pages -> same-origin `/api/*` -> Go
   Core API trên Render; dữ liệu dùng Neon, file dùng Backblaze B2, media dùng LiveKit
   Cloud và xác thực dùng ZITADEL.
@@ -203,8 +217,9 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
 45. [P4-09: Reconnect/recovery/audio-only staging acceptance](docs/P4_09_STAGING_ACCEPTANCE.md)
 46. [ADR-0033: Classroom join telemetry/privacy/diagnostics export](docs/adr/0033-classroom-join-telemetry-privacy-and-diagnostics-export.md)
 47. [P4-10: Join telemetry/privacy/diagnostics staging acceptance](docs/P4_10_STAGING_ACCEPTANCE.md)
-48. [P4-04: Lobby/admission/invite staging acceptance](docs/P4_04_STAGING_ACCEPTANCE.md)
-49. [P5-COLLAB-00: Whiteboard engine và collaboration topology research spike](docs/P5_COLLAB_00_RESEARCH_SPIKE.md)
+48. [P4-11: Browser/device, 25/50 load và provider-outage acceptance](docs/P4_11_STAGING_ACCEPTANCE.md)
+49. [P4-04: Lobby/admission/invite staging acceptance](docs/P4_04_STAGING_ACCEPTANCE.md)
+50. [P5-COLLAB-00: Whiteboard engine và collaboration topology research spike](docs/P5_COLLAB_00_RESEARCH_SPIKE.md)
 
 Các quyết định kiến trúc đã chấp nhận nằm trong `docs/adr`.
 

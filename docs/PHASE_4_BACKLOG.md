@@ -27,7 +27,7 @@ exact ACL, Render `dep-da04pjegekts7395k1h0`, Cloudflare Pages, live `10/10`, Ad
 feature-off/concealment/accessibility và post-live zero-side-effect snapshot. Không rollback;
 disposable branch được giữ lại. Evidence tại
 [P4_10_STAGING_ACCEPTANCE.md](P4_10_STAGING_ACCEPTANCE.md).
-**Task hiện tại:** `P4-11` Browser/device matrix, load và outage runbook (`TODO`).
+**Task hiện tại:** `P4-11` Browser/device matrix, load và outage runbook (`IN PROGRESS`).
 
 `P4-MEDIA-UX-00` đã `DONE`; không đổi LiveKit provider, không thêm processor production dependency
 hoặc mở `CanPublishData=false`. P4-03/P4-04/P4-05/P4-06/P4-11 phải tuân ADR-0031 và báo rõ các
@@ -84,7 +84,7 @@ physical/manual effect gate còn `UNVERIFIED` thay vì suy PASS từ research.
 | P4-08          | Persistent in-room chat                             | P4-01, P3-07A; ADR review       | DONE        |
 | P4-09          | Reconnect, recovery instance và degraded audio-only | P4-02, P4-05, P4-07             | DONE        |
 | P4-10          | Join telemetry, privacy và diagnostics export       | P4-02, P4-03, P4-09             | DONE       |
-| P4-11          | Browser/device matrix, load và outage runbook       | P4-05 đến P4-10                 | TODO       |
+| P4-11          | Browser/device matrix, load và outage runbook       | P4-05 đến P4-10                 | IN PROGRESS |
 | P4-12          | Exact staging acceptance và Phase 4 closure         | P4-MEDIA-UX-00, P4-01 đến P4-11 | TODO       |
 
 `TODO` không ngụ ý implementation đã tồn tại. `VERIFY` chỉ dùng sau khi implementation và các gate
@@ -621,7 +621,12 @@ không rollback và disposable branch được giữ lại. Evidence tại
 
 ## 18. P4-11 Browser/device matrix, load và outage runbook
 
-**Dependency:** P4-05 đến P4-10. **Trạng thái:** `TODO`.
+**Dependency:** P4-05 đến P4-10. **Trạng thái:** `IN PROGRESS` ngày 2026-08-15.
+
+Acceptance contract, safety boundary, exact physical matrix, source-level browser supplement,
+quota-gated isolated LiveKit 25/50 harness và provider-outage/credential-rotation runbook nằm tại
+[P4_11_STAGING_ACCEPTANCE.md](P4_11_STAGING_ACCEPTANCE.md). P4-11 không có migration, không cần Neon
+disposable và không cho phép bật media capability trong lúc kiểm thử.
 
 ### Scope
 
@@ -641,6 +646,30 @@ không rollback và disposable branch được giữ lại. Evidence tại
       NVDA/VoiceOver được ghi PASS/FAIL; WebKit/headless/source evidence không thay test thật.
 - [ ] Effect chỉ được bật nếu self-hosted assets/privacy/CSP/network/120s perf/10-cycle cleanup đạt;
       nếu fail thì giữ `None` mà không hạ core classroom acceptance.
+
+### Checkpoint ban đầu — 2026-08-15
+
+- Acceptance/runbook, browser supplement, isolated 25/50 load harness và deterministic outage gate
+  đã được tạo; không migration, database write, deploy hoặc feature activation.
+- Scoped local gates PASS: Chromium `24/24`, Firefox `24/24`, WebKit prejoin `6/6`; format/lint/E2E
+  typecheck, Go media regression/integration compile/vet và unreachable-provider fail-closed.
+- Final pre-commit `pnpm verify` PASS trong `173.3 s`, gồm web `437/437`, API client `53/53`,
+  build/security và toàn bộ Go test/vet.
+- Isolated LiveKit profile 25 PASS: `25/25` join, connect p95 `4331 ms`, TTM p95 `6021 ms`, `24/24`
+  delivery, sustain `120 s`, Core API `126` health/readiness probe không lỗi và cleanup về `0`;
+  post-cleanup goroutine delta là `1`.
+- Isolated LiveKit profile 50 PASS: `50/50` join, connect p95 `6761 ms`, TTM p95 `8190 ms`, `49/49`
+  delivery, sustain `120 s`, Core API `128` probe không lỗi, cleanup về `0`; post-cleanup goroutine
+  delta tiếp tục là `1`. Maximum tested cap là `50`.
+- Exact candidate CI, physical matrix, CPU/network/provider dashboard và actual isolated
+  outage/rotation vẫn `UNVERIFIED`; trạng thái giữ `IN PROGRESS`.
+- Windows installed Chrome/Edge automated supplement PASS `48/48`; host/browser inventory đã ghi.
+  Isolated resilience PASS 10/10 join/leave cleanup, credential fail-closed giữ room hiện hữu và
+  successor smoke; SDK logger đã khóa để output không chứa IP/candidate/SDP/token. Physical A/V,
+  NVDA/macOS/low-end, dashboard CPU/network và actual temporary-key rotation vẫn chưa đóng.
+- Profile 50 + host sampler PASS lại: `50/50`, TTM p95 `8679 ms`, health `132/132`, cleanup `0`, CPU
+  tổng peak `48%`, network tổng peak `2263941 B/s`. Final pre-commit full local verify PASS trong
+  `173.3 s`.
 
 ## 19. P4-12 Exact staging acceptance và Phase 4 closure
 

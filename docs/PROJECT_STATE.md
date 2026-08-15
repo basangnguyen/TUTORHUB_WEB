@@ -14,8 +14,68 @@
 | Phase hiện tại       | Phase 4 Classroom Media MVP; Phase 3 deferred carry-over vẫn hoạt động                |
 | Task `DONE` gần nhất | P4-10 Join telemetry, privacy và diagnostics export                                    |
 | Mốc repository mới   | Exact candidate `c960f777` PASS CI/shared/deploy/live trên Render/Cloudflare           |
-| Task hiện tại        | P4-11 Browser/device matrix, load và outage runbook (`TODO`)                           |
-| Task tiếp theo       | Chuẩn bị P4-11 physical browser/device, 25/50 load và provider-outage acceptance       |
+| Task hiện tại        | P4-11 Browser/device matrix, load và outage runbook (`IN PROGRESS`)                    |
+| Task tiếp theo       | Ghi LiveKit dashboard, chạy physical matrix và actual temporary-key rotation           |
+
+### Checkpoint P4-11 `IN PROGRESS` ngày 2026-08-15
+
+Acceptance contract đã được khóa tại
+[P4_11_STAGING_ACCEPTANCE.md](P4_11_STAGING_ACCEPTANCE.md): physical Chrome/Edge/Firefox Windows,
+Safari macOS, standard/low-end 360p/540p/720p, NVDA/VoiceOver, profile 25 trước 50, Core API health,
+provider outage/recovery/temporary-key rotation và optional-effect `None` fallback đều có exact
+PASS/FAIL boundary. Playwright supplement chạy full deterministic matrix trên Chromium/Firefox và
+P4-03 prejoin trên WebKit; LiveKit fake-room helper cần `canvas.captureStream` nên không được dùng để
+suy Safari room PASS. Source evidence không thay physical Safari/Edge hoặc support statement.
+
+Candidate ban đầu bổ sung config browser supplement, deterministic local unreachable-provider gate
+và isolated LiveKit load harness. Provider harness chỉ nhận profile 25/50, giữ tải 120 giây, synthetic
+opaque identities, exact quota confirmation và từ chối database/shared-stage variables; output chỉ có
+bounded metrics cùng cleanup boolean. P4-11 không có migration, không cần Neon disposable, không bật
+media feature và chưa deploy. Các gate chưa chạy vẫn là `PENDING/UNVERIFIED`, không ghi PASS sớm.
+
+Scoped local evidence đã PASS: browser supplement `54/54` gồm Chromium `24/24`, Firefox `24/24` và
+WebKit prejoin `6/6`; deterministic unreachable-provider; Prettier, lint, E2E typecheck, Go media
+unit/integration compile và integration vet. Windows sandbox ban đầu chặn Firefox tab subprocess;
+exact rerun ngoài sandbox PASS. Full `pnpm verify` trước provider refinement PASS trong 218,1 giây,
+gồm API client `53/53`, web `69/69` files và `437/437` tests, build/security cùng toàn bộ Go test/vet.
+Exact candidate CI,
+physical devices, CPU/network/provider dashboard và isolated outage/rotation vẫn
+`PENDING/UNVERIFIED`.
+
+Windows installed-browser automated supplement sau đó PASS `48/48` trong `84.1 s`: Chrome
+`151.0.7922.138` đạt `24/24`, Edge `151.0.4129.78` đạt `24/24`, gồm deterministic permission/prejoin,
+layout 2/5/25/50, pagination/focus, 320px/200%, Axe, forced-colors, reduced-motion và
+roster/signals/moderation. Host là Windows 11 build `26200`, i5-13450HX, RAM `15.7 GiB`, Intel UHD +
+RTX 3050 6GB; NVDA `2026.1.1` có cài. Đây không thay physical webcam/headset/NVDA speech; macOS/Safari,
+Firefox cài thật và máy low-end không có trong lượt này nên giữ `UNAVAILABLE/UNVERIFIED`.
+
+Isolated LiveKit profile 25 đã PASS sau khi health warm-up tách cold start khỏi load window, synthetic
+publisher phát ngay khi kết nối và các load client dùng relay-only managed TURN: `25/25` join,
+connect p95 `4331 ms`, TTM p95 `6021 ms`, `24/24` delivery, sustain `120 s`; Core API `126` probe,
+`0` failure, p95 `426 ms`; provider room cleanup về `0`. Active heap/goroutine delta là
+`70593368/1175`, sau cleanup + GC là `26133368/1`; cần profile 50 để so slope trước khi khóa cap.
+Post-refinement format, E2E typecheck, deterministic outage, integration-tag test/vet, security
+`24/24`, diff-check và candidate secret scan đều PASS.
+
+Isolated LiveKit profile 50 cũng PASS: `50/50` join, connect p95 `6761 ms`, TTM p95 `8190 ms`,
+`49/49` delivery, sustain `120 s`; Core API `128` probe, `0` failure, p95 `658 ms`; cleanup về `0`.
+Active heap/goroutine delta là `93658344/2350`, sau cleanup + GC là `53639968/1`. Maximum tested cap
+hiện là `50`; load 25/50 đã PASS, nhưng CPU/network/provider dashboard và physical/outage gates chưa
+được suy PASS.
+
+Isolated provider resilience cũng PASS với logger privacy đã khóa trước Room construction: 10/10
+join/leave cycle đều room/participant cleanup về `0`, post-cleanup heap/goroutine delta là
+`634632/1`; credential cố ý sai fail closed thành typed unavailable mà không làm gián đoạn room hiện
+hữu, provider hợp lệ tạo/cleanup successor smoke thành công. Rate-limit/credential HTTP mapping và
+issuer/provider normalization scoped tests PASS, TTL vẫn 5 phút. Smoke này không thay actual
+temporary-key revoke/rotation; CPU/network dashboard và physical A/V/accessibility vẫn còn mở.
+
+Profile 50 được chạy lại cùng host sampler `61` mẫu và tiếp tục PASS: `50/50` join, connect/TTM p95
+`7711/8679 ms`, `49/49` delivery, `132` health probe không lỗi, cleanup `0`; CPU tổng peak `48%`,
+network tổng peak `2263941 B/s`, free RAM tối thiểu `6201416 KiB`. Các số host-wide này không thay
+LiveKit dashboard. Final pre-commit candidate `pnpm verify` PASS trong `173.3 s`;
+format/generated drift, local infra, security `24/24`, lint/typecheck/test/build/Storybook/bundle
+security và toàn bộ Go test/vet đều xanh.
 
 ### Checkpoint P4-10 `DONE` ngày 2026-08-15
 
