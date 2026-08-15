@@ -121,6 +121,16 @@ jobs:
               WITH LOGIN PASSWORD 'tutorhub_ci'
               NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT
               NOREPLICATION NOBYPASSRLS;
+
+          -- The isolated conversation role stands in for the full Core API
+          -- runtime during media CI. Diagnostics re-resolves and row-locks
+          -- membership/tenant authority, so mirror only those dependencies.
+          GRANT SELECT (tenant_id, user_id, role, status), UPDATE (updated_at)
+          ON TABLE tutorhub.memberships
+          TO tutorhub_conversation_runtime_ci;
+          GRANT SELECT (id, status), UPDATE (updated_at)
+          ON TABLE tutorhub.tenants
+          TO tutorhub_conversation_runtime_ci;
           SQL
           go test -count=1 -tags=integration \
             -run '^TestPostgresMediaDiagnosticsForwardMigration$' \
