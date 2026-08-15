@@ -969,6 +969,18 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 			),
 		),
 	)
+	mux.Handle(
+		mediaSpaceRecoverPattern,
+		mediaSpaceResponseHeaders(
+			auditMutation(
+				staticAuditMutation(
+					http.MethodPost, audit.ActionMediaSpaceRecover, "media_space",
+					pathValueAuditResource("space_id"),
+				),
+				requireMethod(http.MethodPost, http.HandlerFunc(mediaSpaces.recover)),
+			),
+		),
+	)
 	mux.Handle(liveKitWebhookPath, http.HandlerFunc(mediaHandlers.receiveWebhook))
 	mux.Handle("/metrics", requireMethod(http.MethodGet, options.Metrics.Handler()))
 	mux.Handle("/", notFoundHandler())

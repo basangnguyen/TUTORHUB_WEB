@@ -192,8 +192,10 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
 41. [P4-MEDIA-UX-00: Classroom media UX research spike](docs/P4_MEDIA_UX_00_RESEARCH_SPIKE.md)
 42. [P4-MEDIA-UX-00: Báo cáo research/evidence](docs/P4_MEDIA_UX_00_RESEARCH_REPORT.md)
 43. [ADR-0031: Classroom media UX devices/layout/effects/signals](docs/adr/0031-classroom-media-ux-devices-layout-effects-and-signals.md)
-44. [P4-04: Lobby/admission/invite staging acceptance](docs/P4_04_STAGING_ACCEPTANCE.md)
-45. [P5-COLLAB-00: Whiteboard engine và collaboration topology research spike](docs/P5_COLLAB_00_RESEARCH_SPIKE.md)
+44. [ADR-0032: Classroom reconnect/recovery/audio-only](docs/adr/0032-classroom-reconnect-recovery-and-degraded-audio.md)
+45. [P4-09: Reconnect/recovery/audio-only staging acceptance](docs/P4_09_STAGING_ACCEPTANCE.md)
+46. [P4-04: Lobby/admission/invite staging acceptance](docs/P4_04_STAGING_ACCEPTANCE.md)
+47. [P5-COLLAB-00: Whiteboard engine và collaboration topology research spike](docs/P5_COLLAB_00_RESEARCH_SPIKE.md)
 
 Các quyết định kiến trúc đã chấp nhận nằm trong `docs/adr`.
 

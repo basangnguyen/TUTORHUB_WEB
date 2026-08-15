@@ -10,6 +10,7 @@ func TestMediaSpaceDomainEventsMapToAuditableActions(t *testing.T) {
 		"media_space.started.v1":         ActionMediaSpaceStart,
 		"media_space.ended.v1":           ActionMediaSpaceEnd,
 		"media_space.cancelled.v1":       ActionMediaSpaceCancel,
+		"media_space.recovered.v1":       ActionMediaSpaceRecover,
 		"media_space_member.invited.v1":  ActionMediaSpaceMemberInvite,
 		"media_space_member.revoked.v1":  ActionMediaSpaceMemberRevoke,
 		"media_space_member.restored.v1": ActionMediaSpaceMemberRestore,

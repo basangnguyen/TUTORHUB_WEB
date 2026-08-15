@@ -14,8 +14,40 @@
 | Phase hiện tại       | Phase 4 Classroom Media MVP; Phase 3 deferred carry-over vẫn hoạt động                |
 | Task `DONE` gần nhất | P4-08 Persistent in-room chat                                                          |
 | Mốc repository mới   | Exact candidate `fd2c3fc7` đã PASS CI/shared/deploy/live trên Render/Cloudflare        |
-| Task hiện tại        | P4-09 Reconnect, recovery instance và degraded audio-only (`TODO`)                     |
-| Task tiếp theo       | Bắt đầu P4-09 từ authority/recovery contract và failure-state matrix                   |
+| Task hiện tại        | P4-09 Reconnect, recovery instance và degraded audio-only (`VERIFY`)                   |
+| Task tiếp theo       | Review candidate, commit/push main và kiểm tra GitHub Verify/Security                  |
+
+### Checkpoint P4-09 `VERIFY` ngày 2026-08-15
+
+ADR-0032 đã chốt ba luồng riêng: LiveKit transient reconnect không gọi lại TutorHub API; terminal
+disconnect xóa credential rồi tải lại server authority; provider room failure tạo successor
+RoomInstance bằng recovery command thay vì nhân đôi MediaSpace. Forward migration
+`000035_media_room_recovery` chỉ mở rộng exact receipt allowlist/result invariant, không thêm runtime
+privilege. Core API khóa exact latest failed attempt, space/source/feature/current actor authority và
+one-active-instance barrier; provider call vẫn chạy sau transaction. Signed `room_finished` chuyển
+active/provisioning instance cùng participant còn hoạt động sang failed bounded để host có thể recovery.
+
+Web đã phân loại terminal disconnect theo LiveKit reason, không auto-rejoin khi bị remove, room bị
+đóng/xóa, duplicate identity hoặc người dùng tự rời. Network/unknown chỉ quay lại prejoin sau khi GET
+MediaSpace còn xác nhận open + active room. Audio-only là one-way camera shutdown: microphone, remote
+audio và leave vẫn hoạt động, camera không tự bật lại khi chất lượng phục hồi.
+
+Local candidate PASS `pnpm verify`: web `67/67` files, `431/431` tests; API client `7/7` files,
+`52/52` tests; format, OpenAPI generated drift, lint, typecheck, build, Storybook, security bundle và
+Go test/vet đều xanh. Focused P4-09 integration-tag compile và `git diff --check` cũng PASS. Chưa kết
+nối Neon, chưa chạy migration `000035`, chưa commit/push/deploy; bước kế tiếp là disposable owner
+preflight và forward-only acceptance theo [P4_09_STAGING_ACCEPTANCE.md](P4_09_STAGING_ACCEPTANCE.md).
+
+Neon disposable owner preflight PASS ở `34 dirty=false` với ba principal tách biệt trên cùng exact
+branch/database. Migration chạy forward-only/idempotent `34 false -> 35 false -> 35 false`; không
+rollback. Recovery concurrency tạo đúng một successor, replay hội tụ, foreign tenant bị conceal và
+lock thắng. Exact runtime/PUBLIC/maintenance/dependency ACL cùng toàn bộ `9/9` media PostgreSQL
+regression programs PASS. Regression P4-02 đã được cập nhật theo semantics mới: signed
+`room_finished` chuyển active RoomInstance và active participant sang `failed`, còn participant đã
+`left` giữ nguyên. Final read-only snapshot PASS tại `35 dirty=false`, effective media feature
+force-off, recovery receipt/event cân bằng `1/1`; retained override/active intent được báo cáo bounded
+thay vì xóa. Disposable branch vẫn được giữ lại. P4-09 chuyển `IN PROGRESS -> VERIFY`; chưa
+commit/push, chưa forward shared staging và chưa deploy.
 
 ### Checkpoint P4-07 `DONE` ngày 2026-08-14
 
@@ -104,8 +136,8 @@ Render deployment `dep-d9vsqjojo6nc73d6f6n0` đạt `Live` đúng SHA; Cloudflar
 conceal mà không render chat/device/LiveKit resource. Workspace có `53/53` và concealment có
 `11/11` exposed controls mang accessible name; mỗi trang có đúng một `main`, `h1`, `nav`, không
 duplicate ID và không console warning/error. Không temporary-enable capability, không rollback;
-disposable branch vẫn được giữ. P4-08 chuyển `IN PROGRESS -> VERIFY -> DONE`; P4-09 là task tiếp
-theo. Evidence/runbook: [P4_08_STAGING_ACCEPTANCE.md](P4_08_STAGING_ACCEPTANCE.md).
+disposable branch vẫn được giữ. P4-08 chuyển `IN PROGRESS -> VERIFY -> DONE`; P4-09 hiện đang
+`VERIFY`. Evidence/runbook: [P4_08_STAGING_ACCEPTANCE.md](P4_08_STAGING_ACCEPTANCE.md).
 
 ### Checkpoint P4-06 `DONE` ngày 2026-08-13
 

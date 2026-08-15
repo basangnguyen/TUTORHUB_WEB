@@ -1408,7 +1408,8 @@ WHERE tenant_id = $1 AND space_id = $2 AND id = $3
 				tag, err := transaction.Exec(
 					ctx,
 					`UPDATE tutorhub.media_room_instances
-SET status = 'closing', version = version + 1, closing_at = $4, updated_at = $4
+SET status = 'failed', version = version + 1, failed_at = $4,
+    failure_code = 'provider_room_finished', updated_at = $4
 WHERE tenant_id = $1 AND space_id = $2 AND id = $3 AND status = 'active'`,
 					binding.TenantID, binding.SpaceID, binding.RoomInstanceID, transitionAt,
 				)
@@ -1430,12 +1431,13 @@ WHERE tenant_id = $1 AND space_id = $2 AND id = $3 AND status = 'active'`,
 				); err != nil {
 					return err
 				}
-				return terminateRoomParticipants(
+				return failRoomParticipants(
 					ctx,
 					transaction,
 					binding.TenantID,
 					binding.SpaceID,
 					binding.RoomInstanceID,
+					"provider_room_finished",
 					transitionAt,
 				)
 			}
@@ -1468,12 +1470,13 @@ WHERE tenant_id = $1 AND space_id = $2 AND id = $3 AND status = 'provisioning'`,
 				); err != nil {
 					return err
 				}
-				return terminateRoomParticipants(
+				return failRoomParticipants(
 					ctx,
 					transaction,
 					binding.TenantID,
 					binding.SpaceID,
 					binding.RoomInstanceID,
+					"provider_room_finished",
 					transitionAt,
 				)
 			}

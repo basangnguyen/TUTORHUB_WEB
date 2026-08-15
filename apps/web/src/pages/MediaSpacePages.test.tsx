@@ -40,6 +40,7 @@ const apiMocks = vi.hoisted(() => ({
   issueJoinCredential: vi.fn(),
   listParticipants: vi.fn(),
   mutateSignal: vi.fn(),
+  recoverMediaSpace: vi.fn(),
   rotateCSRFToken: vi.fn(),
 }));
 
@@ -88,6 +89,7 @@ vi.mock("@tutorhub/api-client", async (importOriginal) => {
     issueMediaSpaceJoinCredential: apiMocks.issueJoinCredential,
     listMediaSpaceParticipants: apiMocks.listParticipants,
     mutateMediaSpaceSignal: apiMocks.mutateSignal,
+    recoverMediaSpace: apiMocks.recoverMediaSpace,
     rotateCSRFToken: apiMocks.rotateCSRFToken,
   };
 });
@@ -123,6 +125,14 @@ vi.mock("../features/media/ClassroomMediaShell", () => ({
 }));
 
 vi.mock("livekit-client", () => ({
+  DisconnectReason: {
+    UNKNOWN_REASON: 0,
+    CLIENT_INITIATED: 1,
+    DUPLICATE_IDENTITY: 2,
+    PARTICIPANT_REMOVED: 4,
+    ROOM_DELETED: 5,
+    ROOM_CLOSED: 10,
+  },
   getLogger: () => ({ setLevel: liveKitMocks.setRoomLogLevel }),
   LogLevel: { silent: 5 },
   RoomEvent: {
@@ -169,9 +179,10 @@ function emitRoomEvent(
     | "reconnected"
     | "reconnecting"
     | "signalConnected",
+  ...args: unknown[]
 ) {
   for (const listener of liveKitMocks.listeners.get(event) ?? []) {
-    listener();
+    listener(...args);
   }
 }
 
@@ -218,12 +229,14 @@ const mediaSpace: MediaSpace = {
     created_at: "2030-08-03T00:00:00Z",
     updated_at: "2030-08-03T00:01:00Z",
   },
+  recovery_room_instance: null,
   viewer_operations: {
     can_start: false,
     can_end: false,
     can_cancel: false,
     can_manage_admissions: false,
     can_manage_invites: false,
+    can_recover: false,
   },
   created_at: "2030-08-03T00:00:00Z",
   updated_at: "2030-08-03T00:01:00Z",
@@ -498,6 +511,7 @@ describe("MediaSpacePreJoinPage P4-03 boundaries", () => {
       version: 1,
     });
     apiMocks.rotateCSRFToken.mockResolvedValue({ csrf_token: "media-csrf" });
+    apiMocks.recoverMediaSpace.mockResolvedValue(mediaSpace);
     vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue(undefined);
     vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(
       () => undefined,
@@ -519,6 +533,7 @@ describe("MediaSpacePreJoinPage P4-03 boundaries", () => {
     apiMocks.issueJoinCredential.mockReset();
     apiMocks.listParticipants.mockReset();
     apiMocks.mutateSignal.mockReset();
+    apiMocks.recoverMediaSpace.mockReset();
     apiMocks.rotateCSRFToken.mockReset();
     liveKitMocks.listeners.clear();
     liveKitMocks.roomConnect.mockReset().mockResolvedValue(undefined);
@@ -549,6 +564,59 @@ describe("MediaSpacePreJoinPage P4-03 boundaries", () => {
     expect(apiMocks.createJoinAttempt).not.toHaveBeenCalled();
     expect(apiMocks.issueJoinCredential).not.toHaveBeenCalled();
     expect(liveKitMocks.roomConnect).not.toHaveBeenCalled();
+  });
+
+  it("recovers only the exact failed room projection with fresh CSRF", async () => {
+    const failedRoomID = "aa66c9ca-bf3f-4919-828a-acde86a43be4";
+    const failedSpace: MediaSpace = {
+      ...mediaSpace,
+      version: 7,
+      active_room_instance: null,
+      recovery_room_instance: {
+        id: failedRoomID,
+        status: "failed",
+        version: 3,
+        created_at: "2030-08-03T00:00:00Z",
+        updated_at: "2030-08-03T00:02:00Z",
+      },
+      viewer_operations: {
+        ...mediaSpace.viewer_operations,
+        can_recover: true,
+      },
+    };
+    apiMocks.getMediaSpace
+      .mockReset()
+      .mockResolvedValueOnce(failedSpace)
+      .mockResolvedValue(mediaSpace);
+    apiMocks.recoverMediaSpace.mockResolvedValue(mediaSpace);
+    renderPrejoin(fakeMediaDevices(fakeStream().stream));
+
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Create recovery instance",
+      }),
+    );
+
+    await waitFor(() =>
+      expect(apiMocks.recoverMediaSpace).toHaveBeenCalledTimes(1),
+    );
+    expect(apiMocks.rotateCSRFToken).toHaveBeenCalledTimes(1);
+    expect(apiMocks.recoverMediaSpace).toHaveBeenCalledWith(
+      tenantID,
+      spaceID,
+      expect.objectContaining({
+        expected_space_version: 7,
+        expected_room_instance_id: failedRoomID,
+        expected_room_instance_version: 3,
+      }),
+      "media-csrf",
+    );
+    expect(
+      apiMocks.recoverMediaSpace.mock.calls[0]?.[2].idempotency_key,
+    ).toMatch(/^media-recover-[0-9a-f-]{36}$/);
+    expect(
+      await screen.findByRole("heading", { name: "Get ready for class" }),
+    ).toBeInTheDocument();
   });
 
   it("starts one local preview only after the explicit device-check action", async () => {
@@ -1182,7 +1250,7 @@ describe("MediaSpacePreJoinPage P4-03 boundaries", () => {
     expect(liveKitMocks.listeners.get("disconnected")?.size).toBe(1);
     expect(shellProps?.controlAbortSignal?.aborted).toBe(false);
 
-    act(() => emitRoomEvent("disconnected"));
+    act(() => emitRoomEvent("disconnected", 4));
     expect(shellProps?.controlAbortSignal?.aborted).toBe(true);
 
     expect(

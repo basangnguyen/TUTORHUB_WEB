@@ -29,7 +29,7 @@ authority/concurrency/privacy và final/post-live snapshot đều PASS. Render d
 feature-off/conceal/accessibility/privacy/resource/log acceptance đều PASS. Không rollback;
 disposable branch được giữ lại và các gate physical/manual/load/outage tiếp tục `UNVERIFIED — P4-11`.
 Evidence tại [P4_08_STAGING_ACCEPTANCE.md](P4_08_STAGING_ACCEPTANCE.md).
-**Task hiện tại:** `P4-09` Reconnect, recovery instance và degraded audio-only (`TODO`).
+**Task hiện tại:** `P4-09` Reconnect, recovery instance và degraded audio-only (`VERIFY`).
 
 `P4-MEDIA-UX-00` đã `DONE`; không đổi LiveKit provider, không thêm processor production dependency
 hoặc mở `CanPublishData=false`. P4-03/P4-04/P4-05/P4-06/P4-11 phải tuân ADR-0031 và báo rõ các
@@ -84,7 +84,7 @@ physical/manual effect gate còn `UNVERIFIED` thay vì suy PASS từ research.
 | P4-06          | Participant roster, hand raise và reaction          | P4-04, P4-05, P4-MEDIA-UX-00    | DONE       |
 | P4-07          | Host/co-host/TA moderation, lock/mute/remove/end    | P4-04, P4-06                    | DONE       |
 | P4-08          | Persistent in-room chat                             | P4-01, P3-07A; ADR review       | DONE        |
-| P4-09          | Reconnect, recovery instance và degraded audio-only | P4-02, P4-05, P4-07             | TODO       |
+| P4-09          | Reconnect, recovery instance và degraded audio-only | P4-02, P4-05, P4-07             | VERIFY      |
 | P4-10          | Join telemetry, privacy và diagnostics export       | P4-02, P4-03, P4-09             | TODO       |
 | P4-11          | Browser/device matrix, load và outage runbook       | P4-05 đến P4-10                 | TODO       |
 | P4-12          | Exact staging acceptance và Phase 4 closure         | P4-MEDIA-UX-00, P4-01 đến P4-11 | TODO       |
@@ -570,7 +570,7 @@ surprised`, TTL 10 giây, grouping 750 ms, snapshot max 50 summary/UI max 3 visu
 
 ## 16. P4-09 Reconnect, recovery instance và degraded audio-only
 
-**Dependency:** P4-02/P4-05/P4-07. **Trạng thái:** `TODO`.
+**Dependency:** P4-02/P4-05/P4-07. **Trạng thái:** `VERIFY`.
 
 ### Scope
 
@@ -714,4 +714,4 @@ PostgreSQL. Mỗi implementation slice phải cập nhật khi thêm provider co
 8. P4-08 Persistent in-room chat đã `DONE` trên exact candidate `fd2c3fc7`: disposable/shared
    forward-only `33 false -> 34 false -> 34 false`, exact CI/security/ACL, Render/Cloudflare deploy,
    live privacy/feature-off/accessibility và post-live zero-side-effect đều PASS; không rollback.
-9. P4-09 Reconnect, recovery instance và degraded audio-only là task runnable tiếp theo.
+9. P4-09 Reconnect, recovery instance và degraded audio-only đang `VERIFY`; local/disposable PASS.

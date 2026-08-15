@@ -79,8 +79,27 @@ func runPostgresP407ReadOnlySnapshot(
 	additionalPostflightAssertions ...func(*testing.T, context.Context, pgx.Tx),
 ) {
 	t.Helper()
+	runPostgresMediaReadOnlySnapshot(
+		t,
+		"P4_07",
+		expectedVersion,
+		postflight,
+		logP407FinalSnapshot,
+		additionalPostflightAssertions...,
+	)
+}
+
+func runPostgresMediaReadOnlySnapshot(
+	t *testing.T,
+	gateLabel string,
+	expectedVersion int,
+	postflight bool,
+	postflightLogger func(*testing.T, context.Context, pgx.Tx),
+	additionalPostflightAssertions ...func(*testing.T, context.Context, pgx.Tx),
+) {
+	t.Helper()
 	if !postflight && len(additionalPostflightAssertions) != 0 {
-		t.Fatal("P4-07 preflight cannot run postflight assertions")
+		t.Fatalf("%s preflight cannot run postflight assertions", gateLabel)
 	}
 	migrationURL := requireP406ReadOnlyEnvironment(t, "DATABASE_MIGRATION_URL")
 	runtimeURL := requireP406ReadOnlyEnvironment(t, "DATABASE_POOL_URL")
@@ -106,10 +125,10 @@ func runPostgresP407ReadOnlySnapshot(
 	for _, transaction := range []pgx.Tx{migrationTx, runtimeTx, maintenanceTx} {
 		var readOnly string
 		if err := transaction.QueryRow(ctx, `SHOW transaction_read_only`).Scan(&readOnly); err != nil {
-			t.Fatal("inspect P4-07 read-only transaction mode")
+			t.Fatalf("inspect %s read-only transaction mode", gateLabel)
 		}
 		if readOnly != "on" {
-			t.Fatal("P4-07 database gate transaction is not read-only")
+			t.Fatalf("%s database gate transaction is not read-only", gateLabel)
 		}
 	}
 
@@ -119,7 +138,7 @@ func runPostgresP407ReadOnlySnapshot(
 	if migrationRole == runtimeRole || migrationRole == maintenanceRole ||
 		runtimeRole == maintenanceRole || migrationDatabase != runtimeDatabase ||
 		migrationDatabase != maintenanceDatabase {
-		t.Fatal("P4-07 read-only gate requires three distinct roles on one database")
+		t.Fatalf("%s read-only gate requires three distinct roles on one database", gateLabel)
 	}
 
 	var version int
@@ -128,10 +147,10 @@ func runPostgresP407ReadOnlySnapshot(
 		ctx,
 		`SELECT version, dirty FROM public.tutorhub_schema_migrations`,
 	).Scan(&version, &dirty); err != nil {
-		t.Fatal("inspect P4-07 migration ledger")
+		t.Fatalf("inspect %s migration ledger", gateLabel)
 	}
 	if version != expectedVersion || dirty {
-		t.Fatal("P4-07 read-only gate found an unexpected migration ledger state")
+		t.Fatalf("%s read-only gate found an unexpected migration ledger state", gateLabel)
 	}
 
 	targets := p406RelationsForVersion(expectedVersion)
@@ -146,7 +165,11 @@ func runPostgresP407ReadOnlySnapshot(
 	assertP406MediaFeaturesForcedOff(t)
 
 	if !postflight {
-		t.Log("P4_07_OWNER_PREFLIGHT PASS ledger=32 dirty=false three_principals=true url_boundary=true media_features=false")
+		t.Logf(
+			"%s_OWNER_PREFLIGHT PASS ledger=%d dirty=false three_principals=true url_boundary=true media_features=false",
+			gateLabel,
+			expectedVersion,
+		)
 		return
 	}
 
@@ -158,7 +181,9 @@ func runPostgresP407ReadOnlySnapshot(
 		t, ctx, migrationTx, runtimeTx, maintenanceTx, targets,
 	)
 	assertP406DependencyACL(t, ctx, runtimeTx)
-	logP407FinalSnapshot(t, ctx, migrationTx)
+	if postflightLogger != nil {
+		postflightLogger(t, ctx, migrationTx)
+	}
 	for _, assertion := range additionalPostflightAssertions {
 		assertion(t, ctx, migrationTx)
 	}

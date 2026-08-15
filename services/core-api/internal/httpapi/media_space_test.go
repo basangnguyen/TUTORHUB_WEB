@@ -187,6 +187,44 @@ func TestMediaSpaceProviderOutageIsTypedAndRedacted(t *testing.T) {
 	}
 }
 
+func TestMediaSpaceRecoveryRequiresExactFailedInstanceProjection(t *testing.T) {
+	t.Parallel()
+
+	tenantID, actorID, spaceID := uuid.New(), uuid.New(), uuid.New()
+	failedID, successorID := uuid.New(), uuid.New()
+	service := &fakeMediaLifecycleService{transitionResult: media.MediaSpace{
+		ID: spaceID, Status: media.SpaceStatusOpen, Version: 8,
+		ActiveRoomInstance: &media.RoomInstance{
+			ID: successorID, Status: media.RoomInstanceActive, Version: 2,
+			CreatedAt: fixedTime, UpdatedAt: fixedTime,
+		},
+		CreatedAt: fixedTime, UpdatedAt: fixedTime,
+	}}
+	handler := newMediaSpaceTestHandler(
+		classIdentityService(tenantID, actorID, nil), service,
+	)
+	body := `{"expected_space_version":7,"expected_room_instance_id":"` +
+		failedID.String() +
+		`","expected_room_instance_version":3,"idempotency_key":"media-recover-http-0001"}`
+	request := httptest.NewRequest(
+		http.MethodPost, "/api/v1/media/spaces/"+spaceID.String()+"/recover",
+		strings.NewReader(body),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set(mediaSpaceTenantHeader, tenantID.String())
+	addAuthenticatedMutationCookies(request)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK || service.operation != "recover" ||
+		service.spaceID != spaceID || service.recoverInput.ExpectedSpaceVersion != 7 ||
+		service.recoverInput.ExpectedRoomInstanceID != failedID ||
+		service.recoverInput.ExpectedRoomInstanceVersion != 3 ||
+		service.recoverInput.IdempotencyKey != "media-recover-http-0001" {
+		t.Fatalf("unexpected recovery request: status=%d service=%+v body=%s", response.Code, service, response.Body.String())
+	}
+}
+
 func TestMediaSpaceEndProviderOutageReportsCommittedConvergence(t *testing.T) {
 	t.Parallel()
 
@@ -296,6 +334,7 @@ type fakeMediaLifecycleService struct {
 	operation        string
 	createInput      media.CreateSpaceInput
 	transitionInput  media.TransitionInput
+	recoverInput     media.RecoverSpaceInput
 	createResult     media.CreateSpaceResult
 	getResult        media.MediaSpace
 	transitionResult media.MediaSpace
@@ -347,6 +386,18 @@ func (service *fakeMediaLifecycleService) CancelSpace(
 	input media.TransitionInput,
 ) (media.MediaSpace, error) {
 	return service.transition(access, spaceID, input, "cancel")
+}
+
+func (service *fakeMediaLifecycleService) RecoverSpace(
+	_ context.Context,
+	access media.AccessContext,
+	spaceID uuid.UUID,
+	input media.RecoverSpaceInput,
+) (media.MediaSpace, error) {
+	service.transitionCalls++
+	service.access, service.spaceID = access, spaceID
+	service.recoverInput, service.operation = input, "recover"
+	return service.transitionResult, service.requestError
 }
 
 func (service *fakeMediaLifecycleService) transition(

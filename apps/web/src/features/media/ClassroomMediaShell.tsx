@@ -784,6 +784,23 @@ export function ClassroomMediaShell({
     [onTerminalMediaCleanup],
   );
 
+  useEffect(() => {
+    if (
+      degradationStage !== "audio-only" ||
+      !isCameraEnabled ||
+      controlsTerminated
+    ) {
+      return;
+    }
+    void runControl("camera", () => localParticipant.setCameraEnabled(false));
+  }, [
+    controlsTerminated,
+    degradationStage,
+    isCameraEnabled,
+    localParticipant,
+    runControl,
+  ]);
+
   const runSignalAction = useCallback(
     async (action: () => Promise<void>, successKey: TranslationKey) => {
       if (!signals || controlsTerminated || signals.mutating) return;
@@ -1155,7 +1172,11 @@ export function ClassroomMediaShell({
               </IconButton>
               <IconButton
                 data-media-control="camera"
-                disabled={pendingControl !== null || controlsTerminated}
+                disabled={
+                  pendingControl !== null ||
+                  controlsTerminated ||
+                  degradationStage === "audio-only"
+                }
                 id="media-p405-control-camera"
                 label={t(
                   isCameraEnabled

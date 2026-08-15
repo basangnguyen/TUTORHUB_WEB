@@ -276,11 +276,11 @@ func TestP404LateAdmissionAndRoomTerminationCannotRetainCapacity(t *testing.T) {
 	remaining := providerClassifier
 	for path := 0; path < 2; path++ {
 		expiry := strings.Index(remaining, "expireOutstandingLobbyAdmissions(")
-		termination := strings.Index(remaining, "terminateRoomParticipants(")
+		termination := strings.Index(remaining, "failRoomParticipants(")
 		if expiry < 0 || termination < expiry {
 			t.Fatalf("P4-04 provider terminalization path %d releases participants before expiring admissions", path+1)
 		}
-		remaining = remaining[termination+len("terminateRoomParticipants("):]
+		remaining = remaining[termination+len("failRoomParticipants("):]
 	}
 }
 

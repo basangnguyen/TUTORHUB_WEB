@@ -353,6 +353,8 @@ export type CreateMediaSpaceRequest =
   components["schemas"]["CreateMediaSpaceRequest"];
 export type MediaSpaceTransitionRequest =
   components["schemas"]["MediaSpaceTransitionRequest"];
+export type RecoverMediaSpaceRequest =
+  components["schemas"]["RecoverMediaSpaceRequest"];
 export type MediaParticipantKey = components["schemas"]["MediaParticipantKey"];
 export type MediaParticipantConnectionState =
   components["schemas"]["MediaParticipantConnectionState"];
@@ -3787,6 +3789,36 @@ export async function cancelMediaSpace(
     input,
     csrfToken,
     options,
+  );
+}
+
+export async function recoverMediaSpace(
+  tenantID: string,
+  spaceID: string,
+  input: RecoverMediaSpaceRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<MediaSpace> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/media/spaces/{space_id}/recover",
+    {
+      params: {
+        path: { space_id: spaceID },
+        header: {
+          "X-CSRF-Token": csrfToken,
+          "X-TutorHub-Expected-Tenant-ID": tenantID,
+        },
+      },
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+  return requireData<MediaSpace>(
+    data as MediaSpace | undefined,
+    error,
+    response,
   );
 }
 

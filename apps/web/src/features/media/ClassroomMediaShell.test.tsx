@@ -51,6 +51,7 @@ const liveKitState = vi.hoisted(() => {
     audiooutput: vi.fn().mockResolvedValue(undefined),
     videoinput: vi.fn().mockResolvedValue(undefined),
   };
+  const mediaState = { cameraEnabled: false };
   const localParticipant = {
     connectionQuality: "excellent",
     off: vi.fn((event: string, handler: (quality: string) => void) => {
@@ -76,6 +77,7 @@ const liveKitState = vi.hoisted(() => {
     audioTrackRefs: [] as MockTrackReference[],
     speakingParticipants: [] as MockParticipant[],
     mediaDeviceSelect: vi.fn(),
+    mediaState,
     subscriptionTransitions,
     trackOptions: [] as Array<{ onlySubscribed?: boolean } | undefined>,
     terminalMediaCleanup: vi.fn().mockResolvedValue(undefined),
@@ -159,7 +161,7 @@ vi.mock("@livekit/components-react", () => ({
   isTrackReference: (trackRef: MockTrackReference) =>
     Boolean(trackRef.publication),
   useLocalParticipant: () => ({
-    isCameraEnabled: false,
+    isCameraEnabled: liveKitState.mediaState.cameraEnabled,
     isMicrophoneEnabled: false,
     isScreenShareEnabled: false,
     localParticipant: liveKitState.localParticipant,
@@ -209,11 +211,14 @@ describe("ClassroomMediaShell", () => {
     liveKitState.audioTrackRefs = createAudioTracks(25);
     liveKitState.speakingParticipants = [];
     liveKitState.localParticipant.connectionQuality = "excellent";
+    liveKitState.mediaState.cameraEnabled = false;
     liveKitState.localParticipant.on.mockClear();
     liveKitState.localParticipant.off.mockClear();
     liveKitState.localParticipant.setCameraEnabled
       .mockReset()
-      .mockResolvedValue(undefined);
+      .mockImplementation(async (enabled: boolean) => {
+        liveKitState.mediaState.cameraEnabled = enabled;
+      });
     liveKitState.localParticipant.setMicrophoneEnabled
       .mockReset()
       .mockResolvedValue(undefined);
@@ -812,8 +817,9 @@ describe("ClassroomMediaShell", () => {
     ).toEqual([activeSpeaker]);
   });
 
-  it("degrades video one tier at a time while preserving layout, audio and controls", () => {
+  it("degrades video one tier at a time while preserving layout, audio and controls", async () => {
     vi.useFakeTimers();
+    liveKitState.mediaState.cameraEnabled = true;
     const view = renderShell();
     const firstRemoteCamera = liveKitState.cameraTrackRefs[1]
       ?.publication as InstanceType<
@@ -828,7 +834,10 @@ describe("ClassroomMediaShell", () => {
     ).toHaveLength(12);
 
     act(() => liveKitState.emitConnectionQuality("poor"));
-    act(() => vi.advanceTimersByTime(5_000));
+    await act(async () => {
+      vi.advanceTimersByTime(5_000);
+      await Promise.resolve();
+    });
     expect(
       screen.getByText(/showing fewer videos while keeping audio/i),
     ).toBeInTheDocument();
@@ -855,11 +864,23 @@ describe("ClassroomMediaShell", () => {
       view.container.querySelectorAll(".media-p405-grid video"),
     ).toHaveLength(1);
 
-    act(() => vi.advanceTimersByTime(5_000));
+    await act(async () => {
+      vi.advanceTimersByTime(5_000);
+      await Promise.resolve();
+    });
     expect(
       view.container.querySelectorAll(".media-p405-grid video"),
     ).toHaveLength(0);
     expect(screen.getByRole("toolbar")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Turn camera on" }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Turn microphone on" }),
+    ).toBeEnabled();
+    expect(liveKitState.localParticipant.setCameraEnabled).toHaveBeenCalledWith(
+      false,
+    );
     expect(
       (
         liveKitState.audioTrackRefs[0]?.publication as InstanceType<
@@ -873,6 +894,9 @@ describe("ClassroomMediaShell", () => {
     expect(
       view.container.querySelectorAll(".media-p405-grid video"),
     ).toHaveLength(1);
+    expect(
+      liveKitState.localParticipant.setCameraEnabled,
+    ).not.toHaveBeenCalledWith(true);
 
     view.unmount();
     expect(liveKitState.localParticipant.off).toHaveBeenCalledWith(

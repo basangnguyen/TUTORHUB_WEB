@@ -6915,6 +6915,58 @@ paths:
           $ref: "#/components/responses/ProblemResponse"
         default:
           $ref: "#/components/responses/ProblemResponse"
+  /api/v1/media/spaces/{space_id}/recover:
+    post:
+      operationId: recoverMediaSpace
+      summary: Create one recovery RoomInstance from the exact latest failed attempt
+      description: Reauthorizes the current actor and source, then atomically creates at most one opaque successor under the existing one-active-instance invariant. Provider provisioning runs after commit; stale tokens and provider identifiers are never accepted from the client.
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: space_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/ExpectedTenantID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecoverMediaSpaceRequest"
+      responses:
+        "200":
+          description: Current media-space projection after recovery or exact replay
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: private, no-store
+            Referrer-Policy:
+              schema:
+                type: string
+                const: no-referrer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MediaSpace"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
   /api/v1/classes/{class_id}/media-token:
     post:
       operationId: issueClassMediaToken
@@ -12088,6 +12140,7 @@ components:
       required:
         [
           can_start,
+          can_recover,
           can_end,
           can_cancel,
           can_manage_admissions,
@@ -12096,6 +12149,9 @@ components:
       properties:
         can_start:
           type: boolean
+        can_recover:
+          type: boolean
+          description: True only when the latest exact RoomInstance failed and current source authority permits recovery.
         can_end:
           type: boolean
         can_cancel:
@@ -12115,6 +12171,7 @@ components:
         - status
         - version
         - active_room_instance
+        - recovery_room_instance
         - viewer_operations
         - created_at
         - updated_at
@@ -12131,6 +12188,11 @@ components:
           format: int64
           minimum: 1
         active_room_instance:
+          oneOf:
+            - $ref: "#/components/schemas/MediaRoomInstance"
+            - type: "null"
+        recovery_room_instance:
+          description: Latest failed instance eligible for an explicit recovery decision; never contains provider identifiers.
           oneOf:
             - $ref: "#/components/schemas/MediaRoomInstance"
             - type: "null"
@@ -12609,6 +12671,33 @@ components:
           maxLength: 64
           pattern: "^[a-z][a-z0-9_.-]{0,63}$"
           description: Bounded non-private reason code; raw free text is not persisted to audit or outbox.
+    RecoverMediaSpaceRequest:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          expected_space_version,
+          expected_room_instance_id,
+          expected_room_instance_version,
+          idempotency_key,
+        ]
+      properties:
+        expected_space_version:
+          type: integer
+          format: int64
+          minimum: 1
+        expected_room_instance_id:
+          type: string
+          format: uuid
+        expected_room_instance_version:
+          type: integer
+          format: int64
+          minimum: 1
+        idempotency_key:
+          type: string
+          minLength: 16
+          maxLength: 128
+          pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]{15,127}$"
     MediaInstanceRole:
       type: string
       enum: [host, co_host, teaching_assistant, attendee]

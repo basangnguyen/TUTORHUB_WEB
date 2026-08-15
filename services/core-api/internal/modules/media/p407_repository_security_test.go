@@ -148,7 +148,7 @@ func TestP407SharedACLProvisioningUsesFreshExactUnion(t *testing.T) {
 		"p407SharedACLProvisionConfirmation",
 		"requireP407SharedConfirmation(",
 		`"P4_07_SHARED_ACL_PROVISION_CONFIRM"`,
-		"expectedVersion: 34",
+		"expectedVersion: 35",
 		"expectations:    p407MediaACLExpectations()",
 	} {
 		if !strings.Contains(provision, required) {

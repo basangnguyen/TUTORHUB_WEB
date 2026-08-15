@@ -2010,6 +2010,26 @@ export type paths = {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/api/v1/media/spaces/{space_id}/recover": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Create one recovery RoomInstance from the exact latest failed attempt
+     * @description Reauthorizes the current actor and source, then atomically creates at most one opaque successor under the existing one-active-instance invariant. Provider provisioning runs after commit; stale tokens and provider identifiers are never accepted from the client.
+     */
+    readonly post: operations["recoverMediaSpace"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/api/v1/media/spaces/{space_id}/signals": {
     readonly parameters: {
       readonly query?: never;
@@ -4223,6 +4243,9 @@ export type components = {
       readonly created_at: string;
       /** Format: uuid */
       readonly id: string;
+      /** @description Latest failed instance eligible for an explicit recovery decision; never contains provider identifiers. */
+      readonly recovery_room_instance:
+        components["schemas"]["MediaRoomInstance"] | null;
       readonly source: components["schemas"]["MediaSpaceSource"];
       readonly status: components["schemas"]["MediaSpaceStatus"];
       /** Format: date-time */
@@ -4318,6 +4341,8 @@ export type components = {
       readonly can_manage_admissions: boolean;
       /** @description True only for an authorized StudyMeeting explicit-member manager. */
       readonly can_manage_invites: boolean;
+      /** @description True only when the latest exact RoomInstance failed and current source authority permits recovery. */
+      readonly can_recover: boolean;
       readonly can_start: boolean;
     };
     readonly MediaTokenResponse: {
@@ -4554,6 +4579,15 @@ export type components = {
       readonly status: "ready" | "not_ready";
       /** Format: date-time */
       readonly timestamp: string;
+    };
+    readonly RecoverMediaSpaceRequest: {
+      /** Format: uuid */
+      readonly expected_room_instance_id: string;
+      /** Format: int64 */
+      readonly expected_room_instance_version: number;
+      /** Format: int64 */
+      readonly expected_space_version: number;
+      readonly idempotency_key: string;
     };
     readonly ReopenAvailabilityPollRequest: {
       /** Format: date-time */
@@ -9452,6 +9486,46 @@ export interface operations {
           readonly "application/problem+json": components["schemas"]["Problem"];
         };
       };
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly recoverMediaSpace: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Double-submit CSRF token bound to the active authenticated session. */
+        readonly "X-CSRF-Token": components["parameters"]["CSRFToken"];
+        /** @description Active workspace assertion used to prevent confused-deputy mutations and reads. */
+        readonly "X-TutorHub-Expected-Tenant-ID": components["parameters"]["ExpectedTenantID"];
+      };
+      readonly path: {
+        readonly space_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["RecoverMediaSpaceRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Current media-space projection after recovery or exact replay */
+      readonly 200: {
+        headers: {
+          readonly "Cache-Control"?: "private, no-store";
+          readonly "Referrer-Policy"?: "no-referrer";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["MediaSpace"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
       readonly 503: components["responses"]["ProblemResponse"];
       readonly default: components["responses"]["ProblemResponse"];
     };

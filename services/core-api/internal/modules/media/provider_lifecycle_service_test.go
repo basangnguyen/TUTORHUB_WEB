@@ -69,6 +69,53 @@ func TestProviderLifecycleServiceStartProvisioningEnsuresRoomThenActivatesCAS(t 
 	}
 }
 
+func TestProviderLifecycleServiceRecoveryProvisioningUsesSameExternalConvergence(t *testing.T) {
+	t.Parallel()
+
+	spaceID, roomInstanceID, failedID := uuid.New(), uuid.New(), uuid.New()
+	const providerRoomName = "r_1123456789abcdef0123456789abcdef"
+	const providerRoomSID = "RM_recovery_provider_sid"
+	order := []string{}
+	provisioning := MediaSpace{
+		ID: spaceID, Status: SpaceStatusOpen,
+		ActiveRoomInstance: &RoomInstance{
+			ID: roomInstanceID, Status: RoomInstanceProvisioning,
+			ProviderRoomName: providerRoomName,
+		},
+	}
+	active := MediaSpace{
+		ID: spaceID, Status: SpaceStatusOpen,
+		ActiveRoomInstance: &RoomInstance{
+			ID: roomInstanceID, Status: RoomInstanceActive,
+			ProviderRoomSID: providerRoomSID,
+		},
+	}
+	input := RecoverSpaceInput{
+		ExpectedSpaceVersion: 8, ExpectedRoomInstanceID: failedID,
+		ExpectedRoomInstanceVersion: 4, IdempotencyKey: "provider-recover-0001",
+	}
+	base := &fakeProviderLifecycleBase{order: &order, recoverResult: provisioning}
+	bindings := &fakeRoomBindingRepository{order: &order, activateResult: active}
+	provider := &fakeRoomProvider{
+		order: &order, ensureResult: ProviderRoom{SID: providerRoomSID},
+	}
+	service := newTestProviderLifecycleService(t, base, bindings, provider)
+
+	result, err := service.RecoverSpace(
+		context.Background(), lifecycleAccess(), spaceID, input,
+	)
+	if err != nil {
+		t.Fatalf("recover provider-backed space: %v", err)
+	}
+	if result.ActiveRoomInstance == nil ||
+		result.ActiveRoomInstance.Status != RoomInstanceActive ||
+		!reflect.DeepEqual(order, []string{"base.recover", "provider.ensure", "bindings.activate"}) ||
+		base.recoverCalls != 1 || base.recoverInput != input ||
+		bindings.activateRoomInstanceID != roomInstanceID {
+		t.Fatalf("unexpected recovery convergence: result=%+v base=%+v order=%+v", result, base, order)
+	}
+}
+
 func TestProviderLifecycleServiceStartRetryReturnsActiveInstanceWithoutProviderCall(t *testing.T) {
 	t.Parallel()
 
@@ -315,15 +362,19 @@ func newTestProviderLifecycleService(
 }
 
 type fakeProviderLifecycleBase struct {
-	order        *[]string
-	startResult  MediaSpace
-	startErr     error
-	endResult    MediaSpace
-	endErr       error
-	startCalls   int
-	endCalls     int
-	startSpaceID uuid.UUID
-	startInput   TransitionInput
+	order         *[]string
+	startResult   MediaSpace
+	startErr      error
+	endResult     MediaSpace
+	endErr        error
+	startCalls    int
+	endCalls      int
+	startSpaceID  uuid.UUID
+	startInput    TransitionInput
+	recoverResult MediaSpace
+	recoverErr    error
+	recoverCalls  int
+	recoverInput  RecoverSpaceInput
 }
 
 func (base *fakeProviderLifecycleBase) CreateSpace(
@@ -373,6 +424,18 @@ func (base *fakeProviderLifecycleBase) CancelSpace(
 	TransitionInput,
 ) (MediaSpace, error) {
 	return MediaSpace{}, errors.New("unexpected cancel")
+}
+
+func (base *fakeProviderLifecycleBase) RecoverSpace(
+	_ context.Context,
+	_ AccessContext,
+	_ uuid.UUID,
+	input RecoverSpaceInput,
+) (MediaSpace, error) {
+	appendProviderLifecycleOrder(base.order, "base.recover")
+	base.recoverCalls++
+	base.recoverInput = input
+	return base.recoverResult, base.recoverErr
 }
 
 type fakeRoomBindingRepository struct {

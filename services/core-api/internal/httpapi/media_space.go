@@ -22,6 +22,7 @@ const (
 	mediaSpaceStartPattern        = "/api/v1/media/spaces/{space_id}/start"
 	mediaSpaceEndPattern          = "/api/v1/media/spaces/{space_id}/end"
 	mediaSpaceCancelPattern       = "/api/v1/media/spaces/{space_id}/cancel"
+	mediaSpaceRecoverPattern      = "/api/v1/media/spaces/{space_id}/recover"
 	mediaSpaceTenantHeader        = "X-TutorHub-Expected-Tenant-ID"
 	maximumMediaSpaceRequestBytes = 16 * 1024
 )
@@ -54,6 +55,13 @@ type mediaSpaceTransitionRequest struct {
 	ExpectedVersion *int64  `json:"expected_version"`
 	IdempotencyKey  *string `json:"idempotency_key"`
 	ReasonCode      *string `json:"reason_code"`
+}
+
+type recoverMediaSpaceRequest struct {
+	ExpectedSpaceVersion        *int64     `json:"expected_space_version"`
+	ExpectedRoomInstanceID      *uuid.UUID `json:"expected_room_instance_id"`
+	ExpectedRoomInstanceVersion *int64     `json:"expected_room_instance_version"`
+	IdempotencyKey              *string    `json:"idempotency_key"`
 }
 
 type mediaProviderConvergenceProblem struct {
@@ -163,6 +171,38 @@ func (handlers mediaSpaceHandlers) end(w http.ResponseWriter, r *http.Request) {
 
 func (handlers mediaSpaceHandlers) cancel(w http.ResponseWriter, r *http.Request) {
 	handlers.transition(w, r, "cancel")
+}
+
+func (handlers mediaSpaceHandlers) recover(w http.ResponseWriter, r *http.Request) {
+	principal, ok := handlers.principal(w, r, true)
+	if !ok {
+		return
+	}
+	spaceID, ok := parseResourceUUID(r.PathValue("space_id"))
+	if !ok {
+		handlers.writeProblem(w, r, media.ErrInvalidSpaceRequest)
+		return
+	}
+	var request recoverMediaSpaceRequest
+	if err := decodeJSONRequest(w, r, &request, maximumMediaSpaceRequestBytes); err != nil ||
+		request.ExpectedSpaceVersion == nil || request.ExpectedRoomInstanceID == nil ||
+		request.ExpectedRoomInstanceVersion == nil || request.IdempotencyKey == nil {
+		handlers.writeProblem(w, r, media.ErrInvalidSpaceRequest)
+		return
+	}
+	space, err := handlers.service.RecoverSpace(
+		r.Context(), mediaAccess(principal), spaceID, media.RecoverSpaceInput{
+			ExpectedSpaceVersion:        *request.ExpectedSpaceVersion,
+			ExpectedRoomInstanceID:      *request.ExpectedRoomInstanceID,
+			ExpectedRoomInstanceVersion: *request.ExpectedRoomInstanceVersion,
+			IdempotencyKey:              *request.IdempotencyKey,
+		},
+	)
+	if err != nil {
+		handlers.writeProblem(w, r, err)
+		return
+	}
+	writeJSON(handlers.logger, w, http.StatusOK, space)
 }
 
 func (handlers mediaSpaceHandlers) transition(w http.ResponseWriter, r *http.Request, operation string) {

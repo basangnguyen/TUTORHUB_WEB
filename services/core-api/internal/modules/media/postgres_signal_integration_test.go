@@ -46,7 +46,7 @@ func TestPostgresMediaParticipantSignalsLifecycleAndConcurrency(t *testing.T) {
 		t.Fatal("inspect participant-signal migration ledger")
 	}
 	if version.Dirty ||
-		(version.Number != 31 && version.Number != 32 && version.Number != 33 && version.Number != 34) {
+		(version.Number != 31 && version.Number != 32 && version.Number != 33 && version.Number != 34 && version.Number != 35) {
 		t.Fatal("P4-06 disposable integration requires a clean ledger at version 31, 32, 33, or 34")
 	}
 	if err := migrationrunner.Up(ctx, migrationURL); err != nil {
@@ -56,8 +56,8 @@ func TestPostgresMediaParticipantSignalsLifecycleAndConcurrency(t *testing.T) {
 	if err != nil {
 		t.Fatal("inspect participant-signal migration ledger after forward migration")
 	}
-	if version.Number != 34 || version.Dirty {
-		t.Fatal("P4-06 disposable integration requires latest ledger 34 false after forward migration")
+	if version.Number != 35 || version.Dirty {
+		t.Fatal("P4-06 disposable integration requires latest ledger 35 false after forward migration")
 	}
 	migrationPool := openMediaIntegrationPool(t, ctx, migrationURL)
 	t.Cleanup(migrationPool.Close)

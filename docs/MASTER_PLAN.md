@@ -11,7 +11,7 @@
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
 | Phase hiện tại        | Phase 4 - Classroom Media MVP; Phase 3 deferred carry-over tiếp tục                          |
-| Trạng thái gần nhất   | P4-08 `DONE`; P4-09 reconnect/recovery/audio-only là task tiếp theo                          |
+| Trạng thái gần nhất   | P4-08 `DONE`; P4-09 reconnect/recovery/audio-only đang `VERIFY`                             |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 
@@ -2185,7 +2185,7 @@ authority/concurrency/privacy và final/post-live zero-side-effect snapshots đ�
 deployment `dep-d9vsqjojo6nc73d6f6n0` đạt `Live`; Cloudflare Pages deployment
 `d64338e9-8116-4021-8f5e-90e261868ecb` success cùng SHA. Live HTTP `10/10` và Admin
 feature-off/conceal/accessibility/privacy/resource/log acceptance đều PASS; không rollback và
-disposable branch được giữ lại. P4-09 reconnect/recovery/audio-only là task tiếp theo.
+disposable branch được giữ lại. P4-09 reconnect/recovery/audio-only đang `VERIFY` sau local/disposable PASS.
 Physical/manual browser-device,
 25/50 provider load, outage và optional-effect gates vẫn `UNVERIFIED — P4-11`, không suy PASS.
 Không bật side effect chỉ vì core đã có. `P3-02D-B` và các gate worker/provider vẫn là

@@ -76,6 +76,7 @@ type InstantSourceInput struct {
 
 type ViewerOperations struct {
 	CanStart            bool `json:"can_start"`
+	CanRecover          bool `json:"can_recover"`
 	CanEnd              bool `json:"can_end"`
 	CanCancel           bool `json:"can_cancel"`
 	CanManageAdmissions bool `json:"can_manage_admissions"`
@@ -93,14 +94,15 @@ type RoomInstance struct {
 }
 
 type MediaSpace struct {
-	ID                 uuid.UUID        `json:"id"`
-	Source             SourceReference  `json:"source"`
-	Status             SpaceStatus      `json:"status"`
-	Version            int64            `json:"version"`
-	ActiveRoomInstance *RoomInstance    `json:"active_room_instance"`
-	ViewerOperations   ViewerOperations `json:"viewer_operations"`
-	CreatedAt          time.Time        `json:"created_at"`
-	UpdatedAt          time.Time        `json:"updated_at"`
+	ID                   uuid.UUID        `json:"id"`
+	Source               SourceReference  `json:"source"`
+	Status               SpaceStatus      `json:"status"`
+	Version              int64            `json:"version"`
+	ActiveRoomInstance   *RoomInstance    `json:"active_room_instance"`
+	RecoveryRoomInstance *RoomInstance    `json:"recovery_room_instance"`
+	ViewerOperations     ViewerOperations `json:"viewer_operations"`
+	CreatedAt            time.Time        `json:"created_at"`
+	UpdatedAt            time.Time        `json:"updated_at"`
 }
 
 type CreateSpaceInput struct {
@@ -119,6 +121,13 @@ type TransitionInput struct {
 	ReasonCode      string
 }
 
+type RecoverSpaceInput struct {
+	ExpectedSpaceVersion        int64
+	ExpectedRoomInstanceID      uuid.UUID
+	ExpectedRoomInstanceVersion int64
+	IdempotencyKey              string
+}
+
 type CreateSpaceCommand struct {
 	SpaceID          uuid.UUID
 	InstantMeetingID uuid.UUID
@@ -129,15 +138,17 @@ type CreateSpaceCommand struct {
 }
 
 type TransitionCommand struct {
-	SpaceID          uuid.UUID
-	RoomInstanceID   uuid.UUID
-	ProviderRoomName string
-	Operation        string
-	ExpectedVersion  int64
-	IdempotencyKey   string
-	ReasonCode       string
-	Fingerprint      []byte
-	OccurredAt       time.Time
+	SpaceID                     uuid.UUID
+	RoomInstanceID              uuid.UUID
+	ProviderRoomName            string
+	Operation                   string
+	ExpectedVersion             int64
+	ExpectedRoomInstanceID      uuid.UUID
+	ExpectedRoomInstanceVersion int64
+	IdempotencyKey              string
+	ReasonCode                  string
+	Fingerprint                 []byte
+	OccurredAt                  time.Time
 }
 
 type LifecycleRepository interface {
@@ -152,4 +163,5 @@ type LifecycleServiceAPI interface {
 	StartSpace(context.Context, AccessContext, uuid.UUID, TransitionInput) (MediaSpace, error)
 	EndSpace(context.Context, AccessContext, uuid.UUID, TransitionInput) (MediaSpace, error)
 	CancelSpace(context.Context, AccessContext, uuid.UUID, TransitionInput) (MediaSpace, error)
+	RecoverSpace(context.Context, AccessContext, uuid.UUID, RecoverSpaceInput) (MediaSpace, error)
 }

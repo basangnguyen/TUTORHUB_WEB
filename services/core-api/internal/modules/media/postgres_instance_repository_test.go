@@ -688,8 +688,8 @@ func TestRoomTerminationReleasesParticipantCapacity(t *testing.T) {
 		`case "room_finished":`,
 		`case "participant_joined", "participant_left":`,
 	)
-	if !strings.Contains(roomFinished, "return terminateRoomParticipants(") {
-		t.Fatal("provider room-finished transition must release active participant capacity")
+	if !strings.Contains(roomFinished, "return failRoomParticipants(") {
+		t.Fatal("provider room-finished transition must fail participants and release capacity")
 	}
 
 	lifecycleContents, err := os.ReadFile("postgres_lifecycle_repository.go")

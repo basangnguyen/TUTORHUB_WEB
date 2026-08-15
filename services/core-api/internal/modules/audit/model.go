@@ -61,6 +61,7 @@ const (
 	ActionMediaSpaceStart             Action = "media_space.start"
 	ActionMediaSpaceEnd               Action = "media_space.end"
 	ActionMediaSpaceCancel            Action = "media_space.cancel"
+	ActionMediaSpaceRecover           Action = "media_space.recover"
 	ActionMediaSpaceMemberInvite      Action = "media_space_member.invite"
 	ActionMediaSpaceMemberRevoke      Action = "media_space_member.revoke"
 	ActionMediaSpaceMemberRestore     Action = "media_space_member.restore"
@@ -222,6 +223,7 @@ var actionCatalog = map[Action]struct{}{
 	ActionMediaSpaceStart:             {},
 	ActionMediaSpaceEnd:               {},
 	ActionMediaSpaceCancel:            {},
+	ActionMediaSpaceRecover:           {},
 	ActionMediaSpaceMemberInvite:      {},
 	ActionMediaSpaceMemberRevoke:      {},
 	ActionMediaSpaceMemberRestore:     {},
@@ -295,6 +297,7 @@ var domainEventActions = map[string]Action{
 	"media_space.started.v1":                      ActionMediaSpaceStart,
 	"media_space.ended.v1":                        ActionMediaSpaceEnd,
 	"media_space.cancelled.v1":                    ActionMediaSpaceCancel,
+	"media_space.recovered.v1":                    ActionMediaSpaceRecover,
 	"media_space_member.invited.v1":               ActionMediaSpaceMemberInvite,
 	"media_space_member.revoked.v1":               ActionMediaSpaceMemberRevoke,
 	"media_space_member.restored.v1":              ActionMediaSpaceMemberRestore,

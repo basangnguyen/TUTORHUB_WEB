@@ -7,8 +7,8 @@ thay đổi schema, migration hoặc repository phải đọc tài liệu này t
 
 - System of record: Neon PostgreSQL.
 - Schema ứng dụng: `tutorhub`.
-- Migration mới nhất trong source: `000034_persistent_room_conversations`; P4-01 đến P4-07 đã `DONE`,
-  P4-08 đang `IN PROGRESS` và chưa forward Neon disposable/shared.
+- Migration mới nhất trong source: `000035_media_room_recovery`; P4-01 đến P4-08 đã `DONE`,
+  P4-09 đang `VERIFY`; disposable đã forward `34 false -> 35 false -> 35 false`, shared chưa forward.
   P4-06 disposable và shared đều PASS forward-only `31 false -> 32 false -> 32 false`, exact/default
   ACL và read-only gates; final ledger của cả hai là `32 false`. P3-06/P3-07A đã forward cả
   disposable và shared
@@ -1537,9 +1537,15 @@ của lịch sử append-only và không phải quy trình cleanup cho staging/p
   `ledger=33 dirty=false media_features=false moderation_side_effects=0`, CI/security, exact
   Render/Cloudflare deploy và live feature-off/privacy/accessibility/no-side-effect acceptance đều
   PASS. Không rollback; disposable branch được giữ lại.
-- P4-08 đang `IN PROGRESS`: migration `000034_persistent_room_conversations` mở rộng canonical
-  `conversations` bằng `media_space_id`, tenant-composite FK, partial unique index và room shape.
-  Existing `messages`/`message_receipts` vẫn là persistence authority; local static/unit/integration-
-  tag compile gates PASS. Disposable forward-only `33 -> 34`, exact ACL và database authority gates
-  chưa chạy; shared staging/deploy chưa được chạm tới.
+- P4-08 đã `DONE` ngày 2026-08-15: migration `000034_persistent_room_conversations` mở rộng
+  canonical `conversations` bằng `media_space_id`, tenant-composite FK, partial unique index và room
+  shape. Disposable/shared đều forward-only `33 false -> 34 false -> 34 false`; exact ACL,
+  authority/concurrency/privacy, CI/security và deploy/live feature-off acceptance PASS.
+- P4-09 đang `VERIFY`: migration `000035_media_room_recovery` chỉ mở rộng exact
+  `media_space_mutation_receipts.operation` allowlist bằng `recover` và buộc start/recover receipt
+  có result RoomInstance. Không thêm bảng hoặc runtime privilege. Recovery khóa exact latest failed
+  instance, tạo `attempt_number + 1` dưới one-active partial unique invariant và giữ provider call
+  ngoài transaction. Disposable owner preflight, forward-only/idempotent migration, exact ACL,
+  recovery concurrency và toàn bộ media PostgreSQL regression PASS; final snapshot giữ `35 false`,
+  effective media feature force-off. Shared chưa được forward.
 - Chưa có backup/restore drill, PITR gate hoặc connection load test cho pilot.

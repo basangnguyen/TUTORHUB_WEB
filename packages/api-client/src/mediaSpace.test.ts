@@ -17,6 +17,7 @@ import {
   mutateMediaSpaceSignal,
   mutateMediaSpaceMember,
   removeMediaParticipant,
+  recoverMediaSpace,
   resolveMediaAdmission,
   setMediaSpaceLock,
   startMediaSpace,
@@ -35,6 +36,7 @@ import type {
   MediaSpaceMember,
   MediaSpaceMemberList,
   MediaSpaceTransitionRequest,
+  RecoverMediaSpaceRequest,
 } from "./index";
 
 const tenantID = "7f44c093-1cb2-46ae-8285-779b78728524";
@@ -54,12 +56,14 @@ const space: MediaSpace = {
   status: "scheduled",
   version: 1,
   active_room_instance: null,
+  recovery_room_instance: null,
   viewer_operations: {
     can_start: true,
     can_end: false,
     can_cancel: true,
     can_manage_admissions: true,
     can_manage_invites: true,
+    can_recover: false,
   },
   created_at: "2030-08-03T00:00:00Z",
   updated_at: "2030-08-03T00:00:00Z",
@@ -80,6 +84,12 @@ const transitionInput = {
   idempotency_key: "media-start-00001",
   reason_code: "owner_started",
 } satisfies MediaSpaceTransitionRequest;
+const recoveryInput = {
+  expected_space_version: 7,
+  expected_room_instance_id: roomInstanceID,
+  expected_room_instance_version: 3,
+  idempotency_key: "media-recover-client-0001",
+} satisfies RecoverMediaSpaceRequest;
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -700,11 +710,19 @@ describe("media-space API", () => {
       "cancel-csrf",
       options,
     );
+    await recoverMediaSpace(
+      tenantID,
+      spaceID,
+      recoveryInput,
+      "recover-csrf",
+      options,
+    );
 
     const requests = fetchMock.mock.calls.map((call) => call[0] as Request);
     expect(requests.map((request) => request.method)).toEqual([
       "POST",
       "GET",
+      "POST",
       "POST",
       "POST",
       "POST",
@@ -715,6 +733,7 @@ describe("media-space API", () => {
       `/api/v1/media/spaces/${spaceID}/start`,
       `/api/v1/media/spaces/${spaceID}/end`,
       `/api/v1/media/spaces/${spaceID}/cancel`,
+      `/api/v1/media/spaces/${spaceID}/recover`,
     ]);
     for (const request of requests) {
       expect(request.credentials).toBe("include");
@@ -724,7 +743,14 @@ describe("media-space API", () => {
     }
     expect(
       requests.map((request) => request.headers.get("X-CSRF-Token")),
-    ).toEqual(["create-csrf", null, "start-csrf", "end-csrf", "cancel-csrf"]);
+    ).toEqual([
+      "create-csrf",
+      null,
+      "start-csrf",
+      "end-csrf",
+      "cancel-csrf",
+      "recover-csrf",
+    ]);
 
     const body = (await requests[0]!.clone().json()) as Record<string, unknown>;
     expect(body).toEqual(createInput);
@@ -738,6 +764,7 @@ describe("media-space API", () => {
     ]) {
       expect(body).not.toHaveProperty(forbidden);
     }
+    expect(await requests[5]!.clone().json()).toEqual(recoveryInput);
   });
 
   it("fails before transport without an expected tenant", async () => {

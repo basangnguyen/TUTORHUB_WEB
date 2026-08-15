@@ -85,7 +85,7 @@ func TestProvisionPostgresMediaModerationExactACL(t *testing.T) {
 		t.Skip("P4_07_ACL_PROVISION_CONFIRM is not set to the disposable-only ACL confirmation")
 	}
 	runProvisionPostgresMediaLifecycleRuntimeExactACL(t, mediaACLProvisionConfiguration{
-		expectedVersion: 34,
+		expectedVersion: 35,
 		expectations:    p407MediaACLExpectations(),
 	})
 }
@@ -101,7 +101,7 @@ func TestProvisionPostgresMediaModerationExactACLShared(t *testing.T) {
 		p407SharedACLProvisionConfirmation,
 	)
 	runProvisionPostgresMediaLifecycleRuntimeExactACL(t, mediaACLProvisionConfiguration{
-		expectedVersion: 34,
+		expectedVersion: 35,
 		expectations:    p407MediaACLExpectations(),
 	})
 }

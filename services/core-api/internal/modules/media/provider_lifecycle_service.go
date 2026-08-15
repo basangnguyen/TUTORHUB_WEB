@@ -113,9 +113,30 @@ func (service *ProviderLifecycleService) StartSpace(
 	if err != nil {
 		return MediaSpace{}, err
 	}
+	return service.activateProvisionedRoom(ctx, access, space)
+}
+
+func (service *ProviderLifecycleService) RecoverSpace(
+	ctx context.Context,
+	access AccessContext,
+	spaceID uuid.UUID,
+	input RecoverSpaceInput,
+) (MediaSpace, error) {
+	space, err := service.base.RecoverSpace(ctx, access, spaceID, input)
+	if err != nil {
+		return MediaSpace{}, err
+	}
+	return service.activateProvisionedRoom(ctx, access, space)
+}
+
+func (service *ProviderLifecycleService) activateProvisionedRoom(
+	ctx context.Context,
+	access AccessContext,
+	space MediaSpace,
+) (MediaSpace, error) {
 	instance := space.ActiveRoomInstance
 	if instance == nil {
-		providerRoomName, lookupErr := service.bindings.ProviderRoomName(ctx, access, spaceID)
+		providerRoomName, lookupErr := service.bindings.ProviderRoomName(ctx, access, space.ID)
 		if lookupErr != nil {
 			return MediaSpace{}, ErrSpaceTransition
 		}

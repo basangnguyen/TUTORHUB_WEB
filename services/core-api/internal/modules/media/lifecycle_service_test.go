@@ -103,6 +103,61 @@ func TestLifecycleServiceStartCreatesOpaqueRoomIntent(t *testing.T) {
 	}
 }
 
+func TestLifecycleServiceRecoverBindsExactFailedInstanceAndOpaqueSuccessor(t *testing.T) {
+	t.Parallel()
+
+	spaceID, failedID, successorID := uuid.New(), uuid.New(), uuid.New()
+	repository := &fakeLifecycleRepository{}
+	service, err := NewLifecycleService(repository, LifecycleServiceConfig{
+		Clock: func() time.Time { return mediaTestTime },
+		NewID: func() uuid.UUID { return successorID },
+	})
+	if err != nil {
+		t.Fatalf("new lifecycle service: %v", err)
+	}
+	input := RecoverSpaceInput{
+		ExpectedSpaceVersion: 7, ExpectedRoomInstanceID: failedID,
+		ExpectedRoomInstanceVersion: 3, IdempotencyKey: "media-recover-0001",
+	}
+	if _, err := service.RecoverSpace(
+		context.Background(), lifecycleAccess(), spaceID, input,
+	); err != nil {
+		t.Fatalf("recover media space: %v", err)
+	}
+	command := repository.transitionCommand
+	if command.Operation != "recover" || command.SpaceID != spaceID ||
+		command.RoomInstanceID != successorID || command.ExpectedVersion != 7 ||
+		command.ExpectedRoomInstanceID != failedID ||
+		command.ExpectedRoomInstanceVersion != 3 || len(command.Fingerprint) != 32 {
+		t.Fatalf("unexpected recovery command: %+v", command)
+	}
+	if command.ProviderRoomName != "r_"+strings.ReplaceAll(successorID.String(), "-", "") ||
+		strings.Contains(command.ProviderRoomName, spaceID.String()) ||
+		strings.Contains(command.ProviderRoomName, failedID.String()) {
+		t.Fatalf("recovery provider room name is not opaque: %q", command.ProviderRoomName)
+	}
+}
+
+func TestLifecycleServiceRejectsIncompleteRecoveryBeforeRepository(t *testing.T) {
+	t.Parallel()
+
+	repository := &fakeLifecycleRepository{}
+	service, err := NewLifecycleService(repository)
+	if err != nil {
+		t.Fatalf("new lifecycle service: %v", err)
+	}
+	_, err = service.RecoverSpace(
+		context.Background(), lifecycleAccess(), uuid.New(), RecoverSpaceInput{
+			ExpectedSpaceVersion:   1,
+			ExpectedRoomInstanceID: uuid.New(),
+			IdempotencyKey:         "media-recover-invalid-0001",
+		},
+	)
+	if !errors.Is(err, ErrInvalidSpaceRequest) || repository.transitionCalls != 0 {
+		t.Fatalf("invalid recovery reached repository: err=%v calls=%d", err, repository.transitionCalls)
+	}
+}
+
 func TestLifecycleServiceNormalizesUnknownRepositoryErrors(t *testing.T) {
 	t.Parallel()
 

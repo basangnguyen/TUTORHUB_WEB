@@ -1801,6 +1801,22 @@ const messages = {
       "Bạn có thể vào lại bằng token mới hoặc quay về trang thông tin lớp.",
     "media.room.rejoin": "Vào lại phòng",
     "media.room.backToClass": "Quay về lớp học",
+    "media.p409.reauthorizationRequired":
+      "Kết nối đã kết thúc. TutorHub đang xác nhận lại quyền hiện tại trước khi cấp phiên mới.",
+    "media.p409.participantRemoved":
+      "Bạn đã được đưa khỏi phiên này. Token cũ đã bị xóa và không thể dùng để kết nối lại.",
+    "media.p409.roomEnded":
+      "Phiên media này đã kết thúc. Token cũ đã bị xóa; hãy chờ host phục hồi hoặc mở phiên mới.",
+    "media.p409.duplicateIdentity":
+      "Một kết nối khác đã thay thế phiên này. TutorHub không tự dùng lại token cũ.",
+    "media.p409.recoveryTitle": "Phục hồi phiên media",
+    "media.p409.recoveryDescription":
+      "Phiên provider gần nhất đã thất bại. Tạo một phiên phục hồi mới trong cùng phòng học.",
+    "media.p409.recoveryRetryDescription":
+      "Yêu cầu phục hồi đã được lưu nhưng provider chưa hội tụ. Thử lại cùng yêu cầu an toàn.",
+    "media.p409.recoveryAction": "Tạo phiên phục hồi",
+    "media.p409.recoveryRetry": "Thử lại phục hồi",
+    "media.p409.recoveryPending": "Đang phục hồi…",
     "media.p405.toolbar": "Điều khiển phòng học",
     "media.p405.layoutGroup": "Chế độ bố cục",
     "media.p405.layoutGrid": "Lưới",
@@ -3810,6 +3826,22 @@ const messages = {
       "You can rejoin with a new token or return to the class information page.",
     "media.room.rejoin": "Rejoin room",
     "media.room.backToClass": "Back to classroom",
+    "media.p409.reauthorizationRequired":
+      "The connection ended. TutorHub is checking current authority before a new session can be issued.",
+    "media.p409.participantRemoved":
+      "You were removed from this instance. The old token was cleared and cannot reconnect.",
+    "media.p409.roomEnded":
+      "This media instance ended. The old token was cleared; wait for the host to recover or open a new instance.",
+    "media.p409.duplicateIdentity":
+      "Another connection replaced this session. TutorHub will not automatically reuse the old token.",
+    "media.p409.recoveryTitle": "Recover media instance",
+    "media.p409.recoveryDescription":
+      "The latest provider instance failed. Create one recovery instance in the same classroom.",
+    "media.p409.recoveryRetryDescription":
+      "The recovery request was saved but the provider has not converged. Safely retry the same request.",
+    "media.p409.recoveryAction": "Create recovery instance",
+    "media.p409.recoveryRetry": "Retry recovery",
+    "media.p409.recoveryPending": "Recovering…",
     "media.p405.toolbar": "Classroom controls",
     "media.p405.layoutGroup": "Layout mode",
     "media.p405.layoutGrid": "Grid",

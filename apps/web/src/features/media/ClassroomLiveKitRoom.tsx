@@ -6,7 +6,13 @@ import {
   StartAudio,
   setLogLevel as setComponentsLogLevel,
 } from "@livekit/components-react";
-import { LogLevel, Room, RoomEvent, getLogger } from "livekit-client";
+import {
+  DisconnectReason,
+  LogLevel,
+  Room,
+  RoomEvent,
+  getLogger,
+} from "livekit-client";
 import {
   useCallback,
   useEffect,
@@ -41,7 +47,7 @@ export interface ClassroomLiveKitRoomProps {
   signals?: ClassroomSignalControls;
   onConnected: () => void;
   onReconnecting: () => void;
-  onDisconnected: () => void;
+  onDisconnected: (reason?: DisconnectReason) => void;
   onLeave: () => void;
   onProviderError: () => void;
 }
@@ -180,14 +186,17 @@ function ConnectedClassroomLiveKitRoom({
     }
   }, [choices.speakerDeviceId, disconnectRoom, lifecycle, onConnected, room]);
 
-  const handleDisconnected = useCallback(() => {
-    if (intentionalLeave.current || terminalAction.current) return;
-    terminalAction.current = "disconnect";
-    lifecycle.markDisconnected();
-    controlAbortController.abort();
-    terminalCallbackFired.current = true;
-    onDisconnected();
-  }, [controlAbortController, lifecycle, onDisconnected]);
+  const handleDisconnected = useCallback(
+    (reason?: DisconnectReason) => {
+      if (intentionalLeave.current || terminalAction.current) return;
+      terminalAction.current = "disconnect";
+      lifecycle.markDisconnected();
+      controlAbortController.abort();
+      terminalCallbackFired.current = true;
+      onDisconnected(reason);
+    },
+    [controlAbortController, lifecycle, onDisconnected],
+  );
 
   const finishTerminalAction = useCallback(
     (action: "error" | "leave", callback: () => void) => {
@@ -274,7 +283,8 @@ function ConnectedClassroomLiveKitRoom({
     const handleRoomConnected = () => notifyConnected();
     const handleRoomReconnected = () => notifyConnected();
     const handleRoomReconnecting = () => notifyReconnecting();
-    const handleRoomDisconnected = () => notifyDisconnected();
+    const handleRoomDisconnected = (reason?: DisconnectReason) =>
+      notifyDisconnected(reason);
 
     room
       .on(RoomEvent.SignalConnected, handleSignalConnected)

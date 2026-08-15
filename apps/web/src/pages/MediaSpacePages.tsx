@@ -3,7 +3,9 @@ import {
   createMediaSpaceJoinAttempt,
   getMediaSpace,
   issueMediaSpaceJoinCredential,
+  recoverMediaSpace,
   rotateCSRFToken,
+  type RecoverMediaSpaceRequest,
 } from "@tutorhub/api-client";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -95,6 +97,10 @@ export function MediaSpacePreJoinPage() {
   const [networkLatency, setNetworkLatency] = useState<
     "fast" | "moderate" | "slow" | "unknown"
   >("unknown");
+  const [recoveryCommand, setRecoveryCommand] =
+    useState<RecoverMediaSpaceRequest | null>(null);
+  const [recoveryPending, setRecoveryPending] = useState(false);
+  const [recoveryError, setRecoveryError] = useState(false);
   const handoffCreated = useRef(false);
   const terminalHeading = useRef<HTMLHeadingElement>(null);
   const activeJoinRequest = useRef<AbortController | null>(null);
@@ -175,6 +181,36 @@ export function MediaSpacePreJoinPage() {
     currentJoinStatus === "waiting",
   );
   const cancelJoinAttempt = useCancelMediaJoinAttempt(tenantId, spaceId ?? "");
+
+  const recoverFailedRoom = async () => {
+    const space = mediaSpace.data;
+    const failedRoom = space?.recovery_room_instance;
+    const command =
+      recoveryCommand ??
+      (space && failedRoom
+        ? {
+            expected_space_version: space.version,
+            expected_room_instance_id: failedRoom.id,
+            expected_room_instance_version: failedRoom.version,
+            idempotency_key: `media-recover-${globalThis.crypto.randomUUID()}`,
+          }
+        : null);
+    if (!spaceId || !tenantId || !command || recoveryPending) return;
+    setRecoveryCommand(command);
+    setRecoveryPending(true);
+    setRecoveryError(false);
+    try {
+      const csrf = await rotateCSRFToken();
+      await recoverMediaSpace(tenantId, spaceId, command, csrf.csrf_token);
+      setRecoveryCommand(null);
+      await mediaSpace.refetch();
+    } catch {
+      setRecoveryError(true);
+      await mediaSpace.refetch();
+    } finally {
+      setRecoveryPending(false);
+    }
+  };
 
   const completeCredentialHandoff = useCallback(
     async (
@@ -509,7 +545,43 @@ export function MediaSpacePreJoinPage() {
     );
   }
   const room = projectedRoom;
+  const viewerOperations = mediaP404ViewerOperations(
+    mediaSpace.data.viewer_operations,
+  );
   if (mediaSpace.data.status !== "open" || room?.status !== "active") {
+    const failedRoom = mediaSpace.data.recovery_room_instance;
+    if (
+      mediaSpace.data.status === "open" &&
+      ((failedRoom && viewerOperations.canRecover) || recoveryCommand)
+    ) {
+      return (
+        <div className="media-p403-page">
+          <section className="media-p403-alert" role="alert">
+            <h1>{t("media.p409.recoveryTitle")}</h1>
+            <p>
+              {t(
+                recoveryError
+                  ? "media.p409.recoveryRetryDescription"
+                  : "media.p409.recoveryDescription",
+              )}
+            </p>
+            <button
+              disabled={recoveryPending}
+              onClick={() => void recoverFailedRoom()}
+              type="button"
+            >
+              {t(
+                recoveryPending
+                  ? "media.p409.recoveryPending"
+                  : recoveryCommand
+                    ? "media.p409.recoveryRetry"
+                    : "media.p409.recoveryAction",
+              )}
+            </button>
+          </section>
+        </div>
+      );
+    }
     return <MediaSpaceFailure message={t("media.p403.roomNotOpen")} />;
   }
   const previewActive =
@@ -517,9 +589,6 @@ export function MediaSpacePreJoinPage() {
     snapshot.status === "switching_device";
   const joinActionLocked =
     currentJoinStatus !== "idle" && currentJoinStatus !== "failed";
-  const viewerOperations = mediaP404ViewerOperations(
-    mediaSpace.data.viewer_operations,
-  );
 
   return (
     <div className="media-p403-page">
@@ -1022,13 +1091,19 @@ function terminalJoinDescriptionKey(
 function mediaP404ViewerOperations(value: unknown): {
   canManageAdmissions: boolean;
   canManageInvites: boolean;
+  canRecover: boolean;
 } {
   if (typeof value !== "object" || value === null) {
-    return { canManageAdmissions: false, canManageInvites: false };
+    return {
+      canManageAdmissions: false,
+      canManageInvites: false,
+      canRecover: false,
+    };
   }
   const operations = value as Record<string, unknown>;
   return {
     canManageAdmissions: operations.can_manage_admissions === true,
     canManageInvites: operations.can_manage_invites === true,
+    canRecover: operations.can_recover === true,
   };
 }

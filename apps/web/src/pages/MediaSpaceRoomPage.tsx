@@ -1,6 +1,7 @@
 import { getMediaSpace } from "@tutorhub/api-client";
 import { useQuery } from "@tanstack/react-query";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { DisconnectReason } from "livekit-client";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { useI18n, type TranslationKey } from "../app/i18n";
 import {
@@ -64,6 +65,7 @@ function MediaSpaceRoomSession({
   const [roomStatus, setRoomStatus] =
     useState<ClassroomConnectionStatus>("connecting");
   const [roomError, setRoomError] = useState<TranslationKey | null>(null);
+  const disconnectRecoveryActive = useRef(false);
   const [signalClock, setSignalClock] = useState({
     dataUpdatedAt: 0,
     now: 0,
@@ -223,9 +225,33 @@ function MediaSpaceRoomSession({
     [],
   );
 
-  const handleDisconnected = useCallback(() => {
-    finishDisconnected("disconnected");
-  }, [finishDisconnected]);
+  const handleDisconnected = useCallback(
+    (reason?: DisconnectReason) => {
+      const outcome = classroomDisconnectOutcome(reason);
+      finishDisconnected("disconnected");
+      setRoomError(outcome.messageKey);
+      if (disconnectRecoveryActive.current) return;
+      disconnectRecoveryActive.current = true;
+      void mediaSpace
+        .refetch()
+        .then(({ data }) => {
+          if (
+            outcome.reauthorize &&
+            data?.status === "open" &&
+            data.active_room_instance?.status === "active" &&
+            spaceId
+          ) {
+            void navigate(`/app/media/spaces/${spaceId}/prejoin`, {
+              replace: true,
+            });
+          }
+        })
+        .finally(() => {
+          disconnectRecoveryActive.current = false;
+        });
+    },
+    [finishDisconnected, mediaSpace, navigate, spaceId],
+  );
 
   const handleProviderError = useCallback(() => {
     finishDisconnected("failed");
@@ -380,4 +406,35 @@ function mediaP404ViewerOperations(value: unknown): {
     canManageAdmissions:
       (value as Record<string, unknown>).can_manage_admissions === true,
   };
+}
+
+function classroomDisconnectOutcome(reason?: DisconnectReason): {
+  messageKey: TranslationKey;
+  reauthorize: boolean;
+} {
+  switch (reason) {
+    case DisconnectReason.PARTICIPANT_REMOVED:
+      return {
+        messageKey: "media.p409.participantRemoved",
+        reauthorize: false,
+      };
+    case DisconnectReason.ROOM_DELETED:
+    case DisconnectReason.ROOM_CLOSED:
+      return { messageKey: "media.p409.roomEnded", reauthorize: false };
+    case DisconnectReason.DUPLICATE_IDENTITY:
+      return {
+        messageKey: "media.p409.duplicateIdentity",
+        reauthorize: false,
+      };
+    case DisconnectReason.CLIENT_INITIATED:
+      return {
+        messageKey: "media.room.disconnectedDescription",
+        reauthorize: false,
+      };
+    default:
+      return {
+        messageKey: "media.p409.reauthorizationRequired",
+        reauthorize: true,
+      };
+  }
 }

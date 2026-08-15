@@ -132,6 +132,40 @@ func (service *LifecycleService) CancelSpace(
 	return service.transition(ctx, access, spaceID, "cancel", input)
 }
 
+func (service *LifecycleService) RecoverSpace(
+	ctx context.Context,
+	access AccessContext,
+	spaceID uuid.UUID,
+	input RecoverSpaceInput,
+) (MediaSpace, error) {
+	if service == nil || service.repository == nil {
+		return MediaSpace{}, ErrLifecycleUnavailable
+	}
+	if !validLifecycleAccess(access) {
+		return MediaSpace{}, ErrSpaceAccessDenied
+	}
+	if spaceID == uuid.Nil {
+		return MediaSpace{}, ErrSpaceNotFound
+	}
+	normalized, err := normalizeRecoverSpaceInput(input)
+	if err != nil {
+		return MediaSpace{}, err
+	}
+	command := TransitionCommand{
+		SpaceID: spaceID, Operation: "recover",
+		RoomInstanceID:              service.newID(),
+		ExpectedVersion:             normalized.ExpectedSpaceVersion,
+		ExpectedRoomInstanceID:      normalized.ExpectedRoomInstanceID,
+		ExpectedRoomInstanceVersion: normalized.ExpectedRoomInstanceVersion,
+		IdempotencyKey:              normalized.IdempotencyKey,
+		OccurredAt:                  service.clock().UTC(),
+	}
+	command.ProviderRoomName = opaqueProviderRoomName(command.RoomInstanceID)
+	command.Fingerprint = transitionFingerprint(command)
+	space, err := service.repository.TransitionSpace(ctx, access, command)
+	return space, normalizeLifecycleError(err)
+}
+
 func (service *LifecycleService) transition(
 	ctx context.Context,
 	access AccessContext,
@@ -227,6 +261,16 @@ func normalizeTransitionInput(input TransitionInput) (TransitionInput, error) {
 	return input, nil
 }
 
+func normalizeRecoverSpaceInput(input RecoverSpaceInput) (RecoverSpaceInput, error) {
+	input.IdempotencyKey = strings.TrimSpace(input.IdempotencyKey)
+	if input.ExpectedSpaceVersion < 1 || input.ExpectedRoomInstanceID == uuid.Nil ||
+		input.ExpectedRoomInstanceVersion < 1 ||
+		!mediaIdempotencyPattern.MatchString(input.IdempotencyKey) {
+		return RecoverSpaceInput{}, ErrInvalidSpaceRequest
+	}
+	return input, nil
+}
+
 func emptyInstantInput(input InstantSourceInput) bool {
 	return input.Title == "" && input.DurationMinutes == 0 && input.Timezone == ""
 }
@@ -261,6 +305,11 @@ func transitionFingerprint(command TransitionCommand) []byte {
 	binary.BigEndian.PutUint64(version[:], uint64(command.ExpectedVersion))
 	_, _ = digest.Write(version[:])
 	_, _ = digest.Write([]byte(command.ReasonCode))
+	if command.Operation == "recover" {
+		_, _ = digest.Write(command.ExpectedRoomInstanceID[:])
+		binary.BigEndian.PutUint64(version[:], uint64(command.ExpectedRoomInstanceVersion))
+		_, _ = digest.Write(version[:])
+	}
 	return digest.Sum(nil)
 }
 

@@ -136,7 +136,7 @@ func TestP404SharedACLProbeIsReadOnlyAndFailClosed(t *testing.T) {
 		`if applyMigrations`,
 		`AccessMode: pgx.ReadOnly`,
 		`SHOW transaction_read_only`,
-		`exact media lifecycle ACL requires ledger 34 false`,
+		`exact media lifecycle ACL requires ledger 35 false`,
 		`pg_default_acl`,
 	} {
 		if !strings.Contains(source, required) {

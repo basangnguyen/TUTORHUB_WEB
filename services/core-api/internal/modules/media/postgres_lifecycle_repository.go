@@ -285,6 +285,13 @@ func (repository *PostgresLifecycleRepository) TransitionSpace(
 	); err != nil {
 		return MediaSpace{}, err
 	} else if found {
+		if command.Operation == "recover" {
+			if err := repository.reauthorizeRecoveryReplay(
+				queryContext, transaction, access, scope, command.SpaceID,
+			); err != nil {
+				return MediaSpace{}, err
+			}
+		}
 		if err := transaction.Commit(queryContext); err != nil {
 			return MediaSpace{}, repository.unavailable("commit media transition replay", err)
 		}
@@ -319,6 +326,10 @@ func (repository *PostgresLifecycleRepository) TransitionSpace(
 		)
 	case "cancel":
 		transitioned, err = repository.cancelSpace(
+			queryContext, transaction, access, scope, row, command,
+		)
+	case "recover":
+		transitioned, resultInstanceID, err = repository.recoverSpace(
 			queryContext, transaction, access, scope, row, command,
 		)
 	default:
@@ -362,6 +373,8 @@ func (repository *PostgresLifecycleRepository) authorizeTransition(
 		allowSafetyEnd = true
 	case "cancel":
 		action = policy.ActionSessionEnd
+	case "recover":
+		action = policy.ActionSessionStart
 	default:
 		return ErrInvalidSpaceRequest
 	}
@@ -574,6 +587,127 @@ RETURNING `+spaceReturning,
 		return spaceRow{}, err
 	}
 	return updated, nil
+}
+
+func (repository *PostgresLifecycleRepository) recoverSpace(
+	ctx context.Context,
+	transaction pgx.Tx,
+	access AccessContext,
+	scope tenancy.Context,
+	row spaceRow,
+	command TransitionCommand,
+) (spaceRow, uuid.UUID, error) {
+	if row.Status != SpaceStatusOpen || row.Locked || command.RoomInstanceID == uuid.Nil ||
+		command.ProviderRoomName == "" || command.ExpectedRoomInstanceID == uuid.Nil ||
+		command.ExpectedRoomInstanceVersion < 1 {
+		return spaceRow{}, uuid.Nil, ErrSpaceTransition
+	}
+	if err := repository.controls.RequireFeature(
+		ctx, transaction, scope.TenantID, featurecontrol.FeatureClassroomMediaRooms,
+	); err != nil {
+		return spaceRow{}, uuid.Nil, err
+	}
+	source, err := repository.authorizeSource(
+		ctx, transaction, access, scope, row, policy.ActionSessionStart, true, false,
+	)
+	if err != nil {
+		return spaceRow{}, uuid.Nil, err
+	}
+	if !recoverySourceStatusAllowed(source) {
+		return spaceRow{}, uuid.Nil, ErrSourceUnavailable
+	}
+	previous, err := loadLatestRoom(ctx, transaction, scope.TenantID, row.ID, true)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return spaceRow{}, uuid.Nil, ErrSpaceTransition
+	}
+	if err != nil {
+		return spaceRow{}, uuid.Nil, repository.unavailable("lock failed room instance", err)
+	}
+	if previous.ID != command.ExpectedRoomInstanceID ||
+		previous.Version != command.ExpectedRoomInstanceVersion {
+		return spaceRow{}, uuid.Nil, ErrSpaceVersionConflict
+	}
+	if previous.Status != RoomInstanceFailed {
+		return spaceRow{}, uuid.Nil, ErrSpaceTransition
+	}
+	if _, err := transaction.Exec(
+		ctx,
+		`INSERT INTO tutorhub.media_room_instances (
+    id, tenant_id, space_id, attempt_number, provider_room_name,
+    created_by, updated_by, created_at, updated_at
+)
+VALUES ($1, $2, $3, $4, $5, $6, $6, $7, $7)`,
+		command.RoomInstanceID, scope.TenantID, row.ID, previous.AttemptNumber+1,
+		command.ProviderRoomName, scope.ActorID, command.OccurredAt,
+	); err != nil {
+		return spaceRow{}, uuid.Nil, repository.unavailable("insert recovery room instance", err)
+	}
+	updated, err := scanSpace(transaction.QueryRow(
+		ctx,
+		`UPDATE tutorhub.media_spaces
+SET version = version + 1, updated_by = $3, updated_at = $4
+WHERE tenant_id = $1 AND id = $2 AND version = $5 AND status = 'open'
+RETURNING `+spaceReturning,
+		scope.TenantID, row.ID, scope.ActorID, command.OccurredAt, command.ExpectedVersion,
+	))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return spaceRow{}, uuid.Nil, ErrSpaceVersionConflict
+	}
+	if err != nil {
+		return spaceRow{}, uuid.Nil, repository.unavailable("advance recovered media space", err)
+	}
+	if err := appendMediaSpaceEvent(
+		ctx, transaction, scope, updated, "media_space.recovered.v1",
+		mediaEventDetails{}, command.OccurredAt,
+	); err != nil {
+		return spaceRow{}, uuid.Nil, err
+	}
+	return updated, command.RoomInstanceID, nil
+}
+
+func (repository *PostgresLifecycleRepository) reauthorizeRecoveryReplay(
+	ctx context.Context,
+	transaction pgx.Tx,
+	access AccessContext,
+	scope tenancy.Context,
+	spaceID uuid.UUID,
+) error {
+	row, err := loadSpace(ctx, transaction, scope.TenantID, spaceID, true)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrSpaceNotFound
+	}
+	if err != nil {
+		return repository.unavailable("lock replayed recovery space", err)
+	}
+	if row.Status != SpaceStatusOpen || row.Locked {
+		return ErrSpaceTransition
+	}
+	if err := repository.controls.RequireFeature(
+		ctx, transaction, scope.TenantID, featurecontrol.FeatureClassroomMediaRooms,
+	); err != nil {
+		return err
+	}
+	source, err := repository.authorizeSource(
+		ctx, transaction, access, scope, row, policy.ActionSessionStart, true, false,
+	)
+	if err != nil {
+		return err
+	}
+	if !recoverySourceStatusAllowed(source) {
+		return ErrSourceUnavailable
+	}
+	return nil
+}
+
+func recoverySourceStatusAllowed(source authorizedSource) bool {
+	switch source.Kind {
+	case SourceClassSession:
+		return source.Status == string(classroom.SessionStatusLive)
+	case SourceClassSessionOccurrence, SourceStudyMeeting:
+		return source.Status == "scheduled" || source.Status == "live"
+	default:
+		return false
+	}
 }
 
 type authorizedSource struct {
@@ -789,6 +923,22 @@ func (repository *PostgresLifecycleRepository) projectAuthorizedSpace(
 		space.ActiveRoomInstance = &value
 	} else if !errors.Is(err, pgx.ErrNoRows) {
 		return MediaSpace{}, repository.unavailable("load active room instance", err)
+	} else {
+		latest, latestErr := loadLatestRoom(ctx, transaction, scope.TenantID, row.ID, false)
+		if latestErr == nil && latest.Status == RoomInstanceFailed {
+			value := latest.project()
+			space.RecoveryRoomInstance = &value
+			if row.Status == SpaceStatusOpen && !row.Locked && featureEnabled {
+				if source, authorizeErr := repository.authorizeSource(
+					ctx, transaction, access, scope, row,
+					policy.ActionSessionStart, true, false,
+				); authorizeErr == nil && recoverySourceStatusAllowed(source) {
+					space.ViewerOperations.CanRecover = true
+				}
+			}
+		} else if latestErr != nil && !errors.Is(latestErr, pgx.ErrNoRows) {
+			return MediaSpace{}, repository.unavailable("load latest room instance", latestErr)
+		}
 	}
 	return space, nil
 }
@@ -1271,6 +1421,7 @@ WHERE tenant_id = $1 AND source_kind = 'study_meeting' AND source_study_meeting_
 
 type roomRow struct {
 	ID               uuid.UUID
+	AttemptNumber    int
 	Status           RoomInstanceStatus
 	Version          int64
 	ProviderRoomName string
@@ -1286,7 +1437,7 @@ func loadActiveRoom(
 	spaceID uuid.UUID,
 	lock bool,
 ) (roomRow, error) {
-	query := `SELECT id, status, version, provider_room_name, provider_room_sid,
+	query := `SELECT id, attempt_number, status, version, provider_room_name, provider_room_sid,
        created_at, updated_at
 FROM tutorhub.media_room_instances
 WHERE tenant_id = $1 AND space_id = $2
@@ -1296,7 +1447,7 @@ WHERE tenant_id = $1 AND space_id = $2
 	}
 	var room roomRow
 	err := transaction.QueryRow(ctx, query, tenantID, spaceID).Scan(
-		&room.ID, &room.Status, &room.Version, &room.ProviderRoomName,
+		&room.ID, &room.AttemptNumber, &room.Status, &room.Version, &room.ProviderRoomName,
 		&room.ProviderRoomSID, &room.CreatedAt, &room.UpdatedAt,
 	)
 	room.CreatedAt, room.UpdatedAt = room.CreatedAt.UTC(), room.UpdatedAt.UTC()
@@ -1312,7 +1463,7 @@ func loadRoomForTermination(
 	var room roomRow
 	err := transaction.QueryRow(
 		ctx,
-		`SELECT id, status, version, provider_room_name, provider_room_sid,
+		`SELECT id, attempt_number, status, version, provider_room_name, provider_room_sid,
        created_at, updated_at
 FROM tutorhub.media_room_instances
 WHERE tenant_id = $1 AND space_id = $2
@@ -1324,12 +1475,38 @@ FOR UPDATE`,
 		spaceID,
 	).Scan(
 		&room.ID,
+		&room.AttemptNumber,
 		&room.Status,
 		&room.Version,
 		&room.ProviderRoomName,
 		&room.ProviderRoomSID,
 		&room.CreatedAt,
 		&room.UpdatedAt,
+	)
+	room.CreatedAt, room.UpdatedAt = room.CreatedAt.UTC(), room.UpdatedAt.UTC()
+	return room, err
+}
+
+func loadLatestRoom(
+	ctx context.Context,
+	transaction pgx.Tx,
+	tenantID uuid.UUID,
+	spaceID uuid.UUID,
+	lock bool,
+) (roomRow, error) {
+	query := `SELECT id, attempt_number, status, version, provider_room_name, provider_room_sid,
+       created_at, updated_at
+FROM tutorhub.media_room_instances
+WHERE tenant_id = $1 AND space_id = $2
+ORDER BY attempt_number DESC
+LIMIT 1`
+	if lock {
+		query += " FOR UPDATE"
+	}
+	var room roomRow
+	err := transaction.QueryRow(ctx, query, tenantID, spaceID).Scan(
+		&room.ID, &room.AttemptNumber, &room.Status, &room.Version,
+		&room.ProviderRoomName, &room.ProviderRoomSID, &room.CreatedAt, &room.UpdatedAt,
 	)
 	room.CreatedAt, room.UpdatedAt = room.CreatedAt.UTC(), room.UpdatedAt.UTC()
 	return room, err
@@ -1407,6 +1584,45 @@ WHERE tenant_id = $1 AND space_id = $2 AND room_instance_id = $3
 		spaceID,
 		roomInstanceID,
 		now.UTC(),
+	)
+	if err != nil {
+		return err
+	}
+	if _, err := transaction.Exec(
+		ctx,
+		`UPDATE tutorhub.media_participant_hand_states
+SET is_raised = false
+WHERE tenant_id = $1 AND space_id = $2 AND room_instance_id = $3
+  AND is_raised`,
+		tenantID, spaceID, roomInstanceID,
+	); err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return nil
+	}
+	return advanceMediaRosterProjection(
+		ctx, transaction, tenantID, spaceID, roomInstanceID,
+	)
+}
+
+func failRoomParticipants(
+	ctx context.Context,
+	transaction pgx.Tx,
+	tenantID uuid.UUID,
+	spaceID uuid.UUID,
+	roomInstanceID uuid.UUID,
+	failureCode string,
+	now time.Time,
+) error {
+	tag, err := transaction.Exec(
+		ctx,
+		`UPDATE tutorhub.media_participant_sessions
+SET status = 'failed', version = version + 1, capacity_reserved = false,
+    terminal_at = $4, reconnecting_at = NULL, failure_code = $5, updated_at = $4
+WHERE tenant_id = $1 AND space_id = $2 AND room_instance_id = $3
+  AND status IN ('waiting', 'admitted', 'joining', 'connected', 'reconnecting')`,
+		tenantID, spaceID, roomInstanceID, now.UTC(), failureCode,
 	)
 	if err != nil {
 		return err

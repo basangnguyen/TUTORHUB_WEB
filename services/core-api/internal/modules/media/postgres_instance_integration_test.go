@@ -997,7 +997,7 @@ WHERE tenant_id = $1 AND class_id = $2 AND user_id = $3`,
 		ctx,
 		migrationPool,
 		roomInstanceID,
-		RoomInstanceClosing,
+		RoomInstanceFailed,
 		provider.sid,
 	)
 	assertP402ParticipantState(
@@ -1013,7 +1013,7 @@ WHERE tenant_id = $1 AND class_id = $2 AND user_id = $3`,
 		ctx,
 		migrationPool,
 		teacherGrant.ParticipantSessionID,
-		"left",
+		"failed",
 		false,
 	)
 	assertP402RoomCapacityReleased(t, ctx, migrationPool, roomInstanceID)
