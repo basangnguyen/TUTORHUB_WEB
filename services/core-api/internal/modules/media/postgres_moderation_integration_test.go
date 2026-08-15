@@ -88,8 +88,9 @@ func TestPostgresMediaModerationForwardMigration(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 	version, err := migrationrunner.CurrentVersion(ctx, migrationURL)
-	if err != nil || version.Dirty || (version.Number != 32 && version.Number != 33) {
-		t.Fatal("P4-07 forward migration requires a clean disposable ledger at 32 or 33")
+	if err != nil || version.Dirty ||
+		(version.Number != 32 && version.Number != 33 && version.Number != 34) {
+		t.Fatal("P4-07 forward migration requires a clean disposable ledger at 32, 33, or 34")
 	}
 	if err := migrationrunner.Up(ctx, migrationURL); err != nil {
 		t.Fatal("apply P4-07 forward migration")
@@ -98,8 +99,8 @@ func TestPostgresMediaModerationForwardMigration(t *testing.T) {
 		t.Fatal("rerun P4-07 forward migration idempotently")
 	}
 	version, err = migrationrunner.CurrentVersion(ctx, migrationURL)
-	if err != nil || version.Number != 33 || version.Dirty {
-		t.Fatal("P4-07 forward migration must finish at ledger 33 false")
+	if err != nil || version.Number != 34 || version.Dirty {
+		t.Fatal("P4-07 forward migration must finish at ledger 34 false")
 	}
 }
 
@@ -112,8 +113,8 @@ func TestPostgresMediaModerationAuthorityConcurrencyAndProviderReceipts(t *testi
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 	version, err := migrationrunner.CurrentVersion(ctx, migrationURL)
-	if err != nil || version.Number != 33 || version.Dirty {
-		t.Fatal("P4-07 moderation integration requires ledger 33 false")
+	if err != nil || version.Number != 34 || version.Dirty {
+		t.Fatal("P4-07 moderation integration requires ledger 34 false")
 	}
 	migrationPool := openMediaIntegrationPool(t, ctx, migrationURL)
 	t.Cleanup(migrationPool.Close)
