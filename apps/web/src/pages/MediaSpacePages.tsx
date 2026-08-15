@@ -37,7 +37,13 @@ import {
   useMediaJoinAttemptStatus,
 } from "../app/mediaLobby";
 import { useSession } from "../app/session";
+import {
+  mediaDiagnosticNetwork,
+  mediaDiagnosticPath,
+  recordBoundedMediaDiagnostic,
+} from "../app/mediaDiagnostics";
 import { MediaSpaceInvitePanel } from "../components/MediaSpaceInvitePanel";
+import { MediaDiagnosticsPanel } from "../components/MediaDiagnosticsPanel";
 
 type JoinStatus =
   | "idle"
@@ -85,6 +91,7 @@ export function MediaSpacePreJoinPage() {
   const session = useSession();
   const tenantId = session.currentUser?.active_tenant?.id ?? "";
   const userId = session.currentUser?.user.id ?? "";
+  const organizationRole = session.currentUser?.active_tenant?.role ?? "";
   const [joinState, setJoinState] = useState<MediaJoinState>({
     scopeKey: "",
     status: "idle",
@@ -234,6 +241,7 @@ export function MediaSpacePreJoinPage() {
         attempt,
         choices,
       });
+      const credentialStartedAt = performance.now();
       const credential = await issueMediaSpaceJoinCredential(
         tenantId,
         spaceId,
@@ -253,6 +261,17 @@ export function MediaSpacePreJoinPage() {
       ) {
         throw new Error("invalid_media_credential_projection");
       }
+      void recordBoundedMediaDiagnostic({
+        tenantID: tenantId,
+        spaceID: spaceId,
+        roomInstanceID: credential.room_instance_id,
+        joinAttemptID: credential.join_attempt_id,
+        stage: "credential",
+        outcome: "succeeded",
+        networkQuality: mediaDiagnosticNetwork(networkLatency),
+        mediaPath: mediaDiagnosticPath(choices),
+        durationMS: performance.now() - credentialStartedAt,
+      });
       await controller?.stopPreview();
       const effectiveChoices = {
         ...choices,
@@ -276,7 +295,15 @@ export function MediaSpacePreJoinPage() {
         `/app/media/spaces/${spaceId}/instances/${credential.room_instance_id}/room`,
       );
     },
-    [controller, joinScopeKey, navigate, spaceId, tenantId, userId],
+    [
+      controller,
+      joinScopeKey,
+      navigate,
+      networkLatency,
+      spaceId,
+      tenantId,
+      userId,
+    ],
   );
 
   const submitJoin = async (choices: MediaJoinChoices) => {
@@ -306,6 +333,7 @@ export function MediaSpacePreJoinPage() {
       currentAttempt?.join_attempt_id ?? globalThis.crypto.randomUUID();
     const abort = new AbortController();
     activeJoinRequest.current = abort;
+    const joinStartedAt = performance.now();
     try {
       const csrf = await rotateCSRFToken({ signal: abort.signal });
       if (abort.signal.aborted) {
@@ -322,6 +350,17 @@ export function MediaSpacePreJoinPage() {
         csrf.csrf_token,
         { signal: abort.signal },
       )) as MediaJoinAttemptProjection;
+      void recordBoundedMediaDiagnostic({
+        tenantID: tenantId,
+        spaceID: spaceId,
+        roomInstanceID: attempt.room_instance_id,
+        joinAttemptID: attempt.join_attempt_id,
+        stage: "join_attempt",
+        outcome: "succeeded",
+        networkQuality: mediaDiagnosticNetwork(networkLatency),
+        mediaPath: mediaDiagnosticPath(choices),
+        durationMS: performance.now() - joinStartedAt,
+      });
       if (abort.signal.aborted) {
         return;
       }
@@ -823,6 +862,9 @@ export function MediaSpacePreJoinPage() {
         spaceVersion={mediaSpace.data.version}
         tenantID={tenantId}
       />
+      {organizationRole === "org_admin" && (
+        <MediaDiagnosticsPanel tenantID={tenantId} />
+      )}
     </div>
   );
 }

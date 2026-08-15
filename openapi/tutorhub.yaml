@@ -7013,6 +7013,87 @@ paths:
           $ref: "#/components/responses/ProblemResponse"
         default:
           $ref: "#/components/responses/ProblemResponse"
+  /api/v1/media/spaces/{space_id}/diagnostics:
+    post:
+      operationId: recordMediaSpaceDiagnostic
+      summary: Record a privacy-bounded join or reconnect diagnostic
+      description: Resolves the exact participant session from the authenticated actor and join attempt. Token, SDP, ICE, IP, device labels, provider identifiers and raw errors are not accepted.
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: space_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/ExpectedTenantID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MediaDiagnosticRequest"
+      responses:
+        "204":
+          description: Diagnostic accepted or exact event replay ignored
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/media/diagnostics/export:
+    post:
+      operationId: exportMediaDiagnostics
+      summary: Export redacted tenant media diagnostics and aggregate join metrics
+      description: Organization-admin-only support export. The range is capped at 31 days and the response contains no user, participant, room, attempt or provider identifier.
+      security:
+        - SessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/ExpectedTenantID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MediaDiagnosticExportRequest"
+      responses:
+        "200":
+          description: Audited and redacted diagnostics export
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: private, no-store
+            Referrer-Policy:
+              schema:
+                type: string
+                const: no-referrer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MediaDiagnosticExport"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
   /api/v1/classes/{class_id}/media-events:
     post:
       operationId: recordClassMediaEvent
@@ -13104,6 +13185,173 @@ components:
           format: int64
           minimum: 0
           maximum: 600000
+    MediaDiagnosticStage:
+      type: string
+      enum:
+        - join_attempt
+        - credential
+        - connect
+        - media
+        - reconnecting
+        - reconnected
+        - disconnected
+        - leave
+    MediaDiagnosticOutcome:
+      type: string
+      enum: [started, succeeded, failed, cancelled]
+    MediaDiagnosticErrorCode:
+      type: string
+      enum:
+        - participant_removed
+        - room_ended
+        - duplicate_identity
+        - client_leave
+        - transport_disconnected
+        - provider_error
+    MediaDiagnosticNetworkQuality:
+      type: string
+      enum: [unknown, good, degraded, poor, offline]
+    MediaDiagnosticMediaPath:
+      type: string
+      enum: [unknown, audio_video, audio_only, listen_only]
+    MediaDiagnosticRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - event_id
+        - room_instance_id
+        - join_attempt_id
+        - stage
+        - outcome
+        - network_quality
+        - media_path
+        - duration_ms
+      properties:
+        event_id:
+          type: string
+          format: uuid
+        room_instance_id:
+          type: string
+          format: uuid
+        join_attempt_id:
+          type: string
+          format: uuid
+        stage:
+          $ref: "#/components/schemas/MediaDiagnosticStage"
+        outcome:
+          $ref: "#/components/schemas/MediaDiagnosticOutcome"
+        error_code:
+          $ref: "#/components/schemas/MediaDiagnosticErrorCode"
+        network_quality:
+          $ref: "#/components/schemas/MediaDiagnosticNetworkQuality"
+        media_path:
+          $ref: "#/components/schemas/MediaDiagnosticMediaPath"
+        duration_ms:
+          type: integer
+          minimum: 0
+          maximum: 600000
+    MediaDiagnosticExportRequest:
+      type: object
+      additionalProperties: false
+      required: [from, to, limit]
+      properties:
+        from:
+          type: string
+          format: date-time
+        to:
+          type: string
+          format: date-time
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 1000
+    MediaDiagnosticExportItem:
+      type: object
+      additionalProperties: false
+      required:
+        - event_id
+        - session_ref
+        - stage
+        - outcome
+        - network_quality
+        - media_path
+        - duration_ms
+        - recorded_at
+      properties:
+        event_id:
+          type: string
+          format: uuid
+        session_ref:
+          type: string
+          pattern: "^ps_[a-f0-9]{24}$"
+        stage:
+          $ref: "#/components/schemas/MediaDiagnosticStage"
+        outcome:
+          $ref: "#/components/schemas/MediaDiagnosticOutcome"
+        error_code:
+          $ref: "#/components/schemas/MediaDiagnosticErrorCode"
+        network_quality:
+          $ref: "#/components/schemas/MediaDiagnosticNetworkQuality"
+        media_path:
+          $ref: "#/components/schemas/MediaDiagnosticMediaPath"
+        duration_ms:
+          type: integer
+          minimum: 0
+          maximum: 600000
+        recorded_at:
+          type: string
+          format: date-time
+    MediaDiagnosticMetrics:
+      type: object
+      additionalProperties: false
+      required:
+        - join_attempts
+        - successful_joins
+        - join_success_rate
+        - p95_time_to_media_ms
+        - reconnect_succeeded
+        - reconnect_failed
+      properties:
+        join_attempts:
+          type: integer
+          minimum: 0
+        successful_joins:
+          type: integer
+          minimum: 0
+        join_success_rate:
+          type: number
+          minimum: 0
+          maximum: 1
+        p95_time_to_media_ms:
+          type: integer
+          minimum: 0
+          maximum: 600000
+        reconnect_succeeded:
+          type: integer
+          minimum: 0
+        reconnect_failed:
+          type: integer
+          minimum: 0
+    MediaDiagnosticExport:
+      type: object
+      additionalProperties: false
+      required: [from, to, items, metrics, truncated]
+      properties:
+        from:
+          type: string
+          format: date-time
+        to:
+          type: string
+          format: date-time
+        items:
+          type: array
+          maxItems: 1000
+          items:
+            $ref: "#/components/schemas/MediaDiagnosticExportItem"
+        metrics:
+          $ref: "#/components/schemas/MediaDiagnosticMetrics"
+        truncated:
+          type: boolean
     Problem:
       type: object
       additionalProperties: false

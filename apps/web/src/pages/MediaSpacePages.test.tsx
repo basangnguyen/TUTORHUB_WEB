@@ -35,11 +35,13 @@ import { MediaSpaceRoomPage } from "./MediaSpaceRoomPage";
 const apiMocks = vi.hoisted(() => ({
   cancelJoinAttempt: vi.fn(),
   createJoinAttempt: vi.fn(),
+  getCurrentCSRF: vi.fn(),
   getJoinAttempt: vi.fn(),
   getMediaSpace: vi.fn(),
   issueJoinCredential: vi.fn(),
   listParticipants: vi.fn(),
   mutateSignal: vi.fn(),
+  recordDiagnostic: vi.fn(),
   recoverMediaSpace: vi.fn(),
   rotateCSRFToken: vi.fn(),
 }));
@@ -84,11 +86,13 @@ vi.mock("@tutorhub/api-client", async (importOriginal) => {
     ...original,
     cancelMediaJoinAttempt: apiMocks.cancelJoinAttempt,
     createMediaSpaceJoinAttempt: apiMocks.createJoinAttempt,
+    getCurrentCSRFToken: apiMocks.getCurrentCSRF,
     getMediaJoinAttempt: apiMocks.getJoinAttempt,
     getMediaSpace: apiMocks.getMediaSpace,
     issueMediaSpaceJoinCredential: apiMocks.issueJoinCredential,
     listMediaSpaceParticipants: apiMocks.listParticipants,
     mutateMediaSpaceSignal: apiMocks.mutateSignal,
+    recordMediaSpaceDiagnostic: apiMocks.recordDiagnostic,
     recoverMediaSpace: apiMocks.recoverMediaSpace,
     rotateCSRFToken: apiMocks.rotateCSRFToken,
   };
@@ -511,6 +515,8 @@ describe("MediaSpacePreJoinPage P4-03 boundaries", () => {
       version: 1,
     });
     apiMocks.rotateCSRFToken.mockResolvedValue({ csrf_token: "media-csrf" });
+    apiMocks.getCurrentCSRF.mockReturnValue("media-csrf");
+    apiMocks.recordDiagnostic.mockResolvedValue(undefined);
     apiMocks.recoverMediaSpace.mockResolvedValue(mediaSpace);
     vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue(undefined);
     vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(
@@ -527,12 +533,14 @@ describe("MediaSpacePreJoinPage P4-03 boundaries", () => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
     apiMocks.createJoinAttempt.mockReset();
+    apiMocks.getCurrentCSRF.mockReset();
     apiMocks.cancelJoinAttempt.mockReset();
     apiMocks.getJoinAttempt.mockReset();
     apiMocks.getMediaSpace.mockReset();
     apiMocks.issueJoinCredential.mockReset();
     apiMocks.listParticipants.mockReset();
     apiMocks.mutateSignal.mockReset();
+    apiMocks.recordDiagnostic.mockReset();
     apiMocks.recoverMediaSpace.mockReset();
     apiMocks.rotateCSRFToken.mockReset();
     liveKitMocks.listeners.clear();
@@ -902,6 +910,7 @@ describe("MediaSpacePreJoinPage P4-03 boundaries", () => {
       await screen.findByText("Canonical room destination"),
     ).toBeInTheDocument();
     expect(order).toEqual(["csrf", "attempt", "credential"]);
+    expect(apiMocks.recordDiagnostic).toHaveBeenCalledTimes(2);
     expect(apiMocks.createJoinAttempt).toHaveBeenCalledWith(
       tenantID,
       spaceID,

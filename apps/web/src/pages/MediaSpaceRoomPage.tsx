@@ -1,4 +1,7 @@
-import { getMediaSpace } from "@tutorhub/api-client";
+import {
+  getMediaSpace,
+  type MediaDiagnosticErrorCode,
+} from "@tutorhub/api-client";
 import { useQuery } from "@tanstack/react-query";
 import { DisconnectReason } from "livekit-client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -16,6 +19,10 @@ import {
 } from "../app/mediaSignals";
 import { useMediaModerationControls } from "../app/mediaModeration";
 import { useSession } from "../app/session";
+import {
+  mediaDiagnosticPath,
+  recordBoundedMediaDiagnostic,
+} from "../app/mediaDiagnostics";
 import { MediaLobbyPanel } from "../components/MediaLobbyPanel";
 import { MediaSpaceChatPanel } from "../components/MediaSpaceChatPanel";
 import {
@@ -66,6 +73,8 @@ function MediaSpaceRoomSession({
     useState<ClassroomConnectionStatus>("connecting");
   const [roomError, setRoomError] = useState<TranslationKey | null>(null);
   const disconnectRecoveryActive = useRef(false);
+  const connectStartedAt = useRef(0);
+  const reconnectStartedAt = useRef(0);
   const [signalClock, setSignalClock] = useState({
     dataUpdatedAt: 0,
     now: 0,
@@ -136,6 +145,40 @@ function MediaSpaceRoomSession({
     );
   }, [signalClock, signalQuery.data, signalQuery.dataUpdatedAt]);
 
+  const reportDiagnostic = useCallback(
+    (
+      stage:
+        | "connect"
+        | "media"
+        | "reconnecting"
+        | "reconnected"
+        | "disconnected"
+        | "leave",
+      outcome: "started" | "succeeded" | "failed" | "cancelled",
+      durationMS = 0,
+      errorCode?: MediaDiagnosticErrorCode,
+    ) => {
+      if (!handoff || !spaceId || !roomInstanceId) return;
+      void recordBoundedMediaDiagnostic({
+        tenantID: tenantId,
+        spaceID: spaceId,
+        roomInstanceID: roomInstanceId,
+        joinAttemptID: handoff.credential.join_attempt_id,
+        stage,
+        outcome,
+        ...(errorCode ? { errorCode } : {}),
+        mediaPath: mediaDiagnosticPath(handoff.choices),
+        durationMS,
+      });
+    },
+    [handoff, roomInstanceId, spaceId, tenantId],
+  );
+
+  useEffect(() => {
+    connectStartedAt.current = performance.now();
+    reportDiagnostic("connect", "started");
+  }, [reportDiagnostic]);
+
   useEffect(() => {
     if (!signalQuery.data || roomStatus !== "connected") return undefined;
     const dataUpdatedAt = signalQuery.dataUpdatedAt;
@@ -204,12 +247,28 @@ function MediaSpaceRoomSession({
     setRoomStatus("connected");
     setRoomError(null);
     if (signalScopeReady) void signalQuery.refetch();
-  }, [signalQuery, signalScopeReady]);
+    if (reconnectStartedAt.current > 0) {
+      reportDiagnostic(
+        "reconnected",
+        "succeeded",
+        performance.now() - reconnectStartedAt.current,
+      );
+      reconnectStartedAt.current = 0;
+    } else {
+      const durationMS =
+        connectStartedAt.current > 0
+          ? performance.now() - connectStartedAt.current
+          : 0;
+      reportDiagnostic("media", "succeeded", durationMS);
+    }
+  }, [reportDiagnostic, signalQuery, signalScopeReady]);
 
   const handleReconnecting = useCallback(() => {
+    reconnectStartedAt.current = performance.now();
     setRoomStatus("reconnecting");
     setRoomError(null);
-  }, []);
+    reportDiagnostic("reconnecting", "started");
+  }, [reportDiagnostic]);
 
   const finishDisconnected = useCallback(
     (status: Extract<ClassroomConnectionStatus, "disconnected" | "failed">) => {
@@ -228,6 +287,12 @@ function MediaSpaceRoomSession({
   const handleDisconnected = useCallback(
     (reason?: DisconnectReason) => {
       const outcome = classroomDisconnectOutcome(reason);
+      reportDiagnostic(
+        "disconnected",
+        "failed",
+        0,
+        disconnectDiagnosticCode(reason),
+      );
       finishDisconnected("disconnected");
       setRoomError(outcome.messageKey);
       if (disconnectRecoveryActive.current) return;
@@ -250,20 +315,22 @@ function MediaSpaceRoomSession({
           disconnectRecoveryActive.current = false;
         });
     },
-    [finishDisconnected, mediaSpace, navigate, spaceId],
+    [finishDisconnected, mediaSpace, navigate, reportDiagnostic, spaceId],
   );
 
   const handleProviderError = useCallback(() => {
+    reportDiagnostic("disconnected", "failed", 0, "provider_error");
     finishDisconnected("failed");
-  }, [finishDisconnected]);
+  }, [finishDisconnected, reportDiagnostic]);
 
   const handleLeave = useCallback(() => {
+    reportDiagnostic("leave", "succeeded");
     finishDisconnected("disconnected");
     void navigate(
       spaceId ? `/app/media/spaces/${spaceId}/prejoin` : "/app/home",
       { replace: true },
     );
-  }, [finishDisconnected, navigate, spaceId]);
+  }, [finishDisconnected, navigate, reportDiagnostic, spaceId]);
 
   const moderationControls = useMediaModerationControls({
     enabled: signalScopeReady && roomStatus === "connected",
@@ -436,5 +503,23 @@ function classroomDisconnectOutcome(reason?: DisconnectReason): {
         messageKey: "media.p409.reauthorizationRequired",
         reauthorize: true,
       };
+  }
+}
+
+function disconnectDiagnosticCode(
+  reason?: DisconnectReason,
+): MediaDiagnosticErrorCode {
+  switch (reason) {
+    case DisconnectReason.PARTICIPANT_REMOVED:
+      return "participant_removed";
+    case DisconnectReason.ROOM_DELETED:
+    case DisconnectReason.ROOM_CLOSED:
+      return "room_ended";
+    case DisconnectReason.DUPLICATE_IDENTITY:
+      return "duplicate_identity";
+    case DisconnectReason.CLIENT_INITIATED:
+      return "client_leave";
+    default:
+      return "transport_disconnected";
   }
 }

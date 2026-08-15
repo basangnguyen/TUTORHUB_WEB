@@ -153,9 +153,13 @@ func runPostgresMediaReadOnlySnapshot(
 		t.Fatalf("%s read-only gate found an unexpected migration ledger state", gateLabel)
 	}
 
+	expectations := p407MediaACLExpectations()
+	if expectedVersion >= 36 {
+		expectations = p410MediaACLExpectations()
+	}
 	targets := p406RelationsForVersion(expectedVersion)
 	if expectedVersion >= 33 {
-		targets = p407RelationNames()
+		targets = mediaACLRelationNames(expectations)
 	}
 	assertP406OwnerAuthority(t, ctx, migrationTx, targets)
 	assertP406RoleSafety(
@@ -173,7 +177,7 @@ func runPostgresMediaReadOnlySnapshot(
 		return
 	}
 
-	for _, expectation := range p407MediaACLExpectations() {
+	for _, expectation := range expectations {
 		assertExactMediaACL(t, ctx, runtimeTx, expectation)
 	}
 	assertP402ProvisionedPublicACL(t, ctx, migrationTx, targets)
@@ -190,7 +194,10 @@ func runPostgresMediaReadOnlySnapshot(
 }
 
 func p407RelationNames() []string {
-	expectations := p407MediaACLExpectations()
+	return mediaACLRelationNames(p407MediaACLExpectations())
+}
+
+func mediaACLRelationNames(expectations []mediaACLExpectation) []string {
 	targets := make([]string, 0, len(expectations))
 	for _, expectation := range expectations {
 		parts := strings.Split(expectation.relation, ".")

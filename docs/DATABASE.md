@@ -7,7 +7,8 @@ thay đổi schema, migration hoặc repository phải đọc tài liệu này t
 
 - System of record: Neon PostgreSQL.
 - Schema ứng dụng: `tutorhub`.
-- Migration mới nhất trong source: `000035_media_room_recovery`; P4-01 đến P4-09 đã `DONE`.
+- Migration mới nhất trong source: `000036_media_join_diagnostics`; P4-01 đến P4-09 đã `DONE`,
+  P4-10 đang `VERIFY` và chưa forward disposable/shared.
   Disposable và shared đều forward-only `34 false -> 35 false -> 35 false`; exact ACL và final/
   post-live read-only snapshot PASS tại `35 dirty=false`, media force-off.
   P4-06 disposable và shared đều PASS forward-only `31 false -> 32 false -> 32 false`, exact/default
@@ -1551,4 +1552,9 @@ của lịch sử append-only và không phải quy trình cleanup cho staging/p
   forward-only/idempotent `34 false -> 35 false -> 35 false`; exact ACL, final/post-live snapshot
   giữ `35 dirty=false`, media force-off và shared `recovery_side_effects=0`. Exact CI/security,
   Render/Cloudflare và live privacy/concealment/accessibility acceptance đều PASS.
+- P4-10 đang `VERIFY`: migration `000036_media_join_diagnostics` thêm bounded event schema,
+  exact tenant/space/room/participant FK, retention đúng 30 ngày và maintenance-only bounded
+  `SECURITY DEFINER ... SKIP LOCKED` purge. Runtime ACL dự kiến chỉ exact column SELECT/INSERT;
+  không UPDATE/DELETE/function execute. Local compile/tests PASS; disposable `35 -> 36`, ACL,
+  metric math, retention/purge concurrency và shared/live gates vẫn `PENDING`.
 - Chưa có backup/restore drill, PITR gate hoặc connection load test cho pilot.

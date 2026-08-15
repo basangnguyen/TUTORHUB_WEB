@@ -1,6 +1,8 @@
 import createClient from "openapi-fetch";
 import type { components, paths } from "./generated/schema";
 
+let currentCSRFToken: string | null = null;
+
 export type HealthResponse = components["schemas"]["HealthResponse"];
 export type CurrentUser = components["schemas"]["MeResponse"];
 export type CSRFResponse = components["schemas"]["CSRFResponse"];
@@ -417,6 +419,24 @@ export type MediaInstanceCredentialRequest =
   components["schemas"]["MediaInstanceCredentialRequest"];
 export type MediaInstanceCredential =
   components["schemas"]["MediaInstanceCredential"];
+export type MediaDiagnosticRequest =
+  components["schemas"]["MediaDiagnosticRequest"];
+export type MediaDiagnosticStage =
+  components["schemas"]["MediaDiagnosticStage"];
+export type MediaDiagnosticOutcome =
+  components["schemas"]["MediaDiagnosticOutcome"];
+export type MediaDiagnosticErrorCode =
+  components["schemas"]["MediaDiagnosticErrorCode"];
+export type MediaDiagnosticNetworkQuality =
+  components["schemas"]["MediaDiagnosticNetworkQuality"];
+export type MediaDiagnosticMediaPath =
+  components["schemas"]["MediaDiagnosticMediaPath"];
+export type MediaDiagnosticExportRequest =
+  components["schemas"]["MediaDiagnosticExportRequest"];
+export type MediaDiagnosticExport =
+  components["schemas"]["MediaDiagnosticExport"];
+export type MediaDiagnosticMetrics =
+  components["schemas"]["MediaDiagnosticMetrics"];
 export type ClassSessionRecurrenceRule =
   components["schemas"]["ClassSessionRecurrenceRule"];
 export type ClassSessionSeries = components["schemas"]["ClassSessionSeries"];
@@ -739,11 +759,18 @@ export async function rotateCSRFToken(
     },
   );
 
-  return requireData<CSRFResponse>(
+  const result = requireData<CSRFResponse>(
     data as CSRFResponse | undefined,
     error,
     response,
   );
+  currentCSRFToken = result.csrf_token;
+  return result;
+}
+
+/** Returns the latest CSRF token held only in this JavaScript runtime. */
+export function getCurrentCSRFToken(): string | null {
+  return currentCSRFToken;
 }
 
 export async function logout(
@@ -759,11 +786,13 @@ export async function logout(
     },
   );
 
-  return requireData<LogoutResponse>(
+  const result = requireData<LogoutResponse>(
     data as LogoutResponse | undefined,
     error,
     response,
   );
+  currentCSRFToken = null;
+  return result;
 }
 
 export async function createTenant(
@@ -3231,6 +3260,65 @@ export async function getMediaSpace(
   );
   return requireData<MediaSpace>(
     data as MediaSpace | undefined,
+    error,
+    response,
+  );
+}
+
+export async function recordMediaSpaceDiagnostic(
+  tenantID: string,
+  spaceID: string,
+  input: MediaDiagnosticRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<void> {
+  requireTenantScope(tenantID);
+  const { error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/media/spaces/{space_id}/diagnostics",
+    {
+      params: {
+        path: { space_id: spaceID },
+        header: {
+          "X-CSRF-Token": csrfToken,
+          "X-TutorHub-Expected-Tenant-ID": tenantID,
+        },
+      },
+      body: input,
+      signal: options.signal,
+    },
+  );
+  if (!response.ok) {
+    throw new APIRequestError(
+      response.status,
+      isProblem(error) ? error : undefined,
+      retryAfterSeconds(response),
+    );
+  }
+}
+
+export async function exportMediaDiagnostics(
+  tenantID: string,
+  input: MediaDiagnosticExportRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<MediaDiagnosticExport> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/media/diagnostics/export",
+    {
+      params: {
+        header: {
+          "X-CSRF-Token": csrfToken,
+          "X-TutorHub-Expected-Tenant-ID": tenantID,
+        },
+      },
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+  return requireData<MediaDiagnosticExport>(
+    data as MediaDiagnosticExport | undefined,
     error,
     response,
   );

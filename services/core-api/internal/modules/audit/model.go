@@ -76,6 +76,7 @@ const (
 	ActionMediaParticipantDemote      Action = "media_participant.demote"
 	ActionMediaParticipantMute        Action = "media_participant.mute"
 	ActionMediaParticipantRemove      Action = "media_participant.remove"
+	ActionMediaDiagnosticsExport      Action = "media_diagnostics.export"
 )
 
 type Outcome string
@@ -238,6 +239,7 @@ var actionCatalog = map[Action]struct{}{
 	ActionMediaParticipantDemote:      {},
 	ActionMediaParticipantMute:        {},
 	ActionMediaParticipantRemove:      {},
+	ActionMediaDiagnosticsExport:      {},
 }
 
 var domainEventActions = map[string]Action{

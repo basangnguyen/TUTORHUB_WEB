@@ -6,6 +6,66 @@
   text-rendering: optimizeLegibility;
 }
 
+.media-p410-diagnostics {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.media-p410-diagnostics h2,
+.media-p410-diagnostics p,
+.media-p410-diagnostics dl {
+  margin: 0;
+}
+
+.media-p410-diagnostics > p {
+  color: var(--color-text-muted);
+  line-height: 1.55;
+}
+
+.media-p410-diagnostics > button,
+.media-p410-diagnostics > div > button {
+  justify-self: start;
+}
+
+.media-p410-diagnostics dl {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.media-p410-diagnostics dl > div {
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-subtle);
+}
+
+.media-p410-diagnostics dt {
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+
+.media-p410-diagnostics dd {
+  margin: 5px 0 0;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+@media (max-width: 760px) {
+  .media-p410-diagnostics dl {
+    grid-template-columns: 1fr;
+  }
+
+  .media-p410-diagnostics > button,
+  .media-p410-diagnostics > div > button {
+    width: 100%;
+  }
+}
+
 * {
   box-sizing: border-box;
 }

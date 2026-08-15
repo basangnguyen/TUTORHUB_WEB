@@ -11,7 +11,7 @@
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
 | Phase hiện tại        | Phase 4 - Classroom Media MVP; Phase 3 deferred carry-over tiếp tục                          |
-| Trạng thái gần nhất   | P4-09 reconnect/recovery/audio-only `DONE`; P4-10 là task kế tiếp                          |
+| Trạng thái gần nhất   | P4-10 `VERIFY`; disposable `36 false` PASS, exact candidate CI là bước kế tiếp             |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 

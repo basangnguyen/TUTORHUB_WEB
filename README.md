@@ -135,6 +135,10 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
 - P5-COLLAB-00 đã được đăng ký làm research spike tương lai cho whiteboard engine,
   document/sync authority, license và realtime topology. Task vẫn `TODO`, không chặn P4-02
   và không cho phép thêm production dependency/runtime trước prototype, evidence và ADR.
+- P4-10 Join telemetry, privacy và diagnostics export đang `VERIFY`: ADR-0033, migration `000036`,
+  bounded Core API/OpenAPI contract, audited redacted Admin export, exact ACL harness và web
+  lifecycle/panel đã hoàn thành; local tests và Neon disposable forward/ACL/retention/metrics/
+  SKIP LOCKED/final snapshot PASS ở `36 false`. Exact CI/shared/deploy/live vẫn pending.
 - Web MVP nền đã chạy trên staging: Cloudflare Pages -> same-origin `/api/*` -> Go
   Core API trên Render; dữ liệu dùng Neon, file dùng Backblaze B2, media dùng LiveKit
   Cloud và xác thực dùng ZITADEL.
@@ -194,8 +198,10 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
 43. [ADR-0031: Classroom media UX devices/layout/effects/signals](docs/adr/0031-classroom-media-ux-devices-layout-effects-and-signals.md)
 44. [ADR-0032: Classroom reconnect/recovery/audio-only](docs/adr/0032-classroom-reconnect-recovery-and-degraded-audio.md)
 45. [P4-09: Reconnect/recovery/audio-only staging acceptance](docs/P4_09_STAGING_ACCEPTANCE.md)
-46. [P4-04: Lobby/admission/invite staging acceptance](docs/P4_04_STAGING_ACCEPTANCE.md)
-47. [P5-COLLAB-00: Whiteboard engine và collaboration topology research spike](docs/P5_COLLAB_00_RESEARCH_SPIKE.md)
+46. [ADR-0033: Classroom join telemetry/privacy/diagnostics export](docs/adr/0033-classroom-join-telemetry-privacy-and-diagnostics-export.md)
+47. [P4-10: Join telemetry/privacy/diagnostics staging acceptance](docs/P4_10_STAGING_ACCEPTANCE.md)
+48. [P4-04: Lobby/admission/invite staging acceptance](docs/P4_04_STAGING_ACCEPTANCE.md)
+49. [P5-COLLAB-00: Whiteboard engine và collaboration topology research spike](docs/P5_COLLAB_00_RESEARCH_SPIKE.md)
 
 Các quyết định kiến trúc đã chấp nhận nằm trong `docs/adr`.
 

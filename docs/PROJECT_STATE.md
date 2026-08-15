@@ -14,8 +14,30 @@
 | Phase hiện tại       | Phase 4 Classroom Media MVP; Phase 3 deferred carry-over vẫn hoạt động                |
 | Task `DONE` gần nhất | P4-09 Reconnect, recovery instance và degraded audio-only                              |
 | Mốc repository mới   | Exact candidate `fe33ffab` đã PASS CI/shared/deploy/live trên Render/Cloudflare        |
-| Task hiện tại        | P4-10 Join telemetry, privacy và diagnostics export (`TODO`)                           |
-| Task tiếp theo       | Bắt đầu P4-10 từ contract telemetry/privacy/retention và diagnostics export            |
+| Task hiện tại        | P4-10 Join telemetry, privacy và diagnostics export (`VERIFY`)                         |
+| Task tiếp theo       | Fresh candidate verify, secret scan và exact commit/push CI trước shared staging       |
+
+### Checkpoint P4-10 `VERIFY` ngày 2026-08-15
+
+ADR-0033 đã khóa telemetry schema hữu hạn, no-raw-data privacy boundary, retention đúng 30 ngày,
+role-separated maintenance purge và Organization Admin-only audited export. Forward migration
+`000036_media_join_diagnostics` thêm exact tenant/space/room/participant FK, idempotent event,
+PUBLIC zero privilege và bounded `SECURITY DEFINER ... SKIP LOCKED` purge. Core API re-resolve actor
+thay vì nhận identity từ client; export chỉ trả tenant-scoped pseudonym, enum/duration/timestamp và
+aggregate join success, p95 time-to-media, reconnect outcome.
+
+Web phát diagnostics best-effort ở join/credential/media/reconnect/disconnect/leave, không chặn
+LiveKit flow, URL hoặc storage. Organization Admin có panel 24 giờ với loading/error/retry và redacted
+JSON download. Full `pnpm verify` và integration-tag compile PASS; API client `53/53`, web
+`437/437` tests, all package build/security và Go test/vet đều xanh. Neon disposable sau đó PASS
+owner boundary, forward-only/idempotent `35 false -> 36 false -> 36 false`, exact runtime/PUBLIC/
+maintenance ACL, retention/metrics/tenant isolation và `SKIP LOCKED`. Focused P4-10 đạt `4/4`;
+retained media đạt đủ `11/11` nhóm sau khi harness được nâng latest ledger 36 và rate-window fixture
+được cô lập. Final read-only snapshot giữ `36 dirty=false`, diagnostics/expired/retention violation
+đều `0`, media deployment guard force-off; không rollback và branch được giữ lại.
+
+P4-10 vẫn `VERIFY`: exact candidate CI, shared staging, deploy/live chưa chạy và không được suy PASS. Runbook:
+[P4_10_STAGING_ACCEPTANCE.md](P4_10_STAGING_ACCEPTANCE.md).
 
 ### Checkpoint P4-09 `DONE` ngày 2026-08-15
 

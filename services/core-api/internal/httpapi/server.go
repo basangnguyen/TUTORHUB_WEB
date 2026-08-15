@@ -49,6 +49,7 @@ type Options struct {
 	MediaLobby            media.LobbyServiceAPI
 	MediaSignals          media.MediaSignalServiceAPI
 	MediaModeration       media.ModerationServiceAPI
+	MediaDiagnostics      media.DiagnosticServiceAPI
 	MediaCredentials      media.InstanceCredentialServiceAPI
 	MediaWebhooks         media.WebhookProcessor
 	Notifications         notification.ServiceAPI
@@ -480,6 +481,7 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 	mediaLobby := newMediaLobbyHandlers(logger, auth, options.MediaLobby)
 	mediaSignals := newMediaSignalHandlers(logger, auth, options.MediaSignals)
 	mediaModeration := newMediaModerationHandlers(logger, auth, options.MediaModeration)
+	mediaDiagnostics := newMediaDiagnosticHandlers(logger, auth, options.MediaDiagnostics, options.Audit)
 	mux.Handle(
 		classesCollectionPath,
 		auditMutation(
@@ -773,6 +775,18 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 	)
 	mux.Handle(mediaTokenPathPattern, http.HandlerFunc(mediaHandlers.issueJoinCredential))
 	mux.Handle(mediaEventsPathPattern, http.HandlerFunc(mediaHandlers.recordClientEvent))
+	mux.Handle(
+		mediaDiagnosticsPathPattern,
+		mediaSpaceResponseHeaders(
+			requireMethod(http.MethodPost, http.HandlerFunc(mediaDiagnostics.record)),
+		),
+	)
+	mux.Handle(
+		mediaDiagnosticsExportPath,
+		mediaSpaceResponseHeaders(
+			requireMethod(http.MethodPost, http.HandlerFunc(mediaDiagnostics.export)),
+		),
+	)
 	mux.Handle(
 		mediaParticipantsPattern,
 		mediaSpaceResponseHeaders(

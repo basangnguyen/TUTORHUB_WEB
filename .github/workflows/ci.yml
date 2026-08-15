@@ -99,6 +99,8 @@ jobs:
           P4_06_ACL_PROVISION_CONFIRM: I_UNDERSTAND_P4_06_ACL_PROVISION_DISPOSABLE_ONLY
           P4_07_DISPOSABLE_CONFIRM: I_UNDERSTAND_P4_07_DISPOSABLE_ONLY
           P4_07_ACL_PROVISION_CONFIRM: I_UNDERSTAND_P4_07_ACL_PROVISION_DISPOSABLE_ONLY
+          P4_10_DISPOSABLE_CONFIRM: I_UNDERSTAND_P4_10_DISPOSABLE_ONLY
+          P4_10_ACL_PROVISION_CONFIRM: I_UNDERSTAND_P4_10_ACL_PROVISION_DISPOSABLE_ONLY
         run: |
           node scripts/require-media-disposable-confirm.mjs
           psql "$DATABASE_MIGRATION_URL" --set=ON_ERROR_STOP=1 <<'SQL'
@@ -120,10 +122,13 @@ jobs:
               NOREPLICATION NOBYPASSRLS;
           SQL
           go test -count=1 -tags=integration \
-            -run '^TestPostgresMediaModerationForwardMigration$' \
+            -run '^TestPostgresMediaDiagnosticsForwardMigration$' \
             ./services/core-api/internal/modules/media
           go test -count=1 -tags=integration \
-            -run '^TestProvisionPostgresMediaModerationExactACL$' \
+            -run '^TestProvisionPostgresMediaDiagnosticsExactACL$' \
+            ./services/core-api/internal/modules/media
+          go test -count=1 -tags=integration \
+            -run '^TestPostgresMediaDiagnosticsRetentionMetricsTenantAndSkipLockedPurge$' \
             ./services/core-api/internal/modules/media
           go test -count=1 -tags=integration \
             -run '^TestPostgresMediaLifecycleRuntimeExactACL$' \

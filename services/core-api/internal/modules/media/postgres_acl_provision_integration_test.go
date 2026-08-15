@@ -19,6 +19,8 @@ const (
 	p404SharedACLProvisionConfirmation = "I_UNDERSTAND_P4_04_ACL_PROVISION_SHARED_STAGING_ONLY"
 	p406ACLProvisionConfirmation       = "I_UNDERSTAND_P4_06_ACL_PROVISION_DISPOSABLE_ONLY"
 	p407ACLProvisionConfirmation       = "I_UNDERSTAND_P4_07_ACL_PROVISION_DISPOSABLE_ONLY"
+	p410ACLProvisionConfirmation       = "I_UNDERSTAND_P4_10_ACL_PROVISION_DISPOSABLE_ONLY"
+	p410SharedACLProvisionConfirmation = "I_UNDERSTAND_P4_10_ACL_PROVISION_SHARED_STAGING_ONLY"
 )
 
 type mediaACLProvisionConfiguration struct {
@@ -103,6 +105,29 @@ func TestProvisionPostgresMediaModerationExactACLShared(t *testing.T) {
 	runProvisionPostgresMediaLifecycleRuntimeExactACL(t, mediaACLProvisionConfiguration{
 		expectedVersion: 35,
 		expectations:    p407MediaACLExpectations(),
+	})
+}
+
+func TestProvisionPostgresMediaDiagnosticsExactACL(t *testing.T) {
+	if strings.TrimSpace(os.Getenv("P4_10_DISPOSABLE_CONFIRM")) != "I_UNDERSTAND_P4_10_DISPOSABLE_ONLY" {
+		t.Skip("P4_10_DISPOSABLE_CONFIRM is not set to the disposable-only confirmation")
+	}
+	if strings.TrimSpace(os.Getenv("P4_10_ACL_PROVISION_CONFIRM")) != p410ACLProvisionConfirmation {
+		t.Skip("P4_10_ACL_PROVISION_CONFIRM is not set to the disposable-only ACL confirmation")
+	}
+	runProvisionPostgresMediaLifecycleRuntimeExactACL(t, mediaACLProvisionConfiguration{
+		expectedVersion: 36,
+		expectations:    p410MediaACLExpectations(),
+	})
+}
+
+func TestProvisionPostgresMediaDiagnosticsExactACLShared(t *testing.T) {
+	if strings.TrimSpace(os.Getenv("P4_10_SHARED_ACL_PROVISION_CONFIRM")) != p410SharedACLProvisionConfirmation {
+		t.Skip("P4_10_SHARED_ACL_PROVISION_CONFIRM is not set to the shared-staging confirmation")
+	}
+	runProvisionPostgresMediaLifecycleRuntimeExactACL(t, mediaACLProvisionConfiguration{
+		expectedVersion: 36,
+		expectations:    p410MediaACLExpectations(),
 	})
 }
 
@@ -356,10 +381,7 @@ WHERE maintenance.rolname = $1`, maintenanceRole, migrationRole, runtimeRole, ta
 		grantP402ACLColumns(t, ctx, tx, relationIdentifier, runtimeIdentifier, "UPDATE", expectation.updateColumns)
 	}
 
-	for _, signature := range []string{
-		"tutorhub.purge_expired_media_reactions(integer)",
-		"tutorhub.purge_expired_media_signal_receipts(integer)",
-	} {
+	for _, signature := range mediaPurgeFunctionSignatures(targets) {
 		for _, grantee := range []string{"PUBLIC", runtimeIdentifier, maintenanceIdentifier} {
 			execP402ACLStatement(
 				t,
@@ -587,6 +609,22 @@ func p407MediaACLExpectations() []mediaACLExpectation {
 	})
 }
 
+func p410MediaACLExpectations() []mediaACLExpectation {
+	return append(p407MediaACLExpectations(), mediaACLExpectation{
+		relation: "tutorhub.media_join_diagnostics",
+		selectColumns: []string{
+			"duration_ms", "error_code", "id", "join_attempt_id", "media_path",
+			"network_quality", "outcome", "participant_session_id", "recorded_at",
+			"retention_until", "room_instance_id", "space_id", "stage", "tenant_id",
+		},
+		insertColumns: []string{
+			"duration_ms", "error_code", "id", "join_attempt_id", "media_path",
+			"network_quality", "outcome", "participant_session_id", "recorded_at",
+			"retention_until", "room_instance_id", "space_id", "stage", "tenant_id",
+		},
+	})
+}
+
 func p402ACLRelationColumns(
 	t *testing.T,
 	ctx context.Context,
@@ -737,10 +775,7 @@ FROM unnest($1::text[]) AS relation(relation_name)`, targets).Scan(
 		t.Fatal("P4-06 maintenance role must have schema USAGE and no media relation privileges")
 	}
 
-	signatures := []string{
-		"tutorhub.purge_expired_media_reactions(integer)",
-		"tutorhub.purge_expired_media_signal_receipts(integer)",
-	}
+	signatures := mediaPurgeFunctionSignatures(targets)
 	var runtimeExecute, maintenanceExecute bool
 	if err := runtimePool.QueryRow(ctx, `SELECT bool_or(
     has_function_privilege(current_user, signature, 'EXECUTE')
@@ -792,6 +827,19 @@ JOIN pg_roles AS owner ON owner.oid = function.proowner`, signatures, migrationR
 	if functionCount != len(signatures) || !reviewedMetadata {
 		t.Fatal("P4-06 purge functions violate the reviewed SECURITY DEFINER boundary")
 	}
+}
+
+func mediaPurgeFunctionSignatures(targets []string) []string {
+	signatures := []string{
+		"tutorhub.purge_expired_media_reactions(integer)",
+		"tutorhub.purge_expired_media_signal_receipts(integer)",
+	}
+	for _, target := range targets {
+		if target == "media_join_diagnostics" {
+			return append(signatures, "tutorhub.purge_expired_media_join_diagnostics(integer)")
+		}
+	}
+	return signatures
 }
 
 func requireP406MaintenanceNeonURLBoundary(

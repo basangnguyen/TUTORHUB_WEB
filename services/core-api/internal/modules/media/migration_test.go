@@ -98,6 +98,43 @@ func TestClassroomMediaMigrationContainsTenantLifecycleAndConcurrencyGuards(t *t
 	}
 }
 
+func TestMediaJoinDiagnosticsMigrationHardensPrivacyRetentionAndPurge(t *testing.T) {
+	t.Parallel()
+	contents, err := os.ReadFile(filepath.Join(
+		"..", "..", "..", "migrations", "000036_media_join_diagnostics.up.sql",
+	))
+	if err != nil {
+		t.Fatal(err)
+	}
+	sql := string(contents)
+	for _, fragment := range []string{
+		"CREATE TABLE tutorhub.media_join_diagnostics",
+		"FOREIGN KEY (tenant_id, space_id, room_instance_id, participant_session_id)",
+		"retention_until = recorded_at + interval '30 days'",
+		"CREATE FUNCTION tutorhub.purge_expired_media_join_diagnostics",
+		"SECURITY DEFINER",
+		"SET search_path = pg_catalog, pg_temp",
+		"FOR UPDATE OF diagnostic SKIP LOCKED",
+		"batch_size < 1 OR batch_size > 1000",
+		"'client_leave', 'transport_disconnected', 'provider_error'",
+		"REVOKE ALL ON tutorhub.media_join_diagnostics FROM PUBLIC",
+		"REVOKE ALL ON FUNCTION tutorhub.purge_expired_media_join_diagnostics(integer) FROM PUBLIC",
+	} {
+		if !strings.Contains(sql, fragment) {
+			t.Fatalf("000036 diagnostic migration is missing %q", fragment)
+		}
+	}
+	tableDDL := strings.SplitN(sql, "CREATE INDEX", 2)[0]
+	for _, forbidden := range []string{
+		"token", "secret", "sdp", "ice_candidate", "raw_ip", "device_label",
+		"exception", "provider_room", "participant_identity",
+	} {
+		if strings.Contains(strings.ToLower(tableDDL), forbidden) {
+			t.Fatalf("000036 diagnostic schema contains forbidden field %q", forbidden)
+		}
+	}
+}
+
 func TestClassroomMediaDownMigrationDropsChildrenAndRestoresCatalog(t *testing.T) {
 	t.Parallel()
 

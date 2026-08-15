@@ -17,10 +17,12 @@ import {
   mutateMediaSpaceSignal,
   mutateMediaSpaceMember,
   removeMediaParticipant,
+  recordMediaSpaceDiagnostic,
   recoverMediaSpace,
   resolveMediaAdmission,
   setMediaSpaceLock,
   startMediaSpace,
+  exportMediaDiagnostics,
 } from "./index";
 import type {
   CreateMediaSpaceRequest,
@@ -28,6 +30,7 @@ import type {
   MediaAdmissionQueue,
   MediaJoinAttempt,
   MediaInstanceCredential,
+  MediaDiagnosticExport,
   MediaParticipantSnapshot,
   MediaParticipantModerationResult,
   MediaSignalMutationRequest,
@@ -675,6 +678,80 @@ describe("media-space API", () => {
       "can_share_screen",
     ]) {
       expect(body).not.toHaveProperty(forbidden);
+    }
+  });
+
+  it("records and exports only the reviewed P4-10 diagnostics contract", async () => {
+    const diagnosticExport: MediaDiagnosticExport = {
+      from: "2030-08-02T00:00:00Z",
+      to: "2030-08-03T00:00:00Z",
+      items: [],
+      metrics: {
+        join_attempts: 1,
+        successful_joins: 1,
+        join_success_rate: 1,
+        p95_time_to_media_ms: 1800,
+        reconnect_succeeded: 0,
+        reconnect_failed: 0,
+      },
+      truncated: false,
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+      .mockResolvedValueOnce(jsonResponse(diagnosticExport));
+    const options = {
+      baseUrl: "https://web.example.test/api",
+      fetch: fetchMock,
+    };
+    await recordMediaSpaceDiagnostic(
+      tenantID,
+      spaceID,
+      {
+        event_id: "e2df2ea2-72db-4a13-a436-8df24d43ef60",
+        room_instance_id: roomInstanceID,
+        join_attempt_id: joinAttemptID,
+        stage: "disconnected",
+        outcome: "failed",
+        error_code: "transport_disconnected",
+        network_quality: "offline",
+        media_path: "audio_only",
+        duration_ms: 1200,
+      },
+      "record-csrf",
+      options,
+    );
+    await expect(
+      exportMediaDiagnostics(
+        tenantID,
+        {
+          from: "2030-08-02T00:00:00Z",
+          to: "2030-08-03T00:00:00Z",
+          limit: 1000,
+        },
+        "export-csrf",
+        options,
+      ),
+    ).resolves.toEqual(diagnosticExport);
+
+    const requests = fetchMock.mock.calls.map((call) => call[0] as Request);
+    expect(requests.map((request) => new URL(request.url).pathname)).toEqual([
+      `/api/v1/media/spaces/${spaceID}/diagnostics`,
+      "/api/v1/media/diagnostics/export",
+    ]);
+    expect(
+      requests.map((request) => request.headers.get("X-CSRF-Token")),
+    ).toEqual(["record-csrf", "export-csrf"]);
+    for (const request of requests) {
+      expect(request.credentials).toBe("include");
+      expect(request.headers.get("X-TutorHub-Expected-Tenant-ID")).toBe(
+        tenantID,
+      );
+      const body = JSON.stringify(await request.clone().json());
+      expect(body).not.toContain("token");
+      expect(body).not.toContain("device");
+      expect(body).not.toContain("participant_session_id");
+      expect(body).not.toContain("provider");
     }
   });
 

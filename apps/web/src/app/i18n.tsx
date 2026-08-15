@@ -1810,6 +1810,16 @@ const messages = {
     "media.p409.duplicateIdentity":
       "Một kết nối khác đã thay thế phiên này. TutorHub không tự dùng lại token cũ.",
     "media.p409.recoveryTitle": "Phục hồi phiên media",
+    "media.p410.title": "Chẩn đoán kết nối",
+    "media.p410.privacy":
+      "Bản xuất hỗ trợ 24 giờ đã được ẩn danh và không chứa token, thông tin thiết bị hay dữ liệu media.",
+    "media.p410.load": "Tải chỉ số 24 giờ",
+    "media.p410.loading": "Đang tải chỉ số",
+    "media.p410.error": "Không thể tải chẩn đoán an toàn. Hãy thử lại.",
+    "media.p410.joinSuccess": "Tỷ lệ vào phòng thành công",
+    "media.p410.p95": "P95 tới khi có media",
+    "media.p410.reconnect": "Kết nối lại thành công/thất bại",
+    "media.p410.download": "Tải JSON đã ẩn danh",
     "media.p409.recoveryDescription":
       "Phiên provider gần nhất đã thất bại. Tạo một phiên phục hồi mới trong cùng phòng học.",
     "media.p409.recoveryRetryDescription":
@@ -3835,6 +3845,16 @@ const messages = {
     "media.p409.duplicateIdentity":
       "Another connection replaced this session. TutorHub will not automatically reuse the old token.",
     "media.p409.recoveryTitle": "Recover media instance",
+    "media.p410.title": "Connection diagnostics",
+    "media.p410.privacy":
+      "The 24-hour support export is pseudonymized and contains no token, device identity, or media data.",
+    "media.p410.load": "Load 24-hour metrics",
+    "media.p410.loading": "Loading metrics",
+    "media.p410.error": "Diagnostics could not be loaded safely. Try again.",
+    "media.p410.joinSuccess": "Join success rate",
+    "media.p410.p95": "P95 time to media",
+    "media.p410.reconnect": "Reconnect succeeded/failed",
+    "media.p410.download": "Download redacted JSON",
     "media.p409.recoveryDescription":
       "The latest provider instance failed. Create one recovery instance in the same classroom.",
     "media.p409.recoveryRetryDescription":

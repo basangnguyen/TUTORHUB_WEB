@@ -466,6 +466,7 @@ func run() int {
 	var mediaLobbyService media.LobbyServiceAPI
 	var mediaSignalService media.MediaSignalServiceAPI
 	var mediaModerationService media.ModerationServiceAPI
+	var mediaDiagnosticService media.DiagnosticServiceAPI
 	var mediaProviderEffectReconciler *media.DurableProviderEffectReconciler
 	var mediaCredentialService media.InstanceCredentialServiceAPI
 	var mediaWebhookProcessor media.WebhookProcessor
@@ -556,6 +557,16 @@ func run() int {
 		mediaJoinAttemptService, err = media.NewJoinAttemptService(instanceRepository, time.Now)
 		if err != nil {
 			logger.Error("initialize room-instance join attempts", "error", err)
+			return 1
+		}
+		diagnosticRepository, err := media.NewPostgresDiagnosticRepository(mediaLifecycleRepository)
+		if err != nil {
+			logger.Error("initialize media diagnostics repository", "error", err)
+			return 1
+		}
+		mediaDiagnosticService, err = media.NewDiagnosticService(diagnosticRepository, time.Now)
+		if err != nil {
+			logger.Error("initialize media diagnostics service", "error", err)
 			return 1
 		}
 		lobbyRepository, err := media.NewPostgresLobbyRepository(mediaLifecycleRepository)
@@ -659,6 +670,7 @@ func run() int {
 		MediaLobby:            mediaLobbyService,
 		MediaSignals:          mediaSignalService,
 		MediaModeration:       mediaModerationService,
+		MediaDiagnostics:      mediaDiagnosticService,
 		MediaCredentials:      mediaCredentialService,
 		MediaWebhooks:         mediaWebhookProcessor,
 		LiveKitWebhook:        liveKitWebhook,

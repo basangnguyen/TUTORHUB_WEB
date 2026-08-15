@@ -1613,6 +1613,26 @@ export type paths = {
     readonly patch: operations["updateProfile"];
     readonly trace?: never;
   };
+  readonly "/api/v1/media/diagnostics/export": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Export redacted tenant media diagnostics and aggregate join metrics
+     * @description Organization-admin-only support export. The range is capped at 31 days and the response contains no user, participant, room, attempt or provider identifier.
+     */
+    readonly post: operations["exportMediaDiagnostics"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/api/v1/media/spaces": {
     readonly parameters: {
       readonly query?: never;
@@ -1755,6 +1775,26 @@ export type paths = {
      * @description The server reauthorizes the current MediaSpace source and current non-terminal ParticipantSession before creating the one-to-one room conversation. Retry and a later recovery RoomInstance reuse the same conversation. The request accepts no tenant, roster, role, provider identifier, or message body.
      */
     readonly post: operations["ensureMediaSpaceConversation"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/media/spaces/{space_id}/diagnostics": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Record a privacy-bounded join or reconnect diagnostic
+     * @description Resolves the exact participant session from the authenticated actor and join attempt. Token, SDP, ICE, IP, device labels, provider identifiers and raw errors are not accepted.
+     */
+    readonly post: operations["recordMediaSpaceDiagnostic"];
     readonly delete?: never;
     readonly options?: never;
     readonly head?: never;
@@ -3893,6 +3933,84 @@ export type components = {
       | "meeting_ended"
       | "timeout"
       | "provider_unavailable";
+    /** @enum {string} */
+    readonly MediaDiagnosticErrorCode:
+      | "participant_removed"
+      | "room_ended"
+      | "duplicate_identity"
+      | "client_leave"
+      | "transport_disconnected"
+      | "provider_error";
+    readonly MediaDiagnosticExport: {
+      /** Format: date-time */
+      readonly from: string;
+      readonly items: readonly components["schemas"]["MediaDiagnosticExportItem"][];
+      readonly metrics: components["schemas"]["MediaDiagnosticMetrics"];
+      /** Format: date-time */
+      readonly to: string;
+      readonly truncated: boolean;
+    };
+    readonly MediaDiagnosticExportItem: {
+      readonly duration_ms: number;
+      readonly error_code?: components["schemas"]["MediaDiagnosticErrorCode"];
+      /** Format: uuid */
+      readonly event_id: string;
+      readonly media_path: components["schemas"]["MediaDiagnosticMediaPath"];
+      readonly network_quality: components["schemas"]["MediaDiagnosticNetworkQuality"];
+      readonly outcome: components["schemas"]["MediaDiagnosticOutcome"];
+      /** Format: date-time */
+      readonly recorded_at: string;
+      readonly session_ref: string;
+      readonly stage: components["schemas"]["MediaDiagnosticStage"];
+    };
+    readonly MediaDiagnosticExportRequest: {
+      /** Format: date-time */
+      readonly from: string;
+      readonly limit: number;
+      /** Format: date-time */
+      readonly to: string;
+    };
+    /** @enum {string} */
+    readonly MediaDiagnosticMediaPath:
+      "unknown" | "audio_video" | "audio_only" | "listen_only";
+    readonly MediaDiagnosticMetrics: {
+      readonly join_attempts: number;
+      readonly join_success_rate: number;
+      readonly p95_time_to_media_ms: number;
+      readonly reconnect_failed: number;
+      readonly reconnect_succeeded: number;
+      readonly successful_joins: number;
+    };
+    /** @enum {string} */
+    readonly MediaDiagnosticNetworkQuality:
+      "unknown" | "good" | "degraded" | "poor" | "offline";
+    /** @enum {string} */
+    readonly MediaDiagnosticOutcome:
+      "started" | "succeeded" | "failed" | "cancelled";
+    readonly MediaDiagnosticRequest: {
+      readonly duration_ms: number;
+      readonly error_code?: components["schemas"]["MediaDiagnosticErrorCode"];
+      /** Format: uuid */
+      readonly event_id: string;
+      /** Format: uuid */
+      readonly join_attempt_id: string;
+      readonly media_path: components["schemas"]["MediaDiagnosticMediaPath"];
+      readonly network_quality: components["schemas"]["MediaDiagnosticNetworkQuality"];
+      readonly outcome: components["schemas"]["MediaDiagnosticOutcome"];
+      /** Format: uuid */
+      readonly room_instance_id: string;
+      readonly stage: components["schemas"]["MediaDiagnosticStage"];
+    };
+    /** @enum {string} */
+    readonly MediaDiagnosticStage:
+      | "join_attempt"
+      | "credential"
+      | "connect"
+      | "media"
+      | "reconnecting"
+      | "reconnected"
+      | "disconnected"
+      | "leave";
     readonly MediaEventRequest: {
       /** Format: uuid */
       readonly attempt_id: string;
@@ -8546,6 +8664,42 @@ export interface operations {
       readonly default: components["responses"]["ProblemResponse"];
     };
   };
+  readonly exportMediaDiagnostics: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Double-submit CSRF token bound to the active authenticated session. */
+        readonly "X-CSRF-Token": components["parameters"]["CSRFToken"];
+        /** @description Active workspace assertion used to prevent confused-deputy mutations and reads. */
+        readonly "X-TutorHub-Expected-Tenant-ID": components["parameters"]["ExpectedTenantID"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["MediaDiagnosticExportRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Audited and redacted diagnostics export */
+      readonly 200: {
+        headers: {
+          readonly "Cache-Control"?: "private, no-store";
+          readonly "Referrer-Policy"?: "no-referrer";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["MediaDiagnosticExport"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
   readonly createMediaSpace: {
     readonly parameters: {
       readonly query?: never;
@@ -8866,6 +9020,42 @@ export interface operations {
       readonly 404: components["responses"]["NotFoundResponse"];
       readonly 409: components["responses"]["ConflictResponse"];
       readonly 429: components["responses"]["ProblemResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly recordMediaSpaceDiagnostic: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Double-submit CSRF token bound to the active authenticated session. */
+        readonly "X-CSRF-Token": components["parameters"]["CSRFToken"];
+        /** @description Active workspace assertion used to prevent confused-deputy mutations and reads. */
+        readonly "X-TutorHub-Expected-Tenant-ID": components["parameters"]["ExpectedTenantID"];
+      };
+      readonly path: {
+        readonly space_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["MediaDiagnosticRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Diagnostic accepted or exact event replay ignored */
+      readonly 204: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content?: never;
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
       readonly 503: components["responses"]["ProblemResponse"];
       readonly default: components["responses"]["ProblemResponse"];
     };

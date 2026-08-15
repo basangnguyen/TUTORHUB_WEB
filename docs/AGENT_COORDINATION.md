@@ -200,7 +200,7 @@ hoặc worker-driven file processing/sharing tới end user.
 | P4-07           | DONE       | Exact CI/shared/deploy/live moderation acceptance PASS      |
 | P4-08           | DONE       | Exact CI/shared/deploy/live room-chat acceptance PASS       |
 | P4-09           | DONE        | Exact CI/shared/deploy/live reconnect acceptance PASS       |
-| P4-10           | TODO        | Join telemetry/privacy/diagnostics                          |
+| P4-10           | VERIFY      | Local + disposable DB PASS; exact CI/shared/live pending    |
 | P4-11           | TODO       | Browser/device/load/provider-outage acceptance             |
 | P4-12           | TODO       | Exact staging acceptance và Phase 4 closure                |
 

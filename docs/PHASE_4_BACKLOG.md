@@ -27,7 +27,7 @@ ACL, Render `dep-da00d7dbedkc739jgt60`, Cloudflare Pages, live `10/10`, feature-
 accessibility và post-live zero-side-effect snapshot. Không rollback; disposable branch được giữ lại
 và các gate physical/manual/load/outage tiếp tục `UNVERIFIED — P4-11`. Evidence tại
 [P4_09_STAGING_ACCEPTANCE.md](P4_09_STAGING_ACCEPTANCE.md).
-**Task hiện tại:** `P4-10` Join telemetry, privacy và diagnostics export (`TODO`).
+**Task hiện tại:** `P4-10` Join telemetry, privacy và diagnostics export (`VERIFY`).
 
 `P4-MEDIA-UX-00` đã `DONE`; không đổi LiveKit provider, không thêm processor production dependency
 hoặc mở `CanPublishData=false`. P4-03/P4-04/P4-05/P4-06/P4-11 phải tuân ADR-0031 và báo rõ các
@@ -83,7 +83,7 @@ physical/manual effect gate còn `UNVERIFIED` thay vì suy PASS từ research.
 | P4-07          | Host/co-host/TA moderation, lock/mute/remove/end    | P4-04, P4-06                    | DONE       |
 | P4-08          | Persistent in-room chat                             | P4-01, P3-07A; ADR review       | DONE        |
 | P4-09          | Reconnect, recovery instance và degraded audio-only | P4-02, P4-05, P4-07             | DONE        |
-| P4-10          | Join telemetry, privacy và diagnostics export       | P4-02, P4-03, P4-09             | TODO       |
+| P4-10          | Join telemetry, privacy và diagnostics export       | P4-02, P4-03, P4-09             | VERIFY     |
 | P4-11          | Browser/device matrix, load và outage runbook       | P4-05 đến P4-10                 | TODO       |
 | P4-12          | Exact staging acceptance và Phase 4 closure         | P4-MEDIA-UX-00, P4-01 đến P4-11 | TODO       |
 
@@ -591,7 +591,7 @@ vẫn thuộc P4-11, không được suy PASS từ deterministic P4-09 acceptanc
 
 ## 17. P4-10 Join telemetry, privacy và diagnostics export
 
-**Dependency:** P4-02/P4-03/P4-09. **Trạng thái:** `TODO`.
+**Dependency:** P4-02/P4-03/P4-09. **Trạng thái:** `VERIFY` ngày 2026-08-15.
 
 ### Scope
 
@@ -602,10 +602,18 @@ vẫn thuộc P4-11, không được suy PASS từ deterministic P4-09 acceptanc
 
 ### Acceptance
 
-- [ ] Token/secret/SDP/ICE/raw IP/device label/raw exception never accepted or logged.
-- [ ] Retention/purge ACL and SKIP LOCKED concurrency PASS on disposable PostgreSQL.
-- [ ] Export actor/tenant authorization, size/range cap and log-redaction tests PASS.
-- [ ] Metrics compute join success and p95 time-to-media from bounded schema.
+- [x] Token/secret/SDP/ICE/raw IP/device label/raw exception never accepted or logged.
+- [x] Retention/purge ACL and SKIP LOCKED concurrency PASS on disposable PostgreSQL.
+- [x] Export actor/tenant authorization, size/range cap and log-redaction tests PASS.
+- [x] Metrics compute join success and p95 time-to-media from bounded schema.
+
+ADR-0033, migration `000036`, OpenAPI/Core API, exact ACL harness, web lifecycle emission và
+Organization Admin diagnostics panel đã hoàn thành. Full `pnpm verify`, integration-tag compile,
+API client `53/53` và web `437/437` tests đều PASS. Disposable PostgreSQL PASS forward-only
+`35 false -> 36 false -> 36 false`, exact ACL, retention/metrics/tenant isolation/SKIP LOCKED,
+retained media regression và final read-only feature-off snapshot. Exact candidate CI,
+shared/deploy/live vẫn `PENDING`; evidence tại
+[P4_10_STAGING_ACCEPTANCE.md](P4_10_STAGING_ACCEPTANCE.md).
 
 ## 18. P4-11 Browser/device matrix, load và outage runbook
 

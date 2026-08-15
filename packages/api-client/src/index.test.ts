@@ -21,6 +21,7 @@ import {
   getClassSessionSeriesAudience,
   getClassSessionSeriesOccurrenceAudience,
   getCurrentUser,
+  getCurrentCSRFToken,
   getHealth,
   getLoginURL,
   getNotificationPreference,
@@ -664,12 +665,14 @@ describe("getHealth", () => {
     await expect(
       rotateCSRFToken({ baseUrl: "http://localhost/api", fetch: fetchMock }),
     ).resolves.toEqual({ csrf_token: "csrf-token" });
+    expect(getCurrentCSRFToken()).toBe("csrf-token");
     await expect(
       logout("csrf-token", {
         baseUrl: "http://localhost/api",
         fetch: fetchMock,
       }),
     ).resolves.toEqual({ logout_url: "https://identity.example/logout" });
+    expect(getCurrentCSRFToken()).toBeNull();
     await expect(
       createTenant(
         { name: "TutorHub Test", slug: "tutorhub-test" },
