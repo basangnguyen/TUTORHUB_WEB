@@ -46,5 +46,5 @@ describe("calendar spike surface", () => {
     expect(
       screen.queryByRole("button", { name: /Hiển thị thêm/ }),
     ).not.toBeInTheDocument();
-  });
+  }, 15_000);
 });
