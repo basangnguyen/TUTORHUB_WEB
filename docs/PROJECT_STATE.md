@@ -15,7 +15,7 @@
 | Task `DONE` gần nhất | P4-10 Join telemetry, privacy và diagnostics export                                    |
 | Mốc repository mới   | P4-11 candidate `50c256e` PASS GitHub Verify/Security; external gates vẫn mở            |
 | Task hiện tại        | P4-11 Browser/device matrix, load và outage runbook (`IN PROGRESS`)                    |
-| Task tiếp theo       | Ghi LiveKit dashboard, physical matrix và sustained outage/existing-room recovery      |
+| Task tiếp theo       | Physical matrix/accessibility và sustained outage/existing-room recovery               |
 
 ### Checkpoint P4-11 `IN PROGRESS` ngày 2026-08-15
 
@@ -39,7 +39,7 @@ unit/integration compile và integration vet. Windows sandbox ban đầu chặn 
 exact rerun ngoài sandbox PASS. Full `pnpm verify` trước provider refinement PASS trong 218,1 giây,
 gồm API client `53/53`, web `69/69` files và `437/437` tests, build/security cùng toàn bộ Go test/vet.
 Exact implementation candidate `50c256eb29bb0438016690a91803c302ac6e0a02` PASS GitHub Verify
-`31891519968` và Security `31891520024`. Physical devices, LiveKit provider dashboard và sustained
+`31891519968` và Security `31891520024`. Physical devices/accessibility và sustained
 outage/existing-room recovery vẫn `PENDING/UNVERIFIED`, nên P4-11 giữ `IN PROGRESS`.
 
 Windows installed-browser automated supplement sau đó PASS `48/48` trong `84.1 s`: Chrome
@@ -73,8 +73,8 @@ Actual isolated credential rotation sau đó PASS trên project `tutorhub-v2-p41
 lúc `2026-08-15T22:34:12+07:00`: key mới pre-revoke tạo/cleanup room về `0`; sau khi owner revoke key
 cũ, credential cũ fail closed thành typed unavailable và không tạo room; credential mới tiếp tục
 tạo/cleanup room về `0`. Probe nạp hai file local Git-ignored trong process riêng, không in URL/key/
-secret. CPU/network provider dashboard, physical A/V/accessibility và sustained outage recovery vẫn
-còn mở.
+secret. Owner đã xóa file credential cũ sau khi evidence được chốt; physical A/V/accessibility và
+sustained outage recovery vẫn còn mở.
 
 Profile 50 được chạy lại cùng host sampler `61` mẫu và tiếp tục PASS: `50/50` join, connect/TTM p95
 `7711/8679 ms`, `49/49` delivery, `132` health probe không lỗi, cleanup `0`; CPU tổng peak `48%`,
@@ -82,6 +82,13 @@ network tổng peak `2263941 B/s`, free RAM tối thiểu `6201416 KiB`. Các s�
 LiveKit dashboard. Final pre-commit candidate `pnpm verify` PASS trong `173.3 s`;
 format/generated drift, local infra, security `24/24`, lint/typecheck/test/build/Storybook/bundle
 security và toàn bộ Go test/vet đều xanh.
+
+LiveKit Cloud Overview evidence sau đó PASS trên đúng project test với filter `Past 7 days`:
+connection success `99.7%`, Windows `100%`, TURN/UDP `71.1%/28.9%`, `428` WebRTC participant-minutes;
+bucket `20:00-21:00` ngày 2026-08-15 có project-level max active participants `150`, downstream/
+upstream `55.18/2.8 MB`. Dashboard ghi `14` room session, average room size `19`, duration `1` phút.
+Đây là aggregate nhiều session test, không đổi maximum tested classroom cap `50`. Privacy review ba
+ảnh PASS: không có key/secret/token, participant identity hay session detail.
 
 ### Checkpoint P4-10 `DONE` ngày 2026-08-15
 

@@ -5,7 +5,7 @@
 `IN PROGRESS` — acceptance contract, automated source supplement, isolated LiveKit load harness và
 provider-outage runbook đã được tạo. Quota-approved profile 25/50 cùng Core API health sampling đã
 PASS; actual isolated credential rotation cũng PASS. Physical browser/device,
-CPU/network/provider dashboard và sustained outage/existing-room recovery drill chưa được suy PASS.
+accessibility và sustained outage/existing-room recovery drill chưa được suy PASS.
 
 P4-11 không có migration, không cần Neon disposable và không thay đổi production capability. Hai
 media feature tiếp tục force-off cho tới P4-12 rollout acceptance.
@@ -287,8 +287,8 @@ reader; 10-cycle processor/worker/track/object-URL cleanup. Bất kỳ gate nào
 
 ### Provider load/outage
 
-- Status: `LOAD + ACTUAL CREDENTIAL ROTATION PASS`; sustained outage/existing-room recovery vẫn
-  `UNVERIFIED`.
+- Status: `LOAD + DASHBOARD + ACTUAL CREDENTIAL ROTATION PASS`; sustained outage/existing-room
+  recovery vẫn `UNVERIFIED`.
 - Isolated profile 25 PASS ngày 2026-08-15: `25/25` join, success `10000 bp`, connect p95 `4331 ms`,
   TTM p95 `6021 ms`, `24/24` subscriber nhận synthetic microphone, sustain `120 s`; Core API có
   `126` request `/health` + `/ready`, `0` transport/status/endpoint failure, p95 `426 ms`; room cleanup
@@ -301,9 +301,8 @@ reader; 10-cycle processor/worker/track/object-URL cleanup. Bất kỳ gate nào
   `53639968/1`.
 - Từ 25 lên 50, active heap tăng `1.33x`, active goroutine tăng đúng `2x`, post-cleanup goroutine giữ
   `+1`; không có dấu hiệu superlinear/goroutine leak trong hai profile. Maximum tested cap là `50`.
-- Existing-room behavior và 10-cycle provider cleanup đã PASS ở isolated smoke. Task Manager/LiveKit
-  CPU-memory-bandwidth dashboard, physical media/NVDA/macOS/low-end và sustained outage drill vẫn
-  `UNVERIFIED/UNAVAILABLE`.
+- Existing-room behavior và 10-cycle provider cleanup đã PASS ở isolated smoke. Physical media/
+  NVDA/macOS/low-end và sustained outage drill vẫn `UNVERIFIED/UNAVAILABLE`.
 - Profile 50 đồng bộ với host sampler PASS: `61` mẫu, CPU tổng peak `48%`, network tổng peak
   `2263941 B/s`, free RAM tối thiểu `6201416 KiB`; tải vẫn `50/50`, TTM p95 `8679 ms`, health
   `132/132`, cleanup `0`. Metric host không thay provider dashboard.
@@ -312,11 +311,20 @@ reader; 10-cycle processor/worker/track/object-URL cleanup. Bất kỳ gate nào
   trong process riêng và không in credential. Key mới pre-revoke tạo room rồi cleanup về `0`; sau khi
   owner revoke key cũ, old-key probe trả `P4_11_REVOKED_CREDENTIAL typed_unavailable=true
   room_created=false`; new-key probe lặp lại trả `P4_11_POST_ROTATION create=true cleanup_zero=true`.
-  Credential cũ không tạo side effect; credential mới vẫn hoạt động. File credential cũ chỉ được giữ
-  local chờ xóa có chủ đích sau khi evidence được chốt.
+  Credential cũ không tạo side effect; credential mới vẫn hoạt động. Owner đã xóa file credential cũ
+  local sau khi evidence được chốt; file active-key vẫn Git-ignored.
 - Profile 50 đồng bộ với host sampler PASS: `61` mẫu, CPU tổng peak `48%`, network tổng peak
   `2263941 B/s`, free RAM tối thiểu `6201416 KiB`; tải vẫn `50/50`, TTM p95 `8679 ms`, health
   `132/132`, cleanup `0`. Metric host không thay provider dashboard.
+- LiveKit Cloud Overview evidence PASS, owner chụp lúc `2026-08-15T22:45:00+07:00` đến
+  `22:47:00+07:00`, filter `Past 7 days`, đúng project label `tutorhub-v2-p411-load`: connection
+  success `99.7%`, platform Windows `100%`, TURN `71.1%`, UDP `28.9%`, WebRTC participant time `428`
+  phút. Project-level chart ghi max active participants `150` trong bucket `20:00-21:00`
+  ngày 2026-08-15; đây là aggregate của nhiều room/session test và không nâng maximum tested
+  classroom cap khỏi `50`. Cùng bucket có downstream `55.18 MB`, upstream `2.8 MB`; tổng `14` room
+  session, average room size `19`, average duration `1` phút. Ba ảnh không chứa key/secret/token,
+  participant identity hay session detail; provider project id/label và aggregate metrics là bounded
+  evidence.
 
 ## 9. Điều kiện chuyển trạng thái
 

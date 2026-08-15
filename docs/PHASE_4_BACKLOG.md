@@ -638,13 +638,13 @@ disposable và không cho phép bật media capability trong lúc kiểm thử.
 ### Acceptance
 
 - [ ] Join success >=99% in declared pilot matrix; time-to-media p95 <10s.
-- [ ] 50 participant/profile load or lower published cap has CPU/memory/bandwidth evidence.
-- [ ] No Core API media proxy; API remains healthy under join storm/rate limit.
+- [x] 50 participant/profile load or lower published cap has CPU/memory/bandwidth evidence.
+- [x] No Core API media proxy; API remains healthy under join storm/rate limit.
 - [ ] Provider outage drill has fail-closed start, existing-room behavior and recovery evidence.
-- [ ] Load test uses staging synthetic identities and explicit provider quota approval; no real PII.
+- [x] Load test uses staging synthetic identities and explicit provider quota approval; no real PII.
 - [ ] Exact physical Safari/macOS, Firefox fallback, standard/low-end 360p/540p/720p và
       NVDA/VoiceOver được ghi PASS/FAIL; WebKit/headless/source evidence không thay test thật.
-- [ ] Effect chỉ được bật nếu self-hosted assets/privacy/CSP/network/120s perf/10-cycle cleanup đạt;
+- [x] Effect chỉ được bật nếu self-hosted assets/privacy/CSP/network/120s perf/10-cycle cleanup đạt;
       nếu fail thì giữ `None` mà không hạ core classroom acceptance.
 
 ### Checkpoint ban đầu — 2026-08-15
@@ -662,18 +662,22 @@ disposable và không cho phép bật media capability trong lúc kiểm thử.
   delivery, sustain `120 s`, Core API `128` probe không lỗi, cleanup về `0`; post-cleanup goroutine
   delta tiếp tục là `1`. Maximum tested cap là `50`.
 - Exact implementation candidate `50c256eb29bb0438016690a91803c302ac6e0a02` PASS GitHub Verify
-  `31891519968` và Security `31891520024`. Physical matrix, provider dashboard và sustained isolated
+  `31891519968` và Security `31891520024`. Physical matrix và sustained isolated
   outage/recovery vẫn `UNVERIFIED`; trạng thái giữ `IN PROGRESS`.
 - Windows installed Chrome/Edge automated supplement PASS `48/48`; host/browser inventory đã ghi.
   Isolated resilience PASS 10/10 join/leave cleanup, credential fail-closed giữ room hiện hữu và
   successor smoke; SDK logger đã khóa để output không chứa IP/candidate/SDP/token. Physical A/V,
-  NVDA/macOS/low-end, dashboard CPU/network và sustained outage recovery vẫn chưa đóng.
+  NVDA/macOS/low-end và sustained outage recovery vẫn chưa đóng.
 - Profile 50 + host sampler PASS lại: `50/50`, TTM p95 `8679 ms`, health `132/132`, cleanup `0`, CPU
   tổng peak `48%`, network tổng peak `2263941 B/s`. Final pre-commit full local verify PASS trong
   `173.3 s`.
 - Actual isolated credential rotation PASS trên `tutorhub-v2-p411-load`: key cũ sau revoke trả typed
   unavailable và không tạo room; key mới trước/sau revoke đều tạo rồi cleanup room về `0`. Không log
   URL/key/secret; evidence ghi `2026-08-15T22:34:12+07:00`.
+- LiveKit Cloud dashboard evidence PASS: connection success `99.7%`, Windows `100%`, TURN/UDP
+  `71.1%/28.9%`, `428` participant-minutes; aggregate bucket có max active `150`, downstream/upstream
+  `55.18/2.8 MB`, `14` room session, average size/duration `19/1 phút`. Aggregate nhiều session không
+  đổi tested cap `50`; ba ảnh privacy review PASS.
 
 ## 19. P4-12 Exact staging acceptance và Phase 4 closure
 
