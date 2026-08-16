@@ -823,6 +823,75 @@ describe("MediaSpacePreJoinPage P4-03 boundaries", () => {
     });
   });
 
+  it("keeps the admitted credential request alive while rendering its progress state", async () => {
+    const token = "delayed-admission-token";
+    const media = fakeMediaDevices(fakeStream().stream);
+    const waitingAttempt = {
+      admission_request_id: "d48a301d-c468-4f65-8da2-029fc379ee74",
+      admission_version: 1,
+      join_attempt_id: joinAttemptID,
+      participant_session_id: participantSessionID,
+      room_instance_id: roomInstanceID,
+      status: "waiting" as const,
+      version: 1,
+      expires_at: "2030-08-03T00:07:00Z",
+    };
+    let resolveCredential!: (
+      credential: MediaInstanceCredentialProjection,
+    ) => void;
+    const credentialPromise = new Promise<MediaInstanceCredentialProjection>(
+      (resolve) => {
+        resolveCredential = resolve;
+      },
+    );
+    let credentialSignal: AbortSignal | undefined;
+    apiMocks.createJoinAttempt.mockResolvedValue(waitingAttempt);
+    apiMocks.getJoinAttempt
+      .mockResolvedValueOnce(waitingAttempt)
+      .mockResolvedValue({ ...waitingAttempt, status: "admitted", version: 2 });
+    apiMocks.issueJoinCredential.mockImplementation((...args: unknown[]) => {
+      credentialSignal = (args[4] as { signal?: AbortSignal } | undefined)
+        ?.signal;
+      return credentialPromise;
+    });
+    renderPrejoin(media);
+    await screen.findByRole("heading", { name: "Get ready for class" });
+
+    fireEvent.click(screen.getByRole("button", { name: "Join listen-only" }));
+    await screen.findByRole("heading", { name: "Waiting to be admitted" });
+    await waitFor(() =>
+      expect(apiMocks.getJoinAttempt).toHaveBeenCalledTimes(1),
+    );
+    const refresh = screen.getByRole("button", {
+      name: "Check admission status",
+    });
+    await waitFor(() => expect(refresh).toBeEnabled());
+    fireEvent.click(refresh);
+
+    await waitFor(() =>
+      expect(apiMocks.issueJoinCredential).toHaveBeenCalledOnce(),
+    );
+    await act(async () => Promise.resolve());
+    expect(credentialSignal?.aborted).toBe(false);
+
+    await act(async () => {
+      resolveCredential({
+        access_token: token,
+        server_url: "wss://media.example.test",
+        participant_session_id: participantSessionID,
+        room_instance_id: roomInstanceID,
+        join_attempt_id: joinAttemptID,
+        instance_role: "attendee",
+        can_publish_camera_microphone: true,
+        can_share_screen: false,
+        can_subscribe: true,
+        expires_at: "2030-08-03T00:05:00Z",
+      });
+      await credentialPromise;
+    });
+    expect(await screen.findByText("Canonical room destination")).toBeVisible();
+  });
+
   it("cancels a waiting request without minting a credential", async () => {
     const media = fakeMediaDevices(fakeStream().stream);
     const waitingAttempt = {

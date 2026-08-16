@@ -478,7 +478,6 @@ export function MediaSpacePreJoinPage() {
         }
       }
     })();
-    return () => abort.abort();
   }, [
     completeCredentialHandoff,
     currentJoinAttempt?.join_attempt_id,
