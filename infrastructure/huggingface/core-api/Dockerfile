@@ -12,7 +12,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/tutorhu
 RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/tutorhub-worker ./cmd/worker
 RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/tutorhub-calendar-rsvp-fixture ./cmd/calendar-rsvp-fixture
 
-FROM alpine:3.23
+FROM alpine:3.24
 RUN addgroup -S tutorhub && adduser -S -G tutorhub tutorhub
 USER tutorhub
 WORKDIR /app
