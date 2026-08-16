@@ -105,6 +105,25 @@ func (service *LifecycleService) GetSpace(
 	return space, normalizeLifecycleError(err)
 }
 
+func (service *LifecycleService) ResolveSpace(
+	ctx context.Context,
+	access AccessContext,
+	source SourceReference,
+) (MediaSpace, error) {
+	if service == nil || service.repository == nil {
+		return MediaSpace{}, ErrLifecycleUnavailable
+	}
+	if !validLifecycleAccess(access) {
+		return MediaSpace{}, ErrSpaceAccessDenied
+	}
+	normalized, err := normalizeResolveSpaceSource(source)
+	if err != nil {
+		return MediaSpace{}, err
+	}
+	space, err := service.repository.ResolveSpace(ctx, access, normalized)
+	return space, normalizeLifecycleError(err)
+}
+
 func (service *LifecycleService) StartSpace(
 	ctx context.Context,
 	access AccessContext,
@@ -249,6 +268,31 @@ func normalizeCreateSpaceInput(input CreateSpaceInput) (CreateSpaceInput, error)
 		return CreateSpaceInput{}, ErrInvalidSpaceRequest
 	}
 	return input, nil
+}
+
+func normalizeResolveSpaceSource(source SourceReference) (SourceReference, error) {
+	source.OccurrenceKey = strings.TrimSpace(source.OccurrenceKey)
+	switch source.Kind {
+	case SourceClassSession:
+		if source.ClassSessionID == nil || *source.ClassSessionID == uuid.Nil ||
+			source.SeriesID != nil || source.OccurrenceKey != "" || source.StudyMeetingID != nil {
+			return SourceReference{}, ErrInvalidSpaceRequest
+		}
+	case SourceClassSessionOccurrence:
+		if source.ClassSessionID != nil || source.SeriesID == nil || *source.SeriesID == uuid.Nil ||
+			len(source.OccurrenceKey) < 8 || len(source.OccurrenceKey) > 128 ||
+			source.StudyMeetingID != nil {
+			return SourceReference{}, ErrInvalidSpaceRequest
+		}
+	case SourceStudyMeeting:
+		if source.ClassSessionID != nil || source.SeriesID != nil || source.OccurrenceKey != "" ||
+			source.StudyMeetingID == nil || *source.StudyMeetingID == uuid.Nil {
+			return SourceReference{}, ErrInvalidSpaceRequest
+		}
+	default:
+		return SourceReference{}, ErrInvalidSpaceRequest
+	}
+	return source, nil
 }
 
 func normalizeTransitionInput(input TransitionInput) (TransitionInput, error) {

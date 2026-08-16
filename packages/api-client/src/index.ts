@@ -3265,6 +3265,46 @@ export async function getMediaSpace(
   );
 }
 
+export async function resolveMediaSpace(
+  tenantID: string,
+  source: MediaSpaceSource,
+  options: APIRequestOptions = {},
+): Promise<MediaSpace> {
+  requireTenantScope(tenantID);
+  const query: {
+    kind: "class_session" | "class_session_occurrence" | "study_meeting";
+    class_session_id?: string;
+    series_id?: string;
+    occurrence_key?: string;
+    study_meeting_id?: string;
+  } =
+    source.kind === "class_session"
+      ? { kind: source.kind, class_session_id: source.class_session_id }
+      : source.kind === "class_session_occurrence"
+        ? {
+            kind: source.kind,
+            series_id: source.series_id,
+            occurrence_key: source.occurrence_key,
+          }
+        : { kind: source.kind, study_meeting_id: source.study_meeting_id };
+  const { data, error, response } = await createTutorHubClient(options).GET(
+    "/api/v1/media/spaces/resolve",
+    {
+      params: {
+        query,
+        header: { "X-TutorHub-Expected-Tenant-ID": tenantID },
+      },
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+  return requireData<MediaSpace>(
+    data as MediaSpace | undefined,
+    error,
+    response,
+  );
+}
+
 export async function recordMediaSpaceDiagnostic(
   tenantID: string,
   spaceID: string,

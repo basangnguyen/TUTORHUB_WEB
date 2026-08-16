@@ -73,6 +73,31 @@ func TestLifecycleServiceRejectsInvalidUnionBeforeRepository(t *testing.T) {
 	}
 }
 
+func TestLifecycleServiceResolvesOnlyPersistedSourceUnion(t *testing.T) {
+	t.Parallel()
+
+	meetingID := uuid.New()
+	repository := &fakeLifecycleRepository{resolveResult: MediaSpace{ID: uuid.New()}}
+	service, err := NewLifecycleService(repository)
+	if err != nil {
+		t.Fatalf("new lifecycle service: %v", err)
+	}
+	source := SourceReference{Kind: SourceStudyMeeting, StudyMeetingID: &meetingID}
+	resolved, err := service.ResolveSpace(context.Background(), lifecycleAccess(), source)
+	if err != nil || resolved.ID != repository.resolveResult.ID || repository.resolveCalls != 1 ||
+		repository.resolveSource.StudyMeetingID == nil ||
+		*repository.resolveSource.StudyMeetingID != meetingID {
+		t.Fatalf("resolve persisted source: space=%+v err=%v repository=%+v", resolved, err, repository)
+	}
+
+	_, err = service.ResolveSpace(context.Background(), lifecycleAccess(), SourceReference{
+		Kind: SourceInstant,
+	})
+	if !errors.Is(err, ErrInvalidSpaceRequest) || repository.resolveCalls != 1 {
+		t.Fatalf("instant resolver must fail before repository: err=%v calls=%d", err, repository.resolveCalls)
+	}
+}
+
 func TestLifecycleServiceStartCreatesOpaqueRoomIntent(t *testing.T) {
 	t.Parallel()
 
@@ -181,15 +206,29 @@ func lifecycleAccess() AccessContext {
 
 type fakeLifecycleRepository struct {
 	createCalls       int
+	resolveCalls      int
 	transitionCalls   int
 	createCommand     CreateSpaceCommand
+	resolveSource     SourceReference
 	transitionCommand TransitionCommand
 	createResult      CreateSpaceResult
+	resolveResult     MediaSpace
 	transitionResult  MediaSpace
 	getResult         MediaSpace
 	createError       error
+	resolveError      error
 	transitionError   error
 	getError          error
+}
+
+func (repository *fakeLifecycleRepository) ResolveSpace(
+	_ context.Context,
+	_ AccessContext,
+	source SourceReference,
+) (MediaSpace, error) {
+	repository.resolveCalls++
+	repository.resolveSource = source
+	return repository.resolveResult, repository.resolveError
 }
 
 func (repository *fakeLifecycleRepository) CreateSpace(

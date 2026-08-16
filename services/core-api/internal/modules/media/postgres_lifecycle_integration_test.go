@@ -465,6 +465,28 @@ func TestPostgresMediaLifecycleAuthorityConcurrencyQuotaAndPrivacy(t *testing.T)
 		studentProjection.ViewerOperations.CanCancel {
 		t.Fatalf("student received elevated official operations: %+v", studentProjection.ViewerOperations)
 	}
+	ownerSessionID := fixture.sessionIDs["owner"]
+	officialSource := SourceReference{
+		Kind:           SourceClassSession,
+		ClassSessionID: &ownerSessionID,
+	}
+	resolvedOfficial, err := lifecycle.ResolveSpace(ctx, ownerAccess, officialSource)
+	if err != nil || resolvedOfficial.ID != ownerSpace.ID {
+		t.Fatalf("owner resolves exact official source: space=%s error=%v", resolvedOfficial.ID, err)
+	}
+	resolvedStudent, err := lifecycle.ResolveSpace(
+		ctx,
+		mediaIntegrationAccess(
+			fixture.tenantID,
+			fixture.studentID,
+			policy.OrganizationRoleStudent,
+		),
+		officialSource,
+	)
+	if err != nil || resolvedStudent.ID != ownerSpace.ID ||
+		resolvedStudent.ViewerOperations.CanStart {
+		t.Fatalf("student resolver projection = %+v error=%v", resolvedStudent, err)
+	}
 	if _, err := lifecycle.StartSpace(
 		ctx,
 		mediaIntegrationAccess(
@@ -491,6 +513,17 @@ func TestPostgresMediaLifecycleAuthorityConcurrencyQuotaAndPrivacy(t *testing.T)
 	); !isConcealedMediaError(err) {
 		t.Fatalf("same-tenant nonmember read error = %v, want concealed not found", err)
 	}
+	if _, err := lifecycle.ResolveSpace(
+		ctx,
+		mediaIntegrationAccess(
+			fixture.tenantID,
+			fixture.outsiderID,
+			policy.OrganizationRoleStudent,
+		),
+		officialSource,
+	); !isConcealedMediaError(err) {
+		t.Fatalf("same-tenant nonmember resolve error = %v, want concealed not found", err)
+	}
 	if _, err := lifecycle.StartSpace(
 		ctx,
 		mediaIntegrationAccess(
@@ -516,6 +549,24 @@ func TestPostgresMediaLifecycleAuthorityConcurrencyQuotaAndPrivacy(t *testing.T)
 		ownerSpace.ID,
 	); !isConcealedMediaError(err) {
 		t.Fatalf("foreign-tenant media read error = %v, want concealed not found", err)
+	}
+	if _, err := lifecycle.ResolveSpace(
+		ctx,
+		mediaIntegrationAccess(
+			fixture.foreignTenantID,
+			fixture.foreignOwnerID,
+			policy.OrganizationRoleTeacher,
+		),
+		officialSource,
+	); !isConcealedMediaError(err) {
+		t.Fatalf("foreign-tenant media resolve error = %v, want concealed not found", err)
+	}
+	missingSessionID := uuid.New()
+	if _, err := lifecycle.ResolveSpace(ctx, ownerAccess, SourceReference{
+		Kind:           SourceClassSession,
+		ClassSessionID: &missingSessionID,
+	}); !isConcealedMediaError(err) {
+		t.Fatalf("missing source resolve error = %v, want concealed not found", err)
 	}
 	if _, err := lifecycle.StartSpace(
 		ctx,
@@ -594,6 +645,23 @@ func TestPostgresMediaLifecycleAuthorityConcurrencyQuotaAndPrivacy(t *testing.T)
 		meetingResult.Space.ID,
 	); err != nil {
 		t.Fatalf("explicit same-tenant StudyMeeting member read: %v", err)
+	}
+	studyMeetingID := fixture.studyMeetingID
+	resolvedMeeting, err := lifecycle.ResolveSpace(
+		ctx,
+		mediaIntegrationAccess(
+			fixture.tenantID,
+			fixture.outsiderID,
+			policy.OrganizationRoleStudent,
+		),
+		SourceReference{
+			Kind:           SourceStudyMeeting,
+			StudyMeetingID: &studyMeetingID,
+		},
+	)
+	if err != nil || resolvedMeeting.ID != meetingResult.Space.ID ||
+		resolvedMeeting.ViewerOperations.CanStart {
+		t.Fatalf("explicit StudyMeeting member resolver = %+v error=%v", resolvedMeeting, err)
 	}
 	if _, err := lifecycle.StartSpace(
 		ctx,

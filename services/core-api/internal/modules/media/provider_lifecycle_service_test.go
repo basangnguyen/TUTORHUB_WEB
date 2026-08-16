@@ -393,6 +393,14 @@ func (base *fakeProviderLifecycleBase) GetSpace(
 	return MediaSpace{}, errors.New("unexpected get")
 }
 
+func (base *fakeProviderLifecycleBase) ResolveSpace(
+	context.Context,
+	AccessContext,
+	SourceReference,
+) (MediaSpace, error) {
+	return MediaSpace{}, errors.New("unexpected resolve")
+}
+
 func (base *fakeProviderLifecycleBase) StartSpace(
 	_ context.Context,
 	_ AccessContext,

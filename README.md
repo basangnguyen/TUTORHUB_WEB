@@ -142,7 +142,7 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
   `Live`; Cloudflare Pages deployment `b8a42033-ce9a-486b-aa1b-f9d0302452c7` chạy đúng SHA. Live
   HTTP/privacy `10/10`, Admin feature-off/concealment/accessibility PASS; không rollback và
   disposable branch tiếp tục được giữ lại. P4-11 là task tiếp theo.
-- P4-11 Browser/device matrix, 25/50 load và provider-outage runbook đang `IN PROGRESS`. Candidate
+- P4-11 Browser/device matrix, 25/50 load và provider-outage runbook đã `DONE`. Candidate
   ban đầu bổ sung Playwright Chromium/Firefox cùng WebKit-prejoin source supplement,
   deterministic fail-closed
   outage gate và isolated LiveKit 25/50 harness có exact quota confirmation/120-second sustain/
@@ -157,7 +157,12 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
   existing-room resilience PASS với privacy-safe output. Physical A/V/NVDA/macOS/low-end, provider
   dashboard và actual temporary-key rotation vẫn chưa được suy PASS.
   Exact implementation candidate `50c256e` PASS GitHub Verify `31891519968` và Security
-  `31891520024`; trạng thái vẫn `IN PROGRESS`, không deploy hoặc đổi shared environment.
+  `31891520024`; final fix candidate `edecf84` PASS Verify `31929104866` và Security
+  `31929104924`. P4-11 đã đóng mà không deploy hoặc đổi shared environment.
+- P4-12 Exact staging acceptance và Phase 4 closure đang `IN PROGRESS`. Contract review phát hiện
+  source-resolver/product-launch gap giữa ClassSession/StudyMeeting và MediaSpace route P4; khoảng
+  trống này phải đóng trước disposable canary, shared staging hoặc feature activation. Contract:
+  [P4-12 acceptance](docs/P4_12_STAGING_ACCEPTANCE.md).
 - Web MVP nền đã chạy trên staging: Cloudflare Pages -> same-origin `/api/*` -> Go
   Core API trên Render; dữ liệu dùng Neon, file dùng Backblaze B2, media dùng LiveKit
   Cloud và xác thực dùng ZITADEL.

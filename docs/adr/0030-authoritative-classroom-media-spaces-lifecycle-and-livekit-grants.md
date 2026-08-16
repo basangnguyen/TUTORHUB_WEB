@@ -293,6 +293,7 @@ OpenAPI implementation có thể tinh chỉnh path/name nhưng không đổi sem
 
 ```http
 POST /api/v1/media/spaces
+GET  /api/v1/media/spaces/resolve
 GET  /api/v1/media/spaces/{space_id}
 POST /api/v1/media/spaces/{space_id}/start
 POST /api/v1/media/spaces/{space_id}/end
@@ -317,6 +318,14 @@ responses set `Cache-Control: no-store` and `Referrer-Policy: no-referrer`. Stab
 include `feature_disabled`, `quota_exceeded`,
 `room_not_open`, `room_locked`, `admission_required`, `admission_denied`, `stale_version` and
 `media_provider_unavailable`, without exposing foreign resource existence.
+
+P4-12 adds one read-only source resolver for product navigation. It accepts only the three
+persisted source kinds (`class_session`, `class_session_occurrence`, `study_meeting`), never
+creates a space, requires the active-tenant assertion and reuses the same source/member
+authorization projection as `GET /media/spaces/{space_id}`. A missing or invisible source/space is
+always concealed as `404`. This boundary lets an authorized attendee discover an already-created
+official or explicitly invited room without granting `session.start`, accepting a client role, or
+using the legacy class-wide room authority.
 
 ### 12. P1 compatibility and rollout
 

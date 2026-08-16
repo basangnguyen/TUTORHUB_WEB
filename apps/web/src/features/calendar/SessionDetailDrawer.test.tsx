@@ -7,6 +7,7 @@ import {
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../../app/i18n";
+import { mediaSourceForCalendarItem } from "./mediaSource";
 import type { CalendarItemViewModel } from "./model";
 import { SessionDetailDrawer } from "./SessionDetailDrawer";
 
@@ -77,5 +78,29 @@ describe("SessionDetailDrawer", () => {
     fireEvent.click(screen.getByRole("button", { name: "Edit session" }));
 
     expect(onEdit).toHaveBeenCalledWith(editableItem);
+  });
+
+  it("maps a recurring occurrence to its exact media identity", () => {
+    expect(
+      mediaSourceForCalendarItem({
+        ...item,
+        occurrenceKey: "2026-07-27T02:00:00Z",
+        seriesID: "9f8bf389-362c-48ca-8e67-53df4e558f4d",
+      }),
+    ).toEqual({
+      kind: "class_session_occurrence",
+      occurrence_key: "2026-07-27T02:00:00Z",
+      series_id: "9f8bf389-362c-48ca-8e67-53df4e558f4d",
+    });
+  });
+
+  it("rejects an incomplete recurring identity instead of falling back to a class session", () => {
+    expect(
+      mediaSourceForCalendarItem({
+        ...item,
+        occurrenceKey: "2026-07-27T02:00:00Z",
+        seriesID: null,
+      }),
+    ).toBeNull();
   });
 });

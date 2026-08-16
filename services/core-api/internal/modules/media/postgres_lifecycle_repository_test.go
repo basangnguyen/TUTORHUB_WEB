@@ -36,6 +36,11 @@ func TestPostgresLifecycleTenantControlLockPrecedesScopeRows(t *testing.T) {
 		{
 			name:  "read",
 			start: "func (repository *PostgresLifecycleRepository) GetSpace(",
+			end:   "func (repository *PostgresLifecycleRepository) ResolveSpace(",
+		},
+		{
+			name:  "resolve",
+			start: "func (repository *PostgresLifecycleRepository) ResolveSpace(",
 			end:   "func (repository *PostgresLifecycleRepository) TransitionSpace(",
 		},
 		{

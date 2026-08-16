@@ -280,8 +280,12 @@ export function ClassroomDetailPage() {
   }
 
   const classroom = classQuery.data;
+  const mediaCapability =
+    capabilitiesQuery.data?.features.classroom_media_rooms;
+  const mediaRoomsEnabled = mediaCapability?.enabled === true;
   const canJoin =
     classroom.status === "active" && classroom.viewer_access.can_join_room;
+  const canUseLegacyMedia = canJoin && mediaCapability?.enabled === false;
   const dateFormatter = new Intl.DateTimeFormat(
     language === "vi" ? "vi-VN" : "en-US",
     { dateStyle: "medium", timeStyle: "short" },
@@ -301,7 +305,7 @@ export function ClassroomDetailPage() {
           <h1>{classroom.title}</h1>
           <p>{classroom.description || t("classroom.noDescription")}</p>
         </div>
-        {canJoin && (
+        {canUseLegacyMedia && (
           <Link
             className="classroom-live-action"
             to={`/app/classrooms/${classroom.id}/prejoin`}
@@ -359,6 +363,7 @@ export function ClassroomDetailPage() {
 
       <ClassSessionPanel
         classroom={classroom}
+        mediaRoomsEnabled={mediaRoomsEnabled}
         schedulingAvailability={tenantOperationAvailability(
           capabilitiesQuery,
           "schedule_class_session",

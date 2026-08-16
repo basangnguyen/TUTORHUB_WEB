@@ -103,6 +103,14 @@ func (service *ProviderLifecycleService) GetSpace(
 	return service.base.GetSpace(ctx, access, spaceID)
 }
 
+func (service *ProviderLifecycleService) ResolveSpace(
+	ctx context.Context,
+	access AccessContext,
+	source SourceReference,
+) (MediaSpace, error) {
+	return service.base.ResolveSpace(ctx, access, source)
+}
+
 func (service *ProviderLifecycleService) StartSpace(
 	ctx context.Context,
 	access AccessContext,

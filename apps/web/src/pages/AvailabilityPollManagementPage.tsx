@@ -60,6 +60,7 @@ import {
   tenantOperationAvailability,
   useTenantCapabilities,
 } from "../app/tenantCapabilities";
+import { MediaSpaceLaunchAction } from "../components/MediaSpaceLaunchAction";
 import "./AvailabilityPollManagementPage.css";
 
 const uuidPattern =
@@ -1569,11 +1570,15 @@ function PollDetail({
 
 function StudyMeetingPanel({
   canCreate,
+  currentUserID,
+  mediaRoomsEnabled,
   strings,
   tenantID,
   timezone: initialTimezone,
 }: {
   canCreate: boolean;
+  currentUserID: string;
+  mediaRoomsEnabled: boolean;
   strings: PageCopy;
   tenantID: string;
   timezone: string;
@@ -1749,28 +1754,40 @@ function StudyMeetingPanel({
                   )}
                 </span>
               </div>
-              <StatusBadge tone={statusTone(meeting.status)}>
-                {meeting.status === "scheduled"
-                  ? strings.scheduled
-                  : strings.cancelled}
-              </StatusBadge>
-              {meeting.status === "scheduled" && (
-                <Button
-                  disabled={cancelMeeting.isPending}
-                  onClick={() =>
-                    void cancelMeeting
-                      .mutateAsync({
-                        meetingID: meeting.id,
-                        reason: strings.cancelReason,
-                        version: meeting.version,
-                      })
-                      .catch(() => undefined)
-                  }
-                  variant="danger"
-                >
-                  {strings.cancelMeeting}
-                </Button>
-              )}
+              <div className="availability-poll-management__meeting-actions">
+                <StatusBadge tone={statusTone(meeting.status)}>
+                  {meeting.status === "scheduled"
+                    ? strings.scheduled
+                    : strings.cancelled}
+                </StatusBadge>
+                {meeting.status === "scheduled" && mediaRoomsEnabled && (
+                  <MediaSpaceLaunchAction
+                    canStart={meeting.owner_user_id === currentUserID}
+                    source={{
+                      kind: "study_meeting",
+                      study_meeting_id: meeting.id,
+                    }}
+                    tenantID={tenantID}
+                  />
+                )}
+                {meeting.status === "scheduled" && (
+                  <Button
+                    disabled={cancelMeeting.isPending}
+                    onClick={() =>
+                      void cancelMeeting
+                        .mutateAsync({
+                          meetingID: meeting.id,
+                          reason: strings.cancelReason,
+                          version: meeting.version,
+                        })
+                        .catch(() => undefined)
+                    }
+                    variant="danger"
+                  >
+                    {strings.cancelMeeting}
+                  </Button>
+                )}
+              </div>
             </li>
           ))}
         </ul>
@@ -1784,6 +1801,7 @@ export function AvailabilityPollManagementPage() {
   const strings = copy[language];
   const session = useSession();
   const tenantID = session.currentUser?.active_tenant?.id;
+  const currentUserID = session.currentUser?.user.id;
   const timezone =
     session.currentUser?.user.timezone ||
     Intl.DateTimeFormat().resolvedOptions().timeZone ||
@@ -1810,7 +1828,7 @@ export function AvailabilityPollManagementPage() {
     ? selectedPollID
     : (availablePolls[0]?.id ?? null);
 
-  if (!tenantID) {
+  if (!tenantID || !currentUserID) {
     return (
       <div className="page-content availability-poll-management">
         <ForbiddenState
@@ -1919,6 +1937,10 @@ export function AvailabilityPollManagementPage() {
       </div>
       <StudyMeetingPanel
         canCreate={createMeetingAvailability.available}
+        currentUserID={currentUserID}
+        mediaRoomsEnabled={
+          capabilities.data?.features.classroom_media_rooms.enabled === true
+        }
         strings={strings}
         tenantID={tenantID}
         timezone={timezone}

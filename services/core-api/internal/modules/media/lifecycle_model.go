@@ -153,12 +153,14 @@ type TransitionCommand struct {
 
 type LifecycleRepository interface {
 	CreateSpace(context.Context, AccessContext, CreateSpaceCommand) (CreateSpaceResult, error)
+	ResolveSpace(context.Context, AccessContext, SourceReference) (MediaSpace, error)
 	GetSpace(context.Context, AccessContext, uuid.UUID) (MediaSpace, error)
 	TransitionSpace(context.Context, AccessContext, TransitionCommand) (MediaSpace, error)
 }
 
 type LifecycleServiceAPI interface {
 	CreateSpace(context.Context, AccessContext, CreateSpaceInput) (CreateSpaceResult, error)
+	ResolveSpace(context.Context, AccessContext, SourceReference) (MediaSpace, error)
 	GetSpace(context.Context, AccessContext, uuid.UUID) (MediaSpace, error)
 	StartSpace(context.Context, AccessContext, uuid.UUID, TransitionInput) (MediaSpace, error)
 	EndSpace(context.Context, AccessContext, uuid.UUID, TransitionInput) (MediaSpace, error)

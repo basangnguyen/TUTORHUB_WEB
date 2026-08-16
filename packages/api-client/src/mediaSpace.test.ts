@@ -19,6 +19,7 @@ import {
   removeMediaParticipant,
   recordMediaSpaceDiagnostic,
   recoverMediaSpace,
+  resolveMediaSpace,
   resolveMediaAdmission,
   setMediaSpaceLock,
   startMediaSpace,
@@ -755,7 +756,7 @@ describe("media-space API", () => {
     }
   });
 
-  it("binds create, read, and lifecycle transitions to the active tenant and CSRF session", async () => {
+  it("binds create, source resolve, read, and lifecycle transitions to the active tenant and CSRF session", async () => {
     const fetchMock = vi
       .fn()
       .mockImplementation(() => Promise.resolve(jsonResponse(space)));
@@ -765,6 +766,11 @@ describe("media-space API", () => {
     };
 
     await createMediaSpace(tenantID, createInput, "create-csrf", options);
+    await resolveMediaSpace(
+      tenantID,
+      { kind: "study_meeting", study_meeting_id: meetingID },
+      options,
+    );
     await getMediaSpace(tenantID, spaceID, options);
     await startMediaSpace(
       tenantID,
@@ -799,6 +805,7 @@ describe("media-space API", () => {
     expect(requests.map((request) => request.method)).toEqual([
       "POST",
       "GET",
+      "GET",
       "POST",
       "POST",
       "POST",
@@ -806,6 +813,7 @@ describe("media-space API", () => {
     ]);
     expect(requests.map((request) => new URL(request.url).pathname)).toEqual([
       "/api/v1/media/spaces",
+      "/api/v1/media/spaces/resolve",
       `/api/v1/media/spaces/${spaceID}`,
       `/api/v1/media/spaces/${spaceID}/start`,
       `/api/v1/media/spaces/${spaceID}/end`,
@@ -822,6 +830,7 @@ describe("media-space API", () => {
       requests.map((request) => request.headers.get("X-CSRF-Token")),
     ).toEqual([
       "create-csrf",
+      null,
       null,
       "start-csrf",
       "end-csrf",
@@ -841,7 +850,12 @@ describe("media-space API", () => {
     ]) {
       expect(body).not.toHaveProperty(forbidden);
     }
-    expect(await requests[5]!.clone().json()).toEqual(recoveryInput);
+    const resolveURL = new URL(requests[1]!.url);
+    expect(Object.fromEntries(resolveURL.searchParams)).toEqual({
+      kind: "study_meeting",
+      study_meeting_id: meetingID,
+    });
+    expect(await requests[6]!.clone().json()).toEqual(recoveryInput);
   });
 
   it("fails before transport without an expected tenant", async () => {

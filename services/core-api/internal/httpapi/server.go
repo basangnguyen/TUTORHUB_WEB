@@ -942,6 +942,12 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 		),
 	)
 	mux.Handle(
+		mediaSpaceResolvePath,
+		mediaSpaceResponseHeaders(
+			requireMethod(http.MethodGet, http.HandlerFunc(mediaSpaces.resolve)),
+		),
+	)
+	mux.Handle(
 		mediaSpaceResourcePattern,
 		mediaSpaceResponseHeaders(
 			requireMethod(http.MethodGet, http.HandlerFunc(mediaSpaces.get)),

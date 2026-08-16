@@ -18,6 +18,7 @@ import (
 
 const (
 	mediaSpacesCollectionPath     = "/api/v1/media/spaces"
+	mediaSpaceResolvePath         = "/api/v1/media/spaces/resolve"
 	mediaSpaceResourcePattern     = "/api/v1/media/spaces/{space_id}"
 	mediaSpaceStartPattern        = "/api/v1/media/spaces/{space_id}/start"
 	mediaSpaceEndPattern          = "/api/v1/media/spaces/{space_id}/end"
@@ -159,6 +160,72 @@ func (handlers mediaSpaceHandlers) get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(handlers.logger, w, http.StatusOK, space)
+}
+
+func (handlers mediaSpaceHandlers) resolve(w http.ResponseWriter, r *http.Request) {
+	principal, ok := handlers.principal(w, r, false)
+	if !ok {
+		return
+	}
+	source, ok := mediaSpaceResolveSource(r)
+	if !ok {
+		handlers.writeProblem(w, r, media.ErrInvalidSpaceRequest)
+		return
+	}
+	space, err := handlers.service.ResolveSpace(r.Context(), mediaAccess(principal), source)
+	if err != nil {
+		handlers.writeProblem(w, r, err)
+		return
+	}
+	writeJSON(handlers.logger, w, http.StatusOK, space)
+}
+
+func mediaSpaceResolveSource(r *http.Request) (media.SourceReference, bool) {
+	query := r.URL.Query()
+	kindValues := query["kind"]
+	if len(kindValues) != 1 {
+		return media.SourceReference{}, false
+	}
+	source := media.SourceReference{Kind: media.SourceKind(strings.TrimSpace(kindValues[0]))}
+	parseOneUUID := func(name string) (*uuid.UUID, bool) {
+		values := query[name]
+		if len(values) != 1 {
+			return nil, false
+		}
+		value, valid := parseResourceUUID(strings.TrimSpace(values[0]))
+		return &value, valid
+	}
+	switch source.Kind {
+	case media.SourceClassSession:
+		value, valid := parseOneUUID("class_session_id")
+		if !valid || query.Has("series_id") || query.Has("occurrence_key") ||
+			query.Has("study_meeting_id") {
+			return media.SourceReference{}, false
+		}
+		source.ClassSessionID = value
+	case media.SourceClassSessionOccurrence:
+		value, valid := parseOneUUID("series_id")
+		occurrenceValues := query["occurrence_key"]
+		if !valid || len(occurrenceValues) != 1 || query.Has("class_session_id") ||
+			query.Has("study_meeting_id") {
+			return media.SourceReference{}, false
+		}
+		source.SeriesID = value
+		source.OccurrenceKey = strings.TrimSpace(occurrenceValues[0])
+		if len(source.OccurrenceKey) < 8 || len(source.OccurrenceKey) > 128 {
+			return media.SourceReference{}, false
+		}
+	case media.SourceStudyMeeting:
+		value, valid := parseOneUUID("study_meeting_id")
+		if !valid || query.Has("class_session_id") || query.Has("series_id") ||
+			query.Has("occurrence_key") {
+			return media.SourceReference{}, false
+		}
+		source.StudyMeetingID = value
+	default:
+		return media.SourceReference{}, false
+	}
+	return source, true
 }
 
 func (handlers mediaSpaceHandlers) start(w http.ResponseWriter, r *http.Request) {

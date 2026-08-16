@@ -9,6 +9,8 @@ import {
 import { Pencil } from "lucide-react";
 import { useMemo } from "react";
 import { useI18n, type TranslationKey } from "../../app/i18n";
+import { MediaSpaceLaunchAction } from "../../components/MediaSpaceLaunchAction";
+import { mediaSourceForCalendarItem } from "./mediaSource";
 import type { CalendarHourCycle, CalendarItemViewModel } from "./model";
 import { SessionParticipationPanel } from "./SessionParticipationPanel";
 
@@ -16,6 +18,7 @@ interface SessionDetailDrawerProps {
   hourCycle: CalendarHourCycle;
   item: CalendarItemViewModel | null;
   locale: string;
+  mediaRoomsEnabled?: boolean;
   onClose: () => void;
   onEdit: (item: CalendarItemViewModel) => void;
   secondaryTimezone?: string | null;
@@ -41,6 +44,7 @@ export function SessionDetailDrawer({
   hourCycle,
   item,
   locale,
+  mediaRoomsEnabled = false,
   onClose,
   onEdit,
   secondaryTimezone = null,
@@ -68,6 +72,11 @@ export function SessionDetailDrawer({
   if (!item || !dateTimeFormatter) {
     return null;
   }
+  const mediaSource = mediaSourceForCalendarItem(item);
+  const canOpenMedia =
+    mediaRoomsEnabled &&
+    mediaSource !== null &&
+    (item.status === "scheduled" || item.status === "live");
 
   return (
     <Drawer
@@ -140,15 +149,24 @@ export function SessionDetailDrawer({
           />
         )}
 
-        {item.canEdit && (
+        {(canOpenMedia || item.canEdit) && (
           <div className="calendar-session-detail__actions">
-            <Button
-              leadingIcon={<Pencil />}
-              onClick={() => onEdit(item)}
-              variant="secondary"
-            >
-              {t("calendar.editSession")}
-            </Button>
+            {canOpenMedia && mediaSource && (
+              <MediaSpaceLaunchAction
+                canStart={item.canEdit}
+                source={mediaSource}
+                tenantID={tenantID}
+              />
+            )}
+            {item.canEdit && (
+              <Button
+                leadingIcon={<Pencil />}
+                onClick={() => onEdit(item)}
+                variant="secondary"
+              >
+                {t("calendar.editSession")}
+              </Button>
+            )}
           </div>
         )}
       </DrawerContent>

@@ -134,6 +134,62 @@ func TestMediaSpaceReadUsesAuthenticatedSessionWithoutCSRF(t *testing.T) {
 	}
 }
 
+func TestMediaSpaceResolveUsesExactReadOnlySourceUnion(t *testing.T) {
+	t.Parallel()
+
+	tenantID, actorID, sessionID, spaceID := uuid.New(), uuid.New(), uuid.New(), uuid.New()
+	identityService := classIdentityService(tenantID, actorID, nil)
+	service := &fakeMediaLifecycleService{resolveResult: media.MediaSpace{
+		ID: spaceID, Status: media.SpaceStatusOpen, Version: 2,
+		CreatedAt: fixedTime, UpdatedAt: fixedTime,
+	}}
+	handler := newMediaSpaceTestHandler(identityService, service)
+	request := httptest.NewRequest(
+		http.MethodGet,
+		mediaSpaceResolvePath+"?kind=class_session&class_session_id="+sessionID.String(),
+		nil,
+	)
+	request.Header.Set(mediaSpaceTenantHeader, tenantID.String())
+	addSessionCookie(request)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK || service.resolveCalls != 1 ||
+		service.resolveSource.ClassSessionID == nil ||
+		*service.resolveSource.ClassSessionID != sessionID {
+		t.Fatalf("resolve source: status=%d service=%+v body=%s", response.Code, service, response.Body.String())
+	}
+	if response.Header().Get("Cache-Control") != "private, no-store" ||
+		response.Header().Get("Referrer-Policy") != "no-referrer" {
+		t.Fatalf("missing resolver privacy headers: %v", response.Header())
+	}
+}
+
+func TestMediaSpaceResolveRejectsInstantAndMixedSourceBeforeService(t *testing.T) {
+	t.Parallel()
+
+	tenantID, actorID := uuid.New(), uuid.New()
+	service := &fakeMediaLifecycleService{}
+	handler := newMediaSpaceTestHandler(classIdentityService(tenantID, actorID, nil), service)
+	for _, query := range []string{
+		"?kind=instant",
+		"?kind=class_session&class_session_id=" + uuid.NewString() + "&study_meeting_id=" + uuid.NewString(),
+		"?kind=class_session_occurrence&series_id=" + uuid.NewString() + "&occurrence_key=short",
+	} {
+		request := httptest.NewRequest(http.MethodGet, mediaSpaceResolvePath+query, nil)
+		request.Header.Set(mediaSpaceTenantHeader, tenantID.String())
+		addSessionCookie(request)
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		if response.Code != http.StatusBadRequest {
+			t.Fatalf("invalid resolver query %q: status=%d body=%s", query, response.Code, response.Body.String())
+		}
+	}
+	if service.resolveCalls != 0 {
+		t.Fatalf("invalid resolver reached service: calls=%d", service.resolveCalls)
+	}
+}
+
 func TestMediaSpaceQuotaRejectionIsAlwaysTooManyRequests(t *testing.T) {
 	t.Parallel()
 
@@ -330,6 +386,7 @@ type fakeMediaLifecycleService struct {
 	spaceID          uuid.UUID
 	createCalls      int
 	getCalls         int
+	resolveCalls     int
 	transitionCalls  int
 	operation        string
 	createInput      media.CreateSpaceInput
@@ -337,8 +394,20 @@ type fakeMediaLifecycleService struct {
 	recoverInput     media.RecoverSpaceInput
 	createResult     media.CreateSpaceResult
 	getResult        media.MediaSpace
+	resolveResult    media.MediaSpace
+	resolveSource    media.SourceReference
 	transitionResult media.MediaSpace
 	requestError     error
+}
+
+func (service *fakeMediaLifecycleService) ResolveSpace(
+	_ context.Context,
+	access media.AccessContext,
+	source media.SourceReference,
+) (media.MediaSpace, error) {
+	service.resolveCalls++
+	service.access, service.resolveSource = access, source
+	return service.resolveResult, service.requestError
 }
 
 func (service *fakeMediaLifecycleService) CreateSpace(

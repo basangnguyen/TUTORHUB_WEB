@@ -21,6 +21,7 @@ import type {
   CurrentUser,
 } from "@tutorhub/api-client";
 import { I18nProvider } from "../app/i18n";
+import { tenantCapabilityQueryKeys } from "../app/tenantCapabilities";
 import {
   advancePrincipalGeneration,
   currentPrincipalGeneration,
@@ -28,6 +29,7 @@ import {
 import { SessionProvider, useSession } from "../app/session";
 import { calendarQueryKeys } from "../features/calendar/queries";
 import { CalendarPage } from "./CalendarPage";
+import { availableTenantCapabilities } from "../test/tenantCapabilities";
 
 const tenantID = "4b18543a-74de-419f-9fe8-d0c3dfc991eb";
 const userID = "be85eb92-0f18-4163-85ba-50e4d343d632";
@@ -188,6 +190,10 @@ function renderCalendar(
     defaultOptions: { queries: { retry: false, retryDelay: 0 } },
   });
   queryClient.setQueryData(["auth", "me"], currentUser);
+  queryClient.setQueryData(
+    tenantCapabilityQueryKeys.detail(tenantID),
+    availableTenantCapabilities(tenantID),
+  );
   vi.stubGlobal("fetch", fetchMock);
   render(
     <QueryClientProvider client={queryClient}>

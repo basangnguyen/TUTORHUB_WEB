@@ -251,6 +251,51 @@ func (repository *PostgresLifecycleRepository) GetSpace(
 	return space, nil
 }
 
+func (repository *PostgresLifecycleRepository) ResolveSpace(
+	ctx context.Context,
+	access AccessContext,
+	source SourceReference,
+) (MediaSpace, error) {
+	queryContext, cancel := context.WithTimeout(ctx, repository.queryTimeout)
+	defer cancel()
+	transaction, err := repository.database.Begin(queryContext)
+	if err != nil {
+		return MediaSpace{}, repository.unavailable("begin media space source resolution", err)
+	}
+	defer rollbackLifecycle(transaction)
+	if err := repository.acquireTenantControlLock(
+		queryContext, transaction, access.TenantID,
+	); err != nil {
+		return MediaSpace{}, err
+	}
+	access, scope, err := repository.requireActiveScope(queryContext, transaction, access)
+	if err != nil {
+		return MediaSpace{}, err
+	}
+	if err := repository.controls.RequireFeature(
+		queryContext, transaction, scope.TenantID, featurecontrol.FeatureClassroomMediaRooms,
+	); err != nil {
+		return MediaSpace{}, err
+	}
+	row, found, err := findSpaceBySource(queryContext, transaction, scope.TenantID, source)
+	if err != nil {
+		return MediaSpace{}, repository.unavailable("resolve media space source", err)
+	}
+	if !found {
+		return MediaSpace{}, ErrSpaceNotFound
+	}
+	space, err := repository.projectAuthorizedSpace(
+		queryContext, transaction, access, scope, row,
+	)
+	if err != nil {
+		return MediaSpace{}, err
+	}
+	if err := transaction.Commit(queryContext); err != nil {
+		return MediaSpace{}, repository.unavailable("commit media space source resolution", err)
+	}
+	return space, nil
+}
+
 func (repository *PostgresLifecycleRepository) TransitionSpace(
 	ctx context.Context,
 	access AccessContext,

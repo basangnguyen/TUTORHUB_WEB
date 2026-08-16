@@ -41,9 +41,11 @@ import { useI18n, type TranslationKey } from "../app/i18n";
 import type { TenantOperationAvailability } from "../app/tenantCapabilities";
 import { shouldConcealTenantScopedData } from "../app/tenantDataAccess";
 import { useSession } from "../app/session";
+import { MediaSpaceLaunchAction } from "./MediaSpaceLaunchAction";
 
 interface ClassSessionPanelProps {
   classroom: ClassroomClass;
+  mediaRoomsEnabled?: boolean;
   schedulingAvailability: TenantOperationAvailability;
 }
 
@@ -96,6 +98,7 @@ function formatSessionRange(
 
 export function ClassSessionPanel({
   classroom,
+  mediaRoomsEnabled = false,
   schedulingAvailability,
 }: ClassSessionPanelProps) {
   const { language, t } = useI18n();
@@ -261,17 +264,32 @@ export function ClassSessionPanel({
             const rangeText = formatSessionRange(item, viewerTimezone, locale);
             const editable = canSchedule && item.viewer_access.can_update;
             const cancellable = canSchedule && item.viewer_access.can_cancel;
+            const canOpenMedia =
+              mediaRoomsEnabled &&
+              classroom.status === "active" &&
+              (item.status === "scheduled" || item.status === "live");
+            const canStartMedia = item.viewer_access.can_update;
             return (
               <article className="class-session-card" key={item.id}>
                 <div className="class-session-card__body">
                   <div className="class-session-card__title-row">
                     <h3>{item.title}</h3>
                     <StatusBadge
-                      tone={item.status === "cancelled" ? "danger" : "success"}
+                      tone={
+                        item.status === "cancelled"
+                          ? "danger"
+                          : item.status === "ended"
+                            ? "neutral"
+                            : "success"
+                      }
                     >
                       {item.status === "cancelled"
                         ? t("classSession.cancelled")
-                        : t("classSession.scheduled")}
+                        : item.status === "live"
+                          ? t("classSession.live")
+                          : item.status === "ended"
+                            ? t("classSession.ended")
+                            : t("classSession.scheduled")}
                     </StatusBadge>
                   </div>
                   <time dateTime={item.starts_at}>{rangeText.viewer}</time>
@@ -286,8 +304,20 @@ export function ClassSessionPanel({
                   )}
                   {item.description && <p>{item.description}</p>}
                 </div>
-                {(editable || cancellable) && item.status === "scheduled" && (
+                {(canOpenMedia ||
+                  ((editable || cancellable) &&
+                    item.status === "scheduled")) && (
                   <div className="class-session-card__actions">
+                    {canOpenMedia && (
+                      <MediaSpaceLaunchAction
+                        canStart={canStartMedia}
+                        source={{
+                          class_session_id: item.id,
+                          kind: "class_session",
+                        }}
+                        tenantID={tenantID}
+                      />
+                    )}
                     {editable && (
                       <Button
                         leadingIcon={<Pencil />}

@@ -85,7 +85,7 @@ physical/manual effect gate còn `UNVERIFIED` thay vì suy PASS từ research.
 | P4-09          | Reconnect, recovery instance và degraded audio-only | P4-02, P4-05, P4-07             | DONE        |
 | P4-10          | Join telemetry, privacy và diagnostics export       | P4-02, P4-03, P4-09             | DONE       |
 | P4-11          | Browser/device matrix, load và outage runbook       | P4-05 đến P4-10                 | DONE       |
-| P4-12          | Exact staging acceptance và Phase 4 closure         | P4-MEDIA-UX-00, P4-01 đến P4-11 | TODO       |
+| P4-12          | Exact staging acceptance và Phase 4 closure         | P4-MEDIA-UX-00, P4-01 đến P4-11 | IN PROGRESS |
 
 `TODO` không ngụ ý implementation đã tồn tại. `VERIFY` chỉ dùng sau khi implementation và các gate
 pre-staging do runbook task quy định đã xanh; riêng P4-02 cần local/disposable/provider cùng exact
@@ -701,7 +701,13 @@ disposable và không cho phép bật media capability trong lúc kiểm thử.
 
 ## 19. P4-12 Exact staging acceptance và Phase 4 closure
 
-**Dependency:** P4-MEDIA-UX-00 và P4-01 đến P4-11. **Trạng thái:** `TODO`.
+**Dependency:** P4-MEDIA-UX-00 và P4-01 đến P4-11. **Trạng thái:** `IN PROGRESS`.
+
+Contract review ngày 2026-08-16 phát hiện product navigation vẫn trỏ vào class-wide P1 prejoin và
+chưa có read-only source resolver để attendee tìm MediaSpace đã tạo. P4-12 phải đóng khoảng trống
+này trước canary: host tạo/start theo exact ClassSession hoặc StudyMeeting; attendee chỉ resolve
+space đã tồn tại theo authority hiện tại; tenant ẩn trả `404`; khi `classroom_media_rooms` bật thì
+UI không được dẫn vào P1 authority.
 
 ### Exit gate
 

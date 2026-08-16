@@ -100,14 +100,22 @@ function renderClassRoute(
   path: string,
   fetchMock: (request: Request) => Promise<Response>,
   session = currentUser(),
+  mediaRoomsEnabled = false,
 ) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
-  queryClient.setQueryData(
-    tenantCapabilityQueryKeys.detail(tenantID),
-    availableTenantCapabilities(tenantID),
-  );
+  const capabilities = availableTenantCapabilities(tenantID);
+  queryClient.setQueryData(tenantCapabilityQueryKeys.detail(tenantID), {
+    ...capabilities,
+    features: {
+      ...capabilities.features,
+      classroom_media_rooms: {
+        configured_enabled: mediaRoomsEnabled,
+        enabled: mediaRoomsEnabled,
+      },
+    },
+  });
   const fetchWithClassFiles = vi.fn(
     (input: RequestInfo | URL, init?: RequestInit) => {
       const request =
@@ -625,6 +633,40 @@ describe("ClassroomPages P2-04", () => {
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Lưu trữ lớp" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("removes the class-wide P1 prejoin link when P4 media is enabled", async () => {
+    const fetchMock = vi.fn().mockImplementation((request: Request) => {
+      const path = new URL(request.url).pathname;
+      if (
+        path.endsWith(`/api/v1/classes/${classID}`) &&
+        request.method === "GET"
+      ) {
+        return Promise.resolve(jsonResponse(classroom));
+      }
+      if (
+        path.endsWith(`/api/v1/classes/${classID}/sessions`) &&
+        request.method === "GET"
+      ) {
+        return Promise.resolve(jsonResponse({ items: [], next_cursor: null }));
+      }
+      return Promise.reject(new Error(`Unexpected request: ${request.url}`));
+    });
+    renderClassRoute(
+      `/app/classrooms/${classID}`,
+      fetchMock,
+      currentUser(),
+      true,
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: classroom.title }),
+    ).toBeVisible();
+    expect(
+      screen.queryByRole("link", {
+        name: "Vào phòng học trực tuyến",
+      }),
     ).not.toBeInTheDocument();
   });
 

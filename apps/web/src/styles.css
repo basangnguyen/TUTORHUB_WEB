@@ -3257,6 +3257,19 @@ textarea:focus-visible {
   justify-content: flex-end;
 }
 
+.media-space-launch-action {
+  align-items: flex-end;
+  display: grid;
+  gap: 6px;
+  justify-items: end;
+}
+
+.media-space-launch-action__error {
+  color: var(--color-danger);
+  font-size: 12px;
+  max-width: 20rem;
+}
+
 .class-session-panel__load-more {
   align-items: center;
   display: flex;

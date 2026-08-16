@@ -2110,6 +2110,26 @@ export type paths = {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/api/v1/media/spaces/resolve": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /**
+     * Resolve an existing authorized media space by its exact source
+     * @description Read-only product navigation boundary. It never creates a MediaSpace, accepts an instant source, or grants session-start authority. Missing and invisible sources are both concealed as not found.
+     */
+    readonly get: operations["resolveMediaSpace"];
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/api/v1/membership-invitations/accept": {
     readonly parameters: {
       readonly query?: never;
@@ -3413,10 +3433,10 @@ export type components = {
       readonly scope: components["schemas"]["ClassSessionOccurrenceScope"];
     };
     /**
-     * @description P3-01 exposes only the one-time scheduled-to-cancelled lifecycle.
+     * @description One-time session lifecycle; live and ended are projected by the authoritative Phase 4 media transition.
      * @enum {string}
      */
-    readonly ClassSessionStatus: "scheduled" | "cancelled";
+    readonly ClassSessionStatus: "scheduled" | "cancelled" | "live" | "ended";
     readonly ClassSessionViewerAccess: {
       readonly can_cancel: boolean;
       readonly can_update: boolean;
@@ -9807,6 +9827,44 @@ export interface operations {
       readonly 404: components["responses"]["NotFoundResponse"];
       readonly 409: components["responses"]["ConflictResponse"];
       readonly 429: components["responses"]["ProblemResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly resolveMediaSpace: {
+    readonly parameters: {
+      readonly query: {
+        readonly class_session_id?: string;
+        readonly kind:
+          "class_session" | "class_session_occurrence" | "study_meeting";
+        readonly occurrence_key?: string;
+        readonly series_id?: string;
+        readonly study_meeting_id?: string;
+      };
+      readonly header: {
+        /** @description Active workspace assertion used to prevent confused-deputy mutations and reads. */
+        readonly "X-TutorHub-Expected-Tenant-ID": components["parameters"]["ExpectedTenantID"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Existing authorized media-space projection */
+      readonly 200: {
+        headers: {
+          readonly "Cache-Control"?: "private, no-store";
+          readonly "Referrer-Policy"?: "no-referrer";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["MediaSpace"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
       readonly 503: components["responses"]["ProblemResponse"];
       readonly default: components["responses"]["ProblemResponse"];
     };

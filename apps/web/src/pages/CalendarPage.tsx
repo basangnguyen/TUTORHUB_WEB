@@ -13,6 +13,7 @@ import { useNavigate, useSearchParams } from "react-router";
 import { useUpdateClassSession } from "../app/classSessions";
 import { useI18n } from "../app/i18n";
 import { useSession } from "../app/session";
+import { useTenantCapabilities } from "../app/tenantCapabilities";
 import { shouldConcealTenantScopedData } from "../app/tenantDataAccess";
 import { CalendarPreferencesDrawer } from "../features/calendar/CalendarPreferencesDrawer";
 import {
@@ -224,6 +225,7 @@ export function CalendarPage() {
     "UTC";
   const interfaceLocale = language === "vi" ? "vi-VN" : "en-US";
   const preferenceQuery = useCalendarDisplayPreference(tenantID, userID);
+  const capabilitiesQuery = useTenantCapabilities(tenantID);
   const updateSession = useUpdateClassSession(tenantID);
   const preference =
     preferenceQuery.data ?? fallbackPreference(userTimezone, interfaceLocale);
@@ -565,6 +567,10 @@ export function CalendarPage() {
         hourCycle={preference.hourCycle}
         item={selectedItem}
         locale={preference.locale}
+        mediaRoomsEnabled={
+          capabilitiesQuery.data?.features.classroom_media_rooms.enabled ===
+          true
+        }
         onClose={() => setSelectedItem(null)}
         onEdit={(item) => {
           setSelectedItem(null);

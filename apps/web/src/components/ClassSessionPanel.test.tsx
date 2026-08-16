@@ -13,6 +13,7 @@ import {
   type CurrentUser,
 } from "@tutorhub/api-client";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { MemoryRouter } from "react-router";
 import { I18nProvider } from "../app/i18n";
 import { SessionProvider } from "../app/session";
 import {
@@ -102,7 +103,10 @@ function jsonResponse(body: unknown) {
   });
 }
 
-function renderPanel(fetchMock: ReturnType<typeof vi.fn>) {
+function renderPanel(
+  fetchMock: ReturnType<typeof vi.fn>,
+  mediaRoomsEnabled = false,
+) {
   const queryClient = new QueryClient({
     defaultOptions: {
       mutations: { retry: false },
@@ -114,10 +118,13 @@ function renderPanel(fetchMock: ReturnType<typeof vi.fn>) {
     <QueryClientProvider client={queryClient}>
       <I18nProvider initialLanguage="en">
         <SessionProvider mode={{ kind: "static", currentUser }}>
-          <ClassSessionPanel
-            classroom={classroom}
-            schedulingAvailability={availableOperation}
-          />
+          <MemoryRouter>
+            <ClassSessionPanel
+              classroom={classroom}
+              mediaRoomsEnabled={mediaRoomsEnabled}
+              schedulingAvailability={availableOperation}
+            />
+          </MemoryRouter>
         </SessionProvider>
       </I18nProvider>
     </QueryClientProvider>,
@@ -193,5 +200,25 @@ describe("ClassSessionPanel", () => {
     expect(screen.getByRole("alert")).toHaveTextContent(
       "This class already has a session at that time. Choose another time.",
     );
+  });
+
+  it("exposes the exact session media action only when P4 media is enabled", async () => {
+    const fetchMock = vi.fn().mockImplementation((request: Request) => {
+      if (
+        new URL(request.url).pathname ===
+          `/api/v1/classes/${classID}/sessions` &&
+        request.method === "GET"
+      ) {
+        return Promise.resolve(
+          jsonResponse({ items: [classSession], next_cursor: null }),
+        );
+      }
+      return Promise.reject(new Error(`Unexpected request: ${request.url}`));
+    });
+    renderPanel(fetchMock, true);
+
+    expect(
+      await screen.findByRole("button", { name: "Start classroom" }),
+    ).toBeVisible();
   });
 });

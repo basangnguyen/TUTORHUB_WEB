@@ -14,8 +14,17 @@
 | Phase hiện tại       | Phase 4 Classroom Media MVP; Phase 3 deferred carry-over vẫn hoạt động                |
 | Task `DONE` gần nhất | P4-11 Browser/device matrix, load và outage runbook                                     |
 | Mốc repository mới   | P4-11 exact candidate `edecf84` PASS Verify `31929104866`/Security `31929104924`        |
-| Task hiện tại        | P4-12 Exact staging acceptance và Phase 4 closure (`TODO`)                             |
-| Task tiếp theo       | Bắt đầu P4-12 contract review và exact staging closure                                 |
+| Task hiện tại        | P4-12 Exact staging acceptance và Phase 4 closure (`IN PROGRESS`)                      |
+| Task tiếp theo       | Đóng source-resolver/product launch gap rồi chạy exact disposable/staging gates        |
+
+### Checkpoint P4-12 `IN PROGRESS` ngày 2026-08-16
+
+Acceptance contract được mở tại [P4_12_STAGING_ACCEPTANCE.md](P4_12_STAGING_ACCEPTANCE.md).
+Contract review xác nhận P4 lifecycle/backend, prejoin và room shell đã có, nhưng product UI vẫn
+đưa nút class-wide vào P1 prejoin và attendee chưa có read-only API để resolve MediaSpace theo
+ClassSession/StudyMeeting. P4-12 đang bổ sung source resolver fail-closed và launch action theo exact
+source trước khi tạo canary; chưa migrate/write shared staging, chưa deploy và hai media feature vẫn
+giữ off.
 
 ### Checkpoint P4-11 `DONE` ngày 2026-08-16
 
