@@ -10,3 +10,7 @@ b1117ec5547aeb311662cf1ba9c0820ef5385709:apps/web/src/app/mediaModeration.test.t
 b1117ec5547aeb311662cf1ba9c0820ef5385709:apps/web/src/app/mediaModeration.test.tsx:generic-api-key:49
 b1117ec5547aeb311662cf1ba9c0820ef5385709:services/core-api/internal/modules/media/postgres_moderation_integration_test.go:generic-api-key:164
 b1117ec5547aeb311662cf1ba9c0820ef5385709:services/core-api/internal/modules/media/postgres_moderation_integration_test.go:generic-api-key:917
+# P4-11 synthetic participant fixture IDs in the already-pushed candidate commit.
+# The literals were removed from current code; exact fingerprints retain full scanning elsewhere.
+abf4eb7a1bb3bd5ba280ed07a5132583844021e7:apps/web/src/features/media/P411PhysicalHarness.tsx:generic-api-key:21
+abf4eb7a1bb3bd5ba280ed07a5132583844021e7:apps/web/src/features/media/P411PhysicalHarness.tsx:generic-api-key:22

@@ -18,8 +18,6 @@ import {
 import { ClassroomLiveKitRoom } from "./ClassroomLiveKitRoom";
 
 const boundaryURL = "http://127.0.0.1:4179";
-const teacherKey = "e4f2f4a2-1e4b-4d5d-a920-0e32256998ec";
-const studentKey = "14ad5f16-7c78-46d3-bc10-1563afcb51c7";
 
 type HarnessRole = "teacher" | "student";
 type VideoProfile = "720p" | "540p" | "360p";
@@ -164,7 +162,7 @@ export function P411PhysicalHarness({
   const moderation = useMemo<
     ClassroomModerationControlsModel | undefined
   >(() => {
-    if (role !== "teacher" || !signalSnapshot) return undefined;
+    if (role !== "teacher" || !metadata || !signalSnapshot) return undefined;
     const announce = async (
       action: ClassroomModerationAction,
       target?: string,
@@ -179,7 +177,7 @@ export function P411PhysicalHarness({
       canEndRoom: true,
       participantOperations: [
         {
-          participantKey: studentKey,
+          participantKey: metadata.peer_participant_key,
           canPromoteCoHost: true,
           canDemoteCoHost: false,
           canRemoteMute: true,
@@ -201,7 +199,7 @@ export function P411PhysicalHarness({
       onRemoteMute: (target) => announce("remote_mute", target),
       onRemoveParticipant: (target) => announce("remove_participant", target),
     };
-  }, [role, signalSnapshot]);
+  }, [metadata, role, signalSnapshot]);
 
   if (!allowedHost || !import.meta.env.DEV) {
     return (
@@ -535,6 +533,14 @@ function initialSignalSnapshot(
   metadata: HarnessMetadata,
 ): ClassroomSignalSnapshot {
   const now = new Date().toISOString();
+  const teacherParticipantKey =
+    metadata.role === "teacher"
+      ? metadata.self_participant_key
+      : metadata.peer_participant_key;
+  const studentParticipantKey =
+    metadata.role === "student"
+      ? metadata.self_participant_key
+      : metadata.peer_participant_key;
   return {
     room_instance_id: metadata.room_instance_id,
     room_locked: false,
@@ -550,7 +556,7 @@ function initialSignalSnapshot(
     },
     participants: [
       {
-        participant_key: teacherKey,
+        participant_key: teacherParticipantKey,
         roster_sequence: 1,
         display_name: "Giáo viên thử nghiệm",
         instance_role: "host",
@@ -563,7 +569,7 @@ function initialSignalSnapshot(
         },
       },
       {
-        participant_key: studentKey,
+        participant_key: studentParticipantKey,
         roster_sequence: 2,
         display_name: "Học viên thử nghiệm",
         instance_role: "attendee",
