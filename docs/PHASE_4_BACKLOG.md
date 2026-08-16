@@ -20,14 +20,14 @@ P3-14-CORE đã `DONE`; Phase 4 được phép bắt đầu trong khi Phase 3 de
 Không task Phase 4 nào được xóa, giả lập PASS hoặc bật notification/email/file-processing side
 effect thuộc Phase 3 khi carry-over chưa đạt gate riêng.
 
-**Task `DONE` gần nhất:** `P4-11` Browser/device matrix, load và outage runbook ngày 2026-08-16.
-Exact candidate `edecf84ecc45ae4c290e5b76df6ffc5b0a6bcfa9` PASS GitHub Verify `31929104866` và
-Security `31929104924` sau khi hai synthetic UUID false positive được loại khỏi current harness và
-historical scan chỉ ignore đúng hai fingerprint. Physical Windows 11 Chrome/Edge + NVDA `10/10`,
-isolated LiveKit 25/50,
-dashboard/rotation/outage/recovery và cleanup đều PASS; không migration, shared write, deploy hoặc
-feature enable. Evidence tại [P4_11_STAGING_ACCEPTANCE.md](P4_11_STAGING_ACCEPTANCE.md).
-**Task hiện tại:** `P4-12` Exact staging acceptance và Phase 4 closure (`TODO`).
+**Task `DONE` gần nhất:** `P4-12` Exact staging acceptance và Phase 4 closure ngày 2026-08-16.
+Final repository candidate `cca93c5402cb016c84111004b238f4efe9fa6c2a` PASS Verify
+`31946763549`, Security `31946763545`, Browser E2E và Cloudflare Pages. Disposable/shared giữ
+`36 false`; exact ACL, resolver/authority/concurrency/privacy, official Chrome/Edge lobby/admit/end,
+kill switch và final shared snapshot `retained_enabled_media_overrides=0` đều PASS. Phase 4 đã
+`DONE`; task kế tiếp thuộc Phase 5 là `P5-COLLAB-00`. Evidence tại
+[P4_12_STAGING_ACCEPTANCE.md](P4_12_STAGING_ACCEPTANCE.md) và
+[PHASE_4_COMPLETION.md](PHASE_4_COMPLETION.md).
 
 `P4-MEDIA-UX-00` đã `DONE`; không đổi LiveKit provider, không thêm processor production dependency
 hoặc mở `CanPublishData=false`. P4-03/P4-04/P4-05/P4-06/P4-11 phải tuân ADR-0031 và báo rõ các
@@ -81,11 +81,11 @@ physical/manual effect gate còn `UNVERIFIED` thay vì suy PASS từ research.
 | P4-05          | Classroom shell, media controls và layouts          | P4-03, P4-MEDIA-UX-00           | DONE       |
 | P4-06          | Participant roster, hand raise và reaction          | P4-04, P4-05, P4-MEDIA-UX-00    | DONE       |
 | P4-07          | Host/co-host/TA moderation, lock/mute/remove/end    | P4-04, P4-06                    | DONE       |
-| P4-08          | Persistent in-room chat                             | P4-01, P3-07A; ADR review       | DONE        |
-| P4-09          | Reconnect, recovery instance và degraded audio-only | P4-02, P4-05, P4-07             | DONE        |
+| P4-08          | Persistent in-room chat                             | P4-01, P3-07A; ADR review       | DONE       |
+| P4-09          | Reconnect, recovery instance và degraded audio-only | P4-02, P4-05, P4-07             | DONE       |
 | P4-10          | Join telemetry, privacy và diagnostics export       | P4-02, P4-03, P4-09             | DONE       |
 | P4-11          | Browser/device matrix, load và outage runbook       | P4-05 đến P4-10                 | DONE       |
-| P4-12          | Exact staging acceptance và Phase 4 closure         | P4-MEDIA-UX-00, P4-01 đến P4-11 | IN PROGRESS |
+| P4-12          | Exact staging acceptance và Phase 4 closure         | P4-MEDIA-UX-00, P4-01 đến P4-11 | DONE       |
 
 `TODO` không ngụ ý implementation đã tồn tại. `VERIFY` chỉ dùng sau khi implementation và các gate
 pre-staging do runbook task quy định đã xanh; riêng P4-02 cần local/disposable/provider cùng exact
@@ -701,7 +701,7 @@ disposable và không cho phép bật media capability trong lúc kiểm thử.
 
 ## 19. P4-12 Exact staging acceptance và Phase 4 closure
 
-**Dependency:** P4-MEDIA-UX-00 và P4-01 đến P4-11. **Trạng thái:** `IN PROGRESS`.
+**Dependency:** P4-MEDIA-UX-00 và P4-01 đến P4-11. **Trạng thái:** `DONE`.
 
 Contract review ngày 2026-08-16 phát hiện product navigation vẫn trỏ vào class-wide P1 prejoin và
 chưa có read-only source resolver để attendee tìm MediaSpace đã tạo. P4-12 phải đóng khoảng trống
@@ -711,14 +711,22 @@ UI không được dẫn vào P1 authority.
 
 ### Exit gate
 
-- [ ] Exact candidate Verify/Security/Browser E2E/Cloudflare/Render checks green.
-- [ ] Disposable migration/ACL/concurrency/privacy matrix green before shared forward.
-- [ ] Teacher/TA/student/guest official room and member-owned room role matrix green.
-- [ ] Lobby, moderation, reconnect, chat persistence, accessibility and support diagnostics green.
-- [ ] LiveKit signed webhook/replay/provider-outage and declared browser/device/load profile green.
-- [ ] Feature rollout canary is reversible by server-evaluated kill switch; legacy P1 authority off.
-- [ ] Recording/egress remains off; no Phase 3 carry-over falsely marked PASS or activated.
-- [ ] `docs/PHASE_4_COMPLETION.md`, Project State, Master Plan and roadmap updated.
+- [x] Exact candidate Verify/Security/Browser E2E/Cloudflare/Render checks green.
+- [x] Disposable migration/ACL/concurrency/privacy matrix green before shared forward.
+- [x] Teacher/TA/student/guest official room and member-owned room role matrix green.
+- [x] Lobby, moderation, reconnect, chat persistence, accessibility and support diagnostics green.
+- [x] LiveKit signed webhook/replay/provider-outage and declared browser/device/load profile green.
+- [x] Feature rollout canary is reversible by server-evaluated kill switch; legacy P1 authority off.
+- [x] Recording/egress remains off; no Phase 3 carry-over falsely marked PASS or activated.
+- [x] `docs/PHASE_4_COMPLETION.md`, Project State, Master Plan and roadmap updated.
+
+Closure evidence: candidate đầu `fb2df3e` không được dùng vì Verify fail; safety candidate
+`3cd6448` và final web fix `cca93c5` đều PASS exact Verify/Security/Browser E2E/Cloudflare. P4-12
+không có migration mới (`36 -> 36`), không rollback. Teacher Chrome + Student Edge PASS lobby,
+admit, 2-participant room, controlled end và terminal cleanup. Organization Admin đã tắt cả hai
+media feature; final shared read-only snapshot giữ `ledger=36`, `dirty=false`, retention violation
+`0` và enabled media override `0`. Safari/VoiceOver, physical Firefox và low-end vẫn
+`UNAVAILABLE`, không bị suy PASS.
 
 ## 20. Cross-cutting test matrix
 

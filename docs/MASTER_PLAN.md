@@ -10,8 +10,8 @@
 | Thư mục phát triển    | `D:\TutorHub_V2`                                                                             |
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
-| Phase hiện tại        | Phase 4 - Classroom Media MVP; Phase 3 deferred carry-over tiếp tục                          |
-| Trạng thái gần nhất   | P4-11 `DONE`; P4-12 exact staging acceptance/Phase 4 closure `IN PROGRESS`              |
+| Phase hiện tại        | Chuẩn bị Phase 5; Phase 3 deferred carry-over tiếp tục                                       |
+| Trạng thái gần nhất   | P4-12 `DONE`; Phase 4 Classroom Media MVP đã hoàn thành ngày 2026-08-16                      |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 
@@ -1530,6 +1530,13 @@ forward-only `30 false -> 31 false -> 31 false`, exact ACL/read-only snapshot, R
 live privacy/feature-off/no-side-effect acceptance theo
 [P4_04_STAGING_ACCEPTANCE.md](P4_04_STAGING_ACCEPTANCE.md).
 
+P4-05 đến P4-12 sau đó đều `DONE`. Exact P4-12 backend candidate `3cd6448` và final web candidate
+`cca93c5` PASS GitHub Verify/Security/Browser E2E/Cloudflare; live Teacher/Student admission,
+end-room, Admin canary kill-switch và shared final snapshot `ledger=36 dirty=false
+media_features=false retained_enabled_media_overrides=0` đều PASS. Phase 4 hoàn thành ngày
+2026-08-16 theo [P4_12_STAGING_ACCEPTANCE.md](P4_12_STAGING_ACCEPTANCE.md) và
+[PHASE_4_COMPLETION.md](PHASE_4_COMPLETION.md). P5 phải bắt đầu bằng `P5-COLLAB-00` research/ADR.
+
 **Thời lượng:** 6-8 tuần.
 
 **Mục tiêu:** lớp học tương tác 2-50 người có vòng đời và moderation đáng tin cậy.
@@ -2202,7 +2209,13 @@ provider-outage/existing-room recovery. Firefox, Safari/VoiceOver và low-end gi
 optional effect tiếp tục khóa `None`, không suy PASS hoặc bật production effect. Final local verify
 và secret scan PASS; exact candidate `edecf84ecc45ae4c290e5b76df6ffc5b0a6bcfa9` PASS GitHub Verify
 `31929104866` và Security `31929104924`. P4-11 đã chuyển `IN PROGRESS -> VERIFY -> DONE` mà không
-migration, shared database write, deploy hoặc feature enable; P4-12 là task tiếp theo.
+migration, shared database write, deploy hoặc feature enable; P4-12 được thực hiện ngay sau checkpoint đó.
+P4-12 đã `DONE` ngày 2026-08-16. Backend source-resolver/concealment candidate `3cd6448` và final
+web admission-race candidate `cca93c5` PASS exact Verify/Security/Browser E2E/Cloudflare. Neon
+disposable PASS exact lifecycle authority/concurrency/quota/privacy và runtime ACL ở `36 false`;
+shared read-only final snapshot giữ `36 false`, media features off và enabled override bằng `0`.
+Live Teacher/Student admission + end-room, Admin canary enable/disable và terminal no-side-effect
+state đều PASS. Phase 4 đã đóng; task kế tiếp là `P5-COLLAB-00`.
 Không bật side effect chỉ vì core đã có. `P3-02D-B` và các gate worker/provider vẫn là
 carry-over.
 AWS SES đã được chọn làm provider target nhưng

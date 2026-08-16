@@ -2,14 +2,14 @@
 
 > Bản tóm tắt điều hành. Chi tiết work package, dependency, SLO, rủi ro và exit gate nằm trong [MASTER_PLAN.md](MASTER_PLAN.md). Khi có khác biệt, Master Plan phiên bản mới hơn là nguồn có thẩm quyền.
 
-| Thuộc tính          | Trạng thái                                           |
-| ------------------- | ---------------------------------------------------- |
-| Cập nhật            | 2026-08-14                                           |
-| Phase hiện tại      | Phase 4 Classroom Media; Phase 3 carry-over tiếp tục |
-| Hoàn thành gần nhất | P4-07 host/co-host/TA moderation `DONE`               |
-| Mốc repository mới  | P4-07 exact CI/shared/deploy/live acceptance PASS     |
-| Việc tiếp theo      | P4-08 `TODO`: review/amend ADR-0013/0025              |
-| Phạm vi             | Web-first; desktop/mobile/native là track sau        |
+| Thuộc tính          | Trạng thái                                                     |
+| ------------------- | -------------------------------------------------------------- |
+| Cập nhật            | 2026-08-16                                                     |
+| Phase hiện tại      | Chuẩn bị Phase 5; Phase 3 carry-over tiếp tục                  |
+| Hoàn thành gần nhất | P4-12 exact staging acceptance; Phase 4 `DONE`                 |
+| Mốc repository mới  | `cca93c5`: exact CI/deploy/live acceptance và kill-switch PASS |
+| Việc tiếp theo      | P5-COLLAB-00 research/ADR trước collaboration runtime          |
+| Phạm vi             | Web-first; desktop/mobile/native là track sau                  |
 
 ## Chuỗi phase
 
@@ -19,7 +19,7 @@
 |     1 | Engineering Foundation            |                        Hoàn thành | CI, web shell, API, database, auth, LiveKit spike, staging         |
 |     2 | Identity, tenant và class core    |                        Hoàn thành | Multi-tenant, permission, class/enrollment                         |
 |     3 | Daily learning workspace          | Core Exit trước; full closure sau | Lịch chuyên nghiệp, poll core, chat, file; email/worker carry-over |
-|     4 | Classroom Media MVP               |                          6-8 tuần | Prejoin, LiveKit room, moderation, reconnect                       |
+|     4 | Classroom Media MVP               |                        Hoàn thành | Prejoin, LiveKit room, moderation, reconnect                       |
 |     5 | Classroom Collaboration           |                         8-12 tuần | Research/ADR engine; whiteboard, tools, breakout, recording        |
 |     6 | Assessment, Tasks và QuizHub      |                         8-12 tuần | Assignment, exam, scoring, practice/game                           |
 |     7 | Content, Social Learning và Lavie |                         6-10 tuần | Feed/video có kiểm soát, AI/RAG theo quyền                         |
@@ -75,8 +75,8 @@ activation, SES/domain/live interoperability và delivery/processing phụ thu�
 được giữ carry-over để đóng sau, không đánh dấu PASS do bỏ qua.
 P3-CAL-01 không phải dependency kỹ thuật của session một lần P3-01; cả hai gate đã đạt.
 P3-CAL-02 có thể chạy sandbox cô lập, nhưng mọi email/notification side effect runtime
-vẫn phải chờ P3-03B. Core Exit đã đạt trên candidate `f5f1eb3`; P4-00/P4-01/P4-02/P4-03,
-P4-04/P4-05/P4-06/P4-07 và P4-MEDIA-UX-00 hiện đã `DONE`. Nguồn thực thi là
+vẫn phải chờ P3-03B. Core Exit đã đạt trên candidate `f5f1eb3`; P4-00, P4-MEDIA-UX-00 và
+P4-01 đến P4-12 đều đã `DONE`. Nguồn thực thi là
 [PHASE_4_BACKLOG.md](PHASE_4_BACKLOG.md), ADR authority là
 [ADR-0030](adr/0030-authoritative-classroom-media-spaces-lifecycle-and-livekit-grants.md) cùng
 [ADR-0031](adr/0031-classroom-media-ux-devices-layout-effects-and-signals.md). P4-03 exact candidate
@@ -99,22 +99,30 @@ Render `dep-d9vjhvp5efls73ea5l3g` `Live` và Cloudflare Pages deployment
 `1b935dc9-7498-4a3c-81c6-2571ca080c53` exact đều PASS. Public acceptance đạt `16/16`; Admin
 feature-off/concealment, accessibility, resource/log audit và post-live zero-side-effect đều PASS.
 Không rollback, disposable branch được giữ lại, media features tiếp tục force-off và
-`CanPublishData=false`. P4-08 là task `TODO` kế tiếp; phải review/amend ADR-0013/0025 trước khi
-triển khai classroom chat.
-Physical/manual/device/load/provider-outage/
-effect gates vẫn `UNVERIFIED — P4-11`.
+`CanPublishData=false`.
+
+P4-08 đến P4-10 đã PASS exact migration/ACL/CI/deploy/live acceptance; shared ledger tiến
+forward-only tới `36 false`. P4-11 đã PASS load 25/50, key rotation, Windows 11 Chrome/Edge + NVDA
+physical 10/10 và sustained provider-outage/existing-room recovery; Firefox, Safari/VoiceOver và
+low-end được công bố `UNAVAILABLE`, optional effect giữ `None`. P4-12 đã PASS exact resolver/
+authority/concurrency/privacy/runtime ACL trên disposable, live Teacher/Student admission và
+end-room, Admin canary kill-switch, cùng shared final snapshot `36 false` với enabled media
+override bằng `0`. Phase 4 hoàn thành ngày 2026-08-16; evidence tại
+[P4_12_STAGING_ACCEPTANCE.md](P4_12_STAGING_ACCEPTANCE.md) và
+[PHASE_4_COMPLETION.md](PHASE_4_COMPLETION.md).
 `P3-02D-B` auto-close/fan-out/delivery cùng các lane
 worker/provider tiếp tục là carry-over, không bị coi là PASS.
 
 [P4-MEDIA-UX-00](P4_MEDIA_UX_00_RESEARCH_SPIKE.md) đã `DONE`: current official
 Zoom/Meet/LiveKit/browser evidence, V1 audit, isolated prototype và ADR-0031 đã chốt prejoin/lobby,
 grid/active-speaker/presentation 2-50, hand/reaction cùng `effect=None` baseline. Optional processor
-giữ off tới P4-11; task không đổi provider/authority hoặc `CanPublishData=false`.
+giữ off sau P4-11; task không đổi provider/authority hoặc `CanPublishData=false`.
 
 Phase 5 bắt đầu bằng [P5-COLLAB-00](P5_COLLAB_00_RESEARCH_SPIKE.md): so sánh engine,
 license, document authority và realtime topology bằng prototype/evidence trước khi thêm
-whiteboard dependency hoặc collaboration runtime. Task này là forward plan, không chặn
-P4-01 và không thay đổi exit gate Phase 4.
+whiteboard dependency hoặc collaboration runtime. Đây là task kế tiếp sau khi Phase 4 đã hoàn
+thành; chưa được thêm production dependency/runtime trước khi research, prototype, decision matrix
+và ADR đạt.
 
 ## Mô hình chuyển tiếp Phase 3 → Phase 4
 

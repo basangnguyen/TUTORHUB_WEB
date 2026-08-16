@@ -202,7 +202,7 @@ hoặc worker-driven file processing/sharing tới end user.
 | P4-09           | DONE       | Exact CI/shared/deploy/live reconnect acceptance PASS       |
 | P4-10           | DONE       | Exact CI/shared/deploy/live diagnostics acceptance PASS     |
 | P4-11           | DONE       | Exact CI + physical/load/rotation/outage gates PASS        |
-| P4-12           | IN PROGRESS | Exact staging acceptance và Phase 4 closure               |
+| P4-12           | DONE       | Exact staging acceptance và Phase 4 closure PASS           |
 
 Nguồn thực thi: `docs/PHASE_4_BACKLOG.md`; kiến trúc có thẩm quyền: ADR-0030. P1-07
 LiveKit token/webhook/prejoin/room code được tái sử dụng nhưng class-wide deterministic
@@ -281,8 +281,15 @@ dependency và giữ off tới exact browser/device/privacy/performance gate. Kh
 `CanPublishData=false` hoặc kết nối participant waiting vào provider trước admission.
 Load 25/50, provider dashboard/credential rotation, Windows 11 Chrome/Edge physical 10/10 và
 sustained active-room provider-outage/existing-room recovery đã PASS. Firefox, Safari/VoiceOver và
-low-end giữ `UNAVAILABLE`; final local verify/secret scan đã PASS, còn review/commit/push và fresh
-CI/security ở P4-11. Optional effect tiếp tục khóa `None`.
+low-end giữ `UNAVAILABLE`; final local verify/secret scan và exact CI/security P4-11 đều PASS.
+Optional effect tiếp tục khóa `None`.
+
+P4-12 đã `DONE` ngày 2026-08-16 trên backend candidate `3cd6448` và final web candidate `cca93c5`.
+Exact GitHub Verify/Security/Browser E2E/Cloudflare, disposable resolver/authority/concurrency/
+quota/privacy/runtime ACL, live Teacher/Student admission + end-room, Admin canary kill-switch và
+shared final snapshot `ledger=36 dirty=false media_features=false
+retained_enabled_media_overrides=0` đều PASS. Phase 4 đã hoàn thành; task kế tiếp là
+`P5-COLLAB-00` research spike. Phase 3 deferred carry-over không đổi trạng thái.
 
 Phase 4 không được làm mất Phase 3 carry-over register. Notification/email/reminder,
 durable worker và file-processing flags giữ off tới gate riêng; recording/egress cũng

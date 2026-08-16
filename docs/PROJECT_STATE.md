@@ -10,21 +10,31 @@
 | Repository           | `https://github.com/basangnguyen/TUTORHUB_WEB`                                        |
 | Nhánh làm việc       | `main`                                                                                |
 | Quy trình            | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
-| Phase hoàn thành     | Phase 0, Phase 1, Phase 2                                                             |
-| Phase hiện tại       | Phase 4 Classroom Media MVP; Phase 3 deferred carry-over vẫn hoạt động                |
-| Task `DONE` gần nhất | P4-11 Browser/device matrix, load và outage runbook                                     |
-| Mốc repository mới   | P4-11 exact candidate `edecf84` PASS Verify `31929104866`/Security `31929104924`        |
-| Task hiện tại        | P4-12 Exact staging acceptance và Phase 4 closure (`IN PROGRESS`)                      |
-| Task tiếp theo       | Đóng source-resolver/product launch gap rồi chạy exact disposable/staging gates        |
+| Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4                                                    |
+| Phase hiện tại       | Chuẩn bị Phase 5; Phase 3 deferred carry-over vẫn hoạt động                           |
+| Task `DONE` gần nhất | P4-12 Exact staging acceptance và Phase 4 closure                                    |
+| Mốc repository mới   | `cca93c5` PASS Verify `31946763549`/Security `31946763545`/Cloudflare                 |
+| Task hiện tại        | Không có task implementation mở; Phase 4 đã `DONE`                                   |
+| Task tiếp theo       | P5-COLLAB-00 research spike trước khi code collaboration/whiteboard                  |
 
-### Checkpoint P4-12 `IN PROGRESS` ngày 2026-08-16
+### Checkpoint P4-12 `DONE` và Phase 4 closure ngày 2026-08-16
 
-Acceptance contract được mở tại [P4_12_STAGING_ACCEPTANCE.md](P4_12_STAGING_ACCEPTANCE.md).
-Contract review xác nhận P4 lifecycle/backend, prejoin và room shell đã có, nhưng product UI vẫn
-đưa nút class-wide vào P1 prejoin và attendee chưa có read-only API để resolve MediaSpace theo
-ClassSession/StudyMeeting. P4-12 đang bổ sung source resolver fail-closed và launch action theo exact
-source trước khi tạo canary; chưa migrate/write shared staging, chưa deploy và hai media feature vẫn
-giữ off.
+P4-12 đã đóng source-resolver/product-launch gap cho ClassSession/StudyMeeting, fail closed
+missing/foreign/non-member và loại P1 route khi P4 feature bật. Candidate đầu `fb2df3e` không được
+dùng vì Verify fail; safety candidate `3cd6448` PASS Verify `31932897680`, Security
+`31932897725`, còn final admission-race fix `cca93c5` PASS Verify `31946763549`, Security
+`31946763545`, Browser E2E và Cloudflare Pages `95164026803`.
+
+P4-12 không có migration mới; disposable/shared giữ `36 false`, không rollback. Disposable exact
+ACL và resolver/authority/concurrency/privacy PASS; final disposable snapshot `dirty=false` và
+retention violation `0`. Teacher Chrome + Student Edge PASS official lobby/admit, hai participant,
+controlled end và terminal cleanup. Organization Admin đã tắt cả hai media capability; final shared
+read-only snapshot PASS với `ledger=36`, `dirty=false`, diagnostics `52`, expired/retention violation
+`0`, enabled media override `0`. Safari/VoiceOver, physical Firefox và low-end vẫn `UNAVAILABLE`.
+
+Phase 4 đã `DONE`; biên bản tại [PHASE_4_COMPLETION.md](PHASE_4_COMPLETION.md). Phase 3 deferred
+carry-over tiếp tục giữ nguyên và task kế tiếp là P5-COLLAB-00 research spike, chưa cho phép thêm
+production whiteboard/collaboration dependency trước evidence và ADR.
 
 ### Checkpoint P4-11 `DONE` ngày 2026-08-16
 

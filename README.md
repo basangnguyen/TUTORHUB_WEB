@@ -12,8 +12,8 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
 - **Phase 2 - Identity, tenant và class core** đã hoàn thành và được owner sign-off
   ngày 2026-07-22. P2-00 đến P2-12, staging acceptance, application rollback/redeploy
   và exit gate đều đạt.
-- **Phase 4 - Classroom Media MVP** đã mở sau khi P3-14-CORE đạt gate. Phase 3
-  deferred carry-over vẫn tiếp tục song song. P3-00,
+- **Phase 4 - Classroom Media MVP** đã `DONE` ngày 2026-08-16 sau P4-12 exact staging
+  acceptance và kill-switch closure. Phase 3 deferred carry-over vẫn tiếp tục song song. P3-00,
   P3-CAL-00/00B/00C, P3-CAL-01, P3-01, P3-02A, P3-02B và P3-02C đã `DONE`.
   ADR-0019 chấp nhận FullCalendar Standard v7.0.1 qua adapter, recurrence Go bounded
   `366/730/512/2.000/250 ms`, COUNT occurrence-last horizon validation, YEARLY golden,
@@ -141,7 +141,7 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
   post-live diagnostics-zero snapshot đều PASS. Render deployment `dep-da04pjegekts7395k1h0` đạt
   `Live`; Cloudflare Pages deployment `b8a42033-ce9a-486b-aa1b-f9d0302452c7` chạy đúng SHA. Live
   HTTP/privacy `10/10`, Admin feature-off/concealment/accessibility PASS; không rollback và
-  disposable branch tiếp tục được giữ lại. P4-11 là task tiếp theo.
+  disposable branch tiếp tục được giữ lại. Tại checkpoint này, P4-11 là task tiếp theo.
 - P4-11 Browser/device matrix, 25/50 load và provider-outage runbook đã `DONE`. Candidate
   ban đầu bổ sung Playwright Chromium/Firefox cùng WebKit-prejoin source supplement,
   deterministic fail-closed
@@ -159,10 +159,14 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
   Exact implementation candidate `50c256e` PASS GitHub Verify `31891519968` và Security
   `31891520024`; final fix candidate `edecf84` PASS Verify `31929104866` và Security
   `31929104924`. P4-11 đã đóng mà không deploy hoặc đổi shared environment.
-- P4-12 Exact staging acceptance và Phase 4 closure đang `IN PROGRESS`. Contract review phát hiện
-  source-resolver/product-launch gap giữa ClassSession/StudyMeeting và MediaSpace route P4; khoảng
-  trống này phải đóng trước disposable canary, shared staging hoặc feature activation. Contract:
-  [P4-12 acceptance](docs/P4_12_STAGING_ACCEPTANCE.md).
+- P4-12 Exact staging acceptance và Phase 4 closure đã `DONE` ngày 2026-08-16. Final candidate
+  `cca93c5402cb016c84111004b238f4efe9fa6c2a` PASS Verify `31946763549`, Security
+  `31946763545`, Browser E2E và Cloudflare Pages. Disposable/shared giữ `36 false`; source
+  resolver/authority/concurrency/privacy, exact ACL, Teacher Chrome + Student Edge lobby/admit/end
+  và shared final snapshot đều PASS. Organization Admin đã tắt cả hai media capability; final
+  enabled override bằng `0`. Phase 4 hoàn thành; task kế tiếp là P5-COLLAB-00 research spike.
+  Evidence: [P4-12 acceptance](docs/P4_12_STAGING_ACCEPTANCE.md) và
+  [Phase 4 completion](docs/PHASE_4_COMPLETION.md).
 - Web MVP nền đã chạy trên staging: Cloudflare Pages -> same-origin `/api/*` -> Go
   Core API trên Render; dữ liệu dùng Neon, file dùng Backblaze B2, media dùng LiveKit
   Cloud và xác thực dùng ZITADEL.
@@ -225,8 +229,10 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
 46. [ADR-0033: Classroom join telemetry/privacy/diagnostics export](docs/adr/0033-classroom-join-telemetry-privacy-and-diagnostics-export.md)
 47. [P4-10: Join telemetry/privacy/diagnostics staging acceptance](docs/P4_10_STAGING_ACCEPTANCE.md)
 48. [P4-11: Browser/device, 25/50 load và provider-outage acceptance](docs/P4_11_STAGING_ACCEPTANCE.md)
-49. [P4-04: Lobby/admission/invite staging acceptance](docs/P4_04_STAGING_ACCEPTANCE.md)
-50. [P5-COLLAB-00: Whiteboard engine và collaboration topology research spike](docs/P5_COLLAB_00_RESEARCH_SPIKE.md)
+49. [P4-12: Exact staging acceptance và Phase 4 closure](docs/P4_12_STAGING_ACCEPTANCE.md)
+50. [Biên bản hoàn thành Phase 4](docs/PHASE_4_COMPLETION.md)
+51. [P4-04: Lobby/admission/invite staging acceptance](docs/P4_04_STAGING_ACCEPTANCE.md)
+52. [P5-COLLAB-00: Whiteboard engine và collaboration topology research spike](docs/P5_COLLAB_00_RESEARCH_SPIKE.md)
 
 Các quyết định kiến trúc đã chấp nhận nằm trong `docs/adr`.
 
