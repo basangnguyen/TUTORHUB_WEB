@@ -25,6 +25,7 @@
     "e2e:media-fixture": "playwright test --config playwright.media-fixture.config.ts",
     "e2e:media:p411:browser-supplement": "playwright test --config playwright.p4-11.config.ts",
     "e2e:media:p411:windows-installed": "playwright test --config playwright.p4-11-windows.config.ts",
+    "p4-11:physical": "node scripts/p4-11-physical.mjs",
     "e2e:typecheck": "tsc -p tsconfig.e2e.json --pretty false",
     "local:setup": "node scripts/local-dev.mjs setup",
     "local:status": "node scripts/local-dev.mjs status",

@@ -3,9 +3,10 @@
 ## 1. Trạng thái
 
 `IN PROGRESS` — acceptance contract, automated source supplement, isolated LiveKit load harness và
-provider-outage runbook đã được tạo. Quota-approved profile 25/50 cùng Core API health sampling đã
-PASS; actual isolated credential rotation cũng PASS. Physical browser/device,
-accessibility và sustained outage/existing-room recovery drill chưa được suy PASS.
+provider-outage runbook đã được tạo. Quota-approved profile 25/50, Core API health sampling, actual
+isolated credential rotation, Windows 11 Chrome/Edge physical 10-round matrix và sustained
+active-room outage/recovery đều PASS. Firefox Windows, Safari/VoiceOver macOS và low-end rows không
+có host nên giữ `UNAVAILABLE`; final candidate CI/security còn chờ chạy lại.
 
 P4-11 không có migration, không cần Neon disposable và không thay đổi production capability. Hai
 media feature tiếp tục force-off cho tới P4-12 rollout acceptance.
@@ -34,8 +35,8 @@ RAM, camera/mic/speaker, network profile và kết quả PASS/FAIL.
 
 | Tier | Thiết bị vật lý | Browser | Media profile | Accessibility | Trạng thái |
 | --- | --- | --- | --- | --- | --- |
-| A | Windows 11, máy pilot chuẩn, webcam/headset thật | Chrome stable hiện tại | 720p/540p/360p | keyboard + NVDA | UNVERIFIED — physical A/V và NVDA chưa chạy |
-| A | Windows 11, máy pilot chuẩn, webcam/headset thật | Edge stable hiện tại | 720p/540p/360p | keyboard + NVDA | UNVERIFIED — physical A/V và NVDA chưa chạy |
+| A | Windows 11, máy pilot chuẩn, webcam/headset thật | Chrome stable hiện tại | 720p/540p/360p | keyboard + NVDA | PASS — 10 paired rounds distributed 4×720p/3×540p/3×360p |
+| A | Windows 11, máy pilot chuẩn, webcam/headset thật | Edge stable hiện tại | 720p/540p/360p | keyboard + NVDA | PASS — 10 paired rounds distributed 4×720p/3×540p/3×360p |
 | A | macOS pilot, camera/mic/speaker tích hợp | Safari stable hiện tại | 720p/540p/360p | keyboard + VoiceOver | UNAVAILABLE — không có máy macOS trong lượt này |
 | B | Windows 11, máy low-end/iGPU | Chrome hoặc Edge stable | 540p/360p, audio-only | keyboard + 200% | UNAVAILABLE — host hiện tại không phải low-end |
 | B | Windows 11, máy pilot chuẩn | Firefox stable/ESR | 540p/360p, audio-only | keyboard + NVDA | UNAVAILABLE — không có Firefox cài vật lý |
@@ -45,19 +46,68 @@ Tuyên bố pilot chỉ được công bố sau khi Tier A PASS. Firefox là fal
 PASS; low-end cap phải ghi đúng mức 360p/540p/audio-only đã đo. Browser/version chưa chạy phải ghi
 `UNVERIFIED`, không ghi “supported” theo suy luận từ engine.
 
+**Support statement P4-11:** private-alpha Classroom Media được hỗ trợ trên Windows 11 build `26200`
+với Chrome `151.0.7922.138` và Edge `151.0.4129.78` trên máy pilot chuẩn, profile
+360p/540p/720p, keyboard + NVDA `2026.1.1`. Maximum tested classroom cap là `50`. Firefox,
+Safari/macOS/VoiceOver và máy low-end chưa được tuyên bố hỗ trợ vì không có host vật lý trong lượt
+này. Production effect giữ `None`.
+
 ### Checklist cho từng hàng vật lý
 
-- [ ] Permission prompt đầu tiên và lần quay lại; denied, dismissed và policy-blocked đều có đường
+- [x] Permission prompt đầu tiên và lần quay lại; denied, dismissed và policy-blocked đều có đường
       listen-only hoặc lỗi typed, không lộ device label trước permission.
-- [ ] Chọn camera/mic/speaker; đổi device giữa phiên; unplug/replug; no-device và device-busy.
-- [ ] Preview, mute/unmute, camera off/on, screen-share start/stop/cancel và browser share picker.
-- [ ] Autoplay/speaker test; audio còn sống khi video giảm chất lượng hoặc chuyển audio-only.
-- [ ] Grid/speaker/presentation ở 2/5/25/50, pin/unpin, pagination và participant drawer.
-- [ ] Reconnect/offline/retry, removed/ended room không auto-rejoin, leave tắt mọi track/indicator.
-- [ ] 200% zoom, 320 CSS px, forced colors, reduced motion, focus restore và không keyboard trap.
-- [ ] NVDA hoặc VoiceOver đọc đúng heading/control/state, hand queue/reaction/moderation/live region.
-- [ ] 10 vòng join/leave hoặc effect lifecycle không để camera/mic indicator, track, worker hay object
+- [x] Chọn camera/mic/speaker; đổi device giữa phiên; unplug/replug; no-device và device-busy.
+- [x] Preview, mute/unmute, camera off/on, screen-share start/stop/cancel và browser share picker.
+- [x] Autoplay/speaker test; audio còn sống khi video giảm chất lượng hoặc chuyển audio-only.
+- [x] Grid/speaker/presentation ở 2/5/25/50, pin/unpin, pagination và participant drawer.
+- [x] Reconnect/offline/retry, removed/ended room không auto-rejoin, leave tắt mọi track/indicator.
+- [x] 200% zoom, 320 CSS px, forced colors, reduced motion, focus restore và không keyboard trap.
+- [x] NVDA đọc đúng heading/control/state, hand queue/reaction/moderation/live region trên declared
+      Windows pilot; VoiceOver giữ `UNAVAILABLE` vì không có macOS host.
+- [x] 10 vòng join/leave hoặc effect lifecycle không để camera/mic indicator, track, worker hay object
       URL sống sót. Nếu không đo được, ghi FAIL/UNVERIFIED.
+
+### Harness vật lý local-only cho Chrome/Edge + NVDA
+
+Harness này chỉ phục vụ hai hàng Tier A trên Windows hiện tại. Nó dùng project LiveKit test trong
+`.env.p4-11-livekit.local`, tự nạp file trong Go process và không in giá trị. Credential boundary chỉ
+bind `127.0.0.1:4179`, khóa Origin `http://127.0.0.1:5173`, cấp token 10 phút vào React memory và từ
+chối cleanup khi vẫn còn participant. Trang không thuộc Vite production input; mở trang không tự gọi
+camera/microphone, chỉ nút `Bắt đầu preview` mới xin permission.
+
+Chạy tại repository root:
+
+```powershell
+pnpm.cmd p4-11:physical
+```
+
+Launcher chỉ in hai URL không nhạy cảm:
+
+- Chrome / Teacher: `http://127.0.0.1:5173/p4-11-physical.html?role=teacher`
+- Edge / Student: `http://127.0.0.1:5173/p4-11-physical.html?role=student`
+
+Quy trình mỗi vòng:
+
+1. Mở đúng URL trong Chrome và Edge; bật NVDA trên browser/role đang kiểm tra.
+2. Bấm `Bắt đầu preview`, xử lý permission prompt, xác nhận preview/mic meter; chọn camera, mic, loa và
+   chạy `Test loa`. Không ghi device label vào evidence.
+3. Chọn profile `720p`, `540p` hoặc `360p`, rồi bấm `Join LiveKit test` ở cả hai browser. Profile này
+   là capture constraint thật khi LiveKit publish, không chỉ đổi nhãn UI.
+4. Kiểm tra mute/camera/share, layout, participant drawer, hand/reaction và live region. Hand/reaction/
+   moderation trong harness là projection UI mô phỏng có nhãn rõ để kiểm tra NVDA; không được ghi như
+   bằng chứng Core API authority/provider moderation.
+5. Với reconnect, ngắt network 10-20 giây, xác nhận `reconnecting`, bật lại network và xác nhận A/V.
+   Không revoke key hoặc tác động project shared trong bước này.
+6. Rời phòng ở cả hai browser. Trên một trang bấm `Làm mới trạng thái`, rồi `Xác minh cleanup zero`;
+   chỉ PASS vòng khi `room_exists=false`, `participant_count=0`, `cleanup_zero=true` và indicator
+   camera/mic của cả hai browser đã tắt. Cleanup lúc còn participant phải trả conflict có kiểm soát.
+7. Lặp 10 vòng, phân bố tối thiểu: 4 vòng 720p, 3 vòng 540p, 3 vòng 360p. Chỉ nhấn `Ctrl+C` sau vòng
+   cuối khi cleanup zero; shutdown cũng thử cleanup fail-closed và chỉ log boolean.
+
+Evidence không chứa URL credential, token, room name, participant identity hoặc device label. Ghi
+OS/browser/NVDA build, profile, permission/device/A/V/reconnect/a11y PASS/FAIL, cleanup boolean và ghi
+chú lỗi đã chuẩn hóa. Harness/unit/lint PASS chỉ có nghĩa tooling sẵn sàng; ma trận physical vẫn
+`UNVERIFIED` cho tới khi người vận hành thực hiện và xác nhận từng hàng.
 
 ### Ma trận Windows binary cài thật — automated supplement
 
@@ -281,14 +331,60 @@ reader; 10-cycle processor/worker/track/object-URL cleanup. Bất kỳ gate nào
 
 ### Physical browser/device
 
-- Status: `UNVERIFIED`.
-- Exact physical Edge/Chrome/Firefox Windows, Safari macOS, low-end, 360p/540p/720p,
-  NVDA/VoiceOver và 10-cycle cleanup chưa có evidence.
+- Status: `PASS — Windows 11 Chrome/Edge physical rounds 10/10 (4×720p, 3×540p, 3×360p)`.
+- Exact Windows 11 Chrome/Edge pilot, 360p/540p/720p, keyboard/NVDA và 10-cycle cleanup đã có
+  evidence. Firefox Windows, Safari/VoiceOver macOS và low-end rows vẫn `UNAVAILABLE`; không suy
+  support từ browser engine hoặc máy pilot hiện tại.
+- Owner xác nhận paired Chrome/Teacher + Edge/Student 720p round đầu PASS ngày 2026-08-16. Edge ban
+  đầu trả đúng typed `media_device_busy_or_unreadable` khi Chrome đang giữ webcam; sau khi giải phóng
+  camera, retry nhận thiết bị và speaker test PASS. Kết thúc vòng trả bounded cleanup
+  `room_exists=false`, `participant_count=0`, `cleanup_zero=true`. Ảnh nguồn không đưa vào repository
+  vì hiển thị device label thật; ledger chỉ giữ kết quả đã giới hạn. Vòng 1 riêng không suy NVDA,
+  reconnect, share, 540p/360p hoặc toàn bộ Tier A PASS.
+- Owner xác nhận paired 720p round 2/10 + NVDA PASS ngày 2026-08-16: heading navigation, keyboard
+  controls, hand/reaction/moderation state và live-region announcements đạt checklist; cuối vòng
+  cleanup zero theo quy trình. Evidence này đóng NVDA scenario của vòng 2 nhưng chưa thay reconnect,
+  screen share, 540p/360p, tám vòng còn lại hoặc toàn bộ Tier A.
+- Owner xác nhận paired 720p round 3/10 share/layout PASS ngày 2026-08-16: share picker cancel,
+  screen-share start/stop, remote visibility, Grid/Speaker/Presentation, pin/unpin và participant
+  roster đạt checklist; cuối vòng cleanup zero. Evidence này chưa thay reconnect, 540p/360p, bảy
+  vòng còn lại hoặc toàn bộ Tier A.
+- Owner xác nhận paired 720p round 4/10 reconnect PASS ngày 2026-08-16: A/V đang hoạt động trước khi
+  ngắt mạng 10-15 giây, UI/NVDA chuyển `reconnecting`, kết nối và A/V tự khôi phục, không duplicate
+  participant hoặc tạo thêm phòng, Leave tiếp tục hoạt động và cuối vòng cleanup zero. Bốn vòng
+  720p đã đủ phân bố; 540p/360p và sáu vòng còn lại chưa được suy PASS.
+- Owner xác nhận paired 540p round 5/10 media controls PASS ngày 2026-08-16: mute/unmute, camera
+  off/on, remote audio duy trì trong 30 giây khi video tắt, video phục hồi khi bật lại, không duplicate
+  participant và cuối vòng cleanup zero. Hai vòng 540p và ba vòng 360p còn lại chưa được suy PASS.
+- Owner xác nhận paired 540p round 6/10 device recovery PASS ngày 2026-08-16: device-change/recovery
+  hoàn tất, UI phản ánh trạng thái thiết bị, media phục hồi không duplicate participant và cuối vòng
+  cleanup zero. Một vòng 540p và ba vòng 360p còn lại chưa được suy PASS.
+- Owner xác nhận paired 540p round 7/10 reflow/keyboard PASS ngày 2026-08-16: 200% zoom, narrow
+  viewport, focus-visible, keyboard traversal không trap, media controls/Leave còn thao tác được,
+  media tiếp tục hoạt động và cuối vòng cleanup zero. Ba vòng 360p còn lại chưa được suy PASS.
+- Owner xác nhận paired 360p round 8/10 degraded audio-only PASS ngày 2026-08-16: audio/video hai
+  chiều hoạt động, remote audio và controls duy trì khi camera tắt 60 giây, video phục hồi không
+  duplicate participant và cuối vòng cleanup zero. Hai vòng 360p còn lại chưa được suy PASS.
+- Owner xác nhận paired 360p round 9/10 forced-colors/reduced-motion PASS ngày 2026-08-16: contrast,
+  text/focus/control/state visibility, keyboard/media operation và reduced-motion behavior đạt
+  checklist; cuối vòng cleanup zero. Vòng 360p cuối chưa được suy PASS.
+- Owner xác nhận paired 360p round 10/10 lifecycle cleanup PASS ngày 2026-08-16: screen-share
+  start/stop, teacher-first Leave không auto-rejoin, remaining participant/media tiếp tục hoạt động,
+  final Leave tắt camera/mic/share indicator và bounded state trả `room_exists=false`,
+  `participant_count=0`, `cleanup_zero=true`. Windows 11 Chrome/Edge physical distribution hoàn tất
+  đúng `4×720p`, `3×540p`, `3×360p`.
+- Local-only physical harness đã được tạo với explicit preview, speaker/device selector, publish
+  profile 720p/540p/360p, memory-only 10-minute token, exact loopback CORS, bounded status và
+  participant-safe cleanup. Đây là readiness evidence, không tự đóng physical gate.
+- Read-only isolated-provider startup smoke PASS: boundary tự nạp file ignored trong cùng process,
+  không in credential, không tạo room và trả đúng bounded state `room_exists=false`,
+  `participant_count=0`, `cleanup_zero=true`.
+- Exact launcher smoke PASS: physical page trả `200`, boundary preflight trả `204`, CORS origin khớp
+  tuyệt đối và hai port `4179/5173` đều đóng sau khi dừng harness.
 
 ### Provider load/outage
 
-- Status: `LOAD + DASHBOARD + ACTUAL CREDENTIAL ROTATION PASS`; sustained outage/existing-room
-  recovery vẫn `UNVERIFIED`.
+- Status: `LOAD + DASHBOARD + ACTUAL CREDENTIAL ROTATION + SUSTAINED OUTAGE/RECOVERY PASS`.
 - Isolated profile 25 PASS ngày 2026-08-15: `25/25` join, success `10000 bp`, connect p95 `4331 ms`,
   TTM p95 `6021 ms`, `24/24` subscriber nhận synthetic microphone, sustain `120 s`; Core API có
   `126` request `/health` + `/ready`, `0` transport/status/endpoint failure, p95 `426 ms`; room cleanup
@@ -301,8 +397,9 @@ reader; 10-cycle processor/worker/track/object-URL cleanup. Bất kỳ gate nào
   `53639968/1`.
 - Từ 25 lên 50, active heap tăng `1.33x`, active goroutine tăng đúng `2x`, post-cleanup goroutine giữ
   `+1`; không có dấu hiệu superlinear/goroutine leak trong hai profile. Maximum tested cap là `50`.
-- Existing-room behavior và 10-cycle provider cleanup đã PASS ở isolated smoke. Physical media/
-  NVDA/macOS/low-end và sustained outage drill vẫn `UNVERIFIED/UNAVAILABLE`.
+- Existing-room behavior và 10-cycle provider cleanup đã PASS ở isolated smoke. Windows 11
+  Chrome/Edge physical media + NVDA đã PASS 10/10; macOS/VoiceOver, Firefox cài thật và low-end giữ
+  `UNAVAILABLE`.
 - Profile 50 đồng bộ với host sampler PASS: `61` mẫu, CPU tổng peak `48%`, network tổng peak
   `2263941 B/s`, free RAM tối thiểu `6201416 KiB`; tải vẫn `50/50`, TTM p95 `8679 ms`, health
   `132/132`, cleanup `0`. Metric host không thay provider dashboard.
@@ -325,6 +422,23 @@ reader; 10-cycle processor/worker/track/object-URL cleanup. Bất kỳ gate nào
   session, average room size `19`, average duration `1` phút. Ba ảnh không chứa key/secret/token,
   participant identity hay session detail; provider project id/label và aggregate metrics là bounded
   evidence.
+- Actual isolated active-room outage/recovery PASS ngày 2026-08-16 trên project label
+  `tutorhub-v2-p411-load`. Baseline có `room_exists=true`, `participant_count=2`,
+  `cleanup_zero=false`. Sau khi owner revoke đúng temporary outage key, boundary trả HTTP `503`
+  typed `provider_unavailable`; old-key probe trả `typed_unavailable=true`, `room_created=false`.
+  Wi-Fi loss 120 giây làm UI vào `reconnecting`; sau restore, phiên chuyển terminal/prejoin và không
+  auto-rejoin. Manual retry bằng revoked key bị provider từ chối, không tạo authority mới; trạng thái
+  trung gian hiển thị trong phòng vài giây không được ghi thành join thành công vì sau đó provider trả
+  `401/503` và client fail closed về prejoin.
+- Recovery credential terminate đúng opaque room về `room_exists=false`, `participant_count=0`,
+  `cleanup_zero=true`. Focused recovery probe giữ existing-room authority, tạo/cleanup successor và
+  post-rotation room; recovery/concurrency/idempotency regressions đều PASS. Ảnh DevTools có token
+  fragment không được sao chép vào repository/evidence; ledger chỉ giữ typed/boolean bounded result.
+- Final candidate local verify PASS ngày 2026-08-16 trong `171 s`: format/API generation,
+  lint/typecheck, web `70/70` files và `438/438` tests, build/Storybook, bundle security và toàn bộ Go
+  test/vet đều xanh. Focused physical harness Go test/vet và web regression cũng PASS. Candidate scan
+  có `15` file, không có `.env`, ảnh, cache hoặc high-risk token/credential pattern; hai local port
+  `4179/5173` đều đã đóng. Fresh GitHub CI/security vẫn còn chờ commit/push.
 
 ## 9. Điều kiện chuyển trạng thái
 

@@ -6,16 +6,16 @@
 
 | Thuộc tính           | Trạng thái                                                                            |
 | -------------------- | ------------------------------------------------------------------------------------- |
-| Ngày cập nhật        | 2026-08-15                                                                            |
+| Ngày cập nhật        | 2026-08-16                                                                            |
 | Repository           | `https://github.com/basangnguyen/TUTORHUB_WEB`                                        |
 | Nhánh làm việc       | `main`                                                                                |
 | Quy trình            | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
 | Phase hoàn thành     | Phase 0, Phase 1, Phase 2                                                             |
 | Phase hiện tại       | Phase 4 Classroom Media MVP; Phase 3 deferred carry-over vẫn hoạt động                |
 | Task `DONE` gần nhất | P4-10 Join telemetry, privacy và diagnostics export                                    |
-| Mốc repository mới   | P4-11 candidate `50c256e` PASS GitHub Verify/Security; external gates vẫn mở            |
+| Mốc repository mới   | P4-11 initial candidate `50c256e` PASS CI; physical evidence local chờ final candidate   |
 | Task hiện tại        | P4-11 Browser/device matrix, load và outage runbook (`IN PROGRESS`)                    |
-| Task tiếp theo       | Physical matrix/accessibility và sustained outage/existing-room recovery               |
+| Task tiếp theo       | Candidate review/commit/push và fresh GitHub Verify/Security                            |
 
 ### Checkpoint P4-11 `IN PROGRESS` ngày 2026-08-15
 
@@ -39,8 +39,10 @@ unit/integration compile và integration vet. Windows sandbox ban đầu chặn 
 exact rerun ngoài sandbox PASS. Full `pnpm verify` trước provider refinement PASS trong 218,1 giây,
 gồm API client `53/53`, web `69/69` files và `437/437` tests, build/security cùng toàn bộ Go test/vet.
 Exact implementation candidate `50c256eb29bb0438016690a91803c302ac6e0a02` PASS GitHub Verify
-`31891519968` và Security `31891520024`. Physical devices/accessibility và sustained
-outage/existing-room recovery vẫn `PENDING/UNVERIFIED`, nên P4-11 giữ `IN PROGRESS`.
+`31891519968` và Security `31891520024`. Windows 11 Chrome/Edge physical devices/accessibility sau
+đó PASS 10/10 ở local evidence. Sustained active-room outage/existing-room recovery cũng PASS ngày
+2026-08-16; final candidate local verify đã PASS, fresh CI/security vẫn `PENDING`, nên P4-11 giữ
+`IN PROGRESS`.
 
 Windows installed-browser automated supplement sau đó PASS `48/48` trong `84.1 s`: Chrome
 `151.0.7922.138` đạt `24/24`, Edge `151.0.4129.78` đạt `24/24`, gồm deterministic permission/prejoin,
@@ -73,8 +75,8 @@ Actual isolated credential rotation sau đó PASS trên project `tutorhub-v2-p41
 lúc `2026-08-15T22:34:12+07:00`: key mới pre-revoke tạo/cleanup room về `0`; sau khi owner revoke key
 cũ, credential cũ fail closed thành typed unavailable và không tạo room; credential mới tiếp tục
 tạo/cleanup room về `0`. Probe nạp hai file local Git-ignored trong process riêng, không in URL/key/
-secret. Owner đã xóa file credential cũ sau khi evidence được chốt; physical A/V/accessibility và
-sustained outage recovery vẫn còn mở.
+secret. Owner đã xóa file credential cũ sau khi evidence được chốt; physical A/V/accessibility đã
+được đóng ở physical matrix 10/10.
 
 Profile 50 được chạy lại cùng host sampler `61` mẫu và tiếp tục PASS: `50/50` join, connect/TTM p95
 `7711/8679 ms`, `49/49` delivery, `132` health probe không lỗi, cleanup `0`; CPU tổng peak `48%`,
@@ -89,6 +91,50 @@ bucket `20:00-21:00` ngày 2026-08-15 có project-level max active participants 
 upstream `55.18/2.8 MB`. Dashboard ghi `14` room session, average room size `19`, duration `1` phút.
 Đây là aggregate nhiều session test, không đổi maximum tested classroom cap `50`. Privacy review ba
 ảnh PASS: không có key/secret/token, participant identity hay session detail.
+
+Physical Chrome/Edge + NVDA harness local-only hiện đã được triển khai: Go boundary bind đúng
+`127.0.0.1:4179`, chỉ nhận Origin Vite loopback, tự nạp file LiveKit ignored mà không log giá trị,
+cấp token 10 phút vào memory và từ chối cleanup khi participant còn hoạt động. Vite có entry riêng
+chỉ cho development, explicit permission/preview, camera/mic/speaker selection, speaker test và
+publish profile thật 720p/540p/360p; classroom shell dùng LiveKit thật, còn hand/reaction/moderation
+được gắn nhãn projection mô phỏng chỉ để kiểm tra NVDA. Go boundary test, web typecheck và lint PASS.
+Web regression `437/437` và production build PASS; exact exclusion probe xác nhận physical entry
+không xuất hiện trong production output. Read-only LiveKit test smoke cũng PASS với trạng thái sạch
+`room_exists=false`, `participant_count=0`, `cleanup_zero=true`, không tạo room. Exact launcher smoke
+trả page `200`, preflight `204`, exact CORS PASS và không để port listener sau khi dừng.
+
+Bốn physical paired round ở profile 720p được owner xác nhận PASS ngày 2026-08-16. Vòng 1 gồm typed
+`media_device_busy_or_unreadable` đúng lúc Chrome giữ webcam, retry thành công sau khi giải phóng
+camera, speaker test và cleanup `room_exists=false`, `participant_count=0`, `cleanup_zero=true`;
+không đưa ảnh nguồn có device label thật vào repository. Vòng 2 + NVDA PASS heading navigation,
+keyboard controls, hand/reaction/moderation state và live-region announcements, rồi cleanup zero.
+Vòng 3 share/layout PASS picker cancel, start/stop, remote visibility, Grid/Speaker/Presentation,
+pin/unpin, roster và cleanup zero. Vòng 4 reconnect PASS sau network loss 10-15 giây: UI/NVDA
+`reconnecting`, A/V tự khôi phục, không duplicate participant/phòng, Leave và cleanup zero PASS.
+Physical paired 540p round 5/10 media controls sau đó được owner xác nhận PASS: mute/unmute, camera
+off/on, remote audio duy trì 30 giây khi video tắt, video phục hồi, không duplicate participant và
+cleanup zero. Round 6/10 device recovery ở 540p cũng được owner xác nhận PASS: device-change/recovery,
+trạng thái UI, media recovery không duplicate participant và cleanup zero đều đạt. Round 7/10 540p
+reflow/keyboard tiếp tục PASS ở 200% zoom/narrow viewport, focus-visible, keyboard traversal không
+trap, media/Leave còn dùng được và cleanup zero. Round 8/10 degraded audio-only ở 360p cũng được
+owner xác nhận PASS: remote audio/controls duy trì khi camera tắt 60 giây, video phục hồi không
+duplicate participant và cleanup zero. Round 9/10 360p forced-colors/reduced-motion tiếp tục PASS
+cho contrast, text/focus/control/state visibility, keyboard/media operation và cleanup zero. Evidence
+physical Windows 11 Chrome/Edge hoàn tất ở round 10/10 360p lifecycle cleanup: teacher-first Leave
+không auto-rejoin, remaining participant/media tiếp tục hoạt động, final Leave tắt camera/mic/share
+indicator và bounded cleanup trả zero. Physical distribution đạt `10/10` (`4×720p`, `3×540p`,
+`3×360p`). Firefox Windows, Safari/VoiceOver macOS và low-end vẫn `UNAVAILABLE`.
+
+Sustained active-room outage/recovery PASS ngày 2026-08-16: hai participant cùng ở exact room trước
+khi temporary key bị revoke; boundary và old-key probe fail closed thành typed unavailable, không tạo
+room mới. Wi-Fi loss 120 giây đưa UI vào `reconnecting`, sau đó terminal/prejoin và không auto-rejoin;
+manual retry bằng revoked key bị `401/503` từ chối. Recovery credential cleanup exact opaque room về
+`room_exists=false`, `participant_count=0`, `cleanup_zero=true`; successor/post-rotation probe và
+recovery/concurrency/idempotency regressions PASS. Không lưu screenshot DevTools/token fragment.
+Final candidate local verify sau đó PASS trong `171 s`: web `70/70` files, `438/438` tests,
+format/API/lint/typecheck/build/Storybook/security và toàn bộ Go test/vet xanh; candidate secret scan
+không có `.env`, ảnh, cache hoặc high-risk pattern. P4-11 tiếp tục `IN PROGRESS` chỉ để review,
+commit/push và chạy fresh GitHub CI/security.
 
 ### Checkpoint P4-10 `DONE` ngày 2026-08-15
 

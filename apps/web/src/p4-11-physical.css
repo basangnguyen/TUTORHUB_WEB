@@ -1,0 +1,128 @@
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background: #08111f;
+  color: #f4f7fb;
+}
+
+.p411-physical {
+  min-height: 100vh;
+  padding: 24px;
+  box-sizing: border-box;
+}
+
+.p411-physical-header,
+.p411-physical-prejoin,
+.p411-physical-status {
+  width: min(100%, 1040px);
+  margin: 0 auto 20px;
+}
+
+.p411-physical-header h1,
+.p411-physical-prejoin h2 {
+  margin: 0 0 8px;
+}
+
+.p411-physical-notice {
+  padding: 12px 16px;
+  border: 1px solid #33547a;
+  border-radius: 10px;
+  background: #10243b;
+  line-height: 1.5;
+}
+
+.p411-physical-prejoin {
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) minmax(280px, 1fr);
+  gap: 20px;
+  padding: 20px;
+  border: 1px solid #29415e;
+  border-radius: 14px;
+  background: #0d1a2a;
+  box-sizing: border-box;
+}
+
+.p411-physical-preview {
+  width: 100%;
+  min-height: 260px;
+  border-radius: 12px;
+  background: #03070c;
+  object-fit: cover;
+}
+
+.p411-physical-controls {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+}
+
+.p411-physical-controls label {
+  display: grid;
+  gap: 6px;
+  font-weight: 600;
+}
+
+.p411-physical-controls select,
+.p411-physical-controls button {
+  min-height: 44px;
+  border: 1px solid #4b6f99;
+  border-radius: 8px;
+  padding: 8px 12px;
+  background: #132a45;
+  color: inherit;
+  font: inherit;
+}
+
+.p411-physical-controls button {
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.p411-physical-controls button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.p411-physical-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.p411-physical-meter {
+  display: grid;
+  gap: 6px;
+}
+
+.p411-physical-meter progress {
+  width: 100%;
+  height: 16px;
+}
+
+.p411-physical-status {
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: #10243b;
+  box-sizing: border-box;
+}
+
+.p411-physical-room-note {
+  position: relative;
+  z-index: 20;
+  margin: 0;
+  padding: 10px 16px;
+  background: #5b3b00;
+  color: #fff4d1;
+  text-align: center;
+}
+
+@media (max-width: 760px) {
+  .p411-physical {
+    padding: 12px;
+  }
+
+  .p411-physical-prejoin {
+    grid-template-columns: 1fr;
+  }
+}

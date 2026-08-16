@@ -5,13 +5,13 @@
 | Thuộc tính            | Giá trị                                                                                      |
 | --------------------- | -------------------------------------------------------------------------------------------- |
 | Phiên bản tài liệu    | 2.4                                                                                          |
-| Cập nhật              | 2026-08-15                                                                                   |
+| Cập nhật              | 2026-08-16                                                                                   |
 | Phạm vi ưu tiên       | Web application                                                                              |
 | Thư mục phát triển    | `D:\TutorHub_V2`                                                                             |
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
 | Phase hiện tại        | Phase 4 - Classroom Media MVP; Phase 3 deferred carry-over tiếp tục                          |
-| Trạng thái gần nhất   | P4-11 `IN PROGRESS`; load/dashboard/rotation PASS, physical/outage còn mở              |
+| Trạng thái gần nhất   | P4-11 `IN PROGRESS`; local/provider gates PASS, final commit/CI còn mở                  |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 
@@ -2196,8 +2196,12 @@ forward-only `35 false -> 36 false -> 36 false`, exact ACL, Render `dep-da04pjeg
 Cloudflare Pages exact deploy. Live HTTP/privacy `10/10`, Admin feature-off/concealment/
 accessibility và post-live diagnostics-zero snapshot đều PASS; không rollback, disposable branch
 được giữ lại và hai media capability tiếp tục force-off.
-Physical/manual browser-device,
-25/50 provider load, outage và optional-effect gates vẫn `UNVERIFIED — P4-11`, không suy PASS.
+P4-11 đã PASS provider load 25/50, dashboard/credential rotation, Windows 11 Chrome/Edge physical
+10/10 (`4×720p`, `3×540p`, `3×360p`, keyboard + NVDA) và sustained active-room
+provider-outage/existing-room recovery. Firefox, Safari/VoiceOver và low-end giữ `UNAVAILABLE`;
+optional effect tiếp tục khóa `None`, không suy PASS hoặc bật production effect. Final local verify
+và secret scan đã PASS; review/commit/push cùng fresh CI/security còn bắt buộc trước khi chuyển task
+sang `DONE`.
 Không bật side effect chỉ vì core đã có. `P3-02D-B` và các gate worker/provider vẫn là
 carry-over.
 AWS SES đã được chọn làm provider target nhưng

@@ -12,6 +12,7 @@ import {
   Room,
   RoomEvent,
   getLogger,
+  type VideoCaptureOptions,
 } from "livekit-client";
 import {
   useCallback,
@@ -45,6 +46,7 @@ export interface ClassroomLiveKitRoomProps {
   lobby?: ReactNode;
   moderation?: ClassroomModerationControlsModel;
   signals?: ClassroomSignalControls;
+  videoCaptureOverride?: VideoCaptureOptions;
   onConnected: () => void;
   onReconnecting: () => void;
   onDisconnected: (reason?: DisconnectReason) => void;
@@ -112,6 +114,7 @@ function ConnectedClassroomLiveKitRoom({
   lobby,
   moderation,
   signals,
+  videoCaptureOverride,
   onConnected,
   onReconnecting,
   onDisconnected,
@@ -134,12 +137,20 @@ function ConnectedClassroomLiveKitRoom({
       canPublishCameraMicrophone ? roomAudioCaptureOptions(choices) : false,
     [canPublishCameraMicrophone, choices],
   );
-  const videoCaptureOptions = useMemo<false | { deviceId?: string }>(
+  const videoCaptureOptions = useMemo<false | VideoCaptureOptions>(
     () =>
       canPublishCameraMicrophone && choices.videoEnabled
-        ? { deviceId: choices.videoDeviceId || undefined }
+        ? {
+            ...videoCaptureOverride,
+            deviceId: choices.videoDeviceId || undefined,
+          }
         : false,
-    [canPublishCameraMicrophone, choices.videoDeviceId, choices.videoEnabled],
+    [
+      canPublishCameraMicrophone,
+      choices.videoDeviceId,
+      choices.videoEnabled,
+      videoCaptureOverride,
+    ],
   );
 
   const disconnectRoom = useCallback(() => lifecycle.disconnect(), [lifecycle]);

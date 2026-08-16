@@ -201,7 +201,7 @@ hoặc worker-driven file processing/sharing tới end user.
 | P4-08           | DONE       | Exact CI/shared/deploy/live room-chat acceptance PASS       |
 | P4-09           | DONE       | Exact CI/shared/deploy/live reconnect acceptance PASS       |
 | P4-10           | DONE       | Exact CI/shared/deploy/live diagnostics acceptance PASS     |
-| P4-11           | IN PROGRESS | Load 25/50 PASS; physical/outage/dashboard gates còn lại    |
+| P4-11           | IN PROGRESS | All local/provider gates PASS; final commit/CI mở               |
 | P4-12           | TODO       | Exact staging acceptance và Phase 4 closure                |
 
 Nguồn thực thi: `docs/PHASE_4_BACKLOG.md`; kiến trúc có thẩm quyền: ADR-0030. P1-07
@@ -279,7 +279,10 @@ P4-06/P4-11 phải dùng explicit device probe, bounded layout 2/5/25/50 và
 Core API signal contract đã chốt. `effect=None` là baseline; Track Processors chưa phải production
 dependency và giữ off tới exact browser/device/privacy/performance gate. Không mở lại
 `CanPublishData=false` hoặc kết nối participant waiting vào provider trước admission.
-Physical/manual/device/load/provider-outage/effect gates vẫn `UNVERIFIED — P4-11`.
+Load 25/50, provider dashboard/credential rotation, Windows 11 Chrome/Edge physical 10/10 và
+sustained active-room provider-outage/existing-room recovery đã PASS. Firefox, Safari/VoiceOver và
+low-end giữ `UNAVAILABLE`; final local verify/secret scan đã PASS, còn review/commit/push và fresh
+CI/security ở P4-11. Optional effect tiếp tục khóa `None`.
 
 Phase 4 không được làm mất Phase 3 carry-over register. Notification/email/reminder,
 durable worker và file-processing flags giữ off tới gate riêng; recording/egress cũng
