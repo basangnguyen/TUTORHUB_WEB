@@ -12,12 +12,12 @@
 | Quy trình            | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
 | Phase hoàn thành     | Phase 0, Phase 1, Phase 2                                                             |
 | Phase hiện tại       | Phase 4 Classroom Media MVP; Phase 3 deferred carry-over vẫn hoạt động                |
-| Task `DONE` gần nhất | P4-10 Join telemetry, privacy và diagnostics export                                    |
-| Mốc repository mới   | P4-11 initial candidate `50c256e` PASS CI; physical evidence local chờ final candidate   |
-| Task hiện tại        | P4-11 Browser/device matrix, load và outage runbook (`IN PROGRESS`)                    |
-| Task tiếp theo       | Candidate review/commit/push và fresh GitHub Verify/Security                            |
+| Task `DONE` gần nhất | P4-11 Browser/device matrix, load và outage runbook                                     |
+| Mốc repository mới   | P4-11 exact candidate `edecf84` PASS Verify `31929104866`/Security `31929104924`        |
+| Task hiện tại        | P4-12 Exact staging acceptance và Phase 4 closure (`TODO`)                             |
+| Task tiếp theo       | Bắt đầu P4-12 contract review và exact staging closure                                 |
 
-### Checkpoint P4-11 `IN PROGRESS` ngày 2026-08-15
+### Checkpoint P4-11 `DONE` ngày 2026-08-16
 
 Acceptance contract đã được khóa tại
 [P4_11_STAGING_ACCEPTANCE.md](P4_11_STAGING_ACCEPTANCE.md): physical Chrome/Edge/Firefox Windows,
@@ -41,8 +41,8 @@ gồm API client `53/53`, web `69/69` files và `437/437` tests, build/security 
 Exact implementation candidate `50c256eb29bb0438016690a91803c302ac6e0a02` PASS GitHub Verify
 `31891519968` và Security `31891520024`. Windows 11 Chrome/Edge physical devices/accessibility sau
 đó PASS 10/10 ở local evidence. Sustained active-room outage/existing-room recovery cũng PASS ngày
-2026-08-16; final candidate local verify đã PASS, fresh CI/security vẫn `PENDING`, nên P4-11 giữ
-`IN PROGRESS`.
+2026-08-16; final candidate local verify và exact GitHub Verify/Security đều PASS, nên P4-11 đã
+chuyển `IN PROGRESS -> VERIFY -> DONE`.
 
 Windows installed-browser automated supplement sau đó PASS `48/48` trong `84.1 s`: Chrome
 `151.0.7922.138` đạt `24/24`, Edge `151.0.4129.78` đạt `24/24`, gồm deterministic permission/prejoin,
@@ -133,8 +133,13 @@ manual retry bằng revoked key bị `401/503` từ chối. Recovery credential 
 recovery/concurrency/idempotency regressions PASS. Không lưu screenshot DevTools/token fragment.
 Final candidate local verify sau đó PASS trong `171 s`: web `70/70` files, `438/438` tests,
 format/API/lint/typecheck/build/Storybook/security và toàn bộ Go test/vet xanh; candidate secret scan
-không có `.env`, ảnh, cache hoặc high-risk pattern. P4-11 tiếp tục `IN PROGRESS` chỉ để review,
-commit/push và chạy fresh GitHub CI/security.
+không có `.env`, ảnh, cache hoặc high-risk pattern. Candidate `abf4eb7a1bb3bd5ba280ed07a5132583844021e7`
+PASS Verify `31928773967`; Security `31928773979` chỉ phát hiện hai synthetic participant UUID là
+`generic-api-key` false positive. Fix `edecf84ecc45ae4c290e5b76df6ffc5b0a6bcfa9` loại literal khỏi
+harness, dùng participant key do boundary trả về và chỉ ignore hai historical fingerprint chính xác.
+Exact fix candidate PASS Verify `31929104866` và Security `31929104924`; secret scan báo
+`No leaks detected`. P4-11 chuyển
+`IN PROGRESS -> VERIFY -> DONE`; không migration, shared database write, deploy hoặc feature enable.
 
 ### Checkpoint P4-10 `DONE` ngày 2026-08-15
 

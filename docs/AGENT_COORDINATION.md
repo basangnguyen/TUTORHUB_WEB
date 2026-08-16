@@ -201,7 +201,7 @@ hoặc worker-driven file processing/sharing tới end user.
 | P4-08           | DONE       | Exact CI/shared/deploy/live room-chat acceptance PASS       |
 | P4-09           | DONE       | Exact CI/shared/deploy/live reconnect acceptance PASS       |
 | P4-10           | DONE       | Exact CI/shared/deploy/live diagnostics acceptance PASS     |
-| P4-11           | IN PROGRESS | All local/provider gates PASS; final commit/CI mở               |
+| P4-11           | DONE       | Exact CI + physical/load/rotation/outage gates PASS        |
 | P4-12           | TODO       | Exact staging acceptance và Phase 4 closure                |
 
 Nguồn thực thi: `docs/PHASE_4_BACKLOG.md`; kiến trúc có thẩm quyền: ADR-0030. P1-07

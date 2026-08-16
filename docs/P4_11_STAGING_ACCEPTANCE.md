@@ -2,11 +2,12 @@
 
 ## 1. Trạng thái
 
-`IN PROGRESS` — acceptance contract, automated source supplement, isolated LiveKit load harness và
-provider-outage runbook đã được tạo. Quota-approved profile 25/50, Core API health sampling, actual
-isolated credential rotation, Windows 11 Chrome/Edge physical 10-round matrix và sustained
-active-room outage/recovery đều PASS. Firefox Windows, Safari/VoiceOver macOS và low-end rows không
-có host nên giữ `UNAVAILABLE`; final candidate CI/security còn chờ chạy lại.
+`DONE` ngày 2026-08-16 — automated source supplement, quota-approved isolated LiveKit profile 25/50,
+Core API health sampling, actual isolated credential rotation, Windows 11 Chrome/Edge physical
+10-round matrix, NVDA và sustained active-room outage/recovery đều PASS. Firefox Windows,
+Safari/VoiceOver macOS và low-end rows không có host nên giữ `UNAVAILABLE`, không suy PASS.
+Exact candidate `edecf84ecc45ae4c290e5b76df6ffc5b0a6bcfa9` PASS GitHub Verify `31929104866`
+và Security `31929104924`.
 
 P4-11 không có migration, không cần Neon disposable và không thay đổi production capability. Hai
 media feature tiếp tục force-off cho tới P4-12 rollout acceptance.
@@ -438,7 +439,12 @@ reader; 10-cycle processor/worker/track/object-URL cleanup. Bất kỳ gate nào
   lint/typecheck, web `70/70` files và `438/438` tests, build/Storybook, bundle security và toàn bộ Go
   test/vet đều xanh. Focused physical harness Go test/vet và web regression cũng PASS. Candidate scan
   có `15` file, không có `.env`, ảnh, cache hoặc high-risk token/credential pattern; hai local port
-  `4179/5173` đều đã đóng. Fresh GitHub CI/security vẫn còn chờ commit/push.
+  `4179/5173` đều đã đóng.
+- Candidate `abf4eb7a1bb3bd5ba280ed07a5132583844021e7` PASS Verify `31928773967`; Security
+  `31928773979` nhận nhầm hai synthetic participant UUID. Fix
+  `edecf84ecc45ae4c290e5b76df6ffc5b0a6bcfa9` lấy participant key từ boundary metadata và chỉ
+  ignore đúng hai historical fingerprint, sau đó PASS Verify `31929104866` và Security
+  `31929104924` với secret scan `No leaks detected`.
 
 ## 9. Điều kiện chuyển trạng thái
 

@@ -20,14 +20,14 @@ P3-14-CORE đã `DONE`; Phase 4 được phép bắt đầu trong khi Phase 3 de
 Không task Phase 4 nào được xóa, giả lập PASS hoặc bật notification/email/file-processing side
 effect thuộc Phase 3 khi carry-over chưa đạt gate riêng.
 
-**Task `DONE` gần nhất:** `P4-10` Join telemetry, privacy và diagnostics export ngày 2026-08-15.
-Exact candidate `c960f77753fa14475b84e7f0e0242bfcc458dacc` PASS GitHub Verify
-`31881117029`, Security `31881116916`, shared forward-only `35 false -> 36 false -> 36 false`,
-exact ACL, Render `dep-da04pjegekts7395k1h0`, Cloudflare Pages, live `10/10`, Admin
-feature-off/concealment/accessibility và post-live zero-side-effect snapshot. Không rollback;
-disposable branch được giữ lại. Evidence tại
-[P4_10_STAGING_ACCEPTANCE.md](P4_10_STAGING_ACCEPTANCE.md).
-**Task hiện tại:** `P4-11` Browser/device matrix, load và outage runbook (`IN PROGRESS`).
+**Task `DONE` gần nhất:** `P4-11` Browser/device matrix, load và outage runbook ngày 2026-08-16.
+Exact candidate `edecf84ecc45ae4c290e5b76df6ffc5b0a6bcfa9` PASS GitHub Verify `31929104866` và
+Security `31929104924` sau khi hai synthetic UUID false positive được loại khỏi current harness và
+historical scan chỉ ignore đúng hai fingerprint. Physical Windows 11 Chrome/Edge + NVDA `10/10`,
+isolated LiveKit 25/50,
+dashboard/rotation/outage/recovery và cleanup đều PASS; không migration, shared write, deploy hoặc
+feature enable. Evidence tại [P4_11_STAGING_ACCEPTANCE.md](P4_11_STAGING_ACCEPTANCE.md).
+**Task hiện tại:** `P4-12` Exact staging acceptance và Phase 4 closure (`TODO`).
 
 `P4-MEDIA-UX-00` đã `DONE`; không đổi LiveKit provider, không thêm processor production dependency
 hoặc mở `CanPublishData=false`. P4-03/P4-04/P4-05/P4-06/P4-11 phải tuân ADR-0031 và báo rõ các
@@ -84,7 +84,7 @@ physical/manual effect gate còn `UNVERIFIED` thay vì suy PASS từ research.
 | P4-08          | Persistent in-room chat                             | P4-01, P3-07A; ADR review       | DONE        |
 | P4-09          | Reconnect, recovery instance và degraded audio-only | P4-02, P4-05, P4-07             | DONE        |
 | P4-10          | Join telemetry, privacy và diagnostics export       | P4-02, P4-03, P4-09             | DONE       |
-| P4-11          | Browser/device matrix, load và outage runbook       | P4-05 đến P4-10                 | IN PROGRESS |
+| P4-11          | Browser/device matrix, load và outage runbook       | P4-05 đến P4-10                 | DONE       |
 | P4-12          | Exact staging acceptance và Phase 4 closure         | P4-MEDIA-UX-00, P4-01 đến P4-11 | TODO       |
 
 `TODO` không ngụ ý implementation đã tồn tại. `VERIFY` chỉ dùng sau khi implementation và các gate
@@ -621,7 +621,7 @@ không rollback và disposable branch được giữ lại. Evidence tại
 
 ## 18. P4-11 Browser/device matrix, load và outage runbook
 
-**Dependency:** P4-05 đến P4-10. **Trạng thái:** `IN PROGRESS` ngày 2026-08-15.
+**Dependency:** P4-05 đến P4-10. **Trạng thái:** `DONE` ngày 2026-08-16.
 
 Acceptance contract, safety boundary, exact physical matrix, source-level browser supplement,
 quota-gated isolated LiveKit 25/50 harness và provider-outage/credential-rotation runbook nằm tại
@@ -691,8 +691,13 @@ disposable và không cho phép bật media capability trong lúc kiểm thử.
   `reconnecting` rồi terminal/prejoin, không auto-rejoin. Manual revoked-key retry bị `401/503`; exact
   recovery cleanup về zero, successor/post-rotation và concurrency/idempotency regressions PASS.
   Final candidate local verify PASS trong `171 s` với web `438/438`, build/security và toàn bộ Go
-  test/vet xanh; candidate secret scan sạch. Review/commit/push và fresh GitHub CI/security còn mở
-  nên task vẫn `IN PROGRESS`.
+  test/vet xanh; candidate secret scan sạch.
+- Candidate `abf4eb7a1bb3bd5ba280ed07a5132583844021e7` PASS Verify `31928773967`; Security
+  `31928773979` nhận nhầm hai synthetic participant UUID. Fix
+  `edecf84ecc45ae4c290e5b76df6ffc5b0a6bcfa9` bỏ literal khỏi current harness và thêm đúng hai
+  historical fingerprint vào `.gitleaksignore`, không nới rule. Exact fix candidate PASS Verify
+  `31929104866` và Security `31929104924`; P4-11 chuyển
+  `IN PROGRESS -> VERIFY -> DONE` mà không migration/shared write/deploy/feature enable.
 
 ## 19. P4-12 Exact staging acceptance và Phase 4 closure
 

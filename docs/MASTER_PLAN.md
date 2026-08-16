@@ -11,7 +11,7 @@
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
 | Phase hiện tại        | Phase 4 - Classroom Media MVP; Phase 3 deferred carry-over tiếp tục                          |
-| Trạng thái gần nhất   | P4-11 `IN PROGRESS`; local/provider gates PASS, final commit/CI còn mở                  |
+| Trạng thái gần nhất   | P4-11 `DONE`; P4-12 exact staging acceptance/Phase 4 closure là task tiếp theo          |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 
@@ -2200,8 +2200,9 @@ P4-11 đã PASS provider load 25/50, dashboard/credential rotation, Windows 11 C
 10/10 (`4×720p`, `3×540p`, `3×360p`, keyboard + NVDA) và sustained active-room
 provider-outage/existing-room recovery. Firefox, Safari/VoiceOver và low-end giữ `UNAVAILABLE`;
 optional effect tiếp tục khóa `None`, không suy PASS hoặc bật production effect. Final local verify
-và secret scan đã PASS; review/commit/push cùng fresh CI/security còn bắt buộc trước khi chuyển task
-sang `DONE`.
+và secret scan PASS; exact candidate `edecf84ecc45ae4c290e5b76df6ffc5b0a6bcfa9` PASS GitHub Verify
+`31929104866` và Security `31929104924`. P4-11 đã chuyển `IN PROGRESS -> VERIFY -> DONE` mà không
+migration, shared database write, deploy hoặc feature enable; P4-12 là task tiếp theo.
 Không bật side effect chỉ vì core đã có. `P3-02D-B` và các gate worker/provider vẫn là
 carry-over.
 AWS SES đã được chọn làm provider target nhưng
