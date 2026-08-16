@@ -272,11 +272,6 @@ func (repository *PostgresLifecycleRepository) ResolveSpace(
 	if err != nil {
 		return MediaSpace{}, err
 	}
-	if err := repository.controls.RequireFeature(
-		queryContext, transaction, scope.TenantID, featurecontrol.FeatureClassroomMediaRooms,
-	); err != nil {
-		return MediaSpace{}, err
-	}
 	row, found, err := findSpaceBySource(queryContext, transaction, scope.TenantID, source)
 	if err != nil {
 		return MediaSpace{}, repository.unavailable("resolve media space source", err)
@@ -288,6 +283,11 @@ func (repository *PostgresLifecycleRepository) ResolveSpace(
 		queryContext, transaction, access, scope, row,
 	)
 	if err != nil {
+		return MediaSpace{}, err
+	}
+	if err := repository.controls.RequireFeature(
+		queryContext, transaction, scope.TenantID, featurecontrol.FeatureClassroomMediaRooms,
+	); err != nil {
 		return MediaSpace{}, err
 	}
 	if err := transaction.Commit(queryContext); err != nil {
