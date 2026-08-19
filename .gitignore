@@ -1,8 +1,11 @@
 # Dependencies and build output
 node_modules/
+.pnpm-store/
 .turbo/
 .tools/
 dist/
+apps/whiteboard-spike/dist-collab/
+apps/whiteboard-spike/dist-excalidraw/
 build/
 coverage/
 storybook-static/

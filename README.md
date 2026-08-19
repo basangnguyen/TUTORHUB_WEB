@@ -132,9 +132,18 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
   `10/10`, Admin feature-off/concealment, accessibility/privacy/resource/log audit và post-live
   database snapshot đều PASS; không rollback và disposable branch tiếp tục được giữ lại.
   Physical/manual/load/provider-outage/effect gates vẫn `UNVERIFIED — P4-11`.
-- P5-COLLAB-00 đã được đăng ký làm research spike tương lai cho whiteboard engine,
-  document/sync authority, license và realtime topology. Task vẫn `TODO`, không chặn P4-02
-  và không cho phép thêm production dependency/runtime trước prototype, evidence và ADR.
+- P5-COLLAB-00 research package đã `DONE` ngày 2026-08-18 với prototype cô lập, source/license
+  audit và ADR-0034 `Proposed`. Owner đã chốt **Excalidraw + self-managed collaboration** làm target
+  chính thức của P5-COLLAB-01; tldraw prototype chỉ còn là historical comparison/provider-exit
+  evidence. Gate A–D và Gate E `4/4` đã PASS, gồm profile/semantic/accessibility, installed
+  Chrome/Edge headed matrix và owner-confirmed NVDA speech/reconnect-error. Gate F isolated
+  runtime/operations contract PASS `18/18` và đạt `2/4`. Owner chọn Render Free Singapore một
+  instance/no Redis cho development/private alpha, Neon/B2 trong free allowance và hard cap `0 USD`;
+  paid HA path x2 + Redis được hoãn. Gate F.1 đã thêm isolated OCI source candidate thật tại
+  `services/whiteboard-runtime`; runtime `9/9`, lint/typecheck/build, four-dependency package và OCI
+  static guard PASS. Exact image/SBOM scan, disposable provider, free-quota/no-HA/on-call owner
+  approval và ADR acceptance vẫn mở. P5-COLLAB-01 đang `IN PROGRESS`; chưa nối `apps/web`, chưa deploy
+  và production feature tiếp tục force-off.
 - P4-10 Join telemetry, privacy và diagnostics export đã `DONE` ngày 2026-08-15 trên exact
   candidate `c960f77753fa14475b84e7f0e0242bfcc458dacc`. Verify `31881117029`, Security
   `31881116916`, Neon shared forward-only `35 false -> 36 false -> 36 false`, exact ACL và
@@ -164,9 +173,13 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
   `31946763545`, Browser E2E và Cloudflare Pages. Disposable/shared giữ `36 false`; source
   resolver/authority/concurrency/privacy, exact ACL, Teacher Chrome + Student Edge lobby/admit/end
   và shared final snapshot đều PASS. Organization Admin đã tắt cả hai media capability; final
-  enabled override bằng `0`. Phase 4 hoàn thành; task kế tiếp là P5-COLLAB-00 research spike.
-  Evidence: [P4-12 acceptance](docs/P4_12_STAGING_ACCEPTANCE.md) và
-  [Phase 4 completion](docs/PHASE_4_COMPLETION.md).
+  enabled override bằng `0`. Phase 4 hoàn thành; P5-COLLAB-00 research đã `DONE` và
+  P5-COLLAB-01 được mở lại `IN PROGRESS` cho Excalidraw + self-managed collaboration. Automated
+  tldraw official-sync evidence được giữ nhưng không chuyển thành Excalidraw PASS; ADR-0034 vẫn
+  `Proposed` cho tới khi exact authority/provider và toàn bộ hard gate Excalidraw đạt.
+  Evidence: [P4-12 acceptance](docs/P4_12_STAGING_ACCEPTANCE.md),
+  [Phase 4 completion](docs/PHASE_4_COMPLETION.md) và
+  [P5-COLLAB-01 Excalidraw acceptance](docs/P5_COLLAB_01_EXCALIDRAW_ACCEPTANCE.md).
 - Web MVP nền đã chạy trên staging: Cloudflare Pages -> same-origin `/api/*` -> Go
   Core API trên Render; dữ liệu dùng Neon, file dùng Backblaze B2, media dùng LiveKit
   Cloud và xác thực dùng ZITADEL.
@@ -233,6 +246,12 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
 50. [Biên bản hoàn thành Phase 4](docs/PHASE_4_COMPLETION.md)
 51. [P4-04: Lobby/admission/invite staging acceptance](docs/P4_04_STAGING_ACCEPTANCE.md)
 52. [P5-COLLAB-00: Whiteboard engine và collaboration topology research spike](docs/P5_COLLAB_00_RESEARCH_SPIKE.md)
+53. [P5-COLLAB-00: Kết quả research/evidence](docs/P5_COLLAB_00_RESEARCH_RESULTS.md)
+54. [Backlog Phase 5](docs/PHASE_5_BACKLOG.md)
+55. [ADR-0034: Whiteboard engine/document authority/collaboration topology](docs/adr/0034-whiteboard-engine-document-authority-and-collaboration-topology.md)
+56. [P5-COLLAB-01: tldraw automated evidence đã superseded](docs/P5_COLLAB_01_AUTOMATED_ACCEPTANCE.md)
+57. [P5-COLLAB-01: Excalidraw decision và acceptance gates](docs/P5_COLLAB_01_EXCALIDRAW_ACCEPTANCE.md)
+58. [P5-COLLAB-01 Gate F: Runtime và vận hành](docs/P5_COLLAB_01_RUNTIME_OPERATIONS.md)
 
 Các quyết định kiến trúc đã chấp nhận nằm trong `docs/adr`.
 

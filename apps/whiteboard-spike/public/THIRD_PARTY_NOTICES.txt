@@ -1,0 +1,117 @@
+TutorHub Excalidraw Candidate - Third-Party Notices
+==================================================
+
+Candidate scope: apps/whiteboard-spike/excalidraw.html
+Upstream: https://github.com/excalidraw/excalidraw
+Exact upstream tag: v0.18.1
+Exact upstream commit: a2ec2889babf7d2295469c6d90ebe77fae57df84
+Package: @excalidraw/excalidraw@0.18.1
+License: MIT
+
+The candidate uses @radix-ui/react-tabs@1.1.21 (MIT) as a
+React-19-compatible replacement for the 1.0.2 release dependency.
+Source: https://github.com/radix-ui/primitives/tree/main/packages/react/tabs
+
+JavaScript dependency license inventory
+----------------------------------------
+
+MIT: @braintree/sanitize-url, @excalidraw/laser-pointer,
+@excalidraw/mermaid-to-excalidraw, @excalidraw/random-username,
+@radix-ui/react-popover, @radix-ui/react-tabs, canvas-roundrect-polyfill,
+clsx, cross-env, es6-promise-pool, fuzzy (LICENSE-MIT), image-blob-reduce,
+jotai, jotai-scope, lodash.debounce, lodash.throttle, nanoid, open-color,
+perfect-freehand, pica, png-chunk-text, png-chunks-encode,
+png-chunks-extract, points-on-curve, roughjs, sass and tunnel-rat.
+
+Apache-2.0: browser-fs-access and pwacompat.
+CC0-1.0: fractional-indexing.
+MIT AND Zlib: pako.
+
+The exact versions and package-resolved license metadata are checked by
+scripts/check-excalidraw-dependencies.mjs and pnpm-lock.yaml. Each package's
+license file remains available from its published npm source distribution.
+
+Bundled font notices
+--------------------
+
+Assistant - SIL Open Font License 1.1.
+Copyright 2020 The Assistant Project Authors
+(https://github.com/hafontia/Assistant).
+
+Cascadia Code - SIL Open Font License 1.1.
+Copyright Microsoft Corporation.
+Source: https://github.com/microsoft/cascadia-code
+
+Comic Shanns Mono (packaged asset family: ComicShanns) - MIT.
+Copyright (c) 2018 Shannon Miwa; 2023 Jesus Gonzalez;
+2023 Rodrigo Batista de Moraes; 2024 Fini Jastrow; 2024 Kyle Beechly.
+
+Excalifont - SIL Open Font License 1.1.
+Copyright (c) 2024 by Excalidraw. All rights reserved.
+Designer credits: Your Own Font Foundry (Virgil),
+Jan Filipek / DizajnDesign (Excalifont modifications).
+
+Liberation Sans - SIL Open Font License 1.1.
+Source: https://github.com/liberationfonts/liberation-fonts
+
+Lilita One - SIL Open Font License 1.1.
+Copyright (c) 2011 Juan Montoreano, with Reserved Font Name "Lilita One".
+Source: https://github.com/google/fonts/tree/main/ofl/lilitaone
+
+Nunito - SIL Open Font License 1.1.
+Copyright 2014 The Nunito Project Authors.
+Source: https://github.com/googlefonts/nunito
+
+Virgil - SIL Open Font License 1.1.
+Source: https://github.com/excalidraw/virgil
+
+Xiaolai - SIL Open Font License 1.1.
+Copyright (c) 2020 LXGW.
+Source: https://github.com/lxgw/kose-font
+
+MIT License text
+----------------
+
+Copyright (c) 2020 Excalidraw
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+SIL Open Font License 1.1
+-------------------------
+
+This Font Software is licensed under the SIL Open Font License, Version 1.1.
+The complete license and FAQ are available at:
+https://openfontlicense.org/open-font-license-official-text/
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of the Font Software, to use, study, copy, merge, embed, modify, redistribute,
+and sell modified and unmodified copies of the Font Software, subject to the
+conditions of the SIL Open Font License 1.1, including its Reserved Font Name,
+attribution, bundling, naming and termination requirements.
+
+Other standard license texts
+----------------------------
+
+Apache License 2.0: https://www.apache.org/licenses/LICENSE-2.0
+CC0 1.0 Universal: https://creativecommons.org/publicdomain/zero/1.0/legalcode
+zlib License: https://www.zlib.net/zlib_license.html
+
+This notice is evidence for a development candidate, not legal advice. Before
+commercial distribution, TutorHub must retain this notice and perform its
+release-level third-party notice review against the exact shipped artifact.

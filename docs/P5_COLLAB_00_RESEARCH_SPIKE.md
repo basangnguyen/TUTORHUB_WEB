@@ -6,17 +6,18 @@
 
 | Thuộc tính         | Giá trị                                                                  |
 | ------------------ | ------------------------------------------------------------------------ |
-| Trạng thái         | `TODO`                                                                   |
+| Trạng thái         | `DONE`                                                                   |
 | Phase              | Phase 5 - Classroom Collaboration                                        |
 | Thời điểm          | Có thể chạy cuối Phase 4; phải `DONE` trước whiteboard implementation    |
 | Quyết định bị chặn | Whiteboard engine, document authority, sync provider và runtime topology |
 | Không bị chặn      | P4-01 đến P4-12 và Phase 3 deferred carry-over                           |
-| Cập nhật           | 2026-08-09                                                               |
+| Cập nhật           | 2026-08-18                                                               |
 
 ## 1. Mục tiêu
 
-Chọn một kiến trúc whiteboard/collaboration có bằng chứng cho lớp học 2-50 người, thay vì
-mặc định chọn thư viện theo tên hoặc mang nguyên topology của V1 sang V2. Spike phải trả lời:
+Thu hẹp lựa chọn và chuẩn bị một kiến trúc whiteboard/collaboration decision-ready cho lớp học
+2-50 người, thay vì mặc định chọn thư viện theo tên hoặc mang nguyên topology của V1 sang V2.
+Spike phải trả lời:
 
 1. engine nào phù hợp sản phẩm, accessibility, hiệu năng và ngân sách;
 2. một authority duy nhất nào sở hữu document, history và undo/redo;
@@ -104,19 +105,61 @@ Nguồn nghiên cứu ưu tiên tài liệu/license chính thức:
 4. Thực hiện threat model cho connection token, document ID, tenant boundary, snapshot và export.
 5. Viết decision matrix có trọng số cho product fit, accessibility, security, performance, license,
    implementation cost và operational ownership.
-6. Tạo ADR chọn engine/document authority/realtime topology hoặc ghi `BLOCKED` nếu license,
-   accessibility hay vận hành chưa được chấp nhận.
+6. Tạo ADR `Proposed` decision-ready và ghi rõ finalist/blocker. Việc chạy hard gate engine-native,
+   lấy owner decision và chuyển ADR sang `Accepted` thuộc P5-COLLAB-01.
 
-## 5. Definition of Done
+## 5. Checkpoint thực thi ngày 2026-08-18
 
-- [ ] Prototype/evidence của ít nhất tldraw và Excalidraw chạy trên cùng test matrix.
-- [ ] Nếu Yjs được đề xuất, provider/topology có prototype và reconnect/persistence evidence.
-- [ ] License/cost được xác minh từ nguồn chính thức; mọi paid/new-runtime choice được owner chấp thuận.
-- [ ] Convergence, concurrent undo, snapshot restore, tenant/role denial và rate/payload cap đạt.
-- [ ] Bundle/memory/500-2.000-shape metrics cùng 2/10/50 participant profile được báo cáo.
-- [ ] Keyboard, NVDA, 200% zoom và forced-colors gate có evidence cùng limitation/mitigation.
-- [ ] ADR `Accepted` chọn đúng một document/history/undo authority, provider topology và fallback.
-- [ ] Phase 5 backlog được tách task implementation/test/rollout theo quyết định ADR.
+- Prototype cô lập tại `apps/whiteboard-spike` đã chạy cùng fixture 500/2.000 object cho tldraw
+  `5.3.1` và Excalidraw `0.18.1`; snapshot envelope/restore-callback smoke, JSON-corruption denial,
+  keyboard shell, Axe, CSS 200%, forced-colors và reduced-motion có automated evidence. Scene đã
+  thay đổi chưa được đối chiếu sau restore, nên semantic object-count/hash recovery vẫn chưa được
+  chứng minh.
+- Yjs `13.6.27` + Hocuspocus `4.6.0` generic network spike đã PASS hai-client convergence,
+  offline/reconnect, binary restore, viewer receive-only, wrong/cross-tenant denial và raw frame caps.
+  Raw cap có thể chặn full-state resync lớn và chưa phải semantic complexity budget. Kết quả này chưa
+  chứng minh scene adapter Excalidraw, durable persistence hoặc multi-node/50 client.
+- Cold-context Chromium có ba observation load/heap cho 500/2.000 object; tldraw 2.000 object biến
+  thiên 2.937–7.806 ms nên chưa thể đặt p50/p95 budget.
+- Evidence chạy từ baseline repository `0d2e098` cộng working tree cục bộ chưa commit, bằng
+  Playwright `1.61.1`/Chromium `149.0.7827.55`; exact command và limitation đã được ghi để tái lập.
+- Kết quả và limitation nằm tại
+  [P5_COLLAB_00_RESEARCH_RESULTS.md](P5_COLLAB_00_RESEARCH_RESULTS.md).
+- [ADR-0034](adr/0034-whiteboard-engine-document-authority-and-collaboration-topology.md) đã tạo ở
+  trạng thái `Proposed`; tại thời điểm đóng research chưa chọn production engine/provider.
+- [PHASE_5_BACKLOG.md](PHASE_5_BACKLOG.md) đã tách P5-COLLAB-01 đến P5-COLLAB-20.
 
-Cho tới khi toàn bộ checklist trên đạt, Master Plan phải dùng cụm “engine/sync được ADR chọn”;
-không được coi tldraw, Excalidraw, Yjs hoặc Hocuspocus là production decision đã chốt.
+Các hard gate được bàn giao cho P5-COLLAB-01: engine-native two-browser convergence/actor-local undo,
+persistence/restart, Core API-issued grant/revoke/origin/rate/quota, profile 10/50, manual
+NVDA/object navigation và owner approval cho license/cost/runtime. Bundle guard còn chặn upstream
+Excalidraw vì nhúng public Google API key/Firebase-collaboration config; React 19.2.7 cũng chưa nằm
+trong peer range mà các Radix dependency được Excalidraw pin công bố. ADR chỉ được chuyển `Accepted`
+trong P5-COLLAB-01 sau khi các blocker có evidence/decision.
+
+## 6. Definition of Done
+
+- [x] Audit bốn candidate có source pin, license/docs chính thức và các bất định cost/owner được ghi.
+- [x] tldraw và Excalidraw chạy cùng fixture 500/2.000, build/bundle/cold-load evidence và snapshot
+      limitation được báo cáo, không nối production route.
+- [x] Generic Yjs/Hocuspocus prototype chứng minh hai-client convergence, reconnect, binary restore,
+      read-only và raw frame cap; giới hạn semantic budget/engine adapter/persistence/multi-node
+      được ghi rõ.
+- [x] One-authority architecture, threat model, matrix, finalist và production blocker ledger có
+      evidence; không tự chọn winner từ weighted score.
+- [x] ADR-0034 giữ `Proposed` decision-ready; P5-COLLAB-01 sở hữu hard gate, owner decision và việc
+      chuyển `Accepted`.
+- [x] Exact baseline, package/browser version, lệnh tái lập, test result và limitation được ghi.
+- [x] Phase 5 backlog được tách task decision/implementation/test/rollout; P5-COLLAB-02 trở đi bị
+      chặn cho tới khi ADR `Accepted`.
+
+P5-COLLAB-00 kết thúc với kết quả hợp lệ là **hai finalist, chưa có production winner**. Cho tới khi
+P5-COLLAB-01 chấp nhận ADR, Master Plan phải dùng cụm “engine/sync được ADR chọn”; không được coi
+tldraw, Excalidraw, Yjs hoặc Hocuspocus là production decision đã chốt.
+
+Initial owner checkpoint sau research ngày 2026-08-18 từng chọn **tldraw SDK + official self-hosted
+sync** làm target của P5-COLLAB-01. Checkpoint đó đã bị superseded trước production; trial,
+commercial license và production runtime tldraw chưa được kích hoạt hoặc phê duyệt.
+
+Final owner checkpoint cùng ngày chốt **Excalidraw + self-managed collaboration** làm target chính
+thức. ADR-0034 vẫn `Proposed` vì canonical authority, exact provider/runtime và toàn bộ hard gate
+Excalidraw chưa đạt; P5-COLLAB-01 đang `IN PROGRESS` và production whiteboard tiếp tục force-off.

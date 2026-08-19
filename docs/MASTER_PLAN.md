@@ -4,14 +4,14 @@
 
 | Thuộc tính            | Giá trị                                                                                      |
 | --------------------- | -------------------------------------------------------------------------------------------- |
-| Phiên bản tài liệu    | 2.4                                                                                          |
-| Cập nhật              | 2026-08-16                                                                                   |
+| Phiên bản tài liệu    | 2.5                                                                                          |
+| Cập nhật              | 2026-08-19                                                                                   |
 | Phạm vi ưu tiên       | Web application                                                                              |
 | Thư mục phát triển    | `D:\TutorHub_V2`                                                                             |
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
-| Phase hiện tại        | Chuẩn bị Phase 5; Phase 3 deferred carry-over tiếp tục                                       |
-| Trạng thái gần nhất   | P4-12 `DONE`; Phase 4 Classroom Media MVP đã hoàn thành ngày 2026-08-16                      |
+| Phase hiện tại        | Phase 5 collaboration decision gate; Phase 3 deferred carry-over tiếp tục                    |
+| Trạng thái gần nhất   | Gate F.1 OCI source candidate PASS; Gate F `2/4`, còn image/provider drill + ops sign-off     |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 
@@ -228,7 +228,8 @@ Không mở cấp tiếp theo nếu phase trước chưa đạt exit gate và ch
 3. **Business data plane**: Neon PostgreSQL, tenant-scoped repositories, audit metadata.
 4. **Media plane**: LiveKit Cloud, WebRTC/SRTP, TURN, recording/egress theo quota.
 5. **Collaboration plane**: persistent chat qua API; ephemeral events qua LiveKit; whiteboard dùng
-   engine/sync provider được P5-COLLAB-00 và ADR chấp nhận.
+   Excalidraw làm editor/projection và canonical self-managed authority/provider được ADR-0034
+   chấp nhận.
 6. **Asynchronous/AI plane**: outbox, worker, notification, file processing, transcript, Lavie.
 
 ### 8.2 Sơ đồ tổng thể
@@ -470,7 +471,7 @@ Mỗi module có thể gồm `domain`, `application`, `repository`, `transport`.
 | Hand raise/reaction tạm        | Core API authorized/rate-limited; UI nhận projection/resync |
 | Persistent chat                | Core API ghi DB; SSE/WebSocket phát sự kiện                 |
 | Notification badge             | SSE trước, WebSocket khi có nhu cầu hai chiều               |
-| Whiteboard                     | Engine/provider WebSocket theo ADR                          |
+| Whiteboard                     | Excalidraw + self-managed provider WebSocket theo ADR       |
 | Job progress                   | SSE                                                         |
 | Admin/audit query              | REST                                                        |
 
@@ -761,9 +762,10 @@ Notification domain tạo intent; outbox/worker phân phối in-app, email hoặ
 
 ### 16.1 Whiteboard
 
-- `P5-COLLAB-00` phải chọn engine, document authority và realtime topology bằng evidence;
-  candidate gồm tldraw + official sync, Excalidraw + self-managed sync và Yjs/provider cho
-  shared notes hoặc custom CRDT.
+- `P5-COLLAB-00` audit và thu hẹp candidate bằng evidence. Ngày 2026-08-18 owner chốt
+  **Excalidraw + self-managed collaboration** làm target chính thức của `P5-COLLAB-01`; task vẫn
+  phải chạy hard gate riêng cho Excalidraw trước khi ADR-0034 được chấp nhận. Tldraw prototype chỉ
+  còn là historical comparison/provider-exit evidence; không chạy hai implementation lane song song.
 - Chỉ có một authoritative document/history/undo model; không mặc định ghép Yjs lên engine
   đã có store/sync riêng.
 - WebSocket provider đồng bộ delta; authentication, tenant/role permission và revoke do server cấp.
@@ -950,6 +952,7 @@ Không chọn Kubernetes mặc định. Chỉ dùng khi số service, yêu cầu
 | Thành phần        | Giữ khi                                                             | Bắt đầu chuyển khi                                                                                       |
 | ----------------- | ------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
 | Render Core API   | Alpha nhỏ/staging, stateless, chấp nhận sleep/cold start            | Cần SLA, autoscaling, worker bền vững, private network hoặc WebSocket ổn định                            |
+| Render collaboration Free | Development/private alpha, một instance, chấp nhận cold-start/no-HA | Trước public beta/SLO hoặc khi cần phòng liên tục; chuyển paid HA x2 + coordination đã kiểm chứng        |
 | Durable worker    | Chưa provision; các test local/CI/disposable vẫn chạy               | Trước notification/email/file side effect hoặc pilot; cần host không spin-down và crash/reclaim evidence |
 | Neon Free         | Connection/storage/compute trong quota và cold start chấp nhận được | Pilot cần luôn sẵn sàng, vượt quota, cần compliance/region/PITR cao hơn                                  |
 | LiveKit Free      | Test/private alpha trong hard cap                                   | Có lớp thật, recording, concurrency hoặc support/SLA                                                     |
@@ -1067,7 +1070,7 @@ Web có thể quản lý exam policy, schedule, signed launch token và nhận r
 | QuizHub         | Quiz practice/game   |           6 | Tách engine domain và UI game         |
 | Nhiệm vụ        | Assignment/Task      |           6 | Workflow server-side                  |
 | Tài liệu/Drive  | Files/Content        |           3 | Presigned B2 pipeline                 |
-| Bảng vẽ         | Whiteboard           |           5 | Engine/sync theo ADR, snapshot B2     |
+| Bảng vẽ         | Whiteboard           |           5 | Excalidraw; sync theo ADR, snapshot B2 |
 | Lavie Agent     | AI assistant         |           7 | Permission-filtered RAG               |
 | Secure Exam     | Native companion     | Track riêng | Chỉ contract/handoff từ web           |
 | Admin/nâng cấp  | Tenant admin/billing |           8 | Sau usage/quota telemetry             |
@@ -1590,9 +1593,12 @@ effect/audio fallback; không đổi provider hoặc signal authority.
 
 **Work package theo thứ tự:**
 
-1. [P5-COLLAB-00](P5_COLLAB_00_RESEARCH_SPIKE.md) — research spike chọn whiteboard engine,
-   document authority, license/cost và realtime provider topology; tạo prototype, decision matrix
-   và ADR trước khi thêm production dependency/runtime.
+1. Decision lane: [P5-COLLAB-00](P5_COLLAB_00_RESEARCH_SPIKE.md) hoàn tất source audit, prototype,
+   decision matrix và ADR-0034 `Proposed`; owner đã chọn Excalidraw + self-managed collaboration
+   làm target. P5-COLLAB-01 chạy Excalidraw-specific hard gates và chỉ chuyển ADR sang `Accepted`
+   trước khi thêm production dependency/runtime nếu license/authority/operations cùng toàn bộ
+   evidence đạt.
+   Backlog chi tiết: [PHASE_5_BACKLOG.md](PHASE_5_BACKLOG.md).
 2. Tool registry và side-panel framework.
 3. Whiteboard engine/sync đã chọn qua ADR + snapshot.
 4. File presentation.
@@ -1613,11 +1619,48 @@ P5-COLLAB-00 có thể chuẩn bị ở cuối Phase 4 nhưng không thay đổi
 Phase 4. Spike phải so sánh tldraw/Excalidraw trên cùng evidence matrix, chỉ dùng Yjs/Hocuspocus
 khi phù hợp với document model, và không tạo dual state/history/undo authority.
 
+Checkpoint research 2026-08-18: P5-COLLAB-00 `DONE` với same-fixture local engine evidence, generic
+Yjs/Hocuspocus network evidence và hai finalist nhưng chưa có production winner. Engine-adapter
+convergence/undo, durable recovery, exact TutorHub authorization, 10/50 load, manual NVDA và runtime
+approval thuộc P5-COLLAB-01.
+
+Final owner checkpoint 2026-08-18: owner chọn **Excalidraw + self-managed collaboration** làm target
+chính thức, thay thế target tldraw trước đó. Excalidraw bundle/config và React-peer blocker trở lại
+là active implementation gates; exact canonical authority/provider vẫn phải được chứng minh và ghi
+vào ADR. Quyết định target không tự động đổi ADR sang `Accepted`, không cho phép production
+dependency/runtime hoặc deploy.
+
+Retained automated checkpoint 2026-08-18: isolated tldraw official-sync prototype đã PASS
+convergence, actor-local undo/redo, offline/restart recovery, tenant/capability/grant/revoke/abuse
+boundaries, native snapshot generation swap, profile 2/10/50, automated accessibility, dependency
+audit và tldraw-only bundle guard. Evidence này đã bị superseded về target và không được suy PASS cho
+Excalidraw. P5-COLLAB-01 đang `IN PROGRESS`; ADR-0034 vẫn `Proposed`. Chi tiết forward gate:
+[P5_COLLAB_01_EXCALIDRAW_ACCEPTANCE.md](P5_COLLAB_01_EXCALIDRAW_ACCEPTANCE.md); retained evidence:
+[P5_COLLAB_01_AUTOMATED_ACCEPTANCE.md](P5_COLLAB_01_AUTOMATED_ACCEPTANCE.md).
+
+Gate F checkpoint 2026-08-19: isolated runtime/operations contract PASS `18/18` cho exact candidate
+Node/Hocuspocus/Yjs pin, two-node shared authorization/fencing/drain model, sustained dependency
+outage, kill switch, credential/snapshot-key rotation, portable recovery, bounded telemetry và
+cost/quota guard. Owner đã chọn `FREE_PRIVATE_ALPHA`: một Render Free instance Singapore, không Redis,
+Neon/B2 trong free allowance và hard cap `0 USD`; Render Standard x2 + Redis paid Multi-AZ được hoãn
+tới production HA gate. Gate F đạt `2/4` và giữ `VERIFY`; disposable Render Free/Neon/B2 cold-start/
+restart/outage/rotation/restore drill, OCI/SBOM, quota evidence, no-HA/on-call/RPO/RTO owner approval
+cùng ADR `Accepted` vẫn bắt buộc.
+Runbook: [P5_COLLAB_01_RUNTIME_OPERATIONS.md](P5_COLLAB_01_RUNTIME_OPERATIONS.md).
+
+Gate F.1 checkpoint 2026-08-19: đã triển khai isolated OCI source candidate tại
+`services/whiteboard-runtime` với real Hocuspocus lifecycle, exact control/grant exchange, Neon
+checkpoint, B2 immutable snapshot, readiness/metrics/drain và bounded abuse controls. Runtime `9/9`,
+lint, typecheck, build, digest-pinned/non-root Dockerfile static guard và isolated four-dependency
+production package PASS; CI đã có Trivy HIGH/CRITICAL + CycloneDX guard. Actual image/SBOM scan và
+disposable Render/Neon/B2 evidence vẫn mở nên không đổi Gate F `2/4`, ADR hoặc production force-off.
+
 **Deliverable:** teacher mở/đóng công cụ mà không làm rời media room; trạng thái cộng tác khôi phục sau reconnect.
 
 **Exit gate:**
 
-- P5-COLLAB-00 có evidence matrix và ADR `Accepted` cho engine/license/document/sync topology.
+- P5-COLLAB-00 có research evidence matrix; P5-COLLAB-01 phải đưa ADR-0034 sang `Accepted` cho
+  engine/license/document/sync topology trước implementation.
 - Whiteboard convergence và snapshot restore đạt.
 - Tool không làm vỡ classroom layout.
 - Untrusted content được sandbox.
@@ -1944,8 +1987,8 @@ Phải giải quyết bằng spike/ADR đúng phase:
    staging/private alpha, không phải durable worker.
 5. Worker/queue runtime cho pilot.
 6. Redis provider và thời điểm thực sự cần.
-7. `P5-COLLAB-00`: whiteboard engine, license/cost, document authority, realtime provider
-   topology, persistence và operational ownership.
+7. `P5-COLLAB-01`: chấp nhận Excalidraw license/dependency boundary, document authority, realtime
+   provider topology, persistence và operational ownership từ evidence P5-COLLAB-00.
 8. Virus scanning/transcode runtime.
 9. AWS SES target và local adapter/contract P3-CAL-02 đã chốt ở trạng thái `VERIFY`;
    account/region/sandbox/quota live, production access, sending domain/DNS,

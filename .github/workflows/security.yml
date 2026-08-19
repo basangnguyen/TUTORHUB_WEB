@@ -169,3 +169,73 @@ jobs:
         with:
           sarif_file: trivy-container.sarif
           category: trivy-container
+
+  whiteboard-runtime-container-scan:
+    name: Whiteboard runtime OCI, SBOM and vulnerability scan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
+        with:
+          persist-credentials: false
+
+      - name: Check immutable OCI contract
+        run: node scripts/check-whiteboard-runtime-oci.mjs
+
+      - name: Build exact whiteboard runtime image
+        run: >-
+          docker build
+          --tag tutorhub-whiteboard-runtime:security-scan
+          --file services/whiteboard-runtime/Dockerfile
+          .
+
+      - name: Inspect non-root runtime image
+        run: |
+          test "$(docker image inspect --format '{{.Config.User}}' tutorhub-whiteboard-runtime:security-scan)" = "node"
+          test "$(docker image inspect --format '{{json .Config.Cmd}}' tutorhub-whiteboard-runtime:security-scan)" = '["node","dist/main.js"]'
+
+      - name: Scan whiteboard runtime image
+        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
+        with:
+          image-ref: tutorhub-whiteboard-runtime:security-scan
+          scanners: vuln,secret,misconfig
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          format: sarif
+          output: trivy-whiteboard-runtime.sarif
+          exit-code: 0
+
+      - name: Enforce whiteboard runtime vulnerability threshold
+        run: node scripts/check-trivy-sarif.mjs trivy-whiteboard-runtime.sarif whiteboard-runtime
+
+      - name: Generate CycloneDX SBOM
+        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
+        with:
+          image-ref: tutorhub-whiteboard-runtime:security-scan
+          scanners: vuln
+          format: cyclonedx
+          output: tutorhub-whiteboard-runtime.cdx.json
+          exit-code: 0
+
+      - name: Validate secret-safe SBOM
+        run: node scripts/check-whiteboard-runtime-sbom.mjs tutorhub-whiteboard-runtime.cdx.json
+
+      - name: Upload whiteboard runtime findings
+        if: always() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+        uses: github/codeql-action/upload-sarif@24ea975727876cf496b1eb0c5b36e96e01600b51 # v4.37.0
+        with:
+          sarif_file: trivy-whiteboard-runtime.sarif
+          category: trivy-whiteboard-runtime
+
+      - name: Retain whiteboard runtime SBOM
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: whiteboard-runtime-sbom
+          path: tutorhub-whiteboard-runtime.cdx.json
+          if-no-files-found: error
+          retention-days: 14

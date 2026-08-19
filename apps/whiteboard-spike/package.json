@@ -1,0 +1,52 @@
+{
+  "name": "@tutorhub/whiteboard-spike",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -b && vite build",
+    "build:collab": "tsc -b && vite build --config vite.collab.config.ts",
+    "build:excalidraw": "tsc -b && vite build --config vite.excalidraw.config.ts",
+    "dev": "vite --host 127.0.0.1 --port 4178",
+    "e2e": "vite build && playwright test",
+    "e2e:excalidraw": "vite build --config vite.excalidraw.config.ts && playwright test --config playwright.excalidraw.config.ts",
+    "e2e:excalidraw:physical": "vite build --config vite.excalidraw.config.ts && node scripts/run-excalidraw-physical-matrix.mjs",
+    "gate:excalidraw-dependencies": "node scripts/check-excalidraw-dependencies.mjs",
+    "gate:excalidraw-runtime": "vitest run server/excalidrawRuntimeHarness.test.ts server/excalidrawSnapshotHarness.test.ts",
+    "gate:server": "node --experimental-transform-types server/gateServer.ts",
+    "lint": "eslint src server e2e scripts vite.config.ts vite.collab.config.ts vite.excalidraw.config.ts playwright.config.ts playwright.excalidraw.config.ts",
+    "security:collab-bundle": "node scripts/check-collab-bundle.mjs",
+    "security:excalidraw-bundle": "node scripts/check-excalidraw-bundle.mjs",
+    "structure:excalidraw-bundle": "node scripts/check-excalidraw-bundle.mjs --structure-only",
+    "test": "vitest run",
+    "typecheck": "tsc -b --pretty false && tsc -p tsconfig.e2e.json --pretty false"
+  },
+  "dependencies": {
+    "@excalidraw/excalidraw": "0.18.1",
+    "@radix-ui/react-tabs": "1.1.21",
+    "@tldraw/sync": "5.3.1",
+    "@tldraw/sync-core": "5.3.1",
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
+    "tldraw": "5.3.1"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.12.1",
+    "@hocuspocus/provider": "4.6.0",
+    "@hocuspocus/server": "4.6.0",
+    "@playwright/test": "1.61.1",
+    "@testing-library/jest-dom": "6.9.1",
+    "@testing-library/react": "16.3.2",
+    "@types/node": "24.10.13",
+    "@types/react": "19.2.17",
+    "@types/react-dom": "19.2.3",
+    "@types/ws": "8.18.1",
+    "@vitejs/plugin-react": "6.0.3",
+    "jsdom": "29.1.1",
+    "typescript": "5.9.3",
+    "vite": "8.1.4",
+    "vitest": "4.1.10",
+    "ws": "8.21.0",
+    "yjs": "13.6.27"
+  }
+}

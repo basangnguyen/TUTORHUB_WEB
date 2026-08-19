@@ -1,0 +1,17 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "types": ["node", "vitest/config"]
+  },
+  "include": [
+    "vite.config.ts",
+    "vite.collab.config.ts",
+    "vite.excalidraw.config.ts",
+    "scripts/**/*.ts",
+    "server",
+    "src/excalidraw/authorizationContract.ts",
+    "src/excalidraw/canonicalAuthority.ts",
+    "src/excalidraw/portableScene.ts"
+  ]
+}

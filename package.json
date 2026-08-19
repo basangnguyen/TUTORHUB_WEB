@@ -54,9 +54,10 @@
     "security:actions": "node scripts/check-github-actions-security.mjs",
     "security:bundle": "node scripts/check-client-bundle-security.mjs",
     "security:calendar-production": "node scripts/check-calendar-production-gate.mjs",
-    "security:test": "node --test scripts/check-github-actions-security.test.mjs scripts/check-client-bundle-security.test.mjs scripts/check-calendar-production-gate.test.mjs scripts/check-trivy-sarif.test.mjs scripts/edge-context.test.mjs && node scripts/check-calendar-production-gate.mjs",
-    "format": "prettier --write \"apps/**/*.{ts,tsx,css,html,json}\" \"packages/**/*.{ts,tsx,css,json}\" \"scripts/**/*.{js,mjs,ts}\" \"e2e/**/*.{ts,tsx,json}\" \".storybook/**/*.{ts,tsx,css}\" \"*.{json,yaml,yml,mjs,ts}\" \".github/**/*.{yaml,yml}\" \"openapi/**/*.{yaml,yml}\"",
-    "format:check": "prettier --check \"apps/**/*.{ts,tsx,css,html,json}\" \"packages/**/*.{ts,tsx,css,json}\" \"scripts/**/*.{js,mjs,ts}\" \"e2e/**/*.{ts,tsx,json}\" \".storybook/**/*.{ts,tsx,css}\" \"*.{json,yaml,yml,mjs,ts}\" \".github/**/*.{yaml,yml}\" \"openapi/**/*.{yaml,yml}\"",
+    "security:whiteboard-runtime-oci": "node scripts/check-whiteboard-runtime-oci.mjs",
+    "security:test": "node --test scripts/check-github-actions-security.test.mjs scripts/check-client-bundle-security.test.mjs scripts/check-calendar-production-gate.test.mjs scripts/check-trivy-sarif.test.mjs scripts/check-whiteboard-runtime-sbom.test.mjs scripts/edge-context.test.mjs && node scripts/check-calendar-production-gate.mjs && node scripts/check-whiteboard-runtime-oci.mjs",
+    "format": "prettier --write \"apps/**/*.{ts,tsx,css,html,json}\" \"packages/**/*.{ts,tsx,css,json}\" \"services/**/*.{ts,tsx,css,html,json}\" \"scripts/**/*.{js,mjs,ts}\" \"e2e/**/*.{ts,tsx,json}\" \".storybook/**/*.{ts,tsx,css}\" \"*.{json,yaml,yml,mjs,ts}\" \".github/**/*.{yaml,yml}\" \"openapi/**/*.{yaml,yml}\"",
+    "format:check": "prettier --check \"apps/**/*.{ts,tsx,css,html,json}\" \"packages/**/*.{ts,tsx,css,json}\" \"services/**/*.{ts,tsx,css,html,json}\" \"scripts/**/*.{js,mjs,ts}\" \"e2e/**/*.{ts,tsx,json}\" \".storybook/**/*.{ts,tsx,css}\" \"*.{json,yaml,yml,mjs,ts}\" \".github/**/*.{yaml,yml}\" \"openapi/**/*.{yaml,yml}\"",
     "verify:web": "pnpm lint && pnpm typecheck && turbo run test build && pnpm storybook:build && pnpm security:bundle",
     "verify:go": "go test ./services/core-api/... && go vet ./services/core-api/...",
     "verify": "pnpm format:check && pnpm api:check && pnpm local:test && pnpm e2e:infra:test && pnpm security:test && pnpm security:actions && pnpm verify:web && pnpm verify:go"

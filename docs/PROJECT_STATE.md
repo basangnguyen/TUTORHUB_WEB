@@ -4,18 +4,256 @@
 
 ## Snapshot
 
-| Thuộc tính           | Trạng thái                                                                            |
-| -------------------- | ------------------------------------------------------------------------------------- |
-| Ngày cập nhật        | 2026-08-16                                                                            |
-| Repository           | `https://github.com/basangnguyen/TUTORHUB_WEB`                                        |
-| Nhánh làm việc       | `main`                                                                                |
-| Quy trình            | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
-| Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4                                                    |
-| Phase hiện tại       | Chuẩn bị Phase 5; Phase 3 deferred carry-over vẫn hoạt động                           |
-| Task `DONE` gần nhất | P4-12 Exact staging acceptance và Phase 4 closure                                    |
-| Mốc repository mới   | `cca93c5` PASS Verify `31946763549`/Security `31946763545`/Cloudflare                 |
-| Task hiện tại        | Không có task implementation mở; Phase 4 đã `DONE`                                   |
-| Task tiếp theo       | P5-COLLAB-00 research spike trước khi code collaboration/whiteboard                  |
+| Thuộc tính           | Trạng thái                                                                              |
+| -------------------- | --------------------------------------------------------------------------------------- |
+| Ngày cập nhật        | 2026-08-19                                                                              |
+| Repository           | `https://github.com/basangnguyen/TUTORHUB_WEB`                                          |
+| Nhánh làm việc       | `main`                                                                                  |
+| Quy trình            | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn   |
+| Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4                                                      |
+| Phase hiện tại       | Phase 5 collaboration decision gate; Phase 3 deferred carry-over vẫn hoạt động          |
+| Task `DONE` gần nhất | P5-COLLAB-00 research package (local, chưa commit/push)                                 |
+| Mốc repository mới   | `cca93c5` PASS Verify `31946763549`/Security `31946763545`/Cloudflare                   |
+| Task hiện tại        | P5-COLLAB-01 Excalidraw hard gates và ADR selection — `IN PROGRESS`                     |
+| Task tiếp theo       | Gate F.2: exact OCI/SBOM scan, rồi disposable Render/Neon/B2 + owner sign-off          |
+
+### Checkpoint P5-COLLAB-01 Gate F.1 OCI source candidate — 2026-08-19
+
+Đã tách runtime production candidate vào `services/whiteboard-runtime`: Hocuspocus/Yjs server thật,
+exact control-plane/grant exchange, Neon binary checkpoint, B2 immutable portable snapshot,
+readiness/liveness/authorized metrics, bounded abuse controls và SIGTERM drain fail-closed.
+Dockerfile multi-stage pin Node `24.15.0` bằng public manifest digest, chạy user `node` và chỉ đóng gói
+bốn dependency production exact-pin. Security workflow đã có image build, Trivy HIGH/CRITICAL,
+CycloneDX SBOM validator và SARIF/artifact upload pin SHA.
+
+Runtime unit/integration `9/9`, lint, typecheck, build, OCI static guard, GitHub Actions security guard,
+production dependency audit không có known vulnerability và isolated production package
+(`runtime_dependencies=4`, không có test provider) đều PASS. Không đọc `.env*.local`, không kết nối
+provider, không database write, không deploy và không push. Máy hiện tại
+không có Docker/Trivy/Syft nên actual image digest/SBOM/vulnerability scan vẫn mở; P5-COLLAB-02 phải
+tạo schema/ACL và P5-COLLAB-04 phải cung cấp control endpoints trước khi service có thể ready thật.
+Gate F giữ `2/4 VERIFY`, P5-COLLAB-01 giữ `IN PROGRESS`, ADR-0034 giữ `Proposed`.
+
+### Checkpoint P5-COLLAB-01 Gate F isolated runtime/operations — 2026-08-19
+
+Đã khóa exact candidate Node `24.15.0`, Hocuspocus `4.6.0`, Yjs `13.6.27`, Excalidraw `0.18.1`.
+Ngày 2026-08-19 owner chọn `FREE_PRIVATE_ALPHA`: một Render Free instance Singapore, không Redis,
+Neon binary checkpoint và B2 immutable portable snapshot trong free allowance; hard cap `0 USD` và
+không automatic upgrade. Render Standard x2 + Redis Cloud paid Multi-AZ chỉ là production HA path đã
+hoãn. Chưa provision hoặc deploy collaboration topology.
+
+Executable Gate F contract PASS `18/18`: two-node atomic one-time grant/global quota, opaque keyed
+document name, single-writer lease/fencing/takeover, watermark/checkpoint/drain, sustained 10 phút
+control/coordination/persistence outage fail closed, snapshot-storage degradation, server kill switch,
+rotation 4 credential kind, snapshot binding-key recovery qua retention rồi old-key denial, provider exit,
+bounded log/metric labels và cost/quota threshold. Full unit/integration `53/53`, lint, typecheck, build,
+dependency/license và bundle structure/security regression tiếp tục PASS.
+
+Gate F hiện `2/4 PASS` và giữ `VERIFY`: isolated outage/operations cùng observability/runbook đã xanh;
+disposable Render Free/Neon/B2 cold-start/restart/outage/rotation/restore drill, exact OCI/SBOM,
+free-quota evidence, no-HA/on-call/retention/RPO/RTO owner approval và ADR-0034 `Accepted` còn bắt
+buộc. Paid two-node/Redis drill chỉ bắt buộc trước public beta/production. P5-COLLAB-01 giữ
+`IN PROGRESS`, production force-off; không shared staging, không database write và không đọc
+`.env*.local`. Chi tiết:
+[P5_COLLAB_01_RUNTIME_OPERATIONS.md](P5_COLLAB_01_RUNTIME_OPERATIONS.md).
+
+### Checkpoint P5-COLLAB-01 Gate E installed browsers — 2026-08-19
+
+Physical harness headed đã chạy trên browser Windows cài thật: Chrome `151.0.7922.140` và Edge
+`151.0.4129.86`. Cả hai PASS 11 toolbar tool accessible role/name, semantic pagination page 2/10,
+200%-equivalent reflow không horizontal overflow, forced colors/reduced motion, Axe default/forced
+colors `0/0` và deterministic cleanup focus về "Mở bảng Excalidraw". Bằng chứng bounded được lưu ở
+ignored path `test-results/p5-collab-01-gate-e-physical/evidence.json`; không chứa secret hoặc nội
+dung bảng riêng tư.
+
+Harness đã phát hiện nested Excalidraw footer tạo landmark `contentinfo` không top-level. Adapter sửa
+bounded thành named group và thêm regression assertion, song song với mobile main-menu repair trước
+đó. Full run còn phát hiện projection programmatic có thể bị browser khác echo thành local mutation,
+làm actor-local undo không lùi đúng semantic contribution. Adapter nay suppress projection echo cho
+tới trusted pointer/keyboard input; canonical undo/redo bỏ qua projection-only revision. Sau fix,
+Playwright A–E PASS `6/6`, targeted undo regression PASS, full unit/integration `39/39`, lint,
+typecheck và build đều PASS.
+
+UI automation đã kiểm tra accessibility tree thật nhưng không tự suy thành âm thanh PASS. Owner sau
+đó xác nhận NVDA `2026.1.1.55980` đã đọc đúng toolbar/mode/semantic fallback và
+reconnect/error/focus recovery trên Chrome/Edge. Gate E đạt `4/4 PASS`. P5-COLLAB-01 vẫn
+`IN PROGRESS` vì Gate F owner/provider closure còn mở; ADR-0034 vẫn `Proposed` và production vẫn
+force-off. Không có database/shared staging/deploy hoặc `.env*.local` access trong checkpoint này.
+
+### Checkpoint P5-COLLAB-01 Gate E automated — 2026-08-19
+
+Exact Excalidraw/Y.Doc/Hocuspocus candidate đã PASS local profile 2 × 500, 10 × 500 và 50 × 2.000.
+Đã đo join/convergence p95, aggregate CPU, heap delta, client receive bytes, encoded state và
+cleanup; 50-client profile chạm đúng connection ceiling 50, hội tụ cùng semantic hash rồi cleanup
+`activeConnections=0`. Số đo/budget cụ thể nằm tại
+[P5_COLLAB_01_LOAD_ACCESSIBILITY.md](P5_COLLAB_01_LOAD_ACCESSIBILITY.md), không tự suy thành
+production SLO/multi-node approval.
+
+Candidate có semantic companion từ cùng canonical scene: type/text/binding/image warning,
+position/size, 50 mục mỗi trang và focus handoff hai chiều; companion vẫn đọc được khi engine đóng
+và không trở thành writer thứ hai. Automated Axe/keyboard/open-close/focus/200%-equivalent reflow/
+forced-colors/reduced-motion PASS; upstream Excalidraw 0.18.1 mobile main-menu thiếu accessible name
+được sửa bounded tại adapter, không allowlist violation. Playwright A–E PASS `6/6`; Gate E load
+`3/3`, semantic unit `1/1` và full unit/integration `39/39` PASS. Lint, typecheck, build,
+dependency/license cùng bundle structure/security đều xanh.
+
+Gate E automated `3/3` đã đóng nhưng physical NVDA speech vẫn bắt buộc, nên Gate E
+giữ `3/4`, P5-COLLAB-01 vẫn `IN PROGRESS`, ADR-0034 vẫn `Proposed` và production vẫn force-off.
+Không có database/shared staging/deploy hoặc `.env*.local` access trong checkpoint này.
+
+### Checkpoint P5-COLLAB-01 Gate D snapshot/recovery — 2026-08-19
+
+Đã triển khai durable snapshot fixture cô lập cho exact Excalidraw/Y.Doc authority. Immutable artifact
+khóa Excalidraw `0.18.1`, canonical schema v1, Yjs `13.6.27`, causal watermark, semantic hash,
+byte/object cap, SHA-256 và HMAC tenant/document/generation binding; object key ngẫu nhiên không chứa
+raw scope. Catalog chỉ publish sau temporary write, read-back verification và atomic rename.
+
+Restart lấy đúng last-good provider state; artifact bị gián đoạn trước catalog publication không thể
+được restore. Corrupt/checksum/binding/provider mismatch bị quarantine với bounded reason và không đổi
+current generation. Restore hợp lệ dựng authority mới trước rồi atomic generation `1 -> 2`; lock chặn
+hai restore worker cùng sở hữu next generation và Gate C từ chối stale grant. Portable canonical JSON
+không chứa Yjs/provider state nhưng round-trip sang authority mới giữ nguyên semantic hash; external
+fetch, active SVG/script, path traversal, tamper và version không hỗ trợ đều fail closed.
+
+Gate D `4/4 DONE`; portable tests `2/2`; full unit/integration `34/34`, lint, TypeScript, Excalidraw-only
+build, exact dependency/license và bundle structure/security đều PASS. Expected large-chunk warning
+vẫn thuộc Gate E. Đây chưa phải PostgreSQL/B2/durable-worker hoặc runtime production approval;
+P5-COLLAB-01 vẫn `IN PROGRESS`, ADR-0034 vẫn `Proposed`, production force-off. Chi tiết tại
+[P5_COLLAB_01_SNAPSHOT_RECOVERY.md](P5_COLLAB_01_SNAPSHOT_RECOVERY.md).
+
+### Checkpoint P5-COLLAB-01 Gate C authorization — 2026-08-19
+
+Đã triển khai authorization fixture cô lập cho exact Excalidraw/Y.Doc/Hocuspocus candidate. Control
+plane phát opaque one-time grant mặc định 30 giây/tối đa 60 giây từ server-resolved membership và bind
+exact Origin/session/tenant/document/generation/actor/capability; chỉ lưu hash trong memory và response
+dùng `no-store`/`no-referrer`. Browser không lưu grant vào URL, DOM, cookie, localStorage hoặc
+sessionStorage; provider document là opaque name do server chọn.
+
+Data plane enforce `view` receive-only kể cả direct protocol mutation; forged capability, cross-tenant/
+document, replay, stale generation và authority outage bị deny. `revoke`, `close`, `restore` tăng
+generation và đóng socket trong budget 1.000 ms. HTTP/frame/update/awareness/depth/rate, connection
+actor/document/tenant, grant issue và reconnect-storm budget đều fail closed.
+
+Authorization integration PASS `7/7`; full unit/integration PASS `28/28`; Playwright Excalidraw A/B/C
+PASS `3/3`; concurrency/undo stress riêng PASS `5/5`. Lint, TypeScript, build, dependency/license và
+bundle security guard đều PASS. Full suite đã phát hiện và sửa projection race bằng actor-delta merge
+cùng local-mutation barrier, không đổi test sang tuần tự. Gate C `4/4 DONE`; P5-COLLAB-01 vẫn
+`IN PROGRESS` vì Gate E-F còn mở sau Gate D, ADR-0034 vẫn `Proposed`, production vẫn force-off. Chi tiết tại
+[P5_COLLAB_01_AUTHORIZATION.md](P5_COLLAB_01_AUTHORIZATION.md).
+
+### Checkpoint P5-COLLAB-01 Gate B adapter — 2026-08-19
+
+Đã triển khai `CanonicalExcalidrawAuthority` cô lập: `Y.Doc` `13.6.27` là authority duy nhất theo
+exact tenant/document/generation; Hocuspocus `4.6.0` là transport/provider candidate và Excalidraw
+chỉ là projection. Canonical scene v1 giữ actor/element revision register, CRDT z-order, page/file,
+deterministic semantic hash và actor-scoped `Y.UndoManager`; không dùng Excalidraw local history làm
+writer thứ hai. Same-element conflict/undo không còn xóa remote value.
+
+Lint, TypeScript và unit/provider suite `20/20` PASS. Evidence bao phủ lossless
+shape/text/binding/image/page round-trip, concurrent/same-element convergence, actor-local undo/redo,
+two-way offline, duplicate/out-of-order update, reconnect, compact restore và bounded fail-closed
+scene/update errors. Browser E2E `2/2` PASS với hai Excalidraw instance, concurrent add, equal
+hash/render count, Teacher undo giữ Student change và redo hội tụ. Projection feedback-loop bị
+suppress, internal history bị clear/Ctrl+Z route qua canonical undo; exact upstream fonts được
+self-host. Structure/security PASS 182 asset/180 text asset. Gate B `5/5` `DONE`; P5-COLLAB-01 vẫn
+`IN PROGRESS` vì Gate E-F còn mở sau checkpoint Gate D, ADR-0034 vẫn `Proposed`, production vẫn
+force-off. Chi tiết tại
+[P5_COLLAB_01_CANONICAL_AUTHORITY.md](P5_COLLAB_01_CANONICAL_AUTHORITY.md).
+
+### Checkpoint P5-COLLAB-01 Gate A — 2026-08-19
+
+Đã tạo Excalidraw-only candidate build cô lập trong `apps/whiteboard-spike`, không nối `apps/web`,
+Core API, database, shared staging hoặc deploy. Exact manifest/installed pin `0.18.1`, engine MIT
+metadata, build 2.313 module, lint, TypeScript, unit `14/14`, structural bundle guard và Playwright
+lazy-load/render fixture 500 đều PASS. Structural scan kiểm tra 180 asset, không có tldraw code và
+initial entry không static-import engine; browser gate PASS `1/1`, gồm Radix-backed sidebar/tablist.
+Production dependency audit
+`pnpm audit --prod --audit-level high` cũng PASS, không có known vulnerability tại checkpoint.
+
+Gate A đã DONE. Exact upstream `v0.18.1` được xác minh tại commit
+`a2ec2889babf7d2295469c6d90ebe77fae57df84`. Candidate dùng exact Radix Tabs `1.1.21` có React 19 peer
+support, ship notice cho Excalidraw/dependency/9 font family và nhận packaged `LICENSE-MIT` của
+`fuzzy@0.1.3`. Build-only sanitizer fail closed theo exact finding count; strict final scanner PASS
+178 text asset, không còn Google API-key pattern, demo Firebase host/config hoặc demo collaboration
+config. Không dùng peer override hoặc bundle allowlist, không log giá trị finding.
+
+Checklist chính xác và lệnh tái lập nằm tại
+[P5_COLLAB_01_EXCALIDRAW_ACCEPTANCE.md](P5_COLLAB_01_EXCALIDRAW_ACCEPTANCE.md). Toàn bộ Gate A đã PASS;
+Gate B/C/D đã đóng ở các checkpoint phía trên, Gate E-F vẫn mở. ADR-0034 giữ `Proposed`,
+P5-COLLAB-01 giữ `IN PROGRESS`, production whiteboard giữ
+force-off.
+
+### Final engine checkpoint P5-COLLAB-01 — owner chọn Excalidraw ngày 2026-08-18
+
+Owner đã chốt **Excalidraw + self-managed collaboration** làm hướng whiteboard chính thức. Excalidraw
+là editor/projection; collaboration plane phải có đúng một canonical document/history/undo authority.
+Yjs/Hocuspocus là leading candidate nhờ generic network evidence đã có, nhưng chưa được chấp nhận
+cho tới khi scene adapter, actor-local undo, durable recovery, authorization, load và operations đạt.
+
+Quyết định này thay thế target tldraw trước đó nhưng **chưa phải production approval**. ADR-0034 vẫn
+`Proposed`; P5-COLLAB-01 được mở lại thành `IN PROGRESS`, P5-COLLAB-02..20 vẫn bị chặn và production
+whiteboard tiếp tục force-off. Không thêm dependency vào `apps/web`, không tạo runtime/migration,
+không ghi shared staging và không deploy trong checkpoint này. Exit gate forward-only nằm tại
+[P5_COLLAB_01_EXCALIDRAW_ACCEPTANCE.md](P5_COLLAB_01_EXCALIDRAW_ACCEPTANCE.md).
+
+### Retained evidence P5-COLLAB-01 — superseded tldraw candidate ngày 2026-08-18
+
+Isolated tldraw official-sync candidate đã PASS lint/typecheck, 13 unit tests và 15 Playwright tests.
+Evidence bao phủ two-browser convergence, actor-local undo/redo, offline merge, SQLite restart,
+one-time 30-second grant, exact Origin/document binding, tenant/read-only isolation, replay/revoke,
+connection/rate/frame caps, checksum snapshot, corrupt denial, generation swap và stale-writer denial.
+Profile 2/10/50 client với fixture 500/500/2.000 shape đều hội tụ và cleanup session về 0; automated
+Axe/keyboard/200%/forced-colors/reduced-motion PASS.
+
+Tldraw-only build tách riêng đã PASS client bundle secret/config guard và không kéo Excalidraw/Yjs/
+Hocuspocus; `pnpm audit --prod --audit-level high` không có known vulnerability, còn tldraw `5.3.1`
+công bố peer range bao phủ React/ReactDOM `19.2.7`. Đây vẫn là local evidence, không phải production
+Core API/runtime. [P5_COLLAB_01_AUTOMATED_ACCEPTANCE.md](P5_COLLAB_01_AUTOMATED_ACCEPTANCE.md) ghi exact
+commands, số đo và giới hạn.
+
+Các kết quả này chỉ còn là historical comparison/provider-exit evidence. Không mục nào được chuyển
+sang PASS cho Excalidraw chỉ vì tldraw đã đạt. Không có thay đổi ở `apps/web`, migration, shared
+staging, deploy hoặc feature flag.
+
+### Superseded selection checkpoint P5-COLLAB-01 — tldraw ngày 2026-08-18
+
+Owner từng chọn **tldraw SDK + official self-hosted sync** làm target tiếp theo sau research. Tldraw
+store cùng đúng một authoritative sync room cho mỗi document generation là topology đã được kiểm thử;
+không ghép Yjs/Hocuspocus hoặc operation log thứ hai vào cùng bảng.
+
+Checkpoint đó chưa bao giờ là production approval và hiện đã được final Excalidraw checkpoint phía
+trên thay thế. Trial/commercial license tldraw không được kích hoạt; tldraw chưa được thêm vào
+`apps/web`, chưa tạo production service/migration và chưa deploy. Prototype được giữ để đối chiếu,
+không phải writer lane hiện hành.
+
+### Checkpoint P5-COLLAB-00 `DONE` ngày 2026-08-18
+
+P5-COLLAB-00 đã bắt đầu bằng source/license audit bốn candidate và prototype cô lập tại
+`apps/whiteboard-spike`. tldraw `5.3.1` và Excalidraw `0.18.1` cùng chạy fixture 500/2.000 object,
+snapshot envelope/restore-callback smoke, JSON-corruption denial, lazy production build,
+control-shell keyboard/Axe, CSS 200%/forced-colors/reduced-motion và ba cold-context load/heap
+observations. tldraw 2.000 object biến thiên 2.937–7.806 ms; scene đã thay đổi cùng semantic
+object-count/hash recovery chưa đạt. Các engine dependency chỉ nằm
+trong research workspace; security resolution dùng bounded workspace overrides và chưa nối
+`apps/web`, Core API, migration, shared staging hoặc deploy.
+
+Nhánh Excalidraw có thêm generic Yjs `13.6.27` + Hocuspocus `4.6.0` network evidence: hai client
+concurrent convergence, offline/reconnect hai chiều, binary snapshot restore, viewer receive-only,
+invalid/cross-tenant credential denial và raw Hocuspocus/WebSocket frame caps đều PASS. Raw frame cap
+có thể chặn legitimate full-state resync lớn nên chưa phải semantic complexity budget. Đây chưa phải
+scene adapter hoặc TutorHub auth topology; persistence/restart, multi-node và profile 10/50 vẫn mở.
+
+[P5_COLLAB_00_RESEARCH_RESULTS.md](P5_COLLAB_00_RESEARCH_RESULTS.md) ghi evidence/limitation và ma trận
+tạm thời; [ADR-0034](adr/0034-whiteboard-engine-document-authority-and-collaboration-topology.md) giữ
+`Proposed`, không chọn production engine. [PHASE_5_BACKLOG.md](PHASE_5_BACKLOG.md) đã tách task
+P5-COLLAB-01..20. P5-COLLAB-00 kết thúc đúng phạm vi research với hai finalist và không có production
+winner; engine-native two-browser convergence/actor-local undo, durable recovery, exact
+grant/revoke/origin/rate/quota, 10/50 profile, manual NVDA và owner approval license/cost/runtime là
+hard gate của P5-COLLAB-01.
+Bundle guard còn chặn upstream Excalidraw do public Google API key cùng Firebase/collaboration config
+được nhúng trong package build. Các Radix dependency được Excalidraw pin cũng chỉ công bố peer range
+đến React 18, chưa bao phủ React 19.2.7 của TutorHub. Production audit riêng đã sạch nhưng full
+workspace dev audit còn baseline ngoài spike.
 
 ### Checkpoint P4-12 `DONE` và Phase 4 closure ngày 2026-08-16
 
