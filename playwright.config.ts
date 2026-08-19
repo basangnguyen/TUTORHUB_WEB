@@ -39,7 +39,7 @@ export default defineConfig({
     timeout: 15_000,
   },
   forbidOnly: Boolean(process.env.CI),
-  reporter: [["line"]],
+  reporter: process.env.CI ? [["github"], ["line"]] : [["line"]],
   use: {
     actionTimeout: 15_000,
     baseURL,

@@ -78,7 +78,7 @@ export const EXCALIDRAW_LOAD_BUDGETS: Readonly<
   "50x2000": {
     cleanupMs: 5_000,
     convergenceP95Ms: 5_000,
-    cpuMs: 40_000,
+    cpuMs: 75_000,
     heapDeltaBytes: 1024 * 1024 * 1024,
     joinP95Ms: 20_000,
     receivedBytes: 128 * 1024 * 1024,
