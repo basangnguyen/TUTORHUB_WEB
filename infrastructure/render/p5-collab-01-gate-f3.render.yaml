@@ -9,7 +9,6 @@ services:
     buildCommand: node --version
     startCommand: node scripts/p5-collab-01-gate-f3-control.mjs
     healthCheckPath: /livez
-    maxShutdownDelaySeconds: 30
     envVars:
       - key: P5_F3_DISPOSABLE_CONFIRM
         value: I_UNDERSTAND_P5_F3_DISPOSABLE_ONLY
@@ -34,7 +33,6 @@ services:
     dockerfilePath: ./services/whiteboard-runtime/Dockerfile
     dockerContext: .
     healthCheckPath: /readyz
-    maxShutdownDelaySeconds: 60
     envVars:
       - key: COLLAB_RUNTIME_PROFILE
         value: FREE_PRIVATE_ALPHA
@@ -51,7 +49,7 @@ services:
       - key: COLLAB_BUILD_ID
         sync: false
       - key: COLLAB_DRAIN_TIMEOUT_MS
-        value: "45000"
+        value: "25000"
       - key: COLLAB_PROBE_TIMEOUT_MS
         value: "5000"
       - key: DATABASE_COLLABORATION_URL

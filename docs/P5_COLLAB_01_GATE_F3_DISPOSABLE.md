@@ -61,7 +61,9 @@ grant đúng `SELECT, INSERT, UPDATE` cho role riêng. Đây không phải forwa
 
 Chỉ sync Blueprint sau khi commit chứa harness đã PASS GitHub Verify/Security. Tạo đúng hai web service
 Free, region `singapore`, auto-deploy off. Control fixture dùng `/livez`; Hocuspocus runtime dùng
-`/readyz` và shutdown window 60 giây. Nếu Dashboard yêu cầu plan trả phí, dừng gate, không provision.
+`/readyz`. Render Free không hỗ trợ cấu hình `maxShutdownDelaySeconds`, nên candidate dùng shutdown
+window mặc định 30 giây và application drain budget 25 giây để giữ 5 giây safety margin. Nếu Dashboard
+yêu cầu plan trả phí, dừng gate, không provision.
 Blueprint khóa tên disposable có hậu tố `bs-20260819`, control origin tương ứng và synthetic client
 origin `https://p5-f3-client.invalid`; nếu tên Render đã bị chiếm thì đổi đồng thời service name,
 `COLLAB_CONTROL_PLANE_URL` và file local trước khi provision.

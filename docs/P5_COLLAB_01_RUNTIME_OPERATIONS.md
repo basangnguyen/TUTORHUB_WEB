@@ -196,8 +196,10 @@ quan trọng thiếu/sai phải làm readiness đỏ, không khởi động ở 
 | `GET /metrics`    | Chỉ qua private/authorized scrape path                                                                                                     | Public/không auth bị deny                                | Bounded metrics ở mục 8.                                                                   |
 | `SIGTERM`         | Đặt not-ready trước, reject upgrade mới, drain, flush checkpoint rồi exit 0                                                                | Quá deadline để Render `SIGKILL`                         | Log event code + duration, không content.                                                  |
 
-Render `healthCheckPath` trỏ vào `/readyz`. Candidate `maxShutdownDelaySeconds=60`; application drain
-budget tối đa 45 giây để còn 15 giây safety margin:
+Render `healthCheckPath` trỏ vào `/readyz`. Runtime production cho phép cấu hình shutdown window 60 giây
+và application drain budget tối đa 45 giây. Riêng disposable Render Free Gate F.3 không hỗ trợ
+`maxShutdownDelaySeconds`, nên dùng provider default 30 giây và `COLLAB_DRAIN_TIMEOUT_MS=25000` để còn
+5 giây safety margin:
 
 1. atomically đặt `draining=true`, `/readyz` trả `503` và upgrade mới trả bounded retryable error;
 2. ngừng cấp/refresh collaboration grant trên replica đang drain;
@@ -205,7 +207,8 @@ budget tối đa 45 giây để còn 15 giây safety margin:
 4. ngừng nhận document mutation mới, flush dirty full-state checkpoint có fencing;
 5. đóng socket bằng application close code đã chuẩn hóa, không gửi raw provider error;
 6. hủy Neon connection sau checkpoint; xác nhận active connection/document về `0`;
-7. exit trước 45 giây. Quá deadline thì exit non-zero để stale process không tiếp tục nhận write.
+7. exit trước application deadline (25 giây ở Gate F.3 Free; tối đa 45 giây ở profile có shutdown window
+   60 giây). Quá deadline thì exit non-zero để stale process không tiếp tục nhận write.
 
 Drain PASS khi instance đặt not-ready trước, flush acknowledged state và đạt `connections=0`,
 `documents=0`, `dirty_documents=0` trước exit. Vì profile free không có replica sống sót, client sẽ có
