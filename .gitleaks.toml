@@ -10,3 +10,7 @@ paths = [
   '''^scripts/e2e-local\.test\.mjs$''',
   '''^services/core-api/internal/httpapi/class_enrollment_test\.go$''',
 ]
+regexes = [
+  # Render Blueprint env-var identifier, never a credential value.
+  '''^B2_APPLICATION_KEY$''',
+]
