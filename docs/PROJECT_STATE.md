@@ -12,10 +12,27 @@
 | Quy trình            | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn   |
 | Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4                                                      |
 | Phase hiện tại       | Phase 5 collaboration decision gate; Phase 3 deferred carry-over vẫn hoạt động          |
-| Task `DONE` gần nhất | P5-COLLAB-00 research package (local, chưa commit/push)                                 |
-| Mốc repository mới   | `cca93c5` PASS Verify `31946763549`/Security `31946763545`/Cloudflare                   |
+| Task `DONE` gần nhất | P5-COLLAB-00 research/selection baseline                                               |
+| Mốc repository mới   | Gate F.2 candidate `2731387` PASS Verify `32245999557`/Security `32245999597`           |
 | Task hiện tại        | P5-COLLAB-01 Excalidraw hard gates và ADR selection — `IN PROGRESS`                     |
-| Task tiếp theo       | Gate F.2: exact OCI/SBOM scan, rồi disposable Render/Neon/B2 + owner sign-off          |
+| Task tiếp theo       | Gate F.3: disposable Render/Neon/B2 drill, rồi owner/ops sign-off                       |
+
+### Checkpoint P5-COLLAB-01 Gate F.2 exact OCI/SBOM — 2026-08-19
+
+GitHub exact builder đã build production Dockerfile của candidate `2731387`. Security run
+`32245999597` PASS toàn bộ secret/repository/Core API container/CodeQL và whiteboard runtime OCI
+gates; riêng job whiteboard `96046520294` PASS build, production dependency boundary, Trivy
+HIGH/CRITICAL, CycloneDX SBOM validation và artifact retention. Artifact `whiteboard-runtime-sbom`
+ID `9362612946` chứa SBOM cùng exact built OCI image ID; archive digest là
+`sha256:6016ae0c30ead0b837868b1884e1d66cb042262d1179caf66999a04ca3e7bef7`. Verify run
+`32245999557` PASS quality/integration, local environment smoke và Browser E2E (`28 passed,
+1 skipped`).
+
+Gate F đạt `3/4 VERIFY`. Còn bắt buộc: chạy exact candidate trên disposable Render Free Singapore với
+Neon/B2 để đo cold-start/restart/reconnect/cleanup-zero, sustained outage, SIGTERM/drain,
+credential rotation và restore; sau đó owner/ops xác nhận single-instance/no-HA/cold-start/free quota,
+on-call, retention, RPO/RTO và chuyển ADR-0034 khi đủ evidence. Không deploy provider, không database
+write, không đọc `.env*.local`; production whiteboard tiếp tục force-off.
 
 ### Checkpoint P5-COLLAB-01 Gate F.1 OCI source candidate — 2026-08-19
 

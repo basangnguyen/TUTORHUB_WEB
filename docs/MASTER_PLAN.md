@@ -11,7 +11,7 @@
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
 | Phase hiện tại        | Phase 5 collaboration decision gate; Phase 3 deferred carry-over tiếp tục                    |
-| Trạng thái gần nhất   | Gate F.1 OCI source candidate PASS; Gate F `2/4`, còn image/provider drill + ops sign-off     |
+| Trạng thái gần nhất   | Gate F.2 exact OCI/SBOM PASS; Gate F `3/4`, còn provider drill + ops sign-off                  |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 
@@ -1654,6 +1654,14 @@ checkpoint, B2 immutable snapshot, readiness/metrics/drain và bounded abuse con
 lint, typecheck, build, digest-pinned/non-root Dockerfile static guard và isolated four-dependency
 production package PASS; CI đã có Trivy HIGH/CRITICAL + CycloneDX guard. Actual image/SBOM scan và
 disposable Render/Neon/B2 evidence vẫn mở nên không đổi Gate F `2/4`, ADR hoặc production force-off.
+
+Gate F.2 checkpoint 2026-08-19: exact GitHub builder đã build candidate `2731387`; Verify
+`32245999557` và Security `32245999597` PASS. Whiteboard runtime OCI job PASS production dependency
+boundary, Trivy HIGH/CRITICAL và CycloneDX validation. Retained artifact `9362612946` chứa exact built
+image ID cùng SBOM; archive digest là
+`sha256:6016ae0c30ead0b837868b1884e1d66cb042262d1179caf66999a04ca3e7bef7`. Gate F tăng lên
+`3/4 VERIFY`; disposable Render/Neon/B2 drill và owner/ops sign-off còn bắt buộc, ADR-0034 vẫn
+`Proposed` và production force-off.
 
 **Deliverable:** teacher mở/đóng công cụ mà không làm rời media room; trạng thái cộng tác khôi phục sau reconnect.
 

@@ -3,9 +3,9 @@
 > Nguồn thực thi cho Phase 5. P5-COLLAB-00 tạo evidence và ADR-0034 decision-ready ở trạng thái
 > `Proposed`; owner đã chọn **Excalidraw + self-managed collaboration** làm target chính thức của
 > P5-COLLAB-01. Task được mở lại `IN PROGRESS` để thay candidate và phải giải quyết các hard gate
-> Excalidraw trước khi chuyển ADR sang `Accepted`. Gate F.1 đã thêm isolated OCI source candidate để
-> kiểm chứng runtime; việc này không mở production feature hoặc các slice P5-COLLAB-02..20, chúng tiếp
-> tục giữ `TODO`.
+> Excalidraw trước khi chuyển ADR sang `Accepted`. Gate F.2 đã build/scan exact OCI candidate và giữ
+> CycloneDX SBOM cùng image ID; việc này không mở production feature hoặc các slice
+> P5-COLLAB-02..20, chúng tiếp tục giữ `TODO`.
 
 ## 1. Mục tiêu phase
 
@@ -167,6 +167,13 @@ readiness/metrics/drain và bounded abuse controls. Dockerfile pin Node digest, 
 dependency production package; CI có Trivy HIGH/CRITICAL + CycloneDX guard. Runtime `9/9`, lint,
 typecheck, build, OCI static guard và package-boundary test PASS. Actual image/SBOM scan cùng
 disposable provider drill chưa chạy, vì vậy Gate F vẫn `2/4`, ADR-0034 vẫn `Proposed`.
+
+**Gate F.2 checkpoint 2026-08-19:** exact GitHub builder đã build production Dockerfile của candidate
+`2731387`. Verify `32245999557` và Security `32245999597` PASS; Trivy HIGH/CRITICAL, CycloneDX SBOM
+validation và artifact retention đều xanh. Artifact `9362612946` chứa exact built image ID cùng SBOM;
+archive digest `sha256:6016ae0c30ead0b837868b1884e1d66cb042262d1179caf66999a04ca3e7bef7`.
+Gate F đạt `3/4 VERIFY`; disposable Render/Neon/B2 drill và owner/ops sign-off vẫn bắt buộc,
+ADR-0034 vẫn `Proposed` và production tiếp tục force-off.
 
 ### P5-COLLAB-02 - Control-plane schema
 

@@ -2,9 +2,9 @@
 
 > **Ngày khóa candidate:** 2026-08-19
 > **Owner runtime decision:** `FREE_PRIVATE_ALPHA` ngày 2026-08-19.
-> **Trạng thái:** `VERIFY` — isolated runtime/operations contract `18/18 PASS`; OCI source candidate
-> Gate F.1 đã triển khai, còn chờ exact image/SBOM scan, disposable Render Free/Neon/B2 drill,
-> on-call owner và chấp thuận giới hạn single-instance/cold-start.
+> **Trạng thái:** `VERIFY` — isolated runtime/operations contract `18/18 PASS`; Gate F.2 exact
+> OCI build, CycloneDX SBOM và Trivy HIGH/CRITICAL scan đã PASS trên GitHub. Còn chờ disposable
+> Render Free/Neon/B2 drill, on-call owner và chấp thuận giới hạn single-instance/cold-start.
 > **Phạm vi:** runbook/acceptance và OCI candidate cho collaboration data plane; không provision,
 > không deploy, không tạo migration, không kết nối shared staging và không thay đổi secret.
 > **Guardrail:** whiteboard production tiếp tục force-off cho tới P5-COLLAB-17 exact staging.
@@ -17,7 +17,7 @@ phí:
 
 | Thành phần                 | Exact candidate                                                                         | Vai trò và ranh giới                                                                                                                        |
 | -------------------------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| Runtime                    | Node.js `24.15.0` LTS, official Alpine `3.23` image immutable, OpenSSL `>=3.5.7-r0`     | Chạy collaboration gateway; không dùng floating tag. Image digest còn phải được điền từ build đã scan trước deploy.                         |
+| Runtime                    | Node.js `24.15.0` LTS, official Alpine `3.23` image immutable, OpenSSL `>=3.5.7-r0`     | Chạy collaboration gateway; không dùng floating tag. CI giữ exact built image ID; deployment digest phải được ghi lại ở disposable provider drill. |
 | Collaboration server       | `@hocuspocus/server@4.6.0`                                                              | WebSocket transport, auth hooks, document load/store và drain; không tạo document/history authority thứ hai.                                |
 | Canonical authority        | `yjs@13.6.27`                                                                           | Một `Y.Doc` cho exact `{tenant, document, generation}`; Excalidraw chỉ là projection.                                                       |
 | Compute                    | Render Web Service **Free**, region Singapore, đúng **1 instance**                      | Chạy data plane private alpha. Chấp nhận spin-down/cold-start, restart và khoảng gián đoạn khi deploy; không có HA hoặc horizontal scaling. |
@@ -89,7 +89,8 @@ node=24.15.0
 yjs=13.6.27
 pg=8.23.0
 @aws-sdk/client-s3=3.1113.0
-oci_image_digest=<PENDING_SCANNED_BUILD_DIGEST>
+ci_image_id=<RETAINED_IN_GITHUB_ARTIFACT_9362612946>
+deployment_image_digest=<PENDING_DISPOSABLE_PROVIDER_DRILL>
 
 # Deferred production HA only; không load trong FREE_PRIVATE_ALPHA
 @hocuspocus/extension-redis=4.6.0
@@ -118,9 +119,31 @@ Runtime thực tế nằm tại `services/whiteboard-runtime`, tách khỏi edit
 Local source/package acceptance PASS: runtime unit/integration `9/9`, lint, typecheck, build, OCI
 static guard, production dependency audit không có known vulnerability và isolated production
 package (`runtime_dependencies=4`, không có test provider).
-Máy hiện tại chưa có Docker/Trivy/Syft nên **chưa** có actual image digest, SBOM hoặc vulnerability
-result; các mục đó chỉ được PASS sau CI/exact builder chạy thật. Candidate cũng cố ý chưa ready trước
-P5-COLLAB-02 schema/ACL và P5-COLLAB-04 control-plane endpoints; không tạo contract giả để ép xanh.
+Máy hiện tại chưa có Docker/Trivy/Syft; GitHub exact builder đã thay phần kiểm chứng image cục bộ bằng
+bằng chứng Gate F.2 được giữ lại. Candidate vẫn cố ý chưa ready trước P5-COLLAB-02 schema/ACL và
+P5-COLLAB-04 control-plane endpoints; không tạo contract giả để ép xanh.
+
+### 2.1.2 Gate F.2 exact OCI/SBOM scan — 2026-08-19
+
+Exact builder trên GitHub đã build Dockerfile production của commit `2731387`, thay vì chỉ đọc
+Dockerfile hoặc quét source. Kết quả khóa candidate:
+
+- official Node base được pin bằng manifest digest; final stage nâng `libcrypto3` và `libssl3` lên
+  tối thiểu `3.5.7-r0`, chạy non-root và không chứa npm/npx/corepack/pnpm/pnpx;
+- Security run `32245999597` PASS, gồm secret scan, repository vulnerability scan, Core API container
+  scan, CodeQL và job `Whiteboard runtime OCI, SBOM and vulnerability scan` `96046520294`;
+- Trivy production image scan với severity `HIGH,CRITICAL` và `exit-code: 1` PASS;
+- artifact `whiteboard-runtime-sbom` ID `9362612946` chứa CycloneDX
+  `tutorhub-whiteboard-runtime.cdx.json` và exact built OCI image ID trong
+  `tutorhub-whiteboard-runtime.image-id.txt`; artifact archive digest là
+  `sha256:6016ae0c30ead0b837868b1884e1d66cb042262d1179caf66999a04ca3e7bef7` và retention 14 ngày;
+- Verify run `32245999557` PASS: quality/integration, local environment smoke và Browser E2E đều xanh;
+  Playwright summary `28 passed, 1 skipped`.
+
+Artifact archive digest ở trên chỉ xác thực gói evidence, **không** được gọi là OCI image digest.
+Exact built image ID nằm trong artifact riêng; deployment digest của image thật được Render pull vẫn
+phải ghi ở disposable provider drill để chứng minh đúng artifact được chạy. Gate F tăng từ `2/4` lên
+`3/4`; production force-off và ADR-0034 `Proposed` không thay đổi.
 
 Candidate server limits phải fail closed và không thấp hơn Gate C:
 
@@ -520,10 +543,11 @@ credential, không dùng shared staging trước khi disposable gate và owner a
 - [x] Full Gate A–E regression tiếp tục PASS tại checkpoint Gate F.
 - [x] Gate F.1 source/package candidate: real Hocuspocus lifecycle, Neon/B2 adapters, non-root
       digest-pinned Dockerfile, CI Trivy/CycloneDX guard và production dependency boundary PASS.
+- [x] Gate F.2 exact CI image build: exact image ID retained, CycloneDX SBOM validated và Trivy
+      HIGH/CRITICAL production image scan PASS.
 
 ### Disposable/provider còn bắt buộc
 
-- [ ] OCI image digest, SBOM và production vulnerability scan của exact runtime artifact PASS.
 - [ ] Một Hocuspocus instance thật trên Render Free Singapore dùng Neon binary checkpoint + B2 portable
       snapshot; cold-start, restart/deploy, reconnect và cleanup-zero PASS.
 - [ ] Sustained Neon/B2/control outage, real SIGTERM/drain, credential rotation và backup/restore trên
