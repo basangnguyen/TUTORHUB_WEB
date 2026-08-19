@@ -172,8 +172,13 @@ disposable provider drill chưa chạy, vì vậy Gate F vẫn `2/4`, ADR-0034 v
 `2731387`. Verify `32245999557` và Security `32245999597` PASS; Trivy HIGH/CRITICAL, CycloneDX SBOM
 validation và artifact retention đều xanh. Artifact `9362612946` chứa exact built image ID cùng SBOM;
 archive digest `sha256:6016ae0c30ead0b837868b1884e1d66cb042262d1179caf66999a04ca3e7bef7`.
-Gate F đạt `3/4 VERIFY`; disposable Render/Neon/B2 drill và owner/ops sign-off vẫn bắt buộc,
+Gate F đạt `3/4 VERIFY`; disposable Render/Neon/B2 drill và owner/ops sign-off vẫn bắt buộc.
 ADR-0034 vẫn `Proposed` và production tiếp tục force-off.
+
+**Gate F.3 preparation checkpoint 2026-08-19:** disposable-only control fixture, strict preflight,
+Render Blueprint, Neon exact-ACL provision, provider round-trip và sustained control-outage runner đã
+được thêm và local tests PASS. Chưa provision provider resource hoặc có live evidence; do đó Gate F vẫn
+`3/4 VERIFY`. Xem `docs/P5_COLLAB_01_GATE_F3_DISPOSABLE.md`.
 
 ### P5-COLLAB-02 - Control-plane schema
 

@@ -1,0 +1,68 @@
+services:
+  - type: web
+    name: tutorhub-p5-f3-control-bs-20260819
+    runtime: node
+    plan: free
+    region: singapore
+    branch: main
+    autoDeployTrigger: off
+    buildCommand: node --version
+    startCommand: node scripts/p5-collab-01-gate-f3-control.mjs
+    healthCheckPath: /livez
+    maxShutdownDelaySeconds: 30
+    envVars:
+      - key: P5_F3_DISPOSABLE_CONFIRM
+        value: I_UNDERSTAND_P5_F3_DISPOSABLE_ONLY
+      - key: P5_F3_ALLOWED_ORIGIN
+        value: https://p5-f3-client.invalid
+      - key: P5_F3_PROVIDER_DOCUMENT_NAME
+        value: wb/aaaaaaaaaaaaaaaaaaaaaaaa/bbbbbbbbbbbbbbbbbbbbbbbb/g1
+      - key: P5_F3_CONTROL_TOKEN_CURRENT
+        sync: false
+      - key: P5_F3_CONTROL_TOKEN_NEXT
+        sync: false
+      - key: P5_F3_CONTROL_ADMIN_TOKEN
+        sync: false
+
+  - type: web
+    name: tutorhub-p5-f3-runtime-bs-20260819
+    runtime: docker
+    plan: free
+    region: singapore
+    branch: main
+    autoDeployTrigger: off
+    dockerfilePath: ./services/whiteboard-runtime/Dockerfile
+    dockerContext: .
+    healthCheckPath: /readyz
+    maxShutdownDelaySeconds: 60
+    envVars:
+      - key: COLLAB_RUNTIME_PROFILE
+        value: FREE_PRIVATE_ALPHA
+      - key: COLLAB_INSTANCE_COUNT
+        value: "1"
+      - key: COLLAB_ALLOWED_ORIGINS
+        value: https://p5-f3-client.invalid
+      - key: COLLAB_CONTROL_PLANE_URL
+        value: https://tutorhub-p5-f3-control-bs-20260819.onrender.com
+      - key: COLLAB_CONTROL_PLANE_TOKEN
+        sync: false
+      - key: COLLAB_METRICS_TOKEN
+        sync: false
+      - key: COLLAB_BUILD_ID
+        sync: false
+      - key: COLLAB_DRAIN_TIMEOUT_MS
+        value: "45000"
+      - key: COLLAB_PROBE_TIMEOUT_MS
+        value: "5000"
+      - key: DATABASE_COLLABORATION_URL
+        sync: false
+      - key: B2_ENDPOINT
+        sync: false
+      - key: B2_REGION
+        sync: false
+      - key: B2_BUCKET
+        sync: false
+      - key: B2_KEY_ID
+        sync: false
+      - key: B2_APPLICATION_KEY
+        sync: false

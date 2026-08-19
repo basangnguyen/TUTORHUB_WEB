@@ -11,7 +11,8 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json --pretty false",
-    "lint": "eslint src",
+    "gate:f3:provider": "node provider-drill.mjs",
+    "lint": "eslint src provider-drill.mjs",
     "start": "node dist/main.js",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit --pretty false"

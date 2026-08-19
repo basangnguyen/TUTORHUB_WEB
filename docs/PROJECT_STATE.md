@@ -17,6 +17,18 @@
 | Task hiện tại        | P5-COLLAB-01 Excalidraw hard gates và ADR selection — `IN PROGRESS`                     |
 | Task tiếp theo       | Gate F.3: disposable Render/Neon/B2 drill, rồi owner/ops sign-off                       |
 
+### Checkpoint P5-COLLAB-01 Gate F.3 automation prepared — 2026-08-19
+
+Đã thêm disposable-only control fixture, strict secret-safe preflight, Render Free Singapore
+Blueprint, Neon checkpoint schema/exact-ACL provision, real Hocuspocus/Neon/B2 provider round-trip và
+600-second control-outage runner. Local control/preflight tests PASS `4/4`; whiteboard runtime tiếp tục
+PASS lint, typecheck, build và unit/integration `9/9`.
+
+Chưa có provider evidence: chưa tạo/kết nối Render/Neon/B2 disposable, chưa chạy cold-start,
+SIGTERM/redeploy, sustained Neon/B2 outage hoặc credential rotation. Gate F giữ `3/4 VERIFY`,
+P5-COLLAB-01 giữ `IN PROGRESS`, ADR-0034 giữ `Proposed`, shared staging/production vẫn force-off. Runbook:
+`docs/P5_COLLAB_01_GATE_F3_DISPOSABLE.md`.
+
 ### Checkpoint P5-COLLAB-01 Gate F.2 exact OCI/SBOM — 2026-08-19
 
 GitHub exact builder đã build production Dockerfile của candidate `2731387`. Security run

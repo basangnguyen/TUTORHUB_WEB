@@ -145,6 +145,18 @@ Exact built image ID nằm trong artifact riêng; deployment digest của image 
 phải ghi ở disposable provider drill để chứng minh đúng artifact được chạy. Gate F tăng từ `2/4` lên
 `3/4`; production force-off và ADR-0034 `Proposed` không thay đổi.
 
+### 2.1.3 Gate F.3 disposable automation prepared — 2026-08-19
+
+Đã thêm control-plane fixture chỉ dùng cho disposable drill, strict secret-safe preflight, Render Free
+Singapore Blueprint, Neon checkpoint fixture/exact ACL provision, real Hocuspocus/Neon/B2 round-trip
+và sustained 600-second control outage runner. Local control/preflight tests PASS `4/4`; runtime tiếp
+tục PASS lint, typecheck, build và `9/9` tests.
+
+Checkpoint này chỉ chứng minh automation sẵn sàng. Chưa provision provider resource, chưa có
+cold-start/redeploy/SIGTERM, Neon/B2 outage, credential rotation hoặc restore evidence nên không tick
+hai mục disposable/provider. Exact runbook: `P5_COLLAB_01_GATE_F3_DISPOSABLE.md`. Fixture không thay
+Core API/schema/snapshot worker thật của P5-COLLAB-02/04/07.
+
 Candidate server limits phải fail closed và không thấp hơn Gate C:
 
 - pre-auth deadline và idle health interval có bound;
