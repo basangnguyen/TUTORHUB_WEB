@@ -179,6 +179,8 @@ ADR-0034 vẫn `Proposed` và production tiếp tục force-off.
 Render Blueprint, Neon exact-ACL provision, provider round-trip và sustained control-outage runner đã
 được thêm và local tests PASS. Chưa provision provider resource hoặc có live evidence; do đó Gate F vẫn
 `3/4 VERIFY`. Xem `docs/P5_COLLAB_01_GATE_F3_DISPOSABLE.md`.
+Exact automation tree `def10c0` PASS Verify `32255600426` và Security `32255600491`; provider drill
+vẫn phải chạy trên resource disposable thật trước khi tick gate.
 
 ### P5-COLLAB-02 - Control-plane schema
 

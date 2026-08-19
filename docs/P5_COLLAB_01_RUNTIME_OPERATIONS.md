@@ -152,6 +152,9 @@ Singapore Blueprint, Neon checkpoint fixture/exact ACL provision, real Hocuspocu
 và sustained 600-second control outage runner. Local control/preflight tests PASS `4/4`; runtime tiếp
 tục PASS lint, typecheck, build và `9/9` tests.
 
+Exact automation tree `def10c0` PASS GitHub Verify `32255600426` và Security `32255600491`, gồm
+secret scan, CodeQL, OCI/SBOM/vulnerability scan, quality/integration, smoke và Browser E2E.
+
 Checkpoint này chỉ chứng minh automation sẵn sàng. Chưa provision provider resource, chưa có
 cold-start/redeploy/SIGTERM, Neon/B2 outage, credential rotation hoặc restore evidence nên không tick
 hai mục disposable/provider. Exact runbook: `P5_COLLAB_01_GATE_F3_DISPOSABLE.md`. Fixture không thay

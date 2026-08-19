@@ -13,9 +13,9 @@
 | Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4                                                      |
 | Phase hiện tại       | Phase 5 collaboration decision gate; Phase 3 deferred carry-over vẫn hoạt động          |
 | Task `DONE` gần nhất | P5-COLLAB-00 research/selection baseline                                               |
-| Mốc repository mới   | Gate F.2 candidate `2731387` PASS Verify `32245999557`/Security `32245999597`           |
+| Mốc repository mới   | Gate F.3 automation `def10c0` PASS Verify `32255600426`/Security `32255600491`          |
 | Task hiện tại        | P5-COLLAB-01 Excalidraw hard gates và ADR selection — `IN PROGRESS`                     |
-| Task tiếp theo       | Gate F.3: disposable Render/Neon/B2 drill, rồi owner/ops sign-off                       |
+| Task tiếp theo       | Provision disposable Render/Neon/B2 và chạy Gate F.3 provider drill                    |
 
 ### Checkpoint P5-COLLAB-01 Gate F.3 automation prepared — 2026-08-19
 
@@ -23,6 +23,9 @@
 Blueprint, Neon checkpoint schema/exact-ACL provision, real Hocuspocus/Neon/B2 provider round-trip và
 600-second control-outage runner. Local control/preflight tests PASS `4/4`; whiteboard runtime tiếp tục
 PASS lint, typecheck, build và unit/integration `9/9`.
+
+Exact candidate tree `def10c0` đã PASS GitHub Verify `32255600426` và Security `32255600491`;
+Secret scan xác nhận không có leak. Đây là CI acceptance của automation, chưa phải provider evidence.
 
 Chưa có provider evidence: chưa tạo/kết nối Render/Neon/B2 disposable, chưa chạy cold-start,
 SIGTERM/redeploy, sustained Neon/B2 outage hoặc credential rotation. Gate F giữ `3/4 VERIFY`,

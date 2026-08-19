@@ -27,6 +27,9 @@ tra OCI candidate và adapter thật; không được ghi nhận ba task tương
 - Provider round-trip: `services/whiteboard-runtime/provider-drill.mjs`.
 - Sustained control outage: `scripts/p5-collab-01-gate-f3-control-outage.mjs`.
 
+Exact automation tree `def10c0` PASS GitHub Verify `32255600426` và Security `32255600491` ngày
+2026-08-19. Kết quả này cho phép bắt đầu provision disposable resource; chưa được tính là provider PASS.
+
 Automation từ chối pooler, shared-stage credential, Redis, region khác Singapore, spend cap khác `0`,
 resource quá 7 ngày, URL chứa credential ở HTTP origin và owner/runtime database dùng cùng role. Output
 chỉ gồm boolean, duration bucket và bounded failure code; không in URL, token, password, document body.
