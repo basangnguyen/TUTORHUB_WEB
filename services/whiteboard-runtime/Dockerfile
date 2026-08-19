@@ -26,6 +26,12 @@ ENV NODE_ENV=production \
     PORT=3000
 WORKDIR /app
 
+# Keep the immutable Node base while requiring the Alpine security release that
+# fixes CVE-2026-45447. Later compatible patch releases remain acceptable.
+RUN apk add --no-cache --upgrade \
+    "libcrypto3>=3.5.7-r0" \
+    "libssl3>=3.5.7-r0"
+
 # The runtime starts compiled JavaScript directly. Package managers are build-only
 # tooling and are removed from the final image to reduce both attack surface and SBOM.
 RUN rm -rf /usr/local/lib/node_modules/npm \

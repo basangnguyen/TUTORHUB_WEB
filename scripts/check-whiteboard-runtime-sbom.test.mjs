@@ -6,11 +6,11 @@ import test from "node:test";
 import { checkWhiteboardRuntimeSbom } from "./check-whiteboard-runtime-sbom.mjs";
 
 const requiredComponents = [
-  "@aws-sdk/client-s3",
-  "@hocuspocus/server",
-  "pg",
-  "yjs",
-].map((name) => ({ name, type: "library", version: "test" }));
+  { group: "@aws-sdk", name: "client-s3" },
+  { group: "@hocuspocus", name: "server" },
+  { name: "pg" },
+  { name: "yjs" },
+].map((component) => ({ ...component, type: "library", version: "test" }));
 
 test("accepts a secret-safe CycloneDX runtime SBOM", async () => {
   await withSbom(

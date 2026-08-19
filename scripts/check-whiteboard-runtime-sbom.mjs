@@ -13,7 +13,18 @@ export async function checkWhiteboardRuntimeSbom(path) {
   const sbom = JSON.parse(text);
   assert.equal(sbom.bomFormat, "CycloneDX");
   assert.ok(Array.isArray(sbom.components), "sbom_components_missing");
-  const names = new Set(sbom.components.map((component) => component?.name));
+  const names = new Set(
+    sbom.components.flatMap((component) => {
+      const name = component?.name;
+      const group = component?.group;
+      return [
+        name,
+        typeof group === "string" && typeof name === "string"
+          ? `${group}/${name}`
+          : undefined,
+      ].filter((value) => typeof value === "string");
+    }),
+  );
   for (const dependency of [
     "@aws-sdk/client-s3",
     "@hocuspocus/server",

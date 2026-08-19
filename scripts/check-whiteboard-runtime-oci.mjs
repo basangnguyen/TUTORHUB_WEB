@@ -42,6 +42,8 @@ export async function checkWhiteboardRuntimeOci() {
   assert.match(dockerfile, /USER node/);
   assert.match(dockerfile, /HEALTHCHECK[\s\S]*\/readyz/);
   assert.match(dockerfile, /CMD \["node", "dist\/main\.js"\]/);
+  assert.match(dockerfile, /libcrypto3>=3\.5\.7-r0/);
+  assert.match(dockerfile, /libssl3>=3\.5\.7-r0/);
   for (const buildOnlyTool of ["npm", "npx", "corepack", "pnpm", "pnpx"]) {
     assert.match(
       dockerfile,
