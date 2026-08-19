@@ -24,7 +24,7 @@ export async function checkWhiteboardRuntimeOci() {
   ]);
   const manifest = JSON.parse(packageText);
   const expectedBase =
-    "node:24.15.0-bookworm-slim@sha256:4e6b70dd6cbfc88c8157ba19aa3d9f9cce6ba4703576d55459e45efcbc9c5f5d";
+    "node:24.15.0-alpine3.23@sha256:d1b3b4da11eefd5941e7f0b9cf17783fc99d9c6fc34884a665f40a06dbdfc94f";
 
   assert.match(
     dockerfile,
@@ -42,6 +42,12 @@ export async function checkWhiteboardRuntimeOci() {
   assert.match(dockerfile, /USER node/);
   assert.match(dockerfile, /HEALTHCHECK[\s\S]*\/readyz/);
   assert.match(dockerfile, /CMD \["node", "dist\/main\.js"\]/);
+  for (const buildOnlyTool of ["npm", "npx", "corepack", "pnpm", "pnpx"]) {
+    assert.match(
+      dockerfile,
+      new RegExp(`/usr/local/bin/${buildOnlyTool}(?:\\s|$)`),
+    );
+  }
 
   assert.equal(manifest.engines.node, "24.15.0");
   assert.deepEqual(manifest.files, ["dist"]);

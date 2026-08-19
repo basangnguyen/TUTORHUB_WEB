@@ -15,16 +15,16 @@ Owner chọn profile `FREE_PRIVATE_ALPHA` với mục tiêu chi phí hạ tầng
 trong free allowance. Profile này không tự nâng gói, không tự scale và không provision tài nguyên trả
 phí:
 
-| Thành phần | Exact candidate | Vai trò và ranh giới |
-| --- | --- | --- |
-| Runtime | Node.js `24.15.0` LTS, image Linux immutable | Chạy collaboration gateway; không dùng floating tag. Image digest còn phải được điền từ build đã scan trước deploy. |
-| Collaboration server | `@hocuspocus/server@4.6.0` | WebSocket transport, auth hooks, document load/store và drain; không tạo document/history authority thứ hai. |
-| Canonical authority | `yjs@13.6.27` | Một `Y.Doc` cho exact `{tenant, document, generation}`; Excalidraw chỉ là projection. |
-| Compute | Render Web Service **Free**, region Singapore, đúng **1 instance** | Chạy data plane private alpha. Chấp nhận spin-down/cold-start, restart và khoảng gián đoạn khi deploy; không có HA hoặc horizontal scaling. |
-| Coordination | **Không Redis trong profile free** | Một instance không cần cross-node pub/sub. Runtime không load Redis extension và không yêu cầu Redis secret. |
-| Durable current checkpoint | Neon PostgreSQL Singapore trong free allowance, Yjs binary trong `BYTEA` | Giữ full-state checkpoint có generation/watermark/fencing; không lưu live operation log cạnh tranh. |
-| Portable recovery | Backblaze B2 private bucket trong free allowance, immutable versioned object + checksum | Giữ portable canonical snapshot/export; không làm live writer. Object key opaque, không chứa tenant/user/document có thể đoán. |
-| Business/control plane | Core API/PostgreSQL hiện hữu | Tenant, membership, lifecycle, capability, current generation, one-time grant và revoke authority. |
+| Thành phần                 | Exact candidate                                                                         | Vai trò và ranh giới                                                                                                                        |
+| -------------------------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| Runtime                    | Node.js `24.15.0` LTS, official Alpine `3.23` image immutable                           | Chạy collaboration gateway; không dùng floating tag. Image digest còn phải được điền từ build đã scan trước deploy.                         |
+| Collaboration server       | `@hocuspocus/server@4.6.0`                                                              | WebSocket transport, auth hooks, document load/store và drain; không tạo document/history authority thứ hai.                                |
+| Canonical authority        | `yjs@13.6.27`                                                                           | Một `Y.Doc` cho exact `{tenant, document, generation}`; Excalidraw chỉ là projection.                                                       |
+| Compute                    | Render Web Service **Free**, region Singapore, đúng **1 instance**                      | Chạy data plane private alpha. Chấp nhận spin-down/cold-start, restart và khoảng gián đoạn khi deploy; không có HA hoặc horizontal scaling. |
+| Coordination               | **Không Redis trong profile free**                                                      | Một instance không cần cross-node pub/sub. Runtime không load Redis extension và không yêu cầu Redis secret.                                |
+| Durable current checkpoint | Neon PostgreSQL Singapore trong free allowance, Yjs binary trong `BYTEA`                | Giữ full-state checkpoint có generation/watermark/fencing; không lưu live operation log cạnh tranh.                                         |
+| Portable recovery          | Backblaze B2 private bucket trong free allowance, immutable versioned object + checksum | Giữ portable canonical snapshot/export; không làm live writer. Object key opaque, không chứa tenant/user/document có thể đoán.              |
+| Business/control plane     | Core API/PostgreSQL hiện hữu                                                            | Tenant, membership, lifecycle, capability, current generation, one-time grant và revoke authority.                                          |
 
 `24.15.0` là baseline acceptance có release LTS chính thức. Trước mỗi deploy phải kiểm tra Node 24 LTS
 security release mới hơn. Nếu cần vá bảo mật, pin exact patch mới cùng image digest và chạy lại Gate F;
@@ -151,12 +151,12 @@ quan trọng thiếu/sai phải làm readiness đỏ, không khởi động ở 
 
 ## 3. Health, readiness và drain
 
-| Endpoint/tín hiệu | Thành công | Thất bại | Dữ liệu được phép trả |
-| --- | --- | --- | --- |
-| `GET /livez` | Process/event loop còn phản hồi | Deadlock, fatal shutdown | Chỉ `ok` + bounded build version; không query dependency. |
-| `GET /readyz` | Không drain, control authority usable và Neon checkpoint read/write probe đạt trong deadline; Redis chỉ được probe ở production HA profile | Bất kỳ dependency bắt buộc hoặc kill switch write bị lỗi | Bounded dependency code; không hostname, connection string, tenant/document hay raw error. |
-| `GET /metrics` | Chỉ qua private/authorized scrape path | Public/không auth bị deny | Bounded metrics ở mục 8. |
-| `SIGTERM` | Đặt not-ready trước, reject upgrade mới, drain, flush checkpoint rồi exit 0 | Quá deadline để Render `SIGKILL` | Log event code + duration, không content. |
+| Endpoint/tín hiệu | Thành công                                                                                                                                 | Thất bại                                                 | Dữ liệu được phép trả                                                                      |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `GET /livez`      | Process/event loop còn phản hồi                                                                                                            | Deadlock, fatal shutdown                                 | Chỉ `ok` + bounded build version; không query dependency.                                  |
+| `GET /readyz`     | Không drain, control authority usable và Neon checkpoint read/write probe đạt trong deadline; Redis chỉ được probe ở production HA profile | Bất kỳ dependency bắt buộc hoặc kill switch write bị lỗi | Bounded dependency code; không hostname, connection string, tenant/document hay raw error. |
+| `GET /metrics`    | Chỉ qua private/authorized scrape path                                                                                                     | Public/không auth bị deny                                | Bounded metrics ở mục 8.                                                                   |
+| `SIGTERM`         | Đặt not-ready trước, reject upgrade mới, drain, flush checkpoint rồi exit 0                                                                | Quá deadline để Render `SIGKILL`                         | Log event code + duration, không content.                                                  |
 
 Render `healthCheckPath` trỏ vào `/readyz`. Candidate `maxShutdownDelaySeconds=60`; application drain
 budget tối đa 45 giây để còn 15 giây safety margin:
@@ -231,34 +231,34 @@ database, còn board restore bình thường phải dùng generation swap nêu t
 
 Đây là **application acceptance objective**, không phải SLA của provider:
 
-| Sự cố/phạm vi | RPO mục tiêu | RTO mục tiêu | Ghi chú |
-| --- | ---: | ---: | --- |
-| Render Free sleep/restart/deploy | `<=15s` acknowledged Yjs state | Candidate `<=2 phút` kể từ request đánh thức đến reconnect/hội tụ | Không có replica dự phòng; phải đo cold-start/restart thật. |
-| Corrupt current checkpoint | last-good portable snapshot `<=5 phút` | `<=30 phút` cho board pilot <=2.000 object | Restore generation mới, không overwrite corrupt input. |
-| B2 outage | Neon current checkpoint `<=15s`; portable RPO tạm tăng và phải alert | Snapshot/export phục hồi `<=30 phút` sau provider hồi | Live collaboration có thể tiếp tục nếu Neon đạt, nhưng restore/export bị disable. |
-| Neon outage | Không hứa giữ mutation chỉ trong RAM; write dừng | `<=15 phút` sau Neon hồi và checkpoint validate | Read-only local projection không được quảng bá là durable edit. |
-| Toàn region Singapore lỗi | last verified B2 portable snapshot `<=5 phút` | manual recovery objective `<=4 giờ` | Không có multi-region hot standby trong candidate; owner phải ký nhận residual risk. |
-| Production HA Redis failover | `DEFERRED` | `DEFERRED` | Chỉ đo khi owner kích hoạt paid HA upgrade path. |
+| Sự cố/phạm vi                    |                                                         RPO mục tiêu |                                                      RTO mục tiêu | Ghi chú                                                                              |
+| -------------------------------- | -------------------------------------------------------------------: | ----------------------------------------------------------------: | ------------------------------------------------------------------------------------ |
+| Render Free sleep/restart/deploy |                                       `<=15s` acknowledged Yjs state | Candidate `<=2 phút` kể từ request đánh thức đến reconnect/hội tụ | Không có replica dự phòng; phải đo cold-start/restart thật.                          |
+| Corrupt current checkpoint       |                               last-good portable snapshot `<=5 phút` |                        `<=30 phút` cho board pilot <=2.000 object | Restore generation mới, không overwrite corrupt input.                               |
+| B2 outage                        | Neon current checkpoint `<=15s`; portable RPO tạm tăng và phải alert |             Snapshot/export phục hồi `<=30 phút` sau provider hồi | Live collaboration có thể tiếp tục nếu Neon đạt, nhưng restore/export bị disable.    |
+| Neon outage                      |                     Không hứa giữ mutation chỉ trong RAM; write dừng |                   `<=15 phút` sau Neon hồi và checkpoint validate | Read-only local projection không được quảng bá là durable edit.                      |
+| Toàn region Singapore lỗi        |                        last verified B2 portable snapshot `<=5 phút` |                               manual recovery objective `<=4 giờ` | Không có multi-region hot standby trong candidate; owner phải ký nhận residual risk. |
+| Production HA Redis failover     |                                                           `DEFERRED` |                                                        `DEFERRED` | Chỉ đo khi owner kích hoạt paid HA upgrade path.                                     |
 
 Gate không PASS chỉ từ số mục tiêu trên. Failure drill phải đo actual `observed_rpo_seconds` và
 `observed_rto_seconds`; vượt budget thì giữ feature force-off.
 
 ## 5. Failure matrix và drill bắt buộc
 
-| Drill | Fault injection | Hành vi bắt buộc | Evidence tối thiểu | Trạng thái |
-| --- | --- | --- | --- | --- |
-| Render Free cold-start | Để service spin down theo provider rồi mở HTTP/WebSocket mới | Service thức dậy, client hiển thị reconnect, phục hồi checkpoint và hội tụ; không mất acknowledged state | opaque run ID, cold-start/reconnect timings, hash equality | `NOT RUN` |
-| Graceful deploy/drain | `SIGTERM` instance với dirty doc | Not-ready trước, không socket mới, checkpoint flush, disconnect, instance mới phục hồi và reconnect <= budget | drain timeline + cleanup-zero + recovery hash | `NOT RUN` |
-| Neon sustained outage | Chặn Neon 10 phút | Readiness đỏ, write fail closed, không tuyên bố mutation RAM là saved; phục hồi từ last-good | checkpoint age, no-lost-ack evidence | `NOT RUN` |
-| B2 sustained outage | Chặn B2 10 phút | Snapshot/export bounded retry; live state không mất; alert snapshot age; last-good không bị xóa | retry count, alert, later checksum verify | `NOT RUN` |
-| Control authority outage | Core API/grant/revoke authority lỗi | Không cấp grant/refresh và không elevate reader; cached permissive role bị cấm | fail-closed response taxonomy | `NOT RUN` |
-| Kill switch | Chuyển write/connection off giữa phiên | Grant mới deny; writer socket đóng <=1s; client sang bounded view/export path | revoke timing + no post-switch mutation | `NOT RUN` |
-| Rotation | Rotate từng secret theo mục 7 | Current/next overlap bounded; new path đạt trước revoke; credential cũ deny sau revoke | key IDs/role names redacted, boolean probes | `NOT RUN` |
-| Backup/restore | Tạo snapshot, mutate, corrupt một artifact, restore last-good | Corrupt bị quarantine; generation mới giữ expected semantic hash; stale writer deny | checksum, generation swap, hash | `NOT RUN` |
-| Provider exit | Export portable, khởi tạo clean authority không dựa Redis/Hocuspocus state | Round-trip giữ supported semantic hash; không dual-write | artifact version + before/after hash | `NOT RUN` |
-| Quota/reconnect storm | Vượt actor/doc/tenant/rate/payload cap | Bounded reject, không OOM, tenant khác không bị starvation | rejection metric + heap/CPU + cleanup-zero | `NOT RUN` |
-| Regional tabletop | Giả lập toàn bộ Singapore unavailable | Feature off; dùng B2 last-good; operator thực hiện documented manual recovery | signed tabletop timeline và gaps | `NOT RUN` |
-| Production HA two-node/Redis | Kill một replica và chặn Redis 10 phút | Hai-node coordination/failover không divergence | two-node/Redis evidence | `DEFERRED_PRODUCTION_HA` |
+| Drill                        | Fault injection                                                            | Hành vi bắt buộc                                                                                              | Evidence tối thiểu                                         | Trạng thái               |
+| ---------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- | ------------------------ |
+| Render Free cold-start       | Để service spin down theo provider rồi mở HTTP/WebSocket mới               | Service thức dậy, client hiển thị reconnect, phục hồi checkpoint và hội tụ; không mất acknowledged state      | opaque run ID, cold-start/reconnect timings, hash equality | `NOT RUN`                |
+| Graceful deploy/drain        | `SIGTERM` instance với dirty doc                                           | Not-ready trước, không socket mới, checkpoint flush, disconnect, instance mới phục hồi và reconnect <= budget | drain timeline + cleanup-zero + recovery hash              | `NOT RUN`                |
+| Neon sustained outage        | Chặn Neon 10 phút                                                          | Readiness đỏ, write fail closed, không tuyên bố mutation RAM là saved; phục hồi từ last-good                  | checkpoint age, no-lost-ack evidence                       | `NOT RUN`                |
+| B2 sustained outage          | Chặn B2 10 phút                                                            | Snapshot/export bounded retry; live state không mất; alert snapshot age; last-good không bị xóa               | retry count, alert, later checksum verify                  | `NOT RUN`                |
+| Control authority outage     | Core API/grant/revoke authority lỗi                                        | Không cấp grant/refresh và không elevate reader; cached permissive role bị cấm                                | fail-closed response taxonomy                              | `NOT RUN`                |
+| Kill switch                  | Chuyển write/connection off giữa phiên                                     | Grant mới deny; writer socket đóng <=1s; client sang bounded view/export path                                 | revoke timing + no post-switch mutation                    | `NOT RUN`                |
+| Rotation                     | Rotate từng secret theo mục 7                                              | Current/next overlap bounded; new path đạt trước revoke; credential cũ deny sau revoke                        | key IDs/role names redacted, boolean probes                | `NOT RUN`                |
+| Backup/restore               | Tạo snapshot, mutate, corrupt một artifact, restore last-good              | Corrupt bị quarantine; generation mới giữ expected semantic hash; stale writer deny                           | checksum, generation swap, hash                            | `NOT RUN`                |
+| Provider exit                | Export portable, khởi tạo clean authority không dựa Redis/Hocuspocus state | Round-trip giữ supported semantic hash; không dual-write                                                      | artifact version + before/after hash                       | `NOT RUN`                |
+| Quota/reconnect storm        | Vượt actor/doc/tenant/rate/payload cap                                     | Bounded reject, không OOM, tenant khác không bị starvation                                                    | rejection metric + heap/CPU + cleanup-zero                 | `NOT RUN`                |
+| Regional tabletop            | Giả lập toàn bộ Singapore unavailable                                      | Feature off; dùng B2 last-good; operator thực hiện documented manual recovery                                 | signed tabletop timeline và gaps                           | `NOT RUN`                |
+| Production HA two-node/Redis | Kill một replica và chặn Redis 10 phút                                     | Hai-node coordination/failover không divergence                                                               | two-node/Redis evidence                                    | `DEFERRED_PRODUCTION_HA` |
 
 Sustained outage nghĩa là fault được giữ tối thiểu 10 phút, không phải một request fail ngắn. Drill không
 được dùng credential live, không làm shared staging và không log secret/content. Provider dashboard
@@ -268,11 +268,11 @@ drill chỉ chạy sau owner duyệt chi phí và blast radius; trước đó d�
 
 Cần ba server-owned state, mặc định fail closed:
 
-| State | Grant mới | Socket hiện hữu | UI |
-| --- | --- | --- | --- |
-| `off` | Deny tất cả | Revoke/close | Whiteboard force-off; chỉ thông báo bounded. |
-| `read_only` | Chỉ grant `view` | Đóng writer rồi reconnect bằng view grant | Last-good board/semantic fallback và export nếu artifact verified. |
-| `enabled` | Theo capability current | Theo exact grant/generation | Collaboration bình thường. |
+| State       | Grant mới               | Socket hiện hữu                           | UI                                                                 |
+| ----------- | ----------------------- | ----------------------------------------- | ------------------------------------------------------------------ |
+| `off`       | Deny tất cả             | Revoke/close                              | Whiteboard force-off; chỉ thông báo bounded.                       |
+| `read_only` | Chỉ grant `view`        | Đóng writer rồi reconnect bằng view grant | Last-good board/semantic fallback và export nếu artifact verified. |
+| `enabled`   | Theo capability current | Theo exact grant/generation               | Collaboration bình thường.                                         |
 
 Không downgrade quyền của một socket đang mở chỉ bằng client flag. Khi chuyển `enabled -> read_only/off`,
 server tăng revoke generation và đóng writer; client phải exchange grant mới. Kill switch không xóa
@@ -349,16 +349,16 @@ duyệt; evidence chỉ giữ đoạn đã redaction.
 
 ### 8.3 Alert candidate
 
-| Alert | Ngưỡng candidate | Hành động đầu tiên |
-| --- | --- | --- |
-| No ready instance | 1 phút sau request đánh thức | `SEV-1`, force-off grant, kiểm tra Render/Neon. Cold-start expected vẫn phải được đo riêng. |
-| Checkpoint age | `>30s` trong 2 phút | `SEV-1`, chuyển read-only; không giữ write chỉ trong RAM. |
-| Snapshot age | `>10 phút` trong active room | `SEV-2`, disable restore/export mới và kiểm tra B2. |
-| Neon dependency down | 1 phút | Dừng write/grant, chạy dependency runbook. Redis alert chỉ áp dụng cho production HA profile. |
-| Error/reconnect rate | `>5%` trong 5 phút | Dừng rollout, kiểm tra provider/load; chống reconnect storm. |
-| CPU/heap | `>70% CPU` hoặc `>75% heap/RSS budget` trong 10 phút | Giảm admission, xem coarse profile; không thêm high-cardinality debug. |
-| Quota | 70/85/100% per agreed capacity | Notify/throttle/deny theo mức; không noisy-neighbor. |
-| Cost forecast | 70/90/100% monthly owner budget | Notify/freeze scale/force-off nếu vượt hard cap. |
+| Alert                | Ngưỡng candidate                                     | Hành động đầu tiên                                                                            |
+| -------------------- | ---------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| No ready instance    | 1 phút sau request đánh thức                         | `SEV-1`, force-off grant, kiểm tra Render/Neon. Cold-start expected vẫn phải được đo riêng.   |
+| Checkpoint age       | `>30s` trong 2 phút                                  | `SEV-1`, chuyển read-only; không giữ write chỉ trong RAM.                                     |
+| Snapshot age         | `>10 phút` trong active room                         | `SEV-2`, disable restore/export mới và kiểm tra B2.                                           |
+| Neon dependency down | 1 phút                                               | Dừng write/grant, chạy dependency runbook. Redis alert chỉ áp dụng cho production HA profile. |
+| Error/reconnect rate | `>5%` trong 5 phút                                   | Dừng rollout, kiểm tra provider/load; chống reconnect storm.                                  |
+| CPU/heap             | `>70% CPU` hoặc `>75% heap/RSS budget` trong 10 phút | Giảm admission, xem coarse profile; không thêm high-cardinality debug.                        |
+| Quota                | 70/85/100% per agreed capacity                       | Notify/throttle/deny theo mức; không noisy-neighbor.                                          |
+| Cost forecast        | 70/90/100% monthly owner budget                      | Notify/freeze scale/force-off nếu vượt hard cap.                                              |
 
 Ngưỡng phải được hiệu chỉnh bằng Gate E 2/10/50 và private-alpha canary; không nới error/RPO threshold
 chỉ để làm dashboard xanh.
@@ -381,13 +381,13 @@ Giá trị `0` chỉ đúng khi usage còn trong quota hiện hành. Provider qu
 trong ngày approval. Khi đạt warning threshold, hệ thống giảm admission rồi force-off trước khi cần tài
 nguyên trả phí; không tự mua add-on, scale instance hoặc đổi plan.
 
-| Khoản active | Chi phí mục tiêu | Ràng buộc |
-| --- | ---: | --- |
-| 1 x Render Free Singapore | `0 USD` | Single instance, spin-down/cold-start, 750 free instance hours/workspace theo policy hiện hành, không scaling. |
-| Redis | `0 USD` | Không provision/không dùng trong profile free. |
-| Neon | `0 USD` | Chỉ khi compute/storage/transfer còn trong free allowance; vượt ngưỡng thì force-off. |
-| B2 | `0 USD` | Chỉ khi storage/transaction/egress còn trong free allowance; vượt ngưỡng thì force-off snapshot/export mới. |
-| **Approved hard monthly cap** | **`0 USD`** | Không automatic paid upgrade. |
+| Khoản active                  | Chi phí mục tiêu | Ràng buộc                                                                                                      |
+| ----------------------------- | ---------------: | -------------------------------------------------------------------------------------------------------------- |
+| 1 x Render Free Singapore     |          `0 USD` | Single instance, spin-down/cold-start, 750 free instance hours/workspace theo policy hiện hành, không scaling. |
+| Redis                         |          `0 USD` | Không provision/không dùng trong profile free.                                                                 |
+| Neon                          |          `0 USD` | Chỉ khi compute/storage/transfer còn trong free allowance; vượt ngưỡng thì force-off.                          |
+| B2                            |          `0 USD` | Chỉ khi storage/transaction/egress còn trong free allowance; vượt ngưỡng thì force-off snapshot/export mới.    |
+| **Approved hard monthly cap** |      **`0 USD`** | Không automatic paid upgrade.                                                                                  |
 
 ### 9.2 Deferred production HA worksheet
 
@@ -412,15 +412,15 @@ Chi phí lao động/on-call và incident rehearsal ghi riêng, không che trong
 không có phí riêng theo tài liệu provider nhưng object vẫn phát sinh storage/egress/transaction theo
 pricing hiện hành.
 
-| Khoản deferred | Quote/tháng | Currency | Quote date | Evidence redacted |
-| --- | ---: | --- | --- | --- |
-| 2 x Render Standard Singapore | `PENDING_OWNER_DASHBOARD_QUOTE` | `PENDING` | `PENDING` | `PENDING` |
-| Render workspace/org requirement | `PENDING_OWNER_DASHBOARD_QUOTE` | `PENDING` | `PENDING` | `PENDING` |
-| Redis Cloud paid Multi-AZ Singapore | `PENDING_OWNER_DASHBOARD_QUOTE` | `PENDING` | `PENDING` | `PENDING` |
-| Neon incremental compute/storage/backup | `PENDING_USAGE_MODEL` | `PENDING` | `PENDING` | `PENDING` |
-| B2 storage/restore traffic | `PENDING_USAGE_MODEL` | `PENDING` | `PENDING` | `PENDING` |
-| Observability/support/tax buffer | `PENDING_OWNER_DECISION` | `PENDING` | `PENDING` | `PENDING` |
-| **Paid HA hard monthly cap** | `PENDING_FUTURE_OWNER_APPROVAL` | `PENDING` | `PENDING` | owner sign-off |
+| Khoản deferred                          |                     Quote/tháng | Currency  | Quote date | Evidence redacted |
+| --------------------------------------- | ------------------------------: | --------- | ---------- | ----------------- |
+| 2 x Render Standard Singapore           | `PENDING_OWNER_DASHBOARD_QUOTE` | `PENDING` | `PENDING`  | `PENDING`         |
+| Render workspace/org requirement        | `PENDING_OWNER_DASHBOARD_QUOTE` | `PENDING` | `PENDING`  | `PENDING`         |
+| Redis Cloud paid Multi-AZ Singapore     | `PENDING_OWNER_DASHBOARD_QUOTE` | `PENDING` | `PENDING`  | `PENDING`         |
+| Neon incremental compute/storage/backup |           `PENDING_USAGE_MODEL` | `PENDING` | `PENDING`  | `PENDING`         |
+| B2 storage/restore traffic              |           `PENDING_USAGE_MODEL` | `PENDING` | `PENDING`  | `PENDING`         |
+| Observability/support/tax buffer        |        `PENDING_OWNER_DECISION` | `PENDING` | `PENDING`  | `PENDING`         |
+| **Paid HA hard monthly cap**            | `PENDING_FUTURE_OWNER_APPROVAL` | `PENDING` | `PENDING`  | owner sign-off    |
 
 ### 9.3 Capacity input bắt buộc
 
@@ -436,12 +436,12 @@ tới khi expected và peak model đều dưới hard cap tương lai với head
 
 ## 10. On-call và incident flow
 
-| Vai trò | Owner | Trách nhiệm |
-| --- | --- | --- |
-| Primary on-call | `PENDING_OWNER_ASSIGNMENT` | Nhận alert, kích hoạt kill switch, giữ timeline/evidence. |
-| Backup on-call | `PENDING_OWNER_ASSIGNMENT` | Review restore/rotation, liên hệ provider khi primary unavailable. |
+| Vai trò                 | Owner                      | Trách nhiệm                                                           |
+| ----------------------- | -------------------------- | --------------------------------------------------------------------- |
+| Primary on-call         | `PENDING_OWNER_ASSIGNMENT` | Nhận alert, kích hoạt kill switch, giữ timeline/evidence.             |
+| Backup on-call          | `PENDING_OWNER_ASSIGNMENT` | Review restore/rotation, liên hệ provider khi primary unavailable.    |
 | Security incident owner | `PENDING_OWNER_ASSIGNMENT` | Grant replay/credential/content exposure; quyết định revoke toàn cục. |
-| Cost owner | `PENDING_OWNER_ASSIGNMENT` | Duyệt quote/budget/scale; không có quyền xem secret runtime. |
+| Cost owner              | `PENDING_OWNER_ASSIGNMENT` | Duyệt quote/budget/scale; không có quyền xem secret runtime.          |
 
 Incident tối thiểu:
 

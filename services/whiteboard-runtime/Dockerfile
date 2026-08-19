@@ -1,4 +1,4 @@
-ARG NODE_IMAGE=node:24.15.0-bookworm-slim@sha256:4e6b70dd6cbfc88c8157ba19aa3d9f9cce6ba4703576d55459e45efcbc9c5f5d
+ARG NODE_IMAGE=node:24.15.0-alpine3.23@sha256:d1b3b4da11eefd5941e7f0b9cf17783fc99d9c6fc34884a665f40a06dbdfc94f
 
 FROM ${NODE_IMAGE} AS build
 
@@ -25,6 +25,16 @@ FROM ${NODE_IMAGE} AS runtime
 ENV NODE_ENV=production \
     PORT=3000
 WORKDIR /app
+
+# The runtime starts compiled JavaScript directly. Package managers are build-only
+# tooling and are removed from the final image to reduce both attack surface and SBOM.
+RUN rm -rf /usr/local/lib/node_modules/npm \
+    /usr/local/lib/node_modules/corepack \
+    /usr/local/bin/npm \
+    /usr/local/bin/npx \
+    /usr/local/bin/corepack \
+    /usr/local/bin/pnpm \
+    /usr/local/bin/pnpx
 
 COPY --from=build --chown=node:node /runtime/package.json ./package.json
 COPY --from=build --chown=node:node /runtime/node_modules ./node_modules

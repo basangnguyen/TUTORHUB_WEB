@@ -197,6 +197,13 @@ jobs:
         run: |
           test "$(docker image inspect --format '{{.Config.User}}' tutorhub-whiteboard-runtime:security-scan)" = "node"
           test "$(docker image inspect --format '{{json .Config.Cmd}}' tutorhub-whiteboard-runtime:security-scan)" = '["node","dist/main.js"]'
+          docker run --rm --entrypoint node tutorhub-whiteboard-runtime:security-scan -e "const fs=require('node:fs'); for (const path of ['/usr/local/bin/npm','/usr/local/bin/npx','/usr/local/bin/corepack','/usr/local/bin/pnpm']) { if (fs.existsSync(path)) process.exit(1) }"
+
+      - name: Record exact OCI image ID
+        run: |
+          image_id="$(docker image inspect --format '{{.Id}}' tutorhub-whiteboard-runtime:security-scan)"
+          printf '%s\n' "${image_id}" | grep -Eq '^sha256:[0-9a-f]{64}$'
+          printf '%s\n' "${image_id}" > tutorhub-whiteboard-runtime.image-id.txt
 
       - name: Scan whiteboard runtime image
         uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
@@ -213,6 +220,7 @@ jobs:
         run: node scripts/check-trivy-sarif.mjs trivy-whiteboard-runtime.sarif whiteboard-runtime
 
       - name: Generate CycloneDX SBOM
+        if: always()
         uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
         with:
           image-ref: tutorhub-whiteboard-runtime:security-scan
@@ -222,6 +230,7 @@ jobs:
           exit-code: 0
 
       - name: Validate secret-safe SBOM
+        if: always()
         run: node scripts/check-whiteboard-runtime-sbom.mjs tutorhub-whiteboard-runtime.cdx.json
 
       - name: Upload whiteboard runtime findings
@@ -236,6 +245,8 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: whiteboard-runtime-sbom
-          path: tutorhub-whiteboard-runtime.cdx.json
+          path: |
+            tutorhub-whiteboard-runtime.cdx.json
+            tutorhub-whiteboard-runtime.image-id.txt
           if-no-files-found: error
           retention-days: 14

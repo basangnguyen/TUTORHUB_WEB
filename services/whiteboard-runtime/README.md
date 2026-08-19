@@ -45,7 +45,8 @@ vào runtime vì profile này từ chối `REDIS_URL`; chỉ truyền allowlist 
 - Region/plan/replica: Singapore / Free / `1`.
 - Health check: `/readyz`; port do Render truyền qua `PORT`.
 - Auto-deploy: tắt cho tới khi exact image/SBOM/vulnerability gate và quyền disposable được duyệt.
-- Image chạy user `node`, chỉ chứa `dist`, package manifest và bốn dependency production exact-pin.
+- Image dùng official Node `24.15.0-alpine3.23` pin digest, chạy user `node`, loại package manager khỏi
+  final layer và chỉ chứa `dist`, package manifest cùng bốn dependency production exact-pin.
 
 Không deploy nếu `/readyz` đỏ. Không dùng `/livez` làm readiness hoặc bỏ qua control-plane/Neon
 preflight để ép service lên trạng thái ready.
