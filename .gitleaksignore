@@ -14,3 +14,6 @@ b1117ec5547aeb311662cf1ba9c0820ef5385709:services/core-api/internal/modules/medi
 # The literals were removed from current code; exact fingerprints retain full scanning elsewhere.
 abf4eb7a1bb3bd5ba280ed07a5132583844021e7:apps/web/src/features/media/P411PhysicalHarness.tsx:generic-api-key:21
 abf4eb7a1bb3bd5ba280ed07a5132583844021e7:apps/web/src/features/media/P411PhysicalHarness.tsx:generic-api-key:22
+# P5 Gate F.3 synthetic B2 fixture in the already-pushed Neon outage harness commit.
+# The literal was removed from current code; the exact fingerprint preserves all other scanning.
+348ae6606632f3be6287b13b6af6b5006dc70012:scripts/p5-collab-01-gate-f3-neon-outage.test.mjs:generic-api-key:48

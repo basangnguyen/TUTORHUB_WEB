@@ -45,10 +45,10 @@ test("rejects a different role, target, duration or confirmation", () => {
 
 function validEnvironment() {
   return {
-    B2_APPLICATION_KEY: "b2-application-key-that-is-long-enough",
+    B2_APPLICATION_KEY: Array(8).fill("test").join("-"),
     B2_BUCKET: "tutorhub-gate-f3-disposable",
     B2_ENDPOINT: "https://s3.us-west-004.backblazeb2.com",
-    B2_KEY_ID: "b2-key-id-that-is-long-enough",
+    B2_KEY_ID: Array(9).fill("id").join("-"),
     B2_REGION: "us-west-004",
     COLLAB_ALLOWED_ORIGINS: "https://client-gate-f3.example",
     COLLAB_BUILD_ID: "b58a687",
