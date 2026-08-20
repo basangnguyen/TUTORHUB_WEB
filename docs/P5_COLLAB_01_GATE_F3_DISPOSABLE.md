@@ -60,8 +60,10 @@ grant đúng `SELECT, INSERT, UPDATE` cho role riêng. Đây không phải forwa
 ### 3.3 Render Free Singapore
 
 Chỉ sync Blueprint sau khi commit chứa harness đã PASS GitHub Verify/Security. Tạo đúng hai web service
-Free, region `singapore`, auto-deploy off. Control fixture dùng `/livez`; Hocuspocus runtime dùng
-`/readyz`. Render Free không hỗ trợ cấu hình `maxShutdownDelaySeconds`, nên candidate dùng shutdown
+Free, region `singapore`, auto-deploy off. Cả hai Render health check dùng `/livez` để chỉ đo
+liveness; Hocuspocus runtime vẫn dùng `/readyz` cho dependency readiness và fail-closed gate.
+Không cấu hình Render health check vào `/readyz`, vì sustained dependency outage sẽ tạo
+restart-loop trên single Free instance. Render Free không hỗ trợ cấu hình `maxShutdownDelaySeconds`, nên candidate dùng shutdown
 window mặc định 30 giây và application drain budget 25 giây để giữ 5 giây safety margin. Nếu Dashboard
 yêu cầu plan trả phí, dừng gate, không provision.
 Blueprint khóa tên disposable có hậu tố `bs-20260819`, control origin tương ứng và synthetic client

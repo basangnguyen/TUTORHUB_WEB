@@ -15,12 +15,17 @@ const mainPath = new URL(
   "../services/whiteboard-runtime/src/main.ts",
   import.meta.url,
 );
+const renderBlueprintPath = new URL(
+  "../infrastructure/render/p5-collab-01-gate-f3.render.yaml",
+  import.meta.url,
+);
 
 export async function checkWhiteboardRuntimeOci() {
-  const [dockerfile, packageText, main] = await Promise.all([
+  const [dockerfile, packageText, main, renderBlueprint] = await Promise.all([
     readFile(dockerfilePath, "utf8"),
     readFile(packagePath, "utf8"),
     readFile(mainPath, "utf8"),
+    readFile(renderBlueprintPath, "utf8"),
   ]);
   const manifest = JSON.parse(packageText);
   const expectedBase =
@@ -40,7 +45,8 @@ export async function checkWhiteboardRuntimeOci() {
   );
   assert.doesNotMatch(dockerfile, /deploy --prod --legacy/);
   assert.match(dockerfile, /USER node/);
-  assert.match(dockerfile, /HEALTHCHECK[\s\S]*\/readyz/);
+  assert.match(dockerfile, /HEALTHCHECK[\s\S]*\/livez/);
+  assert.doesNotMatch(dockerfile, /HEALTHCHECK[\s\S]*\/readyz/);
   assert.match(dockerfile, /CMD \["node", "dist\/main\.js"\]/);
   assert.match(dockerfile, /libcrypto3>=3\.5\.7-r0/);
   assert.match(dockerfile, /libssl3>=3\.5\.7-r0/);
@@ -67,6 +73,11 @@ export async function checkWhiteboardRuntimeOci() {
     main,
     /DATABASE_POOL_URL|DATABASE_MIGRATION_URL|console\.(?:error|log)/,
   );
+  assert.equal(
+    (renderBlueprint.match(/healthCheckPath: \/livez/g) ?? []).length,
+    2,
+  );
+  assert.doesNotMatch(renderBlueprint, /healthCheckPath: \/readyz/);
 
   return {
     baseImage: expectedBase,
