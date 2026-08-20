@@ -125,6 +125,23 @@ node --env-file=.env.p5-collab-01-gate-f3.local services/whiteboard-runtime/prov
 Baseline PASS phải trả bounded result có `hocuspocus_sync`, `checkpoint_recovery`,
 `b2_read_after_write`, `cleanup_zero` đều `true` và cold-start duration bucket.
 
+### Baseline provider checkpoint — 2026-08-20
+
+Exact candidate `7febbce` đã PASS GitHub Verify `32335427818` và Security `32335427799`, sau đó được
+deploy `live` trên runtime Render Free Singapore. Preflight, Neon schema/exact ACL và provider baseline
+đều PASS mà không log secret. Bounded result được giữ:
+
+```text
+hocuspocus_sync=true
+checkpoint_recovery=true
+b2_read_after_write=true
+cleanup_zero=true
+cold_start_bucket=lt_5s
+```
+
+Checkpoint này chỉ đóng baseline. Chưa suy PASS cho real SIGTERM/drain, post-redeploy recovery,
+sustained control/Neon/B2 outage, credential rotation/restore hoặc owner/provider checklist.
+
 Sau baseline:
 
 1. Trigger manual deploy exact commit của runtime để Render gửi SIGTERM; log chỉ được giữ

@@ -234,13 +234,24 @@ Gate F vẫn `2/4`: máy hiện tại chưa có Docker/Trivy/Syft nên actual im
 evidence còn mở; P5-COLLAB-02 schema/ACL, P5-COLLAB-04 control endpoints và disposable provider drill
 chưa được suy PASS.
 
+### Gate F.3 baseline provider checkpoint — 2026-08-20
+
+Exact candidate `7febbce` đã PASS GitHub Verify `32335427818` và Security `32335427799`, được deploy
+`live` trên Render Free Singapore và chạy với Neon/B2 disposable thật. Baseline PASS
+`hocuspocus_sync`, Neon `checkpoint_recovery`, B2 `read_after_write`, `cleanup_zero` và cold-start
+bucket `lt_5s`; preflight cùng Neon schema/exact ACL cũng PASS mà không log secret. Gate F hiện
+`3/4 VERIFY`.
+
+F.3 vẫn còn real SIGTERM/drain + post-redeploy recovery, sustained control/Neon/B2 outage,
+credential rotation/restore và owner/provider checklist. Không suy PASS các mục này từ baseline;
+ADR-0034 giữ `Proposed`, P5-COLLAB-01 giữ `IN PROGRESS`, shared staging/production vẫn force-off.
+
 ## 4. Bước tiếp theo
 
 1. Owner chấp thuận rõ giới hạn Render Free single-instance/cold-start/no-HA, hard cap `0 USD`, quota
    evidence redacted và điền primary/backup/security/cost on-call.
-2. Trên exact candidate, build/scan OCI và CycloneDX SBOM bằng CI hoặc builder có Docker/Trivy; sau
-   quyền riêng cho resource disposable mới chạy Render Free + Neon + B2:
-   cold-start, restart/SIGTERM/drain, sustained outage, rotation và backup/restore provider drill.
+2. Tiếp tục trên resource disposable hiện tại: real restart/SIGTERM/drain và post-redeploy recovery,
+   sustained control/Neon/B2 outage, credential rotation và backup/restore provider drill.
 3. Chỉ khi hai bước trên PASS mới chuyển ADR-0034 `Accepted` và P5-COLLAB-01 `DONE`.
 
 Cho tới khi toàn bộ gate bắt buộc đạt, ADR-0034 giữ `Proposed`, P5-COLLAB-01 giữ `IN PROGRESS`,

@@ -568,6 +568,9 @@ credential, không dùng shared staging trước khi disposable gate và owner a
 
 - [ ] Một Hocuspocus instance thật trên Render Free Singapore dùng Neon binary checkpoint + B2 portable
       snapshot; cold-start, restart/deploy, reconnect và cleanup-zero PASS.
+  - [x] Baseline exact commit `7febbce`: Hocuspocus sync, Neon checkpoint recovery, B2
+        read-after-write, cleanup-zero và cold-start bucket `lt_5s` PASS ngày 2026-08-20.
+  - [ ] Real SIGTERM/drain và post-redeploy reconnect/recovery có bounded evidence PASS.
 - [ ] Sustained Neon/B2/control outage, real SIGTERM/drain, credential rotation và backup/restore trên
       resource disposable riêng PASS với bounded evidence.
 

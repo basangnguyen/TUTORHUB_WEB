@@ -6,16 +6,35 @@
 
 | Thuộc tính           | Trạng thái                                                                              |
 | -------------------- | --------------------------------------------------------------------------------------- |
-| Ngày cập nhật        | 2026-08-19                                                                              |
+| Ngày cập nhật        | 2026-08-20                                                                              |
 | Repository           | `https://github.com/basangnguyen/TUTORHUB_WEB`                                          |
 | Nhánh làm việc       | `main`                                                                                  |
 | Quy trình            | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn   |
 | Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4                                                      |
 | Phase hiện tại       | Phase 5 collaboration decision gate; Phase 3 deferred carry-over vẫn hoạt động          |
 | Task `DONE` gần nhất | P5-COLLAB-00 research/selection baseline                                               |
-| Mốc repository mới   | Gate F.3 automation `def10c0` PASS Verify `32255600426`/Security `32255600491`          |
+| Mốc repository mới   | Gate F.3 baseline `7febbce` PASS Verify `32335427818`/Security `32335427799`            |
 | Task hiện tại        | P5-COLLAB-01 Excalidraw hard gates và ADR selection — `IN PROGRESS`                     |
-| Task tiếp theo       | Provision disposable Render/Neon/B2 và chạy Gate F.3 provider drill                    |
+| Task tiếp theo       | Gate F.3 SIGTERM/recovery, sustained outage, rotation và owner/provider checklist       |
+
+### Checkpoint P5-COLLAB-01 Gate F.3 baseline provider drill — 2026-08-20
+
+Disposable-only preflight PASS với region `singapore`, hard cap `0 USD` và toàn bộ secret bắt buộc
+được phát hiện mà không in giá trị. Neon provision PASS `schema_ready=true`, `acl_exact=true`. Runtime
+Render Free đã deploy exact commit `7febbce`; GitHub Verify `32335427818` và Security `32335427799`
+PASS, gồm Browser E2E `28 passed / 1 skipped`, secret scan và whiteboard OCI/SBOM/vulnerability scan.
+
+Provider baseline trên Render/Neon/B2 thật PASS bounded evidence:
+`hocuspocus_sync=true`, `checkpoint_recovery=true`, `b2_read_after_write=true`,
+`cleanup_zero=true`, `cold_start_bucket=lt_5s`. Candidate sửa B2 immutable/content-addressed write theo
+GET/checksum/PUT/read-after-write vì B2 S3 trả `501` cho conditional `If-None-Match` trên `PutObject`;
+runtime đồng thời cập nhật document gauge sau Hocuspocus unload. Runtime unit `14/14`, lint,
+typecheck và build PASS.
+
+Baseline không tự đóng toàn bộ F.3. Còn real SIGTERM/drain + post-redeploy recovery, sustained
+control/Neon/B2 outage, credential rotation/restore và owner/provider checklist. Gate F giữ
+`3/4 VERIFY`, P5-COLLAB-01 giữ `IN PROGRESS`, ADR-0034 giữ `Proposed`; shared staging/production vẫn
+force-off. Exact runbook: `docs/P5_COLLAB_01_GATE_F3_DISPOSABLE.md`.
 
 ### Checkpoint P5-COLLAB-01 Gate F.3 automation prepared — 2026-08-19
 
