@@ -133,22 +133,33 @@ async function run() {
   ) {
     throw new Error("gate_f3_snapshot_round_trip_mismatch");
   }
+  const restoredEnvelope = JSON.parse(new TextDecoder().decode(artifact.bytes));
+  if (
+    restoredEnvelope.format !== "tutorhub.excalidraw.portable-scene" ||
+    restoredEnvelope.formatVersion !== 1 ||
+    restoredEnvelope.engine?.name !== "excalidraw" ||
+    restoredEnvelope.semanticHash !== "gate-f3-disposable-probe"
+  ) {
+    throw new Error("gate_f3_portable_restore_semantic_mismatch");
+  }
 
-  const cleanup = await retry(
+  const runtimeMetrics = await retry(
     async () => {
-      const metrics = await fetch(`${validated.runtimeUrl}/metrics`, {
+      return fetch(`${validated.runtimeUrl}/metrics`, {
         headers: { authorization: `Bearer ${env.COLLAB_METRICS_TOKEN}` },
         signal: AbortSignal.timeout(5_000),
       }).then((response) => {
         if (!response.ok) throw new Error("gate_f3_metrics_unavailable");
         return response.text();
       });
-      return cleanupZero(metrics);
     },
-    Boolean,
+    (metrics) => cleanupZero(metrics) && dependencyUp(metrics, "snapshot"),
     20_000,
   );
-  if (!cleanup) throw new Error("gate_f3_cleanup_not_zero");
+  if (!cleanupZero(runtimeMetrics)) throw new Error("gate_f3_cleanup_not_zero");
+  if (!dependencyUp(runtimeMetrics, "snapshot")) {
+    throw new Error("gate_f3_snapshot_dependency_not_ready");
+  }
 
   console.log(
     JSON.stringify({
@@ -158,6 +169,8 @@ async function run() {
       cold_start_bucket: durationBucket(coldStartMs),
       hocuspocus_sync: true,
       outcome: "pass",
+      portable_restore_round_trip: true,
+      snapshot_dependency_up: true,
     }),
   );
 }
@@ -183,6 +196,10 @@ function cleanupZero(metrics) {
     metrics.includes("collab_documents_current 0") &&
     metrics.includes("collab_dirty_documents 0")
   );
+}
+
+function dependencyUp(metrics, dependency) {
+  return metrics.includes(`collab_dependency_up{dependency="${dependency}"} 1`);
 }
 
 function durationBucket(durationMs) {

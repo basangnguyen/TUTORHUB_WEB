@@ -132,18 +132,13 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
   `10/10`, Admin feature-off/concealment, accessibility/privacy/resource/log audit và post-live
   database snapshot đều PASS; không rollback và disposable branch tiếp tục được giữ lại.
   Physical/manual/load/provider-outage/effect gates vẫn `UNVERIFIED — P4-11`.
-- P5-COLLAB-00 research package đã `DONE` ngày 2026-08-18 với prototype cô lập, source/license
-  audit và ADR-0034 `Proposed`. Owner đã chốt **Excalidraw + self-managed collaboration** làm target
-  chính thức của P5-COLLAB-01; tldraw prototype chỉ còn là historical comparison/provider-exit
-  evidence. Gate A–D và Gate E `4/4` đã PASS, gồm profile/semantic/accessibility, installed
-  Chrome/Edge headed matrix và owner-confirmed NVDA speech/reconnect-error. Gate F isolated
-  runtime/operations contract PASS `18/18` và đạt `2/4`. Owner chọn Render Free Singapore một
-  instance/no Redis cho development/private alpha, Neon/B2 trong free allowance và hard cap `0 USD`;
-  paid HA path x2 + Redis được hoãn. Gate F.1 đã thêm isolated OCI source candidate thật tại
-  `services/whiteboard-runtime`; runtime `9/9`, lint/typecheck/build, four-dependency package và OCI
-  static guard PASS. Exact image/SBOM scan, disposable provider, free-quota/no-HA/on-call owner
-  approval và ADR acceptance vẫn mở. P5-COLLAB-01 đang `IN PROGRESS`; chưa nối `apps/web`, chưa deploy
-  và production feature tiếp tục force-off.
+- P5-COLLAB-01 Excalidraw authority/topology acceptance đã `DONE` ngày 2026-08-20. Gate A-F,
+  installed Chrome/Edge + NVDA, exact OCI/SBOM/security, disposable Render/Neon/B2 outage/rotation/
+  recovery và owner quota/risk/on-call closure đều PASS. ADR-0034 đã `Accepted` cho
+  **Excalidraw `0.18.1` + Yjs `13.6.27` canonical authority + Hocuspocus `4.6.0` transport** trong
+  profile `FREE_PRIVATE_ALPHA`: một Render instance Singapore, không Redis/HA/multi-region, hard cap
+  `0 USD`. Paid HA vẫn deferred; chưa nối `apps/web`, chưa migrate shared staging và production
+  whiteboard tiếp tục force-off tới P5-COLLAB-17. P5-COLLAB-02 là task runnable tiếp theo.
 - P4-10 Join telemetry, privacy và diagnostics export đã `DONE` ngày 2026-08-15 trên exact
   candidate `c960f77753fa14475b84e7f0e0242bfcc458dacc`. Verify `31881117029`, Security
   `31881116916`, Neon shared forward-only `35 false -> 36 false -> 36 false`, exact ACL và
@@ -173,10 +168,9 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
   `31946763545`, Browser E2E và Cloudflare Pages. Disposable/shared giữ `36 false`; source
   resolver/authority/concurrency/privacy, exact ACL, Teacher Chrome + Student Edge lobby/admit/end
   và shared final snapshot đều PASS. Organization Admin đã tắt cả hai media capability; final
-  enabled override bằng `0`. Phase 4 hoàn thành; P5-COLLAB-00 research đã `DONE` và
-  P5-COLLAB-01 được mở lại `IN PROGRESS` cho Excalidraw + self-managed collaboration. Automated
-  tldraw official-sync evidence được giữ nhưng không chuyển thành Excalidraw PASS; ADR-0034 vẫn
-  `Proposed` cho tới khi exact authority/provider và toàn bộ hard gate Excalidraw đạt.
+  enabled override bằng `0`. Phase 4 hoàn thành; P5-COLLAB-00 research đã `DONE`, sau đó
+  P5-COLLAB-01 Excalidraw + self-managed collaboration cũng đã `DONE` ngày 2026-08-20 và ADR-0034
+  đã `Accepted`. Automated tldraw official-sync evidence chỉ được giữ làm historical comparator.
   Evidence: [P4-12 acceptance](docs/P4_12_STAGING_ACCEPTANCE.md),
   [Phase 4 completion](docs/PHASE_4_COMPLETION.md) và
   [P5-COLLAB-01 Excalidraw acceptance](docs/P5_COLLAB_01_EXCALIDRAW_ACCEPTANCE.md).

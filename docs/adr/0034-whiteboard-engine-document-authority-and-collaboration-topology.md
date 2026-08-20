@@ -1,10 +1,11 @@
 # ADR 0034: Whiteboard engine, document authority và collaboration topology
 
-- Status: Proposed
+- Status: Accepted
 - Engine decision: Final — Excalidraw
 - Runtime profile decision: Final for development/private alpha — Render Free Singapore, one instance,
   no Redis
 - Date: 2026-08-18
+- Accepted: 2026-08-20
 - Scope: P5-COLLAB-00 và P5-COLLAB-01 đến P5-COLLAB-20
 - Depends on: ADR-0002, ADR-0003, ADR-0013, ADR-0015, ADR-0026, ADR-0027, ADR-0030
 - Evidence: `docs/P5_COLLAB_00_RESEARCH_SPIKE.md`, `docs/P5_COLLAB_00_RESEARCH_RESULTS.md`,
@@ -53,9 +54,11 @@ quản làm target duy nhất của P5-COLLAB-01. Gate B ngày 2026-08-19 khóa 
 document/history authority và Hocuspocus `4.6.0` làm exact transport/provider candidate cho chuỗi
 acceptance. Gate F đã khóa exact runtime contract; ngày 2026-08-19 owner chọn profile
 `FREE_PRIVATE_ALPHA` dùng một Render Free instance Singapore, không Redis, Neon checkpoint và B2
-portable snapshot trong free allowance. Provider-backed drill/on-call/risk acceptance vẫn chưa đạt.
-Quyết định này thay thế target tldraw trước đó
-nhưng chưa phải production approval; status giữ `Proposed` cho tới khi:
+portable snapshot trong free allowance. Provider-backed drill, quota evidence và owner risk/operations
+approval đều PASS ngày 2026-08-20. Quyết định này thay thế target tldraw trước đó và cho phép bắt đầu
+P5-COLLAB-02, nhưng chưa phải production deployment approval.
+
+Acceptance evidence đã đạt gồm:
 
 - cùng test matrix chứng minh convergence, concurrent actor-local undo, snapshot recovery,
   500/2.000 shapes, 2/10/50 profile và accessibility;
@@ -63,13 +66,26 @@ nhưng chưa phải production approval; status giữ `Proposed` cho tới khi:
 - prototype chứng minh chỉ có một document/history/undo authority;
 - rollback/provider-exit bằng portable artifact được drill.
 
-Những constraint dưới đây tiếp tục bắt buộc. P5-COLLAB-01 chỉ chạy Excalidraw implementation/evidence
-lane và phải điền exact version, một document authority, runtime/cost cùng evidence trước khi đổi
-status sang `Accepted`. Tldraw prototype được giữ nguyên làm historical comparison/provider-exit
+Những constraint dưới đây tiếp tục bắt buộc. P5-COLLAB-01 đã khóa exact version, một document authority,
+runtime/cost cùng evidence. Tldraw prototype được giữ nguyên làm historical comparison/provider-exit
 evidence, không phải writer/provider song song và không được đưa vào production bundle. Không được
-coi owner engine selection hoặc việc file ADR tồn tại là production approval.
+coi ADR `Accepted` là production enablement.
 
-### Target topology đang được chứng minh
+Owner closure 2026-08-20:
+
+- disposable Render Free Singapore, Neon role riêng và B2 private bucket PASS baseline,
+  SIGTERM/drain + recovery, sustained Control/Neon/B2 outage, credential rotation, portable semantic
+  restore round-trip và cleanup-zero;
+- quota evidence redacted PASS: Render `35.12/750` free instance hours, Neon `9.55/100` CU-hours và
+  `8/10` branches, B2 current cost `0.00` với `709` transactions;
+- owner chấp thuận single-instance/no-HA, spin-down/cold-start, hard cap `0 USD`, RPO/RTO candidate,
+  `SEV-1/SEV-2` taxonomy và B2 Object Lock disabled cho private alpha;
+- Primary on-call `Bá Sáng`, backup `Duy Mạnh`, security incident owner `Bá Sáng`, cost owner `Bá Sáng`.
+
+Các bằng chứng này đủ để ADR chuyển `Accepted` cho development/private alpha topology; production
+whiteboard vẫn force-off cho tới P5-COLLAB-17 exact staging và rollout approval sau đó.
+
+### Target topology đã chấp nhận
 
 - `@excalidraw/excalidraw` là engine/editor projection; không tự trở thành collaboration/history
   authority khi chạy nhiều người;
@@ -80,7 +96,7 @@ coi owner engine selection hoặc việc file ADR tồn tại là production app
 - Gate F khóa Node `24.15.0` và owner chọn một Render Free instance Singapore, không Redis, Neon Yjs
   binary checkpoint và B2 immutable portable snapshot cho development/private alpha với hard cap
   `0 USD`. Profile này chấp nhận spin-down/cold-start, restart gap, single point of failure và không có
-  multi-region DR; nó chờ disposable provider drill và operational owner approval;
+  multi-region DR; disposable provider drill và operational owner approval đã PASS ngày 2026-08-20;
 - Render Standard x2 + Redis Cloud paid Multi-AZ chỉ là deferred production HA upgrade path. Chưa mua,
   chưa provision và không được dùng isolated two-node tests để tuyên bố free profile là HA;
 - Core API/PostgreSQL sở hữu tenant, lifecycle, capability, one-time grant và revoke generation;
@@ -90,7 +106,7 @@ coi owner engine selection hoặc việc file ADR tồn tại là production app
 - exact candidate pin `@excalidraw/excalidraw@0.18.1` đã PASS Gate A về upstream bundle config,
   React peer compatibility và dependency/asset notices; production route/runtime vẫn force-off.
 
-## Proposed invariants chung
+## Accepted invariants chung
 
 ### 1. Hai loại authority, không trộn vai trò
 
@@ -224,17 +240,17 @@ Two-node/Redis evidence chỉ chuẩn bị cho deferred production HA path.
 
 ## Finalist comparison
 
-| Tiêu chí              | tldraw SDK + official sync                                              | Excalidraw + Yjs/Hocuspocus                                                |
-| --------------------- | ----------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| Document authority    | Native tldraw record store/sync; boundary tự nhiên hơn                  | Y.Doc phải canonical; scene là projection                                  |
-| Undo/history          | Native engine semantics nhưng vẫn phải test concurrent actor-local      | Cần transaction-origin mapping và loại dual internal/Yjs history           |
-| React/product fit     | SDK/tool/store APIs mạnh, phù hợp custom classroom shell                | Package embed/API scene/export rõ, editor quen thuộc                       |
-| Collaboration         | Official sync cùng engine model                                         | Package không có drop-in collab; TutorHub tự xây adapter/provider          |
-| License/owner blocker | Production license/key/cost/telemetry cần owner duyệt                   | Engine MIT; dependency/asset notices và runtime cost vẫn cần review        |
+| Tiêu chí              | tldraw SDK + official sync                                              | Excalidraw + Yjs/Hocuspocus                                                     |
+| --------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| Document authority    | Native tldraw record store/sync; boundary tự nhiên hơn                  | Y.Doc phải canonical; scene là projection                                       |
+| Undo/history          | Native engine semantics nhưng vẫn phải test concurrent actor-local      | Cần transaction-origin mapping và loại dual internal/Yjs history                |
+| React/product fit     | SDK/tool/store APIs mạnh, phù hợp custom classroom shell                | Package embed/API scene/export rõ, editor quen thuộc                            |
+| Collaboration         | Official sync cùng engine model                                         | Package không có drop-in collab; TutorHub tự xây adapter/provider               |
+| License/owner blocker | Production license/key/cost/telemetry cần owner duyệt                   | Engine MIT; dependency/asset notices và runtime cost vẫn cần review             |
 | Runtime blocker       | Exact official sync deploy/managed topology và owner vận hành chưa chốt | Free private-alpha profile đã chọn; disposable provider/risk/on-call chưa duyệt |
-| Accessibility         | Có official accessibility surface; vẫn cần NVDA/object evidence         | Canvas/object semantics cần mitigation và physical evidence                |
-| Portability/exit      | Cần versioned neutral export/adapter ngoài provider                     | Yjs/scene export có tiềm năng nhưng mapping phải round-trip lossless       |
-| Main production risk  | Commercial/runtime commitment và provider coupling                      | Adapter complexity, dual authority, actor-local undo và operational burden |
+| Accessibility         | Có official accessibility surface; vẫn cần NVDA/object evidence         | Canvas/object semantics cần mitigation và physical evidence                     |
+| Portability/exit      | Cần versioned neutral export/adapter ngoài provider                     | Yjs/scene export có tiềm năng nhưng mapping phải round-trip lossless            |
+| Main production risk  | Commercial/runtime commitment và provider coupling                      | Adapter complexity, dual authority, actor-local undo và operational burden      |
 
 Không dùng chênh lệch nhỏ trong prototype/bundle score để tự động chọn. Security, one-authority,
 accessibility hoặc owner approval fail là hard blocker, không phải mục có thể bù bằng weighted score.
@@ -286,19 +302,19 @@ portable export. Owner, thời gian migrate và supported read-only window phả
 - [x] Semantic canvas companion/fallback từ cùng canonical authority có automated evidence.
 - [x] Physical Chrome/Edge + NVDA có owner evidence; Axe/semantic fallback không thay gate này.
 - [x] Isolated outage, kill switch, credential/snapshot-key rotation và provider-exit contract PASS.
-- [ ] Exact disposable Render Free/Neon/B2 cold-start/outage/drain/rotation/backup drill, image/SBOM
+- [x] Exact disposable Render Free/Neon/B2 cold-start/outage/drain/rotation/backup drill, image/SBOM
       và owner no-HA/free-quota/RPO/RTO/on-call approval PASS.
-- [ ] ADR cập nhật lựa chọn, consequences, owner, exact cost/runtime và chuyển `Accepted`.
+- [x] ADR cập nhật lựa chọn, consequences, owner, exact cost/runtime và chuyển `Accepted`.
 
-## Consequences khi còn Proposed
+## Consequences
 
-- Được phép tiếp tục prototype/evidence cô lập, threat model và source/license audit.
+- P5-COLLAB-02 được phép bắt đầu control-plane schema theo topology đã chấp nhận; các task sau vẫn phải
+  qua dependency/exit gate riêng.
 - `FREE_PRIVATE_ALPHA` chỉ cho development/private alpha: một instance, cold-start/restart gap và hard
   cap `0 USD`; vượt quota/RPO/RTO phải force-off thay vì tự nâng gói.
 - Trước public beta/production phải mở lại HA gate cho Render Standard x2 + Redis Cloud Multi-AZ hoặc
   ADR thay thế có evidence tương đương.
-- Không được thêm dependency/runtime vào production app, tạo production migration/service, migrate
-  shared staging, deploy collaboration plane hoặc bật whiteboard feature.
-- P5-COLLAB-02 trở đi chỉ bắt đầu sau P5-COLLAB-01 và ADR `Accepted`.
+- Không migrate shared staging, deploy collaboration plane production hoặc bật whiteboard feature
+  trước exact task gate tương ứng; P5-COLLAB-17 tiếp tục là force-off staging checkpoint.
 - Nếu không candidate nào đạt hard gate, quyết định đúng là giữ feature off và ghi `BLOCKED`, không
   chọn candidate có weighted score cao hơn để giữ lịch.

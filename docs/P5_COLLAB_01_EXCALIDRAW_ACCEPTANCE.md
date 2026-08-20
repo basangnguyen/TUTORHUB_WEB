@@ -1,12 +1,12 @@
 # P5-COLLAB-01 — Excalidraw decision và automated acceptance
 
-> **Ngày mở forward gate:** 2026-08-18; Gate A checkpoint 2026-08-19
-> **Trạng thái:** `IN PROGRESS`
+> **Ngày mở forward gate:** 2026-08-18; Gate A checkpoint 2026-08-19; closed 2026-08-20
+> **Trạng thái:** `DONE`
 > **Owner decision:** Excalidraw là whiteboard engine chính thức của TutorHub; collaboration data
 > plane phải self-managed và có đúng một document/history/undo authority.
-> **Phạm vi hiện tại:** isolated editor tại `apps/whiteboard-spike` và OCI source candidate tại
-> `services/whiteboard-runtime`; không nối `apps/web`, Core API production, migration, shared staging
-> hoặc deploy.
+> **Phạm vi:** isolated editor tại `apps/whiteboard-spike`, OCI source candidate tại
+> `services/whiteboard-runtime` và disposable Render/Neon/B2 acceptance; không nối `apps/web`, Core API
+> production, migration hoặc shared staging.
 
 ## 1. Quyết định và ranh giới
 
@@ -14,15 +14,15 @@
 - MIT là license target của engine; exact production artifact vẫn phải có dependency/asset notice
   audit và giữ copyright/license notice.
 - Không dùng Excalidraw demo Firebase/collaboration relay làm production backend.
-- Yjs/Hocuspocus hiện là leading self-managed candidate nhờ generic network evidence đã PASS, nhưng
-  chưa được chấp nhận cho tới khi scene adapter, actor-local undo, durable persistence và operations
-  đạt gate.
+- Yjs `13.6.27` là canonical document/history authority và Hocuspocus `4.6.0` là transport/provider
+  được chấp nhận cho development/private alpha sau khi scene adapter, actor-local undo, durable
+  persistence và operations đạt gate.
 - Không đưa tldraw SDK, `@tldraw/sync` hoặc `@tldraw/sync-core` vào production candidate. Prototype
   tldraw đã PASS được giữ nguyên làm comparison/provider-exit evidence.
 - Không chạy hai writer hoặc dual-write. Nếu Y.Doc được chọn, nó là canonical document/history;
   Excalidraw scene chỉ là projection và local history không được cạnh tranh với provider history.
 
-## 2. Evidence hiện có nhưng chưa đủ
+## 2. Chuỗi evidence
 
 - Excalidraw `0.18.1` đã PASS isolated render/snapshot-envelope smoke, 500/2.000-object fixture,
   lazy build và automated shell accessibility trong P5-COLLAB-00.
@@ -189,12 +189,12 @@ structure/security đều PASS. Chi tiết:
 
 ### F. Runtime và vận hành
 
-- [ ] Exact self-hosted runtime, region, declared single-instance/no-HA profile, persistence, drain/
+- [x] Exact self-hosted runtime, region, declared single-instance/no-HA profile, persistence, drain/
       recovery, backup, secret rotation, on-call và hard cap `0 USD` được owner chấp thuận.
 - [x] Isolated sustained outage, kill switch, credential rotation, backup/restore và provider-exit
-      contract drill PASS; disposable provider drill vẫn nằm trong mục owner/provider bắt buộc.
+      contract drill cùng disposable provider drill PASS.
 - [x] Bounded-cardinality metrics/log privacy, global quota, cost/quota alerts và runbook PASS.
-- [ ] ADR-0034 chuyển `Accepted`; production vẫn force-off cho tới P5-COLLAB-17 exact staging.
+- [x] ADR-0034 chuyển `Accepted`; production vẫn force-off cho tới P5-COLLAB-17 exact staging.
 
 ### Gate F automated checkpoint — 2026-08-19
 
@@ -257,13 +257,19 @@ Sub-gate SIGTERM/drain + post-redeploy recovery đã đóng. Gate F vẫn `3/4 V
 control/Neon/B2 outage, credential rotation/restore và owner/provider checklist. ADR-0034 giữ
 `Proposed`, P5-COLLAB-01 giữ `IN PROGRESS`, shared staging/production tiếp tục force-off.
 
-## 4. Bước tiếp theo
+### Gate F.3 full provider + owner closure — 2026-08-20
 
-1. Owner chấp thuận rõ giới hạn Render Free single-instance/cold-start/no-HA, hard cap `0 USD`, quota
-   evidence redacted và điền primary/backup/security/cost on-call.
-2. Tiếp tục trên resource disposable hiện tại: sustained control/Neon/B2 outage, credential rotation
-   và backup/restore provider drill.
-3. Chỉ khi hai bước trên PASS mới chuyển ADR-0034 `Accepted` và P5-COLLAB-01 `DONE`.
+Sustained Control/Neon/B2 outage `600s`, Control/B2 credential rotation, portable semantic restore,
+cleanup-zero và post-restore probes đều PASS. Render/Neon/B2 quota evidence được giữ dạng aggregate
+redacted và current/projected cost `0 USD`.
 
-Cho tới khi toàn bộ gate bắt buộc đạt, ADR-0034 giữ `Proposed`, P5-COLLAB-01 giữ `IN PROGRESS`,
-P5-COLLAB-02..20 chưa mở và whiteboard production tiếp tục force-off.
+Owner chấp thuận Render Free single-instance/no-HA, spin-down/cold-start, hard cap `0 USD`, RPO/RTO
+candidate, incident severity và B2 Object Lock disabled cho private alpha. Primary on-call `Bá Sáng`,
+backup `Duy Mạnh`, security incident owner `Bá Sáng`, cost owner `Bá Sáng`.
+
+## 4. Kết quả và bước tiếp theo
+
+Gate A-F đều đạt; ADR-0034 chuyển `Accepted` và P5-COLLAB-01 chuyển `DONE`. P5-COLLAB-02 control-plane
+schema là task runnable tiếp theo. P5-COLLAB-03..20 vẫn theo dependency graph; shared staging chưa
+migrate, collaboration plane production chưa deploy và whiteboard production tiếp tục force-off tới
+P5-COLLAB-17 exact staging.

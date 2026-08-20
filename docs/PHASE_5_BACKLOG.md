@@ -1,11 +1,9 @@
 # Backlog Phase 5 - Classroom Collaboration
 
-> Nguồn thực thi cho Phase 5. P5-COLLAB-00 tạo evidence và ADR-0034 decision-ready ở trạng thái
-> `Proposed`; owner đã chọn **Excalidraw + self-managed collaboration** làm target chính thức của
-> P5-COLLAB-01. Task được mở lại `IN PROGRESS` để thay candidate và phải giải quyết các hard gate
-> Excalidraw trước khi chuyển ADR sang `Accepted`. Gate F.2 đã build/scan exact OCI candidate và giữ
-> CycloneDX SBOM cùng image ID; việc này không mở production feature hoặc các slice
-> P5-COLLAB-02..20, chúng tiếp tục giữ `TODO`.
+> Nguồn thực thi cho Phase 5. P5-COLLAB-01 đã `DONE` ngày 2026-08-20 sau khi Excalidraw +
+> self-managed Yjs/Hocuspocus topology, Gate A-F, disposable Render/Neon/B2 drill, quota evidence và
+> owner operations/risk sign-off đều PASS; ADR-0034 đã `Accepted`. P5-COLLAB-02 là slice runnable tiếp
+> theo. Production whiteboard vẫn force-off tới P5-COLLAB-17 exact staging.
 
 ## 1. Mục tiêu phase
 
@@ -22,8 +20,8 @@ Xây collaboration plane cho lớp học mà không làm rời hoặc làm yếu
 
 ## 2. Non-goal và ranh giới
 
-- Không tích hợp hoặc kích hoạt production engine/provider trước ADR-0034 `Accepted`; engine đã
-  khóa là Excalidraw nhưng exact authority/provider/runtime còn mở.
+- Không tích hợp hoặc kích hoạt production engine/provider chỉ vì ADR-0034 đã `Accepted`; mỗi slice
+  implementation/staging/rollout vẫn phải qua exit gate riêng.
 - Không xếp Yjs lên store/sync native của engine nếu tạo document/history/undo authority thứ hai.
 - Không để browser tự khai tenant, role, document, provider room hoặc capability.
 - Không gửi whiteboard operation/snapshot qua Core API REST hoặc LiveKit DataChannel.
@@ -55,7 +53,7 @@ Xây collaboration plane cho lớp học mà không làm rời hoặc làm yếu
 
 | Task         | Dải            | Nội dung                                        | Dependency                 | Trạng thái  |
 | ------------ | -------------- | ----------------------------------------------- | -------------------------- | ----------- |
-| P5-COLLAB-01 | Decision gate  | Chấp nhận Excalidraw authority/topology         | P5-COLLAB-00               | IN PROGRESS |
+| P5-COLLAB-01 | Decision gate  | Chấp nhận Excalidraw authority/topology         | P5-COLLAB-00               | DONE        |
 | P5-COLLAB-02 | Implementation | Control-plane schema                            | P5-COLLAB-01               | TODO        |
 | P5-COLLAB-03 | Implementation | OpenAPI lifecycle/grant/snapshot/export/restore | P5-COLLAB-02               | TODO        |
 | P5-COLLAB-04 | Implementation | Grant broker và revoke generation               | P5-COLLAB-03               | TODO        |
@@ -138,17 +136,17 @@ public beta/production và chưa provision.
 - [x] Durable restart recovery, immutable snapshot/generation swap và portable provider exit PASS
       trên exact Excalidraw canonical authority (Gate D `4/4`).
 - [x] Excalidraw 2/10/50 load PASS với budget và cleanup-zero được công bố.
-- [ ] Exact CRDT/provider/runtime, vận hành và free quota được xác minh từ nguồn chính thức; isolated
-      Gate F contract đã PASS nhưng disposable Render Free/Neon/B2 drill vẫn chờ.
+- [x] Exact CRDT/provider/runtime và vận hành PASS isolated + disposable Render Free/Neon/B2; quota
+      dashboard/redacted usage evidence và owner sign-off đã đạt.
 - [x] Semantic canvas companion/fallback từ cùng canonical authority được công bố và tự động kiểm thử.
 - [x] Physical Chrome/Edge + NVDA được owner xác nhận; installed headed matrix PASS role/name/focus,
       200%-equivalent reflow, forced colors/reduced motion và Axe; owner NVDA speech PASS gồm
       toolbar/mode/semantic fallback và reconnect/error/focus recovery.
 - [x] Excalidraw-only bundle security/config guard và production dependency audit PASS; không dùng
       allowlist để che public upstream API/Firebase/collaboration config.
-- [ ] Owner chấp thuận single-instance/no-HA/cold-start, hard cap `0 USD`, on-call/RPO/RTO/retention;
+- [x] Owner chấp thuận single-instance/no-HA/cold-start, hard cap `0 USD`, on-call/RPO/RTO/retention;
       portable fallback/exit và paid HA upgrade trigger được ghi.
-- [ ] ADR-0034 `Accepted`; production chỉ có một engine/provider topology.
+- [x] ADR-0034 `Accepted`; production chỉ có một engine/provider topology.
 
 **Gate F checkpoint 2026-08-19:** Node `24.15.0` + Hocuspocus `4.6.0` + Yjs `13.6.27` runtime
 candidate và runbook đã được khóa. Owner đã chọn Render Free Singapore một instance/no Redis cho
@@ -181,6 +179,21 @@ Render Blueprint, Neon exact-ACL provision, provider round-trip và sustained co
 `3/4 VERIFY`. Xem `docs/P5_COLLAB_01_GATE_F3_DISPOSABLE.md`.
 Exact automation tree `def10c0` PASS Verify `32255600426` và Security `32255600491`; provider drill
 vẫn phải chạy trên resource disposable thật trước khi tick gate.
+
+**Gate F.3 provider checkpoint 2026-08-20:** Render Free Singapore, Neon role riêng và B2 private
+bucket riêng đã PASS baseline, SIGTERM/drain + post-redeploy recovery, sustained Control/Neon/B2
+outage `600s`, B2 và Control credential rotation/negative probe, portable semantic restore round-trip
+và cleanup-zero. Evidence chỉ giữ boolean/status/duration bucket; shared staging/production không bị
+đụng tới. Provider sub-gate đã đóng; P5-COLLAB-01 vẫn `IN PROGRESS`, Gate F giữ `VERIFY` vì quota
+dashboard, named on-call/security/cost owner, explicit no-HA/cold-start risk và RPO/RTO/retention
+approval còn thiếu. ADR-0034 vẫn `Proposed`.
+
+**Gate F owner closure 2026-08-20:** quota evidence đã redacted cho Render/Neon/B2 đều trong allowance
+và current/projected cost `0 USD`; owner chấp thuận single-instance/no-HA, spin-down/cold-start,
+RPO/RTO candidate, `SEV-1/SEV-2`, B2 Object Lock disabled và force-off khi chạm quota. Primary on-call
+`Bá Sáng`, backup `Duy Mạnh`, security incident owner `Bá Sáng`, cost owner `Bá Sáng`. Gate F và
+P5-COLLAB-01 chuyển `DONE`; ADR-0034 chuyển `Accepted`. Paid HA vẫn deferred và production tiếp tục
+force-off tới P5-COLLAB-17.
 
 ### P5-COLLAB-02 - Control-plane schema
 

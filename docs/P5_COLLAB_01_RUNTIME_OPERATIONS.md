@@ -2,11 +2,11 @@
 
 > **Ngày khóa candidate:** 2026-08-19
 > **Owner runtime decision:** `FREE_PRIVATE_ALPHA` ngày 2026-08-19.
-> **Trạng thái:** `VERIFY` — isolated runtime/operations contract `18/18 PASS`; Gate F.2 exact
-> OCI build, CycloneDX SBOM và Trivy HIGH/CRITICAL scan đã PASS trên GitHub. Còn chờ disposable
-> Render Free/Neon/B2 drill, on-call owner và chấp thuận giới hạn single-instance/cold-start.
-> **Phạm vi:** runbook/acceptance và OCI candidate cho collaboration data plane; không provision,
-> không deploy, không tạo migration, không kết nối shared staging và không thay đổi secret.
+> **Trạng thái:** `DONE` — isolated runtime/operations contract `18/18 PASS`; Gate F.2 exact
+> OCI build, CycloneDX SBOM, Trivy HIGH/CRITICAL, Gate F.3 disposable Render/Neon/B2 provider drill
+> và owner/provider closure đều PASS ngày 2026-08-20.
+> **Phạm vi:** runbook/acceptance và OCI candidate cho collaboration data plane; disposable provider
+> đã provision/drill riêng, không tạo migration hoặc kết nối shared staging/production.
 > **Guardrail:** whiteboard production tiếp tục force-off cho tới P5-COLLAB-17 exact staging.
 
 ## 1. Topology owner đã chọn cho development/private alpha
@@ -15,16 +15,16 @@ Owner chọn profile `FREE_PRIVATE_ALPHA` với mục tiêu chi phí hạ tầng
 trong free allowance. Profile này không tự nâng gói, không tự scale và không provision tài nguyên trả
 phí:
 
-| Thành phần                 | Exact candidate                                                                         | Vai trò và ranh giới                                                                                                                        |
-| -------------------------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| Thành phần                 | Exact candidate                                                                         | Vai trò và ranh giới                                                                                                                               |
+| -------------------------- | --------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Runtime                    | Node.js `24.15.0` LTS, official Alpine `3.23` image immutable, OpenSSL `>=3.5.7-r0`     | Chạy collaboration gateway; không dùng floating tag. CI giữ exact built image ID; deployment digest phải được ghi lại ở disposable provider drill. |
-| Collaboration server       | `@hocuspocus/server@4.6.0`                                                              | WebSocket transport, auth hooks, document load/store và drain; không tạo document/history authority thứ hai.                                |
-| Canonical authority        | `yjs@13.6.27`                                                                           | Một `Y.Doc` cho exact `{tenant, document, generation}`; Excalidraw chỉ là projection.                                                       |
-| Compute                    | Render Web Service **Free**, region Singapore, đúng **1 instance**                      | Chạy data plane private alpha. Chấp nhận spin-down/cold-start, restart và khoảng gián đoạn khi deploy; không có HA hoặc horizontal scaling. |
-| Coordination               | **Không Redis trong profile free**                                                      | Một instance không cần cross-node pub/sub. Runtime không load Redis extension và không yêu cầu Redis secret.                                |
-| Durable current checkpoint | Neon PostgreSQL Singapore trong free allowance, Yjs binary trong `BYTEA`                | Giữ full-state checkpoint có generation/watermark/fencing; không lưu live operation log cạnh tranh.                                         |
-| Portable recovery          | Backblaze B2 private bucket trong free allowance, immutable versioned object + checksum | Giữ portable canonical snapshot/export; không làm live writer. Object key opaque, không chứa tenant/user/document có thể đoán.              |
-| Business/control plane     | Core API/PostgreSQL hiện hữu                                                            | Tenant, membership, lifecycle, capability, current generation, one-time grant và revoke authority.                                          |
+| Collaboration server       | `@hocuspocus/server@4.6.0`                                                              | WebSocket transport, auth hooks, document load/store và drain; không tạo document/history authority thứ hai.                                       |
+| Canonical authority        | `yjs@13.6.27`                                                                           | Một `Y.Doc` cho exact `{tenant, document, generation}`; Excalidraw chỉ là projection.                                                              |
+| Compute                    | Render Web Service **Free**, region Singapore, đúng **1 instance**                      | Chạy data plane private alpha. Chấp nhận spin-down/cold-start, restart và khoảng gián đoạn khi deploy; không có HA hoặc horizontal scaling.        |
+| Coordination               | **Không Redis trong profile free**                                                      | Một instance không cần cross-node pub/sub. Runtime không load Redis extension và không yêu cầu Redis secret.                                       |
+| Durable current checkpoint | Neon PostgreSQL Singapore trong free allowance, Yjs binary trong `BYTEA`                | Giữ full-state checkpoint có generation/watermark/fencing; không lưu live operation log cạnh tranh.                                                |
+| Portable recovery          | Backblaze B2 private bucket trong free allowance, immutable versioned object + checksum | Giữ portable canonical snapshot/export; không làm live writer. Object key opaque, không chứa tenant/user/document có thể đoán.                     |
+| Business/control plane     | Core API/PostgreSQL hiện hữu                                                            | Tenant, membership, lifecycle, capability, current generation, one-time grant và revoke authority.                                                 |
 
 `24.15.0` là baseline acceptance có release LTS chính thức. Trước mỗi deploy phải kiểm tra Node 24 LTS
 security release mới hơn. Nếu cần vá bảo mật, pin exact patch mới cùng image digest và chạy lại Gate F;
@@ -172,6 +172,25 @@ event code, outcome, duration bucket và boolean/bucket result; không giữ raw
 SIGTERM/drain + post-redeploy recovery đã đóng, nhưng Gate F vẫn `3/4 VERIFY` vì sustained outage,
 rotation/restore và owner/provider closure còn mở.
 
+### 2.1.5 Gate F.3 disposable provider drill PASS — 2026-08-20
+
+- Sustained Control, Neon và B2 outage đều giữ đủ `600` giây với 10 probe mỗi 60 giây; liveness được
+  giữ và dependency readiness fail closed theo đúng taxonomy, rồi phục hồi về `200`.
+- Neon harness chỉ đổi exact role disposable `tutorhub_collab_f3` sang `NOLOGIN`, terminate session
+  của chính role đó và tự khôi phục `LOGIN` trong `finally`; post-restore checkpoint probe PASS.
+- B2 bucket-scoped key r1 bị revoke và trả `401` trong toàn bộ cửa sổ; r2 read/write/checksum cùng
+  post-redeploy provider probe PASS.
+- Control token rotation chứng minh current/next overlap, Runtime positive probe trước retirement và
+  negative probe `401` cho toàn bộ token trước. Token test xuất hiện trong tool output được thay ngay
+  bằng replacement mới và không còn được Control/Runtime chấp nhận.
+- Final provider result PASS Hocuspocus sync, Neon checkpoint recovery, B2 read-after-write,
+  `snapshot_dependency_up`, portable Excalidraw envelope semantic restore round-trip và cleanup-zero.
+
+Provider portion của Gate F.3 đã đóng với bounded/redacted evidence. Ngày 2026-08-20 owner tiếp tục
+chấp thuận single-instance/no-HA, spin-down/cold-start, hard cap `0 USD`, RPO/RTO candidate, incident
+severity và B2 Object Lock disabled cho private alpha. Quota evidence cùng named on-call/security/cost
+owner đã được ghi ở mục 9-10; Gate F chuyển `DONE`. Production force-off không đổi.
+
 Candidate server limits phải fail closed và không thấp hơn Gate C:
 
 - pre-auth deadline và idle health interval có bound;
@@ -260,12 +279,14 @@ Snapshot là canonical portable JSON/envelope từ Gate D, không phải chỉ Y
 1. lấy fenced read của checkpoint current generation;
 2. validate byte/object/depth/schema cap và deterministic semantic hash;
 3. tạo opaque content-addressed key, upload vào **private** B2 bucket;
-4. bật Object Lock/retention theo policy đã owner duyệt; không overwrite key;
+4. áp dụng retention theo policy owner đã duyệt; không overwrite key;
 5. read-after-upload, verify byte length/checksum rồi mới publish snapshot catalog;
 6. nếu upload/verify lỗi, giữ catalog cũ và retry có bound; không xóa last-good.
 
-Object Lock governance/compliance mode và retention days phải được owner chọn trước provision. B2 nêu
-rõ Object Lock đã bật trên bucket thì không thể tắt; vì vậy không tự bật trên live bucket trong Gate F.
+Owner chọn **Object Lock disabled** cho `FREE_PRIVATE_ALPHA`. Runtime vẫn dùng opaque
+content-addressed key, checksum và application-level retention; không overwrite last-good artifact.
+Trước public beta/production phải review lại governance/compliance mode và retention days. B2 nêu rõ
+Object Lock đã bật trên bucket thì không thể tắt, vì vậy không tự bật trên bucket private alpha.
 
 ### 4.3 Restore
 
@@ -298,20 +319,20 @@ Gate không PASS chỉ từ số mục tiêu trên. Failure drill phải đo act
 
 ## 5. Failure matrix và drill bắt buộc
 
-| Drill                        | Fault injection                                                            | Hành vi bắt buộc                                                                                              | Evidence tối thiểu                                         | Trạng thái               |
-| ---------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- | ------------------------ |
-| Render Free cold-start       | Để service spin down theo provider rồi mở HTTP/WebSocket mới               | Service thức dậy, client hiển thị reconnect, phục hồi checkpoint và hội tụ; không mất acknowledged state      | opaque run ID, cold-start/reconnect timings, hash equality | `NOT RUN`                |
-| Graceful deploy/drain        | `SIGTERM` instance với dirty doc                                           | Not-ready trước, không socket mới, checkpoint flush, disconnect, instance mới phục hồi và reconnect <= budget | drain timeline + cleanup-zero + recovery hash              | `PASS` — F.3 2026-08-20 |
-| Neon sustained outage        | Chặn Neon 10 phút                                                          | Readiness đỏ, write fail closed, không tuyên bố mutation RAM là saved; phục hồi từ last-good                  | checkpoint age, no-lost-ack evidence                       | `NOT RUN`                |
-| B2 sustained outage          | Chặn B2 10 phút                                                            | Snapshot/export bounded retry; live state không mất; alert snapshot age; last-good không bị xóa               | retry count, alert, later checksum verify                  | `NOT RUN`                |
-| Control authority outage     | Core API/grant/revoke authority lỗi                                        | Không cấp grant/refresh và không elevate reader; cached permissive role bị cấm                                | fail-closed response taxonomy                              | `NOT RUN`                |
-| Kill switch                  | Chuyển write/connection off giữa phiên                                     | Grant mới deny; writer socket đóng <=1s; client sang bounded view/export path                                 | revoke timing + no post-switch mutation                    | `NOT RUN`                |
-| Rotation                     | Rotate từng secret theo mục 7                                              | Current/next overlap bounded; new path đạt trước revoke; credential cũ deny sau revoke                        | key IDs/role names redacted, boolean probes                | `NOT RUN`                |
-| Backup/restore               | Tạo snapshot, mutate, corrupt một artifact, restore last-good              | Corrupt bị quarantine; generation mới giữ expected semantic hash; stale writer deny                           | checksum, generation swap, hash                            | `NOT RUN`                |
-| Provider exit                | Export portable, khởi tạo clean authority không dựa Redis/Hocuspocus state | Round-trip giữ supported semantic hash; không dual-write                                                      | artifact version + before/after hash                       | `NOT RUN`                |
-| Quota/reconnect storm        | Vượt actor/doc/tenant/rate/payload cap                                     | Bounded reject, không OOM, tenant khác không bị starvation                                                    | rejection metric + heap/CPU + cleanup-zero                 | `NOT RUN`                |
-| Regional tabletop            | Giả lập toàn bộ Singapore unavailable                                      | Feature off; dùng B2 last-good; operator thực hiện documented manual recovery                                 | signed tabletop timeline và gaps                           | `NOT RUN`                |
-| Production HA two-node/Redis | Kill một replica và chặn Redis 10 phút                                     | Hai-node coordination/failover không divergence                                                               | two-node/Redis evidence                                    | `DEFERRED_PRODUCTION_HA` |
+| Drill                        | Fault injection                                                            | Hành vi bắt buộc                                                                                              | Evidence tối thiểu                                         | Trạng thái                                                      |
+| ---------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- | --------------------------------------------------------------- |
+| Render Free cold-start       | Để service spin down theo provider rồi mở HTTP/WebSocket mới               | Service thức dậy, client hiển thị reconnect, phục hồi checkpoint và hội tụ; không mất acknowledged state      | opaque run ID, cold-start/reconnect timings, hash equality | `NOT RUN`                                                       |
+| Graceful deploy/drain        | `SIGTERM` instance với dirty doc                                           | Not-ready trước, không socket mới, checkpoint flush, disconnect, instance mới phục hồi và reconnect <= budget | drain timeline + cleanup-zero + recovery hash              | `PASS` — F.3 2026-08-20                                         |
+| Neon sustained outage        | Chặn Neon 10 phút                                                          | Readiness đỏ, write fail closed, không tuyên bố mutation RAM là saved; phục hồi từ last-good                  | checkpoint age, no-lost-ack evidence                       | `PASS` — F.3 2026-08-20                                         |
+| B2 sustained outage          | Chặn B2 10 phút                                                            | Snapshot/export bounded retry; live state không mất; alert snapshot age; last-good không bị xóa               | retry count, alert, later checksum verify                  | `PASS` — F.3 2026-08-20                                         |
+| Control authority outage     | Core API/grant/revoke authority lỗi                                        | Không cấp grant/refresh và không elevate reader; cached permissive role bị cấm                                | fail-closed response taxonomy                              | `PASS` — F.3 2026-08-20                                         |
+| Kill switch                  | Chuyển write/connection off giữa phiên                                     | Grant mới deny; writer socket đóng <=1s; client sang bounded view/export path                                 | revoke timing + no post-switch mutation                    | `NOT RUN`                                                       |
+| Rotation                     | Rotate từng secret theo mục 7                                              | Current/next overlap bounded; new path đạt trước revoke; credential cũ deny sau revoke                        | key IDs/role names redacted, boolean probes                | `PASS` — Control/B2 F.3 2026-08-20                              |
+| Backup/restore               | Tạo snapshot, mutate, corrupt một artifact, restore last-good              | Corrupt bị quarantine; generation mới giữ expected semantic hash; stale writer deny                           | checksum, generation swap, hash                            | `PASS` adapter round-trip; full catalog/swap thuộc P5-COLLAB-07 |
+| Provider exit                | Export portable, khởi tạo clean authority không dựa Redis/Hocuspocus state | Round-trip giữ supported semantic hash; không dual-write                                                      | artifact version + before/after hash                       | `NOT RUN`                                                       |
+| Quota/reconnect storm        | Vượt actor/doc/tenant/rate/payload cap                                     | Bounded reject, không OOM, tenant khác không bị starvation                                                    | rejection metric + heap/CPU + cleanup-zero                 | `NOT RUN`                                                       |
+| Regional tabletop            | Giả lập toàn bộ Singapore unavailable                                      | Feature off; dùng B2 last-good; operator thực hiện documented manual recovery                                 | signed tabletop timeline và gaps                           | `NOT RUN`                                                       |
+| Production HA two-node/Redis | Kill một replica và chặn Redis 10 phút                                     | Hai-node coordination/failover không divergence                                                               | two-node/Redis evidence                                    | `DEFERRED_PRODUCTION_HA`                                        |
 
 Sustained outage nghĩa là fault được giữ tối thiểu 10 phút, không phải một request fail ngắn. Drill không
 được dùng credential live, không làm shared staging và không log secret/content. Provider dashboard
@@ -442,6 +463,21 @@ nguyên trả phí; không tự mua add-on, scale instance hoặc đổi plan.
 | B2                            |          `0 USD` | Chỉ khi storage/transaction/egress còn trong free allowance; vượt ngưỡng thì force-off snapshot/export mới.    |
 | **Approved hard monthly cap** |      **`0 USD`** | Không automatic paid upgrade.                                                                                  |
 
+### 9.1.1 Quota evidence đã redacted — 2026-08-20
+
+Chỉ giữ aggregate usage/cap/cost; không lưu ảnh thô, account ID, service ID, email hoặc credential:
+
+| Provider | Aggregate quan sát                                              | Cap/allowance quan sát                         | Kết quả |
+| -------- | ---------------------------------------------------------------- | ---------------------------------------------- | ------- |
+| Render   | `35.12` free instance hours; `454 MB` bandwidth; `15` services | `750` giờ; `5 GB`; `25` services; `42/500` pipeline minutes | PASS    |
+| Neon     | `9.55` CU-hours; `0.12 GB` storage; `0.02 GB` transfer         | `100` CU-hours; `0.5 GB`; `5 GB`; `8/10` branches            | PASS    |
+| B2       | `1.0 GB` avg stored; `0 GB` downloaded; `709` transactions      | Daily caps: `10 GB` storage, `1 GB` download, `2,500` Class B/C | PASS  |
+
+Render month-to-date và projected total đều `0.00 USD`; B2 dashboard cũng ghi current cost `0.00`.
+Neon branch occupancy `8/10` là tỷ lệ gần cap nhất, nên disposable branch cũ phải được cleanup sau khi
+evidence closure hoàn tất. Không provider nào được tự nâng plan; chạm ngưỡng quota/cost thì giảm
+admission rồi giữ whiteboard force-off.
+
 ### 9.2 Deferred production HA worksheet
 
 Render Standard x2 + Redis Cloud Multi-AZ là đường nâng cấp, không phải chi phí đã duyệt. Khi có trigger
@@ -491,10 +527,10 @@ tới khi expected và peak model đều dưới hard cap tương lai với head
 
 | Vai trò                 | Owner                      | Trách nhiệm                                                           |
 | ----------------------- | -------------------------- | --------------------------------------------------------------------- |
-| Primary on-call         | `PENDING_OWNER_ASSIGNMENT` | Nhận alert, kích hoạt kill switch, giữ timeline/evidence.             |
-| Backup on-call          | `PENDING_OWNER_ASSIGNMENT` | Review restore/rotation, liên hệ provider khi primary unavailable.    |
-| Security incident owner | `PENDING_OWNER_ASSIGNMENT` | Grant replay/credential/content exposure; quyết định revoke toàn cục. |
-| Cost owner              | `PENDING_OWNER_ASSIGNMENT` | Duyệt quote/budget/scale; không có quyền xem secret runtime.          |
+| Primary on-call         | Bá Sáng                    | Nhận alert, kích hoạt kill switch, giữ timeline/evidence.             |
+| Backup on-call          | Duy Mạnh                   | Review restore/rotation, liên hệ provider khi primary unavailable.    |
+| Security incident owner | Bá Sáng                    | Grant replay/credential/content exposure; quyết định revoke toàn cục. |
+| Cost owner              | Bá Sáng                    | Duyệt quote/budget/scale; không có quyền xem secret runtime.          |
 
 Incident tối thiểu:
 
@@ -585,21 +621,23 @@ credential, không dùng shared staging trước khi disposable gate và owner a
   - [x] Real SIGTERM/drain và post-redeploy reconnect/recovery có bounded evidence PASS: deploy
         `dep-da39i0ibkg8c7381o8i0`, `drain_complete=ok`, duration bucket `lt_100ms`, `/readyz=200` và
         post-redeploy provider drill PASS ngày 2026-08-20.
-- [ ] Sustained Neon/B2/control outage, credential rotation và backup/restore trên
-      resource disposable riêng PASS với bounded evidence.
+- [x] Sustained Neon/B2/control outage, Control/B2 credential rotation và portable backup/restore
+      adapter trên resource disposable riêng PASS với bounded evidence; full catalog/quarantine/generation
+      swap tiếp tục thuộc P5-COLLAB-07.
 
 ### Owner/provider
 
 - [x] Owner chọn `FREE_PRIVATE_ALPHA`: Render Free Singapore một instance, không Redis, Neon/B2 trong
       free allowance; paid HA chưa provision.
-- [ ] Owner chấp thuận rõ single-instance/no-HA, spin-down/cold-start, free quota và residual risk không
+- [x] Owner chấp thuận rõ single-instance/no-HA, spin-down/cold-start, free quota và residual risk không
       có multi-region hot standby.
-- [ ] Render/Neon/B2 quota dashboard được ghi redacted; expected/peak nằm trong allowance và hard cap
+- [x] Render/Neon/B2 quota dashboard được ghi redacted; current private-alpha evidence nằm trong allowance và hard cap
       `0 USD`.
-- [ ] Primary/backup/security/cost owner được điền và xác nhận nhận alert.
-- [ ] Retention/Object Lock mode, RPO/RTO và incident severity được owner duyệt.
-- [ ] Disposable provider drill có quyền/blast radius riêng và evidence redacted.
-- [ ] ADR-0034 cập nhật consequences/runtime/cost/owner và chuyển `Accepted` sau khi tất cả mục trên đạt.
+- [x] Primary/backup/security/cost owner được điền và xác nhận nhận alert.
+- [x] Retention/Object Lock disabled cho private alpha, RPO/RTO candidate và incident severity được
+      owner duyệt.
+- [x] Disposable provider drill có quyền/blast radius riêng và evidence redacted.
+- [x] ADR-0034 cập nhật consequences/runtime/cost/owner và chuyển `Accepted` sau khi tất cả mục trên đạt.
 
 ### Deferred trước production/public beta
 
@@ -607,8 +645,9 @@ credential, không dùng shared staging trước khi disposable gate và owner a
 - [ ] Two-node convergence, replica kill/rolling deploy, Redis sustained outage/failover và cleanup-zero
       PASS trên disposable paid-HA topology.
 
-Cho tới lúc checklist hoàn tất, Gate F giữ `VERIFY`, ADR-0034 giữ `Proposed`, P5-COLLAB-01 giữ
-`IN PROGRESS`; **không deploy và không bật production feature**.
+Gate F và P5-COLLAB-01 chuyển `DONE`; ADR-0034 chuyển `Accepted` ngày 2026-08-20. Hai mục paid HA phía
+trên vẫn deferred và không chặn profile private alpha Free. **Không migrate shared staging, không deploy
+collaboration plane production và không bật production feature** trước P5-COLLAB-17 exact staging.
 
 ## 13. Nguồn chính thức
 

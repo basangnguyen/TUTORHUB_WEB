@@ -5,13 +5,13 @@
 | Thuộc tính            | Giá trị                                                                                      |
 | --------------------- | -------------------------------------------------------------------------------------------- |
 | Phiên bản tài liệu    | 2.5                                                                                          |
-| Cập nhật              | 2026-08-19                                                                                   |
+| Cập nhật              | 2026-08-20                                                                                   |
 | Phạm vi ưu tiên       | Web application                                                                              |
 | Thư mục phát triển    | `D:\TutorHub_V2`                                                                             |
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
-| Phase hiện tại        | Phase 5 collaboration decision gate; Phase 3 deferred carry-over tiếp tục                    |
-| Trạng thái gần nhất   | Gate F.2 exact OCI/SBOM PASS; Gate F `3/4`, còn provider drill + ops sign-off                  |
+| Phase hiện tại        | Phase 5 collaboration implementation; Phase 3 deferred carry-over tiếp tục                    |
+| Trạng thái gần nhất   | P5-COLLAB-01 `DONE`; Gate F PASS; ADR-0034 `Accepted`; P5-COLLAB-02 runnable                 |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 
@@ -949,17 +949,17 @@ Không chọn Kubernetes mặc định. Chỉ dùng khi số service, yêu cầu
 
 ## 20. Exit trigger của nhà cung cấp
 
-| Thành phần        | Giữ khi                                                             | Bắt đầu chuyển khi                                                                                       |
-| ----------------- | ------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| Render Core API   | Alpha nhỏ/staging, stateless, chấp nhận sleep/cold start            | Cần SLA, autoscaling, worker bền vững, private network hoặc WebSocket ổn định                            |
+| Thành phần                | Giữ khi                                                             | Bắt đầu chuyển khi                                                                                       |
+| ------------------------- | ------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Render Core API           | Alpha nhỏ/staging, stateless, chấp nhận sleep/cold start            | Cần SLA, autoscaling, worker bền vững, private network hoặc WebSocket ổn định                            |
 | Render collaboration Free | Development/private alpha, một instance, chấp nhận cold-start/no-HA | Trước public beta/SLO hoặc khi cần phòng liên tục; chuyển paid HA x2 + coordination đã kiểm chứng        |
-| Durable worker    | Chưa provision; các test local/CI/disposable vẫn chạy               | Trước notification/email/file side effect hoặc pilot; cần host không spin-down và crash/reclaim evidence |
-| Neon Free         | Connection/storage/compute trong quota và cold start chấp nhận được | Pilot cần luôn sẵn sàng, vượt quota, cần compliance/region/PITR cao hơn                                  |
-| LiveKit Free      | Test/private alpha trong hard cap                                   | Có lớp thật, recording, concurrency hoặc support/SLA                                                     |
-| B2                | Cost/region/latency và policy đáp ứng                               | Data residency, egress path, compliance hoặc latency không đạt                                           |
-| Cloudflare Pages  | SPA/static phù hợp                                                  | Cần edge compute/SSR phức tạp hoặc policy không đáp ứng                                                  |
-| PostgreSQL search | Query và feature đủ                                                 | Relevance, indexing volume hoặc latency vượt SLO                                                         |
-| Không Redis       | Một instance/DB đủ                                                  | Cần distributed rate limit, short-lived cache, presence hoặc queue                                       |
+| Durable worker            | Chưa provision; các test local/CI/disposable vẫn chạy               | Trước notification/email/file side effect hoặc pilot; cần host không spin-down và crash/reclaim evidence |
+| Neon Free                 | Connection/storage/compute trong quota và cold start chấp nhận được | Pilot cần luôn sẵn sàng, vượt quota, cần compliance/region/PITR cao hơn                                  |
+| LiveKit Free              | Test/private alpha trong hard cap                                   | Có lớp thật, recording, concurrency hoặc support/SLA                                                     |
+| B2                        | Cost/region/latency và policy đáp ứng                               | Data residency, egress path, compliance hoặc latency không đạt                                           |
+| Cloudflare Pages          | SPA/static phù hợp                                                  | Cần edge compute/SSR phức tạp hoặc policy không đáp ứng                                                  |
+| PostgreSQL search         | Query và feature đủ                                                 | Relevance, indexing volume hoặc latency vượt SLO                                                         |
+| Không Redis               | Một instance/DB đủ                                                  | Cần distributed rate limit, short-lived cache, presence hoặc queue                                       |
 
 Mọi migration provider phải có interface, export path, dữ liệu ownership và rollback; không trì hoãn đến khi quota đã bị chặn.
 
@@ -1057,23 +1057,23 @@ Web có thể quản lý exam policy, schedule, signed launch token và nhận r
 
 ## 24. Bản đồ chuyển chức năng V1 sang web
 
-| Khu vực V1      | Đích V2              |       Phase | Cách chuyển                           |
-| --------------- | -------------------- | ----------: | ------------------------------------- |
-| Đăng nhập/hồ sơ | Identity/Profile     |           2 | Xây mới OIDC/BFF, import mapping user |
-| Bảng tin        | Home/Activity        |           7 | Chuyển sau core learning              |
-| Reels/Locket    | Social learning      |           7 | Thiết kế mới, không port UI           |
-| Tin nhắn/Lavie  | Messaging/AI         |         3/7 | Persistent message trước, AI sau      |
-| Lớp học         | Class management     |         2/3 | Vertical slice đầu tiên               |
-| Phòng học       | Classroom            |         4/5 | LiveKit + tool modules                |
-| Lịch            | Schedule             |           3 | Domain timezone-aware                 |
-| Thi/Đề/Câu hỏi  | Assessment           |           6 | Schema/versioning mới                 |
-| QuizHub         | Quiz practice/game   |           6 | Tách engine domain và UI game         |
-| Nhiệm vụ        | Assignment/Task      |           6 | Workflow server-side                  |
-| Tài liệu/Drive  | Files/Content        |           3 | Presigned B2 pipeline                 |
+| Khu vực V1      | Đích V2              |       Phase | Cách chuyển                            |
+| --------------- | -------------------- | ----------: | -------------------------------------- |
+| Đăng nhập/hồ sơ | Identity/Profile     |           2 | Xây mới OIDC/BFF, import mapping user  |
+| Bảng tin        | Home/Activity        |           7 | Chuyển sau core learning               |
+| Reels/Locket    | Social learning      |           7 | Thiết kế mới, không port UI            |
+| Tin nhắn/Lavie  | Messaging/AI         |         3/7 | Persistent message trước, AI sau       |
+| Lớp học         | Class management     |         2/3 | Vertical slice đầu tiên                |
+| Phòng học       | Classroom            |         4/5 | LiveKit + tool modules                 |
+| Lịch            | Schedule             |           3 | Domain timezone-aware                  |
+| Thi/Đề/Câu hỏi  | Assessment           |           6 | Schema/versioning mới                  |
+| QuizHub         | Quiz practice/game   |           6 | Tách engine domain và UI game          |
+| Nhiệm vụ        | Assignment/Task      |           6 | Workflow server-side                   |
+| Tài liệu/Drive  | Files/Content        |           3 | Presigned B2 pipeline                  |
 | Bảng vẽ         | Whiteboard           |           5 | Excalidraw; sync theo ADR, snapshot B2 |
-| Lavie Agent     | AI assistant         |           7 | Permission-filtered RAG               |
-| Secure Exam     | Native companion     | Track riêng | Chỉ contract/handoff từ web           |
-| Admin/nâng cấp  | Tenant admin/billing |           8 | Sau usage/quota telemetry             |
+| Lavie Agent     | AI assistant         |           7 | Permission-filtered RAG                |
+| Secure Exam     | Native companion     | Track riêng | Chỉ contract/handoff từ web            |
+| Admin/nâng cấp  | Tenant admin/billing |           8 | Sau usage/quota telemetry              |
 
 Mỗi dòng cần một migration spec riêng trước khi thực thi: behavior inventory, schema mapping, API, permission, UI states, telemetry, test, rollout và rollback.
 
@@ -1662,6 +1662,22 @@ image ID cùng SBOM; archive digest là
 `sha256:6016ae0c30ead0b837868b1884e1d66cb042262d1179caf66999a04ca3e7bef7`. Gate F tăng lên
 `3/4 VERIFY`; disposable Render/Neon/B2 drill và owner/ops sign-off còn bắt buộc, ADR-0034 vẫn
 `Proposed` và production force-off.
+
+Gate F.3 provider checkpoint 2026-08-20: disposable Render Free Singapore + Neon role riêng + B2
+private bucket đã PASS baseline, graceful SIGTERM/drain và post-redeploy recovery, sustained
+Control/Neon/B2 outage `600s`, Control/B2 credential rotation với old-credential `401`, portable
+Excalidraw semantic restore round-trip và cleanup-zero. Shared staging/production không bị chạm.
+Provider sub-gate đã đóng; Gate F vẫn `VERIFY` vì quota dashboard, named on-call/security/cost owner,
+explicit single-instance/no-HA/cold-start risk cùng RPO/RTO/retention sign-off còn thiếu. ADR-0034
+giữ `Proposed` và production force-off.
+
+Gate F owner closure 2026-08-20: Render/Neon/B2 quota evidence đã được ghi ở dạng aggregate redacted
+và current/projected cost giữ `0 USD`. Owner chấp thuận `FREE_PRIVATE_ALPHA` single-instance/no-HA,
+spin-down/cold-start, RPO/RTO candidate, incident severity và B2 Object Lock disabled; chạm quota thì
+whiteboard force-off. Primary on-call `Bá Sáng`, backup `Duy Mạnh`, security incident owner `Bá Sáng`,
+cost owner `Bá Sáng`. Gate F và P5-COLLAB-01 chuyển `DONE`, ADR-0034 chuyển `Accepted`; P5-COLLAB-02
+là task runnable tiếp theo. Paid HA vẫn deferred; shared staging/production không được bật trước các
+gate tương ứng, đặc biệt P5-COLLAB-17 exact staging.
 
 **Deliverable:** teacher mở/đóng công cụ mà không làm rời media room; trạng thái cộng tác khôi phục sau reconnect.
 

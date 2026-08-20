@@ -4,18 +4,54 @@
 
 ## Snapshot
 
-| Thuộc tính           | Trạng thái                                                                              |
-| -------------------- | --------------------------------------------------------------------------------------- |
-| Ngày cập nhật        | 2026-08-20                                                                              |
-| Repository           | `https://github.com/basangnguyen/TUTORHUB_WEB`                                          |
-| Nhánh làm việc       | `main`                                                                                  |
-| Quy trình            | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn   |
-| Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4                                                      |
-| Phase hiện tại       | Phase 5 collaboration decision gate; Phase 3 deferred carry-over vẫn hoạt động          |
-| Task `DONE` gần nhất | P5-COLLAB-00 research/selection baseline                                               |
-| Mốc repository mới   | Gate F.3 SIGTERM/drain + post-redeploy recovery PASS trên exact candidate `7febbce`     |
-| Task hiện tại        | P5-COLLAB-01 Excalidraw hard gates và ADR selection — `IN PROGRESS`                     |
-| Task tiếp theo       | Gate F.3 sustained outage, rotation/restore và owner/provider checklist                 |
+| Thuộc tính           | Trạng thái                                                                            |
+| -------------------- | ------------------------------------------------------------------------------------- |
+| Ngày cập nhật        | 2026-08-20                                                                            |
+| Repository           | `https://github.com/basangnguyen/TUTORHUB_WEB`                                        |
+| Nhánh làm việc       | `main`                                                                                |
+| Quy trình            | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
+| Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4                                                    |
+| Phase hiện tại       | Phase 5 collaboration implementation; Phase 3 deferred carry-over vẫn hoạt động       |
+| Task `DONE` gần nhất | P5-COLLAB-01 Excalidraw authority/topology acceptance                                 |
+| Mốc repository mới   | Gate F `DONE`; ADR-0034 `Accepted`; owner/quota/private-alpha risk closure PASS        |
+| Task hiện tại        | P5-COLLAB-02 Control-plane schema — `TODO`, runnable                                   |
+| Task tiếp theo       | P5-COLLAB-02 tenant-owned document/source/lifecycle/capability schema và exact ACL     |
+
+### Checkpoint P5-COLLAB-01 `DONE` — 2026-08-20
+
+Owner đã chấp thuận `FREE_PRIVATE_ALPHA`: một Render runtime instance Singapore, không HA/Redis/
+multi-region, chấp nhận spin-down/cold-start và gián đoạn ngắn, hard cap `0 USD`; chạm quota thì
+whiteboard giữ force-off. RPO/RTO candidate, `SEV-1/SEV-2` và B2 Object Lock disabled cho private
+alpha cũng được chấp thuận.
+
+Quota evidence chỉ giữ aggregate redacted: Render `35.12/750` free instance hours, `454 MB/5 GB`
+bandwidth, `15/25` services, `42/500` pipeline minutes và current/projected `0.00 USD`; Neon
+`9.55/100` CU-hours, `0.12/0.5 GB` storage, `0.02/5 GB` transfer, `8/10` branches; B2 `1.0 GB` average
+stored, `0 GB` downloaded, `709` transactions và current cost `0.00`. Không lưu ảnh/account ID/email/
+credential vào repository.
+
+Primary on-call `Bá Sáng`, backup `Duy Mạnh`, security incident owner `Bá Sáng`, cost owner `Bá Sáng`.
+Gate A-F đều đóng; ADR-0034 chuyển `Accepted` và P5-COLLAB-01 chuyển `DONE`. P5-COLLAB-02 là task
+runnable tiếp theo. Shared staging chưa migrate, collaboration plane production chưa deploy và
+whiteboard production tiếp tục force-off tới P5-COLLAB-17 exact staging.
+
+### Checkpoint P5-COLLAB-01 Gate F.3 provider drill PASS — 2026-08-20
+
+Ba sustained outage disposable đã giữ đủ `600` giây với 10 probe mỗi 60 giây: Control authority và
+Neon làm Runtime `/readyz=503` nhưng giữ `/livez=200`, B2 giữ runtime/checkpoint available trong khi
+credential bị revoke. Cả ba đều tự/được khôi phục và final readiness/provider probe PASS.
+
+Neon chỉ đổi exact role disposable `tutorhub_collab_f3` sang `NOLOGIN` rồi tự `LOGIN` trong `finally`;
+không suspend compute hoặc chạm branch `staging`. B2 r1 negative `401` trong toàn bộ cửa sổ, r2
+positive read/write/checksum và post-redeploy PASS. Control current/next overlap, Runtime cutover và
+retirement PASS; cả hai token trước trả `401`, replacement trả `200`. Một token test xuất hiện trong
+tool output đã được coi là compromised và rotate ngay, không còn được chấp nhận.
+
+Final provider result PASS `hocuspocus_sync`, `checkpoint_recovery`, `b2_read_after_write`,
+`snapshot_dependency_up`, portable Excalidraw semantic restore round-trip và `cleanup_zero`. Provider
+sub-gate F.3 đã đóng; Gate F/P5-COLLAB-01 vẫn `VERIFY/IN PROGRESS` vì quota dashboard, named
+primary/backup/security/cost owner và explicit no-HA/cold-start/RPO/RTO/retention approval còn thiếu.
+ADR-0034 giữ `Proposed`; shared staging và production tiếp tục force-off.
 
 ### Checkpoint P5-COLLAB-01 Gate F.3 SIGTERM/drain + post-redeploy recovery — 2026-08-20
 
