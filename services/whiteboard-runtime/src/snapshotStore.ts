@@ -62,29 +62,29 @@ export class B2PortableSnapshotStore implements PortableSnapshotStore {
     const checksum = sha256(bytes);
     const objectKey = `portable/v1/${checksum.slice(0, 2)}/${checksum}.json`;
     try {
-      try {
-        await this.client.send(
-          new PutObjectCommand({
-            Body: bytes,
-            Bucket: this.bucket,
-            ChecksumSHA256: Buffer.from(checksum, "hex").toString("base64"),
-            ContentLength: bytes.byteLength,
-            ContentType: "application/json",
-            IfNoneMatch: "*",
-            Key: objectKey,
-            Metadata: {
-              checksum,
-              format: "tutorhub-excalidraw-portable-v1",
-            },
-          }),
-        );
-      } catch (error) {
-        if (!isPreconditionFailure(error)) throw error;
+      const existing = await this.getObject(objectKey);
+      if (existing) {
+        if (!checksumMatches(existing, checksum)) {
+          throw new SnapshotStoreError("snapshot_corrupt");
+        }
+        return { bytes: existing, checksum, objectKey };
       }
-      const loaded = (await this.client.send(
-        new GetObjectCommand({ Bucket: this.bucket, Key: objectKey }),
-      )) as { Body?: { transformToByteArray?: () => Promise<Uint8Array> } };
-      const loadedBytes = await loaded.Body?.transformToByteArray?.();
+
+      await this.client.send(
+        new PutObjectCommand({
+          Body: bytes,
+          Bucket: this.bucket,
+          ChecksumSHA256: Buffer.from(checksum, "hex").toString("base64"),
+          ContentLength: bytes.byteLength,
+          ContentType: "application/json",
+          Key: objectKey,
+          Metadata: {
+            checksum,
+            format: "tutorhub-excalidraw-portable-v1",
+          },
+        }),
+      );
+      const loadedBytes = await this.getObject(objectKey);
       if (!loadedBytes || !checksumMatches(loadedBytes, checksum)) {
         throw new SnapshotStoreError("snapshot_corrupt");
       }
@@ -94,13 +94,25 @@ export class B2PortableSnapshotStore implements PortableSnapshotStore {
       throw new SnapshotStoreError("snapshot_unavailable");
     }
   }
+
+  private async getObject(objectKey: string): Promise<Uint8Array | null> {
+    try {
+      const loaded = (await this.client.send(
+        new GetObjectCommand({ Bucket: this.bucket, Key: objectKey }),
+      )) as { Body?: { transformToByteArray?: () => Promise<Uint8Array> } };
+      return (await loaded.Body?.transformToByteArray?.()) ?? null;
+    } catch (error) {
+      if (isObjectNotFound(error)) return null;
+      throw error;
+    }
+  }
 }
 
-function isPreconditionFailure(error: unknown): boolean {
+function isObjectNotFound(error: unknown): boolean {
   if (typeof error !== "object" || error === null) return false;
   const metadata = (error as { $metadata?: { httpStatusCode?: number } })
     .$metadata;
-  return metadata?.httpStatusCode === 412;
+  return metadata?.httpStatusCode === 404;
 }
 
 function validatePortableEnvelope(bytes: Uint8Array): void {

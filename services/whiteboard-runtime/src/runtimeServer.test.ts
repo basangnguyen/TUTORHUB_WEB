@@ -118,6 +118,30 @@ describe("OCI collaboration runtime", () => {
       ),
     ).resolves.toBe(503);
   }, 10_000);
+
+  it("reports cleanup-zero after the last client disconnects and the document unloads", async () => {
+    const checkpoints = new MemoryCheckpointStore();
+    const candidate = createRuntime(checkpoints);
+    runtimes.push(candidate.runtime);
+    await candidate.runtime.start();
+    const client = createClient(candidate.runtime);
+    clients.push(client);
+    await client.synced;
+    client.document.getMap("scene").set("revision", 1);
+    await waitFor(() => checkpoints.storeCount > 0, 12_000);
+
+    client.destroy();
+    clients.splice(clients.indexOf(client), 1);
+    await waitForMetrics(
+      httpUrl(candidate.runtime),
+      [
+        'collab_connections_current{capability="edit"} 0',
+        "collab_documents_current 0",
+        "collab_dirty_documents 0",
+      ],
+      12_000,
+    );
+  }, 20_000);
 });
 
 class MemoryCheckpointStore implements CheckpointStore {
@@ -290,4 +314,20 @@ async function waitFor(
     await new Promise((resolve) => setTimeout(resolve, 25));
   }
   throw new Error("wait_timeout");
+}
+
+async function waitForMetrics(
+  baseUrl: string,
+  expected: string[],
+  timeoutMs: number,
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const metrics = await fetch(`${baseUrl}/metrics`, {
+      headers: { authorization: `Bearer ${METRICS_TOKEN}` },
+    }).then((response) => response.text());
+    if (expected.every((line) => metrics.includes(line))) return;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  throw new Error("metrics_wait_timeout");
 }

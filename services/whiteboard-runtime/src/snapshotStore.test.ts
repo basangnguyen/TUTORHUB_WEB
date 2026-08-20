@@ -10,15 +10,23 @@ import {
 } from "./snapshotStore.js";
 
 class FakeObjectClient {
-  private stored = new Uint8Array();
+  private stored: Uint8Array | null = null;
+
+  putCount = 0;
 
   async send(command: unknown): Promise<unknown> {
     if (command instanceof HeadBucketCommand) return {};
     if (command instanceof PutObjectCommand) {
+      this.putCount += 1;
       this.stored = new Uint8Array(command.input.Body as Uint8Array);
       return {};
     }
     if (command instanceof GetObjectCommand) {
+      if (!this.stored) {
+        throw Object.assign(new Error("not_found"), {
+          $metadata: { httpStatusCode: 404 },
+        });
+      }
       return {
         Body: {
           transformToByteArray: async () => this.stored,
@@ -46,6 +54,23 @@ describe("B2PortableSnapshotStore", () => {
       /^portable\/v1\/[a-f0-9]{2}\/[a-f0-9]{64}\.json$/,
     );
     expect(artifact.bytes).toEqual(bytes);
+  });
+
+  it("reuses a verified content-addressed object without uploading another version", async () => {
+    const client = new FakeObjectClient();
+    const store = createStore(client);
+    const bytes = new TextEncoder().encode(
+      JSON.stringify({
+        format: "tutorhub.excalidraw.portable-scene",
+        formatVersion: 1,
+      }),
+    );
+
+    await store.put(bytes);
+    const artifact = await store.put(bytes);
+
+    expect(artifact.bytes).toEqual(bytes);
+    expect(client.putCount).toBe(1);
   });
 
   it("rejects non-portable or empty content before contacting B2", async () => {

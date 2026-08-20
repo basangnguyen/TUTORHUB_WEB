@@ -197,6 +197,9 @@ export function createCollaborationRuntime(
         throw new RuntimeSocketError("checkpoint_unavailable");
       }
     },
+    async afterUnloadDocument() {
+      telemetry.setDocuments(server.hocuspocus.getDocumentsCount());
+    },
     async onDisconnect({ clientsCount, documentName, socketId }) {
       const active = connections.get(socketId);
       if (active) {
