@@ -167,7 +167,7 @@ Các bước tiếp theo sau baseline:
 1. [x] Trigger manual deploy exact commit của runtime để Render gửi SIGTERM; log chỉ được giữ
    `drain_started`/`drain_complete` và duration bucket.
 2. [x] Chạy lại provider drill để chứng minh reconnect/recovery từ Neon checkpoint.
-3. [ ] Thêm ba biến sau vào file local rồi chạy sustained control outage:
+3. [x] Thêm ba biến sau vào file local rồi chạy sustained control outage:
 
 ```dotenv
 P5_F3_OUTAGE_TARGET=control
@@ -182,6 +182,24 @@ node --env-file=.env.p5-collab-01-gate-f3.local scripts/p5-collab-01-gate-f3-con
 Script giữ control unavailable đúng 600 giây, xác nhận runtime `/readyz=503` mỗi 60 giây, khôi phục
 control và yêu cầu `/readyz=200`. Nếu process bị ngắt, kiểm tra control fixture về `enabled` trước khi
 tiếp tục.
+
+Kết quả 2026-08-20: PASS đủ 600 giây với 10 probe mỗi 60 giây; `/livez=200`,
+`/readyz=503` trong outage và `/readyz=200` sau khôi phục. Render health check đã dùng `/livez`, nên
+dependency outage không tạo restart loop.
+
+Neon sustained outage dùng đúng role disposable `tutorhub_collab_f3`, không suspend compute và không
+chạm branch `staging`:
+
+```powershell
+$env:P5_F3_OUTAGE_TARGET = "neon"
+$env:P5_F3_OUTAGE_SECONDS = "600"
+$env:P5_F3_OUTAGE_CONFIRM = "I_UNDERSTAND_P5_F3_NEON_ROLE_WILL_BE_UNAVAILABLE_FOR_600_SECONDS"
+node --env-file=.env.p5-collab-01-gate-f3.local scripts/p5-collab-01-gate-f3-neon-outage.mjs
+```
+
+Harness chỉ `NOLOGIN` role trên, terminate session của chính role đó trong database disposable, giữ
+fail-closed 600 giây và tự `LOGIN` lại trong `finally`. Output chỉ có target, elapsed, liveness,
+fail-closed và recovery boolean; không có URL, role credential hoặc raw provider error.
 
 ## 6. Drill cần thao tác provider
 
