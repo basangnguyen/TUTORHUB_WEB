@@ -1,6 +1,6 @@
 import { pathToFileURL } from "node:url";
 import { NeonCheckpointStore } from "./checkpointStore.js";
-import { loadRuntimeConfig } from "./config.js";
+import { loadRuntimeConfig, RuntimeConfigurationError } from "./config.js";
 import { HttpControlPlane } from "./controlPlane.js";
 import { RUNTIME_VERSIONS } from "./contracts.js";
 import { createCollaborationRuntime } from "./runtimeServer.js";
@@ -43,11 +43,26 @@ export async function run(): Promise<void> {
   process.once("SIGTERM", () => void shutdown());
 }
 
+export function startupFailureCode(error: unknown): string {
+  if (error instanceof RuntimeConfigurationError) return error.code;
+  if (
+    error instanceof Error &&
+    error.message === "runtime_node_version_mismatch"
+  ) {
+    return "runtime_node_version_mismatch";
+  }
+  return "runtime_start_unknown";
+}
+
 const entrypoint = process.argv[1] ? pathToFileURL(process.argv[1]).href : "";
 if (import.meta.url === entrypoint) {
-  run().catch(() => {
+  run().catch((error: unknown) => {
     process.stderr.write(
-      '{"event_code":"runtime_start_failed","outcome":"failed"}\n',
+      `${JSON.stringify({
+        event_code: "runtime_start_failed",
+        outcome: "failed",
+        reason_code: startupFailureCode(error),
+      })}\n`,
     );
     process.exitCode = 1;
   });
