@@ -1,6 +1,5 @@
 import { pathToFileURL } from "node:url";
 import { validateGateF3Environment } from "./require-p5-collab-01-gate-f3-confirm.mjs";
-import { NeonCheckpointStore } from "../services/whiteboard-runtime/dist/checkpointStore.js";
 
 const EXACT_OUTAGE_CONFIRMATION =
   "I_UNDERSTAND_P5_F3_B2_KEY_WILL_REMAIN_UNAVAILABLE_FOR_600_SECONDS";
@@ -39,6 +38,8 @@ export function validateB2OutageEnvironment(env = process.env) {
 export async function runGateF3B2Outage(env = process.env) {
   boundedFailureStage = "validate";
   const validated = validateB2OutageEnvironment(env);
+  const { NeonCheckpointStore } =
+    await import("../services/whiteboard-runtime/dist/checkpointStore.js");
   const checkpoints = new NeonCheckpointStore(
     validated.runtimeDatabase.toString(),
   );
