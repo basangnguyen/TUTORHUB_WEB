@@ -15,7 +15,7 @@
 | Task `DONE` gần nhất | P5-COLLAB-01 Excalidraw authority/topology acceptance                                 |
 | Mốc repository mới   | P5-COLLAB-02 Neon disposable `37 false` + exact PostgreSQL/ACL gates PASS               |
 | Task hiện tại        | P5-COLLAB-02 Control-plane schema — `VERIFY`                                            |
-| Task tiếp theo       | Commit/push candidate, GitHub Verify/Security rồi xin quyền shared staging `36 -> 37`  |
+| Task tiếp theo       | Xin quyền forward shared staging `36 -> 37`, provision ACL và chạy exact DB acceptance |
 
 ### Checkpoint P5-COLLAB-02 local candidate — 2026-08-20
 
@@ -33,7 +33,7 @@ retained media regression, integration-tag compile và full `pnpm verify` PASS; 
 
 Neon disposable đã PASS forward/idempotent `36 false -> 37 false -> 37 false`, exact ACL, lifecycle
 CAS, restore generation swap, foreign-tenant denial và no-second-authority proof; branch được giữ
-lại. P5-COLLAB-02 giữ `VERIFY`: exact candidate CI/security sau commit/push và shared staging
+lại. Candidate `0374249` đã PASS GitHub Verify/Security. P5-COLLAB-02 giữ `VERIFY`: shared staging
 acceptance còn mở. Shared staging vẫn `36 false`; không rollback/migrate/deploy và whiteboard
 production tiếp tục force-off. Acceptance:
 [`P5_COLLAB_02_STAGING_ACCEPTANCE.md`](P5_COLLAB_02_STAGING_ACCEPTANCE.md).

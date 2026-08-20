@@ -58,7 +58,11 @@ pre-grant quyền maintenance chưa dùng. `PUBLIC` không có DML trên năm re
 - [x] Integration-tag compile cho collaboration và retained media regression PASS.
 - [x] GitHub CI có PostgreSQL 17 functional + exact ACL gate P5-COLLAB-02.
 - [x] Full repository `pnpm verify` PASS trên candidate cuối.
-- [ ] Exact GitHub Verify/Security PASS sau commit/push candidate.
+- [x] Exact GitHub Verify/Security PASS sau commit/push candidate `0374249`.
+
+GitHub evidence 2026-08-21: [Verify run 32396812348](https://github.com/basangnguyen/TUTORHUB_WEB/actions/runs/32396812348)
+và [Security run 32396811995](https://github.com/basangnguyen/TUTORHUB_WEB/actions/runs/32396811995)
+đều kết thúc `success`.
 
 ## 6. Neon disposable gates
 

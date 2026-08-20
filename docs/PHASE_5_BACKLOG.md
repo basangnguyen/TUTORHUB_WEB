@@ -3,8 +3,9 @@
 > Nguồn thực thi cho Phase 5. P5-COLLAB-01 đã `DONE` ngày 2026-08-20 sau khi Excalidraw +
 > self-managed Yjs/Hocuspocus topology, Gate A-F, disposable Render/Neon/B2 drill, quota evidence và
 > owner operations/risk sign-off đều PASS; ADR-0034 đã `Accepted`. P5-COLLAB-02 hiện `VERIFY` với
-> migration `000037`, local/full verify và Neon disposable database gates PASS; candidate CI/security
-> cùng shared staging acceptance còn mở. Production whiteboard vẫn force-off tới P5-COLLAB-17.
+> migration `000037`, local/full verify, Neon disposable database gates và exact candidate
+> CI/security PASS; shared staging acceptance còn mở. Production whiteboard vẫn force-off tới
+> P5-COLLAB-17.
 
 ## 1. Mục tiêu phase
 
@@ -205,9 +206,9 @@ generation, immutable snapshot catalog, restore generation và retention metadat
 tenant-scoped, exact column-level runtime ACL harness, maintenance/PUBLIC deny, lifecycle CAS,
 restore-generation concurrency và no-second-authority PostgreSQL gate. Local full verify và Neon
 disposable forward/idempotency/exact ACL/concurrency/tenant/authority gates PASS tại final ledger
-`37 false`; GitHub CI PostgreSQL 17 đã được nối gate. Task giữ `VERIFY`; exact candidate CI/security
-sau commit/push và shared staging acceptance còn mở. Shared staging vẫn `36 false`, không rollback/
-migrate/deploy và whiteboard production tiếp tục force-off.
+`37 false`; candidate `0374249` đã PASS GitHub Verify/Security. Task giữ `VERIFY`; shared staging
+acceptance còn mở. Shared staging vẫn `36 false`, không rollback/migrate/deploy và whiteboard
+production tiếp tục force-off.
 
 **Exit gate:**
 
