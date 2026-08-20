@@ -246,12 +246,23 @@ F.3 vẫn còn real SIGTERM/drain + post-redeploy recovery, sustained control/Ne
 credential rotation/restore và owner/provider checklist. Không suy PASS các mục này từ baseline;
 ADR-0034 giữ `Proposed`, P5-COLLAB-01 giữ `IN PROGRESS`, shared staging/production vẫn force-off.
 
+### Gate F.3 SIGTERM/drain + post-redeploy recovery — 2026-08-20
+
+Manual deploy exact candidate `7febbce` tạo deploy `dep-da39i0ibkg8c7381o8i0`. Instance cũ ghi
+`drain_started`, rồi `drain_complete` với `outcome=ok`, duration bucket `lt_100ms`; instance mới lên
+`live` và `/readyz=200`. Provider drill sau redeploy PASS `hocuspocus_sync`, Neon
+`checkpoint_recovery`, B2 `read_after_write`, `cleanup_zero` và cold-start bucket `lt_5s`.
+
+Sub-gate SIGTERM/drain + post-redeploy recovery đã đóng. Gate F vẫn `3/4 VERIFY`; còn sustained
+control/Neon/B2 outage, credential rotation/restore và owner/provider checklist. ADR-0034 giữ
+`Proposed`, P5-COLLAB-01 giữ `IN PROGRESS`, shared staging/production tiếp tục force-off.
+
 ## 4. Bước tiếp theo
 
 1. Owner chấp thuận rõ giới hạn Render Free single-instance/cold-start/no-HA, hard cap `0 USD`, quota
    evidence redacted và điền primary/backup/security/cost on-call.
-2. Tiếp tục trên resource disposable hiện tại: real restart/SIGTERM/drain và post-redeploy recovery,
-   sustained control/Neon/B2 outage, credential rotation và backup/restore provider drill.
+2. Tiếp tục trên resource disposable hiện tại: sustained control/Neon/B2 outage, credential rotation
+   và backup/restore provider drill.
 3. Chỉ khi hai bước trên PASS mới chuyển ADR-0034 `Accepted` và P5-COLLAB-01 `DONE`.
 
 Cho tới khi toàn bộ gate bắt buộc đạt, ADR-0034 giữ `Proposed`, P5-COLLAB-01 giữ `IN PROGRESS`,

@@ -160,6 +160,18 @@ cold-start/redeploy/SIGTERM, Neon/B2 outage, credential rotation hoặc restore 
 hai mục disposable/provider. Exact runbook: `P5_COLLAB_01_GATE_F3_DISPOSABLE.md`. Fixture không thay
 Core API/schema/snapshot worker thật của P5-COLLAB-02/04/07.
 
+### 2.1.4 Gate F.3 SIGTERM/drain + post-redeploy recovery — 2026-08-20
+
+Render manual deploy exact candidate `7febbce` tạo deploy `dep-da39i0ibkg8c7381o8i0`. Instance cũ
+`[tnmnl]` ghi `drain_started` rồi `drain_complete` với `outcome=ok`,
+`duration_bucket=lt_100ms`; instance mới `[kz697]` lên `live` và `/readyz=200`.
+
+Provider drill sau redeploy PASS `hocuspocus_sync`, Neon `checkpoint_recovery`, B2
+`read_after_write`, `cleanup_zero`; cold-start bucket `lt_5s`. Evidence chỉ giữ identifier opaque,
+event code, outcome, duration bucket và boolean/bucket result; không giữ raw secret/log. Sub-gate
+SIGTERM/drain + post-redeploy recovery đã đóng, nhưng Gate F vẫn `3/4 VERIFY` vì sustained outage,
+rotation/restore và owner/provider closure còn mở.
+
 Candidate server limits phải fail closed và không thấp hơn Gate C:
 
 - pre-auth deadline và idle health interval có bound;
@@ -289,7 +301,7 @@ Gate không PASS chỉ từ số mục tiêu trên. Failure drill phải đo act
 | Drill                        | Fault injection                                                            | Hành vi bắt buộc                                                                                              | Evidence tối thiểu                                         | Trạng thái               |
 | ---------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- | ------------------------ |
 | Render Free cold-start       | Để service spin down theo provider rồi mở HTTP/WebSocket mới               | Service thức dậy, client hiển thị reconnect, phục hồi checkpoint và hội tụ; không mất acknowledged state      | opaque run ID, cold-start/reconnect timings, hash equality | `NOT RUN`                |
-| Graceful deploy/drain        | `SIGTERM` instance với dirty doc                                           | Not-ready trước, không socket mới, checkpoint flush, disconnect, instance mới phục hồi và reconnect <= budget | drain timeline + cleanup-zero + recovery hash              | `NOT RUN`                |
+| Graceful deploy/drain        | `SIGTERM` instance với dirty doc                                           | Not-ready trước, không socket mới, checkpoint flush, disconnect, instance mới phục hồi và reconnect <= budget | drain timeline + cleanup-zero + recovery hash              | `PASS` — F.3 2026-08-20 |
 | Neon sustained outage        | Chặn Neon 10 phút                                                          | Readiness đỏ, write fail closed, không tuyên bố mutation RAM là saved; phục hồi từ last-good                  | checkpoint age, no-lost-ack evidence                       | `NOT RUN`                |
 | B2 sustained outage          | Chặn B2 10 phút                                                            | Snapshot/export bounded retry; live state không mất; alert snapshot age; last-good không bị xóa               | retry count, alert, later checksum verify                  | `NOT RUN`                |
 | Control authority outage     | Core API/grant/revoke authority lỗi                                        | Không cấp grant/refresh và không elevate reader; cached permissive role bị cấm                                | fail-closed response taxonomy                              | `NOT RUN`                |
@@ -566,12 +578,14 @@ credential, không dùng shared staging trước khi disposable gate và owner a
 
 ### Disposable/provider còn bắt buộc
 
-- [ ] Một Hocuspocus instance thật trên Render Free Singapore dùng Neon binary checkpoint + B2 portable
+- [x] Một Hocuspocus instance thật trên Render Free Singapore dùng Neon binary checkpoint + B2 portable
       snapshot; cold-start, restart/deploy, reconnect và cleanup-zero PASS.
   - [x] Baseline exact commit `7febbce`: Hocuspocus sync, Neon checkpoint recovery, B2
         read-after-write, cleanup-zero và cold-start bucket `lt_5s` PASS ngày 2026-08-20.
-  - [ ] Real SIGTERM/drain và post-redeploy reconnect/recovery có bounded evidence PASS.
-- [ ] Sustained Neon/B2/control outage, real SIGTERM/drain, credential rotation và backup/restore trên
+  - [x] Real SIGTERM/drain và post-redeploy reconnect/recovery có bounded evidence PASS: deploy
+        `dep-da39i0ibkg8c7381o8i0`, `drain_complete=ok`, duration bucket `lt_100ms`, `/readyz=200` và
+        post-redeploy provider drill PASS ngày 2026-08-20.
+- [ ] Sustained Neon/B2/control outage, credential rotation và backup/restore trên
       resource disposable riêng PASS với bounded evidence.
 
 ### Owner/provider

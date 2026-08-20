@@ -142,12 +142,30 @@ cold_start_bucket=lt_5s
 Checkpoint này chỉ đóng baseline. Chưa suy PASS cho real SIGTERM/drain, post-redeploy recovery,
 sustained control/Neon/B2 outage, credential rotation/restore hoặc owner/provider checklist.
 
-Sau baseline:
+### SIGTERM/drain + post-redeploy recovery checkpoint — 2026-08-20
 
-1. Trigger manual deploy exact commit của runtime để Render gửi SIGTERM; log chỉ được giữ
+Manual deploy exact candidate `7febbce` tạo deploy `dep-da39i0ibkg8c7381o8i0`. Instance cũ `[tnmnl]`
+ghi `drain_started`, rồi `drain_complete` với `outcome=ok`, `duration_bucket=lt_100ms`; instance mới
+`[kz697]` lên `live` và `/readyz=200`. Provider drill sau redeploy PASS:
+
+```text
+hocuspocus_sync=true
+checkpoint_recovery=true
+b2_read_after_write=true
+cleanup_zero=true
+cold_start_bucket=lt_5s
+```
+
+Không giữ raw log hoặc secret; chỉ giữ event code, outcome, duration bucket và boolean/bucket result.
+Checkpoint này đóng hai bước đầu dưới đây, nhưng không suy PASS cho sustained outage, rotation/restore
+hoặc owner/provider closure.
+
+Các bước tiếp theo sau baseline:
+
+1. [x] Trigger manual deploy exact commit của runtime để Render gửi SIGTERM; log chỉ được giữ
    `drain_started`/`drain_complete` và duration bucket.
-2. Chạy lại provider drill để chứng minh reconnect/recovery từ Neon checkpoint.
-3. Thêm ba biến sau vào file local rồi chạy sustained control outage:
+2. [x] Chạy lại provider drill để chứng minh reconnect/recovery từ Neon checkpoint.
+3. [ ] Thêm ba biến sau vào file local rồi chạy sustained control outage:
 
 ```dotenv
 P5_F3_OUTAGE_TARGET=control

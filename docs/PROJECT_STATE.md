@@ -13,9 +13,22 @@
 | Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4                                                      |
 | Phase hiện tại       | Phase 5 collaboration decision gate; Phase 3 deferred carry-over vẫn hoạt động          |
 | Task `DONE` gần nhất | P5-COLLAB-00 research/selection baseline                                               |
-| Mốc repository mới   | Gate F.3 baseline `7febbce` PASS Verify `32335427818`/Security `32335427799`            |
+| Mốc repository mới   | Gate F.3 SIGTERM/drain + post-redeploy recovery PASS trên exact candidate `7febbce`     |
 | Task hiện tại        | P5-COLLAB-01 Excalidraw hard gates và ADR selection — `IN PROGRESS`                     |
-| Task tiếp theo       | Gate F.3 SIGTERM/recovery, sustained outage, rotation và owner/provider checklist       |
+| Task tiếp theo       | Gate F.3 sustained outage, rotation/restore và owner/provider checklist                 |
+
+### Checkpoint P5-COLLAB-01 Gate F.3 SIGTERM/drain + post-redeploy recovery — 2026-08-20
+
+Render đã manual deploy lại exact candidate `7febbce` bằng deploy `dep-da39i0ibkg8c7381o8i0`. Instance
+cũ `[tnmnl]` nhận SIGTERM và ghi đúng bounded evidence `drain_started`, sau đó `drain_complete` với
+`outcome=ok`, `duration_bucket=lt_100ms`; không có `drain_failed`. Instance mới `[kz697]` lên `live`,
+`/readyz=200`.
+
+Post-redeploy provider drill PASS `hocuspocus_sync=true`, `checkpoint_recovery=true`,
+`b2_read_after_write=true`, `cleanup_zero=true`, `cold_start_bucket=lt_5s`. Checkpoint này đóng sub-gate
+SIGTERM/drain + post-redeploy recovery theo disposable runbook. Gate F vẫn `3/4 VERIFY`; còn sustained
+control/Neon/B2 outage, credential rotation/restore và owner/provider checklist. Shared staging và
+production tiếp tục force-off.
 
 ### Checkpoint P5-COLLAB-01 Gate F.3 baseline provider drill — 2026-08-20
 
