@@ -7,10 +7,10 @@ thay đổi schema, migration hoặc repository phải đọc tài liệu này t
 
 - System of record: Neon PostgreSQL.
 - Schema ứng dụng: `tutorhub`.
-- Migration mới nhất trong source: `000036_media_join_diagnostics`; P4-01 đến P4-12 và Phase 4 đã
-  `DONE`. Disposable/shared đã forward-only tới `36 false`; exact ACL và final/post-live read-only
-  snapshot PASS tại `36 dirty=false`, media force-off. P4-12 không thêm migration hoặc rollback;
-  shared final giữ enabled media override bằng `0`.
+- Migration mới nhất trong source: `000037_whiteboard_control_plane`. P5-COLLAB-02 đang `VERIFY`:
+  local schema/static/integration-tag compile PASS; Neon disposable/shared chưa forward. Shared
+  staging vẫn ở `36 false`, media force-off và whiteboard production force-off. P4-01 đến P4-12 và
+  Phase 4 đã `DONE`; P4-12 không thêm migration hoặc rollback.
   P4-06 disposable và shared đều PASS forward-only `31 false -> 32 false -> 32 false`, exact/default
   ACL và read-only gates; final ledger của cả hai là `32 false`. P3-06/P3-07A đã forward cả
   disposable và shared
@@ -1469,6 +1469,33 @@ CI tạo PostgreSQL 17 tạm thời, chạy migration từ database sạch rồi
 test. Test có transaction bao ngoài sẽ rollback toàn bộ. Concurrency test commit thật có
 thể giữ fixture audit duy nhất đến khi database test tạm bị hủy; đây là hệ quả có chủ ý
 của lịch sử append-only và không phải quy trình cleanup cho staging/production.
+
+## P5-COLLAB-02 — whiteboard control-plane schema
+
+Migration `000037_whiteboard_control_plane` là forward candidate đầu tiên của Phase 5. Migration chỉ
+lưu PostgreSQL control-plane metadata: tenant/source/document binding, lifecycle/version,
+current/revoke generation, capability policy, immutable snapshot catalog và bounded mutation
+idempotency receipt. Excalidraw scene, Yjs operations/history, awareness và undo/redo không được lưu
+trong PostgreSQL.
+
+Năm relation mới đều có `tenant_id`, tenant-composite FK và `PUBLIC` revoke:
+
+- `whiteboard_documents` — một document cho một `media_space`, lifecycle CAS và exact current
+  generation FK;
+- `whiteboard_document_generations` — immutable descriptor, pin Yjs `13.6.27` và Hocuspocus `4.6.0`;
+- `whiteboard_capability_policies` — audience hữu hạn với `view/edit/present`;
+- `whiteboard_snapshots` — immutable content-addressed B2 metadata, Excalidraw `0.18.1`, hash 32 byte,
+  kích thước tối đa 64 MiB và retention private-alpha đúng 14 ngày;
+- `whiteboard_document_mutation_receipts` — bounded command idempotency, không phải operation log.
+
+Exact ACL candidate dùng column-level `INSERT/UPDATE`. Runtime chỉ có table-level `SELECT`; không có
+table-level `INSERT/UPDATE/DELETE`. Generation/snapshot/receipt không thể `UPDATE/DELETE`. Maintenance
+chỉ có schema `USAGE`, không có DML P5-COLLAB-02; bounded retention purge thuộc P5-COLLAB-07 và không
+được pre-grant. Disposable acceptance và ba confirmation được ghi tại
+[`P5_COLLAB_02_STAGING_ACCEPTANCE.md`](P5_COLLAB_02_STAGING_ACCEPTANCE.md).
+
+Shared staging vẫn ở `36 false`; không được forward hoặc provision P5-COLLAB-02 ACL trước khi
+disposable `36 -> 37 -> 37` và exact candidate CI/security PASS.
 
 ## Quy tắc thay đổi schema
 

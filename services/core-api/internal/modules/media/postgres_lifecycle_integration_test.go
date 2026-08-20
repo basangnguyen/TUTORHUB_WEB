@@ -109,8 +109,8 @@ func runPostgresMediaLifecycleRuntimeExactACL(t *testing.T, applyMigrations bool
 	).Scan(&version, &dirty); err != nil {
 		t.Fatal("inspect exact media lifecycle ACL ledger")
 	}
-	if version != 36 || dirty {
-		t.Fatal("exact media lifecycle ACL requires latest ledger 36 false")
+	if version != 37 || dirty {
+		t.Fatal("exact media lifecycle ACL requires latest ledger 37 false")
 	}
 
 	var schemaUsage, schemaCreate bool

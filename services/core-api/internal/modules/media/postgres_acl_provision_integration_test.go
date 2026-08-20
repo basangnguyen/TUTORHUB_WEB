@@ -115,7 +115,7 @@ func TestProvisionPostgresMediaDiagnosticsExactACL(t *testing.T) {
 		t.Skip("P4_10_ACL_PROVISION_CONFIRM is not set to the disposable-only ACL confirmation")
 	}
 	runProvisionPostgresMediaLifecycleRuntimeExactACL(t, mediaACLProvisionConfiguration{
-		expectedVersion: 36,
+		expectedVersion: 37,
 		expectations:    p410MediaACLExpectations(),
 	})
 }

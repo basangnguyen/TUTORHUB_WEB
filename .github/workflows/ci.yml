@@ -190,6 +190,19 @@ jobs:
             -run '^TestPostgresMediaParticipantSignalsLifecycleAndConcurrency$' \
             ./services/core-api/internal/modules/media
 
+      - name: PostgreSQL whiteboard control-plane integration
+        env:
+          DATABASE_POOL_URL: ${{ env.DATABASE_CONVERSATION_ACL_TEST_URL }}
+          P5_COLLAB_02_DISPOSABLE_CONFIRM: I_UNDERSTAND_P5_COLLAB_02_DISPOSABLE_ONLY
+          P5_COLLAB_02_ACL_PROVISION_CONFIRM: I_UNDERSTAND_P5_COLLAB_02_ACL_PROVISION_DISPOSABLE_ONLY
+        run: |
+          go test -count=1 -tags=integration \
+            -run '^TestWhiteboardControlPlanePostgresGates$' \
+            ./services/core-api/internal/modules/collaboration
+          go test -count=1 -tags=integration \
+            -run '^TestProvisionWhiteboardControlPlaneExactACL$' \
+            ./services/core-api/internal/modules/collaboration
+
       - name: PostgreSQL security integration
         run: pnpm test:security:integration
 

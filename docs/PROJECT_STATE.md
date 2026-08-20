@@ -6,16 +6,37 @@
 
 | Thuộc tính           | Trạng thái                                                                            |
 | -------------------- | ------------------------------------------------------------------------------------- |
-| Ngày cập nhật        | 2026-08-20                                                                            |
+| Ngày cập nhật        | 2026-08-21                                                                            |
 | Repository           | `https://github.com/basangnguyen/TUTORHUB_WEB`                                        |
 | Nhánh làm việc       | `main`                                                                                |
 | Quy trình            | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
 | Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4                                                    |
 | Phase hiện tại       | Phase 5 collaboration implementation; Phase 3 deferred carry-over vẫn hoạt động       |
 | Task `DONE` gần nhất | P5-COLLAB-01 Excalidraw authority/topology acceptance                                 |
-| Mốc repository mới   | Gate F `DONE`; ADR-0034 `Accepted`; owner/quota/private-alpha risk closure PASS        |
-| Task hiện tại        | P5-COLLAB-02 Control-plane schema — `TODO`, runnable                                   |
-| Task tiếp theo       | P5-COLLAB-02 tenant-owned document/source/lifecycle/capability schema và exact ACL     |
+| Mốc repository mới   | P5-COLLAB-02 Neon disposable `37 false` + exact PostgreSQL/ACL gates PASS               |
+| Task hiện tại        | P5-COLLAB-02 Control-plane schema — `VERIFY`                                            |
+| Task tiếp theo       | Commit/push candidate, GitHub Verify/Security rồi xin quyền shared staging `36 -> 37`  |
+
+### Checkpoint P5-COLLAB-02 local candidate — 2026-08-20
+
+Đã thêm forward migration `000037_whiteboard_control_plane` cho tenant/source/document binding,
+lifecycle/version, current/revoke generation, capability policy, immutable snapshot catalog và
+bounded command idempotency receipt. Migration pin Excalidraw `0.18.1`, Yjs `13.6.27`, Hocuspocus
+`4.6.0`, retention private-alpha 14 ngày và không lưu scene/Yjs operation/history/awareness/undo.
+
+Exact ACL harness cấp runtime table-level `SELECT` nhưng chỉ column-level `INSERT/UPDATE`; không
+`DELETE`, DDL hoặc ownership. Generation/snapshot/receipt immutable; maintenance và `PUBLIC` không có
+DML P5-COLLAB-02. PostgreSQL integration gate kiểm tra lifecycle CAS/idempotency, atomic restore
+generation swap, foreign-tenant deny và information-schema authority boundary. Local unit/static,
+retained media regression, integration-tag compile và full `pnpm verify` PASS; CI PostgreSQL 17 đã
+được nối gate.
+
+Neon disposable đã PASS forward/idempotent `36 false -> 37 false -> 37 false`, exact ACL, lifecycle
+CAS, restore generation swap, foreign-tenant denial và no-second-authority proof; branch được giữ
+lại. P5-COLLAB-02 giữ `VERIFY`: exact candidate CI/security sau commit/push và shared staging
+acceptance còn mở. Shared staging vẫn `36 false`; không rollback/migrate/deploy và whiteboard
+production tiếp tục force-off. Acceptance:
+[`P5_COLLAB_02_STAGING_ACCEPTANCE.md`](P5_COLLAB_02_STAGING_ACCEPTANCE.md).
 
 ### Checkpoint P5-COLLAB-01 `DONE` — 2026-08-20
 
