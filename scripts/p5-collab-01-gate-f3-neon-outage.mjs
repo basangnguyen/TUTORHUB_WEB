@@ -10,6 +10,7 @@ const { Pool } = requireFromRuntime("pg");
 const EXACT_RUNTIME_ROLE = "tutorhub_collab_f3";
 const EXACT_OUTAGE_CONFIRMATION =
   "I_UNDERSTAND_P5_F3_NEON_ROLE_WILL_BE_UNAVAILABLE_FOR_600_SECONDS";
+let boundedFailureStage = "startup";
 
 export function validateNeonOutageEnvironment(env = process.env) {
   const validated = validateGateF3Environment(env);
@@ -30,22 +31,38 @@ export function validateNeonOutageEnvironment(env = process.env) {
 }
 
 export async function runGateF3NeonOutage(env = process.env) {
+  boundedFailureStage = "validate";
   const validated = validateNeonOutageEnvironment(env);
-  await assertHttpStatus(`${validated.runtimeUrl}/livez`, 200);
-  await assertHttpStatus(`${validated.runtimeUrl}/readyz`, 200);
+  boundedFailureStage = "runtime_liveness_preflight";
+  await waitForStatus(`${validated.runtimeUrl}/livez`, 200, 120_000);
+  boundedFailureStage = "runtime_role_preflight";
+  const loginRepaired = await ensureRuntimeRoleLogin(
+    validated.ownerDatabase,
+    validated.runtimeRole,
+  );
+  boundedFailureStage = "runtime_database_preflight";
   if (!(await databaseAcceptsConnection(validated.runtimeDatabase))) {
     throw new Error("gate_f3_neon_runtime_preflight_failed");
   }
-  await assertRuntimeRole(validated.ownerDatabase, validated.runtimeRole);
+  boundedFailureStage = "runtime_readiness_preflight";
+  await waitForStatus(`${validated.runtimeUrl}/readyz`, 200, 120_000);
+  console.log(
+    JSON.stringify({
+      preflight_login_repaired: loginRepaired,
+      target: "neon",
+    }),
+  );
 
   let loginDisabled = false;
   try {
+    boundedFailureStage = "disable_login";
     await setRuntimeRoleLogin(
       validated.ownerDatabase,
       validated.runtimeRole,
       false,
     );
     loginDisabled = true;
+    boundedFailureStage = "terminate_connections";
     await terminateRuntimeRoleConnections(
       validated.ownerDatabase,
       validated.runtimeRole,
@@ -53,9 +70,11 @@ export async function runGateF3NeonOutage(env = process.env) {
     if (await databaseAcceptsConnection(validated.runtimeDatabase)) {
       throw new Error("gate_f3_neon_role_failed_open");
     }
+    boundedFailureStage = "wait_fail_closed";
     await waitForStatus(`${validated.runtimeUrl}/readyz`, 503, 30_000);
 
     for (let elapsed = 60; elapsed <= 600; elapsed += 60) {
+      boundedFailureStage = `hold_${elapsed}`;
       await delay(60_000);
       await assertHttpStatus(`${validated.runtimeUrl}/livez`, 200);
       await assertHttpStatus(`${validated.runtimeUrl}/readyz`, 503);
@@ -70,6 +89,7 @@ export async function runGateF3NeonOutage(env = process.env) {
     }
   } finally {
     if (loginDisabled) {
+      boundedFailureStage = "restore_login";
       await retryOperation(
         () =>
           setRuntimeRoleLogin(
@@ -79,11 +99,14 @@ export async function runGateF3NeonOutage(env = process.env) {
           ),
         30_000,
       );
+      boundedFailureStage = "wait_database_recovery";
       await waitForDatabase(validated.runtimeDatabase, 30_000);
+      boundedFailureStage = "wait_readiness_recovery";
       await waitForStatus(`${validated.runtimeUrl}/readyz`, 200, 60_000);
     }
   }
 
+  boundedFailureStage = "complete";
   console.log(
     JSON.stringify({
       duration_seconds: 600,
@@ -96,8 +119,8 @@ export async function runGateF3NeonOutage(env = process.env) {
   );
 }
 
-async function assertRuntimeRole(ownerDatabase, runtimeRole) {
-  await withPool(ownerDatabase, async (pool) => {
+async function ensureRuntimeRoleLogin(ownerDatabase, runtimeRole) {
+  const canLogin = await withPool(ownerDatabase, async (pool) => {
     const result = await pool.query(
       `
         SELECT rolcanlogin AS can_login
@@ -106,10 +129,14 @@ async function assertRuntimeRole(ownerDatabase, runtimeRole) {
       `,
       [runtimeRole],
     );
-    if (result.rows[0]?.can_login !== true) {
+    if (result.rows.length !== 1) {
       throw new Error("gate_f3_neon_runtime_role_preflight_failed");
     }
+    return result.rows[0]?.can_login === true;
   });
+  if (canLogin) return false;
+  await setRuntimeRoleLogin(ownerDatabase, runtimeRole, true);
+  return true;
 }
 
 async function setRuntimeRoleLogin(ownerDatabase, runtimeRole, enabled) {
@@ -236,6 +263,7 @@ if (import.meta.url === entrypoint) {
       JSON.stringify({
         outcome: "fail",
         reason: "bounded_neon_outage_gate_failure",
+        stage: boundedFailureStage,
       }),
     );
     process.exitCode = 1;
