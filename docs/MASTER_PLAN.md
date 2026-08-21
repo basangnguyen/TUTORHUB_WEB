@@ -11,7 +11,7 @@
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
 | Phase hiện tại        | Phase 5 collaboration implementation; Phase 3 deferred carry-over tiếp tục                    |
-| Trạng thái gần nhất   | P5-COLLAB-01 `DONE`; Gate F PASS; ADR-0034 `Accepted`; P5-COLLAB-02 runnable                 |
+| Trạng thái gần nhất   | P5-COLLAB-02 `DONE`; shared staging `37 false`; P5-COLLAB-03 runnable                       |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 
@@ -1675,9 +1675,14 @@ Gate F owner closure 2026-08-20: Render/Neon/B2 quota evidence đã được ghi
 và current/projected cost giữ `0 USD`. Owner chấp thuận `FREE_PRIVATE_ALPHA` single-instance/no-HA,
 spin-down/cold-start, RPO/RTO candidate, incident severity và B2 Object Lock disabled; chạm quota thì
 whiteboard force-off. Primary on-call `Bá Sáng`, backup `Duy Mạnh`, security incident owner `Bá Sáng`,
-cost owner `Bá Sáng`. Gate F và P5-COLLAB-01 chuyển `DONE`, ADR-0034 chuyển `Accepted`; P5-COLLAB-02
-là task runnable tiếp theo. Paid HA vẫn deferred; shared staging/production không được bật trước các
-gate tương ứng, đặc biệt P5-COLLAB-17 exact staging.
+cost owner `Bá Sáng`. Gate F và P5-COLLAB-01 chuyển `DONE`, ADR-0034 chuyển `Accepted`.
+
+P5-COLLAB-02 closure 2026-08-21: migration `000037` đã PASS disposable và shared staging
+`36 false -> 37 false -> 37 false`; exact runtime/maintenance/PUBLIC ACL, concurrency/tenant boundary,
+no-second-authority proof và final read-only zero-row snapshot đều PASS. Candidate `ef2b277` PASS
+Verify `32436740864` và Security `32436740906`. P5-COLLAB-02 chuyển `DONE`, P5-COLLAB-03 runnable.
+Paid HA vẫn deferred; production không được bật trước các gate tương ứng, đặc biệt P5-COLLAB-17 exact
+staging.
 
 **Deliverable:** teacher mở/đóng công cụ mà không làm rời media room; trạng thái cộng tác khôi phục sau reconnect.
 

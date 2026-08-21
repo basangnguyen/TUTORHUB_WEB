@@ -2,15 +2,16 @@
 
 ## 1. Trạng thái
 
-`VERIFY` — migration `000037`, exact ACL harness, PostgreSQL concurrency/tenant/authority gates và
-CI wiring đã có trong source. Local/full verify và Neon disposable forward/idempotency/exact ACL/
-concurrency/tenant/authority gates PASS tại final ledger `37 dirty=false`. Exact candidate GitHub
-Verify/Security và shared staging acceptance còn mở; production chưa được migrate hoặc deploy.
+`DONE` — migration `000037`, exact ACL harness, PostgreSQL concurrency/tenant/authority gates,
+local/full verify, Neon disposable và shared staging acceptance đều PASS. Shared staging đã forward
+`36 false -> 37 false -> 37 false`, exact runtime/maintenance/PUBLIC ACL và final read-only snapshot
+đều xanh. P5-COLLAB-02 không deploy UI/runtime và production whiteboard tiếp tục force-off.
 
 ## 2. Safety boundary
 
 - Không đọc, in, echo hoặc log giá trị trong `.env*.local`.
-- Chỉ dùng Neon disposable branch tách từ `staging`; không dùng `production` hoặc shared `staging`.
+- Luôn chạy Neon disposable branch tách từ `staging` trước; shared staging chỉ chạy sau exact
+  candidate approval và dùng harness confirmation riêng. Không dùng `production`.
 - Chỉ forward `36 false -> 37 false`; không rollback `000037` trên shared staging/production.
 - Không xóa disposable branch trước khi toàn bộ gate database PASS.
 - Shared staging chỉ được forward sau disposable report, exact candidate CI/security PASS và owner
@@ -59,10 +60,10 @@ pre-grant quyền maintenance chưa dùng. `PUBLIC` không có DML trên năm re
 - [x] Integration-tag compile cho collaboration và retained media regression PASS.
 - [x] GitHub CI có PostgreSQL 17 functional + exact ACL gate P5-COLLAB-02.
 - [x] Full repository `pnpm verify` PASS trên candidate cuối.
-- [x] Exact GitHub Verify/Security PASS sau commit/push candidate `0374249`.
+- [x] Exact GitHub Verify/Security PASS sau commit/push shared acceptance candidate `ef2b277`.
 
-GitHub evidence 2026-08-21: [Verify run 32396812348](https://github.com/basangnguyen/TUTORHUB_WEB/actions/runs/32396812348)
-và [Security run 32396811995](https://github.com/basangnguyen/TUTORHUB_WEB/actions/runs/32396811995)
+GitHub evidence 2026-08-21: [Verify run 32436740864](https://github.com/basangnguyen/TUTORHUB_WEB/actions/runs/32436740864)
+và [Security run 32436740906](https://github.com/basangnguyen/TUTORHUB_WEB/actions/runs/32436740906)
 đều kết thúc `success`.
 
 ## 6. Neon disposable gates
@@ -126,11 +127,12 @@ Không chạy rollback. Harness không log URL/role name và fail closed nếu b
 
 ## 7. Điều kiện chuyển `VERIFY -> DONE`
 
-1. Local full verify và exact candidate CI/security PASS.
-2. Toàn bộ Neon disposable gate mục 6 PASS ở `37 false`.
-3. Review migration/ACL evidence và xác nhận không có live-operation/history authority.
-4. Chỉ sau báo cáo disposable mới xin quyền forward shared staging `36 -> 37`, provision ACL và chạy
-   read-only final snapshot. P5-COLLAB-02 không yêu cầu deploy UI/runtime mới.
+1. [x] Local full verify và exact candidate CI/security PASS.
+2. [x] Toàn bộ Neon disposable gate mục 6 PASS ở `37 false`.
+3. [x] Review migration/ACL evidence và xác nhận không có live-operation/history authority.
+4. [x] Shared staging forward `36 -> 37`, provision exact ACL và final read-only snapshot PASS.
+
+P5-COLLAB-02 không yêu cầu deploy UI/runtime mới.
 
 ## 8. Shared staging gates
 
@@ -183,3 +185,16 @@ corepack pnpm test:integration:collaboration:p502:shared:final
 Expected: owner preflight `36 false`; forward/idempotent `36 false -> 37 false -> 37 false`; exact
 runtime/maintenance/PUBLIC ACL PASS; final read-only snapshot `37 false`, năm relation đúng shape,
 không có operation/history authority thứ hai và tất cả relation mới có `0` row. Không rollback.
+
+## 9. Closure evidence — 2026-08-21
+
+- [x] Owner preflight read-only xác nhận shared staging ở `36 dirty=false`, đúng ba principal tách biệt
+      và chưa có năm relation P5-COLLAB-02.
+- [x] Forward migration và idempotency xác nhận `36 false -> 37 false -> 37 false`.
+- [x] Exact runtime column ACL; maintenance/PUBLIC deny; schema ownership/DDL boundary PASS.
+- [x] Final repeatable-read snapshot xác nhận `37 dirty=false`, đúng năm relation, tất cả `0` row và
+      PostgreSQL không chứa scene/Yjs operation/history/awareness/undo authority.
+- [x] Không rollback, không production migration, không UI/runtime deploy và không log secret.
+
+Exact acceptance source là `ef2b277`; Verify `32436740864` và Security `32436740906` đều `success`.
+P5-COLLAB-02 chuyển `DONE`; task runnable tiếp theo là P5-COLLAB-03 contract-first OpenAPI.

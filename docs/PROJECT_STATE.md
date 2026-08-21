@@ -12,10 +12,23 @@
 | Quy trình            | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
 | Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4                                                    |
 | Phase hiện tại       | Phase 5 collaboration implementation; Phase 3 deferred carry-over vẫn hoạt động       |
-| Task `DONE` gần nhất | P5-COLLAB-01 Excalidraw authority/topology acceptance                                 |
-| Mốc repository mới   | P5-COLLAB-02 Neon disposable `37 false` + exact PostgreSQL/ACL gates PASS               |
-| Task hiện tại        | P5-COLLAB-02 Control-plane schema — `VERIFY`                                            |
-| Task tiếp theo       | Xin quyền forward shared staging `36 -> 37`, provision ACL và chạy exact DB acceptance |
+| Task `DONE` gần nhất | P5-COLLAB-02 Whiteboard control-plane schema                                           |
+| Mốc repository mới   | Shared staging `36 false -> 37 false -> 37 false` + exact ACL/final snapshot PASS       |
+| Task hiện tại        | P5-COLLAB-03 OpenAPI lifecycle/grant/snapshot/export/restore — `TODO`                   |
+| Task tiếp theo       | Xây dựng contract-first OpenAPI, generated client và HTTP authorization/idempotency    |
+
+### Checkpoint P5-COLLAB-02 `DONE` — 2026-08-21
+
+Shared acceptance candidate `ef2b277` đã PASS GitHub Verify `32436740864` và Security
+`32436740906`. Neon shared owner preflight read-only xác nhận `36 dirty=false`; forward migration và
+idempotency đạt `36 false -> 37 false -> 37 false`. Exact runtime column ACL, maintenance/PUBLIC deny,
+schema/ownership boundary và final repeatable-read snapshot đều PASS.
+
+Final snapshot xác nhận đúng năm relation P5-COLLAB-02, tất cả `0` row, không có scene/Yjs operation/
+history/awareness/undo authority trong PostgreSQL. Không rollback, không production migration, không
+UI/runtime deploy và whiteboard production tiếp tục force-off tới P5-COLLAB-17. P5-COLLAB-02 chuyển
+`DONE`; P5-COLLAB-03 là task runnable tiếp theo. Acceptance:
+[`P5_COLLAB_02_STAGING_ACCEPTANCE.md`](P5_COLLAB_02_STAGING_ACCEPTANCE.md).
 
 ### Checkpoint P5-COLLAB-02 local candidate — 2026-08-20
 
@@ -33,9 +46,9 @@ retained media regression, integration-tag compile và full `pnpm verify` PASS; 
 
 Neon disposable đã PASS forward/idempotent `36 false -> 37 false -> 37 false`, exact ACL, lifecycle
 CAS, restore generation swap, foreign-tenant denial và no-second-authority proof; branch được giữ
-lại. Candidate `0374249` đã PASS GitHub Verify/Security. P5-COLLAB-02 giữ `VERIFY`: shared staging
-acceptance còn mở. Shared staging vẫn `36 false`; không rollback/migrate/deploy và whiteboard
-production tiếp tục force-off. Acceptance:
+lại. Candidate schema `0374249` và shared acceptance harness `ef2b277` đều PASS GitHub
+Verify/Security. Shared staging đã forward/idempotent tới `37 false`, exact ACL/final snapshot PASS;
+không rollback/production migrate/deploy và whiteboard production tiếp tục force-off. Acceptance:
 [`P5_COLLAB_02_STAGING_ACCEPTANCE.md`](P5_COLLAB_02_STAGING_ACCEPTANCE.md).
 
 ### Checkpoint P5-COLLAB-01 `DONE` — 2026-08-20
@@ -52,9 +65,9 @@ stored, `0 GB` downloaded, `709` transactions và current cost `0.00`. Không l�
 credential vào repository.
 
 Primary on-call `Bá Sáng`, backup `Duy Mạnh`, security incident owner `Bá Sáng`, cost owner `Bá Sáng`.
-Gate A-F đều đóng; ADR-0034 chuyển `Accepted` và P5-COLLAB-01 chuyển `DONE`. P5-COLLAB-02 là task
-runnable tiếp theo. Shared staging chưa migrate, collaboration plane production chưa deploy và
-whiteboard production tiếp tục force-off tới P5-COLLAB-17 exact staging.
+Gate A-F đều đóng; ADR-0034 chuyển `Accepted`, P5-COLLAB-01 và P5-COLLAB-02 đều `DONE`.
+P5-COLLAB-03 là task runnable tiếp theo. Collaboration plane production chưa deploy và whiteboard
+production tiếp tục force-off tới P5-COLLAB-17 exact staging.
 
 ### Checkpoint P5-COLLAB-01 Gate F.3 provider drill PASS — 2026-08-20
 

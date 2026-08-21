@@ -137,8 +137,9 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
   recovery và owner quota/risk/on-call closure đều PASS. ADR-0034 đã `Accepted` cho
   **Excalidraw `0.18.1` + Yjs `13.6.27` canonical authority + Hocuspocus `4.6.0` transport** trong
   profile `FREE_PRIVATE_ALPHA`: một Render instance Singapore, không Redis/HA/multi-region, hard cap
-  `0 USD`. Paid HA vẫn deferred; chưa nối `apps/web`, chưa migrate shared staging và production
-  whiteboard tiếp tục force-off tới P5-COLLAB-17. P5-COLLAB-02 là task runnable tiếp theo.
+  `0 USD`. P5-COLLAB-02 control-plane schema đã `DONE` ngày 2026-08-21 với shared staging
+  `36 false -> 37 false -> 37 false`, exact ACL và final snapshot PASS. Paid HA vẫn deferred; chưa nối
+  `apps/web`, production whiteboard tiếp tục force-off tới P5-COLLAB-17. P5-COLLAB-03 là task runnable.
 - P4-10 Join telemetry, privacy và diagnostics export đã `DONE` ngày 2026-08-15 trên exact
   candidate `c960f77753fa14475b84e7f0e0242bfcc458dacc`. Verify `31881117029`, Security
   `31881116916`, Neon shared forward-only `35 false -> 36 false -> 36 false`, exact ACL và
