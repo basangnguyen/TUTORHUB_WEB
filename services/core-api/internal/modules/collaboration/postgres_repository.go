@@ -146,6 +146,48 @@ func (repository *PostgresRepository) Get(
 	return document, nil
 }
 
+func (repository *PostgresRepository) GrantAuthority(
+	ctx context.Context,
+	access AccessContext,
+	documentID uuid.UUID,
+) (GrantAuthority, error) {
+	queryContext, cancel := context.WithTimeout(ctx, repository.queryTimeout)
+	defer cancel()
+	tx, err := repository.database.Begin(queryContext)
+	if err != nil {
+		return GrantAuthority{}, ErrUnavailable
+	}
+	defer rollback(tx)
+	const query = `SELECT document.id, document.media_space_id, document.status,
+        document.version, document.current_generation, document.revoke_generation,
+        document.created_at, document.updated_at, generation.provider_document_name
+        FROM tutorhub.whiteboard_documents AS document
+        JOIN tutorhub.whiteboard_document_generations AS generation
+          ON generation.tenant_id = document.tenant_id
+         AND generation.document_id = document.id
+         AND generation.generation = document.current_generation
+        WHERE document.tenant_id = $1 AND document.id = $2`
+	var authority GrantAuthority
+	err = tx.QueryRow(queryContext, query, access.TenantID, documentID).Scan(
+		&authority.Document.ID, &authority.Document.MediaSpaceID,
+		&authority.Document.Status, &authority.Document.Version,
+		&authority.Document.CurrentGeneration, &authority.Document.RevokeGeneration,
+		&authority.Document.CreatedAt, &authority.Document.UpdatedAt,
+		&authority.ProviderDocumentName,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return GrantAuthority{}, ErrNotFound
+	}
+	if err != nil {
+		return GrantAuthority{}, ErrUnavailable
+	}
+	authority.WriterFence = authority.Document.RevokeGeneration
+	if err := tx.Commit(queryContext); err != nil {
+		return GrantAuthority{}, ErrUnavailable
+	}
+	return authority, nil
+}
+
 func (repository *PostgresRepository) Transition(
 	ctx context.Context,
 	access AccessContext,

@@ -22,14 +22,16 @@ import {
 } from "./runtimeServer.js";
 
 const ORIGIN = "http://127.0.0.1:4180";
-const DOCUMENT_NAME = "wb/aaaaaaaaaaaaaaaaaaaaaaaa/bbbbbbbbbbbbbbbbbbbbbbbb/g1";
+const DOCUMENT_NAME = "wb_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const METRICS_TOKEN = "metrics-token-that-is-long-enough";
 
 const scope: CollaborationScope = {
+  authorityLease: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
   actorId: "teacher-a",
   capability: "edit",
   documentId: "document-a",
   generation: 1,
+  origin: ORIGIN,
   providerDocumentName: DOCUMENT_NAME,
   sessionId: "session-a",
   tenantId: "tenant-a",
@@ -119,6 +121,27 @@ describe("OCI collaboration runtime", () => {
     ).resolves.toBe(503);
   }, 10_000);
 
+  it("closes an exact connection when its authority lease is revoked", async () => {
+    const checkpoints = new MemoryCheckpointStore();
+    const authority = new FakeControlPlane();
+    const candidate = createRuntime(checkpoints, authority);
+    runtimes.push(candidate.runtime);
+    await candidate.runtime.start();
+    const client = createClient(candidate.runtime);
+    clients.push(client);
+    await client.synced;
+
+    authority.validLeases.clear();
+    await client.closed;
+    client.destroy();
+    clients.splice(clients.indexOf(client), 1);
+
+    expect(candidate.runtime.readiness()).toEqual({
+      ready: true,
+      reason: "ready",
+    });
+  }, 10_000);
+
   it("reports cleanup-zero after the last client disconnects and the document unloads", async () => {
     const checkpoints = new MemoryCheckpointStore();
     const candidate = createRuntime(checkpoints);
@@ -166,6 +189,7 @@ class MemoryCheckpointStore implements CheckpointStore {
 
 class FakeControlPlane implements ControlPlane {
   mode: RuntimeAuthorityState["mode"] = "enabled";
+  readonly validLeases = new Set([scope.authorityLease]);
 
   async exchangeGrant(input: {
     documentName: string;
@@ -175,6 +199,13 @@ class FakeControlPlane implements ControlPlane {
   }
   async probe(): Promise<RuntimeAuthorityState> {
     return { mode: this.mode };
+  }
+  async validateScopes(scopes: CollaborationScope[]): Promise<Set<string>> {
+    return new Set(
+      scopes
+        .map((candidate) => candidate.authorityLease)
+        .filter((lease) => this.validLeases.has(lease)),
+    );
   }
 }
 

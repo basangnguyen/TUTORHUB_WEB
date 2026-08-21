@@ -46,6 +46,8 @@ var (
 	ErrTransitionConflict  = errors.New("whiteboard transition conflict")
 	ErrArtifactUnavailable = errors.New("whiteboard artifact workflow unavailable")
 	ErrGrantUnavailable    = errors.New("whiteboard grant exchange unavailable")
+	ErrGrantDenied         = errors.New("whiteboard grant denied")
+	ErrGrantRateLimited    = errors.New("whiteboard grant rate limited")
 )
 
 type AccessContext struct {
@@ -206,9 +208,50 @@ type GrantCredential struct {
 	ExpiresAt        time.Time  `json:"expires_at"`
 }
 
+// GrantAuthority is server-only data that binds a logical document generation
+// to its opaque provider document name. It must never be returned by public
+// whiteboard lifecycle endpoints.
+type GrantAuthority struct {
+	Document             Document
+	ProviderDocumentName string
+	WriterFence          int64
+}
+
+type GrantConsumeInput struct {
+	Credential           string
+	Origin               string
+	ProviderDocumentName string
+}
+
+// GrantScope is returned only to the authenticated collaboration runtime. The
+// authority lease remains memory-only and is used for bounded revalidation of
+// an active provider connection.
+type GrantScope struct {
+	AuthorityLease       string     `json:"authority_lease"`
+	ActorID              uuid.UUID  `json:"actor_id"`
+	Capability           Capability `json:"capability"`
+	DocumentID           uuid.UUID  `json:"document_id"`
+	Generation           int64      `json:"generation"`
+	ProviderDocumentName string     `json:"provider_document_name"`
+	SessionID            uuid.UUID  `json:"session_id"`
+	TenantID             uuid.UUID  `json:"tenant_id"`
+	WriterFence          int64      `json:"writer_fence"`
+}
+
+type GrantValidationInput struct {
+	Scope  GrantScope
+	Origin string
+}
+
+type GrantResolution struct {
+	Access AccessContext
+	Scope  GrantScope
+}
+
 type Repository interface {
 	Create(context.Context, AccessContext, CreateCommand) (CreateResult, error)
 	Get(context.Context, AccessContext, uuid.UUID) (Document, error)
+	GrantAuthority(context.Context, AccessContext, uuid.UUID) (GrantAuthority, error)
 	Transition(context.Context, AccessContext, TransitionCommand) (Document, error)
 	CapabilityPolicies(context.Context, AccessContext, uuid.UUID) (map[Audience]Capability, error)
 	ListSnapshots(context.Context, AccessContext, uuid.UUID, int) ([]Snapshot, error)
@@ -220,7 +263,11 @@ type SpaceAuthority interface {
 }
 
 type GrantBroker interface {
-	Exchange(context.Context, AccessContext, Document, Capability, GrantExchangeInput) (GrantCredential, error)
+	Issue(context.Context, AccessContext, GrantAuthority, Capability, GrantExchangeInput) (GrantCredential, error)
+	Consume(context.Context, GrantConsumeInput) (GrantResolution, error)
+	Validate(context.Context, GrantValidationInput) (GrantResolution, error)
+	InvalidateLease(string)
+	Revoke(uuid.UUID)
 }
 
 type ArtifactWorkflow interface {
@@ -242,4 +289,9 @@ type ServiceAPI interface {
 	Export(context.Context, AccessContext, uuid.UUID, ExportInput) (ArtifactCommand, error)
 	ValidateImport(context.Context, ImportManifest) (ImportValidation, error)
 	Restore(context.Context, AccessContext, uuid.UUID, RestoreInput) (Document, error)
+}
+
+type InternalServiceAPI interface {
+	ConsumeGrant(context.Context, GrantConsumeInput) (GrantScope, error)
+	ValidateGrant(context.Context, GrantValidationInput) (bool, error)
 }

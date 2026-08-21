@@ -375,6 +375,7 @@ func run() int {
 	var mediaLifecycleRepository *media.PostgresLifecycleRepository
 	var mediaLifecycleService media.LifecycleServiceAPI
 	var collaborationService collaboration.ServiceAPI
+	var collaborationInternalService collaboration.InternalServiceAPI
 	if pool != nil && classroomRepository != nil {
 		var mediaLifecycleErr error
 		mediaLifecycleRepository, mediaLifecycleErr = media.NewPostgresLifecycleRepository(
@@ -405,16 +406,37 @@ func run() int {
 				logger.Error("initialize whiteboard repository", "error", collaborationErr)
 				return 1
 			}
-			collaborationService, collaborationErr = collaboration.NewService(
+			var grantBroker collaboration.GrantBroker
+			if cfg.Collaboration.BrokerEnabled {
+				grantBroker, collaborationErr = collaboration.NewMemoryGrantBroker(
+					collaboration.MemoryGrantBrokerConfig{
+						Clock:       time.Now,
+						GrantTTL:    cfg.Collaboration.GrantTTL,
+						ProviderURL: cfg.Collaboration.ProviderURL,
+					},
+				)
+				if collaborationErr != nil {
+					logger.Error("initialize whiteboard grant broker", "error", collaborationErr)
+					return 1
+				}
+			}
+			collaborationControlPlane, collaborationErr := collaboration.NewService(
 				collaborationRepository,
 				mediaLifecycleService,
-				nil,
+				grantBroker,
 				nil,
 				collaboration.ServiceConfig{Clock: time.Now, NewID: uuid.New},
 			)
 			if collaborationErr != nil {
 				logger.Error("initialize whiteboard control plane", "error", collaborationErr)
 				return 1
+			}
+			collaborationService = collaborationControlPlane
+			if cfg.Collaboration.BrokerEnabled {
+				collaborationInternalService = collaborationControlPlane
+				logger.Info("whiteboard one-time grant broker initialized")
+			} else {
+				logger.Info("whiteboard one-time grant broker is deployment-force-off")
 			}
 			logger.Info("whiteboard control plane initialized")
 		} else {
@@ -690,6 +712,8 @@ func run() int {
 		Content:               contentService,
 		Discovery:             discoveryService,
 		Collaboration:         collaborationService,
+		CollaborationInternal: collaborationInternalService,
+		CollaborationToken:    cfg.Collaboration.RuntimeToken,
 		InvitationRateLimiter: invitationRateLimiter,
 		Media:                 mediaService,
 		MediaSpaces:           mediaLifecycleService,

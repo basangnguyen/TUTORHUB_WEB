@@ -5,7 +5,8 @@
 > owner operations/risk sign-off đều PASS; ADR-0034 đã `Accepted`. P5-COLLAB-02 đã `DONE` ngày
 > 2026-08-21: migration `000037`, local/full verify, disposable/shared Neon gates, exact ACL,
 > candidate CI/security và final read-only snapshot đều PASS. P5-COLLAB-03 cũng đã `DONE` ngày
-> 2026-08-21 trên exact candidate `647ffe4`; P5-COLLAB-04 là task runnable tiếp theo. Production
+> 2026-08-21 trên exact candidate `647ffe4`. P5-COLLAB-04 đã `DONE` ngày 2026-08-21 với one-time
+> grant broker, exact authority revalidation và bounded revoke disconnect; P5-COLLAB-05 runnable. Production
 > whiteboard vẫn force-off tới P5-COLLAB-17.
 
 ## 1. Mục tiêu phase
@@ -59,7 +60,7 @@ Xây collaboration plane cho lớp học mà không làm rời hoặc làm yếu
 | P5-COLLAB-01 | Decision gate  | Chấp nhận Excalidraw authority/topology         | P5-COLLAB-00               | DONE       |
 | P5-COLLAB-02 | Implementation | Control-plane schema                            | P5-COLLAB-01               | DONE       |
 | P5-COLLAB-03 | Implementation | OpenAPI lifecycle/grant/snapshot/export/restore | P5-COLLAB-02               | DONE       |
-| P5-COLLAB-04 | Implementation | Grant broker và revoke generation               | P5-COLLAB-03               | TODO       |
+| P5-COLLAB-04 | Implementation | Grant broker và revoke generation               | P5-COLLAB-03               | DONE       |
 | P5-COLLAB-05 | Implementation | Collaboration data plane/provider adapter       | P5-COLLAB-01, P5-COLLAB-04 | TODO       |
 | P5-COLLAB-06 | Implementation | Lazy classroom tool shell                       | P5-COLLAB-03, P5-COLLAB-05 | TODO       |
 | P5-COLLAB-07 | Implementation | Snapshot/import/export/restore worker và B2     | P5-COLLAB-02, P5-COLLAB-05 | TODO       |
@@ -254,10 +255,20 @@ generation; exchange sang provider credential tối thiểu quyền và đóng c
 
 **Exit gate:**
 
-- [ ] Replay, expired, wrong Origin/document/tenant/actor/generation và forged role đều bị deny.
-- [ ] `view` không thể phát update; `edit/present` được data plane enforce server-side.
-- [ ] Membership/source close/revoke tăng generation, chặn refresh và disconnect bounded.
-- [ ] Grant/provider secret không xuất hiện trong URL/storage/log/audit/bundle.
+- [x] Replay, expired, wrong Origin/document/tenant/actor/generation và forged role đều bị deny.
+- [x] `view` không thể phát update; `edit/present` được data plane enforce server-side.
+- [x] Membership/source close/revoke tăng generation, chặn refresh và disconnect bounded.
+- [x] Grant/provider secret không xuất hiện trong URL/storage/log/audit/bundle.
+
+**Closure 2026-08-21 — DONE:** Core API đã có atomic process-local one-time broker cho accepted
+single-instance private-alpha profile, TTL/rate/capacity bounds, exact DB authority revalidation và
+internal exchange/validate API. Whiteboard runtime revalidate authority lease mỗi 750 ms, enforce
+read-only và đóng exact connection khi revoke. Replay/expiry/forged binding/concurrency/revoke/privacy,
+runtime 17/17 tests, integration-tag compile và full `pnpm verify` đều PASS. Không có migration,
+shared-staging forward hoặc deploy; production tiếp tục force-off. Shared broker trước multi-instance
+và data-plane quota/backpressure thuộc P5-COLLAB-05/P5-COLLAB-09.
+
+Acceptance: [`P5_COLLAB_04_STAGING_ACCEPTANCE.md`](P5_COLLAB_04_STAGING_ACCEPTANCE.md).
 
 ### P5-COLLAB-05 - Collaboration data plane/provider adapter
 

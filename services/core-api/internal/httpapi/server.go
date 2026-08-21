@@ -58,6 +58,8 @@ type Options struct {
 	Content               content.ServiceAPI
 	Discovery             discovery.ServiceAPI
 	Collaboration         collaboration.ServiceAPI
+	CollaborationInternal collaboration.InternalServiceAPI
+	CollaborationToken    string
 	LiveKitWebhook        media.WebhookVerifier
 	InvitationRateLimiter InvitationRateLimiter
 	RemoteAddressResolver RemoteAddressResolver
@@ -165,6 +167,9 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 	files := newContentHandlers(logger, auth, options.Content)
 	discovery := newDiscoveryHandlers(logger, auth, options.Discovery)
 	whiteboards := newWhiteboardHandlers(logger, auth, options.Collaboration)
+	whiteboardInternal := newWhiteboardInternalHandlers(
+		logger, options.CollaborationInternal, options.CollaborationToken,
+	)
 	calendarHandlers := newCalendarHandlers(logger, auth, options.Calendar)
 	calendarScheduling := newCalendarSchedulingHandlers(
 		logger,
@@ -283,6 +288,11 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 		whiteboardImportValidatePath,
 		whiteboardResponseHeaders(http.HandlerFunc(whiteboards.validateImport)),
 	)
+	if options.CollaborationInternal != nil && options.CollaborationToken != "" {
+		mux.Handle(whiteboardInternalRuntimeStatePath, http.HandlerFunc(whiteboardInternal.runtimeState))
+		mux.Handle(whiteboardInternalGrantExchangePath, http.HandlerFunc(whiteboardInternal.exchangeGrant))
+		mux.Handle(whiteboardInternalGrantValidatePath, http.HandlerFunc(whiteboardInternal.validateGrants))
+	}
 	mux.Handle(
 		classFilesPattern,
 		fileResponseHeaders(http.HandlerFunc(files.list)),

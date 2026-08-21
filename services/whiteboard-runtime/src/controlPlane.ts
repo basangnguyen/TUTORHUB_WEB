@@ -7,8 +7,8 @@ import type {
 } from "./contracts.js";
 
 const IDENTIFIER_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{2,127}$/;
-const PROVIDER_DOCUMENT_PATTERN =
-  /^wb\/[a-f0-9]{24}\/[a-f0-9]{24}\/g[1-9][0-9]*$/;
+const AUTHORITY_LEASE_PATTERN = /^[A-Za-z0-9_-]{32,128}$/;
+const PROVIDER_DOCUMENT_PATTERN = /^wb_[A-Za-z0-9_-]{22,125}$/;
 const MAX_RESPONSE_BYTES = 8 * 1024;
 
 export class ControlPlaneError extends Error {
@@ -44,7 +44,7 @@ export class HttpControlPlane implements ControlPlane {
         method: "POST",
       },
     );
-    return parseScope(payload, input.documentName);
+    return parseScope(payload, input.documentName, input.origin);
   }
 
   async probe(): Promise<RuntimeAuthorityState> {
@@ -58,6 +58,53 @@ export class HttpControlPlane implements ControlPlane {
       throw new ControlPlaneError("control_plane_unavailable");
     }
     return { mode: payload.mode };
+  }
+
+  async validateScopes(scopes: CollaborationScope[]): Promise<Set<string>> {
+    if (scopes.length === 0) return new Set<string>();
+    if (scopes.length > 100) {
+      throw new ControlPlaneError("control_plane_denied");
+    }
+    const requested = new Set(scopes.map((scope) => scope.authorityLease));
+    if (requested.size !== scopes.length) {
+      throw new ControlPlaneError("control_plane_denied");
+    }
+    const payload = await this.request(
+      "/internal/v1/collaboration/grants/validate",
+      {
+        body: JSON.stringify({
+          scopes: scopes.map((scope) => ({
+            actor_id: scope.actorId,
+            authority_lease: scope.authorityLease,
+            capability: scope.capability,
+            document_id: scope.documentId,
+            generation: scope.generation,
+            origin: scope.origin,
+            provider_document_name: scope.providerDocumentName,
+            session_id: scope.sessionId,
+            tenant_id: scope.tenantId,
+            writer_fence: scope.writerFence,
+          })),
+        }),
+        method: "POST",
+      },
+    );
+    if (!isRecord(payload) || !Array.isArray(payload.valid_authority_leases)) {
+      throw new ControlPlaneError("control_plane_unavailable");
+    }
+    const valid = new Set<string>();
+    for (const value of payload.valid_authority_leases) {
+      if (
+        typeof value !== "string" ||
+        !AUTHORITY_LEASE_PATTERN.test(value) ||
+        !requested.has(value) ||
+        valid.has(value)
+      ) {
+        throw new ControlPlaneError("control_plane_unavailable");
+      }
+      valid.add(value);
+    }
+    return valid;
   }
 
   private async request(path: string, init: RequestInit): Promise<unknown> {
@@ -102,8 +149,10 @@ export class HttpControlPlane implements ControlPlane {
 function parseScope(
   payload: unknown,
   expectedDocumentName: string,
+  origin: string,
 ): CollaborationScope {
   if (!isRecord(payload)) throw new ControlPlaneError("control_plane_denied");
+  const authorityLease = stringField(payload, "authority_lease");
   const actorId = stringField(payload, "actor_id");
   const capability = payload.capability;
   const documentId = stringField(payload, "document_id");
@@ -115,6 +164,7 @@ function parseScope(
 
   if (
     !isCapability(capability) ||
+    !AUTHORITY_LEASE_PATTERN.test(authorityLease) ||
     !IDENTIFIER_PATTERN.test(actorId) ||
     !IDENTIFIER_PATTERN.test(documentId) ||
     !IDENTIFIER_PATTERN.test(sessionId) ||
@@ -126,10 +176,12 @@ function parseScope(
   }
 
   return {
+    authorityLease,
     actorId,
     capability,
     documentId,
     generation,
+    origin,
     providerDocumentName,
     sessionId,
     tenantId,

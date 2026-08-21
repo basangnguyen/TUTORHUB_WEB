@@ -102,6 +102,68 @@ func TestLoadDefaults(t *testing.T) {
 	}
 }
 
+func TestCollaborationBrokerConfigurationFailsClosed(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		values map[string]string
+		want   string
+	}{
+		{
+			name: "provider without token",
+			values: map[string]string{
+				"COLLABORATION_PROVIDER_URL": "ws://localhost:1234",
+			},
+			want: "configured together",
+		},
+		{
+			name: "token without provider",
+			values: map[string]string{
+				"COLLAB_CONTROL_PLANE_TOKEN": strings.Repeat("t", 32),
+			},
+			want: "configured together",
+		},
+		{
+			name: "short token",
+			values: map[string]string{
+				"COLLABORATION_PROVIDER_URL": "ws://localhost:1234",
+				"COLLAB_CONTROL_PLANE_TOKEN": "too-short",
+			},
+			want: "at least 32 characters",
+		},
+		{
+			name: "grant ttl too long",
+			values: map[string]string{
+				"COLLABORATION_GRANT_TTL": "61s",
+			},
+			want: "must not exceed 60s",
+		},
+		{
+			name: "insecure staging provider",
+			values: map[string]string{
+				"APP_ENV":                    "staging",
+				"PUBLIC_WEB_ORIGIN":          "https://staging.tutorhub.example",
+				"PUBLIC_API_ORIGIN":          "https://api.staging.tutorhub.example",
+				"COLLABORATION_PROVIDER_URL": "ws://whiteboard.staging.tutorhub.example",
+				"COLLAB_CONTROL_PLANE_TOKEN": strings.Repeat("t", 32),
+			},
+			want: "must use wss in staging",
+		},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			_, err := load(mapLookup(test.values))
+			if err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("expected %q validation error, got %v", test.want, err)
+			}
+		})
+	}
+}
+
 func TestMediaFeatureControlsFailClosedWithoutLiveKitAndParent(t *testing.T) {
 	t.Parallel()
 
@@ -231,6 +293,9 @@ func TestLoadCustomValues(t *testing.T) {
 		"FEATURE_CONTROL_ENABLE_CLASSROOM_MEDIA_ROOMS":                        "true",
 		"FEATURE_CONTROL_ENABLE_INSTANT_STUDY_ROOMS":                          "true",
 		"COLLABORATION_CONTROL_PLANE_ENABLED":                                 "true",
+		"COLLABORATION_PROVIDER_URL":                                          "wss://whiteboard.staging.tutorhub.example",
+		"COLLABORATION_GRANT_TTL":                                             "45s",
+		"COLLAB_CONTROL_PLANE_TOKEN":                                          strings.Repeat("c", 32),
 		"FEATURE_CONTROL_MAX_MEMBERS":                                         "5000",
 		"FEATURE_CONTROL_MAX_ACTIVE_CLASSES":                                  "500",
 		"FEATURE_CONTROL_MAX_INVITE_CREATIONS_PER_HOUR":                       "5000",
@@ -308,8 +373,10 @@ func TestLoadCustomValues(t *testing.T) {
 		cfg.CalendarProtectedData.KeyVersion != 1 {
 		t.Fatalf("unexpected calendar protected data config: %+v", cfg.CalendarProtectedData)
 	}
-	if !cfg.Collaboration.Enabled {
-		t.Fatal("expected explicitly enabled whiteboard control plane")
+	if !cfg.Collaboration.Enabled || !cfg.Collaboration.BrokerEnabled ||
+		cfg.Collaboration.ProviderURL != "wss://whiteboard.staging.tutorhub.example" ||
+		cfg.Collaboration.GrantTTL != 45*time.Second || len(cfg.Collaboration.RuntimeToken) != 32 {
+		t.Fatalf("unexpected collaboration configuration: %+v", cfg.Collaboration)
 	}
 	if !cfg.FeatureControls.DisableMembershipInvitations ||
 		!cfg.FeatureControls.DisableClassManagement ||

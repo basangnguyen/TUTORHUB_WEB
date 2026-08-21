@@ -258,11 +258,20 @@ export function createCollaborationRuntime(
       authorityMode = next.mode;
       if (changed && authorityMode !== "enabled")
         closeWriters(connections, authorityMode);
-      if (authorityMode === "off") state = "unavailable";
+      if (authorityMode === "off") {
+        state = "unavailable";
+        return;
+      }
+      const activeScopes = [...connections.values()].map(
+        (active) => active.scope,
+      );
+      const validLeases =
+        await dependencies.controlPlane.validateScopes(activeScopes);
+      closeInvalidScopes(connections, validLeases);
     } catch {
       telemetry.dependency("control_plane", false);
       state = "unavailable";
-      closeWriters(connections, "off");
+      closeInvalidScopes(connections, new Set<string>());
     }
   };
 
@@ -380,6 +389,17 @@ function closeWriters(
   for (const active of connections.values()) {
     if (mode === "off" || active.capability !== "view") {
       active.connection?.close({ code: 4403, reason: "runtime_mode_changed" });
+    }
+  }
+}
+
+function closeInvalidScopes(
+  connections: Map<string, ActiveConnection>,
+  validLeases: Set<string>,
+): void {
+  for (const active of connections.values()) {
+    if (!validLeases.has(active.scope.authorityLease)) {
+      active.connection?.close({ code: 4403, reason: "authority_lost" });
     }
   }
 }

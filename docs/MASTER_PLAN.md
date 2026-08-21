@@ -11,7 +11,7 @@
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
 | Phase hiện tại        | Phase 5 collaboration implementation; Phase 3 deferred carry-over tiếp tục                   |
-| Trạng thái gần nhất   | P5-COLLAB-03 `DONE`; exact candidate `647ffe4` PASS Verify/Security, P5-COLLAB-04 runnable    |
+| Trạng thái gần nhất   | P5-COLLAB-04 `DONE` local; full verify PASS, P5-COLLAB-05 runnable                           |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 
@@ -1693,6 +1693,15 @@ snapshot/export worker vẫn fail-closed theo P5-COLLAB-04/P5-COLLAB-07. Full ve
 exact candidate `647ffe4` đã PASS GitHub Verify `32461523646` cùng Security `32461523627`.
 P5-COLLAB-03 chuyển `DONE`, P5-COLLAB-04 runnable. Không có migration/shared-staging forward hoặc
 deploy mới; production tiếp tục force-off.
+
+P5-COLLAB-04 closure 2026-08-21: Core API one-time grant broker đã enforce TTL tối đa 60 giây,
+single-winner exchange, exact tenant/actor/session/document/capability/Origin/generation binding,
+current PostgreSQL authority revalidation, abuse bounds và lifecycle revoke. Whiteboard runtime giữ
+`view` read-only, revalidate authority lease mỗi 750 ms và đóng exact connection khi revoke. Full
+verify, runtime 17/17 tests, PostgreSQL integration-tag compile và no-secret review đều PASS. Profile
+private alpha tiếp tục một Core API instance với process-local atomic broker; multi-instance shared
+broker cùng data-plane quota/backpressure được giữ cho P5-COLLAB-05/P5-COLLAB-09. Không migration,
+shared-staging forward hoặc deploy; production tiếp tục force-off. P5-COLLAB-05 runnable.
 
 **Deliverable:** teacher mở/đóng công cụ mà không làm rời media room; trạng thái cộng tác khôi phục sau reconnect.
 

@@ -9,10 +9,12 @@ export type CollaborationCapability = "edit" | "present" | "view";
 export type RuntimeMode = "enabled" | "off" | "read_only";
 
 export interface CollaborationScope {
+  authorityLease: string;
   actorId: string;
   capability: CollaborationCapability;
   documentId: string;
   generation: number;
+  origin: string;
   providerDocumentName: string;
   sessionId: string;
   tenantId: string;
@@ -30,6 +32,7 @@ export interface ControlPlane {
     origin: string;
   }): Promise<CollaborationScope>;
   probe(): Promise<RuntimeAuthorityState>;
+  validateScopes(scopes: CollaborationScope[]): Promise<Set<string>>;
 }
 
 export interface StoredCheckpoint {

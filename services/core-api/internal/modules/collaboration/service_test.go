@@ -77,7 +77,8 @@ func TestServiceLifecycleRequiresCurrentManagementAuthorityAndStableCommand(t *t
 		}, policies: defaultCapabilityPolicies(),
 	}
 	spaces := &fakeSpaceAuthority{space: manageableSpace(spaceID)}
-	service := newTestService(t, repository, spaces, nil, nil, uuid.New())
+	broker := &fakeGrantBroker{}
+	service := newTestService(t, repository, spaces, broker, nil, uuid.New())
 
 	result, err := service.Suspend(context.Background(), testAccess(), documentID, TransitionInput{
 		ExpectedVersion: 4, IdempotencyKey: "whiteboard-suspend-0001",
@@ -89,6 +90,9 @@ func TestServiceLifecycleRequiresCurrentManagementAuthorityAndStableCommand(t *t
 		repository.transitionCommand.ExpectedVersion != 4 ||
 		len(repository.transitionCommand.Fingerprint) != 32 || result.Status != DocumentSuspended {
 		t.Fatalf("unexpected lifecycle command/result: command=%+v result=%+v", repository.transitionCommand, result)
+	}
+	if len(broker.revoked) != 1 || broker.revoked[0] != documentID {
+		t.Fatalf("suspend did not revoke active authority: %v", broker.revoked)
 	}
 
 	spaces.space = media.MediaSpace{ID: spaceID}
@@ -136,8 +140,51 @@ func TestServiceGrantExchangeRequiresExactGenerationOriginAndCapability(t *testi
 		Capability: CapabilityView, ExpectedGeneration: 3,
 		ExpectedRevokeGeneration: 5, Origin: "https://app.example.test",
 	})
-	if err != nil || broker.calls != 1 || credential.DocumentID != documentID {
+	if err != nil || broker.calls != 1 || credential.DocumentID != documentID ||
+		broker.issueCapability != CapabilityView {
 		t.Fatalf("valid exchange: credential=%+v err=%v calls=%d", credential, err, broker.calls)
+	}
+}
+
+func TestServiceInternalGrantRevalidatesCurrentAuthority(t *testing.T) {
+	t.Parallel()
+	documentID, spaceID := uuid.New(), uuid.New()
+	access := testAccess()
+	document := Document{
+		ID: documentID, MediaSpaceID: spaceID, Status: DocumentOpen,
+		Version: 2, CurrentGeneration: 3, RevokeGeneration: 5,
+	}
+	scope := GrantScope{
+		AuthorityLease: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		ActorID:        access.ActorID, Capability: CapabilityEdit, DocumentID: documentID,
+		Generation: 3, ProviderDocumentName: "wb_test_provider_document_0001",
+		SessionID: access.SessionID, TenantID: access.TenantID, WriterFence: 5,
+	}
+	repository := &fakeRepository{document: document, policies: defaultCapabilityPolicies()}
+	spaces := &fakeSpaceAuthority{space: manageableSpace(spaceID)}
+	broker := &fakeGrantBroker{resolution: GrantResolution{Access: access, Scope: scope}}
+	service := newTestService(t, repository, spaces, broker, nil, uuid.New())
+
+	consumed, err := service.ConsumeGrant(context.Background(), GrantConsumeInput{
+		Credential: "one-time-grant-that-is-long-enough", Origin: "https://app.example.test",
+		ProviderDocumentName: scope.ProviderDocumentName,
+	})
+	if err != nil || consumed != scope {
+		t.Fatalf("consume current grant: scope=%+v err=%v", consumed, err)
+	}
+	valid, err := service.ValidateGrant(context.Background(), GrantValidationInput{
+		Origin: "https://app.example.test", Scope: scope,
+	})
+	if err != nil || !valid {
+		t.Fatalf("validate current authority: valid=%v err=%v", valid, err)
+	}
+
+	repository.document.RevokeGeneration++
+	valid, err = service.ValidateGrant(context.Background(), GrantValidationInput{
+		Origin: "https://app.example.test", Scope: scope,
+	})
+	if err != nil || valid || len(broker.invalidated) != 1 || broker.invalidated[0] != scope.AuthorityLease {
+		t.Fatalf("stale authority valid=%v err=%v invalidated=%v", valid, err, broker.invalidated)
 	}
 }
 
@@ -206,7 +253,8 @@ func TestServiceArtifactAndRestoreRequireCurrentAuthority(t *testing.T) {
 		ID: uuid.New(), DocumentID: documentID, Generation: 4, Status: ArtifactCommandAccepted,
 	}}
 	spaces := &fakeSpaceAuthority{space: manageableSpace(spaceID)}
-	service := newTestService(t, repository, spaces, nil, workflow, uuid.New())
+	broker := &fakeGrantBroker{}
+	service := newTestService(t, repository, spaces, broker, workflow, uuid.New())
 
 	_, err := service.Export(context.Background(), testAccess(), documentID, ExportInput{
 		ExpectedGeneration: 3, IdempotencyKey: "whiteboard-export-00001",
@@ -229,6 +277,9 @@ func TestServiceArtifactAndRestoreRequireCurrentAuthority(t *testing.T) {
 		repository.restoreCommand.SnapshotID != snapshotID ||
 		len(repository.restoreCommand.Fingerprint) != 32 {
 		t.Fatalf("restore result=%+v command=%+v err=%v", restored, repository.restoreCommand, err)
+	}
+	if len(broker.revoked) != 1 || broker.revoked[0] != documentID {
+		t.Fatalf("restore did not revoke previous generation: %v", broker.revoked)
 	}
 }
 
@@ -295,6 +346,7 @@ type fakeRepository struct {
 	restoreCommand    RestoreCommand
 	createResult      CreateResult
 	document          Document
+	grantAuthority    GrantAuthority
 	transitionResult  Document
 	restoreResult     Document
 	policies          map[Audience]Capability
@@ -313,6 +365,16 @@ func (repository *fakeRepository) Create(_ context.Context, _ AccessContext, com
 
 func (repository *fakeRepository) Get(_ context.Context, _ AccessContext, _ uuid.UUID) (Document, error) {
 	return repository.document, repository.getError
+}
+
+func (repository *fakeRepository) GrantAuthority(_ context.Context, _ AccessContext, _ uuid.UUID) (GrantAuthority, error) {
+	if repository.grantAuthority.Document.ID == uuid.Nil {
+		return GrantAuthority{
+			Document: repository.document, ProviderDocumentName: "wb_test_provider_document_0001",
+			WriterFence: repository.document.RevokeGeneration,
+		}, repository.getError
+	}
+	return repository.grantAuthority, repository.getError
 }
 
 func (repository *fakeRepository) Transition(_ context.Context, _ AccessContext, command TransitionCommand) (Document, error) {
@@ -345,13 +407,34 @@ func (authority *fakeSpaceAuthority) GetSpace(_ context.Context, _ media.AccessC
 }
 
 type fakeGrantBroker struct {
-	calls      int
-	credential GrantCredential
+	calls           int
+	credential      GrantCredential
+	resolution      GrantResolution
+	issueCapability Capability
+	invalidated     []string
+	revoked         []uuid.UUID
 }
 
-func (broker *fakeGrantBroker) Exchange(_ context.Context, _ AccessContext, _ Document, _ Capability, _ GrantExchangeInput) (GrantCredential, error) {
+func (broker *fakeGrantBroker) Issue(_ context.Context, _ AccessContext, _ GrantAuthority, capability Capability, _ GrantExchangeInput) (GrantCredential, error) {
 	broker.calls++
+	broker.issueCapability = capability
 	return broker.credential, nil
+}
+
+func (broker *fakeGrantBroker) Consume(_ context.Context, _ GrantConsumeInput) (GrantResolution, error) {
+	return broker.resolution, nil
+}
+
+func (broker *fakeGrantBroker) Validate(_ context.Context, _ GrantValidationInput) (GrantResolution, error) {
+	return broker.resolution, nil
+}
+
+func (broker *fakeGrantBroker) InvalidateLease(lease string) {
+	broker.invalidated = append(broker.invalidated, lease)
+}
+
+func (broker *fakeGrantBroker) Revoke(documentID uuid.UUID) {
+	broker.revoked = append(broker.revoked, documentID)
 }
 
 type fakeArtifactWorkflow struct {

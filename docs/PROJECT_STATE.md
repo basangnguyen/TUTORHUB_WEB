@@ -12,10 +12,30 @@
 | Quy trình            | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
 | Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4                                                    |
 | Phase hiện tại       | Phase 5 collaboration implementation; Phase 3 deferred carry-over vẫn hoạt động       |
-| Task `DONE` gần nhất | P5-COLLAB-03 OpenAPI lifecycle/grant/snapshot/export/restore                            |
-| Mốc repository mới   | Exact candidate `647ffe4` PASS GitHub Verify/Security                                  |
-| Task hiện tại        | P5-COLLAB-04 Grant broker và revoke generation — `TODO`                                |
-| Task tiếp theo       | Thiết kế và triển khai one-time grant broker, TTL, replay/revoke và abuse guard        |
+| Task `DONE` gần nhất | P5-COLLAB-04 Grant broker và revoke generation                                         |
+| Mốc repository mới   | P5-COLLAB-04 local candidate PASS full verify; commit/push pending                      |
+| Task hiện tại        | P5-COLLAB-05 Collaboration data plane/provider adapter — `TODO`                        |
+| Task tiếp theo       | Authenticated WebSocket, quotas/backpressure, drain và split-brain guard               |
+
+### Checkpoint P5-COLLAB-04 `DONE` — 2026-08-21
+
+Core API đã có one-time collaboration grant broker với credential ngẫu nhiên chỉ lưu digest, TTL
+hard-cap 60 giây, rate/capacity bounds và atomic single-winner exchange. Grant cùng authority lease
+bind exact tenant/actor/session/document/capability/Origin/provider/generation/writer fence. Exchange
+và refresh đều revalidate current membership, source, capability, generation và revoke state từ
+PostgreSQL; suspend/close/restore purge pending grant cùng active lease.
+
+Internal exchange/validate API dùng bearer token digest constant-time, strict bounded body, no-store
+và privacy-safe errors. Whiteboard runtime revalidate lease mỗi 750 ms, enforce `view` read-only và
+đóng exact connection code `4403` khi authority mất. Replay, expiry, forged binding, 32-way concurrent
+single winner, abuse limit, revoke, privacy/no-secret-log và bounded disconnect đều PASS. Runtime
+5 files/17 tests, PostgreSQL integration-tag compile, `git diff --check` và full `pnpm verify` PASS.
+
+Task không thêm migration, không kết nối/write Neon mới, không forward shared staging và không deploy.
+Accepted private-alpha broker là process-local cho một Core API instance; restart invalidates mọi
+grant/lease fail closed. Shared atomic broker trước multi-instance và transport quota/backpressure
+được giữ cho P5-COLLAB-05/P5-COLLAB-09. Production whiteboard tiếp tục force-off tới P5-COLLAB-17.
+Acceptance: [`P5_COLLAB_04_STAGING_ACCEPTANCE.md`](P5_COLLAB_04_STAGING_ACCEPTANCE.md).
 
 ### Checkpoint P5-COLLAB-03 `DONE` — 2026-08-21
 

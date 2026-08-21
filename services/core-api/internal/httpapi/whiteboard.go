@@ -439,6 +439,12 @@ func (handlers whiteboardHandlers) writeProblem(w http.ResponseWriter, r *http.R
 	case errors.Is(err, collaboration.ErrGrantUnavailable):
 		status, code = http.StatusServiceUnavailable, "whiteboard_grant_unavailable"
 		title, detail = "Whiteboard grant unavailable", "Credential exchange is not available in this environment."
+	case errors.Is(err, collaboration.ErrGrantRateLimited):
+		status, code = http.StatusTooManyRequests, "whiteboard_grant_rate_limited"
+		title, detail = "Whiteboard grant rate limited", "Wait briefly before requesting another whiteboard credential."
+	case errors.Is(err, collaboration.ErrGrantDenied):
+		status, code = http.StatusNotFound, "whiteboard_not_found"
+		title, detail = "Whiteboard unavailable", "The whiteboard is unavailable in the active workspace."
 	case errors.Is(err, collaboration.ErrArtifactUnavailable):
 		status, code = http.StatusServiceUnavailable, "whiteboard_artifact_unavailable"
 		title, detail = "Whiteboard artifact workflow unavailable", "Snapshot and export processing is not available in this environment."

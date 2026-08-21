@@ -37,6 +37,7 @@ const (
 	defaultSessionAbsoluteTTL                         = 24 * time.Hour
 	defaultMembershipInvitationTTL                    = 168 * time.Hour
 	defaultLiveKitTokenTTL                            = 5 * time.Minute
+	defaultCollaborationGrantTTL                      = 30 * time.Second
 	defaultEdgeContextMaxSkew                         = 2 * time.Minute
 	maximumEdgeContextMaxSkew                         = 5 * time.Minute
 	defaultFeatureMemberLimit                         = 10_000
@@ -165,7 +166,11 @@ type CalendarProtectedDataConfig struct {
 // overrides so production cannot expose whiteboard routes before the exact
 // rollout gate authorizes them.
 type CollaborationConfig struct {
-	Enabled bool
+	Enabled       bool
+	BrokerEnabled bool
+	ProviderURL   string
+	RuntimeToken  string
+	GrantTTL      time.Duration
 }
 
 type FeatureControlConfig struct {
@@ -302,14 +307,7 @@ func load(lookup lookupEnv) (Config, error) {
 	cfg.ObjectStorage = objectStorageConfig(lookup, &validationErrors)
 	cfg.EdgeContext = edgeContextConfig(lookup, cfg.Environment, &validationErrors)
 	cfg.CalendarProtectedData = calendarProtectedDataConfig(lookup, &validationErrors)
-	cfg.Collaboration = CollaborationConfig{
-		Enabled: boolValue(
-			lookup,
-			"COLLABORATION_CONTROL_PLANE_ENABLED",
-			false,
-			&validationErrors,
-		),
-	}
+	cfg.Collaboration = collaborationConfig(lookup, cfg.Environment, &validationErrors)
 	cfg.FeatureControls = featureControlConfig(lookup, &validationErrors)
 	if !cfg.LiveKit.Enabled {
 		cfg.FeatureControls.EnableClassroomMediaRooms = false
@@ -415,6 +413,59 @@ func calendarProtectedDataConfig(
 		Enabled:    true,
 		Key:        key,
 		KeyVersion: keyVersion,
+	}
+}
+
+func collaborationConfig(
+	lookup lookupEnv,
+	environment string,
+	validationErrors *[]error,
+) CollaborationConfig {
+	enabled := boolValue(
+		lookup,
+		"COLLABORATION_CONTROL_PLANE_ENABLED",
+		false,
+		validationErrors,
+	)
+	providerURL := strings.TrimSpace(valueOrDefault(lookup, "COLLABORATION_PROVIDER_URL", ""))
+	runtimeToken := strings.TrimSpace(valueOrDefault(lookup, "COLLAB_CONTROL_PLANE_TOKEN", ""))
+	grantTTL := durationValue(
+		lookup,
+		"COLLABORATION_GRANT_TTL",
+		defaultCollaborationGrantTTL,
+		validationErrors,
+	)
+
+	if grantTTL > time.Minute {
+		*validationErrors = append(
+			*validationErrors,
+			fmt.Errorf("COLLABORATION_GRANT_TTL must not exceed 60s"),
+		)
+	}
+	if (providerURL == "") != (runtimeToken == "") {
+		*validationErrors = append(
+			*validationErrors,
+			fmt.Errorf("COLLABORATION_PROVIDER_URL and COLLAB_CONTROL_PLANE_TOKEN must be configured together"),
+		)
+	}
+	if providerURL != "" {
+		if err := validateCollaborationProviderURL(environment, providerURL); err != nil {
+			*validationErrors = append(*validationErrors, err)
+		}
+	}
+	if runtimeToken != "" && len(runtimeToken) < 32 {
+		*validationErrors = append(
+			*validationErrors,
+			fmt.Errorf("COLLAB_CONTROL_PLANE_TOKEN must contain at least 32 characters"),
+		)
+	}
+
+	return CollaborationConfig{
+		Enabled:       enabled,
+		BrokerEnabled: providerURL != "" && runtimeToken != "",
+		ProviderURL:   providerURL,
+		RuntimeToken:  runtimeToken,
+		GrantTTL:      grantTTL,
 	}
 }
 
@@ -1124,6 +1175,29 @@ func validateLiveKitURL(environment string, value string) error {
 	}
 	if (environment == "staging" || environment == "production") && parsedURL.Scheme != "wss" {
 		return fmt.Errorf("LIVEKIT_URL must use wss in %s", environment)
+	}
+
+	return nil
+}
+
+func validateCollaborationProviderURL(environment string, value string) error {
+	providerURL, err := url.Parse(value)
+	if err != nil {
+		return fmt.Errorf("COLLABORATION_PROVIDER_URL must be a valid WebSocket URL")
+	}
+	if providerURL.Scheme != "ws" && providerURL.Scheme != "wss" {
+		return fmt.Errorf("COLLABORATION_PROVIDER_URL must use ws or wss")
+	}
+	if providerURL.Host == "" || providerURL.User != nil || providerURL.RawQuery != "" ||
+		providerURL.Fragment != "" {
+		return fmt.Errorf("COLLABORATION_PROVIDER_URL must include only a WebSocket scheme and host")
+	}
+	if providerURL.Path != "" && providerURL.Path != "/" {
+		return fmt.Errorf("COLLABORATION_PROVIDER_URL must not contain a path")
+	}
+	if (environment == "staging" || environment == "production") &&
+		providerURL.Scheme != "wss" {
+		return fmt.Errorf("COLLABORATION_PROVIDER_URL must use wss in %s", environment)
 	}
 
 	return nil

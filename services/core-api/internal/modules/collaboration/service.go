@@ -164,6 +164,9 @@ func (service *Service) transition(
 	if err != nil {
 		return Document{}, normalizeError(err)
 	}
+	if service.grants != nil && (operation == "suspend" || operation == "close") {
+		service.grants.Revoke(document.ID)
+	}
 	return service.project(ctx, access, space, updated)
 }
 
@@ -192,14 +195,107 @@ func (service *Service) ExchangeGrant(
 	if capabilityRank(input.Capability) > capabilityRank(projected.Viewer.Capability) {
 		return GrantCredential{}, ErrNotFound
 	}
+	if !projected.Viewer.CanExchangeGrant {
+		return GrantCredential{}, ErrNotFound
+	}
 	if service.grants == nil {
 		return GrantCredential{}, ErrGrantUnavailable
 	}
-	credential, err := service.grants.Exchange(ctx, access, document, projected.Viewer.Capability, input)
+	authority, err := service.repository.GrantAuthority(ctx, access, document.ID)
+	if err != nil {
+		return GrantCredential{}, normalizeConcealedError(err)
+	}
+	if authority.Document.Status != DocumentOpen ||
+		authority.Document.CurrentGeneration != input.ExpectedGeneration ||
+		authority.Document.RevokeGeneration != input.ExpectedRevokeGeneration ||
+		authority.Document.MediaSpaceID != document.MediaSpaceID ||
+		authority.WriterFence < 1 || strings.TrimSpace(authority.ProviderDocumentName) == "" {
+		return GrantCredential{}, ErrVersionConflict
+	}
+	credential, err := service.grants.Issue(ctx, access, authority, input.Capability, input)
 	if err != nil {
 		return GrantCredential{}, normalizeError(err)
 	}
 	return credential, nil
+}
+
+func (service *Service) ConsumeGrant(
+	ctx context.Context,
+	input GrantConsumeInput,
+) (GrantScope, error) {
+	input.Credential = strings.TrimSpace(input.Credential)
+	input.Origin = strings.TrimSpace(input.Origin)
+	input.ProviderDocumentName = strings.TrimSpace(input.ProviderDocumentName)
+	if service.grants == nil || !validOrigin(input.Origin) || input.Credential == "" ||
+		input.ProviderDocumentName == "" {
+		return GrantScope{}, ErrGrantDenied
+	}
+	resolution, err := service.grants.Consume(ctx, input)
+	if err != nil {
+		return GrantScope{}, normalizeError(err)
+	}
+	if err := service.validateGrantResolution(ctx, resolution); err != nil {
+		service.grants.InvalidateLease(resolution.Scope.AuthorityLease)
+		return GrantScope{}, ErrGrantDenied
+	}
+	return resolution.Scope, nil
+}
+
+func (service *Service) ValidateGrant(
+	ctx context.Context,
+	input GrantValidationInput,
+) (bool, error) {
+	input.Origin = strings.TrimSpace(input.Origin)
+	if service.grants == nil || !validOrigin(input.Origin) {
+		return false, ErrGrantDenied
+	}
+	resolution, err := service.grants.Validate(ctx, input)
+	if err != nil {
+		return false, normalizeError(err)
+	}
+	if err := service.validateGrantResolution(ctx, resolution); err != nil {
+		service.grants.InvalidateLease(resolution.Scope.AuthorityLease)
+		return false, nil
+	}
+	return true, nil
+}
+
+func (service *Service) validateGrantResolution(
+	ctx context.Context,
+	resolution GrantResolution,
+) error {
+	if !validAccess(resolution.Access) ||
+		resolution.Scope.TenantID != resolution.Access.TenantID ||
+		resolution.Scope.ActorID != resolution.Access.ActorID ||
+		resolution.Scope.SessionID != resolution.Access.SessionID ||
+		!validCapability(resolution.Scope.Capability) {
+		return ErrGrantDenied
+	}
+	authority, err := service.repository.GrantAuthority(
+		ctx, resolution.Access, resolution.Scope.DocumentID,
+	)
+	if err != nil {
+		return err
+	}
+	space, err := service.authorizeSpace(
+		ctx, resolution.Access, authority.Document.MediaSpaceID, false,
+	)
+	if err != nil {
+		return err
+	}
+	projected, err := service.project(ctx, resolution.Access, space, authority.Document)
+	if err != nil {
+		return err
+	}
+	if authority.Document.Status != DocumentOpen || !projected.Viewer.CanExchangeGrant ||
+		authority.Document.CurrentGeneration != resolution.Scope.Generation ||
+		authority.Document.RevokeGeneration != resolution.Scope.WriterFence ||
+		authority.WriterFence != resolution.Scope.WriterFence ||
+		authority.ProviderDocumentName != resolution.Scope.ProviderDocumentName ||
+		capabilityRank(resolution.Scope.Capability) > capabilityRank(projected.Viewer.Capability) {
+		return ErrGrantDenied
+	}
+	return nil
 }
 
 func (service *Service) ListSnapshots(
@@ -333,6 +429,9 @@ func (service *Service) Restore(
 	restored, err := service.repository.Restore(ctx, access, command)
 	if err != nil {
 		return Document{}, normalizeError(err)
+	}
+	if service.grants != nil {
+		service.grants.Revoke(document.ID)
 	}
 	return service.project(ctx, access, space, restored)
 }
@@ -531,6 +630,7 @@ func normalizeError(err error) error {
 	known := []error{
 		ErrUnavailable, ErrInvalidRequest, ErrNotFound, ErrVersionConflict,
 		ErrIdempotencyConflict, ErrTransitionConflict, ErrArtifactUnavailable, ErrGrantUnavailable,
+		ErrGrantDenied, ErrGrantRateLimited,
 	}
 	for _, candidate := range known {
 		if errors.Is(err, candidate) {
