@@ -4,8 +4,9 @@
 > self-managed Yjs/Hocuspocus topology, Gate A-F, disposable Render/Neon/B2 drill, quota evidence và
 > owner operations/risk sign-off đều PASS; ADR-0034 đã `Accepted`. P5-COLLAB-02 đã `DONE` ngày
 > 2026-08-21: migration `000037`, local/full verify, disposable/shared Neon gates, exact ACL,
-> candidate CI/security và final read-only snapshot đều PASS. P5-COLLAB-03 là task runnable tiếp
-> theo; production whiteboard vẫn force-off tới P5-COLLAB-17.
+> candidate CI/security và final read-only snapshot đều PASS. P5-COLLAB-03 cũng đã `DONE` ngày
+> 2026-08-21 trên exact candidate `647ffe4`; P5-COLLAB-04 là task runnable tiếp theo. Production
+> whiteboard vẫn force-off tới P5-COLLAB-17.
 
 ## 1. Mục tiêu phase
 
@@ -57,7 +58,7 @@ Xây collaboration plane cho lớp học mà không làm rời hoặc làm yếu
 | ------------ | -------------- | ----------------------------------------------- | -------------------------- | ---------- |
 | P5-COLLAB-01 | Decision gate  | Chấp nhận Excalidraw authority/topology         | P5-COLLAB-00               | DONE       |
 | P5-COLLAB-02 | Implementation | Control-plane schema                            | P5-COLLAB-01               | DONE       |
-| P5-COLLAB-03 | Implementation | OpenAPI lifecycle/grant/snapshot/export/restore | P5-COLLAB-02               | VERIFY     |
+| P5-COLLAB-03 | Implementation | OpenAPI lifecycle/grant/snapshot/export/restore | P5-COLLAB-02               | DONE       |
 | P5-COLLAB-04 | Implementation | Grant broker và revoke generation               | P5-COLLAB-03               | TODO       |
 | P5-COLLAB-05 | Implementation | Collaboration data plane/provider adapter       | P5-COLLAB-01, P5-COLLAB-04 | TODO       |
 | P5-COLLAB-06 | Implementation | Lazy classroom tool shell                       | P5-COLLAB-03, P5-COLLAB-05 | TODO       |
@@ -225,7 +226,7 @@ Acceptance: [`P5_COLLAB_02_STAGING_ACCEPTANCE.md`](P5_COLLAB_02_STAGING_ACCEPTAN
 **Scope:** contract-first create/open/suspend/close, capability projection, credential exchange,
 snapshot list/create, export, import validation và restore command.
 
-**Checkpoint 2026-08-21 — VERIFY:** OpenAPI strict và generated TypeScript client đã đồng bộ; Core API
+**Closure 2026-08-21 — DONE:** OpenAPI strict và generated TypeScript client đã đồng bộ; Core API
 đã có lifecycle/capability/import/restore implementation, PostgreSQL repository, uniform concealed
 `404`, privacy headers, bounded body và HTTP/service tests. Grant broker thật thuộc P5-COLLAB-04;
 snapshot/export worker thật thuộc P5-COLLAB-07 nên hai boundary này giữ `503` fail-closed khi chưa
@@ -234,8 +235,9 @@ override không thể mở route trước P5-COLLAB-17. Runner disposable chỉ 
 role/direct-vs-pooled/same-branch và không log credential. Local unit/API/integration-tag compile PASS.
 Full `pnpm verify` đã PASS ngày 2026-08-21. Neon P5-COLLAB-03 disposable repository gate đã PASS ở
 ledger `37 false`, gồm runtime create/exact ACL, lifecycle/idempotency receipt, snapshot projection,
-restore generation swap, tenant concealment và cleanup. Còn final verify/review/no-secret và exact SHA CI
-trước khi chuyển `DONE`; không cần migration/shared-staging forward mới.
+restore generation swap, tenant concealment và cleanup. Exact candidate `647ffe4` đã PASS review/
+no-secret, GitHub Verify `32461523646` và Security `32461523627`; task chuyển `DONE`. Không cần
+migration/shared-staging forward mới và không deploy production.
 
 **Exit gate:**
 

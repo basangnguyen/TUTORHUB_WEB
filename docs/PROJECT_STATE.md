@@ -12,12 +12,12 @@
 | Quy trình            | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
 | Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4                                                    |
 | Phase hiện tại       | Phase 5 collaboration implementation; Phase 3 deferred carry-over vẫn hoạt động       |
-| Task `DONE` gần nhất | P5-COLLAB-02 Whiteboard control-plane schema                                           |
-| Mốc repository mới   | P5-COLLAB-03 Neon disposable repository gate PASS ở ledger `37 false`                    |
-| Task hiện tại        | P5-COLLAB-03 OpenAPI lifecycle/grant/snapshot/export/restore — `VERIFY`                 |
-| Task tiếp theo       | Chạy final verify/review, commit candidate và exact SHA GitHub CI                       |
+| Task `DONE` gần nhất | P5-COLLAB-03 OpenAPI lifecycle/grant/snapshot/export/restore                            |
+| Mốc repository mới   | Exact candidate `647ffe4` PASS GitHub Verify/Security                                  |
+| Task hiện tại        | P5-COLLAB-04 Grant broker và revoke generation — `TODO`                                |
+| Task tiếp theo       | Thiết kế và triển khai one-time grant broker, TTL, replay/revoke và abuse guard        |
 
-### Checkpoint P5-COLLAB-03 `VERIFY` — 2026-08-21
+### Checkpoint P5-COLLAB-03 `DONE` — 2026-08-21
 
 Đã thêm strict OpenAPI và generated TypeScript client cho create/get/open/suspend/resume/close,
 capability, grant exchange, snapshot list/create, export, portable import validation và restore.
@@ -35,8 +35,9 @@ tenant override không thể bypass production force-off. Runner disposable tự
 kiểm tra owner direct/runtime pooled cùng branch và không in credential. Neon P5-COLLAB-03 disposable
 repository gate đã PASS ở ledger `37 false`: runtime create/read/capability exact ACL, lifecycle
 CAS/idempotency receipt, snapshot projection, restore generation swap, tenant concealment và cleanup đều
-xanh. Còn final verify/review/no-secret và exact SHA CI để chuyển `DONE`. Không có migration/shared-staging
-forward mới; production whiteboard vẫn force-off tới P5-COLLAB-17.
+xanh. Review/no-secret PASS; exact candidate `647ffe4` đã PASS GitHub Verify `32461523646` và Security
+`32461523627`. P5-COLLAB-03 chuyển `DONE`; P5-COLLAB-04 là task runnable tiếp theo. Không có
+migration/shared-staging forward hoặc deploy mới; production whiteboard vẫn force-off tới P5-COLLAB-17.
 Acceptance: [`P5_COLLAB_03_STAGING_ACCEPTANCE.md`](P5_COLLAB_03_STAGING_ACCEPTANCE.md).
 
 ### Checkpoint P5-COLLAB-02 `DONE` — 2026-08-21

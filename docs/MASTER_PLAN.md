@@ -11,7 +11,7 @@
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
 | Phase hiện tại        | Phase 5 collaboration implementation; Phase 3 deferred carry-over tiếp tục                   |
-| Trạng thái gần nhất   | P5-COLLAB-03 `VERIFY`; Neon disposable repository gate PASS, final verify/CI còn mở           |
+| Trạng thái gần nhất   | P5-COLLAB-03 `DONE`; exact candidate `647ffe4` PASS Verify/Security, P5-COLLAB-04 runnable    |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 
@@ -1684,14 +1684,15 @@ Verify `32436740864` và Security `32436740906`. P5-COLLAB-02 chuyển `DONE`, P
 Paid HA vẫn deferred; production không được bật trước các gate tương ứng, đặc biệt P5-COLLAB-17 exact
 staging.
 
-P5-COLLAB-03 checkpoint 2026-08-21: strict OpenAPI/generated client và Core API
+P5-COLLAB-03 closure 2026-08-21: strict OpenAPI/generated client và Core API
 lifecycle/capability/import/restore candidate đã hoàn thành; authorization, privacy, bounded body,
 uniform `404`, CAS/idempotency và integration-tag compile PASS local. Neon P5-COLLAB-03 disposable
 repository gate PASS ở ledger `37 false`, gồm runtime create/exact ACL, lifecycle/idempotency receipt,
 snapshot projection, restore generation swap, tenant concealment và cleanup. Grant broker và durable
-snapshot/export worker vẫn fail-closed theo P5-COLLAB-04/P5-COLLAB-07. Task giữ `VERIFY` tới final full
-verify, review/no-secret và exact SHA CI PASS. Không có migration/shared-staging forward mới; production
-tiếp tục force-off.
+snapshot/export worker vẫn fail-closed theo P5-COLLAB-04/P5-COLLAB-07. Full verify, review/no-secret và
+exact candidate `647ffe4` đã PASS GitHub Verify `32461523646` cùng Security `32461523627`.
+P5-COLLAB-03 chuyển `DONE`, P5-COLLAB-04 runnable. Không có migration/shared-staging forward hoặc
+deploy mới; production tiếp tục force-off.
 
 **Deliverable:** teacher mở/đóng công cụ mà không làm rời media room; trạng thái cộng tác khôi phục sau reconnect.
 

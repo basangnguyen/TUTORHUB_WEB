@@ -85,11 +85,16 @@ tenant concealment và cleanup đều PASS. Không rollback, không chạm share
 
 - [x] Full `pnpm verify` PASS ngày 2026-08-21: format, generated OpenAPI client, security, lint,
       typecheck, web/package tests/build, Storybook, bundle guard, toàn bộ Go test và `go vet`.
-- [ ] Review diff/no-secret PASS.
-- [ ] Commit candidate trực tiếp `main`, push sau khi owner cho phép exact SHA.
-- [ ] GitHub Verify và Security PASS exact SHA.
-- [ ] P5-COLLAB-03 chuyển `VERIFY -> DONE`; shared staging/database migration mới không cần thiết vì
+- [x] Review diff/no-secret PASS.
+- [x] Commit candidate `647ffe4` trực tiếp `main` và push sau khi owner cho phép exact SHA.
+- [x] GitHub Verify `32461523646` và Security `32461523627` PASS exact SHA `647ffe4`.
+- [x] P5-COLLAB-03 chuyển `VERIFY -> DONE`; shared staging/database migration mới không cần thiết vì
       task này không thay đổi schema `000037`.
+
+Evidence 2026-08-21: Verify PASS Quality/integration, Browser E2E và local-environment smoke.
+Security PASS secret scan, repository/container/whiteboard OCI vulnerability scan, SBOM và CodeQL;
+không phát hiện leak. Dependency review được workflow bỏ qua đúng điều kiện push. Production
+whiteboard vẫn force-off, không deploy và không thay đổi shared staging.
 
 ## 6. Rollback và vận hành
 
