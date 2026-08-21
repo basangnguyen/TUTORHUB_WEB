@@ -5,6 +5,8 @@ export const RUNTIME_VERSIONS = {
   yjs: "13.6.27",
 } as const;
 
+export const MAX_DURABLE_DOCUMENT_BYTES = 10 * 1024 * 1024;
+
 export type CollaborationCapability = "edit" | "present" | "view";
 export type RuntimeMode = "enabled" | "off" | "read_only";
 
@@ -60,7 +62,7 @@ export interface PortableSnapshotStore {
 }
 
 export type RuntimeDependencyCode =
-  "control_plane" | "persistence" | "snapshot";
+  "authority_guard" | "control_plane" | "persistence" | "snapshot";
 export type RuntimeEventCode =
   | "checkpoint_failed"
   | "checkpoint_ok"

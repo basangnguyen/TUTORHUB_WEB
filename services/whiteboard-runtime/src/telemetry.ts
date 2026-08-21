@@ -7,6 +7,13 @@ import type {
 
 type ConnectionOutcome = "accepted" | "closed" | "rejected";
 type CheckpointOutcome = "failed" | "loaded" | "stored";
+export type RuntimePolicyReason =
+  | "awareness"
+  | "backpressure"
+  | "connection_quota"
+  | "frame"
+  | "reconnect"
+  | "update";
 
 export class RuntimeTelemetry {
   private readonly checkpointTotals = new Map<CheckpointOutcome, number>();
@@ -16,6 +23,8 @@ export class RuntimeTelemetry {
   >();
   private readonly connectionTotals = new Map<ConnectionOutcome, number>();
   private readonly dependencies = new Map<RuntimeDependencyCode, 0 | 1>();
+  private readonly policyRejections = new Map<RuntimePolicyReason, number>();
+  private awarenessAccepted = 0;
   private dirtyDocuments = 0;
   private documents = 0;
   private draining = 0;
@@ -31,12 +40,27 @@ export class RuntimeTelemetry {
       this.checkpointTotals.set(outcome, 0);
     }
     for (const dependency of [
+      "authority_guard",
       "control_plane",
       "persistence",
       "snapshot",
     ] as const) {
       this.dependencies.set(dependency, 0);
     }
+    for (const reason of [
+      "awareness",
+      "backpressure",
+      "connection_quota",
+      "frame",
+      "reconnect",
+      "update",
+    ] as const) {
+      this.policyRejections.set(reason, 0);
+    }
+  }
+
+  awareness(): void {
+    this.awarenessAccepted += 1;
   }
 
   checkpoint(outcome: CheckpointOutcome): void {
@@ -63,6 +87,13 @@ export class RuntimeTelemetry {
 
   dependency(code: RuntimeDependencyCode, up: boolean): void {
     this.dependencies.set(code, up ? 1 : 0);
+  }
+
+  policyRejected(reason: RuntimePolicyReason): void {
+    this.policyRejections.set(
+      reason,
+      (this.policyRejections.get(reason) ?? 0) + 1,
+    );
   }
 
   setDirtyDocuments(value: number): void {
@@ -112,6 +143,15 @@ export class RuntimeTelemetry {
       lines.push(`collab_dependency_up{dependency="${dependency}"} ${value}`);
     }
     lines.push(
+      "# HELP collab_policy_rejection_total Bounded data-plane policy denials.",
+      "# TYPE collab_policy_rejection_total counter",
+    );
+    for (const [reason, value] of this.policyRejections) {
+      lines.push(`collab_policy_rejection_total{reason="${reason}"} ${value}`);
+    }
+    lines.push(
+      "# TYPE collab_awareness_accepted_total counter",
+      `collab_awareness_accepted_total ${this.awarenessAccepted}`,
       "# TYPE collab_documents_current gauge",
       `collab_documents_current ${this.documents}`,
       "# TYPE collab_dirty_documents gauge",

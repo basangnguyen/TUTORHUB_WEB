@@ -1,0 +1,347 @@
+diff --git a/dist/hocuspocus-server.cjs b/dist/hocuspocus-server.cjs
+index 39719e3862b1ff097c49f2673dafc445f90bd218..40fb962b70860010397fb8054e10bef1ec74fe17 100644
+--- a/dist/hocuspocus-server.cjs
++++ b/dist/hocuspocus-server.cjs
+@@ -231,10 +231,12 @@ var MessageReceiver = class {
+ 				} : this.defaultTransactionOrigin ?? { source: "local" };
+ 				const scratchDoc = new yjs.Doc();
+ 				const scratch = new y_protocols_awareness.Awareness(scratchDoc);
++				scratch.setLocalState(null);
++				scratch.meta.delete(scratch.clientID);
+ 				try {
+ 					(0, y_protocols_awareness.applyAwarenessUpdate)(scratch, update, null);
+ 					await document.callbacks.beforeHandleAwareness(document, scratch.getStates(), origin);
+-					update = (0, y_protocols_awareness.encodeAwarenessUpdate)(scratch, [...scratch.getStates().keys()]);
++					update = encodeMutatedAwarenessUpdate(update, scratch.getStates());
+ 				} finally {
+ 					scratch.destroy();
+ 					scratchDoc.destroy();
+@@ -330,6 +332,21 @@ var MessageReceiver = class {
+ 		if (reply) reply(message.toUint8Array());
+ 	}
+ };
++function encodeMutatedAwarenessUpdate(update, states) {
++	const decoder = lib0_decoding.createDecoder(update);
++	const count = lib0_decoding.readVarUint(decoder);
++	const encoder = lib0_encoding.createEncoder();
++	lib0_encoding.writeVarUint(encoder, count);
++	for (let index = 0; index < count; index += 1) {
++		const clientId = lib0_decoding.readVarUint(decoder);
++		const clock = lib0_decoding.readVarUint(decoder);
++		lib0_decoding.readVarString(decoder);
++		lib0_encoding.writeVarUint(encoder, clientId);
++		lib0_encoding.writeVarUint(encoder, clock);
++		lib0_encoding.writeVarString(encoder, JSON.stringify(states.has(clientId) ? states.get(clientId) : null));
++	}
++	return lib0_encoding.toUint8Array(encoder);
++}
+ 
+ //#endregion
+ //#region packages/server/src/Connection.ts
+@@ -491,12 +508,12 @@ var Connection = class {
+ 				} finally {
+ 					try {
+ 						await this.callbacks.afterHandleMessage(this, rawUpdate);
+-					} catch (afterError) {
+-						console.error(`afterHandleMessage hook failed (while handling ${documentName})`, afterError);
++					} catch {
++						console.error("Hocuspocus: afterHandleMessage hook failed.");
+ 					}
+ 				}
+ 			} catch (e) {
+-				console.error(`closing connection ${this.socketId} (while handling ${documentName}) because of exception`, e);
++				console.error("Hocuspocus: closing connection after message processing failed.");
+ 				this.close({
+ 					code: "code" in e && typeof e.code === "number" ? e.code : _hocuspocus_common.ResetConnection.code,
+ 					reason: "reason" in e ? e.reason : _hocuspocus_common.ResetConnection.reason
+@@ -883,7 +900,7 @@ var ClientConnection = class {
+ 						};
+ 					});
+ 				} catch (err) {
+-					console.error(err);
++				console.error("Hocuspocus: token sync failed.");
+ 					const error = {
+ 						..._hocuspocus_common.Unauthorized,
+ 						...err
+@@ -921,7 +938,7 @@ var ClientConnection = class {
+ 					const exceedsBytes = queuedBytes + data.byteLength > this.maxUnauthenticatedQueueSize;
+ 					const exceedsMessages = queuedMessages + 1 > this.maxUnauthenticatedQueueMessages;
+ 					if (exceedsBytes || exceedsMessages) {
+-						console.warn(exceedsBytes ? `Hocuspocus: closing connection ${this.socketId}: unauthenticated message queue size limit exceeded for "${documentName}" (${queuedBytes + data.byteLength} > maxUnauthenticatedQueueSize ${this.maxUnauthenticatedQueueSize} bytes).` : `Hocuspocus: closing connection ${this.socketId}: unauthenticated message queue length limit exceeded for "${documentName}" (${queuedMessages + 1} > maxUnauthenticatedQueueMessages ${this.maxUnauthenticatedQueueMessages}).`);
++					console.warn("Hocuspocus: unauthenticated message queue limit exceeded.");
+ 						this.terminate(_hocuspocus_common.ResetConnection);
+ 						return;
+ 					}
+@@ -974,7 +991,7 @@ var ClientConnection = class {
+ 					delete this.incomingMessageQueueBytes[rawKey];
+ 				}
+ 			} catch (error) {
+-				console.error(error);
++				console.error("Hocuspocus: queued message processing failed.");
+ 				this.websocket.close(_hocuspocus_common.ResetConnection.code, _hocuspocus_common.ResetConnection.reason);
+ 			}
+ 		};
+@@ -993,7 +1010,7 @@ var ClientConnection = class {
+ 				}
+ 				if (this.incomingMessageQueue[rawKey] === void 0) {
+ 					if (this.getPendingDocumentCount() >= this.maxPendingDocuments) {
+-						console.warn(`Hocuspocus: closing connection ${this.socketId}: too many pending unauthenticated documents (maxPendingDocuments ${this.maxPendingDocuments}). Last requested document: "${documentName}".`);
++					console.warn("Hocuspocus: pending document limit exceeded.");
+ 						this.terminate(_hocuspocus_common.ResetConnection);
+ 						return;
+ 					}
+@@ -1015,7 +1032,7 @@ var ClientConnection = class {
+ 				}
+ 				this.handleQueueingMessage(data, rawKey, documentName);
+ 			} catch (closeError) {
+-				console.error(closeError);
++			console.error("Hocuspocus: connection cleanup failed.");
+ 				this.websocket.close(_hocuspocus_common.Unauthorized.code, _hocuspocus_common.Unauthorized.reason);
+ 			}
+ 		};
+diff --git a/dist/hocuspocus-server.esm.js b/dist/hocuspocus-server.esm.js
+index 0fce8e277d9cb44197070c7e52c43586b65b306d..cc81b2e4c71cf7a9c80f9745b7d941f16159b88d 100644
+--- a/dist/hocuspocus-server.esm.js
++++ b/dist/hocuspocus-server.esm.js
+@@ -201,10 +201,12 @@ var MessageReceiver = class {
+ 				} : this.defaultTransactionOrigin ?? { source: "local" };
+ 				const scratchDoc = new Y.Doc();
+ 				const scratch = new Awareness(scratchDoc);
++				scratch.setLocalState(null);
++				scratch.meta.delete(scratch.clientID);
+ 				try {
+ 					applyAwarenessUpdate(scratch, update, null);
+ 					await document.callbacks.beforeHandleAwareness(document, scratch.getStates(), origin);
+-					update = encodeAwarenessUpdate(scratch, [...scratch.getStates().keys()]);
++					update = encodeMutatedAwarenessUpdate(update, scratch.getStates());
+ 				} finally {
+ 					scratch.destroy();
+ 					scratchDoc.destroy();
+@@ -300,6 +302,21 @@ var MessageReceiver = class {
+ 		if (reply) reply(message.toUint8Array());
+ 	}
+ };
++function encodeMutatedAwarenessUpdate(update, states) {
++	const decoder = decoding.createDecoder(update);
++	const count = decoding.readVarUint(decoder);
++	const encoder = createEncoder();
++	writeVarUint(encoder, count);
++	for (let index = 0; index < count; index += 1) {
++		const clientId = decoding.readVarUint(decoder);
++		const clock = decoding.readVarUint(decoder);
++		decoding.readVarString(decoder);
++		writeVarUint(encoder, clientId);
++		writeVarUint(encoder, clock);
++		writeVarString(encoder, JSON.stringify(states.has(clientId) ? states.get(clientId) : null));
++	}
++	return toUint8Array(encoder);
++}
+ 
+ //#endregion
+ //#region packages/server/src/Connection.ts
+@@ -461,12 +478,12 @@ var Connection = class {
+ 				} finally {
+ 					try {
+ 						await this.callbacks.afterHandleMessage(this, rawUpdate);
+-					} catch (afterError) {
+-						console.error(`afterHandleMessage hook failed (while handling ${documentName})`, afterError);
++					} catch {
++						console.error("Hocuspocus: afterHandleMessage hook failed.");
+ 					}
+ 				}
+ 			} catch (e) {
+-				console.error(`closing connection ${this.socketId} (while handling ${documentName}) because of exception`, e);
++				console.error("Hocuspocus: closing connection after message processing failed.");
+ 				this.close({
+ 					code: "code" in e && typeof e.code === "number" ? e.code : ResetConnection.code,
+ 					reason: "reason" in e ? e.reason : ResetConnection.reason
+@@ -853,7 +870,7 @@ var ClientConnection = class {
+ 						};
+ 					});
+ 				} catch (err) {
+-					console.error(err);
++				console.error("Hocuspocus: token sync failed.");
+ 					const error = {
+ 						...Unauthorized,
+ 						...err
+@@ -891,7 +908,7 @@ var ClientConnection = class {
+ 					const exceedsBytes = queuedBytes + data.byteLength > this.maxUnauthenticatedQueueSize;
+ 					const exceedsMessages = queuedMessages + 1 > this.maxUnauthenticatedQueueMessages;
+ 					if (exceedsBytes || exceedsMessages) {
+-						console.warn(exceedsBytes ? `Hocuspocus: closing connection ${this.socketId}: unauthenticated message queue size limit exceeded for "${documentName}" (${queuedBytes + data.byteLength} > maxUnauthenticatedQueueSize ${this.maxUnauthenticatedQueueSize} bytes).` : `Hocuspocus: closing connection ${this.socketId}: unauthenticated message queue length limit exceeded for "${documentName}" (${queuedMessages + 1} > maxUnauthenticatedQueueMessages ${this.maxUnauthenticatedQueueMessages}).`);
++					console.warn("Hocuspocus: unauthenticated message queue limit exceeded.");
+ 						this.terminate(ResetConnection);
+ 						return;
+ 					}
+@@ -944,7 +961,7 @@ var ClientConnection = class {
+ 					delete this.incomingMessageQueueBytes[rawKey];
+ 				}
+ 			} catch (error) {
+-				console.error(error);
++				console.error("Hocuspocus: queued message processing failed.");
+ 				this.websocket.close(ResetConnection.code, ResetConnection.reason);
+ 			}
+ 		};
+@@ -963,7 +980,7 @@ var ClientConnection = class {
+ 				}
+ 				if (this.incomingMessageQueue[rawKey] === void 0) {
+ 					if (this.getPendingDocumentCount() >= this.maxPendingDocuments) {
+-						console.warn(`Hocuspocus: closing connection ${this.socketId}: too many pending unauthenticated documents (maxPendingDocuments ${this.maxPendingDocuments}). Last requested document: "${documentName}".`);
++					console.warn("Hocuspocus: pending document limit exceeded.");
+ 						this.terminate(ResetConnection);
+ 						return;
+ 					}
+@@ -985,7 +1002,7 @@ var ClientConnection = class {
+ 				}
+ 				this.handleQueueingMessage(data, rawKey, documentName);
+ 			} catch (closeError) {
+-				console.error(closeError);
++			console.error("Hocuspocus: connection cleanup failed.");
+ 				this.websocket.close(Unauthorized.code, Unauthorized.reason);
+ 			}
+ 		};
+diff --git a/src/ClientConnection.ts b/src/ClientConnection.ts
+index 9ac688ae4c7038639cfd0ce6044e56cf926d2d7a..06207d306fc75ddc12b1f4bcb374f5e3187b3181 100644
+--- a/src/ClientConnection.ts
++++ b/src/ClientConnection.ts
+@@ -402,7 +402,7 @@ export class ClientConnection<Context = any> {
+ 					},
+ 				);
+ 			} catch (err: any) {
+-				console.error(err);
++			console.error("Hocuspocus: token sync failed.");
+ 				const error = { ...Unauthorized, ...err };
+ 				connection.close({ code: error.code, reason: error.reason });
+ 			}
+@@ -463,11 +463,7 @@ export class ClientConnection<Context = any> {
+ 					queuedMessages + 1 > this.maxUnauthenticatedQueueMessages;
+ 
+ 				if (exceedsBytes || exceedsMessages) {
+-					console.warn(
+-						exceedsBytes
+-							? `Hocuspocus: closing connection ${this.socketId}: unauthenticated message queue size limit exceeded for "${documentName}" (${queuedBytes + data.byteLength} > maxUnauthenticatedQueueSize ${this.maxUnauthenticatedQueueSize} bytes).`
+-							: `Hocuspocus: closing connection ${this.socketId}: unauthenticated message queue length limit exceeded for "${documentName}" (${queuedMessages + 1} > maxUnauthenticatedQueueMessages ${this.maxUnauthenticatedQueueMessages}).`,
+-					);
++				console.warn("Hocuspocus: unauthenticated message queue limit exceeded.");
+ 					this.terminate(ResetConnection);
+ 					return;
+ 				}
+@@ -559,7 +555,7 @@ export class ClientConnection<Context = any> {
+ 
+ 			// Catch errors due to failed decoding of data
+ 		} catch (error) {
+-			console.error(error);
++			console.error("Hocuspocus: queued message processing failed.");
+ 			this.websocket.close(ResetConnection.code, ResetConnection.reason);
+ 		}
+ 	};
+@@ -602,9 +598,7 @@ export class ClientConnection<Context = any> {
+ 				// queue and hook payload, so this prevents memory amplification by
+ 				// fanning out across many document names (GHSA-xwhh-v746-pj9m).
+ 				if (this.getPendingDocumentCount() >= this.maxPendingDocuments) {
+-					console.warn(
+-						`Hocuspocus: closing connection ${this.socketId}: too many pending unauthenticated documents (maxPendingDocuments ${this.maxPendingDocuments}). Last requested document: "${documentName}".`,
+-					);
++					console.warn("Hocuspocus: pending document limit exceeded.");
+ 					this.terminate(ResetConnection);
+ 					return;
+ 				}
+@@ -634,7 +628,7 @@ export class ClientConnection<Context = any> {
+ 			this.handleQueueingMessage(data, rawKey, documentName);
+ 		} catch (closeError) {
+ 			// catch is needed in case an invalid payload crashes the parsing of the Uint8Array
+-			console.error(closeError);
++			console.error("Hocuspocus: connection cleanup failed.");
+ 			this.websocket.close(Unauthorized.code, Unauthorized.reason);
+ 		}
+ 	};
+diff --git a/src/Connection.ts b/src/Connection.ts
+index 1981acb5c99d7bacb27797dbe36dfee04d3dbf74..c1a4f9136181e27a6e14cf3fb3ea318a3124783a 100644
+--- a/src/Connection.ts
++++ b/src/Connection.ts
+@@ -276,18 +276,14 @@ export class Connection<Context = any> {
+ 				} finally {
+ 					try {
+ 						await this.callbacks.afterHandleMessage(this, rawUpdate);
+-					} catch (afterError) {
+-						console.error(
+-							`afterHandleMessage hook failed (while handling ${documentName})`,
+-							afterError,
+-						);
++					} catch {
++						console.error("Hocuspocus: afterHandleMessage hook failed.");
+ 					}
+ 				}
+ 				// biome-ignore lint/suspicious/noExplicitAny: <explanation>
+ 			} catch (e: any) {
+ 				console.error(
+-					`closing connection ${this.socketId} (while handling ${documentName}) because of exception`,
+-					e,
++					"Hocuspocus: closing connection after message processing failed.",
+ 				);
+ 				this.close({
+ 					code: "code" in e && typeof e.code === 'number' ? e.code : ResetConnection.code,
+diff --git a/src/MessageReceiver.ts b/src/MessageReceiver.ts
+index d6b185f516d1efe18f0f67aa6ff3bd1624f88fc1..1da6a2593d02e63f7d80c67831b0a4ad1e2f4424 100644
+--- a/src/MessageReceiver.ts
++++ b/src/MessageReceiver.ts
+@@ -1,10 +1,10 @@
+ import { AuthMessageType } from "@hocuspocus/common";
+ import * as decoding from "lib0/decoding";
+ import { readVarString } from "lib0/decoding";
++import * as encoding from "lib0/encoding";
+ import {
+ 	Awareness,
+ 	applyAwarenessUpdate,
+-	encodeAwarenessUpdate,
+ } from "y-protocols/awareness";
+ import {
+ 	messageYjsSyncStep1,
+@@ -87,6 +87,8 @@ export class MessageReceiver {
+ 				// update entirely.
+ 				const scratchDoc = new Y.Doc();
+ 				const scratch = new Awareness(scratchDoc);
++				scratch.setLocalState(null);
++				scratch.meta.delete(scratch.clientID);
+ 				try {
+ 					applyAwarenessUpdate(scratch, update, null);
+ 
+@@ -96,9 +98,9 @@ export class MessageReceiver {
+ 						origin,
+ 					);
+ 
+-					update = encodeAwarenessUpdate(scratch, [
+-						...scratch.getStates().keys(),
+-					]);
++					// Preserve original client ids and clocks, including a first removal
++					// tombstone whose id has no scratch Awareness.meta entry yet.
++					update = encodeMutatedAwarenessUpdate(update, scratch.getStates());
+ 				} finally {
+ 					scratch.destroy();
+ 					scratchDoc.destroy();
+@@ -302,3 +304,25 @@ export class MessageReceiver {
+ 		}
+ 	}
+ }
++
++function encodeMutatedAwarenessUpdate(
++	update: Uint8Array,
++	states: Map<number, unknown>,
++): Uint8Array {
++	const decoder = decoding.createDecoder(update);
++	const count = decoding.readVarUint(decoder);
++	const encoder = encoding.createEncoder();
++	encoding.writeVarUint(encoder, count);
++	for (let index = 0; index < count; index += 1) {
++		const clientId = decoding.readVarUint(decoder);
++		const clock = decoding.readVarUint(decoder);
++		decoding.readVarString(decoder);
++		encoding.writeVarUint(encoder, clientId);
++		encoding.writeVarUint(encoder, clock);
++		encoding.writeVarString(
++			encoder,
++			JSON.stringify(states.has(clientId) ? states.get(clientId) : null),
++		);
++	}
++	return encoding.toUint8Array(encoder);
++}

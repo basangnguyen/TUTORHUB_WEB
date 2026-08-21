@@ -5,13 +5,13 @@
 | Thuộc tính            | Giá trị                                                                                      |
 | --------------------- | -------------------------------------------------------------------------------------------- |
 | Phiên bản tài liệu    | 2.5                                                                                          |
-| Cập nhật              | 2026-08-21                                                                                   |
+| Cập nhật              | 2026-08-22                                                                                   |
 | Phạm vi ưu tiên       | Web application                                                                              |
 | Thư mục phát triển    | `D:\TutorHub_V2`                                                                             |
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
 | Phase hiện tại        | Phase 5 collaboration implementation; Phase 3 deferred carry-over tiếp tục                   |
-| Trạng thái gần nhất   | P5-COLLAB-04 `DONE` local; full verify PASS, P5-COLLAB-05 runnable                           |
+| Trạng thái gần nhất   | P5-COLLAB-05 `DONE` local; P5-COLLAB-06 và P5-COLLAB-07 runnable                             |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 
@@ -1703,6 +1703,16 @@ private alpha tiếp tục một Core API instance với process-local atomic br
 broker cùng data-plane quota/backpressure được giữ cho P5-COLLAB-05/P5-COLLAB-09. Không migration,
 shared-staging forward hoặc deploy; production tiếp tục force-off. P5-COLLAB-05 runnable.
 
+P5-COLLAB-05 closure 2026-08-22: runtime Hocuspocus/Yjs riêng đã có authenticated WebSocket,
+server-enforced read-only, sanitized ephemeral awareness, frame/update/document cap, rolling
+message/byte/reconnect budget và quota global/tenant/document/actor. Dedicated PostgreSQL session
+advisory guard khóa đúng một authority cho profile private alpha; duplicate/session-loss, readiness,
+drain/auth race và privacy-safe telemetry đều có automated gate. Runtime `100/100` trên 12 file,
+typecheck/lint/build, OCI boundary và full repository verify PASS. Advisory-lock gate dùng hai
+PostgreSQL session giả lập độc lập; task này không chạy live Neon disposable mới,
+migration/shared-staging write/deploy. Durable
+worker thuộc P5-COLLAB-07, production tiếp tục force-off. P5-COLLAB-06 và P5-COLLAB-07 runnable.
+
 **Deliverable:** teacher mở/đóng công cụ mà không làm rời media room; trạng thái cộng tác khôi phục sau reconnect.
 
 **Exit gate:**
@@ -2035,8 +2045,8 @@ Phải giải quyết bằng spike/ADR đúng phase:
    staging/private alpha, không phải durable worker.
 5. Worker/queue runtime cho pilot.
 6. Redis provider và thời điểm thực sự cần.
-7. `P5-COLLAB-01`: chấp nhận Excalidraw license/dependency boundary, document authority, realtime
-   provider topology, persistence và operational ownership từ evidence P5-COLLAB-00.
+7. Whiteboard production HA/shared atomic coordination và thời điểm nâng khỏi accepted one-instance
+   `FREE_PRIVATE_ALPHA`; Excalidraw/Yjs/Hocuspocus base topology đã được ADR-0034 chấp nhận.
 8. Virus scanning/transcode runtime.
 9. AWS SES target và local adapter/contract P3-CAL-02 đã chốt ở trạng thái `VERIFY`;
    account/region/sandbox/quota live, production access, sending domain/DNS,

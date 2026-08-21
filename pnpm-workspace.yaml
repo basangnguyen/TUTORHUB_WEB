@@ -11,3 +11,5 @@ overrides:
   "lodash-es@>=4.0.0 <4.17.24": 4.18.1
   "nanoid@>=3.0.0 <3.3.18": 3.3.18
   "nanoid@>=5.0.0 <5.1.16": 5.1.16
+patchedDependencies:
+  "@hocuspocus/server@4.6.0": patches/@hocuspocus__server@4.6.0.patch

@@ -1,4 +1,4 @@
-import { RUNTIME_VERSIONS } from "./contracts.js";
+import { MAX_DURABLE_DOCUMENT_BYTES, RUNTIME_VERSIONS } from "./contracts.js";
 
 export interface RuntimeConfig {
   address: string;
@@ -15,11 +15,20 @@ export interface RuntimeConfig {
   controlPlaneUrl: string;
   databaseUrl: string;
   drainTimeoutMs: number;
+  maxAwarenessBytes: number;
+  maxAwarenessDepth: number;
+  maxAwarenessMessagesPerSecond: number;
+  maxAwarenessStates: number;
   maxConnections: number;
   maxConnectionsPerActor: number;
   maxConnectionsPerDocument: number;
+  maxConnectionsPerTenant: number;
+  maxDocumentBytes: number;
   maxFrameBytes: number;
+  maxIngressBytesPerSecond: number;
   maxMessagesPerSecond: number;
+  maxReconnectAttempts: number;
+  maxUpdateBytes: number;
   metricsToken: string;
   port: number;
   probeTimeoutMs: number;
@@ -81,7 +90,7 @@ export function loadRuntimeConfig(
     throw new RuntimeConfigurationError("build_id_invalid");
   }
 
-  return {
+  const config: RuntimeConfig = {
     address: env.HOST?.trim() || "0.0.0.0",
     allowedOrigins,
     b2: {
@@ -102,7 +111,23 @@ export function loadRuntimeConfig(
       5_000,
       45_000,
     ),
-    maxConnections: integer(env, "COLLAB_MAX_CONNECTIONS", 100, 1, 500),
+    maxAwarenessBytes: integer(
+      env,
+      "COLLAB_MAX_AWARENESS_BYTES",
+      16 * 1024,
+      1024,
+      64 * 1024,
+    ),
+    maxAwarenessDepth: integer(env, "COLLAB_MAX_AWARENESS_DEPTH", 8, 1, 16),
+    maxAwarenessMessagesPerSecond: integer(
+      env,
+      "COLLAB_MAX_AWARENESS_MESSAGES_PER_SECOND",
+      30,
+      1,
+      60,
+    ),
+    maxAwarenessStates: integer(env, "COLLAB_MAX_AWARENESS_STATES", 1, 1, 1),
+    maxConnections: integer(env, "COLLAB_MAX_CONNECTIONS", 100, 1, 100),
     maxConnectionsPerActor: integer(
       env,
       "COLLAB_MAX_CONNECTIONS_PER_ACTOR",
@@ -117,12 +142,33 @@ export function loadRuntimeConfig(
       1,
       100,
     ),
+    maxConnectionsPerTenant: integer(
+      env,
+      "COLLAB_MAX_CONNECTIONS_PER_TENANT",
+      100,
+      1,
+      100,
+    ),
+    maxDocumentBytes: integer(
+      env,
+      "COLLAB_MAX_DOCUMENT_BYTES",
+      MAX_DURABLE_DOCUMENT_BYTES,
+      1024 * 1024,
+      MAX_DURABLE_DOCUMENT_BYTES,
+    ),
     maxFrameBytes: integer(
       env,
       "COLLAB_MAX_FRAME_BYTES",
-      512 * 1024,
+      1024 * 1024,
       1024,
       1024 * 1024,
+    ),
+    maxIngressBytesPerSecond: integer(
+      env,
+      "COLLAB_MAX_INGRESS_BYTES_PER_SECOND",
+      4 * 1024 * 1024,
+      1024,
+      8 * 1024 * 1024,
     ),
     maxMessagesPerSecond: integer(
       env,
@@ -131,11 +177,41 @@ export function loadRuntimeConfig(
       1,
       120,
     ),
+    maxReconnectAttempts: integer(
+      env,
+      "COLLAB_MAX_RECONNECT_ATTEMPTS",
+      8,
+      1,
+      20,
+    ),
+    maxUpdateBytes: integer(
+      env,
+      "COLLAB_MAX_UPDATE_BYTES",
+      768 * 1024,
+      1024,
+      1024 * 1024,
+    ),
     metricsToken: secret(env, "COLLAB_METRICS_TOKEN"),
     port: integer(env, "PORT", 3000, 0, 65_535),
     probeTimeoutMs: integer(env, "COLLAB_PROBE_TIMEOUT_MS", 2_000, 250, 5_000),
     profile: RUNTIME_VERSIONS.profile,
   };
+  validatePolicyRelationships(config);
+  return config;
+}
+
+function validatePolicyRelationships(config: RuntimeConfig): void {
+  if (
+    config.maxConnectionsPerActor > config.maxConnectionsPerTenant ||
+    config.maxConnectionsPerDocument > config.maxConnectionsPerTenant ||
+    config.maxConnectionsPerTenant > config.maxConnections ||
+    config.maxAwarenessBytes > config.maxFrameBytes ||
+    config.maxUpdateBytes > config.maxFrameBytes ||
+    config.maxFrameBytes > config.maxIngressBytesPerSecond ||
+    config.maxUpdateBytes > config.maxDocumentBytes
+  ) {
+    throw new RuntimeConfigurationError("runtime_policy_limits_invalid");
+  }
 }
 
 function present(env: Environment, name: string): boolean {

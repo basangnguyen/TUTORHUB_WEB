@@ -3,6 +3,10 @@ import { NeonCheckpointStore } from "./checkpointStore.js";
 import { loadRuntimeConfig, RuntimeConfigurationError } from "./config.js";
 import { HttpControlPlane } from "./controlPlane.js";
 import { RUNTIME_VERSIONS } from "./contracts.js";
+import {
+  PostgresProviderAuthorityGuard,
+  ProviderAuthorityGuardError,
+} from "./providerAuthorityGuard.js";
 import { createCollaborationRuntime } from "./runtimeServer.js";
 import { B2PortableSnapshotStore } from "./snapshotStore.js";
 import { JsonSafeLogger } from "./telemetry.js";
@@ -13,6 +17,7 @@ export async function run(): Promise<void> {
   }
   const config = loadRuntimeConfig();
   const checkpoints = new NeonCheckpointStore(config.databaseUrl);
+  const authorityGuard = new PostgresProviderAuthorityGuard(config.databaseUrl);
   const controlPlane = new HttpControlPlane(
     config.controlPlaneUrl,
     config.controlPlaneToken,
@@ -21,6 +26,7 @@ export async function run(): Promise<void> {
   const snapshots = new B2PortableSnapshotStore(config.b2.bucket, config.b2);
   const logger = new JsonSafeLogger();
   const runtime = createCollaborationRuntime(config, {
+    authorityGuard,
     checkpoints,
     controlPlane,
     logger,
@@ -45,6 +51,7 @@ export async function run(): Promise<void> {
 
 export function startupFailureCode(error: unknown): string {
   if (error instanceof RuntimeConfigurationError) return error.code;
+  if (error instanceof ProviderAuthorityGuardError) return error.code;
   if (
     error instanceof Error &&
     error.message === "runtime_node_version_mismatch"

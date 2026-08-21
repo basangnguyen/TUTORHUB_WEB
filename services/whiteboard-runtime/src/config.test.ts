@@ -27,6 +27,12 @@ describe("loadRuntimeConfig", () => {
       new Set(["https://tutorhub-web.pages.dev"]),
     );
     expect(config.maxConnectionsPerDocument).toBe(50);
+    expect(config.maxConnectionsPerTenant).toBe(100);
+    expect(config.maxDocumentBytes).toBe(10 * 1024 * 1024);
+    expect(config.maxUpdateBytes).toBe(768 * 1024);
+    expect(config.maxAwarenessBytes).toBe(16 * 1024);
+    expect(config.maxAwarenessStates).toBe(1);
+    expect(config.maxReconnectAttempts).toBe(8);
     expect(config.drainTimeoutMs).toBe(45_000);
   });
 
@@ -40,6 +46,10 @@ describe("loadRuntimeConfig", () => {
       "runtime_redis_forbidden_for_free_profile",
     ],
     [
+      { ...validEnvironment, COLLAB_MAX_AWARENESS_STATES: "2" },
+      "collab_max_awareness_states_invalid",
+    ],
+    [
       {
         ...validEnvironment,
         DATABASE_COLLABORATION_URL:
@@ -50,6 +60,29 @@ describe("loadRuntimeConfig", () => {
     [
       { ...validEnvironment, B2_ENDPOINT: "http://storage.example" },
       "b2_endpoint_invalid",
+    ],
+    [
+      {
+        ...validEnvironment,
+        COLLAB_MAX_CONNECTIONS: "10",
+        COLLAB_MAX_CONNECTIONS_PER_TENANT: "11",
+      },
+      "runtime_policy_limits_invalid",
+    ],
+    [
+      {
+        ...validEnvironment,
+        COLLAB_MAX_FRAME_BYTES: String(512 * 1024),
+        COLLAB_MAX_UPDATE_BYTES: String(768 * 1024),
+      },
+      "runtime_policy_limits_invalid",
+    ],
+    [
+      {
+        ...validEnvironment,
+        COLLAB_MAX_DOCUMENT_BYTES: String(10 * 1024 * 1024 + 1),
+      },
+      "collab_max_document_bytes_invalid",
     ],
   ])(
     "fails closed for invalid topology or credential metadata",

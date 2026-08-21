@@ -6,16 +6,40 @@
 
 | Thuộc tính           | Trạng thái                                                                            |
 | -------------------- | ------------------------------------------------------------------------------------- |
-| Ngày cập nhật        | 2026-08-21                                                                            |
+| Ngày cập nhật        | 2026-08-22                                                                            |
 | Repository           | `https://github.com/basangnguyen/TUTORHUB_WEB`                                        |
 | Nhánh làm việc       | `main`                                                                                |
 | Quy trình            | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
 | Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4                                                    |
 | Phase hiện tại       | Phase 5 collaboration implementation; Phase 3 deferred carry-over vẫn hoạt động       |
-| Task `DONE` gần nhất | P5-COLLAB-04 Grant broker và revoke generation                                         |
-| Mốc repository mới   | P5-COLLAB-04 local candidate PASS full verify; commit/push pending                      |
-| Task hiện tại        | P5-COLLAB-05 Collaboration data plane/provider adapter — `TODO`                        |
-| Task tiếp theo       | Authenticated WebSocket, quotas/backpressure, drain và split-brain guard               |
+| Task `DONE` gần nhất | P5-COLLAB-05 Collaboration data plane/provider adapter                                |
+| Mốc repository mới   | P5-COLLAB-05 local candidate PASS; không deploy hoặc shared-staging write              |
+| Task hiện tại        | P5-COLLAB-06 Lazy classroom tool shell — `TODO`                                        |
+| Task tiếp theo       | Nối lazy editor shell với data plane; P5-COLLAB-07 cũng đã runnable                   |
+
+### Checkpoint P5-COLLAB-05 `DONE` — 2026-08-22
+
+Whiteboard runtime Hocuspocus/Yjs riêng đã dùng authenticated WebSocket và exchange exact one-time
+grant/authority lease từ P5-COLLAB-04; Core API REST/LiveKit DataChannel không làm document transport.
+Server bind Origin/document/tenant/actor/capability/generation/writer fence, ép `view` read-only và
+đóng connection khi runtime mode/revoke authority thay đổi. Awareness chỉ là ephemeral state, được
+giới hạn size/rate/depth, ép một state mỗi connection, thay identity client bằng actor đã xác thực và
+không ghi checkpoint.
+
+Runtime fail closed với frame/update/document cap, rolling message/byte budget, reconnect storm và
+quota global/tenant/document/actor. Profile `FREE_PRIVATE_ALPHA` giữ đúng một authority bằng dedicated
+PostgreSQL session advisory lock; duplicate process bị chặn trước listen, mất session/lock làm readiness
+đỏ và đóng active authority. `/livez`, `/readyz`, bearer `/metrics`, checkpoint-failure latch và bounded
+SIGTERM drain đều được harden; authentication hoàn tất sau khi drain bắt đầu vẫn bị deny.
+
+Runtime package PASS `100/100` test trên 12 file; typecheck, ESLint, build, OCI dependency boundary và
+full repository verify đều xanh. Advisory-lock gate dùng hai PostgreSQL session giả lập độc lập;
+P5-COLLAB-05 không chạy live Neon disposable mới, migration, shared Neon write, Render deploy hoặc
+external secret rotation.
+`public.collaboration_document_checkpoints` vẫn chỉ là disposable Gate F fixture; durable
+snapshot/import/export/restore worker thuộc P5-COLLAB-07. Production whiteboard giữ force-off tới
+P5-COLLAB-17. Acceptance:
+[`P5_COLLAB_05_STAGING_ACCEPTANCE.md`](P5_COLLAB_05_STAGING_ACCEPTANCE.md).
 
 ### Checkpoint P5-COLLAB-04 `DONE` — 2026-08-21
 

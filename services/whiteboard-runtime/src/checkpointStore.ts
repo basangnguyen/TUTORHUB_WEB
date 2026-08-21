@@ -6,10 +6,10 @@ import type {
   CollaborationScope,
   StoredCheckpoint,
 } from "./contracts.js";
+import { MAX_DURABLE_DOCUMENT_BYTES } from "./contracts.js";
 
 const CHECKPOINT_SCHEMA_VERSION = 1;
 const PROVIDER_VERSION = "hocuspocus@4.6.0+yjs@13.6.27";
-const MAX_CHECKPOINT_BYTES = 10 * 1024 * 1024;
 
 export class CheckpointStoreError extends Error {
   constructor(
@@ -108,7 +108,7 @@ export class NeonCheckpointStore implements CheckpointStore {
         !Number.isSafeInteger(watermark) ||
         watermark < 1 ||
         row.byte_length !== row.yjs_state.byteLength ||
-        row.byte_length > MAX_CHECKPOINT_BYTES ||
+        row.byte_length > MAX_DURABLE_DOCUMENT_BYTES ||
         !checksumMatches(row.yjs_state, row.checksum)
       ) {
         throw new CheckpointStoreError("checkpoint_corrupt");
@@ -125,7 +125,7 @@ export class NeonCheckpointStore implements CheckpointStore {
   }
 
   async store(scope: CollaborationScope, state: Uint8Array): Promise<number> {
-    if (state.byteLength > MAX_CHECKPOINT_BYTES) {
+    if (state.byteLength > MAX_DURABLE_DOCUMENT_BYTES) {
       throw new CheckpointStoreError("checkpoint_too_large");
     }
     validateYjsState(state);

@@ -11,6 +11,7 @@ RUN corepack enable --install-directory /usr/local/bin \
     && corepack prepare pnpm@11.7.0 --activate
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
+COPY patches patches
 COPY services/whiteboard-runtime/package.json services/whiteboard-runtime/package.json
 RUN pnpm install --frozen-lockfile --filter @tutorhub/whiteboard-runtime... --ignore-scripts
 

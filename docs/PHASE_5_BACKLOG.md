@@ -6,7 +6,8 @@
 > 2026-08-21: migration `000037`, local/full verify, disposable/shared Neon gates, exact ACL,
 > candidate CI/security và final read-only snapshot đều PASS. P5-COLLAB-03 cũng đã `DONE` ngày
 > 2026-08-21 trên exact candidate `647ffe4`. P5-COLLAB-04 đã `DONE` ngày 2026-08-21 với one-time
-> grant broker, exact authority revalidation và bounded revoke disconnect; P5-COLLAB-05 runnable. Production
+> grant broker, exact authority revalidation và bounded revoke disconnect. P5-COLLAB-05 đã `DONE`
+> ngày 2026-08-22 với local data-plane candidate; P5-COLLAB-06 và P5-COLLAB-07 runnable. Production
 > whiteboard vẫn force-off tới P5-COLLAB-17.
 
 ## 1. Mục tiêu phase
@@ -61,7 +62,7 @@ Xây collaboration plane cho lớp học mà không làm rời hoặc làm yếu
 | P5-COLLAB-02 | Implementation | Control-plane schema                            | P5-COLLAB-01               | DONE       |
 | P5-COLLAB-03 | Implementation | OpenAPI lifecycle/grant/snapshot/export/restore | P5-COLLAB-02               | DONE       |
 | P5-COLLAB-04 | Implementation | Grant broker và revoke generation               | P5-COLLAB-03               | DONE       |
-| P5-COLLAB-05 | Implementation | Collaboration data plane/provider adapter       | P5-COLLAB-01, P5-COLLAB-04 | TODO       |
+| P5-COLLAB-05 | Implementation | Collaboration data plane/provider adapter       | P5-COLLAB-01, P5-COLLAB-04 | DONE       |
 | P5-COLLAB-06 | Implementation | Lazy classroom tool shell                       | P5-COLLAB-03, P5-COLLAB-05 | TODO       |
 | P5-COLLAB-07 | Implementation | Snapshot/import/export/restore worker và B2     | P5-COLLAB-02, P5-COLLAB-05 | TODO       |
 | P5-COLLAB-08 | Implementation | Reconnect, compaction và recovery               | P5-COLLAB-05, P5-COLLAB-07 | TODO       |
@@ -277,10 +278,23 @@ awareness ephemeral, health/readiness/drain, payload cap, connection quota và b
 
 **Exit gate:**
 
-- [ ] Không dùng Core API REST/LiveKit DataChannel làm document transport.
-- [ ] Frame/update/presence rate, size, nesting và per-tenant connection quota fail closed.
-- [ ] Split brain/duplicate provider session không tạo authority thứ hai.
-- [ ] Deploy/scale/secret rotation/observability và provider outage owner có runbook.
+- [x] Không dùng Core API REST/LiveKit DataChannel làm document transport.
+- [x] Frame/update/presence rate, size, nesting và per-tenant connection quota fail closed.
+- [x] Split brain/duplicate provider session không tạo authority thứ hai.
+- [x] Deploy/scale/secret rotation/observability và provider outage owner có runbook.
+
+**Closure 2026-08-22 — DONE:** runtime riêng Hocuspocus/Yjs đã dùng authenticated WebSocket với
+exact one-time grant/authority lease, server-enforced `view`, awareness ephemeral đã sanitize,
+frame/update/document cap, rolling message/byte/reconnect budget và quota global/tenant/document/actor.
+Dedicated PostgreSQL session advisory lock chặn runtime thứ hai và mất lock làm readiness fail closed.
+Health/readiness/metrics, bounded drain, authentication/drain race, split-brain guard và privacy-safe
+telemetry đều có automated test; runtime package PASS `100/100` trên 12 file, typecheck/lint/build/OCI
+boundary và full repository verify xanh. Advisory-lock gate dùng hai PostgreSQL session giả lập độc
+lập; task này không chạy live Neon disposable mới, migration, shared-staging write hoặc deploy.
+Checkpoint relation hiện chỉ là
+disposable Gate F fixture, durable worker/B2 thuộc P5-COLLAB-07 và production tiếp tục force-off.
+
+Acceptance: [`P5_COLLAB_05_STAGING_ACCEPTANCE.md`](P5_COLLAB_05_STAGING_ACCEPTANCE.md).
 
 ### P5-COLLAB-06 - Lazy classroom tool shell
 

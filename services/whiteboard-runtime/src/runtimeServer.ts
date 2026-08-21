@@ -12,12 +12,33 @@ import type {
   RuntimeMode,
   SafeLogger,
 } from "./contracts.js";
-import { RuntimeTelemetry } from "./telemetry.js";
-
-type RuntimeState =
-  "draining" | "ready" | "starting" | "stopped" | "unavailable";
+import type { ProviderAuthorityGuard } from "./providerAuthorityGuard.js";
+import {
+  inspectRawHocuspocusAwareness,
+  RawAwarenessInspectionError,
+  type RawHocuspocusAwarenessInspection,
+} from "./rawHocuspocusAwareness.js";
+import { installRawWebSocketIngressGate } from "./rawWebSocketIngressGate.js";
+import { RuntimeDocumentBudget } from "./runtimeDocumentBudget.js";
+import {
+  RuntimeConnectionPolicy,
+  RuntimeIngressPolicy,
+  RuntimePolicyError,
+  validateAwarenessEnvelope,
+} from "./runtimePolicy.js";
+import { RuntimeTelemetry, type RuntimePolicyReason } from "./telemetry.js";
+import {
+  RuntimeSessionRegistry,
+  RuntimeSessionRegistryError,
+  type RuntimeSessionReservation,
+} from "./runtimeSessionRegistry.js";
+import {
+  RuntimeReadinessCoordinator,
+  RuntimeReadinessError,
+} from "./runtimeReadinessCoordinator.js";
 
 export interface RuntimeDependencies {
+  authorityGuard: ProviderAuthorityGuard;
   checkpoints: CheckpointStore;
   controlPlane: ControlPlane;
   logger: SafeLogger;
@@ -34,7 +55,7 @@ export interface CollaborationRuntime {
 interface ActiveConnection {
   capability: CollaborationCapability;
   connection?: Connection<CollaborationScope>;
-  release: () => void;
+  reservation: RuntimeSessionReservation;
   scope: CollaborationScope;
 }
 
@@ -53,15 +74,54 @@ export function createCollaborationRuntime(
 ): CollaborationRuntime {
   const telemetry = new RuntimeTelemetry(config.buildId);
   const connections = new Map<string, ActiveConnection>();
-  const documentScopes = new Map<string, CollaborationScope>();
   const dirtyDocuments = new Set<string>();
-  const traffic = new Map<string, { count: number; startedAt: number }>();
-  const quota = new ConnectionQuota(config);
-  let authorityMode: RuntimeMode = "off";
+  const connectionPolicy = new RuntimeConnectionPolicy({
+    maxConnections: config.maxConnections,
+    maxConnectionsPerActor: config.maxConnectionsPerActor,
+    maxConnectionsPerDocument: config.maxConnectionsPerDocument,
+    maxConnectionsPerTenant: config.maxConnectionsPerTenant,
+    maxReconnectAttempts: config.maxReconnectAttempts,
+    reconnectWindowMs: 10_000,
+  });
+  const sessionRegistry = new RuntimeSessionRegistry(connectionPolicy);
+  const documentBudget = new RuntimeDocumentBudget(
+    config.maxDocumentBytes,
+    config.maxUpdateBytes,
+  );
+  const awarenessIngressPolicy = new RuntimeIngressPolicy({
+    maxBytesPerWindow:
+      config.maxAwarenessBytes * config.maxAwarenessMessagesPerSecond,
+    maxMessagesPerWindow: config.maxAwarenessMessagesPerSecond,
+    windowMs: 1_000,
+  });
+  const readinessCoordinator = new RuntimeReadinessCoordinator(() =>
+    dependencies.authorityGuard.assertHeld(),
+  );
+  const rawAwarenessInspections = new Map<
+    string,
+    Extract<RawHocuspocusAwarenessInspection, { kind: "awareness" }>
+  >();
+  const awarenessClientIds = new Map<string, number>();
+  const awarenessClientOwners = new Map<string, Map<number, string>>();
   let dependencyTimer: NodeJS.Timeout | undefined;
   let authorityTimer: NodeJS.Timeout | undefined;
-  let state: RuntimeState = "starting";
+  let dependencyRefreshRunning = false;
+  let authorityRefreshRunning = false;
   let drainPromise: Promise<void> | undefined;
+
+  const requireAdmissionReady = (write = false): void => {
+    try {
+      readinessCoordinator.assertAdmissionReady({ write });
+    } catch (error) {
+      if (
+        error instanceof RuntimeReadinessError &&
+        error.code === "write_disabled"
+      ) {
+        throw new RuntimeSocketError("write_disabled");
+      }
+      throw new RuntimeSocketError("runtime_not_ready");
+    }
+  };
 
   const server = new Server<CollaborationScope>({
     address: config.address,
@@ -77,7 +137,9 @@ export function createCollaborationRuntime(
     unloadImmediately: false,
     websocketOptions: { maxPayload: config.maxFrameBytes },
     async onConnect() {
-      if (state !== "ready" || authorityMode === "off") {
+      try {
+        requireAdmissionReady();
+      } catch {
         telemetry.connection("view", "rejected");
         throw new RuntimeSocketError("runtime_not_ready");
       }
@@ -89,7 +151,9 @@ export function createCollaborationRuntime(
       socketId,
       token,
     }) {
+      let reservation: RuntimeSessionReservation | undefined;
       try {
+        requireAdmissionReady();
         const origin = requestHeaders.get("origin") ?? "";
         if (
           !config.allowedOrigins.has(origin) ||
@@ -98,79 +162,205 @@ export function createCollaborationRuntime(
         ) {
           throw new RuntimeSocketError("grant_denied");
         }
-        const currentAuthority = await dependencies.controlPlane.probe();
-        authorityMode = currentAuthority.mode;
-        if (authorityMode === "off")
+        const authorityOutcome = await readinessCoordinator.refreshAuthority(
+          async () => {
+            await dependencies.authorityGuard.probe();
+            const current = await dependencies.controlPlane.probe();
+            return { mode: current.mode, value: current };
+          },
+        );
+        if (!authorityOutcome.applied) {
+          throw new RuntimeSocketError("runtime_not_ready");
+        }
+        requireAdmissionReady();
+        if (authorityOutcome.value.mode === "off")
           throw new RuntimeSocketError("runtime_off");
         const scope = await dependencies.controlPlane.exchangeGrant({
           documentName,
           grant: token,
           origin,
         });
-        if (authorityMode === "read_only" && scope.capability !== "view") {
+        requireAdmissionReady();
+        if (
+          scope.origin !== origin ||
+          scope.providerDocumentName !== documentName
+        ) {
+          throw new RuntimeSocketError("grant_denied");
+        }
+        if (
+          authorityOutcome.value.mode === "read_only" &&
+          scope.capability !== "view"
+        ) {
           throw new RuntimeSocketError("write_disabled");
         }
-        assertDocumentScope(documentScopes.get(documentName), scope);
-        const release = quota.acquire(scope);
+        const key = connectionKey(socketId, documentName);
+        reservation = sessionRegistry.reserve(key, scope);
+        requireAdmissionReady();
         connectionConfig.readOnly = scope.capability === "view";
-        connections.set(socketId, {
+        connections.set(key, {
           capability: scope.capability,
-          release,
+          reservation,
           scope,
         });
-        telemetry.connection(scope.capability, "accepted");
         return scope;
       } catch (error) {
+        reservation?.rollback("authentication");
         telemetry.connection("view", "rejected");
         dependencies.logger.event("connection_denied", "denied");
         if (error instanceof RuntimeSocketError) throw error;
+        if (error instanceof RuntimePolicyError) {
+          const denial = policyDenial(error);
+          telemetry.policyRejected(denial.metric);
+          throw new RuntimeSocketError(denial.socketReason);
+        }
+        if (error instanceof RuntimeSessionRegistryError) {
+          throw new RuntimeSocketError(
+            error.code === "document_scope_conflict"
+              ? "document_scope_mismatch"
+              : error.code === "duplicate_session_reservation"
+                ? "duplicate_provider_session"
+                : "grant_denied",
+          );
+        }
         throw new RuntimeSocketError("grant_denied");
       }
     },
-    async connected({ connection, socketId }) {
-      const active = connections.get(socketId);
-      if (active) active.connection = connection;
-      dependencies.logger.event("connection_ok", "ok");
-    },
-    async beforeHandleMessage({ socketId, update }) {
-      if (state !== "ready" || update.byteLength > config.maxFrameBytes) {
-        throw new RuntimeSocketError("update_denied");
-      }
-      const now = Date.now();
-      const previous = traffic.get(socketId);
-      const window =
-        !previous || now - previous.startedAt >= 1_000
-          ? { count: 0, startedAt: now }
-          : previous;
-      window.count += 1;
-      traffic.set(socketId, window);
-      if (window.count > config.maxMessagesPerSecond) {
-        throw new RuntimeSocketError("update_rate_limited");
+    async connected({ connection, documentName, socketId }) {
+      const key = connectionKey(socketId, documentName);
+      const active = connections.get(key);
+      try {
+        if (!active) throw new RuntimeSocketError("grant_denied");
+        requireAdmissionReady(active.capability !== "view");
+        active.reservation.commit();
+        active.connection = connection;
+        rawIngressGate?.markAuthenticated(socketId);
+        telemetry.connection(active.capability, "accepted");
+        dependencies.logger.event("connection_ok", "ok");
+      } catch (error) {
+        active?.reservation.rollback("setup");
+        connections.delete(key);
+        telemetry.connection(active?.capability ?? "view", "rejected");
+        dependencies.logger.event("connection_denied", "denied");
+        throw error;
       }
     },
-    async beforeSync({ context, type }) {
+    async beforeHandleMessage({ documentName, socketId, update }) {
+      const key = connectionKey(socketId, documentName);
+      rawAwarenessInspections.delete(key);
+      try {
+        requireAdmissionReady();
+        const inspection = inspectRawHocuspocusAwareness(update, {
+          maxAwarenessBytes: config.maxAwarenessBytes,
+          maxDepth: config.maxAwarenessDepth,
+          maxFrameBytes: config.maxFrameBytes,
+        });
+        if (inspection.kind === "awareness") {
+          awarenessIngressPolicy.consume(key, inspection.awarenessBytes);
+          rawAwarenessInspections.set(key, inspection);
+        }
+      } catch (error) {
+        if (error instanceof RuntimePolicyError) {
+          const denial = policyDenial(error);
+          telemetry.policyRejected(denial.metric);
+          throw new RuntimeSocketError(denial.socketReason);
+        }
+        if (error instanceof RawAwarenessInspectionError) {
+          telemetry.policyRejected(
+            error.code === "raw_frame_too_large" ? "frame" : "awareness",
+          );
+          throw new RuntimeSocketError("awareness_denied");
+        }
+        throw error;
+      }
+    },
+    async afterHandleMessage({ documentName, socketId, update }) {
+      rawAwarenessInspections.delete(connectionKey(socketId, documentName));
+      rawIngressGate?.completeProcessing(socketId, update);
+    },
+    async beforeHandleAwareness({ context, documentName, socketId, states }) {
+      if (!context) throw new RuntimeSocketError("grant_denied");
+      requireAdmissionReady();
+      const key = connectionKey(socketId, documentName);
+      try {
+        const inspection = rawAwarenessInspections.get(key);
+        if (!inspection) {
+          throw new RuntimePolicyError("awareness_structure_invalid");
+        }
+        inspection.statePayload.restoreInto(states as Map<number, unknown>);
+        const values = [...states.values()];
+        validateAwarenessEnvelope(
+          { byteLength: inspection.awarenessBytes, states: values },
+          {
+            maxBytes: config.maxAwarenessBytes,
+            maxDepth: config.maxAwarenessDepth,
+            maxStates: config.maxAwarenessStates,
+          },
+        );
+        const awarenessIdentity = assertSingleAwarenessState(
+          states as Map<number, unknown>,
+        );
+        const boundClientId = awarenessClientIds.get(key);
+        const clientOwner = awarenessClientOwners
+          .get(documentName)
+          ?.get(awarenessIdentity.clientId);
+        if (
+          (boundClientId === undefined && awarenessIdentity.removal) ||
+          (boundClientId !== undefined &&
+            boundClientId !== awarenessIdentity.clientId) ||
+          (clientOwner !== undefined && clientOwner !== key)
+        ) {
+          throw new RuntimePolicyError("awareness_identity_invalid");
+        }
+        if (!awarenessIdentity.removal) {
+          sanitizeAwarenessStates(states, context);
+        }
+        if (boundClientId === undefined) {
+          const owners =
+            awarenessClientOwners.get(documentName) ??
+            new Map<number, string>();
+          owners.set(awarenessIdentity.clientId, key);
+          awarenessClientOwners.set(documentName, owners);
+          awarenessClientIds.set(key, awarenessIdentity.clientId);
+        }
+        telemetry.awareness();
+      } catch (error) {
+        if (error instanceof RuntimePolicyError) {
+          const denial = policyDenial(error);
+          telemetry.policyRejected(denial.metric);
+          throw new RuntimeSocketError(denial.socketReason);
+        }
+        throw error;
+      }
+    },
+    async beforeSync({ context, documentName, payload, type }) {
+      requireAdmissionReady(type !== 0);
       if (type === 0) return;
-      if (
-        state !== "ready" ||
-        authorityMode !== "enabled" ||
-        context.capability === "view"
-      ) {
+      if (context.capability === "view") {
         throw new RuntimeSocketError("write_disabled");
+      }
+      try {
+        documentBudget.reserve(documentName, payload.byteLength);
+      } catch {
+        telemetry.policyRejected("update");
+        throw new RuntimeSocketError("update_denied");
       }
     },
     async onLoadDocument({ context, document, documentName }) {
       try {
-        assertDocumentScope(documentScopes.get(documentName), context);
-        documentScopes.set(documentName, context);
         const checkpoint = await dependencies.checkpoints.load(context);
         if (checkpoint) {
           Y.applyUpdate(document, checkpoint.state);
           telemetry.checkpoint("loaded");
         }
+        documentBudget.load(
+          documentName,
+          Y.encodeStateAsUpdate(document).byteLength,
+        );
         telemetry.setDocuments(server.hocuspocus.getDocumentsCount());
         return document;
       } catch {
-        state = "unavailable";
+        rollbackPendingDocument(connections, documentName, "load");
+        readinessCoordinator.markCheckpointFailed();
         telemetry.checkpoint("failed");
         dependencies.logger.event("checkpoint_failed", "failed");
         throw new RuntimeSocketError("checkpoint_unavailable");
@@ -182,35 +372,70 @@ export function createCollaborationRuntime(
     },
     async onStoreDocument({ document, documentName, lastContext }) {
       try {
-        await dependencies.checkpoints.store(
-          lastContext,
-          Y.encodeStateAsUpdate(document),
-        );
+        const state = Y.encodeStateAsUpdate(document);
+        await dependencies.checkpoints.store(lastContext, state);
+        documentBudget.load(documentName, state.byteLength);
         dirtyDocuments.delete(documentName);
+        if (dirtyDocuments.size === 0) {
+          readinessCoordinator.markCheckpointRecovered();
+        }
         telemetry.setDirtyDocuments(dirtyDocuments.size);
         telemetry.checkpoint("stored");
         dependencies.logger.event("checkpoint_ok", "ok");
       } catch {
-        state = "unavailable";
+        readinessCoordinator.markCheckpointFailed();
+        closeInvalidScopes(connections, new Set<string>());
         telemetry.checkpoint("failed");
         dependencies.logger.event("checkpoint_failed", "failed");
         throw new RuntimeSocketError("checkpoint_unavailable");
       }
     },
-    async afterUnloadDocument() {
+    async afterUnloadDocument({ documentName }) {
+      documentBudget.release(documentName);
       telemetry.setDocuments(server.hocuspocus.getDocumentsCount());
     },
-    async onDisconnect({ clientsCount, documentName, socketId }) {
-      const active = connections.get(socketId);
+    async onDisconnect({ documentName, socketId }) {
+      const key = connectionKey(socketId, documentName);
+      const active = connections.get(key);
       if (active) {
-        active.release();
-        telemetry.connection(active.capability, "closed");
+        const released = active.reservation.release();
+        if (released.released) {
+          telemetry.connection(active.capability, "closed");
+        }
       }
-      connections.delete(socketId);
-      traffic.delete(socketId);
-      if (clientsCount === 0) documentScopes.delete(documentName);
+      connections.delete(key);
+      const clientId = awarenessClientIds.get(key);
+      if (clientId !== undefined) {
+        const owners = awarenessClientOwners.get(documentName);
+        if (owners?.get(clientId) === key) owners.delete(clientId);
+        if (owners?.size === 0) awarenessClientOwners.delete(documentName);
+      }
+      awarenessClientIds.delete(key);
+      rawAwarenessInspections.delete(key);
+      awarenessIngressPolicy.release(key);
       telemetry.setDocuments(server.hocuspocus.getDocumentsCount());
     },
+  });
+
+  const rawIngressGate = installRawWebSocketIngressGate(server.hocuspocus, {
+    awareness: {
+      maxBytes: config.maxAwarenessBytes,
+      maxDepth: config.maxAwarenessDepth,
+      maxStates: config.maxAwarenessStates,
+    },
+    maxBytesPerWindow: config.maxIngressBytesPerSecond,
+    maxFrameBytes: config.maxFrameBytes,
+    maxMessagesPerWindow: config.maxMessagesPerSecond,
+    maxPendingUnauthenticatedSockets: config.maxConnections,
+    maxQueuedBytesPerSocket: config.maxIngressBytesPerSecond,
+    maxQueuedMessagesPerSocket: Math.min(16, config.maxMessagesPerSecond),
+    onReject: (reason) => {
+      telemetry.policyRejected(
+        reason === "raw_frame_too_large" ? "frame" : "backpressure",
+      );
+      dependencies.logger.event("connection_denied", "denied");
+    },
+    windowMs: 1_000,
   });
 
   server.httpServer.removeAllListeners("request");
@@ -224,81 +449,117 @@ export function createCollaborationRuntime(
   });
 
   const readiness = (): { reason: string; ready: boolean } => {
-    if (state === "draining") return { ready: false, reason: "draining" };
-    if (state !== "ready")
-      return { ready: false, reason: "dependency_unavailable" };
-    if (authorityMode === "off") return { ready: false, reason: "runtime_off" };
-    return { ready: true, reason: "ready" };
+    const snapshot = readinessCoordinator.readiness();
+    return { ready: snapshot.ready, reason: snapshot.reason };
   };
 
   const refreshDependencies = async (): Promise<void> => {
-    if (state === "draining" || state === "stopped") return;
-    const [persistence, control] = await Promise.allSettled([
-      dependencies.checkpoints.probe(),
-      dependencies.controlPlane.probe(),
-    ]);
-    telemetry.dependency("persistence", persistence.status === "fulfilled");
-    telemetry.dependency("control_plane", control.status === "fulfilled");
-    if (persistence.status === "fulfilled" && control.status === "fulfilled") {
-      authorityMode = control.value.mode;
-      state = authorityMode === "off" ? "unavailable" : "ready";
-      dependencies.logger.event("dependency_up", "ok");
-    } else {
-      state = "unavailable";
-      dependencies.logger.event("dependency_down", "failed");
+    const outcome = await readinessCoordinator.refreshDependencies(async () => {
+      const [authorityGuard, persistence, control] = await Promise.allSettled([
+        dependencies.authorityGuard.probe(),
+        dependencies.checkpoints.probe(),
+        dependencies.controlPlane.probe(),
+      ]);
+      const authorityGuardHealthy = authorityGuard.status === "fulfilled";
+      const persistenceHealthy = persistence.status === "fulfilled";
+      const controlPlaneHealthy = control.status === "fulfilled";
+      telemetry.dependency("authority_guard", authorityGuardHealthy);
+      telemetry.dependency("persistence", persistenceHealthy);
+      telemetry.dependency("control_plane", controlPlaneHealthy);
+      return {
+        authorityGuard: authorityGuardHealthy,
+        controlPlane: controlPlaneHealthy,
+        mode: control.status === "fulfilled" ? control.value.mode : "off",
+        persistence: persistenceHealthy,
+      };
+    });
+    if (!outcome.applied) {
+      if (outcome.reason === "failed") {
+        closeInvalidScopes(connections, new Set<string>());
+        dependencies.logger.event("dependency_down", "failed");
+      }
+      return;
     }
+    if (!outcome.snapshot.ready) {
+      closeInvalidScopes(connections, new Set<string>());
+      dependencies.logger.event("dependency_down", "failed");
+      return;
+    }
+    dependencies.logger.event("dependency_up", "ok");
   };
 
   const refreshAuthority = async (): Promise<void> => {
-    if (state === "draining" || state === "stopped") return;
-    try {
+    const outcome = await readinessCoordinator.refreshAuthority(async () => {
+      await dependencies.authorityGuard.probe();
+      telemetry.dependency("authority_guard", true);
       const next = await dependencies.controlPlane.probe();
       telemetry.dependency("control_plane", true);
-      const changed = next.mode !== authorityMode;
-      authorityMode = next.mode;
-      if (changed && authorityMode !== "enabled")
-        closeWriters(connections, authorityMode);
-      if (authorityMode === "off") {
-        state = "unavailable";
-        return;
-      }
       const activeScopes = [...connections.values()].map(
         (active) => active.scope,
       );
       const validLeases =
         await dependencies.controlPlane.validateScopes(activeScopes);
-      closeInvalidScopes(connections, validLeases);
-    } catch {
-      telemetry.dependency("control_plane", false);
-      state = "unavailable";
-      closeInvalidScopes(connections, new Set<string>());
+      return { mode: next.mode, value: validLeases };
+    });
+    if (!outcome.applied) {
+      if (outcome.reason === "failed") {
+        telemetry.dependency("authority_guard", false);
+        telemetry.dependency("control_plane", false);
+        closeInvalidScopes(connections, new Set<string>());
+        dependencies.logger.event("dependency_down", "failed");
+      }
+      return;
     }
+    if (outcome.value.mode !== "enabled") {
+      closeWriters(connections, outcome.value.mode);
+    }
+    closeInvalidScopes(connections, outcome.value.value);
+  };
+
+  const scheduleDependencyRefresh = (): void => {
+    if (dependencyRefreshRunning) return;
+    dependencyRefreshRunning = true;
+    void refreshDependencies().finally(() => {
+      dependencyRefreshRunning = false;
+    });
+  };
+
+  const scheduleAuthorityRefresh = (): void => {
+    if (authorityRefreshRunning) return;
+    authorityRefreshRunning = true;
+    void refreshAuthority().finally(() => {
+      authorityRefreshRunning = false;
+    });
   };
 
   const drain = (): Promise<void> => {
     drainPromise ??= (async () => {
       const startedAt = Date.now();
-      state = "draining";
+      readinessCoordinator.beginDrain();
       telemetry.setDraining(true);
       dependencies.logger.event("drain_started", "started");
       if (dependencyTimer) clearInterval(dependencyTimer);
       if (authorityTimer) clearInterval(authorityTimer);
+      let failed = false;
       try {
         server.hocuspocus.flushPendingStores();
         await withDeadline(server.destroy(), config.drainTimeoutMs);
+        rawIngressGate?.dispose();
         if (dirtyDocuments.size !== 0)
           throw new Error("dirty_documents_remain");
         await dependencies.checkpoints.close();
-        state = "stopped";
-        telemetry.setDocuments(0);
-        telemetry.setDraining(false);
-        dependencies.logger.event(
-          "drain_complete",
-          "ok",
-          Date.now() - startedAt,
-        );
       } catch {
-        state = "stopped";
+        failed = true;
+      }
+      try {
+        await dependencies.authorityGuard.release();
+      } catch {
+        failed = true;
+      }
+      readinessCoordinator.markStopped();
+      telemetry.setDocuments(0);
+      telemetry.setDraining(false);
+      if (failed) {
         dependencies.logger.event(
           "drain_failed",
           "failed",
@@ -306,6 +567,7 @@ export function createCollaborationRuntime(
         );
         throw new Error("runtime_drain_failed");
       }
+      dependencies.logger.event("drain_complete", "ok", Date.now() - startedAt);
     })();
     return drainPromise;
   };
@@ -318,67 +580,142 @@ export function createCollaborationRuntime(
     drain,
     readiness,
     start: async () => {
-      await server.listen();
-      await refreshDependencies();
-      void dependencies.snapshots
-        .probe()
-        .then(() => telemetry.dependency("snapshot", true))
-        .catch(() => telemetry.dependency("snapshot", false));
-      dependencyTimer = setInterval(() => void refreshDependencies(), 5_000);
-      dependencyTimer.unref();
-      authorityTimer = setInterval(() => void refreshAuthority(), 750);
-      authorityTimer.unref();
-      dependencies.logger.event("runtime_started", "ok");
+      await dependencies.authorityGuard.acquire();
+      try {
+        readinessCoordinator.activate();
+        await server.listen();
+        await refreshDependencies();
+        void dependencies.snapshots
+          .probe()
+          .then(() => telemetry.dependency("snapshot", true))
+          .catch(() => telemetry.dependency("snapshot", false));
+        dependencyTimer = setInterval(scheduleDependencyRefresh, 5_000);
+        dependencyTimer.unref();
+        authorityTimer = setInterval(scheduleAuthorityRefresh, 750);
+        authorityTimer.unref();
+        dependencies.logger.event("runtime_started", "ok");
+      } catch (error) {
+        readinessCoordinator.markStopped();
+        rawIngressGate?.dispose();
+        await dependencies.authorityGuard.release().catch(() => undefined);
+        throw error;
+      }
     },
   };
 }
 
-class ConnectionQuota {
-  private active = 0;
-  private readonly actorCounts = new Map<string, number>();
-  private readonly documentCounts = new Map<string, number>();
+function connectionKey(socketId: string, documentName: string): string {
+  return `${socketId}:${documentName}`;
+}
 
-  constructor(private readonly config: RuntimeConfig) {}
-
-  acquire(scope: CollaborationScope): () => void {
-    const actorKey = `${scope.tenantId}\u0000${scope.actorId}`;
-    const documentKey = `${scope.tenantId}\u0000${scope.documentId}\u0000${scope.generation}`;
-    const actorCount = this.actorCounts.get(actorKey) ?? 0;
-    const documentCount = this.documentCounts.get(documentKey) ?? 0;
+function rollbackPendingDocument(
+  connections: Map<string, ActiveConnection>,
+  documentName: string,
+  stage: "load" | "setup",
+): void {
+  for (const [key, active] of connections) {
     if (
-      this.active >= this.config.maxConnections ||
-      actorCount >= this.config.maxConnectionsPerActor ||
-      documentCount >= this.config.maxConnectionsPerDocument
+      active.connection === undefined &&
+      active.scope.providerDocumentName === documentName
     ) {
-      throw new RuntimeSocketError("connection_quota_exceeded");
+      active.reservation.rollback(stage);
+      connections.delete(key);
     }
-    this.active += 1;
-    this.actorCounts.set(actorKey, actorCount + 1);
-    this.documentCounts.set(documentKey, documentCount + 1);
-    let released = false;
-    return () => {
-      if (released) return;
-      released = true;
-      this.active = Math.max(0, this.active - 1);
-      decrement(this.actorCounts, actorKey);
-      decrement(this.documentCounts, documentKey);
+  }
+}
+
+function assertSingleAwarenessState(states: Map<number, unknown>): {
+  clientId: number;
+  removal: boolean;
+} {
+  if (states.size !== 1) {
+    throw new RuntimePolicyError("awareness_state_count_exceeded");
+  }
+  const entry = states.entries().next().value;
+  if (!entry) {
+    throw new RuntimePolicyError("awareness_state_count_exceeded");
+  }
+  const [candidate, state] = entry;
+  if (
+    !Number.isSafeInteger(candidate) ||
+    candidate < 0 ||
+    candidate > 0xffff_ffff
+  ) {
+    throw new RuntimePolicyError("awareness_identity_invalid");
+  }
+  if (state !== null && !isPlainRecord(state)) {
+    throw new RuntimePolicyError("awareness_structure_invalid");
+  }
+  return { clientId: candidate, removal: state === null };
+}
+
+const FORBIDDEN_AWARENESS_FIELDS = [
+  "actorId",
+  "authorityLease",
+  "capability",
+  "documentId",
+  "generation",
+  "grant",
+  "sessionId",
+  "tenantId",
+] as const;
+
+function sanitizeAwarenessStates(
+  states: Map<number, Record<string, unknown>>,
+  scope: CollaborationScope,
+): void {
+  for (const state of states.values()) {
+    for (const field of FORBIDDEN_AWARENESS_FIELDS) delete state[field];
+    const currentUser = isPlainRecord(state.user) ? state.user : undefined;
+    const displayName = currentUser?.displayName;
+    state.user = {
+      id: scope.actorId,
+      ...(typeof displayName === "string" && displayName.length <= 128
+        ? { displayName }
+        : {}),
+    };
+    state.tutorhub = {
+      actorId: scope.actorId,
+      capability: scope.capability,
+      generation: scope.generation,
     };
   }
 }
 
-function assertDocumentScope(
-  current: CollaborationScope | undefined,
-  candidate: CollaborationScope,
-): void {
-  if (
-    current &&
-    (current.tenantId !== candidate.tenantId ||
-      current.documentId !== candidate.documentId ||
-      current.generation !== candidate.generation ||
-      current.providerDocumentName !== candidate.providerDocumentName ||
-      current.writerFence !== candidate.writerFence)
-  ) {
-    throw new RuntimeSocketError("document_scope_mismatch");
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return false;
+  }
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+}
+
+function policyDenial(error: RuntimePolicyError): {
+  metric: RuntimePolicyReason;
+  socketReason: string;
+} {
+  switch (error.code) {
+    case "actor_connection_quota":
+    case "document_connection_quota":
+    case "global_connection_quota":
+    case "tenant_connection_quota":
+      return {
+        metric: "connection_quota",
+        socketReason: "connection_quota_exceeded",
+      };
+    case "reconnect_storm_denied":
+      return { metric: "reconnect", socketReason: "reconnect_storm_denied" };
+    case "awareness_bytes_exceeded":
+    case "awareness_depth_exceeded":
+    case "awareness_identity_invalid":
+    case "awareness_state_count_exceeded":
+    case "awareness_structure_invalid":
+      return { metric: "awareness", socketReason: error.code };
+    case "ingress_byte_budget_exceeded":
+    case "ingress_message_budget_exceeded":
+      return { metric: "backpressure", socketReason: "backpressure_denied" };
+    default:
+      return { metric: "backpressure", socketReason: "policy_denied" };
   }
 }
 
@@ -386,9 +723,14 @@ function closeWriters(
   connections: Map<string, ActiveConnection>,
   mode: RuntimeMode,
 ): void {
-  for (const active of connections.values()) {
+  for (const [key, active] of connections) {
     if (mode === "off" || active.capability !== "view") {
-      active.connection?.close({ code: 4403, reason: "runtime_mode_changed" });
+      if (active.connection) {
+        active.connection.close({ code: 4403, reason: "runtime_mode_changed" });
+      } else {
+        active.reservation.rollback("setup");
+        connections.delete(key);
+      }
     }
   }
 }
@@ -397,9 +739,14 @@ function closeInvalidScopes(
   connections: Map<string, ActiveConnection>,
   validLeases: Set<string>,
 ): void {
-  for (const active of connections.values()) {
+  for (const [key, active] of connections) {
     if (!validLeases.has(active.scope.authorityLease)) {
-      active.connection?.close({ code: 4403, reason: "authority_lost" });
+      if (active.connection) {
+        active.connection.close({ code: 4403, reason: "authority_lost" });
+      } else {
+        active.reservation.rollback("setup");
+        connections.delete(key);
+      }
     }
   }
 }
@@ -468,12 +815,6 @@ function writeJson(
     "x-content-type-options": "nosniff",
   });
   response.end(JSON.stringify(payload));
-}
-
-function decrement(values: Map<string, number>, key: string): void {
-  const next = (values.get(key) ?? 1) - 1;
-  if (next <= 0) values.delete(key);
-  else values.set(key, next);
 }
 
 async function withDeadline<T>(

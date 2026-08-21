@@ -15,18 +15,24 @@ const mainPath = new URL(
   "../services/whiteboard-runtime/src/main.ts",
   import.meta.url,
 );
+const hocuspocusPatchPath = new URL(
+  "../patches/@hocuspocus__server@4.6.0.patch",
+  import.meta.url,
+);
 const renderBlueprintPath = new URL(
   "../infrastructure/render/p5-collab-01-gate-f3.render.yaml",
   import.meta.url,
 );
 
 export async function checkWhiteboardRuntimeOci() {
-  const [dockerfile, packageText, main, renderBlueprint] = await Promise.all([
-    readFile(dockerfilePath, "utf8"),
-    readFile(packagePath, "utf8"),
-    readFile(mainPath, "utf8"),
-    readFile(renderBlueprintPath, "utf8"),
-  ]);
+  const [dockerfile, packageText, main, renderBlueprint, hocuspocusPatch] =
+    await Promise.all([
+      readFile(dockerfilePath, "utf8"),
+      readFile(packagePath, "utf8"),
+      readFile(mainPath, "utf8"),
+      readFile(renderBlueprintPath, "utf8"),
+      readFile(hocuspocusPatchPath, "utf8"),
+    ]);
   const manifest = JSON.parse(packageText);
   const expectedBase =
     "node:24.15.0-alpine3.23@sha256:d1b3b4da11eefd5941e7f0b9cf17783fc99d9c6fc34884a665f40a06dbdfc94f";
@@ -38,6 +44,14 @@ export async function checkWhiteboardRuntimeOci() {
   assert.equal((dockerfile.match(/FROM \$\{NODE_IMAGE\}/g) ?? []).length, 2);
   assert.doesNotMatch(dockerfile, /(?:^|[:@])latest(?:\s|$)/im);
   assert.match(dockerfile, /pnpm install --frozen-lockfile/);
+  const patchCopyIndex = dockerfile.indexOf("COPY patches patches");
+  const frozenInstallIndex = dockerfile.indexOf(
+    "pnpm install --frozen-lockfile",
+  );
+  assert.ok(
+    patchCopyIndex >= 0 && patchCopyIndex < frozenInstallIndex,
+    "the patched dependency must be copied before the frozen install",
+  );
   assert.match(dockerfile, /pnpm@11\.7\.0/);
   assert.match(
     dockerfile,
@@ -78,6 +92,38 @@ export async function checkWhiteboardRuntimeOci() {
     2,
   );
   assert.doesNotMatch(renderBlueprint, /healthCheckPath: \/readyz/);
+
+  const patchAdditions = hocuspocusPatch
+    .split(/\r?\n/)
+    .filter((line) => line.startsWith("+") && !line.startsWith("+++"))
+    .join("\n");
+  assert.equal(
+    (patchAdditions.match(/scratch\.meta\.delete\(scratch\.clientID\);/g) ?? [])
+      .length,
+    3,
+    "the awareness scratch client must be removed in source, CJS and ESM",
+  );
+  for (const safeMessage of [
+    "Hocuspocus: token sync failed.",
+    "Hocuspocus: unauthenticated message queue limit exceeded.",
+    "Hocuspocus: queued message processing failed.",
+    "Hocuspocus: pending document limit exceeded.",
+    "Hocuspocus: connection cleanup failed.",
+  ]) {
+    assert.equal(
+      patchAdditions.split(safeMessage).length - 1,
+      3,
+      `${safeMessage} must be patched in source, CJS and ESM`,
+    );
+  }
+  assert.doesNotMatch(
+    patchAdditions,
+    /console\.(?:error|warn)\((?:err|error|closeError)\)/,
+  );
+  assert.doesNotMatch(
+    patchAdditions,
+    /console\.(?:error|warn)\([^\n]*(?:socketId|documentName)/,
+  );
 
   return {
     baseImage: expectedBase,
