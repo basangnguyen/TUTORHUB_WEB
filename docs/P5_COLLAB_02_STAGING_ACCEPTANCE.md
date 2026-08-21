@@ -13,7 +13,8 @@ Verify/Security và shared staging acceptance còn mở; production chưa đư�
 - Chỉ dùng Neon disposable branch tách từ `staging`; không dùng `production` hoặc shared `staging`.
 - Chỉ forward `36 false -> 37 false`; không rollback `000037` trên shared staging/production.
 - Không xóa disposable branch trước khi toàn bộ gate database PASS.
-- Không forward shared staging, deploy hoặc bật whiteboard production trong P5-COLLAB-02.
+- Shared staging chỉ được forward sau disposable report, exact candidate CI/security PASS và owner
+  cho phép rõ ràng; P5-COLLAB-02 không deploy hoặc bật whiteboard production.
 - Ba URL phải trỏ cùng một disposable database nhưng dùng ba principal riêng: migration owner,
   Core API runtime và maintenance.
 
@@ -130,3 +131,55 @@ Không chạy rollback. Harness không log URL/role name và fail closed nếu b
 3. Review migration/ACL evidence và xác nhận không có live-operation/history authority.
 4. Chỉ sau báo cáo disposable mới xin quyền forward shared staging `36 -> 37`, provision ACL và chạy
    read-only final snapshot. P5-COLLAB-02 không yêu cầu deploy UI/runtime mới.
+
+## 8. Shared staging gates
+
+Shared staging dùng `.env.staging.local` và bốn action confirmation tách biệt. Mỗi action phải được
+gỡ trước khi đặt action kế tiếp; harness từ chối confirmation disposable, confirmation P4-10 cũ
+hoặc hai action P5-COLLAB-02 đồng thời. Đoạn nạp chỉ đặt ba biến process và không in giá trị:
+
+```powershell
+$envFile = '.env.staging.local'
+$allowed = @(
+  'DATABASE_MIGRATION_URL',
+  'DATABASE_POOL_URL',
+  'DATABASE_POLL_MAINTENANCE_URL'
+)
+
+Get-Content -LiteralPath $envFile | ForEach-Object {
+  if ($_ -match '^\s*([A-Z0-9_]+)\s*=\s*(.+?)\s*$' -and $allowed -contains $matches[1]) {
+    $name = $matches[1]
+    $value = $matches[2].Trim()
+    if (($value.StartsWith('"') -and $value.EndsWith('"')) -or
+        ($value.StartsWith("'") -and $value.EndsWith("'"))) {
+      $value = $value.Substring(1, $value.Length - 2)
+    }
+    [Environment]::SetEnvironmentVariable($name, $value, 'Process')
+  }
+}
+```
+
+Chạy tuần tự và chỉ đặt action tương ứng trong cùng process đã nạp biến:
+
+```powershell
+$env:P5_COLLAB_02_SHARED_CONFIRM = 'I_UNDERSTAND_P5_COLLAB_02_SHARED_STAGING_ONLY'
+
+$env:P5_COLLAB_02_SHARED_OWNER_PREFLIGHT = 'I_UNDERSTAND_P5_COLLAB_02_SHARED_OWNER_PREFLIGHT_READ_ONLY'
+corepack pnpm test:integration:collaboration:p502:shared:preflight
+Remove-Item Env:P5_COLLAB_02_SHARED_OWNER_PREFLIGHT
+
+$env:P5_COLLAB_02_SHARED_MIGRATION_CONFIRM = 'I_UNDERSTAND_P5_COLLAB_02_FORWARD_SHARED_STAGING_ONLY'
+corepack pnpm test:integration:collaboration:p502:shared:migrate
+Remove-Item Env:P5_COLLAB_02_SHARED_MIGRATION_CONFIRM
+
+$env:P5_COLLAB_02_SHARED_ACL_PROVISION_CONFIRM = 'I_UNDERSTAND_P5_COLLAB_02_ACL_PROVISION_SHARED_STAGING_ONLY'
+corepack pnpm test:integration:collaboration:p502:shared:acl
+Remove-Item Env:P5_COLLAB_02_SHARED_ACL_PROVISION_CONFIRM
+
+$env:P5_COLLAB_02_SHARED_FINAL_CONFIRM = 'I_UNDERSTAND_P5_COLLAB_02_SHARED_FINAL_SNAPSHOT_READ_ONLY'
+corepack pnpm test:integration:collaboration:p502:shared:final
+```
+
+Expected: owner preflight `36 false`; forward/idempotent `36 false -> 37 false -> 37 false`; exact
+runtime/maintenance/PUBLIC ACL PASS; final read-only snapshot `37 false`, năm relation đúng shape,
+không có operation/history authority thứ hai và tất cả relation mới có `0` row. Không rollback.
