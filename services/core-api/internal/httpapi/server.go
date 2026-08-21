@@ -11,6 +11,7 @@ import (
 	"github.com/tutorhub-v2/core-api/internal/modules/audit"
 	"github.com/tutorhub-v2/core-api/internal/modules/calendar"
 	"github.com/tutorhub-v2/core-api/internal/modules/classroom"
+	"github.com/tutorhub-v2/core-api/internal/modules/collaboration"
 	"github.com/tutorhub-v2/core-api/internal/modules/content"
 	"github.com/tutorhub-v2/core-api/internal/modules/conversation"
 	"github.com/tutorhub-v2/core-api/internal/modules/discovery"
@@ -56,6 +57,7 @@ type Options struct {
 	Conversations         conversation.ServiceAPI
 	Content               content.ServiceAPI
 	Discovery             discovery.ServiceAPI
+	Collaboration         collaboration.ServiceAPI
 	LiveKitWebhook        media.WebhookVerifier
 	InvitationRateLimiter InvitationRateLimiter
 	RemoteAddressResolver RemoteAddressResolver
@@ -162,6 +164,7 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 	conversations := newConversationHandlers(logger, auth, options.Conversations)
 	files := newContentHandlers(logger, auth, options.Content)
 	discovery := newDiscoveryHandlers(logger, auth, options.Discovery)
+	whiteboards := newWhiteboardHandlers(logger, auth, options.Collaboration)
 	calendarHandlers := newCalendarHandlers(logger, auth, options.Calendar)
 	calendarScheduling := newCalendarSchedulingHandlers(
 		logger,
@@ -231,6 +234,54 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 	mux.Handle(
 		resourceSearchPath,
 		discoveryResponseHeaders(http.HandlerFunc(discovery.search)),
+	)
+	mux.Handle(
+		whiteboardsCollectionPath,
+		whiteboardResponseHeaders(http.HandlerFunc(whiteboards.collection)),
+	)
+	mux.Handle(
+		whiteboardResourcePattern,
+		whiteboardResponseHeaders(http.HandlerFunc(whiteboards.resource)),
+	)
+	mux.Handle(
+		whiteboardOpenPattern,
+		whiteboardResponseHeaders(whiteboards.transition("open")),
+	)
+	mux.Handle(
+		whiteboardSuspendPattern,
+		whiteboardResponseHeaders(whiteboards.transition("suspend")),
+	)
+	mux.Handle(
+		whiteboardResumePattern,
+		whiteboardResponseHeaders(whiteboards.transition("resume")),
+	)
+	mux.Handle(
+		whiteboardClosePattern,
+		whiteboardResponseHeaders(whiteboards.transition("close")),
+	)
+	mux.Handle(
+		whiteboardCapabilitiesPattern,
+		whiteboardResponseHeaders(http.HandlerFunc(whiteboards.capabilities)),
+	)
+	mux.Handle(
+		whiteboardGrantExchangePattern,
+		whiteboardResponseHeaders(http.HandlerFunc(whiteboards.grantExchange)),
+	)
+	mux.Handle(
+		whiteboardSnapshotsPattern,
+		whiteboardResponseHeaders(http.HandlerFunc(whiteboards.snapshots)),
+	)
+	mux.Handle(
+		whiteboardExportsPattern,
+		whiteboardResponseHeaders(http.HandlerFunc(whiteboards.export)),
+	)
+	mux.Handle(
+		whiteboardRestorePattern,
+		whiteboardResponseHeaders(http.HandlerFunc(whiteboards.restore)),
+	)
+	mux.Handle(
+		whiteboardImportValidatePath,
+		whiteboardResponseHeaders(http.HandlerFunc(whiteboards.validateImport)),
 	)
 	mux.Handle(
 		classFilesPattern,

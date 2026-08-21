@@ -70,6 +70,9 @@ func TestLoadDefaults(t *testing.T) {
 		cfg.CalendarProtectedData.KeyVersion != 0 {
 		t.Fatalf("calendar protected data must remain disabled without an explicit key: %+v", cfg.CalendarProtectedData)
 	}
+	if cfg.Collaboration.Enabled {
+		t.Fatal("whiteboard control plane must remain deployment-force-off by default")
+	}
 	if cfg.FeatureControls.DisableConversations || !cfg.FeatureControls.DisableFileUploads ||
 		cfg.FeatureControls.EnableInAppNotifications ||
 		cfg.FeatureControls.MaxMembers != defaultFeatureMemberLimit ||
@@ -227,6 +230,7 @@ func TestLoadCustomValues(t *testing.T) {
 		"FEATURE_CONTROL_ENABLE_IN_APP_NOTIFICATIONS":                         "true",
 		"FEATURE_CONTROL_ENABLE_CLASSROOM_MEDIA_ROOMS":                        "true",
 		"FEATURE_CONTROL_ENABLE_INSTANT_STUDY_ROOMS":                          "true",
+		"COLLABORATION_CONTROL_PLANE_ENABLED":                                 "true",
 		"FEATURE_CONTROL_MAX_MEMBERS":                                         "5000",
 		"FEATURE_CONTROL_MAX_ACTIVE_CLASSES":                                  "500",
 		"FEATURE_CONTROL_MAX_INVITE_CREATIONS_PER_HOUR":                       "5000",
@@ -304,6 +308,9 @@ func TestLoadCustomValues(t *testing.T) {
 		cfg.CalendarProtectedData.KeyVersion != 1 {
 		t.Fatalf("unexpected calendar protected data config: %+v", cfg.CalendarProtectedData)
 	}
+	if !cfg.Collaboration.Enabled {
+		t.Fatal("expected explicitly enabled whiteboard control plane")
+	}
 	if !cfg.FeatureControls.DisableMembershipInvitations ||
 		!cfg.FeatureControls.DisableClassManagement ||
 		!cfg.FeatureControls.DisableClassInviteLinks ||
@@ -376,6 +383,7 @@ func TestLoadRejectsInvalidFeatureControlGuardrails(t *testing.T) {
 		"FEATURE_CONTROL_ENABLE_IN_APP_NOTIFICATIONS":                         "sometimes",
 		"FEATURE_CONTROL_ENABLE_CLASSROOM_MEDIA_ROOMS":                        "sometimes",
 		"FEATURE_CONTROL_ENABLE_INSTANT_STUDY_ROOMS":                          "sometimes",
+		"COLLABORATION_CONTROL_PLANE_ENABLED":                                 "sometimes",
 		"FEATURE_CONTROL_MAX_MEMBERS":                                         "10001",
 		"FEATURE_CONTROL_MAX_ACTIVE_CLASSES":                                  "0",
 		"FEATURE_CONTROL_MAX_INVITE_CREATIONS_PER_HOUR":                       "not-a-number",
@@ -411,6 +419,7 @@ func TestLoadRejectsInvalidFeatureControlGuardrails(t *testing.T) {
 		"FEATURE_CONTROL_ENABLE_IN_APP_NOTIFICATIONS",
 		"FEATURE_CONTROL_ENABLE_CLASSROOM_MEDIA_ROOMS",
 		"FEATURE_CONTROL_ENABLE_INSTANT_STUDY_ROOMS",
+		"COLLABORATION_CONTROL_PLANE_ENABLED",
 		"FEATURE_CONTROL_MAX_MEMBERS",
 		"FEATURE_CONTROL_MAX_ACTIVE_CLASSES",
 		"FEATURE_CONTROL_MAX_INVITE_CREATIONS_PER_HOUR",

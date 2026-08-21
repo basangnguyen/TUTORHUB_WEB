@@ -95,6 +95,7 @@ type Config struct {
 	ObjectStorage         ObjectStorageConfig
 	EdgeContext           EdgeContextConfig
 	CalendarProtectedData CalendarProtectedDataConfig
+	Collaboration         CollaborationConfig
 	FeatureControls       FeatureControlConfig
 }
 
@@ -157,6 +158,14 @@ type CalendarProtectedDataConfig struct {
 	Enabled    bool
 	Key        []byte
 	KeyVersion int16
+}
+
+// CollaborationConfig is a deployment-level guardrail for the whiteboard
+// control plane. It defaults to disabled independently of tenant feature
+// overrides so production cannot expose whiteboard routes before the exact
+// rollout gate authorizes them.
+type CollaborationConfig struct {
+	Enabled bool
 }
 
 type FeatureControlConfig struct {
@@ -293,6 +302,14 @@ func load(lookup lookupEnv) (Config, error) {
 	cfg.ObjectStorage = objectStorageConfig(lookup, &validationErrors)
 	cfg.EdgeContext = edgeContextConfig(lookup, cfg.Environment, &validationErrors)
 	cfg.CalendarProtectedData = calendarProtectedDataConfig(lookup, &validationErrors)
+	cfg.Collaboration = CollaborationConfig{
+		Enabled: boolValue(
+			lookup,
+			"COLLABORATION_CONTROL_PLANE_ENABLED",
+			false,
+			&validationErrors,
+		),
+	}
 	cfg.FeatureControls = featureControlConfig(lookup, &validationErrors)
 	if !cfg.LiveKit.Enabled {
 		cfg.FeatureControls.EnableClassroomMediaRooms = false

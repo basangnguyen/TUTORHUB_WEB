@@ -2472,6 +2472,229 @@ export type paths = {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/api/v1/whiteboard-imports/validate": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Validate a bounded portable whiteboard manifest without mutating authority */
+    readonly post: operations["validateWhiteboardImport"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/whiteboards": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Create or replay the authoritative whiteboard bound to one media space
+     * @description The server reauthorizes the exact media space in the active tenant, creates only control-plane metadata, and never exposes the provider document name.
+     */
+    readonly post: operations["createWhiteboard"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/whiteboards/{document_id}": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /**
+     * Return one authorized whiteboard lifecycle and capability projection
+     * @description Missing, foreign-tenant, and inaccessible resources all use the same not-found response. Provider document names and storage coordinates are never returned.
+     */
+    readonly get: operations["getWhiteboard"];
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/whiteboards/{document_id}/capabilities": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /** Return the current server-derived capability projection */
+    readonly get: operations["getWhiteboardCapabilities"];
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/whiteboards/{document_id}/close": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Permanently close one whiteboard and revoke the current grant generation */
+    readonly post: operations["closeWhiteboard"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/whiteboards/{document_id}/exports": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Request a portable export from the exact current authority generation
+     * @description Export requires current management authority, expected generation, and idempotency. Processing is fail-closed until P5-COLLAB-07.
+     */
+    readonly post: operations["exportWhiteboard"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/whiteboards/{document_id}/grant-exchanges": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Exchange current authority for a short-lived provider credential
+     * @description The exact Origin comes from the request header. The response is sensitive, no-store, and only available once the P5-COLLAB-04 broker is configured.
+     */
+    readonly post: operations["exchangeWhiteboardGrant"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/whiteboards/{document_id}/open": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Open one created whiteboard with optimistic authority */
+    readonly post: operations["openWhiteboard"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/whiteboards/{document_id}/restore": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Atomically swap to a new authority generation restored from one immutable snapshot
+     * @description Restore requires current management authority, expected document version, expected generation, and idempotency. Existing grants are revoked by the generation swap.
+     */
+    readonly post: operations["restoreWhiteboard"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/whiteboards/{document_id}/resume": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Resume one suspended whiteboard without reusing an old credential */
+    readonly post: operations["resumeWhiteboard"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/whiteboards/{document_id}/snapshots": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /** List bounded immutable snapshot metadata for one authorized whiteboard */
+    readonly get: operations["listWhiteboardSnapshots"];
+    readonly put?: never;
+    /**
+     * Request an immutable manual snapshot at the exact current generation
+     * @description Processing is fail-closed until the P5-COLLAB-07 artifact worker is configured.
+     */
+    readonly post: operations["createWhiteboardSnapshot"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/whiteboards/{document_id}/suspend": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Suspend one open whiteboard and revoke the current grant generation */
+    readonly post: operations["suspendWhiteboard"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/health": {
     readonly parameters: {
       readonly query?: never;
@@ -3682,6 +3905,11 @@ export type components = {
     readonly CreateTenantRequest: {
       readonly name: string;
       readonly slug: string;
+    };
+    readonly CreateWhiteboardRequest: {
+      readonly idempotency_key: string;
+      /** Format: uuid */
+      readonly media_space_id: string;
     };
     readonly CSRFResponse: {
       readonly csrf_token: string;
@@ -5222,6 +5450,149 @@ export type components = {
       readonly locale: string;
       readonly timezone: string;
     };
+    readonly WhiteboardArtifactCommand: {
+      /** Format: uuid */
+      readonly document_id: string;
+      /** Format: int64 */
+      readonly generation: number;
+      /** Format: uuid */
+      readonly id: string;
+      /** @enum {string} */
+      readonly kind: "snapshot" | "export";
+      /** Format: date-time */
+      readonly requested_at: string;
+      /** @constant */
+      readonly status: "accepted";
+    };
+    readonly WhiteboardArtifactRequest: {
+      /** Format: int64 */
+      readonly expected_generation: number;
+      readonly idempotency_key: string;
+    };
+    /**
+     * @description Maximum server-derived collaboration capability for the current viewer.
+     * @enum {string}
+     */
+    readonly WhiteboardCapability: "view" | "edit" | "present";
+    /** @description Authorization-filtered control-plane projection. Provider names and storage coordinates are intentionally absent. */
+    readonly WhiteboardDocument: {
+      /** Format: date-time */
+      readonly created_at: string;
+      /** Format: int64 */
+      readonly current_generation: number;
+      /** Format: uuid */
+      readonly id: string;
+      /** Format: uuid */
+      readonly media_space_id: string;
+      /** Format: int64 */
+      readonly revoke_generation: number;
+      readonly status: components["schemas"]["WhiteboardStatus"];
+      /** Format: date-time */
+      readonly updated_at: string;
+      /** Format: int64 */
+      readonly version: number;
+      readonly viewer_capabilities: components["schemas"]["WhiteboardViewerCapabilities"];
+    };
+    /** @description Short-lived sensitive credential projection. It must not be cached, logged, or placed in a URL. */
+    readonly WhiteboardGrantCredential: {
+      readonly capability: components["schemas"]["WhiteboardCapability"];
+      /** @description Opaque one-time or short-lived provider credential. */
+      readonly credential: string;
+      /** Format: uuid */
+      readonly document_id: string;
+      /** Format: date-time */
+      readonly expires_at: string;
+      /** Format: int64 */
+      readonly generation: number;
+      /** Format: uri */
+      readonly provider_url: string;
+      /** Format: int64 */
+      readonly revoke_generation: number;
+    };
+    readonly WhiteboardGrantExchangeRequest: {
+      readonly capability: components["schemas"]["WhiteboardCapability"];
+      /** Format: int64 */
+      readonly expected_generation: number;
+      /** Format: int64 */
+      readonly expected_revoke_generation: number;
+    };
+    readonly WhiteboardImportManifest: {
+      readonly authority_version: string;
+      readonly content_sha256: string;
+      readonly engine_version: string;
+      readonly format_version: string;
+      readonly schema_version: number;
+      /** Format: int64 */
+      readonly size_bytes: number;
+    };
+    readonly WhiteboardImportValidation: {
+      readonly manifest: components["schemas"]["WhiteboardImportManifest"];
+      readonly problems: readonly (
+        | "unsupported_format_version"
+        | "unsupported_engine_version"
+        | "unsupported_authority_version"
+        | "invalid_schema_version"
+        | "invalid_content_sha256"
+        | "invalid_size_bytes"
+      )[];
+      readonly valid: boolean;
+    };
+    readonly WhiteboardRestoreRequest: {
+      /** Format: int64 */
+      readonly expected_generation: number;
+      /** Format: int64 */
+      readonly expected_version: number;
+      readonly idempotency_key: string;
+      /** Format: uuid */
+      readonly snapshot_id: string;
+    };
+    /** @description Immutable portable snapshot metadata. B2 bucket, object key, version, and credential data are never returned. */
+    readonly WhiteboardSnapshot: {
+      readonly authority_version: string;
+      readonly causal_watermark_sha256: string;
+      readonly content_sha256: string;
+      /** Format: date-time */
+      readonly created_at: string;
+      /** Format: uuid */
+      readonly document_id: string;
+      readonly engine_version: string;
+      readonly format_version: string;
+      /** Format: int64 */
+      readonly generation: number;
+      /** Format: uuid */
+      readonly id: string;
+      /** @enum {string} */
+      readonly kind: "automatic" | "manual" | "export" | "pre_restore";
+      /** Format: date-time */
+      readonly retention_until: string;
+      readonly schema_version: number;
+      /** Format: int64 */
+      readonly size_bytes: number;
+    };
+    readonly WhiteboardSnapshotList: {
+      readonly items: readonly components["schemas"]["WhiteboardSnapshot"][];
+    };
+    /**
+     * @description Authoritative control-plane lifecycle state.
+     * @enum {string}
+     */
+    readonly WhiteboardStatus: "created" | "open" | "suspended" | "closed";
+    readonly WhiteboardTransitionRequest: {
+      /** Format: int64 */
+      readonly expected_version: number;
+      readonly idempotency_key: string;
+    };
+    readonly WhiteboardViewerCapabilities: {
+      readonly can_close: boolean;
+      readonly can_create_snapshot: boolean;
+      readonly can_exchange_grant: boolean;
+      readonly can_export: boolean;
+      readonly can_open: boolean;
+      readonly can_restore: boolean;
+      readonly can_resume: boolean;
+      readonly can_suspend: boolean;
+      readonly capability: components["schemas"]["WhiteboardCapability"];
+    };
   };
   responses: {
     /** @description Authorization-filtered availability poll projection */
@@ -5279,6 +5650,26 @@ export type components = {
         readonly "application/problem+json": components["schemas"]["Problem"];
       };
     };
+    /** @description Whiteboard snapshot or export command accepted for asynchronous processing */
+    readonly WhiteboardArtifactCommandResponse: {
+      headers: {
+        readonly "Cache-Control"?: "private, no-store";
+        readonly [name: string]: unknown;
+      };
+      content: {
+        readonly "application/json": components["schemas"]["WhiteboardArtifactCommand"];
+      };
+    };
+    /** @description Authorization-filtered whiteboard control-plane projection */
+    readonly WhiteboardDocumentResponse: {
+      headers: {
+        readonly "Cache-Control"?: "private, no-store";
+        readonly [name: string]: unknown;
+      };
+      content: {
+        readonly "application/json": components["schemas"]["WhiteboardDocument"];
+      };
+    };
   };
   parameters: {
     /** @description Double-submit CSRF token bound to the active authenticated session. */
@@ -5288,6 +5679,8 @@ export type components = {
     /** @description Opaque RoomInstance-scoped participant key; never a user, session, or provider identity. */
     readonly MediaParticipantKeyPath: string;
     readonly PollID: string;
+    /** @description Opaque canonical control-plane document identifier; never a provider document name. */
+    readonly WhiteboardDocumentID: string;
   };
   requestBodies: never;
   headers: never;
@@ -10578,6 +10971,436 @@ export interface operations {
         };
         content?: never;
       };
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly validateWhiteboardImport: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Double-submit CSRF token bound to the active authenticated session. */
+        readonly "X-CSRF-Token": components["parameters"]["CSRFToken"];
+        /** @description Active workspace assertion used to prevent confused-deputy mutations and reads. */
+        readonly "X-TutorHub-Expected-Tenant-ID": components["parameters"]["ExpectedTenantID"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["WhiteboardImportManifest"];
+      };
+    };
+    readonly responses: {
+      /** @description Deterministic import validation result */
+      readonly 200: {
+        headers: {
+          readonly "Cache-Control"?: "private, no-store";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["WhiteboardImportValidation"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly createWhiteboard: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Double-submit CSRF token bound to the active authenticated session. */
+        readonly "X-CSRF-Token": components["parameters"]["CSRFToken"];
+        /** @description Active workspace assertion used to prevent confused-deputy mutations and reads. */
+        readonly "X-TutorHub-Expected-Tenant-ID": components["parameters"]["ExpectedTenantID"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["CreateWhiteboardRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Existing whiteboard returned by an exact idempotent replay */
+      readonly 200: {
+        headers: {
+          readonly "Cache-Control"?: "private, no-store";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["WhiteboardDocument"];
+        };
+      };
+      /** @description Whiteboard control-plane document created */
+      readonly 201: {
+        headers: {
+          readonly "Cache-Control"?: "private, no-store";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["WhiteboardDocument"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly getWhiteboard: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Active workspace assertion used to prevent confused-deputy mutations and reads. */
+        readonly "X-TutorHub-Expected-Tenant-ID": components["parameters"]["ExpectedTenantID"];
+      };
+      readonly path: {
+        /** @description Opaque canonical control-plane document identifier; never a provider document name. */
+        readonly document_id: components["parameters"]["WhiteboardDocumentID"];
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Authorized whiteboard projection */
+      readonly 200: {
+        headers: {
+          readonly "Cache-Control"?: "private, no-store";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["WhiteboardDocument"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly getWhiteboardCapabilities: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Active workspace assertion used to prevent confused-deputy mutations and reads. */
+        readonly "X-TutorHub-Expected-Tenant-ID": components["parameters"]["ExpectedTenantID"];
+      };
+      readonly path: {
+        /** @description Opaque canonical control-plane document identifier; never a provider document name. */
+        readonly document_id: components["parameters"]["WhiteboardDocumentID"];
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Current viewer capability projection */
+      readonly 200: {
+        headers: {
+          readonly "Cache-Control"?: "private, no-store";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["WhiteboardViewerCapabilities"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly closeWhiteboard: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Double-submit CSRF token bound to the active authenticated session. */
+        readonly "X-CSRF-Token": components["parameters"]["CSRFToken"];
+        /** @description Active workspace assertion used to prevent confused-deputy mutations and reads. */
+        readonly "X-TutorHub-Expected-Tenant-ID": components["parameters"]["ExpectedTenantID"];
+      };
+      readonly path: {
+        /** @description Opaque canonical control-plane document identifier; never a provider document name. */
+        readonly document_id: components["parameters"]["WhiteboardDocumentID"];
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["WhiteboardTransitionRequest"];
+      };
+    };
+    readonly responses: {
+      readonly 200: components["responses"]["WhiteboardDocumentResponse"];
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly exportWhiteboard: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Double-submit CSRF token bound to the active authenticated session. */
+        readonly "X-CSRF-Token": components["parameters"]["CSRFToken"];
+        /** @description Active workspace assertion used to prevent confused-deputy mutations and reads. */
+        readonly "X-TutorHub-Expected-Tenant-ID": components["parameters"]["ExpectedTenantID"];
+      };
+      readonly path: {
+        /** @description Opaque canonical control-plane document identifier; never a provider document name. */
+        readonly document_id: components["parameters"]["WhiteboardDocumentID"];
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["WhiteboardArtifactRequest"];
+      };
+    };
+    readonly responses: {
+      readonly 202: components["responses"]["WhiteboardArtifactCommandResponse"];
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly exchangeWhiteboardGrant: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly Origin: string;
+        /** @description Double-submit CSRF token bound to the active authenticated session. */
+        readonly "X-CSRF-Token": components["parameters"]["CSRFToken"];
+        /** @description Active workspace assertion used to prevent confused-deputy mutations and reads. */
+        readonly "X-TutorHub-Expected-Tenant-ID": components["parameters"]["ExpectedTenantID"];
+      };
+      readonly path: {
+        /** @description Opaque canonical control-plane document identifier; never a provider document name. */
+        readonly document_id: components["parameters"]["WhiteboardDocumentID"];
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["WhiteboardGrantExchangeRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Minimal short-lived provider credential */
+      readonly 200: {
+        headers: {
+          readonly "Cache-Control"?: "private, no-store";
+          readonly "Referrer-Policy"?: "no-referrer";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["WhiteboardGrantCredential"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly openWhiteboard: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Double-submit CSRF token bound to the active authenticated session. */
+        readonly "X-CSRF-Token": components["parameters"]["CSRFToken"];
+        /** @description Active workspace assertion used to prevent confused-deputy mutations and reads. */
+        readonly "X-TutorHub-Expected-Tenant-ID": components["parameters"]["ExpectedTenantID"];
+      };
+      readonly path: {
+        /** @description Opaque canonical control-plane document identifier; never a provider document name. */
+        readonly document_id: components["parameters"]["WhiteboardDocumentID"];
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["WhiteboardTransitionRequest"];
+      };
+    };
+    readonly responses: {
+      readonly 200: components["responses"]["WhiteboardDocumentResponse"];
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly restoreWhiteboard: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Double-submit CSRF token bound to the active authenticated session. */
+        readonly "X-CSRF-Token": components["parameters"]["CSRFToken"];
+        /** @description Active workspace assertion used to prevent confused-deputy mutations and reads. */
+        readonly "X-TutorHub-Expected-Tenant-ID": components["parameters"]["ExpectedTenantID"];
+      };
+      readonly path: {
+        /** @description Opaque canonical control-plane document identifier; never a provider document name. */
+        readonly document_id: components["parameters"]["WhiteboardDocumentID"];
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["WhiteboardRestoreRequest"];
+      };
+    };
+    readonly responses: {
+      readonly 200: components["responses"]["WhiteboardDocumentResponse"];
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly resumeWhiteboard: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Double-submit CSRF token bound to the active authenticated session. */
+        readonly "X-CSRF-Token": components["parameters"]["CSRFToken"];
+        /** @description Active workspace assertion used to prevent confused-deputy mutations and reads. */
+        readonly "X-TutorHub-Expected-Tenant-ID": components["parameters"]["ExpectedTenantID"];
+      };
+      readonly path: {
+        /** @description Opaque canonical control-plane document identifier; never a provider document name. */
+        readonly document_id: components["parameters"]["WhiteboardDocumentID"];
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["WhiteboardTransitionRequest"];
+      };
+    };
+    readonly responses: {
+      readonly 200: components["responses"]["WhiteboardDocumentResponse"];
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly listWhiteboardSnapshots: {
+    readonly parameters: {
+      readonly query?: {
+        readonly limit?: number;
+      };
+      readonly header: {
+        /** @description Active workspace assertion used to prevent confused-deputy mutations and reads. */
+        readonly "X-TutorHub-Expected-Tenant-ID": components["parameters"]["ExpectedTenantID"];
+      };
+      readonly path: {
+        /** @description Opaque canonical control-plane document identifier; never a provider document name. */
+        readonly document_id: components["parameters"]["WhiteboardDocumentID"];
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Immutable snapshot metadata without B2 object coordinates */
+      readonly 200: {
+        headers: {
+          readonly "Cache-Control"?: "private, no-store";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["WhiteboardSnapshotList"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly createWhiteboardSnapshot: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Double-submit CSRF token bound to the active authenticated session. */
+        readonly "X-CSRF-Token": components["parameters"]["CSRFToken"];
+        /** @description Active workspace assertion used to prevent confused-deputy mutations and reads. */
+        readonly "X-TutorHub-Expected-Tenant-ID": components["parameters"]["ExpectedTenantID"];
+      };
+      readonly path: {
+        /** @description Opaque canonical control-plane document identifier; never a provider document name. */
+        readonly document_id: components["parameters"]["WhiteboardDocumentID"];
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["WhiteboardArtifactRequest"];
+      };
+    };
+    readonly responses: {
+      readonly 202: components["responses"]["WhiteboardArtifactCommandResponse"];
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly suspendWhiteboard: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Double-submit CSRF token bound to the active authenticated session. */
+        readonly "X-CSRF-Token": components["parameters"]["CSRFToken"];
+        /** @description Active workspace assertion used to prevent confused-deputy mutations and reads. */
+        readonly "X-TutorHub-Expected-Tenant-ID": components["parameters"]["ExpectedTenantID"];
+      };
+      readonly path: {
+        /** @description Opaque canonical control-plane document identifier; never a provider document name. */
+        readonly document_id: components["parameters"]["WhiteboardDocumentID"];
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["WhiteboardTransitionRequest"];
+      };
+    };
+    readonly responses: {
+      readonly 200: components["responses"]["WhiteboardDocumentResponse"];
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
       readonly default: components["responses"]["ProblemResponse"];
     };
   };

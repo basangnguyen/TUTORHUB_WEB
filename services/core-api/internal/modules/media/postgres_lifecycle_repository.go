@@ -962,6 +962,7 @@ func (repository *PostgresLifecycleRepository) projectAuthorizedSpace(
 		(row.Status == SpaceStatusScheduled || row.Status == SpaceStatusOpen) &&
 		row.Source.Kind == SourceStudyMeeting && viewerSource.Owner
 	space := row.project(operations)
+	space.ViewerRole = viewerSource.InstanceRole
 	instance, err := loadActiveRoom(ctx, transaction, scope.TenantID, row.ID, false)
 	if err == nil {
 		value := instance.project()

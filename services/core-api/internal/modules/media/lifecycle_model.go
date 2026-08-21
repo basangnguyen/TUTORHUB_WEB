@@ -101,6 +101,7 @@ type MediaSpace struct {
 	ActiveRoomInstance   *RoomInstance    `json:"active_room_instance"`
 	RecoveryRoomInstance *RoomInstance    `json:"recovery_room_instance"`
 	ViewerOperations     ViewerOperations `json:"viewer_operations"`
+	ViewerRole           InstanceRole     `json:"-"`
 	CreatedAt            time.Time        `json:"created_at"`
 	UpdatedAt            time.Time        `json:"updated_at"`
 }

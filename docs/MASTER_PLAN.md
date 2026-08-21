@@ -5,13 +5,13 @@
 | Thuộc tính            | Giá trị                                                                                      |
 | --------------------- | -------------------------------------------------------------------------------------------- |
 | Phiên bản tài liệu    | 2.5                                                                                          |
-| Cập nhật              | 2026-08-20                                                                                   |
+| Cập nhật              | 2026-08-21                                                                                   |
 | Phạm vi ưu tiên       | Web application                                                                              |
 | Thư mục phát triển    | `D:\TutorHub_V2`                                                                             |
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
-| Phase hiện tại        | Phase 5 collaboration implementation; Phase 3 deferred carry-over tiếp tục                    |
-| Trạng thái gần nhất   | P5-COLLAB-02 `DONE`; shared staging `37 false`; P5-COLLAB-03 runnable                       |
+| Phase hiện tại        | Phase 5 collaboration implementation; Phase 3 deferred carry-over tiếp tục                   |
+| Trạng thái gần nhất   | P5-COLLAB-03 `VERIFY`; Neon disposable repository gate PASS, final verify/CI còn mở           |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 
@@ -1683,6 +1683,15 @@ no-second-authority proof và final read-only zero-row snapshot đều PASS. Can
 Verify `32436740864` và Security `32436740906`. P5-COLLAB-02 chuyển `DONE`, P5-COLLAB-03 runnable.
 Paid HA vẫn deferred; production không được bật trước các gate tương ứng, đặc biệt P5-COLLAB-17 exact
 staging.
+
+P5-COLLAB-03 checkpoint 2026-08-21: strict OpenAPI/generated client và Core API
+lifecycle/capability/import/restore candidate đã hoàn thành; authorization, privacy, bounded body,
+uniform `404`, CAS/idempotency và integration-tag compile PASS local. Neon P5-COLLAB-03 disposable
+repository gate PASS ở ledger `37 false`, gồm runtime create/exact ACL, lifecycle/idempotency receipt,
+snapshot projection, restore generation swap, tenant concealment và cleanup. Grant broker và durable
+snapshot/export worker vẫn fail-closed theo P5-COLLAB-04/P5-COLLAB-07. Task giữ `VERIFY` tới final full
+verify, review/no-secret và exact SHA CI PASS. Không có migration/shared-staging forward mới; production
+tiếp tục force-off.
 
 **Deliverable:** teacher mở/đóng công cụ mà không làm rời media room; trạng thái cộng tác khôi phục sau reconnect.
 

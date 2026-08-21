@@ -17,6 +17,7 @@ import (
 	"github.com/tutorhub-v2/core-api/internal/modules/audit"
 	"github.com/tutorhub-v2/core-api/internal/modules/calendar"
 	"github.com/tutorhub-v2/core-api/internal/modules/classroom"
+	"github.com/tutorhub-v2/core-api/internal/modules/collaboration"
 	"github.com/tutorhub-v2/core-api/internal/modules/content"
 	"github.com/tutorhub-v2/core-api/internal/modules/conversation"
 	"github.com/tutorhub-v2/core-api/internal/modules/discovery"
@@ -373,6 +374,7 @@ func run() int {
 	}
 	var mediaLifecycleRepository *media.PostgresLifecycleRepository
 	var mediaLifecycleService media.LifecycleServiceAPI
+	var collaborationService collaboration.ServiceAPI
 	if pool != nil && classroomRepository != nil {
 		var mediaLifecycleErr error
 		mediaLifecycleRepository, mediaLifecycleErr = media.NewPostgresLifecycleRepository(
@@ -393,6 +395,30 @@ func run() int {
 		if mediaLifecycleErr != nil {
 			logger.Error("initialize media lifecycle service", "error", mediaLifecycleErr)
 			return 1
+		}
+		if cfg.Collaboration.Enabled {
+			collaborationRepository, collaborationErr := collaboration.NewPostgresRepository(
+				pool,
+				cfg.Database.QueryTimeout,
+			)
+			if collaborationErr != nil {
+				logger.Error("initialize whiteboard repository", "error", collaborationErr)
+				return 1
+			}
+			collaborationService, collaborationErr = collaboration.NewService(
+				collaborationRepository,
+				mediaLifecycleService,
+				nil,
+				nil,
+				collaboration.ServiceConfig{Clock: time.Now, NewID: uuid.New},
+			)
+			if collaborationErr != nil {
+				logger.Error("initialize whiteboard control plane", "error", collaborationErr)
+				return 1
+			}
+			logger.Info("whiteboard control plane initialized")
+		} else {
+			logger.Info("whiteboard control plane is deployment-force-off")
 		}
 	}
 
@@ -663,6 +689,7 @@ func run() int {
 		Conversations:         conversationService,
 		Content:               contentService,
 		Discovery:             discoveryService,
+		Collaboration:         collaborationService,
 		InvitationRateLimiter: invitationRateLimiter,
 		Media:                 mediaService,
 		MediaSpaces:           mediaLifecycleService,

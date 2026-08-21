@@ -13,9 +13,31 @@
 | Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4                                                    |
 | Phase hiện tại       | Phase 5 collaboration implementation; Phase 3 deferred carry-over vẫn hoạt động       |
 | Task `DONE` gần nhất | P5-COLLAB-02 Whiteboard control-plane schema                                           |
-| Mốc repository mới   | Shared staging `36 false -> 37 false -> 37 false` + exact ACL/final snapshot PASS       |
-| Task hiện tại        | P5-COLLAB-03 OpenAPI lifecycle/grant/snapshot/export/restore — `TODO`                   |
-| Task tiếp theo       | Xây dựng contract-first OpenAPI, generated client và HTTP authorization/idempotency    |
+| Mốc repository mới   | P5-COLLAB-03 Neon disposable repository gate PASS ở ledger `37 false`                    |
+| Task hiện tại        | P5-COLLAB-03 OpenAPI lifecycle/grant/snapshot/export/restore — `VERIFY`                 |
+| Task tiếp theo       | Chạy final verify/review, commit candidate và exact SHA GitHub CI                       |
+
+### Checkpoint P5-COLLAB-03 `VERIFY` — 2026-08-21
+
+Đã thêm strict OpenAPI và generated TypeScript client cho create/get/open/suspend/resume/close,
+capability, grant exchange, snapshot list/create, export, portable import validation và restore.
+Core API đã có module service/PostgreSQL repository/HTTP handlers với exact media-space authority,
+session + CSRF + expected-tenant guard, opaque provider document name, uniform concealed `404`,
+bounded JSON và no-store/privacy headers. Lifecycle/restore dùng optimistic version, expected
+generation và idempotency receipt; replay trả đúng historical receipt projection thay vì current
+document đã đổi tiếp.
+
+Grant broker thật được giữ cho P5-COLLAB-04 và snapshot/export worker cho P5-COLLAB-07; endpoint hiện
+tại fail-closed `503` khi dependency chưa được inject. Local service/HTTP/package tests, OpenAPI
+generation/check, integration-tag compile và full `pnpm verify` PASS ngày 2026-08-21. Deployment guard
+`COLLABORATION_CONTROL_PLANE_ENABLED` mặc định `false`, nên Core API không khởi tạo control plane và
+tenant override không thể bypass production force-off. Runner disposable tự nạp đúng ba biến allowlist,
+kiểm tra owner direct/runtime pooled cùng branch và không in credential. Neon P5-COLLAB-03 disposable
+repository gate đã PASS ở ledger `37 false`: runtime create/read/capability exact ACL, lifecycle
+CAS/idempotency receipt, snapshot projection, restore generation swap, tenant concealment và cleanup đều
+xanh. Còn final verify/review/no-secret và exact SHA CI để chuyển `DONE`. Không có migration/shared-staging
+forward mới; production whiteboard vẫn force-off tới P5-COLLAB-17.
+Acceptance: [`P5_COLLAB_03_STAGING_ACCEPTANCE.md`](P5_COLLAB_03_STAGING_ACCEPTANCE.md).
 
 ### Checkpoint P5-COLLAB-02 `DONE` — 2026-08-21
 

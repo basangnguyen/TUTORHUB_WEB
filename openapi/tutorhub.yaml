@@ -5625,6 +5625,358 @@ paths:
           $ref: "#/components/responses/ConflictResponse"
         default:
           $ref: "#/components/responses/ProblemResponse"
+  /api/v1/whiteboards:
+    post:
+      operationId: createWhiteboard
+      summary: Create or replay the authoritative whiteboard bound to one media space
+      description: The server reauthorizes the exact media space in the active tenant, creates only control-plane metadata, and never exposes the provider document name.
+      security:
+        - SessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/ExpectedTenantID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateWhiteboardRequest"
+      responses:
+        "200":
+          description: Existing whiteboard returned by an exact idempotent replay
+          headers:
+            Cache-Control:
+              schema: { type: string, const: "private, no-store" }
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WhiteboardDocument"
+        "201":
+          description: Whiteboard control-plane document created
+          headers:
+            Cache-Control:
+              schema: { type: string, const: "private, no-store" }
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WhiteboardDocument"
+        "400": { $ref: "#/components/responses/ProblemResponse" }
+        "401": { $ref: "#/components/responses/UnauthorizedResponse" }
+        "404": { $ref: "#/components/responses/NotFoundResponse" }
+        "409": { $ref: "#/components/responses/ConflictResponse" }
+        "503": { $ref: "#/components/responses/ProblemResponse" }
+        default: { $ref: "#/components/responses/ProblemResponse" }
+  /api/v1/whiteboards/{document_id}:
+    get:
+      operationId: getWhiteboard
+      summary: Return one authorized whiteboard lifecycle and capability projection
+      description: Missing, foreign-tenant, and inaccessible resources all use the same not-found response. Provider document names and storage coordinates are never returned.
+      security:
+        - SessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/WhiteboardDocumentID"
+        - $ref: "#/components/parameters/ExpectedTenantID"
+      responses:
+        "200":
+          description: Authorized whiteboard projection
+          headers:
+            Cache-Control:
+              schema: { type: string, const: "private, no-store" }
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WhiteboardDocument"
+        "400": { $ref: "#/components/responses/ProblemResponse" }
+        "401": { $ref: "#/components/responses/UnauthorizedResponse" }
+        "404": { $ref: "#/components/responses/NotFoundResponse" }
+        "503": { $ref: "#/components/responses/ProblemResponse" }
+        default: { $ref: "#/components/responses/ProblemResponse" }
+  /api/v1/whiteboards/{document_id}/open:
+    post:
+      operationId: openWhiteboard
+      summary: Open one created whiteboard with optimistic authority
+      security:
+        - SessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/WhiteboardDocumentID"
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/ExpectedTenantID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WhiteboardTransitionRequest" }
+      responses:
+        "200": { $ref: "#/components/responses/WhiteboardDocumentResponse" }
+        "400": { $ref: "#/components/responses/ProblemResponse" }
+        "401": { $ref: "#/components/responses/UnauthorizedResponse" }
+        "404": { $ref: "#/components/responses/NotFoundResponse" }
+        "409": { $ref: "#/components/responses/ConflictResponse" }
+        "503": { $ref: "#/components/responses/ProblemResponse" }
+        default: { $ref: "#/components/responses/ProblemResponse" }
+  /api/v1/whiteboards/{document_id}/suspend:
+    post:
+      operationId: suspendWhiteboard
+      summary: Suspend one open whiteboard and revoke the current grant generation
+      security:
+        - SessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/WhiteboardDocumentID"
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/ExpectedTenantID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WhiteboardTransitionRequest" }
+      responses:
+        "200": { $ref: "#/components/responses/WhiteboardDocumentResponse" }
+        "400": { $ref: "#/components/responses/ProblemResponse" }
+        "401": { $ref: "#/components/responses/UnauthorizedResponse" }
+        "404": { $ref: "#/components/responses/NotFoundResponse" }
+        "409": { $ref: "#/components/responses/ConflictResponse" }
+        "503": { $ref: "#/components/responses/ProblemResponse" }
+        default: { $ref: "#/components/responses/ProblemResponse" }
+  /api/v1/whiteboards/{document_id}/resume:
+    post:
+      operationId: resumeWhiteboard
+      summary: Resume one suspended whiteboard without reusing an old credential
+      security:
+        - SessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/WhiteboardDocumentID"
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/ExpectedTenantID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WhiteboardTransitionRequest" }
+      responses:
+        "200": { $ref: "#/components/responses/WhiteboardDocumentResponse" }
+        "400": { $ref: "#/components/responses/ProblemResponse" }
+        "401": { $ref: "#/components/responses/UnauthorizedResponse" }
+        "404": { $ref: "#/components/responses/NotFoundResponse" }
+        "409": { $ref: "#/components/responses/ConflictResponse" }
+        "503": { $ref: "#/components/responses/ProblemResponse" }
+        default: { $ref: "#/components/responses/ProblemResponse" }
+  /api/v1/whiteboards/{document_id}/close:
+    post:
+      operationId: closeWhiteboard
+      summary: Permanently close one whiteboard and revoke the current grant generation
+      security:
+        - SessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/WhiteboardDocumentID"
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/ExpectedTenantID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WhiteboardTransitionRequest" }
+      responses:
+        "200": { $ref: "#/components/responses/WhiteboardDocumentResponse" }
+        "400": { $ref: "#/components/responses/ProblemResponse" }
+        "401": { $ref: "#/components/responses/UnauthorizedResponse" }
+        "404": { $ref: "#/components/responses/NotFoundResponse" }
+        "409": { $ref: "#/components/responses/ConflictResponse" }
+        "503": { $ref: "#/components/responses/ProblemResponse" }
+        default: { $ref: "#/components/responses/ProblemResponse" }
+  /api/v1/whiteboards/{document_id}/capabilities:
+    get:
+      operationId: getWhiteboardCapabilities
+      summary: Return the current server-derived capability projection
+      security:
+        - SessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/WhiteboardDocumentID"
+        - $ref: "#/components/parameters/ExpectedTenantID"
+      responses:
+        "200":
+          description: Current viewer capability projection
+          headers:
+            Cache-Control:
+              schema: { type: string, const: "private, no-store" }
+          content:
+            application/json:
+              schema:
+                { $ref: "#/components/schemas/WhiteboardViewerCapabilities" }
+        "400": { $ref: "#/components/responses/ProblemResponse" }
+        "401": { $ref: "#/components/responses/UnauthorizedResponse" }
+        "404": { $ref: "#/components/responses/NotFoundResponse" }
+        "503": { $ref: "#/components/responses/ProblemResponse" }
+        default: { $ref: "#/components/responses/ProblemResponse" }
+  /api/v1/whiteboards/{document_id}/grant-exchanges:
+    post:
+      operationId: exchangeWhiteboardGrant
+      summary: Exchange current authority for a short-lived provider credential
+      description: The exact Origin comes from the request header. The response is sensitive, no-store, and only available once the P5-COLLAB-04 broker is configured.
+      security:
+        - SessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/WhiteboardDocumentID"
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/ExpectedTenantID"
+        - name: Origin
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uri
+            maxLength: 512
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              { $ref: "#/components/schemas/WhiteboardGrantExchangeRequest" }
+      responses:
+        "200":
+          description: Minimal short-lived provider credential
+          headers:
+            Cache-Control:
+              schema: { type: string, const: "private, no-store" }
+            Referrer-Policy:
+              schema: { type: string, const: no-referrer }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WhiteboardGrantCredential" }
+        "400": { $ref: "#/components/responses/ProblemResponse" }
+        "401": { $ref: "#/components/responses/UnauthorizedResponse" }
+        "404": { $ref: "#/components/responses/NotFoundResponse" }
+        "409": { $ref: "#/components/responses/ConflictResponse" }
+        "503": { $ref: "#/components/responses/ProblemResponse" }
+        default: { $ref: "#/components/responses/ProblemResponse" }
+  /api/v1/whiteboards/{document_id}/snapshots:
+    get:
+      operationId: listWhiteboardSnapshots
+      summary: List bounded immutable snapshot metadata for one authorized whiteboard
+      security:
+        - SessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/WhiteboardDocumentID"
+        - $ref: "#/components/parameters/ExpectedTenantID"
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+      responses:
+        "200":
+          description: Immutable snapshot metadata without B2 object coordinates
+          headers:
+            Cache-Control:
+              schema: { type: string, const: "private, no-store" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WhiteboardSnapshotList" }
+        "400": { $ref: "#/components/responses/ProblemResponse" }
+        "401": { $ref: "#/components/responses/UnauthorizedResponse" }
+        "404": { $ref: "#/components/responses/NotFoundResponse" }
+        "503": { $ref: "#/components/responses/ProblemResponse" }
+        default: { $ref: "#/components/responses/ProblemResponse" }
+    post:
+      operationId: createWhiteboardSnapshot
+      summary: Request an immutable manual snapshot at the exact current generation
+      description: Processing is fail-closed until the P5-COLLAB-07 artifact worker is configured.
+      security:
+        - SessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/WhiteboardDocumentID"
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/ExpectedTenantID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WhiteboardArtifactRequest" }
+      responses:
+        "202":
+          { $ref: "#/components/responses/WhiteboardArtifactCommandResponse" }
+        "400": { $ref: "#/components/responses/ProblemResponse" }
+        "401": { $ref: "#/components/responses/UnauthorizedResponse" }
+        "404": { $ref: "#/components/responses/NotFoundResponse" }
+        "409": { $ref: "#/components/responses/ConflictResponse" }
+        "503": { $ref: "#/components/responses/ProblemResponse" }
+        default: { $ref: "#/components/responses/ProblemResponse" }
+  /api/v1/whiteboards/{document_id}/exports:
+    post:
+      operationId: exportWhiteboard
+      summary: Request a portable export from the exact current authority generation
+      description: Export requires current management authority, expected generation, and idempotency. Processing is fail-closed until P5-COLLAB-07.
+      security:
+        - SessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/WhiteboardDocumentID"
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/ExpectedTenantID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WhiteboardArtifactRequest" }
+      responses:
+        "202":
+          { $ref: "#/components/responses/WhiteboardArtifactCommandResponse" }
+        "400": { $ref: "#/components/responses/ProblemResponse" }
+        "401": { $ref: "#/components/responses/UnauthorizedResponse" }
+        "404": { $ref: "#/components/responses/NotFoundResponse" }
+        "409": { $ref: "#/components/responses/ConflictResponse" }
+        "503": { $ref: "#/components/responses/ProblemResponse" }
+        default: { $ref: "#/components/responses/ProblemResponse" }
+  /api/v1/whiteboard-imports/validate:
+    post:
+      operationId: validateWhiteboardImport
+      summary: Validate a bounded portable whiteboard manifest without mutating authority
+      security:
+        - SessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/ExpectedTenantID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WhiteboardImportManifest" }
+      responses:
+        "200":
+          description: Deterministic import validation result
+          headers:
+            Cache-Control:
+              schema: { type: string, const: "private, no-store" }
+          content:
+            application/json:
+              schema:
+                { $ref: "#/components/schemas/WhiteboardImportValidation" }
+        "400": { $ref: "#/components/responses/ProblemResponse" }
+        "401": { $ref: "#/components/responses/UnauthorizedResponse" }
+        "409": { $ref: "#/components/responses/ConflictResponse" }
+        "503": { $ref: "#/components/responses/ProblemResponse" }
+        default: { $ref: "#/components/responses/ProblemResponse" }
+  /api/v1/whiteboards/{document_id}/restore:
+    post:
+      operationId: restoreWhiteboard
+      summary: Atomically swap to a new authority generation restored from one immutable snapshot
+      description: Restore requires current management authority, expected document version, expected generation, and idempotency. Existing grants are revoked by the generation swap.
+      security:
+        - SessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/WhiteboardDocumentID"
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/ExpectedTenantID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WhiteboardRestoreRequest" }
+      responses:
+        "200": { $ref: "#/components/responses/WhiteboardDocumentResponse" }
+        "400": { $ref: "#/components/responses/ProblemResponse" }
+        "401": { $ref: "#/components/responses/UnauthorizedResponse" }
+        "404": { $ref: "#/components/responses/NotFoundResponse" }
+        "409": { $ref: "#/components/responses/ConflictResponse" }
+        "503": { $ref: "#/components/responses/ProblemResponse" }
+        default: { $ref: "#/components/responses/ProblemResponse" }
   /api/v1/media/spaces:
     post:
       operationId: createMediaSpace
@@ -7249,6 +7601,14 @@ components:
       schema:
         type: string
         format: uuid
+    WhiteboardDocumentID:
+      name: document_id
+      in: path
+      required: true
+      description: Opaque canonical control-plane document identifier; never a provider document name.
+      schema:
+        type: string
+        format: uuid
     MediaParticipantKeyPath:
       name: participant_key
       in: path
@@ -7276,6 +7636,28 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/AvailabilityPoll"
+    WhiteboardDocumentResponse:
+      description: Authorization-filtered whiteboard control-plane projection
+      headers:
+        Cache-Control:
+          schema:
+            type: string
+            const: private, no-store
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/WhiteboardDocument"
+    WhiteboardArtifactCommandResponse:
+      description: Whiteboard snapshot or export command accepted for asynchronous processing
+      headers:
+        Cache-Control:
+          schema:
+            type: string
+            const: private, no-store
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/WhiteboardArtifactCommand"
     ProblemResponse:
       description: Request failed with a structured problem response
       content:
@@ -13420,6 +13802,362 @@ components:
           $ref: "#/components/schemas/MediaDiagnosticMetrics"
         truncated:
           type: boolean
+    WhiteboardStatus:
+      type: string
+      description: Authoritative control-plane lifecycle state.
+      enum: [created, open, suspended, closed]
+    WhiteboardCapability:
+      type: string
+      description: Maximum server-derived collaboration capability for the current viewer.
+      enum: [view, edit, present]
+    WhiteboardViewerCapabilities:
+      type: object
+      additionalProperties: false
+      required:
+        - capability
+        - can_open
+        - can_suspend
+        - can_resume
+        - can_close
+        - can_create_snapshot
+        - can_export
+        - can_restore
+        - can_exchange_grant
+      properties:
+        capability:
+          $ref: "#/components/schemas/WhiteboardCapability"
+        can_open:
+          type: boolean
+        can_suspend:
+          type: boolean
+        can_resume:
+          type: boolean
+        can_close:
+          type: boolean
+        can_create_snapshot:
+          type: boolean
+        can_export:
+          type: boolean
+        can_restore:
+          type: boolean
+        can_exchange_grant:
+          type: boolean
+    WhiteboardDocument:
+      type: object
+      additionalProperties: false
+      description: Authorization-filtered control-plane projection. Provider names and storage coordinates are intentionally absent.
+      required:
+        - id
+        - media_space_id
+        - status
+        - version
+        - current_generation
+        - revoke_generation
+        - viewer_capabilities
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        media_space_id:
+          type: string
+          format: uuid
+        status:
+          $ref: "#/components/schemas/WhiteboardStatus"
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+        current_generation:
+          type: integer
+          format: int64
+          minimum: 1
+        revoke_generation:
+          type: integer
+          format: int64
+          minimum: 1
+        viewer_capabilities:
+          $ref: "#/components/schemas/WhiteboardViewerCapabilities"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    CreateWhiteboardRequest:
+      type: object
+      additionalProperties: false
+      required: [media_space_id, idempotency_key]
+      properties:
+        media_space_id:
+          type: string
+          format: uuid
+        idempotency_key:
+          type: string
+          minLength: 16
+          maxLength: 128
+          pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]{15,127}$"
+    WhiteboardTransitionRequest:
+      type: object
+      additionalProperties: false
+      required: [expected_version, idempotency_key]
+      properties:
+        expected_version:
+          type: integer
+          format: int64
+          minimum: 1
+        idempotency_key:
+          type: string
+          minLength: 16
+          maxLength: 128
+          pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]{15,127}$"
+    WhiteboardGrantExchangeRequest:
+      type: object
+      additionalProperties: false
+      required: [capability, expected_generation, expected_revoke_generation]
+      properties:
+        capability:
+          $ref: "#/components/schemas/WhiteboardCapability"
+        expected_generation:
+          type: integer
+          format: int64
+          minimum: 1
+        expected_revoke_generation:
+          type: integer
+          format: int64
+          minimum: 1
+    WhiteboardGrantCredential:
+      type: object
+      additionalProperties: false
+      description: Short-lived sensitive credential projection. It must not be cached, logged, or placed in a URL.
+      required:
+        - credential
+        - provider_url
+        - document_id
+        - generation
+        - revoke_generation
+        - capability
+        - expires_at
+      properties:
+        credential:
+          type: string
+          minLength: 1
+          maxLength: 8192
+          description: Opaque one-time or short-lived provider credential.
+        provider_url:
+          type: string
+          format: uri
+          maxLength: 2048
+        document_id:
+          type: string
+          format: uuid
+        generation:
+          type: integer
+          format: int64
+          minimum: 1
+        revoke_generation:
+          type: integer
+          format: int64
+          minimum: 1
+        capability:
+          $ref: "#/components/schemas/WhiteboardCapability"
+        expires_at:
+          type: string
+          format: date-time
+    WhiteboardSnapshot:
+      type: object
+      additionalProperties: false
+      description: Immutable portable snapshot metadata. B2 bucket, object key, version, and credential data are never returned.
+      required:
+        - id
+        - document_id
+        - generation
+        - kind
+        - format_version
+        - engine_version
+        - authority_version
+        - schema_version
+        - causal_watermark_sha256
+        - content_sha256
+        - size_bytes
+        - created_at
+        - retention_until
+      properties:
+        id:
+          type: string
+          format: uuid
+        document_id:
+          type: string
+          format: uuid
+        generation:
+          type: integer
+          format: int64
+          minimum: 1
+        kind:
+          type: string
+          enum: [automatic, manual, export, pre_restore]
+        format_version:
+          type: string
+          minLength: 1
+          maxLength: 32
+        engine_version:
+          type: string
+          minLength: 1
+          maxLength: 64
+        authority_version:
+          type: string
+          minLength: 1
+          maxLength: 64
+        schema_version:
+          type: integer
+          minimum: 1
+          maximum: 1000
+        causal_watermark_sha256:
+          type: string
+          pattern: "^[a-f0-9]{64}$"
+        content_sha256:
+          type: string
+          pattern: "^[a-f0-9]{64}$"
+        size_bytes:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 67108864
+        created_at:
+          type: string
+          format: date-time
+        retention_until:
+          type: string
+          format: date-time
+    WhiteboardSnapshotList:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          maxItems: 100
+          items:
+            $ref: "#/components/schemas/WhiteboardSnapshot"
+    WhiteboardArtifactRequest:
+      type: object
+      additionalProperties: false
+      required: [expected_generation, idempotency_key]
+      properties:
+        expected_generation:
+          type: integer
+          format: int64
+          minimum: 1
+        idempotency_key:
+          type: string
+          minLength: 16
+          maxLength: 128
+          pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]{15,127}$"
+    WhiteboardArtifactCommand:
+      type: object
+      additionalProperties: false
+      required: [id, kind, document_id, generation, status, requested_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+          enum: [snapshot, export]
+        document_id:
+          type: string
+          format: uuid
+        generation:
+          type: integer
+          format: int64
+          minimum: 1
+        status:
+          type: string
+          const: accepted
+        requested_at:
+          type: string
+          format: date-time
+    WhiteboardImportManifest:
+      type: object
+      additionalProperties: false
+      required:
+        - format_version
+        - engine_version
+        - authority_version
+        - schema_version
+        - content_sha256
+        - size_bytes
+      properties:
+        format_version:
+          type: string
+          minLength: 1
+          maxLength: 32
+        engine_version:
+          type: string
+          minLength: 1
+          maxLength: 64
+        authority_version:
+          type: string
+          minLength: 1
+          maxLength: 64
+        schema_version:
+          type: integer
+          minimum: 1
+          maximum: 1000
+        content_sha256:
+          type: string
+          minLength: 1
+          maxLength: 128
+        size_bytes:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 67108864
+    WhiteboardImportValidation:
+      type: object
+      additionalProperties: false
+      required: [valid, manifest, problems]
+      properties:
+        valid:
+          type: boolean
+        manifest:
+          $ref: "#/components/schemas/WhiteboardImportManifest"
+        problems:
+          type: array
+          maxItems: 6
+          uniqueItems: true
+          items:
+            type: string
+            enum:
+              - unsupported_format_version
+              - unsupported_engine_version
+              - unsupported_authority_version
+              - invalid_schema_version
+              - invalid_content_sha256
+              - invalid_size_bytes
+    WhiteboardRestoreRequest:
+      type: object
+      additionalProperties: false
+      required:
+        [snapshot_id, expected_version, expected_generation, idempotency_key]
+      properties:
+        snapshot_id:
+          type: string
+          format: uuid
+        expected_version:
+          type: integer
+          format: int64
+          minimum: 1
+        expected_generation:
+          type: integer
+          format: int64
+          minimum: 1
+        idempotency_key:
+          type: string
+          minLength: 16
+          maxLength: 128
+          pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]{15,127}$"
     Problem:
       type: object
       additionalProperties: false
