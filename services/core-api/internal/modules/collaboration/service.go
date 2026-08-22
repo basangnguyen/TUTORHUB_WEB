@@ -16,10 +16,10 @@ import (
 )
 
 const (
-	supportedFormatVersion    = "1"
-	supportedEngineVersion    = "0.18.1"
-	supportedAuthorityVersion = "13.6.27"
-	maximumSnapshotBytes      = 64 * 1024 * 1024
+	supportedFormatVersion     = "1"
+	supportedEngineVersion     = "0.18.1"
+	supportedAuthorityVersion  = "13.6.27"
+	maximumPortableImportBytes = 16 * 1024 * 1024
 )
 
 var (
@@ -423,7 +423,7 @@ func (service *Service) ValidateImport(
 	if !sha256Pattern.MatchString(manifest.ContentSHA256) {
 		problems = append(problems, "invalid_content_sha256")
 	}
-	if manifest.SizeBytes < 1 || manifest.SizeBytes > maximumSnapshotBytes {
+	if manifest.SizeBytes < 1 || manifest.SizeBytes > maximumPortableImportBytes {
 		problems = append(problems, "invalid_size_bytes")
 	}
 	return ImportValidation{Valid: len(problems) == 0, Manifest: manifest, Problems: problems}, nil
@@ -455,6 +455,18 @@ func (service *Service) Restore(
 		IdempotencyKey:       input.IdempotencyKey, Fingerprint: restoreFingerprint(document.ID, input),
 		OccurredAt: service.clock().UTC(),
 	}
+	if service.artifacts == nil {
+		return Document{}, ErrArtifactUnavailable
+	}
+	preparation, err := service.artifacts.PrepareRestore(ctx, access, document, command)
+	if err != nil {
+		return Document{}, normalizeError(err)
+	}
+	if preparation.ID == uuid.Nil || preparation.TargetProviderDocument == "" {
+		return Document{}, ErrArtifactUnavailable
+	}
+	command.ArtifactCommandID = preparation.ID
+	command.ProviderDocumentName = preparation.TargetProviderDocument
 	restored, err := service.repository.Restore(ctx, access, command)
 	if err != nil {
 		return Document{}, normalizeError(err)

@@ -3,6 +3,15 @@ import { MAX_DURABLE_DOCUMENT_BYTES, RUNTIME_VERSIONS } from "./contracts.js";
 export interface RuntimeConfig {
   address: string;
   allowedOrigins: ReadonlySet<string>;
+  artifactWorker: {
+    currentBindingKey: string;
+    currentBindingKeyId: string;
+    enabled: boolean;
+    leaseSeconds: number;
+    pollIntervalMs: number;
+    previousBindingKey: string;
+    previousBindingKeyId: string;
+  };
   b2: {
     applicationKey: string;
     bucket: string;
@@ -90,9 +99,53 @@ export function loadRuntimeConfig(
     throw new RuntimeConfigurationError("build_id_invalid");
   }
 
+  const artifactWorkerEnabled = booleanValue(
+    env,
+    "COLLAB_ARTIFACT_WORKER_ENABLED",
+    false,
+  );
+  const currentBindingKeyId = env.COLLAB_SNAPSHOT_BINDING_KEY_ID?.trim() ?? "";
+  const currentBindingKey = env.COLLAB_SNAPSHOT_BINDING_KEY?.trim() ?? "";
+  const previousBindingKeyId =
+    env.COLLAB_SNAPSHOT_BINDING_PREVIOUS_KEY_ID?.trim() ?? "";
+  const previousBindingKey =
+    env.COLLAB_SNAPSHOT_BINDING_PREVIOUS_KEY?.trim() ?? "";
+  if (
+    artifactWorkerEnabled &&
+    (!/^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$/.test(currentBindingKeyId) ||
+      currentBindingKey.length < 32)
+  ) {
+    throw new RuntimeConfigurationError("artifact_binding_key_required");
+  }
+  if (
+    (previousBindingKeyId === "") !== (previousBindingKey === "") ||
+    (previousBindingKeyId !== "" &&
+      (!/^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$/.test(previousBindingKeyId) ||
+        previousBindingKey.length < 32))
+  ) {
+    throw new RuntimeConfigurationError(
+      "artifact_previous_binding_key_invalid",
+    );
+  }
+
   const config: RuntimeConfig = {
     address: env.HOST?.trim() || "0.0.0.0",
     allowedOrigins,
+    artifactWorker: {
+      currentBindingKey,
+      currentBindingKeyId,
+      enabled: artifactWorkerEnabled,
+      leaseSeconds: integer(env, "COLLAB_ARTIFACT_LEASE_SECONDS", 30, 10, 120),
+      pollIntervalMs: integer(
+        env,
+        "COLLAB_ARTIFACT_POLL_INTERVAL_MS",
+        500,
+        100,
+        5_000,
+      ),
+      previousBindingKey,
+      previousBindingKeyId,
+    },
     b2: {
       applicationKey: secret(env, "B2_APPLICATION_KEY"),
       bucket: identifier(env, "B2_BUCKET", /^[A-Za-z0-9][A-Za-z0-9.-]{4,62}$/),
@@ -216,6 +269,18 @@ function validatePolicyRelationships(config: RuntimeConfig): void {
 
 function present(env: Environment, name: string): boolean {
   return Boolean(env[name]?.trim());
+}
+
+function booleanValue(
+  env: Environment,
+  name: string,
+  fallback: boolean,
+): boolean {
+  const raw = env[name]?.trim().toLowerCase();
+  if (!raw) return fallback;
+  if (raw === "true") return true;
+  if (raw === "false") return false;
+  throw new RuntimeConfigurationError(`${name.toLowerCase()}_invalid`);
 }
 
 function required(env: Environment, name: string): string {

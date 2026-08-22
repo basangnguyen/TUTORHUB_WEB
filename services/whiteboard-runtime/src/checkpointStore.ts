@@ -50,11 +50,21 @@ export class NeonCheckpointStore implements CheckpointStore {
         table_exists: boolean;
       }>(`
         SELECT
-          to_regclass('public.collaboration_document_checkpoints') IS NOT NULL AS table_exists,
+          to_regclass('tutorhub.whiteboard_document_checkpoints') IS NOT NULL AS table_exists,
           has_table_privilege(
             current_user,
-            'public.collaboration_document_checkpoints',
-            'SELECT,INSERT,UPDATE'
+            'tutorhub.whiteboard_document_checkpoints',
+            'SELECT'
+          )
+          AND has_table_privilege(
+            current_user,
+            'tutorhub.whiteboard_document_checkpoints',
+            'INSERT'
+          )
+          AND has_table_privilege(
+            current_user,
+            'tutorhub.whiteboard_document_checkpoints',
+            'UPDATE'
           ) AS allowed
       `);
       const row = result.rows[0];
@@ -84,8 +94,8 @@ export class NeonCheckpointStore implements CheckpointStore {
             causal_watermark,
             yjs_state,
             byte_length,
-            checksum
-          FROM public.collaboration_document_checkpoints
+            encode(checksum, 'hex') AS checksum
+          FROM tutorhub.whiteboard_document_checkpoints
           WHERE tenant_id = $1
             AND document_id = $2
             AND generation = $3
@@ -136,7 +146,7 @@ export class NeonCheckpointStore implements CheckpointStore {
       await client.query("BEGIN");
       const result = await client.query<{ causal_watermark: string }>(
         `
-          INSERT INTO public.collaboration_document_checkpoints (
+          INSERT INTO tutorhub.whiteboard_document_checkpoints (
             tenant_id,
             document_id,
             generation,
@@ -149,20 +159,20 @@ export class NeonCheckpointStore implements CheckpointStore {
             checksum,
             writer_fence,
             updated_at
-          ) VALUES ($1, $2, $3, $4, $5, $6, 1, $7, $8, $9, $10, NOW())
+          ) VALUES ($1, $2, $3, $4, $5, $6, 1, $7, $8, decode($9, 'hex'), $10, NOW())
           ON CONFLICT (tenant_id, document_id, generation)
           DO UPDATE SET
             provider_document_name = EXCLUDED.provider_document_name,
             schema_version = EXCLUDED.schema_version,
             provider_version = EXCLUDED.provider_version,
-            causal_watermark = collaboration_document_checkpoints.causal_watermark + 1,
+            causal_watermark = whiteboard_document_checkpoints.causal_watermark + 1,
             yjs_state = EXCLUDED.yjs_state,
             byte_length = EXCLUDED.byte_length,
             checksum = EXCLUDED.checksum,
             writer_fence = EXCLUDED.writer_fence,
             updated_at = NOW()
-          WHERE collaboration_document_checkpoints.writer_fence <= EXCLUDED.writer_fence
-            AND collaboration_document_checkpoints.provider_document_name = EXCLUDED.provider_document_name
+          WHERE whiteboard_document_checkpoints.writer_fence <= EXCLUDED.writer_fence
+            AND whiteboard_document_checkpoints.provider_document_name = EXCLUDED.provider_document_name
           RETURNING causal_watermark
         `,
         [

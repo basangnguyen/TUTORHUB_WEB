@@ -132,6 +132,7 @@ type RestoreInput struct {
 }
 
 type RestoreCommand struct {
+	ArtifactCommandID    uuid.UUID
 	DocumentID           uuid.UUID
 	SnapshotID           uuid.UUID
 	ExpectedVersion      int64
@@ -167,12 +168,13 @@ type ArtifactCommandStatus string
 const ArtifactCommandAccepted ArtifactCommandStatus = "accepted"
 
 type ArtifactCommand struct {
-	ID          uuid.UUID             `json:"id"`
-	Kind        string                `json:"kind"`
-	DocumentID  uuid.UUID             `json:"document_id"`
-	Generation  int64                 `json:"generation"`
-	Status      ArtifactCommandStatus `json:"status"`
-	RequestedAt time.Time             `json:"requested_at"`
+	ID                     uuid.UUID             `json:"id"`
+	Kind                   string                `json:"kind"`
+	DocumentID             uuid.UUID             `json:"document_id"`
+	Generation             int64                 `json:"generation"`
+	Status                 ArtifactCommandStatus `json:"status"`
+	RequestedAt            time.Time             `json:"requested_at"`
+	TargetProviderDocument string                `json:"-"`
 }
 
 type SnapshotCreateInput struct {
@@ -283,6 +285,7 @@ type GrantBroker interface {
 type ArtifactWorkflow interface {
 	RequestSnapshot(context.Context, AccessContext, Document, SnapshotCreateInput) (ArtifactCommand, error)
 	RequestExport(context.Context, AccessContext, Document, ExportInput) (ArtifactCommand, error)
+	PrepareRestore(context.Context, AccessContext, Document, RestoreCommand) (ArtifactCommand, error)
 }
 
 type ServiceAPI interface {

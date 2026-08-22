@@ -11,7 +11,7 @@
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
 | Phase hiện tại        | Phase 5 collaboration implementation; Phase 3 deferred carry-over tiếp tục                   |
-| Trạng thái gần nhất   | P5-COLLAB-06 `DONE` local; P5-COLLAB-07 runnable                                             |
+| Trạng thái gần nhất   | P5-COLLAB-07 `VERIFY`; local và Neon/B2 disposable gates PASS ở ledger `40 false`             |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 
@@ -1718,6 +1718,18 @@ capability projection, view-only Excalidraw/canonical session, focus handoff và
 Open/close tool không remount LiveKit room hoặc media tile; Vite production bundle giữ Excalidraw
 ngoài initial entry. Targeted UI/session, Core API, typecheck, build và full verify PASS. Không có
 migration/shared-staging write/deploy; production tiếp tục force-off. P5-COLLAB-07 runnable.
+
+P5-COLLAB-07 candidate 2026-08-22: ADR-0035 và migrations `000038`-`000040` thiết lập durable bounded
+artifact command/checkpoint/purge boundary; Core API sở hữu authorization/catalog/generation còn
+runtime worker sở hữu signed envelope, portable scene quarantine, exact immutable B2 version và
+restore staging. Dedicated maintenance role chỉ claim/complete/fail bounded `SKIP LOCKED` purge.
+Runtime `115` local test, portable client, Core API, OpenAPI, ACL integration-tag compile,
+OCI/SBOM/security và full `pnpm verify` PASS. Neon/B2 disposable final aggregate giữ `40 false`; exact
+four-role ACL/PUBLIC deny, B2 version/checksum/tamper binding, restore/quarantine, concurrent purge,
+bounded retry và exact cleanup đều PASS. Migration `000040` giữ active restore exact-source invariant
+và cho terminal source redaction sau retention purge. Task giữ `VERIFY` tới khi review/no-secret,
+commit/push và GitHub Verify/Security PASS. Không shared-staging write/deploy; production force-off,
+nên P5-COLLAB-08 chưa runnable.
 
 **Deliverable:** teacher mở/đóng công cụ mà không làm rời media room; trạng thái cộng tác khôi phục sau reconnect.
 

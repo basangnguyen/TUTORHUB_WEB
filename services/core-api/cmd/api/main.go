@@ -406,6 +406,18 @@ func run() int {
 				logger.Error("initialize whiteboard repository", "error", collaborationErr)
 				return 1
 			}
+			artifactWorkflow, collaborationErr := collaboration.NewPostgresArtifactWorkflow(
+				pool,
+				collaboration.PostgresArtifactWorkflowConfig{
+					QueryTimeout: cfg.Database.QueryTimeout,
+					Clock:        time.Now,
+					NewID:        uuid.New,
+				},
+			)
+			if collaborationErr != nil {
+				logger.Error("initialize whiteboard artifact workflow", "error", collaborationErr)
+				return 1
+			}
 			var grantBroker collaboration.GrantBroker
 			if cfg.Collaboration.BrokerEnabled {
 				grantBroker, collaborationErr = collaboration.NewMemoryGrantBroker(
@@ -424,7 +436,7 @@ func run() int {
 				collaborationRepository,
 				mediaLifecycleService,
 				grantBroker,
-				nil,
+				artifactWorkflow,
 				collaboration.ServiceConfig{Clock: time.Now, NewID: uuid.New},
 			)
 			if collaborationErr != nil {

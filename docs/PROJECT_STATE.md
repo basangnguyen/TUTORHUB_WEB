@@ -13,9 +13,31 @@
 | Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4                                                    |
 | Phase hiện tại       | Phase 5 collaboration implementation; Phase 3 deferred carry-over vẫn hoạt động       |
 | Task `DONE` gần nhất | P5-COLLAB-06 Lazy classroom tool shell                                                 |
-| Mốc repository mới   | P5-COLLAB-06 local candidate PASS; không deploy hoặc shared-staging write              |
-| Task hiện tại        | P5-COLLAB-07 Snapshot/import/export/restore worker và B2 — `TODO`                      |
-| Task tiếp theo       | Xây durable worker/checksum/quarantine và exact B2 binding                            |
+| Mốc repository mới   | P5-COLLAB-07 local và Neon/B2 disposable gates PASS ở ledger `40 false`                |
+| Task hiện tại        | P5-COLLAB-07 Snapshot/import/export/restore worker và B2 — `VERIFY`                    |
+| Task tiếp theo       | Review/no-secret, commit/push candidate và GitHub Verify/Security                      |
+
+### Checkpoint P5-COLLAB-07 `VERIFY` — 2026-08-22
+
+Local candidate đã có ADR-0035, forward migrations `000038`-`000040`, durable artifact
+command/checkpoint/purge
+queue, Core API async snapshot/export và restore-after-worker flow. Runtime tạo signed bounded
+envelope, bind exact immutable B2 object version, verify checksum/scope/engine/schema trước publish
+hoặc restore, quarantine portable scene không an toàn và stage target checkpoint trước atomic
+generation swap. Maintenance dùng dedicated entrypoint, exact version deletion, bounded lease/batch
+và PostgreSQL `SKIP LOCKED` functions.
+
+Runtime PASS `115` local test và full `pnpm verify` PASS. Portable scene, Core API,
+OpenAPI/generated client, integration-tag ACL compile, OCI/SBOM/security, lint, typecheck, build,
+Storybook, bundle security và Go test/vet đều xanh. Runner
+`run-p507-disposable.mjs` chỉ allowlist bốn Neon URL và scoped B2 variables, kiểm tra same-branch/four
+roles/direct-vs-pooled và không in credential. Neon/B2 disposable đã PASS final aggregate ở ledger
+`40 false`: exact four-role ACL/PUBLIC deny, immutable B2 version binding/checksum/tamper rejection,
+snapshot/export, corrupt quarantine, valid one-generation restore, hai claimant `SKIP LOCKED`, bounded
+retry và exact cleanup đều xanh. Migration `000040` giữ active restore bắt buộc exact source nhưng cho
+terminal restore redaction source sau retention purge. Chưa commit/push, không shared-staging
+write/deploy; production whiteboard giữ force-off. Acceptance:
+[`P5_COLLAB_07_STAGING_ACCEPTANCE.md`](P5_COLLAB_07_STAGING_ACCEPTANCE.md).
 
 ### Checkpoint P5-COLLAB-06 `DONE` — 2026-08-22
 

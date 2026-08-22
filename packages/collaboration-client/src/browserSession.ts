@@ -7,7 +7,7 @@ import * as Y from "yjs";
 import {
   CanonicalExcalidrawAuthority,
   excalidrawSceneToCanonical,
-} from "./canonicalAuthority";
+} from "./canonicalAuthority.js";
 
 export type CollaborationCapability = "view" | "edit" | "present";
 export type CollaborationConnectionStatus =

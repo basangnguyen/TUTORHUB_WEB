@@ -13,6 +13,7 @@
     "build": "tsc -p tsconfig.json --pretty false",
     "gate:f3:provider": "node provider-drill.mjs",
     "lint": "eslint src provider-drill.mjs",
+    "maintenance:artifacts": "node dist/artifactMaintenanceMain.js",
     "start": "node dist/main.js",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit --pretty false"
@@ -20,6 +21,7 @@
   "dependencies": {
     "@aws-sdk/client-s3": "3.1113.0",
     "@hocuspocus/server": "4.6.0",
+    "@tutorhub/collaboration-client": "workspace:*",
     "pg": "8.23.0",
     "yjs": "13.6.27"
   },

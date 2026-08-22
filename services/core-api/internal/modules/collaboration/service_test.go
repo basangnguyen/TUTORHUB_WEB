@@ -297,6 +297,7 @@ func TestServiceArtifactAndRestoreRequireCurrentAuthority(t *testing.T) {
 	}
 	workflow := &fakeArtifactWorkflow{result: ArtifactCommand{
 		ID: uuid.New(), DocumentID: documentID, Generation: 4, Status: ArtifactCommandAccepted,
+		TargetProviderDocument: opaqueProviderDocumentName(uuid.New()),
 	}}
 	spaces := &fakeSpaceAuthority{space: manageableSpace(spaceID)}
 	broker := &fakeGrantBroker{}
@@ -343,7 +344,7 @@ func TestServiceImportValidationIsStrictAndBounded(t *testing.T) {
 
 	invalid, err := service.ValidateImport(context.Background(), ImportManifest{
 		FormatVersion: "2", EngineVersion: "latest", AuthorityVersion: "unknown",
-		SchemaVersion: 0, ContentSHA256: "not-a-hash", SizeBytes: maximumSnapshotBytes + 1,
+		SchemaVersion: 0, ContentSHA256: "not-a-hash", SizeBytes: maximumPortableImportBytes + 1,
 	})
 	if err != nil || invalid.Valid || len(invalid.Problems) != 6 {
 		t.Fatalf("invalid import manifest result: %+v err=%v", invalid, err)
@@ -492,6 +493,7 @@ func (broker *fakeGrantBroker) Revoke(documentID uuid.UUID) {
 type fakeArtifactWorkflow struct {
 	snapshotCalls int
 	exportCalls   int
+	restoreCalls  int
 	result        ArtifactCommand
 }
 
@@ -502,5 +504,10 @@ func (workflow *fakeArtifactWorkflow) RequestSnapshot(_ context.Context, _ Acces
 
 func (workflow *fakeArtifactWorkflow) RequestExport(_ context.Context, _ AccessContext, _ Document, _ ExportInput) (ArtifactCommand, error) {
 	workflow.exportCalls++
+	return workflow.result, nil
+}
+
+func (workflow *fakeArtifactWorkflow) PrepareRestore(_ context.Context, _ AccessContext, _ Document, _ RestoreCommand) (ArtifactCommand, error) {
+	workflow.restoreCalls++
 	return workflow.result, nil
 }

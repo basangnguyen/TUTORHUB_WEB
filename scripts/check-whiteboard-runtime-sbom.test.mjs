@@ -8,6 +8,7 @@ import { checkWhiteboardRuntimeSbom } from "./check-whiteboard-runtime-sbom.mjs"
 const requiredComponents = [
   { group: "@aws-sdk", name: "client-s3" },
   { group: "@hocuspocus", name: "server" },
+  { group: "@tutorhub", name: "collaboration-client" },
   { name: "pg" },
   { name: "yjs" },
 ].map((component) => ({ ...component, type: "library", version: "test" }));
@@ -17,7 +18,7 @@ test("accepts a secret-safe CycloneDX runtime SBOM", async () => {
     { bomFormat: "CycloneDX", components: requiredComponents },
     async (path) => {
       const result = await checkWhiteboardRuntimeSbom(path);
-      assert.equal(result.components, 4);
+      assert.equal(result.components, 5);
     },
   );
 });

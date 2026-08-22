@@ -34,6 +34,21 @@ describe("loadRuntimeConfig", () => {
     expect(config.maxAwarenessStates).toBe(1);
     expect(config.maxReconnectAttempts).toBe(8);
     expect(config.drainTimeoutMs).toBe(45_000);
+    expect(config.artifactWorker.enabled).toBe(false);
+  });
+
+  it("enables the artifact worker only with an explicit binding key", () => {
+    const config = loadRuntimeConfig({
+      ...validEnvironment,
+      COLLAB_ARTIFACT_WORKER_ENABLED: "true",
+      COLLAB_SNAPSHOT_BINDING_KEY_ID: "snapshot-binding-v1",
+      COLLAB_SNAPSHOT_BINDING_KEY:
+        "not-a-real-secret-but-long-enough-for-tests",
+    });
+
+    expect(config.artifactWorker.enabled).toBe(true);
+    expect(config.artifactWorker.leaseSeconds).toBe(30);
+    expect(config.artifactWorker.pollIntervalMs).toBe(500);
   });
 
   it.each([
@@ -83,6 +98,10 @@ describe("loadRuntimeConfig", () => {
         COLLAB_MAX_DOCUMENT_BYTES: String(10 * 1024 * 1024 + 1),
       },
       "collab_max_document_bytes_invalid",
+    ],
+    [
+      { ...validEnvironment, COLLAB_ARTIFACT_WORKER_ENABLED: "true" },
+      "artifact_binding_key_required",
     ],
   ])(
     "fails closed for invalid topology or credential metadata",

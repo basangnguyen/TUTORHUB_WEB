@@ -1,4 +1,10 @@
 import { pathToFileURL } from "node:url";
+import { B2ArtifactObjectStore } from "./artifactObjectStore.js";
+import { ArtifactQueueError, PostgresArtifactQueue } from "./artifactQueue.js";
+import {
+  ArtifactWorkerError,
+  WhiteboardArtifactWorker,
+} from "./artifactWorker.js";
 import { NeonCheckpointStore } from "./checkpointStore.js";
 import { loadRuntimeConfig, RuntimeConfigurationError } from "./config.js";
 import { HttpControlPlane } from "./controlPlane.js";
@@ -25,6 +31,34 @@ export async function run(): Promise<void> {
   );
   const snapshots = new B2PortableSnapshotStore(config.b2.bucket, config.b2);
   const logger = new JsonSafeLogger();
+  const artifactQueue = config.artifactWorker.enabled
+    ? new PostgresArtifactQueue(config.databaseUrl)
+    : undefined;
+  const artifactWorker = artifactQueue
+    ? new WhiteboardArtifactWorker(
+        artifactQueue,
+        new B2ArtifactObjectStore(config.b2.bucket, config.b2),
+        {
+          id: config.artifactWorker.currentBindingKeyId,
+          secret: config.artifactWorker.currentBindingKey,
+        },
+        config.artifactWorker.previousBindingKeyId
+          ? {
+              id: config.artifactWorker.previousBindingKeyId,
+              secret: config.artifactWorker.previousBindingKey,
+            }
+          : undefined,
+        config.artifactWorker.leaseSeconds,
+        config.artifactWorker.pollIntervalMs,
+        {
+          event(event) {
+            process.stdout.write(
+              `${JSON.stringify({ ...event, timestamp: new Date().toISOString() })}\n`,
+            );
+          },
+        },
+      )
+    : undefined;
   const runtime = createCollaborationRuntime(config, {
     authorityGuard,
     checkpoints,
@@ -32,13 +66,20 @@ export async function run(): Promise<void> {
     logger,
     snapshots,
   });
-  await runtime.start();
+  await artifactWorker?.start();
+  try {
+    await runtime.start();
+  } catch (error) {
+    await artifactWorker?.stop().catch(() => undefined);
+    throw error;
+  }
 
   let shuttingDown = false;
   const shutdown = async (): Promise<void> => {
     if (shuttingDown) return;
     shuttingDown = true;
     try {
+      await artifactWorker?.stop();
       await runtime.drain();
       process.exitCode = 0;
     } catch {
@@ -52,6 +93,8 @@ export async function run(): Promise<void> {
 export function startupFailureCode(error: unknown): string {
   if (error instanceof RuntimeConfigurationError) return error.code;
   if (error instanceof ProviderAuthorityGuardError) return error.code;
+  if (error instanceof ArtifactQueueError) return error.code;
+  if (error instanceof ArtifactWorkerError) return error.code;
   if (
     error instanceof Error &&
     error.message === "runtime_node_version_mismatch"

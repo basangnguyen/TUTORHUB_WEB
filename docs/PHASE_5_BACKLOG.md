@@ -8,7 +8,9 @@
 > 2026-08-21 trên exact candidate `647ffe4`. P5-COLLAB-04 đã `DONE` ngày 2026-08-21 với one-time
 > grant broker, exact authority revalidation và bounded revoke disconnect. P5-COLLAB-05 đã `DONE`
 > ngày 2026-08-22 với local data-plane candidate. P5-COLLAB-06 cũng đã `DONE` ngày 2026-08-22 với
-> lazy classroom tool shell; P5-COLLAB-07 runnable. Production whiteboard vẫn force-off tới
+> lazy classroom tool shell. P5-COLLAB-07 đang `VERIFY`: local/full verify và Neon/B2 disposable
+> acceptance đều PASS ở ledger `40 false`; còn review/no-secret, commit/push candidate và GitHub
+> Verify/Security. Production whiteboard vẫn force-off tới
 > P5-COLLAB-17.
 
 ## 1. Mục tiêu phase
@@ -65,7 +67,7 @@ Xây collaboration plane cho lớp học mà không làm rời hoặc làm yếu
 | P5-COLLAB-04 | Implementation | Grant broker và revoke generation               | P5-COLLAB-03               | DONE       |
 | P5-COLLAB-05 | Implementation | Collaboration data plane/provider adapter       | P5-COLLAB-01, P5-COLLAB-04 | DONE       |
 | P5-COLLAB-06 | Implementation | Lazy classroom tool shell                       | P5-COLLAB-03, P5-COLLAB-05 | DONE       |
-| P5-COLLAB-07 | Implementation | Snapshot/import/export/restore worker và B2     | P5-COLLAB-02, P5-COLLAB-05 | TODO       |
+| P5-COLLAB-07 | Implementation | Snapshot/import/export/restore worker và B2     | P5-COLLAB-02, P5-COLLAB-05 | VERIFY     |
 | P5-COLLAB-08 | Implementation | Reconnect, compaction và recovery               | P5-COLLAB-05, P5-COLLAB-07 | TODO       |
 | P5-COLLAB-09 | Implementation | Feature/quota/operations                        | P5-COLLAB-04..08           | TODO       |
 | P5-COLLAB-10 | Test           | Authorization và tenant isolation               | P5-COLLAB-02..09           | TODO       |
@@ -323,10 +325,23 @@ watermark; B2 object opaque; import quarantine; export/restore authorization và
 
 **Exit gate:**
 
-- [ ] Snapshot checksum/version/size và B2 metadata/object binding được verify trước publish/restore.
-- [ ] Malicious archive, zip bomb, path traversal, external URL/SSRF và active HTML/SVG XSS bị chặn.
-- [ ] Export không vượt tenant/document scope; raw content không vào log/audit.
-- [ ] Maintenance purge dùng exact role, bounded batch và `SKIP LOCKED`.
+- [x] Snapshot checksum/version/size và B2 metadata/object binding được verify trước publish/restore.
+- [x] Malicious archive, zip bomb, path traversal, external URL/SSRF và active HTML/SVG XSS bị chặn.
+- [x] Export không vượt tenant/document scope; raw content không vào log/audit.
+- [x] Maintenance purge dùng exact role, bounded batch và `SKIP LOCKED`.
+
+Candidate 2026-08-22: ADR-0035, forward migrations `000038`-`000040`, durable command/checkpoint/purge
+queue, Core API workflow, signed bounded envelope, portable scene quarantine, exact-version B2
+adapter, restore generation staging và maintenance entrypoint đã được triển khai. Runtime local suite
+PASS `115` test; portable scene, Core API, OpenAPI/generated client, exact ACL integration-tag compile,
+OCI/SBOM/security và full `pnpm verify` đều xanh. Runner disposable chỉ allowlist bốn database URL,
+scoped B2 credential và không in secret. Forward/idempotent migration, exact four-role ACL/PUBLIC deny,
+real B2 immutable-version lifecycle, restore/quarantine, concurrent `SKIP LOCKED` purge, retry và exact
+cleanup đều PASS; final aggregate giữ `40 false`. Migration `000040` sửa terminal restore retention
+compatibility mà không nới invariant của active restore. Task giữ `VERIFY` tới khi review/no-secret,
+commit/push và GitHub Verify/Security PASS. Không shared-staging write/deploy; production force-off.
+Acceptance:
+[`P5_COLLAB_07_STAGING_ACCEPTANCE.md`](P5_COLLAB_07_STAGING_ACCEPTANCE.md).
 
 ### P5-COLLAB-08 - Reconnect, compaction và recovery
 

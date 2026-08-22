@@ -1,2 +1,3 @@
-export * from "./browserSession";
-export * from "./canonicalAuthority";
+export * from "./browserSession.js";
+export * from "./canonicalAuthority.js";
+export * from "./portableScene.js";

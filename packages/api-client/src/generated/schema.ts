@@ -2578,7 +2578,7 @@ export type paths = {
     readonly put?: never;
     /**
      * Request a portable export from the exact current authority generation
-     * @description Export requires current management authority, expected generation, and idempotency. Processing is fail-closed until P5-COLLAB-07.
+     * @description Export requires current management authority, expected generation, and idempotency. The durable worker publishes only a verified immutable portable artifact bound to the exact tenant, document, and generation; unavailable dependencies fail closed.
      */
     readonly post: operations["exportWhiteboard"];
     readonly delete?: never;
@@ -2673,7 +2673,7 @@ export type paths = {
     readonly put?: never;
     /**
      * Request an immutable manual snapshot at the exact current generation
-     * @description Processing is fail-closed until the P5-COLLAB-07 artifact worker is configured.
+     * @description The Core API authorizes and durably enqueues a bounded command. The artifact worker verifies the exact current-generation checkpoint and immutable B2 version before publishing metadata; unavailable dependencies fail closed.
      */
     readonly post: operations["createWhiteboardSnapshot"];
     readonly delete?: never;
@@ -5566,7 +5566,13 @@ export type components = {
       /** Format: uuid */
       readonly id: string;
       /** @enum {string} */
-      readonly kind: "automatic" | "manual" | "export" | "pre_restore";
+      readonly kind:
+        | "automatic"
+        | "checkpoint"
+        | "manual"
+        | "export"
+        | "pre_restore"
+        | "import";
       /** Format: date-time */
       readonly retention_until: string;
       readonly schema_version: number;

@@ -76,6 +76,7 @@ export async function checkWhiteboardRuntimeOci() {
   assert.deepEqual(manifest.dependencies, {
     "@aws-sdk/client-s3": "3.1113.0",
     "@hocuspocus/server": "4.6.0",
+    "@tutorhub/collaboration-client": "workspace:*",
     pg: "8.23.0",
     yjs: "13.6.27",
   });

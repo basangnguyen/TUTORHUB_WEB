@@ -28,6 +28,7 @@ export async function checkWhiteboardRuntimeSbom(path) {
   for (const dependency of [
     "@aws-sdk/client-s3",
     "@hocuspocus/server",
+    "@tutorhub/collaboration-client",
     "pg",
     "yjs",
   ]) {

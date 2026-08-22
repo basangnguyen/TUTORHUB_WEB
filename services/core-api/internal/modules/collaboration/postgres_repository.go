@@ -399,6 +399,37 @@ func (repository *PostgresRepository) Restore(
 		return Document{}, ErrUnavailable
 	}
 	nextGeneration := document.CurrentGeneration + 1
+	var prepared bool
+	if err := tx.QueryRow(queryContext, `SELECT EXISTS (
+		SELECT 1
+		FROM tutorhub.whiteboard_artifact_commands AS command
+		WHERE command.id = $1
+		  AND command.tenant_id = $2
+		  AND command.actor_user_id = $3
+		  AND command.document_id = $4
+		  AND command.generation = $5
+		  AND command.command_kind = 'restore'
+		  AND command.status = 'succeeded'
+		  AND command.source_snapshot_id = $6
+		  AND command.target_generation = $7
+		  AND command.target_provider_document_name = $8
+		  AND EXISTS (
+			SELECT 1
+			FROM tutorhub.whiteboard_document_checkpoints AS checkpoint
+			WHERE checkpoint.tenant_id = command.tenant_id
+			  AND checkpoint.document_id = command.document_id
+			  AND checkpoint.generation = command.target_generation
+			  AND checkpoint.provider_document_name = command.target_provider_document_name
+		  )
+	)`, command.ArtifactCommandID, access.TenantID, access.ActorID, document.ID,
+		command.ExpectedGeneration, command.SnapshotID, nextGeneration,
+		command.ProviderDocumentName,
+	).Scan(&prepared); err != nil {
+		return Document{}, ErrUnavailable
+	}
+	if !prepared {
+		return Document{}, ErrArtifactUnavailable
+	}
 	_, err = tx.Exec(queryContext, `INSERT INTO tutorhub.whiteboard_document_generations
         (tenant_id, document_id, generation, provider_document_name, reason,
 		 restored_from_snapshot_id, created_by)
