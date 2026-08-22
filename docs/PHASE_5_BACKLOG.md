@@ -15,9 +15,9 @@
 > GitHub Verify `32571244058` và Security `32571244052` đều PASS. Production whiteboard vẫn force-off
 > tới P5-COLLAB-17. P5-COLLAB-09 đã `DONE` ngày 2026-08-22 trên exact candidate `983ada6` sau disposable
 > feature/quota/tenant gates, full verify, GitHub Verify `32586930775` và Security `32586930710` PASS.
-> P5-COLLAB-10 hiện ở `VERIFY`: local authorization matrix, fail-closed forged-role hardening,
-> tenant/principal/document/generation-scoped snapshot cursor và exact disposable Neon gate đã PASS;
-> candidate commit/push cùng GitHub CI còn chờ.
+> P5-COLLAB-10 đã `DONE` ngày 2026-08-23 trên exact candidate `383f6c7`: local/full verify,
+> authorization/tenant-isolation Neon disposable tại final ledger `41 false`, GitHub Verify
+> `32596587875` và Security `32596587867` đều PASS. P5-COLLAB-11 là task runnable tiếp theo.
 
 ## 1. Mục tiêu phase
 
@@ -76,7 +76,7 @@ Xây collaboration plane cho lớp học mà không làm rời hoặc làm yếu
 | P5-COLLAB-07 | Implementation | Snapshot/import/export/restore worker và B2     | P5-COLLAB-02, P5-COLLAB-05 | DONE       |
 | P5-COLLAB-08 | Implementation | Reconnect, compaction và recovery               | P5-COLLAB-05, P5-COLLAB-07 | DONE       |
 | P5-COLLAB-09 | Implementation | Feature/quota/operations                        | P5-COLLAB-04..08           | DONE       |
-| P5-COLLAB-10 | Test           | Authorization và tenant isolation               | P5-COLLAB-02..09           | VERIFY     |
+| P5-COLLAB-10 | Test           | Authorization và tenant isolation               | P5-COLLAB-02..09           | DONE       |
 | P5-COLLAB-11 | Test           | Credential/revoke/WebSocket abuse               | P5-COLLAB-04, P5-COLLAB-05 | TODO       |
 | P5-COLLAB-12 | Test           | Convergence/history/undo/reconnect              | P5-COLLAB-05, P5-COLLAB-08 | TODO       |
 | P5-COLLAB-13 | Test           | Snapshot/import/export/restore                  | P5-COLLAB-07, P5-COLLAB-08 | TODO       |
@@ -415,14 +415,16 @@ branch được giữ lại. Acceptance:
 - [x] Same document ID/cursor/idempotency key không tái dùng được qua tenant/principal/generation PASS
   local và exact PostgreSQL disposable.
 
-**Checkpoint 2026-08-23 — VERIFY:** service authority matrix và lifecycle concealment đã bao phủ tám
+**Closure 2026-08-23 — DONE:** service authority matrix và lifecycle concealment đã bao phủ tám
 principal states; forged/unknown organization role bị chặn trước repository. Snapshot list có cursor
 bounded, keyset-stable và scope theo tenant + actor + document + generation + limit; OpenAPI/generated
 client đã được cập nhật. Integration-tag suite biên dịch và secret-safe runner preflight PASS. Disposable
 retained forward-only `37 false -> 41 false -> 41 false`, exact PostgreSQL IDOR/cursor/idempotency gate,
 runtime authorization và cleanup đều PASS; gate phát hiện rồi sửa typed timestamp seed `42P08` trước rerun
 xanh. Không rollback/shared-staging write/deploy; production tiếp tục force-off. Full `pnpm verify`, diff
-check và local no-secret review PASS. Candidate commit/push cùng GitHub CI còn phải hoàn tất trước `DONE`. Acceptance:
+check và local no-secret review PASS. Exact candidate `383f6c7` đã push lên `origin/main`; GitHub Verify
+`32596587875` và Security `32596587867` đều PASS. P5-COLLAB-10 chuyển `VERIFY -> DONE`; P5-COLLAB-11
+là task runnable tiếp theo. Acceptance:
 [`P5_COLLAB_10_STAGING_ACCEPTANCE.md`](P5_COLLAB_10_STAGING_ACCEPTANCE.md).
 
 ### P5-COLLAB-11 - Credential/revoke/WebSocket abuse

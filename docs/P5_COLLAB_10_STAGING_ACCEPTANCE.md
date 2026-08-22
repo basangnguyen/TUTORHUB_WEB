@@ -1,6 +1,6 @@
 # P5-COLLAB-10 authorization and tenant-isolation acceptance
 
-Status: **VERIFY**
+Status: **DONE**
 
 Date: 2026-08-23
 
@@ -58,7 +58,11 @@ forged/inactive authority rejection, tenant/principal idempotency isolation and 
 snapshot seed parameter issue (`42P08`) was found by the gate and fixed before the final green rerun. No
 rollback or shared-staging write ran; the disposable branch remains available for review.
 
-## Disposable Neon gate required for DONE
+Exact candidate closure (2026-08-23): commit `383f6c7` was pushed to `origin/main`. GitHub Verify
+`32596587875` and Security `32596587867` both completed successfully on that exact SHA. P5-COLLAB-10
+is therefore `DONE`; shared staging and deployment remain intentionally untouched for this test slice.
+
+## Disposable Neon gate evidence
 
 Create ignored `.env.p5-collab-10-disposable.local` with values kept secret:
 
@@ -90,9 +94,9 @@ The exact gate will:
    replay for the same principal conflicts;
 7. clean up only P5-COLLAB-10 fixtures and leave the disposable branch available for review.
 
-## Remaining closure gates
+## Closure gates
 
 - [x] Run the exact disposable Neon gate and record bounded PASS/FAIL evidence only.
 - [x] Run final diff/no-secret review and full `pnpm verify` on the local candidate.
-- [ ] Commit/push only after explicit authorization and verify GitHub Verify/Security.
-- [ ] Mark P5-COLLAB-10 `DONE`; do not migrate shared staging or deploy for this test slice.
+- [x] Commit/push only after explicit authorization and verify GitHub Verify/Security.
+- [x] Mark P5-COLLAB-10 `DONE`; do not migrate shared staging or deploy for this test slice.

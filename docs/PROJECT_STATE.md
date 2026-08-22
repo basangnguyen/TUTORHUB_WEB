@@ -12,12 +12,12 @@
 | Quy trình            | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
 | Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4                                                    |
 | Phase hiện tại       | Phase 5 collaboration implementation; Phase 3 deferred carry-over vẫn hoạt động       |
-| Task `DONE` gần nhất | P5-COLLAB-09 Feature, quota và operations                                             |
-| Mốc repository mới   | Exact candidate `983ada6`; GitHub Verify `32586930775`, Security `32586930710` PASS   |
-| Task hiện tại        | P5-COLLAB-10 Authorization và tenant isolation — `VERIFY`                             |
-| Task tiếp theo       | P5-COLLAB-10 exact candidate commit/push và CI; sau đó P5-COLLAB-11                   |
+| Task `DONE` gần nhất | P5-COLLAB-10 Authorization và tenant isolation                                       |
+| Mốc repository mới   | Exact candidate `383f6c7`; GitHub Verify `32596587875`, Security `32596587867` PASS   |
+| Task hiện tại        | P5-COLLAB-11 Credential/revoke/WebSocket abuse — `TODO`                               |
+| Task tiếp theo       | Bắt đầu P5-COLLAB-11                                                                  |
 
-### Checkpoint P5-COLLAB-10 `VERIFY` — 2026-08-23
+### Checkpoint P5-COLLAB-10 `DONE` — 2026-08-23
 
 Local candidate đã hoàn tất authorization matrix cho organization admin/owner/teacher/TA/student/guest/
 removed/inactive, kiểm chứng cả `view/edit/present` projection và lifecycle allow/conceal. Unknown hoặc
@@ -35,8 +35,9 @@ staging và chưa deploy. Sau khi được phép, retained forward-only migratio
 `37 false -> 41 false -> 41 false`; exact PostgreSQL IDOR/cursor/idempotency, cross-tenant
 document/snapshot/export/restore concealment, forged/inactive authority, runtime authorization và cleanup
 đều PASS tại `41 false`. Gate đã phát hiện typed snapshot seed parameter `42P08`; fixture được explicit
-cast `timestamptz` trước aggregate rerun xanh. Trước `DONE` chỉ còn exact candidate commit/push được cho phép
-và GitHub Verify/Security. Acceptance:
+cast `timestamptz` trước aggregate rerun xanh. Exact candidate `383f6c7` đã push lên `origin/main`;
+GitHub Verify `32596587875` và Security `32596587867` đều PASS. P5-COLLAB-10 chuyển `VERIFY -> DONE`;
+P5-COLLAB-11 là task runnable tiếp theo. Acceptance:
 [`P5_COLLAB_10_STAGING_ACCEPTANCE.md`](P5_COLLAB_10_STAGING_ACCEPTANCE.md).
 
 ### Checkpoint P5-COLLAB-09 `DONE` — 2026-08-22
