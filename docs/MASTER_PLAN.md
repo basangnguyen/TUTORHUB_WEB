@@ -5,13 +5,13 @@
 | Thuộc tính            | Giá trị                                                                                      |
 | --------------------- | -------------------------------------------------------------------------------------------- |
 | Phiên bản tài liệu    | 2.5                                                                                          |
-| Cập nhật              | 2026-08-22                                                                                   |
+| Cập nhật              | 2026-08-23                                                                                   |
 | Phạm vi ưu tiên       | Web application                                                                              |
 | Thư mục phát triển    | `D:\TutorHub_V2`                                                                             |
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
 | Phase hiện tại        | Phase 5 collaboration implementation; Phase 3 deferred carry-over tiếp tục                   |
-| Trạng thái gần nhất   | P5-COLLAB-09 `DONE`; exact candidate `983ada6`, Verify/Security PASS                         |
+| Trạng thái gần nhất   | P5-COLLAB-10 `VERIFY`; local authorization/tenant-isolation candidate PASS                   |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 
@@ -1756,6 +1756,16 @@ database gate/full verify PASS sau sửa. Review/no-secret PASS; exact candidate
 đã được căn chỉnh từ ledger `40` lên latest ledger `41` trước lần CI xanh cuối. P5-COLLAB-10 runnable.
 Không rollback/shared-staging write/deploy; production tiếp tục force-off và disposable branch được giữ lại.
 Acceptance: [`P5_COLLAB_09_STAGING_ACCEPTANCE.md`](P5_COLLAB_09_STAGING_ACCEPTANCE.md).
+
+P5-COLLAB-10 checkpoint 2026-08-23 — `VERIFY`: local candidate đã thêm exact authority matrix cho
+owner/teacher/TA/student/guest/removed/inactive, fail-closed unknown role và snapshot cursor scope theo
+tenant/principal/document/generation/limit với PostgreSQL keyset pagination. Focused Go tests,
+integration-tag compile, runner preflight và full `pnpm verify` PASS; OpenAPI/generated client đã đồng bộ.
+Diff check/no-secret review PASS. Disposable retained forward-only `37 false -> 41 false -> 41 false`, exact
+PostgreSQL cross-tenant/cursor/idempotency gate, runtime authorization và cleanup PASS; typed timestamp seed
+`42P08` được gate phát hiện và sửa trước final rerun. Không rollback/shared-staging write/deploy. Exact
+candidate commit/push và GitHub CI còn chờ trước `DONE`. Acceptance:
+[`P5_COLLAB_10_STAGING_ACCEPTANCE.md`](P5_COLLAB_10_STAGING_ACCEPTANCE.md).
 
 **Deliverable:** teacher mở/đóng công cụ mà không làm rời media room; trạng thái cộng tác khôi phục sau reconnect.
 

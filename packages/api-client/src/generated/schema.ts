@@ -5592,6 +5592,7 @@ export type components = {
     };
     readonly WhiteboardSnapshotList: {
       readonly items: readonly components["schemas"]["WhiteboardSnapshot"][];
+      readonly next_cursor: string | null;
     };
     /**
      * @description Authoritative control-plane lifecycle state.
@@ -11370,6 +11371,8 @@ export interface operations {
   readonly listWhiteboardSnapshots: {
     readonly parameters: {
       readonly query?: {
+        /** @description Opaque cursor bound to the authenticated tenant, actor, document, current generation and limit */
+        readonly cursor?: string;
         readonly limit?: number;
       };
       readonly header: {

@@ -5890,6 +5890,11 @@ paths:
           in: query
           required: false
           schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+        - name: cursor
+          in: query
+          required: false
+          description: Opaque cursor bound to the authenticated tenant, actor, document, current generation and limit
+          schema: { type: string, minLength: 1, maxLength: 1024 }
       responses:
         "200":
           description: Immutable snapshot metadata without B2 object coordinates
@@ -14113,13 +14118,15 @@ components:
     WhiteboardSnapshotList:
       type: object
       additionalProperties: false
-      required: [items]
+      required: [items, next_cursor]
       properties:
         items:
           type: array
           maxItems: 100
           items:
             $ref: "#/components/schemas/WhiteboardSnapshot"
+        next_cursor:
+          type: [string, "null"]
     WhiteboardArtifactRequest:
       type: object
       additionalProperties: false

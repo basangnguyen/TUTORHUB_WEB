@@ -263,7 +263,12 @@ func (handlers whiteboardHandlers) snapshots(w http.ResponseWriter, r *http.Requ
 			}
 			limit = parsed
 		}
-		result, err := handlers.service.ListSnapshots(r.Context(), whiteboardAccess(principal), documentID, limit)
+		result, err := handlers.service.ListSnapshots(
+			r.Context(), whiteboardAccess(principal), documentID,
+			collaboration.SnapshotListInput{
+				Limit: limit, Cursor: strings.TrimSpace(r.URL.Query().Get("cursor")),
+			},
+		)
 		if err != nil {
 			handlers.writeProblem(w, r, err)
 			return

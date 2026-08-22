@@ -155,7 +155,7 @@ func TestP503PostgresRepositoryLifecycleAndRestore(t *testing.T) {
 	); err != nil {
 		t.Fatalf("insert P5-COLLAB-03 snapshot: %v", err)
 	}
-	snapshots, err := repository.ListSnapshots(ctx, access, fixture.documentID, 10)
+	snapshots, err := repository.ListSnapshots(ctx, access, fixture.documentID, SnapshotPageCursor{}, 10)
 	if err != nil || len(snapshots) != 1 || snapshots[0].ID != fixture.snapshotID {
 		t.Fatalf("snapshot projection: snapshots=%+v err=%v", snapshots, err)
 	}

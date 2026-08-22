@@ -405,8 +405,121 @@ func TestServiceOffModeConcealsAllPublicWhiteboardReadsAndWrites(t *testing.T) {
 	if _, err := service.Create(context.Background(), testAccess(), CreateInput{}); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("off-mode create error=%v", err)
 	}
-	if _, err := service.ListSnapshots(context.Background(), testAccess(), documentID, 10); !errors.Is(err, ErrNotFound) {
+	if _, err := service.ListSnapshots(context.Background(), testAccess(), documentID, SnapshotListInput{Limit: 10}); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("off-mode snapshots error=%v", err)
+	}
+}
+
+func TestServiceAuthorizationMatrixUsesCurrentServerAuthority(t *testing.T) {
+	t.Parallel()
+	documentID, spaceID := uuid.New(), uuid.New()
+	document := Document{
+		ID: documentID, MediaSpaceID: spaceID, Status: DocumentOpen,
+		Version: 2, CurrentGeneration: 3, RevokeGeneration: 4,
+	}
+	tests := []struct {
+		name       string
+		role       policy.OrganizationRole
+		active     bool
+		space      media.MediaSpace
+		capability Capability
+		manage     bool
+		wantError  error
+	}{
+		{name: "organization admin", role: policy.OrganizationRoleAdmin, active: true, space: media.MediaSpace{ID: spaceID, ViewerRole: media.InstanceRoleAttendee}, capability: CapabilityPresent, manage: true},
+		{name: "owner", role: policy.OrganizationRoleStudent, active: true, space: manageableSpace(spaceID), capability: CapabilityPresent, manage: true},
+		{name: "teacher", role: policy.OrganizationRoleTeacher, active: true, space: media.MediaSpace{ID: spaceID, ViewerRole: media.InstanceRoleCoHost, ViewerOperations: media.ViewerOperations{CanManageAdmissions: true}}, capability: CapabilityEdit, manage: true},
+		{name: "teaching assistant", role: policy.OrganizationRoleStudent, active: true, space: media.MediaSpace{ID: spaceID, ViewerRole: media.InstanceRoleTeachingAssistant, ViewerOperations: media.ViewerOperations{CanManageAdmissions: true}}, capability: CapabilityEdit, manage: true},
+		{name: "student", role: policy.OrganizationRoleStudent, active: true, space: media.MediaSpace{ID: spaceID, ViewerRole: media.InstanceRoleAttendee}, capability: CapabilityView},
+		{name: "guest", role: policy.OrganizationRoleGuest, active: true, space: media.MediaSpace{ID: spaceID, ViewerRole: media.InstanceRoleAttendee}, capability: CapabilityView},
+		{name: "removed", role: policy.OrganizationRoleStudent, active: false, space: media.MediaSpace{ID: spaceID}, wantError: ErrInvalidRequest},
+		{name: "inactive", role: policy.OrganizationRoleGuest, active: false, space: media.MediaSpace{ID: spaceID}, wantError: ErrInvalidRequest},
+	}
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			repository := &fakeRepository{
+				document: document, transitionResult: document, policies: defaultCapabilityPolicies(),
+			}
+			service := newTestService(t, repository, &fakeSpaceAuthority{space: test.space}, nil, nil, uuid.New())
+			access := testAccess()
+			access.OrganizationRoles = []policy.OrganizationRole{test.role}
+			access.MembershipActive = test.active
+
+			projected, err := service.Get(context.Background(), access, documentID)
+			if test.wantError != nil {
+				if !errors.Is(err, test.wantError) {
+					t.Fatalf("authorization error=%v want=%v", err, test.wantError)
+				}
+				return
+			}
+			if err != nil || projected.Viewer.Capability != test.capability ||
+				projected.Viewer.CanSuspend != test.manage || projected.Viewer.CanCreateSnapshot != test.manage ||
+				projected.Viewer.CanRestore != test.manage || projected.Viewer.CanExport != test.manage {
+				t.Fatalf("projection=%+v err=%v", projected.Viewer, err)
+			}
+			_, lifecycleErr := service.Suspend(context.Background(), access, documentID, TransitionInput{
+				ExpectedVersion: 2, IdempotencyKey: "whiteboard-p510-suspend-0001",
+			})
+			if test.manage {
+				if lifecycleErr != nil || repository.transitionCalls != 1 {
+					t.Fatalf("manager lifecycle err=%v calls=%d", lifecycleErr, repository.transitionCalls)
+				}
+			} else if !errors.Is(lifecycleErr, ErrNotFound) || repository.transitionCalls != 0 {
+				t.Fatalf("non-manager lifecycle err=%v calls=%d", lifecycleErr, repository.transitionCalls)
+			}
+		})
+	}
+}
+
+func TestServiceRejectsForgedOrganizationRoleBeforeRepositoryAccess(t *testing.T) {
+	t.Parallel()
+	repository := &fakeRepository{}
+	service := newTestService(t, repository, &fakeSpaceAuthority{}, nil, nil, uuid.New())
+	access := testAccess()
+	access.OrganizationRoles = []policy.OrganizationRole{policy.OrganizationRoleTeacher, "forged-admin"}
+
+	if _, err := service.Get(context.Background(), access, uuid.New()); !errors.Is(err, ErrInvalidRequest) {
+		t.Fatalf("forged role error=%v", err)
+	}
+	if repository.getCalls != 0 {
+		t.Fatalf("forged role reached repository: calls=%d", repository.getCalls)
+	}
+}
+
+func TestServiceSnapshotPaginationReturnsScopedCursorAndForwardsKeyset(t *testing.T) {
+	t.Parallel()
+	documentID, spaceID := uuid.New(), uuid.New()
+	document := Document{ID: documentID, MediaSpaceID: spaceID, Status: DocumentOpen, CurrentGeneration: 3}
+	snapshots := []Snapshot{
+		{ID: uuid.New(), DocumentID: documentID, CreatedAt: collaborationTestTime.Add(2 * time.Minute)},
+		{ID: uuid.New(), DocumentID: documentID, CreatedAt: collaborationTestTime.Add(time.Minute)},
+		{ID: uuid.New(), DocumentID: documentID, CreatedAt: collaborationTestTime},
+	}
+	repository := &fakeRepository{document: document, policies: defaultCapabilityPolicies(), snapshots: snapshots}
+	service := newTestService(t, repository, &fakeSpaceAuthority{space: manageableSpace(spaceID)}, nil, nil, uuid.New())
+	access := testAccess()
+
+	first, err := service.ListSnapshots(context.Background(), access, documentID, SnapshotListInput{Limit: 2})
+	if err != nil || len(first.Items) != 2 || first.NextCursor == nil || repository.snapshotLimit != 3 {
+		t.Fatalf("first page=%+v limit=%d err=%v", first, repository.snapshotLimit, err)
+	}
+	repository.snapshots = []Snapshot{snapshots[2]}
+	second, err := service.ListSnapshots(context.Background(), access, documentID, SnapshotListInput{
+		Limit: 2, Cursor: *first.NextCursor,
+	})
+	if err != nil || len(second.Items) != 1 || second.NextCursor != nil ||
+		repository.snapshotCursor.ID != snapshots[1].ID ||
+		!repository.snapshotCursor.CreatedAt.Equal(snapshots[1].CreatedAt) {
+		t.Fatalf("second page=%+v cursor=%+v err=%v", second, repository.snapshotCursor, err)
+	}
+
+	repository.document.CurrentGeneration++
+	if _, err := service.ListSnapshots(context.Background(), access, documentID, SnapshotListInput{
+		Limit: 2, Cursor: *first.NextCursor,
+	}); !errors.Is(err, ErrInvalidRequest) {
+		t.Fatalf("pre-restore cursor crossed generation: %v", err)
 	}
 }
 
@@ -465,6 +578,7 @@ func manageableSpace(id uuid.UUID) media.MediaSpace {
 }
 
 type fakeRepository struct {
+	getCalls          int
 	createCalls       int
 	transitionCalls   int
 	restoreCalls      int
@@ -483,6 +597,8 @@ type fakeRepository struct {
 	transitionError   error
 	restoreError      error
 	resolveSpaceID    uuid.UUID
+	snapshotCursor    SnapshotPageCursor
+	snapshotLimit     int
 }
 
 func (repository *fakeRepository) Create(_ context.Context, _ AccessContext, command CreateCommand) (CreateResult, error) {
@@ -492,6 +608,7 @@ func (repository *fakeRepository) Create(_ context.Context, _ AccessContext, com
 }
 
 func (repository *fakeRepository) Get(_ context.Context, _ AccessContext, _ uuid.UUID) (Document, error) {
+	repository.getCalls++
 	return repository.document, repository.getError
 }
 
@@ -520,7 +637,9 @@ func (repository *fakeRepository) CapabilityPolicies(_ context.Context, _ Access
 	return repository.policies, nil
 }
 
-func (repository *fakeRepository) ListSnapshots(_ context.Context, _ AccessContext, _ uuid.UUID, _ int) ([]Snapshot, error) {
+func (repository *fakeRepository) ListSnapshots(_ context.Context, _ AccessContext, _ uuid.UUID, cursor SnapshotPageCursor, limit int) ([]Snapshot, error) {
+	repository.snapshotCursor = cursor
+	repository.snapshotLimit = limit
 	return repository.snapshots, nil
 }
 

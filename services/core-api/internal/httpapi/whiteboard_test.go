@@ -244,6 +244,32 @@ func TestWhiteboardRestoreForwardsSnapshotCASAndIdempotency(t *testing.T) {
 	}
 }
 
+func TestWhiteboardSnapshotListForwardsOpaqueCursorAndBoundedLimit(t *testing.T) {
+	t.Parallel()
+	tenantID, actorID, documentID := uuid.New(), uuid.New(), uuid.New()
+	nextCursor := "thwbsv1_next"
+	service := &fakeWhiteboardService{snapshotResult: collaboration.SnapshotList{
+		Items: []collaboration.Snapshot{}, NextCursor: &nextCursor,
+	}}
+	handler := newWhiteboardTestHandler(classIdentityService(tenantID, actorID, nil), service)
+	request := whiteboardRequest(
+		http.MethodGet,
+		whiteboardsCollectionPath+"/"+documentID.String()+"/snapshots?limit=25&cursor=thwbsv1_previous",
+		"",
+		tenantID,
+		false,
+	)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK || service.snapshotCalls != 1 ||
+		service.snapshotInput.Limit != 25 || service.snapshotInput.Cursor != "thwbsv1_previous" {
+		t.Fatalf("snapshot list status=%d calls=%d input=%+v body=%s", response.Code, service.snapshotCalls, service.snapshotInput, response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), `"next_cursor":"thwbsv1_next"`) {
+		t.Fatalf("snapshot cursor missing from response: %s", response.Body.String())
+	}
+}
+
 func newWhiteboardTestHandler(identityService identity.ServiceAPI, service collaboration.ServiceAPI) http.Handler {
 	return NewHandlerWithOptions(
 		config.Config{
@@ -312,16 +338,19 @@ type fakeWhiteboardService struct {
 	grantCalls     int
 	importCalls    int
 	restoreCalls   int
+	snapshotCalls  int
 	resolveCalls   int
 	createInput    collaboration.CreateInput
 	grantInput     collaboration.GrantExchangeInput
 	restoreInput   collaboration.RestoreInput
+	snapshotInput  collaboration.SnapshotListInput
 	createResult   collaboration.CreateResult
 	getResult      collaboration.Document
 	resolveResult  collaboration.ToolProjection
 	grantResult    collaboration.GrantCredential
 	importResult   collaboration.ImportValidation
 	restoreResult  collaboration.Document
+	snapshotResult collaboration.SnapshotList
 	requestError   error
 	resolveSpaceID uuid.UUID
 }
@@ -370,8 +399,10 @@ func (service *fakeWhiteboardService) ExchangeGrant(_ context.Context, access co
 	return service.grantResult, service.requestError
 }
 
-func (service *fakeWhiteboardService) ListSnapshots(_ context.Context, _ collaboration.AccessContext, _ uuid.UUID, _ int) (collaboration.SnapshotList, error) {
-	return collaboration.SnapshotList{Items: []collaboration.Snapshot{}}, service.requestError
+func (service *fakeWhiteboardService) ListSnapshots(_ context.Context, _ collaboration.AccessContext, _ uuid.UUID, input collaboration.SnapshotListInput) (collaboration.SnapshotList, error) {
+	service.snapshotCalls++
+	service.snapshotInput = input
+	return service.snapshotResult, service.requestError
 }
 
 func (service *fakeWhiteboardService) CreateSnapshot(_ context.Context, _ collaboration.AccessContext, _ uuid.UUID, _ collaboration.SnapshotCreateInput) (collaboration.ArtifactCommand, error) {

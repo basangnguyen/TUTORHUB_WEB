@@ -176,7 +176,18 @@ type Snapshot struct {
 }
 
 type SnapshotList struct {
-	Items []Snapshot `json:"items"`
+	Items      []Snapshot `json:"items"`
+	NextCursor *string    `json:"next_cursor"`
+}
+
+type SnapshotListInput struct {
+	Limit  int
+	Cursor string
+}
+
+type SnapshotPageCursor struct {
+	CreatedAt time.Time
+	ID        uuid.UUID
 }
 
 type ArtifactCommandStatus string
@@ -286,7 +297,7 @@ type Repository interface {
 	GrantAuthority(context.Context, AccessContext, uuid.UUID) (GrantAuthority, error)
 	Transition(context.Context, AccessContext, TransitionCommand) (Document, error)
 	CapabilityPolicies(context.Context, AccessContext, uuid.UUID) (map[Audience]Capability, error)
-	ListSnapshots(context.Context, AccessContext, uuid.UUID, int) ([]Snapshot, error)
+	ListSnapshots(context.Context, AccessContext, uuid.UUID, SnapshotPageCursor, int) ([]Snapshot, error)
 	Restore(context.Context, AccessContext, RestoreCommand) (Document, error)
 }
 
@@ -318,7 +329,7 @@ type ServiceAPI interface {
 	Resume(context.Context, AccessContext, uuid.UUID, TransitionInput) (Document, error)
 	Close(context.Context, AccessContext, uuid.UUID, TransitionInput) (Document, error)
 	ExchangeGrant(context.Context, AccessContext, uuid.UUID, GrantExchangeInput) (GrantCredential, error)
-	ListSnapshots(context.Context, AccessContext, uuid.UUID, int) (SnapshotList, error)
+	ListSnapshots(context.Context, AccessContext, uuid.UUID, SnapshotListInput) (SnapshotList, error)
 	CreateSnapshot(context.Context, AccessContext, uuid.UUID, SnapshotCreateInput) (ArtifactCommand, error)
 	Export(context.Context, AccessContext, uuid.UUID, ExportInput) (ArtifactCommand, error)
 	ValidateImport(context.Context, ImportManifest) (ImportValidation, error)

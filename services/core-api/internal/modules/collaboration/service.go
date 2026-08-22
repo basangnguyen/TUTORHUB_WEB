@@ -357,7 +357,7 @@ func (service *Service) ListSnapshots(
 	ctx context.Context,
 	access AccessContext,
 	documentID uuid.UUID,
-	limit int,
+	input SnapshotListInput,
 ) (SnapshotList, error) {
 	if err := service.requireReadable(); err != nil {
 		return SnapshotList{}, err
@@ -366,20 +366,36 @@ func (service *Service) ListSnapshots(
 	if err != nil {
 		return SnapshotList{}, err
 	}
-	if limit == 0 {
-		limit = 50
+	if input.Limit == 0 {
+		input.Limit = 50
 	}
-	if limit < 1 || limit > 100 {
+	if input.Limit < 1 || input.Limit > 100 {
 		return SnapshotList{}, ErrInvalidRequest
 	}
-	items, err := service.repository.ListSnapshots(ctx, access, document.ID, limit)
+	cursor, err := decodeSnapshotCursor(access, document, input.Limit, input.Cursor)
+	if err != nil {
+		return SnapshotList{}, err
+	}
+	items, err := service.repository.ListSnapshots(ctx, access, document.ID, cursor, input.Limit+1)
 	if err != nil {
 		return SnapshotList{}, normalizeError(err)
 	}
 	if items == nil {
 		items = []Snapshot{}
 	}
-	return SnapshotList{Items: items}, nil
+	var nextCursor *string
+	if len(items) > input.Limit {
+		items = items[:input.Limit]
+		encoded, encodeErr := encodeSnapshotCursor(access, document, input.Limit, SnapshotPageCursor{
+			CreatedAt: items[len(items)-1].CreatedAt,
+			ID:        items[len(items)-1].ID,
+		})
+		if encodeErr != nil {
+			return SnapshotList{}, encodeErr
+		}
+		nextCursor = &encoded
+	}
+	return SnapshotList{Items: items, NextCursor: nextCursor}, nil
 }
 
 func (service *Service) CreateSnapshot(
@@ -619,8 +635,17 @@ func validateArtifactRequest(document Document, expectedGeneration int64, key st
 }
 
 func validAccess(access AccessContext) bool {
-	return access.TenantID != uuid.Nil && access.ActorID != uuid.Nil && access.MembershipActive &&
-		len(access.OrganizationRoles) > 0
+	if access.TenantID == uuid.Nil || access.ActorID == uuid.Nil || !access.MembershipActive ||
+		len(access.OrganizationRoles) == 0 {
+		return false
+	}
+	for _, role := range access.OrganizationRoles {
+		if role != policy.OrganizationRoleAdmin && role != policy.OrganizationRoleTeacher &&
+			role != policy.OrganizationRoleStudent && role != policy.OrganizationRoleGuest {
+			return false
+		}
+	}
+	return true
 }
 
 func canManageSpace(access AccessContext, space media.MediaSpace) bool {

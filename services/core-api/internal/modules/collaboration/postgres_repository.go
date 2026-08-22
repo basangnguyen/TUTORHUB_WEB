@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/google/uuid"
@@ -371,6 +372,7 @@ func (repository *PostgresRepository) ListSnapshots(
 	ctx context.Context,
 	access AccessContext,
 	documentID uuid.UUID,
+	cursor SnapshotPageCursor,
 	limit int,
 ) ([]Snapshot, error) {
 	queryContext, cancel := context.WithTimeout(ctx, repository.queryTimeout)
@@ -383,13 +385,19 @@ func (repository *PostgresRepository) ListSnapshots(
 	if err := repository.requireFeature(queryContext, tx, access.TenantID, true); err != nil {
 		return nil, err
 	}
-	rows, err := tx.Query(queryContext, `SELECT id, document_id, generation, snapshot_kind,
+	query := `SELECT id, document_id, generation, snapshot_kind,
         format_version, engine_version, authority_version, schema_version,
         causal_watermark_sha256, content_sha256, size_bytes, created_at, retention_until
         FROM tutorhub.whiteboard_snapshots
-        WHERE tenant_id = $1 AND document_id = $2
-        ORDER BY created_at DESC, id DESC
-        LIMIT $3`, access.TenantID, documentID, limit)
+		WHERE tenant_id = $1 AND document_id = $2`
+	arguments := []any{access.TenantID, documentID}
+	if !cursor.CreatedAt.IsZero() && cursor.ID != uuid.Nil {
+		query += ` AND (created_at, id) < ($3, $4)`
+		arguments = append(arguments, cursor.CreatedAt, cursor.ID)
+	}
+	query += ` ORDER BY created_at DESC, id DESC LIMIT $` + strconv.Itoa(len(arguments)+1)
+	arguments = append(arguments, limit)
+	rows, err := tx.Query(queryContext, query, arguments...)
 	if err != nil {
 		return nil, ErrUnavailable
 	}

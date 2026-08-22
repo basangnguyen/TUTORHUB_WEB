@@ -6,7 +6,7 @@
 
 | Thuộc tính           | Trạng thái                                                                            |
 | -------------------- | ------------------------------------------------------------------------------------- |
-| Ngày cập nhật        | 2026-08-22                                                                            |
+| Ngày cập nhật        | 2026-08-23                                                                            |
 | Repository           | `https://github.com/basangnguyen/TUTORHUB_WEB`                                        |
 | Nhánh làm việc       | `main`                                                                                |
 | Quy trình            | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
@@ -14,8 +14,30 @@
 | Phase hiện tại       | Phase 5 collaboration implementation; Phase 3 deferred carry-over vẫn hoạt động       |
 | Task `DONE` gần nhất | P5-COLLAB-09 Feature, quota và operations                                             |
 | Mốc repository mới   | Exact candidate `983ada6`; GitHub Verify `32586930775`, Security `32586930710` PASS   |
-| Task hiện tại        | P5-COLLAB-09 Feature, quota và operations — `DONE`                                    |
-| Task tiếp theo       | P5-COLLAB-10 Authorization và tenant isolation                                        |
+| Task hiện tại        | P5-COLLAB-10 Authorization và tenant isolation — `VERIFY`                             |
+| Task tiếp theo       | P5-COLLAB-10 exact candidate commit/push và CI; sau đó P5-COLLAB-11                   |
+
+### Checkpoint P5-COLLAB-10 `VERIFY` — 2026-08-23
+
+Local candidate đã hoàn tất authorization matrix cho organization admin/owner/teacher/TA/student/guest/
+removed/inactive, kiểm chứng cả `view/edit/present` projection và lifecycle allow/conceal. Unknown hoặc
+mixed forged organization role nay fail closed trước repository. Snapshot list có bounded opaque cursor
+scope theo tenant, actor, document, current generation và limit; PostgreSQL dùng deterministic
+`(created_at, id)` keyset cùng exact tenant/document predicate. HTTP/OpenAPI/generated client đã cập nhật;
+malformed hoặc cross-scope cursor bị từ chối.
+
+Focused Go tests, integration-tag compile, runner environment tests và full `pnpm verify` PASS; diff check
+và local no-secret review cũng PASS. Task không thêm migration;
+exact disposable gate yêu cầu owner direct + runtime pooled trên cùng branch đã ở clean ledger `41 false`.
+Lần preflight disposable đầu tiên đã nạp file local theo allowlist, xác nhận exact role/cùng branch PASS rồi
+dừng an toàn vì ledger thực tế là `37 false`; không migration/rollback/fixture write. Chưa write shared
+staging và chưa deploy. Sau khi được phép, retained forward-only migration PASS
+`37 false -> 41 false -> 41 false`; exact PostgreSQL IDOR/cursor/idempotency, cross-tenant
+document/snapshot/export/restore concealment, forged/inactive authority, runtime authorization và cleanup
+đều PASS tại `41 false`. Gate đã phát hiện typed snapshot seed parameter `42P08`; fixture được explicit
+cast `timestamptz` trước aggregate rerun xanh. Trước `DONE` chỉ còn exact candidate commit/push được cho phép
+và GitHub Verify/Security. Acceptance:
+[`P5_COLLAB_10_STAGING_ACCEPTANCE.md`](P5_COLLAB_10_STAGING_ACCEPTANCE.md).
 
 ### Checkpoint P5-COLLAB-09 `DONE` — 2026-08-22
 
