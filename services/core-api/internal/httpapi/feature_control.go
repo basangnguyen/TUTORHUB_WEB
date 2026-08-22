@@ -54,6 +54,7 @@ type tenantFeatureCapabilitiesResponse struct {
 	FileUploads            featureCapabilityResponse `json:"file_uploads"`
 	ClassroomMediaRooms    featureCapabilityResponse `json:"classroom_media_rooms"`
 	InstantStudyRooms      featureCapabilityResponse `json:"instant_study_rooms"`
+	ClassroomWhiteboards   featureCapabilityResponse `json:"classroom_whiteboards"`
 }
 
 type tenantQuotaCapabilitiesResponse struct {
@@ -78,6 +79,10 @@ type tenantQuotaCapabilitiesResponse struct {
 	MediaParticipantsPerSpace                  quotaCapabilityResponse `json:"media_participants_per_space"`
 	ActiveMediaParticipants                    quotaCapabilityResponse `json:"active_media_participants"`
 	MediaSpaceStartsPerHour                    quotaCapabilityResponse `json:"media_space_starts_per_hour"`
+	WhiteboardDocumentsPerTenant               quotaCapabilityResponse `json:"whiteboard_documents_per_tenant"`
+	WhiteboardConnectionsPerTenant             quotaCapabilityResponse `json:"whiteboard_connections_per_tenant"`
+	WhiteboardStorageBytesPerTenant            quotaCapabilityResponse `json:"whiteboard_storage_bytes_per_tenant"`
+	WhiteboardOperationsPerMinute              quotaCapabilityResponse `json:"whiteboard_operations_per_minute"`
 }
 
 type tenantOperationCapabilitiesResponse struct {
@@ -123,6 +128,7 @@ type updateTenantFeatureControlValuesRequest struct {
 	FileUploads            *bool `json:"file_uploads"`
 	ClassroomMediaRooms    *bool `json:"classroom_media_rooms"`
 	InstantStudyRooms      *bool `json:"instant_study_rooms"`
+	ClassroomWhiteboards   *bool `json:"classroom_whiteboards"`
 }
 
 type updateTenantQuotaControlValuesRequest struct {
@@ -147,6 +153,10 @@ type updateTenantQuotaControlValuesRequest struct {
 	MediaParticipantsPerSpace                  *int64 `json:"media_participants_per_space"`
 	ActiveMediaParticipants                    *int64 `json:"active_media_participants"`
 	MediaSpaceStartsPerHour                    *int64 `json:"media_space_starts_per_hour"`
+	WhiteboardDocumentsPerTenant               *int64 `json:"whiteboard_documents_per_tenant"`
+	WhiteboardConnectionsPerTenant             *int64 `json:"whiteboard_connections_per_tenant"`
+	WhiteboardStorageBytesPerTenant            *int64 `json:"whiteboard_storage_bytes_per_tenant"`
+	WhiteboardOperationsPerMinute              *int64 `json:"whiteboard_operations_per_minute"`
 }
 
 func (request updateTenantFeatureControlsRequest) complete() bool {
@@ -162,6 +172,7 @@ func (request updateTenantFeatureControlsRequest) complete() bool {
 		request.Features.FileUploads != nil &&
 		request.Features.ClassroomMediaRooms != nil &&
 		request.Features.InstantStudyRooms != nil &&
+		request.Features.ClassroomWhiteboards != nil &&
 		request.Quotas != nil && request.Quotas.Members != nil &&
 		request.Quotas.ActiveClasses != nil &&
 		request.Quotas.InviteCreationsPerHour != nil &&
@@ -182,7 +193,11 @@ func (request updateTenantFeatureControlsRequest) complete() bool {
 		request.Quotas.ActiveMediaSpaces != nil &&
 		request.Quotas.MediaParticipantsPerSpace != nil &&
 		request.Quotas.ActiveMediaParticipants != nil &&
-		request.Quotas.MediaSpaceStartsPerHour != nil
+		request.Quotas.MediaSpaceStartsPerHour != nil &&
+		request.Quotas.WhiteboardDocumentsPerTenant != nil &&
+		request.Quotas.WhiteboardConnectionsPerTenant != nil &&
+		request.Quotas.WhiteboardStorageBytesPerTenant != nil &&
+		request.Quotas.WhiteboardOperationsPerMinute != nil
 }
 
 func newFeatureControlHandlers(
@@ -271,6 +286,7 @@ func (handlers featureControlHandlers) update(w http.ResponseWriter, r *http.Req
 				{Key: featurecontrol.FeatureFileUploads, Enabled: *request.Features.FileUploads},
 				{Key: featurecontrol.FeatureClassroomMediaRooms, Enabled: *request.Features.ClassroomMediaRooms},
 				{Key: featurecontrol.FeatureInstantStudyRooms, Enabled: *request.Features.InstantStudyRooms},
+				{Key: featurecontrol.FeatureClassroomWhiteboards, Enabled: *request.Features.ClassroomWhiteboards},
 			},
 			QuotaOverrides: []featurecontrol.QuotaOverride{
 				{Key: featurecontrol.QuotaMembers, Limit: *request.Quotas.Members},
@@ -294,6 +310,10 @@ func (handlers featureControlHandlers) update(w http.ResponseWriter, r *http.Req
 				{Key: featurecontrol.QuotaMediaParticipantsPerSpace, Limit: *request.Quotas.MediaParticipantsPerSpace},
 				{Key: featurecontrol.QuotaActiveMediaParticipants, Limit: *request.Quotas.ActiveMediaParticipants},
 				{Key: featurecontrol.QuotaMediaSpaceStartsPerHour, Limit: *request.Quotas.MediaSpaceStartsPerHour},
+				{Key: featurecontrol.QuotaWhiteboardDocumentsPerTenant, Limit: *request.Quotas.WhiteboardDocumentsPerTenant},
+				{Key: featurecontrol.QuotaWhiteboardConnectionsPerTenant, Limit: *request.Quotas.WhiteboardConnectionsPerTenant},
+				{Key: featurecontrol.QuotaWhiteboardStorageBytesPerTenant, Limit: *request.Quotas.WhiteboardStorageBytesPerTenant},
+				{Key: featurecontrol.QuotaWhiteboardOperationsPerMinute, Limit: *request.Quotas.WhiteboardOperationsPerMinute},
 			},
 		},
 	)
@@ -434,6 +454,7 @@ func mapTenantCapabilities(
 	fileUploadFeature, fileUploadOK := features[featurecontrol.FeatureFileUploads]
 	classroomMediaFeature, classroomMediaOK := features[featurecontrol.FeatureClassroomMediaRooms]
 	instantStudyFeature, instantStudyOK := features[featurecontrol.FeatureInstantStudyRooms]
+	classroomWhiteboardFeature, classroomWhiteboardOK := features[featurecontrol.FeatureClassroomWhiteboards]
 	membersQuota, membersOK := quotas[featurecontrol.QuotaMembers]
 	classesQuota, classesOK := quotas[featurecontrol.QuotaActiveClasses]
 	invitesQuota, invitesOK := quotas[featurecontrol.QuotaInviteCreationsPerHour]
@@ -455,13 +476,19 @@ func mapTenantCapabilities(
 	mediaParticipantsPerSpaceQuota, mediaParticipantsPerSpaceOK := quotas[featurecontrol.QuotaMediaParticipantsPerSpace]
 	activeMediaParticipantsQuota, activeMediaParticipantsOK := quotas[featurecontrol.QuotaActiveMediaParticipants]
 	mediaSpaceStartsQuota, mediaSpaceStartsOK := quotas[featurecontrol.QuotaMediaSpaceStartsPerHour]
+	whiteboardDocumentsQuota, whiteboardDocumentsOK := quotas[featurecontrol.QuotaWhiteboardDocumentsPerTenant]
+	whiteboardConnectionsQuota, whiteboardConnectionsOK := quotas[featurecontrol.QuotaWhiteboardConnectionsPerTenant]
+	whiteboardStorageBytesQuota, whiteboardStorageBytesOK := quotas[featurecontrol.QuotaWhiteboardStorageBytesPerTenant]
+	whiteboardOperationsQuota, whiteboardOperationsOK := quotas[featurecontrol.QuotaWhiteboardOperationsPerMinute]
 	if !membershipOK || !classOK || !inviteOK || !sessionOK || !recurrenceOK || !notificationOK ||
 		!availabilityPollOK || !conversationOK || !fileUploadOK || !membersOK || !classesOK || !invitesOK || !activePollsOK ||
 		!pollRangeOK || !pollSlotsOK || !pollParticipantsOK || !pollCreationsOK || !pollCapabilitiesOK ||
 		!activeStudyMeetingsOK || !studyMeetingCreationsOK || !messagesOK || !messageSendsOK ||
 		!filesOK || !fileBytesOK || !singleFileOK || !fileIntentRateOK ||
 		!classroomMediaOK || !instantStudyOK || !activeMediaSpacesOK ||
-		!mediaParticipantsPerSpaceOK || !activeMediaParticipantsOK || !mediaSpaceStartsOK {
+		!mediaParticipantsPerSpaceOK || !activeMediaParticipantsOK || !mediaSpaceStartsOK ||
+		!classroomWhiteboardOK || !whiteboardDocumentsOK || !whiteboardConnectionsOK ||
+		!whiteboardStorageBytesOK || !whiteboardOperationsOK {
 		return tenantCapabilitiesResponse{}, errors.New("feature control snapshot is incomplete")
 	}
 	response := tenantCapabilitiesResponse{
@@ -480,6 +507,7 @@ func mapTenantCapabilities(
 			FileUploads:            mapFeatureCapability(fileUploadFeature, capabilities.AllowedAction.ManageControls),
 			ClassroomMediaRooms:    mapFeatureCapability(classroomMediaFeature, capabilities.AllowedAction.ManageControls),
 			InstantStudyRooms:      mapFeatureCapability(instantStudyFeature, capabilities.AllowedAction.ManageControls),
+			ClassroomWhiteboards:   mapFeatureCapability(classroomWhiteboardFeature, capabilities.AllowedAction.ManageControls),
 		},
 		Quotas: tenantQuotaCapabilitiesResponse{
 			Members:                                    mapQuotaCapability(membersQuota, capabilities.AllowedAction.ManageControls),
@@ -503,6 +531,10 @@ func mapTenantCapabilities(
 			MediaParticipantsPerSpace:                  mapQuotaCapability(mediaParticipantsPerSpaceQuota, capabilities.AllowedAction.ManageControls),
 			ActiveMediaParticipants:                    mapQuotaCapability(activeMediaParticipantsQuota, capabilities.AllowedAction.ManageControls),
 			MediaSpaceStartsPerHour:                    mapQuotaCapability(mediaSpaceStartsQuota, capabilities.AllowedAction.ManageControls),
+			WhiteboardDocumentsPerTenant:               mapQuotaCapability(whiteboardDocumentsQuota, capabilities.AllowedAction.ManageControls),
+			WhiteboardConnectionsPerTenant:             mapQuotaCapability(whiteboardConnectionsQuota, capabilities.AllowedAction.ManageControls),
+			WhiteboardStorageBytesPerTenant:            mapQuotaCapability(whiteboardStorageBytesQuota, capabilities.AllowedAction.ManageControls),
+			WhiteboardOperationsPerMinute:              mapQuotaCapability(whiteboardOperationsQuota, capabilities.AllowedAction.ManageControls),
 		},
 	}
 	response.Operations = tenantOperationCapabilitiesResponse{

@@ -14,6 +14,7 @@ func TestFeatureControlGuardrailsOmitFeaturesThatAreNotForcedOff(t *testing.T) {
 		DisableClassManagement:                        true,
 		EnableClassroomMediaRooms:                     true,
 		EnableInstantStudyRooms:                       true,
+		EnableClassroomWhiteboards:                    true,
 		MaxMembers:                                    10_000,
 		MaxActiveClasses:                              1_000,
 		MaxInviteCreationsPerHour:                     10_000,
@@ -35,6 +36,10 @@ func TestFeatureControlGuardrailsOmitFeaturesThatAreNotForcedOff(t *testing.T) {
 		MaxMediaParticipantsPerSpace:                  50,
 		MaxActiveMediaParticipants:                    500,
 		MaxMediaSpaceStartsPerHour:                    200,
+		MaxWhiteboardDocumentsPerTenant:               100,
+		MaxWhiteboardConnectionsPerTenant:             100,
+		MaxWhiteboardStorageBytesPerTenant:            10_737_418_240,
+		MaxWhiteboardOperationsPerMinute:              60_000,
 	}
 	guardrails := featureControlGuardrails(configuration)
 
@@ -62,6 +67,7 @@ func TestFeatureControlGuardrailsForceOffClassSessionScheduling(t *testing.T) {
 		EnableInAppNotifications:                      true,
 		EnableClassroomMediaRooms:                     true,
 		EnableInstantStudyRooms:                       true,
+		EnableClassroomWhiteboards:                    true,
 		MaxMembers:                                    10_000,
 		MaxActiveClasses:                              1_000,
 		MaxInviteCreationsPerHour:                     10_000,
@@ -99,6 +105,7 @@ func TestFeatureControlGuardrailsForceOffConversations(t *testing.T) {
 		EnableInAppNotifications:                      true,
 		EnableClassroomMediaRooms:                     true,
 		EnableInstantStudyRooms:                       true,
+		EnableClassroomWhiteboards:                    true,
 		MaxMembers:                                    10_000,
 		MaxActiveClasses:                              1_000,
 		MaxInviteCreationsPerHour:                     10_000,
@@ -130,6 +137,7 @@ func TestFeatureControlGuardrailsForceOffMediaAndApplyCeilings(t *testing.T) {
 	guardrails := featureControlGuardrails(config.FeatureControlConfig{
 		EnableClassSessionRecurrence: true,
 		EnableInAppNotifications:     true,
+		EnableClassroomWhiteboards:   true,
 		MaxActiveMediaSpaces:         80,
 		MaxMediaParticipantsPerSpace: 40,
 		MaxActiveMediaParticipants:   400,
@@ -157,6 +165,7 @@ func TestFeatureControlGuardrailsForceOffMediaAndApplyCeilings(t *testing.T) {
 		EnableInAppNotifications:     true,
 		EnableClassroomMediaRooms:    true,
 		EnableInstantStudyRooms:      true,
+		EnableClassroomWhiteboards:   true,
 	})
 	if enabled.ForcedOffFeatures[featurecontrol.FeatureClassroomMediaRooms] ||
 		enabled.ForcedOffFeatures[featurecontrol.FeatureInstantStudyRooms] {

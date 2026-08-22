@@ -11,6 +11,7 @@ export type RuntimePolicyErrorCode =
   | "global_connection_quota"
   | "ingress_byte_budget_exceeded"
   | "ingress_message_budget_exceeded"
+  | "tenant_operation_quota"
   | "policy_clock_invalid"
   | "policy_configuration_invalid"
   | "policy_input_invalid"
@@ -39,7 +40,11 @@ export interface ConnectionPolicyLimits {
 
 type ConnectionScope = Pick<
   CollaborationScope,
-  "actorId" | "documentId" | "generation" | "tenantId"
+  | "actorId"
+  | "documentId"
+  | "generation"
+  | "tenantId"
+  | "maxConnectionsPerTenant"
 >;
 
 interface RollingHistory {
@@ -87,7 +92,11 @@ export class RuntimeConnectionPolicy {
     if (documentCount >= this.limits.maxConnectionsPerDocument) {
       throw new RuntimePolicyError("document_connection_quota");
     }
-    if (tenantCount >= this.limits.maxConnectionsPerTenant) {
+    const tenantLimit = Math.min(
+      this.limits.maxConnectionsPerTenant,
+      scope.maxConnectionsPerTenant,
+    );
+    if (tenantCount >= tenantLimit) {
       throw new RuntimePolicyError("tenant_connection_quota");
     }
     if (this.active >= this.limits.maxConnections) {
@@ -142,6 +151,63 @@ export class RuntimeConnectionPolicy {
         history.timestamps.shift();
       }
       if (history.timestamps.length === 0) this.reconnects.delete(key);
+    }
+  }
+}
+
+type TenantOperationScope = Pick<
+  CollaborationScope,
+  "maxOperationsPerMinute" | "tenantId"
+>;
+
+interface TenantOperationEvent {
+  observedAt: number;
+  operations: number;
+}
+
+/** Process-local rolling tenant operation budget for the single-instance profile. */
+export class RuntimeTenantOperationPolicy {
+  private readonly tenants = new Map<string, TenantOperationEvent[]>();
+
+  constructor(
+    private readonly maximumOperationsPerMinute: number,
+    private readonly now: () => number = Date.now,
+  ) {
+    validatePositiveLimits([maximumOperationsPerMinute]);
+  }
+
+  consume(scope: TenantOperationScope, operations = 1): void {
+    if (
+      !validKeyPart(scope.tenantId) ||
+      !positiveSafeInteger(scope.maxOperationsPerMinute) ||
+      !positiveSafeInteger(operations)
+    ) {
+      throw new RuntimePolicyError("policy_input_invalid");
+    }
+    const now = readClock(this.now);
+    this.prune(now);
+    const events = this.tenants.get(scope.tenantId) ?? [];
+    const used = events.reduce((total, event) => total + event.operations, 0);
+    const limit = Math.min(
+      this.maximumOperationsPerMinute,
+      scope.maxOperationsPerMinute,
+    );
+    if (used + operations > limit)
+      throw new RuntimePolicyError("tenant_operation_quota");
+    events.push({ observedAt: now, operations });
+    this.tenants.set(scope.tenantId, events);
+  }
+
+  private prune(now: number): void {
+    const cutoff = now - 60_000;
+    for (const [tenantId, events] of this.tenants) {
+      const latest = events.at(-1)?.observedAt;
+      if (latest !== undefined && now < latest) {
+        throw new RuntimePolicyError("policy_clock_invalid");
+      }
+      while ((events[0]?.observedAt ?? Number.POSITIVE_INFINITY) <= cutoff)
+        events.shift();
+      if (events.length === 0) this.tenants.delete(tenantId);
     }
   }
 }

@@ -48,7 +48,23 @@ var (
 	ErrGrantUnavailable    = errors.New("whiteboard grant exchange unavailable")
 	ErrGrantDenied         = errors.New("whiteboard grant denied")
 	ErrGrantRateLimited    = errors.New("whiteboard grant rate limited")
+	ErrQuotaExceeded       = errors.New("whiteboard quota exceeded")
+	ErrReadOnly            = errors.New("whiteboard runtime is read only")
 )
+
+type RuntimeMode string
+
+const (
+	RuntimeModeEnabled  RuntimeMode = "enabled"
+	RuntimeModeReadOnly RuntimeMode = "read_only"
+	RuntimeModeOff      RuntimeMode = "off"
+)
+
+type RuntimeLimits struct {
+	MaxConnectionsPerTenant  int64 `json:"max_connections_per_tenant"`
+	MaxOperationsPerMinute   int64 `json:"max_operations_per_minute"`
+	MaxStorageBytesPerTenant int64 `json:"max_storage_bytes_per_tenant"`
+}
 
 type AccessContext struct {
 	TenantID          uuid.UUID
@@ -225,6 +241,7 @@ type GrantCredential struct {
 type GrantAuthority struct {
 	Document             Document
 	ProviderDocumentName string
+	RuntimeLimits        RuntimeLimits
 	WriterFence          int64
 }
 
@@ -238,15 +255,18 @@ type GrantConsumeInput struct {
 // authority lease remains memory-only and is used for bounded revalidation of
 // an active provider connection.
 type GrantScope struct {
-	AuthorityLease       string     `json:"authority_lease"`
-	ActorID              uuid.UUID  `json:"actor_id"`
-	Capability           Capability `json:"capability"`
-	DocumentID           uuid.UUID  `json:"document_id"`
-	Generation           int64      `json:"generation"`
-	ProviderDocumentName string     `json:"provider_document_name"`
-	SessionID            uuid.UUID  `json:"session_id"`
-	TenantID             uuid.UUID  `json:"tenant_id"`
-	WriterFence          int64      `json:"writer_fence"`
+	AuthorityLease           string     `json:"authority_lease"`
+	ActorID                  uuid.UUID  `json:"actor_id"`
+	Capability               Capability `json:"capability"`
+	DocumentID               uuid.UUID  `json:"document_id"`
+	Generation               int64      `json:"generation"`
+	MaxConnectionsPerTenant  int64      `json:"max_connections_per_tenant"`
+	MaxOperationsPerMinute   int64      `json:"max_operations_per_minute"`
+	MaxStorageBytesPerTenant int64      `json:"max_storage_bytes_per_tenant"`
+	ProviderDocumentName     string     `json:"provider_document_name"`
+	SessionID                uuid.UUID  `json:"session_id"`
+	TenantID                 uuid.UUID  `json:"tenant_id"`
+	WriterFence              int64      `json:"writer_fence"`
 }
 
 type GrantValidationInput struct {

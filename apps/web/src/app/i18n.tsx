@@ -891,6 +891,7 @@ const messages = {
     "capabilities.featureConversations": "Cuộc trò chuyện",
     "capabilities.featureFileUploads": "Tải tệp lên",
     "capabilities.featureClassroomMediaRooms": "Phòng học trực tuyến",
+    "capabilities.featureClassroomWhiteboards": "Bảng vẽ lớp học",
     "capabilities.featureInstantStudyRooms": "Phòng học nhóm tức thời",
     "capabilities.featureInAppNotifications": "Thông báo trong ứng dụng",
     "capabilities.featureAvailabilityPolls": "Khảo sát thời gian rảnh",
@@ -921,6 +922,14 @@ const messages = {
     "capabilities.quotaActiveMediaParticipants":
       "Người tham gia trực tuyến đang hoạt động",
     "capabilities.quotaMediaSpaceStarts": "Lượt bắt đầu phòng mỗi giờ",
+    "capabilities.quotaWhiteboardConnections":
+      "Kết nối bảng vẽ tối đa mỗi workspace",
+    "capabilities.quotaWhiteboardDocuments":
+      "Tài liệu bảng vẽ tối đa mỗi workspace",
+    "capabilities.quotaWhiteboardOperations":
+      "Thao tác bảng vẽ tối đa mỗi phút",
+    "capabilities.quotaWhiteboardStorageBytes":
+      "Dung lượng bảng vẽ tối đa (byte)",
     "capabilities.quotaUsage": "{used}/{limit} đã dùng",
     "capabilities.quotaRemaining": "Còn lại {remaining}",
     "capabilities.quotaReset": "Đặt lại lúc {date}",
@@ -2969,6 +2978,7 @@ const messages = {
     "capabilities.featureConversations": "Conversations",
     "capabilities.featureFileUploads": "File uploads",
     "capabilities.featureClassroomMediaRooms": "Classroom media rooms",
+    "capabilities.featureClassroomWhiteboards": "Classroom whiteboards",
     "capabilities.featureInstantStudyRooms": "Instant study rooms",
     "capabilities.featureInAppNotifications": "In-app notifications",
     "capabilities.featureAvailabilityPolls": "Availability polls",
@@ -2997,6 +3007,14 @@ const messages = {
       "Participants per media space",
     "capabilities.quotaActiveMediaParticipants": "Active media participants",
     "capabilities.quotaMediaSpaceStarts": "Media-space starts per hour",
+    "capabilities.quotaWhiteboardConnections":
+      "Whiteboard connections per workspace",
+    "capabilities.quotaWhiteboardDocuments":
+      "Whiteboard documents per workspace",
+    "capabilities.quotaWhiteboardOperations":
+      "Whiteboard operations per minute",
+    "capabilities.quotaWhiteboardStorageBytes":
+      "Total whiteboard storage bytes",
     "capabilities.quotaUsage": "{used}/{limit} used",
     "capabilities.quotaRemaining": "{remaining} remaining",
     "capabilities.quotaReset": "Resets at {date}",

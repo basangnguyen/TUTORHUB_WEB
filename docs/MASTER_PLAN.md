@@ -11,7 +11,7 @@
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
 | Phase hiện tại        | Phase 5 collaboration implementation; Phase 3 deferred carry-over tiếp tục                   |
-| Trạng thái gần nhất   | P5-COLLAB-08 `DONE`; exact candidate `4f05ae6`, Verify/Security PASS                          |
+| Trạng thái gần nhất   | P5-COLLAB-09 `VERIFY`; local feature/quota/operations candidate PASS                         |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 
@@ -1741,6 +1741,19 @@ PASS; full `pnpm verify` PASS. Exact candidate `4f05ae6`, GitHub Verify `3257124
 `32571244052` PASS. Không migration/shared-staging write/deploy; production force-off. P5-COLLAB-09
 runnable.
 Acceptance: [`P5_COLLAB_08_STAGING_ACCEPTANCE.md`](P5_COLLAB_08_STAGING_ACCEPTANCE.md).
+
+P5-COLLAB-09 checkpoint 2026-08-22 — `VERIFY`: ADR-0037 chấp nhận whiteboard feature default-off,
+deployment force-off, per-tenant document/connection/storage/operation quota và emergency runtime mode
+`enabled/read_only/off`. Core API, artifact workflow, grant broker và runtime đều fail closed; read-only
+giữ projection/list/export nhưng khóa mutation, snapshot và restore. Noisy tenant budget tách biệt và
+metrics chỉ dùng bounded labels, không có raw identifier/content/credential. Migration `000041` mở rộng
+typed constraints và retained integration latest ledger lên `41 false`. Local focused verification,
+operations runbook và full `pnpm verify` PASS. Exact Neon disposable đã PASS forward-only
+`37 false -> 41 false -> 41 false`, role preflight, PostgreSQL feature/quota/tenant gates và runtime focused
+`30/30`; final ledger giữ `41 false`. Gate đã phát hiện rồi chặn một truy vấn snapshot sai schema trước commit;
+database gate/full verify PASS sau sửa. Còn review/no-secret, push và GitHub Verify/Security. Không rollback/
+shared-staging write/deploy; production tiếp tục force-off và disposable branch được giữ lại.
+Acceptance: [`P5_COLLAB_09_STAGING_ACCEPTANCE.md`](P5_COLLAB_09_STAGING_ACCEPTANCE.md).
 
 **Deliverable:** teacher mở/đóng công cụ mà không làm rời media room; trạng thái cộng tác khôi phục sau reconnect.
 

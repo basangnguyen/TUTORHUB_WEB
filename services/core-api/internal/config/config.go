@@ -61,6 +61,10 @@ const (
 	defaultFeatureMediaParticipantsPerSpaceLimit      = 50
 	defaultFeatureActiveMediaParticipantLimit         = 500
 	defaultFeatureMediaSpaceStartRateLimit            = 200
+	defaultFeatureWhiteboardDocumentLimit             = 100
+	defaultFeatureWhiteboardConnectionLimit           = 100
+	defaultFeatureWhiteboardStorageBytesLimit         = 10_737_418_240
+	defaultFeatureWhiteboardOperationRateLimit        = 60_000
 )
 
 var validEnvironments = map[string]struct{}{
@@ -171,6 +175,7 @@ type CollaborationConfig struct {
 	ProviderURL   string
 	RuntimeToken  string
 	GrantTTL      time.Duration
+	RuntimeMode   string
 }
 
 type FeatureControlConfig struct {
@@ -185,6 +190,7 @@ type FeatureControlConfig struct {
 	EnableInAppNotifications                      bool
 	EnableClassroomMediaRooms                     bool
 	EnableInstantStudyRooms                       bool
+	EnableClassroomWhiteboards                    bool
 	MaxMembers                                    int
 	MaxActiveClasses                              int
 	MaxInviteCreationsPerHour                     int
@@ -206,6 +212,10 @@ type FeatureControlConfig struct {
 	MaxMediaParticipantsPerSpace                  int
 	MaxActiveMediaParticipants                    int
 	MaxMediaSpaceStartsPerHour                    int
+	MaxWhiteboardDocumentsPerTenant               int
+	MaxWhiteboardConnectionsPerTenant             int
+	MaxWhiteboardStorageBytesPerTenant            int
+	MaxWhiteboardOperationsPerMinute              int
 }
 
 var objectStorageNamePattern = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9.-]*[a-zA-Z0-9]$`)
@@ -435,6 +445,11 @@ func collaborationConfig(
 		defaultCollaborationGrantTTL,
 		validationErrors,
 	)
+	runtimeMode := strings.ToLower(strings.TrimSpace(valueOrDefault(
+		lookup,
+		"COLLABORATION_RUNTIME_MODE",
+		"enabled",
+	)))
 
 	if grantTTL > time.Minute {
 		*validationErrors = append(
@@ -459,6 +474,12 @@ func collaborationConfig(
 			fmt.Errorf("COLLAB_CONTROL_PLANE_TOKEN must contain at least 32 characters"),
 		)
 	}
+	if runtimeMode != "enabled" && runtimeMode != "read_only" && runtimeMode != "off" {
+		*validationErrors = append(
+			*validationErrors,
+			fmt.Errorf("COLLABORATION_RUNTIME_MODE must be one of enabled, read_only, off"),
+		)
+	}
 
 	return CollaborationConfig{
 		Enabled:       enabled,
@@ -466,6 +487,7 @@ func collaborationConfig(
 		ProviderURL:   providerURL,
 		RuntimeToken:  runtimeToken,
 		GrantTTL:      grantTTL,
+		RuntimeMode:   runtimeMode,
 	}
 }
 
@@ -551,6 +573,12 @@ func featureControlConfig(
 		EnableInstantStudyRooms: boolValue(
 			lookup,
 			"FEATURE_CONTROL_ENABLE_INSTANT_STUDY_ROOMS",
+			false,
+			validationErrors,
+		),
+		EnableClassroomWhiteboards: boolValue(
+			lookup,
+			"FEATURE_CONTROL_ENABLE_CLASSROOM_WHITEBOARDS",
 			false,
 			validationErrors,
 		),
@@ -720,6 +748,38 @@ func featureControlConfig(
 			defaultFeatureMediaSpaceStartRateLimit,
 			1,
 			defaultFeatureMediaSpaceStartRateLimit,
+			validationErrors,
+		),
+		MaxWhiteboardDocumentsPerTenant: intValue(
+			lookup,
+			"FEATURE_CONTROL_MAX_WHITEBOARD_DOCUMENTS_PER_TENANT",
+			defaultFeatureWhiteboardDocumentLimit,
+			1,
+			defaultFeatureWhiteboardDocumentLimit,
+			validationErrors,
+		),
+		MaxWhiteboardConnectionsPerTenant: intValue(
+			lookup,
+			"FEATURE_CONTROL_MAX_WHITEBOARD_CONNECTIONS_PER_TENANT",
+			defaultFeatureWhiteboardConnectionLimit,
+			1,
+			defaultFeatureWhiteboardConnectionLimit,
+			validationErrors,
+		),
+		MaxWhiteboardStorageBytesPerTenant: intValue(
+			lookup,
+			"FEATURE_CONTROL_MAX_WHITEBOARD_STORAGE_BYTES_PER_TENANT",
+			defaultFeatureWhiteboardStorageBytesLimit,
+			1,
+			defaultFeatureWhiteboardStorageBytesLimit,
+			validationErrors,
+		),
+		MaxWhiteboardOperationsPerMinute: intValue(
+			lookup,
+			"FEATURE_CONTROL_MAX_WHITEBOARD_OPERATIONS_PER_MINUTE",
+			defaultFeatureWhiteboardOperationRateLimit,
+			1,
+			defaultFeatureWhiteboardOperationRateLimit,
 			validationErrors,
 		),
 	}

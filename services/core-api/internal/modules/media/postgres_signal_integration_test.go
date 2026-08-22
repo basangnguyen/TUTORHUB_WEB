@@ -48,8 +48,8 @@ func TestPostgresMediaParticipantSignalsLifecycleAndConcurrency(t *testing.T) {
 	if version.Dirty ||
 		(version.Number != 31 && version.Number != 32 && version.Number != 33 && version.Number != 34 &&
 			version.Number != 35 && version.Number != 36 && version.Number != 37 &&
-			version.Number != 38 && version.Number != 39 && version.Number != 40) {
-		t.Fatal("P4-06 retained integration requires a clean ledger from version 31 through 40")
+			version.Number != 38 && version.Number != 39 && version.Number != 40 && version.Number != 41) {
+		t.Fatal("P4-06 retained integration requires a clean ledger from version 31 through 41")
 	}
 	if err := migrationrunner.Up(ctx, migrationURL); err != nil {
 		t.Fatal("apply participant-signal migrations")
@@ -58,8 +58,8 @@ func TestPostgresMediaParticipantSignalsLifecycleAndConcurrency(t *testing.T) {
 	if err != nil {
 		t.Fatal("inspect participant-signal migration ledger after forward migration")
 	}
-	if version.Number != 40 || version.Dirty {
-		t.Fatal("P4-06 retained integration requires latest ledger 40 false after forward migration")
+	if version.Number != 41 || version.Dirty {
+		t.Fatal("P4-06 retained integration requires latest ledger 41 false after forward migration")
 	}
 	migrationPool := openMediaIntegrationPool(t, ctx, migrationURL)
 	t.Cleanup(migrationPool.Close)

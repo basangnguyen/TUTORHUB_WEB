@@ -465,6 +465,12 @@ func (handlers whiteboardHandlers) writeProblem(w http.ResponseWriter, r *http.R
 	case errors.Is(err, collaboration.ErrGrantRateLimited):
 		status, code = http.StatusTooManyRequests, "whiteboard_grant_rate_limited"
 		title, detail = "Whiteboard grant rate limited", "Wait briefly before requesting another whiteboard credential."
+	case errors.Is(err, collaboration.ErrQuotaExceeded):
+		status, code = http.StatusTooManyRequests, "whiteboard_quota_exceeded"
+		title, detail = "Whiteboard quota reached", "The workspace whiteboard quota has been reached."
+	case errors.Is(err, collaboration.ErrReadOnly):
+		status, code = http.StatusServiceUnavailable, "whiteboard_read_only"
+		title, detail = "Whiteboard is read only", "Editing is temporarily disabled; existing snapshots and export remain available."
 	case errors.Is(err, collaboration.ErrGrantDenied):
 		status, code = http.StatusNotFound, "whiteboard_not_found"
 		title, detail = "Whiteboard unavailable", "The whiteboard is unavailable in the active workspace."

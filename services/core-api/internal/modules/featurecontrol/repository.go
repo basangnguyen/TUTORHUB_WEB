@@ -37,6 +37,13 @@ type Enforcer interface {
 	) (RateLimitResult, error)
 }
 
+// QuotaResolver exposes only the effective tenant limit required by trusted
+// backends. Runtime callers receive the resolved value through a one-time
+// collaboration grant and never read tenant overrides directly.
+type QuotaResolver interface {
+	ResolveQuota(context.Context, Transaction, uuid.UUID, QuotaKey) (EffectiveQuota, error)
+}
+
 type Repository interface {
 	GetCapabilities(
 		context.Context,

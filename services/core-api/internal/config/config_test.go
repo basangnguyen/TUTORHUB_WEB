@@ -70,8 +70,8 @@ func TestLoadDefaults(t *testing.T) {
 		cfg.CalendarProtectedData.KeyVersion != 0 {
 		t.Fatalf("calendar protected data must remain disabled without an explicit key: %+v", cfg.CalendarProtectedData)
 	}
-	if cfg.Collaboration.Enabled {
-		t.Fatal("whiteboard control plane must remain deployment-force-off by default")
+	if cfg.Collaboration.Enabled || cfg.Collaboration.RuntimeMode != "enabled" {
+		t.Fatalf("unexpected whiteboard control-plane defaults: %+v", cfg.Collaboration)
 	}
 	if cfg.FeatureControls.DisableConversations || !cfg.FeatureControls.DisableFileUploads ||
 		cfg.FeatureControls.EnableInAppNotifications ||
@@ -94,10 +94,15 @@ func TestLoadDefaults(t *testing.T) {
 		cfg.FeatureControls.MaxFileUploadIntentsPerHour != defaultFeatureFileUploadIntentRateLimit ||
 		cfg.FeatureControls.EnableClassroomMediaRooms ||
 		cfg.FeatureControls.EnableInstantStudyRooms ||
+		cfg.FeatureControls.EnableClassroomWhiteboards ||
 		cfg.FeatureControls.MaxActiveMediaSpaces != defaultFeatureActiveMediaSpaceLimit ||
 		cfg.FeatureControls.MaxMediaParticipantsPerSpace != defaultFeatureMediaParticipantsPerSpaceLimit ||
 		cfg.FeatureControls.MaxActiveMediaParticipants != defaultFeatureActiveMediaParticipantLimit ||
-		cfg.FeatureControls.MaxMediaSpaceStartsPerHour != defaultFeatureMediaSpaceStartRateLimit {
+		cfg.FeatureControls.MaxMediaSpaceStartsPerHour != defaultFeatureMediaSpaceStartRateLimit ||
+		cfg.FeatureControls.MaxWhiteboardDocumentsPerTenant != defaultFeatureWhiteboardDocumentLimit ||
+		cfg.FeatureControls.MaxWhiteboardConnectionsPerTenant != defaultFeatureWhiteboardConnectionLimit ||
+		cfg.FeatureControls.MaxWhiteboardStorageBytesPerTenant != defaultFeatureWhiteboardStorageBytesLimit ||
+		cfg.FeatureControls.MaxWhiteboardOperationsPerMinute != defaultFeatureWhiteboardOperationRateLimit {
 		t.Fatalf("unexpected feature control defaults: %+v", cfg.FeatureControls)
 	}
 }
@@ -292,9 +297,11 @@ func TestLoadCustomValues(t *testing.T) {
 		"FEATURE_CONTROL_ENABLE_IN_APP_NOTIFICATIONS":                         "true",
 		"FEATURE_CONTROL_ENABLE_CLASSROOM_MEDIA_ROOMS":                        "true",
 		"FEATURE_CONTROL_ENABLE_INSTANT_STUDY_ROOMS":                          "true",
+		"FEATURE_CONTROL_ENABLE_CLASSROOM_WHITEBOARDS":                        "true",
 		"COLLABORATION_CONTROL_PLANE_ENABLED":                                 "true",
 		"COLLABORATION_PROVIDER_URL":                                          "wss://whiteboard.staging.tutorhub.example",
 		"COLLABORATION_GRANT_TTL":                                             "45s",
+		"COLLABORATION_RUNTIME_MODE":                                          "read_only",
 		"COLLAB_CONTROL_PLANE_TOKEN":                                          strings.Repeat("c", 32),
 		"FEATURE_CONTROL_MAX_MEMBERS":                                         "5000",
 		"FEATURE_CONTROL_MAX_ACTIVE_CLASSES":                                  "500",
@@ -317,6 +324,10 @@ func TestLoadCustomValues(t *testing.T) {
 		"FEATURE_CONTROL_MAX_MEDIA_PARTICIPANTS_PER_SPACE":                    "40",
 		"FEATURE_CONTROL_MAX_ACTIVE_MEDIA_PARTICIPANTS":                       "400",
 		"FEATURE_CONTROL_MAX_MEDIA_SPACE_STARTS_PER_HOUR":                     "150",
+		"FEATURE_CONTROL_MAX_WHITEBOARD_DOCUMENTS_PER_TENANT":                 "80",
+		"FEATURE_CONTROL_MAX_WHITEBOARD_CONNECTIONS_PER_TENANT":               "70",
+		"FEATURE_CONTROL_MAX_WHITEBOARD_STORAGE_BYTES_PER_TENANT":             "5368709120",
+		"FEATURE_CONTROL_MAX_WHITEBOARD_OPERATIONS_PER_MINUTE":                "30000",
 	}
 	values["CALENDAR_PROTECTED_DATA_KEY"] = validSessionSecret()
 	values["CALENDAR_PROTECTED_DATA_KEY_VERSION"] = "1"
@@ -375,7 +386,8 @@ func TestLoadCustomValues(t *testing.T) {
 	}
 	if !cfg.Collaboration.Enabled || !cfg.Collaboration.BrokerEnabled ||
 		cfg.Collaboration.ProviderURL != "wss://whiteboard.staging.tutorhub.example" ||
-		cfg.Collaboration.GrantTTL != 45*time.Second || len(cfg.Collaboration.RuntimeToken) != 32 {
+		cfg.Collaboration.GrantTTL != 45*time.Second || cfg.Collaboration.RuntimeMode != "read_only" ||
+		len(cfg.Collaboration.RuntimeToken) != 32 {
 		t.Fatalf("unexpected collaboration configuration: %+v", cfg.Collaboration)
 	}
 	if !cfg.FeatureControls.DisableMembershipInvitations ||
@@ -389,6 +401,7 @@ func TestLoadCustomValues(t *testing.T) {
 		!cfg.FeatureControls.EnableInAppNotifications ||
 		!cfg.FeatureControls.EnableClassroomMediaRooms ||
 		!cfg.FeatureControls.EnableInstantStudyRooms ||
+		!cfg.FeatureControls.EnableClassroomWhiteboards ||
 		cfg.FeatureControls.MaxMembers != 5000 ||
 		cfg.FeatureControls.MaxActiveClasses != 500 ||
 		cfg.FeatureControls.MaxInviteCreationsPerHour != 5000 {
@@ -411,7 +424,11 @@ func TestLoadCustomValues(t *testing.T) {
 		cfg.FeatureControls.MaxActiveMediaSpaces != 80 ||
 		cfg.FeatureControls.MaxMediaParticipantsPerSpace != 40 ||
 		cfg.FeatureControls.MaxActiveMediaParticipants != 400 ||
-		cfg.FeatureControls.MaxMediaSpaceStartsPerHour != 150 {
+		cfg.FeatureControls.MaxMediaSpaceStartsPerHour != 150 ||
+		cfg.FeatureControls.MaxWhiteboardDocumentsPerTenant != 80 ||
+		cfg.FeatureControls.MaxWhiteboardConnectionsPerTenant != 70 ||
+		cfg.FeatureControls.MaxWhiteboardStorageBytesPerTenant != 5368709120 ||
+		cfg.FeatureControls.MaxWhiteboardOperationsPerMinute != 30000 {
 		t.Fatalf("unexpected availability poll feature control config: %+v", cfg.FeatureControls)
 	}
 }
@@ -450,7 +467,9 @@ func TestLoadRejectsInvalidFeatureControlGuardrails(t *testing.T) {
 		"FEATURE_CONTROL_ENABLE_IN_APP_NOTIFICATIONS":                         "sometimes",
 		"FEATURE_CONTROL_ENABLE_CLASSROOM_MEDIA_ROOMS":                        "sometimes",
 		"FEATURE_CONTROL_ENABLE_INSTANT_STUDY_ROOMS":                          "sometimes",
+		"FEATURE_CONTROL_ENABLE_CLASSROOM_WHITEBOARDS":                        "sometimes",
 		"COLLABORATION_CONTROL_PLANE_ENABLED":                                 "sometimes",
+		"COLLABORATION_RUNTIME_MODE":                                          "broken",
 		"FEATURE_CONTROL_MAX_MEMBERS":                                         "10001",
 		"FEATURE_CONTROL_MAX_ACTIVE_CLASSES":                                  "0",
 		"FEATURE_CONTROL_MAX_INVITE_CREATIONS_PER_HOUR":                       "not-a-number",
@@ -472,6 +491,10 @@ func TestLoadRejectsInvalidFeatureControlGuardrails(t *testing.T) {
 		"FEATURE_CONTROL_MAX_MEDIA_PARTICIPANTS_PER_SPACE":                    "51",
 		"FEATURE_CONTROL_MAX_ACTIVE_MEDIA_PARTICIPANTS":                       "501",
 		"FEATURE_CONTROL_MAX_MEDIA_SPACE_STARTS_PER_HOUR":                     "201",
+		"FEATURE_CONTROL_MAX_WHITEBOARD_DOCUMENTS_PER_TENANT":                 "101",
+		"FEATURE_CONTROL_MAX_WHITEBOARD_CONNECTIONS_PER_TENANT":               "101",
+		"FEATURE_CONTROL_MAX_WHITEBOARD_STORAGE_BYTES_PER_TENANT":             "10737418241",
+		"FEATURE_CONTROL_MAX_WHITEBOARD_OPERATIONS_PER_MINUTE":                "60001",
 	}))
 	if err == nil {
 		t.Fatal("expected feature control guardrail validation errors")
@@ -486,7 +509,9 @@ func TestLoadRejectsInvalidFeatureControlGuardrails(t *testing.T) {
 		"FEATURE_CONTROL_ENABLE_IN_APP_NOTIFICATIONS",
 		"FEATURE_CONTROL_ENABLE_CLASSROOM_MEDIA_ROOMS",
 		"FEATURE_CONTROL_ENABLE_INSTANT_STUDY_ROOMS",
+		"FEATURE_CONTROL_ENABLE_CLASSROOM_WHITEBOARDS",
 		"COLLABORATION_CONTROL_PLANE_ENABLED",
+		"COLLABORATION_RUNTIME_MODE",
 		"FEATURE_CONTROL_MAX_MEMBERS",
 		"FEATURE_CONTROL_MAX_ACTIVE_CLASSES",
 		"FEATURE_CONTROL_MAX_INVITE_CREATIONS_PER_HOUR",
@@ -508,6 +533,10 @@ func TestLoadRejectsInvalidFeatureControlGuardrails(t *testing.T) {
 		"FEATURE_CONTROL_MAX_MEDIA_PARTICIPANTS_PER_SPACE",
 		"FEATURE_CONTROL_MAX_ACTIVE_MEDIA_PARTICIPANTS",
 		"FEATURE_CONTROL_MAX_MEDIA_SPACE_STARTS_PER_HOUR",
+		"FEATURE_CONTROL_MAX_WHITEBOARD_DOCUMENTS_PER_TENANT",
+		"FEATURE_CONTROL_MAX_WHITEBOARD_CONNECTIONS_PER_TENANT",
+		"FEATURE_CONTROL_MAX_WHITEBOARD_STORAGE_BYTES_PER_TENANT",
+		"FEATURE_CONTROL_MAX_WHITEBOARD_OPERATIONS_PER_MINUTE",
 	} {
 		if !strings.Contains(message, expected) {
 			t.Fatalf("expected error to mention %s, got %q", expected, message)

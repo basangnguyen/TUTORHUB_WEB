@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/tutorhub-v2/core-api/internal/modules/featurecontrol"
 )
 
 const defaultQueryTimeout = 10 * time.Second
@@ -22,16 +23,27 @@ type Database interface {
 type PostgresRepository struct {
 	database     Database
 	queryTimeout time.Duration
+	controls     featurecontrol.Enforcer
+	quotas       featurecontrol.QuotaResolver
 }
 
-func NewPostgresRepository(database Database, queryTimeout time.Duration) (*PostgresRepository, error) {
+type PostgresRepositoryConfig struct {
+	Controls featurecontrol.Enforcer
+	Quotas   featurecontrol.QuotaResolver
+}
+
+func NewPostgresRepository(database Database, queryTimeout time.Duration, configs ...PostgresRepositoryConfig) (*PostgresRepository, error) {
 	if database == nil {
 		return nil, fmt.Errorf("whiteboard database is required")
 	}
 	if queryTimeout <= 0 {
 		queryTimeout = defaultQueryTimeout
 	}
-	return &PostgresRepository{database: database, queryTimeout: queryTimeout}, nil
+	var config PostgresRepositoryConfig
+	if len(configs) > 0 {
+		config = configs[0]
+	}
+	return &PostgresRepository{database: database, queryTimeout: queryTimeout, controls: config.Controls, quotas: config.Quotas}, nil
 }
 
 func (repository *PostgresRepository) Create(
@@ -46,6 +58,9 @@ func (repository *PostgresRepository) Create(
 		return CreateResult{}, ErrUnavailable
 	}
 	defer rollback(tx)
+	if err := repository.requireFeature(queryContext, tx, access.TenantID, false); err != nil {
+		return CreateResult{}, err
+	}
 	if _, err := tx.Exec(queryContext,
 		`SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`,
 		"whiteboard-create:"+access.TenantID.String()+":"+access.ActorID.String()+":"+command.IdempotencyKey,
@@ -80,6 +95,21 @@ func (repository *PostgresRepository) Create(
 	}
 	if !errors.Is(err, pgx.ErrNoRows) {
 		return CreateResult{}, ErrUnavailable
+	}
+	if repository.controls != nil {
+		if _, err := tx.Exec(queryContext,
+			`SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`,
+			"whiteboard-document-quota:"+access.TenantID.String(),
+		); err != nil {
+			return CreateResult{}, ErrUnavailable
+		}
+		var count int64
+		if err := tx.QueryRow(queryContext, `SELECT count(*) FROM tutorhub.whiteboard_documents WHERE tenant_id = $1`, access.TenantID).Scan(&count); err != nil {
+			return CreateResult{}, ErrUnavailable
+		}
+		if err := repository.controls.RequireQuotaAtMost(queryContext, tx, access.TenantID, featurecontrol.QuotaWhiteboardDocumentsPerTenant, count+1); err != nil {
+			return CreateResult{}, classifyControlError(err)
+		}
 	}
 
 	_, err = tx.Exec(queryContext, `INSERT INTO tutorhub.whiteboard_documents
@@ -133,6 +163,9 @@ func (repository *PostgresRepository) Get(
 		return Document{}, ErrUnavailable
 	}
 	defer rollback(tx)
+	if err := repository.requireFeature(queryContext, tx, access.TenantID, true); err != nil {
+		return Document{}, err
+	}
 	document, err := loadDocument(queryContext, tx, access.TenantID, documentID, false)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Document{}, ErrNotFound
@@ -158,6 +191,9 @@ func (repository *PostgresRepository) GetByMediaSpace(
 		return Document{}, ErrUnavailable
 	}
 	defer rollback(tx)
+	if err := repository.requireFeature(queryContext, tx, access.TenantID, true); err != nil {
+		return Document{}, err
+	}
 	document, err := loadDocumentBySpace(queryContext, tx, access.TenantID, mediaSpaceID, false)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Document{}, ErrNotFound
@@ -183,6 +219,9 @@ func (repository *PostgresRepository) GrantAuthority(
 		return GrantAuthority{}, ErrUnavailable
 	}
 	defer rollback(tx)
+	if err := repository.requireFeature(queryContext, tx, access.TenantID, true); err != nil {
+		return GrantAuthority{}, err
+	}
 	const query = `SELECT document.id, document.media_space_id, document.status,
         document.version, document.current_generation, document.revoke_generation,
         document.created_at, document.updated_at, generation.provider_document_name
@@ -207,6 +246,21 @@ func (repository *PostgresRepository) GrantAuthority(
 		return GrantAuthority{}, ErrUnavailable
 	}
 	authority.WriterFence = authority.Document.RevokeGeneration
+	if repository.quotas != nil {
+		connectionLimit, quotaErr := repository.quotas.ResolveQuota(queryContext, tx, access.TenantID, featurecontrol.QuotaWhiteboardConnectionsPerTenant)
+		if quotaErr != nil {
+			return GrantAuthority{}, classifyControlError(quotaErr)
+		}
+		operationLimit, quotaErr := repository.quotas.ResolveQuota(queryContext, tx, access.TenantID, featurecontrol.QuotaWhiteboardOperationsPerMinute)
+		if quotaErr != nil {
+			return GrantAuthority{}, classifyControlError(quotaErr)
+		}
+		storageLimit, quotaErr := repository.quotas.ResolveQuota(queryContext, tx, access.TenantID, featurecontrol.QuotaWhiteboardStorageBytesPerTenant)
+		if quotaErr != nil {
+			return GrantAuthority{}, classifyControlError(quotaErr)
+		}
+		authority.RuntimeLimits = RuntimeLimits{MaxConnectionsPerTenant: connectionLimit.Limit, MaxOperationsPerMinute: operationLimit.Limit, MaxStorageBytesPerTenant: storageLimit.Limit}
+	}
 	if err := tx.Commit(queryContext); err != nil {
 		return GrantAuthority{}, ErrUnavailable
 	}
@@ -225,6 +279,9 @@ func (repository *PostgresRepository) Transition(
 		return Document{}, ErrUnavailable
 	}
 	defer rollback(tx)
+	if err := repository.requireFeature(queryContext, tx, access.TenantID, false); err != nil {
+		return Document{}, err
+	}
 	replayed, found, err := loadMutationReplay(queryContext, tx, access, command.IdempotencyKey, command.Operation, command.Fingerprint)
 	if err != nil {
 		return Document{}, err
@@ -279,6 +336,9 @@ func (repository *PostgresRepository) CapabilityPolicies(
 		return nil, ErrUnavailable
 	}
 	defer rollback(tx)
+	if err := repository.requireFeature(queryContext, tx, access.TenantID, true); err != nil {
+		return nil, err
+	}
 	rows, err := tx.Query(queryContext, `SELECT audience, capability
         FROM tutorhub.whiteboard_capability_policies
         WHERE tenant_id = $1 AND document_id = $2`, access.TenantID, documentID)
@@ -320,6 +380,9 @@ func (repository *PostgresRepository) ListSnapshots(
 		return nil, ErrUnavailable
 	}
 	defer rollback(tx)
+	if err := repository.requireFeature(queryContext, tx, access.TenantID, true); err != nil {
+		return nil, err
+	}
 	rows, err := tx.Query(queryContext, `SELECT id, document_id, generation, snapshot_kind,
         format_version, engine_version, authority_version, schema_version,
         causal_watermark_sha256, content_sha256, size_bytes, created_at, retention_until
@@ -368,6 +431,9 @@ func (repository *PostgresRepository) Restore(
 		return Document{}, ErrUnavailable
 	}
 	defer rollback(tx)
+	if err := repository.requireFeature(queryContext, tx, access.TenantID, false); err != nil {
+		return Document{}, err
+	}
 	replayed, found, err := loadMutationReplay(queryContext, tx, access, command.IdempotencyKey, "restore", command.Fingerprint)
 	if err != nil {
 		return Document{}, err
@@ -656,6 +722,39 @@ func classifyWriteError(err error) error {
 		}
 	}
 	return ErrUnavailable
+}
+
+func (repository *PostgresRepository) requireFeature(
+	ctx context.Context,
+	tx pgx.Tx,
+	tenantID uuid.UUID,
+	read bool,
+) error {
+	if repository.controls == nil {
+		return nil
+	}
+	var err error
+	if read {
+		err = repository.controls.RequireFeatureForRead(ctx, tx, tenantID, featurecontrol.FeatureClassroomWhiteboards)
+	} else {
+		err = repository.controls.RequireFeature(ctx, tx, tenantID, featurecontrol.FeatureClassroomWhiteboards)
+	}
+	return classifyControlError(err)
+}
+
+func classifyControlError(err error) error {
+	switch {
+	case err == nil:
+		return nil
+	case errors.Is(err, featurecontrol.ErrFeatureDisabled),
+		errors.Is(err, featurecontrol.ErrTenantNotFound),
+		errors.Is(err, featurecontrol.ErrAccessDenied):
+		return ErrNotFound
+	case errors.Is(err, featurecontrol.ErrQuotaExceeded):
+		return ErrQuotaExceeded
+	default:
+		return ErrUnavailable
+	}
 }
 
 func rollback(tx pgx.Tx) {

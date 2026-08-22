@@ -123,6 +123,7 @@ func run() int {
 	authorizer := policy.NewEngine()
 	var featureControlService featurecontrol.ServiceAPI
 	var featureControlEnforcer featurecontrol.Enforcer
+	var featureControlQuotas featurecontrol.QuotaResolver
 	if pool != nil {
 		catalog, err := featurecontrol.NewCatalog(featureControlGuardrails(cfg.FeatureControls))
 		if err != nil {
@@ -152,6 +153,7 @@ func run() int {
 			featureControlRepository,
 			metrics,
 		)
+		featureControlQuotas = featureControlRepository
 	}
 	var auditService audit.ServiceAPI
 	if pool != nil {
@@ -401,6 +403,7 @@ func run() int {
 			collaborationRepository, collaborationErr := collaboration.NewPostgresRepository(
 				pool,
 				cfg.Database.QueryTimeout,
+				collaboration.PostgresRepositoryConfig{Controls: featureControlEnforcer, Quotas: featureControlQuotas},
 			)
 			if collaborationErr != nil {
 				logger.Error("initialize whiteboard repository", "error", collaborationErr)
@@ -412,6 +415,7 @@ func run() int {
 					QueryTimeout: cfg.Database.QueryTimeout,
 					Clock:        time.Now,
 					NewID:        uuid.New,
+					Controls:     featureControlEnforcer,
 				},
 			)
 			if collaborationErr != nil {
@@ -437,7 +441,7 @@ func run() int {
 				mediaLifecycleService,
 				grantBroker,
 				artifactWorkflow,
-				collaboration.ServiceConfig{Clock: time.Now, NewID: uuid.New},
+				collaboration.ServiceConfig{Clock: time.Now, NewID: uuid.New, RuntimeMode: collaboration.RuntimeMode(cfg.Collaboration.RuntimeMode)},
 			)
 			if collaborationErr != nil {
 				logger.Error("initialize whiteboard control plane", "error", collaborationErr)
@@ -726,6 +730,7 @@ func run() int {
 		Collaboration:         collaborationService,
 		CollaborationInternal: collaborationInternalService,
 		CollaborationToken:    cfg.Collaboration.RuntimeToken,
+		CollaborationMode:     cfg.Collaboration.RuntimeMode,
 		InvitationRateLimiter: invitationRateLimiter,
 		Media:                 mediaService,
 		MediaSpaces:           mediaLifecycleService,
@@ -805,6 +810,9 @@ func featureControlGuardrails(configuration config.FeatureControlConfig) feature
 	if !configuration.EnableInstantStudyRooms {
 		forcedOff[featurecontrol.FeatureInstantStudyRooms] = true
 	}
+	if !configuration.EnableClassroomWhiteboards {
+		forcedOff[featurecontrol.FeatureClassroomWhiteboards] = true
+	}
 
 	return featurecontrol.Guardrails{
 		ForcedOffFeatures: forcedOff,
@@ -830,6 +838,10 @@ func featureControlGuardrails(configuration config.FeatureControlConfig) feature
 			featurecontrol.QuotaMediaParticipantsPerSpace:                  int64(configuration.MaxMediaParticipantsPerSpace),
 			featurecontrol.QuotaActiveMediaParticipants:                    int64(configuration.MaxActiveMediaParticipants),
 			featurecontrol.QuotaMediaSpaceStartsPerHour:                    int64(configuration.MaxMediaSpaceStartsPerHour),
+			featurecontrol.QuotaWhiteboardDocumentsPerTenant:               int64(configuration.MaxWhiteboardDocumentsPerTenant),
+			featurecontrol.QuotaWhiteboardConnectionsPerTenant:             int64(configuration.MaxWhiteboardConnectionsPerTenant),
+			featurecontrol.QuotaWhiteboardStorageBytesPerTenant:            int64(configuration.MaxWhiteboardStorageBytesPerTenant),
+			featurecontrol.QuotaWhiteboardOperationsPerMinute:              int64(configuration.MaxWhiteboardOperationsPerMinute),
 		},
 	}
 }

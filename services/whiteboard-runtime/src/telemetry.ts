@@ -13,6 +13,7 @@ export type RuntimePolicyReason =
   | "connection_quota"
   | "frame"
   | "reconnect"
+  | "operation_quota"
   | "update";
 
 export class RuntimeTelemetry {
@@ -53,6 +54,7 @@ export class RuntimeTelemetry {
       "connection_quota",
       "frame",
       "reconnect",
+      "operation_quota",
       "update",
     ] as const) {
       this.policyRejections.set(reason, 0);

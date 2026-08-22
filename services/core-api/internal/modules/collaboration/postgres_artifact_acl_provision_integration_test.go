@@ -223,8 +223,8 @@ func assertWhiteboardArtifactExactACL(
 	t.Helper()
 	var ledger int
 	var dirty bool
-	if err := pool.QueryRow(ctx, `SELECT version, dirty FROM public.tutorhub_schema_migrations`).Scan(&ledger, &dirty); err != nil || ledger != 40 || dirty {
-		t.Fatal("P5-COLLAB-07 exact ACL requires ledger 40 false")
+	if err := pool.QueryRow(ctx, `SELECT version, dirty FROM public.tutorhub_schema_migrations`).Scan(&ledger, &dirty); err != nil || ledger != 41 || dirty {
+		t.Fatal("P5-COLLAB-07 retained exact ACL requires latest ledger 41 false")
 	}
 	var coreSelect, coreInsert, coreUpdate, workerSelect, workerInsert, workerUpdate bool
 	var maintenanceAny bool

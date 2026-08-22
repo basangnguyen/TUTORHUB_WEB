@@ -79,6 +79,9 @@ export class HttpControlPlane implements ControlPlane {
             capability: scope.capability,
             document_id: scope.documentId,
             generation: scope.generation,
+            max_connections_per_tenant: scope.maxConnectionsPerTenant,
+            max_operations_per_minute: scope.maxOperationsPerMinute,
+            max_storage_bytes_per_tenant: scope.maxStorageBytesPerTenant,
             origin: scope.origin,
             provider_document_name: scope.providerDocumentName,
             session_id: scope.sessionId,
@@ -157,6 +160,21 @@ function parseScope(
   const capability = payload.capability;
   const documentId = stringField(payload, "document_id");
   const generation = integerField(payload, "generation", 1);
+  const maxConnectionsPerTenant = integerField(
+    payload,
+    "max_connections_per_tenant",
+    1,
+  );
+  const maxOperationsPerMinute = integerField(
+    payload,
+    "max_operations_per_minute",
+    1,
+  );
+  const maxStorageBytesPerTenant = integerField(
+    payload,
+    "max_storage_bytes_per_tenant",
+    1,
+  );
   const providerDocumentName = stringField(payload, "provider_document_name");
   const sessionId = stringField(payload, "session_id");
   const tenantId = stringField(payload, "tenant_id");
@@ -181,6 +199,9 @@ function parseScope(
     capability,
     documentId,
     generation,
+    maxConnectionsPerTenant,
+    maxOperationsPerMinute,
+    maxStorageBytesPerTenant,
     origin,
     providerDocumentName,
     sessionId,

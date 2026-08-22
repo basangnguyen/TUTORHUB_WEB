@@ -24,6 +24,7 @@ type whiteboardInternalHandlers struct {
 	logger       *slog.Logger
 	service      collaboration.InternalServiceAPI
 	serviceToken [sha256.Size]byte
+	runtimeMode  string
 }
 
 type whiteboardInternalGrantRequest struct {
@@ -37,16 +38,19 @@ type whiteboardInternalValidationRequest struct {
 }
 
 type whiteboardInternalScopeRequest struct {
-	AuthorityLease       *string                   `json:"authority_lease"`
-	ActorID              *uuid.UUID                `json:"actor_id"`
-	Capability           *collaboration.Capability `json:"capability"`
-	DocumentID           *uuid.UUID                `json:"document_id"`
-	Generation           *int64                    `json:"generation"`
-	Origin               *string                   `json:"origin"`
-	ProviderDocumentName *string                   `json:"provider_document_name"`
-	SessionID            *uuid.UUID                `json:"session_id"`
-	TenantID             *uuid.UUID                `json:"tenant_id"`
-	WriterFence          *int64                    `json:"writer_fence"`
+	AuthorityLease           *string                   `json:"authority_lease"`
+	ActorID                  *uuid.UUID                `json:"actor_id"`
+	Capability               *collaboration.Capability `json:"capability"`
+	DocumentID               *uuid.UUID                `json:"document_id"`
+	Generation               *int64                    `json:"generation"`
+	MaxConnectionsPerTenant  *int64                    `json:"max_connections_per_tenant"`
+	MaxOperationsPerMinute   *int64                    `json:"max_operations_per_minute"`
+	MaxStorageBytesPerTenant *int64                    `json:"max_storage_bytes_per_tenant"`
+	Origin                   *string                   `json:"origin"`
+	ProviderDocumentName     *string                   `json:"provider_document_name"`
+	SessionID                *uuid.UUID                `json:"session_id"`
+	TenantID                 *uuid.UUID                `json:"tenant_id"`
+	WriterFence              *int64                    `json:"writer_fence"`
 }
 
 type whiteboardInternalValidationResponse struct {
@@ -57,10 +61,16 @@ func newWhiteboardInternalHandlers(
 	logger *slog.Logger,
 	service collaboration.InternalServiceAPI,
 	serviceToken string,
+	runtimeModes ...string,
 ) whiteboardInternalHandlers {
+	runtimeMode := "enabled"
+	if len(runtimeModes) > 0 && (runtimeModes[0] == "enabled" || runtimeModes[0] == "read_only" || runtimeModes[0] == "off") {
+		runtimeMode = runtimeModes[0]
+	}
 	return whiteboardInternalHandlers{
 		logger: logger, service: service,
 		serviceToken: sha256.Sum256([]byte(serviceToken)),
+		runtimeMode:  runtimeMode,
 	}
 }
 
@@ -72,7 +82,7 @@ func (handlers whiteboardInternalHandlers) runtimeState(w http.ResponseWriter, r
 		writeWhiteboardInternalProblem(w, r, http.StatusMethodNotAllowed, "method_not_allowed")
 		return
 	}
-	writeJSON(handlers.logger, w, http.StatusOK, map[string]string{"mode": "enabled"})
+	writeJSON(handlers.logger, w, http.StatusOK, map[string]string{"mode": handlers.runtimeMode})
 }
 
 func (handlers whiteboardInternalHandlers) exchangeGrant(w http.ResponseWriter, r *http.Request) {
@@ -148,10 +158,20 @@ func (request whiteboardInternalScopeRequest) input() (collaboration.GrantValida
 			AuthorityLease: *request.AuthorityLease, ActorID: *request.ActorID,
 			Capability: *request.Capability, DocumentID: *request.DocumentID,
 			Generation: *request.Generation, ProviderDocumentName: *request.ProviderDocumentName,
-			SessionID: *request.SessionID, TenantID: *request.TenantID,
+			MaxConnectionsPerTenant:  optionalInt64(request.MaxConnectionsPerTenant),
+			MaxOperationsPerMinute:   optionalInt64(request.MaxOperationsPerMinute),
+			MaxStorageBytesPerTenant: optionalInt64(request.MaxStorageBytesPerTenant),
+			SessionID:                *request.SessionID, TenantID: *request.TenantID,
 			WriterFence: *request.WriterFence,
 		},
 	}, true
+}
+
+func optionalInt64(value *int64) int64 {
+	if value == nil {
+		return 0
+	}
+	return *value
 }
 
 func (handlers whiteboardInternalHandlers) authorized(w http.ResponseWriter, r *http.Request) bool {

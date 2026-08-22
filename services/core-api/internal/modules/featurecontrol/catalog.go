@@ -19,6 +19,7 @@ const (
 	FeatureFileUploads            FeatureKey = "file_uploads"
 	FeatureClassroomMediaRooms    FeatureKey = "classroom_media_rooms"
 	FeatureInstantStudyRooms      FeatureKey = "instant_study_rooms"
+	FeatureClassroomWhiteboards   FeatureKey = "classroom_whiteboards"
 )
 
 type QuotaKey string
@@ -45,6 +46,10 @@ const (
 	QuotaMediaParticipantsPerSpace                  QuotaKey = "media_participants_per_space"
 	QuotaActiveMediaParticipants                    QuotaKey = "active_media_participants"
 	QuotaMediaSpaceStartsPerHour                    QuotaKey = "media_space_starts_per_hour"
+	QuotaWhiteboardDocumentsPerTenant               QuotaKey = "whiteboard_documents_per_tenant"
+	QuotaWhiteboardConnectionsPerTenant             QuotaKey = "whiteboard_connections_per_tenant"
+	QuotaWhiteboardStorageBytesPerTenant            QuotaKey = "whiteboard_storage_bytes_per_tenant"
+	QuotaWhiteboardOperationsPerMinute              QuotaKey = "whiteboard_operations_per_minute"
 )
 
 type ValueSource string
@@ -110,6 +115,9 @@ var featureDefinitions = map[FeatureKey]FeatureDefinition{
 	},
 	FeatureInstantStudyRooms: {
 		Key: FeatureInstantStudyRooms, DefaultEnabled: false,
+	},
+	FeatureClassroomWhiteboards: {
+		Key: FeatureClassroomWhiteboards, DefaultEnabled: false,
 	},
 }
 
@@ -179,6 +187,18 @@ var quotaDefinitions = map[QuotaKey]QuotaDefinition{
 	},
 	QuotaMediaSpaceStartsPerHour: {
 		Key: QuotaMediaSpaceStartsPerHour, DefaultLimit: 20, MinimumLimit: 1, MaximumLimit: 200,
+	},
+	QuotaWhiteboardDocumentsPerTenant: {
+		Key: QuotaWhiteboardDocumentsPerTenant, DefaultLimit: 10, MinimumLimit: 1, MaximumLimit: 100,
+	},
+	QuotaWhiteboardConnectionsPerTenant: {
+		Key: QuotaWhiteboardConnectionsPerTenant, DefaultLimit: 50, MinimumLimit: 1, MaximumLimit: 100,
+	},
+	QuotaWhiteboardStorageBytesPerTenant: {
+		Key: QuotaWhiteboardStorageBytesPerTenant, DefaultLimit: 1073741824, MinimumLimit: 1, MaximumLimit: 10737418240,
+	},
+	QuotaWhiteboardOperationsPerMinute: {
+		Key: QuotaWhiteboardOperationsPerMinute, DefaultLimit: 6000, MinimumLimit: 1, MaximumLimit: 60000,
 	},
 }
 

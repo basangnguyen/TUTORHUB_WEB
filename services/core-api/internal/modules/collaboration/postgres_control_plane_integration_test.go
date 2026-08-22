@@ -54,8 +54,8 @@ func TestWhiteboardControlPlanePostgresGates(t *testing.T) {
 	).Scan(&version, &dirty); err != nil {
 		t.Fatal("inspect P5-COLLAB-02 migration ledger")
 	}
-	if version != 40 || dirty {
-		t.Fatal("whiteboard PostgreSQL gates require latest ledger 40 false")
+	if version != 41 || dirty {
+		t.Fatal("whiteboard PostgreSQL gates require latest ledger 41 false")
 	}
 
 	fixture := seedWhiteboardPostgresFixture(t, ctx, pool)

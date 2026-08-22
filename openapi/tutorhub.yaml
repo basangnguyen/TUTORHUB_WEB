@@ -8146,6 +8146,7 @@ components:
         - file_uploads
         - classroom_media_rooms
         - instant_study_rooms
+        - classroom_whiteboards
       properties:
         membership_invitations:
           $ref: "#/components/schemas/FeatureCapability"
@@ -8168,6 +8169,8 @@ components:
         classroom_media_rooms:
           $ref: "#/components/schemas/FeatureCapability"
         instant_study_rooms:
+          $ref: "#/components/schemas/FeatureCapability"
+        classroom_whiteboards:
           $ref: "#/components/schemas/FeatureCapability"
     TenantQuotaCapabilities:
       type: object
@@ -8194,6 +8197,10 @@ components:
         - media_participants_per_space
         - active_media_participants
         - media_space_starts_per_hour
+        - whiteboard_documents_per_tenant
+        - whiteboard_connections_per_tenant
+        - whiteboard_storage_bytes_per_tenant
+        - whiteboard_operations_per_minute
       properties:
         members:
           $ref: "#/components/schemas/QuotaCapability"
@@ -8236,6 +8243,14 @@ components:
         active_media_participants:
           $ref: "#/components/schemas/QuotaCapability"
         media_space_starts_per_hour:
+          $ref: "#/components/schemas/QuotaCapability"
+        whiteboard_documents_per_tenant:
+          $ref: "#/components/schemas/QuotaCapability"
+        whiteboard_connections_per_tenant:
+          $ref: "#/components/schemas/QuotaCapability"
+        whiteboard_storage_bytes_per_tenant:
+          $ref: "#/components/schemas/QuotaCapability"
+        whiteboard_operations_per_minute:
           $ref: "#/components/schemas/QuotaCapability"
     TenantOperationCapabilities:
       type: object
@@ -8322,6 +8337,7 @@ components:
         - file_uploads
         - classroom_media_rooms
         - instant_study_rooms
+        - classroom_whiteboards
       properties:
         membership_invitations:
           type: boolean
@@ -8344,6 +8360,8 @@ components:
         classroom_media_rooms:
           type: boolean
         instant_study_rooms:
+          type: boolean
+        classroom_whiteboards:
           type: boolean
     ContentFileStatus:
       type: string
@@ -9181,6 +9199,10 @@ components:
         - media_participants_per_space
         - active_media_participants
         - media_space_starts_per_hour
+        - whiteboard_documents_per_tenant
+        - whiteboard_connections_per_tenant
+        - whiteboard_storage_bytes_per_tenant
+        - whiteboard_operations_per_minute
       properties:
         members:
           type: integer
@@ -9266,6 +9288,23 @@ components:
           type: integer
           minimum: 1
           maximum: 200
+        whiteboard_documents_per_tenant:
+          type: integer
+          minimum: 1
+          maximum: 100
+        whiteboard_connections_per_tenant:
+          type: integer
+          minimum: 1
+          maximum: 100
+        whiteboard_storage_bytes_per_tenant:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 10737418240
+        whiteboard_operations_per_minute:
+          type: integer
+          minimum: 1
+          maximum: 60000
     UpdateTenantFeatureControlsRequest:
       type: object
       additionalProperties: false

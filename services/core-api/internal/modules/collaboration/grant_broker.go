@@ -15,14 +15,17 @@ import (
 )
 
 const (
-	defaultGrantTTL          = 30 * time.Second
-	maximumGrantTTL          = 60 * time.Second
-	defaultGrantRateWindow   = 10 * time.Second
-	defaultGrantRateLimit    = 8
-	defaultMaximumGrants     = 4096
-	defaultMaximumLeases     = 10_000
-	defaultLeaseIdleTTL      = 2 * time.Minute
-	grantCredentialByteCount = 32
+	defaultGrantTTL                           = 30 * time.Second
+	maximumGrantTTL                           = 60 * time.Second
+	defaultGrantRateWindow                    = 10 * time.Second
+	defaultGrantRateLimit                     = 8
+	defaultMaximumGrants                      = 4096
+	defaultMaximumLeases                      = 10_000
+	defaultLeaseIdleTTL                       = 2 * time.Minute
+	grantCredentialByteCount                  = 32
+	defaultRuntimeConnectionsPerTenant  int64 = 50
+	defaultRuntimeOperationsPerMinute   int64 = 6000
+	defaultRuntimeStorageBytesPerTenant int64 = 1024 * 1024 * 1024
 )
 
 type MemoryGrantBrokerConfig struct {
@@ -132,6 +135,7 @@ func (broker *MemoryGrantBroker) Issue(
 		return GrantCredential{}, ErrGrantDenied
 	}
 	now := broker.clock().UTC()
+	authority.RuntimeLimits = normalizeRuntimeLimits(authority.RuntimeLimits)
 	broker.mu.Lock()
 	defer broker.mu.Unlock()
 	broker.pruneLocked(now)
@@ -153,6 +157,19 @@ func (broker *MemoryGrantBroker) Issue(
 		RevokeGeneration: authority.Document.RevokeGeneration,
 		Capability:       capability, ExpiresAt: expiresAt,
 	}, nil
+}
+
+func normalizeRuntimeLimits(limits RuntimeLimits) RuntimeLimits {
+	if limits.MaxConnectionsPerTenant < 1 {
+		limits.MaxConnectionsPerTenant = defaultRuntimeConnectionsPerTenant
+	}
+	if limits.MaxOperationsPerMinute < 1 {
+		limits.MaxOperationsPerMinute = defaultRuntimeOperationsPerMinute
+	}
+	if limits.MaxStorageBytesPerTenant < 1 {
+		limits.MaxStorageBytesPerTenant = defaultRuntimeStorageBytesPerTenant
+	}
+	return limits
 }
 
 func (broker *MemoryGrantBroker) Consume(
@@ -182,10 +199,13 @@ func (broker *MemoryGrantBroker) Consume(
 	}
 	scope := GrantScope{
 		AuthorityLease: lease, ActorID: grant.access.ActorID, Capability: grant.capability,
-		DocumentID:           grant.authority.Document.ID,
-		Generation:           grant.authority.Document.CurrentGeneration,
-		ProviderDocumentName: grant.authority.ProviderDocumentName,
-		SessionID:            grant.access.SessionID, TenantID: grant.access.TenantID,
+		DocumentID:               grant.authority.Document.ID,
+		Generation:               grant.authority.Document.CurrentGeneration,
+		MaxConnectionsPerTenant:  grant.authority.RuntimeLimits.MaxConnectionsPerTenant,
+		MaxOperationsPerMinute:   grant.authority.RuntimeLimits.MaxOperationsPerMinute,
+		MaxStorageBytesPerTenant: grant.authority.RuntimeLimits.MaxStorageBytesPerTenant,
+		ProviderDocumentName:     grant.authority.ProviderDocumentName,
+		SessionID:                grant.access.SessionID, TenantID: grant.access.TenantID,
 		WriterFence: grant.authority.WriterFence,
 	}
 	broker.leases[leaseDigest] = activeGrantLease{
@@ -303,6 +323,9 @@ func sameGrantScope(left, right GrantScope) bool {
 	return left.AuthorityLease == right.AuthorityLease && left.ActorID == right.ActorID &&
 		left.Capability == right.Capability && left.DocumentID == right.DocumentID &&
 		left.Generation == right.Generation &&
+		left.MaxConnectionsPerTenant == right.MaxConnectionsPerTenant &&
+		left.MaxOperationsPerMinute == right.MaxOperationsPerMinute &&
+		left.MaxStorageBytesPerTenant == right.MaxStorageBytesPerTenant &&
 		left.ProviderDocumentName == right.ProviderDocumentName &&
 		left.SessionID == right.SessionID && left.TenantID == right.TenantID &&
 		left.WriterFence == right.WriterFence

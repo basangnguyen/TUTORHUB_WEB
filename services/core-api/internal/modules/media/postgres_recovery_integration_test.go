@@ -36,8 +36,8 @@ func runP409ForwardMigration(t *testing.T) {
 	version, err := migrationrunner.CurrentVersion(ctx, migrationURL)
 	if err != nil || version.Dirty ||
 		(version.Number != 34 && version.Number != 35 && version.Number != 36 && version.Number != 37 &&
-			version.Number != 38 && version.Number != 39 && version.Number != 40) {
-		t.Fatal("P4-09 retained forward migration requires a clean disposable ledger from 34 through 40")
+			version.Number != 38 && version.Number != 39 && version.Number != 40 && version.Number != 41) {
+		t.Fatal("P4-09 retained forward migration requires a clean disposable ledger from 34 through 41")
 	}
 	if err := migrationrunner.Up(ctx, migrationURL); err != nil {
 		t.Fatal("apply P4-09 forward migration")
@@ -46,10 +46,10 @@ func runP409ForwardMigration(t *testing.T) {
 		t.Fatal("rerun P4-09 forward migration idempotently")
 	}
 	version, err = migrationrunner.CurrentVersion(ctx, migrationURL)
-	if err != nil || version.Number != 40 || version.Dirty {
-		t.Fatal("P4-09 retained forward migration must finish at latest ledger 40 false")
+	if err != nil || version.Number != 41 || version.Dirty {
+		t.Fatal("P4-09 retained forward migration must finish at latest ledger 41 false")
 	}
-	t.Log("P4_09_RETAINED_FORWARD_MIGRATION PASS ledger=40 dirty=false idempotent=true")
+	t.Log("P4_09_RETAINED_FORWARD_MIGRATION PASS ledger=41 dirty=false idempotent=true")
 }
 
 func TestPostgresMediaRecoveryConcurrencyAuthorityAndLockBarrier(t *testing.T) {
@@ -62,8 +62,8 @@ func TestPostgresMediaRecoveryConcurrencyAuthorityAndLockBarrier(t *testing.T) {
 	defer cancel()
 
 	version, err := migrationrunner.CurrentVersion(ctx, migrationURL)
-	if err != nil || version.Number != 40 || version.Dirty {
-		t.Fatal("P4-09 retained recovery integration requires latest ledger 40 false")
+	if err != nil || version.Number != 41 || version.Dirty {
+		t.Fatal("P4-09 retained recovery integration requires latest ledger 41 false")
 	}
 	migrationPool := openMediaIntegrationPool(t, ctx, migrationURL)
 	t.Cleanup(migrationPool.Close)

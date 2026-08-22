@@ -37,6 +37,7 @@ const featureLabelKeys: Record<FeatureKey, TranslationKey> = {
   conversations: "capabilities.featureConversations",
   file_uploads: "capabilities.featureFileUploads",
   classroom_media_rooms: "capabilities.featureClassroomMediaRooms",
+  classroom_whiteboards: "capabilities.featureClassroomWhiteboards",
   instant_study_rooms: "capabilities.featureInstantStudyRooms",
   in_app_notifications: "capabilities.featureInAppNotifications",
   membership_invitations: "capabilities.featureMembershipInvitations",
@@ -66,6 +67,11 @@ const quotaLabelKeys: Record<QuotaKey, TranslationKey> = {
   media_participants_per_space: "capabilities.quotaMediaParticipantsPerSpace",
   active_media_participants: "capabilities.quotaActiveMediaParticipants",
   media_space_starts_per_hour: "capabilities.quotaMediaSpaceStarts",
+  whiteboard_connections_per_tenant: "capabilities.quotaWhiteboardConnections",
+  whiteboard_documents_per_tenant: "capabilities.quotaWhiteboardDocuments",
+  whiteboard_operations_per_minute: "capabilities.quotaWhiteboardOperations",
+  whiteboard_storage_bytes_per_tenant:
+    "capabilities.quotaWhiteboardStorageBytes",
   members: "capabilities.quotaMembers",
 };
 
@@ -107,6 +113,10 @@ function controlsDraft(capabilities: TenantCapabilities): ControlsDraft {
       classroom_media_rooms: configuredFeature(
         capabilities,
         "classroom_media_rooms",
+      ),
+      classroom_whiteboards: configuredFeature(
+        capabilities,
+        "classroom_whiteboards",
       ),
       instant_study_rooms: configuredFeature(
         capabilities,
@@ -182,6 +192,18 @@ function controlsDraft(capabilities: TenantCapabilities): ControlsDraft {
       ),
       media_space_starts_per_hour: String(
         configuredQuota(capabilities, "media_space_starts_per_hour"),
+      ),
+      whiteboard_connections_per_tenant: String(
+        configuredQuota(capabilities, "whiteboard_connections_per_tenant"),
+      ),
+      whiteboard_documents_per_tenant: String(
+        configuredQuota(capabilities, "whiteboard_documents_per_tenant"),
+      ),
+      whiteboard_operations_per_minute: String(
+        configuredQuota(capabilities, "whiteboard_operations_per_minute"),
+      ),
+      whiteboard_storage_bytes_per_tenant: String(
+        configuredQuota(capabilities, "whiteboard_storage_bytes_per_tenant"),
       ),
       members: String(configuredQuota(capabilities, "members")),
     },
@@ -474,6 +496,18 @@ function TenantFeatureControlsForm({
       active_media_participants: Number(draft.quotas.active_media_participants),
       media_space_starts_per_hour: Number(
         draft.quotas.media_space_starts_per_hour,
+      ),
+      whiteboard_connections_per_tenant: Number(
+        draft.quotas.whiteboard_connections_per_tenant,
+      ),
+      whiteboard_documents_per_tenant: Number(
+        draft.quotas.whiteboard_documents_per_tenant,
+      ),
+      whiteboard_operations_per_minute: Number(
+        draft.quotas.whiteboard_operations_per_minute,
+      ),
+      whiteboard_storage_bytes_per_tenant: Number(
+        draft.quotas.whiteboard_storage_bytes_per_tenant,
       ),
     };
     for (const key of quotaKeys) {

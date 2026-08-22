@@ -60,6 +60,7 @@ type Options struct {
 	Collaboration         collaboration.ServiceAPI
 	CollaborationInternal collaboration.InternalServiceAPI
 	CollaborationToken    string
+	CollaborationMode     string
 	LiveKitWebhook        media.WebhookVerifier
 	InvitationRateLimiter InvitationRateLimiter
 	RemoteAddressResolver RemoteAddressResolver
@@ -168,7 +169,7 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 	discovery := newDiscoveryHandlers(logger, auth, options.Discovery)
 	whiteboards := newWhiteboardHandlers(logger, auth, options.Collaboration)
 	whiteboardInternal := newWhiteboardInternalHandlers(
-		logger, options.CollaborationInternal, options.CollaborationToken,
+		logger, options.CollaborationInternal, options.CollaborationToken, options.CollaborationMode,
 	)
 	calendarHandlers := newCalendarHandlers(logger, auth, options.Calendar)
 	calendarScheduling := newCalendarSchedulingHandlers(

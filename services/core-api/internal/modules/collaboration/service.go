@@ -28,17 +28,19 @@ var (
 )
 
 type ServiceConfig struct {
-	Clock func() time.Time
-	NewID func() uuid.UUID
+	Clock       func() time.Time
+	NewID       func() uuid.UUID
+	RuntimeMode RuntimeMode
 }
 
 type Service struct {
-	repository Repository
-	spaces     SpaceAuthority
-	grants     GrantBroker
-	artifacts  ArtifactWorkflow
-	clock      func() time.Time
-	newID      func() uuid.UUID
+	repository  Repository
+	spaces      SpaceAuthority
+	grants      GrantBroker
+	artifacts   ArtifactWorkflow
+	clock       func() time.Time
+	newID       func() uuid.UUID
+	runtimeMode RuntimeMode
 }
 
 func NewService(
@@ -51,7 +53,7 @@ func NewService(
 	if repository == nil || spaces == nil {
 		return nil, ErrUnavailable
 	}
-	config := ServiceConfig{Clock: time.Now, NewID: uuid.New}
+	config := ServiceConfig{Clock: time.Now, NewID: uuid.New, RuntimeMode: RuntimeModeEnabled}
 	if len(configs) > 0 {
 		if configs[0].Clock != nil {
 			config.Clock = configs[0].Clock
@@ -59,10 +61,16 @@ func NewService(
 		if configs[0].NewID != nil {
 			config.NewID = configs[0].NewID
 		}
+		if configs[0].RuntimeMode != "" {
+			config.RuntimeMode = configs[0].RuntimeMode
+		}
+	}
+	if config.RuntimeMode != RuntimeModeEnabled && config.RuntimeMode != RuntimeModeReadOnly && config.RuntimeMode != RuntimeModeOff {
+		return nil, ErrUnavailable
 	}
 	return &Service{
 		repository: repository, spaces: spaces, grants: grants, artifacts: artifacts,
-		clock: config.Clock, newID: config.NewID,
+		clock: config.Clock, newID: config.NewID, runtimeMode: config.RuntimeMode,
 	}, nil
 }
 
@@ -71,6 +79,9 @@ func (service *Service) Create(
 	access AccessContext,
 	input CreateInput,
 ) (CreateResult, error) {
+	if err := service.requireWritable(); err != nil {
+		return CreateResult{}, err
+	}
 	input.IdempotencyKey = strings.TrimSpace(input.IdempotencyKey)
 	if !validAccess(access) || input.MediaSpaceID == uuid.Nil ||
 		!idempotencyPattern.MatchString(input.IdempotencyKey) {
@@ -103,6 +114,9 @@ func (service *Service) Get(
 	access AccessContext,
 	documentID uuid.UUID,
 ) (Document, error) {
+	if err := service.requireReadable(); err != nil {
+		return Document{}, err
+	}
 	document, space, err := service.authorizedDocument(ctx, access, documentID, false)
 	if err != nil {
 		return Document{}, err
@@ -118,6 +132,9 @@ func (service *Service) Resolve(
 	access AccessContext,
 	mediaSpaceID uuid.UUID,
 ) (ToolProjection, error) {
+	if err := service.requireReadable(); err != nil {
+		return ToolProjection{}, err
+	}
 	if !validAccess(access) || mediaSpaceID == uuid.Nil {
 		return ToolProjection{}, ErrInvalidRequest
 	}
@@ -174,6 +191,9 @@ func (service *Service) transition(
 	operation string,
 	input TransitionInput,
 ) (Document, error) {
+	if err := service.requireWritable(); err != nil {
+		return Document{}, err
+	}
 	input.IdempotencyKey = strings.TrimSpace(input.IdempotencyKey)
 	if documentID == uuid.Nil || input.ExpectedVersion < 1 ||
 		!idempotencyPattern.MatchString(input.IdempotencyKey) {
@@ -205,6 +225,12 @@ func (service *Service) ExchangeGrant(
 	documentID uuid.UUID,
 	input GrantExchangeInput,
 ) (GrantCredential, error) {
+	if err := service.requireReadable(); err != nil {
+		return GrantCredential{}, err
+	}
+	if service.runtimeMode == RuntimeModeReadOnly {
+		input.Capability = CapabilityView
+	}
 	if !validCapability(input.Capability) || input.ExpectedGeneration < 1 ||
 		input.ExpectedRevokeGeneration < 1 || !validOrigin(input.Origin) {
 		return GrantCredential{}, ErrInvalidRequest
@@ -333,6 +359,9 @@ func (service *Service) ListSnapshots(
 	documentID uuid.UUID,
 	limit int,
 ) (SnapshotList, error) {
+	if err := service.requireReadable(); err != nil {
+		return SnapshotList{}, err
+	}
 	document, _, err := service.authorizedDocument(ctx, access, documentID, false)
 	if err != nil {
 		return SnapshotList{}, err
@@ -359,6 +388,9 @@ func (service *Service) CreateSnapshot(
 	documentID uuid.UUID,
 	input SnapshotCreateInput,
 ) (ArtifactCommand, error) {
+	if err := service.requireWritable(); err != nil {
+		return ArtifactCommand{}, err
+	}
 	document, _, err := service.authorizedDocument(ctx, access, documentID, true)
 	if err != nil {
 		return ArtifactCommand{}, err
@@ -382,6 +414,9 @@ func (service *Service) Export(
 	documentID uuid.UUID,
 	input ExportInput,
 ) (ArtifactCommand, error) {
+	if err := service.requireReadable(); err != nil {
+		return ArtifactCommand{}, err
+	}
 	document, _, err := service.authorizedDocument(ctx, access, documentID, true)
 	if err != nil {
 		return ArtifactCommand{}, err
@@ -435,6 +470,9 @@ func (service *Service) Restore(
 	documentID uuid.UUID,
 	input RestoreInput,
 ) (Document, error) {
+	if err := service.requireWritable(); err != nil {
+		return Document{}, err
+	}
 	input.IdempotencyKey = strings.TrimSpace(input.IdempotencyKey)
 	if documentID == uuid.Nil || input.SnapshotID == uuid.Nil || input.ExpectedVersion < 1 ||
 		input.ExpectedGeneration < 1 || !idempotencyPattern.MatchString(input.IdempotencyKey) {
@@ -535,18 +573,38 @@ func (service *Service) project(
 		capability = CapabilityView
 	}
 	manage := canManageSpace(access, space)
+	if service.runtimeMode == RuntimeModeReadOnly {
+		capability = CapabilityView
+	}
 	document.Viewer = ViewerCapabilities{
 		Capability:        capability,
-		CanOpen:           manage && (document.Status == DocumentCreated),
-		CanSuspend:        manage && document.Status == DocumentOpen,
-		CanResume:         manage && document.Status == DocumentSuspended,
-		CanClose:          manage && document.Status != DocumentClosed,
-		CanCreateSnapshot: manage && document.Status != DocumentClosed,
+		CanOpen:           service.runtimeMode == RuntimeModeEnabled && manage && (document.Status == DocumentCreated),
+		CanSuspend:        service.runtimeMode == RuntimeModeEnabled && manage && document.Status == DocumentOpen,
+		CanResume:         service.runtimeMode == RuntimeModeEnabled && manage && document.Status == DocumentSuspended,
+		CanClose:          service.runtimeMode == RuntimeModeEnabled && manage && document.Status != DocumentClosed,
+		CanCreateSnapshot: service.runtimeMode == RuntimeModeEnabled && manage && document.Status != DocumentClosed,
 		CanExport:         manage,
-		CanRestore:        manage && document.Status != DocumentClosed,
+		CanRestore:        service.runtimeMode == RuntimeModeEnabled && manage && document.Status != DocumentClosed,
 		CanExchangeGrant:  document.Status == DocumentOpen && capabilityRank(capability) >= capabilityRank(CapabilityView),
 	}
 	return document, nil
+}
+
+func (service *Service) requireReadable() error {
+	if service.runtimeMode == RuntimeModeOff {
+		return ErrNotFound
+	}
+	return nil
+}
+
+func (service *Service) requireWritable() error {
+	if service.runtimeMode == RuntimeModeOff {
+		return ErrNotFound
+	}
+	if service.runtimeMode == RuntimeModeReadOnly {
+		return ErrReadOnly
+	}
+	return nil
 }
 
 func validateArtifactRequest(document Document, expectedGeneration int64, key string) error {
@@ -672,6 +730,7 @@ func normalizeError(err error) error {
 		ErrUnavailable, ErrInvalidRequest, ErrNotFound, ErrVersionConflict,
 		ErrIdempotencyConflict, ErrTransitionConflict, ErrArtifactUnavailable, ErrGrantUnavailable,
 		ErrGrantDenied, ErrGrantRateLimited,
+		ErrQuotaExceeded, ErrReadOnly,
 	}
 	for _, candidate := range known {
 		if errors.Is(err, candidate) {

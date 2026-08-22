@@ -330,6 +330,86 @@ func TestServiceArtifactAndRestoreRequireCurrentAuthority(t *testing.T) {
 	}
 }
 
+func TestServiceReadOnlyModePreservesReadExportAndClampsGrant(t *testing.T) {
+	t.Parallel()
+	documentID, spaceID := uuid.New(), uuid.New()
+	document := Document{
+		ID: documentID, MediaSpaceID: spaceID, Status: DocumentOpen,
+		Version: 7, CurrentGeneration: 4, RevokeGeneration: 4,
+	}
+	repository := &fakeRepository{document: document, policies: defaultCapabilityPolicies()}
+	spaces := &fakeSpaceAuthority{space: manageableSpace(spaceID)}
+	broker := &fakeGrantBroker{credential: GrantCredential{Credential: "redacted", DocumentID: documentID}}
+	workflow := &fakeArtifactWorkflow{result: ArtifactCommand{
+		ID: uuid.New(), DocumentID: documentID, Generation: 4, Status: ArtifactCommandAccepted,
+	}}
+	service, err := NewService(repository, spaces, broker, workflow, ServiceConfig{
+		Clock: func() time.Time { return collaborationTestTime },
+		NewID: func() uuid.UUID { return uuid.New() }, RuntimeMode: RuntimeModeReadOnly,
+	})
+	if err != nil {
+		t.Fatalf("new read-only service: %v", err)
+	}
+
+	projected, err := service.Get(context.Background(), testAccess(), documentID)
+	if err != nil || projected.Viewer.Capability != CapabilityView ||
+		projected.Viewer.CanOpen || projected.Viewer.CanSuspend || projected.Viewer.CanResume ||
+		projected.Viewer.CanClose || projected.Viewer.CanCreateSnapshot || projected.Viewer.CanRestore ||
+		!projected.Viewer.CanExport || !projected.Viewer.CanExchangeGrant {
+		t.Fatalf("unexpected read-only projection: document=%+v err=%v", projected, err)
+	}
+
+	credential, err := service.ExchangeGrant(context.Background(), testAccess(), documentID, GrantExchangeInput{
+		Capability: CapabilityPresent, ExpectedGeneration: 4,
+		ExpectedRevokeGeneration: 4, Origin: "https://app.example.test",
+	})
+	if err != nil || credential.DocumentID != documentID || broker.issueCapability != CapabilityView {
+		t.Fatalf("read-only grant was not clamped: credential=%+v capability=%q err=%v", credential, broker.issueCapability, err)
+	}
+	if _, err := service.Export(context.Background(), testAccess(), documentID, ExportInput{
+		ExpectedGeneration: 4, IdempotencyKey: "whiteboard-readonly-export-0001",
+	}); err != nil || workflow.exportCalls != 1 {
+		t.Fatalf("read-only export failed: err=%v calls=%d", err, workflow.exportCalls)
+	}
+
+	if _, err := service.Create(context.Background(), testAccess(), CreateInput{}); !errors.Is(err, ErrReadOnly) {
+		t.Fatalf("read-only create error=%v", err)
+	}
+	if _, err := service.Suspend(context.Background(), testAccess(), documentID, TransitionInput{}); !errors.Is(err, ErrReadOnly) {
+		t.Fatalf("read-only transition error=%v", err)
+	}
+	if _, err := service.CreateSnapshot(context.Background(), testAccess(), documentID, SnapshotCreateInput{}); !errors.Is(err, ErrReadOnly) {
+		t.Fatalf("read-only snapshot error=%v", err)
+	}
+	if _, err := service.Restore(context.Background(), testAccess(), documentID, RestoreInput{}); !errors.Is(err, ErrReadOnly) {
+		t.Fatalf("read-only restore error=%v", err)
+	}
+}
+
+func TestServiceOffModeConcealsAllPublicWhiteboardReadsAndWrites(t *testing.T) {
+	t.Parallel()
+	service, err := NewService(&fakeRepository{}, &fakeSpaceAuthority{}, nil, nil, ServiceConfig{
+		RuntimeMode: RuntimeModeOff,
+	})
+	if err != nil {
+		t.Fatalf("new off-mode service: %v", err)
+	}
+	documentID := uuid.New()
+
+	if _, err := service.Get(context.Background(), testAccess(), documentID); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("off-mode get error=%v", err)
+	}
+	if _, err := service.Resolve(context.Background(), testAccess(), uuid.New()); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("off-mode resolve error=%v", err)
+	}
+	if _, err := service.Create(context.Background(), testAccess(), CreateInput{}); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("off-mode create error=%v", err)
+	}
+	if _, err := service.ListSnapshots(context.Background(), testAccess(), documentID, 10); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("off-mode snapshots error=%v", err)
+	}
+}
+
 func TestServiceImportValidationIsStrictAndBounded(t *testing.T) {
 	t.Parallel()
 	service := newTestService(t, &fakeRepository{}, &fakeSpaceAuthority{}, nil, nil, uuid.New())

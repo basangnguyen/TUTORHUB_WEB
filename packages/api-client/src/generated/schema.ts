@@ -5205,6 +5205,7 @@ export type components = {
       readonly class_session_recurrence: components["schemas"]["FeatureCapability"];
       readonly class_session_scheduling: components["schemas"]["FeatureCapability"];
       readonly classroom_media_rooms: components["schemas"]["FeatureCapability"];
+      readonly classroom_whiteboards: components["schemas"]["FeatureCapability"];
       readonly conversations: components["schemas"]["FeatureCapability"];
       readonly file_uploads: components["schemas"]["FeatureCapability"];
       readonly in_app_notifications: components["schemas"]["FeatureCapability"];
@@ -5218,6 +5219,7 @@ export type components = {
       readonly class_session_recurrence: boolean;
       readonly class_session_scheduling: boolean;
       readonly classroom_media_rooms: boolean;
+      readonly classroom_whiteboards: boolean;
       readonly conversations: boolean;
       readonly file_uploads: boolean;
       readonly in_app_notifications: boolean;
@@ -5275,6 +5277,10 @@ export type components = {
       readonly messages_per_tenant: components["schemas"]["QuotaCapability"];
       readonly single_file_bytes: components["schemas"]["QuotaCapability"];
       readonly study_meeting_creations_per_hour: components["schemas"]["QuotaCapability"];
+      readonly whiteboard_connections_per_tenant: components["schemas"]["QuotaCapability"];
+      readonly whiteboard_documents_per_tenant: components["schemas"]["QuotaCapability"];
+      readonly whiteboard_operations_per_minute: components["schemas"]["QuotaCapability"];
+      readonly whiteboard_storage_bytes_per_tenant: components["schemas"]["QuotaCapability"];
     };
     readonly TenantQuotaControlValues: {
       readonly active_availability_polls: number;
@@ -5300,6 +5306,11 @@ export type components = {
       /** Format: int64 */
       readonly single_file_bytes: number;
       readonly study_meeting_creations_per_hour: number;
+      readonly whiteboard_connections_per_tenant: number;
+      readonly whiteboard_documents_per_tenant: number;
+      readonly whiteboard_operations_per_minute: number;
+      /** Format: int64 */
+      readonly whiteboard_storage_bytes_per_tenant: number;
     };
     /** @enum {string} */
     readonly TenantStatus: "active" | "suspended" | "archived";

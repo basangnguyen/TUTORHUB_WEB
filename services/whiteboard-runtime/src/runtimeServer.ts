@@ -24,6 +24,7 @@ import {
   RuntimeConnectionPolicy,
   RuntimeIngressPolicy,
   RuntimePolicyError,
+  RuntimeTenantOperationPolicy,
   validateAwarenessEnvelope,
 } from "./runtimePolicy.js";
 import { RuntimeTelemetry, type RuntimePolicyReason } from "./telemetry.js";
@@ -84,6 +85,9 @@ export function createCollaborationRuntime(
     reconnectWindowMs: 10_000,
   });
   const sessionRegistry = new RuntimeSessionRegistry(connectionPolicy);
+  const tenantOperations = new RuntimeTenantOperationPolicy(
+    config.maxMessagesPerSecond * 60,
+  );
   const documentBudget = new RuntimeDocumentBudget(
     config.maxDocumentBytes,
     config.maxUpdateBytes,
@@ -187,12 +191,8 @@ export function createCollaborationRuntime(
         ) {
           throw new RuntimeSocketError("grant_denied");
         }
-        if (
-          authorityOutcome.value.mode === "read_only" &&
-          scope.capability !== "view"
-        ) {
-          throw new RuntimeSocketError("write_disabled");
-        }
+        if (authorityOutcome.value.mode === "read_only")
+          scope.capability = "view";
         const key = connectionKey(socketId, documentName);
         reservation = sessionRegistry.reserve(key, scope);
         requireAdmissionReady();
@@ -337,6 +337,17 @@ export function createCollaborationRuntime(
       if (type === 0) return;
       if (context.capability === "view") {
         throw new RuntimeSocketError("write_disabled");
+      }
+      try {
+        tenantOperations.consume(context);
+      } catch (error) {
+        if (error instanceof RuntimePolicyError) {
+          const denial = policyDenial(error);
+          telemetry.policyRejected(denial.metric);
+          throw new RuntimeSocketError(denial.socketReason);
+        }
+        telemetry.policyRejected("update");
+        throw new RuntimeSocketError("update_denied");
       }
       try {
         documentBudget.reserve(documentName, payload.byteLength);
@@ -705,6 +716,11 @@ function policyDenial(error: RuntimePolicyError): {
       };
     case "reconnect_storm_denied":
       return { metric: "reconnect", socketReason: "reconnect_storm_denied" };
+    case "tenant_operation_quota":
+      return {
+        metric: "operation_quota",
+        socketReason: "operation_quota_exceeded",
+      };
     case "awareness_bytes_exceeded":
     case "awareness_depth_exceeded":
     case "awareness_identity_invalid":

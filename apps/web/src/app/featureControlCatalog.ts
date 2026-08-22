@@ -13,6 +13,7 @@ export const tenantFeatureKeys = [
   "file_uploads",
   "classroom_media_rooms",
   "instant_study_rooms",
+  "classroom_whiteboards",
   "in_app_notifications",
   "availability_polls",
 ] as const satisfies readonly TenantFeatureKey[];
@@ -39,6 +40,10 @@ export const tenantQuotaKeys = [
   "media_participants_per_space",
   "active_media_participants",
   "media_space_starts_per_hour",
+  "whiteboard_documents_per_tenant",
+  "whiteboard_connections_per_tenant",
+  "whiteboard_storage_bytes_per_tenant",
+  "whiteboard_operations_per_minute",
 ] as const satisfies readonly TenantQuotaKey[];
 
 type MissingFeatureKey = Exclude<

@@ -21,6 +21,7 @@ func TestCatalogDefaultsAndStableOrder(t *testing.T) {
 		FeatureClassSessionRecurrence,
 		FeatureClassSessionScheduling,
 		FeatureClassroomMediaRooms,
+		FeatureClassroomWhiteboards,
 		FeatureConversations,
 		FeatureFileUploads,
 		FeatureInAppNotifications,
@@ -31,6 +32,7 @@ func TestCatalogDefaultsAndStableOrder(t *testing.T) {
 	}
 	for _, definition := range features {
 		mayDefaultOff := definition.Key == FeatureClassroomMediaRooms ||
+			definition.Key == FeatureClassroomWhiteboards ||
 			definition.Key == FeatureInstantStudyRooms
 		if definition.DefaultEnabled == mayDefaultOff {
 			t.Fatalf("unexpected compiled default for feature %q: %t", definition.Key, definition.DefaultEnabled)
@@ -59,6 +61,10 @@ func TestCatalogDefaultsAndStableOrder(t *testing.T) {
 		QuotaMessagesPerTenant,
 		QuotaSingleFileBytes,
 		QuotaStudyMeetingCreationsPerHour,
+		QuotaWhiteboardConnectionsPerTenant,
+		QuotaWhiteboardDocumentsPerTenant,
+		QuotaWhiteboardOperationsPerMinute,
+		QuotaWhiteboardStorageBytesPerTenant,
 	}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("quota catalog order = %v, want %v", got, want)
 	}
@@ -131,6 +137,18 @@ func TestCatalogDefaultsAndStableOrder(t *testing.T) {
 		},
 		QuotaMediaSpaceStartsPerHour: {
 			Key: QuotaMediaSpaceStartsPerHour, DefaultLimit: 20, MinimumLimit: 1, MaximumLimit: 200,
+		},
+		QuotaWhiteboardDocumentsPerTenant: {
+			Key: QuotaWhiteboardDocumentsPerTenant, DefaultLimit: 10, MinimumLimit: 1, MaximumLimit: 100,
+		},
+		QuotaWhiteboardConnectionsPerTenant: {
+			Key: QuotaWhiteboardConnectionsPerTenant, DefaultLimit: 50, MinimumLimit: 1, MaximumLimit: 100,
+		},
+		QuotaWhiteboardStorageBytesPerTenant: {
+			Key: QuotaWhiteboardStorageBytesPerTenant, DefaultLimit: 1073741824, MinimumLimit: 1, MaximumLimit: 10737418240,
+		},
+		QuotaWhiteboardOperationsPerMinute: {
+			Key: QuotaWhiteboardOperationsPerMinute, DefaultLimit: 6000, MinimumLimit: 1, MaximumLimit: 60000,
 		},
 	}
 	for _, definition := range quotas {

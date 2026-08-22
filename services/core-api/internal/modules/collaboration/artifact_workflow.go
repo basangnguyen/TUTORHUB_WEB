@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/tutorhub-v2/core-api/internal/modules/featurecontrol"
 )
 
 const (
@@ -27,6 +28,7 @@ type PostgresArtifactWorkflow struct {
 	pollInterval time.Duration
 	clock        func() time.Time
 	newID        func() uuid.UUID
+	controls     featurecontrol.Enforcer
 }
 
 type PostgresArtifactWorkflowConfig struct {
@@ -35,6 +37,7 @@ type PostgresArtifactWorkflowConfig struct {
 	PollInterval time.Duration
 	Clock        func() time.Time
 	NewID        func() uuid.UUID
+	Controls     featurecontrol.Enforcer
 }
 
 func NewPostgresArtifactWorkflow(
@@ -63,6 +66,7 @@ func NewPostgresArtifactWorkflow(
 		database: database, queryTimeout: config.QueryTimeout,
 		restoreWait: config.RestoreWait, pollInterval: config.PollInterval,
 		clock: config.Clock, newID: config.NewID,
+		controls: config.Controls,
 	}, nil
 }
 
@@ -142,6 +146,11 @@ func (workflow *PostgresArtifactWorkflow) enqueue(
 		return ArtifactCommand{}, ErrArtifactUnavailable
 	}
 	defer rollback(tx)
+	if workflow.controls != nil {
+		if err := workflow.controls.RequireFeature(queryContext, tx, access.TenantID, featurecontrol.FeatureClassroomWhiteboards); err != nil {
+			return ArtifactCommand{}, classifyControlError(err)
+		}
+	}
 	if _, err := tx.Exec(queryContext,
 		`SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`,
 		"whiteboard-artifact:"+access.TenantID.String()+":"+access.ActorID.String()+":"+idempotencyKey,
@@ -175,6 +184,21 @@ func (workflow *PostgresArtifactWorkflow) enqueue(
 	}
 	if !errors.Is(err, pgx.ErrNoRows) {
 		return ArtifactCommand{}, ErrArtifactUnavailable
+	}
+	if workflow.controls != nil && (kind == "snapshot" || kind == "export") {
+		if _, err := tx.Exec(queryContext, `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, "whiteboard-storage:"+access.TenantID.String()); err != nil {
+			return ArtifactCommand{}, ErrArtifactUnavailable
+		}
+		var used, pending int64
+		if err := tx.QueryRow(queryContext, `SELECT
+			COALESCE((SELECT sum(size_bytes) FROM tutorhub.whiteboard_snapshots WHERE tenant_id = $1), 0),
+			COALESCE((SELECT count(*) FROM tutorhub.whiteboard_artifact_commands WHERE tenant_id = $1 AND command_kind IN ('snapshot', 'export') AND status IN ('pending', 'processing')), 0)`, access.TenantID).Scan(&used, &pending); err != nil {
+			return ArtifactCommand{}, ErrArtifactUnavailable
+		}
+		const artifactReservationBytes int64 = maximumPortableImportBytes
+		if err := workflow.controls.RequireQuotaAtMost(queryContext, tx, access.TenantID, featurecontrol.QuotaWhiteboardStorageBytesPerTenant, used+(pending+1)*artifactReservationBytes); err != nil {
+			return ArtifactCommand{}, classifyControlError(err)
+		}
 	}
 
 	queued := ArtifactCommand{

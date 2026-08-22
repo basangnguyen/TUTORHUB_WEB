@@ -3,6 +3,7 @@ import {
   RuntimeConnectionPolicy,
   RuntimeIngressPolicy,
   RuntimePolicyError,
+  RuntimeTenantOperationPolicy,
   validateAwarenessEnvelope,
   type AwarenessPolicyLimits,
   type ConnectionPolicyLimits,
@@ -127,6 +128,47 @@ describe("RuntimeConnectionPolicy", () => {
       }),
     );
     expect(JSON.stringify(failure)).not.toContain(privateActor);
+  });
+});
+
+describe("RuntimeTenantOperationPolicy", () => {
+  it("clamps tenant scope limits and isolates a noisy tenant", () => {
+    let now = 100;
+    const policy = new RuntimeTenantOperationPolicy(100, () => now);
+    const tenantA = scope({ maxOperationsPerMinute: 2 });
+    const tenantB = scope({
+      maxOperationsPerMinute: 10,
+      tenantId: "tenant-b",
+    });
+
+    policy.consume(tenantA);
+    policy.consume(tenantA);
+    expect(() => policy.consume(tenantA)).toThrowError(
+      "tenant_operation_quota",
+    );
+    expect(() => policy.consume(tenantB, 10)).not.toThrow();
+
+    now = 60_101;
+    expect(() => policy.consume(tenantA)).not.toThrow();
+  });
+
+  it("rejects invalid limits without exposing tenant identifiers", () => {
+    const privateTenant = "private-tenant-marker";
+    let failure: unknown;
+    try {
+      new RuntimeTenantOperationPolicy(10).consume({
+        maxOperationsPerMinute: 0,
+        tenantId: privateTenant,
+      });
+    } catch (error) {
+      failure = error;
+    }
+    expect(failure).toEqual(
+      expect.objectContaining<Partial<RuntimePolicyError>>({
+        code: "policy_input_invalid",
+      }),
+    );
+    expect(JSON.stringify(failure)).not.toContain(privateTenant);
   });
 });
 
@@ -280,6 +322,8 @@ function scope(
     actorId: string;
     documentId: string;
     generation: number;
+    maxConnectionsPerTenant: number;
+    maxOperationsPerMinute: number;
     tenantId: string;
   }> = {},
 ) {
@@ -287,6 +331,8 @@ function scope(
     actorId: "actor-a",
     documentId: "document-a",
     generation: 1,
+    maxConnectionsPerTenant: 4,
+    maxOperationsPerMinute: 100,
     tenantId: "tenant-a",
     ...overrides,
   };

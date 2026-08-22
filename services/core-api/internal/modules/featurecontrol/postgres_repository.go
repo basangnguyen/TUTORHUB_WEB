@@ -323,6 +323,30 @@ func (repository *PostgresRepository) RequireQuotaAtMost(
 	return nil
 }
 
+func (repository *PostgresRepository) ResolveQuota(
+	ctx context.Context,
+	transaction Transaction,
+	tenantID uuid.UUID,
+	key QuotaKey,
+) (result EffectiveQuota, resultErr error) {
+	defer func() { resultErr = NormalizeError(resultErr) }()
+	if transaction == nil || tenantID == uuid.Nil {
+		return EffectiveQuota{}, ErrInvalidControl
+	}
+	if _, known := repository.catalog.QuotaDefinition(key); !known {
+		return EffectiveQuota{}, fmt.Errorf("resolve quota %q: %w", key, ErrInvalidControl)
+	}
+	queryContext, cancel := repository.contextWithTimeout(ctx)
+	defer cancel()
+	if err := acquireTenantControlReadLock(queryContext, transaction, tenantID); err != nil {
+		return EffectiveQuota{}, err
+	}
+	if err := ensureActiveControlTenant(queryContext, transaction, tenantID); err != nil {
+		return EffectiveQuota{}, err
+	}
+	return repository.readEffectiveQuota(queryContext, transaction, tenantID, key)
+}
+
 func (repository *PostgresRepository) ConsumeRateQuota(
 	ctx context.Context,
 	transaction Transaction,
@@ -799,11 +823,17 @@ func readQuotaUsage(
     FROM tutorhub.tenant_file_usage
     WHERE tenant_id = $1
 ), 0)`
+	case QuotaWhiteboardDocumentsPerTenant:
+		query = `SELECT count(*) FROM tutorhub.whiteboard_documents WHERE tenant_id = $1`
+	case QuotaWhiteboardStorageBytesPerTenant:
+		query = `SELECT COALESCE(sum(size_bytes), 0) FROM tutorhub.whiteboard_snapshots WHERE tenant_id = $1`
 	case QuotaAvailabilityPollRangeDays,
 		QuotaAvailabilityPollSlots,
 		QuotaAvailabilityPollParticipants,
 		QuotaMediaParticipantsPerSpace,
-		QuotaSingleFileBytes:
+		QuotaSingleFileBytes,
+		QuotaWhiteboardConnectionsPerTenant,
+		QuotaWhiteboardOperationsPerMinute:
 		return 0, time.Time{}, time.Time{}, nil
 	case QuotaInviteCreationsPerHour,
 		QuotaAvailabilityPollCreationsPerHour,

@@ -16,6 +16,9 @@ export interface CollaborationScope {
   capability: CollaborationCapability;
   documentId: string;
   generation: number;
+  maxConnectionsPerTenant: number;
+  maxOperationsPerMinute: number;
+  maxStorageBytesPerTenant: number;
   origin: string;
   providerDocumentName: string;
   sessionId: string;

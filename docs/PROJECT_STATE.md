@@ -12,10 +12,28 @@
 | Quy trình            | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
 | Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4                                                    |
 | Phase hiện tại       | Phase 5 collaboration implementation; Phase 3 deferred carry-over vẫn hoạt động       |
-| Task `DONE` gần nhất | P5-COLLAB-08 Reconnect, compaction và recovery                                          |
-| Mốc repository mới   | Exact candidate `4f05ae6`; GitHub Verify `32571244058`, Security `32571244052` PASS     |
-| Task hiện tại        | P5-COLLAB-09 Feature, quota và operations — `TODO`                                      |
-| Task tiếp theo       | Thiết kế/triển khai feature flag, quota, metrics và operations cho collaboration         |
+| Task `DONE` gần nhất | P5-COLLAB-08 Reconnect, compaction và recovery                                        |
+| Mốc repository mới   | Exact candidate `4f05ae6`; GitHub Verify `32571244058`, Security `32571244052` PASS   |
+| Task hiện tại        | P5-COLLAB-09 Feature, quota và operations — `VERIFY`                                  |
+| Task tiếp theo       | Review/no-secret, push và GitHub Verify/Security cho P5-COLLAB-09                     |
+
+### Checkpoint P5-COLLAB-09 `VERIFY` — 2026-08-22
+
+ADR-0037 và local candidate đã triển khai feature `classroom_whiteboards` default false/deployment
+force-off, bốn per-tenant quota clamp cho document/connection/storage/operation và emergency runtime
+mode `enabled/read_only/off`. Core API, artifact workflow, grant broker và Hocuspocus runtime cùng
+fail closed; `read_only` giữ projection/list/export nhưng khóa mutation/snapshot/restore và ép grant về
+`view`, còn `off` conceal public surface. Noisy tenant operation/connection budget tách biệt; metrics
+chỉ có bounded label vocabulary và không nhận raw tenant/document/user/provider ID hoặc content.
+Migration forward `000041` chỉ mở rộng typed feature/quota constraint và retained integration tests đã
+nâng latest ledger lên `41 false`. ADR/runbook, focused kill-switch/quota/cardinality tests và full
+`pnpm verify` PASS. Exact Neon disposable đã forward-only `37 false -> 41 false -> 41 false`; exact role
+preflight, default/force-off, concurrent document/storage quota, tenant isolation và runtime focused `30/30`
+đều PASS, final ledger giữ `41 false`. Gate đầu đã phát hiện và sửa truy vấn dung lượng dùng cột snapshot
+không tồn tại; gate database và full verify PASS sau sửa. Trước `DONE` chỉ còn review/no-secret, commit/push
+và GitHub Verify/Security. Không rollback/shared-staging write/deploy; production tiếp tục force-off và
+disposable branch được giữ lại.
+Acceptance: [`P5_COLLAB_09_STAGING_ACCEPTANCE.md`](P5_COLLAB_09_STAGING_ACCEPTANCE.md).
 
 ### Checkpoint P5-COLLAB-08 `DONE` — 2026-08-22
 

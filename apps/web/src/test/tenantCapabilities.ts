@@ -39,6 +39,10 @@ export function availableTenantCapabilities(
         configured_enabled: false,
         enabled: false,
       },
+      classroom_whiteboards: {
+        configured_enabled: false,
+        enabled: false,
+      },
       instant_study_rooms: {
         configured_enabled: false,
         enabled: false,
@@ -174,6 +178,30 @@ export function availableTenantCapabilities(
         limit: 20,
         used: 0,
         remaining: 20,
+      },
+      whiteboard_connections_per_tenant: {
+        configured_limit: 50,
+        limit: 50,
+        used: 0,
+        remaining: 50,
+      },
+      whiteboard_documents_per_tenant: {
+        configured_limit: 10,
+        limit: 10,
+        used: 0,
+        remaining: 10,
+      },
+      whiteboard_operations_per_minute: {
+        configured_limit: 6000,
+        limit: 6000,
+        used: 0,
+        remaining: 6000,
+      },
+      whiteboard_storage_bytes_per_tenant: {
+        configured_limit: 1073741824,
+        limit: 1073741824,
+        used: 0,
+        remaining: 1073741824,
       },
     },
     operations: {
