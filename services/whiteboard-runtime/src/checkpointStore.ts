@@ -1,12 +1,15 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import { Pool, type PoolClient } from "pg";
-import * as Y from "yjs";
 import type {
   CheckpointStore,
   CollaborationScope,
   StoredCheckpoint,
 } from "./contracts.js";
 import { MAX_DURABLE_DOCUMENT_BYTES } from "./contracts.js";
+import {
+  CheckpointCompactionError,
+  compactCheckpointState,
+} from "./checkpointCompaction.js";
 
 const CHECKPOINT_SCHEMA_VERSION = 1;
 const PROVIDER_VERSION = "hocuspocus@4.6.0+yjs@13.6.27";
@@ -123,23 +126,46 @@ export class NeonCheckpointStore implements CheckpointStore {
       ) {
         throw new CheckpointStoreError("checkpoint_corrupt");
       }
+      const compacted = compactCheckpointState(
+        new Uint8Array(row.yjs_state),
+        MAX_DURABLE_DOCUMENT_BYTES,
+      );
       return {
-        checksum: row.checksum,
-        state: new Uint8Array(row.yjs_state),
+        checksum: sha256(compacted.state),
+        state: compacted.state,
         watermark,
       };
     } catch (error) {
       if (error instanceof CheckpointStoreError) throw error;
+      if (error instanceof CheckpointCompactionError) {
+        throw new CheckpointStoreError(
+          error.code === "checkpoint_too_large"
+            ? "checkpoint_too_large"
+            : "checkpoint_corrupt",
+        );
+      }
       throw new CheckpointStoreError("checkpoint_unavailable");
     }
   }
 
   async store(scope: CollaborationScope, state: Uint8Array): Promise<number> {
-    if (state.byteLength > MAX_DURABLE_DOCUMENT_BYTES) {
-      throw new CheckpointStoreError("checkpoint_too_large");
+    let compacted: Uint8Array;
+    try {
+      compacted = compactCheckpointState(
+        state,
+        MAX_DURABLE_DOCUMENT_BYTES,
+      ).state;
+    } catch (error) {
+      if (error instanceof CheckpointCompactionError) {
+        throw new CheckpointStoreError(
+          error.code === "checkpoint_too_large"
+            ? "checkpoint_too_large"
+            : "checkpoint_corrupt",
+        );
+      }
+      throw error;
     }
-    validateYjsState(state);
-    const checksum = sha256(state);
+    const checksum = sha256(compacted);
     let client: PoolClient | undefined;
     try {
       client = await this.pool.connect();
@@ -182,8 +208,8 @@ export class NeonCheckpointStore implements CheckpointStore {
           scope.providerDocumentName,
           CHECKPOINT_SCHEMA_VERSION,
           PROVIDER_VERSION,
-          Buffer.from(state),
-          state.byteLength,
+          Buffer.from(compacted),
+          compacted.byteLength,
           checksum,
           scope.writerFence,
         ],
@@ -201,16 +227,6 @@ export class NeonCheckpointStore implements CheckpointStore {
     } finally {
       client?.release();
     }
-  }
-}
-
-function validateYjsState(state: Uint8Array): void {
-  try {
-    const document = new Y.Doc();
-    Y.applyUpdate(document, state);
-    document.destroy();
-  } catch {
-    throw new CheckpointStoreError("checkpoint_corrupt");
   }
 }
 

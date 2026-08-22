@@ -98,6 +98,38 @@ describe("OCI collaboration runtime", () => {
     expect(recoveredClient.document.getMap("scene").get("revision")).toBe(7);
   }, 25_000);
 
+  it("converges concurrent online and offline edits after reconnect without duplicates", async () => {
+    const checkpoints = new MemoryCheckpointStore();
+    const candidate = createRuntime(checkpoints);
+    runtimes.push(candidate.runtime);
+    await candidate.runtime.start();
+
+    const teacher = createClient(candidate.runtime);
+    const student = createClient(candidate.runtime);
+    clients.push(teacher, student);
+    await Promise.all([teacher.synced, student.synced]);
+
+    student.disconnect();
+    await waitFor(() => !student.isConnected(), 2_000);
+    teacher.document.getMap("scene").set("teacher-shape", "triangle");
+    student.document.getMap("scene").set("student-shape", "circle");
+    await student.reconnect();
+
+    await waitFor(
+      () =>
+        teacher.document.getMap("scene").get("student-shape") === "circle" &&
+        student.document.getMap("scene").get("teacher-shape") === "triangle",
+      5_000,
+    );
+    expect(teacher.document.getMap("scene").toJSON()).toEqual({
+      "student-shape": "circle",
+      "teacher-shape": "triangle",
+    });
+    expect(student.document.getMap("scene").toJSON()).toEqual(
+      teacher.document.getMap("scene").toJSON(),
+    );
+  }, 15_000);
+
   it("turns readiness red and closes writers when authority switches off", async () => {
     const checkpoints = new MemoryCheckpointStore();
     const authority = new FakeControlPlane();
@@ -533,8 +565,11 @@ interface TestClient {
   authenticationFailures: string[];
   closed: Promise<void>;
   connected: Promise<void>;
+  disconnect(): void;
   destroy(): void;
   document: Y.Doc;
+  isConnected(): boolean;
+  reconnect(): Promise<void>;
   setAwarenessField(key: string, value: unknown): void;
   synced: Promise<void>;
 }
@@ -593,12 +628,17 @@ function createClient(
     authenticationFailures,
     closed,
     connected,
+    disconnect: () => socket.disconnect(),
     destroy: () => {
       provider.destroy();
       socket.destroy();
       document.destroy();
     },
     document,
+    isConnected: () => socket.status === WebSocketStatus.Connected,
+    reconnect: async () => {
+      await socket.connect();
+    },
     setAwarenessField: (key, value) => provider.setAwarenessField(key, value),
     synced,
   };

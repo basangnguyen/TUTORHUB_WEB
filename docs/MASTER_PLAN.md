@@ -11,7 +11,7 @@
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
 | Phase hiện tại        | Phase 5 collaboration implementation; Phase 3 deferred carry-over tiếp tục                   |
-| Trạng thái gần nhất   | P5-COLLAB-07 `DONE`; candidate `060fcc7`, CI và disposable ledger `40 false` PASS              |
+| Trạng thái gần nhất   | P5-COLLAB-08 `VERIFY`; disposable recovery và full verify PASS, chờ exact candidate CI        |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 
@@ -1730,6 +1730,16 @@ bounded retry và exact cleanup đều PASS. Migration `000040` giữ active res
 và cho terminal source redaction sau retention purge. Review/no-secret, exact candidate `060fcc7`,
 GitHub Verify `32566880308` và Security `32566880332` đều PASS. Không shared-staging write/deploy;
 production force-off. P5-COLLAB-08 runnable.
+
+P5-COLLAB-08 checkpoint 2026-08-22 — `VERIFY`: ADR-0036 chấp nhận Yjs state vector làm resume
+watermark, copy-on-write checkpoint compaction và explicit generation/revoke recovery fence. Focused
+real-socket reconnect, duplicate/out-of-order/offline convergence, delete tombstone, actor-local undo,
+terminal browser recovery và Core API stale-generation tests PASS. Runtime `120`, client `9`, web `456`
+và Go collaboration tests đều xanh. Exact Neon/B2 disposable recovery PASS tại ledger `40 false` với
+`RPO=last_verified_artifact`, `RTO_MS=3096`, corrupt quarantine, generation/revoke fence và cleanup
+PASS; full `pnpm verify` PASS. Không migration/shared-staging write/deploy; production force-off.
+Còn commit/push exact candidate và GitHub Verify/Security trước `DONE`.
+Acceptance: [`P5_COLLAB_08_STAGING_ACCEPTANCE.md`](P5_COLLAB_08_STAGING_ACCEPTANCE.md).
 
 **Deliverable:** teacher mở/đóng công cụ mà không làm rời media room; trạng thái cộng tác khôi phục sau reconnect.
 

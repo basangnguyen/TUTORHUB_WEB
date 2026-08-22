@@ -14,8 +14,22 @@
 | Phase hiện tại       | Phase 5 collaboration implementation; Phase 3 deferred carry-over vẫn hoạt động       |
 | Task `DONE` gần nhất | P5-COLLAB-07 Snapshot/import/export/restore worker và B2                               |
 | Mốc repository mới   | Exact candidate `060fcc7`; GitHub Verify/Security và disposable ledger `40 false` PASS |
-| Task hiện tại        | P5-COLLAB-08 Reconnect, compaction và recovery — `TODO`                                |
-| Task tiếp theo       | Thiết kế/triển khai reconnect watermark, compaction và last-good recovery              |
+| Task hiện tại        | P5-COLLAB-08 Reconnect, compaction và recovery — `VERIFY`                              |
+| Task tiếp theo       | Commit/push P5-COLLAB-08 exact candidate và kiểm tra GitHub Verify/Security             |
+
+### Checkpoint P5-COLLAB-08 `VERIFY` — 2026-08-22
+
+ADR-0036 và local candidate đã hoàn tất: Yjs state-vector reconnect giữ in-memory unsent update;
+copy-on-write compaction kiểm tra exact state vector/full encoded state, giữ delete tombstone và không
+đụng live actor-local undo. Browser có one-shot deterministic terminal classification; authority change
+buộc refetch Core API projection/grant mới, còn runtime outage không tạo retry loop. Real Hocuspocus
+reconnect test, corrupt/oversize/tombstone/semantic/undo tests và generation/revoke fence tests đều xanh.
+Runtime `120` PASS, collaboration client `9/9`, web `456/456`, Go collaboration, lint/typecheck và
+P5-08 secret-safe runner `2/2` PASS. Exact Neon/B2 disposable recovery PASS tại ledger `40 false`:
+`RPO=last_verified_artifact`, `RTO_MS=3096`, corrupt quarantine, generation/revoke fence và cleanup đều
+PASS; full `pnpm verify` cũng PASS. Không migration/shared-staging write/deploy; production tiếp tục
+force-off. Còn commit/push exact candidate và GitHub Verify/Security trước `DONE`. Acceptance:
+[`P5_COLLAB_08_STAGING_ACCEPTANCE.md`](P5_COLLAB_08_STAGING_ACCEPTANCE.md).
 
 ### Checkpoint P5-COLLAB-07 `DONE` — 2026-08-22
 

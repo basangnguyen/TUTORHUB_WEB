@@ -20,8 +20,17 @@ vi.mock("../../app/whiteboards", () => ({
 }));
 
 vi.mock("./LazyWhiteboardEngine", () => ({
-  default: ({ capability }: { capability: string }) => (
-    <p>Canonical engine capability: {capability}</p>
+  default: ({
+    capability,
+    onRecoveryRequired,
+  }: {
+    capability: string;
+    onRecoveryRequired: () => void;
+  }) => (
+    <div>
+      <p>Canonical engine capability: {capability}</p>
+      <button onClick={onRecoveryRequired}>Simulate authority fence</button>
+    </div>
   ),
 }));
 
@@ -157,10 +166,12 @@ describe("ClassroomWhiteboardTool", () => {
   });
 
   it("passes the exact server-projected view capability to the lazy engine", async () => {
+    const refetch = vi.fn();
     whiteboardMocks.tool.mockReturnValue({
       data: { can_create: false, document },
       isError: false,
       isPending: false,
+      refetch,
     });
 
     renderTool();
@@ -172,6 +183,8 @@ describe("ClassroomWhiteboardTool", () => {
       screen.queryByRole("button", { name: "Suspend" }),
     ).not.toBeInTheDocument();
     expect(screen.getByText("Presenting")).toBeInTheDocument();
+    screen.getByRole("button", { name: "Simulate authority fence" }).click();
+    expect(refetch).toHaveBeenCalledTimes(1);
   });
 });
 

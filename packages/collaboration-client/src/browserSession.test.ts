@@ -1,6 +1,7 @@
 import { WebSocketStatus } from "@hocuspocus/provider";
 import { describe, expect, it } from "vitest";
 import {
+  classifyProviderClose,
   deriveProviderDocumentName,
   projectProviderStatus,
 } from "./browserSession";
@@ -25,5 +26,19 @@ describe("browser collaboration session contract", () => {
     expect(projectProviderStatus(WebSocketStatus.Disconnected, true)).toBe(
       "reconnecting",
     );
+  });
+
+  it("maps only bounded terminal close reasons to deterministic recovery actions", () => {
+    expect(classifyProviderClose(4403, "authority_lost")).toBe(
+      "authority_changed",
+    );
+    expect(classifyProviderClose(4403, "checkpoint_unavailable")).toBe(
+      "recovery_required",
+    );
+    expect(classifyProviderClose(1008, "reconnect_storm_denied")).toBe(
+      "reconnect_exhausted",
+    );
+    expect(classifyProviderClose(1006, "network_lost")).toBeNull();
+    expect(classifyProviderClose(1000, "normal")).toBeNull();
   });
 });

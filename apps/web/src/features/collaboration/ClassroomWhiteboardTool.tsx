@@ -75,6 +75,7 @@ export function ClassroomWhiteboardTool({
       actorID={actorID}
       document={projection.document}
       mutationPending={transition.isPending}
+      onRecoveryRequired={() => void tool.refetch()}
       onTransition={(operation) =>
         transition.mutate({ document: projection.document!, operation })
       }
@@ -88,6 +89,7 @@ function WhiteboardDocumentView({
   actorID,
   document,
   mutationPending,
+  onRecoveryRequired,
   onTransition,
   tenantID,
   transitionError,
@@ -95,6 +97,7 @@ function WhiteboardDocumentView({
   actorID: string;
   document: WhiteboardDocument;
   mutationPending: boolean;
+  onRecoveryRequired: () => void;
   onTransition: (operation: "open" | "suspend" | "resume" | "close") => void;
   tenantID: string;
   transitionError: boolean;
@@ -161,6 +164,7 @@ function WhiteboardDocumentView({
             capability={capabilities.capability}
             document={document}
             key={`${document.id}:${document.current_generation}:${document.revoke_generation}:${capabilities.capability}`}
+            onRecoveryRequired={onRecoveryRequired}
             tenantID={tenantID}
           />
         </Suspense>

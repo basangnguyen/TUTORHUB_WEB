@@ -11,6 +11,7 @@ const engineMocks = vi.hoisted(() => ({
   createSession: vi.fn(),
   grant: vi.fn(),
   status: null as null | ((status: string) => void),
+  terminal: null as null | ((reason: string) => void),
 }));
 
 vi.mock("@excalidraw/excalidraw", () => ({
@@ -67,6 +68,7 @@ const authority = {
 describe("LazyWhiteboardEngine", () => {
   beforeEach(() => {
     engineMocks.status = null;
+    engineMocks.terminal = null;
     engineMocks.grant.mockResolvedValue({
       capability: "view",
       credential: "opaque-credential-that-is-long-enough",
@@ -78,6 +80,7 @@ describe("LazyWhiteboardEngine", () => {
     });
     engineMocks.createSession.mockImplementation(async (options) => {
       engineMocks.status = options.onStatus;
+      engineMocks.terminal = options.onTerminal;
       options.onStatus?.("connected");
       return {
         authority,
@@ -112,5 +115,27 @@ describe("LazyWhiteboardEngine", () => {
     expect(
       screen.getByText(/Restoring the whiteboard connection.*View only/),
     ).toBeInTheDocument();
+  });
+
+  it("requests a control-plane refresh after a terminal generation fence", async () => {
+    const onRecoveryRequired = vi.fn();
+    render(
+      <I18nProvider initialLanguage="en">
+        <LazyWhiteboardEngine
+          actorID="b0f39fdb-0789-454d-8517-ae313dd81ca9"
+          capability="view"
+          document={document}
+          onRecoveryRequired={onRecoveryRequired}
+          tenantID="2a388dc1-e3a5-4888-8d65-d9bd57fd4fc7"
+        />
+      </I18nProvider>,
+    );
+
+    expect(await screen.findByText(/Whiteboard connected/)).toBeInTheDocument();
+    act(() => engineMocks.terminal?.("authority_changed"));
+    expect(onRecoveryRequired).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "The drawing tools could not connect",
+    );
   });
 });

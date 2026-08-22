@@ -10,8 +10,9 @@
 > ngày 2026-08-22 với local data-plane candidate. P5-COLLAB-06 cũng đã `DONE` ngày 2026-08-22 với
 > lazy classroom tool shell. P5-COLLAB-07 đã `DONE` ngày 2026-08-22 trên exact candidate `060fcc7`:
 > local/full verify, Neon/B2 disposable acceptance ở ledger `40 false`, GitHub Verify `32566880308`
-> và Security `32566880332` đều PASS. P5-COLLAB-08 hiện runnable. Production whiteboard vẫn
-> force-off tới P5-COLLAB-17.
+> và Security `32566880332` đều PASS. P5-COLLAB-08 đã vào `VERIFY` ngày 2026-08-22 với reconnect,
+> compaction, terminal recovery, exact Neon/B2 disposable recovery và full verify PASS; còn exact
+> candidate GitHub Verify/Security trước `DONE`. Production whiteboard vẫn force-off tới P5-COLLAB-17.
 
 ## 1. Mục tiêu phase
 
@@ -68,7 +69,7 @@ Xây collaboration plane cho lớp học mà không làm rời hoặc làm yếu
 | P5-COLLAB-05 | Implementation | Collaboration data plane/provider adapter       | P5-COLLAB-01, P5-COLLAB-04 | DONE       |
 | P5-COLLAB-06 | Implementation | Lazy classroom tool shell                       | P5-COLLAB-03, P5-COLLAB-05 | DONE       |
 | P5-COLLAB-07 | Implementation | Snapshot/import/export/restore worker và B2     | P5-COLLAB-02, P5-COLLAB-05 | DONE       |
-| P5-COLLAB-08 | Implementation | Reconnect, compaction và recovery               | P5-COLLAB-05, P5-COLLAB-07 | TODO       |
+| P5-COLLAB-08 | Implementation | Reconnect, compaction và recovery               | P5-COLLAB-05, P5-COLLAB-07 | VERIFY     |
 | P5-COLLAB-09 | Implementation | Feature/quota/operations                        | P5-COLLAB-04..08           | TODO       |
 | P5-COLLAB-10 | Test           | Authorization và tenant isolation               | P5-COLLAB-02..09           | TODO       |
 | P5-COLLAB-11 | Test           | Credential/revoke/WebSocket abuse               | P5-COLLAB-04, P5-COLLAB-05 | TODO       |
@@ -351,10 +352,22 @@ atomic generation restore và deterministic terminal behavior.
 
 **Exit gate:**
 
-- [ ] Reconnect hội tụ không duplicate/lost update trong published failure window.
-- [ ] Compaction không phá causal history hoặc actor-local undo semantics còn được cam kết.
-- [ ] Corrupt/incompatible snapshot fail closed; last-good restore có RPO/RTO được đo.
-- [ ] Close/revoke/restore generation thắng cached client và stale provider connection.
+- [x] Reconnect hội tụ không duplicate/lost update trong published failure window.
+- [x] Compaction không phá causal history hoặc actor-local undo semantics còn được cam kết.
+- [x] Corrupt/incompatible snapshot fail closed; last-good restore có RPO/RTO được đo.
+- [x] Close/revoke/restore generation thắng cached client và stale provider connection.
+
+**Checkpoint 2026-08-22 — VERIFY:** ADR-0036 chấp nhận Yjs state vector làm resume watermark,
+copy-on-write checkpoint compaction với exact full-state proof và explicit generation/revoke terminal
+fence. Real Hocuspocus socket test chứng minh online/offline concurrent update hội tụ không lost/duplicate;
+tombstone, corrupt/oversize, semantic hash và live actor-local undo đều có focused test. Browser chỉ
+refetch Core API projection khi authority đổi và không retry-loop khi runtime unavailable. Runtime
+`120` PASS, client `9/9`, web `456/456`, Go collaboration, lint/typecheck và runner preflight `2/2` đều
+PASS. Exact Neon/B2 disposable recovery PASS tại ledger `40 false` với
+`RPO=last_verified_artifact`, `RTO_MS=3096`, generation/revoke fence và cleanup PASS; full `pnpm verify`
+cũng PASS. Còn commit/push exact candidate và GitHub Verify/Security. Không migration/shared-staging
+write/deploy; production tiếp tục force-off. Acceptance:
+[`P5_COLLAB_08_STAGING_ACCEPTANCE.md`](P5_COLLAB_08_STAGING_ACCEPTANCE.md).
 
 ### P5-COLLAB-09 - Feature, quota và operations
 

@@ -12,6 +12,12 @@ import {
 export type CollaborationCapability = "view" | "edit" | "present";
 export type CollaborationConnectionStatus =
   "connecting" | "connected" | "reconnecting" | "failed";
+export type CollaborationTerminalReason =
+  | "authority_changed"
+  | "grant_rejected"
+  | "reconnect_exhausted"
+  | "recovery_required"
+  | "runtime_unavailable";
 
 export interface BrowserCollaborationGrant {
   capability: CollaborationCapability;
@@ -34,6 +40,7 @@ export interface BrowserCollaborationSessionOptions {
   actorId: string;
   grant: BrowserCollaborationGrant;
   onStatus?: (status: CollaborationConnectionStatus) => void;
+  onTerminal?: (reason: CollaborationTerminalReason) => void;
   tenantId: string;
 }
 
@@ -41,12 +48,20 @@ export async function createBrowserCollaborationSession({
   actorId,
   grant,
   onStatus = () => undefined,
+  onTerminal = () => undefined,
   tenantId,
 }: BrowserCollaborationSessionOptions): Promise<BrowserCollaborationSession> {
   validateGrant(grant);
   const document = new Y.Doc();
   let authenticationFailed = false;
   let everConnected = false;
+  let terminal = false;
+  const notifyTerminal = (reason: CollaborationTerminalReason): void => {
+    if (terminal) return;
+    terminal = true;
+    onStatus("failed");
+    onTerminal(reason);
+  };
   const socket = new HocuspocusProviderWebsocket({
     autoConnect: false,
     delay: 250,
@@ -55,7 +70,12 @@ export async function createBrowserCollaborationSession({
     maxAttempts: 8,
     maxDelay: 4_000,
     minDelay: 250,
+    onClose: ({ event }) => {
+      const reason = classifyProviderClose(event.code, event.reason);
+      if (reason) notifyTerminal(reason);
+    },
     onStatus: ({ status }) => {
+      if (terminal) return;
       const projected = projectProviderStatus(status, everConnected);
       if (projected === "connected") everConnected = true;
       onStatus(projected);
@@ -67,7 +87,7 @@ export async function createBrowserCollaborationSession({
     name: deriveProviderDocumentName(grant.documentId),
     onAuthenticationFailed: () => {
       authenticationFailed = true;
-      onStatus("failed");
+      notifyTerminal("grant_rejected");
     },
     onSynced: ({ state }) => {
       if (state) {
@@ -152,6 +172,30 @@ export function projectProviderStatus(
     return everConnected ? "reconnecting" : "connecting";
   }
   return everConnected ? "reconnecting" : "connecting";
+}
+
+export function classifyProviderClose(
+  code: number,
+  reason: string,
+): CollaborationTerminalReason | null {
+  switch (reason) {
+    case "authority_lost":
+    case "document_scope_mismatch":
+      return "authority_changed";
+    case "checkpoint_unavailable":
+      return "recovery_required";
+    case "reconnect_storm_denied":
+      return "reconnect_exhausted";
+    case "runtime_mode_changed":
+    case "runtime_not_ready":
+    case "runtime_off":
+    case "write_disabled":
+      return "runtime_unavailable";
+    case "grant_denied":
+      return "grant_rejected";
+    default:
+      return code === 4403 || code === 1008 ? "grant_rejected" : null;
+  }
 }
 
 const UUID_PATTERN =

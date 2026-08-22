@@ -24,11 +24,13 @@ export default function LazyWhiteboardEngine({
   actorID,
   capability,
   document,
+  onRecoveryRequired,
   tenantID,
 }: {
   actorID: string;
   capability: WhiteboardCapability;
   document: WhiteboardDocument;
+  onRecoveryRequired?: () => void;
   tenantID: string;
 }) {
   const { t } = useI18n();
@@ -62,6 +64,10 @@ export default function LazyWhiteboardEngine({
             revokeGeneration: grant.revoke_generation,
           },
           onStatus: setConnectionStatus,
+          onTerminal: (reason) => {
+            setError(true);
+            if (reason === "authority_changed") onRecoveryRequired?.();
+          },
           tenantId: tenantID,
         }),
       )
@@ -80,7 +86,7 @@ export default function LazyWhiteboardEngine({
       abortController.abort();
       activeSession?.destroy();
     };
-  }, [actorID, attempt, capability, document, tenantID]);
+  }, [actorID, attempt, capability, document, onRecoveryRequired, tenantID]);
 
   if (error) {
     return (

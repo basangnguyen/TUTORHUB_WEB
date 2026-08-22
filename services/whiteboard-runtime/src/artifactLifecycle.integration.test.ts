@@ -95,6 +95,15 @@ integrationDescribe(
 
     it("publishes only verified artifacts, quarantines corrupt restore, swaps one generation and purges concurrently", async () => {
       const current = requiredFixture(fixture);
+      const sourceCheckpoint = await checkpoints.load(
+        checkpointScope(current, 1, current.providerDocumentName),
+      );
+      if (!sourceCheckpoint) throw new Error("p508_source_checkpoint_missing");
+      const sourceSemanticHash = semanticHash(
+        sourceCheckpoint.state,
+        current,
+        1,
+      );
       const snapshot = await produceArtifact(
         core,
         owner,
@@ -151,6 +160,7 @@ integrationDescribe(
       expect(await documentGeneration(owner, current)).toBe(1);
       expect(await checkpointCount(owner, current, 2)).toBe(0);
 
+      const recoveryStartedAt = performance.now();
       const targetProviderDocumentName = providerName();
       const restore = await enqueueCommand(core, current, "restore", 1, {
         sourceSnapshotId: snapshot.id,
@@ -162,6 +172,15 @@ integrationDescribe(
       expect(await checkpointCount(owner, current, 2)).toBe(1);
       expect(await documentGeneration(owner, current)).toBe(1);
 
+      const restoredCheckpoint = await checkpoints.load(
+        checkpointScope(current, 2, targetProviderDocumentName),
+      );
+      if (!restoredCheckpoint)
+        throw new Error("p508_restored_checkpoint_missing");
+      expect(semanticHash(restoredCheckpoint.state, current, 2)).toBe(
+        sourceSemanticHash,
+      );
+
       await promoteRestore(
         core,
         current,
@@ -171,6 +190,11 @@ integrationDescribe(
       );
       expect(await documentGeneration(owner, current)).toBe(2);
       expect(await generationCount(owner, current)).toBe(2);
+      const recoveryDurationMs = performance.now() - recoveryStartedAt;
+      expect(recoveryDurationMs).toBeLessThan(300_000);
+      process.stdout.write(
+        `P5-COLLAB-08 last-good recovery passed; RPO=last_verified_artifact RTO_MS=${Math.ceil(recoveryDurationMs)}.\n`,
+      );
 
       const retryExport = await produceArtifact(
         core,
@@ -545,6 +569,33 @@ function createProviderState(fixture: Fixture, generation: number): Uint8Array {
     authority.initialize(scene);
     authority.destroy();
     return Y.encodeStateAsUpdate(document);
+  } finally {
+    document.destroy();
+  }
+}
+
+function semanticHash(
+  state: Uint8Array,
+  fixture: Fixture,
+  generation: number,
+): string {
+  const document = new Y.Doc();
+  try {
+    Y.applyUpdate(document, state);
+    const authority = new CanonicalExcalidrawAuthority(
+      document,
+      {
+        documentId: fixture.documentId,
+        generation,
+        tenantId: fixture.tenantId,
+      },
+      "p5-collab-08-recovery-probe",
+    );
+    try {
+      return authority.getSemanticHash();
+    } finally {
+      authority.destroy();
+    }
   } finally {
     document.destroy();
   }
