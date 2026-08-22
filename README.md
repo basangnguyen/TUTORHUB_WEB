@@ -142,12 +142,14 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
   2026-08-21 trên exact candidate `647ffe4`: GitHub Verify `32461523646`, Security `32461523627`,
   strict OpenAPI/generated client, Core API lifecycle/capability/import/restore và Neon disposable
   repository gate ở ledger `37 false` đều PASS. P5-COLLAB-04 grant broker, P5-COLLAB-05 data plane và
-  P5-COLLAB-06 lazy classroom tool shell đã `DONE`. P5-COLLAB-07 artifact worker/B2 đang `VERIFY`:
+  P5-COLLAB-06 lazy classroom tool shell đã `DONE`. P5-COLLAB-07 artifact worker/B2 đã `DONE` ngày
+  2026-08-22 trên exact candidate `060fcc7`:
   migrations `000038`-`000040`, command/checkpoint/purge boundary, signed envelope, portable
   quarantine, exact-version B2 adapter và restore staging đã PASS local/full verify. Neon/B2
   disposable cũng PASS final ledger `40 false`, exact ACL, immutable-version lifecycle,
-  restore/quarantine và concurrent purge/cleanup; còn review/no-secret, commit/push và GitHub
-  Verify/Security. Paid HA vẫn deferred, production whiteboard tiếp tục force-off tới P5-COLLAB-17.
+  restore/quarantine và concurrent purge/cleanup; GitHub Verify `32566880308` và Security
+  `32566880332` đều PASS. P5-COLLAB-08 runnable. Paid HA vẫn deferred, production whiteboard tiếp tục
+  force-off tới P5-COLLAB-17.
 - P4-10 Join telemetry, privacy và diagnostics export đã `DONE` ngày 2026-08-15 trên exact
   candidate `c960f77753fa14475b84e7f0e0242bfcc458dacc`. Verify `31881117029`, Security
   `31881116916`, Neon shared forward-only `35 false -> 36 false -> 36 false`, exact ACL và

@@ -12,12 +12,12 @@
 | Quy trình            | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
 | Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4                                                    |
 | Phase hiện tại       | Phase 5 collaboration implementation; Phase 3 deferred carry-over vẫn hoạt động       |
-| Task `DONE` gần nhất | P5-COLLAB-06 Lazy classroom tool shell                                                 |
-| Mốc repository mới   | P5-COLLAB-07 local và Neon/B2 disposable gates PASS ở ledger `40 false`                |
-| Task hiện tại        | P5-COLLAB-07 Snapshot/import/export/restore worker và B2 — `VERIFY`                    |
-| Task tiếp theo       | Review/no-secret, commit/push candidate và GitHub Verify/Security                      |
+| Task `DONE` gần nhất | P5-COLLAB-07 Snapshot/import/export/restore worker và B2                               |
+| Mốc repository mới   | Exact candidate `060fcc7`; GitHub Verify/Security và disposable ledger `40 false` PASS |
+| Task hiện tại        | P5-COLLAB-08 Reconnect, compaction và recovery — `TODO`                                |
+| Task tiếp theo       | Thiết kế/triển khai reconnect watermark, compaction và last-good recovery              |
 
-### Checkpoint P5-COLLAB-07 `VERIFY` — 2026-08-22
+### Checkpoint P5-COLLAB-07 `DONE` — 2026-08-22
 
 Local candidate đã có ADR-0035, forward migrations `000038`-`000040`, durable artifact
 command/checkpoint/purge
@@ -35,8 +35,9 @@ roles/direct-vs-pooled và không in credential. Neon/B2 disposable đã PASS fi
 `40 false`: exact four-role ACL/PUBLIC deny, immutable B2 version binding/checksum/tamper rejection,
 snapshot/export, corrupt quarantine, valid one-generation restore, hai claimant `SKIP LOCKED`, bounded
 retry và exact cleanup đều xanh. Migration `000040` giữ active restore bắt buộc exact source nhưng cho
-terminal restore redaction source sau retention purge. Chưa commit/push, không shared-staging
-write/deploy; production whiteboard giữ force-off. Acceptance:
+terminal restore redaction source sau retention purge. Review/no-secret và exact candidate `060fcc7`
+đã PASS GitHub Verify `32566880308` cùng Security `32566880332`. Không shared-staging write/deploy;
+production whiteboard giữ force-off. P5-COLLAB-08 runnable. Acceptance:
 [`P5_COLLAB_07_STAGING_ACCEPTANCE.md`](P5_COLLAB_07_STAGING_ACCEPTANCE.md).
 
 ### Checkpoint P5-COLLAB-06 `DONE` — 2026-08-22

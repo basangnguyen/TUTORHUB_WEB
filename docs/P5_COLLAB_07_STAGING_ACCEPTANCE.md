@@ -1,8 +1,9 @@
 # P5-COLLAB-07 - Snapshot/import/export/restore worker và B2 acceptance
 
-> Trạng thái: `VERIFY` ngày 2026-08-22. Local/full verify và toàn bộ Neon/B2 disposable gate đã PASS
-> ở ledger `40 false`; candidate chưa commit/push và GitHub Verify/Security chưa chạy. Chưa ghi shared
-> staging hoặc deploy. Production whiteboard tiếp tục force-off tới P5-COLLAB-17.
+> Trạng thái: `DONE` ngày 2026-08-22 trên exact candidate `060fcc7`. Local/full verify và toàn bộ
+> Neon/B2 disposable gate đã PASS ở ledger `40 false`; GitHub Verify `32566880308` và Security
+> `32566880332` đều PASS. Không ghi shared staging hoặc deploy. Production whiteboard tiếp tục
+> force-off tới P5-COLLAB-17.
 
 ## 1. Kết quả local candidate
 
@@ -77,7 +78,7 @@ confirmation. Collaboration-client portable scene suite, Core API collaboration,
 compile, OpenAPI generated client, OCI dependency/SBOM, lint, typecheck, build, Storybook, bundle
 security, Go test/vet và full `pnpm verify` đều PASS sau migration `000040`.
 
-## 5. Disposable `VERIFY -> DONE`
+## 5. Disposable closure
 
 Tạo `.env.p5-collab-07-disposable.local` đã được Git ignore với đúng tên biến sau, không chia sẻ giá
 trị trong chat hoặc log:
@@ -108,7 +109,8 @@ Thứ tự gate, không rollback:
    một generation mới; corrupt/incompatible artifact bị quarantine và không swap authority.
 6. Chạy hai maintenance claimant song song để xác nhận `SKIP LOCKED`, bounded batch/retry và exact
    version purge; postflight phải không còn object/queue/fixture row.
-7. Review diff/no-secret, commit candidate, push và yêu cầu GitHub Verify/Security PASS — **còn mở**.
+7. Review diff/no-secret, commit/push exact candidate `060fcc7`: **PASS**. GitHub Verify
+   `32566880308` và Security `32566880332`: **PASS**.
 
 ### Kết quả disposable ngày 2026-08-22
 
@@ -119,6 +121,8 @@ Thứ tự gate, không rollback:
 - Hai maintenance claimant, `SKIP LOCKED`, exact-version purge, bounded failure/retry và fixture/object
   cleanup postflight: **PASS**.
 - Gate được chạy lại bằng `all` ở final ledger `40 false`; toàn chuỗi **PASS** trong `65.7s`.
+- Full repository `pnpm verify`, review/no-secret, GitHub Verify `32566880308` và Security
+  `32566880332`: **PASS**.
 - Không rollback, không shared-staging write, không deploy và không log credential.
 
 Không xóa Neon branch hoặc B2 bucket/key disposable trước khi lưu đủ kết quả. Không forward shared
