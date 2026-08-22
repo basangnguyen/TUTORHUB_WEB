@@ -45,12 +45,24 @@ export async function checkWhiteboardRuntimeOci() {
   assert.doesNotMatch(dockerfile, /(?:^|[:@])latest(?:\s|$)/im);
   assert.match(dockerfile, /pnpm install --frozen-lockfile/);
   const patchCopyIndex = dockerfile.indexOf("COPY patches patches");
+  const collaborationManifestCopyIndex = dockerfile.indexOf(
+    "COPY packages/collaboration-client/package.json packages/collaboration-client/package.json",
+  );
   const frozenInstallIndex = dockerfile.indexOf(
     "pnpm install --frozen-lockfile",
   );
   assert.ok(
     patchCopyIndex >= 0 && patchCopyIndex < frozenInstallIndex,
     "the patched dependency must be copied before the frozen install",
+  );
+  assert.ok(
+    collaborationManifestCopyIndex >= 0 &&
+      collaborationManifestCopyIndex < frozenInstallIndex,
+    "the collaboration workspace manifest must be copied before the frozen install",
+  );
+  assert.match(
+    dockerfile,
+    /COPY packages\/collaboration-client\/src packages\/collaboration-client\/src/,
   );
   assert.match(dockerfile, /pnpm@11\.7\.0/);
   assert.match(

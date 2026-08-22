@@ -12,9 +12,12 @@ RUN corepack enable --install-directory /usr/local/bin \
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
 COPY patches patches
+COPY packages/collaboration-client/package.json packages/collaboration-client/package.json
 COPY services/whiteboard-runtime/package.json services/whiteboard-runtime/package.json
 RUN pnpm install --frozen-lockfile --filter @tutorhub/whiteboard-runtime... --ignore-scripts
 
+COPY packages/collaboration-client/tsconfig.json packages/collaboration-client/tsconfig.json
+COPY packages/collaboration-client/src packages/collaboration-client/src
 COPY services/whiteboard-runtime/tsconfig.json services/whiteboard-runtime/tsconfig.json
 COPY services/whiteboard-runtime/src services/whiteboard-runtime/src
 RUN pnpm --filter @tutorhub/whiteboard-runtime build \
