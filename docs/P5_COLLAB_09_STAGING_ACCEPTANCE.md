@@ -1,6 +1,6 @@
 # P5-COLLAB-09 feature/quota/operations acceptance
 
-Status: **VERIFY**
+Status: **DONE**
 
 Date: 2026-08-22
 
@@ -85,5 +85,10 @@ Do not migrate shared staging, deploy or delete the disposable branch before thi
 
 - [x] Run the disposable Neon gate above and record boolean/bounded evidence only.
 - [x] Review the complete diff and local source secret scan.
-- Commit/push only after explicit authorization, then require GitHub Verify and Security PASS.
-- Mark P5-COLLAB-09 DONE only after all three steps pass. Production remains force-off.
+- [x] Commit/push after explicit authorization; exact final candidate `983ada6` is on `origin/main`.
+- [x] GitHub Verify `32586930775` and Security `32586930710` PASS.
+- [x] Mark P5-COLLAB-09 DONE. Production remains force-off; no shared-staging migration/deploy was run.
+
+The first pushed candidate exposed one retained media ACL integration expectation at ledger `40`; it was
+aligned with the already-reviewed latest ledger `41`, focused Go tests and commit hooks passed, and the
+final exact candidate passed all three Verify jobs plus Security.

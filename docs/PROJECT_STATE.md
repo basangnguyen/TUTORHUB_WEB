@@ -12,12 +12,12 @@
 | Quy trình            | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
 | Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4                                                    |
 | Phase hiện tại       | Phase 5 collaboration implementation; Phase 3 deferred carry-over vẫn hoạt động       |
-| Task `DONE` gần nhất | P5-COLLAB-08 Reconnect, compaction và recovery                                        |
-| Mốc repository mới   | Exact candidate `4f05ae6`; GitHub Verify `32571244058`, Security `32571244052` PASS   |
-| Task hiện tại        | P5-COLLAB-09 Feature, quota và operations — `VERIFY`                                  |
-| Task tiếp theo       | Review/no-secret, push và GitHub Verify/Security cho P5-COLLAB-09                     |
+| Task `DONE` gần nhất | P5-COLLAB-09 Feature, quota và operations                                             |
+| Mốc repository mới   | Exact candidate `983ada6`; GitHub Verify `32586930775`, Security `32586930710` PASS   |
+| Task hiện tại        | P5-COLLAB-09 Feature, quota và operations — `DONE`                                    |
+| Task tiếp theo       | P5-COLLAB-10 Authorization và tenant isolation                                        |
 
-### Checkpoint P5-COLLAB-09 `VERIFY` — 2026-08-22
+### Checkpoint P5-COLLAB-09 `DONE` — 2026-08-22
 
 ADR-0037 và local candidate đã triển khai feature `classroom_whiteboards` default false/deployment
 force-off, bốn per-tenant quota clamp cho document/connection/storage/operation và emergency runtime
@@ -30,9 +30,11 @@ nâng latest ledger lên `41 false`. ADR/runbook, focused kill-switch/quota/card
 `pnpm verify` PASS. Exact Neon disposable đã forward-only `37 false -> 41 false -> 41 false`; exact role
 preflight, default/force-off, concurrent document/storage quota, tenant isolation và runtime focused `30/30`
 đều PASS, final ledger giữ `41 false`. Gate đầu đã phát hiện và sửa truy vấn dung lượng dùng cột snapshot
-không tồn tại; gate database và full verify PASS sau sửa. Trước `DONE` chỉ còn review/no-secret, commit/push
-và GitHub Verify/Security. Không rollback/shared-staging write/deploy; production tiếp tục force-off và
-disposable branch được giữ lại.
+không tồn tại; gate database và full verify PASS sau sửa. Complete diff/no-secret review PASS; candidate
+`983ada6` đã push lên `origin/main`, GitHub Verify `32586930775` và Security `32586930710` PASS. Một retained
+media ACL expectation ở ledger `40` được CI phát hiện, căn chỉnh về latest ledger `41`, focused Go test và
+commit hooks PASS trước lần chạy xanh cuối. P5-COLLAB-09 chuyển `VERIFY -> DONE`; P5-COLLAB-10 runnable.
+Không rollback/shared-staging write/deploy; production tiếp tục force-off và disposable branch được giữ lại.
 Acceptance: [`P5_COLLAB_09_STAGING_ACCEPTANCE.md`](P5_COLLAB_09_STAGING_ACCEPTANCE.md).
 
 ### Checkpoint P5-COLLAB-08 `DONE` — 2026-08-22

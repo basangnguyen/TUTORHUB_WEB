@@ -13,7 +13,8 @@
 > và Security `32566880332` đều PASS. P5-COLLAB-08 đã `DONE` ngày 2026-08-22 trên exact candidate
 > `4f05ae6`: reconnect, compaction, terminal recovery, exact Neon/B2 disposable recovery, full verify,
 > GitHub Verify `32571244058` và Security `32571244052` đều PASS. Production whiteboard vẫn force-off
-> tới P5-COLLAB-17.
+> tới P5-COLLAB-17. P5-COLLAB-09 đã `DONE` ngày 2026-08-22 trên exact candidate `983ada6` sau disposable
+> feature/quota/tenant gates, full verify, GitHub Verify `32586930775` và Security `32586930710` PASS.
 
 ## 1. Mục tiêu phase
 
@@ -71,7 +72,7 @@ Xây collaboration plane cho lớp học mà không làm rời hoặc làm yếu
 | P5-COLLAB-06 | Implementation | Lazy classroom tool shell                       | P5-COLLAB-03, P5-COLLAB-05 | DONE       |
 | P5-COLLAB-07 | Implementation | Snapshot/import/export/restore worker và B2     | P5-COLLAB-02, P5-COLLAB-05 | DONE       |
 | P5-COLLAB-08 | Implementation | Reconnect, compaction và recovery               | P5-COLLAB-05, P5-COLLAB-07 | DONE       |
-| P5-COLLAB-09 | Implementation | Feature/quota/operations                        | P5-COLLAB-04..08           | VERIFY     |
+| P5-COLLAB-09 | Implementation | Feature/quota/operations                        | P5-COLLAB-04..08           | DONE       |
 | P5-COLLAB-10 | Test           | Authorization và tenant isolation               | P5-COLLAB-02..09           | TODO       |
 | P5-COLLAB-11 | Test           | Credential/revoke/WebSocket abuse               | P5-COLLAB-04, P5-COLLAB-05 | TODO       |
 | P5-COLLAB-12 | Test           | Convergence/history/undo/reconnect              | P5-COLLAB-05, P5-COLLAB-08 | TODO       |
@@ -383,7 +384,7 @@ operation quota, metrics bounded-cardinality, SLO/runbook/cost alert và kill sw
       retained drill evidence; P5-09 disposable replay đã PASS tại final ledger `41 false`.
 - [x] Kill switch đưa editor về read-only/export mà không mất snapshot.
 
-**Checkpoint 2026-08-22 — VERIFY:** ADR-0037 chấp nhận `classroom_whiteboards` default false,
+**Closure 2026-08-22 — DONE:** ADR-0037 chấp nhận `classroom_whiteboards` default false,
 deployment force-off, bốn per-tenant quota clamp và runtime mode `enabled/read_only/off`. Core API,
 artifact workflow, one-time grant và Hocuspocus runtime đều fail closed theo cùng authority; noisy tenant
 connection/operation budget không làm cạn tenant khác. Metrics chỉ dùng bounded capability/outcome/
@@ -392,9 +393,11 @@ dependency/reason và không có raw tenant/document/user/provider ID hoặc con
 ADR/runbook/kill-switch focused tests và full `pnpm verify` PASS. Exact Neon disposable đã PASS
 forward-only `37 false -> 41 false -> 41 false`, exact role preflight, PostgreSQL feature/quota/tenant gates
 và runtime focused `30/30`; final ledger giữ `41 false`. Một lỗi truy vấn dung lượng snapshot đã được gate
-phát hiện và sửa trước commit, sau đó database gate/full verify PASS. Còn review/no-secret, commit/push và
-GitHub Verify/Security trước khi chuyển `DONE`. Không rollback/shared-staging migration/deploy; production
-whiteboard tiếp tục force-off và disposable branch được giữ lại. Acceptance:
+phát hiện và sửa trước commit, sau đó database gate/full verify PASS. Review/no-secret PASS; exact candidate
+`983ada6` đã push lên `origin/main`, GitHub Verify `32586930775` và Security `32586930710` PASS sau khi một
+retained media ACL expectation được căn chỉnh từ ledger `40` lên latest ledger `41`. P5-COLLAB-10 runnable.
+Không rollback/shared-staging migration/deploy; production whiteboard tiếp tục force-off và disposable
+branch được giữ lại. Acceptance:
 [`P5_COLLAB_09_STAGING_ACCEPTANCE.md`](P5_COLLAB_09_STAGING_ACCEPTANCE.md).
 
 ## 7. Test slices
