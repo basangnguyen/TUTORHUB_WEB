@@ -34,8 +34,9 @@ func runP410ForwardMigration(t *testing.T) {
 	defer cancel()
 	version, err := migrationrunner.CurrentVersion(ctx, migrationURL)
 	if err != nil || version.Dirty ||
-		(version.Number != 35 && version.Number != 36 && version.Number != 37) {
-		t.Fatal("P4-10 retained forward gate requires a clean disposable ledger from 35 through 37")
+		(version.Number != 35 && version.Number != 36 && version.Number != 37 &&
+			version.Number != 38 && version.Number != 39 && version.Number != 40) {
+		t.Fatal("P4-10 retained forward gate requires a clean disposable ledger from 35 through 40")
 	}
 	if err := migrationrunner.Up(ctx, migrationURL); err != nil {
 		t.Fatal("apply P4-10 forward migration")
@@ -44,8 +45,8 @@ func runP410ForwardMigration(t *testing.T) {
 		t.Fatal("rerun P4-10 forward migration idempotently")
 	}
 	version, err = migrationrunner.CurrentVersion(ctx, migrationURL)
-	if err != nil || version.Number != 37 || version.Dirty {
-		t.Fatal("P4-10 retained forward gate must finish at latest ledger 37 false")
+	if err != nil || version.Number != 40 || version.Dirty {
+		t.Fatal("P4-10 retained forward gate must finish at latest ledger 40 false")
 	}
 }
 
@@ -58,8 +59,8 @@ func TestPostgresMediaDiagnosticsRetentionMetricsTenantAndSkipLockedPurge(t *tes
 	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Minute)
 	defer cancel()
 	version, err := migrationrunner.CurrentVersion(ctx, migrationURL)
-	if err != nil || version.Number != 37 || version.Dirty {
-		t.Fatal("P4-10 retained diagnostics integration requires latest ledger 37 false")
+	if err != nil || version.Number != 40 || version.Dirty {
+		t.Fatal("P4-10 retained diagnostics integration requires latest ledger 40 false")
 	}
 	migrationPool := openMediaIntegrationPool(t, ctx, migrationURL)
 	t.Cleanup(migrationPool.Close)
