@@ -12,12 +12,12 @@
 | Quy trình            | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
 | Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4                                                    |
 | Phase hiện tại       | Phase 5 collaboration implementation; Phase 3 deferred carry-over vẫn hoạt động       |
-| Task `DONE` gần nhất | P5-COLLAB-10 Authorization và tenant isolation                                       |
-| Mốc repository mới   | Exact candidate `383f6c7`; GitHub Verify `32596587875`, Security `32596587867` PASS   |
-| Task hiện tại        | P5-COLLAB-11 Credential/revoke/WebSocket abuse — `VERIFY`                             |
-| Task tiếp theo       | Stage/commit/push candidate, chạy exact GitHub CI rồi chuyển P5-COLLAB-11 `DONE`       |
+| Task `DONE` gần nhất | P5-COLLAB-11 Credential/revoke/WebSocket abuse                                       |
+| Mốc repository mới   | Exact candidate `f9d1381`; GitHub Verify `32605702341`, Security `32605702349` PASS   |
+| Task hiện tại        | P5-COLLAB-12 Convergence/history/undo/reconnect — `TODO`                              |
+| Task tiếp theo       | Bắt đầu P5-COLLAB-12                                                                  |
 
-### Checkpoint P5-COLLAB-11 `VERIFY` — 2026-08-23
+### Checkpoint P5-COLLAB-11 `DONE` — 2026-08-23
 
 Local candidate đã đóng khe TOCTOU giữa one-time grant exchange và session reservation bằng exact lease
 revalidation lần hai. Revoke trong handshake hoặc control-plane validation outage nay fail closed trước
@@ -28,8 +28,9 @@ fuzz và cumulative CRDT amplification với bounded error vocabulary.
 
 `pnpm test:collaboration:p511` PASS focused Go và runtime `62/62`; full repository `pnpm verify` cũng PASS.
 P5-COLLAB-11 không cần migration, Neon/B2 disposable, shared-staging write hay deploy; production whiteboard
-tiếp tục force-off. Final diff/no-secret review PASS; task ở `VERIFY` trong khi chờ explicit permission cho
-stage/commit/push và exact GitHub Verify/Security. Acceptance:
+tiếp tục force-off. Final diff/no-secret review PASS. Exact candidate `f9d1381` đã push lên `origin/main`;
+GitHub Verify `32605702341` và Security `32605702349` đều PASS. P5-COLLAB-11 chuyển `VERIFY -> DONE`;
+P5-COLLAB-12 là task runnable tiếp theo. Acceptance:
 [`P5_COLLAB_11_STAGING_ACCEPTANCE.md`](P5_COLLAB_11_STAGING_ACCEPTANCE.md).
 
 ### Checkpoint P5-COLLAB-10 `DONE` — 2026-08-23

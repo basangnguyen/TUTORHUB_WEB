@@ -11,7 +11,7 @@
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
 | Phase hiện tại        | Phase 5 collaboration implementation; Phase 3 deferred carry-over tiếp tục                   |
-| Trạng thái gần nhất   | P5-COLLAB-11 `VERIFY`; local credential/revoke/WebSocket aggregate PASS                      |
+| Trạng thái gần nhất   | P5-COLLAB-11 `DONE`; exact candidate `f9d1381` PASS Verify/Security                           |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 
@@ -1768,13 +1768,14 @@ candidate `383f6c7` đã push lên `origin/main`; GitHub Verify `32596587875` v�
 đều PASS. P5-COLLAB-11 là task runnable tiếp theo. Acceptance:
 [`P5_COLLAB_10_STAGING_ACCEPTANCE.md`](P5_COLLAB_10_STAGING_ACCEPTANCE.md).
 
-P5-COLLAB-11 checkpoint 2026-08-23 — `VERIFY`: runtime revalidate exact authority lease sau grant exchange
+P5-COLLAB-11 checkpoint 2026-08-23 — `DONE`: runtime revalidate exact authority lease sau grant exchange
 và trước session reservation, nên revoke giữa handshake hoặc control-plane partial outage không fail open.
 Reader mutation bị data plane chặn; broker TTL/replay/race và WebSocket frame/queue/awareness/update/document/
 connection/reconnect/rate caps, malformed fuzz cùng CRDT amplification đều trả bounded denial. Focused local
 gate PASS Go và runtime `62/62`; full repository `pnpm verify` và final diff/no-secret review đều PASS. Không
-migration/Neon/B2 disposable/shared-staging/deploy; production tiếp tục force-off. Còn explicit
-stage/commit/push và exact GitHub CI trước `DONE`. Acceptance:
+migration/Neon/B2 disposable/shared-staging/deploy; production tiếp tục force-off. Exact candidate `f9d1381`
+đã push lên `origin/main`; GitHub Verify `32605702341` và Security `32605702349` đều PASS. P5-COLLAB-12 là
+task runnable tiếp theo. Acceptance:
 [`P5_COLLAB_11_STAGING_ACCEPTANCE.md`](P5_COLLAB_11_STAGING_ACCEPTANCE.md).
 
 **Deliverable:** teacher mở/đóng công cụ mà không làm rời media room; trạng thái cộng tác khôi phục sau reconnect.

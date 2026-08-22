@@ -1,6 +1,6 @@
 # P5-COLLAB-11 credential, revoke and WebSocket abuse acceptance
 
-Status: **VERIFY**
+Status: **DONE**
 
 Date: 2026-08-23
 
@@ -46,6 +46,9 @@ lint, typecheck, web/runtime tests and builds, Storybook, bundle security, Go te
 diff and scoped no-secret review also PASS; the only URL-shaped credential match is the intentional
 `unused:unused@127.0.0.1` test fixture.
 
+Exact candidate `f9d1381` was pushed to `origin/main`. GitHub Verify run `32605702341` and Security run
+`32605702349` both completed successfully for full SHA `f9d1381ec97cdf623a00c4cbb21f05f8c3fb28c7`.
+
 ## Closure gates
 
 - [x] Add post-exchange/pre-admission exact lease revalidation.
@@ -53,5 +56,5 @@ diff and scoped no-secret review also PASS; the only URL-shaped credential match
 - [x] Prove broker race/replay/TTL plus WebSocket malformed/fuzz/amplification bounds.
 - [x] Run full `pnpm verify`.
 - [x] Complete final diff and no-secret review.
-- [ ] Stage/commit/push only after explicit authorization and verify GitHub Verify/Security.
-- [ ] Mark P5-COLLAB-11 `DONE`; do not migrate shared staging or deploy for this test slice.
+- [x] Stage/commit/push only after explicit authorization and verify GitHub Verify/Security.
+- [x] Mark P5-COLLAB-11 `DONE`; do not migrate shared staging or deploy for this test slice.
