@@ -17,7 +17,8 @@
 > feature/quota/tenant gates, full verify, GitHub Verify `32586930775` và Security `32586930710` PASS.
 > P5-COLLAB-10 đã `DONE` ngày 2026-08-23 trên exact candidate `383f6c7`: local/full verify,
 > authorization/tenant-isolation Neon disposable tại final ledger `41 false`, GitHub Verify
-> `32596587875` và Security `32596587867` đều PASS. P5-COLLAB-11 là task runnable tiếp theo.
+> `32596587875` và Security `32596587867` đều PASS. P5-COLLAB-11 hiện ở `VERIFY`: local broker/runtime
+> abuse aggregate PASS `62/62` và full verify PASS; exact candidate GitHub CI còn phải đóng.
 
 ## 1. Mục tiêu phase
 
@@ -77,7 +78,7 @@ Xây collaboration plane cho lớp học mà không làm rời hoặc làm yếu
 | P5-COLLAB-08 | Implementation | Reconnect, compaction và recovery               | P5-COLLAB-05, P5-COLLAB-07 | DONE       |
 | P5-COLLAB-09 | Implementation | Feature/quota/operations                        | P5-COLLAB-04..08           | DONE       |
 | P5-COLLAB-10 | Test           | Authorization và tenant isolation               | P5-COLLAB-02..09           | DONE       |
-| P5-COLLAB-11 | Test           | Credential/revoke/WebSocket abuse               | P5-COLLAB-04, P5-COLLAB-05 | TODO       |
+| P5-COLLAB-11 | Test           | Credential/revoke/WebSocket abuse               | P5-COLLAB-04, P5-COLLAB-05 | VERIFY     |
 | P5-COLLAB-12 | Test           | Convergence/history/undo/reconnect              | P5-COLLAB-05, P5-COLLAB-08 | TODO       |
 | P5-COLLAB-13 | Test           | Snapshot/import/export/restore                  | P5-COLLAB-07, P5-COLLAB-08 | TODO       |
 | P5-COLLAB-14 | Test           | Performance 500/2.000 shapes và 2/10/50 người   | P5-COLLAB-05..09           | TODO       |
@@ -431,9 +432,19 @@ là task runnable tiếp theo. Acceptance:
 
 **Exit gate:**
 
-- [ ] One-time <=60s grant, Origin allowlist, replay/expiry/revoke generation và reader enforcement PASS.
-- [ ] Frame/payload/update/connection/rate caps cùng malformed/fuzz/CRDT amplification fail bounded.
-- [ ] Revoke giữa handshake, reconnect storm và broker/data-plane partial outage không fail open.
+- [x] One-time <=60s grant, Origin allowlist, replay/expiry/revoke generation và reader enforcement PASS.
+- [x] Frame/payload/update/connection/rate caps cùng malformed/fuzz/CRDT amplification fail bounded.
+- [x] Revoke giữa handshake, reconnect storm và broker/data-plane partial outage không fail open.
+
+**Local closure 2026-08-23 — VERIFY:** runtime nay revalidate exact authority lease sau exchange và trước
+session reservation, đóng khe revoke-during-handshake TOCTOU; control-plane outage cùng reader direct
+mutation đều fail closed. Broker race/replay/TTL tests và WebSocket frame/queue/awareness/update/document/
+connection/reconnect/rate aggregate PASS; deterministic malformed fuzz và cumulative CRDT amplification
+chỉ trả bounded denial. Focused gate `pnpm test:collaboration:p511` PASS Go và runtime `62/62`. Task không
+có migration/disposable/shared-staging/deploy; production tiếp tục force-off. Full `pnpm verify` và final
+diff/no-secret review PASS; còn explicit stage/commit/push và exact candidate GitHub Verify/Security trước
+khi chuyển `DONE`. Acceptance:
+[`P5_COLLAB_11_STAGING_ACCEPTANCE.md`](P5_COLLAB_11_STAGING_ACCEPTANCE.md).
 
 ### P5-COLLAB-12 - Convergence/history/reconnect
 

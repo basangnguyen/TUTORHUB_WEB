@@ -63,6 +63,7 @@
     "test:integration:collaboration:p508": "node scripts/run-p508-disposable.mjs",
     "test:integration:collaboration:p509": "node scripts/run-p509-disposable.mjs",
     "test:integration:collaboration:p510": "node scripts/run-p510-disposable.mjs",
+    "test:collaboration:p511": "node scripts/run-p511-local.mjs",
     "test:integration:collaboration:p502:shared:preflight": "go test -count=1 -tags=integration -run \"^TestPostgresP502SharedOwnerPreflight$\" ./services/core-api/internal/modules/collaboration",
     "test:integration:collaboration:p502:shared:migrate": "go test -count=1 -tags=integration -run \"^TestPostgresP502SharedForwardMigration$\" ./services/core-api/internal/modules/collaboration",
     "test:integration:collaboration:p502:shared:acl": "go test -count=1 -tags=integration -run \"^TestProvisionWhiteboardControlPlaneExactSharedACL$\" ./services/core-api/internal/modules/collaboration",

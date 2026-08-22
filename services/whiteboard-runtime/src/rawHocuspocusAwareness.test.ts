@@ -191,6 +191,26 @@ describe("raw Hocuspocus awareness inspector", () => {
       }),
     ).toThrow("raw_awareness_inspector_configuration_invalid");
   });
+
+  it("fails a deterministic malformed-frame fuzz corpus with bounded outcomes", () => {
+    let seed = 0x511ab05e;
+    for (let iteration = 0; iteration < 512; iteration += 1) {
+      seed = (Math.imul(seed, 1_664_525) + 1_013_904_223) >>> 0;
+      const frame = new Uint8Array(seed % (limits.maxFrameBytes + 2));
+      for (let index = 0; index < frame.byteLength; index += 1) {
+        seed = (Math.imul(seed, 1_664_525) + 1_013_904_223) >>> 0;
+        frame[index] = seed & 0xff;
+      }
+      try {
+        const result = inspectRawHocuspocusAwareness(frame, limits);
+        expect(["awareness", "non_awareness"]).toContain(result.kind);
+        expect(JSON.stringify(result).length).toBeLessThan(512);
+      } catch (error) {
+        expect(error).toBeInstanceOf(RawAwarenessInspectionError);
+        expect(String(error).length).toBeLessThan(96);
+      }
+    }
+  });
 });
 
 function expectCode(

@@ -191,6 +191,17 @@ export function createCollaborationRuntime(
         ) {
           throw new RuntimeSocketError("grant_denied");
         }
+        // Close the exchange -> admission TOCTOU window. A revoke can land
+        // after the one-time credential is consumed but before this socket is
+        // reserved. Revalidate the exact authority lease synchronously so a
+        // revoked or unreachable control plane can never fail open.
+        const validLeases = await dependencies.controlPlane.validateScopes([
+          scope,
+        ]);
+        if (!validLeases.has(scope.authorityLease)) {
+          throw new RuntimeSocketError("grant_denied");
+        }
+        requireAdmissionReady();
         if (authorityOutcome.value.mode === "read_only")
           scope.capability = "view";
         const key = connectionKey(socketId, documentName);

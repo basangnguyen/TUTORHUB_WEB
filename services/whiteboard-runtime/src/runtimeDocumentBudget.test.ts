@@ -51,4 +51,19 @@ describe("RuntimeDocumentBudget", () => {
       new RuntimeDocumentBudgetError("document_too_large"),
     );
   });
+
+  it("bounds cumulative CRDT amplification before the durable cap is crossed", () => {
+    const budget = new RuntimeDocumentBudget(8_192, 1_024);
+    budget.load("opaque-document", 0);
+
+    for (let update = 0; update < 8; update += 1) {
+      expect(budget.reserve("opaque-document", 1_024)).toBe(
+        (update + 1) * 1_024,
+      );
+    }
+    expect(() => budget.reserve("opaque-document", 1)).toThrowError(
+      new RuntimeDocumentBudgetError("document_too_large"),
+    );
+    expect(budget.size("opaque-document")).toBe(8_192);
+  });
 });

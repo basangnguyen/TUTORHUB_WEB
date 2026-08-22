@@ -293,6 +293,71 @@ describe("OCI collaboration runtime", () => {
     expect(candidate.logger.codes).not.toContain("connection_ok");
   }, 10_000);
 
+  it("does not admit a grant revoked while its handshake is in flight", async () => {
+    const authority = new DeferredExchangeControlPlane();
+    const candidate = createRuntime(new MemoryCheckpointStore(), authority);
+    runtimes.push(candidate.runtime);
+    await candidate.runtime.start();
+    const client = createClient(candidate.runtime);
+    clients.push(client);
+    await authority.exchangeStarted;
+
+    authority.validLeases.clear();
+    authority.resolveExchange();
+
+    await waitFor(() => client.authenticationFailures.length > 0, 2_000);
+    expect(client.authenticationFailures).toContain("grant_denied");
+    expect(candidate.logger.codes).not.toContain("connection_ok");
+    await waitForMetrics(
+      httpUrl(candidate.runtime),
+      [
+        'collab_connection_total{outcome="accepted"} 0',
+        'collab_connections_current{capability="edit"} 0',
+      ],
+      2_000,
+    );
+  }, 10_000);
+
+  it("fails closed when control authority disappears after exchange", async () => {
+    const authority = new ValidationOutageControlPlane();
+    const candidate = createRuntime(new MemoryCheckpointStore(), authority);
+    runtimes.push(candidate.runtime);
+    await candidate.runtime.start();
+    const client = createClient(candidate.runtime);
+    clients.push(client);
+
+    await waitFor(() => client.authenticationFailures.length > 0, 2_000);
+    expect(client.authenticationFailures).toContain("grant_denied");
+    expect(candidate.logger.codes).not.toContain("connection_ok");
+  }, 10_000);
+
+  it("keeps a view-only socket from mutating the authoritative document", async () => {
+    const viewScope: CollaborationScope = {
+      ...scope,
+      actorId: "student-viewer",
+      authorityLease: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      capability: "view",
+      sessionId: "session-viewer",
+    };
+    const authority = new FakeControlPlane(viewScope);
+    const checkpoints = new MemoryCheckpointStore();
+    const candidate = createRuntime(checkpoints, authority);
+    runtimes.push(candidate.runtime);
+    await candidate.runtime.start();
+    const reader = createClient(candidate.runtime);
+    const observer = createClient(candidate.runtime);
+    clients.push(reader, observer);
+    await Promise.all([reader.synced, observer.synced]);
+
+    reader.document.getMap("scene").set("forged-shape", "must-not-persist");
+    await new Promise((resolve) => setTimeout(resolve, 250));
+
+    expect(
+      observer.document.getMap("scene").get("forged-shape"),
+    ).toBeUndefined();
+    expect(checkpoints.storeCount).toBe(0);
+  }, 10_000);
+
   it("does not commit a session whose document load finishes after authority is disabled", async () => {
     const checkpoints = new DeferredLoadCheckpointStore();
     const authority = new FakeControlPlane();
@@ -434,13 +499,17 @@ class DeferredLoadCheckpointStore extends MemoryCheckpointStore {
 
 class FakeControlPlane implements ControlPlane {
   mode: RuntimeAuthorityState["mode"] = "enabled";
-  readonly validLeases = new Set([scope.authorityLease]);
+  readonly validLeases: Set<string>;
+
+  constructor(protected readonly grantedScope: CollaborationScope = scope) {
+    this.validLeases = new Set([grantedScope.authorityLease]);
+  }
 
   async exchangeGrant(input: {
     documentName: string;
   }): Promise<CollaborationScope> {
     if (input.documentName !== DOCUMENT_NAME) throw new Error("denied");
-    return scope;
+    return { ...this.grantedScope };
   }
   async probe(): Promise<RuntimeAuthorityState> {
     return { mode: this.mode };
@@ -470,7 +539,13 @@ class DeferredExchangeControlPlane extends FakeControlPlane {
   }
 
   resolveExchange(): void {
-    this.resolveScope(scope);
+    this.resolveScope({ ...this.grantedScope });
+  }
+}
+
+class ValidationOutageControlPlane extends FakeControlPlane {
+  override async validateScopes(): Promise<Set<string>> {
+    throw new Error("control_plane_unavailable");
   }
 }
 
