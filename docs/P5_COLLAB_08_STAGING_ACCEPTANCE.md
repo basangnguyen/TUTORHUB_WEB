@@ -1,8 +1,8 @@
 # P5-COLLAB-08 - Reconnect, compaction và recovery acceptance
 
-> Trạng thái: `VERIFY` ngày 2026-08-22. ADR-0036, implementation, local/full verify và Neon/B2
-> disposable recovery gate đã PASS. Còn commit/push exact candidate cùng GitHub Verify/Security trước
-> `DONE`. Không có migration mới, không ghi shared staging, không deploy và production whiteboard tiếp
+> Trạng thái: `DONE` ngày 2026-08-22 trên exact candidate `4f05ae6`. ADR-0036, implementation,
+> local/full verify, Neon/B2 disposable recovery, GitHub Verify `32571244058` và Security `32571244052`
+> đều PASS. Không có migration mới, không ghi shared staging, không deploy và production whiteboard tiếp
 > tục force-off.
 
 ## 1. Candidate đã triển khai
@@ -98,8 +98,9 @@ Recovery gate phải chứng minh:
 
 - [x] Disposable recovery gate PASS và lưu kết quả RPO/RTO không chứa secret.
 - [x] `pnpm verify`, review diff/no-secret và `git diff --check` PASS.
-- Commit/push exact candidate lên `main`; GitHub Verify và Security PASS.
-- Cập nhật backlog/project state sang `DONE`.
+- [x] Commit/push exact candidate `4f05ae6` lên `main`; GitHub Verify `32571244058` và Security
+      `32571244052` PASS.
+- [x] Cập nhật backlog/project state sang `DONE`.
 
 Không xóa disposable branch/bucket/key trước khi lưu đủ evidence. Không shared-staging write hoặc deploy
 trước báo cáo disposable PASS và xin quyền riêng.
