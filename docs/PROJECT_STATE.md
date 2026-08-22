@@ -12,10 +12,24 @@
 | Quy trình            | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
 | Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4                                                    |
 | Phase hiện tại       | Phase 5 collaboration implementation; Phase 3 deferred carry-over vẫn hoạt động       |
-| Task `DONE` gần nhất | P5-COLLAB-05 Collaboration data plane/provider adapter                                |
-| Mốc repository mới   | P5-COLLAB-05 local candidate PASS; không deploy hoặc shared-staging write              |
-| Task hiện tại        | P5-COLLAB-06 Lazy classroom tool shell — `TODO`                                        |
-| Task tiếp theo       | Nối lazy editor shell với data plane; P5-COLLAB-07 cũng đã runnable                   |
+| Task `DONE` gần nhất | P5-COLLAB-06 Lazy classroom tool shell                                                 |
+| Mốc repository mới   | P5-COLLAB-06 local candidate PASS; không deploy hoặc shared-staging write              |
+| Task hiện tại        | P5-COLLAB-07 Snapshot/import/export/restore worker và B2 — `TODO`                      |
+| Task tiếp theo       | Xây durable worker/checksum/quarantine và exact B2 binding                            |
+
+### Checkpoint P5-COLLAB-06 `DONE` — 2026-08-22
+
+Classroom media shell đã có typed tool registry, lazy whiteboard drawer, focus handoff và lifecycle
+prepare/open/suspend/resume/close theo exact capability do Core API chiếu. Student `view` được ép
+read-only ở browser adapter lẫn data plane; client không suy quyền từ role. Excalidraw/canonical
+session chỉ mount khi document đang open và grant được phép exchange, rồi cleanup provider/Y.Doc khi
+drawer đóng.
+
+Vite production build tách Excalidraw khỏi initial entry; automated gate xác nhận media tile và
+LiveKit room không remount. Targeted UI/page `59/59`, collaboration-client `2/2`, Core API, typecheck,
+build và full repository verify đều PASS. Không có migration, live Neon/shared-staging write, Render
+deploy hoặc secret rotation; production whiteboard giữ force-off tới P5-COLLAB-17. Acceptance:
+[`P5_COLLAB_06_ACCEPTANCE.md`](P5_COLLAB_06_ACCEPTANCE.md).
 
 ### Checkpoint P5-COLLAB-05 `DONE` — 2026-08-22
 

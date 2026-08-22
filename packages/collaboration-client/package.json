@@ -1,0 +1,23 @@
+{
+  "name": "@tutorhub/collaboration-client",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./canonical-authority": "./src/canonicalAuthority.ts"
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "lint": "eslint src",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit --pretty false"
+  },
+  "dependencies": {
+    "@hocuspocus/provider": "4.6.0",
+    "yjs": "13.6.27"
+  },
+  "devDependencies": {
+    "vitest": "4.1.10"
+  }
+}

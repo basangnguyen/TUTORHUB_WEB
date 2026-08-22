@@ -31,6 +31,7 @@ import type {
 import {
   ClassroomMediaShell,
   type ClassroomConnectionStatus,
+  type ClassroomMediaShellProps,
   type ClassroomSignalControls,
 } from "./ClassroomMediaShell";
 import type { ClassroomModerationControlsModel } from "./ClassroomModerationControls";
@@ -46,6 +47,7 @@ export interface ClassroomLiveKitRoomProps {
   lobby?: ReactNode;
   moderation?: ClassroomModerationControlsModel;
   signals?: ClassroomSignalControls;
+  tools?: ClassroomMediaShellProps["tools"];
   videoCaptureOverride?: VideoCaptureOptions;
   onConnected: () => void;
   onReconnecting: () => void;
@@ -114,6 +116,7 @@ function ConnectedClassroomLiveKitRoom({
   lobby,
   moderation,
   signals,
+  tools,
   videoCaptureOverride,
   onConnected,
   onReconnecting,
@@ -362,6 +365,7 @@ function ConnectedClassroomLiveKitRoom({
           lobby={lobby}
           moderation={moderation}
           signals={signals}
+          tools={tools}
           onLeave={handleLeave}
           onTerminalMediaCleanup={stopOwnedLocalTracks}
         />

@@ -111,8 +111,19 @@ export interface ClassroomMediaShellProps {
   lobby?: ReactNode;
   moderation?: ClassroomModerationControlsModel;
   signals?: ClassroomSignalControls;
+  tools?: readonly ClassroomToolDefinition[];
   onLeave: () => void;
   onTerminalMediaCleanup: () => Promise<void>;
+}
+
+export type ClassroomToolID = "whiteboard";
+
+export interface ClassroomToolDefinition {
+  readonly content: ReactNode;
+  readonly icon: ReactNode;
+  readonly id: ClassroomToolID;
+  readonly label: string;
+  readonly title: string;
 }
 
 export interface ClassroomSignalControls {
@@ -167,6 +178,7 @@ type ToolbarControlKey =
   | "reaction"
   | "chat"
   | "roster"
+  | `tool-${ClassroomToolID}`
   | "layout-grid"
   | "layout-active-speaker"
   | "layout-presentation";
@@ -196,6 +208,7 @@ export function ClassroomMediaShell({
   lobby,
   moderation,
   signals,
+  tools = [],
   onLeave,
   onTerminalMediaCleanup,
 }: ClassroomMediaShellProps) {
@@ -217,6 +230,7 @@ export function ClassroomMediaShell({
   const [railOpen, setRailOpen] = useState(false);
   const [rosterOpen, setRosterOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
+  const [openToolID, setOpenToolID] = useState<ClassroomToolID | null>(null);
   const [signalFeedback, setSignalFeedback] = useState<TranslationKey | null>(
     null,
   );
@@ -461,6 +475,7 @@ export function ClassroomMediaShell({
         ? (["reaction"] as const)
         : []),
       ...(chat ? (["chat"] as const) : []),
+      ...tools.map(({ id }) => `tool-${id}` as const),
       ...(signals ? (["roster"] as const) : []),
       "layout-grid",
       "layout-active-speaker",
@@ -474,6 +489,7 @@ export function ClassroomMediaShell({
       pendingControl,
       presenterID,
       signals,
+      tools,
     ],
   );
   const effectiveToolbarFocusKey = toolbarControlKeys.includes(toolbarFocusKey)
@@ -1327,6 +1343,39 @@ export function ClassroomMediaShell({
               </DrawerContent>
             </Drawer>
           )}
+
+          {tools.map((tool) => (
+            <Drawer
+              key={tool.id}
+              onOpenChange={(open) => setOpenToolID(open ? tool.id : null)}
+              open={openToolID === tool.id}
+            >
+              <DrawerTrigger asChild>
+                <IconButton
+                  aria-expanded={openToolID === tool.id}
+                  data-media-control={`tool-${tool.id}`}
+                  id={`media-p506-control-${tool.id}`}
+                  label={tool.label}
+                  onFocus={() => setToolbarFocusKey(`tool-${tool.id}`)}
+                  tabIndex={toolbarTabIndex(`tool-${tool.id}`)}
+                  variant="secondary"
+                >
+                  {tool.icon}
+                </IconButton>
+              </DrawerTrigger>
+              <DrawerContent
+                className={`media-p506-tool-drawer media-p506-tool-${tool.id}`}
+                closeLabel={t("media.p405.close")}
+                data-theme="dark"
+              >
+                <DrawerTitle>{tool.title}</DrawerTitle>
+                {tool.content}
+                <DrawerClose asChild>
+                  <Button variant="secondary">{t("media.p405.close")}</Button>
+                </DrawerClose>
+              </DrawerContent>
+            </Drawer>
+          ))}
 
           {signals && (
             <Drawer onOpenChange={setRosterOpen} open={rosterOpen}>

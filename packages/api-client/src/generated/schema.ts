@@ -2496,7 +2496,11 @@ export type paths = {
       readonly path?: never;
       readonly cookie?: never;
     };
-    readonly get?: never;
+    /**
+     * Resolve the authorized whiteboard bound to one media space
+     * @description The server reauthorizes media-space membership and returns an exact tenant-scoped tool projection. Authorized managers receive can_create when no document exists, so the UI never infers permission from a role label. Foreign and inaccessible resources remain concealed.
+     */
+    readonly get: operations["resolveWhiteboard"];
     readonly put?: never;
     /**
      * Create or replay the authoritative whiteboard bound to one media space
@@ -5577,6 +5581,11 @@ export type components = {
      * @enum {string}
      */
     readonly WhiteboardStatus: "created" | "open" | "suspended" | "closed";
+    /** @description Server-authoritative classroom tool discovery. A null document is an explicit empty state, while can_create is projected only after current media-space authorization. */
+    readonly WhiteboardToolProjection: {
+      readonly can_create: boolean;
+      readonly document: components["schemas"]["WhiteboardDocument"] | null;
+    };
     readonly WhiteboardTransitionRequest: {
       /** Format: int64 */
       readonly expected_version: number;
@@ -11005,6 +11014,37 @@ export interface operations {
       readonly 400: components["responses"]["ProblemResponse"];
       readonly 401: components["responses"]["UnauthorizedResponse"];
       readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly resolveWhiteboard: {
+    readonly parameters: {
+      readonly query: {
+        readonly media_space_id: string;
+      };
+      readonly header: {
+        /** @description Active workspace assertion used to prevent confused-deputy mutations and reads. */
+        readonly "X-TutorHub-Expected-Tenant-ID": components["parameters"]["ExpectedTenantID"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Authorized classroom whiteboard tool projection */
+      readonly 200: {
+        headers: {
+          readonly "Cache-Control"?: "private, no-store";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["WhiteboardToolProjection"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
       readonly 503: components["responses"]["ProblemResponse"];
       readonly default: components["responses"]["ProblemResponse"];
     };

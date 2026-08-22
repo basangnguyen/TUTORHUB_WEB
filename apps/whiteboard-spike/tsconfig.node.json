@@ -12,6 +12,7 @@
     "server",
     "src/excalidraw/authorizationContract.ts",
     "src/excalidraw/canonicalAuthority.ts",
-    "src/excalidraw/portableScene.ts"
+    "src/excalidraw/portableScene.ts",
+    "../../packages/collaboration-client/src/canonicalAuthority.ts"
   ]
 }

@@ -26,6 +26,7 @@
     "@radix-ui/react-tabs": "1.1.21",
     "@tldraw/sync": "5.3.1",
     "@tldraw/sync-core": "5.3.1",
+    "@tutorhub/collaboration-client": "workspace:*",
     "react": "19.2.7",
     "react-dom": "19.2.7",
     "tldraw": "5.3.1"

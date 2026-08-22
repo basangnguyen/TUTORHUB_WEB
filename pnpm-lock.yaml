@@ -214,6 +214,9 @@ importers:
 
   apps/web:
     dependencies:
+      "@excalidraw/excalidraw":
+        specifier: 0.18.1
+        version: 0.18.1(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       "@fullcalendar/react":
         specifier: 7.0.1
         version: 7.0.1(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(temporal-polyfill@1.0.1)
@@ -229,6 +232,9 @@ importers:
       "@tutorhub/api-client":
         specifier: workspace:*
         version: link:../../packages/api-client
+      "@tutorhub/collaboration-client":
+        specifier: workspace:*
+        version: link:../../packages/collaboration-client
       "@tutorhub/design-tokens":
         specifier: workspace:*
         version: link:../../packages/design-tokens
@@ -293,6 +299,9 @@ importers:
       "@tldraw/sync-core":
         specifier: 5.3.1
         version: 5.3.1(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      "@tutorhub/collaboration-client":
+        specifier: workspace:*
+        version: link:../../packages/collaboration-client
       react:
         specifier: 19.2.7
         version: 19.2.7
@@ -367,6 +376,19 @@ importers:
       prettier:
         specifier: 3.9.5
         version: 3.9.5
+      vitest:
+        specifier: 4.1.10
+        version: 4.1.10(@types/node@24.10.13)(jsdom@29.1.1)(vite@8.1.4(@types/node@24.10.13)(esbuild@0.28.1))
+
+  packages/collaboration-client:
+    dependencies:
+      "@hocuspocus/provider":
+        specifier: 4.6.0
+        version: 4.6.0(y-protocols@1.0.7(yjs@13.6.27))(yjs@13.6.27)
+      yjs:
+        specifier: 13.6.27
+        version: 13.6.27
+    devDependencies:
       vitest:
         specifier: 4.1.10
         version: 4.1.10(@types/node@24.10.13)(jsdom@29.1.1)(vite@8.1.4(@types/node@24.10.13)(esbuild@0.28.1))

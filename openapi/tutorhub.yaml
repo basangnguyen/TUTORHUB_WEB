@@ -5626,6 +5626,35 @@ paths:
         default:
           $ref: "#/components/responses/ProblemResponse"
   /api/v1/whiteboards:
+    get:
+      operationId: resolveWhiteboard
+      summary: Resolve the authorized whiteboard bound to one media space
+      description: The server reauthorizes media-space membership and returns an exact tenant-scoped tool projection. Authorized managers receive can_create when no document exists, so the UI never infers permission from a role label. Foreign and inaccessible resources remain concealed.
+      security:
+        - SessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/ExpectedTenantID"
+        - name: media_space_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Authorized classroom whiteboard tool projection
+          headers:
+            Cache-Control:
+              schema: { type: string, const: "private, no-store" }
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WhiteboardToolProjection"
+        "400": { $ref: "#/components/responses/ProblemResponse" }
+        "401": { $ref: "#/components/responses/UnauthorizedResponse" }
+        "404": { $ref: "#/components/responses/NotFoundResponse" }
+        "503": { $ref: "#/components/responses/ProblemResponse" }
+        default: { $ref: "#/components/responses/ProblemResponse" }
     post:
       operationId: createWhiteboard
       summary: Create or replay the authoritative whiteboard bound to one media space
@@ -13885,6 +13914,18 @@ components:
         updated_at:
           type: string
           format: date-time
+    WhiteboardToolProjection:
+      type: object
+      additionalProperties: false
+      description: Server-authoritative classroom tool discovery. A null document is an explicit empty state, while can_create is projected only after current media-space authorization.
+      required: [document, can_create]
+      properties:
+        document:
+          oneOf:
+            - $ref: "#/components/schemas/WhiteboardDocument"
+            - type: "null"
+        can_create:
+          type: boolean
     CreateWhiteboardRequest:
       type: object
       additionalProperties: false

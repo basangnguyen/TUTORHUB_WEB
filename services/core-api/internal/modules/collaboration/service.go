@@ -110,6 +110,35 @@ func (service *Service) Get(
 	return service.project(ctx, access, space, document)
 }
 
+// Resolve returns the authorized whiteboard bound to one media space. The
+// lookup stays tenant-scoped and reuses the media-space membership check so a
+// browser never needs to guess a document identifier or capability.
+func (service *Service) Resolve(
+	ctx context.Context,
+	access AccessContext,
+	mediaSpaceID uuid.UUID,
+) (ToolProjection, error) {
+	if !validAccess(access) || mediaSpaceID == uuid.Nil {
+		return ToolProjection{}, ErrInvalidRequest
+	}
+	space, err := service.authorizeSpace(ctx, access, mediaSpaceID, false)
+	if err != nil {
+		return ToolProjection{}, err
+	}
+	document, err := service.repository.GetByMediaSpace(ctx, access, mediaSpaceID)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return ToolProjection{CanCreate: canManageSpace(access, space)}, nil
+		}
+		return ToolProjection{}, normalizeConcealedError(err)
+	}
+	projected, err := service.project(ctx, access, space, document)
+	if err != nil {
+		return ToolProjection{}, err
+	}
+	return ToolProjection{Document: &projected}, nil
+}
+
 func (service *Service) Capabilities(
 	ctx context.Context,
 	access AccessContext,

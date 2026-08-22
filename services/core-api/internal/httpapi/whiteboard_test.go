@@ -115,6 +115,21 @@ func TestWhiteboardReadConcealsMissingForeignAndInaccessibleResources(t *testing
 	assertWhiteboardPrivacyHeaders(t, response)
 }
 
+func TestWhiteboardCollectionResolvesAuthorizedDocumentByMediaSpace(t *testing.T) {
+	t.Parallel()
+	tenantID, actorID, documentID, spaceID := uuid.New(), uuid.New(), uuid.New(), uuid.New()
+	document := whiteboardTestDocument(documentID, spaceID)
+	service := &fakeWhiteboardService{getResult: document, resolveResult: collaboration.ToolProjection{Document: &document}}
+	handler := newWhiteboardTestHandler(classIdentityService(tenantID, actorID, nil), service)
+	request := whiteboardRequest(http.MethodGet, whiteboardsCollectionPath+"?media_space_id="+spaceID.String(), "", tenantID, false)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK || service.resolveCalls != 1 || service.resolveSpaceID != spaceID {
+		t.Fatalf("resolve whiteboard: status=%d calls=%d space=%s body=%s", response.Code, service.resolveCalls, service.resolveSpaceID, response.Body.String())
+	}
+	assertWhiteboardPrivacyHeaders(t, response)
+}
+
 func TestWhiteboardGrantExchangeForwardsExactAuthorityAndUsesSensitiveHeaders(t *testing.T) {
 	t.Parallel()
 
@@ -290,22 +305,25 @@ func assertWhiteboardAccess(t *testing.T, access collaboration.AccessContext, pr
 }
 
 type fakeWhiteboardService struct {
-	access        collaboration.AccessContext
-	documentID    uuid.UUID
-	createCalls   int
-	getCalls      int
-	grantCalls    int
-	importCalls   int
-	restoreCalls  int
-	createInput   collaboration.CreateInput
-	grantInput    collaboration.GrantExchangeInput
-	restoreInput  collaboration.RestoreInput
-	createResult  collaboration.CreateResult
-	getResult     collaboration.Document
-	grantResult   collaboration.GrantCredential
-	importResult  collaboration.ImportValidation
-	restoreResult collaboration.Document
-	requestError  error
+	access         collaboration.AccessContext
+	documentID     uuid.UUID
+	createCalls    int
+	getCalls       int
+	grantCalls     int
+	importCalls    int
+	restoreCalls   int
+	resolveCalls   int
+	createInput    collaboration.CreateInput
+	grantInput     collaboration.GrantExchangeInput
+	restoreInput   collaboration.RestoreInput
+	createResult   collaboration.CreateResult
+	getResult      collaboration.Document
+	resolveResult  collaboration.ToolProjection
+	grantResult    collaboration.GrantCredential
+	importResult   collaboration.ImportValidation
+	restoreResult  collaboration.Document
+	requestError   error
+	resolveSpaceID uuid.UUID
 }
 
 func (service *fakeWhiteboardService) Create(_ context.Context, access collaboration.AccessContext, input collaboration.CreateInput) (collaboration.CreateResult, error) {
@@ -318,6 +336,12 @@ func (service *fakeWhiteboardService) Get(_ context.Context, access collaboratio
 	service.getCalls++
 	service.access, service.documentID = access, documentID
 	return service.getResult, service.requestError
+}
+
+func (service *fakeWhiteboardService) Resolve(_ context.Context, access collaboration.AccessContext, mediaSpaceID uuid.UUID) (collaboration.ToolProjection, error) {
+	service.resolveCalls++
+	service.access, service.resolveSpaceID = access, mediaSpaceID
+	return service.resolveResult, service.requestError
 }
 
 func (service *fakeWhiteboardService) Capabilities(_ context.Context, _ collaboration.AccessContext, _ uuid.UUID) (collaboration.ViewerCapabilities, error) {

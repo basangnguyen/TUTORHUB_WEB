@@ -1,8 +1,9 @@
 import react from "@vitejs/plugin-react";
+import type { Plugin } from "vite";
 import { configDefaults, defineConfig } from "vitest/config";
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [stripExcalidrawUpstreamFirebaseKey(), react()],
   build: {
     rolldownOptions: {
       output: {
@@ -37,3 +38,25 @@ export default defineConfig({
     setupFiles: ["./src/test/setup.ts"],
   },
 });
+
+function stripExcalidrawUpstreamFirebaseKey(): Plugin {
+  const googleAPIKey = /\bAIza[0-9A-Za-z_-]{30,}\b/g;
+  return {
+    name: "tutorhub-strip-excalidraw-upstream-firebase-key",
+    enforce: "pre",
+    transform(source, id) {
+      const normalizedID = id.replaceAll("\\", "/");
+      if (
+        !normalizedID.includes("/@excalidraw/excalidraw/dist/") ||
+        !source.includes("VITE_APP_FIREBASE_CONFIG")
+      ) {
+        return null;
+      }
+      const redacted = source.replace(
+        googleAPIKey,
+        "TutorHubDisabledUpstreamFirebaseKey",
+      );
+      return redacted === source ? null : { code: redacted, map: null };
+    },
+  };
+}

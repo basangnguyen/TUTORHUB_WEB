@@ -7,8 +7,9 @@
 > candidate CI/security và final read-only snapshot đều PASS. P5-COLLAB-03 cũng đã `DONE` ngày
 > 2026-08-21 trên exact candidate `647ffe4`. P5-COLLAB-04 đã `DONE` ngày 2026-08-21 với one-time
 > grant broker, exact authority revalidation và bounded revoke disconnect. P5-COLLAB-05 đã `DONE`
-> ngày 2026-08-22 với local data-plane candidate; P5-COLLAB-06 và P5-COLLAB-07 runnable. Production
-> whiteboard vẫn force-off tới P5-COLLAB-17.
+> ngày 2026-08-22 với local data-plane candidate. P5-COLLAB-06 cũng đã `DONE` ngày 2026-08-22 với
+> lazy classroom tool shell; P5-COLLAB-07 runnable. Production whiteboard vẫn force-off tới
+> P5-COLLAB-17.
 
 ## 1. Mục tiêu phase
 
@@ -63,7 +64,7 @@ Xây collaboration plane cho lớp học mà không làm rời hoặc làm yếu
 | P5-COLLAB-03 | Implementation | OpenAPI lifecycle/grant/snapshot/export/restore | P5-COLLAB-02               | DONE       |
 | P5-COLLAB-04 | Implementation | Grant broker và revoke generation               | P5-COLLAB-03               | DONE       |
 | P5-COLLAB-05 | Implementation | Collaboration data plane/provider adapter       | P5-COLLAB-01, P5-COLLAB-04 | DONE       |
-| P5-COLLAB-06 | Implementation | Lazy classroom tool shell                       | P5-COLLAB-03, P5-COLLAB-05 | TODO       |
+| P5-COLLAB-06 | Implementation | Lazy classroom tool shell                       | P5-COLLAB-03, P5-COLLAB-05 | DONE       |
 | P5-COLLAB-07 | Implementation | Snapshot/import/export/restore worker và B2     | P5-COLLAB-02, P5-COLLAB-05 | TODO       |
 | P5-COLLAB-08 | Implementation | Reconnect, compaction và recovery               | P5-COLLAB-05, P5-COLLAB-07 | TODO       |
 | P5-COLLAB-09 | Implementation | Feature/quota/operations                        | P5-COLLAB-04..08           | TODO       |
@@ -303,9 +304,17 @@ chunk, focus handoff và classroom media layout không remount.
 
 **Exit gate:**
 
-- [ ] Whiteboard không nằm trong initial classroom bundle và không remount media room.
-- [ ] Loading/empty/error/forbidden/read-only/reconnect/feature-off states có keyboard/focus test.
-- [ ] UI không tự suy capability; read-only enforcement vẫn nằm ở server/data plane.
+- [x] Whiteboard không nằm trong initial classroom bundle và không remount media room.
+- [x] Loading/empty/error/forbidden/read-only/reconnect/feature-off states có keyboard/focus test.
+- [x] UI không tự suy capability; read-only enforcement vẫn nằm ở server/data plane.
+
+Closure 2026-08-22: typed classroom tool registry chỉ mount whiteboard drawer theo yêu cầu và trả
+focus đúng trigger; LiveKit room/media tile không remount. Core API resolve exact tenant/media-space
+projection, UI chỉ dùng server capability, canonical browser session ép `view` read-only và cleanup
+provider/Y.Doc khi unmount. Vite bundle guard tách Excalidraw khỏi initial entry; targeted UI/session,
+Core API, typecheck, build và full verify đều PASS. Không migration/shared-staging write/deploy;
+production tiếp tục force-off. Acceptance:
+[`P5_COLLAB_06_ACCEPTANCE.md`](P5_COLLAB_06_ACCEPTANCE.md).
 
 ### P5-COLLAB-07 - Snapshot/import/export/restore worker và B2
 

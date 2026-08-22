@@ -91,8 +91,13 @@ func whiteboardResponseHeaders(next http.Handler) http.Handler {
 }
 
 func (handlers whiteboardHandlers) collection(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodGet {
+		handlers.resolve(w, r)
+		return
+	}
 	if r.Method != http.MethodPost {
-		writeWhiteboardMethodProblem(w, r, http.MethodPost)
+		w.Header().Set("Allow", http.MethodGet+", "+http.MethodPost)
+		writeProblem(w, r, http.StatusMethodNotAllowed, "Method not allowed", "The whiteboard collection does not support this HTTP method.")
 		return
 	}
 	principal, ok := handlers.principal(w, r, true)
@@ -117,6 +122,24 @@ func (handlers whiteboardHandlers) collection(w http.ResponseWriter, r *http.Req
 		status = http.StatusCreated
 	}
 	writeJSON(handlers.logger, w, status, result.Document)
+}
+
+func (handlers whiteboardHandlers) resolve(w http.ResponseWriter, r *http.Request) {
+	principal, ok := handlers.principal(w, r, false)
+	if !ok {
+		return
+	}
+	mediaSpaceID, valid := parseResourceUUID(strings.TrimSpace(r.URL.Query().Get("media_space_id")))
+	if !valid {
+		handlers.writeProblem(w, r, collaboration.ErrInvalidRequest)
+		return
+	}
+	document, err := handlers.service.Resolve(r.Context(), whiteboardAccess(principal), mediaSpaceID)
+	if err != nil {
+		handlers.writeProblem(w, r, err)
+		return
+	}
+	writeJSON(handlers.logger, w, http.StatusOK, document)
 }
 
 func (handlers whiteboardHandlers) resource(w http.ResponseWriter, r *http.Request) {

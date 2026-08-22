@@ -9,7 +9,7 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../../app/i18n";
 import {
@@ -102,6 +102,18 @@ interface MockTrackReference {
   publication:
     InstanceType<typeof liveKitState.MockRemoteTrackPublication> | object;
   source: string;
+}
+
+const toolLifecycle = { mounts: 0, unmounts: 0 };
+
+function TestWhiteboardTool() {
+  useEffect(() => {
+    toolLifecycle.mounts += 1;
+    return () => {
+      toolLifecycle.unmounts += 1;
+    };
+  }, []);
+  return <p>Lazy whiteboard content</p>;
 }
 
 vi.mock("livekit-client", () => ({
@@ -232,6 +244,8 @@ describe("ClassroomMediaShell", () => {
     liveKitState.terminalMediaCleanup.mockReset().mockResolvedValue(undefined);
     liveKitState.subscriptionTransitions.length = 0;
     liveKitState.trackOptions.length = 0;
+    toolLifecycle.mounts = 0;
+    toolLifecycle.unmounts = 0;
   });
 
   afterEach(() => {
@@ -510,6 +524,51 @@ describe("ClassroomMediaShell", () => {
     expect(close).toBeDefined();
     fireEvent.click(close!);
     await waitFor(() => expect(opener).toHaveFocus());
+  });
+
+  it("mounts a registered classroom tool lazily without remounting media and restores focus", async () => {
+    const view = renderShell({
+      tools: [
+        {
+          content: <TestWhiteboardTool />,
+          icon: <span aria-hidden="true">W</span>,
+          id: "whiteboard",
+          label: "Open whiteboard",
+          title: "Classroom whiteboard",
+        },
+      ],
+    });
+    const mediaTile = view.container.querySelector(".media-p405-grid > li");
+    const opener = screen.getByRole("button", { name: "Open whiteboard" });
+
+    expect(toolLifecycle.mounts).toBe(0);
+    expect(
+      screen.queryByText("Lazy whiteboard content"),
+    ).not.toBeInTheDocument();
+    opener.focus();
+    fireEvent.click(opener);
+
+    expect(opener).toHaveAttribute("aria-expanded", "true");
+    expect(
+      await screen.findByRole("heading", { name: "Classroom whiteboard" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Lazy whiteboard content")).toBeInTheDocument();
+    expect(toolLifecycle.mounts).toBe(1);
+    expect(view.container.querySelector(".media-p405-grid > li")).toBe(
+      mediaTile,
+    );
+
+    const close = screen
+      .getAllByRole("button", { name: "Close" })
+      .find((button) => button.textContent?.trim() === "Close");
+    expect(close).toBeDefined();
+    fireEvent.click(close!);
+
+    await waitFor(() => expect(opener).toHaveFocus());
+    expect(toolLifecycle.unmounts).toBe(1);
+    expect(view.container.querySelector(".media-p405-grid > li")).toBe(
+      mediaTile,
+    );
   });
 
   it("retires an old page before subscribing replacements in reversed provider order", async () => {

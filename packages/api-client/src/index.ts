@@ -351,6 +351,22 @@ export type MediaRoomInstance = components["schemas"]["MediaRoomInstance"];
 export type MediaSpaceViewerOperations =
   components["schemas"]["MediaSpaceViewerOperations"];
 export type MediaSpace = components["schemas"]["MediaSpace"];
+export type WhiteboardCapability =
+  components["schemas"]["WhiteboardCapability"];
+export type WhiteboardStatus = components["schemas"]["WhiteboardStatus"];
+export type WhiteboardViewerCapabilities =
+  components["schemas"]["WhiteboardViewerCapabilities"];
+export type WhiteboardDocument = components["schemas"]["WhiteboardDocument"];
+export type WhiteboardToolProjection =
+  components["schemas"]["WhiteboardToolProjection"];
+export type CreateWhiteboardRequest =
+  components["schemas"]["CreateWhiteboardRequest"];
+export type WhiteboardTransitionRequest =
+  components["schemas"]["WhiteboardTransitionRequest"];
+export type WhiteboardGrantExchangeRequest =
+  components["schemas"]["WhiteboardGrantExchangeRequest"];
+export type WhiteboardGrantCredential =
+  components["schemas"]["WhiteboardGrantCredential"];
 export type CreateMediaSpaceRequest =
   components["schemas"]["CreateMediaSpaceRequest"];
 export type MediaSpaceTransitionRequest =
@@ -3208,6 +3224,136 @@ export async function cancelStudyMeeting(
 
   return requireData<StudyMeeting>(
     data as StudyMeeting | undefined,
+    error,
+    response,
+  );
+}
+
+export async function resolveWhiteboard(
+  tenantID: string,
+  mediaSpaceID: string,
+  options: APIRequestOptions = {},
+): Promise<WhiteboardToolProjection> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).GET(
+    "/api/v1/whiteboards",
+    {
+      params: {
+        query: { media_space_id: mediaSpaceID },
+        header: { "X-TutorHub-Expected-Tenant-ID": tenantID },
+      },
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+  return requireData<WhiteboardToolProjection>(
+    data as WhiteboardToolProjection | undefined,
+    error,
+    response,
+  );
+}
+
+export async function createWhiteboard(
+  tenantID: string,
+  input: CreateWhiteboardRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<WhiteboardDocument> {
+  requireTenantScope(tenantID);
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/whiteboards",
+    {
+      params: {
+        header: {
+          "X-CSRF-Token": csrfToken,
+          "X-TutorHub-Expected-Tenant-ID": tenantID,
+        },
+      },
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+  return requireData<WhiteboardDocument>(
+    data as WhiteboardDocument | undefined,
+    error,
+    response,
+  );
+}
+
+export async function transitionWhiteboard(
+  tenantID: string,
+  documentID: string,
+  operation: "open" | "suspend" | "resume" | "close",
+  input: WhiteboardTransitionRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<WhiteboardDocument> {
+  requireTenantScope(tenantID);
+  const client = createTutorHubClient(options);
+  const request = {
+    params: {
+      path: { document_id: documentID },
+      header: {
+        "X-CSRF-Token": csrfToken,
+        "X-TutorHub-Expected-Tenant-ID": tenantID,
+      },
+    },
+    body: input,
+    headers: { Accept: "application/json" },
+    signal: options.signal,
+  } as const;
+  const result =
+    operation === "open"
+      ? await client.POST("/api/v1/whiteboards/{document_id}/open", request)
+      : operation === "suspend"
+        ? await client.POST(
+            "/api/v1/whiteboards/{document_id}/suspend",
+            request,
+          )
+        : operation === "resume"
+          ? await client.POST(
+              "/api/v1/whiteboards/{document_id}/resume",
+              request,
+            )
+          : await client.POST(
+              "/api/v1/whiteboards/{document_id}/close",
+              request,
+            );
+  return requireData<WhiteboardDocument>(
+    result.data as WhiteboardDocument | undefined,
+    result.error,
+    result.response,
+  );
+}
+
+export async function exchangeWhiteboardGrant(
+  tenantID: string,
+  documentID: string,
+  input: WhiteboardGrantExchangeRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<WhiteboardGrantCredential> {
+  requireTenantScope(tenantID);
+  const origin = resolvePublicRequestOrigin(options.baseUrl ?? "/api");
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/whiteboards/{document_id}/grant-exchanges",
+    {
+      params: {
+        path: { document_id: documentID },
+        header: {
+          Origin: origin,
+          "X-CSRF-Token": csrfToken,
+          "X-TutorHub-Expected-Tenant-ID": tenantID,
+        },
+      },
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+  return requireData<WhiteboardGrantCredential>(
+    data as WhiteboardGrantCredential | undefined,
     error,
     response,
   );

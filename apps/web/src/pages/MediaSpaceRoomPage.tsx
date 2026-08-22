@@ -4,6 +4,7 @@ import {
 } from "@tutorhub/api-client";
 import { useQuery } from "@tanstack/react-query";
 import { DisconnectReason } from "livekit-client";
+import { PenTool } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { useI18n, type TranslationKey } from "../app/i18n";
@@ -25,6 +26,7 @@ import {
 } from "../app/mediaDiagnostics";
 import { MediaLobbyPanel } from "../components/MediaLobbyPanel";
 import { MediaSpaceChatPanel } from "../components/MediaSpaceChatPanel";
+import { ClassroomWhiteboardTool } from "../features/collaboration/ClassroomWhiteboardTool";
 import {
   ClassroomLiveKitRoom,
   type ClassroomLiveKitRoomProps,
@@ -441,6 +443,22 @@ function MediaSpaceRoomSession({
     onLeave: handleLeave,
     onProviderError: handleProviderError,
     signals: signalControls,
+    tools: [
+      {
+        content: (
+          <ClassroomWhiteboardTool
+            actorID={userId}
+            enabled={Boolean(tenantId && userId)}
+            mediaSpaceID={spaceId}
+            tenantID={tenantId}
+          />
+        ),
+        icon: <PenTool />,
+        id: "whiteboard",
+        label: t("whiteboard.openTool"),
+        title: t("whiteboard.title"),
+      },
+    ],
   };
 
   return (

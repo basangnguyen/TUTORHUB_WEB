@@ -82,6 +82,15 @@ type Document struct {
 	UpdatedAt         time.Time          `json:"updated_at"`
 }
 
+// ToolProjection is the server-authoritative discovery response used by the
+// classroom shell. An authorized manager can see that a whiteboard may be
+// created without the UI inferring that permission from a role label. The
+// document remains nil until the control-plane record exists.
+type ToolProjection struct {
+	Document  *Document `json:"document"`
+	CanCreate bool      `json:"can_create"`
+}
+
 type CreateInput struct {
 	MediaSpaceID   uuid.UUID
 	IdempotencyKey string
@@ -251,6 +260,7 @@ type GrantResolution struct {
 type Repository interface {
 	Create(context.Context, AccessContext, CreateCommand) (CreateResult, error)
 	Get(context.Context, AccessContext, uuid.UUID) (Document, error)
+	GetByMediaSpace(context.Context, AccessContext, uuid.UUID) (Document, error)
 	GrantAuthority(context.Context, AccessContext, uuid.UUID) (GrantAuthority, error)
 	Transition(context.Context, AccessContext, TransitionCommand) (Document, error)
 	CapabilityPolicies(context.Context, AccessContext, uuid.UUID) (map[Audience]Capability, error)
@@ -278,6 +288,7 @@ type ArtifactWorkflow interface {
 type ServiceAPI interface {
 	Create(context.Context, AccessContext, CreateInput) (CreateResult, error)
 	Get(context.Context, AccessContext, uuid.UUID) (Document, error)
+	Resolve(context.Context, AccessContext, uuid.UUID) (ToolProjection, error)
 	Capabilities(context.Context, AccessContext, uuid.UUID) (ViewerCapabilities, error)
 	Open(context.Context, AccessContext, uuid.UUID, TransitionInput) (Document, error)
 	Suspend(context.Context, AccessContext, uuid.UUID, TransitionInput) (Document, error)

@@ -5397,6 +5397,89 @@ textarea:focus-visible {
   width: min(92%, 48rem);
 }
 
+.media-p506-tool-drawer {
+  display: flex;
+  width: min(72rem, calc(100vw - 24px));
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--space-4);
+  overflow-y: auto;
+}
+
+.whiteboard-tool {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.whiteboard-tool-header,
+.whiteboard-tool-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.whiteboard-tool-state {
+  display: grid;
+  min-height: 8rem;
+  place-content: center;
+  justify-items: center;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  border: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+  border-radius: var(--radius-lg);
+  text-align: center;
+}
+
+.whiteboard-tool-error {
+  color: var(--color-danger);
+}
+
+.whiteboard-engine {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-3);
+}
+
+.whiteboard-connection-status {
+  margin: 0;
+}
+
+.whiteboard-engine-canvas {
+  min-height: 28rem;
+  height: min(65vh, 48rem);
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  background: #fff;
+}
+
+.whiteboard-semantic-fallback {
+  max-height: 12rem;
+  overflow: auto;
+  padding: var(--space-4);
+  border: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+  border-radius: var(--radius-lg);
+}
+
+.whiteboard-semantic-fallback h3 {
+  margin-top: 0;
+}
+
+@media (max-width: 42rem) {
+  .media-p506-tool-drawer {
+    width: calc(100vw - 16px);
+  }
+
+  .whiteboard-engine-canvas {
+    min-height: 22rem;
+    height: 55vh;
+  }
+}
+
 .media-p406-roster,
 .media-p406-roster-state {
   margin: 16px 0;

@@ -11,7 +11,7 @@
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
 | Phase hiện tại        | Phase 5 collaboration implementation; Phase 3 deferred carry-over tiếp tục                   |
-| Trạng thái gần nhất   | P5-COLLAB-05 `DONE` local; P5-COLLAB-06 và P5-COLLAB-07 runnable                             |
+| Trạng thái gần nhất   | P5-COLLAB-06 `DONE` local; P5-COLLAB-07 runnable                                             |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 
@@ -1712,6 +1712,12 @@ typecheck/lint/build, OCI boundary và full repository verify PASS. Advisory-loc
 PostgreSQL session giả lập độc lập; task này không chạy live Neon disposable mới,
 migration/shared-staging write/deploy. Durable
 worker thuộc P5-COLLAB-07, production tiếp tục force-off. P5-COLLAB-06 và P5-COLLAB-07 runnable.
+
+P5-COLLAB-06 closure 2026-08-22: classroom media shell có typed lazy tool registry, exact server
+capability projection, view-only Excalidraw/canonical session, focus handoff và bounded UI states.
+Open/close tool không remount LiveKit room hoặc media tile; Vite production bundle giữ Excalidraw
+ngoài initial entry. Targeted UI/session, Core API, typecheck, build và full verify PASS. Không có
+migration/shared-staging write/deploy; production tiếp tục force-off. P5-COLLAB-07 runnable.
 
 **Deliverable:** teacher mở/đóng công cụ mà không làm rời media room; trạng thái cộng tác khôi phục sau reconnect.
 

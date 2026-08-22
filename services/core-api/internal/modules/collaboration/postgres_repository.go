@@ -146,6 +146,31 @@ func (repository *PostgresRepository) Get(
 	return document, nil
 }
 
+func (repository *PostgresRepository) GetByMediaSpace(
+	ctx context.Context,
+	access AccessContext,
+	mediaSpaceID uuid.UUID,
+) (Document, error) {
+	queryContext, cancel := context.WithTimeout(ctx, repository.queryTimeout)
+	defer cancel()
+	tx, err := repository.database.Begin(queryContext)
+	if err != nil {
+		return Document{}, ErrUnavailable
+	}
+	defer rollback(tx)
+	document, err := loadDocumentBySpace(queryContext, tx, access.TenantID, mediaSpaceID, false)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Document{}, ErrNotFound
+	}
+	if err != nil {
+		return Document{}, ErrUnavailable
+	}
+	if err := tx.Commit(queryContext); err != nil {
+		return Document{}, ErrUnavailable
+	}
+	return document, nil
+}
+
 func (repository *PostgresRepository) GrantAuthority(
 	ctx context.Context,
 	access AccessContext,

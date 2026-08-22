@@ -63,6 +63,52 @@ func TestServiceConcealsForeignOrUnauthorizedResourceAsNotFound(t *testing.T) {
 	}
 }
 
+func TestServiceResolveByMediaSpaceProjectsServerCapability(t *testing.T) {
+	t.Parallel()
+	documentID, spaceID := uuid.New(), uuid.New()
+	repository := &fakeRepository{
+		document: Document{
+			ID: documentID, MediaSpaceID: spaceID, Status: DocumentOpen,
+			Version: 2, CurrentGeneration: 3, RevokeGeneration: 4,
+		},
+		policies: map[Audience]Capability{AudienceAttendee: CapabilityView},
+	}
+	spaces := &fakeSpaceAuthority{space: media.MediaSpace{ID: spaceID}}
+	service := newTestService(t, repository, spaces, nil, nil, uuid.New())
+	access := testAccess()
+	access.OrganizationRoles = []policy.OrganizationRole{policy.OrganizationRoleStudent}
+
+	result, err := service.Resolve(context.Background(), access, spaceID)
+	if err != nil {
+		t.Fatalf("resolve whiteboard: %v", err)
+	}
+	if repository.resolveSpaceID != spaceID || result.Document == nil || result.Document.ID != documentID ||
+		result.Document.Viewer.Capability != CapabilityView || !result.Document.Viewer.CanExchangeGrant || result.CanCreate {
+		t.Fatalf("unexpected resolve projection: space=%s result=%+v", repository.resolveSpaceID, result)
+	}
+}
+
+func TestServiceResolveEmptyProjectsCreateAuthorityWithoutRoleInference(t *testing.T) {
+	t.Parallel()
+	spaceID := uuid.New()
+	repository := &fakeRepository{getError: ErrNotFound}
+	spaces := &fakeSpaceAuthority{space: manageableSpace(spaceID)}
+	service := newTestService(t, repository, spaces, nil, nil, uuid.New())
+
+	manager, err := service.Resolve(context.Background(), testAccess(), spaceID)
+	if err != nil || manager.Document != nil || !manager.CanCreate {
+		t.Fatalf("manager empty projection=%+v err=%v", manager, err)
+	}
+
+	attendeeAccess := testAccess()
+	attendeeAccess.OrganizationRoles = []policy.OrganizationRole{policy.OrganizationRoleStudent}
+	spaces.space = media.MediaSpace{ID: spaceID}
+	attendee, err := service.Resolve(context.Background(), attendeeAccess, spaceID)
+	if err != nil || attendee.Document != nil || attendee.CanCreate {
+		t.Fatalf("attendee empty projection=%+v err=%v", attendee, err)
+	}
+}
+
 func TestServiceLifecycleRequiresCurrentManagementAuthorityAndStableCommand(t *testing.T) {
 	t.Parallel()
 	documentID, spaceID := uuid.New(), uuid.New()
@@ -355,6 +401,7 @@ type fakeRepository struct {
 	getError          error
 	transitionError   error
 	restoreError      error
+	resolveSpaceID    uuid.UUID
 }
 
 func (repository *fakeRepository) Create(_ context.Context, _ AccessContext, command CreateCommand) (CreateResult, error) {
@@ -364,6 +411,11 @@ func (repository *fakeRepository) Create(_ context.Context, _ AccessContext, com
 }
 
 func (repository *fakeRepository) Get(_ context.Context, _ AccessContext, _ uuid.UUID) (Document, error) {
+	return repository.document, repository.getError
+}
+
+func (repository *fakeRepository) GetByMediaSpace(_ context.Context, _ AccessContext, spaceID uuid.UUID) (Document, error) {
+	repository.resolveSpaceID = spaceID
 	return repository.document, repository.getError
 }
 
