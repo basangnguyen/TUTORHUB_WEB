@@ -14,8 +14,30 @@
 | Phase hiện tại       | Phase 5 collaboration implementation; Phase 3 deferred carry-over vẫn hoạt động       |
 | Task `DONE` gần nhất | P5-COLLAB-15 Accessibility và browser matrix                                          |
 | Mốc repository mới   | `09449fc`; GitHub Verify `32638928557` và Security `32638928501` đều PASS              |
-| Task hiện tại        | P5-COLLAB-16 Failure, outage và provider exit — `TODO`                                 |
-| Task tiếp theo       | Bắt đầu P5-COLLAB-16 và khóa acceptance/runbook                                       |
+| Task hiện tại        | P5-COLLAB-16 Failure, outage và provider exit — `VERIFY`                               |
+| Task tiếp theo       | Publish exact P5-COLLAB-16 candidate và kiểm tra GitHub Verify/Security                |
+
+### Checkpoint P5-COLLAB-16 local candidate `VERIFY` — 2026-08-23
+
+Candidate đã thêm exact production-module validation cho control-authority timeout/new-room
+fail-closed, existing-room `enabled -> read_only -> off`, artifact binding-key overlap/revoke và
+provider-independent next-generation restore giữ nguyên semantic hash. Root aggregate runner PASS
+whiteboard runtime `20/20`, control/Neon/B2 outage guards `8/8`, collaboration-client portable/
+reconnect `9/9` và Core API collaboration authority. Provider-backed disposable evidence 600 giây,
+B2 rotation, immutable recovery và `RTO_MS=3096` từ P5-COLLAB-01/07/08/09 được reuse và ghi rõ
+là historical evidence, không phải live drill mới.
+
+Full `pnpm verify` PASS trong 35,9 giây, gồm format/OpenAPI drift/security/lint/typecheck/test/build,
+Storybook, client bundle scan, toàn bộ Go test và `go vet`.
+
+Failure contract công bố room mới fail closed; room hiện tại chỉ giữ read/export trong
+`read_only`, sau đó `off` nếu không còn an toàn. RPO là last verified durable artifact; RTO
+private-alpha do operator thực hiện tối đa 5 phút. Exit trigger, owner, provider-independent
+generation swap, read-only fallback và rollback không dual-write đã khóa trong acceptance/runbook.
+Không migration, provider mutation, shared-staging write hoặc deploy; production whiteboard tiếp tục
+force-off. Task ở `VERIFY`, chờ exact candidate commit/push và GitHub Verify/Security PASS để
+`DONE`. Acceptance:
+[`P5_COLLAB_16_STAGING_ACCEPTANCE.md`](P5_COLLAB_16_STAGING_ACCEPTANCE.md).
 
 ### Checkpoint P5-COLLAB-15 `DONE` — 2026-08-23
 

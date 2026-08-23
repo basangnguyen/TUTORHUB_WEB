@@ -68,6 +68,7 @@
     "test:collaboration:p513": "node scripts/run-p513-local.mjs",
     "test:collaboration:p514": "node scripts/run-p514-local.mjs",
     "test:collaboration:p515:browser": "pnpm --dir apps/web p5-collab-15:browser",
+    "test:collaboration:p516": "node scripts/run-p516-local.mjs",
     "test:integration:collaboration:p513": "node scripts/run-p513-disposable.mjs",
     "test:integration:collaboration:p502:shared:preflight": "go test -count=1 -tags=integration -run \"^TestPostgresP502SharedOwnerPreflight$\" ./services/core-api/internal/modules/collaboration",
     "test:integration:collaboration:p502:shared:migrate": "go test -count=1 -tags=integration -run \"^TestPostgresP502SharedForwardMigration$\" ./services/core-api/internal/modules/collaboration",
