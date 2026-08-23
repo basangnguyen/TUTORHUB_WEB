@@ -133,6 +133,59 @@ describe("OCI collaboration runtime", () => {
     );
   }, 15_000);
 
+  it("P5-COLLAB-12 converges after ten alternating offline and reconnect cycles", async () => {
+    const checkpoints = new MemoryCheckpointStore();
+    const candidate = createRuntime(checkpoints, new TwoActorControlPlane());
+    runtimes.push(candidate.runtime);
+    await candidate.runtime.start();
+
+    const teacher = createClient(
+      candidate.runtime,
+      undefined,
+      "p512-teacher-grant-that-is-long-enough",
+    );
+    const student = createClient(
+      candidate.runtime,
+      undefined,
+      "p512-student-grant-that-is-long-enough",
+    );
+    clients.push(teacher, student);
+    await Promise.all([teacher.synced, student.synced]);
+
+    for (let cycle = 0; cycle < 10; cycle += 1) {
+      const offline = cycle % 2 === 0 ? student : teacher;
+      const online = cycle % 2 === 0 ? teacher : student;
+      offline.disconnect();
+      await waitFor(() => !offline.isConnected(), 2_000);
+      await waitForMetrics(
+        httpUrl(candidate.runtime),
+        ['collab_connections_current{capability="edit"} 1'],
+        2_000,
+      );
+
+      online.document
+        .getMap("scene")
+        .set(`online-${cycle}`, `online-value-${cycle}`);
+      offline.document
+        .getMap("scene")
+        .set(`offline-${cycle}`, `offline-value-${cycle}`);
+
+      await offline.reconnect();
+      await waitFor(() => offline.isConnected(), 2_000);
+      await waitFor(
+        () =>
+          online.document.getMap("scene").get(`offline-${cycle}`) ===
+            `offline-value-${cycle}` &&
+          offline.document.getMap("scene").get(`online-${cycle}`) ===
+            `online-value-${cycle}`,
+        5_000,
+      );
+      expect(offline.document.getMap("scene").toJSON()).toEqual(
+        online.document.getMap("scene").toJSON(),
+      );
+    }
+  }, 35_000);
+
   it("turns readiness red and closes writers when authority switches off", async () => {
     const checkpoints = new MemoryCheckpointStore();
     const authority = new FakeControlPlane();
@@ -523,6 +576,39 @@ class FakeControlPlane implements ControlPlane {
   }
 }
 
+class TwoActorControlPlane extends FakeControlPlane {
+  private readonly actorScopes = new Map<string, CollaborationScope>([
+    ["p512-teacher-grant-that-is-long-enough", { ...scope }],
+    [
+      "p512-student-grant-that-is-long-enough",
+      {
+        ...scope,
+        actorId: "student-b",
+        authorityLease: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        sessionId: "session-b",
+      },
+    ],
+  ]);
+
+  constructor() {
+    super();
+    this.validLeases.add("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
+  }
+
+  override async exchangeGrant(input: {
+    documentName: string;
+    grant: string;
+    origin: string;
+  }): Promise<CollaborationScope> {
+    if (input.documentName !== DOCUMENT_NAME || input.origin !== ORIGIN) {
+      throw new Error("denied");
+    }
+    const granted = this.actorScopes.get(input.grant);
+    if (!granted) throw new Error("denied");
+    return { ...granted };
+  }
+}
+
 class DeferredExchangeControlPlane extends FakeControlPlane {
   private resolveStarted!: () => void;
   private resolveScope!: (value: CollaborationScope) => void;
@@ -655,6 +741,7 @@ interface TestClient {
 function createClient(
   runtime: CollaborationRuntime,
   clientId?: number,
+  token = "one-time-grant-that-is-long-enough",
 ): TestClient {
   const document = new Y.Doc();
   if (clientId !== undefined) document.clientID = clientId;
@@ -692,7 +779,7 @@ function createClient(
       if (status === WebSocketStatus.Connected) resolveConnected();
     },
     onSynced: () => resolveSynced(),
-    token: "one-time-grant-that-is-long-enough",
+    token,
     websocketProvider: socket,
   });
   provider.attach();

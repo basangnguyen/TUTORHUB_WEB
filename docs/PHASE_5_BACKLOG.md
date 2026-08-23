@@ -19,7 +19,8 @@
 > authorization/tenant-isolation Neon disposable tại final ledger `41 false`, GitHub Verify
 > `32596587875` và Security `32596587867` đều PASS. P5-COLLAB-11 đã `DONE` trên exact candidate `f9d1381`:
 > local broker/runtime abuse aggregate PASS `62/62`, full verify PASS, GitHub Verify `32605702341` và
-> Security `32605702349` đều PASS. P5-COLLAB-12 là task runnable tiếp theo.
+> Security `32605702349` đều PASS. P5-COLLAB-12 đang `VERIFY`: focused convergence/history/reconnect
+> aggregate và full repository verify đều PASS; candidate chưa commit/push.
 
 ## 1. Mục tiêu phase
 
@@ -80,7 +81,7 @@ Xây collaboration plane cho lớp học mà không làm rời hoặc làm yếu
 | P5-COLLAB-09 | Implementation | Feature/quota/operations                        | P5-COLLAB-04..08           | DONE       |
 | P5-COLLAB-10 | Test           | Authorization và tenant isolation               | P5-COLLAB-02..09           | DONE       |
 | P5-COLLAB-11 | Test           | Credential/revoke/WebSocket abuse               | P5-COLLAB-04, P5-COLLAB-05 | DONE       |
-| P5-COLLAB-12 | Test           | Convergence/history/undo/reconnect              | P5-COLLAB-05, P5-COLLAB-08 | TODO       |
+| P5-COLLAB-12 | Test           | Convergence/history/undo/reconnect              | P5-COLLAB-05, P5-COLLAB-08 | VERIFY     |
 | P5-COLLAB-13 | Test           | Snapshot/import/export/restore                  | P5-COLLAB-07, P5-COLLAB-08 | TODO       |
 | P5-COLLAB-14 | Test           | Performance 500/2.000 shapes và 2/10/50 người   | P5-COLLAB-05..09           | TODO       |
 | P5-COLLAB-15 | Test           | Accessibility và browser matrix                 | P5-COLLAB-06, P5-COLLAB-08 | TODO       |
@@ -413,9 +414,9 @@ branch được giữ lại. Acceptance:
 
 - [x] Matrix owner/teacher/TA/student/guest/removed/inactive cho lifecycle và `view/edit/present` PASS local.
 - [x] IDOR, cross-tenant document/snapshot/export, forged tenant/role/provider ID và stale membership deny
-  PASS local và exact PostgreSQL disposable.
+      PASS local và exact PostgreSQL disposable.
 - [x] Same document ID/cursor/idempotency key không tái dùng được qua tenant/principal/generation PASS
-  local và exact PostgreSQL disposable.
+      local và exact PostgreSQL disposable.
 
 **Closure 2026-08-23 — DONE:** service authority matrix và lifecycle concealment đã bao phủ tám
 principal states; forged/unknown organization role bị chặn trước repository. Snapshot list có cursor
@@ -451,9 +452,19 @@ diff/no-secret review PASS. Exact candidate `f9d1381` đã push lên `origin/mai
 
 **Exit gate:**
 
-- [ ] Hai browser concurrent edit, offline/reconnect, duplicate/out-of-order delivery hội tụ.
-- [ ] Concurrent actor-local undo/redo không hoàn tác remote edit ngoài semantics công bố.
-- [ ] Split-brain/dual-authority detector và repeated reconnect soak không có divergent final hash.
+- [x] Hai browser concurrent edit, offline/reconnect, duplicate/out-of-order delivery hội tụ.
+- [x] Concurrent actor-local undo/redo không hoàn tác remote edit ngoài semantics công bố.
+- [x] Split-brain/dual-authority detector và repeated reconnect soak không có divergent final hash.
+
+**Checkpoint 2026-08-23 — VERIFY:** production canonical authority đã PASS 25 deterministic offline cycles
+với ba actor, duplicate/out-of-order delivery và actor-local undo/redo sau remote edits; restored provider
+state giữ exact semantic hash và causal watermark. Hai Hocuspocus WebSocket client với actor độc lập PASS
+10 chu kỳ disconnect/edit/reconnect luân phiên. PostgreSQL provider authority guard, incompatible session
+race và checkpoint compaction invariants đều nằm trong focused aggregate `26/26`. Full `pnpm verify` PASS
+format/OpenAPI/security/lint/typecheck/test/build/Storybook/bundle security/Go test/vet khi đặt `GOCACHE`
+trong workspace do sandbox. Không migration/Neon/B2/shared-staging write/deploy; production tiếp tục
+force-off. Final diff/no-secret review PASS; còn commit/push và GitHub Verify/Security trước khi chuyển `DONE`.
+Acceptance: [`P5_COLLAB_12_STAGING_ACCEPTANCE.md`](P5_COLLAB_12_STAGING_ACCEPTANCE.md).
 
 ### P5-COLLAB-13 - Snapshot/import/export/restore
 
