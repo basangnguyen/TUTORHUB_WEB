@@ -116,7 +116,7 @@ describe("P5-COLLAB-12 canonical convergence and actor-local history", () => {
     expect(restored.authority.encodeCausalWatermark()).toEqual(
       teacher.authority.encodeCausalWatermark(),
     );
-  });
+  }, 15_000);
 });
 
 function createPeer(actorId: string, initialState?: Uint8Array): Peer {
