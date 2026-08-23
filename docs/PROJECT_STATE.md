@@ -12,10 +12,26 @@
 | Quy trình            | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
 | Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4                                                    |
 | Phase hiện tại       | Phase 5 collaboration implementation; Phase 3 deferred carry-over vẫn hoạt động       |
-| Task `DONE` gần nhất | P5-COLLAB-14 Performance 500/2.000 shapes và 2/10/50 người                            |
-| Mốc repository mới   | Exact candidate `e1b1201`; GitHub Verify `32621951917`, Security `32621951910` PASS   |
-| Task hiện tại        | P5-COLLAB-15 Accessibility và browser matrix — `TODO`                                 |
-| Task tiếp theo       | Bắt đầu accessibility/physical browser matrix trong khi production vẫn force-off      |
+| Task `DONE` gần nhất | P5-COLLAB-14 Performance 500/2.000 shapes và profile 2/10/50 người                    |
+| Mốc repository mới   | `e1b1201`; GitHub Verify `32621951917` và Security `32621951910` đều PASS              |
+| Task hiện tại        | P5-COLLAB-15 Accessibility và browser matrix — `VERIFY`                               |
+| Task tiếp theo       | Commit/push exact candidate P5-COLLAB-15 và kiểm tra GitHub Verify/Security           |
+
+### Checkpoint P5-COLLAB-15 `VERIFY` — 2026-08-23
+
+Production semantic fallback đã được giới hạn 50 phần tử/trang, có focus handoff rõ giữa canvas và
+danh sách văn bản. Adapter pinned Excalidraw `0.18.1` sửa accessible name của menu và landmark footer
+lồng sai; portal có visible focus, forced-colors và reduced-motion riêng. Web unit `457/457`, typecheck,
+lint và installed headful matrix đều PASS. Chrome `152.0.7977.54` và Edge `151.0.4129.101` đều Axe
+`0/0`, PASS keyboard/tool/focus/reconnect/reflow. Firefox/Safari/mobile được ghi `UNAVAILABLE` đúng
+phạm vi pilot. Owner physical Chrome/Edge + NVDA ở browser zoom 200% đã PASS dialog, named toolbar,
+semantic fallback, reconnect/failure/restore announcement, forced-colors/reduced-motion và focus
+recovery; Axe chỉ là bằng chứng hỗ trợ. Không Neon/B2/Render/shared-staging/deploy; production
+whiteboard tiếp tục force-off.
+Full repository `pnpm verify` trên final local candidate tree cũng PASS, gồm format, contract/client,
+security, lint, typecheck, build, Storybook, Go test và `go vet`. Còn exact candidate commit/push và
+GitHub Verify/Security để chuyển `VERIFY -> DONE`. Acceptance:
+[`P5_COLLAB_15_STAGING_ACCEPTANCE.md`](P5_COLLAB_15_STAGING_ACCEPTANCE.md).
 
 ### Checkpoint P5-COLLAB-14 `DONE` — 2026-08-23
 

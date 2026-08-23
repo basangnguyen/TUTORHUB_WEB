@@ -1,11 +1,21 @@
 // @vitest-environment jsdom
 
 import "@testing-library/jest-dom/vitest";
-import { act, cleanup, render, screen } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+} from "@testing-library/react";
 import type { WhiteboardDocument } from "@tutorhub/api-client";
+import type { CanonicalElementV1 } from "@tutorhub/collaboration-client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../../app/i18n";
-import LazyWhiteboardEngine from "./LazyWhiteboardEngine";
+import LazyWhiteboardEngine, {
+  CanonicalExcalidrawCanvas,
+  type WhiteboardCanvasAuthority,
+} from "./LazyWhiteboardEngine";
 
 const engineMocks = vi.hoisted(() => ({
   createSession: vi.fn(),
@@ -63,6 +73,39 @@ const authority = {
   getScene: () => ({ elements: [], files: {}, metadata: {}, page: {} }),
   getSemanticHash: () => "empty",
   subscribe: () => () => undefined,
+};
+
+const semanticElements: CanonicalElementV1[] = Array.from(
+  { length: 55 },
+  (_, index) => ({
+    height: 80,
+    id: `shape-${index + 1}`,
+    text: `Lesson shape ${index + 1}`,
+    type: "rectangle",
+    width: 120,
+    x: index * 10,
+    y: index * 5,
+  }),
+);
+
+const semanticAuthority: WhiteboardCanvasAuthority = {
+  getProjection: () => ({
+    appState: { viewBackgroundColor: "#ffffff" },
+    elements: semanticElements,
+    files: {},
+    page: { id: "page-1", name: "Page 1" },
+  }),
+  getScene: () => ({
+    elements: semanticElements,
+    files: {},
+    page: { backgroundColor: "#ffffff", id: "page-1", name: "Page 1" },
+    schemaVersion: 1,
+  }),
+  getSemanticHash: () => "semantic-fixture",
+  redo: () => true,
+  replaceScene: () => undefined,
+  subscribe: () => () => undefined,
+  undo: () => true,
 };
 
 describe("LazyWhiteboardEngine", () => {
@@ -137,5 +180,39 @@ describe("LazyWhiteboardEngine", () => {
     expect(screen.getByRole("alert")).toHaveTextContent(
       "The drawing tools could not connect",
     );
+  });
+
+  it("paginates the semantic fallback and provides explicit focus handoff", () => {
+    render(
+      <I18nProvider initialLanguage="en">
+        <CanonicalExcalidrawCanvas
+          authority={semanticAuthority}
+          connectionStatus="connected"
+          readOnly
+        />
+      </I18nProvider>,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Read whiteboard as text" }),
+    );
+    expect(
+      screen.getByRole("heading", { name: "Whiteboard text representation" }),
+    ).toHaveFocus();
+    expect(screen.getAllByRole("listitem")).toHaveLength(50);
+    expect(screen.getByTestId("whiteboard-semantic-page")).toHaveTextContent(
+      "Page 1/2 · 55 elements",
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Next page" }));
+    expect(screen.getAllByRole("listitem")).toHaveLength(5);
+    expect(screen.getByText(/Lesson shape 55/)).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Move focus to drawing canvas" }),
+    );
+    expect(
+      screen.getByRole("region", { name: "Interactive whiteboard canvas" }),
+    ).toHaveFocus();
   });
 });

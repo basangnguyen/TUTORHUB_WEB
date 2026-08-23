@@ -34,7 +34,10 @@ describe("Button", () => {
       </IconButton>,
     );
 
-    expect(screen.getByRole("button", { name: "Mở cấu hình" })).toBeVisible();
+    const button = screen.getByRole("button", { name: "Mở cấu hình" });
+    expect(button).toBeVisible();
+    expect(button).not.toHaveAttribute("aria-label");
+    expect(button).toHaveTextContent("Mở cấu hình");
     expect(screen.getByTestId("settings-icon")).toBeVisible();
   });
 });

@@ -16,7 +16,14 @@ import type {
   WhiteboardDocument,
 } from "@tutorhub/api-client";
 import { Button } from "@tutorhub/ui";
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type RefObject,
+} from "react";
 import { useI18n } from "../../app/i18n";
 import { requestWhiteboardGrant } from "../../app/whiteboards";
 
@@ -122,12 +129,25 @@ export default function LazyWhiteboardEngine({
   );
 }
 
-function CanonicalExcalidrawCanvas({
+const SEMANTIC_PAGE_SIZE = 50;
+
+export type WhiteboardCanvasAuthority = Pick<
+  CanonicalExcalidrawAuthority,
+  | "getProjection"
+  | "getScene"
+  | "getSemanticHash"
+  | "redo"
+  | "replaceScene"
+  | "subscribe"
+  | "undo"
+>;
+
+export function CanonicalExcalidrawCanvas({
   authority,
   connectionStatus,
   readOnly,
 }: {
-  authority: CanonicalExcalidrawAuthority;
+  authority: WhiteboardCanvasAuthority;
   connectionStatus: CollaborationConnectionStatus;
   readOnly: boolean;
 }) {
@@ -135,10 +155,33 @@ function CanonicalExcalidrawCanvas({
   const [api, setAPI] = useState<ExcalidrawImperativeAPI | null>(null);
   const [semanticRevision, setSemanticRevision] = useState(0);
   const applyingRemoteRef = useRef(false);
+  const canvasRef = useRef<HTMLDivElement>(null);
+  const semanticHeadingRef = useRef<HTMLHeadingElement>(null);
+  const semanticDescriptionID = useId();
   const initialProjection = useMemo(
     () => authority.getProjection(),
     [authority],
   );
+
+  useEffect(() => {
+    const root = canvasRef.current;
+    if (root === null) return;
+    const normalizeExcalidrawSemantics = () => {
+      const menuTrigger =
+        root.querySelector<HTMLButtonElement>(".main-menu-trigger");
+      if (menuTrigger && !menuTrigger.getAttribute("aria-label")) {
+        menuTrigger.setAttribute("aria-label", t("whiteboard.menu"));
+      }
+      root.querySelectorAll("footer").forEach((footer) => {
+        footer.setAttribute("aria-label", t("whiteboard.footerControls"));
+        footer.setAttribute("role", "group");
+      });
+    };
+    normalizeExcalidrawSemantics();
+    const observer = new MutationObserver(normalizeExcalidrawSemantics);
+    observer.observe(root, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, [t]);
 
   useEffect(() => {
     if (api === null) return;
@@ -207,7 +250,22 @@ function CanonicalExcalidrawCanvas({
         {t(`whiteboard.connection.${connectionStatus}`)}
         {readOnly ? ` · ${t("whiteboard.readOnly")}` : ""}
       </p>
-      <div className="whiteboard-engine-canvas">
+      <div className="whiteboard-semantic-actions">
+        <Button
+          onClick={() => semanticHeadingRef.current?.focus()}
+          variant="secondary"
+        >
+          {t("whiteboard.readSemantic")}
+        </Button>
+      </div>
+      <div
+        aria-describedby={semanticDescriptionID}
+        aria-label={t("whiteboard.canvasLabel")}
+        className="whiteboard-engine-canvas"
+        ref={canvasRef}
+        role="region"
+        tabIndex={-1}
+      >
         <Excalidraw
           excalidrawAPI={setAPI}
           initialData={{
@@ -237,29 +295,115 @@ function CanonicalExcalidrawCanvas({
           viewModeEnabled={readOnly}
         />
       </div>
-      <section
-        aria-label={t("whiteboard.semanticTitle")}
-        className="whiteboard-semantic-fallback"
-        data-semantic-revision={semanticRevision}
-      >
-        <h3>{t("whiteboard.semanticTitle")}</h3>
-        {semanticScene.elements.length === 0 ? (
-          <p>{t("whiteboard.semanticEmpty")}</p>
-        ) : (
-          <ol>
-            {semanticScene.elements.map((element) => (
-              <li key={element.id}>
-                {semanticElementLabel(element, t("whiteboard.untitledElement"))}
-              </li>
-            ))}
-          </ol>
-        )}
-      </section>
+      <WhiteboardSemanticFallback
+        canvasRef={canvasRef}
+        descriptionID={semanticDescriptionID}
+        elements={semanticScene.elements}
+        headingRef={semanticHeadingRef}
+        revision={semanticRevision}
+      />
     </div>
+  );
+}
+
+export function WhiteboardSemanticFallback({
+  canvasRef,
+  descriptionID,
+  elements,
+  headingRef,
+  revision,
+}: {
+  canvasRef: RefObject<HTMLDivElement | null>;
+  descriptionID: string;
+  elements: CanonicalElementV1[];
+  headingRef: RefObject<HTMLHeadingElement | null>;
+  revision: number;
+}) {
+  const { t } = useI18n();
+  const [pageIndex, setPageIndex] = useState(0);
+  const pageCount = Math.max(
+    1,
+    Math.ceil(elements.length / SEMANTIC_PAGE_SIZE),
+  );
+  const activePageIndex = Math.min(pageIndex, pageCount - 1);
+  const visibleElements = useMemo(
+    () =>
+      elements.slice(
+        activePageIndex * SEMANTIC_PAGE_SIZE,
+        (activePageIndex + 1) * SEMANTIC_PAGE_SIZE,
+      ),
+    [activePageIndex, elements],
+  );
+
+  return (
+    <section
+      aria-labelledby="whiteboard-semantic-title"
+      className="whiteboard-semantic-fallback"
+      data-semantic-revision={revision}
+      data-testid="whiteboard-semantic-fallback"
+    >
+      <h3 id="whiteboard-semantic-title" ref={headingRef} tabIndex={-1}>
+        {t("whiteboard.semanticTitle")}
+      </h3>
+      <p id={descriptionID}>{t("whiteboard.semanticDescription")}</p>
+      <p
+        aria-atomic="true"
+        aria-live="polite"
+        data-testid="whiteboard-semantic-page"
+      >
+        {t("whiteboard.semanticPage")} {activePageIndex + 1}/{pageCount} ·{" "}
+        {elements.length} {t("whiteboard.semanticElements")}
+      </p>
+      <div
+        aria-label={t("whiteboard.semanticNavigation")}
+        className="whiteboard-semantic-navigation"
+        role="group"
+      >
+        <Button
+          disabled={activePageIndex === 0}
+          onClick={() => setPageIndex((current) => Math.max(0, current - 1))}
+          variant="secondary"
+        >
+          {t("whiteboard.semanticPrevious")}
+        </Button>
+        <Button
+          disabled={activePageIndex >= pageCount - 1}
+          onClick={() =>
+            setPageIndex((current) => Math.min(pageCount - 1, current + 1))
+          }
+          variant="secondary"
+        >
+          {t("whiteboard.semanticNext")}
+        </Button>
+        <Button onClick={() => canvasRef.current?.focus()} variant="secondary">
+          {t("whiteboard.focusCanvas")}
+        </Button>
+      </div>
+      {visibleElements.length === 0 ? (
+        <p>{t("whiteboard.semanticEmpty")}</p>
+      ) : (
+        <ol
+          className="whiteboard-semantic-list"
+          start={activePageIndex * SEMANTIC_PAGE_SIZE + 1}
+        >
+          {visibleElements.map((element) => (
+            <li key={element.id}>
+              {semanticElementLabel(element, t("whiteboard.untitledElement"))}
+            </li>
+          ))}
+        </ol>
+      )}
+    </section>
   );
 }
 
 function semanticElementLabel(element: CanonicalElementV1, fallback: string) {
   const text = typeof element.text === "string" ? element.text.trim() : "";
-  return `${element.type}: ${text || fallback} (${Math.round(Number(element.x))}, ${Math.round(Number(element.y))})`;
+  const label = text ? truncateSemanticText(text) : fallback;
+  return `${element.type}: ${label}; x ${Math.round(Number(element.x))}, y ${Math.round(Number(element.y))}; ${Math.round(Number(element.width))} × ${Math.round(Number(element.height))}`;
+}
+
+function truncateSemanticText(value: string) {
+  const normalized = value.replace(/\s+/g, " ").trim();
+  return normalized.length <= 240 ? normalized : `${normalized.slice(0, 239)}…`;
 }

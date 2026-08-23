@@ -8,7 +8,8 @@
     "build": "tsc -b && vite build",
     "lint": "eslint src e2e vite.config.ts playwright.calendar.config.ts",
     "typecheck": "tsc -b --pretty false && tsc -p tsconfig.e2e.json --pretty false",
-    "test": "vitest run"
+    "test": "vitest run",
+    "p5-collab-15:browser": "node scripts/run-p515-browser-matrix.mjs"
   },
   "dependencies": {
     "@fullcalendar/react": "7.0.1",

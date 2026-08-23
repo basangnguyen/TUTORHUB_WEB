@@ -91,7 +91,6 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(
     return (
       <button
         {...props}
-        aria-label={label}
         aria-busy={loading || undefined}
         className={cx(
           "th-button",
@@ -104,6 +103,7 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(
         ref={ref}
         type={type}
       >
+        <span className="th-icon-button__label">{label}</span>
         {loading ? (
           <LoaderCircle aria-hidden="true" className="th-button__spinner" />
         ) : (

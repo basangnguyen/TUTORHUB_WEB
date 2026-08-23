@@ -5449,12 +5449,49 @@ textarea:focus-visible {
   margin: 0;
 }
 
+.p515-harness {
+  display: grid;
+  min-height: 100vh;
+  align-content: start;
+  gap: var(--space-5);
+  padding: var(--space-6);
+  background: var(--color-canvas);
+  color: var(--color-text);
+}
+
+.p515-harness-card {
+  max-width: 64rem;
+  padding: var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-raised);
+}
+
+.p515-harness-actions,
+.p515-harness-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.whiteboard-semantic-actions,
+.whiteboard-semantic-navigation {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
 .whiteboard-engine-canvas {
   min-height: 28rem;
   height: min(65vh, 48rem);
   overflow: hidden;
   border-radius: var(--radius-lg);
   background: #fff;
+}
+
+.whiteboard-engine-canvas:focus-visible {
+  outline: 3px solid var(--color-focus-ring);
+  outline-offset: 3px;
 }
 
 .whiteboard-semantic-fallback {
@@ -5469,6 +5506,10 @@ textarea:focus-visible {
   margin-top: 0;
 }
 
+.whiteboard-semantic-list {
+  overflow-wrap: anywhere;
+}
+
 @media (max-width: 42rem) {
   .media-p506-tool-drawer {
     width: calc(100vw - 16px);
@@ -5477,6 +5518,34 @@ textarea:focus-visible {
   .whiteboard-engine-canvas {
     min-height: 22rem;
     height: 55vh;
+  }
+
+  .whiteboard-semantic-navigation > button {
+    flex: 1 1 10rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .media-p506-tool-drawer *,
+  .whiteboard-engine * {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media (forced-colors: active) {
+  .media-p506-tool-drawer,
+  .whiteboard-tool-state,
+  .whiteboard-engine-canvas,
+  .whiteboard-semantic-fallback {
+    border: 2px solid CanvasText;
+    forced-color-adjust: auto;
+  }
+
+  .whiteboard-engine-canvas:focus-visible {
+    outline-color: Highlight;
   }
 }
 

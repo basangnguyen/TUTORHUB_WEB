@@ -11,7 +11,7 @@
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
 | Phase hiện tại        | Phase 5 collaboration implementation; Phase 3 deferred carry-over tiếp tục                   |
-| Trạng thái gần nhất   | P5-COLLAB-14 `DONE`; P5-COLLAB-15 `TODO`                                                    |
+| Trạng thái gần nhất   | P5-COLLAB-15 `VERIFY`; physical Chrome/Edge + NVDA PASS; còn candidate/CI closure             |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 
@@ -1809,6 +1809,17 @@ production tiếp tục force-off. Full repository verify và final diff/no-secr
 `e1b1201` đã push lên `origin/main`; GitHub Verify `32621951917` và Security `32621951910` đều PASS.
 P5-COLLAB-15 là task runnable tiếp theo.
 Acceptance: [`P5_COLLAB_14_STAGING_ACCEPTANCE.md`](P5_COLLAB_14_STAGING_ACCEPTANCE.md).
+
+P5-COLLAB-15 checkpoint 2026-08-23 — `VERIFY`: production semantic fallback có focus handoff và
+pagination 50 phần tử/trang; pinned Excalidraw adapter sửa menu accessible name và nested footer
+landmark. Installed headful Chrome `152.0.7977.54` và Edge `151.0.4129.101` PASS keyboard, named tools,
+focus recovery, semantic page 2/2, reconnect/failure status, constrained reflow, forced colors,
+reduced motion và Axe `0/0`. Firefox/Safari/mobile được công bố `UNAVAILABLE`. Owner physical
+Chrome/Edge + NVDA tại browser zoom 200% PASS dialog, named toolbar, semantic fallback,
+reconnect/failure/restore announcements và focus recovery. Production tiếp tục force-off, không
+provider/shared-staging/deploy. Còn exact candidate commit/push và GitHub Verify/Security để chuyển
+`VERIFY -> DONE`; P5-COLLAB-16 chưa bắt đầu. Acceptance:
+[`P5_COLLAB_15_STAGING_ACCEPTANCE.md`](P5_COLLAB_15_STAGING_ACCEPTANCE.md).
 
 **Deliverable:** teacher mở/đóng công cụ mà không làm rời media room; trạng thái cộng tác khôi phục sau reconnect.
 
