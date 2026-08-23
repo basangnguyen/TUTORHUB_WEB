@@ -16,8 +16,8 @@
   },
   "devDependencies": {
     "openapi-typescript": "7.13.0",
-    "prettier": "3.9.5",
-    "vitest": "4.1.10"
+    "prettier": "3.9.6",
+    "vitest": "4.1.11"
   },
   "dependencies": {
     "openapi-fetch": "0.17.0"
