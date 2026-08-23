@@ -70,22 +70,51 @@ func TestWhiteboardCreateRequiresCSRFExpectedTenantAndStrictBody(t *testing.T) {
 func TestWhiteboardDeploymentGuardAuthenticatesThenFailsClosed(t *testing.T) {
 	t.Parallel()
 
-	tenantID, actorID := uuid.New(), uuid.New()
+	tenantID, actorID, documentID := uuid.New(), uuid.New(), uuid.New()
 	handler := newWhiteboardTestHandler(classIdentityService(tenantID, actorID, nil), nil)
-	request := whiteboardRequest(http.MethodGet, whiteboardsCollectionPath+"/"+uuid.NewString(), "", tenantID, false)
-	response := httptest.NewRecorder()
-	handler.ServeHTTP(response, request)
-	if response.Code != http.StatusServiceUnavailable {
-		t.Fatalf("deployment-force-off route must return 503 after auth: status=%d body=%s", response.Code, response.Body.String())
+	tests := []struct {
+		name     string
+		method   string
+		path     string
+		mutation bool
+	}{
+		{name: "resolve", method: http.MethodGet, path: whiteboardsCollectionPath + "?media_space_id=" + uuid.NewString()},
+		{name: "create", method: http.MethodPost, path: whiteboardsCollectionPath, mutation: true},
+		{name: "read", method: http.MethodGet, path: whiteboardsCollectionPath + "/" + documentID.String()},
+		{name: "capabilities", method: http.MethodGet, path: whiteboardsCollectionPath + "/" + documentID.String() + "/capabilities"},
+		{name: "open", method: http.MethodPost, path: whiteboardsCollectionPath + "/" + documentID.String() + "/open", mutation: true},
+		{name: "suspend", method: http.MethodPost, path: whiteboardsCollectionPath + "/" + documentID.String() + "/suspend", mutation: true},
+		{name: "resume", method: http.MethodPost, path: whiteboardsCollectionPath + "/" + documentID.String() + "/resume", mutation: true},
+		{name: "close", method: http.MethodPost, path: whiteboardsCollectionPath + "/" + documentID.String() + "/close", mutation: true},
+		{name: "grant", method: http.MethodPost, path: whiteboardsCollectionPath + "/" + documentID.String() + "/grant-exchanges", mutation: true},
+		{name: "list snapshots", method: http.MethodGet, path: whiteboardsCollectionPath + "/" + documentID.String() + "/snapshots"},
+		{name: "create snapshot", method: http.MethodPost, path: whiteboardsCollectionPath + "/" + documentID.String() + "/snapshots", mutation: true},
+		{name: "export", method: http.MethodPost, path: whiteboardsCollectionPath + "/" + documentID.String() + "/exports", mutation: true},
+		{name: "restore", method: http.MethodPost, path: whiteboardsCollectionPath + "/" + documentID.String() + "/restore", mutation: true},
+		{name: "validate import", method: http.MethodPost, path: whiteboardImportValidatePath, mutation: true},
 	}
-	var problem Problem
-	if err := json.Unmarshal(response.Body.Bytes(), &problem); err != nil {
-		t.Fatalf("decode force-off problem: %v", err)
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			request := whiteboardRequest(test.method, test.path, "", tenantID, test.mutation)
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, request)
+			if response.Code != http.StatusServiceUnavailable {
+				t.Fatalf("deployment-force-off route must return 503 after auth: status=%d body=%s", response.Code, response.Body.String())
+			}
+			var problem Problem
+			if err := json.Unmarshal(response.Body.Bytes(), &problem); err != nil {
+				t.Fatalf("decode force-off problem: %v", err)
+			}
+			if problem.Code != "whiteboard_unavailable" ||
+				strings.Contains(response.Body.String(), tenantID.String()) ||
+				strings.Contains(problem.Detail, documentID.String()) {
+				t.Fatalf("unexpected or disclosing force-off problem: %s", response.Body.String())
+			}
+			assertWhiteboardPrivacyHeaders(t, response)
+		})
 	}
-	if problem.Code != "whiteboard_unavailable" {
-		t.Fatalf("unexpected force-off problem: %+v", problem)
-	}
-	assertWhiteboardPrivacyHeaders(t, response)
 }
 
 func TestWhiteboardReadConcealsMissingForeignAndInaccessibleResources(t *testing.T) {

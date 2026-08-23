@@ -213,6 +213,25 @@ func TestCatalogPrecedenceCannotBypassDeploymentGuardrails(t *testing.T) {
 	}
 }
 
+func TestClassroomWhiteboardTenantOverrideCannotBypassDeploymentForceOff(t *testing.T) {
+	t.Parallel()
+
+	catalog, err := NewCatalog(Guardrails{
+		ForcedOffFeatures: map[FeatureKey]bool{FeatureClassroomWhiteboards: true},
+	})
+	if err != nil {
+		t.Fatalf("create whiteboard force-off catalog: %v", err)
+	}
+	enabled := true
+	feature, err := catalog.EvaluateFeature(FeatureClassroomWhiteboards, &enabled)
+	if err != nil {
+		t.Fatalf("evaluate whiteboard force-off: %v", err)
+	}
+	if feature.Enabled || feature.Source != ValueSourceDeploymentGuardrail {
+		t.Fatalf("tenant override bypassed whiteboard force-off: %+v", feature)
+	}
+}
+
 func TestCatalogRejectsUnknownAndInvalidGuardrails(t *testing.T) {
 	t.Parallel()
 

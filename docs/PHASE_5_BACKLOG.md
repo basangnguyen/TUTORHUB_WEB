@@ -31,7 +31,9 @@
 > P5-COLLAB-16 đã `DONE` trên exact candidate `1c1111c`: failure/outage/provider-exit aggregate PASS
 > runtime `20/20`, outage guards `8/8`, collaboration client `9/9` và Core API collaboration authority;
 > GitHub Verify `32643119744` và Security `32643119716` đều PASS. Không migration/provider mutation/
-> shared-staging/deploy; production whiteboard vẫn force-off tới rollout gate P5-COLLAB-17.
+> shared-staging/deploy; production whiteboard vẫn force-off. P5-COLLAB-17 đang `VERIFY`: local
+> force-off candidate PASS Core API/web/P5-COLLAB-16 regression và disposable validator; exact
+> candidate CI, disposable Neon/B2, shared-staging force-off và physical Chrome/Edge vẫn pending.
 
 ## 1. Mục tiêu phase
 
@@ -97,7 +99,7 @@ Xây collaboration plane cho lớp học mà không làm rời hoặc làm yếu
 | P5-COLLAB-14 | Test           | Performance 500/2.000 shapes và 2/10/50 người   | P5-COLLAB-05..09           | DONE       |
 | P5-COLLAB-15 | Test           | Accessibility và browser matrix                 | P5-COLLAB-06, P5-COLLAB-08 | DONE       |
 | P5-COLLAB-16 | Test           | Failure, outage và provider exit                | P5-COLLAB-05..09           | DONE       |
-| P5-COLLAB-17 | Rollout        | Force-off staging acceptance                    | P5-COLLAB-10..16           | TODO       |
+| P5-COLLAB-17 | Rollout        | Force-off staging acceptance                    | P5-COLLAB-10..16           | VERIFY     |
 | P5-COLLAB-18 | Rollout        | Internal canary                                 | P5-COLLAB-17               | TODO       |
 | P5-COLLAB-19 | Rollout        | Private alpha                                   | P5-COLLAB-18               | TODO       |
 | P5-COLLAB-20 | Rollout        | Ramp và rollback/exit review                    | P5-COLLAB-19               | TODO       |
@@ -577,6 +579,14 @@ Acceptance:
 ## 8. Rollout slices
 
 ### P5-COLLAB-17 - Force-off staging acceptance
+
+Candidate checkpoint 2026-08-23 — `VERIFY`: static deployment force-off, Core API config/catalog/
+HTTP privacy, web disabled/503 contract và P5-COLLAB-16 regression đều PASS. Disposable runner chỉ
+chấp nhận bốn exact same-branch PostgreSQL roles, scoped B2 bucket và explicit confirmation; validator
+PASS `3/3`. Full repository verify PASS; Go test/vet PASS với writable temporary `GOCACHE` sau khi
+Windows sandbox chặn default cache. Chưa publish exact candidate, chưa connect/migrate disposable,
+chưa shared-staging write, deploy hoặc enable whiteboard. Acceptance:
+[`P5_COLLAB_17_STAGING_ACCEPTANCE.md`](P5_COLLAB_17_STAGING_ACCEPTANCE.md).
 
 **Exit gate:**
 

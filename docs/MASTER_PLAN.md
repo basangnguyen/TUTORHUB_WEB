@@ -11,7 +11,7 @@
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
 | Phase hiện tại        | Phase 5 collaboration implementation; Phase 3 deferred carry-over tiếp tục                   |
-| Trạng thái gần nhất   | P5-COLLAB-16 `DONE`; exact candidate và GitHub Verify/Security PASS                         |
+| Trạng thái gần nhất   | P5-COLLAB-17 `VERIFY`; local force-off candidate PASS, external gates pending                |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 
@@ -1831,6 +1831,15 @@ Không migration/provider mutation/shared-staging/deploy; production vẫn force
 PASS trong 35,9 giây. Exact candidate `1c1111c` đã push lên `origin/main`; GitHub Verify
 `32643119744` và Security `32643119716` đều PASS. P5-COLLAB-17 là rollout task tiếp theo. Acceptance:
 [`P5_COLLAB_16_STAGING_ACCEPTANCE.md`](P5_COLLAB_16_STAGING_ACCEPTANCE.md).
+
+P5-COLLAB-17 candidate 2026-08-23 — `VERIFY`: deployment force-off được khóa ở config, feature
+catalog, authenticated HTTP routes và web fallback. Local aggregate PASS Core API force-off,
+web `6/6`, P5-COLLAB-16 runtime/outage/client regressions và disposable environment validator `3/3`.
+Full repository verify PASS; Go test/vet PASS với writable temporary `GOCACHE` sau khi Windows sandbox
+chặn default cache. Không provider connection, migration, shared-staging write, deploy hoặc feature enable. Exact
+candidate GitHub CI/security, disposable Neon/B2, shared-staging force-off, physical Chrome/Edge và
+cleanup snapshot vẫn pending. Acceptance:
+[`P5_COLLAB_17_STAGING_ACCEPTANCE.md`](P5_COLLAB_17_STAGING_ACCEPTANCE.md).
 
 **Deliverable:** teacher mở/đóng công cụ mà không làm rời media room; trạng thái cộng tác khôi phục sau reconnect.
 

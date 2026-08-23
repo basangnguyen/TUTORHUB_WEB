@@ -173,6 +173,22 @@ func TestFeatureControlGuardrailsForceOffMediaAndApplyCeilings(t *testing.T) {
 	}
 }
 
+func TestFeatureControlGuardrailsForceOffClassroomWhiteboards(t *testing.T) {
+	t.Parallel()
+
+	guardrails := featureControlGuardrails(config.FeatureControlConfig{
+		EnableClassSessionRecurrence: true,
+		EnableInAppNotifications:     true,
+		EnableClassroomMediaRooms:    true,
+		EnableInstantStudyRooms:      true,
+		EnableClassroomWhiteboards:   false,
+	})
+	if len(guardrails.ForcedOffFeatures) != 1 ||
+		!guardrails.ForcedOffFeatures[featurecontrol.FeatureClassroomWhiteboards] {
+		t.Fatalf("whiteboard deployment force-off was not mapped exactly: %+v", guardrails.ForcedOffFeatures)
+	}
+}
+
 func TestAvailabilityPollFeatureFailsClosedWithoutProtectedData(t *testing.T) {
 	t.Parallel()
 

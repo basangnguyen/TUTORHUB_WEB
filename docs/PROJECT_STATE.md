@@ -14,8 +14,26 @@
 | Phase hiện tại       | Phase 5 collaboration implementation; Phase 3 deferred carry-over vẫn hoạt động       |
 | Task `DONE` gần nhất | P5-COLLAB-16 Failure, outage và provider exit                                          |
 | Mốc repository mới   | `1c1111c`; GitHub Verify `32643119744` và Security `32643119716` đều PASS              |
-| Task hiện tại        | P5-COLLAB-16 — `DONE`                                                                  |
-| Task tiếp theo       | P5-COLLAB-17 Force-off staging acceptance                                              |
+| Task hiện tại        | P5-COLLAB-17 Force-off staging acceptance — `VERIFY`                                   |
+| Task tiếp theo       | Exact candidate CI, rồi disposable Neon/B2 trước shared staging                        |
+
+### Checkpoint P5-COLLAB-17 `VERIFY` — 2026-08-23
+
+Local force-off candidate đã khóa `.env.example`, Core API config/catalog/deployment guard và web
+fallback ở `FEATURE_CONTROL_ENABLE_CLASSROOM_WHITEBOARDS=false`. Tenant override không thể vượt
+deployment guardrail; toàn bộ 14 route whiteboard xác thực trước rồi fail closed `503
+whiteboard_unavailable`, có privacy headers và không lộ tenant/document. Local aggregate PASS Core
+API force-off packages, web `6/6`, P5-COLLAB-16 runtime `20/20`, outage `8/8`, collaboration client
+`9/9` và Core API authority. Disposable environment validator PASS `3/3` và chỉ chấp nhận bốn exact
+same-branch PostgreSQL roles cùng scoped B2 disposable. Full repository verify PASS; Go test/vet
+được chạy lại bằng writable temporary `GOCACHE` vì Windows sandbox chặn default cache, không phải lỗi
+source.
+
+Task giữ `VERIFY`: chưa stage/commit/push candidate, chưa chạy GitHub CI, chưa kết nối disposable,
+không migration/shared-staging write, không deploy và không bật whiteboard. Các gate còn lại là exact
+candidate Verify/Security, disposable migration/ACL/database/B2 tại final `41 false`, shared staging
+force-off sau disposable report, physical Chrome/Edge staging matrix và cleanup snapshot. Acceptance:
+[`P5_COLLAB_17_STAGING_ACCEPTANCE.md`](P5_COLLAB_17_STAGING_ACCEPTANCE.md).
 
 ### Checkpoint P5-COLLAB-16 `DONE` — 2026-08-23
 
