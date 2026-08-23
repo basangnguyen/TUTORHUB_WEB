@@ -1789,6 +1789,14 @@ candidate `0b4ee83` đã push lên `origin/main`; GitHub Verify `32607940566` v�
 PASS. P5-COLLAB-13 là task runnable tiếp theo. Acceptance:
 [`P5_COLLAB_12_STAGING_ACCEPTANCE.md`](P5_COLLAB_12_STAGING_ACCEPTANCE.md).
 
+P5-COLLAB-13 checkpoint 2026-08-23 — `VERIFY`: local matrix `7/7`, production artifact regression
+`8/8`, runner validation `3/3` và full `pnpm verify` PASS. Owner-authorized Neon disposable replay
+`37 false -> 41 false -> 41 false`, exact collaboration-worker ACL, PostgreSQL control-plane và hai
+aggregate Neon/B2 liên tiếp đều PASS; final ledger giữ `41 false`, cleanup zero và last-good recovery giữ
+`RPO=last_verified_artifact` với RTO quan sát `2654 ms`/`2472 ms`. Gate đã phát hiện rồi sửa fixture
+cleanup không idempotent trước rerun xanh. Không rollback/shared-staging write/deploy; production tiếp tục
+force-off. Task còn final diff/no-secret review, commit/push và GitHub Verify/Security trước `DONE`.
+
 **Deliverable:** teacher mở/đóng công cụ mà không làm rời media room; trạng thái cộng tác khôi phục sau reconnect.
 
 **Exit gate:**

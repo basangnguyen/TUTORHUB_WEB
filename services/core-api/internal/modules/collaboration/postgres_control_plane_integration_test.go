@@ -45,7 +45,7 @@ func TestWhiteboardControlPlanePostgresGates(t *testing.T) {
 	if err != nil {
 		t.Fatal("open P5-COLLAB-02 migration pool")
 	}
-	defer pool.Close()
+	t.Cleanup(pool.Close)
 
 	var version int
 	var dirty bool
@@ -57,13 +57,11 @@ func TestWhiteboardControlPlanePostgresGates(t *testing.T) {
 	if version != 41 || dirty {
 		t.Fatal("whiteboard PostgreSQL gates require latest ledger 41 false")
 	}
+	cleanupWhiteboardPostgresFixtureResidue(t, pool)
 
 	fixture := seedWhiteboardPostgresFixture(t, ctx, pool)
 	t.Cleanup(func() {
-		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 30*time.Second)
-		defer cleanupCancel()
-		_, _ = pool.Exec(cleanupCtx, `DELETE FROM tutorhub.tenants WHERE id = $1`, fixture.tenantID)
-		_, _ = pool.Exec(cleanupCtx, `DELETE FROM tutorhub.users WHERE id = $1`, fixture.actorID)
+		cleanupWhiteboardPostgresFixture(t, pool, fixture)
 	})
 
 	assertWhiteboardLifecycleCASAndIdempotency(t, ctx, pool, fixture)
@@ -305,7 +303,8 @@ func assertWhiteboardRestoreGenerationSwap(
 	fixture whiteboardPostgresFixture,
 ) {
 	t.Helper()
-	watermark, content := sha256.Sum256([]byte("watermark")), sha256.Sum256([]byte("content"))
+	watermark := sha256.Sum256([]byte("watermark-" + fixture.snapshotID.String()))
+	content := sha256.Sum256([]byte("content-" + fixture.snapshotID.String()))
 	if _, err := pool.Exec(ctx, `INSERT INTO tutorhub.whiteboard_snapshots
         (id, tenant_id, document_id, generation, snapshot_kind, format_version,
          schema_version, causal_watermark_sha256, content_sha256, size_bytes,
@@ -369,6 +368,96 @@ func assertWhiteboardRestoreGenerationSwap(
 	}
 	if generations != 2 || restoreReceipts != 1 {
 		t.Fatalf("restore catalogs = generations %d receipts %d, want 2/1", generations, restoreReceipts)
+	}
+}
+
+func cleanupWhiteboardPostgresFixtureResidue(t *testing.T, pool *pgxpool.Pool) {
+	t.Helper()
+	cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cleanupCancel()
+	tx, err := pool.Begin(cleanupCtx)
+	if err != nil {
+		t.Fatalf("begin P5-COLLAB-02 residue cleanup: %v", err)
+	}
+	defer func() { _ = tx.Rollback(context.Background()) }()
+	if _, err := tx.Exec(cleanupCtx, `SET CONSTRAINTS ALL DEFERRED`); err != nil {
+		t.Fatalf("defer P5-COLLAB-02 residue constraints: %v", err)
+	}
+	cleanupWhiteboardPostgresTenants(t, cleanupCtx, tx, `SELECT id FROM tutorhub.tenants WHERE slug LIKE 'p502-%'`)
+	if _, err := tx.Exec(cleanupCtx, `DELETE FROM tutorhub.users
+		WHERE email LIKE 'p502-%@example.test'`); err != nil {
+		t.Fatalf("delete P5-COLLAB-02 residue users: %v", err)
+	}
+	if err := tx.Commit(cleanupCtx); err != nil {
+		t.Fatalf("commit P5-COLLAB-02 residue cleanup: %v", err)
+	}
+}
+
+func cleanupWhiteboardPostgresFixture(
+	t *testing.T,
+	pool *pgxpool.Pool,
+	fixture whiteboardPostgresFixture,
+) {
+	t.Helper()
+	cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cleanupCancel()
+	tx, err := pool.Begin(cleanupCtx)
+	if err != nil {
+		t.Errorf("begin P5-COLLAB-02 fixture cleanup: %v", err)
+		return
+	}
+	defer func() { _ = tx.Rollback(context.Background()) }()
+	if _, err := tx.Exec(cleanupCtx, `SET CONSTRAINTS ALL DEFERRED`); err != nil {
+		t.Errorf("defer P5-COLLAB-02 fixture constraints: %v", err)
+		return
+	}
+	cleanupWhiteboardPostgresTenants(t, cleanupCtx, tx, `SELECT $1::uuid`, fixture.tenantID)
+	if _, err := tx.Exec(cleanupCtx,
+		`DELETE FROM tutorhub.users WHERE id = $1`, fixture.actorID,
+	); err != nil {
+		t.Errorf("delete P5-COLLAB-02 fixture user: %v", err)
+		return
+	}
+	if err := tx.Commit(cleanupCtx); err != nil {
+		t.Errorf("commit P5-COLLAB-02 fixture cleanup: %v", err)
+	}
+}
+
+func cleanupWhiteboardPostgresTenants(
+	t *testing.T,
+	ctx context.Context,
+	tx pgx.Tx,
+	tenantQuery string,
+	tenantArgs ...any,
+) {
+	t.Helper()
+	tables := []string{
+		"whiteboard_artifact_purge_queue",
+		"whiteboard_artifact_commands",
+		"whiteboard_document_checkpoints",
+		"whiteboard_document_mutation_receipts",
+		"whiteboard_capability_policies",
+		"whiteboard_snapshots",
+		"whiteboard_documents",
+		"media_spaces",
+		"class_sessions",
+		"classes",
+	}
+	for _, table := range tables {
+		query := fmt.Sprintf(
+			"DELETE FROM tutorhub.%s WHERE tenant_id IN (%s)",
+			table,
+			tenantQuery,
+		)
+		if _, err := tx.Exec(ctx, query, tenantArgs...); err != nil {
+			t.Fatalf("delete P5-COLLAB-02 residue from %s: %v", table, err)
+		}
+	}
+	if _, err := tx.Exec(ctx,
+		"DELETE FROM tutorhub.tenants WHERE id IN ("+tenantQuery+")",
+		tenantArgs...,
+	); err != nil {
+		t.Fatalf("delete P5-COLLAB-02 residue tenants: %v", err)
 	}
 }
 

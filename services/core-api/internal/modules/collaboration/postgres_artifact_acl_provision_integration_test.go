@@ -15,6 +15,7 @@ import (
 
 const (
 	p5Collab07ACLConfirmation = "I_UNDERSTAND_P5_COLLAB_07_ACL_PROVISION_DISPOSABLE_ONLY"
+	p5Collab13ACLConfirmation = "I_UNDERSTAND_P5_COLLAB_13_ACL_PROVISION_DISPOSABLE_ONLY"
 )
 
 var artifactCoreInsertColumns = []string{
@@ -48,7 +49,19 @@ func TestProvisionWhiteboardArtifactWorkerExactACL(t *testing.T) {
 	if strings.TrimSpace(os.Getenv("P5_COLLAB_02_DISPOSABLE_CONFIRM")) != p5Collab02DisposableConfirmation {
 		t.Skip("P5_COLLAB_02_DISPOSABLE_CONFIRM is not set to the disposable-only confirmation")
 	}
-	runWhiteboardControlPlaneExactACLProvision(t, true)
+	runWhiteboardArtifactWorkerExactACLProvision(t, true, 0)
+}
+
+func TestProvisionP513WhiteboardArtifactWorkerExactACL(t *testing.T) {
+	if strings.TrimSpace(os.Getenv("P5_COLLAB_13_ACL_PROVISION_CONFIRM")) != p5Collab13ACLConfirmation {
+		t.Skip("P5_COLLAB_13_ACL_PROVISION_CONFIRM is not set to the disposable-only confirmation")
+	}
+	runWhiteboardArtifactWorkerExactACLProvision(t, false, 41)
+}
+
+func runWhiteboardArtifactWorkerExactACLProvision(t *testing.T, applyMigration bool, expectedVersion uint) {
+	t.Helper()
+	runWhiteboardControlPlaneExactACLProvision(t, applyMigration, expectedVersion)
 
 	migrationURL := strings.TrimSpace(os.Getenv("DATABASE_MIGRATION_URL"))
 	coreRuntimeURL := strings.TrimSpace(os.Getenv("DATABASE_POOL_URL"))

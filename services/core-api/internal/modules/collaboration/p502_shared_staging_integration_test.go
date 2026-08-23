@@ -43,7 +43,7 @@ func TestProvisionWhiteboardControlPlaneExactSharedACL(t *testing.T) {
 	requireP502SharedConfirmation(t, "P5_COLLAB_02_SHARED_ACL_PROVISION_CONFIRM")
 	migrationURL, runtimeURL, maintenanceURL := requireP502SharedDatabaseURLs(t)
 	requireP502SharedNeonBoundary(t, migrationURL, runtimeURL, maintenanceURL)
-	runWhiteboardControlPlaneExactACLProvision(t, false)
+	runWhiteboardControlPlaneExactACLProvision(t, false, 37)
 }
 
 func TestPostgresP502SharedFinalSnapshot(t *testing.T) {

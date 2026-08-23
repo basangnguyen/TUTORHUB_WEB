@@ -67,10 +67,10 @@ func TestProvisionWhiteboardControlPlaneExactACL(t *testing.T) {
 		t.Skip("P5_COLLAB_02_ACL_PROVISION_CONFIRM is not set to the disposable-only confirmation")
 	}
 	requireP5Collab02Disposable(t)
-	runWhiteboardControlPlaneExactACLProvision(t, true)
+	runWhiteboardControlPlaneExactACLProvision(t, true, 0)
 }
 
-func runWhiteboardControlPlaneExactACLProvision(t *testing.T, applyMigration bool) {
+func runWhiteboardControlPlaneExactACLProvision(t *testing.T, applyMigration bool, expectedVersion uint) {
 	t.Helper()
 	migrationURL := strings.TrimSpace(os.Getenv("DATABASE_MIGRATION_URL"))
 	runtimeURL := strings.TrimSpace(os.Getenv("DATABASE_POOL_URL"))
@@ -87,8 +87,8 @@ func runWhiteboardControlPlaneExactACLProvision(t *testing.T, applyMigration boo
 		}
 	} else {
 		version, err := migrationrunner.CurrentVersion(ctx, migrationURL)
-		if err != nil || version.Number != 37 || version.Dirty {
-			t.Fatal("P5-COLLAB-02 shared ACL provisioning requires ledger 37 false")
+		if err != nil || version.Number != expectedVersion || version.Dirty {
+			t.Fatalf("whiteboard ACL provisioning requires ledger %d false", expectedVersion)
 		}
 	}
 	migrationPool := openWhiteboardACLPool(t, ctx, migrationURL)
