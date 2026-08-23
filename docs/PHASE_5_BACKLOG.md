@@ -83,7 +83,7 @@ Xây collaboration plane cho lớp học mà không làm rời hoặc làm yếu
 | P5-COLLAB-10 | Test           | Authorization và tenant isolation               | P5-COLLAB-02..09           | DONE       |
 | P5-COLLAB-11 | Test           | Credential/revoke/WebSocket abuse               | P5-COLLAB-04, P5-COLLAB-05 | DONE       |
 | P5-COLLAB-12 | Test           | Convergence/history/undo/reconnect              | P5-COLLAB-05, P5-COLLAB-08 | DONE       |
-| P5-COLLAB-13 | Test           | Snapshot/import/export/restore                  | P5-COLLAB-07, P5-COLLAB-08 | VERIFY     |
+| P5-COLLAB-13 | Test           | Snapshot/import/export/restore                  | P5-COLLAB-07, P5-COLLAB-08 | DONE       |
 | P5-COLLAB-14 | Test           | Performance 500/2.000 shapes và 2/10/50 người   | P5-COLLAB-05..09           | TODO       |
 | P5-COLLAB-15 | Test           | Accessibility và browser matrix                 | P5-COLLAB-06, P5-COLLAB-08 | TODO       |
 | P5-COLLAB-16 | Test           | Failure, outage và provider exit                | P5-COLLAB-05..09           | TODO       |
@@ -477,25 +477,26 @@ Acceptance: [`P5_COLLAB_12_STAGING_ACCEPTANCE.md`](P5_COLLAB_12_STAGING_ACCEPTAN
 - [x] Concurrent edit/restore generation swap atomically; stale generation không ghi tiếp.
 - [x] B2 unavailable/retry/purge concurrency và last-good recovery PASS.
 
-**Checkpoint 2026-08-23 — VERIFY:** local production-adapter matrix PASS `7/7` cho immutable SHA-256 và
+**Checkpoint 2026-08-23 — DONE:** local production-adapter matrix PASS `7/7` cho immutable SHA-256 và
 semantic-hash round-trip, corrupt/incompatible/oversize/malicious quarantine không stage restore,
 B2 unavailable retry rồi last-good recovery, cùng stale-generation pre-write fence. Regression
 envelope/object-store/worker PASS `8/8`; runner allowlist/same-branch/four-role/scoped-B2 validation
 PASS `3/3`; full repository `pnpm verify` PASS với whiteboard-runtime aggregate `136 passed`, `2 skipped`.
-Không migration/shared-staging write/deploy và production tiếp tục force-off. Bốn checkbox
-chỉ được đóng sau exact Neon/B2 disposable aggregate ở clean ledger `41 false`,
-diff/no-secret review và GitHub Verify/Security. Acceptance:
+Không migration/shared-staging write/deploy và production tiếp tục force-off. Bốn checkbox được đóng sau
+exact Neon/B2 disposable aggregate ở clean ledger `41 false`, diff/no-secret review và GitHub
+Verify/Security. Acceptance:
 [`P5_COLLAB_13_STAGING_ACCEPTANCE.md`](P5_COLLAB_13_STAGING_ACCEPTANCE.md).
 
-**Disposable checkpoint 2026-08-23 — VERIFY:** owner-authorized forward replay PASS
+**Disposable checkpoint 2026-08-23 — DONE:** owner-authorized forward replay PASS
 `37 false -> 41 false -> 41 false`; exact collaboration-worker ACL và PostgreSQL control-plane gates
 PASS. Hai aggregate Neon/B2 liên tiếp PASS tại final ledger `41 false`, gồm immutable binding,
 quarantine, concurrent generation swap/stale fence, `SKIP LOCKED` purge/retry và last-good recovery
 `RPO=last_verified_artifact` với RTO quan sát `2654 ms`/`2472 ms`. Gate đã phát hiện fixture cleanup
 không idempotent ở lượt lặp đầu; candidate được sửa để dọn riêng graph tenant disposable `p502-*` theo
 thứ tự dependency, sau đó rerun xanh và cleanup zero. Full `pnpm verify` trên candidate cuối PASS. Không
-rollback, shared-staging write hoặc deploy; production tiếp tục force-off. Task chỉ còn final
-diff/no-secret review, commit/push và GitHub Verify/Security trước khi chuyển `DONE`.
+rollback, shared-staging write hoặc deploy; production tiếp tục force-off. Final diff/no-secret review
+PASS. Exact candidate `e27b205` đã push lên `origin/main`; GitHub Verify `32617970222` và Security
+`32617970234` đều PASS. P5-COLLAB-13 chuyển `VERIFY -> DONE`; P5-COLLAB-14 là task runnable tiếp theo.
 
 ### P5-COLLAB-14 - Performance 500/2.000 shapes và 2/10/50 người
 

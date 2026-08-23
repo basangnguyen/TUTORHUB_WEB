@@ -12,12 +12,12 @@
 | Quy trình            | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
 | Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4                                                    |
 | Phase hiện tại       | Phase 5 collaboration implementation; Phase 3 deferred carry-over vẫn hoạt động       |
-| Task `DONE` gần nhất | P5-COLLAB-12 Convergence/history/undo/reconnect                                        |
-| Mốc repository mới   | Exact candidate `0b4ee83`; GitHub Verify `32607940566`, Security `32607940492` PASS   |
-| Task hiện tại        | P5-COLLAB-13 Snapshot/import/export/restore — `VERIFY`                                |
-| Task tiếp theo       | Final review, commit/push và GitHub Verify/Security P5-COLLAB-13                      |
+| Task `DONE` gần nhất | P5-COLLAB-13 Snapshot/import/export/restore                                            |
+| Mốc repository mới   | Exact candidate `e27b205`; GitHub Verify `32617970222`, Security `32617970234` PASS   |
+| Task hiện tại        | P5-COLLAB-14 Performance 500/2.000 shapes và 2/10/50 người — `TODO`                   |
+| Task tiếp theo       | Bắt đầu P5-COLLAB-14 performance profile                                              |
 
-### Checkpoint P5-COLLAB-13 `VERIFY` — 2026-08-23
+### Checkpoint P5-COLLAB-13 `DONE` — 2026-08-23
 
 Candidate local đã bổ sung exact artifact round-trip giữ SHA-256/semantic hash, quarantine không stage
 restore cho corrupt/incompatible/oversize/malicious artifact, bounded B2 retry/last-good recovery và
@@ -29,8 +29,10 @@ Hai Neon/B2 aggregate liên tiếp PASS tại final ledger `41 false`, gồm imm
 generation swap/stale fence, purge/retry và last-good recovery `RPO=last_verified_artifact`, RTO quan sát
 `2654 ms`/`2472 ms`. Gate đã phát hiện và sửa cleanup fixture không idempotent; rerun cuối xanh và cleanup
 zero. Final full `pnpm verify` PASS. Task không thêm migration mới, không log credential, không rollback,
-shared-staging write hoặc deploy; production whiteboard tiếp tục force-off. Chỉ còn final diff/no-secret
-review, commit/push và GitHub Verify/Security trước khi chuyển `DONE`. Acceptance:
+shared-staging write hoặc deploy; production whiteboard tiếp tục force-off. Final diff/no-secret review
+PASS. Exact candidate `e27b205` đã push lên `origin/main`; GitHub Verify `32617970222` và Security
+`32617970234` đều PASS. P5-COLLAB-13 chuyển `VERIFY -> DONE`; P5-COLLAB-14 là task runnable tiếp theo.
+Acceptance:
 [`P5_COLLAB_13_STAGING_ACCEPTANCE.md`](P5_COLLAB_13_STAGING_ACCEPTANCE.md).
 
 ### Checkpoint P5-COLLAB-12 `DONE` — 2026-08-23

@@ -1,6 +1,6 @@
 # P5-COLLAB-13 snapshot, import, export and restore acceptance
 
-Status: **VERIFY**
+Status: **DONE**
 
 Date: 2026-08-23
 
@@ -104,6 +104,6 @@ immutable B2 round-trip, quarantine, purge/retry and last-good recovery all pass
 exposed stale fixture cleanup; the candidate now removes only its `p502-*` disposable tenant graph in
 dependency order, and two consecutive aggregate reruns passed with cleanup zero.
 
-P5-COLLAB-13 remains in `VERIFY` only until final diff/no-secret review, explicit commit/push and GitHub
-Verify/Security pass. Shared staging was not migrated, no deployment was performed, and production
-whiteboard remains force-off.
+Final diff/no-secret review passed. Exact candidate `e27b205` was pushed to `origin/main`; GitHub Verify
+run `32617970222` and Security run `32617970234` both passed. P5-COLLAB-13 is `DONE`. Shared staging was
+not migrated, no deployment was performed, and production whiteboard remains force-off.
