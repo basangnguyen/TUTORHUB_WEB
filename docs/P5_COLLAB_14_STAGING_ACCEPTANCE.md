@@ -1,6 +1,6 @@
 # P5-COLLAB-14 performance acceptance
 
-Status: **VERIFY**
+Status: **DONE**
 
 Date: 2026-08-23
 
@@ -78,5 +78,6 @@ The exact private-alpha ceiling of **50 concurrent collaboration connections and
 document remains accepted**; current evidence does not require publishing a lower cap. This is a bounded
 single-instance private-alpha profile, not a public production SLA or an HA/multi-region claim.
 
-Full repository verification and final diff/no-secret review pass. The task remains `VERIFY` until an
-owner-authorized commit/push and GitHub Verify/Security pass.
+Full repository verification and final diff/no-secret review pass. Exact candidate `e1b1201` was pushed
+to `origin/main`; GitHub Verify `32621951917` and Security `32621951910` both passed. P5-COLLAB-14 is
+therefore `DONE`; P5-COLLAB-15 is the next runnable task.

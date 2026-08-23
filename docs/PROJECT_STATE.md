@@ -12,12 +12,12 @@
 | Quy trình            | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
 | Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4                                                    |
 | Phase hiện tại       | Phase 5 collaboration implementation; Phase 3 deferred carry-over vẫn hoạt động       |
-| Task `DONE` gần nhất | P5-COLLAB-13 Snapshot/import/export/restore                                            |
-| Mốc repository mới   | Exact candidate `e27b205`; GitHub Verify `32617970222`, Security `32617970234` PASS   |
-| Task hiện tại        | P5-COLLAB-14 Performance 500/2.000 shapes và 2/10/50 người — `VERIFY`                 |
-| Task tiếp theo       | Full verify, final review rồi commit/push candidate và kiểm tra GitHub CI              |
+| Task `DONE` gần nhất | P5-COLLAB-14 Performance 500/2.000 shapes và 2/10/50 người                            |
+| Mốc repository mới   | Exact candidate `e1b1201`; GitHub Verify `32621951917`, Security `32621951910` PASS   |
+| Task hiện tại        | P5-COLLAB-15 Accessibility và browser matrix — `TODO`                                 |
+| Task tiếp theo       | Bắt đầu accessibility/physical browser matrix trong khi production vẫn force-off      |
 
-### Checkpoint P5-COLLAB-14 `VERIFY` — 2026-08-23
+### Checkpoint P5-COLLAB-14 `DONE` — 2026-08-23
 
 Candidate local đã bổ sung exact real-WebSocket benchmark cho `2 x 500`, `10 x 500` và `50 x 2.000`,
 production runtime compaction/backpressure/cleanup soak, cùng production bundle lazy-load guard có raw/
@@ -33,7 +33,9 @@ import lazy whiteboard closure `2.253.775 B` raw/`660.631 B` gzip. Focused profi
 bundle regression `2/2`, TypeScript, ESLint và Prettier đều PASS. Cap private alpha giữ nguyên
 `50 connections / 2.000 shapes`; không cần hạ thấp. Task không cần migration, Neon/B2/Render,
 shared-staging write hoặc deploy; production tiếp tục force-off. Full repository `pnpm verify` và final
-diff/no-secret review PASS. Owner-authorized commit/push và GitHub Verify/Security là các bước closure còn lại.
+diff/no-secret review PASS. Exact candidate `e1b1201` đã push lên `origin/main`; GitHub Verify
+`32621951917` và Security `32621951910` đều PASS. P5-COLLAB-14 chuyển `VERIFY -> DONE`;
+P5-COLLAB-15 là task runnable tiếp theo.
 Acceptance: [`P5_COLLAB_14_STAGING_ACCEPTANCE.md`](P5_COLLAB_14_STAGING_ACCEPTANCE.md).
 
 ### Checkpoint P5-COLLAB-13 `DONE` — 2026-08-23
