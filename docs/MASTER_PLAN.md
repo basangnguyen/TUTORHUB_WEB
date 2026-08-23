@@ -11,7 +11,7 @@
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
 | Phase hiện tại        | Phase 5 collaboration implementation; Phase 3 deferred carry-over tiếp tục                   |
-| Trạng thái gần nhất   | P5-COLLAB-16 `VERIFY`; exact local failure/outage/provider-exit gates PASS                   |
+| Trạng thái gần nhất   | P5-COLLAB-16 `DONE`; exact candidate và GitHub Verify/Security PASS                         |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 
@@ -1822,13 +1822,14 @@ provider/shared-staging/deploy. Exact candidate `09449fc` đã push lên `origin
 P5-COLLAB-16 là task runnable tiếp theo. Acceptance:
 [`P5_COLLAB_15_STAGING_ACCEPTANCE.md`](P5_COLLAB_15_STAGING_ACCEPTANCE.md).
 
-P5-COLLAB-16 candidate 2026-08-23 — `VERIFY`: exact production-module gate PASS control-authority
+P5-COLLAB-16 candidate 2026-08-23 — `DONE`: exact production-module gate PASS control-authority
 timeout/new-room fail-closed, existing-room `read_only`/terminal `off`, artifact key overlap/revoke và
 provider-independent last-good restore giữ semantic hash. Aggregate PASS runtime `20/20`, exact outage
 guards `8/8`, collaboration client `9/9` và Core API authority. RPO giữ last verified artifact, RTO
 private-alpha operator target tối đa 5 phút; owner/read-only/rollback/provider-exit runbook đã khóa.
 Không migration/provider mutation/shared-staging/deploy; production vẫn force-off. Full `pnpm verify`
-PASS trong 35,9 giây. Chờ exact candidate GitHub Verify/Security để `DONE` và mở P5-COLLAB-17. Acceptance:
+PASS trong 35,9 giây. Exact candidate `1c1111c` đã push lên `origin/main`; GitHub Verify
+`32643119744` và Security `32643119716` đều PASS. P5-COLLAB-17 là rollout task tiếp theo. Acceptance:
 [`P5_COLLAB_16_STAGING_ACCEPTANCE.md`](P5_COLLAB_16_STAGING_ACCEPTANCE.md).
 
 **Deliverable:** teacher mở/đóng công cụ mà không làm rời media room; trạng thái cộng tác khôi phục sau reconnect.

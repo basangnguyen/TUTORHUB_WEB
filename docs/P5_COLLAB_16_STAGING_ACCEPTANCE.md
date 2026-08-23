@@ -1,6 +1,6 @@
 # P5-COLLAB-16 failure, outage and provider-exit acceptance
 
-Status: **VERIFY**
+Status: **DONE**
 
 Date: 2026-08-23
 
@@ -66,16 +66,6 @@ Result on 2026-08-23: **PASS in 35.9 seconds**, including formatting, generated 
 security gates, lint, TypeScript checks, unit/integration tests, production builds, Storybook, client
 bundle scan, Go tests and `go vet`.
 
-Full repository verification:
-
-```text
-pnpm.cmd verify
-```
-
-Result on 2026-08-23: **PASS in 35.9 seconds**, including formatting, generated OpenAPI drift,
-security gates, lint, TypeScript checks, unit/integration tests, production builds, Storybook, client
-bundle scan, Go tests and `go vet`.
-
 The aggregate includes these boundaries:
 
 1. control-authority latency timeout and fail-closed new-room exchange;
@@ -117,7 +107,7 @@ whiteboard force-off on quota risk.
 
 ## Current decision
 
-All P5-COLLAB-16 pre-staging gates are green and the candidate is **VERIFY**. No migration, shared
-staging write, provider mutation or deploy is required. To move to **DONE**, publish the exact
-candidate to `origin/main`, obtain GitHub Verify/Security PASS and record those run IDs here. The next
-rollout task remains blocked until that closure.
+P5-COLLAB-16 is **DONE**. Exact candidate `1c1111c` was published to `origin/main`; GitHub Verify
+`32643119744` and Security `32643119716` both passed. No migration, shared-staging write, provider
+mutation or deploy was required, and the production whiteboard remains force-off. P5-COLLAB-17 is
+now the next runnable rollout task.

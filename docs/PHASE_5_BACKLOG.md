@@ -28,10 +28,10 @@
 > P5-COLLAB-15 đã `DONE` ngày 2026-08-23 trên exact candidate `09449fc`: production Drawer/canvas matrix, Chrome/Edge
 > headful, keyboard/focus/semantic fallback/Axe/forced-colors/reduced-motion và owner physical NVDA +
 > zoom 200% đều PASS; GitHub Verify `32638928557` và Security `32638928501` đều PASS.
-> P5-COLLAB-16 đang `VERIFY`: exact local failure/outage/provider-exit aggregate đã PASS runtime
-> `20/20`, outage guards `8/8`, collaboration client `9/9` và Core API collaboration authority; không
-> migration/provider mutation/shared-staging/deploy. Chờ exact candidate GitHub Verify/Security để `DONE`.
-> Production whiteboard vẫn force-off tới rollout gate P5-COLLAB-17.
+> P5-COLLAB-16 đã `DONE` trên exact candidate `1c1111c`: failure/outage/provider-exit aggregate PASS
+> runtime `20/20`, outage guards `8/8`, collaboration client `9/9` và Core API collaboration authority;
+> GitHub Verify `32643119744` và Security `32643119716` đều PASS. Không migration/provider mutation/
+> shared-staging/deploy; production whiteboard vẫn force-off tới rollout gate P5-COLLAB-17.
 
 ## 1. Mục tiêu phase
 
@@ -96,7 +96,7 @@ Xây collaboration plane cho lớp học mà không làm rời hoặc làm yếu
 | P5-COLLAB-13 | Test           | Snapshot/import/export/restore                  | P5-COLLAB-07, P5-COLLAB-08 | DONE       |
 | P5-COLLAB-14 | Test           | Performance 500/2.000 shapes và 2/10/50 người   | P5-COLLAB-05..09           | DONE       |
 | P5-COLLAB-15 | Test           | Accessibility và browser matrix                 | P5-COLLAB-06, P5-COLLAB-08 | DONE       |
-| P5-COLLAB-16 | Test           | Failure, outage và provider exit                | P5-COLLAB-05..09           | VERIFY     |
+| P5-COLLAB-16 | Test           | Failure, outage và provider exit                | P5-COLLAB-05..09           | DONE       |
 | P5-COLLAB-17 | Rollout        | Force-off staging acceptance                    | P5-COLLAB-10..16           | TODO       |
 | P5-COLLAB-18 | Rollout        | Internal canary                                 | P5-COLLAB-17               | TODO       |
 | P5-COLLAB-19 | Rollout        | Private alpha                                   | P5-COLLAB-18               | TODO       |
@@ -560,7 +560,7 @@ P5-COLLAB-16 là task runnable tiếp theo. Acceptance:
 - [x] Export portability và restore bằng last-good artifact được kiểm chứng ngoài provider đang chọn.
 - [x] Exit trigger, owner, thời gian migrate, read-only fallback và rollback runbook được duyệt.
 
-**Candidate 2026-08-23 — VERIFY:** production runtime/control/readiness/artifact modules đã PASS
+**Candidate 2026-08-23 — DONE:** production runtime/control/readiness/artifact modules đã PASS
 control-authority timeout và new-room fail-closed, `enabled -> read_only -> off`, binding-key overlap/
 revoke và portable last-good restore sang generation mới ngoài provider cũ. Aggregate runner PASS
 runtime `20/20`, exact control/Neon/B2 outage guards `8/8`, client portable/reconnect `9/9` và Core API
@@ -568,8 +568,10 @@ collaboration authority. Evidence disposable provider 600 giây, B2 rotation và
 P5-COLLAB-01/07/08/09 được reuse minh bạch; không suy diễn là live drill mới. RPO giữ last
 verified artifact; RTO operator target tối đa 5 phút. Owner/runbook giữ nguyên theo
 [`P5_COLLAB_09_OPERATIONS.md`](P5_COLLAB_09_OPERATIONS.md). Không migration, provider mutation,
-shared-staging write hoặc deploy; production force-off. Full `pnpm verify` PASS trong 35,9 giây. Chờ
-exact candidate commit/push và GitHub Verify/Security PASS để `DONE`. Acceptance:
+shared-staging write hoặc deploy; production force-off. Full `pnpm verify` PASS trong 35,9 giây.
+Exact candidate `1c1111c` đã push lên `origin/main`; GitHub Verify `32643119744` và Security
+`32643119716` đều PASS. P5-COLLAB-16 chuyển `VERIFY -> DONE`; P5-COLLAB-17 là task runnable tiếp theo.
+Acceptance:
 [`P5_COLLAB_16_STAGING_ACCEPTANCE.md`](P5_COLLAB_16_STAGING_ACCEPTANCE.md).
 
 ## 8. Rollout slices

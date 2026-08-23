@@ -12,12 +12,12 @@
 | Quy trình            | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
 | Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4                                                    |
 | Phase hiện tại       | Phase 5 collaboration implementation; Phase 3 deferred carry-over vẫn hoạt động       |
-| Task `DONE` gần nhất | P5-COLLAB-15 Accessibility và browser matrix                                          |
-| Mốc repository mới   | `09449fc`; GitHub Verify `32638928557` và Security `32638928501` đều PASS              |
-| Task hiện tại        | P5-COLLAB-16 Failure, outage và provider exit — `VERIFY`                               |
-| Task tiếp theo       | Publish exact P5-COLLAB-16 candidate và kiểm tra GitHub Verify/Security                |
+| Task `DONE` gần nhất | P5-COLLAB-16 Failure, outage và provider exit                                          |
+| Mốc repository mới   | `1c1111c`; GitHub Verify `32643119744` và Security `32643119716` đều PASS              |
+| Task hiện tại        | P5-COLLAB-16 — `DONE`                                                                  |
+| Task tiếp theo       | P5-COLLAB-17 Force-off staging acceptance                                              |
 
-### Checkpoint P5-COLLAB-16 local candidate `VERIFY` — 2026-08-23
+### Checkpoint P5-COLLAB-16 `DONE` — 2026-08-23
 
 Candidate đã thêm exact production-module validation cho control-authority timeout/new-room
 fail-closed, existing-room `enabled -> read_only -> off`, artifact binding-key overlap/revoke và
@@ -35,8 +35,9 @@ Failure contract công bố room mới fail closed; room hiện tại chỉ gi�
 private-alpha do operator thực hiện tối đa 5 phút. Exit trigger, owner, provider-independent
 generation swap, read-only fallback và rollback không dual-write đã khóa trong acceptance/runbook.
 Không migration, provider mutation, shared-staging write hoặc deploy; production whiteboard tiếp tục
-force-off. Task ở `VERIFY`, chờ exact candidate commit/push và GitHub Verify/Security PASS để
-`DONE`. Acceptance:
+force-off. Exact candidate `1c1111c` đã push lên `origin/main`; GitHub Verify `32643119744` và
+Security `32643119716` đều PASS. P5-COLLAB-16 chuyển `VERIFY -> DONE`; P5-COLLAB-17 là task runnable
+tiếp theo. Acceptance:
 [`P5_COLLAB_16_STAGING_ACCEPTANCE.md`](P5_COLLAB_16_STAGING_ACCEPTANCE.md).
 
 ### Checkpoint P5-COLLAB-15 `DONE` — 2026-08-23
