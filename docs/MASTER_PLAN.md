@@ -11,7 +11,7 @@
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
 | Phase hiện tại        | Phase 5 collaboration implementation; Phase 3 deferred carry-over tiếp tục                   |
-| Trạng thái gần nhất   | P5-COLLAB-12 `DONE`; exact candidate `0b4ee83` PASS Verify/Security                           |
+| Trạng thái gần nhất   | P5-COLLAB-13 `DONE`; P5-COLLAB-14 local candidate `VERIFY`                                  |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 
@@ -1797,6 +1797,17 @@ aggregate Neon/B2 liên tiếp đều PASS; final ledger giữ `41 false`, clean
 cleanup không idempotent trước rerun xanh. Không rollback/shared-staging write/deploy; production tiếp tục
 force-off. Final diff/no-secret review PASS. Exact candidate `e27b205` đã push lên `origin/main`; GitHub
 Verify `32617970222` và Security `32617970234` đều PASS. P5-COLLAB-14 là task runnable tiếp theo.
+
+P5-COLLAB-14 checkpoint 2026-08-23 — `VERIFY`: real authorized Hocuspocus/Y.Doc profiles
+`2 x 500`, `10 x 500` và `50 x 2.000` đều PASS published budgets. Profile nặng nhất ghi nhận join p95
+`1.074,8 ms`, convergence p95 `897,5 ms`, input p95 `77,9 ms`, recovery `123,8 ms`, snapshot encode
+`8,7 ms`, CPU `28.687 ms`, heap delta `255.498.024 B`, network received `62.197.063 B` và cleanup
+zero. Production runtime compaction/backpressure/noisy-tenant isolation PASS; build giữ Excalidraw ngoài
+initial static closure và bundle closure raw/gzip dưới budget. Private-alpha cap giữ
+`50 connections / 2.000 shapes`; không cần hạ thấp. Không migration/provider/shared-staging/deploy;
+production tiếp tục force-off. Full repository verify và final diff/no-secret review PASS; commit/push và
+GitHub CI còn chờ closure.
+Acceptance: [`P5_COLLAB_14_STAGING_ACCEPTANCE.md`](P5_COLLAB_14_STAGING_ACCEPTANCE.md).
 
 **Deliverable:** teacher mở/đóng công cụ mà không làm rời media room; trạng thái cộng tác khôi phục sau reconnect.
 

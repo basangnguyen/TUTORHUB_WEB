@@ -21,7 +21,10 @@
 > local broker/runtime abuse aggregate PASS `62/62`, full verify PASS, GitHub Verify `32605702341` và
 > Security `32605702349` đều PASS. P5-COLLAB-12 đã `DONE` trên exact candidate `0b4ee83`: focused
 > convergence/history/reconnect aggregate `26/26`, full repository verify, GitHub Verify `32607940566`
-> và Security `32607940492` đều PASS.
+> và Security `32607940492` đều PASS. P5-COLLAB-13 đã `DONE` trên exact candidate `e27b205` với
+> Neon/B2 snapshot/import/export/restore acceptance và GitHub Verify/Security đều PASS. P5-COLLAB-14
+> hiện ở `VERIFY`: local profile `2 x 500`, `10 x 500`, `50 x 2.000`, runtime soak và production
+> lazy-bundle guard đều PASS; full repository verify và candidate CI còn chờ closure.
 
 ## 1. Mục tiêu phase
 
@@ -84,7 +87,7 @@ Xây collaboration plane cho lớp học mà không làm rời hoặc làm yếu
 | P5-COLLAB-11 | Test           | Credential/revoke/WebSocket abuse               | P5-COLLAB-04, P5-COLLAB-05 | DONE       |
 | P5-COLLAB-12 | Test           | Convergence/history/undo/reconnect              | P5-COLLAB-05, P5-COLLAB-08 | DONE       |
 | P5-COLLAB-13 | Test           | Snapshot/import/export/restore                  | P5-COLLAB-07, P5-COLLAB-08 | DONE       |
-| P5-COLLAB-14 | Test           | Performance 500/2.000 shapes và 2/10/50 người   | P5-COLLAB-05..09           | TODO       |
+| P5-COLLAB-14 | Test           | Performance 500/2.000 shapes và 2/10/50 người   | P5-COLLAB-05..09           | VERIFY     |
 | P5-COLLAB-15 | Test           | Accessibility và browser matrix                 | P5-COLLAB-06, P5-COLLAB-08 | TODO       |
 | P5-COLLAB-16 | Test           | Failure, outage và provider exit                | P5-COLLAB-05..09           | TODO       |
 | P5-COLLAB-17 | Rollout        | Force-off staging acceptance                    | P5-COLLAB-10..16           | TODO       |
@@ -502,9 +505,22 @@ PASS. Exact candidate `e27b205` đã push lên `origin/main`; GitHub Verify `326
 
 **Exit gate:**
 
-- [ ] Bundle/lazy-load, memory, input latency, snapshot size/time và reconnect được ghi cho 500/2.000 shapes.
-- [ ] Profile 2/10/50 đo join/convergence/update latency, CPU/memory/network và cleanup zero.
-- [ ] Backpressure/noisy tenant/compaction soak đạt budget; nếu không, cap thấp hơn được công bố.
+- [x] Bundle/lazy-load, memory, input latency, snapshot size/time và reconnect được ghi cho 500/2.000 shapes.
+- [x] Profile 2/10/50 đo join/convergence/update latency, CPU/memory/network và cleanup zero.
+- [x] Backpressure/noisy tenant/compaction soak đạt budget; nếu không, cap thấp hơn được công bố.
+
+**Checkpoint 2026-08-23 — VERIFY:** real authorized Hocuspocus/Y.Doc profiles `2 x 500`, `10 x 500`
+và `50 x 2.000` PASS toàn bộ published budgets. Profile nặng nhất ghi nhận join p95 `1.074,8 ms`,
+convergence p95 `897,5 ms`, input p95 `77,9 ms`, reconnect/recovery `123,8 ms`, snapshot encode
+`8,7 ms`/`1.579.667 B`, CPU `28.687 ms`, heap delta `255.498.024 B`, received `62.197.063 B` và
+cleanup `25,0 ms` về đúng zero. Production runtime soak PASS 10 compaction cycles (`16,0 ms` p95),
+50 session cleanup zero, noisy-tenant quota và per-socket ingress backpressure vẫn cô lập quiet tenant/
+socket. Production web build giữ Excalidraw ngoài initial static closure; whiteboard closure `2.253.775 B`
+raw/`660.631 B` gzip đều dưới budget. Vì vậy private-alpha cap giữ `50 connections / 2.000 shapes`,
+không cần hạ thấp. Không migration, Neon/B2/Render, shared-staging write hoặc deploy; production tiếp tục
+force-off. Full repository `pnpm verify` và final diff/no-secret review PASS; commit/push và GitHub CI là
+các bước closure còn lại. Acceptance:
+[`P5_COLLAB_14_STAGING_ACCEPTANCE.md`](P5_COLLAB_14_STAGING_ACCEPTANCE.md).
 
 ### P5-COLLAB-15 - Accessibility và browser matrix
 

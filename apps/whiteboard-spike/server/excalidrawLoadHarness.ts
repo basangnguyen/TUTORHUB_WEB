@@ -30,8 +30,11 @@ export interface ExcalidrawLoadBudget {
   convergenceP95Ms: number;
   cpuMs: number;
   heapDeltaBytes: number;
+  inputLatencyP95Ms: number;
   joinP95Ms: number;
   receivedBytes: number;
+  recoveryJoinMs: number;
+  snapshotEncodeMs: number;
 }
 
 export interface ExcalidrawLoadResult {
@@ -44,10 +47,13 @@ export interface ExcalidrawLoadResult {
   elements: number;
   encodedStateBytes: number;
   heapDeltaBytes: number;
+  inputLatencyP95Ms: number;
   joinP95Ms: number;
   profile: ExcalidrawLoadProfile["name"];
   receivedBytes: number;
+  recoveryJoinMs: number;
   semanticHash: string;
+  snapshotEncodeMs: number;
 }
 
 export const EXCALIDRAW_LOAD_PROFILES: readonly ExcalidrawLoadProfile[] = [
@@ -64,24 +70,33 @@ export const EXCALIDRAW_LOAD_BUDGETS: Readonly<
     convergenceP95Ms: 1_500,
     cpuMs: 3_000,
     heapDeltaBytes: 128 * 1024 * 1024,
+    inputLatencyP95Ms: 750,
     joinP95Ms: 3_000,
     receivedBytes: 4 * 1024 * 1024,
+    recoveryJoinMs: 3_000,
+    snapshotEncodeMs: 1_500,
   },
   "10x500": {
     cleanupMs: 3_000,
     convergenceP95Ms: 2_500,
     cpuMs: 8_000,
     heapDeltaBytes: 320 * 1024 * 1024,
+    inputLatencyP95Ms: 1_000,
     joinP95Ms: 7_500,
     receivedBytes: 16 * 1024 * 1024,
+    recoveryJoinMs: 7_500,
+    snapshotEncodeMs: 2_500,
   },
   "50x2000": {
     cleanupMs: 5_000,
     convergenceP95Ms: 5_000,
     cpuMs: 75_000,
     heapDeltaBytes: 1024 * 1024 * 1024,
+    inputLatencyP95Ms: 2_000,
     joinP95Ms: 20_000,
     receivedBytes: 128 * 1024 * 1024,
+    recoveryJoinMs: 20_000,
+    snapshotEncodeMs: 5_000,
   },
 };
 
@@ -103,7 +118,7 @@ export async function runExcalidrawLoadProfile(
   try {
     const writerMembership = memberships[0];
     if (!writerMembership) {
-      throw new Error("gate_e_profile_membership_missing");
+      throw new Error("p514_profile_membership_missing");
     }
     const writerStartedAt = performance.now();
     const writer = createClient(server, writerMembership);
@@ -133,7 +148,7 @@ export async function runExcalidrawLoadProfile(
       const client = clients[index];
       const membership = memberships[index];
       if (!client || !membership) {
-        throw new Error("gate_e_profile_client_membership_mismatch");
+        throw new Error("p514_profile_client_membership_mismatch");
       }
       const authority = createAuthority(client, membership.actorId);
       authorities.push(authority);
@@ -146,25 +161,34 @@ export async function runExcalidrawLoadProfile(
             authority.getScene().elements.length === profile.elements &&
             authority.getSemanticHash() === initialHash,
         ),
-      `gate_e_${profile.name}_initial_convergence_timeout`,
+      `p514_${profile.name}_initial_convergence_timeout`,
       20_000,
     );
     await waitUntil(
       () => server.evidence.activeConnections === profile.clients,
-      `gate_e_${profile.name}_connection_peak_timeout`,
+      `p514_${profile.name}_connection_peak_timeout`,
       5_000,
     );
 
-    const baseline = writerAuthority.getScene();
-    const updatedElement = updateFirstElement(baseline);
-    writerAuthority.putElement(updatedElement);
+    const inputLatencies: number[] = [];
+    let updatedElement = updateElement(writerAuthority.getScene(), 0, 0);
+    for (let step = 0; step < 8; step += 1) {
+      updatedElement = updateElement(
+        writerAuthority.getScene(),
+        step % profile.elements,
+        step,
+      );
+      const inputStartedAt = performance.now();
+      writerAuthority.putElement(updatedElement);
+      inputLatencies.push(performance.now() - inputStartedAt);
+    }
     const expectedHash = writerAuthority.getSemanticHash();
     const convergenceStartedAt = performance.now();
     const convergenceLatencies = await Promise.all(
       clients.map(async (client) => {
         await waitUntil(
           () => clientHasElementVersion(client, updatedElement),
-          `gate_e_${profile.name}_mutation_convergence_timeout`,
+          `p514_${profile.name}_mutation_convergence_timeout`,
           10_000,
         );
         return performance.now() - convergenceStartedAt;
@@ -175,15 +199,49 @@ export async function runExcalidrawLoadProfile(
         (authority) => authority.getSemanticHash() === expectedHash,
       )
     ) {
-      throw new Error(`gate_e_${profile.name}_semantic_divergence`);
+      throw new Error(`p514_${profile.name}_semantic_divergence`);
     }
+
+    const recoveryIndex = clients.length - 1;
+    const recoveryMembership = memberships[recoveryIndex];
+    const disconnectedClient = clients[recoveryIndex];
+    const disconnectedAuthority = authorities[recoveryIndex];
+    if (!recoveryMembership || !disconnectedClient || !disconnectedAuthority) {
+      throw new Error(`p514_${profile.name}_recovery_fixture_missing`);
+    }
+    disconnectedAuthority.destroy();
+    authorities.splice(recoveryIndex, 1);
+    disconnectedClient.destroy();
+    clients.splice(recoveryIndex, 1);
+    await waitUntil(
+      () => server.evidence.activeConnections === profile.clients - 1,
+      `p514_${profile.name}_disconnect_cleanup_timeout`,
+      5_000,
+    );
+    const recoveryStartedAt = performance.now();
+    const recoveryClient = createClient(server, recoveryMembership);
+    clients.push(recoveryClient);
+    await waitForAuthorizedClient(recoveryClient, 20_000);
+    const recoveryAuthority = createAuthority(
+      recoveryClient,
+      recoveryMembership.actorId,
+    );
+    authorities.push(recoveryAuthority);
+    await waitUntil(
+      () => recoveryAuthority.getSemanticHash() === expectedHash,
+      `p514_${profile.name}_recovery_convergence_timeout`,
+      20_000,
+    );
+    const recoveryJoinMs = performance.now() - recoveryStartedAt;
 
     const cpu = process.cpuUsage(cpuBefore);
     const heapDeltaBytes = Math.max(
       0,
       process.memoryUsage().heapUsed - heapBefore,
     );
+    const snapshotStartedAt = performance.now();
     const encodedStateBytes = writerAuthority.encodeProviderState().byteLength;
+    const snapshotEncodeMs = performance.now() - snapshotStartedAt;
     const receivedBytes = clients.reduce(
       (total, client) => total + client.traffic.receivedBytes,
       0,
@@ -195,7 +253,7 @@ export async function runExcalidrawLoadProfile(
     clients.splice(0).forEach((client) => client.destroy());
     await waitUntil(
       () => server.evidence.activeConnections === 0,
-      `gate_e_${profile.name}_cleanup_timeout`,
+      `p514_${profile.name}_cleanup_timeout`,
       EXCALIDRAW_LOAD_BUDGETS[profile.name].cleanupMs,
     );
     const cleanupMs = performance.now() - cleanupStartedAt;
@@ -210,10 +268,13 @@ export async function runExcalidrawLoadProfile(
       elements: profile.elements,
       encodedStateBytes,
       heapDeltaBytes,
+      inputLatencyP95Ms: rounded(percentile95(inputLatencies)),
       joinP95Ms: rounded(percentile95(joinLatencies)),
       profile: profile.name,
       receivedBytes,
+      recoveryJoinMs: rounded(recoveryJoinMs),
       semanticHash: expectedHash,
+      snapshotEncodeMs: rounded(snapshotEncodeMs),
     };
   } finally {
     authorities.splice(0).forEach((authority) => authority.destroy());
@@ -221,7 +282,7 @@ export async function runExcalidrawLoadProfile(
     if (cleanupStartedAt === 0 && server.evidence.activeConnections > 0) {
       await waitUntil(
         () => server.evidence.activeConnections === 0,
-        `gate_e_${profile.name}_finally_cleanup_timeout`,
+        `p514_${profile.name}_finally_cleanup_timeout`,
         5_000,
       ).catch(() => undefined);
     }
@@ -291,7 +352,7 @@ function createScene(elementCount: number): CanonicalExcalidrawSceneV1 {
       createRectangle(index),
     ),
     files: {},
-    page: { id: "page-1", name: "Gate E load profile" },
+    page: { id: "page-1", name: "P5-COLLAB-14 load profile" },
   });
 }
 
@@ -326,22 +387,26 @@ function createRectangle(index: number) {
   };
 }
 
-function updateFirstElement(scene: CanonicalExcalidrawSceneV1) {
-  const first = scene.elements[0];
-  if (!first) {
-    throw new Error("gate_e_profile_scene_empty");
+function updateElement(
+  scene: CanonicalExcalidrawSceneV1,
+  index: number,
+  step: number,
+) {
+  const element = scene.elements[index];
+  if (!element) {
+    throw new Error("p514_profile_scene_empty");
   }
   return {
-    ...first,
-    updated: 1_786_100_000_000,
-    version: typeof first.version === "number" ? first.version + 1 : 2,
-    x: first.x + 1,
+    ...element,
+    updated: 1_786_100_000_000 + step,
+    version: typeof element.version === "number" ? element.version + 1 : 2,
+    x: element.x + 1,
   };
 }
 
 function clientHasElementVersion(
   client: AuthorizedTestClient,
-  expected: ReturnType<typeof updateFirstElement>,
+  expected: ReturnType<typeof updateElement>,
 ): boolean {
   const value = client.document
     .getMap<string>("tutorhub.excalidraw.elements.v1")

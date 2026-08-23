@@ -14,8 +14,27 @@
 | Phase hiện tại       | Phase 5 collaboration implementation; Phase 3 deferred carry-over vẫn hoạt động       |
 | Task `DONE` gần nhất | P5-COLLAB-13 Snapshot/import/export/restore                                            |
 | Mốc repository mới   | Exact candidate `e27b205`; GitHub Verify `32617970222`, Security `32617970234` PASS   |
-| Task hiện tại        | P5-COLLAB-14 Performance 500/2.000 shapes và 2/10/50 người — `TODO`                   |
-| Task tiếp theo       | Bắt đầu P5-COLLAB-14 performance profile                                              |
+| Task hiện tại        | P5-COLLAB-14 Performance 500/2.000 shapes và 2/10/50 người — `VERIFY`                 |
+| Task tiếp theo       | Full verify, final review rồi commit/push candidate và kiểm tra GitHub CI              |
+
+### Checkpoint P5-COLLAB-14 `VERIFY` — 2026-08-23
+
+Candidate local đã bổ sung exact real-WebSocket benchmark cho `2 x 500`, `10 x 500` và `50 x 2.000`,
+production runtime compaction/backpressure/cleanup soak, cùng production bundle lazy-load guard có raw/
+gzip budgets. Ba profile đều PASS. Profile `50 x 2.000` quan sát join p95 `1.074,8 ms`, convergence p95
+`897,5 ms`, input p95 `77,9 ms`, reconnect/recovery `123,8 ms`, snapshot encode `8,7 ms` với
+`1.579.667 B`, CPU `28.687 ms`, heap delta `255.498.024 B`, received `62.197.063 B` và cleanup
+`25,0 ms` về đúng zero.
+
+Production runtime PASS 10 compaction cycles ở p95 `16,0 ms`, giữ semantic hash của 2.000 shapes;
+50 reservations được release về zero. Noisy tenant/socket bị quota/backpressure chặn mà quiet tenant/
+socket vẫn hoạt động. Production build PASS `4.466` modules; initial entry `485.826 B` không statically
+import lazy whiteboard closure `2.253.775 B` raw/`660.631 B` gzip. Focused profile `3/3`, runtime `1/1`,
+bundle regression `2/2`, TypeScript, ESLint và Prettier đều PASS. Cap private alpha giữ nguyên
+`50 connections / 2.000 shapes`; không cần hạ thấp. Task không cần migration, Neon/B2/Render,
+shared-staging write hoặc deploy; production tiếp tục force-off. Full repository `pnpm verify` và final
+diff/no-secret review PASS. Owner-authorized commit/push và GitHub Verify/Security là các bước closure còn lại.
+Acceptance: [`P5_COLLAB_14_STAGING_ACCEPTANCE.md`](P5_COLLAB_14_STAGING_ACCEPTANCE.md).
 
 ### Checkpoint P5-COLLAB-13 `DONE` — 2026-08-23
 
