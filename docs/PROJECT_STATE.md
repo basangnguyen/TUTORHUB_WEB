@@ -12,12 +12,12 @@
 | Quy trình            | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
 | Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4                                                    |
 | Phase hiện tại       | Phase 5 collaboration implementation; Phase 3 deferred carry-over vẫn hoạt động       |
-| Task `DONE` gần nhất | P5-COLLAB-11 Credential/revoke/WebSocket abuse                                        |
-| Mốc repository mới   | Exact candidate `f9d1381`; GitHub Verify `32605702341`, Security `32605702349` PASS   |
-| Task hiện tại        | P5-COLLAB-12 Convergence/history/undo/reconnect — `VERIFY`                            |
-| Task tiếp theo       | Final review, commit/push candidate và kiểm tra GitHub Verify/Security                |
+| Task `DONE` gần nhất | P5-COLLAB-12 Convergence/history/undo/reconnect                                        |
+| Mốc repository mới   | Exact candidate `0b4ee83`; GitHub Verify `32607940566`, Security `32607940492` PASS   |
+| Task hiện tại        | P5-COLLAB-13 Snapshot/import/export/restore — `TODO`                                  |
+| Task tiếp theo       | Bắt đầu P5-COLLAB-13                                                                  |
 
-### Checkpoint P5-COLLAB-12 `VERIFY` — 2026-08-23
+### Checkpoint P5-COLLAB-12 `DONE` — 2026-08-23
 
 Production canonical authority đã PASS 25 deterministic offline cycles với ba actor, concurrent edits,
 duplicate/out-of-order delivery và actor-local undo/redo sau remote edits. Mọi peer cùng restored provider
@@ -27,8 +27,9 @@ cũng PASS 10 chu kỳ disconnect/edit/reconnect luân phiên.
 Focused aggregate bao gồm authority guard, incompatible-session race và checkpoint compaction PASS `26/26`;
 full repository `pnpm verify` PASS khi đặt `GOCACHE` trong workspace để phù hợp sandbox. Task này không cần
 migration, Neon/B2 disposable, shared-staging write hoặc deploy; production whiteboard tiếp tục force-off.
-Final diff/no-secret review PASS. Candidate còn chờ explicit commit/push authorization và GitHub
-Verify/Security trước khi chuyển `DONE`. Acceptance:
+Final diff/no-secret review PASS. Exact candidate `0b4ee83` đã push lên `origin/main`; GitHub Verify
+`32607940566` và Security `32607940492` đều PASS. P5-COLLAB-12 chuyển `VERIFY -> DONE` và
+P5-COLLAB-13 là task runnable tiếp theo. Acceptance:
 [`P5_COLLAB_12_STAGING_ACCEPTANCE.md`](P5_COLLAB_12_STAGING_ACCEPTANCE.md).
 
 ### Checkpoint P5-COLLAB-11 `DONE` — 2026-08-23

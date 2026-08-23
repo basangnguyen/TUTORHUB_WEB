@@ -1,6 +1,6 @@
 # P5-COLLAB-12 convergence, history, undo and reconnect acceptance
 
-Status: **VERIFY**
+Status: **DONE**
 
 Date: 2026-08-23
 
@@ -49,5 +49,6 @@ completed successfully.
 - [x] Aggregate split-brain, session-race and checkpoint invariants.
 - [x] Run focused gate and full `pnpm verify`.
 - [x] Complete final diff and no-secret review.
-- [ ] Stage/commit/push only after explicit authorization and verify GitHub Verify/Security.
-- [ ] Mark P5-COLLAB-12 `DONE`; do not migrate shared staging or deploy for this test slice.
+- [x] Exact candidate `0b4ee83` pushed to `origin/main`; GitHub Verify `32607940566` and Security
+      `32607940492` PASS.
+- [x] Mark P5-COLLAB-12 `DONE`; no shared-staging migration or deployment was performed for this test slice.

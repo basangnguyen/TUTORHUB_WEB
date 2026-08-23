@@ -11,7 +11,7 @@
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
 | Phase hiện tại        | Phase 5 collaboration implementation; Phase 3 deferred carry-over tiếp tục                   |
-| Trạng thái gần nhất   | P5-COLLAB-12 `VERIFY`; focused `26/26` và full repository verify PASS                        |
+| Trạng thái gần nhất   | P5-COLLAB-12 `DONE`; exact candidate `0b4ee83` PASS Verify/Security                           |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 
@@ -1778,14 +1778,15 @@ migration/Neon/B2 disposable/shared-staging/deploy; production tiếp tục forc
 task runnable tiếp theo. Acceptance:
 [`P5_COLLAB_11_STAGING_ACCEPTANCE.md`](P5_COLLAB_11_STAGING_ACCEPTANCE.md).
 
-P5-COLLAB-12 checkpoint 2026-08-23 — `VERIFY`: production canonical authority PASS 25 deterministic
+P5-COLLAB-12 checkpoint 2026-08-23 — `DONE`: production canonical authority PASS 25 deterministic
 offline cycles với ba actor, concurrent edits, duplicate/out-of-order delivery và actor-local undo/redo
 sau remote edits; mọi peer cùng restored provider state giữ exact semantic hash và causal watermark. Hai
 Hocuspocus WebSocket client với actor độc lập PASS 10 chu kỳ disconnect/edit/reconnect. Authority guard,
 incompatible-session race và checkpoint compaction nằm trong focused aggregate PASS `26/26`; full
 repository `pnpm verify` PASS khi đặt `GOCACHE` trong workspace cho sandbox. Không migration, Neon/B2,
-shared-staging write hoặc deploy; production tiếp tục force-off. Final diff/no-secret review PASS;
-candidate còn chờ commit/push và GitHub Verify/Security trước khi chuyển `DONE`. Acceptance:
+shared-staging write hoặc deploy; production tiếp tục force-off. Final diff/no-secret review PASS. Exact
+candidate `0b4ee83` đã push lên `origin/main`; GitHub Verify `32607940566` và Security `32607940492` đều
+PASS. P5-COLLAB-13 là task runnable tiếp theo. Acceptance:
 [`P5_COLLAB_12_STAGING_ACCEPTANCE.md`](P5_COLLAB_12_STAGING_ACCEPTANCE.md).
 
 **Deliverable:** teacher mở/đóng công cụ mà không làm rời media room; trạng thái cộng tác khôi phục sau reconnect.
