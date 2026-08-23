@@ -25,9 +25,9 @@
 > Neon/B2 snapshot/import/export/restore acceptance và GitHub Verify/Security đều PASS. P5-COLLAB-14
 > đã `DONE` trên exact candidate `e1b1201`: local profile `2 x 500`, `10 x 500`, `50 x 2.000`, runtime
 > soak, production lazy-bundle guard, GitHub Verify `32621951917` và Security `32621951910` đều PASS.
-> P5-COLLAB-15 đang `VERIFY` ngày 2026-08-23: exact production Drawer/canvas matrix, Chrome/Edge
+> P5-COLLAB-15 đã `DONE` ngày 2026-08-23 trên exact candidate `09449fc`: production Drawer/canvas matrix, Chrome/Edge
 > headful, keyboard/focus/semantic fallback/Axe/forced-colors/reduced-motion và owner physical NVDA +
-> zoom 200% đều PASS. Còn exact candidate commit/push và GitHub Verify/Security để đóng `DONE`.
+> zoom 200% đều PASS; GitHub Verify `32638928557` và Security `32638928501` đều PASS.
 > Production whiteboard vẫn force-off tới rollout gate P5-COLLAB-17.
 
 ## 1. Mục tiêu phase
@@ -92,7 +92,7 @@ Xây collaboration plane cho lớp học mà không làm rời hoặc làm yếu
 | P5-COLLAB-12 | Test           | Convergence/history/undo/reconnect              | P5-COLLAB-05, P5-COLLAB-08 | DONE       |
 | P5-COLLAB-13 | Test           | Snapshot/import/export/restore                  | P5-COLLAB-07, P5-COLLAB-08 | DONE       |
 | P5-COLLAB-14 | Test           | Performance 500/2.000 shapes và 2/10/50 người   | P5-COLLAB-05..09           | DONE       |
-| P5-COLLAB-15 | Test           | Accessibility và browser matrix                 | P5-COLLAB-06, P5-COLLAB-08 | VERIFY     |
+| P5-COLLAB-15 | Test           | Accessibility và browser matrix                 | P5-COLLAB-06, P5-COLLAB-08 | DONE       |
 | P5-COLLAB-16 | Test           | Failure, outage và provider exit                | P5-COLLAB-05..09           | TODO       |
 | P5-COLLAB-17 | Rollout        | Force-off staging acceptance                    | P5-COLLAB-10..16           | TODO       |
 | P5-COLLAB-18 | Rollout        | Internal canary                                 | P5-COLLAB-17               | TODO       |
@@ -536,15 +536,16 @@ P5-COLLAB-14 chuyển `VERIFY -> DONE`; P5-COLLAB-15 là task runnable tiếp th
 - [x] Canvas limitation có semantic alternative/fallback rõ; Axe không được dùng thay manual gate.
 - [x] Matrix browser/device pilot công bố PASS/UNAVAILABLE, không suy PASS từ engine docs.
 
-**Checkpoint 2026-08-23 — VERIFY:** production semantic fallback đã có focus handoff và pagination
+**Closure 2026-08-23 — DONE:** production semantic fallback đã có focus handoff và pagination
 50 phần tử/trang; adapter sửa accessible name/landmark semantics của pinned Excalidraw `0.18.1`.
 Windows installed headful Chrome `152.0.7977.54` và Edge `151.0.4129.101` PASS keyboard, named tools,
 focus recovery, semantic page 2/2, reconnect/failure announcements, 640 px reflow, forced colors,
 reduced motion và Axe 0/0. Firefox/Safari/mobile được công bố `UNAVAILABLE`, không suy PASS.
 Owner physical Chrome/Edge + NVDA ở browser zoom 200% xác nhận dialog, toàn bộ toolbar, semantic
 fallback, reconnect/failure/restore announcement và close-to-trigger focus recovery đều PASS.
-Production vẫn force-off. Còn exact candidate commit/push và GitHub Verify/Security để chuyển
-`VERIFY -> DONE`; P5-COLLAB-16 chưa bắt đầu. Acceptance:
+Exact candidate `09449fc` đã push lên `origin/main`; GitHub Verify `32638928557` và Security
+`32638928501` đều PASS. Production vẫn force-off. P5-COLLAB-15 chuyển `VERIFY -> DONE`;
+P5-COLLAB-16 là task runnable tiếp theo. Acceptance:
 [`P5_COLLAB_15_STAGING_ACCEPTANCE.md`](P5_COLLAB_15_STAGING_ACCEPTANCE.md).
 
 ### P5-COLLAB-16 - Failure, outage và provider exit

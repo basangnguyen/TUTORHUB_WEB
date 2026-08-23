@@ -1,6 +1,6 @@
 # P5-COLLAB-15 accessibility and browser-matrix acceptance
 
-Status: **VERIFY**
+Status: **DONE**
 
 Date: 2026-08-23
 
@@ -101,7 +101,7 @@ supporting evidence only.
 
 ## Current decision
 
-Automated pre-staging gates and the owner physical Chrome/Edge + NVDA matrix are green. The exact
-browser matrix is published and semantic canvas fallback is production-hardened. P5-COLLAB-15 remains
-**VERIFY** until the exact candidate/evidence is committed and pushed, then GitHub Verify and Security
-both pass. Production whiteboard remains force-off until the later rollout gates.
+Automated pre-staging gates and the owner physical Chrome/Edge + NVDA matrix are green. Exact
+candidate `09449fc` is published on `origin/main`; GitHub Verify `32638928557` and Security
+`32638928501` both passed. P5-COLLAB-15 is **DONE**. Production whiteboard remains force-off until
+the later rollout gates.

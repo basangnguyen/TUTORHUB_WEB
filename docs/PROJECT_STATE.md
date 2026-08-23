@@ -12,12 +12,12 @@
 | Quy trình            | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
 | Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4                                                    |
 | Phase hiện tại       | Phase 5 collaboration implementation; Phase 3 deferred carry-over vẫn hoạt động       |
-| Task `DONE` gần nhất | P5-COLLAB-14 Performance 500/2.000 shapes và profile 2/10/50 người                    |
-| Mốc repository mới   | `e1b1201`; GitHub Verify `32621951917` và Security `32621951910` đều PASS              |
-| Task hiện tại        | P5-COLLAB-15 Accessibility và browser matrix — `VERIFY`                               |
-| Task tiếp theo       | Commit/push exact candidate P5-COLLAB-15 và kiểm tra GitHub Verify/Security           |
+| Task `DONE` gần nhất | P5-COLLAB-15 Accessibility và browser matrix                                          |
+| Mốc repository mới   | `09449fc`; GitHub Verify `32638928557` và Security `32638928501` đều PASS              |
+| Task hiện tại        | P5-COLLAB-16 Failure, outage và provider exit — `TODO`                                 |
+| Task tiếp theo       | Bắt đầu P5-COLLAB-16 và khóa acceptance/runbook                                       |
 
-### Checkpoint P5-COLLAB-15 `VERIFY` — 2026-08-23
+### Checkpoint P5-COLLAB-15 `DONE` — 2026-08-23
 
 Production semantic fallback đã được giới hạn 50 phần tử/trang, có focus handoff rõ giữa canvas và
 danh sách văn bản. Adapter pinned Excalidraw `0.18.1` sửa accessible name của menu và landmark footer
@@ -29,8 +29,9 @@ semantic fallback, reconnect/failure/restore announcement, forced-colors/reduced
 recovery; Axe chỉ là bằng chứng hỗ trợ. Không Neon/B2/Render/shared-staging/deploy; production
 whiteboard tiếp tục force-off.
 Full repository `pnpm verify` trên final local candidate tree cũng PASS, gồm format, contract/client,
-security, lint, typecheck, build, Storybook, Go test và `go vet`. Còn exact candidate commit/push và
-GitHub Verify/Security để chuyển `VERIFY -> DONE`. Acceptance:
+security, lint, typecheck, build, Storybook, Go test và `go vet`. Exact candidate `09449fc` đã push
+lên `origin/main`; GitHub Verify `32638928557` và Security `32638928501` đều PASS. P5-COLLAB-15
+chuyển `VERIFY -> DONE`; P5-COLLAB-16 là task runnable tiếp theo. Acceptance:
 [`P5_COLLAB_15_STAGING_ACCEPTANCE.md`](P5_COLLAB_15_STAGING_ACCEPTANCE.md).
 
 ### Checkpoint P5-COLLAB-14 `DONE` — 2026-08-23
