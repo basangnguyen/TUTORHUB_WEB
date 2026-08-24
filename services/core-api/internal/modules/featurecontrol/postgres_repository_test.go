@@ -82,6 +82,12 @@ func (row featureControlValueRow) Scan(destinations ...any) error {
 			return errors.New("unexpected feature-control boolean value")
 		}
 		*destination = value
+	case *int64:
+		value, ok := row.value.(int64)
+		if !ok {
+			return errors.New("unexpected feature-control int64 value")
+		}
+		*destination = value
 	default:
 		return errors.New("unexpected feature-control scan destination")
 	}
@@ -172,5 +178,139 @@ func TestRequireFeatureForReadLocksSharedBeforeControlReads(t *testing.T) {
 		!strings.Contains(transaction.events[1], "FROM tutorhub.tenants") ||
 		!strings.Contains(transaction.events[2], "FROM tutorhub.tenant_feature_overrides") {
 		t.Fatalf("read feature event order = %#v", transaction.events)
+	}
+}
+
+func TestReadEffectiveFeatureValueAppliesTenantAllowlist(t *testing.T) {
+	t.Parallel()
+
+	allowedTenantID := uuid.MustParse("10000000-0000-4000-8000-000000000001")
+	deniedTenantID := uuid.MustParse("10000000-0000-4000-8000-000000000002")
+	catalog, err := NewCatalog(Guardrails{
+		TenantAllowlists: map[FeatureKey][]uuid.UUID{
+			FeatureClassroomWhiteboards: {allowedTenantID},
+		},
+	})
+	if err != nil {
+		t.Fatalf("create tenant-allowlisted catalog: %v", err)
+	}
+	tests := []struct {
+		name       string
+		tenantID   uuid.UUID
+		wantEnable bool
+		wantSource ValueSource
+	}{
+		{
+			name:     "allowed tenant override",
+			tenantID: allowedTenantID, wantEnable: true,
+			wantSource: ValueSourceTenantOverride,
+		},
+		{
+			name:     "denied tenant override",
+			tenantID: deniedTenantID, wantEnable: false,
+			wantSource: ValueSourceDeploymentGuardrail,
+		},
+	}
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			transaction := &recordingFeatureControlTransaction{rows: []pgx.Row{
+				featureControlValueRow{value: true},
+			}}
+			repository := &PostgresRepository{queryTimeout: time.Second, catalog: catalog}
+			effective, err := repository.readEffectiveFeatureValue(
+				context.Background(),
+				transaction,
+				test.tenantID,
+				FeatureClassroomWhiteboards,
+			)
+			if err != nil {
+				t.Fatalf("read effective whiteboard feature: %v", err)
+			}
+			if effective.Enabled != test.wantEnable || effective.Source != test.wantSource {
+				t.Fatalf(
+					"effective whiteboard feature = %+v, want enabled=%t source=%q",
+					effective,
+					test.wantEnable,
+					test.wantSource,
+				)
+			}
+		})
+	}
+}
+
+func TestP518InternalCanaryQuotaBoundariesFailClosedWithoutBusinessWrites(t *testing.T) {
+	t.Parallel()
+
+	tenantID := uuid.MustParse("10000000-0000-4000-8000-000000000018")
+	tests := []struct {
+		key      QuotaKey
+		limit    int64
+		override int64
+	}{
+		{QuotaWhiteboardDocumentsPerTenant, 2, 100},
+		{QuotaWhiteboardConnectionsPerTenant, 10, 100},
+		{QuotaWhiteboardStorageBytesPerTenant, 64 * 1024 * 1024, 10_737_418_240},
+		{QuotaWhiteboardOperationsPerMinute, 600, 60_000},
+	}
+	tenantCeilings := make(map[QuotaKey]map[uuid.UUID]int64, len(tests))
+	for _, test := range tests {
+		tenantCeilings[test.key] = map[uuid.UUID]int64{tenantID: test.limit}
+	}
+	catalog, err := NewCatalog(Guardrails{TenantQuotaCeilings: tenantCeilings})
+	if err != nil {
+		t.Fatalf("create P5-COLLAB-18 quota catalog: %v", err)
+	}
+	repository := &PostgresRepository{queryTimeout: time.Second, catalog: catalog}
+
+	for _, test := range tests {
+		test := test
+		t.Run(string(test.key), func(t *testing.T) {
+			t.Parallel()
+
+			atLimit := &recordingFeatureControlTransaction{rows: []pgx.Row{
+				featureControlValueRow{value: "active"},
+				featureControlValueRow{value: test.override},
+			}}
+			if err := repository.RequireQuotaAtMost(
+				context.Background(), atLimit, tenantID, test.key, test.limit,
+			); err != nil {
+				t.Fatalf("at-limit request rejected: %v", err)
+			}
+			assertP518QuotaCheckReadOnly(t, atLimit)
+
+			plusOne := &recordingFeatureControlTransaction{rows: []pgx.Row{
+				featureControlValueRow{value: "active"},
+				featureControlValueRow{value: test.override},
+			}}
+			err := repository.RequireQuotaAtMost(
+				context.Background(), plusOne, tenantID, test.key, test.limit+1,
+			)
+			if !errors.Is(err, ErrQuotaExceeded) {
+				t.Fatalf("limit+1 error = %v, want ErrQuotaExceeded", err)
+			}
+			assertP518QuotaCheckReadOnly(t, plusOne)
+		})
+	}
+}
+
+func assertP518QuotaCheckReadOnly(
+	t *testing.T,
+	transaction *recordingFeatureControlTransaction,
+) {
+	t.Helper()
+	if len(transaction.execCalls) != 1 || len(transaction.events) != 3 {
+		t.Fatalf(
+			"quota check events = %#v, exec calls = %#v; want advisory lock plus two reads",
+			transaction.events,
+			transaction.execCalls,
+		)
+	}
+	if !strings.Contains(transaction.events[0], "pg_advisory_xact_lock(") ||
+		!strings.Contains(transaction.events[1], "FROM tutorhub.tenants") ||
+		!strings.Contains(transaction.events[2], "FROM tutorhub.tenant_quota_overrides") {
+		t.Fatalf("quota check event order = %#v", transaction.events)
 	}
 }

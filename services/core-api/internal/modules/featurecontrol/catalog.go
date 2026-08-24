@@ -3,6 +3,8 @@ package featurecontrol
 import (
 	"fmt"
 	"sort"
+
+	"github.com/google/uuid"
 )
 
 type FeatureKey string
@@ -73,13 +75,17 @@ type QuotaDefinition struct {
 }
 
 type Guardrails struct {
-	ForcedOffFeatures map[FeatureKey]bool
-	QuotaCeilings     map[QuotaKey]int64
+	ForcedOffFeatures   map[FeatureKey]bool
+	TenantAllowlists    map[FeatureKey][]uuid.UUID
+	QuotaCeilings       map[QuotaKey]int64
+	TenantQuotaCeilings map[QuotaKey]map[uuid.UUID]int64
 }
 
 type Catalog struct {
-	forcedOffFeatures map[FeatureKey]bool
-	quotaCeilings     map[QuotaKey]int64
+	forcedOffFeatures   map[FeatureKey]bool
+	tenantAllowlists    map[FeatureKey]map[uuid.UUID]struct{}
+	quotaCeilings       map[QuotaKey]int64
+	tenantQuotaCeilings map[QuotaKey]map[uuid.UUID]int64
 }
 
 var featureDefinitions = map[FeatureKey]FeatureDefinition{
@@ -204,8 +210,10 @@ var quotaDefinitions = map[QuotaKey]QuotaDefinition{
 
 func NewCatalog(guardrails Guardrails) (*Catalog, error) {
 	catalog := &Catalog{
-		forcedOffFeatures: make(map[FeatureKey]bool, len(guardrails.ForcedOffFeatures)),
-		quotaCeilings:     make(map[QuotaKey]int64, len(guardrails.QuotaCeilings)),
+		forcedOffFeatures:   make(map[FeatureKey]bool, len(guardrails.ForcedOffFeatures)),
+		tenantAllowlists:    make(map[FeatureKey]map[uuid.UUID]struct{}, len(guardrails.TenantAllowlists)),
+		quotaCeilings:       make(map[QuotaKey]int64, len(guardrails.QuotaCeilings)),
+		tenantQuotaCeilings: make(map[QuotaKey]map[uuid.UUID]int64, len(guardrails.TenantQuotaCeilings)),
 	}
 	for key, forcedOff := range guardrails.ForcedOffFeatures {
 		if _, ok := featureDefinitions[key]; !ok || !forcedOff {
@@ -213,12 +221,45 @@ func NewCatalog(guardrails Guardrails) (*Catalog, error) {
 		}
 		catalog.forcedOffFeatures[key] = true
 	}
+	for key, tenantIDs := range guardrails.TenantAllowlists {
+		if _, ok := featureDefinitions[key]; !ok {
+			return nil, fmt.Errorf("validate tenant allowlist guardrail %q: %w", key, ErrInvalidControl)
+		}
+		allowlist := make(map[uuid.UUID]struct{}, len(tenantIDs))
+		for _, tenantID := range tenantIDs {
+			if tenantID == uuid.Nil {
+				return nil, fmt.Errorf("validate tenant allowlist guardrail %q: %w", key, ErrInvalidControl)
+			}
+			if _, duplicate := allowlist[tenantID]; duplicate {
+				return nil, fmt.Errorf("validate tenant allowlist guardrail %q: %w", key, ErrInvalidControl)
+			}
+			allowlist[tenantID] = struct{}{}
+		}
+		catalog.tenantAllowlists[key] = allowlist
+	}
 	for key, ceiling := range guardrails.QuotaCeilings {
 		definition, ok := quotaDefinitions[key]
 		if !ok || ceiling < definition.MinimumLimit || ceiling > definition.MaximumLimit {
 			return nil, fmt.Errorf("validate quota guardrail %q: %w", key, ErrInvalidControl)
 		}
 		catalog.quotaCeilings[key] = ceiling
+	}
+	for key, ceilings := range guardrails.TenantQuotaCeilings {
+		definition, ok := quotaDefinitions[key]
+		if !ok {
+			return nil, ErrInvalidControl
+		}
+		copied := make(map[uuid.UUID]int64, len(ceilings))
+		for tenantID, ceiling := range ceilings {
+			if tenantID == uuid.Nil {
+				return nil, ErrInvalidControl
+			}
+			if err := validateQuotaLimit(definition, ceiling); err != nil {
+				return nil, err
+			}
+			copied[tenantID] = ceiling
+		}
+		catalog.tenantQuotaCeilings[key] = copied
 	}
 	return catalog, nil
 }
@@ -275,6 +316,22 @@ func (catalog *Catalog) EvaluateFeature(
 	key FeatureKey,
 	tenantOverride *bool,
 ) (EffectiveFeature, error) {
+	return catalog.evaluateFeature(uuid.Nil, key, tenantOverride)
+}
+
+func (catalog *Catalog) EvaluateFeatureForTenant(
+	tenantID uuid.UUID,
+	key FeatureKey,
+	tenantOverride *bool,
+) (EffectiveFeature, error) {
+	return catalog.evaluateFeature(tenantID, key, tenantOverride)
+}
+
+func (catalog *Catalog) evaluateFeature(
+	tenantID uuid.UUID,
+	key FeatureKey,
+	tenantOverride *bool,
+) (EffectiveFeature, error) {
 	definition, ok := featureDefinitions[key]
 	if !ok || catalog == nil {
 		return EffectiveFeature{}, fmt.Errorf("evaluate feature %q: %w", key, ErrInvalidControl)
@@ -283,6 +340,13 @@ func (catalog *Catalog) EvaluateFeature(
 		return EffectiveFeature{
 			Key: key, Enabled: false, Source: ValueSourceDeploymentGuardrail,
 		}, nil
+	}
+	if allowlist, guarded := catalog.tenantAllowlists[key]; guarded {
+		if _, allowed := allowlist[tenantID]; !allowed {
+			return EffectiveFeature{
+				Key: key, Enabled: false, Source: ValueSourceDeploymentGuardrail,
+			}, nil
+		}
 	}
 	if tenantOverride != nil {
 		return EffectiveFeature{
@@ -295,6 +359,22 @@ func (catalog *Catalog) EvaluateFeature(
 }
 
 func (catalog *Catalog) EvaluateQuota(
+	key QuotaKey,
+	tenantOverride *int64,
+) (EffectiveQuota, error) {
+	return catalog.evaluateQuota(uuid.Nil, key, tenantOverride)
+}
+
+func (catalog *Catalog) EvaluateQuotaForTenant(
+	tenantID uuid.UUID,
+	key QuotaKey,
+	tenantOverride *int64,
+) (EffectiveQuota, error) {
+	return catalog.evaluateQuota(tenantID, key, tenantOverride)
+}
+
+func (catalog *Catalog) evaluateQuota(
+	tenantID uuid.UUID,
 	key QuotaKey,
 	tenantOverride *int64,
 ) (EffectiveQuota, error) {
@@ -314,6 +394,12 @@ func (catalog *Catalog) EvaluateQuota(
 	if ceiling, guarded := catalog.quotaCeilings[key]; guarded && ceiling < limit {
 		limit = ceiling
 		source = ValueSourceDeploymentGuardrail
+	}
+	if ceilings, guarded := catalog.tenantQuotaCeilings[key]; guarded {
+		if ceiling, applies := ceilings[tenantID]; applies && ceiling < limit {
+			limit = ceiling
+			source = ValueSourceDeploymentGuardrail
+		}
 	}
 	return EffectiveQuota{Key: key, Limit: limit, Source: source}, nil
 }

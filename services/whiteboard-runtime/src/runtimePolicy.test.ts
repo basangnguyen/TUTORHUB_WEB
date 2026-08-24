@@ -89,6 +89,46 @@ describe("RuntimeConnectionPolicy", () => {
     releaseB();
   });
 
+  it("enforces the P5-COLLAB-18 exact 10-connection boundary without partial admission", () => {
+    const policy = new RuntimeConnectionPolicy(
+      {
+        ...connectionLimits,
+        maxConnections: 20,
+        maxConnectionsPerActor: 1,
+        maxConnectionsPerDocument: 1,
+        maxConnectionsPerTenant: 10,
+        maxReconnectAttempts: 20,
+      },
+      () => 100,
+    );
+    const releases = Array.from({ length: 10 }, (_, index) =>
+      policy.acquire(
+        scope({
+          actorId: `canary-actor-${index}`,
+          documentId: `canary-document-${index}`,
+          maxConnectionsPerTenant: 10,
+          tenantId: "p518-canary",
+        }),
+      ),
+    );
+
+    expect(policy.activeConnections()).toBe(10);
+    expect(() =>
+      policy.acquire(
+        scope({
+          actorId: "canary-actor-over-limit",
+          documentId: "canary-document-over-limit",
+          maxConnectionsPerTenant: 10,
+          tenantId: "p518-canary",
+        }),
+      ),
+    ).toThrowError("tenant_connection_quota");
+    expect(policy.activeConnections()).toBe(10);
+
+    releases.forEach((release) => release());
+    expect(policy.activeConnections()).toBe(0);
+  });
+
   it("uses a sliding reconnect window per tenant and actor", () => {
     let now = 100;
     const policy = new RuntimeConnectionPolicy(
@@ -150,6 +190,18 @@ describe("RuntimeTenantOperationPolicy", () => {
 
     now = 60_101;
     expect(() => policy.consume(tenantA)).not.toThrow();
+  });
+
+  it("enforces the P5-COLLAB-18 exact 600-operation boundary without recording denials", () => {
+    const policy = new RuntimeTenantOperationPolicy(600, () => 100);
+    const canary = scope({
+      maxOperationsPerMinute: 600,
+      tenantId: "p518-canary",
+    });
+
+    expect(() => policy.consume(canary, 600)).not.toThrow();
+    expect(() => policy.consume(canary)).toThrowError("tenant_operation_quota");
+    expect(() => policy.consume(canary)).toThrowError("tenant_operation_quota");
   });
 
   it("rejects invalid limits without exposing tenant identifiers", () => {

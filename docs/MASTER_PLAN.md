@@ -11,7 +11,7 @@
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
 | Phase hiện tại        | Phase 5 collaboration implementation; Phase 3 deferred carry-over tiếp tục                   |
-| Trạng thái gần nhất   | P5-COLLAB-17 `DONE`; force-off staging acceptance PASS, P5-COLLAB-18 tiếp theo               |
+| Trạng thái gần nhất   | P5-COLLAB-18 `VERIFY`; local implementation gates PASS, operational evidence còn PENDING     |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 
@@ -1840,6 +1840,18 @@ privacy/authentication boundary, retained Chrome/Edge + NVDA regression và fina
 snapshot đều PASS. Whiteboard vẫn chưa bật; P5-COLLAB-18 internal canary cần authorization riêng.
 Acceptance:
 [`P5_COLLAB_17_STAGING_ACCEPTANCE.md`](P5_COLLAB_17_STAGING_ACCEPTANCE.md).
+
+P5-COLLAB-18 checkpoint 2026-08-24 — `VERIFY`: authorization vẫn khóa workspace
+`P5-COLLAB-18 Internal Canary`, các tài khoản Organization Admin/Teacher/Student hiện có,
+synthetic/non-sensitive board và owner hiện hữu: Bá Sáng primary/security/cost, Duy Mạnh backup.
+Local candidate đã PASS exact-one server-side tenant allowlist, default empty/deployment force-off,
+quota 2 documents, 10 connections, 64 MiB và 600 operations/phút, at-limit/+1 boundary cùng
+denied-tenant zero PostgreSQL/B2/runtime side effect. `pnpm test:collaboration:p518` và
+`pnpm verify` đều PASS. Mốc committed gần nhất vẫn `637e8b5`; exact candidate/GitHub/disposable/
+shared-staging/deploy, live SLO/error/cost/privacy dashboards, kill-switch/no-leak, off/rollback/
+export/last-good snapshot, physical Chrome/Edge + NVDA và cleanup đều còn `PENDING`. Whiteboard
+tiếp tục deployment force-off và P5-COLLAB-19 bị khóa tới khi P5-COLLAB-18 đạt `DONE`. Acceptance:
+[`P5_COLLAB_18_STAGING_ACCEPTANCE.md`](P5_COLLAB_18_STAGING_ACCEPTANCE.md).
 
 **Deliverable:** teacher mở/đóng công cụ mà không làm rời media room; trạng thái cộng tác khôi phục sau reconnect.
 

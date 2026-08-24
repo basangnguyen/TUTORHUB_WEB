@@ -3,6 +3,7 @@ package main
 import (
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/tutorhub-v2/core-api/internal/config"
 	"github.com/tutorhub-v2/core-api/internal/modules/featurecontrol"
 )
@@ -186,6 +187,47 @@ func TestFeatureControlGuardrailsForceOffClassroomWhiteboards(t *testing.T) {
 	if len(guardrails.ForcedOffFeatures) != 1 ||
 		!guardrails.ForcedOffFeatures[featurecontrol.FeatureClassroomWhiteboards] {
 		t.Fatalf("whiteboard deployment force-off was not mapped exactly: %+v", guardrails.ForcedOffFeatures)
+	}
+}
+
+func TestFeatureControlGuardrailsMapWhiteboardCanaryTenantAllowlist(t *testing.T) {
+	t.Parallel()
+
+	firstTenantID := uuid.MustParse("10000000-0000-4000-8000-000000000001")
+	configuration := config.FeatureControlConfig{
+		EnableClassSessionRecurrence:       true,
+		EnableInAppNotifications:           true,
+		EnableClassroomMediaRooms:          true,
+		EnableInstantStudyRooms:            true,
+		EnableClassroomWhiteboards:         true,
+		ClassroomWhiteboardCanaryTenantIDs: []uuid.UUID{firstTenantID},
+	}
+	guardrails := featureControlGuardrails(configuration)
+	allowlist := guardrails.TenantAllowlists[featurecontrol.FeatureClassroomWhiteboards]
+	if len(allowlist) != 1 || allowlist[0] != firstTenantID {
+		t.Fatalf("whiteboard canary allowlist was not mapped exactly: %v", allowlist)
+	}
+	wantCeilings := map[featurecontrol.QuotaKey]int64{
+		featurecontrol.QuotaWhiteboardDocumentsPerTenant:    2,
+		featurecontrol.QuotaWhiteboardConnectionsPerTenant:  10,
+		featurecontrol.QuotaWhiteboardStorageBytesPerTenant: 64 * 1024 * 1024,
+		featurecontrol.QuotaWhiteboardOperationsPerMinute:   600,
+	}
+	for key, want := range wantCeilings {
+		ceilings := guardrails.TenantQuotaCeilings[key]
+		if len(ceilings) != 1 || ceilings[firstTenantID] != want {
+			t.Fatalf("whiteboard canary quota %q = %v, want exact tenant ceiling %d", key, ceilings, want)
+		}
+	}
+
+	configuration.ClassroomWhiteboardCanaryTenantIDs[0] = uuid.MustParse(
+		"10000000-0000-4000-8000-000000000003",
+	)
+	if allowlist[0] != firstTenantID {
+		t.Fatalf("runtime guardrails retained caller-owned allowlist storage: %v", allowlist)
+	}
+	if guardrails.TenantQuotaCeilings[featurecontrol.QuotaWhiteboardDocumentsPerTenant][firstTenantID] != 2 {
+		t.Fatal("runtime guardrails retained caller-owned quota tenant identity")
 	}
 }
 

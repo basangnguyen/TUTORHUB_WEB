@@ -814,8 +814,20 @@ func featureControlGuardrails(configuration config.FeatureControlConfig) feature
 		forcedOff[featurecontrol.FeatureClassroomWhiteboards] = true
 	}
 
+	tenantQuotaCeilings := map[featurecontrol.QuotaKey]map[uuid.UUID]int64{}
+	if len(configuration.ClassroomWhiteboardCanaryTenantIDs) == 1 {
+		tenantID := configuration.ClassroomWhiteboardCanaryTenantIDs[0]
+		tenantQuotaCeilings = p518InternalCanaryQuotaCeilings(tenantID)
+	}
+
 	return featurecontrol.Guardrails{
 		ForcedOffFeatures: forcedOff,
+		TenantAllowlists: map[featurecontrol.FeatureKey][]uuid.UUID{
+			featurecontrol.FeatureClassroomWhiteboards: append(
+				[]uuid.UUID(nil),
+				configuration.ClassroomWhiteboardCanaryTenantIDs...,
+			),
+		},
 		QuotaCeilings: map[featurecontrol.QuotaKey]int64{
 			featurecontrol.QuotaMembers:                                    int64(configuration.MaxMembers),
 			featurecontrol.QuotaActiveClasses:                              int64(configuration.MaxActiveClasses),
@@ -842,6 +854,24 @@ func featureControlGuardrails(configuration config.FeatureControlConfig) feature
 			featurecontrol.QuotaWhiteboardConnectionsPerTenant:             int64(configuration.MaxWhiteboardConnectionsPerTenant),
 			featurecontrol.QuotaWhiteboardStorageBytesPerTenant:            int64(configuration.MaxWhiteboardStorageBytesPerTenant),
 			featurecontrol.QuotaWhiteboardOperationsPerMinute:              int64(configuration.MaxWhiteboardOperationsPerMinute),
+		},
+		TenantQuotaCeilings: tenantQuotaCeilings,
+	}
+}
+
+func p518InternalCanaryQuotaCeilings(tenantID uuid.UUID) map[featurecontrol.QuotaKey]map[uuid.UUID]int64 {
+	return map[featurecontrol.QuotaKey]map[uuid.UUID]int64{
+		featurecontrol.QuotaWhiteboardDocumentsPerTenant: {
+			tenantID: 2,
+		},
+		featurecontrol.QuotaWhiteboardConnectionsPerTenant: {
+			tenantID: 10,
+		},
+		featurecontrol.QuotaWhiteboardStorageBytesPerTenant: {
+			tenantID: 64 * 1024 * 1024,
+		},
+		featurecontrol.QuotaWhiteboardOperationsPerMinute: {
+			tenantID: 600,
 		},
 	}
 }

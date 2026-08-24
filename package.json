@@ -70,6 +70,7 @@
     "test:collaboration:p515:browser": "pnpm --dir apps/web p5-collab-15:browser",
     "test:collaboration:p516": "node scripts/run-p516-local.mjs",
     "test:collaboration:p517": "node scripts/run-p517-local.mjs",
+    "test:collaboration:p518": "node scripts/run-p518-local.mjs",
     "test:integration:collaboration:p513": "node scripts/run-p513-disposable.mjs",
     "test:integration:collaboration:p517": "node scripts/run-p517-disposable.mjs",
     "test:integration:collaboration:p502:shared:preflight": "go test -count=1 -tags=integration -run \"^TestPostgresP502SharedOwnerPreflight$\" ./services/core-api/internal/modules/collaboration",

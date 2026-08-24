@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 func TestLoadDefaults(t *testing.T) {
@@ -95,6 +97,7 @@ func TestLoadDefaults(t *testing.T) {
 		cfg.FeatureControls.EnableClassroomMediaRooms ||
 		cfg.FeatureControls.EnableInstantStudyRooms ||
 		cfg.FeatureControls.EnableClassroomWhiteboards ||
+		len(cfg.FeatureControls.ClassroomWhiteboardCanaryTenantIDs) != 0 ||
 		cfg.FeatureControls.MaxActiveMediaSpaces != defaultFeatureActiveMediaSpaceLimit ||
 		cfg.FeatureControls.MaxMediaParticipantsPerSpace != defaultFeatureMediaParticipantsPerSpaceLimit ||
 		cfg.FeatureControls.MaxActiveMediaParticipants != defaultFeatureActiveMediaParticipantLimit ||
@@ -298,6 +301,7 @@ func TestLoadCustomValues(t *testing.T) {
 		"FEATURE_CONTROL_ENABLE_CLASSROOM_MEDIA_ROOMS":                        "true",
 		"FEATURE_CONTROL_ENABLE_INSTANT_STUDY_ROOMS":                          "true",
 		"FEATURE_CONTROL_ENABLE_CLASSROOM_WHITEBOARDS":                        "true",
+		"FEATURE_CONTROL_CLASSROOM_WHITEBOARD_CANARY_TENANT_IDS":              "11111111-1111-4111-8111-111111111111",
 		"COLLABORATION_CONTROL_PLANE_ENABLED":                                 "true",
 		"COLLABORATION_PROVIDER_URL":                                          "wss://whiteboard.staging.tutorhub.example",
 		"COLLABORATION_GRANT_TTL":                                             "45s",
@@ -407,6 +411,21 @@ func TestLoadCustomValues(t *testing.T) {
 		cfg.FeatureControls.MaxInviteCreationsPerHour != 5000 {
 		t.Fatalf("unexpected feature control config: %+v", cfg.FeatureControls)
 	}
+	wantWhiteboardCanaryTenantIDs := []uuid.UUID{
+		uuid.MustParse("11111111-1111-4111-8111-111111111111"),
+	}
+	if len(cfg.FeatureControls.ClassroomWhiteboardCanaryTenantIDs) != len(wantWhiteboardCanaryTenantIDs) {
+		t.Fatalf(
+			"whiteboard canary tenant IDs = %v, want %v",
+			cfg.FeatureControls.ClassroomWhiteboardCanaryTenantIDs,
+			wantWhiteboardCanaryTenantIDs,
+		)
+	}
+	for index, want := range wantWhiteboardCanaryTenantIDs {
+		if got := cfg.FeatureControls.ClassroomWhiteboardCanaryTenantIDs[index]; got != want {
+			t.Fatalf("whiteboard canary tenant ID %d = %s, want %s", index, got, want)
+		}
+	}
 	if cfg.FeatureControls.MaxActiveAvailabilityPolls != 150 ||
 		cfg.FeatureControls.MaxAvailabilityPollRangeDays != 60 ||
 		cfg.FeatureControls.MaxAvailabilityPollSlots != 800 ||
@@ -452,6 +471,72 @@ func TestLoadRejectsEdgeContextSkewAboveMaximum(t *testing.T) {
 	}))
 	if err == nil || !strings.Contains(err.Error(), "EDGE_CONTEXT_MAX_SKEW must not exceed 5m0s") {
 		t.Fatalf("expected edge context max skew validation error, got %v", err)
+	}
+}
+
+func TestLoadRequiresExactlyOneWhiteboardCanaryTenantWhenGloballyEnabled(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		value string
+	}{
+		{name: "missing", value: ""},
+		{
+			name:  "multiple",
+			value: "11111111-1111-4111-8111-111111111111,22222222-2222-4222-8222-222222222222",
+		},
+	}
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			_, err := load(mapLookup(map[string]string{
+				"FEATURE_CONTROL_ENABLE_CLASSROOM_WHITEBOARDS":           "true",
+				"FEATURE_CONTROL_CLASSROOM_WHITEBOARD_CANARY_TENANT_IDS": test.value,
+			}))
+			if err == nil || !strings.Contains(
+				err.Error(),
+				"FEATURE_CONTROL_CLASSROOM_WHITEBOARD_CANARY_TENANT_IDS must contain exactly one canonical tenant UUID",
+			) {
+				t.Fatalf("expected exact-one whiteboard canary allowlist error, got %v", err)
+			}
+		})
+	}
+}
+
+func TestLoadRejectsInvalidWhiteboardCanaryTenantIDs(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		value string
+	}{
+		{name: "invalid UUID", value: "not-a-uuid"},
+		{name: "zero UUID", value: "00000000-0000-0000-0000-000000000000"},
+		{
+			name:  "duplicate UUID",
+			value: "11111111-1111-4111-8111-111111111111,11111111-1111-4111-8111-111111111111",
+		},
+		{name: "empty entry", value: "11111111-1111-4111-8111-111111111111,"},
+		{name: "noncanonical UUID", value: "11111111111141118111111111111111"},
+	}
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			_, err := load(mapLookup(map[string]string{
+				"FEATURE_CONTROL_CLASSROOM_WHITEBOARD_CANARY_TENANT_IDS": test.value,
+			}))
+			if err == nil || !strings.Contains(
+				err.Error(),
+				"FEATURE_CONTROL_CLASSROOM_WHITEBOARD_CANARY_TENANT_IDS",
+			) {
+				t.Fatalf("expected invalid whiteboard canary allowlist error, got %v", err)
+			}
+		})
 	}
 }
 

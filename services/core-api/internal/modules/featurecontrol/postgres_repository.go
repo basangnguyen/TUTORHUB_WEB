@@ -571,7 +571,8 @@ func (repository *PostgresRepository) readCapabilities(
 			overridePointer = &override
 			configured = override
 		}
-		effective, evaluateErr := repository.catalog.EvaluateFeature(
+		effective, evaluateErr := repository.catalog.EvaluateFeatureForTenant(
+			tenantID,
 			definition.Key,
 			overridePointer,
 		)
@@ -596,7 +597,8 @@ func (repository *PostgresRepository) readCapabilities(
 			overridePointer = &override
 			configured = override
 		}
-		effective, evaluateErr := repository.catalog.EvaluateQuota(
+		effective, evaluateErr := repository.catalog.EvaluateQuotaForTenant(
+			tenantID,
 			definition.Key,
 			overridePointer,
 		)
@@ -670,12 +672,12 @@ WHERE tenant_id = $1 AND feature_key = $2`,
 		key,
 	).Scan(&override)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return repository.catalog.EvaluateFeature(key, nil)
+		return repository.catalog.EvaluateFeatureForTenant(tenantID, key, nil)
 	}
 	if err != nil {
 		return EffectiveFeature{}, fmt.Errorf("read feature override %q: %w", key, err)
 	}
-	return repository.catalog.EvaluateFeature(key, &override)
+	return repository.catalog.EvaluateFeatureForTenant(tenantID, key, &override)
 }
 
 func applyFeatureDependencies(features []FeatureCapability) {
@@ -712,12 +714,12 @@ WHERE tenant_id = $1 AND quota_key = $2`,
 		key,
 	).Scan(&override)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return repository.catalog.EvaluateQuota(key, nil)
+		return repository.catalog.EvaluateQuotaForTenant(tenantID, key, nil)
 	}
 	if err != nil {
 		return EffectiveQuota{}, fmt.Errorf("read quota override %q: %w", key, err)
 	}
-	return repository.catalog.EvaluateQuota(key, &override)
+	return repository.catalog.EvaluateQuotaForTenant(tenantID, key, &override)
 }
 
 func loadFeatureOverrides(

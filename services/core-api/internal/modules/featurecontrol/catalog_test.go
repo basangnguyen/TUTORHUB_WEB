@@ -213,6 +213,54 @@ func TestCatalogPrecedenceCannotBypassDeploymentGuardrails(t *testing.T) {
 	}
 }
 
+func TestCatalogTenantAllowlistCannotBeBypassedByTenantOverride(t *testing.T) {
+	t.Parallel()
+
+	allowedTenantID := uuid.MustParse("10000000-0000-4000-8000-000000000001")
+	deniedTenantID := uuid.MustParse("10000000-0000-4000-8000-000000000002")
+	catalog, err := NewCatalog(Guardrails{
+		TenantAllowlists: map[FeatureKey][]uuid.UUID{
+			FeatureClassroomWhiteboards: {allowedTenantID},
+		},
+	})
+	if err != nil {
+		t.Fatalf("create tenant-allowlisted catalog: %v", err)
+	}
+	enabled := true
+
+	allowed, err := catalog.EvaluateFeatureForTenant(
+		allowedTenantID,
+		FeatureClassroomWhiteboards,
+		&enabled,
+	)
+	if err != nil {
+		t.Fatalf("evaluate allowed tenant: %v", err)
+	}
+	if !allowed.Enabled || allowed.Source != ValueSourceTenantOverride {
+		t.Fatalf("allowed tenant did not receive its enabled override: %+v", allowed)
+	}
+
+	denied, err := catalog.EvaluateFeatureForTenant(
+		deniedTenantID,
+		FeatureClassroomWhiteboards,
+		&enabled,
+	)
+	if err != nil {
+		t.Fatalf("evaluate denied tenant: %v", err)
+	}
+	if denied.Enabled || denied.Source != ValueSourceDeploymentGuardrail {
+		t.Fatalf("denied tenant bypassed exact allowlist: %+v", denied)
+	}
+
+	legacy, err := catalog.EvaluateFeature(FeatureClassroomWhiteboards, &enabled)
+	if err != nil {
+		t.Fatalf("evaluate legacy tenant-unaware path: %v", err)
+	}
+	if legacy.Enabled || legacy.Source != ValueSourceDeploymentGuardrail {
+		t.Fatalf("tenant-unaware evaluation did not fail closed: %+v", legacy)
+	}
+}
+
 func TestClassroomWhiteboardTenantOverrideCannotBypassDeploymentForceOff(t *testing.T) {
 	t.Parallel()
 
@@ -238,6 +286,18 @@ func TestCatalogRejectsUnknownAndInvalidGuardrails(t *testing.T) {
 	tests := []Guardrails{
 		{ForcedOffFeatures: map[FeatureKey]bool{"unknown": true}},
 		{ForcedOffFeatures: map[FeatureKey]bool{FeatureClassManagement: false}},
+		{TenantAllowlists: map[FeatureKey][]uuid.UUID{
+			"unknown": {uuid.MustParse("10000000-0000-4000-8000-000000000001")},
+		}},
+		{TenantAllowlists: map[FeatureKey][]uuid.UUID{
+			FeatureClassroomWhiteboards: {uuid.Nil},
+		}},
+		{TenantAllowlists: map[FeatureKey][]uuid.UUID{
+			FeatureClassroomWhiteboards: {
+				uuid.MustParse("10000000-0000-4000-8000-000000000001"),
+				uuid.MustParse("10000000-0000-4000-8000-000000000001"),
+			},
+		}},
 		{QuotaCeilings: map[QuotaKey]int64{"unknown": 1}},
 		{QuotaCeilings: map[QuotaKey]int64{QuotaActiveClasses: 0}},
 		{QuotaCeilings: map[QuotaKey]int64{QuotaActiveClasses: 1001}},

@@ -32,12 +32,15 @@ import { SessionProvider } from "../app/session";
 import { MediaSpacePreJoinPage } from "./MediaSpacePages";
 import { MediaSpaceRoomPage } from "./MediaSpaceRoomPage";
 
+import { availableTenantCapabilities } from "../test/tenantCapabilities";
+
 const apiMocks = vi.hoisted(() => ({
   cancelJoinAttempt: vi.fn(),
   createJoinAttempt: vi.fn(),
   getCurrentCSRF: vi.fn(),
   getJoinAttempt: vi.fn(),
   getMediaSpace: vi.fn(),
+  getTenantCapabilities: vi.fn(),
   issueJoinCredential: vi.fn(),
   listParticipants: vi.fn(),
   mutateSignal: vi.fn(),
@@ -89,6 +92,7 @@ vi.mock("@tutorhub/api-client", async (importOriginal) => {
     getCurrentCSRFToken: apiMocks.getCurrentCSRF,
     getMediaJoinAttempt: apiMocks.getJoinAttempt,
     getMediaSpace: apiMocks.getMediaSpace,
+    getTenantCapabilities: apiMocks.getTenantCapabilities,
     issueMediaSpaceJoinCredential: apiMocks.issueJoinCredential,
     listMediaSpaceParticipants: apiMocks.listParticipants,
     mutateMediaSpaceSignal: apiMocks.mutateSignal,
@@ -115,6 +119,10 @@ vi.mock("../features/media/ClassroomMediaShell", () => ({
     controlAbortSignal?: AbortSignal;
     onLeave: () => void;
     onTerminalMediaCleanup: () => Promise<void>;
+    tools?: Array<{
+      content?: { props?: { enabled?: boolean } };
+      id: string;
+    }>;
   }) => {
     liveKitMocks.shellRender(props);
     return (
@@ -199,6 +207,20 @@ const roomInstanceID = "c5f918a5-a09e-4f94-9fab-fb0ab5702a4d";
 const participantSessionID = "f680fd29-c7f1-4083-af9b-52ad1db14ba9";
 const joinAttemptID = "a860f06d-34f9-4c57-89f8-1541bfb3b6d7";
 const participantOpaqueID = "018f4c7b-9b0a-7a34-8a4c-96d26cb87221";
+
+function tenantCapabilitiesWithWhiteboard(enabled: boolean) {
+  const capabilities = availableTenantCapabilities(tenantID);
+  return {
+    ...capabilities,
+    features: {
+      ...capabilities.features,
+      classroom_whiteboards: {
+        ...capabilities.features.classroom_whiteboards,
+        enabled,
+      },
+    },
+  };
+}
 
 const currentUser: CurrentUser = {
   user: {
@@ -436,6 +458,20 @@ function renderCanonicalRoom() {
   );
 }
 
+function renderedWhiteboardEnabled(): boolean | undefined {
+  const shellProps = liveKitMocks.shellRender.mock.lastCall?.[0] as
+    | {
+        tools?: Array<{
+          content?: { props?: { enabled?: boolean } };
+          id: string;
+        }>;
+      }
+    | undefined;
+
+  return shellProps?.tools?.find((tool) => tool.id === "whiteboard")?.content
+    ?.props?.enabled;
+}
+
 function putCanonicalRoomEscrow(
   choices: {
     audioEnabled: boolean;
@@ -482,6 +518,9 @@ describe("MediaSpacePreJoinPage P4-03 boundaries", () => {
   beforeEach(() => {
     clearMediaRoomEscrow();
     apiMocks.getMediaSpace.mockResolvedValue(mediaSpace);
+    apiMocks.getTenantCapabilities.mockResolvedValue(
+      tenantCapabilitiesWithWhiteboard(false),
+    );
     apiMocks.listParticipants.mockResolvedValue({
       room_instance_id: roomInstanceID,
       projection_version: 1,
@@ -537,6 +576,7 @@ describe("MediaSpacePreJoinPage P4-03 boundaries", () => {
     apiMocks.cancelJoinAttempt.mockReset();
     apiMocks.getJoinAttempt.mockReset();
     apiMocks.getMediaSpace.mockReset();
+    apiMocks.getTenantCapabilities.mockReset();
     apiMocks.issueJoinCredential.mockReset();
     apiMocks.listParticipants.mockReset();
     apiMocks.mutateSignal.mockReset();
@@ -557,6 +597,58 @@ describe("MediaSpacePreJoinPage P4-03 boundaries", () => {
     liveKitMocks.switchActiveDevice.mockClear();
     liveKitMocks.trackPublications.clear();
     liveKitMocks.unpublishTrack.mockClear();
+  });
+
+  it("keeps whiteboard fail-closed while capabilities load and enables only exact true", async () => {
+    const capabilities =
+      createDeferred<ReturnType<typeof tenantCapabilitiesWithWhiteboard>>();
+    apiMocks.getTenantCapabilities.mockReturnValue(capabilities.promise);
+    putCanonicalRoomEscrow();
+    renderCanonicalRoom();
+
+    await screen.findByRole("heading", { name: "TutorHub classroom" });
+    expect(renderedWhiteboardEnabled()).toBe(false);
+
+    await act(async () => {
+      capabilities.resolve(tenantCapabilitiesWithWhiteboard(true));
+      await capabilities.promise;
+    });
+
+    await waitFor(() => expect(renderedWhiteboardEnabled()).toBe(true));
+  });
+
+  it("keeps whiteboard disabled when the tenant capability is false", async () => {
+    apiMocks.getTenantCapabilities.mockResolvedValue(
+      tenantCapabilitiesWithWhiteboard(false),
+    );
+    putCanonicalRoomEscrow();
+    renderCanonicalRoom();
+
+    await screen.findByRole("heading", { name: "TutorHub classroom" });
+    await waitFor(() => {
+      expect(apiMocks.getTenantCapabilities).toHaveBeenCalledWith(
+        tenantID,
+        expect.any(Object),
+      );
+      expect(renderedWhiteboardEnabled()).toBe(false);
+    });
+  });
+
+  it("keeps whiteboard disabled when capability resolution fails closed", async () => {
+    apiMocks.getTenantCapabilities.mockResolvedValue(
+      availableTenantCapabilities(otherSpaceID),
+    );
+    putCanonicalRoomEscrow();
+    renderCanonicalRoom();
+
+    await screen.findByRole("heading", { name: "TutorHub classroom" });
+    await waitFor(() => {
+      expect(apiMocks.getTenantCapabilities).toHaveBeenCalledWith(
+        tenantID,
+        expect.any(Object),
+      );
+      expect(renderedWhiteboardEnabled()).toBe(false);
+    });
   });
 
   it("does not capture media or create a join attempt during initial render", async () => {

@@ -4,18 +4,36 @@
 
 ## Snapshot
 
-| Thuộc tính           | Trạng thái                                                                            |
-| -------------------- | ------------------------------------------------------------------------------------- |
-| Ngày cập nhật        | 2026-08-24                                                                            |
-| Repository           | `https://github.com/basangnguyen/TUTORHUB_WEB`                                        |
-| Nhánh làm việc       | `main`                                                                                |
-| Quy trình            | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
-| Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4                                                    |
-| Phase hiện tại       | Phase 5 collaboration implementation; Phase 3 deferred carry-over vẫn hoạt động       |
-| Task `DONE` gần nhất | P5-COLLAB-17 Force-off staging acceptance                                             |
-| Mốc repository mới   | `637e8b5`; GitHub Verify `32649917938` và Security `32649917980` đều PASS              |
-| Task hiện tại        | P5-COLLAB-17 — `DONE`; classroom whiteboard vẫn deployment force-off                  |
-| Task tiếp theo       | P5-COLLAB-18 Internal canary, chỉ bắt đầu sau authorization riêng                     |
+| Thuộc tính           | Trạng thái                                                                                 |
+| -------------------- | ------------------------------------------------------------------------------------------ |
+| Ngày cập nhật        | 2026-08-24                                                                                 |
+| Repository           | `https://github.com/basangnguyen/TUTORHUB_WEB`                                             |
+| Nhánh làm việc       | `main`                                                                                     |
+| Quy trình            | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn      |
+| Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4                                                         |
+| Phase hiện tại       | Phase 5 collaboration implementation; Phase 3 deferred carry-over vẫn hoạt động            |
+| Task `DONE` gần nhất | P5-COLLAB-17 Force-off staging acceptance                                                  |
+| Mốc repository mới   | `637e8b5`; GitHub Verify `32649917938` và Security `32649917980` đều PASS                  |
+| Task hiện tại        | P5-COLLAB-18 — `VERIFY`; local canary implementation gates PASS, operational evidence PENDING |
+| Task tiếp theo       | P5-COLLAB-19 Private alpha, bị khóa tới khi P5-COLLAB-18 đạt `DONE`                        |
+
+### Checkpoint P5-COLLAB-18 `VERIFY` — 2026-08-24
+
+Owner đã explicit authorize workspace `P5-COLLAB-18 Internal Canary`, các tài khoản Organization
+Admin/Teacher/Student hiện có, dữ liệu synthetic/non-sensitive và giữ nguyên on-call: Bá Sáng
+(primary), Duy Mạnh (backup), Bá Sáng (security incident) và Bá Sáng (cost). Local candidate đã khóa
+exact-one server-side tenant allowlist, allowlist mặc định rỗng, deployment force-off và exact quota
+2 documents, 10 connections, 64 MiB durable bytes, 600 operations/phút. At-limit PASS, vượt `+1`
+bị từ chối; tenant ngoài allowlist bị conceal/fail closed và không tạo PostgreSQL/B2/runtime side
+effect. UI chỉ mở capability khi server projection trả exact `true`.
+
+`pnpm test:collaboration:p518` và `pnpm verify` đều PASS. Đây chỉ là local implementation/test
+evidence; mốc committed gần nhất vẫn là `637e8b5`. Exact committed candidate/inventory/secret scan,
+GitHub Verify/Security, disposable Neon/B2, shared staging/deploy, live SLO/error/cost/privacy
+dashboards, kill-switch/no-leak, off/rollback/export/last-good snapshot, physical Chrome/Edge + NVDA
+và final cleanup vẫn `PENDING`. Classroom whiteboard tiếp tục deployment force-off; P5-COLLAB-19
+vẫn bị khóa. Acceptance:
+[`P5_COLLAB_18_STAGING_ACCEPTANCE.md`](P5_COLLAB_18_STAGING_ACCEPTANCE.md).
 
 ### Checkpoint P5-COLLAB-17 `DONE` — 2026-08-24
 

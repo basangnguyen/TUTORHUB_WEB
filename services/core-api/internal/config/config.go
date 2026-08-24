@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/tutorhub-v2/core-api/internal/platform/protecteddata"
 )
 
@@ -191,6 +192,7 @@ type FeatureControlConfig struct {
 	EnableClassroomMediaRooms                     bool
 	EnableInstantStudyRooms                       bool
 	EnableClassroomWhiteboards                    bool
+	ClassroomWhiteboardCanaryTenantIDs            []uuid.UUID
 	MaxMembers                                    int
 	MaxActiveClasses                              int
 	MaxInviteCreationsPerHour                     int
@@ -509,7 +511,7 @@ func featureControlConfig(
 	lookup lookupEnv,
 	validationErrors *[]error,
 ) FeatureControlConfig {
-	return FeatureControlConfig{
+	configuration := FeatureControlConfig{
 		DisableMembershipInvitations: boolValue(
 			lookup,
 			"FEATURE_CONTROL_DISABLE_MEMBERSHIP_INVITATIONS",
@@ -783,6 +785,19 @@ func featureControlConfig(
 			validationErrors,
 		),
 	}
+	configuration.ClassroomWhiteboardCanaryTenantIDs = uuidListValue(
+		lookup,
+		"FEATURE_CONTROL_CLASSROOM_WHITEBOARD_CANARY_TENANT_IDS",
+		validationErrors,
+	)
+	if configuration.EnableClassroomWhiteboards && len(configuration.ClassroomWhiteboardCanaryTenantIDs) != 1 {
+		*validationErrors = append(
+			*validationErrors,
+			errors.New("FEATURE_CONTROL_CLASSROOM_WHITEBOARD_CANARY_TENANT_IDS must contain exactly one canonical tenant UUID when FEATURE_CONTROL_ENABLE_CLASSROOM_WHITEBOARDS is true"),
+		)
+	}
+
+	return configuration
 }
 
 func LoadObjectStorage() (ObjectStorageConfig, error) {
@@ -1339,6 +1354,43 @@ func boolValue(
 	}
 
 	return value
+}
+
+func uuidListValue(
+	lookup lookupEnv,
+	key string,
+	validationErrors *[]error,
+) []uuid.UUID {
+	raw := strings.TrimSpace(valueOrDefault(lookup, key, ""))
+	if raw == "" {
+		return nil
+	}
+
+	entries := strings.Split(raw, ",")
+	values := make([]uuid.UUID, 0, len(entries))
+	seen := make(map[uuid.UUID]struct{}, len(entries))
+	for index, entry := range entries {
+		candidate := strings.TrimSpace(entry)
+		parsed, err := uuid.Parse(candidate)
+		if candidate == "" || err != nil || parsed == uuid.Nil || !strings.EqualFold(candidate, parsed.String()) {
+			*validationErrors = append(
+				*validationErrors,
+				fmt.Errorf("%s entry %d must be a canonical non-zero UUID", key, index+1),
+			)
+			continue
+		}
+		if _, duplicate := seen[parsed]; duplicate {
+			*validationErrors = append(
+				*validationErrors,
+				fmt.Errorf("%s entry %d duplicates an earlier tenant UUID", key, index+1),
+			)
+			continue
+		}
+		seen[parsed] = struct{}{}
+		values = append(values, parsed)
+	}
+
+	return values
 }
 
 func parseScopes(value string) []string {

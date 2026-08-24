@@ -40,6 +40,8 @@ import {
   type ClassroomReactionType,
 } from "../features/media/classroomSignals";
 
+import { useTenantCapabilities } from "../app/tenantCapabilities";
+
 export function MediaSpaceRoomPage() {
   const { spaceId, roomInstanceId } = useParams();
   const session = useSession();
@@ -87,6 +89,9 @@ function MediaSpaceRoomSession({
     queryFn: ({ signal }) => getMediaSpace(tenantId, spaceId ?? "", { signal }),
     retry: false,
   });
+  const tenantCapabilities = useTenantCapabilities(tenantId, Boolean(tenantId));
+  const whiteboardEnabled =
+    tenantCapabilities.data?.features.classroom_whiteboards.enabled === true;
   const [handoff, setHandoff] = useState(() => {
     if (!spaceId || !roomInstanceId || !tenantId || !userId) {
       clearMediaRoomEscrow();
@@ -448,7 +453,7 @@ function MediaSpaceRoomSession({
         content: (
           <ClassroomWhiteboardTool
             actorID={userId}
-            enabled={Boolean(tenantId && userId)}
+            enabled={whiteboardEnabled}
             mediaSpaceID={spaceId}
             tenantID={tenantId}
           />
