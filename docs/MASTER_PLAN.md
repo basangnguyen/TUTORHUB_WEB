@@ -5,13 +5,13 @@
 | Thuộc tính            | Giá trị                                                                                      |
 | --------------------- | -------------------------------------------------------------------------------------------- |
 | Phiên bản tài liệu    | 2.5                                                                                          |
-| Cập nhật              | 2026-08-23                                                                                   |
+| Cập nhật              | 2026-08-24                                                                                   |
 | Phạm vi ưu tiên       | Web application                                                                              |
 | Thư mục phát triển    | `D:\TutorHub_V2`                                                                             |
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
 | Phase hiện tại        | Phase 5 collaboration implementation; Phase 3 deferred carry-over tiếp tục                   |
-| Trạng thái gần nhất   | P5-COLLAB-17 `VERIFY`; local force-off candidate PASS, external gates pending                |
+| Trạng thái gần nhất   | P5-COLLAB-17 `DONE`; force-off staging acceptance PASS, P5-COLLAB-18 tiếp theo               |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 
@@ -1832,13 +1832,13 @@ PASS trong 35,9 giây. Exact candidate `1c1111c` đã push lên `origin/main`; G
 `32643119744` và Security `32643119716` đều PASS. P5-COLLAB-17 là rollout task tiếp theo. Acceptance:
 [`P5_COLLAB_16_STAGING_ACCEPTANCE.md`](P5_COLLAB_16_STAGING_ACCEPTANCE.md).
 
-P5-COLLAB-17 candidate 2026-08-23 — `VERIFY`: deployment force-off được khóa ở config, feature
-catalog, authenticated HTTP routes và web fallback. Local aggregate PASS Core API force-off,
-web `6/6`, P5-COLLAB-16 runtime/outage/client regressions và disposable environment validator `3/3`.
-Full repository verify PASS; Go test/vet PASS với writable temporary `GOCACHE` sau khi Windows sandbox
-chặn default cache. Không provider connection, migration, shared-staging write, deploy hoặc feature enable. Exact
-candidate GitHub CI/security, disposable Neon/B2, shared-staging force-off, physical Chrome/Edge và
-cleanup snapshot vẫn pending. Acceptance:
+P5-COLLAB-17 closure 2026-08-24 — `DONE`: exact candidate `637e8b5` PASS GitHub Verify
+`32649917938` và Security `32649917980`. Disposable Neon/B2 PASS final `41 false`; shared staging
+forward idempotent `37 false -> 41 false -> 41 false`, exact ACL/read-only audit PASS. Render deploy
+exact SHA giữ deployment force-off; direct/proxy health gates, authenticated Teacher concealment,
+privacy/authentication boundary, retained Chrome/Edge + NVDA regression và final zero-residue cleanup
+snapshot đều PASS. Whiteboard vẫn chưa bật; P5-COLLAB-18 internal canary cần authorization riêng.
+Acceptance:
 [`P5_COLLAB_17_STAGING_ACCEPTANCE.md`](P5_COLLAB_17_STAGING_ACCEPTANCE.md).
 
 **Deliverable:** teacher mở/đóng công cụ mà không làm rời media room; trạng thái cộng tác khôi phục sau reconnect.

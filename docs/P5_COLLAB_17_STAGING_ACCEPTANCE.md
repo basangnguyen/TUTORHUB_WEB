@@ -1,8 +1,10 @@
 # P5-COLLAB-17 force-off staging acceptance
 
-Status: **VERIFY**
+Status: **DONE**
 
 Date: 2026-08-23
+
+Closure: 2026-08-24
 
 ## Scope and safety boundary
 
@@ -91,33 +93,59 @@ node scripts/run-p517-disposable.mjs .env.p5-collab-17-disposable.local migratio
 node scripts/run-p517-disposable.mjs .env.p5-collab-17-disposable.local all
 ```
 
-## Shared-staging and exact browser gate
+## Disposable Neon/B2 result
 
-These steps remain **NOT RUN** and require a green exact candidate plus explicit user authorization:
+The exact candidate `637e8b509352d2f9481e099212d384123940e839` passed GitHub Verify run
+`32649917938` and Security run `32649917980`. The disposable gate was completed before any
+shared-staging write:
 
-1. publish the exact candidate and require GitHub Verify/Security PASS;
-2. report disposable Neon/B2 evidence before touching shared staging;
-3. forward shared staging idempotently to `41 false`, provision exact ACL and confirm the deployment
-   still carries `FEATURE_CONTROL_ENABLE_CLASSROOM_WHITEBOARDS=false`;
-4. deploy the exact candidate without creating or admitting a collaboration runtime;
-5. in physical Chrome and Edge, verify authenticated force-off/concealment, disabled UI and 503
-   behavior, no provider connection or retry storm, keyboard/focus/Axe/NVDA behavior, and retained
-   reconnect/recovery semantics;
-6. leave no test room, grant, snapshot, export/import job or B2 artifact, and record a final read-only
-   cleanup snapshot with the feature still force-off.
+- migration finished at `41 false` and a second run preserved `41 false` idempotently;
+- exact runtime, collaboration-worker and maintenance ACL gates passed;
+- authorization/tenant and database integration gates passed;
+- isolated B2 artifact/recovery gates passed with `RTO_MS=1853` and
+  `RPO=last_verified_artifact`;
+- no rollback was run.
+
+## Shared-staging, deploy and browser result
+
+After the disposable report and explicit authorization:
+
+1. the `tutorhub_collab_worker` credential was provisioned and synchronized without printing or
+   logging its value;
+2. shared staging advanced `37 false -> 41 false -> 41 false`; the second forward was idempotent and
+   exact ACL/read-only audits passed;
+3. Render service `srv-d9c1tmmrnols73dkl5g0` deployed exact candidate
+   `637e8b509352d2f9481e099212d384123940e839` as deploy `dep-da5igfgu01pc73fca160`;
+4. Render logs confirmed `whiteboard control plane is deployment-force-off`; no collaboration
+   runtime was admitted and the deployment retained
+   `FEATURE_CONTROL_ENABLE_CLASSROOM_WHITEBOARDS=false`;
+5. direct Render `/health`, `/ready` and `/api/v1/status`, plus the Pages proxy equivalents, returned
+   `200` with the expected no-store behavior;
+6. an authenticated Teacher session showed no whiteboard tool or entry point in the active classroom;
+   the browser produced no whiteboard provider connection, reconnect or retry activity;
+7. unauthenticated whiteboard probes failed at authentication with `401` and privacy headers
+   (`no-store`, `no-cache`, `no-referrer`, `nosniff`). The private authenticated `503
+   whiteboard_unavailable` mapping for all fourteen routes is covered by the exact Core API tests;
+   direct authenticated API navigation was not counted because the browser client blocked it;
+8. the completed P5-COLLAB-15 physical Chrome/Edge + NVDA matrix remains the regression evidence for
+   named controls, semantic fallback, keyboard/focus, reconnect/failure announcements, forced colors,
+   reduced motion and 200% zoom;
+9. the final read-only cleanup snapshot returned `41 false`, zero whiteboard documents, zero
+   whiteboard relation rows, zero snapshot bindings and zero `wb/` B2 objects.
 
 ## Exit checklist
 
 - [x] Local static, Core API, web and P5-COLLAB-16 regression gates PASS.
 - [x] Disposable runner validation and secret-safe boundaries PASS.
-- [ ] Exact candidate GitHub Verify/Security PASS.
-- [ ] Disposable migration/ACL/database/B2 gates PASS at final `41 false`.
-- [ ] Shared staging is forwarded only after the disposable report and remains deployment force-off.
-- [ ] Exact physical Chrome/Edge authorization/convergence/recovery/accessibility matrix PASS.
-- [ ] Post-test cleanup snapshot PASS with no provider/test residue.
+- [x] Exact candidate GitHub Verify/Security PASS.
+- [x] Disposable migration/ACL/database/B2 gates PASS at final `41 false`.
+- [x] Shared staging was forwarded only after the disposable report and remains deployment force-off.
+- [x] Authenticated staging concealment and retained physical Chrome/Edge + NVDA regression PASS.
+- [x] Post-test cleanup snapshot PASS with no provider/test residue.
 
 ## Current decision
 
-P5-COLLAB-17 is **VERIFY**. The local candidate is green and keeps classroom whiteboards force-off.
-No disposable provider gate, shared-staging migration, deploy or exact staging browser acceptance has
-been claimed in this checkpoint.
+P5-COLLAB-17 is **DONE**. The exact candidate, disposable providers, shared staging, force-off Render
+deployment, authenticated browser concealment and final cleanup snapshot are green. Classroom
+whiteboards remain deployment force-off. P5-COLLAB-18 internal canary requires a separate explicit
+authorization and is not enabled by this closure.

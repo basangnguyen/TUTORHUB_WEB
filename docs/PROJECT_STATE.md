@@ -6,18 +6,18 @@
 
 | Thuộc tính           | Trạng thái                                                                            |
 | -------------------- | ------------------------------------------------------------------------------------- |
-| Ngày cập nhật        | 2026-08-23                                                                            |
+| Ngày cập nhật        | 2026-08-24                                                                            |
 | Repository           | `https://github.com/basangnguyen/TUTORHUB_WEB`                                        |
 | Nhánh làm việc       | `main`                                                                                |
 | Quy trình            | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
 | Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4                                                    |
 | Phase hiện tại       | Phase 5 collaboration implementation; Phase 3 deferred carry-over vẫn hoạt động       |
-| Task `DONE` gần nhất | P5-COLLAB-16 Failure, outage và provider exit                                          |
-| Mốc repository mới   | `1c1111c`; GitHub Verify `32643119744` và Security `32643119716` đều PASS              |
-| Task hiện tại        | P5-COLLAB-17 Force-off staging acceptance — `VERIFY`                                   |
-| Task tiếp theo       | Exact candidate CI, rồi disposable Neon/B2 trước shared staging                        |
+| Task `DONE` gần nhất | P5-COLLAB-17 Force-off staging acceptance                                             |
+| Mốc repository mới   | `637e8b5`; GitHub Verify `32649917938` và Security `32649917980` đều PASS              |
+| Task hiện tại        | P5-COLLAB-17 — `DONE`; classroom whiteboard vẫn deployment force-off                  |
+| Task tiếp theo       | P5-COLLAB-18 Internal canary, chỉ bắt đầu sau authorization riêng                     |
 
-### Checkpoint P5-COLLAB-17 `VERIFY` — 2026-08-23
+### Checkpoint P5-COLLAB-17 `DONE` — 2026-08-24
 
 Local force-off candidate đã khóa `.env.example`, Core API config/catalog/deployment guard và web
 fallback ở `FEATURE_CONTROL_ENABLE_CLASSROOM_WHITEBOARDS=false`. Tenant override không thể vượt
@@ -29,10 +29,18 @@ same-branch PostgreSQL roles cùng scoped B2 disposable. Full repository verify 
 được chạy lại bằng writable temporary `GOCACHE` vì Windows sandbox chặn default cache, không phải lỗi
 source.
 
-Task giữ `VERIFY`: chưa stage/commit/push candidate, chưa chạy GitHub CI, chưa kết nối disposable,
-không migration/shared-staging write, không deploy và không bật whiteboard. Các gate còn lại là exact
-candidate Verify/Security, disposable migration/ACL/database/B2 tại final `41 false`, shared staging
-force-off sau disposable report, physical Chrome/Edge staging matrix và cleanup snapshot. Acceptance:
+Exact candidate `637e8b5` đã push và GitHub Verify `32649917938`/Security `32649917980` đều PASS.
+Disposable Neon/B2 PASS tại final `41 false`, idempotent, exact ACL/database gates, B2
+`RTO_MS=1853` và `RPO=last_verified_artifact`. Sau disposable report, shared staging forward
+`37 false -> 41 false -> 41 false`, worker ACL và read-only audit đều PASS. Render deploy
+`dep-da5igfgu01pc73fca160` chạy đúng SHA, health/readiness/status trực tiếp và qua Pages proxy đều
+PASS, log xác nhận deployment force-off.
+
+Authenticated Teacher không thấy whiteboard entry point; không có provider/retry activity. Privacy
+headers và authentication boundary PASS; exact Core API tests giữ private 503 contract cho 14 route.
+Physical Chrome/Edge + NVDA regression của P5-COLLAB-15 được giữ làm bằng chứng a11y. Final cleanup
+snapshot có zero document/relation/binding/B2 object và ledger vẫn `41 false`. P5-COLLAB-17 chuyển
+`VERIFY -> DONE`; whiteboard chưa bật và P5-COLLAB-18 cần authorization riêng. Acceptance:
 [`P5_COLLAB_17_STAGING_ACCEPTANCE.md`](P5_COLLAB_17_STAGING_ACCEPTANCE.md).
 
 ### Checkpoint P5-COLLAB-16 `DONE` — 2026-08-23
