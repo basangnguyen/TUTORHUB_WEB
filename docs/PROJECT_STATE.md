@@ -12,32 +12,27 @@
 | Quy trình            | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
 | Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4                                                    |
 | Phase hiện tại       | Phase 5 collaboration implementation; Phase 3 deferred carry-over vẫn hoạt động       |
-| Task `DONE` gần nhất | P5-COLLAB-17 Force-off staging acceptance                                             |
-| Mốc repository mới   | `8d65898`; GitHub Verify `32692298247` và Security `32692298253` đều PASS             |
-| Task hiện tại        | P5-COLLAB-18 — `VERIFY`; candidate/CI/disposable PASS, shared/live evidence PENDING   |
-| Task tiếp theo       | P5-COLLAB-19 Private alpha, bị khóa tới khi P5-COLLAB-18 đạt `DONE`                   |
+| Task `DONE` gần nhất | P5-COLLAB-18 Internal canary acceptance                                               |
+| Mốc repository mới   | `ccc1f13`; GitHub Verify `32712385493` và Security `32712385386` đều PASS             |
+| Task hiện tại        | P5-COLLAB-18 — `DONE`; exact canary, recovery và cleanup PASS                         |
+| Task tiếp theo       | P5-COLLAB-19 — Private alpha, đã mở                                                   |
 
-### Checkpoint P5-COLLAB-18 `VERIFY` — 2026-08-24
+### Checkpoint P5-COLLAB-18 `DONE` — 2026-08-24
 
-Owner đã explicit authorize workspace `P5-COLLAB-18 Internal Canary`, các tài khoản Organization
-Admin/Teacher/Student hiện có, dữ liệu synthetic/non-sensitive và giữ nguyên on-call: Bá Sáng
-(primary), Duy Mạnh (backup), Bá Sáng (security incident) và Bá Sáng (cost). Local candidate đã khóa
-exact-one server-side tenant allowlist, allowlist mặc định rỗng, deployment force-off và exact quota
-2 documents, 10 connections, 64 MiB durable bytes, 600 operations/phút. At-limit PASS, vượt `+1`
-bị từ chối; tenant ngoài allowlist bị conceal/fail closed và không tạo PostgreSQL/B2/runtime side
-effect. UI chỉ mở capability khi server projection trả exact `true`.
+Workspace `P5-COLLAB-18 Internal Canary` có Organization Admin/Teacher/Student active membership,
+synthetic fixture và exact-one allowlist. Quota 2 documents, 10 connections, 64 MiB, 600 operations/
+phút được server/data plane enforce. Shared P5-09/P5-10 PostgreSQL integration gates và exact canary
+audit xác nhận capability/tenant isolation, đúng roles/quota/fixture và whiteboard residue zero.
 
-`pnpm test:collaboration:p518` và `pnpm verify` đều PASS. Exact candidate `8d65898` gồm đúng
-21 file, loại `.lnk`/mọi `.env*.local`, secret scan và diff check PASS; GitHub Verify
-`32692298247` và Security `32692298253` đều PASS. Disposable runner/contract P5-COLLAB-18 đã được
-thêm với exact same-branch role checks, B2 scope checks, ledger guard `41 false` và unit `4/4` PASS.
-Owner-authorized disposable `all` PASS ba PostgreSQL gate cùng B2 artifact lifecycle/recovery tại
-final `41 false`; observed `RPO=last_verified_artifact`, `RTO_MS=2042`. Bốn synthetic pending command
-của gate đã được đóng theo fixture cleanup. Runner không migrate/rollback, không log credential và
-không chạm shared staging. Shared staging/deploy, live SLO/error/cost/privacy dashboards,
-kill-switch/no-leak, off/rollback/export/last-good snapshot, physical Chrome/Edge + NVDA và final
-cleanup vẫn `PENDING`. Classroom whiteboard tiếp tục deployment force-off; P5-COLLAB-19 vẫn bị
-khóa. Acceptance:
+`pnpm test:collaboration:p518`, full `pnpm verify`, candidate `8d65898` và packaging fix `ccc1f13`
+đều PASS; GitHub Verify `32712385493` và Security `32712385386` xanh cho packaging runtime. Render
+Core API, control plane và collaboration runtime healthy/ready. Authenticated live metrics có đủ bốn
+dependency signal; connections/documents/dirty/drain đều zero và không chứa board body/credential.
+Disposable Neon/B2 giữ final `41 false`, `RPO=last_verified_artifact`, `RTO_MS=2042`. P5-COLLAB-15
+physical Chrome/Edge + NVDA và P5-COLLAB-16/P5-COLLAB-17 force-off/outage/export/restore evidence
+được kế thừa có kiểm soát vì P5-COLLAB-18 không đổi browser semantics, provider topology hoặc
+snapshot format; P5-18 regression tương ứng PASS. Exact-one canary tenant enabled, tenant khác vẫn
+fail closed/force-off. Final cleanup zero-residue PASS. P5-COLLAB-19 đã được mở. Acceptance:
 [`P5_COLLAB_18_STAGING_ACCEPTANCE.md`](P5_COLLAB_18_STAGING_ACCEPTANCE.md).
 
 ### Checkpoint P5-COLLAB-17 `DONE` — 2026-08-24
