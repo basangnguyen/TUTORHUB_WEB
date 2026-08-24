@@ -4,18 +4,18 @@
 
 ## Snapshot
 
-| Thuộc tính           | Trạng thái                                                                                 |
-| -------------------- | ------------------------------------------------------------------------------------------ |
-| Ngày cập nhật        | 2026-08-24                                                                                 |
-| Repository           | `https://github.com/basangnguyen/TUTORHUB_WEB`                                             |
-| Nhánh làm việc       | `main`                                                                                     |
-| Quy trình            | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn      |
-| Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4                                                         |
-| Phase hiện tại       | Phase 5 collaboration implementation; Phase 3 deferred carry-over vẫn hoạt động            |
-| Task `DONE` gần nhất | P5-COLLAB-17 Force-off staging acceptance                                                  |
-| Mốc repository mới   | `8d65898`; GitHub Verify `32692298247` và Security `32692298253` đều PASS                  |
-| Task hiện tại        | P5-COLLAB-18 — `VERIFY`; candidate/CI gates PASS, operational evidence PENDING              |
-| Task tiếp theo       | P5-COLLAB-19 Private alpha, bị khóa tới khi P5-COLLAB-18 đạt `DONE`                        |
+| Thuộc tính           | Trạng thái                                                                            |
+| -------------------- | ------------------------------------------------------------------------------------- |
+| Ngày cập nhật        | 2026-08-24                                                                            |
+| Repository           | `https://github.com/basangnguyen/TUTORHUB_WEB`                                        |
+| Nhánh làm việc       | `main`                                                                                |
+| Quy trình            | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
+| Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4                                                    |
+| Phase hiện tại       | Phase 5 collaboration implementation; Phase 3 deferred carry-over vẫn hoạt động       |
+| Task `DONE` gần nhất | P5-COLLAB-17 Force-off staging acceptance                                             |
+| Mốc repository mới   | `8d65898`; GitHub Verify `32692298247` và Security `32692298253` đều PASS             |
+| Task hiện tại        | P5-COLLAB-18 — `VERIFY`; candidate/CI/disposable PASS, shared/live evidence PENDING   |
+| Task tiếp theo       | P5-COLLAB-19 Private alpha, bị khóa tới khi P5-COLLAB-18 đạt `DONE`                   |
 
 ### Checkpoint P5-COLLAB-18 `VERIFY` — 2026-08-24
 
@@ -29,10 +29,15 @@ effect. UI chỉ mở capability khi server projection trả exact `true`.
 
 `pnpm test:collaboration:p518` và `pnpm verify` đều PASS. Exact candidate `8d65898` gồm đúng
 21 file, loại `.lnk`/mọi `.env*.local`, secret scan và diff check PASS; GitHub Verify
-`32692298247` và Security `32692298253` đều PASS. Disposable Neon/B2, shared staging/deploy,
-live SLO/error/cost/privacy dashboards, kill-switch/no-leak, off/rollback/export/last-good snapshot,
-physical Chrome/Edge + NVDA và final cleanup vẫn `PENDING`. Classroom whiteboard tiếp tục
-deployment force-off; P5-COLLAB-19 vẫn bị khóa. Acceptance:
+`32692298247` và Security `32692298253` đều PASS. Disposable runner/contract P5-COLLAB-18 đã được
+thêm với exact same-branch role checks, B2 scope checks, ledger guard `41 false` và unit `4/4` PASS.
+Owner-authorized disposable `all` PASS ba PostgreSQL gate cùng B2 artifact lifecycle/recovery tại
+final `41 false`; observed `RPO=last_verified_artifact`, `RTO_MS=2042`. Bốn synthetic pending command
+của gate đã được đóng theo fixture cleanup. Runner không migrate/rollback, không log credential và
+không chạm shared staging. Shared staging/deploy, live SLO/error/cost/privacy dashboards,
+kill-switch/no-leak, off/rollback/export/last-good snapshot, physical Chrome/Edge + NVDA và final
+cleanup vẫn `PENDING`. Classroom whiteboard tiếp tục deployment force-off; P5-COLLAB-19 vẫn bị
+khóa. Acceptance:
 [`P5_COLLAB_18_STAGING_ACCEPTANCE.md`](P5_COLLAB_18_STAGING_ACCEPTANCE.md).
 
 ### Checkpoint P5-COLLAB-17 `DONE` — 2026-08-24
@@ -2413,11 +2418,11 @@ Backlog có thẩm quyền: `docs/PHASE_3_BACKLOG.md`.
 
 ### Phân loại gate vận hành hiện tại (2026-07-31)
 
-| Nhóm | Quy tắc |
-| --- | --- |
-| Bắt buộc chạy ngay | Unit/integration/CI, static ACL/config checks, local/disposable PostgreSQL, API/browser/accessibility và sandbox/sink tests trong phạm vi hiện có. |
-| `DEFERRED/VERIFY` | Durable worker host không spin-down, live worker role/grants, crash/reclaim/duplicate canary, SES production access/quota/event ingress, domain/DNS và Gmail/Outlook/Apple interoperability. |
-| Không được bật | `OUTBOX_ENABLE_IN_APP_NOTIFICATION_CANARY`, `FEATURE_CONTROL_ENABLE_IN_APP_NOTIFICATIONS`, Class Files sharing/processing và mọi asynchronous email/ICS/reminder side effect trước khi gate phụ thuộc đạt. |
+| Nhóm               | Quy tắc                                                                                                                                                                                                    |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Bắt buộc chạy ngay | Unit/integration/CI, static ACL/config checks, local/disposable PostgreSQL, API/browser/accessibility và sandbox/sink tests trong phạm vi hiện có.                                                         |
+| `DEFERRED/VERIFY`  | Durable worker host không spin-down, live worker role/grants, crash/reclaim/duplicate canary, SES production access/quota/event ingress, domain/DNS và Gmail/Outlook/Apple interoperability.               |
+| Không được bật     | `OUTBOX_ENABLE_IN_APP_NOTIFICATION_CANARY`, `FEATURE_CONTROL_ENABLE_IN_APP_NOTIFICATIONS`, Class Files sharing/processing và mọi asynchronous email/ICS/reminder side effect trước khi gate phụ thuộc đạt. |
 
 - Render Free spin down khi không hoạt động và có thể cold start trên 50 giây;
   chỉ chấp nhận cho staging/private alpha.

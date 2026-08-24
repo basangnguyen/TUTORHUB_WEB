@@ -649,7 +649,12 @@ async function enqueueCommand(
         idempotency_key, request_fingerprint, source_snapshot_id,
         target_generation, target_provider_document_name, available_at,
         requested_at, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW(), NOW())`,
+     VALUES (
+       $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11,
+       TIMESTAMPTZ '1900-01-01 00:00:00+00',
+       TIMESTAMPTZ '1900-01-01 00:00:00+00',
+       NOW()
+     )`,
     [
       id,
       fixture.tenantId,

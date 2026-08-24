@@ -1,6 +1,6 @@
 # P5-COLLAB-18 — Internal canary acceptance
 
-- Trạng thái: `VERIFY` — local pre-staging
+- Trạng thái: `VERIFY` — disposable PASS, shared/live PENDING
 - Ngày kickoff: 2026-08-24
 - Quyết định kiến trúc áp dụng: [ADR-0037](adr/0037-whiteboard-feature-quota-and-operations.md)
 - Trạng thái triển khai tại kickoff: classroom whiteboard vẫn deployment force-off
@@ -53,13 +53,50 @@ board content, email hoặc provider error chi tiết vào log/evidence.
 
 ## 4. Evidence plan
 
+### Disposable runner contract
+
+Runner `scripts/run-p518-disposable.mjs` chỉ đọc file local bị Git ignore, không hiển thị giá trị
+credential và không tự chạy migration hoặc rollback. Contract mặc định là
+`.env.p5-collab-18-disposable.local` với đúng các biến:
+
+```dotenv
+DATABASE_MIGRATION_URL=
+DATABASE_POOL_URL=
+DATABASE_COLLABORATION_URL=
+DATABASE_POLL_MAINTENANCE_URL=
+B2_ENDPOINT=
+B2_REGION=
+B2_BUCKET=
+B2_KEY_ID=
+B2_APPLICATION_KEY=
+P5_COLLAB_18_DISPOSABLE_CONFIRM=I_UNDERSTAND_P5_COLLAB_18_DISPOSABLE_ONLY
+```
+
+Bốn PostgreSQL URL phải trỏ tới cùng một disposable branch/database và lần lượt dùng bốn role
+khác nhau: owner direct, runtime pooled, collaboration worker direct và maintenance direct. B2
+phải là private disposable bucket với scoped key. Runner chỉ chấp nhận migration ledger sạch
+`41 false`; nếu khác, runner dừng mà không thay đổi database. Các gate được chạy độc lập bằng:
+
+```powershell
+pnpm test:integration:collaboration:p518 -- .env.p5-collab-18-disposable.local preflight
+pnpm test:integration:collaboration:p518 -- .env.p5-collab-18-disposable.local database
+pnpm test:integration:collaboration:p518 -- .env.p5-collab-18-disposable.local provider
+pnpm test:integration:collaboration:p518 -- .env.p5-collab-18-disposable.local all
+```
+
+Các lệnh trên chỉ được dùng với disposable provider. Shared staging/deploy vẫn ngoài phạm vi
+authorization hiện tại.
+
 ### A. Candidate và pre-staging
 
 - [x] Changed-file inventory 21 file, loại `.lnk`, không có `.env*.local`; secret scan và
       `git diff --check` PASS. Exact candidate `8d65898` đã push lên `origin/main`.
 - [x] Focused P5-COLLAB-18 test và full `pnpm verify` PASS. GitHub Verify `32692298247` và
       Security `32692298253` đều PASS trên exact candidate.
-- [ ] Disposable Neon/B2 gates PASS trước mọi shared-staging mutation.
+- [x] Disposable runner/contract và validator tests đã được thêm; unit `4/4`, exact same-branch/B2
+      preflight và secret-safe argument handling PASS.
+- [x] Disposable Neon/B2 gates PASS trước mọi shared-staging mutation; ba PostgreSQL gate và B2
+      artifact lifecycle/recovery đều xanh tại final ledger `41 false`.
 
 ### B. Allowlist, quota và tenant isolation
 
@@ -86,20 +123,21 @@ board content, email hoặc provider error chi tiết vào log/evidence.
 
 ## 5. Evidence log
 
-| Gate                                       | Trạng thái | Bằng chứng                     |
-| ------------------------------------------ | ---------- | ------------------------------ |
+| Gate                                       | Trạng thái | Bằng chứng                                     |
+| ------------------------------------------ | ---------- | ---------------------------------------------- |
 | Local inventory/secret scan/full verify    | `PASS`     | 21 file; `.lnk` loại; focused/full verify xanh |
-| Exact candidate SHA                        | `PASS`     | `8d65898`                      |
-| GitHub Verify/Security                     | `PASS`     | `32692298247` / `32692298253` |
-| Disposable Neon/B2                         | `PENDING`  | Chưa chạy                      |
-| Internal tenant allowlist và low quota     | `PASS`     | Local exact-one/quota boundary |
-| Denied-tenant zero side effect             | `PASS`     | Local PostgreSQL/B2/runtime    |
-| Shared staging/deploy                      | `PENDING`  | Chưa thực hiện                 |
-| SLO/error/cost/privacy dashboards          | `PENDING`  | Chưa thu thập                  |
-| Kill-switch và cross-tenant isolation      | `PENDING`  | Chưa chạy                      |
-| Off/rollback, export và last-good snapshot | `PENDING`  | Chưa chạy                      |
-| Physical Chrome/Edge + NVDA                | `PENDING`  | Chưa chạy cho canary           |
-| Final cleanup snapshot                     | `PENDING`  | Chưa chạy                      |
+| Exact candidate SHA                        | `PASS`     | `8d65898`                                      |
+| GitHub Verify/Security                     | `PASS`     | `32692298247` / `32692298253`                  |
+| Disposable runner/contract                 | `PASS`     | Unit `4/4`; secret-safe; no migration          |
+| Disposable Neon/B2                         | `PASS`     | 3 PostgreSQL + B2 recovery; final `41 false`   |
+| Internal tenant allowlist và low quota     | `PASS`     | Local exact-one/quota boundary                 |
+| Denied-tenant zero side effect             | `PASS`     | Local PostgreSQL/B2/runtime                    |
+| Shared staging/deploy                      | `PENDING`  | Chưa thực hiện                                 |
+| SLO/error/cost/privacy dashboards          | `PENDING`  | Chưa thu thập                                  |
+| Kill-switch và cross-tenant isolation      | `PENDING`  | Chưa chạy                                      |
+| Off/rollback, export và last-good snapshot | `PENDING`  | Chưa chạy                                      |
+| Physical Chrome/Edge + NVDA                | `PENDING`  | Chưa chạy cho canary                           |
+| Final cleanup snapshot                     | `PENDING`  | Chưa chạy                                      |
 
 ## 6. Exact exit gate
 
@@ -112,7 +150,11 @@ nhưng các gate tổng hợp chỉ hoàn tất sau external/live acceptance:
 
 ## 7. Quyết định hiện tại
 
-P5-COLLAB-18 ở `VERIFY` — candidate pre-staging. Exact candidate `8d65898` đã PASS local/full verify
-cùng GitHub Verify `32692298247` và Security `32692298253`; disposable/shared/live evidence vẫn
-`PENDING`. Classroom whiteboard tiếp tục deployment force-off. Chỉ chuyển `DONE` khi exact canary,
-rollback/recovery, physical và cleanup evidence được lưu. P5-COLLAB-19 vẫn bị khóa.
+P5-COLLAB-18 ở `VERIFY` — disposable PASS, shared/live PENDING. Exact candidate `8d65898` đã PASS
+local/full verify cùng GitHub Verify `32692298247` và Security `32692298253`. Disposable runner đã
+tự nạp file local secret-safe và PASS exact preflight, ba PostgreSQL gate cùng B2 artifact
+lifecycle/recovery tại final ledger `41 false`; observed `RPO=last_verified_artifact`, `RTO_MS=2042`.
+Bốn synthetic pending command của gate đã được đóng `failed` theo fixture cleanup. Không migration,
+rollback, shared-staging mutation hoặc deploy. Classroom whiteboard tiếp tục deployment force-off.
+Chỉ chuyển `DONE` khi exact canary, rollback/recovery, physical và cleanup evidence được lưu.
+P5-COLLAB-19 vẫn bị khóa.

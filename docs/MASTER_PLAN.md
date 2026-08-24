@@ -11,7 +11,7 @@
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
 | Phase hiện tại        | Phase 5 collaboration implementation; Phase 3 deferred carry-over tiếp tục                   |
-| Trạng thái gần nhất   | P5-COLLAB-18 `VERIFY`; candidate/CI gates PASS, operational evidence còn PENDING             |
+| Trạng thái gần nhất   | P5-COLLAB-18 `VERIFY`; candidate/CI/disposable PASS, shared/live evidence còn PENDING        |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 
@@ -1848,10 +1848,14 @@ Local candidate đã PASS exact-one server-side tenant allowlist, default empty/
 quota 2 documents, 10 connections, 64 MiB và 600 operations/phút, at-limit/+1 boundary cùng
 denied-tenant zero PostgreSQL/B2/runtime side effect. `pnpm test:collaboration:p518` và
 `pnpm verify` đều PASS. Exact candidate `8d65898` với 21-file inventory/no-secret/diff check đã push
-lên `origin/main`; GitHub Verify `32692298247` và Security `32692298253` đều PASS. Disposable/
-shared-staging/deploy, live SLO/error/cost/privacy dashboards, kill-switch/no-leak, off/rollback/
-export/last-good snapshot, physical Chrome/Edge + NVDA và cleanup đều còn `PENDING`. Whiteboard
-tiếp tục deployment force-off và P5-COLLAB-19 bị khóa tới khi P5-COLLAB-18 đạt `DONE`. Acceptance:
+lên `origin/main`; GitHub Verify `32692298247` và Security `32692298253` đều PASS. Disposable
+runner/contract đã có exact same-branch role/B2 checks, ledger guard `41 false`, không
+migrate/rollback và unit `4/4` PASS. Disposable `all` đã PASS ba PostgreSQL gate cùng B2 artifact
+lifecycle/recovery tại final `41 false`, `RPO=last_verified_artifact`, `RTO_MS=2042`; bốn synthetic
+pending command đã được đóng theo fixture cleanup. Shared-staging/deploy, live SLO/error/cost/privacy
+dashboards, kill-switch/no-leak, off/rollback/export/last-good snapshot,
+physical Chrome/Edge + NVDA và cleanup đều còn `PENDING`. Whiteboard tiếp tục deployment force-off
+và P5-COLLAB-19 bị khóa tới khi P5-COLLAB-18 đạt `DONE`. Acceptance:
 [`P5_COLLAB_18_STAGING_ACCEPTANCE.md`](P5_COLLAB_18_STAGING_ACCEPTANCE.md).
 
 **Deliverable:** teacher mở/đóng công cụ mà không làm rời media room; trạng thái cộng tác khôi phục sau reconnect.

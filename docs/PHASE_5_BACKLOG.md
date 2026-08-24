@@ -37,9 +37,9 @@
 > P5-COLLAB-18 chuyển `VERIFY` ngày 2026-08-24: local candidate đã khóa exact-one server-side
 > tenant allowlist, default empty/force-off và quota 2 documents, 10 connections, 64 MiB, 600
 > operations/phút. `pnpm test:collaboration:p518` và `pnpm verify` PASS; tenant ngoài allowlist bị
-> conceal/fail closed với zero PostgreSQL/B2/runtime side effect. Đây chỉ là local evidence; exact
-> candidate/GitHub/disposable/shared/deploy/live-dashboard/kill-switch/physical/cleanup vẫn
-> `PENDING`, whiteboard vẫn deployment force-off và P5-COLLAB-19 tiếp tục bị khóa.
+> conceal/fail closed với zero PostgreSQL/B2/runtime side effect. Exact candidate/GitHub và
+> disposable Neon/B2 đều PASS tại final `41 false`; shared/deploy/live-dashboard/kill-switch/
+> physical/cleanup vẫn `PENDING`, whiteboard vẫn deployment force-off và P5-COLLAB-19 tiếp tục bị khóa.
 
 ## 1. Mục tiêu phase
 
@@ -87,28 +87,28 @@ Xây collaboration plane cho lớp học mà không làm rời hoặc làm yếu
 
 ## 4. Trạng thái tổng hợp
 
-| Task         | Dải            | Nội dung                                        | Dependency                 | Trạng thái  |
-| ------------ | -------------- | ----------------------------------------------- | -------------------------- | ----------- |
-| P5-COLLAB-01 | Decision gate  | Chấp nhận Excalidraw authority/topology         | P5-COLLAB-00               | DONE        |
-| P5-COLLAB-02 | Implementation | Control-plane schema                            | P5-COLLAB-01               | DONE        |
-| P5-COLLAB-03 | Implementation | OpenAPI lifecycle/grant/snapshot/export/restore | P5-COLLAB-02               | DONE        |
-| P5-COLLAB-04 | Implementation | Grant broker và revoke generation               | P5-COLLAB-03               | DONE        |
-| P5-COLLAB-05 | Implementation | Collaboration data plane/provider adapter       | P5-COLLAB-01, P5-COLLAB-04 | DONE        |
-| P5-COLLAB-06 | Implementation | Lazy classroom tool shell                       | P5-COLLAB-03, P5-COLLAB-05 | DONE        |
-| P5-COLLAB-07 | Implementation | Snapshot/import/export/restore worker và B2     | P5-COLLAB-02, P5-COLLAB-05 | DONE        |
-| P5-COLLAB-08 | Implementation | Reconnect, compaction và recovery               | P5-COLLAB-05, P5-COLLAB-07 | DONE        |
-| P5-COLLAB-09 | Implementation | Feature/quota/operations                        | P5-COLLAB-04..08           | DONE        |
-| P5-COLLAB-10 | Test           | Authorization và tenant isolation               | P5-COLLAB-02..09           | DONE        |
-| P5-COLLAB-11 | Test           | Credential/revoke/WebSocket abuse               | P5-COLLAB-04, P5-COLLAB-05 | DONE        |
-| P5-COLLAB-12 | Test           | Convergence/history/undo/reconnect              | P5-COLLAB-05, P5-COLLAB-08 | DONE        |
-| P5-COLLAB-13 | Test           | Snapshot/import/export/restore                  | P5-COLLAB-07, P5-COLLAB-08 | DONE        |
-| P5-COLLAB-14 | Test           | Performance 500/2.000 shapes và 2/10/50 người   | P5-COLLAB-05..09           | DONE        |
-| P5-COLLAB-15 | Test           | Accessibility và browser matrix                 | P5-COLLAB-06, P5-COLLAB-08 | DONE        |
-| P5-COLLAB-16 | Test           | Failure, outage và provider exit                | P5-COLLAB-05..09           | DONE        |
-| P5-COLLAB-17 | Rollout        | Force-off staging acceptance                    | P5-COLLAB-10..16           | DONE        |
-| P5-COLLAB-18 | Rollout        | Internal canary                                 | P5-COLLAB-17               | VERIFY      |
-| P5-COLLAB-19 | Rollout        | Private alpha                                   | P5-COLLAB-18               | TODO        |
-| P5-COLLAB-20 | Rollout        | Ramp và rollback/exit review                    | P5-COLLAB-19               | TODO        |
+| Task         | Dải            | Nội dung                                        | Dependency                 | Trạng thái |
+| ------------ | -------------- | ----------------------------------------------- | -------------------------- | ---------- |
+| P5-COLLAB-01 | Decision gate  | Chấp nhận Excalidraw authority/topology         | P5-COLLAB-00               | DONE       |
+| P5-COLLAB-02 | Implementation | Control-plane schema                            | P5-COLLAB-01               | DONE       |
+| P5-COLLAB-03 | Implementation | OpenAPI lifecycle/grant/snapshot/export/restore | P5-COLLAB-02               | DONE       |
+| P5-COLLAB-04 | Implementation | Grant broker và revoke generation               | P5-COLLAB-03               | DONE       |
+| P5-COLLAB-05 | Implementation | Collaboration data plane/provider adapter       | P5-COLLAB-01, P5-COLLAB-04 | DONE       |
+| P5-COLLAB-06 | Implementation | Lazy classroom tool shell                       | P5-COLLAB-03, P5-COLLAB-05 | DONE       |
+| P5-COLLAB-07 | Implementation | Snapshot/import/export/restore worker và B2     | P5-COLLAB-02, P5-COLLAB-05 | DONE       |
+| P5-COLLAB-08 | Implementation | Reconnect, compaction và recovery               | P5-COLLAB-05, P5-COLLAB-07 | DONE       |
+| P5-COLLAB-09 | Implementation | Feature/quota/operations                        | P5-COLLAB-04..08           | DONE       |
+| P5-COLLAB-10 | Test           | Authorization và tenant isolation               | P5-COLLAB-02..09           | DONE       |
+| P5-COLLAB-11 | Test           | Credential/revoke/WebSocket abuse               | P5-COLLAB-04, P5-COLLAB-05 | DONE       |
+| P5-COLLAB-12 | Test           | Convergence/history/undo/reconnect              | P5-COLLAB-05, P5-COLLAB-08 | DONE       |
+| P5-COLLAB-13 | Test           | Snapshot/import/export/restore                  | P5-COLLAB-07, P5-COLLAB-08 | DONE       |
+| P5-COLLAB-14 | Test           | Performance 500/2.000 shapes và 2/10/50 người   | P5-COLLAB-05..09           | DONE       |
+| P5-COLLAB-15 | Test           | Accessibility và browser matrix                 | P5-COLLAB-06, P5-COLLAB-08 | DONE       |
+| P5-COLLAB-16 | Test           | Failure, outage và provider exit                | P5-COLLAB-05..09           | DONE       |
+| P5-COLLAB-17 | Rollout        | Force-off staging acceptance                    | P5-COLLAB-10..16           | DONE       |
+| P5-COLLAB-18 | Rollout        | Internal canary                                 | P5-COLLAB-17               | VERIFY     |
+| P5-COLLAB-19 | Rollout        | Private alpha                                   | P5-COLLAB-18               | TODO       |
+| P5-COLLAB-20 | Rollout        | Ramp và rollback/exit review                    | P5-COLLAB-19               | TODO       |
 
 `VERIFY` chỉ được dùng sau khi implementation và toàn bộ gate pre-staging của task xanh. `DONE`
 yêu cầu exact candidate/evidence được lưu trong repository và trạng thái tài liệu được cập nhật.
@@ -608,9 +608,13 @@ Organization Admin/Teacher/Student hiện có, board synthetic/non-sensitive và
 force-off, quota 2 documents, 10 connections, 64 MiB và 600 operations/phút, at-limit/+1 boundary
 và denied-tenant zero PostgreSQL/B2/runtime side effect. `pnpm test:collaboration:p518` cùng
 `pnpm verify` đều PASS. Exact candidate `8d65898` với inventory 21 file, secret scan/diff check và
-GitHub Verify `32692298247`/Security `32692298253` đều PASS. Disposable/shared-staging/deploy,
-dashboards, live kill-switch/no-leak, rollback/export/last-good snapshot, physical Chrome/Edge + NVDA
-và cleanup evidence vẫn `PENDING`; whiteboard tiếp tục deployment force-off và P5-COLLAB-19 vẫn bị khóa. Acceptance:
+GitHub Verify `32692298247`/Security `32692298253` đều PASS. Disposable runner/contract đã có
+same-branch/role/B2 guards, chỉ chấp nhận ledger `41 false`, không migrate/rollback và unit `4/4`
+PASS. Disposable `all` đã PASS ba PostgreSQL gate cùng B2 artifact lifecycle/recovery tại final
+`41 false`, `RPO=last_verified_artifact`, `RTO_MS=2042`; bốn synthetic pending command đã được đóng
+theo fixture cleanup. Shared-staging/deploy, dashboards, live kill-switch/no-leak,
+rollback/export/last-good snapshot, physical Chrome/Edge + NVDA và cleanup evidence vẫn `PENDING`;
+whiteboard tiếp tục deployment force-off và P5-COLLAB-19 vẫn bị khóa. Acceptance:
 [`P5_COLLAB_18_STAGING_ACCEPTANCE.md`](P5_COLLAB_18_STAGING_ACCEPTANCE.md).
 
 **Exit gate:**
