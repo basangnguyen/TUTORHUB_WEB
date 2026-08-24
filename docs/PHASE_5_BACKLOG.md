@@ -607,10 +607,10 @@ Organization Admin/Teacher/Student hiện có, board synthetic/non-sensitive và
 được giữ nguyên. Local candidate đã PASS exact-one server-side tenant allowlist, default empty/
 force-off, quota 2 documents, 10 connections, 64 MiB và 600 operations/phút, at-limit/+1 boundary
 và denied-tenant zero PostgreSQL/B2/runtime side effect. `pnpm test:collaboration:p518` cùng
-`pnpm verify` đều PASS. Exact committed candidate/inventory/secret scan, GitHub Verify/Security,
-disposable/shared-staging/deploy, dashboards, live kill-switch/no-leak, rollback/export/last-good
-snapshot, physical Chrome/Edge + NVDA và cleanup evidence vẫn `PENDING`. Mốc committed gần nhất
-vẫn `637e8b5`; whiteboard tiếp tục deployment force-off và P5-COLLAB-19 vẫn bị khóa. Acceptance:
+`pnpm verify` đều PASS. Exact candidate `8d65898` với inventory 21 file, secret scan/diff check và
+GitHub Verify `32692298247`/Security `32692298253` đều PASS. Disposable/shared-staging/deploy,
+dashboards, live kill-switch/no-leak, rollback/export/last-good snapshot, physical Chrome/Edge + NVDA
+và cleanup evidence vẫn `PENDING`; whiteboard tiếp tục deployment force-off và P5-COLLAB-19 vẫn bị khóa. Acceptance:
 [`P5_COLLAB_18_STAGING_ACCEPTANCE.md`](P5_COLLAB_18_STAGING_ACCEPTANCE.md).
 
 **Exit gate:**

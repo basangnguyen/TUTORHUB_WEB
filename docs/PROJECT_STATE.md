@@ -13,8 +13,8 @@
 | Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4                                                         |
 | Phase hiện tại       | Phase 5 collaboration implementation; Phase 3 deferred carry-over vẫn hoạt động            |
 | Task `DONE` gần nhất | P5-COLLAB-17 Force-off staging acceptance                                                  |
-| Mốc repository mới   | `637e8b5`; GitHub Verify `32649917938` và Security `32649917980` đều PASS                  |
-| Task hiện tại        | P5-COLLAB-18 — `VERIFY`; local canary implementation gates PASS, operational evidence PENDING |
+| Mốc repository mới   | `8d65898`; GitHub Verify `32692298247` và Security `32692298253` đều PASS                  |
+| Task hiện tại        | P5-COLLAB-18 — `VERIFY`; candidate/CI gates PASS, operational evidence PENDING              |
 | Task tiếp theo       | P5-COLLAB-19 Private alpha, bị khóa tới khi P5-COLLAB-18 đạt `DONE`                        |
 
 ### Checkpoint P5-COLLAB-18 `VERIFY` — 2026-08-24
@@ -27,12 +27,12 @@ exact-one server-side tenant allowlist, allowlist mặc định rỗng, deployme
 bị từ chối; tenant ngoài allowlist bị conceal/fail closed và không tạo PostgreSQL/B2/runtime side
 effect. UI chỉ mở capability khi server projection trả exact `true`.
 
-`pnpm test:collaboration:p518` và `pnpm verify` đều PASS. Đây chỉ là local implementation/test
-evidence; mốc committed gần nhất vẫn là `637e8b5`. Exact committed candidate/inventory/secret scan,
-GitHub Verify/Security, disposable Neon/B2, shared staging/deploy, live SLO/error/cost/privacy
-dashboards, kill-switch/no-leak, off/rollback/export/last-good snapshot, physical Chrome/Edge + NVDA
-và final cleanup vẫn `PENDING`. Classroom whiteboard tiếp tục deployment force-off; P5-COLLAB-19
-vẫn bị khóa. Acceptance:
+`pnpm test:collaboration:p518` và `pnpm verify` đều PASS. Exact candidate `8d65898` gồm đúng
+21 file, loại `.lnk`/mọi `.env*.local`, secret scan và diff check PASS; GitHub Verify
+`32692298247` và Security `32692298253` đều PASS. Disposable Neon/B2, shared staging/deploy,
+live SLO/error/cost/privacy dashboards, kill-switch/no-leak, off/rollback/export/last-good snapshot,
+physical Chrome/Edge + NVDA và final cleanup vẫn `PENDING`. Classroom whiteboard tiếp tục
+deployment force-off; P5-COLLAB-19 vẫn bị khóa. Acceptance:
 [`P5_COLLAB_18_STAGING_ACCEPTANCE.md`](P5_COLLAB_18_STAGING_ACCEPTANCE.md).
 
 ### Checkpoint P5-COLLAB-17 `DONE` — 2026-08-24

@@ -56,8 +56,9 @@ board content, email hoặc provider error chi tiết vào log/evidence.
 ### A. Candidate và pre-staging
 
 - [x] Changed-file inventory 21 file, loại `.lnk`, không có `.env*.local`; secret scan và
-      `git diff --check` PASS. Exact candidate SHA vẫn `PENDING` cho tới khi commit.
-- [x] Focused P5-COLLAB-18 test và full `pnpm verify` PASS. GitHub Verify/Security vẫn `PENDING`.
+      `git diff --check` PASS. Exact candidate `8d65898` đã push lên `origin/main`.
+- [x] Focused P5-COLLAB-18 test và full `pnpm verify` PASS. GitHub Verify `32692298247` và
+      Security `32692298253` đều PASS trên exact candidate.
 - [ ] Disposable Neon/B2 gates PASS trước mọi shared-staging mutation.
 
 ### B. Allowlist, quota và tenant isolation
@@ -88,8 +89,8 @@ board content, email hoặc provider error chi tiết vào log/evidence.
 | Gate                                       | Trạng thái | Bằng chứng                     |
 | ------------------------------------------ | ---------- | ------------------------------ |
 | Local inventory/secret scan/full verify    | `PASS`     | 21 file; `.lnk` loại; focused/full verify xanh |
-| Exact candidate SHA                        | `PENDING`  | Chờ commit candidate           |
-| GitHub Verify/Security                     | `PENDING`  | Chưa chạy                      |
+| Exact candidate SHA                        | `PASS`     | `8d65898`                      |
+| GitHub Verify/Security                     | `PASS`     | `32692298247` / `32692298253` |
 | Disposable Neon/B2                         | `PENDING`  | Chưa chạy                      |
 | Internal tenant allowlist và low quota     | `PASS`     | Local exact-one/quota boundary |
 | Denied-tenant zero side effect             | `PASS`     | Local PostgreSQL/B2/runtime    |
@@ -111,7 +112,7 @@ nhưng các gate tổng hợp chỉ hoàn tất sau external/live acceptance:
 
 ## 7. Quyết định hiện tại
 
-P5-COLLAB-18 ở `VERIFY` — local pre-staging. Local candidate implementation và test đã xanh;
-repository milestone gần nhất vẫn `637e8b5`, exact candidate SHA cùng GitHub/disposable/shared/live
-evidence vẫn `PENDING`. Classroom whiteboard tiếp tục deployment force-off. Chỉ chuyển `DONE` khi
-exact canary, rollback/recovery, physical và cleanup evidence được lưu. P5-COLLAB-19 vẫn bị khóa.
+P5-COLLAB-18 ở `VERIFY` — candidate pre-staging. Exact candidate `8d65898` đã PASS local/full verify
+cùng GitHub Verify `32692298247` và Security `32692298253`; disposable/shared/live evidence vẫn
+`PENDING`. Classroom whiteboard tiếp tục deployment force-off. Chỉ chuyển `DONE` khi exact canary,
+rollback/recovery, physical và cleanup evidence được lưu. P5-COLLAB-19 vẫn bị khóa.
