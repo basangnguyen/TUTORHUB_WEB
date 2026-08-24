@@ -4,12 +4,24 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts",
-    "./canonical-authority": "./src/canonicalAuthority.ts",
-    "./portable-scene": "./src/portableScene.ts"
+    ".": {
+      "types": "./src/index.ts",
+      "development": "./src/index.ts",
+      "default": "./dist/index.js"
+    },
+    "./canonical-authority": {
+      "types": "./src/canonicalAuthority.ts",
+      "development": "./src/canonicalAuthority.ts",
+      "default": "./dist/canonicalAuthority.js"
+    },
+    "./portable-scene": {
+      "types": "./src/portableScene.ts",
+      "development": "./src/portableScene.ts",
+      "default": "./dist/portableScene.js"
+    }
   },
   "scripts": {
-    "build": "tsc --noEmit",
+    "build": "tsc -p tsconfig.build.json --pretty false",
     "lint": "eslint src",
     "test": "vitest run",
     "typecheck": "tsc --noEmit --pretty false"

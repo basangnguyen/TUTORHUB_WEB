@@ -17,10 +17,12 @@ COPY services/whiteboard-runtime/package.json services/whiteboard-runtime/packag
 RUN pnpm install --frozen-lockfile --filter @tutorhub/whiteboard-runtime... --ignore-scripts
 
 COPY packages/collaboration-client/tsconfig.json packages/collaboration-client/tsconfig.json
+COPY packages/collaboration-client/tsconfig.build.json packages/collaboration-client/tsconfig.build.json
 COPY packages/collaboration-client/src packages/collaboration-client/src
 COPY services/whiteboard-runtime/tsconfig.json services/whiteboard-runtime/tsconfig.json
 COPY services/whiteboard-runtime/src services/whiteboard-runtime/src
-RUN pnpm --filter @tutorhub/whiteboard-runtime build \
+RUN pnpm --filter @tutorhub/collaboration-client build \
+    && pnpm --filter @tutorhub/whiteboard-runtime build \
     && pnpm --filter @tutorhub/whiteboard-runtime \
       --config.inject-workspace-packages=true deploy --prod /runtime
 
