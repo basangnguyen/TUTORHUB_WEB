@@ -40,7 +40,8 @@
 > GitHub Verify/Security đều xanh. Chrome/Edge + NVDA component matrix được kế thừa có kiểm soát từ
 > P5-COLLAB-15; P5-COLLAB-19 Private alpha đã được mở.
 > P5-COLLAB-19 đang `VERIFY` ngày 2026-08-25: fail-closed private-alpha contract, current-run evidence
-> freshness/owner sign-off và secret-safe disposable runner đã sẵn sàng tại exact ledger `42 false`.
+> freshness/owner sign-off, isolated Render Free candidate, provider preflight và secret-safe
+> disposable runner đã PASS local aggregate cùng exact disposable preflight tại ledger `42 false`.
 > Chưa có provider-observed 60-minute soak, live publication/drill/cleanup nên chưa `DONE`;
 > P5-COLLAB-20 vẫn bị chặn.
 
@@ -631,8 +632,10 @@ với 60-minute provider-observed soak, ba phase `300/3000/300` giây, 2 documen
 shape/document, quota/cost force-off và đầy đủ reconnect/control-authority/Neon/B2/rotation/restore
 drill. Evidence phải fresh trong đúng run, reused evidence phải có `validityRationale`, owner sign-off
 phải nằm trong run và cleanup phải zero. Disposable preflight/integration chỉ chấp nhận exact ledger
-`42 false`; không rollback hoặc chạm shared staging. Live provider soak, publication, drill matrix,
-owner sign-off và cleanup evidence vẫn `PENDING`, vì vậy task chưa `DONE`. Acceptance:
+`42 false`; không rollback hoặc chạm shared staging. Isolated Render Free candidate, exact one-time
+grant/provider preflight, workload plan, metrics cleanup guard và aggregate local/inherited regression
+đã PASS; disposable preflight được chạy lại và vẫn PASS tại `42 false`. Live provider soak,
+publication, drill matrix, owner sign-off và cleanup evidence vẫn `PENDING`, vì vậy task chưa `DONE`. Acceptance:
 [`P5_COLLAB_19_PRIVATE_ALPHA_ACCEPTANCE.md`](P5_COLLAB_19_PRIVATE_ALPHA_ACCEPTANCE.md).
 
 **Exit gate:**

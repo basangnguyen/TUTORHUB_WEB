@@ -28,6 +28,11 @@ sign-off phải nằm trong run và cleanup cuối phải zero.
 
 Secret-safe disposable runner chỉ nạp `.env.p5-collab-19-disposable.local` trong process, không log
 giá trị, không rollback và không chạm shared staging; exact database ledger cuối là `42 false`.
+Isolated Render Free candidate gồm đúng control plane và collaboration runtime tại Singapore, có
+one-time grant authority, exact 2 document x 5 client provider preflight, deterministic 60-minute
+workload plan và cleanup/dependency metric guard. Local aggregate `pnpm test:collaboration:p519`
+PASS toàn bộ candidate cùng inherited P5-COLLAB-16/17/18 regression; disposable preflight được chạy
+lại sau đó và PASS tại `42 false`, không migration hoặc shared staging.
 Provider-observed 60-minute soak, publication/support notice, live drill matrix, owner sign-off và
 cleanup evidence vẫn chưa chạy nên P5-COLLAB-19 giữ `VERIFY`, chưa được mở P5-COLLAB-20. Acceptance:
 [`P5_COLLAB_19_PRIVATE_ALPHA_ACCEPTANCE.md`](P5_COLLAB_19_PRIVATE_ALPHA_ACCEPTANCE.md).

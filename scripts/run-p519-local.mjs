@@ -10,6 +10,22 @@ const environment = {
 
 const steps = [
   {
+    label: "private-alpha isolated Render candidate",
+    command: process.execPath,
+    args: ["scripts/check-p519-render-candidate.mjs"],
+  },
+  {
+    label: "private-alpha live control, soak plan, and provider preflight",
+    command: process.execPath,
+    args: [
+      "--test",
+      "scripts/check-p519-render-candidate.test.mjs",
+      "scripts/p519-live-control.test.mjs",
+      "services/whiteboard-runtime/p519-live-soak-plan.test.mjs",
+      "services/whiteboard-runtime/p519-provider-preflight.test.mjs",
+    ],
+  },
+  {
     label: "private-alpha static contract",
     command: process.execPath,
     args: ["scripts/check-p519-private-alpha.mjs"],

@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { dirname, isAbsolute, relative, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import {
@@ -15,12 +15,42 @@ import {
 } from "./run-p507-disposable.mjs";
 
 const ROOT = resolve(fileURLToPath(new URL("..", import.meta.url)));
+const RUNTIME_ROOT = resolve(ROOT, "services/whiteboard-runtime");
 const DEFAULT_ENV_FILE = ".env.p5-collab-19-disposable.local";
 const DEFAULT_REDACTED_REPORT =
   "tmp/p5-collab-19-private-alpha-report.redacted.json";
 const EXACT_CONFIRMATION = "I_UNDERSTAND_P5_COLLAB_19_DISPOSABLE_ONLY";
+const EXACT_B2_CONFIRMATION = "I_UNDERSTAND_P5_COLLAB_19_B2_DISPOSABLE_ONLY";
 const P507_CONFIRMATION = "I_UNDERSTAND_P5_COLLAB_07_DISPOSABLE_ONLY";
-const MODES = new Set(["preflight", "soak", "drills", "cleanup", "all"]);
+const MODES = new Set([
+  "preflight",
+  "binding",
+  "soak",
+  "drills",
+  "cleanup",
+  "all",
+]);
+export const P519_ACL_QUERY = `
+  select
+    r.rolname,
+    c.relname,
+    has_table_privilege(r.oid, c.oid, 'SELECT') as can_select,
+    has_table_privilege(r.oid, c.oid, 'INSERT') as can_insert,
+    has_table_privilege(r.oid, c.oid, 'UPDATE') as can_update,
+    has_table_privilege(r.oid, c.oid, 'DELETE') as can_delete
+  from pg_roles r
+  cross join pg_class c
+  join pg_namespace n on n.oid = c.relnamespace
+  where r.rolname in (
+    'tutorhub_runtime',
+    'tutorhub_collab_worker',
+    'tutorhub_poll_maintenance'
+  )
+    and n.nspname = 'tutorhub'
+    and c.relkind in ('r', 'p')
+    and c.relname ~ '^whiteboard_'
+  order by r.rolname, c.relname
+`;
 
 const { createHash } = await import("node:crypto");
 const SAFE_IDENTIFIER_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{2,127}$/u;
@@ -47,12 +77,35 @@ function stableJson(value) {
 export function normalizeP519Arguments(args) {
   const [envFile = DEFAULT_ENV_FILE, mode = "preflight", reportFile] = args;
   if (!MODES.has(mode)) {
-    throw new Error("mode must be one of preflight|soak|drills|cleanup|all");
+    throw new Error(
+      "mode must be one of preflight|soak|drills|cleanup|all|binding",
+    );
   }
   if (mode !== "preflight" && !reportFile) {
-    throw new Error(mode + " requires a provider-observed report JSON path");
+    throw new Error(
+      mode === "binding"
+        ? "binding requires a trusted binding JSON output path"
+        : mode + " requires a provider-observed report JSON path",
+    );
   }
   return { envFile, mode, reportFile };
+}
+
+export function resolveP519BindingOutputPath(filePath) {
+  const outputRoot = resolve(ROOT, "tmp/p5-collab-19");
+  const outputPath = resolve(ROOT, filePath);
+  const relativePath = relative(outputRoot, outputPath);
+  if (
+    !filePath.endsWith(".json") ||
+    relativePath === "" ||
+    relativePath.startsWith("..") ||
+    isAbsolute(relativePath)
+  ) {
+    throw new Error(
+      "trusted binding output must be a JSON file under tmp/p5-collab-19",
+    );
+  }
+  return outputPath;
 }
 
 export function validateP519Environment(values) {
@@ -72,11 +125,17 @@ export function validateP519Environment(values) {
       "DATABASE_COLLABORATION_URL must use tutorhub_collab_worker",
     );
   }
-  if (!/disposable/iu.test(environment.B2_BUCKET)) {
+  const explicitB2Confirmation =
+    (values.get("P5_COLLAB_19_B2_DISPOSABLE_CONFIRM") ?? "") ===
+    EXACT_B2_CONFIRMATION;
+  if (!/disposable/iu.test(environment.B2_BUCKET) && !explicitB2Confirmation) {
     throw new Error("B2_BUCKET must be explicitly disposable");
   }
   return {
     ...environment,
+    P5_COLLAB_19_B2_DISPOSABLE_CONFIRM: explicitB2Confirmation
+      ? EXACT_B2_CONFIRMATION
+      : "",
     P5_COLLAB_19_RUN_ID: values.get("P5_COLLAB_19_RUN_ID") ?? "",
     P5_COLLAB_19_DEPLOY_ID: values.get("P5_COLLAB_19_DEPLOY_ID") ?? "",
     P5_COLLAB_19_DISPOSABLE_CONFIRM: EXACT_CONFIRMATION,
@@ -138,19 +197,19 @@ export function validateP519LedgerRows(rows) {
   return [{ version: 42, dirty: false }];
 }
 
-function exactDatabaseLedger(environment) {
+export function exactDatabaseLedger(environment) {
   const script = [
     "const{Client}=require('pg');",
     "(async()=>{",
     "const c=new Client({connectionString:process.env.DATABASE_MIGRATION_URL});",
     "await c.connect();",
-    "const r=await c.query('select version::int as version, dirty from schema_migrations order by version');",
+    "const r=await c.query('select version::int as version, dirty from public.tutorhub_schema_migrations order by version');",
     "console.log(JSON.stringify(r.rows));",
     "await c.end();",
     "})().catch(()=>process.exit(1));",
   ].join("");
   const result = spawnSync(process.execPath, ["-e", script], {
-    cwd: ROOT,
+    cwd: RUNTIME_ROOT,
     env: { ...process.env, ...environment },
     encoding: "utf8",
     windowsHide: true,
@@ -166,20 +225,20 @@ function exactDatabaseLedger(environment) {
   return validateP519LedgerRows(rows);
 }
 
-function databaseAclSnapshot(environment) {
+export function databaseAclSnapshot(environment) {
   const script = [
     "const{Client}=require('pg');",
     "(async()=>{",
     "const c=new Client({connectionString:process.env.DATABASE_MIGRATION_URL});",
     "await c.connect();",
-    "const q='select r.rolname,c.relname,has_table_privilege(r.oid,c.oid, 'SELECT') as can_select,has_table_privilege(r.oid,c.oid, 'INSERT') as can_insert,has_table_privilege(r.oid,c.oid, 'UPDATE') as can_update,has_table_privilege(r.oid,c.oid, 'DELETE') as can_delete from pg_roles r cross join pg_class c join pg_namespace n on n.oid=c.relnamespace where r.rolname in ('tutorhub_runtime','tutorhub_collab_worker','tutorhub_poll_maintenance') and n.nspname='public' and c.relkind in ('r','p') and c.relname like 'collab%' order by r.rolname,c.relname';",
+    `const q=${JSON.stringify(P519_ACL_QUERY)};`,
     "const r=await c.query(q);",
     "console.log(JSON.stringify(r.rows));",
     "await c.end();",
     "})().catch(()=>process.exit(1));",
   ].join("");
   const result = spawnSync(process.execPath, ["-e", script], {
-    cwd: ROOT,
+    cwd: RUNTIME_ROOT,
     env: { ...process.env, ...environment },
     encoding: "utf8",
     windowsHide: true,
@@ -225,7 +284,7 @@ function currentCommitSha() {
   return commitSha;
 }
 
-function buildExpectedBinding(environment, ledgerRows, aclRows) {
+export function buildExpectedBinding(environment, ledgerRows, aclRows) {
   const metadata = validateP519RunMetadata(environment);
   const target = {
     migrationHost: new URL(environment.DATABASE_MIGRATION_URL).hostname,
@@ -248,6 +307,31 @@ function buildExpectedBinding(environment, ledgerRows, aclRows) {
     ledgerProbeSha256: sha256(stableJson(ledgerRows)),
     aclProbeSha256: sha256(stableJson(aclRows)),
   };
+}
+
+export function createP519ExpectedBinding(environment) {
+  const ledgerRows = exactDatabaseLedger(environment);
+  const aclRows = databaseAclSnapshot(environment);
+  return {
+    binding: {
+      ...buildExpectedBinding(environment, ledgerRows, aclRows),
+      generatedAt: new Date().toISOString(),
+    },
+    ledgerRows,
+    aclRows,
+  };
+}
+
+export function writeP519TrustedBinding(filePath, binding) {
+  const outputPath = resolveP519BindingOutputPath(filePath);
+  mkdirSync(dirname(outputPath), { recursive: true });
+  const temporaryPath = outputPath + "." + process.pid + ".tmp";
+  writeFileSync(temporaryPath, JSON.stringify({ binding }, null, 2) + "\n", {
+    encoding: "utf8",
+    mode: 0o600,
+  });
+  renameSync(temporaryPath, outputPath);
+  return outputPath;
 }
 
 function validateProviderReport(reportPath, expectedBinding) {
@@ -347,6 +431,14 @@ export function main(args = process.argv.slice(2)) {
       ledgerRows,
       aclRows,
     );
+    if (mode === "binding") {
+      writeP519TrustedBinding(reportFile, {
+        ...expectedBinding,
+        generatedAt: new Date().toISOString(),
+      });
+      console.log("[P5-COLLAB-19] trusted run binding: PASS");
+      return 0;
+    }
     let status = 0;
     try {
       status = validateProviderReport(

@@ -2,10 +2,21 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  P519_ACL_QUERY,
   normalizeP519Arguments,
+  resolveP519BindingOutputPath,
   sanitizeP519Output,
   validateP519Environment,
 } from "./run-p519-disposable.mjs";
+
+const fakeDatabaseUrl = (username, password, hostname) => {
+  const url = new URL("postgresql://example.invalid/neondb");
+  url.username = username;
+  url.password = password;
+  url.hostname = hostname;
+  url.searchParams.set("sslmode", "require");
+  return url.toString();
+};
 
 const fakeEnvironment = () =>
   new Map([
@@ -15,19 +26,35 @@ const fakeEnvironment = () =>
     ],
     [
       "DATABASE_MIGRATION_URL",
-      "postgresql://neondb_owner:owner-password@ep-p519.ap-southeast-1.aws.neon.tech/neondb?sslmode=require",
+      fakeDatabaseUrl(
+        "neondb_owner",
+        "owner-password",
+        "ep-p519.ap-southeast-1.aws.neon.tech",
+      ),
     ],
     [
       "DATABASE_POOL_URL",
-      "postgresql://tutorhub_runtime:runtime-password@ep-p519-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require",
+      fakeDatabaseUrl(
+        "tutorhub_runtime",
+        "runtime-password",
+        "ep-p519-pooler.ap-southeast-1.aws.neon.tech",
+      ),
     ],
     [
       "DATABASE_COLLABORATION_URL",
-      "postgresql://tutorhub_collab_worker:worker-password@ep-p519.ap-southeast-1.aws.neon.tech/neondb?sslmode=require",
+      fakeDatabaseUrl(
+        "tutorhub_collab_worker",
+        "worker-password",
+        "ep-p519.ap-southeast-1.aws.neon.tech",
+      ),
     ],
     [
       "DATABASE_POLL_MAINTENANCE_URL",
-      "postgresql://tutorhub_poll_maintenance:maintenance-password@ep-p519.ap-southeast-1.aws.neon.tech/neondb?sslmode=require",
+      fakeDatabaseUrl(
+        "tutorhub_poll_maintenance",
+        "maintenance-password",
+        "ep-p519.ap-southeast-1.aws.neon.tech",
+      ),
     ],
     ["B2_ENDPOINT", "https://s3.us-west-004.backblazeb2.com"],
     ["B2_REGION", "us-west-004"],
@@ -50,6 +77,22 @@ test("normalizes exact modes and requires a provider report outside preflight", 
       reportFile: "report.json",
     },
   );
+  assert.deepEqual(
+    normalizeP519Arguments([
+      "safe.local",
+      "binding",
+      "tmp/p5-collab-19/run-binding.json",
+    ]),
+    {
+      envFile: "safe.local",
+      mode: "binding",
+      reportFile: "tmp/p5-collab-19/run-binding.json",
+    },
+  );
+  assert.throws(
+    () => normalizeP519Arguments(["safe.local", "binding"]),
+    /trusted binding JSON output/u,
+  );
   assert.throws(
     () => normalizeP519Arguments(["safe.local", "soak"]),
     /provider-observed report/u,
@@ -60,6 +103,28 @@ test("normalizes exact modes and requires a provider report outside preflight", 
   );
 });
 
+test("confines trusted binding output below tmp/p5-collab-19", () => {
+  const outputPath = resolveP519BindingOutputPath(
+    "tmp/p5-collab-19/run-binding.json",
+  );
+  assert.ok(outputPath.endsWith("run-binding.json"));
+  assert.throws(
+    () => resolveP519BindingOutputPath("tmp/run-binding.json"),
+    /under tmp/u,
+  );
+  assert.throws(
+    () => resolveP519BindingOutputPath("tmp/p5-collab-19/run-binding.txt"),
+    /JSON file/u,
+  );
+});
+
+test("queries exact TutorHub whiteboard ACL relations", () => {
+  assert.match(P519_ACL_QUERY, /n\.nspname = 'tutorhub'/u);
+  assert.match(P519_ACL_QUERY, /c\.relname ~ '\^whiteboard_'/u);
+  assert.doesNotMatch(P519_ACL_QUERY, /n\.nspname = 'public'/u);
+  assert.doesNotMatch(P519_ACL_QUERY, /collab%/u);
+});
+
 test("accepts four exact disposable roles and scoped B2 credentials", () => {
   const result = validateP519Environment(fakeEnvironment());
   assert.equal(
@@ -67,6 +132,17 @@ test("accepts four exact disposable roles and scoped B2 credentials", () => {
     "tutorhub_collab_worker",
   );
   assert.equal(result.B2_BUCKET, "tutorhub-p519-disposable");
+});
+
+test("accepts a previously proven disposable bucket with exact confirmation", () => {
+  const environment = fakeEnvironment();
+  environment.set("B2_BUCKET", "tutorhub-p517-private-alpha");
+  environment.set(
+    "P5_COLLAB_19_B2_DISPOSABLE_CONFIRM",
+    "I_UNDERSTAND_P5_COLLAB_19_B2_DISPOSABLE_ONLY",
+  );
+  const result = validateP519Environment(environment);
+  assert.equal(result.B2_BUCKET, "tutorhub-p517-private-alpha");
 });
 
 test("fails closed for an invalid confirmation, role or B2 target", () => {
@@ -80,7 +156,11 @@ test("fails closed for an invalid confirmation, role or B2 target", () => {
   const invalidRole = fakeEnvironment();
   invalidRole.set(
     "DATABASE_COLLABORATION_URL",
-    "postgresql://another_worker:worker-password@ep-p519.ap-southeast-1.aws.neon.tech/neondb?sslmode=require",
+    fakeDatabaseUrl(
+      "another_worker",
+      "worker-password",
+      "ep-p519.ap-southeast-1.aws.neon.tech",
+    ),
   );
   assert.throws(
     () => validateP519Environment(invalidRole),
@@ -89,6 +169,12 @@ test("fails closed for an invalid confirmation, role or B2 target", () => {
 
   const invalidBucket = fakeEnvironment();
   invalidBucket.set("B2_BUCKET", "tutorhub-shared-staging");
+  assert.throws(
+    () => validateP519Environment(invalidBucket),
+    /explicitly disposable/u,
+  );
+
+  invalidBucket.set("P5_COLLAB_19_B2_DISPOSABLE_CONFIRM", "YES");
   assert.throws(
     () => validateP519Environment(invalidBucket),
     /explicitly disposable/u,
