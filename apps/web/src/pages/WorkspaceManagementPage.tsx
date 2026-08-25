@@ -35,6 +35,7 @@ import {
 } from "../app/tenantCapabilities";
 import { shouldConcealTenantScopedData } from "../app/tenantDataAccess";
 import { MembershipInvitationPanel } from "../components/MembershipInvitationPanel";
+import { TenantPrivateAlphaEnrollmentPanel } from "../components/TenantPrivateAlphaEnrollmentPanel";
 import { TenantFeatureControlsPanel } from "../components/TenantFeatureControlsPanel";
 import {
   useArchiveTenant,
@@ -306,6 +307,10 @@ export function WorkspaceManagementPage() {
               </Link>
             )}
           </section>
+
+          {canManage && (
+            <TenantPrivateAlphaEnrollmentPanel tenantID={tenant.id} />
+          )}
 
           <TenantFeatureControlsPanel
             actorID={session.currentUser?.user.id ?? ""}

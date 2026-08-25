@@ -16,6 +16,12 @@ import { SessionProvider } from "../app/session";
 import { tenantQueryKeys } from "../app/workspaces";
 import { WorkspaceManagementPage } from "./WorkspaceManagementPage";
 
+vi.mock("../components/TenantPrivateAlphaEnrollmentPanel", () => ({
+  TenantPrivateAlphaEnrollmentPanel: ({ tenantID }: { tenantID: string }) => (
+    <section aria-label="Private Alpha enrollment" data-tenant-id={tenantID} />
+  ),
+}));
+
 const tenantID = "4b18543a-74de-419f-9fe8-d0c3dfc991eb";
 
 const tenant: Tenant = {
@@ -135,6 +141,18 @@ describe("WorkspaceManagementPage", () => {
       screen.queryByRole("button", { name: "Tạo workspace" }),
     ).not.toBeInTheDocument();
     expect(screen.queryByText("Lời mời thành viên")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("region", { name: "Private Alpha enrollment" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("mounts private alpha enrollment only for workspace managers", async () => {
+    renderPage(successfulReads(), sessionFor("org_admin", true), "en");
+
+    const panel = await screen.findByRole("region", {
+      name: "Private Alpha enrollment",
+    });
+    expect(panel).toHaveAttribute("data-tenant-id", tenantID);
   });
 
   it("loads membership invitations only when the session grants tenant.manage_members", async () => {

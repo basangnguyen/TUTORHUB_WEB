@@ -6,7 +6,7 @@
 
 | Thuộc tính           | Trạng thái                                                                            |
 | -------------------- | ------------------------------------------------------------------------------------- |
-| Ngày cập nhật        | 2026-08-24                                                                            |
+| Ngày cập nhật        | 2026-08-25                                                                            |
 | Repository           | `https://github.com/basangnguyen/TUTORHUB_WEB`                                        |
 | Nhánh làm việc       | `main`                                                                                |
 | Quy trình            | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
@@ -14,8 +14,23 @@
 | Phase hiện tại       | Phase 5 collaboration implementation; Phase 3 deferred carry-over vẫn hoạt động       |
 | Task `DONE` gần nhất | P5-COLLAB-18 Internal canary acceptance                                               |
 | Mốc repository mới   | `ccc1f13`; GitHub Verify `32712385493` và Security `32712385386` đều PASS             |
-| Task hiện tại        | P5-COLLAB-18 — `DONE`; exact canary, recovery và cleanup PASS                         |
-| Task tiếp theo       | P5-COLLAB-19 — Private alpha, đã mở                                                   |
+| Task hiện tại        | P5-COLLAB-19 — `VERIFY`; local/disposable candidate sẵn sàng, live soak còn PENDING   |
+| Task tiếp theo       | P5-COLLAB-19 provider-observed 60-minute soak; P5-COLLAB-20 đang bị chặn              |
+
+### Checkpoint P5-COLLAB-19 `VERIFY` — 2026-08-25
+
+Private-alpha contract và runner fail closed đã sẵn sàng cho profile Render free một instance,
+hard cap `0 USD`, RPO last verified artifact và force-off khi vượt quota. Contract khóa đúng 60 phút
+theo ba phase `300/3000/300` giây, 2 document x 5 client, 500 shape/document, rate/cadence/SLO và
+drill reconnect, control-authority outage 600 giây, Neon/B2 outage, credential rotation/restore và
+force-off. Mỗi evidence phải fresh trong đúng run; reused evidence cần `validityRationale`; owner
+sign-off phải nằm trong run và cleanup cuối phải zero.
+
+Secret-safe disposable runner chỉ nạp `.env.p5-collab-19-disposable.local` trong process, không log
+giá trị, không rollback và không chạm shared staging; exact database ledger cuối là `42 false`.
+Provider-observed 60-minute soak, publication/support notice, live drill matrix, owner sign-off và
+cleanup evidence vẫn chưa chạy nên P5-COLLAB-19 giữ `VERIFY`, chưa được mở P5-COLLAB-20. Acceptance:
+[`P5_COLLAB_19_PRIVATE_ALPHA_ACCEPTANCE.md`](P5_COLLAB_19_PRIVATE_ALPHA_ACCEPTANCE.md).
 
 ### Checkpoint P5-COLLAB-18 `DONE` — 2026-08-24
 

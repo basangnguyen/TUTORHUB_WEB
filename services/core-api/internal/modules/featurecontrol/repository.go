@@ -56,4 +56,15 @@ type Repository interface {
 		PutOverridesInput,
 		time.Time,
 	) (Capabilities, error)
+	GetPrivateAlphaEnrollment(
+		context.Context,
+		tenancy.Context,
+		time.Time,
+	) (PrivateAlphaEnrollment, error)
+	UpdatePrivateAlphaEnrollment(
+		context.Context,
+		tenancy.Context,
+		UpdatePrivateAlphaEnrollmentInput,
+		time.Time,
+	) (PrivateAlphaEnrollment, error)
 }

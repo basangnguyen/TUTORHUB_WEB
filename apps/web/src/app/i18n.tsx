@@ -14,6 +14,50 @@ export type Language = (typeof supportedLanguages)[number];
 
 const messages = {
   vi: {
+    "privateAlpha.loading": "Đang tải đăng ký Private Alpha",
+    "privateAlpha.forbiddenTitle": "Không thể xem đăng ký Private Alpha",
+    "privateAlpha.forbiddenDescription":
+      "Bạn không có quyền xem trạng thái đăng ký Private Alpha của workspace này.",
+    "privateAlpha.errorTitle": "Không thể tải đăng ký Private Alpha",
+    "privateAlpha.errorDescription":
+      "Không thể tải trạng thái đăng ký. Hãy kiểm tra kết nối và thử lại.",
+    "privateAlpha.enrollSuccess": "Workspace đã tham gia Private Alpha.",
+    "privateAlpha.withdrawSuccess": "Workspace đã rút khỏi Private Alpha.",
+    "privateAlpha.kicker": "Thử nghiệm có kiểm soát",
+    "privateAlpha.title": "Private Alpha bảng trắng",
+    "privateAlpha.description":
+      "Quản lý việc tham gia thử nghiệm bảng trắng cho workspace này.",
+    "privateAlpha.statusActive": "Đang tham gia",
+    "privateAlpha.statusWithdrawn": "Đã rút",
+    "privateAlpha.statusNotEnrolled": "Chưa tham gia",
+    "privateAlpha.noticeTitle": "Điều kiện Private Alpha",
+    "privateAlpha.noticeDescription":
+      "Trước khi tham gia, hãy xác nhận workspace chấp nhận các giới hạn vận hành sau.",
+    "privateAlpha.limitSingleInstance":
+      "Một Render Free instance, không HA hoặc multi-region.",
+    "privateAlpha.limitColdStart":
+      "Có thể cold-start, gián đoạn ngắn; vượt quota thì bảng trắng bị force-off.",
+    "privateAlpha.limitSynthetic":
+      "Chỉ dùng dữ liệu synthetic hoặc dữ liệu phù hợp private alpha; không nhập dữ liệu học viên nhạy cảm.",
+    "privateAlpha.limitAccessibility":
+      "Dùng bàn phím/NVDA và “Đọc bảng trắng dưới dạng văn bản” khi cần nội dung ngữ nghĩa.",
+    "privateAlpha.support": "Mở hỗ trợ Private Alpha",
+    "privateAlpha.acceptedAt": "Tham gia lúc:",
+    "privateAlpha.withdrawnAt": "Rút khỏi lúc:",
+    "privateAlpha.acceptanceLabel":
+      "Tôi đã đọc và chấp nhận điều kiện Private Alpha.",
+    "privateAlpha.acceptanceDescription":
+      "Xác nhận giới hạn miễn phí, khả năng gián đoạn, dữ liệu synthetic và kế hoạch force-off.",
+    "privateAlpha.conflict":
+      "Trạng thái đã thay đổi ở nơi khác. Hãy tải lại trước khi thử lại.",
+    "privateAlpha.updateForbidden":
+      "Bạn không có quyền thay đổi đăng ký Private Alpha.",
+    "privateAlpha.updateError":
+      "Không thể cập nhật đăng ký Private Alpha. Hãy thử lại.",
+    "privateAlpha.reload": "Tải lại",
+    "privateAlpha.saving": "Đang lưu…",
+    "privateAlpha.withdraw": "Rút khỏi Private Alpha",
+    "privateAlpha.enroll": "Tham gia Private Alpha",
     "whiteboard.openTool": "Mở bảng trắng",
     "whiteboard.title": "Bảng trắng lớp học",
     "whiteboard.loading": "Đang kiểm tra quyền truy cập bảng trắng…",
@@ -60,6 +104,28 @@ const messages = {
     "whiteboard.connection.connected": "Bảng trắng đã kết nối.",
     "whiteboard.connection.reconnecting": "Đang khôi phục kết nối bảng trắng…",
     "whiteboard.connection.failed": "Kết nối bảng trắng đã thất bại.",
+    "whiteboard.privateAlpha.badge": "Private Alpha",
+    "whiteboard.privateAlpha.title": "Hướng dẫn thử nghiệm bảng trắng",
+    "whiteboard.privateAlpha.summary":
+      "Bảng trắng đang trong giai đoạn thử nghiệm nội bộ. Hãy lưu hoặc xuất nội dung quan trọng trước khi kết thúc buổi học.",
+    "whiteboard.privateAlpha.limits":
+      "Giới hạn: 2 tài liệu, 10 kết nối đồng thời, 64 MiB mỗi tài liệu và 600 thao tác/phút.",
+    "whiteboard.privateAlpha.runtimeLimits":
+      "Render Free có thể cold-start, gián đoạn ngắn và không có HA.",
+    "whiteboard.privateAlpha.accessibility":
+      "Dùng Tab và phím tắt để thao tác; chọn “Đọc bảng trắng dưới dạng văn bản” để xem nội dung ngữ nghĩa.",
+    "whiteboard.privateAlpha.dataCaution":
+      "Chỉ dùng dữ liệu synthetic hoặc dữ liệu phù hợp private alpha; không nhập thông tin nhạy cảm của học viên.",
+    "whiteboard.privateAlpha.teacherQuickStart": "Quick-start cho giáo viên",
+    "whiteboard.privateAlpha.teacherStepPrepare":
+      "Chuẩn bị bảng, mở bảng và xác nhận đúng quyền chỉnh sửa hoặc chỉ xem.",
+    "whiteboard.privateAlpha.teacherStepPresent":
+      "Giảng dạy, theo dõi trạng thái kết nối và tạm dừng bảng trước khi có gián đoạn dự kiến.",
+    "whiteboard.privateAlpha.teacherStepFinish":
+      "Xuất hoặc chụp snapshot nội dung cần giữ, rồi đóng bảng khi kết thúc buổi học.",
+    "whiteboard.privateAlpha.support": "Mở hỗ trợ Private Alpha",
+    "whiteboard.privateAlpha.supportAria":
+      "Mở trang hỗ trợ và báo sự cố bảng trắng Private Alpha",
     "calendar.participation.title": "Người tham dự",
     "calendar.participation.description":
       "Phản hồi tham dự cho buổi học này. Thông tin liên lạc và gửi thư không hiển thị ở đây.",
@@ -2104,6 +2170,50 @@ const messages = {
     "state.retry": "Thử lại",
   },
   en: {
+    "privateAlpha.loading": "Loading Private Alpha enrollment",
+    "privateAlpha.forbiddenTitle": "Private Alpha enrollment unavailable",
+    "privateAlpha.forbiddenDescription":
+      "You do not have permission to view this workspace's Private Alpha enrollment.",
+    "privateAlpha.errorTitle": "Private Alpha enrollment unavailable",
+    "privateAlpha.errorDescription":
+      "We could not load the enrollment status. Check the connection and try again.",
+    "privateAlpha.enrollSuccess": "The workspace joined Private Alpha.",
+    "privateAlpha.withdrawSuccess": "The workspace left Private Alpha.",
+    "privateAlpha.kicker": "Controlled trial",
+    "privateAlpha.title": "Whiteboard Private Alpha",
+    "privateAlpha.description":
+      "Manage this workspace's enrollment in the whiteboard trial.",
+    "privateAlpha.statusActive": "Enrolled",
+    "privateAlpha.statusWithdrawn": "Withdrawn",
+    "privateAlpha.statusNotEnrolled": "Not enrolled",
+    "privateAlpha.noticeTitle": "Private Alpha terms",
+    "privateAlpha.noticeDescription":
+      "Before enrolling, confirm that the workspace accepts these operating limits.",
+    "privateAlpha.limitSingleInstance":
+      "One Render Free instance with no HA or multi-region deployment.",
+    "privateAlpha.limitColdStart":
+      "Cold starts and short interruptions may occur; whiteboard stays force-off after quota exhaustion.",
+    "privateAlpha.limitSynthetic":
+      "Use synthetic or suitable private-alpha data only; do not enter sensitive learner data.",
+    "privateAlpha.limitAccessibility":
+      "Use keyboard/NVDA and “Read whiteboard as text” when a semantic view is needed.",
+    "privateAlpha.support": "Open Private Alpha support",
+    "privateAlpha.acceptedAt": "Enrolled at:",
+    "privateAlpha.withdrawnAt": "Withdrawn at:",
+    "privateAlpha.acceptanceLabel":
+      "I have read and accept the Private Alpha terms.",
+    "privateAlpha.acceptanceDescription":
+      "Confirm the free-tier limits, possible interruptions, synthetic data, and force-off plan.",
+    "privateAlpha.conflict":
+      "The enrollment changed elsewhere. Load the latest status before trying again.",
+    "privateAlpha.updateForbidden":
+      "You do not have permission to change Private Alpha enrollment.",
+    "privateAlpha.updateError":
+      "We could not update Private Alpha enrollment. Try again.",
+    "privateAlpha.reload": "Load latest",
+    "privateAlpha.saving": "Saving…",
+    "privateAlpha.withdraw": "Leave Private Alpha",
+    "privateAlpha.enroll": "Join Private Alpha",
     "whiteboard.openTool": "Open whiteboard",
     "whiteboard.title": "Classroom whiteboard",
     "whiteboard.loading": "Checking whiteboard access…",
@@ -2153,6 +2263,28 @@ const messages = {
     "whiteboard.connection.reconnecting":
       "Restoring the whiteboard connection…",
     "whiteboard.connection.failed": "The whiteboard connection failed.",
+    "whiteboard.privateAlpha.badge": "Private Alpha",
+    "whiteboard.privateAlpha.title": "Whiteboard trial guidance",
+    "whiteboard.privateAlpha.summary":
+      "This whiteboard is in an internal trial. Save or export important content before the lesson ends.",
+    "whiteboard.privateAlpha.limits":
+      "Limits: 2 documents, 10 concurrent connections, 64 MiB per document, and 600 operations/minute.",
+    "whiteboard.privateAlpha.runtimeLimits":
+      "Render Free can cold-start, briefly interrupt service, and provides no HA.",
+    "whiteboard.privateAlpha.accessibility":
+      "Use Tab and keyboard shortcuts; choose “Read whiteboard as text” for the semantic representation.",
+    "whiteboard.privateAlpha.dataCaution":
+      "Use synthetic or private-alpha-appropriate data only; do not enter sensitive student information.",
+    "whiteboard.privateAlpha.teacherQuickStart": "Teacher quick-start",
+    "whiteboard.privateAlpha.teacherStepPrepare":
+      "Prepare and open the board, then confirm the expected edit or view-only capability.",
+    "whiteboard.privateAlpha.teacherStepPresent":
+      "Teach while monitoring connection status; suspend before a planned interruption.",
+    "whiteboard.privateAlpha.teacherStepFinish":
+      "Export or snapshot content that must be retained, then close the board when the lesson ends.",
+    "whiteboard.privateAlpha.support": "Open Private Alpha support",
+    "whiteboard.privateAlpha.supportAria":
+      "Open support and report a Private Alpha whiteboard issue",
     "calendar.participation.title": "Attendees",
     "calendar.participation.description":
       "RSVP status for this learning session. Contact and delivery data is never shown here.",

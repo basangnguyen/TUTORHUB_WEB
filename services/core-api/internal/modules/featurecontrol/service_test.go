@@ -120,3 +120,26 @@ func (repository *recordingFeatureControlRepository) PutOverrides(
 	repository.now = now
 	return Capabilities{TenantID: tenantContext.TenantID}, repository.err
 }
+
+func (repository *recordingFeatureControlRepository) GetPrivateAlphaEnrollment(
+	_ context.Context,
+	tenantContext tenancy.Context,
+	now time.Time,
+) (PrivateAlphaEnrollment, error) {
+	repository.calls++
+	repository.tenantContext = tenantContext
+	repository.now = now
+	return PrivateAlphaEnrollment{TenantID: tenantContext.TenantID}, repository.err
+}
+
+func (repository *recordingFeatureControlRepository) UpdatePrivateAlphaEnrollment(
+	_ context.Context,
+	tenantContext tenancy.Context,
+	_ UpdatePrivateAlphaEnrollmentInput,
+	now time.Time,
+) (PrivateAlphaEnrollment, error) {
+	repository.calls++
+	repository.tenantContext = tenantContext
+	repository.now = now
+	return PrivateAlphaEnrollment{TenantID: tenantContext.TenantID}, repository.err
+}

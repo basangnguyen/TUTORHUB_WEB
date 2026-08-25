@@ -7,6 +7,7 @@ import {
   useTransitionWhiteboard,
   useWhiteboardTool,
 } from "../../app/whiteboards";
+import { WHITEBOARD_PRIVATE_ALPHA_SUPPORT_HREF } from "./whiteboardPrivateAlpha";
 
 const LazyWhiteboardEngine = lazy(() => import("./LazyWhiteboardEngine"));
 
@@ -32,13 +33,19 @@ export function ClassroomWhiteboardTool({
     return <WhiteboardState message={t("whiteboard.featureOff")} />;
   }
   if (tool.isPending) {
-    return <WhiteboardState message={t("whiteboard.loading")} />;
+    return (
+      <WhiteboardState
+        message={t("whiteboard.loading")}
+        showPrivateAlphaNotice
+      />
+    );
   }
   if (tool.isError) {
     const state = classifyWhiteboardError(tool.error);
     return (
       <WhiteboardState
         alert={state !== "featureOff"}
+        showPrivateAlphaNotice
         message={t(`whiteboard.${state}`)}
       >
         {state === "error" ? (
@@ -53,7 +60,7 @@ export function ClassroomWhiteboardTool({
   const projection = tool.data;
   if (projection.document === null) {
     return (
-      <WhiteboardState message={t("whiteboard.empty")}>
+      <WhiteboardState message={t("whiteboard.empty")} showPrivateAlphaNotice>
         {projection.can_create ? (
           <Button disabled={prepare.isPending} onClick={() => prepare.mutate()}>
             {prepare.isPending
@@ -109,6 +116,7 @@ function WhiteboardDocumentView({
       aria-labelledby="whiteboard-tool-title"
       className="whiteboard-tool"
     >
+      <PrivateAlphaNotice />
       <header className="whiteboard-tool-header">
         <div>
           <h2 id="whiteboard-tool-title">{t("whiteboard.title")}</h2>
@@ -175,22 +183,72 @@ function WhiteboardDocumentView({
   );
 }
 
+function PrivateAlphaNotice() {
+  const { t } = useI18n();
+
+  return (
+    <aside
+      aria-labelledby="whiteboard-private-alpha-title"
+      className="whiteboard-private-alpha-notice"
+    >
+      <div className="whiteboard-private-alpha-heading">
+        <span className="whiteboard-private-alpha-badge">
+          {t("whiteboard.privateAlpha.badge")}
+        </span>
+        <h3 id="whiteboard-private-alpha-title">
+          {t("whiteboard.privateAlpha.title")}
+        </h3>
+      </div>
+      <p>{t("whiteboard.privateAlpha.summary")}</p>
+      <ul className="whiteboard-private-alpha-limits">
+        <li>{t("whiteboard.privateAlpha.limits")}</li>
+        <li>{t("whiteboard.privateAlpha.runtimeLimits")}</li>
+        <li>{t("whiteboard.privateAlpha.accessibility")}</li>
+        <li>{t("whiteboard.privateAlpha.dataCaution")}</li>
+      </ul>
+      <details className="whiteboard-private-alpha-quick-start">
+        <summary>{t("whiteboard.privateAlpha.teacherQuickStart")}</summary>
+        <ol>
+          <li>{t("whiteboard.privateAlpha.teacherStepPrepare")}</li>
+          <li>{t("whiteboard.privateAlpha.teacherStepPresent")}</li>
+          <li>{t("whiteboard.privateAlpha.teacherStepFinish")}</li>
+        </ol>
+      </details>
+      <a
+        aria-label={t("whiteboard.privateAlpha.supportAria")}
+        className="whiteboard-private-alpha-support"
+        href={WHITEBOARD_PRIVATE_ALPHA_SUPPORT_HREF}
+      >
+        {t("whiteboard.privateAlpha.support")}
+      </a>
+    </aside>
+  );
+}
+
 function WhiteboardState({
   alert = false,
   children,
   message,
+  showPrivateAlphaNotice = false,
 }: {
   alert?: boolean;
   children?: ReactNode;
   message: string;
+  showPrivateAlphaNotice?: boolean;
 }) {
   return (
-    <div className="whiteboard-tool-state">
-      <p aria-live="polite" role={alert ? "alert" : "status"}>
-        {message}
-      </p>
-      {children}
-    </div>
+    <>
+      {showPrivateAlphaNotice ? <PrivateAlphaNotice /> : null}
+      <div className="whiteboard-tool-state">
+        <p
+          aria-live={alert ? "assertive" : "polite"}
+          role={alert ? "alert" : "status"}
+        >
+          {message}
+        </p>
+        {children}
+      </div>
+    </>
   );
 }
 

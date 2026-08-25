@@ -16,6 +16,15 @@ type ServiceAPI interface {
 		tenancy.Context,
 		PutOverridesInput,
 	) (Capabilities, error)
+	GetPrivateAlphaEnrollment(
+		context.Context,
+		tenancy.Context,
+	) (PrivateAlphaEnrollment, error)
+	UpdatePrivateAlphaEnrollment(
+		context.Context,
+		tenancy.Context,
+		UpdatePrivateAlphaEnrollmentInput,
+	) (PrivateAlphaEnrollment, error)
 }
 
 type Service struct {
@@ -68,6 +77,41 @@ func (service *Service) PutOverrides(
 		service.clock().UTC(),
 	)
 	return capabilities, NormalizeError(err)
+}
+
+func (service *Service) GetPrivateAlphaEnrollment(
+	ctx context.Context,
+	tenantContext tenancy.Context,
+) (PrivateAlphaEnrollment, error) {
+	if err := tenantContext.Validate(); err != nil {
+		return PrivateAlphaEnrollment{}, ErrAccessDenied
+	}
+	enrollment, err := service.repository.GetPrivateAlphaEnrollment(
+		ctx,
+		tenantContext,
+		service.clock().UTC(),
+	)
+	return enrollment, NormalizeError(err)
+}
+
+func (service *Service) UpdatePrivateAlphaEnrollment(
+	ctx context.Context,
+	tenantContext tenancy.Context,
+	input UpdatePrivateAlphaEnrollmentInput,
+) (PrivateAlphaEnrollment, error) {
+	if err := tenantContext.Validate(); err != nil {
+		return PrivateAlphaEnrollment{}, ErrAccessDenied
+	}
+	if input.ExpectedRevision < 0 || input.NoticeVersion != PrivateAlphaNoticeVersion {
+		return PrivateAlphaEnrollment{}, ErrInvalidControl
+	}
+	enrollment, err := service.repository.UpdatePrivateAlphaEnrollment(
+		ctx,
+		tenantContext,
+		input,
+		service.clock().UTC(),
+	)
+	return enrollment, NormalizeError(err)
 }
 
 func normalizeOverrides(catalog *Catalog, input PutOverridesInput) (PutOverridesInput, error) {

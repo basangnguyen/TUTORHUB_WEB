@@ -572,6 +572,94 @@ paths:
           $ref: "#/components/responses/ProblemResponse"
         default:
           $ref: "#/components/responses/ProblemResponse"
+  /api/v1/tenants/{tenant_id}/private-alpha-enrollment:
+    get:
+      operationId: getPrivateAlphaEnrollment
+      summary: Return the private-alpha enrollment for the active tenant
+      description: Returns only the enrollment for the authenticated active tenant. Any active member may read the status; only an active organization administrator may update it.
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: tenant_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Same-tenant private-alpha enrollment
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PrivateAlphaEnrollmentResponse"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+    put:
+      operationId: updatePrivateAlphaEnrollment
+      summary: Enroll or withdraw the active tenant from the private alpha
+      description: Only an active organization administrator in the authenticated active tenant may update this record. expected_revision provides optimistic concurrency and every mutation is audited.
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: tenant_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePrivateAlphaEnrollmentRequest"
+      responses:
+        "200":
+          description: Updated same-tenant private-alpha enrollment
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PrivateAlphaEnrollmentResponse"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
   /api/v1/tenants/{tenant_id}/feature-controls:
     put:
       operationId: updateTenantFeatureControls
@@ -8327,6 +8415,66 @@ components:
           $ref: "#/components/schemas/TenantQuotaCapabilities"
         operations:
           $ref: "#/components/schemas/TenantOperationCapabilities"
+    PrivateAlphaEnrollmentStatus:
+      type: string
+      enum: [active, not_enrolled, withdrawn]
+    PrivateAlphaEnrollmentAllowedActions:
+      type: object
+      additionalProperties: false
+      required: [manage_enrollment]
+      properties:
+        manage_enrollment:
+          type: boolean
+    PrivateAlphaEnrollmentResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - tenant_id
+        - program
+        - status
+        - revision
+        - notice_version
+        - accepted_at
+        - withdrawn_at
+        - allowed_actions
+      properties:
+        tenant_id:
+          type: string
+          format: uuid
+        program:
+          type: string
+          const: classroom_whiteboards
+        status:
+          $ref: "#/components/schemas/PrivateAlphaEnrollmentStatus"
+        revision:
+          type: integer
+          format: int64
+          minimum: 0
+        notice_version:
+          type: string
+          const: p5-collab-19-v1
+        accepted_at:
+          type: [string, "null"]
+          format: date-time
+        withdrawn_at:
+          type: [string, "null"]
+          format: date-time
+        allowed_actions:
+          $ref: "#/components/schemas/PrivateAlphaEnrollmentAllowedActions"
+    UpdatePrivateAlphaEnrollmentRequest:
+      type: object
+      additionalProperties: false
+      required: [enrolled, expected_revision, notice_version]
+      properties:
+        enrolled:
+          type: boolean
+        expected_revision:
+          type: integer
+          format: int64
+          minimum: 0
+        notice_version:
+          type: string
+          const: p5-collab-19-v1
     TenantFeatureControlValues:
       type: object
       additionalProperties: false

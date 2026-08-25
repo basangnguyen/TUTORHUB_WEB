@@ -39,6 +39,10 @@
 > zero-residue cleanup đều PASS. Exact candidate `8d65898`, runtime packaging fix `ccc1f13` và
 > GitHub Verify/Security đều xanh. Chrome/Edge + NVDA component matrix được kế thừa có kiểm soát từ
 > P5-COLLAB-15; P5-COLLAB-19 Private alpha đã được mở.
+> P5-COLLAB-19 đang `VERIFY` ngày 2026-08-25: fail-closed private-alpha contract, current-run evidence
+> freshness/owner sign-off và secret-safe disposable runner đã sẵn sàng tại exact ledger `42 false`.
+> Chưa có provider-observed 60-minute soak, live publication/drill/cleanup nên chưa `DONE`;
+> P5-COLLAB-20 vẫn bị chặn.
 
 ## 1. Mục tiêu phase
 
@@ -106,7 +110,7 @@ Xây collaboration plane cho lớp học mà không làm rời hoặc làm yếu
 | P5-COLLAB-16 | Test           | Failure, outage và provider exit                | P5-COLLAB-05..09           | DONE       |
 | P5-COLLAB-17 | Rollout        | Force-off staging acceptance                    | P5-COLLAB-10..16           | DONE       |
 | P5-COLLAB-18 | Rollout        | Internal canary                                 | P5-COLLAB-17               | DONE       |
-| P5-COLLAB-19 | Rollout        | Private alpha                                   | P5-COLLAB-18               | TODO       |
+| P5-COLLAB-19 | Rollout        | Private alpha                                   | P5-COLLAB-18               | VERIFY     |
 | P5-COLLAB-20 | Rollout        | Ramp và rollback/exit review                    | P5-COLLAB-19               | TODO       |
 
 `VERIFY` chỉ được dùng sau khi implementation và toàn bộ gate pre-staging của task xanh. `DONE`
@@ -621,6 +625,15 @@ zero-residue PASS; P5-COLLAB-19 đã được mở. Acceptance:
 - [x] Canary off/rollback giữ export và last-good snapshot khả dụng.
 
 ### P5-COLLAB-19 - Private alpha
+
+Checkpoint 2026-08-25 — `VERIFY`: contract và runner fail closed đã khóa profile free private alpha
+với 60-minute provider-observed soak, ba phase `300/3000/300` giây, 2 document x 5 client, 500
+shape/document, quota/cost force-off và đầy đủ reconnect/control-authority/Neon/B2/rotation/restore
+drill. Evidence phải fresh trong đúng run, reused evidence phải có `validityRationale`, owner sign-off
+phải nằm trong run và cleanup phải zero. Disposable preflight/integration chỉ chấp nhận exact ledger
+`42 false`; không rollback hoặc chạm shared staging. Live provider soak, publication, drill matrix,
+owner sign-off và cleanup evidence vẫn `PENDING`, vì vậy task chưa `DONE`. Acceptance:
+[`P5_COLLAB_19_PRIVATE_ALPHA_ACCEPTANCE.md`](P5_COLLAB_19_PRIVATE_ALPHA_ACCEPTANCE.md).
 
 **Exit gate:**
 

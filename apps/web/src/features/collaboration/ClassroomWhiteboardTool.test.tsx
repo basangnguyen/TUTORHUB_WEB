@@ -118,6 +118,43 @@ describe("ClassroomWhiteboardTool", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("keeps private-alpha limits, guidance, and support visible in error states", () => {
+    whiteboardMocks.tool.mockReturnValue({
+      error: new Error("bounded failure"),
+      isError: true,
+      isPending: false,
+      refetch: vi.fn(),
+    });
+
+    renderTool();
+
+    expect(
+      screen.getByRole("heading", {
+        level: 3,
+        name: "Whiteboard trial guidance",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Limits: 2 documents, 10 concurrent connections, 64 MiB per document, and 600 operations/minute.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Render Free can cold-start, briefly interrupt service, and provides no HA.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Teacher quick-start")).toBeInTheDocument();
+    expect(
+      screen.getByText(/choose “Read whiteboard as text”/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", {
+        name: "Open support and report a Private Alpha whiteboard issue",
+      }),
+    ).toHaveAttribute("href", "/app/settings?source=whiteboard-private-alpha");
+  });
+
   it("keeps loading and retry states keyboard reachable", () => {
     const refetch = vi.fn();
     whiteboardMocks.tool.mockReturnValue({
@@ -183,6 +220,11 @@ describe("ClassroomWhiteboardTool", () => {
       screen.queryByRole("button", { name: "Suspend" }),
     ).not.toBeInTheDocument();
     expect(screen.getByText("Presenting")).toBeInTheDocument();
+    expect(
+      screen.getAllByRole("link", {
+        name: "Open support and report a Private Alpha whiteboard issue",
+      }),
+    ).toHaveLength(1);
     screen.getByRole("button", { name: "Simulate authority fence" }).click();
     expect(refetch).toHaveBeenCalledTimes(1);
   });

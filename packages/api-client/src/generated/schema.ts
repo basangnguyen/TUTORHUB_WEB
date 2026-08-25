@@ -2455,6 +2455,30 @@ export type paths = {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/api/v1/tenants/{tenant_id}/private-alpha-enrollment": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /**
+     * Return the private-alpha enrollment for the active tenant
+     * @description Returns only the enrollment for the authenticated active tenant. Any active member may read the status; only an active organization administrator may update it.
+     */
+    readonly get: operations["getPrivateAlphaEnrollment"];
+    /**
+     * Enroll or withdraw the active tenant from the private alpha
+     * @description Only an active organization administrator in the authenticated active tenant may update this record. expected_revision provides optimistic concurrency and every mutation is audited.
+     */
+    readonly put: operations["updatePrivateAlphaEnrollment"];
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/api/v1/webhooks/livekit": {
     readonly parameters: {
       readonly query?: never;
@@ -4884,6 +4908,28 @@ export type components = {
       | "media.publish"
       | "chat.send"
       | "audit.view";
+    readonly PrivateAlphaEnrollmentAllowedActions: {
+      readonly manage_enrollment: boolean;
+    };
+    readonly PrivateAlphaEnrollmentResponse: {
+      /** Format: date-time */
+      readonly accepted_at: string | null;
+      readonly allowed_actions: components["schemas"]["PrivateAlphaEnrollmentAllowedActions"];
+      /** @constant */
+      readonly notice_version: "p5-collab-19-v1";
+      /** @constant */
+      readonly program: "classroom_whiteboards";
+      /** Format: int64 */
+      readonly revision: number;
+      readonly status: components["schemas"]["PrivateAlphaEnrollmentStatus"];
+      /** Format: uuid */
+      readonly tenant_id: string;
+      /** Format: date-time */
+      readonly withdrawn_at: string | null;
+    };
+    /** @enum {string} */
+    readonly PrivateAlphaEnrollmentStatus:
+      "active" | "not_enrolled" | "withdrawn";
     readonly Problem: {
       /** @description Stable machine-readable failure code such as feature_disabled, quota_exceeded, or feature_control_unavailable. */
       readonly code?: string;
@@ -5428,6 +5474,13 @@ export type components = {
       readonly quiet_hours_start: string | null;
       readonly quiet_hours_timezone: string;
       readonly reminder_offset_minutes: number;
+    };
+    readonly UpdatePrivateAlphaEnrollmentRequest: {
+      readonly enrolled: boolean;
+      /** Format: int64 */
+      readonly expected_revision: number;
+      /** @constant */
+      readonly notice_version: "p5-collab-19-v1";
     };
     readonly UpdateStudyMeetingRequest: {
       readonly class_id: string | null;
@@ -10971,6 +11024,71 @@ export interface operations {
       readonly 403: components["responses"]["ForbiddenResponse"];
       readonly 404: components["responses"]["NotFoundResponse"];
       readonly 409: components["responses"]["ConflictResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly getPrivateAlphaEnrollment: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path: {
+        readonly tenant_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Same-tenant private-alpha enrollment */
+      readonly 200: {
+        headers: {
+          readonly "Cache-Control"?: "no-store";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["PrivateAlphaEnrollmentResponse"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly updatePrivateAlphaEnrollment: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly "X-CSRF-Token": string;
+      };
+      readonly path: {
+        readonly tenant_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["UpdatePrivateAlphaEnrollmentRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Updated same-tenant private-alpha enrollment */
+      readonly 200: {
+        headers: {
+          readonly "Cache-Control"?: "no-store";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["PrivateAlphaEnrollmentResponse"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["ProblemResponse"];
       readonly default: components["responses"]["ProblemResponse"];
     };
   };

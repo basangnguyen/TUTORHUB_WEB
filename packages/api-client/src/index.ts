@@ -31,6 +31,10 @@ export type TenantQuotaCapabilities =
 export type TenantOperationCapabilities =
   components["schemas"]["TenantOperationCapabilities"];
 export type TenantCapabilities = components["schemas"]["TenantCapabilities"];
+export type PrivateAlphaEnrollmentResponse =
+  components["schemas"]["PrivateAlphaEnrollmentResponse"];
+export type UpdatePrivateAlphaEnrollmentRequest =
+  components["schemas"]["UpdatePrivateAlphaEnrollmentRequest"];
 export type HomeRecentFile = components["schemas"]["HomeRecentFile"];
 export type HomeRecentFilePage = components["schemas"]["HomeRecentFilePage"];
 export type AuthorizedSearchResultKind =
@@ -887,6 +891,51 @@ export async function getTenantCapabilities(
   );
 }
 
+export async function getPrivateAlphaEnrollment(
+  tenantID: string,
+  options: APIRequestOptions = {},
+): Promise<PrivateAlphaEnrollmentResponse> {
+  const { data, error, response } = await createTutorHubClient(options).GET(
+    "/api/v1/tenants/{tenant_id}/private-alpha-enrollment",
+    {
+      params: { path: { tenant_id: tenantID } },
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<PrivateAlphaEnrollmentResponse>(
+    data as PrivateAlphaEnrollmentResponse | undefined,
+    error,
+    response,
+  );
+}
+
+export async function updatePrivateAlphaEnrollment(
+  tenantID: string,
+  input: UpdatePrivateAlphaEnrollmentRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<PrivateAlphaEnrollmentResponse> {
+  const { data, error, response } = await createTutorHubClient(options).PUT(
+    "/api/v1/tenants/{tenant_id}/private-alpha-enrollment",
+    {
+      params: {
+        path: { tenant_id: tenantID },
+        header: { "X-CSRF-Token": csrfToken },
+      },
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+    },
+  );
+
+  return requireData<PrivateAlphaEnrollmentResponse>(
+    data as PrivateAlphaEnrollmentResponse | undefined,
+    error,
+    response,
+  );
+}
 export async function updateTenantFeatureControls(
   tenantID: string,
   input: UpdateTenantFeatureControlsRequest,

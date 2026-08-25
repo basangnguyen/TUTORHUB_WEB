@@ -5,13 +5,13 @@
 | Thuộc tính            | Giá trị                                                                                      |
 | --------------------- | -------------------------------------------------------------------------------------------- |
 | Phiên bản tài liệu    | 2.5                                                                                          |
-| Cập nhật              | 2026-08-24                                                                                   |
+| Cập nhật              | 2026-08-25                                                                                   |
 | Phạm vi ưu tiên       | Web application                                                                              |
 | Thư mục phát triển    | `D:\TutorHub_V2`                                                                             |
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
 | Phase hiện tại        | Phase 5 collaboration implementation; Phase 3 deferred carry-over tiếp tục                   |
-| Trạng thái gần nhất   | P5-COLLAB-18 `DONE`; exact internal canary, recovery và cleanup PASS                         |
+| Trạng thái gần nhất   | P5-COLLAB-19 `VERIFY`; private-alpha candidate sẵn sàng, live 60-minute soak còn PENDING     |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 
@@ -1853,6 +1853,15 @@ outage/export/restore evidence được tái xác nhận bằng P5-18 regression
 semantics, provider topology hoặc snapshot format. Exact-one canary tenant enabled, tenant khác
 vẫn fail closed/force-off. Final cleanup zero-residue PASS; P5-COLLAB-19 đã được mở. Acceptance:
 [`P5_COLLAB_18_STAGING_ACCEPTANCE.md`](P5_COLLAB_18_STAGING_ACCEPTANCE.md).
+
+P5-COLLAB-19 checkpoint 2026-08-25 — `VERIFY`: fail-closed private-alpha contract và secret-safe
+disposable runner đã khóa profile free một instance, exact 60-minute provider-observed soak theo
+`300/3000/300` giây, 2 document x 5 client, quota/cost force-off, full incident/provider drill,
+current-run evidence freshness, owner sign-off và zero cleanup. Disposable database contract chỉ
+chấp nhận ledger `42 false`, không rollback hoặc chạm shared staging. Provider-observed soak,
+publication/support notice, live drill/evidence/sign-off và cleanup vẫn `PENDING`; P5-COLLAB-20 chưa
+được mở. Acceptance:
+[`P5_COLLAB_19_PRIVATE_ALPHA_ACCEPTANCE.md`](P5_COLLAB_19_PRIVATE_ALPHA_ACCEPTANCE.md).
 
 **Deliverable:** teacher mở/đóng công cụ mà không làm rời media room; trạng thái cộng tác khôi phục sau reconnect.
 

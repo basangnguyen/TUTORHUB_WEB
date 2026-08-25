@@ -206,6 +206,20 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 		),
 	)
 	mux.Handle(
+		tenantPrivateAlphaEnrollmentPattern,
+		featureControlResponseHeaders(
+			auditMutation(
+				staticAuditMutation(
+					http.MethodPut,
+					audit.ActionTenantFeatureControlUpdate,
+					`tenant_private_alpha_enrollment`,
+					pathValueAuditResource(`tenant_id`),
+				),
+				http.HandlerFunc(featureControls.privateAlphaEnrollment),
+			),
+		),
+	)
+	mux.Handle(
 		notificationsCollectionPath,
 		notificationResponseHeaders(
 			requireMethod(http.MethodGet, http.HandlerFunc(notifications.list)),
