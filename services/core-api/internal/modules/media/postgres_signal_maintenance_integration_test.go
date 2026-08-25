@@ -35,8 +35,8 @@ func TestPostgresMediaSignalMaintenanceACLRetentionAndSkipLocked(t *testing.T) {
 	if err != nil {
 		t.Fatal("read P4-06 migration version")
 	}
-	if version.Number != 41 || version.Dirty {
-		t.Fatal("P4-06 retained maintenance gate requires latest ledger 41 false")
+	if version.Number != 42 || version.Dirty {
+		t.Fatal("P4-06 retained maintenance gate requires latest ledger 42 false")
 	}
 
 	migrationPool := openMediaIntegrationPool(t, ctx, migrationURL)

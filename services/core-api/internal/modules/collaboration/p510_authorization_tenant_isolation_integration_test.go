@@ -63,8 +63,8 @@ func TestP510AuthorizationTenantIsolationPostgres(t *testing.T) {
 
 	var version int
 	var dirty bool
-	if err := ownerPool.QueryRow(ctx, `SELECT version, dirty FROM public.tutorhub_schema_migrations`).Scan(&version, &dirty); err != nil || version != 41 || dirty {
-		t.Fatal("P5-COLLAB-10 requires clean disposable ledger 41 false")
+	if err := ownerPool.QueryRow(ctx, `SELECT version, dirty FROM public.tutorhub_schema_migrations`).Scan(&version, &dirty); err != nil || version != 42 || dirty {
+		t.Fatal("P5-COLLAB-10 requires clean disposable ledger 42 false")
 	}
 
 	fixtureA := seedWhiteboardPostgresFixture(t, ctx, ownerPool)
