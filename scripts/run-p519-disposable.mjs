@@ -124,40 +124,6 @@ function run(command, args, environment) {
   return result.status ?? 1;
 }
 
-function databaseLedger(environment) {
-  const script = [
-    "const{Client}=require('pg');",
-    "(async()=>{",
-    "const c=new Client({connectionString:process.env.DATABASE_MIGRATION_URL});",
-    "await c.connect();",
-    "const r=await c.query('select coalesce(max(version),0)::int as version, bool_or(dirty) as dirty from schema_migrations');",
-    "const x=r.rows[0]||{};",
-    "console.log(String(Number(x.version))+' '+String(Boolean(x.dirty)));",
-    "await c.end();",
-    "})().catch(()=>process.exit(1));",
-  ].join("");
-  const result = spawnSync(process.execPath, ["-e", script], {
-    cwd: ROOT,
-    env: { ...process.env, ...environment },
-    encoding: "utf8",
-    windowsHide: true,
-  });
-  if (result.status !== 0) {
-    throw new Error("Neon disposable ledger probe failed");
-  }
-  return (result.stdout ?? "").trim();
-}
-
-function requireExactLedger(environment) {
-  const ledger = databaseLedger(environment);
-  if (ledger !== "42 false") {
-    throw new Error(
-      "Neon disposable ledger must be exactly 42 false; received " +
-        sanitizeP519Output(ledger, environment),
-    );
-  }
-}
-
 export function validateP519LedgerRows(rows) {
   if (
     !Array.isArray(rows) ||
