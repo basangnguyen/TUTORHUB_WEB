@@ -6,6 +6,7 @@ import {
   createP519Control,
   optionsFromEnvironment,
 } from "./p519-live-control.mjs";
+import { P519_PROVIDER_FIXTURE } from "./p519-provider-fixture.mjs";
 
 const SERVICE = "service-token-that-is-long-enough";
 const ADMIN = "admin-token-that-is-long-enough";
@@ -60,10 +61,10 @@ test("issues one-time grant and validates the exact authority lease", async (t) 
   const issued = await request(base, "/p519/v1/grants", ADMIN, {
     actor_id: "actor-01",
     capability: "edit",
-    document_id: "document-01",
+    document_id: P519_PROVIDER_FIXTURE.documents[0].documentId,
     provider_document_name: DEFAULT_DOCUMENTS[0],
     session_id: "session-01",
-    tenant_id: "tenant-p519",
+    tenant_id: P519_PROVIDER_FIXTURE.tenantId,
   });
   assert.equal(issued.response.status, 201);
 
@@ -124,10 +125,10 @@ test("outage and force-off fail closed without exposing tokens", async (t) => {
 
   const authorityGrant = await request(base, "/p519/v1/grants", ADMIN, {
     actor_id: "actor-02",
-    document_id: "document-01",
+    document_id: P519_PROVIDER_FIXTURE.documents[0].documentId,
     provider_document_name: DEFAULT_DOCUMENTS[0],
     session_id: "session-02",
-    tenant_id: "tenant-p519",
+    tenant_id: P519_PROVIDER_FIXTURE.tenantId,
   });
   assert.equal(authorityGrant.response.status, 503);
 
@@ -140,10 +141,10 @@ test("outage and force-off fail closed without exposing tokens", async (t) => {
   );
   const denied = await request(base, "/p519/v1/grants", ADMIN, {
     actor_id: "actor-02",
-    document_id: "document-01",
+    document_id: P519_PROVIDER_FIXTURE.documents[0].documentId,
     provider_document_name: DEFAULT_DOCUMENTS[0],
     session_id: "session-02",
-    tenant_id: "tenant-p519",
+    tenant_id: P519_PROVIDER_FIXTURE.tenantId,
   });
   assert.equal(denied.response.status, 409);
   const status = await request(

@@ -30,6 +30,7 @@ const MODES = new Set([
   "cleanup",
   "all",
 ]);
+const PROVIDER_REPORT_MODES = new Set(["soak", "drills", "all"]);
 export const P519_ACL_QUERY = `
   select
     r.rolname,
@@ -81,12 +82,11 @@ export function normalizeP519Arguments(args) {
       "mode must be one of preflight|soak|drills|cleanup|all|binding",
     );
   }
-  if (mode !== "preflight" && !reportFile) {
-    throw new Error(
-      mode === "binding"
-        ? "binding requires a trusted binding JSON output path"
-        : mode + " requires a provider-observed report JSON path",
-    );
+  if (mode === "binding" && !reportFile) {
+    throw new Error("binding requires a trusted binding JSON output path");
+  }
+  if (PROVIDER_REPORT_MODES.has(mode) && !reportFile) {
+    throw new Error(mode + " requires a provider-observed report JSON path");
   }
   return { envFile, mode, reportFile };
 }
@@ -381,6 +381,14 @@ function runCleanup(environment) {
   );
 }
 
+function runProviderFixture(mode, environment) {
+  return run(
+    process.execPath,
+    ["services/whiteboard-runtime/p519-provider-fixture.mjs", mode],
+    environment,
+  );
+}
+
 function runDrillRegression(environment) {
   return run(process.execPath, ["scripts/run-p516-local.mjs"], environment);
 }
@@ -422,6 +430,12 @@ export function main(args = process.argv.slice(2)) {
     const ledgerRows = exactDatabaseLedger(environment);
     const aclRows = databaseAclSnapshot(environment);
     if (mode === "preflight") {
+      if (
+        runProviderFixture("provision", environment) !== 0 ||
+        runProviderFixture("verify", environment) !== 0
+      ) {
+        return 1;
+      }
       console.log("[P5-COLLAB-19] disposable preflight: PASS");
       return 0;
     }
@@ -432,12 +446,31 @@ export function main(args = process.argv.slice(2)) {
       aclRows,
     );
     if (mode === "binding") {
+      if (
+        runProviderFixture("provision", environment) !== 0 ||
+        runProviderFixture("verify", environment) !== 0
+      ) {
+        return 1;
+      }
       writeP519TrustedBinding(reportFile, {
         ...expectedBinding,
         generatedAt: new Date().toISOString(),
       });
       console.log("[P5-COLLAB-19] trusted run binding: PASS");
       return 0;
+    }
+    if (mode === "cleanup") {
+      let status = runCleanup(environment);
+      const fixtureStatus = runProviderFixture("cleanup", environment);
+      if (status === 0) status = fixtureStatus;
+      exactDatabaseLedger(environment);
+      if (status === 0) {
+        console.log("[P5-COLLAB-19] cleanup: PASS");
+      }
+      return status;
+    }
+    if (runProviderFixture("verify", environment) !== 0) {
+      return 1;
     }
     let status = 0;
     try {
@@ -448,14 +481,11 @@ export function main(args = process.argv.slice(2)) {
       if (status === 0 && (mode === "drills" || mode === "all")) {
         status = runDrillRegression(environment);
       }
-      if (status === 0 && mode === "cleanup") {
-        status = runCleanup(environment);
-      }
     } finally {
-      if (mode !== "cleanup") {
-        const cleanupStatus = runCleanup(environment);
-        if (status === 0) status = cleanupStatus;
-      }
+      const cleanupStatus = runCleanup(environment);
+      if (status === 0) status = cleanupStatus;
+      const fixtureStatus = runProviderFixture("cleanup", environment);
+      if (status === 0) status = fixtureStatus;
     }
     exactDatabaseLedger(environment);
     if (status === 0) {

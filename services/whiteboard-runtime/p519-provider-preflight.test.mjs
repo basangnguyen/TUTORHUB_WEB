@@ -2,12 +2,14 @@ import assert from "node:assert/strict";
 import { test } from "vitest";
 import {
   P519_DOCUMENTS,
+  buildP519GrantRequest,
   cleanupZero,
   dependencyUp,
   durationBucket,
   metricValue,
   validateP519ProviderEnvironment,
 } from "./p519-provider-preflight.mjs";
+import { P519_PROVIDER_FIXTURE } from "../../scripts/p519-provider-fixture.mjs";
 
 const validEnvironment = {
   COLLAB_METRICS_TOKEN: "m".repeat(32),
@@ -24,6 +26,20 @@ test("validates exact isolated provider environment", () => {
   assert.deepEqual(result.documents, P519_DOCUMENTS);
   assert.equal(result.controlUrl, "https://p519-control.example");
   assert.equal(result.runtimeUrl, "https://p519-runtime.example");
+});
+
+test("uses UUID-backed disposable provider fixtures for grant requests", () => {
+  const request = buildP519GrantRequest(P519_DOCUMENTS[0]);
+  assert.equal(request.actor_id, P519_PROVIDER_FIXTURE.actorId);
+  assert.equal(request.tenant_id, P519_PROVIDER_FIXTURE.tenantId);
+  assert.equal(
+    request.document_id,
+    P519_PROVIDER_FIXTURE.documents[0].documentId,
+  );
+  assert.equal(
+    request.session_id,
+    P519_PROVIDER_FIXTURE.documents[0].sessionId,
+  );
 });
 
 test("rejects missing confirmation, bad documents and shared endpoint", () => {

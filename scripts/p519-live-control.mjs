@@ -3,6 +3,8 @@ import { createServer } from "node:http";
 import { pathToFileURL } from "node:url";
 
 const IDENTIFIER = /^[A-Za-z0-9][A-Za-z0-9._:-]{2,127}$/u;
+const UUID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
 const DOCUMENT = /^wb_[A-Za-z0-9_-]{22,125}$/u;
 const CAPABILITIES = new Set(["edit", "present", "view"]);
 const MODES = new Set(["enabled", "off", "read_only"]);
@@ -52,6 +54,13 @@ function requiredIdentifier(value, name) {
   return value;
 }
 
+function requiredUuid(value, name) {
+  if (typeof value !== "string" || !UUID.test(value)) {
+    throw new Error(`invalid_${name}`);
+  }
+  return value;
+}
+
 function requiredDocument(value, documents) {
   if (
     typeof value !== "string" ||
@@ -91,7 +100,7 @@ function createGrant(body, documents, allowedOrigin) {
   return {
     actor_id: requiredIdentifier(body.actor_id, "actor_id"),
     capability,
-    document_id: requiredIdentifier(body.document_id, "document_id"),
+    document_id: requiredUuid(body.document_id, "document_id"),
     generation: 1,
     max_connections_per_tenant: 10,
     max_operations_per_minute: 12_000,
@@ -99,7 +108,7 @@ function createGrant(body, documents, allowedOrigin) {
     origin: allowedOrigin,
     provider_document_name: providerDocumentName,
     session_id: requiredIdentifier(body.session_id, "session_id"),
-    tenant_id: requiredIdentifier(body.tenant_id, "tenant_id"),
+    tenant_id: requiredUuid(body.tenant_id, "tenant_id"),
     writer_fence: 1,
   };
 }

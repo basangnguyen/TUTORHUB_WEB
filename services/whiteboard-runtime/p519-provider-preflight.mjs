@@ -7,10 +7,12 @@ import { WebSocket as NodeWebSocket } from "ws";
 import * as Y from "yjs";
 import { pathToFileURL } from "node:url";
 
-export const P519_DOCUMENTS = [
-  "wb_p519_private_alpha_document_01",
-  "wb_p519_private_alpha_document_02",
-];
+import {
+  P519_PROVIDER_DOCUMENTS,
+  P519_PROVIDER_FIXTURE,
+} from "../../scripts/p519-provider-fixture.mjs";
+
+export const P519_DOCUMENTS = P519_PROVIDER_DOCUMENTS;
 const EXACT_CONFIRMATION = "I_UNDERSTAND_P5_COLLAB_19_DISPOSABLE_ONLY";
 const CLIENTS_PER_DOCUMENT = 5;
 const SHAPES_PER_DOCUMENT = 500;
@@ -172,20 +174,27 @@ async function readMetrics(options) {
   return response.text();
 }
 
-async function issueGrant(options, documentName, index) {
-  const documentIndex = options.documents.indexOf(documentName) + 1;
+export function buildP519GrantRequest(documentName) {
+  const document = P519_PROVIDER_FIXTURE.documents.find(
+    (candidate) => candidate.providerDocumentName === documentName,
+  );
+  if (!document) throw new Error("p519_document_fixture_missing");
+  return {
+    actor_id: P519_PROVIDER_FIXTURE.actorId,
+    capability: "edit",
+    document_id: document.documentId,
+    provider_document_name: document.providerDocumentName,
+    session_id: document.sessionId,
+    tenant_id: P519_PROVIDER_FIXTURE.tenantId,
+  };
+}
+
+async function issueGrant(options, documentName) {
   const result = await fetchJson(
     `${options.controlUrl}/p519/v1/grants`,
     options.adminToken,
     {
-      body: JSON.stringify({
-        actor_id: `p519-actor-${documentIndex}-${index + 1}`,
-        capability: "edit",
-        document_id: `p519-document-${documentIndex}`,
-        provider_document_name: documentName,
-        session_id: `p519-session-${documentIndex}-${index + 1}`,
-        tenant_id: "p519-private-alpha-tenant",
-      }),
+      body: JSON.stringify(buildP519GrantRequest(documentName)),
       method: "POST",
     },
   );
@@ -309,8 +318,8 @@ export async function runP519ProviderPreflight(environment = process.env) {
   try {
     for (const documentName of options.documents) {
       const grants = await Promise.all(
-        Array.from({ length: CLIENTS_PER_DOCUMENT }, (_, index) =>
-          issueGrant(options, documentName, index),
+        Array.from({ length: CLIENTS_PER_DOCUMENT }, () =>
+          issueGrant(options, documentName),
         ),
       );
       for (const grant of grants) {

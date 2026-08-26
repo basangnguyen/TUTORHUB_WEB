@@ -63,7 +63,7 @@ const fakeEnvironment = () =>
     ["B2_APPLICATION_KEY", "fake-application-key-1234567890"],
   ]);
 
-test("normalizes exact modes and requires a provider report outside preflight", () => {
+test("normalizes exact modes and requires reports only for provider runs", () => {
   assert.deepEqual(normalizeP519Arguments([]), {
     envFile: ".env.p5-collab-19-disposable.local",
     mode: "preflight",
@@ -77,6 +77,11 @@ test("normalizes exact modes and requires a provider report outside preflight", 
       reportFile: "report.json",
     },
   );
+  assert.deepEqual(normalizeP519Arguments(["safe.local", "cleanup"]), {
+    envFile: "safe.local",
+    mode: "cleanup",
+    reportFile: undefined,
+  });
   assert.deepEqual(
     normalizeP519Arguments([
       "safe.local",
