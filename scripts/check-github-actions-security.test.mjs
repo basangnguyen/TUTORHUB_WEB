@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import { auditWorkflowSource } from "./check-github-actions-security.mjs";
@@ -70,5 +71,27 @@ test("rejects write permissions outside security event upload", () => {
       ),
     ).join("\n"),
     /packages/,
+  );
+});
+
+test("Core API runtime requires the patched Alpine OpenSSL release", async () => {
+  const dockerfile = await readFile(
+    new URL(
+      "../infrastructure/huggingface/core-api/Dockerfile",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+  const runtimeStage = dockerfile.slice(
+    dockerfile.lastIndexOf("FROM alpine:3.23"),
+  );
+
+  assert.match(runtimeStage, /apk add --no-cache --upgrade/);
+  assert.match(runtimeStage, /libcrypto3>=3\.5\.8-r0/);
+  assert.match(runtimeStage, /libssl3>=3\.5\.8-r0/);
+  assert.ok(
+    runtimeStage.indexOf("apk add --no-cache --upgrade") <
+      runtimeStage.indexOf("USER tutorhub"),
+    "OpenSSL packages must be upgraded before the runtime drops root privileges",
   );
 });

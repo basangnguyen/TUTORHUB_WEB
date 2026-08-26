@@ -13,7 +13,14 @@ RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/tutorhu
 RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/tutorhub-calendar-rsvp-fixture ./cmd/calendar-rsvp-fixture
 
 FROM alpine:3.23
-RUN addgroup -S tutorhub && adduser -S -G tutorhub tutorhub
+
+# Fail the build instead of shipping an OpenSSL release affected by
+# CVE-2026-14456. Compatible later Alpine patch releases remain acceptable.
+RUN apk add --no-cache --upgrade \
+    "libcrypto3>=3.5.8-r0" \
+    "libssl3>=3.5.8-r0" \
+    && addgroup -S tutorhub \
+    && adduser -S -G tutorhub tutorhub
 USER tutorhub
 WORKDIR /app
 COPY --from=build /out/tutorhub-core-api /app/tutorhub-core-api
