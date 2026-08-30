@@ -28,9 +28,9 @@
   },
   "dependencies": {
     "@hocuspocus/provider": "4.6.0",
-    "yjs": "13.6.27"
+    "yjs": "13.6.32"
   },
   "devDependencies": {
-    "vitest": "4.1.10"
+    "vitest": "4.1.11"
   }
 }
