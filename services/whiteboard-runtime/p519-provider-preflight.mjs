@@ -15,6 +15,7 @@ import {
 export const P519_DOCUMENTS = P519_PROVIDER_DOCUMENTS;
 const EXACT_CONFIRMATION = "I_UNDERSTAND_P5_COLLAB_19_DISPOSABLE_ONLY";
 const CLIENTS_PER_DOCUMENT = 5;
+const TOTAL_CLIENTS = P519_DOCUMENTS.length * CLIENTS_PER_DOCUMENT;
 const SHAPES_PER_DOCUMENT = 500;
 
 function requiredSecret(value, code) {
@@ -174,13 +175,24 @@ async function readMetrics(options) {
   return response.text();
 }
 
-export function buildP519GrantRequest(documentName) {
+function syntheticActorId(participantIndex) {
+  if (
+    !Number.isSafeInteger(participantIndex) ||
+    participantIndex < 0 ||
+    participantIndex >= TOTAL_CLIENTS
+  ) {
+    throw new Error("p519_participant_index_invalid");
+  }
+  return `51900000-0000-4000-8000-${String(participantIndex + 1).padStart(12, "0")}`;
+}
+
+export function buildP519GrantRequest(documentName, participantIndex = 0) {
   const document = P519_PROVIDER_FIXTURE.documents.find(
     (candidate) => candidate.providerDocumentName === documentName,
   );
   if (!document) throw new Error("p519_document_fixture_missing");
   return {
-    actor_id: P519_PROVIDER_FIXTURE.actorId,
+    actor_id: syntheticActorId(participantIndex),
     capability: "edit",
     document_id: document.documentId,
     provider_document_name: document.providerDocumentName,
@@ -189,12 +201,14 @@ export function buildP519GrantRequest(documentName) {
   };
 }
 
-async function issueGrant(options, documentName) {
+async function issueGrant(options, documentName, participantIndex) {
   const result = await fetchJson(
     `${options.controlUrl}/p519/v1/grants`,
     options.adminToken,
     {
-      body: JSON.stringify(buildP519GrantRequest(documentName)),
+      body: JSON.stringify(
+        buildP519GrantRequest(documentName, participantIndex),
+      ),
       method: "POST",
     },
   );
@@ -316,10 +330,14 @@ export async function runP519ProviderPreflight(environment = process.env) {
   const joinLatencies = [];
   let convergenceMs;
   try {
-    for (const documentName of options.documents) {
+    for (const [documentIndex, documentName] of options.documents.entries()) {
       const grants = await Promise.all(
-        Array.from({ length: CLIENTS_PER_DOCUMENT }, () =>
-          issueGrant(options, documentName),
+        Array.from({ length: CLIENTS_PER_DOCUMENT }, (_, clientIndex) =>
+          issueGrant(
+            options,
+            documentName,
+            documentIndex * CLIENTS_PER_DOCUMENT + clientIndex,
+          ),
         ),
       );
       for (const grant of grants) {

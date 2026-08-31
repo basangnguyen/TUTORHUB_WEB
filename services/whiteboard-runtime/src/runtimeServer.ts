@@ -76,6 +76,7 @@ export function createCollaborationRuntime(
   const telemetry = new RuntimeTelemetry(config.buildId);
   const connections = new Map<string, ActiveConnection>();
   const dirtyDocuments = new Set<string>();
+  const loadedDocuments = new Set<string>();
   const connectionPolicy = new RuntimeConnectionPolicy({
     maxConnections: config.maxConnections,
     maxConnectionsPerActor: config.maxConnectionsPerActor,
@@ -378,9 +379,13 @@ export function createCollaborationRuntime(
           documentName,
           Y.encodeStateAsUpdate(document).byteLength,
         );
-        telemetry.setDocuments(server.hocuspocus.getDocumentsCount());
+        loadedDocuments.add(documentName);
+        telemetry.setDocuments(loadedDocuments.size);
         return document;
       } catch {
+        documentBudget.release(documentName);
+        loadedDocuments.delete(documentName);
+        telemetry.setDocuments(loadedDocuments.size);
         rollbackPendingDocument(connections, documentName, "load");
         readinessCoordinator.markCheckpointFailed();
         telemetry.checkpoint("failed");
@@ -414,7 +419,8 @@ export function createCollaborationRuntime(
     },
     async afterUnloadDocument({ documentName }) {
       documentBudget.release(documentName);
-      telemetry.setDocuments(server.hocuspocus.getDocumentsCount());
+      loadedDocuments.delete(documentName);
+      telemetry.setDocuments(loadedDocuments.size);
     },
     async onDisconnect({ documentName, socketId }) {
       const key = connectionKey(socketId, documentName);
@@ -435,7 +441,6 @@ export function createCollaborationRuntime(
       awarenessClientIds.delete(key);
       rawAwarenessInspections.delete(key);
       awarenessIngressPolicy.release(key);
-      telemetry.setDocuments(server.hocuspocus.getDocumentsCount());
     },
   });
 
@@ -579,6 +584,7 @@ export function createCollaborationRuntime(
         failed = true;
       }
       readinessCoordinator.markStopped();
+      loadedDocuments.clear();
       telemetry.setDocuments(0);
       telemetry.setDraining(false);
       if (failed) {

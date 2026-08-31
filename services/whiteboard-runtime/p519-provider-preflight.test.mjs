@@ -42,6 +42,27 @@ test("uses UUID-backed disposable provider fixtures for grant requests", () => {
   );
 });
 
+test("uses one deterministic synthetic actor per provider client", () => {
+  const actorIds = Array.from(
+    { length: 10 },
+    (_, participantIndex) =>
+      buildP519GrantRequest(
+        P519_DOCUMENTS[participantIndex < 5 ? 0 : 1],
+        participantIndex,
+      ).actor_id,
+  );
+  assert.equal(actorIds[0], P519_PROVIDER_FIXTURE.actorId);
+  assert.equal(new Set(actorIds).size, 10);
+  assert.throws(
+    () => buildP519GrantRequest(P519_DOCUMENTS[0], -1),
+    /participant_index/u,
+  );
+  assert.throws(
+    () => buildP519GrantRequest(P519_DOCUMENTS[0], 10),
+    /participant_index/u,
+  );
+});
+
 test("rejects missing confirmation, bad documents and shared endpoint", () => {
   assert.throws(
     () =>

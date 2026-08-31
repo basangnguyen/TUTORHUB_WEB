@@ -239,6 +239,11 @@ describe("OCI collaboration runtime", () => {
     const client = createClient(candidate.runtime);
     clients.push(client);
     await client.synced;
+    await waitForMetrics(
+      httpUrl(candidate.runtime),
+      ["collab_documents_current 1"],
+      2_000,
+    );
     client.document.getMap("scene").set("revision", 1);
     await waitFor(() => checkpoints.storeCount > 0, 12_000);
 
