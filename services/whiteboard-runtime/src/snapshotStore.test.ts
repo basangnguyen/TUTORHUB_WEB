@@ -1,6 +1,6 @@
 import {
   GetObjectCommand,
-  HeadBucketCommand,
+  ListObjectsV2Command,
   PutObjectCommand,
 } from "@aws-sdk/client-s3";
 import { describe, expect, it } from "vitest";
@@ -13,9 +13,17 @@ class FakeObjectClient {
   private stored: Uint8Array | null = null;
 
   putCount = 0;
+  probeInputs: Array<{
+    Bucket?: string;
+    MaxKeys?: number;
+    Prefix?: string;
+  }> = [];
 
   async send(command: unknown): Promise<unknown> {
-    if (command instanceof HeadBucketCommand) return {};
+    if (command instanceof ListObjectsV2Command) {
+      this.probeInputs.push(command.input);
+      return {};
+    }
     if (command instanceof PutObjectCommand) {
       this.putCount += 1;
       this.stored = new Uint8Array(command.input.Body as Uint8Array);
@@ -38,6 +46,21 @@ class FakeObjectClient {
 }
 
 describe("B2PortableSnapshotStore", () => {
+  it("probes the portable prefix without requiring bucket metadata access", async () => {
+    const client = new FakeObjectClient();
+    const store = createStore(client);
+
+    await store.probe();
+
+    expect(client.probeInputs).toEqual([
+      {
+        Bucket: "private-bucket",
+        MaxKeys: 1,
+        Prefix: "portable/v1/",
+      },
+    ]);
+  });
+
   it("writes an immutable content-addressed object and verifies the read-back", async () => {
     const store = createStore(new FakeObjectClient());
     const bytes = new TextEncoder().encode(

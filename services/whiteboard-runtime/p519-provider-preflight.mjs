@@ -127,6 +127,30 @@ export function durationBucket(durationMs) {
   return "gte_120s";
 }
 
+export function boundedProviderFailure(error) {
+  const reason =
+    error instanceof Error && /^p519_[a-z0-9_]+$/u.test(error.message)
+      ? error.message
+      : "bounded_p519_provider_preflight_failure";
+  const result = { outcome: "fail", reason };
+
+  if (reason !== "p519_active_metrics_mismatch") {
+    return result;
+  }
+
+  const cause = error.cause;
+  if (!cause || typeof cause !== "object") {
+    return result;
+  }
+
+  return {
+    ...result,
+    documents: typeof cause.documents === "number" ? cause.documents : null,
+    editConnections:
+      typeof cause.editConnections === "number" ? cause.editConnections : null,
+  };
+}
+
 function stableSceneHash(document) {
   const entries = [...document.getMap("scene").entries()].sort(
     ([left], [right]) => left.localeCompare(right),
@@ -249,7 +273,11 @@ function createProvider(options, documentName, token) {
     name: documentName,
     onAuthenticationFailed: () =>
       rejectSynced(new Error("p519_provider_authentication_failed")),
-    onSynced: () => resolveSynced(),
+    onSynced: ({ state }) => {
+      if (state) {
+        resolveSynced();
+      }
+    },
     token,
     websocketProvider: socket,
   });
@@ -363,16 +391,29 @@ export async function runP519ProviderPreflight(environment = process.env) {
         metricValue(metrics, "collab_documents_current") === 2,
       30_000,
     );
-    if (
-      typeof activeMetrics !== "string" ||
-      metricValue(
-        activeMetrics,
-        "collab_connections_current",
-        'capability="edit"',
-      ) !== 10 ||
-      metricValue(activeMetrics, "collab_documents_current") !== 2
-    ) {
-      throw new Error("p519_active_metrics_mismatch");
+    const activeEditConnections =
+      typeof activeMetrics === "string"
+        ? metricValue(
+            activeMetrics,
+            "collab_connections_current",
+            'capability="edit"',
+          )
+        : undefined;
+    const activeDocuments =
+      typeof activeMetrics === "string"
+        ? metricValue(activeMetrics, "collab_documents_current")
+        : undefined;
+    if (activeEditConnections !== 10 || activeDocuments !== 2) {
+      throw new Error("p519_active_metrics_mismatch", {
+        cause: {
+          editConnections:
+            typeof activeEditConnections === "number"
+              ? activeEditConnections
+              : null,
+          documents:
+            typeof activeDocuments === "number" ? activeDocuments : null,
+        },
+      });
     }
 
     const convergenceStartedAt = Date.now();
@@ -443,9 +484,9 @@ const invokedPath = process.argv[1] ? pathToFileURL(process.argv[1]).href : "";
 if (import.meta.url === invokedPath) {
   runP519ProviderPreflight()
     .then((result) => process.stdout.write(`${JSON.stringify(result)}\n`))
-    .catch(() => {
+    .catch((error) => {
       process.stderr.write(
-        `${JSON.stringify({ outcome: "fail", reason: "bounded_p519_provider_preflight_failure" })}\n`,
+        `${JSON.stringify(boundedProviderFailure(error))}\n`,
       );
       process.exitCode = 1;
     });

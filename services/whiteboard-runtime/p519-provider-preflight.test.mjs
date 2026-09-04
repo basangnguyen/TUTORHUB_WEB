@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "vitest";
 import {
   P519_DOCUMENTS,
+  boundedProviderFailure,
   buildP519GrantRequest,
   cleanupZero,
   dependencyUp,
@@ -113,4 +114,27 @@ test("uses bounded non-sensitive duration buckets", () => {
   assert.equal(durationBucket(7_499), "lt_7_5s");
   assert.equal(durationBucket(119_999), "lt_120s");
   assert.equal(durationBucket(120_000), "gte_120s");
+});
+
+test("reports only bounded non-sensitive provider failures", () => {
+  assert.deepEqual(
+    boundedProviderFailure(
+      new Error("p519_active_metrics_mismatch", {
+        cause: { documents: 2, editConnections: 9 },
+      }),
+    ),
+    {
+      documents: 2,
+      editConnections: 9,
+      outcome: "fail",
+      reason: "p519_active_metrics_mismatch",
+    },
+  );
+  assert.deepEqual(
+    boundedProviderFailure(new Error("https://secret.invalid")),
+    {
+      outcome: "fail",
+      reason: "bounded_p519_provider_preflight_failure",
+    },
+  );
 });

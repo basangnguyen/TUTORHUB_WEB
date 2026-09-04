@@ -1,7 +1,7 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import {
   GetObjectCommand,
-  HeadBucketCommand,
+  ListObjectsV2Command,
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
@@ -51,7 +51,13 @@ export class B2PortableSnapshotStore implements PortableSnapshotStore {
 
   async probe(): Promise<void> {
     try {
-      await this.client.send(new HeadBucketCommand({ Bucket: this.bucket }));
+      await this.client.send(
+        new ListObjectsV2Command({
+          Bucket: this.bucket,
+          MaxKeys: 1,
+          Prefix: "portable/v1/",
+        }),
+      );
     } catch {
       throw new SnapshotStoreError("snapshot_unavailable");
     }
