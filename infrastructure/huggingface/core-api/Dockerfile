@@ -1,4 +1,4 @@
-FROM golang:1.26.8-alpine AS build
+FROM golang:1.27.1-alpine AS build
 
 WORKDIR /src
 COPY services/core-api/go.mod services/core-api/go.mod
@@ -12,7 +12,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/tutorhu
 RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/tutorhub-worker ./cmd/worker
 RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/tutorhub-calendar-rsvp-fixture ./cmd/calendar-rsvp-fixture
 
-FROM alpine:3.23
+FROM alpine:3.24
 
 # Fail the build instead of shipping an OpenSSL release affected by
 # CVE-2026-14456. Compatible later Alpine patch releases remain acceptable.
