@@ -6,35 +6,36 @@
 
 | Thuộc tính           | Trạng thái                                                                            |
 | -------------------- | ------------------------------------------------------------------------------------- |
-| Ngày cập nhật        | 2026-08-25                                                                            |
+| Ngày cập nhật        | 2026-09-17                                                                            |
 | Repository           | `https://github.com/basangnguyen/TUTORHUB_WEB`                                        |
 | Nhánh làm việc       | `main`                                                                                |
 | Quy trình            | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
 | Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4                                                    |
 | Phase hiện tại       | Phase 5 collaboration implementation; Phase 3 deferred carry-over vẫn hoạt động       |
-| Task `DONE` gần nhất | P5-COLLAB-18 Internal canary acceptance                                               |
-| Mốc repository mới   | `ccc1f13`; GitHub Verify `32712385493` và Security `32712385386` đều PASS             |
-| Task hiện tại        | P5-COLLAB-19 — `VERIFY`; local/disposable candidate sẵn sàng, live soak còn PENDING   |
-| Task tiếp theo       | P5-COLLAB-19 provider-observed 60-minute soak; P5-COLLAB-20 đang bị chặn              |
+| Task `DONE` gần nhất | P5-COLLAB-19 Private alpha acceptance                                                 |
+| Mốc repository mới   | P5-COLLAB-19 provider candidate `22ebfe1`; full local verify PASS                     |
+| Task hiện tại        | P5-COLLAB-20 — `TODO`; chưa có authorization để ramp/rollback/production              |
+| Task tiếp theo       | Chờ authorization riêng trước khi bắt đầu P5-COLLAB-20                                |
 
-### Checkpoint P5-COLLAB-19 `VERIFY` — 2026-08-25
+### Checkpoint P5-COLLAB-19 `DONE` — 2026-09-17
 
-Private-alpha contract và runner fail closed đã sẵn sàng cho profile Render free một instance,
-hard cap `0 USD`, RPO last verified artifact và force-off khi vượt quota. Contract khóa đúng 60 phút
-theo ba phase `300/3000/300` giây, 2 document x 5 client, 500 shape/document, rate/cadence/SLO và
-drill reconnect, control-authority outage 600 giây, Neon/B2 outage, credential rotation/restore và
-force-off. Mỗi evidence phải fresh trong đúng run; reused evidence cần `validityRationale`; owner
-sign-off phải nằm trong run và cleanup cuối phải zero.
+Render Control deploy `dep-dal159ek1f9s73db1bcg` và Runtime deploy `dep-dal15k6k1f9s73db2730` đã
+được đồng bộ/redeploy trên exact disposable binding của commit
+`22ebfe1bfecc95d782ee35f4a8049c32f25fdc50`; preflight PASS ở ledger `42 false`.
 
-Secret-safe disposable runner chỉ nạp `.env.p5-collab-19-disposable.local` trong process, không log
-giá trị, không rollback và không chạm shared staging; exact database ledger cuối là `42 false`.
-Isolated Render Free candidate gồm đúng control plane và collaboration runtime tại Singapore, có
-one-time grant authority, exact 2 document x 5 client provider preflight, deterministic 60-minute
-workload plan và cleanup/dependency metric guard. Local aggregate `pnpm test:collaboration:p519`
-PASS toàn bộ candidate cùng inherited P5-COLLAB-16/17/18 regression; disposable preflight được chạy
-lại sau đó và PASS tại `42 false`, không migration hoặc shared staging.
-Provider-observed 60-minute soak, publication/support notice, live drill matrix, owner sign-off và
-cleanup evidence vẫn chưa chạy nên P5-COLLAB-19 giữ `VERIFY`, chưa được mở P5-COLLAB-20. Acceptance:
+Provider run `p519-private-alpha-20260916T035303778Z` chạy đúng 3.600 giây trong cửa sổ
+`2026-09-16T17:08:38.126Z..2026-09-16T18:08:38.126Z`, đạt `6.000/6.000` operation, `120` metrics
+sample, `12` semantic check và `50` reconnect event. P95 join/reconnect/convergence/ack/artifact lần
+lượt `867/1083/1134/445/1503 ms`; reconnect, Control outage đúng 600 giây, Neon, B2, credential,
+force-off, incident/export/restore/revoke, publication và current-run owner sign-off đều PASS.
+
+Lượt wrapper đầu xác minh report trong freshness window và chạy drill PASS nhưng cleanup `finally`
+gặp `artifact_queue_unavailable`. Recovery và standalone cleanup sau đó PASS zero-residue; ledger cuối
+`42 false`, whiteboard `off`, readiness false, document/edit connection `0/0`. Lượt wrapper thứ hai
+bị freshness gate từ chối; validator không bị nới lỏng. Owner chấp nhận ngày 2026-09-17 dùng lần PASS
+đúng hạn cùng cleanup PASS sau recovery làm closure. Local aggregate P5-19 và direct P5-16 matrix đã
+PASS lại. Không rollback, production hoặc shared staging. P5-COLLAB-19 chuyển `VERIFY -> DONE`;
+P5-COLLAB-20 mở ở `TODO` và cần authorization riêng. Acceptance:
 [`P5_COLLAB_19_PRIVATE_ALPHA_ACCEPTANCE.md`](P5_COLLAB_19_PRIVATE_ALPHA_ACCEPTANCE.md).
 
 ### Checkpoint P5-COLLAB-18 `DONE` — 2026-08-24

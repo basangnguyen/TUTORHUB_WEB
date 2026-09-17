@@ -19,6 +19,8 @@ const RUNTIME_ROOT = resolve(ROOT, "services/whiteboard-runtime");
 const DEFAULT_ENV_FILE = ".env.p5-collab-19-disposable.local";
 const DEFAULT_REDACTED_REPORT =
   "tmp/p5-collab-19-private-alpha-report.redacted.json";
+const DEFAULT_TRUSTED_BINDING = "tmp/p5-collab-19/run-binding.json";
+const DEFAULT_DEPLOY_STATE = "tmp/p5-collab-19/render-deploy.json";
 const EXACT_CONFIRMATION = "I_UNDERSTAND_P5_COLLAB_19_DISPOSABLE_ONLY";
 const EXACT_B2_CONFIRMATION = "I_UNDERSTAND_P5_COLLAB_19_B2_DISPOSABLE_ONLY";
 const P507_CONFIRMATION = "I_UNDERSTAND_P5_COLLAB_07_DISPOSABLE_ONLY";
@@ -334,6 +336,63 @@ export function writeP519TrustedBinding(filePath, binding) {
   return outputPath;
 }
 
+export function validateP519TrustedBinding(
+  trustedBinding,
+  environmentBinding,
+  deployState,
+) {
+  if (!trustedBinding || typeof trustedBinding !== "object") {
+    throw new Error("trusted binding must be an object");
+  }
+  if (!deployState || typeof deployState !== "object") {
+    throw new Error("trusted deploy state must be an object");
+  }
+  for (const key of ["runId", "deployId"]) {
+    if (!SAFE_IDENTIFIER_PATTERN.test(trustedBinding[key] ?? "")) {
+      throw new Error(`trusted binding ${key} must be a safe identifier`);
+    }
+  }
+  for (const key of [
+    "schemaVersion",
+    "manifestSha256",
+    "targetFingerprint",
+    "commitSha",
+    "syntheticPrefix",
+    "ledgerProbeSha256",
+    "aclProbeSha256",
+  ]) {
+    if (trustedBinding[key] !== environmentBinding[key]) {
+      throw new Error(`trusted binding ${key} does not match current target`);
+    }
+  }
+  for (const key of ["runId", "deployId", "commitSha"]) {
+    if (trustedBinding[key] !== deployState[key]) {
+      throw new Error(`trusted binding ${key} does not match deploy state`);
+    }
+  }
+  return trustedBinding;
+}
+
+function loadP519TrustedBinding(environmentBinding) {
+  let bindingDocument;
+  let deployState;
+  try {
+    bindingDocument = JSON.parse(
+      readFileSync(resolve(ROOT, DEFAULT_TRUSTED_BINDING), "utf8"),
+    );
+    deployState = JSON.parse(
+      readFileSync(resolve(ROOT, DEFAULT_DEPLOY_STATE), "utf8"),
+    );
+  } catch {
+    throw new Error("trusted provider binding or deploy state is unavailable");
+  }
+  return validateP519TrustedBinding(
+    bindingDocument.binding,
+    environmentBinding,
+    deployState,
+  );
+}
+
 function validateProviderReport(reportPath, expectedBinding) {
   let report;
   try {
@@ -440,7 +499,7 @@ export function main(args = process.argv.slice(2)) {
       return 0;
     }
 
-    const expectedBinding = buildExpectedBinding(
+    const environmentBinding = buildExpectedBinding(
       environment,
       ledgerRows,
       aclRows,
@@ -453,7 +512,7 @@ export function main(args = process.argv.slice(2)) {
         return 1;
       }
       writeP519TrustedBinding(reportFile, {
-        ...expectedBinding,
+        ...environmentBinding,
         generatedAt: new Date().toISOString(),
       });
       console.log("[P5-COLLAB-19] trusted run binding: PASS");
@@ -472,6 +531,7 @@ export function main(args = process.argv.slice(2)) {
     if (runProviderFixture("verify", environment) !== 0) {
       return 1;
     }
+    const expectedBinding = loadP519TrustedBinding(environmentBinding);
     let status = 0;
     try {
       status = validateProviderReport(

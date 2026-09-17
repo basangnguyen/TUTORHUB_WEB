@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import {
   HocuspocusProvider,
   HocuspocusProviderWebsocket,
+  WebSocketStatus,
 } from "@hocuspocus/provider";
 import { WebSocket as NodeWebSocket } from "ws";
 import * as Y from "yjs";
@@ -145,6 +146,12 @@ export function boundedProviderFailure(error) {
 
   return {
     ...result,
+    ...(typeof cause.authenticatedClients === "number"
+      ? { authenticatedClients: cause.authenticatedClients }
+      : {}),
+    ...(typeof cause.connectedClients === "number"
+      ? { connectedClients: cause.connectedClients }
+      : {}),
     documents: typeof cause.documents === "number" ? cause.documents : null,
     editConnections:
       typeof cause.editConnections === "number" ? cause.editConnections : null,
@@ -242,7 +249,7 @@ async function issueGrant(options, documentName, participantIndex) {
   return result.grant;
 }
 
-function createProvider(options, documentName, token) {
+function createProvider(options, documentName, token, participantIndex) {
   const document = new Y.Doc();
   const OriginWebSocket = class extends NodeWebSocket {
     constructor(address, protocols) {
@@ -288,18 +295,45 @@ function createProvider(options, documentName, token) {
     document,
     documentName,
     joinStartedAt: startedAt,
+    participantIndex,
     provider,
     socket,
     synced,
   };
 }
 
+function destroyClient(client) {
+  client.provider.destroy();
+  client.socket.destroy();
+  client.document.destroy();
+}
+
 function destroyClients(clients) {
-  for (const client of clients) {
-    client.provider.destroy();
-    client.socket.destroy();
-    client.document.destroy();
+  for (const client of clients) destroyClient(client);
+}
+
+async function replaceUnauthenticatedClients(options, clients, joinLatencies) {
+  let replacements = 0;
+  for (const [index, client] of clients.entries()) {
+    if (client.provider.isAuthenticated) continue;
+    destroyClient(client);
+    const grant = await issueGrant(
+      options,
+      client.documentName,
+      client.participantIndex,
+    );
+    const replacement = createProvider(
+      options,
+      client.documentName,
+      grant,
+      client.participantIndex,
+    );
+    clients[index] = replacement;
+    await withTimeout(replacement.synced, 45_000, "p519_provider_sync_timeout");
+    joinLatencies.push(Date.now() - replacement.joinStartedAt);
+    replacements += 1;
   }
+  return replacements;
 }
 
 async function retry(operation, predicate, timeoutMs) {
@@ -368,8 +402,15 @@ export async function runP519ProviderPreflight(environment = process.env) {
           ),
         ),
       );
-      for (const grant of grants) {
-        clients.push(createProvider(options, documentName, grant));
+      for (const [clientIndex, grant] of grants.entries()) {
+        clients.push(
+          createProvider(
+            options,
+            documentName,
+            grant,
+            documentIndex * CLIENTS_PER_DOCUMENT + clientIndex,
+          ),
+        );
       }
     }
     await Promise.all(
@@ -379,18 +420,38 @@ export async function runP519ProviderPreflight(environment = process.env) {
       }),
     );
 
-    const activeMetrics = await retry(
-      () => readMetrics(options),
-      (metrics) =>
-        typeof metrics === "string" &&
+    let activeMetrics;
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+      activeMetrics = await retry(
+        () => readMetrics(options),
+        (metrics) =>
+          typeof metrics === "string" &&
+          metricValue(
+            metrics,
+            "collab_connections_current",
+            'capability="edit"',
+          ) === 10 &&
+          metricValue(metrics, "collab_documents_current") === 2,
+        5_000,
+      );
+      if (
+        typeof activeMetrics === "string" &&
         metricValue(
-          metrics,
+          activeMetrics,
           "collab_connections_current",
           'capability="edit"',
         ) === 10 &&
-        metricValue(metrics, "collab_documents_current") === 2,
-      30_000,
-    );
+        metricValue(activeMetrics, "collab_documents_current") === 2
+      ) {
+        break;
+      }
+      const replacements = await replaceUnauthenticatedClients(
+        options,
+        clients,
+        joinLatencies,
+      );
+      if (replacements === 0) break;
+    }
     const activeEditConnections =
       typeof activeMetrics === "string"
         ? metricValue(
@@ -406,6 +467,12 @@ export async function runP519ProviderPreflight(environment = process.env) {
     if (activeEditConnections !== 10 || activeDocuments !== 2) {
       throw new Error("p519_active_metrics_mismatch", {
         cause: {
+          authenticatedClients: clients.filter(
+            (client) => client.provider.isAuthenticated,
+          ).length,
+          connectedClients: clients.filter(
+            (client) => client.socket.status === WebSocketStatus.Connected,
+          ).length,
           editConnections:
             typeof activeEditConnections === "number"
               ? activeEditConnections

@@ -1,9 +1,9 @@
 # P5-COLLAB-19 — Private alpha acceptance
 
-- Trạng thái: `VERIFY` — contract, local regression và disposable runner candidate đã sẵn sàng; live evidence chưa hoàn tất
-- Ngày cập nhật: 2026-08-25
+- Trạng thái: `DONE` — provider soak, drill matrix, publication/sign-off và final cleanup đều PASS; owner đã chấp nhận closure
+- Ngày cập nhật: 2026-09-17
 - Quyết định kiến trúc áp dụng: [ADR-0034](adr/0034-whiteboard-engine-and-sync-topology.md), [ADR-0037](adr/0037-whiteboard-feature-quota-and-operations.md)
-- Task hạ nguồn: P5-COLLAB-20 chỉ được mở sau khi P5-COLLAB-19 đạt `DONE`
+- Task hạ nguồn: P5-COLLAB-20 đã được mở ở `TODO`; mọi ramp/rollback/production action cần authorization riêng
 
 ## 1. Phạm vi và safety profile
 
@@ -112,25 +112,42 @@ versions và multipart uploads đều zero; ledger vẫn `42 false`.
 
 ## 7. Evidence log hiện tại
 
-| Gate                                       | Trạng thái | Bằng chứng/việc còn lại                                      |
-| ------------------------------------------ | ---------- | ------------------------------------------------------------ |
-| Static contract và report validator        | `VERIFY`   | Candidate local; focused tests phải PASS                     |
-| Inherited outage/canary regression         | `VERIFY`   | P5-16/P5-18 aggregate được runner gọi lại                    |
-| Disposable preflight                       | `PENDING`  | Cần exact Neon/B2 disposable ở ledger `42 false`             |
-| Provider-observed 60 phút                  | `PENDING`  | Chưa có current-run provider report                          |
-| Full outage/rotation/restore/revoke drills | `PENDING`  | Phải chạy trong/đính kèm current provider window             |
-| Publication và tenant opt-in               | `PENDING`  | UI/support notice cần live acceptance                        |
-| Owner sign-off và final cleanup            | `PENDING`  | Chỉ ký sau current-run evidence và zero-residue cleanup PASS |
+Candidate dịch vụ được nghiệm thu ở commit `22ebfe1bfecc95d782ee35f4a8049c32f25fdc50`, với Render
+Control deploy `dep-dal159ek1f9s73db1bcg` và Runtime deploy `dep-dal15k6k1f9s73db2730`. Binding
+commit/deploy/manifest/target fingerprint và disposable Neon/B2 đã được runner tái xác minh trước run.
+
+Provider report `p519-private-alpha-20260916T035303778Z` có `source=provider-observed`, cửa sổ
+`2026-09-16T17:08:38.126Z..2026-09-16T18:08:38.126Z`, đúng 3.600 giây. Hai document nhận lần lượt
+`6.000/6.000` operation; thu `120` metrics sample, `12` semantic check và `50` reconnect event.
+
+| Gate                                       | Trạng thái | Bằng chứng                                                                                             |
+| ------------------------------------------ | ---------- | ------------------------------------------------------------------------------------------------------ |
+| Static contract và report validator        | `PASS`     | Local aggregate PASS; report validator PASS trong freshness window của lượt wrapper đầu                |
+| Inherited outage/canary regression         | `PASS`     | P5-16 trực tiếp PASS runtime `20/20`, outage `8/8`, client `9/9` và Core API                           |
+| Disposable preflight                       | `PASS`     | Exact Neon/B2 disposable; ledger `42 false`                                                            |
+| Provider-observed 60 phút                  | `PASS`     | Join `867 ms`; reconnect `1.083 ms`; convergence `1.134 ms`; ack `445 ms`; artifact `1.503 ms`         |
+| Full outage/rotation/restore/revoke drills | `PASS`     | Reconnect, Control outage `600s`, Neon, B2, rotation, force-off, incident/export/restore/revoke        |
+| Publication và tenant opt-in               | `PASS`     | Opt-in, Teacher guidance, limitation, accessibility và support path đều được current report xác nhận   |
+| Owner sign-off và final cleanup            | `PASS`     | Current-run sign-off PASS; provider cleanup `674 ms`; final standalone cleanup zero-residue PASS       |
+| Closure decision                           | `PASS`     | Owner chấp nhận ngày 2026-09-17 dùng lần validation PASS đúng freshness cùng cleanup PASS sau recovery |
+
+Lượt wrapper đầu tiên đã xác minh report và hoàn tất toàn bộ drill matrix nhưng bước cleanup trong
+`finally` gặp lỗi tạm thời `artifact_queue_unavailable`. Recovery sau đó PASS, standalone cleanup được
+chạy lại và PASS; lần xác minh cuối có database/runtime/B2 current/version/multipart đều bằng zero,
+ledger `42 false`. Lượt wrapper thứ hai không được dùng làm closure vì report đã quá freshness window;
+validator không bị nới lỏng và không có receipt bền được ghi ở lần PASS đầu.
 
 ## 8. Exact exit gate
 
-- [ ] Tenant opt-in, teacher guidance, limitation/accessibility notice và support path được công bố.
-- [ ] 60-minute provider-observed soak trong declared cap không vi phạm convergence, latency, error hoặc cost budget.
-- [ ] Incident/export/restore/revoke drill, current-run evidence, owner sign-off và final cleanup đều PASS.
+- [x] Tenant opt-in, teacher guidance, limitation/accessibility notice và support path được công bố.
+- [x] 60-minute provider-observed soak trong declared cap không vi phạm convergence, latency, error hoặc cost budget.
+- [x] Incident/export/restore/revoke drill, current-run evidence, owner sign-off và final cleanup đều PASS.
+- [x] Closure được owner chấp nhận dựa trên lần validation PASS trong freshness window dù wrapper đó không exit `0`.
 
 ## 9. Quyết định hiện tại
 
-P5-COLLAB-19 ở `VERIFY`, chưa phải `DONE`. Contract và runner fail closed đã được chuẩn bị để kiểm tra
-đúng duration/workload/threshold, evidence freshness, owner sign-off và zero-residue cleanup. Chưa có
-authorization nào trong task này cho shared staging hoặc production ramp. P5-COLLAB-20 vẫn bị chặn
-cho tới khi publication, disposable/provider run 60 phút, drill matrix và owner sign-off đều PASS.
+P5-COLLAB-19 chuyển `VERIFY -> DONE` ngày 2026-09-17 sau khi owner chấp nhận dùng lần validation PASS
+đúng freshness window cùng recovery/standalone cleanup PASS làm closure. Whiteboard được trả về
+`mode=off`, `runtimeReady=false`, `documents=0`, `editConnections=0`; không rollback, không chạm shared
+staging/production và không ghi secret vào evidence. P5-COLLAB-20 được mở ở `TODO`, nhưng mọi hành động
+ramp, rollback hoặc production vẫn cần authorization riêng.

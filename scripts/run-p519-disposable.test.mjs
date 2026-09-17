@@ -7,6 +7,7 @@ import {
   resolveP519BindingOutputPath,
   sanitizeP519Output,
   validateP519Environment,
+  validateP519TrustedBinding,
 } from "./run-p519-disposable.mjs";
 
 const fakeDatabaseUrl = (username, password, hostname) => {
@@ -120,6 +121,52 @@ test("confines trusted binding output below tmp/p5-collab-19", () => {
   assert.throws(
     () => resolveP519BindingOutputPath("tmp/p5-collab-19/run-binding.txt"),
     /JSON file/u,
+  );
+});
+
+test("accepts a provider binding only when target and deploy state match", () => {
+  const environmentBinding = {
+    schemaVersion: "p519-binding-v1",
+    manifestSha256: "manifest",
+    targetFingerprint: "target",
+    commitSha: "a".repeat(40),
+    syntheticPrefix: "p519/",
+    ledgerProbeSha256: "ledger",
+    aclProbeSha256: "acl",
+    runId: "stale-local-run",
+    deployId: "stale-local-deploy",
+  };
+  const trustedBinding = {
+    ...environmentBinding,
+    runId: "provider-run",
+    deployId: "provider-deploy",
+  };
+  const deployState = {
+    runId: trustedBinding.runId,
+    deployId: trustedBinding.deployId,
+    commitSha: trustedBinding.commitSha,
+  };
+
+  assert.equal(
+    validateP519TrustedBinding(trustedBinding, environmentBinding, deployState),
+    trustedBinding,
+  );
+  assert.throws(
+    () =>
+      validateP519TrustedBinding(
+        { ...trustedBinding, targetFingerprint: "different" },
+        environmentBinding,
+        deployState,
+      ),
+    /targetFingerprint does not match current target/u,
+  );
+  assert.throws(
+    () =>
+      validateP519TrustedBinding(trustedBinding, environmentBinding, {
+        ...deployState,
+        deployId: "different-deploy",
+      }),
+    /deployId does not match deploy state/u,
   );
 });
 

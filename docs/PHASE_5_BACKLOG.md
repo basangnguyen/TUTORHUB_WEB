@@ -39,11 +39,12 @@
 > zero-residue cleanup đều PASS. Exact candidate `8d65898`, runtime packaging fix `ccc1f13` và
 > GitHub Verify/Security đều xanh. Chrome/Edge + NVDA component matrix được kế thừa có kiểm soát từ
 > P5-COLLAB-15; P5-COLLAB-19 Private alpha đã được mở.
-> P5-COLLAB-19 đang `VERIFY` ngày 2026-08-25: fail-closed private-alpha contract, current-run evidence
-> freshness/owner sign-off, isolated Render Free candidate, provider preflight và secret-safe
-> disposable runner đã PASS local aggregate cùng exact disposable preflight tại ledger `42 false`.
-> Chưa có provider-observed 60-minute soak, live publication/drill/cleanup nên chưa `DONE`;
-> P5-COLLAB-20 vẫn bị chặn.
+> P5-COLLAB-19 đã `DONE` ngày 2026-09-17: exact disposable Render/Neon/B2 preflight,
+> provider-observed 60-minute soak, publication, full drill matrix, owner sign-off và final zero-residue
+> cleanup đều PASS; ledger cuối `42 false`, whiteboard force-off. Lượt validation đúng freshness không
+> có durable receipt vì wrapper gặp cleanup transient sau drill; lượt lại bị freshness gate từ chối.
+> Owner đã chấp nhận closure dựa trên lần PASS đúng hạn cùng cleanup PASS sau recovery;
+> P5-COLLAB-20 được mở ở `TODO` nhưng cần authorization riêng.
 
 ## 1. Mục tiêu phase
 
@@ -111,7 +112,7 @@ Xây collaboration plane cho lớp học mà không làm rời hoặc làm yếu
 | P5-COLLAB-16 | Test           | Failure, outage và provider exit                | P5-COLLAB-05..09           | DONE       |
 | P5-COLLAB-17 | Rollout        | Force-off staging acceptance                    | P5-COLLAB-10..16           | DONE       |
 | P5-COLLAB-18 | Rollout        | Internal canary                                 | P5-COLLAB-17               | DONE       |
-| P5-COLLAB-19 | Rollout        | Private alpha                                   | P5-COLLAB-18               | VERIFY     |
+| P5-COLLAB-19 | Rollout        | Private alpha                                   | P5-COLLAB-18               | DONE       |
 | P5-COLLAB-20 | Rollout        | Ramp và rollback/exit review                    | P5-COLLAB-19               | TODO       |
 
 `VERIFY` chỉ được dùng sau khi implementation và toàn bộ gate pre-staging của task xanh. `DONE`
@@ -627,22 +628,25 @@ zero-residue PASS; P5-COLLAB-19 đã được mở. Acceptance:
 
 ### P5-COLLAB-19 - Private alpha
 
-Checkpoint 2026-08-25 — `VERIFY`: contract và runner fail closed đã khóa profile free private alpha
-với 60-minute provider-observed soak, ba phase `300/3000/300` giây, 2 document x 5 client, 500
-shape/document, quota/cost force-off và đầy đủ reconnect/control-authority/Neon/B2/rotation/restore
-drill. Evidence phải fresh trong đúng run, reused evidence phải có `validityRationale`, owner sign-off
-phải nằm trong run và cleanup phải zero. Disposable preflight/integration chỉ chấp nhận exact ledger
-`42 false`; không rollback hoặc chạm shared staging. Isolated Render Free candidate, exact one-time
-grant/provider preflight, workload plan, metrics cleanup guard và aggregate local/inherited regression
-đã PASS; disposable preflight được chạy lại và vẫn PASS tại `42 false`. Live provider soak,
-publication, drill matrix, owner sign-off và cleanup evidence vẫn `PENDING`, vì vậy task chưa `DONE`. Acceptance:
+Closure 2026-09-17 — `DONE`: Control `dep-dal159ek1f9s73db1bcg` và Runtime
+`dep-dal15k6k1f9s73db2730` đã được redeploy trên exact disposable candidate `22ebfe1bfecc95d782ee35f4a8049c32f25fdc50`.
+Provider run `p519-private-alpha-20260916T035303778Z` đủ 3.600 giây, `6.000/6.000` operation,
+`120` metrics sample, `12` semantic check, `50` reconnect event; mọi SLO đều dưới ngưỡng. Full
+reconnect/Control 600s/Neon/B2/rotation/force-off/incident/export/restore/revoke drill, publication và
+current-run owner sign-off PASS. Recovery + standalone cleanup cuối PASS zero-residue ở ledger
+`42 false`; runtime force-off, readiness false, document/edit connection `0/0`. Local aggregate P5-19
+và direct P5-16 matrix PASS. Lượt wrapper đầu không exit `0` vì cleanup transient sau khi validator và
+drill đã PASS; lượt lại bị freshness gate chặn và không có durable receipt của lần PASS đầu. Không
+nới freshness rule. Owner đã chấp nhận dùng lần validation PASS đúng hạn cùng cleanup PASS sau recovery
+làm closure. P5-COLLAB-20 được mở ở `TODO` và cần authorization riêng. Acceptance:
 [`P5_COLLAB_19_PRIVATE_ALPHA_ACCEPTANCE.md`](P5_COLLAB_19_PRIVATE_ALPHA_ACCEPTANCE.md).
 
 **Exit gate:**
 
-- [ ] Tenant opt-in, teacher guidance, limitation/accessibility notice và support path được công bố.
-- [ ] Soak thực tế trong declared cap không vi phạm convergence, latency, error hoặc cost budget.
-- [ ] Incident/export/restore/revoke drill và owner sign-off PASS trước mở rộng.
+- [x] Tenant opt-in, teacher guidance, limitation/accessibility notice và support path được công bố.
+- [x] Soak thực tế trong declared cap không vi phạm convergence, latency, error hoặc cost budget.
+- [x] Incident/export/restore/revoke drill và owner sign-off PASS trước mở rộng.
+- [x] Owner chấp nhận closure dựa trên lần report validation PASS đúng freshness window.
 
 ### P5-COLLAB-20 - Ramp và rollback/exit review
 

@@ -48,6 +48,7 @@ const steps = [
     args: [
       "--test",
       "scripts/p519-private-alpha-contract.test.mjs",
+      "services/whiteboard-runtime/p519-provider-soak.node-test.mjs",
       "scripts/run-p519-disposable.test.mjs",
     ],
   },
