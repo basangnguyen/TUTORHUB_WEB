@@ -819,6 +819,12 @@ func featureControlGuardrails(configuration config.FeatureControlConfig) feature
 		tenantID := configuration.ClassroomWhiteboardCanaryTenantIDs[0]
 		tenantQuotaCeilings = p518InternalCanaryQuotaCeilings(tenantID)
 	}
+	if configuration.EnableClassroomWhiteboardRamp &&
+		len(configuration.ClassroomWhiteboardCanaryTenantIDs) == 2 {
+		tenantQuotaCeilings = p520RampQuotaCeilings(
+			configuration.ClassroomWhiteboardCanaryTenantIDs,
+		)
+	}
 
 	return featurecontrol.Guardrails{
 		ForcedOffFeatures: forcedOff,
@@ -874,6 +880,22 @@ func p518InternalCanaryQuotaCeilings(tenantID uuid.UUID) map[featurecontrol.Quot
 			tenantID: 600,
 		},
 	}
+}
+
+func p520RampQuotaCeilings(tenantIDs []uuid.UUID) map[featurecontrol.QuotaKey]map[uuid.UUID]int64 {
+	ceilings := map[featurecontrol.QuotaKey]map[uuid.UUID]int64{
+		featurecontrol.QuotaWhiteboardDocumentsPerTenant:    {},
+		featurecontrol.QuotaWhiteboardConnectionsPerTenant:  {},
+		featurecontrol.QuotaWhiteboardStorageBytesPerTenant: {},
+		featurecontrol.QuotaWhiteboardOperationsPerMinute:   {},
+	}
+	for _, tenantID := range tenantIDs {
+		ceilings[featurecontrol.QuotaWhiteboardDocumentsPerTenant][tenantID] = 2
+		ceilings[featurecontrol.QuotaWhiteboardConnectionsPerTenant][tenantID] = 10
+		ceilings[featurecontrol.QuotaWhiteboardStorageBytesPerTenant][tenantID] = 64 * 1024 * 1024
+		ceilings[featurecontrol.QuotaWhiteboardOperationsPerMinute][tenantID] = 600
+	}
+	return ceilings
 }
 
 func featureControlsWithRuntimePrerequisites(

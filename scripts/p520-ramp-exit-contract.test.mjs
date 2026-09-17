@@ -87,6 +87,16 @@ test("initial ramp cannot exceed the proven per-tenant quota profile", () => {
   assert.match(result.errors.join("\n"), /connections/u);
 });
 
+test("initial bounded ramp requires exactly two tenants", () => {
+  for (const tenantCount of [1, 3]) {
+    const plan = authorizedPlan();
+    plan.target.tenantCount = tenantCount;
+    const result = evaluateP520RampExitPlan(plan);
+    assert.equal(result.liveRampAllowed, false);
+    assert.match(result.errors.join("\n"), /target\.tenantCount/u);
+  }
+});
+
 test("automatic hold-point policy degrades and stops on exact triggers", () => {
   const healthy = {
     oneAuthorityInvariant: true,

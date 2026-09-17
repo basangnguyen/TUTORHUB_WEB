@@ -97,6 +97,7 @@ func TestLoadDefaults(t *testing.T) {
 		cfg.FeatureControls.EnableClassroomMediaRooms ||
 		cfg.FeatureControls.EnableInstantStudyRooms ||
 		cfg.FeatureControls.EnableClassroomWhiteboards ||
+		cfg.FeatureControls.EnableClassroomWhiteboardRamp ||
 		len(cfg.FeatureControls.ClassroomWhiteboardCanaryTenantIDs) != 0 ||
 		cfg.FeatureControls.MaxActiveMediaSpaces != defaultFeatureActiveMediaSpaceLimit ||
 		cfg.FeatureControls.MaxMediaParticipantsPerSpace != defaultFeatureMediaParticipantsPerSpaceLimit ||
@@ -506,6 +507,65 @@ func TestLoadRequiresExactlyOneWhiteboardCanaryTenantWhenGloballyEnabled(t *test
 	}
 }
 
+func TestLoadAllowsExactlyTwoWhiteboardRampTenantsOnlyWithExplicitRampFlag(t *testing.T) {
+	t.Parallel()
+
+	const tenants = "11111111-1111-4111-8111-111111111111,22222222-2222-4222-8222-222222222222"
+	cfg, err := load(mapLookup(map[string]string{
+		"FEATURE_CONTROL_ENABLE_CLASSROOM_WHITEBOARDS":           "true",
+		"FEATURE_CONTROL_ENABLE_CLASSROOM_WHITEBOARD_RAMP":       "true",
+		"FEATURE_CONTROL_CLASSROOM_WHITEBOARD_CANARY_TENANT_IDS": tenants,
+	}))
+	if err != nil {
+		t.Fatalf("load exact-two whiteboard ramp config: %v", err)
+	}
+	if !cfg.FeatureControls.EnableClassroomWhiteboardRamp ||
+		len(cfg.FeatureControls.ClassroomWhiteboardCanaryTenantIDs) != 2 {
+		t.Fatalf("unexpected exact-two whiteboard ramp config: %+v", cfg.FeatureControls)
+	}
+
+	for _, test := range []struct {
+		name   string
+		values map[string]string
+		want   string
+	}{
+		{
+			name: "ramp flag without whiteboard enable",
+			values: map[string]string{
+				"FEATURE_CONTROL_ENABLE_CLASSROOM_WHITEBOARD_RAMP": "true",
+			},
+			want: "FEATURE_CONTROL_ENABLE_CLASSROOM_WHITEBOARD_RAMP requires FEATURE_CONTROL_ENABLE_CLASSROOM_WHITEBOARDS",
+		},
+		{
+			name: "one tenant in ramp mode",
+			values: map[string]string{
+				"FEATURE_CONTROL_ENABLE_CLASSROOM_WHITEBOARDS":           "true",
+				"FEATURE_CONTROL_ENABLE_CLASSROOM_WHITEBOARD_RAMP":       "true",
+				"FEATURE_CONTROL_CLASSROOM_WHITEBOARD_CANARY_TENANT_IDS": "11111111-1111-4111-8111-111111111111",
+			},
+			want: "must contain exactly two canonical tenant UUIDs",
+		},
+		{
+			name: "three tenants in ramp mode",
+			values: map[string]string{
+				"FEATURE_CONTROL_ENABLE_CLASSROOM_WHITEBOARDS":           "true",
+				"FEATURE_CONTROL_ENABLE_CLASSROOM_WHITEBOARD_RAMP":       "true",
+				"FEATURE_CONTROL_CLASSROOM_WHITEBOARD_CANARY_TENANT_IDS": tenants + ",33333333-3333-4333-8333-333333333333",
+			},
+			want: "must contain exactly two canonical tenant UUIDs",
+		},
+	} {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			_, err := load(mapLookup(test.values))
+			if err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("expected %q validation error, got %v", test.want, err)
+			}
+		})
+	}
+}
+
 func TestLoadRejectsInvalidWhiteboardCanaryTenantIDs(t *testing.T) {
 	t.Parallel()
 
@@ -553,6 +613,7 @@ func TestLoadRejectsInvalidFeatureControlGuardrails(t *testing.T) {
 		"FEATURE_CONTROL_ENABLE_CLASSROOM_MEDIA_ROOMS":                        "sometimes",
 		"FEATURE_CONTROL_ENABLE_INSTANT_STUDY_ROOMS":                          "sometimes",
 		"FEATURE_CONTROL_ENABLE_CLASSROOM_WHITEBOARDS":                        "sometimes",
+		"FEATURE_CONTROL_ENABLE_CLASSROOM_WHITEBOARD_RAMP":                    "sometimes",
 		"COLLABORATION_CONTROL_PLANE_ENABLED":                                 "sometimes",
 		"COLLABORATION_RUNTIME_MODE":                                          "broken",
 		"FEATURE_CONTROL_MAX_MEMBERS":                                         "10001",

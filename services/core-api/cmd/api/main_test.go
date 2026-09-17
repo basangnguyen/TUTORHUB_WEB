@@ -231,6 +231,51 @@ func TestFeatureControlGuardrailsMapWhiteboardCanaryTenantAllowlist(t *testing.T
 	}
 }
 
+func TestFeatureControlGuardrailsMapP520ExactTwoRampQuotaCeilings(t *testing.T) {
+	t.Parallel()
+
+	firstTenantID := uuid.MustParse("10000000-0000-4000-8000-000000000001")
+	secondTenantID := uuid.MustParse("10000000-0000-4000-8000-000000000002")
+	configuration := config.FeatureControlConfig{
+		EnableClassSessionRecurrence:       true,
+		EnableInAppNotifications:           true,
+		EnableClassroomMediaRooms:          true,
+		EnableInstantStudyRooms:            true,
+		EnableClassroomWhiteboards:         true,
+		EnableClassroomWhiteboardRamp:      true,
+		ClassroomWhiteboardCanaryTenantIDs: []uuid.UUID{firstTenantID, secondTenantID},
+	}
+	guardrails := featureControlGuardrails(configuration)
+	allowlist := guardrails.TenantAllowlists[featurecontrol.FeatureClassroomWhiteboards]
+	if len(allowlist) != 2 ||
+		allowlist[0] != firstTenantID ||
+		allowlist[1] != secondTenantID {
+		t.Fatalf("whiteboard ramp allowlist was not mapped exactly: %v", allowlist)
+	}
+	wantCeilings := map[featurecontrol.QuotaKey]int64{
+		featurecontrol.QuotaWhiteboardDocumentsPerTenant:    2,
+		featurecontrol.QuotaWhiteboardConnectionsPerTenant:  10,
+		featurecontrol.QuotaWhiteboardStorageBytesPerTenant: 64 * 1024 * 1024,
+		featurecontrol.QuotaWhiteboardOperationsPerMinute:   600,
+	}
+	for key, want := range wantCeilings {
+		ceilings := guardrails.TenantQuotaCeilings[key]
+		if len(ceilings) != 2 ||
+			ceilings[firstTenantID] != want ||
+			ceilings[secondTenantID] != want {
+			t.Fatalf("whiteboard ramp quota %q = %v, want exact-two ceiling %d", key, ceilings, want)
+		}
+	}
+
+	configuration.ClassroomWhiteboardCanaryTenantIDs[0] = uuid.MustParse(
+		"10000000-0000-4000-8000-000000000003",
+	)
+	if allowlist[0] != firstTenantID ||
+		guardrails.TenantQuotaCeilings[featurecontrol.QuotaWhiteboardDocumentsPerTenant][firstTenantID] != 2 {
+		t.Fatal("runtime ramp guardrails retained caller-owned tenant storage")
+	}
+}
+
 func TestAvailabilityPollFeatureFailsClosedWithoutProtectedData(t *testing.T) {
 	t.Parallel()
 

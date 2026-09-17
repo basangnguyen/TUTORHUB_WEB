@@ -1872,6 +1872,8 @@ local runner đã PASS. Materializer chỉ import SHA/deploy-ID allowlist từ P
 live flag bị từ chối và input chỉ được đọc từ bounded JSON dưới private tmp path. Baseline vẫn là
 P5-COLLAB-19 ledger
 42 false, whiteboard off, one-authority và FREE_PRIVATE_ALPHA hard cap 0 USD.
+Core API R3 path mặc định off và chỉ nhận exact-two canonical tenant với low-quota profile khi ramp
+flag explicit true; exact-one P5-18 path không đổi.
 Production/shared staging bị từ chối; chưa có live/rollback executor readiness, exact disposable
 R3 target, allowlist hash, tenant count hoặc owner authorization nên không có provider mutation.
 Review: [P5_COLLAB_20_RAMP_EXIT_REVIEW.md](P5_COLLAB_20_RAMP_EXIT_REVIEW.md).

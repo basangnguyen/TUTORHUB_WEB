@@ -658,10 +658,12 @@ hold-point evaluator chọn read_only hoặc off theo readiness/checkpoint/quota
 a11y/portability/recovery signal; production và shared staging bị từ chối.
 Authorization packet materializer chỉ import SHA/deploy-ID allowlist từ P5-19, ghi atomically vào
 private tmp và không overwrite; redacted dry-run executor từ chối live flag và chỉ đọc bounded JSON
-dưới tmp/p5-collab-20. pnpm test:collaboration:p520 PASS, gồm 17/17 contract/dry-run test cùng
-force-off/canary static regression. Đây chỉ là preparation evidence; live/rollback executor,
-exact disposable target, tenant count,
-allowlist hash và owner authorization vẫn chưa có nên không có provider mutation. Acceptance:
+dưới tmp/p5-collab-20. pnpm test:collaboration:p520 PASS, gồm 18/18 contract/dry-run test cùng
+force-off/canary static regression. Core API R3 path mặc định off, chỉ nhận exact-two canonical
+tenant khi ramp flag explicit true và áp low-quota 2/10/64 MiB/600 cho cả hai; P5-18 exact-one giữ
+nguyên. Đây chỉ là preparation evidence; live/rollback executor, exact disposable target,
+exact-two allowlist hash và owner authorization vẫn chưa có nên không có provider mutation.
+Acceptance:
 [P5_COLLAB_20_RAMP_EXIT_REVIEW.md](P5_COLLAB_20_RAMP_EXIT_REVIEW.md).
 
 **Exit gate:**

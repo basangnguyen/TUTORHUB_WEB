@@ -12,6 +12,7 @@ const REQUIRED_REVIEWS = Object.freeze([
 export const P520_RAMP_EXIT_CONTRACT = Object.freeze({
   schemaVersion: "p5-collab-20-ramp-exit-v1",
   allowedEnvironment: "disposable-private-alpha",
+  initialRampTenantCount: 2,
   minimumHoldSeconds: 3_600,
   initialPerTenantQuotaCeilings: Object.freeze({
     documents: 2,
@@ -427,12 +428,12 @@ export function evaluateP520RampExitPlan(plan) {
         errors.push(`target.${key} must be a lowercase SHA-256`);
       }
     }
-    if (
-      !Number.isInteger(plan.target?.tenantCount) ||
-      plan.target.tenantCount < 1
-    ) {
-      errors.push("target.tenantCount must be an integer >= 1");
-    }
+    requireExact(
+      errors,
+      plan.target?.tenantCount,
+      P520_RAMP_EXIT_CONTRACT.initialRampTenantCount,
+      "target.tenantCount",
+    );
     validateQuotas(errors, plan.target?.perTenantQuotas);
     requireExact(
       errors,

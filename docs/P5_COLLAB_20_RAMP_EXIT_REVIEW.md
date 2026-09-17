@@ -52,14 +52,16 @@ Paid multi-instance production topology remains deferred and has not been provis
 
 ## 4. Ramp ladder and hold points
 
-| Stage | Scope                                 | State     | Gate                                                        |
-| ----- | ------------------------------------- | --------- | ----------------------------------------------------------- |
-| R0    | Global force-off, zero tenant         | Completed | Static and provider force-off evidence                      |
-| R1    | Exact-one internal tenant             | Completed | 2 documents, 10 connections, 64 MiB, 600 operations/minute  |
-| R2    | Private alpha                         | Completed | P5-COLLAB-19 60-minute soak, drills, cleanup, owner closure |
-| R3    | Bounded disposable private-alpha ramp | Blocked   | Separate exact authorization packet is required             |
+| Stage | Scope                                   | State     | Gate                                                        |
+| ----- | --------------------------------------- | --------- | ----------------------------------------------------------- |
+| R0    | Global force-off, zero tenant           | Completed | Static and provider force-off evidence                      |
+| R1    | Exact-one internal tenant               | Completed | 2 documents, 10 connections, 64 MiB, 600 operations/minute  |
+| R2    | Private alpha                           | Completed | P5-COLLAB-19 60-minute soak, drills, cleanup, owner closure |
+| R3    | Exact-two disposable private-alpha ramp | Blocked   | Separate exact authorization packet is required             |
 
-R3 has no default tenant count. Before a live action, the authorization packet must bind:
+The first R3 hold is fixed at exactly two tenants: the smallest tenant-count increase after the
+exact-one internal canary. The actual tenant UUIDs remain unset. Before a live action, the
+authorization packet must bind:
 
 1. exact disposable-private-alpha environment and target fingerprint;
 2. full candidate SHA and hashed tenant allowlist;
@@ -72,6 +74,12 @@ R3 has no default tenant count. Before a live action, the authorization packet m
 The first R3 hold point cannot exceed the already-proven per-tenant profile: 2 documents,
 10 connections, 64 MiB, and 600 operations/minute. ADR-0037 absolute maxima are ceilings, not
 authorization to raise the initial ramp.
+
+Core API supports this path only when FEATURE_CONTROL_ENABLE_CLASSROOM_WHITEBOARD_RAMP is explicitly
+true together with the global whiteboard flag and exactly two canonical tenant UUIDs. The ramp flag
+defaults to false; one or three tenants, ramp without whiteboard enable, and all invalid UUID lists
+fail configuration validation. Both tenants receive the same low-quota profile. The P5-COLLAB-18
+exact-one path remains unchanged.
 
 ## 5. Kill-switch and rollback policy
 
@@ -121,6 +129,8 @@ Implemented:
   their hashes and emits a redacted decision receipt; live/execute flags are rejected;
 - scripts/p520-ramp-dry-run.test.mjs: packet, path confinement, redaction, secret rejection,
   healthy/degraded/off decision and live-flag tests;
+- scripts/check-p520-ramp-guard.mjs: static guard for default-off, exact-two config and low-quota
+  server wiring while preserving the exact-one canary path;
 - scripts/run-p520-local.mjs: local-only aggregate runner.
 
 Run:
@@ -138,13 +148,14 @@ binds the current source commit, inherited P5-19 target fingerprint/deploy IDs, 
 and 3,600-second hold. Tenant allowlist hash/count, owner approval and fresh review evidence remain
 unset. The dry-run command cannot mutate a provider.
 
-Current result: PASS, including 17/17 P5-COLLAB-20 contract/dry-run tests plus inherited force-off and
+Current result: PASS, including 18/18 P5-COLLAB-20 contract/dry-run tests, targeted Core API
+config/guardrail tests, plus inherited force-off and
 bounded-canary static guards.
 
 ## 8. Remaining gates
 
 - [ ] Receive a separate exact authorization for R3 on a disposable private-alpha target.
-- [ ] Bind exact candidate, environment fingerprint, hashed allowlist, tenant count and quotas.
+- [ ] Bind exact candidate, environment fingerprint and hash of exactly two tenant UUIDs.
 - [ ] Implement and test the live decision executor and rollback executor without logging secrets.
 - [ ] Run the provider-observed hold and capture fresh license/runtime/cost/security/a11y/exit review.
 - [ ] Execute rollback/cleanup and confirm final whiteboard force-off plus zero residue.

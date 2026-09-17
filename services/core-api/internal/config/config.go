@@ -192,6 +192,7 @@ type FeatureControlConfig struct {
 	EnableClassroomMediaRooms                     bool
 	EnableInstantStudyRooms                       bool
 	EnableClassroomWhiteboards                    bool
+	EnableClassroomWhiteboardRamp                 bool
 	ClassroomWhiteboardCanaryTenantIDs            []uuid.UUID
 	MaxMembers                                    int
 	MaxActiveClasses                              int
@@ -584,6 +585,12 @@ func featureControlConfig(
 			false,
 			validationErrors,
 		),
+		EnableClassroomWhiteboardRamp: boolValue(
+			lookup,
+			"FEATURE_CONTROL_ENABLE_CLASSROOM_WHITEBOARD_RAMP",
+			false,
+			validationErrors,
+		),
 		MaxMembers: intValue(
 			lookup,
 			"FEATURE_CONTROL_MAX_MEMBERS",
@@ -790,10 +797,27 @@ func featureControlConfig(
 		"FEATURE_CONTROL_CLASSROOM_WHITEBOARD_CANARY_TENANT_IDS",
 		validationErrors,
 	)
-	if configuration.EnableClassroomWhiteboards && len(configuration.ClassroomWhiteboardCanaryTenantIDs) != 1 {
+	if configuration.EnableClassroomWhiteboards &&
+		len(configuration.ClassroomWhiteboardCanaryTenantIDs) != 1 &&
+		!configuration.EnableClassroomWhiteboardRamp {
 		*validationErrors = append(
 			*validationErrors,
 			errors.New("FEATURE_CONTROL_CLASSROOM_WHITEBOARD_CANARY_TENANT_IDS must contain exactly one canonical tenant UUID when FEATURE_CONTROL_ENABLE_CLASSROOM_WHITEBOARDS is true"),
+		)
+	}
+	if configuration.EnableClassroomWhiteboards &&
+		configuration.EnableClassroomWhiteboardRamp &&
+		len(configuration.ClassroomWhiteboardCanaryTenantIDs) != 2 {
+		*validationErrors = append(
+			*validationErrors,
+			errors.New("FEATURE_CONTROL_CLASSROOM_WHITEBOARD_CANARY_TENANT_IDS must contain exactly two canonical tenant UUIDs when FEATURE_CONTROL_ENABLE_CLASSROOM_WHITEBOARD_RAMP is true"),
+		)
+	}
+	if configuration.EnableClassroomWhiteboardRamp &&
+		!configuration.EnableClassroomWhiteboards {
+		*validationErrors = append(
+			*validationErrors,
+			errors.New("FEATURE_CONTROL_ENABLE_CLASSROOM_WHITEBOARD_RAMP requires FEATURE_CONTROL_ENABLE_CLASSROOM_WHITEBOARDS"),
 		)
 	}
 

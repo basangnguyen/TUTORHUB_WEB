@@ -79,6 +79,7 @@ export function createP520AuthorizationPacket({
         inheritedDeployId: inheritedBaseline?.deployId ?? null,
         tenantAllowlistSha256: null,
         tenantCount: null,
+        requiredTenantCount: P520_RAMP_EXIT_CONTRACT.initialRampTenantCount,
         perTenantQuotas: {
           ...P520_RAMP_EXIT_CONTRACT.initialPerTenantQuotaCeilings,
         },

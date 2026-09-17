@@ -24,6 +24,11 @@ const steps = [
       "scripts/p520-ramp-dry-run.test.mjs",
     ],
   },
+  {
+    label: "exact-two ramp server guard",
+    command: process.execPath,
+    args: ["scripts/check-p520-ramp-guard.mjs"],
+  },
 ];
 
 console.log(
