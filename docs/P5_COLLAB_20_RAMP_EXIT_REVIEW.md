@@ -14,7 +14,9 @@ The local contract is intentionally fail-closed:
 - liveActionsAuthorized=false;
 - providerMutationAuthorized=false;
 - production and shared staging are outside the authorization boundary;
-- the next environment, candidate, tenant allowlist/count, and approval identity remain unset;
+- the live target environment and approval identity remain unset;
+- the private preparation packet binds the proposed candidate, inherited target fingerprint and
+  exact-two tenant allowlist hash/count without storing raw tenant UUIDs;
 - the whiteboard starts and remains off;
 - a live ramp is ineligible until both the live executor and rollback executor are ready.
 
@@ -57,11 +59,11 @@ Paid multi-instance production topology remains deferred and has not been provis
 | R0    | Global force-off, zero tenant           | Completed | Static and provider force-off evidence                      |
 | R1    | Exact-one internal tenant               | Completed | 2 documents, 10 connections, 64 MiB, 600 operations/minute  |
 | R2    | Private alpha                           | Completed | P5-COLLAB-19 60-minute soak, drills, cleanup, owner closure |
-| R3    | Exact-two disposable private-alpha ramp | Blocked   | Separate exact authorization packet is required             |
+| R3    | Exact-two disposable private-alpha ramp | Blocked   | Hash/count bound; separate exact authorization is required  |
 
 The first R3 hold is fixed at exactly two tenants: the smallest tenant-count increase after the
-exact-one internal canary. The actual tenant UUIDs remain unset. Before a live action, the
-authorization packet must bind:
+exact-one internal canary. The actual tenant UUIDs are confined to an ignored private manifest.
+Before a live action, the authorization packet must bind:
 
 1. exact disposable-private-alpha environment and target fingerprint;
 2. full candidate SHA and hashed tenant allowlist;
@@ -169,10 +171,20 @@ Current result: PASS, including 26/26 P5-COLLAB-20 contract/dry-run/binder tests
 config/guardrail tests, plus inherited force-off and
 bounded-canary static guards.
 
+Exact-two binding checkpoint on 2026-09-17:
+
+- the P5-COLLAB-19 disposable target and clean `42 false` ledger were revalidated before mutation;
+- exactly two dedicated synthetic tenants, users, active org-admin memberships and active
+  `classroom_whiteboards` private-alpha enrollments were created transactionally;
+- zero whiteboard documents were created and no Render/B2/provider action was executed;
+- `tmp/p5-collab-20/tenants.json` and the bound preparation packet are ignored private artifacts;
+- postflight reports exactly two active enrollments, a valid hash/count binding,
+  `liveRampAllowed=false` and `providerMutationAuthorized=false`, without logging UUIDs or secrets.
+
 ## 8. Remaining gates
 
 - [ ] Receive a separate exact authorization for R3 on a disposable private-alpha target.
-- [ ] Supply the private exact-two tenant manifest and materialize its hash/count binding.
+- [x] Supply the private exact-two tenant manifest and materialize its hash/count binding.
 - [ ] Bind exact candidate and environment fingerprint in the separately approved live packet.
 - [ ] Implement and test the live decision executor and rollback executor without logging secrets.
 - [ ] Run the provider-observed hold and capture fresh license/runtime/cost/security/a11y/exit review.

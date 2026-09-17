@@ -1876,8 +1876,11 @@ P5-COLLAB-19 ledger
 42 false, whiteboard off, one-authority và FREE_PRIVATE_ALPHA hard cap 0 USD.
 Core API R3 path mặc định off và chỉ nhận exact-two canonical tenant với low-quota profile khi ramp
 flag explicit true; exact-one P5-18 path không đổi.
-Production/shared staging bị từ chối; chưa có live/rollback executor readiness, exact disposable
-R3 target, allowlist hash, tenant count hoặc owner authorization nên không có provider mutation.
+Exact Neon disposable target đã được revalidate ở ledger `42 false`; đúng 2 synthetic
+tenant/user/active membership/active private-alpha enrollment và 0 document được tạo transactionally.
+Private manifest và preparation packet đã bind allowlist hash/count mà không log UUID/secret.
+Production/shared staging bị từ chối; chưa có live/rollback executor readiness hoặc owner
+authorization nên không có provider mutation.
 Review: [P5_COLLAB_20_RAMP_EXIT_REVIEW.md](P5_COLLAB_20_RAMP_EXIT_REVIEW.md).
 
 **Deliverable:** teacher mở/đóng công cụ mà không làm rời media room; trạng thái cộng tác khôi phục sau reconnect.

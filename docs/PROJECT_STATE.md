@@ -13,9 +13,9 @@
 | Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4                                                    |
 | Phase hiện tại       | Phase 5 collaboration implementation; Phase 3 deferred carry-over vẫn hoạt động       |
 | Task `DONE` gần nhất | P5-COLLAB-19 Private alpha acceptance                                                 |
-| Mốc repository mới   | P5-COLLAB-19 provider candidate `22ebfe1`; full local verify PASS                     |
+| Mốc repository mới   | P5-COLLAB-20 tenant binder candidate `b7013b4`; full local verify PASS                 |
 | Task hiện tại        | P5-COLLAB-20 — IN PROGRESS; preparation contract PASS, live ramp chưa được phép       |
-| Task tiếp theo       | Chốt exact disposable R3 packet và authorization trước mọi provider mutation          |
+| Task tiếp theo       | Chốt owner authorization và live/rollback executor trước mọi provider mutation        |
 
 ### Checkpoint P5-COLLAB-20 IN PROGRESS — 2026-09-17
 
@@ -24,7 +24,7 @@ P5-COLLAB-19 ở exact baseline candidate 22ebfe1bfecc95d782ee35f4a8049c32f25fdc
 42 false, whiteboard off; khóa one-authority Excalidraw/Yjs/Hocuspocus và profile
 FREE_PRIVATE_ALPHA một Render Free Singapore, không Redis/HA/autoscale, hard cap 0 USD.
 
-pnpm test:collaboration:p520 PASS: 18/18 contract/dry-run test, static force-off, exact-one
+pnpm test:collaboration:p520 PASS: 26/26 contract/dry-run/binder test, static force-off, exact-one
 low-quota canary guard. Authorization packet materializer chỉ import SHA/deploy-ID allowlist từ
 P5-19, ghi atomically vào private tmp và không overwrite; dry-run chỉ nhận bounded JSON dưới
 tmp/p5-collab-20, trả redacted hash receipt và từ chối live flag trước khi đọc input. Contract từ
@@ -35,7 +35,10 @@ Core API có đường R3 riêng chỉ nhận exact-two canonical tenant khi ram
 mặc định false, exact-one P5-18 không đổi và cả hai R3 tenant bị khóa ở low-quota 2/10/64 MiB/600.
 CLI tenant binder đã được thêm ở trạng thái preparation-only: chỉ nhận manifest exact-two canonical
 UUID trong private tmp, ghi hash/count vào packet mới, không echo UUID, không overwrite và không thể
-bật live/provider mutation. Tenant manifest thực tế và owner authorization vẫn chưa được cung cấp.
+bật live/provider mutation. Trên exact Neon disposable target với ledger `42 false`, runner đã tạo
+transactionally đúng 2 synthetic tenant/user/active org-admin membership/active private-alpha
+enrollment và 0 whiteboard document. Manifest cùng bound preparation packet đã được materialize dưới
+private tmp, postflight exact-two PASS, không log UUID/secret; owner authorization vẫn chưa có.
 P5-COLLAB-20 vẫn IN PROGRESS; bước tiếp theo là nhận authorization riêng cho exact disposable
 R3 packet rồi mới triển khai/chạy executor provider. Review:
 [P5_COLLAB_20_RAMP_EXIT_REVIEW.md](P5_COLLAB_20_RAMP_EXIT_REVIEW.md).
