@@ -663,11 +663,15 @@ ledger `42 false` được revalidate: 2 tenant/user/active membership/active en
 không log UUID/secret. Owner authorization chưa được cung cấp; provider action vẫn bị chặn fail-closed.
 Authorization packet materializer chỉ import SHA/deploy-ID allowlist từ P5-19, ghi atomically vào
 private tmp và không overwrite; redacted dry-run executor từ chối live flag và chỉ đọc bounded JSON
-dưới tmp/p5-collab-20. pnpm test:collaboration:p520 PASS, gồm 26/26 contract/dry-run/binder test cùng
-force-off/canary static regression. Core API R3 path mặc định off, chỉ nhận exact-two canonical
-tenant khi ramp flag explicit true và áp low-quota 2/10/64 MiB/600 cho cả hai; P5-18 exact-one giữ
-nguyên. Đây chỉ là preparation evidence; live-target authorization binding, owner authorization và
-live/rollback executor readiness vẫn chưa có nên không có provider mutation.
+dưới tmp/p5-collab-20. Fail-closed executor core đã kiểm tra exact authorized packet/candidate/
+fingerprint/manifest, deploy initial-off, chỉ áp mode được evaluator chọn, không đưa UUID vào receipt
+và rollback bắt buộc `read_only -> off` kèm zero-state verification. Control harness hỗ trợ exact-two
+tenant allowlist, initial-off và quota R3 mà không đổi default P5-19. pnpm test:collaboration:p520 PASS,
+gồm 38/38 contract/dry-run/binder/executor/control test cùng force-off/canary static regression. Core
+API R3 path mặc định off, chỉ nhận exact-two canonical tenant khi ramp flag explicit true và áp
+low-quota 2/10/64 MiB/600 cho cả hai; P5-18 exact-one giữ nguyên. Đây chỉ là code-only preparation
+evidence; Render adapter, live-target authorization binding và owner authorization vẫn chưa có nên
+không có provider mutation.
 Acceptance:
 [P5_COLLAB_20_RAMP_EXIT_REVIEW.md](P5_COLLAB_20_RAMP_EXIT_REVIEW.md).
 

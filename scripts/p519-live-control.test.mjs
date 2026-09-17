@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   DEFAULT_DOCUMENTS,
+  P520_QUOTAS,
   createP519Control,
   optionsFromEnvironment,
 } from "./p519-live-control.mjs";
@@ -157,4 +158,100 @@ test("outage and force-off fail closed without exposing tokens", async (t) => {
   assert.equal(status.payload.mode, "off");
   assert.equal(JSON.stringify(status.payload).includes(SERVICE), false);
   assert.equal(JSON.stringify(status.payload).includes(ADMIN), false);
+});
+
+test("P5-COLLAB-20 starts off, allowlists exactly two tenants and lowers quotas", async (t) => {
+  const tenants = [
+    "11111111-1111-4111-8111-111111111111",
+    "22222222-2222-4222-8222-222222222222",
+  ];
+  const options = optionsFromEnvironment({
+    P5_COLLAB_19_ALLOWED_ORIGIN: ORIGIN,
+    P5_COLLAB_19_CONTROL_ADMIN_TOKEN: ADMIN,
+    P5_COLLAB_19_CONTROL_TOKEN_CURRENT: SERVICE,
+    P5_COLLAB_19_DISPOSABLE_CONFIRM:
+      "I_UNDERSTAND_P5_COLLAB_19_DISPOSABLE_ONLY",
+    P5_COLLAB_19_PROVIDER_DOCUMENT_NAMES: DEFAULT_DOCUMENTS.join(","),
+    P5_COLLAB_20_INITIAL_MODE: "off",
+    P5_COLLAB_20_TENANT_IDS: tenants.join(","),
+  });
+  assert.deepEqual(options.tenants, tenants);
+  assert.deepEqual(options.quotas, P520_QUOTAS);
+  assert.equal(options.initialMode, "off");
+
+  const control = createP519Control(options);
+  await new Promise((resolve) =>
+    control.server.listen(0, "127.0.0.1", resolve),
+  );
+  t.after(() => new Promise((resolve) => control.server.close(resolve)));
+  const address = control.server.address();
+  const base = `http://127.0.0.1:${address.port}`;
+
+  const initial = await request(
+    base,
+    "/p519/v1/status",
+    ADMIN,
+    undefined,
+    "GET",
+  );
+  assert.equal(initial.payload.mode, "off");
+  assert.equal(initial.payload.tenant_count, 2);
+
+  await request(
+    base,
+    "/p519/v1/state",
+    ADMIN,
+    { authority_available: true, mode: "enabled" },
+    "PUT",
+  );
+  const denied = await request(base, "/p519/v1/grants", ADMIN, {
+    actor_id: "actor-denied",
+    document_id: P519_PROVIDER_FIXTURE.documents[0].documentId,
+    provider_document_name: DEFAULT_DOCUMENTS[0],
+    session_id: "session-denied",
+    tenant_id: "33333333-3333-4333-8333-333333333333",
+  });
+  assert.equal(denied.response.status, 400);
+  assert.equal(denied.payload.code, "tenant_not_allowlisted");
+
+  const issued = await request(base, "/p519/v1/grants", ADMIN, {
+    actor_id: "actor-allowed",
+    document_id: P519_PROVIDER_FIXTURE.documents[0].documentId,
+    provider_document_name: DEFAULT_DOCUMENTS[0],
+    session_id: "session-allowed",
+    tenant_id: tenants[0],
+  });
+  assert.equal(issued.response.status, 201);
+  const exchanged = await request(
+    base,
+    "/internal/v1/collaboration/grants/exchange",
+    SERVICE,
+    {
+      grant: issued.payload.grant,
+      origin: ORIGIN,
+      provider_document_name: DEFAULT_DOCUMENTS[0],
+    },
+  );
+  assert.equal(exchanged.payload.max_connections_per_tenant, 10);
+  assert.equal(exchanged.payload.max_operations_per_minute, 600);
+  assert.equal(
+    exchanged.payload.max_storage_bytes_per_tenant,
+    64 * 1024 * 1024,
+  );
+});
+
+test("P5-COLLAB-20 rejects a non-exact or non-canonical tenant allowlist", () => {
+  assert.throws(
+    () =>
+      createP519Control({
+        adminToken: ADMIN,
+        allowedOrigin: ORIGIN,
+        documents: DEFAULT_DOCUMENTS,
+        initialMode: "off",
+        quotas: P520_QUOTAS,
+        serviceToken: SERVICE,
+        tenants: ["11111111-1111-4111-8111-111111111111"],
+      }),
+    /exactly_two_canonical_tenants_required/u,
+  );
 });

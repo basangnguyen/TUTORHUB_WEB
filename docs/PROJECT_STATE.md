@@ -13,9 +13,9 @@
 | Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4                                                    |
 | Phase hiện tại       | Phase 5 collaboration implementation; Phase 3 deferred carry-over vẫn hoạt động       |
 | Task `DONE` gần nhất | P5-COLLAB-19 Private alpha acceptance                                                 |
-| Mốc repository mới   | P5-COLLAB-20 tenant binder candidate `b7013b4`; full local verify PASS                 |
+| Mốc repository mới   | P5-COLLAB-20 executor-core checkpoint; local gate 38/38 PASS                          |
 | Task hiện tại        | P5-COLLAB-20 — IN PROGRESS; preparation contract PASS, live ramp chưa được phép       |
-| Task tiếp theo       | Chốt owner authorization và live/rollback executor trước mọi provider mutation        |
+| Task tiếp theo       | Hoàn thiện Render adapter, rồi chốt exact owner authorization trước provider mutation  |
 
 ### Checkpoint P5-COLLAB-20 IN PROGRESS — 2026-09-17
 
@@ -24,13 +24,15 @@ P5-COLLAB-19 ở exact baseline candidate 22ebfe1bfecc95d782ee35f4a8049c32f25fdc
 42 false, whiteboard off; khóa one-authority Excalidraw/Yjs/Hocuspocus và profile
 FREE_PRIVATE_ALPHA một Render Free Singapore, không Redis/HA/autoscale, hard cap 0 USD.
 
-pnpm test:collaboration:p520 PASS: 26/26 contract/dry-run/binder test, static force-off, exact-one
+pnpm test:collaboration:p520 PASS: 38/38 contract/dry-run/binder/executor/control test, static force-off, exact-one
 low-quota canary guard. Authorization packet materializer chỉ import SHA/deploy-ID allowlist từ
 P5-19, ghi atomically vào private tmp và không overwrite; dry-run chỉ nhận bounded JSON dưới
 tmp/p5-collab-20, trả redacted hash receipt và từ chối live flag trước khi đọc input. Contract từ
 chối production/shared staging, không cho live ramp khi thiếu exact
 candidate/target fingerprint/allowlist hash/tenant count/quota/owner approval hoặc live + rollback
-executor. Automatic hold-point policy đã có evaluator local nhưng chưa được nối vào provider.
+executor. Automatic hold-point policy đã được nối vào executor core fail-closed nhưng chưa có Render
+adapter: core bắt buộc exact authorized packet/candidate/fingerprint/manifest, deploy ở `off`, chỉ áp
+mode đã evaluate, phát receipt redacted và rollback theo `read_only -> off` với zero-state verification.
 Core API có đường R3 riêng chỉ nhận exact-two canonical tenant khi ramp flag explicit true; flag
 mặc định false, exact-one P5-18 không đổi và cả hai R3 tenant bị khóa ở low-quota 2/10/64 MiB/600.
 CLI tenant binder đã được thêm ở trạng thái preparation-only: chỉ nhận manifest exact-two canonical
@@ -39,8 +41,9 @@ bật live/provider mutation. Trên exact Neon disposable target với ledger `4
 transactionally đúng 2 synthetic tenant/user/active org-admin membership/active private-alpha
 enrollment và 0 whiteboard document. Manifest cùng bound preparation packet đã được materialize dưới
 private tmp, postflight exact-two PASS, không log UUID/secret; owner authorization vẫn chưa có.
-P5-COLLAB-20 vẫn IN PROGRESS; bước tiếp theo là nhận authorization riêng cho exact disposable
-R3 packet rồi mới triển khai/chạy executor provider. Review:
+P5-COLLAB-20 vẫn IN PROGRESS; bước tiếp theo là hoàn thiện và mock-test adapter chỉ cho đúng hai
+disposable Render service, sau đó nhận authorization riêng cho exact R3 packet trước khi chạy provider.
+Checkpoint executor này không gọi Render/Neon/B2. Review:
 [P5_COLLAB_20_RAMP_EXIT_REVIEW.md](P5_COLLAB_20_RAMP_EXIT_REVIEW.md).
 
 ### Checkpoint P5-COLLAB-19 `DONE` — 2026-09-17

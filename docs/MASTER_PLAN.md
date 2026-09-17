@@ -5,7 +5,7 @@
 | Thuộc tính            | Giá trị                                                                                      |
 | --------------------- | -------------------------------------------------------------------------------------------- |
 | Phiên bản tài liệu    | 2.5                                                                                          |
-| Cập nhật              | 2026-09-17                                                                                   |
+| Cập nhật              | 2026-09-18                                                                                   |
 | Phạm vi ưu tiên       | Web application                                                                              |
 | Thư mục phát triển    | `D:\TutorHub_V2`                                                                             |
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
@@ -1879,8 +1879,12 @@ flag explicit true; exact-one P5-18 path không đổi.
 Exact Neon disposable target đã được revalidate ở ledger `42 false`; đúng 2 synthetic
 tenant/user/active membership/active private-alpha enrollment và 0 document được tạo transactionally.
 Private manifest và preparation packet đã bind allowlist hash/count mà không log UUID/secret.
-Production/shared staging bị từ chối; chưa có live/rollback executor readiness hoặc owner
-authorization nên không có provider mutation.
+Executor core fail-closed đã được thêm: exact authorized packet/candidate/fingerprint/manifest gate,
+initial-off deployment ordering, evaluator-bound mode, redacted receipt và rollback
+`read_only -> off` với zero-state verification. Control harness có exact-two allowlist/initial-off/R3
+quota và giữ default P5-19. Local gate PASS 38/38; checkpoint này không gọi provider.
+Production/shared staging bị từ chối; Render adapter và owner authorization vẫn chưa có nên không có
+provider mutation.
 Review: [P5_COLLAB_20_RAMP_EXIT_REVIEW.md](P5_COLLAB_20_RAMP_EXIT_REVIEW.md).
 
 **Deliverable:** teacher mở/đóng công cụ mà không làm rời media room; trạng thái cộng tác khôi phục sau reconnect.

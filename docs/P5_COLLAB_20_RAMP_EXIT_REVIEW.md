@@ -2,7 +2,7 @@
 
 Status: **IN PROGRESS — PREPARATION ONLY**
 
-Updated: 2026-09-17
+Updated: 2026-09-18
 
 ## 1. Current decision
 
@@ -94,9 +94,11 @@ The local pure evaluator produces a deterministic automatic decision:
 | read_only | readiness fails twice; checkpoint persistence fails; quota rejection rises continuously; accepted free cap reaches 75%; accessibility regression; provider-exit review fails |
 | enabled   | all required observations are healthy                                                                                                                                        |
 
-This evaluator is policy evidence only. It is not a live provider executor. P5-COLLAB-20 cannot
-enter R3 until the executor can apply the decision and the rollback path has been tested on the
-exact authorized disposable target.
+The evaluator is now wired into a fail-closed executor core. The core validates an authorized
+packet, exact candidate SHA, target fingerprint and private exact-two manifest binding before an
+adapter can be called. It deploys in `off`, applies only the evaluated mode, emits a redacted receipt
+and makes rollback traverse `read_only -> off`. The provider adapter and exact-target live proof are
+still pending, so P5-COLLAB-20 cannot enter R3 yet.
 
 Rollback completion must prove whiteboard off, runtime not ready, zero active document/edit
 connection, portable last-good artifact readability, and zero synthetic database/B2 residue.
@@ -135,6 +137,14 @@ Implemented:
   their hashes and emits a redacted decision receipt; live/execute flags are rejected;
 - scripts/p520-ramp-dry-run.test.mjs: packet, path confinement, redaction, secret rejection,
   healthy/degraded/off decision and live-flag tests;
+- scripts/p520-ramp-executor.mjs: provider-independent live-decision and rollback executor core with
+  exact packet/candidate/fingerprint/tenant binding, initial-off deployment ordering, monotonic safe
+  mode selection, redacted receipts and mandatory `read_only -> off` rollback verification;
+- scripts/p520-ramp-executor.test.mjs: fake-adapter proof for no-call-before-authorization, exact
+  binding, initial-off deployment, enabled/off decisions, UUID-free receipts, rollback ordering and
+  failed force-off verification containment;
+- scripts/p519-live-control.mjs: optional P5-COLLAB-20 exact-two tenant allowlist, initial-off mode and
+  R3 quota profile while preserving the P5-COLLAB-19 default behavior;
 - scripts/check-p520-ramp-guard.mjs: static guard for default-off, exact-two config and low-quota
   server wiring while preserving the exact-one canary path;
 - scripts/run-p520-local.mjs: local-only aggregate runner.
@@ -167,9 +177,9 @@ unset until separately supplied. The tenant binder can materialize only the allo
 it does not set authorization, live readiness, review PASS state, or provider mutation permission.
 The dry-run command cannot mutate a provider.
 
-Current result: PASS, including 26/26 P5-COLLAB-20 contract/dry-run/binder tests, targeted Core API
-config/guardrail tests, plus inherited force-off and
-bounded-canary static guards.
+Current result: PASS, including 38/38 P5-COLLAB-20 contract/dry-run/binder/executor/control tests,
+targeted Core API config/guardrail tests, plus inherited force-off and bounded-canary static guards.
+No Render, Neon or B2 provider call was made by this executor checkpoint.
 
 Exact-two binding checkpoint on 2026-09-17:
 
@@ -186,7 +196,10 @@ Exact-two binding checkpoint on 2026-09-17:
 - [ ] Receive a separate exact authorization for R3 on a disposable private-alpha target.
 - [x] Supply the private exact-two tenant manifest and materialize its hash/count binding.
 - [ ] Bind exact candidate and environment fingerprint in the separately approved live packet.
-- [ ] Implement and test the live decision executor and rollback executor without logging secrets.
+- [x] Implement and test the fail-closed live-decision/rollback executor core without logging secrets
+  or tenant UUIDs in receipts.
+- [ ] Connect the executor to an allowlisted adapter for exactly the two disposable Render services
+  and prove it against mocks before any authorized live action.
 - [ ] Run the provider-observed hold and capture fresh license/runtime/cost/security/a11y/exit review.
 - [ ] Execute rollback/cleanup and confirm final whiteboard force-off plus zero residue.
 - [ ] Record exact completion candidate, supported profile, residual risks and deferred work.

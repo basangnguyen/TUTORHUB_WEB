@@ -9,6 +9,16 @@ const DOCUMENT = /^wb_[A-Za-z0-9_-]{22,125}$/u;
 const CAPABILITIES = new Set(["edit", "present", "view"]);
 const MODES = new Set(["enabled", "off", "read_only"]);
 const MAX_BODY_BYTES = 16 * 1024;
+const P519_QUOTAS = Object.freeze({
+  maxConnectionsPerTenant: 10,
+  maxOperationsPerMinute: 12_000,
+  maxStorageBytesPerTenant: 1_073_741_824,
+});
+const P520_QUOTAS = Object.freeze({
+  maxConnectionsPerTenant: 10,
+  maxOperationsPerMinute: 600,
+  maxStorageBytesPerTenant: 64 * 1024 * 1024,
+});
 
 const DEFAULT_DOCUMENTS = [
   "wb_p519_private_alpha_document_01",
@@ -90,25 +100,29 @@ function exactScope(left, right) {
   );
 }
 
-function createGrant(body, documents, allowedOrigin) {
+function createGrant(body, documents, allowedOrigin, tenants, quotas) {
   const providerDocumentName = requiredDocument(
     body.provider_document_name,
     documents,
   );
   const capability = body.capability ?? "edit";
   if (!CAPABILITIES.has(capability)) throw new Error("invalid_capability");
+  const tenantId = requiredUuid(body.tenant_id, "tenant_id").toLowerCase();
+  if (tenants && !tenants.has(tenantId)) {
+    throw new Error("tenant_not_allowlisted");
+  }
   return {
     actor_id: requiredIdentifier(body.actor_id, "actor_id"),
     capability,
     document_id: requiredUuid(body.document_id, "document_id"),
     generation: 1,
-    max_connections_per_tenant: 10,
-    max_operations_per_minute: 12_000,
-    max_storage_bytes_per_tenant: 1_073_741_824,
+    max_connections_per_tenant: quotas.maxConnectionsPerTenant,
+    max_operations_per_minute: quotas.maxOperationsPerMinute,
+    max_storage_bytes_per_tenant: quotas.maxStorageBytesPerTenant,
     origin: allowedOrigin,
     provider_document_name: providerDocumentName,
     session_id: requiredIdentifier(body.session_id, "session_id"),
-    tenant_id: requiredUuid(body.tenant_id, "tenant_id"),
+    tenant_id: tenantId,
     writer_fence: 1,
   };
 }
@@ -118,6 +132,8 @@ export function createP519Control(options) {
   const adminToken = String(options.adminToken ?? "");
   const allowedOrigin = String(options.allowedOrigin ?? "");
   const documents = new Set(options.documents ?? DEFAULT_DOCUMENTS);
+  const tenants = options.tenants ? new Set(options.tenants) : null;
+  const quotas = options.quotas ?? P519_QUOTAS;
   if (serviceToken.length < 20 || adminToken.length < 20) {
     throw new Error("control_tokens_must_be_at_least_20_characters");
   }
@@ -130,10 +146,33 @@ export function createP519Control(options) {
   ) {
     throw new Error("exactly_two_valid_documents_required");
   }
+  if (
+    tenants &&
+    (tenants.size !== 2 ||
+      [...tenants].some(
+        (value) =>
+          typeof value !== "string" ||
+          value !== value.toLowerCase() ||
+          !UUID.test(value),
+      ))
+  ) {
+    throw new Error("exactly_two_canonical_tenants_required");
+  }
+  if (
+    !Number.isInteger(quotas.maxConnectionsPerTenant) ||
+    !Number.isInteger(quotas.maxOperationsPerMinute) ||
+    !Number.isInteger(quotas.maxStorageBytesPerTenant) ||
+    quotas.maxConnectionsPerTenant <= 0 ||
+    quotas.maxOperationsPerMinute <= 0 ||
+    quotas.maxStorageBytesPerTenant <= 0
+  ) {
+    throw new Error("invalid_control_quotas");
+  }
 
   const grants = new Map();
   const leases = new Map();
-  let mode = "enabled";
+  let mode = options.initialMode ?? "enabled";
+  if (!MODES.has(mode)) throw new Error("invalid_initial_mode");
   let authorityAvailable = true;
 
   const server = createServer(async (request, response) => {
@@ -225,6 +264,7 @@ export function createP519Control(options) {
           mode,
           pending_grants: [...grants.values()].filter((item) => !item.used)
             .length,
+          tenant_count: tenants?.size ?? null,
         });
       }
 
@@ -252,7 +292,13 @@ export function createP519Control(options) {
           return json(response, 503, { code: "authority_unavailable" });
         }
         const body = await readJson(request);
-        const scope = createGrant(body, documents, allowedOrigin);
+        const scope = createGrant(
+          body,
+          documents,
+          allowedOrigin,
+          tenants,
+          quotas,
+        );
         const token = randomBytes(32).toString("base64url");
         grants.set(token, {
           expiresAt: Date.now() + 15 * 60 * 1000,
@@ -289,7 +335,8 @@ export function optionsFromEnvironment(environment = process.env) {
   if (confirmation !== "I_UNDERSTAND_P5_COLLAB_19_DISPOSABLE_ONLY") {
     throw new Error("P519 disposable confirmation is required");
   }
-  return {
+  const p520Tenants = environment.P5_COLLAB_20_TENANT_IDS;
+  const options = {
     adminToken:
       environment.P5_COLLAB_19_CONTROL_ADMIN_TOKEN ??
       environment.P5_F3_CONTROL_ADMIN_TOKEN,
@@ -312,6 +359,12 @@ export function optionsFromEnvironment(environment = process.env) {
       environment.P519_CONTROL_TOKEN_CURRENT ??
       environment.P5_F3_CONTROL_TOKEN_CURRENT,
   };
+  if (p520Tenants !== undefined) {
+    options.initialMode = environment.P5_COLLAB_20_INITIAL_MODE;
+    options.quotas = P520_QUOTAS;
+    options.tenants = p520Tenants.split(",").map((value) => value.trim());
+  }
+  return options;
 }
 
 export function startFromEnvironment(environment = process.env) {
@@ -326,4 +379,4 @@ export function startFromEnvironment(environment = process.env) {
 const invokedPath = process.argv[1] ? pathToFileURL(process.argv[1]).href : "";
 if (import.meta.url === invokedPath) startFromEnvironment();
 
-export { DEFAULT_DOCUMENTS };
+export { DEFAULT_DOCUMENTS, P519_QUOTAS, P520_QUOTAS };
