@@ -14,8 +14,23 @@
 | Phase hiện tại       | Phase 5 collaboration implementation; Phase 3 deferred carry-over vẫn hoạt động       |
 | Task `DONE` gần nhất | P5-COLLAB-19 Private alpha acceptance                                                 |
 | Mốc repository mới   | P5-COLLAB-19 provider candidate `22ebfe1`; full local verify PASS                     |
-| Task hiện tại        | P5-COLLAB-20 — `TODO`; chưa có authorization để ramp/rollback/production              |
-| Task tiếp theo       | Chờ authorization riêng trước khi bắt đầu P5-COLLAB-20                                |
+| Task hiện tại        | P5-COLLAB-20 — IN PROGRESS; preparation contract PASS, live ramp chưa được phép       |
+| Task tiếp theo       | Chốt exact disposable R3 packet và authorization trước mọi provider mutation          |
+
+### Checkpoint P5-COLLAB-20 IN PROGRESS — 2026-09-17
+
+Preparation baseline đã được triển khai fail-closed, không có provider mutation. Contract giữ
+P5-COLLAB-19 ở exact baseline candidate 22ebfe1bfecc95d782ee35f4a8049c32f25fdc50, ledger
+42 false, whiteboard off; khóa one-authority Excalidraw/Yjs/Hocuspocus và profile
+FREE_PRIVATE_ALPHA một Render Free Singapore, không Redis/HA/autoscale, hard cap 0 USD.
+
+pnpm test:collaboration:p520 PASS: 7/7 contract test, static force-off và exact-one low-quota
+canary guard. Contract từ chối production/shared staging, không cho live ramp khi thiếu exact
+candidate/target fingerprint/allowlist hash/tenant count/quota/owner approval hoặc live + rollback
+executor. Automatic hold-point policy đã có evaluator local nhưng chưa được nối vào provider.
+P5-COLLAB-20 vẫn IN PROGRESS; bước tiếp theo là nhận authorization riêng cho exact disposable
+R3 packet rồi mới triển khai/chạy executor provider. Review:
+[P5_COLLAB_20_RAMP_EXIT_REVIEW.md](P5_COLLAB_20_RAMP_EXIT_REVIEW.md).
 
 ### Checkpoint P5-COLLAB-19 `DONE` — 2026-09-17
 

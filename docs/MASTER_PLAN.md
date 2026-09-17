@@ -11,7 +11,7 @@
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
 | Phase hiện tại        | Phase 5 collaboration implementation; Phase 3 deferred carry-over tiếp tục                   |
-| Trạng thái gần nhất   | P5-COLLAB-19 `DONE`; P5-COLLAB-20 `TODO`, cần authorization riêng                            |
+| Trạng thái gần nhất   | P5-COLLAB-20 IN PROGRESS; preparation PASS, live ramp cần authorization riêng                |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 
@@ -1865,6 +1865,13 @@ gate chặn, trong khi lần PASS đầu không có durable receipt. Validator k
 nhận closure dựa trên lần validation PASS đúng hạn cùng cleanup PASS sau recovery. P5-COLLAB-20 được
 mở ở `TODO` và cần authorization riêng trước mọi ramp/rollback/production action. Acceptance:
 [`P5_COLLAB_19_PRIVATE_ALPHA_ACCEPTANCE.md`](P5_COLLAB_19_PRIVATE_ALPHA_ACCEPTANCE.md).
+
+P5-COLLAB-20 checkpoint 2026-09-17 - IN PROGRESS: fail-closed preparation contract,
+automatic hold-point evaluator và local runner đã PASS. Baseline vẫn là P5-COLLAB-19 ledger
+42 false, whiteboard off, one-authority và FREE_PRIVATE_ALPHA hard cap 0 USD.
+Production/shared staging bị từ chối; chưa có live/rollback executor readiness, exact disposable
+R3 target, allowlist hash, tenant count hoặc owner authorization nên không có provider mutation.
+Review: [P5_COLLAB_20_RAMP_EXIT_REVIEW.md](P5_COLLAB_20_RAMP_EXIT_REVIEW.md).
 
 **Deliverable:** teacher mở/đóng công cụ mà không làm rời media room; trạng thái cộng tác khôi phục sau reconnect.
 

@@ -2,8 +2,8 @@
 
 - Trạng thái: `DONE` — provider soak, drill matrix, publication/sign-off và final cleanup đều PASS; owner đã chấp nhận closure
 - Ngày cập nhật: 2026-09-17
-- Quyết định kiến trúc áp dụng: [ADR-0034](adr/0034-whiteboard-engine-and-sync-topology.md), [ADR-0037](adr/0037-whiteboard-feature-quota-and-operations.md)
-- Task hạ nguồn: P5-COLLAB-20 đã được mở ở `TODO`; mọi ramp/rollback/production action cần authorization riêng
+- Quyết định kiến trúc áp dụng: [ADR-0034](adr/0034-whiteboard-engine-document-authority-and-collaboration-topology.md), [ADR-0037](adr/0037-whiteboard-feature-quota-and-operations.md)
+- Task hạ nguồn: P5-COLLAB-20 đang `IN PROGRESS — preparation only`; mọi provider mutation/ramp/rollback/production action cần authorization riêng
 
 ## 1. Phạm vi và safety profile
 
