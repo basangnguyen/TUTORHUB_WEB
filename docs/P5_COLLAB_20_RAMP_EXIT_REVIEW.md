@@ -113,11 +113,27 @@ Implemented:
   hold-point evaluator;
 - scripts/p520-ramp-exit-contract.test.mjs: preparation, authorization, scope, quota, automatic
   decision and secret-rejection tests;
+- scripts/p520-authorization-packet.mjs: generates a preparation-only packet from the current
+  commit without credentials or live authorization;
+- scripts/p520-ramp-dry-run.mjs: reads only bounded JSON inputs below tmp/p5-collab-20, validates
+  their hashes and emits a redacted decision receipt; live/execute flags are rejected;
+- scripts/p520-ramp-dry-run.test.mjs: packet, path confinement, redaction, secret rejection,
+  healthy/degraded/off decision and live-flag tests;
 - scripts/run-p520-local.mjs: local-only aggregate runner.
 
-Run: pnpm test:collaboration:p520
+Run:
 
-Current result: PASS, including 7/7 P5-COLLAB-20 contract tests plus inherited force-off and
+```powershell
+pnpm p5-collab-20:packet
+pnpm p5-collab-20:dry-run -- --packet tmp/p5-collab-20/authorization.json --observation tmp/p5-collab-20/observation.json
+pnpm test:collaboration:p520
+```
+
+The packet command writes only to standard output. The operator must review and store it under the
+private tmp/p5-collab-20 path before filling the non-secret authorization fields. The dry-run
+command cannot mutate a provider.
+
+Current result: PASS, including 14/14 P5-COLLAB-20 contract/dry-run tests plus inherited force-off and
 bounded-canary static guards.
 
 ## 8. Remaining gates

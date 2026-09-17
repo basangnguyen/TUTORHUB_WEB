@@ -79,7 +79,7 @@ function validTimestamp(value) {
   return typeof value === "string" && Number.isFinite(Date.parse(value));
 }
 
-function containsSecretMaterial(value) {
+export function containsP520SecretMaterial(value) {
   const serialized = JSON.stringify(value);
   return (
     /eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/u.test(
@@ -453,7 +453,7 @@ export function evaluateP520RampExitPlan(plan) {
       "completion.exactCandidateRecorded",
     );
   }
-  if (containsSecretMaterial(plan))
+  if (containsP520SecretMaterial(plan))
     errors.push("plan contains secret material");
   return {
     ok: errors.length === 0,

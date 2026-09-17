@@ -73,6 +73,8 @@
     "test:collaboration:p518": "node scripts/run-p518-local.mjs",
     "test:collaboration:p519": "node scripts/run-p519-local.mjs",
     "test:collaboration:p520": "node scripts/run-p520-local.mjs",
+    "p5-collab-20:packet": "node scripts/p520-authorization-packet.mjs --stdout",
+    "p5-collab-20:dry-run": "node scripts/p520-ramp-dry-run.mjs",
     "p5-collab-19:render": "node scripts/p519-render-sync.mjs",
     "p5-collab-19:smoke": "node --env-file=.env.p5-collab-19-disposable.local services/whiteboard-runtime/p519-provider-soak.mjs --connection-smoke",
     "p5-collab-19:recovery-smoke": "node --env-file=.env.p5-collab-19-disposable.local services/whiteboard-runtime/p519-provider-soak.mjs --recovery-smoke",

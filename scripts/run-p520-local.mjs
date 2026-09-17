@@ -18,7 +18,11 @@ const steps = [
   {
     label: "ramp authorization and automatic hold-point policy",
     command: process.execPath,
-    args: ["--test", "scripts/p520-ramp-exit-contract.test.mjs"],
+    args: [
+      "--test",
+      "scripts/p520-ramp-exit-contract.test.mjs",
+      "scripts/p520-ramp-dry-run.test.mjs",
+    ],
   },
 ];
 
