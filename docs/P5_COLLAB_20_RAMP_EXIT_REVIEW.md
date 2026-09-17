@@ -114,7 +114,9 @@ Implemented:
 - scripts/p520-ramp-exit-contract.test.mjs: preparation, authorization, scope, quota, automatic
   decision and secret-rejection tests;
 - scripts/p520-authorization-packet.mjs: generates a preparation-only packet from the current
-  commit without credentials or live authorization;
+  commit without credentials or live authorization; its materializer imports only allowlisted
+  SHA/deploy-ID fields from the P5-COLLAB-19 binding, confines output below tmp/p5-collab-20 and
+  refuses to overwrite an existing packet;
 - scripts/p520-ramp-dry-run.mjs: reads only bounded JSON inputs below tmp/p5-collab-20, validates
   their hashes and emits a redacted decision receipt; live/execute flags are rejected;
 - scripts/p520-ramp-dry-run.test.mjs: packet, path confinement, redaction, secret rejection,
@@ -125,15 +127,18 @@ Run:
 
 ```powershell
 pnpm p5-collab-20:packet
+pnpm p5-collab-20:prepare-packet
 pnpm p5-collab-20:dry-run -- --packet tmp/p5-collab-20/authorization.json --observation tmp/p5-collab-20/observation.json
 pnpm test:collaboration:p520
 ```
 
-The packet command writes only to standard output. The operator must review and store it under the
-private tmp/p5-collab-20 path before filling the non-secret authorization fields. The dry-run
-command cannot mutate a provider.
+The packet command writes only to standard output. The prepare-packet command atomically creates
+the ignored private tmp/p5-collab-20/authorization.json file and will not replace it. Its proposal
+binds the current source commit, inherited P5-19 target fingerprint/deploy IDs, low-quota profile
+and 3,600-second hold. Tenant allowlist hash/count, owner approval and fresh review evidence remain
+unset. The dry-run command cannot mutate a provider.
 
-Current result: PASS, including 14/14 P5-COLLAB-20 contract/dry-run tests plus inherited force-off and
+Current result: PASS, including 17/17 P5-COLLAB-20 contract/dry-run tests plus inherited force-off and
 bounded-canary static guards.
 
 ## 8. Remaining gates

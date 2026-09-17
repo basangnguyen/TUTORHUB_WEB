@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { lstatSync, readFileSync, realpathSync } from "node:fs";
 import { basename, extname, isAbsolute, relative, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -36,6 +36,22 @@ export function resolveP520JsonInput(inputPath) {
 }
 
 function parseBoundedJson(path) {
+  const information = lstatSync(path);
+  const realWorkspace = realpathSync(ROOT);
+  const realInputRoot = realpathSync(INPUT_ROOT);
+  const realInput = realpathSync(path);
+  const inputRootFromWorkspace = relative(realWorkspace, realInputRoot);
+  const inputFromPrivateRoot = relative(realInputRoot, realInput);
+  if (
+    !information.isFile() ||
+    information.isSymbolicLink() ||
+    inputRootFromWorkspace.startsWith("..") ||
+    isAbsolute(inputRootFromWorkspace) ||
+    inputFromPrivateRoot.startsWith("..") ||
+    isAbsolute(inputFromPrivateRoot)
+  ) {
+    throw new Error("p520_input_realpath_invalid");
+  }
   const raw = readFileSync(path);
   if (raw.byteLength === 0 || raw.byteLength > MAX_INPUT_BYTES) {
     throw new Error("p520_input_size_invalid");

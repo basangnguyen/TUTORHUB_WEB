@@ -6,8 +6,11 @@ import {
   createP520PreparationPlan,
 } from "./p520-ramp-exit-contract.mjs";
 import {
+  assertP520PacketOutputAvailable,
   createP520AuthorizationPacket,
   createP520AuthorizationPacketSummary,
+  resolveP520PacketOutput,
+  validateP520InheritedBaseline,
 } from "./p520-authorization-packet.mjs";
 import {
   evaluateP520DryRun,
@@ -75,6 +78,8 @@ test("generated authorization packet is valid preparation and remains closed", (
     schemaVersion: P520_RAMP_EXIT_CONTRACT.schemaVersion,
     status: "preparation-only",
     preparedFromCommitSha: "f".repeat(40),
+    proposedCandidateSha: "f".repeat(40),
+    inheritedTargetFingerprintAvailable: false,
     liveRampAllowed: false,
     providerMutationAuthorized: false,
     productionAuthorized: false,
@@ -82,6 +87,69 @@ test("generated authorization packet is valid preparation and remains closed", (
     targetBound: false,
     valid: true,
   });
+});
+
+test("P5-19 binding and deploy artifacts produce an allowlisted baseline", () => {
+  const binding = {
+    binding: {
+      schemaVersion: "p5-collab-19-run-binding-v1",
+      targetFingerprint: "1".repeat(64),
+      commitSha: P520_RAMP_EXIT_CONTRACT.priorGate.candidateSha,
+      deployId: "dep-control.dep-runtime",
+      runId: "p519-private-alpha-test",
+      generatedAt: "2026-09-16T03:54:37.936Z",
+    },
+  };
+  const deploy = {
+    commitSha: P520_RAMP_EXIT_CONTRACT.priorGate.candidateSha,
+    deployId: "dep-control.dep-runtime",
+    runId: "p519-private-alpha-test",
+    generatedAt: "2026-09-16T03:54:37.941Z",
+    control: { deployId: "dep-control" },
+    runtime: { deployId: "dep-runtime" },
+  };
+  assert.deepEqual(validateP520InheritedBaseline(binding, deploy), {
+    sourceTask: "P5-COLLAB-19",
+    candidateSha: P520_RAMP_EXIT_CONTRACT.priorGate.candidateSha,
+    targetFingerprintSha256: "1".repeat(64),
+    deployId: "dep-control.dep-runtime",
+    controlDeployId: "dep-control",
+    runtimeDeployId: "dep-runtime",
+    runId: "p519-private-alpha-test",
+    bindingGeneratedAt: "2026-09-16T03:54:37.936Z",
+    deployGeneratedAt: "2026-09-16T03:54:37.941Z",
+  });
+  deploy.runId = "different-run";
+  assert.throws(
+    () => validateP520InheritedBaseline(binding, deploy),
+    /inherited_baseline_mismatch/u,
+  );
+});
+
+test("packet output is confined to a new JSON file below private tmp", () => {
+  assert.match(
+    resolveP520PacketOutput("tmp/p5-collab-20/authorization.json"),
+    /tmp[\\/]p5-collab-20[\\/]authorization\.json$/u,
+  );
+  assert.throws(
+    () => resolveP520PacketOutput("tmp/p5-collab-20/.env.local"),
+    /outside_private_tmp/u,
+  );
+  assert.throws(
+    () => resolveP520PacketOutput("tmp/outside.json"),
+    /outside_private_tmp/u,
+  );
+});
+
+test("packet materializer refuses to overwrite an existing file", () => {
+  assert.equal(
+    assertP520PacketOutputAvailable("authorization.json", () => false),
+    "authorization.json",
+  );
+  assert.throws(
+    () => assertP520PacketOutputAvailable("authorization.json", () => true),
+    /packet_output_exists/u,
+  );
 });
 
 test("dry-run blocks an unapproved preparation packet and proposes off", () => {

@@ -24,10 +24,11 @@ P5-COLLAB-19 ở exact baseline candidate 22ebfe1bfecc95d782ee35f4a8049c32f25fdc
 42 false, whiteboard off; khóa one-authority Excalidraw/Yjs/Hocuspocus và profile
 FREE_PRIVATE_ALPHA một Render Free Singapore, không Redis/HA/autoscale, hard cap 0 USD.
 
-pnpm test:collaboration:p520 PASS: 14/14 contract/dry-run test, static force-off và exact-one
-low-quota canary guard. Authorization packet generator không chứa credential; dry-run chỉ nhận
-bounded JSON dưới tmp/p5-collab-20, trả redacted hash receipt và từ chối live flag trước khi đọc
-input. Contract từ chối production/shared staging, không cho live ramp khi thiếu exact
+pnpm test:collaboration:p520 PASS: 17/17 contract/dry-run test, static force-off và exact-one
+low-quota canary guard. Authorization packet materializer chỉ import SHA/deploy-ID allowlist từ
+P5-19, ghi atomically vào private tmp và không overwrite; dry-run chỉ nhận bounded JSON dưới
+tmp/p5-collab-20, trả redacted hash receipt và từ chối live flag trước khi đọc input. Contract từ
+chối production/shared staging, không cho live ramp khi thiếu exact
 candidate/target fingerprint/allowlist hash/tenant count/quota/owner approval hoặc live + rollback
 executor. Automatic hold-point policy đã có evaluator local nhưng chưa được nối vào provider.
 P5-COLLAB-20 vẫn IN PROGRESS; bước tiếp theo là nhận authorization riêng cho exact disposable

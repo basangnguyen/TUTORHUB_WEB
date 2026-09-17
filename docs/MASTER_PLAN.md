@@ -1867,9 +1867,10 @@ mở ở `TODO` và cần authorization riêng trước mọi ramp/rollback/prod
 [`P5_COLLAB_19_PRIVATE_ALPHA_ACCEPTANCE.md`](P5_COLLAB_19_PRIVATE_ALPHA_ACCEPTANCE.md).
 
 P5-COLLAB-20 checkpoint 2026-09-17 - IN PROGRESS: fail-closed preparation contract,
-authorization packet generator, redacted dry-run executor, automatic hold-point evaluator và local
-runner đã PASS. Live flag bị từ chối và input chỉ được đọc từ bounded JSON dưới private tmp path.
-Baseline vẫn là P5-COLLAB-19 ledger
+authorization packet materializer, redacted dry-run executor, automatic hold-point evaluator và
+local runner đã PASS. Materializer chỉ import SHA/deploy-ID allowlist từ P5-19, không overwrite;
+live flag bị từ chối và input chỉ được đọc từ bounded JSON dưới private tmp path. Baseline vẫn là
+P5-COLLAB-19 ledger
 42 false, whiteboard off, one-authority và FREE_PRIVATE_ALPHA hard cap 0 USD.
 Production/shared staging bị từ chối; chưa có live/rollback executor readiness, exact disposable
 R3 target, allowlist hash, tenant count hoặc owner authorization nên không có provider mutation.
