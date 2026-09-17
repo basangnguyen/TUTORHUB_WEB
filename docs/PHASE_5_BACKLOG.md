@@ -653,9 +653,12 @@ làm closure. P5-COLLAB-20 được mở ở `TODO` và cần authorization riê
 ### P5-COLLAB-20 - Ramp và rollback/exit review
 
 **Checkpoint chuẩn bị 2026-09-17 - IN PROGRESS:** local contract đã khóa baseline P5-COLLAB-19
-DONE, ledger 42 false, whiteboard off, one-authority profile và hard cap 0 USD. Automatic
-hold-point evaluator chọn read_only hoặc off theo readiness/checkpoint/quota/cost/security/privacy/
+DONE, ledger 42 false, whiteboard off, one-authority profile và hard cap 0 USD. Automatic hold-point
+evaluator chọn read_only hoặc off theo readiness/checkpoint/quota/cost/security/privacy/
 a11y/portability/recovery signal; production và shared staging bị từ chối.
+Exact-two server guard và private tenant-allowlist hash binder đã được triển khai; binder không lưu
+UUID vào packet, không overwrite và không cấp live/provider permission. Exact-two tenant manifest
+và owner authorization thực tế vẫn chưa được cung cấp; các provider action vẫn bị chặn fail-closed.
 Authorization packet materializer chỉ import SHA/deploy-ID allowlist từ P5-19, ghi atomically vào
 private tmp và không overwrite; redacted dry-run executor từ chối live flag và chỉ đọc bounded JSON
 dưới tmp/p5-collab-20. pnpm test:collaboration:p520 PASS, gồm 18/18 contract/dry-run test cùng

@@ -22,6 +22,7 @@ const steps = [
       "--test",
       "scripts/p520-ramp-exit-contract.test.mjs",
       "scripts/p520-ramp-dry-run.test.mjs",
+      "scripts/p520-tenant-allowlist.test.mjs",
     ],
   },
   {

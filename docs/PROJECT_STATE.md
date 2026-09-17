@@ -33,6 +33,9 @@ candidate/target fingerprint/allowlist hash/tenant count/quota/owner approval ho
 executor. Automatic hold-point policy đã có evaluator local nhưng chưa được nối vào provider.
 Core API có đường R3 riêng chỉ nhận exact-two canonical tenant khi ramp flag explicit true; flag
 mặc định false, exact-one P5-18 không đổi và cả hai R3 tenant bị khóa ở low-quota 2/10/64 MiB/600.
+CLI tenant binder đã được thêm ở trạng thái preparation-only: chỉ nhận manifest exact-two canonical
+UUID trong private tmp, ghi hash/count vào packet mới, không echo UUID, không overwrite và không thể
+bật live/provider mutation. Tenant manifest thực tế và owner authorization vẫn chưa được cung cấp.
 P5-COLLAB-20 vẫn IN PROGRESS; bước tiếp theo là nhận authorization riêng cho exact disposable
 R3 packet rồi mới triển khai/chạy executor provider. Review:
 [P5_COLLAB_20_RAMP_EXIT_REVIEW.md](P5_COLLAB_20_RAMP_EXIT_REVIEW.md).

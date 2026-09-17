@@ -125,6 +125,10 @@ Implemented:
   commit without credentials or live authorization; its materializer imports only allowlisted
   SHA/deploy-ID fields from the P5-COLLAB-19 binding, confines output below tmp/p5-collab-20 and
   refuses to overwrite an existing packet;
+- scripts/p520-tenant-allowlist.mjs: binds an exact-two canonical UUID manifest to a new
+  preparation packet using only an order-independent SHA-256 and tenant count; raw tenant UUIDs
+  remain only in the ignored private manifest, output is confined below tmp/p5-collab-20, existing
+  output is never replaced, and live/execute flags are rejected;
 - scripts/p520-ramp-dry-run.mjs: reads only bounded JSON inputs below tmp/p5-collab-20, validates
   their hashes and emits a redacted decision receipt; live/execute flags are rejected;
 - scripts/p520-ramp-dry-run.test.mjs: packet, path confinement, redaction, secret rejection,
@@ -138,24 +142,38 @@ Run:
 ```powershell
 pnpm p5-collab-20:packet
 pnpm p5-collab-20:prepare-packet
+pnpm p5-collab-20:bind-tenants -- --packet tmp/p5-collab-20/authorization.json --tenants tmp/p5-collab-20/tenants.json --output tmp/p5-collab-20/authorization-bound.json
 pnpm p5-collab-20:dry-run -- --packet tmp/p5-collab-20/authorization.json --observation tmp/p5-collab-20/observation.json
 pnpm test:collaboration:p520
+```
+
+Create `tmp/p5-collab-20/tenants.json` with a local editor so the real UUIDs do not enter terminal
+history or chat/log output. The ignored manifest shape is:
+
+```json
+{
+  "schemaVersion": "p5-collab-20-tenant-allowlist-v1",
+  "tenantIds": ["<canonical-uuid-1>", "<canonical-uuid-2>"]
+}
 ```
 
 The packet command writes only to standard output. The prepare-packet command atomically creates
 the ignored private tmp/p5-collab-20/authorization.json file and will not replace it. Its proposal
 binds the current source commit, inherited P5-19 target fingerprint/deploy IDs, low-quota profile
 and 3,600-second hold. Tenant allowlist hash/count, owner approval and fresh review evidence remain
-unset. The dry-run command cannot mutate a provider.
+unset until separately supplied. The tenant binder can materialize only the allowlist hash/count;
+it does not set authorization, live readiness, review PASS state, or provider mutation permission.
+The dry-run command cannot mutate a provider.
 
-Current result: PASS, including 18/18 P5-COLLAB-20 contract/dry-run tests, targeted Core API
+Current result: PASS, including 26/26 P5-COLLAB-20 contract/dry-run/binder tests, targeted Core API
 config/guardrail tests, plus inherited force-off and
 bounded-canary static guards.
 
 ## 8. Remaining gates
 
 - [ ] Receive a separate exact authorization for R3 on a disposable private-alpha target.
-- [ ] Bind exact candidate, environment fingerprint and hash of exactly two tenant UUIDs.
+- [ ] Supply the private exact-two tenant manifest and materialize its hash/count binding.
+- [ ] Bind exact candidate and environment fingerprint in the separately approved live packet.
 - [ ] Implement and test the live decision executor and rollback executor without logging secrets.
 - [ ] Run the provider-observed hold and capture fresh license/runtime/cost/security/a11y/exit review.
 - [ ] Execute rollback/cleanup and confirm final whiteboard force-off plus zero residue.

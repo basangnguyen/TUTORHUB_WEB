@@ -75,6 +75,7 @@
     "test:collaboration:p520": "node scripts/run-p520-local.mjs",
     "p5-collab-20:packet": "node scripts/p520-authorization-packet.mjs --stdout",
     "p5-collab-20:prepare-packet": "node scripts/p520-authorization-packet.mjs --output tmp/p5-collab-20/authorization.json",
+    "p5-collab-20:bind-tenants": "node scripts/p520-tenant-allowlist.mjs",
     "p5-collab-20:dry-run": "node scripts/p520-ramp-dry-run.mjs",
     "p5-collab-19:render": "node scripts/p519-render-sync.mjs",
     "p5-collab-19:smoke": "node --env-file=.env.p5-collab-19-disposable.local services/whiteboard-runtime/p519-provider-soak.mjs --connection-smoke",
