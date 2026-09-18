@@ -97,8 +97,8 @@ The local pure evaluator produces a deterministic automatic decision:
 The evaluator is now wired into a fail-closed executor core. The core validates an authorized
 packet, exact candidate SHA, target fingerprint and private exact-two manifest binding before an
 adapter can be called. It deploys in `off`, applies only the evaluated mode, emits a redacted receipt
-and makes rollback traverse `read_only -> off`. The provider adapter and exact-target live proof are
-still pending, so P5-COLLAB-20 cannot enter R3 yet.
+and makes rollback traverse `read_only -> off`. The allowlisted Render adapter is implemented and
+mock-tested, but exact-target live proof remains pending, so P5-COLLAB-20 cannot enter R3 yet.
 
 Rollback completion must prove whiteboard off, runtime not ready, zero active document/edit
 connection, portable last-good artifact readability, and zero synthetic database/B2 residue.
@@ -143,6 +143,13 @@ Implemented:
 - scripts/p520-ramp-executor.test.mjs: fake-adapter proof for no-call-before-authorization, exact
   binding, initial-off deployment, enabled/off decisions, UUID-free receipts, rollback ordering and
   failed force-off verification containment;
+- scripts/p520-render-adapter.mjs: no-CLI adapter locked to the exact two P5-COLLAB-19 disposable
+  Render services, inherited target fingerprint, main branch, Singapore Free profile and auto-deploy
+  off; it accepts only the two P5-COLLAB-20 control keys plus runtime build ID, deploys the exact
+  candidate, applies mode through the authenticated control endpoint and verifies readiness/metrics;
+- scripts/p520-render-adapter.test.mjs: fully mocked provider proof for exact service cardinality,
+  target/fingerprint drift rejection, three-key environment allowlist, initial-off/exact-two tenant
+  enforcement, deploy/mode verification and credential-redacted public/error surfaces;
 - scripts/p519-live-control.mjs: optional P5-COLLAB-20 exact-two tenant allowlist, initial-off mode and
   R3 quota profile while preserving the P5-COLLAB-19 default behavior;
 - scripts/check-p520-ramp-guard.mjs: static guard for default-off, exact-two config and low-quota
@@ -177,9 +184,9 @@ unset until separately supplied. The tenant binder can materialize only the allo
 it does not set authorization, live readiness, review PASS state, or provider mutation permission.
 The dry-run command cannot mutate a provider.
 
-Current result: PASS, including 38/38 P5-COLLAB-20 contract/dry-run/binder/executor/control tests,
+Current result: PASS, including 43/43 P5-COLLAB-20 contract/dry-run/binder/executor/control/adapter tests,
 targeted Core API config/guardrail tests, plus inherited force-off and bounded-canary static guards.
-No Render, Neon or B2 provider call was made by this executor checkpoint.
+The adapter tests inject a fake fetch implementation; no Render, Neon or B2 provider call was made.
 
 Exact-two binding checkpoint on 2026-09-17:
 
@@ -198,8 +205,10 @@ Exact-two binding checkpoint on 2026-09-17:
 - [ ] Bind exact candidate and environment fingerprint in the separately approved live packet.
 - [x] Implement and test the fail-closed live-decision/rollback executor core without logging secrets
   or tenant UUIDs in receipts.
-- [ ] Connect the executor to an allowlisted adapter for exactly the two disposable Render services
+- [x] Connect the executor to an allowlisted adapter for exactly the two disposable Render services
   and prove it against mocks before any authorized live action.
+- [ ] Exercise the adapter on the separately authorized exact disposable target and capture redacted
+  deploy/mode verification receipts.
 - [ ] Run the provider-observed hold and capture fresh license/runtime/cost/security/a11y/exit review.
 - [ ] Execute rollback/cleanup and confirm final whiteboard force-off plus zero residue.
 - [ ] Record exact completion candidate, supported profile, residual risks and deferred work.

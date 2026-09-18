@@ -652,7 +652,7 @@ làm closure. P5-COLLAB-20 được mở ở `TODO` và cần authorization riê
 
 ### P5-COLLAB-20 - Ramp và rollback/exit review
 
-**Checkpoint chuẩn bị 2026-09-17 - IN PROGRESS:** local contract đã khóa baseline P5-COLLAB-19
+**Checkpoint chuẩn bị 2026-09-18 - IN PROGRESS:** local contract đã khóa baseline P5-COLLAB-19
 DONE, ledger 42 false, whiteboard off, one-authority profile và hard cap 0 USD. Automatic hold-point
 evaluator chọn read_only hoặc off theo readiness/checkpoint/quota/cost/security/privacy/
 a11y/portability/recovery signal; production và shared staging bị từ chối.
@@ -666,12 +666,15 @@ private tmp và không overwrite; redacted dry-run executor từ chối live fla
 dưới tmp/p5-collab-20. Fail-closed executor core đã kiểm tra exact authorized packet/candidate/
 fingerprint/manifest, deploy initial-off, chỉ áp mode được evaluator chọn, không đưa UUID vào receipt
 và rollback bắt buộc `read_only -> off` kèm zero-state verification. Control harness hỗ trợ exact-two
-tenant allowlist, initial-off và quota R3 mà không đổi default P5-19. pnpm test:collaboration:p520 PASS,
-gồm 38/38 contract/dry-run/binder/executor/control test cùng force-off/canary static regression. Core
+tenant allowlist, initial-off và quota R3 mà không đổi default P5-19. Render adapter không có CLI,
+khóa đúng hai disposable service/fingerprint/profile và chỉ nhận ba env key; fake-provider tests
+xác minh service cardinality, drift rejection, deploy/mode/readiness/metrics và credential redaction.
+pnpm test:collaboration:p520 PASS, gồm 43/43 contract/dry-run/binder/executor/control/adapter test cùng
+force-off/canary static regression. Core
 API R3 path mặc định off, chỉ nhận exact-two canonical tenant khi ramp flag explicit true và áp
 low-quota 2/10/64 MiB/600 cho cả hai; P5-18 exact-one giữ nguyên. Đây chỉ là code-only preparation
-evidence; Render adapter, live-target authorization binding và owner authorization vẫn chưa có nên
-không có provider mutation.
+evidence; adapter chưa gọi provider, live-target authorization binding và owner authorization vẫn
+chưa có nên không có provider mutation.
 Acceptance:
 [P5_COLLAB_20_RAMP_EXIT_REVIEW.md](P5_COLLAB_20_RAMP_EXIT_REVIEW.md).
 

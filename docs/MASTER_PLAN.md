@@ -1866,7 +1866,7 @@ nhận closure dựa trên lần validation PASS đúng hạn cùng cleanup PASS
 mở ở `TODO` và cần authorization riêng trước mọi ramp/rollback/production action. Acceptance:
 [`P5_COLLAB_19_PRIVATE_ALPHA_ACCEPTANCE.md`](P5_COLLAB_19_PRIVATE_ALPHA_ACCEPTANCE.md).
 
-P5-COLLAB-20 checkpoint 2026-09-17 - IN PROGRESS: fail-closed preparation contract,
+P5-COLLAB-20 checkpoint 2026-09-18 - IN PROGRESS: fail-closed preparation contract,
 authorization packet materializer, redacted dry-run executor, automatic hold-point evaluator và
 local runner đã PASS. Exact-two tenant binder chỉ ghi hash/count vào packet preparation mới, không
 echo UUID, không overwrite và không cấp quyền live/provider. Materializer chỉ import SHA/deploy-ID
@@ -1882,9 +1882,11 @@ Private manifest và preparation packet đã bind allowlist hash/count mà khôn
 Executor core fail-closed đã được thêm: exact authorized packet/candidate/fingerprint/manifest gate,
 initial-off deployment ordering, evaluator-bound mode, redacted receipt và rollback
 `read_only -> off` với zero-state verification. Control harness có exact-two allowlist/initial-off/R3
-quota và giữ default P5-19. Local gate PASS 38/38; checkpoint này không gọi provider.
-Production/shared staging bị từ chối; Render adapter và owner authorization vẫn chưa có nên không có
-provider mutation.
+quota và giữ default P5-19. Render adapter không có CLI, khóa đúng hai disposable service, inherited
+fingerprint/profile và ba env key; fake-provider coverage xác minh drift rejection, deploy, mode,
+readiness/metrics và credential redaction. Local gate PASS 43/43; checkpoint này không gọi provider.
+Production/shared staging bị từ chối; exact live packet và owner authorization vẫn chưa có nên không
+có provider mutation.
 Review: [P5_COLLAB_20_RAMP_EXIT_REVIEW.md](P5_COLLAB_20_RAMP_EXIT_REVIEW.md).
 
 **Deliverable:** teacher mở/đóng công cụ mà không làm rời media room; trạng thái cộng tác khôi phục sau reconnect.
