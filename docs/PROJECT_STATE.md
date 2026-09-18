@@ -13,9 +13,9 @@
 | Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4                                                    |
 | Phase hiện tại       | Phase 5 collaboration implementation; Phase 3 deferred carry-over vẫn hoạt động       |
 | Task `DONE` gần nhất | P5-COLLAB-19 Private alpha acceptance                                                 |
-| Mốc repository mới   | P5-COLLAB-20 live v2 soak/drills and final cleanup PASS; review freshness expired     |
+| Mốc repository mới   | P5-COLLAB-20 same-process soak-to-finalize safeguard PASS locally; gate 59/59         |
 | Task hiện tại        | P5-COLLAB-20 — VERIFY; six-review packet blocked only by expired finalizer freshness  |
-| Task tiếp theo       | Obtain explicit authorization for one fresh hold/finalization completion attempt      |
+| Task tiếp theo       | Authorize the new exact candidate for one fresh auto-finalized completion attempt     |
 
 ### Checkpoint P5-COLLAB-20 `VERIFY` — 2026-09-18
 
@@ -71,6 +71,12 @@ Mandatory rollback retry PASS `read_only -> off`; runtime not ready, document/ed
 Final cleanup PASS ledger `42 false`, whiteboard `off`, synthetic tenant/document `0/0`. Không
 production/shared staging, không rollback migration, không paid capacity và không log UUID/secret.
 P5-COLLAB-20 vẫn `VERIFY`.
+
+Sau postmortem freshness, `p5-collab-20:soak-live` được harden để gọi live-review finalizer ngay
+trong cùng tiến trình sau khi soak PASS và trước khi command trả về. Nếu soak fail, finalizer không
+được gọi; nếu finalizer fail, command cũng fail closed. Regression xác minh đúng ordering này.
+P5-COLLAB-20 local aggregate đạt `59/59`, P5-COLLAB-19 regression và ESLint PASS. Safeguard này
+không gọi provider; cần authorization riêng cho exact candidate mới trước một completion attempt.
 
 ### Checkpoint P5-COLLAB-19 `DONE` — 2026-09-17
 

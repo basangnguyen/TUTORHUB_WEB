@@ -279,7 +279,7 @@ export function createP520LiveReviewEvidence({
   };
 }
 
-async function finalize() {
+export async function finalizeP520LiveReviews() {
   const candidateSha = git(["rev-parse", "HEAD"]);
   if (!SHA_PATTERN.test(candidateSha)) {
     throw new Error("p520_review_candidate_invalid");
@@ -330,7 +330,7 @@ if (import.meta.url === invokedPath) {
     process.argv[2] === "--confirm" &&
     process.argv[3] === EXACT_CONFIRMATION;
   const operation = authorized
-    ? finalize()
+    ? finalizeP520LiveReviews()
     : Promise.reject(new Error("p520_review_exact_confirmation_required"));
   operation
     .then((result) => process.stdout.write(`${JSON.stringify(result)}\n`))

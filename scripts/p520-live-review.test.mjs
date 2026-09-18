@@ -8,6 +8,7 @@ import {
 } from "./p520-live-review.mjs";
 import { materializeP520AuthorizedPacket } from "./p520-live-runner.mjs";
 import { bindP520TenantAllowlist } from "./p520-tenant-allowlist.mjs";
+import { runP520ProviderSoakAndFinalize } from "../services/whiteboard-runtime/p520-provider-soak.mjs";
 
 function pendingPacket() {
   const packet = createP520AuthorizationPacket({
@@ -74,4 +75,49 @@ test("live review requires exactly 20 artifact and restore observations", () => 
   report.observations.artifactRestoreMs[0] = 300;
   evaluation.metrics.artifactP95Ms = 2_501;
   assert.equal(hasRequiredP520ArtifactEvidence(report, evaluation), false);
+});
+
+test("successful soak finalizes reviews in the same process before returning", async () => {
+  const calls = [];
+  const result = await runP520ProviderSoakAndFinalize(
+    { marker: "environment" },
+    {
+      runSoak: async (environment) => {
+        calls.push(["soak", environment.marker]);
+        return { cleanupMs: 1_200, outcome: "pass" };
+      },
+      finalize: async () => {
+        calls.push(["finalize"]);
+        return { outcome: "pass", reviewsPassed: 6, status: "authorized" };
+      },
+    },
+  );
+
+  assert.deepEqual(calls, [["soak", "environment"], ["finalize"]]);
+  assert.deepEqual(result, {
+    cleanupMs: 1_200,
+    outcome: "pass",
+    reviewStatus: "authorized",
+    reviewsPassed: 6,
+  });
+});
+
+test("failed soak never invokes the live-review finalizer", async () => {
+  let finalized = false;
+  await assert.rejects(
+    () =>
+      runP520ProviderSoakAndFinalize(
+        {},
+        {
+          runSoak: async () => {
+            throw new Error("soak_failed");
+          },
+          finalize: async () => {
+            finalized = true;
+          },
+        },
+      ),
+    /soak_failed/u,
+  );
+  assert.equal(finalized, false);
 });

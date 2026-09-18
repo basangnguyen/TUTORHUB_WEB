@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { createP520ProviderFixture } from "../../scripts/p520-provider-fixture.mjs";
+import { finalizeP520LiveReviews } from "../../scripts/p520-live-review.mjs";
 import { P520_RAMP_EXIT_CONTRACT } from "../../scripts/p520-ramp-exit-contract.mjs";
 import { runP519ProviderSoak } from "./p519-provider-soak.mjs";
 
@@ -39,6 +40,19 @@ export async function runP520ProviderSoak(environment = process.env) {
   });
 }
 
+export async function runP520ProviderSoakAndFinalize(
+  environment = process.env,
+  { runSoak = runP520ProviderSoak, finalize = finalizeP520LiveReviews } = {},
+) {
+  const soak = await runSoak(environment);
+  const review = await finalize();
+  return {
+    ...soak,
+    reviewStatus: review.status,
+    reviewsPassed: review.reviewsPassed,
+  };
+}
+
 const invokedPath = process.argv[1] ? pathToFileURL(process.argv[1]).href : "";
 if (import.meta.url === invokedPath) {
   const authorized =
@@ -46,7 +60,7 @@ if (import.meta.url === invokedPath) {
     process.argv[2] === "--confirm" &&
     process.argv[3] === EXACT_CONFIRMATION;
   const operation = authorized
-    ? runP520ProviderSoak()
+    ? runP520ProviderSoakAndFinalize()
     : Promise.reject(new Error("p520_soak_exact_confirmation_required"));
   operation
     .then((result) => process.stdout.write(`${JSON.stringify(result)}\n`))

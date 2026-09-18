@@ -288,6 +288,15 @@ Exact-two binding checkpoint on 2026-09-17:
   `off`, runtime not ready and zero document/edit/synthetic residue. Production/shared staging and
   migrations were not touched, and no UUID or secret was logged.
 
+### Same-process freshness safeguard
+
+The live command now composes the 3,600-second soak and six-review finalizer in one process. A
+successful soak cannot return to the caller before the finalizer has processed the fresh report.
+A failed soak never invokes review completion, while a finalizer failure fails the whole command
+closed. Regression coverage proves both orderings. Local P5-COLLAB-20 is `59/59`; P5-COLLAB-19
+regression and targeted ESLint also pass. This safeguard made no provider call and requires a new
+exact-candidate authorization before use.
+
 ## 8. Remaining gates
 
 - [x] Receive two-stage authorization for candidate `b278bab`; reject that candidate locally after
@@ -309,6 +318,8 @@ Exact-two binding checkpoint on 2026-09-17:
       provider-observed v2 hold.
 - [ ] Obtain explicit authorization for one new hold/finalization attempt and materialize all six
       reviews before the report freshness window expires.
+- [x] Wire soak success directly to the finalizer in the same process and regression-test fail-closed
+      ordering.
 - [ ] Record exact completion candidate, supported profile, residual risks and deferred work.
 
 Until every item passes, P5-COLLAB-20 remains `VERIFY` and Phase 5 is not closed.

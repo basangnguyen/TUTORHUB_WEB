@@ -11,7 +11,7 @@
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
 | Phase hiện tại        | Phase 5 collaboration implementation; Phase 3 deferred carry-over tiếp tục                   |
-| Trạng thái gần nhất   | P5-COLLAB-20 VERIFY; live v2 gates PASS, six-review finalizer missed freshness window        |
+| Trạng thái gần nhất   | P5-COLLAB-20 VERIFY; same-process soak-to-finalize safeguard PASS locally, new auth pending  |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 
@@ -1921,6 +1921,12 @@ không được tạo. Mandatory rollback `read_only -> off` và final cleanup P
 whiteboard `off`, runtime/document/connection/synthetic residue zero. Production/shared staging
 không bị chạm. Cần authorization mới cho một fresh hold/finalization completion attempt; Phase 5
 chưa đóng.
+
+P5-COLLAB-20 freshness safeguard 2026-09-18 — local only: `soak-live` nay gọi finalizer ngay sau
+successful provider report trong cùng process và chỉ trả PASS khi sáu review đã materialize. Soak
+failure không gọi finalizer; review failure làm command fail closed. P5-COLLAB-20 aggregate
+`59/59`, P5-COLLAB-19 regression và ESLint PASS. Không có provider action trong checkpoint này;
+exact candidate mới cần authorization riêng trước live completion attempt.
 
 **Deliverable:** teacher mở/đóng công cụ mà không làm rời media room; trạng thái cộng tác khôi phục sau reconnect.
 

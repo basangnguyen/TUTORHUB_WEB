@@ -725,12 +725,19 @@ PASS. Không nới contract và không tạo six-review completion packet. Rollb
 `read_only -> off`; final cleanup PASS ledger `42 false`, whiteboard `off`, runtime/document/
 connection/synthetic residue đều zero. P5-COLLAB-20 giữ `VERIFY`.
 
+**Freshness safeguard — local only:** `p5-collab-20:soak-live` nay compose soak và six-review
+finalizer trong cùng process. Command chỉ trả PASS sau khi report đã được finalizer xử lý; soak fail
+không gọi finalizer, finalizer fail làm toàn command fail closed. Regression mới cùng aggregate
+P5-COLLAB-20 `59/59`, P5-COLLAB-19 regression và ESLint đều PASS. Không có provider mutation trong
+checkpoint này; exact candidate mới cần owner authorization riêng.
+
 **Exit gate:**
 
 - [x] Ramp theo tenant/cap có hold point; auto/manual kill switch và rollback tiêu chí rõ.
 - [x] Chẩn đoán phép đo 4-sample và khóa forward P5-COLLAB-20 ở 20 create + 20 restore sample.
 - [x] Fresh live v2 hold PASS corrected artifact gate, full drill matrix, cost và zero-residue cleanup.
 - [ ] Materialize đủ sáu review PASS trong report freshness window của một completion attempt mới.
+- [x] Auto-finalize report trong cùng soak process để không phụ thuộc task continuation timing.
 - [ ] License/runtime/cost/security/a11y/provider-exit review vẫn đạt ở dữ liệu thực mới.
 - [ ] Phase completion ghi exact candidate, supported profile, residual risk và deferred work.
 - [x] Không tăng ramp nếu portability/recovery hoặc one-authority invariant bị vi phạm.
