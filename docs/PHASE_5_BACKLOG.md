@@ -44,10 +44,10 @@
 > cleanup đều PASS; ledger cuối `42 false`, whiteboard force-off. Lượt validation đúng freshness không
 > có durable receipt vì wrapper gặp cleanup transient sau drill; lượt lại bị freshness gate từ chối.
 > Owner đã chấp nhận closure dựa trên lần PASS đúng hạn cùng cleanup PASS sau recovery;
-> P5-COLLAB-20 hiện ở `VERIFY`: exact disposable R3 đã chạy hai provider-observed hold 3.600 giây
-> cùng full drill matrix nhưng FAIL duy nhất artifact p95; rollback/cleanup cuối PASS ở ledger
-> `42 false`, whiteboard force-off. Local artifact measurement đã được harden thành đúng 20 create
-> và 20 restore sample, giữ nguyên ngưỡng; chưa có provider run mới hoặc authorization mới.
+> P5-COLLAB-20 hiện ở `VERIFY`: live v2 hold trên exact disposable candidate đã PASS corrected
+> artifact p95 `2117 ms`, đúng 20 create + 20 restore sample, full drill matrix và cost gate.
+> Six-review finalizer bị trusted-clock freshness từ chối sau task interruption; rollback/cleanup cuối
+> PASS ở ledger `42 false`, whiteboard force-off. Contract không bị nới và completion packet chưa tạo.
 
 ## 1. Mục tiêu phase
 
@@ -710,10 +710,27 @@ P5-COLLAB-19 regression PASS, runtime `152 passed / 2 skipped`, lint/typecheck/b
 Checkpoint này không gọi provider, không đổi mode và không tạo chi phí; live proof vẫn cần exact
 candidate cùng authorization mới.
 
+**Live v2 checkpoint 2026-09-18 — VERIFY:** owner authorize exact candidate
+`15cbef5f410833cf6299747bcdac3eaad6df0a64`; packet v2/exact target/exact-two binding, deploy/adopt
+initial-off path và preflight PASS sau khi base fixture được tái tạo trên đúng disposable ledger.
+Provider hold đủ 3.600 giây đạt `6.000/6.000` operation, `120` metrics sample, `12` semantic check,
+`50` reconnect event. P95 join/reconnect/convergence/ack/artifact là
+`1247/1697/653/450/2117 ms`; đúng 20 create/read-back + 20 restore/reuse sample và toàn bộ drill
+matrix/soak cleanup/cost gate PASS.
+
+Soak report đã validator PASS khi còn fresh, nhưng task interruption làm finalizer chỉ được gọi khi
+report age `4008s`, vượt freshness `300s`. Finalizer fail duy nhất trusted-clock freshness; exact
+binding, preflight, repository/dependency/accessibility, artifact evidence, cost và publication đều
+PASS. Không nới contract và không tạo six-review completion packet. Rollback cuối PASS
+`read_only -> off`; final cleanup PASS ledger `42 false`, whiteboard `off`, runtime/document/
+connection/synthetic residue đều zero. P5-COLLAB-20 giữ `VERIFY`.
+
 **Exit gate:**
 
 - [x] Ramp theo tenant/cap có hold point; auto/manual kill switch và rollback tiêu chí rõ.
 - [x] Chẩn đoán phép đo 4-sample và khóa forward P5-COLLAB-20 ở 20 create + 20 restore sample.
+- [x] Fresh live v2 hold PASS corrected artifact gate, full drill matrix, cost và zero-residue cleanup.
+- [ ] Materialize đủ sáu review PASS trong report freshness window của một completion attempt mới.
 - [ ] License/runtime/cost/security/a11y/provider-exit review vẫn đạt ở dữ liệu thực mới.
 - [ ] Phase completion ghi exact candidate, supported profile, residual risk và deferred work.
 - [x] Không tăng ramp nếu portability/recovery hoặc one-authority invariant bị vi phạm.

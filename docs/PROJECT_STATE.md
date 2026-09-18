@@ -13,9 +13,9 @@
 | Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4                                                    |
 | Phase hiện tại       | Phase 5 collaboration implementation; Phase 3 deferred carry-over vẫn hoạt động       |
 | Task `DONE` gần nhất | P5-COLLAB-19 Private alpha acceptance                                                 |
-| Mốc repository mới   | P5-COLLAB-20 artifact measurement hardened locally; gate 57/57, no provider call      |
-| Task hiện tại        | P5-COLLAB-20 — VERIFY; corrected artifact gate still requires new live evidence       |
-| Task tiếp theo       | Commit exact candidate; obtain new authorization before another live completion run   |
+| Mốc repository mới   | P5-COLLAB-20 live v2 soak/drills and final cleanup PASS; review freshness expired     |
+| Task hiện tại        | P5-COLLAB-20 — VERIFY; six-review packet blocked only by expired finalizer freshness  |
+| Task tiếp theo       | Obtain explicit authorization for one fresh hold/finalization completion attempt      |
 
 ### Checkpoint P5-COLLAB-20 `VERIFY` — 2026-09-18
 
@@ -45,6 +45,32 @@ Không có provider call trong checkpoint sửa này. Aggregate `pnpm test:colla
 `57/57`; P5-COLLAB-19 local regression, runtime `152 passed / 2 skipped`, lint, typecheck và build
 đều PASS. Kết quả live vẫn cần một exact candidate mới và authorization mới. Review:
 [P5_COLLAB_20_RAMP_EXIT_REVIEW.md](P5_COLLAB_20_RAMP_EXIT_REVIEW.md).
+
+### Checkpoint P5-COLLAB-20 live v2 `VERIFY` — 2026-09-18
+
+Owner đã authorize exact candidate `15cbef5f410833cf6299747bcdac3eaad6df0a64`. Packet
+`p5-collab-20-ramp-exit-v2` được bind với inherited disposable fingerprint và existing exact-two
+manifest. Exact candidate được deploy/adopt trên đúng hai Render disposable service; adapter áp
+`off` trước evaluator mode. Preflight đầu fail closed vì base fixture đã bị cleanup ở lượt trước;
+runner rollback an toàn, `provision-base` tái tạo đúng 2 synthetic tenant ở ledger `42 false`, sau đó
+exact-two cross-tenant/provider preflight PASS với 2 document, 10 connection và 500 shape/document.
+
+Provider hold chạy đủ 3.600 giây: `6.000/6.000` operation, `120` metrics sample, `12` semantic check,
+`50` reconnect event. P95 join/reconnect/convergence/ack/artifact là
+`1247/1697/653/450/2117 ms`; artifact gate `<=2500 ms` PASS với đúng 20 create/read-back và 20
+restore/reuse sample. Full reconnect/Control 600s/Neon/B2/credential/force-off/export/restore/revoke
+matrix, cost `0 USD` và soak cleanup `1257 ms` đều PASS.
+
+Soak validator đã PASS report trong freshness window. Tuy nhiên task bị gián đoạn trước bước review;
+khi tiếp tục, finalizer chạy lúc report age `4008s`, vượt contract `300s`, và từ chối chỉ với
+`endedAt must be within five minutes of the trusted clock`. Exact binding, preflight, repository,
+dependency/accessibility scope, sample counts, cost và publication đều PASS; six-review packet không
+được materialize và freshness rule không bị nới.
+
+Mandatory rollback retry PASS `read_only -> off`; runtime not ready, document/edit connection `0/0`.
+Final cleanup PASS ledger `42 false`, whiteboard `off`, synthetic tenant/document `0/0`. Không
+production/shared staging, không rollback migration, không paid capacity và không log UUID/secret.
+P5-COLLAB-20 vẫn `VERIFY`.
 
 ### Checkpoint P5-COLLAB-19 `DONE` — 2026-09-17
 

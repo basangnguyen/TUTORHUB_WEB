@@ -1,17 +1,18 @@
 # P5-COLLAB-20 Ramp and rollback/exit review
 
-Status: **VERIFY — LIVE RUNTIME LATENCY GATE FAILED; FORCE-OFF/CLEANUP PASS**
+Status: **VERIFY — LIVE V2 GATES PASS; SIX-REVIEW FRESHNESS MISSED; FORCE-OFF/CLEANUP PASS**
 
 Updated: 2026-09-18
 
 ## 1. Current decision
 
-The owner authorized the corrected two-stage R3 workflow for exact candidate
-`4412bbdad87e425b5cdba00a05abcd8cf6b30008` on the inherited disposable target and existing
-exact-two tenant manifest. Exact-target deploy/adoption, initial `off`, provider preflight, two
-provider-observed 3,600-second holds, the full drill matrix and mandatory rollback/cleanup were
-executed. Both holds failed only the runtime artifact latency gate, so no completed six-review
-packet was issued and the task cannot move to `DONE`.
+The owner authorized the contract-v2 R3 workflow for exact candidate
+`15cbef5f410833cf6299747bcdac3eaad6df0a64` on the inherited disposable target and existing
+exact-two tenant manifest. Exact-target deploy/adoption, initial `off`, provider preflight, one
+provider-observed 3,600-second v2 hold, the full drill matrix and mandatory rollback/cleanup all
+passed. The corrected artifact gate passed at 2,117 ms. The six-review finalizer was invoked only
+after the five-minute freshness window had expired because the task was interrupted, so no
+completed review packet was issued and the task cannot move to `DONE`.
 
 The corrected local contract is intentionally fail-closed:
 
@@ -19,10 +20,10 @@ The corrected local contract is intentionally fail-closed:
 - an owner-approved packet uses `authorized-pending-live-validation` and remains exact-target only;
 - `DONE` is impossible until all six fresh live reviews are `passed` with evidence references;
 - production and shared staging are outside the authorization boundary;
-- the live target environment and approval identity remain unset;
+- preparation-only packets leave the live target environment and approval identity unset;
 - the private preparation packet binds the proposed candidate, inherited target fingerprint and
   exact-two tenant allowlist hash/count without storing raw tenant UUIDs;
-- the whiteboard starts and remains off;
+- the whiteboard starts off and mandatory rollback returns it to off;
 - a live ramp is ineligible until both the live executor and rollback executor are ready.
 
 ## 2. Verified inherited baseline
@@ -59,12 +60,12 @@ Paid multi-instance production topology remains deferred and has not been provis
 
 ## 4. Ramp ladder and hold points
 
-| Stage | Scope                                   | State     | Gate                                                        |
-| ----- | --------------------------------------- | --------- | ----------------------------------------------------------- |
-| R0    | Global force-off, zero tenant           | Completed | Static and provider force-off evidence                      |
-| R1    | Exact-one internal tenant               | Completed | 2 documents, 10 connections, 64 MiB, 600 operations/minute  |
-| R2    | Private alpha                           | Completed | P5-COLLAB-19 60-minute soak, drills, cleanup, owner closure |
-| R3    | Exact-two disposable private-alpha ramp | Blocked   | Corrected candidate needs a new exact-SHA authorization     |
+| Stage | Scope                                   | State     | Gate                                                          |
+| ----- | --------------------------------------- | --------- | ------------------------------------------------------------- |
+| R0    | Global force-off, zero tenant           | Completed | Static and provider force-off evidence                        |
+| R1    | Exact-one internal tenant               | Completed | 2 documents, 10 connections, 64 MiB, 600 operations/minute    |
+| R2    | Private alpha                           | Completed | P5-COLLAB-19 60-minute soak, drills, cleanup, owner closure   |
+| R3    | Exact-two disposable private-alpha ramp | VERIFY    | Live v2 gates passed; six-review freshness completion pending |
 
 The first R3 hold is fixed at exactly two tenants: the smallest tenant-count increase after the
 exact-one internal canary. The actual tenant UUIDs are confined to an ignored private manifest.
@@ -99,11 +100,12 @@ The local pure evaluator produces a deterministic automatic decision:
 | read_only | readiness fails twice; checkpoint persistence fails; quota rejection rises continuously; accepted free cap reaches 75%; accessibility regression; provider-exit review fails |
 | enabled   | all required observations are healthy                                                                                                                                        |
 
-The evaluator is now wired into a fail-closed executor core. The core validates an authorized
+The evaluator is wired into a fail-closed executor core. The core validates an authorized
 packet, exact candidate SHA, target fingerprint and private exact-two manifest binding before an
 adapter can be called. It deploys in `off`, applies only the evaluated mode, emits a redacted receipt
-and makes rollback traverse `read_only -> off`. The allowlisted Render adapter is implemented and
-mock-tested, but exact-target live proof remains pending, so P5-COLLAB-20 cannot enter R3 yet.
+and makes rollback traverse `read_only -> off`. The allowlisted Render adapter is implemented,
+mock-tested and live-proven on the exact disposable target. Review finalization remains pending,
+so P5-COLLAB-20 cannot move from `VERIFY` to `DONE`.
 The live runner provisions one provider document per tenant and performs a negative cross-tenant
 grant probe before workload execution. The control plane now derives an exact tenant-to-document
 mapping from the sorted allowlist and rejects `tenant_document_mismatch`; the previously authorized
@@ -117,11 +119,14 @@ connection, portable last-good artifact readability, and zero synthetic database
 | Review        | Current state                  | Required live evidence                                                     |
 | ------------- | ------------------------------ | -------------------------------------------------------------------------- |
 | License       | Evidence PASS; packet withheld | Pins unchanged at the exact candidate; dependency/lock scope did not drift |
-| Runtime       | **FAIL**                       | Both holds exceeded artifact p95 2,500 ms; all other runtime gates passed  |
+| Runtime       | Evidence PASS; packet withheld | V2 hold and artifact p95 2,117 ms passed; cleanup verified                 |
 | Cost          | Evidence PASS; packet withheld | 0 USD, no optional burst/autoscale                                         |
 | Security      | Evidence PASS; packet withheld | exact-two isolation, grant/revoke and drills passed                        |
 | Accessibility | Evidence PASS; packet withheld | collaboration UI scope unchanged; accessibility notice retained            |
 | Provider exit | Evidence PASS; packet withheld | export/readback, restore, force-off, recovery and cleanup passed           |
+
+All six evidence categories passed, but none was materialized as a completed review because the
+finalizer correctly rejected the stale trusted-clock window.
 
 No review can be marked PASS from conversation history alone. Reused evidence requires an explicit
 validity rationale; changed code/topology/format/security semantics require fresh evidence.
@@ -256,6 +261,33 @@ Exact-two binding checkpoint on 2026-09-17:
 - This checkpoint made no provider call, did not change the live mode and did not authorize another
   hold. A new exact candidate and a new owner authorization are still required for live proof.
 
+### Live v2 validation checkpoint on 2026-09-18
+
+- The owner authorized exact candidate `15cbef5f410833cf6299747bcdac3eaad6df0a64` with the
+  inherited disposable target and existing exact-two manifest. Contract v2 preparation, tenant
+  binding and `authorized-pending-live-validation` materialization passed without identifier output.
+- Deploy reached the provider before an old local receipt blocked a non-overwriting write. The
+  fail-closed adopt path then verified both exact live candidates, applied `off` first and selected
+  the evaluator mode. No extra service or paid capacity was created.
+- The first preflight failed closed because the prior final cleanup had removed the synthetic base
+  rows. Rollback ran, base provisioning recreated exactly two synthetic tenants on the disposable
+  ledger, and the repeated preflight passed exact-two isolation with 2 documents, 10 connections and
+  500 shapes per document.
+- The provider-observed hold ran exactly 3,600 seconds with 6,000 operations per document,
+  120 metric samples, 12 semantic checks and 50 reconnect events. Join/reconnect/convergence/
+  acknowledgement/artifact p95 were `1247/1697/653/450/2117 ms`. The corrected artifact gate passed
+  with exactly 20 create/read-back and 20 restore/reuse samples.
+- Reconnect, sustained Control outage, Neon outage, B2/export/restore, force-off, credential and
+  revoke drills all passed. Cost remained 0 USD and soak cleanup passed in 1,257 ms.
+- The soak evaluator validated the report while it was fresh. The task was interrupted before the
+  review step; when continued, the report age was 4,008 seconds. The finalizer rejected only
+  `endedAt must be within five minutes of the trusted clock`. Exact binding, preflight, repository,
+  dependencies, accessibility scope, artifact evidence, cost and publication checks all passed.
+  The freshness rule was not relaxed and the six-review packet was not materialized.
+- Mandatory rollback passed `read_only -> off`; final cleanup verified ledger `42 false`, whiteboard
+  `off`, runtime not ready and zero document/edit/synthetic residue. Production/shared staging and
+  migrations were not touched, and no UUID or secret was logged.
+
 ## 8. Remaining gates
 
 - [x] Receive two-stage authorization for candidate `b278bab`; reject that candidate locally after
@@ -273,8 +305,10 @@ Exact-two binding checkpoint on 2026-09-17:
       artifact latency gate, so the six-review completion packet remains blocked.
 - [x] Execute rollback/cleanup and confirm final whiteboard force-off plus zero residue.
 - [x] Diagnose the four-sample p95 defect and implement exact 20-sample create plus restore evidence.
-- [ ] Obtain a new exact-candidate authorization and prove the corrected artifact gate in a fresh
-      provider-observed completion attempt.
+- [x] Obtain exact-candidate authorization and prove the corrected artifact gate in a fresh
+      provider-observed v2 hold.
+- [ ] Obtain explicit authorization for one new hold/finalization attempt and materialize all six
+      reviews before the report freshness window expires.
 - [ ] Record exact completion candidate, supported profile, residual risks and deferred work.
 
 Until every item passes, P5-COLLAB-20 remains `VERIFY` and Phase 5 is not closed.

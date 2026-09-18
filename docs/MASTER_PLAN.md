@@ -11,7 +11,7 @@
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
 | Phase hiện tại        | Phase 5 collaboration implementation; Phase 3 deferred carry-over tiếp tục                   |
-| Trạng thái gần nhất   | P5-COLLAB-20 VERIFY; local artifact measurement hardening PASS, new live proof pending       |
+| Trạng thái gần nhất   | P5-COLLAB-20 VERIFY; live v2 gates PASS, six-review finalizer missed freshness window        |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 
@@ -1907,6 +1907,20 @@ hạ ngưỡng `2500 ms`; restore RTO được tách sang restore path và six-r
 khi thiếu sample. P5-COLLAB-19 historical default vẫn là 4. Local P5-COLLAB-20 `57/57`,
 P5-COLLAB-19 regression, runtime `152 passed / 2 skipped`, lint/typecheck/build đều PASS.
 Không có provider mutation; cần exact candidate và authorization mới trước live proof tiếp theo.
+
+P5-COLLAB-20 live v2 checkpoint 2026-09-18 — `VERIFY`: exact candidate
+`15cbef5f410833cf6299747bcdac3eaad6df0a64` được bind/deploy/adopt trên inherited disposable
+target với exact-two manifest. Preflight PASS sau fail-closed base-fixture reprovision. Provider hold
+đủ 3.600 giây đạt P95 join/reconnect/convergence/ack/artifact
+`1247/1697/653/450/2117 ms`, đúng 20 artifact + 20 restore sample, toàn bộ drill matrix, cost
+`0 USD` và soak cleanup PASS.
+
+Report validator PASS trong freshness window nhưng task interruption làm six-review finalizer chạy
+khi report age `4008s`, vượt `300s`; đây là error duy nhất. Contract không bị nới và completion packet
+không được tạo. Mandatory rollback `read_only -> off` và final cleanup PASS ledger `42 false`,
+whiteboard `off`, runtime/document/connection/synthetic residue zero. Production/shared staging
+không bị chạm. Cần authorization mới cho một fresh hold/finalization completion attempt; Phase 5
+chưa đóng.
 
 **Deliverable:** teacher mở/đóng công cụ mà không làm rời media room; trạng thái cộng tác khôi phục sau reconnect.
 
