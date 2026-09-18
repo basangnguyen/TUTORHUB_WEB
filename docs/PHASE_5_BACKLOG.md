@@ -669,12 +669,20 @@ và rollback bắt buộc `read_only -> off` kèm zero-state verification. Contr
 tenant allowlist, initial-off và quota R3 mà không đổi default P5-19. Render adapter không có CLI,
 khóa đúng hai disposable service/fingerprint/profile và chỉ nhận ba env key; fake-provider tests
 xác minh service cardinality, drift rejection, deploy/mode/readiness/metrics và credential redaction.
-pnpm test:collaboration:p520 PASS, gồm 43/43 contract/dry-run/binder/executor/control/adapter test cùng
+pnpm test:collaboration:p520 PASS, gồm 51/51 contract/dry-run/binder/executor/control/adapter/fixture/live-runner test cùng
 force-off/canary static regression. Core
 API R3 path mặc định off, chỉ nhận exact-two canonical tenant khi ramp flag explicit true và áp
 low-quota 2/10/64 MiB/600 cho cả hai; P5-18 exact-one giữ nguyên. Đây chỉ là code-only preparation
 evidence; adapter chưa gọi provider, live-target authorization binding và owner authorization vẫn
 chưa có nên không có provider mutation.
+
+**Corrected-candidate checkpoint 2026-09-18:** owner đã phê duyệt authorization hai giai đoạn cho
+candidate `b278bab`, nhưng pre-provider review phát hiện thiếu exact tenant-to-document binding. Candidate
+này bị từ chối trước provider call. Control nay derive một document riêng cho từng tenant và fail closed
+với `tenant_document_mismatch`; exact-two fixture lifecycle, negative isolation preflight, live runner,
+rollback/cleanup và wrapper provider-observed soak 3.600 giây đã được bổ sung. Local gate đạt 51/51 và
+P5-COLLAB-19 regression PASS. Corrected candidate cần commit/push cùng authorization exact-SHA mới;
+production/shared staging vẫn ngoài phạm vi và chưa có Render/Neon/B2 call trong checkpoint này.
 Acceptance:
 [P5_COLLAB_20_RAMP_EXIT_REVIEW.md](P5_COLLAB_20_RAMP_EXIT_REVIEW.md).
 

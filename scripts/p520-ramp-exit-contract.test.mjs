@@ -50,6 +50,34 @@ test("an authorized exact disposable plan can become eligible", () => {
   const result = evaluateP520RampExitPlan(authorizedPlan());
   assert.equal(result.ok, true, result.errors.join("\n"));
   assert.equal(result.liveRampAllowed, true);
+  assert.equal(result.reviewsComplete, true);
+});
+
+test("two-stage authorization permits only the exact live window before reviews complete", () => {
+  const plan = authorizedPlan();
+  plan.status = "authorized-pending-live-validation";
+  for (const review of Object.values(plan.reviews)) {
+    review.state = "pending-live-validation";
+    review.evidenceRef = null;
+    review.reviewedAt = null;
+  }
+  const result = evaluateP520RampExitPlan(plan);
+  assert.equal(result.ok, true, result.errors.join("\n"));
+  assert.equal(result.liveRampAllowed, true);
+  assert.equal(result.reviewsComplete, false);
+  assert.equal(result.reviewsPassed, 0);
+});
+
+test("pending live reviews cannot masquerade as a completed authorization", () => {
+  const plan = authorizedPlan();
+  for (const review of Object.values(plan.reviews)) {
+    review.state = "pending-live-validation";
+    review.evidenceRef = null;
+    review.reviewedAt = null;
+  }
+  const result = evaluateP520RampExitPlan(plan);
+  assert.equal(result.liveRampAllowed, false);
+  assert.match(result.errors.join("\n"), /authorized-pending-live-validation/u);
 });
 
 test("production and shared staging are outside the authorization boundary", () => {

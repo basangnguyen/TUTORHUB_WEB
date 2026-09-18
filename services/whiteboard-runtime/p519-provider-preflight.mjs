@@ -217,8 +217,12 @@ function syntheticActorId(participantIndex) {
   return `51900000-0000-4000-8000-${String(participantIndex + 1).padStart(12, "0")}`;
 }
 
-export function buildP519GrantRequest(documentName, participantIndex = 0) {
-  const document = P519_PROVIDER_FIXTURE.documents.find(
+export function buildP519GrantRequest(
+  documentName,
+  participantIndex = 0,
+  providerFixture = P519_PROVIDER_FIXTURE,
+) {
+  const document = providerFixture.documents.find(
     (candidate) => candidate.providerDocumentName === documentName,
   );
   if (!document) throw new Error("p519_document_fixture_missing");
@@ -228,17 +232,26 @@ export function buildP519GrantRequest(documentName, participantIndex = 0) {
     document_id: document.documentId,
     provider_document_name: document.providerDocumentName,
     session_id: document.sessionId,
-    tenant_id: P519_PROVIDER_FIXTURE.tenantId,
+    tenant_id: document.tenantId ?? providerFixture.tenantId,
   };
 }
 
-async function issueGrant(options, documentName, participantIndex) {
+async function issueGrant(
+  options,
+  documentName,
+  participantIndex,
+  providerFixture,
+) {
   const result = await fetchJson(
     `${options.controlUrl}/p519/v1/grants`,
     options.adminToken,
     {
       body: JSON.stringify(
-        buildP519GrantRequest(documentName, participantIndex),
+        buildP519GrantRequest(
+          documentName,
+          participantIndex,
+          providerFixture,
+        ),
       ),
       method: "POST",
     },
@@ -312,7 +325,12 @@ function destroyClients(clients) {
   for (const client of clients) destroyClient(client);
 }
 
-async function replaceUnauthenticatedClients(options, clients, joinLatencies) {
+async function replaceUnauthenticatedClients(
+  options,
+  clients,
+  joinLatencies,
+  providerFixture,
+) {
   let replacements = 0;
   for (const [index, client] of clients.entries()) {
     if (client.provider.isAuthenticated) continue;
@@ -321,6 +339,7 @@ async function replaceUnauthenticatedClients(options, clients, joinLatencies) {
       options,
       client.documentName,
       client.participantIndex,
+      providerFixture,
     );
     const replacement = createProvider(
       options,
@@ -385,7 +404,10 @@ async function ensureReady(options) {
   return Date.now() - startedAt;
 }
 
-export async function runP519ProviderPreflight(environment = process.env) {
+export async function runP519ProviderPreflight(
+  environment = process.env,
+  providerFixture = P519_PROVIDER_FIXTURE,
+) {
   const options = validateP519ProviderEnvironment(environment);
   const coldStartMs = await ensureReady(options);
   const clients = [];
@@ -399,6 +421,7 @@ export async function runP519ProviderPreflight(environment = process.env) {
             options,
             documentName,
             documentIndex * CLIENTS_PER_DOCUMENT + clientIndex,
+            providerFixture,
           ),
         ),
       );
@@ -449,6 +472,7 @@ export async function runP519ProviderPreflight(environment = process.env) {
         options,
         clients,
         joinLatencies,
+        providerFixture,
       );
       if (replacements === 0) break;
     }

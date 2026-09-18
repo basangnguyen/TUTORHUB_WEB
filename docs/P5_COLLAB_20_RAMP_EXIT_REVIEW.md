@@ -1,18 +1,21 @@
 # P5-COLLAB-20 Ramp and rollback/exit review
 
-Status: **IN PROGRESS — PREPARATION ONLY**
+Status: **IN PROGRESS — CORRECTED CANDIDATE RE-AUTHORIZATION REQUIRED**
 
 Updated: 2026-09-18
 
 ## 1. Current decision
 
-P5-COLLAB-20 has started at the local preparation gate. This checkpoint does not authorize a
-provider mutation, tenant ramp, rollback, production action, or shared-staging action.
+The owner authorized the two-stage R3 workflow for candidate `b278bab`, but a pre-provider review
+found that the candidate allowlisted two tenants and two documents without binding each tenant to
+its own provider document. No provider call was made. The candidate is rejected for live use; the
+corrected candidate must receive a new exact-SHA authorization before any provider mutation.
 
-The local contract is intentionally fail-closed:
+The corrected local contract is intentionally fail-closed:
 
-- liveActionsAuthorized=false;
-- providerMutationAuthorized=false;
+- preparation packets keep liveActionsAuthorized=false and providerMutationAuthorized=false;
+- an owner-approved packet uses `authorized-pending-live-validation` and remains exact-target only;
+- `DONE` is impossible until all six fresh live reviews are `passed` with evidence references;
 - production and shared staging are outside the authorization boundary;
 - the live target environment and approval identity remain unset;
 - the private preparation packet binds the proposed candidate, inherited target fingerprint and
@@ -59,7 +62,7 @@ Paid multi-instance production topology remains deferred and has not been provis
 | R0    | Global force-off, zero tenant           | Completed | Static and provider force-off evidence                      |
 | R1    | Exact-one internal tenant               | Completed | 2 documents, 10 connections, 64 MiB, 600 operations/minute  |
 | R2    | Private alpha                           | Completed | P5-COLLAB-19 60-minute soak, drills, cleanup, owner closure |
-| R3    | Exact-two disposable private-alpha ramp | Blocked   | Hash/count bound; separate exact authorization is required  |
+| R3    | Exact-two disposable private-alpha ramp | Blocked   | Corrected candidate needs a new exact-SHA authorization     |
 
 The first R3 hold is fixed at exactly two tenants: the smallest tenant-count increase after the
 exact-one internal canary. The actual tenant UUIDs are confined to an ignored private manifest.
@@ -70,7 +73,7 @@ Before a live action, the authorization packet must bind:
 3. exact tenant count and per-tenant quotas;
 4. hold duration of at least 3,600 seconds;
 5. named approver and timestamp;
-6. provider-observed evidence locations;
+6. two-stage review state: pending during the authorized live window, then six fresh evidence locations before completion;
 7. ready live and rollback executors.
 
 The first R3 hold point cannot exceed the already-proven per-tenant profile: 2 documents,
@@ -99,6 +102,10 @@ packet, exact candidate SHA, target fingerprint and private exact-two manifest b
 adapter can be called. It deploys in `off`, applies only the evaluated mode, emits a redacted receipt
 and makes rollback traverse `read_only -> off`. The allowlisted Render adapter is implemented and
 mock-tested, but exact-target live proof remains pending, so P5-COLLAB-20 cannot enter R3 yet.
+The live runner provisions one provider document per tenant and performs a negative cross-tenant
+grant probe before workload execution. The control plane now derives an exact tenant-to-document
+mapping from the sorted allowlist and rejects `tenant_document_mismatch`; the previously authorized
+`b278bab` candidate lacked this binding and was never deployed.
 
 Rollback completion must prove whiteboard off, runtime not ready, zero active document/edit
 connection, portable last-good artifact readability, and zero synthetic database/B2 residue.
@@ -150,8 +157,14 @@ Implemented:
 - scripts/p520-render-adapter.test.mjs: fully mocked provider proof for exact service cardinality,
   target/fingerprint drift rejection, three-key environment allowlist, initial-off/exact-two tenant
   enforcement, deploy/mode verification and credential-redacted public/error surfaces;
+- scripts/p520-provider-fixture.mjs: deterministic exact-two fixture mapper and transactional
+  provision/verify/cleanup/destroy lifecycle with no identifier output;
+- scripts/p520-live-runner.mjs: exact-confirmation two-stage packet materializer, deploy/preflight,
+  negative cross-tenant probe, rollback and final ledger/zero-state cleanup orchestration;
+- services/whiteboard-runtime/p520-provider-soak.mjs: exact-two wrapper around the inherited
+  provider-observed 3,600-second soak/drill harness, bound to P5-COLLAB-20 private artifacts;
 - scripts/p519-live-control.mjs: optional P5-COLLAB-20 exact-two tenant allowlist, initial-off mode and
-  R3 quota profile while preserving the P5-COLLAB-19 default behavior;
+  R3 quota profile plus exact tenant-to-document binding while preserving P5-COLLAB-19 behavior;
 - scripts/check-p520-ramp-guard.mjs: static guard for default-off, exact-two config and low-quota
   server wiring while preserving the exact-one canary path;
 - scripts/run-p520-local.mjs: local-only aggregate runner.
@@ -184,9 +197,10 @@ unset until separately supplied. The tenant binder can materialize only the allo
 it does not set authorization, live readiness, review PASS state, or provider mutation permission.
 The dry-run command cannot mutate a provider.
 
-Current result: PASS, including 43/43 P5-COLLAB-20 contract/dry-run/binder/executor/control/adapter tests,
+Current result: PASS, including 51/51 P5-COLLAB-20 contract/dry-run/binder/executor/control/adapter/fixture/live-runner tests,
 targeted Core API config/guardrail tests, plus inherited force-off and bounded-canary static guards.
 The adapter tests inject a fake fetch implementation; no Render, Neon or B2 provider call was made.
+P5-COLLAB-19 regression also remains PASS after the generic fixture parameterization.
 
 Exact-two binding checkpoint on 2026-09-17:
 
@@ -200,7 +214,9 @@ Exact-two binding checkpoint on 2026-09-17:
 
 ## 8. Remaining gates
 
-- [ ] Receive a separate exact authorization for R3 on a disposable private-alpha target.
+- [x] Receive two-stage authorization for candidate `b278bab`; reject that candidate locally after
+  finding the missing tenant-to-document binding, without a provider call.
+- [ ] Receive a new exact-SHA authorization for the corrected disposable R3 candidate.
 - [x] Supply the private exact-two tenant manifest and materialize its hash/count binding.
 - [ ] Bind exact candidate and environment fingerprint in the separately approved live packet.
 - [x] Implement and test the fail-closed live-decision/rollback executor core without logging secrets

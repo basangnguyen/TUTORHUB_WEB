@@ -129,8 +129,12 @@ function actorId(participantIndex) {
   return `51900000-0000-4000-8000-${String(participantIndex + 1).padStart(12, "0")}`;
 }
 
-function grantRequest(documentName, participantIndex) {
-  const fixture = P519_PROVIDER_FIXTURE.documents.find(
+function grantRequest(
+  documentName,
+  participantIndex,
+  providerFixture = P519_PROVIDER_FIXTURE,
+) {
+  const fixture = providerFixture.documents.find(
     (candidate) => candidate.providerDocumentName === documentName,
   );
   if (!fixture) throw new Error("p519_soak_fixture_missing");
@@ -140,7 +144,7 @@ function grantRequest(documentName, participantIndex) {
     document_id: fixture.documentId,
     provider_document_name: fixture.providerDocumentName,
     session_id: fixture.sessionId,
-    tenant_id: P519_PROVIDER_FIXTURE.tenantId,
+    tenant_id: fixture.tenantId ?? providerFixture.tenantId,
   };
 }
 
@@ -172,12 +176,19 @@ async function fetchJson(url, token, init = {}, expected = [200, 201]) {
   return body.trim() === "" ? undefined : JSON.parse(body);
 }
 
-async function issueGrant(options, documentName, participantIndex) {
+async function issueGrant(
+  options,
+  documentName,
+  participantIndex,
+  providerFixture = P519_PROVIDER_FIXTURE,
+) {
   const result = await fetchJson(
     `${options.controlUrl}/p519/v1/grants`,
     options.adminToken,
     {
-      body: JSON.stringify(grantRequest(documentName, participantIndex)),
+      body: JSON.stringify(
+        grantRequest(documentName, participantIndex, providerFixture),
+      ),
       method: "POST",
     },
     [201],
@@ -250,6 +261,7 @@ async function connectWithFreshGrant(
   options,
   documentName,
   participantIndex,
+  providerFixture,
   document,
 ) {
   const joinedAt = Date.now();
@@ -257,7 +269,12 @@ async function connectWithFreshGrant(
   for (let attempt = 1; attempt <= 3; attempt += 1) {
     let client;
     try {
-      const grant = await issueGrant(options, documentName, participantIndex);
+      const grant = await issueGrant(
+        options,
+        documentName,
+        participantIndex,
+        providerFixture,
+      );
       client = createProvider(options, documentName, grant, document);
       await withTimeout(client.synced, 45_000, "p519_soak_sync_timeout");
       client.joinedAt = joinedAt;
@@ -562,6 +579,7 @@ async function reconnectClients(state, record = true) {
         state.options,
         client.documentName,
         index,
+        state.fixture,
         client.document,
       );
       state.clients = replacements.slice();
@@ -603,6 +621,7 @@ async function reconnectClients(state, record = true) {
         state.options,
         client.documentName,
         index,
+        state.fixture,
         client.document,
       );
       reconnectLatencies.push(Date.now() - startedAt);
@@ -696,7 +715,12 @@ async function controlOutageDrill(state, outageMs = CONTROL_OUTAGE_MS) {
   for (const client of state.clients) destroyTransport(client);
   let newDocumentFailedClosed = false;
   try {
-    await issueGrant(state.options, state.options.documents[0], 0);
+    await issueGrant(
+      state.options,
+      state.options.documents[0],
+      0,
+      state.fixture,
+    );
   } catch {
     newDocumentFailedClosed = true;
   }
@@ -1001,7 +1025,12 @@ async function forceOffDrill(state) {
   for (const client of state.clients) destroyTransport(client);
   let newGrantRejected = false;
   try {
-    await issueGrant(state.options, state.options.documents[0], 0);
+    await issueGrant(
+      state.options,
+      state.options.documents[0],
+      0,
+      state.fixture,
+    );
   } catch {
     newGrantRejected = true;
   }
@@ -1030,7 +1059,12 @@ async function credentialAndRevokeDrill(state) {
   state.stage = "credential_revoke";
   progress("credential_revoke_started");
   const documentName = state.options.documents[0];
-  const grant = await issueGrant(state.options, documentName, 0);
+  const grant = await issueGrant(
+    state.options,
+    documentName,
+    0,
+    state.fixture,
+  );
   const exchangeBody = {
     grant,
     origin: state.options.allowedOrigin,
@@ -1183,19 +1217,21 @@ async function flushDeferredSemantic(state) {
 }
 
 async function cleanupDatabaseResidue(state) {
+  const tenantIds = state.fixture.tenantIds ?? [state.fixture.tenantId];
   return withOwnerDatabase(state.environment, async (client) => {
     await client.query(
-      `DELETE FROM tutorhub.whiteboard_document_checkpoints WHERE tenant_id = $1`,
-      [P519_PROVIDER_FIXTURE.tenantId],
+      `DELETE FROM tutorhub.whiteboard_document_checkpoints
+        WHERE tenant_id = ANY($1::uuid[])`,
+      [tenantIds],
     );
     const result = await client.query(
       `SELECT
-         (SELECT count(*) FROM tutorhub.whiteboard_document_checkpoints WHERE tenant_id = $1) +
-         (SELECT count(*) FROM tutorhub.whiteboard_snapshots WHERE tenant_id = $1) +
-         (SELECT count(*) FROM tutorhub.whiteboard_artifact_commands WHERE tenant_id = $1) +
-         (SELECT count(*) FROM tutorhub.whiteboard_artifact_purge_queue WHERE tenant_id = $1)
+         (SELECT count(*) FROM tutorhub.whiteboard_document_checkpoints WHERE tenant_id = ANY($1::uuid[])) +
+         (SELECT count(*) FROM tutorhub.whiteboard_snapshots WHERE tenant_id = ANY($1::uuid[])) +
+         (SELECT count(*) FROM tutorhub.whiteboard_artifact_commands WHERE tenant_id = ANY($1::uuid[])) +
+         (SELECT count(*) FROM tutorhub.whiteboard_artifact_purge_queue WHERE tenant_id = ANY($1::uuid[]))
            AS count`,
-      [P519_PROVIDER_FIXTURE.tenantId],
+      [tenantIds],
     );
     return Number(result.rows[0]?.count ?? -1);
   });
@@ -1345,6 +1381,7 @@ async function connectInitialClients(state) {
         state.options,
         documentName,
         participantIndex,
+        state.fixture,
       );
       state.clients.push(client);
     }
@@ -1454,6 +1491,7 @@ async function measureFreshJoins(state) {
       state.options,
       client.documentName,
       index,
+      state.fixture,
     );
     replacements[index] = replacement;
     state.clients = replacements.slice();
@@ -1502,17 +1540,25 @@ async function waitForStableLoad(
   throw new Error("p519_soak_initial_stability_timeout");
 }
 
-async function runSoak(environment = process.env) {
+export async function runP519ProviderSoak(
+  environment = process.env,
+  {
+    bindingFile = BINDING_FILE,
+    deployStateFile = DEPLOY_STATE_FILE,
+    outputFile = OUTPUT_FILE,
+    providerFixture = P519_PROVIDER_FIXTURE,
+  } = {},
+) {
   const options = validateP519ProviderEnvironment(environment);
   const controlToken = environment.P5_COLLAB_19_CONTROL_TOKEN_CURRENT ?? "";
   if (controlToken.length < 20)
     throw new Error("p519_soak_control_token_invalid");
   const bindingDocument = JSON.parse(
-    readFileSync(resolve(ROOT, BINDING_FILE), "utf8"),
+    readFileSync(resolve(ROOT, bindingFile), "utf8"),
   );
   const binding = bindingDocument.binding;
   const deployState = JSON.parse(
-    readFileSync(resolve(ROOT, DEPLOY_STATE_FILE), "utf8"),
+    readFileSync(resolve(ROOT, deployStateFile), "utf8"),
   );
   if (
     !binding ||
@@ -1537,6 +1583,7 @@ async function runSoak(environment = process.env) {
     drillChain: Promise.resolve(),
     drillResults: {},
     environment,
+    fixture: providerFixture,
     metricsChain: Promise.resolve(),
     observations: {
       acknowledgementMs: [],
@@ -1682,7 +1729,7 @@ async function runSoak(environment = process.env) {
       expectedBinding: binding,
       nowMs: Date.now(),
     });
-    const outputPath = resolve(ROOT, process.argv[3] ?? OUTPUT_FILE);
+    const outputPath = resolve(ROOT, process.argv[3] ?? outputFile);
     writeJsonAtomic(
       resolve(dirname(outputPath), "provider-report-summary.json"),
       createRedactedP519Summary(report, evaluation),
@@ -1727,6 +1774,7 @@ async function runConnectionSmoke(environment = process.env) {
     deferredSemanticChecks: 0,
     drillResults: {},
     environment,
+    fixture: P519_PROVIDER_FIXTURE,
     metricsChain: Promise.resolve(),
     observations: {
       acknowledgementMs: [],
@@ -1842,6 +1890,7 @@ async function runRecoverySmoke(environment = process.env) {
     deferredSemanticChecks: 0,
     drillResults: {},
     environment,
+    fixture: P519_PROVIDER_FIXTURE,
     metricsChain: Promise.resolve(),
     observations: {
       acknowledgementMs: [],
@@ -1951,7 +2000,7 @@ if (import.meta.url === invokedPath) {
       ? runConnectionSmoke()
       : process.argv[2] === "--recovery-smoke"
         ? runRecoverySmoke()
-        : runSoak();
+        : runP519ProviderSoak();
   operation
     .then((result) => process.stdout.write(`${JSON.stringify(result)}\n`))
     .catch((error) => {

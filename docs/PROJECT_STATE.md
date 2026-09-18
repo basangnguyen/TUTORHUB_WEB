@@ -13,9 +13,9 @@
 | Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4                                                    |
 | Phase hiện tại       | Phase 5 collaboration implementation; Phase 3 deferred carry-over vẫn hoạt động       |
 | Task `DONE` gần nhất | P5-COLLAB-19 Private alpha acceptance                                                 |
-| Mốc repository mới   | P5-COLLAB-20 mocked Render adapter checkpoint; local gate 43/43 PASS                  |
-| Task hiện tại        | P5-COLLAB-20 — IN PROGRESS; preparation contract PASS, live ramp chưa được phép       |
-| Task tiếp theo       | Chốt exact live packet/owner authorization trước mọi provider mutation                |
+| Mốc repository mới   | P5-COLLAB-20 corrected exact-two live runner; local gate 51/51 PASS                    |
+| Task hiện tại        | P5-COLLAB-20 — IN PROGRESS; corrected candidate requires new exact-SHA authorization  |
+| Task tiếp theo       | Commit/push corrected candidate, then authorize that exact SHA before provider action |
 
 ### Checkpoint P5-COLLAB-20 IN PROGRESS — 2026-09-18
 
@@ -24,7 +24,7 @@ P5-COLLAB-19 ở exact baseline candidate 22ebfe1bfecc95d782ee35f4a8049c32f25fdc
 42 false, whiteboard off; khóa one-authority Excalidraw/Yjs/Hocuspocus và profile
 FREE_PRIVATE_ALPHA một Render Free Singapore, không Redis/HA/autoscale, hard cap 0 USD.
 
-pnpm test:collaboration:p520 PASS: 43/43 contract/dry-run/binder/executor/control/adapter test, static force-off, exact-one
+pnpm test:collaboration:p520 PASS: 51/51 contract/dry-run/binder/executor/control/adapter/fixture/live-runner test, static force-off, exact-one
 low-quota canary guard. Authorization packet materializer chỉ import SHA/deploy-ID allowlist từ
 P5-19, ghi atomically vào private tmp và không overwrite; dry-run chỉ nhận bounded JSON dưới
 tmp/p5-collab-20, trả redacted hash receipt và từ chối live flag trước khi đọc input. Contract từ
@@ -47,6 +47,14 @@ P5-COLLAB-20 vẫn IN PROGRESS; bước tiếp theo là nhận authorization ri�
 trước khi chạy adapter trên hai disposable Render service.
 Checkpoint executor này không gọi Render/Neon/B2. Review:
 [P5_COLLAB_20_RAMP_EXIT_REVIEW.md](P5_COLLAB_20_RAMP_EXIT_REVIEW.md).
+
+Owner đã phê duyệt workflow hai giai đoạn cho candidate `b278bab`, nhưng pre-provider review phát hiện
+candidate này chưa bind từng tenant với đúng provider document. Không có provider call/deploy nào được
+thực hiện. Control đã được sửa để từ chối `tenant_document_mismatch`; exact-two fixture, negative
+isolation probe, live runner và wrapper soak 3.600 giây đã được thêm. Authorization hai giai đoạn chỉ
+cho phép exact disposable live window ở trạng thái `authorized-pending-live-validation`; task không
+thể `DONE` trước khi đủ sáu fresh live review PASS. Corrected candidate phải được commit/push và nhận
+authorization mới theo exact SHA trước mọi provider mutation.
 
 ### Checkpoint P5-COLLAB-19 `DONE` — 2026-09-17
 

@@ -94,9 +94,10 @@ export function containsP520SecretMaterial(value) {
 }
 
 function validateReviews(errors, reviews, authorized) {
+  let passed = 0;
   if (!isRecord(reviews)) {
     errors.push("reviews must be an object");
-    return;
+    return { allPassed: false, passed: 0 };
   }
   for (const category of REQUIRED_REVIEWS) {
     const review = reviews[category];
@@ -104,14 +105,16 @@ function validateReviews(errors, reviews, authorized) {
       errors.push(`reviews.${category} must be an object`);
       continue;
     }
-    const expectedState = authorized ? "passed" : "pending-live-validation";
-    requireExact(
-      errors,
-      review.state,
-      expectedState,
-      `reviews.${category}.state`,
-    );
-    if (authorized) {
+    const allowedStates = authorized
+      ? new Set(["pending-live-validation", "passed"])
+      : new Set(["pending-live-validation"]);
+    if (!allowedStates.has(review.state)) {
+      errors.push(
+        `reviews.${category}.state must be ${authorized ? "pending-live-validation or passed" : "pending-live-validation"}`,
+      );
+    }
+    if (review.state === "passed") {
+      passed += 1;
       if (
         typeof review.evidenceRef !== "string" ||
         review.evidenceRef.trim().length < 8
@@ -123,6 +126,7 @@ function validateReviews(errors, reviews, authorized) {
       }
     }
   }
+  return { allPassed: passed === REQUIRED_REVIEWS.length, passed };
 }
 
 function validateQuotas(errors, quotas) {
@@ -342,7 +346,7 @@ export function evaluateP520RampExitPlan(plan) {
   }
 
   const authorized = plan.posture?.liveActionsAuthorized === true;
-  validateReviews(errors, plan.reviews, authorized);
+  const reviewState = validateReviews(errors, plan.reviews, authorized);
 
   if (!authorized) {
     requireExact(errors, plan.status, "preparation-only", "status");
@@ -391,7 +395,14 @@ export function evaluateP520RampExitPlan(plan) {
       "completion.exactCandidateRecorded",
     );
   } else {
-    requireExact(errors, plan.status, "authorized", "status");
+    requireExact(
+      errors,
+      plan.status,
+      reviewState.allPassed
+        ? "authorized"
+        : "authorized-pending-live-validation",
+      "status",
+    );
     requireExact(
       errors,
       plan.posture?.providerMutationAuthorized,
@@ -459,6 +470,8 @@ export function evaluateP520RampExitPlan(plan) {
   return {
     ok: errors.length === 0,
     liveRampAllowed: authorized && errors.length === 0,
+    reviewsComplete: reviewState.allPassed,
+    reviewsPassed: reviewState.passed,
     errors,
   };
 }

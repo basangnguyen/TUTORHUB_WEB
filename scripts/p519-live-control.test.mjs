@@ -214,6 +214,16 @@ test("P5-COLLAB-20 starts off, allowlists exactly two tenants and lowers quotas"
   assert.equal(denied.response.status, 400);
   assert.equal(denied.payload.code, "tenant_not_allowlisted");
 
+  const crossTenant = await request(base, "/p519/v1/grants", ADMIN, {
+    actor_id: "actor-cross-tenant",
+    document_id: P519_PROVIDER_FIXTURE.documents[1].documentId,
+    provider_document_name: DEFAULT_DOCUMENTS[1],
+    session_id: "session-cross-tenant",
+    tenant_id: tenants[0],
+  });
+  assert.equal(crossTenant.response.status, 400);
+  assert.equal(crossTenant.payload.code, "tenant_document_mismatch");
+
   const issued = await request(base, "/p519/v1/grants", ADMIN, {
     actor_id: "actor-allowed",
     document_id: P519_PROVIDER_FIXTURE.documents[0].documentId,

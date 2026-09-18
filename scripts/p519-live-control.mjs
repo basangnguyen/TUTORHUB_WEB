@@ -100,7 +100,14 @@ function exactScope(left, right) {
   );
 }
 
-function createGrant(body, documents, allowedOrigin, tenants, quotas) {
+function createGrant(
+  body,
+  documents,
+  allowedOrigin,
+  tenants,
+  tenantDocuments,
+  quotas,
+) {
   const providerDocumentName = requiredDocument(
     body.provider_document_name,
     documents,
@@ -110,6 +117,12 @@ function createGrant(body, documents, allowedOrigin, tenants, quotas) {
   const tenantId = requiredUuid(body.tenant_id, "tenant_id").toLowerCase();
   if (tenants && !tenants.has(tenantId)) {
     throw new Error("tenant_not_allowlisted");
+  }
+  if (
+    tenantDocuments &&
+    tenantDocuments.get(tenantId) !== providerDocumentName
+  ) {
+    throw new Error("tenant_document_mismatch");
   }
   return {
     actor_id: requiredIdentifier(body.actor_id, "actor_id"),
@@ -133,6 +146,14 @@ export function createP519Control(options) {
   const allowedOrigin = String(options.allowedOrigin ?? "");
   const documents = new Set(options.documents ?? DEFAULT_DOCUMENTS);
   const tenants = options.tenants ? new Set(options.tenants) : null;
+  const tenantDocuments = tenants
+    ? new Map(
+        [...tenants].map((tenantId, index) => [
+          tenantId,
+          [...documents][index],
+        ]),
+      )
+    : null;
   const quotas = options.quotas ?? P519_QUOTAS;
   if (serviceToken.length < 20 || adminToken.length < 20) {
     throw new Error("control_tokens_must_be_at_least_20_characters");
@@ -297,6 +318,7 @@ export function createP519Control(options) {
           documents,
           allowedOrigin,
           tenants,
+          tenantDocuments,
           quotas,
         );
         const token = randomBytes(32).toString("base64url");

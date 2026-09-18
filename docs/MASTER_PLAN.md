@@ -11,7 +11,7 @@
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
 | Phase hiện tại        | Phase 5 collaboration implementation; Phase 3 deferred carry-over tiếp tục                   |
-| Trạng thái gần nhất   | P5-COLLAB-20 IN PROGRESS; preparation PASS, live ramp cần authorization riêng                |
+| Trạng thái gần nhất   | P5-COLLAB-20 IN PROGRESS; corrected candidate needs new exact-SHA authorization             |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 

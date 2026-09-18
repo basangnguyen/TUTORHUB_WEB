@@ -24,6 +24,8 @@ const steps = [
       "scripts/p520-ramp-dry-run.test.mjs",
       "scripts/p520-ramp-executor.test.mjs",
       "scripts/p520-render-adapter.test.mjs",
+      "scripts/p520-provider-fixture.test.mjs",
+      "scripts/p520-live-runner.test.mjs",
       "scripts/p520-tenant-allowlist.test.mjs",
       "scripts/p519-live-control.test.mjs",
     ],
