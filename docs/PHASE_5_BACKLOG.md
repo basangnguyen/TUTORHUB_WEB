@@ -44,10 +44,12 @@
 > cleanup đều PASS; ledger cuối `42 false`, whiteboard force-off. Lượt validation đúng freshness không
 > có durable receipt vì wrapper gặp cleanup transient sau drill; lượt lại bị freshness gate từ chối.
 > Owner đã chấp nhận closure dựa trên lần PASS đúng hạn cùng cleanup PASS sau recovery;
-> P5-COLLAB-20 hiện ở `VERIFY`: live v2 hold trên exact disposable candidate đã PASS corrected
-> artifact p95 `2117 ms`, đúng 20 create + 20 restore sample, full drill matrix và cost gate.
-> Six-review finalizer bị trusted-clock freshness từ chối sau task interruption; rollback/cleanup cuối
-> PASS ở ledger `42 false`, whiteboard force-off. Contract không bị nới và completion packet chưa tạo.
+> P5-COLLAB-20 đã `DONE` ngày 2026-09-18 trên exact candidate `e6cf027`: provider-observed hold đủ
+> 3.600 giây, `12.000` operation, 20 artifact + 20 restore sample, full drill matrix `8/8`, cost gate
+> và soak cleanup đều PASS. Same-process finalizer materialize sáu review `6/6` sau `18.001s`, trong
+> freshness `300s`. Rollback `read_only -> off` và final cleanup PASS ở ledger `42 false`, whiteboard
+> force-off, runtime/synthetic/document/connection residue đều zero. Phase 5 collaboration đã đóng;
+> supported profile vẫn `FREE_PRIVATE_ALPHA`, không HA/autoscaling và mọi ramp sau cần authorization mới.
 
 ## 1. Mục tiêu phase
 
@@ -116,7 +118,7 @@ Xây collaboration plane cho lớp học mà không làm rời hoặc làm yếu
 | P5-COLLAB-17 | Rollout        | Force-off staging acceptance                    | P5-COLLAB-10..16           | DONE       |
 | P5-COLLAB-18 | Rollout        | Internal canary                                 | P5-COLLAB-17               | DONE       |
 | P5-COLLAB-19 | Rollout        | Private alpha                                   | P5-COLLAB-18               | DONE       |
-| P5-COLLAB-20 | Rollout        | Ramp và rollback/exit review                    | P5-COLLAB-19               | VERIFY     |
+| P5-COLLAB-20 | Rollout        | Ramp và rollback/exit review                    | P5-COLLAB-19               | DONE       |
 
 `VERIFY` chỉ được dùng sau khi implementation và toàn bộ gate pre-staging của task xanh. `DONE`
 yêu cầu exact candidate/evidence được lưu trong repository và trạng thái tài liệu được cập nhật.
@@ -731,15 +733,28 @@ không gọi finalizer, finalizer fail làm toàn command fail closed. Regressio
 P5-COLLAB-20 `59/59`, P5-COLLAB-19 regression và ESLint đều PASS. Không có provider mutation trong
 checkpoint này; exact candidate mới cần owner authorization riêng.
 
+**Completion closure 2026-09-18 — DONE:** owner authorize exact candidate
+`e6cf0277258e944947fabec129b73937a4f14137` trên inherited disposable target và existing exact-two
+manifest. Packet v2 materialize PASS; `adopt-live` xác minh cả hai exact Render disposable service
+và initial `off`. Provision-base PASS ở ledger `42 false`; provider preflight PASS exact-two isolation.
+Hold đủ 3.600 giây đạt `12.000` operation, `120` metrics sample, `12` semantic check, `50` reconnect
+event; P95 join/reconnect/convergence/ack/artifact `3072/1632/575/446/1502 ms`, artifact/restore
+sample `20/20`, full drill matrix `8/8` và cost/cleanup gate PASS. Same-process finalizer materialize
+sáu review `6/6` sau `18.001s`, trong freshness `300s`, và completed packet ở trạng thái `authorized`.
+Mandatory rollback `read_only -> off` cùng final cleanup PASS: ledger `42 false`, whiteboard `off`,
+runtime not ready, synthetic tenant/document/edit connection zero. Không production/shared staging,
+migration rollback, paid capacity hoặc identifier/secret logging. P5-COLLAB-20 chuyển `VERIFY -> DONE`;
+Phase 5 collaboration đóng ở `FREE_PRIVATE_ALPHA`, không HA/autoscaling và không cấp quyền ramp kế tiếp.
+
 **Exit gate:**
 
 - [x] Ramp theo tenant/cap có hold point; auto/manual kill switch và rollback tiêu chí rõ.
 - [x] Chẩn đoán phép đo 4-sample và khóa forward P5-COLLAB-20 ở 20 create + 20 restore sample.
 - [x] Fresh live v2 hold PASS corrected artifact gate, full drill matrix, cost và zero-residue cleanup.
-- [ ] Materialize đủ sáu review PASS trong report freshness window của một completion attempt mới.
+- [x] Materialize đủ sáu review PASS trong report freshness window của completion attempt mới.
 - [x] Auto-finalize report trong cùng soak process để không phụ thuộc task continuation timing.
-- [ ] License/runtime/cost/security/a11y/provider-exit review vẫn đạt ở dữ liệu thực mới.
-- [ ] Phase completion ghi exact candidate, supported profile, residual risk và deferred work.
+- [x] License/runtime/cost/security/a11y/provider-exit review vẫn đạt ở dữ liệu thực mới.
+- [x] Phase completion ghi exact candidate, supported profile, residual risk và deferred work.
 - [x] Không tăng ramp nếu portability/recovery hoặc one-authority invariant bị vi phạm.
 
 ## 9. Threat model và test matrix xuyên suốt

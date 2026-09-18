@@ -10,8 +10,8 @@
 | Thư mục phát triển    | `D:\TutorHub_V2`                                                                             |
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
-| Phase hiện tại        | Phase 5 collaboration implementation; Phase 3 deferred carry-over tiếp tục                   |
-| Trạng thái gần nhất   | P5-COLLAB-20 VERIFY; same-process soak-to-finalize safeguard PASS locally, new auth pending  |
+| Phase hiện tại        | Phase 5 collaboration đã đóng; Phase 3 deferred carry-over tiếp tục                          |
+| Trạng thái gần nhất   | P5-COLLAB-20 DONE; live completion, six fresh reviews và final force-off cleanup PASS        |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 
@@ -1927,6 +1927,19 @@ successful provider report trong cùng process và chỉ trả PASS khi sáu rev
 failure không gọi finalizer; review failure làm command fail closed. P5-COLLAB-20 aggregate
 `59/59`, P5-COLLAB-19 regression và ESLint PASS. Không có provider action trong checkpoint này;
 exact candidate mới cần authorization riêng trước live completion attempt.
+
+P5-COLLAB-20 closure 2026-09-18 — `DONE`: exact candidate
+`e6cf0277258e944947fabec129b73937a4f14137` đã PASS packet v2, exact-two binding, exact disposable
+Render adoption/initial `off`, Neon provision-base và provider preflight. Provider-observed hold đủ
+3.600 giây đạt `12.000` operation, `120` metrics sample, `12` semantic check, `50` reconnect event,
+P95 join/reconnect/convergence/ack/artifact `3072/1632/575/446/1502 ms`, artifact/restore sample
+`20/20`, full drill matrix `8/8`, cost và soak-cleanup gate PASS. Same-process finalizer materialize
+sáu review `6/6` sau `18.001s`, trong freshness `300s`; completed packet chuyển `authorized`.
+Mandatory rollback `read_only -> off` và final cleanup PASS ledger `42 false`, whiteboard `off`,
+runtime/synthetic/document/connection residue zero. Không production/shared staging, migration
+rollback hoặc paid capacity. P5-COLLAB-20 chuyển `VERIFY -> DONE` và Phase 5 collaboration đóng.
+Supported profile vẫn `FREE_PRIVATE_ALPHA`: một instance, không HA/autoscaling, final force-off;
+production topology và mọi ramp/enablement mới tiếp tục deferred, cần authorization riêng.
 
 **Deliverable:** teacher mở/đóng công cụ mà không làm rời media room; trạng thái cộng tác khôi phục sau reconnect.
 
