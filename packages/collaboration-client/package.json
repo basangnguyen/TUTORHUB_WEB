@@ -27,8 +27,8 @@
     "typecheck": "tsc --noEmit --pretty false"
   },
   "dependencies": {
-    "@hocuspocus/provider": "4.6.0",
-    "yjs": "13.6.27"
+    "@hocuspocus/provider": "4.7.0",
+    "yjs": "13.6.32"
   },
   "devDependencies": {
     "vitest": "4.1.10"
