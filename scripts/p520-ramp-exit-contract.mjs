@@ -10,10 +10,14 @@ const REQUIRED_REVIEWS = Object.freeze([
 ]);
 
 export const P520_RAMP_EXIT_CONTRACT = Object.freeze({
-  schemaVersion: "p5-collab-20-ramp-exit-v1",
+  schemaVersion: "p5-collab-20-ramp-exit-v2",
   allowedEnvironment: "disposable-private-alpha",
   initialRampTenantCount: 2,
   minimumHoldSeconds: 3_600,
+  providerEvidence: Object.freeze({
+    artifactSampleCount: 20,
+    restoreSampleCount: 20,
+  }),
   initialPerTenantQuotaCeilings: Object.freeze({
     documents: 2,
     connections: 10,
@@ -159,6 +163,7 @@ export function createP520PreparationPlan() {
     priorGate: { ...P520_RAMP_EXIT_CONTRACT.priorGate },
     authority: { ...P520_RAMP_EXIT_CONTRACT.authority },
     supportedProfile: { ...P520_RAMP_EXIT_CONTRACT.supportedProfile },
+    providerEvidence: { ...P520_RAMP_EXIT_CONTRACT.providerEvidence },
     target: {
       environment: null,
       candidateSha: null,
@@ -247,6 +252,12 @@ export function evaluateP520RampExitPlan(plan) {
     plan.supportedProfile,
     P520_RAMP_EXIT_CONTRACT.supportedProfile,
     "supportedProfile",
+  );
+  validateExactRecord(
+    errors,
+    plan.providerEvidence,
+    P520_RAMP_EXIT_CONTRACT.providerEvidence,
+    "providerEvidence",
   );
   requireExact(
     errors,

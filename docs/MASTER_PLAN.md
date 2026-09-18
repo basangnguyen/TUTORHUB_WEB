@@ -11,7 +11,7 @@
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
 | Phase hiện tại        | Phase 5 collaboration implementation; Phase 3 deferred carry-over tiếp tục                   |
-| Trạng thái gần nhất   | P5-COLLAB-20 VERIFY; live artifact p95 failed twice, final force-off/cleanup PASS            |
+| Trạng thái gần nhất   | P5-COLLAB-20 VERIFY; local artifact measurement hardening PASS, new live proof pending       |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 
@@ -1896,9 +1896,17 @@ khác PASS. Six-review completion packet không được tạo và ngưỡng kh�
 Rollback cuối PASS `read_only -> off`; runtime not ready, document/edit connection `0/0`.
 Cleanup cuối PASS ledger `42 false`, whiteboard `off`, synthetic tenant/document `0/0`.
 Production/shared staging không bị chạm, không rollback migration hoặc tăng paid capacity.
-Local aggregate đạt `55/55`; bước tiếp theo là chẩn đoán artifact latency và cần authorization mới
+Chẩn đoán local và measurement correction đã hoàn tất; cần exact candidate và authorization mới
 trước bất kỳ live completion attempt nào khác. Phase 5 chưa đóng.
 Review: [P5_COLLAB_20_RAMP_EXIT_REVIEW.md](P5_COLLAB_20_RAMP_EXIT_REVIEW.md).
+
+P5-COLLAB-20 artifact measurement checkpoint 2026-09-18 — local only: harness cũ chỉ có 4 sample,
+nên nearest-rank P95 bằng max của bốn lần immutable existence-check/upload/read-back. Contract
+P5-COLLAB-20 v2 yêu cầu đúng 20 artifact create/read-back sample và 20 restore/reuse sample, không
+hạ ngưỡng `2500 ms`; restore RTO được tách sang restore path và six-review finalizer fail closed
+khi thiếu sample. P5-COLLAB-19 historical default vẫn là 4. Local P5-COLLAB-20 `57/57`,
+P5-COLLAB-19 regression, runtime `152 passed / 2 skipped`, lint/typecheck/build đều PASS.
+Không có provider mutation; cần exact candidate và authorization mới trước live proof tiếp theo.
 
 **Deliverable:** teacher mở/đóng công cụ mà không làm rời media room; trạng thái cộng tác khôi phục sau reconnect.
 

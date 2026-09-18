@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { createP520ProviderFixture } from "../../scripts/p520-provider-fixture.mjs";
+import { P520_RAMP_EXIT_CONTRACT } from "../../scripts/p520-ramp-exit-contract.mjs";
 import { runP519ProviderSoak } from "./p519-provider-soak.mjs";
 
 const ROOT = resolve(new URL("../..", import.meta.url).pathname.slice(1));
@@ -33,6 +34,8 @@ export async function runP520ProviderSoak(environment = process.env) {
     outputFile: OUTPUT_FILE,
     outputFileFromArgv: false,
     providerFixture: fixture,
+    artifactSampleCount:
+      P520_RAMP_EXIT_CONTRACT.providerEvidence.artifactSampleCount,
   });
 }
 

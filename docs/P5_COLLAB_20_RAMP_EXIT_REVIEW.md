@@ -202,7 +202,7 @@ unset until separately supplied. The tenant binder can materialize only the allo
 it does not set authorization, live readiness, review PASS state, or provider mutation permission.
 The dry-run command cannot mutate a provider.
 
-Current local result: PASS, including 55/55 P5-COLLAB-20 contract/dry-run/binder/executor/control/
+Current local result: PASS, including 57/57 P5-COLLAB-20 contract/dry-run/binder/executor/control/
 adapter/fixture/live-runner/finalizer tests,
 targeted Core API config/guardrail tests, plus inherited force-off and bounded-canary static guards.
 P5-COLLAB-19 regression also remains PASS after the generic fixture parameterization.
@@ -241,6 +241,21 @@ Exact-two binding checkpoint on 2026-09-17:
   and no six-review completion packet was materialized. A future completion attempt requires a new
   decision after diagnosing artifact latency; the current authorized retry budget is exhausted.
 
+### Local artifact measurement correction on 2026-09-18
+
+- The failed runs exposed a measurement defect: the inherited harness collected only four artifact
+  samples, so nearest-rank p95 was always the maximum. Each sample correctly covered the immutable
+  existence check, upload and verified read-back, but one transient B2 outlier decided the gate.
+- The P5-COLLAB-20 forward contract v2 now requires exactly 20 artifact create/read-back samples and
+  20 separately timed restore/reuse samples. The artifact threshold remains `2500 ms`; it was not
+  relaxed. Restore RTO now uses the restore/reuse path instead of the create path.
+- The six-review finalizer rejects a report unless both exact sample counts are present and the
+  inherited provider evaluation passes. P5-COLLAB-19 retains its historical four-sample default.
+- Local gates passed: P5-COLLAB-20 `57/57`, P5-COLLAB-19 regression PASS, whiteboard runtime
+  `152 passed / 2 skipped`, plus runtime lint, typecheck and build.
+- This checkpoint made no provider call, did not change the live mode and did not authorize another
+  hold. A new exact candidate and a new owner authorization are still required for live proof.
+
 ## 8. Remaining gates
 
 - [x] Receive two-stage authorization for candidate `b278bab`; reject that candidate locally after
@@ -257,7 +272,8 @@ Exact-two binding checkpoint on 2026-09-17:
 - [x] Run two provider-observed 3,600-second holds and the full drill matrix; both fail only the
       artifact latency gate, so the six-review completion packet remains blocked.
 - [x] Execute rollback/cleanup and confirm final whiteboard force-off plus zero residue.
-- [ ] Diagnose and correct artifact latency, then obtain a new authorization before any further
+- [x] Diagnose the four-sample p95 defect and implement exact 20-sample create plus restore evidence.
+- [ ] Obtain a new exact-candidate authorization and prove the corrected artifact gate in a fresh
       provider-observed completion attempt.
 - [ ] Record exact completion candidate, supported profile, residual risks and deferred work.
 

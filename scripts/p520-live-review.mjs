@@ -180,6 +180,24 @@ export function completeP520LiveReviewPacket(
   return completed;
 }
 
+export function hasRequiredP520ArtifactEvidence(report, reportEvaluation) {
+  const artifactSamples = report?.observations?.artifactMs;
+  const restoreSamples = report?.observations?.artifactRestoreMs;
+  const required = P520_RAMP_EXIT_CONTRACT.providerEvidence;
+  return (
+    reportEvaluation?.ok === true &&
+    Array.isArray(artifactSamples) &&
+    artifactSamples.length === required.artifactSampleCount &&
+    artifactSamples.every((value) => Number.isFinite(value) && value >= 0) &&
+    Array.isArray(restoreSamples) &&
+    restoreSamples.length === required.restoreSampleCount &&
+    restoreSamples.every((value) => Number.isFinite(value) && value >= 0) &&
+    Number.isFinite(reportEvaluation.metrics?.artifactP95Ms) &&
+    reportEvaluation.metrics.artifactP95Ms <=
+      P519_PRIVATE_ALPHA_CONTRACT.thresholds.artifactP95Ms
+  );
+}
+
 function requireLiveEvidence(packet, binding, preflight, report, repository) {
   const reportEvaluation = evaluateP519PrivateAlphaReport(report, {
     expectedBinding: binding,
@@ -206,6 +224,7 @@ function requireLiveEvidence(packet, binding, preflight, report, repository) {
     !exactBinding ||
     !preflightPassed ||
     !repositoryPassed ||
+    !hasRequiredP520ArtifactEvidence(report, reportEvaluation) ||
     report.observations?.costUsd !== 0 ||
     report.observations?.optionalBurst?.enabled !== false ||
     report.publication?.accessibilityNoticePublished !== true
@@ -238,7 +257,13 @@ export function createP520LiveReviewEvidence({
         dependencyScopeUnchanged: repository.dependencyScopeUnchanged,
         lockfileSha256: repository.lockfileSha256,
       },
-      runtime: { providerReportPassed: true, cleanupVerified: true },
+      runtime: {
+        providerReportPassed: true,
+        cleanupVerified: true,
+        artifactSampleCount: report.observations.artifactMs.length,
+        restoreSampleCount: report.observations.artifactRestoreMs.length,
+        artifactP95Ms: reportEvaluation.metrics.artifactP95Ms,
+      },
       cost: { costUsd: 0, optionalBurstEnabled: false },
       security: { exactTwoTenantIsolation: true, providerDrillsPassed: true },
       accessibility: {

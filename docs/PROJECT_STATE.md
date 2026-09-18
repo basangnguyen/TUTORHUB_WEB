@@ -4,18 +4,18 @@
 
 ## Snapshot
 
-| Thuộc tính           | Trạng thái                                                                              |
-| -------------------- | --------------------------------------------------------------------------------------- |
-| Ngày cập nhật        | 2026-09-18                                                                              |
-| Repository           | `https://github.com/basangnguyen/TUTORHUB_WEB`                                          |
-| Nhánh làm việc       | `main`                                                                                  |
-| Quy trình            | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn   |
-| Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4                                                      |
-| Phase hiện tại       | Phase 5 collaboration implementation; Phase 3 deferred carry-over vẫn hoạt động         |
-| Task `DONE` gần nhất | P5-COLLAB-19 Private alpha acceptance                                                   |
-| Mốc repository mới   | P5-COLLAB-20 exact disposable R3 attempted; local gate 55/55 và final cleanup PASS      |
-| Task hiện tại        | P5-COLLAB-20 — VERIFY; artifact p95 live gate failed twice, whiteboard force-off        |
-| Task tiếp theo       | Diagnose artifact latency; require new authorization before another live completion run |
+| Thuộc tính           | Trạng thái                                                                            |
+| -------------------- | ------------------------------------------------------------------------------------- |
+| Ngày cập nhật        | 2026-09-18                                                                            |
+| Repository           | `https://github.com/basangnguyen/TUTORHUB_WEB`                                        |
+| Nhánh làm việc       | `main`                                                                                |
+| Quy trình            | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
+| Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4                                                    |
+| Phase hiện tại       | Phase 5 collaboration implementation; Phase 3 deferred carry-over vẫn hoạt động       |
+| Task `DONE` gần nhất | P5-COLLAB-19 Private alpha acceptance                                                 |
+| Mốc repository mới   | P5-COLLAB-20 artifact measurement hardened locally; gate 57/57, no provider call      |
+| Task hiện tại        | P5-COLLAB-20 — VERIFY; corrected artifact gate still requires new live evidence       |
+| Task tiếp theo       | Commit exact candidate; obtain new authorization before another live completion run   |
 
 ### Checkpoint P5-COLLAB-20 `VERIFY` — 2026-09-18
 
@@ -32,11 +32,18 @@ zero database/runtime/B2 residue. Ngưỡng không bị nới và six-review com
 
 Rollback cuối PASS theo `read_only -> off`; runtime not ready, document/edit connection `0/0`.
 Cleanup cuối PASS với ledger `42 false`, whiteboard `off`, synthetic tenant/document `0/0`.
-P5-COLLAB-20 giữ `VERIFY`; retry authorization hiện tại đã hết. Bước tiếp theo là chẩn đoán artifact
-latency và phải có authorization mới trước một live completion attempt khác.
+P5-COLLAB-20 giữ `VERIFY`; retry authorization hiện tại đã hết. Chẩn đoán local và measurement
+correction đã hoàn tất; cần exact candidate cùng authorization mới trước live completion attempt khác.
 
-Local finalizer fail-closed đã được bổ sung nhưng không chạy khi report gate fail. Aggregate
-`pnpm test:collaboration:p520` đạt `55/55`, ESLint file thay đổi PASS. Review:
+Local diagnosis xác nhận harness cũ chỉ thu 4 artifact sample, vì vậy nearest-rank P95 luôn là
+giá trị lớn nhất; mỗi sample còn bao trùm immutable existence check, upload và verified read-back.
+Forward-only P5-COLLAB-20 contract v2 nay yêu cầu đúng 20 artifact sample và 20 restore/reuse sample,
+giữ nguyên ngưỡng artifact P95 `2500 ms`. Restore RTO nay dùng riêng restore/reuse latency; finalizer
+fail closed nếu thiếu sample. Mặc định lịch sử P5-COLLAB-19 vẫn là 4 sample và không bị viết lại.
+
+Không có provider call trong checkpoint sửa này. Aggregate `pnpm test:collaboration:p520` đạt
+`57/57`; P5-COLLAB-19 local regression, runtime `152 passed / 2 skipped`, lint, typecheck và build
+đều PASS. Kết quả live vẫn cần một exact candidate mới và authorization mới. Review:
 [P5_COLLAB_20_RAMP_EXIT_REVIEW.md](P5_COLLAB_20_RAMP_EXIT_REVIEW.md).
 
 ### Checkpoint P5-COLLAB-19 `DONE` — 2026-09-17

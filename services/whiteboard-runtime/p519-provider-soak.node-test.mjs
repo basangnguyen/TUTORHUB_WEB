@@ -5,6 +5,7 @@ import {
   createBoundItem,
   enqueueReconnect,
   operationsDue,
+  resolveArtifactSampleCount,
   selectOperationSource,
   selectProviderReportOutputFile,
   shouldDeferSemanticCheck,
@@ -26,6 +27,19 @@ test("embedded soak wrappers ignore their confirmation token as an output path",
   assert.equal(
     selectProviderReportOutputFile("provider-report.json", true, argv),
     "confirmation-token",
+  );
+});
+
+test("artifact sampling remains bounded while allowing a statistically meaningful P520 profile", () => {
+  assert.equal(resolveArtifactSampleCount(), 4);
+  assert.equal(resolveArtifactSampleCount(20), 20);
+  assert.throws(
+    () => resolveArtifactSampleCount(0),
+    /artifact_sample_count_invalid/u,
+  );
+  assert.throws(
+    () => resolveArtifactSampleCount(101),
+    /artifact_sample_count_invalid/u,
   );
 });
 

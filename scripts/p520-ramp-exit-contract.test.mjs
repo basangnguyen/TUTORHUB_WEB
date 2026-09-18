@@ -53,6 +53,24 @@ test("an authorized exact disposable plan can become eligible", () => {
   assert.equal(result.reviewsComplete, true);
 });
 
+test("provider evidence requires statistically meaningful artifact and restore samples", () => {
+  assert.equal(
+    P520_RAMP_EXIT_CONTRACT.schemaVersion,
+    "p5-collab-20-ramp-exit-v2",
+  );
+  const plan = authorizedPlan();
+  plan.providerEvidence.artifactSampleCount = 4;
+  plan.providerEvidence.restoreSampleCount = 4;
+  const result = evaluateP520RampExitPlan(plan);
+  assert.equal(result.liveRampAllowed, false);
+  assert.match(result.errors.join("\n"), /providerEvidence/u);
+  assert.equal(
+    P520_RAMP_EXIT_CONTRACT.providerEvidence.artifactSampleCount,
+    20,
+  );
+  assert.equal(P520_RAMP_EXIT_CONTRACT.providerEvidence.restoreSampleCount, 20);
+});
+
 test("two-stage authorization permits only the exact live window before reviews complete", () => {
   const plan = authorizedPlan();
   plan.status = "authorized-pending-live-validation";

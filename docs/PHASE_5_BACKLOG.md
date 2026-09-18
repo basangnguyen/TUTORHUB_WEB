@@ -46,7 +46,8 @@
 > Owner đã chấp nhận closure dựa trên lần PASS đúng hạn cùng cleanup PASS sau recovery;
 > P5-COLLAB-20 hiện ở `VERIFY`: exact disposable R3 đã chạy hai provider-observed hold 3.600 giây
 > cùng full drill matrix nhưng FAIL duy nhất artifact p95; rollback/cleanup cuối PASS ở ledger
-> `42 false`, whiteboard force-off. Không production/shared staging và không nới ngưỡng.
+> `42 false`, whiteboard force-off. Local artifact measurement đã được harden thành đúng 20 create
+> và 20 restore sample, giữ nguyên ngưỡng; chưa có provider run mới hoặc authorization mới.
 
 ## 1. Mục tiêu phase
 
@@ -694,16 +695,26 @@ packet không được tạo.
 
 Rollback cuối PASS `read_only -> off`; runtime not ready và document/edit connection `0/0`.
 Cleanup cuối PASS ledger `42 false`, whiteboard `off`, synthetic tenant/document `0/0`.
-Authorization retry hiện tại đã hết; live completion attempt tiếp theo chỉ được thực hiện sau khi
-chẩn đoán artifact latency và có authorization mới. Local aggregate đạt `55/55`; fail-closed review
-finalizer đã có nhưng không chạy khi report gate fail.
+Authorization retry hiện tại đã hết. Chẩn đoán local và measurement correction đã hoàn tất; live
+completion attempt tiếp theo chỉ được thực hiện với exact candidate và authorization mới.
+Fail-closed review finalizer chưa chạy vì chưa có report live mới đạt gate.
 Acceptance:
 [P5_COLLAB_20_RAMP_EXIT_REVIEW.md](P5_COLLAB_20_RAMP_EXIT_REVIEW.md).
+
+**Artifact measurement correction 2026-09-18 — local only:** harness cũ dùng 4 artifact sample nên
+nearest-rank P95 luôn bằng max, làm một outlier B2 quyết định toàn bộ gate. P5-COLLAB-20 contract v2 bind
+đúng 20 immutable create/read-back sample và 20 restore/reuse sample; artifact threshold vẫn
+`2500 ms`, restore RTO lấy từ restore path riêng và finalizer từ chối report thiếu sample.
+P5-COLLAB-19 historical default 4 sample được giữ nguyên. Local P5-COLLAB-20 đạt `57/57`,
+P5-COLLAB-19 regression PASS, runtime `152 passed / 2 skipped`, lint/typecheck/build PASS.
+Checkpoint này không gọi provider, không đổi mode và không tạo chi phí; live proof vẫn cần exact
+candidate cùng authorization mới.
 
 **Exit gate:**
 
 - [x] Ramp theo tenant/cap có hold point; auto/manual kill switch và rollback tiêu chí rõ.
-- [ ] License/runtime/cost/security/a11y/provider-exit review vẫn đạt ở dữ liệu thực.
+- [x] Chẩn đoán phép đo 4-sample và khóa forward P5-COLLAB-20 ở 20 create + 20 restore sample.
+- [ ] License/runtime/cost/security/a11y/provider-exit review vẫn đạt ở dữ liệu thực mới.
 - [ ] Phase completion ghi exact candidate, supported profile, residual risk và deferred work.
 - [x] Không tăng ramp nếu portability/recovery hoặc one-authority invariant bị vi phạm.
 

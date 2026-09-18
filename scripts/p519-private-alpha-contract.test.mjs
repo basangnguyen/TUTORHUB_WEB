@@ -138,6 +138,8 @@ test("exact provider-observed private-alpha report passes", () => {
 test("percentile95 uses the nearest-rank definition", () => {
   assert.equal(percentile95([1, 2, 3, 4, 100]), 100);
   assert.equal(percentile95(samples(20, 7)), 7);
+  assert.equal(percentile95([...samples(19, 800), 6_480]), 800);
+  assert.equal(percentile95([...samples(18, 800), 2_926, 6_480]), 2_926);
 });
 
 test("simulated or short soak evidence cannot pass", () => {

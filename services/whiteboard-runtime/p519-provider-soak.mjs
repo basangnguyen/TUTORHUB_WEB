@@ -58,6 +58,8 @@ const REPORT_KEYS = [
   "deployId",
   "manifestSha256",
 ];
+const DEFAULT_ARTIFACT_SAMPLE_COUNT = 4;
+const MAX_ARTIFACT_SAMPLE_COUNT = 100;
 
 const sleep = (milliseconds) =>
   new Promise((resolveSleep) => setTimeout(resolveSleep, milliseconds));
@@ -90,6 +92,19 @@ export function selectProviderReportOutputFile(
   argv = process.argv,
 ) {
   return (outputFileFromArgv ? argv[3] : undefined) ?? outputFile;
+}
+
+export function resolveArtifactSampleCount(
+  value = DEFAULT_ARTIFACT_SAMPLE_COUNT,
+) {
+  if (
+    !Number.isInteger(value) ||
+    value < 1 ||
+    value > MAX_ARTIFACT_SAMPLE_COUNT
+  ) {
+    throw new Error("p519_soak_artifact_sample_count_invalid");
+  }
+  return value;
 }
 
 export function createBoundItem(binding, fields) {
@@ -969,17 +984,20 @@ async function b2ArtifactDrill(state) {
     region: state.environment.B2_REGION,
   });
   await valid.probe();
-  let restoredHashMatch = false;
-  for (let sample = 1; sample <= 4; sample += 1) {
+  let restoredHashMatch = true;
+  for (let sample = 1; sample <= state.artifactSampleCount; sample += 1) {
     const bytes = portableBytes(state, sample);
     const startedAt = Date.now();
     const artifact = await valid.put(bytes);
     state.observations.artifactMs.push(Date.now() - startedAt);
     state.artifactObjectKeys.push(artifact.objectKey);
+    const restoreStartedAt = Date.now();
     const loaded = await valid.put(bytes);
+    state.observations.artifactRestoreMs.push(Date.now() - restoreStartedAt);
     restoredHashMatch =
+      restoredHashMatch &&
       createHash("sha256").update(loaded.bytes).digest("hex") ===
-      createHash("sha256").update(bytes).digest("hex");
+        createHash("sha256").update(bytes).digest("hex");
   }
   const invalid = new B2PortableSnapshotStore(state.environment.B2_BUCKET, {
     applicationKey: "p519-retired-application-key-000000000000",
@@ -1013,11 +1031,12 @@ async function b2ArtifactDrill(state) {
   };
   state.drillResults.export = { portableRoundTrip: restoredHashMatch };
   state.drillResults.restore = {
-    rtoMs: Math.max(...state.observations.artifactMs),
+    rtoMs: Math.max(...state.observations.artifactRestoreMs),
     semanticHashMatch: restoredHashMatch,
   };
   progress("b2_artifact_pass", {
     artifactSamples: state.observations.artifactMs.length,
+    restoreSamples: state.observations.artifactRestoreMs.length,
   });
 }
 
@@ -1551,6 +1570,7 @@ export async function runP519ProviderSoak(
     outputFile = OUTPUT_FILE,
     outputFileFromArgv = true,
     providerFixture = P519_PROVIDER_FIXTURE,
+    artifactSampleCount = DEFAULT_ARTIFACT_SAMPLE_COUNT,
   } = {},
 ) {
   const options = validateP519ProviderEnvironment(environment);
@@ -1575,6 +1595,7 @@ export async function runP519ProviderSoak(
   const plan = createP519LivePlan();
   const state = {
     activeReconnect: Promise.resolve(),
+    artifactSampleCount: resolveArtifactSampleCount(artifactSampleCount),
     artifactObjectKeys: [],
     b2Cleanup: { current: 0, uploads: 0, versions: 0 },
     backgroundFailure: undefined,
@@ -1592,6 +1613,7 @@ export async function runP519ProviderSoak(
     observations: {
       acknowledgementMs: [],
       artifactMs: [],
+      artifactRestoreMs: [],
       convergenceMs: [],
       divergenceCount: 0,
       joinMs: [],
@@ -1775,6 +1797,7 @@ async function runConnectionSmoke(environment = process.env) {
   const options = validateP519ProviderEnvironment(environment);
   const state = {
     activeReconnect: Promise.resolve(),
+    artifactSampleCount: DEFAULT_ARTIFACT_SAMPLE_COUNT,
     artifactObjectKeys: [],
     b2Cleanup: { current: 0, uploads: 0, versions: 0 },
     backgroundFailure: undefined,
@@ -1790,6 +1813,7 @@ async function runConnectionSmoke(environment = process.env) {
     observations: {
       acknowledgementMs: [],
       artifactMs: [],
+      artifactRestoreMs: [],
       convergenceMs: [],
       divergenceCount: 0,
       joinMs: [],
@@ -1890,6 +1914,7 @@ async function runRecoverySmoke(environment = process.env) {
   }
   const state = {
     activeReconnect: Promise.resolve(),
+    artifactSampleCount: DEFAULT_ARTIFACT_SAMPLE_COUNT,
     artifactObjectKeys: [],
     b2Cleanup: { current: 0, uploads: 0, versions: 0 },
     backgroundFailure: undefined,
@@ -1906,6 +1931,7 @@ async function runRecoverySmoke(environment = process.env) {
     observations: {
       acknowledgementMs: [],
       artifactMs: [],
+      artifactRestoreMs: [],
       convergenceMs: [],
       divergenceCount: 0,
       joinMs: [],
