@@ -12,7 +12,7 @@
     "p5-collab-15:browser": "node scripts/run-p515-browser-matrix.mjs"
   },
   "dependencies": {
-    "@fullcalendar/react": "7.0.1",
+    "@fullcalendar/react": "7.0.2",
     "@excalidraw/excalidraw": "0.18.1",
     "@livekit/components-react": "2.9.23",
     "@livekit/components-styles": "1.2.0",
