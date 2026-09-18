@@ -44,9 +44,9 @@
 > cleanup đều PASS; ledger cuối `42 false`, whiteboard force-off. Lượt validation đúng freshness không
 > có durable receipt vì wrapper gặp cleanup transient sau drill; lượt lại bị freshness gate từ chối.
 > Owner đã chấp nhận closure dựa trên lần PASS đúng hạn cùng cleanup PASS sau recovery;
-> P5-COLLAB-20 đã bắt đầu ở trạng thái IN PROGRESS - preparation only: contract fail-closed,
-> automatic hold-point policy và local runner đã PASS; chưa có authorization cho provider mutation,
-> ramp, rollback, production hoặc shared staging.
+> P5-COLLAB-20 hiện ở `VERIFY`: exact disposable R3 đã chạy hai provider-observed hold 3.600 giây
+> cùng full drill matrix nhưng FAIL duy nhất artifact p95; rollback/cleanup cuối PASS ở ledger
+> `42 false`, whiteboard force-off. Không production/shared staging và không nới ngưỡng.
 
 ## 1. Mục tiêu phase
 
@@ -94,28 +94,28 @@ Xây collaboration plane cho lớp học mà không làm rời hoặc làm yếu
 
 ## 4. Trạng thái tổng hợp
 
-| Task         | Dải            | Nội dung                                        | Dependency                 | Trạng thái  |
-| ------------ | -------------- | ----------------------------------------------- | -------------------------- | ----------- |
-| P5-COLLAB-01 | Decision gate  | Chấp nhận Excalidraw authority/topology         | P5-COLLAB-00               | DONE        |
-| P5-COLLAB-02 | Implementation | Control-plane schema                            | P5-COLLAB-01               | DONE        |
-| P5-COLLAB-03 | Implementation | OpenAPI lifecycle/grant/snapshot/export/restore | P5-COLLAB-02               | DONE        |
-| P5-COLLAB-04 | Implementation | Grant broker và revoke generation               | P5-COLLAB-03               | DONE        |
-| P5-COLLAB-05 | Implementation | Collaboration data plane/provider adapter       | P5-COLLAB-01, P5-COLLAB-04 | DONE        |
-| P5-COLLAB-06 | Implementation | Lazy classroom tool shell                       | P5-COLLAB-03, P5-COLLAB-05 | DONE        |
-| P5-COLLAB-07 | Implementation | Snapshot/import/export/restore worker và B2     | P5-COLLAB-02, P5-COLLAB-05 | DONE        |
-| P5-COLLAB-08 | Implementation | Reconnect, compaction và recovery               | P5-COLLAB-05, P5-COLLAB-07 | DONE        |
-| P5-COLLAB-09 | Implementation | Feature/quota/operations                        | P5-COLLAB-04..08           | DONE        |
-| P5-COLLAB-10 | Test           | Authorization và tenant isolation               | P5-COLLAB-02..09           | DONE        |
-| P5-COLLAB-11 | Test           | Credential/revoke/WebSocket abuse               | P5-COLLAB-04, P5-COLLAB-05 | DONE        |
-| P5-COLLAB-12 | Test           | Convergence/history/undo/reconnect              | P5-COLLAB-05, P5-COLLAB-08 | DONE        |
-| P5-COLLAB-13 | Test           | Snapshot/import/export/restore                  | P5-COLLAB-07, P5-COLLAB-08 | DONE        |
-| P5-COLLAB-14 | Test           | Performance 500/2.000 shapes và 2/10/50 người   | P5-COLLAB-05..09           | DONE        |
-| P5-COLLAB-15 | Test           | Accessibility và browser matrix                 | P5-COLLAB-06, P5-COLLAB-08 | DONE        |
-| P5-COLLAB-16 | Test           | Failure, outage và provider exit                | P5-COLLAB-05..09           | DONE        |
-| P5-COLLAB-17 | Rollout        | Force-off staging acceptance                    | P5-COLLAB-10..16           | DONE        |
-| P5-COLLAB-18 | Rollout        | Internal canary                                 | P5-COLLAB-17               | DONE        |
-| P5-COLLAB-19 | Rollout        | Private alpha                                   | P5-COLLAB-18               | DONE        |
-| P5-COLLAB-20 | Rollout        | Ramp và rollback/exit review                    | P5-COLLAB-19               | IN PROGRESS |
+| Task         | Dải            | Nội dung                                        | Dependency                 | Trạng thái |
+| ------------ | -------------- | ----------------------------------------------- | -------------------------- | ---------- |
+| P5-COLLAB-01 | Decision gate  | Chấp nhận Excalidraw authority/topology         | P5-COLLAB-00               | DONE       |
+| P5-COLLAB-02 | Implementation | Control-plane schema                            | P5-COLLAB-01               | DONE       |
+| P5-COLLAB-03 | Implementation | OpenAPI lifecycle/grant/snapshot/export/restore | P5-COLLAB-02               | DONE       |
+| P5-COLLAB-04 | Implementation | Grant broker và revoke generation               | P5-COLLAB-03               | DONE       |
+| P5-COLLAB-05 | Implementation | Collaboration data plane/provider adapter       | P5-COLLAB-01, P5-COLLAB-04 | DONE       |
+| P5-COLLAB-06 | Implementation | Lazy classroom tool shell                       | P5-COLLAB-03, P5-COLLAB-05 | DONE       |
+| P5-COLLAB-07 | Implementation | Snapshot/import/export/restore worker và B2     | P5-COLLAB-02, P5-COLLAB-05 | DONE       |
+| P5-COLLAB-08 | Implementation | Reconnect, compaction và recovery               | P5-COLLAB-05, P5-COLLAB-07 | DONE       |
+| P5-COLLAB-09 | Implementation | Feature/quota/operations                        | P5-COLLAB-04..08           | DONE       |
+| P5-COLLAB-10 | Test           | Authorization và tenant isolation               | P5-COLLAB-02..09           | DONE       |
+| P5-COLLAB-11 | Test           | Credential/revoke/WebSocket abuse               | P5-COLLAB-04, P5-COLLAB-05 | DONE       |
+| P5-COLLAB-12 | Test           | Convergence/history/undo/reconnect              | P5-COLLAB-05, P5-COLLAB-08 | DONE       |
+| P5-COLLAB-13 | Test           | Snapshot/import/export/restore                  | P5-COLLAB-07, P5-COLLAB-08 | DONE       |
+| P5-COLLAB-14 | Test           | Performance 500/2.000 shapes và 2/10/50 người   | P5-COLLAB-05..09           | DONE       |
+| P5-COLLAB-15 | Test           | Accessibility và browser matrix                 | P5-COLLAB-06, P5-COLLAB-08 | DONE       |
+| P5-COLLAB-16 | Test           | Failure, outage và provider exit                | P5-COLLAB-05..09           | DONE       |
+| P5-COLLAB-17 | Rollout        | Force-off staging acceptance                    | P5-COLLAB-10..16           | DONE       |
+| P5-COLLAB-18 | Rollout        | Internal canary                                 | P5-COLLAB-17               | DONE       |
+| P5-COLLAB-19 | Rollout        | Private alpha                                   | P5-COLLAB-18               | DONE       |
+| P5-COLLAB-20 | Rollout        | Ramp và rollback/exit review                    | P5-COLLAB-19               | VERIFY     |
 
 `VERIFY` chỉ được dùng sau khi implementation và toàn bộ gate pre-staging của task xanh. `DONE`
 yêu cầu exact candidate/evidence được lưu trong repository và trạng thái tài liệu được cập nhật.
@@ -652,7 +652,7 @@ làm closure. P5-COLLAB-20 được mở ở `TODO` và cần authorization riê
 
 ### P5-COLLAB-20 - Ramp và rollback/exit review
 
-**Checkpoint chuẩn bị 2026-09-18 - IN PROGRESS:** local contract đã khóa baseline P5-COLLAB-19
+**Checkpoint chuẩn bị 2026-09-18 - lịch sử:** local contract đã khóa baseline P5-COLLAB-19
 DONE, ledger 42 false, whiteboard off, one-authority profile và hard cap 0 USD. Automatic hold-point
 evaluator chọn read_only hoặc off theo readiness/checkpoint/quota/cost/security/privacy/
 a11y/portability/recovery signal; production và shared staging bị từ chối.
@@ -676,22 +676,36 @@ low-quota 2/10/64 MiB/600 cho cả hai; P5-18 exact-one giữ nguyên. Đây ch�
 evidence; adapter chưa gọi provider, live-target authorization binding và owner authorization vẫn
 chưa có nên không có provider mutation.
 
-**Corrected-candidate checkpoint 2026-09-18:** owner đã phê duyệt authorization hai giai đoạn cho
+**Pre-live corrected-candidate checkpoint 2026-09-18:** owner đã phê duyệt authorization hai giai đoạn cho
 candidate `b278bab`, nhưng pre-provider review phát hiện thiếu exact tenant-to-document binding. Candidate
 này bị từ chối trước provider call. Control nay derive một document riêng cho từng tenant và fail closed
 với `tenant_document_mismatch`; exact-two fixture lifecycle, negative isolation preflight, live runner,
 rollback/cleanup và wrapper provider-observed soak 3.600 giây đã được bổ sung. Local gate đạt 51/51 và
-P5-COLLAB-19 regression PASS. Corrected candidate cần commit/push cùng authorization exact-SHA mới;
-production/shared staging vẫn ngoài phạm vi và chưa có Render/Neon/B2 call trong checkpoint này.
+P5-COLLAB-19 regression PASS. Candidate sau đó được commit/push và nhận authorization exact-SHA mới;
+production/shared staging vẫn ngoài phạm vi.
+
+**Live R3 checkpoint 2026-09-18 — VERIFY:** exact candidate
+`4412bbdad87e425b5cdba00a05abcd8cf6b30008` đã PASS exact-target binding, initial `off`,
+evaluator mode, provider preflight và full drill execution trên đúng disposable target. Hai hold đều
+đủ 3.600 giây. Lượt 1 có P95 join/reconnect/convergence/ack/artifact
+`1229/1474/664/441/2926 ms`; lượt retry cuối là `1349/1793/587/444/6480 ms`. Cả hai chỉ FAIL
+artifact p95 so với ngưỡng `2500 ms`; các gate/drill/soak cleanup khác PASS. Six-review completion
+packet không được tạo.
+
+Rollback cuối PASS `read_only -> off`; runtime not ready và document/edit connection `0/0`.
+Cleanup cuối PASS ledger `42 false`, whiteboard `off`, synthetic tenant/document `0/0`.
+Authorization retry hiện tại đã hết; live completion attempt tiếp theo chỉ được thực hiện sau khi
+chẩn đoán artifact latency và có authorization mới. Local aggregate đạt `55/55`; fail-closed review
+finalizer đã có nhưng không chạy khi report gate fail.
 Acceptance:
 [P5_COLLAB_20_RAMP_EXIT_REVIEW.md](P5_COLLAB_20_RAMP_EXIT_REVIEW.md).
 
 **Exit gate:**
 
-- [ ] Ramp theo tenant/cap có hold point; auto/manual kill switch và rollback tiêu chí rõ.
+- [x] Ramp theo tenant/cap có hold point; auto/manual kill switch và rollback tiêu chí rõ.
 - [ ] License/runtime/cost/security/a11y/provider-exit review vẫn đạt ở dữ liệu thực.
 - [ ] Phase completion ghi exact candidate, supported profile, residual risk và deferred work.
-- [ ] Không tăng ramp nếu portability/recovery hoặc one-authority invariant bị vi phạm.
+- [x] Không tăng ramp nếu portability/recovery hoặc one-authority invariant bị vi phạm.
 
 ## 9. Threat model và test matrix xuyên suốt
 

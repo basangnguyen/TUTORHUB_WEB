@@ -31,6 +31,7 @@ export async function runP520ProviderSoak(environment = process.env) {
     bindingFile: BINDING_FILE,
     deployStateFile: DEPLOY_STATE_FILE,
     outputFile: OUTPUT_FILE,
+    outputFileFromArgv: false,
     providerFixture: fixture,
   });
 }

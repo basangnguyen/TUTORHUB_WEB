@@ -9,7 +9,13 @@ const require = createRequire(
 );
 const { Client } = require("pg");
 
-const MODES = new Set(["provision", "verify", "cleanup", "destroy"]);
+const MODES = new Set([
+  "base-provision",
+  "provision",
+  "verify",
+  "cleanup",
+  "destroy",
+]);
 const SYNTHETIC_SLUGS = Object.freeze([
   "p520-r3-disposable-01",
   "p520-r3-disposable-02",
@@ -270,6 +276,54 @@ async function destroyBase(client, fixture) {
   }
 }
 
+async function provisionBase(client, fixture) {
+  await cleanupFixture(client, fixture);
+  await destroyBase(client, fixture);
+  const userIds = fixture.tenantIds.map((tenantId) =>
+    deterministicUuid("user", tenantId),
+  );
+  await client.query("DELETE FROM tutorhub.users WHERE id = ANY($1::uuid[])", [
+    userIds,
+  ]);
+  for (const [index, tenantId] of fixture.tenantIds.entries()) {
+    const userId = userIds[index];
+    const ordinal = String(index + 1).padStart(2, "0");
+    await client.query(
+      `INSERT INTO tutorhub.users (id, email, display_name)
+       VALUES ($1, $2, $3)`,
+      [
+        userId,
+        SYNTHETIC_EMAILS[index],
+        `P5-COLLAB-20 disposable owner ${ordinal}`,
+      ],
+    );
+    await client.query(
+      `INSERT INTO tutorhub.tenants (id, slug, name)
+       VALUES ($1, $2, $3)`,
+      [
+        tenantId,
+        SYNTHETIC_SLUGS[index],
+        `P5-COLLAB-20 disposable tenant ${ordinal}`,
+      ],
+    );
+    await client.query(
+      `INSERT INTO tutorhub.memberships
+         (tenant_id, user_id, role, status, joined_at)
+       VALUES ($1, $2, 'org_admin', 'active', NOW())`,
+      [tenantId, userId],
+    );
+    await client.query(
+      `INSERT INTO tutorhub.tenant_private_alpha_enrollments
+         (tenant_id, program, status, revision, notice_version,
+          accepted_at, withdrawn_at, updated_by, created_at, updated_at)
+       VALUES ($1, 'classroom_whiteboards', 'active', 1, 'p5-collab-19-v1',
+               NOW(), NULL, $2, NOW(), NOW())`,
+      [tenantId, userId],
+    );
+  }
+  await assertBase(client, fixture);
+}
+
 export async function runP520ProviderFixture(mode, environment, manifest) {
   if (!MODES.has(mode)) throw new Error("p520_provider_fixture_mode_invalid");
   const connectionString = environment?.DATABASE_MIGRATION_URL;
@@ -285,7 +339,10 @@ export async function runP520ProviderFixture(mode, environment, manifest) {
       "SELECT pg_advisory_xact_lock(hashtext('tutorhub:p520:r3:provider-fixture'))",
     );
     await exactLedger(client);
-    if (mode !== "destroy") await assertBase(client, fixture);
+    if (mode === "base-provision") await provisionBase(client, fixture);
+    if (mode !== "destroy" && mode !== "base-provision") {
+      await assertBase(client, fixture);
+    }
     if (mode === "provision") await provisionFixture(client, fixture);
     if (mode === "cleanup" || mode === "destroy") {
       await cleanupFixture(client, fixture);

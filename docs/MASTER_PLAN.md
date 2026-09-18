@@ -11,7 +11,7 @@
 | Repository chính thức | `https://github.com/basangnguyen/TUTORHUB_WEB`                                               |
 | Dự án V1 tham chiếu   | `D:\Ban_sao_du_an`, chỉ đọc                                                                  |
 | Phase hiện tại        | Phase 5 collaboration implementation; Phase 3 deferred carry-over tiếp tục                   |
-| Trạng thái gần nhất   | P5-COLLAB-20 IN PROGRESS; corrected candidate needs new exact-SHA authorization             |
+| Trạng thái gần nhất   | P5-COLLAB-20 VERIFY; live artifact p95 failed twice, final force-off/cleanup PASS            |
 | Kiến trúc nền         | React + TypeScript + Vite; Go modular monolith; Neon PostgreSQL; LiveKit Cloud; Backblaze B2 |
 | Môi trường miễn phí   | Chỉ dùng cho phát triển, demo và private alpha; không phải cam kết production                |
 
@@ -1866,7 +1866,7 @@ nhận closure dựa trên lần validation PASS đúng hạn cùng cleanup PASS
 mở ở `TODO` và cần authorization riêng trước mọi ramp/rollback/production action. Acceptance:
 [`P5_COLLAB_19_PRIVATE_ALPHA_ACCEPTANCE.md`](P5_COLLAB_19_PRIVATE_ALPHA_ACCEPTANCE.md).
 
-P5-COLLAB-20 checkpoint 2026-09-18 - IN PROGRESS: fail-closed preparation contract,
+P5-COLLAB-20 preparation checkpoint 2026-09-18 - history: fail-closed preparation contract,
 authorization packet materializer, redacted dry-run executor, automatic hold-point evaluator và
 local runner đã PASS. Exact-two tenant binder chỉ ghi hash/count vào packet preparation mới, không
 echo UUID, không overwrite và không cấp quyền live/provider. Materializer chỉ import SHA/deploy-ID
@@ -1884,9 +1884,20 @@ initial-off deployment ordering, evaluator-bound mode, redacted receipt và roll
 `read_only -> off` với zero-state verification. Control harness có exact-two allowlist/initial-off/R3
 quota và giữ default P5-19. Render adapter không có CLI, khóa đúng hai disposable service, inherited
 fingerprint/profile và ba env key; fake-provider coverage xác minh drift rejection, deploy, mode,
-readiness/metrics và credential redaction. Local gate PASS 43/43; checkpoint này không gọi provider.
-Production/shared staging bị từ chối; exact live packet và owner authorization vẫn chưa có nên không
-có provider mutation.
+readiness/metrics và credential redaction. Pre-live local gate PASS; checkpoint này không gọi provider.
+
+P5-COLLAB-20 live R3 checkpoint 2026-09-18 — `VERIFY`: owner đã authorize exact candidate
+`4412bbdad87e425b5cdba00a05abcd8cf6b30008` trên inherited disposable target và existing
+exact-two manifest. Exact deploy/adoption, initial `off`, evaluator mode và preflight PASS. Hai
+provider-observed hold đều đủ 3.600 giây với full drill matrix nhưng chỉ FAIL artifact p95:
+`2926 ms` ở lượt đầu và `6480 ms` ở retry cuối, ngưỡng `2500 ms`; các latency/drill/cleanup gate
+khác PASS. Six-review completion packet không được tạo và ngưỡng không bị nới.
+
+Rollback cuối PASS `read_only -> off`; runtime not ready, document/edit connection `0/0`.
+Cleanup cuối PASS ledger `42 false`, whiteboard `off`, synthetic tenant/document `0/0`.
+Production/shared staging không bị chạm, không rollback migration hoặc tăng paid capacity.
+Local aggregate đạt `55/55`; bước tiếp theo là chẩn đoán artifact latency và cần authorization mới
+trước bất kỳ live completion attempt nào khác. Phase 5 chưa đóng.
 Review: [P5_COLLAB_20_RAMP_EXIT_REVIEW.md](P5_COLLAB_20_RAMP_EXIT_REVIEW.md).
 
 **Deliverable:** teacher mở/đóng công cụ mà không làm rời media room; trạng thái cộng tác khôi phục sau reconnect.

@@ -6,6 +6,7 @@ import {
   enqueueReconnect,
   operationsDue,
   selectOperationSource,
+  selectProviderReportOutputFile,
   shouldDeferSemanticCheck,
 } from "./p519-provider-soak.mjs";
 
@@ -14,6 +15,18 @@ test("steady workload produces exactly 6000 operations per document", () => {
   assert.equal(operationsDue(300_000), 1);
   assert.equal(operationsDue(3_299_999), 6_000);
   assert.equal(operationsDue(3_600_000), 6_000);
+});
+
+test("embedded soak wrappers ignore their confirmation token as an output path", () => {
+  const argv = ["node", "wrapper.mjs", "--confirm", "confirmation-token"];
+  assert.equal(
+    selectProviderReportOutputFile("tmp/provider-report.json", false, argv),
+    "tmp/provider-report.json",
+  );
+  assert.equal(
+    selectProviderReportOutputFile("provider-report.json", true, argv),
+    "confirmation-token",
+  );
 });
 
 test("drill evidence is bound to all immutable run identifiers", () => {

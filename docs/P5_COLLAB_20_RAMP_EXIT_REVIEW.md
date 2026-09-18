@@ -1,15 +1,17 @@
 # P5-COLLAB-20 Ramp and rollback/exit review
 
-Status: **IN PROGRESS — CORRECTED CANDIDATE RE-AUTHORIZATION REQUIRED**
+Status: **VERIFY — LIVE RUNTIME LATENCY GATE FAILED; FORCE-OFF/CLEANUP PASS**
 
 Updated: 2026-09-18
 
 ## 1. Current decision
 
-The owner authorized the two-stage R3 workflow for candidate `b278bab`, but a pre-provider review
-found that the candidate allowlisted two tenants and two documents without binding each tenant to
-its own provider document. No provider call was made. The candidate is rejected for live use; the
-corrected candidate must receive a new exact-SHA authorization before any provider mutation.
+The owner authorized the corrected two-stage R3 workflow for exact candidate
+`4412bbdad87e425b5cdba00a05abcd8cf6b30008` on the inherited disposable target and existing
+exact-two tenant manifest. Exact-target deploy/adoption, initial `off`, provider preflight, two
+provider-observed 3,600-second holds, the full drill matrix and mandatory rollback/cleanup were
+executed. Both holds failed only the runtime artifact latency gate, so no completed six-review
+packet was issued and the task cannot move to `DONE`.
 
 The corrected local contract is intentionally fail-closed:
 
@@ -112,14 +114,14 @@ connection, portable last-good artifact readability, and zero synthetic database
 
 ## 6. Exit-review matrix
 
-| Review        | Current state           | Required live evidence                                                   |
-| ------------- | ----------------------- | ------------------------------------------------------------------------ |
-| License       | Pending live validation | Pins/notices unchanged and no incompatible dependency drift              |
-| Runtime       | Pending live validation | Exact candidate/deploy binding, readiness, latency, convergence, cleanup |
-| Cost          | Pending live validation | 0 USD, free-cap usage below 75%, no automatic upgrade/autoscale          |
-| Security      | Pending live validation | tenant isolation, grant/revoke, privacy-safe logs, secret scan           |
-| Accessibility | Pending live validation | retained matrix remains applicable or fresh regression is attached       |
-| Provider exit | Pending live validation | portable export/readback, restore, force-off and recovery remain valid   |
+| Review        | Current state                  | Required live evidence                                                     |
+| ------------- | ------------------------------ | -------------------------------------------------------------------------- |
+| License       | Evidence PASS; packet withheld | Pins unchanged at the exact candidate; dependency/lock scope did not drift |
+| Runtime       | **FAIL**                       | Both holds exceeded artifact p95 2,500 ms; all other runtime gates passed  |
+| Cost          | Evidence PASS; packet withheld | 0 USD, no optional burst/autoscale                                         |
+| Security      | Evidence PASS; packet withheld | exact-two isolation, grant/revoke and drills passed                        |
+| Accessibility | Evidence PASS; packet withheld | collaboration UI scope unchanged; accessibility notice retained            |
+| Provider exit | Evidence PASS; packet withheld | export/readback, restore, force-off, recovery and cleanup passed           |
 
 No review can be marked PASS from conversation history alone. Reused evidence requires an explicit
 validity rationale; changed code/topology/format/security semantics require fresh evidence.
@@ -163,6 +165,9 @@ Implemented:
   negative cross-tenant probe, rollback and final ledger/zero-state cleanup orchestration;
 - services/whiteboard-runtime/p520-provider-soak.mjs: exact-two wrapper around the inherited
   provider-observed 3,600-second soak/drill harness, bound to P5-COLLAB-20 private artifacts;
+- scripts/p520-live-review.mjs: fail-closed finalizer that requires a fresh valid provider report,
+  exact binding/preflight, unchanged dependency pins and unchanged accessibility scope before it can
+  create the six evidence-bound PASS reviews; it was intentionally not run because runtime failed;
 - scripts/p519-live-control.mjs: optional P5-COLLAB-20 exact-two tenant allowlist, initial-off mode and
   R3 quota profile plus exact tenant-to-document binding while preserving P5-COLLAB-19 behavior;
 - scripts/check-p520-ramp-guard.mjs: static guard for default-off, exact-two config and low-quota
@@ -197,9 +202,9 @@ unset until separately supplied. The tenant binder can materialize only the allo
 it does not set authorization, live readiness, review PASS state, or provider mutation permission.
 The dry-run command cannot mutate a provider.
 
-Current result: PASS, including 51/51 P5-COLLAB-20 contract/dry-run/binder/executor/control/adapter/fixture/live-runner tests,
+Current local result: PASS, including 55/55 P5-COLLAB-20 contract/dry-run/binder/executor/control/
+adapter/fixture/live-runner/finalizer tests,
 targeted Core API config/guardrail tests, plus inherited force-off and bounded-canary static guards.
-The adapter tests inject a fake fetch implementation; no Render, Neon or B2 provider call was made.
 P5-COLLAB-19 regression also remains PASS after the generic fixture parameterization.
 
 Exact-two binding checkpoint on 2026-09-17:
@@ -212,21 +217,48 @@ Exact-two binding checkpoint on 2026-09-17:
 - postflight reports exactly two active enrollments, a valid hash/count binding,
   `liveRampAllowed=false` and `providerMutationAuthorized=false`, without logging UUIDs or secrets.
 
+### Live R3 validation checkpoint on 2026-09-18
+
+- Exact candidate `4412bbdad87e425b5cdba00a05abcd8cf6b30008` was bound to the approved
+  disposable fingerprint and exact-two private manifest. The exact Control and Runtime candidate
+  was deployed once; later rolling redeploy recovery detected the singleton authority collision and
+  safely adopted the already-live exact candidate instead of expanding capacity or cost.
+- Initial mode `off`, evaluator-selected enablement, exact-two negative isolation preflight and
+  provider readiness all passed. Production and shared staging were not touched.
+- Hold 1 ran the full 3,600-second provider workload and drill matrix. Join/reconnect/convergence/
+  acknowledgement/artifact p95 were `1229/1474/664/441/2926 ms`. Only artifact p95 exceeded the
+  `2500 ms` gate. Mandatory recovery rollback and cleanup passed.
+- The output-path defect that placed the redacted summary outside the intended private tmp directory
+  was fixed and regression-tested before the one authorized retry.
+- Hold 2 again ran the full 3,600-second provider workload and drill matrix. Join/reconnect/
+  convergence/acknowledgement/artifact p95 were `1349/1793/587/444/6480 ms`. The evaluator reported
+  exactly one error category: `artifactP95Ms`. Soak cleanup verified zero database/runtime/B2
+  residue.
+- Final rollback traversed `read_only -> off` and verified runtime not ready with zero documents
+  and edit connections. Final cleanup destroyed the synthetic fixture and verified ledger
+  `42 false`, whiteboard `off`, zero synthetic tenants/documents and no residual activity.
+- No threshold was relaxed, no migration was rolled back, no additional paid capacity was created,
+  and no six-review completion packet was materialized. A future completion attempt requires a new
+  decision after diagnosing artifact latency; the current authorized retry budget is exhausted.
+
 ## 8. Remaining gates
 
 - [x] Receive two-stage authorization for candidate `b278bab`; reject that candidate locally after
-  finding the missing tenant-to-document binding, without a provider call.
-- [ ] Receive a new exact-SHA authorization for the corrected disposable R3 candidate.
+      finding the missing tenant-to-document binding, without a provider call.
+- [x] Receive a new exact-SHA authorization for the corrected disposable R3 candidate.
 - [x] Supply the private exact-two tenant manifest and materialize its hash/count binding.
-- [ ] Bind exact candidate and environment fingerprint in the separately approved live packet.
+- [x] Bind exact candidate and environment fingerprint in the separately approved live packet.
 - [x] Implement and test the fail-closed live-decision/rollback executor core without logging secrets
-  or tenant UUIDs in receipts.
+      or tenant UUIDs in receipts.
 - [x] Connect the executor to an allowlisted adapter for exactly the two disposable Render services
-  and prove it against mocks before any authorized live action.
-- [ ] Exercise the adapter on the separately authorized exact disposable target and capture redacted
-  deploy/mode verification receipts.
-- [ ] Run the provider-observed hold and capture fresh license/runtime/cost/security/a11y/exit review.
-- [ ] Execute rollback/cleanup and confirm final whiteboard force-off plus zero residue.
+      and prove it against mocks before any authorized live action.
+- [x] Exercise the adapter on the separately authorized exact disposable target and capture redacted
+      deploy/mode verification receipts.
+- [x] Run two provider-observed 3,600-second holds and the full drill matrix; both fail only the
+      artifact latency gate, so the six-review completion packet remains blocked.
+- [x] Execute rollback/cleanup and confirm final whiteboard force-off plus zero residue.
+- [ ] Diagnose and correct artifact latency, then obtain a new authorization before any further
+      provider-observed completion attempt.
 - [ ] Record exact completion candidate, supported profile, residual risks and deferred work.
 
-Until every item passes, P5-COLLAB-20 remains IN PROGRESS and Phase 5 is not closed.
+Until every item passes, P5-COLLAB-20 remains `VERIFY` and Phase 5 is not closed.

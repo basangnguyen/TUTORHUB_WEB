@@ -54,6 +54,22 @@ function fakeProvider() {
         return jsonResponse(service ? [{ service }] : []);
       }
       if (parsed.pathname.includes("/env-vars/")) return jsonResponse({});
+      if (
+        parsed.pathname.endsWith("/deploys") &&
+        (init.method ?? "GET") === "GET"
+      ) {
+        return jsonResponse([
+          {
+            deploy: {
+              id: parsed.pathname.includes("srv-control")
+                ? "dep-control"
+                : "dep-runtime",
+              status: "live",
+              commit: { id: CANDIDATE },
+            },
+          },
+        ]);
+      }
       if (parsed.pathname.endsWith("/deploys")) {
         return jsonResponse({
           id: parsed.pathname.includes("srv-control")
@@ -137,6 +153,10 @@ test("Render adapter scopes sync and deploy to the exact two disposable services
     controlDeployId: "dep-control",
     runtimeDeployId: "dep-runtime",
   });
+  assert.deepEqual(await fixture.adapter.adoptLiveCandidate(CANDIDATE), {
+    controlDeployId: "dep-control",
+    runtimeDeployId: "dep-runtime",
+  });
   await fixture.adapter.setMode("read_only");
   assert.deepEqual(await fixture.adapter.verifyMode("read_only"), {
     authorityAvailable: true,
@@ -149,6 +169,36 @@ test("Render adapter scopes sync and deploy to the exact two disposable services
     ([method]) => method !== "GET",
   );
   assert.equal(mutations.length, 6);
+});
+
+test("Render adapter rejects adoption unless both exact candidates are live", async () => {
+  const provider = fakeProvider();
+  const originalFetch = provider.fetchImpl;
+  provider.fetchImpl = async (url, init = {}) => {
+    const parsed = new URL(url);
+    if (
+      parsed.hostname === "api.render.com" &&
+      parsed.pathname.includes("srv-runtime") &&
+      parsed.pathname.endsWith("/deploys") &&
+      (init.method ?? "GET") === "GET"
+    ) {
+      return jsonResponse([
+        {
+          deploy: {
+            id: "dep-runtime",
+            status: "update_failed",
+            commit: { id: CANDIDATE },
+          },
+        },
+      ]);
+    }
+    return originalFetch(url, init);
+  };
+  const fixture = adapter(provider);
+  await assert.rejects(
+    fixture.adapter.adoptLiveCandidate(CANDIDATE),
+    /live_candidate_invalid/u,
+  );
 });
 
 test("Render adapter rejects non-allowlisted environment keys before mutation", async () => {

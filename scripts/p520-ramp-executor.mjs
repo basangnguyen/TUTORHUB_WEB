@@ -206,6 +206,50 @@ export async function executeP520LiveDecision(binding, adapter) {
   };
 }
 
+export async function executeP520AdoptLiveDecision(binding, adapter) {
+  if (!binding || !adapter) throw new Error("p520_executor_binding_required");
+  await adapter.assertExactTarget({
+    candidateSha: binding.candidateSha,
+    services: P520_EXECUTOR_CONTRACT.target,
+    targetFingerprintSha256: binding.targetFingerprintSha256,
+  });
+  const deploy = assertDeployReceipt(
+    await adapter.adoptLiveCandidate(binding.candidateSha),
+  );
+  await adapter.setMode("off");
+  assertModeVerification(await adapter.verifyMode("off"), "off");
+  const appliedMode = selectP520SafeMode({
+    activationAuthorized: true,
+    currentMode: "off",
+    evaluatedMode: binding.decision.mode,
+  });
+  if (appliedMode !== "off") await adapter.setMode(appliedMode);
+  const verification = assertModeVerification(
+    await adapter.verifyMode(appliedMode),
+    appliedMode,
+  );
+  return {
+    schemaVersion: P520_EXECUTOR_CONTRACT.schemaVersion,
+    outcome: "pass",
+    action: "adopt-live-decision",
+    appliedMode,
+    reasonCodes: binding.decision.reasonCodes,
+    deploy: {
+      controlDeployId: deploy.controlDeployId,
+      runtimeDeployId: deploy.runtimeDeployId,
+    },
+    target: redactedTarget(binding),
+    verification: {
+      authorityAvailable: verification.authorityAvailable,
+      runtimeReady: verification.runtimeReady,
+      documents: verification.documents,
+      editConnections: verification.editConnections,
+    },
+    packetSha256: binding.packetSha256,
+    observationSha256: binding.observationSha256,
+  };
+}
+
 export async function executeP520Rollback(binding, adapter) {
   if (!binding || !adapter) throw new Error("p520_executor_binding_required");
   await adapter.assertExactTarget({

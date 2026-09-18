@@ -195,6 +195,23 @@ export function createP520RenderAdapter({
     throw new Error("p520_render_deploy_timeout");
   }
 
+  async function findLiveDeploy(service, candidateSha) {
+    const result = await renderRequest(
+      `/services/${encodeURIComponent(service.id)}/deploys?limit=20`,
+    );
+    const deploys = Array.isArray(result)
+      ? result.map((entry) => entry?.deploy ?? entry)
+      : [];
+    const matching = deploys.filter((deploy) => {
+      const deployedCommit = deploy?.commit?.id ?? deploy?.commitId;
+      return deploy?.status === "live" && deployedCommit === candidateSha;
+    });
+    if (matching.length !== 1 || !DEPLOY_PATTERN.test(matching[0]?.id ?? "")) {
+      throw new Error("p520_render_live_candidate_invalid");
+    }
+    return matching[0].id;
+  }
+
   async function controlRequest(path, init = {}) {
     const response = await fetchImpl(`${controlUrl}${path}`, {
       ...init,
@@ -269,6 +286,18 @@ export function createP520RenderAdapter({
         runtimeDeployId,
         candidateSha,
       );
+      return { controlDeployId, runtimeDeployId };
+    },
+
+    async adoptLiveCandidate(candidateSha) {
+      if (!SHA_PATTERN.test(candidateSha ?? "")) {
+        throw new Error("p520_render_candidate_invalid");
+      }
+      const targetServices = await ensureServices();
+      const [controlDeployId, runtimeDeployId] = await Promise.all([
+        findLiveDeploy(targetServices.control, candidateSha),
+        findLiveDeploy(targetServices.runtime, candidateSha),
+      ]);
       return { controlDeployId, runtimeDeployId };
     },
 

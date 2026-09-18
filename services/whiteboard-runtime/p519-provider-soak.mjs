@@ -84,6 +84,14 @@ export function operationsDue(elapsedMs) {
   return Math.min(6_000, Math.floor(bounded / 500) + 1);
 }
 
+export function selectProviderReportOutputFile(
+  outputFile,
+  outputFileFromArgv,
+  argv = process.argv,
+) {
+  return (outputFileFromArgv ? argv[3] : undefined) ?? outputFile;
+}
+
 export function createBoundItem(binding, fields) {
   return Object.assign(
     Object.fromEntries(REPORT_KEYS.map((key) => [key, binding[key]])),
@@ -1059,12 +1067,7 @@ async function credentialAndRevokeDrill(state) {
   state.stage = "credential_revoke";
   progress("credential_revoke_started");
   const documentName = state.options.documents[0];
-  const grant = await issueGrant(
-    state.options,
-    documentName,
-    0,
-    state.fixture,
-  );
+  const grant = await issueGrant(state.options, documentName, 0, state.fixture);
   const exchangeBody = {
     grant,
     origin: state.options.allowedOrigin,
@@ -1546,6 +1549,7 @@ export async function runP519ProviderSoak(
     bindingFile = BINDING_FILE,
     deployStateFile = DEPLOY_STATE_FILE,
     outputFile = OUTPUT_FILE,
+    outputFileFromArgv = true,
     providerFixture = P519_PROVIDER_FIXTURE,
   } = {},
 ) {
@@ -1729,7 +1733,14 @@ export async function runP519ProviderSoak(
       expectedBinding: binding,
       nowMs: Date.now(),
     });
-    const outputPath = resolve(ROOT, process.argv[3] ?? outputFile);
+    const outputPath = resolve(
+      ROOT,
+      selectProviderReportOutputFile(
+        outputFile,
+        outputFileFromArgv,
+        process.argv,
+      ),
+    );
     writeJsonAtomic(
       resolve(dirname(outputPath), "provider-report-summary.json"),
       createRedactedP519Summary(report, evaluation),

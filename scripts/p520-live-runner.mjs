@@ -18,6 +18,7 @@ import {
 import { P519_RENDER_SERVICES } from "./p519-render-sync.mjs";
 import {
   createP520ExecutionBinding,
+  executeP520AdoptLiveDecision,
   executeP520LiveDecision,
   executeP520Rollback,
 } from "./p520-ramp-executor.mjs";
@@ -329,6 +330,55 @@ async function deploy(environmentInput = process.env) {
   }
 }
 
+async function adoptLive(environmentInput = process.env) {
+  const inputs = loadAuthorizedInputs();
+  const environment = validatedEnvironment(environmentInput);
+  const binding = createExecutionBinding(inputs);
+  const adapter = createLiveAdapter(
+    environment,
+    binding.targetFingerprintSha256,
+  );
+  let receipt;
+  try {
+    receipt = await executeP520AdoptLiveDecision(binding, adapter);
+    const runId = `p520-r3-${new Date().toISOString().replace(/[-:.]/gu, "")}`;
+    const provider = providerBinding(
+      environment,
+      inputs.packet,
+      receipt.deploy,
+      runId,
+    );
+    const deployId = `${receipt.deploy.controlDeployId}.${receipt.deploy.runtimeDeployId}`;
+    writePrivateJson(BINDING_FILE, { binding: provider }, { replace: true });
+    writePrivateJson(
+      DEPLOY_FILE,
+      {
+        commitSha: inputs.candidateSha,
+        control: { deployId: receipt.deploy.controlDeployId },
+        deployId,
+        generatedAt: new Date().toISOString(),
+        runId,
+        runtime: { deployId: receipt.deploy.runtimeDeployId },
+      },
+      { replace: true },
+    );
+    writePrivateJson(inputs.decision, receipt, { replace: true });
+    return {
+      outcome: "pass",
+      candidateSha: inputs.candidateSha,
+      appliedMode: receipt.appliedMode,
+      services: 2,
+      tenantCount: 2,
+      exactTarget: true,
+      adoptedExistingLiveCandidate: true,
+      identifiersLogged: false,
+    };
+  } catch (error) {
+    await executeP520Rollback(binding, adapter).catch(() => undefined);
+    throw error;
+  }
+}
+
 async function crossTenantIsolationProbe(environment, fixture) {
   const [left, right] = fixture.documents;
   const response = await fetch(
@@ -383,7 +433,7 @@ async function preflight(environmentInput = process.env) {
       candidateSha: inputs.candidateSha,
       identifiersLogged: false,
     };
-    writePrivateJson(PREFLIGHT_FILE, receipt);
+    writePrivateJson(PREFLIGHT_FILE, receipt, { replace: true });
     return receipt;
   } catch (error) {
     if (provisioned) {
@@ -396,6 +446,25 @@ async function preflight(environmentInput = process.env) {
     await rollback(environmentInput).catch(() => undefined);
     throw error;
   }
+}
+
+async function provisionBase(environmentInput = process.env) {
+  const inputs = loadAuthorizedInputs();
+  const environment = validatedEnvironment(environmentInput);
+  const fixture = await runP520ProviderFixture(
+    "base-provision",
+    environment,
+    inputs.manifest,
+  );
+  exactDatabaseLedger(environment);
+  return {
+    outcome: "pass",
+    tenantCount: fixture.tenantCount,
+    documents: fixture.documentCount,
+    ledgerVersion: 42,
+    ledgerDirty: false,
+    identifiersLogged: false,
+  };
 }
 
 async function rollback(environmentInput = process.env) {
@@ -468,6 +537,8 @@ export async function runP520LiveRunner(
   const operation = args[0];
   if (operation === "authorize") return authorize();
   if (operation === "deploy") return deploy(environment);
+  if (operation === "adopt-live") return adoptLive(environment);
+  if (operation === "provision-base") return provisionBase(environment);
   if (operation === "preflight") return preflight(environment);
   if (operation === "rollback") return rollback(environment);
   if (operation === "cleanup") return cleanup(environment);

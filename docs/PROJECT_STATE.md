@@ -4,57 +4,40 @@
 
 ## Snapshot
 
-| Thuộc tính           | Trạng thái                                                                            |
-| -------------------- | ------------------------------------------------------------------------------------- |
-| Ngày cập nhật        | 2026-09-17                                                                            |
-| Repository           | `https://github.com/basangnguyen/TUTORHUB_WEB`                                        |
-| Nhánh làm việc       | `main`                                                                                |
-| Quy trình            | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
-| Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4                                                    |
-| Phase hiện tại       | Phase 5 collaboration implementation; Phase 3 deferred carry-over vẫn hoạt động       |
-| Task `DONE` gần nhất | P5-COLLAB-19 Private alpha acceptance                                                 |
-| Mốc repository mới   | P5-COLLAB-20 corrected exact-two live runner; local gate 51/51 PASS                    |
-| Task hiện tại        | P5-COLLAB-20 — IN PROGRESS; corrected candidate requires new exact-SHA authorization  |
-| Task tiếp theo       | Commit/push corrected candidate, then authorize that exact SHA before provider action |
+| Thuộc tính           | Trạng thái                                                                              |
+| -------------------- | --------------------------------------------------------------------------------------- |
+| Ngày cập nhật        | 2026-09-18                                                                              |
+| Repository           | `https://github.com/basangnguyen/TUTORHUB_WEB`                                          |
+| Nhánh làm việc       | `main`                                                                                  |
+| Quy trình            | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn   |
+| Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4                                                      |
+| Phase hiện tại       | Phase 5 collaboration implementation; Phase 3 deferred carry-over vẫn hoạt động         |
+| Task `DONE` gần nhất | P5-COLLAB-19 Private alpha acceptance                                                   |
+| Mốc repository mới   | P5-COLLAB-20 exact disposable R3 attempted; local gate 55/55 và final cleanup PASS      |
+| Task hiện tại        | P5-COLLAB-20 — VERIFY; artifact p95 live gate failed twice, whiteboard force-off        |
+| Task tiếp theo       | Diagnose artifact latency; require new authorization before another live completion run |
 
-### Checkpoint P5-COLLAB-20 IN PROGRESS — 2026-09-18
+### Checkpoint P5-COLLAB-20 `VERIFY` — 2026-09-18
 
-Preparation baseline đã được triển khai fail-closed, không có provider mutation. Contract giữ
-P5-COLLAB-19 ở exact baseline candidate 22ebfe1bfecc95d782ee35f4a8049c32f25fdc50, ledger
-42 false, whiteboard off; khóa one-authority Excalidraw/Yjs/Hocuspocus và profile
-FREE_PRIVATE_ALPHA một Render Free Singapore, không Redis/HA/autoscale, hard cap 0 USD.
+Exact candidate `4412bbdad87e425b5cdba00a05abcd8cf6b30008` đã được bind với inherited
+disposable target và exact-two private manifest theo authorization hai giai đoạn. Exact Control/
+Runtime candidate, initial `off`, evaluator mode, negative cross-tenant preflight và provider
+readiness đều PASS; production/shared staging không bị chạm và không phát sinh paid capacity.
 
-pnpm test:collaboration:p520 PASS: 51/51 contract/dry-run/binder/executor/control/adapter/fixture/live-runner test, static force-off, exact-one
-low-quota canary guard. Authorization packet materializer chỉ import SHA/deploy-ID allowlist từ
-P5-19, ghi atomically vào private tmp và không overwrite; dry-run chỉ nhận bounded JSON dưới
-tmp/p5-collab-20, trả redacted hash receipt và từ chối live flag trước khi đọc input. Contract từ
-chối production/shared staging, không cho live ramp khi thiếu exact
-candidate/target fingerprint/allowlist hash/tenant count/quota/owner approval hoặc live + rollback
-executor. Automatic hold-point policy đã được nối vào executor core fail-closed và Render adapter
-allowlisted: core bắt buộc exact authorized packet/candidate/fingerprint/manifest, deploy ở `off`, chỉ
-áp mode đã evaluate, phát receipt redacted và rollback theo `read_only -> off` với zero-state
-verification. Adapter không có CLI, chỉ nhận đúng hai disposable service và ba env key, đồng thời đã
-PASS fake-provider tests; chưa có Render call thật.
-Core API có đường R3 riêng chỉ nhận exact-two canonical tenant khi ramp flag explicit true; flag
-mặc định false, exact-one P5-18 không đổi và cả hai R3 tenant bị khóa ở low-quota 2/10/64 MiB/600.
-CLI tenant binder đã được thêm ở trạng thái preparation-only: chỉ nhận manifest exact-two canonical
-UUID trong private tmp, ghi hash/count vào packet mới, không echo UUID, không overwrite và không thể
-bật live/provider mutation. Trên exact Neon disposable target với ledger `42 false`, runner đã tạo
-transactionally đúng 2 synthetic tenant/user/active org-admin membership/active private-alpha
-enrollment và 0 whiteboard document. Manifest cùng bound preparation packet đã được materialize dưới
-private tmp, postflight exact-two PASS, không log UUID/secret; owner authorization vẫn chưa có.
-P5-COLLAB-20 vẫn IN PROGRESS; bước tiếp theo là nhận authorization riêng cho exact R3 packet/target
-trước khi chạy adapter trên hai disposable Render service.
-Checkpoint executor này không gọi Render/Neon/B2. Review:
+Hai provider-observed hold đều chạy đủ 3.600 giây cùng full reconnect/Control/Neon/B2/credential/
+force-off/export/restore/revoke drill matrix. Lượt 1 có P95 join/reconnect/convergence/ack/artifact
+`1229/1474/664/441/2926 ms`; lượt retry cuối là `1349/1793/587/444/6480 ms`. Cả hai chỉ FAIL
+`artifactP95Ms <= 2500`; evaluator lượt cuối có đúng một error category và soak cleanup xác nhận
+zero database/runtime/B2 residue. Ngưỡng không bị nới và six-review completion packet không được tạo.
+
+Rollback cuối PASS theo `read_only -> off`; runtime not ready, document/edit connection `0/0`.
+Cleanup cuối PASS với ledger `42 false`, whiteboard `off`, synthetic tenant/document `0/0`.
+P5-COLLAB-20 giữ `VERIFY`; retry authorization hiện tại đã hết. Bước tiếp theo là chẩn đoán artifact
+latency và phải có authorization mới trước một live completion attempt khác.
+
+Local finalizer fail-closed đã được bổ sung nhưng không chạy khi report gate fail. Aggregate
+`pnpm test:collaboration:p520` đạt `55/55`, ESLint file thay đổi PASS. Review:
 [P5_COLLAB_20_RAMP_EXIT_REVIEW.md](P5_COLLAB_20_RAMP_EXIT_REVIEW.md).
-
-Owner đã phê duyệt workflow hai giai đoạn cho candidate `b278bab`, nhưng pre-provider review phát hiện
-candidate này chưa bind từng tenant với đúng provider document. Không có provider call/deploy nào được
-thực hiện. Control đã được sửa để từ chối `tenant_document_mismatch`; exact-two fixture, negative
-isolation probe, live runner và wrapper soak 3.600 giây đã được thêm. Authorization hai giai đoạn chỉ
-cho phép exact disposable live window ở trạng thái `authorized-pending-live-validation`; task không
-thể `DONE` trước khi đủ sáu fresh live review PASS. Corrected candidate phải được commit/push và nhận
-authorization mới theo exact SHA trước mọi provider mutation.
 
 ### Checkpoint P5-COLLAB-19 `DONE` — 2026-09-17
 

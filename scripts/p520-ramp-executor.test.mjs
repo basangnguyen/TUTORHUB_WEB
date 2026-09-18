@@ -7,6 +7,7 @@ import {
 } from "./p520-ramp-exit-contract.mjs";
 import {
   createP520ExecutionBinding,
+  executeP520AdoptLiveDecision,
   executeP520LiveDecision,
   executeP520Rollback,
   selectP520SafeMode,
@@ -108,6 +109,13 @@ function fakeAdapter() {
         runtimeDeployId: "dep-runtime",
       };
     },
+    async adoptLiveCandidate(candidateSha) {
+      calls.push(["adopt", candidateSha]);
+      return {
+        controlDeployId: "dep-control",
+        runtimeDeployId: "dep-runtime",
+      };
+    },
     async setMode(next) {
       mode = next;
       calls.push(["mode", next]);
@@ -200,6 +208,24 @@ test("critical observation stays force-off after deploy", async () => {
   assert.equal(receipt.appliedMode, "off");
   assert.deepEqual(receipt.reasonCodes, ["dataLoss"]);
   assert.equal(adapter.calls.filter(([name]) => name === "mode").length, 1);
+});
+
+test("adopt-live executor verifies the exact live candidate and reapplies off first", async () => {
+  const adapter = fakeAdapter();
+  const receipt = await executeP520AdoptLiveDecision(binding(), adapter);
+  assert.deepEqual(adapter.calls, [
+    ["target", CANDIDATE],
+    ["adopt", CANDIDATE],
+    ["mode", "off"],
+    ["verify", "off"],
+    ["mode", "enabled"],
+    ["verify", "enabled"],
+  ]);
+  assert.equal(receipt.action, "adopt-live-decision");
+  assert.equal(receipt.appliedMode, "enabled");
+  const serialized = JSON.stringify(receipt);
+  for (const tenantId of TENANTS)
+    assert.equal(serialized.includes(tenantId), false);
 });
 
 test("rollback follows read_only then off and proves zero active state", async () => {
