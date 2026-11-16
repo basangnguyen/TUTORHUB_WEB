@@ -4,7 +4,7 @@ import { Navigate, Outlet, type RouteObject, useLocation } from "react-router";
 import type { CurrentUser } from "@tutorhub/api-client";
 import { Button, ErrorState } from "@tutorhub/ui";
 import { RefreshCw } from "lucide-react";
-import { lazy } from "react";
+import { lazy, Suspense } from "react";
 import { AppShell } from "../components/AppShell";
 import { DashboardPage } from "../pages/AppPages";
 import {
@@ -34,13 +34,17 @@ import {
   NotFoundPage,
   OfflinePage,
   RouteErrorBoundary,
-  SignInPage,
   SignedOutPage,
 } from "../pages/RouteStates";
 import { useSession } from "./session";
 import { useI18n, type TranslationKey } from "./i18n";
 import { useTenantCapabilities } from "./tenantCapabilities";
 
+const SignInPage = lazy(() =>
+  import("../pages/SignInPage").then((module) => ({
+    default: module.SignInPage,
+  })),
+);
 const ClassroomPreJoinPage = lazy(() =>
   import("../pages/LiveKitPages").then((module) => ({
     default: module.ClassroomPreJoinPage,
@@ -364,7 +368,14 @@ export function createAppRoutes(): RouteObject[] {
       path: "/invite/accepted",
       element: <MembershipInvitationAcceptedPage />,
     },
-    { path: "/sign-in", element: <SignInPage /> },
+    {
+      path: "/sign-in",
+      element: (
+        <Suspense fallback={<LoadingScreen />}>
+          <SignInPage />
+        </Suspense>
+      ),
+    },
     { path: "/signed-out", element: <SignedOutPage /> },
     { path: "/offline", element: <OfflinePage /> },
     { path: "*", element: <NotFoundPage /> },

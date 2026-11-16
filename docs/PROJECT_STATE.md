@@ -12,10 +12,30 @@
 | Quy trình            | Antigravity làm PM/Gatekeeper điều phối Codex và Claude Code qua prompt; Antigravity nghiệm thu và commit/push thẳng `main` |
 | Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4, Phase 5 collaboration                                                                  |
 | Phase hiện tại       | Phase 3 deferred carry-over vẫn hoạt động; Phase 5 collaboration đã đóng                                                   |
-| Task `DONE` gần nhất | Thiết lập quản trị điều phối 3-agent theo ADR-0038 (sau P5-COLLAB-20 `DONE`)                                               |
-| Mốc repository mới   | Bổ sung ADR-0038, `CLAUDE.md` và cập nhật `AGENTS.md`, `docs/AGENT_COORDINATION.md`                                        |
+| Task `DONE` gần nhất | `UI-AUTH-01` Clone giao diện đăng nhập V1 (`LoginFrame` / `SignUpFrame` / `ForgotPasswordDialog`) lên Web `/sign-in`        |
+| Mốc repository mới   | `/sign-in` split 65/35 + carousel + Sign Up + Forgot Password modal; `pnpm verify`, `P5-COLLAB-14` bundle & live OIDC PASS |
 | Task hiện tại        | Sẵn sàng nhận nhiệm vụ tiếp theo từ chủ dự án                                                                              |
-| Task tiếp theo       | Theo chỉ đạo của chủ dự án (mở Phase 6, đóng Phase 3 carry-over hoặc tác vụ vận hành)                                      |
+| Task tiếp theo       | Theo chỉ đạo của chủ dự án (tối ưu ảnh WebP/công tắc ngôn ngữ `/sign-in`, hoặc mở tính năng tiếp theo)                     |
+
+### Checkpoint `UI-AUTH-01` Giao diện đăng nhập Web theo thiết kế V1 `DONE` — 2026-11-16
+
+Claude Code triển khai theo prompt điều phối của Antigravity và đã qua nghiệm thu Gatekeeper đầy đủ:
+
+- Sao chép nguyên vẹn tài nguyên gốc từ V1 (`logomoi.png`, `slide_login/login1..3.png`, `facebook.svg`,
+  `google.svg`) vào `apps/web/public/images/auth/` và gắn favicon tại `apps/web/index.html`.
+- Dựng mới `apps/web/src/pages/SignInPage.tsx` + `SignInPage.css` (lazy-load tại `apps/web/src/app/routes.tsx`),
+  tái hiện bố cục hai cột `65% / 35%`, slider 3 ảnh tự chuyển `4000ms` kèm điều khiển tạm dừng/chuyển ảnh
+  đạt WCAG 2.2.2, chế độ chuyển đổi `Sign Up` và hộp thoại `Forgot Password` dùng `Dialog` của `@tutorhub/ui`
+  (focus trap, `Escape`, trả focus), hỗ trợ song ngữ `vi`/`en`.
+- Nút `Log In`, `Facebook` và `Google` kết nối trực tiếp vào BFF OIDC (`useSession().signIn(returnTo)`);
+  `Remember Me` chỉ lưu email gợi ý (`tutorhub.remembered_email`), không lưu mật khẩu hay token.
+- Kiểm chứng Gatekeeper: `pnpm verify` toàn kho PASS (`476/476` web unit test, client bundle security `201`
+  file, toàn bộ Go test/vet), ngân sách bundle `pnpm test:collaboration:p514` PASS (`entryRawBytes=491331`),
+  và kiểm thử trình duyệt thực tế tại `http://localhost:5173/sign-in` xác nhận hiển thị ảnh, chuyển slide,
+  Sign Up, Forgot Password cùng luồng đăng nhập OIDC đầu–cuối vào `/app/home` đều PASS.
+- Hạng mục có thể tinh chỉnh ở bước sau nếu chủ dự án cần: nén bộ ảnh `slide_login` sang WebP/AVIF để giảm
+  dung lượng tải mạng yếu, gom chuỗi bản địa hóa vào `apps/web/src/app/i18n.tsx`, và thêm nút chuyển nhanh
+  `VI / EN` ngay trên màn hình `/sign-in`.
 
 ### Cập nhật quản trị điều phối `DONE` — 2026-11-16
 

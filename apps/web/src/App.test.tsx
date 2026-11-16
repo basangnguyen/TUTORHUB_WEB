@@ -383,9 +383,17 @@ describe("web shell", () => {
     renderRoute("/app/home", null);
 
     expect(
-      await screen.findByRole("heading", {
-        name: "Đăng nhập vào TutorHub",
-      }),
+      await screen.findByRole(
+        "heading",
+        { level: 1, name: "Nền tảng gia sư ứng dụng AI" },
+        { timeout: 5000 },
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { level: 2, name: "Đăng nhập vào TutorHub" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Đăng nhập" }),
     ).toBeInTheDocument();
   });
 

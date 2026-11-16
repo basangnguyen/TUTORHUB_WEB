@@ -68,7 +68,7 @@ async function signIn(page: Page, role: UserRole) {
   }
 
   await page.goto("/sign-in");
-  await page.getByRole("main").getByRole("button").click();
+  await page.getByRole("button", { name: /^(Log In|Đăng nhập)$/i }).click();
   await expect(
     page.getByRole("heading", {
       name: "TutorHub test identity provider",
