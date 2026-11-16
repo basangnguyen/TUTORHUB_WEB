@@ -4,18 +4,54 @@
 
 ## Snapshot
 
-| Thuộc tính           | Trạng thái                                                                                                                 |
-| -------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| Ngày cập nhật        | 2026-11-16                                                                                                                 |
-| Repository           | `https://github.com/basangnguyen/TUTORHUB_WEB`                                                                             |
-| Nhánh làm việc       | `main`                                                                                                                     |
-| Quy trình            | Antigravity làm PM/Gatekeeper điều phối Codex và Claude Code qua prompt; Antigravity nghiệm thu và commit/push thẳng `main` |
-| Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4, Phase 5 collaboration                                                                  |
-| Phase hiện tại       | Phase 3 deferred carry-over vẫn hoạt động; Phase 5 collaboration đã đóng                                                   |
-| Task `DONE` gần nhất | `UI-AUTH-03` Nâng cấp slider đăng nhập trượt ngang liền mạch, progress-pill và tự động chuyển mặc định trên `/sign-in`   |
-| Mốc repository mới   | `SignInSlider` track trượt ngang `560ms` vòng lặp liền mạch + progress pill + vuốt/phím + live Chrome auto-advance PASS  |
-| Task hiện tại        | Sẵn sàng nhận nhiệm vụ tiếp theo từ chủ dự án                                                                              |
-| Task tiếp theo       | Theo chỉ đạo của chủ dự án (hoàn thiện thêm giao diện hoặc mở tính năng tiếp theo)                                         |
+| Thuộc tính           | Trạng thái                                                                                                                     |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| Ngày cập nhật        | 2026-11-16                                                                                                                     |
+| Repository           | `https://github.com/basangnguyen/TUTORHUB_WEB`                                                                                 |
+| Nhánh làm việc       | `main`                                                                                                                         |
+| Quy trình            | Antigravity làm PM/Gatekeeper điều phối Codex và Claude Code qua prompt; Antigravity nghiệm thu và commit/push thẳng `main`    |
+| Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4, Phase 5 collaboration                                                                      |
+| Phase hiện tại       | Phase 3 deferred carry-over vẫn hoạt động; Phase 5 collaboration đã đóng                                                       |
+| Task `DONE` gần nhất | `AUTH-V2-00` Nghiên cứu & lập kế hoạch tổng thể xác thực đa phương thức (`AUTH-01..13`, migrations `000043..000051`)           |
+| Mốc repository mới   | Tài liệu kiến trúc & lộ trình 13 gói xác thực đa phương thức (`docs/AUTH_MULTI_METHOD_RESEARCH_AND_PLAN.md`) đã qua Gatekeeper |
+| Task hiện tại        | Chờ chủ dự án chốt chính sách xác thực cốt lõi để ban hành `ADR-0039`                                                          |
+| Task tiếp theo       | Soạn `ADR-0039` và khởi động `AUTH-01` (nền tảng transaction, challenge OTP, delivery guard & dev inbox)                       |
+
+### Checkpoint `AUTH-V2-00` Nghiên cứu & Kế hoạch tổng thể xác thực đa phương thức `DONE` — 2026-11-16
+
+Claude Code hoàn thành nghiên cứu chuyên sâu và lập kế hoạch triển khai tại
+`docs/AUTH_MULTI_METHOD_RESEARCH_AND_PLAN.md` (1.526 dòng, 10 sơ đồ Mermaid), đã qua Gatekeeper
+(Antigravity) thẩm định kiến trúc và bảo mật:
+
+- **Kiến trúc đề xuất (Hướng 1 — điểm trọng số `4.15` so với SaaS `3.40`, ZITADEL Session API `3.30`,
+  Self-host OSS `3.25`)**: Mở rộng trực tiếp module `services/core-api/internal/modules/identity` trong
+  Go modular monolith kết hợp OAuth2/OIDC federation trực tiếp tới Google, Facebook, Microsoft (và Apple
+  tùy chọn); giữ nguyên BFF cookie `__Host-tutorhub_session` / `__Host-tutorhub_csrf`, `GET /api/v1/me`
+  và fake issuer `e2e-oidc` (ZITADEL trở thành provider `oidc` tùy chọn). Giữ trọn giao diện `/sign-in`,
+  không chạm trần 100 DAU của ZITADEL Free và không phát sinh container phụ trên Render.
+- **Thiết kế bảo mật trọng tâm**:
+  - Mở rộng `tutorhub.identities` làm sổ đăng ký phương thức đăng nhập (`oidc`, `oauth2`, `email`,
+    `phone`, `passkey`) kèm `urn:tutorhub:email` để tương thích liền mạch với luồng chấp nhận lời mời
+    vào tổ chức/lớp học hiện có.
+  - **Cấm tự động gộp tài khoản (auto-merge) theo email/SĐT**: khi trùng định danh sẽ tạo `link_intent`
+    trong `tutorhub.auth_transactions` (`__Host-tutorhub_auth_tx`), bắt buộc xác thực vào tài khoản hiện
+    có ở đúng mức bảo đảm (`AAL1`/`AAL2`) rồi xác nhận liên kết — chặn cả 5 lớp tấn công Pre-Account
+    Takeover (USENIX Security 2022).
+  - **Mật khẩu & OTP**: Argon2id (`m=19 MiB, t=2, p=1`) có semaphore giới hạn đồng thời chống tràn RAM
+    `512 MB` trên Render + kiểm tra lộ mật khẩu qua HIBP k-anonymity; mã OTP 6 số CSPRNG chỉ lưu HMAC
+    trong PostgreSQL, phản hồi `202` đồng nhất chống dò tài khoản, gửi qua ephemeral post-commit
+    dispatcher (`devinbox` loopback cho local/E2E, Mailpit/SES/Zalo ZNS/SMS có khóa ngân sách).
+  - **Facebook & Số điện thoại**: Facebook dùng OIDC Code + PKCE, coi email từ Facebook là chưa xác minh
+    (xác thực OTP 1 lần), bổ sung 2 callback bắt buộc của Meta (`data-deletion`, `deauthorize`); số điện
+    thoại chuẩn hóa E.164 (`nyaruka/phonenumbers`), ưu tiên Zalo ZNS trước SMS Brandname cho `+84`, chống
+    SMS pumping đa tầng và tách quyền "nhận lại số" khỏi "khôi phục tài khoản" để chống chiếm đoạt SIM
+    tái chế.
+  - **Passkeys, 2FA & Quản trị phiên**: WebAuthn Conditional UI autofill ngay trên ô nhập định danh,
+    TOTP + mã khôi phục, step-up thật 10 phút (`GREATEST(auth_time, reauthenticated_at)`), trang quản lý
+    thiết bị đang đăng nhập và School SSO xác minh domain qua DNS.
+- **Lộ trình thực thi**: Phân rã thành 13 gói công việc độc lập `AUTH-01` → `AUTH-13` (migrations
+  `000043` → `000051`), tách rõ ranh giới Contract/Web/E2E (Claude Code) và Go Core/SQL/ACL (Codex),
+  toàn bộ nằm sau cờ `AUTH_*` mặc định `false`. Chưa thay đổi runtime, schema database hay cấu hình.
 
 ### Checkpoint `UI-AUTH-03` Slider trượt ngang liền mạch & Progress Pill trên `/sign-in` `DONE` — 2026-11-16
 
@@ -41,7 +77,7 @@ Claude Code triển khai theo prompt điều phối của Antigravity và đã q
 Claude Code triển khai theo prompt điều phối của Antigravity và đã qua nghiệm thu Gatekeeper đầy đủ:
 
 - Bổ sung `apps/web/src/pages/signInLegalContent.ts` với nội dung song ngữ `vi`/`en` gồm hộp **Tóm tắt
-  điểm chính** và **7 điều khoản** cho từng văn bản (*Thỏa thuận người dùng* và *Chính sách quyền riêng tư*),
+  điểm chính** và **7 điều khoản** cho từng văn bản (_Thỏa thuận người dùng_ và _Chính sách quyền riêng tư_),
   đối chiếu chuẩn xác với kiến trúc bảo mật/phân quyền TutorHub V2.
 - Xây dựng `apps/web/src/pages/SignInLegalDialog.tsx` tái sử dụng `Dialog` & `Tabs` từ `@tutorhub/ui`:
   header cố định kèm pill phiên bản, chuyển đổi mượt giữa 2 tab trong một vùng cuộn chung (tự reset

@@ -261,6 +261,7 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
 58. [P5-COLLAB-01 Gate F: Runtime và vận hành](docs/P5_COLLAB_01_RUNTIME_OPERATIONS.md)
 59. [CLAUDE.md: Quy tắc cho Claude Code worker](CLAUDE.md)
 60. [ADR-0038: Mô hình Antigravity điều phối đa coding agent](docs/adr/0038-antigravity-orchestrated-multi-agent-workflow.md)
+61. [AUTH-V2-00: Nghiên cứu và kế hoạch xác thực đa phương thức](docs/AUTH_MULTI_METHOD_RESEARCH_AND_PLAN.md)
 
 Các quyết định kiến trúc đã chấp nhận nằm trong `docs/adr`.
 
