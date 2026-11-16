@@ -6,21 +6,23 @@ TutorHub V2 là hệ sinh thái học trực tuyến web-first. TutorHub V1 tạ
 
 ## Trước khi sửa mã
 
-1. Đọc `README.md`, `docs/AGENT_COORDINATION.md`, `docs/PROJECT_STATE.md`, `docs/MASTER_PLAN.md`, backlog phase, tài liệu liên quan và ADR tương ứng.
+1. Đọc `README.md`, `docs/AGENT_COORDINATION.md`, `docs/PROJECT_STATE.md`, `docs/MASTER_PLAN.md`, backlog phase, tài liệu liên quan và ADR tương ứng (với Claude Code, đọc thêm `CLAUDE.md`).
 2. Kiểm tra trạng thái Git và các thay đổi cục bộ trước khi sửa; không ghi đè thay đổi chưa được hiểu rõ.
 3. Với thay đổi kiến trúc, tạo hoặc cập nhật ADR trước khi triển khai.
-4. Không sao chép secret, token, URL có credential hoặc file cấu hình production từ V1.
+4. Không sao chép secret, token, URL có credential hoặc file cấu hình production từ V1; không đọc hoặc in giá trị secret từ `.env*.local`.
 5. Ưu tiên làm việc nhanh chóng, không overthinking: chọn phương án đơn giản, đủ an toàn và
    có thể kiểm chứng; tránh phân tích hoặc trao đổi lặp lại khi không làm thay đổi quyết định.
 
-## Repository và phối hợp
+## Repository và phối hợp (theo ADR-0012 & ADR-0038)
 
 - Repository chính thức: `https://github.com/basangnguyen/TUTORHUB_WEB`.
 - Remote chuẩn: `origin`; nhánh mặc định: `main`.
-- Dự án hiện do một coding agent duy trì; thay đổi được thực hiện và commit trực tiếp vào `main` để giảm thủ tục.
-- GitHub chủ yếu là nơi lưu mã và sao lưu lịch sử. Không bắt buộc tạo Issue, branch hoặc Pull Request cho từng task.
-- Trước mỗi lần push phải chạy kiểm tra phù hợp với phạm vi thay đổi, xem lại diff và xác nhận không có secret.
-- Không force-push `main`; khi cần thử nghiệm rủi ro cao vẫn có thể chủ động dùng branch tạm.
+- Mô hình điều phối 3-agent dưới sự chỉ đạo của chủ dự án:
+  - **Antigravity (PM / Architect / Gatekeeper)**: quản lý lộ trình, kiến trúc, ADR, phân rã task và xuất **Prompt giao việc chuẩn** để chủ dự án dán vào **Codex** hoặc **Claude Code**; trực tiếp review diff/bảo mật, chạy cổng kiểm chứng (`pnpm verify` và các test liên quan), cập nhật `docs/PROJECT_STATE.md` và là **agent duy nhất** thực hiện `git commit` / `git push origin main`.
+  - **Codex & Claude Code (Implementation / Review Workers)**: thực thi nghiêm ngặt trong phạm vi file (`Allowed Scope`) của prompt được dán vào; chạy kiểm thử cục bộ theo yêu cầu của prompt và báo cáo kết quả bàn giao; **tuyệt đối không** tự `git commit`, `git push`, `git reset --hard`, sửa `docs/PROJECT_STATE.md` hoặc chạm hạ tầng staging/production khi prompt không chỉ định rõ.
+- GitHub chủ yếu là nơi lưu mã, sao lưu lịch sử và chạy hậu kiểm CI (`Verify`, `Security`). Không bắt buộc tạo Issue, branch hoặc Pull Request cho từng task.
+- Trước mỗi lần push, Gatekeeper phải chạy kiểm tra phù hợp với phạm vi thay đổi (`pnpm verify`), xem lại diff và xác nhận không có secret.
+- Không force-push `main`; khi cần thử nghiệm rủi ro cao hoặc giao việc song song dễ đụng file, dùng branch hoặc `git worktree` tạm.
 
 ## Kiến trúc đã chấp nhận
 

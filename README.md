@@ -191,8 +191,10 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
 - Exit gate Phase 1 đã đạt cho Verify/Security CI, OIDC/session/logout,
   health/readiness, migration/rollback, B2, LiveKit 2-5 người, webhook idempotent và
   local developer experience.
-- Repository hiện do một người duy trì và push trực tiếp `main`; ngoại lệ quản trị
-  này được giới hạn trong development/staging/private alpha theo ADR-0012.
+- Repository hiện do một người duy trì và push trực tiếp `main` theo ADR-0012 và ADR-0038:
+  **Antigravity** đóng vai trò PM/Gatekeeper duy nhất nghiệm thu và commit/push `main`, điều
+  phối **Codex** và **Claude Code** qua prompt có phạm vi đóng; ngoại lệ quản trị này được giới
+  hạn trong development/staging/private alpha.
 - Master Plan web-first 2.4 và backlog Phase 4 là nguồn kế hoạch implementation hiện hành;
   backlog Phase 3 tiếp tục là nguồn cho deferred carry-over/full closure.
 - Không sao chép secret, token hoặc cấu hình production từ V1.
@@ -257,6 +259,8 @@ TutorHub V2 là phiên bản web-first của hệ sinh thái TutorHub. Dự án 
 56. [P5-COLLAB-01: tldraw automated evidence đã superseded](docs/P5_COLLAB_01_AUTOMATED_ACCEPTANCE.md)
 57. [P5-COLLAB-01: Excalidraw decision và acceptance gates](docs/P5_COLLAB_01_EXCALIDRAW_ACCEPTANCE.md)
 58. [P5-COLLAB-01 Gate F: Runtime và vận hành](docs/P5_COLLAB_01_RUNTIME_OPERATIONS.md)
+59. [CLAUDE.md: Quy tắc cho Claude Code worker](CLAUDE.md)
+60. [ADR-0038: Mô hình Antigravity điều phối đa coding agent](docs/adr/0038-antigravity-orchestrated-multi-agent-workflow.md)
 
 Các quyết định kiến trúc đã chấp nhận nằm trong `docs/adr`.
 

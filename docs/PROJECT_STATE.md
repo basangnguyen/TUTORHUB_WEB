@@ -4,18 +4,30 @@
 
 ## Snapshot
 
-| Thuộc tính           | Trạng thái                                                                            |
-| -------------------- | ------------------------------------------------------------------------------------- |
-| Ngày cập nhật        | 2026-09-18                                                                            |
-| Repository           | `https://github.com/basangnguyen/TUTORHUB_WEB`                                        |
-| Nhánh làm việc       | `main`                                                                                |
-| Quy trình            | Một coding agent, commit trực tiếp vào `main`; GitHub dùng để lưu và sao lưu mã nguồn |
-| Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4, Phase 5 collaboration                             |
-| Phase hiện tại       | Phase 3 deferred carry-over vẫn hoạt động; Phase 5 collaboration đã đóng              |
-| Task `DONE` gần nhất | P5-COLLAB-20 Ramp và rollback/exit review                                             |
-| Mốc repository mới   | P5-COLLAB-20 exact-candidate live completion, six reviews và cleanup đều PASS         |
-| Task hiện tại        | Không có task Phase 5 collaboration đang mở                                           |
-| Task tiếp theo       | Chọn task ưu tiên tiếp theo từ deferred carry-over/master plan                        |
+| Thuộc tính           | Trạng thái                                                                                                                 |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Ngày cập nhật        | 2026-11-16                                                                                                                 |
+| Repository           | `https://github.com/basangnguyen/TUTORHUB_WEB`                                                                             |
+| Nhánh làm việc       | `main`                                                                                                                     |
+| Quy trình            | Antigravity làm PM/Gatekeeper điều phối Codex và Claude Code qua prompt; Antigravity nghiệm thu và commit/push thẳng `main` |
+| Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4, Phase 5 collaboration                                                                  |
+| Phase hiện tại       | Phase 3 deferred carry-over vẫn hoạt động; Phase 5 collaboration đã đóng                                                   |
+| Task `DONE` gần nhất | Thiết lập quản trị điều phối 3-agent theo ADR-0038 (sau P5-COLLAB-20 `DONE`)                                               |
+| Mốc repository mới   | Bổ sung ADR-0038, `CLAUDE.md` và cập nhật `AGENTS.md`, `docs/AGENT_COORDINATION.md`                                        |
+| Task hiện tại        | Sẵn sàng nhận nhiệm vụ tiếp theo từ chủ dự án                                                                              |
+| Task tiếp theo       | Theo chỉ đạo của chủ dự án (mở Phase 6, đóng Phase 3 carry-over hoặc tác vụ vận hành)                                      |
+
+### Cập nhật quản trị điều phối `DONE` — 2026-11-16
+
+Chủ dự án chuyển giao vai trò quản lý dự án và chốt chặn chất lượng (PM / Architect / Gatekeeper) cho
+**Antigravity**, phối hợp cùng **Codex** và **Claude Code (Claude Pro)** làm worker thực thi theo
+[ADR-0038](adr/0038-antigravity-orchestrated-multi-agent-workflow.md) (bổ sung cho
+[ADR-0012](adr/0012-single-maintainer-direct-main-governance.md)). Antigravity chịu trách nhiệm lập kế
+hoạch, xuất Prompt giao việc chuẩn theo phạm vi file đóng (`Allowed Scope`) để chủ dự án dán vào Codex
+hoặc Claude Code, sau đó trực tiếp review `git diff`/bảo mật, chạy `pnpm verify`, cập nhật
+`docs/PROJECT_STATE.md` và thực hiện `git commit` / `git push origin main`. Đã bổ sung `CLAUDE.md` tại
+gốc repository và đồng bộ `AGENTS.md`, `docs/AGENT_COORDINATION.md`, `README.md`. Không thay đổi runtime,
+schema database hoặc cấu hình triển khai.
 
 ### Closure P5-COLLAB-20 `DONE` — 2026-09-18
 

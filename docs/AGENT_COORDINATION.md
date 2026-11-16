@@ -2,31 +2,70 @@
 
 ## 1. Mô hình làm việc hiện tại
 
-Từ ngày 2026-07-16, dự án được duy trì bởi một coding agent. GitHub là nơi lưu
-mã nguồn và lịch sử thay đổi; không còn quy trình phân chia ownership giữa nhiều
-agent.
+Từ ngày 2026-11-16 ([ADR-0038](adr/0038-antigravity-orchestrated-multi-agent-workflow.md),
+bổ sung cho [ADR-0012](adr/0012-single-maintainer-direct-main-governance.md)), dự án do
+một chủ dự án duy trì với mô hình điều phối ba coding agent có phân tầng rõ ràng:
 
 - Repository: `https://github.com/basangnguyen/TUTORHUB_WEB`.
 - Thư mục chuẩn: `D:\TutorHub_V2`.
-- Nhánh phát triển mặc định: `main`.
-- Commit và push trực tiếp vào `main` sau khi kiểm tra đạt.
-- Không bắt buộc tạo Issue, feature branch hoặc Pull Request cho từng task.
-- Không force-push `main` và không commit secret.
+- Nhánh phát triển mặc định: `main` (không bắt buộc Issue/PR cho từng task; không force-push `main` và không commit secret).
 
-Branch tạm vẫn được phép khi thử migration, dependency upgrade hoặc thay đổi có
-nguy cơ cao. Sau khi xác minh, thay đổi phải được đưa về `main` và branch tạm có
-thể xóa.
+### 1.1 Phân vai giữa các agent
+
+| Agent | Vai trò chính | Quyền hạn & Thế mạnh ưu tiên |
+| :--- | :--- | :--- |
+| **Antigravity** | **PM / Architect / Gatekeeper** | Giữ ngữ cảnh toàn cục (`PROJECT_STATE.md`, `MASTER_PLAN.md`, backlog, ADR), thiết kế kiến trúc, chia nhỏ công việc, **viết Prompt giao việc chuẩn** để chủ dự án dán vào Codex hoặc Claude Code, review `git diff` & bảo mật, chạy gate nghiệm thu (`pnpm verify`), cập nhật `docs/PROJECT_STATE.md` và là **agent duy nhất** được `git commit` / `git push origin main`. |
+| **Codex** | **Backend / Infra / Review Worker** | Ưu tiên giao các gói việc Go (`services/core-api`), PostgreSQL migration & runtime ACL, script điều phối/kiểm thử (`scripts/`), tối ưu hiệu năng/concurrency và rà soát lỗi logic/bảo mật độc lập. |
+| **Claude Code (Claude Pro)** | **Frontend / Contract / UX Worker** | Ưu tiên giao các gói việc React + TypeScript (`apps/web`, `packages/ui`), tích hợp OpenAPI (`openapi/`, `packages/api-client`), accessibility (keyboard/ARIA/Axe), đa ngôn ngữ (`vi`/`en`), Playwright E2E và refactor trải rộng nhiều component. |
+
+### 1.2 Ranh giới an toàn bắt buộc cho Worker (`Codex` & `Claude Code`)
+
+1. Chỉ sửa các file nằm trong danh sách `Allowed Scope` của prompt được dán vào.
+2. **Không** tự chạy `git commit`, `git push`, `git reset --hard`, `git checkout --` hoặc xóa nhánh.
+3. **Không** đọc/in giá trị secret từ `.env*.local`, không chạm shared staging/production khi chưa được phép rõ trong prompt.
+4. **Không** tự sửa `docs/PROJECT_STATE.md` (trừ khi được giao đích danh trong prompt).
+5. Khi giao việc **song song** cho cả Codex và Claude Code, Antigravity bắt buộc phải tách hai `Allowed Scope` hoàn toàn rời nhau hoặc tách bằng `git worktree` tạm. Branch/worktree tạm được xóa sau khi Antigravity đã nghiệm thu và đưa thay đổi về `main`.
+
+### 1.3 Mẫu Prompt giao việc chuẩn (do Antigravity xuất để chủ dự án copy-paste)
+
+Mỗi khi giao việc cho Codex hoặc Claude Code, Antigravity xuất một khối prompt tự chứa theo đúng cấu trúc:
+
+```markdown
+[GỬI CHO: CODEX | CLAUDE CODE]
+Task: <Mã task & mục tiêu ngắn gọn>
+
+1. Tài liệu cần đọc trước:
+   - AGENTS.md (và CLAUDE.md nếu là Claude Code)
+   - <Danh sách file ADR / backlog / source liên quan tối thiểu>
+
+2. Phạm vi được phép sửa (Allowed Scope):
+   - <Đường dẫn file hoặc thư mục cụ thể>
+
+3. Yêu cầu triển khai chi tiết:
+   - <Các bước kỹ thuật, contract, edge case, tenant isolation, UI states/a11y>
+
+4. Hành động bị cấm:
+   - Không sửa file ngoài Allowed Scope; không sửa docs/PROJECT_STATE.md.
+   - Không đọc/in .env*.local; không chạm staging/production.
+   - Không chạy git commit, git push hoặc git reset.
+
+5. Lệnh kiểm chứng bắt buộc trước khi bàn giao:
+   - <Các lệnh lint / typecheck / unit test cục bộ phù hợp>
+
+6. Định dạng báo cáo bàn giao:
+   - Tóm tắt thay đổi, danh sách file đã sửa, kết quả test PASS/FAIL, rủi ro còn lại.
+```
 
 ## 2. Trình tự cho mỗi task
 
-1. Đọc `AGENTS.md`, `README.md`, `docs/PROJECT_STATE.md`, backlog và ADR liên quan.
-2. Chạy `git status` và đọc diff hiện có trước khi sửa.
-3. Xác định phạm vi file, contract, migration và rủi ro.
-4. Thực hiện thay đổi nhỏ, bám kiến trúc đã chấp nhận.
-5. Chạy formatter, lint, typecheck, test/build hoặc smoke test phù hợp với rủi ro.
-6. Kiểm tra diff và secret trước khi commit.
-7. Cập nhật `docs/PROJECT_STATE.md` cùng checklist phase liên quan.
-8. Commit và push trực tiếp `main`.
+1. **Antigravity** đọc `AGENTS.md`, `docs/PROJECT_STATE.md`, backlog và ADR liên quan; kiểm tra `git status -sb`.
+2. **Antigravity** xác định kiến trúc/ADR (nếu có thay đổi kiến trúc thì tạo/cập nhật ADR trước), chốt phạm vi file và rủi ro.
+3. **Antigravity** xuất **Prompt giao việc chuẩn** chỉ rõ dán cho **Codex** hay **Claude Code** (hoặc cả hai nếu phạm vi file tách biệt).
+4. Chủ dự án sao chép prompt dán vào **Codex** / **Claude Code**; worker triển khai đúng `Allowed Scope`, tự chạy test cục bộ và xuất báo cáo bàn giao.
+5. Chủ dự án báo lại kết quả cho **Antigravity**; Antigravity kiểm tra `git status`, đọc toàn bộ `git diff`, rà soát bảo mật/tenant isolation và sửa tinh chỉnh nhỏ nếu cần.
+6. **Antigravity** chạy cổng kiểm chứng tổng thể phù hợp với rủi ro (`pnpm verify`, Go/Playwright/browser smoke).
+7. **Antigravity** cập nhật `docs/PROJECT_STATE.md` cùng checklist phase liên quan.
+8. **Antigravity** kiểm tra không có secret trong staged diff, sau đó `git commit` và `git push origin main`.
 
 ## 3. Trạng thái Phase 1
 

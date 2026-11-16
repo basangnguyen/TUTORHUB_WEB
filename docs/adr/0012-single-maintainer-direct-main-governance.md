@@ -1,6 +1,6 @@
 # ADR-0012: Quản trị `main` trong giai đoạn một người duy trì
 
-- Trạng thái: Accepted
+- Trạng thái: Accepted (bổ sung cơ chế Antigravity điều phối đa coding agent bởi [ADR-0038](0038-antigravity-orchestrated-multi-agent-workflow.md))
 - Ngày: 2026-07-16
 - Phạm vi: development, staging và private alpha
 
