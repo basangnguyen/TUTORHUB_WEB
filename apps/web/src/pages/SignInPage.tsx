@@ -6,7 +6,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@tutorhub/ui";
-import { Pause, Play } from "lucide-react";
 import {
   Fragment,
   useCallback,
@@ -14,8 +13,6 @@ import {
   useId,
   useRef,
   useState,
-  useSyncExternalStore,
-  type FocusEvent,
   type FormEvent,
   type MouseEvent,
 } from "react";
@@ -23,16 +20,15 @@ import { useLocation } from "react-router";
 import { useI18n, type Language } from "../app/i18n";
 import { useSession } from "../app/session";
 import { SignInLegalDialog } from "./SignInLegalDialog";
+import { SignInSlider } from "./SignInSlider";
 import type { SignInLegalTab } from "./signInLegalContent";
 import "./SignInPage.css";
 
 const REMEMBERED_EMAIL_KEY = "tutorhub.remembered_email";
 const REMEMBERED_EMAIL_MAX_LENGTH = 320;
-const SLIDE_INTERVAL_MS = 4000;
 const OTP_COOLDOWN_SECONDS = 60;
 const MIN_PASSWORD_LENGTH = 8;
 const DEFAULT_RETURN_TO = "/app/home";
-const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const OTP_PATTERN = /^\d{6}$/;
 
@@ -45,8 +41,6 @@ const SLIDES = [
   { src: `${AUTH_IMAGE_ROOT}/slide_login/login2.png`, altKey: "slide2Alt" },
   { src: `${AUTH_IMAGE_ROOT}/slide_login/login3.png`, altKey: "slide3Alt" },
 ] as const;
-const SLIDE_WIDTH = 1672;
-const SLIDE_HEIGHT = 941;
 
 const en = {
   badge: "TutorHub Enterprise",
@@ -266,30 +260,6 @@ function clearRememberedEmail() {
   }
 }
 
-function subscribeReducedMotion(onChange: () => void) {
-  if (typeof window.matchMedia !== "function") {
-    return () => undefined;
-  }
-  const media = window.matchMedia(REDUCED_MOTION_QUERY);
-  media.addEventListener("change", onChange);
-  return () => media.removeEventListener("change", onChange);
-}
-
-function getReducedMotion() {
-  return (
-    typeof window.matchMedia === "function" &&
-    window.matchMedia(REDUCED_MOTION_QUERY).matches
-  );
-}
-
-function usePrefersReducedMotion() {
-  return useSyncExternalStore(
-    subscribeReducedMotion,
-    getReducedMotion,
-    () => false,
-  );
-}
-
 function useCodeCooldown() {
   const [remaining, setRemaining] = useState(0);
   const [hasRequested, setHasRequested] = useState(false);
@@ -310,11 +280,6 @@ function useCodeCooldown() {
   }, []);
 
   return { hasRequested, remaining, start };
-}
-
-function isFocusLeaving(event: FocusEvent<HTMLElement>) {
-  const next = event.relatedTarget;
-  return !(next instanceof Node && event.currentTarget.contains(next));
 }
 
 export function SignInPage() {
@@ -402,135 +367,21 @@ export function SignInPage() {
 
 function LoginImageSlider() {
   const c = useSignInCopy();
-  const reducedMotion = usePrefersReducedMotion();
-  const [activeIndex, setActiveIndex] = useState(0);
-  const [cycle, setCycle] = useState(0);
-  const [hovered, setHovered] = useState(false);
-  const [focused, setFocused] = useState(false);
-  const [rotationPreference, setRotationPreference] = useState<boolean | null>(
-    null,
-  );
-  const [failedSlides, setFailedSlides] = useState<readonly number[]>([]);
-  const rotationEnabled = rotationPreference ?? !reducedMotion;
-  const autoRotating = rotationEnabled && !hovered && !focused;
-  const total = SLIDES.length;
-
-  useEffect(() => {
-    if (!autoRotating || total < 2) {
-      return;
-    }
-    const timer = window.setTimeout(() => {
-      setActiveIndex((index) => (index + 1) % total);
-    }, SLIDE_INTERVAL_MS);
-    return () => window.clearTimeout(timer);
-  }, [activeIndex, autoRotating, cycle, total]);
-
-  function showSlide(index: number) {
-    setActiveIndex(((index % total) + total) % total);
-    setCycle((value) => value + 1);
-  }
-
-  function markFailed(index: number) {
-    setFailedSlides((current) =>
-      current.includes(index) ? current : [...current, index],
-    );
-  }
-
   return (
-    <div
-      aria-label={c.sliderLabel}
-      aria-roledescription="carousel"
-      className="sign-in-slider"
-      onBlur={(event) => {
-        if (isFocusLeaving(event)) setFocused(false);
+    <SignInSlider
+      labels={{
+        goToSlide: (index) => formatCopy(c.goToSlide, { index }),
+        next: c.nextSlide,
+        pause: c.pauseSlides,
+        play: c.playSlides,
+        previous: c.previousSlide,
+        region: c.sliderLabel,
+        slideFailed: c.slideFailed,
+        slidePosition: (current, total) =>
+          formatCopy(c.slidePosition, { current, total }),
       }}
-      onFocus={() => setFocused(true)}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      role="region"
-    >
-      <div
-        aria-live={autoRotating ? "off" : "polite"}
-        className="sign-in-slider__viewport"
-      >
-        {SLIDES.map((slide, index) => {
-          const active = index === activeIndex;
-          return (
-            <div
-              aria-hidden={active ? undefined : true}
-              aria-label={formatCopy(c.slidePosition, {
-                current: index + 1,
-                total,
-              })}
-              aria-roledescription="slide"
-              className={`sign-in-slider__slide${active ? " is-active" : ""}`}
-              key={slide.src}
-              role="group"
-            >
-              {failedSlides.includes(index) ? (
-                <p className="sign-in-slider__fallback">{c.slideFailed}</p>
-              ) : (
-                <img
-                  alt={c[slide.altKey]}
-                  decoding="async"
-                  draggable={false}
-                  fetchPriority={index === 0 ? "high" : "auto"}
-                  height={SLIDE_HEIGHT}
-                  onError={() => markFailed(index)}
-                  src={slide.src}
-                  width={SLIDE_WIDTH}
-                />
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      <button
-        aria-label={c.previousSlide}
-        className="sign-in-slider__arrow sign-in-slider__arrow--prev"
-        onClick={() => showSlide(activeIndex - 1)}
-        type="button"
-      >
-        <span aria-hidden="true">‹</span>
-      </button>
-      <button
-        aria-label={c.nextSlide}
-        className="sign-in-slider__arrow sign-in-slider__arrow--next"
-        onClick={() => showSlide(activeIndex + 1)}
-        type="button"
-      >
-        <span aria-hidden="true">›</span>
-      </button>
-
-      <div className="sign-in-slider__dots">
-        {SLIDES.map((slide, index) => (
-          <button
-            aria-current={index === activeIndex ? "true" : undefined}
-            aria-label={formatCopy(c.goToSlide, { index: index + 1 })}
-            className={`sign-in-slider__dot${
-              index === activeIndex ? " is-active" : ""
-            }`}
-            key={slide.src}
-            onClick={() => showSlide(index)}
-            type="button"
-          />
-        ))}
-      </div>
-
-      <button
-        aria-label={rotationEnabled ? c.pauseSlides : c.playSlides}
-        className="sign-in-slider__rotation"
-        onClick={() => setRotationPreference(!rotationEnabled)}
-        type="button"
-      >
-        {rotationEnabled ? (
-          <Pause aria-hidden="true" />
-        ) : (
-          <Play aria-hidden="true" />
-        )}
-      </button>
-    </div>
+      slides={SLIDES.map((slide) => ({ alt: c[slide.altKey], src: slide.src }))}
+    />
   );
 }
 

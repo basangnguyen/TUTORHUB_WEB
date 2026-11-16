@@ -62,6 +62,47 @@ function stubReducedMotion(matches: boolean) {
   });
 }
 
+function getSlider() {
+  return screen.getByRole("region", { name: "TutorHub highlights" });
+}
+
+function getSliderPart(className: string) {
+  const element = getSlider().querySelector<HTMLElement>(`.${className}`);
+  if (!element) throw new Error(`Missing .${className}`);
+  return element;
+}
+
+const getTrack = () => getSliderPart("sign-in-slider__track");
+const getViewport = () => getSliderPart("sign-in-slider__viewport");
+
+/** Track offset in % of one slide: -100 is the first real slide. */
+function trackPercent() {
+  const match = /calc\((-?\d+)%/.exec(getTrack().style.transform);
+  return match ? Number(match[1]) : Number.NaN;
+}
+
+function dotProgress(index: number) {
+  return screen
+    .getByRole("button", { name: `Go to slide ${index}` })
+    .querySelector<HTMLElement>(".sign-in-slider__dot-progress");
+}
+
+function advance(ms: number) {
+  act(() => {
+    vi.advanceTimersByTime(ms);
+  });
+}
+
+function setPageVisibility(state: DocumentVisibilityState) {
+  Object.defineProperty(document, "visibilityState", {
+    configurable: true,
+    get: () => state,
+  });
+  act(() => {
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+}
+
 beforeEach(() => {
   window.localStorage.clear();
   window.sessionStorage.clear();
@@ -72,6 +113,7 @@ afterEach(() => {
   cleanup();
   vi.useRealTimers();
   Reflect.deleteProperty(window, "matchMedia");
+  Reflect.deleteProperty(document, "visibilityState");
 });
 
 describe("SignInPage", () => {
@@ -94,7 +136,7 @@ describe("SignInPage", () => {
 
     const slider = screen.getByRole("region", { name: "TutorHub highlights" });
     expect(slider).toHaveAttribute("aria-roledescription", "carousel");
-    const slideImages = slider.querySelectorAll("img");
+    const slideImages = slider.querySelectorAll('[role="group"] img');
     expect(
       Array.from(slideImages, (image) => image.getAttribute("src")),
     ).toEqual([
@@ -181,6 +223,61 @@ describe("SignInPage", () => {
       "submit",
     );
     expect(screen.getByRole("button", { name: "Đăng ký" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Tạm dừng trình chiếu" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "1/3" })).toHaveAttribute(
+      "aria-roledescription",
+      "slide",
+    );
+  });
+
+  it("exposes only the three real slides to assistive technology", () => {
+    renderSignIn();
+    const slider = getSlider();
+    expect(slider).toHaveAttribute("tabindex", "0");
+
+    const groups = within(slider).getAllByRole("group", { hidden: true });
+    expect(groups.map((group) => group.getAttribute("aria-label"))).toEqual([
+      "1 of 3",
+      "2 of 3",
+      "3 of 3",
+    ]);
+    expect(
+      within(slider)
+        .getAllByRole("group")
+        .map((group) => group.getAttribute("aria-label")),
+    ).toEqual(["1 of 3"]);
+    expect(within(slider).getAllByRole("img")).toHaveLength(1);
+    expect(groups[1]).toHaveAttribute("aria-hidden", "true");
+    expect(groups[2]).toHaveAttribute("aria-hidden", "true");
+
+    // Track order is [clone of 3, 1, 2, 3, clone of 1].
+    const clones = Array.from(
+      slider.querySelectorAll(".sign-in-slider__slide.is-clone"),
+    );
+    expect(clones).toHaveLength(2);
+    for (const clone of clones) {
+      expect(clone).toHaveAttribute("aria-hidden", "true");
+      expect(clone).not.toHaveAttribute("role");
+      expect(clone).not.toHaveAttribute("aria-roledescription");
+      expect(clone).not.toHaveAttribute("aria-label");
+      expect(clone.querySelector("img")).toHaveAttribute("alt", "");
+    }
+    expect(
+      clones.map((clone) => clone.querySelector("img")?.getAttribute("src")),
+    ).toEqual([
+      "/images/auth/slide_login/login3.png",
+      "/images/auth/slide_login/login1.png",
+    ]);
+    expect(slider.querySelectorAll("img")).toHaveLength(5);
+    expect(trackPercent()).toBe(-100);
+
+    for (const name of ["Previous slide", "Next slide"]) {
+      expect(
+        within(slider).getByRole("button", { name }).querySelector("svg"),
+      ).toHaveAttribute("aria-hidden", "true");
+    }
   });
 
   it("changes slides with arrows and dots and auto-advances every 4 seconds", () => {
@@ -227,45 +324,266 @@ describe("SignInPage", () => {
     expect(activeDotIndex()).toBe(0);
   });
 
-  it("pauses the slideshow on hover, focus, the pause control and reduced motion", () => {
+  it("auto-plays on load even with reduced motion and loops 3 -> 1 forward without rewinding", () => {
+    stubReducedMotion(true);
     vi.useFakeTimers();
-    const { unmount } = renderSignIn();
-    const slider = screen.getByRole("region", { name: "TutorHub highlights" });
+    renderSignIn();
 
-    fireEvent.mouseEnter(slider);
-    act(() => {
-      vi.advanceTimersByTime(8000);
-    });
+    expect(
+      screen.getByRole("button", { name: "Pause slideshow" }),
+    ).toBeInTheDocument();
+    expect(getSlider()).not.toHaveClass("is-paused");
     expect(activeDotIndex()).toBe(0);
-    fireEvent.mouseLeave(slider);
+    expect(trackPercent()).toBe(-100);
 
-    const nextButton = screen.getByRole("button", { name: "Next slide" });
-    act(() => nextButton.focus());
-    act(() => {
-      vi.advanceTimersByTime(8000);
-    });
+    advance(3999);
     expect(activeDotIndex()).toBe(0);
-    act(() => nextButton.blur());
+    advance(1);
+    expect(activeDotIndex()).toBe(1);
+    expect(trackPercent()).toBe(-200);
+    expect(screen.getByRole("group", { name: "2 of 3" })).toBeInTheDocument();
 
+    advance(4000);
+    expect(activeDotIndex()).toBe(2);
+    expect(trackPercent()).toBe(-300);
+
+    // Slide 3 -> 1 keeps sliding forward onto the trailing clone of slide 1...
+    advance(4000);
+    expect(activeDotIndex()).toBe(0);
+    expect(trackPercent()).toBe(-400);
+    expect(getTrack()).not.toHaveClass("is-instant");
+    expect(screen.getByRole("group", { name: "1 of 3" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: SLIDE_ALTS[0] })).toBeVisible();
+
+    // ...then silently snaps back to the real slide 1 after the transition.
+    advance(600);
+    expect(trackPercent()).toBe(-100);
+    expect(getTrack()).not.toHaveClass("is-instant");
+    expect(activeDotIndex()).toBe(0);
+
+    // The loop reset does not delay the next slide.
+    advance(3399);
+    expect(activeDotIndex()).toBe(0);
+    advance(1);
+    expect(activeDotIndex()).toBe(1);
+  });
+
+  it("wraps backwards through the leading clone and settles on transitionend", () => {
+    vi.useFakeTimers();
+    renderSignIn();
+    const previous = screen.getByRole("button", { name: "Previous slide" });
+    const next = screen.getByRole("button", { name: "Next slide" });
+
+    fireEvent.click(previous);
+    expect(activeDotIndex()).toBe(2);
+    expect(trackPercent()).toBe(0);
+    expect(screen.getByRole("group", { name: "3 of 3" })).toBeInTheDocument();
+
+    fireEvent.transitionEnd(getTrack(), { propertyName: "opacity" });
+    expect(trackPercent()).toBe(0);
+    fireEvent.transitionEnd(getTrack(), { propertyName: "transform" });
+    expect(trackPercent()).toBe(-300);
+    expect(getTrack()).not.toHaveClass("is-instant");
+
+    // Clicking again mid-loop settles first, so rapid clicks stay in order.
+    fireEvent.click(next);
+    expect(trackPercent()).toBe(-400);
+    fireEvent.click(next);
+    expect(activeDotIndex()).toBe(1);
+    expect(trackPercent()).toBe(-200);
+  });
+
+  it("pauses with the pause control and resumes the remaining time on play", () => {
+    vi.useFakeTimers();
+    renderSignIn();
+
+    advance(1500);
     fireEvent.click(screen.getByRole("button", { name: "Pause slideshow" }));
     expect(
       screen.getByRole("button", { name: "Play slideshow" }),
     ).toBeInTheDocument();
-    act(() => {
-      vi.advanceTimersByTime(8000);
-    });
+    expect(getSlider()).toHaveClass("is-paused");
+    expect(getViewport()).toHaveAttribute("aria-live", "polite");
+    advance(10000);
     expect(activeDotIndex()).toBe(0);
-    unmount();
 
-    stubReducedMotion(true);
-    renderSignIn();
+    fireEvent.click(screen.getByRole("button", { name: "Play slideshow" }));
     expect(
-      screen.getByRole("button", { name: "Play slideshow" }),
+      screen.getByRole("button", { name: "Pause slideshow" }),
     ).toBeInTheDocument();
-    act(() => {
-      vi.advanceTimersByTime(12000);
-    });
+    expect(getSlider()).not.toHaveClass("is-paused");
+    expect(getViewport()).toHaveAttribute("aria-live", "off");
+    advance(2499);
     expect(activeDotIndex()).toBe(0);
+    advance(1);
+    expect(activeDotIndex()).toBe(1);
+  });
+
+  it("pauses while hovered, keyboard-focused or when the browser tab is hidden", () => {
+    vi.useFakeTimers();
+    renderSignIn();
+    const slider = getSlider();
+
+    fireEvent.mouseEnter(slider);
+    expect(slider).toHaveClass("is-paused");
+    advance(8000);
+    expect(activeDotIndex()).toBe(0);
+    fireEvent.mouseLeave(slider);
+    expect(slider).not.toHaveClass("is-paused");
+    advance(4000);
+    expect(activeDotIndex()).toBe(1);
+
+    const nextButton = screen.getByRole("button", { name: "Next slide" });
+    act(() => nextButton.focus());
+    expect(slider).toHaveClass("is-paused");
+    advance(8000);
+    expect(activeDotIndex()).toBe(1);
+    act(() => nextButton.blur());
+    advance(4000);
+    expect(activeDotIndex()).toBe(2);
+
+    setPageVisibility("hidden");
+    expect(slider).toHaveClass("is-paused");
+    advance(8000);
+    expect(activeDotIndex()).toBe(2);
+    setPageVisibility("visible");
+    expect(slider).not.toHaveClass("is-paused");
+    advance(4000);
+    expect(activeDotIndex()).toBe(0);
+
+    // A mouse press focuses the arrow but must not leave the show paused.
+    fireEvent.pointerDown(nextButton);
+    act(() => nextButton.focus());
+    fireEvent.pointerUp(nextButton);
+    fireEvent.click(nextButton);
+    expect(nextButton).toHaveFocus();
+    expect(slider).not.toHaveClass("is-paused");
+    expect(
+      screen.getByRole("button", { name: "Pause slideshow" }),
+    ).toBeInTheDocument();
+  });
+
+  it("fills a progress pill on the active dot that restarts per slide and pauses with the show", () => {
+    vi.useFakeTimers();
+    renderSignIn();
+    const firstDot = screen.getByRole("button", { name: "Go to slide 1" });
+
+    const progress = dotProgress(1);
+    expect(firstDot).toHaveClass("is-active");
+    expect(progress).not.toBeNull();
+    expect(progress?.style.animationDuration).toBe("4000ms");
+    expect(progress?.parentElement).toHaveAttribute("aria-hidden", "true");
+    expect(dotProgress(2)).toBeNull();
+    expect(dotProgress(3)).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Pause slideshow" }));
+    expect(getSlider()).toHaveClass("is-paused");
+    expect(dotProgress(1)).toBe(progress);
+    fireEvent.click(screen.getByRole("button", { name: "Play slideshow" }));
+    expect(dotProgress(1)).toBe(progress);
+
+    advance(4000);
+    expect(dotProgress(1)).toBeNull();
+    const secondProgress = dotProgress(2);
+    expect(secondProgress).not.toBeNull();
+
+    // Choosing the current slide again restarts its progress and timer.
+    advance(3000);
+    fireEvent.click(screen.getByRole("button", { name: "Go to slide 2" }));
+    expect(dotProgress(2)).not.toBe(secondProgress);
+    advance(3999);
+    expect(activeDotIndex()).toBe(1);
+    advance(1);
+    expect(activeDotIndex()).toBe(2);
+  });
+
+  it("changes slides by dragging or swiping the image area past 40px", () => {
+    vi.useFakeTimers();
+    renderSignIn();
+    const viewport = getViewport();
+
+    fireEvent.pointerDown(viewport, { button: 0, clientX: 300, pointerId: 1 });
+    expect(viewport).toHaveClass("is-dragging");
+    expect(getSlider()).toHaveClass("is-paused");
+    fireEvent.pointerMove(viewport, { clientX: 260, pointerId: 1 });
+    expect(getTrack()).toHaveClass("is-instant");
+    expect(getTrack().style.transform).toContain("-40px");
+    advance(8000);
+    expect(activeDotIndex()).toBe(0);
+    fireEvent.pointerUp(viewport, { clientX: 250, pointerId: 1 });
+    expect(activeDotIndex()).toBe(1);
+    expect(viewport).not.toHaveClass("is-dragging");
+    expect(getTrack()).not.toHaveClass("is-instant");
+    expect(trackPercent()).toBe(-200);
+
+    // Swiping right goes back.
+    fireEvent.pointerDown(viewport, { button: 0, clientX: 100, pointerId: 2 });
+    fireEvent.pointerUp(viewport, { clientX: 160, pointerId: 2 });
+    expect(activeDotIndex()).toBe(0);
+
+    // A short drag or a cancelled gesture snaps back to the same slide.
+    fireEvent.pointerDown(viewport, { button: 0, clientX: 200, pointerId: 3 });
+    fireEvent.pointerMove(viewport, { clientX: 230, pointerId: 3 });
+    fireEvent.pointerUp(viewport, { clientX: 230, pointerId: 3 });
+    expect(activeDotIndex()).toBe(0);
+    expect(trackPercent()).toBe(-100);
+    expect(getTrack().style.transform).toContain("+ 0px");
+    fireEvent.pointerDown(viewport, { button: 0, clientX: 200, pointerId: 4 });
+    fireEvent.pointerMove(viewport, { clientX: 80, pointerId: 4 });
+    fireEvent.pointerCancel(viewport, { clientX: 80, pointerId: 4 });
+    expect(activeDotIndex()).toBe(0);
+    expect(viewport).not.toHaveClass("is-dragging");
+
+    // Other pointers and secondary buttons are ignored.
+    fireEvent.pointerDown(viewport, { button: 2, clientX: 300, pointerId: 5 });
+    expect(viewport).not.toHaveClass("is-dragging");
+
+    // Swiping right on slide 1 wraps to slide 3 through the leading clone.
+    fireEvent.pointerDown(viewport, { button: 0, clientX: 100, pointerId: 6 });
+    fireEvent.pointerUp(viewport, { clientX: 200, pointerId: 6 });
+    expect(activeDotIndex()).toBe(2);
+    expect(trackPercent()).toBe(0);
+    // Grabbing mid-loop settles onto the real slide before dragging.
+    fireEvent.pointerDown(viewport, { button: 0, clientX: 300, pointerId: 7 });
+    expect(trackPercent()).toBe(-300);
+    fireEvent.pointerUp(viewport, { clientX: 200, pointerId: 7 });
+    expect(activeDotIndex()).toBe(0);
+    expect(trackPercent()).toBe(-400);
+  });
+
+  it("moves between slides with ArrowLeft and ArrowRight while the slider has focus", () => {
+    vi.useFakeTimers();
+    renderSignIn();
+    const slider = getSlider();
+
+    act(() => slider.focus());
+    expect(slider).toHaveFocus();
+    expect(slider).toHaveClass("is-paused");
+
+    fireEvent.keyDown(slider, { key: "ArrowRight" });
+    expect(activeDotIndex()).toBe(1);
+    fireEvent.keyDown(slider, { key: "ArrowLeft" });
+    expect(activeDotIndex()).toBe(0);
+    fireEvent.keyDown(slider, { key: "ArrowLeft" });
+    expect(activeDotIndex()).toBe(2);
+    expect(trackPercent()).toBe(0);
+
+    fireEvent.keyDown(slider, { key: "ArrowRight", shiftKey: true });
+    fireEvent.keyDown(slider, { key: "Enter" });
+    expect(activeDotIndex()).toBe(2);
+
+    // Arrow keys also work while a slider control holds focus.
+    const dot = screen.getByRole("button", { name: "Go to slide 1" });
+    act(() => dot.focus());
+    fireEvent.keyDown(dot, { key: "ArrowRight" });
+    expect(activeDotIndex()).toBe(0);
+    expect(trackPercent()).toBe(-400);
+
+    advance(8000);
+    expect(activeDotIndex()).toBe(0);
+    expect(
+      screen.getByRole("button", { name: "Pause slideshow" }),
+    ).toBeInTheDocument();
   });
 
   it("remembers only the email when Remember Me is enabled and forgets it when cleared", () => {

@@ -84,13 +84,25 @@
   line-height: 1.6;
 }
 
+/* UI-AUTH-03: horizontal track with seamless clone loop, glass controls, progress pills. */
 .sign-in-slider {
+  --sign-in-slider-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --sign-in-slider-duration: 560ms;
+
   position: relative;
   width: min(100%, 680px);
   margin-top: 26px;
   border-radius: 24px;
   background: var(--sign-in-border);
+  box-shadow:
+    0 24px 48px -28px rgb(17 24 39 / 35%),
+    0 2px 8px rgb(17 24 39 / 6%);
   isolation: isolate;
+}
+
+.sign-in-slider:focus-visible {
+  outline: 3px solid var(--sign-in-focus);
+  outline-offset: 4px;
 }
 
 .sign-in-slider__viewport {
@@ -98,19 +110,31 @@
   overflow: hidden;
   aspect-ratio: 1672 / 941;
   border-radius: inherit;
+  cursor: grab;
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.sign-in-slider__viewport.is-dragging {
+  cursor: grabbing;
+}
+
+.sign-in-slider__track {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  transition: transform var(--sign-in-slider-duration)
+    var(--sign-in-slider-ease);
+  will-change: transform;
 }
 
 .sign-in-slider__slide {
-  position: absolute;
   display: grid;
-  inset: 0;
+  overflow: hidden;
+  min-width: 0;
+  flex: 0 0 100%;
   place-items: center;
-  opacity: 0;
-  transition: opacity 600ms ease;
-}
-
-.sign-in-slider__slide.is-active {
-  opacity: 1;
 }
 
 .sign-in-slider__slide img {
@@ -118,7 +142,25 @@
   width: 100%;
   height: 100%;
   object-fit: contain;
+  opacity: 0.72;
+  pointer-events: none;
+  transform: scale(1.06);
+  transition:
+    transform var(--sign-in-slider-duration) var(--sign-in-slider-ease),
+    opacity var(--sign-in-slider-duration) var(--sign-in-slider-ease);
   user-select: none;
+  -webkit-user-drag: none;
+}
+
+.sign-in-slider__slide.is-current img {
+  opacity: 1;
+  transform: none;
+}
+
+/* Instant jumps (loop reset) and finger-following drags never animate. */
+.sign-in-slider__track.is-instant,
+.sign-in-slider__track.is-instant .sign-in-slider__slide img {
+  transition: none;
 }
 
 .sign-in .sign-in-slider__fallback {
@@ -133,38 +175,50 @@
   z-index: 1;
   display: inline-grid;
   place-items: center;
-  border: 0;
+  padding: 0;
+  border: 1px solid rgb(255 255 255 / 65%);
   border-radius: 50%;
-  background: rgb(255 255 255 / 70%);
-  color: #404040;
+  background: rgb(255 255 255 / 72%);
+  box-shadow: 0 6px 18px rgb(17 24 39 / 14%);
+  color: #1f2937;
   cursor: pointer;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   transition:
     background-color 160ms ease,
+    box-shadow 160ms ease,
     transform 160ms ease;
 }
 
 .sign-in-slider__arrow {
   top: 50%;
-  width: 36px;
-  height: 36px;
-  padding: 0 0 3px;
-  font-size: 24px;
-  font-weight: 700;
-  line-height: 1;
+  width: 40px;
+  height: 40px;
   transform: translateY(-50%);
 }
 
+.sign-in-slider__arrow svg {
+  width: 20px;
+  height: 20px;
+  stroke-width: 2.25;
+}
+
 .sign-in-slider__arrow--prev {
-  left: 10px;
+  left: 12px;
 }
 
 .sign-in-slider__arrow--next {
-  right: 10px;
+  right: 12px;
 }
 
 .sign-in-slider__arrow:hover,
 .sign-in-slider__rotation:hover {
-  background: rgb(255 255 255 / 92%);
+  background: rgb(255 255 255 / 94%);
+  box-shadow: 0 8px 22px rgb(17 24 39 / 18%);
+}
+
+.sign-in-slider__arrow:hover {
+  transform: translateY(-50%) scale(1.06);
 }
 
 .sign-in-slider__rotation {
@@ -182,40 +236,77 @@
 .sign-in-slider__dots {
   position: absolute;
   z-index: 1;
-  bottom: 9px;
+  bottom: 10px;
   left: 50%;
   display: flex;
+  align-items: center;
+  padding: 0 6px;
+  border-radius: 9999px;
+  background: rgb(255 255 255 / 62%);
+  box-shadow: 0 4px 14px rgb(17 24 39 / 12%);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   transform: translateX(-50%);
 }
 
+/* The button keeps a 24x24 target; only the visible mark grows into a pill. */
 .sign-in-slider__dot {
   display: inline-grid;
-  width: 24px;
+  min-width: 24px;
   height: 24px;
-  padding: 0;
+  padding: 0 2px;
   border: 0;
+  border-radius: 9999px;
   background: transparent;
   cursor: pointer;
   place-items: center;
 }
 
-.sign-in-slider__dot::before {
+.sign-in-slider__dot-mark {
+  position: relative;
+  display: block;
+  overflow: hidden;
   width: 8px;
   height: 8px;
-  border-radius: 50%;
-  background: var(--sign-in-text-subtle);
-  content: "";
+  border-radius: 9999px;
+  background: var(--sign-in-text-muted);
   transition:
-    background-color 200ms ease,
-    transform 200ms ease;
+    width 360ms var(--sign-in-slider-ease),
+    background-color 200ms ease;
 }
 
-.sign-in-slider__dot:hover::before {
-  transform: scale(1.25);
+.sign-in-slider__dot:hover .sign-in-slider__dot-mark {
+  background: #374151;
 }
 
-.sign-in-slider__dot.is-active::before {
+.sign-in-slider__dot.is-active .sign-in-slider__dot-mark {
+  width: 30px;
+  background: rgb(16 185 129 / 28%);
+}
+
+.sign-in-slider__dot-progress {
+  position: absolute;
+  inset: 0;
   background: var(--sign-in-accent);
+  transform: scaleX(0);
+  transform-origin: left center;
+  animation-fill-mode: forwards;
+  animation-name: sign-in-slider-progress;
+  animation-timing-function: linear;
+}
+
+.sign-in-slider.is-paused .sign-in-slider__dot-progress {
+  animation-play-state: paused;
+}
+
+@keyframes sign-in-slider-progress {
+  from {
+    transform: scaleX(0);
+  }
+
+  to {
+    transform: scaleX(1);
+  }
 }
 
 /* ---------- Right column: brand row and forms ---------- */
@@ -1028,9 +1119,13 @@
 
 @media (max-width: 420px) {
   .sign-in-slider__arrow {
-    width: 32px;
-    height: 32px;
-    font-size: 22px;
+    width: 34px;
+    height: 34px;
+  }
+
+  .sign-in-slider__arrow svg {
+    width: 18px;
+    height: 18px;
   }
 
   .th-dialog-content.sign-in-recover {
@@ -1100,9 +1195,19 @@
   }
 }
 
+/*
+ * UI-AUTH-03 product decision: the slide track keeps its horizontal transition
+ * and auto-play even with reduced motion (Windows turns this on when OS
+ * animations are disabled); the Pause control satisfies WCAG 2.2.2. Only the
+ * decorative zoom/fade on slide images is dropped here.
+ */
 @media (prefers-reduced-motion: reduce) {
-  .sign-in-slider__slide,
-  .sign-in-slider__dot::before,
+  .sign-in-slider__slide img {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+
   .sign-in-slider__arrow,
   .sign-in-slider__rotation,
   .sign-in-input,
@@ -1129,11 +1234,25 @@
     text-decoration-color: currentcolor;
   }
 
-  .sign-in-slider__dot::before {
+  .sign-in-slider__dots {
+    border: 1px solid CanvasText;
+  }
+
+  .sign-in-slider__dot-mark,
+  .sign-in-slider__dot-progress {
+    forced-color-adjust: none;
+  }
+
+  .sign-in-slider__dot-mark {
     background: GrayText;
   }
 
-  .sign-in-slider__dot.is-active::before {
+  .sign-in-slider__dot.is-active .sign-in-slider__dot-mark {
+    outline: 1px solid Highlight;
+    background: Canvas;
+  }
+
+  .sign-in-slider__dot-progress {
     background: Highlight;
   }
 }

@@ -12,10 +12,29 @@
 | Quy trình            | Antigravity làm PM/Gatekeeper điều phối Codex và Claude Code qua prompt; Antigravity nghiệm thu và commit/push thẳng `main` |
 | Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4, Phase 5 collaboration                                                                  |
 | Phase hiện tại       | Phase 3 deferred carry-over vẫn hoạt động; Phase 5 collaboration đã đóng                                                   |
-| Task `DONE` gần nhất | `UI-AUTH-02` Hộp thoại Thỏa thuận người dùng & Chính sách quyền riêng tư song ngữ VI/EN khi Đăng ký trên `/sign-in`     |
-| Mốc repository mới   | `/sign-in` liên kết điều khoản chuẩn WCAG + Modal 2 tab (`agreement`/`privacy`) + 7 điều khoản TutorHub V2; verify PASS  |
+| Task `DONE` gần nhất | `UI-AUTH-03` Nâng cấp slider đăng nhập trượt ngang liền mạch, progress-pill và tự động chuyển mặc định trên `/sign-in`   |
+| Mốc repository mới   | `SignInSlider` track trượt ngang `560ms` vòng lặp liền mạch + progress pill + vuốt/phím + live Chrome auto-advance PASS  |
 | Task hiện tại        | Sẵn sàng nhận nhiệm vụ tiếp theo từ chủ dự án                                                                              |
-| Task tiếp theo       | Tinh chỉnh UX trang điều khoản công khai (`/terms`, `/privacy`) nếu chủ dự án yêu cầu, hoặc mở tính năng tiếp theo      |
+| Task tiếp theo       | Theo chỉ đạo của chủ dự án (hoàn thiện thêm giao diện hoặc mở tính năng tiếp theo)                                         |
+
+### Checkpoint `UI-AUTH-03` Slider trượt ngang liền mạch & Progress Pill trên `/sign-in` `DONE` — 2026-11-16
+
+Claude Code triển khai theo prompt điều phối của Antigravity và đã qua nghiệm thu Gatekeeper đầy đủ:
+
+- Tách riêng `apps/web/src/pages/SignInSlider.tsx`, dựng track ngang `[clone cuối, 1, 2, 3, clone đầu]`
+  di chuyển bằng `translate3d` (`560ms`, `cubic-bezier(0.22, 1, 0.36, 1)`) và tự nhảy lặng lẽ về slide thật
+  qua `onTransitionEnd` + fallback `600ms` (không bị tua ngược khi quay vòng `3 -> 1` hoặc `1 -> 3`; hai slide
+  clone giữ `aria-hidden="true"` để screen reader chỉ đọc đúng `1/3..3/3`).
+- Bật tự động chuyển cảnh ngay khi tải trang (`rotationEnabled = true` kể cả khi OS Windows bật
+  `prefers-reduced-motion: reduce` do tắt hiệu ứng cửa sổ), đồng thời tuân thủ WCAG 2.2.2 bằng nút `⏸`/`▷`,
+  tự dừng khi hover, focus bàn phím, đang kéo vuốt hoặc tab trình duyệt ẩn (`visibilitychange`), và bảo toàn
+  thời gian còn lại để khớp đồng bộ với thanh tiến trình CSS.
+- Nâng cấp cụm chỉ báo thành **Progress Pill** (`30×8px`, thanh `#10B981` chạy đầy trong `4000ms`), hỗ trợ
+  kéo/vuốt (`pointer` swipe ngưỡng `40px`, `touch-action: pan-y`) và phím `ArrowLeft`/`ArrowRight`.
+- Kiểm chứng Gatekeeper: toàn kho `pnpm verify` PASS (`489/489` web unit tests trong `75` file, `24/24` test
+  tại `SignInPage.test.tsx`, bundle security `201` file, toàn bộ Go `test`/`vet`) và kiểm thử trực tiếp trên
+  Chrome cấu hình Windows hiện tại xác nhận tự trượt đủ chu kỳ `1 -> 2 -> 3 -> 1`, mobile `375×812` không tràn
+  ngang, `0` lỗi console.
 
 ### Checkpoint `UI-AUTH-02` Hộp thoại Thỏa thuận người dùng & Chính sách quyền riêng tư `DONE` — 2026-11-16
 
