@@ -1,6 +1,6 @@
 # ADR-0005: OIDC qua BFF và session cookie
 
-- Status: Accepted
+- Status: Accepted (điều khoản từ chối first-party password/MFA trong MVP được thay thế bởi [ADR-0039](0039-native-multi-method-authentication-and-federation.md); mô hình BFF và opaque session cookie giữ nguyên)
 - Date: 2026-07-11
 
 ## Decision

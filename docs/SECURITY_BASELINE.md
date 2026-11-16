@@ -9,7 +9,7 @@
 
 ## 2. Identity và session
 
-- OIDC Authorization Code + PKCE; không tự xây password protocol nếu có thể dùng IdP đáng tin cậy.
+- Xác thực qua Go BFF theo [ADR-0005](adr/0005-oidc-bff-session.md) và [ADR-0039](adr/0039-native-multi-method-authentication-and-federation.md): hỗ trợ liên kết OAuth2/OIDC trực tiếp (`Authorization Code + PKCE S256`) kết hợp xác thực nội tại chuẩn hóa (`Argon2id` có giới hạn đồng thời + HIBP, OTP 6 số lưu HMAC phân tách miền, WebAuthn/Passkeys, TOTP + mã khôi phục); cấm tự động gộp tài khoản theo email/SĐT mà chưa xác thực vào tài khoản hiện có.
 - Backend/BFF giữ token nhà cung cấp; browser nhận opaque session cookie.
 - Cookie `HttpOnly`, `Secure`, giới hạn domain/path và SameSite phù hợp.
 - Session có idle timeout, absolute timeout, revoke, refresh rotation và device history.

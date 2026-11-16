@@ -1,6 +1,6 @@
 # ADR-0008: ZITADEL Cloud cho OIDC staging
 
-- Status: Accepted
+- Status: Accepted (cập nhật bởi [ADR-0039](0039-native-multi-method-authentication-and-federation.md): ZITADEL chuyển thành generic `oidc` provider tùy chọn, không còn là IdP trung tâm bắt buộc duy nhất)
 - Date: 2026-07-13
 
 ## Context

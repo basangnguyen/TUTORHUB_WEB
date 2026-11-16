@@ -1,10 +1,9 @@
 # AUTH-V2-00 — Nghiên cứu & Kế hoạch xác thực đa phương thức cho TutorHub V2
 
-- Trạng thái: **Đã nghiệm thu nghiên cứu (Gatekeeper PASS — 2026-11-16)** — chờ chủ dự án chốt chính
-  sách mục 13 và ban hành `ADR-0039` trước khi mở `AUTH-01`. Tài liệu không thay đổi runtime,
-  migration, OpenAPI hay cấu hình.
+- Trạng thái: **Đã nghiệm thu & phê duyệt triển khai (Gatekeeper PASS, [ADR-0039](adr/0039-native-multi-method-authentication-and-federation.md) `Accepted` — 2026-11-16)**. Sẵn sàng thực thi từ `AUTH-01`.
 - Ngày: 2026-11-16
 - Người soạn: Claude Code (worker) theo prompt giao việc `AUTH-V2-00`
+- Quyết định chủ dự án đã khóa (2026-11-16): (1) Chốt **Hướng 1** Native Go BFF Auth + Direct OAuth2/OIDC Federation và ngoại lệ gửi OTP ngắn hạn trực tiếp sau commit (`ADR-0039`); (2) Thứ tự triển khai `AUTH-01..03` (Email + Mật khẩu + OTP) → `AUTH-04` (Thiết bị/Step-up) → `AUTH-05..06` (Google & Facebook) → `AUTH-07..11` (Microsoft, Passkey, TOTP, Số điện thoại Zalo ZNS/SMS); (3) `PASSWORD_MIN_LENGTH=8` + chặn mật khẩu lộ HIBP, tích _"Duy trì đăng nhập"_ giữ phiên `30 ngày` cho học sinh/giáo viên (`24 giờ` cho `org_admin`); (4) Mọi tài khoản giai đoạn đầu giữ Email chuẩn (`users.email NOT NULL`), SĐT là phương thức đăng nhập/xác thực bổ sung ưu tiên Zalo ZNS trước SMS.
 - Phạm vi: Email + mật khẩu, Email OTP/Magic Code, Google, Facebook, Microsoft/School SSO, Apple (tùy
   chọn), số điện thoại (SMS/Zalo ZNS/WhatsApp), Passkeys/WebAuthn, TOTP + mã khôi phục, step-up,
   liên kết nhiều phương thức và quản lý thiết bị/phiên.

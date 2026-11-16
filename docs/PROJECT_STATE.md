@@ -4,18 +4,38 @@
 
 ## Snapshot
 
-| Thuộc tính           | Trạng thái                                                                                                                     |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| Ngày cập nhật        | 2026-11-16                                                                                                                     |
-| Repository           | `https://github.com/basangnguyen/TUTORHUB_WEB`                                                                                 |
-| Nhánh làm việc       | `main`                                                                                                                         |
-| Quy trình            | Antigravity làm PM/Gatekeeper điều phối Codex và Claude Code qua prompt; Antigravity nghiệm thu và commit/push thẳng `main`    |
-| Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4, Phase 5 collaboration                                                                      |
-| Phase hiện tại       | Phase 3 deferred carry-over vẫn hoạt động; Phase 5 collaboration đã đóng                                                       |
-| Task `DONE` gần nhất | `AUTH-V2-00` Nghiên cứu & lập kế hoạch tổng thể xác thực đa phương thức (`AUTH-01..13`, migrations `000043..000051`)           |
-| Mốc repository mới   | Tài liệu kiến trúc & lộ trình 13 gói xác thực đa phương thức (`docs/AUTH_MULTI_METHOD_RESEARCH_AND_PLAN.md`) đã qua Gatekeeper |
-| Task hiện tại        | Chờ chủ dự án chốt chính sách xác thực cốt lõi để ban hành `ADR-0039`                                                          |
-| Task tiếp theo       | Soạn `ADR-0039` và khởi động `AUTH-01` (nền tảng transaction, challenge OTP, delivery guard & dev inbox)                       |
+| Thuộc tính           | Trạng thái                                                                                                                  |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| Ngày cập nhật        | 2026-11-16                                                                                                                  |
+| Repository           | `https://github.com/basangnguyen/TUTORHUB_WEB`                                                                              |
+| Nhánh làm việc       | `main`                                                                                                                      |
+| Quy trình            | Antigravity làm PM/Gatekeeper điều phối Codex và Claude Code qua prompt; Antigravity nghiệm thu và commit/push thẳng `main` |
+| Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4, Phase 5 collaboration                                                                   |
+| Phase hiện tại       | Phase 3 deferred carry-over vẫn hoạt động; Phase 5 collaboration đã đóng                                                    |
+| Task `DONE` gần nhất | `ADR-0039` Phê duyệt kiến trúc xác thực đa phương thức nội tại & liên kết OAuth2/OIDC trực tiếp trên Go BFF                 |
+| Mốc repository mới   | `ADR-0039` `Accepted` + cập nhật `docs/SECURITY_BASELINE.md` §2; chốt chính sách triển khai `AUTH-01` → `AUTH-13`           |
+| Task hiện tại        | Giao `AUTH-01` cho Codex (nền tảng transaction, challenge OTP, delivery guard, `devinbox`, migration `000043`)              |
+| Task tiếp theo       | Nghiệm thu `AUTH-01` từ Codex và mở `AUTH-02` (Đăng ký Email + OTP + Mật khẩu Argon2id & Đăng nhập mật khẩu)                |
+
+### Checkpoint `ADR-0039` Chốt kiến trúc & chính sách xác thực đa phương thức `DONE` — 2026-11-16
+
+Chủ dự án đã chốt toàn bộ chính sách xác thực cốt lõi; Antigravity ban hành
+[ADR-0039](adr/0039-native-multi-method-authentication-and-federation.md) (`Accepted`) và đồng bộ
+`docs/SECURITY_BASELINE.md`, `docs/adr/0005-oidc-bff-session.md`,
+`docs/adr/0008-zitadel-oidc-provider.md`, `docs/AUTH_MULTI_METHOD_RESEARCH_AND_PLAN.md`, `README.md`:
+
+- **Kiến trúc**: Chốt **Hướng 1** — triển khai xác thực nội tại và OAuth2/OIDC federation trực tiếp
+  (`google`, `facebook`, `microsoft`, `oidc`) ngay trong `services/core-api/internal/modules/identity`,
+  giữ nguyên BFF cookie `__Host-tutorhub_session` / `__Host-tutorhub_csrf`, `GET /api/v1/me` và fake
+  issuer `e2e-oidc`; cấp ngoại lệ có kiểm soát với `ADR-0018` cho phép gửi mã OTP ngắn hạn trực tiếp sau
+  commit DB mà không ghi mã bí mật vào durable outbox.
+- **Thứ tự triển khai đã khóa**: `AUTH-01..03` (Email + Mật khẩu + OTP + Khôi phục) → `AUTH-04` (Quản lý
+  thiết bị/phiên & Step-up 10 phút) → `AUTH-05..06` (Google & Facebook + Meta deletion/deauthorize
+  callbacks) → `AUTH-07..11` (Microsoft, Passkey/WebAuthn, TOTP 2FA, Số điện thoại Zalo ZNS → SMS).
+- **Chính sách mật khẩu, phiên & SĐT**: `PASSWORD_MIN_LENGTH=8` (khớp UI `/sign-in`) + chặn mật khẩu lộ
+  qua HIBP + Argon2id có semaphore giới hạn đồng thời; tích _"Duy trì đăng nhập"_ giữ phiên `30 ngày` cho
+  học sinh/giáo viên (`org_admin` giữ tối đa `24 giờ`); mọi tài khoản giai đoạn đầu giữ Email chuẩn
+  (`users.email NOT NULL`), SĐT là phương thức đăng nhập/xác thực bổ sung ưu tiên Zalo ZNS trước SMS.
 
 ### Checkpoint `AUTH-V2-00` Nghiên cứu & Kế hoạch tổng thể xác thực đa phương thức `DONE` — 2026-11-16
 
