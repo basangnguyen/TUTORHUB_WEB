@@ -1,7 +1,8 @@
 /* UI-AUTH-01: TutorHub V1 LoginFrame / SignUpFrame / ForgotPasswordDialog, rebuilt for the web. */
 
 .sign-in,
-.sign-in-recover {
+.sign-in-recover,
+.sign-in-legal {
   --sign-in-accent: #10b981;
   --sign-in-accent-hover: #059669;
   --sign-in-focus: #059669;
@@ -506,18 +507,59 @@
 }
 
 .sign-in-check--terms {
+  display: flex;
   align-items: flex-start;
+  cursor: default;
   font-size: 12px;
   line-height: 1.5;
 }
 
 .sign-in-check--terms input {
   margin-top: 2px;
+  cursor: pointer;
+}
+
+.sign-in .sign-in-check__text {
+  min-width: 0;
+  margin: 0;
+}
+
+.sign-in-check__text label {
+  cursor: pointer;
 }
 
 .sign-in-check__accent {
   color: var(--sign-in-accent);
   font-weight: 600;
+}
+
+/* Inline terms links: #047857 keeps 5.48:1 contrast on white (WCAG AA). */
+.sign-in-check__link {
+  display: inline-block;
+  margin: -4px 0;
+  padding: 4px 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #047857;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+  text-align: start;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  transition: text-decoration-color 160ms ease;
+}
+
+.sign-in-check__link:hover,
+.sign-in-check__link:focus-visible {
+  text-decoration-color: currentcolor;
+}
+
+.sign-in .sign-in-check__link:focus-visible {
+  outline-offset: 1px;
 }
 
 .sign-in-check input[aria-invalid="true"] {
@@ -712,10 +754,236 @@
   color: #374151;
 }
 
+/* ---------- Terms & privacy dialog (UI-AUTH-02) ---------- */
+
+.th-dialog-content.sign-in-legal {
+  display: flex;
+  width: min(640px, calc(100vw - 32px));
+  max-height: min(720px, calc(100dvh - 32px));
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
+  border: 0;
+  border-radius: 24px;
+  background: #fff;
+  color: var(--sign-in-text);
+  color-scheme: light;
+  font-family: var(--font-family-sans);
+}
+
+.sign-in-legal__header {
+  flex: none;
+  padding: 24px 64px 0 28px;
+}
+
+.sign-in-legal .sign-in-legal__meta {
+  display: inline-flex;
+  min-height: 24px;
+  align-items: center;
+  margin: 0;
+  padding: 2px 10px;
+  border: 1px solid #a7f3d0;
+  border-radius: 9999px;
+  background: #ecfdf5;
+  color: #065f46;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.3;
+  font-variant-numeric: tabular-nums;
+}
+
+.th-dialog-title.sign-in-legal__title {
+  margin: 12px 0 0;
+  padding: 0;
+  color: var(--sign-in-text);
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.th-dialog-description.sign-in-legal__description {
+  margin: 6px 0 0;
+  color: var(--sign-in-text-muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.sign-in-legal .th-dialog-close {
+  color: var(--sign-in-text-muted);
+}
+
+.sign-in-legal .th-dialog-close:hover {
+  background: #f3f4f6;
+  color: var(--sign-in-text);
+}
+
+.sign-in-legal__tabs {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+}
+
+.th-tabs-list.sign-in-legal__tab-list {
+  display: grid;
+  flex: none;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 18px 28px 0;
+  padding: 4px;
+  border: 1px solid var(--sign-in-border);
+  border-radius: 14px;
+  background: #f3f4f6;
+}
+
+.th-tabs-trigger.sign-in-legal__tab {
+  min-height: 40px;
+  padding: 6px 12px;
+  border-radius: 10px;
+  color: #4b5563;
+  font-size: 14px;
+  line-height: 1.25;
+}
+
+.th-tabs-trigger.sign-in-legal__tab:hover:not([data-disabled]) {
+  color: var(--sign-in-text);
+}
+
+.th-tabs-trigger.sign-in-legal__tab[data-state="active"] {
+  background: #fff;
+  color: #047857;
+  box-shadow: 0 1px 3px rgb(17 24 39 / 12%);
+}
+
+.sign-in-legal__body {
+  min-height: 0;
+  flex: 1 1 auto;
+  margin: 16px 0 0;
+  padding: 20px 28px 24px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-top: 1px solid var(--sign-in-border);
+  outline: none;
+}
+
+.sign-in-legal__body:focus-visible {
+  outline: 3px solid var(--sign-in-focus);
+  outline-offset: -3px;
+}
+
+.th-tabs-content.sign-in-legal__panel {
+  margin: 0;
+}
+
+.sign-in-legal__highlights {
+  padding: 16px 18px;
+  border: 1px solid #a7f3d0;
+  border-radius: 16px;
+  background: #f0fdf4;
+}
+
+.sign-in-legal__highlights-title {
+  margin: 0;
+  color: #065f46;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.sign-in-legal__highlights-list {
+  display: grid;
+  gap: 6px;
+  margin: 10px 0 0;
+  padding-left: 20px;
+  color: #374151;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.sign-in-legal__highlights-list li::marker {
+  color: #047857;
+}
+
+.sign-in-legal__section {
+  margin-top: 22px;
+}
+
+.sign-in-legal__section-title {
+  margin: 0;
+  color: var(--sign-in-text);
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.sign-in-legal__section-number {
+  color: #047857;
+  font-variant-numeric: tabular-nums;
+}
+
+.sign-in-legal .sign-in-legal__paragraph {
+  margin: 8px 0 0;
+  color: #374151;
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.th-dialog-footer.sign-in-legal__footer {
+  flex: none;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin: 0;
+  padding: 14px 28px 18px;
+  border-top: 1px solid var(--sign-in-border);
+  background: #fff;
+}
+
+.sign-in-legal__button {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 20px;
+  border: 1.2px solid transparent;
+  border-radius: 9999px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.2;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease;
+}
+
+.sign-in-legal__button--secondary {
+  border-color: var(--sign-in-border);
+  background: #fff;
+  color: #374151;
+}
+
+.sign-in-legal__button--secondary:hover {
+  border-color: #d1d5db;
+  background: #f9fafb;
+}
+
+/* White on #047857 is 5.48:1 and on #065f46 is 7.68:1 (WCAG AA for 14px text). */
+.sign-in-legal__button--primary {
+  background: #047857;
+  color: #fff;
+}
+
+.sign-in-legal__button--primary:hover {
+  background: #065f46;
+}
+
 /* ---------- Focus, layout breakpoints, motion ---------- */
 
 .sign-in button:focus-visible,
 .sign-in-recover button:focus-visible,
+.sign-in-legal button:focus-visible,
 .sign-in-check input:focus-visible {
   outline: 3px solid var(--sign-in-focus);
   outline-offset: 2px;
@@ -774,6 +1042,64 @@
   }
 }
 
+@media (max-width: 480px) {
+  .th-dialog-content.sign-in-legal {
+    width: calc(100vw - 24px);
+    max-height: calc(100dvh - 24px);
+    border-radius: 20px;
+  }
+
+  .sign-in-legal__header {
+    padding: 20px 56px 0 20px;
+  }
+
+  .th-dialog-title.sign-in-legal__title {
+    font-size: 20px;
+  }
+
+  .th-tabs-list.sign-in-legal__tab-list {
+    margin: 14px 20px 0;
+  }
+
+  .th-tabs-trigger.sign-in-legal__tab {
+    padding: 6px 8px;
+    font-size: 13px;
+  }
+
+  .sign-in-legal__body {
+    margin-top: 14px;
+    padding: 16px 20px 20px;
+  }
+
+  .th-dialog-footer.sign-in-legal__footer {
+    padding: 12px 20px 16px;
+  }
+
+  .sign-in-legal__button {
+    padding: 10px 16px;
+  }
+
+  .sign-in-legal__button--primary {
+    flex: 1 1 auto;
+  }
+}
+
+/* Very short viewports (landscape phones): scroll the whole dialog instead. */
+@media (max-height: 520px) {
+  .th-dialog-content.sign-in-legal {
+    overflow-y: auto;
+  }
+
+  .sign-in-legal__tabs,
+  .sign-in-legal__body {
+    flex: none;
+  }
+
+  .sign-in-legal__body {
+    overflow-y: visible;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .sign-in-slider__slide,
   .sign-in-slider__dot::before,
@@ -781,6 +1107,8 @@
   .sign-in-slider__rotation,
   .sign-in-input,
   .sign-in-button,
+  .sign-in-check__link,
+  .sign-in-legal__button,
   .sign-in__switch {
     transition: none;
   }
@@ -791,8 +1119,14 @@
   .sign-in-input,
   .sign-in__badge,
   .sign-in-slider__arrow,
-  .sign-in-slider__rotation {
+  .sign-in-slider__rotation,
+  .sign-in-legal__button,
+  .sign-in-legal .sign-in-legal__meta {
     border: 1px solid CanvasText;
+  }
+
+  .sign-in-check__link {
+    text-decoration-color: currentcolor;
   }
 
   .sign-in-slider__dot::before {

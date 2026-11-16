@@ -351,12 +351,21 @@ describe("SignInPage", () => {
     expect(
       within(form).getByRole("textbox", { name: "OTP code" }),
     ).toHaveAttribute("placeholder", "- Enter OTP Code -");
-    expect(within(form).getByText("User Agreement")).toHaveClass(
-      "sign-in-check__accent",
-    );
-    expect(within(form).getByText("Privacy Policy")).toHaveClass(
-      "sign-in-check__accent",
-    );
+    for (const name of ["User Agreement", "Privacy Policy"]) {
+      const legalButton = within(form).getByRole("button", { name });
+      expect(legalButton).toHaveAttribute("type", "button");
+      expect(legalButton).toHaveAttribute("aria-haspopup", "dialog");
+      expect(legalButton).toHaveClass(
+        "sign-in-check__accent",
+        "sign-in-check__link",
+      );
+      expect(legalButton.closest("label")).toBeNull();
+    }
+    expect(
+      within(form).getByRole("checkbox", {
+        name: "I have read and agree to the User Agreement and Privacy Policy",
+      }),
+    ).not.toBeChecked();
 
     fireEvent.click(
       within(form).getByRole("button", { name: "Create Account" }),
@@ -546,3 +555,286 @@ describe("SignInPage", () => {
     expect(signInMock).toHaveBeenCalledWith("/app/messages");
   });
 });
+
+const LEGAL_COPY = {
+  en: {
+    signUp: "Sign Up",
+    form: "Create an Account",
+    fullName: "Full Name",
+    email: "Email Address",
+    otp: "OTP code",
+    password: "Password",
+    createAccount: "Create Account",
+    terms: "I have read and agree to the User Agreement and Privacy Policy",
+    termsError: "You must agree to the User Agreement and Privacy Policy.",
+    agreement: "User Agreement",
+    privacy: "Privacy Policy",
+    dialog: "Terms & Privacy Policy",
+    description:
+      "Please review the User Agreement and Privacy Policy before creating your TutorHub account.",
+    meta: "Version 2.0 · Updated 16 Nov 2026",
+    highlights: "Key highlights",
+    agreementFirst: "1. Scope & User Roles",
+    agreementLast: "7. Changes to These Terms & Termination",
+    privacyFirst: "1. Personal & Learning Data We Collect",
+    privacyLast: "7. Protecting Student Data & Contact",
+    close: "Close",
+    closeDialog: "Close terms dialog",
+    accept: "Agree & Continue",
+  },
+  vi: {
+    signUp: "Đăng ký",
+    form: "Tạo tài khoản mới",
+    fullName: "Họ và tên",
+    email: "Địa chỉ email",
+    otp: "Mã OTP",
+    password: "Mật khẩu",
+    createAccount: "Tạo tài khoản",
+    terms:
+      "Tôi đã đọc và đồng ý với Thỏa thuận người dùng và Chính sách quyền riêng tư",
+    termsError:
+      "Bạn cần đồng ý với Thỏa thuận người dùng và Chính sách quyền riêng tư.",
+    agreement: "Thỏa thuận người dùng",
+    privacy: "Chính sách quyền riêng tư",
+    dialog: "Điều khoản & Chính sách TutorHub",
+    description:
+      "Vui lòng đọc kỹ Thỏa thuận người dùng và Chính sách quyền riêng tư trước khi tạo tài khoản TutorHub.",
+    meta: "Phiên bản 2.0 · Cập nhật 16/11/2026",
+    highlights: "Tóm tắt điểm chính",
+    agreementFirst: "1. Phạm vi áp dụng & Vai trò sử dụng",
+    agreementLast: "7. Thay đổi điều khoản & Chấm dứt sử dụng",
+    privacyFirst: "1. Dữ liệu cá nhân & học tập được thu thập",
+    privacyLast: "7. Bảo vệ dữ liệu học sinh & Liên hệ",
+    close: "Đóng",
+    closeDialog: "Đóng hộp thoại điều khoản",
+    accept: "Tôi đồng ý & Tiếp tục",
+  },
+} as const;
+
+type LegalCopy = (typeof LEGAL_COPY)[Language];
+
+function openSignUpForm(language: Language) {
+  const copy = LEGAL_COPY[language];
+  renderSignIn({ language });
+  fireEvent.click(screen.getByRole("button", { name: copy.signUp }));
+  const form = screen.getByRole("form", { name: copy.form });
+  return {
+    copy,
+    form,
+    fullName: within(form).getByRole("textbox", { name: copy.fullName }),
+    email: within(form).getByRole("textbox", { name: copy.email }),
+    otp: within(form).getByRole("textbox", { name: copy.otp }),
+    password: within(form).getByLabelText(copy.password),
+    terms: within(form).getByRole("checkbox", { name: copy.terms }),
+    agreementButton: within(form).getByRole("button", {
+      name: copy.agreement,
+    }),
+    privacyButton: within(form).getByRole("button", { name: copy.privacy }),
+  };
+}
+
+async function findLegalDialog(copy: LegalCopy) {
+  const dialog = await screen.findByRole("dialog", { name: copy.dialog });
+  await waitFor(() =>
+    expect(dialog.contains(document.activeElement)).toBe(true),
+  );
+  return dialog;
+}
+
+function expectActiveLegalTab(
+  dialog: HTMLElement,
+  tabName: string,
+  firstSection: string,
+  lastSection: string,
+) {
+  expect(within(dialog).getByRole("tab", { name: tabName })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  // The reading area is a single keyboard-scrollable region around the panel.
+  const body = within(dialog).getByRole("region", { name: tabName });
+  expect(body).toHaveAttribute("tabindex", "0");
+  expect(body).toHaveClass("sign-in-legal__body");
+  const panel = within(body).getByRole("tabpanel", { name: tabName });
+  expect(panel).toHaveAttribute("tabindex", "-1");
+  expect(within(dialog).getAllByRole("tabpanel")).toHaveLength(1);
+  // Key highlights + 7 numbered sections.
+  expect(within(panel).getAllByRole("heading", { level: 3 })).toHaveLength(8);
+  expect(
+    within(panel).getByRole("heading", { level: 3, name: firstSection }),
+  ).toBeInTheDocument();
+  expect(
+    within(panel).getByRole("heading", { level: 3, name: lastSection }),
+  ).toBeInTheDocument();
+  expect(within(panel).getAllByRole("listitem")).toHaveLength(4);
+  return panel;
+}
+
+/** Radix tabs activate on mousedown; a real click also moves focus to the tab. */
+function clickTab(tab: HTMLElement) {
+  fireEvent.mouseDown(tab);
+  act(() => tab.focus());
+  fireEvent.mouseUp(tab);
+  fireEvent.click(tab);
+}
+
+async function expectDialogClosed() {
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+}
+
+describe.each(["en", "vi"] as const)(
+  "SignInPage terms dialog (%s)",
+  (language) => {
+    it("opens the User Agreement tab, switches tabs and keeps the typed sign-up values", async () => {
+      const field = openSignUpForm(language);
+      const { copy } = field;
+      fireEvent.change(field.fullName, { target: { value: "Nguyễn Văn A" } });
+      fireEvent.change(field.email, {
+        target: { value: "new.student@example.com" },
+      });
+      fireEvent.change(field.otp, { target: { value: "123456" } });
+      fireEvent.change(field.password, {
+        target: { value: "Str0ng-passphrase" },
+      });
+
+      fireEvent.click(field.agreementButton);
+      const dialog = await findLegalDialog(copy);
+      expect(dialog).toHaveAttribute("aria-modal", "true");
+      expect(dialog).toHaveAccessibleDescription(copy.description);
+      expect(within(dialog).getByText(copy.meta)).toBeInTheDocument();
+      expect(
+        within(dialog).getByRole("heading", { level: 2, name: copy.dialog }),
+      ).toBeInTheDocument();
+      expect(
+        within(dialog).getByRole("button", { name: copy.closeDialog }),
+      ).toBeInTheDocument();
+      const agreementPanel = expectActiveLegalTab(
+        dialog,
+        copy.agreement,
+        copy.agreementFirst,
+        copy.agreementLast,
+      );
+      expect(
+        within(agreementPanel).getByRole("heading", {
+          level: 3,
+          name: copy.highlights,
+        }),
+      ).toBeInTheDocument();
+      expect(
+        within(dialog).getByRole("tab", { name: copy.privacy }),
+      ).toHaveAttribute("aria-selected", "false");
+
+      clickTab(within(dialog).getByRole("tab", { name: copy.privacy }));
+      expectActiveLegalTab(
+        dialog,
+        copy.privacy,
+        copy.privacyFirst,
+        copy.privacyLast,
+      );
+      expect(
+        within(dialog).queryByRole("tabpanel", { name: copy.agreement }),
+      ).toBeNull();
+
+      fireEvent.keyDown(
+        within(dialog).getByRole("tab", { name: copy.privacy }),
+        {
+          key: "ArrowLeft",
+        },
+      );
+      const agreementTab = within(dialog).getByRole("tab", {
+        name: copy.agreement,
+      });
+      await waitFor(() =>
+        expect(agreementTab).toHaveAttribute("aria-selected", "true"),
+      );
+      expect(agreementTab).toHaveFocus();
+      expectActiveLegalTab(
+        dialog,
+        copy.agreement,
+        copy.agreementFirst,
+        copy.agreementLast,
+      );
+
+      fireEvent.click(within(dialog).getByRole("button", { name: copy.close }));
+      await expectDialogClosed();
+      await waitFor(() => expect(field.agreementButton).toHaveFocus());
+      expect(field.fullName).toHaveValue("Nguyễn Văn A");
+      expect(field.email).toHaveValue("new.student@example.com");
+      expect(field.otp).toHaveValue("123456");
+      expect(field.password).toHaveValue("Str0ng-passphrase");
+      expect(field.terms).not.toBeChecked();
+      expect(window.localStorage.length).toBe(0);
+      expect(window.sessionStorage.length).toBe(0);
+    });
+
+    it("opens the Privacy Policy tab directly and restores focus on Escape or × without accepting", async () => {
+      const field = openSignUpForm(language);
+      const { copy } = field;
+
+      fireEvent.click(field.privacyButton);
+      const dialog = await findLegalDialog(copy);
+      expectActiveLegalTab(
+        dialog,
+        copy.privacy,
+        copy.privacyFirst,
+        copy.privacyLast,
+      );
+      expect(
+        within(dialog).getByRole("tab", { name: copy.agreement }),
+      ).toHaveAttribute("aria-selected", "false");
+
+      fireEvent.keyDown(dialog, { key: "Escape" });
+      await expectDialogClosed();
+      await waitFor(() => expect(field.privacyButton).toHaveFocus());
+      expect(field.terms).not.toBeChecked();
+
+      fireEvent.click(field.agreementButton);
+      const reopened = await findLegalDialog(copy);
+      expectActiveLegalTab(
+        reopened,
+        copy.agreement,
+        copy.agreementFirst,
+        copy.agreementLast,
+      );
+      fireEvent.click(
+        within(reopened).getByRole("button", { name: copy.closeDialog }),
+      );
+      await expectDialogClosed();
+      await waitFor(() => expect(field.agreementButton).toHaveFocus());
+      expect(field.terms).not.toBeChecked();
+    });
+
+    it("checks the terms box, clears the missing-consent error and closes on Agree & Continue", async () => {
+      const field = openSignUpForm(language);
+      const { copy, form } = field;
+
+      fireEvent.click(
+        within(form).getByRole("button", { name: copy.createAccount }),
+      );
+      expect(screen.getByText(copy.termsError)).toBeVisible();
+      expect(field.terms).toHaveAttribute("aria-invalid", "true");
+      expect(field.terms).toHaveAccessibleDescription(copy.termsError);
+
+      fireEvent.click(field.privacyButton);
+      const dialog = await findLegalDialog(copy);
+      fireEvent.click(
+        within(dialog).getByRole("button", { name: copy.accept }),
+      );
+      await expectDialogClosed();
+
+      expect(field.terms).toBeChecked();
+      expect(field.terms).not.toHaveAttribute("aria-invalid");
+      expect(screen.queryByText(copy.termsError)).toBeNull();
+      await waitFor(() => expect(field.terms).toHaveFocus());
+
+      fireEvent.click(field.agreementButton);
+      const reopened = await findLegalDialog(copy);
+      fireEvent.click(
+        within(reopened).getByRole("button", { name: copy.close }),
+      );
+      await expectDialogClosed();
+      await waitFor(() => expect(field.agreementButton).toHaveFocus());
+      expect(field.terms).toBeChecked();
+    });
+  },
+);

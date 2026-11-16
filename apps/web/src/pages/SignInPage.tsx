@@ -17,10 +17,13 @@ import {
   useSyncExternalStore,
   type FocusEvent,
   type FormEvent,
+  type MouseEvent,
 } from "react";
 import { useLocation } from "react-router";
 import { useI18n, type Language } from "../app/i18n";
 import { useSession } from "../app/session";
+import { SignInLegalDialog } from "./SignInLegalDialog";
+import type { SignInLegalTab } from "./signInLegalContent";
 import "./SignInPage.css";
 
 const REMEMBERED_EMAIL_KEY = "tutorhub.remembered_email";
@@ -703,6 +706,7 @@ function SignUpForm({ autoFocus, onSignIn }: SignUpFormProps) {
     otp: useId(),
     password: useId(),
     terms: useId(),
+    termsText: useId(),
     codeNotice: useId(),
   };
   const fullNameRef = useRef<HTMLInputElement>(null);
@@ -710,6 +714,7 @@ function SignUpForm({ autoFocus, onSignIn }: SignUpFormProps) {
   const otpRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
   const termsRef = useRef<HTMLInputElement>(null);
+  const legalReturnFocusRef = useRef<HTMLElement | null>(null);
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
@@ -718,6 +723,8 @@ function SignUpForm({ autoFocus, onSignIn }: SignUpFormProps) {
   const [errors, setErrors] = useState<SignUpErrors>({});
   const [codeNoticeVisible, setCodeNoticeVisible] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [legalOpen, setLegalOpen] = useState(false);
+  const [legalTab, setLegalTab] = useState<SignInLegalTab>("agreement");
   const cooldown = useCodeCooldown();
 
   useEffect(() => {
@@ -754,6 +761,18 @@ function SignUpForm({ autoFocus, onSignIn }: SignUpFormProps) {
     cooldown.start();
     setCodeNoticeVisible(true);
     focusField("otp");
+  }
+
+  function openLegal(tab: SignInLegalTab, event: MouseEvent<HTMLElement>) {
+    legalReturnFocusRef.current = event.currentTarget;
+    setLegalTab(tab);
+    setLegalOpen(true);
+  }
+
+  function acceptLegal() {
+    setAcceptedTerms(true);
+    clearError("terms");
+    legalReturnFocusRef.current = termsRef.current;
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -921,10 +940,11 @@ function SignUpForm({ autoFocus, onSignIn }: SignUpFormProps) {
         </div>
 
         <div className="sign-in-form__field">
-          <label className="sign-in-check sign-in-check--terms">
+          <div className="sign-in-check sign-in-check--terms">
             <input
               aria-describedby={describedBy("terms")}
               aria-invalid={errors.terms ? true : undefined}
+              aria-labelledby={ids.termsText}
               checked={acceptedTerms}
               id={ids.terms}
               name="terms"
@@ -935,17 +955,27 @@ function SignUpForm({ autoFocus, onSignIn }: SignUpFormProps) {
               ref={termsRef}
               type="checkbox"
             />
-            <span>
-              {c.termsLead}
-              <strong className="sign-in-check__accent">
+            <p className="sign-in-check__text" id={ids.termsText}>
+              <label htmlFor={ids.terms}>{c.termsLead}</label>
+              <button
+                aria-haspopup="dialog"
+                className="sign-in-check__accent sign-in-check__link"
+                onClick={(event) => openLegal("agreement", event)}
+                type="button"
+              >
                 {c.userAgreement}
-              </strong>
+              </button>
               {c.termsJoin}
-              <strong className="sign-in-check__accent">
+              <button
+                aria-haspopup="dialog"
+                className="sign-in-check__accent sign-in-check__link"
+                onClick={(event) => openLegal("privacy", event)}
+                type="button"
+              >
                 {c.privacyPolicy}
-              </strong>
-            </span>
-          </label>
+              </button>
+            </p>
+          </div>
           {errorFor("terms")}
         </div>
 
@@ -956,6 +986,15 @@ function SignUpForm({ autoFocus, onSignIn }: SignUpFormProps) {
           {c.createAccount}
         </button>
       </form>
+
+      <SignInLegalDialog
+        activeTab={legalTab}
+        onAccept={acceptLegal}
+        onOpenChange={setLegalOpen}
+        onTabChange={setLegalTab}
+        open={legalOpen}
+        returnFocusRef={legalReturnFocusRef}
+      />
 
       <div aria-live="polite" className="sign-in-form__notice-region">
         {submitted ? (

@@ -12,10 +12,28 @@
 | Quy trình            | Antigravity làm PM/Gatekeeper điều phối Codex và Claude Code qua prompt; Antigravity nghiệm thu và commit/push thẳng `main` |
 | Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4, Phase 5 collaboration                                                                  |
 | Phase hiện tại       | Phase 3 deferred carry-over vẫn hoạt động; Phase 5 collaboration đã đóng                                                   |
-| Task `DONE` gần nhất | `UI-AUTH-01` Clone giao diện đăng nhập V1 (`LoginFrame` / `SignUpFrame` / `ForgotPasswordDialog`) lên Web `/sign-in`        |
-| Mốc repository mới   | `/sign-in` split 65/35 + carousel + Sign Up + Forgot Password modal; `pnpm verify`, `P5-COLLAB-14` bundle & live OIDC PASS |
+| Task `DONE` gần nhất | `UI-AUTH-02` Hộp thoại Thỏa thuận người dùng & Chính sách quyền riêng tư song ngữ VI/EN khi Đăng ký trên `/sign-in`     |
+| Mốc repository mới   | `/sign-in` liên kết điều khoản chuẩn WCAG + Modal 2 tab (`agreement`/`privacy`) + 7 điều khoản TutorHub V2; verify PASS  |
 | Task hiện tại        | Sẵn sàng nhận nhiệm vụ tiếp theo từ chủ dự án                                                                              |
-| Task tiếp theo       | Theo chỉ đạo của chủ dự án (tối ưu ảnh WebP/công tắc ngôn ngữ `/sign-in`, hoặc mở tính năng tiếp theo)                     |
+| Task tiếp theo       | Tinh chỉnh UX trang điều khoản công khai (`/terms`, `/privacy`) nếu chủ dự án yêu cầu, hoặc mở tính năng tiếp theo      |
+
+### Checkpoint `UI-AUTH-02` Hộp thoại Thỏa thuận người dùng & Chính sách quyền riêng tư `DONE` — 2026-11-16
+
+Claude Code triển khai theo prompt điều phối của Antigravity và đã qua nghiệm thu Gatekeeper đầy đủ:
+
+- Bổ sung `apps/web/src/pages/signInLegalContent.ts` với nội dung song ngữ `vi`/`en` gồm hộp **Tóm tắt
+  điểm chính** và **7 điều khoản** cho từng văn bản (*Thỏa thuận người dùng* và *Chính sách quyền riêng tư*),
+  đối chiếu chuẩn xác với kiến trúc bảo mật/phân quyền TutorHub V2.
+- Xây dựng `apps/web/src/pages/SignInLegalDialog.tsx` tái sử dụng `Dialog` & `Tabs` từ `@tutorhub/ui`:
+  header cố định kèm pill phiên bản, chuyển đổi mượt giữa 2 tab trong một vùng cuộn chung (tự reset
+  `scrollTop = 0` khi đổi tab), footer cố định có nút `Đóng` và nút `Tôi đồng ý & Tiếp tục` (màu `#047857`
+  đạt tương phản WCAG AA 5.48:1, tự tích checkbox và xóa lỗi thiếu tick).
+- Cập nhật `apps/web/src/pages/SignInPage.tsx` & `SignInPage.css`: tách hai nút mở hộp thoại ra khỏi
+  `<label>` để không bấm nhầm checkbox, bảo toàn dữ liệu đang nhập trong form đăng ký và trả focus chính xác
+  khi đóng dialog; bổ sung 6 test case mới (3 `en`, 3 `vi`) vào `apps/web/src/pages/SignInPage.test.tsx`.
+- Kiểm chứng Gatekeeper: toàn kho `pnpm verify` PASS (`482/482` web unit tests, bundle security `201` file,
+  toàn bộ Go `test`/`vet`) và kiểm thử trình duyệt trực tiếp tại `http://localhost:5173/sign-in` xác nhận hiển
+  thị, cuộn, đổi tab và focus hoạt động sạch.
 
 ### Checkpoint `UI-AUTH-01` Giao diện đăng nhập Web theo thiết kế V1 `DONE` — 2026-11-16
 
