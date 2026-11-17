@@ -283,6 +283,7 @@ func (service *Service) CompleteLogin(
 		TokenHash:     service.crypto.Digest(sessionPurpose, sessionToken),
 		CSRFHash:      service.crypto.Digest(csrfPurpose, csrfToken),
 		UserAgentHash: service.crypto.Digest(userAgentPurpose, input.UserAgent),
+		DeviceLabel:   DeviceLabel(input.UserAgent),
 		IPPrefix:      IPPrefix(input.RemoteAddress),
 		CreatedAt:     now,
 		ExpiresAt:     expiresAt,

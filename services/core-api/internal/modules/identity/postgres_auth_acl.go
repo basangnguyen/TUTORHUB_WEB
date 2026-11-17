@@ -46,7 +46,7 @@ func ProvisionAuthFoundationRuntimeACL(ctx context.Context, database Database, r
         AND pg_has_role(r.oid, c.relowner, 'MEMBER')
     )
 FROM pg_roles r WHERE r.rolname = $1`, runtimeRole,
-		[]string{"auth_transactions", "auth_challenges", "auth_challenge_deliveries", "user_password_credentials", "user_legal_acceptances", "users"}).Scan(&safe)
+		[]string{"auth_transactions", "auth_challenges", "auth_challenge_deliveries", "user_password_credentials", "user_legal_acceptances", "users", "sessions", "identities"}).Scan(&safe)
 	if err != nil || !safe {
 		return errors.New("authentication ACL runtime role safety preflight failed")
 	}
@@ -107,6 +107,23 @@ FROM pg_roles r WHERE r.rolname = $1`, runtimeRole,
         has_column_privilege($1,'tutorhub.users','email_verified_at','INSERT'),
         has_column_privilege($1,'tutorhub.users','email_verified_at','UPDATE')`, runtimeRole).Scan(&readable, &insertable, &writable); err != nil || !readable || !insertable || !writable {
 		return errors.New("user email verification column privileges are unavailable")
+	}
+	// Preserve established sessions grants while ensuring deployments using column
+	// grants can persist device_label and mutate reauth/method/persistence columns.
+	if _, err := tx.Exec(ctx, fmt.Sprintf("GRANT SELECT (auth_methods, assurance_level, reauthenticated_at, device_label, persistent), INSERT (auth_methods, assurance_level, reauthenticated_at, device_label, persistent), UPDATE (auth_methods, reauthenticated_at, persistent) ON tutorhub.sessions TO %s", role)); err != nil {
+		return errors.New("grant session authentication foundation columns")
+	}
+	var sessionDelete, sessionMetadataOK bool
+	if err := tx.QueryRow(ctx, `SELECT
+        has_table_privilege($1,'tutorhub.sessions','DELETE'),
+        has_column_privilege($1,'tutorhub.sessions','device_label','SELECT')
+        AND has_column_privilege($1,'tutorhub.sessions','device_label','INSERT')
+        AND has_column_privilege($1,'tutorhub.sessions','reauthenticated_at','SELECT')
+        AND has_column_privilege($1,'tutorhub.sessions','reauthenticated_at','INSERT')
+        AND has_column_privilege($1,'tutorhub.sessions','reauthenticated_at','UPDATE')
+        AND has_column_privilege($1,'tutorhub.sessions','auth_methods','UPDATE')
+        AND has_column_privilege($1,'tutorhub.sessions','persistent','UPDATE')`, runtimeRole).Scan(&sessionDelete, &sessionMetadataOK); err != nil || sessionDelete || !sessionMetadataOK {
+		return errors.New("session runtime privileges are invalid")
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return errors.New("commit authentication ACL provisioning")

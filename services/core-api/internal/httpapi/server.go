@@ -168,6 +168,21 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 	mux.Handle("/api/v1/me", requireMethod(http.MethodGet, http.HandlerFunc(auth.me)))
 	mux.Handle("/api/v1/me/profile", http.HandlerFunc(auth.profile))
 	mux.Handle("/api/v1/me/password", http.HandlerFunc(nativeAuth.myPassword))
+	for path, handler := range map[string]http.HandlerFunc{
+		"/api/v1/me/security":      nativeAuth.mySecurity,
+		"/api/v1/me/login-methods": nativeAuth.myLoginMethods,
+		"/api/v1/me/sessions":      nativeAuth.mySessions,
+	} {
+		mux.Handle(path, authFoundationResponseHeaders(requireMethod(http.MethodGet, handler)))
+	}
+	for path, handler := range map[string]http.HandlerFunc{
+		"/api/v1/auth/reauth/email-code/start":    nativeAuth.startReauthEmailCode,
+		"/api/v1/auth/reauth":                     nativeAuth.reauthenticate,
+		"/api/v1/me/sessions/{session_id}/revoke": nativeAuth.revokeMySession,
+		"/api/v1/me/sessions/revoke-others":       nativeAuth.revokeOtherSessions,
+	} {
+		mux.Handle(path, authFoundationResponseHeaders(requireMethod(http.MethodPost, preAuthGuard(cfg.WebOrigin, handler))))
+	}
 	mux.Handle(
 		"/api/v1/me/identities",
 		requireMethod(http.MethodGet, http.HandlerFunc(auth.identities)),

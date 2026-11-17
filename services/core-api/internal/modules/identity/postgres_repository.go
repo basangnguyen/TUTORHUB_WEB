@@ -211,9 +211,10 @@ INSERT INTO tutorhub.sessions (
     expires_at,
     identity_id,
     absolute_expires_at,
-    auth_time
+    auth_time,
+    device_label
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $7, $8, $9, $10, $11)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $7, $8, $9, $10, $11, NULLIF($12,''))
 RETURNING id`
 	var sessionID uuid.UUID
 	if err := transaction.QueryRow(
@@ -230,6 +231,7 @@ RETURNING id`
 		identityID,
 		metadata.AbsoluteAt,
 		claims.AuthTime,
+		metadata.DeviceLabel,
 	).Scan(&sessionID); err != nil {
 		return Principal{}, fmt.Errorf("insert authenticated session: %w", err)
 	}

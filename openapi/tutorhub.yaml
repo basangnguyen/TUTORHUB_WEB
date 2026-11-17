@@ -404,6 +404,282 @@ paths:
           $ref: "#/components/responses/AuthUnavailableResponse"
         default:
           $ref: "#/components/responses/ProblemResponse"
+  /api/v1/me/security:
+    get:
+      operationId: getMySecurity
+      summary: Read security overview
+      description: Requires AUTH_DEVICE_MANAGEMENT_ENABLED. Responses use Cache-Control private, no-store. Read-only; every result is scoped to the authenticated user.
+      security:
+        - SessionCookie: []
+      responses:
+        "200":
+          description: Successful authenticated response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MySecurityResponse"
+        "401":
+          description: Session expired or unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "503":
+          $ref: "#/components/responses/AuthUnavailableResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/me/login-methods:
+    get:
+      operationId: listMyLoginMethods
+      summary: List all login methods for the authenticated user
+      description: Requires AUTH_DEVICE_MANAGEMENT_ENABLED. Responses use Cache-Control private, no-store. Read-only; every result is scoped to the authenticated user.
+      security:
+        - SessionCookie: []
+      responses:
+        "200":
+          description: Successful authenticated response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MyLoginMethodsResponse"
+        "401":
+          description: Session expired or unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "503":
+          $ref: "#/components/responses/AuthUnavailableResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/me/sessions:
+    get:
+      operationId: listMySessions
+      summary: List active sessions belonging to the authenticated user
+      description: Requires AUTH_DEVICE_MANAGEMENT_ENABLED. Responses use Cache-Control private, no-store. Returns opaque row IDs, never session tokens or hashes; excludes revoked/expired sessions and orders by last_seen_at descending.
+      security:
+        - SessionCookie: []
+      responses:
+        "200":
+          description: Successful authenticated response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MySessionsResponse"
+        "401":
+          description: Session expired or unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "503":
+          $ref: "#/components/responses/AuthUnavailableResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/auth/reauth/email-code/start:
+    post:
+      operationId: startReauthEmailCode
+      summary: Send or resend an email code for the current session
+      description: Requires AUTH_DEVICE_MANAGEMENT_ENABLED, session, CSRF and exact Origin. Responses use Cache-Control private, no-store. Send only to the authenticated user's verified email. No client email is accepted. Repeat this endpoint with auth_tx cookie to resend, with a 60-second cooldown and five-send transaction limit. Delivery occurs after commit.
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmptyAuthRequest"
+      responses:
+        "202":
+          description: Challenge accepted; Set-Cookie binds the transaction to this browser
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthSignupChallengeResponse"
+        "401":
+          description: Session expired or unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "403":
+          $ref: "#/components/responses/ProblemResponse"
+        "409":
+          description: Session context changed; reload the current session
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "429":
+          $ref: "#/components/responses/AuthRateLimitedResponse"
+        "503":
+          $ref: "#/components/responses/AuthUnavailableResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/auth/reauth:
+    post:
+      operationId: reauthenticate
+      summary: Reauthenticate and rotate session and CSRF cookies
+      description: Requires AUTH_DEVICE_MANAGEMENT_ENABLED, session, CSRF and exact Origin. Password hashing occurs outside database locks; email codes require the auth_tx cookie bound to this session. Success grants ten minutes of recent authentication, rotates session and CSRF tokens, increments context version, preserves cookie lifetime and applies the org_admin 24-hour cap. Invalid evidence returns 401 with auth_invalid_current_password or auth_invalid_verification_code; uncoded 401 means session expiry.
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReauthenticateRequest"
+      responses:
+        "200":
+          description: Successful authenticated response
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReauthenticateResponse"
+        "401":
+          description: Session expired (no code), or invalid evidence (auth_invalid_current_password or auth_invalid_verification_code)
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "403":
+          $ref: "#/components/responses/ProblemResponse"
+        "409":
+          description: Session context changed; reload the current session
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "429":
+          $ref: "#/components/responses/AuthRateLimitedResponse"
+        "503":
+          $ref: "#/components/responses/AuthUnavailableResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/me/sessions/{session_id}/revoke:
+    post:
+      operationId: revokeMySession
+      summary: Revoke one other session belonging to the authenticated user
+      description: Requires AUTH_DEVICE_MANAGEMENT_ENABLED. Responses use Cache-Control private, no-store. Requires CSRF and exact Origin but no recent authentication. Current session returns 400 auth_cannot_revoke_current_session; absent, foreign or already revoked sessions return the same 404.
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmptyAuthRequest"
+      responses:
+        "204":
+          description: Session revoked
+        "401":
+          description: Session expired or unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "403":
+          $ref: "#/components/responses/ProblemResponse"
+        "409":
+          description: Session context changed; reload the current session
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "429":
+          $ref: "#/components/responses/AuthRateLimitedResponse"
+        "404":
+          $ref: "#/components/responses/ProblemResponse"
+        "503":
+          $ref: "#/components/responses/AuthUnavailableResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/me/sessions/revoke-others:
+    post:
+      operationId: revokeOtherSessions
+      summary: Revoke all other sessions belonging to the authenticated user
+      description: Requires AUTH_DEVICE_MANAGEMENT_ENABLED. Responses use Cache-Control private, no-store. Requires CSRF and exact Origin but no recent authentication. The current session remains active.
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmptyAuthRequest"
+      responses:
+        "200":
+          description: Successful authenticated response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RevokeOtherSessionsResponse"
+        "401":
+          description: Session expired or unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "403":
+          $ref: "#/components/responses/ProblemResponse"
+        "409":
+          description: Session context changed; reload the current session
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "429":
+          $ref: "#/components/responses/AuthRateLimitedResponse"
+        "503":
+          $ref: "#/components/responses/AuthUnavailableResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
   /api/v1/me/password:
     get:
       operationId: getMyPasswordStatus
@@ -466,7 +742,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
         "403":
-          description: CSRF, recent authentication or verified email required
+          description: CSRF, recent authentication (auth_recent_authentication_required) or verified email required
           content:
             application/problem+json:
               schema:
@@ -806,6 +1082,7 @@ paths:
     post:
       operationId: beginIdentityLink
       summary: Begin a recent-authenticated external identity linking flow
+      description: Recent authentication failures return 403 with code auth_recent_authentication_required.
       security:
         - SessionCookie: []
       parameters:
@@ -833,6 +1110,7 @@ paths:
     delete:
       operationId: unlinkIdentity
       summary: Unlink an external identity while preserving at least one login method
+      description: Recent authentication failures return 403 with code auth_recent_authentication_required.
       security:
         - SessionCookie: []
       parameters:
@@ -4466,6 +4744,7 @@ paths:
     post:
       operationId: transferClassOwnership
       summary: Transfer class ownership after recent authentication
+      description: Recent authentication failures return 403 with code auth_recent_authentication_required.
       security:
         - SessionCookie: []
       parameters:
@@ -8306,7 +8585,7 @@ components:
           schema:
             $ref: "#/components/schemas/Problem"
     ForbiddenResponse:
-      description: The authenticated actor lacks permission in the active workspace
+      description: The authenticated actor lacks permission, CSRF validation failed, or recent authentication is required (code auth_recent_authentication_required).
       content:
         application/problem+json:
           schema:
@@ -8525,6 +8804,191 @@ components:
         mapping:
           authenticated: "#/components/schemas/AuthAuthenticatedResponse"
           mfa_required: "#/components/schemas/AuthMFARequiredResponse"
+    EmptyAuthRequest:
+      type: object
+      additionalProperties: false
+    MySecurityResponse:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          has_password,
+          email_verified,
+          mfa_enabled,
+          reauth_methods,
+          recent_auth_expires_at,
+        ]
+      properties:
+        has_password:
+          type: boolean
+        email_verified:
+          type: boolean
+        mfa_enabled:
+          type: boolean
+          enum: [false]
+        reauth_methods:
+          type: array
+          uniqueItems: true
+          items:
+            type: string
+            enum: [password, email_code]
+        recent_auth_expires_at:
+          type: [string, "null"]
+          format: date-time
+          description: GREATEST(auth_time, reauthenticated_at) plus ten minutes, or null when no longer effective.
+    LoginMethodPassword:
+      type: object
+      additionalProperties: false
+      required: [has_password, updated_at]
+      properties:
+        has_password:
+          type: boolean
+        updated_at:
+          type: [string, "null"]
+          format: date-time
+    LoginMethodIdentity:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          kind,
+          provider_slug,
+          email_at_provider,
+          email_verified,
+          last_authenticated_at,
+          created_at,
+        ]
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+          enum: [email, oidc, oauth2, phone, passkey]
+        provider_slug:
+          type: [string, "null"]
+        email_at_provider:
+          type: [string, "null"]
+        email_verified:
+          type: boolean
+        last_authenticated_at:
+          type: [string, "null"]
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+    MyLoginMethodsResponse:
+      type: object
+      additionalProperties: false
+      required: [password, identities]
+      properties:
+        password:
+          $ref: "#/components/schemas/LoginMethodPassword"
+        identities:
+          type: array
+          items:
+            $ref: "#/components/schemas/LoginMethodIdentity"
+    MySession:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          device_label,
+          auth_methods,
+          created_at,
+          last_seen_at,
+          expires_at,
+          persistent,
+          is_current,
+        ]
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Opaque session row ID; never an authentication token.
+        device_label:
+          type: [string, "null"]
+          maxLength: 80
+        auth_methods:
+          type: array
+          items:
+            type: string
+        created_at:
+          type: string
+          format: date-time
+        last_seen_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+        persistent:
+          type: boolean
+        is_current:
+          type: boolean
+    MySessionsResponse:
+      type: object
+      additionalProperties: false
+      required: [sessions]
+      properties:
+        sessions:
+          type: array
+          items:
+            $ref: "#/components/schemas/MySession"
+    ReauthenticatePasswordRequest:
+      type: object
+      additionalProperties: false
+      required: [method, password]
+      properties:
+        method:
+          type: string
+          enum: [password]
+        password:
+          type: string
+          maxLength: 512
+          writeOnly: true
+    ReauthenticateEmailCodeRequest:
+      type: object
+      additionalProperties: false
+      required: [method, challenge_id, code]
+      properties:
+        method:
+          type: string
+          enum: [email_code]
+        challenge_id:
+          type: string
+          format: uuid
+        code:
+          type: string
+          pattern: "^[0-9]{6}$"
+          writeOnly: true
+    ReauthenticateRequest:
+      oneOf:
+        - $ref: "#/components/schemas/ReauthenticatePasswordRequest"
+        - $ref: "#/components/schemas/ReauthenticateEmailCodeRequest"
+      discriminator:
+        propertyName: method
+        mapping:
+          password: "#/components/schemas/ReauthenticatePasswordRequest"
+          email_code: "#/components/schemas/ReauthenticateEmailCodeRequest"
+    ReauthenticateResponse:
+      type: object
+      additionalProperties: false
+      required: [recent_auth_expires_at]
+      properties:
+        recent_auth_expires_at:
+          type: string
+          format: date-time
+    RevokeOtherSessionsResponse:
+      type: object
+      additionalProperties: false
+      required: [revoked_count]
+      properties:
+        revoked_count:
+          type: integer
+          minimum: 0
     AuthProvidersResponse:
       type: object
       additionalProperties: false
@@ -8551,6 +9015,9 @@ components:
         password_recovery_enabled:
           type: boolean
           description: Always emitted by current servers as password_enabled AND email_code_enabled. Optional for older deployment compatibility; clients must treat absence as false.
+        device_management_enabled:
+          type: boolean
+          description: Gates security overview, login-method inventory, step-up and session management. Optional for older deployment compatibility; clients must treat absence as false.
         phone_enabled:
           type: boolean
         passkeys_enabled:
@@ -15204,7 +15671,7 @@ components:
           maximum: 599
         code:
           type: string
-          description: Stable machine-readable failure code such as feature_disabled, quota_exceeded, or feature_control_unavailable.
+          description: Stable machine-readable failure code. Recent-authentication failures always use 403 with auth_recent_authentication_required. Authenticated evidence failures use 401 with auth_invalid_current_password or auth_invalid_verification_code; an uncoded 401 indicates an invalid or expired session. Revoking the current session uses 400 with auth_cannot_revoke_current_session.
           maxLength: 64
           pattern: "^[a-z][a-z0-9_]*$"
         detail:

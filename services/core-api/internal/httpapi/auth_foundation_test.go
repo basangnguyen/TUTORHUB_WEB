@@ -49,7 +49,7 @@ func TestAuthProvidersExposeOnlyPublicDeploymentCapabilities(t *testing.T) {
 	if err := json.Unmarshal(payload, &fields); err != nil {
 		t.Fatal(err)
 	}
-	if len(fields) != 13 || got.PasswordRecoveryEnabled || got.LegalTermsVersion != "2026-11-16-v2.0" || response.Header().Get("Cache-Control") != "no-store" || response.Header().Get("Referrer-Policy") != "no-referrer" {
+	if len(fields) != 14 || got.DeviceManagementEnabled || got.PasswordRecoveryEnabled || got.LegalTermsVersion != "2026-11-16-v2.0" || response.Header().Get("Cache-Control") != "no-store" || response.Header().Get("Referrer-Policy") != "no-referrer" {
 		t.Fatal("public capabilities changed shape or privacy headers")
 	}
 }

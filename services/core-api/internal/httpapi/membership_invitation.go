@@ -479,9 +479,8 @@ func (handlers membershipInvitationHandlers) writeProblem(
 		title = "Invitation unavailable"
 		detail = "The invitation is invalid, unavailable, or no longer active."
 	case errors.Is(err, identity.ErrRecentAuthenticationRequired):
-		status = http.StatusForbidden
-		title = "Recent authentication required"
-		detail = "Sign in again before managing administrator invitations."
+		writeCodedProblem(w, r, http.StatusForbidden, "auth_recent_authentication_required", "Recent authentication required", "Sign in again before managing administrator invitations.")
+		return
 	}
 
 	if status >= http.StatusInternalServerError {

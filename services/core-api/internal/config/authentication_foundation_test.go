@@ -80,6 +80,20 @@ func TestAuthDeliveryGuardAcrossEnvironments(t *testing.T) {
 	}
 }
 
+func TestDeviceManagementRequiresSessionAndDatabaseWithoutEnablingOIDC(t *testing.T) {
+	t.Parallel()
+	values := map[string]string{"AUTH_DEVICE_MANAGEMENT_ENABLED": "true", "AUTH_PROVIDER_OIDC_DEFAULT_ENABLED": "false"}
+	if _, err := load(mapLookup(values)); err == nil || !strings.Contains(err.Error(), "DATABASE_POOL_URL") || !strings.Contains(err.Error(), "SESSION_SECRET") {
+		t.Fatal("device management must validate database and session prerequisites")
+	}
+	values["DATABASE_POOL_URL"] = "postgres://fixture:fixture@localhost/fixture?sslmode=disable"
+	values["SESSION_SECRET"] = validSessionSecret()
+	cfg, err := load(mapLookup(values))
+	if err != nil || !cfg.Authentication.Enabled || !cfg.Authentication.DeviceManagementEnabled || cfg.Authentication.OIDCEnabled || cfg.Authentication.PasswordEnabled || cfg.Authentication.EmailCodeEnabled {
+		t.Fatal("device management must support existing sessions independently of sign-in methods")
+	}
+}
+
 func TestAuthFoundationValidationRunsWithoutOIDC(t *testing.T) {
 	t.Parallel()
 	for _, test := range []struct{ key, value string }{

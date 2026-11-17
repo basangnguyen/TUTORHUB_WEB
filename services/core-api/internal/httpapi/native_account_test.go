@@ -264,7 +264,7 @@ func TestPasswordSettingsRotationAndDomainErrors(t *testing.T) {
 		err    error
 		status int
 		code   string
-	}{{identity.ErrRecentAuthenticationRequired, 403, ""}, {identity.ErrNativeInvalidCurrentPassword, 401, "auth_invalid_current_password"}, {identity.ErrNativePasswordUnchanged, 400, "auth_password_unchanged"}, {identity.ErrPasswordPolicy, 400, "auth_password_policy"}, {identity.ErrNativeVerifiedEmailRequired, 403, "auth_verified_email_required"}, {identity.ErrPasswordBusy, 503, ""}} {
+	}{{identity.ErrRecentAuthenticationRequired, 403, "auth_recent_authentication_required"}, {identity.ErrNativeInvalidCurrentPassword, 401, "auth_invalid_current_password"}, {identity.ErrNativePasswordUnchanged, 400, "auth_password_unchanged"}, {identity.ErrPasswordPolicy, 400, "auth_password_policy"}, {identity.ErrNativeVerifiedEmailRequired, 403, "auth_verified_email_required"}, {identity.ErrPasswordBusy, 503, ""}} {
 		service := &fakeNativeAuth{err: fmt.Errorf("%w: private-secret", tc.err)}
 		w := httptest.NewRecorder()
 		accountTestHandler(service, true).ServeHTTP(w, passwordSettingsRequest("POST", `{"new_password":"new-private"}`, true, true))

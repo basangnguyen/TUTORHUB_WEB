@@ -153,6 +153,7 @@ type SessionMetadata struct {
 	TokenHash     []byte
 	CSRFHash      []byte
 	UserAgentHash []byte
+	DeviceLabel   string
 	IPPrefix      string
 	CreatedAt     time.Time
 	ExpiresAt     time.Time

@@ -107,6 +107,9 @@ func TestAuthFoundationRuntimeExactACL(t *testing.T) {
 	if _, err := pool.Exec(ctx, "GRANT SELECT, INSERT, UPDATE (display_name) ON tutorhub.users TO "+role); err != nil {
 		t.Fatal("seed established users ACL")
 	}
+	if _, err := pool.Exec(ctx, "GRANT SELECT, INSERT, UPDATE (active_tenant_id, token_hash, csrf_token_hash, last_seen_at, expires_at, absolute_expires_at, revoked_at, revoked_reason, context_version) ON tutorhub.sessions TO "+role); err != nil {
+		t.Fatal("seed established sessions ACL")
+	}
 	if err := ProvisionAuthFoundationRuntimeACL(ctx, pool, roleName); err != nil {
 		t.Fatal(err)
 	}
@@ -153,6 +156,28 @@ func TestAuthFoundationRuntimeExactACL(t *testing.T) {
 		Scan(&usersRead, &usersInsert, &displayNameUpdate, &verificationRead, &verificationInsert, &verificationUpdate, &unrelatedUpdate); err != nil ||
 		!usersRead || !usersInsert || !displayNameUpdate || !verificationRead || !verificationInsert || !verificationUpdate || unrelatedUpdate {
 		t.Fatal("email verification grants must preserve the established users ACL without broadening unrelated updates")
+	}
+	var sessionsRead, sessionsInsert, sessionsDelete, sessionReauthUpdate, sessionRevokeUpdate, sessionImmutableUpdate bool
+	if err := pool.QueryRow(ctx, `SELECT
+        has_table_privilege($1,'tutorhub.sessions','SELECT'),
+        has_table_privilege($1,'tutorhub.sessions','INSERT'),
+        has_table_privilege($1,'tutorhub.sessions','DELETE'),
+        has_column_privilege($1,'tutorhub.sessions','reauthenticated_at','UPDATE')
+        AND has_column_privilege($1,'tutorhub.sessions','auth_methods','UPDATE')
+        AND has_column_privilege($1,'tutorhub.sessions','persistent','UPDATE')
+        AND has_column_privilege($1,'tutorhub.sessions','device_label','INSERT'),
+        has_column_privilege($1,'tutorhub.sessions','revoked_at','UPDATE')
+        AND has_column_privilege($1,'tutorhub.sessions','revoked_reason','UPDATE')
+        AND has_column_privilege($1,'tutorhub.sessions','token_hash','UPDATE')
+        AND has_column_privilege($1,'tutorhub.sessions','csrf_token_hash','UPDATE')
+        AND has_column_privilege($1,'tutorhub.sessions','context_version','UPDATE'),
+        has_column_privilege($1,'tutorhub.sessions','user_id','UPDATE')
+        OR has_column_privilege($1,'tutorhub.sessions','created_at','UPDATE')
+        OR has_column_privilege($1,'tutorhub.sessions','device_label','UPDATE')
+        OR has_column_privilege($1,'tutorhub.sessions','assurance_level','UPDATE')`, roleName).
+		Scan(&sessionsRead, &sessionsInsert, &sessionsDelete, &sessionReauthUpdate, &sessionRevokeUpdate, &sessionImmutableUpdate); err != nil ||
+		!sessionsRead || !sessionsInsert || sessionsDelete || !sessionReauthUpdate || !sessionRevokeUpdate || sessionImmutableUpdate {
+		t.Fatal("session runtime grants must support reauth/revocation/device_label without granting DELETE or immutable column updates")
 	}
 	// NOINHERIT only prevents implicit grants; SET ROLE can still recover a
 	// parent's privileges. Dedicated API credentials must not have that escape.

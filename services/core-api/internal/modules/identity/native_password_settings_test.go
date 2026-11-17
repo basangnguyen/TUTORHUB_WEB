@@ -46,7 +46,7 @@ func (tx *passwordSettingsTestTx) Commit(context.Context) error {
 	return nil
 }
 func (tx *passwordSettingsTestTx) Exec(_ context.Context, query string, args ...any) (pgconn.CommandTag, error) {
-	if strings.HasPrefix(query, "SELECT id FROM tutorhub.sessions") {
+	if strings.HasPrefix(query, "SELECT id FROM tutorhub.sessions") || strings.HasPrefix(query, "SELECT id FROM tutorhub.identities") {
 		return pgconn.NewCommandTag("SELECT 2"), nil
 	}
 	tx.writes = append(tx.writes, query)

@@ -32,6 +32,17 @@ export type MyPasswordUpdateRequest =
   components["schemas"]["MyPasswordUpdateRequest"];
 export type MyPasswordUpdateResponse =
   components["schemas"]["MyPasswordUpdateResponse"];
+export type MySecurityResponse = components["schemas"]["MySecurityResponse"];
+export type MyLoginMethodsResponse =
+  components["schemas"]["MyLoginMethodsResponse"];
+export type MySession = components["schemas"]["MySession"];
+export type MySessionsResponse = components["schemas"]["MySessionsResponse"];
+export type ReauthenticateRequest =
+  components["schemas"]["ReauthenticateRequest"];
+export type ReauthenticateResponse =
+  components["schemas"]["ReauthenticateResponse"];
+export type RevokeOtherSessionsResponse =
+  components["schemas"]["RevokeOtherSessionsResponse"];
 export type AuthProvidersResponse =
   components["schemas"]["AuthProvidersResponse"];
 export type AuthIdentifierDiscoverRequest =
@@ -868,6 +879,146 @@ export async function updateMyPassword(
   const result = requireData<MyPasswordUpdateResponse>(data, error, response);
   currentCSRFToken = null;
   return result;
+}
+
+export async function getMySecurity(
+  options: APIRequestOptions = {},
+): Promise<MySecurityResponse> {
+  const { data, error, response } = await createTutorHubClient(options).GET(
+    "/api/v1/me/security",
+    {
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+      cache: "no-store",
+      referrerPolicy: "no-referrer",
+    },
+  );
+  return requireData<MySecurityResponse>(
+    data as MySecurityResponse | undefined,
+    error,
+    response,
+  );
+}
+
+export async function listMyLoginMethods(
+  options: APIRequestOptions = {},
+): Promise<MyLoginMethodsResponse> {
+  const { data, error, response } = await createTutorHubClient(options).GET(
+    "/api/v1/me/login-methods",
+    {
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+      cache: "no-store",
+      referrerPolicy: "no-referrer",
+    },
+  );
+  return requireData<MyLoginMethodsResponse>(
+    data as MyLoginMethodsResponse | undefined,
+    error,
+    response,
+  );
+}
+
+export async function listMySessions(
+  options: APIRequestOptions = {},
+): Promise<MySessionsResponse> {
+  const { data, error, response } = await createTutorHubClient(options).GET(
+    "/api/v1/me/sessions",
+    {
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+      cache: "no-store",
+      referrerPolicy: "no-referrer",
+    },
+  );
+  return requireData<MySessionsResponse>(
+    data as MySessionsResponse | undefined,
+    error,
+    response,
+  );
+}
+
+function securityMutationOptions(
+  csrfToken: string,
+  options: APIRequestOptions,
+) {
+  return {
+    params: { header: { "X-CSRF-Token": csrfToken } },
+    headers: {
+      Accept: "application/json",
+      Origin: globalThis.location?.origin ?? "null",
+    },
+    signal: options.signal,
+    cache: "no-store" as const,
+    referrerPolicy: "no-referrer" as const,
+  };
+}
+
+export async function startReauthEmailCode(
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<AuthSignupChallengeResponse> {
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/auth/reauth/email-code/start",
+    {
+      ...securityMutationOptions(csrfToken, options),
+      body: {},
+    },
+  );
+  return requireData<AuthSignupChallengeResponse>(data, error, response);
+}
+
+export async function reauthenticate(
+  input: ReauthenticateRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<ReauthenticateResponse> {
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/auth/reauth",
+    {
+      ...securityMutationOptions(csrfToken, options),
+      body: input,
+    },
+  );
+  const result = requireData<ReauthenticateResponse>(data, error, response);
+  currentCSRFToken = null;
+  return result;
+}
+
+export async function revokeMySession(
+  sessionID: string,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<void> {
+  const requestOptions = securityMutationOptions(csrfToken, options);
+  const { error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/me/sessions/{session_id}/revoke",
+    {
+      ...requestOptions,
+      params: { ...requestOptions.params, path: { session_id: sessionID } },
+      body: {},
+    },
+  );
+  if (!response.ok)
+    throw new APIRequestError(
+      response.status,
+      isProblem(error) ? error : undefined,
+      retryAfterSeconds(response),
+    );
+}
+
+export async function revokeOtherSessions(
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<RevokeOtherSessionsResponse> {
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/me/sessions/revoke-others",
+    {
+      ...securityMutationOptions(csrfToken, options),
+      body: {},
+    },
+  );
+  return requireData<RevokeOtherSessionsResponse>(data, error, response);
 }
 
 export async function getCurrentUser(

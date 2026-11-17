@@ -355,9 +355,8 @@ func (handlers authHandlers) writeIdentityProblem(w http.ResponseWriter, r *http
 		title = "Invalid profile"
 		detail = "One or more profile fields are invalid."
 	case errors.Is(err, identity.ErrRecentAuthenticationRequired):
-		status = http.StatusForbidden
-		title = "Recent authentication required"
-		detail = "Sign in again before changing linked identities."
+		writeCodedProblem(w, r, http.StatusForbidden, "auth_recent_authentication_required", "Recent authentication required", "Sign in again before changing linked identities.")
+		return
 	case errors.Is(err, identity.ErrIdentityConflict),
 		errors.Is(err, identity.ErrIdentityLinkRequired):
 		status = http.StatusConflict

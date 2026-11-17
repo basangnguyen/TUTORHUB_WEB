@@ -1055,7 +1055,7 @@ func authenticationConfig(
 	}
 	configureAuthFoundation(&config, lookup, environment, validationErrors)
 	config.OIDCEnabled = config.ProviderOIDCDefaultEnabled && enabled
-	nativeEnabled := config.SignupEnabled || config.PasswordEnabled || config.EmailCodeEnabled
+	nativeEnabled := config.SignupEnabled || config.PasswordEnabled || config.EmailCodeEnabled || config.DeviceManagementEnabled
 	config.Enabled = enabled || nativeEnabled
 	if nativeEnabled && strings.TrimSpace(valueOrDefault(lookup, "DATABASE_POOL_URL", "")) == "" {
 		*validationErrors = append(*validationErrors, fmt.Errorf("DATABASE_POOL_URL is required when native authentication is enabled"))

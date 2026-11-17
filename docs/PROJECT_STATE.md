@@ -4,18 +4,67 @@
 
 ## Snapshot
 
-| Thuộc tính           | Trạng thái                                                                                                                             |
-| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| Ngày cập nhật        | 2026-11-18                                                                                                                             |
-| Repository           | `https://github.com/basangnguyen/TUTORHUB_WEB`                                                                                         |
-| Nhánh làm việc       | `main`                                                                                                                                 |
-| Quy trình            | Antigravity làm PM/Gatekeeper điều phối Codex và Claude Code qua prompt; Antigravity nghiệm thu và commit/push thẳng `main`            |
-| Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4, Phase 5 collaboration                                                                              |
-| Phase hiện tại       | Phase 3 deferred carry-over vẫn hoạt động; Phase 5 collaboration đã đóng                                                               |
-| Task `DONE` gần nhất | `AUTH-03B` Giao diện Đăng nhập mã OTP email, Khôi phục mật khẩu & Thẻ đặt/đổi mật khẩu `/app/settings` + Playwright (`AUTH-03` `DONE`) |
-| Mốc repository mới   | Trọn gói `AUTH-03` `DONE` (web `552` unit test; Playwright native auth `3/3` + hồi quy OIDC `p2-08` PASS trên Chromium thật)           |
-| Task hiện tại        | Giao `AUTH-04A` cho Codex (Server + Contract: Quản lý phiên/thiết bị, `/auth/reauth` step-up `10` phút, `/me/security`)                |
-| Task tiếp theo       | Nghiệm thu `AUTH-04A`, sau đó giao `AUTH-04B` cho Claude Code (hộp thoại step-up dùng chung & trang thiết bị/phiên)                    |
+| Thuộc tính           | Trạng thái                                                                                                                                 |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| Ngày cập nhật        | 2026-11-18                                                                                                                                 |
+| Repository           | `https://github.com/basangnguyen/TUTORHUB_WEB`                                                                                             |
+| Nhánh làm việc       | `main`                                                                                                                                     |
+| Quy trình            | Antigravity làm PM/Gatekeeper điều phối Codex và Claude Code qua prompt; Antigravity nghiệm thu và commit/push thẳng `main`                |
+| Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4, Phase 5 collaboration                                                                                  |
+| Phase hiện tại       | Phase 3 deferred carry-over vẫn hoạt động; Phase 5 collaboration đã đóng                                                                   |
+| Task `DONE` gần nhất | `AUTH-04A` Server + OpenAPI: Quản lý phiên/thiết bị, Step-up `/api/v1/auth/reauth` (`10` phút) & Tổng quan bảo mật `/me/security` (`DONE`) |
+| Mốc repository mới   | `AUTH-04A` `DONE` (`29/29` suite PostgreSQL disposable & exact ACL PASS `0` SKIP + `pnpm verify` PASS; schema `000044`)                    |
+| Task hiện tại        | Giao `AUTH-04B` cho Claude Code (UI + E2E: Hộp thoại step-up dùng chung, danh sách phương thức & quản lý phiên/thiết bị `/app/settings`)   |
+| Task tiếp theo       | Nghiệm thu `AUTH-04B` để đóng `AUTH-04`, sau đó mở `AUTH-05` (Google OAuth2/OIDC + Provider Registry + Link Intent)                        |
+
+### Checkpoint `AUTH-04A` Quản lý phiên/thiết bị, Step-up Re-authentication & Tổng quan bảo mật phía Server `DONE` — 2026-11-18
+
+Codex triển khai phần Server + OpenAPI Contract của `AUTH-04` trên schema `000044` (không thêm migration mới,
+dùng các cột và enum `reauthenticated_at`, `device_label`, `reauth` đã dự phòng tại `000043`) theo `ADR-0039` và
+đã qua Gatekeeper (Antigravity) rà soát bảo mật, gia cố ACL trên `tutorhub.sessions`, sửa 2 dòng seed fixture
+trong test tích hợp và nghiệm thu đầy đủ:
+
+- **Cờ cấu hình & Chuẩn hóa mã lỗi `recent-auth`**: Bổ sung capability `device_management_enabled` (optional,
+  mặc định `false`) trên `GET /api/v1/auth/providers`, kiểm tra điều kiện tiên quyết `DATABASE_POOL_URL` +
+  `SESSION_SECRET` khi bật `AUTH_DEVICE_MANAGEMENT_ENABLED` mà không ép kích hoạt OIDC discovery. Chuẩn hóa mọi
+  nhánh trả `ErrRecentAuthenticationRequired` (`auth.go`, `classroom.go`, `membership_invitation.go` ×2,
+  `native_auth.go`) về HTTP `403` kèm `code: "auth_recent_authentication_required"`, và gắn mã
+  `auth_invalid_verification_code` cho lỗi OTP `401` để client không nhầm lỗi bằng chứng người dùng nhập với hết
+  phiên.
+- **Tổng quan bảo mật, Sổ phương thức đăng nhập & Step-up `10` phút**:
+  - `GET /api/v1/me/security`: trả `{has_password, email_verified, mfa_enabled: false, reauth_methods, recent_auth_expires_at}`
+    giới hạn theo principal (chỉ quảng bá `password`/`email_code` khi `AssuranceLevel <= 1` và sender khả dụng;
+    tính hạn theo `GREATEST(auth_time, reauthenticated_at) + 10m`).
+  - `GET /api/v1/me/login-methods`: liệt kê trạng thái mật khẩu và toàn bộ identity đang `active` mọi `kind`
+    (`email`, `oidc`, `oauth2`, `phone`, `passkey`) của chính người dùng, không lộ hash/token.
+  - `POST /api/v1/auth/reauth/email-code/start` & `POST /api/v1/auth/reauth`: gửi mã step-up tới email đã xác
+    minh từ server (gắn `user_id`, `session_id`, `context_version`; giữ nguyên cooldown `60s` và trần `5` lần gửi
+    kể cả khi xóa cookie `auth_tx`); xác minh mật khẩu Argon2id ngoài khóa DB (kiểm tra lại credential + lockout
+    dưới khóa) hoặc consume nguyên tử mã `reauth`; cập nhật `reauthenticated_at`, thêm phương thức vào
+    `auth_methods`, xoay session/CSRF token (`context_version + 1`), bảo toàn hạn persistent cho non-admin và áp
+    trần `24` giờ cho `org_admin`.
+- **Quản lý phiên/thiết bị & Thứ tự khóa thống nhất**: Tính `device_label` server-side từ allowlist thô họ trình
+  duyệt + hệ điều hành (≤ `80` ký tự, không lưu User-Agent thô hay geo-IP) trên mọi đường tạo phiên (signup,
+  password login, email-code login, OIDC callback). Cung cấp `GET /api/v1/me/sessions` (opaque `sessions.id`,
+  ẩn phiên đã revoke/quá hạn kể cả trần admin `24` giờ, sắp xếp `last_seen_at DESC`),
+  `POST /api/v1/me/sessions/{session_id}/revoke` (`204`, `user_revoked`; phiên hiện tại trả `400`
+  `auth_cannot_revoke_current_session`; phiên khác user/đã revoke trả `404` chung) và
+  `POST /api/v1/me/sessions/revoke-others` (`200 {revoked_count}`, `user_revoked_others`, không đòi step-up, có
+  rate limit theo user + IP). Thống nhất thứ tự khóa `user -> sessions (ORDER BY id FOR UPDATE) -> identities -> credential`.
+- **Gia cố Gatekeeper, OpenAPI Client & Bằng chứng kiểm chứng**:
+  - Gatekeeper mở rộng `ProvisionAuthFoundationRuntimeACL` kiểm tra `relowner` cho `sessions`/`identities` và cấp
+    quyền cột chính xác trên `tutorhub.sessions` (`SELECT`/`INSERT` các cột nền tảng auth, `UPDATE` chỉ trên
+    `auth_methods, reauthenticated_at, persistent`, cấm `DELETE` và cấm `UPDATE` các cột bất biến), lọc
+    `reauth_methods` khi `AssuranceLevel > 1`, và sửa 2 dòng seed SQL trong
+    `postgres_security_sessions_integration_test.go`.
+  - Xuất 7 typed helpers trong `@tutorhub/api-client` (`getMySecurity`, `listMyLoginMethods`,
+    `startReauthEmailCode`, `reauthenticate` tự xóa cache CSRF khi thành công, `listMySessions`,
+    `revokeMySession`, `revokeOtherSessions`; `83/83` tests PASS).
+  - Toàn bộ `29/29` suite PostgreSQL integration (`0` SKIP, `0` FAIL) trên DB disposable trống tách biệt staging
+    PASS (kết thúc sạch tại `44 false` rồi xóa DB tạm); toàn kho `pnpm verify` PASS (`86` security tests, `552`
+    web unit tests, Go `core-api` PASS). Giới hạn chưa thực thi: giao diện hộp thoại step-up, thẻ phiên/thiết bị
+    và Playwright E2E của `AUTH-04` thuộc `AUTH-04B`; chưa bật `AUTH_DEVICE_MANAGEMENT_ENABLED` trên
+    shared/staging/production.
 
 ### Checkpoint `AUTH-03B` Giao diện Đăng nhập mã email, Khôi phục mật khẩu & Đặt/đổi mật khẩu (`AUTH-03` `DONE`) — 2026-11-18
 

@@ -232,6 +232,46 @@ export type paths = {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/api/v1/auth/reauth": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Reauthenticate and rotate session and CSRF cookies
+     * @description Requires AUTH_DEVICE_MANAGEMENT_ENABLED, session, CSRF and exact Origin. Password hashing occurs outside database locks; email codes require the auth_tx cookie bound to this session. Success grants ten minutes of recent authentication, rotates session and CSRF tokens, increments context version, preserves cookie lifetime and applies the org_admin 24-hour cap. Invalid evidence returns 401 with auth_invalid_current_password or auth_invalid_verification_code; uncoded 401 means session expiry.
+     */
+    readonly post: operations["reauthenticate"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/auth/reauth/email-code/start": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Send or resend an email code for the current session
+     * @description Requires AUTH_DEVICE_MANAGEMENT_ENABLED, session, CSRF and exact Origin. Responses use Cache-Control private, no-store. Send only to the authenticated user's verified email. No client email is accepted. Repeat this endpoint with auth_tx cookie to resend, with a 60-second cooldown and five-send transaction limit. Delivery occurs after commit.
+     */
+    readonly post: operations["startReauthEmailCode"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/api/v1/auth/signup/email/complete": {
     readonly parameters: {
       readonly query?: never;
@@ -1403,7 +1443,10 @@ export type paths = {
     };
     readonly get?: never;
     readonly put?: never;
-    /** Transfer class ownership after recent authentication */
+    /**
+     * Transfer class ownership after recent authentication
+     * @description Recent authentication failures return 403 with code auth_recent_authentication_required.
+     */
     readonly post: operations["transferClassOwnership"];
     readonly delete?: never;
     readonly options?: never;
@@ -1771,7 +1814,10 @@ export type paths = {
     readonly get?: never;
     readonly put?: never;
     readonly post?: never;
-    /** Unlink an external identity while preserving at least one login method */
+    /**
+     * Unlink an external identity while preserving at least one login method
+     * @description Recent authentication failures return 403 with code auth_recent_authentication_required.
+     */
     readonly delete: operations["unlinkIdentity"];
     readonly options?: never;
     readonly head?: never;
@@ -1787,8 +1833,31 @@ export type paths = {
     };
     readonly get?: never;
     readonly put?: never;
-    /** Begin a recent-authenticated external identity linking flow */
+    /**
+     * Begin a recent-authenticated external identity linking flow
+     * @description Recent authentication failures return 403 with code auth_recent_authentication_required.
+     */
     readonly post: operations["beginIdentityLink"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/me/login-methods": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /**
+     * List all login methods for the authenticated user
+     * @description Requires AUTH_DEVICE_MANAGEMENT_ENABLED. Responses use Cache-Control private, no-store. Read-only; every result is scoped to the authenticated user.
+     */
+    readonly get: operations["listMyLoginMethods"];
+    readonly put?: never;
+    readonly post?: never;
     readonly delete?: never;
     readonly options?: never;
     readonly head?: never;
@@ -1835,6 +1904,86 @@ export type paths = {
     readonly head?: never;
     /** Update editable fields on the authenticated user's profile */
     readonly patch: operations["updateProfile"];
+    readonly trace?: never;
+  };
+  readonly "/api/v1/me/security": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /**
+     * Read security overview
+     * @description Requires AUTH_DEVICE_MANAGEMENT_ENABLED. Responses use Cache-Control private, no-store. Read-only; every result is scoped to the authenticated user.
+     */
+    readonly get: operations["getMySecurity"];
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/me/sessions": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /**
+     * List active sessions belonging to the authenticated user
+     * @description Requires AUTH_DEVICE_MANAGEMENT_ENABLED. Responses use Cache-Control private, no-store. Returns opaque row IDs, never session tokens or hashes; excludes revoked/expired sessions and orders by last_seen_at descending.
+     */
+    readonly get: operations["listMySessions"];
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/me/sessions/{session_id}/revoke": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Revoke one other session belonging to the authenticated user
+     * @description Requires AUTH_DEVICE_MANAGEMENT_ENABLED. Responses use Cache-Control private, no-store. Requires CSRF and exact Origin but no recent authentication. Current session returns 400 auth_cannot_revoke_current_session; absent, foreign or already revoked sessions return the same 404.
+     */
+    readonly post: operations["revokeMySession"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/me/sessions/revoke-others": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Revoke all other sessions belonging to the authenticated user
+     * @description Requires AUTH_DEVICE_MANAGEMENT_ENABLED. Responses use Cache-Control private, no-store. Requires CSRF and exact Origin but no recent authentication. The current session remains active.
+     */
+    readonly post: operations["revokeOtherSessions"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
     readonly trace?: never;
   };
   readonly "/api/v1/media/diagnostics/export": {
@@ -3176,6 +3325,8 @@ export type components = {
     /** @enum {string} */
     readonly AuthorizedSearchResultKind: "session" | "conversation" | "file";
     readonly AuthProvidersResponse: {
+      /** @description Gates security overview, login-method inventory, step-up and session management. Optional for older deployment compatibility; clients must treat absence as false. */
+      readonly device_management_enabled?: boolean;
       readonly email_code_enabled: boolean;
       readonly legal_terms_version: string;
       readonly mfa_totp_enabled: boolean;
@@ -4291,6 +4442,7 @@ export type components = {
       /** Format: email */
       readonly email: string;
     };
+    readonly EmptyAuthRequest: Record<string, never>;
     readonly ExternalCalendarRSVPMutationResponse: {
       readonly projection: components["schemas"]["ExternalCalendarRSVPProjection"];
       readonly replayed: boolean;
@@ -4462,6 +4614,24 @@ export type components = {
       readonly status: "live";
       /** Format: date-time */
       readonly timestamp: string;
+    };
+    readonly LoginMethodIdentity: {
+      /** Format: date-time */
+      readonly created_at: string;
+      readonly email_at_provider: string | null;
+      readonly email_verified: boolean;
+      /** Format: uuid */
+      readonly id: string;
+      /** @enum {string} */
+      readonly kind: "email" | "oidc" | "oauth2" | "phone" | "passkey";
+      /** Format: date-time */
+      readonly last_authenticated_at: string | null;
+      readonly provider_slug: string | null;
+    };
+    readonly LoginMethodPassword: {
+      readonly has_password: boolean;
+      /** Format: date-time */
+      readonly updated_at: string | null;
     };
     readonly LogoutResponse: {
       /** Format: uri */
@@ -5136,6 +5306,10 @@ export type components = {
     };
     /** @enum {string} */
     readonly MessageState: "active" | "deleted";
+    readonly MyLoginMethodsResponse: {
+      readonly identities: readonly components["schemas"]["LoginMethodIdentity"][];
+      readonly password: components["schemas"]["LoginMethodPassword"];
+    };
     readonly MyPasswordStatusResponse: {
       readonly has_password: boolean;
       readonly password_enabled: boolean;
@@ -5159,6 +5333,38 @@ export type components = {
       readonly has_password: true;
       /** Format: date-time */
       readonly updated_at: string;
+    };
+    readonly MySecurityResponse: {
+      readonly email_verified: boolean;
+      readonly has_password: boolean;
+      /** @enum {boolean} */
+      readonly mfa_enabled: false;
+      readonly reauth_methods: readonly ("password" | "email_code")[];
+      /**
+       * Format: date-time
+       * @description GREATEST(auth_time, reauthenticated_at) plus ten minutes, or null when no longer effective.
+       */
+      readonly recent_auth_expires_at: string | null;
+    };
+    readonly MySession: {
+      readonly auth_methods: readonly string[];
+      /** Format: date-time */
+      readonly created_at: string;
+      readonly device_label: string | null;
+      /** Format: date-time */
+      readonly expires_at: string;
+      /**
+       * Format: uuid
+       * @description Opaque session row ID; never an authentication token.
+       */
+      readonly id: string;
+      readonly is_current: boolean;
+      /** Format: date-time */
+      readonly last_seen_at: string;
+      readonly persistent: boolean;
+    };
+    readonly MySessionsResponse: {
+      readonly sessions: readonly components["schemas"]["MySession"][];
     };
     readonly NativeAuthenticationResponse:
       | components["schemas"]["AuthAuthenticatedResponse"]
@@ -5291,7 +5497,7 @@ export type components = {
     readonly PrivateAlphaEnrollmentStatus:
       "active" | "not_enrolled" | "withdrawn";
     readonly Problem: {
-      /** @description Stable machine-readable failure code such as feature_disabled, quota_exceeded, or feature_control_unavailable. */
+      /** @description Stable machine-readable failure code. Recent-authentication failures always use 403 with auth_recent_authentication_required. Authenticated evidence failures use 401 with auth_invalid_current_password or auth_invalid_verification_code; an uncoded 401 indicates an invalid or expired session. Revoking the current session uses 400 with auth_cannot_revoke_current_session. */
       readonly code?: string;
       readonly detail?: string;
       readonly instance?: string;
@@ -5355,6 +5561,31 @@ export type components = {
       readonly status: "ready" | "not_ready";
       /** Format: date-time */
       readonly timestamp: string;
+    };
+    readonly ReauthenticateEmailCodeRequest: {
+      /** Format: uuid */
+      readonly challenge_id: string;
+      readonly code: string;
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      readonly method: "email_code";
+    };
+    readonly ReauthenticatePasswordRequest: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      readonly method: "password";
+      readonly password: string;
+    };
+    readonly ReauthenticateRequest:
+      | components["schemas"]["ReauthenticatePasswordRequest"]
+      | components["schemas"]["ReauthenticateEmailCodeRequest"];
+    readonly ReauthenticateResponse: {
+      /** Format: date-time */
+      readonly recent_auth_expires_at: string;
     };
     readonly RecoverMediaSpaceRequest: {
       /** Format: uuid */
@@ -5448,6 +5679,9 @@ export type components = {
       /** Format: int64 */
       readonly expected_version: number;
       readonly reason: string;
+    };
+    readonly RevokeOtherSessionsResponse: {
+      readonly revoked_count: number;
     };
     readonly SelfRSVPResponse: {
       readonly attendee: components["schemas"]["SessionAudienceAttendee"];
@@ -6086,7 +6320,7 @@ export type components = {
         readonly "application/problem+json": components["schemas"]["Problem"];
       };
     };
-    /** @description The authenticated actor lacks permission in the active workspace */
+    /** @description The authenticated actor lacks permission, CSRF validation failed, or recent authentication is required (code auth_recent_authentication_required). */
     readonly ForbiddenResponse: {
       headers: {
         readonly [name: string]: unknown;
@@ -6531,6 +6765,106 @@ export interface operations {
           readonly "application/json": components["schemas"]["AuthProvidersResponse"];
         };
       };
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly reauthenticate: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly "X-CSRF-Token": string;
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["ReauthenticateRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Successful authenticated response */
+      readonly 200: {
+        headers: {
+          readonly "Set-Cookie"?: string;
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ReauthenticateResponse"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      /** @description Session expired (no code), or invalid evidence (auth_invalid_current_password or auth_invalid_verification_code) */
+      readonly 401: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      readonly 403: components["responses"]["ProblemResponse"];
+      /** @description Session context changed; reload the current session */
+      readonly 409: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      readonly 429: components["responses"]["AuthRateLimitedResponse"];
+      readonly 503: components["responses"]["AuthUnavailableResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly startReauthEmailCode: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly "X-CSRF-Token": string;
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["EmptyAuthRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Challenge accepted; Set-Cookie binds the transaction to this browser */
+      readonly 202: {
+        headers: {
+          readonly "Set-Cookie"?: string;
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["AuthSignupChallengeResponse"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      /** @description Session expired or unavailable */
+      readonly 401: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      readonly 403: components["responses"]["ProblemResponse"];
+      /** @description Session context changed; reload the current session */
+      readonly 409: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      readonly 429: components["responses"]["AuthRateLimitedResponse"];
+      readonly 503: components["responses"]["AuthUnavailableResponse"];
       readonly default: components["responses"]["ProblemResponse"];
     };
   };
@@ -9847,6 +10181,37 @@ export interface operations {
       readonly default: components["responses"]["ProblemResponse"];
     };
   };
+  readonly listMyLoginMethods: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Successful authenticated response */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["MyLoginMethodsResponse"];
+        };
+      };
+      /** @description Session expired or unavailable */
+      readonly 401: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      readonly 503: components["responses"]["AuthUnavailableResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
   readonly getMyPasswordStatus: {
     readonly parameters: {
       readonly query?: never;
@@ -9913,7 +10278,7 @@ export interface operations {
           readonly "application/problem+json": components["schemas"]["Problem"];
         };
       };
-      /** @description CSRF, recent authentication or verified email required */
+      /** @description CSRF, recent authentication (auth_recent_authentication_required) or verified email required */
       readonly 403: {
         headers: {
           readonly [name: string]: unknown;
@@ -9976,6 +10341,167 @@ export interface operations {
       readonly 400: components["responses"]["ProblemResponse"];
       readonly 401: components["responses"]["UnauthorizedResponse"];
       readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly getMySecurity: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Successful authenticated response */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["MySecurityResponse"];
+        };
+      };
+      /** @description Session expired or unavailable */
+      readonly 401: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      readonly 503: components["responses"]["AuthUnavailableResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly listMySessions: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Successful authenticated response */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["MySessionsResponse"];
+        };
+      };
+      /** @description Session expired or unavailable */
+      readonly 401: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      readonly 503: components["responses"]["AuthUnavailableResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly revokeMySession: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly "X-CSRF-Token": string;
+      };
+      readonly path: {
+        readonly session_id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["EmptyAuthRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Session revoked */
+      readonly 204: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content?: never;
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      /** @description Session expired or unavailable */
+      readonly 401: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      readonly 403: components["responses"]["ProblemResponse"];
+      readonly 404: components["responses"]["ProblemResponse"];
+      /** @description Session context changed; reload the current session */
+      readonly 409: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      readonly 429: components["responses"]["AuthRateLimitedResponse"];
+      readonly 503: components["responses"]["AuthUnavailableResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly revokeOtherSessions: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly "X-CSRF-Token": string;
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["EmptyAuthRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Successful authenticated response */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["RevokeOtherSessionsResponse"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      /** @description Session expired or unavailable */
+      readonly 401: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      readonly 403: components["responses"]["ProblemResponse"];
+      /** @description Session context changed; reload the current session */
+      readonly 409: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      readonly 429: components["responses"]["AuthRateLimitedResponse"];
+      readonly 503: components["responses"]["AuthUnavailableResponse"];
       readonly default: components["responses"]["ProblemResponse"];
     };
   };

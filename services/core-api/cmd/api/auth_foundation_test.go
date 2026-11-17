@@ -101,3 +101,30 @@ func TestEmailCodeOnlyRuntimeAndDisabledPasswordStatus(t *testing.T) {
 		t.Fatal("email-code-only runtime accepted missing database/key")
 	}
 }
+
+func TestDeviceManagementStartupRequiresRuntimeAndDoesNotEnableOIDC(t *testing.T) {
+	if _, err := newAuthFoundation(config.Config{Authentication: config.AuthenticationConfig{DeviceManagementEnabled: true}}, nil, nil); err == nil {
+		t.Fatal("device management accepted missing database/key")
+	}
+	pool, err := pgxpool.New(context.Background(), "postgres://fixture@127.0.0.1:1/auth_test?sslmode=disable")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pool.Close()
+	auth := config.AuthenticationConfig{
+		DeviceManagementEnabled: true, SessionKey: bytes.Repeat([]byte{0x42}, 32),
+		LegalTermsVersion: "2026-11-16-v2.0", SessionTTL: 8 * time.Hour, SessionAbsoluteTTL: 24 * time.Hour,
+		SessionPersistentAbsoluteTTL: 30 * 24 * time.Hour,
+	}
+	runtime, err := newAuthFoundation(config.Config{Environment: "test", Authentication: auth}, pool, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer runtime.close()
+	if _, ok := runtime.native.(identity.NativeSecurityAPI); !ok {
+		t.Fatal("device management requires the session security service")
+	}
+	if provider, err := configuredIdentityProvider(context.Background(), auth); err != nil || provider != nil {
+		t.Fatal("device management must not activate OIDC discovery")
+	}
+}

@@ -53,9 +53,9 @@ func (service *NativeAuthService) insertNativeSession(ctx context.Context, tx pg
 		ipPrefix = value
 	}
 	_, err = tx.Exec(ctx, `INSERT INTO tutorhub.sessions
-		(user_id,active_tenant_id,token_hash,csrf_token_hash,user_agent_hash,ip_prefix,created_at,last_seen_at,expires_at,identity_id,absolute_expires_at,auth_time,auth_methods,assurance_level,persistent)
-		VALUES($1,$2,$3,$4,$5,$6,$7,$7,$8,$9,$10,$7,$11,1,$12)`,
-		userID, nullUUID(activeTenant), service.crypto.Digest(sessionPurpose, result.SessionToken), service.crypto.Digest(csrfPurpose, result.CSRFToken), service.crypto.Digest(userAgentPurpose, userAgent), ipPrefix, now, result.ExpiresAt, identityID, result.AbsoluteExpiresAt, methods, result.Persistent)
+		(user_id,active_tenant_id,token_hash,csrf_token_hash,user_agent_hash,ip_prefix,created_at,last_seen_at,expires_at,identity_id,absolute_expires_at,auth_time,auth_methods,assurance_level,persistent,device_label)
+		VALUES($1,$2,$3,$4,$5,$6,$7,$7,$8,$9,$10,$7,$11,1,$12,$13)`,
+		userID, nullUUID(activeTenant), service.crypto.Digest(sessionPurpose, result.SessionToken), service.crypto.Digest(csrfPurpose, result.CSRFToken), service.crypto.Digest(userAgentPurpose, userAgent), ipPrefix, now, result.ExpiresAt, identityID, result.AbsoluteExpiresAt, methods, result.Persistent, DeviceLabel(userAgent))
 	if err != nil {
 		return ErrAuthFoundationStorage
 	}
@@ -151,6 +151,15 @@ func (service *NativeAuthService) PasswordLogin(ctx context.Context, input Passw
 		}
 		return NativeSessionResult{}, ErrAuthFoundationStorage
 	}
+	var identityID uuid.UUID
+	err = tx.QueryRow(ctx, `SELECT id FROM tutorhub.identities WHERE id=$1 AND user_id=$2 AND kind='email' AND provider='urn:tutorhub:email'
+		AND status='active' AND email_verified=true AND lower(email_at_provider)=$3 FOR UPDATE`, snapshot.identityID.UUID, snapshot.userID, email).Scan(&identityID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return NativeSessionResult{}, ErrNativeInvalidCredentials
+	}
+	if err != nil {
+		return NativeSessionResult{}, ErrAuthFoundationStorage
+	}
 	var currentHash *string
 	var credentialStatus string
 	var attempts int
@@ -166,15 +175,6 @@ func (service *NativeAuthService) PasswordLogin(ctx context.Context, input Passw
 	now := service.now().UTC()
 	if currentStatus != "active" || verifiedAt == nil || credentialStatus != "active" || currentHash == nil || *currentHash != *snapshot.hash || (lockedUntil != nil && lockedUntil.After(now)) {
 		return NativeSessionResult{}, ErrNativeInvalidCredentials
-	}
-	var identityID uuid.UUID
-	err = tx.QueryRow(ctx, `SELECT id FROM tutorhub.identities WHERE id=$1 AND user_id=$2 AND kind='email' AND provider='urn:tutorhub:email'
-		AND status='active' AND email_verified=true AND lower(email_at_provider)=$3 FOR UPDATE`, snapshot.identityID.UUID, snapshot.userID, email).Scan(&identityID)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return NativeSessionResult{}, ErrNativeInvalidCredentials
-	}
-	if err != nil {
-		return NativeSessionResult{}, ErrAuthFoundationStorage
 	}
 	if !matched {
 		attempts = min(attempts+1, 1000000)

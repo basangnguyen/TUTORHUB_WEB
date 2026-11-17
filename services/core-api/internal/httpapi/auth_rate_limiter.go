@@ -16,6 +16,12 @@ const (
 	AuthRateLimitOTPVerifyIP        InvitationRateLimitAction = "auth.otp.verify.ip"
 	AuthRateLimitDeliveryDailyEmail InvitationRateLimitAction = "auth.delivery.daily.email"
 	AuthRateLimitDeliveryDailyPhone InvitationRateLimitAction = "auth.delivery.daily.phone"
+	AuthRateLimitReauthUser         InvitationRateLimitAction = "auth.reauth.user"
+	AuthRateLimitReauthIP           InvitationRateLimitAction = "auth.reauth.ip"
+	AuthRateLimitReauthSendUser     InvitationRateLimitAction = "auth.reauth.send.user"
+	AuthRateLimitReauthSendIP       InvitationRateLimitAction = "auth.reauth.send.ip"
+	AuthRateLimitSessionRevokeUser  InvitationRateLimitAction = "auth.session.revoke.user"
+	AuthRateLimitSessionRevokeIP    InvitationRateLimitAction = "auth.session.revoke.ip"
 )
 
 func authRateLimitPolicies(emailQuota, phoneQuota int) map[InvitationRateLimitAction]invitationRateLimitPolicy {
@@ -28,6 +34,12 @@ func authRateLimitPolicies(emailQuota, phoneQuota int) map[InvitationRateLimitAc
 		AuthRateLimitOTPVerifyIP:        {Limit: 50, Window: 15 * time.Minute},
 		AuthRateLimitDeliveryDailyEmail: {Limit: emailQuota, Window: 24 * time.Hour},
 		AuthRateLimitDeliveryDailyPhone: {Limit: phoneQuota, Window: 24 * time.Hour},
+		AuthRateLimitReauthUser:         {Limit: 10, Window: 15 * time.Minute},
+		AuthRateLimitReauthIP:           {Limit: 30, Window: 15 * time.Minute},
+		AuthRateLimitReauthSendUser:     {Limit: 5, Window: time.Hour},
+		AuthRateLimitReauthSendIP:       {Limit: 20, Window: time.Hour},
+		AuthRateLimitSessionRevokeUser:  {Limit: 20, Window: time.Minute},
+		AuthRateLimitSessionRevokeIP:    {Limit: 60, Window: time.Minute},
 	}
 }
 

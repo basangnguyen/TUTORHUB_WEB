@@ -45,6 +45,11 @@ func TestNativePasswordUserLockPrecedesExistingSessionMutationLocks(t *testing.T
 			_, err := lockTenantMutationSession(ctx, tx, sessionID, userID, SessionRotation{ExpectedContextVersion: 1, RotatedAt: now})
 			return err
 		}},
+		{"reauth_and_session_revocation", func(ctx context.Context, tx pgx.Tx) error {
+			service := &NativeAuthService{now: func() time.Time { return now }}
+			_, err := service.lockNativeSecuritySession(ctx, tx, Principal{User: User{ID: userID}, SessionID: sessionID, ContextVersion: 1})
+			return err
+		}},
 	} {
 		t.Run(scenario.name, func(t *testing.T) {
 			bounded, cancel := context.WithTimeout(ctx, 20*time.Second)

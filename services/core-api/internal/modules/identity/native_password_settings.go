@@ -229,6 +229,11 @@ func (service *NativeAuthService) lockPasswordSettings(ctx context.Context, tx p
 	if err := nativePasswordRecentAuthentication(authenticatedAt, now); err != nil {
 		return locked, err
 	}
+	// The subsequent email identity upsert must never acquire an identity lock
+	// after a credential lock. The user lock serializes identity creation too.
+	if _, err := tx.Exec(ctx, `SELECT id FROM tutorhub.identities WHERE user_id=$1 ORDER BY id FOR UPDATE`, principal.User.ID); err != nil {
+		return locked, ErrAuthFoundationStorage
+	}
 	var hash *string
 	var status string
 	var lockedUntil *time.Time

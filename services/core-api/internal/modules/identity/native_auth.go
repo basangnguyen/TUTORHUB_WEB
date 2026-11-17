@@ -24,6 +24,7 @@ var (
 
 type NativeAuthConfig struct {
 	CookieSecure                 bool
+	EmailCodeAvailable           bool
 	LegalTermsVersion            string
 	SessionTTL                   time.Duration
 	SessionAbsoluteTTL           time.Duration

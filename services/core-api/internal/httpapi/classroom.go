@@ -476,9 +476,8 @@ func (handlers classHandlers) writeProblem(w http.ResponseWriter, r *http.Reques
 		title = "Invalid classroom request"
 		detail = "Check the class fields, status filter, cursor, list limit, and expected version."
 	case errors.Is(err, classroom.ErrRecentAuthenticationRequired):
-		status = http.StatusForbidden
-		title = "Recent authentication required"
-		detail = "Sign in again before transferring class ownership."
+		writeCodedProblem(w, r, http.StatusForbidden, "auth_recent_authentication_required", "Recent authentication required", "Sign in again before transferring class ownership.")
+		return
 	case errors.Is(err, classroom.ErrClassAccessDenied):
 		status = http.StatusForbidden
 		title = "Classroom access denied"

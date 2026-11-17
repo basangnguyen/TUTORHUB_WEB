@@ -19,6 +19,7 @@ type authProvidersResponse struct {
 	PasswordEnabled         bool     `json:"password_enabled"`
 	EmailCodeEnabled        bool     `json:"email_code_enabled"`
 	PasswordRecoveryEnabled bool     `json:"password_recovery_enabled"`
+	DeviceManagementEnabled bool     `json:"device_management_enabled"`
 	PhoneEnabled            bool     `json:"phone_enabled"`
 	PasskeysEnabled         bool     `json:"passkeys_enabled"`
 	MFATOTPEnabled          bool     `json:"mfa_totp_enabled"`
@@ -86,6 +87,7 @@ func authProvidersHandler(cfg config.AuthenticationConfig, logger *slog.Logger) 
 			SignupEnabled: cfg.SignupEnabled, PasswordEnabled: cfg.PasswordEnabled,
 			EmailCodeEnabled: cfg.EmailCodeEnabled, PhoneEnabled: cfg.PhoneEnabled,
 			PasswordRecoveryEnabled: cfg.PasswordEnabled && cfg.EmailCodeEnabled,
+			DeviceManagementEnabled: cfg.DeviceManagementEnabled,
 			PasskeysEnabled:         cfg.PasskeysEnabled, MFATOTPEnabled: cfg.MFATOTPEnabled,
 			OIDCDefaultEnabled: cfg.ProviderOIDCDefaultEnabled && cfg.OIDCEnabled,
 			SSODomainsEnabled:  cfg.SSODomainsEnabled, OAuthProviders: providers,

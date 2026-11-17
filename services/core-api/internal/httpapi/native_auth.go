@@ -226,7 +226,7 @@ func (handlers nativeAuthHandlers) writeError(w http.ResponseWriter, r *http.Req
 	code := ""
 	switch {
 	case errors.Is(err, identity.ErrNativeInvalidCode):
-		status, title, detail = http.StatusUnauthorized, "Verification failed", "Invalid or expired verification code."
+		status, title, detail, code = http.StatusUnauthorized, "Verification failed", "Invalid or expired verification code.", "auth_invalid_verification_code"
 	case errors.Is(err, identity.ErrNativeMethodDisabled):
 		status, title, detail = http.StatusServiceUnavailable, "Authentication unavailable", "This authentication method is disabled or unavailable."
 	case errors.Is(err, identity.ErrNativeInvalidCurrentPassword):
@@ -236,7 +236,7 @@ func (handlers nativeAuthHandlers) writeError(w http.ResponseWriter, r *http.Req
 	case errors.Is(err, identity.ErrNativeVerifiedEmailRequired):
 		status, title, detail, code = http.StatusForbidden, "Verified email required", "Verify your email before setting a password.", "auth_verified_email_required"
 	case errors.Is(err, identity.ErrRecentAuthenticationRequired):
-		status, title, detail = http.StatusForbidden, "Recent authentication required", "Sign in again before changing your password."
+		status, title, detail, code = http.StatusForbidden, "Recent authentication required", "Sign in again before changing your password.", "auth_recent_authentication_required"
 	case errors.Is(err, identity.ErrSessionNotFound), errors.Is(err, identity.ErrInvalidCSRFToken), errors.Is(err, identity.ErrSessionContextConflict):
 		handlers.auth.writeIdentityProblem(w, r, err)
 		return

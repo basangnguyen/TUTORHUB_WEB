@@ -248,13 +248,13 @@ func (service *NativeAuthService) CompletePasswordRecovery(ctx context.Context, 
 		return ErrNativeInvalidCode
 	}
 	now := service.now().UTC()
+	if err := lockNativeUserSessions(ctx, tx, payload.UserID); err != nil {
+		return err
+	}
 	if _, err := ensureNativeEmailIdentity(ctx, tx, payload.UserID, payload.Email, now); err != nil {
 		return err
 	}
 	if err := upsertNativePassword(ctx, tx, payload.UserID, hash, now); err != nil {
-		return err
-	}
-	if err := lockNativeUserSessions(ctx, tx, payload.UserID); err != nil {
 		return err
 	}
 	if _, err := tx.Exec(ctx, `UPDATE tutorhub.sessions SET revoked_at=$2,revoked_reason='password_reset'
