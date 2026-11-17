@@ -1,9 +1,10 @@
 import { defineConfig, devices } from "@playwright/test";
 
 /**
- * AUTH-02B native sign-up/password E2E. It only targets the loopback stack:
- * the `devinbox` OTP sender and `/api/v1/dev/auth-inbox` exist solely for
- * APP_ENV=test on 127.0.0.1, so staging mode is intentionally unsupported.
+ * AUTH-02B/03B native sign-up, password, email-code login and recovery E2E.
+ * It only targets the loopback stack: the `devinbox` OTP sender and
+ * `/api/v1/dev/auth-inbox` exist solely for APP_ENV=test on 127.0.0.1, so
+ * staging mode is intentionally unsupported.
  */
 const mode = process.env.E2E_MODE?.trim() || "local";
 if (mode !== "local") {
@@ -14,7 +15,7 @@ const baseURL = "http://127.0.0.1:5173";
 
 export default defineConfig({
   testDir: "./e2e",
-  testMatch: ["**/auth-02-native-*.spec.ts"],
+  testMatch: ["**/auth-0[23]-native-*.spec.ts"],
   outputDir: "test-results/playwright-auth",
   fullyParallel: false,
   workers: 1,

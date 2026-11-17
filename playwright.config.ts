@@ -31,7 +31,7 @@ const baseURL = mode === "staging" ? stagingBaseURL() : "http://127.0.0.1:5173";
 export default defineConfig({
   testDir: "./e2e",
   // Native-auth specs need `serve --native-auth`; run them with `pnpm e2e:auth`.
-  testIgnore: ["**/auth-02-native-*.spec.ts"],
+  testIgnore: ["**/auth-0[23]-native-*.spec.ts"],
   outputDir: "test-results/playwright",
   fullyParallel: false,
   workers: 1,

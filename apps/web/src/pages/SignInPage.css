@@ -716,6 +716,30 @@
   text-underline-offset: 3px;
 }
 
+/* AUTH-03: switch between password and email-code login (#047857 = 5.48:1). */
+.sign-in-form__method {
+  display: block;
+  min-height: 44px;
+  margin: 14px auto 0;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #047857;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 3px;
+  transition: text-decoration-color 160ms ease;
+}
+
+.sign-in-form__method:hover,
+.sign-in-form__method:focus-visible {
+  text-decoration-color: currentcolor;
+}
+
 .sign-in-form__code-row {
   display: flex;
   gap: 10px;
@@ -815,6 +839,12 @@
   border-color: #bfdbfe;
   background: #eff6ff;
   color: #1e3a8a;
+}
+
+.sign-in-form__alert--success {
+  border-color: #a7f3d0;
+  background: #ecfdf5;
+  color: #065f46;
 }
 
 .sign-in .sign-in-form__hint--error,

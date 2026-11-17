@@ -817,6 +817,59 @@ const messages = {
     "profile.identityUnlinked": "Đã hủy liên kết danh tính.",
     "profile.identityActionError":
       "Không thể hoàn tất thao tác với danh tính. Hãy thử lại.",
+    "profile.passwordTitle": "Mật khẩu",
+    "profile.passwordDescription":
+      "Dùng mật khẩu để đăng nhập trực tiếp bằng email. Khi đặt hoặc đổi mật khẩu, các phiên đăng nhập trên thiết bị khác sẽ bị đăng xuất.",
+    "profile.passwordLoading": "Đang tải trạng thái mật khẩu",
+    "profile.passwordLoadError":
+      "Không thể tải trạng thái mật khẩu. Hãy thử lại.",
+    "profile.passwordLoadErrorTitle": "Chưa thể tải mật khẩu",
+    "profile.passwordForbiddenTitle": "Không thể quản lý mật khẩu",
+    "profile.passwordForbidden":
+      "Phiên hiện tại không được phép quản lý mật khẩu. Hãy đăng nhập lại rồi thử lại.",
+    "profile.passwordSet": "Đã có mật khẩu",
+    "profile.passwordNotSet": "Chưa đặt mật khẩu",
+    "profile.passwordNotSetDescription":
+      "Tài khoản hiện chưa có mật khẩu. Đặt mật khẩu để có thêm cách đăng nhập bằng email.",
+    "profile.passwordUpdatedAt": "Đổi lần gần nhất {date}",
+    "profile.passwordDisabled":
+      "Đăng nhập bằng mật khẩu đang tắt trên hệ thống này nên chưa thể đặt hoặc đổi mật khẩu. Hãy liên hệ quản trị viên nếu cần.",
+    "profile.passwordFormSetTitle": "Đặt mật khẩu",
+    "profile.passwordFormChangeTitle": "Đổi mật khẩu",
+    "profile.passwordCurrentLabel": "Mật khẩu hiện tại",
+    "profile.passwordNewLabel": "Mật khẩu mới",
+    "profile.passwordConfirmLabel": "Nhập lại mật khẩu mới",
+    "profile.passwordNewHint":
+      "Tối thiểu {min} ký tự; tránh mật khẩu phổ biến hoặc từng bị lộ.",
+    "profile.passwordCurrentRequired": "Hãy nhập mật khẩu hiện tại.",
+    "profile.passwordTooShort": "Mật khẩu mới cần có ít nhất {min} ký tự.",
+    "profile.passwordMismatch": "Mật khẩu nhập lại không khớp.",
+    "profile.passwordSubmitSet": "Đặt mật khẩu",
+    "profile.passwordSubmitChange": "Đổi mật khẩu",
+    "profile.passwordSaving": "Đang lưu mật khẩu...",
+    "profile.passwordSubmitWait": "{label} ({seconds}s)",
+    "profile.passwordSetDone":
+      "Đã đặt mật khẩu. Các phiên đăng nhập khác đã bị đăng xuất.",
+    "profile.passwordChangedDone":
+      "Đã đổi mật khẩu. Các phiên đăng nhập khác đã bị đăng xuất.",
+    "profile.passwordReauthRequired":
+      "Để bảo vệ tài khoản, hãy đăng nhập lại trước khi đặt hoặc đổi mật khẩu (cần đăng nhập trong vòng 10 phút gần nhất).",
+    "profile.passwordVerifiedEmailRequired":
+      "Cần xác minh email của tài khoản trước khi đặt mật khẩu. Hãy đăng nhập bằng mã gửi tới email rồi thử lại.",
+    "profile.passwordInvalidCurrent": "Mật khẩu hiện tại không đúng.",
+    "profile.passwordUnchanged": "Mật khẩu mới phải khác mật khẩu hiện tại.",
+    "profile.passwordPolicy":
+      "Mật khẩu chưa đạt chuẩn an toàn hoặc nằm trong danh sách mật khẩu phổ biến/bị lộ. Hãy chọn mật khẩu mạnh hơn.",
+    "profile.passwordRateLimited":
+      "Bạn đã thử quá nhiều lần. Hãy chờ một lát rồi thử lại.",
+    "profile.passwordRateLimitedWait":
+      "Bạn đã thử quá nhiều lần. Hãy thử lại sau {seconds} giây.",
+    "profile.passwordBusy": "Hệ thống đang bận. Hãy thử lại sau giây lát.",
+    "profile.passwordBusyWait":
+      "Hệ thống đang bận. Hãy thử lại sau {seconds} giây.",
+    "profile.passwordNetworkError":
+      "Không kết nối được tới TutorHub. Hãy kiểm tra mạng rồi thử lại.",
+    "profile.passwordSaveError": "Không thể lưu mật khẩu. Hãy thử lại.",
     "shell.navigation": "Điều hướng chính",
     "shell.openNavigation": "Mở điều hướng",
     "shell.closeNavigation": "Đóng điều hướng",
@@ -2979,6 +3032,63 @@ const messages = {
     "profile.identityUnlinked": "Identity unlinked.",
     "profile.identityActionError":
       "The identity action could not be completed. Please try again.",
+    "profile.passwordTitle": "Password",
+    "profile.passwordDescription":
+      "Use a password to sign in directly with your email. Setting or changing it signs out your sessions on other devices.",
+    "profile.passwordLoading": "Loading password status",
+    "profile.passwordLoadError":
+      "Your password status could not be loaded. Please try again.",
+    "profile.passwordLoadErrorTitle": "Password status unavailable",
+    "profile.passwordForbiddenTitle": "Password management unavailable",
+    "profile.passwordForbidden":
+      "This session is not allowed to manage the password. Sign in again, then try again.",
+    "profile.passwordSet": "Password set",
+    "profile.passwordNotSet": "No password yet",
+    "profile.passwordNotSetDescription":
+      "This account has no password yet. Set one to also sign in with your email.",
+    "profile.passwordUpdatedAt": "Last changed {date}",
+    "profile.passwordDisabled":
+      "Password sign-in is turned off for this TutorHub deployment, so the password can't be set or changed right now. Contact your administrator if you need it.",
+    "profile.passwordFormSetTitle": "Set a password",
+    "profile.passwordFormChangeTitle": "Change password",
+    "profile.passwordCurrentLabel": "Current password",
+    "profile.passwordNewLabel": "New password",
+    "profile.passwordConfirmLabel": "Confirm new password",
+    "profile.passwordNewHint":
+      "At least {min} characters; avoid common or leaked passwords.",
+    "profile.passwordCurrentRequired": "Enter your current password.",
+    "profile.passwordTooShort":
+      "The new password must be at least {min} characters.",
+    "profile.passwordMismatch": "The passwords don't match.",
+    "profile.passwordSubmitSet": "Set password",
+    "profile.passwordSubmitChange": "Change password",
+    "profile.passwordSaving": "Saving password...",
+    "profile.passwordSubmitWait": "{label} ({seconds}s)",
+    "profile.passwordSetDone":
+      "Password set. Your other sessions have been signed out.",
+    "profile.passwordChangedDone":
+      "Password changed. Your other sessions have been signed out.",
+    "profile.passwordReauthRequired":
+      "For your security, sign in again before setting or changing your password (you must have signed in within the last 10 minutes).",
+    "profile.passwordVerifiedEmailRequired":
+      "Your account email must be verified before you can set a password. Log in with a code sent to your email, then try again.",
+    "profile.passwordInvalidCurrent": "The current password is incorrect.",
+    "profile.passwordUnchanged":
+      "The new password must be different from the current one.",
+    "profile.passwordPolicy":
+      "This password is too weak or appears on a list of common or leaked passwords. Choose a stronger password.",
+    "profile.passwordRateLimited":
+      "Too many attempts. Please wait a moment and try again.",
+    "profile.passwordRateLimitedWait":
+      "Too many attempts. Please try again in {seconds} seconds.",
+    "profile.passwordBusy":
+      "TutorHub is busy right now. Please try again shortly.",
+    "profile.passwordBusyWait":
+      "TutorHub is busy right now. Please try again in {seconds} seconds.",
+    "profile.passwordNetworkError":
+      "Couldn't reach TutorHub. Check your connection and try again.",
+    "profile.passwordSaveError":
+      "The password could not be saved. Please try again.",
     "shell.navigation": "Primary navigation",
     "shell.openNavigation": "Open navigation",
     "shell.closeNavigation": "Close navigation",

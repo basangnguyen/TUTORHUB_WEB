@@ -19,15 +19,25 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider, type Language } from "../app/i18n";
 import { SignInPage } from "./SignInPage";
 
-const { api, completeNativeSignInMock, signInMock } = vi.hoisted(() => ({
+const {
+  api,
+  completeNativeSignInMock,
+  resetAfterPasswordRecoveryMock,
+  signInMock,
+} = vi.hoisted(() => ({
   api: {
     completeEmailSignup: vi.fn(),
+    completePasswordRecovery: vi.fn(),
     getAuthProviders: vi.fn(),
     loginWithPassword: vi.fn(),
     resendAuthChallenge: vi.fn(),
+    startEmailCodeLogin: vi.fn(),
     startEmailSignup: vi.fn(),
+    startPasswordRecovery: vi.fn(),
+    verifyEmailCodeLogin: vi.fn(),
   },
   completeNativeSignInMock: vi.fn(),
+  resetAfterPasswordRecoveryMock: vi.fn(),
   signInMock: vi.fn(),
 }));
 
@@ -39,6 +49,7 @@ vi.mock("@tutorhub/api-client", async (importOriginal) => ({
 vi.mock("../app/session", () => ({
   useSession: () => ({
     completeNativeSignIn: completeNativeSignInMock,
+    resetAfterPasswordRecovery: resetAfterPasswordRecoveryMock,
     signIn: signInMock,
   }),
 }));
@@ -194,6 +205,7 @@ beforeEach(() => {
   window.sessionStorage.clear();
   signInMock.mockReset();
   completeNativeSignInMock.mockReset().mockResolvedValue(undefined);
+  resetAfterPasswordRecoveryMock.mockReset().mockResolvedValue(undefined);
   for (const mock of Object.values(api)) mock.mockReset();
   api.getAuthProviders.mockResolvedValue(OIDC_PROVIDERS);
 });
@@ -2094,5 +2106,662 @@ describe("SignInPage auth providers and native edge cases", () => {
       expect(signInMock).toHaveBeenCalledWith("/app/home");
       view.unmount();
     }
+  });
+});
+
+/* ---------- AUTH-03B: email-code login and native password recovery ---------- */
+
+const EMAIL_CODE_PROVIDERS: AuthProvidersResponse = {
+  ...NATIVE_PROVIDERS,
+  email_code_enabled: true,
+  password_recovery_enabled: true,
+};
+
+const AUTH03_COPY = {
+  en: {
+    useEmailCode: "Log in with an email code",
+    usePassword: "Log in with a password",
+    emailForm: "Log in with a code sent to your email",
+    email: "Email Address",
+    otp: "OTP code",
+    getCode: "Get Code",
+    resend: "Resend",
+    logIn: "Log In",
+    identifier: "Email or username",
+    keepSignedIn: "Keep me signed in",
+    rememberMe: "Remember Me",
+    forgot: "Forget Password",
+    recoverDialog: "Recover Password",
+    recoverOtp: "Authentication Code (OTP)",
+    newPassword: "New Password",
+    resetPassword: "Reset Password",
+    codeSent: NATIVE_COPY.en.codeSent,
+    codeInvalid:
+      "The code is incorrect or has expired. Check it or select Resend to get a new code.",
+    resetDone:
+      "Your password has been reset and all your sessions were signed out. Please log in again with your new password.",
+    passwordPolicy: NATIVE_COPY.en.passwordPolicy,
+    mfa: NATIVE_COPY.en.mfa,
+  },
+  vi: {
+    useEmailCode: "Đăng nhập bằng mã email",
+    usePassword: "Đăng nhập bằng mật khẩu",
+    emailForm: "Đăng nhập bằng mã gửi tới email",
+    email: "Địa chỉ email",
+    otp: "Mã OTP",
+    getCode: "Lấy mã",
+    resend: "Gửi lại",
+    logIn: "Đăng nhập",
+    identifier: "Email hoặc tên đăng nhập",
+    keepSignedIn: "Duy trì đăng nhập",
+    rememberMe: "Ghi nhớ tôi",
+    forgot: "Quên mật khẩu",
+    recoverDialog: "Khôi phục mật khẩu",
+    recoverOtp: "Mã xác thực (OTP)",
+    newPassword: "Mật khẩu mới",
+    resetPassword: "Đặt lại mật khẩu",
+    codeSent: NATIVE_COPY.vi.codeSent,
+    codeInvalid:
+      "Mã không đúng hoặc đã hết hạn. Vui lòng kiểm tra lại hoặc bấm Gửi lại để nhận mã mới.",
+    resetDone:
+      "Mật khẩu đã được đặt lại và mọi phiên đăng nhập của bạn đã bị đăng xuất. Vui lòng đăng nhập lại bằng mật khẩu mới.",
+    passwordPolicy: NATIVE_COPY.vi.passwordPolicy,
+    mfa: NATIVE_COPY.vi.mfa,
+  },
+} as const;
+
+function expectNoAuthSecretsInBrowserStorage(secrets: readonly string[]) {
+  expect(window.sessionStorage.length).toBe(0);
+  const stored = JSON.stringify({ ...window.localStorage });
+  for (const secret of secrets) {
+    expect(stored).not.toContain(secret);
+  }
+}
+
+async function openEmailCodeLogin(
+  language: Language = "en",
+  from?: RenderOptions["from"],
+) {
+  const copy = AUTH03_COPY[language];
+  await renderSignIn({ from, language });
+  fireEvent.click(screen.getByRole("button", { name: copy.useEmailCode }));
+  const form = screen.getByRole("form", { name: copy.emailForm });
+  return {
+    copy,
+    form,
+    email: within(form).getByRole("textbox", { name: copy.email }),
+    otp: within(form).getByRole("textbox", { name: copy.otp }),
+    getCode: within(form).getByRole("button", { name: copy.getCode }),
+    submit: within(form).getByRole("button", { name: copy.logIn }),
+    keepSignedIn: within(form).getByRole("checkbox", {
+      name: copy.keepSignedIn,
+    }),
+    rememberMe: within(form).getByRole("checkbox", { name: copy.rememberMe }),
+  };
+}
+
+describe.each(["en", "vi"] as const)(
+  "SignInPage email-code login (%s)",
+  (language) => {
+    const copy = AUTH03_COPY[language];
+
+    beforeEach(() => {
+      api.getAuthProviders.mockResolvedValue(EMAIL_CODE_PROVIDERS);
+    });
+
+    it("sends a neutral code notice, resends after 60s and signs in with keep-signed-in", async () => {
+      vi.useFakeTimers();
+      api.startEmailCodeLogin.mockResolvedValue(challengeResponse("login-1"));
+      api.resendAuthChallenge.mockResolvedValue(challengeResponse("login-2"));
+      api.verifyEmailCodeLogin.mockResolvedValue({ status: "authenticated" });
+      const field = await openEmailCodeLogin(language, {
+        pathname: "/app/calendar",
+        search: "?view=week",
+      });
+      expect(field.email).toHaveFocus();
+      expect(field.keepSignedIn).toBeEnabled();
+
+      fireEvent.change(field.email, {
+        target: { value: "learner@example.com" },
+      });
+      fireEvent.click(field.getCode);
+      await settle();
+      expect(api.startEmailCodeLogin).toHaveBeenCalledWith(
+        { email: "learner@example.com" },
+        { baseUrl: "/api" },
+      );
+      // Same wording whether or not the address has an account.
+      expect(screen.getByText(copy.codeSent)).toBeInTheDocument();
+      expect(field.email).toHaveAccessibleDescription(copy.codeSent);
+      expect(field.getCode).toBeDisabled();
+      expect(field.getCode).toHaveTextContent("60s");
+      expect(field.otp).toHaveFocus();
+
+      tickSeconds(60);
+      expect(field.getCode).toBeEnabled();
+      expect(field.getCode).toHaveTextContent(copy.resend);
+      fireEvent.click(field.getCode);
+      await settle();
+      expect(api.resendAuthChallenge).toHaveBeenCalledWith({ baseUrl: "/api" });
+      expect(api.startEmailCodeLogin).toHaveBeenCalledTimes(1);
+
+      fireEvent.change(field.otp, { target: { value: "123456" } });
+      fireEvent.click(field.keepSignedIn);
+      fireEvent.click(field.rememberMe);
+      fireEvent.click(field.submit);
+      await settle();
+
+      expect(api.verifyEmailCodeLogin).toHaveBeenCalledWith(
+        { challenge_id: "login-2", code: "123456", keep_signed_in: true },
+        { baseUrl: "/api" },
+      );
+      expect(completeNativeSignInMock).toHaveBeenCalledTimes(1);
+      expect(screen.getByTestId("landing")).toHaveTextContent(
+        "/app/calendar?view=week",
+      );
+      expect(window.localStorage.getItem(REMEMBERED_EMAIL_KEY)).toBe(
+        "learner@example.com",
+      );
+      expectNoAuthSecretsInBrowserStorage(["123456", "login-"]);
+      expect(api.loginWithPassword).not.toHaveBeenCalled();
+      expect(signInMock).not.toHaveBeenCalled();
+    });
+
+    it("answers a wrong or expired code with one generic message", async () => {
+      api.startEmailCodeLogin.mockResolvedValue(challengeResponse("login-1"));
+      api.verifyEmailCodeLogin
+        .mockRejectedValueOnce(apiError(401))
+        .mockRejectedValueOnce(apiError(400));
+      const field = await openEmailCodeLogin(language);
+      fireEvent.change(field.email, {
+        target: { value: "learner@example.com" },
+      });
+      fireEvent.click(field.getCode);
+      await settle();
+
+      for (const attempt of ["111111", "222222"]) {
+        fireEvent.change(field.otp, { target: { value: attempt } });
+        fireEvent.click(field.submit);
+        await settle();
+        expect(within(field.form).getByRole("alert")).toHaveTextContent(
+          copy.codeInvalid,
+        );
+        expect(field.otp).toHaveValue("");
+        expect(field.otp).toHaveFocus();
+      }
+      expect(completeNativeSignInMock).not.toHaveBeenCalled();
+      expect(screen.queryByTestId("landing")).toBeNull();
+    });
+
+    it("stops at the multi-factor contract without treating the user as signed in", async () => {
+      api.startEmailCodeLogin.mockResolvedValue(challengeResponse("login-1"));
+      api.verifyEmailCodeLogin.mockResolvedValue({
+        methods: ["totp"],
+        status: "mfa_required",
+      });
+      const field = await openEmailCodeLogin(language);
+      fireEvent.change(field.email, {
+        target: { value: "admin@example.com" },
+      });
+      fireEvent.click(field.getCode);
+      await settle();
+      fireEvent.change(field.otp, { target: { value: "123456" } });
+      fireEvent.click(field.submit);
+      await settle();
+
+      expect(within(field.form).getByRole("alert")).toHaveTextContent(copy.mfa);
+      expect(completeNativeSignInMock).not.toHaveBeenCalled();
+      expect(screen.queryByTestId("landing")).toBeNull();
+    });
+  },
+);
+
+describe("SignInPage email-code login edge cases", () => {
+  beforeEach(() => {
+    api.getAuthProviders.mockResolvedValue(EMAIL_CODE_PROVIDERS);
+  });
+
+  it("offers the email-code option only when the server enables it", async () => {
+    api.getAuthProviders.mockResolvedValue(NATIVE_PROVIDERS);
+    const { unmount } = await renderSignIn();
+    expect(
+      screen.queryByRole("button", { name: "Log in with an email code" }),
+    ).toBeNull();
+    unmount();
+
+    api.getAuthProviders.mockResolvedValue(OIDC_PROVIDERS);
+    await renderSignIn();
+    expect(
+      screen.queryByRole("button", { name: "Log in with an email code" }),
+    ).toBeNull();
+    expect(api.startEmailCodeLogin).not.toHaveBeenCalled();
+  });
+
+  it("switches back to the password form and prefills the code form from a typed email", async () => {
+    await renderSignIn();
+    fireEvent.change(
+      screen.getByRole("textbox", { name: "Email or username" }),
+      { target: { value: "teacher@example.com" } },
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Log in with an email code" }),
+    );
+    const form = screen.getByRole("form", {
+      name: "Log in with a code sent to your email",
+    });
+    expect(
+      within(form).getByRole("textbox", { name: "Email Address" }),
+    ).toHaveValue("teacher@example.com");
+    expect(screen.queryByLabelText("Password")).toBeNull();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Log in with a password" }),
+    );
+    expect(
+      screen.getByRole("textbox", { name: "Email or username" }),
+    ).toHaveFocus();
+    expect(screen.getByLabelText("Password")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("form", {
+        name: "Log in with a code sent to your email",
+      }),
+    ).toBeNull();
+  });
+
+  it("requires a requested code and drops it when the email changes mid-request", async () => {
+    let resolveFirst: (value: AuthSignupChallengeResponse) => void = () =>
+      undefined;
+    api.startEmailCodeLogin
+      .mockReturnValueOnce(
+        new Promise<AuthSignupChallengeResponse>((resolve) => {
+          resolveFirst = resolve;
+        }),
+      )
+      .mockResolvedValueOnce(challengeResponse("login-new"));
+    api.verifyEmailCodeLogin.mockResolvedValue({ status: "authenticated" });
+    const field = await openEmailCodeLogin();
+
+    fireEvent.change(field.otp, { target: { value: "123456" } });
+    fireEvent.change(field.email, { target: { value: "old@example.com" } });
+    fireEvent.click(field.submit);
+    expect(field.otp).toHaveAccessibleDescription(
+      "Select Get Code to receive a verification code first.",
+    );
+    expect(field.otp).toHaveFocus();
+    expect(api.verifyEmailCodeLogin).not.toHaveBeenCalled();
+
+    fireEvent.click(field.getCode);
+    expect(field.getCode).toHaveTextContent("Sending…");
+    fireEvent.change(field.email, { target: { value: "new@example.com" } });
+    await act(async () => {
+      resolveFirst(challengeResponse("login-old"));
+    });
+    await settle();
+    expect(field.getCode).toHaveTextContent("Get Code");
+    expect(screen.queryByText(AUTH03_COPY.en.codeSent)).toBeNull();
+
+    fireEvent.click(field.getCode);
+    await settle();
+    expect(api.startEmailCodeLogin).toHaveBeenLastCalledWith(
+      { email: "new@example.com" },
+      { baseUrl: "/api" },
+    );
+    fireEvent.change(field.otp, { target: { value: "654321" } });
+    fireEvent.click(field.submit);
+    await settle();
+    expect(api.verifyEmailCodeLogin).toHaveBeenCalledWith(
+      expect.objectContaining({ challenge_id: "login-new", code: "654321" }),
+      { baseUrl: "/api" },
+    );
+  });
+
+  it("starts a new transaction when the resend transaction has ended and reminds about expiry", async () => {
+    vi.useFakeTimers();
+    api.startEmailCodeLogin
+      .mockResolvedValueOnce(challengeResponse("login-1"))
+      .mockResolvedValueOnce(challengeResponse("login-2"));
+    api.resendAuthChallenge.mockRejectedValue(apiError(400));
+    const field = await openEmailCodeLogin();
+    fireEvent.change(field.email, {
+      target: { value: "learner@example.com" },
+    });
+    fireEvent.click(field.getCode);
+    await settle();
+    tickSeconds(60);
+
+    fireEvent.click(field.getCode);
+    await settle();
+    expect(api.resendAuthChallenge).toHaveBeenCalledTimes(1);
+    expect(api.startEmailCodeLogin).toHaveBeenCalledTimes(2);
+    expect(field.getCode).toHaveTextContent("60s");
+
+    act(() => {
+      vi.advanceTimersByTime(600_000);
+    });
+    expect(
+      screen.getByText(
+        "Your verification code has expired. Select Resend to get a new code.",
+      ),
+    ).toBeInTheDocument();
+    fireEvent.change(field.otp, { target: { value: "123456" } });
+    fireEvent.click(field.submit);
+    expect(field.otp).toHaveAccessibleDescription(
+      "This code has expired. Select Resend to get a new code.",
+    );
+    expect(api.verifyEmailCodeLogin).not.toHaveBeenCalled();
+  });
+
+  it("honours Retry-After for 429 code requests and 503 verification", async () => {
+    vi.useFakeTimers();
+    api.startEmailCodeLogin
+      .mockRejectedValueOnce(apiError(429, undefined, 42))
+      .mockResolvedValueOnce(challengeResponse("login-1"));
+    api.verifyEmailCodeLogin
+      .mockRejectedValueOnce(apiError(503, undefined, 2))
+      .mockResolvedValueOnce({ status: "authenticated" });
+    const field = await openEmailCodeLogin();
+    fireEvent.change(field.email, {
+      target: { value: "learner@example.com" },
+    });
+
+    fireEvent.click(field.getCode);
+    await settle();
+    expect(
+      screen.getByText("Too many attempts. Please try again in 42 seconds."),
+    ).toBeInTheDocument();
+    expect(field.getCode).toBeDisabled();
+    expect(field.getCode).toHaveTextContent("42s");
+    tickSeconds(42);
+    fireEvent.click(field.getCode);
+    await settle();
+    expect(screen.getByText(AUTH03_COPY.en.codeSent)).toBeInTheDocument();
+
+    fireEvent.change(field.otp, { target: { value: "123456" } });
+    fireEvent.click(field.submit);
+    await settle();
+    expect(within(field.form).getByRole("alert")).toHaveTextContent(
+      "TutorHub is busy right now. Please try again in 2 seconds.",
+    );
+    expect(field.submit).toBeDisabled();
+    expect(field.submit).toHaveTextContent("Log In (2s)");
+    expect(field.otp).toHaveValue("123456");
+    tickSeconds(2);
+    fireEvent.click(field.submit);
+    await settle();
+    expect(api.verifyEmailCodeLogin).toHaveBeenCalledTimes(2);
+    expect(screen.getByTestId("landing")).toHaveTextContent("/app/home");
+  });
+});
+
+async function openNativeRecovery(language: Language = "en") {
+  const copy = AUTH03_COPY[language];
+  await renderSignIn({ language });
+  const trigger = screen.getByRole("button", { name: copy.forgot });
+  fireEvent.click(trigger);
+  const dialog = screen.getByRole("dialog", { name: copy.recoverDialog });
+  return {
+    copy,
+    dialog,
+    trigger,
+    email: within(dialog).getByRole("textbox", { name: copy.email }),
+    otp: within(dialog).getByRole("textbox", { name: copy.recoverOtp }),
+    newPassword: within(dialog).getByLabelText(copy.newPassword),
+    getCode: within(dialog).getByRole("button", { name: copy.getCode }),
+    submit: within(dialog).getByRole("button", { name: copy.resetPassword }),
+  };
+}
+
+type NativeRecoveryFields = Awaited<ReturnType<typeof openNativeRecovery>>;
+
+async function requestRecoveryCode(field: NativeRecoveryFields) {
+  fireEvent.change(field.email, { target: { value: "teacher@example.com" } });
+  fireEvent.click(field.getCode);
+  await settle();
+}
+
+describe.each(["en", "vi"] as const)(
+  "SignInPage native password recovery (%s)",
+  (language) => {
+    const copy = AUTH03_COPY[language];
+
+    beforeEach(() => {
+      api.getAuthProviders.mockResolvedValue(EMAIL_CODE_PROVIDERS);
+      api.startPasswordRecovery.mockResolvedValue(
+        challengeResponse("recovery-1"),
+      );
+    });
+
+    it("resets the password with an emailed code, never signs in and asks to log in again", async () => {
+      api.completePasswordRecovery.mockResolvedValue({
+        status: "password_reset",
+      });
+      const field = await openNativeRecovery(language);
+      await requestRecoveryCode(field);
+      expect(api.startPasswordRecovery).toHaveBeenCalledWith(
+        { email: "teacher@example.com" },
+        { baseUrl: "/api" },
+      );
+      expect(within(field.dialog).getByText(copy.codeSent)).toBeInTheDocument();
+      expect(field.email).toHaveAccessibleDescription(copy.codeSent);
+      expect(field.getCode).toHaveTextContent("60s");
+      expect(field.otp).toHaveFocus();
+
+      fireEvent.change(field.otp, { target: { value: "123456" } });
+      fireEvent.change(field.newPassword, {
+        target: { value: "N3w-recovered-passphrase" },
+      });
+      fireEvent.click(field.submit);
+      await settle();
+
+      expect(api.completePasswordRecovery).toHaveBeenCalledWith(
+        {
+          challenge_id: "recovery-1",
+          code: "123456",
+          new_password: "N3w-recovered-passphrase",
+        },
+        { baseUrl: "/api" },
+      );
+      expect(resetAfterPasswordRecoveryMock).toHaveBeenCalledTimes(1);
+      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+      expect(screen.getByText(copy.resetDone)).toHaveAttribute(
+        "role",
+        "status",
+      );
+      await waitFor(() =>
+        expect(
+          screen.getByRole("textbox", { name: copy.identifier }),
+        ).toHaveFocus(),
+      );
+      expect(completeNativeSignInMock).not.toHaveBeenCalled();
+      expect(signInMock).not.toHaveBeenCalled();
+      expect(api.loginWithPassword).not.toHaveBeenCalled();
+      expect(screen.queryByTestId("landing")).toBeNull();
+      expectNoAuthSecretsInBrowserStorage([
+        "N3w-recovered-passphrase",
+        "123456",
+        "recovery-",
+      ]);
+    });
+
+    it("clears only the new password when it fails the password policy", async () => {
+      api.completePasswordRecovery.mockRejectedValue(
+        apiError(400, "auth_password_policy"),
+      );
+      const field = await openNativeRecovery(language);
+      await requestRecoveryCode(field);
+      fireEvent.change(field.otp, { target: { value: "123456" } });
+      fireEvent.change(field.newPassword, {
+        target: { value: "password123" },
+      });
+      fireEvent.click(field.submit);
+      await settle();
+
+      expect(field.newPassword).toHaveValue("");
+      expect(field.newPassword).toHaveAttribute("aria-invalid", "true");
+      expect(field.newPassword).toHaveAccessibleDescription(
+        copy.passwordPolicy,
+      );
+      expect(field.newPassword).toHaveFocus();
+      expect(field.email).toHaveValue("teacher@example.com");
+      expect(field.otp).toHaveValue("123456");
+      expect(resetAfterPasswordRecoveryMock).not.toHaveBeenCalled();
+      expect(screen.getByRole("dialog")).toBeInTheDocument();
+    });
+
+    it("answers a wrong or expired recovery code generically", async () => {
+      api.completePasswordRecovery.mockRejectedValue(apiError(401));
+      const field = await openNativeRecovery(language);
+      await requestRecoveryCode(field);
+      fireEvent.change(field.otp, { target: { value: "999999" } });
+      fireEvent.change(field.newPassword, {
+        target: { value: "N3w-recovered-passphrase" },
+      });
+      fireEvent.click(field.submit);
+      await settle();
+
+      expect(within(field.dialog).getByRole("alert")).toHaveTextContent(
+        copy.codeInvalid,
+      );
+      expect(field.otp).toHaveValue("");
+      expect(field.otp).toHaveFocus();
+      expect(resetAfterPasswordRecoveryMock).not.toHaveBeenCalled();
+    });
+  },
+);
+
+describe("SignInPage native password recovery edge cases", () => {
+  it("keeps the identity-portal placeholder when password_recovery_enabled is missing", async () => {
+    api.getAuthProviders.mockResolvedValue({
+      ...NATIVE_PROVIDERS,
+      email_code_enabled: true,
+    });
+    await renderSignIn();
+    fireEvent.click(screen.getByRole("button", { name: "Forget Password" }));
+    const dialog = await screen.findByRole("dialog", {
+      name: "Recover Password",
+    });
+    expect(dialog).toHaveAccessibleDescription(
+      "Enter your registered email to receive an OTP code",
+    );
+    fireEvent.change(
+      within(dialog).getByRole("textbox", { name: "Email Address" }),
+      { target: { value: "teacher@example.com" } },
+    );
+    fireEvent.click(within(dialog).getByRole("button", { name: "Get Code" }));
+    expect(
+      within(dialog).getByText(/no code is sent from this page/),
+    ).toBeInTheDocument();
+    expect(api.startPasswordRecovery).not.toHaveBeenCalled();
+  });
+
+  it("validates the code step and the deployment minimum before calling the server", async () => {
+    api.getAuthProviders.mockResolvedValue({
+      ...EMAIL_CODE_PROVIDERS,
+      password_min_length: 12,
+    });
+    api.startPasswordRecovery.mockResolvedValue(
+      challengeResponse("recovery-1"),
+    );
+    const field = await openNativeRecovery();
+
+    fireEvent.change(field.email, { target: { value: "teacher@example.com" } });
+    fireEvent.change(field.otp, { target: { value: "123456" } });
+    fireEvent.change(field.newPassword, {
+      target: { value: "Long-enough-pass" },
+    });
+    fireEvent.click(field.submit);
+    expect(field.otp).toHaveAccessibleDescription(
+      "Select Get Code to receive a verification code first.",
+    );
+    expect(field.otp).toHaveFocus();
+
+    fireEvent.click(field.getCode);
+    await settle();
+    fireEvent.change(field.otp, { target: { value: "123456" } });
+    fireEvent.change(field.newPassword, { target: { value: "short-pass1" } });
+    fireEvent.click(field.submit);
+    expect(field.newPassword).toHaveAccessibleDescription(
+      "Password must be at least 12 characters.",
+    );
+    expect(field.newPassword).toHaveFocus();
+    expect(api.completePasswordRecovery).not.toHaveBeenCalled();
+  });
+
+  it("honours Retry-After when recovery is throttled or busy", async () => {
+    vi.useFakeTimers();
+    api.getAuthProviders.mockResolvedValue(EMAIL_CODE_PROVIDERS);
+    api.startPasswordRecovery
+      .mockRejectedValueOnce(apiError(429, undefined, 30))
+      .mockResolvedValueOnce(challengeResponse("recovery-1"));
+    api.completePasswordRecovery.mockRejectedValueOnce(
+      apiError(503, undefined, 3),
+    );
+    const field = await openNativeRecovery();
+    fireEvent.change(field.email, { target: { value: "teacher@example.com" } });
+
+    fireEvent.click(field.getCode);
+    await settle();
+    expect(
+      within(field.dialog).getByText(
+        "Too many attempts. Please try again in 30 seconds.",
+      ),
+    ).toBeInTheDocument();
+    expect(field.getCode).toBeDisabled();
+    expect(field.getCode).toHaveTextContent("30s");
+    tickSeconds(30);
+    fireEvent.click(field.getCode);
+    await settle();
+
+    fireEvent.change(field.otp, { target: { value: "123456" } });
+    fireEvent.change(field.newPassword, {
+      target: { value: "N3w-recovered-passphrase" },
+    });
+    fireEvent.click(field.submit);
+    await settle();
+    expect(within(field.dialog).getByRole("alert")).toHaveTextContent(
+      "TutorHub is busy right now. Please try again in 3 seconds.",
+    );
+    expect(field.submit).toBeDisabled();
+    expect(field.submit).toHaveTextContent("Reset Password (3s)");
+    tickSeconds(3);
+    expect(field.submit).toBeEnabled();
+  });
+
+  it("starts a new login transaction after recovery replaced the browser-bound one", async () => {
+    vi.useFakeTimers();
+    api.getAuthProviders.mockResolvedValue(EMAIL_CODE_PROVIDERS);
+    api.startEmailCodeLogin
+      .mockResolvedValueOnce(challengeResponse("login-1"))
+      .mockResolvedValueOnce(challengeResponse("login-2"));
+    api.startPasswordRecovery.mockResolvedValue(
+      challengeResponse("recovery-1"),
+    );
+    const field = await openEmailCodeLogin();
+    fireEvent.change(field.email, {
+      target: { value: "teacher@example.com" },
+    });
+    fireEvent.click(field.getCode);
+    await settle();
+
+    fireEvent.click(screen.getByRole("button", { name: "Forget Password" }));
+    const dialog = screen.getByRole("dialog", { name: "Recover Password" });
+    fireEvent.change(
+      within(dialog).getByRole("textbox", { name: "Email Address" }),
+      { target: { value: "teacher@example.com" } },
+    );
+    fireEvent.click(within(dialog).getByRole("button", { name: "Get Code" }));
+    await settle();
+    expect(api.startPasswordRecovery).toHaveBeenCalledTimes(1);
+    fireEvent.click(within(dialog).getByRole("button", { name: "Get back" }));
+    await settle();
+    expect(screen.queryByRole("dialog")).toBeNull();
+
+    tickSeconds(60);
+    expect(field.getCode).toHaveTextContent("Resend");
+    fireEvent.click(field.getCode);
+    await settle();
+    // Resending would re-issue the recovery code bound to the cookie.
+    expect(api.resendAuthChallenge).not.toHaveBeenCalled();
+    expect(api.startEmailCodeLogin).toHaveBeenCalledTimes(2);
   });
 });

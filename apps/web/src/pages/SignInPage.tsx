@@ -1,13 +1,19 @@
 import {
   APIRequestError,
   completeEmailSignup,
+  completePasswordRecovery,
   getAuthProviders,
   loginWithPassword,
   resendAuthChallenge,
+  startEmailCodeLogin,
   startEmailSignup,
+  startPasswordRecovery,
+  verifyEmailCodeLogin,
+  type APIRequestOptions,
   type AuthProvidersResponse,
   type AuthSignupChallengeResponse,
   type NativeAuthenticationResponse,
+  type PasswordRecoveryResponse,
 } from "@tutorhub/api-client";
 import {
   Dialog,
@@ -26,6 +32,8 @@ import {
   useState,
   type FormEvent,
   type MouseEvent,
+  type ReactNode,
+  type RefObject,
 } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { useI18n, type Language } from "../app/i18n";
@@ -172,6 +180,16 @@ const en = {
   reviewTerms: "Review updated terms",
   signUpFailed:
     "We couldn't complete sign-up. Check the code or request a new one, then try again. If you already have an account, try logging in.",
+  useEmailCode: "Log in with an email code",
+  usePassword: "Log in with a password",
+  emailCodeHeading: "Log in with a code sent to your email",
+  codeInvalid:
+    "The code is incorrect or has expired. Check it or select Resend to get a new code.",
+  resettingPassword: "Resetting password…",
+  recoverSubtitleNative:
+    "Enter your email to receive a 6-digit code, then choose a new password.",
+  passwordResetDone:
+    "Your password has been reset and all your sessions were signed out. Please log in again with your new password.",
 };
 
 type SignInCopy = Record<keyof typeof en, string>;
@@ -295,6 +313,16 @@ const vi: SignInCopy = {
   reviewTerms: "Xem điều khoản mới",
   signUpFailed:
     "Không thể hoàn tất đăng ký. Vui lòng kiểm tra lại mã hoặc yêu cầu mã mới rồi thử lại. Nếu bạn đã có tài khoản, hãy thử đăng nhập.",
+  useEmailCode: "Đăng nhập bằng mã email",
+  usePassword: "Đăng nhập bằng mật khẩu",
+  emailCodeHeading: "Đăng nhập bằng mã gửi tới email",
+  codeInvalid:
+    "Mã không đúng hoặc đã hết hạn. Vui lòng kiểm tra lại hoặc bấm Gửi lại để nhận mã mới.",
+  resettingPassword: "Đang đặt lại mật khẩu…",
+  recoverSubtitleNative:
+    "Nhập email để nhận mã 6 chữ số, sau đó chọn mật khẩu mới.",
+  passwordResetDone:
+    "Mật khẩu đã được đặt lại và mọi phiên đăng nhập của bạn đã bị đăng xuất. Vui lòng đăng nhập lại bằng mật khẩu mới.",
 };
 
 const copyByLanguage: Record<Language, SignInCopy> = { en, vi };
@@ -457,6 +485,7 @@ type AuthFailure =
   | { kind: "termsChanged" }
   | { kind: "passwordPolicy" }
   | { kind: "signUpFailed" }
+  | { kind: "codeInvalid" }
   | { kind: "session" }
   | { kind: "network" }
   | { kind: "generic" };
@@ -522,6 +551,8 @@ function failureText(c: SignInCopy, failure: AuthFailure) {
         : c.busy;
     case "signUpFailed":
       return c.signUpFailed;
+    case "codeInvalid":
+      return c.codeInvalid;
     case "session":
       return c.sessionError;
     case "network":
@@ -593,6 +624,158 @@ function useCodeCooldown() {
   return { hasRequested, remaining, start };
 }
 
+type StartEmailChallenge = (
+  input: { email: string },
+  options: APIRequestOptions,
+) => Promise<AuthSignupChallengeResponse>;
+
+/**
+ * The server binds one pending auth transaction to one browser cookie. This
+ * ref records which mounted flow (login code or recovery) issued it last, so a
+ * flow whose transaction was replaced starts a new one instead of resending
+ * the other flow's code.
+ */
+type TransactionOwnerRef = RefObject<symbol | null>;
+
+type ChallengeOutcome = "sent" | "invalidEmail" | "failed" | "stale";
+
+/**
+ * Shared start → resend → expiry state for the native email-code login and
+ * password recovery flows. Notices stay account-neutral by construction.
+ */
+function useEmailChallenge(
+  startChallenge: StartEmailChallenge,
+  ownerRef: TransactionOwnerRef,
+) {
+  const [ownerToken] = useState(() => Symbol("auth-transaction"));
+  /** Bumped whenever the email changes so a late response is discarded. */
+  const generationRef = useRef(0);
+  const [challenge, setChallenge] = useState<SignUpChallenge | null>(null);
+  const [expired, setExpired] = useState(false);
+  const [requesting, setRequesting] = useState(false);
+  const [notice, setNotice] = useState<CodeNotice | null>(null);
+  const cooldown = useCountdown();
+  const { reset: resetCooldown, start: startCooldown } = cooldown;
+
+  // Remind the user to resend once the server-side code lifetime has passed.
+  useEffect(() => {
+    if (!challenge) return;
+    const timer = window.setTimeout(
+      () => setExpired(true),
+      Math.min(challenge.expiresInSeconds, MAX_RETRY_AFTER_SECONDS) * 1000,
+    );
+    return () => window.clearTimeout(timer);
+  }, [challenge]);
+
+  /** A code belongs to one email: editing the address forces a new request. */
+  const invalidate = useCallback(() => {
+    generationRef.current += 1;
+    setChallenge(null);
+    setExpired(false);
+    setNotice(null);
+    setRequesting(false);
+    resetCooldown();
+  }, [resetCooldown]);
+
+  async function issue(email: string) {
+    const options = { baseUrl: getApiBaseUrl() };
+    if (!challenge || ownerRef.current !== ownerToken) {
+      return startChallenge({ email }, options);
+    }
+    try {
+      // The destination and purpose stay bound to the server transaction.
+      return await resendAuthChallenge(options);
+    } catch (error) {
+      if (error instanceof APIRequestError && error.status === 400) {
+        // The transaction ended (TTL, restart or recovery): start a new one.
+        return startChallenge({ email }, options);
+      }
+      throw error;
+    }
+  }
+
+  async function request(email: string): Promise<ChallengeOutcome> {
+    const generation = ++generationRef.current;
+    const isStale = () => generation !== generationRef.current;
+    setRequesting(true);
+    setNotice(null);
+    try {
+      const result = await issue(email);
+      if (isStale()) return "stale";
+      ownerRef.current = ownerToken;
+      setChallenge({
+        expiresInSeconds: result.expires_in_seconds,
+        id: result.challenge_id,
+      });
+      setExpired(false);
+      startCooldown(result.cooldown_seconds);
+      // Uniform wording: never reveal whether the address has an account.
+      setNotice({
+        kind: "sent",
+        minutes: Math.max(1, Math.ceil(result.expires_in_seconds / 60)),
+      });
+      return "sent";
+    } catch (error) {
+      if (isStale()) return "stale";
+      const failure = authFailureFrom(error);
+      if (failure.kind === "badRequest") return "invalidEmail";
+      const retryAfter = retryAfterOf(failure);
+      if (retryAfter) startCooldown(retryAfter);
+      setNotice({ kind: "failure", failure });
+      return "failed";
+    } finally {
+      if (!isStale()) setRequesting(false);
+    }
+  }
+
+  return {
+    challenge,
+    cooldownRemaining: cooldown.remaining,
+    expired,
+    invalidate,
+    notice,
+    request,
+    requesting,
+  };
+}
+
+type EmailChallenge = ReturnType<typeof useEmailChallenge>;
+
+function challengeNoticeView(
+  c: SignInCopy,
+  code: EmailChallenge,
+): { error: boolean; text: string } | null {
+  if (code.challenge && code.expired) {
+    return { error: true, text: c.codeExpired };
+  }
+  switch (code.notice?.kind) {
+    case "sent":
+      return {
+        error: false,
+        text: formatCopy(c.codeSent, { minutes: code.notice.minutes }),
+      };
+    case "failure":
+      return { error: true, text: failureText(c, code.notice.failure) };
+    default:
+      return null;
+  }
+}
+
+function challengeButtonLabel(c: SignInCopy, code: EmailChallenge) {
+  if (code.requesting) return c.sendingCode;
+  if (code.cooldownRemaining > 0) {
+    return formatCopy(c.codeCountdown, { seconds: code.cooldownRemaining });
+  }
+  return code.challenge ? c.resendCode : c.getCode;
+}
+
+/** Validates the code step shared by the email-code login and recovery. */
+function codeErrorFor(code: EmailChallenge, otp: string): CopyKey | undefined {
+  if (!code.challenge) return "errorCodeRequired";
+  if (code.expired) return "errorCodeExpired";
+  return OTP_PATTERN.test(otp.trim()) ? undefined : "errorOtp";
+}
+
 interface FormAlertProps {
   failure: AuthFailure;
   onRetrySession?: () => void;
@@ -625,7 +808,8 @@ function FormAlert({ failure, onRetrySession }: FormAlertProps) {
 
 export function SignInPage() {
   const c = useSignInCopy();
-  const { completeNativeSignIn, signIn } = useSession();
+  const { completeNativeSignIn, resetAfterPasswordRecovery, signIn } =
+    useSession();
   const navigate = useNavigate();
   const location = useLocation();
   const returnTo = readReturnTo(location.state);
@@ -729,9 +913,14 @@ export function SignInPage() {
           {view === "login" ? (
             <LoginForm
               autoFocus={focusFormOnMount}
+              emailCodeEnabled={providers?.email_code_enabled === true}
               mode={loginModeFor(providers)}
               onAuthenticated={finishNativeSignIn}
+              onPasswordReset={resetAfterPasswordRecovery}
               onSignIn={startSignIn}
+              passwordMinLength={passwordMinLengthFor(providers)}
+              // Older servers omit the flag: absence means recovery is off.
+              recoveryEnabled={providers?.password_recovery_enabled === true}
               social={socialAvailabilityFor(providers)}
             />
           ) : (
@@ -773,22 +962,34 @@ function LoginImageSlider() {
 
 interface LoginFormProps {
   autoFocus: boolean;
+  /** `email_code_enabled`: offers "log in with an email code". */
+  emailCodeEnabled: boolean;
   mode: LoginMode;
   /** Runs after the server issued a native session: CSRF, /me, navigation. */
   onAuthenticated: () => Promise<void>;
+  /** Drops client session state after a recovery revoked every session. */
+  onPasswordReset: () => Promise<void>;
   /** Redirects to the default OIDC portal (BFF `/api/v1/auth/login`). */
   onSignIn: () => void;
+  passwordMinLength: number;
+  /** `password_recovery_enabled`: the dialog runs the native recovery. */
+  recoveryEnabled: boolean;
   social: SocialAvailability;
 }
 
 type LoginField = "identifier" | "password";
 type LoginErrors = Partial<Record<LoginField, CopyKey>>;
+type LoginMethod = "password" | "emailCode";
 
 function LoginForm({
   autoFocus,
+  emailCodeEnabled,
   mode,
   onAuthenticated,
+  onPasswordReset,
   onSignIn,
+  passwordMinLength,
+  recoveryEnabled,
   social,
 }: LoginFormProps) {
   const c = useSignInCopy();
@@ -801,6 +1002,8 @@ function LoginForm({
   };
   const identifierRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
+  const transactionOwnerRef = useRef<symbol | null>(null);
+  const focusIdentifierOnCloseRef = useRef(false);
   const [identifier, setIdentifier] = useState(readRememberedEmail);
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(() =>
@@ -810,12 +1013,46 @@ function LoginForm({
   const [errors, setErrors] = useState<LoginErrors>({});
   const [failure, setFailure] = useState<AuthFailure | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [method, setMethod] = useState<LoginMethod>("password");
+  const [methodSwitched, setMethodSwitched] = useState(false);
+  const [recoverOpen, setRecoverOpen] = useState(false);
+  const [passwordResetDone, setPasswordResetDone] = useState(false);
   const lock = useCountdown();
   const isPassword = mode === "password";
+  const usesEmailCode = emailCodeEnabled && method === "emailCode";
+  /** Both native methods issue a first-party session that honours keep-signed-in. */
+  const nativeSession = usesEmailCode || isPassword;
 
   useEffect(() => {
     if (autoFocus) identifierRef.current?.focus();
   }, [autoFocus]);
+
+  useEffect(() => {
+    if (methodSwitched && !usesEmailCode) identifierRef.current?.focus();
+  }, [methodSwitched, usesEmailCode]);
+
+  function switchMethod() {
+    setFailure(null);
+    setErrors({});
+    setPassword("");
+    setMethodSwitched(true);
+    setMethod((current) => (current === "password" ? "emailCode" : "password"));
+  }
+
+  async function handlePasswordReset() {
+    try {
+      await onPasswordReset();
+    } catch {
+      // The server already revoked every session; never sign the user in here.
+    }
+    setPassword("");
+    setFailure(null);
+    setErrors({});
+    setMethod("password");
+    setPasswordResetDone(true);
+    focusIdentifierOnCloseRef.current = true;
+    setRecoverOpen(false);
+  }
 
   function handleRememberChange(checked: boolean) {
     setRememberMe(checked);
@@ -868,6 +1105,7 @@ function LoginForm({
     }
 
     setFailure(null);
+    setPasswordResetDone(false);
     setSubmitting(true);
     let result: NativeAuthenticationResponse;
     try {
@@ -930,117 +1168,160 @@ function LoginForm({
     : lock.remaining > 0
       ? formatCopy(c.submitWait, { label: c.logIn, seconds: lock.remaining })
       : c.logIn;
-  const keepSignedInHint = isPassword
+  const keepSignedInHint = nativeSession
     ? c.keepSignedInNativeHint
     : c.keepSignedInHint;
   const showSocial = social.facebook || social.google;
 
+  const options = (
+    <div className="sign-in-form__options">
+      <label className="sign-in-check" title={keepSignedInHint}>
+        <input
+          aria-describedby={ids.keepSignedInHint}
+          checked={nativeSession && keepSignedIn}
+          disabled={!nativeSession}
+          name="keep-signed-in"
+          onChange={(event) => setKeepSignedIn(event.target.checked)}
+          type="checkbox"
+        />
+        <span>{c.keepSignedIn}</span>
+      </label>
+      <label className="sign-in-check" title={c.rememberMeHint}>
+        <input
+          aria-describedby={ids.rememberHint}
+          checked={rememberMe}
+          name="remember-me"
+          onChange={(event) => handleRememberChange(event.target.checked)}
+          type="checkbox"
+        />
+        <span>{c.rememberMe}</span>
+      </label>
+      <span className="visually-hidden" id={ids.keepSignedInHint}>
+        {keepSignedInHint}
+      </span>
+      <span className="visually-hidden" id={ids.rememberHint}>
+        {c.rememberMeHint}
+      </span>
+    </div>
+  );
+  const resetBanner = passwordResetDone ? (
+    <p
+      className="sign-in-form__alert sign-in-form__alert--success"
+      role="status"
+    >
+      {c.passwordResetDone}
+    </p>
+  ) : null;
+  const trimmedIdentifier = identifier.trim();
+
   return (
     <div className="sign-in-form">
-      <form
-        aria-labelledby={ids.heading}
-        className="sign-in-form__stack"
-        noValidate
-        onSubmit={handleSubmit}
-      >
-        <h2 className="visually-hidden" id={ids.heading}>
-          {c.loginHeading}
-        </h2>
-        {mode === "unavailable" ? (
-          <p className="sign-in-form__alert" role="status">
-            {c.loginUnavailable}
-          </p>
-        ) : null}
-        <div className="sign-in-form__field">
-          <input
-            aria-describedby={
-              errors.identifier ? `${ids.identifier}-error` : undefined
-            }
-            aria-invalid={errors.identifier ? true : undefined}
-            aria-label={c.identifierLabel}
-            autoComplete="username"
-            className="sign-in-input"
-            id={ids.identifier}
-            maxLength={REMEMBERED_EMAIL_MAX_LENGTH}
-            name="identifier"
-            onChange={(event) => {
-              setIdentifier(event.target.value);
-              clearError("identifier");
-            }}
-            placeholder={c.identifierPlaceholder}
-            ref={identifierRef}
-            spellCheck={false}
-            type="text"
-            value={identifier}
-          />
-          {errorFor("identifier")}
-        </div>
-        <div className="sign-in-form__field">
-          <input
-            aria-describedby={
-              errors.password ? `${ids.password}-error` : undefined
-            }
-            aria-invalid={errors.password ? true : undefined}
-            aria-label={c.passwordLabel}
-            autoComplete="current-password"
-            className="sign-in-input"
-            id={ids.password}
-            name="password"
-            onChange={(event) => {
-              setPassword(event.target.value);
-              clearError("password");
-            }}
-            placeholder={c.passwordPlaceholder}
-            ref={passwordRef}
-            type="password"
-            value={password}
-          />
-          {errorFor("password")}
-        </div>
-        {failure ? (
-          <FormAlert
-            failure={failure}
-            onRetrySession={() => void finishSession()}
-          />
-        ) : null}
-        <button
-          aria-disabled={submitting || undefined}
-          className="sign-in-button sign-in-button--primary sign-in-form__submit"
-          disabled={submitDisabled}
-          type="submit"
+      {usesEmailCode ? (
+        <EmailCodeLoginForm
+          autoFocus={methodSwitched}
+          initialEmail={
+            EMAIL_PATTERN.test(trimmedIdentifier) ? trimmedIdentifier : ""
+          }
+          keepSignedIn={keepSignedIn}
+          notice={resetBanner}
+          onAuthenticated={onAuthenticated}
+          onVerified={(email) => {
+            setPasswordResetDone(false);
+            setIdentifier(email);
+            rememberIdentifier(email);
+          }}
+          options={options}
+          transactionOwnerRef={transactionOwnerRef}
+        />
+      ) : (
+        <form
+          aria-labelledby={ids.heading}
+          className="sign-in-form__stack"
+          noValidate
+          onSubmit={handleSubmit}
         >
-          {submitLabel}
+          <h2 className="visually-hidden" id={ids.heading}>
+            {c.loginHeading}
+          </h2>
+          {resetBanner}
+          {mode === "unavailable" && !emailCodeEnabled ? (
+            <p className="sign-in-form__alert" role="status">
+              {c.loginUnavailable}
+            </p>
+          ) : null}
+          <div className="sign-in-form__field">
+            <input
+              aria-describedby={
+                errors.identifier ? `${ids.identifier}-error` : undefined
+              }
+              aria-invalid={errors.identifier ? true : undefined}
+              aria-label={c.identifierLabel}
+              autoComplete="username"
+              className="sign-in-input"
+              id={ids.identifier}
+              maxLength={REMEMBERED_EMAIL_MAX_LENGTH}
+              name="identifier"
+              onChange={(event) => {
+                setIdentifier(event.target.value);
+                clearError("identifier");
+              }}
+              placeholder={c.identifierPlaceholder}
+              ref={identifierRef}
+              spellCheck={false}
+              type="text"
+              value={identifier}
+            />
+            {errorFor("identifier")}
+          </div>
+          <div className="sign-in-form__field">
+            <input
+              aria-describedby={
+                errors.password ? `${ids.password}-error` : undefined
+              }
+              aria-invalid={errors.password ? true : undefined}
+              aria-label={c.passwordLabel}
+              autoComplete="current-password"
+              className="sign-in-input"
+              id={ids.password}
+              name="password"
+              onChange={(event) => {
+                setPassword(event.target.value);
+                clearError("password");
+              }}
+              placeholder={c.passwordPlaceholder}
+              ref={passwordRef}
+              type="password"
+              value={password}
+            />
+            {errorFor("password")}
+          </div>
+          {failure ? (
+            <FormAlert
+              failure={failure}
+              onRetrySession={() => void finishSession()}
+            />
+          ) : null}
+          <button
+            aria-disabled={submitting || undefined}
+            className="sign-in-button sign-in-button--primary sign-in-form__submit"
+            disabled={submitDisabled}
+            type="submit"
+          >
+            {submitLabel}
+          </button>
+          {options}
+        </form>
+      )}
+
+      {emailCodeEnabled ? (
+        <button
+          className="sign-in-form__method"
+          onClick={switchMethod}
+          type="button"
+        >
+          {usesEmailCode ? c.usePassword : c.useEmailCode}
         </button>
-        <div className="sign-in-form__options">
-          <label className="sign-in-check" title={keepSignedInHint}>
-            <input
-              aria-describedby={ids.keepSignedInHint}
-              checked={isPassword && keepSignedIn}
-              disabled={!isPassword}
-              name="keep-signed-in"
-              onChange={(event) => setKeepSignedIn(event.target.checked)}
-              type="checkbox"
-            />
-            <span>{c.keepSignedIn}</span>
-          </label>
-          <label className="sign-in-check" title={c.rememberMeHint}>
-            <input
-              aria-describedby={ids.rememberHint}
-              checked={rememberMe}
-              name="remember-me"
-              onChange={(event) => handleRememberChange(event.target.checked)}
-              type="checkbox"
-            />
-            <span>{c.rememberMe}</span>
-          </label>
-          <span className="visually-hidden" id={ids.keepSignedInHint}>
-            {keepSignedInHint}
-          </span>
-          <span className="visually-hidden" id={ids.rememberHint}>
-            {c.rememberMeHint}
-          </span>
-        </div>
-      </form>
+      ) : null}
 
       {showSocial ? (
         <>
@@ -1075,17 +1356,318 @@ function LoginForm({
         </>
       ) : null}
 
-      <Dialog>
+      <Dialog onOpenChange={setRecoverOpen} open={recoverOpen}>
         <DialogTrigger asChild>
           <button className="sign-in-form__forgot" type="button">
             {c.forgotPassword}
           </button>
         </DialogTrigger>
-        <DialogContent aria-modal="true" className="sign-in-recover" hideClose>
-          <RecoverPasswordForm onSignIn={onSignIn} />
+        <DialogContent
+          aria-modal="true"
+          className="sign-in-recover"
+          hideClose
+          onCloseAutoFocus={(event) => {
+            // After a reset the next step is logging in, not reopening recovery.
+            if (!focusIdentifierOnCloseRef.current) return;
+            focusIdentifierOnCloseRef.current = false;
+            event.preventDefault();
+            identifierRef.current?.focus();
+          }}
+        >
+          {recoveryEnabled ? (
+            <NativeRecoverPasswordForm
+              onPasswordReset={handlePasswordReset}
+              passwordMinLength={passwordMinLength}
+              transactionOwnerRef={transactionOwnerRef}
+            />
+          ) : (
+            <RecoverPasswordForm onSignIn={onSignIn} />
+          )}
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+interface EmailCodeLoginFormProps {
+  autoFocus: boolean;
+  initialEmail: string;
+  keepSignedIn: boolean;
+  /** Optional status shown above the fields (e.g. after a password reset). */
+  notice: ReactNode;
+  /** Runs after the server issued a native session: CSRF, /me, navigation. */
+  onAuthenticated: () => Promise<void>;
+  /** Called once the code was accepted, before the session hand-off. */
+  onVerified: (email: string) => void;
+  /** Keep-signed-in / Remember Me checkboxes shared with the password form. */
+  options: ReactNode;
+  transactionOwnerRef: TransactionOwnerRef;
+}
+
+type EmailCodeField = "email" | "otp";
+type EmailCodeErrors = Partial<Record<EmailCodeField, CopyKey>>;
+
+/** AUTH-03: start → 6-digit code → verify, with the same neutral notices as sign-up. */
+function EmailCodeLoginForm({
+  autoFocus,
+  initialEmail,
+  keepSignedIn,
+  notice,
+  onAuthenticated,
+  onVerified,
+  options,
+  transactionOwnerRef,
+}: EmailCodeLoginFormProps) {
+  const c = useSignInCopy();
+  const ids = {
+    heading: useId(),
+    email: useId(),
+    otp: useId(),
+    codeNotice: useId(),
+  };
+  const emailRef = useRef<HTMLInputElement>(null);
+  const otpRef = useRef<HTMLInputElement>(null);
+  const [email, setEmail] = useState(initialEmail);
+  const [otp, setOtp] = useState("");
+  const [errors, setErrors] = useState<EmailCodeErrors>({});
+  const [failure, setFailure] = useState<AuthFailure | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const code = useEmailChallenge(startEmailCodeLogin, transactionOwnerRef);
+  const lock = useCountdown();
+
+  useEffect(() => {
+    if (autoFocus) emailRef.current?.focus();
+  }, [autoFocus]);
+
+  function clearError(field: EmailCodeField) {
+    setErrors((current) => {
+      if (!current[field]) return current;
+      const next = { ...current };
+      delete next[field];
+      return next;
+    });
+  }
+
+  async function sendCode(trimmedEmail: string) {
+    const outcome = await code.request(trimmedEmail);
+    if (outcome === "sent") {
+      clearError("otp");
+      otpRef.current?.focus();
+    } else if (outcome === "invalidEmail") {
+      setErrors((current) => ({ ...current, email: "errorEmail" }));
+      emailRef.current?.focus();
+    } else if (outcome === "failed") {
+      emailRef.current?.focus();
+    }
+  }
+
+  function handleGetCode() {
+    const trimmedEmail = email.trim();
+    if (!EMAIL_PATTERN.test(trimmedEmail)) {
+      setErrors((current) => ({ ...current, email: "errorEmail" }));
+      emailRef.current?.focus();
+      return;
+    }
+    clearError("email");
+    if (code.requesting || code.cooldownRemaining > 0) return;
+    void sendCode(trimmedEmail);
+  }
+
+  async function finishSession() {
+    setFailure(null);
+    setSubmitting(true);
+    try {
+      await onAuthenticated();
+    } catch {
+      // The session cookie exists; retry only the CSRF + /me hand-off.
+      setFailure({ kind: "session" });
+      setSubmitting(false);
+    }
+  }
+
+  async function verify(challengeId: string, trimmedEmail: string) {
+    setFailure(null);
+    setSubmitting(true);
+    let result: NativeAuthenticationResponse;
+    try {
+      result = await verifyEmailCodeLogin(
+        {
+          challenge_id: challengeId,
+          code: otp.trim(),
+          keep_signed_in: keepSignedIn,
+        },
+        { baseUrl: getApiBaseUrl() },
+      );
+    } catch (error) {
+      const next = authFailureFrom(error);
+      if (next.kind === "badRequest" || next.kind === "invalidCredentials") {
+        // One answer for a wrong, used or expired code (no account oracle).
+        setOtp("");
+        setFailure({ kind: "codeInvalid" });
+        otpRef.current?.focus();
+      } else {
+        const retryAfter = retryAfterOf(next);
+        if (retryAfter) lock.start(retryAfter);
+        setFailure(next);
+      }
+      setSubmitting(false);
+      return;
+    }
+
+    setOtp("");
+    if (result.status !== "authenticated") {
+      // AUTH-08/09 will add the second-factor step; never treat this as signed in.
+      setFailure({ kind: "mfaRequired" });
+      setSubmitting(false);
+      return;
+    }
+    onVerified(trimmedEmail);
+    await finishSession();
+  }
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (submitting || lock.remaining > 0) return;
+    const trimmedEmail = email.trim();
+    const nextErrors: EmailCodeErrors = {};
+    if (!EMAIL_PATTERN.test(trimmedEmail)) nextErrors.email = "errorEmail";
+    const otpError = codeErrorFor(code, otp);
+    if (otpError) nextErrors.otp = otpError;
+    setErrors(nextErrors);
+    if (nextErrors.email) {
+      emailRef.current?.focus();
+      return;
+    }
+    if (nextErrors.otp || !code.challenge) {
+      otpRef.current?.focus();
+      return;
+    }
+    void verify(code.challenge.id, trimmedEmail);
+  }
+
+  function errorFor(field: EmailCodeField) {
+    const key = errors[field];
+    return key ? (
+      <p className="sign-in-form__error" id={`${ids[field]}-error`}>
+        {c[key]}
+      </p>
+    ) : null;
+  }
+
+  const codeNotice = challengeNoticeView(c, code);
+  const emailDescribedBy =
+    [errors.email ? `${ids.email}-error` : "", codeNotice ? ids.codeNotice : ""]
+      .filter(Boolean)
+      .join(" ") || undefined;
+  const submitLabel = submitting
+    ? c.loggingIn
+    : lock.remaining > 0
+      ? formatCopy(c.submitWait, { label: c.logIn, seconds: lock.remaining })
+      : c.logIn;
+
+  return (
+    <form
+      aria-labelledby={ids.heading}
+      className="sign-in-form__stack"
+      noValidate
+      onSubmit={handleSubmit}
+    >
+      <h2 className="visually-hidden" id={ids.heading}>
+        {c.emailCodeHeading}
+      </h2>
+      {notice}
+      <div className="sign-in-form__field">
+        <div className="sign-in-form__code-row">
+          <input
+            aria-describedby={emailDescribedBy}
+            aria-invalid={errors.email ? true : undefined}
+            aria-label={c.emailLabel}
+            autoComplete="email"
+            className="sign-in-input"
+            id={ids.email}
+            inputMode="email"
+            maxLength={REMEMBERED_EMAIL_MAX_LENGTH}
+            name="login-email"
+            onChange={(event) => {
+              setEmail(event.target.value);
+              clearError("email");
+              if (code.challenge || code.requesting) {
+                code.invalidate();
+                setOtp("");
+              }
+            }}
+            placeholder={c.emailLabel}
+            ref={emailRef}
+            spellCheck={false}
+            type="email"
+            value={email}
+          />
+          <button
+            aria-disabled={code.requesting || undefined}
+            className="sign-in-button sign-in-button--code"
+            disabled={code.cooldownRemaining > 0}
+            onClick={handleGetCode}
+            type="button"
+          >
+            {challengeButtonLabel(c, code)}
+          </button>
+        </div>
+        {errorFor("email")}
+        <div aria-live="polite">
+          {codeNotice ? (
+            <p
+              className={
+                codeNotice.error
+                  ? "sign-in-form__hint sign-in-form__hint--error"
+                  : "sign-in-form__hint"
+              }
+              id={ids.codeNotice}
+            >
+              {codeNotice.text}
+            </p>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="sign-in-form__field">
+        <input
+          aria-describedby={errors.otp ? `${ids.otp}-error` : undefined}
+          aria-invalid={errors.otp ? true : undefined}
+          aria-label={c.otpLabel}
+          autoComplete="one-time-code"
+          className="sign-in-input sign-in-input--otp"
+          id={ids.otp}
+          inputMode="numeric"
+          maxLength={6}
+          name="login-otp"
+          onChange={(event) => {
+            setOtp(event.target.value);
+            clearError("otp");
+          }}
+          placeholder={c.otpPlaceholder}
+          ref={otpRef}
+          type="text"
+          value={otp}
+        />
+        {errorFor("otp")}
+      </div>
+
+      {failure ? (
+        <FormAlert
+          failure={failure}
+          onRetrySession={() => void finishSession()}
+        />
+      ) : null}
+      <button
+        aria-disabled={submitting || undefined}
+        className="sign-in-button sign-in-button--primary sign-in-form__submit"
+        disabled={lock.remaining > 0}
+        type="submit"
+      >
+        {submitLabel}
+      </button>
+      {options}
+    </form>
   );
 }
 
@@ -1907,6 +2489,319 @@ function RecoverPasswordForm({ onSignIn }: { onSignIn: () => void }) {
           />
         ) : null}
       </div>
+
+      <DialogClose asChild>
+        <button className="sign-in-recover__back" type="button">
+          {c.getBack}
+        </button>
+      </DialogClose>
+    </>
+  );
+}
+
+interface NativeRecoverPasswordFormProps {
+  /** Clears client state, closes the dialog and asks the user to log in. */
+  onPasswordReset: () => Promise<void>;
+  passwordMinLength: number;
+  transactionOwnerRef: TransactionOwnerRef;
+}
+
+/**
+ * AUTH-03 recovery: start → 6-digit code → new password. The server revokes
+ * every session on success and this flow never signs the user in.
+ */
+function NativeRecoverPasswordForm({
+  onPasswordReset,
+  passwordMinLength,
+  transactionOwnerRef,
+}: NativeRecoverPasswordFormProps) {
+  const c = useSignInCopy();
+  const ids = {
+    email: useId(),
+    otp: useId(),
+    newPassword: useId(),
+    codeNotice: useId(),
+  };
+  const emailRef = useRef<HTMLInputElement>(null);
+  const otpRef = useRef<HTMLInputElement>(null);
+  const newPasswordRef = useRef<HTMLInputElement>(null);
+  const [email, setEmail] = useState("");
+  const [otp, setOtp] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [errors, setErrors] = useState<RecoverErrors>({});
+  const [failure, setFailure] = useState<AuthFailure | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const code = useEmailChallenge(startPasswordRecovery, transactionOwnerRef);
+  const lock = useCountdown();
+
+  function focusField(field: RecoverField) {
+    const fieldRefs = {
+      email: emailRef,
+      otp: otpRef,
+      newPassword: newPasswordRef,
+    };
+    fieldRefs[field].current?.focus();
+  }
+
+  function clearError(field: RecoverField) {
+    setErrors((current) => {
+      if (!current[field]) return current;
+      const next = { ...current };
+      delete next[field];
+      return next;
+    });
+  }
+
+  async function sendCode(trimmedEmail: string) {
+    const outcome = await code.request(trimmedEmail);
+    if (outcome === "sent") {
+      clearError("otp");
+      focusField("otp");
+    } else if (outcome === "invalidEmail") {
+      setErrors((current) => ({ ...current, email: "errorEmail" }));
+      focusField("email");
+    } else if (outcome === "failed") {
+      focusField("email");
+    }
+  }
+
+  function handleGetCode() {
+    const trimmedEmail = email.trim();
+    if (!EMAIL_PATTERN.test(trimmedEmail)) {
+      setErrors((current) => ({ ...current, email: "errorEmail" }));
+      focusField("email");
+      return;
+    }
+    clearError("email");
+    if (code.requesting || code.cooldownRemaining > 0) return;
+    void sendCode(trimmedEmail);
+  }
+
+  async function resetPassword(challengeId: string) {
+    setFailure(null);
+    setSubmitting(true);
+    let result: PasswordRecoveryResponse;
+    try {
+      result = await completePasswordRecovery(
+        {
+          challenge_id: challengeId,
+          code: otp.trim(),
+          new_password: newPassword,
+        },
+        { baseUrl: getApiBaseUrl() },
+      );
+    } catch (error) {
+      const next = authFailureFrom(error);
+      switch (next.kind) {
+        case "passwordPolicy":
+          // Keep the email and code; only the rejected password is cleared.
+          setNewPassword("");
+          setErrors({ newPassword: "errorPasswordPolicy" });
+          focusField("newPassword");
+          break;
+        case "badRequest":
+        case "invalidCredentials":
+          setOtp("");
+          setFailure({ kind: "codeInvalid" });
+          focusField("otp");
+          break;
+        default: {
+          const retryAfter = retryAfterOf(next);
+          if (retryAfter) lock.start(retryAfter);
+          setFailure(next);
+        }
+      }
+      setSubmitting(false);
+      return;
+    }
+
+    setOtp("");
+    setNewPassword("");
+    if (result.status !== "password_reset") {
+      // Contract fallback only: MFA is not implemented, nothing was signed in.
+      setFailure({ kind: "mfaRequired" });
+      setSubmitting(false);
+      return;
+    }
+    await onPasswordReset();
+  }
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (submitting || lock.remaining > 0) return;
+    const nextErrors: RecoverErrors = {};
+    if (!EMAIL_PATTERN.test(email.trim())) nextErrors.email = "errorEmail";
+    const otpError = codeErrorFor(code, otp);
+    if (otpError) nextErrors.otp = otpError;
+    // Count code points like the server (which counts runes after NFKC).
+    if (Array.from(newPassword).length < passwordMinLength) {
+      nextErrors.newPassword = "errorPassword";
+    }
+    setErrors(nextErrors);
+
+    const firstInvalid = RECOVER_FIELD_ORDER.find((field) => nextErrors[field]);
+    if (firstInvalid) {
+      focusField(firstInvalid);
+      return;
+    }
+    if (code.challenge) void resetPassword(code.challenge.id);
+  }
+
+  function errorFor(field: RecoverField) {
+    const key = errors[field];
+    return key ? (
+      <p className="sign-in-form__error" id={`${ids[field]}-error`}>
+        {formatCopy(c[key], { min: passwordMinLength })}
+      </p>
+    ) : null;
+  }
+
+  function describedBy(field: RecoverField, extra?: string) {
+    const parts = [errors[field] ? `${ids[field]}-error` : "", extra ?? ""];
+    const value = parts.filter(Boolean).join(" ");
+    return value || undefined;
+  }
+
+  const codeNotice = challengeNoticeView(c, code);
+  const submitLabel = submitting
+    ? c.resettingPassword
+    : lock.remaining > 0
+      ? formatCopy(c.submitWait, {
+          label: c.resetPassword,
+          seconds: lock.remaining,
+        })
+      : c.resetPassword;
+
+  return (
+    <>
+      <DialogTitle className="sign-in-recover__title">
+        {c.recoverTitle}
+      </DialogTitle>
+      <DialogDescription className="sign-in-recover__subtitle">
+        {c.recoverSubtitleNative}
+      </DialogDescription>
+
+      <form
+        className="sign-in-recover__form"
+        noValidate
+        onSubmit={handleSubmit}
+      >
+        <div className="sign-in-form__field">
+          <label className="sign-in-recover__label" htmlFor={ids.email}>
+            {c.emailLabel}
+          </label>
+          <input
+            aria-describedby={describedBy(
+              "email",
+              codeNotice ? ids.codeNotice : undefined,
+            )}
+            aria-invalid={errors.email ? true : undefined}
+            autoComplete="email"
+            className="sign-in-input sign-in-input--dialog"
+            id={ids.email}
+            inputMode="email"
+            maxLength={REMEMBERED_EMAIL_MAX_LENGTH}
+            name="recovery-email"
+            onChange={(event) => {
+              setEmail(event.target.value);
+              clearError("email");
+              if (code.challenge || code.requesting) {
+                code.invalidate();
+                setOtp("");
+              }
+            }}
+            placeholder={c.recoverEmailPlaceholder}
+            ref={emailRef}
+            spellCheck={false}
+            type="email"
+            value={email}
+          />
+          {errorFor("email")}
+        </div>
+
+        <div className="sign-in-form__field">
+          <label className="sign-in-recover__label" htmlFor={ids.otp}>
+            {c.recoverOtpLabel}
+          </label>
+          <div className="sign-in-recover__code-row">
+            <input
+              aria-describedby={describedBy("otp")}
+              aria-invalid={errors.otp ? true : undefined}
+              autoComplete="one-time-code"
+              className="sign-in-input sign-in-input--dialog sign-in-input--otp"
+              id={ids.otp}
+              inputMode="numeric"
+              maxLength={6}
+              name="recovery-otp"
+              onChange={(event) => {
+                setOtp(event.target.value);
+                clearError("otp");
+              }}
+              placeholder={c.recoverOtpPlaceholder}
+              ref={otpRef}
+              type="text"
+              value={otp}
+            />
+            <button
+              aria-disabled={code.requesting || undefined}
+              className="sign-in-button sign-in-button--dialog-code"
+              disabled={code.cooldownRemaining > 0}
+              onClick={handleGetCode}
+              type="button"
+            >
+              {challengeButtonLabel(c, code)}
+            </button>
+          </div>
+          {errorFor("otp")}
+          <div aria-live="polite">
+            {codeNotice ? (
+              <p
+                className={
+                  codeNotice.error
+                    ? "sign-in-form__hint sign-in-form__hint--error"
+                    : "sign-in-form__hint"
+                }
+                id={ids.codeNotice}
+              >
+                {codeNotice.text}
+              </p>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="sign-in-form__field">
+          <label className="sign-in-recover__label" htmlFor={ids.newPassword}>
+            {c.newPasswordLabel}
+          </label>
+          <input
+            aria-describedby={describedBy("newPassword")}
+            aria-invalid={errors.newPassword ? true : undefined}
+            autoComplete="new-password"
+            className="sign-in-input sign-in-input--dialog"
+            id={ids.newPassword}
+            name="recovery-new-password"
+            onChange={(event) => {
+              setNewPassword(event.target.value);
+              clearError("newPassword");
+            }}
+            placeholder={c.newPasswordPlaceholder}
+            ref={newPasswordRef}
+            type="password"
+            value={newPassword}
+          />
+          {errorFor("newPassword")}
+        </div>
+
+        {failure ? <FormAlert failure={failure} /> : null}
+        <button
+          aria-disabled={submitting || undefined}
+          className="sign-in-button sign-in-button--primary sign-in-recover__submit"
+          disabled={lock.remaining > 0}
+          type="submit"
+        >
+          {submitLabel}
+        </button>
+      </form>
 
       <DialogClose asChild>
         <button className="sign-in-recover__back" type="button">

@@ -22,8 +22,19 @@ function isCurrentUserQuery(queryKey: readonly unknown[]) {
   );
 }
 
+/**
+ * 401 responses that carry these problem codes reject a credential the user
+ * typed (for example the current password on /me/password) while the session
+ * itself stays valid, so they must not purge caches or re-check `/me`.
+ */
+const credentialRejectionCodes = new Set(["auth_invalid_current_password"]);
+
 function isUnauthorized(error: unknown) {
-  return error instanceof APIRequestError && error.status === 401;
+  return (
+    error instanceof APIRequestError &&
+    error.status === 401 &&
+    !credentialRejectionCodes.has(error.problem?.code ?? "")
+  );
 }
 
 function purgePrivateCaches(queryClient: QueryClient) {

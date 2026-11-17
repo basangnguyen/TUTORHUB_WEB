@@ -221,6 +221,7 @@ test("native auth stays off by default and inherited auth settings pass through 
   assert.equal(untouched.AUTH_SIGNUP_ENABLED, "false");
   assert.equal(untouched.AUTH_EMAIL_SENDER, "disabled");
   assert.equal(untouched.AUTH_METHOD_PASSWORD_ENABLED, undefined);
+  assert.equal(untouched.AUTH_METHOD_EMAIL_CODE_ENABLED, undefined);
 
   const plainBase = { PATH: "/usr/bin" };
   assert.equal(
@@ -229,7 +230,7 @@ test("native auth stays off by default and inherited auth settings pass through 
   );
 });
 
-test("native auth enables sign-up, password login and the loopback devinbox only on request", () => {
+test("native auth enables sign-up, password and email-code login and the loopback devinbox only on request", () => {
   const fromEnvironment = buildE2EEnvironment(
     {
       AUTH_EMAIL_SENDER: "ses",
@@ -249,6 +250,7 @@ test("native auth enables sign-up, password login and the loopback devinbox only
   for (const environment of [fromEnvironment, fromFlag]) {
     assert.equal(environment.AUTH_SIGNUP_ENABLED, "true");
     assert.equal(environment.AUTH_METHOD_PASSWORD_ENABLED, "true");
+    assert.equal(environment.AUTH_METHOD_EMAIL_CODE_ENABLED, "true");
     assert.equal(environment.AUTH_EMAIL_SENDER, "devinbox");
     assert.equal(environment.AUTH_PASSWORD_BREACH_CHECK, "offline");
     // The loopback/test boundary that devinbox requires is unchanged.
@@ -275,7 +277,7 @@ test("native auth specs run only through the dedicated Playwright config", () =>
 
   assert.match(
     defaultConfig,
-    /testIgnore:\s*\[\s*"\*\*\/auth-02-native-\*\.spec\.ts",?\s*\]/,
+    /testIgnore:\s*\[\s*"\*\*\/auth-0\[23\]-native-\*\.spec\.ts",?\s*\]/,
   );
   assert.match(
     defaultConfig,
@@ -283,7 +285,7 @@ test("native auth specs run only through the dedicated Playwright config", () =>
   );
   assert.match(
     authConfig,
-    /testMatch:\s*\[\s*"\*\*\/auth-02-native-\*\.spec\.ts",?\s*\]/,
+    /testMatch:\s*\[\s*"\*\*\/auth-0\[23\]-native-\*\.spec\.ts",?\s*\]/,
   );
   assert.match(
     authConfig,

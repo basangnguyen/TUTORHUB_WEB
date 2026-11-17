@@ -49,13 +49,16 @@ export const localAccounts = Object.freeze({
 });
 
 /**
- * AUTH-02 native sign-up/password login for the loopback stack only. Applied
- * solely when E2E_AUTH_NATIVE=true (or `--native-auth`), so the default
- * `pnpm e2e` environment stays byte-for-byte unchanged.
+ * AUTH-02/03 native sign-up, password login, email-code login and password
+ * recovery for the loopback stack only. Applied solely when
+ * E2E_AUTH_NATIVE=true (or `--native-auth`), so the default `pnpm e2e`
+ * environment stays byte-for-byte unchanged.
  */
 export const nativeAuthConfiguration = Object.freeze({
   AUTH_SIGNUP_ENABLED: "true",
   AUTH_METHOD_PASSWORD_ENABLED: "true",
+  // Also enables password recovery (password AND email code on the server).
+  AUTH_METHOD_EMAIL_CODE_ENABLED: "true",
   AUTH_EMAIL_SENDER: "devinbox",
   // Keep the run hermetic: never call the HIBP range API from E2E.
   AUTH_PASSWORD_BREACH_CHECK: "offline",
@@ -550,7 +553,7 @@ function printHelp() {
     `  serve    Prepare and run fake OIDC, Core API, and web\n\n`,
   );
   process.stdout.write(
-    `  --native-auth  Also enable email sign-up, password login and the loopback devinbox sender\n`,
+    `  --native-auth  Also enable email sign-up, password and email-code login, password recovery and the loopback devinbox sender\n`,
   );
 }
 

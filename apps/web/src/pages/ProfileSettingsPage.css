@@ -1,0 +1,50 @@
+/* AUTH-03B: password card on /app/settings. */
+
+.profile-password__status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: center;
+  margin-bottom: 18px;
+}
+
+.profile-password__status p {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.profile-password__notice {
+  margin: 0 0 18px;
+  padding: 12px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-subtle);
+  color: var(--color-text);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.profile-password__fieldset {
+  display: grid;
+  min-width: 0;
+  gap: 18px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.profile-password__legend {
+  margin-bottom: 4px;
+  padding: 0;
+  color: var(--color-text);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.profile-password__fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 18px;
+}

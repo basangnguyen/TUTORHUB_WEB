@@ -57,6 +57,28 @@ describe("TutorHub query client session boundary", () => {
     expect(queryClient.getMutationCache().getAll()).toHaveLength(0);
   });
 
+  it("keeps the session caches when a 401 only rejects the typed current password", async () => {
+    const queryClient = createTutorHubQueryClient();
+    const privateData = { name: "Private workspace" };
+    queryClient.setQueryData(["tenants", "private"], privateData);
+    const mutation = new MutationObserver(queryClient, {
+      mutationFn: async () => {
+        throw new APIRequestError(401, {
+          type: "urn:tutorhub:problem:http-401",
+          title: "Invalid current password",
+          status: 401,
+          code: "auth_invalid_current_password",
+        });
+      },
+    });
+
+    await expect(mutation.mutate()).rejects.toMatchObject({ status: 401 });
+
+    expect(queryClient.getQueryData(["tenants", "private"])).toEqual(
+      privateData,
+    );
+  });
+
   it("does not purge private data for a non-session 403", async () => {
     const queryClient = createTutorHubQueryClient();
     const attempts = vi.fn();

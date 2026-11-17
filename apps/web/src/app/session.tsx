@@ -43,6 +43,12 @@ interface SessionContextValue {
    * syncs the new session's CSRF token into memory and reloads `/me`.
    */
   completeNativeSignIn: () => Promise<void>;
+  /**
+   * Runs after a password recovery: the server already revoked every session
+   * and cleared the session/CSRF cookies. Drops private caches and reloads
+   * `/me` so the app observes the signed-out state. Never signs the user in.
+   */
+  resetAfterPasswordRecovery: () => Promise<void>;
   signOut: () => Promise<void>;
   refresh: () => Promise<void>;
   replaceCurrentUser: (currentUser: CurrentUser) => void;
@@ -104,6 +110,7 @@ function StaticSessionProvider({
       status: currentUser ? "authenticated" : "unauthenticated",
       signIn: navigateToLogin,
       completeNativeSignIn: async () => undefined,
+      resetAfterPasswordRecovery: async () => clearMediaRoomEscrow(),
       signOut: async () => clearMediaRoomEscrow(),
       refresh: async () => undefined,
       replaceCurrentUser,
@@ -177,10 +184,17 @@ function RemoteSessionProvider({ children }: PropsWithChildren) {
     await refresh();
   }, [queryClient, refresh]);
 
+  const resetAfterPasswordRecovery = useCallback(async () => {
+    await clearPrivateSessionCache(queryClient);
+    // Expected to settle as 401 (unauthenticated); refetch() never throws.
+    await sessionQuery.refetch();
+  }, [queryClient, sessionQuery]);
+
   const value = useMemo<SessionContextValue>(() => {
     const actions = {
       signIn: navigateToLogin,
       completeNativeSignIn,
+      resetAfterPasswordRecovery,
       signOut,
       refresh,
       replaceCurrentUser,
@@ -237,6 +251,7 @@ function RemoteSessionProvider({ children }: PropsWithChildren) {
     sessionQuery.isSuccess,
     signOutError,
     completeNativeSignIn,
+    resetAfterPasswordRecovery,
     signOut,
     refresh,
     replaceCurrentUser,

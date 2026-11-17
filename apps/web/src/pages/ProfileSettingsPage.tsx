@@ -1,8 +1,13 @@
-import { APIRequestError, type UserProfile } from "@tutorhub/api-client";
+import {
+  APIRequestError,
+  type MyPasswordStatusResponse,
+  type UserProfile,
+} from "@tutorhub/api-client";
 import {
   Button,
   EmptyState,
   ErrorState,
+  ForbiddenState,
   SelectField,
   Skeleton,
   SkeletonGroup,
@@ -10,6 +15,7 @@ import {
   TextField,
 } from "@tutorhub/ui";
 import {
+  KeyRound,
   Link2,
   RefreshCw,
   Save,
@@ -17,16 +23,33 @@ import {
   Trash2,
   UserRound,
 } from "lucide-react";
-import { useMemo, useRef, useState, type FormEvent } from "react";
 import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
+import {
+  useAuthProvidersQuery,
   useBeginIdentityLink,
   useIdentitiesQuery,
+  usePasswordStatusQuery,
   useProfileQuery,
   useUnlinkIdentity,
+  useUpdateMyPassword,
   useUpdateProfile,
 } from "../app/profile";
-import { useI18n } from "../app/i18n";
+import { useI18n, type TranslationKey } from "../app/i18n";
 import { useSession } from "../app/session";
+import "./ProfileSettingsPage.css";
+
+/** Client-side floor only; the server enforces the deployment policy. */
+const DEFAULT_PASSWORD_MIN_LENGTH = 8;
+/** Upper bound for client-side Retry-After locks; the server stays authoritative. */
+const MAX_RETRY_AFTER_SECONDS = 3600;
 
 interface ProfileFormErrors {
   displayName?: string;
@@ -238,6 +261,414 @@ function ProfileDetailsForm({ user }: { user: UserProfile }) {
         </div>
       )}
     </form>
+  );
+}
+
+function useRetryLock() {
+  const [remaining, setRemaining] = useState(0);
+
+  useEffect(() => {
+    if (remaining <= 0) return;
+    const timer = window.setTimeout(() => {
+      setRemaining((value) => Math.max(0, value - 1));
+    }, 1000);
+    return () => window.clearTimeout(timer);
+  }, [remaining]);
+
+  const start = useCallback((seconds: number | undefined) => {
+    setRemaining(
+      typeof seconds === "number" && Number.isFinite(seconds) && seconds > 0
+        ? Math.min(Math.ceil(seconds), MAX_RETRY_AFTER_SECONDS)
+        : 0,
+    );
+  }, []);
+
+  return { remaining, start };
+}
+
+type PasswordField = "current" | "next" | "confirm";
+type PasswordFieldErrors = Partial<Record<PasswordField, TranslationKey>>;
+
+type PasswordFailure =
+  | { kind: "reauth" }
+  | { kind: "verifiedEmail" }
+  | { kind: "rateLimited"; seconds?: number }
+  | { kind: "busy"; seconds?: number }
+  | { kind: "network" }
+  | { kind: "generic" };
+
+type PasswordErrorOutcome =
+  { field: PasswordField; key: TranslationKey } | { failure: PasswordFailure };
+
+function classifyPasswordError(error: unknown): PasswordErrorOutcome {
+  if (!(error instanceof APIRequestError)) {
+    return { failure: { kind: "network" } };
+  }
+  const code = error.problem?.code;
+  switch (error.status) {
+    case 400:
+      if (code === "auth_password_unchanged") {
+        return { field: "next", key: "profile.passwordUnchanged" };
+      }
+      if (code === "auth_password_policy") {
+        return { field: "next", key: "profile.passwordPolicy" };
+      }
+      return { failure: { kind: "generic" } };
+    case 401:
+      return code === "auth_invalid_current_password"
+        ? { field: "current", key: "profile.passwordInvalidCurrent" }
+        : { failure: { kind: "reauth" } };
+    case 403:
+      // Without a code, 403 means the session is older than the step-up window.
+      return code === "auth_verified_email_required"
+        ? { failure: { kind: "verifiedEmail" } }
+        : { failure: { kind: "reauth" } };
+    case 429:
+      return {
+        failure: { kind: "rateLimited", seconds: error.retryAfterSeconds },
+      };
+    case 503:
+      return { failure: { kind: "busy", seconds: error.retryAfterSeconds } };
+    default:
+      return { failure: { kind: "generic" } };
+  }
+}
+
+function passwordMinLength(value: number | undefined) {
+  return typeof value === "number" && Number.isFinite(value) && value > 0
+    ? Math.ceil(value)
+    : DEFAULT_PASSWORD_MIN_LENGTH;
+}
+
+const PASSWORD_FIELD_ORDER: readonly PasswordField[] = [
+  "current",
+  "next",
+  "confirm",
+];
+
+interface PasswordFormProps {
+  dateFormatter: Intl.DateTimeFormat;
+  status: MyPasswordStatusResponse;
+}
+
+function PasswordForm({ dateFormatter, status }: PasswordFormProps) {
+  const { t } = useI18n();
+  const session = useSession();
+  const providersQuery = useAuthProvidersQuery();
+  const updatePassword = useUpdateMyPassword();
+  const lock = useRetryLock();
+  const disabledNoticeId = useId();
+  const currentRef = useRef<HTMLInputElement>(null);
+  const nextRef = useRef<HTMLInputElement>(null);
+  const confirmRef = useRef<HTMLInputElement>(null);
+  const [current, setCurrent] = useState("");
+  const [next, setNext] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<PasswordFieldErrors>({});
+  const [failure, setFailure] = useState<PasswordFailure | null>(null);
+  const [feedback, setFeedback] = useState<TranslationKey | null>(null);
+  const hasPassword = status.has_password;
+  const enabled = status.password_enabled;
+  const minLength = passwordMinLength(providersQuery.data?.password_min_length);
+  const fieldRefs = { current: currentRef, next: nextRef, confirm: confirmRef };
+
+  function clearFieldError(field: PasswordField) {
+    setFieldErrors((errors) => {
+      if (!errors[field]) return errors;
+      const nextErrors = { ...errors };
+      delete nextErrors[field];
+      return nextErrors;
+    });
+  }
+
+  function validate() {
+    const errors: PasswordFieldErrors = {};
+    if (hasPassword && !current) {
+      errors.current = "profile.passwordCurrentRequired";
+    }
+    // Count code points like the server (which counts runes after NFKC).
+    if (Array.from(next).length < minLength) {
+      errors.next = "profile.passwordTooShort";
+    } else if (hasPassword && next === current) {
+      errors.next = "profile.passwordUnchanged";
+    } else if (confirm !== next) {
+      errors.confirm = "profile.passwordMismatch";
+    }
+    return errors;
+  }
+
+  function reauthenticate() {
+    // Native-only deployments have no portal to step up through: sign out so
+    // the user logs in again on /sign-in, then returns here within 10 minutes.
+    if (providersQuery.data?.oidc_default_enabled) {
+      session.signIn("/app/settings");
+    } else {
+      void session.signOut();
+    }
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!enabled || updatePassword.isPending || lock.remaining > 0) return;
+    setFeedback(null);
+    setFailure(null);
+    const errors = validate();
+    setFieldErrors(errors);
+    const firstInvalid = PASSWORD_FIELD_ORDER.find((field) => errors[field]);
+    if (firstInvalid) {
+      fieldRefs[firstInvalid].current?.focus();
+      return;
+    }
+
+    const wasSet = hasPassword;
+    try {
+      await updatePassword.mutateAsync(
+        wasSet
+          ? { current_password: current, new_password: next }
+          : { new_password: next },
+      );
+    } catch (error) {
+      const outcome = classifyPasswordError(error);
+      if ("field" in outcome) {
+        if (outcome.field === "current") {
+          setCurrent("");
+        } else {
+          setNext("");
+          setConfirm("");
+        }
+        setFieldErrors({ [outcome.field]: outcome.key });
+        fieldRefs[outcome.field].current?.focus();
+        return;
+      }
+      if (
+        outcome.failure.kind === "rateLimited" ||
+        outcome.failure.kind === "busy"
+      ) {
+        lock.start(outcome.failure.seconds);
+      }
+      setFailure(outcome.failure);
+      return;
+    }
+
+    // Never keep a password in memory longer than the request needs it.
+    setCurrent("");
+    setNext("");
+    setConfirm("");
+    setFeedback(
+      wasSet ? "profile.passwordChangedDone" : "profile.passwordSetDone",
+    );
+  }
+
+  function failureText(value: PasswordFailure) {
+    switch (value.kind) {
+      case "reauth":
+        return t("profile.passwordReauthRequired");
+      case "verifiedEmail":
+        return t("profile.passwordVerifiedEmailRequired");
+      case "rateLimited":
+        return lock.remaining > 0
+          ? t("profile.passwordRateLimitedWait", { seconds: lock.remaining })
+          : t("profile.passwordRateLimited");
+      case "busy":
+        return lock.remaining > 0
+          ? t("profile.passwordBusyWait", { seconds: lock.remaining })
+          : t("profile.passwordBusy");
+      case "network":
+        return t("profile.passwordNetworkError");
+      default:
+        return t("profile.passwordSaveError");
+    }
+  }
+
+  const submitText = hasPassword
+    ? t("profile.passwordSubmitChange")
+    : t("profile.passwordSubmitSet");
+  const fieldError = (field: PasswordField) => {
+    const key = fieldErrors[field];
+    return key ? t(key, { min: minLength }) : undefined;
+  };
+
+  return (
+    <>
+      <div className="profile-password__status">
+        <StatusBadge tone={hasPassword ? "success" : "neutral"}>
+          {hasPassword ? t("profile.passwordSet") : t("profile.passwordNotSet")}
+        </StatusBadge>
+        <p>
+          {hasPassword
+            ? status.updated_at
+              ? t("profile.passwordUpdatedAt", {
+                  date: dateFormatter.format(new Date(status.updated_at)),
+                })
+              : null
+            : t("profile.passwordNotSetDescription")}
+        </p>
+      </div>
+
+      {!enabled && (
+        <p className="profile-password__notice" id={disabledNoticeId}>
+          {t("profile.passwordDisabled")}
+        </p>
+      )}
+
+      <form className="profile-form" noValidate onSubmit={handleSubmit}>
+        <fieldset
+          aria-describedby={enabled ? undefined : disabledNoticeId}
+          className="profile-password__fieldset"
+          disabled={!enabled}
+        >
+          <legend className="profile-password__legend">
+            {hasPassword
+              ? t("profile.passwordFormChangeTitle")
+              : t("profile.passwordFormSetTitle")}
+          </legend>
+          <div className="profile-password__fields">
+            {hasPassword && (
+              <TextField
+                autoComplete="current-password"
+                error={fieldError("current")}
+                label={t("profile.passwordCurrentLabel")}
+                name="current-password"
+                onChange={(event) => {
+                  setCurrent(event.target.value);
+                  clearFieldError("current");
+                }}
+                ref={currentRef}
+                type="password"
+                value={current}
+              />
+            )}
+            <TextField
+              autoComplete="new-password"
+              error={fieldError("next")}
+              hint={t("profile.passwordNewHint", { min: minLength })}
+              label={t("profile.passwordNewLabel")}
+              name="new-password"
+              onChange={(event) => {
+                setNext(event.target.value);
+                clearFieldError("next");
+              }}
+              ref={nextRef}
+              type="password"
+              value={next}
+            />
+            <TextField
+              autoComplete="new-password"
+              error={fieldError("confirm")}
+              label={t("profile.passwordConfirmLabel")}
+              name="confirm-new-password"
+              onChange={(event) => {
+                setConfirm(event.target.value);
+                clearFieldError("confirm");
+              }}
+              ref={confirmRef}
+              type="password"
+              value={confirm}
+            />
+          </div>
+          <div className="profile-form__footer">
+            <Button
+              disabled={lock.remaining > 0}
+              leadingIcon={<KeyRound />}
+              loading={updatePassword.isPending}
+              loadingLabel={t("profile.passwordSaving")}
+              type="submit"
+            >
+              {lock.remaining > 0
+                ? t("profile.passwordSubmitWait", {
+                    label: submitText,
+                    seconds: lock.remaining,
+                  })
+                : submitText}
+            </Button>
+            {feedback && (
+              <p
+                className="profile-feedback profile-feedback--success"
+                role="status"
+              >
+                {t(feedback)}
+              </p>
+            )}
+          </div>
+        </fieldset>
+
+        {failure && (
+          <div
+            className="profile-feedback profile-feedback--error"
+            role="alert"
+          >
+            <span>{failureText(failure)}</span>
+            {failure.kind === "reauth" && (
+              <Button onClick={reauthenticate} size="sm" variant="secondary">
+                {t("auth.signInAgain")}
+              </Button>
+            )}
+          </div>
+        )}
+      </form>
+    </>
+  );
+}
+
+function PasswordSettingsCard({
+  dateFormatter,
+}: {
+  dateFormatter: Intl.DateTimeFormat;
+}) {
+  const { t } = useI18n();
+  const statusQuery = usePasswordStatusQuery();
+  const forbidden =
+    statusQuery.error instanceof APIRequestError &&
+    [401, 403].includes(statusQuery.error.status);
+  const retry = (
+    <Button
+      leadingIcon={<RefreshCw />}
+      onClick={() => void statusQuery.refetch()}
+      size="sm"
+      variant="secondary"
+    >
+      {t("state.retry")}
+    </Button>
+  );
+
+  return (
+    <section className="profile-panel" aria-labelledby="profile-password-title">
+      <div className="profile-panel__heading">
+        <span className="profile-panel__icon" aria-hidden="true">
+          <KeyRound />
+        </span>
+        <div>
+          <h2 id="profile-password-title">{t("profile.passwordTitle")}</h2>
+          <p>{t("profile.passwordDescription")}</p>
+        </div>
+      </div>
+
+      {statusQuery.isPending && (
+        <SkeletonGroup label={t("profile.passwordLoading")}>
+          <Skeleton height={28} width="40%" />
+          <Skeleton height={120} />
+        </SkeletonGroup>
+      )}
+
+      {statusQuery.isError &&
+        (forbidden ? (
+          <ForbiddenState
+            actions={retry}
+            description={t("profile.passwordForbidden")}
+            title={t("profile.passwordForbiddenTitle")}
+          />
+        ) : (
+          <ErrorState
+            actions={retry}
+            description={t("profile.passwordLoadError")}
+            title={t("profile.passwordLoadErrorTitle")}
+          />
+        ))}
+
+      {statusQuery.isSuccess && (
+        <PasswordForm dateFormatter={dateFormatter} status={statusQuery.data} />
+      )}
+    </section>
   );
 }
 
@@ -500,6 +931,8 @@ export function ProfileSettingsPage() {
             </div>
           )}
         </section>
+
+        <PasswordSettingsCard dateFormatter={dateFormatter} />
       </div>
     </main>
   );

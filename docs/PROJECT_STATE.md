@@ -4,18 +4,55 @@
 
 ## Snapshot
 
-| Thuộc tính           | Trạng thái                                                                                                                       |
-| -------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| Ngày cập nhật        | 2026-11-17                                                                                                                       |
-| Repository           | `https://github.com/basangnguyen/TUTORHUB_WEB`                                                                                   |
-| Nhánh làm việc       | `main`                                                                                                                           |
-| Quy trình            | Antigravity làm PM/Gatekeeper điều phối Codex và Claude Code qua prompt; Antigravity nghiệm thu và commit/push thẳng `main`      |
-| Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4, Phase 5 collaboration                                                                        |
-| Phase hiện tại       | Phase 3 deferred carry-over vẫn hoạt động; Phase 5 collaboration đã đóng                                                         |
-| Task `DONE` gần nhất | `AUTH-03A` Server + OpenAPI: Đăng nhập OTP email, Khôi phục mật khẩu & Đặt/đổi mật khẩu `/api/v1/me/password` (`DONE`)           |
-| Mốc repository mới   | `AUTH-03A` `DONE` (`21/21` suite PostgreSQL disposable & exact ACL PASS `0` SKIP + `pnpm verify` PASS; schema `000044`)          |
-| Task hiện tại        | Giao `AUTH-03B` cho Claude Code (UI + E2E: Đăng nhập mã OTP email, `RecoverPasswordForm` & Thẻ đặt/đổi mật khẩu `/app/settings`) |
-| Task tiếp theo       | Nghiệm thu `AUTH-03B` để đóng `AUTH-03`, sau đó mở `AUTH-04` (Quản lý phiên/thiết bị & Step-up `10` phút)                        |
+| Thuộc tính           | Trạng thái                                                                                                                             |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Ngày cập nhật        | 2026-11-18                                                                                                                             |
+| Repository           | `https://github.com/basangnguyen/TUTORHUB_WEB`                                                                                         |
+| Nhánh làm việc       | `main`                                                                                                                                 |
+| Quy trình            | Antigravity làm PM/Gatekeeper điều phối Codex và Claude Code qua prompt; Antigravity nghiệm thu và commit/push thẳng `main`            |
+| Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4, Phase 5 collaboration                                                                              |
+| Phase hiện tại       | Phase 3 deferred carry-over vẫn hoạt động; Phase 5 collaboration đã đóng                                                               |
+| Task `DONE` gần nhất | `AUTH-03B` Giao diện Đăng nhập mã OTP email, Khôi phục mật khẩu & Thẻ đặt/đổi mật khẩu `/app/settings` + Playwright (`AUTH-03` `DONE`) |
+| Mốc repository mới   | Trọn gói `AUTH-03` `DONE` (web `552` unit test; Playwright native auth `3/3` + hồi quy OIDC `p2-08` PASS trên Chromium thật)           |
+| Task hiện tại        | Giao `AUTH-04A` cho Codex (Server + Contract: Quản lý phiên/thiết bị, `/auth/reauth` step-up `10` phút, `/me/security`)                |
+| Task tiếp theo       | Nghiệm thu `AUTH-04A`, sau đó giao `AUTH-04B` cho Claude Code (hộp thoại step-up dùng chung & trang thiết bị/phiên)                    |
+
+### Checkpoint `AUTH-03B` Giao diện Đăng nhập mã email, Khôi phục mật khẩu & Đặt/đổi mật khẩu (`AUTH-03` `DONE`) — 2026-11-18
+
+Claude Code triển khai lát cắt Web UI + Playwright E2E của `AUTH-03`; Gatekeeper (Antigravity) rà soát, sửa thêm
+và kiểm chứng trên Chromium thật kết nối Go Core API + PostgreSQL disposable:
+
+- **Đăng nhập bằng mã email** (`SignInPage.tsx`, chỉ hiện khi `email_code_enabled=true`): lấy mã → OTP 6 số →
+  xác thực, cooldown `60s`, nhắc hết hạn, tự mở giao dịch mới khi gửi lại trả `400`, bỏ mã cũ và phản hồi muộn khi
+  đổi email, thông báo trung tính chống dò tài khoản, `mfa_required` không bao giờ được coi là đã đăng nhập; thành
+  công đi qua `completeNativeSignIn()`. Ref "chủ giao dịch" ngăn luồng đăng nhập bằng mã và luồng khôi phục gửi lại
+  nhầm mã của nhau (server chỉ gắn một cookie giao dịch).
+- **Khôi phục mật khẩu** (`NativeRecoverPasswordForm`, chỉ khi `password_recovery_enabled === true`, thiếu cờ giữ
+  placeholder OIDC): lỗi policy chỉ xóa ô mật khẩu mới; thành công gọi `resetAfterPasswordRecovery()` (xóa cache
+  riêng tư, tải lại `/me` → chưa đăng nhập), đóng dialog, hiện banner yêu cầu đăng nhập lại — **không tự đăng nhập**.
+- **Thẻ "Mật khẩu" trên `/app/settings`**: đủ trạng thái tải/lỗi/thử lại/không có quyền, đặt mật khẩu lần đầu hoặc
+  đổi mật khẩu (kèm `updated_at`), khóa form khi `password_enabled=false`; xử lý riêng `403` cần xác thực lại,
+  `auth_verified_email_required`, `auth_invalid_current_password`, `auth_password_unchanged`, `auth_password_policy`,
+  `429`/`503` + `Retry-After`; xoay CSRF trước POST và đồng bộ lại sau khi thành công.
+- **Gatekeeper sửa thêm**:
+  - `apps/web/src/app/queryClient.ts`: hook toàn cục coi mọi `401` của mutation là hết phiên (xóa cache, reset
+    `/me`, form bị remount và mất thông báo lỗi). Nay bỏ qua `401` mang mã `auth_invalid_current_password` (chỉ từ
+    chối mật khẩu người dùng gõ, phiên vẫn hợp lệ); thêm unit test. Lỗi này chỉ lộ ra khi chạy trình duyệt thật.
+  - `e2e/auth-03-native-email-code-recovery.spec.ts`: tạo workspace qua UI trước bước đổi mật khẩu (tài khoản mới
+    chưa có workspace bị điều hướng `/app` về trang onboarding).
+  - `playwright.config.ts` `testIgnore` → `**/auth-0[23]-native-*.spec.ts` (+ assertion `scripts/e2e-local.test.mjs`)
+    để `pnpm e2e` mặc định không thu thập spec native.
+- **Bằng chứng**: `pnpm verify` PASS (web `552/552`, api-client `71/71`, security `86/86`, bundle `201` file,
+  `e2e-local` script `11/11`). Playwright Chromium thật trên DB disposable (`44 false`, xóa DB sau khi chạy):
+  `auth-02-native-signup-login.spec.ts` `2/2` + `auth-03-native-email-code-recovery.spec.ts` `1/1` PASS (đăng nhập bằng
+  mã email, email lạ trông y hệt email đã đăng ký và không nhận thư, khôi phục không tự đăng nhập, notice
+  `password_changed` không chứa mã, mật khẩu cũ bị từ chối, đổi mật khẩu trong settings giữ phiên và mutation CSRF
+  tiếp theo vẫn chạy, Axe `0` vi phạm serious/critical, không có mật khẩu/OTP trong Web Storage, cookie `HttpOnly`).
+  Hồi quy OIDC `e2e/p2-08-core-workflows.spec.ts` PASS khi tắt cờ native (`4,7` phút do độ trễ Neon US-East; timeout
+  mặc định `240s` không đủ cho DB từ xa, CI dùng PostgreSQL loopback).
+- **Giới hạn**: nút "Đăng nhập lại" cho tài khoản chỉ có native hiện chỉ đăng xuất (step-up `/auth/reauth` thuộc
+  `AUTH-04`); người dùng chưa có workspace chưa vào được `/app/settings` để đổi mật khẩu; chưa bật cờ native trên
+  shared/staging.
 
 ### Checkpoint `AUTH-03A` Đăng nhập OTP Email, Khôi phục mật khẩu & Đặt/đổi mật khẩu phía Server `DONE` — 2026-11-17
 
