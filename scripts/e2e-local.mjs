@@ -48,12 +48,49 @@ export const localAccounts = Object.freeze({
   }),
 });
 
+/**
+ * AUTH-02 native sign-up/password login for the loopback stack only. Applied
+ * solely when E2E_AUTH_NATIVE=true (or `--native-auth`), so the default
+ * `pnpm e2e` environment stays byte-for-byte unchanged.
+ */
+export const nativeAuthConfiguration = Object.freeze({
+  AUTH_SIGNUP_ENABLED: "true",
+  AUTH_METHOD_PASSWORD_ENABLED: "true",
+  AUTH_EMAIL_SENDER: "devinbox",
+  // Keep the run hermetic: never call the HIBP range API from E2E.
+  AUTH_PASSWORD_BREACH_CHECK: "offline",
+});
+
+const commandOptions = Object.freeze({
+  "--native-auth": "nativeAuth",
+});
+
 export function parseArguments(argumentsList) {
-  const command = argumentsList[0] ?? "help";
+  const [command = "help", ...optionsList] = argumentsList;
   if (!new Set(["serve", "prepare", "help"]).has(command)) {
     throw new Error(`Unknown E2E environment command: ${command}`);
   }
-  return { command };
+  const options = { nativeAuth: false };
+  for (const option of optionsList) {
+    const name = Object.hasOwn(commandOptions, option)
+      ? commandOptions[option]
+      : undefined;
+    if (!name) {
+      throw new Error(`Unknown E2E environment option: ${option}`);
+    }
+    options[name] = true;
+  }
+  return { command, ...options };
+}
+
+/** Maps CLI flags to environment toggles without shell-specific syntax. */
+export function resolveBaseEnvironment(
+  { nativeAuth = false } = {},
+  baseEnvironment = process.env,
+) {
+  return nativeAuth
+    ? { ...baseEnvironment, E2E_AUTH_NATIVE: "true" }
+    : baseEnvironment;
 }
 
 export function createRuntimeSecrets() {
@@ -132,6 +169,9 @@ export function buildE2EEnvironment(
 
   for (const key of clearedConfigurationKeys) {
     environment[key] = "";
+  }
+  if (baseEnvironment.E2E_AUTH_NATIVE === "true") {
+    Object.assign(environment, nativeAuthConfiguration);
   }
   return environment;
 }
@@ -507,13 +547,18 @@ function printHelp() {
     `  prepare  Recreate the isolated database and migrate\n`,
   );
   process.stdout.write(
-    `  serve    Prepare and run fake OIDC, Core API, and web\n`,
+    `  serve    Prepare and run fake OIDC, Core API, and web\n\n`,
+  );
+  process.stdout.write(
+    `  --native-auth  Also enable email sign-up, password login and the loopback devinbox sender\n`,
   );
 }
 
-export async function main(argumentsList) {
-  const { command } = parseArguments(argumentsList);
-  const environment = buildE2EEnvironment(process.env);
+export async function main(argumentsList, baseEnvironment = process.env) {
+  const { command, nativeAuth } = parseArguments(argumentsList);
+  const environment = buildE2EEnvironment(
+    resolveBaseEnvironment({ nativeAuth }, baseEnvironment),
+  );
   switch (command) {
     case "prepare":
       prepareE2EDatabase(environment);

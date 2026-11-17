@@ -37,6 +37,12 @@ interface SessionContextValue {
   error: Error | null;
   status: SessionStatus;
   signIn: (returnTo?: string) => void;
+  /**
+   * Finishes a first-party (native) sign-in after the server has issued the
+   * HttpOnly session cookie: drops the previous principal's private caches,
+   * syncs the new session's CSRF token into memory and reloads `/me`.
+   */
+  completeNativeSignIn: () => Promise<void>;
   signOut: () => Promise<void>;
   refresh: () => Promise<void>;
   replaceCurrentUser: (currentUser: CurrentUser) => void;
@@ -97,6 +103,7 @@ function StaticSessionProvider({
       error: null,
       status: currentUser ? "authenticated" : "unauthenticated",
       signIn: navigateToLogin,
+      completeNativeSignIn: async () => undefined,
       signOut: async () => clearMediaRoomEscrow(),
       refresh: async () => undefined,
       replaceCurrentUser,
@@ -162,38 +169,44 @@ function RemoteSessionProvider({ children }: PropsWithChildren) {
     [queryClient],
   );
 
+  const completeNativeSignIn = useCallback(async () => {
+    // The previous principal (if any) must not leak into the new session.
+    await clearPrivateSessionCache(queryClient);
+    // Native sign-in issues a fresh CSRF cookie; keep the in-memory copy in sync.
+    await rotateCSRFToken({ baseUrl: getApiBaseUrl() });
+    await refresh();
+  }, [queryClient, refresh]);
+
   const value = useMemo<SessionContextValue>(() => {
+    const actions = {
+      signIn: navigateToLogin,
+      completeNativeSignIn,
+      signOut,
+      refresh,
+      replaceCurrentUser,
+    };
     if (isSigningOut || sessionQuery.isPending) {
       return {
+        ...actions,
         currentUser: sessionQuery.data ?? null,
         error: null,
         status: "loading",
-        signIn: navigateToLogin,
-        signOut,
-        refresh,
-        replaceCurrentUser,
       };
     }
     if (signOutError) {
       return {
+        ...actions,
         currentUser: sessionQuery.data ?? null,
         error: signOutError,
         status: "error",
-        signIn: navigateToLogin,
-        signOut,
-        refresh,
-        replaceCurrentUser,
       };
     }
     if (sessionQuery.isSuccess) {
       return {
+        ...actions,
         currentUser: sessionQuery.data,
         error: null,
         status: "authenticated",
-        signIn: navigateToLogin,
-        signOut,
-        refresh,
-        replaceCurrentUser,
       };
     }
     if (
@@ -201,26 +214,20 @@ function RemoteSessionProvider({ children }: PropsWithChildren) {
       sessionQuery.error.status === 401
     ) {
       return {
+        ...actions,
         currentUser: null,
         error: null,
         status: "unauthenticated",
-        signIn: navigateToLogin,
-        signOut,
-        refresh,
-        replaceCurrentUser,
       };
     }
     return {
+      ...actions,
       currentUser: null,
       error:
         sessionQuery.error instanceof Error
           ? sessionQuery.error
           : new Error("Authentication status is unavailable."),
       status: "error",
-      signIn: navigateToLogin,
-      signOut,
-      refresh,
-      replaceCurrentUser,
     };
   }, [
     isSigningOut,
@@ -229,6 +236,7 @@ function RemoteSessionProvider({ children }: PropsWithChildren) {
     sessionQuery.isPending,
     sessionQuery.isSuccess,
     signOutError,
+    completeNativeSignIn,
     signOut,
     refresh,
     replaceCurrentUser,

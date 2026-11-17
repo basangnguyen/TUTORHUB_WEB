@@ -4,18 +4,53 @@
 
 ## Snapshot
 
-| Thuộc tính           | Trạng thái                                                                                                                  |
-| -------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| Ngày cập nhật        | 2026-11-17                                                                                                                  |
-| Repository           | `https://github.com/basangnguyen/TUTORHUB_WEB`                                                                              |
-| Nhánh làm việc       | `main`                                                                                                                      |
-| Quy trình            | Antigravity làm PM/Gatekeeper điều phối Codex và Claude Code qua prompt; Antigravity nghiệm thu và commit/push thẳng `main` |
-| Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4, Phase 5 collaboration                                                                   |
-| Phase hiện tại       | Phase 3 deferred carry-over vẫn hoạt động; Phase 5 collaboration đã đóng                                                    |
-| Task `DONE` gần nhất | `AUTH-02A` Đăng ký Email + OTP + Argon2id + Legal Acceptance & Đăng nhập mật khẩu phía Server + Contract (`000044`)         |
-| Mốc repository mới   | `AUTH-02A` PASS `pnpm verify` + 14/14 suite PostgreSQL disposable (`44 false`, atomic signup, admin 24h cap, exact ACL)     |
-| Task hiện tại        | Giao `AUTH-02B` cho Claude Code (nối `LoginForm` & `SignUpForm` trên `SignInPage.tsx` + Playwright E2E qua `devinbox`)      |
-| Task tiếp theo       | Nghiệm thu `AUTH-02B` từ Claude Code để hoàn tất gói `AUTH-02`, sau đó mở `AUTH-03` (Đăng nhập mã email & Quên mật khẩu)    |
+| Thuộc tính           | Trạng thái                                                                                                                             |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Ngày cập nhật        | 2026-11-17                                                                                                                             |
+| Repository           | `https://github.com/basangnguyen/TUTORHUB_WEB`                                                                                         |
+| Nhánh làm việc       | `main`                                                                                                                                 |
+| Quy trình            | Antigravity làm PM/Gatekeeper điều phối Codex và Claude Code qua prompt; Antigravity nghiệm thu và commit/push thẳng `main`            |
+| Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4, Phase 5 collaboration                                                                              |
+| Phase hiện tại       | Phase 3 deferred carry-over vẫn hoạt động; Phase 5 collaboration đã đóng                                                               |
+| Task `DONE` gần nhất | `AUTH-02B` Nối giao diện Đăng ký Email + OTP + Điều khoản & Đăng nhập mật khẩu trên `/sign-in` + Playwright E2E (`AUTH-02` `DONE`)     |
+| Mốc repository mới   | Trọn gói `AUTH-02` `DONE` (`522` web unit test + Playwright `auth-02-native-signup-login.spec.ts` `2/2` PASS trên Chromium thật)       |
+| Task hiện tại        | Giao `AUTH-03A` cho Codex (Server + Contract: Đăng nhập bằng mã OTP email, Quên/khôi phục mật khẩu & Đặt/đổi mật khẩu `/me/password`)  |
+| Task tiếp theo       | Nghiệm thu `AUTH-03A` từ Codex, sau đó giao `AUTH-03B` cho Claude Code (`RecoverPasswordForm`, mã email login & Settings đổi mật khẩu) |
+
+### Checkpoint `AUTH-02B` Giao diện Đăng ký Email + OTP & Đăng nhập mật khẩu trên `/sign-in` (`AUTH-02` `DONE`) — 2026-11-17
+
+Claude Code triển khai lát cắt Web UI + Playwright E2E của `AUTH-02` và đã qua Gatekeeper (Antigravity) kiểm
+chứng trực tiếp trên trình duyệt Chromium thật kết nối Go Core API + PostgreSQL disposable:
+
+- **Nạp năng lực xác thực & Bảo toàn hồi quy OIDC**: `apps/web/src/pages/SignInPage.tsx` nạp `getAuthProviders`
+  ngay khi vào trang (giữ nguyên bố cục hai cột và `SignInSlider` khi đang tải, có trạng thái lỗi kèm `Thử lại`).
+  Khi `password_enabled=false` và `oidc_default_enabled=true` (mặc định repo), nút `Đăng nhập`, `Google`,
+  `Facebook` tiếp tục điều hướng sang luồng BFF OIDC như cũ; khi bật `password_enabled=true` /
+  `signup_enabled=true`, form kích hoạt đăng nhập mật khẩu và đăng ký OTP nội tại.
+- **Luồng Đăng ký OTP, Điều khoản & Đăng nhập mật khẩu**:
+  - `SignUpForm`: `startEmailSignup` → đếm ngược cooldown `60s` & theo dõi hạn `10` phút → `resendAuthChallenge`
+    (tự mở lại transaction mới nếu hết hạn `400`, hủy kết quả muộn nếu người dùng đổi email giữa chừng) →
+    `completeEmailSignup` kèm `legal_terms_version`. Thông báo sau khi lấy mã luôn trung tính chống dò tài khoản;
+    xử lý riêng `auth_terms_version_changed` (tải lại providers, bỏ tích và mời xem điều khoản mới),
+    `auth_password_policy` (chỉ xóa ô mật khẩu), và `429`/`503` có đếm ngược `Retry-After`.
+  - `LoginForm`: `loginWithPassword` kèm `keep_signed_in` (cập nhật hint tối đa `30` ngày cho non-admin, `24`
+    giờ cho `org_admin`), `Remember Me` chỉ lưu email sau khi đăng nhập thành công, thông báo `401` đồng nhất và
+    xử lý nhánh dự phòng `mfa_required`. Nâng màu nút chính và nút chuyển form sang `#047857` (`5.48:1`) đạt
+    chuẩn tương phản WCAG AA trên Axe.
+  - `apps/web/src/app/session.tsx`: bổ sung `completeNativeSignIn()` thực hiện tuần tự
+    `clearPrivateSessionCache` → `rotateCSRFToken` → `refresh()` (`/api/v1/me`) trước khi điều hướng tới
+    `returnTo` nội bộ đã lọc chống open-redirect (có nút `Thử lại` riêng nếu bước `/me` lỗi mạng).
+- **Kiểm chứng Gatekeeper**:
+  - Toàn kho `pnpm verify` PASS (`522/522` web unit tests, riêng `SignInPage.test.tsx` `55` tests song ngữ
+    `vi`/`en` và `session.test.tsx` `10` tests; bundle security `201` file; `security:actions` PASS sau khi bổ
+    sung `pnpm e2e:auth` vào `.github/workflows/ci.yml`).
+  - Playwright Chromium thật trên PostgreSQL disposable (`44 false`):
+    `e2e/auth-02-native-signup-login.spec.ts` **PASS `2/2` (`26,7s`)** — đăng ký tài khoản mới qua OTP
+    `devinbox` → vào `/app/home` → kiểm tra cookie `HttpOnly`, không lộ mật khẩu/OTP vào Web Storage, Axe `0`
+    vi phạm `serious`/`critical` → đăng xuất → bấm lấy mã lại cho email đã đăng ký xác nhận UI y hệt nhưng
+    `devinbox` chỉ nhận `notice_kind="account_exists"` không chứa mã → đăng nhập lại bằng mật khẩu thành công
+    và kiểm tra ca sai mật khẩu trả lỗi chung. Đồng thời xác nhận luồng OIDC login/workspace/invitation của
+    `e2e/p2-08-core-workflows.spec.ts` hoạt động đúng khi tắt cờ mật khẩu.
 
 ### Checkpoint `AUTH-02A` Đăng ký Email + OTP + Argon2id & Đăng nhập mật khẩu phía Server `DONE` — 2026-11-17
 

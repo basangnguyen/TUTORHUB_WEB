@@ -264,6 +264,7 @@ jobs:
       - name: Run browser E2E
         run: |
           pnpm e2e
+          pnpm e2e:auth
           pnpm e2e:media-fixture
 
   local-environment-smoke:

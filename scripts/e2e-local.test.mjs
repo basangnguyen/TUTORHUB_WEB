@@ -8,9 +8,16 @@ import {
   buildE2EEnvironment,
   createRuntimeSecrets,
   localAccounts,
+  nativeAuthConfiguration,
   parseArguments,
+  resolveBaseEnvironment,
   validateDatabaseConfiguration,
 } from "./e2e-local.mjs";
+
+const fixedSecrets = Object.freeze({
+  clientSecret: "ephemeral-client-secret-value",
+  sessionSecret: "ZXBoZW1lcmFsLXNlc3Npb24tc2VjcmV0LXdpdGgtZW5vdWdoLWJ5dGVz",
+});
 
 test("local E2E environment removes inherited cloud credentials", () => {
   const environment = buildE2EEnvironment(
@@ -154,10 +161,35 @@ test("Windows cleanup scopes taskkill to a validated spawned PID", () => {
 });
 
 test("commands and local account contract stay explicit", () => {
-  assert.deepEqual(parseArguments(["serve"]), { command: "serve" });
-  assert.deepEqual(parseArguments(["prepare"]), { command: "prepare" });
-  assert.deepEqual(parseArguments([]), { command: "help" });
+  assert.deepEqual(parseArguments(["serve"]), {
+    command: "serve",
+    nativeAuth: false,
+  });
+  assert.deepEqual(parseArguments(["prepare"]), {
+    command: "prepare",
+    nativeAuth: false,
+  });
+  assert.deepEqual(parseArguments([]), { command: "help", nativeAuth: false });
+  assert.deepEqual(parseArguments(["serve", "--native-auth"]), {
+    command: "serve",
+    nativeAuth: true,
+  });
   assert.throws(() => parseArguments(["reset"]), /Unknown E2E/);
+  assert.throws(
+    () => parseArguments(["--native-auth"]),
+    /Unknown E2E environment command/,
+  );
+  for (const option of [
+    "--native",
+    "--nativeAuth",
+    "native-auth",
+    "toString",
+  ]) {
+    assert.throws(
+      () => parseArguments(["serve", option]),
+      /Unknown E2E environment option/,
+    );
+  }
 
   assert.equal(localAccounts.admin.email, "admin.e2e@tutorhub.local");
   assert.equal(localAccounts.teacher.email, "teacher.e2e@tutorhub.local");
@@ -172,6 +204,100 @@ test("Vite proxies API requests to the same IPv4 loopback boundary", () => {
 
   assert.match(viteConfig, /target:\s*"http:\/\/127\.0\.0\.1:8080"/);
   assert.doesNotMatch(viteConfig, /target:\s*"http:\/\/localhost:8080"/);
+});
+
+test("native auth stays off by default and inherited auth settings pass through unchanged", () => {
+  const standard = buildE2EEnvironment({}, fixedSecrets);
+  for (const key of Object.keys(nativeAuthConfiguration)) {
+    assert.equal(standard[key], undefined, `${key} must not be set by default`);
+  }
+
+  const inherited = {
+    AUTH_EMAIL_SENDER: "disabled",
+    AUTH_SIGNUP_ENABLED: "false",
+    E2E_AUTH_NATIVE: "1",
+  };
+  const untouched = buildE2EEnvironment(inherited, fixedSecrets);
+  assert.equal(untouched.AUTH_SIGNUP_ENABLED, "false");
+  assert.equal(untouched.AUTH_EMAIL_SENDER, "disabled");
+  assert.equal(untouched.AUTH_METHOD_PASSWORD_ENABLED, undefined);
+
+  const plainBase = { PATH: "/usr/bin" };
+  assert.equal(
+    resolveBaseEnvironment(parseArguments(["serve"]), plainBase),
+    plainBase,
+  );
+});
+
+test("native auth enables sign-up, password login and the loopback devinbox only on request", () => {
+  const fromEnvironment = buildE2EEnvironment(
+    {
+      AUTH_EMAIL_SENDER: "ses",
+      AUTH_PASSWORD_BREACH_CHECK: "hibp",
+      AUTH_SIGNUP_ENABLED: "false",
+      E2E_AUTH_NATIVE: "true",
+    },
+    fixedSecrets,
+  );
+  const fromFlag = buildE2EEnvironment(
+    resolveBaseEnvironment(parseArguments(["serve", "--native-auth"]), {
+      PATH: "/usr/bin",
+    }),
+    fixedSecrets,
+  );
+
+  for (const environment of [fromEnvironment, fromFlag]) {
+    assert.equal(environment.AUTH_SIGNUP_ENABLED, "true");
+    assert.equal(environment.AUTH_METHOD_PASSWORD_ENABLED, "true");
+    assert.equal(environment.AUTH_EMAIL_SENDER, "devinbox");
+    assert.equal(environment.AUTH_PASSWORD_BREACH_CHECK, "offline");
+    // The loopback/test boundary that devinbox requires is unchanged.
+    assert.equal(environment.APP_ENV, "test");
+    assert.equal(environment.HTTP_LISTEN_HOST, "127.0.0.1");
+    assert.equal(environment.OIDC_ISSUER_URL, "http://127.0.0.1:9091");
+    assert.equal(environment.B2_APPLICATION_KEY, "");
+  }
+  assert.equal(fromFlag.PATH, "/usr/bin");
+});
+
+test("native auth specs run only through the dedicated Playwright config", () => {
+  const defaultConfig = readFileSync(
+    new URL("../playwright.config.ts", import.meta.url),
+    "utf8",
+  );
+  const authConfig = readFileSync(
+    new URL("../playwright.auth.config.ts", import.meta.url),
+    "utf8",
+  );
+  const packageJSON = JSON.parse(
+    readFileSync(new URL("../package.json", import.meta.url), "utf8"),
+  );
+
+  assert.match(
+    defaultConfig,
+    /testIgnore:\s*\[\s*"\*\*\/auth-02-native-\*\.spec\.ts",?\s*\]/,
+  );
+  assert.match(
+    defaultConfig,
+    /command:\s*"node scripts\/e2e-local\.mjs serve"/,
+  );
+  assert.match(
+    authConfig,
+    /testMatch:\s*\[\s*"\*\*\/auth-02-native-\*\.spec\.ts",?\s*\]/,
+  );
+  assert.match(
+    authConfig,
+    /command:\s*"node scripts\/e2e-local\.mjs serve --native-auth"/,
+  );
+  assert.match(
+    authConfig,
+    /gracefulShutdown:\s*{\s*signal:\s*"SIGTERM",\s*timeout:\s*15_000,?\s*}/,
+  );
+  assert.match(authConfig, /reuseExistingServer:\s*false/);
+  assert.equal(
+    packageJSON.scripts["e2e:auth"],
+    "playwright test --config playwright.auth.config.ts",
+  );
 });
 
 test("Playwright gives the local orchestrator a graceful shutdown window", () => {

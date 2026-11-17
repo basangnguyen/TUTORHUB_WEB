@@ -11,7 +11,7 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { APIRequestError } from "@tutorhub/api-client";
+import { APIRequestError, getCurrentCSRFToken } from "@tutorhub/api-client";
 import { useState, type ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createTutorHubQueryClient } from "./queryClient";
@@ -80,6 +80,42 @@ function ActivePrivateQueryProbe({ onAttempt }: { onAttempt: () => void }) {
     staleTime: Infinity,
   });
   return <span>{privateQuery.data?.title}</span>;
+}
+
+function NativeSignInProbe() {
+  const session = useSession();
+  const [handOff, setHandOff] = useState("idle");
+  return (
+    <>
+      <output>
+        {session.status}:{session.currentUser?.user.email ?? "anonymous"}
+      </output>
+      <button
+        type="button"
+        onClick={() => {
+          session.completeNativeSignIn().then(
+            () => setHandOff("hand-off done"),
+            () => setHandOff("hand-off failed"),
+          );
+        }}
+      >
+        complete native sign-in
+      </button>
+      <span>{handOff}</span>
+    </>
+  );
+}
+
+function requestPath(input: unknown) {
+  const url = input instanceof Request ? input.url : String(input);
+  return new URL(url, "http://localhost").pathname;
+}
+
+function csrfResponse(token: string) {
+  return new Response(JSON.stringify({ csrf_token: token }), {
+    status: 200,
+    headers: { "Content-Type": "application/json" },
+  });
 }
 
 function renderRemoteSession() {
@@ -268,6 +304,77 @@ describe("remote session provider", () => {
     ).toBeInTheDocument();
     expect(queryAttempts).toHaveBeenCalledTimes(1);
     expect(queryClient.getQueryData(["audit", "private"])).toBeUndefined();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("completes a native sign-in by clearing private caches, rotating CSRF and reloading /me", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(problemResponse(401))
+      .mockResolvedValueOnce(csrfResponse("csrf-native-session"))
+      .mockResolvedValueOnce(authenticatedResponse());
+    vi.stubGlobal("fetch", fetchMock);
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <SessionProvider>
+          <NativeSignInProbe />
+        </SessionProvider>
+      </QueryClientProvider>,
+    );
+    expect(
+      await screen.findByText("unauthenticated:anonymous"),
+    ).toBeInTheDocument();
+    sessionStorage.setItem("tutorhub:draft:v1:test", "previous-draft");
+    queryClient.setQueryData(["classes", "previous-principal"], ["class-a"]);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "complete native sign-in" }),
+    );
+
+    expect(await screen.findByText("hand-off done")).toBeInTheDocument();
+    expect(
+      screen.getByText("authenticated:student@example.com"),
+    ).toBeInTheDocument();
+    const paths = fetchMock.mock.calls.map(([input]) => requestPath(input));
+    expect(paths).toHaveLength(3);
+    expect(paths[1]).toMatch(/\/v1\/auth\/csrf$/);
+    expect(paths[2]).toMatch(/\/v1\/me$/);
+    expect(getCurrentCSRFToken()).toBe("csrf-native-session");
+    expect(
+      queryClient.getQueryData(["classes", "previous-principal"]),
+    ).toBeUndefined();
+    expect(sessionStorage.getItem("tutorhub:draft:v1:test")).toBeNull();
+  });
+
+  it("rejects the native hand-off when the CSRF token cannot be rotated", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(problemResponse(401))
+      .mockResolvedValueOnce(problemResponse(503));
+    vi.stubGlobal("fetch", fetchMock);
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <SessionProvider>
+          <NativeSignInProbe />
+        </SessionProvider>
+      </QueryClientProvider>,
+    );
+    expect(
+      await screen.findByText("unauthenticated:anonymous"),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "complete native sign-in" }),
+    );
+
+    expect(await screen.findByText("hand-off failed")).toBeInTheDocument();
+    // /me is not re-read with a stale CSRF token.
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 

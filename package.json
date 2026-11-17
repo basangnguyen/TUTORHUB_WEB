@@ -19,6 +19,7 @@
     "dev": "turbo run dev --parallel",
     "dev:local": "node scripts/local-dev.mjs dev",
     "e2e": "playwright test",
+    "e2e:auth": "playwright test --config playwright.auth.config.ts",
     "e2e:calendar": "pnpm --filter @tutorhub/web build && playwright test --config apps/web/playwright.calendar.config.ts",
     "e2e:infra:test": "node --test scripts/e2e-local.test.mjs",
     "e2e:install": "playwright install chromium",

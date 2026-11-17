@@ -7,16 +7,40 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import { createMemoryRouter } from "react-router";
+import type * as ApiClient from "@tutorhub/api-client";
+import {
+  APIRequestError,
+  type AuthProvidersResponse,
+  type AuthSignupChallengeResponse,
+} from "@tutorhub/api-client";
+import { createMemoryRouter, useLocation } from "react-router";
 import { RouterProvider } from "react-router/dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider, type Language } from "../app/i18n";
 import { SignInPage } from "./SignInPage";
 
-const { signInMock } = vi.hoisted(() => ({ signInMock: vi.fn() }));
+const { api, completeNativeSignInMock, signInMock } = vi.hoisted(() => ({
+  api: {
+    completeEmailSignup: vi.fn(),
+    getAuthProviders: vi.fn(),
+    loginWithPassword: vi.fn(),
+    resendAuthChallenge: vi.fn(),
+    startEmailSignup: vi.fn(),
+  },
+  completeNativeSignInMock: vi.fn(),
+  signInMock: vi.fn(),
+}));
+
+vi.mock("@tutorhub/api-client", async (importOriginal) => ({
+  ...(await importOriginal<typeof ApiClient>()),
+  ...api,
+}));
 
 vi.mock("../app/session", () => ({
-  useSession: () => ({ signIn: signInMock }),
+  useSession: () => ({
+    completeNativeSignIn: completeNativeSignInMock,
+    signIn: signInMock,
+  }),
 }));
 
 const REMEMBERED_EMAIL_KEY = "tutorhub.remembered_email";
@@ -26,23 +50,85 @@ const SLIDE_ALTS = [
   "TutorHub dashboard with today's classes, AI class matching, parent chat, and homework progress",
 ] as const;
 
+/** Repository default: no native methods, sign-in goes through the OIDC portal. */
+const OIDC_PROVIDERS: AuthProvidersResponse = {
+  email_code_enabled: false,
+  legal_terms_version: "2026-11-16-v2.0",
+  mfa_totp_enabled: false,
+  oauth_providers: [],
+  oidc_default_enabled: true,
+  passkeys_enabled: false,
+  password_enabled: false,
+  password_min_length: 8,
+  phone_allowed_countries: ["VN"],
+  phone_enabled: false,
+  signup_enabled: false,
+  sso_domains_enabled: false,
+};
+const NATIVE_PROVIDERS: AuthProvidersResponse = {
+  ...OIDC_PROVIDERS,
+  password_enabled: true,
+  signup_enabled: true,
+};
+
 interface RenderOptions {
   from?: { pathname: string; search?: string };
   language?: Language;
 }
 
-function renderSignIn({ from, language = "en" }: RenderOptions = {}) {
+function LandingProbe() {
+  const location = useLocation();
+  return (
+    <p data-testid="landing">{`${location.pathname}${location.search}`}</p>
+  );
+}
+
+/** Lets mocked API promises settle inside act (works with real and fake timers). */
+async function settle() {
+  await act(async () => {
+    for (let tick = 0; tick < 10; tick += 1) {
+      await Promise.resolve();
+    }
+  });
+}
+
+async function renderSignIn({ from, language = "en" }: RenderOptions = {}) {
   const router = createMemoryRouter(
-    [{ path: "/sign-in", element: <SignInPage /> }],
+    [
+      { path: "/sign-in", element: <SignInPage /> },
+      { path: "*", element: <LandingProbe /> },
+    ],
     {
       initialEntries: [{ pathname: "/sign-in", state: from ? { from } : null }],
     },
   );
-  return render(
+  const view = render(
     <I18nProvider initialLanguage={language}>
       <RouterProvider router={router} />
     </I18nProvider>,
   );
+  await settle();
+  return view;
+}
+
+function apiError(status: number, code?: string, retryAfterSeconds?: number) {
+  return new APIRequestError(
+    status,
+    { status, title: "Request failed", type: "about:blank", code },
+    retryAfterSeconds,
+  );
+}
+
+function challengeResponse(id: string): AuthSignupChallengeResponse {
+  return { challenge_id: id, cooldown_seconds: 60, expires_in_seconds: 600 };
+}
+
+function tickSeconds(seconds: number) {
+  for (let second = 0; second < seconds; second += 1) {
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+  }
 }
 
 function activeDotIndex() {
@@ -107,6 +193,9 @@ beforeEach(() => {
   window.localStorage.clear();
   window.sessionStorage.clear();
   signInMock.mockReset();
+  completeNativeSignInMock.mockReset().mockResolvedValue(undefined);
+  for (const mock of Object.values(api)) mock.mockReset();
+  api.getAuthProviders.mockResolvedValue(OIDC_PROVIDERS);
 });
 
 afterEach(() => {
@@ -117,8 +206,8 @@ afterEach(() => {
 });
 
 describe("SignInPage", () => {
-  it("renders the TutorHub V1 login layout with static auth assets", () => {
-    renderSignIn();
+  it("renders the TutorHub V1 login layout with static auth assets", async () => {
+    await renderSignIn();
 
     expect(screen.getByText("TutorHub Enterprise")).toBeInTheDocument();
     const title = screen.getByRole("heading", {
@@ -206,8 +295,8 @@ describe("SignInPage", () => {
     ).toBeInTheDocument();
   });
 
-  it("renders Vietnamese copy when the interface language is Vietnamese", () => {
-    renderSignIn({ language: "vi" });
+  it("renders Vietnamese copy when the interface language is Vietnamese", async () => {
+    await renderSignIn({ language: "vi" });
 
     expect(
       screen.getByRole("heading", {
@@ -232,8 +321,8 @@ describe("SignInPage", () => {
     );
   });
 
-  it("exposes only the three real slides to assistive technology", () => {
-    renderSignIn();
+  it("exposes only the three real slides to assistive technology", async () => {
+    await renderSignIn();
     const slider = getSlider();
     expect(slider).toHaveAttribute("tabindex", "0");
 
@@ -280,9 +369,9 @@ describe("SignInPage", () => {
     }
   });
 
-  it("changes slides with arrows and dots and auto-advances every 4 seconds", () => {
+  it("changes slides with arrows and dots and auto-advances every 4 seconds", async () => {
     vi.useFakeTimers();
-    renderSignIn();
+    await renderSignIn();
 
     expect(activeDotIndex()).toBe(0);
     expect(screen.getByRole("img", { name: SLIDE_ALTS[0] })).toBeVisible();
@@ -324,10 +413,10 @@ describe("SignInPage", () => {
     expect(activeDotIndex()).toBe(0);
   });
 
-  it("auto-plays on load even with reduced motion and loops 3 -> 1 forward without rewinding", () => {
+  it("auto-plays on load even with reduced motion and loops 3 -> 1 forward without rewinding", async () => {
     stubReducedMotion(true);
     vi.useFakeTimers();
-    renderSignIn();
+    await renderSignIn();
 
     expect(
       screen.getByRole("button", { name: "Pause slideshow" }),
@@ -368,9 +457,9 @@ describe("SignInPage", () => {
     expect(activeDotIndex()).toBe(1);
   });
 
-  it("wraps backwards through the leading clone and settles on transitionend", () => {
+  it("wraps backwards through the leading clone and settles on transitionend", async () => {
     vi.useFakeTimers();
-    renderSignIn();
+    await renderSignIn();
     const previous = screen.getByRole("button", { name: "Previous slide" });
     const next = screen.getByRole("button", { name: "Next slide" });
 
@@ -393,9 +482,9 @@ describe("SignInPage", () => {
     expect(trackPercent()).toBe(-200);
   });
 
-  it("pauses with the pause control and resumes the remaining time on play", () => {
+  it("pauses with the pause control and resumes the remaining time on play", async () => {
     vi.useFakeTimers();
-    renderSignIn();
+    await renderSignIn();
 
     advance(1500);
     fireEvent.click(screen.getByRole("button", { name: "Pause slideshow" }));
@@ -419,9 +508,9 @@ describe("SignInPage", () => {
     expect(activeDotIndex()).toBe(1);
   });
 
-  it("pauses while hovered, keyboard-focused or when the browser tab is hidden", () => {
+  it("pauses while hovered, keyboard-focused or when the browser tab is hidden", async () => {
     vi.useFakeTimers();
-    renderSignIn();
+    await renderSignIn();
     const slider = getSlider();
 
     fireEvent.mouseEnter(slider);
@@ -463,9 +552,9 @@ describe("SignInPage", () => {
     ).toBeInTheDocument();
   });
 
-  it("fills a progress pill on the active dot that restarts per slide and pauses with the show", () => {
+  it("fills a progress pill on the active dot that restarts per slide and pauses with the show", async () => {
     vi.useFakeTimers();
-    renderSignIn();
+    await renderSignIn();
     const firstDot = screen.getByRole("button", { name: "Go to slide 1" });
 
     const progress = dotProgress(1);
@@ -497,9 +586,9 @@ describe("SignInPage", () => {
     expect(activeDotIndex()).toBe(2);
   });
 
-  it("changes slides by dragging or swiping the image area past 40px", () => {
+  it("changes slides by dragging or swiping the image area past 40px", async () => {
     vi.useFakeTimers();
-    renderSignIn();
+    await renderSignIn();
     const viewport = getViewport();
 
     fireEvent.pointerDown(viewport, { button: 0, clientX: 300, pointerId: 1 });
@@ -551,9 +640,9 @@ describe("SignInPage", () => {
     expect(trackPercent()).toBe(-400);
   });
 
-  it("moves between slides with ArrowLeft and ArrowRight while the slider has focus", () => {
+  it("moves between slides with ArrowLeft and ArrowRight while the slider has focus", async () => {
     vi.useFakeTimers();
-    renderSignIn();
+    await renderSignIn();
     const slider = getSlider();
 
     act(() => slider.focus());
@@ -586,8 +675,8 @@ describe("SignInPage", () => {
     ).toBeInTheDocument();
   });
 
-  it("remembers only the email when Remember Me is enabled and forgets it when cleared", () => {
-    const { unmount } = renderSignIn();
+  it("remembers only the email when Remember Me is enabled and forgets it when cleared", async () => {
+    const { unmount } = await renderSignIn();
 
     fireEvent.change(
       screen.getByRole("textbox", { name: "Email or username" }),
@@ -607,7 +696,7 @@ describe("SignInPage", () => {
     expect(screen.getByLabelText("Password")).toHaveValue("");
     unmount();
 
-    renderSignIn();
+    await renderSignIn();
     expect(
       screen.getByRole("textbox", { name: "Email or username" }),
     ).toHaveValue("teacher@example.com");
@@ -618,9 +707,9 @@ describe("SignInPage", () => {
     expect(window.localStorage.getItem(REMEMBERED_EMAIL_KEY)).toBeNull();
   });
 
-  it("clears the remembered email when Remember Me is turned off before signing in", () => {
+  it("clears the remembered email when Remember Me is turned off before signing in", async () => {
     window.localStorage.setItem(REMEMBERED_EMAIL_KEY, "old@example.com");
-    renderSignIn();
+    await renderSignIn();
 
     fireEvent.click(screen.getByRole("checkbox", { name: "Remember Me" }));
     fireEvent.click(screen.getByRole("button", { name: "Log In" }));
@@ -629,8 +718,10 @@ describe("SignInPage", () => {
     expect(signInMock).toHaveBeenCalledWith("/app/home");
   });
 
-  it("starts the BFF sign-in with the protected return path from Log In, Google and Facebook", () => {
-    renderSignIn({ from: { pathname: "/app/classrooms", search: "?tab=1" } });
+  it("starts the BFF sign-in with the protected return path from Log In, Google and Facebook", async () => {
+    await renderSignIn({
+      from: { pathname: "/app/classrooms", search: "?tab=1" },
+    });
 
     fireEvent.click(screen.getByRole("button", { name: "Log In" }));
     fireEvent.click(screen.getByRole("button", { name: "Log in with Google" }));
@@ -642,19 +733,24 @@ describe("SignInPage", () => {
     for (const call of signInMock.mock.calls) {
       expect(call).toEqual(["/app/classrooms?tab=1"]);
     }
+    expect(api.getAuthProviders).toHaveBeenCalledWith(
+      expect.objectContaining({ baseUrl: "/api" }),
+    );
+    expect(api.loginWithPassword).not.toHaveBeenCalled();
+    expect(completeNativeSignInMock).not.toHaveBeenCalled();
   });
 
-  it("defaults the return path to the home dashboard", () => {
-    renderSignIn();
+  it("defaults the return path to the home dashboard", async () => {
+    await renderSignIn();
 
     fireEvent.click(screen.getByRole("button", { name: "Log In" }));
 
     expect(signInMock).toHaveBeenCalledWith("/app/home");
   });
 
-  it("switches between Sign Up and Log In and validates the sign-up form", () => {
+  it("switches between Sign Up and Log In and validates the sign-up form", async () => {
     vi.useFakeTimers();
-    renderSignIn({ from: { pathname: "/app/calendar" } });
+    await renderSignIn({ from: { pathname: "/app/calendar" } });
 
     fireEvent.click(screen.getByRole("button", { name: "Sign Up" }));
 
@@ -761,6 +857,10 @@ describe("SignInPage", () => {
       screen.getByRole("button", { name: "Continue to secure sign-in" }),
     );
     expect(signInMock).toHaveBeenCalledWith("/app/calendar");
+    // Sign-up is disabled on the server, so nothing native may be called.
+    expect(api.startEmailSignup).not.toHaveBeenCalled();
+    expect(api.resendAuthChallenge).not.toHaveBeenCalled();
+    expect(api.completeEmailSignup).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("button", { name: "Log In" }));
     expect(
@@ -773,7 +873,7 @@ describe("SignInPage", () => {
   });
 
   it("opens an accessible Recover Password dialog and restores focus when closed", async () => {
-    renderSignIn();
+    await renderSignIn();
     const trigger = screen.getByRole("button", { name: "Forget Password" });
 
     fireEvent.click(trigger);
@@ -813,7 +913,7 @@ describe("SignInPage", () => {
   });
 
   it("validates password recovery, runs the 60s code timer and hands off to secure sign-in", async () => {
-    renderSignIn({ from: { pathname: "/app/messages" } });
+    await renderSignIn({ from: { pathname: "/app/messages" } });
 
     fireEvent.click(screen.getByRole("button", { name: "Forget Password" }));
     const dialog = await screen.findByRole("dialog", {
@@ -931,9 +1031,9 @@ const LEGAL_COPY = {
 
 type LegalCopy = (typeof LEGAL_COPY)[Language];
 
-function openSignUpForm(language: Language) {
+async function openSignUpForm(language: Language) {
   const copy = LEGAL_COPY[language];
-  renderSignIn({ language });
+  await renderSignIn({ language });
   fireEvent.click(screen.getByRole("button", { name: copy.signUp }));
   const form = screen.getByRole("form", { name: copy.form });
   return {
@@ -1004,7 +1104,7 @@ describe.each(["en", "vi"] as const)(
   "SignInPage terms dialog (%s)",
   (language) => {
     it("opens the User Agreement tab, switches tabs and keeps the typed sign-up values", async () => {
-      const field = openSignUpForm(language);
+      const field = await openSignUpForm(language);
       const { copy } = field;
       fireEvent.change(field.fullName, { target: { value: "Nguyễn Văn A" } });
       fireEvent.change(field.email, {
@@ -1086,7 +1186,7 @@ describe.each(["en", "vi"] as const)(
     });
 
     it("opens the Privacy Policy tab directly and restores focus on Escape or × without accepting", async () => {
-      const field = openSignUpForm(language);
+      const field = await openSignUpForm(language);
       const { copy } = field;
 
       fireEvent.click(field.privacyButton);
@@ -1123,7 +1223,7 @@ describe.each(["en", "vi"] as const)(
     });
 
     it("checks the terms box, clears the missing-consent error and closes on Agree & Continue", async () => {
-      const field = openSignUpForm(language);
+      const field = await openSignUpForm(language);
       const { copy, form } = field;
 
       fireEvent.click(
@@ -1156,3 +1256,843 @@ describe.each(["en", "vi"] as const)(
     });
   },
 );
+
+/* ---------- AUTH-02B: native email sign-up and password login ---------- */
+
+const NATIVE_COPY = {
+  en: {
+    signUp: "Sign Up",
+    logIn: "Log In",
+    form: "Create an Account",
+    fullName: "Full Name",
+    email: "Email Address",
+    otp: "OTP code",
+    password: "Password",
+    identifier: "Email or username",
+    keepSignedIn: "Keep me signed in",
+    keepSignedInHint:
+      "Stay signed in on this device for up to 30 days (administrator accounts: up to 24 hours). The server decides the final session length.",
+    rememberMe: "Remember Me",
+    terms: "I have read and agree to the User Agreement and Privacy Policy",
+    getCode: "Get Code",
+    resend: "Resend",
+    createAccount: "Create Account",
+    accept: "Agree & Continue",
+    dialog: "Terms & Privacy Policy",
+    reviewTerms: "Review updated terms",
+    codeSent:
+      "If the email address is valid and eligible, a 6-digit verification code has been sent. Please check your inbox. The code is valid for 10 minutes.",
+    codeRequired: "Select Get Code to receive a verification code first.",
+    termsChanged:
+      "The User Agreement or Privacy Policy has just been updated. Please review it and agree again.",
+    passwordPolicy:
+      "This password is too weak or appears on a list of common or leaked passwords. Please choose a stronger password.",
+    signUpFailed:
+      "We couldn't complete sign-up. Check the code or request a new one, then try again. If you already have an account, try logging in.",
+    rateLimited: "Too many attempts. Please try again in 42 seconds.",
+    busy: "TutorHub is busy right now. Please try again in 2 seconds.",
+    loginInvalid: "Incorrect email or password.",
+    identifierRequired: "Please enter your email.",
+    mfa: "This account requires multi-factor authentication, which this page doesn't support yet. Please contact your administrator.",
+  },
+  vi: {
+    signUp: "Đăng ký",
+    logIn: "Đăng nhập",
+    form: "Tạo tài khoản mới",
+    fullName: "Họ và tên",
+    email: "Địa chỉ email",
+    otp: "Mã OTP",
+    password: "Mật khẩu",
+    identifier: "Email hoặc tên đăng nhập",
+    keepSignedIn: "Duy trì đăng nhập",
+    keepSignedInHint:
+      "Duy trì đăng nhập trên thiết bị này tối đa 30 ngày (tài khoản quản trị: tối đa 24 giờ). Thời hạn phiên thực tế do máy chủ quyết định.",
+    rememberMe: "Ghi nhớ tôi",
+    terms:
+      "Tôi đã đọc và đồng ý với Thỏa thuận người dùng và Chính sách quyền riêng tư",
+    getCode: "Lấy mã",
+    resend: "Gửi lại",
+    createAccount: "Tạo tài khoản",
+    accept: "Tôi đồng ý & Tiếp tục",
+    dialog: "Điều khoản & Chính sách TutorHub",
+    reviewTerms: "Xem điều khoản mới",
+    codeSent:
+      "Nếu email hợp lệ và đủ điều kiện, mã xác thực 6 chữ số đã được gửi. Vui lòng kiểm tra hộp thư. Mã có hiệu lực trong 10 phút.",
+    codeRequired: "Vui lòng bấm Lấy mã để nhận mã xác thực trước.",
+    termsChanged:
+      "Thỏa thuận người dùng hoặc Chính sách quyền riêng tư vừa được cập nhật. Vui lòng xem lại và đồng ý lại.",
+    passwordPolicy:
+      "Mật khẩu chưa đạt chuẩn an toàn hoặc nằm trong danh sách mật khẩu phổ biến/bị lộ. Vui lòng chọn mật khẩu mạnh hơn.",
+    signUpFailed:
+      "Không thể hoàn tất đăng ký. Vui lòng kiểm tra lại mã hoặc yêu cầu mã mới rồi thử lại. Nếu bạn đã có tài khoản, hãy thử đăng nhập.",
+    rateLimited: "Bạn đã thử quá nhiều lần. Vui lòng thử lại sau 42 giây.",
+    busy: "Hệ thống đang bận. Vui lòng thử lại sau 2 giây.",
+    loginInvalid: "Email hoặc mật khẩu không đúng.",
+    identifierRequired: "Vui lòng nhập email.",
+    mfa: "Tài khoản này yêu cầu xác thực đa yếu tố nhưng trang này chưa hỗ trợ bước xác thực bổ sung. Vui lòng liên hệ quản trị viên.",
+  },
+} as const;
+
+async function openNativeSignUp(
+  language: Language,
+  from?: RenderOptions["from"],
+) {
+  const copy = NATIVE_COPY[language];
+  await renderSignIn({ from, language });
+  fireEvent.click(screen.getByRole("button", { name: copy.signUp }));
+  const form = screen.getByRole("form", { name: copy.form });
+  return {
+    copy,
+    form,
+    fullName: within(form).getByRole("textbox", { name: copy.fullName }),
+    email: within(form).getByRole("textbox", { name: copy.email }),
+    otp: within(form).getByRole("textbox", { name: copy.otp }),
+    password: within(form).getByLabelText(copy.password),
+    terms: within(form).getByRole("checkbox", { name: copy.terms }),
+    getCode: within(form).getByRole("button", { name: copy.getCode }),
+    createAccount: within(form).getByRole("button", {
+      name: copy.createAccount,
+    }),
+  };
+}
+
+type NativeSignUpFields = Awaited<ReturnType<typeof openNativeSignUp>>;
+
+function fillIdentity(field: NativeSignUpFields, email: string) {
+  fireEvent.change(field.fullName, { target: { value: "  New Student  " } });
+  fireEvent.change(field.email, { target: { value: email } });
+}
+
+function fillCodePasswordAndTerms(field: NativeSignUpFields) {
+  fireEvent.change(field.otp, { target: { value: "123456" } });
+  fireEvent.change(field.password, {
+    target: { value: "Str0ng-passphrase" },
+  });
+  if (!(field.terms as HTMLInputElement).checked) fireEvent.click(field.terms);
+}
+
+function expectNoSecretsInBrowserStorage() {
+  expect(window.sessionStorage.length).toBe(0);
+  for (let index = 0; index < window.localStorage.length; index += 1) {
+    const key = window.localStorage.key(index);
+    expect(key).toBe(REMEMBERED_EMAIL_KEY);
+  }
+  const stored = JSON.stringify({ ...window.localStorage });
+  for (const secret of ["Str0ng-passphrase", "123456", "challenge-"]) {
+    expect(stored).not.toContain(secret);
+  }
+}
+
+describe.each(["en", "vi"] as const)(
+  "SignInPage native email sign-up (%s)",
+  (language) => {
+    const copy = NATIVE_COPY[language];
+
+    beforeEach(() => {
+      api.getAuthProviders.mockResolvedValue(NATIVE_PROVIDERS);
+    });
+
+    it("requests a code, resends it after the 60s cooldown and completes the session hand-off", async () => {
+      vi.useFakeTimers();
+      api.startEmailSignup.mockResolvedValue(challengeResponse("challenge-1"));
+      api.resendAuthChallenge.mockResolvedValue(
+        challengeResponse("challenge-2"),
+      );
+      api.completeEmailSignup.mockResolvedValue({ status: "authenticated" });
+      const field = await openNativeSignUp(language, {
+        pathname: "/app/calendar",
+        search: "?view=week",
+      });
+      fillIdentity(field, "new.student@example.com");
+
+      fireEvent.click(field.getCode);
+      await settle();
+      expect(api.startEmailSignup).toHaveBeenCalledWith(
+        { email: "new.student@example.com" },
+        { baseUrl: "/api" },
+      );
+      // Same neutral wording for new, existing and throttled addresses.
+      expect(screen.getByText(copy.codeSent)).toBeInTheDocument();
+      expect(field.email).toHaveAccessibleDescription(copy.codeSent);
+      expect(field.getCode).toBeDisabled();
+      expect(field.getCode).toHaveTextContent("60s");
+      expect(field.otp).toHaveFocus();
+
+      tickSeconds(59);
+      expect(field.getCode).toHaveTextContent("1s");
+      tickSeconds(1);
+      expect(field.getCode).toBeEnabled();
+      expect(field.getCode).toHaveTextContent(copy.resend);
+
+      fireEvent.click(field.getCode);
+      await settle();
+      expect(api.resendAuthChallenge).toHaveBeenCalledTimes(1);
+      expect(api.resendAuthChallenge).toHaveBeenCalledWith({ baseUrl: "/api" });
+      expect(api.startEmailSignup).toHaveBeenCalledTimes(1);
+      expect(field.getCode).toHaveTextContent("60s");
+
+      fillCodePasswordAndTerms(field);
+      fireEvent.click(field.createAccount);
+      await settle();
+
+      expect(api.completeEmailSignup).toHaveBeenCalledWith(
+        {
+          challenge_id: "challenge-2",
+          code: "123456",
+          display_name: "New Student",
+          keep_signed_in: false,
+          password: "Str0ng-passphrase",
+          terms_version: "2026-11-16-v2.0",
+        },
+        { baseUrl: "/api" },
+      );
+      expect(completeNativeSignInMock).toHaveBeenCalledTimes(1);
+      expect(signInMock).not.toHaveBeenCalled();
+      expect(screen.getByTestId("landing")).toHaveTextContent(
+        "/app/calendar?view=week",
+      );
+      expectNoSecretsInBrowserStorage();
+    });
+
+    it("drops the requested code when the email changes and asks for a new one", async () => {
+      api.startEmailSignup
+        .mockResolvedValueOnce(challengeResponse("challenge-1"))
+        .mockResolvedValueOnce(challengeResponse("challenge-3"));
+      const field = await openNativeSignUp(language);
+      fillIdentity(field, "first@example.com");
+      fireEvent.click(field.getCode);
+      await settle();
+      expect(field.getCode).toHaveTextContent("60s");
+      fireEvent.change(field.otp, { target: { value: "123456" } });
+
+      fireEvent.change(field.email, {
+        target: { value: "second@example.com" },
+      });
+      expect(field.getCode).toBeEnabled();
+      expect(field.getCode).toHaveTextContent(copy.getCode);
+      expect(field.otp).toHaveValue("");
+      expect(screen.queryByText(copy.codeSent)).toBeNull();
+
+      fillCodePasswordAndTerms(field);
+      fireEvent.click(field.createAccount);
+      expect(field.otp).toHaveAttribute("aria-invalid", "true");
+      expect(field.otp).toHaveAccessibleDescription(copy.codeRequired);
+      expect(field.otp).toHaveFocus();
+      expect(api.completeEmailSignup).not.toHaveBeenCalled();
+
+      fireEvent.click(field.getCode);
+      await settle();
+      expect(api.startEmailSignup).toHaveBeenLastCalledWith(
+        { email: "second@example.com" },
+        { baseUrl: "/api" },
+      );
+      expect(api.resendAuthChallenge).not.toHaveBeenCalled();
+
+      api.completeEmailSignup.mockResolvedValue({ status: "authenticated" });
+      fireEvent.change(field.otp, { target: { value: "654321" } });
+      fireEvent.click(field.createAccount);
+      await settle();
+      expect(api.completeEmailSignup).toHaveBeenCalledWith(
+        expect.objectContaining({
+          challenge_id: "challenge-3",
+          code: "654321",
+        }),
+        { baseUrl: "/api" },
+      );
+    });
+
+    it("reloads the providers, unticks consent and asks for a new agreement when the terms change", async () => {
+      api.getAuthProviders
+        .mockResolvedValue({
+          ...NATIVE_PROVIDERS,
+          legal_terms_version: "2026-12-01-v2.1",
+        })
+        .mockResolvedValueOnce(NATIVE_PROVIDERS);
+      api.startEmailSignup.mockResolvedValue(challengeResponse("challenge-1"));
+      api.completeEmailSignup
+        .mockRejectedValueOnce(apiError(400, "auth_terms_version_changed"))
+        .mockResolvedValueOnce({ status: "authenticated" });
+      const field = await openNativeSignUp(language);
+      fillIdentity(field, "new.student@example.com");
+      fireEvent.click(field.getCode);
+      await settle();
+      fillCodePasswordAndTerms(field);
+
+      fireEvent.click(field.createAccount);
+      await settle();
+      expect(api.completeEmailSignup).toHaveBeenLastCalledWith(
+        expect.objectContaining({ terms_version: "2026-11-16-v2.0" }),
+        { baseUrl: "/api" },
+      );
+      expect(api.getAuthProviders).toHaveBeenCalledTimes(2);
+      expect(field.terms).not.toBeChecked();
+      expect(field.terms).toHaveAttribute("aria-invalid", "true");
+      expect(field.terms).toHaveAccessibleDescription(copy.termsChanged);
+      expect(field.terms).toHaveFocus();
+      expect(completeNativeSignInMock).not.toHaveBeenCalled();
+      // The typed values stay so only consent has to be given again.
+      expect(field.fullName).toHaveValue("  New Student  ");
+      expect(field.otp).toHaveValue("123456");
+
+      fireEvent.click(
+        within(field.form).getByRole("button", { name: copy.reviewTerms }),
+      );
+      const dialog = await screen.findByRole("dialog", { name: copy.dialog });
+      fireEvent.click(
+        within(dialog).getByRole("button", { name: copy.accept }),
+      );
+      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+      expect(field.terms).toBeChecked();
+
+      fireEvent.click(field.createAccount);
+      await settle();
+      expect(api.completeEmailSignup).toHaveBeenLastCalledWith(
+        expect.objectContaining({ terms_version: "2026-12-01-v2.1" }),
+        { baseUrl: "/api" },
+      );
+      expect(completeNativeSignInMock).toHaveBeenCalledTimes(1);
+      expect(screen.getByTestId("landing")).toHaveTextContent("/app/home");
+    });
+
+    it("asks for a stronger password without clearing the name, email or code", async () => {
+      api.startEmailSignup.mockResolvedValue(challengeResponse("challenge-1"));
+      api.completeEmailSignup.mockRejectedValue(
+        apiError(400, "auth_password_policy"),
+      );
+      const field = await openNativeSignUp(language);
+      fillIdentity(field, "new.student@example.com");
+      fireEvent.click(field.getCode);
+      await settle();
+      fillCodePasswordAndTerms(field);
+
+      fireEvent.click(field.createAccount);
+      await settle();
+      expect(field.password).toHaveValue("");
+      expect(field.password).toHaveAttribute("aria-invalid", "true");
+      expect(field.password).toHaveAccessibleDescription(copy.passwordPolicy);
+      expect(field.password).toHaveFocus();
+      expect(field.fullName).toHaveValue("  New Student  ");
+      expect(field.email).toHaveValue("new.student@example.com");
+      expect(field.otp).toHaveValue("123456");
+      expect(field.terms).toBeChecked();
+      expect(completeNativeSignInMock).not.toHaveBeenCalled();
+    });
+
+    it("shows one account-neutral message when the code or sign-up is rejected", async () => {
+      api.startEmailSignup.mockResolvedValue(challengeResponse("challenge-1"));
+      api.completeEmailSignup.mockRejectedValue(apiError(400));
+      const field = await openNativeSignUp(language);
+      fillIdentity(field, "existing@example.com");
+      fireEvent.click(field.getCode);
+      await settle();
+      fillCodePasswordAndTerms(field);
+
+      fireEvent.click(field.createAccount);
+      await settle();
+      expect(within(field.form).getByRole("alert")).toHaveTextContent(
+        copy.signUpFailed,
+      );
+      expect(field.otp).toHaveValue("");
+      expect(field.otp).toHaveFocus();
+      expect(completeNativeSignInMock).not.toHaveBeenCalled();
+      expect(screen.queryByTestId("landing")).toBeNull();
+    });
+
+    it("honours Retry-After for 429 code requests and 503 account creation", async () => {
+      vi.useFakeTimers();
+      api.startEmailSignup
+        .mockRejectedValueOnce(apiError(429, undefined, 42))
+        .mockResolvedValueOnce(challengeResponse("challenge-1"));
+      api.completeEmailSignup
+        .mockRejectedValueOnce(apiError(503, undefined, 2))
+        .mockResolvedValueOnce({ status: "authenticated" });
+      const field = await openNativeSignUp(language);
+      fillIdentity(field, "new.student@example.com");
+
+      fireEvent.click(field.getCode);
+      await settle();
+      expect(screen.getByText(copy.rateLimited)).toBeInTheDocument();
+      expect(field.email).toHaveAccessibleDescription(copy.rateLimited);
+      expect(field.email).toHaveFocus();
+      expect(field.getCode).toBeDisabled();
+      expect(field.getCode).toHaveTextContent("42s");
+      tickSeconds(42);
+      expect(field.getCode).toBeEnabled();
+      expect(field.getCode).toHaveTextContent(copy.getCode);
+
+      fireEvent.click(field.getCode);
+      await settle();
+      expect(screen.getByText(copy.codeSent)).toBeInTheDocument();
+      fillCodePasswordAndTerms(field);
+
+      fireEvent.click(field.createAccount);
+      await settle();
+      expect(within(field.form).getByRole("alert")).toHaveTextContent(
+        copy.busy,
+      );
+      expect(field.createAccount).toBeDisabled();
+      expect(field.createAccount).toHaveTextContent(
+        `${copy.createAccount} (2s)`,
+      );
+      tickSeconds(2);
+      expect(field.createAccount).toBeEnabled();
+      expect(field.createAccount).toHaveTextContent(copy.createAccount);
+
+      fireEvent.click(field.createAccount);
+      await settle();
+      expect(api.completeEmailSignup).toHaveBeenCalledTimes(2);
+      expect(screen.getByTestId("landing")).toHaveTextContent("/app/home");
+    });
+  },
+);
+
+describe("SignInPage native email sign-up code lifetime", () => {
+  it("reminds the user to resend once the code has expired", async () => {
+    vi.useFakeTimers();
+    api.getAuthProviders.mockResolvedValue(NATIVE_PROVIDERS);
+    api.startEmailSignup.mockResolvedValue(challengeResponse("challenge-1"));
+    const field = await openNativeSignUp("en");
+    fillIdentity(field, "new.student@example.com");
+    fireEvent.click(field.getCode);
+    await settle();
+
+    act(() => {
+      vi.advanceTimersByTime(600_000);
+    });
+    expect(
+      screen.getByText(
+        "Your verification code has expired. Select Resend to get a new code.",
+      ),
+    ).toBeInTheDocument();
+
+    fillCodePasswordAndTerms(field);
+    fireEvent.click(field.createAccount);
+    expect(field.otp).toHaveAccessibleDescription(
+      "This code has expired. Select Resend to get a new code.",
+    );
+    expect(api.completeEmailSignup).not.toHaveBeenCalled();
+  });
+
+  it("ignores a late code response after the email was edited mid-request", async () => {
+    api.getAuthProviders.mockResolvedValue(NATIVE_PROVIDERS);
+    let resolveFirst: (value: AuthSignupChallengeResponse) => void = () =>
+      undefined;
+    api.startEmailSignup
+      .mockReturnValueOnce(
+        new Promise<AuthSignupChallengeResponse>((resolve) => {
+          resolveFirst = resolve;
+        }),
+      )
+      .mockResolvedValueOnce(challengeResponse("challenge-new"));
+    const field = await openNativeSignUp("en");
+    fillIdentity(field, "old@example.com");
+    fireEvent.click(field.getCode);
+    expect(field.getCode).toHaveTextContent("Sending…");
+
+    fireEvent.change(field.email, { target: { value: "new@example.com" } });
+    await act(async () => {
+      resolveFirst(challengeResponse("challenge-old"));
+    });
+    await settle();
+    expect(field.getCode).toHaveTextContent("Get Code");
+    expect(field.getCode).toBeEnabled();
+    expect(screen.queryByText(NATIVE_COPY.en.codeSent)).not.toBeInTheDocument();
+
+    fireEvent.click(field.getCode);
+    await settle();
+    expect(api.startEmailSignup).toHaveBeenLastCalledWith(
+      { email: "new@example.com" },
+      { baseUrl: "/api" },
+    );
+    api.completeEmailSignup.mockResolvedValue({ status: "authenticated" });
+    fillCodePasswordAndTerms(field);
+    fireEvent.click(field.createAccount);
+    await settle();
+    expect(api.completeEmailSignup).toHaveBeenCalledWith(
+      expect.objectContaining({ challenge_id: "challenge-new" }),
+      { baseUrl: "/api" },
+    );
+  });
+
+  it("starts a new transaction when the resend transaction has already ended", async () => {
+    vi.useFakeTimers();
+    api.getAuthProviders.mockResolvedValue(NATIVE_PROVIDERS);
+    api.startEmailSignup
+      .mockResolvedValueOnce(challengeResponse("challenge-1"))
+      .mockResolvedValueOnce(challengeResponse("challenge-4"));
+    api.resendAuthChallenge.mockRejectedValue(apiError(400));
+    const field = await openNativeSignUp("en");
+    fillIdentity(field, "new.student@example.com");
+    fireEvent.click(field.getCode);
+    await settle();
+    tickSeconds(60);
+
+    fireEvent.click(field.getCode);
+    await settle();
+    expect(api.resendAuthChallenge).toHaveBeenCalledTimes(1);
+    expect(api.startEmailSignup).toHaveBeenCalledTimes(2);
+    expect(api.startEmailSignup).toHaveBeenLastCalledWith(
+      { email: "new.student@example.com" },
+      { baseUrl: "/api" },
+    );
+    expect(field.getCode).toHaveTextContent("60s");
+  });
+});
+
+describe.each(["en", "vi"] as const)(
+  "SignInPage native password login (%s)",
+  (language) => {
+    const copy = NATIVE_COPY[language];
+
+    beforeEach(() => {
+      api.getAuthProviders.mockResolvedValue(NATIVE_PROVIDERS);
+    });
+
+    function loginFields() {
+      return {
+        identifier: screen.getByRole("textbox", { name: copy.identifier }),
+        password: screen.getByLabelText(copy.password),
+        keepSignedIn: screen.getByRole("checkbox", { name: copy.keepSignedIn }),
+        rememberMe: screen.getByRole("checkbox", { name: copy.rememberMe }),
+        submit: screen.getByRole("button", { name: copy.logIn }),
+      };
+    }
+
+    it("signs in with keep-signed-in, waits for the session hand-off and remembers only the email", async () => {
+      api.loginWithPassword.mockResolvedValue({ status: "authenticated" });
+      let finishHandOff: () => void = () => undefined;
+      completeNativeSignInMock.mockImplementation(
+        () =>
+          new Promise<void>((resolve) => {
+            finishHandOff = resolve;
+          }),
+      );
+      await renderSignIn({
+        from: { pathname: "/app/classrooms", search: "?tab=1" },
+        language,
+      });
+      const field = loginFields();
+      expect(field.keepSignedIn).toBeEnabled();
+      expect(field.keepSignedIn).toHaveAccessibleDescription(
+        copy.keepSignedInHint,
+      );
+
+      fireEvent.change(field.identifier, {
+        target: { value: "  teacher@example.com  " },
+      });
+      fireEvent.change(field.password, {
+        target: { value: "correct horse battery staple" },
+      });
+      fireEvent.click(field.keepSignedIn);
+      fireEvent.click(field.rememberMe);
+      fireEvent.click(field.submit);
+      await settle();
+
+      expect(api.loginWithPassword).toHaveBeenCalledWith(
+        {
+          identifier: "teacher@example.com",
+          keep_signed_in: true,
+          password: "correct horse battery staple",
+        },
+        { baseUrl: "/api" },
+      );
+      expect(signInMock).not.toHaveBeenCalled();
+      expect(completeNativeSignInMock).toHaveBeenCalledTimes(1);
+      expect(field.password).toHaveValue("");
+      // Navigation waits until CSRF rotation and /me have finished.
+      expect(screen.queryByTestId("landing")).toBeNull();
+
+      await act(async () => {
+        finishHandOff();
+      });
+      await settle();
+      expect(screen.getByTestId("landing")).toHaveTextContent(
+        "/app/classrooms?tab=1",
+      );
+      expect(window.localStorage.length).toBe(1);
+      expect(window.localStorage.getItem(REMEMBERED_EMAIL_KEY)).toBe(
+        "teacher@example.com",
+      );
+      expect(JSON.stringify({ ...window.localStorage })).not.toContain(
+        "correct horse",
+      );
+      expect(window.sessionStorage.length).toBe(0);
+    });
+
+    it("validates the email and password before calling the server", async () => {
+      await renderSignIn({ language });
+      const field = loginFields();
+
+      fireEvent.click(field.submit);
+      expect(field.identifier).toHaveAttribute("aria-invalid", "true");
+      expect(field.identifier).toHaveAccessibleDescription(
+        copy.identifierRequired,
+      );
+      expect(field.identifier).toHaveFocus();
+      expect(field.password).toHaveAttribute("aria-invalid", "true");
+      expect(api.loginWithPassword).not.toHaveBeenCalled();
+      expect(signInMock).not.toHaveBeenCalled();
+    });
+
+    it("shows one generic message for wrong credentials and clears only the password", async () => {
+      api.loginWithPassword.mockRejectedValue(apiError(401));
+      await renderSignIn({ language });
+      const field = loginFields();
+      fireEvent.change(field.identifier, {
+        target: { value: "teacher@example.com" },
+      });
+      fireEvent.change(field.password, { target: { value: "wrong-password" } });
+      fireEvent.click(field.rememberMe);
+
+      fireEvent.click(field.submit);
+      await settle();
+      expect(screen.getByRole("alert")).toHaveTextContent(copy.loginInvalid);
+      expect(field.password).toHaveValue("");
+      expect(field.password).toHaveFocus();
+      expect(field.identifier).toHaveValue("teacher@example.com");
+      expect(field.submit).toBeEnabled();
+      expect(completeNativeSignInMock).not.toHaveBeenCalled();
+      // Remember Me only persists after a successful sign-in.
+      expect(window.localStorage.length).toBe(0);
+    });
+
+    it("stops at the multi-factor step without treating the user as signed in", async () => {
+      api.loginWithPassword.mockResolvedValue({
+        methods: ["totp"],
+        status: "mfa_required",
+      });
+      await renderSignIn({ language });
+      const field = loginFields();
+      fireEvent.change(field.identifier, {
+        target: { value: "admin@example.com" },
+      });
+      fireEvent.change(field.password, { target: { value: "admin-password" } });
+      fireEvent.click(field.rememberMe);
+
+      fireEvent.click(field.submit);
+      await settle();
+      expect(screen.getByRole("alert")).toHaveTextContent(copy.mfa);
+      expect(field.password).toHaveValue("");
+      expect(completeNativeSignInMock).not.toHaveBeenCalled();
+      expect(screen.queryByTestId("landing")).toBeNull();
+      expect(window.localStorage.length).toBe(0);
+    });
+  },
+);
+
+describe("SignInPage auth providers and native edge cases", () => {
+  it("keeps the panel in place while the sign-in options load", async () => {
+    let resolveProviders: (value: AuthProvidersResponse) => void = () =>
+      undefined;
+    api.getAuthProviders.mockReturnValue(
+      new Promise<AuthProvidersResponse>((resolve) => {
+        resolveProviders = resolve;
+      }),
+    );
+    await renderSignIn();
+
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Loading sign-in options…",
+    );
+    expect(
+      screen.getByRole("region", { name: "Account access" }),
+    ).toHaveAttribute("aria-busy", "true");
+    expect(screen.getByRole("button", { name: "Log In" })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Log in with Google" }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("textbox", { name: "Email or username" }),
+    ).toBeEnabled();
+
+    await act(async () => {
+      resolveProviders(OIDC_PROVIDERS);
+    });
+    await settle();
+    expect(screen.queryByRole("status")).toBeNull();
+    expect(screen.getByRole("button", { name: "Log In" })).toBeEnabled();
+  });
+
+  it("offers Retry when the sign-in options cannot be loaded", async () => {
+    api.getAuthProviders.mockRejectedValueOnce(
+      new TypeError("Failed to fetch"),
+    );
+    await renderSignIn();
+
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveTextContent(
+      "We couldn't load the sign-in options. Check your connection and try again.",
+    );
+    expect(screen.getByRole("button", { name: "Log In" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Log In" }));
+    expect(signInMock).not.toHaveBeenCalled();
+
+    fireEvent.click(within(alert).getByRole("button", { name: "Retry" }));
+    await settle();
+    expect(api.getAuthProviders).toHaveBeenCalledTimes(2);
+    expect(screen.queryByRole("alert")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Log In" }));
+    expect(signInMock).toHaveBeenCalledWith("/app/home");
+  });
+
+  it("keeps Google and Facebook as the OIDC fallback beside password sign-in", async () => {
+    api.getAuthProviders.mockResolvedValue(NATIVE_PROVIDERS);
+    await renderSignIn({ from: { pathname: "/app/messages" } });
+
+    expect(screen.getByText("Or")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Log in with Google" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Log in with Facebook" }),
+    );
+    expect(signInMock).toHaveBeenCalledTimes(2);
+    expect(signInMock).toHaveBeenCalledWith("/app/messages");
+    expect(api.loginWithPassword).not.toHaveBeenCalled();
+  });
+
+  it("hides the social buttons when neither OIDC nor an OAuth provider is enabled", async () => {
+    api.getAuthProviders.mockResolvedValue({
+      ...NATIVE_PROVIDERS,
+      oidc_default_enabled: false,
+    });
+    await renderSignIn();
+
+    expect(screen.queryByText("Or")).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Log in with Google" }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Log in with Facebook" }),
+    ).toBeNull();
+    expect(screen.getByRole("button", { name: "Log In" })).toBeEnabled();
+  });
+
+  it("explains when no sign-in or sign-up method is enabled", async () => {
+    api.getAuthProviders.mockResolvedValue({
+      ...OIDC_PROVIDERS,
+      oidc_default_enabled: false,
+    });
+    await renderSignIn();
+
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Sign-in is temporarily unavailable. Please try again later or contact your administrator.",
+    );
+    expect(screen.getByRole("button", { name: "Log In" })).toBeDisabled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Sign Up" }));
+    const form = screen.getByRole("form", { name: "Create an Account" });
+    expect(within(form).getByRole("status")).toHaveTextContent(
+      "New accounts can't be created right now. Please contact your administrator.",
+    );
+    expect(
+      within(form).getByRole("button", { name: "Create Account" }),
+    ).toBeDisabled();
+    expect(
+      within(form).getByRole("button", { name: "Get Code" }),
+    ).toBeDisabled();
+  });
+
+  it("locks Log In for the Retry-After window and reports busy and network failures", async () => {
+    vi.useFakeTimers();
+    api.getAuthProviders.mockResolvedValue(NATIVE_PROVIDERS);
+    api.loginWithPassword
+      .mockRejectedValueOnce(apiError(429, undefined, 3))
+      .mockRejectedValueOnce(apiError(503, undefined, 2))
+      .mockRejectedValueOnce(new TypeError("Failed to fetch"));
+    await renderSignIn();
+    fireEvent.change(
+      screen.getByRole("textbox", { name: "Email or username" }),
+      {
+        target: { value: "teacher@example.com" },
+      },
+    );
+    const password = screen.getByLabelText("Password");
+    const submit = screen.getByRole("button", { name: "Log In" });
+
+    fireEvent.change(password, { target: { value: "secret-password" } });
+    fireEvent.click(submit);
+    await settle();
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Too many attempts. Please try again in 3 seconds.",
+    );
+    expect(submit).toBeDisabled();
+    expect(submit).toHaveTextContent("Log In (3s)");
+    expect(password).toHaveValue("secret-password");
+    tickSeconds(3);
+    expect(submit).toBeEnabled();
+
+    fireEvent.click(submit);
+    await settle();
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "TutorHub is busy right now. Please try again in 2 seconds.",
+    );
+    tickSeconds(2);
+
+    fireEvent.click(submit);
+    await settle();
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Couldn't reach TutorHub. Check your connection and try again.",
+    );
+    expect(api.loginWithPassword).toHaveBeenCalledTimes(3);
+    expect(completeNativeSignInMock).not.toHaveBeenCalled();
+  });
+
+  it("retries only the session hand-off when /me cannot load after sign-in", async () => {
+    api.getAuthProviders.mockResolvedValue(NATIVE_PROVIDERS);
+    api.loginWithPassword.mockResolvedValue({ status: "authenticated" });
+    completeNativeSignInMock
+      .mockRejectedValueOnce(new Error("me unavailable"))
+      .mockResolvedValueOnce(undefined);
+    await renderSignIn();
+    fireEvent.change(
+      screen.getByRole("textbox", { name: "Email or username" }),
+      {
+        target: { value: "teacher@example.com" },
+      },
+    );
+    fireEvent.change(screen.getByLabelText("Password"), {
+      target: { value: "secret-password" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Log In" }));
+    await settle();
+
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveTextContent(
+      "You're signed in, but we couldn't load your account yet.",
+    );
+    fireEvent.click(within(alert).getByRole("button", { name: "Retry" }));
+    await settle();
+    expect(completeNativeSignInMock).toHaveBeenCalledTimes(2);
+    expect(api.loginWithPassword).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId("landing")).toHaveTextContent("/app/home");
+  });
+
+  it("only returns to same-origin SPA paths after sign-in", async () => {
+    api.getAuthProviders.mockResolvedValue(NATIVE_PROVIDERS);
+    api.loginWithPassword.mockResolvedValue({ status: "authenticated" });
+    const { unmount } = await renderSignIn({
+      from: { pathname: "//evil.example/steal" },
+    });
+    fireEvent.change(
+      screen.getByRole("textbox", { name: "Email or username" }),
+      {
+        target: { value: "teacher@example.com" },
+      },
+    );
+    fireEvent.change(screen.getByLabelText("Password"), {
+      target: { value: "secret-password" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Log In" }));
+    await settle();
+    expect(screen.getByTestId("landing")).toHaveTextContent("/app/home");
+    unmount();
+
+    api.getAuthProviders.mockResolvedValue(OIDC_PROVIDERS);
+    for (const pathname of ["/\\evil.example", "/sign-in"]) {
+      signInMock.mockReset();
+      const view = await renderSignIn({ from: { pathname } });
+      fireEvent.click(screen.getByRole("button", { name: "Log In" }));
+      expect(signInMock).toHaveBeenCalledWith("/app/home");
+      view.unmount();
+    }
+  });
+});

@@ -1,4 +1,15 @@
 import {
+  APIRequestError,
+  completeEmailSignup,
+  getAuthProviders,
+  loginWithPassword,
+  resendAuthChallenge,
+  startEmailSignup,
+  type AuthProvidersResponse,
+  type AuthSignupChallengeResponse,
+  type NativeAuthenticationResponse,
+} from "@tutorhub/api-client";
+import {
   Dialog,
   DialogClose,
   DialogContent,
@@ -16,7 +27,7 @@ import {
   type FormEvent,
   type MouseEvent,
 } from "react";
-import { useLocation } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 import { useI18n, type Language } from "../app/i18n";
 import { useSession } from "../app/session";
 import { SignInLegalDialog } from "./SignInLegalDialog";
@@ -28,6 +39,8 @@ const REMEMBERED_EMAIL_KEY = "tutorhub.remembered_email";
 const REMEMBERED_EMAIL_MAX_LENGTH = 320;
 const OTP_COOLDOWN_SECONDS = 60;
 const MIN_PASSWORD_LENGTH = 8;
+/** Upper bound for client-side Retry-After locks; the server stays authoritative. */
+const MAX_RETRY_AFTER_SECONDS = 3600;
 const DEFAULT_RETURN_TO = "/app/home";
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const OTP_PATTERN = /^\d{6}$/;
@@ -76,6 +89,8 @@ const en = {
   keepSignedIn: "Keep me signed in",
   keepSignedInHint:
     "Session length is managed securely by the TutorHub identity portal.",
+  keepSignedInNativeHint:
+    "Stay signed in on this device for up to 30 days (administrator accounts: up to 24 hours). The server decides the final session length.",
   rememberMe: "Remember Me",
   rememberMeHint: "Only your email or username is remembered on this device.",
   or: "Or",
@@ -117,8 +132,46 @@ const en = {
   errorFullName: "Please enter your full name.",
   errorEmail: "Please enter a valid email address.",
   errorOtp: "Please enter the 6-digit OTP code.",
-  errorPassword: "Password must be at least 8 characters.",
+  errorPassword: "Password must be at least {min} characters.",
   errorTerms: "You must agree to the User Agreement and Privacy Policy.",
+  providersLoading: "Loading sign-in options…",
+  providersError:
+    "We couldn't load the sign-in options. Check your connection and try again.",
+  retry: "Retry",
+  loginUnavailable:
+    "Sign-in is temporarily unavailable. Please try again later or contact your administrator.",
+  signUpUnavailable:
+    "New accounts can't be created right now. Please contact your administrator.",
+  loggingIn: "Logging in…",
+  creatingAccount: "Creating account…",
+  sendingCode: "Sending…",
+  submitWait: "{label} ({seconds}s)",
+  errorIdentifier: "Please enter your email.",
+  errorPasswordRequired: "Please enter your password.",
+  loginInvalid: "Incorrect email or password.",
+  loginMfaRequired:
+    "This account requires multi-factor authentication, which this page doesn't support yet. Please contact your administrator.",
+  rateLimited: "Too many attempts. Please wait a moment and try again.",
+  rateLimitedWait: "Too many attempts. Please try again in {seconds} seconds.",
+  busy: "TutorHub is busy right now. Please try again shortly.",
+  busyWait:
+    "TutorHub is busy right now. Please try again in {seconds} seconds.",
+  networkError: "Couldn't reach TutorHub. Check your connection and try again.",
+  genericError: "Something went wrong. Please try again.",
+  sessionError: "You're signed in, but we couldn't load your account yet.",
+  codeSent:
+    "If the email address is valid and eligible, a 6-digit verification code has been sent. Please check your inbox. The code is valid for {minutes} minutes.",
+  codeExpired:
+    "Your verification code has expired. Select Resend to get a new code.",
+  errorCodeRequired: "Select Get Code to receive a verification code first.",
+  errorCodeExpired: "This code has expired. Select Resend to get a new code.",
+  errorPasswordPolicy:
+    "This password is too weak or appears on a list of common or leaked passwords. Please choose a stronger password.",
+  errorTermsChanged:
+    "The User Agreement or Privacy Policy has just been updated. Please review it and agree again.",
+  reviewTerms: "Review updated terms",
+  signUpFailed:
+    "We couldn't complete sign-up. Check the code or request a new one, then try again. If you already have an account, try logging in.",
 };
 
 type SignInCopy = Record<keyof typeof en, string>;
@@ -158,6 +211,8 @@ const vi: SignInCopy = {
   keepSignedIn: "Duy trì đăng nhập",
   keepSignedInHint:
     "Thời hạn phiên đăng nhập do cổng định danh TutorHub quản lý an toàn.",
+  keepSignedInNativeHint:
+    "Duy trì đăng nhập trên thiết bị này tối đa 30 ngày (tài khoản quản trị: tối đa 24 giờ). Thời hạn phiên thực tế do máy chủ quyết định.",
   rememberMe: "Ghi nhớ tôi",
   rememberMeHint: "Chỉ ghi nhớ email hoặc tên đăng nhập trên thiết bị này.",
   or: "Hoặc",
@@ -199,9 +254,47 @@ const vi: SignInCopy = {
   errorFullName: "Vui lòng nhập họ và tên.",
   errorEmail: "Vui lòng nhập địa chỉ email hợp lệ.",
   errorOtp: "Vui lòng nhập mã OTP gồm 6 chữ số.",
-  errorPassword: "Mật khẩu cần có ít nhất 8 ký tự.",
+  errorPassword: "Mật khẩu cần có ít nhất {min} ký tự.",
   errorTerms:
     "Bạn cần đồng ý với Thỏa thuận người dùng và Chính sách quyền riêng tư.",
+  providersLoading: "Đang tải phương thức đăng nhập…",
+  providersError:
+    "Chưa tải được các phương thức đăng nhập. Vui lòng kiểm tra kết nối và thử lại.",
+  retry: "Thử lại",
+  loginUnavailable:
+    "Tính năng đăng nhập tạm thời chưa khả dụng. Vui lòng thử lại sau hoặc liên hệ quản trị viên.",
+  signUpUnavailable:
+    "Hiện chưa thể tạo tài khoản mới. Vui lòng liên hệ quản trị viên.",
+  loggingIn: "Đang đăng nhập…",
+  creatingAccount: "Đang tạo tài khoản…",
+  sendingCode: "Đang gửi…",
+  submitWait: "{label} ({seconds}s)",
+  errorIdentifier: "Vui lòng nhập email.",
+  errorPasswordRequired: "Vui lòng nhập mật khẩu.",
+  loginInvalid: "Email hoặc mật khẩu không đúng.",
+  loginMfaRequired:
+    "Tài khoản này yêu cầu xác thực đa yếu tố nhưng trang này chưa hỗ trợ bước xác thực bổ sung. Vui lòng liên hệ quản trị viên.",
+  rateLimited: "Bạn đã thử quá nhiều lần. Vui lòng chờ một lát rồi thử lại.",
+  rateLimitedWait:
+    "Bạn đã thử quá nhiều lần. Vui lòng thử lại sau {seconds} giây.",
+  busy: "Hệ thống đang bận. Vui lòng thử lại sau giây lát.",
+  busyWait: "Hệ thống đang bận. Vui lòng thử lại sau {seconds} giây.",
+  networkError:
+    "Không kết nối được tới TutorHub. Vui lòng kiểm tra kết nối mạng và thử lại.",
+  genericError: "Đã có lỗi xảy ra. Vui lòng thử lại.",
+  sessionError: "Bạn đã đăng nhập nhưng chưa tải được thông tin tài khoản.",
+  codeSent:
+    "Nếu email hợp lệ và đủ điều kiện, mã xác thực 6 chữ số đã được gửi. Vui lòng kiểm tra hộp thư. Mã có hiệu lực trong {minutes} phút.",
+  codeExpired: "Mã xác thực đã hết hạn. Vui lòng bấm Gửi lại để nhận mã mới.",
+  errorCodeRequired: "Vui lòng bấm Lấy mã để nhận mã xác thực trước.",
+  errorCodeExpired: "Mã đã hết hạn. Vui lòng bấm Gửi lại để nhận mã mới.",
+  errorPasswordPolicy:
+    "Mật khẩu chưa đạt chuẩn an toàn hoặc nằm trong danh sách mật khẩu phổ biến/bị lộ. Vui lòng chọn mật khẩu mạnh hơn.",
+  errorTermsChanged:
+    "Thỏa thuận người dùng hoặc Chính sách quyền riêng tư vừa được cập nhật. Vui lòng xem lại và đồng ý lại.",
+  reviewTerms: "Xem điều khoản mới",
+  signUpFailed:
+    "Không thể hoàn tất đăng ký. Vui lòng kiểm tra lại mã hoặc yêu cầu mã mới rồi thử lại. Nếu bạn đã có tài khoản, hãy thử đăng nhập.",
 };
 
 const copyByLanguage: Record<Language, SignInCopy> = { en, vi };
@@ -218,6 +311,35 @@ function formatCopy(template: string, values: Record<string, string | number>) {
   });
 }
 
+function getApiBaseUrl() {
+  return import.meta.env.VITE_API_BASE_URL ?? "/api";
+}
+
+function hasControlCharacter(value: string) {
+  for (const character of value) {
+    const code = character.charCodeAt(0);
+    if (code < 0x20 || code === 0x7f) return true;
+  }
+  return false;
+}
+
+/** Only same-origin SPA paths are accepted; anything else lands on the dashboard. */
+function sanitizeReturnTo(value: string) {
+  if (
+    !value.startsWith("/") ||
+    value.startsWith("//") ||
+    value.includes("\\") ||
+    hasControlCharacter(value)
+  ) {
+    return DEFAULT_RETURN_TO;
+  }
+  const pathname = value.split(/[?#]/, 1)[0] ?? value;
+  if (pathname === "/sign-in" || pathname.startsWith("/sign-in/")) {
+    return DEFAULT_RETURN_TO;
+  }
+  return value;
+}
+
 function readReturnTo(state: unknown) {
   if (typeof state !== "object" || state === null || !("from" in state)) {
     return DEFAULT_RETURN_TO;
@@ -232,7 +354,181 @@ function readReturnTo(state: unknown) {
       : DEFAULT_RETURN_TO;
   const search =
     "search" in from && typeof from.search === "string" ? from.search : "";
-  return `${pathname}${search}`;
+  return sanitizeReturnTo(`${pathname}${search}`);
+}
+
+type AuthProvidersState =
+  | { status: "loading" }
+  | { status: "error" }
+  | { status: "ready"; providers: AuthProvidersResponse };
+
+/**
+ * Loads the deployment's public sign-in capabilities. A reload keeps the last
+ * good configuration on screen so the two-column layout never collapses.
+ */
+function useAuthProviders() {
+  const [state, setState] = useState<AuthProvidersState>({
+    status: "loading",
+  });
+  const [generation, setGeneration] = useState(0);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    getAuthProviders({
+      baseUrl: getApiBaseUrl(),
+      signal: controller.signal,
+    }).then(
+      (providers) => {
+        if (!controller.signal.aborted) {
+          setState({ status: "ready", providers });
+        }
+      },
+      () => {
+        if (!controller.signal.aborted) {
+          setState((current) =>
+            current.status === "ready" ? current : { status: "error" },
+          );
+        }
+      },
+    );
+    return () => controller.abort();
+  }, [generation]);
+
+  const reload = useCallback(() => {
+    setState((current) =>
+      current.status === "ready" ? current : { status: "loading" },
+    );
+    setGeneration((value) => value + 1);
+  }, []);
+
+  return { reload, state };
+}
+
+type LoginMode = "pending" | "password" | "oidc" | "unavailable";
+type SignUpMode = "pending" | "native" | "oidc" | "unavailable";
+
+interface SocialAvailability {
+  disabled: boolean;
+  facebook: boolean;
+  google: boolean;
+}
+
+function loginModeFor(providers: AuthProvidersResponse | null): LoginMode {
+  if (!providers) return "pending";
+  if (providers.password_enabled) return "password";
+  return providers.oidc_default_enabled ? "oidc" : "unavailable";
+}
+
+function signUpModeFor(providers: AuthProvidersResponse | null): SignUpMode {
+  if (!providers) return "pending";
+  if (providers.signup_enabled) return "native";
+  return providers.oidc_default_enabled ? "oidc" : "unavailable";
+}
+
+/**
+ * Until AUTH-05/06 ship provider-specific starts, Google/Facebook stay a
+ * fallback entry into the default OIDC portal whenever it is enabled.
+ */
+function socialAvailabilityFor(
+  providers: AuthProvidersResponse | null,
+): SocialAvailability {
+  if (!providers) return { disabled: true, facebook: true, google: true };
+  const fallback = providers.oidc_default_enabled;
+  return {
+    disabled: false,
+    facebook: fallback || providers.oauth_providers.includes("facebook"),
+    google: fallback || providers.oauth_providers.includes("google"),
+  };
+}
+
+function passwordMinLengthFor(providers: AuthProvidersResponse | null) {
+  const value = providers?.password_min_length;
+  return typeof value === "number" && Number.isFinite(value) && value > 0
+    ? Math.ceil(value)
+    : MIN_PASSWORD_LENGTH;
+}
+
+type AuthFailure =
+  | { kind: "invalidCredentials" }
+  | { kind: "mfaRequired" }
+  | { kind: "rateLimited"; retryAfterSeconds?: number }
+  | { kind: "busy"; retryAfterSeconds?: number }
+  | { kind: "badRequest" }
+  | { kind: "termsChanged" }
+  | { kind: "passwordPolicy" }
+  | { kind: "signUpFailed" }
+  | { kind: "session" }
+  | { kind: "network" }
+  | { kind: "generic" };
+
+function boundedRetryAfter(value: number | undefined) {
+  return typeof value === "number" && Number.isFinite(value) && value > 0
+    ? Math.min(Math.ceil(value), MAX_RETRY_AFTER_SECONDS)
+    : undefined;
+}
+
+function authFailureFrom(error: unknown): AuthFailure {
+  if (!(error instanceof APIRequestError)) {
+    // fetch() rejects with a TypeError (or AbortError) when the network fails.
+    return { kind: "network" };
+  }
+  switch (error.status) {
+    case 400:
+      if (error.problem?.code === "auth_terms_version_changed") {
+        return { kind: "termsChanged" };
+      }
+      if (error.problem?.code === "auth_password_policy") {
+        return { kind: "passwordPolicy" };
+      }
+      return { kind: "badRequest" };
+    case 401:
+      return { kind: "invalidCredentials" };
+    case 429:
+      return {
+        kind: "rateLimited",
+        retryAfterSeconds: boundedRetryAfter(error.retryAfterSeconds),
+      };
+    case 503:
+      return {
+        kind: "busy",
+        retryAfterSeconds: boundedRetryAfter(error.retryAfterSeconds),
+      };
+    default:
+      return { kind: "generic" };
+  }
+}
+
+function retryAfterOf(failure: AuthFailure) {
+  return failure.kind === "rateLimited" || failure.kind === "busy"
+    ? failure.retryAfterSeconds
+    : undefined;
+}
+
+function failureText(c: SignInCopy, failure: AuthFailure) {
+  switch (failure.kind) {
+    case "invalidCredentials":
+      return c.loginInvalid;
+    case "mfaRequired":
+      return c.loginMfaRequired;
+    case "rateLimited":
+      return failure.retryAfterSeconds
+        ? formatCopy(c.rateLimitedWait, {
+            seconds: failure.retryAfterSeconds,
+          })
+        : c.rateLimited;
+    case "busy":
+      return failure.retryAfterSeconds
+        ? formatCopy(c.busyWait, { seconds: failure.retryAfterSeconds })
+        : c.busy;
+    case "signUpFailed":
+      return c.signUpFailed;
+    case "session":
+      return c.sessionError;
+    case "network":
+      return c.networkError;
+    default:
+      return c.genericError;
+  }
 }
 
 function readRememberedEmail() {
@@ -260,9 +556,8 @@ function clearRememberedEmail() {
   }
 }
 
-function useCodeCooldown() {
+function useCountdown() {
   const [remaining, setRemaining] = useState(0);
-  const [hasRequested, setHasRequested] = useState(false);
 
   useEffect(() => {
     if (remaining <= 0) {
@@ -274,24 +569,79 @@ function useCodeCooldown() {
     return () => window.clearTimeout(timer);
   }, [remaining]);
 
-  const start = useCallback(() => {
-    setRemaining(OTP_COOLDOWN_SECONDS);
-    setHasRequested(true);
+  const start = useCallback((seconds: number) => {
+    setRemaining(
+      Number.isFinite(seconds) && seconds > 0
+        ? Math.min(Math.ceil(seconds), MAX_RETRY_AFTER_SECONDS)
+        : 0,
+    );
   }, []);
+  const reset = useCallback(() => setRemaining(0), []);
+
+  return { remaining, reset, start };
+}
+
+function useCodeCooldown() {
+  const { remaining, start: startCountdown } = useCountdown();
+  const [hasRequested, setHasRequested] = useState(false);
+
+  const start = useCallback(() => {
+    startCountdown(OTP_COOLDOWN_SECONDS);
+    setHasRequested(true);
+  }, [startCountdown]);
 
   return { hasRequested, remaining, start };
 }
 
+interface FormAlertProps {
+  failure: AuthFailure;
+  onRetrySession?: () => void;
+}
+
+function FormAlert({ failure, onRetrySession }: FormAlertProps) {
+  const c = useSignInCopy();
+  return (
+    <div
+      className={
+        failure.kind === "mfaRequired"
+          ? "sign-in-form__alert sign-in-form__alert--info"
+          : "sign-in-form__alert"
+      }
+      role="alert"
+    >
+      <p>{failureText(c, failure)}</p>
+      {failure.kind === "session" && onRetrySession ? (
+        <button
+          className="sign-in-button sign-in-button--outline"
+          onClick={onRetrySession}
+          type="button"
+        >
+          {c.retry}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
 export function SignInPage() {
   const c = useSignInCopy();
-  const { signIn } = useSession();
+  const { completeNativeSignIn, signIn } = useSession();
+  const navigate = useNavigate();
   const location = useLocation();
   const returnTo = readReturnTo(location.state);
+  const { reload: reloadProviders, state: providersState } = useAuthProviders();
   const [view, setView] = useState<"login" | "signup">("login");
   const [focusFormOnMount, setFocusFormOnMount] = useState(false);
   const heroTitleId = useId();
 
   const startSignIn = useCallback(() => signIn(returnTo), [returnTo, signIn]);
+  const finishNativeSignIn = useCallback(async () => {
+    await completeNativeSignIn();
+    void navigate(returnTo, { replace: true });
+  }, [completeNativeSignIn, navigate, returnTo]);
+
+  const providers =
+    providersState.status === "ready" ? providersState.providers : null;
 
   function switchView() {
     setFocusFormOnMount(true);
@@ -328,7 +678,11 @@ export function SignInPage() {
         <LoginImageSlider />
       </section>
 
-      <section className="sign-in__panel" aria-label={c.panelLabel}>
+      <section
+        aria-busy={providersState.status === "loading" || undefined}
+        aria-label={c.panelLabel}
+        className="sign-in__panel"
+      >
         <div className="sign-in__panel-inner">
           <div className="sign-in__brand-row">
             <div className="sign-in__brand">
@@ -354,10 +708,42 @@ export function SignInPage() {
             </button>
           </div>
 
+          {providersState.status === "loading" ? (
+            <p className="visually-hidden" role="status">
+              {c.providersLoading}
+            </p>
+          ) : null}
+          {providersState.status === "error" ? (
+            <div className="sign-in-status" role="alert">
+              <p>{c.providersError}</p>
+              <button
+                className="sign-in-button sign-in-button--outline"
+                onClick={reloadProviders}
+                type="button"
+              >
+                {c.retry}
+              </button>
+            </div>
+          ) : null}
+
           {view === "login" ? (
-            <LoginForm autoFocus={focusFormOnMount} onSignIn={startSignIn} />
+            <LoginForm
+              autoFocus={focusFormOnMount}
+              mode={loginModeFor(providers)}
+              onAuthenticated={finishNativeSignIn}
+              onSignIn={startSignIn}
+              social={socialAvailabilityFor(providers)}
+            />
           ) : (
-            <SignUpForm autoFocus={focusFormOnMount} onSignIn={startSignIn} />
+            <SignUpForm
+              autoFocus={focusFormOnMount}
+              mode={signUpModeFor(providers)}
+              onAuthenticated={finishNativeSignIn}
+              onSignIn={startSignIn}
+              onTermsChanged={reloadProviders}
+              passwordMinLength={passwordMinLengthFor(providers)}
+              termsVersion={providers?.legal_terms_version ?? null}
+            />
           )}
         </div>
       </section>
@@ -387,20 +773,45 @@ function LoginImageSlider() {
 
 interface LoginFormProps {
   autoFocus: boolean;
+  mode: LoginMode;
+  /** Runs after the server issued a native session: CSRF, /me, navigation. */
+  onAuthenticated: () => Promise<void>;
+  /** Redirects to the default OIDC portal (BFF `/api/v1/auth/login`). */
   onSignIn: () => void;
+  social: SocialAvailability;
 }
 
-function LoginForm({ autoFocus, onSignIn }: LoginFormProps) {
+type LoginField = "identifier" | "password";
+type LoginErrors = Partial<Record<LoginField, CopyKey>>;
+
+function LoginForm({
+  autoFocus,
+  mode,
+  onAuthenticated,
+  onSignIn,
+  social,
+}: LoginFormProps) {
   const c = useSignInCopy();
-  const headingId = useId();
-  const keepSignedInHintId = useId();
-  const rememberHintId = useId();
+  const ids = {
+    heading: useId(),
+    identifier: useId(),
+    password: useId(),
+    keepSignedInHint: useId(),
+    rememberHint: useId(),
+  };
   const identifierRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
   const [identifier, setIdentifier] = useState(readRememberedEmail);
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(() =>
     Boolean(readRememberedEmail()),
   );
+  const [keepSignedIn, setKeepSignedIn] = useState(false);
+  const [errors, setErrors] = useState<LoginErrors>({});
+  const [failure, setFailure] = useState<AuthFailure | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const lock = useCountdown();
+  const isPassword = mode === "password";
 
   useEffect(() => {
     if (autoFocus) identifierRef.current?.focus();
@@ -411,75 +822,210 @@ function LoginForm({ autoFocus, onSignIn }: LoginFormProps) {
     if (!checked) clearRememberedEmail();
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const remembered = identifier.trim();
-    if (
-      rememberMe &&
-      remembered &&
-      remembered.length <= REMEMBERED_EMAIL_MAX_LENGTH
-    ) {
-      writeRememberedEmail(remembered);
+  /** Only the identifier is ever persisted, never the password or a token. */
+  function rememberIdentifier(value: string) {
+    if (rememberMe && value && value.length <= REMEMBERED_EMAIL_MAX_LENGTH) {
+      writeRememberedEmail(value);
     } else {
       clearRememberedEmail();
     }
-    setPassword("");
-    onSignIn();
   }
+
+  function clearError(field: LoginField) {
+    setErrors((current) => {
+      if (!current[field]) return current;
+      const next = { ...current };
+      delete next[field];
+      return next;
+    });
+  }
+
+  async function finishSession() {
+    setFailure(null);
+    setSubmitting(true);
+    try {
+      await onAuthenticated();
+    } catch {
+      // The session cookie exists; retry only the CSRF + /me hand-off.
+      setFailure({ kind: "session" });
+      setSubmitting(false);
+    }
+  }
+
+  async function signInWithPassword() {
+    const trimmed = identifier.trim();
+    const nextErrors: LoginErrors = {};
+    if (!trimmed) nextErrors.identifier = "errorIdentifier";
+    if (!password) nextErrors.password = "errorPasswordRequired";
+    setErrors(nextErrors);
+    if (nextErrors.identifier) {
+      identifierRef.current?.focus();
+      return;
+    }
+    if (nextErrors.password) {
+      passwordRef.current?.focus();
+      return;
+    }
+
+    setFailure(null);
+    setSubmitting(true);
+    let result: NativeAuthenticationResponse;
+    try {
+      result = await loginWithPassword(
+        { identifier: trimmed, password, keep_signed_in: keepSignedIn },
+        { baseUrl: getApiBaseUrl() },
+      );
+    } catch (error) {
+      const next = authFailureFrom(error);
+      // A malformed identifier gets the same generic answer as a wrong password.
+      const shown: AuthFailure =
+        next.kind === "badRequest" ? { kind: "invalidCredentials" } : next;
+      if (shown.kind === "invalidCredentials") {
+        setPassword("");
+        passwordRef.current?.focus();
+      }
+      const retryAfter = retryAfterOf(shown);
+      if (retryAfter) lock.start(retryAfter);
+      setFailure(shown);
+      setSubmitting(false);
+      return;
+    }
+
+    setPassword("");
+    if (result.status !== "authenticated") {
+      // AUTH-08/09 will add the second-factor step; never treat this as signed in.
+      setFailure({ kind: "mfaRequired" });
+      setSubmitting(false);
+      return;
+    }
+    rememberIdentifier(trimmed);
+    await finishSession();
+  }
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (mode === "oidc") {
+      rememberIdentifier(identifier.trim());
+      setPassword("");
+      onSignIn();
+      return;
+    }
+    if (!isPassword || submitting || lock.remaining > 0) return;
+    void signInWithPassword();
+  }
+
+  function errorFor(field: LoginField) {
+    const key = errors[field];
+    return key ? (
+      <p className="sign-in-form__error" id={`${ids[field]}-error`}>
+        {c[key]}
+      </p>
+    ) : null;
+  }
+
+  const submitDisabled =
+    mode === "pending" || mode === "unavailable" || lock.remaining > 0;
+  const submitLabel = submitting
+    ? c.loggingIn
+    : lock.remaining > 0
+      ? formatCopy(c.submitWait, { label: c.logIn, seconds: lock.remaining })
+      : c.logIn;
+  const keepSignedInHint = isPassword
+    ? c.keepSignedInNativeHint
+    : c.keepSignedInHint;
+  const showSocial = social.facebook || social.google;
 
   return (
     <div className="sign-in-form">
       <form
-        aria-labelledby={headingId}
+        aria-labelledby={ids.heading}
         className="sign-in-form__stack"
         noValidate
         onSubmit={handleSubmit}
       >
-        <h2 className="visually-hidden" id={headingId}>
+        <h2 className="visually-hidden" id={ids.heading}>
           {c.loginHeading}
         </h2>
-        <input
-          aria-label={c.identifierLabel}
-          autoComplete="username"
-          className="sign-in-input"
-          maxLength={REMEMBERED_EMAIL_MAX_LENGTH}
-          name="identifier"
-          onChange={(event) => setIdentifier(event.target.value)}
-          placeholder={c.identifierPlaceholder}
-          ref={identifierRef}
-          spellCheck={false}
-          type="text"
-          value={identifier}
-        />
-        <input
-          aria-label={c.passwordLabel}
-          autoComplete="current-password"
-          className="sign-in-input"
-          name="password"
-          onChange={(event) => setPassword(event.target.value)}
-          placeholder={c.passwordPlaceholder}
-          type="password"
-          value={password}
-        />
+        {mode === "unavailable" ? (
+          <p className="sign-in-form__alert" role="status">
+            {c.loginUnavailable}
+          </p>
+        ) : null}
+        <div className="sign-in-form__field">
+          <input
+            aria-describedby={
+              errors.identifier ? `${ids.identifier}-error` : undefined
+            }
+            aria-invalid={errors.identifier ? true : undefined}
+            aria-label={c.identifierLabel}
+            autoComplete="username"
+            className="sign-in-input"
+            id={ids.identifier}
+            maxLength={REMEMBERED_EMAIL_MAX_LENGTH}
+            name="identifier"
+            onChange={(event) => {
+              setIdentifier(event.target.value);
+              clearError("identifier");
+            }}
+            placeholder={c.identifierPlaceholder}
+            ref={identifierRef}
+            spellCheck={false}
+            type="text"
+            value={identifier}
+          />
+          {errorFor("identifier")}
+        </div>
+        <div className="sign-in-form__field">
+          <input
+            aria-describedby={
+              errors.password ? `${ids.password}-error` : undefined
+            }
+            aria-invalid={errors.password ? true : undefined}
+            aria-label={c.passwordLabel}
+            autoComplete="current-password"
+            className="sign-in-input"
+            id={ids.password}
+            name="password"
+            onChange={(event) => {
+              setPassword(event.target.value);
+              clearError("password");
+            }}
+            placeholder={c.passwordPlaceholder}
+            ref={passwordRef}
+            type="password"
+            value={password}
+          />
+          {errorFor("password")}
+        </div>
+        {failure ? (
+          <FormAlert
+            failure={failure}
+            onRetrySession={() => void finishSession()}
+          />
+        ) : null}
         <button
+          aria-disabled={submitting || undefined}
           className="sign-in-button sign-in-button--primary sign-in-form__submit"
+          disabled={submitDisabled}
           type="submit"
         >
-          {c.logIn}
+          {submitLabel}
         </button>
         <div className="sign-in-form__options">
-          <label className="sign-in-check" title={c.keepSignedInHint}>
+          <label className="sign-in-check" title={keepSignedInHint}>
             <input
-              aria-describedby={keepSignedInHintId}
-              disabled
+              aria-describedby={ids.keepSignedInHint}
+              checked={isPassword && keepSignedIn}
+              disabled={!isPassword}
               name="keep-signed-in"
+              onChange={(event) => setKeepSignedIn(event.target.checked)}
               type="checkbox"
             />
             <span>{c.keepSignedIn}</span>
           </label>
           <label className="sign-in-check" title={c.rememberMeHint}>
             <input
-              aria-describedby={rememberHintId}
+              aria-describedby={ids.rememberHint}
               checked={rememberMe}
               name="remember-me"
               onChange={(event) => handleRememberChange(event.target.checked)}
@@ -487,37 +1033,47 @@ function LoginForm({ autoFocus, onSignIn }: LoginFormProps) {
             />
             <span>{c.rememberMe}</span>
           </label>
-          <span className="visually-hidden" id={keepSignedInHintId}>
-            {c.keepSignedInHint}
+          <span className="visually-hidden" id={ids.keepSignedInHint}>
+            {keepSignedInHint}
           </span>
-          <span className="visually-hidden" id={rememberHintId}>
+          <span className="visually-hidden" id={ids.rememberHint}>
             {c.rememberMeHint}
           </span>
         </div>
       </form>
 
-      <div className="sign-in-divider">
-        <span>{c.or}</span>
-      </div>
+      {showSocial ? (
+        <>
+          <div className="sign-in-divider">
+            <span>{c.or}</span>
+          </div>
 
-      <div className="sign-in-form__social">
-        <button
-          className="sign-in-button sign-in-button--facebook"
-          onClick={onSignIn}
-          type="button"
-        >
-          <img alt="" height={22} src={FACEBOOK_ICON_SRC} width={22} />
-          <span>{c.facebook}</span>
-        </button>
-        <button
-          className="sign-in-button sign-in-button--google"
-          onClick={onSignIn}
-          type="button"
-        >
-          <img alt="" height={22} src={GOOGLE_ICON_SRC} width={22} />
-          <span>{c.google}</span>
-        </button>
-      </div>
+          <div className="sign-in-form__social">
+            {social.facebook ? (
+              <button
+                className="sign-in-button sign-in-button--facebook"
+                disabled={social.disabled}
+                onClick={onSignIn}
+                type="button"
+              >
+                <img alt="" height={22} src={FACEBOOK_ICON_SRC} width={22} />
+                <span>{c.facebook}</span>
+              </button>
+            ) : null}
+            {social.google ? (
+              <button
+                className="sign-in-button sign-in-button--google"
+                disabled={social.disabled}
+                onClick={onSignIn}
+                type="button"
+              >
+                <img alt="" height={22} src={GOOGLE_ICON_SRC} width={22} />
+                <span>{c.google}</span>
+              </button>
+            ) : null}
+          </div>
+        </>
+      ) : null}
 
       <Dialog>
         <DialogTrigger asChild>
@@ -545,10 +1101,36 @@ const SIGN_UP_FIELD_ORDER: readonly SignUpField[] = [
 
 interface SignUpFormProps {
   autoFocus: boolean;
+  mode: SignUpMode;
+  /** Runs after the server issued a native session: CSRF, /me, navigation. */
+  onAuthenticated: () => Promise<void>;
+  /** Redirects to the default OIDC portal (BFF `/api/v1/auth/login`). */
   onSignIn: () => void;
+  /** Reloads `/auth/providers` after the server reports new legal terms. */
+  onTermsChanged: () => void;
+  passwordMinLength: number;
+  termsVersion: string | null;
 }
 
-function SignUpForm({ autoFocus, onSignIn }: SignUpFormProps) {
+interface SignUpChallenge {
+  expiresInSeconds: number;
+  id: string;
+}
+
+type CodeNotice =
+  | { kind: "legacy" }
+  | { kind: "sent"; minutes: number }
+  | { kind: "failure"; failure: AuthFailure };
+
+function SignUpForm({
+  autoFocus,
+  mode,
+  onAuthenticated,
+  onSignIn,
+  onTermsChanged,
+  passwordMinLength,
+  termsVersion,
+}: SignUpFormProps) {
   const c = useSignInCopy();
   const ids = {
     heading: useId(),
@@ -566,21 +1148,41 @@ function SignUpForm({ autoFocus, onSignIn }: SignUpFormProps) {
   const passwordRef = useRef<HTMLInputElement>(null);
   const termsRef = useRef<HTMLInputElement>(null);
   const legalReturnFocusRef = useRef<HTMLElement | null>(null);
+  /** Bumped whenever the email changes so a late code response is discarded. */
+  const codeRequestGenerationRef = useRef(0);
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
   const [password, setPassword] = useState("");
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [errors, setErrors] = useState<SignUpErrors>({});
-  const [codeNoticeVisible, setCodeNoticeVisible] = useState(false);
+  const [codeNotice, setCodeNotice] = useState<CodeNotice | null>(null);
+  const [challenge, setChallenge] = useState<SignUpChallenge | null>(null);
+  const [challengeExpired, setChallengeExpired] = useState(false);
+  const [requestingCode, setRequestingCode] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [failure, setFailure] = useState<AuthFailure | null>(null);
   const [submitted, setSubmitted] = useState(false);
   const [legalOpen, setLegalOpen] = useState(false);
   const [legalTab, setLegalTab] = useState<SignInLegalTab>("agreement");
-  const cooldown = useCodeCooldown();
+  const cooldown = useCountdown();
+  const submitLock = useCountdown();
+  const isNative = mode === "native";
+  const inactive = mode === "pending" || mode === "unavailable";
 
   useEffect(() => {
     if (autoFocus) fullNameRef.current?.focus();
   }, [autoFocus]);
+
+  // Remind the user to resend once the server-side code lifetime has passed.
+  useEffect(() => {
+    if (!challenge) return;
+    const timer = window.setTimeout(
+      () => setChallengeExpired(true),
+      Math.min(challenge.expiresInSeconds, MAX_RETRY_AFTER_SECONDS) * 1000,
+    );
+    return () => window.clearTimeout(timer);
+  }, [challenge]);
 
   function focusField(field: SignUpField) {
     const fieldRefs = {
@@ -602,16 +1204,90 @@ function SignUpForm({ autoFocus, onSignIn }: SignUpFormProps) {
     });
   }
 
+  /** A code belongs to one email: editing the address forces a new request. */
+  function invalidateChallenge() {
+    codeRequestGenerationRef.current += 1;
+    setChallenge(null);
+    setChallengeExpired(false);
+    setCodeNotice(null);
+    setRequestingCode(false);
+    setOtp("");
+    cooldown.reset();
+  }
+
+  async function requestChallenge(
+    trimmedEmail: string,
+  ): Promise<AuthSignupChallengeResponse> {
+    const options = { baseUrl: getApiBaseUrl() };
+    if (!challenge) {
+      return startEmailSignup({ email: trimmedEmail }, options);
+    }
+    try {
+      // The destination stays bound to the encrypted server transaction.
+      return await resendAuthChallenge(options);
+    } catch (error) {
+      if (error instanceof APIRequestError && error.status === 400) {
+        // The sign-up transaction ended (TTL or restart): start a new one.
+        return startEmailSignup({ email: trimmedEmail }, options);
+      }
+      throw error;
+    }
+  }
+
+  async function sendCode(trimmedEmail: string) {
+    const generation = ++codeRequestGenerationRef.current;
+    const isStale = () => generation !== codeRequestGenerationRef.current;
+    setRequestingCode(true);
+    setCodeNotice(null);
+    try {
+      const result = await requestChallenge(trimmedEmail);
+      // The email was edited meanwhile: this code belongs to the old address.
+      if (isStale()) return;
+      setChallenge({
+        expiresInSeconds: result.expires_in_seconds,
+        id: result.challenge_id,
+      });
+      setChallengeExpired(false);
+      cooldown.start(result.cooldown_seconds);
+      // Uniform wording: never reveal whether the address already has an account.
+      setCodeNotice({
+        kind: "sent",
+        minutes: Math.max(1, Math.ceil(result.expires_in_seconds / 60)),
+      });
+      clearError("otp");
+      focusField("otp");
+    } catch (error) {
+      if (isStale()) return;
+      const next = authFailureFrom(error);
+      if (next.kind === "badRequest") {
+        setErrors((current) => ({ ...current, email: "errorEmail" }));
+      } else {
+        const retryAfter = retryAfterOf(next);
+        if (retryAfter) cooldown.start(retryAfter);
+        setCodeNotice({ kind: "failure", failure: next });
+      }
+      focusField("email");
+    } finally {
+      if (!isStale()) setRequestingCode(false);
+    }
+  }
+
   function handleGetCode() {
-    if (!EMAIL_PATTERN.test(email.trim())) {
+    const trimmedEmail = email.trim();
+    if (!EMAIL_PATTERN.test(trimmedEmail)) {
       setErrors((current) => ({ ...current, email: "errorEmail" }));
       focusField("email");
       return;
     }
     clearError("email");
-    cooldown.start();
-    setCodeNoticeVisible(true);
-    focusField("otp");
+    if (mode === "oidc") {
+      cooldown.start(OTP_COOLDOWN_SECONDS);
+      setCodeNotice({ kind: "legacy" });
+      focusField("otp");
+      return;
+    }
+    if (!isNative || requestingCode || cooldown.remaining > 0) return;
+    void sendCode(trimmedEmail);
   }
 
   function openLegal(tab: SignInLegalTab, event: MouseEvent<HTMLElement>) {
@@ -626,16 +1302,94 @@ function SignUpForm({ autoFocus, onSignIn }: SignUpFormProps) {
     legalReturnFocusRef.current = termsRef.current;
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  function validate() {
     const nextErrors: SignUpErrors = {};
     if (!fullName.trim()) nextErrors.fullName = "errorFullName";
     if (!EMAIL_PATTERN.test(email.trim())) nextErrors.email = "errorEmail";
-    if (!OTP_PATTERN.test(otp.trim())) nextErrors.otp = "errorOtp";
-    if (password.length < MIN_PASSWORD_LENGTH) {
+    if (isNative && !challenge) {
+      nextErrors.otp = "errorCodeRequired";
+    } else if (isNative && challengeExpired) {
+      nextErrors.otp = "errorCodeExpired";
+    } else if (!OTP_PATTERN.test(otp.trim())) {
+      nextErrors.otp = "errorOtp";
+    }
+    // Count code points like the server (which counts runes after NFKC).
+    if (Array.from(password).length < passwordMinLength) {
       nextErrors.password = "errorPassword";
     }
     if (!acceptedTerms) nextErrors.terms = "errorTerms";
+    return nextErrors;
+  }
+
+  async function finishSession() {
+    setFailure(null);
+    setSubmitting(true);
+    try {
+      await onAuthenticated();
+    } catch {
+      // The account and session exist; retry only the CSRF + /me hand-off.
+      setFailure({ kind: "session" });
+      setSubmitting(false);
+    }
+  }
+
+  function handleCreateAccountFailure(next: AuthFailure) {
+    switch (next.kind) {
+      case "termsChanged":
+        setAcceptedTerms(false);
+        setErrors({ terms: "errorTermsChanged" });
+        onTermsChanged();
+        focusField("terms");
+        return;
+      case "passwordPolicy":
+        // Keep name, email and code; only the rejected password is cleared.
+        setPassword("");
+        setErrors({ password: "errorPasswordPolicy" });
+        focusField("password");
+        return;
+      case "badRequest":
+      case "invalidCredentials":
+        setOtp("");
+        setFailure({ kind: "signUpFailed" });
+        focusField("otp");
+        return;
+      default: {
+        const retryAfter = retryAfterOf(next);
+        if (retryAfter) submitLock.start(retryAfter);
+        setFailure(next);
+      }
+    }
+  }
+
+  async function createAccount(challengeId: string, version: string) {
+    setFailure(null);
+    setSubmitting(true);
+    try {
+      await completeEmailSignup(
+        {
+          challenge_id: challengeId,
+          code: otp.trim(),
+          display_name: fullName.trim(),
+          keep_signed_in: false,
+          password,
+          terms_version: version,
+        },
+        { baseUrl: getApiBaseUrl() },
+      );
+    } catch (error) {
+      handleCreateAccountFailure(authFailureFrom(error));
+      setSubmitting(false);
+      return;
+    }
+    setPassword("");
+    setOtp("");
+    await finishSession();
+  }
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (inactive || submitting || submitLock.remaining > 0) return;
+    const nextErrors = validate();
     setErrors(nextErrors);
 
     const firstInvalid = SIGN_UP_FIELD_ORDER.find((field) => nextErrors[field]);
@@ -645,16 +1399,22 @@ function SignUpForm({ autoFocus, onSignIn }: SignUpFormProps) {
       return;
     }
 
-    setPassword("");
-    setOtp("");
-    setSubmitted(true);
+    if (mode === "oidc") {
+      setPassword("");
+      setOtp("");
+      setSubmitted(true);
+      return;
+    }
+    if (challenge && termsVersion) {
+      void createAccount(challenge.id, termsVersion);
+    }
   }
 
   function errorFor(field: SignUpField) {
     const key = errors[field];
     return key ? (
       <p className="sign-in-form__error" id={`${ids[field]}-error`}>
-        {c[key]}
+        {formatCopy(c[key], { min: passwordMinLength })}
       </p>
     ) : null;
   }
@@ -665,10 +1425,40 @@ function SignUpForm({ autoFocus, onSignIn }: SignUpFormProps) {
     return value || undefined;
   }
 
-  const codeButtonLabel =
-    cooldown.remaining > 0
+  function codeNoticeView(): { error: boolean; text: string } | null {
+    if (isNative && challenge && challengeExpired) {
+      return { error: true, text: c.codeExpired };
+    }
+    if (!codeNotice) return null;
+    switch (codeNotice.kind) {
+      case "legacy":
+        return { error: false, text: c.codeNotice };
+      case "sent":
+        return {
+          error: false,
+          text: formatCopy(c.codeSent, { minutes: codeNotice.minutes }),
+        };
+      case "failure":
+        return { error: true, text: failureText(c, codeNotice.failure) };
+    }
+  }
+
+  const notice = codeNoticeView();
+  const codeButtonLabel = requestingCode
+    ? c.sendingCode
+    : cooldown.remaining > 0
       ? formatCopy(c.codeCountdown, { seconds: cooldown.remaining })
-      : c.getCode;
+      : isNative && challenge
+        ? c.resendCode
+        : c.getCode;
+  const createLabel = submitting
+    ? c.creatingAccount
+    : submitLock.remaining > 0
+      ? formatCopy(c.submitWait, {
+          label: c.createAccount,
+          seconds: submitLock.remaining,
+        })
+      : c.createAccount;
 
   return (
     <div className="sign-in-form">
@@ -681,6 +1471,11 @@ function SignUpForm({ autoFocus, onSignIn }: SignUpFormProps) {
         <h2 className="sign-in-form__heading" id={ids.heading}>
           {c.signUpHeading}
         </h2>
+        {mode === "unavailable" ? (
+          <p className="sign-in-form__alert" role="status">
+            {c.signUpUnavailable}
+          </p>
+        ) : null}
 
         <div className="sign-in-form__field">
           <input
@@ -708,7 +1503,7 @@ function SignUpForm({ autoFocus, onSignIn }: SignUpFormProps) {
             <input
               aria-describedby={describedBy(
                 "email",
-                codeNoticeVisible ? ids.codeNotice : undefined,
+                notice ? ids.codeNotice : undefined,
               )}
               aria-invalid={errors.email ? true : undefined}
               aria-label={c.emailLabel}
@@ -720,6 +1515,7 @@ function SignUpForm({ autoFocus, onSignIn }: SignUpFormProps) {
               onChange={(event) => {
                 setEmail(event.target.value);
                 clearError("email");
+                if (challenge || requestingCode) invalidateChallenge();
               }}
               placeholder={c.emailLabel}
               ref={emailRef}
@@ -728,8 +1524,9 @@ function SignUpForm({ autoFocus, onSignIn }: SignUpFormProps) {
               value={email}
             />
             <button
+              aria-disabled={requestingCode || undefined}
               className="sign-in-button sign-in-button--code"
-              disabled={cooldown.remaining > 0}
+              disabled={cooldown.remaining > 0 || inactive}
               onClick={handleGetCode}
               type="button"
             >
@@ -738,9 +1535,16 @@ function SignUpForm({ autoFocus, onSignIn }: SignUpFormProps) {
           </div>
           {errorFor("email")}
           <div aria-live="polite">
-            {codeNoticeVisible ? (
-              <p className="sign-in-form__hint" id={ids.codeNotice}>
-                {c.codeNotice}
+            {notice ? (
+              <p
+                className={
+                  notice.error
+                    ? "sign-in-form__hint sign-in-form__hint--error"
+                    : "sign-in-form__hint"
+                }
+                id={ids.codeNotice}
+              >
+                {notice.text}
               </p>
             ) : null}
           </div>
@@ -828,13 +1632,31 @@ function SignUpForm({ autoFocus, onSignIn }: SignUpFormProps) {
             </p>
           </div>
           {errorFor("terms")}
+          {errors.terms === "errorTermsChanged" ? (
+            <button
+              aria-haspopup="dialog"
+              className="sign-in-check__link sign-in-form__review-terms"
+              onClick={(event) => openLegal("agreement", event)}
+              type="button"
+            >
+              {c.reviewTerms}
+            </button>
+          ) : null}
         </div>
 
+        {failure ? (
+          <FormAlert
+            failure={failure}
+            onRetrySession={() => void finishSession()}
+          />
+        ) : null}
         <button
+          aria-disabled={submitting || undefined}
           className="sign-in-button sign-in-button--primary"
+          disabled={inactive || submitLock.remaining > 0}
           type="submit"
         >
-          {c.createAccount}
+          {createLabel}
         </button>
       </form>
 
@@ -943,7 +1765,7 @@ function RecoverPasswordForm({ onSignIn }: { onSignIn: () => void }) {
     const key = errors[field];
     return key ? (
       <p className="sign-in-form__error" id={`${ids[field]}-error`}>
-        {c[key]}
+        {formatCopy(c[key], { min: MIN_PASSWORD_LENGTH })}
       </p>
     ) : null;
   }
