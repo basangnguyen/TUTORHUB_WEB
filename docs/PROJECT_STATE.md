@@ -4,18 +4,55 @@
 
 ## Snapshot
 
-| Thuộc tính           | Trạng thái                                                                                                                             |
-| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| Ngày cập nhật        | 2026-11-17                                                                                                                             |
-| Repository           | `https://github.com/basangnguyen/TUTORHUB_WEB`                                                                                         |
-| Nhánh làm việc       | `main`                                                                                                                                 |
-| Quy trình            | Antigravity làm PM/Gatekeeper điều phối Codex và Claude Code qua prompt; Antigravity nghiệm thu và commit/push thẳng `main`            |
-| Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4, Phase 5 collaboration                                                                              |
-| Phase hiện tại       | Phase 3 deferred carry-over vẫn hoạt động; Phase 5 collaboration đã đóng                                                               |
-| Task `DONE` gần nhất | `AUTH-02B` Nối giao diện Đăng ký Email + OTP + Điều khoản & Đăng nhập mật khẩu trên `/sign-in` + Playwright E2E (`AUTH-02` `DONE`)     |
-| Mốc repository mới   | Trọn gói `AUTH-02` `DONE` (`522` web unit test + Playwright `auth-02-native-signup-login.spec.ts` `2/2` PASS trên Chromium thật)       |
-| Task hiện tại        | Giao `AUTH-03A` cho Codex (Server + Contract: Đăng nhập bằng mã OTP email, Quên/khôi phục mật khẩu & Đặt/đổi mật khẩu `/me/password`)  |
-| Task tiếp theo       | Nghiệm thu `AUTH-03A` từ Codex, sau đó giao `AUTH-03B` cho Claude Code (`RecoverPasswordForm`, mã email login & Settings đổi mật khẩu) |
+| Thuộc tính           | Trạng thái                                                                                                                       |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Ngày cập nhật        | 2026-11-17                                                                                                                       |
+| Repository           | `https://github.com/basangnguyen/TUTORHUB_WEB`                                                                                   |
+| Nhánh làm việc       | `main`                                                                                                                           |
+| Quy trình            | Antigravity làm PM/Gatekeeper điều phối Codex và Claude Code qua prompt; Antigravity nghiệm thu và commit/push thẳng `main`      |
+| Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4, Phase 5 collaboration                                                                        |
+| Phase hiện tại       | Phase 3 deferred carry-over vẫn hoạt động; Phase 5 collaboration đã đóng                                                         |
+| Task `DONE` gần nhất | `AUTH-03A` Server + OpenAPI: Đăng nhập OTP email, Khôi phục mật khẩu & Đặt/đổi mật khẩu `/api/v1/me/password` (`DONE`)           |
+| Mốc repository mới   | `AUTH-03A` `DONE` (`21/21` suite PostgreSQL disposable & exact ACL PASS `0` SKIP + `pnpm verify` PASS; schema `000044`)          |
+| Task hiện tại        | Giao `AUTH-03B` cho Claude Code (UI + E2E: Đăng nhập mã OTP email, `RecoverPasswordForm` & Thẻ đặt/đổi mật khẩu `/app/settings`) |
+| Task tiếp theo       | Nghiệm thu `AUTH-03B` để đóng `AUTH-03`, sau đó mở `AUTH-04` (Quản lý phiên/thiết bị & Step-up `10` phút)                        |
+
+### Checkpoint `AUTH-03A` Đăng nhập OTP Email, Khôi phục mật khẩu & Đặt/đổi mật khẩu phía Server `DONE` — 2026-11-17
+
+Codex triển khai phần Server + OpenAPI Contract của `AUTH-03` trên schema `000044` theo `ADR-0039` và đã qua
+Gatekeeper (Antigravity) rà soát bảo mật, chuẩn hóa `QueryTimeout` cho `NativeAuthService`, sửa truy vấn
+`pg_backend_pid()` cho kiểm thử khóa trên Neon proxy và nghiệm thu đầy đủ:
+
+- **Đăng nhập mã OTP email & Gửi lại mã tổng quát**: Cung cấp `POST /api/v1/auth/email-code/start` và
+  `POST /api/v1/auth/email-code/verify` (khi `AUTH_METHOD_EMAIL_CODE_ENABLED=true`) cho tài khoản mật khẩu và
+  OIDC đang `active`, tự ghi nhận `users.email_verified_at` và identity `urn:tutorhub:email` (`subject=user_id`,
+  không tự gộp tài khoản theo email, không tạo mật khẩu ngoài ý muốn, áp trần `24` giờ cho `org_admin`). Mở rộng
+  `POST /api/v1/auth/challenges/resend` xử lý cả `signup_email`, `login` (`login_code`) và `recovery`
+  (`password_recovery`) theo đúng cờ tính năng từ transaction gắn cookie.
+- **Khôi phục mật khẩu nguyên tử & Chống dò qua Password Policy**: Cung cấp
+  `POST /api/v1/auth/password/recovery/start` và `POST /api/v1/auth/password/recovery/complete` (đòi cả
+  `AUTH_METHOD_PASSWORD_ENABLED` và `AUTH_METHOD_EMAIL_CODE_ENABLED`; `GET /api/v1/auth/providers` bổ sung
+  `password_recovery_enabled`). Snapshot chỉ đọc kiểm tra bằng chứng OTP trước khi đưa `display_name` vào
+  password policy (chặn dùng lỗi policy để dò tên người dùng, đồng thời không làm mất lượt OTP khi gõ mật khẩu
+  yếu), băm Argon2id ngoài khóa DB rồi verify lại trong `pgx.Tx` nguyên tử: upsert mật khẩu `active`, reset
+  lockout/`compromised_at`, thu hồi **toàn bộ** phiên hiện có (`revoked_reason='password_reset'`), xóa cookie
+  phiên/CSRF/transaction mà **không tự động đăng nhập**, và đẩy thông báo bảo mật `password_changed` (không chứa
+  OTP/mật khẩu) sau commit qua dispatcher có quota.
+- **Đặt/đổi mật khẩu đã xác thực (`GET/POST /api/v1/me/password`) & Thứ tự khóa chống Deadlock**: Cho phép tài
+  khoản OIDC có email đã xác minh đặt mật khẩu lần đầu hoặc tài khoản đã có mật khẩu đổi mật khẩu mới; bắt buộc
+  xác thực gần đây `10` phút trên cả principal lẫn dòng `sessions` đã khóa, kiểm tra `current_password` kèm
+  lockout có trần, từ chối mật khẩu trùng sau chuẩn hóa NFKC, thu hồi mọi phiên khác
+  (`revoked_reason='password_changed'`), giữ và xoay phiên/CSRF hiện tại (`context_version + 1`, bảo toàn hạn
+  persistent cho non-admin và áp trần `24` giờ cho `org_admin`). Mở rộng `ProvisionAuthFoundationRuntimeACL` thêm
+  `UPDATE(status, compromised_at)` trên `user_password_credentials` (vẫn cấm `DELETE` và `UPDATE(user_id, created_at)`);
+  thống nhất thứ tự khóa `user -> sessions (ORDER BY id) -> identity` tương thích OIDC, hồ sơ, tổ chức và lời mời.
+- **OpenAPI, `@tutorhub/api-client` & Bằng chứng kiểm chứng Gatekeeper**: Bổ sung 6 typed helpers
+  (`startEmailCodeLogin`, `verifyEmailCodeLogin`, `startPasswordRecovery`, `completePasswordRecovery`,
+  `getMyPasswordStatus`, `updateMyPassword`). Toàn bộ `21/21` suite PostgreSQL integration (`0` SKIP, `0` FAIL)
+  trên DB disposable trống tách biệt hoàn toàn với staging PASS (kết thúc sạch tại `44 false` rồi xóa DB tạm);
+  toàn kho `pnpm verify` PASS (`86` security tests, `71` `@tutorhub/api-client` tests). Giới hạn chưa thực thi:
+  phần giao diện Web & Playwright E2E của `AUTH-03` sẽ kiểm chứng ở `AUTH-03B`; thông báo `password_changed` hiện
+  đi qua hàng đợi bộ nhớ best-effort có quota (chưa phải hàng đợi bền vững); chưa bật cờ mới trên shared/staging.
 
 ### Checkpoint `AUTH-02B` Giao diện Đăng ký Email + OTP & Đăng nhập mật khẩu trên `/sign-in` (`AUTH-02` `DONE`) — 2026-11-17
 

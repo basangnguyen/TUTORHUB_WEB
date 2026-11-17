@@ -1,11 +1,13 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tutorhub-v2/core-api/internal/config"
 	"github.com/tutorhub-v2/core-api/internal/httpapi"
 	"github.com/tutorhub-v2/core-api/internal/modules/identity"
@@ -67,5 +69,35 @@ func TestNativeStartupDoesNotDiscoverOIDC(t *testing.T) {
 	}
 	if _, err := newAuthFoundation(config.Config{Authentication: config.AuthenticationConfig{SignupEnabled: true}}, nil, nil); err == nil {
 		t.Fatal("native authentication must reject missing runtime prerequisites")
+	}
+}
+
+func TestEmailCodeOnlyRuntimeAndDisabledPasswordStatus(t *testing.T) {
+	pool, err := pgxpool.New(context.Background(), "postgres://fixture@127.0.0.1:1/auth_test?sslmode=disable")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pool.Close()
+	for _, emailCode := range []bool{false, true} {
+		auth := config.AuthenticationConfig{
+			Enabled: true, EmailCodeEnabled: emailCode, SessionKey: bytes.Repeat([]byte{0x42}, 32),
+			LegalTermsVersion: "2026-11-16-v2.0", SessionTTL: 8 * time.Hour, SessionAbsoluteTTL: 24 * time.Hour,
+			SessionPersistentAbsoluteTTL: 30 * 24 * time.Hour,
+		}
+		runtime, err := newAuthFoundation(config.Config{Environment: "test", Authentication: auth}, pool, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, ok := runtime.native.(identity.NativeAccountAuthAPI); !ok {
+			t.Fatal("authenticated password status and email-code routes require the native account service")
+		}
+		runtime.close()
+		provider, err := configuredIdentityProvider(context.Background(), auth)
+		if err != nil || provider != nil {
+			t.Fatal("email-code-only runtime attempted OIDC discovery")
+		}
+	}
+	if _, err := newAuthFoundation(config.Config{Authentication: config.AuthenticationConfig{EmailCodeEnabled: true}}, nil, nil); err == nil {
+		t.Fatal("email-code-only runtime accepted missing database/key")
 	}
 }

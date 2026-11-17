@@ -16,6 +16,22 @@ export type AuthAuthenticatedResponse =
   components["schemas"]["AuthAuthenticatedResponse"];
 export type NativeAuthenticationResponse =
   components["schemas"]["NativeAuthenticationResponse"];
+export type EmailCodeLoginStartRequest =
+  components["schemas"]["EmailCodeLoginStartRequest"];
+export type EmailCodeLoginVerifyRequest =
+  components["schemas"]["EmailCodeLoginVerifyRequest"];
+export type PasswordRecoveryStartRequest =
+  components["schemas"]["PasswordRecoveryStartRequest"];
+export type PasswordRecoveryCompleteRequest =
+  components["schemas"]["PasswordRecoveryCompleteRequest"];
+export type PasswordRecoveryResponse =
+  components["schemas"]["PasswordRecoveryResponse"];
+export type MyPasswordStatusResponse =
+  components["schemas"]["MyPasswordStatusResponse"];
+export type MyPasswordUpdateRequest =
+  components["schemas"]["MyPasswordUpdateRequest"];
+export type MyPasswordUpdateResponse =
+  components["schemas"]["MyPasswordUpdateResponse"];
 export type AuthProvidersResponse =
   components["schemas"]["AuthProvidersResponse"];
 export type AuthIdentifierDiscoverRequest =
@@ -761,6 +777,96 @@ export async function loginWithPassword(
     response,
   );
   if (result.status === "authenticated") currentCSRFToken = null;
+  return result;
+}
+
+export async function startEmailCodeLogin(
+  input: EmailCodeLoginStartRequest,
+  options: APIRequestOptions = {},
+): Promise<AuthSignupChallengeResponse> {
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/auth/email-code/start",
+    { ...preAuthRequestOptions(options), body: input },
+  );
+  return requireData<AuthSignupChallengeResponse>(data, error, response);
+}
+
+export async function verifyEmailCodeLogin(
+  input: EmailCodeLoginVerifyRequest,
+  options: APIRequestOptions = {},
+): Promise<NativeAuthenticationResponse> {
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/auth/email-code/verify",
+    { ...preAuthRequestOptions(options), body: input },
+  );
+  const result = requireData<NativeAuthenticationResponse>(
+    data as NativeAuthenticationResponse | undefined,
+    error,
+    response,
+  );
+  if (result.status === "authenticated") currentCSRFToken = null;
+  return result;
+}
+
+export async function startPasswordRecovery(
+  input: PasswordRecoveryStartRequest,
+  options: APIRequestOptions = {},
+): Promise<AuthSignupChallengeResponse> {
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/auth/password/recovery/start",
+    { ...preAuthRequestOptions(options), body: input },
+  );
+  return requireData<AuthSignupChallengeResponse>(data, error, response);
+}
+
+export async function completePasswordRecovery(
+  input: PasswordRecoveryCompleteRequest,
+  options: APIRequestOptions = {},
+): Promise<PasswordRecoveryResponse> {
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/auth/password/recovery/complete",
+    { ...preAuthRequestOptions(options), body: input },
+  );
+  const result = requireData<PasswordRecoveryResponse>(
+    data as PasswordRecoveryResponse | undefined,
+    error,
+    response,
+  );
+  if (result.status === "password_reset") currentCSRFToken = null;
+  return result;
+}
+
+export async function getMyPasswordStatus(
+  options: APIRequestOptions = {},
+): Promise<MyPasswordStatusResponse> {
+  const { data, error, response } = await createTutorHubClient(options).GET(
+    "/api/v1/me/password",
+    {
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+      cache: "no-store",
+    },
+  );
+  return requireData<MyPasswordStatusResponse>(data, error, response);
+}
+
+export async function updateMyPassword(
+  input: MyPasswordUpdateRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<MyPasswordUpdateResponse> {
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/me/password",
+    {
+      params: { header: { "X-CSRF-Token": csrfToken } },
+      body: input,
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+      cache: "no-store",
+    },
+  );
+  const result = requireData<MyPasswordUpdateResponse>(data, error, response);
+  currentCSRFToken = null;
   return result;
 }
 

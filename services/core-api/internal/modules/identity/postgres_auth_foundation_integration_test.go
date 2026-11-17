@@ -25,7 +25,7 @@ func authSchemaTestDatabase(t *testing.T) (context.Context, *pgxpool.Pool, strin
 	if url == "" || os.Getenv("AUTH_TEST_DISPOSABLE") != "true" {
 		t.Skip("requires AUTH_TEST_DATABASE_URL and AUTH_TEST_DISPOSABLE=true")
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
 	t.Cleanup(cancel)
 	if err := migrationrunner.Up(ctx, url); err != nil {
 		t.Fatal("apply disposable authentication schema")
@@ -116,7 +116,7 @@ func TestAuthFoundationRuntimeExactACL(t *testing.T) {
 		"auth_transactions":         {"state", "completed_at", "payload_ciphertext"},
 		"auth_challenges":           {"attempts", "consumed_at", "invalidated_at"},
 		"auth_challenge_deliveries": {"status", "provider_message_ref", "error_code", "delivered_at"},
-		"user_password_credentials": {"password_hash", "hash_version", "failed_attempts", "last_failed_at", "locked_until", "updated_at"},
+		"user_password_credentials": {"password_hash", "hash_version", "status", "failed_attempts", "last_failed_at", "locked_until", "compromised_at", "updated_at"},
 		"user_legal_acceptances":    {},
 	}
 	for table, updates := range expectedUpdates {

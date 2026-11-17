@@ -254,6 +254,229 @@ paths:
           $ref: "#/components/responses/ProblemResponse"
         default:
           $ref: "#/components/responses/ProblemResponse"
+  /api/v1/auth/email-code/start:
+    post:
+      operationId: startEmailCodeLogin
+      summary: Begin email-code sign-in without disclosing account existence
+      security: []
+      description: Requires AUTH_METHOD_EMAIL_CODE_ENABLED. Active registered accounts may receive a code; unknown or inactive accounts and destination-throttled requests receive an identical dummy challenge. Never creates an account. All responses use Cache-Control no-store and Referrer-Policy no-referrer.
+      parameters:
+        - $ref: "#/components/parameters/PreAuthOrigin"
+        - $ref: "#/components/parameters/PreAuthFetchSite"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmailCodeLoginStartRequest"
+      responses:
+        "202":
+          $ref: "#/components/responses/AuthChallengeAcceptedResponse"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "415":
+          $ref: "#/components/responses/ProblemResponse"
+        "429":
+          $ref: "#/components/responses/AuthRateLimitedResponse"
+        "503":
+          $ref: "#/components/responses/AuthUnavailableResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/auth/email-code/verify:
+    post:
+      operationId: verifyEmailCodeLogin
+      summary: Verify an email code and create a new session
+      security:
+        - AuthTransactionCookie: []
+      description: Requires AUTH_METHOD_EMAIL_CODE_ENABLED. Atomically consumes the challenge and transaction, adds a verified native email identity when needed, and creates a session. Administrators are capped at 24 hours. Clears the transaction cookie on success. All responses use Cache-Control no-store and Referrer-Policy no-referrer.
+      parameters:
+        - $ref: "#/components/parameters/PreAuthOrigin"
+        - $ref: "#/components/parameters/PreAuthFetchSite"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmailCodeLoginVerifyRequest"
+      responses:
+        "200":
+          description: Authenticated with new session cookies; MFA continuation reserved for later slices
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NativeAuthenticationResponse"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          description: Invalid or expired verification code; indistinguishable for dummy, missing, wrong or expired challenges
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "415":
+          $ref: "#/components/responses/ProblemResponse"
+        "429":
+          $ref: "#/components/responses/AuthRateLimitedResponse"
+        "503":
+          $ref: "#/components/responses/AuthUnavailableResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/auth/password/recovery/start:
+    post:
+      operationId: startPasswordRecovery
+      summary: Begin password recovery without disclosing account existence
+      security: []
+      description: Requires AUTH_METHOD_PASSWORD_ENABLED and AUTH_METHOD_EMAIL_CODE_ENABLED. Active registered accounts may receive a code; all other requests receive an identical dummy challenge. All responses use Cache-Control no-store and Referrer-Policy no-referrer.
+      parameters:
+        - $ref: "#/components/parameters/PreAuthOrigin"
+        - $ref: "#/components/parameters/PreAuthFetchSite"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PasswordRecoveryStartRequest"
+      responses:
+        "202":
+          $ref: "#/components/responses/AuthChallengeAcceptedResponse"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "415":
+          $ref: "#/components/responses/ProblemResponse"
+        "429":
+          $ref: "#/components/responses/AuthRateLimitedResponse"
+        "503":
+          $ref: "#/components/responses/AuthUnavailableResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/auth/password/recovery/complete:
+    post:
+      operationId: completePasswordRecovery
+      summary: Reset a password and revoke every existing session
+      security:
+        - AuthTransactionCookie: []
+      description: Requires AUTH_METHOD_PASSWORD_ENABLED and AUTH_METHOD_EMAIL_CODE_ENABLED. Password policy validation runs before OTP consumption. Successful reset revokes every session, clears session, CSRF and transaction cookies, and sends a password-changed notice. Does not sign the user in. All responses use Cache-Control no-store and Referrer-Policy no-referrer.
+      parameters:
+        - $ref: "#/components/parameters/PreAuthOrigin"
+        - $ref: "#/components/parameters/PreAuthFetchSite"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PasswordRecoveryCompleteRequest"
+      responses:
+        "200":
+          description: Password reset without a new session; MFA continuation reserved for later slices
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PasswordRecoveryResponse"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          description: Invalid or expired verification code; indistinguishable for dummy, missing, wrong or expired challenges
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "415":
+          $ref: "#/components/responses/ProblemResponse"
+        "429":
+          $ref: "#/components/responses/AuthRateLimitedResponse"
+        "503":
+          $ref: "#/components/responses/AuthUnavailableResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/me/password:
+    get:
+      operationId: getMyPasswordStatus
+      summary: Read the authenticated user's password enrollment status
+      description: Available even when password authentication is disabled. Responses use Cache-Control private, no-store.
+      security:
+        - SessionCookie: []
+      responses:
+        "200":
+          description: Password capability and enrollment status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MyPasswordStatusResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "503":
+          $ref: "#/components/responses/AuthUnavailableResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+    post:
+      operationId: updateMyPassword
+      summary: Set or change a password after recent authentication
+      description: Requires password authentication enabled, a session, CSRF and authentication within ten minutes. Active credentials require the current password; first enrollment requires verified email. Hashing occurs before database locks. Atomically replaces credentials, revokes other sessions and rotates the current session and CSRF cookies while preserving its lifetime. A password-changed notice is sent after commit. Responses use Cache-Control private, no-store.
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MyPasswordUpdateRequest"
+      responses:
+        "200":
+          description: Password updated; current session and CSRF cookies rotated
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MyPasswordUpdateResponse"
+        "400":
+          description: Invalid input, unchanged password or password policy failure
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "401":
+          description: Invalid session or current password (auth_invalid_current_password)
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "403":
+          description: CSRF, recent authentication or verified email required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "409":
+          $ref: "#/components/responses/ProblemResponse"
+        "503":
+          $ref: "#/components/responses/AuthUnavailableResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
   /api/v1/auth/signup/email/start:
     post:
       operationId: startEmailSignup
@@ -287,10 +510,10 @@ paths:
   /api/v1/auth/challenges/resend:
     post:
       operationId: resendAuthChallenge
-      summary: Resend the code for the browser-bound sign-up transaction
+      summary: Resend the code for a browser-bound email authentication transaction
       security:
         - AuthTransactionCookie: []
-      description: Requires AUTH_SIGNUP_ENABLED. Accepts an empty JSON object; the server decrypts the immutable destination from the transaction. A 60-second cooldown and five-send transaction cap apply. Previous codes are invalidated. All responses use Cache-Control no-store and Referrer-Policy no-referrer.
+      description: Supports signup_email, email login and password recovery transactions. Requires the corresponding method flags; a disabled method returns 503. Accepts an empty JSON object and decrypts the immutable destination server-side. A 60-second cooldown and five-send transaction cap apply. Previous codes are invalidated; destination throttling still returns an identical 202 dummy challenge. All responses use Cache-Control no-store and Referrer-Policy no-referrer.
       parameters:
         - $ref: "#/components/parameters/PreAuthOrigin"
         - $ref: "#/components/parameters/PreAuthFetchSite"
@@ -8101,6 +8324,100 @@ components:
           schema:
             $ref: "#/components/schemas/Problem"
   schemas:
+    EmailCodeLoginStartRequest:
+      $ref: "#/components/schemas/EmailSignupStartRequest"
+    PasswordRecoveryStartRequest:
+      $ref: "#/components/schemas/EmailSignupStartRequest"
+    EmailCodeLoginVerifyRequest:
+      type: object
+      additionalProperties: false
+      required: [challenge_id, code]
+      properties:
+        challenge_id:
+          type: string
+          format: uuid
+        code:
+          type: string
+          pattern: "^[0-9]{6}$"
+        keep_signed_in:
+          type: boolean
+          description: Optional; omitted means false. Server caps organization administrators at 24 hours.
+    PasswordRecoveryCompleteRequest:
+      type: object
+      additionalProperties: false
+      required: [challenge_id, code, new_password]
+      properties:
+        challenge_id:
+          type: string
+          format: uuid
+        code:
+          type: string
+          pattern: "^[0-9]{6}$"
+        new_password:
+          type: string
+          format: password
+          writeOnly: true
+          minLength: 8
+          maxLength: 128
+          description: Server enforces NFKC, configured minimum, printable characters, 128 runes and 512 bytes, blocklist and configured breach checks.
+    PasswordResetResponse:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status:
+          type: string
+          const: password_reset
+    PasswordRecoveryResponse:
+      oneOf:
+        - $ref: "#/components/schemas/PasswordResetResponse"
+        - $ref: "#/components/schemas/AuthMFARequiredResponse"
+      discriminator:
+        propertyName: status
+        mapping:
+          password_reset: "#/components/schemas/PasswordResetResponse"
+          mfa_required: "#/components/schemas/AuthMFARequiredResponse"
+    MyPasswordStatusResponse:
+      type: object
+      additionalProperties: false
+      required: [password_enabled, has_password]
+      properties:
+        password_enabled:
+          type: boolean
+        has_password:
+          type: boolean
+        updated_at:
+          type: string
+          format: date-time
+    MyPasswordUpdateRequest:
+      type: object
+      additionalProperties: false
+      required: [new_password]
+      properties:
+        current_password:
+          type: string
+          format: password
+          writeOnly: true
+          maxLength: 128
+          description: Required for an active credential; omit or leave empty on first enrollment.
+        new_password:
+          type: string
+          format: password
+          writeOnly: true
+          minLength: 8
+          maxLength: 128
+          description: Subject to server normalization and policy; must differ from the current password after NFKC.
+    MyPasswordUpdateResponse:
+      type: object
+      additionalProperties: false
+      required: [has_password, updated_at]
+      properties:
+        has_password:
+          type: boolean
+          const: true
+        updated_at:
+          type: string
+          format: date-time
     EmailSignupStartRequest:
       type: object
       additionalProperties: false
@@ -8231,6 +8548,9 @@ components:
           type: boolean
         email_code_enabled:
           type: boolean
+        password_recovery_enabled:
+          type: boolean
+          description: Always emitted by current servers as password_enabled AND email_code_enabled. Optional for older deployment compatibility; clients must treat absence as false.
         phone_enabled:
           type: boolean
         passkeys_enabled:

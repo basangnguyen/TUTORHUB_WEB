@@ -33,7 +33,7 @@ func newAuthFoundation(cfg config.Config, pool *pgxpool.Pool, limiter httpapi.In
 	}
 	deliveryEnabled := (auth.EmailSender != "" && auth.EmailSender != "disabled") || (auth.PhoneSender != "" && auth.PhoneSender != "disabled")
 	if pool == nil || len(auth.SessionKey) < 32 {
-		if deliveryEnabled || auth.SignupEnabled || auth.PasswordEnabled {
+		if deliveryEnabled || auth.SignupEnabled || auth.PasswordEnabled || auth.EmailCodeEnabled {
 			return nil, errors.New("native authentication and delivery require database and session cryptography")
 		}
 		return result, nil
@@ -70,7 +70,9 @@ func newAuthFoundation(cfg config.Config, pool *pgxpool.Pool, limiter httpapi.In
 	}
 	result.transactions = identity.NewTransactionService(pool, crypto, auth.CookieSecure)
 	result.challenges = identity.NewChallengeService(pool, crypto, result.dispatcher)
-	if auth.SignupEnabled || auth.PasswordEnabled {
+	// Password status remains available to authenticated OIDC users even while
+	// native sign-in methods are disabled; HTTP gates still control mutations.
+	if auth.Enabled || auth.SignupEnabled || auth.PasswordEnabled || auth.EmailCodeEnabled {
 		passwords, passwordErr := identity.NewPasswordService(identity.PasswordOptions{
 			MinimumLength: auth.PasswordMinLength, MaxConcurrency: auth.PasswordHashMaxConcurrency,
 			BreachMode: auth.PasswordBreachCheck, Logger: slog.Default(),
@@ -83,6 +85,7 @@ func newAuthFoundation(cfg config.Config, pool *pgxpool.Pool, limiter httpapi.In
 			CookieSecure: auth.CookieSecure, LegalTermsVersion: auth.LegalTermsVersion,
 			SessionTTL: auth.SessionTTL, SessionAbsoluteTTL: auth.SessionAbsoluteTTL,
 			SessionPersistentAbsoluteTTL: auth.SessionPersistentAbsoluteTTL,
+			QueryTimeout:                 cfg.Database.QueryTimeout,
 		})
 		if err != nil {
 			result.close()

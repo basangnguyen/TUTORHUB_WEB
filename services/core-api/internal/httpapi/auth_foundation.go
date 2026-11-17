@@ -15,18 +15,19 @@ import (
 )
 
 type authProvidersResponse struct {
-	SignupEnabled         bool     `json:"signup_enabled"`
-	PasswordEnabled       bool     `json:"password_enabled"`
-	EmailCodeEnabled      bool     `json:"email_code_enabled"`
-	PhoneEnabled          bool     `json:"phone_enabled"`
-	PasskeysEnabled       bool     `json:"passkeys_enabled"`
-	MFATOTPEnabled        bool     `json:"mfa_totp_enabled"`
-	OIDCDefaultEnabled    bool     `json:"oidc_default_enabled"`
-	SSODomainsEnabled     bool     `json:"sso_domains_enabled"`
-	OAuthProviders        []string `json:"oauth_providers"`
-	PasswordMinLength     int      `json:"password_min_length"`
-	PhoneAllowedCountries []string `json:"phone_allowed_countries"`
-	LegalTermsVersion     string   `json:"legal_terms_version"`
+	SignupEnabled           bool     `json:"signup_enabled"`
+	PasswordEnabled         bool     `json:"password_enabled"`
+	EmailCodeEnabled        bool     `json:"email_code_enabled"`
+	PasswordRecoveryEnabled bool     `json:"password_recovery_enabled"`
+	PhoneEnabled            bool     `json:"phone_enabled"`
+	PasskeysEnabled         bool     `json:"passkeys_enabled"`
+	MFATOTPEnabled          bool     `json:"mfa_totp_enabled"`
+	OIDCDefaultEnabled      bool     `json:"oidc_default_enabled"`
+	SSODomainsEnabled       bool     `json:"sso_domains_enabled"`
+	OAuthProviders          []string `json:"oauth_providers"`
+	PasswordMinLength       int      `json:"password_min_length"`
+	PhoneAllowedCountries   []string `json:"phone_allowed_countries"`
+	LegalTermsVersion       string   `json:"legal_terms_version"`
 }
 
 type authIdentifierRequest struct {
@@ -84,7 +85,8 @@ func authProvidersHandler(cfg config.AuthenticationConfig, logger *slog.Logger) 
 		writeJSON(logger, w, http.StatusOK, authProvidersResponse{
 			SignupEnabled: cfg.SignupEnabled, PasswordEnabled: cfg.PasswordEnabled,
 			EmailCodeEnabled: cfg.EmailCodeEnabled, PhoneEnabled: cfg.PhoneEnabled,
-			PasskeysEnabled: cfg.PasskeysEnabled, MFATOTPEnabled: cfg.MFATOTPEnabled,
+			PasswordRecoveryEnabled: cfg.PasswordEnabled && cfg.EmailCodeEnabled,
+			PasskeysEnabled:         cfg.PasskeysEnabled, MFATOTPEnabled: cfg.MFATOTPEnabled,
 			OIDCDefaultEnabled: cfg.ProviderOIDCDefaultEnabled && cfg.OIDCEnabled,
 			SSODomainsEnabled:  cfg.SSODomainsEnabled, OAuthProviders: providers,
 			PasswordMinLength: cfg.PasswordMinLength, PhoneAllowedCountries: countries,

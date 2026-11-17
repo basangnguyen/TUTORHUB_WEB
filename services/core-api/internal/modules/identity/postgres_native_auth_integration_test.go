@@ -41,7 +41,7 @@ func newNativeIntegrationFixture(t *testing.T) *nativeIntegrationFixture {
 	if err != nil {
 		t.Fatal(err)
 	}
-	service, err := NewNativeAuthService(pool, crypto, passwords, nil, NativeAuthConfig{CookieSecure: true, LegalTermsVersion: "2026-11-16-v2.0", SessionTTL: 8 * time.Hour, SessionAbsoluteTTL: 48 * time.Hour, SessionPersistentAbsoluteTTL: 30 * 24 * time.Hour})
+	service, err := NewNativeAuthService(pool, crypto, passwords, nil, NativeAuthConfig{CookieSecure: true, LegalTermsVersion: "2026-11-16-v2.0", SessionTTL: 8 * time.Hour, SessionAbsoluteTTL: 48 * time.Hour, SessionPersistentAbsoluteTTL: 30 * 24 * time.Hour, QueryTimeout: 20 * time.Second})
 	if err != nil {
 		t.Fatal(err)
 	}

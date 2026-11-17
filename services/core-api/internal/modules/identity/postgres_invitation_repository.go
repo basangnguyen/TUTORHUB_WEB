@@ -466,9 +466,12 @@ func (repository *PostgresRepository) AcceptMembershipInvitation(
 	if _, err := lockActiveInvitationTenant(queryContext, transaction, tenantID); err != nil {
 		return AcceptMembershipInvitationResult{}, err
 	}
-	// Preserve the shared lock order: tenant -> session -> identity-user advisory
+	// Preserve the shared lock order: tenant -> user -> session -> identity-user advisory
 	// lock -> membership -> invitation. Admin revoke also locks its actor membership
 	// before the invitation, so accepting as that same user cannot form a lock cycle.
+	if err := lockActiveTenantUser(queryContext, transaction, params.UserID); err != nil {
+		return AcceptMembershipInvitationResult{}, err
+	}
 	activeTenantID, err := lockInvitationAcceptanceSession(
 		queryContext,
 		transaction,

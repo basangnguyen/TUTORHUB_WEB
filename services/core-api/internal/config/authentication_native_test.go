@@ -47,3 +47,27 @@ func TestNativePasswordConfigurationBounds(t *testing.T) {
 		}
 	}
 }
+
+func TestEmailCodeOnlyAuthenticationRequiresNativePrerequisites(t *testing.T) {
+	for _, environment := range []string{"development", "test", "staging", "production"} {
+		values := map[string]string{
+			"AUTH_PROVIDER_OIDC_DEFAULT_ENABLED": "false", "AUTH_METHOD_EMAIL_CODE_ENABLED": "true",
+			"SESSION_SECRET": validSessionSecret(), "DATABASE_POOL_URL": "postgres://fixture@localhost/auth_test?sslmode=disable",
+		}
+		var failures []error
+		cfg := authenticationConfig(mapLookup(values), environment, "https://api.example.test", "https://web.example.test", &failures)
+		if len(failures) != 0 || !cfg.Enabled || cfg.OIDCEnabled || cfg.PasswordEnabled || cfg.SignupEnabled || !cfg.EmailCodeEnabled {
+			t.Fatalf("email-code-only %s startup failed: %v", environment, failures)
+		}
+		for _, missing := range []string{"SESSION_SECRET", "DATABASE_POOL_URL"} {
+			original := values[missing]
+			delete(values, missing)
+			failures = nil
+			_ = authenticationConfig(mapLookup(values), environment, "https://api.example.test", "https://web.example.test", &failures)
+			if len(failures) == 0 {
+				t.Fatalf("email-code-only config accepted missing %s", missing)
+			}
+			values[missing] = original
+		}
+	}
+}

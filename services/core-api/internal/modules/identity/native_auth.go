@@ -28,6 +28,7 @@ type NativeAuthConfig struct {
 	SessionTTL                   time.Duration
 	SessionAbsoluteTTL           time.Duration
 	SessionPersistentAbsoluteTTL time.Duration
+	QueryTimeout                 time.Duration
 }
 
 type SignupStartInput struct {
@@ -109,6 +110,13 @@ func NormalizeSignupEmail(value string) (string, error) {
 	return normalizeChallengeDestination(DeliveryEmail, value)
 }
 
+func (service *NativeAuthService) queryTimeout() time.Duration {
+	if service.config.QueryTimeout > 0 {
+		return service.config.QueryTimeout
+	}
+	return 5 * time.Second
+}
+
 func (service *NativeAuthService) StartEmailSignup(ctx context.Context, input SignupStartInput) (SignupChallengeResult, error) {
 	email, err := NormalizeSignupEmail(input.Email)
 	if err != nil {
@@ -118,7 +126,7 @@ func (service *NativeAuthService) StartEmailSignup(ctx context.Context, input Si
 	if err != nil {
 		return SignupChallengeResult{}, ErrAuthFoundationStorage
 	}
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, service.queryTimeout())
 	defer cancel()
 	tx, err := service.database.Begin(ctx)
 	if err != nil {
@@ -172,7 +180,7 @@ func (service *NativeAuthService) ResendSignupChallenge(ctx context.Context, bin
 			return SignupChallengeResult{}, ErrAuthFoundationStorage
 		}
 	}
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, service.queryTimeout())
 	defer cancel()
 	tx, err := service.database.Begin(ctx)
 	if err != nil {
@@ -228,7 +236,7 @@ func (service *NativeAuthService) CompleteEmailSignup(ctx context.Context, bindi
 	if err != nil {
 		return NativeSessionResult{}, err
 	}
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, service.queryTimeout())
 	defer cancel()
 	tx, err := service.database.Begin(ctx)
 	if err != nil {
@@ -275,7 +283,7 @@ func (service *NativeAuthService) CompleteEmailSignup(ctx context.Context, bindi
 }
 
 func (service *NativeAuthService) signupSnapshot(ctx context.Context, binding string) (AuthTransaction, signupPayload, []byte, error) {
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, service.queryTimeout())
 	defer cancel()
 	tx, err := service.database.Begin(ctx)
 	if err != nil {

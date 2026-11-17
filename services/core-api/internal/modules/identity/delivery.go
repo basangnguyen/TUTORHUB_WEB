@@ -109,10 +109,14 @@ func (sender *DevinboxSender) SendChallenge(ctx context.Context, message Challen
 }
 
 func (sender *DevinboxSender) SendNotice(ctx context.Context, notice AccountNotice) (DeliveryReceipt, error) {
-	if ctx.Err() != nil || sender.inbox == nil || sender.channel != DeliveryEmail || notice.Kind != "account_exists" {
+	if ctx.Err() != nil || sender.inbox == nil || sender.channel != DeliveryEmail || (notice.Kind != "account_exists" && notice.Kind != "password_changed") {
 		return DeliveryReceipt{}, ErrAuthDeliveryFailed
 	}
-	if err := sender.inbox.Add(devinbox.Message{Kind: "notice", NoticeKind: notice.Kind, ChallengeID: notice.ChallengeID.String(), Purpose: "signup_email", Channel: "email", Destination: notice.Destination, ExpiresAt: notice.ExpiresAt}); err != nil {
+	purpose, challengeID := "signup_email", notice.ChallengeID.String()
+	if notice.Kind == "password_changed" {
+		purpose, challengeID = "password_changed", ""
+	}
+	if err := sender.inbox.Add(devinbox.Message{Kind: "notice", NoticeKind: notice.Kind, ChallengeID: challengeID, Purpose: purpose, Channel: "email", Destination: notice.Destination, ExpiresAt: notice.ExpiresAt}); err != nil {
 		return DeliveryReceipt{}, ErrAuthDeliveryFailed
 	}
 	return DeliveryReceipt{ProviderMessageRef: uuid.NewString(), AcceptedAt: time.Now().UTC()}, nil
@@ -143,10 +147,17 @@ func (sender *SMTPSender) SendChallenge(ctx context.Context, message ChallengeMe
 }
 
 func (sender *SMTPSender) SendNotice(ctx context.Context, notice AccountNotice) (DeliveryReceipt, error) {
-	if notice.Kind != "account_exists" || !notice.ExpiresAt.After(time.Now()) {
+	if !notice.ExpiresAt.After(time.Now()) {
 		return DeliveryReceipt{}, ErrAuthDeliveryFailed
 	}
-	return sender.send(ctx, notice.Destination, "TutorHub account notice", "An account already exists for this email address. Please sign in using your existing sign-in method.")
+	switch notice.Kind {
+	case "account_exists":
+		return sender.send(ctx, notice.Destination, "TutorHub account notice", "An account already exists for this email address. Please sign in using your existing sign-in method.")
+	case "password_changed":
+		return sender.send(ctx, notice.Destination, "TutorHub password changed", "Your TutorHub password has been changed. If you did not make this change, recover your account and contact support.")
+	default:
+		return DeliveryReceipt{}, ErrAuthDeliveryFailed
+	}
 }
 
 func (sender *SMTPSender) send(ctx context.Context, destination, subject, body string) (DeliveryReceipt, error) {
@@ -199,7 +210,7 @@ type DeliveryBudget interface {
 }
 
 // DeliveryDispatcher owns a bounded, non-durable queue and one worker. The only
-// enqueue call is made by Issue after its DB commit has succeeded.
+// enqueue calls occur only after the authentication mutation has committed.
 type DeliveryDispatcher struct {
 	database Database
 	crypto   *Crypto
@@ -288,6 +299,19 @@ func (dispatcher *DeliveryDispatcher) provider(channel DeliveryChannel) string {
 }
 
 func (dispatcher *DeliveryDispatcher) deliver(job deliveryJob) {
+	// A security notice has no challenge/delivery row. Keep it independent from
+	// OTP validity: recovery has already consumed its challenge at this point.
+	if job.id == uuid.Nil && job.notice != nil && job.notice.Kind == "password_changed" && job.notice.ChallengeID == uuid.Nil {
+		if !job.notice.ExpiresAt.After(time.Now()) {
+			return
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if dispatcher.budget != nil && dispatcher.budget.AllowDelivery(ctx, DeliveryEmail) {
+			_, _ = dispatcher.email.SendNotice(ctx, *job.notice)
+		}
+		return
+	}
 	status, code := "skipped", "not_deliverable"
 	var receipt DeliveryReceipt
 	if (job.deliverable || job.notice != nil) && job.message.ExpiresAt.After(time.Now()) && dispatcher.challengeActive(job.message.ChallengeID) {

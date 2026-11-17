@@ -32,6 +32,11 @@ type fakeNativeAuth struct {
 	secure                   bool
 	persistent               bool
 	resendDestinationAllowed bool
+	emailVerifyInput         identity.EmailCodeVerifyInput
+	recoveryInput            identity.PasswordRecoveryCompleteInput
+	methodFlags              identity.AuthMethodFlags
+	passwordInput            identity.UpdateMyPasswordInput
+	passwordPrincipal        identity.Principal
 }
 
 func (service *fakeNativeAuth) challenge() identity.SignupChallengeResult {
@@ -106,7 +111,7 @@ func nativeRequest(path, body string, secure bool) *http.Request {
 	r.Header.Set("Sec-Fetch-Site", "same-origin")
 	r.Header.Set("X-Request-ID", "native-auth-test")
 	r.RemoteAddr = "203.0.113.42:1234"
-	if strings.HasSuffix(path, "complete") || strings.HasSuffix(path, "resend") {
+	if strings.HasSuffix(path, "complete") || strings.HasSuffix(path, "resend") || strings.HasSuffix(path, "verify") {
 		r.AddCookie(&http.Cookie{Name: identity.AuthTransactionCookieName(secure), Value: nativeTestBinding})
 	}
 	return r

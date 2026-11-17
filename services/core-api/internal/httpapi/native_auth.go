@@ -112,7 +112,9 @@ func (handlers nativeAuthHandlers) startEmailSignup(w http.ResponseWriter, r *ht
 }
 
 func (handlers nativeAuthHandlers) resendChallenge(w http.ResponseWriter, r *http.Request) {
-	if !handlers.available(w, r, handlers.auth.config.Authentication.SignupEnabled) ||
+	auth := handlers.auth.config.Authentication
+	service, ok := handlers.accountService(w, r, auth.SignupEnabled || auth.EmailCodeEnabled)
+	if !ok ||
 		!handlers.allowIP(w, r, AuthRateLimitOTPSendIP) {
 		return
 	}
@@ -125,7 +127,9 @@ func (handlers nativeAuthHandlers) resendChallenge(w http.ResponseWriter, r *htt
 	if !ok {
 		return
 	}
-	result, err := handlers.service.ResendSignupChallenge(r.Context(), binding, handlers.allowDestination)
+	result, err := service.ResendEmailChallenge(r.Context(), binding, identity.AuthMethodFlags{
+		SignupEnabled: auth.SignupEnabled, EmailCodeEnabled: auth.EmailCodeEnabled, PasswordEnabled: auth.PasswordEnabled,
+	}, handlers.allowDestination)
 	if err != nil {
 		handlers.writeError(w, r, err)
 		return
@@ -156,9 +160,7 @@ func (handlers nativeAuthHandlers) completeEmailSignup(w http.ResponseWriter, r 
 		return
 	}
 	handlers.setSession(w, result)
-	http.SetCookie(w, &http.Cookie{Name: identity.AuthTransactionCookieName(handlers.auth.config.Authentication.CookieSecure),
-		Path: "/", MaxAge: -1, Expires: time.Unix(1, 0).UTC(), HttpOnly: true,
-		Secure: handlers.auth.config.Authentication.CookieSecure, SameSite: http.SameSiteStrictMode})
+	handlers.clearTransactionCookie(w)
 	writeJSON(handlers.auth.logger, w, http.StatusCreated, nativeAuthenticationResponse{Status: "authenticated"})
 }
 
@@ -223,6 +225,21 @@ func (handlers nativeAuthHandlers) writeError(w http.ResponseWriter, r *http.Req
 	status, title, detail := http.StatusInternalServerError, "Authentication failed", "The authentication request could not be completed."
 	code := ""
 	switch {
+	case errors.Is(err, identity.ErrNativeInvalidCode):
+		status, title, detail = http.StatusUnauthorized, "Verification failed", "Invalid or expired verification code."
+	case errors.Is(err, identity.ErrNativeMethodDisabled):
+		status, title, detail = http.StatusServiceUnavailable, "Authentication unavailable", "This authentication method is disabled or unavailable."
+	case errors.Is(err, identity.ErrNativeInvalidCurrentPassword):
+		status, title, detail, code = http.StatusUnauthorized, "Invalid current password", "The current password is invalid or temporarily unavailable.", "auth_invalid_current_password"
+	case errors.Is(err, identity.ErrNativePasswordUnchanged):
+		status, title, detail, code = http.StatusBadRequest, "Invalid password", "Choose a password different from the current password.", "auth_password_unchanged"
+	case errors.Is(err, identity.ErrNativeVerifiedEmailRequired):
+		status, title, detail, code = http.StatusForbidden, "Verified email required", "Verify your email before setting a password.", "auth_verified_email_required"
+	case errors.Is(err, identity.ErrRecentAuthenticationRequired):
+		status, title, detail = http.StatusForbidden, "Recent authentication required", "Sign in again before changing your password."
+	case errors.Is(err, identity.ErrSessionNotFound), errors.Is(err, identity.ErrInvalidCSRFToken), errors.Is(err, identity.ErrSessionContextConflict):
+		handlers.auth.writeIdentityProblem(w, r, err)
+		return
 	case errors.Is(err, identity.ErrNativeInvalidCredentials):
 		status, title, detail = http.StatusUnauthorized, "Sign-in failed", "Invalid email or password."
 	case errors.Is(err, identity.ErrNativeTermsVersion):
@@ -245,4 +262,10 @@ func (handlers nativeAuthHandlers) writeError(w http.ResponseWriter, r *http.Req
 	}
 	// Do not log or echo err: downstream errors may contain password/OTP/PII.
 	writeCodedProblem(w, r, status, code, title, detail)
+}
+
+func (handlers nativeAuthHandlers) clearTransactionCookie(w http.ResponseWriter) {
+	http.SetCookie(w, &http.Cookie{Name: identity.AuthTransactionCookieName(handlers.auth.config.Authentication.CookieSecure),
+		Path: "/", MaxAge: -1, Expires: time.Unix(1, 0).UTC(), HttpOnly: true,
+		Secure: handlers.auth.config.Authentication.CookieSecure, SameSite: http.SameSiteStrictMode})
 }

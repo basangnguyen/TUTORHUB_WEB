@@ -428,9 +428,6 @@ func (repository *PostgresRepository) CreateTenant(
 		if lockedSession.ActiveTenantID != uuid.Nil {
 			return TenantMutationResult{}, ErrTenantCreationDenied
 		}
-		if err := lockActiveTenantUser(queryContext, transaction, userID); err != nil {
-			return TenantMutationResult{}, err
-		}
 		eligible, err := hasNoActiveTenantMembership(queryContext, transaction, userID)
 		if err != nil {
 			return TenantMutationResult{}, err
@@ -459,9 +456,6 @@ func (repository *PostgresRepository) CreateTenant(
 		}
 		if lockedSession.ActiveTenantID != authorizedSourceTenantID {
 			return TenantMutationResult{}, ErrSessionContextConflict
-		}
-		if err := lockActiveTenantUser(queryContext, transaction, userID); err != nil {
-			return TenantMutationResult{}, err
 		}
 	}
 
@@ -642,6 +636,10 @@ func lockTenantMutationSession(
 	userID uuid.UUID,
 	rotation SessionRotation,
 ) (lockedTenantSession, error) {
+	// Keep user/session lock order consistent with password recovery and change.
+	if err := lockActiveTenantUser(ctx, transaction, userID); err != nil {
+		return lockedTenantSession{}, err
+	}
 	var result lockedTenantSession
 	var activeTenantID uuid.NullUUID
 	var contextVersion int64
@@ -1046,6 +1044,17 @@ FOR UPDATE OF t, m`,
 	if currentVersion != expectedVersion {
 		return TenantArchiveMutationResult{}, ErrTenantVersionConflict
 	}
+	if err := lockActiveTenantUser(queryContext, transaction, tenantContext.ActorID); err != nil {
+		return TenantArchiveMutationResult{}, err
+	}
+	// Password changes may revoke sessions of another member of this tenant.
+	// Acquire the complete affected set in UUID order before locking the actor's
+	// individual session to avoid opposite orders across those transactions.
+	if _, err := transaction.Exec(queryContext, `SELECT id FROM tutorhub.sessions
+        WHERE active_tenant_id=$1 OR (id=$2 AND user_id=$3) ORDER BY id FOR UPDATE`,
+		tenantContext.TenantID, sessionID, tenantContext.ActorID); err != nil {
+		return TenantArchiveMutationResult{}, fmt.Errorf("lock tenant archive sessions: %w", err)
+	}
 	lockedSession, err := lockTenantMutationSession(
 		queryContext,
 		transaction,
@@ -1070,12 +1079,6 @@ WHERE active_tenant_id = $1 AND id <> $2`,
 	); err != nil {
 		return TenantArchiveMutationResult{}, fmt.Errorf("clear archived tenant sessions: %w", err)
 	}
-	if err := lockActiveTenantUser(
-		queryContext, transaction, tenantContext.ActorID,
-	); err != nil {
-		return TenantArchiveMutationResult{}, err
-	}
-
 	var hasOtherManagedTenant bool
 	if err := transaction.QueryRow(
 		queryContext,
@@ -1304,8 +1307,7 @@ func resolveIdentity(
 	const findIdentity = `
 SELECT id, user_id, status
 FROM tutorhub.identities
-WHERE provider = $1 AND subject = $2
-FOR UPDATE`
+WHERE provider = $1 AND subject = $2`
 	var identityID uuid.UUID
 	var userID uuid.UUID
 	var identityStatus string
@@ -1315,6 +1317,16 @@ FOR UPDATE`
 		&identityStatus,
 	)
 	if err == nil {
+		// Resolve the immutable owner first, then lock in the same order as
+		// password recovery/change. Re-read status after the user lock because an
+		// unlink may have committed while this authentication waited.
+		if err := lockActiveTenantUser(ctx, transaction, userID); err != nil {
+			return uuid.Nil, uuid.Nil, err
+		}
+		if err := transaction.QueryRow(ctx, `SELECT status FROM tutorhub.identities
+            WHERE id=$1 AND user_id=$2 FOR UPDATE`, identityID, userID).Scan(&identityStatus); err != nil {
+			return uuid.Nil, uuid.Nil, fmt.Errorf("lock resolved identity: %w", err)
+		}
 		if identityStatus != "active" {
 			return uuid.Nil, uuid.Nil, ErrIdentityInactive
 		}
@@ -1573,6 +1585,10 @@ func (repository *PostgresRepository) LinkIdentity(
 		return ExternalIdentity{}, fmt.Errorf("begin link identity: %w", err)
 	}
 	defer rollback(transaction)
+	// Match OIDC resolution: provider mapping, user, session, identity.
+	if err := lockProviderSubject(queryContext, transaction, claims); err != nil {
+		return ExternalIdentity{}, err
+	}
 
 	tenantID, err := lockOwnedSession(
 		queryContext,
@@ -1587,10 +1603,6 @@ func (repository *PostgresRepository) LinkIdentity(
 	if err := lockIdentityUser(queryContext, transaction, userID); err != nil {
 		return ExternalIdentity{}, err
 	}
-	if err := lockProviderSubject(queryContext, transaction, claims); err != nil {
-		return ExternalIdentity{}, err
-	}
-
 	var existing ExternalIdentity
 	var existingUserID uuid.UUID
 	var status string
@@ -1734,9 +1746,10 @@ func (repository *PostgresRepository) UnlinkIdentity(
 		queryContext,
 		`SELECT user_id, status
 FROM tutorhub.identities
-WHERE id = $1
+WHERE id = $1 AND user_id = $2
 FOR UPDATE`,
 		identityID,
+		userID,
 	).Scan(&identityOwner, &identityStatus); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrIdentityNotFound
@@ -1840,6 +1853,11 @@ func lockOwnedSession(
 	userID uuid.UUID,
 	now time.Time,
 ) (uuid.UUID, error) {
+	// Session mutations may later insert/update user-owned rows. Locking the
+	// user first avoids cycling with recovery's user lock + session revocation.
+	if err := lockActiveTenantUser(ctx, transaction, userID); err != nil {
+		return uuid.Nil, err
+	}
 	var activeTenantID uuid.NullUUID
 	if err := transaction.QueryRow(
 		ctx,

@@ -109,10 +109,14 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 	auth := newAuthHandlers(cfg, logger, options.Identity, options.Clock)
 	nativeAuth := nativeAuthHandlers{auth: auth, service: options.NativeAuth, limiter: options.AuthRateLimiter}
 	for path, handler := range map[string]http.HandlerFunc{
-		"/api/v1/auth/signup/email/start":    nativeAuth.startEmailSignup,
-		"/api/v1/auth/signup/email/complete": nativeAuth.completeEmailSignup,
-		"/api/v1/auth/challenges/resend":     nativeAuth.resendChallenge,
-		"/api/v1/auth/password/login":        nativeAuth.passwordLogin,
+		"/api/v1/auth/signup/email/start":         nativeAuth.startEmailSignup,
+		"/api/v1/auth/signup/email/complete":      nativeAuth.completeEmailSignup,
+		"/api/v1/auth/challenges/resend":          nativeAuth.resendChallenge,
+		"/api/v1/auth/password/login":             nativeAuth.passwordLogin,
+		"/api/v1/auth/email-code/start":           nativeAuth.startEmailCodeLogin,
+		"/api/v1/auth/email-code/verify":          nativeAuth.verifyEmailCodeLogin,
+		"/api/v1/auth/password/recovery/start":    nativeAuth.startPasswordRecovery,
+		"/api/v1/auth/password/recovery/complete": nativeAuth.completePasswordRecovery,
 	} {
 		mux.Handle(path, authFoundationResponseHeaders(requireMethod(http.MethodPost, preAuthGuard(cfg.WebOrigin, handler))))
 	}
@@ -163,6 +167,7 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 	mux.Handle("/api/v1/auth/logout", requireMethod(http.MethodPost, http.HandlerFunc(auth.logout)))
 	mux.Handle("/api/v1/me", requireMethod(http.MethodGet, http.HandlerFunc(auth.me)))
 	mux.Handle("/api/v1/me/profile", http.HandlerFunc(auth.profile))
+	mux.Handle("/api/v1/me/password", http.HandlerFunc(nativeAuth.myPassword))
 	mux.Handle(
 		"/api/v1/me/identities",
 		requireMethod(http.MethodGet, http.HandlerFunc(auth.identities)),

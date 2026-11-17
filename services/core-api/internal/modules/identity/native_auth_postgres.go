@@ -81,7 +81,7 @@ func (snapshot nativePasswordSnapshot) available(now time.Time) bool {
 }
 
 func (service *NativeAuthService) passwordSnapshot(ctx context.Context, email string) (nativePasswordSnapshot, error) {
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, service.queryTimeout())
 	defer cancel()
 	tx, err := service.database.Begin(ctx)
 	if err != nil {
@@ -134,7 +134,7 @@ func (service *NativeAuthService) PasswordLogin(ctx context.Context, input Passw
 	if err != nil {
 		return NativeSessionResult{}, err
 	}
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, service.queryTimeout())
 	defer cancel()
 	tx, err := service.database.Begin(ctx)
 	if err != nil {

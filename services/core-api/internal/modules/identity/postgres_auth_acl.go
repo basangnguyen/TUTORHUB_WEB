@@ -14,7 +14,7 @@ var authFoundationUpdates = map[string][]string{
 	"auth_transactions":         {"state", "completed_at", "payload_ciphertext"},
 	"auth_challenges":           {"attempts", "consumed_at", "invalidated_at"},
 	"auth_challenge_deliveries": {"status", "provider_message_ref", "error_code", "delivered_at"},
-	"user_password_credentials": {"password_hash", "hash_version", "failed_attempts", "last_failed_at", "locked_until", "updated_at"},
+	"user_password_credentials": {"password_hash", "hash_version", "status", "failed_attempts", "last_failed_at", "locked_until", "compromised_at", "updated_at"},
 	"user_legal_acceptances":    {},
 }
 

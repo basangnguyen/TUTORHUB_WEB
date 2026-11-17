@@ -31,8 +31,8 @@ export type paths = {
     readonly get?: never;
     readonly put?: never;
     /**
-     * Resend the code for the browser-bound sign-up transaction
-     * @description Requires AUTH_SIGNUP_ENABLED. Accepts an empty JSON object; the server decrypts the immutable destination from the transaction. A 60-second cooldown and five-send transaction cap apply. Previous codes are invalidated. All responses use Cache-Control no-store and Referrer-Policy no-referrer.
+     * Resend the code for a browser-bound email authentication transaction
+     * @description Supports signup_email, email login and password recovery transactions. Requires the corresponding method flags; a disabled method returns 503. Accepts an empty JSON object and decrypts the immutable destination server-side. A 60-second cooldown and five-send transaction cap apply. Previous codes are invalidated; destination throttling still returns an identical 202 dummy challenge. All responses use Cache-Control no-store and Referrer-Policy no-referrer.
      */
     readonly post: operations["resendAuthChallenge"];
     readonly delete?: never;
@@ -52,6 +52,46 @@ export type paths = {
     readonly get: operations["rotateCSRFToken"];
     readonly put?: never;
     readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/auth/email-code/start": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Begin email-code sign-in without disclosing account existence
+     * @description Requires AUTH_METHOD_EMAIL_CODE_ENABLED. Active registered accounts may receive a code; unknown or inactive accounts and destination-throttled requests receive an identical dummy challenge. Never creates an account. All responses use Cache-Control no-store and Referrer-Policy no-referrer.
+     */
+    readonly post: operations["startEmailCodeLogin"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/auth/email-code/verify": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Verify an email code and create a new session
+     * @description Requires AUTH_METHOD_EMAIL_CODE_ENABLED. Atomically consumes the challenge and transaction, adds a verified native email identity when needed, and creates a session. Administrators are capped at 24 hours. Clears the transaction cookie on success. All responses use Cache-Control no-store and Referrer-Policy no-referrer.
+     */
+    readonly post: operations["verifyEmailCodeLogin"];
     readonly delete?: never;
     readonly options?: never;
     readonly head?: never;
@@ -126,6 +166,46 @@ export type paths = {
      * @description Requires AUTH_METHOD_PASSWORD_ENABLED. Unknown accounts, absent credentials, locked accounts and incorrect passwords return the same generic 401 response. Successful authentication creates new session and CSRF cookies. The server caps organization administrators at 24 hours even when keep_signed_in is requested. All responses use Cache-Control no-store and Referrer-Policy no-referrer.
      */
     readonly post: operations["loginWithPassword"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/auth/password/recovery/complete": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Reset a password and revoke every existing session
+     * @description Requires AUTH_METHOD_PASSWORD_ENABLED and AUTH_METHOD_EMAIL_CODE_ENABLED. Password policy validation runs before OTP consumption. Successful reset revokes every session, clears session, CSRF and transaction cookies, and sends a password-changed notice. Does not sign the user in. All responses use Cache-Control no-store and Referrer-Policy no-referrer.
+     */
+    readonly post: operations["completePasswordRecovery"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/auth/password/recovery/start": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Begin password recovery without disclosing account existence
+     * @description Requires AUTH_METHOD_PASSWORD_ENABLED and AUTH_METHOD_EMAIL_CODE_ENABLED. Active registered accounts may receive a code; all other requests receive an identical dummy challenge. All responses use Cache-Control no-store and Referrer-Policy no-referrer.
+     */
+    readonly post: operations["startPasswordRecovery"];
     readonly delete?: never;
     readonly options?: never;
     readonly head?: never;
@@ -1715,6 +1795,30 @@ export type paths = {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/api/v1/me/password": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /**
+     * Read the authenticated user's password enrollment status
+     * @description Available even when password authentication is disabled. Responses use Cache-Control private, no-store.
+     */
+    readonly get: operations["getMyPasswordStatus"];
+    readonly put?: never;
+    /**
+     * Set or change a password after recent authentication
+     * @description Requires password authentication enabled, a session, CSRF and authentication within ten minutes. Active credentials require the current password; first enrollment requires verified email. Hashing occurs before database locks. Atomically replaces credentials, revokes other sessions and rotates the current session and CSRF cookies while preserving its lifetime. A password-changed notice is sent after commit. Responses use Cache-Control private, no-store.
+     */
+    readonly post: operations["updateMyPassword"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/api/v1/me/profile": {
     readonly parameters: {
       readonly query?: never;
@@ -3082,6 +3186,8 @@ export type components = {
       readonly passkeys_enabled: boolean;
       readonly password_enabled: boolean;
       readonly password_min_length: number;
+      /** @description Always emitted by current servers as password_enabled AND email_code_enabled. Optional for older deployment compatibility; clients must treat absence as false. */
+      readonly password_recovery_enabled?: boolean;
       readonly phone_allowed_countries: readonly string[];
       readonly phone_enabled: boolean;
       readonly signup_enabled: boolean;
@@ -4158,6 +4264,14 @@ export type components = {
       /** Format: int64 */
       readonly expected_version: number;
     };
+    readonly EmailCodeLoginStartRequest: components["schemas"]["EmailSignupStartRequest"];
+    readonly EmailCodeLoginVerifyRequest: {
+      /** Format: uuid */
+      readonly challenge_id: string;
+      readonly code: string;
+      /** @description Optional; omitted means false. Server caps organization administrators at 24 hours. */
+      readonly keep_signed_in?: boolean;
+    };
     readonly EmailSignupCompleteRequest: {
       /** Format: uuid */
       readonly challenge_id: string;
@@ -5022,6 +5136,30 @@ export type components = {
     };
     /** @enum {string} */
     readonly MessageState: "active" | "deleted";
+    readonly MyPasswordStatusResponse: {
+      readonly has_password: boolean;
+      readonly password_enabled: boolean;
+      /** Format: date-time */
+      readonly updated_at?: string;
+    };
+    readonly MyPasswordUpdateRequest: {
+      /**
+       * Format: password
+       * @description Required for an active credential; omit or leave empty on first enrollment.
+       */
+      readonly current_password?: string;
+      /**
+       * Format: password
+       * @description Subject to server normalization and policy; must differ from the current password after NFKC.
+       */
+      readonly new_password: string;
+    };
+    readonly MyPasswordUpdateResponse: {
+      /** @constant */
+      readonly has_password: true;
+      /** Format: date-time */
+      readonly updated_at: string;
+    };
     readonly NativeAuthenticationResponse:
       | components["schemas"]["AuthAuthenticatedResponse"]
       | components["schemas"]["AuthMFARequiredResponse"];
@@ -5080,6 +5218,27 @@ export type components = {
       readonly keep_signed_in?: boolean;
       /** Format: password */
       readonly password: string;
+    };
+    readonly PasswordRecoveryCompleteRequest: {
+      /** Format: uuid */
+      readonly challenge_id: string;
+      readonly code: string;
+      /**
+       * Format: password
+       * @description Server enforces NFKC, configured minimum, printable characters, 128 runes and 512 bytes, blocklist and configured breach checks.
+       */
+      readonly new_password: string;
+    };
+    readonly PasswordRecoveryResponse:
+      | components["schemas"]["PasswordResetResponse"]
+      | components["schemas"]["AuthMFARequiredResponse"];
+    readonly PasswordRecoveryStartRequest: components["schemas"]["EmailSignupStartRequest"];
+    readonly PasswordResetResponse: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      readonly status: "password_reset";
     };
     /** @enum {string} */
     readonly Permission:
@@ -6076,6 +6235,76 @@ export interface operations {
       readonly default: components["responses"]["ProblemResponse"];
     };
   };
+  readonly startEmailCodeLogin: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Must exactly match the Web origin; browsers set this header automatically. */
+        readonly Origin: components["parameters"]["PreAuthOrigin"];
+        readonly "Sec-Fetch-Site"?: components["parameters"]["PreAuthFetchSite"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["EmailCodeLoginStartRequest"];
+      };
+    };
+    readonly responses: {
+      readonly 202: components["responses"]["AuthChallengeAcceptedResponse"];
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 415: components["responses"]["ProblemResponse"];
+      readonly 429: components["responses"]["AuthRateLimitedResponse"];
+      readonly 503: components["responses"]["AuthUnavailableResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly verifyEmailCodeLogin: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Must exactly match the Web origin; browsers set this header automatically. */
+        readonly Origin: components["parameters"]["PreAuthOrigin"];
+        readonly "Sec-Fetch-Site"?: components["parameters"]["PreAuthFetchSite"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["EmailCodeLoginVerifyRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Authenticated with new session cookies; MFA continuation reserved for later slices */
+      readonly 200: {
+        headers: {
+          readonly "Set-Cookie"?: string;
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["NativeAuthenticationResponse"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      /** @description Invalid or expired verification code; indistinguishable for dummy, missing, wrong or expired challenges */
+      readonly 401: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 415: components["responses"]["ProblemResponse"];
+      readonly 429: components["responses"]["AuthRateLimitedResponse"];
+      readonly 503: components["responses"]["AuthUnavailableResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
   readonly discoverAuthIdentifier: {
     readonly parameters: {
       readonly query?: never;
@@ -6205,6 +6434,76 @@ export interface operations {
           readonly "application/problem+json": components["schemas"]["Problem"];
         };
       };
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 415: components["responses"]["ProblemResponse"];
+      readonly 429: components["responses"]["AuthRateLimitedResponse"];
+      readonly 503: components["responses"]["AuthUnavailableResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly completePasswordRecovery: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Must exactly match the Web origin; browsers set this header automatically. */
+        readonly Origin: components["parameters"]["PreAuthOrigin"];
+        readonly "Sec-Fetch-Site"?: components["parameters"]["PreAuthFetchSite"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["PasswordRecoveryCompleteRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Password reset without a new session; MFA continuation reserved for later slices */
+      readonly 200: {
+        headers: {
+          readonly "Set-Cookie"?: string;
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["PasswordRecoveryResponse"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      /** @description Invalid or expired verification code; indistinguishable for dummy, missing, wrong or expired challenges */
+      readonly 401: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 415: components["responses"]["ProblemResponse"];
+      readonly 429: components["responses"]["AuthRateLimitedResponse"];
+      readonly 503: components["responses"]["AuthUnavailableResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly startPasswordRecovery: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Must exactly match the Web origin; browsers set this header automatically. */
+        readonly Origin: components["parameters"]["PreAuthOrigin"];
+        readonly "Sec-Fetch-Site"?: components["parameters"]["PreAuthFetchSite"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["PasswordRecoveryStartRequest"];
+      };
+    };
+    readonly responses: {
+      readonly 202: components["responses"]["AuthChallengeAcceptedResponse"];
+      readonly 400: components["responses"]["ProblemResponse"];
       readonly 403: components["responses"]["ForbiddenResponse"];
       readonly 415: components["responses"]["ProblemResponse"];
       readonly 429: components["responses"]["AuthRateLimitedResponse"];
@@ -9545,6 +9844,86 @@ export interface operations {
       readonly 401: components["responses"]["UnauthorizedResponse"];
       readonly 403: components["responses"]["ForbiddenResponse"];
       readonly 409: components["responses"]["ConflictResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly getMyPasswordStatus: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Password capability and enrollment status */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["MyPasswordStatusResponse"];
+        };
+      };
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 503: components["responses"]["AuthUnavailableResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly updateMyPassword: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly "X-CSRF-Token": string;
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["MyPasswordUpdateRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Password updated; current session and CSRF cookies rotated */
+      readonly 200: {
+        headers: {
+          readonly "Set-Cookie"?: string;
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["MyPasswordUpdateResponse"];
+        };
+      };
+      /** @description Invalid input, unchanged password or password policy failure */
+      readonly 400: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Invalid session or current password (auth_invalid_current_password) */
+      readonly 401: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description CSRF, recent authentication or verified email required */
+      readonly 403: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      readonly 409: components["responses"]["ProblemResponse"];
+      readonly 503: components["responses"]["AuthUnavailableResponse"];
       readonly default: components["responses"]["ProblemResponse"];
     };
   };
