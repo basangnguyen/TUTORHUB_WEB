@@ -31,6 +31,10 @@ type RemoteAddressResolver interface {
 	ResolveRemoteAddress(*http.Request) string
 }
 
+// Preserve the actual connection peer before a trusted edge resolver substitutes
+// the client address. Local-only development endpoints must never trust forwarding.
+type directPeerContextKey struct{}
+
 func (recorder *statusRecorder) WriteHeader(status int) {
 	if recorder.wroteHeader {
 		return
@@ -65,6 +69,7 @@ func RequestIDFromContext(ctx context.Context) string {
 
 func requestIDMiddleware(next http.Handler, resolvers ...RemoteAddressResolver) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r = r.WithContext(context.WithValue(r.Context(), directPeerContextKey{}, r.RemoteAddr))
 		if len(resolvers) > 0 && resolvers[0] != nil {
 			resolved := resolvers[0].ResolveRemoteAddress(r)
 			if resolved != "" && resolved != r.RemoteAddr {

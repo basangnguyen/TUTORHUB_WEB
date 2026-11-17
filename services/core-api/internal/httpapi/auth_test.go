@@ -324,8 +324,9 @@ func newAuthTestHandler(service identity.ServiceAPI, secure bool) http.Handler {
 			Port:        "8080",
 			WebOrigin:   "http://localhost:5173",
 			Authentication: config.AuthenticationConfig{
-				CookieSecure: secure,
-				SessionTTL:   8 * time.Hour,
+				ProviderOIDCDefaultEnabled: true,
+				CookieSecure:               secure,
+				SessionTTL:                 8 * time.Hour,
 			},
 		},
 		slog.New(slog.NewTextHandler(io.Discard, nil)),

@@ -6,16 +6,46 @@
 
 | Thuộc tính           | Trạng thái                                                                                                                  |
 | -------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| Ngày cập nhật        | 2026-11-16                                                                                                                  |
+| Ngày cập nhật        | 2026-11-17                                                                                                                  |
 | Repository           | `https://github.com/basangnguyen/TUTORHUB_WEB`                                                                              |
 | Nhánh làm việc       | `main`                                                                                                                      |
 | Quy trình            | Antigravity làm PM/Gatekeeper điều phối Codex và Claude Code qua prompt; Antigravity nghiệm thu và commit/push thẳng `main` |
 | Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4, Phase 5 collaboration                                                                   |
 | Phase hiện tại       | Phase 3 deferred carry-over vẫn hoạt động; Phase 5 collaboration đã đóng                                                    |
-| Task `DONE` gần nhất | `ADR-0039` Phê duyệt kiến trúc xác thực đa phương thức nội tại & liên kết OAuth2/OIDC trực tiếp trên Go BFF                 |
-| Mốc repository mới   | `ADR-0039` `Accepted` + cập nhật `docs/SECURITY_BASELINE.md` §2; chốt chính sách triển khai `AUTH-01` → `AUTH-13`           |
-| Task hiện tại        | Giao `AUTH-01` cho Codex (nền tảng transaction, challenge OTP, delivery guard, `devinbox`, migration `000043`)              |
-| Task tiếp theo       | Nghiệm thu `AUTH-01` từ Codex và mở `AUTH-02` (Đăng ký Email + OTP + Mật khẩu Argon2id & Đăng nhập mật khẩu)                |
+| Task `DONE` gần nhất | `AUTH-01` Nền tảng xác thực đa phương thức (Migration `000043`, Transaction, OTP Challenge, Delivery Guard & `devinbox`)    |
+| Mốc repository mới   | `AUTH-01` PASS toàn bộ gate `pnpm verify` + disposable PostgreSQL (`43 false`, rollback preflight, race verify, exact ACL)  |
+| Task hiện tại        | Giao `AUTH-02A` cho Codex (Contract + Migration `000044` + Đăng ký Email/OTP/Argon2id & Đăng nhập mật khẩu phía Server)     |
+| Task tiếp theo       | Nghiệm thu `AUTH-02A` từ Codex, sau đó giao `AUTH-02B` cho Claude Code (nối `SignInPage.tsx` + Playwright E2E `devinbox`)   |
+
+### Checkpoint `AUTH-01` Nền tảng xác thực đa phương thức `DONE` — 2026-11-17
+
+Codex triển khai theo `ADR-0039` và đã qua Gatekeeper (Antigravity) rà soát diff, sửa tinh chỉnh test kiểu thời gian
+PostgreSQL và nghiệm thu đầy đủ:
+
+- **Schema & Exact Runtime ACL (`000043_auth_foundation`)**: Mở rộng `tutorhub.identities` (`kind`,
+  `provider_slug`, `provider_org_id`, `provider_stable_id`, backfill `oidc`, lọc `GET /api/v1/me/identities`
+  chỉ trả `oidc`/`oauth2`) và `tutorhub.sessions` (`auth_methods`, `assurance_level`, `reauthenticated_at`,
+  `device_label`, `persistent`, đọc `GREATEST(auth_time, COALESCE(reauthenticated_at, auth_time))` không làm
+  đổi JSON `/api/v1/me`). Tạo `tutorhub.auth_transactions`, `tutorhub.auth_challenges`,
+  `tutorhub.auth_challenge_deliveries` kèm CHECK độ dài hash 32 byte, giới hạn TTL 15p/10p/5p và down
+  preflight chặn rollback khi có dữ liệu xác thực cần bảo toàn. Bổ sung `ProvisionAuthFoundationRuntimeACL`
+  chỉ chạy bằng kết nối owner riêng, cấp `SELECT, INSERT` và `UPDATE` đúng cột trạng thái, cấm `DELETE` và
+  chặn lách quyền qua `NOINHERIT` role membership.
+- **Transaction, OTP Challenge & Ephemeral Delivery**: Cookie `__Host-tutorhub_auth_tx` (`SameSite=Strict`,
+  `HttpOnly`, chỉ lưu HMAC `auth-tx-binding`); OTP 6 chữ số `crypto/rand` lưu HMAC `auth-otp-v1`, cooldown
+  60s, tối đa 5 lần gửi/transaction và 5 lần thử/challenge, khóa hàng cha–con chống race verify đồng thời,
+  challenge mồi đi cùng đường ghi DB; hàng đợi gửi bất đồng bộ sau commit kèm biên nhận đã redact, hộp thư
+  `devinbox` + SMTP loopback cho `development`/`test` và chốt ngân sách `scripts/check-auth-delivery-guard.mjs`.
+- **Pre-Auth Guard, Rate Limit & Contract**: Bảo vệ `Origin`, `Sec-Fetch-Site`, `Content-Type: application/json`
+  strict decoder; mở rộng `tutorhub.rate_limit_windows` phân tách miền `tutorhub.auth-rate-limit.bucket.v1`;
+  cung cấp `GET /api/v1/auth/providers`, `POST /api/v1/auth/identifier/discover` (OpenAPI + `@tutorhub/api-client`)
+  và `GET /api/v1/dev/auth-inbox` khóa chặt theo direct TCP peer loopback (`directPeerContextKey`). Toàn bộ
+  cờ `AUTH_*` mới mặc định `false`; OIDC mặc định vẫn `true`.
+- **Bằng chứng nghiệm thu Gatekeeper**: Toàn bộ 4 suite PostgreSQL disposable (`TestAuthFoundation*`) cùng
+  toàn bộ integration suite của `identity` (OIDC session, profile/identity linking, membership invitation)
+  PASS trên database trống mới tạo tách biệt hoàn toàn với staging (`0 -> 43 -> 42 -> 43`, kết thúc `43 false`
+  rồi dọn sạch DB tạm); toàn kho `pnpm verify` PASS, `0` dependency mới, `0` secret rò rỉ. Shared staging
+  chưa chạy migration `000043`.
 
 ### Checkpoint `ADR-0039` Chốt kiến trúc & chính sách xác thực đa phương thức `DONE` — 2026-11-16
 

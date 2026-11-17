@@ -77,6 +77,7 @@ func run() int {
 	readiness := make([]httpapi.ReadinessCheck, 0, 2)
 	var pool *pgxpool.Pool
 	var invitationRateLimiter httpapi.InvitationRateLimiter
+	var authRateLimiter httpapi.InvitationRateLimiter
 	if cfg.Database.PoolURL == "" {
 		logger.Warn("database is not configured; readiness will fail")
 		readiness = append(readiness, database.UnconfiguredReadinessCheck{})
@@ -99,7 +100,19 @@ func run() int {
 			logger.Error("initialize shared invitation rate limiter", "error", err)
 			return 1
 		}
+		authRateLimiter, err = httpapi.NewPostgresAuthRateLimiter(pool, cfg.Database.QueryTimeout,
+			cfg.Authentication.EmailDailyQuota, cfg.Authentication.PhoneOTPDailyQuota)
+		if err != nil {
+			logger.Error("initialize authentication rate limiter", "error", err)
+			return 1
+		}
 	}
+	authFoundation, err := newAuthFoundation(cfg, pool, authRateLimiter)
+	if err != nil {
+		logger.Error("initialize authentication foundation", "error", err)
+		return 1
+	}
+	defer authFoundation.close()
 
 	var objectStore *objectstorage.B2Store
 	if cfg.ObjectStorage.Enabled {
@@ -732,6 +745,8 @@ func run() int {
 		CollaborationToken:    cfg.Collaboration.RuntimeToken,
 		CollaborationMode:     cfg.Collaboration.RuntimeMode,
 		InvitationRateLimiter: invitationRateLimiter,
+		AuthRateLimiter:       authRateLimiter,
+		AuthInbox:             authFoundation.inbox,
 		Media:                 mediaService,
 		MediaSpaces:           mediaLifecycleService,
 		MediaJoinAttempts:     mediaJoinAttemptService,

@@ -1374,9 +1374,10 @@ RETURNING id`,
     subject,
     email_at_provider,
     email_verified,
-    last_authenticated_at
+    last_authenticated_at,
+    provider_slug
 )
-VALUES ($1, $2, $3, $4, $5, $6)
+VALUES ($1, $2, $3, $4, $5, $6, 'oidc')
 RETURNING id`,
 		userID,
 		claims.Issuer,
@@ -1518,7 +1519,7 @@ func (repository *PostgresRepository) ListIdentities(
        created_at,
        COALESCE(last_authenticated_at, created_at)
 FROM tutorhub.identities
-WHERE user_id = $1 AND status = 'active'
+WHERE user_id = $1 AND status = 'active' AND kind IN ('oidc', 'oauth2')
 ORDER BY created_at ASC, id ASC`,
 		userID,
 	)
@@ -1650,9 +1651,10 @@ WHERE id = $1`,
     email_at_provider,
     email_verified,
     last_authenticated_at,
-    status
+    status,
+    provider_slug
 )
-VALUES ($1, $2, $3, $4, $5, $6, 'active')
+VALUES ($1, $2, $3, $4, $5, $6, 'active', 'oidc')
 RETURNING id, provider, COALESCE(email_at_provider, ''), email_verified, created_at,
           COALESCE(last_authenticated_at, created_at)`,
 			userID,
@@ -1974,7 +1976,8 @@ func (repository *PostgresRepository) loadPrincipal(
 	var identityID uuid.NullUUID
 	if err := transaction.QueryRow(
 		ctx,
-		`SELECT identity_id, auth_time, context_version
+		`SELECT identity_id, GREATEST(auth_time, COALESCE(reauthenticated_at, auth_time)),
+       context_version, assurance_level, auth_methods
 FROM tutorhub.sessions
 WHERE id = $1 AND user_id = $2`,
 		sessionID,
@@ -1983,6 +1986,8 @@ WHERE id = $1 AND user_id = $2`,
 		&identityID,
 		&principal.AuthenticatedAt,
 		&principal.ContextVersion,
+		&principal.AssuranceLevel,
+		&principal.AuthMethods,
 	); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return Principal{}, ErrSessionNotFound

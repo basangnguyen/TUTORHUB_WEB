@@ -2,8 +2,11 @@ package httpapi
 
 import (
 	"context"
+	"encoding/hex"
+	"errors"
 	"math"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -135,11 +138,22 @@ func (limiter *fixedWindowInvitationRateLimiter) Allow(
 		return InvitationRateLimitDecision{Allowed: true}
 	}
 	policy, configured := limiter.policies[action]
+	if configured && policy.Limit == 0 && policy.Window > 0 && strings.HasPrefix(string(action), "auth.") {
+		return InvitationRateLimitDecision{RetryAfter: now.UTC().Truncate(policy.Window).Add(policy.Window).Sub(now.UTC())}
+	}
 	if !configured || policy.Limit < 1 || policy.Window <= 0 {
+		if strings.HasPrefix(string(action), "auth.") {
+			return InvitationRateLimitDecision{Err: errors.New("auth rate limit policy is unavailable")}
+		}
 		return InvitationRateLimitDecision{Allowed: true}
 	}
 
 	now = now.UTC()
+	// Keep auth destinations and network prefixes out of the in-memory index too.
+	if strings.HasPrefix(string(action), "auth.") {
+		digest := invitationRateLimitBucketHash(invitationRateLimitPurpose(action), clientPrefix)
+		clientPrefix = hex.EncodeToString(digest[:])
+	}
 	key := invitationRateLimitKey{action: action, clientPrefix: clientPrefix}
 	limiter.mutex.Lock()
 	defer limiter.mutex.Unlock()

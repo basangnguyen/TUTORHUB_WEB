@@ -117,19 +117,41 @@ type DatabaseConfig struct {
 }
 
 type AuthenticationConfig struct {
-	Enabled                 bool
-	IssuerURL               string
-	ClientID                string
-	ClientSecret            string
-	CallbackURL             string
-	PostLogoutURL           string
-	Scopes                  []string
-	SessionKey              []byte
-	CookieSecure            bool
-	FlowTTL                 time.Duration
-	SessionTTL              time.Duration
-	SessionAbsoluteTTL      time.Duration
-	MembershipInvitationTTL time.Duration
+	Enabled                      bool
+	IssuerURL                    string
+	ClientID                     string
+	ClientSecret                 string
+	CallbackURL                  string
+	PostLogoutURL                string
+	Scopes                       []string
+	SessionKey                   []byte
+	CookieSecure                 bool
+	FlowTTL                      time.Duration
+	SessionTTL                   time.Duration
+	SessionAbsoluteTTL           time.Duration
+	MembershipInvitationTTL      time.Duration
+	SignupEnabled                bool
+	PasswordEnabled              bool
+	EmailCodeEnabled             bool
+	PhoneEnabled                 bool
+	PasskeysEnabled              bool
+	MFATOTPEnabled               bool
+	DeviceManagementEnabled      bool
+	SSODomainsEnabled            bool
+	ProviderOIDCDefaultEnabled   bool
+	ProviderGoogleEnabled        bool
+	ProviderFacebookEnabled      bool
+	ProviderMicrosoftEnabled     bool
+	ProviderAppleEnabled         bool
+	PasswordMinLength            int
+	SessionPersistentAbsoluteTTL time.Duration
+	PhoneAllowedCountries        []string
+	EmailSender                  string
+	SMTPAddr                     string
+	PhoneSender                  string
+	DeliveryBudgetApproved       bool
+	EmailDailyQuota              int
+	PhoneOTPDailyQuota           int
 }
 
 type LiveKitConfig struct {
@@ -1027,6 +1049,7 @@ func authenticationConfig(
 		SessionAbsoluteTTL:      absoluteTTL,
 		MembershipInvitationTTL: invitationTTL,
 	}
+	configureAuthFoundation(&config, lookup, environment, validationErrors)
 
 	if invitationTTL < 15*time.Minute || invitationTTL > 720*time.Hour {
 		*validationErrors = append(

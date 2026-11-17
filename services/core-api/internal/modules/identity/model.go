@@ -122,6 +122,8 @@ type Principal struct {
 	ContextVersion  int64     `json:"-"`
 	IdentityID      uuid.UUID `json:"-"`
 	AuthenticatedAt time.Time `json:"-"`
+	AssuranceLevel  int16     `json:"-"`
+	AuthMethods     []string  `json:"-"`
 	User            User
 	ActiveTenant    *Tenant
 	Memberships     []Tenant

@@ -38,6 +38,26 @@ export type paths = {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/api/v1/auth/identifier/discover": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Classify identifier syntax without revealing account existence
+     * @description Requires same-origin JSON requests. Returns only syntax classification and a future SSO domain policy placeholder. Does not look up accounts or individual authentication methods. Responses use Cache-Control no-store and Referrer-Policy no-referrer.
+     */
+    readonly post: operations["discoverAuthIdentifier"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/api/v1/auth/login": {
     readonly parameters: {
       readonly query?: never;
@@ -66,6 +86,26 @@ export type paths = {
     readonly put?: never;
     /** Revoke the current TutorHub session */
     readonly post: operations["logout"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/auth/providers": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /**
+     * Return public deployment authentication capabilities
+     * @description Contains only server-enabled methods and public policy; no account-specific methods, credentials or internal provider URLs.
+     */
+    readonly get: operations["getAuthProviders"];
+    readonly put?: never;
+    readonly post?: never;
     readonly delete?: never;
     readonly options?: never;
     readonly head?: never;
@@ -2907,6 +2947,17 @@ export type components = {
       readonly id: string | null;
       readonly type: string;
     };
+    readonly AuthIdentifierDiscoverRequest: {
+      readonly identifier: string;
+    };
+    readonly AuthIdentifierDiscoverResponse: {
+      /** @enum {string} */
+      readonly kind: "email" | "phone" | "invalid";
+      readonly sso: {
+        /** @constant */
+        readonly required: false;
+      };
+    };
     readonly AuthorizedSearchPage: {
       readonly items: readonly components["schemas"]["AuthorizedSearchResult"][];
     };
@@ -2923,6 +2974,21 @@ export type components = {
     };
     /** @enum {string} */
     readonly AuthorizedSearchResultKind: "session" | "conversation" | "file";
+    readonly AuthProvidersResponse: {
+      readonly email_code_enabled: boolean;
+      readonly mfa_totp_enabled: boolean;
+      readonly oauth_providers: readonly (
+        "google" | "facebook" | "microsoft" | "apple"
+      )[];
+      readonly oidc_default_enabled: boolean;
+      readonly passkeys_enabled: boolean;
+      readonly password_enabled: boolean;
+      readonly password_min_length: number;
+      readonly phone_allowed_countries: readonly string[];
+      readonly phone_enabled: boolean;
+      readonly signup_enabled: boolean;
+      readonly sso_domains_enabled: boolean;
+    };
     readonly AvailabilityPoll: {
       readonly class_id: string | null;
       /** Format: date-time */
@@ -5814,6 +5880,51 @@ export interface operations {
       readonly default: components["responses"]["ProblemResponse"];
     };
   };
+  readonly discoverAuthIdentifier: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Must exactly match the configured Web origin; browsers set this header automatically. */
+        readonly Origin: string;
+        readonly "Sec-Fetch-Site"?: "same-origin";
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["AuthIdentifierDiscoverRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Identifier syntax classification, independent of account existence */
+      readonly 200: {
+        headers: {
+          readonly "Cache-Control"?: "no-store";
+          readonly "Referrer-Policy"?: "no-referrer";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["AuthIdentifierDiscoverResponse"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 415: components["responses"]["ProblemResponse"];
+      /** @description Discovery network-prefix rate limit exceeded */
+      readonly 429: {
+        headers: {
+          readonly "Retry-After"?: string;
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
   readonly beginLogin: {
     readonly parameters: {
       readonly query?: {
@@ -5856,6 +5967,29 @@ export interface operations {
         };
         content: {
           readonly "application/json": components["schemas"]["LogoutResponse"];
+        };
+      };
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly getAuthProviders: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Public authentication capabilities */
+      readonly 200: {
+        headers: {
+          readonly "Cache-Control"?: "no-store";
+          readonly "Referrer-Policy"?: "no-referrer";
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["AuthProvidersResponse"];
         };
       };
       readonly default: components["responses"]["ProblemResponse"];

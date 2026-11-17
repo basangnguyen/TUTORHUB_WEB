@@ -73,6 +73,10 @@ func (handlers authHandlers) login(w http.ResponseWriter, r *http.Request) {
 	if !handlers.available(w, r) {
 		return
 	}
+	if !handlers.config.Authentication.ProviderOIDCDefaultEnabled {
+		writeProblem(w, r, http.StatusServiceUnavailable, "Service unavailable", "This authentication method is disabled.")
+		return
+	}
 
 	start, err := handlers.identity.BeginLogin(r.Context(), r.URL.Query().Get("return_to"))
 	if err != nil {

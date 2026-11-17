@@ -4,6 +4,12 @@ import type { components, paths } from "./generated/schema";
 let currentCSRFToken: string | null = null;
 
 export type HealthResponse = components["schemas"]["HealthResponse"];
+export type AuthProvidersResponse =
+  components["schemas"]["AuthProvidersResponse"];
+export type AuthIdentifierDiscoverRequest =
+  components["schemas"]["AuthIdentifierDiscoverRequest"];
+export type AuthIdentifierDiscoverResponse =
+  components["schemas"]["AuthIdentifierDiscoverResponse"];
 export type CurrentUser = components["schemas"]["MeResponse"];
 export type CSRFResponse = components["schemas"]["CSRFResponse"];
 export type LogoutResponse = components["schemas"]["LogoutResponse"];
@@ -645,6 +651,44 @@ export async function getHealth(
   }
 
   return data;
+}
+
+export async function getAuthProviders(
+  options: APIRequestOptions = {},
+): Promise<AuthProvidersResponse> {
+  const { data, error, response } = await createTutorHubClient(options).GET(
+    "/api/v1/auth/providers",
+    {
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+      cache: "no-store",
+    },
+  );
+  return requireData<AuthProvidersResponse>(
+    data as AuthProvidersResponse | undefined,
+    error,
+    response,
+  );
+}
+
+export async function discoverAuthIdentifier(
+  input: AuthIdentifierDiscoverRequest,
+  options: APIRequestOptions = {},
+): Promise<AuthIdentifierDiscoverResponse> {
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/auth/identifier/discover",
+    {
+      // Browsers own Origin/Sec-Fetch-Site. Do not synthesize a trusted origin
+      // from the API URL (which can differ from the application's origin).
+      params: { header: { Origin: globalThis.location?.origin ?? "null" } },
+      headers: { Accept: "application/json" },
+      body: input,
+      signal: options.signal,
+      cache: "no-store",
+      referrerPolicy: "no-referrer",
+    },
+  );
+  return requireData<AuthIdentifierDiscoverResponse>(data, error, response);
 }
 
 export async function getCurrentUser(

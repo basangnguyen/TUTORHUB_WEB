@@ -19,6 +19,7 @@ import (
 	"github.com/tutorhub-v2/core-api/internal/modules/identity"
 	"github.com/tutorhub-v2/core-api/internal/modules/media"
 	"github.com/tutorhub-v2/core-api/internal/modules/notification"
+	"github.com/tutorhub-v2/core-api/internal/platform/devinbox"
 	"github.com/tutorhub-v2/core-api/internal/platform/observability"
 )
 
@@ -63,6 +64,8 @@ type Options struct {
 	CollaborationMode     string
 	LiveKitWebhook        media.WebhookVerifier
 	InvitationRateLimiter InvitationRateLimiter
+	AuthRateLimiter       InvitationRateLimiter
+	AuthInbox             *devinbox.Inbox
 	RemoteAddressResolver RemoteAddressResolver
 }
 
@@ -83,6 +86,9 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 	}
 	if options.InvitationRateLimiter == nil {
 		options.InvitationRateLimiter = newDefaultInvitationRateLimiter()
+	}
+	if options.AuthRateLimiter == nil {
+		options.AuthRateLimiter = newFixedWindowInvitationRateLimiter(4096, authRateLimitPolicies(cfg.Authentication.EmailDailyQuota, cfg.Authentication.PhoneOTPDailyQuota))
 	}
 
 	mux := http.NewServeMux()
@@ -136,6 +142,11 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 			requireMethod(http.MethodPost, http.HandlerFunc(externalRSVP.respond)),
 		),
 	)
+	mux.Handle("/api/v1/auth/providers", authFoundationResponseHeaders(requireMethod(http.MethodGet, authProvidersHandler(cfg.Authentication, logger))))
+	mux.Handle("/api/v1/auth/identifier/discover", authFoundationResponseHeaders(requireMethod(http.MethodPost, preAuthGuard(cfg.WebOrigin, authIdentifierHandler(logger, options.AuthRateLimiter, options.Clock)))))
+	if cfg.Environment == "development" || cfg.Environment == "test" {
+		mux.Handle("/api/v1/dev/auth-inbox", authFoundationResponseHeaders(devAuthInboxHandler(cfg, logger, options.AuthInbox)))
+	}
 	mux.Handle("/api/v1/auth/login", requireMethod(http.MethodGet, http.HandlerFunc(auth.login)))
 	mux.Handle("/api/v1/auth/callback", requireMethod(http.MethodGet, http.HandlerFunc(auth.callback)))
 	mux.Handle("/api/v1/auth/csrf", requireMethod(http.MethodGet, http.HandlerFunc(auth.csrf)))

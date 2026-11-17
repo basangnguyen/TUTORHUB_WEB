@@ -169,6 +169,91 @@ paths:
           $ref: "#/components/responses/ProblemResponse"
         default:
           $ref: "#/components/responses/ProblemResponse"
+  /api/v1/auth/providers:
+    get:
+      operationId: getAuthProviders
+      summary: Return public deployment authentication capabilities
+      security: []
+      description: Contains only server-enabled methods and public policy; no account-specific methods, credentials or internal provider URLs.
+      responses:
+        "200":
+          description: Public authentication capabilities
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+            Referrer-Policy:
+              schema:
+                type: string
+                const: no-referrer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthProvidersResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/auth/identifier/discover:
+    post:
+      operationId: discoverAuthIdentifier
+      summary: Classify identifier syntax without revealing account existence
+      security: []
+      description: Requires same-origin JSON requests. Returns only syntax classification and a future SSO domain policy placeholder. Does not look up accounts or individual authentication methods. Responses use Cache-Control no-store and Referrer-Policy no-referrer.
+      parameters:
+        - name: Origin
+          in: header
+          required: true
+          description: Must exactly match the configured Web origin; browsers set this header automatically.
+          schema:
+            type: string
+        - name: Sec-Fetch-Site
+          in: header
+          required: false
+          schema:
+            type: string
+            const: same-origin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AuthIdentifierDiscoverRequest"
+      responses:
+        "200":
+          description: Identifier syntax classification, independent of account existence
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+            Referrer-Policy:
+              schema:
+                type: string
+                const: no-referrer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthIdentifierDiscoverResponse"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "415":
+          $ref: "#/components/responses/ProblemResponse"
+        "429":
+          description: Discovery network-prefix rate limit exceeded
+          headers:
+            Retry-After:
+              schema:
+                type: string
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
   /api/v1/auth/login:
     get:
       operationId: beginLogin
@@ -7811,6 +7896,79 @@ components:
           schema:
             $ref: "#/components/schemas/Problem"
   schemas:
+    AuthProvidersResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - signup_enabled
+        - password_enabled
+        - email_code_enabled
+        - phone_enabled
+        - passkeys_enabled
+        - mfa_totp_enabled
+        - oidc_default_enabled
+        - sso_domains_enabled
+        - oauth_providers
+        - password_min_length
+        - phone_allowed_countries
+      properties:
+        signup_enabled:
+          type: boolean
+        password_enabled:
+          type: boolean
+        email_code_enabled:
+          type: boolean
+        phone_enabled:
+          type: boolean
+        passkeys_enabled:
+          type: boolean
+        mfa_totp_enabled:
+          type: boolean
+        oidc_default_enabled:
+          type: boolean
+        sso_domains_enabled:
+          type: boolean
+        oauth_providers:
+          type: array
+          uniqueItems: true
+          items:
+            type: string
+            enum: [google, facebook, microsoft, apple]
+        password_min_length:
+          type: integer
+          minimum: 8
+          maximum: 64
+        phone_allowed_countries:
+          type: array
+          uniqueItems: true
+          items:
+            type: string
+            pattern: "^[A-Z]{2}$"
+    AuthIdentifierDiscoverRequest:
+      type: object
+      additionalProperties: false
+      required: [identifier]
+      properties:
+        identifier:
+          type: string
+          minLength: 1
+          maxLength: 320
+    AuthIdentifierDiscoverResponse:
+      type: object
+      additionalProperties: false
+      required: [kind, sso]
+      properties:
+        kind:
+          type: string
+          enum: [email, phone, invalid]
+        sso:
+          type: object
+          additionalProperties: false
+          required: [required]
+          properties:
+            required:
+              type: boolean
+              const: false
     OrganizationRole:
       type: string
       enum: [org_admin, teacher, student, guest]

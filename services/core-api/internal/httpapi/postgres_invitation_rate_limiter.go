@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -44,6 +45,9 @@ func (limiter *postgresInvitationRateLimiter) Allow(
 		return InvitationRateLimitDecision{Err: errors.New("shared invitation rate limiter is unavailable")}
 	}
 	policy, ok := limiter.policies[action]
+	if ok && policy.Limit == 0 && policy.Window > 0 && strings.HasPrefix(string(action), "auth.") {
+		return InvitationRateLimitDecision{RetryAfter: now.UTC().Truncate(policy.Window).Add(policy.Window).Sub(now.UTC())}
+	}
 	if !ok || policy.Limit < 1 || policy.Window <= 0 || clientPrefix == "" {
 		return InvitationRateLimitDecision{Err: errors.New("shared invitation rate limiter input is invalid")}
 	}
@@ -105,13 +109,19 @@ WHERE purpose = $1 AND bucket_hash = $2 AND window_started_at = $3`,
 }
 
 func invitationRateLimitBucketHash(purpose string, clientPrefix string) [sha256.Size]byte {
-	const domain = "tutorhub.invitation-rate-limit.bucket.v1"
+	domain := "tutorhub.invitation-rate-limit.bucket.v1"
+	if strings.HasPrefix(purpose, "auth.") {
+		domain = "tutorhub.auth-rate-limit.bucket.v1"
+	}
 
 	return sha256.Sum256([]byte(domain + "\x00" + purpose + "\x00" + clientPrefix))
 }
 
 func invitationRateLimitPurpose(action InvitationRateLimitAction) string {
 	switch action {
+	case AuthRateLimitDiscoveryIP, AuthRateLimitOTPSendDestination, AuthRateLimitOTPSendIP,
+		AuthRateLimitOTPVerifyIP, AuthRateLimitDeliveryDailyEmail, AuthRateLimitDeliveryDailyPhone:
+		return string(action)
 	case InvitationRateLimitPreview:
 		return "membership_invitation.preview"
 	case InvitationRateLimitAccept:
