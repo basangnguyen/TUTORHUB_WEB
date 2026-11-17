@@ -41,17 +41,17 @@ func authSchemaTestDatabase(t *testing.T) (context.Context, *pgxpool.Pool, strin
 func TestAuthFoundationMigrationRoundTripAndRollbackPreflight(t *testing.T) {
 	ctx, pool, url := authSchemaTestDatabase(t)
 	version, err := migrationrunner.CurrentVersion(ctx, url)
-	if err != nil || version.Number != 43 || version.Dirty {
-		t.Fatal("AUTH-01 migration roundtrip requires clean ledger 43")
+	if err != nil || version.Number != 44 || version.Dirty {
+		t.Fatal("AUTH-01 regression roundtrip requires clean ledger 44")
 	}
-	if err := migrationrunner.Down(ctx, url, 1); err != nil {
+	if err := migrationrunner.Down(ctx, url, 2); err != nil {
 		t.Fatal("empty disposable AUTH-01 rollback")
 	}
 	if err := migrationrunner.Up(ctx, url); err != nil {
 		t.Fatal("reapply AUTH-01 migration")
 	}
 	version, err = migrationrunner.CurrentVersion(ctx, url)
-	if err != nil || version.Number != 43 || version.Dirty {
+	if err != nil || version.Number != 44 || version.Dirty {
 		t.Fatal("AUTH-01 roundtrip did not retain clean ledger")
 	}
 	down, err := migrations.Files.ReadFile("000043_auth_foundation.down.sql")
@@ -98,16 +98,28 @@ func TestAuthFoundationRuntimeExactACL(t *testing.T) {
 		_, _ = pool.Exec(cleanupCtx, "DROP ROLE "+role)
 	})
 	// Emulate previously materialized broad grants, including column grants.
-	if _, err := pool.Exec(ctx, "GRANT ALL ON tutorhub.auth_transactions, tutorhub.auth_challenges, tutorhub.auth_challenge_deliveries TO "+role); err != nil {
+	if _, err := pool.Exec(ctx, "GRANT ALL ON tutorhub.auth_transactions, tutorhub.auth_challenges, tutorhub.auth_challenge_deliveries, tutorhub.user_password_credentials, tutorhub.user_legal_acceptances TO "+role); err != nil {
 		t.Fatal("seed overbroad runtime ACL")
 	}
 	if _, err := pool.Exec(ctx, "GRANT UPDATE (code_hash) ON tutorhub.auth_challenges TO "+role); err != nil {
 		t.Fatal("seed overbroad column ACL")
 	}
+	if _, err := pool.Exec(ctx, "GRANT SELECT, INSERT, UPDATE (display_name) ON tutorhub.users TO "+role); err != nil {
+		t.Fatal("seed established users ACL")
+	}
 	if err := ProvisionAuthFoundationRuntimeACL(ctx, pool, roleName); err != nil {
 		t.Fatal(err)
 	}
-	for table, updates := range authFoundationUpdates {
+	// Keep expectations independent from the provisioning implementation so an
+	// accidentally broadened grant cannot silently change the test's oracle.
+	expectedUpdates := map[string][]string{
+		"auth_transactions":         {"state", "completed_at", "payload_ciphertext"},
+		"auth_challenges":           {"attempts", "consumed_at", "invalidated_at"},
+		"auth_challenge_deliveries": {"status", "provider_message_ref", "error_code", "delivered_at"},
+		"user_password_credentials": {"password_hash", "hash_version", "failed_attempts", "last_failed_at", "locked_until", "updated_at"},
+		"user_legal_acceptances":    {},
+	}
+	for table, updates := range expectedUpdates {
 		var read, insert, remove bool
 		if err := pool.QueryRow(ctx, `SELECT has_table_privilege($1,$2,'SELECT'),has_table_privilege($1,$2,'INSERT'),has_table_privilege($1,$2,'DELETE')`, roleName, "tutorhub."+table).Scan(&read, &insert, &remove); err != nil || !read || !insert || remove {
 			t.Fatal("runtime table privileges differ from SELECT/INSERT only")
@@ -128,6 +140,19 @@ func TestAuthFoundationRuntimeExactACL(t *testing.T) {
 			t.Fatal("read runtime update privileges")
 		}
 		rows.Close()
+	}
+	var usersRead, usersInsert, displayNameUpdate, verificationRead, verificationInsert, verificationUpdate, unrelatedUpdate bool
+	if err := pool.QueryRow(ctx, `SELECT
+        has_table_privilege($1,'tutorhub.users','SELECT'),
+        has_table_privilege($1,'tutorhub.users','INSERT'),
+        has_column_privilege($1,'tutorhub.users','display_name','UPDATE'),
+        has_column_privilege($1,'tutorhub.users','email_verified_at','SELECT'),
+        has_column_privilege($1,'tutorhub.users','email_verified_at','INSERT'),
+        has_column_privilege($1,'tutorhub.users','email_verified_at','UPDATE'),
+        has_column_privilege($1,'tutorhub.users','status','UPDATE')`, roleName).
+		Scan(&usersRead, &usersInsert, &displayNameUpdate, &verificationRead, &verificationInsert, &verificationUpdate, &unrelatedUpdate); err != nil ||
+		!usersRead || !usersInsert || !displayNameUpdate || !verificationRead || !verificationInsert || !verificationUpdate || unrelatedUpdate {
+		t.Fatal("email verification grants must preserve the established users ACL without broadening unrelated updates")
 	}
 	// NOINHERIT only prevents implicit grants; SET ROLE can still recover a
 	// parent's privileges. Dedicated API credentials must not have that escape.

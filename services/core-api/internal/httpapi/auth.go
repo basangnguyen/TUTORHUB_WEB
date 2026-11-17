@@ -152,7 +152,7 @@ func (handlers authHandlers) csrf(w http.ResponseWriter, r *http.Request) {
 		w,
 		handlers.cookieNames.csrf,
 		result.Token,
-		result.ExpiresAt,
+		authCookieExpiry(result.CookieExpiresAt, result.ExpiresAt),
 	)
 	w.Header().Set("Cache-Control", "no-store")
 	writeJSON(handlers.logger, w, http.StatusOK, csrfResponse{CSRFToken: result.Token})
@@ -408,6 +408,13 @@ func (handlers authHandlers) setCookie(
 		Secure:   handlers.config.Authentication.CookieSecure,
 		SameSite: http.SameSiteLaxMode,
 	})
+}
+
+func authCookieExpiry(cookieExpiry, idleExpiry time.Time) time.Time {
+	if !cookieExpiry.IsZero() {
+		return cookieExpiry
+	}
+	return idleExpiry
 }
 
 func (handlers authHandlers) clearCookie(w http.ResponseWriter, name string) {

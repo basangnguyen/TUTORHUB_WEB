@@ -50,9 +50,10 @@ type ServiceConfig struct {
 }
 
 type CSRFResult struct {
-	Token     string
-	Principal Principal
-	ExpiresAt time.Time
+	Token           string
+	Principal       Principal
+	ExpiresAt       time.Time
+	CookieExpiresAt time.Time
 }
 
 type ServiceAPI interface {
@@ -93,7 +94,7 @@ func NewService(
 	config ServiceConfig,
 	clock func() time.Time,
 ) (*Service, error) {
-	if repository == nil || provider == nil || crypto == nil || authorizer == nil {
+	if repository == nil || crypto == nil || authorizer == nil {
 		return nil, fmt.Errorf("identity service dependencies must be configured")
 	}
 	if config.FlowTTL <= 0 || config.SessionTTL <= 0 || config.SessionAbsoluteTTL <= 0 {
@@ -154,6 +155,9 @@ func (service *Service) beginFlow(
 	userID uuid.UUID,
 	sessionID uuid.UUID,
 ) (LoginStart, error) {
+	if service.provider == nil {
+		return LoginStart{}, ErrAuthenticationDisabled
+	}
 	state, err := service.crypto.RandomToken()
 	if err != nil {
 		return LoginStart{}, fmt.Errorf("generate OIDC state: %w", err)
@@ -206,6 +210,9 @@ func (service *Service) CompleteLogin(
 	ctx context.Context,
 	input CallbackInput,
 ) (LoginResult, error) {
+	if service.provider == nil {
+		return LoginResult{}, ErrAuthenticationDisabled
+	}
 	if strings.TrimSpace(input.State) == "" ||
 		strings.TrimSpace(input.BrowserBinding) == "" ||
 		strings.TrimSpace(input.Code) == "" {
@@ -397,9 +404,10 @@ func (service *Service) RotateCSRF(ctx context.Context, sessionToken string) (CS
 	}
 
 	return CSRFResult{
-		Token:     token,
-		Principal: record.Principal,
-		ExpiresAt: record.ExpiresAt,
+		Token:           token,
+		Principal:       record.Principal,
+		ExpiresAt:       record.ExpiresAt,
+		CookieExpiresAt: record.Principal.CookieExpiresAt,
 	}, nil
 }
 
@@ -435,6 +443,9 @@ func (service *Service) Logout(ctx context.Context, sessionToken string) (string
 		return "", err
 	}
 
+	if service.provider == nil {
+		return "", nil
+	}
 	return service.provider.EndSessionURL(), nil
 }
 
@@ -569,10 +580,11 @@ func (service *Service) ArchiveTenant(
 	}
 
 	return TenantArchiveResult{
-		Principal:    mutation.Principal,
-		SessionToken: sessionToken,
-		CSRFToken:    csrfToken,
-		ExpiresAt:    mutation.ExpiresAt,
+		Principal:       mutation.Principal,
+		SessionToken:    sessionToken,
+		CSRFToken:       csrfToken,
+		ExpiresAt:       mutation.ExpiresAt,
+		CookieExpiresAt: mutation.Principal.CookieExpiresAt,
 	}, nil
 }
 
@@ -633,10 +645,11 @@ func (service *Service) rotateTenantSession(
 	}
 
 	return TenantSessionResult{
-		Principal:    mutation.Principal,
-		SessionToken: sessionToken,
-		CSRFToken:    csrfToken,
-		ExpiresAt:    mutation.ExpiresAt,
+		Principal:       mutation.Principal,
+		SessionToken:    sessionToken,
+		CSRFToken:       csrfToken,
+		ExpiresAt:       mutation.ExpiresAt,
+		CookieExpiresAt: mutation.Principal.CookieExpiresAt,
 	}, nil
 }
 

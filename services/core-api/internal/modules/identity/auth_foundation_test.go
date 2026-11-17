@@ -293,6 +293,10 @@ type privacyTestSender struct {
 	fail  bool
 }
 
+func (sender *privacyTestSender) SendNotice(context.Context, AccountNotice) (DeliveryReceipt, error) {
+	return DeliveryReceipt{}, ErrAuthDeliveryDisabled
+}
+
 type foundationTestBudget bool
 
 func (budget foundationTestBudget) AllowDelivery(context.Context, DeliveryChannel) bool {

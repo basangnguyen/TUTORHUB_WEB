@@ -118,6 +118,7 @@ type DatabaseConfig struct {
 
 type AuthenticationConfig struct {
 	Enabled                      bool
+	OIDCEnabled                  bool
 	IssuerURL                    string
 	ClientID                     string
 	ClientSecret                 string
@@ -144,6 +145,9 @@ type AuthenticationConfig struct {
 	ProviderMicrosoftEnabled     bool
 	ProviderAppleEnabled         bool
 	PasswordMinLength            int
+	PasswordHashMaxConcurrency   int
+	PasswordBreachCheck          string
+	LegalTermsVersion            string
 	SessionPersistentAbsoluteTTL time.Duration
 	PhoneAllowedCountries        []string
 	EmailSender                  string
@@ -1050,6 +1054,12 @@ func authenticationConfig(
 		MembershipInvitationTTL: invitationTTL,
 	}
 	configureAuthFoundation(&config, lookup, environment, validationErrors)
+	config.OIDCEnabled = config.ProviderOIDCDefaultEnabled && enabled
+	nativeEnabled := config.SignupEnabled || config.PasswordEnabled
+	config.Enabled = enabled || nativeEnabled
+	if nativeEnabled && strings.TrimSpace(valueOrDefault(lookup, "DATABASE_POOL_URL", "")) == "" {
+		*validationErrors = append(*validationErrors, fmt.Errorf("DATABASE_POOL_URL is required when native authentication is enabled"))
+	}
 
 	if invitationTTL < 15*time.Minute || invitationTTL > 720*time.Hour {
 		*validationErrors = append(
@@ -1057,15 +1067,17 @@ func authenticationConfig(
 			fmt.Errorf("MEMBERSHIP_INVITATION_TTL must be between 15m and 720h"),
 		)
 	}
-	if !enabled {
+	if !config.Enabled {
 		return config
 	}
 
 	requiredValues := map[string]string{
-		"OIDC_ISSUER_URL":    issuerURL,
-		"OIDC_CLIENT_ID":     clientID,
-		"OIDC_CLIENT_SECRET": clientSecret,
-		"SESSION_SECRET":     sessionSecret,
+		"SESSION_SECRET": sessionSecret,
+	}
+	if config.OIDCEnabled {
+		requiredValues["OIDC_ISSUER_URL"] = issuerURL
+		requiredValues["OIDC_CLIENT_ID"] = clientID
+		requiredValues["OIDC_CLIENT_SECRET"] = clientSecret
 	}
 	for key, value := range requiredValues {
 		if value == "" {
@@ -1073,19 +1085,21 @@ func authenticationConfig(
 		}
 	}
 
-	if issuerURL != "" {
+	if config.OIDCEnabled && issuerURL != "" {
 		if err := validateHTTPSURL(environment, "OIDC_ISSUER_URL", issuerURL); err != nil {
 			*validationErrors = append(*validationErrors, err)
 		}
 	}
-	if err := validateHTTPSURL(environment, "OIDC_CALLBACK_URL", callbackURL); err != nil {
-		*validationErrors = append(*validationErrors, err)
-	}
-	if err := validateHTTPSURL(environment, "OIDC_POST_LOGOUT_URL", postLogoutURL); err != nil {
-		*validationErrors = append(*validationErrors, err)
-	}
-	if !containsString(scopes, "openid") {
-		*validationErrors = append(*validationErrors, fmt.Errorf("OIDC_SCOPES must include openid"))
+	if config.OIDCEnabled {
+		if err := validateHTTPSURL(environment, "OIDC_CALLBACK_URL", callbackURL); err != nil {
+			*validationErrors = append(*validationErrors, err)
+		}
+		if err := validateHTTPSURL(environment, "OIDC_POST_LOGOUT_URL", postLogoutURL); err != nil {
+			*validationErrors = append(*validationErrors, err)
+		}
+		if !containsString(scopes, "openid") {
+			*validationErrors = append(*validationErrors, fmt.Errorf("OIDC_SCOPES must include openid"))
+		}
 	}
 	if flowTTL > 15*time.Minute {
 		*validationErrors = append(*validationErrors, fmt.Errorf("AUTH_FLOW_TTL must not exceed 15m"))

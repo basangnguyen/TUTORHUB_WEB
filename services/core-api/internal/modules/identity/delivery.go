@@ -54,7 +54,20 @@ func (DeliveryReceipt) String() string       { return "[redacted delivery receip
 
 type EmailSender interface {
 	SendChallenge(context.Context, ChallengeMessage) (DeliveryReceipt, error)
+	SendNotice(context.Context, AccountNotice) (DeliveryReceipt, error)
 }
+
+// AccountNotice contains no code. It shares the same bounded post-commit queue
+// and email budget; its destination exists only in memory and the local inbox.
+type AccountNotice struct {
+	ChallengeID uuid.UUID
+	Kind        string
+	Destination string
+	ExpiresAt   time.Time
+}
+
+func (AccountNotice) String() string       { return "[redacted account notice]" }
+func (AccountNotice) LogValue() slog.Value { return slog.StringValue("[redacted account notice]") }
 
 type PhoneChallengeSender interface {
 	Channel() DeliveryChannel
@@ -65,6 +78,9 @@ type PhoneChallengeSender interface {
 type DisabledSender struct{}
 
 func (DisabledSender) SendChallenge(context.Context, ChallengeMessage) (DeliveryReceipt, error) {
+	return DeliveryReceipt{}, ErrAuthDeliveryDisabled
+}
+func (DisabledSender) SendNotice(context.Context, AccountNotice) (DeliveryReceipt, error) {
 	return DeliveryReceipt{}, ErrAuthDeliveryDisabled
 }
 func (DisabledSender) Channel() DeliveryChannel { return DeliverySMS }
@@ -85,8 +101,18 @@ func (sender *DevinboxSender) SendChallenge(ctx context.Context, message Challen
 	if ctx.Err() != nil || sender.inbox == nil || message.Channel != sender.channel {
 		return DeliveryReceipt{}, ErrAuthDeliveryFailed
 	}
-	if err := sender.inbox.Add(devinbox.Message{ChallengeID: message.ChallengeID.String(), Purpose: message.Purpose,
+	if err := sender.inbox.Add(devinbox.Message{Kind: "challenge", ChallengeID: message.ChallengeID.String(), Purpose: message.Purpose,
 		Channel: string(message.Channel), Destination: message.Destination, Code: message.Code, ExpiresAt: message.ExpiresAt}); err != nil {
+		return DeliveryReceipt{}, ErrAuthDeliveryFailed
+	}
+	return DeliveryReceipt{ProviderMessageRef: uuid.NewString(), AcceptedAt: time.Now().UTC()}, nil
+}
+
+func (sender *DevinboxSender) SendNotice(ctx context.Context, notice AccountNotice) (DeliveryReceipt, error) {
+	if ctx.Err() != nil || sender.inbox == nil || sender.channel != DeliveryEmail || notice.Kind != "account_exists" {
+		return DeliveryReceipt{}, ErrAuthDeliveryFailed
+	}
+	if err := sender.inbox.Add(devinbox.Message{Kind: "notice", NoticeKind: notice.Kind, ChallengeID: notice.ChallengeID.String(), Purpose: "signup_email", Channel: "email", Destination: notice.Destination, ExpiresAt: notice.ExpiresAt}); err != nil {
 		return DeliveryReceipt{}, ErrAuthDeliveryFailed
 	}
 	return DeliveryReceipt{ProviderMessageRef: uuid.NewString(), AcceptedAt: time.Now().UTC()}, nil
@@ -110,9 +136,22 @@ func NewSMTPSender(environment, address string) (*SMTPSender, error) {
 }
 
 func (sender *SMTPSender) SendChallenge(ctx context.Context, message ChallengeMessage) (DeliveryReceipt, error) {
-	address, err := mail.ParseAddress(message.Destination)
-	if err != nil || address.Address != message.Destination || strings.ContainsAny(message.Destination, "\r\n") ||
-		message.Channel != DeliveryEmail || !validOTP(message.Code) || !message.ExpiresAt.After(time.Now()) {
+	if message.Channel != DeliveryEmail || !validOTP(message.Code) || !message.ExpiresAt.After(time.Now()) {
+		return DeliveryReceipt{}, ErrAuthDeliveryFailed
+	}
+	return sender.send(ctx, message.Destination, "TutorHub verification code", "Your verification code: "+message.Code)
+}
+
+func (sender *SMTPSender) SendNotice(ctx context.Context, notice AccountNotice) (DeliveryReceipt, error) {
+	if notice.Kind != "account_exists" || !notice.ExpiresAt.After(time.Now()) {
+		return DeliveryReceipt{}, ErrAuthDeliveryFailed
+	}
+	return sender.send(ctx, notice.Destination, "TutorHub account notice", "An account already exists for this email address. Please sign in using your existing sign-in method.")
+}
+
+func (sender *SMTPSender) send(ctx context.Context, destination, subject, body string) (DeliveryReceipt, error) {
+	address, err := mail.ParseAddress(destination)
+	if err != nil || address.Address != destination || strings.ContainsAny(destination, "\r\n") {
 		return DeliveryReceipt{}, ErrAuthDeliveryFailed
 	}
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
@@ -138,7 +177,7 @@ func (sender *SMTPSender) SendChallenge(ctx context.Context, message ChallengeMe
 	if err != nil {
 		return DeliveryReceipt{}, ErrAuthDeliveryFailed
 	}
-	_, err = fmt.Fprintf(writer, "From: TutorHub <auth@tutorhub.local>\r\nTo: %s\r\nSubject: TutorHub verification code\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\nYour verification code: %s\r\n", address.Address, message.Code)
+	_, err = fmt.Fprintf(writer, "From: TutorHub <auth@tutorhub.local>\r\nTo: %s\r\nSubject: %s\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\n%s\r\n", address.Address, subject, body)
 	closeErr := writer.Close()
 	if err != nil || closeErr != nil || client.Quit() != nil {
 		return DeliveryReceipt{}, ErrAuthDeliveryFailed
@@ -150,6 +189,7 @@ type deliveryJob struct {
 	id          uuid.UUID
 	message     ChallengeMessage
 	deliverable bool
+	notice      *AccountNotice
 }
 
 // DeliveryBudget reserves a daily slot in shared storage. Implementations must
@@ -250,7 +290,7 @@ func (dispatcher *DeliveryDispatcher) provider(channel DeliveryChannel) string {
 func (dispatcher *DeliveryDispatcher) deliver(job deliveryJob) {
 	status, code := "skipped", "not_deliverable"
 	var receipt DeliveryReceipt
-	if job.deliverable && job.message.ExpiresAt.After(time.Now()) && dispatcher.challengeActive(job.message.ChallengeID) {
+	if (job.deliverable || job.notice != nil) && job.message.ExpiresAt.After(time.Now()) && dispatcher.challengeActive(job.message.ChallengeID) {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		if dispatcher.budget == nil || !dispatcher.budget.AllowDelivery(ctx, job.message.Channel) {
 			cancel()
@@ -258,7 +298,9 @@ func (dispatcher *DeliveryDispatcher) deliver(job deliveryJob) {
 			return
 		}
 		var err error
-		if job.message.Channel == DeliveryEmail {
+		if job.notice != nil {
+			receipt, err = dispatcher.email.SendNotice(ctx, *job.notice)
+		} else if job.message.Channel == DeliveryEmail {
 			receipt, err = dispatcher.email.SendChallenge(ctx, job.message)
 		} else if job.message.Channel == dispatcher.phone.Channel() {
 			receipt, err = dispatcher.phone.SendChallenge(ctx, job.message)

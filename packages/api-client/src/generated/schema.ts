@@ -21,6 +21,26 @@ export type paths = {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/api/v1/auth/challenges/resend": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Resend the code for the browser-bound sign-up transaction
+     * @description Requires AUTH_SIGNUP_ENABLED. Accepts an empty JSON object; the server decrypts the immutable destination from the transaction. A 60-second cooldown and five-send transaction cap apply. Previous codes are invalidated. All responses use Cache-Control no-store and Referrer-Policy no-referrer.
+     */
+    readonly post: operations["resendAuthChallenge"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/api/v1/auth/csrf": {
     readonly parameters: {
       readonly query?: never;
@@ -92,6 +112,26 @@ export type paths = {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/api/v1/auth/password/login": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Authenticate with an email and password
+     * @description Requires AUTH_METHOD_PASSWORD_ENABLED. Unknown accounts, absent credentials, locked accounts and incorrect passwords return the same generic 401 response. Successful authentication creates new session and CSRF cookies. The server caps organization administrators at 24 hours even when keep_signed_in is requested. All responses use Cache-Control no-store and Referrer-Policy no-referrer.
+     */
+    readonly post: operations["loginWithPassword"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/api/v1/auth/providers": {
     readonly parameters: {
       readonly query?: never;
@@ -106,6 +146,46 @@ export type paths = {
     readonly get: operations["getAuthProviders"];
     readonly put?: never;
     readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/auth/signup/email/complete": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Atomically verify email, accept legal terms and create an authenticated account
+     * @description Requires AUTH_SIGNUP_ENABLED. A successful transaction consumes the OTP and auth transaction, creates the verified user, password credential, both legal acceptances and a new session. Session and CSRF tokens are sent only in HttpOnly cookies; the transaction cookie is cleared. All responses use Cache-Control no-store and Referrer-Policy no-referrer.
+     */
+    readonly post: operations["completeEmailSignup"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/auth/signup/email/start": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Begin browser-bound email sign-up with a generic OTP response
+     * @description Requires AUTH_SIGNUP_ENABLED. Existing accounts and destination-throttled requests receive the same 202 shape and transaction cookie as new accounts. OTP delivery is asynchronous; no account-existence information is exposed. All responses use Cache-Control no-store and Referrer-Policy no-referrer.
+     */
+    readonly post: operations["startEmailSignup"];
     readonly delete?: never;
     readonly options?: never;
     readonly head?: never;
@@ -2947,6 +3027,15 @@ export type components = {
       readonly id: string | null;
       readonly type: string;
     };
+    readonly AuthAuthenticatedResponse: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      readonly status: "authenticated";
+    };
+    /** @description Empty object; the destination is bound to encrypted server-side transaction state. */
+    readonly AuthChallengeResendRequest: Record<string, never>;
     readonly AuthIdentifierDiscoverRequest: {
       readonly identifier: string;
     };
@@ -2957,6 +3046,14 @@ export type components = {
         /** @constant */
         readonly required: false;
       };
+    };
+    readonly AuthMFARequiredResponse: {
+      readonly methods: readonly ("passkey" | "totp" | "recovery_code")[];
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      readonly status: "mfa_required";
     };
     readonly AuthorizedSearchPage: {
       readonly items: readonly components["schemas"]["AuthorizedSearchResult"][];
@@ -2976,6 +3073,7 @@ export type components = {
     readonly AuthorizedSearchResultKind: "session" | "conversation" | "file";
     readonly AuthProvidersResponse: {
       readonly email_code_enabled: boolean;
+      readonly legal_terms_version: string;
       readonly mfa_totp_enabled: boolean;
       readonly oauth_providers: readonly (
         "google" | "facebook" | "microsoft" | "apple"
@@ -2988,6 +3086,13 @@ export type components = {
       readonly phone_enabled: boolean;
       readonly signup_enabled: boolean;
       readonly sso_domains_enabled: boolean;
+    };
+    readonly AuthSignupChallengeResponse: {
+      /** Format: uuid */
+      readonly challenge_id: string;
+      /** @constant */
+      readonly cooldown_seconds: 60;
+      readonly expires_in_seconds: number;
     };
     readonly AvailabilityPoll: {
       readonly class_id: string | null;
@@ -4053,6 +4158,25 @@ export type components = {
       /** Format: int64 */
       readonly expected_version: number;
     };
+    readonly EmailSignupCompleteRequest: {
+      /** Format: uuid */
+      readonly challenge_id: string;
+      readonly code: string;
+      readonly display_name: string;
+      /** @description Optional; omitted means false. */
+      readonly keep_signed_in?: boolean;
+      /**
+       * Format: password
+       * @description Server normalizes NFKC, enforces the deployment minimum and rejects values above 128 runes or 512 bytes without truncation.
+       */
+      readonly password: string;
+      /** @description Must match legal_terms_version from auth providers; records acceptance of both the user agreement and privacy policy. */
+      readonly terms_version: string;
+    };
+    readonly EmailSignupStartRequest: {
+      /** Format: email */
+      readonly email: string;
+    };
     readonly ExternalCalendarRSVPMutationResponse: {
       readonly projection: components["schemas"]["ExternalCalendarRSVPProjection"];
       readonly replayed: boolean;
@@ -4898,6 +5022,9 @@ export type components = {
     };
     /** @enum {string} */
     readonly MessageState: "active" | "deleted";
+    readonly NativeAuthenticationResponse:
+      | components["schemas"]["AuthAuthenticatedResponse"]
+      | components["schemas"]["AuthMFARequiredResponse"];
     readonly Notification: {
       readonly context: {
         readonly [key: string]: string;
@@ -4946,6 +5073,14 @@ export type components = {
     };
     /** @enum {string} */
     readonly OrganizationRole: "org_admin" | "teacher" | "student" | "guest";
+    readonly PasswordLoginRequest: {
+      /** @description Email identifier; invalid or unknown email yields the same generic 401 response. */
+      readonly identifier: string;
+      /** @description Optional; omitted means false. */
+      readonly keep_signed_in?: boolean;
+      /** Format: password */
+      readonly password: string;
+    };
     /** @enum {string} */
     readonly Permission:
       | "tenant.view"
@@ -5741,6 +5876,38 @@ export type components = {
     };
   };
   responses: {
+    /** @description Generic OTP challenge response, independent of account existence or destination quota */
+    readonly AuthChallengeAcceptedResponse: {
+      headers: {
+        readonly "Cache-Control"?: "no-store";
+        readonly "Referrer-Policy"?: "no-referrer";
+        readonly "Set-Cookie"?: string;
+        readonly [name: string]: unknown;
+      };
+      content: {
+        readonly "application/json": components["schemas"]["AuthSignupChallengeResponse"];
+      };
+    };
+    /** @description Authentication attempt, resend cooldown or transaction send limit exceeded */
+    readonly AuthRateLimitedResponse: {
+      headers: {
+        readonly "Retry-After"?: string;
+        readonly [name: string]: unknown;
+      };
+      content: {
+        readonly "application/problem+json": components["schemas"]["Problem"];
+      };
+    };
+    /** @description Authentication method disabled, storage unavailable or password hashing capacity exhausted */
+    readonly AuthUnavailableResponse: {
+      headers: {
+        readonly "Retry-After"?: string;
+        readonly [name: string]: unknown;
+      };
+      content: {
+        readonly "application/problem+json": components["schemas"]["Problem"];
+      };
+    };
     /** @description Authorization-filtered availability poll projection */
     readonly AvailabilityPollResponse: {
       headers: {
@@ -5825,6 +5992,9 @@ export type components = {
     /** @description Opaque RoomInstance-scoped participant key; never a user, session, or provider identity. */
     readonly MediaParticipantKeyPath: string;
     readonly PollID: string;
+    readonly PreAuthFetchSite: "same-origin";
+    /** @description Must exactly match the Web origin; browsers set this header automatically. */
+    readonly PreAuthOrigin: string;
     /** @description Opaque canonical control-plane document identifier; never a provider document name. */
     readonly WhiteboardDocumentID: string;
   };
@@ -5856,6 +6026,32 @@ export interface operations {
         };
         content?: never;
       };
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly resendAuthChallenge: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Must exactly match the Web origin; browsers set this header automatically. */
+        readonly Origin: components["parameters"]["PreAuthOrigin"];
+        readonly "Sec-Fetch-Site"?: components["parameters"]["PreAuthFetchSite"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["AuthChallengeResendRequest"];
+      };
+    };
+    readonly responses: {
+      readonly 202: components["responses"]["AuthChallengeAcceptedResponse"];
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 415: components["responses"]["ProblemResponse"];
+      readonly 429: components["responses"]["AuthRateLimitedResponse"];
+      readonly 503: components["responses"]["AuthUnavailableResponse"];
       readonly default: components["responses"]["ProblemResponse"];
     };
   };
@@ -5972,6 +6168,50 @@ export interface operations {
       readonly default: components["responses"]["ProblemResponse"];
     };
   };
+  readonly loginWithPassword: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Must exactly match the Web origin; browsers set this header automatically. */
+        readonly Origin: components["parameters"]["PreAuthOrigin"];
+        readonly "Sec-Fetch-Site"?: components["parameters"]["PreAuthFetchSite"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["PasswordLoginRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Authentication result; AUTH-02A returns authenticated, with MFA continuation reserved for later slices */
+      readonly 200: {
+        headers: {
+          readonly "Set-Cookie"?: string;
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["NativeAuthenticationResponse"];
+        };
+      };
+      readonly 400: components["responses"]["ProblemResponse"];
+      /** @description Invalid email or password, without account or lock-state disclosure */
+      readonly 401: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 415: components["responses"]["ProblemResponse"];
+      readonly 429: components["responses"]["AuthRateLimitedResponse"];
+      readonly 503: components["responses"]["AuthUnavailableResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
   readonly getAuthProviders: {
     readonly parameters: {
       readonly query?: never;
@@ -5992,6 +6232,75 @@ export interface operations {
           readonly "application/json": components["schemas"]["AuthProvidersResponse"];
         };
       };
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly completeEmailSignup: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Must exactly match the Web origin; browsers set this header automatically. */
+        readonly Origin: components["parameters"]["PreAuthOrigin"];
+        readonly "Sec-Fetch-Site"?: components["parameters"]["PreAuthFetchSite"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["EmailSignupCompleteRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Account authenticated; new session and CSRF cookies set and transaction cookie cleared */
+      readonly 201: {
+        headers: {
+          readonly "Set-Cookie"?: string;
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["AuthAuthenticatedResponse"];
+        };
+      };
+      /** @description Invalid request, expired or invalid challenge, changed legal terms, password policy rejection or sign-up unavailable */
+      readonly 400: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 415: components["responses"]["ProblemResponse"];
+      readonly 429: components["responses"]["AuthRateLimitedResponse"];
+      readonly 503: components["responses"]["AuthUnavailableResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly startEmailSignup: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Must exactly match the Web origin; browsers set this header automatically. */
+        readonly Origin: components["parameters"]["PreAuthOrigin"];
+        readonly "Sec-Fetch-Site"?: components["parameters"]["PreAuthFetchSite"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["EmailSignupStartRequest"];
+      };
+    };
+    readonly responses: {
+      readonly 202: components["responses"]["AuthChallengeAcceptedResponse"];
+      readonly 400: components["responses"]["ProblemResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 415: components["responses"]["ProblemResponse"];
+      readonly 429: components["responses"]["AuthRateLimitedResponse"];
+      readonly 503: components["responses"]["AuthUnavailableResponse"];
       readonly default: components["responses"]["ProblemResponse"];
     };
   };

@@ -12,10 +12,45 @@
 | Quy trình            | Antigravity làm PM/Gatekeeper điều phối Codex và Claude Code qua prompt; Antigravity nghiệm thu và commit/push thẳng `main` |
 | Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4, Phase 5 collaboration                                                                   |
 | Phase hiện tại       | Phase 3 deferred carry-over vẫn hoạt động; Phase 5 collaboration đã đóng                                                    |
-| Task `DONE` gần nhất | `AUTH-01` Nền tảng xác thực đa phương thức (Migration `000043`, Transaction, OTP Challenge, Delivery Guard & `devinbox`)    |
-| Mốc repository mới   | `AUTH-01` PASS toàn bộ gate `pnpm verify` + disposable PostgreSQL (`43 false`, rollback preflight, race verify, exact ACL)  |
-| Task hiện tại        | Giao `AUTH-02A` cho Codex (Contract + Migration `000044` + Đăng ký Email/OTP/Argon2id & Đăng nhập mật khẩu phía Server)     |
-| Task tiếp theo       | Nghiệm thu `AUTH-02A` từ Codex, sau đó giao `AUTH-02B` cho Claude Code (nối `SignInPage.tsx` + Playwright E2E `devinbox`)   |
+| Task `DONE` gần nhất | `AUTH-02A` Đăng ký Email + OTP + Argon2id + Legal Acceptance & Đăng nhập mật khẩu phía Server + Contract (`000044`)         |
+| Mốc repository mới   | `AUTH-02A` PASS `pnpm verify` + 14/14 suite PostgreSQL disposable (`44 false`, atomic signup, admin 24h cap, exact ACL)     |
+| Task hiện tại        | Giao `AUTH-02B` cho Claude Code (nối `LoginForm` & `SignUpForm` trên `SignInPage.tsx` + Playwright E2E qua `devinbox`)      |
+| Task tiếp theo       | Nghiệm thu `AUTH-02B` từ Claude Code để hoàn tất gói `AUTH-02`, sau đó mở `AUTH-03` (Đăng nhập mã email & Quên mật khẩu)    |
+
+### Checkpoint `AUTH-02A` Đăng ký Email + OTP + Argon2id & Đăng nhập mật khẩu phía Server `DONE` — 2026-11-17
+
+Codex triển khai phần Server + OpenAPI Contract của `AUTH-02` theo `ADR-0039` và đã qua Gatekeeper (Antigravity)
+rà soát bảo mật, tinh chỉnh transaction cleanup trong integration test lời mời và nghiệm thu đầy đủ:
+
+- **Schema & Exact Runtime ACL (`000044_password_credentials`)**: Thêm `tutorhub.users.email_verified_at` (backfill
+  từ thời điểm sớm nhất của identity `active` đã xác minh khớp email), tạo `tutorhub.user_password_credentials`
+  (CHECK định dạng PHC `$argon2id$v=19$%`) và `tutorhub.user_legal_acceptances` (`user_agreement`,
+  `privacy_policy`), kèm rollback preflight chặn hạ cấp khi đã có dữ liệu xác thực/pháp lý. Mở rộng
+  `ProvisionAuthFoundationRuntimeACL` đảm bảo `user_legal_acceptances` append-only (không `UPDATE`/`DELETE`),
+  `user_password_credentials` chỉ `UPDATE` đúng 6 cột trạng thái (không `DELETE`), và giữ nguyên ACL `users`
+  hiện có kèm quyền đọc/ghi `email_verified_at`.
+- **Argon2id, Semaphore, Blocklist & HIBP**: Chuẩn hóa Unicode NFKC (`8..128` rune, ≤ `512` byte), băm Argon2id
+  (`m=19456 KiB, t=2, p=1`), parse PHC an toàn trước khi cấp phát RAM, rehash-on-login, semaphore toàn cục
+  `PASSWORD_HASH_MAX_CONCURRENCY` (mặc định `2`, chờ tối đa `2s` trả `503` + `Retry-After`), danh sách cấm
+  offline + kiểm tra lộ mật khẩu HIBP range API k-anonymity có `Add-Padding: true` (mặc định `offline`, fail-open
+  có bộ đếm và log sạch PII).
+- **Tách khởi động Native-Only, Atomic Signup & Session Persistence**: Cho phép khởi động chế độ xác thực nội tại
+  với `SESSION_SECRET` + `DATABASE_POOL_URL` mà không bắt buộc cấu hình/discovery OIDC khi tắt OIDC mặc định, đồng
+  thời bảo toàn 100% hồi quy OIDC. `POST /api/v1/auth/signup/email/complete` thực thi trong **một `pgx.Tx` nguyên
+  tử duy nhất** (verify OTP + consume `auth_transactions` + ghi `users`, `identities` `urn:tutorhub:email`,
+  `user_password_credentials`, 2 dòng `user_legal_acceptances` và `sessions`). Phiên `persistent=true` giữ `30`
+  ngày cho học sinh/giáo viên qua cả các bước xoay phiên/chuyển tổ chức, và tự động khóa trần `24` giờ ngay cả
+  khi người dùng được nâng quyền hoặc tạo tổ chức thành `org_admin` sau khi đăng nhập.
+- **OpenAPI, Rate Limit & Anti-Enumeration**: Cung cấp `POST /api/v1/auth/signup/email/start`,
+  `POST /api/v1/auth/challenges/resend`, `POST /api/v1/auth/signup/email/complete`,
+  `POST /api/v1/auth/password/login`, mở rộng `GET /api/v1/auth/providers` thêm `legal_terms_version` và xuất
+  typed helpers trong `@tutorhub/api-client`. Nối đầy đủ rate limit IP/đích, phản hồi `202` đồng nhất kèm thông
+  báo `account_exists` không chứa mã OTP và `DummyVerify` chống dò tài khoản.
+- **Bằng chứng & Giới hạn kiểm chứng**: Toàn bộ `14/14` suite PostgreSQL integration (`0` SKIP) trên DB disposable
+  trống mới tạo PASS (`43 -> 44 -> 43 -> 44`, kết thúc sạch tại `44 false` rồi xóa DB tạm), toàn kho `pnpm verify`
+  PASS, benchmark Argon2id local PASS. Giới hạn chưa thực thi: chưa benchmark Argon2id trực tiếp trên container
+  Render `512 MB`, chưa gọi mạng thật tới HIBP (đã kiểm chứng qua mock HTTP server), chưa chạy migration `000044`
+  lên shared/staging và hai cờ `AUTH_SIGNUP_ENABLED` / `AUTH_METHOD_PASSWORD_ENABLED` tiếp tục mặc định `false`.
 
 ### Checkpoint `AUTH-01` Nền tảng xác thực đa phương thức `DONE` — 2026-11-17
 

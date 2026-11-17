@@ -339,13 +339,13 @@ func (handlers authHandlers) setTenantSessionCookies(
 		w,
 		handlers.cookieNames.session,
 		result.SessionToken,
-		result.ExpiresAt,
+		authCookieExpiry(result.CookieExpiresAt, result.ExpiresAt),
 	)
 	handlers.setCookie(
 		w,
 		handlers.cookieNames.csrf,
 		result.CSRFToken,
-		result.ExpiresAt,
+		authCookieExpiry(result.CookieExpiresAt, result.ExpiresAt),
 	)
 }
 
@@ -353,8 +353,9 @@ func (handlers authHandlers) setArchiveSessionCookies(
 	w http.ResponseWriter,
 	result identity.TenantArchiveResult,
 ) {
-	handlers.setCookie(w, handlers.cookieNames.session, result.SessionToken, result.ExpiresAt)
-	handlers.setCookie(w, handlers.cookieNames.csrf, result.CSRFToken, result.ExpiresAt)
+	expires := authCookieExpiry(result.CookieExpiresAt, result.ExpiresAt)
+	handlers.setCookie(w, handlers.cookieNames.session, result.SessionToken, expires)
+	handlers.setCookie(w, handlers.cookieNames.csrf, result.CSRFToken, expires)
 }
 
 func (handlers authHandlers) writeTenant(w http.ResponseWriter, status int, tenant identity.Tenant) {

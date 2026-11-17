@@ -104,30 +104,34 @@ type UpdateTenantInput struct {
 }
 
 type TenantSessionResult struct {
-	Principal    Principal
-	SessionToken string
-	CSRFToken    string
-	ExpiresAt    time.Time
+	Principal       Principal
+	SessionToken    string
+	CSRFToken       string
+	ExpiresAt       time.Time
+	CookieExpiresAt time.Time
 }
 
 type TenantArchiveResult struct {
-	Principal    Principal
-	SessionToken string
-	CSRFToken    string
-	ExpiresAt    time.Time
+	Principal       Principal
+	SessionToken    string
+	CSRFToken       string
+	ExpiresAt       time.Time
+	CookieExpiresAt time.Time
 }
 
 type Principal struct {
-	SessionID       uuid.UUID `json:"-"`
-	ContextVersion  int64     `json:"-"`
-	IdentityID      uuid.UUID `json:"-"`
-	AuthenticatedAt time.Time `json:"-"`
-	AssuranceLevel  int16     `json:"-"`
-	AuthMethods     []string  `json:"-"`
-	User            User
-	ActiveTenant    *Tenant
-	Memberships     []Tenant
-	Permissions     []string
+	SessionID        uuid.UUID `json:"-"`
+	ContextVersion   int64     `json:"-"`
+	IdentityID       uuid.UUID `json:"-"`
+	AuthenticatedAt  time.Time `json:"-"`
+	AssuranceLevel   int16     `json:"-"`
+	AuthMethods      []string  `json:"-"`
+	SessionExpiresAt time.Time `json:"-"`
+	CookieExpiresAt  time.Time `json:"-"`
+	User             User
+	ActiveTenant     *Tenant
+	Memberships      []Tenant
+	Permissions      []string
 }
 
 type StoredFlow struct {

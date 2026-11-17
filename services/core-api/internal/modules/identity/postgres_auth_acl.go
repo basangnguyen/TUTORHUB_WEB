@@ -14,6 +14,8 @@ var authFoundationUpdates = map[string][]string{
 	"auth_transactions":         {"state", "completed_at", "payload_ciphertext"},
 	"auth_challenges":           {"attempts", "consumed_at", "invalidated_at"},
 	"auth_challenge_deliveries": {"status", "provider_message_ref", "error_code", "delivered_at"},
+	"user_password_credentials": {"password_hash", "hash_version", "failed_attempts", "last_failed_at", "locked_until", "updated_at"},
+	"user_legal_acceptances":    {},
 }
 
 // ProvisionAuthFoundationRuntimeACL is an owner-only provisioning operation.
@@ -44,7 +46,7 @@ func ProvisionAuthFoundationRuntimeACL(ctx context.Context, database Database, r
         AND pg_has_role(r.oid, c.relowner, 'MEMBER')
     )
 FROM pg_roles r WHERE r.rolname = $1`, runtimeRole,
-		[]string{"auth_transactions", "auth_challenges", "auth_challenge_deliveries"}).Scan(&safe)
+		[]string{"auth_transactions", "auth_challenges", "auth_challenge_deliveries", "user_password_credentials", "user_legal_acceptances", "users"}).Scan(&safe)
 	if err != nil || !safe {
 		return errors.New("authentication ACL runtime role safety preflight failed")
 	}
@@ -70,8 +72,10 @@ FROM pg_roles r WHERE r.rolname = $1`, runtimeRole,
 		if _, err := tx.Exec(ctx, fmt.Sprintf("GRANT SELECT, INSERT ON TABLE %s TO %s", relation, role)); err != nil {
 			return errors.New("grant authentication artifact read and insert")
 		}
-		if _, err := tx.Exec(ctx, fmt.Sprintf("GRANT UPDATE (%s) ON TABLE %s TO %s", authQuotedColumns(updateColumns), relation, role)); err != nil {
-			return errors.New("grant authentication artifact state updates")
+		if len(updateColumns) > 0 {
+			if _, err := tx.Exec(ctx, fmt.Sprintf("GRANT UPDATE (%s) ON TABLE %s TO %s", authQuotedColumns(updateColumns), relation, role)); err != nil {
+				return errors.New("grant authentication artifact state updates")
+			}
 		}
 		// Detect inherited permissions too: revoking direct grants alone does not
 		// establish an exact ACL when a role is a member of a broader role.
@@ -92,6 +96,17 @@ FROM pg_roles r WHERE r.rolname = $1`, runtimeRole,
 				return errors.New("authentication runtime column privileges are not exact")
 			}
 		}
+	}
+	// Preserve the established users ACL. Only add the new verification column
+	// permissions so deployments using column grants can insert native users too.
+	if _, err := tx.Exec(ctx, fmt.Sprintf("GRANT SELECT (email_verified_at), INSERT (email_verified_at), UPDATE (email_verified_at) ON tutorhub.users TO %s", role)); err != nil {
+		return errors.New("grant user email verification column")
+	}
+	var readable, insertable, writable bool
+	if err := tx.QueryRow(ctx, `SELECT has_column_privilege($1,'tutorhub.users','email_verified_at','SELECT'),
+        has_column_privilege($1,'tutorhub.users','email_verified_at','INSERT'),
+        has_column_privilege($1,'tutorhub.users','email_verified_at','UPDATE')`, runtimeRole).Scan(&readable, &insertable, &writable); err != nil || !readable || !insertable || !writable {
+		return errors.New("user email verification column privileges are unavailable")
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return errors.New("commit authentication ACL provisioning")

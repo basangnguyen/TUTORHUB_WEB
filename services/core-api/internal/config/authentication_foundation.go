@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 // These deployment gates are separate from tenant feature controls because an
@@ -30,6 +31,15 @@ func configureAuthFoundation(cfg *AuthenticationConfig, lookup lookupEnv, enviro
 	}
 	cfg.ProviderOIDCDefaultEnabled = boolValue(lookup, "AUTH_PROVIDER_OIDC_DEFAULT_ENABLED", true, validationErrors)
 	cfg.PasswordMinLength = intValue(lookup, "PASSWORD_MIN_LENGTH", 8, 8, 64, validationErrors)
+	cfg.PasswordHashMaxConcurrency = intValue(lookup, "PASSWORD_HASH_MAX_CONCURRENCY", 2, 1, 32, validationErrors)
+	cfg.PasswordBreachCheck = strings.TrimSpace(valueOrDefault(lookup, "AUTH_PASSWORD_BREACH_CHECK", "offline"))
+	if !containsString([]string{"offline", "hibp", "off"}, cfg.PasswordBreachCheck) {
+		*validationErrors = append(*validationErrors, fmt.Errorf("AUTH_PASSWORD_BREACH_CHECK must be offline, hibp or off"))
+	}
+	cfg.LegalTermsVersion = strings.TrimSpace(valueOrDefault(lookup, "AUTH_LEGAL_TERMS_VERSION", "2026-11-16-v2.0"))
+	if !utf8.ValidString(cfg.LegalTermsVersion) || utf8.RuneCountInString(cfg.LegalTermsVersion) < 1 || utf8.RuneCountInString(cfg.LegalTermsVersion) > 64 {
+		*validationErrors = append(*validationErrors, fmt.Errorf("AUTH_LEGAL_TERMS_VERSION must contain 1 to 64 characters"))
+	}
 	cfg.SessionPersistentAbsoluteTTL = durationValue(lookup, "SESSION_PERSISTENT_ABSOLUTE_TTL", 720*time.Hour, validationErrors)
 	if cfg.SessionPersistentAbsoluteTTL > 720*time.Hour {
 		*validationErrors = append(*validationErrors, fmt.Errorf("SESSION_PERSISTENT_ABSOLUTE_TTL must not exceed 720h"))

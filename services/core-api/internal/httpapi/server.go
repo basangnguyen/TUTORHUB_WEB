@@ -34,6 +34,7 @@ type Options struct {
 	Readiness             []ReadinessCheck
 	Clock                 func() time.Time
 	Identity              identity.ServiceAPI
+	NativeAuth            identity.NativeAuthAPI
 	Classroom             classroom.ServiceAPI
 	ClassSessions         classroom.SessionServiceAPI
 	ClassSessionSeries    classroom.SessionSeriesServiceAPI
@@ -106,6 +107,15 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 		requireMethod(http.MethodGet, apiStatusHandler(cfg, logger, options.Clock)),
 	)
 	auth := newAuthHandlers(cfg, logger, options.Identity, options.Clock)
+	nativeAuth := nativeAuthHandlers{auth: auth, service: options.NativeAuth, limiter: options.AuthRateLimiter}
+	for path, handler := range map[string]http.HandlerFunc{
+		"/api/v1/auth/signup/email/start":    nativeAuth.startEmailSignup,
+		"/api/v1/auth/signup/email/complete": nativeAuth.completeEmailSignup,
+		"/api/v1/auth/challenges/resend":     nativeAuth.resendChallenge,
+		"/api/v1/auth/password/login":        nativeAuth.passwordLogin,
+	} {
+		mux.Handle(path, authFoundationResponseHeaders(requireMethod(http.MethodPost, preAuthGuard(cfg.WebOrigin, handler))))
+	}
 	auditMutation := func(resolve auditMutationResolver, next http.Handler) http.Handler {
 		return auditMutationMiddleware(logger, options.Audit, resolve, next)
 	}

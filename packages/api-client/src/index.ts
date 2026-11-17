@@ -4,6 +4,18 @@ import type { components, paths } from "./generated/schema";
 let currentCSRFToken: string | null = null;
 
 export type HealthResponse = components["schemas"]["HealthResponse"];
+export type EmailSignupStartRequest =
+  components["schemas"]["EmailSignupStartRequest"];
+export type EmailSignupCompleteRequest =
+  components["schemas"]["EmailSignupCompleteRequest"];
+export type AuthSignupChallengeResponse =
+  components["schemas"]["AuthSignupChallengeResponse"];
+export type PasswordLoginRequest =
+  components["schemas"]["PasswordLoginRequest"];
+export type AuthAuthenticatedResponse =
+  components["schemas"]["AuthAuthenticatedResponse"];
+export type NativeAuthenticationResponse =
+  components["schemas"]["NativeAuthenticationResponse"];
 export type AuthProvidersResponse =
   components["schemas"]["AuthProvidersResponse"];
 export type AuthIdentifierDiscoverRequest =
@@ -689,6 +701,67 @@ export async function discoverAuthIdentifier(
     },
   );
   return requireData<AuthIdentifierDiscoverResponse>(data, error, response);
+}
+
+function preAuthRequestOptions(options: APIRequestOptions) {
+  return {
+    params: { header: { Origin: globalThis.location?.origin ?? "null" } },
+    headers: { Accept: "application/json" },
+    signal: options.signal,
+    cache: "no-store" as const,
+    referrerPolicy: "no-referrer" as const,
+  };
+}
+
+export async function startEmailSignup(
+  input: EmailSignupStartRequest,
+  options: APIRequestOptions = {},
+): Promise<AuthSignupChallengeResponse> {
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/auth/signup/email/start",
+    { ...preAuthRequestOptions(options), body: input },
+  );
+  return requireData<AuthSignupChallengeResponse>(data, error, response);
+}
+
+export async function resendAuthChallenge(
+  options: APIRequestOptions = {},
+): Promise<AuthSignupChallengeResponse> {
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/auth/challenges/resend",
+    { ...preAuthRequestOptions(options), body: {} },
+  );
+  return requireData<AuthSignupChallengeResponse>(data, error, response);
+}
+
+export async function completeEmailSignup(
+  input: EmailSignupCompleteRequest,
+  options: APIRequestOptions = {},
+): Promise<AuthAuthenticatedResponse> {
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/auth/signup/email/complete",
+    { ...preAuthRequestOptions(options), body: input },
+  );
+  const result = requireData<AuthAuthenticatedResponse>(data, error, response);
+  currentCSRFToken = null;
+  return result;
+}
+
+export async function loginWithPassword(
+  input: PasswordLoginRequest,
+  options: APIRequestOptions = {},
+): Promise<NativeAuthenticationResponse> {
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/auth/password/login",
+    { ...preAuthRequestOptions(options), body: input },
+  );
+  const result = requireData<NativeAuthenticationResponse>(
+    data as NativeAuthenticationResponse | undefined,
+    error,
+    response,
+  );
+  if (result.status === "authenticated") currentCSRFToken = null;
+  return result;
 }
 
 export async function getCurrentUser(

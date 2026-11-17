@@ -307,11 +307,16 @@ RETURNING id, user_id, active_tenant_id, csrf_token_hash, expires_at`
 	if err := transaction.Commit(queryContext); err != nil {
 		return SessionRecord{}, fmt.Errorf("commit session lookup: %w", err)
 	}
+	// loadPrincipal also enforces the admin lifetime when a role was granted
+	// after sign-in. Persist that monotonic cap even when it expires this session.
+	if !principal.SessionExpiresAt.After(now) {
+		return SessionRecord{}, ErrSessionNotFound
+	}
 
 	return SessionRecord{
 		Principal: principal,
 		CSRFHash:  csrfTokenHash,
-		ExpiresAt: expiresAt,
+		ExpiresAt: principal.SessionExpiresAt,
 	}, nil
 }
 
@@ -536,7 +541,7 @@ VALUES ($1, $2, 'org_admin', 'active', $3, $3, $3)`,
 		return TenantMutationResult{}, fmt.Errorf("commit tenant creation: %w", err)
 	}
 
-	return TenantMutationResult{Principal: principal, ExpiresAt: lockedSession.ExpiresAt}, nil
+	return TenantMutationResult{Principal: principal, ExpiresAt: principal.SessionExpiresAt}, nil
 }
 
 func (repository *PostgresRepository) SwitchActiveTenant(
@@ -622,7 +627,7 @@ FOR SHARE OF t, m`,
 		return TenantMutationResult{}, fmt.Errorf("commit tenant switch: %w", err)
 	}
 
-	return TenantMutationResult{Principal: principal, ExpiresAt: lockedSession.ExpiresAt}, nil
+	return TenantMutationResult{Principal: principal, ExpiresAt: principal.SessionExpiresAt}, nil
 }
 
 type lockedTenantSession struct {
@@ -1152,7 +1157,7 @@ WHERE id = $1 AND status = 'active' AND version = $2`,
 	}
 	return TenantArchiveMutationResult{
 		Principal: principal,
-		ExpiresAt: lockedSession.ExpiresAt,
+		ExpiresAt: principal.SessionExpiresAt,
 	}, nil
 }
 
@@ -1972,12 +1977,25 @@ func (repository *PostgresRepository) loadPrincipal(
 	userID uuid.UUID,
 	activeTenantID uuid.UUID,
 ) (Principal, error) {
+	// A user can become an administrator through onboarding or an invitation
+	// after receiving a persistent session. Cap that session from its original
+	// creation time; neither role changes nor repeated reads extend its lifetime.
+	if _, err := transaction.Exec(ctx, `UPDATE tutorhub.sessions s
+SET persistent=false,
+    absolute_expires_at=LEAST(s.absolute_expires_at,s.created_at+interval '24 hours'),
+    expires_at=LEAST(s.expires_at,s.created_at+interval '24 hours')
+WHERE s.id=$1 AND s.user_id=$2
+  AND (s.persistent OR s.absolute_expires_at>s.created_at+interval '24 hours')
+  AND EXISTS (SELECT 1 FROM tutorhub.memberships m WHERE m.user_id=s.user_id AND m.role='org_admin' AND m.status='active')`, sessionID, userID); err != nil {
+		return Principal{}, fmt.Errorf("enforce administrator session lifetime: %w", err)
+	}
 	principal := Principal{SessionID: sessionID}
 	var identityID uuid.NullUUID
 	if err := transaction.QueryRow(
 		ctx,
 		`SELECT identity_id, GREATEST(auth_time, COALESCE(reauthenticated_at, auth_time)),
-       context_version, assurance_level, auth_methods
+       context_version, assurance_level, auth_methods, expires_at,
+       CASE WHEN persistent THEN absolute_expires_at ELSE expires_at END
 FROM tutorhub.sessions
 WHERE id = $1 AND user_id = $2`,
 		sessionID,
@@ -1988,6 +2006,8 @@ WHERE id = $1 AND user_id = $2`,
 		&principal.ContextVersion,
 		&principal.AssuranceLevel,
 		&principal.AuthMethods,
+		&principal.SessionExpiresAt,
+		&principal.CookieExpiresAt,
 	); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return Principal{}, ErrSessionNotFound

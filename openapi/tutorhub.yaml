@@ -254,6 +254,154 @@ paths:
           $ref: "#/components/responses/ProblemResponse"
         default:
           $ref: "#/components/responses/ProblemResponse"
+  /api/v1/auth/signup/email/start:
+    post:
+      operationId: startEmailSignup
+      summary: Begin browser-bound email sign-up with a generic OTP response
+      security: []
+      description: Requires AUTH_SIGNUP_ENABLED. Existing accounts and destination-throttled requests receive the same 202 shape and transaction cookie as new accounts. OTP delivery is asynchronous; no account-existence information is exposed. All responses use Cache-Control no-store and Referrer-Policy no-referrer.
+      parameters:
+        - $ref: "#/components/parameters/PreAuthOrigin"
+        - $ref: "#/components/parameters/PreAuthFetchSite"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmailSignupStartRequest"
+      responses:
+        "202":
+          $ref: "#/components/responses/AuthChallengeAcceptedResponse"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "415":
+          $ref: "#/components/responses/ProblemResponse"
+        "429":
+          $ref: "#/components/responses/AuthRateLimitedResponse"
+        "503":
+          $ref: "#/components/responses/AuthUnavailableResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/auth/challenges/resend:
+    post:
+      operationId: resendAuthChallenge
+      summary: Resend the code for the browser-bound sign-up transaction
+      security:
+        - AuthTransactionCookie: []
+      description: Requires AUTH_SIGNUP_ENABLED. Accepts an empty JSON object; the server decrypts the immutable destination from the transaction. A 60-second cooldown and five-send transaction cap apply. Previous codes are invalidated. All responses use Cache-Control no-store and Referrer-Policy no-referrer.
+      parameters:
+        - $ref: "#/components/parameters/PreAuthOrigin"
+        - $ref: "#/components/parameters/PreAuthFetchSite"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AuthChallengeResendRequest"
+      responses:
+        "202":
+          $ref: "#/components/responses/AuthChallengeAcceptedResponse"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "415":
+          $ref: "#/components/responses/ProblemResponse"
+        "429":
+          $ref: "#/components/responses/AuthRateLimitedResponse"
+        "503":
+          $ref: "#/components/responses/AuthUnavailableResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/auth/signup/email/complete:
+    post:
+      operationId: completeEmailSignup
+      summary: Atomically verify email, accept legal terms and create an authenticated account
+      security:
+        - AuthTransactionCookie: []
+      description: Requires AUTH_SIGNUP_ENABLED. A successful transaction consumes the OTP and auth transaction, creates the verified user, password credential, both legal acceptances and a new session. Session and CSRF tokens are sent only in HttpOnly cookies; the transaction cookie is cleared. All responses use Cache-Control no-store and Referrer-Policy no-referrer.
+      parameters:
+        - $ref: "#/components/parameters/PreAuthOrigin"
+        - $ref: "#/components/parameters/PreAuthFetchSite"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmailSignupCompleteRequest"
+      responses:
+        "201":
+          description: Account authenticated; new session and CSRF cookies set and transaction cookie cleared
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthAuthenticatedResponse"
+        "400":
+          description: Invalid request, expired or invalid challenge, changed legal terms, password policy rejection or sign-up unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "415":
+          $ref: "#/components/responses/ProblemResponse"
+        "429":
+          $ref: "#/components/responses/AuthRateLimitedResponse"
+        "503":
+          $ref: "#/components/responses/AuthUnavailableResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/auth/password/login:
+    post:
+      operationId: loginWithPassword
+      summary: Authenticate with an email and password
+      security: []
+      description: Requires AUTH_METHOD_PASSWORD_ENABLED. Unknown accounts, absent credentials, locked accounts and incorrect passwords return the same generic 401 response. Successful authentication creates new session and CSRF cookies. The server caps organization administrators at 24 hours even when keep_signed_in is requested. All responses use Cache-Control no-store and Referrer-Policy no-referrer.
+      parameters:
+        - $ref: "#/components/parameters/PreAuthOrigin"
+        - $ref: "#/components/parameters/PreAuthFetchSite"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PasswordLoginRequest"
+      responses:
+        "200":
+          description: Authentication result; AUTH-02A returns authenticated, with MFA continuation reserved for later slices
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NativeAuthenticationResponse"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          description: Invalid email or password, without account or lock-state disclosure
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "415":
+          $ref: "#/components/responses/ProblemResponse"
+        "429":
+          $ref: "#/components/responses/AuthRateLimitedResponse"
+        "503":
+          $ref: "#/components/responses/AuthUnavailableResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
   /api/v1/auth/login:
     get:
       operationId: beginLogin
@@ -7785,12 +7933,31 @@ paths:
           $ref: "#/components/responses/ProblemResponse"
 components:
   securitySchemes:
+    AuthTransactionCookie:
+      type: apiKey
+      in: cookie
+      name: __Host-tutorhub_auth_tx
+      description: HttpOnly, SameSite Strict browser binding; development without secure cookies uses tutorhub_auth_tx. Contains no account data.
     SessionCookie:
       type: apiKey
       in: cookie
       name: tutorhub_session
       description: Opaque TutorHub BFF session cookie; secure deployments use the __Host- prefix.
   parameters:
+    PreAuthOrigin:
+      name: Origin
+      in: header
+      required: true
+      description: Must exactly match the Web origin; browsers set this header automatically.
+      schema:
+        type: string
+    PreAuthFetchSite:
+      name: Sec-Fetch-Site
+      in: header
+      required: false
+      schema:
+        type: string
+        const: same-origin
     CSRFToken:
       name: X-CSRF-Token
       in: header
@@ -7832,6 +7999,44 @@ components:
         type: string
         format: uuid
   responses:
+    AuthChallengeAcceptedResponse:
+      description: Generic OTP challenge response, independent of account existence or destination quota
+      headers:
+        Set-Cookie:
+          schema:
+            type: string
+        Cache-Control:
+          schema:
+            type: string
+            const: no-store
+        Referrer-Policy:
+          schema:
+            type: string
+            const: no-referrer
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/AuthSignupChallengeResponse"
+    AuthRateLimitedResponse:
+      description: Authentication attempt, resend cooldown or transaction send limit exceeded
+      headers:
+        Retry-After:
+          schema:
+            type: string
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    AuthUnavailableResponse:
+      description: Authentication method disabled, storage unavailable or password hashing capacity exhausted
+      headers:
+        Retry-After:
+          schema:
+            type: string
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
     AvailabilityPollResponse:
       description: Authorization-filtered availability poll projection
       headers:
@@ -7896,6 +8101,113 @@ components:
           schema:
             $ref: "#/components/schemas/Problem"
   schemas:
+    EmailSignupStartRequest:
+      type: object
+      additionalProperties: false
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 254
+    AuthChallengeResendRequest:
+      type: object
+      additionalProperties: false
+      description: Empty object; the destination is bound to encrypted server-side transaction state.
+    AuthSignupChallengeResponse:
+      type: object
+      additionalProperties: false
+      required: [challenge_id, cooldown_seconds, expires_in_seconds]
+      properties:
+        challenge_id:
+          type: string
+          format: uuid
+        cooldown_seconds:
+          type: integer
+          const: 60
+        expires_in_seconds:
+          type: integer
+          minimum: 1
+          maximum: 600
+    EmailSignupCompleteRequest:
+      type: object
+      additionalProperties: false
+      required: [challenge_id, code, display_name, password, terms_version]
+      properties:
+        challenge_id:
+          type: string
+          format: uuid
+        code:
+          type: string
+          pattern: "^[0-9]{6}$"
+        display_name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        password:
+          type: string
+          format: password
+          writeOnly: true
+          minLength: 8
+          maxLength: 128
+          description: Server normalizes NFKC, enforces the deployment minimum and rejects values above 128 runes or 512 bytes without truncation.
+        terms_version:
+          type: string
+          minLength: 1
+          maxLength: 64
+          description: Must match legal_terms_version from auth providers; records acceptance of both the user agreement and privacy policy.
+        keep_signed_in:
+          type: boolean
+          description: Optional; omitted means false.
+    PasswordLoginRequest:
+      type: object
+      additionalProperties: false
+      required: [identifier, password]
+      properties:
+        identifier:
+          type: string
+          maxLength: 320
+          description: Email identifier; invalid or unknown email yields the same generic 401 response.
+        password:
+          type: string
+          format: password
+          writeOnly: true
+          maxLength: 128
+        keep_signed_in:
+          type: boolean
+          description: Optional; omitted means false.
+    AuthAuthenticatedResponse:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status:
+          type: string
+          const: authenticated
+    AuthMFARequiredResponse:
+      type: object
+      additionalProperties: false
+      required: [status, methods]
+      properties:
+        status:
+          type: string
+          const: mfa_required
+        methods:
+          type: array
+          items:
+            type: string
+            enum: [passkey, totp, recovery_code]
+          minItems: 1
+          uniqueItems: true
+    NativeAuthenticationResponse:
+      oneOf:
+        - $ref: "#/components/schemas/AuthAuthenticatedResponse"
+        - $ref: "#/components/schemas/AuthMFARequiredResponse"
+      discriminator:
+        propertyName: status
+        mapping:
+          authenticated: "#/components/schemas/AuthAuthenticatedResponse"
+          mfa_required: "#/components/schemas/AuthMFARequiredResponse"
     AuthProvidersResponse:
       type: object
       additionalProperties: false
@@ -7911,6 +8223,7 @@ components:
         - oauth_providers
         - password_min_length
         - phone_allowed_countries
+        - legal_terms_version
       properties:
         signup_enabled:
           type: boolean
@@ -7944,6 +8257,10 @@ components:
           items:
             type: string
             pattern: "^[A-Z]{2}$"
+        legal_terms_version:
+          type: string
+          minLength: 1
+          maxLength: 64
     AuthIdentifierDiscoverRequest:
       type: object
       additionalProperties: false

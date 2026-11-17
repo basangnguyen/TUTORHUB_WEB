@@ -22,6 +22,7 @@ describe("authentication foundation client", () => {
       oauth_providers: [],
       password_min_length: 8,
       phone_allowed_countries: ["VN"],
+      legal_terms_version: "2026-11-16-v2.0",
     };
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(JSON.stringify(payload), {

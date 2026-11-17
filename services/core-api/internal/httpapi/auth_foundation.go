@@ -26,6 +26,7 @@ type authProvidersResponse struct {
 	OAuthProviders        []string `json:"oauth_providers"`
 	PasswordMinLength     int      `json:"password_min_length"`
 	PhoneAllowedCountries []string `json:"phone_allowed_countries"`
+	LegalTermsVersion     string   `json:"legal_terms_version"`
 }
 
 type authIdentifierRequest struct {
@@ -84,9 +85,10 @@ func authProvidersHandler(cfg config.AuthenticationConfig, logger *slog.Logger) 
 			SignupEnabled: cfg.SignupEnabled, PasswordEnabled: cfg.PasswordEnabled,
 			EmailCodeEnabled: cfg.EmailCodeEnabled, PhoneEnabled: cfg.PhoneEnabled,
 			PasskeysEnabled: cfg.PasskeysEnabled, MFATOTPEnabled: cfg.MFATOTPEnabled,
-			OIDCDefaultEnabled: cfg.ProviderOIDCDefaultEnabled && cfg.Enabled,
+			OIDCDefaultEnabled: cfg.ProviderOIDCDefaultEnabled && cfg.OIDCEnabled,
 			SSODomainsEnabled:  cfg.SSODomainsEnabled, OAuthProviders: providers,
 			PasswordMinLength: cfg.PasswordMinLength, PhoneAllowedCountries: countries,
+			LegalTermsVersion: cfg.LegalTermsVersion,
 		})
 	})
 }

@@ -9,11 +9,13 @@ import (
 )
 
 type Message struct {
+	Kind        string    `json:"kind,omitempty"`
+	NoticeKind  string    `json:"notice_kind,omitempty"`
 	ChallengeID string    `json:"challenge_id"`
 	Purpose     string    `json:"purpose"`
 	Channel     string    `json:"channel"`
 	Destination string    `json:"destination"`
-	Code        string    `json:"code"`
+	Code        string    `json:"code,omitempty"`
 	ExpiresAt   time.Time `json:"expires_at"`
 }
 

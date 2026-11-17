@@ -35,6 +35,7 @@ export function parseAuthEnvironment(source) {
       ![
         "APP_ENV",
         "PASSWORD_MIN_LENGTH",
+        "PASSWORD_HASH_MAX_CONCURRENCY",
         "SESSION_PERSISTENT_ABSOLUTE_TTL",
       ].includes(key)
     )
@@ -59,6 +60,20 @@ export function validateAuthDeliveryEnvironment(
   if (!["development", "test", "staging", "production"].includes(appEnv))
     issues.push("APP_ENV is unsupported");
   const local = appEnv === "development" || appEnv === "test";
+  const hashConcurrency = environment.PASSWORD_HASH_MAX_CONCURRENCY ?? "2";
+  if (!/^(?:[1-9]|[12][0-9]|3[0-2])$/.test(hashConcurrency))
+    issues.push("PASSWORD_HASH_MAX_CONCURRENCY must be between 1 and 32");
+  if (
+    !["offline", "hibp", "off"].includes(
+      environment.AUTH_PASSWORD_BREACH_CHECK ?? "offline",
+    )
+  )
+    issues.push("AUTH_PASSWORD_BREACH_CHECK must be offline, hibp or off");
+  const termsVersion = (
+    environment.AUTH_LEGAL_TERMS_VERSION ?? "2026-11-16-v2.0"
+  ).trim();
+  if ([...termsVersion].length < 1 || [...termsVersion].length > 64)
+    issues.push("AUTH_LEGAL_TERMS_VERSION must contain 1 to 64 characters");
   for (const [key, allowed] of [
     ["AUTH_EMAIL_SENDER", ["disabled", "devinbox", "smtp", "ses"]],
     [
@@ -105,6 +120,9 @@ export function validateAuthDeliveryEnvironment(
       AUTH_EMAIL_DAILY_QUOTA: "200",
       AUTH_PHONE_OTP_DAILY_QUOTA: "50",
       PASSWORD_MIN_LENGTH: "8",
+      PASSWORD_HASH_MAX_CONCURRENCY: "2",
+      AUTH_PASSWORD_BREACH_CHECK: "offline",
+      AUTH_LEGAL_TERMS_VERSION: "2026-11-16-v2.0",
       SESSION_PERSISTENT_ABSOLUTE_TTL: "720h",
       AUTH_PHONE_ALLOWED_COUNTRIES: "VN",
     })) {

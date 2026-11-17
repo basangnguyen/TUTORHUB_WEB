@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -12,13 +13,14 @@ import (
 	"github.com/tutorhub-v2/core-api/internal/platform/devinbox"
 )
 
-// Method-specific handlers are added in AUTH-02+. This composition keeps all
+// This composition keeps all
 // ephemeral state under the API lifetime and shares delivery quotas across replicas.
 type authFoundationRuntime struct {
 	transactions *identity.TransactionService
 	challenges   *identity.ChallengeService
 	dispatcher   *identity.DeliveryDispatcher
 	inbox        *devinbox.Inbox
+	native       identity.NativeAuthAPI
 }
 
 func newAuthFoundation(cfg config.Config, pool *pgxpool.Pool, limiter httpapi.InvitationRateLimiter) (*authFoundationRuntime, error) {
@@ -31,8 +33,8 @@ func newAuthFoundation(cfg config.Config, pool *pgxpool.Pool, limiter httpapi.In
 	}
 	deliveryEnabled := (auth.EmailSender != "" && auth.EmailSender != "disabled") || (auth.PhoneSender != "" && auth.PhoneSender != "disabled")
 	if pool == nil || len(auth.SessionKey) < 32 {
-		if deliveryEnabled {
-			return nil, errors.New("authentication delivery requires database and session cryptography")
+		if deliveryEnabled || auth.SignupEnabled || auth.PasswordEnabled {
+			return nil, errors.New("native authentication and delivery require database and session cryptography")
 		}
 		return result, nil
 	}
@@ -68,7 +70,39 @@ func newAuthFoundation(cfg config.Config, pool *pgxpool.Pool, limiter httpapi.In
 	}
 	result.transactions = identity.NewTransactionService(pool, crypto, auth.CookieSecure)
 	result.challenges = identity.NewChallengeService(pool, crypto, result.dispatcher)
+	if auth.SignupEnabled || auth.PasswordEnabled {
+		passwords, passwordErr := identity.NewPasswordService(identity.PasswordOptions{
+			MinimumLength: auth.PasswordMinLength, MaxConcurrency: auth.PasswordHashMaxConcurrency,
+			BreachMode: auth.PasswordBreachCheck, Logger: slog.Default(),
+		})
+		if passwordErr != nil {
+			result.close()
+			return nil, passwordErr
+		}
+		result.native, err = identity.NewNativeAuthService(pool, crypto, passwords, result.dispatcher, identity.NativeAuthConfig{
+			CookieSecure: auth.CookieSecure, LegalTermsVersion: auth.LegalTermsVersion,
+			SessionTTL: auth.SessionTTL, SessionAbsoluteTTL: auth.SessionAbsoluteTTL,
+			SessionPersistentAbsoluteTTL: auth.SessionPersistentAbsoluteTTL,
+		})
+		if err != nil {
+			result.close()
+			return nil, err
+		}
+	}
 	return result, nil
+}
+
+func configuredIdentityProvider(ctx context.Context, auth config.AuthenticationConfig) (identity.Provider, error) {
+	if !auth.OIDCEnabled {
+		return nil, nil
+	}
+	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
+	return identity.NewOIDCProvider(ctx, identity.OIDCProviderConfig{
+		IssuerURL: auth.IssuerURL, ClientID: auth.ClientID, ClientSecret: auth.ClientSecret,
+		CallbackURL: auth.CallbackURL, PostLogoutURL: auth.PostLogoutURL, Scopes: auth.Scopes,
+		HTTPTimeout: 10 * time.Second,
+	})
 }
 
 func (runtime *authFoundationRuntime) close() {

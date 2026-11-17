@@ -20,6 +20,7 @@ import (
 func authFoundationConfig() config.Config {
 	return config.Config{Environment: "test", WebOrigin: "https://app.example", Authentication: config.AuthenticationConfig{
 		ProviderOIDCDefaultEnabled: true, PasswordMinLength: 8, PhoneAllowedCountries: []string{"VN"}, EmailDailyQuota: 200, PhoneOTPDailyQuota: 50,
+		LegalTermsVersion: "2026-11-16-v2.0",
 	}}
 }
 
@@ -34,6 +35,7 @@ func authDiscoveryRequest(body string) *http.Request {
 func TestAuthProvidersExposeOnlyPublicDeploymentCapabilities(t *testing.T) {
 	cfg := authFoundationConfig()
 	cfg.Authentication.Enabled = true
+	cfg.Authentication.OIDCEnabled = true
 	cfg.Authentication.ProviderGoogleEnabled = true
 	cfg.Authentication.PasswordEnabled = true
 	response := performRequest(NewHandlerWithOptions(cfg, nil, Options{}), http.MethodGet, "/api/v1/auth/providers", "")
@@ -47,7 +49,7 @@ func TestAuthProvidersExposeOnlyPublicDeploymentCapabilities(t *testing.T) {
 	if err := json.Unmarshal(payload, &fields); err != nil {
 		t.Fatal(err)
 	}
-	if len(fields) != 11 || response.Header().Get("Cache-Control") != "no-store" || response.Header().Get("Referrer-Policy") != "no-referrer" {
+	if len(fields) != 12 || got.LegalTermsVersion != "2026-11-16-v2.0" || response.Header().Get("Cache-Control") != "no-store" || response.Header().Get("Referrer-Policy") != "no-referrer" {
 		t.Fatal("public capabilities changed shape or privacy headers")
 	}
 }

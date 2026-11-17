@@ -12,6 +12,42 @@ import {
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 
+test("native auth defaults retain offline checks and bounded hash concurrency", async () => {
+  const source = await readFile(
+    new URL("../.env.example", import.meta.url),
+    "utf8",
+  );
+  const { environment } = parseAuthEnvironment(source);
+  for (const [key, unsafe] of Object.entries({
+    PASSWORD_HASH_MAX_CONCURRENCY: "32",
+    AUTH_PASSWORD_BREACH_CHECK: "hibp",
+    AUTH_LEGAL_TERMS_VERSION: "",
+  })) {
+    assert.match(
+      validateAuthDeliveryEnvironment(
+        { ...environment, [key]: unsafe },
+        { safeDefaults: true },
+      ).join("\n"),
+      new RegExp(key),
+    );
+  }
+});
+
+test("native auth configuration validates hash limits, breach mode and legal version", () => {
+  for (const [key, value] of [
+    ["PASSWORD_HASH_MAX_CONCURRENCY", "0"],
+    ["PASSWORD_HASH_MAX_CONCURRENCY", "33"],
+    ["AUTH_PASSWORD_BREACH_CHECK", "unknown"],
+    ["AUTH_LEGAL_TERMS_VERSION", " "],
+    ["AUTH_LEGAL_TERMS_VERSION", "x".repeat(65)],
+  ]) {
+    assert.match(
+      validateAuthDeliveryEnvironment({ [key]: value }).join("\n"),
+      new RegExp(key),
+    );
+  }
+});
+
 test("repository authentication defaults keep all new methods and delivery disabled", async () => {
   assert.deepEqual((await checkAuthDeliveryGuard(root)).issues, []);
 });

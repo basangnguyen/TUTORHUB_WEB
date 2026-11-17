@@ -9,6 +9,8 @@ import (
 // share a bucket or quota with another purpose.
 const (
 	AuthRateLimitDiscoveryIP        InvitationRateLimitAction = "auth.discovery.ip"
+	AuthRateLimitSignupIP           InvitationRateLimitAction = "auth.signup.ip"
+	AuthRateLimitPasswordFailIP     InvitationRateLimitAction = "auth.password.fail.ip"
 	AuthRateLimitOTPSendDestination InvitationRateLimitAction = "auth.otp.send.destination"
 	AuthRateLimitOTPSendIP          InvitationRateLimitAction = "auth.otp.send.ip"
 	AuthRateLimitOTPVerifyIP        InvitationRateLimitAction = "auth.otp.verify.ip"
@@ -19,6 +21,8 @@ const (
 func authRateLimitPolicies(emailQuota, phoneQuota int) map[InvitationRateLimitAction]invitationRateLimitPolicy {
 	return map[InvitationRateLimitAction]invitationRateLimitPolicy{
 		AuthRateLimitDiscoveryIP:        {Limit: 30, Window: time.Minute},
+		AuthRateLimitSignupIP:           {Limit: 10, Window: 24 * time.Hour},
+		AuthRateLimitPasswordFailIP:     {Limit: 30, Window: 15 * time.Minute},
 		AuthRateLimitOTPSendDestination: {Limit: 5, Window: time.Hour},
 		AuthRateLimitOTPSendIP:          {Limit: 20, Window: time.Hour},
 		AuthRateLimitOTPVerifyIP:        {Limit: 50, Window: 15 * time.Minute},

@@ -485,17 +485,7 @@ func run() int {
 			logger.Error("initialize identity cryptography", "error", err)
 			return 1
 		}
-		discoveryContext, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-		provider, err := identity.NewOIDCProvider(discoveryContext, identity.OIDCProviderConfig{
-			IssuerURL:     cfg.Authentication.IssuerURL,
-			ClientID:      cfg.Authentication.ClientID,
-			ClientSecret:  cfg.Authentication.ClientSecret,
-			CallbackURL:   cfg.Authentication.CallbackURL,
-			PostLogoutURL: cfg.Authentication.PostLogoutURL,
-			Scopes:        cfg.Authentication.Scopes,
-			HTTPTimeout:   10 * time.Second,
-		})
-		cancel()
+		provider, err := configuredIdentityProvider(context.Background(), cfg.Authentication)
 		if err != nil {
 			logger.Error("initialize OIDC provider", "error", err)
 			return 1
@@ -533,7 +523,7 @@ func run() int {
 			logger.Error("initialize class enrollment service", "error", err)
 			return 1
 		}
-		logger.Info("authentication initialized", "issuer", cfg.Authentication.IssuerURL)
+		logger.Info("authentication initialized", "oidc_enabled", cfg.Authentication.OIDCEnabled)
 	} else {
 		logger.Info("authentication is disabled for this environment")
 	}
@@ -747,6 +737,7 @@ func run() int {
 		InvitationRateLimiter: invitationRateLimiter,
 		AuthRateLimiter:       authRateLimiter,
 		AuthInbox:             authFoundation.inbox,
+		NativeAuth:            authFoundation.native,
 		Media:                 mediaService,
 		MediaSpaces:           mediaLifecycleService,
 		MediaJoinAttempts:     mediaJoinAttemptService,

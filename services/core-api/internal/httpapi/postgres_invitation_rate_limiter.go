@@ -119,7 +119,7 @@ func invitationRateLimitBucketHash(purpose string, clientPrefix string) [sha256.
 
 func invitationRateLimitPurpose(action InvitationRateLimitAction) string {
 	switch action {
-	case AuthRateLimitDiscoveryIP, AuthRateLimitOTPSendDestination, AuthRateLimitOTPSendIP,
+	case AuthRateLimitDiscoveryIP, AuthRateLimitSignupIP, AuthRateLimitPasswordFailIP, AuthRateLimitOTPSendDestination, AuthRateLimitOTPSendIP,
 		AuthRateLimitOTPVerifyIP, AuthRateLimitDeliveryDailyEmail, AuthRateLimitDeliveryDailyPhone:
 		return string(action)
 	case InvitationRateLimitPreview:

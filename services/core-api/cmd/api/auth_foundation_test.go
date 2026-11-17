@@ -56,3 +56,16 @@ func TestAuthFoundationDisabledNeedsNoDatabase(t *testing.T) {
 		}
 	}
 }
+
+func TestNativeStartupDoesNotDiscoverOIDC(t *testing.T) {
+	provider, err := configuredIdentityProvider(context.Background(), config.AuthenticationConfig{
+		Enabled: true, SignupEnabled: true, PasswordEnabled: true, OIDCEnabled: false,
+		IssuerURL: "this-ignored-value-must-never-be-discovered",
+	})
+	if err != nil || provider != nil {
+		t.Fatal("native-only startup attempted OIDC initialization")
+	}
+	if _, err := newAuthFoundation(config.Config{Authentication: config.AuthenticationConfig{SignupEnabled: true}}, nil, nil); err == nil {
+		t.Fatal("native authentication must reject missing runtime prerequisites")
+	}
+}
