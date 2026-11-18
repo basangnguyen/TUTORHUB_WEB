@@ -14,8 +14,12 @@
 | Phase hiện tại       | Phase 3 deferred carry-over vẫn hoạt động; Phase 5 collaboration đã đóng                                                               |
 | Task `DONE` gần nhất | `AUTH-05B` Giao diện Đăng nhập Google, `/account-link` & liên kết Google trong Settings + Playwright (`AUTH-05` `DONE`, cờ Google tắt) |
 | Mốc repository mới   | Playwright Chromium native auth `10/10` (gồm `auth-05` ×6, fake Google loopback) + hồi quy OIDC `p2-08` PASS; web `636` unit test      |
-| Task hiện tại        | Giao `AUTH-06A` cho Codex (Facebook OIDC + PKCE, pending registration thiếu email, Meta Data Deletion/Deauthorize) — có Phase 0        |
+| Task hiện tại        | `AUTH-06A` (Codex) tiếp tục Phase 1 sau khi `ADR-0040` gỡ BLOCKER xóa dữ liệu Meta ở Phase 0                                           |
 | Task tiếp theo       | Nghiệm thu `AUTH-06A`; rollout Google cần client thật + smoke Google thật theo cổng rollout của checkpoint `AUTH-05A`                  |
+
+### Quyết định ADR-0040 Xóa dữ liệu do provider cấp (gỡ BLOCKER Phase 0 của `AUTH-06A`) — 2026-11-18
+
+Phase 0 của `AUTH-06A` dừng đúng quy trình: Meta yêu cầu xóa cả app-scoped user ID lưu ở `identities.subject` trong khi runtime ACL cấm `DELETE`/`UPDATE (subject)`. Antigravity chốt `ADR-0040`: hàm `SECURITY DEFINER` hẹp (chỉ provider `facebook`) thay subject bằng giá trị ngẫu nhiên, xóa dữ liệu provider, đặt trạng thái `erased`, thu hồi phiên và xóa payload giao dịch chờ; runtime chỉ có `EXECUTE`. Biên nhận không lưu ASID; idempotency theo HMAC của `signed_request`; hoàn tất đồng bộ.
 
 ### Checkpoint `AUTH-05B` Giao diện Đăng nhập Google, Xác nhận liên kết & Liên kết trong Settings (`AUTH-05` `DONE`) — 2026-11-18
 
