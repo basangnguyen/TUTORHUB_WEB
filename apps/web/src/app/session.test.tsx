@@ -17,6 +17,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { createTutorHubQueryClient } from "./queryClient";
 import {
   clearPrivateSessionCache,
+  nativeSignOutTarget,
   SessionProvider,
   useSession,
 } from "./session";
@@ -30,6 +31,14 @@ function SessionProbe() {
       </output>
       <button type="button" onClick={() => void session.signOut()}>
         sign out
+      </button>
+      <button
+        type="button"
+        onClick={() =>
+          void session.signOut({ returnTo: "/account-link?provider=facebook" })
+        }
+      >
+        sign out and return
       </button>
     </>
   );
@@ -232,6 +241,57 @@ describe("remote session provider", () => {
     ).toBeInTheDocument();
   });
 
+  it.each([
+    [null, "/account-link?provider=facebook"],
+    [
+      "http://127.0.0.1:9091/logout?client_id=x",
+      "http://127.0.0.1:9091/logout?client_id=x",
+    ],
+  ])(
+    "returns to the requested path only after a native logout (logout_url %s)",
+    async (logoutURL, expected) => {
+      const assign = vi.fn();
+      vi.stubGlobal("location", {
+        ...window.location,
+        assign,
+        href: window.location.href,
+        origin: window.location.origin,
+      });
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async (input: RequestInfo | URL) => {
+          const path = new URL(
+            input instanceof Request ? input.url : String(input),
+            "http://127.0.0.1",
+          ).pathname;
+          if (path.endsWith("/v1/auth/csrf")) {
+            return new Response(JSON.stringify({ csrf_token: "csrf-token" }), {
+              status: 200,
+              headers: { "Content-Type": "application/json" },
+            });
+          }
+          if (path.endsWith("/v1/auth/logout")) {
+            return new Response(
+              JSON.stringify(logoutURL ? { logout_url: logoutURL } : {}),
+              { status: 200, headers: { "Content-Type": "application/json" } },
+            );
+          }
+          return authenticatedResponse();
+        }),
+      );
+
+      const view = renderRemoteSession();
+      expect(
+        await screen.findByText("authenticated:student@example.com"),
+      ).toBeInTheDocument();
+      fireEvent.click(
+        view.getByRole("button", { name: "sign out and return" }),
+      );
+
+      await waitFor(() => expect(assign).toHaveBeenCalledWith(expected));
+    },
+  );
+
   it("clears cached authenticated data after a successful sign-out boundary", async () => {
     const queryClient = new QueryClient();
     sessionStorage.setItem("tutorhub:draft:v1:test", "private-draft");
@@ -419,5 +479,24 @@ describe("remote session provider", () => {
     expect(privateQueryAttempts).toHaveBeenCalledTimes(1);
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(queryClient.getMutationCache().getAll()).toHaveLength(0);
+  });
+});
+
+describe("nativeSignOutTarget", () => {
+  it("keeps only same-origin SPA paths and defaults to /signed-out", () => {
+    expect(nativeSignOutTarget("/account-link?provider=google")).toBe(
+      "/account-link?provider=google",
+    );
+    for (const value of [
+      undefined,
+      "",
+      "//evil.example/x",
+      "https://evil.example",
+      "javascript:alert(1)",
+      "/path\\with-backslash",
+      "/line\nbreak",
+    ]) {
+      expect(nativeSignOutTarget(value)).toBe("/signed-out");
+    }
   });
 });

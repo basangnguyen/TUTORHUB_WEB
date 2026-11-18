@@ -46,6 +46,7 @@ import {
   passwordMinLengthFor,
   readCallbackError,
   readReturnTo,
+  registrationPendingTarget,
   searchWithoutCallbackError,
   signUpModeFor,
   socialAvailabilityFor,
@@ -69,7 +70,6 @@ const OTP_PATTERN = /^\d{6}$/;
 
 const AUTH_IMAGE_ROOT = "/images/auth";
 const LOGO_SRC = `${AUTH_IMAGE_ROOT}/logomoi.png`;
-const FACEBOOK_ICON_SRC = `${AUTH_IMAGE_ROOT}/icon/facebook.svg`;
 const SLIDES = [
   { src: `${AUTH_IMAGE_ROOT}/slide_login/login1.png`, altKey: "slide1Alt" },
   { src: `${AUTH_IMAGE_ROOT}/slide_login/login2.png`, altKey: "slide2Alt" },
@@ -115,7 +115,7 @@ const en = {
   rememberMe: "Remember Me",
   rememberMeHint: "Only your email or username is remembered on this device.",
   or: "Or",
-  facebook: "Log in with Facebook",
+  facebook: "Continue with Facebook",
   google: "Sign in with Google",
   forgotPassword: "Forget Password",
   signUpHeading: "Create an Account",
@@ -264,7 +264,7 @@ const vi: SignInCopy = {
   rememberMe: "Ghi nhớ tôi",
   rememberMeHint: "Chỉ ghi nhớ email hoặc tên đăng nhập trên thiết bị này.",
   or: "Hoặc",
-  facebook: "Đăng nhập bằng Facebook",
+  facebook: "Tiếp tục với Facebook",
   google: "Đăng nhập bằng Google",
   forgotPassword: "Quên mật khẩu",
   signUpHeading: "Tạo tài khoản mới",
@@ -429,6 +429,33 @@ function GoogleMark() {
         fill="#34A853"
       />
       <path d="M0 0h48v48H0z" fill="none" />
+    </svg>
+  );
+}
+
+/**
+ * Facebook "f" logo (Meta Facebook Login guidelines): the approved mark in
+ * its primary colours, unmodified, placed before the call to action.
+ */
+function FacebookMark() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="sign-in-facebook-mark"
+      focusable="false"
+      height={20}
+      viewBox="0 0 1024 1024"
+      width={20}
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path
+        d="M1024 512C1024 229.23 794.77 0 512 0S0 229.23 0 512c0 255.55 187.23 467.37 432 505.78V660H302V512h130V399.2C432 270.88 508.44 200 625.39 200 681.41 200 740 210 740 210v126h-64.56c-63.6 0-83.44 39.47-83.44 79.96V512h142l-22.7 148H592v357.78C836.77 979.37 1024 767.55 1024 512z"
+        fill="#1877F2"
+      />
+      <path
+        d="M711.3 660 734 512H592v-96.04c0-40.49 19.84-79.96 83.44-79.96H740V210s-58.59-10-114.61-10C508.44 200 432 270.88 432 399.2V512H302v148h130v357.78a517.58 517.58 0 0 0 160 0V660z"
+        fill="#FFFFFF"
+      />
     </svg>
   );
 }
@@ -770,6 +797,11 @@ export function SignInPage() {
   if (linkTarget) {
     return <Navigate replace to={linkTarget} />;
   }
+  // A new Facebook subject must verify an email before an account exists.
+  const registrationTarget = registrationPendingTarget(location.search);
+  if (registrationTarget) {
+    return <Navigate replace to={registrationTarget} />;
+  }
   return <SignInScreen />;
 }
 
@@ -809,16 +841,27 @@ function SignInScreen() {
   ]);
 
   const startSignIn = useCallback(() => signIn(returnTo), [returnTo, signIn]);
-  const startGoogleSignIn = useCallback(() => {
-    // A full-page navigation (never fetch): the server sets the flow cookie.
-    window.location.assign(
-      buildOAuthStartURL(
-        "google",
-        { intent: "login", returnTo },
-        { baseUrl: getApiBaseUrl() },
-      ),
-    );
-  }, [returnTo]);
+  const startProviderSignIn = useCallback(
+    (provider: "facebook" | "google") => {
+      // A full-page navigation (never fetch): the server sets the flow cookie.
+      window.location.assign(
+        buildOAuthStartURL(
+          provider,
+          { intent: "login", returnTo },
+          { baseUrl: getApiBaseUrl() },
+        ),
+      );
+    },
+    [returnTo],
+  );
+  const startGoogleSignIn = useCallback(
+    () => startProviderSignIn("google"),
+    [startProviderSignIn],
+  );
+  const startFacebookSignIn = useCallback(
+    () => startProviderSignIn("facebook"),
+    [startProviderSignIn],
+  );
   const finishNativeSignIn = useCallback(async () => {
     await completeNativeSignIn();
     void navigate(returnTo, { replace: true });
@@ -924,6 +967,7 @@ function SignInScreen() {
               emailCodeEnabled={providers?.email_code_enabled === true}
               mode={loginModeFor(providers)}
               onAuthenticated={finishNativeSignIn}
+              onFacebookSignIn={startFacebookSignIn}
               onGoogleSignIn={startGoogleSignIn}
               onPasswordReset={resetAfterPasswordRecovery}
               onSignIn={startSignIn}
@@ -976,6 +1020,8 @@ export interface LoginFormProps {
   mode: LoginMode;
   /** Runs after the server issued a native session: CSRF, /me, navigation. */
   onAuthenticated: () => Promise<void>;
+  /** Starts the Facebook flow when `social.facebookFederation` is on. */
+  onFacebookSignIn?: () => void;
   /** Starts the Google flow when `social.googleFederation` is on. */
   onGoogleSignIn?: () => void;
   /** Drops client session state after a recovery revoked every session. */
@@ -1001,6 +1047,7 @@ export function LoginForm({
   emailCodeEnabled,
   mode,
   onAuthenticated,
+  onFacebookSignIn,
   onGoogleSignIn,
   onPasswordReset,
   onSignIn,
@@ -1359,10 +1406,14 @@ export function LoginForm({
               <button
                 className="sign-in-button sign-in-button--facebook"
                 disabled={social.disabled}
-                onClick={onSignIn}
+                onClick={
+                  social.facebookFederation && onFacebookSignIn
+                    ? onFacebookSignIn
+                    : onSignIn
+                }
                 type="button"
               >
-                <img alt="" height={22} src={FACEBOOK_ICON_SRC} width={22} />
+                <FacebookMark />
                 <span>{c.facebook}</span>
               </button>
             ) : null}

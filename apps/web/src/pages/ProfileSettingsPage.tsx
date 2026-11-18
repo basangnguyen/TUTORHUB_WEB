@@ -1,5 +1,6 @@
 import {
   APIRequestError,
+  type ExternalIdentity,
   type MyLoginMethodsResponse,
   type MyPasswordStatusResponse,
   type MyPasswordUpdateRequest,
@@ -858,19 +859,47 @@ const OAUTH_PROVIDER_NAMES: Readonly<Record<string, string>> = {
 
 type LoginMethodIdentity = MyLoginMethodsResponse["identities"][number];
 
-/** Google's documented issuer spellings (`/me/identities` exposes the issuer). */
+/** Google's documented issuer spellings (fallback for servers without a slug). */
 const GOOGLE_ISSUERS: ReadonlySet<string> = new Set([
   "https://accounts.google.com",
   "accounts.google.com",
 ]);
 
+const IDENTITY_PROVIDER_KEYS: Readonly<Record<string, TranslationKey>> = {
+  facebook: "profile.identityProviderFacebook",
+  google: "profile.identityProviderGoogle",
+};
+
+/**
+ * `/me/identities` names the provider by registry slug (AUTH-06A). Legacy
+ * OIDC identities (slug `oidc`) and older servers fall back to the issuer.
+ */
+function identityProviderLabel(
+  identity: Pick<ExternalIdentity, "provider" | "provider_slug">,
+  t: (key: TranslationKey, values?: Record<string, string | number>) => string,
+) {
+  const key = identity.provider_slug
+    ? IDENTITY_PROVIDER_KEYS[identity.provider_slug]
+    : undefined;
+  if (key) return t(key);
+  if (GOOGLE_ISSUERS.has(identity.provider)) {
+    return t("profile.identityProviderGoogle");
+  }
+  return identity.provider;
+}
+
 function loginMethodLabel(
   identity: LoginMethodIdentity,
   t: (key: TranslationKey, values?: Record<string, string | number>) => string,
 ) {
-  // AUTH-05 stores Google as kind "oidc" with provider_slug "google".
-  if (identity.provider_slug === "google") {
-    return t("security.kindOauth", { provider: "Google" });
+  // AUTH-05/06 store Google and Facebook as kind "oidc" with their slug.
+  if (
+    identity.provider_slug === "google" ||
+    identity.provider_slug === "facebook"
+  ) {
+    return t("security.kindOauth", {
+      provider: identity.provider_slug === "google" ? "Google" : "Facebook",
+    });
   }
   switch (identity.kind) {
     case "email":
@@ -1526,18 +1555,6 @@ export function ProfileSettingsPage() {
     providersQuery.data?.device_management_enabled === true;
   const googleLinkEnabled =
     providersQuery.data?.oauth_providers.includes("google") === true;
-  // Shares the security card's cache entry: only provider_slug identifies
-  // a Google identity, because /me/identities exposes the issuer.
-  const loginMethodsQuery = useMyLoginMethodsQuery(deviceManagement);
-  const googleIdentityIDs = useMemo(
-    () =>
-      new Set(
-        (loginMethodsQuery.data?.identities ?? [])
-          .filter((identity) => identity.provider_slug === "google")
-          .map((identity) => identity.id),
-      ),
-    [loginMethodsQuery.data],
-  );
 
   const hasIdentityParam = new URLSearchParams(location.search).has("identity");
   useEffect(() => {
@@ -1772,12 +1789,7 @@ export function ProfileSettingsPage() {
                     </div>
                     <div className="identity-row__body">
                       <div className="identity-row__title">
-                        <strong>
-                          {googleIdentityIDs.has(identity.id) ||
-                          GOOGLE_ISSUERS.has(identity.provider)
-                            ? t("profile.identityProviderGoogle")
-                            : identity.provider}
-                        </strong>
+                        <strong>{identityProviderLabel(identity, t)}</strong>
                         <StatusBadge
                           tone={identity.email_verified ? "success" : "warning"}
                         >
@@ -1786,7 +1798,8 @@ export function ProfileSettingsPage() {
                             : t("profile.identityUnverified")}
                         </StatusBadge>
                       </div>
-                      <p>{identity.email}</p>
+                      {/* Facebook may not share an email address. */}
+                      {identity.email ? <p>{identity.email}</p> : null}
                       <span>
                         {t("profile.identityLastUsed").replace(
                           "{date}",

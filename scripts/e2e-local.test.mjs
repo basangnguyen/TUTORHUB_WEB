@@ -3,22 +3,27 @@ import { readdirSync, readFileSync } from "node:fs";
 import test from "node:test";
 
 import {
+  buildFakeFacebookEnvironment,
   buildFakeGoogleEnvironment,
   buildWebServerCommand,
   buildWindowsTreeKillCommand,
   buildE2EEnvironment,
   createRuntimeSecrets,
+  facebookFixtureClientID,
+  facebookSecretHandoffKey,
   googleFixtureClientID,
   localAccounts,
   nativeAuthConfiguration,
   parseArguments,
   resolveBaseEnvironment,
+  usesFakeFacebook,
   usesFakeGoogle,
   validateDatabaseConfiguration,
 } from "./e2e-local.mjs";
 
 const fixedSecrets = Object.freeze({
   clientSecret: "ephemeral-client-secret-value",
+  facebookClientSecret: "ephemeral-facebook-app-secret-value",
   googleClientSecret: "ephemeral-google-client-secret-value",
   sessionSecret: "ZXBoZW1lcmFsLXNlc3Npb24tc2VjcmV0LXdpdGgtZW5vdWdoLWJ5dGVz",
 });
@@ -72,7 +77,12 @@ test("runtime credentials are fresh and have sufficient entropy", () => {
   assert.notEqual(first.clientSecret, second.clientSecret);
   assert.notEqual(first.googleClientSecret, second.googleClientSecret);
   assert.notEqual(first.clientSecret, first.googleClientSecret);
+  assert.notEqual(first.facebookClientSecret, second.facebookClientSecret);
+  assert.notEqual(first.facebookClientSecret, first.googleClientSecret);
   assert.notEqual(first.sessionSecret, second.sessionSecret);
+  assert.ok(
+    Buffer.from(first.facebookClientSecret, "base64url").byteLength >= 32,
+  );
   assert.ok(Buffer.from(first.clientSecret, "base64url").byteLength >= 32);
   assert.ok(
     Buffer.from(first.googleClientSecret, "base64url").byteLength >= 32,
@@ -221,7 +231,13 @@ test("native auth stays off by default and inherited auth settings pass through 
     assert.equal(standard[key], undefined, `${key} must not be set by default`);
   }
   assert.equal(standard.GOOGLE_CLIENT_SECRET, undefined);
+  assert.equal(standard.FACEBOOK_CLIENT_SECRET, undefined);
   assert.equal(usesFakeGoogle(standard), false);
+  assert.equal(usesFakeFacebook(standard), false);
+  assert.throws(
+    () => buildFakeFacebookEnvironment(standard),
+    /requires the native-auth stack/,
+  );
   assert.throws(
     () => buildFakeGoogleEnvironment(standard),
     /requires the native-auth stack/,
@@ -280,6 +296,15 @@ test("native auth enables sign-up, password and email-code login, device managem
     );
     assert.equal(environment.GOOGLE_ISSUER_URL, "http://127.0.0.1:9092");
     assert.equal(usesFakeGoogle(environment), true);
+    // AUTH-06: Facebook points at the third loopback fake.
+    assert.equal(environment.AUTH_PROVIDER_FACEBOOK_ENABLED, "true");
+    assert.equal(environment.FACEBOOK_CLIENT_ID, facebookFixtureClientID);
+    assert.equal(
+      environment.FACEBOOK_CLIENT_SECRET,
+      fixedSecrets.facebookClientSecret,
+    );
+    assert.equal(environment.FACEBOOK_ISSUER_URL, "http://127.0.0.1:9093");
+    assert.equal(usesFakeFacebook(environment), true);
     // The loopback/test boundary that devinbox requires is unchanged.
     assert.equal(environment.APP_ENV, "test");
     assert.equal(environment.HTTP_LISTEN_HOST, "127.0.0.1");
@@ -300,6 +325,80 @@ test("native auth refuses to start Google without an ephemeral secret", () => {
         },
       ),
     /ephemeral Google secret/,
+  );
+});
+
+test("native auth refuses to start Facebook without an ephemeral secret", () => {
+  assert.throws(
+    () =>
+      buildE2EEnvironment(
+        { E2E_AUTH_NATIVE: "true" },
+        {
+          clientSecret: fixedSecrets.clientSecret,
+          googleClientSecret: fixedSecrets.googleClientSecret,
+          sessionSecret: fixedSecrets.sessionSecret,
+        },
+      ),
+    /ephemeral Facebook secret/,
+  );
+});
+
+test("the Playwright process may hand down the Facebook secret, never to children by name", () => {
+  const handedDown = Buffer.alloc(32, 7).toString("base64url");
+  const secrets = createRuntimeSecrets({
+    [facebookSecretHandoffKey]: handedDown,
+  });
+  assert.equal(secrets.facebookClientSecret, handedDown);
+  assert.throws(
+    () => createRuntimeSecrets({ [facebookSecretHandoffKey]: "short" }),
+    /at least 32 bytes/,
+  );
+
+  const environment = buildE2EEnvironment({
+    E2E_AUTH_NATIVE: "true",
+    [facebookSecretHandoffKey]: handedDown,
+  });
+  assert.equal(environment.FACEBOOK_CLIENT_SECRET, handedDown);
+  assert.equal(environment[facebookSecretHandoffKey], undefined);
+  const standard = buildE2EEnvironment({
+    [facebookSecretHandoffKey]: handedDown,
+  });
+  assert.equal(standard.FACEBOOK_CLIENT_SECRET, undefined);
+  assert.equal(standard[facebookSecretHandoffKey], undefined);
+});
+
+test("the fake Facebook issuer is a separate loopback client with Meta paths", () => {
+  const environment = buildE2EEnvironment(
+    {
+      AUTH_PROVIDER_FACEBOOK_ENABLED: "false",
+      E2E_AUTH_NATIVE: "true",
+      FACEBOOK_CLIENT_ID: "inherited-meta-app-id",
+      FACEBOOK_ISSUER_URL: "https://www.facebook.com",
+    },
+    fixedSecrets,
+  );
+  // The native-auth stack never inherits a real Meta app.
+  assert.equal(environment.AUTH_PROVIDER_FACEBOOK_ENABLED, "true");
+  assert.equal(environment.FACEBOOK_CLIENT_ID, facebookFixtureClientID);
+  assert.equal(environment.FACEBOOK_ISSUER_URL, "http://127.0.0.1:9093");
+
+  const facebook = buildFakeFacebookEnvironment(environment);
+  assert.equal(facebook.APP_ENV, "test");
+  assert.equal(facebook.E2E_OIDC_ADDRESS, "127.0.0.1:9093");
+  assert.equal(facebook.E2E_OIDC_CUSTOM_ACCOUNTS, "true");
+  assert.equal(facebook.E2E_OIDC_FLAVOR, "facebook");
+  assert.equal(facebook.OIDC_ISSUER_URL, "http://127.0.0.1:9093");
+  assert.equal(facebook.OIDC_CLIENT_ID, facebookFixtureClientID);
+  assert.equal(
+    facebook.OIDC_CALLBACK_URL,
+    "http://127.0.0.1:8080/api/v1/auth/oauth/facebook/callback",
+  );
+  // The other fakes and the API keep their own values.
+  assert.equal(environment.E2E_OIDC_FLAVOR, undefined);
+  assert.equal(environment.OIDC_ISSUER_URL, "http://127.0.0.1:9091");
+  assert.equal(
+    buildFakeGoogleEnvironment(environment).E2E_OIDC_FLAVOR,
+    undefined,
   );
 });
 
@@ -351,7 +450,7 @@ test("native auth specs run only through the dedicated Playwright config", () =>
   );
 
   const nativeSpecPatterns =
-    /\[\s*"\*\*\/auth-0\[23\]-native-\*\.spec\.ts",\s*"\*\*\/auth-04-\*\.spec\.ts",\s*"\*\*\/auth-05-\*\.spec\.ts",?\s*\]/;
+    /\[\s*"\*\*\/auth-0\[23\]-native-\*\.spec\.ts",\s*"\*\*\/auth-04-\*\.spec\.ts",\s*"\*\*\/auth-05-\*\.spec\.ts",\s*"\*\*\/auth-06-\*\.spec\.ts",?\s*\]/;
   assert.match(
     defaultConfig,
     new RegExp(`testIgnore:\\s*${nativeSpecPatterns.source}`),
@@ -370,10 +469,11 @@ test("native auth specs run only through the dedicated Playwright config", () =>
   );
   assert.ok(nativeSpecs.includes("auth-04-device-sessions-stepup.spec.ts"));
   assert.ok(nativeSpecs.includes("auth-05-google-federation.spec.ts"));
+  assert.ok(nativeSpecs.includes("auth-06-facebook.spec.ts"));
   for (const name of nativeSpecs) {
     assert.ok(
       /^auth-0[23]-native-.*\.spec\.ts$/.test(name) ||
-        /^auth-0[45]-.*\.spec\.ts$/.test(name),
+        /^auth-0[456]-.*\.spec\.ts$/.test(name),
       `${name} must match the native auth Playwright patterns`,
     );
   }
@@ -386,6 +486,11 @@ test("native auth specs run only through the dedicated Playwright config", () =>
     /gracefulShutdown:\s*{\s*signal:\s*"SIGTERM",\s*timeout:\s*15_000,?\s*}/,
   );
   assert.match(authConfig, /reuseExistingServer:\s*false/);
+  // The per-run Facebook secret is generated once and shared with workers.
+  assert.match(
+    authConfig,
+    /process\.env\.E2E_FACEBOOK_CLIENT_SECRET\s*\?\?=\s*randomBytes\(32\)\.toString\("base64url"\)/,
+  );
   assert.equal(
     packageJSON.scripts["e2e:auth"],
     "playwright test --config playwright.auth.config.ts",

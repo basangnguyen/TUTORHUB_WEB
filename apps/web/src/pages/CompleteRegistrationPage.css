@@ -1,0 +1,130 @@
+/* AUTH-06B: /complete-registration and /legal/data-deletion reuse the light
+   account-link card (AccountLinkPage.css) and the sign-in tokens/inputs
+   (SignInPage.css); only the extra form and status pieces live here. */
+
+.complete-registration__hint,
+.complete-registration__note {
+  margin: 0;
+  color: var(--sign-in-text-muted);
+  font-size: 14px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.complete-registration__note {
+  padding: 12px 14px;
+  border: 1px solid #bfdbfe;
+  border-radius: 14px;
+  background: #eff6ff;
+  color: #1e3a8a;
+}
+
+.complete-registration__form {
+  display: grid;
+  gap: 14px;
+}
+
+.complete-registration__field {
+  display: grid;
+  gap: 6px;
+}
+
+.complete-registration__field > label {
+  color: var(--sign-in-text);
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.complete-registration__help {
+  margin: 0;
+  color: var(--sign-in-text-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.complete-registration__notice {
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid #a7f3d0;
+  border-radius: 14px;
+  background: #ecfdf5;
+  color: #065f46;
+  font-size: 13px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.complete-registration__notice--error {
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: #991b1b;
+}
+
+.complete-registration__inline-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.account-link-card h2[tabindex="-1"]:focus-visible {
+  border-radius: 4px;
+  outline: 2px solid var(--sign-in-focus);
+  outline-offset: 2px;
+}
+
+/* /legal/data-deletion */
+.data-deletion__status {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 14px;
+  border: 1px solid var(--sign-in-border);
+  border-radius: 14px;
+  background: #f9fafb;
+}
+
+.data-deletion__status dt {
+  color: var(--sign-in-text-muted);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.data-deletion__status dd {
+  margin: 0;
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+
+.data-deletion__code {
+  font-family: var(--font-family-mono, ui-monospace, monospace);
+  font-size: 13px;
+}
+
+.data-deletion__guide {
+  display: grid;
+  gap: 10px;
+  padding-top: 18px;
+  border-top: 1px solid var(--sign-in-border);
+}
+
+.data-deletion__guide h2,
+.data-deletion__guide h3 {
+  margin: 0;
+  color: var(--sign-in-text);
+  line-height: 1.4;
+}
+
+.data-deletion__guide h2 {
+  font-size: 18px;
+}
+
+.data-deletion__guide h3 {
+  font-size: 15px;
+}
+
+.data-deletion__guide p {
+  margin: 0;
+  color: var(--sign-in-text-muted);
+  font-size: 14px;
+  line-height: 1.6;
+}

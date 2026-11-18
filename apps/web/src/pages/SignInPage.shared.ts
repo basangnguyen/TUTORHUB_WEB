@@ -5,13 +5,14 @@ import {
 import { useCallback, useEffect, useState } from "react";
 
 /**
- * Sign-in helpers shared by /sign-in and /account-link. Kept out of the page
+ * Sign-in helpers shared by /sign-in, /account-link and /complete-registration. Kept out of the page
  * component module so both routes can reuse them without breaking fast
  * refresh boundaries.
  */
 
 export const DEFAULT_RETURN_TO = "/app/home";
 export const ACCOUNT_LINK_PATH = "/account-link";
+export const COMPLETE_REGISTRATION_PATH = "/complete-registration";
 export const MIN_PASSWORD_LENGTH = 8;
 
 export function getApiBaseUrl() {
@@ -57,6 +58,17 @@ export function sanitizeReturnTo(value: string) {
 export function sanitizeLinkReturnTo(value: string) {
   const sanitized = sanitizeReturnTo(value);
   return isUnderPath(pathnameOf(sanitized), ACCOUNT_LINK_PATH)
+    ? DEFAULT_RETURN_TO
+    : sanitized;
+}
+
+/**
+ * After a pending registration completes, never send the user back to the
+ * consumed registration screen (or to the linking screen it may lead to).
+ */
+export function sanitizeRegistrationReturnTo(value: string) {
+  const sanitized = sanitizeLinkReturnTo(value);
+  return isUnderPath(pathnameOf(sanitized), COMPLETE_REGISTRATION_PATH)
     ? DEFAULT_RETURN_TO
     : sanitized;
 }
@@ -117,10 +129,11 @@ export function searchWithoutCallbackError(search: string) {
   return next ? `?${next}` : "";
 }
 
-export type LinkProvider = "google" | "oidc";
+export type LinkProvider = "google" | "oidc" | "facebook";
 
 export function linkProviderFrom(value: string | null): LinkProvider {
-  return value === "oidc" ? "oidc" : "google";
+  if (value === "oidc" || value === "facebook") return value;
+  return "google";
 }
 
 /**
@@ -132,6 +145,17 @@ export function linkPendingTarget(search: string) {
   if (params.get("link") !== "pending") return null;
   const provider = linkProviderFrom(params.get("provider"));
   return `${ACCOUNT_LINK_PATH}?provider=${provider}`;
+}
+
+/**
+ * `/sign-in?registration=pending&provider=facebook` (set by the Facebook
+ * callback for a new subject) moves to the registration screen. Facebook is
+ * the only provider with a pending registration, so `provider` is fixed.
+ */
+export function registrationPendingTarget(search: string) {
+  const params = new URLSearchParams(search);
+  if (params.get("registration") !== "pending") return null;
+  return `${COMPLETE_REGISTRATION_PATH}?provider=facebook`;
 }
 
 export type AuthProvidersState =
@@ -187,6 +211,8 @@ export type SignUpMode = "pending" | "native" | "oidc" | "unavailable";
 export interface SocialAvailability {
   disabled: boolean;
   facebook: boolean;
+  /** `oauth_providers` lists Facebook: the button starts the Facebook flow. */
+  facebookFederation: boolean;
   google: boolean;
   /** `oauth_providers` lists Google: the button starts the Google flow. */
   googleFederation: boolean;
@@ -195,6 +221,7 @@ export interface SocialAvailability {
 export const NO_SOCIAL: SocialAvailability = {
   disabled: false,
   facebook: false,
+  facebookFederation: false,
   google: false,
   googleFederation: false,
 };
@@ -216,9 +243,9 @@ export function signUpModeFor(
 }
 
 /**
- * Google starts its own provider-bound flow once the server lists it in
- * `oauth_providers`. Until AUTH-06, Facebook (and Google on servers without
- * the flag) stays a fallback entry into the default OIDC portal.
+ * Google and Facebook start their own provider-bound flow once the server
+ * lists them in `oauth_providers`. Otherwise each stays a fallback entry into
+ * the default OIDC portal (when that portal is enabled).
  */
 export function socialAvailabilityFor(
   providers: AuthProvidersResponse | null,
@@ -227,15 +254,18 @@ export function socialAvailabilityFor(
     return {
       disabled: true,
       facebook: true,
+      facebookFederation: false,
       google: true,
       googleFederation: false,
     };
   }
   const fallback = providers.oidc_default_enabled;
+  const facebookFederation = providers.oauth_providers.includes("facebook");
   const googleFederation = providers.oauth_providers.includes("google");
   return {
     disabled: false,
-    facebook: fallback || providers.oauth_providers.includes("facebook"),
+    facebook: fallback || facebookFederation,
+    facebookFederation,
     google: fallback || googleFederation,
     googleFederation,
   };

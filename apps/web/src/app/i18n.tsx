@@ -817,6 +817,7 @@ const messages = {
     "profile.identityUnlinked": "Đã hủy liên kết danh tính.",
     "profile.identityLinkGoogle": "Liên kết Google",
     "profile.identityLinked": "Đã liên kết danh tính đăng nhập.",
+    "profile.identityProviderFacebook": "Facebook",
     "profile.identityProviderGoogle": "Google",
     "profile.identityActionError":
       "Không thể hoàn tất thao tác với danh tính. Hãy thử lại.",
@@ -1467,6 +1468,7 @@ const messages = {
     "invitation.publicContinueAction": "Tiếp tục vào TutorHub",
     "accountLink.kicker": "Liên kết tài khoản",
     "accountLink.title": "Liên kết {provider} với tài khoản TutorHub",
+    "accountLink.providerFacebook": "Facebook",
     "accountLink.providerGoogle": "Google",
     "accountLink.providerOidc": "đăng nhập một lần (SSO)",
     "accountLink.loading": "Đang kiểm tra yêu cầu liên kết",
@@ -1514,6 +1516,114 @@ const messages = {
     "accountLink.actionError": "Chưa thể hoàn tất. Vui lòng thử lại.",
     "accountLink.retry": "Thử lại",
     "accountLink.retryWait": "Thử lại ({seconds}s)",
+    "completeRegistration.kicker": "Hoàn tất đăng ký",
+    "completeRegistration.title": "Hoàn tất đăng ký bằng {provider}",
+    "completeRegistration.providerFacebook": "Facebook",
+    "completeRegistration.loading": "Đang kiểm tra yêu cầu đăng ký",
+    "completeRegistration.lead":
+      "{provider} đã xác nhận bạn. Hãy xác minh một địa chỉ email để hoàn tất tài khoản TutorHub.",
+    "completeRegistration.hint": "Gợi ý từ {provider}: {email}",
+    "completeRegistration.expiresIn": "Yêu cầu hết hạn sau {time}.",
+    "completeRegistration.unavailableTitle":
+      "Yêu cầu đăng ký không còn hiệu lực",
+    "completeRegistration.unavailableDescription":
+      "Yêu cầu có thể đã hết hạn, đã được dùng hoặc đã bị hủy. Hãy đăng nhập lại bằng Facebook để bắt đầu lại.",
+    "completeRegistration.backToSignIn": "Về trang đăng nhập",
+    "completeRegistration.loadErrorTitle": "Chưa thể kiểm tra yêu cầu đăng ký",
+    "completeRegistration.loadErrorDescription":
+      "Kiểm tra kết nối mạng rồi thử lại.",
+    "completeRegistration.retry": "Thử lại",
+    "completeRegistration.signupDisabledNotice":
+      "Hiện không thể tạo tài khoản mới. Bạn vẫn có thể dùng email của một tài khoản TutorHub đã có để liên kết.",
+    "completeRegistration.emailHeading": "Bước 1: Xác minh email",
+    "completeRegistration.emailLabel": "Địa chỉ email",
+    "completeRegistration.emailHelp":
+      "Chúng tôi sẽ gửi mã 6 chữ số tới email này. Nếu email đã có tài khoản TutorHub, bạn sẽ được hướng dẫn liên kết.",
+    "completeRegistration.sendCode": "Gửi mã",
+    "completeRegistration.sendingCode": "Đang gửi...",
+    "completeRegistration.errorEmail": "Vui lòng nhập địa chỉ email hợp lệ.",
+    "completeRegistration.codeHeading": "Bước 2: Nhập mã xác minh",
+    "completeRegistration.codeSent":
+      "Nếu địa chỉ hợp lệ, mã 6 chữ số đã được gửi tới {email}. Mã có hiệu lực trong {minutes} phút.",
+    "completeRegistration.changeEmail": "Đổi email",
+    "completeRegistration.otpLabel": "Mã xác minh",
+    "completeRegistration.otpHelp": "Mã gồm 6 chữ số.",
+    "completeRegistration.errorOtp": "Vui lòng nhập mã gồm 6 chữ số.",
+    "completeRegistration.codeExpired":
+      "Mã đã hết hạn. Chọn Gửi lại mã để nhận mã mới.",
+    "completeRegistration.resend": "Gửi lại mã",
+    "completeRegistration.resendWait": "Gửi lại sau {seconds}s",
+    "completeRegistration.codeInvalid":
+      "Mã không đúng hoặc đã hết hạn. Kiểm tra lại hoặc gửi lại mã mới.",
+    "completeRegistration.termsLead": "Tôi đã đọc và đồng ý với ",
+    "completeRegistration.userAgreement": "Thỏa thuận người dùng",
+    "completeRegistration.termsJoin": " và ",
+    "completeRegistration.privacyPolicy": "Chính sách quyền riêng tư",
+    "completeRegistration.errorTerms":
+      "Bạn cần đồng ý với Thỏa thuận người dùng và Chính sách quyền riêng tư.",
+    "completeRegistration.termsChanged":
+      "Điều khoản vừa được cập nhật. Vui lòng xem lại và đồng ý lại.",
+    "completeRegistration.termsUnavailable":
+      "Chưa tải được phiên bản điều khoản hiện hành. Vui lòng thử lại.",
+    "completeRegistration.keepSignedIn": "Duy trì đăng nhập",
+    "completeRegistration.keepSignedInHint":
+      "Giữ đăng nhập trên thiết bị này tối đa 30 ngày. Máy chủ quyết định thời hạn cuối cùng.",
+    "completeRegistration.submit": "Hoàn tất đăng ký",
+    "completeRegistration.submitting": "Đang hoàn tất...",
+    "completeRegistration.submitWait": "Thử lại sau {seconds}s",
+    "completeRegistration.cancel": "Hủy đăng ký",
+    "completeRegistration.cancelling": "Đang hủy...",
+    "completeRegistration.signupDisabled":
+      "Hiện không thể tạo tài khoản mới bằng Facebook. Hãy dùng email của một tài khoản TutorHub đã có hoặc liên hệ quản trị viên.",
+    "completeRegistration.signupUnavailable":
+      "Chưa thể hoàn tất đăng ký với email này. Hãy thử email khác hoặc đăng nhập bằng phương thức bạn đã dùng trước đây.",
+    "completeRegistration.conflict":
+      "Yêu cầu vừa thay đổi trong lúc xử lý. Vui lòng thử lại.",
+    "completeRegistration.rateLimited":
+      "Bạn đã thử quá nhiều lần. Vui lòng chờ một lát rồi thử lại.",
+    "completeRegistration.rateLimitedWait":
+      "Bạn đã thử quá nhiều lần. Vui lòng thử lại sau {seconds} giây.",
+    "completeRegistration.busy":
+      "Hệ thống đang bận. Vui lòng thử lại sau giây lát.",
+    "completeRegistration.networkError":
+      "Không kết nối được TutorHub. Kiểm tra mạng rồi thử lại.",
+    "completeRegistration.actionError": "Chưa thể hoàn tất. Vui lòng thử lại.",
+    "completeRegistration.sessionError":
+      "Tài khoản đã sẵn sàng nhưng chưa tải được phiên đăng nhập.",
+    "dataDeletion.kicker": "Quyền riêng tư",
+    "dataDeletion.title": "Trạng thái yêu cầu xóa dữ liệu Facebook",
+    "dataDeletion.loading": "Đang kiểm tra mã xác nhận",
+    "dataDeletion.codeLabel": "Mã xác nhận",
+    "dataDeletion.statusLabel": "Trạng thái",
+    "dataDeletion.receivedTitle": "Đã nhận",
+    "dataDeletion.receivedDescription":
+      "TutorHub đã nhận yêu cầu xóa dữ liệu và đang xử lý.",
+    "dataDeletion.completedTitle": "Đã hoàn tất",
+    "dataDeletion.completedDescription":
+      "Dữ liệu TutorHub nhận từ Facebook cho yêu cầu này đã được xóa.",
+    "dataDeletion.notFoundTitle": "Không tìm thấy mã",
+    "dataDeletion.notFoundDescription":
+      "Mã xác nhận không đúng hoặc không còn được lưu. Hãy kiểm tra lại đường dẫn bạn nhận được từ Facebook.",
+    "dataDeletion.errorTitle": "Chưa thể kiểm tra trạng thái",
+    "dataDeletion.errorDescription": "Kiểm tra kết nối mạng rồi thử lại.",
+    "dataDeletion.rateLimited":
+      "Bạn đã kiểm tra quá nhiều lần. Vui lòng chờ một lát rồi thử lại.",
+    "dataDeletion.rateLimitedWait":
+      "Bạn đã kiểm tra quá nhiều lần. Vui lòng thử lại sau {seconds} giây.",
+    "dataDeletion.busy": "Hệ thống đang bận. Vui lòng thử lại sau giây lát.",
+    "dataDeletion.retry": "Thử lại",
+    "dataDeletion.guideTitle": "Cách yêu cầu xóa dữ liệu",
+    "dataDeletion.guideFacebookTitle": "Xóa dữ liệu TutorHub nhận từ Facebook",
+    "dataDeletion.guideFacebook":
+      "Trên Facebook, mở Cài đặt và quyền riêng tư → Cài đặt → Ứng dụng và trang web, chọn TutorHub rồi chọn Gỡ và yêu cầu xóa dữ liệu. Facebook sẽ gửi yêu cầu tới TutorHub và cho bạn một mã xác nhận để tra cứu tại trang này.",
+    "dataDeletion.guideFacebookEffect":
+      "TutorHub xóa mã định danh và thông tin hồ sơ mà Facebook cung cấp, đồng thời đăng xuất các phiên đăng nhập qua Facebook. Tài khoản TutorHub và email bạn đã tự xác minh vẫn được giữ; bạn có thể đăng nhập lại bằng email đó.",
+    "dataDeletion.guideAccountTitle": "Xóa tài khoản TutorHub",
+    "dataDeletion.guideAccount":
+      "Để xóa toàn bộ tài khoản TutorHub và dữ liệu bạn đã cung cấp, hãy gửi yêu cầu qua kênh liên hệ nêu trong Chính sách quyền riêng tư.",
+    "dataDeletion.guideNote":
+      "Trang này chỉ hiển thị trạng thái của yêu cầu, không hiển thị dữ liệu cá nhân.",
+    "dataDeletion.backToSignIn": "Về trang đăng nhập",
     "classInvitation.title": "Tham gia lớp học",
     "classInvitation.description":
       "Liên kết bảo mật này cho phép bạn tham gia một lớp trong workspace đang hoạt động.",
@@ -3239,6 +3349,7 @@ const messages = {
     "profile.identityUnlinked": "Identity unlinked.",
     "profile.identityLinkGoogle": "Link Google",
     "profile.identityLinked": "Sign-in identity linked.",
+    "profile.identityProviderFacebook": "Facebook",
     "profile.identityProviderGoogle": "Google",
     "profile.identityActionError":
       "The identity action could not be completed. Please try again.",
@@ -3899,6 +4010,7 @@ const messages = {
     "invitation.publicContinueAction": "Continue to TutorHub",
     "accountLink.kicker": "Account linking",
     "accountLink.title": "Link {provider} to your TutorHub account",
+    "accountLink.providerFacebook": "Facebook",
     "accountLink.providerGoogle": "Google",
     "accountLink.providerOidc": "single sign-on (SSO)",
     "accountLink.loading": "Checking the linking request",
@@ -3946,6 +4058,118 @@ const messages = {
     "accountLink.actionError": "That didn't work. Please try again.",
     "accountLink.retry": "Try again",
     "accountLink.retryWait": "Try again ({seconds}s)",
+    "completeRegistration.kicker": "Finish signing up",
+    "completeRegistration.title": "Finish signing up with {provider}",
+    "completeRegistration.providerFacebook": "Facebook",
+    "completeRegistration.loading": "Checking your sign-up request",
+    "completeRegistration.lead":
+      "{provider} confirmed it's you. Verify an email address to finish your TutorHub account.",
+    "completeRegistration.hint": "Suggested by {provider}: {email}",
+    "completeRegistration.expiresIn": "This request expires in {time}.",
+    "completeRegistration.unavailableTitle":
+      "This sign-up request is no longer valid",
+    "completeRegistration.unavailableDescription":
+      "It may have expired, been used, or been cancelled. Sign in with Facebook again to start over.",
+    "completeRegistration.backToSignIn": "Back to sign-in",
+    "completeRegistration.loadErrorTitle":
+      "We couldn't check the sign-up request",
+    "completeRegistration.loadErrorDescription":
+      "Check your connection and try again.",
+    "completeRegistration.retry": "Try again",
+    "completeRegistration.signupDisabledNotice":
+      "New accounts can't be created right now. You can still use the email of an existing TutorHub account to link it.",
+    "completeRegistration.emailHeading": "Step 1: Verify your email",
+    "completeRegistration.emailLabel": "Email address",
+    "completeRegistration.emailHelp":
+      "We'll send a 6-digit code to this email. If it already has a TutorHub account, we'll guide you through linking it.",
+    "completeRegistration.sendCode": "Send code",
+    "completeRegistration.sendingCode": "Sending...",
+    "completeRegistration.errorEmail": "Please enter a valid email address.",
+    "completeRegistration.codeHeading": "Step 2: Enter the verification code",
+    "completeRegistration.codeSent":
+      "If the address is valid, a 6-digit code has been sent to {email}. It's valid for {minutes} minutes.",
+    "completeRegistration.changeEmail": "Change email",
+    "completeRegistration.otpLabel": "Verification code",
+    "completeRegistration.otpHelp": "The code has 6 digits.",
+    "completeRegistration.errorOtp": "Please enter the 6-digit code.",
+    "completeRegistration.codeExpired":
+      "The code has expired. Select Resend code to get a new one.",
+    "completeRegistration.resend": "Resend code",
+    "completeRegistration.resendWait": "Resend in {seconds}s",
+    "completeRegistration.codeInvalid":
+      "The code is incorrect or has expired. Check it or request a new one.",
+    "completeRegistration.termsLead": "I have read and agree to the ",
+    "completeRegistration.userAgreement": "User Agreement",
+    "completeRegistration.termsJoin": " and ",
+    "completeRegistration.privacyPolicy": "Privacy Policy",
+    "completeRegistration.errorTerms":
+      "You must agree to the User Agreement and Privacy Policy.",
+    "completeRegistration.termsChanged":
+      "The terms have just been updated. Please review them and agree again.",
+    "completeRegistration.termsUnavailable":
+      "We couldn't load the current terms version. Please try again.",
+    "completeRegistration.keepSignedIn": "Keep me signed in",
+    "completeRegistration.keepSignedInHint":
+      "Stay signed in on this device for up to 30 days. The server decides the final session length.",
+    "completeRegistration.submit": "Finish sign-up",
+    "completeRegistration.submitting": "Finishing...",
+    "completeRegistration.submitWait": "Try again in {seconds}s",
+    "completeRegistration.cancel": "Cancel sign-up",
+    "completeRegistration.cancelling": "Cancelling...",
+    "completeRegistration.signupDisabled":
+      "New accounts can't be created with Facebook right now. Use the email of an existing TutorHub account or contact your administrator.",
+    "completeRegistration.signupUnavailable":
+      "We couldn't finish signing up with this email. Try another email or sign in with the method you used before.",
+    "completeRegistration.conflict":
+      "The request changed while we were processing it. Please try again.",
+    "completeRegistration.rateLimited":
+      "Too many attempts. Please wait a moment and try again.",
+    "completeRegistration.rateLimitedWait":
+      "Too many attempts. Please try again in {seconds} seconds.",
+    "completeRegistration.busy":
+      "TutorHub is busy right now. Please try again shortly.",
+    "completeRegistration.networkError":
+      "Couldn't reach TutorHub. Check your connection and try again.",
+    "completeRegistration.actionError":
+      "Something went wrong. Please try again.",
+    "completeRegistration.sessionError":
+      "Your account is ready, but we couldn't load your session yet.",
+    "dataDeletion.kicker": "Privacy",
+    "dataDeletion.title": "Facebook data deletion status",
+    "dataDeletion.loading": "Checking the confirmation code",
+    "dataDeletion.codeLabel": "Confirmation code",
+    "dataDeletion.statusLabel": "Status",
+    "dataDeletion.receivedTitle": "Received",
+    "dataDeletion.receivedDescription":
+      "TutorHub has received the deletion request and is processing it.",
+    "dataDeletion.completedTitle": "Completed",
+    "dataDeletion.completedDescription":
+      "The data TutorHub received from Facebook for this request has been deleted.",
+    "dataDeletion.notFoundTitle": "Code not found",
+    "dataDeletion.notFoundDescription":
+      "The confirmation code is incorrect or no longer kept. Check the link you received from Facebook.",
+    "dataDeletion.errorTitle": "We couldn't check the status",
+    "dataDeletion.errorDescription": "Check your connection and try again.",
+    "dataDeletion.rateLimited":
+      "Too many checks. Please wait a moment and try again.",
+    "dataDeletion.rateLimitedWait":
+      "Too many checks. Please try again in {seconds} seconds.",
+    "dataDeletion.busy":
+      "TutorHub is busy right now. Please try again shortly.",
+    "dataDeletion.retry": "Try again",
+    "dataDeletion.guideTitle": "How to request deletion",
+    "dataDeletion.guideFacebookTitle":
+      "Delete the data TutorHub received from Facebook",
+    "dataDeletion.guideFacebook":
+      "On Facebook, open Settings & privacy → Settings → Apps and websites, select TutorHub, then choose Remove and request deletion. Facebook sends the request to TutorHub and gives you a confirmation code you can check on this page.",
+    "dataDeletion.guideFacebookEffect":
+      "TutorHub deletes the identifier and profile details Facebook provided and signs out sessions that used Facebook. Your TutorHub account and the email you verified yourself are kept; you can sign in again with that email.",
+    "dataDeletion.guideAccountTitle": "Delete your TutorHub account",
+    "dataDeletion.guideAccount":
+      "To delete your whole TutorHub account and the data you provided, send a request through the contact channel listed in the Privacy Policy.",
+    "dataDeletion.guideNote":
+      "This page only shows the request status. It never shows personal data.",
+    "dataDeletion.backToSignIn": "Back to sign-in",
     "classInvitation.title": "Join a class",
     "classInvitation.description":
       "This secure link lets you join a class in your active workspace.",

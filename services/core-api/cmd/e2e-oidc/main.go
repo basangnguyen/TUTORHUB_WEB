@@ -37,31 +37,11 @@ func run() int {
 			"OIDC_POST_LOGOUT_URL",
 			"http://127.0.0.1:5173/signed-out",
 		),
-		// Only the AUTH-05 fake Google instance enables per-scenario emails.
+		// Only the AUTH-05 fake Google and AUTH-06 fake Facebook instances
+		// enable per-scenario emails.
 		AllowCustomAccounts: strings.TrimSpace(os.Getenv("E2E_OIDC_CUSTOM_ACCOUNTS")) == "true",
-		Accounts: []e2eoidc.Account{
-			{
-				ID:          "admin",
-				Subject:     "e2e-admin",
-				Email:       "admin.e2e@tutorhub.local",
-				DisplayName: "E2E Administrator",
-				Locale:      "en",
-			},
-			{
-				ID:          "student",
-				Subject:     "e2e-student",
-				Email:       "student.e2e@tutorhub.local",
-				DisplayName: "E2E Student",
-				Locale:      "en",
-			},
-			{
-				ID:          "teacher",
-				Subject:     "e2e-teacher",
-				Email:       "teacher.e2e@tutorhub.local",
-				DisplayName: "E2E Teacher",
-				Locale:      "en",
-			},
-		},
+		Flavor:              strings.TrimSpace(os.Getenv("E2E_OIDC_FLAVOR")),
+		Accounts:            defaultAccounts(strings.TrimSpace(os.Getenv("E2E_OIDC_FLAVOR"))),
 	}
 	provider, err := e2eoidc.New(config)
 	if err != nil {
@@ -102,6 +82,43 @@ func run() int {
 		return 1
 	}
 	return 0
+}
+
+// defaultAccounts returns the fixed chooser accounts. Facebook subjects are
+// numeric app-scoped IDs, as TutorHub's Facebook adapter requires.
+func defaultAccounts(flavor string) []e2eoidc.Account {
+	if flavor == e2eoidc.FlavorFacebook {
+		return []e2eoidc.Account{{
+			ID:          "facebook-teacher",
+			Subject:     "100000000000001",
+			Email:       "teacher.facebook.e2e@tutorhub.local",
+			DisplayName: "E2E Facebook Teacher",
+			Locale:      "en",
+		}}
+	}
+	return []e2eoidc.Account{
+		{
+			ID:          "admin",
+			Subject:     "e2e-admin",
+			Email:       "admin.e2e@tutorhub.local",
+			DisplayName: "E2E Administrator",
+			Locale:      "en",
+		},
+		{
+			ID:          "student",
+			Subject:     "e2e-student",
+			Email:       "student.e2e@tutorhub.local",
+			DisplayName: "E2E Student",
+			Locale:      "en",
+		},
+		{
+			ID:          "teacher",
+			Subject:     "e2e-teacher",
+			Email:       "teacher.e2e@tutorhub.local",
+			DisplayName: "E2E Teacher",
+			Locale:      "en",
+		},
+	}
 }
 
 func valueOrDefault(key string, fallback string) string {

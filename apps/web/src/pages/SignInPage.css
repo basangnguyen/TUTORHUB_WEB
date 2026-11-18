@@ -522,20 +522,28 @@
   font-size: 14px;
 }
 
-.sign-in-button--facebook img,
-.sign-in-button--google img {
-  display: block;
-  width: 22px;
-  height: 22px;
-  flex: none;
-}
-
+/* Facebook Login (Meta guidelines): the approved "f" logo, unmodified, before
+   a "Continue with Facebook" call to action inside the button. White text on
+   Facebook blue #1877F2 is 4.2:1 (< WCAG AA 4.5:1 at this size), so the
+   button uses the same neutral fill and stroke as Google for equal weight. */
 .sign-in-button--facebook {
-  background: #f0f2f5;
+  gap: 10px;
+  padding: 0 12px;
+  border: 1px solid #747775;
+  background: #fff;
+  color: #1f1f1f;
 }
 
 .sign-in-button--facebook:hover {
-  background: #e4e6eb;
+  border-color: #747775;
+  background: #f8f9fa;
+}
+
+.sign-in-facebook-mark {
+  display: block;
+  width: 20px;
+  height: 20px;
+  flex: none;
 }
 
 /* Sign in with Google branding (light theme): #FFFFFF fill, 1px #747775

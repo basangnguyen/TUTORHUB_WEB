@@ -3,8 +3,11 @@ import { describe, expect, it } from "vitest";
 import {
   CALLBACK_ERROR_CODES,
   linkPendingTarget,
+  linkProviderFrom,
   readCallbackError,
+  registrationPendingTarget,
   sanitizeLinkReturnTo,
+  sanitizeRegistrationReturnTo,
   sanitizeReturnTo,
   searchWithoutCallbackError,
   socialAvailabilityFor,
@@ -107,6 +110,7 @@ describe("socialAvailabilityFor", () => {
     ).toEqual({
       disabled: false,
       facebook: false,
+      facebookFederation: false,
       google: true,
       googleFederation: true,
     });
@@ -115,14 +119,73 @@ describe("socialAvailabilityFor", () => {
     ).toEqual({
       disabled: false,
       facebook: true,
+      facebookFederation: false,
       google: true,
       googleFederation: false,
     });
     expect(socialAvailabilityFor(providers)).toEqual({
       disabled: false,
       facebook: false,
+      facebookFederation: false,
       google: false,
       googleFederation: false,
     });
+  });
+
+  it("starts the Facebook flow only when the server lists Facebook", () => {
+    expect(
+      socialAvailabilityFor({ ...providers, oauth_providers: ["facebook"] }),
+    ).toEqual({
+      disabled: false,
+      facebook: true,
+      facebookFederation: true,
+      google: false,
+      googleFederation: false,
+    });
+    expect(socialAvailabilityFor(null)).toMatchObject({
+      disabled: true,
+      facebookFederation: false,
+      googleFederation: false,
+    });
+  });
+});
+
+describe("pending registration helpers", () => {
+  it("moves only registration=pending to the Facebook registration screen", () => {
+    expect(
+      registrationPendingTarget("?registration=pending&provider=facebook"),
+    ).toBe("/complete-registration?provider=facebook");
+    expect(registrationPendingTarget("?registration=pending")).toBe(
+      "/complete-registration?provider=facebook",
+    );
+    expect(registrationPendingTarget("?registration=done")).toBeNull();
+    expect(registrationPendingTarget("")).toBeNull();
+  });
+
+  it("never returns to the consumed registration or linking screens", () => {
+    expect(sanitizeRegistrationReturnTo("/app/classes?x=1")).toBe(
+      "/app/classes?x=1",
+    );
+    for (const value of [
+      "/complete-registration",
+      "/complete-registration?provider=facebook",
+      "/account-link?provider=facebook",
+      "/sign-in",
+      "//evil.example/app",
+      "https://evil.example",
+    ]) {
+      expect(sanitizeRegistrationReturnTo(value)).toBe("/app/home");
+    }
+    expect(sanitizeRegistrationReturnTo("/complete-registrations")).toBe(
+      "/complete-registrations",
+    );
+  });
+
+  it("allowlists the linking provider, including Facebook", () => {
+    expect(linkProviderFrom("facebook")).toBe("facebook");
+    expect(linkProviderFrom("oidc")).toBe("oidc");
+    expect(linkProviderFrom("google")).toBe("google");
+    expect(linkProviderFrom("javascript:alert(1)")).toBe("google");
+    expect(linkProviderFrom(null)).toBe("google");
   });
 });

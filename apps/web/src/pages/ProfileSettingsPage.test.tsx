@@ -11,6 +11,7 @@ import {
   getCurrentCSRFToken,
   type AuthProvidersResponse,
   type CurrentUser,
+  type ExternalIdentity,
   type MyLoginMethodsResponse,
   type MyPasswordStatusResponse,
   type MySecurityResponse,
@@ -848,9 +849,14 @@ const sessionDate = new Intl.DateTimeFormat("en-US", {
 type MaybeAsyncResponse = Response | Promise<Response>;
 type Handler = (request: Request) => MaybeAsyncResponse | undefined;
 
+/** Older servers omit provider_slug; the UI falls back to the issuer. */
+type IdentityFixture = Omit<ExternalIdentity, "provider_slug"> & {
+  provider_slug?: string;
+};
+
 interface SecurityMockOptions {
   extra?: Handler;
-  identities?: typeof identities;
+  identities?: { identities: IdentityFixture[] };
   passwordPosts?: Array<() => MaybeAsyncResponse>;
   providers?: AuthProvidersResponse;
   sessions?: Array<() => MaybeAsyncResponse>;
@@ -1449,11 +1455,12 @@ describe("ProfileSettingsPage AUTH-05B Google linking", () => {
     expect(linkRequests(posts)).toHaveLength(3);
   });
 
-  it("labels Google identities by issuer or by the login-method provider slug", async () => {
+  it("labels identities by provider_slug, falling back to the issuer", async () => {
     installSecurityMock({
       identities: {
         identities: [
           {
+            // An older server without provider_slug: the issuer names Google.
             id: identityID,
             provider: "https://accounts.google.com",
             email: "teacher@example.com",
@@ -1465,14 +1472,27 @@ describe("ProfileSettingsPage AUTH-05B Google linking", () => {
             // A loopback test issuer: only provider_slug identifies Google.
             id: "a5f0c7d8-1d51-4c43-9c1a-8a0e4cbbf0f2",
             provider: "http://127.0.0.1:9092",
+            provider_slug: "google",
             email: "teacher.google@example.com",
             email_verified: true,
             created_at: "2026-11-02T08:00:00Z",
             last_authenticated_at: "2026-11-02T08:00:00Z",
           },
           {
+            // Facebook may not share an email: no empty line is rendered.
+            id: "0b7f1d2e-3c4a-4b5d-8e6f-7a8b9c0d1e2f",
+            provider: "http://127.0.0.1:9093",
+            provider_slug: "facebook",
+            email: "",
+            email_verified: false,
+            created_at: "2026-11-18T08:00:00Z",
+            last_authenticated_at: "2026-11-18T08:00:00Z",
+          },
+          {
+            // Legacy OIDC identities keep showing their issuer.
             id: "8f9b3a71-5c2d-4f0e-b6a4-1e7d9c3b2a50",
             provider: "https://identity.example.test",
+            provider_slug: "oidc",
             email: "teacher@example.com",
             email_verified: true,
             created_at: "2026-07-18T08:00:00Z",
@@ -1491,11 +1511,24 @@ describe("ProfileSettingsPage AUTH-05B Google linking", () => {
           card.querySelectorAll(".identity-row__title strong"),
           (node) => node.textContent,
         ),
-      ).toEqual(["Google", "Google", "https://identity.example.test"]),
+      ).toEqual([
+        "Google",
+        "Google",
+        "Facebook",
+        "https://identity.example.test",
+      ]),
     );
+    const facebookRow = Array.from(card.querySelectorAll(".identity-row")).find(
+      (row) => row.textContent?.includes("Facebook"),
+    );
+    expect(facebookRow?.querySelector(".identity-row__body p")).toBeNull();
+    // The server cannot link Facebook from Settings (provider oidc|google).
+    expect(
+      within(card).queryByRole("button", { name: "Link Facebook" }),
+    ).not.toBeInTheDocument();
   });
 
-  it("names a Google login method stored as an OIDC identity", async () => {
+  it("names Google and Facebook login methods stored as OIDC identities", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -1513,6 +1546,15 @@ describe("ProfileSettingsPage AUTH-05B Google linking", () => {
                 email_verified: true,
                 last_authenticated_at: null,
                 created_at: "2026-11-02T08:00:00Z",
+              },
+              {
+                id: "0b7f1d2e-3c4a-4b5d-8e6f-7a8b9c0d1e2f",
+                kind: "oidc",
+                provider_slug: "facebook",
+                email_at_provider: null,
+                email_verified: false,
+                last_authenticated_at: null,
+                created_at: "2026-11-18T08:00:00Z",
               },
             ],
           });
@@ -1538,6 +1580,7 @@ describe("ProfileSettingsPage AUTH-05B Google linking", () => {
       name: "Account security",
     });
     expect(await within(security).findByText("Google account")).toBeVisible();
+    expect(within(security).getByText("Facebook account")).toBeVisible();
     expect(within(security).queryByText("Single sign-on (OIDC)")).toBeNull();
   });
 

@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/base64"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -34,6 +35,19 @@ const (
 	customEmailMaxLength  = 254
 	customSubjectPrefix   = "custom-"
 	customSubjectHexBytes = 20
+
+	// FlavorOIDC is the default standards-based fake issuer.
+	FlavorOIDC = "oidc"
+	// FlavorFacebook additionally serves Meta's fixed Login endpoints
+	// (Graph v27.0) so TutorHub's Facebook adapter can run against it.
+	FlavorFacebook = "facebook"
+
+	facebookGraphVersion    = "v27.0"
+	facebookASIDModulus     = 100_000_000_000_000_000 // 10^17
+	facebookASIDDigits      = 17
+	facebookDialogPath      = "/" + facebookGraphVersion + "/dialog/oauth"
+	facebookAccessTokenPath = "/" + facebookGraphVersion + "/oauth/access_token"
+	facebookJWKSPath        = "/.well-known/oauth/openid/jwks/"
 )
 
 var (
@@ -66,7 +80,11 @@ var (
       <fieldset>
         <legend>Use a custom test account</legend>
         <label>Test email <input name="custom_email" type="email" autocomplete="off" required></label>
+        {{if .Facebook}}
+        <label><input name="custom_email_withheld" type="checkbox" value="true"> Do not share email with the app</label>
+        {{else}}
         <label><input name="custom_email_unverified" type="checkbox" value="true"> Email is not verified</label>
+        {{end}}
         <button name="account" type="submit" value="{{.CustomAccountID}}">Sign in with custom account</button>
       </fieldset>
     </form>
@@ -86,6 +104,9 @@ type Account struct {
 	Locale      string
 	// EmailUnverified makes the issued claims carry email_verified=false.
 	EmailUnverified bool
+	// EmailWithheld omits the email claim, like a Facebook user who did not
+	// share an email address with the app (Facebook flavor only).
+	EmailWithheld bool
 }
 
 // Config describes a single confidential loopback client.
@@ -102,8 +123,11 @@ type Config struct {
 	// valid test email with a subject derived from it, so each E2E scenario
 	// can use its own identity. Off unless explicitly enabled.
 	AllowCustomAccounts bool
-	Clock               func() time.Time
-	Random              io.Reader
+	// Flavor selects the endpoint surface: FlavorOIDC (default) or
+	// FlavorFacebook, which requires numeric app-scoped subjects (ASIDs).
+	Flavor string
+	Clock  func() time.Time
+	Random io.Reader
 }
 
 type authorizationRequest struct {
@@ -168,6 +192,9 @@ func New(config Config) (*Provider, error) {
 	if config.Random == nil {
 		config.Random = rand.Reader
 	}
+	if strings.TrimSpace(config.Flavor) == "" {
+		config.Flavor = FlavorOIDC
+	}
 
 	privateKey, err := rsa.GenerateKey(config.Random, 2048)
 	if err != nil {
@@ -212,10 +239,20 @@ func (provider *Provider) Handler() http.Handler {
 	mux.HandleFunc("GET /userinfo", provider.userInfo)
 	mux.HandleFunc("GET /logout", provider.logout)
 	mux.HandleFunc("GET /healthz", provider.health)
+	if provider.facebook() {
+		// TutorHub's Facebook adapter uses fixed Meta endpoints, not discovery.
+		mux.HandleFunc("GET "+facebookDialogPath, provider.authorize)
+		mux.HandleFunc("GET "+facebookAccessTokenPath, provider.facebookAccessToken)
+		mux.HandleFunc("GET "+facebookJWKSPath, provider.jwks)
+	}
 
 	// Chromium enforces form-action across the complete redirect chain, so the
 	// chooser must explicitly allow the validated API callback and web origins.
 	return securityHeaders(mux, provider.callbackOrigin, provider.webOrigin)
+}
+
+func (provider *Provider) facebook() bool {
+	return provider.config.Flavor == FlavorFacebook
 }
 
 func (provider *Provider) discovery(writer http.ResponseWriter, _ *http.Request) {
@@ -280,6 +317,7 @@ func (provider *Provider) authorize(writer http.ResponseWriter, request *http.Re
 		"Accounts":        provider.accountOrder,
 		"CustomAccounts":  provider.config.AllowCustomAccounts,
 		"CustomAccountID": CustomAccountID,
+		"Facebook":        provider.facebook(),
 	})
 }
 
@@ -348,9 +386,44 @@ func (provider *Provider) token(writer http.ResponseWriter, request *http.Reques
 		return
 	}
 
-	code := strings.TrimSpace(request.PostForm.Get("code"))
-	redirectURL := strings.TrimSpace(request.PostForm.Get("redirect_uri"))
-	verifier := strings.TrimSpace(request.PostForm.Get("code_verifier"))
+	provider.redeemCode(
+		writer,
+		strings.TrimSpace(request.PostForm.Get("code")),
+		strings.TrimSpace(request.PostForm.Get("redirect_uri")),
+		strings.TrimSpace(request.PostForm.Get("code_verifier")),
+		true,
+	)
+}
+
+// facebookAccessToken mirrors Meta's manual OIDC code exchange: a GET with
+// client_id, redirect_uri, code and the PKCE verifier, and no client secret.
+func (provider *Provider) facebookAccessToken(writer http.ResponseWriter, request *http.Request) {
+	query := request.URL.Query()
+	if subtle.ConstantTimeCompare(
+		[]byte(query.Get("client_id")),
+		[]byte(provider.config.ClientID),
+	) != 1 {
+		writeOAuthError(writer, http.StatusBadRequest, "invalid_client")
+		return
+	}
+	provider.redeemCode(
+		writer,
+		strings.TrimSpace(query.Get("code")),
+		strings.TrimSpace(query.Get("redirect_uri")),
+		strings.TrimSpace(query.Get("code_verifier")),
+		false,
+	)
+}
+
+// redeemCode exchanges a single-use authorization code bound to the PKCE
+// challenge and redirect URI for an ID token and a short-lived access token.
+func (provider *Provider) redeemCode(
+	writer http.ResponseWriter,
+	code string,
+	redirectURL string,
+	verifier string,
+	includeScope bool,
+) {
 	now := provider.config.Clock().UTC()
 
 	provider.mu.Lock()
@@ -386,13 +459,16 @@ func (provider *Provider) token(writer http.ResponseWriter, request *http.Reques
 	}
 	provider.mu.Unlock()
 
-	writeJSON(writer, http.StatusOK, map[string]any{
+	response := map[string]any{
 		"access_token": accessToken,
 		"token_type":   "Bearer",
 		"expires_in":   int(accessTokenTTL.Seconds()),
 		"id_token":     idToken,
-		"scope":        authorization.Scope,
-	})
+	}
+	if includeScope {
+		response["scope"] = authorization.Scope
+	}
+	writeJSON(writer, http.StatusOK, response)
 }
 
 func (provider *Provider) userInfo(writer http.ResponseWriter, request *http.Request) {
@@ -490,17 +566,27 @@ func (provider *Provider) signIDToken(code authorizationCode, now time.Time) (st
 	if err != nil {
 		return "", err
 	}
-	claims, err := encodeJSON(map[string]any{
-		"iss":            provider.config.IssuerURL,
-		"sub":            code.Account.Subject,
-		"aud":            provider.config.ClientID,
-		"exp":            now.Add(accessTokenTTL).Unix(),
-		"iat":            now.Unix(),
-		"auth_time":      now.Unix(),
-		"nonce":          code.Nonce,
-		"email":          code.Account.Email,
-		"email_verified": !code.Account.EmailUnverified,
-	})
+	payload := map[string]any{
+		"iss":       provider.config.IssuerURL,
+		"sub":       code.Account.Subject,
+		"aud":       provider.config.ClientID,
+		"exp":       now.Add(accessTokenTTL).Unix(),
+		"iat":       now.Unix(),
+		"auth_time": now.Unix(),
+		"nonce":     code.Nonce,
+	}
+	if provider.facebook() {
+		// Meta's ID token carries no email_verified claim, and no email at
+		// all when the person did not share one with the app.
+		if !code.Account.EmailWithheld {
+			payload["email"] = code.Account.Email
+		}
+		payload["name"] = code.Account.DisplayName
+	} else {
+		payload["email"] = code.Account.Email
+		payload["email_verified"] = !code.Account.EmailUnverified
+	}
+	claims, err := encodeJSON(payload)
 	if err != nil {
 		return "", err
 	}
@@ -533,6 +619,16 @@ func (provider *Provider) customAccount(form url.Values) (Account, bool) {
 	}
 	digest := sha256.Sum256([]byte(email))
 	localPart, _, _ := strings.Cut(email, "@")
+	if provider.facebook() {
+		return Account{
+			ID:            CustomAccountID,
+			Subject:       FacebookTestASID(email),
+			Email:         email,
+			DisplayName:   localPart,
+			Locale:        "en",
+			EmailWithheld: form.Get("custom_email_withheld") == "true",
+		}, true
+	}
 	return Account{
 		ID:              CustomAccountID,
 		Subject:         customSubjectPrefix + hex.EncodeToString(digest[:customSubjectHexBytes]),
@@ -541,6 +637,28 @@ func (provider *Provider) customAccount(form url.Values) (Account, bool) {
 		Locale:          "en",
 		EmailUnverified: form.Get("custom_email_unverified") == "true",
 	}, true
+}
+
+// FacebookTestASID derives the deterministic numeric app-scoped user ID that
+// the Facebook flavor issues for a custom account seed: "1" followed by the
+// first eight bytes of SHA-256(seed), read big-endian, modulo 10^17 and
+// zero-padded to 17 digits. Playwright recomputes it to sign Meta callbacks.
+func FacebookTestASID(seed string) string {
+	digest := sha256.Sum256([]byte(seed))
+	value := binary.BigEndian.Uint64(digest[:8]) % facebookASIDModulus
+	return fmt.Sprintf("1%0*d", facebookASIDDigits, value)
+}
+
+func isNumericSubject(subject string) bool {
+	if subject == "" || len(subject) > 128 {
+		return false
+	}
+	for _, character := range subject {
+		if character < '0' || character > '9' {
+			return false
+		}
+	}
+	return true
 }
 
 func (provider *Provider) removeExpiredLocked(now time.Time) {
@@ -583,6 +701,10 @@ func validateConfig(config Config) error {
 	if len(config.Accounts) == 0 {
 		return fmt.Errorf("%w: at least one test account is required", errInvalidConfiguration)
 	}
+	flavor := strings.TrimSpace(config.Flavor)
+	if flavor != "" && flavor != FlavorOIDC && flavor != FlavorFacebook {
+		return fmt.Errorf("%w: unknown flavor", errInvalidConfiguration)
+	}
 
 	ids := make(map[string]struct{}, len(config.Accounts))
 	subjects := make(map[string]struct{}, len(config.Accounts))
@@ -598,6 +720,9 @@ func validateConfig(config Config) error {
 			strings.TrimSpace(account.DisplayName) == "" ||
 			!strings.Contains(email, "@") {
 			return fmt.Errorf("%w: every test account requires an id, subject, email, and display name", errInvalidConfiguration)
+		}
+		if flavor == FlavorFacebook && !isNumericSubject(subject) {
+			return fmt.Errorf("%w: Facebook test accounts need numeric app-scoped subjects", errInvalidConfiguration)
 		}
 		if _, exists := ids[id]; exists {
 			return fmt.Errorf("%w: duplicate account id", errInvalidConfiguration)

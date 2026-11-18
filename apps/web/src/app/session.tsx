@@ -49,9 +49,42 @@ interface SessionContextValue {
    * `/me` so the app observes the signed-out state. Never signs the user in.
    */
   resetAfterPasswordRecovery: () => Promise<void>;
-  signOut: () => Promise<void>;
+  /**
+   * Revokes the session. An identity-provider logout URL always wins; after a
+   * native logout (no URL) the browser goes to `returnTo` when it is a
+   * same-origin path, otherwise to `/signed-out`.
+   */
+  signOut: (options?: SignOutOptions) => Promise<void>;
   refresh: () => Promise<void>;
   replaceCurrentUser: (currentUser: CurrentUser) => void;
+}
+
+export interface SignOutOptions {
+  returnTo?: string;
+}
+
+const SIGNED_OUT_PATH = "/signed-out";
+
+function hasControlCharacter(value: string) {
+  for (const character of value) {
+    const code = character.charCodeAt(0);
+    if (code < 0x20 || code === 0x7f) return true;
+  }
+  return false;
+}
+
+/** Only a same-origin SPA path may follow a native logout. */
+export function nativeSignOutTarget(returnTo: string | undefined) {
+  if (
+    !returnTo ||
+    !returnTo.startsWith("/") ||
+    returnTo.startsWith("//") ||
+    returnTo.includes("\\") ||
+    hasControlCharacter(returnTo)
+  ) {
+    return SIGNED_OUT_PATH;
+  }
+  return returnTo;
 }
 
 export type SessionMode =
@@ -140,26 +173,31 @@ function RemoteSessionProvider({ children }: PropsWithChildren) {
     staleTime: 30_000,
   });
 
-  const signOut = useCallback(async () => {
-    setIsSigningOut(true);
-    setSignOutError(null);
-    try {
-      const csrf = await rotateCSRFToken({ baseUrl: getApiBaseUrl() });
-      const result = await logout(csrf.csrf_token, {
-        baseUrl: getApiBaseUrl(),
-      });
-      await clearPrivateSessionCache(queryClient);
-      window.location.assign(result.logout_url ?? "/signed-out");
-    } catch (error) {
-      setSignOutError(
-        error instanceof Error
-          ? error
-          : new Error("The sign-out request could not be completed."),
-      );
-    } finally {
-      setIsSigningOut(false);
-    }
-  }, [queryClient]);
+  const signOut = useCallback(
+    async (options?: SignOutOptions) => {
+      setIsSigningOut(true);
+      setSignOutError(null);
+      try {
+        const csrf = await rotateCSRFToken({ baseUrl: getApiBaseUrl() });
+        const result = await logout(csrf.csrf_token, {
+          baseUrl: getApiBaseUrl(),
+        });
+        await clearPrivateSessionCache(queryClient);
+        window.location.assign(
+          result.logout_url ?? nativeSignOutTarget(options?.returnTo),
+        );
+      } catch (error) {
+        setSignOutError(
+          error instanceof Error
+            ? error
+            : new Error("The sign-out request could not be completed."),
+        );
+      } finally {
+        setIsSigningOut(false);
+      }
+    },
+    [queryClient],
+  );
 
   const refresh = useCallback(async () => {
     const result = await sessionQuery.refetch();

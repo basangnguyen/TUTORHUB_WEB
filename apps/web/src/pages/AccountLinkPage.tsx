@@ -1,7 +1,7 @@
 import {
   APIRequestError,
-  getLinkIntent,
-  type LinkIntentResponse,
+  getFederatedLinkIntent,
+  type FederatedLinkIntentResponse,
 } from "@tutorhub/api-client";
 import { Button, ErrorState, Skeleton, SkeletonGroup } from "@tutorhub/ui";
 import { Link2, LogOut, RefreshCw, X } from "lucide-react";
@@ -37,7 +37,7 @@ type IntentState =
   | { status: "error" }
   | {
       status: "ready";
-      intent: LinkIntentResponse;
+      intent: FederatedLinkIntentResponse;
       /** Wall-clock deadline: throttled background timers cannot drift it. */
       expiresAt: number;
       remaining: number;
@@ -69,7 +69,11 @@ function useLinkIntentPreview() {
 
   useEffect(() => {
     const controller = new AbortController();
-    getLinkIntent({ baseUrl: getApiBaseUrl(), signal: controller.signal }).then(
+    // Facebook link intents come from a completed pending registration.
+    getFederatedLinkIntent({
+      baseUrl: getApiBaseUrl(),
+      signal: controller.signal,
+    }).then(
       (intent) => {
         if (controller.signal.aborted) return;
         const remaining = Math.max(0, Math.ceil(intent.expires_in_seconds));
@@ -211,6 +215,12 @@ function actionFailureText(
   }
 }
 
+const PROVIDER_NAME_KEYS: Readonly<Record<LinkProvider, TranslationKey>> = {
+  facebook: "accountLink.providerFacebook",
+  google: "accountLink.providerGoogle",
+  oidc: "accountLink.providerOidc",
+};
+
 /**
  * AUTH-05B: public confirmation screen for a pending provider link. The
  * HttpOnly `link_tx` cookie never reaches JavaScript; the page only sees the
@@ -235,11 +245,7 @@ export function AccountLinkPage() {
     state.status === "ready"
       ? state.intent.provider
       : linkProviderFrom(new URLSearchParams(location.search).get("provider"));
-  const providerName = t(
-    provider === "google"
-      ? "accountLink.providerGoogle"
-      : "accountLink.providerOidc",
-  );
+  const providerName = t(PROVIDER_NAME_KEYS[provider]);
   const selfPath = `${ACCOUNT_LINK_PATH}?provider=${provider}`;
   const providers =
     providersState.status === "ready" ? providersState.providers : null;
@@ -398,7 +404,9 @@ export function AccountLinkPage() {
                 {failure.kind === "mismatch" && authenticated && (
                   <Button
                     leadingIcon={<LogOut />}
-                    onClick={() => void session.signOut()}
+                    // A native logout keeps the HttpOnly link cookie, so the
+                    // user comes back here to sign in to the right account.
+                    onClick={() => void session.signOut({ returnTo: selfPath })}
                     size="sm"
                     variant="secondary"
                   >

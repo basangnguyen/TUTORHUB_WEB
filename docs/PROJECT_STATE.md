@@ -4,18 +4,30 @@
 
 ## Snapshot
 
-| Thuộc tính           | Trạng thái                                                                                                                                    |
-| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| Ngày cập nhật        | 2026-11-18                                                                                                                                    |
-| Repository           | `https://github.com/basangnguyen/TUTORHUB_WEB`                                                                                                |
-| Nhánh làm việc       | `main`                                                                                                                                        |
-| Quy trình            | Antigravity làm PM/Gatekeeper điều phối Codex và Claude Code qua prompt; Antigravity nghiệm thu và commit/push thẳng `main`                   |
-| Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4, Phase 5 collaboration                                                                                     |
-| Phase hiện tại       | Phase 3 deferred carry-over vẫn hoạt động; Phase 5 collaboration đã đóng                                                                      |
-| Task `DONE` gần nhất | `AUTH-06A` Facebook Login phía Server: OIDC + PKCE, Pending Registration, Meta Data Deletion/Deauthorize theo `ADR-0040` (migration `000046`) |
-| Mốc repository mới   | PostgreSQL disposable `138/138` suite PASS (ledger `46 false`, gồm xóa dữ liệu Facebook dưới runtime role); `pnpm verify` PASS                |
-| Task hiện tại        | Giao `AUTH-06B` cho Claude Code (UI đăng ký chờ Facebook, nút Facebook, trang `/legal/data-deletion`, Playwright) — có Phase 0                |
-| Task tiếp theo       | Nghiệm thu `AUTH-06B`; rollout Facebook cần Meta App + Business Verification + callback HTTPS + smoke app thử nghiệm                          |
+| Thuộc tính           | Trạng thái                                                                                                                                     |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| Ngày cập nhật        | 2026-11-18                                                                                                                                     |
+| Repository           | `https://github.com/basangnguyen/TUTORHUB_WEB`                                                                                                 |
+| Nhánh làm việc       | `main`                                                                                                                                         |
+| Quy trình            | Antigravity làm PM/Gatekeeper điều phối Codex và Claude Code qua prompt; Antigravity nghiệm thu và commit/push thẳng `main`                    |
+| Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4, Phase 5 collaboration                                                                                      |
+| Phase hiện tại       | Phase 3 deferred carry-over vẫn hoạt động; Phase 5 collaboration đã đóng                                                                       |
+| Task `DONE` gần nhất | `AUTH-06B` Giao diện Facebook: nút Facebook, `/complete-registration`, `/legal/data-deletion` + Playwright (`AUTH-06` `DONE`, cờ Facebook tắt) |
+| Mốc repository mới   | Playwright Chromium native auth `14/14` (gồm `auth-06` ×4 với fake Facebook) + hồi quy OIDC `p2-08` PASS; web `705` unit test                  |
+| Task hiện tại        | Chuẩn bị `AUTH-07` (Microsoft cá nhân + công việc/trường học) — Phase 0 cho Codex                                                              |
+| Task tiếp theo       | Rollout Google/Facebook chờ chủ dự án cấu hình client thật + duyệt Chính sách quyền riêng tư; sau `AUTH-07` là Passkeys (`AUTH-08`)            |
+
+### Checkpoint `AUTH-06B` Giao diện Facebook, Hoàn tất đăng ký chờ & Biên nhận xóa dữ liệu (`AUTH-06` `DONE`) — 2026-11-19
+
+Claude Code triển khai lát cắt Web UI + Playwright của `AUTH-06` (Phase 0 không có BLOCKER); Gatekeeper (Antigravity) review diff và kiểm chứng trên Chromium thật + PostgreSQL disposable:
+
+- **`/sign-in`**: nút "Tiếp tục với Facebook" (logo "f" vẽ trong mã) điều hướng toàn trang khi server bật `facebook`; `?registration=pending` chuyển sang `/complete-registration`.
+- **`/complete-registration`** (công khai): email gợi ý đã che + đếm ngược, người dùng tự nhập email (thông báo trung tính), OTP + điều khoản + "Duy trì đăng nhập"; có phiên thì vào app, email đã có chủ thì sang `/account-link`; đủ trạng thái `401`/`403`/`409`/`429`/`503`, lỗi mạng, hết hiệu lực, Hủy.
+- **`/account-link`** hỗ trợ Facebook; đăng xuất khi sai tài khoản quay lại trang liên kết (`signOut({ returnTo })` chỉ nhận đường dẫn cùng origin). **Settings** lấy nhãn từ `provider_slug` (fallback theo issuer); không thêm nút liên kết Facebook vì server chỉ cho `oidc|google`.
+- **`/legal/data-deletion`** (công khai): "Đã nhận" / "Đã hoàn tất" / "Không tìm thấy mã", mã sai định dạng không gọi API, hướng dẫn chung vi/en. Văn bản pháp lý chưa sửa; đề xuất nội dung Chính sách quyền riêng tư chờ chủ dự án duyệt.
+- **Fake Facebook** (`e2e-oidc` flavor `facebook`, cổng `9093`) phục vụ đúng đường dẫn Meta `v27.0`, ASID dạng số, tài khoản có thể không chia sẻ email; secret sinh mới mỗi lần chạy.
+- **Bằng chứng Gatekeeper**: Playwright Chromium trên DB disposable (migration `46`, xóa sạch sau khi chạy): native auth **`14/14` PASS (`6,1` phút)** gồm `auth-06-facebook.spec.ts` ×4 (không email → OTP → vào app; email trùng → liên kết sau đăng nhập mật khẩu; data-deletion → biên nhận `completed` → ASID cũ quay lại đăng ký chờ; deauthorize thu hồi phiên; hủy đăng ký chờ; mã biên nhận lạ; Axe; Web Storage sạch) và hồi quy OIDC `p2-08` **`1/1` PASS**; Go `e2eoidc` PASS; `pnpm verify` PASS.
+- **Quyết định Gatekeeper**: chấp nhận nút Facebook nền trắng + logo "f" xanh (chữ trắng trên `#1877F2` chỉ đạt `4,2:1`, dưới WCAG AA) — rà lại khi Meta App Review; chấp nhận xóa `facebook.svg` không chính thức.
 
 ### Checkpoint `AUTH-06A` Facebook Login phía Server, Pending Registration & Xóa dữ liệu Meta (`ADR-0040`) `DONE` — 2026-11-18
 

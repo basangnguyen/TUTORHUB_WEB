@@ -50,6 +50,16 @@ const AccountLinkPage = lazy(() =>
     default: module.AccountLinkPage,
   })),
 );
+const CompleteRegistrationPage = lazy(() =>
+  import("../pages/CompleteRegistrationPage").then((module) => ({
+    default: module.CompleteRegistrationPage,
+  })),
+);
+const DataDeletionStatusPage = lazy(() =>
+  import("../pages/DataDeletionStatusPage").then((module) => ({
+    default: module.DataDeletionStatusPage,
+  })),
+);
 const ClassroomPreJoinPage = lazy(() =>
   import("../pages/LiveKitPages").then((module) => ({
     default: module.ClassroomPreJoinPage,
@@ -387,6 +397,24 @@ export function createAppRoutes(): RouteObject[] {
       element: (
         <Suspense fallback={<LoadingScreen />}>
           <AccountLinkPage />
+        </Suspense>
+      ),
+    },
+    {
+      // Public: a new Facebook identity verifies an email before any session.
+      path: "/complete-registration",
+      element: (
+        <Suspense fallback={<LoadingScreen />}>
+          <CompleteRegistrationPage />
+        </Suspense>
+      ),
+    },
+    {
+      // Public receipt URL handed to Meta's data deletion callback.
+      path: "/legal/data-deletion",
+      element: (
+        <Suspense fallback={<LoadingScreen />}>
+          <DataDeletionStatusPage />
         </Suspense>
       ),
     },

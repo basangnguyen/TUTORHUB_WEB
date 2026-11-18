@@ -299,12 +299,13 @@ describe("SignInPage", () => {
     expect(screen.getByText("Or")).toBeInTheDocument();
 
     const facebook = screen.getByRole("button", {
-      name: "Log in with Facebook",
+      name: "Continue with Facebook",
     });
-    expect(facebook.querySelector("img")).toHaveAttribute(
-      "src",
-      "/images/auth/icon/facebook.svg",
-    );
+    // The approved "f" logo is inline, unmodified, and hidden from AT.
+    const facebookMark = facebook.querySelector("svg");
+    expect(facebookMark).toHaveAttribute("aria-hidden", "true");
+    expect(facebookMark).toHaveClass("sign-in-facebook-mark");
+    expect(facebook.querySelector("img")).toBeNull();
     const google = screen.getByRole("button", { name: "Sign in with Google" });
     // The standard "G" mark is inline (branding colours), hidden from AT.
     const mark = google.querySelector("svg");
@@ -753,7 +754,7 @@ describe("SignInPage", () => {
       screen.getByRole("button", { name: "Sign in with Google" }),
     );
     fireEvent.click(
-      screen.getByRole("button", { name: "Log in with Facebook" }),
+      screen.getByRole("button", { name: "Continue with Facebook" }),
     );
 
     expect(signInMock).toHaveBeenCalledTimes(3);
@@ -1971,7 +1972,7 @@ describe("SignInPage auth providers and native edge cases", () => {
       screen.getByRole("button", { name: "Sign in with Google" }),
     );
     fireEvent.click(
-      screen.getByRole("button", { name: "Log in with Facebook" }),
+      screen.getByRole("button", { name: "Continue with Facebook" }),
     );
     expect(signInMock).toHaveBeenCalledTimes(2);
     expect(signInMock).toHaveBeenCalledWith("/app/messages");
@@ -1990,7 +1991,7 @@ describe("SignInPage auth providers and native edge cases", () => {
       screen.queryByRole("button", { name: "Sign in with Google" }),
     ).toBeNull();
     expect(
-      screen.queryByRole("button", { name: "Log in with Facebook" }),
+      screen.queryByRole("button", { name: "Continue with Facebook" }),
     ).toBeNull();
     expect(screen.getByRole("button", { name: "Log In" })).toBeEnabled();
   });
@@ -2783,6 +2784,115 @@ describe("SignInPage native password recovery edge cases", () => {
   });
 });
 
+describe("SignInPage AUTH-06B Facebook federation", () => {
+  const FACEBOOK_PROVIDERS: AuthProvidersResponse = {
+    ...NATIVE_PROVIDERS,
+    oauth_providers: ["facebook"],
+    oidc_default_enabled: false,
+  };
+
+  function stubLocationAssign() {
+    const assign = vi.fn();
+    vi.stubGlobal("location", {
+      ...window.location,
+      assign,
+      href: window.location.href,
+      origin: window.location.origin,
+    });
+    return assign;
+  }
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("starts the Facebook flow with a full-page navigation and the protected return path", async () => {
+    api.getAuthProviders.mockResolvedValue(FACEBOOK_PROVIDERS);
+    const assign = stubLocationAssign();
+    await renderSignIn({
+      from: { pathname: "/app/classrooms", search: "?tab=2" },
+    });
+
+    const facebook = screen.getByRole("button", {
+      name: "Continue with Facebook",
+    });
+    expect(facebook).toBeEnabled();
+    fireEvent.click(facebook);
+
+    expect(assign).toHaveBeenCalledTimes(1);
+    const target = new URL(String(assign.mock.calls[0]?.[0]));
+    expect(target.pathname).toBe("/api/v1/auth/oauth/facebook/start");
+    expect(target.searchParams.get("return_to")).toBe("/app/classrooms?tab=2");
+    expect(target.searchParams.get("intent")).toBe("login");
+    expect(signInMock).not.toHaveBeenCalled();
+    // Google is not listed and there is no OIDC portal: no Google button.
+    expect(
+      screen.queryByRole("button", { name: "Sign in with Google" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("keeps the OIDC fallback when the server does not list Facebook", async () => {
+    api.getAuthProviders.mockResolvedValue({
+      ...NATIVE_PROVIDERS,
+      oidc_default_enabled: true,
+    });
+    const assign = stubLocationAssign();
+    await renderSignIn();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Continue with Facebook" }),
+    );
+
+    expect(assign).not.toHaveBeenCalled();
+    expect(signInMock).toHaveBeenCalledWith("/app/home");
+  });
+
+  it("hides Facebook when neither the server nor the OIDC portal offers it", async () => {
+    api.getAuthProviders.mockResolvedValue({
+      ...NATIVE_PROVIDERS,
+      oidc_default_enabled: false,
+    });
+    await renderSignIn();
+
+    expect(
+      screen.queryByRole("button", { name: "Continue with Facebook" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("starts each provider's own flow when both are listed", async () => {
+    api.getAuthProviders.mockResolvedValue({
+      ...NATIVE_PROVIDERS,
+      oauth_providers: ["google", "facebook"],
+    });
+    const assign = stubLocationAssign();
+    await renderSignIn();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Continue with Facebook" }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Sign in with Google" }),
+    );
+
+    const paths = assign.mock.calls.map(
+      ([url]) => new URL(String(url)).pathname,
+    );
+    expect(paths).toEqual([
+      "/api/v1/auth/oauth/facebook/start",
+      "/api/v1/auth/oauth/google/start",
+    ]);
+  });
+
+  it("labels the Facebook button in Vietnamese", async () => {
+    api.getAuthProviders.mockResolvedValue(FACEBOOK_PROVIDERS);
+    await renderSignIn({ language: "vi" });
+
+    expect(
+      screen.getByRole("button", { name: "Tiếp tục với Facebook" }),
+    ).toBeInTheDocument();
+  });
+});
+
 describe("SignInPage AUTH-05B Google federation", () => {
   const GOOGLE_PROVIDERS: AuthProvidersResponse = {
     ...NATIVE_PROVIDERS,
@@ -2821,9 +2931,9 @@ describe("SignInPage AUTH-05B Google federation", () => {
     expect(target.searchParams.get("return_to")).toBe("/app/classrooms?tab=1");
     expect(target.searchParams.get("intent")).toBe("login");
     expect(signInMock).not.toHaveBeenCalled();
-    // Facebook is unchanged: still the OIDC-portal fallback.
+    // Facebook is not listed: it stays the OIDC-portal fallback.
     fireEvent.click(
-      screen.getByRole("button", { name: "Log in with Facebook" }),
+      screen.getByRole("button", { name: "Continue with Facebook" }),
     );
     expect(signInMock).toHaveBeenCalledWith("/app/classrooms?tab=1");
     expect(assign).toHaveBeenCalledTimes(1);
@@ -2964,6 +3074,27 @@ describe("SignInPage AUTH-05B Google federation", () => {
       "/account-link?provider=google",
     );
     expect(api.getAuthProviders).not.toHaveBeenCalled();
+  });
+
+  it("moves a pending Facebook registration to /complete-registration", async () => {
+    await renderSignIn({
+      search: "?registration=pending&provider=facebook",
+    });
+
+    expect(screen.getByTestId("landing")).toHaveTextContent(
+      "/complete-registration?provider=facebook",
+    );
+    expect(api.getAuthProviders).not.toHaveBeenCalled();
+  });
+
+  it("fixes the provider of a pending registration to Facebook", async () => {
+    await renderSignIn({
+      search: "?registration=pending&provider=javascript%3Aalert(1)",
+    });
+
+    expect(screen.getByTestId("landing")).toHaveTextContent(
+      "/complete-registration?provider=facebook",
+    );
   });
 
   it("allowlists the provider of a pending link", async () => {
