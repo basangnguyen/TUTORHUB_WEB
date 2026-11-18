@@ -5,14 +5,18 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import type {
+  AuthProvidersResponse,
+  CurrentUser,
   MembershipInvitation,
   MembershipInvitationListResponse,
 } from "@tutorhub/api-client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../app/i18n";
 import { membershipInvitationQueryKeys } from "../app/invitations";
+import { SessionProvider } from "../app/session";
 import { MembershipInvitationPanel } from "./MembershipInvitationPanel";
 
 const tenantID = "4b18543a-74de-419f-9fe8-d0c3dfc991eb";
@@ -42,6 +46,36 @@ function jsonResponse(body: unknown, status = 200) {
   });
 }
 
+const adminSession: CurrentUser = {
+  user: {
+    id: "be85eb92-0f18-4163-85ba-50e4d343d632",
+    email: "admin@example.com",
+    display_name: "Workspace Admin",
+    locale: "en",
+    timezone: "Asia/Ho_Chi_Minh",
+  },
+  active_tenant: null,
+  memberships: [],
+  permissions: [],
+};
+
+const deviceProviders: AuthProvidersResponse = {
+  device_management_enabled: true,
+  email_code_enabled: true,
+  legal_terms_version: "2026-11-16-v2.0",
+  mfa_totp_enabled: false,
+  oauth_providers: [],
+  oidc_default_enabled: false,
+  passkeys_enabled: false,
+  password_enabled: true,
+  password_min_length: 8,
+  password_recovery_enabled: true,
+  phone_allowed_countries: ["VN"],
+  phone_enabled: false,
+  signup_enabled: true,
+  sso_domains_enabled: false,
+};
+
 function renderPanel(fetchMock: ReturnType<typeof vi.fn>) {
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -53,15 +87,69 @@ function renderPanel(fetchMock: ReturnType<typeof vi.fn>) {
   render(
     <QueryClientProvider client={queryClient}>
       <I18nProvider initialLanguage="en">
-        <MembershipInvitationPanel
-          createAvailability={availableOperation}
-          onRetryCapabilities={() => undefined}
-          tenantID={tenantID}
-        />
+        <SessionProvider mode={{ kind: "static", currentUser: adminSession }}>
+          <MembershipInvitationPanel
+            createAvailability={availableOperation}
+            onRetryCapabilities={() => undefined}
+            tenantID={tenantID}
+          />
+        </SessionProvider>
       </I18nProvider>
     </QueryClientProvider>,
   );
   return queryClient;
+}
+
+function recentAuthProblem() {
+  return jsonResponse(
+    {
+      type: "about:blank",
+      title: "Recent authentication required",
+      status: 403,
+      code: "auth_recent_authentication_required",
+    },
+    403,
+  );
+}
+
+/** Answers the step-up endpoints; returns undefined for anything else. */
+function stepUpResponse(request: Request, reauthBodies: unknown[]) {
+  if (request.url.endsWith("/api/v1/auth/providers")) {
+    return Promise.resolve(jsonResponse(deviceProviders));
+  }
+  if (request.url.endsWith("/api/v1/me/security")) {
+    return Promise.resolve(
+      jsonResponse({
+        email_verified: true,
+        has_password: true,
+        mfa_enabled: false,
+        reauth_methods: ["password"],
+        recent_auth_expires_at: null,
+      }),
+    );
+  }
+  if (request.url.endsWith("/api/v1/auth/reauth")) {
+    return request.json().then((body: unknown) => {
+      reauthBodies.push(body);
+      return jsonResponse({ recent_auth_expires_at: "2026-07-18T03:10:00Z" });
+    });
+  }
+  return undefined;
+}
+
+async function confirmStepUp(password: string) {
+  const dialog = await screen.findByRole("dialog", {
+    name: "Confirm it's you",
+  });
+  fireEvent.change(await within(dialog).findByLabelText("Current password"), {
+    target: { value: password },
+  });
+  fireEvent.click(within(dialog).getByRole("button", { name: "Confirm" }));
+  await waitFor(() =>
+    expect(
+      screen.queryByRole("dialog", { name: "Confirm it's you" }),
+    ).not.toBeInTheDocument(),
+  );
 }
 
 describe("MembershipInvitationPanel", () => {
@@ -312,6 +400,132 @@ describe("MembershipInvitationPanel", () => {
       .map((call) => call[0] as Request)
       .find((request) => request.url.endsWith(`/${invitationID}/revoke`));
     expect(revokeRequest?.headers.get("X-CSRF-Token")).toBe("csrf-revoke");
+  });
+
+  it("re-sends the same invitation after a recent-auth 403 and an in-place step-up", async () => {
+    const acceptURL =
+      "https://app.tutorhub.test/invite#token=thinv1_after-step-up";
+    const reauthBodies: unknown[] = [];
+    const createBodies: unknown[] = [];
+    let createCalls = 0;
+    const fetchMock = vi.fn().mockImplementation((request: Request) => {
+      const stepUp = stepUpResponse(request, reauthBodies);
+      if (stepUp) return stepUp;
+      if (
+        request.url.endsWith(`/api/v1/tenants/${tenantID}/invitations`) &&
+        request.method === "GET"
+      ) {
+        return Promise.resolve(jsonResponse({ items: [] }));
+      }
+      if (request.url.endsWith("/api/v1/auth/csrf")) {
+        return Promise.resolve(jsonResponse({ csrf_token: "csrf-step-up" }));
+      }
+      if (
+        request.url.endsWith(`/api/v1/tenants/${tenantID}/invitations`) &&
+        request.method === "POST"
+      ) {
+        createCalls += 1;
+        return request.json().then((body: unknown) => {
+          createBodies.push(body);
+          return createCalls === 1
+            ? recentAuthProblem()
+            : jsonResponse(
+                { invitation: pendingInvitation, accept_url: acceptURL },
+                201,
+              );
+        });
+      }
+      return Promise.reject(new Error(`Unexpected request: ${request.url}`));
+    });
+    renderPanel(fetchMock);
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Invite member" }),
+    );
+    fireEvent.change(screen.getByRole("textbox", { name: "Invitee email" }), {
+      target: { value: "Student@Example.com" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Create invitation" }));
+
+    await confirmStepUp("Admin-passphrase");
+
+    // The create dialog stayed open and the blocked request ran again.
+    expect(await screen.findByDisplayValue(acceptURL)).toBeInTheDocument();
+    expect(createBodies).toEqual([
+      { email: "student@example.com", intended_role: "student" },
+      { email: "student@example.com", intended_role: "student" },
+    ]);
+    expect(reauthBodies).toEqual([
+      { method: "password", password: "Admin-passphrase" },
+    ]);
+  });
+
+  it("explains a recent-auth 403 on revoke and resumes it after confirming", async () => {
+    const revokedInvitation: MembershipInvitation = {
+      ...pendingInvitation,
+      status: "revoked",
+      revoked_at: "2026-07-18T03:00:00Z",
+      updated_at: "2026-07-18T03:00:00Z",
+    };
+    const reauthBodies: unknown[] = [];
+    let revokeCalls = 0;
+    const fetchMock = vi.fn().mockImplementation((request: Request) => {
+      const stepUp = stepUpResponse(request, reauthBodies);
+      if (stepUp) return stepUp;
+      if (
+        request.url.endsWith(`/api/v1/tenants/${tenantID}/invitations`) &&
+        request.method === "GET"
+      ) {
+        return Promise.resolve(
+          jsonResponse({
+            items: [revokeCalls > 1 ? revokedInvitation : pendingInvitation],
+          }),
+        );
+      }
+      if (request.url.endsWith("/api/v1/auth/csrf")) {
+        return Promise.resolve(jsonResponse({ csrf_token: "csrf-revoke" }));
+      }
+      if (request.url.endsWith(`/${invitationID}/revoke`)) {
+        revokeCalls += 1;
+        return Promise.resolve(
+          revokeCalls === 1
+            ? recentAuthProblem()
+            : jsonResponse(revokedInvitation),
+        );
+      }
+      return Promise.reject(new Error(`Unexpected request: ${request.url}`));
+    });
+    renderPanel(fetchMock);
+
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Revoke invitation for student@example.com",
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Confirm revoke" }));
+
+    const stepUp = await screen.findByRole("dialog", {
+      name: "Confirm it's you",
+    });
+    fireEvent.click(
+      await within(stepUp).findByRole("button", { name: "Cancel" }),
+    );
+    const revokeDialog = await screen.findByRole("dialog", {
+      name: "Revoke invitation?",
+    });
+    expect(within(revokeDialog).getByRole("alert")).toHaveTextContent(
+      "Confirm it's you (within the last 10 minutes) before managing invitations.",
+    );
+    fireEvent.click(
+      within(revokeDialog).getByRole("button", { name: "Confirm it's you" }),
+    );
+    await confirmStepUp("Admin-passphrase");
+
+    expect(
+      await screen.findByText("Invitation for student@example.com revoked."),
+    ).toBeInTheDocument();
+    expect(revokeCalls).toBe(2);
+    expect(reauthBodies).toHaveLength(1);
   });
 
   it.each([401, 403, 404])(

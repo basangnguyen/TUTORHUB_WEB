@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import test from "node:test";
 
 import {
@@ -222,6 +222,7 @@ test("native auth stays off by default and inherited auth settings pass through 
   assert.equal(untouched.AUTH_EMAIL_SENDER, "disabled");
   assert.equal(untouched.AUTH_METHOD_PASSWORD_ENABLED, undefined);
   assert.equal(untouched.AUTH_METHOD_EMAIL_CODE_ENABLED, undefined);
+  assert.equal(untouched.AUTH_DEVICE_MANAGEMENT_ENABLED, undefined);
 
   const plainBase = { PATH: "/usr/bin" };
   assert.equal(
@@ -230,9 +231,10 @@ test("native auth stays off by default and inherited auth settings pass through 
   );
 });
 
-test("native auth enables sign-up, password and email-code login and the loopback devinbox only on request", () => {
+test("native auth enables sign-up, password and email-code login, device management and the loopback devinbox only on request", () => {
   const fromEnvironment = buildE2EEnvironment(
     {
+      AUTH_DEVICE_MANAGEMENT_ENABLED: "false",
       AUTH_EMAIL_SENDER: "ses",
       AUTH_PASSWORD_BREACH_CHECK: "hibp",
       AUTH_SIGNUP_ENABLED: "false",
@@ -253,6 +255,7 @@ test("native auth enables sign-up, password and email-code login and the loopbac
     assert.equal(environment.AUTH_METHOD_EMAIL_CODE_ENABLED, "true");
     assert.equal(environment.AUTH_EMAIL_SENDER, "devinbox");
     assert.equal(environment.AUTH_PASSWORD_BREACH_CHECK, "offline");
+    assert.equal(environment.AUTH_DEVICE_MANAGEMENT_ENABLED, "true");
     // The loopback/test boundary that devinbox requires is unchanged.
     assert.equal(environment.APP_ENV, "test");
     assert.equal(environment.HTTP_LISTEN_HOST, "127.0.0.1");
@@ -275,9 +278,11 @@ test("native auth specs run only through the dedicated Playwright config", () =>
     readFileSync(new URL("../package.json", import.meta.url), "utf8"),
   );
 
+  const nativeSpecPatterns =
+    /\[\s*"\*\*\/auth-0\[23\]-native-\*\.spec\.ts",\s*"\*\*\/auth-04-\*\.spec\.ts",?\s*\]/;
   assert.match(
     defaultConfig,
-    /testIgnore:\s*\[\s*"\*\*\/auth-0\[23\]-native-\*\.spec\.ts",?\s*\]/,
+    new RegExp(`testIgnore:\\s*${nativeSpecPatterns.source}`),
   );
   assert.match(
     defaultConfig,
@@ -285,8 +290,20 @@ test("native auth specs run only through the dedicated Playwright config", () =>
   );
   assert.match(
     authConfig,
-    /testMatch:\s*\[\s*"\*\*\/auth-0\[23\]-native-\*\.spec\.ts",?\s*\]/,
+    new RegExp(`testMatch:\\s*${nativeSpecPatterns.source}`),
   );
+  // Every auth-0x spec on disk must fall under these shared patterns.
+  const nativeSpecs = readdirSync(new URL("../e2e/", import.meta.url)).filter(
+    (name) => /^auth-0\d-.*\.spec\.ts$/.test(name),
+  );
+  assert.ok(nativeSpecs.includes("auth-04-device-sessions-stepup.spec.ts"));
+  for (const name of nativeSpecs) {
+    assert.ok(
+      /^auth-0[23]-native-.*\.spec\.ts$/.test(name) ||
+        /^auth-04-.*\.spec\.ts$/.test(name),
+      `${name} must match the native auth Playwright patterns`,
+    );
+  }
   assert.match(
     authConfig,
     /command:\s*"node scripts\/e2e-local\.mjs serve --native-auth"/,

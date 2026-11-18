@@ -853,7 +853,7 @@ const messages = {
     "profile.passwordChangedDone":
       "Đã đổi mật khẩu. Các phiên đăng nhập khác đã bị đăng xuất.",
     "profile.passwordReauthRequired":
-      "Để bảo vệ tài khoản, hãy đăng nhập lại trước khi đặt hoặc đổi mật khẩu (cần đăng nhập trong vòng 10 phút gần nhất).",
+      "Để bảo vệ tài khoản, hãy xác nhận đó là bạn trước khi đặt hoặc đổi mật khẩu (cần xác thực trong vòng 10 phút gần nhất).",
     "profile.passwordVerifiedEmailRequired":
       "Cần xác minh email của tài khoản trước khi đặt mật khẩu. Hãy đăng nhập bằng mã gửi tới email rồi thử lại.",
     "profile.passwordInvalidCurrent": "Mật khẩu hiện tại không đúng.",
@@ -870,6 +870,159 @@ const messages = {
     "profile.passwordNetworkError":
       "Không kết nối được tới TutorHub. Hãy kiểm tra mạng rồi thử lại.",
     "profile.passwordSaveError": "Không thể lưu mật khẩu. Hãy thử lại.",
+    "profile.identityReauthRequired":
+      "Cần xác nhận danh tính trong 10 phút gần nhất trước khi liên kết hoặc hủy liên kết danh tính.",
+    "stepUp.open": "Xác nhận đó là bạn",
+    "stepUp.title": "Xác nhận đó là bạn",
+    "stepUp.description":
+      "Thao tác này cần bạn xác nhận danh tính trong 10 phút gần nhất. Sau khi xác nhận, TutorHub sẽ tiếp tục thao tác đang dở.",
+    "stepUp.closeLabel": "Đóng hộp thoại xác nhận",
+    "stepUp.cancel": "Hủy",
+    "stepUp.loading": "Đang tải cách xác nhận",
+    "stepUp.loadErrorTitle": "Chưa thể tải cách xác nhận",
+    "stepUp.loadError":
+      "Không thể tải các phương thức xác nhận danh tính. Hãy thử lại.",
+    "stepUp.methodGroup": "Cách xác nhận",
+    "stepUp.methodPassword": "Mật khẩu",
+    "stepUp.methodEmailCode": "Mã gửi qua email",
+    "stepUp.passwordLabel": "Mật khẩu hiện tại",
+    "stepUp.passwordRequired": "Hãy nhập mật khẩu.",
+    "stepUp.passwordInvalid":
+      "Mật khẩu không đúng hoặc đang tạm bị khóa. Hãy thử lại.",
+    "stepUp.emailCodeIntro":
+      "TutorHub sẽ gửi mã 6 chữ số tới email đã xác minh của tài khoản.",
+    "stepUp.sendCode": "Gửi mã",
+    "stepUp.resendCode": "Gửi lại mã",
+    "stepUp.sendingCode": "Đang gửi mã...",
+    "stepUp.codeWait": "{label} ({seconds}s)",
+    "stepUp.codeSent":
+      "Đã gửi mã tới email của bạn. Mã có hiệu lực trong {minutes} phút; có thể gửi lại sau {seconds} giây.",
+    "stepUp.codeExpired": "Mã đã hết hạn. Hãy gửi mã mới.",
+    "stepUp.codeLabel": "Mã xác nhận",
+    "stepUp.codeHint": "Gồm 6 chữ số.",
+    "stepUp.codeRequired": "Hãy gửi mã trước khi xác nhận.",
+    "stepUp.codeFormat": "Hãy nhập đúng mã gồm 6 chữ số.",
+    "stepUp.codeInvalid":
+      "Mã không đúng hoặc đã hết hạn. Hãy kiểm tra lại hoặc gửi mã mới.",
+    "stepUp.submit": "Xác nhận",
+    "stepUp.submitting": "Đang xác nhận...",
+    "stepUp.submitWait": "{label} ({seconds}s)",
+    "stepUp.rateLimited":
+      "Bạn đã thử quá nhiều lần. Hãy thử lại sau {seconds} giây.",
+    "stepUp.rateLimitedNoWait":
+      "Bạn đã thử quá nhiều lần. Hãy chờ một lát rồi thử lại.",
+    "stepUp.busy": "Hệ thống đang bận. Hãy thử lại sau {seconds} giây.",
+    "stepUp.busyNoWait":
+      "Hệ thống đang bận hoặc tính năng tạm thời không khả dụng. Hãy thử lại sau.",
+    "stepUp.conflict":
+      "Phiên đăng nhập vừa thay đổi (ví dụ ở một tab khác). Hãy làm mới phiên rồi thử lại.",
+    "stepUp.refreshSession": "Làm mới phiên",
+    "stepUp.refreshingSession": "Đang làm mới...",
+    "stepUp.sessionExpired": "Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại.",
+    "stepUp.network":
+      "Không kết nối được tới TutorHub. Hãy kiểm tra mạng rồi thử lại.",
+    "stepUp.generic": "Chưa thể xác nhận danh tính lúc này. Hãy thử lại.",
+    "stepUp.fallbackDescription":
+      "Để bảo vệ tài khoản, hãy đăng nhập lại rồi thực hiện lại thao tác này trong vòng 10 phút.",
+    "stepUp.signInAgain": "Đăng nhập lại",
+    "stepUp.oidcDescription":
+      "Tài khoản chưa có mật khẩu hoặc email đã xác minh để xác nhận tại đây. Hãy xác nhận lại qua cổng đăng nhập.",
+    "stepUp.continueWithPortal": "Tiếp tục qua cổng đăng nhập",
+    "stepUp.noMethodDescription":
+      "Tài khoản chưa có phương thức xác nhận khả dụng. Hãy đăng xuất, đăng nhập lại rồi thực hiện lại thao tác trong vòng 10 phút.",
+    "stepUp.signOut": "Đăng xuất",
+    "stepUp.signingOut": "Đang đăng xuất...",
+    "security.overviewTitle": "Bảo mật tài khoản",
+    "security.overviewDescription":
+      "Trạng thái xác minh, lần xác nhận danh tính gần đây và các phương thức bạn có thể dùng để đăng nhập.",
+    "security.overviewLoading": "Đang tải tổng quan bảo mật",
+    "security.overviewErrorTitle": "Chưa thể tải tổng quan bảo mật",
+    "security.overviewError": "Không thể tải tổng quan bảo mật. Hãy thử lại.",
+    "security.forbiddenTitle": "Không thể xem thông tin bảo mật",
+    "security.forbidden":
+      "Phiên hiện tại không được phép xem thông tin này. Hãy đăng nhập lại rồi thử lại.",
+    "security.retryWait": "{label} ({seconds}s)",
+    "security.rateLimited":
+      "Bạn đã thao tác quá nhiều lần. Hãy thử lại sau {seconds} giây.",
+    "security.busy":
+      "Tính năng tạm thời không khả dụng. Hãy thử lại sau {seconds} giây.",
+    "security.networkError":
+      "Không kết nối được tới TutorHub. Hãy kiểm tra mạng rồi thử lại.",
+    "security.emailLabel": "Email",
+    "security.emailVerified": "Đã xác minh",
+    "security.emailUnverified": "Chưa xác minh",
+    "security.passwordLabel": "Mật khẩu",
+    "security.passwordSet": "Đã đặt",
+    "security.passwordNotSet": "Chưa đặt",
+    "security.mfaLabel": "Xác thực hai lớp",
+    "security.mfaOff": "Chưa bật",
+    "security.recentAuthLabel": "Xác nhận danh tính",
+    "security.recentAuthActive": "Còn hiệu lực đến {time}",
+    "security.recentAuthInactive": "Chưa xác nhận trong 10 phút gần nhất",
+    "security.recentAuthHint":
+      "Các thao tác nhạy cảm như đổi mật khẩu, liên kết danh tính hoặc quản lý lời mời cần xác nhận danh tính trong 10 phút gần nhất.",
+    "security.confirmNow": "Xác nhận ngay",
+    "security.methodsTitle": "Phương thức đăng nhập",
+    "security.methodsLoading": "Đang tải phương thức đăng nhập",
+    "security.methodsErrorTitle": "Chưa thể tải phương thức đăng nhập",
+    "security.methodsError":
+      "Không thể tải danh sách phương thức đăng nhập. Hãy thử lại.",
+    "security.methodsEmpty": "Chưa có phương thức đăng nhập nào",
+    "security.methodsEmptyDescription":
+      "Đặt mật khẩu hoặc liên kết một danh tính để có thêm cách đăng nhập.",
+    "security.methodPassword": "Mật khẩu",
+    "security.methodPasswordChanged": "Đổi lần gần nhất {date}",
+    "security.methodPasswordNoDate": "Đã đặt mật khẩu",
+    "security.kindEmail": "Mã đăng nhập qua email",
+    "security.kindOidc": "Đăng nhập một lần (OIDC)",
+    "security.kindOauth": "Tài khoản {provider}",
+    "security.kindOauthGeneric": "Tài khoản liên kết",
+    "security.kindPhone": "Số điện thoại",
+    "security.kindPasskey": "Passkey",
+    "security.methodLastUsed": "Dùng gần nhất {date}",
+    "security.methodNeverUsed": "Chưa dùng để đăng nhập",
+    "security.sessionsTitle": "Thiết bị đang đăng nhập",
+    "security.sessionsDescription":
+      "Các phiên đăng nhập còn hiệu lực trên trình duyệt và thiết bị của bạn. Hãy đăng xuất thiết bị bạn không nhận ra.",
+    "security.sessionsLoading": "Đang tải danh sách thiết bị",
+    "security.sessionsErrorTitle": "Chưa thể tải danh sách thiết bị",
+    "security.sessionsError": "Không thể tải các phiên đăng nhập. Hãy thử lại.",
+    "security.sessionsEmpty": "Không có phiên đăng nhập nào",
+    "security.sessionsEmptyDescription":
+      "Không tìm thấy phiên đăng nhập nào còn hiệu lực.",
+    "security.sessionUnknownDevice": "Thiết bị không xác định",
+    "security.sessionCurrent": "Thiết bị này",
+    "security.sessionMethods": "Đăng nhập bằng: {methods}",
+    "security.sessionCreated": "Bắt đầu {date}",
+    "security.sessionLastSeen": "Hoạt động gần nhất {date}",
+    "security.sessionPersistent": "Duy trì đăng nhập đến {date}",
+    "security.sessionExpires": "Hết hạn {date}",
+    "security.sessionRevoke": "Đăng xuất",
+    "security.sessionRevokeFor": "Đăng xuất {device} (bắt đầu {date})",
+    "security.sessionRevoking": "Đang đăng xuất...",
+    "security.sessionRevoked": "Đã đăng xuất {device}.",
+    "security.sessionGone": "Phiên này đã kết thúc trước đó.",
+    "security.sessionCannotRevokeCurrent":
+      "Không thể đăng xuất thiết bị hiện tại tại đây. Hãy dùng nút Đăng xuất của ứng dụng.",
+    "security.sessionActionError":
+      "Không thể đăng xuất phiên này. Hãy thử lại.",
+    "security.authMethodPassword": "Mật khẩu",
+    "security.authMethodEmailCode": "Mã email",
+    "security.authMethodFederated": "Đăng nhập một lần",
+    "security.authMethodTotp": "Ứng dụng xác thực",
+    "security.authMethodPasskey": "Passkey",
+    "security.authMethodUnknown": "Phương thức khác",
+    "security.revokeOthers": "Đăng xuất khỏi các thiết bị khác",
+    "security.revokeOthersNone": "Chỉ có thiết bị này đang đăng nhập.",
+    "security.revokeOthersTitle": "Đăng xuất khỏi các thiết bị khác?",
+    "security.revokeOthersDescription":
+      "{count} phiên đăng nhập khác sẽ kết thúc ngay. Thiết bị này vẫn giữ đăng nhập.",
+    "security.revokeOthersConfirm": "Đăng xuất các thiết bị khác",
+    "security.revokeOthersRunning": "Đang đăng xuất...",
+    "security.revokeOthersDone": "Đã đăng xuất {count} phiên khác.",
+    "security.revokeOthersNoneDone": "Không còn phiên nào khác cần đăng xuất.",
+    "security.cancel": "Hủy",
+    "security.dialogCloseLabel": "Đóng hộp thoại",
     "shell.navigation": "Điều hướng chính",
     "shell.openNavigation": "Mở điều hướng",
     "shell.closeNavigation": "Đóng điều hướng",
@@ -1272,6 +1425,8 @@ const messages = {
       "Đã tạo quá nhiều lời mời trong thời gian ngắn. Hãy thử lại sau.",
     "invitation.mutationError":
       "Chưa thể hoàn tất thao tác lời mời. Hãy thử lại.",
+    "invitation.mutationRecentAuth":
+      "Cần xác nhận danh tính trong 10 phút gần nhất trước khi quản lý lời mời.",
     "invitation.publicTitle": "Lời mời tham gia workspace",
     "invitation.publicLoading": "Đang kiểm tra lời mời",
     "invitation.publicWorkspaceLabel": "Workspace",
@@ -3069,7 +3224,7 @@ const messages = {
     "profile.passwordChangedDone":
       "Password changed. Your other sessions have been signed out.",
     "profile.passwordReauthRequired":
-      "For your security, sign in again before setting or changing your password (you must have signed in within the last 10 minutes).",
+      "For your security, confirm it's you before setting or changing your password (you must have signed in or confirmed within the last 10 minutes).",
     "profile.passwordVerifiedEmailRequired":
       "Your account email must be verified before you can set a password. Log in with a code sent to your email, then try again.",
     "profile.passwordInvalidCurrent": "The current password is incorrect.",
@@ -3089,6 +3244,161 @@ const messages = {
       "Couldn't reach TutorHub. Check your connection and try again.",
     "profile.passwordSaveError":
       "The password could not be saved. Please try again.",
+    "profile.identityReauthRequired":
+      "Confirm it's you (within the last 10 minutes) before linking or unlinking an identity.",
+    "stepUp.open": "Confirm it's you",
+    "stepUp.title": "Confirm it's you",
+    "stepUp.description":
+      "This action needs you to have confirmed your identity in the last 10 minutes. Once you confirm, TutorHub continues where you left off.",
+    "stepUp.closeLabel": "Close confirmation dialog",
+    "stepUp.cancel": "Cancel",
+    "stepUp.loading": "Loading confirmation options",
+    "stepUp.loadErrorTitle": "Confirmation options unavailable",
+    "stepUp.loadError":
+      "We couldn't load your identity confirmation options. Please try again.",
+    "stepUp.methodGroup": "Confirmation method",
+    "stepUp.methodPassword": "Password",
+    "stepUp.methodEmailCode": "Email code",
+    "stepUp.passwordLabel": "Current password",
+    "stepUp.passwordRequired": "Enter your password.",
+    "stepUp.passwordInvalid":
+      "The password is incorrect or temporarily locked. Please try again.",
+    "stepUp.emailCodeIntro":
+      "TutorHub will send a 6-digit code to your account's verified email.",
+    "stepUp.sendCode": "Send code",
+    "stepUp.resendCode": "Resend code",
+    "stepUp.sendingCode": "Sending code...",
+    "stepUp.codeWait": "{label} ({seconds}s)",
+    "stepUp.codeSent":
+      "We sent a code to your email. It's valid for {minutes} minutes; you can resend it after {seconds} seconds.",
+    "stepUp.codeExpired": "The code has expired. Send a new one.",
+    "stepUp.codeLabel": "Verification code",
+    "stepUp.codeHint": "6 digits.",
+    "stepUp.codeRequired": "Send a code before confirming.",
+    "stepUp.codeFormat": "Enter the 6-digit code.",
+    "stepUp.codeInvalid":
+      "The code is incorrect or expired. Check it or send a new one.",
+    "stepUp.submit": "Confirm",
+    "stepUp.submitting": "Confirming...",
+    "stepUp.submitWait": "{label} ({seconds}s)",
+    "stepUp.rateLimited": "Too many attempts. Try again in {seconds} seconds.",
+    "stepUp.rateLimitedNoWait":
+      "Too many attempts. Wait a moment and try again.",
+    "stepUp.busy": "TutorHub is busy. Try again in {seconds} seconds.",
+    "stepUp.busyNoWait":
+      "TutorHub is busy or this feature is temporarily unavailable. Try again later.",
+    "stepUp.conflict":
+      "Your session just changed (for example in another tab). Refresh the session and try again.",
+    "stepUp.refreshSession": "Refresh session",
+    "stepUp.refreshingSession": "Refreshing...",
+    "stepUp.sessionExpired": "Your session has expired. Please sign in again.",
+    "stepUp.network":
+      "Couldn't reach TutorHub. Check your connection and try again.",
+    "stepUp.generic":
+      "We couldn't confirm it's you right now. Please try again.",
+    "stepUp.fallbackDescription":
+      "To protect your account, sign in again and then repeat this action within 10 minutes.",
+    "stepUp.signInAgain": "Sign in again",
+    "stepUp.oidcDescription":
+      "Your account has no password or verified email to confirm with here. Confirm through the sign-in portal instead.",
+    "stepUp.continueWithPortal": "Continue with the sign-in portal",
+    "stepUp.noMethodDescription":
+      "No confirmation method is available for this account. Sign out, sign in again, then repeat the action within 10 minutes.",
+    "stepUp.signOut": "Sign out",
+    "stepUp.signingOut": "Signing out...",
+    "security.overviewTitle": "Account security",
+    "security.overviewDescription":
+      "Verification status, your latest identity confirmation and the methods you can use to sign in.",
+    "security.overviewLoading": "Loading security overview",
+    "security.overviewErrorTitle": "Security overview unavailable",
+    "security.overviewError":
+      "We couldn't load your security overview. Please try again.",
+    "security.forbiddenTitle": "Security details unavailable",
+    "security.forbidden":
+      "This session can't view these details. Sign in again and try again.",
+    "security.retryWait": "{label} ({seconds}s)",
+    "security.rateLimited":
+      "Too many requests. Try again in {seconds} seconds.",
+    "security.busy":
+      "This feature is temporarily unavailable. Try again in {seconds} seconds.",
+    "security.networkError":
+      "Couldn't reach TutorHub. Check your connection and try again.",
+    "security.emailLabel": "Email",
+    "security.emailVerified": "Verified",
+    "security.emailUnverified": "Not verified",
+    "security.passwordLabel": "Password",
+    "security.passwordSet": "Set",
+    "security.passwordNotSet": "Not set",
+    "security.mfaLabel": "Two-step verification",
+    "security.mfaOff": "Off",
+    "security.recentAuthLabel": "Identity confirmation",
+    "security.recentAuthActive": "Valid until {time}",
+    "security.recentAuthInactive": "Not confirmed in the last 10 minutes",
+    "security.recentAuthHint":
+      "Sensitive actions such as changing your password, linking identities or managing invitations need an identity confirmation from the last 10 minutes.",
+    "security.confirmNow": "Confirm now",
+    "security.methodsTitle": "Sign-in methods",
+    "security.methodsLoading": "Loading sign-in methods",
+    "security.methodsErrorTitle": "Sign-in methods unavailable",
+    "security.methodsError":
+      "We couldn't load your sign-in methods. Please try again.",
+    "security.methodsEmpty": "No sign-in methods yet",
+    "security.methodsEmptyDescription":
+      "Set a password or link an identity to add a way to sign in.",
+    "security.methodPassword": "Password",
+    "security.methodPasswordChanged": "Last changed {date}",
+    "security.methodPasswordNoDate": "Password set",
+    "security.kindEmail": "Email sign-in code",
+    "security.kindOidc": "Single sign-on (OIDC)",
+    "security.kindOauth": "{provider} account",
+    "security.kindOauthGeneric": "Linked account",
+    "security.kindPhone": "Phone number",
+    "security.kindPasskey": "Passkey",
+    "security.methodLastUsed": "Last used {date}",
+    "security.methodNeverUsed": "Not used to sign in yet",
+    "security.sessionsTitle": "Signed-in devices",
+    "security.sessionsDescription":
+      "Active sessions on your browsers and devices. Sign out any device you don't recognize.",
+    "security.sessionsLoading": "Loading signed-in devices",
+    "security.sessionsErrorTitle": "Signed-in devices unavailable",
+    "security.sessionsError":
+      "We couldn't load your sessions. Please try again.",
+    "security.sessionsEmpty": "No active sessions",
+    "security.sessionsEmptyDescription": "No active sessions were found.",
+    "security.sessionUnknownDevice": "Unknown device",
+    "security.sessionCurrent": "This device",
+    "security.sessionMethods": "Signed in with: {methods}",
+    "security.sessionCreated": "Started {date}",
+    "security.sessionLastSeen": "Last active {date}",
+    "security.sessionPersistent": "Stays signed in until {date}",
+    "security.sessionExpires": "Expires {date}",
+    "security.sessionRevoke": "Sign out",
+    "security.sessionRevokeFor": "Sign out {device} (started {date})",
+    "security.sessionRevoking": "Signing out...",
+    "security.sessionRevoked": "{device} has been signed out.",
+    "security.sessionGone": "That session had already ended.",
+    "security.sessionCannotRevokeCurrent":
+      "You can't sign out this device here. Use the app's Sign out button instead.",
+    "security.sessionActionError":
+      "We couldn't sign out that session. Please try again.",
+    "security.authMethodPassword": "Password",
+    "security.authMethodEmailCode": "Email code",
+    "security.authMethodFederated": "Single sign-on",
+    "security.authMethodTotp": "Authenticator app",
+    "security.authMethodPasskey": "Passkey",
+    "security.authMethodUnknown": "Other method",
+    "security.revokeOthers": "Sign out of all other devices",
+    "security.revokeOthersNone": "Only this device is signed in.",
+    "security.revokeOthersTitle": "Sign out of all other devices?",
+    "security.revokeOthersDescription":
+      "{count} other session(s) will end right away. This device stays signed in.",
+    "security.revokeOthersConfirm": "Sign out other devices",
+    "security.revokeOthersRunning": "Signing out...",
+    "security.revokeOthersDone": "Signed out {count} other session(s).",
+    "security.revokeOthersNoneDone":
+      "There were no other sessions to sign out.",
+    "security.cancel": "Cancel",
+    "security.dialogCloseLabel": "Close dialog",
     "shell.navigation": "Primary navigation",
     "shell.openNavigation": "Open navigation",
     "shell.closeNavigation": "Close navigation",
@@ -3494,6 +3804,8 @@ const messages = {
       "Too many invitations were created recently. Try again later.",
     "invitation.mutationError":
       "The invitation action could not be completed. Try again.",
+    "invitation.mutationRecentAuth":
+      "Confirm it's you (within the last 10 minutes) before managing invitations.",
     "invitation.publicTitle": "Workspace invitation",
     "invitation.publicLoading": "Checking invitation",
     "invitation.publicWorkspaceLabel": "Workspace",

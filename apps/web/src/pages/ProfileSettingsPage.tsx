@@ -1,10 +1,20 @@
 import {
   APIRequestError,
+  type MyLoginMethodsResponse,
   type MyPasswordStatusResponse,
+  type MyPasswordUpdateRequest,
+  type MySession,
   type UserProfile,
 } from "@tutorhub/api-client";
 import {
   Button,
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogTitle,
+  DialogTrigger,
   EmptyState,
   ErrorState,
   ForbiddenState,
@@ -15,8 +25,11 @@ import {
   TextField,
 } from "@tutorhub/ui";
 import {
+  Fingerprint,
   KeyRound,
   Link2,
+  LogOut,
+  MonitorSmartphone,
   RefreshCw,
   Save,
   ShieldCheck,
@@ -43,8 +56,21 @@ import {
   useUpdateProfile,
 } from "../app/profile";
 import { useI18n, type TranslationKey } from "../app/i18n";
+import {
+  isRecentAuthenticationRequired,
+  useMyLoginMethodsQuery,
+  useMySecurityQuery,
+  useMySessionsQuery,
+  useRevokeMySession,
+  useRevokeOtherSessions,
+  useStepUpRequest,
+  type StepUpRetry,
+} from "../app/security";
 import { useSession } from "../app/session";
+import { StepUpAuthDialog } from "../components/StepUpAuthDialog";
 import "./ProfileSettingsPage.css";
+
+type RequestStepUp = (retry?: StepUpRetry) => void;
 
 /** Client-side floor only; the server enforces the deployment policy. */
 const DEFAULT_PASSWORD_MIN_LENGTH = 8;
@@ -291,6 +317,7 @@ type PasswordFieldErrors = Partial<Record<PasswordField, TranslationKey>>;
 
 type PasswordFailure =
   | { kind: "reauth" }
+  | { kind: "stepUp" }
   | { kind: "verifiedEmail" }
   | { kind: "rateLimited"; seconds?: number }
   | { kind: "busy"; seconds?: number }
@@ -319,10 +346,11 @@ function classifyPasswordError(error: unknown): PasswordErrorOutcome {
         ? { field: "current", key: "profile.passwordInvalidCurrent" }
         : { failure: { kind: "reauth" } };
     case 403:
-      // Without a code, 403 means the session is older than the step-up window.
+      // `auth_recent_authentication_required` (or a legacy 403 without a
+      // code) means the session is older than the 10-minute step-up window.
       return code === "auth_verified_email_required"
         ? { failure: { kind: "verifiedEmail" } }
-        : { failure: { kind: "reauth" } };
+        : { failure: { kind: "stepUp" } };
     case 429:
       return {
         failure: { kind: "rateLimited", seconds: error.retryAfterSeconds },
@@ -348,10 +376,15 @@ const PASSWORD_FIELD_ORDER: readonly PasswordField[] = [
 
 interface PasswordFormProps {
   dateFormatter: Intl.DateTimeFormat;
+  onRequestStepUp: RequestStepUp;
   status: MyPasswordStatusResponse;
 }
 
-function PasswordForm({ dateFormatter, status }: PasswordFormProps) {
+function PasswordForm({
+  dateFormatter,
+  onRequestStepUp,
+  status,
+}: PasswordFormProps) {
   const { t } = useI18n();
   const session = useSession();
   const providersQuery = useAuthProvidersQuery();
@@ -407,26 +440,18 @@ function PasswordForm({ dateFormatter, status }: PasswordFormProps) {
     }
   }
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!enabled || updatePassword.isPending || lock.remaining > 0) return;
+  /**
+   * Sends one validated payload. After a step-up the same payload is sent
+   * again, so the user does not retype the form.
+   */
+  async function submitPassword(
+    payload: MyPasswordUpdateRequest,
+    wasSet: boolean,
+  ) {
     setFeedback(null);
     setFailure(null);
-    const errors = validate();
-    setFieldErrors(errors);
-    const firstInvalid = PASSWORD_FIELD_ORDER.find((field) => errors[field]);
-    if (firstInvalid) {
-      fieldRefs[firstInvalid].current?.focus();
-      return;
-    }
-
-    const wasSet = hasPassword;
     try {
-      await updatePassword.mutateAsync(
-        wasSet
-          ? { current_password: current, new_password: next }
-          : { new_password: next },
-      );
+      await updatePassword.mutateAsync(payload);
     } catch (error) {
       const outcome = classifyPasswordError(error);
       if ("field" in outcome) {
@@ -447,6 +472,9 @@ function PasswordForm({ dateFormatter, status }: PasswordFormProps) {
         lock.start(outcome.failure.seconds);
       }
       setFailure(outcome.failure);
+      if (outcome.failure.kind === "stepUp") {
+        onRequestStepUp(() => submitPassword(payload, wasSet));
+      }
       return;
     }
 
@@ -459,9 +487,34 @@ function PasswordForm({ dateFormatter, status }: PasswordFormProps) {
     );
   }
 
+  function submitForm() {
+    if (!enabled || updatePassword.isPending || lock.remaining > 0) return;
+    setFeedback(null);
+    setFailure(null);
+    const errors = validate();
+    setFieldErrors(errors);
+    const firstInvalid = PASSWORD_FIELD_ORDER.find((field) => errors[field]);
+    if (firstInvalid) {
+      fieldRefs[firstInvalid].current?.focus();
+      return;
+    }
+    void submitPassword(
+      hasPassword
+        ? { current_password: current, new_password: next }
+        : { new_password: next },
+      hasPassword,
+    );
+  }
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    submitForm();
+  }
+
   function failureText(value: PasswordFailure) {
     switch (value.kind) {
       case "reauth":
+      case "stepUp":
         return t("profile.passwordReauthRequired");
       case "verifiedEmail":
         return t("profile.passwordVerifiedEmailRequired");
@@ -603,6 +656,16 @@ function PasswordForm({ dateFormatter, status }: PasswordFormProps) {
                 {t("auth.signInAgain")}
               </Button>
             )}
+            {failure.kind === "stepUp" && (
+              <Button
+                leadingIcon={<ShieldCheck />}
+                onClick={() => onRequestStepUp(submitForm)}
+                size="sm"
+                variant="secondary"
+              >
+                {t("stepUp.open")}
+              </Button>
+            )}
           </div>
         )}
       </form>
@@ -612,8 +675,10 @@ function PasswordForm({ dateFormatter, status }: PasswordFormProps) {
 
 function PasswordSettingsCard({
   dateFormatter,
+  onRequestStepUp,
 }: {
   dateFormatter: Intl.DateTimeFormat;
+  onRequestStepUp: RequestStepUp;
 }) {
   const { t } = useI18n();
   const statusQuery = usePasswordStatusQuery();
@@ -666,7 +731,759 @@ function PasswordSettingsCard({
         ))}
 
       {statusQuery.isSuccess && (
-        <PasswordForm dateFormatter={dateFormatter} status={statusQuery.data} />
+        <PasswordForm
+          dateFormatter={dateFormatter}
+          onRequestStepUp={onRequestStepUp}
+          status={statusQuery.data}
+        />
+      )}
+    </section>
+  );
+}
+
+/* ---------- AUTH-04B: security overview, sign-in methods, devices ---------- */
+
+/** Largest delay `setTimeout` accepts. */
+const MAX_TIMER_MS = 2_147_483_647;
+
+function boundedRetryAfter(seconds: number | undefined) {
+  return typeof seconds === "number" && Number.isFinite(seconds) && seconds > 0
+    ? Math.min(Math.ceil(seconds), MAX_RETRY_AFTER_SECONDS)
+    : 0;
+}
+
+/** Counts down from a value fixed at mount (key the caller to restart). */
+function useCountdownFrom(initialSeconds: number) {
+  const [remaining, setRemaining] = useState(initialSeconds);
+
+  useEffect(() => {
+    if (remaining <= 0) return;
+    const timer = window.setTimeout(() => {
+      setRemaining((value) => Math.max(0, value - 1));
+    }, 1000);
+    return () => window.clearTimeout(timer);
+  }, [remaining]);
+
+  return remaining;
+}
+
+/** True while `iso` lies in the future; flips once the instant passes. */
+function useStillFuture(iso: string | null | undefined) {
+  const [lapsed, setLapsed] = useState<string | null>(null);
+  const valid = Boolean(iso) && Number.isFinite(Date.parse(iso ?? ""));
+
+  useEffect(() => {
+    if (!iso) return;
+    const expiresAt = Date.parse(iso);
+    if (!Number.isFinite(expiresAt)) return;
+    const timer = window.setTimeout(
+      () => setLapsed(iso),
+      Math.min(Math.max(0, expiresAt - Date.now()), MAX_TIMER_MS),
+    );
+    return () => window.clearTimeout(timer);
+  }, [iso]);
+
+  return valid && lapsed !== iso;
+}
+
+interface SecurityQueryErrorProps {
+  description: string;
+  error: unknown;
+  onRetry: () => void;
+  title: string;
+}
+
+/** Shared error, forbidden and Retry-After view for the security queries. */
+function SecurityQueryError({
+  description,
+  error,
+  onRetry,
+  title,
+}: SecurityQueryErrorProps) {
+  const { t } = useI18n();
+  const status = error instanceof APIRequestError ? error.status : 0;
+  const waitSeconds =
+    status === 429 || status === 503
+      ? boundedRetryAfter(
+          error instanceof APIRequestError
+            ? error.retryAfterSeconds
+            : undefined,
+        )
+      : 0;
+  const remaining = useCountdownFrom(waitSeconds);
+  const retryLabel = t("state.retry");
+  const retry = (
+    <Button
+      disabled={remaining > 0}
+      leadingIcon={<RefreshCw />}
+      onClick={onRetry}
+      size="sm"
+      variant="secondary"
+    >
+      {remaining > 0
+        ? t("security.retryWait", { label: retryLabel, seconds: remaining })
+        : retryLabel}
+    </Button>
+  );
+
+  if (status === 401 || status === 403) {
+    return (
+      <ForbiddenState
+        actions={retry}
+        description={t("security.forbidden")}
+        title={t("security.forbiddenTitle")}
+      />
+    );
+  }
+  let detail = description;
+  if (waitSeconds > 0) {
+    detail =
+      status === 429
+        ? t("security.rateLimited", { seconds: waitSeconds })
+        : t("security.busy", { seconds: waitSeconds });
+  } else if (!(error instanceof APIRequestError)) {
+    detail = t("security.networkError");
+  }
+  return <ErrorState actions={retry} description={detail} title={title} />;
+}
+
+const OAUTH_PROVIDER_NAMES: Readonly<Record<string, string>> = {
+  apple: "Apple",
+  facebook: "Facebook",
+  google: "Google",
+  microsoft: "Microsoft",
+};
+
+type LoginMethodIdentity = MyLoginMethodsResponse["identities"][number];
+
+function loginMethodLabel(
+  identity: LoginMethodIdentity,
+  t: (key: TranslationKey, values?: Record<string, string | number>) => string,
+) {
+  switch (identity.kind) {
+    case "email":
+      return t("security.kindEmail");
+    case "oidc":
+      return t("security.kindOidc");
+    case "oauth2": {
+      const slug = identity.provider_slug;
+      if (!slug) return t("security.kindOauthGeneric");
+      return t("security.kindOauth", {
+        provider: OAUTH_PROVIDER_NAMES[slug] ?? slug,
+      });
+    }
+    case "phone":
+      return t("security.kindPhone");
+    case "passkey":
+      return t("security.kindPasskey");
+    default:
+      return t("security.kindOauthGeneric");
+  }
+}
+
+const SESSION_AUTH_METHOD_KEYS: Readonly<Record<string, TranslationKey>> = {
+  email_code: "security.authMethodEmailCode",
+  fed: "security.authMethodFederated",
+  oidc: "security.authMethodFederated",
+  passkey: "security.authMethodPasskey",
+  password: "security.authMethodPassword",
+  pwd: "security.authMethodPassword",
+  totp: "security.authMethodTotp",
+  webauthn: "security.authMethodPasskey",
+};
+
+function sessionMethodsText(
+  methods: readonly string[],
+  t: (key: TranslationKey) => string,
+) {
+  // Internal method codes never reach the UI: unknown ones get a generic name.
+  const labels = methods.map((method) =>
+    t(SESSION_AUTH_METHOD_KEYS[method] ?? "security.authMethodUnknown"),
+  );
+  return [...new Set(labels)].join(", ");
+}
+
+/**
+ * Renders a translated line whose `{date}` placeholder becomes a semantic
+ * <time> element, wherever the language places it.
+ */
+function DateLine({
+  formatter,
+  template,
+  value,
+}: {
+  formatter: Intl.DateTimeFormat;
+  template: string;
+  value: string;
+}) {
+  const [before, after = ""] = template.split("{date}");
+  return (
+    <>
+      {before}
+      <time dateTime={value}>{formatter.format(new Date(value))}</time>
+      {after}
+    </>
+  );
+}
+
+function LoginMethodsList({
+  dateFormatter,
+}: {
+  dateFormatter: Intl.DateTimeFormat;
+}) {
+  const { t } = useI18n();
+  const loginMethodsQuery = useMyLoginMethodsQuery();
+
+  if (loginMethodsQuery.isPending) {
+    return (
+      <SkeletonGroup label={t("security.methodsLoading")}>
+        <Skeleton height={64} />
+        <Skeleton height={64} />
+      </SkeletonGroup>
+    );
+  }
+  if (loginMethodsQuery.isError) {
+    return (
+      <SecurityQueryError
+        description={t("security.methodsError")}
+        error={loginMethodsQuery.error}
+        key={loginMethodsQuery.errorUpdatedAt}
+        onRetry={() => void loginMethodsQuery.refetch()}
+        title={t("security.methodsErrorTitle")}
+      />
+    );
+  }
+
+  const { identities, password } = loginMethodsQuery.data;
+  if (!password.has_password && identities.length === 0) {
+    return (
+      <EmptyState
+        description={t("security.methodsEmptyDescription")}
+        title={t("security.methodsEmpty")}
+      />
+    );
+  }
+
+  return (
+    <ul className="security-methods__list">
+      {password.has_password && (
+        <li className="security-methods__row">
+          <span className="security-methods__marker" aria-hidden="true">
+            <KeyRound />
+          </span>
+          <div className="security-methods__body">
+            <strong>{t("security.methodPassword")}</strong>
+            <span>
+              {password.updated_at ? (
+                <DateLine
+                  formatter={dateFormatter}
+                  template={t("security.methodPasswordChanged")}
+                  value={password.updated_at}
+                />
+              ) : (
+                t("security.methodPasswordNoDate")
+              )}
+            </span>
+          </div>
+        </li>
+      )}
+      {identities.map((identity) => (
+        <li className="security-methods__row" key={identity.id}>
+          <span className="security-methods__marker" aria-hidden="true">
+            <Fingerprint />
+          </span>
+          <div className="security-methods__body">
+            <div className="security-methods__title">
+              <strong>{loginMethodLabel(identity, t)}</strong>
+              <StatusBadge
+                tone={identity.email_verified ? "success" : "warning"}
+              >
+                {identity.email_verified
+                  ? t("security.emailVerified")
+                  : t("security.emailUnverified")}
+              </StatusBadge>
+            </div>
+            {identity.email_at_provider && <p>{identity.email_at_provider}</p>}
+            <span>
+              {identity.last_authenticated_at ? (
+                <DateLine
+                  formatter={dateFormatter}
+                  template={t("security.methodLastUsed")}
+                  value={identity.last_authenticated_at}
+                />
+              ) : (
+                t("security.methodNeverUsed")
+              )}
+            </span>
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function SecurityOverviewCard({
+  dateFormatter,
+  onRequestStepUp,
+}: {
+  dateFormatter: Intl.DateTimeFormat;
+  onRequestStepUp: RequestStepUp;
+}) {
+  const { language, t } = useI18n();
+  const securityQuery = useMySecurityQuery();
+  const recentAuthActive = useStillFuture(
+    securityQuery.data?.recent_auth_expires_at,
+  );
+  const recentHintId = useId();
+  const timeFormatter = useMemo(
+    () =>
+      new Intl.DateTimeFormat(language === "vi" ? "vi-VN" : "en-US", {
+        timeStyle: "short",
+      }),
+    [language],
+  );
+
+  return (
+    <section
+      aria-labelledby="security-overview-title"
+      className="profile-panel"
+    >
+      <div className="profile-panel__heading">
+        <span className="profile-panel__icon" aria-hidden="true">
+          <ShieldCheck />
+        </span>
+        <div>
+          <h2 id="security-overview-title">{t("security.overviewTitle")}</h2>
+          <p>{t("security.overviewDescription")}</p>
+        </div>
+      </div>
+
+      {securityQuery.isPending && (
+        <SkeletonGroup label={t("security.overviewLoading")}>
+          <Skeleton height={24} width="55%" />
+          <Skeleton height={24} width="45%" />
+          <Skeleton height={24} width="60%" />
+        </SkeletonGroup>
+      )}
+
+      {securityQuery.isError && (
+        <SecurityQueryError
+          description={t("security.overviewError")}
+          error={securityQuery.error}
+          key={securityQuery.errorUpdatedAt}
+          onRetry={() => void securityQuery.refetch()}
+          title={t("security.overviewErrorTitle")}
+        />
+      )}
+
+      {securityQuery.isSuccess && (
+        <dl className="security-status">
+          <div className="security-status__item">
+            <dt>{t("security.emailLabel")}</dt>
+            <dd>
+              <StatusBadge
+                tone={securityQuery.data.email_verified ? "success" : "warning"}
+              >
+                {securityQuery.data.email_verified
+                  ? t("security.emailVerified")
+                  : t("security.emailUnverified")}
+              </StatusBadge>
+            </dd>
+          </div>
+          <div className="security-status__item">
+            <dt>{t("security.passwordLabel")}</dt>
+            <dd>
+              <StatusBadge
+                tone={securityQuery.data.has_password ? "success" : "neutral"}
+              >
+                {securityQuery.data.has_password
+                  ? t("security.passwordSet")
+                  : t("security.passwordNotSet")}
+              </StatusBadge>
+            </dd>
+          </div>
+          <div className="security-status__item">
+            <dt>{t("security.mfaLabel")}</dt>
+            <dd>
+              <StatusBadge tone="neutral">{t("security.mfaOff")}</StatusBadge>
+            </dd>
+          </div>
+          <div className="security-status__item security-status__item--wide">
+            <dt>{t("security.recentAuthLabel")}</dt>
+            <dd>
+              {recentAuthActive && securityQuery.data.recent_auth_expires_at ? (
+                <StatusBadge tone="success">
+                  {t("security.recentAuthActive", {
+                    time: timeFormatter.format(
+                      new Date(securityQuery.data.recent_auth_expires_at),
+                    ),
+                  })}
+                </StatusBadge>
+              ) : (
+                <>
+                  <StatusBadge tone="neutral">
+                    {t("security.recentAuthInactive")}
+                  </StatusBadge>
+                  <Button
+                    aria-describedby={recentHintId}
+                    leadingIcon={<ShieldCheck />}
+                    onClick={() => onRequestStepUp()}
+                    size="sm"
+                    variant="secondary"
+                  >
+                    {t("security.confirmNow")}
+                  </Button>
+                </>
+              )}
+              <p className="security-status__hint" id={recentHintId}>
+                {t("security.recentAuthHint")}
+              </p>
+            </dd>
+          </div>
+        </dl>
+      )}
+
+      <div className="security-methods">
+        <h3>{t("security.methodsTitle")}</h3>
+        <LoginMethodsList dateFormatter={dateFormatter} />
+      </div>
+    </section>
+  );
+}
+
+type SessionFailure =
+  | { kind: "cannotRevokeCurrent" }
+  | { kind: "rateLimited"; seconds: number }
+  | { kind: "busy"; seconds: number }
+  | { kind: "network" }
+  | { kind: "generic" };
+
+function classifySessionError(error: unknown): SessionFailure | "gone" {
+  if (!(error instanceof APIRequestError)) return { kind: "network" };
+  switch (error.status) {
+    case 400:
+      return error.problem?.code === "auth_cannot_revoke_current_session"
+        ? { kind: "cannotRevokeCurrent" }
+        : { kind: "generic" };
+    case 404:
+      return "gone";
+    case 429:
+      return {
+        kind: "rateLimited",
+        seconds: boundedRetryAfter(error.retryAfterSeconds),
+      };
+    case 503:
+      return {
+        kind: "busy",
+        seconds: boundedRetryAfter(error.retryAfterSeconds),
+      };
+    default:
+      return { kind: "generic" };
+  }
+}
+
+function useSessionFailureText() {
+  const { t } = useI18n();
+  return (failure: SessionFailure) => {
+    switch (failure.kind) {
+      case "cannotRevokeCurrent":
+        return t("security.sessionCannotRevokeCurrent");
+      case "rateLimited":
+        return failure.seconds > 0
+          ? t("security.rateLimited", { seconds: failure.seconds })
+          : t("security.sessionActionError");
+      case "busy":
+        return failure.seconds > 0
+          ? t("security.busy", { seconds: failure.seconds })
+          : t("security.sessionActionError");
+      case "network":
+        return t("security.networkError");
+      default:
+        return t("security.sessionActionError");
+    }
+  };
+}
+
+function DeviceSessionsCard({
+  dateFormatter,
+}: {
+  dateFormatter: Intl.DateTimeFormat;
+}) {
+  const { t } = useI18n();
+  const sessionsQuery = useMySessionsQuery();
+  const revokeSession = useRevokeMySession();
+  const revokeOthers = useRevokeOtherSessions();
+  const lock = useRetryLock();
+  const failureText = useSessionFailureText();
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const noOthersHintId = useId();
+  const [feedback, setFeedback] = useState<string | null>(null);
+  const [failure, setFailure] = useState<SessionFailure | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [othersFailure, setOthersFailure] = useState<SessionFailure | null>(
+    null,
+  );
+
+  const sessions = useMemo(() => {
+    const list = sessionsQuery.data?.sessions ?? [];
+    // Keep the server's recency order but list this device first.
+    return [
+      ...list.filter((item) => item.is_current),
+      ...list.filter((item) => !item.is_current),
+    ];
+  }, [sessionsQuery.data]);
+  const otherCount = sessions.filter((item) => !item.is_current).length;
+  const deviceName = (item: MySession) =>
+    item.device_label?.trim() || t("security.sessionUnknownDevice");
+
+  /** Returns true when the targeted session no longer exists. */
+  function applyFailure(
+    error: unknown,
+    target: (value: SessionFailure | null) => void,
+  ) {
+    const outcome = classifySessionError(error);
+    if (outcome === "gone") {
+      setFeedback(t("security.sessionGone"));
+      return true;
+    }
+    if (outcome.kind === "rateLimited" || outcome.kind === "busy") {
+      lock.start(outcome.seconds);
+    }
+    target(outcome);
+    return false;
+  }
+
+  async function handleRevoke(item: MySession) {
+    if (revokeSession.isPending || lock.remaining > 0) return;
+    setFeedback(null);
+    setFailure(null);
+    try {
+      await revokeSession.mutateAsync(item.id);
+      setFeedback(t("security.sessionRevoked", { device: deviceName(item) }));
+    } catch (error) {
+      if (!applyFailure(error, setFailure)) return;
+    }
+    // The row and its button are gone: keep keyboard focus inside the card.
+    headingRef.current?.focus();
+  }
+
+  async function confirmRevokeOthers() {
+    if (revokeOthers.isPending || lock.remaining > 0) return;
+    setFeedback(null);
+    setFailure(null);
+    setOthersFailure(null);
+    try {
+      const result = await revokeOthers.mutateAsync();
+      setConfirmOpen(false);
+      setFeedback(
+        result.revoked_count > 0
+          ? t("security.revokeOthersDone", { count: result.revoked_count })
+          : t("security.revokeOthersNoneDone"),
+      );
+    } catch (error) {
+      applyFailure(error, setOthersFailure);
+    }
+  }
+
+  const revokeOthersLabel = t("security.revokeOthers");
+
+  return (
+    <section
+      aria-labelledby="security-sessions-title"
+      className="profile-panel"
+    >
+      <div className="profile-panel__heading profile-panel__heading--actions">
+        <span className="profile-panel__icon" aria-hidden="true">
+          <MonitorSmartphone />
+        </span>
+        <div>
+          <h2 id="security-sessions-title" ref={headingRef} tabIndex={-1}>
+            {t("security.sessionsTitle")}
+          </h2>
+          <p>{t("security.sessionsDescription")}</p>
+        </div>
+        {sessionsQuery.isSuccess && (
+          <Dialog
+            onOpenChange={(open) => {
+              if (revokeOthers.isPending) return;
+              setConfirmOpen(open);
+              if (!open) setOthersFailure(null);
+            }}
+            open={confirmOpen}
+          >
+            <div className="security-sessions__bulk">
+              <DialogTrigger asChild>
+                <Button
+                  aria-describedby={
+                    otherCount === 0 ? noOthersHintId : undefined
+                  }
+                  disabled={otherCount === 0 || lock.remaining > 0}
+                  leadingIcon={<LogOut />}
+                  size="sm"
+                  variant="secondary"
+                >
+                  {lock.remaining > 0
+                    ? t("security.retryWait", {
+                        label: revokeOthersLabel,
+                        seconds: lock.remaining,
+                      })
+                    : revokeOthersLabel}
+                </Button>
+              </DialogTrigger>
+              {otherCount === 0 && (
+                <span id={noOthersHintId}>
+                  {t("security.revokeOthersNone")}
+                </span>
+              )}
+            </div>
+            <DialogContent closeLabel={t("security.dialogCloseLabel")}>
+              <DialogTitle>{t("security.revokeOthersTitle")}</DialogTitle>
+              <DialogDescription>
+                {t("security.revokeOthersDescription", { count: otherCount })}
+              </DialogDescription>
+              {othersFailure && (
+                <p className="security-sessions__dialog-error" role="alert">
+                  {failureText(othersFailure)}
+                </p>
+              )}
+              <DialogFooter>
+                <DialogClose asChild>
+                  <Button disabled={revokeOthers.isPending} variant="secondary">
+                    {t("security.cancel")}
+                  </Button>
+                </DialogClose>
+                <Button
+                  disabled={lock.remaining > 0}
+                  leadingIcon={<LogOut />}
+                  loading={revokeOthers.isPending}
+                  loadingLabel={t("security.revokeOthersRunning")}
+                  onClick={() => void confirmRevokeOthers()}
+                  variant="danger"
+                >
+                  {t("security.revokeOthersConfirm")}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        )}
+      </div>
+
+      {sessionsQuery.isPending && (
+        <SkeletonGroup label={t("security.sessionsLoading")}>
+          <Skeleton height={76} />
+          <Skeleton height={76} />
+        </SkeletonGroup>
+      )}
+
+      {sessionsQuery.isError && (
+        <SecurityQueryError
+          description={t("security.sessionsError")}
+          error={sessionsQuery.error}
+          key={sessionsQuery.errorUpdatedAt}
+          onRetry={() => void sessionsQuery.refetch()}
+          title={t("security.sessionsErrorTitle")}
+        />
+      )}
+
+      {sessionsQuery.isSuccess && sessions.length === 0 && (
+        <EmptyState
+          description={t("security.sessionsEmptyDescription")}
+          title={t("security.sessionsEmpty")}
+        />
+      )}
+
+      {sessions.length > 0 && (
+        <ul className="session-list">
+          {sessions.map((item) => {
+            const name = deviceName(item);
+            const methods = sessionMethodsText(item.auth_methods, t);
+            const isRevoking =
+              revokeSession.isPending && revokeSession.variables === item.id;
+            return (
+              <li className="session-row" key={item.id}>
+                <span className="session-row__marker" aria-hidden="true">
+                  <MonitorSmartphone />
+                </span>
+                <div className="session-row__body">
+                  <div className="session-row__title">
+                    <strong>{name}</strong>
+                    {item.is_current && (
+                      <StatusBadge tone="success">
+                        {t("security.sessionCurrent")}
+                      </StatusBadge>
+                    )}
+                  </div>
+                  {methods && (
+                    <p>{t("security.sessionMethods", { methods })}</p>
+                  )}
+                  <ul className="session-row__meta">
+                    <li>
+                      <DateLine
+                        formatter={dateFormatter}
+                        template={t("security.sessionCreated")}
+                        value={item.created_at}
+                      />
+                    </li>
+                    <li>
+                      <DateLine
+                        formatter={dateFormatter}
+                        template={t("security.sessionLastSeen")}
+                        value={item.last_seen_at}
+                      />
+                    </li>
+                    <li>
+                      <DateLine
+                        formatter={dateFormatter}
+                        template={t(
+                          item.persistent
+                            ? "security.sessionPersistent"
+                            : "security.sessionExpires",
+                        )}
+                        value={item.expires_at}
+                      />
+                    </li>
+                  </ul>
+                </div>
+                {!item.is_current && (
+                  <div className="session-row__action">
+                    <Button
+                      aria-label={t("security.sessionRevokeFor", {
+                        date: dateFormatter.format(new Date(item.created_at)),
+                        device: name,
+                      })}
+                      disabled={
+                        lock.remaining > 0 ||
+                        (revokeSession.isPending && !isRevoking)
+                      }
+                      leadingIcon={<LogOut />}
+                      loading={isRevoking}
+                      loadingLabel={t("security.sessionRevoking")}
+                      onClick={() => void handleRevoke(item)}
+                      size="sm"
+                      variant="quiet"
+                    >
+                      {t("security.sessionRevoke")}
+                    </Button>
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      <p
+        aria-live="polite"
+        className="profile-feedback profile-feedback--success security-sessions__feedback"
+        role="status"
+      >
+        {feedback}
+      </p>
+
+      {failure && (
+        <div className="profile-feedback profile-feedback--error" role="alert">
+          <span>{failureText(failure)}</span>
+        </div>
       )}
     </section>
   );
@@ -674,12 +1491,19 @@ function PasswordSettingsCard({
 
 export function ProfileSettingsPage() {
   const { language, t } = useI18n();
-  const session = useSession();
   const profileQuery = useProfileQuery();
   const identitiesQuery = useIdentitiesQuery();
+  const providersQuery = useAuthProvidersQuery();
   const beginIdentityLink = useBeginIdentityLink();
   const unlinkIdentity = useUnlinkIdentity();
+  const stepUp = useStepUpRequest();
+  const requestStepUp = stepUp.request;
+  const identityRetryRef = useRef<StepUpRetry | null>(null);
   const [identityFeedback, setIdentityFeedback] = useState<string | null>(null);
+  // A missing capability flag means an older server: keep the new cards off
+  // so the page never calls endpoints that would answer 503.
+  const deviceManagement =
+    providersQuery.data?.device_management_enabled === true;
 
   const dateFormatter = useMemo(
     () =>
@@ -690,13 +1514,21 @@ export function ProfileSettingsPage() {
     [language],
   );
 
+  function handleIdentityError(error: unknown, retry: StepUpRetry) {
+    if (isRecentAuthenticationRequired(error)) {
+      identityRetryRef.current = retry;
+      requestStepUp(retry);
+    }
+  }
+
   async function handleBeginIdentityLink() {
     setIdentityFeedback(null);
     try {
       const response = await beginIdentityLink.mutateAsync();
       window.location.assign(response.authorization_url);
-    } catch {
+    } catch (error) {
       // Mutation state renders the actionable error in the identity section.
+      handleIdentityError(error, handleBeginIdentityLink);
     }
   }
 
@@ -705,8 +1537,8 @@ export function ProfileSettingsPage() {
     try {
       await unlinkIdentity.mutateAsync(identityID);
       setIdentityFeedback(t("profile.identityUnlinked"));
-    } catch {
-      // Mutation state renders the actionable error in the identity section.
+    } catch (error) {
+      handleIdentityError(error, () => handleUnlink(identityID));
     }
   }
 
@@ -745,7 +1577,7 @@ export function ProfileSettingsPage() {
   const identities = identitiesQuery.data?.identities ?? [];
   const identityError = beginIdentityLink.error ?? unlinkIdentity.error;
   const identityNeedsReauthentication =
-    identityError instanceof APIRequestError && identityError.status === 401;
+    isRecentAuthenticationRequired(identityError);
 
   return (
     <main className="page-content profile-settings">
@@ -913,7 +1745,7 @@ export function ProfileSettingsPage() {
             >
               <span>
                 {identityNeedsReauthentication
-                  ? t("profile.reauthRequired")
+                  ? t("profile.identityReauthRequired")
                   : errorMessage(
                       identityError,
                       t("profile.identityActionError"),
@@ -921,19 +1753,37 @@ export function ProfileSettingsPage() {
               </span>
               {identityNeedsReauthentication && (
                 <Button
-                  onClick={() => session.signIn("/app/settings")}
+                  leadingIcon={<ShieldCheck />}
+                  onClick={() =>
+                    requestStepUp(identityRetryRef.current ?? undefined)
+                  }
                   size="sm"
                   variant="secondary"
                 >
-                  {t("auth.signInAgain")}
+                  {t("stepUp.open")}
                 </Button>
               )}
             </div>
           )}
         </section>
 
-        <PasswordSettingsCard dateFormatter={dateFormatter} />
+        <PasswordSettingsCard
+          dateFormatter={dateFormatter}
+          onRequestStepUp={requestStepUp}
+        />
+
+        {deviceManagement && (
+          <>
+            <SecurityOverviewCard
+              dateFormatter={dateFormatter}
+              onRequestStepUp={requestStepUp}
+            />
+            <DeviceSessionsCard dateFormatter={dateFormatter} />
+          </>
+        )}
       </div>
+
+      <StepUpAuthDialog {...stepUp.dialog} returnTo="/app/settings" />
     </main>
   );
 }

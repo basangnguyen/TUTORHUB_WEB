@@ -24,10 +24,15 @@ function isCurrentUserQuery(queryKey: readonly unknown[]) {
 
 /**
  * 401 responses that carry these problem codes reject a credential the user
- * typed (for example the current password on /me/password) while the session
- * itself stays valid, so they must not purge caches or re-check `/me`.
+ * typed (the current password on /me/password or the step-up dialog, or a
+ * step-up email code) while the session itself stays valid, so they must not
+ * purge caches or re-check `/me`. A 401 without a code still means the
+ * session is gone.
  */
-const credentialRejectionCodes = new Set(["auth_invalid_current_password"]);
+const credentialRejectionCodes = new Set([
+  "auth_invalid_current_password",
+  "auth_invalid_verification_code",
+]);
 
 function isUnauthorized(error: unknown) {
   return (

@@ -20,7 +20,13 @@ import {
   StatusBadge,
   TextField,
 } from "@tutorhub/ui";
-import { Copy, MailPlus, RefreshCw, UserMinus } from "lucide-react";
+import {
+  Copy,
+  MailPlus,
+  RefreshCw,
+  ShieldCheck,
+  UserMinus,
+} from "lucide-react";
 import { useMemo, useRef, useState, type FormEvent } from "react";
 import {
   useCreateMembershipInvitation,
@@ -29,9 +35,22 @@ import {
   type InvitableOrganizationRole,
 } from "../app/invitations";
 import { useI18n, type TranslationKey } from "../app/i18n";
+import {
+  isRecentAuthenticationRequired,
+  useStepUpRequest,
+  type StepUpRetry,
+} from "../app/security";
 import type { TenantOperationAvailability } from "../app/tenantCapabilities";
 import { shouldConcealTenantScopedData } from "../app/tenantDataAccess";
+import { StepUpAuthDialog } from "./StepUpAuthDialog";
 import { TenantOperationNotice } from "./TenantOperationNotice";
+
+type RequestStepUp = (retry?: StepUpRetry) => void;
+
+interface InvitationInput {
+  email: string;
+  intendedRole: InvitableOrganizationRole;
+}
 
 interface MembershipInvitationPanelProps {
   createAvailability: TenantOperationAvailability;
@@ -84,6 +103,9 @@ function isForbidden(error: Error | null) {
 }
 
 function invitationMutationErrorKey(error: Error | null): TranslationKey {
+  if (isRecentAuthenticationRequired(error)) {
+    return "invitation.mutationRecentAuth";
+  }
   if (
     error instanceof APIRequestError &&
     error.problem?.code === "feature_disabled"
@@ -121,6 +143,8 @@ export function MembershipInvitationPanel({
     invitationList.error,
   );
   const revokeInvitation = useRevokeMembershipInvitation();
+  const stepUp = useStepUpRequest();
+  const requestStepUp = stepUp.request;
   const [revokeTarget, setRevokeTarget] = useState<MembershipInvitation | null>(
     null,
   );
@@ -141,22 +165,30 @@ export function MembershipInvitationPanel({
     }
   };
 
-  const confirmRevoke = () => {
-    if (!revokeTarget) {
-      return;
-    }
+  const revokeInvitationFor = (target: MembershipInvitation) => {
     setFeedback(null);
     revokeInvitation.mutate(
-      { invitationID: revokeTarget.id, tenantID },
+      { invitationID: target.id, tenantID },
       {
+        onError: (error) => {
+          // The confirmation dialog stays open underneath the step-up.
+          if (isRecentAuthenticationRequired(error)) {
+            requestStepUp(() => revokeInvitationFor(target));
+          }
+        },
         onSuccess: () => {
-          setFeedback(
-            t("invitation.revokeSuccess", { email: revokeTarget.email }),
-          );
+          setFeedback(t("invitation.revokeSuccess", { email: target.email }));
           setRevokeTarget(null);
         },
       },
     );
+  };
+
+  const confirmRevoke = () => {
+    if (!revokeTarget) {
+      return;
+    }
+    revokeInvitationFor(revokeTarget);
   };
 
   if (invitationDataConcealed) {
@@ -212,6 +244,7 @@ export function MembershipInvitationPanel({
         </div>
         <CreateInvitationDialog
           availability={createAvailability}
+          onRequestStepUp={requestStepUp}
           tenantID={tenantID}
         />
       </div>
@@ -318,6 +351,20 @@ export function MembershipInvitationPanel({
               {t(invitationMutationErrorKey(revokeInvitation.error))}
             </p>
           )}
+          {isRecentAuthenticationRequired(revokeInvitation.error) &&
+            revokeTarget && (
+              <Button
+                leadingIcon={<ShieldCheck />}
+                onClick={() => {
+                  const target = revokeTarget;
+                  requestStepUp(() => revokeInvitationFor(target));
+                }}
+                size="sm"
+                variant="secondary"
+              >
+                {t("stepUp.open")}
+              </Button>
+            )}
           <DialogFooter>
             <DialogClose asChild>
               <Button disabled={revokeInvitation.isPending} variant="secondary">
@@ -335,15 +382,19 @@ export function MembershipInvitationPanel({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <StepUpAuthDialog {...stepUp.dialog} />
     </section>
   );
 }
 
 function CreateInvitationDialog({
   availability,
+  onRequestStepUp,
   tenantID,
 }: {
   availability: TenantOperationAvailability;
+  onRequestStepUp: RequestStepUp;
   tenantID: string;
 }) {
   const { t } = useI18n();
@@ -358,6 +409,7 @@ function CreateInvitationDialog({
     null,
   );
   const linkInput = useRef<HTMLInputElement>(null);
+  const lastInputRef = useRef<InvitationInput | null>(null);
 
   const resetDialog = () => {
     setEmail("");
@@ -382,19 +434,27 @@ function CreateInvitationDialog({
       return;
     }
     setEmailError(undefined);
+    await createWith({ email: normalizedEmail, intendedRole });
+  };
+
+  /** One validated request; a step-up re-sends it without retyping. */
+  async function createWith(input: InvitationInput) {
     setCopyStatus(null);
+    lastInputRef.current = input;
     try {
       const response = await createInvitation.mutateAsync({
-        email: normalizedEmail,
-        intendedRole,
+        ...input,
         tenantID,
       });
       setOneTimeURL(response.accept_url);
       createInvitation.reset();
-    } catch {
+    } catch (error) {
       // The mutation exposes its structured error in the dialog.
+      if (isRecentAuthenticationRequired(error)) {
+        onRequestStepUp(() => createWith(input));
+      }
     }
-  };
+  }
 
   const copyLink = async () => {
     if (!oneTimeURL) {
@@ -494,6 +554,19 @@ function CreateInvitationDialog({
               <p className="membership-invitations__error" role="alert">
                 {t(invitationMutationErrorKey(createInvitation.error))}
               </p>
+            )}
+            {isRecentAuthenticationRequired(createInvitation.error) && (
+              <Button
+                leadingIcon={<ShieldCheck />}
+                onClick={() => {
+                  const input = lastInputRef.current;
+                  onRequestStepUp(input ? () => createWith(input) : undefined);
+                }}
+                size="sm"
+                variant="secondary"
+              >
+                {t("stepUp.open")}
+              </Button>
             )}
             <DialogFooter>
               <DialogClose asChild>

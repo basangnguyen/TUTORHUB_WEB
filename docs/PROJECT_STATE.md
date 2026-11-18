@@ -4,18 +4,60 @@
 
 ## Snapshot
 
-| Thuộc tính           | Trạng thái                                                                                                                                 |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| Ngày cập nhật        | 2026-11-18                                                                                                                                 |
-| Repository           | `https://github.com/basangnguyen/TUTORHUB_WEB`                                                                                             |
-| Nhánh làm việc       | `main`                                                                                                                                     |
-| Quy trình            | Antigravity làm PM/Gatekeeper điều phối Codex và Claude Code qua prompt; Antigravity nghiệm thu và commit/push thẳng `main`                |
-| Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4, Phase 5 collaboration                                                                                  |
-| Phase hiện tại       | Phase 3 deferred carry-over vẫn hoạt động; Phase 5 collaboration đã đóng                                                                   |
-| Task `DONE` gần nhất | `AUTH-04A` Server + OpenAPI: Quản lý phiên/thiết bị, Step-up `/api/v1/auth/reauth` (`10` phút) & Tổng quan bảo mật `/me/security` (`DONE`) |
-| Mốc repository mới   | `AUTH-04A` `DONE` (`29/29` suite PostgreSQL disposable & exact ACL PASS `0` SKIP + `pnpm verify` PASS; schema `000044`)                    |
-| Task hiện tại        | Giao `AUTH-04B` cho Claude Code (UI + E2E: Hộp thoại step-up dùng chung, danh sách phương thức & quản lý phiên/thiết bị `/app/settings`)   |
-| Task tiếp theo       | Nghiệm thu `AUTH-04B` để đóng `AUTH-04`, sau đó mở `AUTH-05` (Google OAuth2/OIDC + Provider Registry + Link Intent)                        |
+| Thuộc tính           | Trạng thái                                                                                                                          |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Ngày cập nhật        | 2026-11-18                                                                                                                          |
+| Repository           | `https://github.com/basangnguyen/TUTORHUB_WEB`                                                                                      |
+| Nhánh làm việc       | `main`                                                                                                                              |
+| Quy trình            | Antigravity làm PM/Gatekeeper điều phối Codex và Claude Code qua prompt; Antigravity nghiệm thu và commit/push thẳng `main`         |
+| Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4, Phase 5 collaboration                                                                           |
+| Phase hiện tại       | Phase 3 deferred carry-over vẫn hoạt động; Phase 5 collaboration đã đóng                                                            |
+| Task `DONE` gần nhất | `AUTH-04B` Giao diện Hộp thoại Step-up dùng chung, Phương thức đăng nhập & Quản lý thiết bị/phiên + Playwright (`AUTH-04` `DONE`)   |
+| Mốc repository mới   | Trọn gói `AUTH-04` `DONE` (web `574` unit test; Playwright native auth `4/4` + hồi quy OIDC `p2-08` PASS trên Chromium thật)        |
+| Task hiện tại        | Giao `AUTH-05A` cho Codex (Server + Migration `000045` + OpenAPI: Provider Registry, Anti-Mix-Up, Link Intent & Google OIDC)        |
+| Task tiếp theo       | Nghiệm thu `AUTH-05A`, sau đó giao `AUTH-05B` cho Claude Code (Nút Google, màn hình xác nhận Link Intent & liên kết trong Settings) |
+
+### Checkpoint `AUTH-04B` Hộp thoại Step-up dùng chung, Phương thức đăng nhập & Quản lý thiết bị/phiên (`AUTH-04` `DONE`) — 2026-11-18
+
+Claude Code triển khai lát cắt Web UI + Playwright E2E của `AUTH-04` và đã qua Gatekeeper (Antigravity) kiểm
+chứng trực tiếp trên trình duyệt Chromium thật kết nối Go Core API + PostgreSQL disposable:
+
+- **Global `401` Guard & Hook bảo mật (`queryClient.ts`, `security.ts`)**: Bổ sung `auth_invalid_verification_code`
+  bên cạnh `auth_invalid_current_password` trong `credentialRejectionCodes` để nhập sai mã OTP step-up không xóa
+  cache hay đăng xuất toàn ứng dụng; `401` không code tiếp tục xóa cache như cũ. Module `apps/web/src/app/security.ts`
+  cung cấp các query `/me/security`, `/me/login-methods`, `/me/sessions` (không tự retry `4xx`/`503`), các
+  mutation step-up/gửi mã/thu hồi phiên (`gcTime: 0`, xoay CSRF trước POST, đồng bộ lại CSRF và làm mới
+  `["auth","me"]` + dữ liệu bảo mật sau khi step-up thành công) và `useStepUpRequest()` tự chạy lại đúng một lần
+  thao tác bị chặn sau khi xác nhận thành công.
+- **Hộp thoại `StepUpAuthDialog` ("Xác nhận đó là bạn") & Nối thao tác nhạy cảm**: Chỉ gọi API khi mở; khi
+  `device_management_enabled` thiếu/tắt giữ nguyên fallback OIDC `signIn` / native `signOut`. Khi bật, ưu tiên
+  `password` → `email_code` (cooldown `60s`, nhắc hết hạn, gửi lại, xóa ngay mật khẩu/OTP khỏi state sau request,
+  trả focus về nút kích hoạt trước khi chạy lại thao tác bị chặn). Đã nối vào đặt/đổi mật khẩu, liên kết/gỡ
+  identity (chuyển sang nhận diện chuẩn `403 auth_recent_authentication_required`) và tạo/thu hồi lời mời trong
+  `MembershipInvitationPanel`.
+- **Thẻ "Bảo mật tài khoản" & "Thiết bị đang đăng nhập" trên `/app/settings`**: Chỉ hiển thị khi
+  `providers.device_management_enabled === true` (thiếu cờ không gọi endpoint nào); hiển thị trạng thái xác minh
+  email, mật khẩu, MFA, cửa sổ xác thực gần đây kèm nút "Xác nhận ngay", danh sách phương thức đăng nhập song ngữ
+  `vi`/`en`, danh sách phiên hoạt động (xếp "Thiết bị này" lên đầu, không cho tự revoke phiên hiện tại, nút đăng
+  xuất từng thiết bị khác và hộp xác nhận "Đăng xuất khỏi các thiết bị khác" hiển thị số phiên đã thu hồi).
+- **Bằng chứng kiểm chứng Gatekeeper**:
+  - Toàn kho `pnpm verify` PASS (`574/574` web unit tests trên `76` file, `@tutorhub/api-client` `83/83`,
+    security `86/86`, `e2e-local` script `11/11`, bundle security `201` file).
+  - Playwright Chromium thật trên DB disposable (`44 false`, xóa sạch DB sau khi chạy):
+    - **Phase A (bật cờ native + device management)**: **`4/4` PASS (`3,1` phút)** — gồm `auth-02` ×2, `auth-03`
+      ×1 và `auth-04-device-sessions-stepup.spec.ts` ×1 (`Chrome · Windows` + `Firefox · Linux` + `Safari · macOS`,
+      thu hồi đơn lẻ `204` làm phiên đích nhận `401`, thu hồi hàng loạt `revoked_count: 1`, step-up mật khẩu từ
+      banner — gõ sai mật khẩu nhận `401 auth_invalid_current_password` vẫn giữ phiên, gõ đúng xoay cookie phiên —
+      và đổi mật khẩu bị chặn `403 auth_recent_authentication_required` tự hoàn tất sau step-up bằng mã email qua
+      `devinbox`, mutation CSRF tiếp theo `PATCH /me/profile` trả `200`, Axe `0` vi phạm serious/critical, cookie
+      `HttpOnly`, không lộ secret/token vào Web Storage).
+    - **Phase B (tắt toàn bộ cờ native, kiểm tra hồi quy OIDC)**: `e2e/p2-08-core-workflows.spec.ts` **PASS
+      (`4,6` phút)**.
+- **Giới hạn đã ghi nhận**: Spec E2E tiêm tín hiệu `403 auth_recent_authentication_required` / hết hạn cửa sổ một
+  lần qua `page.route` vì phiên E2E mới tạo luôn trẻ hơn cửa sổ cố định `10` phút trên server (toàn bộ bước xác
+  thực lại, `devinbox`, xoay cookie, chạy lại thao tác và thu hồi phiên đều chạy với Core API thật); giao diện
+  chuyển chủ sở hữu lớp học chưa mở trên web nên chưa nối hộp thoại step-up; `AUTH_DEVICE_MANAGEMENT_ENABLED` tiếp
+  tục mặc định `false` trên shared/staging/production.
 
 ### Checkpoint `AUTH-04A` Quản lý phiên/thiết bị, Step-up Re-authentication & Tổng quan bảo mật phía Server `DONE` — 2026-11-18
 
