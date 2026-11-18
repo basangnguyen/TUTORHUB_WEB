@@ -22,6 +22,10 @@ const (
 	AuthRateLimitReauthSendIP       InvitationRateLimitAction = "auth.reauth.send.ip"
 	AuthRateLimitSessionRevokeUser  InvitationRateLimitAction = "auth.session.revoke.user"
 	AuthRateLimitSessionRevokeIP    InvitationRateLimitAction = "auth.session.revoke.ip"
+	AuthRateLimitOAuthStartIP       InvitationRateLimitAction = "auth.oauth.start.ip"
+	AuthRateLimitOAuthCallbackIP    InvitationRateLimitAction = "auth.oauth.callback.ip"
+	AuthRateLimitLinkIntentIP       InvitationRateLimitAction = "auth.link_intent.ip"
+	AuthRateLimitLinkIntentUser     InvitationRateLimitAction = "auth.link_intent.user"
 )
 
 func authRateLimitPolicies(emailQuota, phoneQuota int) map[InvitationRateLimitAction]invitationRateLimitPolicy {
@@ -40,6 +44,10 @@ func authRateLimitPolicies(emailQuota, phoneQuota int) map[InvitationRateLimitAc
 		AuthRateLimitReauthSendIP:       {Limit: 20, Window: time.Hour},
 		AuthRateLimitSessionRevokeUser:  {Limit: 20, Window: time.Minute},
 		AuthRateLimitSessionRevokeIP:    {Limit: 60, Window: time.Minute},
+		AuthRateLimitOAuthStartIP:       {Limit: 30, Window: 15 * time.Minute},
+		AuthRateLimitOAuthCallbackIP:    {Limit: 60, Window: 15 * time.Minute},
+		AuthRateLimitLinkIntentIP:       {Limit: 30, Window: 15 * time.Minute},
+		AuthRateLimitLinkIntentUser:     {Limit: 10, Window: 15 * time.Minute},
 	}
 }
 

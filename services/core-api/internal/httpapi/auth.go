@@ -92,6 +92,12 @@ func (handlers authHandlers) callback(w http.ResponseWriter, r *http.Request) {
 	if !handlers.available(w, r) {
 		return
 	}
+	query := r.URL.Query()
+	if len(query["iss"]) > 1 || (query.Has("iss") && strings.TrimSpace(query.Get("iss")) == "") {
+		handlers.clearCookie(w, handlers.cookieNames.flow)
+		handlers.writeIdentityProblem(w, r, identity.ErrInvalidAuthFlow)
+		return
+	}
 	if providerError := strings.TrimSpace(r.URL.Query().Get("error")); providerError != "" {
 		handlers.clearCookie(w, handlers.cookieNames.flow)
 		writeProblem(
@@ -113,6 +119,7 @@ func (handlers authHandlers) callback(w http.ResponseWriter, r *http.Request) {
 		State:          r.URL.Query().Get("state"),
 		BrowserBinding: flowCookie.Value,
 		Code:           r.URL.Query().Get("code"),
+		Issuer:         r.URL.Query().Get("iss"),
 		UserAgent:      r.UserAgent(),
 		RemoteAddress:  r.RemoteAddr,
 	})

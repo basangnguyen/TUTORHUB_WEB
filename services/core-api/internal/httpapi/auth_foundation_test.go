@@ -37,6 +37,8 @@ func TestAuthProvidersExposeOnlyPublicDeploymentCapabilities(t *testing.T) {
 	cfg.Authentication.Enabled = true
 	cfg.Authentication.OIDCEnabled = true
 	cfg.Authentication.ProviderGoogleEnabled = true
+	cfg.Authentication.GoogleClientID = "google-fixture-client"
+	cfg.Authentication.GoogleClientSecret = "google-fixture-secret"
 	cfg.Authentication.PasswordEnabled = true
 	response := performRequest(NewHandlerWithOptions(cfg, nil, Options{}), http.MethodGet, "/api/v1/auth/providers", "")
 	payload := append([]byte(nil), response.Body.Bytes()...)
@@ -98,6 +100,7 @@ func TestAuthDiscoveryClassifiesWithoutAccountLookupOrPII(t *testing.T) {
 		{"  STUDENT@example.test  ", "email"}, {"Student <student@example.test>", "invalid"},
 		{"+84 912 345 678", "phone"}, {"0912345678", "phone"}, {"invalid", "invalid"}, {"123", "invalid"},
 	} {
+		logs.Reset()
 		body, _ := json.Marshal(authIdentifierRequest{Identifier: tc.identifier})
 		w := httptest.NewRecorder()
 		handler.ServeHTTP(w, authDiscoveryRequest(string(body)))
@@ -105,7 +108,14 @@ func TestAuthDiscoveryClassifiesWithoutAccountLookupOrPII(t *testing.T) {
 		if w.Code != http.StatusOK || w.Body.String() != want {
 			t.Fatalf("classification mismatch: %d %s", w.Code, w.Body.String())
 		}
-		if strings.Contains(logs.String(), tc.identifier) {
+		// Short identifiers can occur by chance inside a request ID or timestamp.
+		// Match those as JSON string values; retain substring checks for PII.
+		needle := tc.identifier
+		if len(needle) < 8 {
+			quoted, _ := json.Marshal(needle)
+			needle = string(quoted)
+		}
+		if strings.Contains(logs.String(), needle) {
 			t.Fatal("identifier leaked into structured log")
 		}
 	}

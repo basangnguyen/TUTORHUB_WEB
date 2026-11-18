@@ -90,7 +90,7 @@ func ensureNativeEmailIdentity(ctx context.Context, tx pgx.Tx, userID uuid.UUID,
         (user_id,provider,subject,email_at_provider,email_verified,kind,provider_slug,status,last_authenticated_at,created_at,updated_at)
         VALUES($1,'urn:tutorhub:email',$2,$3,true,'email','email','active',$4,$4,$4)
         ON CONFLICT (provider,subject) DO UPDATE SET
-            email_at_provider=EXCLUDED.email_at_provider,email_verified=true,provider_slug='email',
+            email_at_provider=EXCLUDED.email_at_provider,email_verified=true,
             status='active',unlinked_at=NULL,last_authenticated_at=$4,updated_at=$4
         WHERE tutorhub.identities.user_id=$1 AND tutorhub.identities.kind='email'
         RETURNING id`, userID, userID.String(), email, now).Scan(&identityID)

@@ -118,6 +118,63 @@ export type paths = {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/api/v1/auth/link-intent": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /** Read a masked preview of the pending account-linking request */
+    readonly get: operations["getLinkIntent"];
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/auth/link-intent/cancel": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Cancel a pending linking request and clear its cookie
+     * @description Requires the same Origin and the separate HttpOnly link_tx cookie. A session is not needed so cancellation also works before signing in to the target account. No identity is linked. Missing, expired or consumed intent returns 400 auth_link_intent_unavailable and clears the stale cookie.
+     */
+    readonly post: operations["cancelLinkIntent"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/auth/link-intent/confirm": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Explicitly link a pending provider identity to the authenticated account
+     * @description Requires the exact target user, CSRF, same Origin and account assurance. Atomically links or relinks the identity, consumes the transaction, revokes other sessions and rotates the current session and CSRF. Clears only the separate link_tx cookie. Wrong user returns 403 auth_link_intent_mismatch; insufficient assurance returns 403 auth_assurance_required; unavailable, expired or consumed intent returns 400 auth_link_intent_unavailable.
+     */
+    readonly post: operations["confirmLinkIntent"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/api/v1/auth/login": {
     readonly parameters: {
       readonly query?: never;
@@ -146,6 +203,46 @@ export type paths = {
     readonly put?: never;
     /** Revoke the current TutorHub session */
     readonly post: operations["logout"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/auth/oauth/{provider}/callback": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /**
+     * Complete a provider-bound single-use OAuth flow
+     * @description The callback provider must match the consumed flow, and iss must match the provider when supplied. All callback failures redirect to /sign-in?error=<fixed_code>; provider error details, authorization codes and token claims are never returned. Email collisions and unlinked identities create a separate HttpOnly link_tx cookie and redirect to /sign-in?link=pending&provider=google without creating a session. Successful login or reauthentication sets opaque session and CSRF cookies.
+     */
+    readonly get: operations["completeOAuth"];
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/auth/oauth/{provider}/start": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /**
+     * Start a provider-bound OAuth login or federated reauthentication flow
+     * @description Uses PKCE S256, nonce, state and a browser-binding cookie. Reauthentication requires an existing session and requests prompt=login and max_age=0. Unknown or disabled providers return 404. return_to is validated by the existing server return-path sanitizer.
+     */
+    readonly get: operations["beginOAuth"];
+    readonly put?: never;
+    readonly post?: never;
     readonly delete?: never;
     readonly options?: never;
     readonly head?: never;
@@ -1835,7 +1932,7 @@ export type paths = {
     readonly put?: never;
     /**
      * Begin a recent-authenticated external identity linking flow
-     * @description Recent authentication failures return 403 with code auth_recent_authentication_required.
+     * @description Recent authentication failures return 403 with code auth_recent_authentication_required. Empty body or an empty object preserves the existing oidc default; an optional provider selects google.
      */
     readonly post: operations["beginIdentityLink"];
     readonly delete?: never;
@@ -4443,6 +4540,7 @@ export type components = {
       readonly email: string;
     };
     readonly EmptyAuthRequest: Record<string, never>;
+    readonly EmptyObject: Record<string, never>;
     readonly ExternalCalendarRSVPMutationResponse: {
       readonly projection: components["schemas"]["ExternalCalendarRSVPProjection"];
       readonly replayed: boolean;
@@ -4571,6 +4669,13 @@ export type components = {
     readonly HomeRecentFilePage: {
       readonly items: readonly components["schemas"]["HomeRecentFile"][];
     };
+    readonly IdentityLinkRequest: {
+      /**
+       * @description Optional; omission selects the legacy oidc provider.
+       * @enum {string}
+       */
+      readonly provider?: "oidc" | "google";
+    };
     readonly IdentityLinkResponse: {
       /** Format: uri */
       readonly authorization_url: string;
@@ -4608,6 +4713,19 @@ export type components = {
       readonly classroom: components["schemas"]["Class"];
       readonly enrollment: components["schemas"]["ClassEnrollment"] | null;
       readonly joined: boolean;
+    };
+    readonly LinkIntentConfirmResponse: {
+      /** @description Server-sanitized relative return path from the original OAuth flow */
+      readonly return_to: string;
+      /** @constant */
+      readonly status: "linked";
+    };
+    readonly LinkIntentResponse: {
+      readonly expires_in_seconds: number;
+      /** @description Masked destination only; never the complete email address */
+      readonly masked_email: string;
+      /** @enum {string} */
+      readonly provider: "oidc" | "google";
     };
     readonly LivenessResponse: {
       /** @constant */
@@ -6311,6 +6429,15 @@ export type components = {
         readonly "application/json": components["schemas"]["AvailabilityPoll"];
       };
     };
+    /** @description The request or its single-use authentication transaction is invalid */
+    readonly BadRequestResponse: {
+      headers: {
+        readonly [name: string]: unknown;
+      };
+      content: {
+        readonly "application/problem+json": components["schemas"]["Problem"];
+      };
+    };
     /** @description The request conflicts with the current resource state or version */
     readonly ConflictResponse: {
       headers: {
@@ -6341,6 +6468,16 @@ export type components = {
     /** @description Request failed with a structured problem response */
     readonly ProblemResponse: {
       headers: {
+        readonly [name: string]: unknown;
+      };
+      content: {
+        readonly "application/problem+json": components["schemas"]["Problem"];
+      };
+    };
+    /** @description Authentication rate limit exceeded */
+    readonly TooManyRequestsResponse: {
+      headers: {
+        readonly "Retry-After"?: string;
         readonly [name: string]: unknown;
       };
       content: {
@@ -6382,6 +6519,7 @@ export type components = {
     readonly CSRFToken: string;
     /** @description Active workspace assertion used to prevent confused-deputy mutations and reads. */
     readonly ExpectedTenantID: string;
+    readonly FederationProvider: "oidc" | "google";
     /** @description Opaque RoomInstance-scoped participant key; never a user, session, or provider identity. */
     readonly MediaParticipantKeyPath: string;
     readonly PollID: string;
@@ -6584,6 +6722,97 @@ export interface operations {
       readonly default: components["responses"]["ProblemResponse"];
     };
   };
+  readonly getLinkIntent: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Only provider, masked email and remaining lifetime are returned */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["LinkIntentResponse"];
+        };
+      };
+      /** @description No usable linking transaction (auth_link_intent_unavailable) */
+      readonly 404: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly cancelLinkIntent: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly Origin: string;
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["EmptyObject"];
+      };
+    };
+    readonly responses: {
+      /** @description Linking request cancelled */
+      readonly 204: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content?: never;
+      };
+      readonly 400: components["responses"]["BadRequestResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 429: components["responses"]["TooManyRequestsResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly confirmLinkIntent: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly Origin: string;
+        readonly "X-CSRF-Token": string;
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["EmptyObject"];
+      };
+    };
+    readonly responses: {
+      /** @description Identity linked and session cookies rotated; discard cached CSRF */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["LinkIntentConfirmResponse"];
+        };
+      };
+      readonly 400: components["responses"]["BadRequestResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 429: components["responses"]["TooManyRequestsResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
   readonly beginLogin: {
     readonly parameters: {
       readonly query?: {
@@ -6628,6 +6857,69 @@ export interface operations {
           readonly "application/json": components["schemas"]["LogoutResponse"];
         };
       };
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly completeOAuth: {
+    readonly parameters: {
+      readonly query?: {
+        readonly code?: string;
+        readonly error?: string;
+        readonly iss?: string;
+        readonly state?: string;
+      };
+      readonly header?: never;
+      readonly path: {
+        readonly provider: components["parameters"]["FederationProvider"];
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Success return path, pending link confirmation, or a fixed sign-in error (authentication_failed, signup_disabled, email_unverified, provider_unavailable, assurance_required, rate_limited, temporarily_unavailable) */
+      readonly 303: {
+        headers: {
+          readonly Location?: string;
+          readonly [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  readonly beginOAuth: {
+    readonly parameters: {
+      readonly query?: {
+        readonly intent?: "login" | "reauth";
+        readonly return_to?: string;
+      };
+      readonly header?: never;
+      readonly path: {
+        readonly provider: components["parameters"]["FederationProvider"];
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Redirect to the selected provider with a short-lived browser binding cookie */
+      readonly 303: {
+        headers: {
+          readonly Location?: string;
+          readonly [name: string]: unknown;
+        };
+        content?: never;
+      };
+      readonly 400: components["responses"]["BadRequestResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      /** @description Provider unavailable (auth_provider_unavailable) */
+      readonly 404: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      readonly 429: components["responses"]["TooManyRequestsResponse"];
       readonly default: components["responses"]["ProblemResponse"];
     };
   };
@@ -10164,7 +10456,11 @@ export interface operations {
       readonly path?: never;
       readonly cookie?: never;
     };
-    readonly requestBody?: never;
+    readonly requestBody?: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["IdentityLinkRequest"];
+      };
+    };
     readonly responses: {
       /** @description Provider authorization URL for the one-time linking flow */
       readonly 200: {

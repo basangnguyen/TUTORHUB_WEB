@@ -107,6 +107,7 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 		requireMethod(http.MethodGet, apiStatusHandler(cfg, logger, options.Clock)),
 	)
 	auth := newAuthHandlers(cfg, logger, options.Identity, options.Clock)
+	federation := federationHandlers{auth: auth, limiter: options.AuthRateLimiter}
 	nativeAuth := nativeAuthHandlers{auth: auth, service: options.NativeAuth, limiter: options.AuthRateLimiter}
 	for path, handler := range map[string]http.HandlerFunc{
 		"/api/v1/auth/signup/email/start":         nativeAuth.startEmailSignup,
@@ -163,6 +164,11 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 	}
 	mux.Handle("/api/v1/auth/login", requireMethod(http.MethodGet, http.HandlerFunc(auth.login)))
 	mux.Handle("/api/v1/auth/callback", requireMethod(http.MethodGet, http.HandlerFunc(auth.callback)))
+	mux.Handle("/api/v1/auth/oauth/{provider}/start", authFoundationResponseHeaders(requireMethod(http.MethodGet, http.HandlerFunc(federation.start))))
+	mux.Handle("/api/v1/auth/oauth/{provider}/callback", authFoundationResponseHeaders(requireMethod(http.MethodGet, http.HandlerFunc(federation.callback))))
+	mux.Handle("/api/v1/auth/link-intent", authFoundationResponseHeaders(requireMethod(http.MethodGet, http.HandlerFunc(federation.preview))))
+	mux.Handle("/api/v1/auth/link-intent/confirm", preAuthGuard(cfg.WebOrigin, requireMethod(http.MethodPost, http.HandlerFunc(federation.confirm))))
+	mux.Handle("/api/v1/auth/link-intent/cancel", preAuthGuard(cfg.WebOrigin, requireMethod(http.MethodPost, http.HandlerFunc(federation.cancel))))
 	mux.Handle("/api/v1/auth/csrf", requireMethod(http.MethodGet, http.HandlerFunc(auth.csrf)))
 	mux.Handle("/api/v1/auth/logout", requireMethod(http.MethodPost, http.HandlerFunc(auth.logout)))
 	mux.Handle("/api/v1/me", requireMethod(http.MethodGet, http.HandlerFunc(auth.me)))

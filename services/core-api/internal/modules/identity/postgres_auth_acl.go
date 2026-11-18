@@ -23,7 +23,8 @@ var authFoundationUpdates = map[string][]string{
 // environment's runtime role, using a separate privileged database connection.
 // The dedicated runtime role must have no role memberships, including NOINHERIT
 // memberships: SET ROLE could otherwise bypass the effective ACL checks below.
-// Existing identities/sessions grants are left unchanged.
+// Existing read/insert grants remain; federation updates are restricted to
+// mutable fields. Existing auth_flows cleanup permissions are not broadened.
 func ProvisionAuthFoundationRuntimeACL(ctx context.Context, database Database, runtimeRole string) error {
 	if database == nil || strings.TrimSpace(runtimeRole) == "" {
 		return errors.New("authentication ACL provisioning requires database and runtime role")
@@ -46,7 +47,7 @@ func ProvisionAuthFoundationRuntimeACL(ctx context.Context, database Database, r
         AND pg_has_role(r.oid, c.relowner, 'MEMBER')
     )
 FROM pg_roles r WHERE r.rolname = $1`, runtimeRole,
-		[]string{"auth_transactions", "auth_challenges", "auth_challenge_deliveries", "user_password_credentials", "user_legal_acceptances", "users", "sessions", "identities"}).Scan(&safe)
+		[]string{"auth_transactions", "auth_challenges", "auth_challenge_deliveries", "user_password_credentials", "user_legal_acceptances", "users", "sessions", "identities", "auth_flows"}).Scan(&safe)
 	if err != nil || !safe {
 		return errors.New("authentication ACL runtime role safety preflight failed")
 	}
@@ -125,8 +126,58 @@ FROM pg_roles r WHERE r.rolname = $1`, runtimeRole,
         AND has_column_privilege($1,'tutorhub.sessions','persistent','UPDATE')`, runtimeRole).Scan(&sessionDelete, &sessionMetadataOK); err != nil || sessionDelete || !sessionMetadataOK {
 		return errors.New("session runtime privileges are invalid")
 	}
+	if err := provisionFederationColumnACL(ctx, tx, runtimeRole); err != nil {
+		return err
+	}
 	if err := tx.Commit(ctx); err != nil {
 		return errors.New("commit authentication ACL provisioning")
+	}
+	return nil
+}
+
+func provisionFederationColumnACL(ctx context.Context, tx pgx.Tx, runtimeRole string) error {
+	role := pgx.Identifier{runtimeRole}.Sanitize()
+	for _, entry := range []struct {
+		table               string
+		foundation, updates []string
+	}{
+		{"auth_flows", []string{"provider"}, []string{"consumed_at"}},
+		{"identities", []string{"kind", "provider_slug", "provider_org_id", "provider_stable_id"},
+			[]string{"status", "unlinked_at", "email_at_provider", "email_verified", "last_authenticated_at", "updated_at"}},
+	} {
+		columns, err := authRelationColumns(ctx, tx, entry.table)
+		if err != nil {
+			return err
+		}
+		relation := pgx.Identifier{"tutorhub", entry.table}.Sanitize()
+		// A prior table-level UPDATE would implicitly permit changing provider or
+		// identity ownership. Remove both table and column UPDATE before granting
+		// the exact mutable set; preserve established reads/inserts and cleanup.
+		for _, grantee := range []string{role, "PUBLIC"} {
+			if _, err := tx.Exec(ctx, fmt.Sprintf("REVOKE UPDATE ON TABLE %s FROM %s", relation, grantee)); err != nil {
+				return errors.New("revoke broad federation updates")
+			}
+			if _, err := tx.Exec(ctx, fmt.Sprintf("REVOKE UPDATE (%s) ON TABLE %s FROM %s", authQuotedColumns(columns), relation, grantee)); err != nil {
+				return errors.New("revoke federation column updates")
+			}
+		}
+		foundation := authQuotedColumns(entry.foundation)
+		if _, err := tx.Exec(ctx, fmt.Sprintf("GRANT SELECT (%[1]s), INSERT (%[1]s) ON TABLE %[2]s TO %[3]s", foundation, relation, role)); err != nil {
+			return errors.New("grant federation metadata read and insert")
+		}
+		if _, err := tx.Exec(ctx, fmt.Sprintf("GRANT UPDATE (%s) ON TABLE %s TO %s", authQuotedColumns(entry.updates), relation, role)); err != nil {
+			return errors.New("grant mutable federation state updates")
+		}
+		for _, column := range columns {
+			var read, insert, update, grantOption bool
+			if err := tx.QueryRow(ctx, `SELECT has_column_privilege($1,$2,$3,'SELECT'),
+                has_column_privilege($1,$2,$3,'INSERT'),has_column_privilege($1,$2,$3,'UPDATE'),
+                has_column_privilege($1,$2,$3,'UPDATE WITH GRANT OPTION')`, runtimeRole, "tutorhub."+entry.table, column).
+				Scan(&read, &insert, &update, &grantOption); err != nil || grantOption || update != slices.Contains(entry.updates, column) ||
+				(slices.Contains(entry.foundation, column) && (!read || !insert)) {
+				return errors.New("federation runtime column privileges are not exact")
+			}
+		}
 	}
 	return nil
 }

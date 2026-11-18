@@ -141,6 +141,10 @@ type AuthenticationConfig struct {
 	SSODomainsEnabled            bool
 	ProviderOIDCDefaultEnabled   bool
 	ProviderGoogleEnabled        bool
+	GoogleClientID               string
+	GoogleClientSecret           string
+	GoogleIssuerURL              string
+	GoogleCallbackURL            string
 	ProviderFacebookEnabled      bool
 	ProviderMicrosoftEnabled     bool
 	ProviderAppleEnabled         bool
@@ -1054,8 +1058,9 @@ func authenticationConfig(
 		MembershipInvitationTTL: invitationTTL,
 	}
 	configureAuthFoundation(&config, lookup, environment, validationErrors)
+	configureGoogleProvider(&config, lookup, environment, apiOrigin, validationErrors)
 	config.OIDCEnabled = config.ProviderOIDCDefaultEnabled && enabled
-	nativeEnabled := config.SignupEnabled || config.PasswordEnabled || config.EmailCodeEnabled || config.DeviceManagementEnabled
+	nativeEnabled := config.SignupEnabled || config.PasswordEnabled || config.EmailCodeEnabled || config.DeviceManagementEnabled || config.ProviderGoogleEnabled
 	config.Enabled = enabled || nativeEnabled
 	if nativeEnabled && strings.TrimSpace(valueOrDefault(lookup, "DATABASE_POOL_URL", "")) == "" {
 		*validationErrors = append(*validationErrors, fmt.Errorf("DATABASE_POOL_URL is required when native authentication is enabled"))

@@ -1,6 +1,9 @@
 package httpapi
 
 import (
+	"bytes"
+	"encoding/json"
+	"io"
 	"net/http"
 	"strings"
 
@@ -127,9 +130,50 @@ func (handlers authHandlers) beginIdentityLink(w http.ResponseWriter, r *http.Re
 	if !ok {
 		return
 	}
-	start, err := handlers.identity.BeginIdentityLink(r.Context(), principal)
+	provider := "oidc"
+	// Empty bodies remain supported by existing clients. Nonempty bodies use
+	// the same bounded, duplicate-key rejecting JSON decoder as other mutations.
+	raw, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 512))
 	if err != nil {
-		handlers.writeIdentityProblem(w, r, err)
+		writeProblem(w, r, http.StatusBadRequest, "Invalid request", "Provide a supported identity provider.")
+		return
+	}
+	if len(bytes.TrimSpace(raw)) > 0 {
+		r.Body = io.NopCloser(bytes.NewReader(raw))
+		var body struct {
+			Provider json.RawMessage `json:"provider"`
+		}
+		if err := decodeJSONRequest(w, r, &body, 512); err != nil {
+			writeProblem(w, r, http.StatusBadRequest, "Invalid request", "Provide a supported identity provider.")
+			return
+		}
+		if len(body.Provider) > 0 {
+			if string(body.Provider) == "null" || json.Unmarshal(body.Provider, &provider) != nil {
+				writeProblem(w, r, http.StatusBadRequest, "Invalid request", "Provide a supported identity provider.")
+				return
+			}
+		}
+	}
+	var start identity.LoginStart
+	if provider == "oidc" {
+		start, err = handlers.identity.BeginIdentityLink(r.Context(), principal)
+	} else if provider == "google" {
+		service, ok := handlers.identity.(identity.FederationAPI)
+		if !ok || !googleFederationEnabled(handlers.config.Authentication) {
+			writeFederationProviderUnavailable(w, r)
+			return
+		}
+		start, err = service.BeginProviderIdentityLink(r.Context(), principal, provider)
+	} else {
+		writeFederationProviderUnavailable(w, r)
+		return
+	}
+	if err != nil {
+		if provider == "google" {
+			(federationHandlers{auth: handlers}).writeError(w, r, err, false)
+		} else {
+			handlers.writeIdentityProblem(w, r, err)
+		}
 		return
 	}
 

@@ -4,18 +4,52 @@
 
 ## Snapshot
 
-| Thuộc tính           | Trạng thái                                                                                                                          |
-| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| Ngày cập nhật        | 2026-11-18                                                                                                                          |
-| Repository           | `https://github.com/basangnguyen/TUTORHUB_WEB`                                                                                      |
-| Nhánh làm việc       | `main`                                                                                                                              |
-| Quy trình            | Antigravity làm PM/Gatekeeper điều phối Codex và Claude Code qua prompt; Antigravity nghiệm thu và commit/push thẳng `main`         |
-| Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4, Phase 5 collaboration                                                                           |
-| Phase hiện tại       | Phase 3 deferred carry-over vẫn hoạt động; Phase 5 collaboration đã đóng                                                            |
-| Task `DONE` gần nhất | `AUTH-04B` Giao diện Hộp thoại Step-up dùng chung, Phương thức đăng nhập & Quản lý thiết bị/phiên + Playwright (`AUTH-04` `DONE`)   |
-| Mốc repository mới   | Trọn gói `AUTH-04` `DONE` (web `574` unit test; Playwright native auth `4/4` + hồi quy OIDC `p2-08` PASS trên Chromium thật)        |
-| Task hiện tại        | Giao `AUTH-05A` cho Codex (Server + Migration `000045` + OpenAPI: Provider Registry, Anti-Mix-Up, Link Intent & Google OIDC)        |
-| Task tiếp theo       | Nghiệm thu `AUTH-05A`, sau đó giao `AUTH-05B` cho Claude Code (Nút Google, màn hình xác nhận Link Intent & liên kết trong Settings) |
+| Thuộc tính           | Trạng thái                                                                                                                      |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| Ngày cập nhật        | 2026-11-18                                                                                                                      |
+| Repository           | `https://github.com/basangnguyen/TUTORHUB_WEB`                                                                                  |
+| Nhánh làm việc       | `main`                                                                                                                          |
+| Quy trình            | Antigravity làm PM/Gatekeeper điều phối Codex và Claude Code qua prompt; Antigravity nghiệm thu và commit/push thẳng `main`     |
+| Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4, Phase 5 collaboration                                                                       |
+| Phase hiện tại       | Phase 3 deferred carry-over vẫn hoạt động; Phase 5 collaboration đã đóng                                                        |
+| Task `DONE` gần nhất | `AUTH-05A` Google OAuth2/OIDC phía Server: Provider Registry, Anti-Mix-Up, Link Intent, Federated Re-auth (migration `000045`)  |
+| Mốc repository mới   | PostgreSQL disposable `128/128` suite PASS (ledger `45 false`); Playwright native auth `4/4` + hồi quy OIDC `p2-08` PASS        |
+| Task hiện tại        | Giao `AUTH-05B` cho Claude Code (Nút Google, màn hình xác nhận Link Intent, liên kết Google trong Settings) — cờ Google vẫn tắt |
+| Task tiếp theo       | Nghiệm thu `AUTH-05B`; rollout Google cần smoke Google thật + cổng rollout ghi trong checkpoint `AUTH-05A`                      |
+
+### Checkpoint `AUTH-05A` Google OAuth2/OIDC phía Server: Provider Registry, Anti-Mix-Up, Link Intent & Federated Re-auth `DONE` — 2026-11-18
+
+Codex triển khai lát cắt Server + Migration + OpenAPI của `AUTH-05`; Gatekeeper (Antigravity) review diff/bảo mật,
+sửa 3 fixture kiểm thử PostgreSQL và kiểm chứng trên PostgreSQL disposable + Chromium thật:
+
+- **Migration `000045_federation_providers`**: `auth_flows.provider` (mặc định `oidc`, CHECK 5 provider), purpose
+  `reauth`, dựng lại `auth_flows_identity_link_binding_check` cho `login`/`identity_link`/`reauth`, index
+  `identities (provider_slug, user_id)`; down có preflight chặn khi còn flow/identity federation.
+- **Exact runtime ACL**: `auth_flows`/`identities` chỉ còn `UPDATE` trên cột trạng thái (`consumed_at`; `status`,
+  `unlinked_at`, `email_at_provider`, `email_verified`, `last_authenticated_at`, `updated_at`), không `UPDATE`
+  ownership/issuer/subject/provider metadata, không thêm `DELETE`. `ensureNativeEmailIdentity` không còn ghi lại
+  `provider_slug` khi relink và đã được kiểm chứng dưới runtime role.
+- **Registry & route**: `oidc` + `google`; `GET /api/v1/auth/oauth/{provider}/start|callback` tiêu thụ flow theo đúng
+  provider trước khi đổi token (RFC 9700), kiểm `iss` (RFC 9207), lỗi callback redirect `303` với mã cố định. Route
+  legacy `/auth/login` + `/auth/callback` giữ `provider=oidc` và hợp đồng lỗi JSON cũ.
+- **Google**: `AUTH_PROVIDER_GOOGLE_ENABLED=false` mặc định; thiếu client ID/secret thì startup lỗi; issuer tùy chỉnh chỉ
+  ở `development`/`test`; RS256 + PKCE `S256` + state/browser binding + nonce + `aud`/`iss`/`exp`/`iat`.
+- **Không tự gộp tài khoản**: email trùng hoặc identity `unlinked` tạo `link_intent` (TTL 15 phút, payload mã hóa,
+  cookie riêng `__Host-tutorhub_link_tx`); confirm yêu cầu đúng user + CSRF/Origin + AAL, nguyên tử link/relink,
+  thu hồi phiên khác, xoay token/CSRF/`context_version`, ghi outbox `identity_linked`. Unlink đếm mọi identity active
+  và password credential active.
+- **Bằng chứng Gatekeeper**: PostgreSQL disposable toàn package identity `128/128` test cấp cao (`276` bản ghi kể cả
+  subtest) PASS, `0` FAIL/SKIP, ledger cuối `45 false`; Go unit không cache cho `config`/`httpapi`/`identity`/`cmd/api`
+  PASS; `pnpm verify` PASS; Playwright Chromium trên DB disposable (migration `45`): native auth `4/4` PASS (`2,6`
+  phút) và hồi quy OIDC `p2-08` `1/1` PASS (`3,7` phút).
+- **Gatekeeper sửa fixture (không đổi mã sản phẩm)**: cấp membership role tạm trong transaction rollback-only trước
+  `SET LOCAL ROLE` (PostgreSQL 16+ chỉ cấp ADMIN cho người tạo role); dùng ciphertext AEAD thật cho `auth_flows`
+  (CHECK `>= 29` byte); nâng timeout fixture `ListIdentities` từ `1s` lên `20s` cho DB từ xa.
+- **Cổng rollout Google (chưa đạt, giữ cờ tắt)**: smoke Google thật với client/callback do chủ dự án cấu hình; xác minh
+  Google có trả `auth_time` cho luồng `intent=reauth` (`prompt=login` + `max_age=0`) — nếu không, reauth Google
+  fail-closed và không được quảng bá như phương thức step-up; gửi email thông báo `identity_linked` thực tế. Trước
+  `AUTH-09` (TOTP) phải thay chính sách AAL tài khoản "mức cao nhất của phiên active" bằng chính sách theo factor đã
+  đăng ký.
 
 ### Checkpoint `AUTH-04B` Hộp thoại Step-up dùng chung, Phương thức đăng nhập & Quản lý thiết bị/phiên (`AUTH-04` `DONE`) — 2026-11-18
 

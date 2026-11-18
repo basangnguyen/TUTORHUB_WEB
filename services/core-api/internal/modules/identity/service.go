@@ -78,6 +78,8 @@ type ServiceAPI interface {
 }
 
 type Service struct {
+	registry   *ProviderRegistry
+	federation FederationConfig
 	repository Repository
 	provider   Provider
 	crypto     *Crypto
@@ -181,6 +183,7 @@ func (service *Service) beginFlow(
 
 	now := service.clock().UTC()
 	if err := service.repository.CreateFlow(ctx, CreateFlowParams{
+		ProviderSlug:           "oidc",
 		StateHash:              service.crypto.Digest(statePurpose, state),
 		BrowserBindingHash:     service.crypto.Digest(browserBindingPurpose, browserBinding),
 		NonceHash:              service.crypto.Digest(noncePurpose, nonce),
@@ -229,6 +232,14 @@ func (service *Service) CompleteLogin(
 	if err != nil {
 		return LoginResult{}, err
 	}
+	if flow.ProviderSlug != "" && flow.ProviderSlug != "oidc" {
+		return LoginResult{}, ErrInvalidAuthFlow
+	}
+	if input.Issuer != "" {
+		if configured, ok := service.provider.(interface{ IssuerURL() string }); ok && input.Issuer != configured.IssuerURL() {
+			return LoginResult{}, ErrInvalidAuthFlow
+		}
+	}
 
 	verifier, err := service.crypto.Decrypt(flow.CodeVerifierCiphertext)
 	if err != nil {
@@ -244,6 +255,9 @@ func (service *Service) CompleteLogin(
 	claims, err = normalizeProviderClaims(claims, now)
 	if err != nil {
 		return LoginResult{}, err
+	}
+	if input.Issuer != "" && input.Issuer != claims.Issuer {
+		return LoginResult{}, ErrInvalidAuthFlow
 	}
 
 	if flow.Purpose == flowPurposeIdentityLink {

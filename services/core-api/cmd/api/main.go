@@ -490,7 +490,7 @@ func run() int {
 			logger.Error("initialize OIDC provider", "error", err)
 			return 1
 		}
-		identityService, err = identity.NewService(
+		configuredService, err := identity.NewService(
 			identity.NewPostgresRepository(
 				pool,
 				cfg.Database.QueryTimeout,
@@ -512,6 +512,18 @@ func run() int {
 			logger.Error("initialize identity service", "error", err)
 			return 1
 		}
+		registry, err := configuredFederationRegistry(context.Background(), cfg, provider)
+		if err != nil {
+			logger.Error("initialize federation registry")
+			return 1
+		}
+		if err := configuredService.ConfigureFederation(registry, identity.FederationConfig{
+			SignupEnabled: cfg.Authentication.SignupEnabled, LegalTermsVersion: cfg.Authentication.LegalTermsVersion,
+		}); err != nil {
+			logger.Error("initialize federation service")
+			return 1
+		}
+		identityService = configuredService
 		enrollmentService, err = classroom.NewEnrollmentService(
 			classroomRepository,
 			classroomAuthorizer,

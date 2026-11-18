@@ -23,6 +23,7 @@ type OIDCProviderConfig struct {
 }
 
 type OIDCProvider struct {
+	issuer        string
 	oauthConfig   oauth2.Config
 	verifier      *oidc.IDTokenVerifier
 	discovery     *oidc.Provider
@@ -56,6 +57,7 @@ func NewOIDCProvider(ctx context.Context, cfg OIDCProviderConfig) (*OIDCProvider
 	}
 
 	return &OIDCProvider{
+		issuer: strings.TrimRight(cfg.IssuerURL, "/"),
 		oauthConfig: oauth2.Config{
 			ClientID:     cfg.ClientID,
 			ClientSecret: cfg.ClientSecret,
@@ -163,6 +165,8 @@ func (provider *OIDCProvider) ExchangeAndVerify(
 func (provider *OIDCProvider) EndSessionURL() string {
 	return provider.endSessionURL
 }
+
+func (provider *OIDCProvider) IssuerURL() string { return provider.issuer }
 
 func buildEndSessionURL(endpoint string, clientID string, postLogoutURL string) string {
 	parsed, err := url.Parse(strings.TrimSpace(endpoint))

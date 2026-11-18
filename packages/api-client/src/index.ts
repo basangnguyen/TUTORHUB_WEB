@@ -4,6 +4,11 @@ import type { components, paths } from "./generated/schema";
 let currentCSRFToken: string | null = null;
 
 export type HealthResponse = components["schemas"]["HealthResponse"];
+export type IdentityLinkRequest = components["schemas"]["IdentityLinkRequest"];
+export type LinkIntentResponse = components["schemas"]["LinkIntentResponse"];
+export type LinkIntentConfirmResponse =
+  components["schemas"]["LinkIntentConfirmResponse"];
+export type OAuthProvider = components["parameters"]["FederationProvider"];
 export type EmailSignupStartRequest =
   components["schemas"]["EmailSignupStartRequest"];
 export type EmailSignupCompleteRequest =
@@ -670,6 +675,23 @@ export function getLoginURL(
   return loginURL.toString();
 }
 
+export function buildOAuthStartURL(
+  provider: OAuthProvider,
+  input: { returnTo?: string; intent?: "login" | "reauth" } = {},
+  options: Pick<APIRequestOptions, "baseUrl"> = {},
+): string {
+  const baseUrl = resolveBaseUrl(options.baseUrl ?? "/api");
+  const startURL = normalizeOverlappingPath(
+    new URL(
+      `${baseUrl}/api/v1/auth/oauth/${encodeURIComponent(provider)}/start`,
+    ),
+    baseUrl,
+  );
+  startURL.searchParams.set("return_to", input.returnTo ?? "/app/home");
+  startURL.searchParams.set("intent", input.intent ?? "login");
+  return startURL.toString();
+}
+
 export async function getHealth(
   options: HealthRequestOptions = {},
 ): Promise<HealthResponse> {
@@ -1115,6 +1137,74 @@ export async function beginIdentityLink(
     error,
     response,
   );
+}
+
+export async function linkIdentity(
+  input: IdentityLinkRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<IdentityLinkResponse> {
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/me/identities/link",
+    { ...securityMutationOptions(csrfToken, options), body: input },
+  );
+  return requireData<IdentityLinkResponse>(
+    data as IdentityLinkResponse | undefined,
+    error,
+    response,
+  );
+}
+
+export async function getLinkIntent(
+  options: APIRequestOptions = {},
+): Promise<LinkIntentResponse> {
+  const { data, error, response } = await createTutorHubClient(options).GET(
+    "/api/v1/auth/link-intent",
+    {
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+      cache: "no-store",
+      referrerPolicy: "no-referrer",
+    },
+  );
+  return requireData<LinkIntentResponse>(data, error, response);
+}
+
+export async function confirmLinkIntent(
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<LinkIntentConfirmResponse> {
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/auth/link-intent/confirm",
+    {
+      ...securityMutationOptions(csrfToken, options),
+      params: {
+        header: {
+          "X-CSRF-Token": csrfToken,
+          Origin: globalThis.location?.origin ?? "null",
+        },
+      },
+      body: {},
+    },
+  );
+  const result = requireData<LinkIntentConfirmResponse>(data, error, response);
+  currentCSRFToken = null;
+  return result;
+}
+
+export async function cancelLinkIntent(
+  options: APIRequestOptions = {},
+): Promise<void> {
+  const { error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/auth/link-intent/cancel",
+    { ...preAuthRequestOptions(options), body: {} },
+  );
+  if (!response.ok)
+    throw new APIRequestError(
+      response.status,
+      isProblem(error) ? error : undefined,
+      retryAfterSeconds(response),
+    );
 }
 
 export async function unlinkIdentity(

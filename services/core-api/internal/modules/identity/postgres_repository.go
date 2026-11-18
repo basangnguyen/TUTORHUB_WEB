@@ -54,6 +54,9 @@ func (repository *PostgresRepository) CreateFlow(
 		return fmt.Errorf("begin authentication flow transaction: %w", err)
 	}
 	defer rollback(transaction)
+	if params.ProviderSlug == "" {
+		params.ProviderSlug = "oidc"
+	}
 
 	if _, err := transaction.Exec(
 		queryContext,
@@ -74,9 +77,10 @@ INSERT INTO tutorhub.auth_flows (
     user_id,
     session_id,
     created_at,
-    expires_at
+    expires_at,
+    provider
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`
 	if _, err := transaction.Exec(
 		queryContext,
 		insertFlow,
@@ -90,6 +94,7 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`
 		nullUUID(params.SessionID),
 		params.CreatedAt,
 		params.ExpiresAt,
+		params.ProviderSlug,
 	); err != nil {
 		return fmt.Errorf("insert authentication flow: %w", err)
 	}
@@ -107,6 +112,12 @@ func (repository *PostgresRepository) ConsumeFlow(
 	browserBindingHash []byte,
 	consumedAt time.Time,
 ) (StoredFlow, error) {
+	return repository.ConsumeProviderFlow(ctx, "oidc", stateHash, browserBindingHash, consumedAt)
+}
+
+func (repository *PostgresRepository) ConsumeProviderFlow(
+	ctx context.Context, providerSlug string, stateHash, browserBindingHash []byte, consumedAt time.Time,
+) (StoredFlow, error) {
 	queryContext, cancel := repository.contextWithTimeout(ctx)
 	defer cancel()
 
@@ -123,13 +134,16 @@ WHERE state_hash = $1
   AND browser_binding_hash = $2
   AND consumed_at IS NULL
   AND expires_at > $3
+  AND provider = $4
 RETURNING
     nonce_hash,
     code_verifier_ciphertext,
     return_to,
     purpose,
     user_id,
-    session_id`
+    session_id,
+    provider,
+    created_at`
 	var flow StoredFlow
 	var (
 		userID    uuid.NullUUID
@@ -141,6 +155,7 @@ RETURNING
 		stateHash,
 		browserBindingHash,
 		consumedAt,
+		providerSlug,
 	).Scan(
 		&flow.NonceHash,
 		&flow.CodeVerifierCiphertext,
@@ -148,6 +163,8 @@ RETURNING
 		&flow.Purpose,
 		&userID,
 		&sessionID,
+		&flow.ProviderSlug,
+		&flow.CreatedAt,
 	); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return StoredFlow{}, ErrInvalidAuthFlow
@@ -1727,6 +1744,12 @@ func (repository *PostgresRepository) UnlinkIdentity(
 		return fmt.Errorf("begin unlink identity: %w", err)
 	}
 	defer rollback(transaction)
+	if err := lockActiveTenantUser(queryContext, transaction, userID); err != nil {
+		return err
+	}
+	if err := lockNativeUserSessions(queryContext, transaction, userID); err != nil {
+		return err
+	}
 
 	tenantID, err := lockOwnedSession(
 		queryContext,
@@ -1765,9 +1788,8 @@ FOR UPDATE`,
 	var activeIdentityCount int
 	if err := transaction.QueryRow(
 		queryContext,
-		`SELECT count(*)
-FROM tutorhub.identities
-WHERE user_id = $1 AND status = 'active'`,
+		`SELECT (SELECT count(*) FROM tutorhub.identities WHERE user_id=$1 AND status='active')
+          + (SELECT count(*) FROM tutorhub.user_password_credentials WHERE user_id=$1 AND status='active')`,
 		userID,
 	).Scan(&activeIdentityCount); err != nil {
 		return fmt.Errorf("count active identities: %w", err)

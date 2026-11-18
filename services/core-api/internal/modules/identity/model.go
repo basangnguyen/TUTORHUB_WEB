@@ -8,6 +8,8 @@ import (
 )
 
 type ProviderClaims struct {
+	ProviderSlug  string
+	ProviderOrgID string
 	Issuer        string
 	Subject       string
 	Email         string
@@ -43,6 +45,7 @@ type LoginResult struct {
 }
 
 type CallbackInput struct {
+	Issuer         string
 	State          string
 	BrowserBinding string
 	Code           string
@@ -135,6 +138,8 @@ type Principal struct {
 }
 
 type StoredFlow struct {
+	ProviderSlug           string
+	CreatedAt              time.Time
 	NonceHash              []byte
 	CodeVerifierCiphertext []byte
 	ReturnTo               string

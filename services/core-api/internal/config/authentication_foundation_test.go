@@ -32,7 +32,8 @@ func TestAuthFoundationDefaultsAndFlags(t *testing.T) {
 			t.Errorf("%s must default off", key)
 		}
 		changed, err := load(mapLookup(map[string]string{key: "true", "AUTH_PROVIDER_OIDC_DEFAULT_ENABLED": "false",
-			"SESSION_SECRET": validSessionSecret(), "DATABASE_POOL_URL": "postgres://fixture:fixture@localhost/fixture?sslmode=disable"}))
+			"SESSION_SECRET": validSessionSecret(), "DATABASE_POOL_URL": "postgres://fixture:fixture@localhost/fixture?sslmode=disable",
+			"GOOGLE_CLIENT_ID": "fixture", "GOOGLE_CLIENT_SECRET": "fixture"}))
 		if err != nil || !flag(changed.Authentication) {
 			t.Errorf("%s explicit enable failed: %v", key, err)
 		}

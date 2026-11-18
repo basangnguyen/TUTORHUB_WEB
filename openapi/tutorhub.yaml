@@ -961,6 +961,172 @@ paths:
                 type: string
         default:
           $ref: "#/components/responses/ProblemResponse"
+  /api/v1/auth/oauth/{provider}/start:
+    get:
+      operationId: beginOAuth
+      summary: Start a provider-bound OAuth login or federated reauthentication flow
+      description: Uses PKCE S256, nonce, state and a browser-binding cookie. Reauthentication requires an existing session and requests prompt=login and max_age=0. Unknown or disabled providers return 404. return_to is validated by the existing server return-path sanitizer.
+      parameters:
+        - $ref: "#/components/parameters/FederationProvider"
+        - name: return_to
+          in: query
+          schema:
+            type: string
+            maxLength: 2048
+        - name: intent
+          in: query
+          schema:
+            type: string
+            enum: [login, reauth]
+            default: login
+      responses:
+        "303":
+          description: Redirect to the selected provider with a short-lived browser binding cookie
+          headers:
+            Location:
+              schema:
+                type: string
+                format: uri
+        "400":
+          $ref: "#/components/responses/BadRequestResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "404":
+          description: Provider unavailable (auth_provider_unavailable)
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "429":
+          $ref: "#/components/responses/TooManyRequestsResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/auth/oauth/{provider}/callback:
+    get:
+      operationId: completeOAuth
+      summary: Complete a provider-bound single-use OAuth flow
+      description: The callback provider must match the consumed flow, and iss must match the provider when supplied. All callback failures redirect to /sign-in?error=<fixed_code>; provider error details, authorization codes and token claims are never returned. Email collisions and unlinked identities create a separate HttpOnly link_tx cookie and redirect to /sign-in?link=pending&provider=google without creating a session. Successful login or reauthentication sets opaque session and CSRF cookies.
+      parameters:
+        - $ref: "#/components/parameters/FederationProvider"
+        - name: state
+          in: query
+          schema:
+            type: string
+        - name: code
+          in: query
+          schema:
+            type: string
+        - name: iss
+          in: query
+          schema:
+            type: string
+        - name: error
+          in: query
+          schema:
+            type: string
+      responses:
+        "303":
+          description: Success return path, pending link confirmation, or a fixed sign-in error (authentication_failed, signup_disabled, email_unverified, provider_unavailable, assurance_required, rate_limited, temporarily_unavailable)
+          headers:
+            Location:
+              schema:
+                type: string
+                format: uri
+  /api/v1/auth/link-intent:
+    get:
+      operationId: getLinkIntent
+      summary: Read a masked preview of the pending account-linking request
+      security:
+        - LinkIntentCookie: []
+      responses:
+        "200":
+          description: Only provider, masked email and remaining lifetime are returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LinkIntentResponse"
+        "404":
+          description: No usable linking transaction (auth_link_intent_unavailable)
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/auth/link-intent/confirm:
+    post:
+      operationId: confirmLinkIntent
+      summary: Explicitly link a pending provider identity to the authenticated account
+      description: Requires the exact target user, CSRF, same Origin and account assurance. Atomically links or relinks the identity, consumes the transaction, revokes other sessions and rotates the current session and CSRF. Clears only the separate link_tx cookie. Wrong user returns 403 auth_link_intent_mismatch; insufficient assurance returns 403 auth_assurance_required; unavailable, expired or consumed intent returns 400 auth_link_intent_unavailable.
+      security:
+        - SessionCookie: []
+          LinkIntentCookie: []
+      parameters:
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+        - name: Origin
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmptyObject"
+      responses:
+        "200":
+          description: Identity linked and session cookies rotated; discard cached CSRF
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LinkIntentConfirmResponse"
+        "400":
+          $ref: "#/components/responses/BadRequestResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "429":
+          $ref: "#/components/responses/TooManyRequestsResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/auth/link-intent/cancel:
+    post:
+      operationId: cancelLinkIntent
+      summary: Cancel a pending linking request and clear its cookie
+      description: Requires the same Origin and the separate HttpOnly link_tx cookie. A session is not needed so cancellation also works before signing in to the target account. No identity is linked. Missing, expired or consumed intent returns 400 auth_link_intent_unavailable and clears the stale cookie.
+      security:
+        - LinkIntentCookie: []
+      parameters:
+        - name: Origin
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmptyObject"
+      responses:
+        "204":
+          description: Linking request cancelled
+        "400":
+          $ref: "#/components/responses/BadRequestResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "429":
+          $ref: "#/components/responses/TooManyRequestsResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
   /api/v1/auth/csrf:
     get:
       operationId: rotateCSRFToken
@@ -1082,7 +1248,7 @@ paths:
     post:
       operationId: beginIdentityLink
       summary: Begin a recent-authenticated external identity linking flow
-      description: Recent authentication failures return 403 with code auth_recent_authentication_required.
+      description: Recent authentication failures return 403 with code auth_recent_authentication_required. Empty body or an empty object preserves the existing oidc default; an optional provider selects google.
       security:
         - SessionCookie: []
       parameters:
@@ -1091,6 +1257,12 @@ paths:
           required: true
           schema:
             type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IdentityLinkRequest"
       responses:
         "200":
           description: Provider authorization URL for the one-time linking flow
@@ -8435,6 +8607,11 @@ paths:
           $ref: "#/components/responses/ProblemResponse"
 components:
   securitySchemes:
+    LinkIntentCookie:
+      type: apiKey
+      in: cookie
+      name: __Host-tutorhub_link_tx
+      description: Separate HttpOnly SameSite Strict linking-transaction binding, at most fifteen minutes. Development without secure cookies uses tutorhub_link_tx. Native signup/login auth_tx cookies never replace this cookie.
     AuthTransactionCookie:
       type: apiKey
       in: cookie
@@ -8446,6 +8623,13 @@ components:
       name: tutorhub_session
       description: Opaque TutorHub BFF session cookie; secure deployments use the __Host- prefix.
   parameters:
+    FederationProvider:
+      name: provider
+      in: path
+      required: true
+      schema:
+        type: string
+        enum: [oidc, google]
     PreAuthOrigin:
       name: Origin
       in: header
@@ -8501,6 +8685,22 @@ components:
         type: string
         format: uuid
   responses:
+    BadRequestResponse:
+      description: The request or its single-use authentication transaction is invalid
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    TooManyRequestsResponse:
+      description: Authentication rate limit exceeded
+      headers:
+        Retry-After:
+          schema:
+            type: string
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
     AuthChallengeAcceptedResponse:
       description: Generic OTP challenge response, independent of account existence or destination quota
       headers:
@@ -8603,6 +8803,43 @@ components:
           schema:
             $ref: "#/components/schemas/Problem"
   schemas:
+    EmptyObject:
+      type: object
+      additionalProperties: false
+    IdentityLinkRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        provider:
+          type: string
+          enum: [oidc, google]
+          description: Optional; omission selects the legacy oidc provider.
+    LinkIntentResponse:
+      type: object
+      additionalProperties: false
+      required: [provider, masked_email, expires_in_seconds]
+      properties:
+        provider:
+          type: string
+          enum: [oidc, google]
+        masked_email:
+          type: string
+          description: Masked destination only; never the complete email address
+        expires_in_seconds:
+          type: integer
+          minimum: 1
+          maximum: 900
+    LinkIntentConfirmResponse:
+      type: object
+      additionalProperties: false
+      required: [status, return_to]
+      properties:
+        status:
+          type: string
+          const: linked
+        return_to:
+          type: string
+          description: Server-sanitized relative return path from the original OAuth flow
     EmailCodeLoginStartRequest:
       $ref: "#/components/schemas/EmailSignupStartRequest"
     PasswordRecoveryStartRequest:

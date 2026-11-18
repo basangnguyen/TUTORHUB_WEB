@@ -41,17 +41,17 @@ func authSchemaTestDatabase(t *testing.T) (context.Context, *pgxpool.Pool, strin
 func TestAuthFoundationMigrationRoundTripAndRollbackPreflight(t *testing.T) {
 	ctx, pool, url := authSchemaTestDatabase(t)
 	version, err := migrationrunner.CurrentVersion(ctx, url)
-	if err != nil || version.Number != 44 || version.Dirty {
-		t.Fatal("AUTH-01 regression roundtrip requires clean ledger 44")
+	if err != nil || version.Number != 45 || version.Dirty {
+		t.Fatal("AUTH-01 regression roundtrip requires clean ledger 45")
 	}
-	if err := migrationrunner.Down(ctx, url, 2); err != nil {
+	if err := migrationrunner.Down(ctx, url, 3); err != nil {
 		t.Fatal("empty disposable AUTH-01 rollback")
 	}
 	if err := migrationrunner.Up(ctx, url); err != nil {
 		t.Fatal("reapply AUTH-01 migration")
 	}
 	version, err = migrationrunner.CurrentVersion(ctx, url)
-	if err != nil || version.Number != 44 || version.Dirty {
+	if err != nil || version.Number != 45 || version.Dirty {
 		t.Fatal("AUTH-01 roundtrip did not retain clean ledger")
 	}
 	down, err := migrations.Files.ReadFile("000043_auth_foundation.down.sql")
@@ -85,7 +85,11 @@ func TestAuthFoundationMigrationRoundTripAndRollbackPreflight(t *testing.T) {
 }
 
 func TestAuthFoundationRuntimeExactACL(t *testing.T) {
-	ctx, pool, _ := authSchemaTestDatabase(t)
+	ctx, pool, url := authSchemaTestDatabase(t)
+	version, err := migrationrunner.CurrentVersion(ctx, url)
+	if err != nil || version.Number != 45 || version.Dirty {
+		t.Fatal("AUTH-05 ACL requires clean ledger 45")
+	}
 	roleName := "auth_test_" + strings.ReplaceAll(uuid.NewString(), "-", "")
 	role := pgx.Identifier{roleName}.Sanitize()
 	if _, err := pool.Exec(ctx, "CREATE ROLE "+role+" NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT"); err != nil {
@@ -109,6 +113,12 @@ func TestAuthFoundationRuntimeExactACL(t *testing.T) {
 	}
 	if _, err := pool.Exec(ctx, "GRANT SELECT, INSERT, UPDATE (active_tenant_id, token_hash, csrf_token_hash, last_seen_at, expires_at, absolute_expires_at, revoked_at, revoked_reason, context_version) ON tutorhub.sessions TO "+role); err != nil {
 		t.Fatal("seed established sessions ACL")
+	}
+	if _, err := pool.Exec(ctx, "GRANT SELECT, INSERT, UPDATE ON tutorhub.auth_flows, tutorhub.identities TO "+role); err != nil {
+		t.Fatal("seed established federation ACL")
+	}
+	if _, err := pool.Exec(ctx, "GRANT UPDATE (provider) ON tutorhub.auth_flows TO "+role); err != nil {
+		t.Fatal("seed overbroad flow provider column ACL")
 	}
 	if err := ProvisionAuthFoundationRuntimeACL(ctx, pool, roleName); err != nil {
 		t.Fatal(err)
@@ -179,6 +189,77 @@ func TestAuthFoundationRuntimeExactACL(t *testing.T) {
 		!sessionsRead || !sessionsInsert || sessionsDelete || !sessionReauthUpdate || !sessionRevokeUpdate || sessionImmutableUpdate {
 		t.Fatal("session runtime grants must support reauth/revocation/device_label without granting DELETE or immutable column updates")
 	}
+	for _, item := range []struct {
+		table               string
+		foundation, updates []string
+	}{
+		{"auth_flows", []string{"provider"}, []string{"consumed_at"}},
+		{"identities", []string{"kind", "provider_slug", "provider_org_id", "provider_stable_id"}, []string{"status", "unlinked_at", "email_at_provider", "email_verified", "last_authenticated_at", "updated_at"}},
+	} {
+		var deleteGranted bool
+		if err := pool.QueryRow(ctx, `SELECT has_table_privilege($1,$2,'DELETE')`, roleName, "tutorhub."+item.table).Scan(&deleteGranted); err != nil || deleteGranted {
+			t.Fatal("federation provisioning must not add DELETE")
+		}
+		rows, err := pool.Query(ctx, `SELECT column_name,has_column_privilege($1,'tutorhub.'||table_name,column_name,'SELECT'),
+            has_column_privilege($1,'tutorhub.'||table_name,column_name,'INSERT'),has_column_privilege($1,'tutorhub.'||table_name,column_name,'UPDATE')
+            FROM information_schema.columns WHERE table_schema='tutorhub' AND table_name=$2`, roleName, item.table)
+		if err != nil {
+			t.Fatal("inspect federation ACL")
+		}
+		for rows.Next() {
+			var column string
+			var read, insert, update bool
+			if err := rows.Scan(&column, &read, &insert, &update); err != nil || update != slices.Contains(item.updates, column) ||
+				(slices.Contains(item.foundation, column) && (!read || !insert)) {
+				rows.Close()
+				t.Fatal("federation ACL differs from independent expected column permissions")
+			}
+		}
+		if rows.Err() != nil {
+			rows.Close()
+			t.Fatal("read federation ACL")
+		}
+		rows.Close()
+	}
+	t.Run("native email insert and relink under runtime role", func(t *testing.T) {
+		tx, err := pool.Begin(ctx)
+		if err != nil {
+			t.Fatal("begin rollback-only runtime fixture")
+		}
+		defer rollback(tx)
+		userID := uuid.New()
+		email := userID.String() + "@example.test"
+		if _, err := tx.Exec(ctx, `INSERT INTO tutorhub.users(id,email,display_name) VALUES($1,$2,'Runtime ACL fixture')`, userID, email); err != nil {
+			t.Fatal("seed runtime user")
+		}
+		if _, err := tx.Exec(ctx, "GRANT USAGE ON SCHEMA tutorhub TO "+role); err != nil {
+			t.Fatal("grant runtime schema usage")
+		}
+		// PostgreSQL 16+ gives a CREATEROLE creator ADMIN, not SET, on new roles.
+		// Grant membership inside the rollback-only transaction so it never persists.
+		if _, err := tx.Exec(ctx, "GRANT "+role+" TO CURRENT_USER"); err != nil {
+			t.Fatal("grant rollback-only fixture role membership")
+		}
+		if _, err := tx.Exec(ctx, "SET LOCAL ROLE "+role); err != nil {
+			t.Fatal("disposable ACL test owner must be able to SET ROLE to its fixture role")
+		}
+		now := time.Now().UTC()
+		identityID, err := ensureNativeEmailIdentity(ctx, tx, userID, email, now)
+		if err != nil {
+			t.Fatal("native email insert requires only the exact runtime ACL")
+		}
+		if _, err := tx.Exec(ctx, `UPDATE tutorhub.identities SET status='unlinked',unlinked_at=$2 WHERE id=$1`, identityID, now); err != nil {
+			t.Fatal("unlink runtime email fixture")
+		}
+		relinked, err := ensureNativeEmailIdentity(ctx, tx, userID, email, now.Add(time.Second))
+		if err != nil || relinked != identityID {
+			t.Fatal("native email relink must not update immutable provider metadata")
+		}
+		var slug, kind, status string
+		if err := tx.QueryRow(ctx, `SELECT provider_slug,kind,status FROM tutorhub.identities WHERE id=$1`, identityID).Scan(&slug, &kind, &status); err != nil || slug != "email" || kind != "email" || status != "active" {
+			t.Fatal("runtime email relink lost identity metadata")
+		}
+	})
 	// NOINHERIT only prevents implicit grants; SET ROLE can still recover a
 	// parent's privileges. Dedicated API credentials must not have that escape.
 	parentRole := pgx.Identifier{roleName + "_parent"}.Sanitize()
@@ -219,7 +300,8 @@ func TestAuthFoundationSessionMetadataAndFederatedIdentityFilter(t *testing.T) {
 		sessionID, userID, make([]byte, 32), make([]byte, 32), now, now.Add(time.Hour), now.Add(2*time.Hour), now.Add(-time.Hour)); err != nil {
 		t.Fatalf("insert assured session: %s", err.Error())
 	}
-	repo := NewPostgresRepository(nil, time.Second, nil)
+	// Remote disposable databases need more than one second for savepoint round trips.
+	repo := NewPostgresRepository(nil, 20*time.Second, nil)
 	principal, err := repo.loadPrincipal(ctx, tx, sessionID, userID, uuid.Nil)
 	if err != nil || !principal.AuthenticatedAt.Equal(now) || principal.AssuranceLevel != 2 || !slices.Equal(principal.AuthMethods, []string{"pwd", "totp"}) {
 		t.Fatal("session metadata did not preserve reauthentication and assurance")

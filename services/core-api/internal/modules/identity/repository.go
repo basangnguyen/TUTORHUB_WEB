@@ -9,6 +9,7 @@ import (
 )
 
 type CreateFlowParams struct {
+	ProviderSlug           string
 	StateHash              []byte
 	BrowserBindingHash     []byte
 	NonceHash              []byte
