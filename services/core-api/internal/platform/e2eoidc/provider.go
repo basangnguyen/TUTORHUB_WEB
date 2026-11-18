@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -15,6 +16,7 @@ import (
 	"math/big"
 	"net"
 	"net/http"
+	"net/mail"
 	"net/url"
 	"sort"
 	"strings"
@@ -25,6 +27,13 @@ import (
 const (
 	authorizationTTL = 5 * time.Minute
 	accessTokenTTL   = 5 * time.Minute
+
+	// CustomAccountID is the reserved chooser value of the optional
+	// custom-account form; configured accounts may not use it.
+	CustomAccountID       = "__custom__"
+	customEmailMaxLength  = 254
+	customSubjectPrefix   = "custom-"
+	customSubjectHexBytes = 20
 )
 
 var (
@@ -51,6 +60,17 @@ var (
         {{end}}
       </fieldset>
     </form>
+    {{if .CustomAccounts}}
+    <form action="/authorize/complete" method="post">
+      <input name="request_id" type="hidden" value="{{.RequestID}}">
+      <fieldset>
+        <legend>Use a custom test account</legend>
+        <label>Test email <input name="custom_email" type="email" autocomplete="off" required></label>
+        <label><input name="custom_email_unverified" type="checkbox" value="true"> Email is not verified</label>
+        <button name="account" type="submit" value="{{.CustomAccountID}}">Sign in with custom account</button>
+      </fieldset>
+    </form>
+    {{end}}
   </main>
 </body>
 </html>`))
@@ -64,6 +84,8 @@ type Account struct {
 	Email       string
 	DisplayName string
 	Locale      string
+	// EmailUnverified makes the issued claims carry email_verified=false.
+	EmailUnverified bool
 }
 
 // Config describes a single confidential loopback client.
@@ -76,8 +98,12 @@ type Config struct {
 	RedirectURL   string
 	PostLogoutURL string
 	Accounts      []Account
-	Clock         func() time.Time
-	Random        io.Reader
+	// AllowCustomAccounts adds a chooser form that signs in any syntactically
+	// valid test email with a subject derived from it, so each E2E scenario
+	// can use its own identity. Off unless explicitly enabled.
+	AllowCustomAccounts bool
+	Clock               func() time.Time
+	Random              io.Reader
 }
 
 type authorizationRequest struct {
@@ -250,8 +276,10 @@ func (provider *Provider) authorize(writer http.ResponseWriter, request *http.Re
 	writer.Header().Set("Content-Type", "text/html; charset=utf-8")
 	writer.WriteHeader(http.StatusOK)
 	_ = loginPageTemplate.Execute(writer, map[string]any{
-		"RequestID": requestID,
-		"Accounts":  provider.accountOrder,
+		"RequestID":       requestID,
+		"Accounts":        provider.accountOrder,
+		"CustomAccounts":  provider.config.AllowCustomAccounts,
+		"CustomAccountID": CustomAccountID,
 	})
 }
 
@@ -263,6 +291,9 @@ func (provider *Provider) completeAuthorization(writer http.ResponseWriter, requ
 	requestID := strings.TrimSpace(request.PostForm.Get("request_id"))
 	accountID := strings.TrimSpace(request.PostForm.Get("account"))
 	account, accountExists := provider.accounts[accountID]
+	if accountID == CustomAccountID {
+		account, accountExists = provider.customAccount(request.PostForm)
+	}
 
 	now := provider.config.Clock().UTC()
 	provider.mu.Lock()
@@ -386,7 +417,7 @@ func (provider *Provider) userInfo(writer http.ResponseWriter, request *http.Req
 	writeJSON(writer, http.StatusOK, map[string]any{
 		"sub":                grant.Account.Subject,
 		"email":              grant.Account.Email,
-		"email_verified":     true,
+		"email_verified":     !grant.Account.EmailUnverified,
 		"name":               grant.Account.DisplayName,
 		"preferred_username": grant.Account.Email,
 		"locale":             grant.Account.Locale,
@@ -468,7 +499,7 @@ func (provider *Provider) signIDToken(code authorizationCode, now time.Time) (st
 		"auth_time":      now.Unix(),
 		"nonce":          code.Nonce,
 		"email":          code.Account.Email,
-		"email_verified": true,
+		"email_verified": !code.Account.EmailUnverified,
 	})
 	if err != nil {
 		return "", err
@@ -485,6 +516,31 @@ func (provider *Provider) signIDToken(code authorizationCode, now time.Time) (st
 		return "", fmt.Errorf("sign E2E ID token: %w", err)
 	}
 	return signingInput + "." + base64.RawURLEncoding.EncodeToString(signature), nil
+}
+
+// customAccount builds a deterministic identity from the custom-account
+// form: the same email always maps to the same subject, so a later sign-in
+// with that email finds the identity created earlier.
+func (provider *Provider) customAccount(form url.Values) (Account, bool) {
+	if !provider.config.AllowCustomAccounts {
+		return Account{}, false
+	}
+	email := strings.ToLower(strings.TrimSpace(form.Get("custom_email")))
+	address, err := mail.ParseAddress(email)
+	if err != nil || address.Name != "" || address.Address != email ||
+		len(email) > customEmailMaxLength {
+		return Account{}, false
+	}
+	digest := sha256.Sum256([]byte(email))
+	localPart, _, _ := strings.Cut(email, "@")
+	return Account{
+		ID:              CustomAccountID,
+		Subject:         customSubjectPrefix + hex.EncodeToString(digest[:customSubjectHexBytes]),
+		Email:           email,
+		DisplayName:     localPart,
+		Locale:          "en",
+		EmailUnverified: form.Get("custom_email_unverified") == "true",
+	}, true
 }
 
 func (provider *Provider) removeExpiredLocked(now time.Time) {
@@ -535,6 +591,9 @@ func validateConfig(config Config) error {
 		id := strings.TrimSpace(account.ID)
 		subject := strings.TrimSpace(account.Subject)
 		email := strings.ToLower(strings.TrimSpace(account.Email))
+		if id == CustomAccountID {
+			return fmt.Errorf("%w: account id %q is reserved", errInvalidConfiguration, CustomAccountID)
+		}
 		if id == "" || subject == "" || email == "" ||
 			strings.TrimSpace(account.DisplayName) == "" ||
 			!strings.Contains(email, "@") {

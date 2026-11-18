@@ -2,7 +2,8 @@
 
 .sign-in,
 .sign-in-recover,
-.sign-in-legal {
+.sign-in-legal,
+.account-link-page {
   --sign-in-accent: #10b981;
   --sign-in-accent-hover: #059669;
   --sign-in-focus: #059669;
@@ -50,7 +51,8 @@
   border: 1px solid var(--sign-in-border);
   border-radius: 9999px;
   background: #fff;
-  color: var(--sign-in-accent);
+  /* AUTH-05B Axe: #047857 keeps 5.48:1 on white (WCAG AA small text). */
+  color: #047857;
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.01em;
@@ -72,14 +74,16 @@
 }
 
 .sign-in__title-accent {
-  color: var(--sign-in-accent);
+  /* AUTH-05B Axe: 5.0:1 on the hero background (WCAG AA). */
+  color: #047857;
   text-shadow: 2px 2px 1px rgb(16 185 129 / 15%);
 }
 
 .sign-in .sign-in__subtitle {
   max-width: 680px;
   margin-top: 10px;
-  color: var(--sign-in-text-muted);
+  /* AUTH-05B Axe: 7.0:1 on the hero background (WCAG AA). */
+  color: #4b5563;
   font-size: 15px;
   line-height: 1.6;
 }
@@ -534,14 +538,38 @@
   background: #e4e6eb;
 }
 
+/* Sign in with Google branding (light theme): #FFFFFF fill, 1px #747775
+   stroke, #1F1F1F text, 12px before and 10px after the standard "G". */
 .sign-in-button--google {
-  border: 1.2px solid var(--sign-in-border);
+  gap: 10px;
+  padding: 0 12px;
+  border: 1px solid #747775;
   background: #fff;
+  color: #1f1f1f;
 }
 
 .sign-in-button--google:hover {
-  border-color: #d1d5db;
-  background: #f9fafb;
+  border-color: #747775;
+  background: #f8f9fa;
+}
+
+.sign-in-google-mark {
+  display: block;
+  width: 20px;
+  height: 20px;
+  flex: none;
+}
+
+.sign-in .sign-in-form__social-legal {
+  margin-top: 14px;
+  color: var(--sign-in-text-muted);
+  font-size: 12px;
+  line-height: 1.6;
+  text-align: center;
+}
+
+.sign-in-status--callback {
+  margin-top: 20px;
 }
 
 .sign-in-button--code,

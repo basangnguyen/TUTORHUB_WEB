@@ -6,6 +6,8 @@ import {
 } from "@tanstack/react-query";
 import {
   APIRequestError,
+  cancelLinkIntent,
+  confirmLinkIntent,
   getMySecurity,
   listMyLoginMethods,
   listMySessions,
@@ -112,6 +114,44 @@ export async function synchronizeAfterReauthentication(
     queryClient.invalidateQueries({ queryKey: securityQueryKeys.sessions }),
     queryClient.invalidateQueries({ queryKey: profileQueryKeys.password }),
   ]);
+}
+
+/**
+ * AUTH-05: confirming a link intent links the identity, revokes the other
+ * sessions and rotates this session and its CSRF token. Resync like a step-up
+ * and also reload the linked-identity list.
+ */
+export async function synchronizeAfterLinkConfirmation(
+  queryClient: QueryClient,
+) {
+  await Promise.all([
+    synchronizeAfterReauthentication(queryClient),
+    queryClient.invalidateQueries({ queryKey: profileQueryKeys.identities }),
+  ]);
+}
+
+/** The server requires the session's latest CSRF token and the same Origin. */
+export function useConfirmLinkIntent() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    gcTime: 0,
+    retry: false,
+    mutationFn: async () => {
+      const csrf = await rotateCSRFToken({ baseUrl: getApiBaseUrl() });
+      return confirmLinkIntent(csrf.csrf_token, { baseUrl: getApiBaseUrl() });
+    },
+    onSuccess: () => synchronizeAfterLinkConfirmation(queryClient),
+  });
+}
+
+/** Works signed in or not: only the HttpOnly link cookie is required. */
+export function useCancelLinkIntent() {
+  return useMutation({
+    gcTime: 0,
+    retry: false,
+    mutationFn: () => cancelLinkIntent({ baseUrl: getApiBaseUrl() }),
+  });
 }
 
 export function useStartReauthEmailCode() {

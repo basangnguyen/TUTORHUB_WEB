@@ -85,6 +85,8 @@ const NATIVE_PROVIDERS: AuthProvidersResponse = {
 interface RenderOptions {
   from?: { pathname: string; search?: string };
   language?: Language;
+  /** Query string on /sign-in itself (e.g. the OAuth callback's `?error=`). */
+  search?: string;
 }
 
 function LandingProbe() {
@@ -103,14 +105,20 @@ async function settle() {
   });
 }
 
-async function renderSignIn({ from, language = "en" }: RenderOptions = {}) {
+async function renderSignIn({
+  from,
+  language = "en",
+  search = "",
+}: RenderOptions = {}) {
   const router = createMemoryRouter(
     [
       { path: "/sign-in", element: <SignInPage /> },
       { path: "*", element: <LandingProbe /> },
     ],
     {
-      initialEntries: [{ pathname: "/sign-in", state: from ? { from } : null }],
+      initialEntries: [
+        { pathname: "/sign-in", search, state: from ? { from } : null },
+      ],
     },
   );
   const view = render(
@@ -119,7 +127,7 @@ async function renderSignIn({ from, language = "en" }: RenderOptions = {}) {
     </I18nProvider>,
   );
   await settle();
-  return view;
+  return Object.assign(view, { router });
 }
 
 function apiError(status: number, code?: string, retryAfterSeconds?: number) {
@@ -297,11 +305,16 @@ describe("SignInPage", () => {
       "src",
       "/images/auth/icon/facebook.svg",
     );
-    const google = screen.getByRole("button", { name: "Log in with Google" });
-    expect(google.querySelector("img")).toHaveAttribute(
-      "src",
-      "/images/auth/icon/google.svg",
-    );
+    const google = screen.getByRole("button", { name: "Sign in with Google" });
+    // The standard "G" mark is inline (branding colours), hidden from AT.
+    const mark = google.querySelector("svg");
+    expect(mark).toHaveAttribute("aria-hidden", "true");
+    expect(
+      Array.from(mark?.querySelectorAll("path[fill]") ?? []).map((path) =>
+        path.getAttribute("fill"),
+      ),
+    ).toEqual(["#EA4335", "#4285F4", "#FBBC05", "#34A853", "none"]);
+    expect(google.querySelector("img")).toBeNull();
     expect(
       screen.getByRole("button", { name: "Forget Password" }),
     ).toBeInTheDocument();
@@ -736,7 +749,9 @@ describe("SignInPage", () => {
     });
 
     fireEvent.click(screen.getByRole("button", { name: "Log In" }));
-    fireEvent.click(screen.getByRole("button", { name: "Log in with Google" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Sign in with Google" }),
+    );
     fireEvent.click(
       screen.getByRole("button", { name: "Log in with Facebook" }),
     );
@@ -1911,7 +1926,7 @@ describe("SignInPage auth providers and native edge cases", () => {
     ).toHaveAttribute("aria-busy", "true");
     expect(screen.getByRole("button", { name: "Log In" })).toBeDisabled();
     expect(
-      screen.getByRole("button", { name: "Log in with Google" }),
+      screen.getByRole("button", { name: "Sign in with Google" }),
     ).toBeDisabled();
     expect(
       screen.getByRole("textbox", { name: "Email or username" }),
@@ -1952,7 +1967,9 @@ describe("SignInPage auth providers and native edge cases", () => {
     await renderSignIn({ from: { pathname: "/app/messages" } });
 
     expect(screen.getByText("Or")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Log in with Google" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Sign in with Google" }),
+    );
     fireEvent.click(
       screen.getByRole("button", { name: "Log in with Facebook" }),
     );
@@ -1970,7 +1987,7 @@ describe("SignInPage auth providers and native edge cases", () => {
 
     expect(screen.queryByText("Or")).toBeNull();
     expect(
-      screen.queryByRole("button", { name: "Log in with Google" }),
+      screen.queryByRole("button", { name: "Sign in with Google" }),
     ).toBeNull();
     expect(
       screen.queryByRole("button", { name: "Log in with Facebook" }),
@@ -2763,5 +2780,199 @@ describe("SignInPage native password recovery edge cases", () => {
     // Resending would re-issue the recovery code bound to the cookie.
     expect(api.resendAuthChallenge).not.toHaveBeenCalled();
     expect(api.startEmailCodeLogin).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("SignInPage AUTH-05B Google federation", () => {
+  const GOOGLE_PROVIDERS: AuthProvidersResponse = {
+    ...NATIVE_PROVIDERS,
+    oauth_providers: ["google"],
+  };
+
+  function stubLocationAssign() {
+    const assign = vi.fn();
+    vi.stubGlobal("location", {
+      ...window.location,
+      assign,
+      href: window.location.href,
+      origin: window.location.origin,
+    });
+    return assign;
+  }
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("starts the Google flow with a full-page navigation and the protected return path", async () => {
+    api.getAuthProviders.mockResolvedValue(GOOGLE_PROVIDERS);
+    const assign = stubLocationAssign();
+    await renderSignIn({
+      from: { pathname: "/app/classrooms", search: "?tab=1" },
+    });
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Sign in with Google" }),
+    );
+
+    expect(assign).toHaveBeenCalledTimes(1);
+    const target = new URL(String(assign.mock.calls[0]?.[0]));
+    expect(target.pathname).toBe("/api/v1/auth/oauth/google/start");
+    expect(target.searchParams.get("return_to")).toBe("/app/classrooms?tab=1");
+    expect(target.searchParams.get("intent")).toBe("login");
+    expect(signInMock).not.toHaveBeenCalled();
+    // Facebook is unchanged: still the OIDC-portal fallback.
+    fireEvent.click(
+      screen.getByRole("button", { name: "Log in with Facebook" }),
+    );
+    expect(signInMock).toHaveBeenCalledWith("/app/classrooms?tab=1");
+    expect(assign).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the OIDC fallback when the server does not list Google", async () => {
+    api.getAuthProviders.mockResolvedValue({
+      ...NATIVE_PROVIDERS,
+      oidc_default_enabled: true,
+    });
+    const assign = stubLocationAssign();
+    await renderSignIn();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Sign in with Google" }),
+    );
+
+    expect(assign).not.toHaveBeenCalled();
+    expect(signInMock).toHaveBeenCalledWith("/app/home");
+  });
+
+  it("puts the consent line under the social buttons and opens the legal dialog", async () => {
+    api.getAuthProviders.mockResolvedValue(GOOGLE_PROVIDERS);
+    await renderSignIn();
+
+    const consent = screen.getByText(/^By continuing, you agree to the/);
+    const agreement = within(consent).getByRole("button", {
+      name: "User Agreement",
+    });
+    expect(agreement).toHaveAttribute("aria-haspopup", "dialog");
+    fireEvent.click(agreement);
+    const dialog = await screen.findByRole("dialog", {
+      name: "Terms & Privacy Policy",
+    });
+    expect(
+      within(dialog).getByRole("tab", { name: "User Agreement" }),
+    ).toHaveAttribute("aria-selected", "true");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Close" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(agreement).toHaveFocus();
+
+    fireEvent.click(
+      within(consent).getByRole("button", { name: "Privacy Policy" }),
+    );
+    const privacy = await screen.findByRole("dialog", {
+      name: "Terms & Privacy Policy",
+    });
+    expect(
+      within(privacy).getByRole("tab", { name: "Privacy Policy" }),
+    ).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("shows the Vietnamese Google label and consent line", async () => {
+    api.getAuthProviders.mockResolvedValue(GOOGLE_PROVIDERS);
+    await renderSignIn({ language: "vi" });
+
+    expect(
+      screen.getByRole("button", { name: "Đăng nhập bằng Google" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/^Bằng việc tiếp tục, bạn đồng ý với/),
+    ).toBeInTheDocument();
+  });
+
+  it.each([
+    [
+      "signup_disabled",
+      "New accounts can't be created with this sign-in option right now. Log in with the method you used before or contact your administrator.",
+    ],
+    [
+      "email_unverified",
+      "The email address of the account you chose isn't verified by its provider. Verify it there, then try again, or use another sign-in method.",
+    ],
+    [
+      "provider_unavailable",
+      "This sign-in option isn't available right now. Please use another sign-in method.",
+    ],
+    [
+      "assurance_required",
+      "This account requires a stronger sign-in method. Log in with the security method set up for it.",
+    ],
+    [
+      "authentication_failed",
+      "We couldn't complete that sign-in. Please try again.",
+    ],
+    [
+      "temporarily_unavailable",
+      "Sign-in is temporarily interrupted. Please try again in a few minutes.",
+    ],
+    [
+      "rate_limited",
+      "Too many sign-in attempts. Please wait a moment and try again.",
+    ],
+  ])(
+    "maps ?error=%s to a fixed message and cleans the address",
+    async (code, message) => {
+      api.getAuthProviders.mockResolvedValue(GOOGLE_PROVIDERS);
+      const { router } = await renderSignIn({
+        from: { pathname: "/app/messages" },
+        search: `?error=${code}`,
+      });
+
+      expect(screen.getByRole("alert")).toHaveTextContent(message);
+      await waitFor(() => expect(router.state.location.search).toBe(""));
+      expect(router.state.location.pathname).toBe("/sign-in");
+      // The protected return path survives the replace.
+      expect(router.state.location.state).toEqual({
+        from: { pathname: "/app/messages" },
+      });
+      expect(screen.getByRole("alert")).toHaveTextContent(message);
+    },
+  );
+
+  it("uses a generic message for unknown codes and never renders the query value", async () => {
+    const { container, router } = await renderSignIn({
+      search: "?error=%3Cb%3Einjected%3C%2Fb%3E",
+    });
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "We couldn't complete that sign-in. Please try again.",
+    );
+    expect(container.innerHTML).not.toContain("injected");
+    await waitFor(() => expect(router.state.location.search).toBe(""));
+  });
+
+  it("shows the Vietnamese callback message", async () => {
+    await renderSignIn({ language: "vi", search: "?error=email_unverified" });
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Email của tài khoản bạn chọn chưa được nhà cung cấp xác minh.",
+    );
+  });
+
+  it("moves a pending link to /account-link without loading sign-in options", async () => {
+    await renderSignIn({ search: "?link=pending&provider=google" });
+
+    expect(screen.getByTestId("landing")).toHaveTextContent(
+      "/account-link?provider=google",
+    );
+    expect(api.getAuthProviders).not.toHaveBeenCalled();
+  });
+
+  it("allowlists the provider of a pending link", async () => {
+    await renderSignIn({
+      search: "?link=pending&provider=javascript%3Aalert(1)",
+    });
+
+    expect(screen.getByTestId("landing")).toHaveTextContent(
+      "/account-link?provider=google",
+    );
   });
 });

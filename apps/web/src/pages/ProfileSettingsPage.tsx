@@ -45,10 +45,12 @@ import {
   useState,
   type FormEvent,
 } from "react";
+import { useLocation, useNavigate } from "react-router";
 import {
   useAuthProvidersQuery,
   useBeginIdentityLink,
   useIdentitiesQuery,
+  useLinkGoogleIdentity,
   usePasswordStatusQuery,
   useProfileQuery,
   useUnlinkIdentity,
@@ -856,10 +858,20 @@ const OAUTH_PROVIDER_NAMES: Readonly<Record<string, string>> = {
 
 type LoginMethodIdentity = MyLoginMethodsResponse["identities"][number];
 
+/** Google's documented issuer spellings (`/me/identities` exposes the issuer). */
+const GOOGLE_ISSUERS: ReadonlySet<string> = new Set([
+  "https://accounts.google.com",
+  "accounts.google.com",
+]);
+
 function loginMethodLabel(
   identity: LoginMethodIdentity,
   t: (key: TranslationKey, values?: Record<string, string | number>) => string,
 ) {
+  // AUTH-05 stores Google as kind "oidc" with provider_slug "google".
+  if (identity.provider_slug === "google") {
+    return t("security.kindOauth", { provider: "Google" });
+  }
   switch (identity.kind) {
     case "email":
       return t("security.kindEmail");
@@ -1495,15 +1507,55 @@ export function ProfileSettingsPage() {
   const identitiesQuery = useIdentitiesQuery();
   const providersQuery = useAuthProvidersQuery();
   const beginIdentityLink = useBeginIdentityLink();
+  const linkGoogleIdentity = useLinkGoogleIdentity();
   const unlinkIdentity = useUnlinkIdentity();
   const stepUp = useStepUpRequest();
   const requestStepUp = stepUp.request;
   const identityRetryRef = useRef<StepUpRetry | null>(null);
-  const [identityFeedback, setIdentityFeedback] = useState<string | null>(null);
+  const location = useLocation();
+  const navigate = useNavigate();
+  // The Google/OIDC link callback returns to /app/settings?identity=linked.
+  const [identityFeedback, setIdentityFeedback] = useState<string | null>(() =>
+    new URLSearchParams(location.search).get("identity") === "linked"
+      ? t("profile.identityLinked")
+      : null,
+  );
   // A missing capability flag means an older server: keep the new cards off
   // so the page never calls endpoints that would answer 503.
   const deviceManagement =
     providersQuery.data?.device_management_enabled === true;
+  const googleLinkEnabled =
+    providersQuery.data?.oauth_providers.includes("google") === true;
+  // Shares the security card's cache entry: only provider_slug identifies
+  // a Google identity, because /me/identities exposes the issuer.
+  const loginMethodsQuery = useMyLoginMethodsQuery(deviceManagement);
+  const googleIdentityIDs = useMemo(
+    () =>
+      new Set(
+        (loginMethodsQuery.data?.identities ?? [])
+          .filter((identity) => identity.provider_slug === "google")
+          .map((identity) => identity.id),
+      ),
+    [loginMethodsQuery.data],
+  );
+
+  const hasIdentityParam = new URLSearchParams(location.search).has("identity");
+  useEffect(() => {
+    if (!hasIdentityParam) return;
+    const params = new URLSearchParams(location.search);
+    params.delete("identity");
+    const search = params.toString();
+    void navigate(
+      { hash: location.hash, pathname: location.pathname, search },
+      { replace: true },
+    );
+  }, [
+    hasIdentityParam,
+    location.hash,
+    location.pathname,
+    location.search,
+    navigate,
+  ]);
 
   const dateFormatter = useMemo(
     () =>
@@ -1523,6 +1575,7 @@ export function ProfileSettingsPage() {
 
   async function handleBeginIdentityLink() {
     setIdentityFeedback(null);
+    linkGoogleIdentity.reset();
     try {
       const response = await beginIdentityLink.mutateAsync();
       window.location.assign(response.authorization_url);
@@ -1532,8 +1585,31 @@ export function ProfileSettingsPage() {
     }
   }
 
+  /**
+   * 403 `auth_recent_authentication_required` opens the shared step-up dialog
+   * and retries exactly once after it succeeds; a second refusal only shows
+   * the error (with its own "Confirm it's you" button).
+   */
+  async function handleLinkGoogle(afterStepUp = false) {
+    setIdentityFeedback(null);
+    beginIdentityLink.reset();
+    unlinkIdentity.reset();
+    try {
+      const response = await linkGoogleIdentity.mutateAsync();
+      // Full-page navigation to Google; the server set the flow cookie.
+      window.location.assign(response.authorization_url);
+    } catch (error) {
+      const retry = () => handleLinkGoogle(true);
+      if (isRecentAuthenticationRequired(error)) {
+        identityRetryRef.current = retry;
+        if (!afterStepUp) requestStepUp(retry);
+      }
+    }
+  }
+
   async function handleUnlink(identityID: string) {
     setIdentityFeedback(null);
+    linkGoogleIdentity.reset();
     try {
       await unlinkIdentity.mutateAsync(identityID);
       setIdentityFeedback(t("profile.identityUnlinked"));
@@ -1575,7 +1651,8 @@ export function ProfileSettingsPage() {
   }
 
   const identities = identitiesQuery.data?.identities ?? [];
-  const identityError = beginIdentityLink.error ?? unlinkIdentity.error;
+  const identityError =
+    beginIdentityLink.error ?? linkGoogleIdentity.error ?? unlinkIdentity.error;
   const identityNeedsReauthentication =
     isRecentAuthenticationRequired(identityError);
 
@@ -1622,16 +1699,30 @@ export function ProfileSettingsPage() {
               </h2>
               <p>{t("profile.identityDescription")}</p>
             </div>
-            <Button
-              leadingIcon={<Link2 />}
-              loading={beginIdentityLink.isPending}
-              loadingLabel={t("profile.identityLinking")}
-              onClick={() => void handleBeginIdentityLink()}
-              size="sm"
-              variant="secondary"
-            >
-              {t("profile.identityLink")}
-            </Button>
+            <div className="profile-identity-actions">
+              {googleLinkEnabled && (
+                <Button
+                  leadingIcon={<Link2 />}
+                  loading={linkGoogleIdentity.isPending}
+                  loadingLabel={t("profile.identityLinking")}
+                  onClick={() => void handleLinkGoogle()}
+                  size="sm"
+                  variant="secondary"
+                >
+                  {t("profile.identityLinkGoogle")}
+                </Button>
+              )}
+              <Button
+                leadingIcon={<Link2 />}
+                loading={beginIdentityLink.isPending}
+                loadingLabel={t("profile.identityLinking")}
+                onClick={() => void handleBeginIdentityLink()}
+                size="sm"
+                variant="secondary"
+              >
+                {t("profile.identityLink")}
+              </Button>
+            </div>
           </div>
 
           {identitiesQuery.isPending && (
@@ -1681,7 +1772,12 @@ export function ProfileSettingsPage() {
                     </div>
                     <div className="identity-row__body">
                       <div className="identity-row__title">
-                        <strong>{identity.provider}</strong>
+                        <strong>
+                          {googleIdentityIDs.has(identity.id) ||
+                          GOOGLE_ISSUERS.has(identity.provider)
+                            ? t("profile.identityProviderGoogle")
+                            : identity.provider}
+                        </strong>
                         <StatusBadge
                           tone={identity.email_verified ? "success" : "warning"}
                         >

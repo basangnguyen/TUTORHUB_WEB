@@ -4,6 +4,7 @@ import {
   getAuthProviders,
   getMyPasswordStatus,
   getProfile,
+  linkIdentity,
   listIdentities,
   rotateCSRFToken,
   unlinkIdentity,
@@ -108,6 +109,19 @@ export function useBeginIdentityLink() {
     mutationFn: async () => {
       const csrf = await rotateCSRFToken({ baseUrl: getApiBaseUrl() });
       return beginIdentityLink(csrf.csrf_token, {
+        baseUrl: getApiBaseUrl(),
+      });
+    },
+  });
+}
+
+/** AUTH-05: provider-bound linking; the empty-body OIDC link stays as is. */
+export function useLinkGoogleIdentity() {
+  return useMutation({
+    retry: false,
+    mutationFn: async () => {
+      const csrf = await rotateCSRFToken({ baseUrl: getApiBaseUrl() });
+      return linkIdentity({ provider: "google" }, csrf.csrf_token, {
         baseUrl: getApiBaseUrl(),
       });
     },

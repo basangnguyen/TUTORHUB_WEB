@@ -45,6 +45,11 @@ const SignInPage = lazy(() =>
     default: module.SignInPage,
   })),
 );
+const AccountLinkPage = lazy(() =>
+  import("../pages/AccountLinkPage").then((module) => ({
+    default: module.AccountLinkPage,
+  })),
+);
 const ClassroomPreJoinPage = lazy(() =>
   import("../pages/LiveKitPages").then((module) => ({
     default: module.ClassroomPreJoinPage,
@@ -373,6 +378,15 @@ export function createAppRoutes(): RouteObject[] {
       element: (
         <Suspense fallback={<LoadingScreen />}>
           <SignInPage />
+        </Suspense>
+      ),
+    },
+    {
+      // Public on purpose: the user may need to sign in on this screen.
+      path: "/account-link",
+      element: (
+        <Suspense fallback={<LoadingScreen />}>
+          <AccountLinkPage />
         </Suspense>
       ),
     },

@@ -16,6 +16,7 @@ import {
   type MySecurityResponse,
   type MySession,
 } from "@tutorhub/api-client";
+import { MemoryRouter, useLocation } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../app/i18n";
 import type * as SessionModule from "../app/session";
@@ -91,7 +92,16 @@ function requestFrom(input: RequestInfo | URL, init?: RequestInit) {
   return input instanceof Request ? input : new Request(input, init);
 }
 
-function renderProfile() {
+function LocationProbe() {
+  const location = useLocation();
+  return (
+    <output data-testid="settings-location" hidden>
+      {`${location.pathname}${location.search}`}
+    </output>
+  );
+}
+
+function renderProfile({ initialEntry = "/app/settings" } = {}) {
   const queryClient = new QueryClient({
     defaultOptions: {
       mutations: { retry: false },
@@ -101,11 +111,14 @@ function renderProfile() {
 
   return render(
     <QueryClientProvider client={queryClient}>
-      <I18nProvider initialLanguage="en">
-        <SessionProvider mode={{ kind: "static", currentUser: session }}>
-          <ProfileSettingsPage />
-        </SessionProvider>
-      </I18nProvider>
+      <MemoryRouter initialEntries={[initialEntry]}>
+        <I18nProvider initialLanguage="en">
+          <SessionProvider mode={{ kind: "static", currentUser: session }}>
+            <ProfileSettingsPage />
+          </SessionProvider>
+        </I18nProvider>
+        <LocationProbe />
+      </MemoryRouter>
     </QueryClientProvider>,
   );
 }
@@ -1283,5 +1296,263 @@ describe("ProfileSettingsPage AUTH-04B security", () => {
     const deletes = posts.filter((request) => request.method === "DELETE");
     expect(deletes).toHaveLength(2);
     expect(deletes[1]?.url).toContain(secondIdentityID);
+  });
+});
+
+/* ---------- AUTH-05B: linking Google from the identity card ---------- */
+
+describe("ProfileSettingsPage AUTH-05B Google linking", () => {
+  const googleProviders: AuthProvidersResponse = {
+    ...deviceProviders,
+    oauth_providers: ["google"],
+  };
+  const authorizationURL =
+    "https://accounts.google.test/o/oauth2/v2/auth?client_id=fixture";
+  const linkPath = "/api/v1/me/identities/link";
+
+  function stubLocationAssign() {
+    const assign = vi.fn();
+    vi.stubGlobal("location", {
+      ...window.location,
+      assign,
+      href: window.location.href,
+      origin: window.location.origin,
+    });
+    return assign;
+  }
+
+  function linkHandler(responses: Array<() => Response>) {
+    return (request: Request) =>
+      request.method === "POST" && new URL(request.url).pathname === linkPath
+        ? (responses.shift() ?? (() => problemResponse(500)))()
+        : undefined;
+  }
+
+  function linkRequests(posts: Request[]) {
+    return posts.filter(
+      (request) =>
+        request.method === "POST" && new URL(request.url).pathname === linkPath,
+    );
+  }
+
+  async function identityCard() {
+    return screen.findByRole("region", { name: "Sign-in identities" });
+  }
+
+  beforeEach(() => {
+    sessionActions.signIn.mockReset();
+    sessionActions.signOut.mockReset().mockResolvedValue(undefined);
+  });
+
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+  });
+
+  it("offers Link Google only when the server lists Google", async () => {
+    installSecurityMock();
+    renderProfile();
+    const card = await identityCard();
+
+    expect(
+      await within(card).findByRole("button", { name: "Link identity" }),
+    ).toBeInTheDocument();
+    expect(
+      within(card).queryByRole("button", { name: "Link Google" }),
+    ).toBeNull();
+  });
+
+  it("starts the Google link with a rotated CSRF token and leaves the OIDC body empty", async () => {
+    const assign = stubLocationAssign();
+    const { posts } = installSecurityMock({
+      extra: (request) =>
+        request.method === "POST" && new URL(request.url).pathname === linkPath
+          ? jsonResponse({ authorization_url: authorizationURL })
+          : undefined,
+      providers: googleProviders,
+    });
+    renderProfile();
+    const card = await identityCard();
+
+    fireEvent.click(
+      await within(card).findByRole("button", { name: "Link Google" }),
+    );
+    await waitFor(() => expect(assign).toHaveBeenCalledWith(authorizationURL));
+    const [googleLink] = linkRequests(posts);
+    expect(googleLink?.headers.get("X-CSRF-Token")).toMatch(
+      /^security-csrf-\d+$/,
+    );
+    expect(JSON.parse((await googleLink?.text()) ?? "")).toEqual({
+      provider: "google",
+    });
+
+    fireEvent.click(
+      within(card).getByRole("button", { name: "Link identity" }),
+    );
+    await waitFor(() => expect(assign).toHaveBeenCalledTimes(2));
+    const oidcLink = linkRequests(posts)[1];
+    expect(await oidcLink?.text()).toBe("");
+  });
+
+  it("steps up once on a 403 and retries the Google link exactly once", async () => {
+    const assign = stubLocationAssign();
+    const { posts } = installSecurityMock({
+      extra: linkHandler([
+        () => problemResponse(403, "auth_recent_authentication_required"),
+        () => jsonResponse({ authorization_url: authorizationURL }),
+      ]),
+      providers: googleProviders,
+    });
+    renderProfile();
+    const card = await identityCard();
+    fireEvent.click(
+      await within(card).findByRole("button", { name: "Link Google" }),
+    );
+
+    await confirmWithPassword("Google-link-passphrase");
+
+    await waitFor(() => expect(assign).toHaveBeenCalledWith(authorizationURL));
+    expect(linkRequests(posts)).toHaveLength(2);
+  });
+
+  it("does not reopen the step-up by itself after a second refusal", async () => {
+    const assign = stubLocationAssign();
+    const { posts } = installSecurityMock({
+      extra: linkHandler([
+        () => problemResponse(403, "auth_recent_authentication_required"),
+        () => problemResponse(403, "auth_recent_authentication_required"),
+        () => jsonResponse({ authorization_url: authorizationURL }),
+      ]),
+      providers: googleProviders,
+    });
+    renderProfile();
+    const card = await identityCard();
+    fireEvent.click(
+      await within(card).findByRole("button", { name: "Link Google" }),
+    );
+    await confirmWithPassword("Google-link-passphrase");
+
+    const alert = await within(card).findByRole("alert");
+    expect(alert).toHaveTextContent(
+      "Confirm it's you (within the last 10 minutes) before linking or unlinking an identity.",
+    );
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(linkRequests(posts)).toHaveLength(2);
+    expect(assign).not.toHaveBeenCalled();
+
+    // The user can still choose to confirm again from the error.
+    fireEvent.click(
+      within(alert).getByRole("button", { name: "Confirm it's you" }),
+    );
+    await confirmWithPassword("Google-link-passphrase");
+    await waitFor(() => expect(assign).toHaveBeenCalledWith(authorizationURL));
+    expect(linkRequests(posts)).toHaveLength(3);
+  });
+
+  it("labels Google identities by issuer or by the login-method provider slug", async () => {
+    installSecurityMock({
+      identities: {
+        identities: [
+          {
+            id: identityID,
+            provider: "https://accounts.google.com",
+            email: "teacher@example.com",
+            email_verified: true,
+            created_at: "2026-07-16T08:00:00Z",
+            last_authenticated_at: "2026-07-17T08:00:00Z",
+          },
+          {
+            // A loopback test issuer: only provider_slug identifies Google.
+            id: "a5f0c7d8-1d51-4c43-9c1a-8a0e4cbbf0f2",
+            provider: "http://127.0.0.1:9092",
+            email: "teacher.google@example.com",
+            email_verified: true,
+            created_at: "2026-11-02T08:00:00Z",
+            last_authenticated_at: "2026-11-02T08:00:00Z",
+          },
+          {
+            id: "8f9b3a71-5c2d-4f0e-b6a4-1e7d9c3b2a50",
+            provider: "https://identity.example.test",
+            email: "teacher@example.com",
+            email_verified: true,
+            created_at: "2026-07-18T08:00:00Z",
+            last_authenticated_at: "2026-07-18T08:00:00Z",
+          },
+        ],
+      },
+      providers: googleProviders,
+    });
+    renderProfile();
+    const card = await identityCard();
+
+    await waitFor(() =>
+      expect(
+        Array.from(
+          card.querySelectorAll(".identity-row__title strong"),
+          (node) => node.textContent,
+        ),
+      ).toEqual(["Google", "Google", "https://identity.example.test"]),
+    );
+  });
+
+  it("names a Google login method stored as an OIDC identity", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const request = requestFrom(input, init);
+        const path = new URL(request.url).pathname;
+        if (path === "/api/v1/me/login-methods") {
+          return jsonResponse({
+            ...loginMethods,
+            identities: [
+              {
+                id: "a5f0c7d8-1d51-4c43-9c1a-8a0e4cbbf0f2",
+                kind: "oidc",
+                provider_slug: "google",
+                email_at_provider: "teacher.google@example.com",
+                email_verified: true,
+                last_authenticated_at: null,
+                created_at: "2026-11-02T08:00:00Z",
+              },
+            ],
+          });
+        }
+        if (path === "/api/v1/me/profile") return jsonResponse(profile);
+        if (path === "/api/v1/me/identities") return jsonResponse(identities);
+        if (path === "/api/v1/auth/providers") {
+          return jsonResponse(googleProviders);
+        }
+        if (path === "/api/v1/me/password") return jsonResponse(passwordStatus);
+        if (path === "/api/v1/me/security") {
+          return jsonResponse(securityOverview);
+        }
+        if (path === "/api/v1/me/sessions") {
+          return jsonResponse({ sessions: [currentSession] });
+        }
+        throw new Error(`Unexpected request: ${request.method} ${request.url}`);
+      }),
+    );
+    renderProfile();
+
+    const security = await screen.findByRole("region", {
+      name: "Account security",
+    });
+    expect(await within(security).findByText("Google account")).toBeVisible();
+    expect(within(security).queryByText("Single sign-on (OIDC)")).toBeNull();
+  });
+
+  it("confirms a completed link from ?identity=linked and cleans the address", async () => {
+    installSecurityMock({ providers: googleProviders });
+    renderProfile({ initialEntry: "/app/settings?identity=linked" });
+    const card = await identityCard();
+
+    expect(
+      await within(card).findByText("Sign-in identity linked."),
+    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByTestId("settings-location")).toHaveTextContent(
+        /^\/app\/settings$/,
+      ),
+    );
   });
 });

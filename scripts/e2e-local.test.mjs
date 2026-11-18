@@ -3,19 +3,23 @@ import { readdirSync, readFileSync } from "node:fs";
 import test from "node:test";
 
 import {
+  buildFakeGoogleEnvironment,
   buildWebServerCommand,
   buildWindowsTreeKillCommand,
   buildE2EEnvironment,
   createRuntimeSecrets,
+  googleFixtureClientID,
   localAccounts,
   nativeAuthConfiguration,
   parseArguments,
   resolveBaseEnvironment,
+  usesFakeGoogle,
   validateDatabaseConfiguration,
 } from "./e2e-local.mjs";
 
 const fixedSecrets = Object.freeze({
   clientSecret: "ephemeral-client-secret-value",
+  googleClientSecret: "ephemeral-google-client-secret-value",
   sessionSecret: "ZXBoZW1lcmFsLXNlc3Npb24tc2VjcmV0LXdpdGgtZW5vdWdoLWJ5dGVz",
 });
 
@@ -66,8 +70,13 @@ test("runtime credentials are fresh and have sufficient entropy", () => {
   const second = createRuntimeSecrets();
 
   assert.notEqual(first.clientSecret, second.clientSecret);
+  assert.notEqual(first.googleClientSecret, second.googleClientSecret);
+  assert.notEqual(first.clientSecret, first.googleClientSecret);
   assert.notEqual(first.sessionSecret, second.sessionSecret);
   assert.ok(Buffer.from(first.clientSecret, "base64url").byteLength >= 32);
+  assert.ok(
+    Buffer.from(first.googleClientSecret, "base64url").byteLength >= 32,
+  );
   assert.ok(Buffer.from(first.sessionSecret, "base64").byteLength >= 32);
 });
 
@@ -211,6 +220,12 @@ test("native auth stays off by default and inherited auth settings pass through 
   for (const key of Object.keys(nativeAuthConfiguration)) {
     assert.equal(standard[key], undefined, `${key} must not be set by default`);
   }
+  assert.equal(standard.GOOGLE_CLIENT_SECRET, undefined);
+  assert.equal(usesFakeGoogle(standard), false);
+  assert.throws(
+    () => buildFakeGoogleEnvironment(standard),
+    /requires the native-auth stack/,
+  );
 
   const inherited = {
     AUTH_EMAIL_SENDER: "disabled",
@@ -256,6 +271,15 @@ test("native auth enables sign-up, password and email-code login, device managem
     assert.equal(environment.AUTH_EMAIL_SENDER, "devinbox");
     assert.equal(environment.AUTH_PASSWORD_BREACH_CHECK, "offline");
     assert.equal(environment.AUTH_DEVICE_MANAGEMENT_ENABLED, "true");
+    // AUTH-05: Google points at the loopback fake with fixture credentials.
+    assert.equal(environment.AUTH_PROVIDER_GOOGLE_ENABLED, "true");
+    assert.equal(environment.GOOGLE_CLIENT_ID, googleFixtureClientID);
+    assert.equal(
+      environment.GOOGLE_CLIENT_SECRET,
+      fixedSecrets.googleClientSecret,
+    );
+    assert.equal(environment.GOOGLE_ISSUER_URL, "http://127.0.0.1:9092");
+    assert.equal(usesFakeGoogle(environment), true);
     // The loopback/test boundary that devinbox requires is unchanged.
     assert.equal(environment.APP_ENV, "test");
     assert.equal(environment.HTTP_LISTEN_HOST, "127.0.0.1");
@@ -263,6 +287,54 @@ test("native auth enables sign-up, password and email-code login, device managem
     assert.equal(environment.B2_APPLICATION_KEY, "");
   }
   assert.equal(fromFlag.PATH, "/usr/bin");
+});
+
+test("native auth refuses to start Google without an ephemeral secret", () => {
+  assert.throws(
+    () =>
+      buildE2EEnvironment(
+        { E2E_AUTH_NATIVE: "true" },
+        {
+          clientSecret: fixedSecrets.clientSecret,
+          sessionSecret: fixedSecrets.sessionSecret,
+        },
+      ),
+    /ephemeral Google secret/,
+  );
+});
+
+test("the fake Google issuer is a separate loopback client with custom accounts", () => {
+  const environment = buildE2EEnvironment(
+    {
+      AUTH_PROVIDER_GOOGLE_ENABLED: "false",
+      E2E_AUTH_NATIVE: "true",
+      GOOGLE_CLIENT_ID: "inherited.apps.googleusercontent.com",
+      GOOGLE_ISSUER_URL: "https://accounts.google.com",
+    },
+    fixedSecrets,
+  );
+  // The native-auth stack never inherits a real Google client.
+  assert.equal(environment.AUTH_PROVIDER_GOOGLE_ENABLED, "true");
+  assert.equal(environment.GOOGLE_CLIENT_ID, googleFixtureClientID);
+  assert.equal(environment.GOOGLE_ISSUER_URL, "http://127.0.0.1:9092");
+
+  const google = buildFakeGoogleEnvironment(environment);
+  assert.equal(google.APP_ENV, "test");
+  assert.equal(google.E2E_OIDC_ADDRESS, "127.0.0.1:9092");
+  assert.equal(google.E2E_OIDC_CUSTOM_ACCOUNTS, "true");
+  assert.equal(google.OIDC_ISSUER_URL, "http://127.0.0.1:9092");
+  assert.equal(google.OIDC_CLIENT_ID, googleFixtureClientID);
+  assert.equal(google.OIDC_CLIENT_SECRET, fixedSecrets.googleClientSecret);
+  assert.equal(
+    google.OIDC_CALLBACK_URL,
+    "http://127.0.0.1:8080/api/v1/auth/oauth/google/callback",
+  );
+  assert.equal(google.OIDC_POST_LOGOUT_URL, "http://127.0.0.1:5173/signed-out");
+  // The default fake OIDC portal and the API keep their own values.
+  assert.equal(environment.OIDC_ISSUER_URL, "http://127.0.0.1:9091");
+  assert.equal(environment.OIDC_CLIENT_SECRET, fixedSecrets.clientSecret);
+  assert.equal(environment.E2E_OIDC_ADDRESS, "127.0.0.1:9091");
+  assert.equal(environment.E2E_OIDC_CUSTOM_ACCOUNTS, undefined);
 });
 
 test("native auth specs run only through the dedicated Playwright config", () => {
@@ -279,7 +351,7 @@ test("native auth specs run only through the dedicated Playwright config", () =>
   );
 
   const nativeSpecPatterns =
-    /\[\s*"\*\*\/auth-0\[23\]-native-\*\.spec\.ts",\s*"\*\*\/auth-04-\*\.spec\.ts",?\s*\]/;
+    /\[\s*"\*\*\/auth-0\[23\]-native-\*\.spec\.ts",\s*"\*\*\/auth-04-\*\.spec\.ts",\s*"\*\*\/auth-05-\*\.spec\.ts",?\s*\]/;
   assert.match(
     defaultConfig,
     new RegExp(`testIgnore:\\s*${nativeSpecPatterns.source}`),
@@ -297,10 +369,11 @@ test("native auth specs run only through the dedicated Playwright config", () =>
     (name) => /^auth-0\d-.*\.spec\.ts$/.test(name),
   );
   assert.ok(nativeSpecs.includes("auth-04-device-sessions-stepup.spec.ts"));
+  assert.ok(nativeSpecs.includes("auth-05-google-federation.spec.ts"));
   for (const name of nativeSpecs) {
     assert.ok(
       /^auth-0[23]-native-.*\.spec\.ts$/.test(name) ||
-        /^auth-04-.*\.spec\.ts$/.test(name),
+        /^auth-0[45]-.*\.spec\.ts$/.test(name),
       `${name} must match the native auth Playwright patterns`,
     );
   }

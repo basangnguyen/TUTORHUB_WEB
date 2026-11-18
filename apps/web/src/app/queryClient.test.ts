@@ -158,4 +158,38 @@ describe("TutorHub query client session boundary", () => {
       privateData,
     );
   });
+
+  it.each([
+    "auth_link_intent_mismatch",
+    "auth_assurance_required",
+    "auth_recent_authentication_required",
+  ])(
+    "keeps the session and its caches after a link-intent mutation 403 (%s)",
+    async (code) => {
+      const queryClient = createTutorHubQueryClient();
+      const privateData = { name: "Private workspace" };
+      const currentUser = { user: { id: "current-user" } };
+      queryClient.setQueryData(["tenants", "private"], privateData);
+      queryClient.setQueryData(["auth", "me"], currentUser);
+      const generation = currentPrincipalGeneration(queryClient);
+      const mutation = new MutationObserver(queryClient, {
+        mutationFn: async () => {
+          throw new APIRequestError(403, {
+            type: "about:blank",
+            title: "Forbidden",
+            status: 403,
+            code,
+          });
+        },
+      });
+
+      await expect(mutation.mutate()).rejects.toMatchObject({ status: 403 });
+
+      expect(queryClient.getQueryData(["auth", "me"])).toEqual(currentUser);
+      expect(queryClient.getQueryData(["tenants", "private"])).toEqual(
+        privateData,
+      );
+      expect(currentPrincipalGeneration(queryClient)).toBe(generation);
+    },
+  );
 });

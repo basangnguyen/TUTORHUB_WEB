@@ -1,8 +1,8 @@
 import {
   APIRequestError,
+  buildOAuthStartURL,
   completeEmailSignup,
   completePasswordRecovery,
-  getAuthProviders,
   loginWithPassword,
   resendAuthChallenge,
   startEmailCodeLogin,
@@ -10,7 +10,6 @@ import {
   startPasswordRecovery,
   verifyEmailCodeLogin,
   type APIRequestOptions,
-  type AuthProvidersResponse,
   type AuthSignupChallengeResponse,
   type NativeAuthenticationResponse,
   type PasswordRecoveryResponse,
@@ -35,10 +34,27 @@ import {
   type ReactNode,
   type RefObject,
 } from "react";
-import { useLocation, useNavigate } from "react-router";
+import { Navigate, useLocation, useNavigate } from "react-router";
 import { useI18n, type Language } from "../app/i18n";
 import { useSession } from "../app/session";
 import { SignInLegalDialog } from "./SignInLegalDialog";
+import {
+  MIN_PASSWORD_LENGTH,
+  getApiBaseUrl,
+  linkPendingTarget,
+  loginModeFor,
+  passwordMinLengthFor,
+  readCallbackError,
+  readReturnTo,
+  searchWithoutCallbackError,
+  signUpModeFor,
+  socialAvailabilityFor,
+  useAuthProviders,
+  type CallbackErrorCode,
+  type LoginMode,
+  type SignUpMode,
+  type SocialAvailability,
+} from "./SignInPage.shared";
 import { SignInSlider } from "./SignInSlider";
 import type { SignInLegalTab } from "./signInLegalContent";
 import "./SignInPage.css";
@@ -46,17 +62,14 @@ import "./SignInPage.css";
 const REMEMBERED_EMAIL_KEY = "tutorhub.remembered_email";
 const REMEMBERED_EMAIL_MAX_LENGTH = 320;
 const OTP_COOLDOWN_SECONDS = 60;
-const MIN_PASSWORD_LENGTH = 8;
 /** Upper bound for client-side Retry-After locks; the server stays authoritative. */
 const MAX_RETRY_AFTER_SECONDS = 3600;
-const DEFAULT_RETURN_TO = "/app/home";
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const OTP_PATTERN = /^\d{6}$/;
 
 const AUTH_IMAGE_ROOT = "/images/auth";
 const LOGO_SRC = `${AUTH_IMAGE_ROOT}/logomoi.png`;
 const FACEBOOK_ICON_SRC = `${AUTH_IMAGE_ROOT}/icon/facebook.svg`;
-const GOOGLE_ICON_SRC = `${AUTH_IMAGE_ROOT}/icon/google.svg`;
 const SLIDES = [
   { src: `${AUTH_IMAGE_ROOT}/slide_login/login1.png`, altKey: "slide1Alt" },
   { src: `${AUTH_IMAGE_ROOT}/slide_login/login2.png`, altKey: "slide2Alt" },
@@ -103,7 +116,7 @@ const en = {
   rememberMeHint: "Only your email or username is remembered on this device.",
   or: "Or",
   facebook: "Log in with Facebook",
-  google: "Log in with Google",
+  google: "Sign in with Google",
   forgotPassword: "Forget Password",
   signUpHeading: "Create an Account",
   fullNameLabel: "Full Name",
@@ -190,6 +203,23 @@ const en = {
     "Enter your email to receive a 6-digit code, then choose a new password.",
   passwordResetDone:
     "Your password has been reset and all your sessions were signed out. Please log in again with your new password.",
+  socialLegalLead: "By continuing, you agree to the ",
+  socialLegalTail: ".",
+  callbackSignupDisabled:
+    "New accounts can't be created with this sign-in option right now. Log in with the method you used before or contact your administrator.",
+  callbackEmailUnverified:
+    "The email address of the account you chose isn't verified by its provider. Verify it there, then try again, or use another sign-in method.",
+  callbackProviderUnavailable:
+    "This sign-in option isn't available right now. Please use another sign-in method.",
+  callbackAssuranceRequired:
+    "This account requires a stronger sign-in method. Log in with the security method set up for it.",
+  callbackAuthenticationFailed:
+    "We couldn't complete that sign-in. Please try again.",
+  callbackTemporarilyUnavailable:
+    "Sign-in is temporarily interrupted. Please try again in a few minutes.",
+  callbackRateLimited:
+    "Too many sign-in attempts. Please wait a moment and try again.",
+  callbackUnknown: "We couldn't complete that sign-in. Please try again.",
 };
 
 type SignInCopy = Record<keyof typeof en, string>;
@@ -323,6 +353,23 @@ const vi: SignInCopy = {
     "Nhập email để nhận mã 6 chữ số, sau đó chọn mật khẩu mới.",
   passwordResetDone:
     "Mật khẩu đã được đặt lại và mọi phiên đăng nhập của bạn đã bị đăng xuất. Vui lòng đăng nhập lại bằng mật khẩu mới.",
+  socialLegalLead: "Bằng việc tiếp tục, bạn đồng ý với ",
+  socialLegalTail: ".",
+  callbackSignupDisabled:
+    "Hiện chưa thể tạo tài khoản mới bằng phương thức này. Hãy đăng nhập bằng phương thức bạn đã dùng trước đây hoặc liên hệ quản trị viên.",
+  callbackEmailUnverified:
+    "Email của tài khoản bạn chọn chưa được nhà cung cấp xác minh. Hãy xác minh email rồi thử lại, hoặc dùng phương thức đăng nhập khác.",
+  callbackProviderUnavailable:
+    "Phương thức đăng nhập này hiện không khả dụng. Vui lòng dùng phương thức khác.",
+  callbackAssuranceRequired:
+    "Tài khoản này yêu cầu phương thức xác thực mạnh hơn. Hãy đăng nhập bằng phương thức bảo mật đã thiết lập.",
+  callbackAuthenticationFailed:
+    "Không thể hoàn tất đăng nhập. Vui lòng thử lại.",
+  callbackTemporarilyUnavailable:
+    "Đăng nhập đang tạm gián đoạn. Vui lòng thử lại sau ít phút.",
+  callbackRateLimited:
+    "Bạn đã thử đăng nhập quá nhiều lần. Vui lòng chờ một lát rồi thử lại.",
+  callbackUnknown: "Không thể hoàn tất đăng nhập. Vui lòng thử lại.",
 };
 
 const copyByLanguage: Record<Language, SignInCopy> = { en, vi };
@@ -339,141 +386,51 @@ function formatCopy(template: string, values: Record<string, string | number>) {
   });
 }
 
-function getApiBaseUrl() {
-  return import.meta.env.VITE_API_BASE_URL ?? "/api";
-}
-
-function hasControlCharacter(value: string) {
-  for (const character of value) {
-    const code = character.charCodeAt(0);
-    if (code < 0x20 || code === 0x7f) return true;
-  }
-  return false;
-}
-
-/** Only same-origin SPA paths are accepted; anything else lands on the dashboard. */
-function sanitizeReturnTo(value: string) {
-  if (
-    !value.startsWith("/") ||
-    value.startsWith("//") ||
-    value.includes("\\") ||
-    hasControlCharacter(value)
-  ) {
-    return DEFAULT_RETURN_TO;
-  }
-  const pathname = value.split(/[?#]/, 1)[0] ?? value;
-  if (pathname === "/sign-in" || pathname.startsWith("/sign-in/")) {
-    return DEFAULT_RETURN_TO;
-  }
-  return value;
-}
-
-function readReturnTo(state: unknown) {
-  if (typeof state !== "object" || state === null || !("from" in state)) {
-    return DEFAULT_RETURN_TO;
-  }
-  const from: unknown = state.from;
-  if (typeof from !== "object" || from === null) {
-    return DEFAULT_RETURN_TO;
-  }
-  const pathname =
-    "pathname" in from && typeof from.pathname === "string"
-      ? from.pathname
-      : DEFAULT_RETURN_TO;
-  const search =
-    "search" in from && typeof from.search === "string" ? from.search : "";
-  return sanitizeReturnTo(`${pathname}${search}`);
-}
-
-type AuthProvidersState =
-  | { status: "loading" }
-  | { status: "error" }
-  | { status: "ready"; providers: AuthProvidersResponse };
+const CALLBACK_ERROR_COPY: Record<CallbackErrorCode | "unknown", CopyKey> = {
+  assurance_required: "callbackAssuranceRequired",
+  authentication_failed: "callbackAuthenticationFailed",
+  email_unverified: "callbackEmailUnverified",
+  provider_unavailable: "callbackProviderUnavailable",
+  rate_limited: "callbackRateLimited",
+  signup_disabled: "callbackSignupDisabled",
+  temporarily_unavailable: "callbackTemporarilyUnavailable",
+  unknown: "callbackUnknown",
+};
 
 /**
- * Loads the deployment's public sign-in capabilities. A reload keeps the last
- * good configuration on screen so the two-column layout never collapses.
+ * Standard multi-colour Google "G" (Sign in with Google branding guidelines):
+ * fixed colours, square aspect ratio, always on the button's white fill.
  */
-function useAuthProviders() {
-  const [state, setState] = useState<AuthProvidersState>({
-    status: "loading",
-  });
-  const [generation, setGeneration] = useState(0);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    getAuthProviders({
-      baseUrl: getApiBaseUrl(),
-      signal: controller.signal,
-    }).then(
-      (providers) => {
-        if (!controller.signal.aborted) {
-          setState({ status: "ready", providers });
-        }
-      },
-      () => {
-        if (!controller.signal.aborted) {
-          setState((current) =>
-            current.status === "ready" ? current : { status: "error" },
-          );
-        }
-      },
-    );
-    return () => controller.abort();
-  }, [generation]);
-
-  const reload = useCallback(() => {
-    setState((current) =>
-      current.status === "ready" ? current : { status: "loading" },
-    );
-    setGeneration((value) => value + 1);
-  }, []);
-
-  return { reload, state };
-}
-
-type LoginMode = "pending" | "password" | "oidc" | "unavailable";
-type SignUpMode = "pending" | "native" | "oidc" | "unavailable";
-
-interface SocialAvailability {
-  disabled: boolean;
-  facebook: boolean;
-  google: boolean;
-}
-
-function loginModeFor(providers: AuthProvidersResponse | null): LoginMode {
-  if (!providers) return "pending";
-  if (providers.password_enabled) return "password";
-  return providers.oidc_default_enabled ? "oidc" : "unavailable";
-}
-
-function signUpModeFor(providers: AuthProvidersResponse | null): SignUpMode {
-  if (!providers) return "pending";
-  if (providers.signup_enabled) return "native";
-  return providers.oidc_default_enabled ? "oidc" : "unavailable";
-}
-
-/**
- * Until AUTH-05/06 ship provider-specific starts, Google/Facebook stay a
- * fallback entry into the default OIDC portal whenever it is enabled.
- */
-function socialAvailabilityFor(
-  providers: AuthProvidersResponse | null,
-): SocialAvailability {
-  if (!providers) return { disabled: true, facebook: true, google: true };
-  const fallback = providers.oidc_default_enabled;
-  return {
-    disabled: false,
-    facebook: fallback || providers.oauth_providers.includes("facebook"),
-    google: fallback || providers.oauth_providers.includes("google"),
-  };
-}
-
-function passwordMinLengthFor(providers: AuthProvidersResponse | null) {
-  const value = providers?.password_min_length;
-  return typeof value === "number" && Number.isFinite(value) && value > 0
-    ? Math.ceil(value)
-    : MIN_PASSWORD_LENGTH;
+function GoogleMark() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="sign-in-google-mark"
+      focusable="false"
+      height={20}
+      viewBox="0 0 48 48"
+      width={20}
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path
+        d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"
+        fill="#EA4335"
+      />
+      <path
+        d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"
+        fill="#4285F4"
+      />
+      <path
+        d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"
+        fill="#FBBC05"
+      />
+      <path
+        d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"
+        fill="#34A853"
+      />
+      <path d="M0 0h48v48H0z" fill="none" />
+    </svg>
+  );
 }
 
 type AuthFailure =
@@ -807,6 +764,16 @@ function FormAlert({ failure, onRetrySession }: FormAlertProps) {
 }
 
 export function SignInPage() {
+  const location = useLocation();
+  // The OAuth callback parked a provider identity for explicit linking.
+  const linkTarget = linkPendingTarget(location.search);
+  if (linkTarget) {
+    return <Navigate replace to={linkTarget} />;
+  }
+  return <SignInScreen />;
+}
+
+function SignInScreen() {
   const c = useSignInCopy();
   const { completeNativeSignIn, resetAfterPasswordRecovery, signIn } =
     useSession();
@@ -816,9 +783,42 @@ export function SignInPage() {
   const { reload: reloadProviders, state: providersState } = useAuthProviders();
   const [view, setView] = useState<"login" | "signup">("login");
   const [focusFormOnMount, setFocusFormOnMount] = useState(false);
+  // Read once: the fixed code survives removing it from the address bar.
+  const [callbackError] = useState(() => readCallbackError(location.search));
   const heroTitleId = useId();
 
+  const hasErrorParam = new URLSearchParams(location.search).has("error");
+  useEffect(() => {
+    if (!hasErrorParam) return;
+    // Router-aware history.replaceState: keeps the protected `from` state.
+    void navigate(
+      {
+        hash: location.hash,
+        pathname: location.pathname,
+        search: searchWithoutCallbackError(location.search),
+      },
+      { replace: true, state: location.state as unknown },
+    );
+  }, [
+    hasErrorParam,
+    location.hash,
+    location.pathname,
+    location.search,
+    location.state,
+    navigate,
+  ]);
+
   const startSignIn = useCallback(() => signIn(returnTo), [returnTo, signIn]);
+  const startGoogleSignIn = useCallback(() => {
+    // A full-page navigation (never fetch): the server sets the flow cookie.
+    window.location.assign(
+      buildOAuthStartURL(
+        "google",
+        { intent: "login", returnTo },
+        { baseUrl: getApiBaseUrl() },
+      ),
+    );
+  }, [returnTo]);
   const finishNativeSignIn = useCallback(async () => {
     await completeNativeSignIn();
     void navigate(returnTo, { replace: true });
@@ -909,6 +909,14 @@ export function SignInPage() {
               </button>
             </div>
           ) : null}
+          {callbackError ? (
+            <div
+              className="sign-in-status sign-in-status--callback"
+              role="alert"
+            >
+              <p>{c[CALLBACK_ERROR_COPY[callbackError]]}</p>
+            </div>
+          ) : null}
 
           {view === "login" ? (
             <LoginForm
@@ -916,6 +924,7 @@ export function SignInPage() {
               emailCodeEnabled={providers?.email_code_enabled === true}
               mode={loginModeFor(providers)}
               onAuthenticated={finishNativeSignIn}
+              onGoogleSignIn={startGoogleSignIn}
               onPasswordReset={resetAfterPasswordRecovery}
               onSignIn={startSignIn}
               passwordMinLength={passwordMinLengthFor(providers)}
@@ -960,13 +969,15 @@ function LoginImageSlider() {
   );
 }
 
-interface LoginFormProps {
+export interface LoginFormProps {
   autoFocus: boolean;
   /** `email_code_enabled`: offers "log in with an email code". */
   emailCodeEnabled: boolean;
   mode: LoginMode;
   /** Runs after the server issued a native session: CSRF, /me, navigation. */
   onAuthenticated: () => Promise<void>;
+  /** Starts the Google flow when `social.googleFederation` is on. */
+  onGoogleSignIn?: () => void;
   /** Drops client session state after a recovery revoked every session. */
   onPasswordReset: () => Promise<void>;
   /** Redirects to the default OIDC portal (BFF `/api/v1/auth/login`). */
@@ -981,11 +992,16 @@ type LoginField = "identifier" | "password";
 type LoginErrors = Partial<Record<LoginField, CopyKey>>;
 type LoginMethod = "password" | "emailCode";
 
-function LoginForm({
+/**
+ * Password / email-code login with recovery. Exported for /account-link,
+ * which signs in in place (no social buttons, no navigation).
+ */
+export function LoginForm({
   autoFocus,
   emailCodeEnabled,
   mode,
   onAuthenticated,
+  onGoogleSignIn,
   onPasswordReset,
   onSignIn,
   passwordMinLength,
@@ -1017,6 +1033,9 @@ function LoginForm({
   const [methodSwitched, setMethodSwitched] = useState(false);
   const [recoverOpen, setRecoverOpen] = useState(false);
   const [passwordResetDone, setPasswordResetDone] = useState(false);
+  const [legalOpen, setLegalOpen] = useState(false);
+  const [legalTab, setLegalTab] = useState<SignInLegalTab>("agreement");
+  const legalReturnFocusRef = useRef<HTMLElement | null>(null);
   const lock = useCountdown();
   const isPassword = mode === "password";
   const usesEmailCode = emailCodeEnabled && method === "emailCode";
@@ -1052,6 +1071,12 @@ function LoginForm({
     setPasswordResetDone(true);
     focusIdentifierOnCloseRef.current = true;
     setRecoverOpen(false);
+  }
+
+  function openLegal(tab: SignInLegalTab, event: MouseEvent<HTMLElement>) {
+    legalReturnFocusRef.current = event.currentTarget;
+    setLegalTab(tab);
+    setLegalOpen(true);
   }
 
   function handleRememberChange(checked: boolean) {
@@ -1345,14 +1370,48 @@ function LoginForm({
               <button
                 className="sign-in-button sign-in-button--google"
                 disabled={social.disabled}
-                onClick={onSignIn}
+                onClick={
+                  social.googleFederation && onGoogleSignIn
+                    ? onGoogleSignIn
+                    : onSignIn
+                }
                 type="button"
               >
-                <img alt="" height={22} src={GOOGLE_ICON_SRC} width={22} />
+                <GoogleMark />
                 <span>{c.google}</span>
               </button>
             ) : null}
           </div>
+          <p className="sign-in-form__social-legal">
+            {c.socialLegalLead}
+            <button
+              aria-haspopup="dialog"
+              className="sign-in-check__link"
+              onClick={(event) => openLegal("agreement", event)}
+              type="button"
+            >
+              {c.userAgreement}
+            </button>
+            {c.termsJoin}
+            <button
+              aria-haspopup="dialog"
+              className="sign-in-check__link"
+              onClick={(event) => openLegal("privacy", event)}
+              type="button"
+            >
+              {c.privacyPolicy}
+            </button>
+            {c.socialLegalTail}
+          </p>
+          <SignInLegalDialog
+            activeTab={legalTab}
+            // Reading the terms here is informational; nothing is recorded.
+            onAccept={() => undefined}
+            onOpenChange={setLegalOpen}
+            onTabChange={setLegalTab}
+            open={legalOpen}
+            returnFocusRef={legalReturnFocusRef}
+          />
         </>
       ) : null}
 

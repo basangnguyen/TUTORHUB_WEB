@@ -16,8 +16,13 @@ const childShutdownForceMilliseconds = 2_000;
 const localOrigins = Object.freeze({
   api: "http://127.0.0.1:8080",
   issuer: "http://127.0.0.1:9091",
+  // AUTH-05: a second fake issuer stands in for Google (native auth only).
+  googleIssuer: "http://127.0.0.1:9092",
   web: "http://127.0.0.1:5173",
 });
+
+/** Fixture client ID for the loopback fake Google; never a real client. */
+export const googleFixtureClientID = "tutorhub-e2e-google";
 
 const clearedConfigurationKeys = [
   "B2_ENDPOINT",
@@ -50,10 +55,11 @@ export const localAccounts = Object.freeze({
 
 /**
  * AUTH-02/03/04 native sign-up, password login, email-code login, password
- * recovery, step-up re-authentication and session/device management for the
- * loopback stack only. Applied solely when E2E_AUTH_NATIVE=true (or
- * `--native-auth`), so the default `pnpm e2e` environment stays
- * byte-for-byte unchanged.
+ * recovery, step-up re-authentication and session/device management, plus
+ * AUTH-05 Google federation against a loopback fake issuer, for the loopback
+ * stack only. Applied solely when E2E_AUTH_NATIVE=true (or `--native-auth`),
+ * so the default `pnpm e2e` environment stays byte-for-byte unchanged. The
+ * Google client secret is generated per run (see createRuntimeSecrets).
  */
 export const nativeAuthConfiguration = Object.freeze({
   AUTH_SIGNUP_ENABLED: "true",
@@ -65,6 +71,10 @@ export const nativeAuthConfiguration = Object.freeze({
   AUTH_PASSWORD_BREACH_CHECK: "offline",
   // AUTH-04: /me/security, /me/login-methods, /me/sessions and /auth/reauth.
   AUTH_DEVICE_MANAGEMENT_ENABLED: "true",
+  // AUTH-05: Google federation against the fake issuer (APP_ENV=test only).
+  AUTH_PROVIDER_GOOGLE_ENABLED: "true",
+  GOOGLE_CLIENT_ID: googleFixtureClientID,
+  GOOGLE_ISSUER_URL: localOrigins.googleIssuer,
 });
 
 const commandOptions = Object.freeze({
@@ -102,6 +112,7 @@ export function resolveBaseEnvironment(
 export function createRuntimeSecrets() {
   return {
     clientSecret: randomBytes(32).toString("base64url"),
+    googleClientSecret: randomBytes(32).toString("base64url"),
     sessionSecret: randomBytes(48).toString("base64"),
   };
 }
@@ -177,9 +188,44 @@ export function buildE2EEnvironment(
     environment[key] = "";
   }
   if (baseEnvironment.E2E_AUTH_NATIVE === "true") {
-    Object.assign(environment, nativeAuthConfiguration);
+    if (!runtimeSecrets.googleClientSecret) {
+      throw new Error("Native auth E2E needs an ephemeral Google secret.");
+    }
+    Object.assign(environment, nativeAuthConfiguration, {
+      GOOGLE_CLIENT_SECRET: runtimeSecrets.googleClientSecret,
+    });
   }
   return environment;
+}
+
+/** True only for the native-auth stack that points Google at the fake. */
+export function usesFakeGoogle(environment = {}) {
+  return (
+    environment.E2E_AUTH_NATIVE === "true" &&
+    environment.AUTH_PROVIDER_GOOGLE_ENABLED === "true" &&
+    environment.GOOGLE_ISSUER_URL === localOrigins.googleIssuer
+  );
+}
+
+/**
+ * The second e2e-oidc process reads the same OIDC_* keys as the first one,
+ * so it gets its own copy with Google's issuer, client and callback, plus
+ * per-scenario custom test accounts.
+ */
+export function buildFakeGoogleEnvironment(environment) {
+  if (!usesFakeGoogle(environment) || !environment.GOOGLE_CLIENT_SECRET) {
+    throw new Error("The fake Google issuer requires the native-auth stack.");
+  }
+  return {
+    ...environment,
+    E2E_OIDC_ADDRESS: new URL(localOrigins.googleIssuer).host,
+    E2E_OIDC_CUSTOM_ACCOUNTS: "true",
+    OIDC_ISSUER_URL: localOrigins.googleIssuer,
+    OIDC_CLIENT_ID: environment.GOOGLE_CLIENT_ID,
+    OIDC_CLIENT_SECRET: environment.GOOGLE_CLIENT_SECRET,
+    OIDC_CALLBACK_URL: `${localOrigins.api}/api/v1/auth/oauth/google/callback`,
+    OIDC_POST_LOGOUT_URL: `${localOrigins.web}/signed-out`,
+  };
 }
 
 function isLoopbackHost(hostname) {
@@ -502,6 +548,20 @@ async function runServers(environment) {
       return;
     }
 
+    if (usesFakeGoogle(environment)) {
+      // The API discovers Google at startup, so the fake must be ready first.
+      const google = startChild(
+        binaries.oidcBinary,
+        [],
+        buildFakeGoogleEnvironment(environment),
+      );
+      children.push(google);
+      await waitForEndpoint(`${localOrigins.googleIssuer}/healthz`, google);
+      if (stopping) {
+        return;
+      }
+    }
+
     const api = startChild(binaries.apiBinary, [], environment);
     children.push(api);
     await waitForEndpoint(`${localOrigins.api}/ready`, api);
@@ -556,7 +616,7 @@ function printHelp() {
     `  serve    Prepare and run fake OIDC, Core API, and web\n\n`,
   );
   process.stdout.write(
-    `  --native-auth  Also enable email sign-up, password and email-code login, password recovery, step-up and device management, and the loopback devinbox sender\n`,
+    `  --native-auth  Also enable email sign-up, password and email-code login, password recovery, step-up and device management, the loopback devinbox sender, and Google federation against a second loopback fake issuer\n`,
   );
 }
 

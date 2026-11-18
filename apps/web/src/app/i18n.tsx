@@ -815,6 +815,9 @@ const messages = {
     "profile.identityLastProtected":
       "Không thể hủy phương thức đăng nhập cuối cùng.",
     "profile.identityUnlinked": "Đã hủy liên kết danh tính.",
+    "profile.identityLinkGoogle": "Liên kết Google",
+    "profile.identityLinked": "Đã liên kết danh tính đăng nhập.",
+    "profile.identityProviderGoogle": "Google",
     "profile.identityActionError":
       "Không thể hoàn tất thao tác với danh tính. Hãy thử lại.",
     "profile.passwordTitle": "Mật khẩu",
@@ -1462,6 +1465,55 @@ const messages = {
       "Tài khoản của bạn đã được thêm vào {tenant}. Bạn có thể tiếp tục vào TutorHub và chọn workspace này.",
     "invitation.publicWorkspaceFallback": "workspace được mời",
     "invitation.publicContinueAction": "Tiếp tục vào TutorHub",
+    "accountLink.kicker": "Liên kết tài khoản",
+    "accountLink.title": "Liên kết {provider} với tài khoản TutorHub",
+    "accountLink.providerGoogle": "Google",
+    "accountLink.providerOidc": "đăng nhập một lần (SSO)",
+    "accountLink.loading": "Đang kiểm tra yêu cầu liên kết",
+    "accountLink.existing":
+      "Email {email} đã có tài khoản TutorHub. Đăng nhập đúng tài khoản đó để liên kết {provider}.",
+    "accountLink.expiresIn": "Yêu cầu hết hạn sau {time}.",
+    "accountLink.unavailableTitle": "Yêu cầu liên kết không còn hiệu lực",
+    "accountLink.unavailableDescription":
+      "Yêu cầu có thể đã hết hạn, đã được dùng hoặc đã bị hủy. Hãy đăng nhập lại để bắt đầu lại.",
+    "accountLink.backToSignIn": "Về trang đăng nhập",
+    "accountLink.loadErrorTitle": "Chưa thể kiểm tra yêu cầu liên kết",
+    "accountLink.loadErrorDescription":
+      "Kết nối tới TutorHub bị gián đoạn. Hãy kiểm tra mạng rồi thử lại.",
+    "accountLink.checkingSession": "Đang kiểm tra phiên đăng nhập...",
+    "accountLink.signInHeading": "Đăng nhập tài khoản TutorHub hiện có",
+    "accountLink.signInDescription":
+      "Dùng phương thức bạn đã thiết lập cho tài khoản này. {provider} chỉ được liên kết sau khi bạn xác nhận.",
+    "accountLink.providersLoading": "Đang tải phương thức đăng nhập",
+    "accountLink.providersErrorTitle": "Chưa tải được phương thức đăng nhập",
+    "accountLink.confirmHeading": "Xác nhận liên kết",
+    "accountLink.currentAccount": "Tài khoản đang đăng nhập",
+    "accountLink.confirmDescription":
+      "Sau khi liên kết, bạn có thể đăng nhập TutorHub bằng {provider}. Các thiết bị khác đang đăng nhập tài khoản này sẽ bị đăng xuất.",
+    "accountLink.confirm": "Liên kết {provider}",
+    "accountLink.confirming": "Đang liên kết...",
+    "accountLink.cancel": "Hủy",
+    "accountLink.cancelling": "Đang hủy...",
+    "accountLink.mismatch":
+      "Bạn đang đăng nhập một tài khoản khác với tài khoản của yêu cầu liên kết này. Hãy đăng xuất rồi đăng nhập đúng tài khoản.",
+    "accountLink.signOut": "Đăng xuất",
+    "accountLink.assuranceRequired":
+      "Tài khoản này yêu cầu xác thực mạnh hơn trước khi liên kết. Hãy đăng nhập bằng phương thức bảo mật đã thiết lập rồi thử lại.",
+    "accountLink.sessionExpired":
+      "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại để tiếp tục liên kết.",
+    "accountLink.conflict":
+      "Phiên đăng nhập vừa thay đổi ở nơi khác. Hãy làm mới phiên rồi thử lại.",
+    "accountLink.refreshSession": "Làm mới phiên",
+    "accountLink.rateLimited":
+      "Bạn đã thử quá nhiều lần. Vui lòng chờ một lát rồi thử lại.",
+    "accountLink.rateLimitedWait":
+      "Bạn đã thử quá nhiều lần. Vui lòng thử lại sau {seconds} giây.",
+    "accountLink.busy": "Hệ thống đang bận. Vui lòng thử lại sau giây lát.",
+    "accountLink.networkError":
+      "Không kết nối được tới TutorHub. Hãy kiểm tra mạng rồi thử lại.",
+    "accountLink.actionError": "Chưa thể hoàn tất. Vui lòng thử lại.",
+    "accountLink.retry": "Thử lại",
+    "accountLink.retryWait": "Thử lại ({seconds}s)",
     "classInvitation.title": "Tham gia lớp học",
     "classInvitation.description":
       "Liên kết bảo mật này cho phép bạn tham gia một lớp trong workspace đang hoạt động.",
@@ -3185,6 +3237,9 @@ const messages = {
     "profile.identityLastProtected":
       "The last sign-in method cannot be removed.",
     "profile.identityUnlinked": "Identity unlinked.",
+    "profile.identityLinkGoogle": "Link Google",
+    "profile.identityLinked": "Sign-in identity linked.",
+    "profile.identityProviderGoogle": "Google",
     "profile.identityActionError":
       "The identity action could not be completed. Please try again.",
     "profile.passwordTitle": "Password",
@@ -3842,6 +3897,55 @@ const messages = {
       "Your account was added to {tenant}. Continue to TutorHub and select this workspace.",
     "invitation.publicWorkspaceFallback": "the invited workspace",
     "invitation.publicContinueAction": "Continue to TutorHub",
+    "accountLink.kicker": "Account linking",
+    "accountLink.title": "Link {provider} to your TutorHub account",
+    "accountLink.providerGoogle": "Google",
+    "accountLink.providerOidc": "single sign-on (SSO)",
+    "accountLink.loading": "Checking the linking request",
+    "accountLink.existing":
+      "The email {email} already has a TutorHub account. Sign in to that account to link {provider}.",
+    "accountLink.expiresIn": "This request expires in {time}.",
+    "accountLink.unavailableTitle": "This linking request is no longer valid",
+    "accountLink.unavailableDescription":
+      "It may have expired, been used or been cancelled. Sign in again to start over.",
+    "accountLink.backToSignIn": "Back to sign-in",
+    "accountLink.loadErrorTitle": "We couldn't check the linking request",
+    "accountLink.loadErrorDescription":
+      "The connection to TutorHub was interrupted. Check your network and try again.",
+    "accountLink.checkingSession": "Checking your session...",
+    "accountLink.signInHeading": "Sign in to your existing TutorHub account",
+    "accountLink.signInDescription":
+      "Use a method you already set up for this account. {provider} is linked only after you confirm.",
+    "accountLink.providersLoading": "Loading sign-in options",
+    "accountLink.providersErrorTitle": "We couldn't load the sign-in options",
+    "accountLink.confirmHeading": "Confirm linking",
+    "accountLink.currentAccount": "Signed-in account",
+    "accountLink.confirmDescription":
+      "After linking you can sign in to TutorHub with {provider}. Other devices signed in to this account will be signed out.",
+    "accountLink.confirm": "Link {provider}",
+    "accountLink.confirming": "Linking...",
+    "accountLink.cancel": "Cancel",
+    "accountLink.cancelling": "Cancelling...",
+    "accountLink.mismatch":
+      "You're signed in to a different account than the one this linking request belongs to. Sign out, then sign in to the right account.",
+    "accountLink.signOut": "Sign out",
+    "accountLink.assuranceRequired":
+      "This account requires stronger authentication before linking. Sign in with the security method set up for it, then try again.",
+    "accountLink.sessionExpired":
+      "Your session has expired. Sign in again to continue linking.",
+    "accountLink.conflict":
+      "Your session just changed somewhere else. Refresh it and try again.",
+    "accountLink.refreshSession": "Refresh session",
+    "accountLink.rateLimited":
+      "Too many attempts. Please wait a moment and try again.",
+    "accountLink.rateLimitedWait":
+      "Too many attempts. Please try again in {seconds} seconds.",
+    "accountLink.busy": "TutorHub is busy right now. Please try again shortly.",
+    "accountLink.networkError":
+      "Couldn't reach TutorHub. Check your network and try again.",
+    "accountLink.actionError": "That didn't work. Please try again.",
+    "accountLink.retry": "Try again",
+    "accountLink.retryWait": "Try again ({seconds}s)",
     "classInvitation.title": "Join a class",
     "classInvitation.description":
       "This secure link lets you join a class in your active workspace.",

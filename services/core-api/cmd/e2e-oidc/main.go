@@ -37,6 +37,8 @@ func run() int {
 			"OIDC_POST_LOGOUT_URL",
 			"http://127.0.0.1:5173/signed-out",
 		),
+		// Only the AUTH-05 fake Google instance enables per-scenario emails.
+		AllowCustomAccounts: strings.TrimSpace(os.Getenv("E2E_OIDC_CUSTOM_ACCOUNTS")) == "true",
 		Accounts: []e2eoidc.Account{
 			{
 				ID:          "admin",

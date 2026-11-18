@@ -263,3 +263,11 @@
     text-align: left;
   }
 }
+
+/* AUTH-05B: Google and the existing identity link side by side. */
+.profile-identity-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}

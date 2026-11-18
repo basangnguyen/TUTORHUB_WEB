@@ -1,0 +1,159 @@
+/* AUTH-05B: account-link confirmation. Light-only like /sign-in, whose
+   embedded login form and colour tokens (SignInPage.css) it reuses. */
+
+.account-link-page {
+  display: grid;
+  min-height: 100vh;
+  min-height: 100dvh;
+  place-items: center;
+  padding: 40px 16px;
+  background: var(--sign-in-hero-bg);
+  color: var(--sign-in-text);
+  color-scheme: light;
+  font-family: var(--font-family-sans);
+}
+
+.account-link-card {
+  width: min(100%, 560px);
+  padding: clamp(24px, 5vw, 40px);
+  border: 1px solid var(--sign-in-border);
+  border-radius: 24px;
+  background: #fff;
+  box-shadow: 0 12px 32px rgb(17 24 39 / 8%);
+}
+
+.account-link-card__kicker {
+  margin: 0 0 8px;
+  color: #047857;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.account-link-card h1 {
+  margin: 0 0 24px;
+  color: var(--sign-in-text);
+  font-size: clamp(24px, 4vw, 32px);
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.account-link-card__content {
+  display: grid;
+  gap: 18px;
+}
+
+.account-link-card__lead {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.account-link-card__expiry {
+  margin: 0;
+  color: var(--sign-in-text-muted);
+  font-size: 13px;
+}
+
+.account-link-card__expiry time {
+  color: var(--sign-in-text);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.account-link-card__step {
+  display: grid;
+  gap: 12px;
+  padding-top: 18px;
+  border-top: 1px solid var(--sign-in-border);
+}
+
+.account-link-card__step h2 {
+  margin: 0;
+  color: var(--sign-in-text);
+  font-size: 18px;
+  line-height: 1.4;
+}
+
+.account-link-card__step h2:focus-visible {
+  border-radius: 4px;
+  outline: 2px solid var(--sign-in-focus);
+  outline-offset: 2px;
+}
+
+.account-link-card__step > p {
+  margin: 0;
+  color: var(--sign-in-text-muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.account-link-card__facts {
+  margin: 0;
+}
+
+.account-link-card__facts > div {
+  padding: 14px;
+  border: 1px solid var(--sign-in-border);
+  border-radius: 14px;
+  background: #f9fafb;
+}
+
+.account-link-card__facts dt {
+  color: var(--sign-in-text-muted);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.account-link-card__facts dd {
+  display: grid;
+  gap: 2px;
+  margin: 6px 0 0;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.account-link-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.account-link-card__actions--secondary {
+  justify-content: center;
+}
+
+.account-link-card__alert {
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid #fecaca;
+  border-radius: 14px;
+  background: #fef2f2;
+  color: #991b1b;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.account-link-card__alert p {
+  margin: 0;
+}
+
+.account-link-card__continue {
+  color: #047857;
+  font-weight: 700;
+}
+
+/* The shared login form, without the full-page sign-in layout. */
+.account-link-card .sign-in.sign-in--embedded {
+  display: block;
+  min-height: 0;
+  background: transparent;
+}
+
+.account-link-card .sign-in--embedded .sign-in-form {
+  margin-top: 4px;
+}

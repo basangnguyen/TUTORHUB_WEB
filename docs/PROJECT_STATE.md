@@ -4,18 +4,30 @@
 
 ## Snapshot
 
-| Thuộc tính           | Trạng thái                                                                                                                      |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| Ngày cập nhật        | 2026-11-18                                                                                                                      |
-| Repository           | `https://github.com/basangnguyen/TUTORHUB_WEB`                                                                                  |
-| Nhánh làm việc       | `main`                                                                                                                          |
-| Quy trình            | Antigravity làm PM/Gatekeeper điều phối Codex và Claude Code qua prompt; Antigravity nghiệm thu và commit/push thẳng `main`     |
-| Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4, Phase 5 collaboration                                                                       |
-| Phase hiện tại       | Phase 3 deferred carry-over vẫn hoạt động; Phase 5 collaboration đã đóng                                                        |
-| Task `DONE` gần nhất | `AUTH-05A` Google OAuth2/OIDC phía Server: Provider Registry, Anti-Mix-Up, Link Intent, Federated Re-auth (migration `000045`)  |
-| Mốc repository mới   | PostgreSQL disposable `128/128` suite PASS (ledger `45 false`); Playwright native auth `4/4` + hồi quy OIDC `p2-08` PASS        |
-| Task hiện tại        | Giao `AUTH-05B` cho Claude Code (Nút Google, màn hình xác nhận Link Intent, liên kết Google trong Settings) — cờ Google vẫn tắt |
-| Task tiếp theo       | Nghiệm thu `AUTH-05B`; rollout Google cần smoke Google thật + cổng rollout ghi trong checkpoint `AUTH-05A`                      |
+| Thuộc tính           | Trạng thái                                                                                                                             |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Ngày cập nhật        | 2026-11-18                                                                                                                             |
+| Repository           | `https://github.com/basangnguyen/TUTORHUB_WEB`                                                                                         |
+| Nhánh làm việc       | `main`                                                                                                                                 |
+| Quy trình            | Antigravity làm PM/Gatekeeper điều phối Codex và Claude Code qua prompt; Antigravity nghiệm thu và commit/push thẳng `main`            |
+| Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4, Phase 5 collaboration                                                                              |
+| Phase hiện tại       | Phase 3 deferred carry-over vẫn hoạt động; Phase 5 collaboration đã đóng                                                               |
+| Task `DONE` gần nhất | `AUTH-05B` Giao diện Đăng nhập Google, `/account-link` & liên kết Google trong Settings + Playwright (`AUTH-05` `DONE`, cờ Google tắt) |
+| Mốc repository mới   | Playwright Chromium native auth `10/10` (gồm `auth-05` ×6, fake Google loopback) + hồi quy OIDC `p2-08` PASS; web `636` unit test      |
+| Task hiện tại        | Giao `AUTH-06A` cho Codex (Facebook OIDC + PKCE, pending registration thiếu email, Meta Data Deletion/Deauthorize) — có Phase 0        |
+| Task tiếp theo       | Nghiệm thu `AUTH-06A`; rollout Google cần client thật + smoke Google thật theo cổng rollout của checkpoint `AUTH-05A`                  |
+
+### Checkpoint `AUTH-05B` Giao diện Đăng nhập Google, Xác nhận liên kết & Liên kết trong Settings (`AUTH-05` `DONE`) — 2026-11-18
+
+Claude Code triển khai lát cắt Web UI + Playwright của `AUTH-05` (task đầu tiên áp dụng Phase 0 nghiên cứu bắt buộc, không có BLOCKER); Gatekeeper (Antigravity) review diff/bảo mật và kiểm chứng trên Chromium thật + PostgreSQL disposable:
+
+- **`/sign-in`**: Khi `oauth_providers` có `google`, nút "Đăng nhập bằng Google" / "Sign in with Google" điều hướng toàn trang tới `/api/v1/auth/oauth/google/start` (không fetch); logo "G" chuẩn vẽ trong mã theo light theme của Google Branding Guidelines; thiếu Google giữ nguyên fallback OIDC cũ. Dòng đồng ý điều khoản dưới cụm nút social mở `SignInLegalDialog`. 7 mã `?error=` cố định map sang thông báo vi/en trung tính, không phản chiếu query và được xóa khỏi URL; `?link=pending` chuyển sang `/account-link`.
+- **Route công khai `/account-link`**: Hiển thị email đã che + đếm ngược, đăng nhập tại chỗ (dùng lại form của `SignInPage`) rồi ở lại trang để xác nhận; xác nhận xoay CSRF trước khi gọi, làm mới cache, về `return_to` đã lọc lại; đủ trạng thái sai tài khoản (giữ intent, nút đăng xuất), assurance, hết hạn, `401`/`409`/`429` (Retry-After)/`503`.
+- **Settings**: Nút "Liên kết Google" dùng step-up dùng chung khi gặp `403 auth_recent_authentication_required`; nhãn Google trong danh sách danh tính/phương thức đăng nhập. Không thêm Google vào hộp step-up.
+- **Fake Google cho E2E**: instance `e2e-oidc` thứ hai (cổng `9092`) với form tài khoản thử nghiệm tùy chọn (mặc định tắt, chỉ bật cho stack `--native-auth`), secret Google sinh ngẫu nhiên mỗi lần chạy; không gọi Google thật.
+- **Bằng chứng Gatekeeper**: Playwright Chromium trên DB disposable (migration `45`, xóa sạch sau khi chạy): native auth **`10/10` PASS (`4,6` phút)** gồm `auth-05-google-federation.spec.ts` ×6 (đăng ký Google, liên kết với tài khoản mật khẩu tại `/account-link`, hủy intent, từ chối sai tài khoản, map mã lỗi callback, liên kết từ Settings sau step-up) và hồi quy OIDC `p2-08` **`1/1` PASS (`4,3` phút)**; Go `e2eoidc` PASS; `pnpm verify` PASS.
+- **Quyết định Gatekeeper**: chấp nhận đổi màu chữ badge/chữ nhấn/subtitle vùng hero `/sign-in` để đạt Axe color-contrast; xóa `apps/web/public/images/auth/icon/google.svg` (bản vẽ lại không chính thức, không còn dùng).
+- **Còn mở**: `GET /me/identities` chưa trả `provider_slug` (UI đang suy ra nhãn từ issuer) — bổ sung vào contract ở `AUTH-06A`; khi sai tài khoản, nút đăng xuất đưa người dùng rời `/account-link` (intent vẫn còn đến khi hết hạn).
 
 ### Checkpoint `AUTH-05A` Google OAuth2/OIDC phía Server: Provider Registry, Anti-Mix-Up, Link Intent & Federated Re-auth `DONE` — 2026-11-18
 
