@@ -38,30 +38,54 @@ Task: <Mã task & mục tiêu ngắn gọn>
    - AGENTS.md (và CLAUDE.md nếu là Claude Code)
    - <Danh sách file ADR / backlog / source liên quan tối thiểu>
 
-2. Phạm vi được phép sửa (Allowed Scope):
+2. PHASE 0 — Nghiên cứu bắt buộc (chỉ đọc, chưa sửa file):
+   - R1. Mã nội bộ: file/hàm/component sẽ tái dùng, luồng hiện tại, test mẫu tương tự.
+   - R2. Contract/ADR: OpenAPI, ADR liên quan, checkpoint gần nhất trong PROJECT_STATE;
+     ghi các hành vi cố định không được đổi.
+   - R3. Tham chiếu ngành (chỉ lấy ý tưởng, ghi rõ license): <2–3 dự án/tài liệu do
+     Antigravity chỉ định>. Cấm chép mã AGPL; chép đoạn mã MIT/Apache phải giữ ghi chú bản quyền.
+   - R4. Checklist bảo mật/a11y: <OWASP / RFC / quy định provider liên quan>.
+   - Đầu ra: .tmp/<task>-<sha>/RESEARCH.md (≤ 2 trang): bảng tái dùng, thiết kế đã chốt
+     và phương án bị loại, đối chiếu tham chiếu, rủi ro, BLOCKER.
+   - Có BLOCKER cần sửa ngoài Allowed Scope → DỪNG và báo Antigravity; không có → sang bước 3.
+
+3. Phạm vi được phép sửa (Allowed Scope):
    - <Đường dẫn file hoặc thư mục cụ thể>
 
-3. Yêu cầu triển khai chi tiết:
+4. Yêu cầu triển khai chi tiết (PHASE 1):
    - <Các bước kỹ thuật, contract, edge case, tenant isolation, UI states/a11y>
 
-4. Hành động bị cấm:
+5. Hành động bị cấm:
    - Không sửa file ngoài Allowed Scope; không sửa docs/PROJECT_STATE.md.
    - Không đọc/in .env*.local; không chạm staging/production.
    - Không chạy git commit, git push hoặc git reset.
 
-5. Lệnh kiểm chứng bắt buộc trước khi bàn giao:
+6. Lệnh kiểm chứng bắt buộc trước khi bàn giao:
    - <Các lệnh lint / typecheck / unit test cục bộ phù hợp>
 
-6. Định dạng báo cáo bàn giao:
-   - Tóm tắt thay đổi, danh sách file đã sửa, kết quả test PASS/FAIL, rủi ro còn lại.
+7. Định dạng báo cáo bàn giao:
+   - RESEARCH.md, tóm tắt thay đổi, quyết định lệch so với RESEARCH (nếu có), danh sách
+     file đã sửa, kết quả test PASS/FAIL/SKIP, rủi ro còn lại.
 ```
+
+### 1.4 Quy tắc Phase 0 (nghiên cứu trước khi code)
+
+- Bắt buộc với mọi task tính năng, migration, bảo mật/xác thực, tích hợp provider bên ngoài
+  hoặc thay đổi trải rộng nhiều module.
+- Antigravity chỉ định trước trong prompt các tham chiếu R3/R4 phù hợp lát cắt (ví dụ
+  Supabase Auth, Ory Kratos, Keycloak, Authelia, OWASP Cheat Sheets, RFC, quy định thương hiệu
+  của provider) và nêu rõ hành vi không được sao chép nếu trái ADR.
+- Được miễn Phase 0 với sửa lỗi nhỏ, chỉnh tài liệu hoặc thay đổi cơ học; prompt phải ghi rõ
+  `Phase 0: miễn (<lý do>)`.
+- Antigravity đọc `RESEARCH.md` khi nghiệm thu và đối chiếu với diff; thiết kế lệch khỏi
+  `RESEARCH.md` mà không giải thích trong báo cáo bàn giao được coi là finding.
 
 ## 2. Trình tự cho mỗi task
 
 1. **Antigravity** đọc `AGENTS.md`, `docs/PROJECT_STATE.md`, backlog và ADR liên quan; kiểm tra `git status -sb`.
 2. **Antigravity** xác định kiến trúc/ADR (nếu có thay đổi kiến trúc thì tạo/cập nhật ADR trước), chốt phạm vi file và rủi ro.
 3. **Antigravity** xuất **Prompt giao việc chuẩn** chỉ rõ dán cho **Codex** hay **Claude Code** (hoặc cả hai nếu phạm vi file tách biệt).
-4. Chủ dự án sao chép prompt dán vào **Codex** / **Claude Code**; worker triển khai đúng `Allowed Scope`, tự chạy test cục bộ và xuất báo cáo bàn giao.
+4. Chủ dự án sao chép prompt dán vào **Codex** / **Claude Code**; worker hoàn thành **Phase 0** (ghi `RESEARCH.md`, dừng nếu có BLOCKER), sau đó triển khai đúng `Allowed Scope`, tự chạy test cục bộ và xuất báo cáo bàn giao.
 5. Chủ dự án báo lại kết quả cho **Antigravity**; Antigravity kiểm tra `git status`, đọc toàn bộ `git diff`, rà soát bảo mật/tenant isolation và sửa tinh chỉnh nhỏ nếu cần.
 6. **Antigravity** chạy cổng kiểm chứng tổng thể phù hợp với rủi ro (`pnpm verify`, Go/Playwright/browser smoke).
 7. **Antigravity** cập nhật `docs/PROJECT_STATE.md` cùng checklist phase liên quan.

@@ -12,6 +12,9 @@ TutorHub V2 là hệ sinh thái học trực tuyến web-first. TutorHub V1 tạ
 4. Không sao chép secret, token, URL có credential hoặc file cấu hình production từ V1; không đọc hoặc in giá trị secret từ `.env*.local`.
 5. Ưu tiên làm việc nhanh chóng, không overthinking: chọn phương án đơn giản, đủ an toàn và
    có thể kiểm chứng; tránh phân tích hoặc trao đổi lặp lại khi không làm thay đổi quyết định.
+6. Worker (Codex/Claude Code) phải hoàn thành **Phase 0 — nghiên cứu bắt buộc** trước khi sửa mã
+   khi prompt yêu cầu (`docs/AGENT_COORDINATION.md` §1.3–1.4): ghi `RESEARCH.md`, dừng và báo
+   Antigravity nếu có BLOCKER ngoài `Allowed Scope`; không chép mã từ dự án giấy phép AGPL.
 
 ## Repository và phối hợp (theo ADR-0012 & ADR-0038)
 
