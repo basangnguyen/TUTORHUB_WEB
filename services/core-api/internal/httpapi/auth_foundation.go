@@ -77,7 +77,7 @@ func authProvidersHandler(cfg config.AuthenticationConfig, logger *slog.Logger) 
 		for _, provider := range []struct {
 			slug    string
 			enabled bool
-		}{{"google", cfg.ProviderGoogleEnabled && strings.TrimSpace(cfg.GoogleClientID) != "" && strings.TrimSpace(cfg.GoogleClientSecret) != ""}, {"facebook", cfg.ProviderFacebookEnabled}, {"microsoft", cfg.ProviderMicrosoftEnabled}, {"apple", cfg.ProviderAppleEnabled}} {
+		}{{"google", googleFederationEnabled(cfg)}, {"facebook", facebookFederationEnabled(cfg)}, {"microsoft", cfg.ProviderMicrosoftEnabled}, {"apple", cfg.ProviderAppleEnabled}} {
 			if provider.enabled {
 				providers = append(providers, provider.slug)
 			}

@@ -1324,18 +1324,23 @@ func resolveIdentity(
 	}
 
 	const findIdentity = `
-SELECT id, user_id, status
+SELECT id, user_id, status, COALESCE(provider_slug,'oidc')
 FROM tutorhub.identities
 WHERE provider = $1 AND subject = $2`
 	var identityID uuid.UUID
 	var userID uuid.UUID
 	var identityStatus string
+	var providerSlug string
 	err := transaction.QueryRow(ctx, findIdentity, claims.Issuer, claims.Subject).Scan(
 		&identityID,
 		&userID,
 		&identityStatus,
+		&providerSlug,
 	)
 	if err == nil {
+		if providerSlug == "facebook" {
+			return uuid.Nil, uuid.Nil, ErrIdentityInactive
+		}
 		// Resolve the immutable owner first, then lock in the same order as
 		// password recovery/change. Re-read status after the user lock because an
 		// unlink may have committed while this authentication waited.
@@ -1550,6 +1555,7 @@ func (repository *PostgresRepository) ListIdentities(
 		queryContext,
 		`SELECT id,
        provider,
+       COALESCE(provider_slug, 'oidc'),
        COALESCE(email_at_provider, ''),
        email_verified,
        created_at,
@@ -1570,6 +1576,7 @@ ORDER BY created_at ASC, id ASC`,
 		if err := rows.Scan(
 			&externalIdentity.ID,
 			&externalIdentity.Provider,
+			&externalIdentity.ProviderSlug,
 			&externalIdentity.Email,
 			&externalIdentity.EmailVerified,
 			&externalIdentity.CreatedAt,
@@ -1630,6 +1637,7 @@ func (repository *PostgresRepository) LinkIdentity(
 		`SELECT id,
        user_id,
        provider,
+       COALESCE(provider_slug,'oidc'),
        COALESCE(email_at_provider, ''),
        email_verified,
        created_at,
@@ -1644,6 +1652,7 @@ FOR UPDATE`,
 		&existing.ID,
 		&existingUserID,
 		&existing.Provider,
+		&existing.ProviderSlug,
 		&existing.Email,
 		&existing.EmailVerified,
 		&existing.CreatedAt,
@@ -1653,6 +1662,9 @@ FOR UPDATE`,
 	if err == nil {
 		if existingUserID != userID {
 			return ExternalIdentity{}, ErrIdentityConflict
+		}
+		if status == "erased" || existing.ProviderSlug == "facebook" {
+			return ExternalIdentity{}, ErrIdentityInactive
 		}
 		if _, err := transaction.Exec(
 			queryContext,
@@ -1691,7 +1703,7 @@ WHERE id = $1`,
     provider_slug
 )
 VALUES ($1, $2, $3, $4, $5, $6, 'active', 'oidc')
-RETURNING id, provider, COALESCE(email_at_provider, ''), email_verified, created_at,
+RETURNING id, provider, provider_slug, COALESCE(email_at_provider, ''), email_verified, created_at,
           COALESCE(last_authenticated_at, created_at)`,
 			userID,
 			claims.Issuer,
@@ -1702,6 +1714,7 @@ RETURNING id, provider, COALESCE(email_at_provider, ''), email_verified, created
 		).Scan(
 			&existing.ID,
 			&existing.Provider,
+			&existing.ProviderSlug,
 			&existing.Email,
 			&existing.EmailVerified,
 			&existing.CreatedAt,

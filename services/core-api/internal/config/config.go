@@ -146,6 +146,10 @@ type AuthenticationConfig struct {
 	GoogleIssuerURL              string
 	GoogleCallbackURL            string
 	ProviderFacebookEnabled      bool
+	FacebookClientID             string
+	FacebookClientSecret         string
+	FacebookIssuerURL            string
+	FacebookCallbackURL          string
 	ProviderMicrosoftEnabled     bool
 	ProviderAppleEnabled         bool
 	PasswordMinLength            int
@@ -1059,8 +1063,9 @@ func authenticationConfig(
 	}
 	configureAuthFoundation(&config, lookup, environment, validationErrors)
 	configureGoogleProvider(&config, lookup, environment, apiOrigin, validationErrors)
+	configureFacebookProvider(&config, lookup, environment, apiOrigin, validationErrors)
 	config.OIDCEnabled = config.ProviderOIDCDefaultEnabled && enabled
-	nativeEnabled := config.SignupEnabled || config.PasswordEnabled || config.EmailCodeEnabled || config.DeviceManagementEnabled || config.ProviderGoogleEnabled
+	nativeEnabled := config.SignupEnabled || config.PasswordEnabled || config.EmailCodeEnabled || config.DeviceManagementEnabled || config.ProviderGoogleEnabled || config.ProviderFacebookEnabled
 	config.Enabled = enabled || nativeEnabled
 	if nativeEnabled && strings.TrimSpace(valueOrDefault(lookup, "DATABASE_POOL_URL", "")) == "" {
 		*validationErrors = append(*validationErrors, fmt.Errorf("DATABASE_POOL_URL is required when native authentication is enabled"))

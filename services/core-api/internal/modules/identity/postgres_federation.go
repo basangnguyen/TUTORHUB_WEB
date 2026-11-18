@@ -24,12 +24,14 @@ func (repository *PostgresRepository) ReadLinkIntent(ctx context.Context, bindin
 }
 
 func readLinkIntent(ctx context.Context, tx pgx.Tx, bindingHash []byte, now time.Time, locked bool) (StoredLinkIntent, error) {
-	query := `SELECT id,user_id,payload_ciphertext,created_at,expires_at FROM tutorhub.auth_transactions WHERE binding_hash=$1 AND kind='link_intent' AND state='pending' AND user_id IS NOT NULL AND expires_at>$2`
+	query := `SELECT t.id,t.user_id,t.payload_ciphertext,t.created_at,t.expires_at,u.email
+		FROM tutorhub.auth_transactions t JOIN tutorhub.users u ON u.id=t.user_id
+		WHERE t.binding_hash=$1 AND t.kind='link_intent' AND t.state='pending' AND t.expires_at>$2`
 	if locked {
-		query += " FOR UPDATE"
+		query += " FOR UPDATE OF t"
 	}
 	var result StoredLinkIntent
-	err := tx.QueryRow(ctx, query, bindingHash, now).Scan(&result.ID, &result.UserID, &result.PayloadCiphertext, &result.CreatedAt, &result.ExpiresAt)
+	err := tx.QueryRow(ctx, query, bindingHash, now).Scan(&result.ID, &result.UserID, &result.PayloadCiphertext, &result.CreatedAt, &result.ExpiresAt, &result.TargetEmail)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return StoredLinkIntent{}, ErrLinkIntentUnavailable
 	}
@@ -114,7 +116,7 @@ func (repository *PostgresRepository) ConfirmLinkIntent(ctx context.Context, inp
 	if input.Intent.UserID != input.Principal.User.ID {
 		return Principal{}, ErrLinkIntentMismatch
 	}
-	if !input.Payload.EmailVerified {
+	if input.Payload.ProviderSlug != "facebook" && !input.Payload.EmailVerified {
 		return Principal{}, ErrVerifiedEmailRequired
 	}
 	ctx, cancel := repository.contextWithTimeout(ctx)
@@ -124,7 +126,7 @@ func (repository *PostgresRepository) ConfirmLinkIntent(ctx context.Context, inp
 		return Principal{}, ErrAuthFoundationStorage
 	}
 	defer rollback(tx)
-	claims := ProviderClaims{Issuer: input.Payload.Issuer, Subject: input.Payload.Subject, Email: input.Payload.Email, EmailVerified: true, DisplayName: input.Payload.DisplayName, ProviderOrgID: input.Payload.ProviderOrgID}
+	claims := ProviderClaims{Issuer: input.Payload.Issuer, Subject: input.Payload.Subject, Email: input.Payload.Email, EmailVerified: input.Payload.ProviderSlug != "facebook" && input.Payload.EmailVerified, DisplayName: input.Payload.DisplayName, ProviderOrgID: input.Payload.ProviderOrgID}
 	if err := lockProviderSubject(ctx, tx, claims); err != nil {
 		return Principal{}, ErrAuthFoundationStorage
 	}
@@ -180,7 +182,7 @@ func (repository *PostgresRepository) finishFederatedLink(ctx context.Context, t
 }
 
 func (repository *PostgresRepository) ReauthenticateFederated(ctx context.Context, input FederationReauthParams) (Principal, error) {
-	if input.Flow.Purpose != "reauth" || !input.Claims.EmailVerified {
+	if input.Flow.Purpose != "reauth" || input.Flow.ProviderSlug == "facebook" || !input.Claims.EmailVerified {
 		return Principal{}, ErrInvalidAuthFlow
 	}
 	if input.Claims.AuthTime.IsZero() || input.Flow.CreatedAt.IsZero() ||
@@ -269,7 +271,12 @@ func readFederatedIdentity(ctx context.Context, tx pgx.Tx, claims ProviderClaims
 }
 
 func (repository *PostgresRepository) CompleteFederatedLogin(ctx context.Context, input FederationLoginParams) (FederationLoginRecord, error) {
-	if !input.Claims.EmailVerified {
+	if input.ProviderSlug == "facebook" {
+		if input.Flow.Purpose != flowPurposeLogin {
+			return FederationLoginRecord{}, ErrInvalidAuthFlow
+		}
+		input.Claims.EmailVerified = false
+	} else if !input.Claims.EmailVerified {
 		return FederationLoginRecord{}, ErrVerifiedEmailRequired
 	}
 	if input.ProviderSlug == "" || input.Claims.Issuer == "" || input.Claims.Subject == "" {
@@ -325,7 +332,10 @@ func (repository *PostgresRepository) CompleteFederatedLogin(ctx context.Context
 		if err != nil {
 			return FederationLoginRecord{}, ErrAuthFoundationStorage
 		}
-		if existing.Status != "active" {
+		if existing.Status == "erased" {
+			return FederationLoginRecord{}, ErrIdentityInactive
+		}
+		if existing.Status == "unlinked" {
 			if err := insertFederationLinkIntent(ctx, tx, existing.UserID, input); err != nil {
 				return FederationLoginRecord{}, err
 			}
@@ -333,6 +343,9 @@ func (repository *PostgresRepository) CompleteFederatedLogin(ctx context.Context
 				return FederationLoginRecord{}, ErrAuthFoundationStorage
 			}
 			return FederationLoginRecord{LinkPending: true}, nil
+		}
+		if existing.Status != "active" {
+			return FederationLoginRecord{}, ErrIdentityInactive
 		}
 		if err := requireFederationAccountAssurance(ctx, tx, existing.UserID, 1, now); err != nil {
 			return FederationLoginRecord{}, err
@@ -345,6 +358,20 @@ func (repository *PostgresRepository) CompleteFederatedLogin(ctx context.Context
 			return FederationLoginRecord{}, ErrAuthFoundationStorage
 		}
 		return FederationLoginRecord{Principal: principal}, nil
+	}
+	if input.ProviderSlug == "facebook" {
+		// Only a TutorHub OTP may move a previously unseen Facebook subject to
+		// account creation or an existing owner's explicit link intent.
+		if _, err := tx.Exec(ctx, `INSERT INTO tutorhub.auth_transactions
+			(binding_hash,kind,state,payload_ciphertext,provider_subject_digest,created_at,expires_at)
+			VALUES ($1,'federated_registration','pending',$2,$3,$4,$5)`,
+			input.RegistrationBindingHash, input.LinkPayloadCiphertext, input.ProviderSubjectDigest, now, input.LinkExpiresAt); err != nil {
+			return FederationLoginRecord{}, ErrAuthFoundationStorage
+		}
+		if tx.Commit(ctx) != nil {
+			return FederationLoginRecord{}, ErrAuthFoundationStorage
+		}
+		return FederationLoginRecord{RegistrationPending: true}, nil
 	}
 	var userID uuid.UUID
 	err = tx.QueryRow(ctx, `SELECT id FROM tutorhub.users WHERE lower(email)=lower($1)`, input.Claims.Email).Scan(&userID)
@@ -394,7 +421,7 @@ func (repository *PostgresRepository) CompleteFederatedLogin(ctx context.Context
 }
 
 func insertFederationLinkIntent(ctx context.Context, tx pgx.Tx, userID uuid.UUID, input FederationLoginParams) error {
-	_, err := tx.Exec(ctx, `INSERT INTO tutorhub.auth_transactions(binding_hash,kind,state,user_id,payload_ciphertext,created_at,expires_at) VALUES($1,'link_intent','pending',$2,$3,$4,$5)`, input.LinkBindingHash, userID, input.LinkPayloadCiphertext, input.Metadata.CreatedAt, input.LinkExpiresAt)
+	_, err := tx.Exec(ctx, `INSERT INTO tutorhub.auth_transactions(binding_hash,kind,state,user_id,payload_ciphertext,created_at,expires_at,provider_subject_digest) VALUES($1,'link_intent','pending',$2,$3,$4,$5,$6)`, input.LinkBindingHash, userID, input.LinkPayloadCiphertext, input.Metadata.CreatedAt, input.LinkExpiresAt, input.ProviderSubjectDigest)
 	if err != nil {
 		return ErrAuthFoundationStorage
 	}
@@ -403,7 +430,7 @@ func insertFederationLinkIntent(ctx context.Context, tx pgx.Tx, userID uuid.UUID
 
 func insertFederatedIdentity(ctx context.Context, tx pgx.Tx, userID uuid.UUID, slug string, claims ProviderClaims, now time.Time) (uuid.UUID, error) {
 	var id uuid.UUID
-	err := tx.QueryRow(ctx, `INSERT INTO tutorhub.identities(user_id,provider,subject,email_at_provider,email_verified,kind,provider_slug,provider_org_id,status,last_authenticated_at,created_at,updated_at) VALUES($1,$2,$3,$4,true,'oidc',$5,NULLIF($6,''),'active',$7,$7,$7) RETURNING id`, userID, claims.Issuer, claims.Subject, claims.Email, slug, claims.ProviderOrgID, now).Scan(&id)
+	err := tx.QueryRow(ctx, `INSERT INTO tutorhub.identities(user_id,provider,subject,email_at_provider,email_verified,kind,provider_slug,provider_org_id,status,last_authenticated_at,created_at,updated_at) VALUES($1,$2,$3,NULLIF($4,''),$8,'oidc',$5,NULLIF($6,''),'active',$7,$7,$7) RETURNING id`, userID, claims.Issuer, claims.Subject, claims.Email, slug, claims.ProviderOrgID, now, slug != "facebook" && claims.EmailVerified).Scan(&id)
 	if err != nil {
 		return uuid.Nil, ErrAuthFoundationStorage
 	}
@@ -425,8 +452,11 @@ func linkFederatedIdentity(ctx context.Context, tx pgx.Tx, userID uuid.UUID, slu
 	if err != nil {
 		return uuid.Nil, ErrAuthFoundationStorage
 	}
+	if existing.Status == "erased" {
+		return uuid.Nil, ErrIdentityInactive
+	}
 	// Retain immutable provider metadata and ownership on relink.
-	_, err = tx.Exec(ctx, `UPDATE tutorhub.identities SET status='active',unlinked_at=NULL,email_at_provider=$3,email_verified=true,last_authenticated_at=$4,updated_at=$4 WHERE id=$1 AND user_id=$2`, existing.ID, userID, claims.Email, now)
+	_, err = tx.Exec(ctx, `UPDATE tutorhub.identities SET status='active',unlinked_at=NULL,email_at_provider=NULLIF($3,''),email_verified=$5,last_authenticated_at=$4,updated_at=$4 WHERE id=$1 AND user_id=$2`, existing.ID, userID, claims.Email, now, slug != "facebook" && claims.EmailVerified)
 	if err != nil {
 		return uuid.Nil, ErrAuthFoundationStorage
 	}
@@ -455,7 +485,7 @@ func (repository *PostgresRepository) insertFederatedSession(ctx context.Context
 	if err != nil {
 		return Principal{}, ErrAuthFoundationStorage
 	}
-	if _, err := tx.Exec(ctx, `UPDATE tutorhub.identities SET last_authenticated_at=$3,updated_at=$3,email_at_provider=$4,email_verified=true WHERE id=$1 AND user_id=$2`, identityID, userID, metadata.CreatedAt, claims.Email); err != nil {
+	if _, err := tx.Exec(ctx, `UPDATE tutorhub.identities SET last_authenticated_at=$3,updated_at=$3,email_at_provider=NULLIF($4,''),email_verified=$5 WHERE id=$1 AND user_id=$2`, identityID, userID, metadata.CreatedAt, claims.Email, claims.EmailVerified); err != nil {
 		return Principal{}, ErrAuthFoundationStorage
 	}
 	return repository.loadPrincipal(ctx, tx, sessionID, userID, activeTenant)

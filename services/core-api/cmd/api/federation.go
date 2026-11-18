@@ -33,5 +33,15 @@ func configuredFederationRegistry(ctx context.Context, cfg config.Config, legacy
 		}
 		entries = append(entries, identity.ProviderRegistration{Slug: "google", Issuer: cfg.Authentication.GoogleIssuerURL, Provider: provider})
 	}
+	if cfg.Authentication.ProviderFacebookEnabled {
+		provider, err := identity.NewFacebookProvider(ctx, identity.OIDCProviderConfig{
+			IssuerURL: cfg.Authentication.FacebookIssuerURL, ClientID: cfg.Authentication.FacebookClientID,
+			ClientSecret: cfg.Authentication.FacebookClientSecret, CallbackURL: cfg.Authentication.FacebookCallbackURL,
+		})
+		if err != nil {
+			return nil, errors.New("Facebook provider initialization failed")
+		}
+		entries = append(entries, identity.ProviderRegistration{Slug: "facebook", Issuer: provider.IssuerURL(), Provider: provider})
+	}
 	return identity.NewProviderRegistry(entries...)
 }

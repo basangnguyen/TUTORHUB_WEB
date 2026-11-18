@@ -26,10 +26,13 @@ type FederationConfig struct {
 
 type OAuthResult struct {
 	LoginResult
-	Provider      string
-	LinkPending   bool
-	LinkBinding   string
-	LinkExpiresAt time.Time
+	RegistrationPending   bool
+	RegistrationBinding   string
+	RegistrationExpiresAt time.Time
+	Provider              string
+	LinkPending           bool
+	LinkBinding           string
+	LinkExpiresAt         time.Time
 }
 
 type LinkIntentView struct {
@@ -65,24 +68,27 @@ type FederationIdentityPayload struct {
 }
 
 type FederationLoginParams struct {
-	Claims                                 ProviderClaims
-	ProviderSlug                           string
-	Flow                                   StoredFlow
-	Metadata                               SessionMetadata
-	SignupEnabled                          bool
-	LegalTermsVersion                      string
-	LinkBindingHash, LinkPayloadCiphertext []byte
-	LinkExpiresAt                          time.Time
-	SessionAbsoluteTTL                     time.Duration
+	Claims                                         ProviderClaims
+	ProviderSlug                                   string
+	Flow                                           StoredFlow
+	Metadata                                       SessionMetadata
+	SignupEnabled                                  bool
+	LegalTermsVersion                              string
+	LinkBindingHash, LinkPayloadCiphertext         []byte
+	RegistrationBindingHash, ProviderSubjectDigest []byte
+	LinkExpiresAt                                  time.Time
+	SessionAbsoluteTTL                             time.Duration
 }
 
 type FederationLoginRecord struct {
-	Principal   Principal
-	LinkPending bool
+	Principal           Principal
+	LinkPending         bool
+	RegistrationPending bool
 }
 
 type StoredLinkIntent struct {
 	ID, UserID           uuid.UUID
+	TargetEmail          string
 	PayloadCiphertext    []byte
 	CreatedAt, ExpiresAt time.Time
 }

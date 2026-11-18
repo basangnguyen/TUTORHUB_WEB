@@ -36,6 +36,11 @@ func NewProviderRegistry(entries ...ProviderRegistration) (*ProviderRegistry, er
 			return nil, fmt.Errorf("invalid federation issuer")
 		}
 		entry.Issuer = strings.TrimRight(entry.Issuer, "/")
+		for _, other := range result.providers {
+			if (entry.Slug == "facebook" || other.Slug == "facebook") && other.Issuer == entry.Issuer {
+				return nil, fmt.Errorf("Facebook issuer cannot be shared with another provider")
+			}
+		}
 		result.providers[entry.Slug] = entry
 	}
 	return result, nil

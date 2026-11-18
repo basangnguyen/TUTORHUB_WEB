@@ -41,17 +41,17 @@ func authSchemaTestDatabase(t *testing.T) (context.Context, *pgxpool.Pool, strin
 func TestAuthFoundationMigrationRoundTripAndRollbackPreflight(t *testing.T) {
 	ctx, pool, url := authSchemaTestDatabase(t)
 	version, err := migrationrunner.CurrentVersion(ctx, url)
-	if err != nil || version.Number != 45 || version.Dirty {
-		t.Fatal("AUTH-01 regression roundtrip requires clean ledger 45")
+	if err != nil || version.Number != 46 || version.Dirty {
+		t.Fatal("AUTH-01 regression roundtrip requires clean ledger 46")
 	}
-	if err := migrationrunner.Down(ctx, url, 3); err != nil {
+	if err := migrationrunner.Down(ctx, url, 4); err != nil {
 		t.Fatal("empty disposable AUTH-01 rollback")
 	}
 	if err := migrationrunner.Up(ctx, url); err != nil {
 		t.Fatal("reapply AUTH-01 migration")
 	}
 	version, err = migrationrunner.CurrentVersion(ctx, url)
-	if err != nil || version.Number != 45 || version.Dirty {
+	if err != nil || version.Number != 46 || version.Dirty {
 		t.Fatal("AUTH-01 roundtrip did not retain clean ledger")
 	}
 	down, err := migrations.Files.ReadFile("000043_auth_foundation.down.sql")
@@ -87,8 +87,8 @@ func TestAuthFoundationMigrationRoundTripAndRollbackPreflight(t *testing.T) {
 func TestAuthFoundationRuntimeExactACL(t *testing.T) {
 	ctx, pool, url := authSchemaTestDatabase(t)
 	version, err := migrationrunner.CurrentVersion(ctx, url)
-	if err != nil || version.Number != 45 || version.Dirty {
-		t.Fatal("AUTH-05 ACL requires clean ledger 45")
+	if err != nil || version.Number != 46 || version.Dirty {
+		t.Fatal("AUTH-06 ACL requires clean ledger 46")
 	}
 	roleName := "auth_test_" + strings.ReplaceAll(uuid.NewString(), "-", "")
 	role := pgx.Identifier{roleName}.Sanitize()
@@ -126,11 +126,12 @@ func TestAuthFoundationRuntimeExactACL(t *testing.T) {
 	// Keep expectations independent from the provisioning implementation so an
 	// accidentally broadened grant cannot silently change the test's oracle.
 	expectedUpdates := map[string][]string{
-		"auth_transactions":         {"state", "completed_at", "payload_ciphertext"},
-		"auth_challenges":           {"attempts", "consumed_at", "invalidated_at"},
-		"auth_challenge_deliveries": {"status", "provider_message_ref", "error_code", "delivered_at"},
-		"user_password_credentials": {"password_hash", "hash_version", "status", "failed_attempts", "last_failed_at", "locked_until", "compromised_at", "updated_at"},
-		"user_legal_acceptances":    {},
+		"auth_transactions":               {"state", "completed_at", "payload_ciphertext"},
+		"auth_challenges":                 {"attempts", "consumed_at", "invalidated_at"},
+		"auth_challenge_deliveries":       {"status", "provider_message_ref", "error_code", "delivered_at"},
+		"user_password_credentials":       {"password_hash", "hash_version", "status", "failed_attempts", "last_failed_at", "locked_until", "compromised_at", "updated_at"},
+		"user_legal_acceptances":          {},
+		"external_data_deletion_requests": {"status", "completed_at"},
 	}
 	for table, updates := range expectedUpdates {
 		var read, insert, remove bool
@@ -221,6 +222,7 @@ func TestAuthFoundationRuntimeExactACL(t *testing.T) {
 		}
 		rows.Close()
 	}
+	testRuntimeFacebookErasure(t, ctx, pool, roleName)
 	t.Run("native email insert and relink under runtime role", func(t *testing.T) {
 		tx, err := pool.Begin(ctx)
 		if err != nil {

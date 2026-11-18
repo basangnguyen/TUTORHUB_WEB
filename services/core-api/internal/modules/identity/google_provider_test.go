@@ -18,38 +18,48 @@ import (
 	"github.com/go-jose/go-jose/v4"
 )
 
-type fakeGoogleIssuer struct {
+type fakeSignedIssuer struct {
 	server           *httptest.Server
 	mu               sync.Mutex
+	slug             string
 	claims           map[string]any
 	challenge, nonce string
 	userinfoCalls    int
+	tokenCalls       int
+	corruptSignature bool
 }
 
-func newFakeGoogleIssuer(t *testing.T) (*fakeGoogleIssuer, *GoogleProvider) {
+func newFakeSignedIssuer(t *testing.T, slug string) *fakeSignedIssuer {
 	t.Helper()
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		t.Fatal(err)
 	}
-	signer, err := jose.NewSigner(jose.SigningKey{Algorithm: jose.RS256, Key: key}, (&jose.SignerOptions{}).WithType("JWT").WithHeader("kid", "google-fixture"))
+	keyID := slug + "-fixture"
+	signer, err := jose.NewSigner(jose.SigningKey{Algorithm: jose.RS256, Key: key}, (&jose.SignerOptions{}).WithType("JWT").WithHeader("kid", keyID))
 	if err != nil {
 		t.Fatal(err)
 	}
-	f := &fakeGoogleIssuer{challenge: PKCEChallenge("valid-verifier"), nonce: "valid-nonce"}
+	f := &fakeSignedIssuer{slug: slug, challenge: PKCEChallenge("valid-verifier"), nonce: "valid-nonce"}
 	f.server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/.well-known/openid-configuration":
 			writeTestJSON(t, w, map[string]any{"issuer": f.server.URL, "authorization_endpoint": f.server.URL + "/authorize", "token_endpoint": f.server.URL + "/token", "jwks_uri": f.server.URL + "/keys", "id_token_signing_alg_values_supported": []string{"RS256"}})
-		case "/keys":
-			writeTestJSON(t, w, jose.JSONWebKeySet{Keys: []jose.JSONWebKey{{Key: &key.PublicKey, KeyID: "google-fixture", Algorithm: "RS256", Use: "sig"}}})
-		case "/token":
+		case "/keys", "/.well-known/oauth/openid/jwks/":
+			writeTestJSON(t, w, jose.JSONWebKeySet{Keys: []jose.JSONWebKey{{Key: &key.PublicKey, KeyID: keyID, Algorithm: "RS256", Use: "sig"}}})
+		case "/token", "/v27.0/oauth/access_token":
 			if r.ParseForm() != nil {
 				http.Error(w, "invalid", 400)
 				return
 			}
 			f.mu.Lock()
 			defer f.mu.Unlock()
+			f.tokenCalls++
+			if slug == "facebook" && (r.Method != http.MethodGet || r.Form.Get("client_id") != "facebook-client" ||
+				r.Form.Get("redirect_uri") != facebookFixtureCallback || r.Form.Has("client_secret")) {
+				http.Error(w, "invalid exchange", 400)
+				return
+			}
 			if r.Form.Get("code") != "valid-code" || PKCEChallenge(r.Form.Get("code_verifier")) != f.challenge {
 				http.Error(w, "invalid grant", 400)
 				return
@@ -69,6 +79,9 @@ func newFakeGoogleIssuer(t *testing.T) (*fakeGoogleIssuer, *GoogleProvider) {
 				http.Error(w, "fixture", 500)
 				return
 			}
+			if f.corruptSignature {
+				compact = compact[:strings.LastIndexByte(compact, '.')+1] + "AAAA"
+			}
 			writeTestJSON(t, w, map[string]any{"access_token": "server-only", "token_type": "Bearer", "expires_in": 3600, "id_token": compact})
 		case "/userinfo":
 			f.mu.Lock()
@@ -81,6 +94,12 @@ func newFakeGoogleIssuer(t *testing.T) (*fakeGoogleIssuer, *GoogleProvider) {
 	}))
 	t.Cleanup(f.server.Close)
 	f.reset()
+	return f
+}
+
+func newFakeGoogleIssuer(t *testing.T) (*fakeSignedIssuer, *GoogleProvider) {
+	t.Helper()
+	f := newFakeSignedIssuer(t, "google")
 	provider, err := NewGoogleProvider(context.Background(), OIDCProviderConfig{IssuerURL: f.server.URL, ClientID: "google-client", ClientSecret: "test-client-secret", CallbackURL: "http://localhost/api/v1/auth/oauth/google/callback", HTTPTimeout: 5 * time.Second})
 	if err != nil {
 		t.Fatal("initialize fake Google provider")
@@ -88,11 +107,15 @@ func newFakeGoogleIssuer(t *testing.T) (*fakeGoogleIssuer, *GoogleProvider) {
 	return f, provider
 }
 
-func (f *fakeGoogleIssuer) reset() {
+func (f *fakeSignedIssuer) reset() {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	now := time.Now().UTC()
-	f.claims = map[string]any{"iss": f.server.URL, "sub": "google-subject", "aud": "google-client", "exp": now.Add(time.Hour).Unix(), "iat": now.Unix(), "nonce": f.nonce, "auth_time": now.Unix(), "email": "student@example.test", "email_verified": true, "name": "Student", "hd": "school.example"}
+	f.claims = map[string]any{"iss": f.server.URL, "sub": f.slug + "-subject", "aud": f.slug + "-client", "exp": now.Add(time.Hour).Unix(), "iat": now.Unix(), "nonce": f.nonce, "auth_time": now.Unix(), "email": "student@example.test", "email_verified": true, "name": "Student", "hd": "school.example"}
+	if f.slug == "facebook" {
+		f.claims["sub"] = "12345"
+	}
+	f.corruptSignature = false
 }
 
 func TestGoogleProviderDiscoverySignedClaimsAndPKCE(t *testing.T) {

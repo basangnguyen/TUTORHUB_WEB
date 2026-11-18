@@ -72,6 +72,7 @@ type ProfilePatch struct {
 type ExternalIdentity struct {
 	ID                  uuid.UUID `json:"id"`
 	Provider            string    `json:"provider"`
+	ProviderSlug        string    `json:"provider_slug"`
 	Email               string    `json:"email"`
 	EmailVerified       bool      `json:"email_verified"`
 	CreatedAt           time.Time `json:"created_at"`

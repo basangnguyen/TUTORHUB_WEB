@@ -109,7 +109,17 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 	auth := newAuthHandlers(cfg, logger, options.Identity, options.Clock)
 	federation := federationHandlers{auth: auth, limiter: options.AuthRateLimiter}
 	nativeAuth := nativeAuthHandlers{auth: auth, service: options.NativeAuth, limiter: options.AuthRateLimiter}
+	const pendingRegistration = "/api/v1/auth/pending-registration"
+	const facebookOAuth = "/api/v1/auth/oauth/facebook"
+	mux.Handle(pendingRegistration, authFoundationResponseHeaders(requireMethod(http.MethodGet, http.HandlerFunc(nativeAuth.previewRegistration))))
+	mux.Handle(facebookOAuth+"/data-deletion", authFoundationResponseHeaders(requireMethod(http.MethodPost, http.HandlerFunc(federation.facebookDataDeletion))))
+	mux.Handle(facebookOAuth+"/deauthorize", authFoundationResponseHeaders(requireMethod(http.MethodPost, http.HandlerFunc(federation.facebookDeauthorize))))
+	mux.Handle(facebookOAuth+"/data-deletion/{code}", authFoundationResponseHeaders(requireMethod(http.MethodGet, http.HandlerFunc(federation.facebookDeletionStatus))))
 	for path, handler := range map[string]http.HandlerFunc{
+		pendingRegistration + "/start":            nativeAuth.startRegistration,
+		pendingRegistration + "/resend":           nativeAuth.resendRegistration,
+		pendingRegistration + "/complete":         nativeAuth.completeRegistration,
+		pendingRegistration + "/cancel":           nativeAuth.cancelRegistration,
 		"/api/v1/auth/signup/email/start":         nativeAuth.startEmailSignup,
 		"/api/v1/auth/signup/email/complete":      nativeAuth.completeEmailSignup,
 		"/api/v1/auth/challenges/resend":          nativeAuth.resendChallenge,

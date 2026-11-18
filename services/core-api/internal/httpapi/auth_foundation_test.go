@@ -56,6 +56,33 @@ func TestAuthProvidersExposeOnlyPublicDeploymentCapabilities(t *testing.T) {
 	}
 }
 
+func TestFacebookAvailabilityMatchesProviderAdvertisement(t *testing.T) {
+	for _, tc := range []struct {
+		enabled    bool
+		id, secret string
+		want       bool
+	}{
+		{false, "fixture", "secret", false}, {true, "", "secret", false},
+		{true, "fixture", " ", false}, {true, "fixture", "secret", true},
+	} {
+		cfg := authFoundationConfig()
+		cfg.Authentication.ProviderFacebookEnabled = tc.enabled
+		cfg.Authentication.FacebookClientID, cfg.Authentication.FacebookClientSecret = tc.id, tc.secret
+		service := &fakeFederationService{}
+		handler := NewHandlerWithOptions(cfg, nil, Options{Identity: service})
+		resp := performRequest(handler, "GET", "/api/v1/auth/providers", "")
+		var body authProvidersResponse
+		decodeJSON(t, resp, &body)
+		if (len(body.OAuthProviders) == 1 && body.OAuthProviders[0] == "facebook") != tc.want {
+			t.Fatal("incorrect Facebook advertisement")
+		}
+		resp = performRequest(handler, "GET", "/api/v1/auth/oauth/facebook/start", "")
+		if tc.want && (resp.Code != http.StatusSeeOther || service.provider != "facebook") || !tc.want && resp.Code != http.StatusNotFound {
+			t.Fatalf("Facebook availability differs from advertisement: %d", resp.Code)
+		}
+	}
+}
+
 func TestAuthDiscoveryGuardAndStrictJSON(t *testing.T) {
 	for _, tc := range []struct {
 		name   string

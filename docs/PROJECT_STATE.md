@@ -4,18 +4,29 @@
 
 ## Snapshot
 
-| Thuộc tính           | Trạng thái                                                                                                                             |
-| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| Ngày cập nhật        | 2026-11-18                                                                                                                             |
-| Repository           | `https://github.com/basangnguyen/TUTORHUB_WEB`                                                                                         |
-| Nhánh làm việc       | `main`                                                                                                                                 |
-| Quy trình            | Antigravity làm PM/Gatekeeper điều phối Codex và Claude Code qua prompt; Antigravity nghiệm thu và commit/push thẳng `main`            |
-| Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4, Phase 5 collaboration                                                                              |
-| Phase hiện tại       | Phase 3 deferred carry-over vẫn hoạt động; Phase 5 collaboration đã đóng                                                               |
-| Task `DONE` gần nhất | `AUTH-05B` Giao diện Đăng nhập Google, `/account-link` & liên kết Google trong Settings + Playwright (`AUTH-05` `DONE`, cờ Google tắt) |
-| Mốc repository mới   | Playwright Chromium native auth `10/10` (gồm `auth-05` ×6, fake Google loopback) + hồi quy OIDC `p2-08` PASS; web `636` unit test      |
-| Task hiện tại        | `AUTH-06A` (Codex) tiếp tục Phase 1 sau khi `ADR-0040` gỡ BLOCKER xóa dữ liệu Meta ở Phase 0                                           |
-| Task tiếp theo       | Nghiệm thu `AUTH-06A`; rollout Google cần client thật + smoke Google thật theo cổng rollout của checkpoint `AUTH-05A`                  |
+| Thuộc tính           | Trạng thái                                                                                                                                    |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| Ngày cập nhật        | 2026-11-18                                                                                                                                    |
+| Repository           | `https://github.com/basangnguyen/TUTORHUB_WEB`                                                                                                |
+| Nhánh làm việc       | `main`                                                                                                                                        |
+| Quy trình            | Antigravity làm PM/Gatekeeper điều phối Codex và Claude Code qua prompt; Antigravity nghiệm thu và commit/push thẳng `main`                   |
+| Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4, Phase 5 collaboration                                                                                     |
+| Phase hiện tại       | Phase 3 deferred carry-over vẫn hoạt động; Phase 5 collaboration đã đóng                                                                      |
+| Task `DONE` gần nhất | `AUTH-06A` Facebook Login phía Server: OIDC + PKCE, Pending Registration, Meta Data Deletion/Deauthorize theo `ADR-0040` (migration `000046`) |
+| Mốc repository mới   | PostgreSQL disposable `138/138` suite PASS (ledger `46 false`, gồm xóa dữ liệu Facebook dưới runtime role); `pnpm verify` PASS                |
+| Task hiện tại        | Giao `AUTH-06B` cho Claude Code (UI đăng ký chờ Facebook, nút Facebook, trang `/legal/data-deletion`, Playwright) — có Phase 0                |
+| Task tiếp theo       | Nghiệm thu `AUTH-06B`; rollout Facebook cần Meta App + Business Verification + callback HTTPS + smoke app thử nghiệm                          |
+
+### Checkpoint `AUTH-06A` Facebook Login phía Server, Pending Registration & Xóa dữ liệu Meta (`ADR-0040`) `DONE` — 2026-11-18
+
+Codex triển khai sau khi Phase 0 dừng đúng quy trình và `ADR-0040` gỡ BLOCKER; Gatekeeper (Antigravity) review diff/bảo mật và chạy cổng PostgreSQL disposable độc lập:
+
+- **Facebook OIDC**: Authorization Code + PKCE `S256` (Graph `v27.0`), kiểm state/nonce/issuer/audience/thời hạn/chữ ký ID token, ASID hợp lệ; email Facebook luôn là gợi ý chưa xác minh; không lưu access token; issuer Facebook không được dùng chung với provider khác. `AUTH_PROVIDER_FACEBOOK_ENABLED=false` mặc định.
+- **Pending registration**: kind `federated_registration`, cookie riêng `__Host-tutorhub_registration_tx`, TTL ≤ 15 phút; `/api/v1/auth/pending-registration` (GET, `start`/`resend` trả `202` trung tính, `complete`, `cancel`). Sau OTP: email mới chỉ tạo tài khoản khi signup bật, kèm identity email đã xác minh; email đã có chủ → link intent đúng chủ, không cấp phiên.
+- **Migration `000046` + `ADR-0040`**: hàm `erase_provider_identity` `SECURITY DEFINER`, `search_path` cố định, chỉ nhận `facebook`, runtime chỉ có `EXECUTE` (PUBLIC không có); runtime không có `DELETE`/`UPDATE (subject)`; trạng thái `erased`; `provider_subject_digest` cho giao dịch chờ (trigger xóa payload/digest khi giao dịch kết thúc); biên nhận `external_data_deletion_requests` không lưu ASID, idempotency theo HMAC sự kiện, hàm purge owner-only sau 1 năm; down chặn khi còn identity `erased`, biên nhận hoặc giao dịch `federated_registration`.
+- **Meta callbacks**: data-deletion xóa và hoàn tất biên nhận trong cùng transaction, ASID không tồn tại vẫn `completed`, callback trùng trả cùng `confirmation_code`; deauthorize chỉ unlink + thu hồi phiên, idempotent; `/me/identities` có `provider_slug`; Facebook không vào `reauth_methods`.
+- **Bằng chứng Gatekeeper**: PostgreSQL disposable toàn package identity **`138/138`** test cấp cao (`324` bản ghi) PASS, `0` FAIL/SKIP, ledger `46 false`, gồm đủ 17 test chỉ định và subtest xóa dữ liệu/callback/đăng nhập email dưới runtime role; Go unit không cache PASS; `pnpm verify` PASS. Lưu ý vận hành: package integration chạy với DB từ xa cần `go test -timeout 40m` (mặc định 10 phút bị vượt).
+- **Trước rollout Facebook (chưa đạt, cờ tắt)**: UI đăng ký chờ/liên kết/biên nhận (`AUTH-06B`); Meta App + Business Verification + Advanced Access `email`; đăng ký 3 URL HTTPS (callback, deauthorize, data-deletion); smoke với app thử nghiệm; lịch owner chạy `purge_expired_deletion_receipts()`; cập nhật Chính sách quyền riêng tư.
 
 ### Quyết định ADR-0040 Xóa dữ liệu do provider cấp (gỡ BLOCKER Phase 0 của `AUTH-06A`) — 2026-11-18
 

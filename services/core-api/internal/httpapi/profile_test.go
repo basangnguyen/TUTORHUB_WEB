@@ -86,6 +86,7 @@ func TestIdentityRoutesListLinkAndUnlink(t *testing.T) {
 	service := &fakeIdentityService{identities: []identity.ExternalIdentity{{
 		ID:                  identityID,
 		Provider:            "zitadel",
+		ProviderSlug:        "oidc",
 		Email:               "student@example.com",
 		EmailVerified:       true,
 		CreatedAt:           fixedTime.Add(-24 * time.Hour),
@@ -96,7 +97,7 @@ func TestIdentityRoutesListLinkAndUnlink(t *testing.T) {
 	listRequest := authenticatedRequest(http.MethodGet, "/api/v1/me/identities", "")
 	listResponse := httptest.NewRecorder()
 	handler.ServeHTTP(listResponse, listRequest)
-	if listResponse.Code != http.StatusOK || !strings.Contains(listResponse.Body.String(), identityID.String()) {
+	if listResponse.Code != http.StatusOK || !strings.Contains(listResponse.Body.String(), identityID.String()) || !strings.Contains(listResponse.Body.String(), `"provider_slug":"oidc"`) {
 		t.Fatalf("list identities: status=%d body=%s", listResponse.Code, listResponse.Body.String())
 	}
 

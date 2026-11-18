@@ -11,11 +11,12 @@ import (
 )
 
 var authFoundationUpdates = map[string][]string{
-	"auth_transactions":         {"state", "completed_at", "payload_ciphertext"},
-	"auth_challenges":           {"attempts", "consumed_at", "invalidated_at"},
-	"auth_challenge_deliveries": {"status", "provider_message_ref", "error_code", "delivered_at"},
-	"user_password_credentials": {"password_hash", "hash_version", "status", "failed_attempts", "last_failed_at", "locked_until", "compromised_at", "updated_at"},
-	"user_legal_acceptances":    {},
+	"auth_transactions":               {"state", "completed_at", "payload_ciphertext"},
+	"auth_challenges":                 {"attempts", "consumed_at", "invalidated_at"},
+	"auth_challenge_deliveries":       {"status", "provider_message_ref", "error_code", "delivered_at"},
+	"user_password_credentials":       {"password_hash", "hash_version", "status", "failed_attempts", "last_failed_at", "locked_until", "compromised_at", "updated_at"},
+	"user_legal_acceptances":          {},
+	"external_data_deletion_requests": {"status", "completed_at"},
 }
 
 // ProvisionAuthFoundationRuntimeACL is an owner-only provisioning operation.
@@ -47,7 +48,7 @@ func ProvisionAuthFoundationRuntimeACL(ctx context.Context, database Database, r
         AND pg_has_role(r.oid, c.relowner, 'MEMBER')
     )
 FROM pg_roles r WHERE r.rolname = $1`, runtimeRole,
-		[]string{"auth_transactions", "auth_challenges", "auth_challenge_deliveries", "user_password_credentials", "user_legal_acceptances", "users", "sessions", "identities", "auth_flows"}).Scan(&safe)
+		[]string{"auth_transactions", "auth_challenges", "auth_challenge_deliveries", "user_password_credentials", "user_legal_acceptances", "external_data_deletion_requests", "users", "sessions", "identities", "auth_flows"}).Scan(&safe)
 	if err != nil || !safe {
 		return errors.New("authentication ACL runtime role safety preflight failed")
 	}
@@ -129,11 +130,32 @@ FROM pg_roles r WHERE r.rolname = $1`, runtimeRole,
 	if err := provisionFederationColumnACL(ctx, tx, runtimeRole); err != nil {
 		return err
 	}
+	if _, err := tx.Exec(ctx, "REVOKE ALL ON FUNCTION "+eraseProviderProcedure+" FROM PUBLIC, "+role); err != nil {
+		return errors.New("revoke broad provider erasure grants")
+	}
+	if _, err := tx.Exec(ctx, "GRANT EXECUTE ON FUNCTION "+eraseProviderProcedure+" TO "+role); err != nil {
+		return errors.New("grant narrowly scoped provider erasure")
+	}
+	var erasureACL bool
+	if err := tx.QueryRow(ctx, `SELECT p.prosecdef AND p.proowner=(SELECT relowner FROM pg_class WHERE oid='tutorhub.identities'::regclass)
+	    AND p.proconfig=ARRAY['search_path=pg_catalog, tutorhub']
+	    AND has_function_privilege($1,p.oid,'EXECUTE') AND NOT has_function_privilege($1,p.oid,'EXECUTE WITH GRANT OPTION')
+	    AND NOT EXISTS (SELECT 1 FROM aclexplode(COALESCE(p.proacl,acldefault('f',p.proowner))) acl
+	                    WHERE acl.grantee <> p.proowner AND acl.grantee <> (SELECT oid FROM pg_roles WHERE rolname=$1))
+	    AND NOT has_function_privilege($1,'tutorhub.clear_finished_federation_payload()','EXECUTE')
+	    AND NOT has_function_privilege($1,'tutorhub.purge_expired_deletion_receipts()','EXECUTE')
+	    AND NOT has_table_privilege($1,'tutorhub.identities','DELETE')
+	    AND NOT has_column_privilege($1,'tutorhub.identities','subject','UPDATE')
+	    FROM pg_proc p WHERE p.oid=$2::regprocedure`, runtimeRole, eraseProviderProcedure).Scan(&erasureACL); err != nil || !erasureACL {
+		return errors.New("provider erasure ACL or owner invalid")
+	}
 	if err := tx.Commit(ctx); err != nil {
 		return errors.New("commit authentication ACL provisioning")
 	}
 	return nil
 }
+
+const eraseProviderProcedure = "tutorhub.erase_provider_identity(text,text,text,bytea,timestamptz)"
 
 func provisionFederationColumnACL(ctx context.Context, tx pgx.Tx, runtimeRole string) error {
 	role := pgx.Identifier{runtimeRole}.Sanitize()

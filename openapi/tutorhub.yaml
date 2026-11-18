@@ -1005,7 +1005,7 @@ paths:
     get:
       operationId: completeOAuth
       summary: Complete a provider-bound single-use OAuth flow
-      description: The callback provider must match the consumed flow, and iss must match the provider when supplied. All callback failures redirect to /sign-in?error=<fixed_code>; provider error details, authorization codes and token claims are never returned. Email collisions and unlinked identities create a separate HttpOnly link_tx cookie and redirect to /sign-in?link=pending&provider=google without creating a session. Successful login or reauthentication sets opaque session and CSRF cookies.
+      description: The provider and optional iss must match the single-use flow. Errors redirect to /sign-in?error=<fixed_code>. An unlinked identity creates an owner-bound link_tx. A new Facebook subject creates a registration_tx and redirects to /sign-in?registration=pending&provider=facebook regardless of its email claim. Successful login sets session and CSRF cookies.
       parameters:
         - $ref: "#/components/parameters/FederationProvider"
         - name: state
@@ -1026,12 +1026,246 @@ paths:
             type: string
       responses:
         "303":
-          description: Success return path, pending link confirmation, or a fixed sign-in error (authentication_failed, signup_disabled, email_unverified, provider_unavailable, assurance_required, rate_limited, temporarily_unavailable)
+          description: Success return path, pending registration, pending link confirmation, or a fixed sign-in error (authentication_failed, signup_disabled, email_unverified, provider_unavailable, assurance_required, rate_limited, temporarily_unavailable)
           headers:
             Location:
               schema:
                 type: string
                 format: uri
+  /api/v1/auth/pending-registration:
+    get:
+      operationId: getPendingRegistration
+      summary: Read the masked email hint and remaining registration lifetime
+      security:
+        - RegistrationCookie: []
+      responses:
+        "200":
+          description: Only the masked hint is returned when available
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PendingRegistrationPreview"
+        "404":
+          $ref: "#/components/responses/ProblemResponse"
+        "429":
+          $ref: "#/components/responses/AuthRateLimitedResponse"
+        "503":
+          $ref: "#/components/responses/AuthUnavailableResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/auth/pending-registration/start:
+    post:
+      operationId: startPendingRegistration
+      summary: Send an email verification code for this Facebook registration
+      security:
+        - RegistrationCookie: []
+      parameters:
+        - $ref: "#/components/parameters/PreAuthOrigin"
+        - $ref: "#/components/parameters/PreAuthFetchSite"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmailSignupStartRequest"
+      responses:
+        "202":
+          $ref: "#/components/responses/AuthChallengeAcceptedResponse"
+        "400":
+          $ref: "#/components/responses/BadRequestResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "415":
+          $ref: "#/components/responses/ProblemResponse"
+        "429":
+          $ref: "#/components/responses/AuthRateLimitedResponse"
+        "503":
+          $ref: "#/components/responses/AuthUnavailableResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/auth/pending-registration/resend:
+    post:
+      operationId: resendPendingRegistration
+      summary: Resend a code to the bound email subject to the shared cooldown
+      security:
+        - RegistrationCookie: []
+      parameters:
+        - $ref: "#/components/parameters/PreAuthOrigin"
+        - $ref: "#/components/parameters/PreAuthFetchSite"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmptyObject"
+      responses:
+        "202":
+          $ref: "#/components/responses/AuthChallengeAcceptedResponse"
+        "400":
+          $ref: "#/components/responses/BadRequestResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "415":
+          $ref: "#/components/responses/ProblemResponse"
+        "429":
+          $ref: "#/components/responses/AuthRateLimitedResponse"
+        "503":
+          $ref: "#/components/responses/AuthUnavailableResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/auth/pending-registration/complete:
+    post:
+      operationId: completePendingRegistration
+      summary: Complete email verification and create an account or a link intent
+      security:
+        - RegistrationCookie: []
+      parameters:
+        - $ref: "#/components/parameters/PreAuthOrigin"
+        - $ref: "#/components/parameters/PreAuthFetchSite"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PendingRegistrationCompleteRequest"
+      responses:
+        "200":
+          description: Session cookies for a new account or a separate link intent for an existing account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PendingRegistrationResult"
+        "400":
+          $ref: "#/components/responses/BadRequestResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "415":
+          $ref: "#/components/responses/ProblemResponse"
+        "429":
+          $ref: "#/components/responses/AuthRateLimitedResponse"
+        "503":
+          $ref: "#/components/responses/AuthUnavailableResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/auth/pending-registration/cancel:
+    post:
+      operationId: cancelPendingRegistration
+      summary: Cancel the pending registration and clear its cookie
+      security:
+        - RegistrationCookie: []
+      parameters:
+        - $ref: "#/components/parameters/PreAuthOrigin"
+        - $ref: "#/components/parameters/PreAuthFetchSite"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmptyObject"
+      responses:
+        "204":
+          description: Registration cancelled
+        "400":
+          $ref: "#/components/responses/BadRequestResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "415":
+          $ref: "#/components/responses/ProblemResponse"
+        "429":
+          $ref: "#/components/responses/AuthRateLimitedResponse"
+        "503":
+          $ref: "#/components/responses/AuthUnavailableResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/auth/oauth/facebook/data-deletion:
+    post:
+      operationId: receiveFacebookDataDeletion
+      summary: Erase provider data atomically and return the receipt for this signed event
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: "#/components/schemas/FacebookSignedRequest"
+      responses:
+        "200":
+          description: Deletion confirmation code and public tracking URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FacebookDeletionReceipt"
+        "400":
+          $ref: "#/components/responses/BadRequestResponse"
+        "404":
+          $ref: "#/components/responses/ProblemResponse"
+        "429":
+          $ref: "#/components/responses/AuthRateLimitedResponse"
+        "503":
+          $ref: "#/components/responses/AuthUnavailableResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/auth/oauth/facebook/deauthorize:
+    post:
+      operationId: receiveFacebookDeauthorization
+      summary: Unlink the verified Facebook identity and revoke its sessions
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: "#/components/schemas/FacebookSignedRequest"
+      responses:
+        "204":
+          description: Deauthorization processed
+        "400":
+          $ref: "#/components/responses/BadRequestResponse"
+        "404":
+          $ref: "#/components/responses/ProblemResponse"
+        "429":
+          $ref: "#/components/responses/AuthRateLimitedResponse"
+        "503":
+          $ref: "#/components/responses/AuthUnavailableResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/auth/oauth/facebook/data-deletion/{code}:
+    get:
+      operationId: getFacebookDeletionStatus
+      summary: Look up the coarse status of a Facebook erasure receipt
+      security: []
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^[0-9a-f]{32}$"
+      responses:
+        "200":
+          description: Public receipt status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FacebookDeletionStatus"
+        "404":
+          $ref: "#/components/responses/ProblemResponse"
+        "429":
+          $ref: "#/components/responses/AuthRateLimitedResponse"
+        "503":
+          $ref: "#/components/responses/AuthUnavailableResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
   /api/v1/auth/link-intent:
     get:
       operationId: getLinkIntent
@@ -8607,6 +8841,11 @@ paths:
           $ref: "#/components/responses/ProblemResponse"
 components:
   securitySchemes:
+    RegistrationCookie:
+      type: apiKey
+      in: cookie
+      name: __Host-tutorhub_registration_tx
+      description: Opaque HttpOnly SameSite Strict binding for a federated registration lasting up to fifteen minutes. Development over HTTP uses tutorhub_registration_tx.
     LinkIntentCookie:
       type: apiKey
       in: cookie
@@ -8629,7 +8868,7 @@ components:
       required: true
       schema:
         type: string
-        enum: [oidc, google]
+        enum: [oidc, google, facebook]
     PreAuthOrigin:
       name: Origin
       in: header
@@ -8821,7 +9060,7 @@ components:
       properties:
         provider:
           type: string
-          enum: [oidc, google]
+          enum: [oidc, google, facebook]
         masked_email:
           type: string
           description: Masked destination only; never the complete email address
@@ -8934,6 +9173,75 @@ components:
         updated_at:
           type: string
           format: date-time
+    PendingRegistrationPreview:
+      type: object
+      additionalProperties: false
+      required: [provider, expires_in_seconds]
+      properties:
+        provider:
+          type: string
+          const: facebook
+        masked_email:
+          type: string
+        expires_in_seconds:
+          type: integer
+          minimum: 1
+          maximum: 900
+    PendingRegistrationCompleteRequest:
+      type: object
+      additionalProperties: false
+      required: [challenge_id, code, terms_version]
+      properties:
+        challenge_id:
+          type: string
+          format: uuid
+        code:
+          type: string
+          pattern: "^[0-9]{6}$"
+        terms_version:
+          type: string
+          minLength: 1
+          maxLength: 64
+        keep_signed_in:
+          type: boolean
+    PendingRegistrationResult:
+      type: object
+      additionalProperties: false
+      required: [status, return_to]
+      properties:
+        status:
+          type: string
+          enum: [authenticated, link_pending]
+        return_to:
+          type: string
+    FacebookSignedRequest:
+      type: object
+      additionalProperties: false
+      required: [signed_request]
+      properties:
+        signed_request:
+          type: string
+          writeOnly: true
+          maxLength: 65536
+    FacebookDeletionReceipt:
+      type: object
+      additionalProperties: false
+      required: [url, confirmation_code]
+      properties:
+        url:
+          type: string
+          format: uri
+        confirmation_code:
+          type: string
+          pattern: "^[0-9a-f]{32}$"
+    FacebookDeletionStatus:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [received, completed]
     EmailSignupStartRequest:
       type: object
       additionalProperties: false
@@ -9557,6 +9865,7 @@ components:
       required:
         - id
         - provider
+        - provider_slug
         - email
         - email_verified
         - created_at
@@ -9567,9 +9876,12 @@ components:
           format: uuid
         provider:
           type: string
+        provider_slug:
+          type: string
+          description: Provider registry slug. Legacy external identities use oidc.
         email:
           type: string
-          format: email
+          description: Provider email if supplied, otherwise an empty string. Trust is recorded separately in email_verified.
         email_verified:
           type: boolean
         created_at:

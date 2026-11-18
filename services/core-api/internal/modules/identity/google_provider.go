@@ -44,11 +44,16 @@ func (provider *GoogleProvider) ExchangeAndVerify(ctx context.Context, code, cod
 	if !ok || raw == "" {
 		return ProviderClaims{}, ErrProviderExchange
 	}
-	verified, err := provider.verifier.Verify(exchangeContext, raw)
+	return provider.verifiedSocialClaims(exchangeContext, raw, ProviderRegistration{Slug: "google", Issuer: provider.issuer}, provider.now())
+}
+
+// verifiedSocialClaims is shared by providers that return identity claims in
+// the ID token. Only Google supplies a usable email-verification claim.
+func (provider *OIDCProvider) verifiedSocialClaims(ctx context.Context, raw string, entry ProviderRegistration, now time.Time) (ProviderClaims, error) {
+	verified, err := provider.verifier.Verify(ctx, raw)
 	if err != nil {
 		return ProviderClaims{}, ErrProviderExchange
 	}
-	entry := ProviderRegistration{Slug: "google", Issuer: provider.issuer}
 	if !entry.matchesIssuer(verified.Issuer) {
 		return ProviderClaims{}, ErrProviderExchange
 	}
@@ -65,7 +70,6 @@ func (provider *GoogleProvider) ExchangeAndVerify(ctx context.Context, code, cod
 	if verified.Claims(&claims) != nil {
 		return ProviderClaims{}, ErrProviderExchange
 	}
-	now := provider.now().UTC()
 	issuedAt := time.Unix(claims.IssuedAt, 0)
 	if claims.IssuedAt <= 0 || issuedAt.After(now.Add(time.Minute)) || issuedAt.After(verified.Expiry) || verified.Subject == "" || claims.Nonce == "" {
 		return ProviderClaims{}, ErrProviderExchange
@@ -74,7 +78,14 @@ func (provider *GoogleProvider) ExchangeAndVerify(ctx context.Context, code, cod
 	if claims.AuthTime > 0 {
 		authTime = time.Unix(claims.AuthTime, 0).UTC()
 	}
-	return ProviderClaims{ProviderSlug: "google", ProviderOrgID: claims.HostedDomain, Issuer: provider.issuer,
-		Subject: verified.Subject, Email: claims.Email, EmailVerified: claims.EmailVerified, DisplayName: claims.Name,
-		Locale: claims.Locale, Nonce: claims.Nonce, AuthTime: authTime}, nil
+	result := ProviderClaims{ProviderSlug: entry.Slug, Issuer: entry.Issuer, Subject: verified.Subject,
+		Email: claims.Email, DisplayName: claims.Name, Locale: claims.Locale, Nonce: claims.Nonce, AuthTime: authTime}
+	if entry.Slug == "google" {
+		result.ProviderOrgID = claims.HostedDomain
+		result.EmailVerified = claims.EmailVerified
+	}
+	if entry.Slug == "facebook" && (!validFacebookASID(verified.Subject) || len(verified.Audience) != 1 || verified.Audience[0] != provider.oauthConfig.ClientID) {
+		return ProviderClaims{}, ErrProviderExchange
+	}
+	return result, nil
 }

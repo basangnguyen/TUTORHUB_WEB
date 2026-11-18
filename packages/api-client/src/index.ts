@@ -5,10 +5,23 @@ let currentCSRFToken: string | null = null;
 
 export type HealthResponse = components["schemas"]["HealthResponse"];
 export type IdentityLinkRequest = components["schemas"]["IdentityLinkRequest"];
-export type LinkIntentResponse = components["schemas"]["LinkIntentResponse"];
+export type FederatedLinkIntentResponse =
+  components["schemas"]["LinkIntentResponse"];
+/** Preview supported by the original Google/OIDC account-link screen. */
+export type LinkIntentResponse = FederatedLinkIntentResponse & {
+  readonly provider: "google" | "oidc";
+};
 export type LinkIntentConfirmResponse =
   components["schemas"]["LinkIntentConfirmResponse"];
 export type OAuthProvider = components["parameters"]["FederationProvider"];
+export type PendingRegistrationPreview =
+  components["schemas"]["PendingRegistrationPreview"];
+export type PendingRegistrationCompleteRequest =
+  components["schemas"]["PendingRegistrationCompleteRequest"];
+export type PendingRegistrationResult =
+  components["schemas"]["PendingRegistrationResult"];
+export type FacebookDeletionStatus =
+  components["schemas"]["FacebookDeletionStatus"];
 export type EmailSignupStartRequest =
   components["schemas"]["EmailSignupStartRequest"];
 export type EmailSignupCompleteRequest =
@@ -762,6 +775,92 @@ function preAuthRequestOptions(options: APIRequestOptions) {
   };
 }
 
+export async function getPendingRegistration(
+  options: APIRequestOptions = {},
+): Promise<PendingRegistrationPreview> {
+  const { data, error, response } = await createTutorHubClient(options).GET(
+    "/api/v1/auth/pending-registration",
+    {
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+      cache: "no-store",
+      referrerPolicy: "no-referrer",
+    },
+  );
+  return requireData<PendingRegistrationPreview>(data, error, response);
+}
+
+export async function startPendingRegistration(
+  input: EmailSignupStartRequest,
+  options: APIRequestOptions = {},
+): Promise<AuthSignupChallengeResponse> {
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/auth/pending-registration/start",
+    { ...preAuthRequestOptions(options), body: input },
+  );
+  return requireData<AuthSignupChallengeResponse>(data, error, response);
+}
+
+export async function resendPendingRegistration(
+  options: APIRequestOptions = {},
+): Promise<AuthSignupChallengeResponse> {
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/auth/pending-registration/resend",
+    { ...preAuthRequestOptions(options), body: {} },
+  );
+  return requireData<AuthSignupChallengeResponse>(data, error, response);
+}
+
+export async function completePendingRegistration(
+  input: PendingRegistrationCompleteRequest,
+  options: APIRequestOptions = {},
+): Promise<PendingRegistrationResult> {
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/auth/pending-registration/complete",
+    { ...preAuthRequestOptions(options), body: input },
+  );
+  const result = requireData<PendingRegistrationResult>(data, error, response);
+  if (result.status === "authenticated") currentCSRFToken = null;
+  return result;
+}
+
+export async function cancelPendingRegistration(
+  options: APIRequestOptions = {},
+): Promise<void> {
+  const { error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/auth/pending-registration/cancel",
+    { ...preAuthRequestOptions(options), body: {} },
+  );
+  if (!response.ok) {
+    throw new APIRequestError(
+      response.status,
+      isProblem(error) ? error : undefined,
+      retryAfterSeconds(response),
+    );
+  }
+}
+
+export async function getFacebookDeletionStatus(
+  confirmationCode: string,
+  options: APIRequestOptions = {},
+): Promise<FacebookDeletionStatus> {
+  if (!/^[0-9a-f]{32}$/.test(confirmationCode)) {
+    throw new TypeError("Invalid deletion confirmation code.");
+  }
+  const { data, error, response } = await createTutorHubClient(options).GET(
+    "/api/v1/auth/oauth/facebook/data-deletion/{code}",
+    {
+      params: { path: { code: confirmationCode } },
+      headers: { Accept: "application/json" },
+      credentials: "omit",
+      signal: options.signal,
+      cache: "no-store",
+      referrerPolicy: "no-referrer",
+    },
+  );
+  return requireData<FacebookDeletionStatus>(data, error, response);
+}
+
 export async function startEmailSignup(
   input: EmailSignupStartRequest,
   options: APIRequestOptions = {},
@@ -1158,6 +1257,18 @@ export async function linkIdentity(
 export async function getLinkIntent(
   options: APIRequestOptions = {},
 ): Promise<LinkIntentResponse> {
+  const preview = await getFederatedLinkIntent(options);
+  const { provider } = preview;
+  if (provider !== "google" && provider !== "oidc") {
+    throw new Error("The account-link screen does not support this provider.");
+  }
+  return { ...preview, provider };
+}
+
+/** Read the masked preview for every provider supported by the API. */
+export async function getFederatedLinkIntent(
+  options: APIRequestOptions = {},
+): Promise<FederatedLinkIntentResponse> {
   const { data, error, response } = await createTutorHubClient(options).GET(
     "/api/v1/auth/link-intent",
     {
@@ -1167,7 +1278,7 @@ export async function getLinkIntent(
       referrerPolicy: "no-referrer",
     },
   );
-  return requireData<LinkIntentResponse>(data, error, response);
+  return requireData<FederatedLinkIntentResponse>(data, error, response);
 }
 
 export async function confirmLinkIntent(

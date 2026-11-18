@@ -2634,6 +2634,7 @@ describe("getHealth", () => {
     const identity = {
       id: "f25085c5-e88a-4859-a586-5a232032710a",
       provider: "zitadel",
+      provider_slug: "oidc",
       email: "student@example.com",
       email_verified: true,
       created_at: "2026-07-17T01:00:00Z",

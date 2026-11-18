@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"regexp"
 	"runtime/debug"
+	"strings"
 	"time"
 
 	"github.com/tutorhub-v2/core-api/internal/platform/logsafe"
@@ -17,6 +18,14 @@ import (
 )
 
 const requestIDHeader = "X-Request-ID"
+
+func requestTelemetryPath(path string) string {
+	const deletionStatus = "/api/v1/auth/oauth/facebook/data-deletion/"
+	if strings.HasPrefix(path, deletionStatus) {
+		return deletionStatus + "{code}"
+	}
+	return path
+}
 
 var validRequestID = regexp.MustCompile(`^[A-Za-z0-9._-]{1,128}$`)
 
@@ -104,7 +113,8 @@ func requestLogMiddleware(
 		started := time.Now()
 		metrics.RequestStarted()
 		recorder := &statusRecorder{ResponseWriter: w}
-		traceContext, span := tracer.Start(r.Context(), r.Method+" "+r.URL.Path)
+		path := requestTelemetryPath(r.URL.Path)
+		traceContext, span := tracer.Start(r.Context(), r.Method+" "+path)
 
 		defer func() {
 			duration := time.Since(started)
@@ -122,7 +132,7 @@ func requestLogMiddleware(
 			attributes := []any{
 				"request_id", RequestIDFromContext(traceContext),
 				"method", logsafe.String(r.Method),
-				"path", logsafe.String(r.URL.Path),
+				"path", logsafe.String(path),
 				"status", recorder.status,
 				"bytes", recorder.bytesWritten,
 				"duration_ms", duration.Milliseconds(),
@@ -158,7 +168,7 @@ func recoverMiddleware(
 				"request panic recovered",
 				"request_id", RequestIDFromContext(r.Context()),
 				"method", logsafe.String(r.Method),
-				"path", logsafe.String(r.URL.Path),
+				"path", logsafe.String(requestTelemetryPath(r.URL.Path)),
 				"error", logsafe.String(fmt.Sprint(recovered)),
 				"stack", logsafe.String(string(debug.Stack())),
 			)

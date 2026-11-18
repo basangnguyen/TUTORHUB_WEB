@@ -218,7 +218,7 @@ export type paths = {
     };
     /**
      * Complete a provider-bound single-use OAuth flow
-     * @description The callback provider must match the consumed flow, and iss must match the provider when supplied. All callback failures redirect to /sign-in?error=<fixed_code>; provider error details, authorization codes and token claims are never returned. Email collisions and unlinked identities create a separate HttpOnly link_tx cookie and redirect to /sign-in?link=pending&provider=google without creating a session. Successful login or reauthentication sets opaque session and CSRF cookies.
+     * @description The provider and optional iss must match the single-use flow. Errors redirect to /sign-in?error=<fixed_code>. An unlinked identity creates an owner-bound link_tx. A new Facebook subject creates a registration_tx and redirects to /sign-in?registration=pending&provider=facebook regardless of its email claim. Successful login sets session and CSRF cookies.
      */
     readonly get: operations["completeOAuth"];
     readonly put?: never;
@@ -243,6 +243,57 @@ export type paths = {
     readonly get: operations["beginOAuth"];
     readonly put?: never;
     readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/auth/oauth/facebook/data-deletion": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Erase provider data atomically and return the receipt for this signed event */
+    readonly post: operations["receiveFacebookDataDeletion"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/auth/oauth/facebook/data-deletion/{code}": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /** Look up the coarse status of a Facebook erasure receipt */
+    readonly get: operations["getFacebookDeletionStatus"];
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/auth/oauth/facebook/deauthorize": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Unlink the verified Facebook identity and revoke its sessions */
+    readonly post: operations["receiveFacebookDeauthorization"];
     readonly delete?: never;
     readonly options?: never;
     readonly head?: never;
@@ -303,6 +354,91 @@ export type paths = {
      * @description Requires AUTH_METHOD_PASSWORD_ENABLED and AUTH_METHOD_EMAIL_CODE_ENABLED. Active registered accounts may receive a code; all other requests receive an identical dummy challenge. All responses use Cache-Control no-store and Referrer-Policy no-referrer.
      */
     readonly post: operations["startPasswordRecovery"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/auth/pending-registration": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /** Read the masked email hint and remaining registration lifetime */
+    readonly get: operations["getPendingRegistration"];
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/auth/pending-registration/cancel": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Cancel the pending registration and clear its cookie */
+    readonly post: operations["cancelPendingRegistration"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/auth/pending-registration/complete": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Complete email verification and create an account or a link intent */
+    readonly post: operations["completePendingRegistration"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/auth/pending-registration/resend": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Resend a code to the bound email subject to the shared cooldown */
+    readonly post: operations["resendPendingRegistration"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/auth/pending-registration/start": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Send an email verification code for this Facebook registration */
+    readonly post: operations["startPendingRegistration"];
     readonly delete?: never;
     readonly options?: never;
     readonly head?: never;
@@ -4564,7 +4700,7 @@ export type components = {
     readonly ExternalIdentity: {
       /** Format: date-time */
       readonly created_at: string;
-      /** Format: email */
+      /** @description Provider email if supplied, otherwise an empty string. Trust is recorded separately in email_verified. */
       readonly email: string;
       readonly email_verified: boolean;
       /** Format: uuid */
@@ -4572,6 +4708,20 @@ export type components = {
       /** Format: date-time */
       readonly last_authenticated_at: string;
       readonly provider: string;
+      /** @description Provider registry slug. Legacy external identities use oidc. */
+      readonly provider_slug: string;
+    };
+    readonly FacebookDeletionReceipt: {
+      readonly confirmation_code: string;
+      /** Format: uri */
+      readonly url: string;
+    };
+    readonly FacebookDeletionStatus: {
+      /** @enum {string} */
+      readonly status: "received" | "completed";
+    };
+    readonly FacebookSignedRequest: {
+      readonly signed_request: string;
     };
     readonly FeatureCapability: {
       /** @description Configured tenant value before deployment guardrails; present only when can_manage_overrides is true. */
@@ -4725,7 +4875,7 @@ export type components = {
       /** @description Masked destination only; never the complete email address */
       readonly masked_email: string;
       /** @enum {string} */
-      readonly provider: "oidc" | "google";
+      readonly provider: "oidc" | "google" | "facebook";
     };
     readonly LivenessResponse: {
       /** @constant */
@@ -5563,6 +5713,24 @@ export type components = {
        * @enum {string}
        */
       readonly status: "password_reset";
+    };
+    readonly PendingRegistrationCompleteRequest: {
+      /** Format: uuid */
+      readonly challenge_id: string;
+      readonly code: string;
+      readonly keep_signed_in?: boolean;
+      readonly terms_version: string;
+    };
+    readonly PendingRegistrationPreview: {
+      readonly expires_in_seconds: number;
+      readonly masked_email?: string;
+      /** @constant */
+      readonly provider: "facebook";
+    };
+    readonly PendingRegistrationResult: {
+      readonly return_to: string;
+      /** @enum {string} */
+      readonly status: "authenticated" | "link_pending";
     };
     /** @enum {string} */
     readonly Permission:
@@ -6519,7 +6687,7 @@ export type components = {
     readonly CSRFToken: string;
     /** @description Active workspace assertion used to prevent confused-deputy mutations and reads. */
     readonly ExpectedTenantID: string;
-    readonly FederationProvider: "oidc" | "google";
+    readonly FederationProvider: "oidc" | "google" | "facebook";
     /** @description Opaque RoomInstance-scoped participant key; never a user, session, or provider identity. */
     readonly MediaParticipantKeyPath: string;
     readonly PollID: string;
@@ -6876,7 +7044,7 @@ export interface operations {
     };
     readonly requestBody?: never;
     readonly responses: {
-      /** @description Success return path, pending link confirmation, or a fixed sign-in error (authentication_failed, signup_disabled, email_unverified, provider_unavailable, assurance_required, rate_limited, temporarily_unavailable) */
+      /** @description Success return path, pending registration, pending link confirmation, or a fixed sign-in error (authentication_failed, signup_disabled, email_unverified, provider_unavailable, assurance_required, rate_limited, temporarily_unavailable) */
       readonly 303: {
         headers: {
           readonly Location?: string;
@@ -6920,6 +7088,88 @@ export interface operations {
         };
       };
       readonly 429: components["responses"]["TooManyRequestsResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly receiveFacebookDataDeletion: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/x-www-form-urlencoded": components["schemas"]["FacebookSignedRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Deletion confirmation code and public tracking URL */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["FacebookDeletionReceipt"];
+        };
+      };
+      readonly 400: components["responses"]["BadRequestResponse"];
+      readonly 404: components["responses"]["ProblemResponse"];
+      readonly 429: components["responses"]["AuthRateLimitedResponse"];
+      readonly 503: components["responses"]["AuthUnavailableResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly getFacebookDeletionStatus: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path: {
+        readonly code: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Public receipt status */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["FacebookDeletionStatus"];
+        };
+      };
+      readonly 404: components["responses"]["ProblemResponse"];
+      readonly 429: components["responses"]["AuthRateLimitedResponse"];
+      readonly 503: components["responses"]["AuthUnavailableResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly receiveFacebookDeauthorization: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/x-www-form-urlencoded": components["schemas"]["FacebookSignedRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Deauthorization processed */
+      readonly 204: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content?: never;
+      };
+      readonly 400: components["responses"]["BadRequestResponse"];
+      readonly 404: components["responses"]["ProblemResponse"];
+      readonly 429: components["responses"]["AuthRateLimitedResponse"];
+      readonly 503: components["responses"]["AuthUnavailableResponse"];
       readonly default: components["responses"]["ProblemResponse"];
     };
   };
@@ -7031,6 +7281,153 @@ export interface operations {
       readonly 202: components["responses"]["AuthChallengeAcceptedResponse"];
       readonly 400: components["responses"]["ProblemResponse"];
       readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 415: components["responses"]["ProblemResponse"];
+      readonly 429: components["responses"]["AuthRateLimitedResponse"];
+      readonly 503: components["responses"]["AuthUnavailableResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly getPendingRegistration: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Only the masked hint is returned when available */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["PendingRegistrationPreview"];
+        };
+      };
+      readonly 404: components["responses"]["ProblemResponse"];
+      readonly 429: components["responses"]["AuthRateLimitedResponse"];
+      readonly 503: components["responses"]["AuthUnavailableResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly cancelPendingRegistration: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Must exactly match the Web origin; browsers set this header automatically. */
+        readonly Origin: components["parameters"]["PreAuthOrigin"];
+        readonly "Sec-Fetch-Site"?: components["parameters"]["PreAuthFetchSite"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["EmptyObject"];
+      };
+    };
+    readonly responses: {
+      /** @description Registration cancelled */
+      readonly 204: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content?: never;
+      };
+      readonly 400: components["responses"]["BadRequestResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 415: components["responses"]["ProblemResponse"];
+      readonly 429: components["responses"]["AuthRateLimitedResponse"];
+      readonly 503: components["responses"]["AuthUnavailableResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly completePendingRegistration: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Must exactly match the Web origin; browsers set this header automatically. */
+        readonly Origin: components["parameters"]["PreAuthOrigin"];
+        readonly "Sec-Fetch-Site"?: components["parameters"]["PreAuthFetchSite"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["PendingRegistrationCompleteRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Session cookies for a new account or a separate link intent for an existing account */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["PendingRegistrationResult"];
+        };
+      };
+      readonly 400: components["responses"]["BadRequestResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 415: components["responses"]["ProblemResponse"];
+      readonly 429: components["responses"]["AuthRateLimitedResponse"];
+      readonly 503: components["responses"]["AuthUnavailableResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly resendPendingRegistration: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Must exactly match the Web origin; browsers set this header automatically. */
+        readonly Origin: components["parameters"]["PreAuthOrigin"];
+        readonly "Sec-Fetch-Site"?: components["parameters"]["PreAuthFetchSite"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["EmptyObject"];
+      };
+    };
+    readonly responses: {
+      readonly 202: components["responses"]["AuthChallengeAcceptedResponse"];
+      readonly 400: components["responses"]["BadRequestResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 415: components["responses"]["ProblemResponse"];
+      readonly 429: components["responses"]["AuthRateLimitedResponse"];
+      readonly 503: components["responses"]["AuthUnavailableResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly startPendingRegistration: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Must exactly match the Web origin; browsers set this header automatically. */
+        readonly Origin: components["parameters"]["PreAuthOrigin"];
+        readonly "Sec-Fetch-Site"?: components["parameters"]["PreAuthFetchSite"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["EmailSignupStartRequest"];
+      };
+    };
+    readonly responses: {
+      readonly 202: components["responses"]["AuthChallengeAcceptedResponse"];
+      readonly 400: components["responses"]["BadRequestResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
       readonly 415: components["responses"]["ProblemResponse"];
       readonly 429: components["responses"]["AuthRateLimitedResponse"];
       readonly 503: components["responses"]["AuthUnavailableResponse"];

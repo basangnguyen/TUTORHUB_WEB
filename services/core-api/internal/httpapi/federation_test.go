@@ -168,6 +168,36 @@ func TestFederationCallbackRedirectsAndSeparateLinkCookie(t *testing.T) {
 	}
 }
 
+func TestFacebookCallbackSetsOnlyBrowserRegistrationBinding(t *testing.T) {
+	cfg := authFoundationConfig()
+	cfg.Authentication.ProviderFacebookEnabled = true
+	cfg.Authentication.FacebookClientID = "fixture-id"
+	cfg.Authentication.FacebookClientSecret = "fixture-secret"
+	cfg.Authentication.CookieSecure = true
+	binding := strings.Repeat("p", 43)
+	service := &fakeFederationService{callbackResult: identity.OAuthResult{
+		RegistrationPending: true, RegistrationBinding: binding, RegistrationExpiresAt: fixedTime.Add(15 * time.Minute),
+	}}
+	handler := NewHandlerWithOptions(cfg, nil, Options{Identity: service, Clock: func() time.Time { return fixedTime }})
+	r := httptest.NewRequest(http.MethodGet, "/api/v1/auth/oauth/facebook/callback?state=test&code=code", nil)
+	r.AddCookie(&http.Cookie{Name: "__Host-tutorhub_oidc", Value: "flow-cookie"})
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, r)
+	if w.Code != http.StatusSeeOther || w.Header().Get("Location") != "https://app.example/sign-in?registration=pending&provider=facebook" ||
+		service.provider != "facebook" {
+		t.Fatalf("unexpected pending callback status %d", w.Code)
+	}
+	for _, cookie := range w.Result().Cookies() {
+		if cookie.Name != "__Host-tutorhub_oidc" && cookie.Name != "__Host-tutorhub_registration_tx" {
+			t.Fatalf("unexpected cookie %q", cookie.Name)
+		}
+	}
+	c := findCookie(t, w.Result().Cookies(), "__Host-tutorhub_registration_tx")
+	if c.Value != binding || !c.HttpOnly || !c.Secure || c.Path != "/" || c.SameSite != http.SameSiteStrictMode || c.MaxAge != 900 {
+		t.Fatal("invalid registration binding")
+	}
+}
+
 func TestFederationCallbackFailuresAreFixedAndRedacted(t *testing.T) {
 	for _, tc := range []struct {
 		err  error

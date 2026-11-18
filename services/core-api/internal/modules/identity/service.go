@@ -825,6 +825,10 @@ func normalizeProfilePatch(userID uuid.UUID, patch ProfilePatch) (ProfilePatch, 
 }
 
 func normalizeProviderClaims(claims ProviderClaims, now time.Time) (ProviderClaims, error) {
+	return normalizeFederationClaims(claims, now, false)
+}
+
+func normalizeFederationClaims(claims ProviderClaims, now time.Time, facebook bool) (ProviderClaims, error) {
 	claims.Issuer = strings.TrimRight(strings.TrimSpace(claims.Issuer), "/")
 	claims.Subject = strings.TrimSpace(claims.Subject)
 	claims.Email = strings.ToLower(strings.TrimSpace(claims.Email))
@@ -834,11 +838,16 @@ func normalizeProviderClaims(claims ProviderClaims, now time.Time) (ProviderClai
 	if claims.Issuer == "" || len(claims.Issuer) > 100 || claims.Subject == "" || len(claims.Subject) > 500 {
 		return ProviderClaims{}, fmt.Errorf("%w: invalid issuer or subject", ErrProviderExchange)
 	}
-	if !claims.EmailVerified {
-		return ProviderClaims{}, ErrVerifiedEmailRequired
-	}
 	address, err := mail.ParseAddress(claims.Email)
-	if err != nil || !strings.EqualFold(address.Address, claims.Email) || len(claims.Email) > 320 {
+	validEmail := err == nil && strings.EqualFold(address.Address, claims.Email) && len(claims.Email) <= 320
+	if facebook {
+		claims.EmailVerified = false
+		if !validEmail {
+			claims.Email = ""
+		}
+	} else if !claims.EmailVerified {
+		return ProviderClaims{}, ErrVerifiedEmailRequired
+	} else if !validEmail {
 		return ProviderClaims{}, fmt.Errorf("%w: invalid verified email", ErrProviderExchange)
 	}
 	if claims.DisplayName == "" {

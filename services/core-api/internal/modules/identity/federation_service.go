@@ -40,6 +40,9 @@ func (service *Service) BeginOAuth(ctx context.Context, slug, returnTo, intent s
 		return LoginStart{}, err
 	}
 	if intent == "reauth" {
+		if slug == "facebook" {
+			return LoginStart{}, ErrFederationReauthRequired
+		}
 		if err := validatePrincipal(principal); err != nil {
 			return LoginStart{}, err
 		}
@@ -50,6 +53,10 @@ func (service *Service) BeginOAuth(ctx context.Context, slug, returnTo, intent s
 }
 
 func (service *Service) BeginProviderIdentityLink(ctx context.Context, principal Principal, slug string) (LoginStart, error) {
+	if slug == "facebook" {
+		// Facebook linking follows the owner-bound intent issued after login.
+		return LoginStart{}, ErrFederationProviderUnavailable
+	}
 	if _, err := service.registry.lookup(slug); err != nil {
 		return LoginStart{}, err
 	}
@@ -138,12 +145,15 @@ func (service *Service) CompleteOAuth(ctx context.Context, slug string, input Ca
 		return OAuthResult{}, ErrProviderExchange
 	}
 	if flow.Purpose == "reauth" {
+		if slug == "facebook" {
+			return OAuthResult{}, ErrFederationReauthRequired
+		}
 		if flow.UserID == uuid.Nil || flow.SessionID == uuid.Nil || flow.CreatedAt.IsZero() || claims.AuthTime.IsZero() || claims.AuthTime.Before(flow.CreatedAt.Truncate(time.Second)) || claims.AuthTime.After(now.Add(time.Minute)) {
 			return OAuthResult{}, ErrFederationReauthRequired
 		}
 	}
 	claims.ProviderSlug = slug
-	claims, err = normalizeProviderClaims(claims, now)
+	claims, err = normalizeFederationClaims(claims, now, slug == "facebook")
 	if err != nil {
 		return OAuthResult{}, err
 	}
@@ -184,12 +194,22 @@ func (service *Service) CompleteOAuth(ctx context.Context, slug string, input Ca
 	}
 	intentExpiry := now.Add(AuthTransactionTTL)
 	metadata := SessionMetadata{TokenHash: rotation.TokenHash, CSRFHash: rotation.CSRFHash, UserAgentHash: service.crypto.Digest(userAgentPurpose, input.UserAgent), DeviceLabel: DeviceLabel(input.UserAgent), IPPrefix: IPPrefix(input.RemoteAddress), CreatedAt: now, ExpiresAt: now.Add(service.config.SessionTTL), AbsoluteAt: now.Add(service.config.SessionAbsoluteTTL)}
-	record, err := repository.CompleteFederatedLogin(ctx, FederationLoginParams{Claims: claims, ProviderSlug: slug, Flow: flow, Metadata: metadata, SignupEnabled: service.federation.SignupEnabled, LegalTermsVersion: service.federation.LegalTermsVersion, LinkBindingHash: service.crypto.Digest(linkBindingPurpose, binding), LinkPayloadCiphertext: ciphertext, LinkExpiresAt: intentExpiry, SessionAbsoluteTTL: service.config.SessionAbsoluteTTL})
+	record, err := repository.CompleteFederatedLogin(ctx, FederationLoginParams{
+		Claims: claims, ProviderSlug: slug, Flow: flow, Metadata: metadata,
+		SignupEnabled: service.federation.SignupEnabled, LegalTermsVersion: service.federation.LegalTermsVersion,
+		LinkBindingHash: service.crypto.Digest(linkBindingPurpose, binding), LinkPayloadCiphertext: ciphertext,
+		RegistrationBindingHash: service.crypto.Digest(registrationBindingPurpose, binding),
+		ProviderSubjectDigest:   service.crypto.ProviderSubjectDigest(claims.Issuer, claims.Subject),
+		LinkExpiresAt:           intentExpiry, SessionAbsoluteTTL: service.config.SessionAbsoluteTTL,
+	})
 	if err != nil {
 		return OAuthResult{}, err
 	}
 	if record.LinkPending {
 		return OAuthResult{Provider: slug, LinkPending: true, LinkBinding: binding, LinkExpiresAt: intentExpiry}, nil
+	}
+	if record.RegistrationPending {
+		return OAuthResult{Provider: slug, RegistrationPending: true, RegistrationBinding: binding, RegistrationExpiresAt: intentExpiry}, nil
 	}
 	return OAuthResult{Provider: slug, LoginResult: LoginResult{SessionToken: token, CSRFToken: csrf, ExpiresAt: record.Principal.CookieExpiresAt, ReturnTo: returnTo, IdentityLinked: flow.Purpose == flowPurposeIdentityLink}}, nil
 }
@@ -223,7 +243,8 @@ func (service *Service) readFederationIntent(ctx context.Context, binding string
 		return nil, intent, FederationIdentityPayload{}, ErrLinkIntentUnavailable
 	}
 	var payload FederationIdentityPayload
-	if json.Unmarshal([]byte(raw), &payload) != nil || !payload.EmailVerified || payload.Issuer == "" || payload.Subject == "" || payload.Email == "" {
+	if json.Unmarshal([]byte(raw), &payload) != nil || payload.Issuer == "" || payload.Subject == "" ||
+		(payload.ProviderSlug != "facebook" && (!payload.EmailVerified || payload.Email == "")) {
 		return nil, intent, payload, ErrLinkIntentUnavailable
 	}
 	entry, err := service.registry.lookup(payload.ProviderSlug)
@@ -249,7 +270,11 @@ func (service *Service) GetLinkIntent(ctx context.Context, binding string) (Link
 	if seconds <= 0 {
 		return LinkIntentView{}, ErrLinkIntentUnavailable
 	}
-	parts := strings.SplitN(payload.Email, "@", 2)
+	email := payload.Email
+	if payload.ProviderSlug == "facebook" {
+		email = intent.TargetEmail
+	}
+	parts := strings.SplitN(email, "@", 2)
 	if len(parts) != 2 {
 		return LinkIntentView{}, ErrLinkIntentUnavailable
 	}

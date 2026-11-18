@@ -25,6 +25,10 @@ func googleFederationEnabled(cfg config.AuthenticationConfig) bool {
 	return cfg.ProviderGoogleEnabled && strings.TrimSpace(cfg.GoogleClientID) != "" && strings.TrimSpace(cfg.GoogleClientSecret) != ""
 }
 
+func facebookFederationEnabled(cfg config.AuthenticationConfig) bool {
+	return cfg.ProviderFacebookEnabled && strings.TrimSpace(cfg.FacebookClientID) != "" && strings.TrimSpace(cfg.FacebookClientSecret) != ""
+}
+
 func writeFederationProviderUnavailable(w http.ResponseWriter, r *http.Request) {
 	writeCodedProblem(w, r, http.StatusNotFound, "auth_provider_unavailable", "Provider unavailable", "This authentication provider is unavailable.")
 }
@@ -33,6 +37,8 @@ func (handlers federationHandlers) providerAvailable(provider string) bool {
 	switch provider {
 	case "google":
 		return googleFederationEnabled(handlers.auth.config.Authentication)
+	case "facebook":
+		return facebookFederationEnabled(handlers.auth.config.Authentication)
 	case "oidc":
 		return handlers.auth.config.Authentication.ProviderOIDCDefaultEnabled && handlers.auth.config.Authentication.OIDCEnabled
 	default:
@@ -156,6 +162,11 @@ func (handlers federationHandlers) callback(w http.ResponseWriter, r *http.Reque
 		http.Redirect(w, r, strings.TrimRight(handlers.auth.config.WebOrigin, "/")+"/sign-in?"+values.Encode(), http.StatusSeeOther)
 		return
 	}
+	if result.RegistrationPending {
+		handlers.setTransactionCookie(w, identity.RegistrationTransactionCookieName(handlers.auth.config.Authentication.CookieSecure), result.RegistrationBinding, result.RegistrationExpiresAt)
+		http.Redirect(w, r, strings.TrimRight(handlers.auth.config.WebOrigin, "/")+"/sign-in?registration=pending&provider=facebook", http.StatusSeeOther)
+		return
+	}
 	if result.SessionToken != "" && result.CSRFToken != "" {
 		handlers.auth.setCookie(w, handlers.auth.cookieNames.session, result.SessionToken, result.ExpiresAt)
 		handlers.auth.setCookie(w, handlers.auth.cookieNames.csrf, result.CSRFToken, result.ExpiresAt)
@@ -200,8 +211,12 @@ func (handlers federationHandlers) linkBinding(r *http.Request) (string, bool) {
 }
 
 func (handlers federationHandlers) setLinkCookie(w http.ResponseWriter, binding string, expires time.Time) {
+	handlers.setTransactionCookie(w, identity.LinkTransactionCookieName(handlers.auth.config.Authentication.CookieSecure), binding, expires)
+}
+
+func (handlers federationHandlers) setTransactionCookie(w http.ResponseWriter, name, binding string, expires time.Time) {
 	maxAge := max(1, int(expires.Sub(handlers.auth.clock()).Seconds()))
-	http.SetCookie(w, &http.Cookie{Name: identity.LinkTransactionCookieName(handlers.auth.config.Authentication.CookieSecure), Value: binding,
+	http.SetCookie(w, &http.Cookie{Name: name, Value: binding,
 		Path: "/", Expires: expires, MaxAge: maxAge, HttpOnly: true, Secure: handlers.auth.config.Authentication.CookieSecure, SameSite: http.SameSiteStrictMode})
 }
 

@@ -5,6 +5,7 @@ import {
   cancelLinkIntent,
   confirmLinkIntent,
   getCurrentCSRFToken,
+  getFederatedLinkIntent,
   getLinkIntent,
   linkIdentity,
   rotateCSRFToken,
@@ -63,6 +64,22 @@ describe("federation client", () => {
     expect(request.cache).toBe("no-store");
     expect(request.referrerPolicy).toBe("no-referrer");
     expect(request.headers.has("Cookie")).toBe(false);
+  });
+
+  it("returns Facebook to capable clients and rejects it for the Google/OIDC screen", async () => {
+    const preview = {
+      provider: "facebook",
+      masked_email: "s***@e***.test",
+      expires_in_seconds: 600,
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => Promise.resolve(reply(preview))),
+    );
+    await expect(getFederatedLinkIntent()).resolves.toEqual(preview);
+    await expect(getLinkIntent()).rejects.toThrow(
+      "The account-link screen does not support this provider.",
+    );
   });
 
   it("confirms with CSRF and Origin and invalidates cached CSRF on success", async () => {

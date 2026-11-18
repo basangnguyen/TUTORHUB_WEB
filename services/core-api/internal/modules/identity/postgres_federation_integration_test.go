@@ -30,7 +30,8 @@ func federationIntegrationInput(t *testing.T, f *settingsIntegrationFixture, ema
 		t.Fatal(err)
 	}
 	return FederationLoginParams{Claims: claims, ProviderSlug: "google", Flow: StoredFlow{Purpose: "login", ProviderSlug: "google", CreatedAt: f.now}, SignupEnabled: true, LegalTermsVersion: "test", SessionAbsoluteTTL: 48 * time.Hour,
-		LinkBindingHash: f.service.crypto.Digest(linkBindingPurpose, uuid.NewString()), LinkPayloadCiphertext: cipher, LinkExpiresAt: f.now.Add(15 * time.Minute),
+		ProviderSubjectDigest: f.service.crypto.ProviderSubjectDigest(claims.Issuer, claims.Subject),
+		LinkBindingHash:       f.service.crypto.Digest(linkBindingPurpose, uuid.NewString()), LinkPayloadCiphertext: cipher, LinkExpiresAt: f.now.Add(15 * time.Minute),
 		Metadata: SessionMetadata{TokenHash: f.service.crypto.Digest(sessionPurpose, uuid.NewString()), CSRFHash: f.service.crypto.Digest(csrfPurpose, uuid.NewString()), UserAgentHash: f.service.crypto.Digest(userAgentPurpose, "fixture"), DeviceLabel: "Chrome · Windows", CreatedAt: f.now, ExpiresAt: f.now.Add(8 * time.Hour), AbsoluteAt: f.now.Add(48 * time.Hour)}}
 }
 
@@ -139,6 +140,70 @@ func TestFederationPostgresSignupPolicyLegalAndNoAutoMerge(t *testing.T) {
 	stored, err = repository.ReadLinkIntent(f.ctx, input.LinkBindingHash, f.now)
 	if err != nil || stored.UserID != result.Principal.User.ID {
 		t.Fatal("unlinked identity changed owner through email")
+	}
+}
+
+func TestFacebookPostgresLoginRoutesBySubject(t *testing.T) {
+	f := newSettingsIntegrationFixture(t, true)
+	repo := NewPostgresRepository(f.tx, 20*time.Second, policy.NewEngine())
+	for _, sample := range []struct{ subject, hint string }{{"100000123456701", ""}, {"100000123456702", f.principal.User.Email}} {
+		hint := sample.hint
+		input := federationIntegrationInput(t, f, hint)
+		input.ProviderSlug, input.Flow.ProviderSlug = "facebook", "facebook"
+		input.Claims = ProviderClaims{ProviderSlug: "facebook", Issuer: FacebookIssuerURL, Subject: sample.subject, Email: hint, AuthTime: f.now}
+		payload := FederationIdentityPayload{ProviderSlug: "facebook", Issuer: input.Claims.Issuer, Subject: sample.subject, Email: hint, ReturnTo: "/app"}
+		raw, err := json.Marshal(payload)
+		if err != nil {
+			t.Fatal(err)
+		}
+		input.LinkPayloadCiphertext, err = f.service.crypto.Encrypt(string(raw))
+		if err != nil {
+			t.Fatal(err)
+		}
+		input.ProviderSubjectDigest = f.service.crypto.ProviderSubjectDigest(input.Claims.Issuer, input.Claims.Subject)
+		input.RegistrationBindingHash = f.service.crypto.Digest(registrationBindingPurpose, uuid.NewString())
+		input.SignupEnabled = false
+		result, err := repo.CompleteFederatedLogin(f.ctx, input)
+		if err != nil || !result.RegistrationPending || result.LinkPending || result.Principal.SessionID != uuid.Nil {
+			t.Fatalf("unknown Facebook subject did not enter pending registration: %v", err)
+		}
+		var digest []byte
+		if err := f.tx.QueryRow(f.ctx, `SELECT provider_subject_digest FROM tutorhub.auth_transactions WHERE kind='federated_registration'
+			AND state='pending' AND user_id IS NULL AND binding_hash=$1`, input.RegistrationBindingHash).Scan(&digest); err != nil || !bytes.Equal(digest, input.ProviderSubjectDigest) {
+			t.Fatal("new subject did not create a browser-bound pending transaction")
+		}
+		id, err := insertFederatedIdentity(f.ctx, f.tx, f.principal.User.ID, "facebook", input.Claims, f.now)
+		if err != nil {
+			t.Fatal(err)
+		}
+		result, err = repo.CompleteFederatedLogin(f.ctx, input)
+		if err != nil || result.Principal.IdentityID != id || result.Principal.User.ID != f.principal.User.ID {
+			t.Fatalf("existing subject did not create an owner session: %v", err)
+		}
+		identities, err := repo.ListIdentities(f.ctx, f.principal.User.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		found := false
+		for _, item := range identities {
+			if item.ID == id {
+				found = item.ProviderSlug == "facebook" && !item.EmailVerified && item.Email == hint
+			}
+		}
+		if !found {
+			t.Fatal("public identity omitted the provider slug or trusted the Facebook email")
+		}
+		if _, err = f.tx.Exec(f.ctx, `UPDATE tutorhub.identities SET status='unlinked',unlinked_at=$2 WHERE id=$1`, id, f.now); err != nil {
+			t.Fatal(err)
+		}
+		result, err = repo.CompleteFederatedLogin(f.ctx, input)
+		if err != nil || !result.LinkPending || result.Principal.SessionID != uuid.Nil {
+			t.Fatalf("unlinked subject did not create a link intent: %v", err)
+		}
+		intent, err := repo.ReadLinkIntent(f.ctx, input.LinkBindingHash, f.now)
+		if err != nil || intent.UserID != f.principal.User.ID || intent.TargetEmail != f.principal.User.Email {
+			t.Fatal("link intent lost the original owner or the owner's email")
+		}
 	}
 }
 

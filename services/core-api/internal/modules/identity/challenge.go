@@ -266,7 +266,7 @@ func normalizeChallengeDestination(channel DeliveryChannel, value string) (strin
 
 func challengePurposeMatches(kind, purpose string, channel DeliveryChannel) bool {
 	switch kind {
-	case "signup_email":
+	case "signup_email", registrationKind:
 		return purpose == "signup_email" && channel == DeliveryEmail
 	case "login":
 		return (purpose == "login_code" && channel == DeliveryEmail) || (purpose == "phone_login" && channel != DeliveryEmail)
