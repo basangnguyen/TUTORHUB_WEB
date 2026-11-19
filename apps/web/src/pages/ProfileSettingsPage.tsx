@@ -2,6 +2,7 @@ import {
   APIRequestError,
   type ExternalIdentity,
   type MyLoginMethodsResponse,
+  type MyPasskey,
   type MyPasswordStatusResponse,
   type MyPasswordUpdateRequest,
   type MySession,
@@ -31,6 +32,8 @@ import {
   Link2,
   LogOut,
   MonitorSmartphone,
+  Pencil,
+  Plus,
   RefreshCw,
   Save,
   ShieldCheck,
@@ -61,10 +64,22 @@ import {
 } from "../app/profile";
 import { useI18n, type TranslationKey } from "../app/i18n";
 import {
+  PasskeyCeremonyError,
+  classifyCeremonyError,
+  defaultPasskeyLabel,
+  isWebAuthnSupported,
+  validatePasskeyLabel,
+  type PasskeyLabelProblem,
+} from "../app/passkeys";
+import {
   isRecentAuthenticationRequired,
   useMyLoginMethodsQuery,
+  useMyPasskeysQuery,
   useMySecurityQuery,
   useMySessionsQuery,
+  useRegisterPasskey,
+  useRenameMyPasskey,
+  useRevokeMyPasskey,
   useRevokeMySession,
   useRevokeOtherSessions,
   useStepUpRequest,
@@ -1003,7 +1018,8 @@ function LoginMethodsList({
   }
 
   const { identities, password } = loginMethodsQuery.data;
-  if (!password.has_password && identities.length === 0) {
+  const passkeyCount = loginMethodsQuery.data.passkey_count ?? 0;
+  if (!password.has_password && identities.length === 0 && passkeyCount === 0) {
     return (
       <EmptyState
         description={t("security.methodsEmptyDescription")}
@@ -1031,6 +1047,19 @@ function LoginMethodsList({
               ) : (
                 t("security.methodPasswordNoDate")
               )}
+            </span>
+          </div>
+        </li>
+      )}
+      {passkeyCount > 0 && (
+        <li className="security-methods__row">
+          <span className="security-methods__marker" aria-hidden="true">
+            <Fingerprint />
+          </span>
+          <div className="security-methods__body">
+            <strong>{t("security.methodPasskeys")}</strong>
+            <span>
+              {t("security.methodPasskeyCount", { count: passkeyCount })}
             </span>
           </div>
         </li>
@@ -1073,12 +1102,15 @@ function LoginMethodsList({
 function SecurityOverviewCard({
   dateFormatter,
   onRequestStepUp,
+  passkeysEnabled,
 }: {
   dateFormatter: Intl.DateTimeFormat;
   onRequestStepUp: RequestStepUp;
+  passkeysEnabled: boolean;
 }) {
   const { language, t } = useI18n();
   const securityQuery = useMySecurityQuery();
+  const passkeyCount = securityQuery.data?.passkey_count ?? 0;
   const recentAuthActive = useStillFuture(
     securityQuery.data?.recent_auth_expires_at,
   );
@@ -1150,6 +1182,18 @@ function SecurityOverviewCard({
               </StatusBadge>
             </dd>
           </div>
+          {(passkeysEnabled || passkeyCount > 0) && (
+            <div className="security-status__item">
+              <dt>{t("security.passkeysLabel")}</dt>
+              <dd>
+                <StatusBadge tone={passkeyCount > 0 ? "success" : "neutral"}>
+                  {passkeyCount > 0
+                    ? t("security.passkeyCount", { count: passkeyCount })
+                    : t("security.passkeyNone")}
+                </StatusBadge>
+              </dd>
+            </div>
+          )}
           <div className="security-status__item">
             <dt>{t("security.mfaLabel")}</dt>
             <dd>
@@ -1537,6 +1581,584 @@ function DeviceSessionsCard({
   );
 }
 
+/* ---------- AUTH-08B: passkeys ---------- */
+
+type PasskeyFailure =
+  | { kind: "lastMethod" }
+  | { kind: "exists" }
+  | { kind: "unsupported" }
+  | { kind: "notFound" }
+  | { kind: "reauthRequired" }
+  | { kind: "invalidName" }
+  | { kind: "rateLimited"; seconds: number }
+  | { kind: "busy"; seconds: number }
+  | { kind: "network" }
+  | { kind: "generic" };
+
+const PASSKEY_LABEL_ERRORS: Readonly<
+  Record<PasskeyLabelProblem, TranslationKey>
+> = {
+  invalid: "passkeys.nameInvalid",
+  required: "passkeys.nameRequired",
+  tooLong: "passkeys.nameTooLong",
+};
+
+/** Server problems and browser ceremony errors; a closed prompt is "cancelled". */
+function classifyPasskeyError(error: unknown): PasskeyFailure | "cancelled" {
+  if (error instanceof APIRequestError) {
+    const code = error.problem?.code;
+    switch (error.status) {
+      case 400:
+        return { kind: "invalidName" };
+      case 403:
+        return isRecentAuthenticationRequired(error)
+          ? { kind: "reauthRequired" }
+          : { kind: "generic" };
+      case 404:
+        return { kind: "notFound" };
+      case 409:
+        if (code === "auth_last_identity") return { kind: "lastMethod" };
+        return code === "auth_passkey_exists"
+          ? { kind: "exists" }
+          : { kind: "generic" };
+      case 429:
+        return {
+          kind: "rateLimited",
+          seconds: boundedRetryAfter(error.retryAfterSeconds),
+        };
+      case 503:
+        return {
+          kind: "busy",
+          seconds: boundedRetryAfter(error.retryAfterSeconds),
+        };
+      default:
+        return { kind: "generic" };
+    }
+  }
+  if (
+    error instanceof PasskeyCeremonyError ||
+    (typeof DOMException !== "undefined" && error instanceof DOMException)
+  ) {
+    switch (classifyCeremonyError(error)) {
+      case "cancelled":
+        return "cancelled";
+      case "exists":
+        return { kind: "exists" };
+      case "unsupported":
+        return { kind: "unsupported" };
+      default:
+        return { kind: "generic" };
+    }
+  }
+  // fetch() rejects with a TypeError when the network fails.
+  return { kind: "network" };
+}
+
+function usePasskeyFailureText() {
+  const { t } = useI18n();
+  return (failure: PasskeyFailure) => {
+    switch (failure.kind) {
+      case "lastMethod":
+        return t("passkeys.lastMethod");
+      case "exists":
+        return t("passkeys.exists");
+      case "unsupported":
+        return t("passkeys.unsupported");
+      case "notFound":
+        return t("passkeys.notFound");
+      case "reauthRequired":
+        return t("passkeys.reauthRequired");
+      case "invalidName":
+        return t("passkeys.invalidName");
+      case "rateLimited":
+        return failure.seconds > 0
+          ? t("passkeys.rateLimited", { seconds: failure.seconds })
+          : t("passkeys.rateLimitedNoWait");
+      case "busy":
+        return failure.seconds > 0
+          ? t("passkeys.busy", { seconds: failure.seconds })
+          : t("passkeys.busyNoWait");
+      case "network":
+        return t("passkeys.network");
+      default:
+        return t("passkeys.actionError");
+    }
+  };
+}
+
+/**
+ * Lists, adds, renames and removes the user's passkeys. Adding, renaming and
+ * removing need a recent authentication: a 403
+ * `auth_recent_authentication_required` opens the shared step-up dialog and
+ * the action runs again exactly once after it succeeds.
+ */
+function PasskeysCard({
+  dateFormatter,
+  onRequestStepUp,
+}: {
+  dateFormatter: Intl.DateTimeFormat;
+  onRequestStepUp: RequestStepUp;
+}) {
+  const { t } = useI18n();
+  const passkeysQuery = useMyPasskeysQuery();
+  const register = useRegisterPasskey();
+  const rename = useRenameMyPasskey();
+  const revoke = useRevokeMyPasskey();
+  const lock = useRetryLock();
+  const failureText = usePasskeyFailureText();
+  const [webAuthn] = useState(isWebAuthnSupported);
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const addButtonRef = useRef<HTMLButtonElement>(null);
+  const addFieldRef = useRef<HTMLInputElement>(null);
+  const editFieldRef = useRef<HTMLInputElement>(null);
+  const retryRef = useRef<StepUpRetry | null>(null);
+  const removedRef = useRef(false);
+  const [adding, setAdding] = useState(false);
+  const [addLabel, setAddLabel] = useState("");
+  const [addError, setAddError] = useState<TranslationKey | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editLabel, setEditLabel] = useState("");
+  const [editError, setEditError] = useState<TranslationKey | null>(null);
+  const [removeTarget, setRemoveTarget] = useState<MyPasskey | null>(null);
+  const [feedback, setFeedback] = useState<string | null>(null);
+  const [cancelled, setCancelled] = useState(false);
+  const [failure, setFailure] = useState<PasskeyFailure | null>(null);
+  const busy = register.isPending || rename.isPending || revoke.isPending;
+  const passkeys = passkeysQuery.data?.passkeys ?? [];
+
+  useEffect(() => {
+    if (adding) addFieldRef.current?.focus();
+  }, [adding]);
+
+  useEffect(() => {
+    if (editingId) editFieldRef.current?.focus();
+  }, [editingId]);
+
+  function clearMessages() {
+    setFeedback(null);
+    setCancelled(false);
+    setFailure(null);
+  }
+
+  /**
+   * Shows the outcome of a failed action. A recent-auth refusal requests the
+   * step-up (once; a refusal after it only shows the error with its own
+   * "Confirm it's you" button).
+   */
+  function applyFailure(
+    error: unknown,
+    retry: StepUpRetry,
+    afterStepUp: boolean,
+  ) {
+    const outcome = classifyPasskeyError(error);
+    if (outcome === "cancelled") {
+      setCancelled(true);
+      return;
+    }
+    if (outcome.kind === "reauthRequired") {
+      retryRef.current = retry;
+      if (!afterStepUp) onRequestStepUp(retry);
+    }
+    if (outcome.kind === "notFound") void passkeysQuery.refetch();
+    if (outcome.kind === "rateLimited" || outcome.kind === "busy") {
+      lock.start(outcome.seconds);
+    }
+    setFailure(outcome);
+  }
+
+  function openAdd() {
+    clearMessages();
+    setAddLabel(
+      defaultPasskeyLabel(navigator.userAgent, t("passkeys.defaultName")),
+    );
+    setAddError(null);
+    setAdding(true);
+  }
+
+  function closeAdd() {
+    setAdding(false);
+    setAddError(null);
+    // The form (and its focus) is gone: hand focus back to its opener.
+    window.setTimeout(() => addButtonRef.current?.focus(), 0);
+  }
+
+  async function runAdd(label: string, afterStepUp = false) {
+    if (register.isPending || lock.remaining > 0) return;
+    clearMessages();
+    try {
+      const created = await register.mutateAsync(label);
+      setFeedback(t("passkeys.added", { label: created.label }));
+      closeAdd();
+    } catch (error) {
+      applyFailure(error, () => runAdd(label, true), afterStepUp);
+    } finally {
+      register.reset();
+    }
+  }
+
+  function handleAddSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const problem = validatePasskeyLabel(addLabel);
+    if (problem) {
+      setAddError(PASSKEY_LABEL_ERRORS[problem]);
+      addFieldRef.current?.focus();
+      return;
+    }
+    void runAdd(addLabel.trim());
+  }
+
+  function startEdit(item: MyPasskey) {
+    clearMessages();
+    setEditingId(item.id);
+    setEditLabel(item.label);
+    setEditError(null);
+  }
+
+  async function runRename(id: string, label: string, afterStepUp = false) {
+    if (rename.isPending || lock.remaining > 0) return;
+    clearMessages();
+    try {
+      await rename.mutateAsync({ id, label });
+      setEditingId(null);
+      setFeedback(t("passkeys.renamed"));
+      headingRef.current?.focus();
+    } catch (error) {
+      applyFailure(error, () => runRename(id, label, true), afterStepUp);
+    } finally {
+      rename.reset();
+    }
+  }
+
+  function handleRenameSubmit(event: FormEvent<HTMLFormElement>, id: string) {
+    event.preventDefault();
+    const problem = validatePasskeyLabel(editLabel);
+    if (problem) {
+      setEditError(PASSKEY_LABEL_ERRORS[problem]);
+      editFieldRef.current?.focus();
+      return;
+    }
+    void runRename(id, editLabel.trim());
+  }
+
+  async function runRemove(item: MyPasskey, afterStepUp = false) {
+    if (revoke.isPending || lock.remaining > 0) return;
+    clearMessages();
+    try {
+      await revoke.mutateAsync(item.id);
+      removedRef.current = true;
+      setRemoveTarget(null);
+      setFeedback(t("passkeys.removed"));
+    } catch (error) {
+      // The confirmation already happened; close it so the step-up dialog
+      // or the explanation is what the user sees next.
+      setRemoveTarget(null);
+      applyFailure(error, () => runRemove(item, true), afterStepUp);
+    } finally {
+      revoke.reset();
+    }
+  }
+
+  const addLabelText = t("passkeys.add");
+
+  return (
+    <section
+      aria-labelledby="security-passkeys-title"
+      className="profile-panel"
+    >
+      <div className="profile-panel__heading profile-panel__heading--actions">
+        <span className="profile-panel__icon" aria-hidden="true">
+          <Fingerprint />
+        </span>
+        <div>
+          <h2 id="security-passkeys-title" ref={headingRef} tabIndex={-1}>
+            {t("passkeys.title")}
+          </h2>
+          <p>{t("passkeys.description")}</p>
+        </div>
+        {!adding && (
+          <Button
+            disabled={!webAuthn || busy || lock.remaining > 0}
+            leadingIcon={<Plus />}
+            onClick={openAdd}
+            ref={addButtonRef}
+            size="sm"
+            variant="secondary"
+          >
+            {lock.remaining > 0
+              ? t("security.retryWait", {
+                  label: addLabelText,
+                  seconds: lock.remaining,
+                })
+              : addLabelText}
+          </Button>
+        )}
+      </div>
+
+      {!webAuthn && (
+        <p className="passkeys__note">{t("passkeys.unsupportedNote")}</p>
+      )}
+
+      {adding && (
+        <form
+          aria-label={t("passkeys.addTitle")}
+          className="passkey-form"
+          noValidate
+          onSubmit={handleAddSubmit}
+        >
+          <TextField
+            error={addError ? t(addError) : undefined}
+            hint={t("passkeys.nameHint")}
+            label={t("passkeys.nameLabel")}
+            name="passkey-label"
+            onChange={(event) => {
+              setAddLabel(event.target.value);
+              if (addError) setAddError(null);
+            }}
+            ref={addFieldRef}
+            value={addLabel}
+          />
+          <div className="passkey-form__actions">
+            <Button
+              disabled={lock.remaining > 0}
+              leadingIcon={<Fingerprint />}
+              loading={register.isPending}
+              loadingLabel={t("passkeys.creating")}
+              type="submit"
+            >
+              {t("passkeys.create")}
+            </Button>
+            <Button
+              disabled={register.isPending}
+              onClick={closeAdd}
+              variant="secondary"
+            >
+              {t("passkeys.cancel")}
+            </Button>
+          </div>
+        </form>
+      )}
+
+      {passkeysQuery.isPending && (
+        <SkeletonGroup label={t("passkeys.loading")}>
+          <Skeleton height={76} />
+          <Skeleton height={76} />
+        </SkeletonGroup>
+      )}
+
+      {passkeysQuery.isError && (
+        <SecurityQueryError
+          description={t("passkeys.error")}
+          error={passkeysQuery.error}
+          key={passkeysQuery.errorUpdatedAt}
+          onRetry={() => void passkeysQuery.refetch()}
+          title={t("passkeys.errorTitle")}
+        />
+      )}
+
+      {passkeysQuery.isSuccess && passkeys.length === 0 && (
+        <EmptyState
+          description={t("passkeys.emptyDescription")}
+          title={t("passkeys.empty")}
+        />
+      )}
+
+      {passkeys.length > 0 && (
+        <ul className="session-list passkey-list">
+          {passkeys.map((item) => {
+            const editing = editingId === item.id;
+            return (
+              <li className="session-row passkey-row" key={item.id}>
+                <span className="session-row__marker" aria-hidden="true">
+                  <Fingerprint />
+                </span>
+                <div className="session-row__body">
+                  {editing ? (
+                    <form
+                      aria-label={t("passkeys.renameFor", {
+                        label: item.label,
+                      })}
+                      className="passkey-form passkey-form--inline"
+                      noValidate
+                      onSubmit={(event) => handleRenameSubmit(event, item.id)}
+                    >
+                      <TextField
+                        error={editError ? t(editError) : undefined}
+                        label={t("passkeys.nameLabel")}
+                        name="passkey-rename"
+                        onChange={(event) => {
+                          setEditLabel(event.target.value);
+                          if (editError) setEditError(null);
+                        }}
+                        ref={editFieldRef}
+                        value={editLabel}
+                      />
+                      <div className="passkey-form__actions">
+                        <Button
+                          disabled={lock.remaining > 0}
+                          leadingIcon={<Save />}
+                          loading={rename.isPending}
+                          loadingLabel={t("passkeys.saving")}
+                          size="sm"
+                          type="submit"
+                        >
+                          {t("passkeys.save")}
+                        </Button>
+                        <Button
+                          disabled={rename.isPending}
+                          onClick={() => setEditingId(null)}
+                          size="sm"
+                          variant="secondary"
+                        >
+                          {t("passkeys.cancel")}
+                        </Button>
+                      </div>
+                    </form>
+                  ) : (
+                    <div className="session-row__title">
+                      <strong>{item.label}</strong>
+                      <StatusBadge
+                        tone={item.backup_state ? "success" : "neutral"}
+                      >
+                        {item.backup_state
+                          ? t("passkeys.synced")
+                          : t("passkeys.deviceBound")}
+                      </StatusBadge>
+                    </div>
+                  )}
+                  <ul className="session-row__meta">
+                    <li>
+                      <DateLine
+                        formatter={dateFormatter}
+                        template={t("passkeys.created")}
+                        value={item.created_at}
+                      />
+                    </li>
+                    <li>
+                      {item.last_used_at ? (
+                        <DateLine
+                          formatter={dateFormatter}
+                          template={t("passkeys.lastUsed")}
+                          value={item.last_used_at}
+                        />
+                      ) : (
+                        t("passkeys.neverUsed")
+                      )}
+                    </li>
+                  </ul>
+                </div>
+                {!editing && (
+                  <div className="session-row__action passkey-row__actions">
+                    <Button
+                      aria-label={t("passkeys.renameFor", {
+                        label: item.label,
+                      })}
+                      disabled={busy || lock.remaining > 0}
+                      leadingIcon={<Pencil />}
+                      onClick={() => startEdit(item)}
+                      size="sm"
+                      variant="quiet"
+                    >
+                      {t("passkeys.rename")}
+                    </Button>
+                    <Button
+                      aria-label={t("passkeys.removeFor", {
+                        label: item.label,
+                      })}
+                      disabled={busy || lock.remaining > 0}
+                      leadingIcon={<Trash2 />}
+                      onClick={() => {
+                        clearMessages();
+                        setRemoveTarget(item);
+                      }}
+                      size="sm"
+                      variant="quiet"
+                    >
+                      {t("passkeys.remove")}
+                    </Button>
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      <Dialog
+        onOpenChange={(open) => {
+          if (revoke.isPending) return;
+          if (!open) setRemoveTarget(null);
+        }}
+        open={removeTarget !== null}
+      >
+        <DialogContent
+          closeLabel={t("security.dialogCloseLabel")}
+          onCloseAutoFocus={(event) => {
+            // The removed row (and its button) is gone: stay in the card.
+            if (!removedRef.current) return;
+            removedRef.current = false;
+            event.preventDefault();
+            headingRef.current?.focus();
+          }}
+        >
+          <DialogTitle>{t("passkeys.removeTitle")}</DialogTitle>
+          <DialogDescription>
+            {t("passkeys.removeDescription", {
+              label: removeTarget?.label ?? "",
+            })}
+          </DialogDescription>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button disabled={revoke.isPending} variant="secondary">
+                {t("passkeys.cancel")}
+              </Button>
+            </DialogClose>
+            <Button
+              disabled={lock.remaining > 0}
+              leadingIcon={<Trash2 />}
+              loading={revoke.isPending}
+              loadingLabel={t("passkeys.removing")}
+              onClick={() => {
+                if (removeTarget) void runRemove(removeTarget);
+              }}
+              variant="danger"
+            >
+              {t("passkeys.removeConfirm")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <p
+        aria-live="polite"
+        className={
+          cancelled
+            ? "profile-feedback passkeys__notice security-sessions__feedback"
+            : "profile-feedback profile-feedback--success security-sessions__feedback"
+        }
+        role="status"
+      >
+        {cancelled ? t("passkeys.createCancelled") : feedback}
+      </p>
+
+      {failure && (
+        <div className="profile-feedback profile-feedback--error" role="alert">
+          <span>{failureText(failure)}</span>
+          {failure.kind === "reauthRequired" && (
+            <Button
+              leadingIcon={<ShieldCheck />}
+              onClick={() => onRequestStepUp(retryRef.current ?? undefined)}
+              size="sm"
+              variant="secondary"
+            >
+              {t("stepUp.open")}
+            </Button>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
+
 export function ProfileSettingsPage() {
   const { language, t } = useI18n();
   const profileQuery = useProfileQuery();
@@ -1574,6 +2196,12 @@ export function ProfileSettingsPage() {
     providersQuery.data?.oauth_providers.includes("google") === true;
   const microsoftLinkEnabled =
     providersQuery.data?.oauth_providers.includes("microsoft") === true;
+  // AUTH-08B: the passkey card and its endpoints exist only while enabled.
+  const passkeysEnabled = providersQuery.data?.passkeys_enabled === true;
+  const passkeysQuery = useMyPasskeysQuery(passkeysEnabled);
+  const passkeyCount = passkeysEnabled
+    ? (passkeysQuery.data?.passkeys.length ?? 0)
+    : 0;
 
   const hasIdentityParam = new URLSearchParams(location.search).has("identity");
   useEffect(() => {
@@ -1822,7 +2450,10 @@ export function ProfileSettingsPage() {
           {identities.length > 0 && (
             <ul className="identity-list">
               {identities.map((identity) => {
-                const isLastIdentity = identities.length === 1;
+                // An active passkey is another sign-in method (the server
+                // counts both ways and stays authoritative).
+                const isLastIdentity =
+                  identities.length === 1 && passkeyCount === 0;
                 const isUnlinking =
                   unlinkIdentity.isPending &&
                   unlinkIdentity.variables === identity.id;
@@ -1951,9 +2582,17 @@ export function ProfileSettingsPage() {
             <SecurityOverviewCard
               dateFormatter={dateFormatter}
               onRequestStepUp={requestStepUp}
+              passkeysEnabled={passkeysEnabled}
             />
             <DeviceSessionsCard dateFormatter={dateFormatter} />
           </>
+        )}
+
+        {passkeysEnabled && (
+          <PasskeysCard
+            dateFormatter={dateFormatter}
+            onRequestStepUp={requestStepUp}
+          />
         )}
       </div>
 

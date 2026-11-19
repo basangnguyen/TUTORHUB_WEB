@@ -946,6 +946,26 @@ const messages = {
       "Tài khoản chưa có phương thức xác nhận khả dụng. Hãy đăng xuất, đăng nhập lại rồi thực hiện lại thao tác trong vòng 10 phút.",
     "stepUp.signOut": "Đăng xuất",
     "stepUp.signingOut": "Đang đăng xuất...",
+    "stepUp.methodPasskey": "Passkey",
+    "stepUp.passkeyIntro":
+      "Dùng khóa màn hình, vân tay, khuôn mặt hoặc khóa bảo mật trên thiết bị để xác nhận.",
+    "stepUp.passkeyOnlyIntro":
+      "Phiên đăng nhập này chỉ có thể xác nhận lại bằng passkey. Dùng khóa màn hình, vân tay, khuôn mặt hoặc khóa bảo mật trên thiết bị.",
+    "stepUp.passkeySubmit": "Xác nhận bằng passkey",
+    "stepUp.passkeyWaiting": "Đang chờ passkey...",
+    "stepUp.passkeyCancelled":
+      "Đã hủy xác thực passkey. Bạn có thể thử lại hoặc chọn cách khác.",
+    "stepUp.passkeyInvalid":
+      "Không thể xác minh passkey này. Hãy thử lại hoặc chọn cách khác.",
+    "stepUp.passkeyClone":
+      "Passkey này không được chấp nhận vì có dấu hiệu bị sao chép. Hãy chọn cách khác và kiểm tra danh sách passkey trong Cài đặt.",
+    "stepUp.passkeyUnavailable":
+      "Tài khoản không còn passkey nào dùng được. Hãy chọn cách khác.",
+    "stepUp.passkeyUnsupported":
+      "Trình duyệt này không hỗ trợ passkey. Hãy chọn cách khác.",
+    "stepUp.passkeyFailed": "Không thể dùng passkey lúc này. Hãy thử lại.",
+    "stepUp.passkeyBrowserUnsupported":
+      "Phiên này chỉ có thể xác nhận bằng passkey nhưng trình duyệt này không hỗ trợ passkey. Hãy đăng xuất rồi đăng nhập lại để tiếp tục.",
     "security.overviewTitle": "Bảo mật tài khoản",
     "security.overviewDescription":
       "Trạng thái xác minh, lần xác nhận danh tính gần đây và các phương thức bạn có thể dùng để đăng nhập.",
@@ -1037,6 +1057,72 @@ const messages = {
     "security.revokeOthersNoneDone": "Không còn phiên nào khác cần đăng xuất.",
     "security.cancel": "Hủy",
     "security.dialogCloseLabel": "Đóng hộp thoại",
+    "security.passkeysLabel": "Passkey",
+    "security.passkeyCount": "{count} passkey",
+    "security.passkeyNone": "Chưa có",
+    "security.methodPasskeys": "Passkey",
+    "security.methodPasskeyCount": "{count} passkey đang hoạt động",
+    "passkeys.title": "Passkey",
+    "passkeys.description":
+      "Đăng nhập không cần mật khẩu bằng khóa màn hình, vân tay hoặc khóa bảo mật. Passkey nằm trên thiết bị hoặc trình quản lý mật khẩu của bạn; TutorHub chỉ lưu khóa công khai.",
+    "passkeys.add": "Thêm passkey",
+    "passkeys.addTitle": "Thêm passkey mới",
+    "passkeys.nameLabel": "Tên passkey",
+    "passkeys.nameHint": "Giúp bạn nhận ra thiết bị, tối đa 80 ký tự.",
+    "passkeys.nameRequired": "Hãy nhập tên cho passkey.",
+    "passkeys.nameTooLong": "Tên passkey tối đa 80 ký tự.",
+    "passkeys.nameInvalid": "Tên passkey chứa ký tự không hợp lệ.",
+    "passkeys.create": "Tạo passkey",
+    "passkeys.creating": "Đang chờ thiết bị...",
+    "passkeys.cancel": "Hủy",
+    "passkeys.added": 'Đã thêm passkey "{label}".',
+    "passkeys.loading": "Đang tải danh sách passkey",
+    "passkeys.errorTitle": "Chưa thể tải passkey",
+    "passkeys.error": "Không thể tải danh sách passkey. Hãy thử lại.",
+    "passkeys.empty": "Chưa có passkey nào",
+    "passkeys.emptyDescription":
+      "Thêm passkey để đăng nhập nhanh và an toàn hơn mà không cần mật khẩu.",
+    "passkeys.synced": "Đã đồng bộ",
+    "passkeys.deviceBound": "Trên thiết bị",
+    "passkeys.created": "Tạo lúc {date}",
+    "passkeys.lastUsed": "Dùng gần nhất {date}",
+    "passkeys.neverUsed": "Chưa dùng để đăng nhập",
+    "passkeys.rename": "Đổi tên",
+    "passkeys.renameFor": "Đổi tên passkey {label}",
+    "passkeys.save": "Lưu tên",
+    "passkeys.saving": "Đang lưu...",
+    "passkeys.renamed": "Đã đổi tên passkey.",
+    "passkeys.remove": "Xóa",
+    "passkeys.removeFor": "Xóa passkey {label}",
+    "passkeys.removeTitle": "Xóa passkey này?",
+    "passkeys.removeDescription":
+      'Bạn sẽ không thể đăng nhập TutorHub bằng passkey "{label}" nữa. Passkey có thể vẫn còn trên thiết bị; hãy xóa cả ở đó nếu không cần dùng.',
+    "passkeys.removeConfirm": "Xóa passkey",
+    "passkeys.removing": "Đang xóa...",
+    "passkeys.removed": "Đã xóa passkey.",
+    "passkeys.lastMethod":
+      "Không thể xóa passkey này vì đây là phương thức đăng nhập cuối cùng của bạn. Hãy đặt mật khẩu hoặc liên kết một danh tính khác trước.",
+    "passkeys.exists": "Passkey này đã được đăng ký cho tài khoản của bạn.",
+    "passkeys.createCancelled": "Đã hủy tạo passkey.",
+    "passkeys.unsupported": "Trình duyệt này không hỗ trợ passkey.",
+    "passkeys.unsupportedNote":
+      "Trình duyệt này không hỗ trợ tạo passkey. Bạn vẫn có thể đổi tên hoặc xóa passkey hiện có.",
+    "passkeys.notFound":
+      "Passkey này không còn tồn tại. Danh sách đã được làm mới.",
+    "passkeys.reauthRequired":
+      "Hãy xác nhận danh tính để tiếp tục thao tác với passkey.",
+    "passkeys.rateLimited":
+      "Bạn đã thao tác quá nhiều lần. Hãy thử lại sau {seconds} giây.",
+    "passkeys.rateLimitedNoWait":
+      "Bạn đã thao tác quá nhiều lần. Hãy thử lại sau ít phút.",
+    "passkeys.busy": "Hệ thống đang bận. Hãy thử lại sau {seconds} giây.",
+    "passkeys.busyNoWait": "Hệ thống đang bận. Hãy thử lại sau ít phút.",
+    "passkeys.network":
+      "Không kết nối được tới TutorHub. Hãy kiểm tra mạng rồi thử lại.",
+    "passkeys.invalidName": "Tên passkey không hợp lệ. Hãy dùng 1–80 ký tự.",
+    "passkeys.actionError":
+      "Không thể hoàn tất thao tác với passkey. Hãy thử lại.",
+    "passkeys.defaultName": "Passkey",
     "shell.navigation": "Điều hướng chính",
     "shell.openNavigation": "Mở điều hướng",
     "shell.closeNavigation": "Đóng điều hướng",
@@ -3495,6 +3581,27 @@ const messages = {
       "No confirmation method is available for this account. Sign out, sign in again, then repeat the action within 10 minutes.",
     "stepUp.signOut": "Sign out",
     "stepUp.signingOut": "Signing out...",
+    "stepUp.methodPasskey": "Passkey",
+    "stepUp.passkeyIntro":
+      "Use your device's screen lock, fingerprint, face or security key to confirm.",
+    "stepUp.passkeyOnlyIntro":
+      "This session can only be confirmed with a passkey. Use your device's screen lock, fingerprint, face or security key.",
+    "stepUp.passkeySubmit": "Confirm with passkey",
+    "stepUp.passkeyWaiting": "Waiting for your passkey...",
+    "stepUp.passkeyCancelled":
+      "Passkey verification was cancelled. Try again or choose another method.",
+    "stepUp.passkeyInvalid":
+      "We couldn't verify this passkey. Try again or choose another method.",
+    "stepUp.passkeyClone":
+      "This passkey can't be accepted because it may have been copied. Choose another method and review your passkeys in Settings.",
+    "stepUp.passkeyUnavailable":
+      "No usable passkey is left on this account. Choose another method.",
+    "stepUp.passkeyUnsupported":
+      "This browser doesn't support passkeys. Choose another method.",
+    "stepUp.passkeyFailed":
+      "The passkey couldn't be used right now. Please try again.",
+    "stepUp.passkeyBrowserUnsupported":
+      "This session can only be confirmed with a passkey, but this browser doesn't support passkeys. Sign out and sign in again to continue.",
     "security.overviewTitle": "Account security",
     "security.overviewDescription":
       "Verification status, your latest identity confirmation and the methods you can use to sign in.",
@@ -3588,6 +3695,76 @@ const messages = {
       "There were no other sessions to sign out.",
     "security.cancel": "Cancel",
     "security.dialogCloseLabel": "Close dialog",
+    "security.passkeysLabel": "Passkeys",
+    "security.passkeyCount": "{count} passkey(s)",
+    "security.passkeyNone": "None",
+    "security.methodPasskeys": "Passkeys",
+    "security.methodPasskeyCount": "{count} active passkey(s)",
+    "passkeys.title": "Passkeys",
+    "passkeys.description":
+      "Sign in without a password using your screen lock, fingerprint or a security key. Passkeys stay on your device or password manager; TutorHub only keeps the public key.",
+    "passkeys.add": "Add a passkey",
+    "passkeys.addTitle": "Add a new passkey",
+    "passkeys.nameLabel": "Passkey name",
+    "passkeys.nameHint": "Helps you recognise the device. Up to 80 characters.",
+    "passkeys.nameRequired": "Enter a name for the passkey.",
+    "passkeys.nameTooLong": "Passkey names can be at most 80 characters.",
+    "passkeys.nameInvalid":
+      "The passkey name contains characters that aren't allowed.",
+    "passkeys.create": "Create passkey",
+    "passkeys.creating": "Waiting for your device...",
+    "passkeys.cancel": "Cancel",
+    "passkeys.added": 'Passkey "{label}" added.',
+    "passkeys.loading": "Loading passkeys",
+    "passkeys.errorTitle": "Passkeys unavailable",
+    "passkeys.error": "We couldn't load your passkeys. Please try again.",
+    "passkeys.empty": "No passkeys yet",
+    "passkeys.emptyDescription":
+      "Add a passkey to sign in faster and more securely without a password.",
+    "passkeys.synced": "Synced",
+    "passkeys.deviceBound": "Device-bound",
+    "passkeys.created": "Created {date}",
+    "passkeys.lastUsed": "Last used {date}",
+    "passkeys.neverUsed": "Not used to sign in yet",
+    "passkeys.rename": "Rename",
+    "passkeys.renameFor": "Rename passkey {label}",
+    "passkeys.save": "Save name",
+    "passkeys.saving": "Saving...",
+    "passkeys.renamed": "Passkey renamed.",
+    "passkeys.remove": "Remove",
+    "passkeys.removeFor": "Remove passkey {label}",
+    "passkeys.removeTitle": "Remove this passkey?",
+    "passkeys.removeDescription":
+      'You won\'t be able to sign in to TutorHub with "{label}" any more. It may still appear on your device; remove it there too if you no longer need it.',
+    "passkeys.removeConfirm": "Remove passkey",
+    "passkeys.removing": "Removing...",
+    "passkeys.removed": "Passkey removed.",
+    "passkeys.lastMethod":
+      "You can't remove this passkey because it's your last sign-in method. Set a password or link another sign-in method first.",
+    "passkeys.exists": "This passkey is already registered to your account.",
+    "passkeys.createCancelled": "Passkey creation was cancelled.",
+    "passkeys.unsupported": "This browser doesn't support passkeys.",
+    "passkeys.unsupportedNote":
+      "This browser can't create passkeys. You can still rename or remove existing ones.",
+    "passkeys.notFound":
+      "This passkey no longer exists. The list has been refreshed.",
+    "passkeys.reauthRequired":
+      "Confirm it's you to continue with this passkey action.",
+    "passkeys.rateLimited":
+      "Too many attempts. Please try again in {seconds} seconds.",
+    "passkeys.rateLimitedNoWait":
+      "Too many attempts. Please try again in a few minutes.",
+    "passkeys.busy":
+      "TutorHub is busy right now. Please try again in {seconds} seconds.",
+    "passkeys.busyNoWait":
+      "TutorHub is busy right now. Please try again in a few minutes.",
+    "passkeys.network":
+      "Couldn't reach TutorHub. Check your connection and try again.",
+    "passkeys.invalidName":
+      "That passkey name isn't valid. Use 1–80 characters.",
+    "passkeys.actionError":
+      "We couldn't complete that passkey action. Please try again.",
+    "passkeys.defaultName": "Passkey",
     "shell.navigation": "Primary navigation",
     "shell.openNavigation": "Open navigation",
     "shell.closeNavigation": "Close navigation",

@@ -294,3 +294,32 @@
 .profile-identity-guidance__title {
   font-weight: 700;
 }
+
+/* AUTH-08B: passkeys card (rows reuse the session row layout). */
+.passkey-form {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.passkey-form--inline {
+  margin-bottom: 4px;
+}
+
+.passkey-form__actions,
+.passkey-row__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.passkeys__note {
+  margin: 0 0 12px;
+  color: var(--color-text-muted);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.passkeys__notice {
+  color: var(--color-text);
+}

@@ -492,6 +492,8 @@ export function AccountLinkPage() {
                       onAuthenticated={handleAuthenticated}
                       onPasswordReset={session.resetAfterPasswordRecovery}
                       onSignIn={() => session.signIn(selfPath)}
+                      // Passkey sign-in also stays here to confirm the link.
+                      passkeysEnabled={providers.passkeys_enabled === true}
                       passwordMinLength={passwordMinLengthFor(providers)}
                       recoveryEnabled={
                         providers.password_recovery_enabled === true

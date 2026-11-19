@@ -43,6 +43,8 @@ const { api, sessionStore } = vi.hoisted(() => {
       getOAuthLinkIntent: vi.fn(),
       loginWithPassword: vi.fn(),
       rotateCSRFToken: vi.fn(),
+      startPasskeyAssertion: vi.fn(),
+      verifyPasskeyAssertion: vi.fn(),
     },
     sessionStore: {
       get: () => snapshot,
@@ -490,6 +492,64 @@ describe("AccountLinkPage signed out", () => {
     expect(screen.getByText("teacher@example.com")).toBeInTheDocument();
     expect(api.confirmLinkIntent).not.toHaveBeenCalled();
     expect(storageSnapshot()).not.toContain("Correct-Horse-9");
+  });
+
+  it("signs in with a passkey and stays on the page to confirm", async () => {
+    vi.stubGlobal(
+      "PublicKeyCredential",
+      Object.assign(function PublicKeyCredential() {}, {
+        isConditionalMediationAvailable: () => Promise.resolve(false),
+      }),
+    );
+    const credential = {
+      id: "AQID",
+      rawId: new Uint8Array([1, 2, 3]).buffer,
+      response: {
+        authenticatorData: new Uint8Array([4]).buffer,
+        clientDataJSON: new Uint8Array([5]).buffer,
+        signature: new Uint8Array([6]).buffer,
+        userHandle: new Uint8Array([7]).buffer,
+      },
+      type: "public-key",
+    };
+    Object.defineProperty(window.navigator, "credentials", {
+      configurable: true,
+      value: { create: vi.fn(), get: vi.fn(() => Promise.resolve(credential)) },
+    });
+    api.getAuthProviders.mockResolvedValue({
+      ...NATIVE_PROVIDERS,
+      passkeys_enabled: true,
+    });
+    api.startPasskeyAssertion.mockResolvedValue({
+      allowCredentials: [],
+      challenge: "Y2hhbGxlbmdl",
+      rpId: "localhost",
+      userVerification: "preferred",
+    });
+    api.verifyPasskeyAssertion.mockResolvedValue({ status: "authenticated" });
+    try {
+      await renderPage();
+      expect(
+        screen.getByRole("textbox", { name: "Email or username" }),
+      ).toHaveAttribute("autocomplete", "username webauthn");
+
+      fireEvent.click(
+        screen.getByRole("button", { name: "Sign in with a passkey" }),
+      );
+      await settle();
+
+      expect(api.verifyPasskeyAssertion).toHaveBeenCalledTimes(1);
+      expect(actions.completeNativeSignIn).toHaveBeenCalledTimes(1);
+      expect(screen.queryByTestId("landing")).toBeNull();
+      expect(
+        await screen.findByRole("heading", { name: "Confirm linking" }),
+      ).toHaveFocus();
+      expect(api.confirmLinkIntent).not.toHaveBeenCalled();
+      expect(storageSnapshot()).not.toContain("AQID");
+    } finally {
+      vi.unstubAllGlobals();
+      Reflect.deleteProperty(window.navigator, "credentials");
+    }
   });
 
   it("returns to this screen through the OIDC portal when it is the only method", async () => {

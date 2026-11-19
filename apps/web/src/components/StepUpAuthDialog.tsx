@@ -2,6 +2,7 @@ import {
   APIRequestError,
   type AuthProvidersResponse,
   type MySecurityResponse,
+  type ReauthenticateRequest,
 } from "@tutorhub/api-client";
 import {
   Button,
@@ -16,7 +17,14 @@ import {
   SkeletonGroup,
   TextField,
 } from "@tutorhub/ui";
-import { KeyRound, LogIn, LogOut, Mail, RefreshCw } from "lucide-react";
+import {
+  Fingerprint,
+  KeyRound,
+  LogIn,
+  LogOut,
+  Mail,
+  RefreshCw,
+} from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -27,10 +35,17 @@ import {
   type FormEvent,
 } from "react";
 import { useI18n, type TranslationKey } from "../app/i18n";
+import {
+  INVALID_PASSKEY_CODE,
+  classifyCeremonyError,
+  getPasskeyAssertion,
+  isWebAuthnSupported,
+} from "../app/passkeys";
 import { useAuthProvidersQuery } from "../app/profile";
 import {
   useMySecurityQuery,
   useReauthenticate,
+  useStartPasskeyReauthentication,
   useStartReauthEmailCode,
 } from "../app/security";
 import { useSession } from "../app/session";
@@ -38,8 +53,20 @@ import "./StepUpAuthDialog.css";
 
 type ReauthMethod = MySecurityResponse["reauth_methods"][number];
 
-/** Strongest first-party factor first (ADR-0039 §7.6: password, then email code). */
-const METHOD_PRIORITY: readonly ReauthMethod[] = ["password", "email_code"];
+/**
+ * Strongest first-party factor first (ADR-0039 §7.6: passkey, then password,
+ * then email code), matching the order the server evaluates them in.
+ */
+const METHOD_PRIORITY: readonly ReauthMethod[] = [
+  "passkey",
+  "password",
+  "email_code",
+];
+const METHOD_LABEL_KEYS: Readonly<Record<ReauthMethod, TranslationKey>> = {
+  email_code: "stepUp.methodEmailCode",
+  passkey: "stepUp.methodPasskey",
+  password: "stepUp.methodPassword",
+};
 const OTP_PATTERN = /^\d{6}$/;
 /** Upper bound for client-side locks; the server stays authoritative. */
 const MAX_LOCK_SECONDS = 3600;
@@ -75,6 +102,11 @@ type StepUpFailure =
   | { kind: "busy"; seconds: number }
   | { kind: "sessionExpired" }
   | { kind: "network" }
+  | { kind: "passkeyInvalid" }
+  | { kind: "passkeyClone" }
+  | { kind: "passkeyUnavailable" }
+  | { kind: "passkeyUnsupported" }
+  | { kind: "passkeyFailed" }
   | { kind: "generic" };
 
 type StepUpOutcome =
@@ -95,7 +127,18 @@ function classifyStepUpError(error: unknown): StepUpOutcome {
       if (code === "auth_invalid_verification_code") {
         return { field: "code", key: "stepUp.codeInvalid" };
       }
+      // A rejected assertion keeps the session (see queryClient.ts).
+      if (code === INVALID_PASSKEY_CODE) {
+        return { failure: { kind: "passkeyInvalid" } };
+      }
       return { failure: { kind: "sessionExpired" } };
+    case 403:
+      return code === "auth_passkey_clone_detected"
+        ? { failure: { kind: "passkeyClone" } }
+        : { failure: { kind: "generic" } };
+    case 404:
+      // auth_passkey_not_found, or passkeys switched off meanwhile.
+      return { failure: { kind: "passkeyUnavailable" } };
     case 409:
       return { failure: { kind: "conflict" } };
     case 429:
@@ -153,6 +196,21 @@ function FailureAlert({
     case "network":
       text = t("stepUp.network");
       break;
+    case "passkeyInvalid":
+      text = t("stepUp.passkeyInvalid");
+      break;
+    case "passkeyClone":
+      text = t("stepUp.passkeyClone");
+      break;
+    case "passkeyUnavailable":
+      text = t("stepUp.passkeyUnavailable");
+      break;
+    case "passkeyUnsupported":
+      text = t("stepUp.passkeyUnsupported");
+      break;
+    case "passkeyFailed":
+      text = t("stepUp.passkeyFailed");
+      break;
     default:
       text = t("stepUp.generic");
   }
@@ -187,12 +245,17 @@ function StepUpForms({ methods, onBusyChange, onSucceeded }: StepUpFormsProps) {
   const securityQuery = useMySecurityQuery();
   const reauth = useReauthenticate();
   const startCode = useStartReauthEmailCode();
+  const startPasskey = useStartPasskeyReauthentication();
   const lock = useCountdown();
   const cooldown = useCountdown();
   const methodGroupId = useId();
   const passwordRef = useRef<HTMLInputElement>(null);
   const codeRef = useRef<HTMLInputElement>(null);
+  const passkeyButtonRef = useRef<HTMLButtonElement>(null);
+  const ceremonyRef = useRef<AbortController | null>(null);
   const [method, setMethod] = useState<ReauthMethod>(methods[0] ?? "password");
+  const [ceremonyPending, setCeremonyPending] = useState(false);
+  const [passkeyCancelled, setPasskeyCancelled] = useState(false);
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
   const [challenge, setChallenge] = useState<{
@@ -210,18 +273,42 @@ function StepUpForms({ methods, onBusyChange, onSucceeded }: StepUpFormsProps) {
   } | null>(null);
   const [failure, setFailure] = useState<StepUpFailure | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const busy = reauth.isPending || startCode.isPending;
+  const busy =
+    reauth.isPending ||
+    startCode.isPending ||
+    startPasskey.isPending ||
+    ceremonyPending;
 
   useEffect(() => {
     onBusyChange(busy);
   }, [busy, onBusyChange]);
 
-  // Put the caret where the user types the proof for the current method.
+  // Put the caret where the user types the proof for the current method;
+  // for a passkey, on the button that opens the device prompt.
   useEffect(() => {
     if (method === "password") {
       passwordRef.current?.focus();
+    } else if (method === "passkey") {
+      passkeyButtonRef.current?.focus();
     }
   }, [method]);
+
+  // The confirm button is disabled while the device prompt is open; once the
+  // prompt was cancelled or refused, hand keyboard focus back to it.
+  useEffect(() => {
+    if (method === "passkey" && !busy && (passkeyCancelled || failure)) {
+      passkeyButtonRef.current?.focus();
+    }
+  }, [busy, failure, method, passkeyCancelled]);
+
+  // Closing the dialog cancels a pending device prompt.
+  useEffect(
+    () => () => {
+      ceremonyRef.current?.abort();
+      ceremonyRef.current = null;
+    },
+    [],
+  );
 
   // Remind the user to resend once the server-side code lifetime has passed.
   useEffect(() => {
@@ -240,6 +327,7 @@ function StepUpForms({ methods, onBusyChange, onSucceeded }: StepUpFormsProps) {
     setCode("");
     setFieldError(null);
     setFailure(null);
+    setPasskeyCancelled(false);
   }
 
   function applyFailure(error: unknown) {
@@ -258,11 +346,7 @@ function StepUpForms({ methods, onBusyChange, onSucceeded }: StepUpFormsProps) {
     setFailure(outcome.failure);
   }
 
-  async function verify(
-    input:
-      | { method: "password"; password: string }
-      | { challenge_id: string; code: string; method: "email_code" },
-  ) {
+  async function verify(input: ReauthenticateRequest) {
     setFailure(null);
     setFieldError(null);
     try {
@@ -313,6 +397,53 @@ function StepUpForms({ methods, onBusyChange, onSucceeded }: StepUpFormsProps) {
       code: code.trim(),
       method: "email_code",
     });
+  }
+
+  /**
+   * Options (bound to this session by the HttpOnly auth_tx cookie) → device
+   * prompt → POST /auth/reauth. Closing the system sheet is a quiet cancel.
+   */
+  async function handlePasskeySubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (busy || lock.remaining > 0) return;
+    setFailure(null);
+    setFieldError(null);
+    setPasskeyCancelled(false);
+    setCeremonyPending(true);
+    const controller = new AbortController();
+    ceremonyRef.current = controller;
+    try {
+      let options;
+      try {
+        options = await startPasskey.mutateAsync();
+      } catch (error) {
+        applyFailure(error);
+        return;
+      } finally {
+        startPasskey.reset();
+      }
+      let assertion;
+      try {
+        assertion = await getPasskeyAssertion(options, {
+          signal: controller.signal,
+        });
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        const kind = classifyCeremonyError(error);
+        if (kind === "cancelled") {
+          setPasskeyCancelled(true);
+          return;
+        }
+        setFailure({
+          kind: kind === "unsupported" ? "passkeyUnsupported" : "passkeyFailed",
+        });
+        return;
+      }
+      await verify({ assertion, method: "passkey" });
+    } finally {
+      if (ceremonyRef.current === controller) ceremonyRef.current = null;
+      setCeremonyPending(false);
+    }
   }
 
   async function sendCode() {
@@ -395,21 +526,68 @@ function StepUpForms({ methods, onBusyChange, onSucceeded }: StepUpFormsProps) {
                 aria-pressed={method === option}
                 disabled={busy}
                 key={option}
-                leadingIcon={option === "password" ? <KeyRound /> : <Mail />}
+                leadingIcon={
+                  option === "passkey" ? (
+                    <Fingerprint />
+                  ) : option === "password" ? (
+                    <KeyRound />
+                  ) : (
+                    <Mail />
+                  )
+                }
                 onClick={() => switchMethod(option)}
                 size="sm"
                 variant={method === option ? "primary" : "secondary"}
               >
-                {option === "password"
-                  ? t("stepUp.methodPassword")
-                  : t("stepUp.methodEmailCode")}
+                {t(METHOD_LABEL_KEYS[option])}
               </Button>
             ))}
           </div>
         </div>
       )}
 
-      {method === "password" ? (
+      {method === "passkey" ? (
+        <form
+          aria-label={t("stepUp.methodPasskey")}
+          className="step-up__form"
+          noValidate
+          onSubmit={(event) => void handlePasskeySubmit(event)}
+        >
+          <p className="step-up__intro">
+            {methods.length === 1
+              ? t("stepUp.passkeyOnlyIntro")
+              : t("stepUp.passkeyIntro")}
+          </p>
+          {/* Always mounted so assistive tech observes the update. */}
+          <p aria-live="polite" className="step-up__notice" role="status">
+            {passkeyCancelled ? t("stepUp.passkeyCancelled") : null}
+          </p>
+          {failure && (
+            <FailureAlert
+              failure={failure}
+              onRefreshSession={() => void refreshSession()}
+              refreshing={refreshing}
+            />
+          )}
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button disabled={busy} variant="secondary">
+                {t("stepUp.cancel")}
+              </Button>
+            </DialogClose>
+            <Button
+              disabled={lock.remaining > 0}
+              leadingIcon={<Fingerprint />}
+              loading={busy}
+              loadingLabel={t("stepUp.passkeyWaiting")}
+              ref={passkeyButtonRef}
+              type="submit"
+            >
+              {lock.remaining > 0 ? submitText : t("stepUp.passkeySubmit")}
+            </Button>
+          </DialogFooter>
+        </form>
+      ) : method === "password" ? (
         <form
           aria-label={t("stepUp.methodPassword")}
           className="step-up__form"
@@ -538,13 +716,20 @@ function currentPath() {
 }
 
 interface FallbackProps {
+  /** Overrides the kind's explanation (e.g. a passkey-only browser gap). */
+  description?: string;
   kind: "signInAgain" | "portal" | "signOut";
   providers: AuthProvidersResponse | undefined;
   returnTo?: string;
 }
 
 /** Paths for sessions that cannot step up in place. */
-function StepUpFallback({ kind, providers, returnTo }: FallbackProps) {
+function StepUpFallback({
+  description: descriptionOverride,
+  kind,
+  providers,
+  returnTo,
+}: FallbackProps) {
   const { t } = useI18n();
   const session = useSession();
   const [signingOut, setSigningOut] = useState(false);
@@ -564,11 +749,12 @@ function StepUpFallback({ kind, providers, returnTo }: FallbackProps) {
     kind === "portal" ||
     (kind === "signInAgain" && providers?.oidc_default_enabled === true);
   const description =
-    kind === "portal"
+    descriptionOverride ??
+    (kind === "portal"
       ? t("stepUp.oidcDescription")
       : kind === "signOut"
         ? t("stepUp.noMethodDescription")
-        : t("stepUp.fallbackDescription");
+        : t("stepUp.fallbackDescription"));
 
   return (
     <div className="step-up__body">
@@ -649,6 +835,8 @@ function StepUpContent({
   const deviceManagement =
     providersQuery.data?.device_management_enabled === true;
   const securityQuery = useMySecurityQuery(deviceManagement);
+  const { t } = useI18n();
+  const [webAuthn] = useState(isWebAuthnSupported);
 
   if (providersQuery.isPending) return <LoadingState />;
   if (providersQuery.isError) {
@@ -669,12 +857,19 @@ function StepUpContent({
   }
 
   const available = securityQuery.data.reauth_methods;
-  const methods = METHOD_PRIORITY.filter((method) =>
-    available.includes(method),
+  // A passkey is only offered where this browser can run the ceremony.
+  const methods = METHOD_PRIORITY.filter(
+    (method) =>
+      available.includes(method) && (method !== "passkey" || webAuthn),
   );
   if (methods.length === 0) {
     return (
       <StepUpFallback
+        description={
+          available.includes("passkey")
+            ? t("stepUp.passkeyBrowserUnsupported")
+            : undefined
+        }
         kind={providersQuery.data.oidc_default_enabled ? "portal" : "signOut"}
         providers={providersQuery.data}
         returnTo={returnTo}

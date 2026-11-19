@@ -57,7 +57,12 @@ describe("TutorHub query client session boundary", () => {
     expect(queryClient.getMutationCache().getAll()).toHaveLength(0);
   });
 
-  it.each(["auth_invalid_current_password", "auth_invalid_verification_code"])(
+  it.each([
+    "auth_invalid_current_password",
+    "auth_invalid_verification_code",
+    // AUTH-08B: a rejected step-up passkey assertion keeps the session.
+    "auth_invalid_passkey",
+  ])(
     "keeps the session caches when a mutation 401 only rejects a typed credential (%s)",
     async (code) => {
       const queryClient = createTutorHubQueryClient();
@@ -87,7 +92,12 @@ describe("TutorHub query client session boundary", () => {
     },
   );
 
-  it.each(["auth_invalid_current_password", "auth_invalid_verification_code"])(
+  it.each([
+    "auth_invalid_current_password",
+    "auth_invalid_verification_code",
+    // AUTH-08B: a rejected step-up passkey assertion keeps the session.
+    "auth_invalid_passkey",
+  ])(
     "keeps the session caches when a query 401 only rejects a typed credential (%s)",
     async (code) => {
       const queryClient = createTutorHubQueryClient();

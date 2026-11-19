@@ -32,7 +32,8 @@ import { randomBytes, randomUUID } from "node:crypto";
  */
 
 const apiOrigin = "http://127.0.0.1:8080";
-const webOrigin = "http://127.0.0.1:5173";
+// AUTH-08: the native-auth stack serves the SPA on the localhost RP origin.
+const webOrigin = "http://localhost:5173";
 const microsoftOrigin = "http://127.0.0.1:9094";
 const nativeAuthProject = "local-chromium-native-auth";
 const blockingImpacts = new Set(["serious", "critical"]);

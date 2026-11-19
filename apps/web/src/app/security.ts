@@ -10,15 +10,22 @@ import {
   confirmLinkIntent,
   getMySecurity,
   listMyLoginMethods,
+  listMyPasskeys,
   listMySessions,
   reauthenticate,
+  renameMyPasskey,
+  revokeMyPasskey,
   revokeMySession,
   revokeOtherSessions,
   rotateCSRFToken,
+  startPasskeyReauthentication,
+  startPasskeyRegistration,
   startReauthEmailCode,
+  verifyPasskeyRegistration,
   type ReauthenticateRequest,
 } from "@tutorhub/api-client";
 import { useCallback, useRef, useState } from "react";
+import { createPasskeyAttestation } from "./passkeys";
 import { profileQueryKeys } from "./profile";
 
 function getApiBaseUrl() {
@@ -33,6 +40,7 @@ export const securityQueryKeys = {
   overview: ["security", "overview"] as const,
   loginMethods: ["security", "login-methods"] as const,
   sessions: ["security", "sessions"] as const,
+  passkeys: ["security", "passkeys"] as const,
 };
 
 /** The server's step-up contract: 403 with this exact problem code. */
@@ -83,6 +91,18 @@ export function useMyLoginMethodsQuery(enabled = true) {
   });
 }
 
+/** AUTH-08B: GET /me/passkeys (only while `passkeys_enabled` is true). */
+export function useMyPasskeysQuery(enabled = true) {
+  return useQuery({
+    queryKey: securityQueryKeys.passkeys,
+    queryFn: ({ signal }) =>
+      listMyPasskeys({ baseUrl: getApiBaseUrl(), signal }),
+    enabled,
+    retry: shouldRetrySecurityQuery,
+    staleTime: 15_000,
+  });
+}
+
 export function useMySessionsQuery(enabled = true) {
   return useQuery({
     queryKey: securityQueryKeys.sessions,
@@ -112,6 +132,7 @@ export async function synchronizeAfterReauthentication(
     queryClient.invalidateQueries({ queryKey: securityQueryKeys.overview }),
     queryClient.invalidateQueries({ queryKey: securityQueryKeys.loginMethods }),
     queryClient.invalidateQueries({ queryKey: securityQueryKeys.sessions }),
+    queryClient.invalidateQueries({ queryKey: securityQueryKeys.passkeys }),
     queryClient.invalidateQueries({ queryKey: profileQueryKeys.password }),
   ]);
 }
@@ -168,8 +189,27 @@ export function useStartReauthEmailCode() {
 }
 
 /**
- * The variables hold the typed password or code: `gcTime: 0` lets the
- * mutation cache drop them as soon as the caller resets the observer.
+ * AUTH-08B: step-up options for a passkey. The server binds the challenge to
+ * this user, session and context version through the HttpOnly `auth_tx`
+ * cookie; the options never leave memory.
+ */
+export function useStartPasskeyReauthentication() {
+  return useMutation({
+    gcTime: 0,
+    retry: false,
+    mutationFn: async () => {
+      const csrf = await rotateCSRFToken({ baseUrl: getApiBaseUrl() });
+      return startPasskeyReauthentication(csrf.csrf_token, {
+        baseUrl: getApiBaseUrl(),
+      });
+    },
+  });
+}
+
+/**
+ * The variables hold the typed password or code (or a passkey assertion):
+ * `gcTime: 0` lets the mutation cache drop them as soon as the caller resets
+ * the observer.
  */
 export function useReauthenticate() {
   const queryClient = useQueryClient();
@@ -218,6 +258,77 @@ export function useRevokeOtherSessions() {
     },
     onSettled: () =>
       queryClient.invalidateQueries({ queryKey: securityQueryKeys.sessions }),
+  });
+}
+
+/** Reloads every view that shows passkeys or the sign-in methods. */
+function invalidatePasskeyViews(queryClient: QueryClient) {
+  return Promise.all([
+    queryClient.invalidateQueries({ queryKey: securityQueryKeys.passkeys }),
+    queryClient.invalidateQueries({ queryKey: securityQueryKeys.overview }),
+    queryClient.invalidateQueries({ queryKey: securityQueryKeys.loginMethods }),
+  ]);
+}
+
+/**
+ * AUTH-08B: options → `navigator.credentials.create` → verify. Each POST
+ * rotates the CSRF token first. A 403 `auth_recent_authentication_required`
+ * (from the options or the verify step) is the caller's cue to step up.
+ */
+export function useRegisterPasskey() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    gcTime: 0,
+    retry: false,
+    mutationFn: async (label: string) => {
+      const baseUrl = getApiBaseUrl();
+      const csrf = await rotateCSRFToken({ baseUrl });
+      const options = await startPasskeyRegistration(csrf.csrf_token, {
+        baseUrl,
+      });
+      const attestation = await createPasskeyAttestation(options);
+      const verifyCSRF = await rotateCSRFToken({ baseUrl });
+      return verifyPasskeyRegistration(
+        { attestation, label },
+        verifyCSRF.csrf_token,
+        { baseUrl },
+      );
+    },
+    onSuccess: () => invalidatePasskeyViews(queryClient),
+  });
+}
+
+export function useRenameMyPasskey() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    gcTime: 0,
+    retry: false,
+    mutationFn: async ({ id, label }: { id: string; label: string }) => {
+      const csrf = await rotateCSRFToken({ baseUrl: getApiBaseUrl() });
+      return renameMyPasskey(id, { label }, csrf.csrf_token, {
+        baseUrl: getApiBaseUrl(),
+      });
+    },
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: securityQueryKeys.passkeys }),
+  });
+}
+
+export function useRevokeMyPasskey() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    gcTime: 0,
+    retry: false,
+    mutationFn: async (id: string) => {
+      const csrf = await rotateCSRFToken({ baseUrl: getApiBaseUrl() });
+      await revokeMyPasskey(id, csrf.csrf_token, {
+        baseUrl: getApiBaseUrl(),
+      });
+    },
+    onSuccess: () => invalidatePasskeyViews(queryClient),
   });
 }
 

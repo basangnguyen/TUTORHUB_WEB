@@ -7,11 +7,15 @@ import {
   resendAuthChallenge,
   startEmailCodeLogin,
   startEmailSignup,
+  startPasskeyAssertion,
   startPasswordRecovery,
   verifyEmailCodeLogin,
+  verifyPasskeyAssertion,
   type APIRequestOptions,
   type AuthSignupChallengeResponse,
   type NativeAuthenticationResponse,
+  type PasskeyAssertion,
+  type PasskeyRequestOptions,
   type PasswordRecoveryResponse,
 } from "@tutorhub/api-client";
 import {
@@ -34,8 +38,17 @@ import {
   type ReactNode,
   type RefObject,
 } from "react";
+import { KeyRound } from "lucide-react";
 import { Navigate, useLocation, useNavigate } from "react-router";
 import { useI18n, type Language } from "../app/i18n";
+import {
+  INVALID_PASSKEY_CODE,
+  classifyCeremonyError,
+  getPasskeyAssertion,
+  isConditionalMediationAvailable,
+  isWebAuthnSupported,
+  signalUnknownPasskey,
+} from "../app/passkeys";
 import { useSession } from "../app/session";
 import { SignInLegalDialog } from "./SignInLegalDialog";
 import {
@@ -222,6 +235,18 @@ const en = {
   callbackRateLimited:
     "Too many sign-in attempts. Please wait a moment and try again.",
   callbackUnknown: "We couldn't complete that sign-in. Please try again.",
+  passkeySignIn: "Sign in with a passkey",
+  passkeyWaiting: "Waiting for your passkey…",
+  passkeyCancelled: "Passkey sign-in was cancelled.",
+  passkeyInvalid:
+    "We couldn't verify this passkey. It may have been removed from your account. Try another passkey or sign-in method.",
+  passkeyClone:
+    "This passkey can't be accepted. Sign in another way and review your passkeys in Settings.",
+  passkeyUnsupported:
+    "This browser can't use passkeys. Please use another sign-in method.",
+  passkeyUnavailable:
+    "Passkey sign-in isn't available right now. Please use another sign-in method.",
+  passkeyFailed: "The passkey couldn't be used. Please try again.",
 };
 
 type SignInCopy = Record<keyof typeof en, string>;
@@ -373,6 +398,18 @@ const vi: SignInCopy = {
   callbackRateLimited:
     "Bạn đã thử đăng nhập quá nhiều lần. Vui lòng chờ một lát rồi thử lại.",
   callbackUnknown: "Không thể hoàn tất đăng nhập. Vui lòng thử lại.",
+  passkeySignIn: "Đăng nhập bằng Passkey",
+  passkeyWaiting: "Đang chờ passkey…",
+  passkeyCancelled: "Đã hủy xác thực passkey.",
+  passkeyInvalid:
+    "Không thể xác minh passkey này. Có thể passkey đã bị gỡ khỏi tài khoản. Hãy thử passkey khác hoặc cách đăng nhập khác.",
+  passkeyClone:
+    "Passkey này không được chấp nhận. Hãy đăng nhập bằng cách khác và kiểm tra danh sách passkey trong Cài đặt.",
+  passkeyUnsupported:
+    "Trình duyệt này không dùng được passkey. Vui lòng chọn cách đăng nhập khác.",
+  passkeyUnavailable:
+    "Đăng nhập bằng passkey hiện không khả dụng. Vui lòng chọn cách đăng nhập khác.",
+  passkeyFailed: "Không thể dùng passkey. Vui lòng thử lại.",
 };
 
 const copyByLanguage: Record<Language, SignInCopy> = { en, vi };
@@ -498,6 +535,11 @@ type AuthFailure =
   | { kind: "codeInvalid" }
   | { kind: "session" }
   | { kind: "network" }
+  | { kind: "passkeyInvalid" }
+  | { kind: "passkeyClone" }
+  | { kind: "passkeyUnsupported" }
+  | { kind: "passkeyUnavailable" }
+  | { kind: "passkeyFailed" }
   | { kind: "generic" };
 
 function boundedRetryAfter(value: number | undefined) {
@@ -537,6 +579,29 @@ function authFailureFrom(error: unknown): AuthFailure {
   }
 }
 
+/** AUTH-08A passkey problem contract for the discoverable sign-in. */
+function passkeyFailureFrom(error: unknown): AuthFailure {
+  if (!(error instanceof APIRequestError)) return { kind: "network" };
+  switch (error.status) {
+    case 401:
+      return error.problem?.code === INVALID_PASSKEY_CODE
+        ? { kind: "passkeyInvalid" }
+        : { kind: "passkeyFailed" };
+    case 403:
+      return error.problem?.code === "auth_passkey_clone_detected"
+        ? { kind: "passkeyClone" }
+        : { kind: "passkeyFailed" };
+    case 404:
+      // The deployment turned passkeys off (or the RP is misconfigured).
+      return { kind: "passkeyUnavailable" };
+    case 429:
+    case 503:
+      return authFailureFrom(error);
+    default:
+      return { kind: "passkeyFailed" };
+  }
+}
+
 function retryAfterOf(failure: AuthFailure) {
   return failure.kind === "rateLimited" || failure.kind === "busy"
     ? failure.retryAfterSeconds
@@ -567,6 +632,16 @@ function failureText(c: SignInCopy, failure: AuthFailure) {
       return c.sessionError;
     case "network":
       return c.networkError;
+    case "passkeyInvalid":
+      return c.passkeyInvalid;
+    case "passkeyClone":
+      return c.passkeyClone;
+    case "passkeyUnsupported":
+      return c.passkeyUnsupported;
+    case "passkeyUnavailable":
+      return c.passkeyUnavailable;
+    case "passkeyFailed":
+      return c.passkeyFailed;
     default:
       return c.genericError;
   }
@@ -620,6 +695,219 @@ function useCountdown() {
   const reset = useCallback(() => setRemaining(0), []);
 
   return { remaining, reset, start };
+}
+
+/** How long the passkey button waits for an aborted autofill request. */
+const CONDITIONAL_ABORT_GRACE_MS = 1000;
+
+interface BackgroundPasskeyRequest {
+  controller: AbortController;
+  settled: Promise<void>;
+}
+
+interface PasskeySignInOptions {
+  /** Passkey autofill may run (the password form is showing). */
+  conditional: boolean;
+  /** `passkeys_enabled` and this browser supports WebAuthn. */
+  enabled: boolean;
+  keepSignedIn: boolean;
+  onAuthenticated: () => Promise<void>;
+}
+
+/**
+ * AUTH-08B discoverable passkey sign-in for LoginForm.
+ *
+ * - Autofill (conditional mediation) starts in the background while the
+ *   password form shows and `isConditionalMediationAvailable()` is true. One
+ *   AbortController covers the options fetch and the browser request; it is
+ *   aborted on unmount, on leaving the password form, and before the button
+ *   opens the modal prompt (waiting for the aborted request to settle, so the
+ *   browser never sees two pending requests).
+ * - Background failures before the user picks a passkey stay silent. Once a
+ *   picked passkey reached the server, autofill is not re-armed (a stale
+ *   passkey must not loop against the API); a cancelled modal re-arms it.
+ * - A 401 `auth_invalid_passkey` with `unknown_credential: true` signals the
+ *   authenticator (Signal API) with the options' rpId and the credential ID
+ *   that was sent. Nothing is persisted in Web Storage.
+ */
+function usePasskeySignIn({
+  conditional,
+  enabled,
+  keepSignedIn,
+  onAuthenticated,
+}: PasskeySignInOptions) {
+  const [pending, setPending] = useState(false);
+  const [cancelled, setCancelled] = useState(false);
+  const [failure, setFailure] = useState<AuthFailure | null>(null);
+  const [rearm, setRearm] = useState(0);
+  const lock = useCountdown();
+  const lockStart = lock.start;
+  const keepSignedInRef = useRef(keepSignedIn);
+  const onAuthenticatedRef = useRef(onAuthenticated);
+  const backgroundRef = useRef<BackgroundPasskeyRequest | null>(null);
+  const runningRef = useRef(false);
+
+  useEffect(() => {
+    keepSignedInRef.current = keepSignedIn;
+    onAuthenticatedRef.current = onAuthenticated;
+  });
+
+  const fail = useCallback(
+    (next: AuthFailure) => {
+      const retryAfter = retryAfterOf(next);
+      if (retryAfter) lockStart(retryAfter);
+      setFailure(next);
+      setPending(false);
+    },
+    [lockStart],
+  );
+
+  /** POST /verify; returns the failure to show, or null when signed in. */
+  const verify = useCallback(
+    async (options: PasskeyRequestOptions, assertion: PasskeyAssertion) => {
+      try {
+        await verifyPasskeyAssertion(
+          { assertion, keep_signed_in: keepSignedInRef.current },
+          { baseUrl: getApiBaseUrl() },
+        );
+        return null;
+      } catch (error) {
+        void signalUnknownPasskey(error, {
+          credentialId: assertion.id,
+          rpId: options.rpId,
+        });
+        return passkeyFailureFrom(error);
+      }
+    },
+    [],
+  );
+
+  /** The session cookie exists: hand off CSRF + /me (retryable). */
+  const finish = useCallback(async () => {
+    setFailure(null);
+    setPending(true);
+    try {
+      await onAuthenticatedRef.current();
+    } catch {
+      setFailure({ kind: "session" });
+    } finally {
+      setPending(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!enabled || !conditional) return;
+    const controller = new AbortController();
+    const request: BackgroundPasskeyRequest = {
+      controller,
+      settled: Promise.resolve(),
+    };
+    request.settled = (async () => {
+      if (!(await isConditionalMediationAvailable())) return;
+      if (controller.signal.aborted) return;
+      let options: PasskeyRequestOptions;
+      let assertion: PasskeyAssertion;
+      try {
+        options = await startPasskeyAssertion({
+          baseUrl: getApiBaseUrl(),
+          signal: controller.signal,
+        });
+        if (controller.signal.aborted) return;
+        assertion = await getPasskeyAssertion(options, {
+          mediation: "conditional",
+          signal: controller.signal,
+        });
+      } catch {
+        // Nothing was asked of the user yet: a cancel, an abort or a
+        // background failure (offline, 429, 503) stays silent.
+        return;
+      }
+      // The user picked a passkey from autofill (unless the button won).
+      if (controller.signal.aborted || runningRef.current) return;
+      runningRef.current = true;
+      setCancelled(false);
+      setFailure(null);
+      setPending(true);
+      try {
+        const problem = await verify(options, assertion);
+        if (problem) {
+          fail(problem);
+          return;
+        }
+        await finish();
+      } finally {
+        runningRef.current = false;
+      }
+    })();
+    backgroundRef.current = request;
+    return () => {
+      controller.abort();
+      if (backgroundRef.current === request) backgroundRef.current = null;
+    };
+  }, [conditional, enabled, fail, finish, rearm, verify]);
+
+  const signIn = useCallback(async () => {
+    if (runningRef.current) return;
+    runningRef.current = true;
+    setCancelled(false);
+    setFailure(null);
+    setPending(true);
+    try {
+      const background = backgroundRef.current;
+      if (background) {
+        background.controller.abort();
+        await Promise.race([
+          background.settled,
+          new Promise((resolve) =>
+            window.setTimeout(resolve, CONDITIONAL_ABORT_GRACE_MS),
+          ),
+        ]);
+      }
+      let options: PasskeyRequestOptions;
+      try {
+        options = await startPasskeyAssertion({ baseUrl: getApiBaseUrl() });
+      } catch (error) {
+        fail(passkeyFailureFrom(error));
+        return;
+      }
+      let assertion: PasskeyAssertion;
+      try {
+        assertion = await getPasskeyAssertion(options, {
+          mediation: "optional",
+        });
+      } catch (error) {
+        const kind = classifyCeremonyError(error);
+        if (kind === "cancelled") {
+          // A gentle notice, never an error banner; autofill comes back.
+          setPending(false);
+          setCancelled(true);
+          setRearm((value) => value + 1);
+          return;
+        }
+        fail({
+          kind: kind === "unsupported" ? "passkeyUnsupported" : "passkeyFailed",
+        });
+        return;
+      }
+      const problem = await verify(options, assertion);
+      if (problem) {
+        fail(problem);
+        return;
+      }
+      await finish();
+    } finally {
+      runningRef.current = false;
+    }
+  }, [fail, finish, verify]);
+
+  return {
+    cancelled,
+    failure,
+    lockRemaining: lock.remaining,
+    pending,
+    retrySession: finish,
+    signIn,
+  };
 }
 
 function useCodeCooldown() {
@@ -1017,6 +1305,9 @@ function SignInScreen() {
               onMicrosoftSignIn={startMicrosoftSignIn}
               onPasswordReset={resetAfterPasswordRecovery}
               onSignIn={startSignIn}
+              // A signed-in visitor gets no background passkey request.
+              passkeyAutofill={sessionStatus === "unauthenticated"}
+              passkeysEnabled={providers?.passkeys_enabled === true}
               passwordMinLength={passwordMinLengthFor(providers)}
               // Older servers omit the flag: absence means recovery is off.
               recoveryEnabled={providers?.password_recovery_enabled === true}
@@ -1076,6 +1367,16 @@ export interface LoginFormProps {
   onPasswordReset: () => Promise<void>;
   /** Redirects to the default OIDC portal (BFF `/api/v1/auth/login`). */
   onSignIn: () => void;
+  /**
+   * `passkeys_enabled` (AUTH-08B): offers "Sign in with a passkey" and
+   * passkey autofill when this browser supports WebAuthn.
+   */
+  passkeysEnabled?: boolean;
+  /**
+   * Whether passkey autofill may start in the background (default true);
+   * /sign-in turns it off while a session already exists.
+   */
+  passkeyAutofill?: boolean;
   passwordMinLength: number;
   /** `password_recovery_enabled`: the dialog runs the native recovery. */
   recoveryEnabled: boolean;
@@ -1100,6 +1401,8 @@ export function LoginForm({
   onMicrosoftSignIn,
   onPasswordReset,
   onSignIn,
+  passkeysEnabled = false,
+  passkeyAutofill = true,
   passwordMinLength,
   recoveryEnabled,
   social,
@@ -1133,10 +1436,20 @@ export function LoginForm({
   const [legalTab, setLegalTab] = useState<SignInLegalTab>("agreement");
   const legalReturnFocusRef = useRef<HTMLElement | null>(null);
   const lock = useCountdown();
+  const [webAuthnSupported] = useState(isWebAuthnSupported);
   const isPassword = mode === "password";
   const usesEmailCode = emailCodeEnabled && method === "emailCode";
-  /** Both native methods issue a first-party session that honours keep-signed-in. */
-  const nativeSession = usesEmailCode || isPassword;
+  const passkeysActive = passkeysEnabled && webAuthnSupported;
+  /** Native methods (and passkeys) issue a first-party session that honours keep-signed-in. */
+  const nativeSession = usesEmailCode || isPassword || passkeysActive;
+  const passkey = usePasskeySignIn({
+    // Autofill belongs to the password form: never under the email-code
+    // form or the recovery dialog.
+    conditional: passkeyAutofill && !usesEmailCode && !recoverOpen,
+    enabled: passkeysActive,
+    keepSignedIn: nativeSession && keepSignedIn,
+    onAuthenticated,
+  });
 
   useEffect(() => {
     if (autoFocus) identifierRef.current?.focus();
@@ -1378,7 +1691,8 @@ export function LoginForm({
               }
               aria-invalid={errors.identifier ? true : undefined}
               aria-label={c.identifierLabel}
-              autoComplete="username"
+              // `webauthn` lets the browser offer passkeys in this field.
+              autoComplete={passkeysEnabled ? "username webauthn" : "username"}
               className="sign-in-input"
               id={ids.identifier}
               maxLength={REMEMBERED_EMAIL_MAX_LENGTH}
@@ -1443,6 +1757,48 @@ export function LoginForm({
         >
           {usesEmailCode ? c.usePassword : c.useEmailCode}
         </button>
+      ) : null}
+
+      {passkeysActive ? (
+        <div className="sign-in-form__passkey">
+          <button
+            // aria-disabled (not disabled) while waiting keeps keyboard focus
+            // on the button when the device prompt is closed.
+            aria-disabled={passkey.pending || undefined}
+            className="sign-in-button sign-in-button--outline sign-in-button--passkey"
+            disabled={passkey.lockRemaining > 0}
+            onClick={() => {
+              if (!passkey.pending) void passkey.signIn();
+            }}
+            type="button"
+          >
+            <KeyRound aria-hidden="true" className="sign-in-passkey-mark" />
+            <span>
+              {passkey.pending
+                ? c.passkeyWaiting
+                : passkey.lockRemaining > 0
+                  ? formatCopy(c.submitWait, {
+                      label: c.passkeySignIn,
+                      seconds: passkey.lockRemaining,
+                    })
+                  : c.passkeySignIn}
+            </span>
+          </button>
+          {/* Always mounted so assistive tech observes the cancel notice. */}
+          <p
+            aria-live="polite"
+            className="sign-in-form__passkey-notice"
+            role="status"
+          >
+            {passkey.cancelled ? c.passkeyCancelled : null}
+          </p>
+          {passkey.failure ? (
+            <FormAlert
+              failure={passkey.failure}
+              onRetrySession={() => void passkey.retrySession()}
+            />
+          ) : null}
+        </div>
       ) : null}
 
       {showSocial ? (

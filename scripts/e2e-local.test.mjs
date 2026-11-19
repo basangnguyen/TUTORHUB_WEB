@@ -16,7 +16,9 @@ import {
   localAccounts,
   microsoftFixtureClientID,
   nativeAuthConfiguration,
+  nativeAuthOrigins,
   parseArguments,
+  publicOriginsFor,
   resolveBaseEnvironment,
   usesFakeFacebook,
   usesFakeGoogle,
@@ -240,6 +242,26 @@ test("native auth stays off by default and inherited auth settings pass through 
   for (const key of Object.keys(nativeAuthConfiguration)) {
     assert.equal(standard[key], undefined, `${key} must not be set by default`);
   }
+  // The default stack keeps its IPv4 loopback origins and no passkeys.
+  assert.equal(standard.PUBLIC_WEB_ORIGIN, "http://127.0.0.1:5173");
+  assert.equal(standard.PUBLIC_API_ORIGIN, "http://127.0.0.1:8080");
+  assert.equal(
+    standard.OIDC_CALLBACK_URL,
+    "http://127.0.0.1:8080/api/v1/auth/callback",
+  );
+  assert.equal(
+    standard.OIDC_POST_LOGOUT_URL,
+    "http://127.0.0.1:5173/signed-out",
+  );
+  assert.equal(standard.AUTH_PASSKEYS_ENABLED, undefined);
+  assert.deepEqual(publicOriginsFor({}), {
+    api: "http://127.0.0.1:8080",
+    web: "http://127.0.0.1:5173",
+  });
+  assert.deepEqual(publicOriginsFor({ E2E_AUTH_NATIVE: "1" }), {
+    api: "http://127.0.0.1:8080",
+    web: "http://127.0.0.1:5173",
+  });
   assert.equal(standard.GOOGLE_CLIENT_SECRET, undefined);
   assert.equal(standard.FACEBOOK_CLIENT_SECRET, undefined);
   assert.equal(standard.MICROSOFT_CLIENT_SECRET, undefined);
@@ -334,6 +356,21 @@ test("native auth enables sign-up, password and email-code login, device managem
     assert.equal(environment.MICROSOFT_AUTHORITY_URL, "http://127.0.0.1:9094");
     assert.equal(environment.MICROSOFT_TENANT_MODE, undefined);
     assert.equal(usesFakeMicrosoft(environment), true);
+    // AUTH-08: passkeys need a domain RP, so the browser-facing origins move
+    // to localhost while every process still binds 127.0.0.1.
+    assert.equal(environment.AUTH_PASSKEYS_ENABLED, "true");
+    assert.equal(environment.WEBAUTHN_RP_ID, "localhost");
+    assert.equal(environment.WEBAUTHN_RP_ORIGINS, "http://localhost:5173");
+    assert.equal(environment.PUBLIC_WEB_ORIGIN, nativeAuthOrigins.web);
+    assert.equal(environment.PUBLIC_API_ORIGIN, nativeAuthOrigins.api);
+    assert.equal(
+      environment.OIDC_CALLBACK_URL,
+      "http://localhost:8080/api/v1/auth/callback",
+    );
+    assert.equal(
+      environment.OIDC_POST_LOGOUT_URL,
+      "http://localhost:5173/signed-out",
+    );
     // The loopback/test boundary that devinbox requires is unchanged.
     assert.equal(environment.APP_ENV, "test");
     assert.equal(environment.HTTP_LISTEN_HOST, "127.0.0.1");
@@ -421,11 +458,11 @@ test("the fake Microsoft authority is a separate loopback client with the v2.0 s
   );
   assert.equal(
     microsoft.OIDC_CALLBACK_URL,
-    "http://127.0.0.1:8080/api/v1/auth/oauth/microsoft/callback",
+    "http://localhost:8080/api/v1/auth/oauth/microsoft/callback",
   );
   assert.equal(
     microsoft.OIDC_POST_LOGOUT_URL,
-    "http://127.0.0.1:5173/signed-out",
+    "http://localhost:5173/signed-out",
   );
   // The other fakes and the API keep their own values.
   assert.equal(environment.E2E_OIDC_FLAVOR, undefined);
@@ -504,7 +541,7 @@ test("the fake Facebook issuer is a separate loopback client with Meta paths", (
   assert.equal(facebook.OIDC_CLIENT_ID, facebookFixtureClientID);
   assert.equal(
     facebook.OIDC_CALLBACK_URL,
-    "http://127.0.0.1:8080/api/v1/auth/oauth/facebook/callback",
+    "http://localhost:8080/api/v1/auth/oauth/facebook/callback",
   );
   // The other fakes and the API keep their own values.
   assert.equal(environment.E2E_OIDC_FLAVOR, undefined);
@@ -539,9 +576,9 @@ test("the fake Google issuer is a separate loopback client with custom accounts"
   assert.equal(google.OIDC_CLIENT_SECRET, fixedSecrets.googleClientSecret);
   assert.equal(
     google.OIDC_CALLBACK_URL,
-    "http://127.0.0.1:8080/api/v1/auth/oauth/google/callback",
+    "http://localhost:8080/api/v1/auth/oauth/google/callback",
   );
-  assert.equal(google.OIDC_POST_LOGOUT_URL, "http://127.0.0.1:5173/signed-out");
+  assert.equal(google.OIDC_POST_LOGOUT_URL, "http://localhost:5173/signed-out");
   // The default fake OIDC portal and the API keep their own values.
   assert.equal(environment.OIDC_ISSUER_URL, "http://127.0.0.1:9091");
   assert.equal(environment.OIDC_CLIENT_SECRET, fixedSecrets.clientSecret);
@@ -563,7 +600,7 @@ test("native auth specs run only through the dedicated Playwright config", () =>
   );
 
   const nativeSpecPatterns =
-    /\[\s*"\*\*\/auth-0\[23\]-native-\*\.spec\.ts",\s*"\*\*\/auth-04-\*\.spec\.ts",\s*"\*\*\/auth-05-\*\.spec\.ts",\s*"\*\*\/auth-06-\*\.spec\.ts",\s*"\*\*\/auth-07-\*\.spec\.ts",?\s*\]/;
+    /\[\s*"\*\*\/auth-0\[23\]-native-\*\.spec\.ts",\s*"\*\*\/auth-04-\*\.spec\.ts",\s*"\*\*\/auth-05-\*\.spec\.ts",\s*"\*\*\/auth-06-\*\.spec\.ts",\s*"\*\*\/auth-07-\*\.spec\.ts",\s*"\*\*\/auth-08-\*\.spec\.ts",?\s*\]/;
   assert.match(
     defaultConfig,
     new RegExp(`testIgnore:\\s*${nativeSpecPatterns.source}`),
@@ -584,10 +621,11 @@ test("native auth specs run only through the dedicated Playwright config", () =>
   assert.ok(nativeSpecs.includes("auth-05-google-federation.spec.ts"));
   assert.ok(nativeSpecs.includes("auth-06-facebook.spec.ts"));
   assert.ok(nativeSpecs.includes("auth-07-microsoft.spec.ts"));
+  assert.ok(nativeSpecs.includes("auth-08-passkeys.spec.ts"));
   for (const name of nativeSpecs) {
     assert.ok(
       /^auth-0[23]-native-.*\.spec\.ts$/.test(name) ||
-        /^auth-0[4567]-.*\.spec\.ts$/.test(name),
+        /^auth-0[45678]-.*\.spec\.ts$/.test(name),
       `${name} must match the native auth Playwright patterns`,
     );
   }
@@ -600,6 +638,22 @@ test("native auth specs run only through the dedicated Playwright config", () =>
     /gracefulShutdown:\s*{\s*signal:\s*"SIGTERM",\s*timeout:\s*15_000,?\s*}/,
   );
   assert.match(authConfig, /reuseExistingServer:\s*false/);
+  // AUTH-08: the browser uses the localhost RP origin; readiness and the
+  // Chromium resolver stay on the bound IPv4 loopback address.
+  assert.match(authConfig, /const baseURL = "http:\/\/localhost:5173";/);
+  assert.match(
+    authConfig,
+    /const boundWebOrigin = "http:\/\/127\.0\.0\.1:5173";/,
+  );
+  assert.match(authConfig, /url:\s*`\$\{boundWebOrigin\}\/sign-in`/);
+  assert.match(
+    authConfig,
+    /"--host-resolver-rules=MAP localhost 127\.0\.0\.1"/,
+  );
+  assert.match(
+    defaultConfig,
+    /mode === "staging" \? stagingBaseURL\(\) : "http:\/\/127\.0\.0\.1:5173"/,
+  );
   // The per-run Facebook secret is generated once and shared with workers.
   assert.match(
     authConfig,

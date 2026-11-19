@@ -25,6 +25,26 @@ const localOrigins = Object.freeze({
   web: "http://127.0.0.1:5173",
 });
 
+/**
+ * AUTH-08: WebAuthn refuses an IP address as relying-party ID and browsers
+ * allow WebAuthn over plain HTTP only on `localhost`. The native-auth stack
+ * therefore publishes the SPA and the API (OAuth callbacks) under
+ * `localhost`; cookies are scoped by host, not port, so both public origins
+ * must share it. Every process still binds 127.0.0.1 and readiness checks
+ * keep using `localOrigins`. The default `pnpm e2e` stack is unchanged.
+ */
+export const nativeAuthOrigins = Object.freeze({
+  api: "http://localhost:8080",
+  web: "http://localhost:5173",
+});
+
+/** Browser-facing origins of the stack selected by `E2E_AUTH_NATIVE`. */
+export function publicOriginsFor(baseEnvironment = {}) {
+  return baseEnvironment.E2E_AUTH_NATIVE === "true"
+    ? nativeAuthOrigins
+    : { api: localOrigins.api, web: localOrigins.web };
+}
+
 /** Fixture client ID for the loopback fake Google; never a real client. */
 export const googleFixtureClientID = "tutorhub-e2e-google";
 /** Fixture app ID for the loopback fake Facebook; never a real Meta app. */
@@ -72,10 +92,11 @@ export const localAccounts = Object.freeze({
  * AUTH-02/03/04 native sign-up, password login, email-code login, password
  * recovery, step-up re-authentication and session/device management, plus
  * AUTH-05 Google, AUTH-06 Facebook and AUTH-07 Microsoft federation against
- * loopback fake issuers, for the loopback stack only. Applied solely when E2E_AUTH_NATIVE=true (or `--native-auth`),
- * so the default `pnpm e2e` environment stays byte-for-byte unchanged. The
- * Google, Facebook and Microsoft secrets are generated per run (see
- * createRuntimeSecrets).
+ * loopback fake issuers and AUTH-08 passkeys on the `localhost` relying
+ * party, for the loopback stack only. Applied solely when
+ * E2E_AUTH_NATIVE=true (or `--native-auth`), so the default `pnpm e2e`
+ * environment stays byte-for-byte unchanged. The Google, Facebook and
+ * Microsoft secrets are generated per run (see createRuntimeSecrets).
  */
 export const nativeAuthConfiguration = Object.freeze({
   AUTH_SIGNUP_ENABLED: "true",
@@ -103,6 +124,10 @@ export const nativeAuthConfiguration = Object.freeze({
   AUTH_PROVIDER_MICROSOFT_ENABLED: "true",
   MICROSOFT_CLIENT_ID: microsoftFixtureClientID,
   MICROSOFT_AUTHORITY_URL: localOrigins.microsoftAuthority,
+  // AUTH-08: passkeys. The RP ID must be a domain, never 127.0.0.1.
+  AUTH_PASSKEYS_ENABLED: "true",
+  WEBAUTHN_RP_ID: "localhost",
+  WEBAUTHN_RP_ORIGINS: nativeAuthOrigins.web,
 });
 
 const commandOptions = Object.freeze({
@@ -198,13 +223,14 @@ export function buildE2EEnvironment(
   runtimeSecrets = createRuntimeSecrets(baseEnvironment),
 ) {
   const { databaseURL } = validateDatabaseConfiguration(baseEnvironment);
+  const origins = publicOriginsFor(baseEnvironment);
   const environment = {
     ...baseEnvironment,
     APP_ENV: "test",
     PORT: "8080",
     HTTP_LISTEN_HOST: "127.0.0.1",
-    PUBLIC_WEB_ORIGIN: localOrigins.web,
-    PUBLIC_API_ORIGIN: localOrigins.api,
+    PUBLIC_WEB_ORIGIN: origins.web,
+    PUBLIC_API_ORIGIN: origins.api,
     LOG_LEVEL: "warn",
     VITE_API_BASE_URL: "/api",
     DATABASE_POOL_URL: databaseURL,
@@ -215,8 +241,8 @@ export function buildE2EEnvironment(
     OIDC_ISSUER_URL: localOrigins.issuer,
     OIDC_CLIENT_ID: "tutorhub-e2e",
     OIDC_CLIENT_SECRET: runtimeSecrets.clientSecret,
-    OIDC_CALLBACK_URL: `${localOrigins.api}/api/v1/auth/callback`,
-    OIDC_POST_LOGOUT_URL: `${localOrigins.web}/signed-out`,
+    OIDC_CALLBACK_URL: `${origins.api}/api/v1/auth/callback`,
+    OIDC_POST_LOGOUT_URL: `${origins.web}/signed-out`,
     OIDC_SCOPES: "openid profile email",
     E2E_OIDC_ADDRESS: "127.0.0.1:9091",
     E2E_ADMIN_EMAIL: localAccounts.admin.email,
@@ -272,8 +298,8 @@ export function buildFakeGoogleEnvironment(environment) {
     OIDC_ISSUER_URL: localOrigins.googleIssuer,
     OIDC_CLIENT_ID: environment.GOOGLE_CLIENT_ID,
     OIDC_CLIENT_SECRET: environment.GOOGLE_CLIENT_SECRET,
-    OIDC_CALLBACK_URL: `${localOrigins.api}/api/v1/auth/oauth/google/callback`,
-    OIDC_POST_LOGOUT_URL: `${localOrigins.web}/signed-out`,
+    OIDC_CALLBACK_URL: `${environment.PUBLIC_API_ORIGIN}/api/v1/auth/oauth/google/callback`,
+    OIDC_POST_LOGOUT_URL: `${environment.PUBLIC_WEB_ORIGIN}/signed-out`,
   };
 }
 
@@ -303,8 +329,8 @@ export function buildFakeFacebookEnvironment(environment) {
     OIDC_CLIENT_ID: environment.FACEBOOK_CLIENT_ID,
     // Meta's code exchange carries no secret; the fake only checks its length.
     OIDC_CLIENT_SECRET: environment.FACEBOOK_CLIENT_SECRET,
-    OIDC_CALLBACK_URL: `${localOrigins.api}/api/v1/auth/oauth/facebook/callback`,
-    OIDC_POST_LOGOUT_URL: `${localOrigins.web}/signed-out`,
+    OIDC_CALLBACK_URL: `${environment.PUBLIC_API_ORIGIN}/api/v1/auth/oauth/facebook/callback`,
+    OIDC_POST_LOGOUT_URL: `${environment.PUBLIC_WEB_ORIGIN}/signed-out`,
   };
 }
 
@@ -336,8 +362,8 @@ export function buildFakeMicrosoftEnvironment(environment) {
     OIDC_ISSUER_URL: localOrigins.microsoftAuthority,
     OIDC_CLIENT_ID: environment.MICROSOFT_CLIENT_ID,
     OIDC_CLIENT_SECRET: environment.MICROSOFT_CLIENT_SECRET,
-    OIDC_CALLBACK_URL: `${localOrigins.api}/api/v1/auth/oauth/microsoft/callback`,
-    OIDC_POST_LOGOUT_URL: `${localOrigins.web}/signed-out`,
+    OIDC_CALLBACK_URL: `${environment.PUBLIC_API_ORIGIN}/api/v1/auth/oauth/microsoft/callback`,
+    OIDC_POST_LOGOUT_URL: `${environment.PUBLIC_WEB_ORIGIN}/signed-out`,
   };
 }
 
@@ -759,7 +785,7 @@ function printHelp() {
     `  serve    Prepare and run fake OIDC, Core API, and web\n\n`,
   );
   process.stdout.write(
-    `  --native-auth  Also enable email sign-up, password and email-code login, password recovery, step-up and device management, the loopback devinbox sender, Google federation against a second loopback fake issuer, Facebook federation against a third one, and Microsoft federation against a fourth one\n`,
+    `  --native-auth  Also enable email sign-up, password and email-code login, password recovery, step-up and device management, the loopback devinbox sender, Google federation against a second loopback fake issuer, Facebook federation against a third one, Microsoft federation against a fourth one, and passkeys; the browser-facing origins become http://localhost:5173 (web) and http://localhost:8080 (API callbacks) because WebAuthn rejects IP relying parties\n`,
   );
 }
 

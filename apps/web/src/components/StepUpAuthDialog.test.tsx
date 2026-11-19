@@ -98,11 +98,20 @@ function requestFrom(input: RequestInfo | URL, init?: RequestInit) {
 }
 
 interface MockOptions {
+  passkeyOptions?: Array<() => Response>;
   providers?: AuthProvidersResponse;
   reauth?: Array<() => Response>;
   security?: Array<() => Response>;
   start?: Array<() => Response>;
 }
+
+const passkeyRequestOptions = {
+  allowCredentials: [{ id: "AQID", type: "public-key" }],
+  challenge: "Y2hhbGxlbmdl",
+  rpId: "localhost",
+  timeout: 300000,
+  userVerification: "required",
+};
 
 function installMock(options: MockOptions = {}) {
   const calls: string[] = [];
@@ -110,6 +119,7 @@ function installMock(options: MockOptions = {}) {
   const reauthQueue = [...(options.reauth ?? [])];
   const securityQueue = [...(options.security ?? [])];
   const startQueue = [...(options.start ?? [])];
+  const passkeyQueue = [...(options.passkeyOptions ?? [])];
   let csrfCount = 0;
   vi.stubGlobal(
     "fetch",
@@ -147,6 +157,15 @@ function installMock(options: MockOptions = {}) {
               },
             );
       }
+      if (
+        path === "/api/v1/auth/reauth/passkey/options" &&
+        request.method === "POST"
+      ) {
+        posts.push(request.clone());
+        return (
+          passkeyQueue.shift() ?? (() => jsonResponse(passkeyRequestOptions))
+        )();
+      }
       if (path === "/api/v1/auth/reauth" && request.method === "POST") {
         posts.push(request.clone());
         const next = reauthQueue.shift();
@@ -158,6 +177,53 @@ function installMock(options: MockOptions = {}) {
     }),
   );
   return { calls, posts };
+}
+
+function buffer(...values: number[]) {
+  return new Uint8Array(values).buffer;
+}
+
+const fakeAssertion = {
+  authenticatorAttachment: "platform",
+  id: "AQID",
+  rawId: buffer(1, 2, 3),
+  response: {
+    authenticatorData: buffer(4),
+    clientDataJSON: buffer(5),
+    signature: buffer(6),
+    userHandle: null,
+  },
+  type: "public-key",
+};
+
+const serializedAssertion = {
+  authenticatorAttachment: "platform",
+  clientExtensionResults: {},
+  id: "AQID",
+  rawId: "AQID",
+  response: {
+    authenticatorData: "BA",
+    clientDataJSON: "BQ",
+    signature: "Bg",
+    userHandle: null,
+  },
+  type: "public-key",
+};
+
+/** A WebAuthn-capable browser whose device prompt follows `outcomes`. */
+function installWebAuthn(outcomes: Array<() => Promise<unknown>>) {
+  vi.stubGlobal(
+    "PublicKeyCredential",
+    Object.assign(function PublicKeyCredential() {}, {}),
+  );
+  const get = vi.fn<(options?: CredentialRequestOptions) => Promise<unknown>>(
+    () => (outcomes.shift() ?? (() => Promise.resolve(fakeAssertion)))(),
+  );
+  Object.defineProperty(window.navigator, "credentials", {
+    configurable: true,
+    value: { create: vi.fn(), get },
+  });
+  return get;
 }
 
 function Harness({ action }: { action: () => void }) {
@@ -210,6 +276,7 @@ describe("StepUpAuthDialog", () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
+    Reflect.deleteProperty(window.navigator, "credentials");
   });
 
   it("re-authenticates with the password, resyncs CSRF and resumes the blocked action once", async () => {
@@ -505,5 +572,177 @@ describe("StepUpAuthDialog", () => {
     await waitFor(() =>
       expect(sessionActions.signOut).toHaveBeenCalledTimes(1),
     );
+  });
+
+  it("offers the passkey first and resumes the blocked action once after a passkey step-up", async () => {
+    const get = installWebAuthn([]);
+    const { calls, posts } = installMock({
+      security: [
+        () =>
+          jsonResponse({
+            ...security,
+            reauth_methods: ["password", "email_code", "passkey"],
+          }),
+      ],
+    });
+    const { action } = renderHarness();
+    const { dialog, trigger } = await openDialog();
+
+    const methods = await within(dialog).findByRole("group", {
+      name: "Confirmation method",
+    });
+    const options = within(methods).getAllByRole("button");
+    expect(options.map((option) => option.textContent)).toEqual([
+      "Passkey",
+      "Password",
+      "Email code",
+    ]);
+    expect(options[0]).toHaveAttribute("aria-pressed", "true");
+    expect(
+      within(dialog).getByText(
+        "Use your device's screen lock, fingerprint, face or security key to confirm.",
+      ),
+    ).toBeInTheDocument();
+    const confirm = within(dialog).getByRole("button", {
+      name: "Confirm with passkey",
+    });
+    await waitFor(() => expect(confirm).toHaveFocus());
+
+    fireEvent.click(confirm);
+
+    await waitFor(() => expect(action).toHaveBeenCalledTimes(1));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    await waitFor(() => expect(trigger).toHaveFocus());
+    expect(get).toHaveBeenCalledTimes(1);
+    expect(get.mock.calls[0]?.[0]).toMatchObject({ mediation: "optional" });
+    const optionsCall = calls.indexOf(
+      "POST /api/v1/auth/reauth/passkey/options",
+    );
+    expect(calls[optionsCall - 1]).toBe("GET /api/v1/auth/csrf");
+    expect(posts[0]?.headers.get("X-CSRF-Token")).toMatch(/^step-up-csrf-/);
+    await expect(posts[1]?.json()).resolves.toEqual({
+      assertion: serializedAssertion,
+      method: "passkey",
+    });
+    expect(window.localStorage.length).toBe(0);
+    expect(window.sessionStorage.length).toBe(0);
+  });
+
+  it("keeps the session on a rejected passkey, treats a closed prompt as a quiet cancel and switches to an email code", async () => {
+    installWebAuthn([
+      () => Promise.reject(new DOMException("closed", "NotAllowedError")),
+    ]);
+    const { posts } = installMock({
+      reauth: [() => problemResponse(401, "auth_invalid_passkey")],
+      security: [
+        () =>
+          jsonResponse({
+            ...security,
+            reauth_methods: ["passkey", "password", "email_code"],
+          }),
+      ],
+    });
+    const { action, queryClient } = renderHarness();
+    const { dialog } = await openDialog();
+    const confirm = await within(dialog).findByRole("button", {
+      name: "Confirm with passkey",
+    });
+
+    fireEvent.click(confirm);
+    expect(
+      await within(dialog).findByText(
+        "Passkey verification was cancelled. Try again or choose another method.",
+      ),
+    ).toBeInTheDocument();
+    expect(within(dialog).queryByRole("alert")).not.toBeInTheDocument();
+
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Confirm with passkey" }),
+    );
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+      "We couldn't verify this passkey. Try again or choose another method.",
+    );
+    // A rejected assertion never ends the session.
+    expect(queryClient.getQueryData(privateKey)).toEqual({
+      name: "Private workspace",
+    });
+    expect(action).not.toHaveBeenCalled();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Email code" }));
+    expect(within(dialog).queryByRole("alert")).not.toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Send code" }));
+    const codeField = await within(dialog).findByLabelText("Verification code");
+    fireEvent.change(codeField, { target: { value: "123456" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Confirm" }));
+
+    await waitFor(() => expect(action).toHaveBeenCalledTimes(1));
+    const bodies = await Promise.all(
+      posts.map(async (request) => ({
+        path: new URL(request.url).pathname,
+        body: await request.text(),
+      })),
+    );
+    expect(bodies.map((entry) => entry.path)).toEqual([
+      "/api/v1/auth/reauth/passkey/options",
+      "/api/v1/auth/reauth/passkey/options",
+      "/api/v1/auth/reauth",
+      "/api/v1/auth/reauth/email-code/start",
+      "/api/v1/auth/reauth",
+    ]);
+    expect(JSON.parse(bodies[4]?.body ?? "{}")).toEqual({
+      challenge_id: challengeID,
+      code: "123456",
+      method: "email_code",
+    });
+  });
+
+  it("explains a passkey-only (AAL2) session and maps a clone warning", async () => {
+    installWebAuthn([]);
+    installMock({
+      reauth: [() => problemResponse(403, "auth_passkey_clone_detected")],
+      security: [
+        () => jsonResponse({ ...security, reauth_methods: ["passkey"] }),
+      ],
+    });
+    const { action } = renderHarness();
+    const { dialog } = await openDialog();
+
+    expect(
+      await within(dialog).findByText(
+        /This session can only be confirmed with a passkey\./,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).queryByRole("group", { name: "Confirmation method" }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Confirm with passkey" }),
+    );
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+      /may have been copied/,
+    );
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Confirm with passkey" }),
+    );
+    await waitFor(() => expect(action).toHaveBeenCalledTimes(1));
+  });
+
+  it("falls back when only a passkey works but this browser lacks WebAuthn", async () => {
+    installMock({
+      security: [
+        () => jsonResponse({ ...security, reauth_methods: ["passkey"] }),
+      ],
+    });
+    renderHarness();
+    const { dialog } = await openDialog();
+
+    expect(
+      await within(dialog).findByText(
+        /this browser doesn't support passkeys\. Sign out and sign in again/,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByRole("button", { name: "Sign out" }),
+    ).toBeInTheDocument();
   });
 });

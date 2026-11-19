@@ -802,6 +802,37 @@
   text-decoration-color: currentcolor;
 }
 
+/* AUTH-08B: passkey sign-in reuses the outline button (#047857 on white is
+   5.48:1); the cancel notice is a quiet status line, not an alert. */
+.sign-in-form__passkey {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.sign-in-button--passkey {
+  gap: 10px;
+}
+
+.sign-in-button--passkey:disabled,
+.sign-in-button--passkey[aria-disabled="true"] {
+  opacity: 0.7;
+}
+
+.sign-in-passkey-mark {
+  width: 20px;
+  height: 20px;
+  flex: none;
+}
+
+.sign-in-form__passkey-notice {
+  margin: 0;
+  color: var(--sign-in-text-muted);
+  font-size: 13px;
+  line-height: 1.5;
+  text-align: center;
+}
+
 .sign-in-form__code-row {
   display: flex;
   gap: 10px;

@@ -4,18 +4,30 @@
 
 ## Snapshot
 
-| Thuộc tính           | Trạng thái                                                                                                                         |
-| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| Ngày cập nhật        | 2026-11-18                                                                                                                         |
-| Repository           | `https://github.com/basangnguyen/TUTORHUB_WEB`                                                                                     |
-| Nhánh làm việc       | `main`                                                                                                                             |
-| Quy trình            | Antigravity làm PM/Gatekeeper điều phối Codex và Claude Code qua prompt; Antigravity nghiệm thu và commit/push thẳng `main`        |
-| Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4, Phase 5 collaboration                                                                          |
-| Phase hiện tại       | Phase 3 deferred carry-over vẫn hoạt động; Phase 5 collaboration đã đóng                                                           |
-| Task `DONE` gần nhất | `AUTH-08A` Passkeys/WebAuthn phía Server: migration `000047`, `go-webauthn v0.18.2`, đăng nhập discoverable, step-up AAL2 — cờ tắt |
-| Mốc repository mới   | PostgreSQL disposable `000047` + exact runtime ACL + concurrent verify PASS (ledger `47 false`); `pnpm verify` + `api:check` PASS  |
-| Task hiện tại        | Giao `AUTH-08B` cho Claude Code (WebAuthn UX, Conditional UI, Signal API, step-up Passkey & Playwright virtual authenticator)      |
-| Task tiếp theo       | Nghiệm thu `AUTH-08B`, sau đó giao `AUTH-09A` cho Codex (TOTP + mã khôi phục + chính sách MFA cấp tài khoản)                       |
+| Thuộc tính           | Trạng thái                                                                                                                                   |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| Ngày cập nhật        | 2026-11-18                                                                                                                                   |
+| Repository           | `https://github.com/basangnguyen/TUTORHUB_WEB`                                                                                               |
+| Nhánh làm việc       | `main`                                                                                                                                       |
+| Quy trình            | Antigravity làm PM/Gatekeeper điều phối Codex và Claude Code qua prompt; Antigravity nghiệm thu và commit/push thẳng `main`                  |
+| Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4, Phase 5 collaboration                                                                                    |
+| Phase hiện tại       | Phase 3 deferred carry-over vẫn hoạt động; Phase 5 collaboration đã đóng                                                                     |
+| Task `DONE` gần nhất | `AUTH-08B` Giao diện Passkeys: Conditional UI, Signal API, step-up Passkey, Settings + Playwright (`AUTH-08` `DONE`, cờ tắt)                 |
+| Mốc repository mới   | Playwright Chromium native auth `23/23` (gồm `auth-08` ×3 CDP virtual authenticator trên `localhost`) + hồi quy `p2-08` PASS; web `782` test |
+| Task hiện tại        | Giao `AUTH-09A` cho Codex (TOTP + mã khôi phục + `mfa_required` + chính sách AAL2 cấp tài khoản & `org_admin`, migration `000048`)           |
+| Task tiếp theo       | Nghiệm thu `AUTH-09A`, sau đó `AUTH-09B` (UI enroll QR TOTP, nhập mã MFA/khôi phục, Settings MFA); tiếp theo `AUTH-10..11` (SĐT `+84`)       |
+
+### Checkpoint `AUTH-08B` Giao diện Passkeys, Conditional UI, Signal API & CDP Virtual Authenticator (`AUTH-08` `DONE`) — 2026-11-19
+
+Claude Code triển khai lát cắt Web UI + Playwright của `AUTH-08` (Phase 0 không có BLOCKER, không thêm npm dependency); Gatekeeper (Antigravity) review diff/bảo mật và kiểm chứng toàn bộ stack trên Chromium thật + PostgreSQL disposable:
+
+- **Module WebAuthn dùng chung (`apps/web/src/app/passkeys.ts`)**: ưu tiên `PublicKeyCredential.parse*FromJSON` / `toJSON()` (có kiểm tra shape chống extension ghi đè), kèm bộ chuyển đổi base64url thuần TypeScript làm fallback; gợi ý tên mặc định thô theo allowlist nền tảng ("Windows · Chrome", sửa được `1..80` ký tự); gọi `PublicKeyCredential.signalUnknownCredential` **chỉ khi** server trả `401 auth_invalid_passkey` kèm `unknown_credential === true` (nuốt lỗi êm, không gọi khi hủy/mạng lỗi/credential đã thu hồi).
+- **`/sign-in` & `/account-link`**: ô email gắn `autocomplete="username webauthn"`; Conditional UI chạy nền với một `AbortController` dùng chung (tự hủy sạch trước khi mở modal bấm nút, đổi tab đăng ký/mã email/khôi phục hoặc rời trang); nút "Đăng nhập bằng Passkey" tôn trọng "Duy trì đăng nhập"; trên `/account-link` ở lại trang xác nhận liên kết; đóng hộp thoại hệ điều hành (`NotAllowedError`) xử lý êm không hiện banner đỏ.
+- **`StepUpAuthDialog` & `queryClient.ts`**: nâng thứ tự ưu tiên thành `["passkey","password","email_code"]`; thêm `auth_invalid_passkey` vào `credentialRejectionCodes` để step-up thất bại không xóa phiên; chuyển từ passkey sang mã email giữa chừng hoạt động trơn tru; phiên `AAL2` (chỉ còn `["passkey"]`) hiển thị giải thích rõ.
+- **Settings (`/app/settings`)**: thẻ Bảo mật & Phương thức đăng nhập hiển thị `passkey_count`; thẻ **Passkeys** mới hỗ trợ danh sách (huy hiệu "Đã đồng bộ" / "Trên thiết bị", ngày tạo, lần dùng gần nhất), thêm/đổi tên/xóa có xác nhận, nối step-up dùng chung khi gặp `403 auth_recent_authentication_required`, xử lý `409 auth_passkey_exists` và `409 auth_last_identity`; mở nút hủy liên kết identity duy nhất khi tài khoản đã có passkey (khớp đếm hai chiều phía server).
+- **Cấu hình `localhost` cho E2E `--native-auth`**: chỉ stack `--native-auth` chuyển `PUBLIC_WEB_ORIGIN=http://localhost:5173` và `PUBLIC_API_ORIGIN=http://localhost:8080` kèm `WEBAUTHN_RP_ID=localhost` (do WebAuthn từ chối địa chỉ IP); stack mặc định `pnpm e2e` giữ nguyên `127.0.0.1`.
+- **Bằng chứng Gatekeeper**: Playwright Chromium trên DB disposable (migration `47`, xóa sạch sau khi chạy): native auth gộp `auth-02..08` **`23/23` PASS (`11,0` phút)** — gồm cả cross-site callback `127.0.0.1:909x → localhost:8080` cho Google/Facebook/Microsoft và `auth-08-passkeys.spec.ts` ×3 bao phủ đủ 7 kịch bản với CDP virtual authenticator (đăng ký + step-up + đổi tên, step-up AAL1 hủy êm → chuyển sang mã email, đăng nhập nút bấm hủy autofill nền + `keep_signed_in`, step-up AAL2 xoay cookie, autofill tự đăng nhập, gỡ Google khi có passkey + chặn xóa phương thức cuối cùng + xóa khi có mật khẩu + từ chối credential đã thu hồi không gọi Signal, xóa credential lạ qua Signal API, Axe `0` serious/critical, Web Storage sạch) — và hồi quy OIDC `p2-08` **`1/1` PASS (`4,9` phút)**; `pnpm verify` (`782/782` web unit tests, `209` file bundle security) PASS.
+- **Giới hạn đã ghi nhận**: nếu bật `AUTH_PASSKEYS_ENABLED` mà tắt `AUTH_DEVICE_MANAGEMENT_ENABLED` thì step-up tại chỗ không dùng được passkey (giữ fallback đăng nhập lại vì `/me/security` phụ thuộc cờ device management); nút hủy liên kết identity duy nhất phía client hiện mở theo passkey, chưa mở theo mật khẩu (có thể đồng bộ thêm ở gói tinh chỉnh sau). `AUTH_PASSKEYS_ENABLED` giữ mặc định `false`.
 
 ### Checkpoint `AUTH-08A` Passkeys / WebAuthn phía Server (`000047`, `go-webauthn v0.18.2`) `DONE` — 2026-11-19
 
