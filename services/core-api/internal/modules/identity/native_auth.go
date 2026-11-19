@@ -86,12 +86,13 @@ type NativePasswordService interface {
 }
 
 type NativeAuthService struct {
-	database   Database
-	crypto     *Crypto
-	passwords  NativePasswordService
-	challenges *ChallengeService
-	config     NativeAuthConfig
-	now        func() time.Time
+	database              Database
+	crypto                *Crypto
+	passwords             NativePasswordService
+	challenges            *ChallengeService
+	config                NativeAuthConfig
+	registrationProviders *ProviderRegistry
+	now                   func() time.Time
 }
 
 type signupPayload struct {

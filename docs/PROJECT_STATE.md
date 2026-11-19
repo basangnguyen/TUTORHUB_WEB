@@ -4,18 +4,30 @@
 
 ## Snapshot
 
-| Thuộc tính           | Trạng thái                                                                                                                                     |
-| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| Ngày cập nhật        | 2026-11-18                                                                                                                                     |
-| Repository           | `https://github.com/basangnguyen/TUTORHUB_WEB`                                                                                                 |
-| Nhánh làm việc       | `main`                                                                                                                                         |
-| Quy trình            | Antigravity làm PM/Gatekeeper điều phối Codex và Claude Code qua prompt; Antigravity nghiệm thu và commit/push thẳng `main`                    |
-| Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4, Phase 5 collaboration                                                                                      |
-| Phase hiện tại       | Phase 3 deferred carry-over vẫn hoạt động; Phase 5 collaboration đã đóng                                                                       |
-| Task `DONE` gần nhất | `AUTH-06B` Giao diện Facebook: nút Facebook, `/complete-registration`, `/legal/data-deletion` + Playwright (`AUTH-06` `DONE`, cờ Facebook tắt) |
-| Mốc repository mới   | Playwright Chromium native auth `14/14` (gồm `auth-06` ×4 với fake Facebook) + hồi quy OIDC `p2-08` PASS; web `705` unit test                  |
-| Task hiện tại        | Chuẩn bị `AUTH-07` (Microsoft cá nhân + công việc/trường học) — Phase 0 cho Codex                                                              |
-| Task tiếp theo       | Rollout Google/Facebook chờ chủ dự án cấu hình client thật + duyệt Chính sách quyền riêng tư; sau `AUTH-07` là Passkeys (`AUTH-08`)            |
+| Thuộc tính           | Trạng thái                                                                                                                             |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Ngày cập nhật        | 2026-11-18                                                                                                                             |
+| Repository           | `https://github.com/basangnguyen/TUTORHUB_WEB`                                                                                         |
+| Nhánh làm việc       | `main`                                                                                                                                 |
+| Quy trình            | Antigravity làm PM/Gatekeeper điều phối Codex và Claude Code qua prompt; Antigravity nghiệm thu và commit/push thẳng `main`            |
+| Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4, Phase 5 collaboration                                                                              |
+| Phase hiện tại       | Phase 3 deferred carry-over vẫn hoạt động; Phase 5 collaboration đã đóng                                                               |
+| Task `DONE` gần nhất | `AUTH-07A` Microsoft Sign-in phía Server (Entra ID multi-tenant + MSA, issuer theo `tid`, `xms_edov`, chống nOAuth) — cờ Microsoft tắt |
+| Mốc repository mới   | PostgreSQL disposable `146/146` suite PASS (ledger `46 false`); `pnpm verify` + `api:check` PASS                                       |
+| Task hiện tại        | Giao `AUTH-07B` cho Claude Code (nút Microsoft, đăng ký chờ/liên kết Microsoft, fake Microsoft + Playwright) — có Phase 0              |
+| Task tiếp theo       | Rollout Google/Facebook chờ chủ dự án cấu hình client thật + duyệt Chính sách quyền riêng tư; sau `AUTH-07` là Passkeys (`AUTH-08`)    |
+
+### Checkpoint `AUTH-07A` Microsoft Sign-in phía Server (Entra ID multi-tenant + MSA) `DONE` — 2026-11-19
+
+Codex triển khai (Phase 0 không có BLOCKER, giữ migration `46`); Gatekeeper (Antigravity) review diff/bảo mật, sửa một điểm nhỏ và chạy cổng PostgreSQL disposable độc lập:
+
+- **Xác minh token**: RS256 qua key set riêng giữ trường `issuer` của từng khóa JWKS (khóa giới hạn theo tenant chỉ dùng cho tenant đó); `iss` phải đúng `https://login.microsoftonline.com/{tid}/v2.0` với `tid` UUID trong token; callback `iss` (nếu có) phải trùng issuer đã ký; kiểm `aud`, `exp`, `iat`, `nbf`, nonce, PKCE `S256`, state/browser binding; chống mix-up 4 provider kể cả route legacy (issuer Microsoft không được dùng chung với provider khác).
+- **Chế độ tenant**: `common` / `organizations` (loại MSA) / `consumers` (chỉ MSA); danh sách chặn ưu tiên trước danh sách cho phép; giao dịch OTP/liên kết đang chờ áp lại chính sách provider/tenant hiện hành.
+- **Định danh**: khóa `(issuer theo tenant, sub)`; lưu `tid` → `provider_org_id`, `oid` → `provider_stable_id` qua cả đăng ký trực tiếp, OTP và xác nhận liên kết; hai tenant cùng `sub`/email là hai identity khác nhau; email/`preferred_username` không dùng làm định danh hay phân quyền (chống nOAuth).
+- **Email**: chỉ email hợp lệ + `xms_edov=true` mới đăng ký thẳng; thiếu bằng chứng → pending registration + OTP; email trùng → link intent cho đúng chủ. Liên kết từ Settings cần recent-auth, CSRF, đúng phiên và email Microsoft tin cậy. Microsoft không vào `reauth_methods`. `AUTH_PROVIDER_MICROSOFT_ENABLED=false` mặc định.
+- **Gatekeeper sửa**: cho `nbf` cùng biên sai lệch đồng hồ 1 phút như `iat` (tránh đăng nhập thất bại ngẫu nhiên khi đồng hồ server chậm vài giây).
+- **Bằng chứng Gatekeeper**: PostgreSQL disposable toàn package identity **`146/146`** test cấp cao (`388` bản ghi) PASS, `0` FAIL/SKIP, ledger `46 false`, gồm `TestMicrosoftPostgresTenantSubjectAndAccountCollision` và `TestMicrosoftRegistrationOTPUsesChosenEmailAndPreservesTenantIdentity` (chặn tenant sau khi phát hành giao dịch); Go unit không cache PASS; `pnpm api:check` + `pnpm verify` PASS; `git diff --check` sạch.
+- **Trước rollout Microsoft (chưa đạt, cờ tắt)**: Entra App Registration (multi-tenant + tài khoản cá nhân), Web redirect URI `/api/v1/auth/oauth/microsoft/callback`, optional claim `xms_edov`, publisher verification, smoke với tài khoản công việc/trường học và MSA thật (kiểm tra OTP khi thiếu `xms_edov`).
 
 ### Checkpoint `AUTH-06B` Giao diện Facebook, Hoàn tất đăng ký chờ & Biên nhận xóa dữ liệu (`AUTH-06` `DONE`) — 2026-11-19
 

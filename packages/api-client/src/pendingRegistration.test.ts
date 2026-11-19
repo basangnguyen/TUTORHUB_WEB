@@ -24,24 +24,27 @@ const completeRequest = {
   keep_signed_in: true,
 };
 
-describe("Facebook registration", () => {
-  it("opens the Facebook provider and reads a preview with no email hint", async () => {
-    const preview = { provider: "facebook", expires_in_seconds: 600 };
-    const fetch = vi.fn(async (request: Request) => {
-      expect(new URL(request.url).pathname).toBe(
-        "/api/v1/auth/pending-registration",
+describe("pending registration", () => {
+  it.each(["facebook", "microsoft"] as const)(
+    "opens %s and reads a preview with no email hint",
+    async (provider) => {
+      const preview = { provider, expires_in_seconds: 600 };
+      const fetch = vi.fn(async (request: Request) => {
+        expect(new URL(request.url).pathname).toBe(
+          "/api/v1/auth/pending-registration",
+        );
+        expect(request.credentials).toBe("include");
+        expect(request.cache).toBe("no-store");
+        expect(request.referrerPolicy).toBe("no-referrer");
+        return Response.json(preview);
+      });
+      const options = { baseUrl: "https://api.example/api", fetch };
+      expect(new URL(buildOAuthStartURL(provider, {}, options)).pathname).toBe(
+        `/api/v1/auth/oauth/${provider}/start`,
       );
-      expect(request.credentials).toBe("include");
-      expect(request.cache).toBe("no-store");
-      expect(request.referrerPolicy).toBe("no-referrer");
-      return Response.json(preview);
-    });
-    const options = { baseUrl: "https://api.example/api", fetch };
-    expect(new URL(buildOAuthStartURL("facebook", {}, options)).pathname).toBe(
-      "/api/v1/auth/oauth/facebook/start",
-    );
-    await expect(getPendingRegistration(options)).resolves.toEqual(preview);
-  });
+      await expect(getPendingRegistration(options)).resolves.toEqual(preview);
+    },
+  );
 
   it("sends the submitted address once and resends or cancels with the cookie", async () => {
     const fetch = vi

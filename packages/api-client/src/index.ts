@@ -5,8 +5,12 @@ let currentCSRFToken: string | null = null;
 
 export type HealthResponse = components["schemas"]["HealthResponse"];
 export type IdentityLinkRequest = components["schemas"]["IdentityLinkRequest"];
-export type FederatedLinkIntentResponse =
+export type OAuthLinkIntentResponse =
   components["schemas"]["LinkIntentResponse"];
+/** Preview supported by the Facebook, Google and OIDC account-link screen. */
+export type FederatedLinkIntentResponse = OAuthLinkIntentResponse & {
+  readonly provider: "facebook" | "google" | "oidc";
+};
 /** Preview supported by the original Google/OIDC account-link screen. */
 export type LinkIntentResponse = FederatedLinkIntentResponse & {
   readonly provider: "google" | "oidc";
@@ -1257,7 +1261,7 @@ export async function linkIdentity(
 export async function getLinkIntent(
   options: APIRequestOptions = {},
 ): Promise<LinkIntentResponse> {
-  const preview = await getFederatedLinkIntent(options);
+  const preview = await getOAuthLinkIntent(options);
   const { provider } = preview;
   if (provider !== "google" && provider !== "oidc") {
     throw new Error("The account-link screen does not support this provider.");
@@ -1265,10 +1269,21 @@ export async function getLinkIntent(
   return { ...preview, provider };
 }
 
-/** Read the masked preview for every provider supported by the API. */
 export async function getFederatedLinkIntent(
   options: APIRequestOptions = {},
 ): Promise<FederatedLinkIntentResponse> {
+  const preview = await getOAuthLinkIntent(options);
+  const { provider } = preview;
+  if (provider !== "facebook" && provider !== "google" && provider !== "oidc") {
+    throw new Error("The account-link screen does not support this provider.");
+  }
+  return { ...preview, provider };
+}
+
+/** Read the masked preview for every provider supported by the API. */
+export async function getOAuthLinkIntent(
+  options: APIRequestOptions = {},
+): Promise<OAuthLinkIntentResponse> {
   const { data, error, response } = await createTutorHubClient(options).GET(
     "/api/v1/auth/link-intent",
     {
@@ -1278,7 +1293,7 @@ export async function getFederatedLinkIntent(
       referrerPolicy: "no-referrer",
     },
   );
-  return requireData<FederatedLinkIntentResponse>(data, error, response);
+  return requireData<OAuthLinkIntentResponse>(data, error, response);
 }
 
 export async function confirmLinkIntent(

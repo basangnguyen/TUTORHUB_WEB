@@ -157,9 +157,9 @@ func (handlers authHandlers) beginIdentityLink(w http.ResponseWriter, r *http.Re
 	var start identity.LoginStart
 	if provider == "oidc" {
 		start, err = handlers.identity.BeginIdentityLink(r.Context(), principal)
-	} else if provider == "google" {
+	} else if provider == "google" || provider == "microsoft" {
 		service, ok := handlers.identity.(identity.FederationAPI)
-		if !ok || !googleFederationEnabled(handlers.config.Authentication) {
+		if !ok || !(federationHandlers{auth: handlers}).providerAvailable(provider) {
 			writeFederationProviderUnavailable(w, r)
 			return
 		}
@@ -169,7 +169,7 @@ func (handlers authHandlers) beginIdentityLink(w http.ResponseWriter, r *http.Re
 		return
 	}
 	if err != nil {
-		if provider == "google" {
+		if provider != "oidc" {
 			(federationHandlers{auth: handlers}).writeError(w, r, err, false)
 		} else {
 			handlers.writeIdentityProblem(w, r, err)

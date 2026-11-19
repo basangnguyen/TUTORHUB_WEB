@@ -57,14 +57,27 @@ type FederationAPI interface {
 }
 
 type FederationIdentityPayload struct {
-	ProviderSlug  string `json:"provider_slug"`
-	Issuer        string `json:"issuer"`
-	Subject       string `json:"subject"`
-	Email         string `json:"email"`
-	EmailVerified bool   `json:"email_verified"`
-	DisplayName   string `json:"display_name"`
-	ProviderOrgID string `json:"provider_org_id"`
-	ReturnTo      string `json:"return_to"`
+	ProviderSlug     string `json:"provider_slug"`
+	Issuer           string `json:"issuer"`
+	Subject          string `json:"subject"`
+	Email            string `json:"email"`
+	EmailVerified    bool   `json:"email_verified"`
+	DisplayName      string `json:"display_name"`
+	ProviderOrgID    string `json:"provider_org_id"`
+	ProviderStableID string `json:"provider_stable_id,omitempty"`
+	ReturnTo         string `json:"return_to"`
+}
+
+func (p FederationIdentityPayload) claims() ProviderClaims {
+	return ProviderClaims{
+		ProviderSlug: p.ProviderSlug, Issuer: p.Issuer, Subject: p.Subject,
+		Email: p.Email, EmailVerified: p.EmailVerified && p.ProviderSlug != "facebook",
+		DisplayName: p.DisplayName, ProviderOrgID: p.ProviderOrgID, ProviderStableID: p.ProviderStableID,
+	}
+}
+
+func supportsPendingRegistration(slug string) bool {
+	return slug == "facebook" || slug == "microsoft"
 }
 
 type FederationLoginParams struct {

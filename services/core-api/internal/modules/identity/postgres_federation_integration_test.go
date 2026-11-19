@@ -19,8 +19,14 @@ import (
 
 func federationIntegrationInput(t *testing.T, f *settingsIntegrationFixture, email string) FederationLoginParams {
 	t.Helper()
-	claims := ProviderClaims{Issuer: "https://accounts.google.com", Subject: uuid.NewString(), Email: email, EmailVerified: true, DisplayName: "Federation member", ProviderOrgID: "school.example", AuthTime: f.now}
-	payload := FederationIdentityPayload{ProviderSlug: "google", Issuer: claims.Issuer, Subject: claims.Subject, Email: email, EmailVerified: true, DisplayName: claims.DisplayName, ProviderOrgID: claims.ProviderOrgID, ReturnTo: "/app/settings"}
+	return federationInputFromPayload(t, f, FederationIdentityPayload{ProviderSlug: "google", Issuer: GoogleIssuerURL,
+		Subject: uuid.NewString(), Email: email, EmailVerified: true, DisplayName: "Federation member", ProviderOrgID: "school.example", ReturnTo: "/app/settings"})
+}
+
+func federationInputFromPayload(t *testing.T, f *settingsIntegrationFixture, payload FederationIdentityPayload) FederationLoginParams {
+	t.Helper()
+	claims := payload.claims()
+	claims.AuthTime = f.now
 	raw, err := json.Marshal(payload)
 	if err != nil {
 		t.Fatal(err)
@@ -29,7 +35,7 @@ func federationIntegrationInput(t *testing.T, f *settingsIntegrationFixture, ema
 	if err != nil {
 		t.Fatal(err)
 	}
-	return FederationLoginParams{Claims: claims, ProviderSlug: "google", Flow: StoredFlow{Purpose: "login", ProviderSlug: "google", CreatedAt: f.now}, SignupEnabled: true, LegalTermsVersion: "test", SessionAbsoluteTTL: 48 * time.Hour,
+	return FederationLoginParams{Claims: claims, ProviderSlug: payload.ProviderSlug, Flow: StoredFlow{Purpose: "login", ProviderSlug: payload.ProviderSlug, CreatedAt: f.now}, SignupEnabled: true, LegalTermsVersion: "test", SessionAbsoluteTTL: 48 * time.Hour,
 		ProviderSubjectDigest: f.service.crypto.ProviderSubjectDigest(claims.Issuer, claims.Subject),
 		LinkBindingHash:       f.service.crypto.Digest(linkBindingPurpose, uuid.NewString()), LinkPayloadCiphertext: cipher, LinkExpiresAt: f.now.Add(15 * time.Minute),
 		Metadata: SessionMetadata{TokenHash: f.service.crypto.Digest(sessionPurpose, uuid.NewString()), CSRFHash: f.service.crypto.Digest(csrfPurpose, uuid.NewString()), UserAgentHash: f.service.crypto.Digest(userAgentPurpose, "fixture"), DeviceLabel: "Chrome · Windows", CreatedAt: f.now, ExpiresAt: f.now.Add(8 * time.Hour), AbsoluteAt: f.now.Add(48 * time.Hour)}}
@@ -56,7 +62,8 @@ func federationConfirmInput(t *testing.T, f *settingsIntegrationFixture, reposit
 func TestFederationPostgresFlowProviderIsolationAndOneTime(t *testing.T) {
 	f := newSettingsIntegrationFixture(t, true)
 	repository := NewPostgresRepository(f.tx, 20*time.Second, policy.NewEngine())
-	for _, slug := range []string{"oidc", "google"} {
+	slugs := []string{"oidc", "google", "facebook", "microsoft"}
+	for _, slug := range slugs {
 		// auth_flows requires a real AEAD ciphertext (>= 29 bytes).
 		verifierCiphertext, err := f.service.crypto.Encrypt("fixture-code-verifier-" + slug)
 		if err != nil {
@@ -66,12 +73,12 @@ func TestFederationPostgresFlowProviderIsolationAndOneTime(t *testing.T) {
 		if err := repository.CreateFlow(f.ctx, input); err != nil {
 			t.Fatal(err)
 		}
-		wrong := "google"
-		if slug == "google" {
-			wrong = "oidc"
-		}
-		if _, err := repository.ConsumeProviderFlow(f.ctx, wrong, input.StateHash, input.BrowserBindingHash, f.now); !errors.Is(err, ErrInvalidAuthFlow) {
-			t.Fatal("provider mix-up accepted")
+		for _, wrong := range slugs {
+			if wrong != slug {
+				if _, err := repository.ConsumeProviderFlow(f.ctx, wrong, input.StateHash, input.BrowserBindingHash, f.now); !errors.Is(err, ErrInvalidAuthFlow) {
+					t.Fatalf("%s flow consumed by %s", slug, wrong)
+				}
+			}
 		}
 		var flow StoredFlow
 		if slug == "oidc" {
@@ -85,6 +92,59 @@ func TestFederationPostgresFlowProviderIsolationAndOneTime(t *testing.T) {
 		if _, err := repository.ConsumeProviderFlow(f.ctx, slug, input.StateHash, input.BrowserBindingHash, f.now); !errors.Is(err, ErrInvalidAuthFlow) {
 			t.Fatal("flow replay accepted")
 		}
+	}
+}
+
+func TestMicrosoftPostgresTenantSubjectAndAccountCollision(t *testing.T) {
+	f := newSettingsIntegrationFixture(t, true)
+	repo := NewPostgresRepository(f.tx, 20*time.Second, policy.NewEngine())
+	first := FederationIdentityPayload{ProviderSlug: "microsoft", ProviderOrgID: uuid.NewString(), ProviderStableID: uuid.NewString(),
+		Subject: "same-app-subject", Email: "microsoft-" + uuid.NewString() + "@example.test", EmailVerified: true, DisplayName: "Microsoft User", ReturnTo: "/app"}
+	first.Issuer = microsoftIssuer(first.ProviderOrgID)
+	login, err := repo.CompleteFederatedLogin(f.ctx, federationInputFromPayload(t, f, first))
+	if err != nil || login.Principal.SessionID == uuid.Nil || login.LinkPending || login.RegistrationPending {
+		t.Fatalf("trusted new identity should create an account: %v", err)
+	}
+	firstID := login.Principal.IdentityID
+	second := first
+	second.ProviderOrgID, second.ProviderStableID = uuid.NewString(), uuid.NewString()
+	second.Issuer = microsoftIssuer(second.ProviderOrgID)
+	collision := federationInputFromPayload(t, f, second)
+	result, err := repo.CompleteFederatedLogin(f.ctx, collision)
+	if err != nil || !result.LinkPending || result.Principal.SessionID != uuid.Nil {
+		t.Fatalf("second tenant with same subject/email must prove account ownership: %v", err)
+	}
+	var count int
+	if err := f.tx.QueryRow(f.ctx, `SELECT count(*) FROM tutorhub.identities WHERE provider=$1 AND subject=$2`, second.Issuer, second.Subject).Scan(&count); err != nil || count != 0 {
+		t.Fatal("collision attached an identity before explicit confirmation", err)
+	}
+	confirm := federationConfirmInput(t, f, repo, collision)
+	confirm.Principal = login.Principal
+	confirm.Rotation.ExpectedContextVersion = login.Principal.ContextVersion
+	if _, err := repo.ConfirmLinkIntent(f.ctx, confirm); err != nil {
+		t.Fatal("confirm owner-bound intent", err)
+	}
+
+	for _, p := range []FederationIdentityPayload{first, second} {
+		// Existing identities authenticate by (issuer, sub) even if the email
+		// has changed or its provider trust claim is absent.
+		p.Email, p.EmailVerified = f.principal.User.Email, false
+		again, err := repo.CompleteFederatedLogin(f.ctx, federationInputFromPayload(t, f, p))
+		if err != nil || again.Principal.User.ID != login.Principal.User.ID || (again.Principal.IdentityID == firstID) != (p.Issuer == first.Issuer) {
+			t.Fatal("tenant/subject did not resolve its own identity", err)
+		}
+		var org, stable, slug string
+		if err := f.tx.QueryRow(f.ctx, `SELECT provider_slug,provider_org_id,provider_stable_id FROM tutorhub.identities WHERE id=$1`, again.Principal.IdentityID).
+			Scan(&slug, &org, &stable); err != nil || slug != "microsoft" || org != p.ProviderOrgID || stable != p.ProviderStableID {
+			t.Fatal("tenant and object provenance lost", err)
+		}
+		if _, _, err := resolveIdentity(f.ctx, f.tx, p.claims(), f.now); !errors.Is(err, ErrIdentityInactive) {
+			t.Fatal("legacy callback used a Microsoft identity", err)
+		}
+	}
+	identities, err := repo.ListIdentities(f.ctx, login.Principal.User.ID)
+	if err != nil || len(identities) != 2 || identities[0].ProviderSlug != "microsoft" || identities[1].ProviderSlug != "microsoft" {
+		t.Fatal("identity listing lost Microsoft provenance", err)
 	}
 }
 

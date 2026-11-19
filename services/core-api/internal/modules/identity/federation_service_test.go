@@ -20,6 +20,7 @@ type federationMemoryRepository struct {
 	login                                 FederationLoginParams
 	loginCalls, confirmCalls, reauthCalls int
 	pending                               bool
+	registrationPending                   bool
 	intent                                StoredLinkIntent
 	intentHash                            []byte
 	intentConsumed                        bool
@@ -42,12 +43,150 @@ func (repo *federationMemoryRepository) ConsumeProviderFlow(ctx context.Context,
 func (repo *federationMemoryRepository) CompleteFederatedLogin(_ context.Context, input FederationLoginParams) (FederationLoginRecord, error) {
 	repo.login = input
 	repo.loginCalls++
+	if repo.registrationPending {
+		return FederationLoginRecord{RegistrationPending: true}, nil
+	}
 	if repo.pending {
 		repo.intent = StoredLinkIntent{ID: uuid.New(), UserID: repo.principal.User.ID, PayloadCiphertext: input.LinkPayloadCiphertext, CreatedAt: input.Metadata.CreatedAt, ExpiresAt: input.LinkExpiresAt}
 		repo.intentHash = input.LinkBindingHash
 		return FederationLoginRecord{LinkPending: true}, nil
 	}
 	return FederationLoginRecord{Principal: repo.principal}, nil
+}
+
+type microsoftFederationStub struct {
+	*fakeProvider
+	policy MicrosoftProvider
+}
+
+func (p *microsoftFederationStub) matchesMicrosoftIssuer(issuer string) bool {
+	return p.policy.matchesMicrosoftIssuer(issuer)
+}
+
+func microsoftTestRegistry(t *testing.T, provider Provider, others ...ProviderRegistration) *ProviderRegistry {
+	t.Helper()
+	entries := append(others, ProviderRegistration{Slug: "microsoft", Issuer: MicrosoftAuthorityURL, Provider: provider})
+	registry, err := NewProviderRegistry(entries...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return registry
+}
+
+func TestMicrosoftFederationBindsProviderTenantAndEmailTrust(t *testing.T) {
+	ctx := context.Background()
+	for _, scenario := range []string{"trusted", "pending OTP", "malformed email", "email collision", "trusted settings link", "unverified settings link", "malformed email settings link", "different callback tenant", "wrong state", "wrong nonce", "noncanonical subject"} {
+		t.Run(scenario, func(t *testing.T) {
+			svc, repo, _, _, now := federationServiceFixture(t)
+			p := &microsoftFederationStub{fakeProvider: &fakeProvider{}, policy: MicrosoftProvider{tenantMode: "common"}}
+			svc.registry = microsoftTestRegistry(t, p)
+			if _, err := svc.BeginOAuth(ctx, "microsoft", "/app", "reauth", repo.principal); !errors.Is(err, ErrFederationReauthRequired) {
+				t.Fatal("Microsoft accepted federated reauth")
+			}
+			var start LoginStart
+			var err error
+			if strings.HasSuffix(scenario, "settings link") {
+				start, err = svc.BeginProviderIdentityLink(ctx, repo.principal, "microsoft")
+			} else {
+				start, err = svc.BeginOAuth(ctx, "microsoft", "/app", "login", Principal{})
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			p.claims = validClaims(now, p.nonce)
+			p.claims.ProviderOrgID, p.claims.ProviderStableID = uuid.NewString(), uuid.NewString()
+			p.claims.Issuer = microsoftIssuer(p.claims.ProviderOrgID)
+			in := CallbackInput{Code: "code", State: p.state, BrowserBinding: start.BrowserBinding, Issuer: p.claims.Issuer}
+			var want error
+			switch scenario {
+			case "pending OTP":
+				p.claims.EmailVerified = false
+				repo.registrationPending = true
+			case "malformed email":
+				p.claims.Email = "invalid claim"
+				repo.registrationPending = true
+			case "email collision":
+				repo.pending = true
+			case "unverified settings link":
+				p.claims.EmailVerified, want = false, ErrVerifiedEmailRequired
+			case "malformed email settings link":
+				p.claims.Email, want = "invalid claim", ErrVerifiedEmailRequired
+			case "different callback tenant":
+				in.Issuer, want = microsoftIssuer(uuid.NewString()), ErrProviderExchange
+			case "wrong state":
+				in.State, want = "other", ErrInvalidAuthFlow
+			case "wrong nonce":
+				p.claims.Nonce, want = "other", ErrProviderExchange
+			case "noncanonical subject":
+				p.claims.Subject, want = " subject ", ErrProviderExchange
+			}
+			result, err := svc.CompleteOAuth(ctx, "microsoft", in)
+			if !errors.Is(err, want) || (want != nil && repo.loginCalls != 0) {
+				t.Fatalf("callback proof = %v; want %v", err, want)
+			}
+			if want != nil {
+				return
+			}
+			raw, err := svc.crypto.Decrypt(repo.login.LinkPayloadCiphertext)
+			var payload FederationIdentityPayload
+			if err != nil || json.Unmarshal([]byte(raw), &payload) != nil || payload.ProviderSlug != "microsoft" || payload.Issuer != p.claims.Issuer || payload.ProviderOrgID != p.claims.ProviderOrgID || payload.ProviderStableID != p.claims.ProviderStableID || payload.EmailVerified != (p.claims.EmailVerified && scenario != "malformed email") {
+				t.Fatal("provider identity provenance lost in encrypted transaction")
+			}
+			if repo.registrationPending {
+				if !result.RegistrationPending || len(result.RegistrationBinding) != 43 || result.LinkPending || result.SessionToken != "" {
+					t.Fatal("invalid registration result")
+				}
+			} else if repo.pending {
+				repo.intent.TargetEmail = p.claims.Email
+				view, err := svc.GetLinkIntent(ctx, result.LinkBinding)
+				if err != nil || !result.LinkPending || result.SessionToken != "" || view.Provider != "microsoft" || view.MaskedEmail != "s***@example.com" {
+					t.Fatal("invalid owner-bound intent", err)
+				}
+				if _, err := svc.ConfirmLinkIntent(ctx, repo.principal, result.LinkBinding); err != nil || repo.confirm.Payload.ProviderStableID != p.claims.ProviderStableID {
+					t.Fatal("link confirmation lost provider metadata", err)
+				}
+			} else if result.SessionToken == "" || (scenario == "trusted settings link" && (!result.IdentityLinked || repo.login.Flow.UserID != repo.principal.User.ID || repo.login.Flow.SessionID != repo.principal.SessionID)) {
+				t.Fatal("trusted callback lost its login or settings session binding")
+			}
+		})
+	}
+}
+
+func TestMicrosoftFlowIsolationAcrossCallbackRoutes(t *testing.T) {
+	ctx := context.Background()
+	for _, origin := range []string{"microsoft", "oidc", "google", "facebook", "legacy"} {
+		t.Run(origin, func(t *testing.T) {
+			svc, repo, oidc, google, _ := federationServiceFixture(t)
+			fb := &fakeProvider{}
+			ms := &microsoftFederationStub{fakeProvider: &fakeProvider{}, policy: MicrosoftProvider{tenantMode: "common"}}
+			svc.registry = microsoftTestRegistry(t, ms, ProviderRegistration{Slug: "oidc", Issuer: "https://identity.example", Provider: oidc}, ProviderRegistration{Slug: "google", Issuer: GoogleIssuerURL, Provider: google}, ProviderRegistration{Slug: "facebook", Issuer: FacebookIssuerURL, Provider: fb})
+			providers := map[string]*fakeProvider{"oidc": oidc, "legacy": oidc, "google": google, "facebook": fb, "microsoft": ms.fakeProvider}
+			var start LoginStart
+			var err error
+			if origin == "legacy" {
+				start, err = svc.BeginLogin(ctx, "/app")
+			} else {
+				start, err = svc.BeginOAuth(ctx, origin, "/app", "login", Principal{})
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			in := CallbackInput{Code: "code", State: providers[origin].state, BrowserBinding: start.BrowserBinding}
+			for dest, p := range providers {
+				if (origin == "microsoft") == (dest == "microsoft") {
+					continue
+				}
+				if dest == "legacy" {
+					_, err = svc.CompleteLogin(ctx, in)
+				} else {
+					_, err = svc.CompleteOAuth(ctx, dest, in)
+				}
+				if !errors.Is(err, ErrInvalidAuthFlow) || p.code != "" || repo.loginCalls != 0 || repo.consumed {
+					t.Fatalf("%s flow reached %s exchange", origin, dest)
+				}
+			}
+		})
+	}
 }
 func (repo *federationMemoryRepository) ReadLinkIntent(_ context.Context, binding []byte, now time.Time) (StoredLinkIntent, error) {
 	if repo.intentConsumed || !bytes.Equal(binding, repo.intentHash) || !repo.intent.ExpiresAt.After(now) {

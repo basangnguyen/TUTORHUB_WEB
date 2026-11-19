@@ -218,7 +218,7 @@ export type paths = {
     };
     /**
      * Complete a provider-bound single-use OAuth flow
-     * @description The provider and optional iss must match the single-use flow. Errors redirect to /sign-in?error=<fixed_code>. An unlinked identity creates an owner-bound link_tx. A new Facebook subject creates a registration_tx and redirects to /sign-in?registration=pending&provider=facebook regardless of its email claim. Successful login sets session and CSRF cookies.
+     * @description The provider and optional iss must match the single-use flow. Errors redirect to /sign-in?error=<fixed_code>. An unlinked identity creates an owner-bound link_tx. A new Facebook subject or a new Microsoft subject without an email verified by xms_edov=true creates a registration_tx and redirects to /sign-in?registration=pending&provider=<provider>. Successful login sets session and CSRF cookies.
      */
     readonly get: operations["completeOAuth"];
     readonly put?: never;
@@ -238,7 +238,7 @@ export type paths = {
     };
     /**
      * Start a provider-bound OAuth login or federated reauthentication flow
-     * @description Uses PKCE S256, nonce, state and a browser-binding cookie. Reauthentication requires an existing session and requests prompt=login and max_age=0. Unknown or disabled providers return 404. return_to is validated by the existing server return-path sanitizer.
+     * @description Uses PKCE S256, nonce, state and a browser-binding cookie. Reauthentication is available for oidc and google, requires an existing session and requests prompt=login and max_age=0. Unknown or disabled providers return 404. return_to is validated by the existing server return-path sanitizer.
      */
     readonly get: operations["beginOAuth"];
     readonly put?: never;
@@ -437,7 +437,7 @@ export type paths = {
     };
     readonly get?: never;
     readonly put?: never;
-    /** Send an email verification code for this Facebook registration */
+    /** Send an email verification code for this pending registration */
     readonly post: operations["startPendingRegistration"];
     readonly delete?: never;
     readonly options?: never;
@@ -2068,7 +2068,7 @@ export type paths = {
     readonly put?: never;
     /**
      * Begin a recent-authenticated external identity linking flow
-     * @description Recent authentication failures return 403 with code auth_recent_authentication_required. Empty body or an empty object preserves the existing oidc default; an optional provider selects google.
+     * @description Recent authentication failures return 403 with code auth_recent_authentication_required. An empty body or an empty object selects the default oidc provider. The request may select google or microsoft. Explicit Microsoft linking requires a trusted provider email.
      */
     readonly post: operations["beginIdentityLink"];
     readonly delete?: never;
@@ -4824,7 +4824,7 @@ export type components = {
        * @description Optional; omission selects the legacy oidc provider.
        * @enum {string}
        */
-      readonly provider?: "oidc" | "google";
+      readonly provider?: "oidc" | "google" | "microsoft";
     };
     readonly IdentityLinkResponse: {
       /** Format: uri */
@@ -4875,7 +4875,7 @@ export type components = {
       /** @description Masked destination only; never the complete email address */
       readonly masked_email: string;
       /** @enum {string} */
-      readonly provider: "oidc" | "google" | "facebook";
+      readonly provider: "oidc" | "google" | "facebook" | "microsoft";
     };
     readonly LivenessResponse: {
       /** @constant */
@@ -5724,8 +5724,8 @@ export type components = {
     readonly PendingRegistrationPreview: {
       readonly expires_in_seconds: number;
       readonly masked_email?: string;
-      /** @constant */
-      readonly provider: "facebook";
+      /** @enum {string} */
+      readonly provider: "facebook" | "microsoft";
     };
     readonly PendingRegistrationResult: {
       readonly return_to: string;
@@ -6687,7 +6687,7 @@ export type components = {
     readonly CSRFToken: string;
     /** @description Active workspace assertion used to prevent confused-deputy mutations and reads. */
     readonly ExpectedTenantID: string;
-    readonly FederationProvider: "oidc" | "google" | "facebook";
+    readonly FederationProvider: "oidc" | "google" | "facebook" | "microsoft";
     /** @description Opaque RoomInstance-scoped participant key; never a user, session, or provider identity. */
     readonly MediaParticipantKeyPath: string;
     readonly PollID: string;

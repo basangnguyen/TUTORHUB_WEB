@@ -56,30 +56,39 @@ func TestAuthProvidersExposeOnlyPublicDeploymentCapabilities(t *testing.T) {
 	}
 }
 
-func TestFacebookAvailabilityMatchesProviderAdvertisement(t *testing.T) {
-	for _, tc := range []struct {
-		enabled    bool
-		id, secret string
-		want       bool
-	}{
-		{false, "fixture", "secret", false}, {true, "", "secret", false},
-		{true, "fixture", " ", false}, {true, "fixture", "secret", true},
-	} {
-		cfg := authFoundationConfig()
-		cfg.Authentication.ProviderFacebookEnabled = tc.enabled
-		cfg.Authentication.FacebookClientID, cfg.Authentication.FacebookClientSecret = tc.id, tc.secret
-		service := &fakeFederationService{}
-		handler := NewHandlerWithOptions(cfg, nil, Options{Identity: service})
-		resp := performRequest(handler, "GET", "/api/v1/auth/providers", "")
-		var body authProvidersResponse
-		decodeJSON(t, resp, &body)
-		if (len(body.OAuthProviders) == 1 && body.OAuthProviders[0] == "facebook") != tc.want {
-			t.Fatal("incorrect Facebook advertisement")
-		}
-		resp = performRequest(handler, "GET", "/api/v1/auth/oauth/facebook/start", "")
-		if tc.want && (resp.Code != http.StatusSeeOther || service.provider != "facebook") || !tc.want && resp.Code != http.StatusNotFound {
-			t.Fatalf("Facebook availability differs from advertisement: %d", resp.Code)
-		}
+func TestSocialProviderAvailabilityMatchesAdvertisement(t *testing.T) {
+	for _, provider := range []string{"facebook", "microsoft"} {
+		t.Run(provider, func(t *testing.T) {
+			for _, tc := range []struct {
+				enabled    bool
+				id, secret string
+				want       bool
+			}{
+				{false, "fixture", "secret", false}, {true, "", "secret", false},
+				{true, "fixture", " ", false}, {true, "fixture", "secret", true},
+			} {
+				cfg := authFoundationConfig()
+				if provider == "microsoft" {
+					cfg.Authentication.ProviderMicrosoftEnabled = tc.enabled
+					cfg.Authentication.MicrosoftClientID, cfg.Authentication.MicrosoftClientSecret = tc.id, tc.secret
+				} else {
+					cfg.Authentication.ProviderFacebookEnabled = tc.enabled
+					cfg.Authentication.FacebookClientID, cfg.Authentication.FacebookClientSecret = tc.id, tc.secret
+				}
+				service := &fakeFederationService{}
+				handler := NewHandlerWithOptions(cfg, nil, Options{Identity: service})
+				resp := performRequest(handler, "GET", "/api/v1/auth/providers", "")
+				var body authProvidersResponse
+				decodeJSON(t, resp, &body)
+				if (len(body.OAuthProviders) == 1 && body.OAuthProviders[0] == provider) != tc.want {
+					t.Fatal("incorrect provider advertisement")
+				}
+				resp = performRequest(handler, "GET", "/api/v1/auth/oauth/"+provider+"/start", "")
+				if tc.want && (resp.Code != http.StatusSeeOther || service.provider != provider) || !tc.want && resp.Code != http.StatusNotFound {
+					t.Fatalf("availability differs from advertisement: %d", resp.Code)
+				}
+			}
+		})
 	}
 }
 

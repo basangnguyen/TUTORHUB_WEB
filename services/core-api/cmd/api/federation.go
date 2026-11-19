@@ -43,5 +43,19 @@ func configuredFederationRegistry(ctx context.Context, cfg config.Config, legacy
 		}
 		entries = append(entries, identity.ProviderRegistration{Slug: "facebook", Issuer: provider.IssuerURL(), Provider: provider})
 	}
+	auth := cfg.Authentication
+	if auth.ProviderMicrosoftEnabled {
+		provider, err := identity.NewMicrosoftProvider(ctx, identity.MicrosoftProviderConfig{
+			OIDCProviderConfig: identity.OIDCProviderConfig{
+				IssuerURL: auth.MicrosoftAuthorityURL, ClientID: auth.MicrosoftClientID, ClientSecret: auth.MicrosoftClientSecret,
+				CallbackURL: auth.MicrosoftCallbackURL, HTTPTimeout: 10 * time.Second,
+			},
+			TenantMode: auth.MicrosoftTenantMode, AllowedTenantIDs: auth.MicrosoftAllowedTenantIDs, BlockedTenantIDs: auth.MicrosoftBlockedTenantIDs,
+		})
+		if err != nil {
+			return nil, errors.New("Microsoft provider initialization failed")
+		}
+		entries = append(entries, identity.ProviderRegistration{Slug: "microsoft", Issuer: identity.MicrosoftAuthorityURL, Provider: provider})
+	}
 	return identity.NewProviderRegistry(entries...)
 }

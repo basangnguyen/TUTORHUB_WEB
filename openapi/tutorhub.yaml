@@ -965,7 +965,7 @@ paths:
     get:
       operationId: beginOAuth
       summary: Start a provider-bound OAuth login or federated reauthentication flow
-      description: Uses PKCE S256, nonce, state and a browser-binding cookie. Reauthentication requires an existing session and requests prompt=login and max_age=0. Unknown or disabled providers return 404. return_to is validated by the existing server return-path sanitizer.
+      description: Uses PKCE S256, nonce, state and a browser-binding cookie. Reauthentication is available for oidc and google, requires an existing session and requests prompt=login and max_age=0. Unknown or disabled providers return 404. return_to is validated by the existing server return-path sanitizer.
       parameters:
         - $ref: "#/components/parameters/FederationProvider"
         - name: return_to
@@ -1005,7 +1005,7 @@ paths:
     get:
       operationId: completeOAuth
       summary: Complete a provider-bound single-use OAuth flow
-      description: The provider and optional iss must match the single-use flow. Errors redirect to /sign-in?error=<fixed_code>. An unlinked identity creates an owner-bound link_tx. A new Facebook subject creates a registration_tx and redirects to /sign-in?registration=pending&provider=facebook regardless of its email claim. Successful login sets session and CSRF cookies.
+      description: The provider and optional iss must match the single-use flow. Errors redirect to /sign-in?error=<fixed_code>. An unlinked identity creates an owner-bound link_tx. A new Facebook subject or a new Microsoft subject without an email verified by xms_edov=true creates a registration_tx and redirects to /sign-in?registration=pending&provider=<provider>. Successful login sets session and CSRF cookies.
       parameters:
         - $ref: "#/components/parameters/FederationProvider"
         - name: state
@@ -1056,7 +1056,7 @@ paths:
   /api/v1/auth/pending-registration/start:
     post:
       operationId: startPendingRegistration
-      summary: Send an email verification code for this Facebook registration
+      summary: Send an email verification code for this pending registration
       security:
         - RegistrationCookie: []
       parameters:
@@ -1482,7 +1482,7 @@ paths:
     post:
       operationId: beginIdentityLink
       summary: Begin a recent-authenticated external identity linking flow
-      description: Recent authentication failures return 403 with code auth_recent_authentication_required. Empty body or an empty object preserves the existing oidc default; an optional provider selects google.
+      description: Recent authentication failures return 403 with code auth_recent_authentication_required. An empty body or an empty object selects the default oidc provider. The request may select google or microsoft. Explicit Microsoft linking requires a trusted provider email.
       security:
         - SessionCookie: []
       parameters:
@@ -8868,7 +8868,7 @@ components:
       required: true
       schema:
         type: string
-        enum: [oidc, google, facebook]
+        enum: [oidc, google, facebook, microsoft]
     PreAuthOrigin:
       name: Origin
       in: header
@@ -9051,7 +9051,7 @@ components:
       properties:
         provider:
           type: string
-          enum: [oidc, google]
+          enum: [oidc, google, microsoft]
           description: Optional; omission selects the legacy oidc provider.
     LinkIntentResponse:
       type: object
@@ -9060,7 +9060,7 @@ components:
       properties:
         provider:
           type: string
-          enum: [oidc, google, facebook]
+          enum: [oidc, google, facebook, microsoft]
         masked_email:
           type: string
           description: Masked destination only; never the complete email address
@@ -9180,7 +9180,7 @@ components:
       properties:
         provider:
           type: string
-          const: facebook
+          enum: [facebook, microsoft]
         masked_email:
           type: string
         expires_in_seconds:

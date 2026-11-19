@@ -29,6 +29,10 @@ func facebookFederationEnabled(cfg config.AuthenticationConfig) bool {
 	return cfg.ProviderFacebookEnabled && strings.TrimSpace(cfg.FacebookClientID) != "" && strings.TrimSpace(cfg.FacebookClientSecret) != ""
 }
 
+func microsoftFederationEnabled(cfg config.AuthenticationConfig) bool {
+	return cfg.ProviderMicrosoftEnabled && strings.TrimSpace(cfg.MicrosoftClientID) != "" && strings.TrimSpace(cfg.MicrosoftClientSecret) != ""
+}
+
 func writeFederationProviderUnavailable(w http.ResponseWriter, r *http.Request) {
 	writeCodedProblem(w, r, http.StatusNotFound, "auth_provider_unavailable", "Provider unavailable", "This authentication provider is unavailable.")
 }
@@ -39,6 +43,8 @@ func (handlers federationHandlers) providerAvailable(provider string) bool {
 		return googleFederationEnabled(handlers.auth.config.Authentication)
 	case "facebook":
 		return facebookFederationEnabled(handlers.auth.config.Authentication)
+	case "microsoft":
+		return microsoftFederationEnabled(handlers.auth.config.Authentication)
 	case "oidc":
 		return handlers.auth.config.Authentication.ProviderOIDCDefaultEnabled && handlers.auth.config.Authentication.OIDCEnabled
 	default:
@@ -99,7 +105,7 @@ func (handlers federationHandlers) start(w http.ResponseWriter, r *http.Request)
 	if intent == "" {
 		intent = "login"
 	}
-	if intent != "login" && intent != "reauth" {
+	if intent != "login" && (intent != "reauth" || provider == "microsoft") {
 		writeProblem(w, r, http.StatusBadRequest, "Invalid request", "Provide a supported authentication intent.")
 		return
 	}
@@ -164,7 +170,7 @@ func (handlers federationHandlers) callback(w http.ResponseWriter, r *http.Reque
 	}
 	if result.RegistrationPending {
 		handlers.setTransactionCookie(w, identity.RegistrationTransactionCookieName(handlers.auth.config.Authentication.CookieSecure), result.RegistrationBinding, result.RegistrationExpiresAt)
-		http.Redirect(w, r, strings.TrimRight(handlers.auth.config.WebOrigin, "/")+"/sign-in?registration=pending&provider=facebook", http.StatusSeeOther)
+		http.Redirect(w, r, strings.TrimRight(handlers.auth.config.WebOrigin, "/")+"/sign-in?registration=pending&provider="+url.QueryEscape(provider), http.StatusSeeOther)
 		return
 	}
 	if result.SessionToken != "" && result.CSRFToken != "" {

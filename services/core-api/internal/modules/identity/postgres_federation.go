@@ -116,7 +116,7 @@ func (repository *PostgresRepository) ConfirmLinkIntent(ctx context.Context, inp
 	if input.Intent.UserID != input.Principal.User.ID {
 		return Principal{}, ErrLinkIntentMismatch
 	}
-	if input.Payload.ProviderSlug != "facebook" && !input.Payload.EmailVerified {
+	if !supportsPendingRegistration(input.Payload.ProviderSlug) && !input.Payload.EmailVerified {
 		return Principal{}, ErrVerifiedEmailRequired
 	}
 	ctx, cancel := repository.contextWithTimeout(ctx)
@@ -126,7 +126,7 @@ func (repository *PostgresRepository) ConfirmLinkIntent(ctx context.Context, inp
 		return Principal{}, ErrAuthFoundationStorage
 	}
 	defer rollback(tx)
-	claims := ProviderClaims{Issuer: input.Payload.Issuer, Subject: input.Payload.Subject, Email: input.Payload.Email, EmailVerified: input.Payload.ProviderSlug != "facebook" && input.Payload.EmailVerified, DisplayName: input.Payload.DisplayName, ProviderOrgID: input.Payload.ProviderOrgID}
+	claims := input.Payload.claims()
 	if err := lockProviderSubject(ctx, tx, claims); err != nil {
 		return Principal{}, ErrAuthFoundationStorage
 	}
@@ -182,7 +182,7 @@ func (repository *PostgresRepository) finishFederatedLink(ctx context.Context, t
 }
 
 func (repository *PostgresRepository) ReauthenticateFederated(ctx context.Context, input FederationReauthParams) (Principal, error) {
-	if input.Flow.Purpose != "reauth" || input.Flow.ProviderSlug == "facebook" || !input.Claims.EmailVerified {
+	if input.Flow.Purpose != "reauth" || input.Flow.ProviderSlug == "facebook" || input.Flow.ProviderSlug == "microsoft" || !input.Claims.EmailVerified {
 		return Principal{}, ErrInvalidAuthFlow
 	}
 	if input.Claims.AuthTime.IsZero() || input.Flow.CreatedAt.IsZero() ||
@@ -276,7 +276,7 @@ func (repository *PostgresRepository) CompleteFederatedLogin(ctx context.Context
 			return FederationLoginRecord{}, ErrInvalidAuthFlow
 		}
 		input.Claims.EmailVerified = false
-	} else if !input.Claims.EmailVerified {
+	} else if !input.Claims.EmailVerified && (input.ProviderSlug != "microsoft" || input.Flow.Purpose != flowPurposeLogin) {
 		return FederationLoginRecord{}, ErrVerifiedEmailRequired
 	}
 	if input.ProviderSlug == "" || input.Claims.Issuer == "" || input.Claims.Subject == "" {
@@ -359,9 +359,9 @@ func (repository *PostgresRepository) CompleteFederatedLogin(ctx context.Context
 		}
 		return FederationLoginRecord{Principal: principal}, nil
 	}
-	if input.ProviderSlug == "facebook" {
-		// Only a TutorHub OTP may move a previously unseen Facebook subject to
-		// account creation or an existing owner's explicit link intent.
+	if !input.Claims.EmailVerified {
+		// For a new subject, only a trusted provider email or a TutorHub OTP
+		// can select the email for signup or an existing owner's link intent.
 		if _, err := tx.Exec(ctx, `INSERT INTO tutorhub.auth_transactions
 			(binding_hash,kind,state,payload_ciphertext,provider_subject_digest,created_at,expires_at)
 			VALUES ($1,'federated_registration','pending',$2,$3,$4,$5)`,
@@ -430,7 +430,12 @@ func insertFederationLinkIntent(ctx context.Context, tx pgx.Tx, userID uuid.UUID
 
 func insertFederatedIdentity(ctx context.Context, tx pgx.Tx, userID uuid.UUID, slug string, claims ProviderClaims, now time.Time) (uuid.UUID, error) {
 	var id uuid.UUID
-	err := tx.QueryRow(ctx, `INSERT INTO tutorhub.identities(user_id,provider,subject,email_at_provider,email_verified,kind,provider_slug,provider_org_id,status,last_authenticated_at,created_at,updated_at) VALUES($1,$2,$3,NULLIF($4,''),$8,'oidc',$5,NULLIF($6,''),'active',$7,$7,$7) RETURNING id`, userID, claims.Issuer, claims.Subject, claims.Email, slug, claims.ProviderOrgID, now, slug != "facebook" && claims.EmailVerified).Scan(&id)
+	err := tx.QueryRow(ctx, `INSERT INTO tutorhub.identities(
+		user_id,provider,subject,email_at_provider,email_verified,kind,provider_slug,provider_org_id,
+		provider_stable_id,status,last_authenticated_at,created_at,updated_at)
+		VALUES($1,$2,$3,NULLIF($4,''),$5,'oidc',$6,NULLIF($7,''),NULLIF($8,''),'active',$9,$9,$9)
+		RETURNING id`, userID, claims.Issuer, claims.Subject, claims.Email, slug != "facebook" && claims.EmailVerified,
+		slug, claims.ProviderOrgID, claims.ProviderStableID, now).Scan(&id)
 	if err != nil {
 		return uuid.Nil, ErrAuthFoundationStorage
 	}

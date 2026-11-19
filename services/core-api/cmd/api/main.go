@@ -523,6 +523,9 @@ func run() int {
 			logger.Error("initialize federation service")
 			return 1
 		}
+		if authFoundation.native != nil {
+			authFoundation.native.ConfigureRegistrationProviders(registry)
+		}
 		identityService = configuredService
 		enrollmentService, err = classroom.NewEnrollmentService(
 			classroomRepository,

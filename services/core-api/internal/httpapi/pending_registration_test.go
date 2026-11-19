@@ -136,6 +136,20 @@ func TestPendingRegistrationPublicContracts(t *testing.T) {
 	}
 }
 
+func TestPendingRegistrationStartWithOnlyMicrosoftEnabled(t *testing.T) {
+	service := &registrationHTTPFixture{}
+	cfg := nativeTestConfig()
+	cfg.Authentication.ProviderMicrosoftEnabled = true
+	cfg.Authentication.MicrosoftClientID = "fixture-id"
+	cfg.Authentication.MicrosoftClientSecret = "fixture-secret"
+	router := nativeTestHandler(cfg, service, &nativeTestLimiter{}, nil)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, registrationRequestForTest("/start", `{"email":"learner@example.test"}`, true))
+	if recorder.Code != http.StatusAccepted || service.startInput.Email != "learner@example.test" || service.bound != nativeTestBinding {
+		t.Fatalf("pending registration did not reach the Microsoft-only deployment: %d", recorder.Code)
+	}
+}
+
 func TestPendingRegistrationRejectsInvalidBindingsOrRequests(t *testing.T) {
 	for _, suffix := range []string{"", "/start", "/resend", "/complete", "/cancel"} {
 		for _, scenario := range []string{"missing", "duplicate", "cross-origin", "disabled"} {

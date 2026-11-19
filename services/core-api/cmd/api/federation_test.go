@@ -21,6 +21,7 @@ func TestFederationStartupMissingProviderDependenciesFailsClosed(t *testing.T) {
 		{OIDCEnabled: true},
 		{ProviderGoogleEnabled: true, GoogleIssuerURL: "https://accounts.google.com"},
 		{ProviderFacebookEnabled: true, FacebookIssuerURL: "https://www.facebook.com"},
+		{ProviderMicrosoftEnabled: true, MicrosoftAuthorityURL: "https://microsoft-authority.invalid"},
 	} {
 		if _, err := configuredFederationRegistry(context.Background(), config.Config{Authentication: auth}, nil); err == nil {
 			t.Fatal("enabled federation accepted missing provider dependencies")

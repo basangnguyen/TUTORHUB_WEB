@@ -86,7 +86,7 @@ func (tx *registrationTestTx) Exec(ctx context.Context, query string, args ...an
 }
 
 func TestPendingRegistrationProofAndOwnerSelection(t *testing.T) {
-	for _, scenario := range []string{"new user", "existing owner", "wrong code", "expired code", "foreign challenge", "destination throttled", "signup disabled", "resend"} {
+	for _, scenario := range []string{"new user", "existing owner", "wrong code", "expired code", "foreign challenge", "destination throttled", "signup disabled", "resend", "Microsoft new user", "Microsoft existing owner", "Microsoft disabled provider", "Microsoft blocked tenant"} {
 		t.Run(scenario, func(t *testing.T) {
 			service, _, _ := nativeUnitFixture(t)
 			now := time.Now().UTC()
@@ -94,6 +94,11 @@ func TestPendingRegistrationProofAndOwnerSelection(t *testing.T) {
 			service.now = func() time.Time { return now }
 			const binding = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 			p := FederationIdentityPayload{ProviderSlug: "facebook", Subject: "12345", Issuer: "https://facebook.test", ReturnTo: "/app", Email: "hint@example.test"}
+			if strings.HasPrefix(scenario, "Microsoft ") {
+				p.ProviderSlug, p.ProviderOrgID, p.ProviderStableID = "microsoft", uuid.NewString(), uuid.NewString()
+				p.Issuer = microsoftIssuer(p.ProviderOrgID)
+				service.ConfigureRegistrationProviders(microsoftTestRegistry(t, &MicrosoftProvider{tenantMode: "common"}))
+			}
 			raw, err := json.Marshal(p)
 			if err != nil {
 				t.Fatal(err)
@@ -102,13 +107,17 @@ func TestPendingRegistrationProofAndOwnerSelection(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			db := &registrationTestDB{foundationTestDB: newFoundationTestDB(), owner: uuid.New(), existing: scenario == "existing owner",
+			db := &registrationTestDB{foundationTestDB: newFoundationTestDB(), owner: uuid.New(), existing: strings.HasSuffix(scenario, "existing owner"),
 				row:        AuthTransaction{ID: uuid.New(), Kind: registrationKind, State: "pending", CreatedAt: now, ExpiresAt: now.Add(AuthTransactionTTL)},
 				ciphertext: ciphertext, bindingHash: service.crypto.Digest(registrationBindingPurpose, binding), digest: service.crypto.ProviderSubjectDigest(p.Issuer, p.Subject)}
 			service.database = db
 			service.challenges = NewChallengeService(db, service.crypto, nil)
 			service.challenges.now = service.now
 			service.challenges.code = func() (string, error) { return "420381", nil }
+			view, err := service.PreviewRegistration(ctx, binding)
+			if err != nil || view.Provider != p.ProviderSlug || view.MaskedEmail != "h***@example.test" {
+				t.Fatal("registration preview lost provider provenance", err)
+			}
 			const email = "chosen@example.test"
 			start, err := service.StartRegistration(ctx, binding, SignupStartInput{Email: email, DestinationAllowed: scenario != "destination throttled"})
 			if err != nil {
@@ -118,6 +127,12 @@ func TestPendingRegistrationProofAndOwnerSelection(t *testing.T) {
 				SignupEnabled: scenario != "signup disabled" && !db.existing, KeepSignedIn: true}
 			var wantErr error
 			switch scenario {
+			case "Microsoft disabled provider":
+				service.ConfigureRegistrationProviders(nil)
+				wantErr = ErrAuthTransactionUnavailable
+			case "Microsoft blocked tenant":
+				service.ConfigureRegistrationProviders(microsoftTestRegistry(t, &MicrosoftProvider{tenantMode: "common", blockedTenantIDs: []string{p.ProviderOrgID}}))
+				wantErr = ErrAuthTransactionUnavailable
 			case "wrong code":
 				input.Code = "000000"
 				wantErr = ErrNativeInvalidCode

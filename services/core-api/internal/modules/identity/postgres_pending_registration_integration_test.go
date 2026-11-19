@@ -15,11 +15,16 @@ import (
 
 func seedFacebookRegistration(t *testing.T, f *nativeIntegrationFixture, hint string) (string, FederationIdentityPayload) {
 	t.Helper()
+	p := FederationIdentityPayload{ProviderSlug: "facebook", Issuer: "https://facebook.example.test", Subject: uuid.NewString(), Email: hint, ReturnTo: "/app/home"}
+	return seedSocialRegistration(t, f, p), p
+}
+
+func seedSocialRegistration(t *testing.T, f *nativeIntegrationFixture, p FederationIdentityPayload) string {
+	t.Helper()
 	binding, err := f.service.crypto.RandomToken()
 	if err != nil {
 		t.Fatal(err)
 	}
-	p := FederationIdentityPayload{ProviderSlug: "facebook", Issuer: "https://facebook.example.test", Subject: uuid.NewString(), Email: hint, ReturnTo: "/app/home"}
 	raw, err := json.Marshal(p)
 	if err != nil {
 		t.Fatal(err)
@@ -32,8 +37,8 @@ func seedFacebookRegistration(t *testing.T, f *nativeIntegrationFixture, hint st
 	hash := f.service.crypto.Digest(registrationBindingPurpose, binding)
 	repository := NewPostgresRepository(f.pool, 20*time.Second, policy.NewEngine())
 	result, err := repository.CompleteFederatedLogin(f.ctx, FederationLoginParams{
-		ProviderSlug: "facebook", Flow: StoredFlow{Purpose: flowPurposeLogin},
-		Claims:                  ProviderClaims{ProviderSlug: "facebook", Issuer: p.Issuer, Subject: p.Subject, Email: p.Email},
+		ProviderSlug: p.ProviderSlug, Flow: StoredFlow{Purpose: flowPurposeLogin},
+		Claims:                  p.claims(),
 		RegistrationBindingHash: hash, LinkPayloadCiphertext: encrypted,
 		ProviderSubjectDigest: f.service.crypto.ProviderSubjectDigest(p.Issuer, p.Subject),
 		LinkExpiresAt:         now.Add(AuthTransactionTTL), Metadata: SessionMetadata{CreatedAt: now},
@@ -46,7 +51,45 @@ func seedFacebookRegistration(t *testing.T, f *nativeIntegrationFixture, hint st
 		t.Fatal("read pending registration", err)
 	}
 	f.transactions = append(f.transactions, id)
-	return binding, p
+	return binding
+}
+
+func TestMicrosoftRegistrationOTPUsesChosenEmailAndPreservesTenantIdentity(t *testing.T) {
+	f := newNativeIntegrationFixture(t)
+	p := FederationIdentityPayload{ProviderSlug: "microsoft", ProviderOrgID: uuid.NewString(), ProviderStableID: uuid.NewString(),
+		Subject: uuid.NewString(), Email: "untrusted@example.test", ReturnTo: "/app/home"}
+	p.Issuer = microsoftIssuer(p.ProviderOrgID)
+	registry := microsoftTestRegistry(t, &MicrosoftProvider{tenantMode: "common"})
+	f.service.ConfigureRegistrationProviders(registry)
+	binding := seedSocialRegistration(t, f, p)
+	view, err := f.service.PreviewRegistration(f.ctx, binding)
+	if err != nil || view.Provider != "microsoft" || view.MaskedEmail != "u***@example.test" {
+		t.Fatal("Microsoft registration preview", err)
+	}
+	chosen := "otp-" + uuid.NewString() + "@example.test"
+	f.emails = append(f.emails, chosen)
+	challenge, err := f.service.StartRegistration(f.ctx, binding, SignupStartInput{Email: chosen, DestinationAllowed: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	input := RegistrationCompleteInput{ChallengeID: challenge.ChallengeID, Code: "420381", TermsVersion: f.service.config.LegalTermsVersion, SignupEnabled: true}
+	f.service.ConfigureRegistrationProviders(microsoftTestRegistry(t, &MicrosoftProvider{tenantMode: "common", blockedTenantIDs: []string{p.ProviderOrgID}}))
+	if _, err := f.service.CompleteRegistration(f.ctx, binding, input); !errors.Is(err, ErrAuthTransactionUnavailable) {
+		t.Fatal("tenant policy change did not invalidate an outstanding registration", err)
+	}
+	f.service.ConfigureRegistrationProviders(registry)
+	completed, err := f.service.CompleteRegistration(f.ctx, binding, input)
+	if err != nil || completed.LinkBinding != "" || completed.Session.SessionToken == "" {
+		t.Fatal("OTP registration failed", err)
+	}
+	var email, hint, org, oid string
+	var verified bool
+	err = f.pool.QueryRow(f.ctx, `SELECT u.email,i.email_at_provider,i.email_verified,i.provider_org_id,i.provider_stable_id
+		FROM tutorhub.identities i JOIN tutorhub.users u ON u.id=i.user_id WHERE i.provider_slug='microsoft' AND i.provider=$1 AND i.subject=$2`,
+		p.Issuer, p.Subject).Scan(&email, &hint, &verified, &org, &oid)
+	if err != nil || email != chosen || hint != p.Email || verified || org != p.ProviderOrgID || oid != p.ProviderStableID {
+		t.Fatal("registration confused provider attributes with OTP verification", err)
+	}
 }
 
 func TestFacebookRegistrationAtomicCompletionAndRecovery(t *testing.T) {

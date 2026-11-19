@@ -91,13 +91,17 @@ func TestIdentityRoutesListLinkAndUnlink(t *testing.T) {
 		EmailVerified:       true,
 		CreatedAt:           fixedTime.Add(-24 * time.Hour),
 		LastAuthenticatedAt: fixedTime,
+	}, {
+		ID:           uuid.MustParse("dd91748e-c3bf-45a4-93e2-bf18e96ff35d"),
+		Provider:     "https://login.microsoftonline.com/9188040d-6c67-4c5b-b112-36a304b66dad/v2.0",
+		ProviderSlug: "microsoft",
 	}}}
 	handler := newAuthTestHandler(service, false)
 
 	listRequest := authenticatedRequest(http.MethodGet, "/api/v1/me/identities", "")
 	listResponse := httptest.NewRecorder()
 	handler.ServeHTTP(listResponse, listRequest)
-	if listResponse.Code != http.StatusOK || !strings.Contains(listResponse.Body.String(), identityID.String()) || !strings.Contains(listResponse.Body.String(), `"provider_slug":"oidc"`) {
+	if listResponse.Code != http.StatusOK || !strings.Contains(listResponse.Body.String(), identityID.String()) || !strings.Contains(listResponse.Body.String(), `"provider_slug":"oidc"`) || !strings.Contains(listResponse.Body.String(), `"provider_slug":"microsoft"`) {
 		t.Fatalf("list identities: status=%d body=%s", listResponse.Code, listResponse.Body.String())
 	}
 

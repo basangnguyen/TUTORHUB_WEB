@@ -72,6 +72,24 @@ type pendingRegistration struct {
 	digest  []byte
 }
 
+// ConfigureRegistrationProviders binds pending registrations to the currently
+// enabled providers and tenant policy at startup.
+func (service *NativeAuthService) ConfigureRegistrationProviders(registry *ProviderRegistry) {
+	service.registrationProviders = registry
+}
+
+func (service *NativeAuthService) registrationProviderAllowed(p FederationIdentityPayload) bool {
+	if !supportsPendingRegistration(p.ProviderSlug) {
+		return false
+	}
+	if service.registrationProviders == nil {
+		// Standalone AUTH-06A callers predate the registry and support Facebook only.
+		return p.ProviderSlug == "facebook"
+	}
+	entry, err := service.registrationProviders.lookup(p.ProviderSlug)
+	return err == nil && entry.matchesIssuer(p.Issuer)
+}
+
 func (service *NativeAuthService) readRegistration(ctx context.Context, tx pgx.Tx, binding string, lock bool) (pendingRegistration, error) {
 	var registration pendingRegistration
 	if len(binding) != 43 {
@@ -104,7 +122,7 @@ func (service *NativeAuthService) readRegistration(ctx context.Context, tx pgx.T
 		}
 	}
 	returnTo, err := NormalizeReturnTo(p.ReturnTo)
-	if err != nil || returnTo != p.ReturnTo || p.ProviderSlug != "facebook" || p.Issuer == "" || p.Subject == "" || p.EmailVerified ||
+	if err != nil || returnTo != p.ReturnTo || !service.registrationProviderAllowed(p.FederationIdentityPayload) || p.Issuer == "" || p.Subject == "" || p.EmailVerified ||
 		!hmac.Equal(registration.digest, service.crypto.ProviderSubjectDigest(p.Issuer, p.Subject)) || !registration.ExpiresAt.After(service.now()) {
 		return registration, ErrAuthTransactionUnavailable
 	}
@@ -127,7 +145,7 @@ func (service *NativeAuthService) PreviewRegistration(ctx context.Context, bindi
 	if err != nil {
 		return PendingRegistrationView{}, err
 	}
-	return PendingRegistrationView{Provider: "facebook", MaskedEmail: registrationEmailHint(r.payload.Email), ExpiresInSeconds: max(1, int(r.ExpiresAt.Sub(service.now()).Seconds()))}, nil
+	return PendingRegistrationView{Provider: r.payload.ProviderSlug, MaskedEmail: registrationEmailHint(r.payload.Email), ExpiresInSeconds: max(1, int(r.ExpiresAt.Sub(service.now()).Seconds()))}, nil
 }
 
 func registrationEmailHint(email string) string {
@@ -230,7 +248,7 @@ func (service *NativeAuthService) CompleteRegistration(ctx context.Context, bind
 	if err != nil {
 		return RegistrationResult{}, err
 	}
-	claims := ProviderClaims{ProviderSlug: "facebook", Issuer: snapshot.payload.Issuer, Subject: snapshot.payload.Subject, Email: snapshot.payload.Email}
+	claims := snapshot.payload.claims()
 	if err := lockProviderSubject(ctx, tx, claims); err != nil {
 		return RegistrationResult{}, ErrAuthFoundationStorage
 	}
@@ -280,7 +298,7 @@ func (service *NativeAuthService) CompleteRegistration(ctx context.Context, bind
 	}
 	var result RegistrationResult
 	if created {
-		result, err = service.registerFacebookUser(ctx, tx, userID, r, claims, input, now)
+		result, err = service.registerFederatedUser(ctx, tx, userID, r, claims, input, now)
 	} else {
 		result, err = service.registrationLink(ctx, tx, userID, r, now)
 	}
@@ -326,11 +344,11 @@ func registrationOwner(ctx context.Context, tx pgx.Tx, email string, signupEnabl
 	return userID, false, nil
 }
 
-func (service *NativeAuthService) registerFacebookUser(ctx context.Context, tx pgx.Tx, userID uuid.UUID, r pendingRegistration, claims ProviderClaims, input RegistrationCompleteInput, now time.Time) (RegistrationResult, error) {
+func (service *NativeAuthService) registerFederatedUser(ctx context.Context, tx pgx.Tx, userID uuid.UUID, r pendingRegistration, claims ProviderClaims, input RegistrationCompleteInput, now time.Time) (RegistrationResult, error) {
 	if _, err := ensureNativeEmailIdentity(ctx, tx, userID, r.payload.OTPEmail, now); err != nil {
 		return RegistrationResult{}, err
 	}
-	identityID, err := insertFederatedIdentity(ctx, tx, userID, "facebook", claims, now)
+	identityID, err := insertFederatedIdentity(ctx, tx, userID, claims.ProviderSlug, claims, now)
 	if err != nil {
 		return RegistrationResult{}, err
 	}
@@ -363,7 +381,7 @@ func (service *NativeAuthService) registrationLink(ctx context.Context, tx pgx.T
 		return RegistrationResult{}, ErrAuthFoundationStorage
 	}
 	expires := now.Add(AuthTransactionTTL)
-	err = insertFederationLinkIntent(ctx, tx, userID, FederationLoginParams{ProviderSlug: "facebook", ProviderSubjectDigest: r.digest,
+	err = insertFederationLinkIntent(ctx, tx, userID, FederationLoginParams{ProviderSlug: r.payload.ProviderSlug, ProviderSubjectDigest: r.digest,
 		LinkBindingHash: service.crypto.Digest(linkBindingPurpose, binding), LinkPayloadCiphertext: ciphertext, LinkExpiresAt: expires, Metadata: SessionMetadata{CreatedAt: now}})
 	if err != nil {
 		return RegistrationResult{}, err

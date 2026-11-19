@@ -17,7 +17,8 @@ type registrationCompleteRequest struct {
 }
 
 func (handlers nativeAuthHandlers) registrationRequest(w http.ResponseWriter, r *http.Request, actions ...InvitationRateLimitAction) (identity.PendingRegistrationAPI, string, bool) {
-	if !(federationHandlers{auth: handlers.auth}).providerAvailable("facebook") {
+	cfg := handlers.auth.config.Authentication
+	if !facebookFederationEnabled(cfg) && !microsoftFederationEnabled(cfg) {
 		writeFederationProviderUnavailable(w, r)
 		return nil, "", false
 	}

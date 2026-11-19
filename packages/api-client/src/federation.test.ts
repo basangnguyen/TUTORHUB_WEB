@@ -7,6 +7,7 @@ import {
   getCurrentCSRFToken,
   getFederatedLinkIntent,
   getLinkIntent,
+  getOAuthLinkIntent,
   linkIdentity,
   rotateCSRFToken,
 } from "./index";
@@ -78,6 +79,19 @@ describe("federation client", () => {
     );
     await expect(getFederatedLinkIntent()).resolves.toEqual(preview);
     await expect(getLinkIntent()).rejects.toThrow(
+      "The account-link screen does not support this provider.",
+    );
+  });
+
+  it("reads a Microsoft link intent only on clients that support Microsoft", async () => {
+    const preview = {
+      provider: "microsoft",
+      masked_email: "s***@e***.test",
+      expires_in_seconds: 600,
+    };
+    const options = { fetch: async () => reply(preview) };
+    await expect(getOAuthLinkIntent(options)).resolves.toEqual(preview);
+    await expect(getFederatedLinkIntent(options)).rejects.toThrow(
       "The account-link screen does not support this provider.",
     );
   });
@@ -177,7 +191,12 @@ describe("federation client", () => {
     });
   });
 
-  it.each([{}, { provider: "google" }, { provider: "oidc" }] as const)(
+  it.each([
+    {},
+    { provider: "google" },
+    { provider: "oidc" },
+    { provider: "microsoft" },
+  ] as const)(
     "starts a settings link with explicit optional provider %j",
     async (input) => {
       const result = {

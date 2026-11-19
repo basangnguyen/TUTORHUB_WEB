@@ -8,16 +8,17 @@ import (
 )
 
 type ProviderClaims struct {
-	ProviderSlug  string
-	ProviderOrgID string
-	Issuer        string
-	Subject       string
-	Email         string
-	EmailVerified bool
-	DisplayName   string
-	Locale        string
-	Nonce         string
-	AuthTime      time.Time
+	ProviderSlug     string
+	ProviderOrgID    string
+	ProviderStableID string
+	Issuer           string
+	Subject          string
+	Email            string
+	EmailVerified    bool
+	DisplayName      string
+	Locale           string
+	Nonce            string
+	AuthTime         time.Time
 }
 
 type Provider interface {

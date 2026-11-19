@@ -828,7 +828,7 @@ func normalizeProviderClaims(claims ProviderClaims, now time.Time) (ProviderClai
 	return normalizeFederationClaims(claims, now, false)
 }
 
-func normalizeFederationClaims(claims ProviderClaims, now time.Time, facebook bool) (ProviderClaims, error) {
+func normalizeFederationClaims(claims ProviderClaims, now time.Time, allowUnverifiedEmail bool) (ProviderClaims, error) {
 	claims.Issuer = strings.TrimRight(strings.TrimSpace(claims.Issuer), "/")
 	claims.Subject = strings.TrimSpace(claims.Subject)
 	claims.Email = strings.ToLower(strings.TrimSpace(claims.Email))
@@ -840,8 +840,10 @@ func normalizeFederationClaims(claims ProviderClaims, now time.Time, facebook bo
 	}
 	address, err := mail.ParseAddress(claims.Email)
 	validEmail := err == nil && strings.EqualFold(address.Address, claims.Email) && len(claims.Email) <= 320
-	if facebook {
-		claims.EmailVerified = false
+	if claims.ProviderSlug == "microsoft" && !validEmail {
+		claims.Email, claims.EmailVerified = "", false
+	}
+	if allowUnverifiedEmail && !claims.EmailVerified {
 		if !validEmail {
 			claims.Email = ""
 		}

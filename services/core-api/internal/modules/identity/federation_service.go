@@ -40,7 +40,7 @@ func (service *Service) BeginOAuth(ctx context.Context, slug, returnTo, intent s
 		return LoginStart{}, err
 	}
 	if intent == "reauth" {
-		if slug == "facebook" {
+		if slug == "facebook" || slug == "microsoft" {
 			return LoginStart{}, ErrFederationReauthRequired
 		}
 		if err := validatePrincipal(principal); err != nil {
@@ -141,11 +141,18 @@ func (service *Service) CompleteOAuth(ctx context.Context, slug string, input Ca
 	if err != nil {
 		return OAuthResult{}, ErrProviderExchange
 	}
-	if !entry.matchesIssuer(strings.TrimRight(claims.Issuer, "/")) || !service.crypto.EqualDigest(flow.NonceHash, noncePurpose, claims.Nonce) {
+	issuer := strings.TrimRight(claims.Issuer, "/")
+	if slug == "microsoft" {
+		issuer = claims.Issuer
+		if (input.Issuer != "" && input.Issuer != issuer) || strings.TrimSpace(claims.Subject) != claims.Subject {
+			return OAuthResult{}, ErrProviderExchange
+		}
+	}
+	if !entry.matchesIssuer(issuer) || !service.crypto.EqualDigest(flow.NonceHash, noncePurpose, claims.Nonce) {
 		return OAuthResult{}, ErrProviderExchange
 	}
 	if flow.Purpose == "reauth" {
-		if slug == "facebook" {
+		if slug == "facebook" || slug == "microsoft" {
 			return OAuthResult{}, ErrFederationReauthRequired
 		}
 		if flow.UserID == uuid.Nil || flow.SessionID == uuid.Nil || flow.CreatedAt.IsZero() || claims.AuthTime.IsZero() || claims.AuthTime.Before(flow.CreatedAt.Truncate(time.Second)) || claims.AuthTime.After(now.Add(time.Minute)) {
@@ -153,11 +160,14 @@ func (service *Service) CompleteOAuth(ctx context.Context, slug string, input Ca
 		}
 	}
 	claims.ProviderSlug = slug
-	claims, err = normalizeFederationClaims(claims, now, slug == "facebook")
+	if slug == "facebook" {
+		claims.EmailVerified = false
+	}
+	claims, err = normalizeFederationClaims(claims, now, supportsPendingRegistration(slug) && flow.Purpose == flowPurposeLogin)
 	if err != nil {
 		return OAuthResult{}, err
 	}
-	if len(claims.ProviderOrgID) > 200 {
+	if len(claims.ProviderOrgID) > 200 || len(claims.ProviderStableID) > 200 {
 		return OAuthResult{}, ErrProviderExchange
 	}
 	returnTo, err := NormalizeReturnTo(flow.ReturnTo)
@@ -179,7 +189,7 @@ func (service *Service) CompleteOAuth(ctx context.Context, slug string, input Ca
 		}
 		return OAuthResult{Provider: slug, LoginResult: LoginResult{SessionToken: token, CSRFToken: csrf, ExpiresAt: principal.CookieExpiresAt, ReturnTo: returnTo}}, nil
 	}
-	payload := FederationIdentityPayload{ProviderSlug: slug, Issuer: claims.Issuer, Subject: claims.Subject, Email: claims.Email, EmailVerified: claims.EmailVerified, DisplayName: claims.DisplayName, ProviderOrgID: claims.ProviderOrgID, ReturnTo: returnTo}
+	payload := FederationIdentityPayload{ProviderSlug: slug, Issuer: claims.Issuer, Subject: claims.Subject, Email: claims.Email, EmailVerified: claims.EmailVerified, DisplayName: claims.DisplayName, ProviderOrgID: claims.ProviderOrgID, ProviderStableID: claims.ProviderStableID, ReturnTo: returnTo}
 	raw, err := json.Marshal(payload)
 	if err != nil {
 		return OAuthResult{}, ErrAuthFoundationStorage
@@ -244,7 +254,7 @@ func (service *Service) readFederationIntent(ctx context.Context, binding string
 	}
 	var payload FederationIdentityPayload
 	if json.Unmarshal([]byte(raw), &payload) != nil || payload.Issuer == "" || payload.Subject == "" ||
-		(payload.ProviderSlug != "facebook" && (!payload.EmailVerified || payload.Email == "")) {
+		(!payload.EmailVerified && !supportsPendingRegistration(payload.ProviderSlug)) || (payload.EmailVerified && payload.Email == "") {
 		return nil, intent, payload, ErrLinkIntentUnavailable
 	}
 	entry, err := service.registry.lookup(payload.ProviderSlug)
@@ -271,7 +281,7 @@ func (service *Service) GetLinkIntent(ctx context.Context, binding string) (Link
 		return LinkIntentView{}, ErrLinkIntentUnavailable
 	}
 	email := payload.Email
-	if payload.ProviderSlug == "facebook" {
+	if supportsPendingRegistration(payload.ProviderSlug) {
 		email = intent.TargetEmail
 	}
 	parts := strings.SplitN(email, "@", 2)

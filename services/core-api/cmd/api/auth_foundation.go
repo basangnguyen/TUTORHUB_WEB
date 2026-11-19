@@ -20,7 +20,10 @@ type authFoundationRuntime struct {
 	challenges   *identity.ChallengeService
 	dispatcher   *identity.DeliveryDispatcher
 	inbox        *devinbox.Inbox
-	native       identity.NativeAuthAPI
+	native       interface {
+		identity.NativeAuthAPI
+		ConfigureRegistrationProviders(*identity.ProviderRegistry)
+	}
 }
 
 func newAuthFoundation(cfg config.Config, pool *pgxpool.Pool, limiter httpapi.InvitationRateLimiter) (*authFoundationRuntime, error) {

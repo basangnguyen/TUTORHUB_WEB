@@ -1338,7 +1338,7 @@ WHERE provider = $1 AND subject = $2`
 		&providerSlug,
 	)
 	if err == nil {
-		if providerSlug == "facebook" {
+		if providerSlug == "facebook" || providerSlug == "microsoft" {
 			return uuid.Nil, uuid.Nil, ErrIdentityInactive
 		}
 		// Resolve the immutable owner first, then lock in the same order as
@@ -1663,7 +1663,7 @@ FOR UPDATE`,
 		if existingUserID != userID {
 			return ExternalIdentity{}, ErrIdentityConflict
 		}
-		if status == "erased" || existing.ProviderSlug == "facebook" {
+		if status == "erased" || existing.ProviderSlug == "facebook" || existing.ProviderSlug == "microsoft" {
 			return ExternalIdentity{}, ErrIdentityInactive
 		}
 		if _, err := transaction.Exec(

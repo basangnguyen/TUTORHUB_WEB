@@ -36,7 +36,15 @@ func NewProviderRegistry(entries ...ProviderRegistration) (*ProviderRegistry, er
 			return nil, fmt.Errorf("invalid federation issuer")
 		}
 		entry.Issuer = strings.TrimRight(entry.Issuer, "/")
+		if entry.Slug == "microsoft" {
+			if _, ok := entry.Provider.(microsoftIssuerPolicy); !ok || entry.Issuer != MicrosoftAuthorityURL {
+				return nil, fmt.Errorf("Microsoft provider requires a tenant issuer policy")
+			}
+		}
 		for _, other := range result.providers {
+			if microsoftIssuerOverlap(entry, other) || microsoftIssuerOverlap(other, entry) {
+				return nil, fmt.Errorf("Microsoft tenant issuers cannot be shared with another provider")
+			}
 			if (entry.Slug == "facebook" || other.Slug == "facebook") && other.Issuer == entry.Issuer {
 				return nil, fmt.Errorf("Facebook issuer cannot be shared with another provider")
 			}
@@ -57,7 +65,19 @@ func (registry *ProviderRegistry) lookup(slug string) (ProviderRegistration, err
 	return entry, nil
 }
 
+type microsoftIssuerPolicy interface {
+	matchesMicrosoftIssuer(string) bool
+}
+
+func microsoftIssuerOverlap(entry, other ProviderRegistration) bool {
+	return entry.Slug == "microsoft" && (other.Issuer == MicrosoftAuthorityURL || microsoftIssuerTenant(other.Issuer) != "")
+}
+
 func (entry ProviderRegistration) matchesIssuer(issuer string) bool {
+	if entry.Slug == "microsoft" {
+		policy, ok := entry.Provider.(microsoftIssuerPolicy)
+		return ok && policy.matchesMicrosoftIssuer(issuer)
+	}
 	if entry.Slug == "google" && entry.Issuer == GoogleIssuerURL {
 		return issuer == GoogleIssuerURL || issuer == "accounts.google.com"
 	}
