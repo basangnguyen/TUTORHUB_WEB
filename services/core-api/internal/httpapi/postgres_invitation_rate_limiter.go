@@ -121,6 +121,7 @@ func invitationRateLimitPurpose(action InvitationRateLimitAction) string {
 	switch action {
 	case AuthRateLimitDiscoveryIP, AuthRateLimitSignupIP, AuthRateLimitPasswordFailIP, AuthRateLimitOTPSendDestination, AuthRateLimitOTPSendIP,
 		AuthRateLimitOTPVerifyIP, AuthRateLimitDeliveryDailyEmail, AuthRateLimitDeliveryDailyPhone,
+		AuthRateLimitPasskeyOptionsIP, AuthRateLimitPasskeyVerifyIP,
 		AuthRateLimitReauthUser, AuthRateLimitReauthIP, AuthRateLimitReauthSendUser, AuthRateLimitReauthSendIP,
 		AuthRateLimitSessionRevokeUser, AuthRateLimitSessionRevokeIP,
 		AuthRateLimitOAuthStartIP, AuthRateLimitOAuthCallbackIP, AuthRateLimitLinkIntentIP, AuthRateLimitLinkIntentUser:

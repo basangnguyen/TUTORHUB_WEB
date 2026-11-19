@@ -129,7 +129,20 @@ func (service *NativeAuthService) readReauthTransaction(ctx context.Context, tx 
 		return AuthTransaction{}, reauthEmailPayload{}, ErrAuthFoundationStorage
 	}
 	var payload reauthEmailPayload
-	if json.Unmarshal([]byte(raw), &payload) != nil || payload.Email == "" || payload.ContextVersion < 1 {
+	if json.Unmarshal([]byte(raw), &payload) != nil {
+		return AuthTransaction{}, reauthEmailPayload{}, ErrAuthFoundationStorage
+	}
+	if payload.Email == "" {
+		// The same browser cookie also binds passkey step-up. Switching to email
+		// must create a fresh transaction rather than interpret the WebAuthn proof.
+		var passkey passkeyPayload
+		if json.Unmarshal([]byte(raw), &passkey) == nil && passkey.Purpose == PasskeyReauth &&
+			passkey.ContextVersion > 0 && passkey.Session.Challenge != "" && len(passkey.Session.UserID) == 64 {
+			return AuthTransaction{}, reauthEmailPayload{}, ErrNativeInvalidCode
+		}
+		return AuthTransaction{}, reauthEmailPayload{}, ErrAuthFoundationStorage
+	}
+	if payload.ContextVersion < 1 {
 		return AuthTransaction{}, reauthEmailPayload{}, ErrAuthFoundationStorage
 	}
 	return transaction, payload, nil
@@ -276,10 +289,10 @@ func (service *NativeAuthService) verifyLockedReauthPassword(ctx context.Context
 	return nil
 }
 
-func (service *NativeAuthService) completeReauthentication(ctx context.Context, tx pgx.Tx, principal Principal, locked lockedSecuritySession, tokens NativeSessionResult, method string) (ReauthenticateResult, error) {
+func (service *NativeAuthService) reauthSessionLifetime(ctx context.Context, tx pgx.Tx, userID uuid.UUID, locked lockedSecuritySession) (NativeSessionResult, error) {
 	var admin bool
-	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM tutorhub.memberships WHERE user_id=$1 AND role='org_admin' AND status='active')`, principal.User.ID).Scan(&admin); err != nil {
-		return ReauthenticateResult{}, ErrAuthFoundationStorage
+	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM tutorhub.memberships WHERE user_id=$1 AND role='org_admin' AND status='active')`, userID).Scan(&admin); err != nil {
+		return NativeSessionResult{}, ErrAuthFoundationStorage
 	}
 	absolute, expires, persistent := locked.AbsoluteExpiresAt, locked.ExpiresAt, locked.Persistent
 	if admin {
@@ -289,8 +302,17 @@ func (service *NativeAuthService) completeReauthentication(ctx context.Context, 
 	}
 	now := service.now().UTC()
 	if !expires.After(now) || !absolute.After(now) {
-		return ReauthenticateResult{}, ErrSessionNotFound
+		return NativeSessionResult{}, ErrSessionNotFound
 	}
+	return NativeSessionResult{AbsoluteExpiresAt: absolute, ExpiresAt: expires, Persistent: persistent}, nil
+}
+
+func (service *NativeAuthService) completeReauthentication(ctx context.Context, tx pgx.Tx, principal Principal, locked lockedSecuritySession, tokens NativeSessionResult, method string) (ReauthenticateResult, error) {
+	lifetime, err := service.reauthSessionLifetime(ctx, tx, principal.User.ID, locked)
+	if err != nil {
+		return ReauthenticateResult{}, err
+	}
+	now := service.now().UTC()
 	if method == "password" {
 		method = "pwd"
 	}
@@ -299,21 +321,25 @@ func (service *NativeAuthService) completeReauthentication(ctx context.Context, 
         context_version=context_version+1,persistent=$7,absolute_expires_at=$8,expires_at=$9
         WHERE id=$1 AND user_id=$2 AND revoked_at IS NULL AND context_version=$10`,
 		principal.SessionID, principal.User.ID, now, service.crypto.Digest(sessionPurpose, tokens.SessionToken),
-		service.crypto.Digest(csrfPurpose, tokens.CSRFToken), method, persistent, absolute, expires, principal.ContextVersion)
+		service.crypto.Digest(csrfPurpose, tokens.CSRFToken), method, lifetime.Persistent, lifetime.AbsoluteExpiresAt, lifetime.ExpiresAt, principal.ContextVersion)
 	if err != nil || command.RowsAffected() != 1 {
 		return ReauthenticateResult{}, ErrAuthFoundationStorage
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return ReauthenticateResult{}, ErrAuthFoundationStorage
 	}
-	cookieExpiry := expires
-	if persistent {
-		cookieExpiry = absolute
+	return reauthResult(locked, tokens, lifetime, now), nil
+}
+
+func reauthResult(locked lockedSecuritySession, tokens, lifetime NativeSessionResult, now time.Time) ReauthenticateResult {
+	cookieExpiry := lifetime.ExpiresAt
+	if lifetime.Persistent {
+		cookieExpiry = lifetime.AbsoluteExpiresAt
 	}
 	recentAt := now
 	if locked.AuthenticatedAt.After(recentAt) {
 		recentAt = locked.AuthenticatedAt
 	}
 	return ReauthenticateResult{RecentAuthExpiresAt: recentAt.Add(nativePasswordRecentAuthTTL), SessionToken: tokens.SessionToken,
-		CSRFToken: tokens.CSRFToken, CookieExpiresAt: cookieExpiry}, nil
+		CSRFToken: tokens.CSRFToken, CookieExpiresAt: cookieExpiry}
 }

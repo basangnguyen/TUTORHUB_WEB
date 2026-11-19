@@ -52,3 +52,30 @@ func TestMySecurityAvailableMethodsAndRecentExpiry(t *testing.T) {
 		t.Fatalf("AAL2 session advertised AAL1-only reauth methods: %+v %v", got, err)
 	}
 }
+
+func TestMySecurityPasskeyCountAndUsableMethods(t *testing.T) {
+	service, db, _, principal, _ := passwordSettingsUnitFixture(t)
+	db.active, db.verified, db.passkeyCount = true, true, 2
+	service.config.EmailCodeAvailable = true
+	for _, item := range []struct {
+		enabled, usable bool
+		assurance       int16
+		want            string
+	}{
+		{true, true, 1, "passkey,password,email_code"},
+		{true, true, 2, "passkey"},
+		{true, false, 2, ""},
+		{false, true, 1, "password,email_code"},
+	} {
+		service.webauthn = nil
+		if item.enabled {
+			service.webauthn = &PasskeyProtocol{}
+		}
+		db.usablePasskey = item.usable
+		principal.AssuranceLevel = item.assurance
+		got, err := service.GetMySecurity(context.Background(), principal)
+		if err != nil || got.PasskeyCount != 2 || strings.Join(got.ReauthMethods, ",") != item.want {
+			t.Errorf("enabled=%v usable=%v aal=%d got %+v err %v", item.enabled, item.usable, item.assurance, got, err)
+		}
+	}
+}

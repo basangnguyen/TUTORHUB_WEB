@@ -4,18 +4,29 @@
 
 ## Snapshot
 
-| Thuộc tính           | Trạng thái                                                                                                                                          |
-| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Ngày cập nhật        | 2026-11-18                                                                                                                                          |
-| Repository           | `https://github.com/basangnguyen/TUTORHUB_WEB`                                                                                                      |
-| Nhánh làm việc       | `main`                                                                                                                                              |
-| Quy trình            | Antigravity làm PM/Gatekeeper điều phối Codex và Claude Code qua prompt; Antigravity nghiệm thu và commit/push thẳng `main`                         |
-| Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4, Phase 5 collaboration                                                                                           |
-| Phase hiện tại       | Phase 3 deferred carry-over vẫn hoạt động; Phase 5 collaboration đã đóng                                                                            |
-| Task `DONE` gần nhất | `AUTH-07B` Giao diện Microsoft: nút Microsoft, đăng ký chờ/liên kết, Settings + Playwright (`AUTH-07` `DONE`, cờ Microsoft tắt)                     |
-| Mốc repository mới   | Playwright Chromium native auth `20/20` (gồm `auth-07` ×6 với fake Microsoft) + hồi quy OIDC `p2-08` PASS; web `736` unit test                      |
-| Task hiện tại        | Giao `AUTH-08A` cho Codex (Passkeys/WebAuthn phía server, migration `000047`, `go-webauthn`, OpenAPI) — có Phase 0                                  |
-| Task tiếp theo       | Nghiệm thu `AUTH-08A`, sau đó `AUTH-08B` (WebAuthn UX + Conditional UI + Signal API + Playwright virtual authenticator); tiếp theo `AUTH-09` (TOTP) |
+| Thuộc tính           | Trạng thái                                                                                                                         |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Ngày cập nhật        | 2026-11-18                                                                                                                         |
+| Repository           | `https://github.com/basangnguyen/TUTORHUB_WEB`                                                                                     |
+| Nhánh làm việc       | `main`                                                                                                                             |
+| Quy trình            | Antigravity làm PM/Gatekeeper điều phối Codex và Claude Code qua prompt; Antigravity nghiệm thu và commit/push thẳng `main`        |
+| Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4, Phase 5 collaboration                                                                          |
+| Phase hiện tại       | Phase 3 deferred carry-over vẫn hoạt động; Phase 5 collaboration đã đóng                                                           |
+| Task `DONE` gần nhất | `AUTH-08A` Passkeys/WebAuthn phía Server: migration `000047`, `go-webauthn v0.18.2`, đăng nhập discoverable, step-up AAL2 — cờ tắt |
+| Mốc repository mới   | PostgreSQL disposable `000047` + exact runtime ACL + concurrent verify PASS (ledger `47 false`); `pnpm verify` + `api:check` PASS  |
+| Task hiện tại        | Giao `AUTH-08B` cho Claude Code (WebAuthn UX, Conditional UI, Signal API, step-up Passkey & Playwright virtual authenticator)      |
+| Task tiếp theo       | Nghiệm thu `AUTH-08B`, sau đó giao `AUTH-09A` cho Codex (TOTP + mã khôi phục + chính sách MFA cấp tài khoản)                       |
+
+### Checkpoint `AUTH-08A` Passkeys / WebAuthn phía Server (`000047`, `go-webauthn v0.18.2`) `DONE` — 2026-11-19
+
+Codex triển khai lát cắt Server + Migration + OpenAPI của `AUTH-08` (Phase 0 không có BLOCKER); Gatekeeper (Antigravity) review diff/bảo mật, bổ sung kẹp đơn điệu mốc thời gian chống lệch đồng hồ đa replica và kiểm chứng trên PostgreSQL disposable thật:
+
+- **Migration `000047_webauthn_credentials` & Exact Runtime ACL**: thêm `users.webauthn_user_handle` (`64` byte ngẫu nhiên, gán một lần khi `IS NULL`) và bảng `webauthn_credentials` (nguồn dữ liệu duy nhất cho passkey; không nhân đôi sang `identities`). `ProvisionAuthFoundationRuntimeACL` chỉ cấp `UPDATE` đúng các cột trạng thái/bộ đếm, cấm `DELETE` và cấm sửa khóa công khai/chủ sở hữu. `000047.down` chặn rollback khi còn handle, credential hoặc giao dịch `passkey`.
+- **Ceremony & Assertion (`go-webauthn v0.18.2`, BSD-3-Clause)**: `SessionData` lưu mã hóa trong `auth_transactions` (TTL `5` phút, tiêu thụ một lần dưới `FOR UPDATE`, xóa payload khi hoàn thành); đăng ký và step-up ràng buộc đúng `user_id`, `session_id` và `context_version`; chuyển từ passkey sang mã email giữa phiên step-up tự tạo giao dịch email mới. Assertion kiểm challenge/Origin/RP ID/chữ ký: `UV=true` tạo `AAL2`, `UV=false` tạo `AAL1`; counter `0 → 0` hợp lệ với passkey đồng bộ; phát hiện clone lưu bền vững `clone_warning=true` + outbox `passkey_clone_detected` và từ chối phiên; chỉ trả `unknown_credential=true` khi ceremony hợp lệ và DB xác nhận credential ID chưa từng tồn tại.
+- **Step-up & Quản lý phương thức cuối cùng**: step-up passkey tạo phiên thay thế `assurance_level=2` (giữ bất biến `sessions.assurance_level` trong runtime ACL), thu hồi phiên cũ, xoay cả session token và CSRF, bảo toàn thời hạn/persistence và áp cap `org_admin` `24` giờ. Gỡ identity và thu hồi passkey kiểm tra hai chiều, không tính passkey đã bị cảnh báo clone hoặc khi cờ `AUTH_PASSKEYS_ENABLED=false`.
+- **Gatekeeper sửa**: kẹp đơn điệu `GREATEST(...)` cho `last_used_at`, `revoked_at`, `updated_at` trong `postgres_passkeys.go` để tránh vi phạm CHECK thứ tự thời gian của `000047` khi đồng hồ giữa các container lệch vài mili-giây.
+- **Bằng chứng Gatekeeper**: PostgreSQL disposable (`8/8` test cấp cao, `10/10` bản ghi kể cả subtest, `0` FAIL/SKIP, ledger `47 false`) xác nhận round-trip `46↔47`, 3 nhánh rollback preflight, exact ACL, đăng ký/đăng nhập/step-up dưới runtime role, hai verify đồng thời cùng challenge chỉ tạo một phiên và chặn gỡ phương thức cuối cùng; Go unit không cache, `pnpm api:check`, `pnpm verify` (`736/736` web, `113/113` api-client) và `git diff --check` đều PASS.
+- **Lưu ý triển khai & lát cắt kế tiếp**: `AUTH_PASSKEYS_ENABLED=false` mặc định; khi deploy bản API này lên môi trường có DB cần chạy migration `000047` + provision runtime ACL trước vì `/me/security` và `/me/login-methods` truy vấn `passkey_count`. Với E2E `AUTH-08B`, WebAuthn bắt buộc RP ID là tên miền (`localhost`), không nhận địa chỉ IP (`127.0.0.1`).
 
 ### Checkpoint `AUTH-07B` Giao diện Microsoft, Đăng ký chờ/Liên kết & Fake Microsoft E2E (`AUTH-07` `DONE`) — 2026-11-19
 

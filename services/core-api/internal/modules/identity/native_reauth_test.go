@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-webauthn/webauthn/webauthn"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
@@ -19,6 +20,7 @@ type reauthTestDB struct {
 	principal        Principal
 	aal              int
 	payloadVersion   int64
+	passkeyPayload   *passkeyPayload
 	deadlineObserved bool
 	trace            []string
 	sends            int
@@ -57,9 +59,15 @@ func (tx *reauthTestTx) QueryRow(ctx context.Context, query string, args ...any)
 			version++
 		}
 		return foundationTestRow{values: []any{db.now, db.now.Add(8 * time.Hour), db.now.Add(30 * 24 * time.Hour), db.persistent, db.authenticatedAt, version, db.aal}}
-	case strings.Contains(query, "FROM tutorhub.auth_transactions WHERE"):
+	case strings.Contains(query, "FROM tutorhub.auth_transactions"):
 		raw, _ := json.Marshal(reauthEmailPayload{Email: "member@example.test", ContextVersion: db.payloadVersion})
+		if db.passkeyPayload != nil {
+			raw, _ = json.Marshal(db.passkeyPayload)
+		}
 		ciphertext, _ := db.service.crypto.Encrypt(string(raw))
+		if strings.HasPrefix(query, "SELECT id,payload_ciphertext,expires_at") {
+			return foundationTestRow{values: []any{uuid.New(), ciphertext, db.now.Add(passkeyTTL)}}
+		}
 		return foundationTestRow{values: []any{uuid.New(), "reauth", "pending", db.now, db.now.Add(AuthTransactionTTL), (*time.Time)(nil), ciphertext}}
 	case strings.Contains(query, "FROM tutorhub.auth_challenges WHERE id="):
 		id := args[0].(uuid.UUID)
@@ -256,6 +264,55 @@ func TestReauthStartUsesVerifiedServerEmailAndPostCommitDelivery(t *testing.T) {
 	}
 	if !transactionBound || !challengeCreated {
 		t.Fatal("reauth transaction or challenge not scoped to this user and session")
+	}
+}
+
+func TestReauthEmailSwitchFromPasskeyCreatesNewBoundChallenge(t *testing.T) {
+	service, db, _, principal := reauthUnitFixture(t)
+	db.passkeyPayload = &passkeyPayload{
+		Purpose: PasskeyReauth, ContextVersion: principal.ContextVersion,
+		Session: webauthn.SessionData{Challenge: "challenge", UserID: make([]byte, 64)},
+	}
+	oldBinding := strings.Repeat("p", 43)
+	// An email verification cannot consume a passkey proof.
+	_, err := service.Reauthenticate(t.Context(), principal, oldBinding, ReauthenticateInput{
+		Method: "email_code", Code: "420381", ChallengeID: uuid.New(),
+	})
+	if !errors.Is(err, ErrNativeInvalidCode) {
+		t.Fatalf("passkey binding used with email proof: %v", err)
+	}
+	start, err := service.StartReauthEmailCode(t.Context(), principal, oldBinding, func(context.Context, string) (bool, error) { return true, nil })
+	if err != nil || start.Cookie == nil || start.Cookie.Value == oldBinding || start.ChallengeID == uuid.Nil {
+		t.Fatalf("switch to email did not issue a fresh bound challenge: %v", err)
+	}
+	db.passkeyPayload.Session.Challenge = ""
+	_, err = service.StartReauthEmailCode(t.Context(), principal, oldBinding, nil)
+	if !errors.Is(err, ErrAuthFoundationStorage) {
+		t.Fatal("corrupt reauth payload must retain the storage failure")
+	}
+}
+
+func TestPasskeyConsumptionChecksSessionGeneration(t *testing.T) {
+	for _, purpose := range []PasskeyPurpose{PasskeyRegistration, PasskeyReauth} {
+		t.Run(string(purpose), func(t *testing.T) {
+			service, db, _, p := reauthUnitFixture(t)
+			db.passkeyPayload = &passkeyPayload{Purpose: purpose, ContextVersion: p.ContextVersion, Session: webauthn.SessionData{Challenge: "original"}}
+			tx, err := db.Begin(t.Context())
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer rollback(tx)
+			binding := strings.Repeat("p", 43)
+			rotated := p
+			rotated.ContextVersion++
+			if _, err := service.consumePasskey(t.Context(), tx, purpose, &rotated, binding); !errors.Is(err, ErrInvalidPasskey) {
+				t.Fatalf("stale session generation accepted: %v", err)
+			}
+			session, err := service.consumePasskey(t.Context(), tx, purpose, &p, binding)
+			if err != nil || session.Challenge != "original" {
+				t.Fatalf("issuing session generation rejected: %v", err)
+			}
+		})
 	}
 }
 

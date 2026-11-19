@@ -63,6 +63,26 @@ export type ReauthenticateRequest =
   components["schemas"]["ReauthenticateRequest"];
 export type ReauthenticateResponse =
   components["schemas"]["ReauthenticateResponse"];
+// Each options response is freshly parsed JSON. The browser WebAuthn parsers
+// accept mutable arrays for credential descriptors, transports and algorithms.
+type BrowserPasskeyOptions<T> = {
+  -readonly [K in keyof T]: BrowserPasskeyOptions<T[K]>;
+};
+export type PasskeyRequestOptions = BrowserPasskeyOptions<
+  components["schemas"]["PasskeyRequestOptions"]
+>;
+export type PasskeyCreationOptions = BrowserPasskeyOptions<
+  components["schemas"]["PasskeyCreationOptions"]
+>;
+export type PasskeyAssertion = components["schemas"]["PasskeyAssertion"];
+export type PasskeyAttestation = components["schemas"]["PasskeyAttestation"];
+export type PasskeyAssertionVerifyRequest =
+  components["schemas"]["PasskeyAssertionVerifyRequest"];
+export type PasskeyRegistrationVerifyRequest =
+  components["schemas"]["PasskeyRegistrationVerifyRequest"];
+export type PasskeyLabelRequest = components["schemas"]["PasskeyLabelRequest"];
+export type MyPasskey = components["schemas"]["MyPasskey"];
+export type MyPasskeysResponse = components["schemas"]["MyPasskeysResponse"];
 export type RevokeOtherSessionsResponse =
   components["schemas"]["RevokeOtherSessionsResponse"];
 export type AuthProvidersResponse =
@@ -1068,15 +1088,144 @@ function securityMutationOptions(
   options: APIRequestOptions,
 ) {
   return {
-    params: { header: { "X-CSRF-Token": csrfToken } },
-    headers: {
-      Accept: "application/json",
-      Origin: globalThis.location?.origin ?? "null",
+    params: {
+      header: {
+        "X-CSRF-Token": csrfToken,
+        Origin: globalThis.location?.origin ?? "null",
+      },
     },
+    headers: { Accept: "application/json" },
     signal: options.signal,
     cache: "no-store" as const,
     referrerPolicy: "no-referrer" as const,
   };
+}
+
+export async function startPasskeyAssertion(
+  options: APIRequestOptions = {},
+): Promise<PasskeyRequestOptions> {
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/auth/passkeys/assertion/options",
+    { ...preAuthRequestOptions(options), body: {} },
+  );
+  return requireData<PasskeyRequestOptions>(
+    data as PasskeyRequestOptions | undefined,
+    error,
+    response,
+  );
+}
+
+export async function verifyPasskeyAssertion(
+  input: PasskeyAssertionVerifyRequest,
+  options: APIRequestOptions = {},
+): Promise<AuthAuthenticatedResponse> {
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/auth/passkeys/assertion/verify",
+    { ...preAuthRequestOptions(options), body: input },
+  );
+  const result = requireData<AuthAuthenticatedResponse>(data, error, response);
+  currentCSRFToken = null;
+  return result;
+}
+
+export async function startPasskeyReauthentication(
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<PasskeyRequestOptions> {
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/auth/reauth/passkey/options",
+    { ...securityMutationOptions(csrfToken, options), body: {} },
+  );
+  return requireData<PasskeyRequestOptions>(
+    data as PasskeyRequestOptions | undefined,
+    error,
+    response,
+  );
+}
+
+export async function listMyPasskeys(
+  options: APIRequestOptions = {},
+): Promise<MyPasskeysResponse> {
+  const { data, error, response } = await createTutorHubClient(options).GET(
+    "/api/v1/me/passkeys",
+    {
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+      cache: "no-store",
+      referrerPolicy: "no-referrer",
+    },
+  );
+  return requireData<MyPasskeysResponse>(
+    data as MyPasskeysResponse | undefined,
+    error,
+    response,
+  );
+}
+
+export async function startPasskeyRegistration(
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<PasskeyCreationOptions> {
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/me/passkeys/registration/options",
+    { ...securityMutationOptions(csrfToken, options), body: {} },
+  );
+  return requireData<PasskeyCreationOptions>(
+    data as PasskeyCreationOptions | undefined,
+    error,
+    response,
+  );
+}
+
+export async function verifyPasskeyRegistration(
+  input: PasskeyRegistrationVerifyRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<MyPasskey> {
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/me/passkeys/registration/verify",
+    { ...securityMutationOptions(csrfToken, options), body: input },
+  );
+  return requireData<MyPasskey>(data as MyPasskey | undefined, error, response);
+}
+
+export async function renameMyPasskey(
+  passkeyID: string,
+  input: PasskeyLabelRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<MyPasskey> {
+  const request = securityMutationOptions(csrfToken, options);
+  const { data, error, response } = await createTutorHubClient(options).PATCH(
+    "/api/v1/me/passkeys/{passkey_id}",
+    {
+      ...request,
+      params: { ...request.params, path: { passkey_id: passkeyID } },
+      body: input,
+    },
+  );
+  return requireData<MyPasskey>(data as MyPasskey | undefined, error, response);
+}
+
+export async function revokeMyPasskey(
+  passkeyID: string,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<void> {
+  const request = securityMutationOptions(csrfToken, options);
+  const { error, response } = await createTutorHubClient(options).DELETE(
+    "/api/v1/me/passkeys/{passkey_id}",
+    {
+      ...request,
+      params: { ...request.params, path: { passkey_id: passkeyID } },
+    },
+  );
+  if (!response.ok)
+    throw new APIRequestError(
+      response.status,
+      isProblem(error) ? error : undefined,
+      retryAfterSeconds(response),
+    );
 }
 
 export async function startReauthEmailCode(

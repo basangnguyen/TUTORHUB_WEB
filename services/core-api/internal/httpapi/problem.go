@@ -8,13 +8,14 @@ import (
 )
 
 type Problem struct {
-	Type      string `json:"type"`
-	Code      string `json:"code,omitempty"`
-	Title     string `json:"title"`
-	Status    int    `json:"status"`
-	Detail    string `json:"detail,omitempty"`
-	Instance  string `json:"instance,omitempty"`
-	RequestID string `json:"request_id,omitempty"`
+	UnknownCredential bool   `json:"unknown_credential,omitempty"`
+	Type              string `json:"type"`
+	Code              string `json:"code,omitempty"`
+	Title             string `json:"title"`
+	Status            int    `json:"status"`
+	Detail            string `json:"detail,omitempty"`
+	Instance          string `json:"instance,omitempty"`
+	RequestID         string `json:"request_id,omitempty"`
 }
 
 func writeProblem(
@@ -35,16 +36,21 @@ func writeCodedProblem(
 	title string,
 	detail string,
 ) {
+	writeProblemWithSignal(w, r, status, code, title, detail, false)
+}
+
+func writeProblemWithSignal(w http.ResponseWriter, r *http.Request, status int, code, title, detail string, unknown bool) {
 	w.Header().Set("Content-Type", "application/problem+json; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
 	writeJSONBytes(w, status, Problem{
-		Type:      problemType(status),
-		Code:      code,
-		Title:     title,
-		Status:    status,
-		Detail:    detail,
-		Instance:  r.URL.Path,
-		RequestID: RequestIDFromContext(r.Context()),
+		UnknownCredential: unknown,
+		Type:              problemType(status),
+		Code:              code,
+		Title:             title,
+		Status:            status,
+		Detail:            detail,
+		Instance:          r.URL.Path,
+		RequestID:         RequestIDFromContext(r.Context()),
 	})
 }
 

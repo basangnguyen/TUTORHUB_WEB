@@ -490,13 +490,10 @@ func run() int {
 			logger.Error("initialize OIDC provider", "error", err)
 			return 1
 		}
+		repository := identity.NewPostgresRepository(pool, cfg.Database.QueryTimeout, authorizer, featureControlEnforcer)
+		repository.SetPasskeysEnabled(cfg.Authentication.PasskeysAvailable())
 		configuredService, err := identity.NewService(
-			identity.NewPostgresRepository(
-				pool,
-				cfg.Database.QueryTimeout,
-				authorizer,
-				featureControlEnforcer,
-			),
+			repository,
 			provider,
 			crypto,
 			authorizer,

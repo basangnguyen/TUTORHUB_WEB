@@ -21,10 +21,17 @@ type Database interface {
 }
 
 type PostgresRepository struct {
-	database     Database
-	queryTimeout time.Duration
-	authorizer   policy.Authorizer
-	controls     featurecontrol.Enforcer
+	database        Database
+	queryTimeout    time.Duration
+	authorizer      policy.Authorizer
+	controls        featurecontrol.Enforcer
+	passkeysEnabled bool
+}
+
+// SetPasskeysEnabled configures the login methods available for identity
+// unlink checks. Call during API startup, before serving requests.
+func (repository *PostgresRepository) SetPasskeysEnabled(enabled bool) {
+	repository.passkeysEnabled = enabled
 }
 
 func NewPostgresRepository(
@@ -1798,17 +1805,8 @@ FOR UPDATE`,
 		return ErrIdentityNotFound
 	}
 
-	var activeIdentityCount int
-	if err := transaction.QueryRow(
-		queryContext,
-		`SELECT (SELECT count(*) FROM tutorhub.identities WHERE user_id=$1 AND status='active')
-          + (SELECT count(*) FROM tutorhub.user_password_credentials WHERE user_id=$1 AND status='active')`,
-		userID,
-	).Scan(&activeIdentityCount); err != nil {
-		return fmt.Errorf("count active identities: %w", err)
-	}
-	if activeIdentityCount <= 1 {
-		return ErrLastIdentity
+	if err := requireAnotherLoginMethod(queryContext, transaction, userID, identityID, uuid.Nil, repository.passkeysEnabled); err != nil {
+		return err
 	}
 
 	if _, err := transaction.Exec(

@@ -44,6 +44,10 @@ func nativeSignupWriteError(err error) error {
 }
 
 func (service *NativeAuthService) insertNativeSession(ctx context.Context, tx pgx.Tx, userID, identityID uuid.UUID, result *NativeSessionResult, methods []string, userAgent, remote string, now time.Time) error {
+	return service.insertAssuredSession(ctx, tx, userID, identityID, result, methods, 1, userAgent, remote, now)
+}
+
+func (service *NativeAuthService) insertAssuredSession(ctx context.Context, tx pgx.Tx, userID, identityID uuid.UUID, result *NativeSessionResult, methods []string, assurance int, userAgent, remote string, now time.Time) error {
 	activeTenant, err := selectActiveTenant(ctx, tx, userID)
 	if err != nil {
 		return ErrAuthFoundationStorage
@@ -54,10 +58,13 @@ func (service *NativeAuthService) insertNativeSession(ctx context.Context, tx pg
 	}
 	_, err = tx.Exec(ctx, `INSERT INTO tutorhub.sessions
 		(user_id,active_tenant_id,token_hash,csrf_token_hash,user_agent_hash,ip_prefix,created_at,last_seen_at,expires_at,identity_id,absolute_expires_at,auth_time,auth_methods,assurance_level,persistent,device_label)
-		VALUES($1,$2,$3,$4,$5,$6,$7,$7,$8,$9,$10,$7,$11,1,$12,$13)`,
-		userID, nullUUID(activeTenant), service.crypto.Digest(sessionPurpose, result.SessionToken), service.crypto.Digest(csrfPurpose, result.CSRFToken), service.crypto.Digest(userAgentPurpose, userAgent), ipPrefix, now, result.ExpiresAt, identityID, result.AbsoluteExpiresAt, methods, result.Persistent, DeviceLabel(userAgent))
+		VALUES($1,$2,$3,$4,$5,$6,$7,$7,$8,$9,$10,$7,$11,$14,$12,$13)`,
+		userID, nullUUID(activeTenant), service.crypto.Digest(sessionPurpose, result.SessionToken), service.crypto.Digest(csrfPurpose, result.CSRFToken), service.crypto.Digest(userAgentPurpose, userAgent), ipPrefix, now, result.ExpiresAt, nullUUID(identityID), result.AbsoluteExpiresAt, methods, result.Persistent, DeviceLabel(userAgent), assurance)
 	if err != nil {
 		return ErrAuthFoundationStorage
+	}
+	if identityID == uuid.Nil {
+		return nil
 	}
 	_, err = tx.Exec(ctx, `UPDATE tutorhub.identities SET last_authenticated_at=$2,updated_at=$2 WHERE id=$1`, identityID, now)
 	if err != nil {

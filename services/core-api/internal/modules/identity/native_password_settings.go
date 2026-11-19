@@ -16,6 +16,8 @@ type passwordSettingsSnapshot struct {
 	hash, status       *string
 	updatedAt          *time.Time
 	lockedUntil        *time.Time
+	passkeyCount       int
+	usablePasskey      bool
 }
 
 func (snapshot passwordSettingsSnapshot) active() bool {
@@ -49,12 +51,16 @@ func (service *NativeAuthService) passwordSettingsSnapshot(ctx context.Context, 
 	err = tx.QueryRow(ctx, `SELECT u.email,u.display_name,
         u.email_verified_at IS NOT NULL OR EXISTS (SELECT 1 FROM tutorhub.identities i
           WHERE i.user_id=u.id AND i.status='active' AND i.email_verified=true AND lower(i.email_at_provider)=lower(u.email)),
-        c.password_hash,c.status,c.updated_at,c.locked_until
+        c.password_hash,c.status,c.updated_at,c.locked_until,
+        pk.total, pk.usable
         FROM tutorhub.users u LEFT JOIN tutorhub.user_password_credentials c ON c.user_id=u.id
+        CROSS JOIN LATERAL (SELECT count(*) AS total, count(*) FILTER (WHERE NOT w.clone_warning)>0 AS usable
+          FROM tutorhub.webauthn_credentials w WHERE w.user_id=u.id AND w.status='active') pk
         WHERE u.id=$1 AND u.status='active' AND EXISTS (SELECT 1 FROM tutorhub.sessions s
           WHERE s.id=$2 AND s.user_id=u.id AND s.revoked_at IS NULL AND s.expires_at>$3 AND s.absolute_expires_at>$3
           AND s.context_version=$4)`, principal.User.ID, principal.SessionID, service.now().UTC(), principal.ContextVersion).
-		Scan(&snapshot.email, &snapshot.displayName, &snapshot.verified, &snapshot.hash, &snapshot.status, &snapshot.updatedAt, &snapshot.lockedUntil)
+		Scan(&snapshot.email, &snapshot.displayName, &snapshot.verified, &snapshot.hash, &snapshot.status, &snapshot.updatedAt, &snapshot.lockedUntil,
+			&snapshot.passkeyCount, &snapshot.usablePasskey)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return passwordSettingsSnapshot{}, ErrSessionNotFound
 	}

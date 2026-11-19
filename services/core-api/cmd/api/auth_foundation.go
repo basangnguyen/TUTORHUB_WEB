@@ -36,7 +36,7 @@ func newAuthFoundation(cfg config.Config, pool *pgxpool.Pool, limiter httpapi.In
 	}
 	deliveryEnabled := (auth.EmailSender != "" && auth.EmailSender != "disabled") || (auth.PhoneSender != "" && auth.PhoneSender != "disabled")
 	if pool == nil || len(auth.SessionKey) < 32 {
-		if deliveryEnabled || auth.SignupEnabled || auth.PasswordEnabled || auth.EmailCodeEnabled || auth.DeviceManagementEnabled {
+		if deliveryEnabled || auth.SignupEnabled || auth.PasswordEnabled || auth.EmailCodeEnabled || auth.DeviceManagementEnabled || auth.PasskeysEnabled {
 			return nil, errors.New("native authentication and delivery require database and session cryptography")
 		}
 		return result, nil
@@ -75,7 +75,19 @@ func newAuthFoundation(cfg config.Config, pool *pgxpool.Pool, limiter httpapi.In
 	result.challenges = identity.NewChallengeService(pool, crypto, result.dispatcher)
 	// Password status remains available to authenticated OIDC users even while
 	// native sign-in methods are disabled; HTTP gates still control mutations.
-	if auth.Enabled || auth.SignupEnabled || auth.PasswordEnabled || auth.EmailCodeEnabled || auth.DeviceManagementEnabled {
+	if auth.Enabled || auth.SignupEnabled || auth.PasswordEnabled || auth.EmailCodeEnabled || auth.DeviceManagementEnabled || auth.PasskeysEnabled {
+		var protocol *identity.PasskeyProtocol
+		if auth.PasskeysEnabled {
+			if !auth.PasskeysAvailable() {
+				result.close()
+				return nil, errors.New("invalid passkey relying party configuration")
+			}
+			protocol, err = identity.NewPasskeyProtocol(auth.WebAuthnRPID, auth.WebAuthnRPName, auth.WebAuthnRPOrigins)
+			if err != nil {
+				result.close()
+				return nil, errors.New("initialize passkey relying party")
+			}
+		}
 		passwords, passwordErr := identity.NewPasswordService(identity.PasswordOptions{
 			MinimumLength: auth.PasswordMinLength, MaxConcurrency: auth.PasswordHashMaxConcurrency,
 			BreachMode: auth.PasswordBreachCheck, Logger: slog.Default(),
@@ -85,6 +97,7 @@ func newAuthFoundation(cfg config.Config, pool *pgxpool.Pool, limiter httpapi.In
 			return nil, passwordErr
 		}
 		result.native, err = identity.NewNativeAuthService(pool, crypto, passwords, result.dispatcher, identity.NativeAuthConfig{
+			WebAuthn:     protocol,
 			CookieSecure: auth.CookieSecure, LegalTermsVersion: auth.LegalTermsVersion,
 			SessionTTL: auth.SessionTTL, SessionAbsoluteTTL: auth.SessionAbsoluteTTL,
 			SessionPersistentAbsoluteTTL: auth.SessionPersistentAbsoluteTTL,

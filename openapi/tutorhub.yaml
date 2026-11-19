@@ -404,6 +404,373 @@ paths:
           $ref: "#/components/responses/AuthUnavailableResponse"
         default:
           $ref: "#/components/responses/ProblemResponse"
+  /api/v1/auth/passkeys/assertion/options:
+    post:
+      operationId: startPasskeyAssertion
+      summary: Begin a discoverable passkey sign-in
+      description: Requires AUTH_PASSKEYS_ENABLED and exact Origin. Creates a single-use five-minute transaction and sets the HttpOnly auth_tx cookie. Accepts no identifier. The response is the WebAuthn options dictionary with userVerification preferred and no allowed credential restriction. Rate limit is 30 requests per IP prefix per minute.
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/PreAuthOrigin"
+        - $ref: "#/components/parameters/PreAuthFetchSite"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmptyAuthRequest"
+      responses:
+        "200":
+          description: Successful response
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PasskeyRequestOptions"
+        "400":
+          $ref: "#/components/responses/BadRequestResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          description: Passkeys disabled.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "415":
+          $ref: "#/components/responses/ProblemResponse"
+        "429":
+          $ref: "#/components/responses/AuthRateLimitedResponse"
+        "503":
+          $ref: "#/components/responses/AuthUnavailableResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/auth/passkeys/assertion/verify:
+    post:
+      operationId: verifyPasskeyAssertion
+      summary: Verify a discoverable assertion and start a session
+      description: Consumes the browser-bound transaction and verifies the signed assertion. User verification grants AAL2. User presence without verification grants AAL1. Successful login sets session and CSRF cookies and clears auth_tx. Rate limit is 30 requests per IP prefix per fifteen minutes.
+      security:
+        - AuthTransactionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/PreAuthOrigin"
+        - $ref: "#/components/parameters/PreAuthFetchSite"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PasskeyAssertionVerifyRequest"
+      responses:
+        "200":
+          description: Successful response
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthAuthenticatedResponse"
+        "400":
+          $ref: "#/components/responses/BadRequestResponse"
+        "401":
+          description: Invalid assertion (auth_invalid_passkey). Only a confirmed absent credential ID may set unknown_credential to true.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "403":
+          description: Origin rejected or cloned authenticator detected (auth_passkey_clone_detected).
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "404":
+          description: Passkeys disabled.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "415":
+          $ref: "#/components/responses/ProblemResponse"
+        "429":
+          $ref: "#/components/responses/AuthRateLimitedResponse"
+        "503":
+          $ref: "#/components/responses/AuthUnavailableResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/auth/reauth/passkey/options:
+    post:
+      operationId: startPasskeyReauthentication
+      summary: Begin passkey step-up for the current session
+      description: Requires a session, CSRF and exact Origin. Sets a five-minute auth_tx cookie bound to that user and session. Returns active credentials as allowCredentials and requires user verification.
+      security:
+        - SessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/PreAuthOrigin"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmptyAuthRequest"
+      responses:
+        "200":
+          description: Successful response
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PasskeyRequestOptions"
+        "400":
+          $ref: "#/components/responses/BadRequestResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          description: Passkeys disabled or no active passkey available (auth_passkey_not_found).
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "415":
+          $ref: "#/components/responses/ProblemResponse"
+        "429":
+          $ref: "#/components/responses/AuthRateLimitedResponse"
+        "503":
+          $ref: "#/components/responses/AuthUnavailableResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/me/passkeys:
+    get:
+      operationId: listMyPasskeys
+      summary: List active passkeys owned by the current user
+      description: Returns settings metadata only, excluding credential IDs, public keys and user handles. Responses use Cache-Control no-store.
+      security:
+        - SessionCookie: []
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MyPasskeysResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "404":
+          description: Passkeys disabled.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "503":
+          $ref: "#/components/responses/AuthUnavailableResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/me/passkeys/registration/options:
+    post:
+      operationId: startPasskeyRegistration
+      summary: Begin registration of a discoverable passkey
+      description: Requires CSRF, exact Origin and authentication within ten minutes. Sets a five-minute auth_tx cookie bound to the user and session. Returns creation options with residentKey required, userVerification preferred and attestation none.
+      security:
+        - SessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/PreAuthOrigin"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmptyAuthRequest"
+      responses:
+        "200":
+          description: Successful response
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PasskeyCreationOptions"
+        "400":
+          $ref: "#/components/responses/BadRequestResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          description: CSRF, Origin or recent authentication rejected (auth_recent_authentication_required for stale authentication).
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "404":
+          description: Passkeys disabled.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "415":
+          $ref: "#/components/responses/ProblemResponse"
+        "429":
+          $ref: "#/components/responses/AuthRateLimitedResponse"
+        "503":
+          $ref: "#/components/responses/AuthUnavailableResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/me/passkeys/registration/verify:
+    post:
+      operationId: verifyPasskeyRegistration
+      summary: Verify attestation and register a passkey
+      description: Requires CSRF, exact Origin and recent authentication. Consumes the browser-bound registration transaction, verifies attestation and stores the credential and its label.
+      security:
+        - SessionCookie: []
+          AuthTransactionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/PreAuthOrigin"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PasskeyRegistrationVerifyRequest"
+      responses:
+        "201":
+          description: Passkey registered
+          headers:
+            Set-Cookie:
+              description: Clears the completed browser transaction.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MyPasskey"
+        "400":
+          $ref: "#/components/responses/BadRequestResponse"
+        "401":
+          description: Invalid session or invalid attestation (auth_invalid_passkey).
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "403":
+          description: CSRF, Origin or recent authentication rejected (auth_recent_authentication_required for stale authentication).
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "404":
+          description: Passkeys disabled.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "409":
+          description: Credential already registered (auth_passkey_exists).
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "415":
+          $ref: "#/components/responses/ProblemResponse"
+        "503":
+          $ref: "#/components/responses/AuthUnavailableResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/me/passkeys/{passkey_id}:
+    patch:
+      operationId: renameMyPasskey
+      summary: Rename an active passkey
+      description: Requires CSRF, exact Origin and authentication within ten minutes. Only the owner can rename the passkey.
+      security:
+        - SessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/PasskeyID"
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/PreAuthOrigin"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PasskeyLabelRequest"
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MyPasskey"
+        "400":
+          $ref: "#/components/responses/BadRequestResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          description: CSRF, Origin or recent authentication rejected (auth_recent_authentication_required for stale authentication).
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "404":
+          description: Passkeys disabled, or passkey unavailable to the current user (auth_passkey_not_found).
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "415":
+          $ref: "#/components/responses/ProblemResponse"
+        "503":
+          $ref: "#/components/responses/AuthUnavailableResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+    delete:
+      operationId: revokeMyPasskey
+      summary: Revoke an active passkey
+      description: Requires CSRF, exact Origin and authentication within ten minutes. No request body is needed. Soft-revokes the passkey when another active sign-in method remains.
+      security:
+        - SessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/PasskeyID"
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/PreAuthOrigin"
+      responses:
+        "204":
+          description: Passkey revoked
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          description: CSRF, Origin or recent authentication rejected (auth_recent_authentication_required for stale authentication).
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "404":
+          description: Passkeys disabled, or passkey unavailable to the current user (auth_passkey_not_found).
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "409":
+          description: The account must retain at least one sign-in method (auth_last_identity).
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "503":
+          $ref: "#/components/responses/AuthUnavailableResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
   /api/v1/me/security:
     get:
       operationId: getMySecurity
@@ -532,7 +899,7 @@ paths:
     post:
       operationId: reauthenticate
       summary: Reauthenticate and rotate session and CSRF cookies
-      description: Requires AUTH_DEVICE_MANAGEMENT_ENABLED, session, CSRF and exact Origin. Password hashing occurs outside database locks; email codes require the auth_tx cookie bound to this session. Success grants ten minutes of recent authentication, rotates session and CSRF tokens, increments context version, preserves cookie lifetime and applies the org_admin 24-hour cap. Invalid evidence returns 401 with auth_invalid_current_password or auth_invalid_verification_code; uncoded 401 means session expiry.
+      description: Requires a session, CSRF and exact Origin. Password and email methods require AUTH_DEVICE_MANAGEMENT_ENABLED. Passkeys require AUTH_PASSKEYS_ENABLED and user verification for AAL2. Email codes and passkey assertions require a single-use auth_tx cookie bound to the current user and session. Success grants ten minutes of recent authentication, rotates session and CSRF tokens, preserves cookie lifetime and applies the org_admin 24-hour cap.
       security:
         - SessionCookie: []
       parameters:
@@ -559,7 +926,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ReauthenticateResponse"
         "401":
-          description: Session expired (no code), or invalid evidence (auth_invalid_current_password or auth_invalid_verification_code)
+          description: Session expired (no code), or invalid evidence (auth_invalid_current_password, auth_invalid_verification_code or auth_invalid_passkey)
           content:
             application/problem+json:
               schema:
@@ -567,7 +934,17 @@ paths:
         "400":
           $ref: "#/components/responses/ProblemResponse"
         "403":
-          $ref: "#/components/responses/ProblemResponse"
+          description: CSRF or Origin rejected, insufficient assurance, or cloned authenticator detected (auth_passkey_clone_detected).
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "404":
+          description: Passkey method disabled.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
         "409":
           description: Session context changed; reload the current session
           content:
@@ -8862,6 +9239,14 @@ components:
       name: tutorhub_session
       description: Opaque TutorHub BFF session cookie; secure deployments use the __Host- prefix.
   parameters:
+    PasskeyID:
+      name: passkey_id
+      in: path
+      required: true
+      description: Opaque settings record ID.
+      schema:
+        type: string
+        format: uuid
     FederationProvider:
       name: provider
       in: path
@@ -9352,6 +9737,247 @@ components:
     EmptyAuthRequest:
       type: object
       additionalProperties: false
+    WebAuthnBase64URL:
+      type: string
+      minLength: 1
+      pattern: "^[A-Za-z0-9_-]+$"
+      description: Unpadded base64url encoding of binary WebAuthn data.
+    PasskeyDescriptor:
+      type: object
+      required: [type, id]
+      properties:
+        type:
+          type: string
+          const: public-key
+        id:
+          $ref: "#/components/schemas/WebAuthnBase64URL"
+        transports:
+          type: array
+          items:
+            type: string
+    PasskeyCreationOptions:
+      type: object
+      description: WebAuthn creation options in browser JSON format. All binary fields use unpadded base64url.
+      required:
+        [
+          rp,
+          user,
+          challenge,
+          pubKeyCredParams,
+          authenticatorSelection,
+          attestation,
+        ]
+      properties:
+        rp:
+          type: object
+          required: [id, name]
+          properties:
+            id:
+              type: string
+            name:
+              type: string
+        user:
+          type: object
+          required: [id, name, displayName]
+          properties:
+            id:
+              $ref: "#/components/schemas/WebAuthnBase64URL"
+            name:
+              type: string
+            displayName:
+              type: string
+        challenge:
+          $ref: "#/components/schemas/WebAuthnBase64URL"
+        pubKeyCredParams:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required: [type, alg]
+            properties:
+              type:
+                type: string
+                const: public-key
+              alg:
+                type: integer
+        timeout:
+          type: integer
+          minimum: 1
+        excludeCredentials:
+          type: array
+          items:
+            $ref: "#/components/schemas/PasskeyDescriptor"
+        authenticatorSelection:
+          type: object
+          required: [residentKey, userVerification]
+          properties:
+            residentKey:
+              type: string
+              const: required
+            requireResidentKey:
+              type: boolean
+            userVerification:
+              type: string
+              const: preferred
+        attestation:
+          type: string
+          const: none
+    PasskeyRequestOptions:
+      type: object
+      description: WebAuthn request options in browser JSON format. Discoverable authentication can use conditional mediation.
+      required: [challenge, rpId, userVerification, allowCredentials]
+      properties:
+        challenge:
+          $ref: "#/components/schemas/WebAuthnBase64URL"
+        rpId:
+          type: string
+        userVerification:
+          type: string
+          enum: [preferred, required]
+        timeout:
+          type: integer
+          minimum: 1
+        allowCredentials:
+          type: array
+          items:
+            $ref: "#/components/schemas/PasskeyDescriptor"
+    PasskeyAssertion:
+      type: object
+      required: [id, rawId, type, response]
+      properties:
+        id:
+          $ref: "#/components/schemas/WebAuthnBase64URL"
+        rawId:
+          $ref: "#/components/schemas/WebAuthnBase64URL"
+        type:
+          type: string
+          const: public-key
+        authenticatorAttachment:
+          type: [string, "null"]
+        clientExtensionResults:
+          type: object
+          additionalProperties: true
+        response:
+          type: object
+          required: [clientDataJSON, authenticatorData, signature]
+          properties:
+            clientDataJSON:
+              $ref: "#/components/schemas/WebAuthnBase64URL"
+            authenticatorData:
+              $ref: "#/components/schemas/WebAuthnBase64URL"
+            signature:
+              $ref: "#/components/schemas/WebAuthnBase64URL"
+            userHandle:
+              type: [string, "null"]
+              description: Discoverable sign-in requires the authenticator's opaque user handle.
+    PasskeyAttestation:
+      type: object
+      required: [id, rawId, type, response]
+      properties:
+        id:
+          $ref: "#/components/schemas/WebAuthnBase64URL"
+        rawId:
+          $ref: "#/components/schemas/WebAuthnBase64URL"
+        type:
+          type: string
+          const: public-key
+        authenticatorAttachment:
+          type: [string, "null"]
+        clientExtensionResults:
+          type: object
+          additionalProperties: true
+        response:
+          type: object
+          required: [clientDataJSON, attestationObject]
+          properties:
+            clientDataJSON:
+              $ref: "#/components/schemas/WebAuthnBase64URL"
+            attestationObject:
+              $ref: "#/components/schemas/WebAuthnBase64URL"
+            transports:
+              type: array
+              items:
+                type: string
+            authenticatorData:
+              $ref: "#/components/schemas/WebAuthnBase64URL"
+            publicKey:
+              type: [string, "null"]
+            publicKeyAlgorithm:
+              type: integer
+    MyPasskey:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          label,
+          transports,
+          backup_eligible,
+          backup_state,
+          created_at,
+          last_used_at,
+        ]
+      properties:
+        id:
+          type: string
+          format: uuid
+        label:
+          type: string
+          minLength: 1
+          maxLength: 80
+        transports:
+          type: array
+          items:
+            type: string
+        backup_eligible:
+          type: boolean
+        backup_state:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        last_used_at:
+          type: [string, "null"]
+          format: date-time
+    MyPasskeysResponse:
+      type: object
+      additionalProperties: false
+      required: [passkeys]
+      properties:
+        passkeys:
+          type: array
+          items:
+            $ref: "#/components/schemas/MyPasskey"
+    PasskeyLabelRequest:
+      type: object
+      additionalProperties: false
+      required: [label]
+      properties:
+        label:
+          type: string
+          minLength: 1
+          maxLength: 80
+    PasskeyAssertionVerifyRequest:
+      type: object
+      additionalProperties: false
+      required: [assertion]
+      properties:
+        assertion:
+          $ref: "#/components/schemas/PasskeyAssertion"
+        keep_signed_in:
+          type: boolean
+          description: Omitted means false.
+    PasskeyRegistrationVerifyRequest:
+      type: object
+      additionalProperties: false
+      required: [attestation, label]
+      properties:
+        attestation:
+          $ref: "#/components/schemas/PasskeyAttestation"
+        label:
+          type: string
+          minLength: 1
+          maxLength: 80
     MySecurityResponse:
       type: object
       additionalProperties: false
@@ -9366,6 +9992,10 @@ components:
       properties:
         has_password:
           type: boolean
+        passkey_count:
+          type: integer
+          minimum: 0
+          description: Active passkeys owned by the current user. Older servers may omit this field.
         email_verified:
           type: boolean
         mfa_enabled:
@@ -9376,7 +10006,7 @@ components:
           uniqueItems: true
           items:
             type: string
-            enum: [password, email_code]
+            enum: [passkey, password, email_code]
         recent_auth_expires_at:
           type: [string, "null"]
           format: date-time
@@ -9428,6 +10058,10 @@ components:
       additionalProperties: false
       required: [password, identities]
       properties:
+        passkey_count:
+          type: integer
+          minimum: 0
+          description: Active passkeys counted separately from linked identities. Older servers may omit this field.
         password:
           $ref: "#/components/schemas/LoginMethodPassword"
         identities:
@@ -9509,15 +10143,27 @@ components:
           type: string
           pattern: "^[0-9]{6}$"
           writeOnly: true
+    ReauthenticatePasskeyRequest:
+      type: object
+      additionalProperties: false
+      required: [method, assertion]
+      properties:
+        method:
+          type: string
+          const: passkey
+        assertion:
+          $ref: "#/components/schemas/PasskeyAssertion"
     ReauthenticateRequest:
       oneOf:
         - $ref: "#/components/schemas/ReauthenticatePasswordRequest"
         - $ref: "#/components/schemas/ReauthenticateEmailCodeRequest"
+        - $ref: "#/components/schemas/ReauthenticatePasskeyRequest"
       discriminator:
         propertyName: method
         mapping:
           password: "#/components/schemas/ReauthenticatePasswordRequest"
           email_code: "#/components/schemas/ReauthenticateEmailCodeRequest"
+          passkey: "#/components/schemas/ReauthenticatePasskeyRequest"
     ReauthenticateResponse:
       type: object
       additionalProperties: false
@@ -9567,6 +10213,7 @@ components:
           type: boolean
         passkeys_enabled:
           type: boolean
+          description: True only when passkey authentication is enabled with valid relying-party configuration.
         mfa_totp_enabled:
           type: boolean
         oidc_default_enabled:
@@ -16220,9 +16867,13 @@ components:
           maximum: 599
         code:
           type: string
-          description: Stable machine-readable failure code. Recent-authentication failures always use 403 with auth_recent_authentication_required. Authenticated evidence failures use 401 with auth_invalid_current_password or auth_invalid_verification_code; an uncoded 401 indicates an invalid or expired session. Revoking the current session uses 400 with auth_cannot_revoke_current_session.
+          description: Stable machine-readable failure code. Recent-authentication failures use 403 with auth_recent_authentication_required. Invalid evidence uses 401 with auth_invalid_current_password, auth_invalid_verification_code or auth_invalid_passkey. An uncoded 401 on authenticated routes indicates an invalid or expired session. Revoking the current session uses 400 with auth_cannot_revoke_current_session.
           maxLength: 64
           pattern: "^[a-z][a-z0-9_]*$"
+        unknown_credential:
+          type: boolean
+          const: true
+          description: Only present on a discoverable assertion 401 auth_invalid_passkey when the server confirms the submitted credential ID is absent. Clients may signal this ID to the authenticator.
         detail:
           type: string
         instance:

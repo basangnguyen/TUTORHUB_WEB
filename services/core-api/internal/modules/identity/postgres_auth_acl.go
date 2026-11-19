@@ -17,6 +17,7 @@ var authFoundationUpdates = map[string][]string{
 	"user_password_credentials":       {"password_hash", "hash_version", "status", "failed_attempts", "last_failed_at", "locked_until", "compromised_at", "updated_at"},
 	"user_legal_acceptances":          {},
 	"external_data_deletion_requests": {"status", "completed_at"},
+	"webauthn_credentials":            {"sign_count", "clone_warning", "backup_eligible", "backup_state", "transports", "label", "status", "last_used_at", "revoked_at", "updated_at"},
 }
 
 // ProvisionAuthFoundationRuntimeACL is an owner-only provisioning operation.
@@ -48,7 +49,7 @@ func ProvisionAuthFoundationRuntimeACL(ctx context.Context, database Database, r
         AND pg_has_role(r.oid, c.relowner, 'MEMBER')
     )
 FROM pg_roles r WHERE r.rolname = $1`, runtimeRole,
-		[]string{"auth_transactions", "auth_challenges", "auth_challenge_deliveries", "user_password_credentials", "user_legal_acceptances", "external_data_deletion_requests", "users", "sessions", "identities", "auth_flows"}).Scan(&safe)
+		[]string{"auth_transactions", "auth_challenges", "auth_challenge_deliveries", "user_password_credentials", "user_legal_acceptances", "external_data_deletion_requests", "webauthn_credentials", "users", "sessions", "identities", "auth_flows"}).Scan(&safe)
 	if err != nil || !safe {
 		return errors.New("authentication ACL runtime role safety preflight failed")
 	}
@@ -99,16 +100,16 @@ FROM pg_roles r WHERE r.rolname = $1`, runtimeRole,
 			}
 		}
 	}
-	// Preserve the established users ACL. Only add the new verification column
-	// permissions so deployments using column grants can insert native users too.
-	if _, err := tx.Exec(ctx, fmt.Sprintf("GRANT SELECT (email_verified_at), INSERT (email_verified_at), UPDATE (email_verified_at) ON tutorhub.users TO %s", role)); err != nil {
-		return errors.New("grant user email verification column")
+	// Preserve the established users ACL, including deployments with column grants.
+	if _, err := tx.Exec(ctx, fmt.Sprintf("GRANT SELECT (email_verified_at,webauthn_user_handle), INSERT (email_verified_at,webauthn_user_handle), UPDATE (email_verified_at,webauthn_user_handle) ON tutorhub.users TO %s", role)); err != nil {
+		return errors.New("grant user authentication columns")
 	}
 	var readable, insertable, writable bool
-	if err := tx.QueryRow(ctx, `SELECT has_column_privilege($1,'tutorhub.users','email_verified_at','SELECT'),
-        has_column_privilege($1,'tutorhub.users','email_verified_at','INSERT'),
-        has_column_privilege($1,'tutorhub.users','email_verified_at','UPDATE')`, runtimeRole).Scan(&readable, &insertable, &writable); err != nil || !readable || !insertable || !writable {
-		return errors.New("user email verification column privileges are unavailable")
+	if err := tx.QueryRow(ctx, `SELECT bool_and(has_column_privilege($1,'tutorhub.users',c,'SELECT')),
+        bool_and(has_column_privilege($1,'tutorhub.users',c,'INSERT')),
+        bool_and(has_column_privilege($1,'tutorhub.users',c,'UPDATE'))
+        FROM unnest(ARRAY['email_verified_at','webauthn_user_handle']) AS cols(c)`, runtimeRole).Scan(&readable, &insertable, &writable); err != nil || !readable || !insertable || !writable {
+		return errors.New("user authentication column privileges are unavailable")
 	}
 	// Preserve established sessions grants while ensuring deployments using column
 	// grants can persist device_label and mutate reauth/method/persistence columns.

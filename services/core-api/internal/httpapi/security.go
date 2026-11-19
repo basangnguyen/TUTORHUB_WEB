@@ -1,8 +1,10 @@
 package httpapi
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
+	"slices"
 	"time"
 
 	"github.com/google/uuid"
@@ -10,10 +12,11 @@ import (
 )
 
 type reauthenticateRequest struct {
-	Method      string     `json:"method"`
-	Password    *string    `json:"password,omitempty"`
-	ChallengeID *uuid.UUID `json:"challenge_id,omitempty"`
-	Code        *string    `json:"code,omitempty"`
+	Assertion   json.RawMessage `json:"assertion,omitempty"`
+	Method      string          `json:"method"`
+	Password    *string         `json:"password,omitempty"`
+	ChallengeID *uuid.UUID      `json:"challenge_id,omitempty"`
+	Code        *string         `json:"code,omitempty"`
 }
 
 type reauthenticateResponse struct {
@@ -147,6 +150,23 @@ func (handlers nativeAuthHandlers) startReauthEmailCode(w http.ResponseWriter, r
 }
 
 func (handlers nativeAuthHandlers) reauthenticate(w http.ResponseWriter, r *http.Request) {
+	var body reauthenticateRequest
+	limit := int64(4096)
+	if handlers.auth.config.Authentication.PasskeysAvailable() {
+		limit = passkeyBodyLimit
+	}
+	if err := decodeJSONRequest(w, r, &body, limit); err != nil {
+		handlers.writeError(w, r, identity.ErrAuthFoundationInput)
+		return
+	}
+	if body.Method == "passkey" {
+		handlers.reauthenticatePasskey(w, r, body)
+		return
+	}
+	if r.Header.Get("Origin") != handlers.auth.config.WebOrigin {
+		writeProblem(w, r, http.StatusForbidden, "Forbidden", "The request origin is not allowed.")
+		return
+	}
 	service, principal, ok := handlers.securityPrincipal(w, r, true)
 	if !ok {
 		return
@@ -154,8 +174,7 @@ func (handlers nativeAuthHandlers) reauthenticate(w http.ResponseWriter, r *http
 	if !handlers.allowSecurityMutation(w, r, principal, AuthRateLimitReauthUser, AuthRateLimitReauthIP) {
 		return
 	}
-	var body reauthenticateRequest
-	if err := decodeJSONRequest(w, r, &body, 4096); err != nil {
+	if body.Assertion != nil {
 		handlers.writeError(w, r, identity.ErrAuthFoundationInput)
 		return
 	}
@@ -188,12 +207,46 @@ func (handlers nativeAuthHandlers) reauthenticate(w http.ResponseWriter, r *http
 		handlers.writeSecurityError(w, r, err)
 		return
 	}
-	handlers.auth.setCookie(w, handlers.auth.cookieNames.session, result.SessionToken, result.CookieExpiresAt)
-	handlers.auth.setCookie(w, handlers.auth.cookieNames.csrf, result.CSRFToken, result.CookieExpiresAt)
 	if body.Method == "email_code" {
 		handlers.clearTransactionCookie(w)
 	}
-	writeJSON(handlers.auth.logger, w, http.StatusOK, reauthenticateResponse{RecentAuthExpiresAt: result.RecentAuthExpiresAt})
+	handlers.writeReauthentication(w, result)
+}
+
+func (h nativeAuthHandlers) reauthenticatePasskey(w http.ResponseWriter, r *http.Request, body reauthenticateRequest) {
+	svc, ok := h.passkeyService(w, r)
+	if !ok {
+		return
+	}
+	if !slices.Contains(h.auth.config.Authentication.WebAuthnRPOrigins, r.Header.Get("Origin")) {
+		writeProblem(w, r, http.StatusForbidden, "Forbidden", "The request origin is not allowed.")
+		return
+	}
+	p, ok := h.passkeyPrincipal(w, r, true)
+	if !ok || !h.allowSecurityMutation(w, r, p, AuthRateLimitReauthUser, AuthRateLimitReauthIP) {
+		return
+	}
+	if body.Password != nil || body.Code != nil || body.ChallengeID != nil || len(body.Assertion) == 0 {
+		h.writeError(w, r, identity.ErrAuthFoundationInput)
+		return
+	}
+	binding, ok := h.passkeyBinding(w, r)
+	if !ok {
+		return
+	}
+	result, err := svc.FinishPasskeyReauth(r.Context(), p, binding, body.Assertion)
+	if err != nil {
+		h.writePasskeyError(w, r, err)
+		return
+	}
+	h.clearTransactionCookie(w)
+	h.writeReauthentication(w, result)
+}
+
+func (h nativeAuthHandlers) writeReauthentication(w http.ResponseWriter, result identity.ReauthenticateResult) {
+	h.auth.setCookie(w, h.auth.cookieNames.session, result.SessionToken, result.CookieExpiresAt)
+	h.auth.setCookie(w, h.auth.cookieNames.csrf, result.CSRFToken, result.CookieExpiresAt)
+	writeJSON(h.auth.logger, w, http.StatusOK, reauthenticateResponse{RecentAuthExpiresAt: result.RecentAuthExpiresAt})
 }
 
 func (handlers nativeAuthHandlers) revokeMySession(w http.ResponseWriter, r *http.Request) {

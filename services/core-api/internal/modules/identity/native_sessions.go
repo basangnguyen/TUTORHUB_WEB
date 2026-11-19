@@ -2,7 +2,6 @@ package identity
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	"github.com/google/uuid"
@@ -40,15 +39,12 @@ func (service *NativeAuthService) ListMyLoginMethods(ctx context.Context, princi
 		return MyLoginMethods{}, err
 	}
 	result := MyLoginMethods{Identities: []LoginMethodIdentity{}}
-	var updatedAt time.Time
-	err = tx.QueryRow(ctx, `SELECT updated_at FROM tutorhub.user_password_credentials
-        WHERE user_id=$1 AND status='active'`, principal.User.ID).Scan(&updatedAt)
-	if err == nil {
-		result.Password = LoginMethodPassword{HasPassword: true, UpdatedAt: &updatedAt}
-	}
-	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+	err = tx.QueryRow(ctx, `SELECT (SELECT updated_at FROM tutorhub.user_password_credentials WHERE user_id=$1 AND status='active'),
+        (SELECT count(*) FROM tutorhub.webauthn_credentials WHERE user_id=$1 AND status='active')`, principal.User.ID).Scan(&result.Password.UpdatedAt, &result.PasskeyCount)
+	if err != nil {
 		return MyLoginMethods{}, ErrAuthFoundationStorage
 	}
+	result.Password.HasPassword = result.Password.UpdatedAt != nil
 	rows, err := tx.Query(ctx, `SELECT id,kind,provider_slug,email_at_provider,email_verified,last_authenticated_at,created_at
         FROM tutorhub.identities WHERE user_id=$1 AND status='active' ORDER BY created_at,id`, principal.User.ID)
 	if err != nil {

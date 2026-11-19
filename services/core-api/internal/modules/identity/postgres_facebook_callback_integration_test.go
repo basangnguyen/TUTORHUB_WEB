@@ -327,7 +327,7 @@ func verifyFacebookRegistrationAfterErasure(t *testing.T, ctx context.Context, p
 
 func TestFacebookErasureMigrationRoundTripAndPreflight(t *testing.T) {
 	ctx, pool, url := authSchemaTestDatabase(t)
-	if err := migrationrunner.Down(ctx, url, 1); err != nil {
+	if err := migrationrunner.Down(ctx, url, 2); err != nil {
 		t.Fatal("empty 46 down", err)
 	}
 	version, err := migrationrunner.CurrentVersion(ctx, url)

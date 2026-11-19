@@ -23,6 +23,7 @@ var (
 )
 
 type NativeAuthConfig struct {
+	WebAuthn                     *PasskeyProtocol
 	CookieSecure                 bool
 	EmailCodeAvailable           bool
 	LegalTermsVersion            string
@@ -86,6 +87,7 @@ type NativePasswordService interface {
 }
 
 type NativeAuthService struct {
+	webauthn              *PasskeyProtocol
 	database              Database
 	crypto                *Crypto
 	passwords             NativePasswordService
@@ -105,7 +107,7 @@ func NewNativeAuthService(database Database, crypto *Crypto, passwords NativePas
 		cfg.SessionTTL <= 0 || cfg.SessionAbsoluteTTL < cfg.SessionTTL || cfg.SessionPersistentAbsoluteTTL < cfg.SessionAbsoluteTTL || cfg.SessionPersistentAbsoluteTTL > 30*24*time.Hour {
 		return nil, ErrAuthFoundationInput
 	}
-	return &NativeAuthService{database: database, crypto: crypto, passwords: passwords, challenges: NewChallengeService(database, crypto, dispatcher), config: cfg, now: time.Now}, nil
+	return &NativeAuthService{database: database, crypto: crypto, passwords: passwords, challenges: NewChallengeService(database, crypto, dispatcher), config: cfg, webauthn: cfg.WebAuthn, now: time.Now}, nil
 }
 
 func NormalizeSignupEmail(value string) (string, error) {

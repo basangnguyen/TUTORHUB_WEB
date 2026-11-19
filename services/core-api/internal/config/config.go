@@ -136,6 +136,10 @@ type AuthenticationConfig struct {
 	EmailCodeEnabled             bool
 	PhoneEnabled                 bool
 	PasskeysEnabled              bool
+	WebAuthnRPID                 string
+	WebAuthnRPName               string
+	WebAuthnRPOrigins            []string
+	webAuthnLocalHTTP            bool
 	MFATOTPEnabled               bool
 	DeviceManagementEnabled      bool
 	SSODomainsEnabled            bool
@@ -1070,11 +1074,12 @@ func authenticationConfig(
 		MembershipInvitationTTL: invitationTTL,
 	}
 	configureAuthFoundation(&config, lookup, environment, validationErrors)
+	configurePasskeys(&config, lookup, environment, webOrigin, validationErrors)
 	configureGoogleProvider(&config, lookup, environment, apiOrigin, validationErrors)
 	configureFacebookProvider(&config, lookup, environment, apiOrigin, validationErrors)
 	configureMicrosoftProvider(&config, lookup, environment, apiOrigin, validationErrors)
 	config.OIDCEnabled = config.ProviderOIDCDefaultEnabled && enabled
-	nativeEnabled := config.SignupEnabled || config.PasswordEnabled || config.EmailCodeEnabled || config.DeviceManagementEnabled ||
+	nativeEnabled := config.SignupEnabled || config.PasswordEnabled || config.EmailCodeEnabled || config.DeviceManagementEnabled || config.PasskeysEnabled ||
 		config.ProviderGoogleEnabled || config.ProviderFacebookEnabled || config.ProviderMicrosoftEnabled
 	config.Enabled = enabled || nativeEnabled
 	if nativeEnabled && strings.TrimSpace(valueOrDefault(lookup, "DATABASE_POOL_URL", "")) == "" {

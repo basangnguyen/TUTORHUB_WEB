@@ -16,6 +16,7 @@ var (
 )
 
 type MySecurity struct {
+	PasskeyCount        int        `json:"passkey_count"`
 	HasPassword         bool       `json:"has_password"`
 	EmailVerified       bool       `json:"email_verified"`
 	MFAEnabled          bool       `json:"mfa_enabled"`
@@ -39,8 +40,9 @@ type LoginMethodPassword struct {
 }
 
 type MyLoginMethods struct {
-	Password   LoginMethodPassword   `json:"password"`
-	Identities []LoginMethodIdentity `json:"identities"`
+	PasskeyCount int                   `json:"passkey_count"`
+	Password     LoginMethodPassword   `json:"password"`
+	Identities   []LoginMethodIdentity `json:"identities"`
 }
 
 type MySession struct {
@@ -135,7 +137,10 @@ func (service *NativeAuthService) GetMySecurity(ctx context.Context, principal P
 	if err != nil {
 		return MySecurity{}, err
 	}
-	result := MySecurity{HasPassword: snapshot.active(), EmailVerified: snapshot.verified, ReauthMethods: []string{}}
+	result := MySecurity{HasPassword: snapshot.active(), EmailVerified: snapshot.verified, ReauthMethods: []string{}, PasskeyCount: snapshot.passkeyCount}
+	if service.webauthn != nil && snapshot.usablePasskey {
+		result.ReauthMethods = append(result.ReauthMethods, "passkey")
+	}
 	if principal.AssuranceLevel <= 1 {
 		if result.HasPassword {
 			result.ReauthMethods = append(result.ReauthMethods, "password")

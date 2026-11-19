@@ -300,6 +300,46 @@ export type paths = {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/api/v1/auth/passkeys/assertion/options": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Begin a discoverable passkey sign-in
+     * @description Requires AUTH_PASSKEYS_ENABLED and exact Origin. Creates a single-use five-minute transaction and sets the HttpOnly auth_tx cookie. Accepts no identifier. The response is the WebAuthn options dictionary with userVerification preferred and no allowed credential restriction. Rate limit is 30 requests per IP prefix per minute.
+     */
+    readonly post: operations["startPasskeyAssertion"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/auth/passkeys/assertion/verify": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Verify a discoverable assertion and start a session
+     * @description Consumes the browser-bound transaction and verifies the signed assertion. User verification grants AAL2. User presence without verification grants AAL1. Successful login sets session and CSRF cookies and clears auth_tx. Rate limit is 30 requests per IP prefix per fifteen minutes.
+     */
+    readonly post: operations["verifyPasskeyAssertion"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/api/v1/auth/password/login": {
     readonly parameters: {
       readonly query?: never;
@@ -476,7 +516,7 @@ export type paths = {
     readonly put?: never;
     /**
      * Reauthenticate and rotate session and CSRF cookies
-     * @description Requires AUTH_DEVICE_MANAGEMENT_ENABLED, session, CSRF and exact Origin. Password hashing occurs outside database locks; email codes require the auth_tx cookie bound to this session. Success grants ten minutes of recent authentication, rotates session and CSRF tokens, increments context version, preserves cookie lifetime and applies the org_admin 24-hour cap. Invalid evidence returns 401 with auth_invalid_current_password or auth_invalid_verification_code; uncoded 401 means session expiry.
+     * @description Requires a session, CSRF and exact Origin. Password and email methods require AUTH_DEVICE_MANAGEMENT_ENABLED. Passkeys require AUTH_PASSKEYS_ENABLED and user verification for AAL2. Email codes and passkey assertions require a single-use auth_tx cookie bound to the current user and session. Success grants ten minutes of recent authentication, rotates session and CSRF tokens, preserves cookie lifetime and applies the org_admin 24-hour cap.
      */
     readonly post: operations["reauthenticate"];
     readonly delete?: never;
@@ -499,6 +539,26 @@ export type paths = {
      * @description Requires AUTH_DEVICE_MANAGEMENT_ENABLED, session, CSRF and exact Origin. Responses use Cache-Control private, no-store. Send only to the authenticated user's verified email. No client email is accepted. Repeat this endpoint with auth_tx cookie to resend, with a 60-second cooldown and five-send transaction limit. Delivery occurs after commit.
      */
     readonly post: operations["startReauthEmailCode"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/auth/reauth/passkey/options": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Begin passkey step-up for the current session
+     * @description Requires a session, CSRF and exact Origin. Sets a five-minute auth_tx cookie bound to that user and session. Returns active credentials as allowCredentials and requires user verification.
+     */
+    readonly post: operations["startPasskeyReauthentication"];
     readonly delete?: never;
     readonly options?: never;
     readonly head?: never;
@@ -2097,6 +2157,90 @@ export type paths = {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/api/v1/me/passkeys": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /**
+     * List active passkeys owned by the current user
+     * @description Returns settings metadata only, excluding credential IDs, public keys and user handles. Responses use Cache-Control no-store.
+     */
+    readonly get: operations["listMyPasskeys"];
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/me/passkeys/{passkey_id}": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    readonly post?: never;
+    /**
+     * Revoke an active passkey
+     * @description Requires CSRF, exact Origin and authentication within ten minutes. No request body is needed. Soft-revokes the passkey when another active sign-in method remains.
+     */
+    readonly delete: operations["revokeMyPasskey"];
+    readonly options?: never;
+    readonly head?: never;
+    /**
+     * Rename an active passkey
+     * @description Requires CSRF, exact Origin and authentication within ten minutes. Only the owner can rename the passkey.
+     */
+    readonly patch: operations["renameMyPasskey"];
+    readonly trace?: never;
+  };
+  readonly "/api/v1/me/passkeys/registration/options": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Begin registration of a discoverable passkey
+     * @description Requires CSRF, exact Origin and authentication within ten minutes. Sets a five-minute auth_tx cookie bound to the user and session. Returns creation options with residentKey required, userVerification preferred and attestation none.
+     */
+    readonly post: operations["startPasskeyRegistration"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/me/passkeys/registration/verify": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Verify attestation and register a passkey
+     * @description Requires CSRF, exact Origin and recent authentication. Consumes the browser-bound registration transaction, verifies attestation and stores the credential and its label.
+     */
+    readonly post: operations["verifyPasskeyRegistration"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/api/v1/me/password": {
     readonly parameters: {
       readonly query?: never;
@@ -3567,6 +3711,7 @@ export type components = {
         "google" | "facebook" | "microsoft" | "apple"
       )[];
       readonly oidc_default_enabled: boolean;
+      /** @description True only when passkey authentication is enabled with valid relying-party configuration. */
       readonly passkeys_enabled: boolean;
       readonly password_enabled: boolean;
       readonly password_min_length: number;
@@ -5576,7 +5721,24 @@ export type components = {
     readonly MessageState: "active" | "deleted";
     readonly MyLoginMethodsResponse: {
       readonly identities: readonly components["schemas"]["LoginMethodIdentity"][];
+      /** @description Active passkeys counted separately from linked identities. Older servers may omit this field. */
+      readonly passkey_count?: number;
       readonly password: components["schemas"]["LoginMethodPassword"];
+    };
+    readonly MyPasskey: {
+      readonly backup_eligible: boolean;
+      readonly backup_state: boolean;
+      /** Format: date-time */
+      readonly created_at: string;
+      /** Format: uuid */
+      readonly id: string;
+      readonly label: string;
+      /** Format: date-time */
+      readonly last_used_at: string | null;
+      readonly transports: readonly string[];
+    };
+    readonly MyPasskeysResponse: {
+      readonly passkeys: readonly components["schemas"]["MyPasskey"][];
     };
     readonly MyPasswordStatusResponse: {
       readonly has_password: boolean;
@@ -5607,7 +5769,11 @@ export type components = {
       readonly has_password: boolean;
       /** @enum {boolean} */
       readonly mfa_enabled: false;
-      readonly reauth_methods: readonly ("password" | "email_code")[];
+      /** @description Active passkeys owned by the current user. Older servers may omit this field. */
+      readonly passkey_count?: number;
+      readonly reauth_methods: readonly (
+        "passkey" | "password" | "email_code"
+      )[];
       /**
        * Format: date-time
        * @description GREATEST(auth_time, reauthenticated_at) plus ten minutes, or null when no longer effective.
@@ -5685,6 +5851,97 @@ export type components = {
     };
     /** @enum {string} */
     readonly OrganizationRole: "org_admin" | "teacher" | "student" | "guest";
+    readonly PasskeyAssertion: {
+      readonly authenticatorAttachment?: string | null;
+      readonly clientExtensionResults?: {
+        readonly [key: string]: unknown;
+      };
+      readonly id: components["schemas"]["WebAuthnBase64URL"];
+      readonly rawId: components["schemas"]["WebAuthnBase64URL"];
+      readonly response: {
+        readonly authenticatorData: components["schemas"]["WebAuthnBase64URL"];
+        readonly clientDataJSON: components["schemas"]["WebAuthnBase64URL"];
+        readonly signature: components["schemas"]["WebAuthnBase64URL"];
+        /** @description Discoverable sign-in requires the authenticator's opaque user handle. */
+        readonly userHandle?: string | null;
+      };
+      /** @constant */
+      readonly type: "public-key";
+    };
+    readonly PasskeyAssertionVerifyRequest: {
+      readonly assertion: components["schemas"]["PasskeyAssertion"];
+      /** @description Omitted means false. */
+      readonly keep_signed_in?: boolean;
+    };
+    readonly PasskeyAttestation: {
+      readonly authenticatorAttachment?: string | null;
+      readonly clientExtensionResults?: {
+        readonly [key: string]: unknown;
+      };
+      readonly id: components["schemas"]["WebAuthnBase64URL"];
+      readonly rawId: components["schemas"]["WebAuthnBase64URL"];
+      readonly response: {
+        readonly attestationObject: components["schemas"]["WebAuthnBase64URL"];
+        readonly authenticatorData?: components["schemas"]["WebAuthnBase64URL"];
+        readonly clientDataJSON: components["schemas"]["WebAuthnBase64URL"];
+        readonly publicKey?: string | null;
+        readonly publicKeyAlgorithm?: number;
+        readonly transports?: readonly string[];
+      };
+      /** @constant */
+      readonly type: "public-key";
+    };
+    /** @description WebAuthn creation options in browser JSON format. All binary fields use unpadded base64url. */
+    readonly PasskeyCreationOptions: {
+      /** @constant */
+      readonly attestation: "none";
+      readonly authenticatorSelection: {
+        readonly requireResidentKey?: boolean;
+        /** @constant */
+        readonly residentKey: "required";
+        /** @constant */
+        readonly userVerification: "preferred";
+      };
+      readonly challenge: components["schemas"]["WebAuthnBase64URL"];
+      readonly excludeCredentials?: readonly components["schemas"]["PasskeyDescriptor"][];
+      readonly pubKeyCredParams: readonly {
+        readonly alg: number;
+        /** @constant */
+        readonly type: "public-key";
+      }[];
+      readonly rp: {
+        readonly id: string;
+        readonly name: string;
+      };
+      readonly timeout?: number;
+      readonly user: {
+        readonly displayName: string;
+        readonly id: components["schemas"]["WebAuthnBase64URL"];
+        readonly name: string;
+      };
+    };
+    readonly PasskeyDescriptor: {
+      readonly id: components["schemas"]["WebAuthnBase64URL"];
+      readonly transports?: readonly string[];
+      /** @constant */
+      readonly type: "public-key";
+    };
+    readonly PasskeyLabelRequest: {
+      readonly label: string;
+    };
+    readonly PasskeyRegistrationVerifyRequest: {
+      readonly attestation: components["schemas"]["PasskeyAttestation"];
+      readonly label: string;
+    };
+    /** @description WebAuthn request options in browser JSON format. Discoverable authentication can use conditional mediation. */
+    readonly PasskeyRequestOptions: {
+      readonly allowCredentials: readonly components["schemas"]["PasskeyDescriptor"][];
+      readonly challenge: components["schemas"]["WebAuthnBase64URL"];
+      readonly rpId: string;
+      readonly timeout?: number;
+      /** @enum {string} */
+      readonly userVerification: "preferred" | "required";
+    };
     readonly PasswordLoginRequest: {
       /** @description Email identifier; invalid or unknown email yields the same generic 401 response. */
       readonly identifier: string;
@@ -5783,7 +6040,7 @@ export type components = {
     readonly PrivateAlphaEnrollmentStatus:
       "active" | "not_enrolled" | "withdrawn";
     readonly Problem: {
-      /** @description Stable machine-readable failure code. Recent-authentication failures always use 403 with auth_recent_authentication_required. Authenticated evidence failures use 401 with auth_invalid_current_password or auth_invalid_verification_code; an uncoded 401 indicates an invalid or expired session. Revoking the current session uses 400 with auth_cannot_revoke_current_session. */
+      /** @description Stable machine-readable failure code. Recent-authentication failures use 403 with auth_recent_authentication_required. Invalid evidence uses 401 with auth_invalid_current_password, auth_invalid_verification_code or auth_invalid_passkey. An uncoded 401 on authenticated routes indicates an invalid or expired session. Revoking the current session uses 400 with auth_cannot_revoke_current_session. */
       readonly code?: string;
       readonly detail?: string;
       readonly instance?: string;
@@ -5792,6 +6049,11 @@ export type components = {
       readonly title: string;
       /** Format: uri-reference */
       readonly type: string;
+      /**
+       * @description Only present on a discoverable assertion 401 auth_invalid_passkey when the server confirms the submitted credential ID is absent. Clients may signal this ID to the authenticator.
+       * @constant
+       */
+      readonly unknown_credential?: true;
     };
     readonly ProfileResponse: {
       readonly user: components["schemas"]["User"];
@@ -5858,6 +6120,14 @@ export type components = {
        */
       readonly method: "email_code";
     };
+    readonly ReauthenticatePasskeyRequest: {
+      readonly assertion: components["schemas"]["PasskeyAssertion"];
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      readonly method: "passkey";
+    };
     readonly ReauthenticatePasswordRequest: {
       /**
        * @description discriminator enum property added by openapi-typescript
@@ -5868,7 +6138,8 @@ export type components = {
     };
     readonly ReauthenticateRequest:
       | components["schemas"]["ReauthenticatePasswordRequest"]
-      | components["schemas"]["ReauthenticateEmailCodeRequest"];
+      | components["schemas"]["ReauthenticateEmailCodeRequest"]
+      | components["schemas"]["ReauthenticatePasskeyRequest"];
     readonly ReauthenticateResponse: {
       /** Format: date-time */
       readonly recent_auth_expires_at: string;
@@ -6398,6 +6669,8 @@ export type components = {
       readonly locale: string;
       readonly timezone: string;
     };
+    /** @description Unpadded base64url encoding of binary WebAuthn data. */
+    readonly WebAuthnBase64URL: string;
     readonly WhiteboardArtifactCommand: {
       /** Format: uuid */
       readonly document_id: string;
@@ -6690,6 +6963,8 @@ export type components = {
     readonly FederationProvider: "oidc" | "google" | "facebook" | "microsoft";
     /** @description Opaque RoomInstance-scoped participant key; never a user, session, or provider identity. */
     readonly MediaParticipantKeyPath: string;
+    /** @description Opaque settings record ID. */
+    readonly PasskeyID: string;
     readonly PollID: string;
     readonly PreAuthFetchSite: "same-origin";
     /** @description Must exactly match the Web origin; browsers set this header automatically. */
@@ -7173,6 +7448,111 @@ export interface operations {
       readonly default: components["responses"]["ProblemResponse"];
     };
   };
+  readonly startPasskeyAssertion: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Must exactly match the Web origin; browsers set this header automatically. */
+        readonly Origin: components["parameters"]["PreAuthOrigin"];
+        readonly "Sec-Fetch-Site"?: components["parameters"]["PreAuthFetchSite"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["EmptyAuthRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Successful response */
+      readonly 200: {
+        headers: {
+          readonly "Set-Cookie"?: string;
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["PasskeyRequestOptions"];
+        };
+      };
+      readonly 400: components["responses"]["BadRequestResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      /** @description Passkeys disabled. */
+      readonly 404: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      readonly 415: components["responses"]["ProblemResponse"];
+      readonly 429: components["responses"]["AuthRateLimitedResponse"];
+      readonly 503: components["responses"]["AuthUnavailableResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly verifyPasskeyAssertion: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Must exactly match the Web origin; browsers set this header automatically. */
+        readonly Origin: components["parameters"]["PreAuthOrigin"];
+        readonly "Sec-Fetch-Site"?: components["parameters"]["PreAuthFetchSite"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["PasskeyAssertionVerifyRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Successful response */
+      readonly 200: {
+        headers: {
+          readonly "Set-Cookie"?: string;
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["AuthAuthenticatedResponse"];
+        };
+      };
+      readonly 400: components["responses"]["BadRequestResponse"];
+      /** @description Invalid assertion (auth_invalid_passkey). Only a confirmed absent credential ID may set unknown_credential to true. */
+      readonly 401: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Origin rejected or cloned authenticator detected (auth_passkey_clone_detected). */
+      readonly 403: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Passkeys disabled. */
+      readonly 404: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      readonly 415: components["responses"]["ProblemResponse"];
+      readonly 429: components["responses"]["AuthRateLimitedResponse"];
+      readonly 503: components["responses"]["AuthUnavailableResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
   readonly loginWithPassword: {
     readonly parameters: {
       readonly query?: never;
@@ -7483,7 +7863,7 @@ export interface operations {
         };
       };
       readonly 400: components["responses"]["ProblemResponse"];
-      /** @description Session expired (no code), or invalid evidence (auth_invalid_current_password or auth_invalid_verification_code) */
+      /** @description Session expired (no code), or invalid evidence (auth_invalid_current_password, auth_invalid_verification_code or auth_invalid_passkey) */
       readonly 401: {
         headers: {
           readonly [name: string]: unknown;
@@ -7492,7 +7872,24 @@ export interface operations {
           readonly "application/problem+json": components["schemas"]["Problem"];
         };
       };
-      readonly 403: components["responses"]["ProblemResponse"];
+      /** @description CSRF or Origin rejected, insufficient assurance, or cloned authenticator detected (auth_passkey_clone_detected). */
+      readonly 403: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Passkey method disabled. */
+      readonly 404: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
       /** @description Session context changed; reload the current session */
       readonly 409: {
         headers: {
@@ -7552,6 +7949,52 @@ export interface operations {
           readonly "application/problem+json": components["schemas"]["Problem"];
         };
       };
+      readonly 429: components["responses"]["AuthRateLimitedResponse"];
+      readonly 503: components["responses"]["AuthUnavailableResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly startPasskeyReauthentication: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Must exactly match the Web origin; browsers set this header automatically. */
+        readonly Origin: components["parameters"]["PreAuthOrigin"];
+        /** @description Double-submit CSRF token bound to the active authenticated session. */
+        readonly "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["EmptyAuthRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Successful response */
+      readonly 200: {
+        headers: {
+          readonly "Set-Cookie"?: string;
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["PasskeyRequestOptions"];
+        };
+      };
+      readonly 400: components["responses"]["BadRequestResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      /** @description Passkeys disabled or no active passkey available (auth_passkey_not_found). */
+      readonly 404: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      readonly 415: components["responses"]["ProblemResponse"];
       readonly 429: components["responses"]["AuthRateLimitedResponse"];
       readonly 503: components["responses"]["AuthUnavailableResponse"];
       readonly default: components["responses"]["ProblemResponse"];
@@ -10901,6 +11344,274 @@ export interface operations {
           readonly "application/problem+json": components["schemas"]["Problem"];
         };
       };
+      readonly 503: components["responses"]["AuthUnavailableResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly listMyPasskeys: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Successful response */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["MyPasskeysResponse"];
+        };
+      };
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      /** @description Passkeys disabled. */
+      readonly 404: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      readonly 503: components["responses"]["AuthUnavailableResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly revokeMyPasskey: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Must exactly match the Web origin; browsers set this header automatically. */
+        readonly Origin: components["parameters"]["PreAuthOrigin"];
+        /** @description Double-submit CSRF token bound to the active authenticated session. */
+        readonly "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      };
+      readonly path: {
+        /** @description Opaque settings record ID. */
+        readonly passkey_id: components["parameters"]["PasskeyID"];
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Passkey revoked */
+      readonly 204: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content?: never;
+      };
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      /** @description CSRF, Origin or recent authentication rejected (auth_recent_authentication_required for stale authentication). */
+      readonly 403: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Passkeys disabled, or passkey unavailable to the current user (auth_passkey_not_found). */
+      readonly 404: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description The account must retain at least one sign-in method (auth_last_identity). */
+      readonly 409: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      readonly 503: components["responses"]["AuthUnavailableResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly renameMyPasskey: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Must exactly match the Web origin; browsers set this header automatically. */
+        readonly Origin: components["parameters"]["PreAuthOrigin"];
+        /** @description Double-submit CSRF token bound to the active authenticated session. */
+        readonly "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      };
+      readonly path: {
+        /** @description Opaque settings record ID. */
+        readonly passkey_id: components["parameters"]["PasskeyID"];
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["PasskeyLabelRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Successful response */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["MyPasskey"];
+        };
+      };
+      readonly 400: components["responses"]["BadRequestResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      /** @description CSRF, Origin or recent authentication rejected (auth_recent_authentication_required for stale authentication). */
+      readonly 403: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Passkeys disabled, or passkey unavailable to the current user (auth_passkey_not_found). */
+      readonly 404: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      readonly 415: components["responses"]["ProblemResponse"];
+      readonly 503: components["responses"]["AuthUnavailableResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly startPasskeyRegistration: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Must exactly match the Web origin; browsers set this header automatically. */
+        readonly Origin: components["parameters"]["PreAuthOrigin"];
+        /** @description Double-submit CSRF token bound to the active authenticated session. */
+        readonly "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["EmptyAuthRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Successful response */
+      readonly 200: {
+        headers: {
+          readonly "Set-Cookie"?: string;
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["PasskeyCreationOptions"];
+        };
+      };
+      readonly 400: components["responses"]["BadRequestResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      /** @description CSRF, Origin or recent authentication rejected (auth_recent_authentication_required for stale authentication). */
+      readonly 403: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Passkeys disabled. */
+      readonly 404: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      readonly 415: components["responses"]["ProblemResponse"];
+      readonly 429: components["responses"]["AuthRateLimitedResponse"];
+      readonly 503: components["responses"]["AuthUnavailableResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly verifyPasskeyRegistration: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Must exactly match the Web origin; browsers set this header automatically. */
+        readonly Origin: components["parameters"]["PreAuthOrigin"];
+        /** @description Double-submit CSRF token bound to the active authenticated session. */
+        readonly "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["PasskeyRegistrationVerifyRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Passkey registered */
+      readonly 201: {
+        headers: {
+          /** @description Clears the completed browser transaction. */
+          readonly "Set-Cookie"?: string;
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["MyPasskey"];
+        };
+      };
+      readonly 400: components["responses"]["BadRequestResponse"];
+      /** @description Invalid session or invalid attestation (auth_invalid_passkey). */
+      readonly 401: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description CSRF, Origin or recent authentication rejected (auth_recent_authentication_required for stale authentication). */
+      readonly 403: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Passkeys disabled. */
+      readonly 404: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Credential already registered (auth_passkey_exists). */
+      readonly 409: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      readonly 415: components["responses"]["ProblemResponse"];
       readonly 503: components["responses"]["AuthUnavailableResponse"];
       readonly default: components["responses"]["ProblemResponse"];
     };

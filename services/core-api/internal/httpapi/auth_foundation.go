@@ -45,6 +45,10 @@ type authIdentifierResponse struct {
 // preAuthGuard applies the browser boundary before any pre-session mutation.
 // Every wrapped handler must use decodeJSONRequest for its endpoint-specific schema.
 func preAuthGuard(webOrigin string, next http.Handler) http.Handler {
+	return browserOriginGuard(webOrigin, true, next)
+}
+
+func browserOriginGuard(webOrigin string, requireJSON bool, next http.Handler) http.Handler {
 	return authFoundationResponseHeaders(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if webOrigin == "" || r.Header.Get("Origin") != webOrigin || len(r.Header.Values("Origin")) != 1 {
 			writeProblem(w, r, http.StatusForbidden, "Forbidden", "The request origin is not allowed.")
@@ -54,10 +58,12 @@ func preAuthGuard(webOrigin string, next http.Handler) http.Handler {
 			writeProblem(w, r, http.StatusForbidden, "Forbidden", "The request must originate from this site.")
 			return
 		}
-		mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
-		if err != nil || mediaType != "application/json" || len(r.Header.Values("Content-Type")) != 1 {
-			writeProblem(w, r, http.StatusUnsupportedMediaType, "Unsupported media type", "Content-Type must be application/json.")
-			return
+		if requireJSON {
+			mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
+			if err != nil || mediaType != "application/json" || len(r.Header.Values("Content-Type")) != 1 {
+				writeProblem(w, r, http.StatusUnsupportedMediaType, "Unsupported media type", "Content-Type must be application/json.")
+				return
+			}
 		}
 		next.ServeHTTP(w, r)
 	}))
@@ -88,7 +94,7 @@ func authProvidersHandler(cfg config.AuthenticationConfig, logger *slog.Logger) 
 			EmailCodeEnabled: cfg.EmailCodeEnabled, PhoneEnabled: cfg.PhoneEnabled,
 			PasswordRecoveryEnabled: cfg.PasswordEnabled && cfg.EmailCodeEnabled,
 			DeviceManagementEnabled: cfg.DeviceManagementEnabled,
-			PasskeysEnabled:         cfg.PasskeysEnabled, MFATOTPEnabled: cfg.MFATOTPEnabled,
+			PasskeysEnabled:         cfg.PasskeysAvailable(), MFATOTPEnabled: cfg.MFATOTPEnabled,
 			OIDCDefaultEnabled: cfg.ProviderOIDCDefaultEnabled && cfg.OIDCEnabled,
 			SSODomainsEnabled:  cfg.SSODomainsEnabled, OAuthProviders: providers,
 			PasswordMinLength: cfg.PasswordMinLength, PhoneAllowedCountries: countries,

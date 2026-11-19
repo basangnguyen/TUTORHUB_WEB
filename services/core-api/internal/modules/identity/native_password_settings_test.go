@@ -21,6 +21,8 @@ type passwordSettingsTestDB struct {
 	transactions                        []*passwordSettingsTestTx
 	failAt                              string
 	attempts                            int
+	passkeyCount                        int
+	usablePasskey                       bool
 }
 
 type passwordSettingsTestTx struct {
@@ -66,7 +68,7 @@ func (tx *passwordSettingsTestTx) QueryRow(_ context.Context, query string, _ ..
 		if db.active {
 			phc, credentialStatus, updated = &hash, &status, &db.now
 		}
-		return foundationTestRow{values: []any{"member@example.test", "Member", db.verified, phc, credentialStatus, updated, db.lockedUntil}}
+		return foundationTestRow{values: []any{"member@example.test", "Member", db.verified, phc, credentialStatus, updated, db.lockedUntil, db.passkeyCount, db.usablePasskey}}
 	case strings.Contains(query, "FROM tutorhub.users u WHERE"):
 		return foundationTestRow{values: []any{"member@example.test", "Member", db.verified}}
 	case strings.Contains(query, "FROM tutorhub.sessions WHERE"):

@@ -109,6 +109,7 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 	auth := newAuthHandlers(cfg, logger, options.Identity, options.Clock)
 	federation := federationHandlers{auth: auth, limiter: options.AuthRateLimiter}
 	nativeAuth := nativeAuthHandlers{auth: auth, service: options.NativeAuth, limiter: options.AuthRateLimiter}
+	nativeAuth.registerPasskeyRoutes(mux)
 	const pendingRegistration = "/api/v1/auth/pending-registration"
 	const facebookOAuth = "/api/v1/auth/oauth/facebook"
 	mux.Handle(pendingRegistration, authFoundationResponseHeaders(requireMethod(http.MethodGet, http.HandlerFunc(nativeAuth.previewRegistration))))
@@ -193,12 +194,12 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 	}
 	for path, handler := range map[string]http.HandlerFunc{
 		"/api/v1/auth/reauth/email-code/start":    nativeAuth.startReauthEmailCode,
-		"/api/v1/auth/reauth":                     nativeAuth.reauthenticate,
 		"/api/v1/me/sessions/{session_id}/revoke": nativeAuth.revokeMySession,
 		"/api/v1/me/sessions/revoke-others":       nativeAuth.revokeOtherSessions,
 	} {
 		mux.Handle(path, authFoundationResponseHeaders(requireMethod(http.MethodPost, preAuthGuard(cfg.WebOrigin, handler))))
 	}
+	mux.Handle("/api/v1/auth/reauth", nativeAuth.reauthRoute())
 	mux.Handle(
 		"/api/v1/me/identities",
 		requireMethod(http.MethodGet, http.HandlerFunc(auth.identities)),
