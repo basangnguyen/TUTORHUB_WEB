@@ -20,15 +20,17 @@ import {
   type FormEvent,
   type MouseEvent,
 } from "react";
-import { Link, useNavigate } from "react-router";
+import { Link, useLocation, useNavigate } from "react-router";
 import { useI18n, type TranslationKey } from "../app/i18n";
 import { useSession } from "../app/session";
 import { SignInLegalDialog } from "./SignInLegalDialog";
 import {
   ACCOUNT_LINK_PATH,
   getApiBaseUrl,
+  registrationProviderFrom,
   sanitizeRegistrationReturnTo,
   useAuthProviders,
+  type RegistrationProvider,
 } from "./SignInPage.shared";
 import type { SignInLegalTab } from "./signInLegalContent";
 import "./SignInPage.css";
@@ -251,11 +253,16 @@ interface Challenge {
 type OtpError = "required" | "invalid" | "expired" | null;
 type TermsError = "required" | "changed" | "unavailable" | null;
 
-const PROVIDER_NAME_KEY: TranslationKey =
-  "completeRegistration.providerFacebook";
+const PROVIDER_NAME_KEYS: Readonly<
+  Record<RegistrationProvider, TranslationKey>
+> = {
+  facebook: "completeRegistration.providerFacebook",
+  microsoft: "completeRegistration.providerMicrosoft",
+};
 
 /**
- * AUTH-06B: a new Facebook subject has no account yet. The HttpOnly
+ * AUTH-06B/07B: a new Facebook subject, or a Microsoft subject without a
+ * trusted email (`xms_edov`), has no account yet. The HttpOnly
  * registration cookie never reaches JavaScript; the person proves an email
  * with a one-time code, after which the server either creates the account
  * (session) or parks a link intent when the email already has an owner.
@@ -265,6 +272,7 @@ export function CompleteRegistrationPage() {
   const { t } = useI18n();
   const session = useSession();
   const navigate = useNavigate();
+  const location = useLocation();
   const ids = {
     title: useId(),
     emailHeading: useId(),
@@ -285,7 +293,15 @@ export function CompleteRegistrationPage() {
   const { reload: reloadProviders, state: providersState } = useAuthProviders();
   const providers =
     providersState.status === "ready" ? providersState.providers : null;
-  const providerName = t(PROVIDER_NAME_KEY);
+  // The server's preview names the provider; until it loads, the allowlisted
+  // `?provider=` from the callback redirect labels the screen.
+  const provider: RegistrationProvider =
+    state.status === "ready"
+      ? state.preview.provider
+      : registrationProviderFrom(
+          new URLSearchParams(location.search).get("provider"),
+        );
+  const providerName = t(PROVIDER_NAME_KEYS[provider]);
 
   const emailRef = useRef<HTMLInputElement>(null);
   const otpRef = useRef<HTMLInputElement>(null);
@@ -517,7 +533,7 @@ export function CompleteRegistrationPage() {
     setOtp("");
     if (result.status === "link_pending") {
       // The email already has an owner: prove it on the linking screen.
-      void navigate(`${ACCOUNT_LINK_PATH}?provider=facebook`, {
+      void navigate(`${ACCOUNT_LINK_PATH}?provider=${provider}`, {
         replace: true,
       });
       return;
@@ -631,7 +647,9 @@ export function CompleteRegistrationPage() {
                 {t("completeRegistration.backToSignIn")}
               </Link>
             }
-            description={t("completeRegistration.unavailableDescription")}
+            description={t("completeRegistration.unavailableDescription", {
+              provider: providerName,
+            })}
             title={t("completeRegistration.unavailableTitle")}
           />
         )}

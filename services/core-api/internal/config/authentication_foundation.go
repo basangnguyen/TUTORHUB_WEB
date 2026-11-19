@@ -51,8 +51,14 @@ func configureAuthFoundation(cfg *AuthenticationConfig, lookup lookupEnv, enviro
 	cfg.DeliveryBudgetApproved = boolValue(lookup, "AUTH_DELIVERY_BUDGET_APPROVED", false, validationErrors)
 	cfg.EmailDailyQuota = intValue(lookup, "AUTH_EMAIL_DAILY_QUOTA", 200, 0, 1_000_000, validationErrors)
 	cfg.PhoneOTPDailyQuota = intValue(lookup, "AUTH_PHONE_OTP_DAILY_QUOTA", 50, 0, 1_000_000, validationErrors)
+	// Loopback E2E runs every auth spec from one IP in one database. Scaling the
+	// per-IP buckets is a test-only aid; production always uses the base limits.
+	cfg.E2EIPRateLimitMultiplier = intValue(lookup, "AUTH_E2E_IP_RATE_LIMIT_MULTIPLIER", 1, 1, 100, validationErrors)
 
 	development := environment == "development" || environment == "test"
+	if cfg.E2EIPRateLimitMultiplier != 1 && environment != "test" {
+		*validationErrors = append(*validationErrors, fmt.Errorf("AUTH_E2E_IP_RATE_LIMIT_MULTIPLIER requires APP_ENV=test"))
+	}
 	validateAuthSender("AUTH_EMAIL_SENDER", cfg.EmailSender, []string{"disabled", "devinbox", "smtp", "ses"}, development, cfg.DeliveryBudgetApproved, validationErrors)
 	validateAuthSender("AUTH_PHONE_SENDER", cfg.PhoneSender, []string{"disabled", "devinbox", "zns", "sms_brandname", "twilio"}, development, cfg.DeliveryBudgetApproved, validationErrors)
 	if cfg.SMTPAddr != "" {

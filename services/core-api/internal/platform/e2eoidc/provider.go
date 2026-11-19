@@ -23,6 +23,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 const (
@@ -48,7 +50,26 @@ const (
 	facebookDialogPath      = "/" + facebookGraphVersion + "/dialog/oauth"
 	facebookAccessTokenPath = "/" + facebookGraphVersion + "/oauth/access_token"
 	facebookJWKSPath        = "/.well-known/oauth/openid/jwks/"
+
+	// FlavorMicrosoft serves the Microsoft identity platform v2.0 surface
+	// (per-mode discovery, authorize, token, JWKS) so TutorHub's Microsoft
+	// adapter can run against a loopback authority. ID tokens still carry the
+	// canonical tenant issuer, exactly like Entra ID.
+	FlavorMicrosoft = "microsoft"
+	// MicrosoftPersonalTenantID is the fixed tenant of personal accounts (MSA).
+	MicrosoftPersonalTenantID = "9188040d-6c67-4c5b-b112-36a304b66dad"
+	// MicrosoftDefaultWorkTenantID prefills the custom-account form: a
+	// fictional work or school tenant used only by the loopback fake.
+	MicrosoftDefaultWorkTenantID = "5b3c1f0e-8d2a-4e61-9c7b-2a4f6d8e0c13"
+
+	microsoftCanonicalAuthority = "https://login.microsoftonline.com"
+	microsoftIssuerTemplate     = microsoftCanonicalAuthority + "/{tenantid}/v2.0"
+	microsoftJWKSPath           = "/common/discovery/v2.0/keys"
 )
+
+// microsoftTenantModes are the authority segments TutorHub may be configured
+// with (MICROSOFT_TENANT_MODE).
+var microsoftTenantModes = []string{"common", "organizations", "consumers"}
 
 var (
 	errInvalidConfiguration = errors.New("invalid E2E OIDC configuration")
@@ -79,11 +100,23 @@ var (
       <input name="request_id" type="hidden" value="{{.RequestID}}">
       <fieldset>
         <legend>Use a custom test account</legend>
+        {{if .Microsoft}}
+        <label>Test email <input name="custom_email" type="email" autocomplete="off"></label>
+        <label>Tenant ID (tid) <input name="custom_tenant_id" type="text" autocomplete="off" required value="{{.DefaultTenantID}}"></label>
+        <label>Object ID (oid, optional) <input name="custom_object_id" type="text" autocomplete="off"></label>
+        <label>xms_edov claim <select name="custom_xms_edov">
+          <option value="">Not sent</option>
+          <option value="true">true</option>
+          <option value="false">false</option>
+        </select></label>
+        <p>Personal Microsoft accounts use tenant {{.PersonalTenantID}}. Leave the email empty to omit the claim; the object ID is then required.</p>
+        {{else}}
         <label>Test email <input name="custom_email" type="email" autocomplete="off" required></label>
         {{if .Facebook}}
         <label><input name="custom_email_withheld" type="checkbox" value="true"> Do not share email with the app</label>
         {{else}}
         <label><input name="custom_email_unverified" type="checkbox" value="true"> Email is not verified</label>
+        {{end}}
         {{end}}
         <button name="account" type="submit" value="{{.CustomAccountID}}">Sign in with custom account</button>
       </fieldset>
@@ -105,8 +138,16 @@ type Account struct {
 	// EmailUnverified makes the issued claims carry email_verified=false.
 	EmailUnverified bool
 	// EmailWithheld omits the email claim, like a Facebook user who did not
-	// share an email address with the app (Facebook flavor only).
+	// share an email address with the app (Facebook and Microsoft flavors).
 	EmailWithheld bool
+	// TenantID is the Entra tenant (`tid`, and the tenant of the canonical
+	// issuer) of a Microsoft flavor account; MicrosoftPersonalTenantID marks
+	// a personal account.
+	TenantID string
+	// ObjectID is the optional `oid` claim of a Microsoft flavor account.
+	ObjectID string
+	// DomainVerified is the Microsoft `xms_edov` claim; nil omits it.
+	DomainVerified *bool
 }
 
 // Config describes a single confidential loopback client.
@@ -123,8 +164,9 @@ type Config struct {
 	// valid test email with a subject derived from it, so each E2E scenario
 	// can use its own identity. Off unless explicitly enabled.
 	AllowCustomAccounts bool
-	// Flavor selects the endpoint surface: FlavorOIDC (default) or
-	// FlavorFacebook, which requires numeric app-scoped subjects (ASIDs).
+	// Flavor selects the endpoint surface: FlavorOIDC (default),
+	// FlavorFacebook, which requires numeric app-scoped subjects (ASIDs), or
+	// FlavorMicrosoft, which requires a tenant ID on every account.
 	Flavor string
 	Clock  func() time.Time
 	Random io.Reader
@@ -245,6 +287,16 @@ func (provider *Provider) Handler() http.Handler {
 		mux.HandleFunc("GET "+facebookAccessTokenPath, provider.facebookAccessToken)
 		mux.HandleFunc("GET "+facebookJWKSPath, provider.jwks)
 	}
+	if provider.microsoft() {
+		// TutorHub's Microsoft adapter discovers {authority}/{mode}/v2.0 and
+		// requires the JWKS on the same origin as the authority.
+		for _, mode := range microsoftTenantModes {
+			mux.HandleFunc("GET /"+mode+"/v2.0/.well-known/openid-configuration", provider.microsoftDiscovery(mode))
+			mux.HandleFunc("GET /"+mode+"/oauth2/v2.0/authorize", provider.authorize)
+			mux.HandleFunc("POST /"+mode+"/oauth2/v2.0/token", provider.token)
+		}
+		mux.HandleFunc("GET "+microsoftJWKSPath, provider.jwks)
+	}
 
 	// Chromium enforces form-action across the complete redirect chain, so the
 	// chooser must explicitly allow the validated API callback and web origins.
@@ -253,6 +305,66 @@ func (provider *Provider) Handler() http.Handler {
 
 func (provider *Provider) facebook() bool {
 	return provider.config.Flavor == FlavorFacebook
+}
+
+func (provider *Provider) microsoft() bool {
+	return provider.config.Flavor == FlavorMicrosoft
+}
+
+// microsoftDiscovery mirrors the v2.0 metadata of one authority mode: the
+// multi-tenant issuer template (the consumers alias names the concrete
+// personal-account tenant) and endpoints on the loopback authority.
+func (provider *Provider) microsoftDiscovery(mode string) http.HandlerFunc {
+	return func(writer http.ResponseWriter, _ *http.Request) {
+		base := provider.config.IssuerURL + "/" + mode
+		issuer := microsoftIssuerTemplate
+		if mode == "consumers" {
+			issuer = MicrosoftIssuer(MicrosoftPersonalTenantID)
+		}
+		writeJSON(writer, http.StatusOK, map[string]any{
+			"issuer":                                issuer,
+			"authorization_endpoint":                base + "/oauth2/v2.0/authorize",
+			"token_endpoint":                        base + "/oauth2/v2.0/token",
+			"jwks_uri":                              provider.config.IssuerURL + microsoftJWKSPath,
+			"response_types_supported":              []string{"code"},
+			"response_modes_supported":              []string{"query"},
+			"subject_types_supported":               []string{"pairwise"},
+			"id_token_signing_alg_values_supported": []string{"RS256"},
+			"token_endpoint_auth_methods_supported": []string{"client_secret_post"},
+			"code_challenge_methods_supported":      []string{"S256"},
+			"scopes_supported":                      []string{"openid", "profile", "email"},
+			"claims_supported": []string{
+				"iss", "sub", "aud", "exp", "iat", "nbf", "nonce", "tid", "oid",
+				"email", "xms_edov", "name", "preferred_username", "ver",
+			},
+		})
+	}
+}
+
+// MicrosoftIssuer is the canonical v2.0 issuer of a tenant, which Microsoft
+// ID tokens carry whatever authority URL served them.
+func MicrosoftIssuer(tenantID string) string {
+	return microsoftCanonicalAuthority + "/" + tenantID + "/v2.0"
+}
+
+// MicrosoftTestObjectID derives the deterministic `oid` that the Microsoft
+// flavor issues for a custom account without an explicit object ID: a
+// name-based (SHA-1) UUID of the tenant and email, so each tenant yields a
+// different object for the same email address.
+func MicrosoftTestObjectID(tenantID string, email string) string {
+	return uuid.NewSHA1(uuid.NameSpaceURL, []byte("tutorhub-e2e:microsoft-oid:"+tenantID+":"+email)).String()
+}
+
+// MicrosoftTestSubject derives the pairwise `sub` of a tenant and object, in
+// the 43-character base64url shape of Microsoft's app-scoped subjects.
+func MicrosoftTestSubject(tenantID string, objectID string) string {
+	digest := sha256.Sum256([]byte("tutorhub-e2e:microsoft-sub:" + tenantID + ":" + objectID))
+	return base64.RawURLEncoding.EncodeToString(digest[:])
+}
+
+func microsoftGUID(value string) bool {
+	id, err := uuid.Parse(value)
+	return err == nil && id != uuid.Nil && id.String() == value
 }
 
 func (provider *Provider) discovery(writer http.ResponseWriter, _ *http.Request) {
@@ -280,16 +392,20 @@ func (provider *Provider) discovery(writer http.ResponseWriter, _ *http.Request)
 
 func (provider *Provider) jwks(writer http.ResponseWriter, _ *http.Request) {
 	exponent := big.NewInt(int64(provider.privateKey.PublicKey.E)).Bytes()
-	writeJSON(writer, http.StatusOK, map[string]any{
-		"keys": []map[string]string{{
-			"kty": "RSA",
-			"use": "sig",
-			"alg": "RS256",
-			"kid": provider.keyID,
-			"n":   base64.RawURLEncoding.EncodeToString(provider.privateKey.PublicKey.N.Bytes()),
-			"e":   base64.RawURLEncoding.EncodeToString(exponent),
-		}},
-	})
+	key := map[string]string{
+		"kty": "RSA",
+		"use": "sig",
+		"alg": "RS256",
+		"kid": provider.keyID,
+		"n":   base64.RawURLEncoding.EncodeToString(provider.privateKey.PublicKey.N.Bytes()),
+		"e":   base64.RawURLEncoding.EncodeToString(exponent),
+	}
+	if provider.microsoft() {
+		// Entra keys name the issuers they may sign for and omit `alg`.
+		delete(key, "alg")
+		key["issuer"] = microsoftIssuerTemplate
+	}
+	writeJSON(writer, http.StatusOK, map[string]any{"keys": []map[string]string{key}})
 }
 
 func (provider *Provider) authorize(writer http.ResponseWriter, request *http.Request) {
@@ -313,11 +429,14 @@ func (provider *Provider) authorize(writer http.ResponseWriter, request *http.Re
 	writer.Header().Set("Content-Type", "text/html; charset=utf-8")
 	writer.WriteHeader(http.StatusOK)
 	_ = loginPageTemplate.Execute(writer, map[string]any{
-		"RequestID":       requestID,
-		"Accounts":        provider.accountOrder,
-		"CustomAccounts":  provider.config.AllowCustomAccounts,
-		"CustomAccountID": CustomAccountID,
-		"Facebook":        provider.facebook(),
+		"RequestID":        requestID,
+		"Accounts":         provider.accountOrder,
+		"CustomAccounts":   provider.config.AllowCustomAccounts,
+		"CustomAccountID":  CustomAccountID,
+		"Facebook":         provider.facebook(),
+		"Microsoft":        provider.microsoft(),
+		"DefaultTenantID":  MicrosoftDefaultWorkTenantID,
+		"PersonalTenantID": MicrosoftPersonalTenantID,
 	})
 }
 
@@ -582,6 +701,26 @@ func (provider *Provider) signIDToken(code authorizationCode, now time.Time) (st
 			payload["email"] = code.Account.Email
 		}
 		payload["name"] = code.Account.DisplayName
+	} else if provider.microsoft() {
+		// Entra ID v2.0: canonical tenant issuer, tid/oid, optional email and
+		// xms_edov, no email_verified and no auth_time. preferred_username is
+		// mutable and must never be trusted by the relying party.
+		delete(payload, "auth_time")
+		payload["iss"] = MicrosoftIssuer(code.Account.TenantID)
+		payload["tid"] = code.Account.TenantID
+		payload["nbf"] = now.Unix()
+		payload["ver"] = "2.0"
+		payload["name"] = code.Account.DisplayName
+		if code.Account.ObjectID != "" {
+			payload["oid"] = code.Account.ObjectID
+		}
+		if !code.Account.EmailWithheld && code.Account.Email != "" {
+			payload["email"] = code.Account.Email
+			payload["preferred_username"] = code.Account.Email
+		}
+		if code.Account.DomainVerified != nil {
+			payload["xms_edov"] = *code.Account.DomainVerified
+		}
 	} else {
 		payload["email"] = code.Account.Email
 		payload["email_verified"] = !code.Account.EmailUnverified
@@ -611,6 +750,9 @@ func (provider *Provider) customAccount(form url.Values) (Account, bool) {
 	if !provider.config.AllowCustomAccounts {
 		return Account{}, false
 	}
+	if provider.microsoft() {
+		return microsoftCustomAccount(form)
+	}
 	email := strings.ToLower(strings.TrimSpace(form.Get("custom_email")))
 	address, err := mail.ParseAddress(email)
 	if err != nil || address.Name != "" || address.Address != email ||
@@ -636,6 +778,58 @@ func (provider *Provider) customAccount(form url.Values) (Account, bool) {
 		DisplayName:     localPart,
 		Locale:          "en",
 		EmailUnverified: form.Get("custom_email_unverified") == "true",
+	}, true
+}
+
+// microsoftCustomAccount builds a Microsoft identity from the custom form: a
+// tenant (required), an optional email, an optional object ID (derived from
+// tenant and email when empty) and an optional xms_edov boolean. The same
+// tenant and email always map to the same subject.
+func microsoftCustomAccount(form url.Values) (Account, bool) {
+	email := strings.ToLower(strings.TrimSpace(form.Get("custom_email")))
+	if email != "" {
+		address, err := mail.ParseAddress(email)
+		if err != nil || address.Name != "" || address.Address != email ||
+			len(email) > customEmailMaxLength {
+			return Account{}, false
+		}
+	}
+	tenantID := strings.ToLower(strings.TrimSpace(form.Get("custom_tenant_id")))
+	if !microsoftGUID(tenantID) {
+		return Account{}, false
+	}
+	objectID := strings.ToLower(strings.TrimSpace(form.Get("custom_object_id")))
+	switch {
+	case objectID == "" && email == "":
+		return Account{}, false
+	case objectID == "":
+		objectID = MicrosoftTestObjectID(tenantID, email)
+	case !microsoftGUID(objectID):
+		return Account{}, false
+	}
+	var domainVerified *bool
+	switch form.Get("custom_xms_edov") {
+	case "":
+	case "true", "false":
+		value := form.Get("custom_xms_edov") == "true"
+		domainVerified = &value
+	default:
+		return Account{}, false
+	}
+	displayName, _, _ := strings.Cut(email, "@")
+	if displayName == "" {
+		displayName = "Microsoft test user"
+	}
+	return Account{
+		ID:             CustomAccountID,
+		Subject:        MicrosoftTestSubject(tenantID, objectID),
+		Email:          email,
+		DisplayName:    displayName,
+		Locale:         "en",
+		EmailWithheld:  email == "",
+		TenantID:       tenantID,
+		ObjectID:       objectID,
+		DomainVerified: domainVerified,
 	}, true
 }
 
@@ -702,7 +896,7 @@ func validateConfig(config Config) error {
 		return fmt.Errorf("%w: at least one test account is required", errInvalidConfiguration)
 	}
 	flavor := strings.TrimSpace(config.Flavor)
-	if flavor != "" && flavor != FlavorOIDC && flavor != FlavorFacebook {
+	if flavor != "" && flavor != FlavorOIDC && flavor != FlavorFacebook && flavor != FlavorMicrosoft {
 		return fmt.Errorf("%w: unknown flavor", errInvalidConfiguration)
 	}
 
@@ -723,6 +917,11 @@ func validateConfig(config Config) error {
 		}
 		if flavor == FlavorFacebook && !isNumericSubject(subject) {
 			return fmt.Errorf("%w: Facebook test accounts need numeric app-scoped subjects", errInvalidConfiguration)
+		}
+		if flavor == FlavorMicrosoft && (!microsoftGUID(account.TenantID) ||
+			(account.ObjectID != "" && !microsoftGUID(account.ObjectID)) ||
+			strings.ContainsAny(account.Subject, " \t\r\n")) {
+			return fmt.Errorf("%w: Microsoft test accounts need a canonical tenant ID, an optional canonical object ID and a subject without whitespace", errInvalidConfiguration)
 		}
 		if _, exists := ids[id]; exists {
 			return fmt.Errorf("%w: duplicate account id", errInvalidConfiguration)

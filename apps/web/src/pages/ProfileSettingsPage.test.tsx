@@ -1599,3 +1599,276 @@ describe("ProfileSettingsPage AUTH-05B Google linking", () => {
     );
   });
 });
+
+describe("ProfileSettingsPage AUTH-07B Microsoft linking", () => {
+  const microsoftProviders: AuthProvidersResponse = {
+    ...deviceProviders,
+    oauth_providers: ["google", "microsoft"],
+  };
+  const authorizationURL =
+    "https://login.microsoftonline.test/common/oauth2/v2.0/authorize?client_id=fixture";
+  const linkPath = "/api/v1/me/identities/link";
+
+  function stubLocationAssign() {
+    const assign = vi.fn();
+    vi.stubGlobal("location", {
+      ...window.location,
+      assign,
+      href: window.location.href,
+      origin: window.location.origin,
+    });
+    return assign;
+  }
+
+  function linkHandler(responses: Array<() => Response>) {
+    return (request: Request) =>
+      request.method === "POST" && new URL(request.url).pathname === linkPath
+        ? (responses.shift() ?? (() => problemResponse(500)))()
+        : undefined;
+  }
+
+  function linkRequests(posts: Request[]) {
+    return posts.filter(
+      (request) =>
+        request.method === "POST" && new URL(request.url).pathname === linkPath,
+    );
+  }
+
+  async function identityCard() {
+    return screen.findByRole("region", { name: "Sign-in identities" });
+  }
+
+  beforeEach(() => {
+    sessionActions.signIn.mockReset();
+    sessionActions.signOut.mockReset().mockResolvedValue(undefined);
+  });
+
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+  });
+
+  it("offers Link Microsoft only when the server lists Microsoft", async () => {
+    installSecurityMock({
+      providers: { ...deviceProviders, oauth_providers: ["google"] },
+    });
+    renderProfile();
+    const card = await identityCard();
+
+    expect(
+      await within(card).findByRole("button", { name: "Link Google" }),
+    ).toBeInTheDocument();
+    expect(
+      within(card).queryByRole("button", { name: "Link Microsoft" }),
+    ).toBeNull();
+  });
+
+  it("starts the Microsoft link with a rotated CSRF token and a full-page navigation", async () => {
+    const assign = stubLocationAssign();
+    const { posts } = installSecurityMock({
+      extra: linkHandler([
+        () => jsonResponse({ authorization_url: authorizationURL }),
+      ]),
+      providers: microsoftProviders,
+    });
+    renderProfile();
+    const card = await identityCard();
+
+    fireEvent.click(
+      await within(card).findByRole("button", { name: "Link Microsoft" }),
+    );
+    await waitFor(() => expect(assign).toHaveBeenCalledWith(authorizationURL));
+    const [microsoftLink] = linkRequests(posts);
+    expect(microsoftLink?.headers.get("X-CSRF-Token")).toMatch(
+      /^security-csrf-\d+$/,
+    );
+    expect(JSON.parse((await microsoftLink?.text()) ?? "")).toEqual({
+      provider: "microsoft",
+    });
+  });
+
+  it("steps up once on a 403 and retries the Microsoft link exactly once", async () => {
+    const assign = stubLocationAssign();
+    const { posts } = installSecurityMock({
+      extra: linkHandler([
+        () => problemResponse(403, "auth_recent_authentication_required"),
+        () => jsonResponse({ authorization_url: authorizationURL }),
+      ]),
+      providers: microsoftProviders,
+    });
+    renderProfile();
+    const card = await identityCard();
+    fireEvent.click(
+      await within(card).findByRole("button", { name: "Link Microsoft" }),
+    );
+
+    // The shared step-up offers only the server's methods, never Microsoft.
+    const dialog = await screen.findByRole("dialog", {
+      name: "Confirm it's you",
+    });
+    expect(dialog).not.toHaveTextContent(/Microsoft/);
+    await confirmWithPassword("Microsoft-link-passphrase");
+
+    await waitFor(() => expect(assign).toHaveBeenCalledWith(authorizationURL));
+    const retried = linkRequests(posts);
+    expect(retried).toHaveLength(2);
+    expect(JSON.parse((await retried[1]?.text()) ?? "")).toEqual({
+      provider: "microsoft",
+    });
+  });
+
+  it("does not reopen the step-up by itself after a second refusal", async () => {
+    const assign = stubLocationAssign();
+    const { posts } = installSecurityMock({
+      extra: linkHandler([
+        () => problemResponse(403, "auth_recent_authentication_required"),
+        () => problemResponse(403, "auth_recent_authentication_required"),
+      ]),
+      providers: microsoftProviders,
+    });
+    renderProfile();
+    const card = await identityCard();
+    fireEvent.click(
+      await within(card).findByRole("button", { name: "Link Microsoft" }),
+    );
+    await confirmWithPassword("Microsoft-link-passphrase");
+
+    expect(await within(card).findByRole("alert")).toHaveTextContent(
+      "Confirm it's you (within the last 10 minutes) before linking or unlinking an identity.",
+    );
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(linkRequests(posts)).toHaveLength(2);
+    expect(assign).not.toHaveBeenCalled();
+  });
+
+  it("explains an untrusted Microsoft email and offers to sign out", async () => {
+    installSecurityMock({ providers: microsoftProviders });
+    renderProfile({ initialEntry: "/app/settings?identity=email_unverified" });
+    const card = await identityCard();
+
+    const notice = await within(card).findByRole("alert");
+    expect(notice).toHaveTextContent("The sign-in identity wasn't linked");
+    expect(notice).toHaveTextContent(
+      "For a Microsoft account: sign out, choose “Sign in with Microsoft”, then verify your email with a one-time code.",
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("settings-location")).toHaveTextContent(
+        /^\/app\/settings$/,
+      ),
+    );
+    fireEvent.click(within(notice).getByRole("button", { name: "Sign out" }));
+    expect(sessionActions.signOut).toHaveBeenCalledWith({
+      returnTo: "/sign-in",
+    });
+  });
+
+  it("keeps the generic guidance when Microsoft is not offered", async () => {
+    installSecurityMock({
+      providers: { ...deviceProviders, oauth_providers: ["google"] },
+    });
+    renderProfile({ initialEntry: "/app/settings?identity=email_unverified" });
+    const card = await identityCard();
+
+    const notice = await within(card).findByRole("alert");
+    expect(notice).toHaveTextContent(
+      "For other providers, verify the email with the provider, then try linking again.",
+    );
+    expect(notice).not.toHaveTextContent("Microsoft");
+  });
+
+  it("clears the guidance when another identity action starts", async () => {
+    stubLocationAssign();
+    installSecurityMock({
+      extra: linkHandler([
+        () => jsonResponse({ authorization_url: authorizationURL }),
+      ]),
+      providers: microsoftProviders,
+    });
+    renderProfile({ initialEntry: "/app/settings?identity=email_unverified" });
+    const card = await identityCard();
+    expect(await within(card).findByRole("alert")).toBeInTheDocument();
+
+    fireEvent.click(
+      within(card).getByRole("button", { name: "Link Microsoft" }),
+    );
+    await waitFor(() =>
+      expect(
+        within(card).queryByText("The sign-in identity wasn't linked"),
+      ).toBeNull(),
+    );
+  });
+
+  it("labels Microsoft identities and login methods by provider_slug", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const request = requestFrom(input, init);
+        const path = new URL(request.url).pathname;
+        if (path === "/api/v1/me/login-methods") {
+          return jsonResponse({
+            ...loginMethods,
+            identities: [
+              {
+                id: "6d1f2a3b-4c5d-4e6f-8a7b-9c0d1e2f3a4b",
+                kind: "oidc",
+                provider_slug: "microsoft",
+                email_at_provider: "teacher.microsoft@example.com",
+                email_verified: true,
+                last_authenticated_at: null,
+                created_at: "2026-11-19T08:00:00Z",
+              },
+            ],
+          });
+        }
+        if (path === "/api/v1/me/identities") {
+          return jsonResponse({
+            identities: [
+              {
+                // The tenant issuer is never shown; the slug names Microsoft.
+                id: "6d1f2a3b-4c5d-4e6f-8a7b-9c0d1e2f3a4b",
+                provider:
+                  "https://login.microsoftonline.com/5b3c1f0e-8d2a-4e61-9c7b-2a4f6d8e0c13/v2.0",
+                provider_slug: "microsoft",
+                email: "teacher.microsoft@example.com",
+                email_verified: true,
+                created_at: "2026-11-19T08:00:00Z",
+                last_authenticated_at: "2026-11-19T08:00:00Z",
+              },
+              ...identities.identities,
+            ],
+          });
+        }
+        if (path === "/api/v1/me/profile") return jsonResponse(profile);
+        if (path === "/api/v1/auth/providers") {
+          return jsonResponse(microsoftProviders);
+        }
+        if (path === "/api/v1/me/password") return jsonResponse(passwordStatus);
+        if (path === "/api/v1/me/security") {
+          return jsonResponse(securityOverview);
+        }
+        if (path === "/api/v1/me/sessions") {
+          return jsonResponse({ sessions: [currentSession] });
+        }
+        throw new Error(`Unexpected request: ${request.method} ${request.url}`);
+      }),
+    );
+    renderProfile();
+    const card = await identityCard();
+
+    await waitFor(() =>
+      expect(
+        Array.from(
+          card.querySelectorAll(".identity-row__title strong"),
+          (node) => node.textContent,
+        ),
+      ).toEqual(["Microsoft", "https://identity.example.test"]),
+    );
+    expect(card).not.toHaveTextContent("login.microsoftonline.com");
+    const security = await screen.findByRole("region", {
+      name: "Account security",
+    });
+    expect(
+      await within(security).findByText("Microsoft account"),
+    ).toBeVisible();
+  });
+});

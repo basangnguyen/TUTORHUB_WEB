@@ -23,6 +23,7 @@ const {
   api,
   completeNativeSignInMock,
   resetAfterPasswordRecoveryMock,
+  sessionState,
   signInMock,
 } = vi.hoisted(() => ({
   api: {
@@ -38,6 +39,8 @@ const {
   },
   completeNativeSignInMock: vi.fn(),
   resetAfterPasswordRecoveryMock: vi.fn(),
+  /** Session status seen by /sign-in (AUTH-07B Settings hand-off). */
+  sessionState: { status: "unauthenticated" as string },
   signInMock: vi.fn(),
 }));
 
@@ -51,6 +54,7 @@ vi.mock("../app/session", () => ({
     completeNativeSignIn: completeNativeSignInMock,
     resetAfterPasswordRecovery: resetAfterPasswordRecoveryMock,
     signIn: signInMock,
+    status: sessionState.status,
   }),
 }));
 
@@ -211,6 +215,7 @@ function setPageVisibility(state: DocumentVisibilityState) {
 beforeEach(() => {
   window.localStorage.clear();
   window.sessionStorage.clear();
+  sessionState.status = "unauthenticated";
   signInMock.mockReset();
   completeNativeSignInMock.mockReset().mockResolvedValue(undefined);
   resetAfterPasswordRecoveryMock.mockReset().mockResolvedValue(undefined);
@@ -3105,5 +3110,190 @@ describe("SignInPage AUTH-05B Google federation", () => {
     expect(screen.getByTestId("landing")).toHaveTextContent(
       "/account-link?provider=google",
     );
+  });
+});
+
+describe("SignInPage AUTH-07B Microsoft federation", () => {
+  const MICROSOFT_PROVIDERS: AuthProvidersResponse = {
+    ...NATIVE_PROVIDERS,
+    oauth_providers: ["microsoft"],
+    oidc_default_enabled: false,
+  };
+
+  function stubLocationAssign() {
+    const assign = vi.fn();
+    vi.stubGlobal("location", {
+      ...window.location,
+      assign,
+      href: window.location.href,
+      origin: window.location.origin,
+    });
+    return assign;
+  }
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("starts the Microsoft flow with a full-page navigation and the protected return path", async () => {
+    api.getAuthProviders.mockResolvedValue(MICROSOFT_PROVIDERS);
+    const assign = stubLocationAssign();
+    await renderSignIn({
+      from: { pathname: "/app/classrooms", search: "?tab=3" },
+    });
+
+    const microsoft = screen.getByRole("button", {
+      name: "Sign in with Microsoft",
+    });
+    expect(microsoft).toBeEnabled();
+    // The unaltered four-square logo is decorative inside the labelled button.
+    const logo = microsoft.querySelector("svg");
+    expect(logo).toHaveAttribute("aria-hidden", "true");
+    expect(
+      [...(logo?.querySelectorAll("rect") ?? [])].map((rect) =>
+        rect.getAttribute("fill"),
+      ),
+    ).toEqual(["#F25022", "#7FBA00", "#00A4EF", "#FFB900"]);
+    fireEvent.click(microsoft);
+
+    expect(assign).toHaveBeenCalledTimes(1);
+    const target = new URL(String(assign.mock.calls[0]?.[0]));
+    expect(target.pathname).toBe("/api/v1/auth/oauth/microsoft/start");
+    expect(target.searchParams.get("return_to")).toBe("/app/classrooms?tab=3");
+    expect(target.searchParams.get("intent")).toBe("login");
+    expect(signInMock).not.toHaveBeenCalled();
+    // The consent line accompanies the social group, like Google/Facebook.
+    expect(
+      screen.getByText(/^By continuing, you agree to the/),
+    ).toBeInTheDocument();
+  });
+
+  it("hides Microsoft unless the server lists it, even with the OIDC portal on", async () => {
+    api.getAuthProviders.mockResolvedValue({
+      ...NATIVE_PROVIDERS,
+      oauth_providers: ["google", "facebook"],
+      oidc_default_enabled: true,
+    });
+    await renderSignIn();
+
+    expect(
+      screen.getByRole("button", { name: "Sign in with Google" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Sign in with Microsoft" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("keeps Microsoft hidden while the sign-in options load", async () => {
+    api.getAuthProviders.mockReturnValue(new Promise(() => undefined));
+    await renderSignIn();
+
+    expect(
+      screen.getByRole("button", { name: "Sign in with Google" }),
+    ).toBeDisabled();
+    expect(
+      screen.queryByRole("button", { name: "Sign in with Microsoft" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("orders Facebook, Google and Microsoft with the same button weight", async () => {
+    api.getAuthProviders.mockResolvedValue({
+      ...NATIVE_PROVIDERS,
+      oauth_providers: ["google", "facebook", "microsoft"],
+    });
+    const assign = stubLocationAssign();
+    await renderSignIn();
+
+    const social = screen
+      .getByRole("button", { name: "Sign in with Microsoft" })
+      .closest(".sign-in-form__social");
+    if (!(social instanceof HTMLElement))
+      throw new Error("Missing social group");
+    const buttons = within(social).getAllByRole("button");
+    expect(buttons.map((button) => button.textContent)).toEqual([
+      "Continue with Facebook",
+      "Sign in with Google",
+      "Sign in with Microsoft",
+    ]);
+    for (const button of buttons) {
+      expect(button).toHaveClass("sign-in-button");
+      expect(button).not.toHaveClass("sign-in-button--primary");
+    }
+    for (const button of buttons) fireEvent.click(button);
+    expect(
+      assign.mock.calls.map(([url]) => new URL(String(url)).pathname),
+    ).toEqual([
+      "/api/v1/auth/oauth/facebook/start",
+      "/api/v1/auth/oauth/google/start",
+      "/api/v1/auth/oauth/microsoft/start",
+    ]);
+  });
+
+  it("labels the Microsoft button in Vietnamese", async () => {
+    api.getAuthProviders.mockResolvedValue(MICROSOFT_PROVIDERS);
+    await renderSignIn({ language: "vi" });
+
+    expect(
+      screen.getByRole("button", { name: "Đăng nhập bằng Microsoft" }),
+    ).toBeInTheDocument();
+  });
+
+  it("moves a pending Microsoft registration to its registration screen", async () => {
+    await renderSignIn({
+      search: "?registration=pending&provider=microsoft",
+    });
+
+    expect(screen.getByTestId("landing")).toHaveTextContent(
+      "/complete-registration?provider=microsoft",
+    );
+    expect(api.getAuthProviders).not.toHaveBeenCalled();
+  });
+
+  it("moves a pending Microsoft link to /account-link", async () => {
+    await renderSignIn({ search: "?link=pending&provider=microsoft" });
+
+    expect(screen.getByTestId("landing")).toHaveTextContent(
+      "/account-link?provider=microsoft",
+    );
+  });
+
+  it("hands a signed-in email_unverified link result to Settings", async () => {
+    sessionState.status = "authenticated";
+    api.getAuthProviders.mockResolvedValue(MICROSOFT_PROVIDERS);
+    const { router } = await renderSignIn({
+      search: "?error=email_unverified",
+    });
+
+    await waitFor(() =>
+      expect(screen.getByTestId("landing")).toHaveTextContent(
+        "/app/settings?identity=email_unverified",
+      ),
+    );
+    expect(router.state.historyAction).toBe("REPLACE");
+  });
+
+  it("keeps the sign-in message for a signed-out email_unverified result", async () => {
+    api.getAuthProviders.mockResolvedValue(MICROSOFT_PROVIDERS);
+    const { router } = await renderSignIn({
+      search: "?error=email_unverified",
+    });
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "The email address of the account you chose isn't verified by its provider.",
+    );
+    await waitFor(() => expect(router.state.location.search).toBe(""));
+    expect(router.state.location.pathname).toBe("/sign-in");
+  });
+
+  it("does not hand other callback errors of a signed-in person to Settings", async () => {
+    sessionState.status = "authenticated";
+    api.getAuthProviders.mockResolvedValue(MICROSOFT_PROVIDERS);
+    const { router } = await renderSignIn({
+      search: "?error=authentication_failed",
+    });
+
+    await waitFor(() => expect(router.state.location.search).toBe(""));
+    expect(router.state.location.pathname).toBe("/sign-in");
+    expect(screen.queryByTestId("landing")).not.toBeInTheDocument();
   });
 });

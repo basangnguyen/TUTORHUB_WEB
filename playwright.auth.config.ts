@@ -4,9 +4,10 @@ import { randomBytes } from "node:crypto";
 /**
  * AUTH-02B/03B/04B native sign-up, password, email-code login, recovery,
  * step-up re-authentication and device/session management E2E, plus AUTH-05B
- * Google federation against a loopback fake issuer (never Google itself), and
+ * Google federation against a loopback fake issuer (never Google itself),
  * AUTH-06B Facebook federation against a third fake that serves Meta's fixed
- * Login paths (never Meta itself).
+ * Login paths (never Meta itself), and AUTH-07B Microsoft federation against
+ * a fourth fake Microsoft identity platform authority (never Microsoft itself).
  * It only targets the loopback stack: the `devinbox` OTP sender and
  * `/api/v1/dev/auth-inbox` exist solely for APP_ENV=test on 127.0.0.1, so
  * staging mode is intentionally unsupported.
@@ -32,6 +33,7 @@ export default defineConfig({
     "**/auth-04-*.spec.ts",
     "**/auth-05-*.spec.ts",
     "**/auth-06-*.spec.ts",
+    "**/auth-07-*.spec.ts",
   ],
   outputDir: "test-results/playwright-auth",
   fullyParallel: false,

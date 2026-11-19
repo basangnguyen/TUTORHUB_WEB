@@ -4,18 +4,30 @@
 
 ## Snapshot
 
-| Thuộc tính           | Trạng thái                                                                                                                             |
-| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| Ngày cập nhật        | 2026-11-18                                                                                                                             |
-| Repository           | `https://github.com/basangnguyen/TUTORHUB_WEB`                                                                                         |
-| Nhánh làm việc       | `main`                                                                                                                                 |
-| Quy trình            | Antigravity làm PM/Gatekeeper điều phối Codex và Claude Code qua prompt; Antigravity nghiệm thu và commit/push thẳng `main`            |
-| Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4, Phase 5 collaboration                                                                              |
-| Phase hiện tại       | Phase 3 deferred carry-over vẫn hoạt động; Phase 5 collaboration đã đóng                                                               |
-| Task `DONE` gần nhất | `AUTH-07A` Microsoft Sign-in phía Server (Entra ID multi-tenant + MSA, issuer theo `tid`, `xms_edov`, chống nOAuth) — cờ Microsoft tắt |
-| Mốc repository mới   | PostgreSQL disposable `146/146` suite PASS (ledger `46 false`); `pnpm verify` + `api:check` PASS                                       |
-| Task hiện tại        | Giao `AUTH-07B` cho Claude Code (nút Microsoft, đăng ký chờ/liên kết Microsoft, fake Microsoft + Playwright) — có Phase 0              |
-| Task tiếp theo       | Rollout Google/Facebook chờ chủ dự án cấu hình client thật + duyệt Chính sách quyền riêng tư; sau `AUTH-07` là Passkeys (`AUTH-08`)    |
+| Thuộc tính           | Trạng thái                                                                                                                                          |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Ngày cập nhật        | 2026-11-18                                                                                                                                          |
+| Repository           | `https://github.com/basangnguyen/TUTORHUB_WEB`                                                                                                      |
+| Nhánh làm việc       | `main`                                                                                                                                              |
+| Quy trình            | Antigravity làm PM/Gatekeeper điều phối Codex và Claude Code qua prompt; Antigravity nghiệm thu và commit/push thẳng `main`                         |
+| Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4, Phase 5 collaboration                                                                                           |
+| Phase hiện tại       | Phase 3 deferred carry-over vẫn hoạt động; Phase 5 collaboration đã đóng                                                                            |
+| Task `DONE` gần nhất | `AUTH-07B` Giao diện Microsoft: nút Microsoft, đăng ký chờ/liên kết, Settings + Playwright (`AUTH-07` `DONE`, cờ Microsoft tắt)                     |
+| Mốc repository mới   | Playwright Chromium native auth `20/20` (gồm `auth-07` ×6 với fake Microsoft) + hồi quy OIDC `p2-08` PASS; web `736` unit test                      |
+| Task hiện tại        | Giao `AUTH-08A` cho Codex (Passkeys/WebAuthn phía server, migration `000047`, `go-webauthn`, OpenAPI) — có Phase 0                                  |
+| Task tiếp theo       | Nghiệm thu `AUTH-08A`, sau đó `AUTH-08B` (WebAuthn UX + Conditional UI + Signal API + Playwright virtual authenticator); tiếp theo `AUTH-09` (TOTP) |
+
+### Checkpoint `AUTH-07B` Giao diện Microsoft, Đăng ký chờ/Liên kết & Fake Microsoft E2E (`AUTH-07` `DONE`) — 2026-11-19
+
+Claude Code triển khai lát cắt Web UI + Playwright của `AUTH-07` (Phase 0 không có BLOCKER server/fake; phát hiện BLOCKER ngân sách `SignupIP` khi chạy gộp `auth-02..07`); Gatekeeper (Antigravity) review diff, chốt hướng xử lý giới hạn theo IP chỉ dành cho `APP_ENV=test` và kiểm chứng trên Chromium thật + PostgreSQL disposable:
+
+- **`/sign-in`**: nút "Đăng nhập bằng Microsoft" / "Sign in with Microsoft" chỉ hiển thị khi `oauth_providers` có `microsoft` (không fallback OIDC, ẩn khi đang tải), điều hướng toàn trang tới `/api/v1/auth/oauth/microsoft/start`, logo 4 ô vẽ trong mã theo theme sáng, thứ tự Facebook → Google → Microsoft. Chuyển `?registration=pending&provider=microsoft` → `/complete-registration` và `?link=pending&provider=microsoft` → `/account-link`. Khi đang đăng nhập mà callback trả `?error=email_unverified` → chuyển sang `/app/settings?identity=email_unverified` (không dùng Web Storage).
+- **`/complete-registration` & `/account-link`**: hỗ trợ đầy đủ provider `microsoft`; `/account-link` chuyển sang `getOAuthLinkIntent()` (hỗ trợ cả `microsoft` mà không đổi api-client).
+- **Settings**: nút "Liên kết Microsoft" dùng chung hook `useLinkProviderIdentity` và hộp step-up dùng chung khi gặp `403 auth_recent_authentication_required` (chạy lại đúng 1 lần); hộp hướng dẫn khi gặp `?identity=email_unverified` kèm nút "Đăng xuất" về `/sign-in`; nhãn Microsoft từ `provider_slug`. Microsoft không xuất hiện trong hộp step-up.
+- **Fake Microsoft** (`e2e-oidc` flavor `microsoft`, cổng `9094`): discovery theo mode `v2.0`, JWKS cùng origin kèm `issuer` từng khóa, ID token ký RS256 với `iss` canonical theo `tid`, `tid`/`oid`, `email`/`xms_edov` tùy chọn; chỉ `--native-auth` bật `AUTH_PROVIDER_MICROSOFT_ENABLED=true` với secret sinh mới mỗi lần chạy.
+- **Quyết định Gatekeeper cho ngân sách rate limit E2E**: thêm biến `AUTH_E2E_IP_RATE_LIMIT_MULTIPLIER` (`1..100`, mặc định `1`, **bắt buộc `APP_ENV=test`** — startup lỗi trên `development`/`staging`/`production`), chỉ nhân các bucket `*.ip` (giữ nguyên hạn mức theo đích/user/hạn mức gửi hằng ngày); `--native-auth` đặt `10` để chạy gộp `auth-02..07` và các gói sau trong một lần chạy. Kèm unit test config, policy và `scripts/e2e-local.test.mjs`.
+- **Bằng chứng Gatekeeper**: Playwright Chromium trên DB disposable (migration `46`, xóa sạch sau khi chạy): native auth **`20/20` PASS (`7,5` phút)** gồm `auth-07-microsoft.spec.ts` ×6 (work `xms_edov=true`, MSA thiếu `xms_edov` → OTP, email trùng → `/account-link`, hai tenant cùng email không tự gộp, liên kết từ Settings sau step-up + hướng dẫn `email_unverified`, Axe + Web Storage sạch) và hồi quy OIDC `p2-08` **`1/1` PASS (`4,8` phút)**; Go `e2eoidc` (`21` test gồm `7` test tương thích `NewMicrosoftProvider`), Go `config`/`httpapi`/`cmd/api`, `scripts/e2e-local.test.mjs` (`18/18`) và toàn kho `pnpm verify` (`736/736` web unit tests, `107/107` api-client, `39` package Go) đều PASS.
+- **Còn mở trước rollout Microsoft (cờ vẫn tắt)**: đối chiếu nút với bộ asset "Sign in with Microsoft" chính thức, hoàn tất Entra App Registration + optional claim `xms_edov` + publisher verification và smoke tài khoản công việc/MSA thật.
 
 ### Checkpoint `AUTH-07A` Microsoft Sign-in phía Server (Entra ID multi-tenant + MSA) `DONE` — 2026-11-19
 

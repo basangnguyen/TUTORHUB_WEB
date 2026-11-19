@@ -171,6 +171,7 @@ type AuthenticationConfig struct {
 	DeliveryBudgetApproved       bool
 	EmailDailyQuota              int
 	PhoneOTPDailyQuota           int
+	E2EIPRateLimitMultiplier     int
 }
 
 type LiveKitConfig struct {

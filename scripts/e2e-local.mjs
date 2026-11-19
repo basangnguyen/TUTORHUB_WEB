@@ -20,6 +20,8 @@ const localOrigins = Object.freeze({
   googleIssuer: "http://127.0.0.1:9092",
   // AUTH-06: a third fake issuer serves Meta's fixed Facebook Login paths.
   facebookIssuer: "http://127.0.0.1:9093",
+  // AUTH-07: a fourth fake is the Microsoft identity platform authority.
+  microsoftAuthority: "http://127.0.0.1:9094",
   web: "http://127.0.0.1:5173",
 });
 
@@ -27,6 +29,8 @@ const localOrigins = Object.freeze({
 export const googleFixtureClientID = "tutorhub-e2e-google";
 /** Fixture app ID for the loopback fake Facebook; never a real Meta app. */
 export const facebookFixtureClientID = "tutorhub-e2e-facebook";
+/** Fixture client ID for the loopback fake Microsoft; never a real Entra app. */
+export const microsoftFixtureClientID = "tutorhub-e2e-microsoft";
 /**
  * Optional per-run Facebook app secret handed down by playwright.auth.config.ts
  * so the spec can sign Meta-style `signed_request` callbacks. It is consumed
@@ -67,10 +71,11 @@ export const localAccounts = Object.freeze({
 /**
  * AUTH-02/03/04 native sign-up, password login, email-code login, password
  * recovery, step-up re-authentication and session/device management, plus
- * AUTH-05 Google and AUTH-06 Facebook federation against loopback fake
- * issuers, for the loopback stack only. Applied solely when E2E_AUTH_NATIVE=true (or `--native-auth`),
+ * AUTH-05 Google, AUTH-06 Facebook and AUTH-07 Microsoft federation against
+ * loopback fake issuers, for the loopback stack only. Applied solely when E2E_AUTH_NATIVE=true (or `--native-auth`),
  * so the default `pnpm e2e` environment stays byte-for-byte unchanged. The
- * Google and Facebook secrets are generated per run (see createRuntimeSecrets).
+ * Google, Facebook and Microsoft secrets are generated per run (see
+ * createRuntimeSecrets).
  */
 export const nativeAuthConfiguration = Object.freeze({
   AUTH_SIGNUP_ENABLED: "true",
@@ -82,6 +87,9 @@ export const nativeAuthConfiguration = Object.freeze({
   AUTH_PASSWORD_BREACH_CHECK: "offline",
   // AUTH-04: /me/security, /me/login-methods, /me/sessions and /auth/reauth.
   AUTH_DEVICE_MANAGEMENT_ENABLED: "true",
+  // Every auth spec shares one loopback IP and one database; scale only the
+  // per-IP buckets (accepted solely with APP_ENV=test).
+  AUTH_E2E_IP_RATE_LIMIT_MULTIPLIER: "10",
   // AUTH-05: Google federation against the fake issuer (APP_ENV=test only).
   AUTH_PROVIDER_GOOGLE_ENABLED: "true",
   GOOGLE_CLIENT_ID: googleFixtureClientID,
@@ -90,6 +98,11 @@ export const nativeAuthConfiguration = Object.freeze({
   AUTH_PROVIDER_FACEBOOK_ENABLED: "true",
   FACEBOOK_CLIENT_ID: facebookFixtureClientID,
   FACEBOOK_ISSUER_URL: localOrigins.facebookIssuer,
+  // AUTH-07: Microsoft federation against the fake authority (APP_ENV=test
+  // only); the default `common` tenant mode admits work and personal accounts.
+  AUTH_PROVIDER_MICROSOFT_ENABLED: "true",
+  MICROSOFT_CLIENT_ID: microsoftFixtureClientID,
+  MICROSOFT_AUTHORITY_URL: localOrigins.microsoftAuthority,
 });
 
 const commandOptions = Object.freeze({
@@ -139,6 +152,7 @@ export function createRuntimeSecrets(baseEnvironment = {}) {
     clientSecret: randomBytes(32).toString("base64url"),
     facebookClientSecret: handedDown || randomBytes(32).toString("base64url"),
     googleClientSecret: randomBytes(32).toString("base64url"),
+    microsoftClientSecret: randomBytes(32).toString("base64url"),
     sessionSecret: randomBytes(48).toString("base64"),
   };
 }
@@ -221,9 +235,13 @@ export function buildE2EEnvironment(
     if (!runtimeSecrets.facebookClientSecret) {
       throw new Error("Native auth E2E needs an ephemeral Facebook secret.");
     }
+    if (!runtimeSecrets.microsoftClientSecret) {
+      throw new Error("Native auth E2E needs an ephemeral Microsoft secret.");
+    }
     Object.assign(environment, nativeAuthConfiguration, {
       FACEBOOK_CLIENT_SECRET: runtimeSecrets.facebookClientSecret,
       GOOGLE_CLIENT_SECRET: runtimeSecrets.googleClientSecret,
+      MICROSOFT_CLIENT_SECRET: runtimeSecrets.microsoftClientSecret,
     });
   }
   return environment;
@@ -286,6 +304,39 @@ export function buildFakeFacebookEnvironment(environment) {
     // Meta's code exchange carries no secret; the fake only checks its length.
     OIDC_CLIENT_SECRET: environment.FACEBOOK_CLIENT_SECRET,
     OIDC_CALLBACK_URL: `${localOrigins.api}/api/v1/auth/oauth/facebook/callback`,
+    OIDC_POST_LOGOUT_URL: `${localOrigins.web}/signed-out`,
+  };
+}
+
+/** True only for the native-auth stack that points Microsoft at the fake. */
+export function usesFakeMicrosoft(environment = {}) {
+  return (
+    environment.E2E_AUTH_NATIVE === "true" &&
+    environment.AUTH_PROVIDER_MICROSOFT_ENABLED === "true" &&
+    environment.MICROSOFT_AUTHORITY_URL === localOrigins.microsoftAuthority
+  );
+}
+
+/**
+ * The fourth e2e-oidc process is the Microsoft authority: per-mode v2.0
+ * discovery, authorize/token and JWKS on the same origin, tenant-issued ID
+ * tokens with tid/oid/xms_edov, and accounts per scenario.
+ */
+export function buildFakeMicrosoftEnvironment(environment) {
+  if (!usesFakeMicrosoft(environment) || !environment.MICROSOFT_CLIENT_SECRET) {
+    throw new Error(
+      "The fake Microsoft authority requires the native-auth stack.",
+    );
+  }
+  return {
+    ...environment,
+    E2E_OIDC_ADDRESS: new URL(localOrigins.microsoftAuthority).host,
+    E2E_OIDC_CUSTOM_ACCOUNTS: "true",
+    E2E_OIDC_FLAVOR: "microsoft",
+    OIDC_ISSUER_URL: localOrigins.microsoftAuthority,
+    OIDC_CLIENT_ID: environment.MICROSOFT_CLIENT_ID,
+    OIDC_CLIENT_SECRET: environment.MICROSOFT_CLIENT_SECRET,
+    OIDC_CALLBACK_URL: `${localOrigins.api}/api/v1/auth/oauth/microsoft/callback`,
     OIDC_POST_LOGOUT_URL: `${localOrigins.web}/signed-out`,
   };
 }
@@ -637,6 +688,23 @@ async function runServers(environment) {
       }
     }
 
+    if (usesFakeMicrosoft(environment)) {
+      // The API reads the Microsoft metadata at startup, like Google's.
+      const microsoft = startChild(
+        binaries.oidcBinary,
+        [],
+        buildFakeMicrosoftEnvironment(environment),
+      );
+      children.push(microsoft);
+      await waitForEndpoint(
+        `${localOrigins.microsoftAuthority}/healthz`,
+        microsoft,
+      );
+      if (stopping) {
+        return;
+      }
+    }
+
     const api = startChild(binaries.apiBinary, [], environment);
     children.push(api);
     await waitForEndpoint(`${localOrigins.api}/ready`, api);
@@ -691,7 +759,7 @@ function printHelp() {
     `  serve    Prepare and run fake OIDC, Core API, and web\n\n`,
   );
   process.stdout.write(
-    `  --native-auth  Also enable email sign-up, password and email-code login, password recovery, step-up and device management, the loopback devinbox sender, Google federation against a second loopback fake issuer, and Facebook federation against a third one\n`,
+    `  --native-auth  Also enable email sign-up, password and email-code login, password recovery, step-up and device management, the loopback devinbox sender, Google federation against a second loopback fake issuer, Facebook federation against a third one, and Microsoft federation against a fourth one\n`,
   );
 }
 

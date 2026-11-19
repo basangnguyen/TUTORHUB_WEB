@@ -37,8 +37,8 @@ func run() int {
 			"OIDC_POST_LOGOUT_URL",
 			"http://127.0.0.1:5173/signed-out",
 		),
-		// Only the AUTH-05 fake Google and AUTH-06 fake Facebook instances
-		// enable per-scenario emails.
+		// Only the AUTH-05 fake Google, AUTH-06 fake Facebook and AUTH-07 fake
+		// Microsoft instances enable per-scenario accounts.
 		AllowCustomAccounts: strings.TrimSpace(os.Getenv("E2E_OIDC_CUSTOM_ACCOUNTS")) == "true",
 		Flavor:              strings.TrimSpace(os.Getenv("E2E_OIDC_FLAVOR")),
 		Accounts:            defaultAccounts(strings.TrimSpace(os.Getenv("E2E_OIDC_FLAVOR"))),
@@ -85,8 +85,24 @@ func run() int {
 }
 
 // defaultAccounts returns the fixed chooser accounts. Facebook subjects are
-// numeric app-scoped IDs, as TutorHub's Facebook adapter requires.
+// numeric app-scoped IDs, as TutorHub's Facebook adapter requires; Microsoft
+// accounts carry a tenant, an object ID and the xms_edov claim.
 func defaultAccounts(flavor string) []e2eoidc.Account {
+	if flavor == e2eoidc.FlavorMicrosoft {
+		domainVerified := true
+		tenantID := e2eoidc.MicrosoftDefaultWorkTenantID
+		objectID := "0b7f1d2e-3c4a-4b5d-8e6f-7a8b9c0d1e2f"
+		return []e2eoidc.Account{{
+			ID:             "microsoft-teacher",
+			Subject:        e2eoidc.MicrosoftTestSubject(tenantID, objectID),
+			Email:          "teacher.microsoft.e2e@tutorhub.local",
+			DisplayName:    "E2E Microsoft Teacher",
+			Locale:         "en",
+			TenantID:       tenantID,
+			ObjectID:       objectID,
+			DomainVerified: &domainVerified,
+		}}
+	}
 	if flavor == e2eoidc.FlavorFacebook {
 		return []e2eoidc.Account{{
 			ID:          "facebook-teacher",

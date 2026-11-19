@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"errors"
+	"strings"
 	"time"
 )
 
@@ -29,7 +30,14 @@ const (
 )
 
 func authRateLimitPolicies(emailQuota, phoneQuota int) map[InvitationRateLimitAction]invitationRateLimitPolicy {
-	return map[InvitationRateLimitAction]invitationRateLimitPolicy{
+	return scaledAuthRateLimitPolicies(emailQuota, phoneQuota, 1)
+}
+
+// scaledAuthRateLimitPolicies multiplies only per-IP buckets. Destination,
+// user and delivery quotas stay unchanged. Config limits multipliers other
+// than 1 to APP_ENV=test.
+func scaledAuthRateLimitPolicies(emailQuota, phoneQuota, ipMultiplier int) map[InvitationRateLimitAction]invitationRateLimitPolicy {
+	policies := map[InvitationRateLimitAction]invitationRateLimitPolicy{
 		AuthRateLimitDiscoveryIP:        {Limit: 30, Window: time.Minute},
 		AuthRateLimitSignupIP:           {Limit: 10, Window: 24 * time.Hour},
 		AuthRateLimitPasswordFailIP:     {Limit: 30, Window: 15 * time.Minute},
@@ -49,11 +57,25 @@ func authRateLimitPolicies(emailQuota, phoneQuota int) map[InvitationRateLimitAc
 		AuthRateLimitLinkIntentIP:       {Limit: 30, Window: 15 * time.Minute},
 		AuthRateLimitLinkIntentUser:     {Limit: 10, Window: 15 * time.Minute},
 	}
+	if ipMultiplier > 1 {
+		for action, policy := range policies {
+			if strings.HasSuffix(string(action), ".ip") {
+				policy.Limit *= ipMultiplier
+				policies[action] = policy
+			}
+		}
+	}
+	return policies
 }
 
 func NewPostgresAuthRateLimiter(database invitationRateLimitDatabase, queryTimeout time.Duration, emailQuota, phoneQuota int) (InvitationRateLimiter, error) {
-	if database == nil || queryTimeout <= 0 || emailQuota < 0 || phoneQuota < 0 {
-		return nil, errors.New("auth rate limiter requires a database, timeout and nonnegative quotas")
+	return NewScaledPostgresAuthRateLimiter(database, queryTimeout, emailQuota, phoneQuota, 1)
+}
+
+// NewScaledPostgresAuthRateLimiter applies AUTH_E2E_IP_RATE_LIMIT_MULTIPLIER.
+func NewScaledPostgresAuthRateLimiter(database invitationRateLimitDatabase, queryTimeout time.Duration, emailQuota, phoneQuota, ipMultiplier int) (InvitationRateLimiter, error) {
+	if database == nil || queryTimeout <= 0 || emailQuota < 0 || phoneQuota < 0 || ipMultiplier < 1 {
+		return nil, errors.New("auth rate limiter requires a database, timeout, nonnegative quotas and a positive IP multiplier")
 	}
-	return &postgresInvitationRateLimiter{database: database, queryTimeout: queryTimeout, policies: authRateLimitPolicies(emailQuota, phoneQuota)}, nil
+	return &postgresInvitationRateLimiter{database: database, queryTimeout: queryTimeout, policies: scaledAuthRateLimitPolicies(emailQuota, phoneQuota, ipMultiplier)}, nil
 }

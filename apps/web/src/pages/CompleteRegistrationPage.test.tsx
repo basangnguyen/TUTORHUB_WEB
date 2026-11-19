@@ -119,13 +119,16 @@ async function settle() {
   await flushMicrotasks();
 }
 
-async function renderPage({ language = "en" }: { language?: Language } = {}) {
+async function renderPage({
+  entry = "/complete-registration?provider=facebook",
+  language = "en",
+}: { entry?: string; language?: Language } = {}) {
   const router = createMemoryRouter(
     [
       { path: "/complete-registration", element: <CompleteRegistrationPage /> },
       { path: "*", element: <LandingProbe /> },
     ],
-    { initialEntries: ["/complete-registration?provider=facebook"] },
+    { initialEntries: [entry] },
   );
   const view = render(
     <I18nProvider initialLanguage={language}>
@@ -718,5 +721,118 @@ describe("CompleteRegistrationPage cancel", () => {
       "TutorHub is busy right now.",
     );
     expect(screen.queryByTestId("landing")).not.toBeInTheDocument();
+  });
+});
+
+describe("CompleteRegistrationPage AUTH-07B Microsoft", () => {
+  const MICROSOFT_ENTRY = "/complete-registration?provider=microsoft";
+
+  beforeEach(() => {
+    api.getAuthProviders.mockResolvedValue({
+      ...PROVIDERS,
+      oauth_providers: ["microsoft"],
+    });
+    api.getPendingRegistration.mockResolvedValue(
+      preview({ provider: "microsoft" }),
+    );
+  });
+
+  it("names Microsoft while loading and after the preview, with the same OTP form", async () => {
+    let resolvePreview: (value: PendingRegistrationPreview) => void = () =>
+      undefined;
+    api.getPendingRegistration.mockReturnValue(
+      new Promise<PendingRegistrationPreview>((resolve) => {
+        resolvePreview = resolve;
+      }),
+    );
+    await renderPage({ entry: MICROSOFT_ENTRY });
+    expect(
+      screen.getByRole("heading", {
+        level: 1,
+        name: "Finish signing up with Microsoft",
+      }),
+    ).toBeInTheDocument();
+
+    await act(async () => resolvePreview(preview({ provider: "microsoft" })));
+    await settle();
+    expect(
+      screen.getByText(`Suggested by Microsoft: ${MASKED}`),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Facebook/)).not.toBeInTheDocument();
+    // The hint is never prefilled: the person proves an email with a code.
+    expect(emailInput()).toHaveValue("");
+    await sendCode();
+    expect(api.startPendingRegistration).toHaveBeenCalledWith(
+      { email: EMAIL },
+      expect.objectContaining({ baseUrl: "/api" }),
+    );
+    expect(otpInput()).toHaveAttribute("autocomplete", "one-time-code");
+    expect(otpInput()).toHaveAttribute("inputmode", "numeric");
+  });
+
+  it("trusts the server's provider over the address bar", async () => {
+    await renderPage({ entry: "/complete-registration?provider=facebook" });
+
+    expect(
+      screen.getByRole("heading", {
+        level: 1,
+        name: "Finish signing up with Microsoft",
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("creates the account and finishes the session", async () => {
+    await renderPage({ entry: MICROSOFT_ENTRY });
+    await sendCode();
+    await fillAndSubmit();
+
+    expect(session.completeNativeSignIn).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId("landing")).toHaveTextContent(
+      "/app/classes?tab=1",
+    );
+    expect(storageSnapshot()).not.toContain(CODE);
+    expect(storageSnapshot()).not.toContain(EMAIL);
+  });
+
+  it("moves an email that already has an owner to the Microsoft linking screen", async () => {
+    api.completePendingRegistration.mockResolvedValue({
+      return_to: "/app/home",
+      status: "link_pending",
+    });
+    await renderPage({ entry: MICROSOFT_ENTRY });
+    await sendCode();
+    await fillAndSubmit();
+
+    expect(session.completeNativeSignIn).not.toHaveBeenCalled();
+    expect(screen.getByTestId("landing")).toHaveTextContent(
+      "/account-link?provider=microsoft",
+    );
+  });
+
+  it("asks to sign in with Microsoft again when the request is gone", async () => {
+    api.getPendingRegistration.mockRejectedValue(
+      apiError(404, "auth_registration_unavailable"),
+    );
+    await renderPage({ entry: MICROSOFT_ENTRY });
+
+    expect(
+      screen.getByText(
+        "It may have expired, been used, or been cancelled. Sign in with Microsoft again to start over.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("renders Vietnamese Microsoft copy", async () => {
+    await renderPage({ entry: MICROSOFT_ENTRY, language: "vi" });
+
+    expect(
+      screen.getByRole("heading", {
+        level: 1,
+        name: "Hoàn tất đăng ký bằng Microsoft",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(`Gợi ý từ Microsoft: ${MASKED}`),
+    ).toBeInTheDocument();
   });
 });

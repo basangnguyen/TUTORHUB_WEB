@@ -2,10 +2,12 @@ import type { AuthProvidersResponse } from "@tutorhub/api-client";
 import { describe, expect, it } from "vitest";
 import {
   CALLBACK_ERROR_CODES,
+  LINK_EMAIL_UNVERIFIED_TARGET,
   linkPendingTarget,
   linkProviderFrom,
   readCallbackError,
   registrationPendingTarget,
+  registrationProviderFrom,
   sanitizeLinkReturnTo,
   sanitizeRegistrationReturnTo,
   sanitizeReturnTo,
@@ -113,6 +115,7 @@ describe("socialAvailabilityFor", () => {
       facebookFederation: false,
       google: true,
       googleFederation: true,
+      microsoft: false,
     });
     expect(
       socialAvailabilityFor({ ...providers, oidc_default_enabled: true }),
@@ -122,6 +125,7 @@ describe("socialAvailabilityFor", () => {
       facebookFederation: false,
       google: true,
       googleFederation: false,
+      microsoft: false,
     });
     expect(socialAvailabilityFor(providers)).toEqual({
       disabled: false,
@@ -129,6 +133,7 @@ describe("socialAvailabilityFor", () => {
       facebookFederation: false,
       google: false,
       googleFederation: false,
+      microsoft: false,
     });
   });
 
@@ -141,12 +146,32 @@ describe("socialAvailabilityFor", () => {
       facebookFederation: true,
       google: false,
       googleFederation: false,
+      microsoft: false,
     });
     expect(socialAvailabilityFor(null)).toMatchObject({
       disabled: true,
       facebookFederation: false,
       googleFederation: false,
     });
+  });
+
+  it("shows Microsoft only when the server lists it, never as a portal fallback", () => {
+    expect(
+      socialAvailabilityFor({ ...providers, oauth_providers: ["microsoft"] }),
+    ).toEqual({
+      disabled: false,
+      facebook: false,
+      facebookFederation: false,
+      google: false,
+      googleFederation: false,
+      microsoft: true,
+    });
+    expect(
+      socialAvailabilityFor({ ...providers, oidc_default_enabled: true })
+        .microsoft,
+    ).toBe(false);
+    // While the capabilities load, Microsoft stays hidden (not a placeholder).
+    expect(socialAvailabilityFor(null).microsoft).toBe(false);
   });
 });
 
@@ -178,6 +203,28 @@ describe("pending registration helpers", () => {
     }
     expect(sanitizeRegistrationReturnTo("/complete-registrations")).toBe(
       "/complete-registrations",
+    );
+  });
+
+  it("moves a Microsoft pending registration to its own registration screen", () => {
+    expect(
+      registrationPendingTarget("?registration=pending&provider=microsoft"),
+    ).toBe("/complete-registration?provider=microsoft");
+    expect(
+      registrationPendingTarget("?registration=pending&provider=%2F%2Fevil"),
+    ).toBe("/complete-registration?provider=facebook");
+    expect(registrationProviderFrom("microsoft")).toBe("microsoft");
+    expect(registrationProviderFrom("google")).toBe("facebook");
+    expect(registrationProviderFrom(null)).toBe("facebook");
+  });
+
+  it("allowlists Microsoft link intents and names the Settings hand-off", () => {
+    expect(linkProviderFrom("microsoft")).toBe("microsoft");
+    expect(linkPendingTarget("?link=pending&provider=microsoft")).toBe(
+      "/account-link?provider=microsoft",
+    );
+    expect(LINK_EMAIL_UNVERIFIED_TARGET).toBe(
+      "/app/settings?identity=email_unverified",
     );
   });
 

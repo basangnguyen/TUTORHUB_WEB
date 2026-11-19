@@ -39,6 +39,7 @@ import { useI18n, type Language } from "../app/i18n";
 import { useSession } from "../app/session";
 import { SignInLegalDialog } from "./SignInLegalDialog";
 import {
+  LINK_EMAIL_UNVERIFIED_TARGET,
   MIN_PASSWORD_LENGTH,
   getApiBaseUrl,
   linkPendingTarget,
@@ -117,6 +118,7 @@ const en = {
   or: "Or",
   facebook: "Continue with Facebook",
   google: "Sign in with Google",
+  microsoft: "Sign in with Microsoft",
   forgotPassword: "Forget Password",
   signUpHeading: "Create an Account",
   fullNameLabel: "Full Name",
@@ -266,6 +268,7 @@ const vi: SignInCopy = {
   or: "Hoặc",
   facebook: "Tiếp tục với Facebook",
   google: "Đăng nhập bằng Google",
+  microsoft: "Đăng nhập bằng Microsoft",
   forgotPassword: "Quên mật khẩu",
   signUpHeading: "Tạo tài khoản mới",
   fullNameLabel: "Họ và tên",
@@ -456,6 +459,29 @@ function FacebookMark() {
         d="M711.3 660 734 512H592v-96.04c0-40.49 19.84-79.96 83.44-79.96H740V210s-58.59-10-114.61-10C508.44 200 432 270.88 432 399.2V512H302v148h130v357.78a517.58 517.58 0 0 0 160 0V660z"
         fill="#FFFFFF"
       />
+    </svg>
+  );
+}
+
+/**
+ * Microsoft logo (Sign in with Microsoft branding guidelines): four 9×9
+ * squares in a 21×21 frame, official colours, never altered or recoloured.
+ */
+function MicrosoftMark() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="sign-in-microsoft-mark"
+      focusable="false"
+      height={20}
+      viewBox="0 0 21 21"
+      width={20}
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <rect fill="#F25022" height={9} width={9} x={1} y={1} />
+      <rect fill="#7FBA00" height={9} width={9} x={11} y={1} />
+      <rect fill="#00A4EF" height={9} width={9} x={1} y={11} />
+      <rect fill="#FFB900" height={9} width={9} x={11} y={11} />
     </svg>
   );
 }
@@ -807,8 +833,12 @@ export function SignInPage() {
 
 function SignInScreen() {
   const c = useSignInCopy();
-  const { completeNativeSignIn, resetAfterPasswordRecovery, signIn } =
-    useSession();
+  const {
+    completeNativeSignIn,
+    resetAfterPasswordRecovery,
+    signIn,
+    status: sessionStatus,
+  } = useSession();
   const navigate = useNavigate();
   const location = useLocation();
   const returnTo = readReturnTo(location.state);
@@ -819,9 +849,19 @@ function SignInScreen() {
   const [callbackError] = useState(() => readCallbackError(location.search));
   const heroTitleId = useId();
 
+  // AUTH-07B: a provider link started from Settings (so a session exists)
+  // whose provider withheld a trusted email ends here; the guidance on what to
+  // do next belongs to Settings, where the link was started.
+  const linkEmailUnverified =
+    callbackError === "email_unverified" && sessionStatus === "authenticated";
+  useEffect(() => {
+    if (!linkEmailUnverified) return;
+    void navigate(LINK_EMAIL_UNVERIFIED_TARGET, { replace: true });
+  }, [linkEmailUnverified, navigate]);
+
   const hasErrorParam = new URLSearchParams(location.search).has("error");
   useEffect(() => {
-    if (!hasErrorParam) return;
+    if (!hasErrorParam || linkEmailUnverified) return;
     // Router-aware history.replaceState: keeps the protected `from` state.
     void navigate(
       {
@@ -833,6 +873,7 @@ function SignInScreen() {
     );
   }, [
     hasErrorParam,
+    linkEmailUnverified,
     location.hash,
     location.pathname,
     location.search,
@@ -842,7 +883,7 @@ function SignInScreen() {
 
   const startSignIn = useCallback(() => signIn(returnTo), [returnTo, signIn]);
   const startProviderSignIn = useCallback(
-    (provider: "facebook" | "google") => {
+    (provider: "facebook" | "google" | "microsoft") => {
       // A full-page navigation (never fetch): the server sets the flow cookie.
       window.location.assign(
         buildOAuthStartURL(
@@ -860,6 +901,10 @@ function SignInScreen() {
   );
   const startFacebookSignIn = useCallback(
     () => startProviderSignIn("facebook"),
+    [startProviderSignIn],
+  );
+  const startMicrosoftSignIn = useCallback(
+    () => startProviderSignIn("microsoft"),
     [startProviderSignIn],
   );
   const finishNativeSignIn = useCallback(async () => {
@@ -969,6 +1014,7 @@ function SignInScreen() {
               onAuthenticated={finishNativeSignIn}
               onFacebookSignIn={startFacebookSignIn}
               onGoogleSignIn={startGoogleSignIn}
+              onMicrosoftSignIn={startMicrosoftSignIn}
               onPasswordReset={resetAfterPasswordRecovery}
               onSignIn={startSignIn}
               passwordMinLength={passwordMinLengthFor(providers)}
@@ -1024,6 +1070,8 @@ export interface LoginFormProps {
   onFacebookSignIn?: () => void;
   /** Starts the Google flow when `social.googleFederation` is on. */
   onGoogleSignIn?: () => void;
+  /** Starts the Microsoft flow; rendered only when `social.microsoft`. */
+  onMicrosoftSignIn?: () => void;
   /** Drops client session state after a recovery revoked every session. */
   onPasswordReset: () => Promise<void>;
   /** Redirects to the default OIDC portal (BFF `/api/v1/auth/login`). */
@@ -1049,6 +1097,7 @@ export function LoginForm({
   onAuthenticated,
   onFacebookSignIn,
   onGoogleSignIn,
+  onMicrosoftSignIn,
   onPasswordReset,
   onSignIn,
   passwordMinLength,
@@ -1243,7 +1292,8 @@ export function LoginForm({
   const keepSignedInHint = nativeSession
     ? c.keepSignedInNativeHint
     : c.keepSignedInHint;
-  const showSocial = social.facebook || social.google;
+  const showMicrosoft = social.microsoft && onMicrosoftSignIn !== undefined;
+  const showSocial = social.facebook || social.google || showMicrosoft;
 
   const options = (
     <div className="sign-in-form__options">
@@ -1430,6 +1480,17 @@ export function LoginForm({
               >
                 <GoogleMark />
                 <span>{c.google}</span>
+              </button>
+            ) : null}
+            {showMicrosoft ? (
+              <button
+                className="sign-in-button sign-in-button--microsoft"
+                disabled={social.disabled}
+                onClick={onMicrosoftSignIn}
+                type="button"
+              >
+                <MicrosoftMark />
+                <span>{c.microsoft}</span>
               </button>
             ) : null}
           </div>

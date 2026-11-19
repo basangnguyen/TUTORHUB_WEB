@@ -271,3 +271,26 @@
   justify-content: flex-end;
   gap: 8px;
 }
+
+/* AUTH-07B: what to do after a provider link that lacked a trusted email.
+   #7a4a00 on #fff8eb is 7.1:1 (WCAG AA). */
+.profile-identity-guidance {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+  padding: 12px 14px;
+  border: 1px solid #f0c987;
+  border-radius: var(--radius-sm);
+  background: #fff8eb;
+  color: #7a4a00;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.profile-identity-guidance p {
+  margin: 0;
+}
+
+.profile-identity-guidance__title {
+  font-weight: 700;
+}

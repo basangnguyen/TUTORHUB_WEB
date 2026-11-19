@@ -12,7 +12,7 @@ import {
   APIRequestError,
   type AuthProvidersResponse,
   type CurrentUser,
-  type FederatedLinkIntentResponse,
+  type OAuthLinkIntentResponse,
 } from "@tutorhub/api-client";
 import { createMemoryRouter, useLocation } from "react-router";
 import { RouterProvider } from "react-router/dom";
@@ -40,7 +40,7 @@ const { api, sessionStore } = vi.hoisted(() => {
       cancelLinkIntent: vi.fn(),
       confirmLinkIntent: vi.fn(),
       getAuthProviders: vi.fn(),
-      getFederatedLinkIntent: vi.fn(),
+      getOAuthLinkIntent: vi.fn(),
       loginWithPassword: vi.fn(),
       rotateCSRFToken: vi.fn(),
     },
@@ -102,8 +102,8 @@ const NATIVE_PROVIDERS: AuthProvidersResponse = {
 };
 
 function intent(
-  overrides: Partial<FederatedLinkIntentResponse> = {},
-): FederatedLinkIntentResponse {
+  overrides: Partial<OAuthLinkIntentResponse> = {},
+): OAuthLinkIntentResponse {
   return {
     expires_in_seconds: 900,
     masked_email: MASKED,
@@ -210,7 +210,7 @@ beforeEach(() => {
   actions.resetAfterPasswordRecovery.mockResolvedValue(undefined);
   actions.signOut.mockResolvedValue(undefined);
   api.getAuthProviders.mockResolvedValue(NATIVE_PROVIDERS);
-  api.getFederatedLinkIntent.mockResolvedValue(intent());
+  api.getOAuthLinkIntent.mockResolvedValue(intent());
   api.rotateCSRFToken.mockResolvedValue({ csrf_token: "csrf-1" });
   setSession("unauthenticated");
 });
@@ -223,10 +223,10 @@ afterEach(() => {
 describe("AccountLinkPage preview", () => {
   it("announces loading, then shows the masked email and a live countdown", async () => {
     vi.useFakeTimers();
-    let resolveIntent: (value: FederatedLinkIntentResponse) => void = () =>
+    let resolveIntent: (value: OAuthLinkIntentResponse) => void = () =>
       undefined;
-    api.getFederatedLinkIntent.mockReturnValue(
-      new Promise<FederatedLinkIntentResponse>((resolve) => {
+    api.getOAuthLinkIntent.mockReturnValue(
+      new Promise<OAuthLinkIntentResponse>((resolve) => {
         resolveIntent = resolve;
       }),
     );
@@ -257,16 +257,14 @@ describe("AccountLinkPage preview", () => {
       vi.advanceTimersByTime(1000);
     });
     expect(screen.getByText("14:59")).toBeInTheDocument();
-    expect(api.getFederatedLinkIntent).toHaveBeenCalledWith(
+    expect(api.getOAuthLinkIntent).toHaveBeenCalledWith(
       expect.objectContaining({ baseUrl: "/api" }),
     );
   });
 
   it("turns into the unavailable state when the countdown reaches zero", async () => {
     vi.useFakeTimers();
-    api.getFederatedLinkIntent.mockResolvedValue(
-      intent({ expires_in_seconds: 2 }),
-    );
+    api.getOAuthLinkIntent.mockResolvedValue(intent({ expires_in_seconds: 2 }));
     await renderPage();
     expect(screen.getByText("0:02")).toBeInTheDocument();
 
@@ -282,7 +280,7 @@ describe("AccountLinkPage preview", () => {
   });
 
   it("explains a missing request (404) and links back to sign-in", async () => {
-    api.getFederatedLinkIntent.mockRejectedValue(
+    api.getOAuthLinkIntent.mockRejectedValue(
       apiError(404, "auth_link_intent_unavailable"),
     );
     await renderPage();
@@ -300,7 +298,7 @@ describe("AccountLinkPage preview", () => {
   });
 
   it("offers Retry when the request cannot be checked", async () => {
-    api.getFederatedLinkIntent
+    api.getOAuthLinkIntent
       .mockRejectedValueOnce(new TypeError("Failed to fetch"))
       .mockResolvedValueOnce(intent());
     await renderPage();
@@ -312,12 +310,12 @@ describe("AccountLinkPage preview", () => {
     ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
     await settle();
-    expect(api.getFederatedLinkIntent).toHaveBeenCalledTimes(2);
+    expect(api.getOAuthLinkIntent).toHaveBeenCalledTimes(2);
     expect(screen.getByText(MASKED, { exact: false })).toBeInTheDocument();
   });
 
   it("names single sign-on for an OIDC request and renders Vietnamese", async () => {
-    api.getFederatedLinkIntent.mockResolvedValue(intent({ provider: "oidc" }));
+    api.getOAuthLinkIntent.mockResolvedValue(intent({ provider: "oidc" }));
     await renderPage({ language: "vi", search: "?provider=oidc" });
 
     expect(
@@ -336,9 +334,7 @@ describe("AccountLinkPage preview", () => {
 
 describe("AccountLinkPage Facebook", () => {
   it("names Facebook for a link intent from a pending registration", async () => {
-    api.getFederatedLinkIntent.mockResolvedValue(
-      intent({ provider: "facebook" }),
-    );
+    api.getOAuthLinkIntent.mockResolvedValue(intent({ provider: "facebook" }));
     await renderPage({ search: "?provider=facebook" });
 
     expect(
@@ -353,9 +349,7 @@ describe("AccountLinkPage Facebook", () => {
   });
 
   it("renders the Facebook label in Vietnamese", async () => {
-    api.getFederatedLinkIntent.mockResolvedValue(
-      intent({ provider: "facebook" }),
-    );
+    api.getOAuthLinkIntent.mockResolvedValue(intent({ provider: "facebook" }));
     await renderPage({ language: "vi", search: "?provider=facebook" });
 
     expect(
@@ -367,13 +361,74 @@ describe("AccountLinkPage Facebook", () => {
   });
 
   it("keeps the Facebook provider while the request loads", async () => {
-    api.getFederatedLinkIntent.mockReturnValue(new Promise(() => undefined));
+    api.getOAuthLinkIntent.mockReturnValue(new Promise(() => undefined));
     await renderPage({ search: "?provider=facebook" });
 
     expect(
       screen.getByRole("heading", {
         level: 1,
         name: "Link Facebook to your TutorHub account",
+      }),
+    ).toBeInTheDocument();
+  });
+});
+
+describe("AccountLinkPage AUTH-07B Microsoft", () => {
+  it("names Microsoft for a link intent and keeps it while loading", async () => {
+    api.getOAuthLinkIntent.mockReturnValue(new Promise(() => undefined));
+    await renderPage({ search: "?provider=microsoft" });
+
+    expect(
+      screen.getByRole("heading", {
+        level: 1,
+        name: "Link Microsoft to your TutorHub account",
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("shows the masked email of a Microsoft request and signs in in place", async () => {
+    api.getOAuthLinkIntent.mockResolvedValue(intent({ provider: "microsoft" }));
+    await renderPage({ search: "?provider=microsoft" });
+
+    expect(screen.getByText(MASKED, { exact: false })).toHaveTextContent(
+      "Microsoft",
+    );
+    // The in-place sign-in never offers social buttons, Microsoft included.
+    expect(
+      screen.getByRole("form", { name: "Log in to TutorHub" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Sign in with Microsoft" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("confirms a Microsoft link once signed in", async () => {
+    setSession("authenticated", currentUser);
+    api.getOAuthLinkIntent.mockResolvedValue(intent({ provider: "microsoft" }));
+    api.confirmLinkIntent.mockResolvedValue({
+      return_to: "/app/home",
+      status: "linked",
+    });
+    await renderPage({ search: "?provider=microsoft" });
+
+    fireEvent.click(screen.getByRole("button", { name: "Link Microsoft" }));
+    await settle();
+    expect(api.confirmLinkIntent).toHaveBeenCalledWith(
+      "csrf-1",
+      expect.objectContaining({ baseUrl: "/api" }),
+    );
+    expect(screen.getByTestId("landing")).toHaveTextContent("/app/home");
+    expect(storageSnapshot()).not.toContain(MASKED);
+  });
+
+  it("renders the Microsoft label in Vietnamese", async () => {
+    api.getOAuthLinkIntent.mockResolvedValue(intent({ provider: "microsoft" }));
+    await renderPage({ language: "vi", search: "?provider=microsoft" });
+
+    expect(
+      screen.getByRole("heading", {
+        level: 1,
+        name: "Liên kết Microsoft với tài khoản TutorHub",
       }),
     ).toBeInTheDocument();
   });
@@ -569,7 +624,7 @@ describe("AccountLinkPage confirmation", () => {
       "You're signed in to a different account than the one this linking request belongs to.",
     );
     expect(screen.getByText(MASKED, { exact: false })).toBeInTheDocument();
-    expect(api.getFederatedLinkIntent).toHaveBeenCalledTimes(1);
+    expect(api.getOAuthLinkIntent).toHaveBeenCalledTimes(1);
     fireEvent.click(within(alert).getByRole("button", { name: "Sign out" }));
     expect(actions.signOut).toHaveBeenCalledTimes(1);
     // A native logout keeps the link cookie: come back to this screen.

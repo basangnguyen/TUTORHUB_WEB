@@ -13,6 +13,13 @@ import { useCallback, useEffect, useState } from "react";
 export const DEFAULT_RETURN_TO = "/app/home";
 export const ACCOUNT_LINK_PATH = "/account-link";
 export const COMPLETE_REGISTRATION_PATH = "/complete-registration";
+/**
+ * Where `/sign-in?error=email_unverified` sends a signed-in person: the
+ * callback of a provider link started in Settings (AUTH-07B, Microsoft
+ * without `xms_edov`) carries no provider, so Settings explains the next step.
+ */
+export const LINK_EMAIL_UNVERIFIED_TARGET =
+  "/app/settings?identity=email_unverified";
 export const MIN_PASSWORD_LENGTH = 8;
 
 export function getApiBaseUrl() {
@@ -129,11 +136,22 @@ export function searchWithoutCallbackError(search: string) {
   return next ? `?${next}` : "";
 }
 
-export type LinkProvider = "google" | "oidc" | "facebook";
+export type LinkProvider = "google" | "oidc" | "facebook" | "microsoft";
 
 export function linkProviderFrom(value: string | null): LinkProvider {
-  if (value === "oidc" || value === "facebook") return value;
+  if (value === "oidc" || value === "facebook" || value === "microsoft") {
+    return value;
+  }
   return "google";
+}
+
+/** Providers whose new subjects verify an email before an account exists. */
+export type RegistrationProvider = "facebook" | "microsoft";
+
+export function registrationProviderFrom(
+  value: string | null,
+): RegistrationProvider {
+  return value === "microsoft" ? "microsoft" : "facebook";
 }
 
 /**
@@ -148,14 +166,15 @@ export function linkPendingTarget(search: string) {
 }
 
 /**
- * `/sign-in?registration=pending&provider=facebook` (set by the Facebook
- * callback for a new subject) moves to the registration screen. Facebook is
- * the only provider with a pending registration, so `provider` is fixed.
+ * `/sign-in?registration=pending&provider=<p>` (set by the Facebook or
+ * Microsoft callback for a new subject without a trusted email) moves to the
+ * registration screen. The provider is allowlisted, never echoed.
  */
 export function registrationPendingTarget(search: string) {
   const params = new URLSearchParams(search);
   if (params.get("registration") !== "pending") return null;
-  return `${COMPLETE_REGISTRATION_PATH}?provider=facebook`;
+  const provider = registrationProviderFrom(params.get("provider"));
+  return `${COMPLETE_REGISTRATION_PATH}?provider=${provider}`;
 }
 
 export type AuthProvidersState =
@@ -216,6 +235,11 @@ export interface SocialAvailability {
   google: boolean;
   /** `oauth_providers` lists Google: the button starts the Google flow. */
   googleFederation: boolean;
+  /**
+   * `oauth_providers` lists Microsoft. Microsoft has no default-portal
+   * fallback, so the button exists only while the server enables it.
+   */
+  microsoft: boolean;
 }
 
 export const NO_SOCIAL: SocialAvailability = {
@@ -224,6 +248,7 @@ export const NO_SOCIAL: SocialAvailability = {
   facebookFederation: false,
   google: false,
   googleFederation: false,
+  microsoft: false,
 };
 
 export function loginModeFor(
@@ -245,7 +270,8 @@ export function signUpModeFor(
 /**
  * Google and Facebook start their own provider-bound flow once the server
  * lists them in `oauth_providers`. Otherwise each stays a fallback entry into
- * the default OIDC portal (when that portal is enabled).
+ * the default OIDC portal (when that portal is enabled). Microsoft is shown
+ * only when the server lists it (AUTH-07B), never as a portal fallback.
  */
 export function socialAvailabilityFor(
   providers: AuthProvidersResponse | null,
@@ -257,6 +283,7 @@ export function socialAvailabilityFor(
       facebookFederation: false,
       google: true,
       googleFederation: false,
+      microsoft: false,
     };
   }
   const fallback = providers.oidc_default_enabled;
@@ -268,6 +295,7 @@ export function socialAvailabilityFor(
     facebookFederation,
     google: fallback || googleFederation,
     googleFederation,
+    microsoft: providers.oauth_providers.includes("microsoft"),
   };
 }
 

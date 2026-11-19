@@ -100,8 +100,8 @@ func run() int {
 			logger.Error("initialize shared invitation rate limiter", "error", err)
 			return 1
 		}
-		authRateLimiter, err = httpapi.NewPostgresAuthRateLimiter(pool, cfg.Database.QueryTimeout,
-			cfg.Authentication.EmailDailyQuota, cfg.Authentication.PhoneOTPDailyQuota)
+		authRateLimiter, err = httpapi.NewScaledPostgresAuthRateLimiter(pool, cfg.Database.QueryTimeout,
+			cfg.Authentication.EmailDailyQuota, cfg.Authentication.PhoneOTPDailyQuota, max(1, cfg.Authentication.E2EIPRateLimitMultiplier))
 		if err != nil {
 			logger.Error("initialize authentication rate limiter", "error", err)
 			return 1

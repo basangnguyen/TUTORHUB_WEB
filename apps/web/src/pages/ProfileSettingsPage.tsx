@@ -51,12 +51,13 @@ import {
   useAuthProvidersQuery,
   useBeginIdentityLink,
   useIdentitiesQuery,
-  useLinkGoogleIdentity,
+  useLinkProviderIdentity,
   usePasswordStatusQuery,
   useProfileQuery,
   useUnlinkIdentity,
   useUpdateMyPassword,
   useUpdateProfile,
+  type LinkableProvider,
 } from "../app/profile";
 import { useI18n, type TranslationKey } from "../app/i18n";
 import {
@@ -868,7 +869,15 @@ const GOOGLE_ISSUERS: ReadonlySet<string> = new Set([
 const IDENTITY_PROVIDER_KEYS: Readonly<Record<string, TranslationKey>> = {
   facebook: "profile.identityProviderFacebook",
   google: "profile.identityProviderGoogle",
+  microsoft: "profile.identityProviderMicrosoft",
 };
+
+/** Federated slugs stored as kind "oidc" identities (AUTH-05/06/07). */
+const OIDC_KIND_PROVIDER_SLUGS: ReadonlySet<string> = new Set([
+  "facebook",
+  "google",
+  "microsoft",
+]);
 
 /**
  * `/me/identities` names the provider by registry slug (AUTH-06A). Legacy
@@ -892,13 +901,12 @@ function loginMethodLabel(
   identity: LoginMethodIdentity,
   t: (key: TranslationKey, values?: Record<string, string | number>) => string,
 ) {
-  // AUTH-05/06 store Google and Facebook as kind "oidc" with their slug.
-  if (
-    identity.provider_slug === "google" ||
-    identity.provider_slug === "facebook"
-  ) {
+  // AUTH-05/06/07 store Google, Facebook and Microsoft as kind "oidc" with
+  // their slug.
+  const slug = identity.provider_slug;
+  if (slug && OIDC_KIND_PROVIDER_SLUGS.has(slug)) {
     return t("security.kindOauth", {
-      provider: identity.provider_slug === "google" ? "Google" : "Facebook",
+      provider: OAUTH_PROVIDER_NAMES[slug] ?? slug,
     });
   }
   switch (identity.kind) {
@@ -907,7 +915,6 @@ function loginMethodLabel(
     case "oidc":
       return t("security.kindOidc");
     case "oauth2": {
-      const slug = identity.provider_slug;
       if (!slug) return t("security.kindOauthGeneric");
       return t("security.kindOauth", {
         provider: OAUTH_PROVIDER_NAMES[slug] ?? slug,
@@ -1536,18 +1543,28 @@ export function ProfileSettingsPage() {
   const identitiesQuery = useIdentitiesQuery();
   const providersQuery = useAuthProvidersQuery();
   const beginIdentityLink = useBeginIdentityLink();
-  const linkGoogleIdentity = useLinkGoogleIdentity();
+  const linkProviderIdentity = useLinkProviderIdentity();
   const unlinkIdentity = useUnlinkIdentity();
+  const session = useSession();
   const stepUp = useStepUpRequest();
   const requestStepUp = stepUp.request;
   const identityRetryRef = useRef<StepUpRetry | null>(null);
   const location = useLocation();
   const navigate = useNavigate();
-  // The Google/OIDC link callback returns to /app/settings?identity=linked.
+  // The Google/Microsoft/OIDC link callback returns to
+  // /app/settings?identity=linked.
   const [identityFeedback, setIdentityFeedback] = useState<string | null>(() =>
     new URLSearchParams(location.search).get("identity") === "linked"
       ? t("profile.identityLinked")
       : null,
+  );
+  // AUTH-07B: /sign-in forwards a signed-in `?error=email_unverified` here
+  // (a provider link whose provider withheld a trusted email, e.g. Microsoft
+  // without `xms_edov`). Only the fixed value is read, never echoed.
+  const [linkEmailUnverified, setLinkEmailUnverified] = useState(
+    () =>
+      new URLSearchParams(location.search).get("identity") ===
+      "email_unverified",
   );
   // A missing capability flag means an older server: keep the new cards off
   // so the page never calls endpoints that would answer 503.
@@ -1555,6 +1572,8 @@ export function ProfileSettingsPage() {
     providersQuery.data?.device_management_enabled === true;
   const googleLinkEnabled =
     providersQuery.data?.oauth_providers.includes("google") === true;
+  const microsoftLinkEnabled =
+    providersQuery.data?.oauth_providers.includes("microsoft") === true;
 
   const hasIdentityParam = new URLSearchParams(location.search).has("identity");
   useEffect(() => {
@@ -1590,9 +1609,14 @@ export function ProfileSettingsPage() {
     }
   }
 
-  async function handleBeginIdentityLink() {
+  function clearIdentityNotices() {
     setIdentityFeedback(null);
-    linkGoogleIdentity.reset();
+    setLinkEmailUnverified(false);
+  }
+
+  async function handleBeginIdentityLink() {
+    clearIdentityNotices();
+    linkProviderIdentity.reset();
     try {
       const response = await beginIdentityLink.mutateAsync();
       window.location.assign(response.authorization_url);
@@ -1607,16 +1631,19 @@ export function ProfileSettingsPage() {
    * and retries exactly once after it succeeds; a second refusal only shows
    * the error (with its own "Confirm it's you" button).
    */
-  async function handleLinkGoogle(afterStepUp = false) {
-    setIdentityFeedback(null);
+  async function handleLinkProvider(
+    provider: LinkableProvider,
+    afterStepUp = false,
+  ) {
+    clearIdentityNotices();
     beginIdentityLink.reset();
     unlinkIdentity.reset();
     try {
-      const response = await linkGoogleIdentity.mutateAsync();
-      // Full-page navigation to Google; the server set the flow cookie.
+      const response = await linkProviderIdentity.mutateAsync(provider);
+      // Full-page navigation to the provider; the server set the flow cookie.
       window.location.assign(response.authorization_url);
     } catch (error) {
-      const retry = () => handleLinkGoogle(true);
+      const retry = () => handleLinkProvider(provider, true);
       if (isRecentAuthenticationRequired(error)) {
         identityRetryRef.current = retry;
         if (!afterStepUp) requestStepUp(retry);
@@ -1625,8 +1652,8 @@ export function ProfileSettingsPage() {
   }
 
   async function handleUnlink(identityID: string) {
-    setIdentityFeedback(null);
-    linkGoogleIdentity.reset();
+    clearIdentityNotices();
+    linkProviderIdentity.reset();
     try {
       await unlinkIdentity.mutateAsync(identityID);
       setIdentityFeedback(t("profile.identityUnlinked"));
@@ -1669,7 +1696,12 @@ export function ProfileSettingsPage() {
 
   const identities = identitiesQuery.data?.identities ?? [];
   const identityError =
-    beginIdentityLink.error ?? linkGoogleIdentity.error ?? unlinkIdentity.error;
+    beginIdentityLink.error ??
+    linkProviderIdentity.error ??
+    unlinkIdentity.error;
+  const linkingProvider = linkProviderIdentity.isPending
+    ? linkProviderIdentity.variables
+    : undefined;
   const identityNeedsReauthentication =
     isRecentAuthenticationRequired(identityError);
 
@@ -1720,13 +1752,25 @@ export function ProfileSettingsPage() {
               {googleLinkEnabled && (
                 <Button
                   leadingIcon={<Link2 />}
-                  loading={linkGoogleIdentity.isPending}
+                  loading={linkingProvider === "google"}
                   loadingLabel={t("profile.identityLinking")}
-                  onClick={() => void handleLinkGoogle()}
+                  onClick={() => void handleLinkProvider("google")}
                   size="sm"
                   variant="secondary"
                 >
                   {t("profile.identityLinkGoogle")}
+                </Button>
+              )}
+              {microsoftLinkEnabled && (
+                <Button
+                  leadingIcon={<Link2 />}
+                  loading={linkingProvider === "microsoft"}
+                  loadingLabel={t("profile.identityLinking")}
+                  onClick={() => void handleLinkProvider("microsoft")}
+                  size="sm"
+                  variant="secondary"
+                >
+                  {t("profile.identityLinkMicrosoft")}
                 </Button>
               )}
               <Button
@@ -1845,6 +1889,27 @@ export function ProfileSettingsPage() {
             >
               {identityFeedback}
             </p>
+          )}
+
+          {linkEmailUnverified && (
+            <div className="profile-identity-guidance" role="alert">
+              <p className="profile-identity-guidance__title">
+                {t("profile.identityEmailUnverifiedTitle")}
+              </p>
+              <p>{t("profile.identityEmailUnverified")}</p>
+              {microsoftLinkEnabled && (
+                <p>{t("profile.identityEmailUnverifiedMicrosoft")}</p>
+              )}
+              <p>{t("profile.identityEmailUnverifiedOther")}</p>
+              <Button
+                leadingIcon={<LogOut />}
+                onClick={() => void session.signOut({ returnTo: "/sign-in" })}
+                size="sm"
+                variant="secondary"
+              >
+                {t("profile.identityEmailUnverifiedSignOut")}
+              </Button>
+            </div>
           )}
 
           {identityError && (

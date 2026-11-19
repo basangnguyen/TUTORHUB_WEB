@@ -506,7 +506,8 @@
 }
 
 .sign-in-button--facebook:disabled,
-.sign-in-button--google:disabled {
+.sign-in-button--google:disabled,
+.sign-in-button--microsoft:disabled {
   opacity: 0.6;
 }
 
@@ -515,7 +516,8 @@
 }
 
 .sign-in-button--facebook,
-.sign-in-button--google {
+.sign-in-button--google,
+.sign-in-button--microsoft {
   height: 44px;
   padding: 0 18px;
   color: var(--sign-in-text);
@@ -562,6 +564,30 @@
 }
 
 .sign-in-google-mark {
+  display: block;
+  width: 20px;
+  height: 20px;
+  flex: none;
+}
+
+/* Sign in with Microsoft branding (light theme): #FFFFFF fill, 1px #8C8C8C
+   stroke (3.4:1 against white) and #5E5E5E text (6.4:1, WCAG AA), with the
+   unaltered four-square logo before the "Sign in with Microsoft" label. The
+   sign-in screen has a light theme only, so the dark variant is not used. */
+.sign-in-button--microsoft {
+  gap: 10px;
+  padding: 0 12px;
+  border: 1px solid #8c8c8c;
+  background: #fff;
+  color: #5e5e5e;
+}
+
+.sign-in-button--microsoft:hover {
+  border-color: #8c8c8c;
+  background: #f8f9fa;
+}
+
+.sign-in-microsoft-mark {
   display: block;
   width: 20px;
   height: 20px;

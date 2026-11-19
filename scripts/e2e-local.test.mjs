@@ -5,6 +5,7 @@ import test from "node:test";
 import {
   buildFakeFacebookEnvironment,
   buildFakeGoogleEnvironment,
+  buildFakeMicrosoftEnvironment,
   buildWebServerCommand,
   buildWindowsTreeKillCommand,
   buildE2EEnvironment,
@@ -13,11 +14,13 @@ import {
   facebookSecretHandoffKey,
   googleFixtureClientID,
   localAccounts,
+  microsoftFixtureClientID,
   nativeAuthConfiguration,
   parseArguments,
   resolveBaseEnvironment,
   usesFakeFacebook,
   usesFakeGoogle,
+  usesFakeMicrosoft,
   validateDatabaseConfiguration,
 } from "./e2e-local.mjs";
 
@@ -25,6 +28,7 @@ const fixedSecrets = Object.freeze({
   clientSecret: "ephemeral-client-secret-value",
   facebookClientSecret: "ephemeral-facebook-app-secret-value",
   googleClientSecret: "ephemeral-google-client-secret-value",
+  microsoftClientSecret: "ephemeral-microsoft-client-secret-value",
   sessionSecret: "ZXBoZW1lcmFsLXNlc3Npb24tc2VjcmV0LXdpdGgtZW5vdWdoLWJ5dGVz",
 });
 
@@ -79,6 +83,12 @@ test("runtime credentials are fresh and have sufficient entropy", () => {
   assert.notEqual(first.clientSecret, first.googleClientSecret);
   assert.notEqual(first.facebookClientSecret, second.facebookClientSecret);
   assert.notEqual(first.facebookClientSecret, first.googleClientSecret);
+  assert.notEqual(first.microsoftClientSecret, second.microsoftClientSecret);
+  assert.notEqual(first.microsoftClientSecret, first.googleClientSecret);
+  assert.notEqual(first.microsoftClientSecret, first.facebookClientSecret);
+  assert.ok(
+    Buffer.from(first.microsoftClientSecret, "base64url").byteLength >= 32,
+  );
   assert.notEqual(first.sessionSecret, second.sessionSecret);
   assert.ok(
     Buffer.from(first.facebookClientSecret, "base64url").byteLength >= 32,
@@ -232,8 +242,14 @@ test("native auth stays off by default and inherited auth settings pass through 
   }
   assert.equal(standard.GOOGLE_CLIENT_SECRET, undefined);
   assert.equal(standard.FACEBOOK_CLIENT_SECRET, undefined);
+  assert.equal(standard.MICROSOFT_CLIENT_SECRET, undefined);
   assert.equal(usesFakeGoogle(standard), false);
   assert.equal(usesFakeFacebook(standard), false);
+  assert.equal(usesFakeMicrosoft(standard), false);
+  assert.throws(
+    () => buildFakeMicrosoftEnvironment(standard),
+    /requires the native-auth stack/,
+  );
   assert.throws(
     () => buildFakeFacebookEnvironment(standard),
     /requires the native-auth stack/,
@@ -287,6 +303,9 @@ test("native auth enables sign-up, password and email-code login, device managem
     assert.equal(environment.AUTH_EMAIL_SENDER, "devinbox");
     assert.equal(environment.AUTH_PASSWORD_BREACH_CHECK, "offline");
     assert.equal(environment.AUTH_DEVICE_MANAGEMENT_ENABLED, "true");
+    // Test-only: per-IP auth buckets scale so auth-02..07 fit one run.
+    assert.equal(environment.AUTH_E2E_IP_RATE_LIMIT_MULTIPLIER, "10");
+    assert.equal(environment.APP_ENV, "test");
     // AUTH-05: Google points at the loopback fake with fixture credentials.
     assert.equal(environment.AUTH_PROVIDER_GOOGLE_ENABLED, "true");
     assert.equal(environment.GOOGLE_CLIENT_ID, googleFixtureClientID);
@@ -305,6 +324,16 @@ test("native auth enables sign-up, password and email-code login, device managem
     );
     assert.equal(environment.FACEBOOK_ISSUER_URL, "http://127.0.0.1:9093");
     assert.equal(usesFakeFacebook(environment), true);
+    // AUTH-07: Microsoft points at the fourth loopback fake authority.
+    assert.equal(environment.AUTH_PROVIDER_MICROSOFT_ENABLED, "true");
+    assert.equal(environment.MICROSOFT_CLIENT_ID, microsoftFixtureClientID);
+    assert.equal(
+      environment.MICROSOFT_CLIENT_SECRET,
+      fixedSecrets.microsoftClientSecret,
+    );
+    assert.equal(environment.MICROSOFT_AUTHORITY_URL, "http://127.0.0.1:9094");
+    assert.equal(environment.MICROSOFT_TENANT_MODE, undefined);
+    assert.equal(usesFakeMicrosoft(environment), true);
     // The loopback/test boundary that devinbox requires is unchanged.
     assert.equal(environment.APP_ENV, "test");
     assert.equal(environment.HTTP_LISTEN_HOST, "127.0.0.1");
@@ -340,6 +369,90 @@ test("native auth refuses to start Facebook without an ephemeral secret", () => 
         },
       ),
     /ephemeral Facebook secret/,
+  );
+});
+
+test("native auth refuses to start Microsoft without an ephemeral secret", () => {
+  assert.throws(
+    () =>
+      buildE2EEnvironment(
+        { E2E_AUTH_NATIVE: "true" },
+        {
+          clientSecret: fixedSecrets.clientSecret,
+          facebookClientSecret: fixedSecrets.facebookClientSecret,
+          googleClientSecret: fixedSecrets.googleClientSecret,
+          sessionSecret: fixedSecrets.sessionSecret,
+        },
+      ),
+    /ephemeral Microsoft secret/,
+  );
+});
+
+test("the fake Microsoft authority is a separate loopback client with the v2.0 surface", () => {
+  const environment = buildE2EEnvironment(
+    {
+      AUTH_PROVIDER_MICROSOFT_ENABLED: "false",
+      E2E_AUTH_NATIVE: "true",
+      MICROSOFT_AUTHORITY_URL: "https://login.microsoftonline.com",
+      MICROSOFT_CLIENT_ID: "00000000-inherited-entra-application",
+      MICROSOFT_CLIENT_SECRET: "inherited-entra-secret",
+    },
+    fixedSecrets,
+  );
+  // The native-auth stack never inherits a real Entra application.
+  assert.equal(environment.AUTH_PROVIDER_MICROSOFT_ENABLED, "true");
+  assert.equal(environment.MICROSOFT_CLIENT_ID, microsoftFixtureClientID);
+  assert.equal(
+    environment.MICROSOFT_CLIENT_SECRET,
+    fixedSecrets.microsoftClientSecret,
+  );
+  assert.equal(environment.MICROSOFT_AUTHORITY_URL, "http://127.0.0.1:9094");
+
+  const microsoft = buildFakeMicrosoftEnvironment(environment);
+  assert.equal(microsoft.APP_ENV, "test");
+  assert.equal(microsoft.E2E_OIDC_ADDRESS, "127.0.0.1:9094");
+  assert.equal(microsoft.E2E_OIDC_CUSTOM_ACCOUNTS, "true");
+  assert.equal(microsoft.E2E_OIDC_FLAVOR, "microsoft");
+  assert.equal(microsoft.OIDC_ISSUER_URL, "http://127.0.0.1:9094");
+  assert.equal(microsoft.OIDC_CLIENT_ID, microsoftFixtureClientID);
+  assert.equal(
+    microsoft.OIDC_CLIENT_SECRET,
+    fixedSecrets.microsoftClientSecret,
+  );
+  assert.equal(
+    microsoft.OIDC_CALLBACK_URL,
+    "http://127.0.0.1:8080/api/v1/auth/oauth/microsoft/callback",
+  );
+  assert.equal(
+    microsoft.OIDC_POST_LOGOUT_URL,
+    "http://127.0.0.1:5173/signed-out",
+  );
+  // The other fakes and the API keep their own values.
+  assert.equal(environment.E2E_OIDC_FLAVOR, undefined);
+  assert.equal(environment.OIDC_ISSUER_URL, "http://127.0.0.1:9091");
+  assert.equal(environment.E2E_OIDC_ADDRESS, "127.0.0.1:9091");
+  assert.equal(
+    buildFakeFacebookEnvironment(environment).E2E_OIDC_FLAVOR,
+    "facebook",
+  );
+  assert.equal(
+    buildFakeGoogleEnvironment(environment).E2E_OIDC_FLAVOR,
+    undefined,
+  );
+  // A real authority (or a disabled flag) never starts the fake.
+  assert.equal(
+    usesFakeMicrosoft({
+      ...environment,
+      MICROSOFT_AUTHORITY_URL: "https://login.microsoftonline.com",
+    }),
+    false,
+  );
+  assert.equal(
+    usesFakeMicrosoft({
+      ...environment,
+      AUTH_PROVIDER_MICROSOFT_ENABLED: "false",
+    }),
+    false,
   );
 });
 
@@ -450,7 +563,7 @@ test("native auth specs run only through the dedicated Playwright config", () =>
   );
 
   const nativeSpecPatterns =
-    /\[\s*"\*\*\/auth-0\[23\]-native-\*\.spec\.ts",\s*"\*\*\/auth-04-\*\.spec\.ts",\s*"\*\*\/auth-05-\*\.spec\.ts",\s*"\*\*\/auth-06-\*\.spec\.ts",?\s*\]/;
+    /\[\s*"\*\*\/auth-0\[23\]-native-\*\.spec\.ts",\s*"\*\*\/auth-04-\*\.spec\.ts",\s*"\*\*\/auth-05-\*\.spec\.ts",\s*"\*\*\/auth-06-\*\.spec\.ts",\s*"\*\*\/auth-07-\*\.spec\.ts",?\s*\]/;
   assert.match(
     defaultConfig,
     new RegExp(`testIgnore:\\s*${nativeSpecPatterns.source}`),
@@ -470,10 +583,11 @@ test("native auth specs run only through the dedicated Playwright config", () =>
   assert.ok(nativeSpecs.includes("auth-04-device-sessions-stepup.spec.ts"));
   assert.ok(nativeSpecs.includes("auth-05-google-federation.spec.ts"));
   assert.ok(nativeSpecs.includes("auth-06-facebook.spec.ts"));
+  assert.ok(nativeSpecs.includes("auth-07-microsoft.spec.ts"));
   for (const name of nativeSpecs) {
     assert.ok(
       /^auth-0[23]-native-.*\.spec\.ts$/.test(name) ||
-        /^auth-0[456]-.*\.spec\.ts$/.test(name),
+        /^auth-0[4567]-.*\.spec\.ts$/.test(name),
       `${name} must match the native auth Playwright patterns`,
     );
   }

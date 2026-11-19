@@ -816,9 +816,19 @@ const messages = {
       "Không thể hủy phương thức đăng nhập cuối cùng.",
     "profile.identityUnlinked": "Đã hủy liên kết danh tính.",
     "profile.identityLinkGoogle": "Liên kết Google",
+    "profile.identityLinkMicrosoft": "Liên kết Microsoft",
     "profile.identityLinked": "Đã liên kết danh tính đăng nhập.",
     "profile.identityProviderFacebook": "Facebook",
     "profile.identityProviderGoogle": "Google",
+    "profile.identityProviderMicrosoft": "Microsoft",
+    "profile.identityEmailUnverifiedTitle": "Chưa liên kết được danh tính",
+    "profile.identityEmailUnverified":
+      "Nhà cung cấp chưa xác nhận email của tài khoản bạn chọn, nên TutorHub chưa liên kết tài khoản đó.",
+    "profile.identityEmailUnverifiedMicrosoft":
+      "Với tài khoản Microsoft: hãy đăng xuất, chọn “Đăng nhập bằng Microsoft”, rồi xác minh email bằng mã một lần (OTP). Nếu email đó thuộc tài khoản này, TutorHub sẽ đề nghị liên kết sau khi bạn đăng nhập lại.",
+    "profile.identityEmailUnverifiedOther":
+      "Với nhà cung cấp khác, hãy xác minh email tại nhà cung cấp rồi thử liên kết lại.",
+    "profile.identityEmailUnverifiedSignOut": "Đăng xuất",
     "profile.identityActionError":
       "Không thể hoàn tất thao tác với danh tính. Hãy thử lại.",
     "profile.passwordTitle": "Mật khẩu",
@@ -1470,6 +1480,7 @@ const messages = {
     "accountLink.title": "Liên kết {provider} với tài khoản TutorHub",
     "accountLink.providerFacebook": "Facebook",
     "accountLink.providerGoogle": "Google",
+    "accountLink.providerMicrosoft": "Microsoft",
     "accountLink.providerOidc": "đăng nhập một lần (SSO)",
     "accountLink.loading": "Đang kiểm tra yêu cầu liên kết",
     "accountLink.existing":
@@ -1519,6 +1530,7 @@ const messages = {
     "completeRegistration.kicker": "Hoàn tất đăng ký",
     "completeRegistration.title": "Hoàn tất đăng ký bằng {provider}",
     "completeRegistration.providerFacebook": "Facebook",
+    "completeRegistration.providerMicrosoft": "Microsoft",
     "completeRegistration.loading": "Đang kiểm tra yêu cầu đăng ký",
     "completeRegistration.lead":
       "{provider} đã xác nhận bạn. Hãy xác minh một địa chỉ email để hoàn tất tài khoản TutorHub.",
@@ -1527,7 +1539,7 @@ const messages = {
     "completeRegistration.unavailableTitle":
       "Yêu cầu đăng ký không còn hiệu lực",
     "completeRegistration.unavailableDescription":
-      "Yêu cầu có thể đã hết hạn, đã được dùng hoặc đã bị hủy. Hãy đăng nhập lại bằng Facebook để bắt đầu lại.",
+      "Yêu cầu có thể đã hết hạn, đã được dùng hoặc đã bị hủy. Hãy đăng nhập lại bằng {provider} để bắt đầu lại.",
     "completeRegistration.backToSignIn": "Về trang đăng nhập",
     "completeRegistration.loadErrorTitle": "Chưa thể kiểm tra yêu cầu đăng ký",
     "completeRegistration.loadErrorDescription":
@@ -3348,9 +3360,20 @@ const messages = {
       "The last sign-in method cannot be removed.",
     "profile.identityUnlinked": "Identity unlinked.",
     "profile.identityLinkGoogle": "Link Google",
+    "profile.identityLinkMicrosoft": "Link Microsoft",
     "profile.identityLinked": "Sign-in identity linked.",
     "profile.identityProviderFacebook": "Facebook",
     "profile.identityProviderGoogle": "Google",
+    "profile.identityProviderMicrosoft": "Microsoft",
+    "profile.identityEmailUnverifiedTitle":
+      "The sign-in identity wasn't linked",
+    "profile.identityEmailUnverified":
+      "The provider didn't confirm the email address of the account you chose, so TutorHub didn't link it.",
+    "profile.identityEmailUnverifiedMicrosoft":
+      "For a Microsoft account: sign out, choose “Sign in with Microsoft”, then verify your email with a one-time code. If that email belongs to this account, TutorHub offers to link it after you sign in again.",
+    "profile.identityEmailUnverifiedOther":
+      "For other providers, verify the email with the provider, then try linking again.",
+    "profile.identityEmailUnverifiedSignOut": "Sign out",
     "profile.identityActionError":
       "The identity action could not be completed. Please try again.",
     "profile.passwordTitle": "Password",
@@ -4012,6 +4035,7 @@ const messages = {
     "accountLink.title": "Link {provider} to your TutorHub account",
     "accountLink.providerFacebook": "Facebook",
     "accountLink.providerGoogle": "Google",
+    "accountLink.providerMicrosoft": "Microsoft",
     "accountLink.providerOidc": "single sign-on (SSO)",
     "accountLink.loading": "Checking the linking request",
     "accountLink.existing":
@@ -4061,6 +4085,7 @@ const messages = {
     "completeRegistration.kicker": "Finish signing up",
     "completeRegistration.title": "Finish signing up with {provider}",
     "completeRegistration.providerFacebook": "Facebook",
+    "completeRegistration.providerMicrosoft": "Microsoft",
     "completeRegistration.loading": "Checking your sign-up request",
     "completeRegistration.lead":
       "{provider} confirmed it's you. Verify an email address to finish your TutorHub account.",
@@ -4069,7 +4094,7 @@ const messages = {
     "completeRegistration.unavailableTitle":
       "This sign-up request is no longer valid",
     "completeRegistration.unavailableDescription":
-      "It may have expired, been used, or been cancelled. Sign in with Facebook again to start over.",
+      "It may have expired, been used, or been cancelled. Sign in with {provider} again to start over.",
     "completeRegistration.backToSignIn": "Back to sign-in",
     "completeRegistration.loadErrorTitle":
       "We couldn't check the sign-up request",

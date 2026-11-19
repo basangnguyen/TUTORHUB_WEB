@@ -115,13 +115,19 @@ export function useBeginIdentityLink() {
   });
 }
 
-/** AUTH-05: provider-bound linking; the empty-body OIDC link stays as is. */
-export function useLinkGoogleIdentity() {
+/** Providers that Settings links through `POST /me/identities/link`. */
+export type LinkableProvider = "google" | "microsoft";
+
+/**
+ * AUTH-05/07: provider-bound linking (Google, Microsoft); the empty-body OIDC
+ * link stays as is. `variables` names the provider of the pending request.
+ */
+export function useLinkProviderIdentity() {
   return useMutation({
     retry: false,
-    mutationFn: async () => {
+    mutationFn: async (provider: LinkableProvider) => {
       const csrf = await rotateCSRFToken({ baseUrl: getApiBaseUrl() });
-      return linkIdentity({ provider: "google" }, csrf.csrf_token, {
+      return linkIdentity({ provider }, csrf.csrf_token, {
         baseUrl: getApiBaseUrl(),
       });
     },

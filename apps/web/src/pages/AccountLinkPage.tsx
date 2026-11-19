@@ -1,7 +1,7 @@
 import {
   APIRequestError,
-  getFederatedLinkIntent,
-  type FederatedLinkIntentResponse,
+  getOAuthLinkIntent,
+  type OAuthLinkIntentResponse,
 } from "@tutorhub/api-client";
 import { Button, ErrorState, Skeleton, SkeletonGroup } from "@tutorhub/ui";
 import { Link2, LogOut, RefreshCw, X } from "lucide-react";
@@ -37,7 +37,7 @@ type IntentState =
   | { status: "error" }
   | {
       status: "ready";
-      intent: FederatedLinkIntentResponse;
+      intent: OAuthLinkIntentResponse;
       /** Wall-clock deadline: throttled background timers cannot drift it. */
       expiresAt: number;
       remaining: number;
@@ -69,8 +69,9 @@ function useLinkIntentPreview() {
 
   useEffect(() => {
     const controller = new AbortController();
-    // Facebook link intents come from a completed pending registration.
-    getFederatedLinkIntent({
+    // Every provider the API supports, Microsoft included (AUTH-07B). Facebook
+    // and Microsoft intents may come from a completed pending registration.
+    getOAuthLinkIntent({
       baseUrl: getApiBaseUrl(),
       signal: controller.signal,
     }).then(
@@ -218,6 +219,7 @@ function actionFailureText(
 const PROVIDER_NAME_KEYS: Readonly<Record<LinkProvider, TranslationKey>> = {
   facebook: "accountLink.providerFacebook",
   google: "accountLink.providerGoogle",
+  microsoft: "accountLink.providerMicrosoft",
   oidc: "accountLink.providerOidc",
 };
 
