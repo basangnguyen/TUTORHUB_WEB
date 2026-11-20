@@ -4,18 +4,29 @@
 
 ## Snapshot
 
-| Thuộc tính           | Trạng thái                                                                                                                                 |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| Ngày cập nhật        | 2026-11-20                                                                                                                                 |
-| Repository           | `https://github.com/basangnguyen/TUTORHUB_WEB`                                                                                             |
-| Nhánh làm việc       | `main`                                                                                                                                     |
-| Quy trình            | Antigravity làm PM/Gatekeeper điều phối Codex và Claude Code qua prompt; Antigravity nghiệm thu và commit/push thẳng `main`                |
-| Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4, Phase 5 collaboration                                                                                  |
-| Phase hiện tại       | Phase 3 deferred carry-over vẫn hoạt động; Phase 5 collaboration đã đóng                                                                   |
-| Task `DONE` gần nhất | `AUTH-09A` TOTP 2FA, mã khôi phục, giao dịch `mfa_required`, chính sách AAL2 cấp tài khoản & `org_admin` (`000048`, cờ tắt)                |
-| Mốc repository mới   | PostgreSQL disposable `identity` `164/164` + `httpapi` `245/245` (`0` FAIL/SKIP, ledger `48 false`); web `782` test, api-client `119` test |
-| Task hiện tại        | Giao `AUTH-09B` cho Claude Code (UI enroll QR TOTP, màn hình MFA/khôi phục một lần, step-up TOTP, Settings MFA + Playwright)               |
-| Task tiếp theo       | Nghiệm thu `AUTH-09B` để đóng `AUTH-09`, sau đó mở `AUTH-10..11` (Phone OTP E.164 `+84`)                                                   |
+| Thuộc tính           | Trạng thái                                                                                                                              |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Ngày cập nhật        | 2026-11-20                                                                                                                              |
+| Repository           | `https://github.com/basangnguyen/TUTORHUB_WEB`                                                                                          |
+| Nhánh làm việc       | `main`                                                                                                                                  |
+| Quy trình            | Antigravity làm PM/Gatekeeper điều phối Codex và Claude Code qua prompt; Antigravity nghiệm thu và commit/push thẳng `main`             |
+| Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4, Phase 5 collaboration                                                                               |
+| Phase hiện tại       | Phase 3 deferred carry-over vẫn hoạt động; Phase 5 collaboration đã đóng                                                                |
+| Task `DONE` gần nhất | `AUTH-09B` Giao diện TOTP QR nội bộ, màn hình MFA/khôi phục một lần, step-up `AAL2`, gỡ kẹt `org_admin` & Playwright (`AUTH-09` `DONE`) |
+| Mốc repository mới   | Playwright native-auth `auth-02..09` `27/27` + hồi quy OIDC `p2-08` `1/1` trên DB disposable (`48 false`); web `829` test (`90` file)   |
+| Task hiện tại        | Giao `AUTH-10A` cho Codex (Phone OTP lõi phía server: chuẩn hóa E.164 `+84`, `000049_phone_numbers`, anti-pumping, quota + breaker)     |
+| Task tiếp theo       | Nghiệm thu `AUTH-10A`, sau đó giao `AUTH-10B` cho Claude Code (giao diện SĐT `+84`, OTP UX, Settings SĐT + Playwright)                  |
+
+### Checkpoint `AUTH-09B` Giao diện TOTP QR nội bộ, Bước xác minh 2 lớp, Step-up `AAL2` & Gỡ kẹt `org_admin` (`AUTH-09` `DONE`) — 2026-11-20
+
+Claude Code triển khai lát cắt Web UI + Playwright của `AUTH-09` (Phase 0 phát hiện tác động lên test xóa phương thức cuối cùng của `auth-08` khi bật `AUTH_MFA_TOTP_ENABLED=true` và 2 dòng cấu hình Playwright — đều đã được chủ dự án duyệt mở rộng phạm vi tối thiểu); Gatekeeper (Antigravity) review diff/bảo mật và kiểm chứng trực tiếp toàn bộ stack trên Chromium thật + PostgreSQL disposable:
+
+- **Encoder QR SVG nội bộ (`apps/web/src/app/totpQr.ts`)**: tự cài đặt chuẩn ISO/IEC 18004 (byte mode, Version `1..20` tới `858` byte, Reed-Solomon GF(256), ECC `M`/`L`, BCH(15,5) & BCH(18,6), chọn mask tối thiểu hóa điểm phạt `N1..N4`, quiet zone 4 module) trực tiếp bằng TypeScript không thêm npm dependency và không gửi `otpauth_uri`/seed ra ngoài; `<svg>` dùng `aria-label` chung không lộ khóa bí mật; chuỗi vượt ngưỡng fallback sang khóa thiết lập chia nhóm 4 ký tự.
+- **Bước xác minh hai lớp dùng chung (`SignInMfaStep.tsx`)**: xử lý đồng nhất `mfa_required` trên đăng nhập mật khẩu, mã email, passkey `UV=false` (hủy sạch Conditional UI nền trước khi sang bước 2), `/sign-in?mfa=pending` sau callback OAuth (bảo toàn `return_to`), `/account-link` (ở lại trang để xác nhận liên kết sau bước 2) và hộp thoại khôi phục mật khẩu (nhận `password_reset` thì đóng hộp thoại, báo thành công, không tự đăng nhập); hỗ trợ đổi qua lại TOTP 6 số, mã khôi phục và passkey (khi tài khoản có passkey), đếm ngược hết hạn và tôn trọng `Retry-After` trên `429`.
+- **Hộp thoại `StepUpAuthDialog` & chính sách `requireAal2`**: chuyển sang đọc `AccountSecurityResponse`, hoạt động khi bật `device_management_enabled` hoặc `mfa_totp_enabled`, thứ tự ưu tiên `["passkey","totp","password","email_code"]`; khi gặp `403 auth_assurance_required` hoặc `403 auth_admin_mfa_required` tự bật chế độ `requireAal2` (chỉ cho phép `passkey` hoặc `totp`, nếu chưa có yếu tố nào thì hiện hướng dẫn dẫn tới `/app/settings`).
+- **Settings (`/app/settings` — `TwoFactorSettingsCard.tsx`) & Gỡ kẹt `org_admin`**: thẻ "Ứng dụng xác thực" hỗ trợ enroll QR + sao chép khóa chia nhóm, xác nhận mã 6 số, hộp thoại 10 mã khôi phục hiển thị đúng một lần (sao chép, tải `.txt` bằng `Blob` cục bộ + `revokeObjectURL`, chặn `Escape`/click ngoài cho tới khi tick xác nhận đã lưu), cảnh báo khi còn `<= 3` hoặc `0` mã, tạo lại mã và tắt TOTP (xử lý êm `409 auth_mfa_conflict`). Khi `active_tenant === null`, route `/app/settings` vẫn mở được để `org_admin` thiết lập 2FA; trang chọn/tạo workspace bổ sung `AdminMfaRequiredNotice` cho phép xác minh `AAL2` ngay tại chỗ rồi tự chạy lại thao tác một lần hoặc sang `/app/settings`. Các luồng thêm/xóa passkey, đặt mật khẩu lần đầu và liên kết danh tính cũng nối `auth_assurance_required` vào step-up `AAL2`.
+- **Bằng chứng Gatekeeper**: `pnpm verify` (`829/829` web unit tests trên `90` file, `@tutorhub/api-client` `119/119`, `e2e:infra:test` `18/18`, `security:test` `86/86`, `security:bundle` `209` file, Storybook build, `39` package Go) và `git diff --check` đều PASS. Trên Chromium thật + PostgreSQL disposable (migration `48`, xóa sạch DB sau mỗi lần chạy): Phase A native-auth gộp `auth-02..09` **`27/27` PASS (`15,2` phút)** — gồm `auth-08` ×3 đã cập nhật bước step-up `AAL2` và `auth-09-mfa-totp.spec.ts` ×4 (enroll QR + confirm + 10 mã khôi phục một lần, đăng nhập mật khẩu `mfa_required` + chặn replay cùng bước + tiêu thụ mã khôi phục, khôi phục mật khẩu hoãn qua MFA không tự đăng nhập, `org_admin` bị chặn bởi `AUTH_REQUIRE_ADMIN_MFA` tự gỡ kẹt bằng step-up/Settings, tạo lại mã + tắt TOTP, Axe `0` serious/critical, Web Storage không rò secret/code) — và Phase B hồi quy OIDC mặc định `p2-08` **`1/1` PASS (`4,4` phút)**.
+- **Lưu ý vận hành**: `AUTH_MFA_TOTP_ENABLED` và `AUTH_REQUIRE_ADMIN_MFA` giữ mặc định `false` trên kho/production cho tới đợt mở cờ có kiểm soát.
 
 ### Checkpoint `AUTH-09A` TOTP 2FA, Mã khôi phục, Giao dịch `mfa_required` & Chính sách AAL2 (`000048`) `DONE` — 2026-11-20
 

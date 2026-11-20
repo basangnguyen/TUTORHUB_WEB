@@ -92,8 +92,8 @@ export const localAccounts = Object.freeze({
  * AUTH-02/03/04 native sign-up, password login, email-code login, password
  * recovery, step-up re-authentication and session/device management, plus
  * AUTH-05 Google, AUTH-06 Facebook and AUTH-07 Microsoft federation against
- * loopback fake issuers and AUTH-08 passkeys on the `localhost` relying
- * party, for the loopback stack only. Applied solely when
+ * loopback fake issuers, AUTH-08 passkeys on the `localhost` relying party
+ * and AUTH-09 TOTP two-step verification, for the loopback stack only. Applied solely when
  * E2E_AUTH_NATIVE=true (or `--native-auth`), so the default `pnpm e2e`
  * environment stays byte-for-byte unchanged. The Google, Facebook and
  * Microsoft secrets are generated per run (see createRuntimeSecrets).
@@ -128,6 +128,10 @@ export const nativeAuthConfiguration = Object.freeze({
   AUTH_PASSKEYS_ENABLED: "true",
   WEBAUTHN_RP_ID: "localhost",
   WEBAUTHN_RP_ORIGINS: nativeAuthOrigins.web,
+  // AUTH-09: authenticator-app (TOTP) 2FA and recovery codes. The
+  // administrator AAL2 policy (AUTH_REQUIRE_ADMIN_MFA) stays off so the
+  // auth-02..08 specs keep creating workspaces from AAL1 sessions.
+  AUTH_MFA_TOTP_ENABLED: "true",
 });
 
 const commandOptions = Object.freeze({
@@ -785,7 +789,7 @@ function printHelp() {
     `  serve    Prepare and run fake OIDC, Core API, and web\n\n`,
   );
   process.stdout.write(
-    `  --native-auth  Also enable email sign-up, password and email-code login, password recovery, step-up and device management, the loopback devinbox sender, Google federation against a second loopback fake issuer, Facebook federation against a third one, Microsoft federation against a fourth one, and passkeys; the browser-facing origins become http://localhost:5173 (web) and http://localhost:8080 (API callbacks) because WebAuthn rejects IP relying parties\n`,
+    `  --native-auth  Also enable email sign-up, password and email-code login, password recovery, step-up and device management, the loopback devinbox sender, Google federation against a second loopback fake issuer, Facebook federation against a third one, Microsoft federation against a fourth one, passkeys and TOTP two-step verification; the browser-facing origins become http://localhost:5173 (web) and http://localhost:8080 (API callbacks) because WebAuthn rejects IP relying parties\n`,
   );
 }
 

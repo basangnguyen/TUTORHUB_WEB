@@ -101,6 +101,8 @@ export interface NavigationItem {
   labelKey: TranslationKey;
   requiredPermission?: CurrentUser["permissions"][number];
   showInSidebar?: boolean;
+  /** AUTH-09B: usable without an active workspace (account settings). */
+  tenantless?: boolean;
 }
 
 export const navigationItems: readonly NavigationItem[] = [
@@ -118,15 +120,31 @@ export const navigationItems: readonly NavigationItem[] = [
     labelKey: "nav.workspace",
     requiredPermission: "tenant.view",
   },
-  { to: "/app/settings", labelKey: "nav.settings" },
+  { to: "/app/settings", labelKey: "nav.settings", tenantless: true },
 ];
+
+/**
+ * AUTH-09B: paths that work without an active workspace, so a session that
+ * has none (no membership yet, or an AAL1 `org_admin` whose workspace the
+ * server hides under `AUTH_REQUIRE_ADMIN_MFA`) can still reach account
+ * settings and set up two-step verification.
+ */
+export function isTenantlessPath(pathname: string) {
+  return navigationItems.some(
+    (item) =>
+      item.tenantless === true &&
+      (pathname === item.to || pathname.startsWith(`${item.to}/`)),
+  );
+}
 
 export function getVisibleNavigationItems(
   permissions: CurrentUser["permissions"],
+  { hasActiveTenant = true }: { hasActiveTenant?: boolean } = {},
 ) {
   return navigationItems.filter(
     (item) =>
       item.showInSidebar !== false &&
+      (hasActiveTenant || item.tenantless === true) &&
       (!item.requiredPermission ||
         permissions.includes(item.requiredPermission)),
   );
@@ -157,10 +175,16 @@ function ProtectedRoute() {
 
 function WorkspaceRoute() {
   const session = useSession();
+  const location = useLocation();
   const currentUser = session.currentUser;
 
   if (!currentUser) {
     return <AuthenticationErrorPage />;
+  }
+  // Account settings never need a workspace (AUTH-09B): this is where a
+  // workspace-less or AAL1 administrator session enables 2FA or a passkey.
+  if (!currentUser.active_tenant && isTenantlessPath(location.pathname)) {
+    return <Outlet />;
   }
   if (!currentUser.active_tenant && currentUser.memberships.length === 0) {
     return <WorkspaceOnboardingPage />;

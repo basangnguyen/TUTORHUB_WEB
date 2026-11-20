@@ -1,0 +1,32 @@
+/* AUTH-09B: administrator workspace needs two-step verification. */
+.admin-mfa-notice {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+  padding: 12px 14px;
+  border: 1px solid var(--color-warning);
+  border-radius: var(--radius-sm);
+  background: var(--color-warning-soft);
+  color: var(--color-text);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.admin-mfa-notice p {
+  margin: 0;
+}
+
+.admin-mfa-notice__title {
+  font-weight: 700;
+}
+
+.admin-mfa-notice__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.admin-mfa-notice__link {
+  text-decoration: none;
+}

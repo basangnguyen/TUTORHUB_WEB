@@ -3,6 +3,7 @@ import {
   buildOAuthStartURL,
   completeEmailSignup,
   completePasswordRecovery,
+  getPendingMFA,
   loginWithPassword,
   resendAuthChallenge,
   startEmailCodeLogin,
@@ -41,6 +42,7 @@ import {
 import { KeyRound } from "lucide-react";
 import { Navigate, useLocation, useNavigate } from "react-router";
 import { useI18n, type Language } from "../app/i18n";
+import { DEFAULT_MFA_EXPIRES_IN_SECONDS, type MFAMethod } from "../app/mfa";
 import {
   INVALID_PASSKEY_CODE,
   classifyCeremonyError,
@@ -51,6 +53,7 @@ import {
 } from "../app/passkeys";
 import { useSession } from "../app/session";
 import { SignInLegalDialog } from "./SignInLegalDialog";
+import { SignInMfaStep } from "./SignInMfaStep";
 import {
   LINK_EMAIL_UNVERIFIED_TARGET,
   MIN_PASSWORD_LENGTH,
@@ -61,6 +64,7 @@ import {
   readCallbackError,
   readReturnTo,
   registrationPendingTarget,
+  sanitizeReturnTo,
   searchWithoutCallbackError,
   signUpModeFor,
   socialAvailabilityFor,
@@ -186,7 +190,14 @@ const en = {
   errorPasswordRequired: "Please enter your password.",
   loginInvalid: "Incorrect email or password.",
   loginMfaRequired:
-    "This account requires multi-factor authentication, which this page doesn't support yet. Please contact your administrator.",
+    "This account requires two-step verification, but no verification method is available. Please try again or contact your administrator.",
+  mfaExpired: "Your verification session expired. Please sign in again.",
+  mfaRecoveryExpired:
+    "The verification session expired. Request a new email code to reset your password.",
+  mfaLoading: "Loading two-step verification…",
+  mfaLoadError:
+    "Two-step verification could not be loaded. Try again, or go back and sign in again.",
+  mfaBack: "Back to sign in",
   rateLimited: "Too many attempts. Please wait a moment and try again.",
   rateLimitedWait: "Too many attempts. Please try again in {seconds} seconds.",
   busy: "TutorHub is busy right now. Please try again shortly.",
@@ -349,7 +360,14 @@ const vi: SignInCopy = {
   errorPasswordRequired: "Vui lòng nhập mật khẩu.",
   loginInvalid: "Email hoặc mật khẩu không đúng.",
   loginMfaRequired:
-    "Tài khoản này yêu cầu xác thực đa yếu tố nhưng trang này chưa hỗ trợ bước xác thực bổ sung. Vui lòng liên hệ quản trị viên.",
+    "Tài khoản này yêu cầu xác minh hai bước nhưng hiện không có phương thức xác minh khả dụng. Vui lòng thử lại hoặc liên hệ quản trị viên.",
+  mfaExpired: "Phiên xác minh đã hết hạn. Vui lòng đăng nhập lại.",
+  mfaRecoveryExpired:
+    "Phiên xác minh đã hết hạn. Hãy yêu cầu mã email mới để đặt lại mật khẩu.",
+  mfaLoading: "Đang tải bước xác minh hai bước…",
+  mfaLoadError:
+    "Chưa thể tải bước xác minh hai bước. Hãy thử lại hoặc quay lại đăng nhập.",
+  mfaBack: "Quay lại đăng nhập",
   rateLimited: "Bạn đã thử quá nhiều lần. Vui lòng chờ một lát rồi thử lại.",
   rateLimitedWait:
     "Bạn đã thử quá nhiều lần. Vui lòng thử lại sau {seconds} giây.",
@@ -526,6 +544,8 @@ function MicrosoftMark() {
 type AuthFailure =
   | { kind: "invalidCredentials" }
   | { kind: "mfaRequired" }
+  | { kind: "mfaExpired" }
+  | { kind: "mfaRecoveryExpired" }
   | { kind: "rateLimited"; retryAfterSeconds?: number }
   | { kind: "busy"; retryAfterSeconds?: number }
   | { kind: "badRequest" }
@@ -614,6 +634,10 @@ function failureText(c: SignInCopy, failure: AuthFailure) {
       return c.loginInvalid;
     case "mfaRequired":
       return c.loginMfaRequired;
+    case "mfaExpired":
+      return c.mfaExpired;
+    case "mfaRecoveryExpired":
+      return c.mfaRecoveryExpired;
     case "rateLimited":
       return failure.retryAfterSeconds
         ? formatCopy(c.rateLimitedWait, {
@@ -712,7 +736,14 @@ interface PasskeySignInOptions {
   enabled: boolean;
   keepSignedIn: boolean;
   onAuthenticated: () => Promise<void>;
+  /** AUTH-09B: a passkey without user verification needs a second step. */
+  onMfaRequired: (methods: readonly MFAMethod[]) => void;
 }
+
+type PasskeyVerifyOutcome =
+  | { kind: "authenticated" }
+  | { kind: "mfa"; methods: readonly MFAMethod[] }
+  | { kind: "failed"; failure: AuthFailure };
 
 /**
  * AUTH-08B discoverable passkey sign-in for LoginForm.
@@ -729,12 +760,16 @@ interface PasskeySignInOptions {
  * - A 401 `auth_invalid_passkey` with `unknown_credential: true` signals the
  *   authenticator (Signal API) with the options' rpId and the credential ID
  *   that was sent. Nothing is persisted in Web Storage.
+ * - AUTH-09B: a passkey without user verification answers `mfa_required`;
+ *   the form moves to the second step (`onMfaRequired`), and
+ *   `stopBackground()` lets another first factor cancel autofill first.
  */
 function usePasskeySignIn({
   conditional,
   enabled,
   keepSignedIn,
   onAuthenticated,
+  onMfaRequired,
 }: PasskeySignInOptions) {
   const [pending, setPending] = useState(false);
   const [cancelled, setCancelled] = useState(false);
@@ -744,12 +779,14 @@ function usePasskeySignIn({
   const lockStart = lock.start;
   const keepSignedInRef = useRef(keepSignedIn);
   const onAuthenticatedRef = useRef(onAuthenticated);
+  const onMfaRequiredRef = useRef(onMfaRequired);
   const backgroundRef = useRef<BackgroundPasskeyRequest | null>(null);
   const runningRef = useRef(false);
 
   useEffect(() => {
     keepSignedInRef.current = keepSignedIn;
     onAuthenticatedRef.current = onAuthenticated;
+    onMfaRequiredRef.current = onMfaRequired;
   });
 
   const fail = useCallback(
@@ -762,25 +799,36 @@ function usePasskeySignIn({
     [lockStart],
   );
 
-  /** POST /verify; returns the failure to show, or null when signed in. */
+  /** POST /verify: signed in, a second step is needed, or a failure. */
   const verify = useCallback(
-    async (options: PasskeyRequestOptions, assertion: PasskeyAssertion) => {
+    async (
+      options: PasskeyRequestOptions,
+      assertion: PasskeyAssertion,
+    ): Promise<PasskeyVerifyOutcome> => {
       try {
-        await verifyPasskeyAssertion(
+        const result = await verifyPasskeyAssertion(
           { assertion, keep_signed_in: keepSignedInRef.current },
           { baseUrl: getApiBaseUrl() },
         );
-        return null;
+        return result.status === "mfa_required"
+          ? { kind: "mfa", methods: result.methods }
+          : { kind: "authenticated" };
       } catch (error) {
         void signalUnknownPasskey(error, {
           credentialId: assertion.id,
           rpId: options.rpId,
         });
-        return passkeyFailureFrom(error);
+        return { kind: "failed", failure: passkeyFailureFrom(error) };
       }
     },
     [],
   );
+
+  /** Hands a verified first factor to the second step (never awaited). */
+  const requireMfa = useCallback((methods: readonly MFAMethod[]) => {
+    setPending(false);
+    onMfaRequiredRef.current(methods);
+  }, []);
 
   /** The session cookie exists: hand off CSRF + /me (retryable). */
   const finish = useCallback(async () => {
@@ -829,9 +877,13 @@ function usePasskeySignIn({
       setFailure(null);
       setPending(true);
       try {
-        const problem = await verify(options, assertion);
-        if (problem) {
-          fail(problem);
+        const outcome = await verify(options, assertion);
+        if (outcome.kind === "failed") {
+          fail(outcome.failure);
+          return;
+        }
+        if (outcome.kind === "mfa") {
+          requireMfa(outcome.methods);
           return;
         }
         await finish();
@@ -844,7 +896,20 @@ function usePasskeySignIn({
       controller.abort();
       if (backgroundRef.current === request) backgroundRef.current = null;
     };
-  }, [conditional, enabled, fail, finish, rearm, verify]);
+  }, [conditional, enabled, fail, finish, rearm, requireMfa, verify]);
+
+  /** Aborts passkey autofill and waits (briefly) for it to settle. */
+  const stopBackground = useCallback(async () => {
+    const background = backgroundRef.current;
+    if (!background) return;
+    background.controller.abort();
+    await Promise.race([
+      background.settled,
+      new Promise((resolve) =>
+        window.setTimeout(resolve, CONDITIONAL_ABORT_GRACE_MS),
+      ),
+    ]);
+  }, []);
 
   const signIn = useCallback(async () => {
     if (runningRef.current) return;
@@ -889,16 +954,20 @@ function usePasskeySignIn({
         });
         return;
       }
-      const problem = await verify(options, assertion);
-      if (problem) {
-        fail(problem);
+      const outcome = await verify(options, assertion);
+      if (outcome.kind === "failed") {
+        fail(outcome.failure);
+        return;
+      }
+      if (outcome.kind === "mfa") {
+        requireMfa(outcome.methods);
         return;
       }
       await finish();
     } finally {
       runningRef.current = false;
     }
-  }, [fail, finish, verify]);
+  }, [fail, finish, requireMfa, verify]);
 
   return {
     cancelled,
@@ -907,6 +976,7 @@ function usePasskeySignIn({
     pending,
     retrySession: finish,
     signIn,
+    stopBackground,
   };
 }
 
@@ -1084,7 +1154,9 @@ function FormAlert({ failure, onRetrySession }: FormAlertProps) {
   return (
     <div
       className={
-        failure.kind === "mfaRequired"
+        failure.kind === "mfaRequired" ||
+        failure.kind === "mfaExpired" ||
+        failure.kind === "mfaRecoveryExpired"
           ? "sign-in-form__alert sign-in-form__alert--info"
           : "sign-in-form__alert"
       }
@@ -1135,6 +1207,10 @@ function SignInScreen() {
   const [focusFormOnMount, setFocusFormOnMount] = useState(false);
   // Read once: the fixed code survives removing it from the address bar.
   const [callbackError] = useState(() => readCallbackError(location.search));
+  // AUTH-09B: an OAuth callback parked a first factor for a second step.
+  const [resumePendingMfa] = useState(
+    () => new URLSearchParams(location.search).get("mfa") === "pending",
+  );
   const heroTitleId = useId();
 
   // AUTH-07B: a provider link started from Settings (so a session exists)
@@ -1147,20 +1223,22 @@ function SignInScreen() {
     void navigate(LINK_EMAIL_UNVERIFIED_TARGET, { replace: true });
   }, [linkEmailUnverified, navigate]);
 
-  const hasErrorParam = new URLSearchParams(location.search).has("error");
+  const searchParams = new URLSearchParams(location.search);
+  const hasTransientParam =
+    searchParams.has("error") || searchParams.has("mfa");
   useEffect(() => {
-    if (!hasErrorParam || linkEmailUnverified) return;
+    if (!hasTransientParam || linkEmailUnverified) return;
     // Router-aware history.replaceState: keeps the protected `from` state.
     void navigate(
       {
         hash: location.hash,
         pathname: location.pathname,
-        search: searchWithoutCallbackError(location.search),
+        search: searchWithoutTransientParams(location.search),
       },
       { replace: true, state: location.state as unknown },
     );
   }, [
-    hasErrorParam,
+    hasTransientParam,
     linkEmailUnverified,
     location.hash,
     location.pathname,
@@ -1195,10 +1273,17 @@ function SignInScreen() {
     () => startProviderSignIn("microsoft"),
     [startProviderSignIn],
   );
-  const finishNativeSignIn = useCallback(async () => {
-    await completeNativeSignIn();
-    void navigate(returnTo, { replace: true });
-  }, [completeNativeSignIn, navigate, returnTo]);
+  const finishNativeSignIn = useCallback(
+    async (options?: NativeSignInOptions) => {
+      await completeNativeSignIn();
+      // A second step after OAuth carries the server-validated destination.
+      void navigate(
+        options?.returnTo ? sanitizeReturnTo(options.returnTo) : returnTo,
+        { replace: true },
+      );
+    },
+    [completeNativeSignIn, navigate, returnTo],
+  );
 
   const providers =
     providersState.status === "ready" ? providersState.providers : null;
@@ -1311,6 +1396,7 @@ function SignInScreen() {
               passwordMinLength={passwordMinLengthFor(providers)}
               // Older servers omit the flag: absence means recovery is off.
               recoveryEnabled={providers?.password_recovery_enabled === true}
+              resumePendingMfa={resumePendingMfa}
               social={socialAvailabilityFor(providers)}
             />
           ) : (
@@ -1350,13 +1436,27 @@ function LoginImageSlider() {
   );
 }
 
+/** AUTH-09B: what a finished second step tells the page. */
+export interface NativeSignInOptions {
+  /** Server-validated local path from the first factor (e.g. OAuth). */
+  returnTo?: string;
+}
+
+/** Same search string without `error` and `mfa` (other params are kept). */
+function searchWithoutTransientParams(search: string) {
+  const params = new URLSearchParams(searchWithoutCallbackError(search));
+  params.delete("mfa");
+  const next = params.toString();
+  return next ? `?${next}` : "";
+}
+
 export interface LoginFormProps {
   autoFocus: boolean;
   /** `email_code_enabled`: offers "log in with an email code". */
   emailCodeEnabled: boolean;
   mode: LoginMode;
   /** Runs after the server issued a native session: CSRF, /me, navigation. */
-  onAuthenticated: () => Promise<void>;
+  onAuthenticated: (options?: NativeSignInOptions) => Promise<void>;
   /** Starts the Facebook flow when `social.facebookFederation` is on. */
   onFacebookSignIn?: () => void;
   /** Starts the Google flow when `social.googleFederation` is on. */
@@ -1380,8 +1480,23 @@ export interface LoginFormProps {
   passwordMinLength: number;
   /** `password_recovery_enabled`: the dialog runs the native recovery. */
   recoveryEnabled: boolean;
+  /**
+   * AUTH-09B: `/sign-in?mfa=pending` — load the parked second step
+   * (`GET /auth/mfa`) instead of asking for a first factor.
+   */
+  resumePendingMfa?: boolean;
   social: SocialAvailability;
 }
+
+type MfaView =
+  | { kind: "loading" }
+  | { kind: "loadError" }
+  | {
+      kind: "challenge";
+      expiresInSeconds: number;
+      id: number;
+      methods: readonly MFAMethod[];
+    };
 
 type LoginField = "identifier" | "password";
 type LoginErrors = Partial<Record<LoginField, CopyKey>>;
@@ -1405,6 +1520,7 @@ export function LoginForm({
   passkeyAutofill = true,
   passwordMinLength,
   recoveryEnabled,
+  resumePendingMfa = false,
   social,
 }: LoginFormProps) {
   const c = useSignInCopy();
@@ -1437,19 +1553,109 @@ export function LoginForm({
   const legalReturnFocusRef = useRef<HTMLElement | null>(null);
   const lock = useCountdown();
   const [webAuthnSupported] = useState(isWebAuthnSupported);
+  const [mfa, setMfa] = useState<MfaView | null>(() =>
+    resumePendingMfa ? { kind: "loading" } : null,
+  );
+  const [pendingMfaAttempt, setPendingMfaAttempt] = useState(
+    resumePendingMfa ? 1 : 0,
+  );
+  const [refocusAfterMfa, setRefocusAfterMfa] = useState(0);
+  /** Remembered (if asked) only once the second step issued a session. */
+  const [mfaIdentifier, setMfaIdentifier] = useState("");
   const isPassword = mode === "password";
   const usesEmailCode = emailCodeEnabled && method === "emailCode";
   const passkeysActive = passkeysEnabled && webAuthnSupported;
   /** Native methods (and passkeys) issue a first-party session that honours keep-signed-in. */
   const nativeSession = usesEmailCode || isPassword || passkeysActive;
+
+  /** Shows the second step; every typed first-factor secret is dropped. */
+  const showMfaChallenge = useCallback(
+    (
+      methods: readonly MFAMethod[],
+      expiresInSeconds = DEFAULT_MFA_EXPIRES_IN_SECONDS,
+    ) => {
+      setPassword("");
+      setErrors({});
+      setSubmitting(false);
+      setPasswordResetDone(false);
+      if (methods.length === 0) {
+        setMfa(null);
+        setFailure({ kind: "mfaRequired" });
+        return;
+      }
+      setFailure(null);
+      setMfa({ kind: "challenge", expiresInSeconds, id: Date.now(), methods });
+    },
+    [],
+  );
   const passkey = usePasskeySignIn({
     // Autofill belongs to the password form: never under the email-code
-    // form or the recovery dialog.
-    conditional: passkeyAutofill && !usesEmailCode && !recoverOpen,
+    // form, the recovery dialog or the second step.
+    conditional:
+      passkeyAutofill && !usesEmailCode && !recoverOpen && mfa === null,
     enabled: passkeysActive,
     keepSignedIn: nativeSession && keepSignedIn,
     onAuthenticated,
+    onMfaRequired: showMfaChallenge,
   });
+  const stopPasskeyAutofill = passkey.stopBackground;
+
+  /** A password or emailed code passed: cancel autofill, then step two. */
+  const enterMfa = useCallback(
+    async (methods: readonly MFAMethod[], verifiedIdentifier: string) => {
+      setMfaIdentifier(verifiedIdentifier);
+      await stopPasskeyAutofill();
+      showMfaChallenge(methods);
+    },
+    [showMfaChallenge, stopPasskeyAutofill],
+  );
+
+  // `/sign-in?mfa=pending`: read the parked transaction (methods + lifetime).
+  useEffect(() => {
+    if (pendingMfaAttempt === 0) return;
+    const controller = new AbortController();
+    void (async () => {
+      try {
+        const state = await getPendingMFA({
+          baseUrl: getApiBaseUrl(),
+          signal: controller.signal,
+        });
+        if (controller.signal.aborted) return;
+        if (state.methods.length === 0) {
+          setMfa(null);
+          setFailure({ kind: "mfaExpired" });
+          return;
+        }
+        setMfa({
+          kind: "challenge",
+          expiresInSeconds: state.expires_in_seconds,
+          id: Date.now(),
+          methods: state.methods,
+        });
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        if (error instanceof APIRequestError && error.status === 404) {
+          // auth_mfa_unavailable: expired, used, or the feature is off.
+          setMfa(null);
+          setFailure({ kind: "mfaExpired" });
+          return;
+        }
+        setMfa({ kind: "loadError" });
+      }
+    })();
+    return () => controller.abort();
+  }, [pendingMfaAttempt]);
+
+  // Leaving the second step returns the caret to the first factor.
+  useEffect(() => {
+    if (refocusAfterMfa > 0) identifierRef.current?.focus();
+  }, [refocusAfterMfa]);
+
+  function leaveMfa(notice: AuthFailure | null) {
+    setMfa(null);
+    setFailure(notice);
+    setRefocusAfterMfa((value) => value + 1);
+  }
 
   useEffect(() => {
     if (autoFocus) identifierRef.current?.focus();
@@ -1564,10 +1770,9 @@ export function LoginForm({
     }
 
     setPassword("");
-    if (result.status !== "authenticated") {
-      // AUTH-08/09 will add the second-factor step; never treat this as signed in.
-      setFailure({ kind: "mfaRequired" });
-      setSubmitting(false);
+    if (result.status === "mfa_required") {
+      // The password is right; the session exists only after step two.
+      await enterMfa(result.methods, trimmed);
       return;
     }
     rememberIdentifier(trimmed);
@@ -1639,6 +1844,60 @@ export function LoginForm({
       </span>
     </div>
   );
+  if (mfa) {
+    return (
+      <div className="sign-in-form">
+        {mfa.kind === "loading" ? (
+          <p
+            className="sign-in-form__alert sign-in-form__alert--info"
+            role="status"
+          >
+            {c.mfaLoading}
+          </p>
+        ) : mfa.kind === "loadError" ? (
+          <div className="sign-in-form__alert" role="alert">
+            <p>{c.mfaLoadError}</p>
+            <button
+              className="sign-in-button sign-in-button--outline"
+              onClick={() => {
+                setMfa({ kind: "loading" });
+                setPendingMfaAttempt((value) => value + 1);
+              }}
+              type="button"
+            >
+              {c.retry}
+            </button>
+            <button
+              className="sign-in-mfa__back"
+              onClick={() => leaveMfa(null)}
+              type="button"
+            >
+              {c.mfaBack}
+            </button>
+          </div>
+        ) : (
+          <SignInMfaStep
+            expiresInSeconds={mfa.expiresInSeconds}
+            key={mfa.id}
+            methods={mfa.methods}
+            onAuthenticated={async (options) => {
+              if (mfaIdentifier) rememberIdentifier(mfaIdentifier);
+              await onAuthenticated(options);
+            }}
+            onCancel={() => leaveMfa(null)}
+            onExpired={() => leaveMfa({ kind: "mfaExpired" })}
+            onPasswordReset={async () => {
+              setMfa(null);
+              await handlePasswordReset();
+            }}
+            passkeysEnabled={passkeysEnabled}
+            purpose="signIn"
+          />
+        )}
+      </div>
+    );
+  }
+
   const resetBanner = passwordResetDone ? (
     <p
       className="sign-in-form__alert sign-in-form__alert--success"
@@ -1653,13 +1912,19 @@ export function LoginForm({
     <div className="sign-in-form">
       {usesEmailCode ? (
         <EmailCodeLoginForm
-          autoFocus={methodSwitched}
+          autoFocus={methodSwitched || refocusAfterMfa > 0}
           initialEmail={
             EMAIL_PATTERN.test(trimmedIdentifier) ? trimmedIdentifier : ""
           }
           keepSignedIn={keepSignedIn}
-          notice={resetBanner}
+          notice={
+            resetBanner ?? (failure ? <FormAlert failure={failure} /> : null)
+          }
           onAuthenticated={onAuthenticated}
+          onMfaRequired={async (methods, email) => {
+            setIdentifier(email);
+            await enterMfa(methods, email);
+          }}
           onVerified={(email) => {
             setPasswordResetDone(false);
             setIdentifier(email);
@@ -1903,7 +2168,9 @@ export function LoginForm({
         >
           {recoveryEnabled ? (
             <NativeRecoverPasswordForm
+              onAuthenticated={onAuthenticated}
               onPasswordReset={handlePasswordReset}
+              passkeysEnabled={passkeysEnabled}
               passwordMinLength={passwordMinLength}
               transactionOwnerRef={transactionOwnerRef}
             />
@@ -1924,6 +2191,11 @@ interface EmailCodeLoginFormProps {
   notice: ReactNode;
   /** Runs after the server issued a native session: CSRF, /me, navigation. */
   onAuthenticated: () => Promise<void>;
+  /** AUTH-09B: the code was right but the account has a second factor. */
+  onMfaRequired: (
+    methods: readonly MFAMethod[],
+    email: string,
+  ) => Promise<void>;
   /** Called once the code was accepted, before the session hand-off. */
   onVerified: (email: string) => void;
   /** Keep-signed-in / Remember Me checkboxes shared with the password form. */
@@ -1941,6 +2213,7 @@ function EmailCodeLoginForm({
   keepSignedIn,
   notice,
   onAuthenticated,
+  onMfaRequired,
   onVerified,
   options,
   transactionOwnerRef,
@@ -2042,10 +2315,10 @@ function EmailCodeLoginForm({
     }
 
     setOtp("");
-    if (result.status !== "authenticated") {
-      // AUTH-08/09 will add the second-factor step; never treat this as signed in.
-      setFailure({ kind: "mfaRequired" });
+    if (result.status === "mfa_required") {
+      // The code is right; the session exists only after step two.
       setSubmitting(false);
+      await onMfaRequired(result.methods, trimmedEmail);
       return;
     }
     onVerified(trimmedEmail);
@@ -3027,18 +3300,25 @@ function RecoverPasswordForm({ onSignIn }: { onSignIn: () => void }) {
 }
 
 interface NativeRecoverPasswordFormProps {
+  /** Only if the server unexpectedly issues a session after step two. */
+  onAuthenticated: (options?: NativeSignInOptions) => Promise<void>;
   /** Clears client state, closes the dialog and asks the user to log in. */
   onPasswordReset: () => Promise<void>;
+  passkeysEnabled: boolean;
   passwordMinLength: number;
   transactionOwnerRef: TransactionOwnerRef;
 }
 
 /**
  * AUTH-03 recovery: start → 6-digit code → new password. The server revokes
- * every session on success and this flow never signs the user in.
+ * every session on success and this flow never signs the user in. AUTH-09B:
+ * an account with TOTP or a passkey must pass a second step before the new
+ * password is saved (`mfa_required` → `password_reset`).
  */
 function NativeRecoverPasswordForm({
+  onAuthenticated,
   onPasswordReset,
+  passkeysEnabled,
   passwordMinLength,
   transactionOwnerRef,
 }: NativeRecoverPasswordFormProps) {
@@ -3060,6 +3340,18 @@ function NativeRecoverPasswordForm({
   const [submitting, setSubmitting] = useState(false);
   const code = useEmailChallenge(startPasswordRecovery, transactionOwnerRef);
   const lock = useCountdown();
+  const [mfa, setMfa] = useState<{
+    id: number;
+    methods: readonly MFAMethod[];
+  } | null>(null);
+
+  /** The emailed code was used by the server: request a fresh one. */
+  function leaveMfa(notice: AuthFailure | null) {
+    setMfa(null);
+    code.invalidate();
+    setOtp("");
+    setFailure(notice);
+  }
 
   function focusField(field: RecoverField) {
     const fieldRefs = {
@@ -3144,10 +3436,14 @@ function NativeRecoverPasswordForm({
 
     setOtp("");
     setNewPassword("");
-    if (result.status !== "password_reset") {
-      // Contract fallback only: MFA is not implemented, nothing was signed in.
-      setFailure({ kind: "mfaRequired" });
-      setSubmitting(false);
+    setSubmitting(false);
+    if (result.status === "mfa_required") {
+      // Nothing changed yet: the new password waits for step two.
+      if (result.methods.length === 0) {
+        setFailure({ kind: "mfaRequired" });
+        return;
+      }
+      setMfa({ id: Date.now(), methods: result.methods });
       return;
     }
     await onPasswordReset();
@@ -3187,6 +3483,22 @@ function NativeRecoverPasswordForm({
     const parts = [errors[field] ? `${ids[field]}-error` : "", extra ?? ""];
     const value = parts.filter(Boolean).join(" ");
     return value || undefined;
+  }
+
+  if (mfa) {
+    return (
+      <SignInMfaStep
+        key={mfa.id}
+        methods={mfa.methods}
+        onAuthenticated={onAuthenticated}
+        onCancel={() => leaveMfa(null)}
+        onExpired={() => leaveMfa({ kind: "mfaRecoveryExpired" })}
+        onPasswordReset={onPasswordReset}
+        passkeysEnabled={passkeysEnabled}
+        purpose="recovery"
+        variant="dialog"
+      />
+    );
   }
 
   const codeNotice = challengeNoticeView(c, code);

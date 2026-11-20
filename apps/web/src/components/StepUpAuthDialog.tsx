@@ -1,7 +1,7 @@
 import {
   APIRequestError,
+  type AccountSecurityResponse,
   type AuthProvidersResponse,
-  type MySecurityResponse,
   type ReauthenticateRequest,
 } from "@tutorhub/api-client";
 import {
@@ -24,6 +24,8 @@ import {
   LogOut,
   Mail,
   RefreshCw,
+  Settings,
+  Smartphone,
 } from "lucide-react";
 import {
   useCallback,
@@ -34,6 +36,7 @@ import {
   useState,
   type FormEvent,
 } from "react";
+import { Link, useInRouterContext } from "react-router";
 import { useI18n, type TranslationKey } from "../app/i18n";
 import {
   INVALID_PASSKEY_CODE,
@@ -51,21 +54,31 @@ import {
 import { useSession } from "../app/session";
 import "./StepUpAuthDialog.css";
 
-type ReauthMethod = MySecurityResponse["reauth_methods"][number];
+type ReauthMethod = AccountSecurityResponse["reauth_methods"][number];
 
 /**
- * Strongest first-party factor first (ADR-0039 §7.6: passkey, then password,
- * then email code), matching the order the server evaluates them in.
+ * Strongest first-party factor first (ADR-0039 §7.6: passkey, then TOTP,
+ * then password, then email code), matching the server's evaluation order.
  */
 const METHOD_PRIORITY: readonly ReauthMethod[] = [
   "passkey",
+  "totp",
   "password",
   "email_code",
 ];
+/** Factors that raise the session to AAL2 (AUTH-09A). */
+const AAL2_METHODS: ReadonlySet<ReauthMethod> = new Set(["passkey", "totp"]);
 const METHOD_LABEL_KEYS: Readonly<Record<ReauthMethod, TranslationKey>> = {
   email_code: "stepUp.methodEmailCode",
   passkey: "stepUp.methodPasskey",
   password: "stepUp.methodPassword",
+  totp: "stepUp.methodTotp",
+};
+const METHOD_ICONS: Readonly<Record<ReauthMethod, typeof KeyRound>> = {
+  email_code: Mail,
+  passkey: Fingerprint,
+  password: KeyRound,
+  totp: Smartphone,
 };
 const OTP_PATTERN = /^\d{6}$/;
 /** Upper bound for client-side locks; the server stays authoritative. */
@@ -288,6 +301,8 @@ function StepUpForms({ methods, onBusyChange, onSucceeded }: StepUpFormsProps) {
   useEffect(() => {
     if (method === "password") {
       passwordRef.current?.focus();
+    } else if (method === "totp") {
+      codeRef.current?.focus();
     } else if (method === "passkey") {
       passkeyButtonRef.current?.focus();
     }
@@ -333,7 +348,12 @@ function StepUpForms({ methods, onBusyChange, onSucceeded }: StepUpFormsProps) {
   function applyFailure(error: unknown) {
     const outcome = classifyStepUpError(error);
     if ("field" in outcome) {
-      setFieldError(outcome);
+      // A wrong authenticator code is not an emailed code: say which.
+      setFieldError(
+        method === "totp" && outcome.field === "code"
+          ? { field: "code", key: "stepUp.totpInvalid" }
+          : outcome,
+      );
       (outcome.field === "password" ? passwordRef : codeRef).current?.focus();
       return;
     }
@@ -372,6 +392,22 @@ function StepUpForms({ methods, onBusyChange, onSucceeded }: StepUpFormsProps) {
       return;
     }
     await verify({ method: "password", password });
+  }
+
+  /** POST /auth/reauth with the authenticator app's current code. */
+  async function handleTotpSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (busy || lock.remaining > 0) return;
+    const value = code.replace(/\s+/g, "");
+    if (!OTP_PATTERN.test(value)) {
+      setFieldError({
+        field: "code",
+        key: value ? "stepUp.totpFormat" : "stepUp.totpRequired",
+      });
+      codeRef.current?.focus();
+      return;
+    }
+    await verify({ code: value, method: "totp" });
   }
 
   async function handleCodeSubmit(event: FormEvent<HTMLFormElement>) {
@@ -521,27 +557,22 @@ function StepUpForms({ methods, onBusyChange, onSucceeded }: StepUpFormsProps) {
             {t("stepUp.methodGroup")}
           </span>
           <div className="step-up__methods-options">
-            {methods.map((option) => (
-              <Button
-                aria-pressed={method === option}
-                disabled={busy}
-                key={option}
-                leadingIcon={
-                  option === "passkey" ? (
-                    <Fingerprint />
-                  ) : option === "password" ? (
-                    <KeyRound />
-                  ) : (
-                    <Mail />
-                  )
-                }
-                onClick={() => switchMethod(option)}
-                size="sm"
-                variant={method === option ? "primary" : "secondary"}
-              >
-                {t(METHOD_LABEL_KEYS[option])}
-              </Button>
-            ))}
+            {methods.map((option) => {
+              const Icon = METHOD_ICONS[option];
+              return (
+                <Button
+                  aria-pressed={method === option}
+                  disabled={busy}
+                  key={option}
+                  leadingIcon={<Icon />}
+                  onClick={() => switchMethod(option)}
+                  size="sm"
+                  variant={method === option ? "primary" : "secondary"}
+                >
+                  {t(METHOD_LABEL_KEYS[option])}
+                </Button>
+              );
+            })}
           </div>
         </div>
       )}
@@ -584,6 +615,55 @@ function StepUpForms({ methods, onBusyChange, onSucceeded }: StepUpFormsProps) {
               type="submit"
             >
               {lock.remaining > 0 ? submitText : t("stepUp.passkeySubmit")}
+            </Button>
+          </DialogFooter>
+        </form>
+      ) : method === "totp" ? (
+        <form
+          aria-label={t("stepUp.methodTotp")}
+          className="step-up__form"
+          noValidate
+          onSubmit={(event) => void handleTotpSubmit(event)}
+        >
+          <p className="step-up__intro">{t("stepUp.totpIntro")}</p>
+          <TextField
+            autoComplete="one-time-code"
+            error={errorFor("code")}
+            hint={t("stepUp.totpHint")}
+            inputMode="numeric"
+            label={t("stepUp.totpLabel")}
+            maxLength={6}
+            name="step-up-totp"
+            onChange={(event) => {
+              setCode(event.target.value);
+              if (fieldError?.field === "code") setFieldError(null);
+            }}
+            ref={codeRef}
+            spellCheck={false}
+            type="text"
+            value={code}
+          />
+          {failure && (
+            <FailureAlert
+              failure={failure}
+              onRefreshSession={() => void refreshSession()}
+              refreshing={refreshing}
+            />
+          )}
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button disabled={busy} variant="secondary">
+                {t("stepUp.cancel")}
+              </Button>
+            </DialogClose>
+            <Button
+              disabled={lock.remaining > 0}
+              leadingIcon={<Smartphone />}
+              loading={reauth.isPending}
+              loadingLabel={t("stepUp.submitting")}
+              type="submit"
+            >
+              {submitText}
             </Button>
           </DialogFooter>
         </form>
@@ -787,6 +867,68 @@ function StepUpFallback({
   );
 }
 
+function isOnSettingsPage() {
+  const path = window.location.pathname;
+  return path === "/app/settings" || path.startsWith("/app/settings/");
+}
+
+/** Opens Settings in the SPA when a router exists, else as a page load. */
+function SettingsLink({ onNavigate }: { onNavigate: () => void }) {
+  const { t } = useI18n();
+  const inRouter = useInRouterContext();
+  const className = "th-button th-button--primary th-button--md step-up__link";
+  const content = (
+    <>
+      <span aria-hidden="true" className="th-button__icon">
+        <Settings />
+      </span>
+      <span>{t("stepUp.aal2OpenSettings")}</span>
+    </>
+  );
+  return inRouter ? (
+    <Link className={className} onClick={onNavigate} to="/app/settings">
+      {content}
+    </Link>
+  ) : (
+    <a className={className} href="/app/settings">
+      {content}
+    </a>
+  );
+}
+
+/**
+ * AAL2 is required but no passkey or authenticator app can be used here:
+ * explain how to add one instead of offering factors that keep AAL1.
+ */
+function Aal2Guidance({
+  onNavigate,
+  passkeyUnsupported,
+}: {
+  onNavigate: () => void;
+  passkeyUnsupported: boolean;
+}) {
+  const { t } = useI18n();
+  const onSettings = isOnSettingsPage();
+  return (
+    <div className="step-up__body">
+      <p className="step-up__intro">
+        {passkeyUnsupported
+          ? t("stepUp.aal2PasskeyUnsupported")
+          : t("stepUp.aal2NoMethod")}
+      </p>
+      <p className="step-up__intro">
+        {onSettings ? t("stepUp.aal2SetupHere") : t("stepUp.aal2SettingsHint")}
+      </p>
+      <DialogFooter>
+        <DialogClose asChild>
+          <Button variant="secondary">{t("stepUp.close")}</Button>
+        </DialogClose>
+        {!onSettings && <SettingsLink onNavigate={onNavigate} />}
+      </DialogFooter>
+    </div>
+  );
+}
+
 function LoadingState() {
   const { t } = useI18n();
   return (
@@ -820,21 +962,29 @@ function LoadError({ onRetry }: { onRetry: () => void }) {
 
 interface StepUpContentProps {
   onBusyChange: (busy: boolean) => void;
+  onClose: () => void;
   onSucceeded: () => void;
+  requireAal2: boolean;
   returnTo?: string;
 }
 
 /** Mounted only while the dialog is open, so closed dialogs fetch nothing. */
 function StepUpContent({
   onBusyChange,
+  onClose,
   onSucceeded,
+  requireAal2,
   returnTo,
 }: StepUpContentProps) {
   const providersQuery = useAuthProvidersQuery();
   // A missing capability flag means an older server: treat it as disabled.
   const deviceManagement =
     providersQuery.data?.device_management_enabled === true;
-  const securityQuery = useMySecurityQuery(deviceManagement);
+  const totpEnabled = providersQuery.data?.mfa_totp_enabled === true;
+  // AUTH-09A serves /me/security and TOTP step-up without device management;
+  // password and email-code step-up still need it.
+  const securityEnabled = deviceManagement || totpEnabled;
+  const securityQuery = useMySecurityQuery(securityEnabled);
   const { t } = useI18n();
   const [webAuthn] = useState(isWebAuthnSupported);
 
@@ -842,7 +992,7 @@ function StepUpContent({
   if (providersQuery.isError) {
     return <LoadError onRetry={() => void providersQuery.refetch()} />;
   }
-  if (!deviceManagement) {
+  if (!securityEnabled) {
     return (
       <StepUpFallback
         kind="signInAgain"
@@ -857,11 +1007,33 @@ function StepUpContent({
   }
 
   const available = securityQuery.data.reauth_methods;
-  // A passkey is only offered where this browser can run the ceremony.
   const methods = METHOD_PRIORITY.filter(
     (method) =>
-      available.includes(method) && (method !== "passkey" || webAuthn),
+      available.includes(method) &&
+      // A passkey is only offered where this browser can run the ceremony.
+      (method !== "passkey" || webAuthn) &&
+      (method !== "totp" || totpEnabled) &&
+      (deviceManagement || AAL2_METHODS.has(method)) &&
+      // AAL1 factors would only loop back into the same refusal.
+      (!requireAal2 || AAL2_METHODS.has(method)),
   );
+  if (methods.length === 0 && requireAal2) {
+    return (
+      <Aal2Guidance
+        onNavigate={onClose}
+        passkeyUnsupported={available.includes("passkey") && !webAuthn}
+      />
+    );
+  }
+  if (methods.length === 0 && !deviceManagement) {
+    return (
+      <StepUpFallback
+        kind="signInAgain"
+        providers={providersQuery.data}
+        returnTo={returnTo}
+      />
+    );
+  }
   if (methods.length === 0) {
     return (
       <StepUpFallback
@@ -890,6 +1062,12 @@ export interface StepUpAuthDialogProps {
   /** Runs once after a successful step-up, after focus has been restored. */
   onVerified: () => void;
   open: boolean;
+  /**
+   * AUTH-09B: offer only factors that raise the session to AAL2 (passkey,
+   * authenticator app), for 403 `auth_assurance_required` and
+   * `auth_admin_mfa_required`.
+   */
+  requireAal2?: boolean;
   /** Where an OIDC re-authentication returns to; defaults to the current page. */
   returnTo?: string;
 }
@@ -897,12 +1075,15 @@ export interface StepUpAuthDialogProps {
 /**
  * Shared "Confirm it's you" dialog for actions guarded by the server's
  * 10-minute recent-authentication window (403
- * `auth_recent_authentication_required`).
+ * `auth_recent_authentication_required`) or by the AAL2 policy (403
+ * `auth_assurance_required` / `auth_admin_mfa_required`, with
+ * `requireAal2`).
  */
 export function StepUpAuthDialog({
   onOpenChange,
   onVerified,
   open,
+  requireAal2 = false,
   returnTo,
 }: StepUpAuthDialogProps) {
   const { t } = useI18n();
@@ -964,10 +1145,14 @@ export function StepUpAuthDialog({
         }}
       >
         <DialogTitle>{t("stepUp.title")}</DialogTitle>
-        <DialogDescription>{t("stepUp.description")}</DialogDescription>
+        <DialogDescription>
+          {requireAal2 ? t("stepUp.aal2Description") : t("stepUp.description")}
+        </DialogDescription>
         <StepUpContent
           onBusyChange={setBusy}
+          onClose={() => onOpenChange(false)}
           onSucceeded={handleSucceeded}
+          requireAal2={requireAal2}
           returnTo={returnTo}
         />
       </DialogContent>

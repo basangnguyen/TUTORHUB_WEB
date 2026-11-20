@@ -72,7 +72,7 @@ import {
   type PasskeyLabelProblem,
 } from "../app/passkeys";
 import {
-  isRecentAuthenticationRequired,
+  stepUpRequirementFor,
   useMyLoginMethodsQuery,
   useMyPasskeysQuery,
   useMySecurityQuery,
@@ -83,13 +83,18 @@ import {
   useRevokeMySession,
   useRevokeOtherSessions,
   useStepUpRequest,
+  type StepUpRequestOptions,
   type StepUpRetry,
 } from "../app/security";
 import { useSession } from "../app/session";
 import { StepUpAuthDialog } from "../components/StepUpAuthDialog";
+import { TwoFactorSettingsCard } from "./TwoFactorSettingsCard";
 import "./ProfileSettingsPage.css";
 
-type RequestStepUp = (retry?: StepUpRetry) => void;
+type RequestStepUp = (
+  retry?: StepUpRetry,
+  options?: StepUpRequestOptions,
+) => void;
 
 /** Client-side floor only; the server enforces the deployment policy. */
 const DEFAULT_PASSWORD_MIN_LENGTH = 8;
@@ -336,7 +341,7 @@ type PasswordFieldErrors = Partial<Record<PasswordField, TranslationKey>>;
 
 type PasswordFailure =
   | { kind: "reauth" }
-  | { kind: "stepUp" }
+  | { kind: "stepUp"; requireAal2: boolean }
   | { kind: "verifiedEmail" }
   | { kind: "rateLimited"; seconds?: number }
   | { kind: "busy"; seconds?: number }
@@ -366,10 +371,16 @@ function classifyPasswordError(error: unknown): PasswordErrorOutcome {
         : { failure: { kind: "reauth" } };
     case 403:
       // `auth_recent_authentication_required` (or a legacy 403 without a
-      // code) means the session is older than the 10-minute step-up window.
+      // code) means the session is older than the 10-minute step-up window;
+      // AUTH-09A `auth_assurance_required` needs an AAL2 factor instead.
       return code === "auth_verified_email_required"
         ? { failure: { kind: "verifiedEmail" } }
-        : { failure: { kind: "stepUp" } };
+        : {
+            failure: {
+              kind: "stepUp",
+              requireAal2: stepUpRequirementFor(error)?.requireAal2 === true,
+            },
+          };
     case 429:
       return {
         failure: { kind: "rateLimited", seconds: error.retryAfterSeconds },
@@ -492,7 +503,9 @@ function PasswordForm({
       }
       setFailure(outcome.failure);
       if (outcome.failure.kind === "stepUp") {
-        onRequestStepUp(() => submitPassword(payload, wasSet));
+        onRequestStepUp(() => submitPassword(payload, wasSet), {
+          requireAal2: outcome.failure.requireAal2,
+        });
       }
       return;
     }
@@ -532,8 +545,11 @@ function PasswordForm({
 
   function failureText(value: PasswordFailure) {
     switch (value.kind) {
-      case "reauth":
       case "stepUp":
+        return value.requireAal2
+          ? t("profile.passwordAssuranceRequired")
+          : t("profile.passwordReauthRequired");
+      case "reauth":
         return t("profile.passwordReauthRequired");
       case "verifiedEmail":
         return t("profile.passwordVerifiedEmailRequired");
@@ -678,7 +694,11 @@ function PasswordForm({
             {failure.kind === "stepUp" && (
               <Button
                 leadingIcon={<ShieldCheck />}
-                onClick={() => onRequestStepUp(submitForm)}
+                onClick={() =>
+                  onRequestStepUp(submitForm, {
+                    requireAal2: failure.requireAal2,
+                  })
+                }
                 size="sm"
                 variant="secondary"
               >
@@ -1197,7 +1217,26 @@ function SecurityOverviewCard({
           <div className="security-status__item">
             <dt>{t("security.mfaLabel")}</dt>
             <dd>
-              <StatusBadge tone="neutral">{t("security.mfaOff")}</StatusBadge>
+              {securityQuery.data.mfa_enabled ? (
+                <>
+                  <StatusBadge tone="success">
+                    {t("security.mfaOn")}
+                  </StatusBadge>
+                  <StatusBadge
+                    tone={
+                      (securityQuery.data.recovery_codes_remaining ?? 0) <= 3
+                        ? "warning"
+                        : "neutral"
+                    }
+                  >
+                    {t("security.mfaRecoveryRemaining", {
+                      count: securityQuery.data.recovery_codes_remaining ?? 0,
+                    })}
+                  </StatusBadge>
+                </>
+              ) : (
+                <StatusBadge tone="neutral">{t("security.mfaOff")}</StatusBadge>
+              )}
             </dd>
           </div>
           <div className="security-status__item security-status__item--wide">
@@ -1588,7 +1627,7 @@ type PasskeyFailure =
   | { kind: "exists" }
   | { kind: "unsupported" }
   | { kind: "notFound" }
-  | { kind: "reauthRequired" }
+  | { kind: "reauthRequired"; requireAal2: boolean }
   | { kind: "invalidName" }
   | { kind: "rateLimited"; seconds: number }
   | { kind: "busy"; seconds: number }
@@ -1610,10 +1649,13 @@ function classifyPasskeyError(error: unknown): PasskeyFailure | "cancelled" {
     switch (error.status) {
       case 400:
         return { kind: "invalidName" };
-      case 403:
-        return isRecentAuthenticationRequired(error)
-          ? { kind: "reauthRequired" }
+      case 403: {
+        // AUTH-09A: with a second factor enrolled, passkey changes need AAL2.
+        const requirement = stepUpRequirementFor(error);
+        return requirement
+          ? { kind: "reauthRequired", requireAal2: requirement.requireAal2 }
           : { kind: "generic" };
+      }
       case 404:
         return { kind: "notFound" };
       case 409:
@@ -1667,7 +1709,9 @@ function usePasskeyFailureText() {
       case "notFound":
         return t("passkeys.notFound");
       case "reauthRequired":
-        return t("passkeys.reauthRequired");
+        return failure.requireAal2
+          ? t("passkeys.assuranceRequired")
+          : t("passkeys.reauthRequired");
       case "invalidName":
         return t("passkeys.invalidName");
       case "rateLimited":
@@ -1757,7 +1801,9 @@ function PasskeysCard({
     }
     if (outcome.kind === "reauthRequired") {
       retryRef.current = retry;
-      if (!afterStepUp) onRequestStepUp(retry);
+      if (!afterStepUp) {
+        onRequestStepUp(retry, { requireAal2: outcome.requireAal2 });
+      }
     }
     if (outcome.kind === "notFound") void passkeysQuery.refetch();
     if (outcome.kind === "rateLimited" || outcome.kind === "busy") {
@@ -2146,7 +2192,11 @@ function PasskeysCard({
           {failure.kind === "reauthRequired" && (
             <Button
               leadingIcon={<ShieldCheck />}
-              onClick={() => onRequestStepUp(retryRef.current ?? undefined)}
+              onClick={() =>
+                onRequestStepUp(retryRef.current ?? undefined, {
+                  requireAal2: failure.requireAal2,
+                })
+              }
               size="sm"
               variant="secondary"
             >
@@ -2198,6 +2248,8 @@ export function ProfileSettingsPage() {
     providersQuery.data?.oauth_providers.includes("microsoft") === true;
   // AUTH-08B: the passkey card and its endpoints exist only while enabled.
   const passkeysEnabled = providersQuery.data?.passkeys_enabled === true;
+  // AUTH-09B: the authenticator-app card exists only while TOTP is enabled.
+  const totpEnabled = providersQuery.data?.mfa_totp_enabled === true;
   const passkeysQuery = useMyPasskeysQuery(passkeysEnabled);
   const passkeyCount = passkeysEnabled
     ? (passkeysQuery.data?.passkeys.length ?? 0)
@@ -2231,9 +2283,10 @@ export function ProfileSettingsPage() {
   );
 
   function handleIdentityError(error: unknown, retry: StepUpRetry) {
-    if (isRecentAuthenticationRequired(error)) {
+    const requirement = stepUpRequirementFor(error);
+    if (requirement) {
       identityRetryRef.current = retry;
-      requestStepUp(retry);
+      requestStepUp(retry, requirement);
     }
   }
 
@@ -2272,9 +2325,10 @@ export function ProfileSettingsPage() {
       window.location.assign(response.authorization_url);
     } catch (error) {
       const retry = () => handleLinkProvider(provider, true);
-      if (isRecentAuthenticationRequired(error)) {
+      const requirement = stepUpRequirementFor(error);
+      if (requirement) {
         identityRetryRef.current = retry;
-        if (!afterStepUp) requestStepUp(retry);
+        if (!afterStepUp) requestStepUp(retry, requirement);
       }
     }
   }
@@ -2330,8 +2384,8 @@ export function ProfileSettingsPage() {
   const linkingProvider = linkProviderIdentity.isPending
     ? linkProviderIdentity.variables
     : undefined;
-  const identityNeedsReauthentication =
-    isRecentAuthenticationRequired(identityError);
+  const identityStepUp = stepUpRequirementFor(identityError);
+  const identityNeedsReauthentication = identityStepUp !== null;
 
   return (
     <main className="page-content profile-settings">
@@ -2550,7 +2604,9 @@ export function ProfileSettingsPage() {
             >
               <span>
                 {identityNeedsReauthentication
-                  ? t("profile.identityReauthRequired")
+                  ? identityStepUp?.requireAal2
+                    ? t("profile.identityAssuranceRequired")
+                    : t("profile.identityReauthRequired")
                   : errorMessage(
                       identityError,
                       t("profile.identityActionError"),
@@ -2560,7 +2616,10 @@ export function ProfileSettingsPage() {
                 <Button
                   leadingIcon={<ShieldCheck />}
                   onClick={() =>
-                    requestStepUp(identityRetryRef.current ?? undefined)
+                    requestStepUp(
+                      identityRetryRef.current ?? undefined,
+                      identityStepUp ?? undefined,
+                    )
                   }
                   size="sm"
                   variant="secondary"
@@ -2578,14 +2637,19 @@ export function ProfileSettingsPage() {
         />
 
         {deviceManagement && (
-          <>
-            <SecurityOverviewCard
-              dateFormatter={dateFormatter}
-              onRequestStepUp={requestStepUp}
-              passkeysEnabled={passkeysEnabled}
-            />
-            <DeviceSessionsCard dateFormatter={dateFormatter} />
-          </>
+          <SecurityOverviewCard
+            dateFormatter={dateFormatter}
+            onRequestStepUp={requestStepUp}
+            passkeysEnabled={passkeysEnabled}
+          />
+        )}
+
+        {totpEnabled && (
+          <TwoFactorSettingsCard onRequestStepUp={requestStepUp} />
+        )}
+
+        {deviceManagement && (
+          <DeviceSessionsCard dateFormatter={dateFormatter} />
         )}
 
         {passkeysEnabled && (

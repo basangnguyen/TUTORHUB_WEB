@@ -693,11 +693,9 @@ describe("AccountLinkPage confirmation", () => {
     });
   });
 
+  // AUTH-09B: 403 auth_assurance_required opens the AAL2 step-up instead
+  // (covered in AccountLinkPage.mfa.test.tsx).
   it.each([
-    [
-      apiError(403, "auth_assurance_required"),
-      "This account requires stronger authentication before linking.",
-    ],
     [
       apiError(401),
       "Your session has expired. Sign in again to continue linking.",

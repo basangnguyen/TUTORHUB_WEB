@@ -2636,6 +2636,139 @@ const messages = {
       "Kết nối mạng chưa sẵn sàng. Dữ liệu cần máy chủ sẽ không được tải cho đến khi kết nối được khôi phục.",
     "state.goHome": "Về tổng quan",
     "state.retry": "Thử lại",
+    "stepUp.methodTotp": "Ứng dụng xác thực",
+    "stepUp.totpIntro":
+      "Mở ứng dụng xác thực (Google Authenticator, Microsoft Authenticator, Apple Passwords…) và nhập mã 6 chữ số đang hiển thị cho TutorHub.",
+    "stepUp.totpLabel": "Mã từ ứng dụng xác thực",
+    "stepUp.totpHint":
+      "Gồm 6 chữ số. Không dùng mã khôi phục ở đây — mã khôi phục chỉ dùng khi đăng nhập.",
+    "stepUp.totpRequired": "Hãy nhập mã 6 chữ số từ ứng dụng xác thực.",
+    "stepUp.totpFormat": "Mã từ ứng dụng xác thực gồm đúng 6 chữ số.",
+    "stepUp.totpInvalid":
+      "Mã không đúng hoặc đã được dùng. Hãy chờ mã tiếp theo trong ứng dụng rồi thử lại.",
+    "stepUp.aal2Description":
+      "Thao tác này cần xác minh hai lớp: hãy xác nhận bằng passkey hoặc mã từ ứng dụng xác thực. Sau khi xác nhận, TutorHub sẽ tiếp tục thao tác đang dở.",
+    "stepUp.aal2NoMethod":
+      "Tài khoản chưa có passkey hoặc ứng dụng xác thực dùng được để xác minh hai lớp trên trình duyệt này.",
+    "stepUp.aal2PasskeyUnsupported":
+      "Tài khoản chỉ có passkey để xác minh hai lớp nhưng trình duyệt này không hỗ trợ passkey. Hãy dùng trình duyệt khác hoặc thiết lập thêm ứng dụng xác thực.",
+    "stepUp.aal2SettingsHint":
+      "Hãy mở Cài đặt để thiết lập ứng dụng xác thực hoặc thêm passkey, sau đó thực hiện lại thao tác.",
+    "stepUp.aal2SetupHere":
+      "Hãy thiết lập ứng dụng xác thực hoặc thêm passkey ngay trên trang Cài đặt này, sau đó thực hiện lại thao tác.",
+    "stepUp.aal2OpenSettings": "Mở Cài đặt bảo mật",
+    "stepUp.close": "Đóng",
+    "security.mfaOn": "Đã bật",
+    "security.mfaRecoveryRemaining": "{count}/10 mã khôi phục",
+    "passkeys.assuranceRequired":
+      "Tài khoản đã có yếu tố xác minh thứ hai nên thay đổi passkey cần xác minh hai lớp (passkey hoặc ứng dụng xác thực).",
+    "profile.passwordAssuranceRequired":
+      "Tài khoản đã có yếu tố xác minh thứ hai nên đặt mật khẩu cần xác minh hai lớp (passkey hoặc ứng dụng xác thực).",
+    "profile.identityAssuranceRequired":
+      "Tài khoản đã có yếu tố xác minh thứ hai nên liên kết danh tính cần xác minh hai lớp (passkey hoặc ứng dụng xác thực).",
+    "mfa.cardTitle": "Ứng dụng xác thực",
+    "mfa.cardDescription":
+      "Xác minh hai bước bằng mã 6 chữ số từ Google Authenticator, Microsoft Authenticator, Apple Passwords hoặc ứng dụng tương tự.",
+    "mfa.loading": "Đang tải trạng thái xác minh hai bước",
+    "mfa.loadErrorTitle": "Chưa thể tải trạng thái xác minh hai bước",
+    "mfa.loadError": "Không thể tải trạng thái xác minh hai bước. Hãy thử lại.",
+    "mfa.statusOn": "Đang bật",
+    "mfa.statusOff": "Chưa bật",
+    "mfa.offDescription":
+      "Khi bật, mỗi lần đăng nhập TutorHub sẽ hỏi thêm mã từ ứng dụng xác thực (hoặc một mã khôi phục).",
+    "mfa.setup": "Thiết lập ứng dụng xác thực",
+    "mfa.settingUp": "Đang chuẩn bị...",
+    "mfa.enrollTitle": "Thêm TutorHub vào ứng dụng xác thực",
+    "mfa.enrollStepScan":
+      "Mở ứng dụng xác thực, chọn thêm tài khoản rồi quét mã QR này.",
+    "mfa.enrollStepManual":
+      "Không quét được? Nhập khóa thiết lập dưới đây vào ứng dụng (loại khóa: theo thời gian).",
+    "mfa.enrollStepConfirm":
+      "Nhập mã 6 chữ số ứng dụng đang hiển thị để xác nhận và bật.",
+    "mfa.qrLabel": "Mã QR để thêm TutorHub vào ứng dụng xác thực",
+    "mfa.qrUnavailable":
+      "Không thể tạo mã QR cho thiết lập này. Hãy nhập khóa thiết lập thủ công.",
+    "mfa.issuerLabel": "Nhà cung cấp",
+    "mfa.accountLabel": "Tài khoản",
+    "mfa.secretLabel": "Khóa thiết lập",
+    "mfa.copySecret": "Sao chép khóa thiết lập",
+    "mfa.secretCopied": "Đã sao chép khóa thiết lập.",
+    "mfa.copyFailed":
+      "Không thể sao chép tự động. Hãy chọn và sao chép thủ công.",
+    "mfa.confirmForm": "Xác nhận ứng dụng xác thực",
+    "mfa.codeLabel": "Mã 6 chữ số từ ứng dụng",
+    "mfa.codeHint": "Mã đổi sau mỗi 30 giây.",
+    "mfa.codeRequired": "Hãy nhập mã gồm 6 chữ số.",
+    "mfa.codeFormat": "Mã gồm đúng 6 chữ số.",
+    "mfa.codeInvalid":
+      "Mã không đúng hoặc đã được dùng. Hãy chờ mã tiếp theo trong ứng dụng rồi thử lại.",
+    "mfa.confirm": "Xác nhận và bật",
+    "mfa.confirming": "Đang xác nhận...",
+    "mfa.cancel": "Hủy",
+    "mfa.enabledDone":
+      "Đã bật xác minh hai bước. Hãy lưu các mã khôi phục ở nơi an toàn.",
+    "mfa.remaining": "Còn {count}/10 mã khôi phục.",
+    "mfa.remainingLow":
+      "Sắp hết mã khôi phục. Hãy tạo bộ mã mới và cất giữ an toàn.",
+    "mfa.remainingNone":
+      "Bạn đã dùng hết mã khôi phục. Hãy tạo bộ mã mới ngay để không mất quyền truy cập khi không có ứng dụng xác thực.",
+    "mfa.regenerate": "Tạo bộ mã khôi phục mới",
+    "mfa.regenerating": "Đang tạo mã...",
+    "mfa.regenerateTitle": "Tạo bộ mã khôi phục mới?",
+    "mfa.regenerateDescription":
+      "Toàn bộ mã khôi phục hiện tại sẽ ngừng hoạt động ngay lập tức. Bạn sẽ nhận 10 mã mới, chỉ hiển thị một lần.",
+    "mfa.regenerateConfirm": "Tạo mã mới",
+    "mfa.regenerateDone":
+      "Đã tạo bộ mã khôi phục mới; các mã cũ không còn dùng được.",
+    "mfa.disable": "Tắt ứng dụng xác thực",
+    "mfa.disabling": "Đang tắt...",
+    "mfa.disableTitle": "Tắt ứng dụng xác thực?",
+    "mfa.disableDescription":
+      "TutorHub sẽ không hỏi mã từ ứng dụng khi đăng nhập nữa và toàn bộ mã khôi phục hiện tại cũng bị hủy. Tài khoản sẽ kém an toàn hơn.",
+    "mfa.disableConfirm": "Tắt xác minh hai bước",
+    "mfa.disabledDone": "Đã tắt ứng dụng xác thực và hủy các mã khôi phục.",
+    "mfa.conflict":
+      "Trạng thái xác minh hai bước vừa thay đổi (có thể ở tab khác). TutorHub đã tải lại thông tin mới nhất.",
+    "mfa.reauthRequired":
+      "Cần xác nhận danh tính trong 10 phút gần nhất trước khi thay đổi xác minh hai bước.",
+    "mfa.assuranceRequired":
+      "Tài khoản đã có yếu tố xác minh thứ hai nên thay đổi này cần xác minh hai lớp (passkey hoặc ứng dụng xác thực).",
+    "mfa.rateLimited":
+      "Bạn đã thử quá nhiều lần. Hãy thử lại sau {seconds} giây.",
+    "mfa.rateLimitedNoWait":
+      "Bạn đã thử quá nhiều lần. Hãy chờ một lát rồi thử lại.",
+    "mfa.busy":
+      "Tính năng tạm thời không khả dụng. Hãy thử lại sau {seconds} giây.",
+    "mfa.busyNoWait": "Tính năng tạm thời không khả dụng. Hãy thử lại sau.",
+    "mfa.network":
+      "Không kết nối được tới TutorHub. Hãy kiểm tra mạng rồi thử lại.",
+    "mfa.actionError": "Chưa thể hoàn tất thao tác. Hãy thử lại.",
+    "mfa.codesTitle": "Lưu mã khôi phục của bạn",
+    "mfa.codesDescription":
+      "Mỗi mã chỉ dùng được một lần để đăng nhập khi bạn không có ứng dụng xác thực. Các mã này sẽ không hiển thị lại.",
+    "mfa.codesWarning":
+      "Ai có các mã này đều có thể vượt qua bước xác minh hai bước của bạn. Đừng chia sẻ chúng.",
+    "mfa.codesListLabel": "Mã khôi phục",
+    "mfa.codesCopy": "Sao chép tất cả",
+    "mfa.codesCopied": "Đã sao chép 10 mã khôi phục.",
+    "mfa.codesDownload": "Tải xuống tệp .txt",
+    "mfa.codesFileHeading": "Mã khôi phục TutorHub",
+    "mfa.codesFileWarning":
+      "Mỗi mã chỉ dùng được một lần. Hãy cất giữ tệp này ở nơi an toàn.",
+    "mfa.codesAcknowledge": "Tôi đã lưu các mã khôi phục ở nơi an toàn",
+    "mfa.codesDone": "Hoàn tất",
+    "shell.noWorkspaceTitle": "Chưa chọn workspace",
+    "shell.noWorkspace":
+      "Bạn đang ở Cài đặt tài khoản khi chưa chọn workspace. Hãy chọn hoặc tạo workspace để dùng các tính năng còn lại.",
+    "shell.chooseWorkspace": "Chọn hoặc tạo workspace",
+    "workspace.openSettings": "Cài đặt tài khoản",
+    "workspace.adminMfaRequiredTitle":
+      "Workspace quản trị cần xác minh hai lớp",
+    "workspace.adminMfaRequired":
+      "Để mở workspace với quyền quản trị, hãy xác minh hai lớp bằng passkey hoặc ứng dụng xác thực. Nếu chưa có, hãy thiết lập trong Cài đặt tài khoản.",
+    "workspace.adminMfaVerify": "Xác minh ngay",
+    "workspace.adminMfaSetup": "Thiết lập xác minh hai lớp",
+    "accountLink.verifyNow": "Xác minh hai lớp",
   },
   en: {
     "privateAlpha.loading": "Loading Private Alpha enrollment",
@@ -5286,6 +5419,139 @@ const messages = {
       "A network connection is not available. Server-backed data will load when connectivity returns.",
     "state.goHome": "Go to overview",
     "state.retry": "Try again",
+    "stepUp.methodTotp": "Authenticator app",
+    "stepUp.totpIntro":
+      "Open your authenticator app (Google Authenticator, Microsoft Authenticator, Apple Passwords…) and enter the 6-digit code shown for TutorHub.",
+    "stepUp.totpLabel": "Authenticator code",
+    "stepUp.totpHint":
+      "6 digits. Recovery codes do not work here — they are only for signing in.",
+    "stepUp.totpRequired":
+      "Enter the 6-digit code from your authenticator app.",
+    "stepUp.totpFormat": "The authenticator code has exactly 6 digits.",
+    "stepUp.totpInvalid":
+      "That code is wrong or was already used. Wait for the next code in the app and try again.",
+    "stepUp.aal2Description":
+      "This action needs two-step verification: confirm with a passkey or a code from your authenticator app. TutorHub then resumes the action.",
+    "stepUp.aal2NoMethod":
+      "Your account has no passkey or authenticator app that can complete two-step verification in this browser.",
+    "stepUp.aal2PasskeyUnsupported":
+      "Your account can only complete two-step verification with a passkey, which this browser does not support. Use another browser or also set up an authenticator app.",
+    "stepUp.aal2SettingsHint":
+      "Open Settings to set up an authenticator app or add a passkey, then try the action again.",
+    "stepUp.aal2SetupHere":
+      "Set up an authenticator app or add a passkey on this Settings page, then try the action again.",
+    "stepUp.aal2OpenSettings": "Open security settings",
+    "stepUp.close": "Close",
+    "security.mfaOn": "On",
+    "security.mfaRecoveryRemaining": "{count}/10 recovery codes",
+    "passkeys.assuranceRequired":
+      "Your account has a second factor, so changing passkeys needs two-step verification (a passkey or your authenticator app).",
+    "profile.passwordAssuranceRequired":
+      "Your account has a second factor, so setting a password needs two-step verification (a passkey or your authenticator app).",
+    "profile.identityAssuranceRequired":
+      "Your account has a second factor, so linking an identity needs two-step verification (a passkey or your authenticator app).",
+    "mfa.cardTitle": "Authenticator app",
+    "mfa.cardDescription":
+      "Two-step verification with a 6-digit code from Google Authenticator, Microsoft Authenticator, Apple Passwords or a similar app.",
+    "mfa.loading": "Loading two-step verification status",
+    "mfa.loadErrorTitle": "Two-step verification status unavailable",
+    "mfa.loadError":
+      "The two-step verification status could not be loaded. Try again.",
+    "mfa.statusOn": "On",
+    "mfa.statusOff": "Off",
+    "mfa.offDescription":
+      "When on, every sign-in also asks for a code from your authenticator app (or a recovery code).",
+    "mfa.setup": "Set up authenticator app",
+    "mfa.settingUp": "Preparing...",
+    "mfa.enrollTitle": "Add TutorHub to your authenticator app",
+    "mfa.enrollStepScan":
+      "Open your authenticator app, choose to add an account and scan this QR code.",
+    "mfa.enrollStepManual":
+      "Can't scan it? Enter this setup key in the app instead (key type: time-based).",
+    "mfa.enrollStepConfirm":
+      "Enter the 6-digit code the app shows to confirm and turn it on.",
+    "mfa.qrLabel": "QR code that adds TutorHub to your authenticator app",
+    "mfa.qrUnavailable":
+      "A QR code could not be created for this setup. Enter the setup key manually.",
+    "mfa.issuerLabel": "Issuer",
+    "mfa.accountLabel": "Account",
+    "mfa.secretLabel": "Setup key",
+    "mfa.copySecret": "Copy setup key",
+    "mfa.secretCopied": "Setup key copied.",
+    "mfa.copyFailed": "Copying failed. Select the text and copy it manually.",
+    "mfa.confirmForm": "Confirm authenticator app",
+    "mfa.codeLabel": "6-digit code from the app",
+    "mfa.codeHint": "The code changes every 30 seconds.",
+    "mfa.codeRequired": "Enter the 6-digit code.",
+    "mfa.codeFormat": "The code has exactly 6 digits.",
+    "mfa.codeInvalid":
+      "That code is wrong or was already used. Wait for the next code in the app and try again.",
+    "mfa.confirm": "Verify and turn on",
+    "mfa.confirming": "Verifying...",
+    "mfa.cancel": "Cancel",
+    "mfa.enabledDone":
+      "Two-step verification is on. Store your recovery codes somewhere safe.",
+    "mfa.remaining": "{count} of 10 recovery codes left.",
+    "mfa.remainingLow":
+      "You are running low on recovery codes. Generate a new set and store it safely.",
+    "mfa.remainingNone":
+      "You have no recovery codes left. Generate a new set now so you keep access without your authenticator app.",
+    "mfa.regenerate": "Generate new recovery codes",
+    "mfa.regenerating": "Generating...",
+    "mfa.regenerateTitle": "Generate new recovery codes?",
+    "mfa.regenerateDescription":
+      "Every current recovery code stops working immediately. You will get 10 new codes, shown only once.",
+    "mfa.regenerateConfirm": "Generate new codes",
+    "mfa.regenerateDone":
+      "New recovery codes were generated; the old ones no longer work.",
+    "mfa.disable": "Turn off authenticator app",
+    "mfa.disabling": "Turning off...",
+    "mfa.disableTitle": "Turn off the authenticator app?",
+    "mfa.disableDescription":
+      "Sign-in will no longer ask for an app code, and every current recovery code is also cancelled. Your account becomes less secure.",
+    "mfa.disableConfirm": "Turn off two-step verification",
+    "mfa.disabledDone":
+      "The authenticator app was turned off and its recovery codes cancelled.",
+    "mfa.conflict":
+      "Two-step verification changed meanwhile (perhaps in another tab). TutorHub reloaded the latest status.",
+    "mfa.reauthRequired":
+      "Confirm it's you (within the last 10 minutes) before changing two-step verification.",
+    "mfa.assuranceRequired":
+      "Your account has a second factor, so this change needs two-step verification (a passkey or your authenticator app).",
+    "mfa.rateLimited": "Too many attempts. Try again in {seconds} seconds.",
+    "mfa.rateLimitedNoWait": "Too many attempts. Wait a moment and try again.",
+    "mfa.busy":
+      "This is temporarily unavailable. Try again in {seconds} seconds.",
+    "mfa.busyNoWait": "This is temporarily unavailable. Try again later.",
+    "mfa.network":
+      "Cannot reach TutorHub. Check your connection and try again.",
+    "mfa.actionError": "The action could not be completed. Try again.",
+    "mfa.codesTitle": "Save your recovery codes",
+    "mfa.codesDescription":
+      "Each code works once to sign in when you don't have your authenticator app. These codes will not be shown again.",
+    "mfa.codesWarning":
+      "Anyone with these codes can get past your two-step verification. Do not share them.",
+    "mfa.codesListLabel": "Recovery codes",
+    "mfa.codesCopy": "Copy all",
+    "mfa.codesCopied": "All 10 recovery codes copied.",
+    "mfa.codesDownload": "Download .txt file",
+    "mfa.codesFileHeading": "TutorHub recovery codes",
+    "mfa.codesFileWarning":
+      "Each code works only once. Keep this file somewhere safe.",
+    "mfa.codesAcknowledge": "I have saved these recovery codes somewhere safe",
+    "mfa.codesDone": "Done",
+    "shell.noWorkspaceTitle": "No workspace selected",
+    "shell.noWorkspace":
+      "You are in account settings without an active workspace. Choose or create a workspace to use everything else.",
+    "shell.chooseWorkspace": "Choose or create a workspace",
+    "workspace.openSettings": "Account settings",
+    "workspace.adminMfaRequiredTitle":
+      "This admin workspace needs two-step verification",
+    "workspace.adminMfaRequired":
+      "To open a workspace as an administrator, complete two-step verification with a passkey or your authenticator app. If you have neither yet, set one up in account settings.",
+    "workspace.adminMfaVerify": "Verify now",
+    "workspace.adminMfaSetup": "Set up two-step verification",
+    "accountLink.verifyNow": "Verify with a second factor",
   },
 } as const satisfies Record<Language, Record<string, string>>;
 

@@ -917,13 +917,15 @@ test.describe("AUTH-08 passkeys", () => {
         ).toHaveCount(0);
       });
 
-      await test.step("removing the last sign-in method is refused (409 auth_last_identity)", async () => {
+      await test.step("removing the last sign-in method steps up to AAL2, then is refused (409 auth_last_identity)", async () => {
         await passkeysCard
           .getByRole("button", { name: labels.removePasskey("Only key") })
           .click();
         const dialog = page.getByRole("dialog", { name: labels.removeDialog });
         await expect(dialog).toBeVisible();
-        const refused = responseTo(
+        // AUTH-09: with AUTH_MFA_TOTP_ENABLED the passkey is a second factor,
+        // so this AAL1 Google session must reach AAL2 before changing it.
+        const assurance = responseTo(
           page,
           "DELETE",
           /\/v1\/me\/passkeys\/[^/]+$/,
@@ -931,11 +933,33 @@ test.describe("AUTH-08 passkeys", () => {
         await dialog
           .getByRole("button", { name: labels.removeConfirm })
           .click();
+        const needsAal2 = await assurance;
+        expect(needsAal2.status()).toBe(403);
+        expect(await needsAal2.json()).toMatchObject({
+          code: "auth_assurance_required",
+        });
+        const stepUp = page.getByRole("dialog", { name: labels.stepUpDialog });
+        await expect(stepUp).toBeVisible();
+        // Only AAL2 factors are offered: no emailed code for this refusal.
+        await expect(
+          stepUp.getByRole("button", { name: labels.stepUpEmailMethod }),
+        ).toHaveCount(0);
+        const reauth = responseTo(page, "POST", "/v1/auth/reauth");
+        const refused = responseTo(
+          page,
+          "DELETE",
+          /\/v1\/me\/passkeys\/[^/]+$/,
+        );
+        await stepUp
+          .getByRole("button", { name: labels.stepUpPasskeyConfirm })
+          .click();
+        expect((await reauth).status()).toBe(200);
         const response = await refused;
         expect(response.status()).toBe(409);
         expect(await response.json()).toMatchObject({
           code: "auth_last_identity",
         });
+        await expect(stepUp).toBeHidden();
         await expect(dialog).toBeHidden();
         await expect(passkeysCard.getByRole("alert")).toContainText(
           labels.lastMethod,
@@ -943,6 +967,7 @@ test.describe("AUTH-08 passkeys", () => {
         await expect(passkeysCard.locator("li.passkey-row")).toHaveCount(1);
       });
 
+      // The AAL2 session from the passkey step-up may set the first password.
       await test.step("with a password set, the passkey can be removed", async () => {
         const card = page.getByRole("region", { name: labels.passwordCard });
         await card.getByLabel(labels.newPassword).fill(password);

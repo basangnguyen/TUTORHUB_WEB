@@ -1445,3 +1445,162 @@
     background: Highlight;
   }
 }
+
+/* ---------- AUTH-09B: two-step verification after the first factor ---------- */
+
+.sign-in-mfa {
+  display: grid;
+  gap: 16px;
+}
+
+.sign-in-mfa--dialog {
+  margin-top: 0;
+}
+
+.sign-in .sign-in-mfa__title {
+  margin: 0;
+  color: var(--sign-in-text);
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.sign-in-mfa__title:focus,
+.sign-in-recover__title:focus {
+  outline: none;
+}
+
+.sign-in-mfa__title:focus-visible,
+.sign-in-recover__title:focus-visible {
+  border-radius: 6px;
+  outline: 2px solid #047857;
+  outline-offset: 4px;
+}
+
+.sign-in .sign-in-mfa__description,
+.sign-in-mfa .sign-in-mfa__intro,
+.sign-in-mfa .sign-in-mfa__expiry {
+  margin: 0;
+  color: var(--sign-in-text-muted);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.sign-in-mfa .sign-in-mfa__expiry {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.sign-in-mfa__methods {
+  display: grid;
+  gap: 8px;
+}
+
+.sign-in-mfa__methods-label,
+.sign-in-mfa__label {
+  color: var(--sign-in-text);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.sign-in-mfa__methods-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* Unpressed: #374151 on white (10.3:1); pressed: white on #047857 (5.48:1). */
+.sign-in-mfa__method {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border: 1px solid var(--sign-in-border);
+  border-radius: 9999px;
+  background: #fff;
+  color: #374151;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.sign-in-mfa__method[aria-pressed="true"] {
+  border-color: #047857;
+  background: #047857;
+  color: #fff;
+}
+
+.sign-in-mfa__method:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.sign-in-mfa__method:focus-visible,
+.sign-in-mfa__back:focus-visible {
+  outline: 2px solid #047857;
+  outline-offset: 2px;
+}
+
+.sign-in-mfa__icon {
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+
+.sign-in-mfa__form {
+  display: grid;
+  gap: 14px;
+}
+
+.sign-in-mfa .sign-in-mfa__hint {
+  margin: 0;
+  padding-left: 6px;
+  color: var(--sign-in-text-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.sign-in-input--recovery {
+  font-family: var(--font-family-mono, ui-monospace, monospace);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.sign-in-input--recovery::placeholder {
+  text-transform: none;
+}
+
+.sign-in-mfa .sign-in-mfa__notice {
+  margin: 0;
+  color: var(--sign-in-text-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.sign-in-mfa .sign-in-mfa__notice:empty {
+  display: none;
+}
+
+.sign-in-mfa__back {
+  justify-self: center;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #047857;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.sign-in-mfa__back:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.sign-in-mfa__back:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}

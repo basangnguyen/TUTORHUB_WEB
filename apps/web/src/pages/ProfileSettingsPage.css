@@ -323,3 +323,193 @@
 .passkeys__notice {
   color: var(--color-text);
 }
+
+/* AUTH-09B: authenticator app (TOTP) and one-time recovery codes. */
+.mfa-card__state {
+  display: grid;
+  gap: 12px;
+  justify-items: start;
+}
+
+.mfa-card__text {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.mfa-card__warning {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--color-warning);
+  border-radius: var(--radius-sm);
+  background: var(--color-warning-soft);
+  color: var(--color-text);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.mfa-card__warning--danger {
+  border-color: var(--color-danger);
+  background: var(--color-danger-soft);
+}
+
+.mfa-card__actions,
+.mfa-enroll__actions,
+.mfa-codes__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.mfa-card__notice:empty,
+.mfa-codes__notice:empty {
+  display: none;
+}
+
+.mfa-card__notice,
+.mfa-codes__notice {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+.mfa-enroll {
+  display: grid;
+  gap: 16px;
+}
+
+.mfa-enroll__title {
+  margin: 0;
+  color: var(--color-text);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.mfa-enroll__title:focus {
+  outline: none;
+}
+
+.mfa-enroll__title:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.mfa-enroll__steps {
+  display: grid;
+  gap: 20px;
+  margin: 0;
+  padding-left: 20px;
+}
+
+.mfa-enroll__steps > li {
+  display: grid;
+  gap: 12px;
+  justify-items: start;
+}
+
+.mfa-enroll__steps p {
+  margin: 0;
+  color: var(--color-text);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* The symbol keeps a white quiet zone in both themes for scanners. */
+.mfa-enroll__qr {
+  width: min(232px, 100%);
+  height: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: #fff;
+}
+
+.mfa-enroll__qr-fallback {
+  max-width: 420px;
+}
+
+.mfa-enroll__facts {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.mfa-enroll__facts > div {
+  display: grid;
+  grid-template-columns: minmax(96px, max-content) minmax(0, 1fr);
+  gap: 12px;
+  align-items: baseline;
+}
+
+.mfa-enroll__facts dt {
+  color: var(--color-text-muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.mfa-enroll__facts dd {
+  min-width: 0;
+  margin: 0;
+  color: var(--color-text);
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.mfa-enroll__secret,
+.mfa-codes__list code {
+  font-family: var(--font-family-mono, ui-monospace, monospace);
+  font-size: 15px;
+  letter-spacing: 0.06em;
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
+.mfa-enroll__form {
+  display: grid;
+  width: min(360px, 100%);
+  gap: 12px;
+}
+
+.mfa-codes {
+  width: min(520px, calc(100vw - 32px));
+}
+
+.mfa-codes__warning {
+  margin: 16px 0 0;
+  padding: 10px 12px;
+  border: 1px solid var(--color-warning);
+  border-radius: var(--radius-sm);
+  background: var(--color-warning-soft);
+  color: var(--color-text);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.mfa-codes__list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 8px 16px;
+  margin: 16px 0;
+  padding: 14px 14px 14px 36px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-subtle);
+  color: var(--color-text);
+}
+
+.mfa-codes__ack {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin-top: 16px;
+  color: var(--color-text);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.mfa-codes__ack input {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  margin-top: 1px;
+}

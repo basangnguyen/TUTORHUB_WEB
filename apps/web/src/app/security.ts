@@ -8,11 +8,15 @@ import {
   APIRequestError,
   cancelLinkIntent,
   confirmLinkIntent,
+  confirmTOTP,
+  disableTOTP,
+  enrollTOTP,
   getMySecurity,
   listMyLoginMethods,
   listMyPasskeys,
   listMySessions,
   reauthenticate,
+  regenerateRecoveryCodes,
   renameMyPasskey,
   revokeMyPasskey,
   revokeMySession,
@@ -53,6 +57,54 @@ export function isRecentAuthenticationRequired(error: unknown) {
     error.status === 403 &&
     error.problem?.code === RECENT_AUTHENTICATION_REQUIRED_CODE
   );
+}
+
+/**
+ * AUTH-09A: the account has a second factor (TOTP or a passkey), so changing
+ * factors needs an AAL2 session; a password or email-code step-up keeps the
+ * session at AAL1 and cannot clear it.
+ */
+export const ASSURANCE_REQUIRED_CODE = "auth_assurance_required";
+/** AUTH-09A: an `org_admin` workspace needs an AAL2 session. */
+export const ADMIN_MFA_REQUIRED_CODE = "auth_admin_mfa_required";
+
+function hasForbiddenCode(error: unknown, code: string) {
+  return (
+    error instanceof APIRequestError &&
+    error.status === 403 &&
+    error.problem?.code === code
+  );
+}
+
+export function isAssuranceRequired(error: unknown) {
+  return hasForbiddenCode(error, ASSURANCE_REQUIRED_CODE);
+}
+
+export function isAdminMFARequired(error: unknown) {
+  return hasForbiddenCode(error, ADMIN_MFA_REQUIRED_CODE);
+}
+
+export interface StepUpRequestOptions {
+  /**
+   * Offer only the factors that raise the session to AAL2 (passkey, TOTP).
+   * Set for 403 `auth_assurance_required` and `auth_admin_mfa_required`.
+   */
+  requireAal2?: boolean;
+}
+
+/**
+ * Which step-up clears a refused action: any re-authentication for a stale
+ * session, an AAL2 factor for an assurance refusal, or `null` when a step-up
+ * cannot help.
+ */
+export function stepUpRequirementFor(
+  error: unknown,
+): Required<StepUpRequestOptions> | null {
+  if (isRecentAuthenticationRequired(error)) return { requireAal2: false };
+  if (isAssuranceRequired(error) || isAdminMFARequired(error)) {
+    return { requireAal2: true };
+  }
+  return null;
 }
 
 /**
@@ -332,28 +384,112 @@ export function useRevokeMyPasskey() {
   });
 }
 
+/* ---------- AUTH-09B: authenticator app (TOTP) and recovery codes ---------- */
+
+/**
+ * POST /me/mfa/totp/enroll. The result carries the TOTP seed: `gcTime: 0`
+ * and the caller's `reset()` keep it out of the mutation cache; it lives
+ * only in the enrollment card's state until confirmed or cancelled.
+ */
+export function useEnrollTOTP() {
+  return useMutation({
+    gcTime: 0,
+    retry: false,
+    mutationFn: async () => {
+      const csrf = await rotateCSRFToken({ baseUrl: getApiBaseUrl() });
+      return enrollTOTP(csrf.csrf_token, { baseUrl: getApiBaseUrl() });
+    },
+  });
+}
+
+/**
+ * POST /me/mfa/totp/confirm. On success the server raised this session to
+ * AAL2, revoked the other AAL1 sessions and rotated the session and CSRF
+ * cookies: resync like a step-up before anything else runs.
+ */
+export function useConfirmTOTP() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    gcTime: 0,
+    retry: false,
+    mutationFn: async (code: string) => {
+      const csrf = await rotateCSRFToken({ baseUrl: getApiBaseUrl() });
+      return confirmTOTP(code, csrf.csrf_token, { baseUrl: getApiBaseUrl() });
+    },
+    onSuccess: () => synchronizeAfterReauthentication(queryClient),
+  });
+}
+
+/** POST /me/mfa/recovery-codes: the previous set stops working at once. */
+export function useRegenerateRecoveryCodes() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    gcTime: 0,
+    retry: false,
+    mutationFn: async () => {
+      const csrf = await rotateCSRFToken({ baseUrl: getApiBaseUrl() });
+      return regenerateRecoveryCodes(csrf.csrf_token, {
+        baseUrl: getApiBaseUrl(),
+      });
+    },
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: securityQueryKeys.overview }),
+  });
+}
+
+/** DELETE /me/mfa/totp: also invalidates every recovery code. */
+export function useDisableTOTP() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    gcTime: 0,
+    retry: false,
+    mutationFn: async () => {
+      const csrf = await rotateCSRFToken({ baseUrl: getApiBaseUrl() });
+      await disableTOTP(csrf.csrf_token, { baseUrl: getApiBaseUrl() });
+    },
+    onSuccess: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: securityQueryKeys.overview }),
+        queryClient.invalidateQueries({
+          queryKey: securityQueryKeys.loginMethods,
+        }),
+      ]),
+  });
+}
+
 export type StepUpRetry = () => unknown;
 
 export interface StepUpDialogControl {
   onOpenChange: (open: boolean) => void;
   onVerified: () => void;
   open: boolean;
+  /** Only AAL2 factors (passkey, TOTP) may clear the refused action. */
+  requireAal2: boolean;
 }
 
 /**
- * Owns one shared step-up dialog: `request(retry)` opens it and remembers
- * the blocked action, which runs once after a successful re-authentication
- * (never after a cancel). The caller keeps its own form state, so the user
+ * Owns one shared step-up dialog: `request(retry, options)` opens it and
+ * remembers the blocked action, which runs once after a successful
+ * re-authentication (never after a cancel). `options.requireAal2` limits the
+ * dialog to AAL2 factors. The caller keeps its own form state, so the user
  * does not have to re-enter it.
  */
 export function useStepUpRequest() {
   const [open, setOpen] = useState(false);
+  const [requireAal2, setRequireAal2] = useState(false);
   const retryRef = useRef<StepUpRetry | null>(null);
 
-  const request = useCallback((retry?: StepUpRetry) => {
-    retryRef.current = retry ?? null;
-    setOpen(true);
-  }, []);
+  const request = useCallback(
+    (retry?: StepUpRetry, options?: StepUpRequestOptions) => {
+      retryRef.current = retry ?? null;
+      setRequireAal2(options?.requireAal2 === true);
+      setOpen(true);
+    },
+    [],
+  );
 
   const onOpenChange = useCallback((nextOpen: boolean) => {
     if (!nextOpen) {
@@ -371,6 +507,11 @@ export function useStepUpRequest() {
     }
   }, []);
 
-  const dialog: StepUpDialogControl = { onOpenChange, onVerified, open };
+  const dialog: StepUpDialogControl = {
+    onOpenChange,
+    onVerified,
+    open,
+    requireAal2,
+  };
   return { dialog, request };
 }

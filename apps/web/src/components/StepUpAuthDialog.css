@@ -57,3 +57,8 @@
   font-size: 14px;
   line-height: 1.45;
 }
+
+/* AUTH-09B: link to Settings when no AAL2 factor can be used here. */
+.step-up__link {
+  text-decoration: none;
+}

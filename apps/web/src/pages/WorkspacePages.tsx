@@ -1,10 +1,14 @@
 import { APIRequestError } from "@tutorhub/api-client";
 import { Button, TextField } from "@tutorhub/ui";
-import { LogOut } from "lucide-react";
+import { LogOut, Settings } from "lucide-react";
 import { useMemo, useState, type FormEvent } from "react";
+import { Link } from "react-router";
 import { useI18n } from "../app/i18n";
+import { isAdminMFARequired, useStepUpRequest } from "../app/security";
 import { useSession } from "../app/session";
 import { useWorkspaceActions } from "../app/workspaces";
+import { AdminMfaRequiredNotice } from "../components/AdminMfaRequiredNotice";
+import { StepUpAuthDialog } from "../components/StepUpAuthDialog";
 
 function workspaceSlug(value: string) {
   return value
@@ -51,6 +55,16 @@ function WorkspaceGateHeader() {
             <option value="en">English</option>
           </select>
         </label>
+        {/* AUTH-09B: settings work without a workspace (2FA, passkeys). */}
+        <Link
+          className="th-button th-button--quiet th-button--sm workspace-gate__settings"
+          to="/app/settings"
+        >
+          <span aria-hidden="true" className="th-button__icon">
+            <Settings />
+          </span>
+          <span>{t("workspace.openSettings")}</span>
+        </Link>
         <Button
           leadingIcon={<LogOut />}
           onClick={() => void session.signOut()}
@@ -67,6 +81,7 @@ function WorkspaceGateHeader() {
 export function WorkspaceOnboardingPage() {
   const { t } = useI18n();
   const { createWorkspace } = useWorkspaceActions();
+  const stepUp = useStepUpRequest();
   const [name, setName] = useState("");
   const [slugOverride, setSlugOverride] = useState<string | null>(null);
   const slug = slugOverride ?? workspaceSlug(name);
@@ -146,14 +161,27 @@ export function WorkspaceOnboardingPage() {
           </label>
           <small id="workspace-slug-help">{t("workspace.slugHelp")}</small>
 
-          {createWorkspace.isError && (
-            <div className="workspace-form__error" role="alert">
-              {mutationMessage(
-                createWorkspace.error,
-                t("workspace.createError"),
-              )}
-            </div>
-          )}
+          {createWorkspace.isError &&
+            (isAdminMFARequired(createWorkspace.error) ? (
+              <AdminMfaRequiredNotice
+                onVerify={() => {
+                  const input = createWorkspace.variables;
+                  stepUp.request(
+                    () => {
+                      if (input) createWorkspace.mutate(input);
+                    },
+                    { requireAal2: true },
+                  );
+                }}
+              />
+            ) : (
+              <div className="workspace-form__error" role="alert">
+                {mutationMessage(
+                  createWorkspace.error,
+                  t("workspace.createError"),
+                )}
+              </div>
+            ))}
 
           <Button
             disabled={!isValid || createWorkspace.isPending}
@@ -166,6 +194,7 @@ export function WorkspaceOnboardingPage() {
           </Button>
         </form>
       </main>
+      <StepUpAuthDialog {...stepUp.dialog} />
     </div>
   );
 }
@@ -174,6 +203,7 @@ export function WorkspaceSelectionPage() {
   const { t } = useI18n();
   const session = useSession();
   const { switchWorkspace } = useWorkspaceActions();
+  const stepUp = useStepUpRequest();
   const activeMemberships =
     session.currentUser?.memberships.filter(
       (membership) => membership.status === "active",
@@ -189,11 +219,29 @@ export function WorkspaceSelectionPage() {
           <span>{t("workspace.selectDescription")}</span>
         </header>
 
-        {switchWorkspace.isError && (
-          <div className="workspace-form__error" role="alert">
-            {mutationMessage(switchWorkspace.error, t("workspace.selectError"))}
-          </div>
-        )}
+        {switchWorkspace.isError &&
+          (isAdminMFARequired(switchWorkspace.error) ? (
+            <div className="workspace-gate__admin-mfa">
+              <AdminMfaRequiredNotice
+                onVerify={() => {
+                  const tenantID = switchWorkspace.variables;
+                  stepUp.request(
+                    () => {
+                      if (tenantID) switchWorkspace.mutate(tenantID);
+                    },
+                    { requireAal2: true },
+                  );
+                }}
+              />
+            </div>
+          ) : (
+            <div className="workspace-form__error" role="alert">
+              {mutationMessage(
+                switchWorkspace.error,
+                t("workspace.selectError"),
+              )}
+            </div>
+          ))}
 
         <ul className="workspace-selection__list">
           {activeMemberships.map((membership) => (
@@ -231,6 +279,7 @@ export function WorkspaceSelectionPage() {
           </p>
         )}
       </main>
+      <StepUpAuthDialog {...stepUp.dialog} />
     </div>
   );
 }

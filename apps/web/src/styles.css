@@ -406,6 +406,75 @@ textarea:focus-visible {
   font-weight: 700;
 }
 
+/* AUTH-09B: account settings without an active workspace. */
+.workspace-select__choose {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  gap: 6px;
+  padding: 0 11px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 13px;
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.workspace-select .workspace-select__choose span {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.workspace-select__choose svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+
+.workspace-admin-mfa {
+  padding: 12px 40px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.tenantless-notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 20px;
+  margin: 24px clamp(20px, 4vw, 40px) 0;
+  padding: 14px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-subtle);
+  color: var(--color-text);
+}
+
+.tenantless-notice h2 {
+  margin: 0 0 4px;
+  font-size: 15px;
+}
+
+.tenantless-notice p {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.tenantless-notice__link,
+.workspace-gate__settings {
+  text-decoration: none;
+}
+
+.workspace-gate__admin-mfa {
+  margin-bottom: 16px;
+}
+
 .workspace-gate {
   min-height: 100dvh;
   background: var(--color-surface);

@@ -254,6 +254,9 @@ test("native auth stays off by default and inherited auth settings pass through 
     "http://127.0.0.1:5173/signed-out",
   );
   assert.equal(standard.AUTH_PASSKEYS_ENABLED, undefined);
+  // AUTH-09: TOTP and the administrator AAL2 policy stay off by default.
+  assert.equal(standard.AUTH_MFA_TOTP_ENABLED, undefined);
+  assert.equal(standard.AUTH_REQUIRE_ADMIN_MFA, undefined);
   assert.deepEqual(publicOriginsFor({}), {
     api: "http://127.0.0.1:8080",
     web: "http://127.0.0.1:5173",
@@ -327,6 +330,10 @@ test("native auth enables sign-up, password and email-code login, device managem
     assert.equal(environment.AUTH_DEVICE_MANAGEMENT_ENABLED, "true");
     // Test-only: per-IP auth buckets scale so auth-02..07 fit one run.
     assert.equal(environment.AUTH_E2E_IP_RATE_LIMIT_MULTIPLIER, "10");
+    // AUTH-09: TOTP 2FA on; the administrator AAL2 policy stays off so the
+    // earlier specs can still create workspaces from AAL1 sessions.
+    assert.equal(environment.AUTH_MFA_TOTP_ENABLED, "true");
+    assert.equal(environment.AUTH_REQUIRE_ADMIN_MFA, undefined);
     assert.equal(environment.APP_ENV, "test");
     // AUTH-05: Google points at the loopback fake with fixture credentials.
     assert.equal(environment.AUTH_PROVIDER_GOOGLE_ENABLED, "true");
@@ -600,7 +607,7 @@ test("native auth specs run only through the dedicated Playwright config", () =>
   );
 
   const nativeSpecPatterns =
-    /\[\s*"\*\*\/auth-0\[23\]-native-\*\.spec\.ts",\s*"\*\*\/auth-04-\*\.spec\.ts",\s*"\*\*\/auth-05-\*\.spec\.ts",\s*"\*\*\/auth-06-\*\.spec\.ts",\s*"\*\*\/auth-07-\*\.spec\.ts",\s*"\*\*\/auth-08-\*\.spec\.ts",?\s*\]/;
+    /\[\s*"\*\*\/auth-0\[23\]-native-\*\.spec\.ts",\s*"\*\*\/auth-04-\*\.spec\.ts",\s*"\*\*\/auth-05-\*\.spec\.ts",\s*"\*\*\/auth-06-\*\.spec\.ts",\s*"\*\*\/auth-07-\*\.spec\.ts",\s*"\*\*\/auth-08-\*\.spec\.ts",\s*"\*\*\/auth-09-\*\.spec\.ts",?\s*\]/;
   assert.match(
     defaultConfig,
     new RegExp(`testIgnore:\\s*${nativeSpecPatterns.source}`),
@@ -622,10 +629,11 @@ test("native auth specs run only through the dedicated Playwright config", () =>
   assert.ok(nativeSpecs.includes("auth-06-facebook.spec.ts"));
   assert.ok(nativeSpecs.includes("auth-07-microsoft.spec.ts"));
   assert.ok(nativeSpecs.includes("auth-08-passkeys.spec.ts"));
+  assert.ok(nativeSpecs.includes("auth-09-mfa-totp.spec.ts"));
   for (const name of nativeSpecs) {
     assert.ok(
       /^auth-0[23]-native-.*\.spec\.ts$/.test(name) ||
-        /^auth-0[45678]-.*\.spec\.ts$/.test(name),
+        /^auth-0[456789]-.*\.spec\.ts$/.test(name),
       `${name} must match the native auth Playwright patterns`,
     );
   }

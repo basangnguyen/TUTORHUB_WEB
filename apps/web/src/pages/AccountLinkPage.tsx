@@ -4,12 +4,17 @@ import {
   type OAuthLinkIntentResponse,
 } from "@tutorhub/api-client";
 import { Button, ErrorState, Skeleton, SkeletonGroup } from "@tutorhub/ui";
-import { Link2, LogOut, RefreshCw, X } from "lucide-react";
+import { Link2, LogOut, RefreshCw, ShieldCheck, X } from "lucide-react";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
 import { useI18n, type TranslationKey } from "../app/i18n";
-import { useCancelLinkIntent, useConfirmLinkIntent } from "../app/security";
+import {
+  useCancelLinkIntent,
+  useConfirmLinkIntent,
+  useStepUpRequest,
+} from "../app/security";
 import { useSession } from "../app/session";
+import { StepUpAuthDialog } from "../components/StepUpAuthDialog";
 import { LoginForm } from "./SignInPage";
 import {
   ACCOUNT_LINK_PATH,
@@ -241,6 +246,7 @@ export function AccountLinkPage() {
   const confirm = useConfirmLinkIntent();
   const cancel = useCancelLinkIntent();
   const lock = useRetryLock();
+  const stepUp = useStepUpRequest();
   const [sessionRefreshing, setSessionRefreshing] = useState(false);
 
   const provider: LinkProvider =
@@ -280,7 +286,12 @@ export function AccountLinkPage() {
     }
   }
 
-  async function handleConfirm() {
+  /**
+   * AUTH-09B: an account with a second factor links only from an AAL2
+   * session; 403 `auth_assurance_required` opens the AAL2 step-up here and
+   * the confirmation runs again exactly once after it succeeds.
+   */
+  async function handleConfirm(afterStepUp = false) {
     if (lock.remaining > 0 || confirm.isPending) return;
     cancel.reset();
     try {
@@ -288,7 +299,14 @@ export function AccountLinkPage() {
       void navigate(sanitizeLinkReturnTo(result.return_to), { replace: true });
     } catch (error) {
       failWith(error);
+      if (actionFailureFrom(error).kind === "assurance" && !afterStepUp) {
+        requestAal2StepUp();
+      }
     }
+  }
+
+  function requestAal2StepUp() {
+    stepUp.request(() => handleConfirm(true), { requireAal2: true });
   }
 
   async function handleCancel() {
@@ -413,6 +431,16 @@ export function AccountLinkPage() {
                     variant="secondary"
                   >
                     {t("accountLink.signOut")}
+                  </Button>
+                )}
+                {failure.kind === "assurance" && authenticated && (
+                  <Button
+                    leadingIcon={<ShieldCheck />}
+                    onClick={requestAal2StepUp}
+                    size="sm"
+                    variant="secondary"
+                  >
+                    {t("accountLink.verifyNow")}
                   </Button>
                 )}
                 {failure.kind === "conflict" && authenticated && (
@@ -562,6 +590,7 @@ export function AccountLinkPage() {
           </div>
         )}
       </section>
+      <StepUpAuthDialog {...stepUp.dialog} returnTo={selfPath} />
     </main>
   );
 }

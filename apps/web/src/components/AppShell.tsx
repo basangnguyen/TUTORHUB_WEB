@@ -1,7 +1,8 @@
 import { Button, IconButton } from "@tutorhub/ui";
-import { LogOut, Menu, RefreshCw, X } from "lucide-react";
+import { Building2, LogOut, Menu, RefreshCw, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import {
+  Link,
   NavLink,
   Outlet,
   useLocation,
@@ -10,10 +11,13 @@ import {
 } from "react-router";
 import { getVisibleNavigationItems, navigationItems } from "../app/routes";
 import { useI18n } from "../app/i18n";
+import { isAdminMFARequired, useStepUpRequest } from "../app/security";
 import { useSession } from "../app/session";
 import { useWorkspaceActions } from "../app/workspaces";
 import { useTenantCapabilities } from "../app/tenantCapabilities";
+import { AdminMfaRequiredNotice } from "./AdminMfaRequiredNotice";
 import { NotificationBell } from "./NotificationBell";
+import { StepUpAuthDialog } from "./StepUpAuthDialog";
 
 function useOnlineStatus() {
   const [isOnline, setIsOnline] = useState(() => navigator.onLine);
@@ -44,12 +48,15 @@ export function AppShell() {
   const location = useLocation();
   const navigation = useNavigation();
   const isOnline = useOnlineStatus();
+  const stepUp = useStepUpRequest();
   const [isNavigationOpen, setIsNavigationOpen] = useState(false);
+  const activeTenant = session.currentUser?.active_tenant;
+  // AUTH-09B: without an active workspace only account settings render here.
   const visibleNavigationItems = getVisibleNavigationItems(
     session.currentUser?.permissions ?? [],
+    { hasActiveTenant: Boolean(activeTenant) },
   );
-
-  const activeTenant = session.currentUser?.active_tenant;
+  const onSettingsPage = location.pathname.startsWith("/app/settings");
   const tenantCapabilities = useTenantCapabilities(
     activeTenant?.id,
     Boolean(activeTenant?.id),
@@ -150,7 +157,12 @@ export function AppShell() {
               <span className="visually-hidden">
                 {t("workspace.activeLabel")}
               </span>
-              {tenantOptions.length > 1 ? (
+              {!activeTenant ? (
+                <Link className="workspace-select__choose" to="/app/home">
+                  <Building2 aria-hidden="true" />
+                  <span>{t("shell.chooseWorkspace")}</span>
+                </Link>
+              ) : tenantOptions.length > 1 ? (
                 <select
                   aria-label={t("workspace.activeLabel")}
                   aria-busy={switchWorkspace.isPending || undefined}
@@ -216,23 +228,42 @@ export function AppShell() {
           </p>
         )}
 
-        {switchWorkspace.isError && (
-          <section className="workspace-switch-error" role="alert">
-            <span>{t("workspace.selectError")}</span>
-            <Button
-              disabled={!switchWorkspace.variables}
-              onClick={() => {
-                if (switchWorkspace.variables) {
-                  switchWorkspace.mutate(switchWorkspace.variables);
-                }
-              }}
-              size="sm"
-              variant="secondary"
-            >
-              {t("state.retry")}
-            </Button>
-          </section>
-        )}
+        {switchWorkspace.isError &&
+          isAdminMFARequired(switchWorkspace.error) && (
+            <section className="workspace-admin-mfa">
+              <AdminMfaRequiredNotice
+                onVerify={() => {
+                  const tenantID = switchWorkspace.variables;
+                  stepUp.request(
+                    () => {
+                      if (tenantID) switchWorkspace.mutate(tenantID);
+                    },
+                    { requireAal2: true },
+                  );
+                }}
+                showSettingsLink={!onSettingsPage}
+              />
+            </section>
+          )}
+
+        {switchWorkspace.isError &&
+          !isAdminMFARequired(switchWorkspace.error) && (
+            <section className="workspace-switch-error" role="alert">
+              <span>{t("workspace.selectError")}</span>
+              <Button
+                disabled={!switchWorkspace.variables}
+                onClick={() => {
+                  if (switchWorkspace.variables) {
+                    switchWorkspace.mutate(switchWorkspace.variables);
+                  }
+                }}
+                size="sm"
+                variant="secondary"
+              >
+                {t("state.retry")}
+              </Button>
+            </section>
+          )}
 
         {!isOnline && (
           <section className="connectivity-notice" role="status">
@@ -255,9 +286,33 @@ export function AppShell() {
           {navigation.state !== "idle" && (
             <div className="route-progress" aria-live="polite" />
           )}
+          {!activeTenant && (
+            <section
+              aria-labelledby="tenantless-notice-title"
+              className="tenantless-notice"
+            >
+              <div>
+                <h2 id="tenantless-notice-title">
+                  {t("shell.noWorkspaceTitle")}
+                </h2>
+                <p>{t("shell.noWorkspace")}</p>
+              </div>
+              <Link
+                className="th-button th-button--secondary th-button--sm tenantless-notice__link"
+                to="/app/home"
+              >
+                <span aria-hidden="true" className="th-button__icon">
+                  <Building2 />
+                </span>
+                <span>{t("shell.chooseWorkspace")}</span>
+              </Link>
+            </section>
+          )}
           <Outlet />
         </main>
       </div>
+
+      <StepUpAuthDialog {...stepUp.dialog} />
     </div>
   );
 }

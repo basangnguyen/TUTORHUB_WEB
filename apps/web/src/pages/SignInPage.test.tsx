@@ -1326,7 +1326,7 @@ const NATIVE_COPY = {
     busy: "TutorHub is busy right now. Please try again in 2 seconds.",
     loginInvalid: "Incorrect email or password.",
     identifierRequired: "Please enter your email.",
-    mfa: "This account requires multi-factor authentication, which this page doesn't support yet. Please contact your administrator.",
+    mfa: "Two-step verification",
   },
   vi: {
     signUp: "Đăng ký",
@@ -1362,7 +1362,7 @@ const NATIVE_COPY = {
     busy: "Hệ thống đang bận. Vui lòng thử lại sau 2 giây.",
     loginInvalid: "Email hoặc mật khẩu không đúng.",
     identifierRequired: "Vui lòng nhập email.",
-    mfa: "Tài khoản này yêu cầu xác thực đa yếu tố nhưng trang này chưa hỗ trợ bước xác thực bổ sung. Vui lòng liên hệ quản trị viên.",
+    mfa: "Xác minh hai bước",
   },
 } as const;
 
@@ -1889,7 +1889,7 @@ describe.each(["en", "vi"] as const)(
       expect(window.localStorage.length).toBe(0);
     });
 
-    it("stops at the multi-factor step without treating the user as signed in", async () => {
+    it("moves to the second step without treating the user as signed in", async () => {
       api.loginWithPassword.mockResolvedValue({
         methods: ["totp"],
         status: "mfa_required",
@@ -1904,10 +1904,12 @@ describe.each(["en", "vi"] as const)(
 
       fireEvent.click(field.submit);
       await settle();
-      expect(screen.getByRole("alert")).toHaveTextContent(copy.mfa);
-      expect(field.password).toHaveValue("");
+      // AUTH-09B: the second step replaces the first factor's form.
+      expect(screen.getByRole("heading", { name: copy.mfa })).toHaveFocus();
+      expect(screen.queryByLabelText(copy.password)).toBeNull();
       expect(completeNativeSignInMock).not.toHaveBeenCalled();
       expect(screen.queryByTestId("landing")).toBeNull();
+      // The identifier is remembered only once a session exists.
       expect(window.localStorage.length).toBe(0);
     });
   },
@@ -2316,7 +2318,7 @@ describe.each(["en", "vi"] as const)(
       expect(screen.queryByTestId("landing")).toBeNull();
     });
 
-    it("stops at the multi-factor contract without treating the user as signed in", async () => {
+    it("moves to the second step after a correct code without signing in", async () => {
       api.startEmailCodeLogin.mockResolvedValue(challengeResponse("login-1"));
       api.verifyEmailCodeLogin.mockResolvedValue({
         methods: ["totp"],
@@ -2332,7 +2334,8 @@ describe.each(["en", "vi"] as const)(
       fireEvent.click(field.submit);
       await settle();
 
-      expect(within(field.form).getByRole("alert")).toHaveTextContent(copy.mfa);
+      expect(screen.getByRole("heading", { name: copy.mfa })).toHaveFocus();
+      expect(field.form).not.toBeInTheDocument();
       expect(completeNativeSignInMock).not.toHaveBeenCalled();
       expect(screen.queryByTestId("landing")).toBeNull();
     });

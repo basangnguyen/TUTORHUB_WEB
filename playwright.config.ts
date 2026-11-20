@@ -38,6 +38,7 @@ export default defineConfig({
     "**/auth-06-*.spec.ts",
     "**/auth-07-*.spec.ts",
     "**/auth-08-*.spec.ts",
+    "**/auth-09-*.spec.ts",
   ],
   outputDir: "test-results/playwright",
   fullyParallel: false,
