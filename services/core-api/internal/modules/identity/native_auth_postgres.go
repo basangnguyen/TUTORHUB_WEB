@@ -66,7 +66,8 @@ func (service *NativeAuthService) insertAssuredSession(ctx context.Context, tx p
 	if identityID == uuid.Nil {
 		return nil
 	}
-	_, err = tx.Exec(ctx, `UPDATE tutorhub.identities SET last_authenticated_at=$2,updated_at=$2 WHERE id=$1`, identityID, now)
+	_, err = tx.Exec(ctx, `UPDATE tutorhub.identities SET last_authenticated_at=GREATEST(created_at,last_authenticated_at,$2),
+		updated_at=GREATEST(updated_at,last_authenticated_at,$2) WHERE id=$1`, identityID, now)
 	if err != nil {
 		return ErrAuthFoundationStorage
 	}

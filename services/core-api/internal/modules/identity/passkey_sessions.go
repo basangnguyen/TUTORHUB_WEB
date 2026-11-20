@@ -9,7 +9,7 @@ import (
 
 // The caller holds the verified user's lock through policy evaluation and commit.
 func (service *NativeAuthService) finishLoginFirstFactor(ctx context.Context, tx pgx.Tx, proof mfaPayload, userAgent, remote string) (NativeSessionResult, error) {
-	if service.config.MFATOTPEnabled {
+	if service.config.MFATOTPEnabled || (len(proof.Methods) == 1 && proof.Methods[0] == "phone_otp") {
 		challenge, err := service.beginMFA(ctx, tx, proof)
 		if err != nil {
 			return NativeSessionResult{}, err
@@ -34,6 +34,11 @@ func (service *NativeAuthService) issueLoginSession(ctx context.Context, tx pgx.
 	result = service.sessionExpiry(result, now, keep, admin)
 	if err := service.insertAssuredSession(ctx, tx, userID, identityID, &result, methods, assurance, userAgent, remote, now); err != nil {
 		return NativeSessionResult{}, err
+	}
+	if len(methods) > 0 && methods[0] == "phone_otp" {
+		if err := markPhoneUsed(ctx, tx, userID, identityID, now); err != nil {
+			return NativeSessionResult{}, err
+		}
 	}
 	return result, nil
 }

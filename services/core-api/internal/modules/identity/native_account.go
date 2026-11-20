@@ -118,10 +118,14 @@ func upsertNativePassword(ctx context.Context, tx pgx.Tx, userID uuid.UUID, hash
 // Best-effort security notices share the bounded queue and global email budget.
 // They contain no OTP and do not depend on an already-consumed challenge remaining active.
 func (service *NativeAuthService) dispatchPasswordChanged(_ context.Context, destination string) {
+	service.dispatchAccountNotice("password_changed", destination)
+}
+
+func (service *NativeAuthService) dispatchAccountNotice(kind, destination string) {
 	if service.challenges == nil || service.challenges.dispatcher == nil {
 		return
 	}
-	notice := AccountNotice{Kind: "password_changed", Destination: destination, ExpiresAt: time.Now().UTC().Add(10 * time.Minute)}
+	notice := AccountNotice{Kind: kind, Destination: destination, ExpiresAt: time.Now().UTC().Add(10 * time.Minute)}
 	service.challenges.dispatcher.enqueueCommitted(deliveryJob{notice: &notice})
 }
 

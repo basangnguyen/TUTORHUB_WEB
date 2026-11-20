@@ -42,6 +42,12 @@ export type EmailCodeLoginStartRequest =
   components["schemas"]["EmailCodeLoginStartRequest"];
 export type EmailCodeLoginVerifyRequest =
   components["schemas"]["EmailCodeLoginVerifyRequest"];
+export type PhoneStartRequest = components["schemas"]["PhoneStartRequest"];
+export type PhoneVerifyRequest = components["schemas"]["PhoneVerifyRequest"];
+export type PhoneChallengeResponse =
+  components["schemas"]["PhoneChallengeResponse"];
+export type PhoneSummary = components["schemas"]["PhoneSummary"];
+export type MyPhoneResponse = components["schemas"]["MyPhoneResponse"];
 export type PasswordRecoveryStartRequest =
   components["schemas"]["PasswordRecoveryStartRequest"];
 export type PasswordRecoveryCompleteRequest =
@@ -980,6 +986,103 @@ export async function verifyEmailCodeLogin(
   );
   if (result.status === "authenticated") currentCSRFToken = null;
   return result;
+}
+
+export async function startPhoneLogin(
+  input: PhoneStartRequest,
+  options: APIRequestOptions = {},
+): Promise<PhoneChallengeResponse> {
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/auth/phone/start",
+    { ...preAuthRequestOptions(options), body: input },
+  );
+  return requireData<PhoneChallengeResponse>(data, error, response);
+}
+
+export async function verifyPhoneLogin(
+  input: PhoneVerifyRequest,
+  options: APIRequestOptions = {},
+): Promise<NativeAuthenticationResponse> {
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/auth/phone/verify",
+    { ...preAuthRequestOptions(options), body: input },
+  );
+  const result = requireData<NativeAuthenticationResponse>(
+    data as NativeAuthenticationResponse | undefined,
+    error,
+    response,
+  );
+  if (result.status === "authenticated") currentCSRFToken = null;
+  return result;
+}
+
+export async function getMyPhone(
+  options: APIRequestOptions = {},
+): Promise<MyPhoneResponse> {
+  const { data, error, response } = await createTutorHubClient(options).GET(
+    "/api/v1/me/phone",
+    {
+      cache: "no-store",
+      referrerPolicy: "no-referrer",
+      signal: options.signal,
+    },
+  );
+  return requireData<MyPhoneResponse>(data, error, response);
+}
+
+// Settings mutations require a freshly issued token tied to the current session.
+async function phoneMutationOptions(options: APIRequestOptions) {
+  const { csrf_token } = await rotateCSRFToken(options);
+  return securityMutationOptions(csrf_token, options);
+}
+
+export async function startMyPhone(
+  input: PhoneStartRequest,
+  options: APIRequestOptions = {},
+): Promise<PhoneChallengeResponse> {
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/me/phone/start",
+    { ...(await phoneMutationOptions(options)), body: input },
+  );
+  return requireData<PhoneChallengeResponse>(data, error, response);
+}
+
+export async function resendMyPhoneChallenge(
+  options: APIRequestOptions = {},
+): Promise<AuthSignupChallengeResponse> {
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/auth/challenges/resend",
+    { ...(await phoneMutationOptions(options)), body: {} },
+  );
+  return requireData<AuthSignupChallengeResponse>(data, error, response);
+}
+
+export async function verifyMyPhone(
+  input: PhoneVerifyRequest,
+  options: APIRequestOptions = {},
+): Promise<MyPhoneResponse> {
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/me/phone/verify",
+    { ...(await phoneMutationOptions(options)), body: input },
+  );
+  return requireData<MyPhoneResponse>(data, error, response);
+}
+
+export async function removeMyPhone(
+  options: APIRequestOptions = {},
+): Promise<void> {
+  const { error, response } = await createTutorHubClient(options).DELETE(
+    "/api/v1/me/phone",
+    await phoneMutationOptions(options),
+  );
+  if (!response.ok) {
+    throw new APIRequestError(
+      response.status,
+      isProblem(error) ? error : undefined,
+      retryAfterSeconds(response),
+    );
+  }
+  currentCSRFToken = null;
 }
 
 export async function startPasswordRecovery(

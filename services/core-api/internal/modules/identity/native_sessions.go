@@ -39,6 +39,12 @@ func (service *NativeAuthService) ListMyLoginMethods(ctx context.Context, princi
 		return MyLoginMethods{}, err
 	}
 	result := MyLoginMethods{Identities: []LoginMethodIdentity{}}
+	if service.config.PhoneEnabled {
+		result.Phone, err = service.phoneSummary(ctx, tx, principal.User.ID)
+		if err != nil {
+			return MyLoginMethods{}, err
+		}
+	}
 	err = tx.QueryRow(ctx, `SELECT (SELECT updated_at FROM tutorhub.user_password_credentials WHERE user_id=$1 AND status='active'),
         (SELECT count(*) FROM tutorhub.webauthn_credentials WHERE user_id=$1 AND status='active')`, principal.User.ID).Scan(&result.Password.UpdatedAt, &result.PasskeyCount)
 	if err != nil {

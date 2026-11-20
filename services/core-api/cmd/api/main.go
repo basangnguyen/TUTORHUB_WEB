@@ -492,6 +492,9 @@ func run() int {
 		}
 		repository := identity.NewPostgresRepository(pool, cfg.Database.QueryTimeout, authorizer, featureControlEnforcer)
 		repository.SetPasskeysEnabled(cfg.Authentication.PasskeysAvailable())
+		repository.SetLoginMethodAvailability(phoneLoginAvailable(cfg.Authentication), cfg.Authentication.PasswordEnabled,
+			cfg.Authentication.EmailCodeEnabled && cfg.Authentication.EmailSender != "" && cfg.Authentication.EmailSender != "disabled",
+			cfg.Authentication.PhoneStaleAfter)
 		var mfaService *identity.NativeAuthService
 		if cfg.Authentication.MFATOTPEnabled {
 			var ok bool

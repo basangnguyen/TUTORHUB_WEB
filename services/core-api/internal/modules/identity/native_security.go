@@ -16,13 +16,14 @@ var (
 )
 
 type MySecurity struct {
-	PasskeyCount           int        `json:"passkey_count"`
-	HasPassword            bool       `json:"has_password"`
-	EmailVerified          bool       `json:"email_verified"`
-	MFAEnabled             bool       `json:"mfa_enabled"`
-	RecoveryCodesRemaining int        `json:"recovery_codes_remaining"`
-	ReauthMethods          []string   `json:"reauth_methods"`
-	RecentAuthExpiresAt    *time.Time `json:"recent_auth_expires_at"`
+	Phone                  *PhoneSummary `json:"phone,omitempty"`
+	PasskeyCount           int           `json:"passkey_count"`
+	HasPassword            bool          `json:"has_password"`
+	EmailVerified          bool          `json:"email_verified"`
+	MFAEnabled             bool          `json:"mfa_enabled"`
+	RecoveryCodesRemaining int           `json:"recovery_codes_remaining"`
+	ReauthMethods          []string      `json:"reauth_methods"`
+	RecentAuthExpiresAt    *time.Time    `json:"recent_auth_expires_at"`
 }
 
 type LoginMethodIdentity struct {
@@ -41,6 +42,7 @@ type LoginMethodPassword struct {
 }
 
 type MyLoginMethods struct {
+	Phone        *PhoneSummary         `json:"phone,omitempty"`
 	PasskeyCount int                   `json:"passkey_count"`
 	Password     LoginMethodPassword   `json:"password"`
 	Identities   []LoginMethodIdentity `json:"identities"`
@@ -140,6 +142,12 @@ func (service *NativeAuthService) GetMySecurity(ctx context.Context, principal P
 	}
 	result := MySecurity{HasPassword: snapshot.active(), EmailVerified: snapshot.verified, ReauthMethods: []string{}, PasskeyCount: snapshot.passkeyCount,
 		MFAEnabled: snapshot.totpActive, RecoveryCodesRemaining: snapshot.recoveryCodesRemaining}
+	if service.config.PhoneEnabled {
+		result.Phone, err = service.GetMyPhone(ctx, principal)
+		if err != nil {
+			return MySecurity{}, err
+		}
+	}
 	if service.webauthn != nil && snapshot.usablePasskey {
 		result.ReauthMethods = append(result.ReauthMethods, "passkey")
 	}

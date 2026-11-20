@@ -186,19 +186,44 @@ func recordPasskeyAssertion(ctx context.Context, tx pgx.Tx, userID uuid.UUID, c 
 	return nil
 }
 
-// Both unlink paths hold the same user row lock before this check.
-func requireAnotherLoginMethod(ctx context.Context, tx pgx.Tx, userID, removingIdentity, removingPasskey uuid.UUID, passkeysEnabled bool) error {
+type loginMethodAvailability struct {
+	passkeys, phone, password, emailCode bool
+	mfa                                  bool
+	staleAfter                           time.Duration
+}
+
+func (service *NativeAuthService) availableLoginMethods() loginMethodAvailability {
+	return loginMethodAvailability{passkeys: service.webauthn != nil, phone: service.config.PhoneEnabled && !service.config.PhoneLoginUnavailable,
+		password: service.config.PasswordEnabled, emailCode: service.config.EmailCodeLoginEnabled && service.config.EmailCodeAvailable,
+		mfa: service.config.MFATOTPEnabled, staleAfter: service.config.PhoneStaleAfter}
+}
+
+// All unlink paths hold the same user row lock before checking usable methods.
+func requireAnotherLoginMethod(ctx context.Context, tx pgx.Tx, userID, removingIdentity, removingPasskey uuid.UUID, methods loginMethodAvailability, now time.Time) error {
 	var available bool
-	if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM tutorhub.identities WHERE user_id=$1 AND status='active' AND id IS DISTINCT FROM $2::uuid)
-		OR EXISTS (SELECT 1 FROM tutorhub.user_password_credentials WHERE user_id=$1 AND status='active')
+	if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM tutorhub.identities i JOIN tutorhub.users u ON u.id=i.user_id
+		WHERE i.user_id=$1 AND i.status='active' AND i.id IS DISTINCT FROM $2::uuid AND (
+			i.kind IN ('oidc','oauth2')
+			OR (i.kind='email' AND i.provider='urn:tutorhub:email' AND lower(i.email_at_provider)=u.email
+				AND ($6 OR ($5 AND i.email_verified AND u.email_verified_at IS NOT NULL
+					AND EXISTS (SELECT FROM tutorhub.user_password_credentials WHERE user_id=i.user_id AND status='active'))))))
 		OR ($4 AND EXISTS (SELECT 1 FROM tutorhub.webauthn_credentials WHERE user_id=$1 AND status='active' AND NOT clone_warning AND id IS DISTINCT FROM $3::uuid))`,
-		userID, nullUUID(removingIdentity), nullUUID(removingPasskey), passkeysEnabled).Scan(&available); err != nil {
+		userID, nullUUID(removingIdentity), nullUUID(removingPasskey), methods.passkeys, methods.password, methods.emailCode).Scan(&available); err != nil {
 		return ErrAuthFoundationStorage
 	}
-	if !available {
-		return ErrLastIdentity
+	if available {
+		return nil
 	}
-	return nil
+	if methods.phone {
+		state, err := readPhoneLoginState(ctx, tx, userID, uuid.Nil, nil, removingIdentity, removingPasskey)
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return ErrAuthFoundationStorage
+		}
+		if err == nil && state.usableAfterRemoval(now, methods) {
+			return nil
+		}
+	}
+	return ErrLastIdentity
 }
 
 func (service *NativeAuthService) ListMyPasskeys(ctx context.Context, p Principal) ([]Passkey, error) {
@@ -293,7 +318,7 @@ func (service *NativeAuthService) RevokeMyPasskey(ctx context.Context, p Princip
 	if !exists {
 		return ErrPasskeyNotFound
 	}
-	if err := requireAnotherLoginMethod(ctx, tx, p.User.ID, uuid.Nil, id, true); err != nil {
+	if err := requireAnotherLoginMethod(ctx, tx, p.User.ID, uuid.Nil, id, service.availableLoginMethods(), service.now().UTC()); err != nil {
 		return err
 	}
 	now := service.now().UTC()

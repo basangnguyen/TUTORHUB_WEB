@@ -132,6 +132,8 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 		"/api/v1/auth/password/login":             nativeAuth.passwordLogin,
 		"/api/v1/auth/email-code/start":           nativeAuth.startEmailCodeLogin,
 		"/api/v1/auth/email-code/verify":          nativeAuth.verifyEmailCodeLogin,
+		"/api/v1/auth/phone/start":                nativeAuth.startPhoneLogin,
+		"/api/v1/auth/phone/verify":               nativeAuth.verifyPhoneLogin,
 		"/api/v1/auth/password/recovery/start":    nativeAuth.startPasswordRecovery,
 		"/api/v1/auth/password/recovery/complete": nativeAuth.completePasswordRecovery,
 	} {
@@ -190,6 +192,8 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 	mux.Handle("/api/v1/me", requireMethod(http.MethodGet, http.HandlerFunc(accountAuth.me)))
 	mux.Handle("/api/v1/me/profile", http.HandlerFunc(accountAuth.profile))
 	mux.Handle("/api/v1/me/password", http.HandlerFunc(nativeAuth.myPassword))
+	mux.Handle("GET /api/v1/me/phone", authFoundationResponseHeaders(http.HandlerFunc(nativeAuth.getMyPhone)))
+	mux.Handle("DELETE /api/v1/me/phone", browserOriginGuard(cfg.WebOrigin, false, http.HandlerFunc(nativeAuth.removeMyPhone)))
 	for path, handler := range map[string]http.HandlerFunc{
 		"/api/v1/me/security":      nativeAuth.mySecurity,
 		"/api/v1/me/login-methods": nativeAuth.myLoginMethods,
@@ -199,6 +203,8 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 	}
 	for path, handler := range map[string]http.HandlerFunc{
 		"/api/v1/auth/reauth/email-code/start":    nativeAuth.startReauthEmailCode,
+		"/api/v1/me/phone/start":                  nativeAuth.startMyPhone,
+		"/api/v1/me/phone/verify":                 nativeAuth.verifyMyPhone,
 		"/api/v1/me/sessions/{session_id}/revoke": nativeAuth.revokeMySession,
 		"/api/v1/me/sessions/revoke-others":       nativeAuth.revokeOtherSessions,
 	} {

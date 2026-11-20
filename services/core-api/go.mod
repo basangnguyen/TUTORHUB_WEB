@@ -19,6 +19,7 @@ require (
 	github.com/jackc/pgx/v5 v5.10.0
 	github.com/livekit/protocol v1.49.0
 	github.com/livekit/server-sdk-go/v2 v2.18.1
+	github.com/nyaruka/phonenumbers v1.8.1
 	github.com/pion/webrtc/v4 v4.2.15
 	github.com/pquerna/otp v1.5.0
 	github.com/teambition/rrule-go v1.8.2

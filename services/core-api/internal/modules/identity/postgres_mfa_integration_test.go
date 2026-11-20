@@ -18,7 +18,7 @@ import (
 
 func TestMFAMigrationRoundTripAndRollbackPreflight(t *testing.T) {
 	ctx, pool, url := authSchemaTestDatabase(t)
-	if err := migrationrunner.Down(ctx, url, 1); err != nil {
+	if err := migrationrunner.Down(ctx, url, 2); err != nil {
 		t.Fatal(err)
 	}
 	v, err := migrationrunner.CurrentVersion(ctx, url)
@@ -29,8 +29,8 @@ func TestMFAMigrationRoundTripAndRollbackPreflight(t *testing.T) {
 		t.Fatal(err)
 	}
 	v, err = migrationrunner.CurrentVersion(ctx, url)
-	if err != nil || v.Dirty || v.Number != 48 {
-		t.Fatal("reapply 48", err)
+	if err != nil || v.Dirty || v.Number != 49 {
+		t.Fatal("reapply through 49", err)
 	}
 	down, err := migrations.Files.ReadFile("000048_mfa_totp_recovery.down.sql")
 	if err != nil {

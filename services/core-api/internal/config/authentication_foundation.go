@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 	"unicode/utf8"
+
+	"github.com/nyaruka/phonenumbers"
 )
 
 // These deployment gates are separate from tenant feature controls because an
@@ -52,6 +54,17 @@ func configureAuthFoundation(cfg *AuthenticationConfig, lookup lookupEnv, enviro
 	cfg.DeliveryBudgetApproved = boolValue(lookup, "AUTH_DELIVERY_BUDGET_APPROVED", false, validationErrors)
 	cfg.EmailDailyQuota = intValue(lookup, "AUTH_EMAIL_DAILY_QUOTA", 200, 0, 1_000_000, validationErrors)
 	cfg.PhoneOTPDailyQuota = intValue(lookup, "AUTH_PHONE_OTP_DAILY_QUOTA", 50, 0, 1_000_000, validationErrors)
+	cfg.PhoneCountryHourlyQuota = intValue(lookup, "AUTH_PHONE_COUNTRY_HOURLY_QUOTA", 100, 1, 1_000_000, validationErrors)
+	cfg.PhoneBreakerMinSends = intValue(lookup, "AUTH_PHONE_BREAKER_MIN_SENDS", 50, 1, 100_000, validationErrors)
+	cfg.PhoneBreakerMinConversionPct = intValue(lookup, "AUTH_PHONE_BREAKER_MIN_CONVERSION_PCT", 30, 0, 100, validationErrors)
+	cfg.PhoneStaleAfter = durationValue(lookup, "AUTH_PHONE_STALE_AFTER", 1440*time.Hour, validationErrors)
+	cfg.PhoneReclaimAfter = durationValue(lookup, "AUTH_PHONE_RECLAIM_AFTER", 2160*time.Hour, validationErrors)
+	if cfg.PhoneStaleAfter < time.Hour {
+		*validationErrors = append(*validationErrors, fmt.Errorf("AUTH_PHONE_STALE_AFTER must be at least 1h"))
+	}
+	if cfg.PhoneReclaimAfter < cfg.PhoneStaleAfter {
+		*validationErrors = append(*validationErrors, fmt.Errorf("AUTH_PHONE_RECLAIM_AFTER must be at least AUTH_PHONE_STALE_AFTER"))
+	}
 	// Loopback E2E runs every auth spec from one IP in one database. Scaling the
 	// per-IP buckets is a test-only aid; production always uses the base limits.
 	cfg.E2EIPRateLimitMultiplier = intValue(lookup, "AUTH_E2E_IP_RATE_LIMIT_MULTIPLIER", 1, 1, 100, validationErrors)
@@ -95,8 +108,8 @@ func authPhoneCountries(lookup lookupEnv, validationErrors *[]error) []string {
 	countries := make([]string, 0, len(entries))
 	for _, entry := range entries {
 		country := strings.ToUpper(strings.TrimSpace(entry))
-		if !authCountryPattern.MatchString(country) || containsString(countries, country) {
-			*validationErrors = append(*validationErrors, fmt.Errorf("AUTH_PHONE_ALLOWED_COUNTRIES must contain distinct two-letter country codes"))
+		if !authCountryPattern.MatchString(country) || phonenumbers.GetCountryCodeForRegion(country) == 0 || containsString(countries, country) {
+			*validationErrors = append(*validationErrors, fmt.Errorf("AUTH_PHONE_ALLOWED_COUNTRIES must contain distinct supported two-letter country codes"))
 			continue
 		}
 		countries = append(countries, country)

@@ -36,9 +36,11 @@ type passwordLoginRequest struct {
 }
 
 type signupChallengeResponse struct {
-	ChallengeID      uuid.UUID `json:"challenge_id"`
-	CooldownSeconds  int       `json:"cooldown_seconds"`
-	ExpiresInSeconds int       `json:"expires_in_seconds"`
+	ChallengeID        uuid.UUID `json:"challenge_id"`
+	CooldownSeconds    int       `json:"cooldown_seconds"`
+	ExpiresInSeconds   int       `json:"expires_in_seconds"`
+	MaskedDestination  string    `json:"masked_destination,omitempty"`
+	ResendAfterSeconds int       `json:"resend_after_seconds,omitempty"`
 }
 
 type nativeAuthenticationResponse struct {
@@ -114,8 +116,7 @@ func (handlers nativeAuthHandlers) startEmailSignup(w http.ResponseWriter, r *ht
 
 func (handlers nativeAuthHandlers) resendChallenge(w http.ResponseWriter, r *http.Request) {
 	auth := handlers.auth.config.Authentication
-	service, ok := handlers.accountService(w, r, auth.SignupEnabled || auth.EmailCodeEnabled)
-	if !ok ||
+	if !handlers.available(w, r, auth.SignupEnabled || auth.EmailCodeEnabled || auth.PhoneEnabled) ||
 		!handlers.allowIP(w, r, AuthRateLimitOTPSendIP) {
 		return
 	}
@@ -125,6 +126,13 @@ func (handlers nativeAuthHandlers) resendChallenge(w http.ResponseWriter, r *htt
 		return
 	}
 	binding, ok := handlers.transactionBinding(w, r)
+	if !ok {
+		return
+	}
+	if auth.PhoneEnabled && handlers.tryPhoneResend(w, r, binding) {
+		return
+	}
+	service, ok := handlers.accountService(w, r, auth.SignupEnabled || auth.EmailCodeEnabled)
 	if !ok {
 		return
 	}
@@ -220,9 +228,14 @@ func (handlers nativeAuthHandlers) writeChallenge(w http.ResponseWriter, result 
 	if result.Cookie != nil {
 		http.SetCookie(w, result.Cookie)
 	}
-	writeJSON(handlers.auth.logger, w, http.StatusAccepted, signupChallengeResponse{
+	response := signupChallengeResponse{
 		ChallengeID: result.ChallengeID, CooldownSeconds: result.CooldownSeconds, ExpiresInSeconds: result.ExpiresInSeconds,
-	})
+	}
+	if result.MaskedDestination != "" {
+		response.MaskedDestination = result.MaskedDestination
+		response.ResendAfterSeconds = result.CooldownSeconds
+	}
+	writeJSON(handlers.auth.logger, w, http.StatusAccepted, response)
 }
 
 func (handlers nativeAuthHandlers) setSession(w http.ResponseWriter, result identity.NativeSessionResult) {

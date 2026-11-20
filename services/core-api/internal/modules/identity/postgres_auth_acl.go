@@ -11,6 +11,7 @@ import (
 )
 
 var authFoundationUpdates = map[string][]string{
+	"user_phone_numbers":              {"e164_ciphertext", "status", "release_reason", "last_used_at", "released_at", "removed_at", "updated_at"},
 	"auth_transactions":               {"state", "completed_at", "payload_ciphertext"},
 	"auth_challenges":                 {"attempts", "consumed_at", "invalidated_at"},
 	"auth_challenge_deliveries":       {"status", "provider_message_ref", "error_code", "delivered_at"},
@@ -51,7 +52,7 @@ func ProvisionAuthFoundationRuntimeACL(ctx context.Context, database Database, r
         AND pg_has_role(r.oid, c.relowner, 'MEMBER')
     )
 FROM pg_roles r WHERE r.rolname = $1`, runtimeRole,
-		[]string{"auth_transactions", "auth_challenges", "auth_challenge_deliveries", "user_password_credentials", "user_legal_acceptances", "external_data_deletion_requests", "webauthn_credentials", "mfa_totp_factors", "mfa_recovery_codes", "users", "sessions", "identities", "auth_flows"}).Scan(&safe)
+		[]string{"auth_transactions", "auth_challenges", "auth_challenge_deliveries", "user_password_credentials", "user_legal_acceptances", "external_data_deletion_requests", "webauthn_credentials", "mfa_totp_factors", "mfa_recovery_codes", "user_phone_numbers", "users", "sessions", "identities", "auth_flows"}).Scan(&safe)
 	if err != nil || !safe {
 		return errors.New("authentication ACL runtime role safety preflight failed")
 	}

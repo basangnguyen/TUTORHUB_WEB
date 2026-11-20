@@ -26,6 +26,7 @@ type PostgresRepository struct {
 	authorizer      policy.Authorizer
 	controls        featurecontrol.Enforcer
 	passkeysEnabled bool
+	loginMethods    loginMethodAvailability
 	mfa             *NativeAuthService
 	requireAdminMFA bool
 }
@@ -39,6 +40,10 @@ func (repository *PostgresRepository) ConfigureAccountAssurance(mfa *NativeAuthS
 // unlink checks. Call during API startup, before serving requests.
 func (repository *PostgresRepository) SetPasskeysEnabled(enabled bool) {
 	repository.passkeysEnabled = enabled
+}
+
+func (repository *PostgresRepository) SetLoginMethodAvailability(phone, password, emailCode bool, phoneStaleAfter time.Duration) {
+	repository.loginMethods = loginMethodAvailability{phone: phone, password: password, emailCode: emailCode, staleAfter: phoneStaleAfter}
 }
 
 func NewPostgresRepository(
@@ -1831,7 +1836,7 @@ func (repository *PostgresRepository) UnlinkIdentity(
 		queryContext,
 		`SELECT user_id, status
 FROM tutorhub.identities
-WHERE id = $1 AND user_id = $2
+WHERE id = $1 AND user_id = $2 AND kind <> 'phone'
 FOR UPDATE`,
 		identityID,
 		userID,
@@ -1845,7 +1850,10 @@ FOR UPDATE`,
 		return ErrIdentityNotFound
 	}
 
-	if err := requireAnotherLoginMethod(queryContext, transaction, userID, identityID, uuid.Nil, repository.passkeysEnabled); err != nil {
+	methods := repository.loginMethods
+	methods.passkeys = repository.passkeysEnabled
+	methods.mfa = repository.mfa != nil
+	if err := requireAnotherLoginMethod(queryContext, transaction, userID, identityID, uuid.Nil, methods, unlinkedAt); err != nil {
 		return err
 	}
 

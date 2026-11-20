@@ -428,10 +428,19 @@ func TestFederationPostgresReauthOwnerFreshnessRotationAndAdminCap(t *testing.T)
 func TestFederationPostgresUnlinkCountsPasswordAndEveryIdentity(t *testing.T) {
 	f := newSettingsIntegrationFixture(t, true)
 	repository := NewPostgresRepository(f.tx, 20*time.Second, policy.NewEngine())
+	repository.SetLoginMethodAvailability(false, true, false, 60*24*time.Hour)
 	if err := repository.UnlinkIdentity(f.ctx, f.principal.User.ID, f.principal.SessionID, f.principal.IdentityID, f.now); !errors.Is(err, ErrLastIdentity) {
 		t.Fatal("last method removed")
 	}
 	if err := upsertNativePassword(f.ctx, f.tx, f.principal.User.ID, dummyPasswordPHC, f.now); err != nil {
+		t.Fatal(err)
+	}
+	if err := repository.UnlinkIdentity(f.ctx, f.principal.User.ID, f.principal.SessionID, f.principal.IdentityID, f.now); !errors.Is(err, ErrLastIdentity) {
+		t.Fatal("orphan password credential counted as a usable login", err)
+	}
+	// PasswordLogin also requires a verified canonical email and its live native identity.
+	// This is the same pairing written by the password settings and signup services.
+	if _, err := ensureNativeEmailIdentity(f.ctx, f.tx, f.principal.User.ID, f.principal.User.Email, f.now); err != nil {
 		t.Fatal(err)
 	}
 	if err := repository.UnlinkIdentity(f.ctx, f.principal.User.ID, f.principal.SessionID, f.principal.IdentityID, f.now); err != nil {
@@ -441,12 +450,14 @@ func TestFederationPostgresUnlinkCountsPasswordAndEveryIdentity(t *testing.T) {
 		t.Run(kind, func(t *testing.T) {
 			other := newSettingsIntegrationFixture(t, true)
 			repo := NewPostgresRepository(other.tx, 20*time.Second, policy.NewEngine())
+			repo.SetLoginMethodAvailability(true, true, true, 60*24*time.Hour)
+			repo.SetPasskeysEnabled(true)
 			if _, err := other.tx.Exec(other.ctx, `INSERT INTO tutorhub.identities(user_id,provider,subject,kind,provider_slug)
                 VALUES($1,$2,$3,$4,$4)`, other.principal.User.ID, "urn:tutorhub:"+kind, uuid.NewString(), kind); err != nil {
 				t.Fatal("seed alternative login method")
 			}
-			if err := repo.UnlinkIdentity(other.ctx, other.principal.User.ID, other.principal.SessionID, other.principal.IdentityID, other.now); err != nil {
-				t.Fatal("active non-federated identity was excluded from last-method check")
+			if err := repo.UnlinkIdentity(other.ctx, other.principal.User.ID, other.principal.SessionID, other.principal.IdentityID, other.now); !errors.Is(err, ErrLastIdentity) {
+				t.Fatal("bare identity without a usable native login counted as an alternative", err)
 			}
 		})
 	}

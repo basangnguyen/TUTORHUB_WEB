@@ -79,7 +79,7 @@ func (handlers nativeAuthHandlers) allowSecurityMutation(w http.ResponseWriter, 
 
 func (handlers nativeAuthHandlers) mySecurity(w http.ResponseWriter, r *http.Request) {
 	auth := handlers.auth.config.Authentication
-	service, principal, ok := handlers.securityPrincipalEnabled(w, r, false, auth.DeviceManagementEnabled || auth.MFATOTPEnabled)
+	service, principal, ok := handlers.securityPrincipalEnabled(w, r, false, auth.DeviceManagementEnabled || auth.MFATOTPEnabled || auth.PhoneEnabled)
 	if !ok {
 		return
 	}
@@ -92,7 +92,8 @@ func (handlers nativeAuthHandlers) mySecurity(w http.ResponseWriter, r *http.Req
 }
 
 func (handlers nativeAuthHandlers) myLoginMethods(w http.ResponseWriter, r *http.Request) {
-	service, principal, ok := handlers.securityPrincipal(w, r, false)
+	auth := handlers.auth.config.Authentication
+	service, principal, ok := handlers.securityPrincipalEnabled(w, r, false, auth.DeviceManagementEnabled || auth.PhoneEnabled)
 	if !ok {
 		return
 	}

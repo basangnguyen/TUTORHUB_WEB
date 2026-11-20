@@ -23,6 +23,13 @@ var (
 )
 
 type NativeAuthConfig struct {
+	PhoneEnabled                 bool
+	PhoneLoginUnavailable        bool
+	PhoneAllowedCountries        []string
+	PhoneStaleAfter              time.Duration
+	PhoneReclaimAfter            time.Duration
+	PasswordEnabled              bool
+	EmailCodeLoginEnabled        bool
 	RequireAdminMFA              bool
 	OIDCDefaultEnabled           bool
 	MFATOTPEnabled               bool
@@ -50,6 +57,7 @@ type PasswordLoginInput struct {
 	KeepSignedIn                                   bool
 }
 type SignupChallengeResult struct {
+	MaskedDestination                 string
 	ChallengeID                       uuid.UUID
 	CooldownSeconds, ExpiresInSeconds int
 	Cookie                            *http.Cookie
@@ -107,6 +115,20 @@ type signupPayload struct {
 }
 
 func NewNativeAuthService(database Database, crypto *Crypto, passwords NativePasswordService, dispatcher *DeliveryDispatcher, cfg NativeAuthConfig) (*NativeAuthService, error) {
+	if cfg.PhoneEnabled {
+		if cfg.PhoneStaleAfter == 0 {
+			cfg.PhoneStaleAfter = 60 * 24 * time.Hour
+		}
+		if cfg.PhoneReclaimAfter == 0 {
+			cfg.PhoneReclaimAfter = 90 * 24 * time.Hour
+		}
+		if cfg.PhoneStaleAfter < time.Hour || cfg.PhoneReclaimAfter < cfg.PhoneStaleAfter {
+			return nil, ErrAuthFoundationInput
+		}
+		if len(cfg.PhoneAllowedCountries) == 0 {
+			cfg.PhoneAllowedCountries = []string{"VN"}
+		}
+	}
 	if database == nil || crypto == nil || passwords == nil || strings.TrimSpace(cfg.LegalTermsVersion) == "" || !utf8.ValidString(cfg.LegalTermsVersion) || utf8.RuneCountInString(cfg.LegalTermsVersion) > 64 ||
 		cfg.SessionTTL <= 0 || cfg.SessionAbsoluteTTL < cfg.SessionTTL || cfg.SessionPersistentAbsoluteTTL < cfg.SessionAbsoluteTTL || cfg.SessionPersistentAbsoluteTTL > 30*24*time.Hour {
 		return nil, ErrAuthFoundationInput

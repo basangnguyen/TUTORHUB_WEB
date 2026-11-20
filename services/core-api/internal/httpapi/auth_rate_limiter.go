@@ -18,6 +18,7 @@ const (
 	AuthRateLimitPasswordFailIP     InvitationRateLimitAction = "auth.password.fail.ip"
 	AuthRateLimitOTPSendDestination InvitationRateLimitAction = "auth.otp.send.destination"
 	AuthRateLimitOTPSendIP          InvitationRateLimitAction = "auth.otp.send.ip"
+	AuthRateLimitOTPSendCountry     InvitationRateLimitAction = "auth.otp.send.country"
 	AuthRateLimitOTPVerifyIP        InvitationRateLimitAction = "auth.otp.verify.ip"
 	AuthRateLimitDeliveryDailyEmail InvitationRateLimitAction = "auth.delivery.daily.email"
 	AuthRateLimitDeliveryDailyPhone InvitationRateLimitAction = "auth.delivery.daily.phone"

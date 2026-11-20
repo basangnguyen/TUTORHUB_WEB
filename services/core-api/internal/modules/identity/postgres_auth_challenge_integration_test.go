@@ -128,3 +128,46 @@ func TestAuthFoundationPostgresChallengeLifecycleAndConcurrentVerify(t *testing.
 		t.Fatal("phone TTL differs from policy")
 	}
 }
+
+func TestPhonePostgresDeliveryRecordsActualFallback(t *testing.T) {
+	ctx, pool, _ := authSchemaTestDatabase(t)
+	c, err := NewCrypto(bytes.Repeat([]byte{8}, 32))
+	if err != nil {
+		t.Fatal(err)
+	}
+	router, err := NewPhoneSenderRouter(map[int][]PhoneRoute{84: {
+		{Provider: "zns", Sender: &phoneTestSender{channel: "zalo_zns", err: ErrAuthDeliveryFailed}},
+		{Provider: "sms_brandname", Sender: &phoneTestSender{channel: DeliverySMS}},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	dispatcher, err := NewDeliveryDispatcher(pool, c, nil, router, 2, foundationTestBudget(true))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = dispatcher.Close(context.Background()) })
+	tx, cookie, err := NewTransactionService(pool, c, false).Create(ctx, TransactionInput{Kind: "phone"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if _, err := pool.Exec(context.Background(), "DELETE FROM tutorhub.auth_transactions WHERE id=$1", tx.ID); err != nil {
+			t.Error("clean up disposable phone transaction")
+		}
+	})
+	challenge, err := NewChallengeService(pool, c, dispatcher).Issue(ctx, cookie.Value, ChallengeInput{
+		Purpose: "phone_login", Channel: DeliverySMS, Destination: "+84912345678", Deliverable: true, PhoneCountryCode: "VN",
+	})
+	if err != nil || dispatcher.Close(ctx) != nil {
+		t.Fatal("could not issue and drain phone challenge")
+	}
+	var total, failed, accepted int
+	err = pool.QueryRow(ctx, `SELECT count(*),
+		count(*) FILTER (WHERE channel='zalo_zns' AND provider='zns' AND status='failed' AND error_code='send_failed'),
+		count(*) FILTER (WHERE channel='sms' AND provider='sms_brandname' AND status='accepted' AND length(provider_message_ref)=64 AND delivered_at IS NOT NULL)
+		FROM tutorhub.auth_challenge_deliveries WHERE challenge_id=$1`, challenge.ID).Scan(&total, &failed, &accepted)
+	if err != nil || total != 2 || failed != 1 || accepted != 1 {
+		t.Fatal("database receipts did not match transport attempts")
+	}
+}

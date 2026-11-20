@@ -29,14 +29,15 @@ type authFoundationRuntime struct {
 func newAuthFoundation(cfg config.Config, pool *pgxpool.Pool, limiter httpapi.InvitationRateLimiter) (*authFoundationRuntime, error) {
 	result := &authFoundationRuntime{}
 	auth := cfg.Authentication
-	for _, sender := range []string{auth.EmailSender, auth.PhoneSender} {
-		if sender != "" && sender != "disabled" && sender != "devinbox" && sender != "smtp" {
-			return nil, errors.New("selected authentication delivery adapter is not implemented in AUTH-01")
-		}
+	if auth.PhoneSender != "" && auth.PhoneSender != "disabled" && auth.PhoneSender != "devinbox" {
+		return nil, errors.New("selected phone delivery adapter requires AUTH-11")
+	}
+	if auth.EmailSender != "" && auth.EmailSender != "disabled" && auth.EmailSender != "devinbox" && auth.EmailSender != "smtp" {
+		return nil, errors.New("selected email delivery adapter is unavailable")
 	}
 	deliveryEnabled := (auth.EmailSender != "" && auth.EmailSender != "disabled") || (auth.PhoneSender != "" && auth.PhoneSender != "disabled")
 	if pool == nil || len(auth.SessionKey) < 32 {
-		if deliveryEnabled || auth.SignupEnabled || auth.PasswordEnabled || auth.EmailCodeEnabled || auth.DeviceManagementEnabled || auth.PasskeysEnabled || auth.MFATOTPEnabled {
+		if deliveryEnabled || auth.SignupEnabled || auth.PasswordEnabled || auth.EmailCodeEnabled || auth.PhoneEnabled || auth.DeviceManagementEnabled || auth.PasskeysEnabled || auth.MFATOTPEnabled {
 			return nil, errors.New("native authentication and delivery require database and session cryptography")
 		}
 		return result, nil
@@ -56,7 +57,11 @@ func newAuthFoundation(cfg config.Config, pool *pgxpool.Pool, limiter httpapi.In
 			email = identity.NewDevinboxSender(result.inbox, identity.DeliveryEmail)
 		}
 		if auth.PhoneSender == "devinbox" {
-			phone = identity.NewDevinboxSender(result.inbox, identity.DeliverySMS)
+			phone, err = identity.NewDevinboxPhoneRouter(result.inbox, auth.PhoneAllowedCountries)
+			if err != nil {
+				result.close()
+				return nil, err
+			}
 		}
 	}
 	if auth.EmailSender == "smtp" {
@@ -75,7 +80,7 @@ func newAuthFoundation(cfg config.Config, pool *pgxpool.Pool, limiter httpapi.In
 	result.challenges = identity.NewChallengeService(pool, crypto, result.dispatcher)
 	// Password status remains available to authenticated OIDC users even while
 	// native sign-in methods are disabled; HTTP gates still control mutations.
-	if auth.Enabled || auth.SignupEnabled || auth.PasswordEnabled || auth.EmailCodeEnabled || auth.DeviceManagementEnabled || auth.PasskeysEnabled || auth.MFATOTPEnabled {
+	if auth.Enabled || auth.SignupEnabled || auth.PasswordEnabled || auth.EmailCodeEnabled || auth.PhoneEnabled || auth.DeviceManagementEnabled || auth.PasskeysEnabled || auth.MFATOTPEnabled {
 		var protocol *identity.PasskeyProtocol
 		if auth.PasskeysEnabled {
 			if !auth.PasskeysAvailable() {
@@ -97,7 +102,14 @@ func newAuthFoundation(cfg config.Config, pool *pgxpool.Pool, limiter httpapi.In
 			return nil, passwordErr
 		}
 		result.native, err = identity.NewNativeAuthService(pool, crypto, passwords, result.dispatcher, identity.NativeAuthConfig{
-			MFATOTPEnabled: auth.MFATOTPEnabled, RequireAdminMFA: auth.RequireAdminMFA,
+			PhoneEnabled:          auth.PhoneEnabled,
+			PhoneLoginUnavailable: !phoneLoginAvailable(auth),
+			PhoneAllowedCountries: auth.PhoneAllowedCountries,
+			PhoneStaleAfter:       auth.PhoneStaleAfter,
+			PhoneReclaimAfter:     auth.PhoneReclaimAfter,
+			PasswordEnabled:       auth.PasswordEnabled,
+			EmailCodeLoginEnabled: auth.EmailCodeEnabled,
+			MFATOTPEnabled:        auth.MFATOTPEnabled, RequireAdminMFA: auth.RequireAdminMFA,
 			OIDCDefaultEnabled: auth.OIDCEnabled && auth.ProviderOIDCDefaultEnabled,
 			WebAuthn:           protocol,
 			CookieSecure:       auth.CookieSecure, LegalTermsVersion: auth.LegalTermsVersion,
@@ -112,6 +124,10 @@ func newAuthFoundation(cfg config.Config, pool *pgxpool.Pool, limiter httpapi.In
 		}
 	}
 	return result, nil
+}
+
+func phoneLoginAvailable(auth config.AuthenticationConfig) bool {
+	return auth.PhoneEnabled && auth.PhoneSender != "" && auth.PhoneSender != "disabled" && auth.PhoneOTPDailyQuota > 0
 }
 
 func configuredIdentityProvider(ctx context.Context, auth config.AuthenticationConfig) (identity.Provider, error) {

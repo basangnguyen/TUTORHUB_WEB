@@ -87,15 +87,19 @@ func (s *NativeAuthService) emailGeneration(ctx context.Context, tx pgx.Tx, p mf
 
 // Callers hold the account lock from their successful first-factor verification.
 func (s *NativeAuthService) beginMFA(ctx context.Context, tx pgx.Tx, p mfaPayload) (*MFAChallenge, error) {
-	if !s.config.MFATOTPEnabled {
+	phone := len(p.Methods) == 1 && p.Methods[0] == "phone_otp"
+	if !phone && !s.config.MFATOTPEnabled {
 		return nil, nil
 	}
 	factor, methods, registered, err := s.mfaMethods(ctx, tx, p.UserID)
 	if err != nil {
 		return nil, err
 	}
-	if factor == uuid.Nil && !(registered && p.RecoveryHash != "") {
+	if factor == uuid.Nil && !(registered && (p.RecoveryHash != "" || phone)) {
 		return nil, nil
+	}
+	if phone && (!s.config.MFATOTPEnabled || len(methods) == 0) {
+		return nil, ErrPhoneSecondFactorRequired
 	}
 	if len(methods) == 0 {
 		return nil, ErrNativeMethodDisabled
@@ -260,6 +264,24 @@ func (s *NativeAuthService) validateMFAFirstFactor(ctx context.Context, tx pgx.T
 		}
 	}
 	switch p.Methods[0] {
+	case "phone_otp":
+		if !s.config.PhoneEnabled {
+			return ErrAuthTransactionUnavailable
+		}
+		var lastUse time.Time
+		err := tx.QueryRow(ctx, `SELECT GREATEST(n.verified_at,n.last_used_at) FROM tutorhub.user_phone_numbers n
+			JOIN tutorhub.identities i ON i.id=n.identity_id AND i.user_id=n.user_id
+			WHERE n.user_id=$1 AND n.identity_id=$2 AND n.status='active' AND i.status='active' AND i.kind='phone'
+			FOR UPDATE OF n,i`, p.UserID, p.IdentityID).Scan(&lastUse)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrAuthTransactionUnavailable
+		}
+		if err != nil {
+			return ErrAuthFoundationStorage
+		}
+		if phonePastThreshold(s.now().UTC(), lastUse, s.config.PhoneStaleAfter) {
+			return ErrAuthTransactionUnavailable
+		}
 	case "fed":
 		return s.validateMFAFederatedIdentity(ctx, tx, p.UserID, p.IdentityID, p.Provider)
 	case "pwd", "email_code":

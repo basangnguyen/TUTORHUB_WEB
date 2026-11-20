@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/mail"
 	"net/smtp"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -45,8 +46,11 @@ func (ChallengeMessage) LogValue() slog.Value { return slog.StringValue("[redact
 func (ChallengeMessage) String() string       { return "[redacted auth message]" }
 
 type DeliveryReceipt struct {
+	Channel            DeliveryChannel
+	Provider           string
 	ProviderMessageRef string
 	AcceptedAt         time.Time
+	phoneAttempts      []phoneDeliveryAttempt
 }
 
 func (DeliveryReceipt) LogValue() slog.Value { return slog.StringValue("[redacted delivery receipt]") }
@@ -87,19 +91,28 @@ func (DisabledSender) Channel() DeliveryChannel { return DeliverySMS }
 func (DisabledSender) Supports(int) bool        { return false }
 
 type DevinboxSender struct {
-	inbox   *devinbox.Inbox
-	channel DeliveryChannel
+	inbox        *devinbox.Inbox
+	channel      DeliveryChannel
+	callingCodes []int
 }
 
-func NewDevinboxSender(inbox *devinbox.Inbox, channel DeliveryChannel) *DevinboxSender {
-	return &DevinboxSender{inbox: inbox, channel: channel}
+func NewDevinboxSender(inbox *devinbox.Inbox, channel DeliveryChannel, callingCodes ...int) *DevinboxSender {
+	if len(callingCodes) == 0 {
+		callingCodes = []int{84}
+	}
+	return &DevinboxSender{inbox: inbox, channel: channel, callingCodes: slices.Clone(callingCodes)}
 }
 
 func (sender *DevinboxSender) Channel() DeliveryChannel { return sender.channel }
-func (sender *DevinboxSender) Supports(code int) bool   { return code == 84 }
+func (sender *DevinboxSender) Supports(code int) bool {
+	return slices.Contains(sender.callingCodes, code)
+}
 func (sender *DevinboxSender) SendChallenge(ctx context.Context, message ChallengeMessage) (DeliveryReceipt, error) {
 	if ctx.Err() != nil || sender.inbox == nil || message.Channel != sender.channel {
 		return DeliveryReceipt{}, ErrAuthDeliveryFailed
+	}
+	if message.Channel != DeliveryEmail && !sender.Supports(phoneCallingCode(message.Destination)) {
+		return DeliveryReceipt{}, ErrAuthDeliveryDisabled
 	}
 	if err := sender.inbox.Add(devinbox.Message{Kind: "challenge", ChallengeID: message.ChallengeID.String(), Purpose: message.Purpose,
 		Channel: string(message.Channel), Destination: message.Destination, Code: message.Code, ExpiresAt: message.ExpiresAt}); err != nil {
@@ -109,17 +122,21 @@ func (sender *DevinboxSender) SendChallenge(ctx context.Context, message Challen
 }
 
 func (sender *DevinboxSender) SendNotice(ctx context.Context, notice AccountNotice) (DeliveryReceipt, error) {
-	if ctx.Err() != nil || sender.inbox == nil || sender.channel != DeliveryEmail || (notice.Kind != "account_exists" && notice.Kind != "password_changed") {
+	if ctx.Err() != nil || sender.inbox == nil || sender.channel != DeliveryEmail || (notice.Kind != "account_exists" && !standaloneSecurityNotice(notice.Kind)) {
 		return DeliveryReceipt{}, ErrAuthDeliveryFailed
 	}
 	purpose, challengeID := "signup_email", notice.ChallengeID.String()
-	if notice.Kind == "password_changed" {
-		purpose, challengeID = "password_changed", ""
+	if standaloneSecurityNotice(notice.Kind) {
+		purpose, challengeID = notice.Kind, ""
 	}
 	if err := sender.inbox.Add(devinbox.Message{Kind: "notice", NoticeKind: notice.Kind, ChallengeID: challengeID, Purpose: purpose, Channel: "email", Destination: notice.Destination, ExpiresAt: notice.ExpiresAt}); err != nil {
 		return DeliveryReceipt{}, ErrAuthDeliveryFailed
 	}
 	return DeliveryReceipt{ProviderMessageRef: uuid.NewString(), AcceptedAt: time.Now().UTC()}, nil
+}
+
+func standaloneSecurityNotice(kind string) bool {
+	return kind == "password_changed" || kind == "phone_released"
 }
 
 // SMTPSender only supports unauthenticated Mailpit-style loopback delivery.
@@ -155,6 +172,8 @@ func (sender *SMTPSender) SendNotice(ctx context.Context, notice AccountNotice) 
 		return sender.send(ctx, notice.Destination, "TutorHub account notice", "An account already exists for this email address. Please sign in using your existing sign-in method.")
 	case "password_changed":
 		return sender.send(ctx, notice.Destination, "TutorHub password changed", "Your TutorHub password has been changed. If you did not make this change, recover your account and contact support.")
+	case "phone_released":
+		return sender.send(ctx, notice.Destination, "TutorHub phone sign-in removed", "A previously linked phone number was released from your TutorHub account. Use another sign-in method to review your security settings. Contact support if you need help.")
 	default:
 		return DeliveryReceipt{}, ErrAuthDeliveryFailed
 	}
@@ -202,6 +221,9 @@ type deliveryJob struct {
 	deliverable bool
 	notice      *AccountNotice
 }
+
+func (deliveryJob) String() string         { return "[redacted delivery job]" }
+func (j deliveryJob) LogValue() slog.Value { return slog.StringValue(j.String()) }
 
 // DeliveryBudget reserves a daily slot in shared storage. Implementations must
 // return false on storage failure; no sender is invoked without a reservation.
@@ -298,10 +320,19 @@ func (dispatcher *DeliveryDispatcher) provider(channel DeliveryChannel) string {
 	}
 }
 
+func (dispatcher *DeliveryDispatcher) plannedRoute(channel DeliveryChannel, destination string) (DeliveryChannel, string) {
+	if router, ok := dispatcher.phone.(*PhoneSenderRouter); channel != DeliveryEmail && ok {
+		if routes := router.routes[phoneCallingCode(destination)]; len(routes) > 0 {
+			return routes[0].Sender.Channel(), routes[0].Provider
+		}
+	}
+	return channel, dispatcher.provider(channel)
+}
+
 func (dispatcher *DeliveryDispatcher) deliver(job deliveryJob) {
 	// A security notice has no challenge/delivery row. Keep it independent from
 	// OTP validity: recovery has already consumed its challenge at this point.
-	if job.id == uuid.Nil && job.notice != nil && job.notice.Kind == "password_changed" && job.notice.ChallengeID == uuid.Nil {
+	if job.id == uuid.Nil && job.notice != nil && standaloneSecurityNotice(job.notice.Kind) && job.notice.ChallengeID == uuid.Nil {
 		if !job.notice.ExpiresAt.After(time.Now()) {
 			return
 		}
@@ -326,6 +357,8 @@ func (dispatcher *DeliveryDispatcher) deliver(job deliveryJob) {
 			receipt, err = dispatcher.email.SendNotice(ctx, *job.notice)
 		} else if job.message.Channel == DeliveryEmail {
 			receipt, err = dispatcher.email.SendChallenge(ctx, job.message)
+		} else if router, ok := dispatcher.phone.(*PhoneSenderRouter); ok {
+			receipt, err = router.send(ctx, job.message, dispatcher.budget)
 		} else if job.message.Channel == dispatcher.phone.Channel() {
 			receipt, err = dispatcher.phone.SendChallenge(ctx, job.message)
 		} else {
@@ -333,6 +366,8 @@ func (dispatcher *DeliveryDispatcher) deliver(job deliveryJob) {
 		}
 		cancel()
 		switch {
+		case errors.Is(err, errPhoneFallbackQuota):
+			status, code = "failed", "fallback_quota_denied"
 		case errors.Is(err, ErrAuthDeliveryDisabled):
 			status, code = "disabled", "sender_disabled"
 		case err != nil:
@@ -379,9 +414,37 @@ func (dispatcher *DeliveryDispatcher) record(id uuid.UUID, status, code string, 
 		now := time.Now().UTC()
 		acceptedAt = &now
 	}
-	_, err = tx.Exec(ctx, `UPDATE tutorhub.auth_challenge_deliveries
-		SET status=$2,provider_message_ref=$3,error_code=NULLIF($4,''),delivered_at=$5 WHERE id=$1 AND status='queued'`,
-		id, status, reference, code, acceptedAt)
+	// The queued row describes the primary route. Each fallback gets a new
+	// row: channel and provider are deliberately immutable under runtime ACL.
+	if len(receipt.phoneAttempts) > 1 {
+		changed, err := tx.Exec(ctx, `UPDATE tutorhub.auth_challenge_deliveries
+			SET status='failed',error_code='send_failed' WHERE id=$1 AND status='queued'`, id)
+		if err != nil || changed.RowsAffected() != 1 {
+			return
+		}
+		for i, attempt := range receipt.phoneAttempts[1:] {
+			attemptStatus, attemptCode := "failed", "send_failed"
+			var attemptRef *string
+			var attemptTime *time.Time
+			if i == len(receipt.phoneAttempts)-2 {
+				attemptStatus, attemptCode, attemptRef, attemptTime = status, code, reference, acceptedAt
+			}
+			_, err = tx.Exec(ctx, `INSERT INTO tutorhub.auth_challenge_deliveries
+				(challenge_id,channel,provider,status,provider_message_ref,error_code,created_at,delivered_at)
+				SELECT challenge_id,$2,$3,$4,$5,NULLIF($6,''),created_at,
+				CASE WHEN $7::timestamptz IS NULL THEN NULL ELSE greatest(created_at,$7) END
+				FROM tutorhub.auth_challenge_deliveries WHERE id=$1`, id, attempt.channel,
+				attempt.provider, attemptStatus, attemptRef, attemptCode, attemptTime)
+			if err != nil {
+				return
+			}
+		}
+	} else {
+		_, err = tx.Exec(ctx, `UPDATE tutorhub.auth_challenge_deliveries
+			SET status=$2,provider_message_ref=$3,error_code=NULLIF($4,''),
+			delivered_at=CASE WHEN $5::timestamptz IS NULL THEN NULL ELSE greatest(created_at,$5) END WHERE id=$1 AND status='queued'`,
+			id, status, reference, code, acceptedAt)
+	}
 	if err == nil {
 		_ = tx.Commit(ctx)
 	}

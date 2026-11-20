@@ -49,6 +49,10 @@ func TestAuthFoundationDefaultsAndFlags(t *testing.T) {
 		a.EmailDailyQuota != 200 || a.PhoneOTPDailyQuota != 50 || len(a.PhoneAllowedCountries) != 1 || a.PhoneAllowedCountries[0] != "VN" {
 		t.Fatal("unsafe authentication foundation defaults")
 	}
+	if a.PhoneCountryHourlyQuota != 100 || a.PhoneBreakerMinSends != 50 || a.PhoneBreakerMinConversionPct != 30 ||
+		a.PhoneStaleAfter != 60*24*time.Hour || a.PhoneReclaimAfter != 90*24*time.Hour {
+		t.Fatal("unexpected phone quota, breaker or SIM lifetime defaults")
+	}
 	cfg, err = load(mapLookup(map[string]string{"AUTH_PROVIDER_OIDC_DEFAULT_ENABLED": "false"}))
 	if err != nil || cfg.Authentication.ProviderOIDCDefaultEnabled {
 		t.Fatal("cannot explicitly disable default OIDC")
@@ -107,6 +111,11 @@ func TestAuthFoundationValidationRunsWithoutOIDC(t *testing.T) {
 		{"AUTH_EMAIL_SENDER", "unknown"}, {"AUTH_EMAIL_SENDER", "twilio"}, {"AUTH_PHONE_SENDER", "ses"},
 		{"AUTH_EMAIL_SENDER", "ses"}, {"AUTH_PHONE_SENDER", "twilio"},
 		{"AUTH_EMAIL_DAILY_QUOTA", "-1"}, {"AUTH_PHONE_OTP_DAILY_QUOTA", "1000001"},
+		{"AUTH_PHONE_COUNTRY_HOURLY_QUOTA", "0"}, {"AUTH_PHONE_COUNTRY_HOURLY_QUOTA", "1000001"},
+		{"AUTH_PHONE_BREAKER_MIN_SENDS", "0"}, {"AUTH_PHONE_BREAKER_MIN_SENDS", "100001"},
+		{"AUTH_PHONE_BREAKER_MIN_CONVERSION_PCT", "-1"}, {"AUTH_PHONE_BREAKER_MIN_CONVERSION_PCT", "101"},
+		{"AUTH_PHONE_STALE_AFTER", "59m"}, {"AUTH_PHONE_RECLAIM_AFTER", "1439h"},
+		{"AUTH_PHONE_ALLOWED_COUNTRIES", "ZZ"},
 		{"AUTH_SMTP_ADDR", "mail.example:1025"}, {"AUTH_SMTP_ADDR", "127.0.0.1:70000"},
 		{"AUTH_SMTP_ADDR", "127.0.0.1"}, {"AUTH_DELIVERY_BUDGET_APPROVED", "yes"},
 	} {

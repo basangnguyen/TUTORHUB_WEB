@@ -1416,14 +1416,220 @@ paths:
           $ref: "#/components/responses/AuthUnavailableResponse"
         default:
           $ref: "#/components/responses/ProblemResponse"
+  /api/v1/auth/phone/start:
+    post:
+      operationId: startPhoneLogin
+      summary: Request a phone sign-in code
+      description: A valid mobile number receives a generic 202 response for known, unknown and destination-throttled numbers. Invalid numbers return auth_invalid_phone_number. Country quota, daily quota, a disabled sender or the conversion breaker returns auth_phone_delivery_unavailable.
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/PreAuthOrigin"
+        - $ref: "#/components/parameters/PreAuthFetchSite"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PhoneStartRequest"
+      responses:
+        "202":
+          description: Browser-bound five-minute phone challenge
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PhoneChallengeResponse"
+        "400":
+          $ref: "#/components/responses/BadRequestResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "415":
+          $ref: "#/components/responses/ProblemResponse"
+        "429":
+          $ref: "#/components/responses/AuthRateLimitedResponse"
+        "503":
+          $ref: "#/components/responses/AuthUnavailableResponse"
+  /api/v1/auth/phone/verify:
+    post:
+      operationId: verifyPhoneLogin
+      summary: Verify a browser-bound phone sign-in code
+      description: An invalid or expired proof returns auth_invalid_verification_code. A stale phone or an account requiring an unavailable second factor consumes the transaction, clears the cookie and returns auth_phone_stale or auth_phone_second_factor_required. An available second factor returns mfa_required with a replacement transaction cookie.
+      security:
+        - AuthTransactionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/PreAuthOrigin"
+        - $ref: "#/components/parameters/PreAuthFetchSite"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PhoneVerifyRequest"
+      responses:
+        "200":
+          description: Successful response
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NativeAuthenticationResponse"
+        "400":
+          $ref: "#/components/responses/BadRequestResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "415":
+          $ref: "#/components/responses/ProblemResponse"
+        "429":
+          $ref: "#/components/responses/AuthRateLimitedResponse"
+        "503":
+          $ref: "#/components/responses/AuthUnavailableResponse"
+  /api/v1/me/phone:
+    get:
+      operationId: getMyPhone
+      summary: Read the current account’s masked phone number
+      description: Requires phone authentication to be enabled. An account without an active binding receives a null phone.
+      security:
+        - SessionCookie: []
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MyPhoneResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "503":
+          $ref: "#/components/responses/AuthUnavailableResponse"
+    delete:
+      operationId: removeMyPhone
+      summary: Remove the current account’s phone number
+      description: Requires recent authentication and recovery-factor assurance. The final available method is protected by auth_last_identity. Success revokes other sessions and rotates the current session and CSRF cookies.
+      security:
+        - SessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/PreAuthOrigin"
+        - $ref: "#/components/parameters/PreAuthFetchSite"
+      responses:
+        "204":
+          description: Phone removed and current session cookies rotated
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "409":
+          $ref: "#/components/responses/ProblemResponse"
+        "503":
+          $ref: "#/components/responses/AuthUnavailableResponse"
+  /api/v1/me/phone/start:
+    post:
+      operationId: startMyPhone
+      summary: Begin phone number verification in Settings
+      description: Requires recent authentication and recovery-factor assurance. Insufficient assurance returns auth_assurance_required. A 202 response includes the masked number, OTP lifetime and resend cooldown.
+      security:
+        - SessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/PreAuthOrigin"
+        - $ref: "#/components/parameters/PreAuthFetchSite"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PhoneStartRequest"
+      responses:
+        "202":
+          description: Browser-bound five-minute phone challenge
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PhoneChallengeResponse"
+        "400":
+          $ref: "#/components/responses/BadRequestResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "415":
+          $ref: "#/components/responses/ProblemResponse"
+        "429":
+          $ref: "#/components/responses/AuthRateLimitedResponse"
+        "503":
+          $ref: "#/components/responses/AuthUnavailableResponse"
+  /api/v1/me/phone/verify:
+    post:
+      operationId: verifyMyPhone
+      summary: Confirm a phone number in Settings
+      description: Consumes the verification challenge and clears its cookie. A recently used number owned by another account returns auth_phone_in_use. Reclaim grants a binding to the authenticated account only.
+      security:
+        - SessionCookie: []
+          AuthTransactionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/PreAuthOrigin"
+        - $ref: "#/components/parameters/PreAuthFetchSite"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PhoneVerifyRequest"
+      responses:
+        "200":
+          description: Successful response
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MyPhoneResponse"
+        "400":
+          $ref: "#/components/responses/BadRequestResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "409":
+          $ref: "#/components/responses/ProblemResponse"
+        "415":
+          $ref: "#/components/responses/ProblemResponse"
+        "429":
+          $ref: "#/components/responses/AuthRateLimitedResponse"
+        "503":
+          $ref: "#/components/responses/AuthUnavailableResponse"
   /api/v1/auth/challenges/resend:
     post:
       operationId: resendAuthChallenge
-      summary: Resend the code for a browser-bound email authentication transaction
+      summary: Resend the code for a browser-bound email or phone authentication transaction
       security:
         - AuthTransactionCookie: []
-      description: Supports signup_email, email login and password recovery transactions. Requires the corresponding method flags; a disabled method returns 503. Accepts an empty JSON object and decrypts the immutable destination server-side. A 60-second cooldown and five-send transaction cap apply. Previous codes are invalidated; destination throttling still returns an identical 202 dummy challenge. All responses use Cache-Control no-store and Referrer-Policy no-referrer.
+      description: Supports email signup, email login, password recovery, phone login and Settings phone verification. Requires the transaction cookie and enabled method. Settings phone verification also requires the bound session and CSRF header. The server enforces the original destination, a 60-second cooldown and a five-send cap. Sign-in destination throttling returns an identical 202 dummy challenge.
       parameters:
+        - name: X-CSRF-Token
+          in: header
+          description: Required for Settings phone verification resends.
+          schema:
+            type: string
         - $ref: "#/components/parameters/PreAuthOrigin"
         - $ref: "#/components/parameters/PreAuthFetchSite"
       requestBody:
@@ -9892,6 +10098,85 @@ components:
           type: string
           format: email
           maxLength: 254
+    PhoneStartRequest:
+      type: object
+      additionalProperties: false
+      required: [phone_number]
+      properties:
+        phone_number:
+          type: string
+          minLength: 1
+          writeOnly: true
+          description: International or national mobile number.
+        country_code:
+          type: string
+          description: ISO region for national input. International numbers determine their own region.
+        keep_signed_in:
+          type: boolean
+          description: Omitted means false.
+    PhoneVerifyRequest:
+      $ref: "#/components/schemas/EmailCodeLoginVerifyRequest"
+    PhoneChallengeResponse:
+      allOf:
+        - $ref: "#/components/schemas/AuthSignupChallengeResponse"
+        - type: object
+          required: [masked_destination, resend_after_seconds]
+          properties:
+            masked_destination:
+              type: string
+            resend_after_seconds:
+              type: integer
+              const: 60
+    PhoneSummary:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          masked_number,
+          country_code,
+          calling_code,
+          last4,
+          verified_at,
+          last_used_at,
+          stale,
+        ]
+      properties:
+        id:
+          type: string
+          format: uuid
+        masked_number:
+          type: string
+        country_code:
+          type: string
+          pattern: "^[A-Z]{2}$"
+        calling_code:
+          type: integer
+          minimum: 1
+          maximum: 999
+        last4:
+          type: string
+          pattern: "^[0-9]{2,4}$"
+        verified_at:
+          type: string
+          format: date-time
+          description: First verification of this binding.
+        last_used_at:
+          type: string
+          format: date-time
+        stale:
+          type: boolean
+    MyPhoneResponse:
+      type: object
+      additionalProperties: false
+      required: [phone]
+      properties:
+        phone:
+          $ref: "#/components/schemas/NullablePhoneSummary"
+    NullablePhoneSummary:
+      oneOf:
+        - $ref: "#/components/schemas/PhoneSummary"
+        - type: "null"
     AuthChallengeResendRequest:
       type: object
       additionalProperties: false
@@ -9901,6 +10186,12 @@ components:
       additionalProperties: false
       required: [challenge_id, cooldown_seconds, expires_in_seconds]
       properties:
+        masked_destination:
+          type: string
+          description: Masked destination of a phone challenge.
+        resend_after_seconds:
+          type: integer
+          const: 60
         challenge_id:
           type: string
           format: uuid
@@ -10352,6 +10643,8 @@ components:
           recent_auth_expires_at,
         ]
       properties:
+        phone:
+          $ref: "#/components/schemas/NullablePhoneSummary"
         has_password:
           type: boolean
         passkey_count:
@@ -10424,6 +10717,8 @@ components:
       additionalProperties: false
       required: [password, identities]
       properties:
+        phone:
+          $ref: "#/components/schemas/NullablePhoneSummary"
         passkey_count:
           type: integer
           minimum: 0

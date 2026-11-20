@@ -26,10 +26,11 @@ const (
 var ErrAuthChallengeThrottled = errors.New("authentication challenge is temporarily unavailable")
 
 type ChallengeInput struct {
-	Purpose     string
-	Channel     DeliveryChannel
-	Destination string
-	Deliverable bool
+	PhoneCountryCode string
+	Purpose          string
+	Channel          DeliveryChannel
+	Destination      string
+	Deliverable      bool
 }
 
 func (ChallengeInput) String() string       { return "[redacted challenge input]" }
@@ -122,21 +123,22 @@ func (service *ChallengeService) issueLocked(ctx context.Context, tx pgx.Tx, tra
 		return AuthChallenge{}, deliveryJob{}, ErrAuthFoundationStorage
 	}
 	_, err = tx.Exec(ctx, `INSERT INTO tutorhub.auth_challenges
-		(id,transaction_id,purpose,channel,destination_hash,code_hash,deliverable,created_at,expires_at)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`, result.ID, transaction.ID, input.Purpose, string(input.Channel),
+		(id,transaction_id,purpose,channel,destination_hash,code_hash,deliverable,created_at,expires_at,phone_country_code)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NULLIF($10,''))`, result.ID, transaction.ID, input.Purpose, string(input.Channel),
 		service.crypto.Digest("auth-dest-v1", string(input.Channel)+":"+destination),
-		service.crypto.Digest("auth-otp-v1", result.ID.String()+":"+code), input.Deliverable, now, expires)
+		service.crypto.Digest("auth-otp-v1", result.ID.String()+":"+code), input.Deliverable, now, expires, input.PhoneCountryCode)
 	if err != nil {
 		return AuthChallenge{}, deliveryJob{}, ErrAuthFoundationStorage
 	}
 	deliveryID := uuid.New()
+	deliveryChannel := input.Channel
 	provider := "disabled"
 	if service.dispatcher != nil {
-		provider = service.dispatcher.provider(input.Channel)
+		deliveryChannel, provider = service.dispatcher.plannedRoute(input.Channel, destination)
 	}
 	_, err = tx.Exec(ctx, `INSERT INTO tutorhub.auth_challenge_deliveries
 		(id,challenge_id,channel,provider,status,created_at) VALUES ($1,$2,$3,$4,'queued',$5)`,
-		deliveryID, result.ID, string(input.Channel), provider, now)
+		deliveryID, result.ID, string(deliveryChannel), provider, now)
 	if err != nil {
 		return AuthChallenge{}, deliveryJob{}, ErrAuthFoundationStorage
 	}

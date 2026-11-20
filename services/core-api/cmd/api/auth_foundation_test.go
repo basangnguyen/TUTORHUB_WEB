@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -12,6 +13,28 @@ import (
 	"github.com/tutorhub-v2/core-api/internal/httpapi"
 	"github.com/tutorhub-v2/core-api/internal/modules/identity"
 )
+
+func TestPhoneStartupKeepsPaidAdaptersClosed(t *testing.T) {
+	for _, sender := range []string{"zns", "sms_brandname", "twilio"} {
+		cfg := config.Config{Authentication: config.AuthenticationConfig{PhoneEnabled: true, PhoneSender: sender, DeliveryBudgetApproved: true}}
+		if _, err := newAuthFoundation(cfg, nil, nil); err == nil || !strings.Contains(err.Error(), "AUTH-11") {
+			t.Fatalf("%s should fail at startup while its adapter is pending", sender)
+		}
+	}
+	base := config.AuthenticationConfig{PhoneEnabled: true, PhoneSender: "devinbox", PhoneOTPDailyQuota: 2}
+	if !phoneLoginAvailable(base) {
+		t.Fatal("configured phone sender should count as available")
+	}
+	base.PhoneOTPDailyQuota = 0
+	if phoneLoginAvailable(base) {
+		t.Fatal("zero delivery budget should not count as a login method")
+	}
+	base.PhoneOTPDailyQuota = 2
+	base.PhoneSender = "disabled"
+	if phoneLoginAvailable(base) {
+		t.Fatal("disabled phone sender should not count as a login method")
+	}
+}
 
 type deliveryBudgetLimiter struct {
 	action httpapi.InvitationRateLimitAction

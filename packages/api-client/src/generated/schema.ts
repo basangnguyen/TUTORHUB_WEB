@@ -31,8 +31,8 @@ export type paths = {
     readonly get?: never;
     readonly put?: never;
     /**
-     * Resend the code for a browser-bound email authentication transaction
-     * @description Supports signup_email, email login and password recovery transactions. Requires the corresponding method flags; a disabled method returns 503. Accepts an empty JSON object and decrypts the immutable destination server-side. A 60-second cooldown and five-send transaction cap apply. Previous codes are invalidated; destination throttling still returns an identical 202 dummy challenge. All responses use Cache-Control no-store and Referrer-Policy no-referrer.
+     * Resend the code for a browser-bound email or phone authentication transaction
+     * @description Supports email signup, email login, password recovery, phone login and Settings phone verification. Requires the transaction cookie and enabled method. Settings phone verification also requires the bound session and CSRF header. The server enforces the original destination, a 60-second cooldown and a five-send cap. Sign-in destination throttling returns an identical 202 dummy challenge.
      */
     readonly post: operations["resendAuthChallenge"];
     readonly delete?: never;
@@ -539,6 +539,46 @@ export type paths = {
     readonly put?: never;
     /** Send an email verification code for this pending registration */
     readonly post: operations["startPendingRegistration"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/auth/phone/start": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Request a phone sign-in code
+     * @description A valid mobile number receives a generic 202 response for known, unknown and destination-throttled numbers. Invalid numbers return auth_invalid_phone_number. Country quota, daily quota, a disabled sender or the conversion breaker returns auth_phone_delivery_unavailable.
+     */
+    readonly post: operations["startPhoneLogin"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/auth/phone/verify": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Verify a browser-bound phone sign-in code
+     * @description An invalid or expired proof returns auth_invalid_verification_code. A stale phone or an account requiring an unavailable second factor consumes the transaction, clears the cookie and returns auth_phone_stale or auth_phone_second_factor_required. An available second factor returns mfa_required with a replacement transaction cookie.
+     */
+    readonly post: operations["verifyPhoneLogin"];
     readonly delete?: never;
     readonly options?: never;
     readonly head?: never;
@@ -2405,6 +2445,70 @@ export type paths = {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/api/v1/me/phone": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /**
+     * Read the current account’s masked phone number
+     * @description Requires phone authentication to be enabled. An account without an active binding receives a null phone.
+     */
+    readonly get: operations["getMyPhone"];
+    readonly put?: never;
+    readonly post?: never;
+    /**
+     * Remove the current account’s phone number
+     * @description Requires recent authentication and recovery-factor assurance. The final available method is protected by auth_last_identity. Success revokes other sessions and rotates the current session and CSRF cookies.
+     */
+    readonly delete: operations["removeMyPhone"];
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/me/phone/start": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Begin phone number verification in Settings
+     * @description Requires recent authentication and recovery-factor assurance. Insufficient assurance returns auth_assurance_required. A 202 response includes the masked number, OTP lifetime and resend cooldown.
+     */
+    readonly post: operations["startMyPhone"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/me/phone/verify": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Confirm a phone number in Settings
+     * @description Consumes the verification challenge and clears its cookie. A recently used number owned by another account returns auth_phone_in_use. Reclaim grants a binding to the authenticated account only.
+     */
+    readonly post: operations["verifyMyPhone"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/api/v1/me/profile": {
     readonly parameters: {
       readonly query?: never;
@@ -3868,6 +3972,10 @@ export type components = {
       /** @constant */
       readonly cooldown_seconds: 60;
       readonly expires_in_seconds: number;
+      /** @description Masked destination of a phone challenge. */
+      readonly masked_destination?: string;
+      /** @constant */
+      readonly resend_after_seconds?: 60;
     };
     readonly AvailabilityPoll: {
       readonly class_id: string | null;
@@ -5893,6 +6001,7 @@ export type components = {
       /** @description Active passkeys counted separately from linked identities. Older servers may omit this field. */
       readonly passkey_count?: number;
       readonly password: components["schemas"]["LoginMethodPassword"];
+      readonly phone?: components["schemas"]["NullablePhoneSummary"];
     };
     readonly MyPasskey: {
       readonly backup_eligible: boolean;
@@ -5933,12 +6042,16 @@ export type components = {
       /** Format: date-time */
       readonly updated_at: string;
     };
+    readonly MyPhoneResponse: {
+      readonly phone: components["schemas"]["NullablePhoneSummary"];
+    };
     readonly MySecurityResponse: {
       readonly email_verified: boolean;
       readonly has_password: boolean;
       readonly mfa_enabled: boolean;
       /** @description Active passkeys owned by the current user. Older servers may omit this field. */
       readonly passkey_count?: number;
+      readonly phone?: components["schemas"]["NullablePhoneSummary"];
       readonly reauth_methods: readonly (
         "passkey" | "totp" | "password" | "email_code"
       )[];
@@ -6013,6 +6126,7 @@ export type components = {
       readonly count: number;
       readonly is_capped: boolean;
     };
+    readonly NullablePhoneSummary: components["schemas"]["PhoneSummary"] | null;
     readonly OperationCapability: {
       readonly available: boolean;
       /** @enum {string} */
@@ -6187,6 +6301,36 @@ export type components = {
       | "media.publish"
       | "chat.send"
       | "audit.view";
+    readonly PhoneChallengeResponse: components["schemas"]["AuthSignupChallengeResponse"] & {
+      readonly masked_destination: string;
+      /** @constant */
+      readonly resend_after_seconds: 60;
+    };
+    readonly PhoneStartRequest: {
+      /** @description ISO region for national input. International numbers determine their own region. */
+      readonly country_code?: string;
+      /** @description Omitted means false. */
+      readonly keep_signed_in?: boolean;
+      /** @description International or national mobile number. */
+      readonly phone_number: string;
+    };
+    readonly PhoneSummary: {
+      readonly calling_code: number;
+      readonly country_code: string;
+      /** Format: uuid */
+      readonly id: string;
+      /** Format: date-time */
+      readonly last_used_at: string;
+      readonly last4: string;
+      readonly masked_number: string;
+      readonly stale: boolean;
+      /**
+       * Format: date-time
+       * @description First verification of this binding.
+       */
+      readonly verified_at: string;
+    };
+    readonly PhoneVerifyRequest: components["schemas"]["EmailCodeLoginVerifyRequest"];
     readonly PrivateAlphaEnrollmentAllowedActions: {
       readonly manage_enrollment: boolean;
     };
@@ -7202,6 +7346,8 @@ export interface operations {
         /** @description Must exactly match the Web origin; browsers set this header automatically. */
         readonly Origin: components["parameters"]["PreAuthOrigin"];
         readonly "Sec-Fetch-Site"?: components["parameters"]["PreAuthFetchSite"];
+        /** @description Required for Settings phone verification resends. */
+        readonly "X-CSRF-Token"?: string;
       };
       readonly path?: never;
       readonly cookie?: never;
@@ -8101,6 +8247,75 @@ export interface operations {
       readonly 429: components["responses"]["AuthRateLimitedResponse"];
       readonly 503: components["responses"]["AuthUnavailableResponse"];
       readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly startPhoneLogin: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Must exactly match the Web origin; browsers set this header automatically. */
+        readonly Origin: components["parameters"]["PreAuthOrigin"];
+        readonly "Sec-Fetch-Site"?: components["parameters"]["PreAuthFetchSite"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["PhoneStartRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Browser-bound five-minute phone challenge */
+      readonly 202: {
+        headers: {
+          readonly "Set-Cookie"?: string;
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["PhoneChallengeResponse"];
+        };
+      };
+      readonly 400: components["responses"]["BadRequestResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 415: components["responses"]["ProblemResponse"];
+      readonly 429: components["responses"]["AuthRateLimitedResponse"];
+      readonly 503: components["responses"]["AuthUnavailableResponse"];
+    };
+  };
+  readonly verifyPhoneLogin: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Must exactly match the Web origin; browsers set this header automatically. */
+        readonly Origin: components["parameters"]["PreAuthOrigin"];
+        readonly "Sec-Fetch-Site"?: components["parameters"]["PreAuthFetchSite"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["PhoneVerifyRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Successful response */
+      readonly 200: {
+        headers: {
+          readonly "Set-Cookie"?: string;
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["NativeAuthenticationResponse"];
+        };
+      };
+      readonly 400: components["responses"]["BadRequestResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 415: components["responses"]["ProblemResponse"];
+      readonly 429: components["responses"]["AuthRateLimitedResponse"];
+      readonly 503: components["responses"]["AuthUnavailableResponse"];
     };
   };
   readonly getAuthProviders: {
@@ -12129,6 +12344,132 @@ export interface operations {
       readonly 409: components["responses"]["ProblemResponse"];
       readonly 503: components["responses"]["AuthUnavailableResponse"];
       readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly getMyPhone: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Successful response */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["MyPhoneResponse"];
+        };
+      };
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 503: components["responses"]["AuthUnavailableResponse"];
+    };
+  };
+  readonly removeMyPhone: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Must exactly match the Web origin; browsers set this header automatically. */
+        readonly Origin: components["parameters"]["PreAuthOrigin"];
+        readonly "Sec-Fetch-Site"?: components["parameters"]["PreAuthFetchSite"];
+        /** @description Double-submit CSRF token bound to the active authenticated session. */
+        readonly "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Phone removed and current session cookies rotated */
+      readonly 204: {
+        headers: {
+          readonly "Set-Cookie"?: string;
+          readonly [name: string]: unknown;
+        };
+        content?: never;
+      };
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 409: components["responses"]["ProblemResponse"];
+      readonly 503: components["responses"]["AuthUnavailableResponse"];
+    };
+  };
+  readonly startMyPhone: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Must exactly match the Web origin; browsers set this header automatically. */
+        readonly Origin: components["parameters"]["PreAuthOrigin"];
+        readonly "Sec-Fetch-Site"?: components["parameters"]["PreAuthFetchSite"];
+        /** @description Double-submit CSRF token bound to the active authenticated session. */
+        readonly "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["PhoneStartRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Browser-bound five-minute phone challenge */
+      readonly 202: {
+        headers: {
+          readonly "Set-Cookie"?: string;
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["PhoneChallengeResponse"];
+        };
+      };
+      readonly 400: components["responses"]["BadRequestResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 415: components["responses"]["ProblemResponse"];
+      readonly 429: components["responses"]["AuthRateLimitedResponse"];
+      readonly 503: components["responses"]["AuthUnavailableResponse"];
+    };
+  };
+  readonly verifyMyPhone: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Must exactly match the Web origin; browsers set this header automatically. */
+        readonly Origin: components["parameters"]["PreAuthOrigin"];
+        readonly "Sec-Fetch-Site"?: components["parameters"]["PreAuthFetchSite"];
+        /** @description Double-submit CSRF token bound to the active authenticated session. */
+        readonly "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["PhoneVerifyRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Successful response */
+      readonly 200: {
+        headers: {
+          readonly "Set-Cookie"?: string;
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["MyPhoneResponse"];
+        };
+      };
+      readonly 400: components["responses"]["BadRequestResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 409: components["responses"]["ProblemResponse"];
+      readonly 415: components["responses"]["ProblemResponse"];
+      readonly 429: components["responses"]["AuthRateLimitedResponse"];
+      readonly 503: components["responses"]["AuthUnavailableResponse"];
     };
   };
   readonly getProfile: {

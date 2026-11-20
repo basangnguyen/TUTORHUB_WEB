@@ -176,6 +176,11 @@ type AuthenticationConfig struct {
 	DeliveryBudgetApproved       bool
 	EmailDailyQuota              int
 	PhoneOTPDailyQuota           int
+	PhoneCountryHourlyQuota      int
+	PhoneBreakerMinSends         int
+	PhoneBreakerMinConversionPct int
+	PhoneStaleAfter              time.Duration
+	PhoneReclaimAfter            time.Duration
 	E2EIPRateLimitMultiplier     int
 }
 
@@ -1080,7 +1085,7 @@ func authenticationConfig(
 	configureFacebookProvider(&config, lookup, environment, apiOrigin, validationErrors)
 	configureMicrosoftProvider(&config, lookup, environment, apiOrigin, validationErrors)
 	config.OIDCEnabled = config.ProviderOIDCDefaultEnabled && enabled
-	nativeEnabled := config.SignupEnabled || config.PasswordEnabled || config.EmailCodeEnabled || config.DeviceManagementEnabled || config.PasskeysEnabled || config.MFATOTPEnabled ||
+	nativeEnabled := config.SignupEnabled || config.PasswordEnabled || config.EmailCodeEnabled || config.PhoneEnabled || config.DeviceManagementEnabled || config.PasskeysEnabled || config.MFATOTPEnabled ||
 		config.ProviderGoogleEnabled || config.ProviderFacebookEnabled || config.ProviderMicrosoftEnabled
 	config.Enabled = enabled || nativeEnabled
 	if nativeEnabled && strings.TrimSpace(valueOrDefault(lookup, "DATABASE_POOL_URL", "")) == "" {
