@@ -132,6 +132,13 @@ export const nativeAuthConfiguration = Object.freeze({
   // administrator AAL2 policy (AUTH_REQUIRE_ADMIN_MFA) stays off so the
   // auth-02..08 specs keep creating workspaces from AAL1 sessions.
   AUTH_MFA_TOTP_ENABLED: "true",
+  // AUTH-10: phone (+84) OTP sign-in and Settings through the loopback dev
+  // inbox (`channel: "sms"`), never a paid sender. The daily quota leaves
+  // room for one combined auth-02..10 run.
+  AUTH_METHOD_PHONE_ENABLED: "true",
+  AUTH_PHONE_SENDER: "devinbox",
+  AUTH_PHONE_ALLOWED_COUNTRIES: "VN",
+  AUTH_PHONE_OTP_DAILY_QUOTA: "200",
 });
 
 const commandOptions = Object.freeze({

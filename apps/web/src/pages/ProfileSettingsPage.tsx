@@ -37,6 +37,7 @@ import {
   RefreshCw,
   Save,
   ShieldCheck,
+  Smartphone,
   Trash2,
   UserRound,
 } from "lucide-react";
@@ -63,6 +64,7 @@ import {
   type LinkableProvider,
 } from "../app/profile";
 import { useI18n, type TranslationKey } from "../app/i18n";
+import { hasAnotherSignInMethod } from "../app/phone";
 import {
   PasskeyCeremonyError,
   classifyCeremonyError,
@@ -75,6 +77,7 @@ import {
   stepUpRequirementFor,
   useMyLoginMethodsQuery,
   useMyPasskeysQuery,
+  useMyPhoneQuery,
   useMySecurityQuery,
   useMySessionsQuery,
   useRegisterPasskey,
@@ -88,6 +91,7 @@ import {
 } from "../app/security";
 import { useSession } from "../app/session";
 import { StepUpAuthDialog } from "../components/StepUpAuthDialog";
+import { PhoneSettingsCard } from "./PhoneSettingsCard";
 import { TwoFactorSettingsCard } from "./TwoFactorSettingsCard";
 import "./ProfileSettingsPage.css";
 
@@ -970,6 +974,8 @@ const SESSION_AUTH_METHOD_KEYS: Readonly<Record<string, TranslationKey>> = {
   oidc: "security.authMethodFederated",
   passkey: "security.authMethodPasskey",
   password: "security.authMethodPassword",
+  // AUTH-10B: a session opened with an SMS code.
+  phone_otp: "security.authMethodPhone",
   pwd: "security.authMethodPassword",
   totp: "security.authMethodTotp",
   webauthn: "security.authMethodPasskey",
@@ -1039,6 +1045,8 @@ function LoginMethodsList({
 
   const { identities, password } = loginMethodsQuery.data;
   const passkeyCount = loginMethodsQuery.data.passkey_count ?? 0;
+  // AUTH-10B: the phone identity is described by its masked number.
+  const phone = loginMethodsQuery.data.phone ?? null;
   if (!password.has_password && identities.length === 0 && passkeyCount === 0) {
     return (
       <EmptyState
@@ -1084,37 +1092,77 @@ function LoginMethodsList({
           </div>
         </li>
       )}
-      {identities.map((identity) => (
-        <li className="security-methods__row" key={identity.id}>
-          <span className="security-methods__marker" aria-hidden="true">
-            <Fingerprint />
-          </span>
-          <div className="security-methods__body">
-            <div className="security-methods__title">
-              <strong>{loginMethodLabel(identity, t)}</strong>
-              <StatusBadge
-                tone={identity.email_verified ? "success" : "warning"}
-              >
-                {identity.email_verified
-                  ? t("security.emailVerified")
-                  : t("security.emailUnverified")}
-              </StatusBadge>
-            </div>
-            {identity.email_at_provider && <p>{identity.email_at_provider}</p>}
-            <span>
-              {identity.last_authenticated_at ? (
-                <DateLine
-                  formatter={dateFormatter}
-                  template={t("security.methodLastUsed")}
-                  value={identity.last_authenticated_at}
-                />
-              ) : (
-                t("security.methodNeverUsed")
-              )}
+      {identities.map((identity) =>
+        identity.kind === "phone" ? (
+          <li className="security-methods__row" key={identity.id}>
+            <span className="security-methods__marker" aria-hidden="true">
+              <Smartphone />
             </span>
-          </div>
-        </li>
-      ))}
+            <div className="security-methods__body">
+              <div className="security-methods__title">
+                <strong>{loginMethodLabel(identity, t)}</strong>
+                {phone && (
+                  <StatusBadge tone={phone.stale ? "warning" : "success"}>
+                    {phone.stale
+                      ? t("security.phoneStale")
+                      : t("security.phoneVerified")}
+                  </StatusBadge>
+                )}
+              </div>
+              {phone && <p>{phone.masked_number}</p>}
+              <span>
+                {phone ? (
+                  <DateLine
+                    formatter={dateFormatter}
+                    template={t("security.methodPhoneLastUsed")}
+                    value={phone.last_used_at}
+                  />
+                ) : identity.last_authenticated_at ? (
+                  <DateLine
+                    formatter={dateFormatter}
+                    template={t("security.methodLastUsed")}
+                    value={identity.last_authenticated_at}
+                  />
+                ) : (
+                  t("security.methodNeverUsed")
+                )}
+              </span>
+            </div>
+          </li>
+        ) : (
+          <li className="security-methods__row" key={identity.id}>
+            <span className="security-methods__marker" aria-hidden="true">
+              <Fingerprint />
+            </span>
+            <div className="security-methods__body">
+              <div className="security-methods__title">
+                <strong>{loginMethodLabel(identity, t)}</strong>
+                <StatusBadge
+                  tone={identity.email_verified ? "success" : "warning"}
+                >
+                  {identity.email_verified
+                    ? t("security.emailVerified")
+                    : t("security.emailUnverified")}
+                </StatusBadge>
+              </div>
+              {identity.email_at_provider && (
+                <p>{identity.email_at_provider}</p>
+              )}
+              <span>
+                {identity.last_authenticated_at ? (
+                  <DateLine
+                    formatter={dateFormatter}
+                    template={t("security.methodLastUsed")}
+                    value={identity.last_authenticated_at}
+                  />
+                ) : (
+                  t("security.methodNeverUsed")
+                )}
+              </span>
+            </div>
+          </li>
+        ),
+      )}
     </ul>
   );
 }
@@ -1123,14 +1171,17 @@ function SecurityOverviewCard({
   dateFormatter,
   onRequestStepUp,
   passkeysEnabled,
+  phoneEnabled,
 }: {
   dateFormatter: Intl.DateTimeFormat;
   onRequestStepUp: RequestStepUp;
   passkeysEnabled: boolean;
+  phoneEnabled: boolean;
 }) {
   const { language, t } = useI18n();
   const securityQuery = useMySecurityQuery();
   const passkeyCount = securityQuery.data?.passkey_count ?? 0;
+  const phone = securityQuery.data?.phone ?? null;
   const recentAuthActive = useStillFuture(
     securityQuery.data?.recent_auth_expires_at,
   );
@@ -1211,6 +1262,27 @@ function SecurityOverviewCard({
                     ? t("security.passkeyCount", { count: passkeyCount })
                     : t("security.passkeyNone")}
                 </StatusBadge>
+              </dd>
+            </div>
+          )}
+          {(phoneEnabled || phone) && (
+            <div className="security-status__item">
+              <dt>{t("security.phoneLabel")}</dt>
+              <dd>
+                {phone ? (
+                  <>
+                    <StatusBadge tone={phone.stale ? "warning" : "success"}>
+                      {phone.stale
+                        ? t("security.phoneStale")
+                        : t("security.phoneVerified")}
+                    </StatusBadge>
+                    <span>{phone.masked_number}</span>
+                  </>
+                ) : (
+                  <StatusBadge tone="neutral">
+                    {t("security.phoneNone")}
+                  </StatusBadge>
+                )}
               </dd>
             </div>
           )}
@@ -2254,6 +2326,32 @@ export function ProfileSettingsPage() {
   const passkeyCount = passkeysEnabled
     ? (passkeysQuery.data?.passkeys.length ?? 0)
     : 0;
+  // AUTH-10B: the phone card and its endpoints exist only while enabled.
+  const phoneEnabled = providersQuery.data?.phone_enabled === true;
+  const phoneCountries = providersQuery.data?.phone_allowed_countries ?? [];
+  const phoneQuery = useMyPhoneQuery(phoneEnabled);
+  // The sign-in inventory (device management) shows the account's own email
+  // identity, which signs in with an emailed code or a verified password.
+  const securityQuery = useMySecurityQuery(deviceManagement);
+  const loginMethodsQuery = useMyLoginMethodsQuery(deviceManagement);
+  const emailIdentity = loginMethodsQuery.data?.identities.find(
+    (item) => item.kind === "email",
+  );
+  const anotherSignInMethod = hasAnotherSignInMethod({
+    emailSignIn:
+      emailIdentity !== undefined &&
+      (providersQuery.data?.email_code_enabled === true ||
+        (providersQuery.data?.password_enabled === true &&
+          emailIdentity.email_verified &&
+          loginMethodsQuery.data?.password.has_password === true)),
+    // Enrolled passkeys count as a second factor even while sign-in with
+    // them is off (the server reads the same rows).
+    enrolledPasskeys: securityQuery.data?.passkey_count ?? passkeyCount,
+    hasTotp: securityQuery.data?.mfa_enabled === true,
+    mfaTotpEnabled: totpEnabled,
+    passkeyCount,
+    phone: phoneEnabled ? (phoneQuery.data?.phone ?? null) : null,
+  });
 
   const hasIdentityParam = new URLSearchParams(location.search).has("identity");
   useEffect(() => {
@@ -2504,10 +2602,11 @@ export function ProfileSettingsPage() {
           {identities.length > 0 && (
             <ul className="identity-list">
               {identities.map((identity) => {
-                // An active passkey is another sign-in method (the server
-                // counts both ways and stays authoritative).
+                // An active passkey, a password or a usable phone number is
+                // another sign-in method (the server counts every way and
+                // stays authoritative: 409 auth_last_identity).
                 const isLastIdentity =
-                  identities.length === 1 && passkeyCount === 0;
+                  identities.length === 1 && !anotherSignInMethod;
                 const isUnlinking =
                   unlinkIdentity.isPending &&
                   unlinkIdentity.variables === identity.id;
@@ -2641,6 +2740,7 @@ export function ProfileSettingsPage() {
             dateFormatter={dateFormatter}
             onRequestStepUp={requestStepUp}
             passkeysEnabled={passkeysEnabled}
+            phoneEnabled={phoneEnabled}
           />
         )}
 
@@ -2654,6 +2754,14 @@ export function ProfileSettingsPage() {
 
         {passkeysEnabled && (
           <PasskeysCard
+            dateFormatter={dateFormatter}
+            onRequestStepUp={requestStepUp}
+          />
+        )}
+
+        {phoneEnabled && phoneCountries.length > 0 && (
+          <PhoneSettingsCard
+            allowedCountries={phoneCountries}
             dateFormatter={dateFormatter}
             onRequestStepUp={requestStepUp}
           />

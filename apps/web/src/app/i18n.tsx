@@ -1123,6 +1123,92 @@ const messages = {
     "passkeys.actionError":
       "Không thể hoàn tất thao tác với passkey. Hãy thử lại.",
     "passkeys.defaultName": "Passkey",
+    "security.authMethodPhone": "Mã SĐT",
+    "security.phoneLabel": "Số điện thoại",
+    "security.phoneNone": "Chưa thêm",
+    "security.phoneVerified": "Đã xác minh",
+    "security.phoneStale": "Cần xác minh lại",
+    "security.methodPhoneVerified": "Gắn lần đầu {date}",
+    "security.methodPhoneLastUsed": "Dùng hoặc xác minh gần nhất {date}",
+    "phone.title": "Số điện thoại",
+    "phone.description":
+      "Đăng nhập nhanh bằng mã gửi qua SMS tới số di động của bạn. Tài khoản vẫn giữ email chính; số điện thoại không dùng để xác nhận các thao tác nhạy cảm.",
+    "phone.loading": "Đang tải số điện thoại",
+    "phone.errorTitle": "Chưa thể tải số điện thoại",
+    "phone.error": "Không thể tải thông tin số điện thoại. Hãy thử lại.",
+    "phone.empty": "Chưa có số điện thoại",
+    "phone.emptyDescription":
+      "Thêm số di động để đăng nhập nhanh bằng mã SMS. Mọi tài khoản vẫn giữ email chính để đăng nhập và nhận thông báo.",
+    "phone.add": "Thêm số điện thoại",
+    "phone.change": "Đổi số điện thoại",
+    "phone.reverify": "Xác minh lại",
+    "phone.remove": "Gỡ số điện thoại",
+    "phone.verified": "Đã xác minh",
+    "phone.stale": "Cần xác minh lại",
+    "phone.staleExplanation":
+      "Số này đã lâu chưa được dùng nên tạm thời không thể dùng riêng để đăng nhập. Hãy xác minh lại để tiếp tục đăng nhập bằng số điện thoại.",
+    "phone.country": "Quốc gia: {country}",
+    "phone.verifiedAt": "Gắn lần đầu {date}",
+    "phone.lastUsedAt": "Dùng hoặc xác minh gần nhất {date}",
+    "phone.formAddTitle": "Thêm số điện thoại mới",
+    "phone.formChangeTitle": "Đổi sang số điện thoại khác",
+    "phone.formReverifyTitle": "Xác minh lại số điện thoại",
+    "phone.reverifyHint": "Nhập lại số {number} để nhận mã xác minh mới.",
+    "phone.countryLabel": "Mã quốc gia",
+    "phone.numberLabel": "Số di động",
+    "phone.numberHint":
+      "Ví dụ 0912 345 678 hoặc +84 912 345 678. Không nhận số cố định hoặc số tổng đài.",
+    "phone.numberRequired": "Hãy nhập số di động.",
+    "phone.sendCode": "Gửi mã xác minh",
+    "phone.sending": "Đang gửi...",
+    "phone.codeSent": "Đã gửi mã gồm 6 chữ số tới {destination}.",
+    "phone.codeSentAfterStepUp":
+      "Đã xác nhận danh tính. Mã mới gồm 6 chữ số vừa được gửi tới {destination}.",
+    "phone.codeExpiresIn": "Mã hết hạn sau {time}.",
+    "phone.codeExpired": "Mã đã hết hạn. Hãy gửi lại mã để nhận mã mới.",
+    "phone.codeLabel": "Mã xác minh 6 số",
+    "phone.codeRequired": "Hãy nhập mã gồm 6 chữ số.",
+    "phone.codeFormat": "Mã gồm đúng 6 chữ số.",
+    "phone.verify": "Xác minh số",
+    "phone.verifying": "Đang xác minh...",
+    "phone.resend": "Gửi lại mã",
+    "phone.resendWait": "Gửi lại mã ({seconds}s)",
+    "phone.otherNumber": "Nhập số khác",
+    "phone.cancel": "Hủy",
+    "phone.added": "Đã thêm số điện thoại {number}.",
+    "phone.changed": "Đã đổi sang số {number}.",
+    "phone.reverified": "Đã xác minh lại số {number}.",
+    "phone.removed":
+      "Đã gỡ số điện thoại. Các thiết bị khác đã được đăng xuất.",
+    "phone.removeTitle": "Gỡ số điện thoại này?",
+    "phone.removeDescription":
+      "Bạn sẽ không thể đăng nhập bằng mã gửi tới {number} nữa. Để bảo vệ tài khoản, các thiết bị khác sẽ bị đăng xuất.",
+    "phone.removeConfirm": "Gỡ số",
+    "phone.removing": "Đang gỡ...",
+    "phone.invalidNumber":
+      "Số này không hợp lệ hoặc không được hỗ trợ. Hãy nhập số di động của quốc gia được hỗ trợ (không nhận số cố định hoặc số tổng đài).",
+    "phone.codeInvalid":
+      "Mã xác minh không đúng hoặc đã hết hạn. Hãy kiểm tra lại hoặc gửi lại mã.",
+    "phone.inUse":
+      "Không thể thêm số này vào tài khoản của bạn. Hãy dùng một số di động khác.",
+    "phone.lastMethod":
+      "Không thể gỡ số này vì đây là phương thức đăng nhập khả dụng cuối cùng. Hãy đặt mật khẩu, thêm passkey hoặc liên kết một danh tính khác trước.",
+    "phone.reauthRequired":
+      "Hãy xác nhận danh tính để tiếp tục thay đổi số điện thoại.",
+    "phone.assuranceRequired":
+      "Tài khoản đã bật passkey hoặc ứng dụng xác thực, nên cần xác minh bằng một trong hai trước khi thay đổi số điện thoại.",
+    "phone.delivery":
+      "Kênh gửi mã qua điện thoại đang tạm gián đoạn. Hãy thử lại sau.",
+    "phone.rateLimited":
+      "Bạn đã thao tác quá nhiều lần. Hãy thử lại sau {seconds} giây.",
+    "phone.rateLimitedNoWait":
+      "Bạn đã thao tác quá nhiều lần. Hãy thử lại sau ít phút.",
+    "phone.busy": "Hệ thống đang bận. Hãy thử lại sau {seconds} giây.",
+    "phone.busyNoWait": "Hệ thống đang bận. Hãy thử lại sau ít phút.",
+    "phone.network":
+      "Không kết nối được tới TutorHub. Hãy kiểm tra mạng rồi thử lại.",
+    "phone.actionError":
+      "Không thể hoàn tất thao tác với số điện thoại. Hãy thử lại.",
     "shell.navigation": "Điều hướng chính",
     "shell.openNavigation": "Mở điều hướng",
     "shell.closeNavigation": "Đóng điều hướng",
@@ -3898,6 +3984,92 @@ const messages = {
     "passkeys.actionError":
       "We couldn't complete that passkey action. Please try again.",
     "passkeys.defaultName": "Passkey",
+    "security.authMethodPhone": "Phone code",
+    "security.phoneLabel": "Phone number",
+    "security.phoneNone": "Not added",
+    "security.phoneVerified": "Verified",
+    "security.phoneStale": "Re-verification needed",
+    "security.methodPhoneVerified": "Added {date}",
+    "security.methodPhoneLastUsed": "Last used or verified {date}",
+    "phone.title": "Phone number",
+    "phone.description":
+      "Sign in quickly with a code sent by SMS to your mobile number. Your account keeps its main email address, and the number is never used to confirm sensitive actions.",
+    "phone.loading": "Loading your phone number",
+    "phone.errorTitle": "Couldn't load your phone number",
+    "phone.error": "Your phone number couldn't be loaded. Try again.",
+    "phone.empty": "No phone number yet",
+    "phone.emptyDescription":
+      "Add a mobile number to sign in quickly with an SMS code. Every account keeps its main email address for sign-in and notices.",
+    "phone.add": "Add phone number",
+    "phone.change": "Change phone number",
+    "phone.reverify": "Verify again",
+    "phone.remove": "Remove phone number",
+    "phone.verified": "Verified",
+    "phone.stale": "Re-verification needed",
+    "phone.staleExplanation":
+      "This number hasn't been used for a while, so it can't sign you in on its own until you verify it again.",
+    "phone.country": "Country: {country}",
+    "phone.verifiedAt": "Added {date}",
+    "phone.lastUsedAt": "Last used or verified {date}",
+    "phone.formAddTitle": "Add a new phone number",
+    "phone.formChangeTitle": "Change to another phone number",
+    "phone.formReverifyTitle": "Verify your phone number again",
+    "phone.reverifyHint":
+      "Enter {number} again to receive a new verification code.",
+    "phone.countryLabel": "Country code",
+    "phone.numberLabel": "Mobile number",
+    "phone.numberHint":
+      "For example 0912 345 678 or +84 912 345 678. Landlines and hotline numbers aren't accepted.",
+    "phone.numberRequired": "Enter a mobile number.",
+    "phone.sendCode": "Send verification code",
+    "phone.sending": "Sending...",
+    "phone.codeSent": "A 6-digit code was sent to {destination}.",
+    "phone.codeSentAfterStepUp":
+      "Identity confirmed. A new 6-digit code was sent to {destination}.",
+    "phone.codeExpiresIn": "The code expires in {time}.",
+    "phone.codeExpired":
+      "This code has expired. Resend the code to get a new one.",
+    "phone.codeLabel": "6-digit verification code",
+    "phone.codeRequired": "Enter the 6-digit code.",
+    "phone.codeFormat": "The code has exactly 6 digits.",
+    "phone.verify": "Verify number",
+    "phone.verifying": "Verifying...",
+    "phone.resend": "Resend code",
+    "phone.resendWait": "Resend code ({seconds}s)",
+    "phone.otherNumber": "Use another number",
+    "phone.cancel": "Cancel",
+    "phone.added": "Phone number {number} added.",
+    "phone.changed": "Phone number changed to {number}.",
+    "phone.reverified": "Phone number {number} verified again.",
+    "phone.removed":
+      "Phone number removed. Your other devices were signed out.",
+    "phone.removeTitle": "Remove this phone number?",
+    "phone.removeDescription":
+      "You won't be able to sign in with codes sent to {number} anymore. To protect your account, your other devices will be signed out.",
+    "phone.removeConfirm": "Remove number",
+    "phone.removing": "Removing...",
+    "phone.invalidNumber":
+      "This number isn't valid or supported. Enter a mobile number from a supported country (landlines and hotline numbers aren't accepted).",
+    "phone.codeInvalid":
+      "That verification code is incorrect or has expired. Check it or resend the code.",
+    "phone.inUse":
+      "This number can't be added to your account. Use another mobile number.",
+    "phone.lastMethod":
+      "This number can't be removed because it's your last available sign-in method. Set a password, add a passkey or link another identity first.",
+    "phone.reauthRequired":
+      "Confirm it's you to keep changing your phone number.",
+    "phone.assuranceRequired":
+      "Your account uses a passkey or an authenticator app, so verify with one of them before changing your phone number.",
+    "phone.delivery":
+      "Phone codes are temporarily unavailable. Try again later.",
+    "phone.rateLimited": "Too many attempts. Try again in {seconds} seconds.",
+    "phone.rateLimitedNoWait": "Too many attempts. Try again in a few minutes.",
+    "phone.busy": "TutorHub is busy. Try again in {seconds} seconds.",
+    "phone.busyNoWait": "TutorHub is busy. Try again in a few minutes.",
+    "phone.network":
+      "Couldn't reach TutorHub. Check your connection and try again.",
+    "phone.actionError":
+      "The phone number action couldn't be completed. Try again.",
     "shell.navigation": "Primary navigation",
     "shell.openNavigation": "Open navigation",
     "shell.closeNavigation": "Close navigation",

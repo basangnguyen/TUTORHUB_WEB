@@ -51,9 +51,11 @@ import {
   isWebAuthnSupported,
   signalUnknownPasskey,
 } from "../app/passkeys";
+import { phoneCountryOptions } from "../app/phone";
 import { useSession } from "../app/session";
 import { SignInLegalDialog } from "./SignInLegalDialog";
 import { SignInMfaStep } from "./SignInMfaStep";
+import { SignInPhoneForm } from "./SignInPhoneForm";
 import {
   LINK_EMAIL_UNVERIFIED_TARGET,
   MIN_PASSWORD_LENGTH,
@@ -221,6 +223,7 @@ const en = {
     "We couldn't complete sign-up. Check the code or request a new one, then try again. If you already have an account, try logging in.",
   useEmailCode: "Log in with an email code",
   usePassword: "Log in with a password",
+  usePhone: "Log in with a phone number",
   emailCodeHeading: "Log in with a code sent to your email",
   codeInvalid:
     "The code is incorrect or has expired. Check it or select Resend to get a new code.",
@@ -391,6 +394,7 @@ const vi: SignInCopy = {
     "Không thể hoàn tất đăng ký. Vui lòng kiểm tra lại mã hoặc yêu cầu mã mới rồi thử lại. Nếu bạn đã có tài khoản, hãy thử đăng nhập.",
   useEmailCode: "Đăng nhập bằng mã email",
   usePassword: "Đăng nhập bằng mật khẩu",
+  usePhone: "Đăng nhập bằng số điện thoại",
   emailCodeHeading: "Đăng nhập bằng mã gửi tới email",
   codeInvalid:
     "Mã không đúng hoặc đã hết hạn. Vui lòng kiểm tra lại hoặc bấm Gửi lại để nhận mã mới.",
@@ -1394,6 +1398,8 @@ function SignInScreen() {
               passkeyAutofill={sessionStatus === "unauthenticated"}
               passkeysEnabled={providers?.passkeys_enabled === true}
               passwordMinLength={passwordMinLengthFor(providers)}
+              phoneAllowedCountries={providers?.phone_allowed_countries}
+              phoneEnabled={providers?.phone_enabled === true}
               // Older servers omit the flag: absence means recovery is off.
               recoveryEnabled={providers?.password_recovery_enabled === true}
               resumePendingMfa={resumePendingMfa}
@@ -1478,6 +1484,13 @@ export interface LoginFormProps {
    */
   passkeyAutofill?: boolean;
   passwordMinLength: number;
+  /**
+   * `phone_allowed_countries` (AUTH-10B); the first region is the default.
+   * Phone sign-in needs at least one region.
+   */
+  phoneAllowedCountries?: readonly string[];
+  /** `phone_enabled` (AUTH-10B): offers "Log in with a phone number". */
+  phoneEnabled?: boolean;
   /** `password_recovery_enabled`: the dialog runs the native recovery. */
   recoveryEnabled: boolean;
   /**
@@ -1500,11 +1513,11 @@ type MfaView =
 
 type LoginField = "identifier" | "password";
 type LoginErrors = Partial<Record<LoginField, CopyKey>>;
-type LoginMethod = "password" | "emailCode";
+type LoginMethod = "password" | "emailCode" | "phone";
 
 /**
- * Password / email-code login with recovery. Exported for /account-link,
- * which signs in in place (no social buttons, no navigation).
+ * Password / email-code / phone-code login with recovery. Exported for
+ * /account-link, which signs in in place (no social buttons, no navigation).
  */
 export function LoginForm({
   autoFocus,
@@ -1519,6 +1532,8 @@ export function LoginForm({
   passkeysEnabled = false,
   passkeyAutofill = true,
   passwordMinLength,
+  phoneAllowedCountries,
+  phoneEnabled = false,
   recoveryEnabled,
   resumePendingMfa = false,
   social,
@@ -1563,10 +1578,14 @@ export function LoginForm({
   /** Remembered (if asked) only once the second step issued a session. */
   const [mfaIdentifier, setMfaIdentifier] = useState("");
   const isPassword = mode === "password";
+  const phoneCountries = phoneCountryOptions(phoneAllowedCountries);
+  const phoneAvailable = phoneEnabled && phoneCountries.length > 0;
   const usesEmailCode = emailCodeEnabled && method === "emailCode";
+  const usesPhone = phoneAvailable && method === "phone";
   const passkeysActive = passkeysEnabled && webAuthnSupported;
   /** Native methods (and passkeys) issue a first-party session that honours keep-signed-in. */
-  const nativeSession = usesEmailCode || isPassword || passkeysActive;
+  const nativeSession =
+    usesEmailCode || usesPhone || isPassword || passkeysActive;
 
   /** Shows the second step; every typed first-factor secret is dropped. */
   const showMfaChallenge = useCallback(
@@ -1589,10 +1608,14 @@ export function LoginForm({
     [],
   );
   const passkey = usePasskeySignIn({
-    // Autofill belongs to the password form: never under the email-code
-    // form, the recovery dialog or the second step.
+    // Autofill belongs to the password form: never under the email-code or
+    // phone form, the recovery dialog or the second step.
     conditional:
-      passkeyAutofill && !usesEmailCode && !recoverOpen && mfa === null,
+      passkeyAutofill &&
+      !usesEmailCode &&
+      !usesPhone &&
+      !recoverOpen &&
+      mfa === null,
     enabled: passkeysActive,
     keepSignedIn: nativeSession && keepSignedIn,
     onAuthenticated,
@@ -1662,15 +1685,20 @@ export function LoginForm({
   }, [autoFocus]);
 
   useEffect(() => {
-    if (methodSwitched && !usesEmailCode) identifierRef.current?.focus();
-  }, [methodSwitched, usesEmailCode]);
+    if (methodSwitched && !usesEmailCode && !usesPhone) {
+      identifierRef.current?.focus();
+    }
+  }, [methodSwitched, usesEmailCode, usesPhone]);
 
-  function switchMethod() {
+  function switchMethod(next: LoginMethod) {
     setFailure(null);
     setErrors({});
     setPassword("");
     setMethodSwitched(true);
-    setMethod((current) => (current === "password" ? "emailCode" : "password"));
+    // AUTH-10B: passkey autofill is cancelled before the phone form can
+    // send a code (leaving the password form also aborts it).
+    if (next === "phone") void stopPasskeyAutofill();
+    setMethod(next);
   }
 
   async function handlePasswordReset() {
@@ -1813,8 +1841,8 @@ export function LoginForm({
   const showMicrosoft = social.microsoft && onMicrosoftSignIn !== undefined;
   const showSocial = social.facebook || social.google || showMicrosoft;
 
-  const options = (
-    <div className="sign-in-form__options">
+  const keepSignedInOption = (
+    <>
       <label className="sign-in-check" title={keepSignedInHint}>
         <input
           aria-describedby={ids.keepSignedInHint}
@@ -1826,6 +1854,14 @@ export function LoginForm({
         />
         <span>{c.keepSignedIn}</span>
       </label>
+      <span className="visually-hidden" id={ids.keepSignedInHint}>
+        {keepSignedInHint}
+      </span>
+    </>
+  );
+  const options = (
+    <div className="sign-in-form__options">
+      {keepSignedInOption}
       <label className="sign-in-check" title={c.rememberMeHint}>
         <input
           aria-describedby={ids.rememberHint}
@@ -1836,13 +1872,15 @@ export function LoginForm({
         />
         <span>{c.rememberMe}</span>
       </label>
-      <span className="visually-hidden" id={ids.keepSignedInHint}>
-        {keepSignedInHint}
-      </span>
       <span className="visually-hidden" id={ids.rememberHint}>
         {c.rememberMeHint}
       </span>
     </div>
+  );
+  // AUTH-10B: only an email or username is ever remembered, so the phone
+  // form offers keep-signed-in alone.
+  const phoneOptions = (
+    <div className="sign-in-form__options">{keepSignedInOption}</div>
   );
   if (mfa) {
     return (
@@ -1933,6 +1971,27 @@ export function LoginForm({
           options={options}
           transactionOwnerRef={transactionOwnerRef}
         />
+      ) : usesPhone ? (
+        <SignInPhoneForm
+          allowedCountries={phoneCountries}
+          autoFocus={methodSwitched || refocusAfterMfa > 0}
+          beforeRequest={stopPasskeyAutofill}
+          keepSignedIn={keepSignedIn}
+          notice={
+            resetBanner ?? (failure ? <FormAlert failure={failure} /> : null)
+          }
+          onAuthenticated={async () => {
+            setPasswordResetDone(false);
+            await onAuthenticated();
+          }}
+          onMfaRequired={async (methods) => {
+            setPasswordResetDone(false);
+            // Nothing is remembered for a phone sign-in.
+            await enterMfa(methods, "");
+          }}
+          options={phoneOptions}
+          transactionOwnerRef={transactionOwnerRef}
+        />
       ) : (
         <form
           aria-labelledby={ids.heading}
@@ -1944,7 +2003,7 @@ export function LoginForm({
             {c.loginHeading}
           </h2>
           {resetBanner}
-          {mode === "unavailable" && !emailCodeEnabled ? (
+          {mode === "unavailable" && !emailCodeEnabled && !phoneAvailable ? (
             <p className="sign-in-form__alert" role="status">
               {c.loginUnavailable}
             </p>
@@ -2014,14 +2073,36 @@ export function LoginForm({
         </form>
       )}
 
-      {emailCodeEnabled ? (
-        <button
-          className="sign-in-form__method"
-          onClick={switchMethod}
-          type="button"
-        >
-          {usesEmailCode ? c.usePassword : c.useEmailCode}
-        </button>
+      {emailCodeEnabled || phoneAvailable ? (
+        <div className="sign-in-form__methods">
+          {usesEmailCode || usesPhone ? (
+            <button
+              className="sign-in-form__method"
+              onClick={() => switchMethod("password")}
+              type="button"
+            >
+              {c.usePassword}
+            </button>
+          ) : null}
+          {emailCodeEnabled && !usesEmailCode ? (
+            <button
+              className="sign-in-form__method"
+              onClick={() => switchMethod("emailCode")}
+              type="button"
+            >
+              {c.useEmailCode}
+            </button>
+          ) : null}
+          {phoneAvailable && !usesPhone ? (
+            <button
+              className="sign-in-form__method"
+              onClick={() => switchMethod("phone")}
+              type="button"
+            >
+              {c.usePhone}
+            </button>
+          ) : null}
+        </div>
       ) : null}
 
       {passkeysActive ? (

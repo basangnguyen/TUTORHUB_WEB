@@ -8,7 +8,8 @@ import { randomBytes } from "node:crypto";
  * AUTH-06B Facebook federation against a third fake that serves Meta's fixed
  * Login paths (never Meta itself), and AUTH-07B Microsoft federation against
  * a fourth fake Microsoft identity platform authority (never Microsoft itself),
- * and AUTH-08B passkeys through a CDP virtual authenticator. It only targets
+ * and AUTH-08B passkeys through a CDP virtual authenticator, AUTH-09B TOTP and
+ * AUTH-10B phone (+84) OTP through the inbox's SMS channel. It only targets
  * the loopback stack: the `devinbox` OTP sender and `/api/v1/dev/auth-inbox`
  * exist solely for APP_ENV=test on 127.0.0.1, so staging mode is
  * intentionally unsupported.
@@ -45,6 +46,7 @@ export default defineConfig({
     "**/auth-07-*.spec.ts",
     "**/auth-08-*.spec.ts",
     "**/auth-09-*.spec.ts",
+    "**/auth-10-*.spec.ts",
   ],
   outputDir: "test-results/playwright-auth",
   fullyParallel: false,
@@ -59,6 +61,9 @@ export default defineConfig({
   use: {
     actionTimeout: 15_000,
     baseURL,
+    contextOptions: {
+      reducedMotion: "reduce",
+    },
     locale: "vi-VN",
     // Traces/screenshots could capture typed passwords and OTP codes.
     screenshot: "off",

@@ -523,6 +523,10 @@ export function AccountLinkPage() {
                       // Passkey sign-in also stays here to confirm the link.
                       passkeysEnabled={providers.passkeys_enabled === true}
                       passwordMinLength={passwordMinLengthFor(providers)}
+                      // AUTH-10B: a phone code (and its second step) also
+                      // signs in here and stays to confirm the link.
+                      phoneAllowedCountries={providers.phone_allowed_countries}
+                      phoneEnabled={providers.phone_enabled === true}
                       recoveryEnabled={
                         providers.password_recovery_enabled === true
                       }

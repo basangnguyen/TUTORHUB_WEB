@@ -513,3 +513,44 @@
   flex: none;
   margin-top: 1px;
 }
+
+/* AUTH-10B: phone number card (the row reuses the session row layout). */
+.phone-row__number {
+  font-variant-numeric: tabular-nums;
+}
+
+.phone-row__warning {
+  margin: 4px 0 0;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--color-warning-soft);
+  color: var(--color-text);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.phone-form__row {
+  display: grid;
+  grid-template-columns: minmax(140px, 180px) minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.phone-form__note,
+.phone-form__clock {
+  margin: 0;
+  color: var(--color-text);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.phone-form__clock {
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+@media (max-width: 680px) {
+  .phone-form__row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

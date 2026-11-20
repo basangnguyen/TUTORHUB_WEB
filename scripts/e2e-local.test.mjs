@@ -257,6 +257,11 @@ test("native auth stays off by default and inherited auth settings pass through 
   // AUTH-09: TOTP and the administrator AAL2 policy stay off by default.
   assert.equal(standard.AUTH_MFA_TOTP_ENABLED, undefined);
   assert.equal(standard.AUTH_REQUIRE_ADMIN_MFA, undefined);
+  // AUTH-10: phone sign-in and its sender stay off by default.
+  assert.equal(standard.AUTH_METHOD_PHONE_ENABLED, undefined);
+  assert.equal(standard.AUTH_PHONE_SENDER, undefined);
+  assert.equal(standard.AUTH_PHONE_ALLOWED_COUNTRIES, undefined);
+  assert.equal(standard.AUTH_PHONE_OTP_DAILY_QUOTA, undefined);
   assert.deepEqual(publicOriginsFor({}), {
     api: "http://127.0.0.1:8080",
     web: "http://127.0.0.1:5173",
@@ -309,6 +314,9 @@ test("native auth enables sign-up, password and email-code login, device managem
       AUTH_DEVICE_MANAGEMENT_ENABLED: "false",
       AUTH_EMAIL_SENDER: "ses",
       AUTH_PASSWORD_BREACH_CHECK: "hibp",
+      // A paid sender or a tight quota never leaks into the loopback stack.
+      AUTH_PHONE_OTP_DAILY_QUOTA: "5",
+      AUTH_PHONE_SENDER: "zns",
       AUTH_SIGNUP_ENABLED: "false",
       E2E_AUTH_NATIVE: "true",
     },
@@ -334,6 +342,12 @@ test("native auth enables sign-up, password and email-code login, device managem
     // earlier specs can still create workspaces from AAL1 sessions.
     assert.equal(environment.AUTH_MFA_TOTP_ENABLED, "true");
     assert.equal(environment.AUTH_REQUIRE_ADMIN_MFA, undefined);
+    // AUTH-10: phone OTP through the loopback dev inbox only, Vietnam only,
+    // with a daily quota that fits one combined auth-02..10 run.
+    assert.equal(environment.AUTH_METHOD_PHONE_ENABLED, "true");
+    assert.equal(environment.AUTH_PHONE_SENDER, "devinbox");
+    assert.equal(environment.AUTH_PHONE_ALLOWED_COUNTRIES, "VN");
+    assert.equal(environment.AUTH_PHONE_OTP_DAILY_QUOTA, "200");
     assert.equal(environment.APP_ENV, "test");
     // AUTH-05: Google points at the loopback fake with fixture credentials.
     assert.equal(environment.AUTH_PROVIDER_GOOGLE_ENABLED, "true");
@@ -607,7 +621,7 @@ test("native auth specs run only through the dedicated Playwright config", () =>
   );
 
   const nativeSpecPatterns =
-    /\[\s*"\*\*\/auth-0\[23\]-native-\*\.spec\.ts",\s*"\*\*\/auth-04-\*\.spec\.ts",\s*"\*\*\/auth-05-\*\.spec\.ts",\s*"\*\*\/auth-06-\*\.spec\.ts",\s*"\*\*\/auth-07-\*\.spec\.ts",\s*"\*\*\/auth-08-\*\.spec\.ts",\s*"\*\*\/auth-09-\*\.spec\.ts",?\s*\]/;
+    /\[\s*"\*\*\/auth-0\[23\]-native-\*\.spec\.ts",\s*"\*\*\/auth-04-\*\.spec\.ts",\s*"\*\*\/auth-05-\*\.spec\.ts",\s*"\*\*\/auth-06-\*\.spec\.ts",\s*"\*\*\/auth-07-\*\.spec\.ts",\s*"\*\*\/auth-08-\*\.spec\.ts",\s*"\*\*\/auth-09-\*\.spec\.ts",\s*"\*\*\/auth-10-\*\.spec\.ts",?\s*\]/;
   assert.match(
     defaultConfig,
     new RegExp(`testIgnore:\\s*${nativeSpecPatterns.source}`),
@@ -620,9 +634,9 @@ test("native auth specs run only through the dedicated Playwright config", () =>
     authConfig,
     new RegExp(`testMatch:\\s*${nativeSpecPatterns.source}`),
   );
-  // Every auth-0x spec on disk must fall under these shared patterns.
+  // Every auth-0x/auth-1x spec on disk must fall under these shared patterns.
   const nativeSpecs = readdirSync(new URL("../e2e/", import.meta.url)).filter(
-    (name) => /^auth-0\d-.*\.spec\.ts$/.test(name),
+    (name) => /^auth-[01]\d-.*\.spec\.ts$/.test(name),
   );
   assert.ok(nativeSpecs.includes("auth-04-device-sessions-stepup.spec.ts"));
   assert.ok(nativeSpecs.includes("auth-05-google-federation.spec.ts"));
@@ -630,10 +644,12 @@ test("native auth specs run only through the dedicated Playwright config", () =>
   assert.ok(nativeSpecs.includes("auth-07-microsoft.spec.ts"));
   assert.ok(nativeSpecs.includes("auth-08-passkeys.spec.ts"));
   assert.ok(nativeSpecs.includes("auth-09-mfa-totp.spec.ts"));
+  assert.ok(nativeSpecs.includes("auth-10-phone-otp.spec.ts"));
   for (const name of nativeSpecs) {
     assert.ok(
       /^auth-0[23]-native-.*\.spec\.ts$/.test(name) ||
-        /^auth-0[456789]-.*\.spec\.ts$/.test(name),
+        /^auth-0[456789]-.*\.spec\.ts$/.test(name) ||
+        /^auth-10-.*\.spec\.ts$/.test(name),
       `${name} must match the native auth Playwright patterns`,
     );
   }

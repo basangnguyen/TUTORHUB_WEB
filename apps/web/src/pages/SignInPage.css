@@ -802,6 +802,59 @@
   text-decoration-color: currentcolor;
 }
 
+.sign-in-form__method:disabled,
+.sign-in-form__method[aria-disabled="true"] {
+  cursor: not-allowed;
+  text-decoration-color: transparent;
+}
+
+/* AUTH-10B: the method switches (password, email code, phone) share a row. */
+.sign-in-form__methods {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0 12px;
+  margin-top: 14px;
+}
+
+.sign-in-form__methods .sign-in-form__method,
+.sign-in-form__phone-actions .sign-in-form__method {
+  margin: 0;
+}
+
+.sign-in-form__phone-row {
+  display: flex;
+  gap: 10px;
+}
+
+.sign-in-form__phone-row .sign-in-input[type="tel"] {
+  min-width: 0;
+  flex: 1;
+}
+
+.sign-in-select {
+  width: auto;
+  min-width: 112px;
+  flex: none;
+  padding: 0 12px;
+  cursor: pointer;
+}
+
+.sign-in-form__phone-hint {
+  margin: 0;
+  padding-left: 6px;
+  color: var(--sign-in-text-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.sign-in-form__phone-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0 12px;
+}
+
 /* AUTH-08B: passkey sign-in reuses the outline button (#047857 on white is
    5.48:1); the cancel notice is a quiet status line, not an alert. */
 .sign-in-form__passkey {

@@ -11,21 +11,28 @@ import {
   confirmTOTP,
   disableTOTP,
   enrollTOTP,
+  getMyPhone,
   getMySecurity,
   listMyLoginMethods,
   listMyPasskeys,
   listMySessions,
   reauthenticate,
   regenerateRecoveryCodes,
+  removeMyPhone,
   renameMyPasskey,
+  resendMyPhoneChallenge,
   revokeMyPasskey,
   revokeMySession,
   revokeOtherSessions,
   rotateCSRFToken,
   startPasskeyReauthentication,
+  startMyPhone,
   startPasskeyRegistration,
   startReauthEmailCode,
+  verifyMyPhone,
   verifyPasskeyRegistration,
+  type PhoneStartRequest,
+  type PhoneVerifyRequest,
   type ReauthenticateRequest,
 } from "@tutorhub/api-client";
 import { useCallback, useRef, useState } from "react";
@@ -45,6 +52,8 @@ export const securityQueryKeys = {
   loginMethods: ["security", "login-methods"] as const,
   sessions: ["security", "sessions"] as const,
   passkeys: ["security", "passkeys"] as const,
+  /** AUTH-10B: GET /me/phone (masked number only, never the raw number). */
+  phone: ["security", "phone"] as const,
 };
 
 /** The server's step-up contract: 403 with this exact problem code. */
@@ -185,6 +194,7 @@ export async function synchronizeAfterReauthentication(
     queryClient.invalidateQueries({ queryKey: securityQueryKeys.loginMethods }),
     queryClient.invalidateQueries({ queryKey: securityQueryKeys.sessions }),
     queryClient.invalidateQueries({ queryKey: securityQueryKeys.passkeys }),
+    queryClient.invalidateQueries({ queryKey: securityQueryKeys.phone }),
     queryClient.invalidateQueries({ queryKey: profileQueryKeys.password }),
   ]);
 }
@@ -457,6 +467,95 @@ export function useDisableTOTP() {
           queryKey: securityQueryKeys.loginMethods,
         }),
       ]),
+  });
+}
+
+/* ---------- AUTH-10B: phone number in Settings ---------- */
+
+/**
+ * GET /me/phone (only while `phone_enabled` is true). The answer carries the
+ * masked number only; the key never holds a number or a code.
+ */
+export function useMyPhoneQuery(enabled = true) {
+  return useQuery({
+    queryKey: securityQueryKeys.phone,
+    queryFn: ({ signal }) => getMyPhone({ baseUrl: getApiBaseUrl(), signal }),
+    enabled,
+    retry: shouldRetrySecurityQuery,
+    staleTime: 15_000,
+  });
+}
+
+/**
+ * POST /me/phone/start (rotates the CSRF token first). The variables hold
+ * the typed number: `gcTime: 0` plus the caller's `reset()` drop them.
+ */
+export function useStartMyPhone() {
+  return useMutation({
+    gcTime: 0,
+    retry: false,
+    mutationFn: (input: PhoneStartRequest) =>
+      startMyPhone(input, { baseUrl: getApiBaseUrl() }),
+  });
+}
+
+/** POST /auth/challenges/resend for the Settings transaction. */
+export function useResendMyPhoneChallenge() {
+  return useMutation({
+    gcTime: 0,
+    retry: false,
+    mutationFn: () => resendMyPhoneChallenge({ baseUrl: getApiBaseUrl() }),
+  });
+}
+
+/** Reloads every view that shows the phone number or the sign-in methods. */
+function invalidatePhoneViews(queryClient: QueryClient) {
+  return Promise.all([
+    queryClient.invalidateQueries({ queryKey: securityQueryKeys.phone }),
+    queryClient.invalidateQueries({ queryKey: securityQueryKeys.overview }),
+    queryClient.invalidateQueries({ queryKey: securityQueryKeys.loginMethods }),
+    queryClient.invalidateQueries({ queryKey: securityQueryKeys.sessions }),
+  ]);
+}
+
+/**
+ * POST /me/phone/verify. The variables hold the typed code (`gcTime: 0`).
+ * Changing the number signs out the sessions the old number opened, so the
+ * device list reloads as well.
+ */
+export function useVerifyMyPhone() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    gcTime: 0,
+    retry: false,
+    mutationFn: (input: PhoneVerifyRequest) =>
+      verifyMyPhone(input, { baseUrl: getApiBaseUrl() }),
+    onSuccess: (result) => {
+      queryClient.setQueryData(securityQueryKeys.phone, result);
+      return invalidatePhoneViews(queryClient);
+    },
+  });
+}
+
+/**
+ * DELETE /me/phone. The server signs out every other session and rotates
+ * this session and its CSRF token: resync like a step-up.
+ */
+export function useRemoveMyPhone() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    gcTime: 0,
+    retry: false,
+    mutationFn: () => removeMyPhone({ baseUrl: getApiBaseUrl() }),
+    onSuccess: async () => {
+      queryClient.setQueryData(securityQueryKeys.phone, { phone: null });
+      await Promise.all([
+        synchronizeAfterReauthentication(queryClient),
+        invalidatePhoneViews(queryClient),
+      ]);
+    },
   });
 }
 
